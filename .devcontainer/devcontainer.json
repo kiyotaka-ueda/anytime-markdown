@@ -1,0 +1,24 @@
+{
+  "name": "anytime-markdown-editor",
+  "dockerComposeFile": [
+    "../docker-compose.yml"
+  ],
+  "service": "my-client",
+  "workspaceFolder": "/my-client",
+  "remoteUser": "node",
+  "mounts": [
+    "source=${localEnv:HOME}/.ssh,target=/home/node/.ssh,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.claude,target=/home/node/.claude,type=bind,consistency=cached"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "dsznajder.es7-react-js-snippets"
+      ]
+    }
+  }, 
+  "forwardPorts": [3000], // Next.jsのポートを自動開放
+  "postCreateCommand": "sudo chown -R node:node /my-client/node_modules && npm install" // コンテナ作成時に自動でnpm installを実行
+}
