@@ -3,7 +3,7 @@ import { randomBytes } from 'crypto';
 import * as path from 'path';
 
 export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
-  public static readonly viewType = 'anytimeMarkdownEditor';
+  public static readonly viewType = 'anytimeMarkdown';
 
   public static register(context: vscode.ExtensionContext): vscode.Disposable {
     return vscode.window.registerCustomEditorProvider(
@@ -49,7 +49,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
     const sendSettings = () => {
       if (disposed) { return; }
-      const config = vscode.workspace.getConfiguration('anytimeMarkdownEditor');
+      const config = vscode.workspace.getConfiguration('anytimeMarkdown');
       webviewPanel.webview.postMessage({
         type: 'setSettings',
         settings: {
@@ -79,7 +79,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     });
 
     const configChangeSubscription = vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('anytimeMarkdownEditor')) {
+      if (e.affectsConfiguration('anytimeMarkdown')) {
         sendSettings();
       }
     });

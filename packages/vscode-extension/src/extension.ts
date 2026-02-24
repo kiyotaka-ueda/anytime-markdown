@@ -5,7 +5,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(MarkdownEditorProvider.register(context));
 
 	const openEditor = vscode.commands.registerCommand(
-		'anytime-markdown-editor.openEditor',
+		'anytime-markdown.openEditor',
 		() => {
 			const activeEditor = vscode.window.activeTextEditor;
 			if (activeEditor && activeEditor.document.languageId === 'markdown') {
@@ -19,7 +19,7 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	const openEditorWithFile = vscode.commands.registerCommand(
-		'anytime-markdown-editor.openEditorWithFile',
+		'anytime-markdown.openEditorWithFile',
 		(uri?: vscode.Uri) => {
 			const fileUri = uri ?? vscode.window.activeTextEditor?.document.uri;
 			if (fileUri) {
