@@ -1,0 +1,15 @@
+services:
+  my-client:
+    build:
+      context: .
+      target: local
+    ports:
+      - "3001:3000"
+    volumes:
+      - .:/my-client
+      - node_modules:/my-client/node_modules
+      - ${HOME}/.ssh:/home/node/.ssh:cached
+      - ${HOME}/.claude:/home/node/.claude:cached
+volumes:
+  node_modules:
+
