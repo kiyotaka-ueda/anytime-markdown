@@ -1,10 +1,10 @@
 {
-  "name": "anytime-markdown-editor",
-  "displayName": "anytime-markdown-editor",
-  "description": "markdown editor",
+  "name": "anytime-markdown",
+  "displayName": "Anytime Markdown",
+  "description": "markdown editor featuring Claude Code",
   "version": "0.0.1",
   "license": "MIT",
-  "publisher": "anytime-markdown",
+  "publisher": "kiytaka-ueda",
   "engines": {
     "vscode": "^1.109.0"
   },
@@ -17,17 +17,22 @@
   "contributes": {
     "commands": [
       {
-        "command": "anytime-markdown-editor.openEditor",
+        "command": "anytime-markdown.openEditor",
         "title": "Open Markdown Editor"
       },
       {
-        "command": "anytime-markdown-editor.openEditorWithFile",
-        "title": "Open with Markdown Editor"
+        "command": "anytime-markdown.openEditorWithFile",
+        "title": "Open with Markdown"
+      },
+      {
+        "command": "anytime-markdown.compareWithMarkdownEditor",
+        "title": "Compare with Markdown",
+        "enablement": "anytimeMarkdown.compareModeActive"
       }
     ],
     "customEditors": [
       {
-        "viewType": "anytimeMarkdownEditor",
+        "viewType": "anytimeMarkdown",
         "displayName": "Markdown Editor",
         "selector": [
           {
@@ -41,23 +46,23 @@
       }
     ],
     "configuration": {
-      "title": "Anytime Markdown Editor",
+      "title": "Anytime Markdown",
       "properties": {
-        "anytimeMarkdownEditor.fontSize": {
+        "anytimeMarkdown.fontSize": {
           "type": "number",
           "default": 0,
           "minimum": 0,
           "maximum": 72,
           "description": "Font size in pixels for the editor. 0 uses the VS Code default."
         },
-        "anytimeMarkdownEditor.lineHeight": {
+        "anytimeMarkdown.lineHeight": {
           "type": "number",
           "default": 1.6,
           "minimum": 1,
           "maximum": 3,
           "description": "Line height for the editor content."
         },
-        "anytimeMarkdownEditor.editorMaxWidth": {
+        "anytimeMarkdown.editorMaxWidth": {
           "type": "number",
           "default": 0,
           "minimum": 0,
@@ -69,16 +74,26 @@
     "menus": {
       "explorer/context": [
         {
-          "command": "anytime-markdown-editor.openEditorWithFile",
+          "command": "anytime-markdown.openEditorWithFile",
           "when": "resourceLangId == markdown",
           "group": "navigation"
+        },
+        {
+          "command": "anytime-markdown.compareWithMarkdownEditor",
+          "when": "resourceLangId == markdown",
+          "group": "navigation@2"
         }
       ],
       "editor/title/context": [
         {
-          "command": "anytime-markdown-editor.openEditorWithFile",
+          "command": "anytime-markdown.openEditorWithFile",
           "when": "resourceLangId == markdown",
           "group": "navigation"
+        },
+        {
+          "command": "anytime-markdown.compareWithMarkdownEditor",
+          "when": "resourceLangId == markdown",
+          "group": "navigation@2"
         }
       ]
     }
@@ -100,6 +115,9 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@types/vscode": "^1.109.0",
+    "@types/dompurify": "^3.0.5",
+    "@types/diff": "^7.0.2",
+    "@types/plantuml-encoder": "^1.4.2",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
     "css-loader": "^7.1.4",
@@ -113,7 +131,16 @@
   },
   "dependencies": {
     "@anytime-markdown/editor-core": "*",
+    "@mui/material": "^7.3.7",
+    "@mui/icons-material": "^7.3.7",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "dompurify": "^3.3.1",
+    "marked": "^17.0.3",
+    "diff": "^8.0.3",
+    "plantuml-encoder": "^1.4.0",
+    "mermaid": "^11.12.3"
   }
 }

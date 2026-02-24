@@ -1,0 +1,16 @@
+services:
+  anytime-markdown:
+    build:
+      context: .
+      target: local # Dockerfile の local ステージを使用
+    ports:
+      - "3001:3000" # ホスト:3001 → コンテナ:3000（Next.js dev server）
+    volumes:
+      - .:/anytime-markdown                                    # プロジェクトソースコードを共有
+      - node_modules:/anytime-markdown/node_modules            # node_modules を名前付きボリュームで永続化（ホストと分離）
+      - ${HOME}/.ssh:/home/node/.ssh:cached                    # SSH鍵を共有（git push/pull 用）
+      - ${HOME}/.claude:/home/node/.claude:cached              # Claude Code 設定を共有（CLAUDE.md など）
+
+# 名前付きボリューム: コンテナ削除後も node_modules を保持
+volumes:
+  node_modules:

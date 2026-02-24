@@ -3,12 +3,26 @@ import { randomBytes } from 'crypto';
 import * as path from 'path';
 
 export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
-  public static readonly viewType = 'anytimeMarkdownEditor';
+  public static readonly viewType = 'anytimeMarkdown';
+
+  private static instance: MarkdownEditorProvider | null = null;
+  private activePanel: vscode.WebviewPanel | null = null;
+  public compareFileUri: vscode.Uri | null = null;
+
+  public static getInstance(): MarkdownEditorProvider | null {
+    return MarkdownEditorProvider.instance;
+  }
+
+  public postMessageToActivePanel(message: unknown): void {
+    this.activePanel?.webview.postMessage(message);
+  }
 
   public static register(context: vscode.ExtensionContext): vscode.Disposable {
+    const provider = new MarkdownEditorProvider(context);
+    MarkdownEditorProvider.instance = provider;
     return vscode.window.registerCustomEditorProvider(
       MarkdownEditorProvider.viewType,
-      new MarkdownEditorProvider(context),
+      provider,
       { supportsMultipleEditorsPerDocument: false }
     );
   }
@@ -41,6 +55,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     const docDirUri = vscode.Uri.file(path.dirname(document.uri.fsPath));
     const baseUri = webviewPanel.webview.asWebviewUri(docDirUri).toString();
 
+    this.activePanel = webviewPanel;
+
     let isApplyingWebviewEdit = false;
     let debounceTimer: ReturnType<typeof setTimeout> | undefined;
     let disposed = false;
@@ -49,7 +65,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
     const sendSettings = () => {
       if (disposed) { return; }
-      const config = vscode.workspace.getConfiguration('anytimeMarkdownEditor');
+      const config = vscode.workspace.getConfiguration('anytimeMarkdown');
       webviewPanel.webview.postMessage({
         type: 'setSettings',
         settings: {
@@ -79,16 +95,30 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     });
 
     const configChangeSubscription = vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('anytimeMarkdownEditor')) {
+      if (e.affectsConfiguration('anytimeMarkdown')) {
         sendSettings();
       }
     });
 
-    webviewPanel.webview.onDidReceiveMessage(async (message: { type: string; content?: string }) => {
+    webviewPanel.webview.onDidReceiveMessage(async (message: { type: string; content?: string; active?: boolean }) => {
       switch (message.type) {
         case 'ready':
           updateWebview();
           sendSettings();
+          break;
+
+        case 'compareModeChanged':
+          vscode.commands.executeCommand('setContext', 'anytimeMarkdown.compareModeActive', !!message.active);
+          break;
+
+        case 'saveCompareFile':
+          if (this.compareFileUri && typeof message.content === 'string') {
+            try {
+              await vscode.workspace.fs.writeFile(this.compareFileUri, new TextEncoder().encode(message.content));
+            } catch (err) {
+              vscode.window.showErrorMessage(`Error saving compare file: ${err instanceof Error ? err.message : String(err)}`);
+            }
+          }
           break;
 
         case 'contentChanged': {
@@ -134,6 +164,11 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
     webviewPanel.onDidDispose(() => {
       disposed = true;
+      if (this.activePanel === webviewPanel) {
+        this.activePanel = null;
+        this.compareFileUri = null;
+        vscode.commands.executeCommand('setContext', 'anytimeMarkdown.compareModeActive', false);
+      }
       docChangeSubscription.dispose();
       configChangeSubscription.dispose();
       if (debounceTimer) { clearTimeout(debounceTimer); }
@@ -153,6 +188,11 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} https: data:;">
     <title>Markdown Editor</title>
+    <style>
+      html, body, #root { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+      #root > .MuiBox-root { padding: 0 !important; }
+      #root > .MuiBox-root > .MuiBox-root:empty { display: none !important; margin: 0 !important; }
+    </style>
 </head>
 <body>
     <div id="root"></div>

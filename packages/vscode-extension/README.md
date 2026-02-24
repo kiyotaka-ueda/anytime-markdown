@@ -7,18 +7,35 @@ VS Code 上で動作する WYSIWYG Markdown エディタ拡張機能です。Tip
 ### WYSIWYG 編集
 
 - **リッチテキスト編集**: Bold, Italic, Underline, Strikethrough, Highlight
-- **見出し**: H1 / H2 / H3
+- **見出し**: H1 - H5
 - **リスト**: 箇条書き、番号付きリスト、タスクリスト（チェックボックス）
 - **ブロック要素**: 引用、コードブロック（シンタックスハイライト対応）、水平線
 - **テーブル**: 挿入・行列の追加/削除
 - **画像**: 相対パス解決、ドラッグ&ドロップ、クリップボードからのペースト
-- **リンク**: ダイアログによる挿入/編集/削除
+- **リンク**: ダイアログによる挿入/編集/削除 (`Ctrl+K`)
 - **Details**: HTML `<details>` の折りたたみブロック
+- **Mermaid / PlantUML ダイアグラム**: ライブプレビュー付きコードブロック
+
+### 比較（マージ）モード
+
+- 左右パネルでの差分比較、ブロック単位の差分ハイライト
+- 行単位のマージ操作
+- **Compare with Markdown Editor**: エクスプローラーのコンテキストメニューから外部ファイルを右パネルに読み込み
+- 比較モード中の `Ctrl+S` で右パネルの内容も元ファイルに保存
 
 ### ソースモード
 
 - WYSIWYG とソース（生 Markdown）をワンクリックで切り替え
 - ソースモードでも行番号・文字数・行数をステータスバーに表示
+
+### アウトラインパネル
+
+- 見出しの一覧表示・折りたたみ
+- ドラッグ&ドロップによる見出しの並べ替え
+
+### テンプレート挿入
+
+- 定型テンプレートをワンクリックで挿入
 
 ### 検索・置換
 
@@ -49,6 +66,10 @@ VS Code 上で動作する WYSIWYG Markdown エディタ拡張機能です。Tip
 
 テキストを選択すると、書式設定用のフローティングメニューが表示されます。
 
+### ステータスバー
+
+行番号、文字数、行数をリアルタイム表示します。
+
 ### VS Code 設定連携
 
 エディタの表示を VS Code の設定からカスタマイズできます。
@@ -57,9 +78,9 @@ VS Code 上で動作する WYSIWYG Markdown エディタ拡張機能です。Tip
 
 | 設定 | 型 | デフォルト | 説明 |
 |---|---|---|---|
-| `anytimeMarkdownEditor.fontSize` | number | `0` | フォントサイズ（px）。0 で VS Code デフォルト |
-| `anytimeMarkdownEditor.lineHeight` | number | `1.6` | 行の高さ |
-| `anytimeMarkdownEditor.editorMaxWidth` | number | `0` | エディタの最大幅（px）。0 で制限なし |
+| `anytimeMarkdown.fontSize` | number | `0` | フォントサイズ（px）。0 で VS Code デフォルト |
+| `anytimeMarkdown.lineHeight` | number | `1.6` | 行の高さ |
+| `anytimeMarkdown.editorMaxWidth` | number | `0` | エディタの最大幅（px）。0 で制限なし |
 
 ## Usage
 
