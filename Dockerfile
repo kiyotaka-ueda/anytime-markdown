@@ -3,7 +3,7 @@ FROM node:24-alpine AS base
 # curl と openssl のインストール
 RUN apk add --no-cache curl
 
-WORKDIR /app/
+WORKDIR /anytime-markdown/
 
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
@@ -30,11 +30,12 @@ RUN mkdir -p /home/node/.ssh /home/node/.claude && \
     chown -R node:node /home/node
 
 # 作業ディレクトリとnode_modulesの権限をnodeユーザーに変更
-RUN chown -R node:node /app /app/node_modules
+# RUN chown -R node:node /anytime-markdown /anytime-markdown/node_modules
+RUN chown -R node:node /anytime-markdown
 
 USER node
 
-WORKDIR /app
+WORKDIR /anytime-markdown
 COPY --chown=node:node . .
 
 ENTRYPOINT ["sleep", "infinity"]
@@ -42,7 +43,7 @@ ENTRYPOINT ["sleep", "infinity"]
 # 本番用ステージ
 FROM base AS development
 
-WORKDIR /app
+WORKDIR /anytime-markdown
 COPY . .
 
 RUN npm run build

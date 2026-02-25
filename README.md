@@ -27,7 +27,7 @@ packages/
 docker compose up -d
 
 # 2. コンテナ内に入る
-docker compose exec my-client bash
+docker compose exec anytime-markdown bash
 
 # 3. 依存パッケージをインストール
 npm install
