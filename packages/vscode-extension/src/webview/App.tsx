@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { getVsCodeApi } from './vscodeApi';
@@ -56,10 +56,18 @@ export function App() {
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
+      if (message?.type === 'loadCompareFile' && typeof message.content === 'string') {
+        window.dispatchEvent(new CustomEvent('vscode-load-compare-file', { detail: message.content }));
+        return;
+      }
       if (message?.type === 'setContent' && typeof message.content === 'string') {
+        const isInitial = !ready;
         currentContent = message.content;
-        if (!ready) {
+        if (isInitial) {
           setReady(true);
+        } else {
+          // VS Code からの外部更新（メニュー Undo/Redo など）→ Tiptap エディタに反映
+          window.dispatchEvent(new CustomEvent('vscode-set-content', { detail: message.content }));
         }
       }
     };
@@ -68,13 +76,17 @@ export function App() {
     return () => window.removeEventListener('message', handleMessage);
   }, [ready]);
 
+  const handleCompareModeChange = useCallback((active: boolean) => {
+    vscode.postMessage({ type: 'compareModeChanged', active });
+  }, []);
+
   if (!ready) return null;
 
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
       <ConfirmProvider>
-        <MarkdownEditorPage />
+        <MarkdownEditorPage hideFileOps hideUndoRedo onCompareModeChange={handleCompareModeChange} />
       </ConfirmProvider>
     </ThemeProvider>
   );

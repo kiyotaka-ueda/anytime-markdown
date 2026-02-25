@@ -5,10 +5,23 @@ import * as path from 'path';
 export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   public static readonly viewType = 'anytimeMarkdown';
 
+  private static instance: MarkdownEditorProvider | null = null;
+  private activePanel: vscode.WebviewPanel | null = null;
+
+  public static getInstance(): MarkdownEditorProvider | null {
+    return MarkdownEditorProvider.instance;
+  }
+
+  public postMessageToActivePanel(message: unknown): void {
+    this.activePanel?.webview.postMessage(message);
+  }
+
   public static register(context: vscode.ExtensionContext): vscode.Disposable {
+    const provider = new MarkdownEditorProvider(context);
+    MarkdownEditorProvider.instance = provider;
     return vscode.window.registerCustomEditorProvider(
       MarkdownEditorProvider.viewType,
-      new MarkdownEditorProvider(context),
+      provider,
       { supportsMultipleEditorsPerDocument: false }
     );
   }
@@ -40,6 +53,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
     const docDirUri = vscode.Uri.file(path.dirname(document.uri.fsPath));
     const baseUri = webviewPanel.webview.asWebviewUri(docDirUri).toString();
+
+    this.activePanel = webviewPanel;
 
     let isApplyingWebviewEdit = false;
     let debounceTimer: ReturnType<typeof setTimeout> | undefined;
@@ -84,11 +99,15 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       }
     });
 
-    webviewPanel.webview.onDidReceiveMessage(async (message: { type: string; content?: string }) => {
+    webviewPanel.webview.onDidReceiveMessage(async (message: { type: string; content?: string; active?: boolean }) => {
       switch (message.type) {
         case 'ready':
           updateWebview();
           sendSettings();
+          break;
+
+        case 'compareModeChanged':
+          vscode.commands.executeCommand('setContext', 'anytimeMarkdown.compareModeActive', !!message.active);
           break;
 
         case 'contentChanged': {
@@ -134,6 +153,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
     webviewPanel.onDidDispose(() => {
       disposed = true;
+      if (this.activePanel === webviewPanel) {
+        this.activePanel = null;
+        vscode.commands.executeCommand('setContext', 'anytimeMarkdown.compareModeActive', false);
+      }
       docChangeSubscription.dispose();
       configChangeSubscription.dispose();
       if (debounceTimer) { clearTimeout(debounceTimer); }

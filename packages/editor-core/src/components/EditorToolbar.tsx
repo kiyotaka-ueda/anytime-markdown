@@ -89,6 +89,10 @@ interface EditorToolbarProps {
   onSourceInsertCodeBlock?: () => void;
   onSourceInsertTable?: () => void;
   mergeUndoRedo?: MergeUndoRedo | null;
+  hideFileOps?: boolean;
+  hideUndoRedo?: boolean;
+  onLoadRightFile?: () => void;
+  onExportRightFile?: () => void;
   t: (key: string) => string;
 }
 
@@ -117,6 +121,10 @@ export function EditorToolbar({
   onSourceInsertCodeBlock,
   onSourceInsertTable,
   mergeUndoRedo,
+  hideFileOps,
+  hideUndoRedo,
+  onLoadRightFile,
+  onExportRightFile,
   t,
 }: EditorToolbarProps) {
   const handleToolbarKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -205,69 +213,76 @@ export function EditorToolbar({
       }}
     >
       {/* File actions */}
-      <Tooltip title={t("createNew")}>
-        <IconButton
-          size="small"
-          aria-label={t("createNew")}
-          onClick={onClear}
-        >
-          <DescriptionIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-      <Tooltip title={copied ? t("copied") : t("copy")}>
-        <IconButton
-          size="small"
-          aria-label={copied ? t("copied") : t("copy")}
-          onClick={onCopy}
-          color={copied ? "success" : "default"}
-        >
-          {copied ? <CheckIcon fontSize="small" /> : <ContentCopyIcon fontSize="small" />}
-        </IconButton>
-      </Tooltip>
-      <Tooltip title={t("upload")}>
-        <IconButton
-          size="small"
-          aria-label={t("upload")}
-          onClick={onImport}
-        >
-          <FileUploadIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-      <Tooltip title={t("download")}>
-        <IconButton
-          size="small"
-          aria-label={t("download")}
-          onClick={onDownload}
-        >
-          <DownloadIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-
-      <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+      {!hideFileOps && (
+        <>
+          <Tooltip title={t("createNew")}>
+            <IconButton
+              size="small"
+              aria-label={t("createNew")}
+              onClick={onClear}
+            >
+              <DescriptionIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={copied ? t("copied") : t("copy")}>
+            <IconButton
+              size="small"
+              aria-label={copied ? t("copied") : t("copy")}
+              onClick={onCopy}
+              color={copied ? "success" : "default"}
+            >
+              {copied ? <CheckIcon fontSize="small" /> : <ContentCopyIcon fontSize="small" />}
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={t("upload")}>
+            <IconButton
+              size="small"
+              aria-label={t("upload")}
+              onClick={onImport}
+            >
+              <FileUploadIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={t("download")}>
+            <IconButton
+              size="small"
+              aria-label={t("download")}
+              onClick={onDownload}
+            >
+              <DownloadIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+        </>
+      )}
 
       {/* Undo/Redo */}
-      <Tooltip title={tip(t, "undo")}>
-        <span>
-          <IconButton aria-label={t("undo")}
-            size="small"
-            onClick={() => mergeUndoRedo ? mergeUndoRedo.undo() : editor?.chain().focus().undo().run()}
-            disabled={mergeUndoRedo ? !mergeUndoRedo.canUndo : !editorState?.canUndo}
-          >
-            <UndoIcon fontSize="small" />
-          </IconButton>
-        </span>
-      </Tooltip>
-      <Tooltip title={tip(t, "redo")}>
-        <span>
-          <IconButton aria-label={t("redo")}
-            size="small"
-            onClick={() => mergeUndoRedo ? mergeUndoRedo.redo() : editor?.chain().focus().redo().run()}
-            disabled={mergeUndoRedo ? !mergeUndoRedo.canRedo : !editorState?.canRedo}
-          >
-            <RedoIcon fontSize="small" />
-          </IconButton>
-        </span>
-      </Tooltip>
+      {!hideUndoRedo && (
+        <>
+          <Tooltip title={tip(t, "undo")}>
+            <span>
+              <IconButton aria-label={t("undo")}
+                size="small"
+                onClick={() => mergeUndoRedo ? mergeUndoRedo.undo() : editor?.chain().focus().undo().run()}
+                disabled={mergeUndoRedo ? !mergeUndoRedo.canUndo : !editorState?.canUndo}
+              >
+                <UndoIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title={tip(t, "redo")}>
+            <span>
+              <IconButton aria-label={t("redo")}
+                size="small"
+                onClick={() => mergeUndoRedo ? mergeUndoRedo.redo() : editor?.chain().focus().redo().run()}
+                disabled={mergeUndoRedo ? !mergeUndoRedo.canRedo : !editorState?.canRedo}
+              >
+                <RedoIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </>
+      )}
 
       {/* Search / Replace (inline in toolbar) */}
       {editor && <SearchReplaceBar editor={editor} t={t} />}
@@ -432,6 +447,22 @@ export function EditorToolbar({
           </Tooltip>
         </ToggleButton>
       </ToggleButtonGroup>
+
+      {/* Right panel file ops (compare mode only) */}
+      {inlineMergeOpen && (
+        <>
+          <Tooltip title={t("mergeLoadFileRight")}>
+            <IconButton size="small" onClick={onLoadRightFile}>
+              <FileUploadIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={t("mergeExportRight")}>
+            <IconButton size="small" onClick={onExportRightFile}>
+              <DownloadIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </>
+      )}
 
       {/* Source / WYSIWYG toggle */}
       <ToggleButtonGroup

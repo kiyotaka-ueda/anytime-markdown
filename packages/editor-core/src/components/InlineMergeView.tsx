@@ -6,7 +6,6 @@ import {
   MenuItem,
   Popover,
   Tooltip,
-  Typography,
 } from "@mui/material";
 import CheckBoxIcon from "@mui/icons-material/CheckBox";
 import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
@@ -21,8 +20,6 @@ import BorderColorIcon from "@mui/icons-material/BorderColor";
 import CodeIcon from "@mui/icons-material/Code";
 import InsertLinkIcon from "@mui/icons-material/InsertLink";
 import { alpha, useTheme } from "@mui/material/styles";
-import FileUploadIcon from "@mui/icons-material/FileUpload";
-import DownloadIcon from "@mui/icons-material/Download";
 import { useEditor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import type { Editor } from "@tiptap/react";
@@ -49,6 +46,9 @@ interface InlineMergeViewProps {
   t: (key: string) => string;
   onUndoRedoReady?: (ur: MergeUndoRedo) => void;
   onLeftTextChange?: (text: string) => void;
+  externalRightContent?: string | null;
+  onExternalRightContentConsumed?: () => void;
+  onRightFileOpsReady?: (ops: { loadFile: () => void; exportFile: () => void }) => void;
   children: (
     leftBgGradient: string,
     leftDiffLines?: DiffLine[],
@@ -211,6 +211,9 @@ export function InlineMergeView({
   t,
   onUndoRedoReady,
   onLeftTextChange,
+  externalRightContent,
+  onExternalRightContentConsumed,
+  onRightFileOpsReady,
   children,
 }: InlineMergeViewProps) {
   const theme = useTheme();
@@ -232,10 +235,31 @@ export function InlineMergeView({
     onUndoRedoReady?.({ undo, redo, canUndo, canRedo });
   }, [onUndoRedoReady, undo, redo, canUndo, canRedo]);
 
+  // 外部から渡された比較ファイル内容を右パネルに反映（1回限り）
+  useEffect(() => {
+    if (externalRightContent != null) {
+      setRightText(externalRightContent);
+      onExternalRightContentConsumed?.();
+    }
+  }, [externalRightContent, setRightText, onExternalRightContentConsumed]);
+
   const leftContainerRef = useRef<HTMLDivElement>(null);
   const rightScrollRef = useRef<HTMLDivElement>(null);
   const rightTextareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRightRef = useRef<HTMLInputElement>(null);
+
+  // 右パネルのファイル操作を親に公開
+  useEffect(() => {
+    onRightFileOpsReady?.({
+      loadFile: () => fileInputRightRef.current?.click(),
+      exportFile: () => {
+        const n = new Date();
+        const ts = `${n.getFullYear()}${String(n.getMonth() + 1).padStart(2, "0")}${String(n.getDate()).padStart(2, "0")}_${String(n.getHours()).padStart(2, "0")}${String(n.getMinutes()).padStart(2, "0")}${String(n.getSeconds()).padStart(2, "0")}`;
+        downloadText(rightText, `document_right_${ts}.md`);
+      },
+    });
+  }, [onRightFileOpsReady, rightText]);
+
   const isSyncingScroll = useRef(false);
   const isRightEditorUpdate = useRef(false);
   const isProgrammaticUpdate = useRef(false);
@@ -564,52 +588,6 @@ export function InlineMergeView({
         }}
       />
 
-      {/* Panel labels (handle bar style) */}
-      {(() => {
-        const isDark = theme.palette.mode === "dark";
-        const handleBarSx = {
-          flex: 1,
-          px: 0.75,
-          py: 0.25,
-          display: "flex",
-          alignItems: "center",
-          gap: 0.25,
-          background: isDark
-            ? `linear-gradient(to bottom, ${alpha(theme.palette.grey[700], 0.9)}, ${alpha(theme.palette.grey[800], 0.95)})`
-            : `linear-gradient(to bottom, ${alpha(theme.palette.grey[100], 0.95)}, ${alpha(theme.palette.grey[300], 0.9)})`,
-          borderTop: `1px solid ${isDark ? alpha(theme.palette.grey[600], 0.5) : alpha(theme.palette.common.white, 0.8)}`,
-          borderBottom: `1px solid ${isDark ? alpha(theme.palette.grey[900], 0.6) : alpha(theme.palette.grey[400], 0.5)}`,
-          boxShadow: isDark
-            ? `inset 0 1px 0 ${alpha(theme.palette.grey[600], 0.3)}`
-            : `inset 0 1px 0 ${alpha(theme.palette.common.white, 0.6)}`,
-        } as const;
-        return (
-      <Box sx={{ display: "flex" }}>
-        <Box sx={{ ...handleBarSx, borderTopLeftRadius: 8 }}>
-          <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary" }}>
-            {t("mergeLeftEditor")}
-          </Typography>
-        </Box>
-        <Divider orientation="vertical" flexItem />
-        <Box sx={{ ...handleBarSx, borderTopRightRadius: 8 }}>
-          <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary" }}>
-            {t("mergeRight")}
-          </Typography>
-          <Box sx={{ flex: 1 }} />
-          <Tooltip title={t("mergeLoadFileRight")}>
-            <IconButton size="small" sx={{ p: 0.25 }} onClick={() => fileInputRightRef.current?.click()}>
-              <FileUploadIcon sx={{ fontSize: 16, color: "text.secondary" }} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title={t("mergeExportRight")}>
-            <IconButton size="small" sx={{ p: 0.25 }} onClick={() => { const n = new Date(); const ts = `${n.getFullYear()}${String(n.getMonth()+1).padStart(2,"0")}${String(n.getDate()).padStart(2,"0")}_${String(n.getHours()).padStart(2,"0")}${String(n.getMinutes()).padStart(2,"0")}${String(n.getSeconds()).padStart(2,"0")}`; downloadText(rightText, `document_right_${ts}.md`); }}>
-              <DownloadIcon sx={{ fontSize: 16, color: "text.secondary" }} />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      </Box>
-        );
-      })()}
 
       {/* Content area: left = editor (children), right = editor */}
       <Box sx={{ display: "flex", flex: 1, overflow: "hidden" }}>

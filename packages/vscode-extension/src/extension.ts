@@ -32,7 +32,20 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	);
 
-	context.subscriptions.push(openEditor, openEditorWithFile);
+	const compareCmd = vscode.commands.registerCommand(
+		'anytime-markdown.compareWithMarkdownEditor',
+		async (uri?: vscode.Uri) => {
+			const fileUri = uri ?? vscode.window.activeTextEditor?.document.uri;
+			if (!fileUri) { return; }
+			const content = new TextDecoder().decode(await vscode.workspace.fs.readFile(fileUri));
+			MarkdownEditorProvider.getInstance()?.postMessageToActivePanel({
+				type: 'loadCompareFile',
+				content,
+			});
+		}
+	);
+
+	context.subscriptions.push(openEditor, openEditorWithFile, compareCmd);
 }
 
 export function deactivate() {}

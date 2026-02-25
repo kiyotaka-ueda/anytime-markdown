@@ -93,7 +93,13 @@ function useFloatingToolbar(
 }
 
 
-export default function MarkdownEditorPage() {
+interface MarkdownEditorPageProps {
+  hideFileOps?: boolean;
+  hideUndoRedo?: boolean;
+  onCompareModeChange?: (active: boolean) => void;
+}
+
+export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, onCompareModeChange }: MarkdownEditorPageProps = {}) {
   const theme = useTheme();
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
@@ -119,6 +125,8 @@ export default function MarkdownEditorPage() {
   const [inlineMergeOpen, setInlineMergeOpen] = useState(false);
   const [editorMarkdown, setEditorMarkdown] = useState("");
   const [mergeUndoRedo, setMergeUndoRedo] = useState<MergeUndoRedo | null>(null);
+  const [compareFileContent, setCompareFileContent] = useState<string | null>(null);
+  const [rightFileOps, setRightFileOps] = useState<{ loadFile: () => void; exportFile: () => void } | null>(null);
   const editorWrapperRef = useRef<HTMLDivElement>(null);
 
   // Refs for callbacks used in useEditor config (avoids stale closures)
@@ -298,12 +306,49 @@ export default function MarkdownEditorPage() {
   // Mermaid toolbar is now embedded in MermaidNodeView
   const plantUmlFloating = useFloatingToolbar(editor, editorWrapperRef, "codeBlock", "plantuml");
 
+  // VS Code 拡張からの外部コンテンツ更新（メニュー Undo/Redo など）
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const content = (e as CustomEvent<string>).detail;
+      if (!editor || editor.isDestroyed) return;
+      const currentMd = getMarkdownFromEditor(editor);
+      if (content === currentMd) return;
+      // emitUpdate=false でループを防止（onUpdate → saveContent → contentChanged を抑制）
+      editor.commands.setContent(content, false);
+      setHeadingsRef.current(extractHeadings(editor));
+      setEditorMarkdown(getMarkdownFromEditor(editor));
+    };
+    window.addEventListener('vscode-set-content', handler);
+    return () => window.removeEventListener('vscode-set-content', handler);
+  }, [editor]);
+
   // マージモードが閉じたときにデコレーションをクリア
   useEffect(() => {
     if (!inlineMergeOpen && editor) {
       editor.commands.clearDiffHighlight();
     }
   }, [inlineMergeOpen, editor]);
+
+  // 比較モード変更を外部に通知（VS Code 拡張用）
+  useEffect(() => {
+    onCompareModeChange?.(inlineMergeOpen);
+  }, [inlineMergeOpen, onCompareModeChange]);
+
+  // VS Code 拡張から比較ファイルを読み込む
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const content = (e as CustomEvent<string>).detail;
+      setCompareFileContent(content);
+      if (!inlineMergeOpen) {
+        if (!sourceMode && editor) {
+          setEditorMarkdown(getMarkdownFromEditor(editor));
+        }
+        setInlineMergeOpen(true);
+      }
+    };
+    window.addEventListener('vscode-load-compare-file', handler);
+    return () => window.removeEventListener('vscode-load-compare-file', handler);
+  }, [editor, sourceMode, inlineMergeOpen]);
 
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const [editorHeight, setEditorHeight] = useState(isMd ? 600 : isMobile ? 350 : 450);
@@ -542,6 +587,10 @@ export default function MarkdownEditorPage() {
         onSourceInsertCodeBlock={() => appendToSource("\n```\n\n```\n")}
         onSourceInsertTable={() => appendToSource("\n| Header | Header | Header |\n| ------ | ------ | ------ |\n|        |        |        |\n|        |        |        |\n")}
         mergeUndoRedo={inlineMergeOpen ? mergeUndoRedo : null}
+        hideFileOps={hideFileOps}
+        hideUndoRedo={hideUndoRedo}
+        onLoadRightFile={rightFileOps?.loadFile}
+        onExportRightFile={rightFileOps?.exportFile}
         t={t}
       />
       <input
@@ -600,6 +649,9 @@ export default function MarkdownEditorPage() {
           t={t}
           onUndoRedoReady={setMergeUndoRedo}
           onLeftTextChange={handleSourceChange}
+          externalRightContent={compareFileContent}
+          onExternalRightContentConsumed={() => setCompareFileContent(null)}
+          onRightFileOpsReady={setRightFileOps}
         >
           {(leftBgGradient, leftDiffLines, onMerge, onHoverLine) => (
           <Box ref={editorContainerRef} sx={{ display: "flex", gap: 0, height: "100%" }}>
