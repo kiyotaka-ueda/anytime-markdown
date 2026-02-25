@@ -81,7 +81,7 @@
         {
           "command": "anytime-markdown.compareWithMarkdownEditor",
           "when": "resourceLangId == markdown",
-          "group": "navigation"
+          "group": "3_compare"
         }
       ],
       "editor/title/context": [
@@ -93,7 +93,7 @@
         {
           "command": "anytime-markdown.compareWithMarkdownEditor",
           "when": "resourceLangId == markdown",
-          "group": "navigation"
+          "group": "3_compare"
         }
       ]
     }
