@@ -12,6 +12,37 @@ packages/
 
 ```
 
+```mermaid
+graph TB
+    subgraph "anytime-markdown (npm workspaces monorepo)"
+        EC["@anytime-markdown/editor-core<br/>共有エディタライブラリ"]
+        WA["@anytime-markdown/web-app<br/>Next.js Web アプリ"]
+        VE["@anytime-markdown/vscode-extension<br/>VS Code 拡張機能"]
+    end
+
+    WA -->|"workspace 依存"| EC
+    VE -->|"workspace 依存"| EC
+
+    subgraph "外部依存"
+        Tiptap["@tiptap/core + 拡張"]
+        React["React 19"]
+        MUI["MUI 7"]
+        Next["Next.js 15"]
+        VSCodeAPI["VS Code Extension API"]
+        Mermaid["Mermaid.js"]
+        DOMPurify["DOMPurify"]
+    end
+
+    EC --> Tiptap
+    EC --> React
+    EC --> MUI
+    WA --> Next
+    VE --> VSCodeAPI
+    EC --> Mermaid
+    EC --> DOMPurify
+
+```
+
 ## 前提条件
 
 - Node.js 24+
@@ -58,11 +89,37 @@ npm run dev
 
 ## VS Code 拡張機能の使い方
 
-
 1. VS Code でこのリポジトリを開く
 2. `F5` で拡張機能のデバッグ起動
 3. 開いた Extension Development Host で `.md` ファイルを開く
 4. 右クリック → 「Open with Markdown Editor」を選択
+
+## VSIX ファイルの作成
+
+ローカルインストールやテスト配布用に `.vsix` ファイルを作成する手順です。
+
+```bash
+# 1. リポジトリルートで依存パッケージをインストール
+npm install
+
+# 2. vscode-extension ディレクトリに移動
+cd packages/vscode-extension
+
+# 3. VSIX ファイルを生成
+npx vsce package --no-dependencies
+
+```
+
+`anytime-markdown-.vsix` が生成されます。
+
+### ローカルへのインストール
+
+```bash
+code --install-extension anytime-markdown-<version>.vsix
+
+```
+
+または VS Code のコマンドパレットから「Extensions: Install from VSIX...」を選択してファイルを指定してください。
 
 ## Publishing
 
@@ -71,6 +128,7 @@ VS Code Marketplace への公開手順です。
 ```bash
 cd packages/vscode-extension
 npx vsce publish --no-dependencies --pat <your-token>
+
 ```
 
 ### 手動アップロード
@@ -78,7 +136,6 @@ npx vsce publish --no-dependencies --pat <your-token>
 1. `npx vsce package --no-dependencies` で `.vsix` ファイルを生成
 2. [Publisher 管理ページ](https://marketplace.visualstudio.com/manage) にアクセス
 3. New Extension → Visual Studio Code → `.vsix` ファイルをアップロード
-
 
 ## 主な機能
 
