@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
+import type { PaletteMode } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { getVsCodeApi } from './vscodeApi';
 import { ConfirmProvider } from '@anytime-markdown/editor-core';
@@ -48,14 +49,18 @@ try {
   originalSetItem(SETTINGS_KEY, JSON.stringify(obj));
 } catch { /* ignore */ }
 
-const darkTheme = createTheme({ palette: { mode: 'dark' } });
-
 export function App() {
   const [ready, setReady] = useState(false);
+  const [themeMode, setThemeMode] = useState<PaletteMode>('dark');
+  const theme = useMemo(() => createTheme({ palette: { mode: themeMode } }), [themeMode]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
+      if (message?.type === 'setTheme' && (message.mode === 'dark' || message.mode === 'light')) {
+        setThemeMode(message.mode);
+        return;
+      }
       if (message?.type === 'loadCompareFile' && typeof message.content === 'string') {
         window.dispatchEvent(new CustomEvent('vscode-load-compare-file', { detail: message.content }));
         return;
@@ -112,7 +117,7 @@ export function App() {
   if (!ready) return null;
 
   return (
-    <ThemeProvider theme={darkTheme}>
+    <ThemeProvider theme={theme}>
       <CssBaseline />
       <ConfirmProvider>
         <MarkdownEditorPage hideFileOps hideUndoRedo hideSettings onCompareModeChange={handleCompareModeChange} />

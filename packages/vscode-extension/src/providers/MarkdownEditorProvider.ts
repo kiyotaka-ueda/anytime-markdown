@@ -91,6 +91,13 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
     const isLargeFile = () => document.getText().length > 100 * 1024;
 
+    const sendTheme = () => {
+      if (disposed) { return; }
+      const kind = vscode.window.activeColorTheme.kind;
+      const mode = (kind === vscode.ColorThemeKind.Light || kind === vscode.ColorThemeKind.HighContrastLight) ? 'light' : 'dark';
+      webviewPanel.webview.postMessage({ type: 'setTheme', mode });
+    };
+
     const sendSettings = () => {
       if (disposed) { return; }
       const config = vscode.workspace.getConfiguration('anytimeMarkdown');
@@ -128,11 +135,16 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       }
     });
 
+    const themeChangeSubscription = vscode.window.onDidChangeActiveColorTheme(() => {
+      sendTheme();
+    });
+
     webviewPanel.webview.onDidReceiveMessage(async (message: { type: string; content?: string; active?: boolean }) => {
       switch (message.type) {
         case 'ready': {
           updateWebview();
           sendSettings();
+          sendTheme();
           const key = document.uri.toString();
           this.readyPanels.add(key);
           const resolvers = this.readyResolvers.get(key);
@@ -230,6 +242,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       }
       docChangeSubscription.dispose();
       configChangeSubscription.dispose();
+      themeChangeSubscription.dispose();
       if (debounceTimer) { clearTimeout(debounceTimer); }
     });
   }
