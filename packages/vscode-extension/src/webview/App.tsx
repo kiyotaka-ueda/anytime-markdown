@@ -94,7 +94,7 @@ export function App() {
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
       <ConfirmProvider>
-        <MarkdownEditorPage hideFileOps hideUndoRedo onCompareModeChange={handleCompareModeChange} />
+        <MarkdownEditorPage hideFileOps hideUndoRedo hideSettings onCompareModeChange={handleCompareModeChange} />
       </ConfirmProvider>
     </ThemeProvider>
   );

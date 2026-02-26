@@ -96,10 +96,11 @@ function useFloatingToolbar(
 interface MarkdownEditorPageProps {
   hideFileOps?: boolean;
   hideUndoRedo?: boolean;
+  hideSettings?: boolean;
   onCompareModeChange?: (active: boolean) => void;
 }
 
-export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, onCompareModeChange }: MarkdownEditorPageProps = {}) {
+export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, onCompareModeChange }: MarkdownEditorPageProps = {}) {
   const theme = useTheme();
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
@@ -630,14 +631,16 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, onCompar
         t={t}
       />
 
-      <EditorSettingsPanel
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        settings={settings}
-        updateSettings={updateSettings}
-        resetSettings={resetSettings}
-        t={t}
-      />
+      {!hideSettings && (
+        <EditorSettingsPanel
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          settings={settings}
+          updateSettings={updateSettings}
+          resetSettings={resetSettings}
+          t={t}
+        />
+      )}
 
       {/* Editor + Outline */}
       {inlineMergeOpen ? (
@@ -1071,6 +1074,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, onCompar
         setSettingsOpen={setSettingsOpen}
         setVersionDialogOpen={setVersionDialogOpen}
         setHelpDialogOpen={setHelpDialogOpen}
+        hideSettings={hideSettings}
         t={t}
       />
 
