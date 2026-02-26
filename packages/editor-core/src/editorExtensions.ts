@@ -31,7 +31,7 @@ export function getBaseExtensions(): Extensions {
     CodeBlockWithMermaid,
     Highlight,
     Underline,
-    LinkExtension.configure({ openOnClick: false }),
+    LinkExtension.configure({ openOnClick: false, validate: () => true }),
     CustomImage.configure({ inline: false, allowBase64: true }),
     TaskList,
     TaskItem.configure({ nested: true }),
