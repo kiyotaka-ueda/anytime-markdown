@@ -63,6 +63,22 @@ npm run dev
 3. 開いた Extension Development Host で `.md` ファイルを開く
 4. 右クリック → 「Open with Markdown Editor」を選択
 
+## Publishing
+
+VS Code Marketplace への公開手順です。
+
+```bash
+cd packages/vscode-extension
+npx vsce publish --no-dependencies --pat <your-token>
+```
+
+### 手動アップロード
+
+1. `npx vsce package --no-dependencies` で `.vsix` ファイルを生成
+2. [Publisher 管理ページ](https://marketplace.visualstudio.com/manage) にアクセス
+3. New Extension → Visual Studio Code → `.vsix` ファイルをアップロード
+
+
 ## 主な機能
 
 - リッチテキスト編集（見出し、リスト、テーブル、リンク、画像）

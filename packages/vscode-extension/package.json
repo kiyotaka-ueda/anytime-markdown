@@ -4,7 +4,7 @@
   "description": "markdown editor featuring Claude Code",
   "version": "0.0.1",
   "license": "MIT",
-  "publisher": "anytime-markdown",
+  "publisher": "kiytaka-ueda",
   "engines": {
     "vscode": "^1.109.0"
   },
