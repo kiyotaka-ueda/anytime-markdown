@@ -18,6 +18,7 @@ import { CustomTable } from "./tableExtension";
 import { CustomTableCell, CustomTableHeader } from "./extensions/customTableCells";
 import { DiffHighlight } from "./extensions/diffHighlight";
 import { HeadingFoldExtension } from "./extensions/headingFoldExtension";
+import { CodeBlockNavigation } from "./extensions/codeBlockNavigationExtension";
 import type { Extensions } from "@tiptap/react";
 
 /** 共通 Extension（メインエディタ / 比較エディタで共有） */
@@ -31,7 +32,7 @@ export function getBaseExtensions(): Extensions {
     CodeBlockWithMermaid,
     Highlight,
     Underline,
-    LinkExtension.configure({ openOnClick: false }),
+    LinkExtension.configure({ openOnClick: false, validate: () => true }),
     CustomImage.configure({ inline: false, allowBase64: true }),
     TaskList,
     TaskItem.configure({ nested: true }),
@@ -50,5 +51,6 @@ export function getBaseExtensions(): Extensions {
     }),
     DiffHighlight,
     HeadingFoldExtension,
+    CodeBlockNavigation,
   ];
 }

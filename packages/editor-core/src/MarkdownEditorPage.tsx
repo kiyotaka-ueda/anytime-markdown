@@ -96,10 +96,13 @@ function useFloatingToolbar(
 interface MarkdownEditorPageProps {
   hideFileOps?: boolean;
   hideUndoRedo?: boolean;
+  hideSettings?: boolean;
+  hideHelp?: boolean;
+  hideVersionInfo?: boolean;
   onCompareModeChange?: (active: boolean) => void;
 }
 
-export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, onCompareModeChange }: MarkdownEditorPageProps = {}) {
+export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, onCompareModeChange }: MarkdownEditorPageProps = {}) {
   const theme = useTheme();
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
@@ -589,6 +592,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, onCompar
         mergeUndoRedo={inlineMergeOpen ? mergeUndoRedo : null}
         hideFileOps={hideFileOps}
         hideUndoRedo={hideUndoRedo}
+        hideMoreMenu={hideHelp && hideVersionInfo && hideSettings}
         onLoadRightFile={rightFileOps?.loadFile}
         onExportRightFile={rightFileOps?.exportFile}
         t={t}
@@ -630,14 +634,16 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, onCompar
         t={t}
       />
 
-      <EditorSettingsPanel
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        settings={settings}
-        updateSettings={updateSettings}
-        resetSettings={resetSettings}
-        t={t}
-      />
+      {!hideSettings && (
+        <EditorSettingsPanel
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          settings={settings}
+          updateSettings={updateSettings}
+          resetSettings={resetSettings}
+          t={t}
+        />
+      )}
 
       {/* Editor + Outline */}
       {inlineMergeOpen ? (
@@ -731,8 +737,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, onCompar
             <Box
               component="pre"
               sx={{
-                width: `${Math.max(3, String((sourceText || "").split("\n").length).length + 1)}ch`,
-                minWidth: `${Math.max(3, String((sourceText || "").split("\n").length).length + 1)}ch`,
+                width: "auto",
+                minWidth: "3ch",
                 py: 2,
                 px: 1,
                 m: 0,
@@ -827,7 +833,11 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, onCompar
                   fontFamily: "monospace",
                   whiteSpace: "nowrap",
                   cursor: "pointer",
-                  "&:hover": { bgcolor: theme.palette.action.selected },
+                  opacity: 0,
+                  transition: "opacity 0.15s",
+                },
+                "&:hover::before": {
+                  opacity: 1,
                 },
               },
               "& h1": {
@@ -1011,7 +1021,30 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, onCompar
                   },
                 },
               },
-              "& a": { color: theme.palette.primary.main, textDecoration: "underline" },
+              "& a": {
+                color: theme.palette.primary.main,
+                textDecoration: "underline",
+                position: "relative",
+                cursor: "pointer",
+              },
+              "& a:hover::after": {
+                content: "attr(href)",
+                position: "absolute",
+                bottom: "100%",
+                left: 0,
+                marginBottom: "4px",
+                backgroundColor: theme.palette.grey[800],
+                color: theme.palette.common.white,
+                padding: "2px 8px",
+                borderRadius: "4px",
+                fontSize: "12px",
+                whiteSpace: "nowrap",
+                maxWidth: "400px",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                zIndex: 1000,
+                pointerEvents: "none",
+              },
               "& hr": {
                 border: "none",
                 borderTop: `1px solid ${theme.palette.divider}`,
@@ -1071,6 +1104,9 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, onCompar
         setSettingsOpen={setSettingsOpen}
         setVersionDialogOpen={setVersionDialogOpen}
         setHelpDialogOpen={setHelpDialogOpen}
+        hideSettings={hideSettings}
+        hideHelp={hideHelp}
+        hideVersionInfo={hideVersionInfo}
         t={t}
       />
 
