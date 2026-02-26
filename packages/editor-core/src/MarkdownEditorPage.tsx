@@ -734,8 +734,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
             <Box
               component="pre"
               sx={{
-                width: `${Math.max(3, String((sourceText || "").split("\n").length).length + 1)}ch`,
-                minWidth: `${Math.max(3, String((sourceText || "").split("\n").length).length + 1)}ch`,
+                width: "auto",
+                minWidth: "3ch",
                 py: 2,
                 px: 1,
                 m: 0,
