@@ -314,7 +314,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, onCompar
       const currentMd = getMarkdownFromEditor(editor);
       if (content === currentMd) return;
       // emitUpdate=false でループを防止（onUpdate → saveContent → contentChanged を抑制）
-      editor.commands.setContent(content, false);
+      editor.commands.setContent(content, { emitUpdate: false });
       setHeadingsRef.current(extractHeadings(editor));
       setEditorMarkdown(getMarkdownFromEditor(editor));
     };
