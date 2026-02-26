@@ -830,7 +830,11 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
                   fontFamily: "monospace",
                   whiteSpace: "nowrap",
                   cursor: "pointer",
-                  "&:hover": { bgcolor: theme.palette.action.selected },
+                  opacity: 0,
+                  transition: "opacity 0.15s",
+                },
+                "&:hover::before": {
+                  opacity: 1,
                 },
               },
               "& h1": {
