@@ -1,6 +1,6 @@
 {
   "MarkdownEditor": {
-    "title": "Anytime Markdown Editor",
+    "title": "Anytime Markdown",
     "subtitle": "WYSIWYG マークダウン編集・プレビュー",
     "edit": "編集",
     "split": "分割",
@@ -197,7 +197,7 @@
     "plantumlAccept": "外部送信を許可",
     "plantumlReject": "送信しない",
     "versionInfo": "バージョン情報",
-    "versionName": "Anytime Markdown Editor",
+    "versionName": "Anytime Markdown",
     "versionNumber": "0.1.0",
     "versionDescription": "リアルタイムプレビュー、ダイアグラム対応（Mermaid, PlantUML）、豊富な編集機能を備えたWYSIWYGマークダウンエディタ",
     "versionTech": "Next.js, TipTap, Mermaid, PlantUML, Material UI で構築 featuring Claude Code",

@@ -1,6 +1,6 @@
 {
   "MarkdownEditor": {
-    "title": "Anytime Markdown Editor",
+    "title": "Anytime Markdown",
     "subtitle": "WYSIWYG markdown editing and preview",
     "edit": "Edit",
     "split": "Split",
@@ -197,7 +197,7 @@
     "plantumlAccept": "Allow external rendering",
     "plantumlReject": "Do not send",
     "versionInfo": "Version Info",
-    "versionName": "Anytime Markdown Editor",
+    "versionName": "Anytime Markdown",
     "versionNumber": "0.1.0",
     "versionDescription": "A WYSIWYG markdown editor with real-time preview, diagram support (Mermaid, PlantUML), and rich editing features.",
     "versionTech": "Built with Next.js, TipTap, Mermaid, PlantUML, Material UI featuring Claude Code",
