@@ -1,14 +1,17 @@
 {
   "name": "@anytime-markdown/web-app",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:static": "CAPACITOR_BUILD=true next build",
     "start": "next start"
   },
   "dependencies": {
     "@anytime-markdown/editor-core": "*",
+    "@capacitor/core": "^7.5.0",
+    "@capacitor/status-bar": "^7.0.5",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^7.3.7",

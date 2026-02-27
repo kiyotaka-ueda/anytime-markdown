@@ -2,9 +2,13 @@
   "name": "anytime-markdown",
   "displayName": "Anytime Markdown",
   "description": "markdown editor featuring Claude Code",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "license": "MIT",
   "publisher": "kiytaka-ueda",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kiyotaka-ueda/anytime-markdown.git"
+  },
   "engines": {
     "vscode": "^1.109.0"
   },

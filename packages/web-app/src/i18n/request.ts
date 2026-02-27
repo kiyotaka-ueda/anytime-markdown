@@ -1,11 +1,22 @@
 import { getRequestConfig } from 'next-intl/server';
+import { cookies } from 'next/headers';
 
 const supportedLocales = ['ja', 'en'] as const;
 type Locale = (typeof supportedLocales)[number];
 const defaultLocale: Locale = 'ja';
 
 export default getRequestConfig(async () => {
-  const locale = defaultLocale;
+  let locale: Locale = defaultLocale;
+
+  try {
+    const cookieStore = await cookies();
+    const cookieLocale = cookieStore.get('NEXT_LOCALE')?.value;
+    if (cookieLocale && (supportedLocales as readonly string[]).includes(cookieLocale)) {
+      locale = cookieLocale as Locale;
+    }
+  } catch {
+    // Static export (CAPACITOR_BUILD) does not support cookies() — use default locale
+  }
 
   const messages = (await import(`@anytime-markdown/editor-core/src/i18n/${locale}.json`)).default;
 
