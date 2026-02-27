@@ -100,7 +100,7 @@ npx cap add android
 
 ## 今後の課題（本タスク対象外）
 
-- モバイルアプリでの言語切替（クライアントサイド i18n への移行が必要）
-- SafeArea / ステータスバー色のテーマ連動
+- ~~モバイルアプリでの言語切替~~ → `20260227-mobile-i18n.md` で対応済み
+- ~~SafeArea / ステータスバー色のテーマ連動~~ → `20260227-android-icon-splash-statusbar.md` で対応済み
 - Google Play ストア公開用の署名・メタデータ設定
-- スプラッシュスクリーン設定
+- ~~スプラッシュスクリーン設定~~ → `20260227-android-icon-splash-statusbar.md` で対応済み
