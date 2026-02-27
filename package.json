@@ -8,6 +8,7 @@
   "workspaces": [
     "packages/editor-core",
     "packages/vscode-extension",
-    "packages/web-app"
+    "packages/web-app",
+    "packages/mobile-app"
   ]
 }

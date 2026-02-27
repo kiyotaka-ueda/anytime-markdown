@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:static": "CAPACITOR_BUILD=true next build",
     "start": "next start"
   },
   "dependencies": {
