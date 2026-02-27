@@ -101,6 +101,16 @@ npm run dev
 
 Web アプリを Capacitor でラップした Android アプリです。
 
+### 前提条件（Android）
+
+- **Android Studio**（Windows / Mac にインストール）
+- **Android SDK**（Android Studio に同梱）
+- **JDK 17**（Android Studio に同梱）
+
+> WSL2 / Docker 内では `npm run sync` までは実行できますが、Android Studio の起動やエミュレータは **Windows 側** で行う必要があります。
+
+### ビルド手順
+
 ```bash
 # 1. 依存パッケージをインストール（リポジトリルート）
 npm install
@@ -109,14 +119,46 @@ npm install
 cd packages/mobile-app
 npm run sync
 
-# 3. Android Studio でプロジェクトを開く
-npm run open
-
 ```
 
 `npm run sync` は内部で Web アプリの静的エクスポート（`build:static`）と `cap sync` を順次実行します。
 
 > モバイルビルドではデフォルトロケール（日本語）で静的HTMLを生成します。アプリ内での言語切替は未対応です。
+
+### 動作確認
+
+#### 方法 A: Android Studio で開く（推奨）
+
+```bash
+npm run open
+```
+
+Android Studio が開いたら、デバイスを選択して ▶ ボタンで実行します。
+
+> WSL2 環境の場合は、Windows 側の Android Studio で `\\wsl$\<distro>\<path>\packages\mobile-app\android` を直接開いてください。
+
+#### 方法 B: コマンドラインで APK ビルド
+
+Android Studio の GUI を使わず APK のみ生成する場合:
+
+```bash
+cd packages/mobile-app/android
+./gradlew assembleDebug
+
+```
+
+APK の出力先: `app/build/outputs/apk/debug/app-debug.apk`
+
+実機にインストール:
+
+```bash
+adb install app/build/outputs/apk/debug/app-debug.apk
+
+```
+
+### デバッグ
+
+実機またはエミュレータでアプリを起動した状態で、PC の Chrome から `chrome://inspect` にアクセスすると WebView の DevTools を使用できます。
 
 ## VS Code 拡張機能の使い方
 
