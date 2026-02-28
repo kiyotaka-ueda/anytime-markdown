@@ -48,6 +48,8 @@ import { useSourceMode } from "./hooks/useSourceMode";
 import { useEditorDialogs } from "./hooks/useEditorDialogs";
 import { useOutline } from "./hooks/useOutline";
 import { useEditorFileOps } from "./hooks/useEditorFileOps";
+import { useFileSystem } from "./hooks/useFileSystem";
+import type { FileSystemProvider } from "./types/fileSystem";
 
 
 // Floating toolbar position hook (M-5: shared logic for table/plantuml/mermaid)
@@ -102,9 +104,10 @@ interface MarkdownEditorPageProps {
   themeMode?: 'light' | 'dark';
   onThemeModeChange?: (mode: 'light' | 'dark') => void;
   onLocaleChange?: (locale: string) => void;
+  fileSystemProvider?: FileSystemProvider | null;
 }
 
-export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, onCompareModeChange, themeMode, onThemeModeChange, onLocaleChange }: MarkdownEditorPageProps = {}) {
+export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, onCompareModeChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider }: MarkdownEditorPageProps = {}) {
   const theme = useTheme();
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
@@ -295,11 +298,27 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   } = useOutline({ editor, sourceMode });
 
   const {
+    fileHandle, fileName, isDirty,
+    supportsDirectAccess,
+    openFile, saveFile, saveAsFile, markDirty, resetFile,
+  } = useFileSystem(fileSystemProvider ?? null);
+
+  // ファイル変更検知
+  useEffect(() => {
+    if (!editor || !markDirty) return;
+    const handler = () => markDirty();
+    editor.on("update", handler);
+    return () => { editor.off("update", handler); };
+  }, [editor, markDirty]);
+
+  const {
     copied, fileInputRef, handleClear, handleFileSelected,
     handleDownload, handleImport, handleCopy,
+    handleOpenFile, handleSaveFile, handleSaveAsFile,
   } = useEditorFileOps({
     editor, sourceMode, sourceText, setSourceText,
     saveContent, downloadMarkdown, clearContent,
+    openFile, saveFile, saveAsFile, resetFile,
   });
 
   // Update refs for useEditor callbacks
@@ -454,6 +473,23 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     editor.view.dispatch(tr);
   }, [editor]);
 
+  // ファイル操作ショートカット (Ctrl/Cmd+S, Ctrl/Cmd+O)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const key = e.key.toLowerCase();
+      if (key === 's') {
+        e.preventDefault();
+        handleSaveFile();
+      } else if (key === 'o') {
+        e.preventDefault();
+        handleOpenFile();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [handleSaveFile, handleOpenFile]);
+
   // ツールバー操作のキーボードショートカット
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -555,6 +591,11 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         onSourceInsertCodeBlock={() => appendToSource("\n```\n\n```\n")}
         onSourceInsertTable={() => appendToSource("\n| Header | Header | Header |\n| ------ | ------ | ------ |\n|        |        |        |\n|        |        |        |\n")}
         mergeUndoRedo={inlineMergeOpen ? mergeUndoRedo : null}
+        onOpenFile={handleOpenFile}
+        onSaveFile={handleSaveFile}
+        onSaveAsFile={handleSaveAsFile}
+        hasFileHandle={fileHandle !== null}
+        supportsDirectAccess={supportsDirectAccess}
         hideFileOps={hideFileOps}
         hideUndoRedo={hideUndoRedo}
         hideMoreMenu={hideHelp && hideVersionInfo && hideSettings}
@@ -1051,7 +1092,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
       )}
 
       {/* Status bar */}
-      {editor && <StatusBar editor={editor} sourceMode={sourceMode} sourceText={sourceText} t={t} />}
+      {editor && <StatusBar editor={editor} sourceMode={sourceMode} sourceText={sourceText} t={t} fileName={fileName} isDirty={isDirty} />}
 
       <EditorMenuPopovers
         editor={editor}
