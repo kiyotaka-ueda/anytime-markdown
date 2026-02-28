@@ -444,7 +444,11 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
 
   useEditorShortcuts({
     editor, sourceMode, appendToSource,
-    handleSaveFile, handleOpenFile, handleImage,
+    handleSaveFile, handleSaveAsFile, handleOpenFile, handleImage,
+    handleClear, handleCopy,
+    handleImport: () => fileInputRef.current?.click(),
+    handleDownload,
+    handleToggleAllBlocks, handleToggleOutline,
     handleSwitchToSource, handleSwitchToWysiwyg, handleMerge,
     setDiagramAnchorEl, setTemplateAnchorEl, t,
   });
