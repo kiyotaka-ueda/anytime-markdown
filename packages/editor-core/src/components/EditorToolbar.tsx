@@ -25,11 +25,16 @@ import UnfoldLessIcon from "@mui/icons-material/UnfoldLess";
 import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 import CodeOffIcon from "@mui/icons-material/CodeOff";
 import CodeIcon from "@mui/icons-material/Code";
+import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 
 import {
   Box,
   Divider,
   IconButton,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
   Paper,
   ToggleButton,
   ToggleButtonGroup,
@@ -39,7 +44,7 @@ import {
 import { useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
 
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { modKey } from "../constants/shortcuts";
 
 import type { MergeUndoRedo } from "./InlineMergeView";
@@ -147,6 +152,8 @@ export const EditorToolbar = React.memo(function EditorToolbar({
   supportsDirectAccess,
   t,
 }: EditorToolbarProps) {
+  const [fileMenuAnchorEl, setFileMenuAnchorEl] = useState<HTMLElement | null>(null);
+
   useEffect(() => {
     if (copied) {
       onAnnounce?.(t("copiedToClipboard"));
@@ -241,83 +248,135 @@ export const EditorToolbar = React.memo(function EditorToolbar({
       {/* File actions */}
       {!hideFileOps && (
         <>
-          <Tooltip title={t("createNew")}>
-            <IconButton
-              size="small"
-              aria-label={t("createNew")}
-              onClick={onClear}
-            >
-              <DescriptionIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title={copied ? t("copied") : t("copy")}>
-            <IconButton
-              size="small"
-              aria-label={copied ? t("copied") : t("copy")}
-              onClick={onCopy}
-              color={copied ? "success" : "default"}
-            >
-              {copied ? <CheckIcon fontSize="small" /> : <ContentCopyIcon fontSize="small" />}
-            </IconButton>
-          </Tooltip>
-          {supportsDirectAccess ? (
-            <>
-              <Tooltip title={tip(t, "openFile")}>
-                <IconButton
-                  size="small"
-                  aria-label={t("openFile")}
-                  onClick={onOpenFile}
-                >
-                  <FolderOpenIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title={hasFileHandle ? tip(t, "saveFile") : t("saveFileNoHandle")}>
-                <span>
+          {/* Mobile: single file menu button */}
+          <IconButton
+            size="small"
+            aria-label={t("fileActions")}
+            onClick={(e) => setFileMenuAnchorEl(e.currentTarget)}
+            sx={{ display: { xs: "inline-flex", sm: "none" } }}
+          >
+            <InsertDriveFileIcon fontSize="small" />
+          </IconButton>
+          <Menu
+            anchorEl={fileMenuAnchorEl}
+            open={!!fileMenuAnchorEl}
+            onClose={() => setFileMenuAnchorEl(null)}
+          >
+            <MenuItem onClick={() => { onClear(); setFileMenuAnchorEl(null); }}>
+              <ListItemIcon><DescriptionIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>{t("createNew")}</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={() => { onCopy(); setFileMenuAnchorEl(null); }}>
+              <ListItemIcon>
+                {copied ? <CheckIcon fontSize="small" color="success" /> : <ContentCopyIcon fontSize="small" />}
+              </ListItemIcon>
+              <ListItemText>{copied ? t("copied") : t("copy")}</ListItemText>
+            </MenuItem>
+            {supportsDirectAccess ? ([
+              <MenuItem key="open" onClick={() => { onOpenFile?.(); setFileMenuAnchorEl(null); }}>
+                <ListItemIcon><FolderOpenIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>{t("openFile")}</ListItemText>
+              </MenuItem>,
+              <MenuItem key="save" onClick={() => { onSaveFile?.(); setFileMenuAnchorEl(null); }} disabled={!hasFileHandle}>
+                <ListItemIcon><SaveIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>{t("saveFile")}</ListItemText>
+              </MenuItem>,
+              <MenuItem key="saveAs" onClick={() => { onSaveAsFile?.(); setFileMenuAnchorEl(null); }}>
+                <ListItemIcon><SaveAsIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>{t("saveAsFile")}</ListItemText>
+              </MenuItem>,
+            ]) : ([
+              <MenuItem key="upload" onClick={() => { onImport(); setFileMenuAnchorEl(null); }}>
+                <ListItemIcon><FileUploadIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>{t("upload")}</ListItemText>
+              </MenuItem>,
+              <MenuItem key="download" onClick={() => { onDownload(); setFileMenuAnchorEl(null); }}>
+                <ListItemIcon><DownloadIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>{t("download")}</ListItemText>
+              </MenuItem>,
+            ])}
+          </Menu>
+
+          {/* Desktop: individual file buttons */}
+          <Box sx={{ display: { xs: "none", sm: "contents" } }}>
+            <Tooltip title={t("createNew")}>
+              <IconButton
+                size="small"
+                aria-label={t("createNew")}
+                onClick={onClear}
+              >
+                <DescriptionIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={copied ? t("copied") : t("copy")}>
+              <IconButton
+                size="small"
+                aria-label={copied ? t("copied") : t("copy")}
+                onClick={onCopy}
+                color={copied ? "success" : "default"}
+              >
+                {copied ? <CheckIcon fontSize="small" /> : <ContentCopyIcon fontSize="small" />}
+              </IconButton>
+            </Tooltip>
+            {supportsDirectAccess ? (
+              <>
+                <Tooltip title={tip(t, "openFile")}>
                   <IconButton
                     size="small"
-                    aria-label={t("saveFile")}
-                    onClick={onSaveFile}
-                    disabled={!hasFileHandle}
+                    aria-label={t("openFile")}
+                    onClick={onOpenFile}
                   >
-                    <SaveIcon fontSize="small" />
+                    <FolderOpenIcon fontSize="small" />
                   </IconButton>
-                </span>
-              </Tooltip>
-              <Tooltip title={t("saveAsFile")}>
-                <IconButton
-                  size="small"
-                  aria-label={t("saveAsFile")}
-                  onClick={onSaveAsFile}
-                >
-                  <SaveAsIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </>
-          ) : (
-            <>
-              <Tooltip title={t("fileApiNotSupported")}>
-                <InfoOutlinedIcon sx={{ fontSize: 16, color: "text.disabled", mx: 0.25 }} />
-              </Tooltip>
-              <Tooltip title={t("upload")}>
-                <IconButton
-                  size="small"
-                  aria-label={t("upload")}
-                  onClick={onImport}
-                >
-                  <FileUploadIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title={t("download")}>
-                <IconButton
-                  size="small"
-                  aria-label={t("download")}
-                  onClick={onDownload}
-                >
-                  <DownloadIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </>
-          )}
+                </Tooltip>
+                <Tooltip title={hasFileHandle ? tip(t, "saveFile") : t("saveFileNoHandle")}>
+                  <span>
+                    <IconButton
+                      size="small"
+                      aria-label={t("saveFile")}
+                      onClick={onSaveFile}
+                      disabled={!hasFileHandle}
+                    >
+                      <SaveIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title={t("saveAsFile")}>
+                  <IconButton
+                    size="small"
+                    aria-label={t("saveAsFile")}
+                    onClick={onSaveAsFile}
+                  >
+                    <SaveAsIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </>
+            ) : (
+              <>
+                <Tooltip title={t("fileApiNotSupported")}>
+                  <InfoOutlinedIcon sx={{ fontSize: 16, color: "text.disabled", mx: 0.25 }} />
+                </Tooltip>
+                <Tooltip title={t("upload")}>
+                  <IconButton
+                    size="small"
+                    aria-label={t("upload")}
+                    onClick={onImport}
+                  >
+                    <FileUploadIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title={t("download")}>
+                  <IconButton
+                    size="small"
+                    aria-label={t("download")}
+                    onClick={onDownload}
+                  >
+                    <DownloadIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </>
+            )}
+          </Box>
           <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
         </>
       )}
