@@ -337,6 +337,8 @@
   },
   "Common": {
     "ok": "OK",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "error": "Something went wrong",
+    "retry": "Try again"
   }
 }
