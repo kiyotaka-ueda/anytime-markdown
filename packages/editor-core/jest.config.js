@@ -1,6 +1,5 @@
-import type { Config } from "jest";
-
-const config: Config = {
+/** @type {import('jest').Config} */
+const config = {
   testEnvironment: "jsdom",
   transform: {
     "^.+\\.tsx?$": "ts-jest",
@@ -9,4 +8,4 @@ const config: Config = {
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json"],
 };
 
-export default config;
+module.exports = config;
