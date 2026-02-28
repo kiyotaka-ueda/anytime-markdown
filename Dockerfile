@@ -1,7 +1,9 @@
 FROM node:24-slim AS base
 
-# curl と openssl のインストール
-RUN apk add --no-cache curl
+# curl のインストール
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /anytime-markdown/
 
