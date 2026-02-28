@@ -6,6 +6,9 @@ import DescriptionIcon from "@mui/icons-material/Description";
 import DownloadIcon from "@mui/icons-material/Download";
 import WysiwygIcon from "@mui/icons-material/Wysiwyg";
 import FileUploadIcon from "@mui/icons-material/FileUpload";
+import FolderOpenIcon from "@mui/icons-material/FolderOpen";
+import SaveIcon from "@mui/icons-material/Save";
+import SaveAsIcon from "@mui/icons-material/SaveAs";
 import GridOnIcon from "@mui/icons-material/GridOn";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import HorizontalRuleIcon from "@mui/icons-material/HorizontalRule";
@@ -56,6 +59,8 @@ const TOOLTIP_SHORTCUTS: Record<string, string> = {
   sourceMode: `${modKey}+Alt+S`,
   normalMode: `${modKey}+Alt+M`,
   compareMode: `${modKey}+Alt+M`,
+  openFile: `${modKey}+O`,
+  saveFile: `${modKey}+S`,
 };
 
 /** ツールチップにショートカットキーを付加 */
@@ -94,6 +99,11 @@ interface EditorToolbarProps {
   hideMoreMenu?: boolean;
   onLoadRightFile?: () => void;
   onExportRightFile?: () => void;
+  onOpenFile?: () => void;
+  onSaveFile?: () => void;
+  onSaveAsFile?: () => void;
+  hasFileHandle?: boolean;
+  supportsDirectAccess?: boolean;
   t: (key: string) => string;
 }
 
@@ -127,6 +137,11 @@ export function EditorToolbar({
   hideMoreMenu,
   onLoadRightFile,
   onExportRightFile,
+  onOpenFile,
+  onSaveFile,
+  onSaveAsFile,
+  hasFileHandle,
+  supportsDirectAccess,
   t,
 }: EditorToolbarProps) {
   const handleToolbarKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -236,24 +251,61 @@ export function EditorToolbar({
               {copied ? <CheckIcon fontSize="small" /> : <ContentCopyIcon fontSize="small" />}
             </IconButton>
           </Tooltip>
-          <Tooltip title={t("upload")}>
-            <IconButton
-              size="small"
-              aria-label={t("upload")}
-              onClick={onImport}
-            >
-              <FileUploadIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title={t("download")}>
-            <IconButton
-              size="small"
-              aria-label={t("download")}
-              onClick={onDownload}
-            >
-              <DownloadIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          {supportsDirectAccess ? (
+            <>
+              <Tooltip title={tip(t, "openFile")}>
+                <IconButton
+                  size="small"
+                  aria-label={t("openFile")}
+                  onClick={onOpenFile}
+                >
+                  <FolderOpenIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={tip(t, "saveFile")}>
+                <span>
+                  <IconButton
+                    size="small"
+                    aria-label={t("saveFile")}
+                    onClick={onSaveFile}
+                    disabled={!hasFileHandle}
+                  >
+                    <SaveIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title={t("saveAsFile")}>
+                <IconButton
+                  size="small"
+                  aria-label={t("saveAsFile")}
+                  onClick={onSaveAsFile}
+                >
+                  <SaveAsIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </>
+          ) : (
+            <>
+              <Tooltip title={t("upload")}>
+                <IconButton
+                  size="small"
+                  aria-label={t("upload")}
+                  onClick={onImport}
+                >
+                  <FileUploadIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={t("download")}>
+                <IconButton
+                  size="small"
+                  aria-label={t("download")}
+                  onClick={onDownload}
+                >
+                  <DownloadIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </>
+          )}
           <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
         </>
       )}

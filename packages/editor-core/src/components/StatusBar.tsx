@@ -9,9 +9,11 @@ interface StatusBarProps {
   sourceMode?: boolean;
   sourceText?: string;
   t: (key: string) => string;
+  fileName?: string | null;
+  isDirty?: boolean;
 }
 
-export function StatusBar({ editor, sourceMode, sourceText, t }: StatusBarProps) {
+export function StatusBar({ editor, sourceMode, sourceText, t, fileName, isDirty }: StatusBarProps) {
   const [cursorLine, setCursorLine] = useState(1);
   const [sourceCursorLine, setSourceCursorLine] = useState(1);
 
@@ -68,6 +70,11 @@ export function StatusBar({ editor, sourceMode, sourceText, t }: StatusBarProps)
       <Typography variant="caption" sx={{ color: "text.secondary" }}>
         {lineCount.toLocaleString()} {t("lines")}
       </Typography>
+      {fileName && (
+        <Typography variant="caption" sx={{ ml: 1, opacity: 0.7 }}>
+          {fileName}{isDirty ? " *" : ""}
+        </Typography>
+      )}
       <Box sx={{ flex: 1 }} />
     </Box>
   );
