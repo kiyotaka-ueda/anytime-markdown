@@ -9,3 +9,7 @@ node_modules
 .vscode
 docs/project-structure.md
 *.tsbuildinfo
+
+# Serwist
+packages/web-app/public/sw*
+packages/web-app/public/swe-worker*
