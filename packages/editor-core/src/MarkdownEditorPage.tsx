@@ -601,6 +601,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         hideMoreMenu={hideHelp && hideVersionInfo && hideSettings}
         onLoadRightFile={rightFileOps?.loadFile}
         onExportRightFile={rightFileOps?.exportFile}
+        onAnnounce={setLiveMessage}
         t={t}
       />
       <input
