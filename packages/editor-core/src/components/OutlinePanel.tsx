@@ -2,6 +2,7 @@
 
 import {
   Box,
+  Collapse,
   IconButton,
   Paper,
   Tooltip,
@@ -15,7 +16,6 @@ import SchemaIcon from "@mui/icons-material/Schema";
 import MermaidIcon from "../icons/MermaidIcon";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import UnfoldLessIcon from "@mui/icons-material/UnfoldLess";
 import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
@@ -231,7 +231,7 @@ export function OutlinePanel({
           ) : (
             <>
               {headings.map((h, idx) => {
-                if (hiddenByFold.has(idx)) return null;
+                const isHidden = hiddenByFold.has(idx);
                 const isHeading = h.kind === "heading";
                 const isFolded = isHeading && foldedIndices.has(h.headingIndex ?? -1);
                 const hoIdx = isHeading ? toHeadingOnlyIdx(idx) : -1;
@@ -251,8 +251,8 @@ export function OutlinePanel({
                   }
                 }
                 return (
+                  <Collapse key={`${h.pos}-${idx}`} in={!isHidden} unmountOnExit timeout={150} sx={{ "@media (prefers-reduced-motion: reduce)": { transition: "none !important" } }}>
                   <Box
-                    key={`${h.pos}-${idx}`}
                     draggable={isHeading}
                     onDragStart={isHeading ? (e) => handleDragStart(e, idx) : undefined}
                     onDragOver={isHeading ? (e) => handleDragOver(e, idx) : undefined}
@@ -287,10 +287,7 @@ export function OutlinePanel({
                           flexShrink: 0,
                         }}
                       >
-                        {isFolded
-                          ? <KeyboardArrowRightIcon sx={{ fontSize: 16 }} />
-                          : <KeyboardArrowDownIcon sx={{ fontSize: 16 }} />
-                        }
+                        <KeyboardArrowDownIcon sx={{ fontSize: 16, transition: "transform 0.15s", "@media (prefers-reduced-motion: reduce)": { transition: "none" }, transform: isFolded ? "rotate(-90deg)" : "rotate(0deg)" }} />
                       </IconButton>
                     ) : (
                       <Box sx={{ display: "flex", alignItems: "center", mr: 0.5, color: theme.palette.text.disabled, flexShrink: 0 }}>
@@ -363,6 +360,7 @@ export function OutlinePanel({
                       )}
                     </Box>
                   </Box>
+                  </Collapse>
                 );
               })}
               {/* 末尾ドロップゾーン */}
