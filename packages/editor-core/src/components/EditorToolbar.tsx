@@ -56,6 +56,13 @@ const FOCUSABLE_SELECTOR = 'button:not([disabled]), [role="button"]:not([disable
 const TOOLTIP_SHORTCUTS: Record<string, string> = {
   undo: `${modKey}+Z`,
   redo: `${modKey}+Shift+Z`,
+  createNew: `${modKey}+Alt+N`,
+  copy: `${modKey}+Shift+C`,
+  openFile: `${modKey}+O`,
+  saveFile: `${modKey}+S`,
+  saveAsFile: `${modKey}+Shift+S`,
+  upload: `${modKey}+Alt+U`,
+  download: `${modKey}+Alt+E`,
   codeBlock: `${modKey}+Alt+C`,
   image: `${modKey}+Alt+I`,
   horizontalRule: `${modKey}+Alt+R`,
@@ -65,8 +72,9 @@ const TOOLTIP_SHORTCUTS: Record<string, string> = {
   sourceMode: `${modKey}+Alt+S`,
   normalMode: `${modKey}+Alt+M`,
   compareMode: `${modKey}+Alt+M`,
-  openFile: `${modKey}+O`,
-  saveFile: `${modKey}+S`,
+  foldAll: `${modKey}+Alt+F`,
+  unfoldAll: `${modKey}+Alt+F`,
+  outline: `${modKey}+Alt+O`,
 };
 
 /** ツールチップにショートカットキーを付加 */
@@ -299,7 +307,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
 
           {/* Desktop: individual file buttons */}
           <Box sx={{ display: { xs: "none", sm: "contents" } }}>
-            <Tooltip title={t("createNew")}>
+            <Tooltip title={tip(t, "createNew")}>
               <IconButton
                 size="small"
                 aria-label={t("createNew")}
@@ -308,7 +316,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
                 <DescriptionIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title={copied ? t("copied") : t("copy")}>
+            <Tooltip title={copied ? t("copied") : tip(t, "copy")}>
               <IconButton
                 size="small"
                 aria-label={copied ? t("copied") : t("copy")}
@@ -341,7 +349,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
                     </IconButton>
                   </span>
                 </Tooltip>
-                <Tooltip title={t("saveAsFile")}>
+                <Tooltip title={tip(t, "saveAsFile")}>
                   <IconButton
                     size="small"
                     aria-label={t("saveAsFile")}
@@ -356,7 +364,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
                 <Tooltip title={t("fileApiNotSupported")}>
                   <InfoOutlinedIcon sx={{ fontSize: 16, color: "text.disabled", mx: 0.25 }} />
                 </Tooltip>
-                <Tooltip title={t("upload")}>
+                <Tooltip title={tip(t, "upload")}>
                   <IconButton
                     size="small"
                     aria-label={t("upload")}
@@ -365,7 +373,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
                     <FileUploadIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
-                <Tooltip title={t("download")}>
+                <Tooltip title={tip(t, "download")}>
                   <IconButton
                     size="small"
                     aria-label={t("download")}
@@ -492,7 +500,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
 
       {/* Collapse/Expand all blocks */}
       {editorState?.hasBlocks && (
-        <Tooltip title={editorState.allBlocksCollapsed ? t("unfoldAll") : t("foldAll")}>
+        <Tooltip title={editorState.allBlocksCollapsed ? tip(t, "unfoldAll") : tip(t, "foldAll")}>
           <span>
           <IconButton
             size="small"
@@ -527,7 +535,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
       )}
 
       {/* Outline toggle (lg 以上のみ表示) */}
-      <Tooltip title={t("outline")}>
+      <Tooltip title={tip(t, "outline")}>
         <span>
         <IconButton aria-label={t("outline")}
           size="small"
