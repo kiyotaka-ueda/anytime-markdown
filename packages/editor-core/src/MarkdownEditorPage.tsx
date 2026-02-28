@@ -120,7 +120,6 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   const locale = useLocale() as "en" | "ja";
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isMd = useMediaQuery(theme.breakpoints.up("md"));
-  const isLg = useMediaQuery(theme.breakpoints.up("lg"));
   const {
     initialContent,
     loading,
@@ -379,7 +378,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     rightFileOps, setRightFileOps,
     handleMerge,
   } = useMergeMode({
-    editor, sourceMode, isLg, outlineOpen, handleToggleOutline,
+    editor, sourceMode, isMd, outlineOpen, handleToggleOutline,
     onCompareModeChange, t, setLiveMessage,
   });
 
@@ -467,6 +466,52 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     );
   }
 
+  // Outline panel JSX (shared between normal & merge modes)
+  const outlineSidePanel = outlineOpen && isMd ? (
+    <OutlinePanel
+      outlineWidth={outlineWidth}
+      setOutlineWidth={setOutlineWidth}
+      editorHeight={editorHeight}
+      headings={headings}
+      foldedIndices={foldedIndices}
+      hiddenByFold={hiddenByFold}
+      foldAll={foldAll}
+      unfoldAll={unfoldAll}
+      toggleFold={toggleFold}
+      handleOutlineClick={handleOutlineClick}
+      handleOutlineResizeStart={handleOutlineResizeStart}
+      onHeadingDragEnd={handleHeadingDragEnd}
+      onOutlineDelete={handleOutlineDelete}
+      t={t}
+    />
+  ) : null;
+
+  const outlineDrawer = !isMd ? (
+    <Drawer
+      anchor="left"
+      open={outlineOpen}
+      onClose={handleToggleOutline}
+      slotProps={{ paper: { sx: { width: 280 } } }}
+    >
+      <OutlinePanel
+        outlineWidth={280}
+        setOutlineWidth={setOutlineWidth}
+        editorHeight={editorHeight}
+        headings={headings}
+        foldedIndices={foldedIndices}
+        hiddenByFold={hiddenByFold}
+        foldAll={foldAll}
+        unfoldAll={unfoldAll}
+        toggleFold={toggleFold}
+        handleOutlineClick={(pos: number) => { handleOutlineClick(pos); handleToggleOutline(); }}
+        handleOutlineResizeStart={handleOutlineResizeStart}
+        onHeadingDragEnd={handleHeadingDragEnd}
+        onOutlineDelete={handleOutlineDelete}
+        t={t}
+      />
+    </Drawer>
+  ) : null;
+
   return (
     <EditorSettingsContext.Provider value={settings}>
     <PlantUmlToolbarContext.Provider value={plantUmlToolbarCtx}>
@@ -539,6 +584,10 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         hideFileOps={hideFileOps}
         hideUndoRedo={hideUndoRedo}
         hideMoreMenu={hideHelp && hideVersionInfo && hideSettings}
+        hideSettings={hideSettings}
+        hideVersionInfo={hideVersionInfo}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenVersionDialog={() => setVersionDialogOpen(true)}
         onLoadRightFile={rightFileOps?.loadFile}
         onExportRightFile={rightFileOps?.exportFile}
         onAnnounce={setLiveMessage}
@@ -613,49 +662,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         >
           {(leftBgGradient, leftDiffLines, onMerge, onHoverLine) => (
           <Box component="main" ref={editorContainerRef} sx={{ display: "flex", gap: 0, height: "100%" }}>
-            {outlineOpen && isMd && (
-              <OutlinePanel
-                outlineWidth={outlineWidth}
-                setOutlineWidth={setOutlineWidth}
-                editorHeight={editorHeight}
-                headings={headings}
-                foldedIndices={foldedIndices}
-                hiddenByFold={hiddenByFold}
-                foldAll={foldAll}
-                unfoldAll={unfoldAll}
-                toggleFold={toggleFold}
-                handleOutlineClick={handleOutlineClick}
-                handleOutlineResizeStart={handleOutlineResizeStart}
-                onHeadingDragEnd={handleHeadingDragEnd}
-                onOutlineDelete={handleOutlineDelete}
-                t={t}
-              />
-            )}
-            {!isMd && (
-              <Drawer
-                anchor="left"
-                open={outlineOpen}
-                onClose={handleToggleOutline}
-                slotProps={{ paper: { sx: { width: 280 } } }}
-              >
-                <OutlinePanel
-                  outlineWidth={280}
-                  setOutlineWidth={setOutlineWidth}
-                  editorHeight={editorHeight}
-                  headings={headings}
-                  foldedIndices={foldedIndices}
-                  hiddenByFold={hiddenByFold}
-                  foldAll={foldAll}
-                  unfoldAll={unfoldAll}
-                  toggleFold={toggleFold}
-                  handleOutlineClick={(id) => { handleOutlineClick(id); handleToggleOutline(); }}
-                  handleOutlineResizeStart={handleOutlineResizeStart}
-                  onHeadingDragEnd={handleHeadingDragEnd}
-                  onOutlineDelete={handleOutlineDelete}
-                  t={t}
-                />
-              </Drawer>
-            )}
+            {outlineSidePanel}
+            {outlineDrawer}
             <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
               <MergeEditorPanel
                 sourceMode={sourceMode}
@@ -678,50 +686,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         </InlineMergeView>
       ) : (
       <Box component="main" ref={editorContainerRef} sx={{ display: "flex", gap: 0 }}>
-        {/* Outline panel - side panel on lg+, drawer on smaller */}
-        {outlineOpen && isMd && (
-          <OutlinePanel
-            outlineWidth={outlineWidth}
-            setOutlineWidth={setOutlineWidth}
-            editorHeight={editorHeight}
-            headings={headings}
-            foldedIndices={foldedIndices}
-            hiddenByFold={hiddenByFold}
-            foldAll={foldAll}
-            unfoldAll={unfoldAll}
-            toggleFold={toggleFold}
-            handleOutlineClick={handleOutlineClick}
-            handleOutlineResizeStart={handleOutlineResizeStart}
-            onHeadingDragEnd={handleHeadingDragEnd}
-            onOutlineDelete={handleOutlineDelete}
-            t={t}
-          />
-        )}
-        {!isMd && (
-          <Drawer
-            anchor="left"
-            open={outlineOpen}
-            onClose={handleToggleOutline}
-            slotProps={{ paper: { sx: { width: 280 } } }}
-          >
-            <OutlinePanel
-              outlineWidth={280}
-              setOutlineWidth={setOutlineWidth}
-              editorHeight={editorHeight}
-              headings={headings}
-              foldedIndices={foldedIndices}
-              hiddenByFold={hiddenByFold}
-              foldAll={foldAll}
-              unfoldAll={unfoldAll}
-              toggleFold={toggleFold}
-              handleOutlineClick={(id) => { handleOutlineClick(id); handleToggleOutline(); }}
-              handleOutlineResizeStart={handleOutlineResizeStart}
-              onHeadingDragEnd={handleHeadingDragEnd}
-              onOutlineDelete={handleOutlineDelete}
-              t={t}
-            />
-          </Drawer>
-        )}
+        {outlineSidePanel}
+        {outlineDrawer}
 
         {/* Editor */}
         <Box sx={{ flex: 1, minWidth: 0 }}>
