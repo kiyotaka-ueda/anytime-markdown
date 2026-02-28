@@ -73,8 +73,9 @@ export function StatusBar({ editor, sourceMode, sourceText, t, fileName, isDirty
         </Typography>
       </Box>
       {fileName && (
-        <Typography variant="caption" sx={{ ml: 1, opacity: 0.7 }} aria-label={isDirty ? `${fileName} (${t("unsavedChanges")})` : fileName || undefined}>
-          {fileName}{isDirty ? " *" : ""}
+        <Typography variant="caption" sx={{ ml: 1, color: "text.secondary" }} aria-label={isDirty ? `${fileName} (${t("unsavedChanges")})` : fileName || undefined}>
+          {fileName}
+          {isDirty && <Typography component="span" variant="caption" sx={{ color: "warning.main", ml: 0.5 }}>*</Typography>}
         </Typography>
       )}
       <Box sx={{ flex: 1 }} />

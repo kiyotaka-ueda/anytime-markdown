@@ -80,7 +80,8 @@ describe("StatusBar", () => {
       <StatusBar editor={editor} t={t} fileName="note.md" isDirty={true} />,
     );
 
-    expect(screen.getByText("note.md *")).toBeTruthy();
+    expect(screen.getByText("note.md")).toBeTruthy();
+    expect(screen.getByText("*")).toBeTruthy();
   });
 
   test("isDirtyがfalseの場合、ダーティインジケータを表示しない", () => {
@@ -90,7 +91,7 @@ describe("StatusBar", () => {
     );
 
     expect(screen.getByText("note.md")).toBeTruthy();
-    expect(screen.queryByText("note.md *")).toBeNull();
+    expect(screen.queryByText("*")).toBeNull();
   });
 
   test("fileNameが未指定の場合、ファイル名エリアを表示しない", () => {
