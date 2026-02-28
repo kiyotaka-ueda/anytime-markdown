@@ -1,7 +1,9 @@
 "use client";
 
 import ClearIcon from "@mui/icons-material/Clear";
+import DoneAllIcon from "@mui/icons-material/DoneAll";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import FindReplaceIcon from "@mui/icons-material/FindReplace";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
@@ -86,7 +88,7 @@ export function SearchReplaceBar({ editor, t }: SearchReplaceBarProps) {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
         editor.commands.setSearchTerm(value);
-      }, 300);
+      }, 200);
     },
     [editor],
   );
@@ -275,7 +277,7 @@ export function SearchReplaceBar({ editor, t }: SearchReplaceBarProps) {
                   disabled={resultCount === 0}
                   sx={{ p: 0.25 }}
                 >
-                  <Typography aria-hidden="true" sx={{ fontSize: "0.65rem", fontWeight: 700, lineHeight: 1 }}>1</Typography>
+                  <FindReplaceIcon sx={{ fontSize: 16 }} />
                 </IconButton>
               </span>
             </Tooltip>
@@ -288,7 +290,7 @@ export function SearchReplaceBar({ editor, t }: SearchReplaceBarProps) {
                   disabled={resultCount === 0}
                   sx={{ p: 0.25 }}
                 >
-                  <Typography aria-hidden="true" sx={{ fontSize: "0.65rem", fontWeight: 700, lineHeight: 1 }}>*</Typography>
+                  <DoneAllIcon sx={{ fontSize: 16 }} />
                 </IconButton>
               </span>
             </Tooltip>

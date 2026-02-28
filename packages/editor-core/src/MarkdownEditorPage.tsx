@@ -322,6 +322,17 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     return () => { editor.off("update", handler); };
   }, [editor, markDirty]);
 
+  // H-03: 未保存変更の beforeunload 警告
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
+
   const {
     copied, fileInputRef, handleClear, handleFileSelected,
     handleDownload, handleImport, handleCopy,

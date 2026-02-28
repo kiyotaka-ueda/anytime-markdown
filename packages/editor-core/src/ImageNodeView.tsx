@@ -11,6 +11,7 @@ import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import CloseIcon from "@mui/icons-material/Close";
 import UnfoldLessIcon from "@mui/icons-material/UnfoldLess";
 import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import { useTranslations } from "next-intl";
 
 const iconSx = { fontSize: 16 };
@@ -181,7 +182,11 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
             >
               {alt}
             </Typography>
-          ) : null}
+          ) : (
+            <Tooltip title={t("imageNoAltWarning")} placement="top">
+              <WarningAmberIcon sx={{ fontSize: 14, color: "warning.main" }} />
+            </Tooltip>
+          )}
           <Typography
             variant="caption"
             sx={{ color: "text.disabled", fontSize: "0.65rem", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}
@@ -258,7 +263,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
             <img
               ref={imgRef}
               src={src}
-              alt={alt || ""}
+              alt={alt || t("imageNoAlt")}
               title={title || undefined}
               style={fullscreen
                 ? { maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" }

@@ -1,6 +1,8 @@
 "use client";
 
 import ClearIcon from "@mui/icons-material/Clear";
+import DoneAllIcon from "@mui/icons-material/DoneAll";
+import FindReplaceIcon from "@mui/icons-material/FindReplace";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import {
@@ -209,7 +211,7 @@ export function FsSearchBar({ search, t }: FsSearchBarProps) {
             disabled={resultCount === 0}
             sx={{ p: 0.25 }}
           >
-            <Typography aria-hidden="true" sx={{ fontSize: "0.65rem", fontWeight: 700, lineHeight: 1 }}>1</Typography>
+            <FindReplaceIcon sx={{ fontSize: 16 }} />
           </IconButton>
         </span>
       </Tooltip>
@@ -222,7 +224,7 @@ export function FsSearchBar({ search, t }: FsSearchBarProps) {
             disabled={resultCount === 0}
             sx={{ p: 0.25 }}
           >
-            <Typography aria-hidden="true" sx={{ fontSize: "0.65rem", fontWeight: 700, lineHeight: 1 }}>*</Typography>
+            <DoneAllIcon sx={{ fontSize: 16 }} />
           </IconButton>
         </span>
       </Tooltip>
