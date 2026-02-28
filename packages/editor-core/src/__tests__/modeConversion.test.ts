@@ -1,4 +1,4 @@
-import { sanitizeMarkdown } from "../utils/sanitizeMarkdown";
+import { sanitizeMarkdown, preserveBlankLines, restoreBlankLines } from "../utils/sanitizeMarkdown";
 import { getMarkdownFromEditor } from "../types";
 import { createTestEditor } from "../testUtils/createTestEditor";
 import type { Editor } from "@tiptap/core";
@@ -426,5 +426,61 @@ describe("ラウンドトリップ: 複合要素", () => {
     expect(result).toContain("|");
     expect(result).toContain("1");
     expect(result).toContain("2");
+  });
+});
+
+// ---------- preserveBlankLines / restoreBlankLines ----------
+
+describe("preserveBlankLines", () => {
+  test("3つ以上の改行を ZWSP マーカー段落に変換する", () => {
+    const input = "text1\n\n\n\ntext2";
+    const result = preserveBlankLines(input);
+    expect(result).toContain("\u200B");
+    // 標準の段落区切り \n\n + ZWSP段落 2つ
+    expect(result).toBe("text1\n\n\u200B\n\n\u200B\n\ntext2");
+  });
+
+  test("2つの改行（通常の段落区切り）はそのまま", () => {
+    const input = "text1\n\ntext2";
+    expect(preserveBlankLines(input)).toBe(input);
+  });
+
+  test("コードブロック内の連続改行は保持する", () => {
+    const input = "text\n\n```\ncode\n\n\n\ncode\n```\n\ntext";
+    const result = preserveBlankLines(input);
+    expect(result).toContain("code\n\n\n\ncode");
+  });
+});
+
+describe("restoreBlankLines", () => {
+  test("ZWSP マーカーを除去して空行を復元する", () => {
+    const input = "text1\n\n\u200B\n\n\u200B\n\ntext2";
+    expect(restoreBlankLines(input)).toBe("text1\n\n\n\ntext2");
+  });
+
+  test("ZWSP がなければそのまま返す", () => {
+    const input = "text1\n\ntext2";
+    expect(restoreBlankLines(input)).toBe(input);
+  });
+});
+
+describe("空行保持ラウンドトリップ", () => {
+  let editor: Editor;
+  afterEach(() => editor?.destroy());
+
+  test("連続空行が保持される", () => {
+    const md = "paragraph1\n\n\n\nparagraph2";
+    editor = createTestEditor({ withMarkdown: true });
+    editor.commands.setContent(preserveBlankLines(md));
+    const result = getMarkdownFromEditor(editor);
+    expect(result).toBe("paragraph1\n\n\n\nparagraph2");
+  });
+
+  test("見出し間の連続空行が保持される", () => {
+    const md = "# Heading1\n\n\n\n## Heading2";
+    editor = createTestEditor({ withMarkdown: true });
+    editor.commands.setContent(preserveBlankLines(md));
+    const result = getMarkdownFromEditor(editor);
+    expect(result).toBe("# Heading1\n\n\n\n## Heading2");
   });
 });

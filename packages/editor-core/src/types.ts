@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { Editor } from "@tiptap/react";
+import { restoreBlankLines } from "./utils/sanitizeMarkdown";
 
 /** tiptap-markdown serializer state (minimal interface) */
 export interface MdSerializerState {
@@ -21,11 +22,13 @@ export interface MarkdownStorage {
 
 /** tiptap-markdown の storage から markdown を取得するヘルパー */
 export function getMarkdownFromEditor(editor: Editor): string {
-  const md = (editor.storage as unknown as MarkdownStorage).markdown.getMarkdown();
+  let md = (editor.storage as unknown as MarkdownStorage).markdown.getMarkdown();
   // tiptap-markdown の image シリアライザは closeBlock() を呼ばないため、
   // 画像直後のコードフェンスとの間に改行が出力されないことがある。
   // 改行が0個または1個の場合に空行（\n\n）を補完する。
-  return md.replace(/([^\n])\n?(```)/gm, "$1\n\n$2");
+  md = md.replace(/([^\n])\n?(```)/gm, "$1\n\n$2");
+  // ZWSP マーカー段落を除去し、元の空行を復元する
+  return restoreBlankLines(md);
 }
 
 export type OutlineKind = "heading" | "codeBlock" | "table" | "plantuml" | "mermaid" | "image";

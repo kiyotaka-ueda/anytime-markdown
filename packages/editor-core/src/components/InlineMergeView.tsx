@@ -29,6 +29,7 @@ import { useMergeDiff } from "../hooks/useMergeDiff";
 import { useEditorSettingsContext } from "../useEditorSettings";
 import { MergeEditorPanel } from "./MergeEditorPanel";
 import { getMarkdownFromEditor } from "../types";
+import { preserveBlankLines } from "../utils/sanitizeMarkdown";
 import { computeInlineDiff, type DiffLine, type DiffResult, type InlineSegment } from "../utils/diffEngine";
 
 export interface MergeUndoRedo {
@@ -354,7 +355,7 @@ export function InlineMergeView({
     }
     if (rightEditor && !sourceMode) {
       isProgrammaticUpdate.current = true;
-      rightEditor.commands.setContent(rightText);
+      rightEditor.commands.setContent(preserveBlankLines(rightText));
       isProgrammaticUpdate.current = false;
     }
   }, [rightText, rightEditor, sourceMode]);
@@ -364,7 +365,7 @@ export function InlineMergeView({
   useEffect(() => {
     if (prevSourceMode.current && !sourceMode && rightEditor) {
       isProgrammaticUpdate.current = true;
-      rightEditor.commands.setContent(rightText);
+      rightEditor.commands.setContent(preserveBlankLines(rightText));
       isProgrammaticUpdate.current = false;
     }
     prevSourceMode.current = sourceMode;
