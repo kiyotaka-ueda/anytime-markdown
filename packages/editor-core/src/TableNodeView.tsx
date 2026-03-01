@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import type { NodeViewProps } from "@tiptap/react";
 import { NodeViewWrapper, NodeViewContent, useEditorState } from "@tiptap/react";
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, ToggleButton, ToggleButtonGroup, Tooltip, Typography, useTheme } from "@mui/material";
+import FocusTrap from "@mui/material/Unstable_TrapFocus";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import ViewColumnIcon from "@mui/icons-material/ViewColumn";
 import TableRowsIcon from "@mui/icons-material/TableRows";
@@ -48,7 +49,15 @@ export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeVi
 
   return (
     <NodeViewWrapper>
+      <FocusTrap open={fullscreen}>
       <Box
+        {...(fullscreen && {
+          role: "dialog" as const,
+          "aria-modal": true,
+          "aria-label": t("tableLabel"),
+          onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Escape") setFullscreen(false); },
+        })}
+        tabIndex={fullscreen ? -1 : undefined}
         sx={{
           border: 1,
           borderColor: "divider",
@@ -254,6 +263,7 @@ export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeVi
           <NodeViewContent as={"table" as any} />
         </Box>
       </Box>
+      </FocusTrap>
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
         <DialogTitle>{t("delete")}</DialogTitle>
         <DialogContent><Typography>{t("clearConfirm")}</Typography></DialogContent>

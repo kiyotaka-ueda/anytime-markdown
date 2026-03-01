@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import type { NodeViewProps } from "@tiptap/react";
 import { NodeViewWrapper, useEditorState } from "@tiptap/react";
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, Tooltip, Typography, useTheme } from "@mui/material";
+import FocusTrap from "@mui/material/Unstable_TrapFocus";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditIcon from "@mui/icons-material/Edit";
@@ -133,7 +134,16 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
 
   return (
     <NodeViewWrapper>
-      <Box sx={{
+      <FocusTrap open={fullscreen}>
+      <Box
+        {...(fullscreen && {
+          role: "dialog" as const,
+          "aria-modal": true,
+          "aria-label": t("image"),
+          onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Escape") setFullscreen(false); },
+        })}
+        tabIndex={fullscreen ? -1 : undefined}
+        sx={{
         border: 1, borderRadius: fullscreen ? 0 : 1, overflow: "hidden", my: fullscreen ? 0 : 1,
         borderColor: showToolbar ? "divider" : "transparent",
         ...(fullscreen && {
@@ -336,6 +346,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
           </Box>
         )}
       </Box>
+      </FocusTrap>
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
         <DialogTitle>{t("delete")}</DialogTitle>
         <DialogContent><Typography>{t("clearConfirm")}</Typography></DialogContent>
