@@ -260,7 +260,7 @@ export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeVi
 
         {/* Table body */}
         <Box sx={collapsed ? { height: 0, overflow: "hidden" } : { overflow: "auto", ...(fullscreen && { flex: 1 }) }}>
-          <NodeViewContent as={"table" as any} />
+          <NodeViewContent<"table"> as="table" />
         </Box>
       </Box>
       </FocusTrap>

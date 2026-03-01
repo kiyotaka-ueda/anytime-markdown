@@ -13,6 +13,7 @@ import {
   slashCommandItems,
   filterSlashItems,
 } from "../extensions/slashCommandItems";
+import type { VirtualElement } from "@popperjs/core";
 import type { TranslationFn } from "../types";
 
 interface SlashCommandMenuProps {
@@ -154,7 +155,7 @@ export const SlashCommandMenu = React.memo(function SlashCommandMenu({
   return (
     <Popper
       open
-      anchorEl={virtualAnchor as any}
+      anchorEl={virtualAnchor as VirtualElement}
       placement="bottom-start"
       role="listbox"
       aria-label={t("slashCommandPlaceholder")}

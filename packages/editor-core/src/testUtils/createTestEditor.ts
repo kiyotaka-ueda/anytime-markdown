@@ -1,4 +1,4 @@
-import { Editor } from "@tiptap/core";
+import { Editor, type Extensions } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { TableKit } from "@tiptap/extension-table";
 import { Markdown } from "tiptap-markdown";
@@ -20,8 +20,7 @@ export function createTestEditor({
   withTable = false,
   withMarkdown = false,
 }: CreateTestEditorOptions = {}): Editor {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const extensions: any[] = [
+  const extensions: Extensions = [
     StarterKit.configure({
       heading: { levels: [1, 2, 3, 4, 5] },
       // withMarkdown 時は Link/Underline を個別設定で追加するため StarterKit 側を無効化

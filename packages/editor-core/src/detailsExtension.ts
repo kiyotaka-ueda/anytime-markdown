@@ -1,4 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+import type { MarkdownSerializerState } from "@tiptap/pm/markdown";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import { DetailsNodeView } from "./DetailsNodeView";
 
@@ -25,7 +27,7 @@ export const DetailsSummary = Node.create({
   addStorage() {
     return {
       markdown: {
-        serialize(state: any, node: any) {
+        serialize(state: MarkdownSerializerState, node: ProseMirrorNode) {
           state.write("<summary>");
           state.text(node.textContent, false);
           state.write("</summary>\n\n");
@@ -57,7 +59,7 @@ export const Details = Node.create({
   addStorage() {
     return {
       markdown: {
-        serialize(state: any, node: any) {
+        serialize(state: MarkdownSerializerState, node: ProseMirrorNode) {
           state.write("<details>\n");
           state.renderContent(node);
           state.ensureNewLine();

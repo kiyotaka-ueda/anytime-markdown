@@ -1,5 +1,5 @@
 import { Extension } from "@tiptap/core";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Plugin, PluginKey, type EditorState } from "@tiptap/pm/state";
 
 export interface SlashCommandState {
   active: boolean;
@@ -51,7 +51,7 @@ export const SlashCommandExtension = Extension.create<{
       notify();
     };
 
-    const isValidContext = (state: any, pos: number): boolean => {
+    const isValidContext = (state: EditorState, pos: number): boolean => {
       const $pos = state.doc.resolve(pos);
       // Must be inside a paragraph (not codeBlock, table, etc.)
       if ($pos.parent.type.name !== "paragraph") return false;
