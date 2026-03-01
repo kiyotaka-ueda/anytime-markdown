@@ -2,14 +2,18 @@
 
 import dynamic from "next/dynamic";
 import {
+  Alert,
+  Backdrop,
   Box,
   CircularProgress,
   Paper,
+  Snackbar,
   Typography,
   useMediaQuery,
   useTheme,
 } from "@mui/material";
 import { getEditorPaperSx } from "./styles/editorStyles";
+import { PrintStyles } from "./styles/printStyles";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useMemo, useRef } from "react";
@@ -26,6 +30,8 @@ import { EditorToolbar } from "./components/EditorToolbar";
 import { SearchReplaceBar } from "./components/SearchReplaceBar";
 import { EditorMenuPopovers } from "./components/EditorMenuPopovers";
 import { EditorBubbleMenu } from "./components/EditorBubbleMenu";
+import { SlashCommandMenu } from "./components/SlashCommandMenu";
+import type { SlashCommandState } from "./extensions/slashCommandExtension";
 import type { MergeUndoRedo } from "./components/InlineMergeView";
 
 const InlineMergeView = dynamic(
@@ -99,11 +105,13 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   const setHeadingsRef = useRef<(h: HeadingItem[]) => void>(() => {});
   const headingsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleImportRef = useRef<(f: File) => void>(() => {});
+  const slashCommandCallbackRef = useRef<(state: SlashCommandState) => void>(() => {});
 
   const editorConfig = useEditorConfig({
     t, initialContent, saveContent,
     editorRef, setEditorMarkdownRef, setHeadingsRef,
     headingsDebounceRef, handleImportRef, setHeadingMenu,
+    slashCommandCallbackRef,
   });
   const editor = useEditor(editorConfig, [initialContent]);
   editorRef.current = editor;
@@ -136,9 +144,11 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   } = useFileSystem(fileSystemProvider ?? null);
 
   const {
-    copied, fileInputRef, handleClear, handleFileSelected,
+    notification, setNotification, pdfExporting,
+    fileInputRef, handleClear, handleFileSelected,
     handleDownload, handleImport, handleCopy,
     handleOpenFile, handleSaveFile, handleSaveAsFile,
+    handleExportPdf,
   } = useEditorFileOps({
     editor, sourceMode, sourceText, setSourceText,
     saveContent, downloadMarkdown, clearContent,
@@ -185,7 +195,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   // PlantUML/Mermaid 編集中はMarkdownツールバーを無効化
   const isInDiagramBlock = !!plantUmlFloating;
 
-  const { handleToggleAllBlocks, handleToggleDiagramCode } = useEditorBlockActions({ editor });
+  const { handleToggleAllBlocks } = useEditorBlockActions({ editor });
 
   useEditorShortcuts({
     editor, sourceMode, appendToSource,
@@ -225,6 +235,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   return (
     <EditorSettingsContext.Provider value={settings}>
     <PlantUmlToolbarContext.Provider value={plantUmlToolbarCtx}>
+    <PrintStyles />
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
       {/* Skip link (WCAG 2.4.1) */}
       <Box
@@ -266,12 +277,9 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         isInDiagramBlock={isInDiagramBlock}
         onImage={handleImage}
         onToggleAllBlocks={handleToggleAllBlocks}
-        onToggleDiagramCode={handleToggleDiagramCode}
-        onCopy={handleCopy}
         onDownload={handleDownload}
         onImport={() => fileInputRef.current?.click()}
         onClear={handleClear}
-        copied={copied}
         onSetDiagramAnchor={setDiagramAnchorEl}
         onSetTemplateAnchor={setTemplateAnchorEl}
         onSetHelpAnchor={setHelpAnchorEl}
@@ -284,6 +292,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         onSwitchToWysiwyg={handleSwitchToWysiwyg}
         onSourceInsertHr={() => appendToSource("\n---\n")}
         onSourceInsertCodeBlock={() => appendToSource("\n```\n\n```\n")}
+        onSourceInsertHtmlBlock={() => appendToSource("\n```html\n\n```\n")}
         onSourceInsertTable={() => appendToSource("\n| Header | Header | Header |\n| ------ | ------ | ------ |\n|        |        |        |\n|        |        |        |\n")}
         mergeUndoRedo={inlineMergeOpen ? mergeUndoRedo : null}
         onOpenFile={handleOpenFile}
@@ -300,6 +309,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         onOpenVersionDialog={() => setVersionDialogOpen(true)}
         onLoadRightFile={rightFileOps?.loadFile}
         onExportRightFile={rightFileOps?.exportFile}
+        onExportPdf={handleExportPdf}
         onAnnounce={setLiveMessage}
         t={t}
       />
@@ -427,6 +437,11 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         <EditorBubbleMenu editor={editor} onLink={handleLink} t={t} />
       )}
 
+      {/* Slash command menu */}
+      {editor && !sourceMode && (
+        <SlashCommandMenu editor={editor} t={t} slashCommandCallbackRef={slashCommandCallbackRef} />
+      )}
+
       {/* Status bar */}
       {editor && <StatusBar editor={editor} sourceMode={sourceMode} sourceText={sourceText} t={t} fileName={fileName} isDirty={isDirty} />}
 
@@ -454,6 +469,27 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         hideVersionInfo={hideVersionInfo}
         t={t}
       />
+
+      <Backdrop open={pdfExporting} sx={{ zIndex: (theme) => theme.zIndex.modal + 1, flexDirection: "column", gap: 2 }}>
+        <CircularProgress color="inherit" />
+        <Typography variant="body2" color="inherit">{t("pdfPreparing")}</Typography>
+      </Backdrop>
+
+      <Snackbar
+        open={notification !== null}
+        autoHideDuration={3000}
+        onClose={() => setNotification(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          onClose={() => setNotification(null)}
+          severity="success"
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          {notification && t(notification)}
+        </Alert>
+      </Snackbar>
 
     </Box>
     </PlantUmlToolbarContext.Provider>

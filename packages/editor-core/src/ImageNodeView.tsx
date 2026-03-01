@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import type { NodeViewProps } from "@tiptap/react";
 import { NodeViewWrapper, useEditorState } from "@tiptap/react";
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, Tooltip, Typography, useTheme } from "@mui/material";
+import FocusTrap from "@mui/material/Unstable_TrapFocus";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditIcon from "@mui/icons-material/Edit";
@@ -12,6 +13,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import UnfoldLessIcon from "@mui/icons-material/UnfoldLess";
 import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import { useTranslations } from "next-intl";
 
 const iconSx = { fontSize: 16 };
@@ -132,7 +134,16 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
 
   return (
     <NodeViewWrapper>
-      <Box sx={{
+      <FocusTrap open={fullscreen}>
+      <Box
+        {...(fullscreen && {
+          role: "dialog" as const,
+          "aria-modal": true,
+          "aria-label": t("image"),
+          onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Escape") setFullscreen(false); },
+        })}
+        tabIndex={fullscreen ? -1 : undefined}
+        sx={{
         border: 1, borderRadius: fullscreen ? 0 : 1, overflow: "hidden", my: fullscreen ? 0 : 1,
         borderColor: showToolbar ? "divider" : "transparent",
         ...(fullscreen && {
@@ -186,7 +197,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
             </Tooltip>
           )}
           <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary", flexShrink: 0 }}>
-            Image
+            {t("image")}
           </Typography>
           <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
           {alt ? (
@@ -208,7 +219,8 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
             {src?.startsWith("data:") ? "(base64)" : src ? `(${src})` : ""}
           </Typography>
           {imgError && (
-            <Typography variant="caption" sx={{ color: "error.main", fontSize: "0.65rem", fontWeight: 600, flexShrink: 0 }}>
+            <Typography variant="caption" sx={{ color: "error.main", fontSize: "0.65rem", fontWeight: 600, flexShrink: 0, display: "flex", alignItems: "center", gap: 0.25 }}>
+              <ErrorOutlineIcon sx={{ fontSize: 14 }} />
               {t("imageNotFound")}
             </Typography>
           )}
@@ -234,7 +246,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
           {imgSize && !collapsed && (<>
             <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
             <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.65rem", fontFamily: "monospace", whiteSpace: "nowrap", flexShrink: 0 }}>
-              {imgSize.w}×{imgSize.h} / original {imgSize.nw}×{imgSize.nh}
+              {imgSize.w}×{imgSize.h} / {t("imageOriginalSize")} {imgSize.nw}×{imgSize.nh}
             </Typography>
           </>)}
 
@@ -273,7 +285,6 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
             onPointerMove={handleResizePointerMove}
             onPointerUp={handleResizePointerUp}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               ref={imgRef}
               src={src}
@@ -334,6 +345,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
           </Box>
         )}
       </Box>
+      </FocusTrap>
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
         <DialogTitle>{t("delete")}</DialogTitle>
         <DialogContent><Typography>{t("clearConfirm")}</Typography></DialogContent>

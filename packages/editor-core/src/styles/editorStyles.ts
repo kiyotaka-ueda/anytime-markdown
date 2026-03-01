@@ -178,7 +178,7 @@ export function getEditorPaperSx(
         fontSize: "0.875em",
       },
       "& pre": {
-        bgcolor: theme.palette.mode === "dark" ? theme.palette.grey[900] : theme.palette.grey[100],
+        bgcolor: theme.palette.background.paper,
         border: 1,
         borderColor: theme.palette.mode === "dark" ? theme.palette.action.hover : "transparent",
         borderRadius: 1,

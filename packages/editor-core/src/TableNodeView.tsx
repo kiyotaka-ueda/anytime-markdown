@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import type { NodeViewProps } from "@tiptap/react";
 import { NodeViewWrapper, NodeViewContent, useEditorState } from "@tiptap/react";
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, ToggleButton, ToggleButtonGroup, Tooltip, Typography, useTheme } from "@mui/material";
+import FocusTrap from "@mui/material/Unstable_TrapFocus";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import ViewColumnIcon from "@mui/icons-material/ViewColumn";
 import TableRowsIcon from "@mui/icons-material/TableRows";
@@ -48,7 +49,15 @@ export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeVi
 
   return (
     <NodeViewWrapper>
+      <FocusTrap open={fullscreen}>
       <Box
+        {...(fullscreen && {
+          role: "dialog" as const,
+          "aria-modal": true,
+          "aria-label": t("tableLabel"),
+          onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Escape") setFullscreen(false); },
+        })}
+        tabIndex={fullscreen ? -1 : undefined}
         sx={{
           border: 1,
           borderColor: "divider",
@@ -59,7 +68,7 @@ export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeVi
             position: "fixed",
             inset: 0,
             zIndex: 1300,
-            bgcolor: theme.palette.mode === "dark" ? "grey.900" : "background.paper",
+            bgcolor: "background.paper",
             display: "flex",
             flexDirection: "column",
           }),
@@ -77,6 +86,8 @@ export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeVi
         {/* Header toolbar */}
         <Box
           data-block-toolbar=""
+          role="toolbar"
+          aria-label={t("tableToolbar")}
           sx={{
             bgcolor: "action.hover",
             px: 0.75,
@@ -118,7 +129,7 @@ export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeVi
             </Tooltip>
           )}
           <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary", mr: 0.5 }}>
-            Table
+            {t("tableLabel")}
           </Typography>
 
           <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
@@ -249,9 +260,10 @@ export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeVi
 
         {/* Table body */}
         <Box sx={collapsed ? { height: 0, overflow: "hidden" } : { overflow: "auto", ...(fullscreen && { flex: 1 }) }}>
-          <NodeViewContent as={"table" as any} />
+          <NodeViewContent<"table"> as="table" />
         </Box>
       </Box>
+      </FocusTrap>
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
         <DialogTitle>{t("delete")}</DialogTitle>
         <DialogContent><Typography>{t("clearConfirm")}</Typography></DialogContent>

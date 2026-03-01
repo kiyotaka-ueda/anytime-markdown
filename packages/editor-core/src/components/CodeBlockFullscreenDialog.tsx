@@ -69,7 +69,7 @@ export function CodeBlockFullscreenDialog({
           lineHeight: settings.lineHeight,
           p: 2,
           color: "text.primary",
-          bgcolor: isDark ? "grey.900" : "grey.50",
+          bgcolor: "background.paper",
           boxSizing: "border-box",
           overflow: "auto",
         }}

@@ -110,7 +110,7 @@ describe("useEditorFileOps", () => {
     expect(result.current.handleOpenFile).toBeInstanceOf(Function);
     expect(result.current.handleSaveFile).toBeInstanceOf(Function);
     expect(result.current.handleSaveAsFile).toBeInstanceOf(Function);
-    expect(result.current.copied).toBe(false);
+    expect(result.current.notification).toBe(null);
     expect(result.current.fileInputRef).toBeDefined();
   });
 
@@ -370,7 +370,7 @@ describe("useEditorFileOps", () => {
 
   // ---- handleCopy ----
 
-  test("handleCopy: クリップボードにコピーし copied を一時的に true にする", async () => {
+  test("handleCopy: クリップボードにコピーし notification を copiedToClipboard にする", async () => {
     mockedGetMarkdown.mockReturnValue("# Copy");
     const writeText = jest.fn().mockResolvedValue(undefined);
     Object.assign(navigator, {
@@ -384,6 +384,6 @@ describe("useEditorFileOps", () => {
     });
 
     expect(writeText).toHaveBeenCalledWith("# Copy");
-    expect(result.current.copied).toBe(true);
+    expect(result.current.notification).toBe("copiedToClipboard");
   });
 });

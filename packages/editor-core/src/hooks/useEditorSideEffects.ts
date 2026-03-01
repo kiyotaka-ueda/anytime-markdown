@@ -51,5 +51,5 @@ export function useEditorSideEffects({
     };
     window.addEventListener('vscode-set-content', handler);
     return () => window.removeEventListener('vscode-set-content', handler);
-  }, [editor]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [editor]);
 }

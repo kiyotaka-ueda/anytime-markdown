@@ -150,7 +150,7 @@ export function DiagramFullscreenDialog({
                 lineHeight: settings.lineHeight,
                 p: 2,
                 color: "text.primary",
-                bgcolor: isDark ? "grey.900" : "grey.50",
+                bgcolor: "background.paper",
                 boxSizing: "border-box",
                 overflow: "auto",
               }}
@@ -181,7 +181,7 @@ export function DiagramFullscreenDialog({
           sx={{
             flex: 1,
             overflow: "hidden",
-            bgcolor: isDark ? "grey.900" : "background.paper",
+            bgcolor: "background.paper",
             cursor: fsDragging ? "col-resize" : "grab",
             "&:active": { cursor: fsDragging ? "col-resize" : "grabbing" },
             // Prevent iframe/textarea stealing pointer events during drag
@@ -192,11 +192,10 @@ export function DiagramFullscreenDialog({
         >
           <Box sx={{ width: "100%", height: "100%", display: "flex", justifyContent: "center", alignItems: "center", transform: `translate(${fsZP.pan.x}px, ${fsZP.pan.y}px) scale(${fsZP.zoom})`, transformOrigin: "center center", transition: fsZP.isPanningRef.current ? "none" : "transform 0.15s", "@media (prefers-reduced-motion: reduce)": { transition: "none" }, pointerEvents: "none" }}>
             {isMermaid && svg && (
-              <Box role="img" aria-label={t(detectMermaidType(code))} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(svg, SVG_SANITIZE_CONFIG) }} />
+              <Box role="img" aria-label={t(detectMermaidType(code))} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(svg, SVG_SANITIZE_CONFIG) }} sx={{ width: "100%", "& svg": { width: "100%", height: "auto" } }} />
             )}
             {isPlantUml && plantUmlUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={plantUmlUrl} alt={t("plantUmlDiagram")} style={{ maxWidth: "90vw", maxHeight: "85vh" }} />
+              <img src={plantUmlUrl} alt={t("plantUmlDiagram")} referrerPolicy="no-referrer" style={{ maxWidth: "90vw", maxHeight: "85vh" }} />
             )}
           </Box>
         </Box>

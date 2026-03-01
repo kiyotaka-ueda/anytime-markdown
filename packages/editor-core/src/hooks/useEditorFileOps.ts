@@ -1,10 +1,15 @@
 import { useCallback, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { Editor } from "@tiptap/react";
+import { useTheme } from "@mui/material";
 import { useTranslations } from "next-intl";
 import useConfirm from "@/hooks/useConfirm";
 import { getMarkdownFromEditor, type MarkdownStorage } from "../types";
 import { sanitizeMarkdown, preserveBlankLines } from "../utils/sanitizeMarkdown";
+import DOMPurify from "dompurify";
+import { SVG_SANITIZE_CONFIG } from "./useMermaidRender";
+import { PLANTUML_SERVER } from "../utils/plantumlHelpers";
+import plantumlEncoder from "plantuml-encoder";
 
 interface UseEditorFileOpsParams {
   editor: Editor | null;
@@ -20,6 +25,8 @@ interface UseEditorFileOpsParams {
   resetFile?: () => void;
 }
 
+export type NotificationKey = "copiedToClipboard" | "fileSaved" | null;
+
 export function useEditorFileOps({
   editor,
   sourceMode,
@@ -33,10 +40,20 @@ export function useEditorFileOps({
   saveAsFile,
   resetFile,
 }: UseEditorFileOpsParams) {
-  const [copied, setCopied] = useState(false);
+  const [notification, setNotification] = useState<NotificationKey>(null);
+  const [pdfExporting, setPdfExporting] = useState(false);
+  const notificationTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const confirm = useConfirm();
   const t = useTranslations("MarkdownEditor");
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+
+  const showNotification = useCallback((key: NotificationKey) => {
+    clearTimeout(notificationTimerRef.current);
+    setNotification(key);
+    notificationTimerRef.current = setTimeout(() => setNotification(null), 3000);
+  }, []);
 
   const handleClear = useCallback(async () => {
     try {
@@ -104,9 +121,8 @@ export function useEditorFileOps({
   const handleCopy = useCallback(async () => {
     const md = sourceMode ? sourceText : editor ? getMarkdownFromEditor(editor) : "";
     await navigator.clipboard.writeText(md);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [sourceMode, sourceText, editor]);
+    showNotification("copiedToClipboard");
+  }, [sourceMode, sourceText, editor, showNotification]);
 
   const handleOpenFile = useCallback(async () => {
     if (!openFile) return;
@@ -141,16 +157,127 @@ export function useEditorFileOps({
     if (!saveFile) return;
     const md = sourceMode ? sourceText : editor ? getMarkdownFromEditor(editor) : "";
     await saveFile(md);
-  }, [saveFile, editor, sourceMode, sourceText]);
+    showNotification("fileSaved");
+  }, [saveFile, editor, sourceMode, sourceText, showNotification]);
 
   const handleSaveAsFile = useCallback(async () => {
     if (!saveAsFile) return;
     const md = sourceMode ? sourceText : editor ? getMarkdownFromEditor(editor) : "";
     await saveAsFile(md);
-  }, [saveAsFile, editor, sourceMode, sourceText]);
+    showNotification("fileSaved");
+  }, [saveAsFile, editor, sourceMode, sourceText, showNotification]);
+
+  const handleExportPdf = useCallback(async () => {
+    if (typeof window === "undefined" || !editor) {
+      if (typeof window !== "undefined") window.print();
+      return;
+    }
+    setPdfExporting(true);
+    // 印刷前に折りたたまれたブロックを一時展開
+    const collapsedPositions: number[] = [];
+    editor.state.doc.descendants((node, pos) => {
+      if (node.attrs.collapsed) {
+        collapsedPositions.push(pos);
+      }
+    });
+    if (collapsedPositions.length > 0) {
+      const tr = editor.state.tr;
+      for (const pos of collapsedPositions) {
+        tr.setNodeAttribute(pos, "collapsed", false);
+      }
+      editor.view.dispatch(tr);
+    }
+
+    // ダークモード時、印刷用にライトテーマで図を差し替え
+    const diagramRestores: (() => void)[] = [];
+    if (isDark) {
+      // Mermaid: ライトテーマで再レンダリング
+      const mermaidWrappers = document.querySelectorAll<HTMLElement>("[data-node-view-wrapper]");
+      try {
+        const mermaidMod = await import("mermaid");
+        const mermaid = mermaidMod.default;
+        mermaid.initialize({ startOnLoad: false, suppressErrorRendering: true, theme: "default" });
+        let renderIdx = 0;
+        for (const wrapper of mermaidWrappers) {
+          const imgBox = wrapper.querySelector<HTMLElement>("[role='img']");
+          const svgEl = imgBox?.querySelector("svg");
+          if (!imgBox || !svgEl) continue;
+          // コードブロックからソースを取得
+          const codeEl = wrapper.querySelector("code");
+          const code = codeEl?.textContent?.trim();
+          if (!code) continue;
+          const originalHTML = imgBox.innerHTML;
+          try {
+            const id = `print-mermaid-${++renderIdx}`;
+            const { svg: lightSvg } = await mermaid.render(id, code);
+            const innerDiv = imgBox.querySelector<HTMLElement>(":scope > div");
+            if (innerDiv) {
+              innerDiv.innerHTML = DOMPurify.sanitize(lightSvg, SVG_SANITIZE_CONFIG);
+            }
+            diagramRestores.push(() => { imgBox.innerHTML = originalHTML; });
+          } catch {
+            // レンダリング失敗時はスキップ
+          }
+        }
+        // レンダリング後にダークテーマに戻す
+        mermaid.initialize({ startOnLoad: false, suppressErrorRendering: true, theme: "dark" });
+      } catch {
+        // mermaid 未ロード時はスキップ
+      }
+      // 一時的なレンダリング用要素を削除
+      document.querySelectorAll('[id^="dprint-mermaid-"]').forEach((el) => el.remove());
+
+      // PlantUML: ダークスキンパラムなしの URL に差し替え、画像ロード完了を待つ
+      const pumlImgs = document.querySelectorAll<HTMLImageElement>("[data-node-view-wrapper] img[src*='plantuml']");
+      const pumlLoadPromises: Promise<void>[] = [];
+      for (const img of pumlImgs) {
+        const originalSrc = img.src;
+        const wrapperEl = img.closest("[data-node-view-wrapper]");
+        const codeEl = wrapperEl?.querySelector("code");
+        const code = codeEl?.textContent?.trim();
+        if (!code) continue;
+        try {
+          const startMatch = code.match(/@start(uml|mindmap|wbs|json|yaml)/);
+          const src = startMatch ? code : `@startuml\n${code}\n@enduml`;
+          const encoded = plantumlEncoder.encode(src);
+          const newUrl = `${PLANTUML_SERVER}/svg/${encoded}`;
+          pumlLoadPromises.push(new Promise<void>((resolve) => {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+            img.src = newUrl;
+          }));
+          diagramRestores.push(() => { img.src = originalSrc; });
+        } catch {
+          // エンコード失敗時はスキップ
+        }
+      }
+      if (pumlLoadPromises.length > 0) {
+        await Promise.all(pumlLoadPromises);
+      }
+    }
+
+    // 再レンダーを待ってから印刷
+    const needsDelay = collapsedPositions.length > 0 || diagramRestores.length > 0;
+    const delay = needsDelay ? 300 : 0;
+    setTimeout(() => {
+      window.print();
+      // 復元
+      for (const restore of diagramRestores) restore();
+      if (collapsedPositions.length > 0) {
+        const tr = editor.state.tr;
+        for (const pos of collapsedPositions) {
+          tr.setNodeAttribute(pos, "collapsed", true);
+        }
+        editor.view.dispatch(tr);
+      }
+      setPdfExporting(false);
+    }, delay);
+  }, [editor, isDark]);
 
   return {
-    copied,
+    notification,
+    setNotification,
+    pdfExporting,
     fileInputRef,
     handleClear,
     handleFileSelected,
@@ -160,5 +287,6 @@ export function useEditorFileOps({
     handleOpenFile,
     handleSaveFile,
     handleSaveAsFile,
+    handleExportPdf,
   };
 }

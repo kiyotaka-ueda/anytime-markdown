@@ -17,6 +17,12 @@ export const metadata: Metadata = {
     statusBarStyle: 'default',
     title: 'Anytime Markdown',
   },
+  openGraph: {
+    title: 'Anytime Markdown',
+    description: 'A rich markdown editor powered by Tiptap',
+    type: 'website',
+    siteName: 'Anytime Markdown',
+  },
 };
 
 export const viewport: Viewport = {

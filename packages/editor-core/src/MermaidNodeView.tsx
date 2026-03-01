@@ -3,20 +3,16 @@
 import type { NodeViewProps } from "@tiptap/react";
 import { NodeViewContent, NodeViewWrapper, useEditorState } from "@tiptap/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, ToggleButton, ToggleButtonGroup, Tooltip, Typography, useTheme } from "@mui/material";
-import CodeIcon from "@mui/icons-material/Code";
-import CodeOffIcon from "@mui/icons-material/CodeOff";
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, Tooltip, Typography, useTheme } from "@mui/material";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
 import UnfoldLessIcon from "@mui/icons-material/UnfoldLess";
 import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
-import ZoomInIcon from "@mui/icons-material/ZoomIn";
-import ZoomOutIcon from "@mui/icons-material/ZoomOut";
-import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import SchemaIcon from "@mui/icons-material/Schema";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import DOMPurify from "dompurify";
 import { useTranslations } from "next-intl";
@@ -28,10 +24,35 @@ import { useDiagramCapture } from "./hooks/useDiagramCapture";
 import { CodeBlockFullscreenDialog } from "./components/CodeBlockFullscreenDialog";
 import { DiagramFullscreenDialog } from "./components/DiagramFullscreenDialog";
 import { MermaidSamplePopover } from "./components/MermaidSamplePopover";
+import { HtmlSamplePopover } from "./components/HtmlSamplePopover";
 import { useZoomPan } from "./hooks/useZoomPan";
+import { useDiagramResize } from "./hooks/useDiagramResize";
 import { useTextareaSearch } from "./hooks/useTextareaSearch";
 
 const pumlIconSx = { fontSize: 16 };
+
+const HTML_SANITIZE_CONFIG = {
+  ALLOWED_TAGS: [
+    "div", "span", "p", "br", "hr",
+    "h1", "h2", "h3", "h4", "h5", "h6",
+    "ul", "ol", "li",
+    "table", "thead", "tbody", "tfoot", "tr", "th", "td", "caption", "colgroup", "col",
+    "strong", "em", "b", "i", "u", "s", "code", "pre", "sub", "sup", "mark", "small",
+    "a", "img",
+    "form", "input", "select", "option", "textarea", "button", "label", "fieldset", "legend",
+    "details", "summary", "blockquote", "figure", "figcaption",
+    "nav", "header", "footer", "main", "section", "article", "aside",
+    "dl", "dt", "dd",
+  ],
+  ALLOWED_ATTR: [
+    "class", "style", "id",
+    "href", "src", "alt", "title", "target", "rel",
+    "type", "name", "value", "placeholder", "for",
+    "colspan", "rowspan", "width", "height",
+    "rows", "open",
+  ],
+  ALLOW_DATA_ATTR: false,
+};
 
 export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: NodeViewProps) {
   const theme = useTheme();
@@ -40,6 +61,7 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
   const language = node.attrs.language;
   const isMermaid = language === "mermaid";
   const isPlantUml = language === "plantuml";
+  const isHtml = language === "html";
   const isDiagram = isMermaid || isPlantUml;
   const settings = useEditorSettingsContext();
   const { setSampleAnchorEl } = usePlantUmlToolbar();
@@ -47,13 +69,20 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const allCollapsed = !!node.attrs.collapsed;
   const codeCollapsed = !!node.attrs.codeCollapsed;
-  const toggleAllCollapsed = useCallback(() => updateAttributes({ collapsed: !allCollapsed }), [allCollapsed, updateAttributes]);
+  const toggleAllCollapsed = useCallback(() => updateAttributes(allCollapsed ? { collapsed: false, codeCollapsed: false } : { collapsed: true }), [allCollapsed, updateAttributes]);
   const [mermaidSampleAnchorEl, setMermaidSampleAnchorEl] = useState<HTMLElement | null>(null);
+  const [htmlSampleAnchorEl, setHtmlSampleAnchorEl] = useState<HTMLElement | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [fsCodeVisible, setFsCodeVisible] = useState(true);
   const [fsCode, setFsCode] = useState("");
   const normalZP = useZoomPan();
   const fsZP = useZoomPan();
+  const diagramResize = useDiagramResize({
+    width: node.attrs.width,
+    updateAttributes,
+    onResizeEnd: normalZP.reset,
+  });
+  const [diagramSize, setDiagramSize] = useState<{ w: number; h: number } | null>(null);
   const fsTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isSelected = useEditorState({
@@ -67,6 +96,21 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
     },
   });
 
+  const selectNode = useCallback(() => {
+    if (!editor || typeof getPos !== "function") return;
+    const pos = getPos();
+    if (pos == null) return;
+    editor.commands.setTextSelection(pos + 1);
+    if (codeCollapsed) updateAttributes({ codeCollapsed: false });
+  }, [editor, getPos, codeCollapsed, updateAttributes]);
+
+  // 選択解除時にコードを折りたたむ
+  useEffect(() => {
+    if (!isSelected && !codeCollapsed) {
+      updateAttributes({ codeCollapsed: true });
+    }
+  }, [isSelected]);
+
   const code = node.textContent;
 
   const { svg, error: mermaidError, setError: setMermaidError } = useMermaidRender({ code, isMermaid, isDark });
@@ -76,12 +120,27 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
   } = usePlantUmlRender({ code, isPlantUml, isDark });
   const error = isMermaid ? mermaidError : plantUmlError;
 
-  const handleCapture = useDiagramCapture({ isMermaid, isPlantUml, svg, plantUmlUrl });
+  const handleCapture = useDiagramCapture({ isMermaid, isPlantUml, svg, plantUmlUrl, code, isDark });
+  const handleCopyCode = useCallback(() => { navigator.clipboard.writeText(code); }, [code]);
+  const diagramScale = settings.fontSize / 16;
+
+  // ダイアグラムコンテナのサイズを追跡
+  useEffect(() => {
+    const container = diagramResize.containerRef.current;
+    if (!container) { setDiagramSize(null); return; }
+    const update = () => {
+      const rect = container.getBoundingClientRect();
+      setDiagramSize({ w: Math.round(rect.width), h: Math.round(rect.height) });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [svg, plantUmlUrl, allCollapsed]);
 
   // 全画面オープン時にコードを同期
   useEffect(() => {
     if (fullscreen) setFsCode(code);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fullscreen]);
 
   /** 全画面コードエディタの変更をTipTapノードに反映 */
@@ -132,6 +191,138 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
     const to = pos + node.nodeSize;
     editor.chain().focus().command(({ tr }) => { tr.delete(from, to); return true; }).run();
   }, [editor, getPos, node.nodeSize]);
+
+  // HTML preview block
+  if (isHtml) {
+    return (
+      <NodeViewWrapper>
+        <Box sx={{
+          border: 1, borderRadius: 1, overflow: "hidden", my: 1,
+          borderColor: (allCollapsed || isSelected) ? "divider" : "transparent",
+          ...(!allCollapsed && !isSelected && {
+            "& > [data-block-toolbar]": {
+              maxHeight: 0, opacity: 0, py: 0, overflow: "hidden",
+            },
+          }),
+        }}>
+          <Box
+            data-block-toolbar=""
+            sx={{ bgcolor: "action.hover", px: 0.75, py: 0.25, display: "flex", alignItems: "center", gap: 0.25 }}
+            contentEditable={false}
+          >
+            {/* Drag handle */}
+            <Box
+              data-drag-handle=""
+              sx={{ cursor: "grab", display: "flex", alignItems: "center", opacity: 0.5, "&:hover": { opacity: 1 } }}
+            >
+              <DragIndicatorIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+            </Box>
+            {/* Collapse/Expand */}
+            <Tooltip title={allCollapsed ? t("unfoldAll") : t("foldAll")} placement="top">
+              <IconButton size="small" sx={{ p: 0.25 }} onClick={toggleAllCollapsed} aria-label={allCollapsed ? t("unfoldAll") : t("foldAll")}>
+                {allCollapsed ? <UnfoldMoreIcon sx={{ fontSize: 16, color: "text.secondary" }} /> : <UnfoldLessIcon sx={{ fontSize: 16, color: "text.secondary" }} />}
+              </IconButton>
+            </Tooltip>
+            {/* Fullscreen */}
+            {!allCollapsed && (
+              <Tooltip title={t("fullscreen")} placement="top">
+                <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setFullscreen(true)} aria-label={t("fullscreen")}>
+                  <FullscreenIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+                </IconButton>
+              </Tooltip>
+            )}
+            {/* Label */}
+            <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary" }}>
+              {t("htmlPreview")}
+            </Typography>
+            {/* HTML サンプル挿入 */}
+            {!allCollapsed && (<>
+              <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
+              <Tooltip title={t("insertSample")} placement="top">
+                <IconButton size="small" sx={{ p: 0.25 }} onClick={(e) => setHtmlSampleAnchorEl(e.currentTarget)} aria-label={t("insertSample")}>
+                  <SchemaIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+                </IconButton>
+              </Tooltip>
+              <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
+            </>)}
+
+            <Box sx={{ flex: 1 }} />
+
+            {!allCollapsed && (<>
+              <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
+
+              {/* Copy code */}
+              <Tooltip title={t("copyCode")} placement="top">
+                <IconButton size="small" sx={{ p: 0.25 }} onClick={handleCopyCode} aria-label={t("copyCode")}>
+                  <ContentCopyIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+                </IconButton>
+              </Tooltip>
+
+              {/* Delete */}
+              <Tooltip title={t("delete")} placement="top">
+                <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setDeleteDialogOpen(true)} aria-label={t("delete")}>
+                  <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Tooltip>
+            </>)}
+          </Box>
+          {/* Code editor with collapse support */}
+          <Box
+            component="pre"
+            spellCheck={false}
+            sx={allCollapsed
+              ? { position: "absolute", width: 0, height: 0, overflow: "hidden", opacity: 0, pointerEvents: "none" }
+              : {
+                  m: 0, p: 1.5, fontSize: `${settings.fontSize}px`, lineHeight: settings.lineHeight, bgcolor: isDark ? "grey.900" : "grey.50",
+                  maxHeight: codeCollapsed ? 0 : 200, overflow: codeCollapsed ? "hidden" : "auto",
+                  py: codeCollapsed ? 0 : 1.5, px: codeCollapsed ? 0 : 1.5,
+                  opacity: codeCollapsed ? 0 : 1, transition: "max-height 0.2s, padding 0.2s, opacity 0.15s",
+                  "@media (prefers-reduced-motion: reduce)": { transition: "none" },
+                }
+            }
+          >
+            {/* @ts-expect-error Tiptap NodeViewContent as prop type is too restrictive */}
+            <NodeViewContent as="code" />
+          </Box>
+          {/* HTML Preview */}
+          {!allCollapsed && (
+            <Box
+              contentEditable={false}
+              onClick={selectNode}
+              sx={{ p: 2, bgcolor: "background.paper", borderTop: 1, borderColor: "divider", overflow: "auto", maxHeight: 400, "& img": { maxWidth: "100%" } }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(code, HTML_SANITIZE_CONFIG) }}
+            />
+          )}
+        </Box>
+        {/* Fullscreen dialog */}
+        <CodeBlockFullscreenDialog
+          open={fullscreen}
+          onClose={() => { fsSearch.reset(); setFullscreen(false); }}
+          label={t("htmlPreview")}
+          fsCode={fsCode}
+          onFsCodeChange={handleFsCodeChange}
+          fsTextareaRef={fsTextareaRef}
+          fsSearch={fsSearch}
+          t={t}
+        />
+        <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+          <DialogTitle>{t("delete")}</DialogTitle>
+          <DialogContent><Typography>{t("clearConfirm")}</Typography></DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDeleteDialogOpen(false)}>{t("cancel")}</Button>
+            <Button color="error" variant="contained" onClick={() => { setDeleteDialogOpen(false); handleDeleteBlock(); }}>{t("delete")}</Button>
+          </DialogActions>
+        </Dialog>
+        {/* HTML サンプル選択 Popover */}
+        <HtmlSamplePopover
+          anchorEl={htmlSampleAnchorEl}
+          onClose={() => setHtmlSampleAnchorEl(null)}
+          editor={editor}
+          t={t}
+        />
+      </NodeViewWrapper>
+    );
+  }
 
   // Regular code block
   if (!isDiagram) {
@@ -227,7 +418,7 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
     );
   }
 
-  const label = isMermaid ? "Mermaid" : "PlantUML";
+  const label = isMermaid ? t("mermaid") : t("plantuml");
 
   return (
     <NodeViewWrapper>
@@ -290,32 +481,6 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
             <>
               <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
 
-              {/* Zoom */}
-              <ToggleButtonGroup size="small" sx={{ height: 24 }}>
-                <ToggleButton value="zoomOut" aria-label={t("zoomOut")} sx={{ px: 0.5, py: 0.125 }} onClick={normalZP.zoomOut}>
-                  <Tooltip title={t("zoomOut")} placement="top">
-                    <ZoomOutIcon sx={{ fontSize: 16 }} />
-                  </Tooltip>
-                </ToggleButton>
-                <ToggleButton value="zoomIn" aria-label={t("zoomIn")} sx={{ px: 0.5, py: 0.125 }} onClick={normalZP.zoomIn}>
-                  <Tooltip title={t("zoomIn")} placement="top">
-                    <ZoomInIcon sx={{ fontSize: 16 }} />
-                  </Tooltip>
-                </ToggleButton>
-                {normalZP.isDirty && (
-                  <ToggleButton value="zoomReset" aria-label={t("zoomReset")} sx={{ px: 0.5, py: 0.125 }} onClick={normalZP.reset}>
-                    <Tooltip title={t("zoomReset")} placement="top">
-                      <RestartAltIcon sx={{ fontSize: 16 }} />
-                    </Tooltip>
-                  </ToggleButton>
-                )}
-              </ToggleButtonGroup>
-              <Typography variant="caption" sx={{ color: "text.secondary", minWidth: 36, textAlign: "center", fontSize: "0.7rem" }}>
-                {Math.round(normalZP.zoom * 100)}%
-              </Typography>
-
-              <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
-
               {/* Mermaid サンプル挿入 */}
               {isMermaid && (
                 <Tooltip title={t("insertSample")} placement="top">
@@ -340,25 +505,22 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
 
           <Box sx={{ flex: 1 }} />
 
-          {/* Collapse/Expand (code only, right-aligned) */}
-          {!allCollapsed && (
-            <>
-              <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
-              <Tooltip title={codeCollapsed ? t("diagramCodeShow") : t("diagramCodeHide")} placement="top">
-                <IconButton
-                  size="small"
-                  onClick={() => updateAttributes({ codeCollapsed: !codeCollapsed })}
-                  sx={{ p: 0.25 }}
-                  aria-label={codeCollapsed ? t("diagramCodeShow") : t("diagramCodeHide")}
-                >
-                  {codeCollapsed
-                    ? <CodeIcon sx={{ fontSize: 16, color: "text.secondary" }} />
-                    : <CodeOffIcon sx={{ fontSize: 16, color: "text.secondary" }} />}
-                </IconButton>
-              </Tooltip>
-              <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
-            </>
-          )}
+          {/* Diagram size display */}
+          {diagramSize && !allCollapsed && (<>
+            <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
+            <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.65rem", fontFamily: "monospace", whiteSpace: "nowrap", flexShrink: 0 }}>
+              {diagramSize.w}×{diagramSize.h}
+            </Typography>
+          </>)}
+
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
+
+          {/* Copy code */}
+          <Tooltip title={t("copyCode")} placement="top">
+            <IconButton size="small" sx={{ p: 0.25 }} onClick={handleCopyCode} aria-label={t("copyCode")}>
+              <ContentCopyIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+            </IconButton>
+          </Tooltip>
 
           {/* Capture (hidden when collapsed, shown when diagram exists) */}
           {!allCollapsed && (svg || plantUmlUrl) && (
@@ -405,19 +567,49 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
           <>
             {isMermaid && svg && (
               <Box
+                ref={diagramResize.containerRef}
                 role="img"
                 aria-label={t(detectMermaidType(code))}
-                sx={{ overflow: "hidden", bgcolor: "background.paper", cursor: "grab", "&:active": { cursor: "grabbing" } }}
+                sx={{ overflow: "hidden", bgcolor: "background.paper", position: "relative", width: diagramResize.displayWidth || "fit-content", maxWidth: "100%", cursor: diagramResize.resizing ? "nwse-resize" : "grab", "&:active": { cursor: diagramResize.resizing ? "nwse-resize" : "grabbing" } }}
                 contentEditable={false}
+                onClick={selectNode}
                 onPointerDown={normalZP.handlePointerDown}
-                onPointerMove={normalZP.handlePointerMove}
-                onPointerUp={normalZP.handlePointerUp}
+                onPointerMove={(e) => diagramResize.resizing ? diagramResize.handlePointerMove(e) : normalZP.handlePointerMove(e)}
+                onPointerUp={() => diagramResize.resizing ? diagramResize.handlePointerUp() : normalZP.handlePointerUp()}
                 onWheel={normalZP.handleWheel}
               >
                 <Box
-                  sx={{ p: 2, display: "flex", justifyContent: "center", transform: `translate(${normalZP.pan.x}px, ${normalZP.pan.y}px) scale(${normalZP.zoom})`, transformOrigin: "top center", transition: normalZP.isPanningRef.current ? "none" : "transform 0.15s", "@media (prefers-reduced-motion: reduce)": { transition: "none" }, pointerEvents: "none" }}
+                  sx={{ p: 2, display: "flex", justifyContent: "flex-start", zoom: diagramScale, transform: `translate(${normalZP.pan.x}px, ${normalZP.pan.y}px) scale(${normalZP.zoom})`, transformOrigin: "top left", transition: normalZP.isPanningRef.current ? "none" : "transform 0.15s", "@media (prefers-reduced-motion: reduce)": { transition: "none" }, pointerEvents: "none" }}
                   dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(svg, SVG_SANITIZE_CONFIG) }}
                 />
+                {isSelected && (
+                  <Box
+                    role="slider"
+                    tabIndex={0}
+                    aria-label={t("resizeDiagram")}
+                    aria-valuemin={diagramResize.MIN_WIDTH}
+                    aria-valuemax={800}
+                    aria-valuenow={parseInt(node.attrs.width, 10) || undefined}
+                    onPointerDown={diagramResize.handlePointerDown}
+                    onKeyDown={diagramResize.handleKeyDown}
+                    sx={{
+                      position: "absolute", right: 0, bottom: 0, width: 16, height: 16,
+                      cursor: "nwse-resize", bgcolor: "primary.main", opacity: 0.7, borderTopLeftRadius: 4,
+                      "&:hover": { opacity: 1 },
+                      "&:focus-visible": { opacity: 1, outline: "2px solid", outlineColor: "primary.main", outlineOffset: 1 },
+                      clipPath: "polygon(100% 0, 100% 100%, 0 100%)",
+                    }}
+                  />
+                )}
+                {diagramResize.resizing && diagramResize.resizeWidth !== null && (
+                  <Box sx={{
+                    position: "absolute", bottom: 4, left: "50%", transform: "translateX(-50%)",
+                    bgcolor: "rgba(0,0,0,0.7)", color: "white", px: 1, py: 0.25,
+                    borderRadius: 1, fontSize: "0.7rem", fontFamily: "monospace", pointerEvents: "none",
+                  }}>
+                    {diagramResize.resizeWidth}px
+                  </Box>
+                )}
               </Box>
             )}
             {isPlantUml && plantUmlConsent !== "accepted" && (
@@ -440,17 +632,46 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
             )}
             {isPlantUml && plantUmlUrl && (
               <Box
-                sx={{ overflow: "hidden", bgcolor: isDark ? "grey.900" : "background.paper", cursor: "grab", "&:active": { cursor: "grabbing" } }}
+                ref={diagramResize.containerRef}
+                sx={{ overflow: "hidden", bgcolor: "background.paper", position: "relative", width: diagramResize.displayWidth || "fit-content", maxWidth: "100%", cursor: diagramResize.resizing ? "nwse-resize" : "grab", "&:active": { cursor: diagramResize.resizing ? "nwse-resize" : "grabbing" } }}
                 contentEditable={false}
+                onClick={selectNode}
                 onPointerDown={normalZP.handlePointerDown}
-                onPointerMove={normalZP.handlePointerMove}
-                onPointerUp={normalZP.handlePointerUp}
+                onPointerMove={(e) => diagramResize.resizing ? diagramResize.handlePointerMove(e) : normalZP.handlePointerMove(e)}
+                onPointerUp={() => diagramResize.resizing ? diagramResize.handlePointerUp() : normalZP.handlePointerUp()}
                 onWheel={normalZP.handleWheel}
               >
-                <Box sx={{ p: 2, display: "flex", justifyContent: "center", transform: `translate(${normalZP.pan.x}px, ${normalZP.pan.y}px) scale(${normalZP.zoom})`, transformOrigin: "top center", transition: normalZP.isPanningRef.current ? "none" : "transform 0.15s", "@media (prefers-reduced-motion: reduce)": { transition: "none" }, pointerEvents: "none" }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={plantUmlUrl} alt={t("plantUmlDiagram")} style={{ maxWidth: "100%" }} />
+                <Box sx={{ p: 2, display: "flex", justifyContent: "flex-start", zoom: diagramScale, transform: `translate(${normalZP.pan.x}px, ${normalZP.pan.y}px) scale(${normalZP.zoom})`, transformOrigin: "top left", transition: normalZP.isPanningRef.current ? "none" : "transform 0.15s", "@media (prefers-reduced-motion: reduce)": { transition: "none" }, pointerEvents: "none" }}>
+                  <img src={plantUmlUrl} alt={t("plantUmlDiagram")} referrerPolicy="no-referrer" style={{ maxWidth: "100%", height: "auto" }} />
                 </Box>
+                {isSelected && (
+                  <Box
+                    role="slider"
+                    tabIndex={0}
+                    aria-label={t("resizeDiagram")}
+                    aria-valuemin={diagramResize.MIN_WIDTH}
+                    aria-valuemax={800}
+                    aria-valuenow={parseInt(node.attrs.width, 10) || undefined}
+                    onPointerDown={diagramResize.handlePointerDown}
+                    onKeyDown={diagramResize.handleKeyDown}
+                    sx={{
+                      position: "absolute", right: 0, bottom: 0, width: 16, height: 16,
+                      cursor: "nwse-resize", bgcolor: "primary.main", opacity: 0.7, borderTopLeftRadius: 4,
+                      "&:hover": { opacity: 1 },
+                      "&:focus-visible": { opacity: 1, outline: "2px solid", outlineColor: "primary.main", outlineOffset: 1 },
+                      clipPath: "polygon(100% 0, 100% 100%, 0 100%)",
+                    }}
+                  />
+                )}
+                {diagramResize.resizing && diagramResize.resizeWidth !== null && (
+                  <Box sx={{
+                    position: "absolute", bottom: 4, left: "50%", transform: "translateX(-50%)",
+                    bgcolor: "rgba(0,0,0,0.7)", color: "white", px: 1, py: 0.25,
+                    borderRadius: 1, fontSize: "0.7rem", fontFamily: "monospace", pointerEvents: "none",
+                  }}>
+                    {diagramResize.resizeWidth}px
+                  </Box>
+                )}
               </Box>
             )}
             {error && (

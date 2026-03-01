@@ -1,12 +1,18 @@
 import type { RefObject } from "react";
 import { useEffect } from "react";
+import type { AnyExtension } from "@tiptap/core";
 import type { Editor } from "@tiptap/react";
+import type { EditorView } from "@tiptap/pm/view";
+import type { Slice, Node as ProseMirrorNode } from "@tiptap/pm/model";
+import type { MarkdownSerializerState } from "@tiptap/pm/markdown";
 import Placeholder from "@tiptap/extension-placeholder";
 import { getBaseExtensions } from "../editorExtensions";
 import { CustomHardBreak } from "../extensions/customHardBreak";
 import { DeleteLineExtension } from "../extensions/deleteLineExtension";
 import { SearchReplaceExtension } from "../searchReplaceExtension";
 import { Details, DetailsSummary } from "../detailsExtension";
+import { SlashCommandExtension } from "../extensions/slashCommandExtension";
+import type { SlashCommandState } from "../extensions/slashCommandExtension";
 import {
   getMarkdownFromEditor,
   extractHeadings,
@@ -29,6 +35,7 @@ interface UseEditorConfigParams {
   headingsDebounceRef: RefObject<ReturnType<typeof setTimeout> | null>;
   handleImportRef: RefObject<(file: File) => void>;
   setHeadingMenu: (menu: HeadingMenuArg) => void;
+  slashCommandCallbackRef: RefObject<(state: SlashCommandState) => void>;
 }
 
 export function useEditorConfig({
@@ -41,13 +48,14 @@ export function useEditorConfig({
   headingsDebounceRef,
   handleImportRef,
   setHeadingMenu,
+  slashCommandCallbackRef,
 }: UseEditorConfigParams) {
   // Clean up debounce timer on unmount
   useEffect(() => {
     return () => {
       if (headingsDebounceRef.current) clearTimeout(headingsDebounceRef.current);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   return {
     extensions: [
@@ -58,9 +66,12 @@ export function useEditorConfig({
       Details,
       DetailsSummary,
       Placeholder.configure({ placeholder: t("placeholder") }),
+      SlashCommandExtension.configure({
+        onStateChange: (state: SlashCommandState) => slashCommandCallbackRef.current(state),
+      }),
     ],
     editorProps: {
-      handleDrop: (view: any, event: DragEvent, _slice: any, moved: boolean) => {
+      handleDrop: (view: EditorView, event: DragEvent, _slice: Slice, moved: boolean) => {
         if (moved || !event.dataTransfer?.files.length) return false;
         const mdFile = Array.from(event.dataTransfer.files).find((f) => f.name.endsWith(".md") || f.type === "text/markdown");
         if (mdFile) { event.preventDefault(); handleImportRef.current(mdFile); return true; }
@@ -79,7 +90,7 @@ export function useEditorConfig({
         });
         return true;
       },
-      handlePaste: (view: any, event: ClipboardEvent) => {
+      handlePaste: (view: EditorView, event: ClipboardEvent) => {
         const items = event.clipboardData?.items;
         if (!items) return false;
         const images = Array.from(items).filter((item) => item.type.startsWith("image/"));
@@ -100,7 +111,7 @@ export function useEditorConfig({
         return true;
       },
       handleDOMEvents: {
-        click: (_view: any, event: MouseEvent) => {
+        click: (_view: EditorView, event: MouseEvent) => {
           const target = event.target as HTMLElement;
           const headingEl = target.closest("h1, h2, h3, h4, h5") as HTMLElement | null;
           let blockEl: HTMLElement | null = headingEl;
@@ -137,7 +148,7 @@ export function useEditorConfig({
           }
           return false;
         },
-        copy: (view: any, event: ClipboardEvent) => {
+        copy: (view: EditorView, event: ClipboardEvent) => {
           const { $from, $to } = view.state.selection;
           if ($from.parent.type.name === "codeBlock" && $from.sameParent($to)) {
             if (!event.clipboardData) return false;
@@ -147,7 +158,7 @@ export function useEditorConfig({
           }
           return false;
         },
-        cut: (view: any, event: ClipboardEvent) => {
+        cut: (view: EditorView, event: ClipboardEvent) => {
           const { $from, $to } = view.state.selection;
           if ($from.parent.type.name === "codeBlock" && $from.sameParent($to)) {
             if (!event.clipboardData) return false;
@@ -174,9 +185,9 @@ export function useEditorConfig({
       setHeadingsRef.current(extractHeadings(e));
       setEditorMarkdownRef.current(getMarkdownFromEditor(e));
       // 引用ブロックのマークダウン出力で継続行に > を付加しない（lazy blockquote）
-      const bqExt = e.extensionManager.extensions.find((ext: any) => ext.name === "blockquote");
+      const bqExt = e.extensionManager.extensions.find((ext: AnyExtension) => ext.name === "blockquote");
       if (bqExt?.storage?.markdown) {
-        bqExt.storage.markdown.serialize = (state: any, node: any) => {
+        bqExt.storage.markdown.serialize = (state: MarkdownSerializerState, node: ProseMirrorNode) => {
           state.wrapBlock("> ", null, node, () => state.renderContent(node));
         };
       }

@@ -280,7 +280,7 @@ export function OutlinePanel({
                         size="small"
                         onClick={(e) => { e.stopPropagation(); toggleFold(h.headingIndex ?? -1); }}
                         aria-expanded={!isFolded}
-                        aria-label={`${isFolded ? "Expand" : "Collapse"} ${h.text || "(empty)"}`}
+                        aria-label={`${isFolded ? t("expandSection") : t("collapseSection")} ${h.text || "(empty)"}`}
                         sx={{
                           p: 0.5,
                           mr: 0.25,
@@ -383,7 +383,7 @@ export function OutlinePanel({
         role="separator"
         tabIndex={0}
         aria-orientation="vertical"
-        aria-label="Resize outline panel"
+        aria-label={t("resizeOutlinePanel")}
         aria-valuenow={outlineWidth}
         aria-valuemin={150}
         aria-valuemax={500}

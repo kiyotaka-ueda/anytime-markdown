@@ -22,12 +22,13 @@ Switch between Normal Mode and Compare Mode using the toggle button group on the
 
 File operations are available from the toolbar.
 
-| Icon | Action | Description |
-| :--: | ------ | ----------- |
-| ![New](/help/icons/create-new.png) | New | Clear the current content and create a new document. |
-| ![Copy](/help/icons/copy.png) | Copy | Copy the entire document to the clipboard. |
-| ![Import](/help/icons/upload.png) | Import | Load a Markdown file (.md). |
-| ![Download](/help/icons/download.png) | Download | Download the document as a Markdown file (.md). |
+| Icon | Action | Shortcut | Description |
+| :--: | ------ | -------- | ----------- |
+| ![New](/help/icons/create-new.png) | New | | Clear the current content and create a new document. |
+| ![Open](/help/icons/open-file.png) | Open | Ctrl+O | Open a Markdown file (.md) from your device. |
+| ![Save](/help/icons/save.png) | Save | Ctrl+S | Overwrite the currently opened file. |
+| ![Save As](/help/icons/save-as.png) | Save As | Ctrl+Shift+S | Save the document as a new Markdown file (.md). |
+| ![Export PDF](/help/icons/export-pdf.png) | Export as PDF | | Export the document as a PDF file. |
 
 | Icon | Action | Description |
 | :--: | ------ | ----------- |
@@ -63,6 +64,7 @@ Insert block-level elements via the toolbar or keyboard shortcuts.
 | ![Table](/help/icons/table.png) | Table | Ctrl+Alt+T | Insert a 3×3 table. |
 | ![Code Block](/help/icons/code-block.png) | Code Block | Ctrl+Alt+C | Insert a fenced code block with syntax highlighting. |
 | ![Diagram](/help/icons/diagram.png) | Diagram | Ctrl+Alt+D | Insert a Mermaid or PlantUML diagram. |
+| ![HTML](/help/icons/html-block.png) | HTML | Ctrl+Alt+H | Insert an HTML preview block. |
 | ![Template](/help/icons/template.png) | Template | Ctrl+Alt+P | Insert a predefined template. |
 
 ### Table
@@ -104,10 +106,12 @@ Floating toolbar:
 | :--: | ------ | ----------- |
 | ![Fold](/help/icons/fold.png) | Fold/Unfold | Collapse or expand the diagram view. |
 | ![Fullscreen](/help/icons/fullscreen.png) | Fullscreen | View and edit the diagram in fullscreen mode. |
-| ![Code Toggle](/help/icons/code-toggle.png) | Code Show/Hide | Toggle the code editor pane visibility. |
-| ![Zoom Out](/help/icons/zoom-out.png) | Zoom Out | Zoom out the diagram. |
-| ![Zoom In](/help/icons/zoom-in.png) | Zoom In | Zoom in the diagram. |
-| ![Zoom Reset](/help/icons/zoom-reset.png) | Zoom Reset | Reset zoom and pan to the initial state. |
+| ![Sample](/help/icons/sample.png) | Insert Sample | Insert a predefined diagram sample. Opens a popover to choose from available samples. |
+| ![Copy](/help/icons/copy.png) | Copy Code | Copy the diagram source code to the clipboard. |
+| ![Capture](/help/icons/capture.png) | Capture | Export the rendered diagram as a PNG image. |
+| ![Delete](/help/icons/delete.png) | Delete | Delete the diagram block. |
+
+- Zoom, pan, and code editing are available in fullscreen mode.
 
 ### Diagrams (PlantUML)
 
@@ -118,7 +122,26 @@ Create diagrams using PlantUML syntax in a code block.
 - Supported diagram types: Sequence, Class, Use Case, Activity, State, Component, Deployment, ER, and more.
 - PlantUML diagrams are rendered via an external server (plantuml.com). You will be asked for consent before sending diagram code.
 
-The floating toolbar provides the same icons and actions as Mermaid, plus predefined sample insertion and element helpers for arrows, participants, classes, etc.
+The floating toolbar provides the same icons and actions as Mermaid diagrams.
+
+### HTML Preview
+
+Insert and preview HTML content directly within the editor.
+
+![HTML Preview](/help/html.png)
+
+- Write raw HTML in the code editor and see a live preview rendered below.
+- Useful for embedding forms, styled components, and custom layouts that standard Markdown does not support.
+
+Floating toolbar:
+
+| Icon | Action | Description |
+| :--: | ------ | ----------- |
+| ![Fold](/help/icons/fold.png) | Fold/Unfold | Collapse or expand the HTML preview. |
+| ![Fullscreen](/help/icons/fullscreen.png) | Fullscreen | Edit HTML in fullscreen mode. |
+| ![Sample](/help/icons/sample.png) | Insert Sample | Insert a predefined HTML sample (form, table, card, etc.). |
+| ![Copy](/help/icons/copy.png) | Copy Code | Copy the HTML source code to the clipboard. |
+| ![Delete](/help/icons/delete.png) | Delete | Delete the HTML block. |
 
 ### Images
 
