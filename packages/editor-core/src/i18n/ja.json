@@ -12,6 +12,7 @@
     "upload": "アップロード (.md)",
     "download": "ダウンロード (.md)",
     "exportPdf": "PDFとしてエクスポート",
+    "pdfPreparing": "印刷の準備中...",
     "openFile": "開く",
     "saveFile": "上書き保存",
     "saveAsFile": "名前を付けて保存",

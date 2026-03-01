@@ -41,6 +41,7 @@ export function useEditorFileOps({
   resetFile,
 }: UseEditorFileOpsParams) {
   const [notification, setNotification] = useState<NotificationKey>(null);
+  const [pdfExporting, setPdfExporting] = useState(false);
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const confirm = useConfirm();
@@ -171,6 +172,7 @@ export function useEditorFileOps({
       if (typeof window !== "undefined") window.print();
       return;
     }
+    setPdfExporting(true);
     // 印刷前に折りたたまれたブロックを一時展開
     const collapsedPositions: number[] = [];
     editor.state.doc.descendants((node, pos) => {
@@ -268,12 +270,14 @@ export function useEditorFileOps({
         }
         editor.view.dispatch(tr);
       }
+      setPdfExporting(false);
     }, delay);
   }, [editor, isDark]);
 
   return {
     notification,
     setNotification,
+    pdfExporting,
     fileInputRef,
     handleClear,
     handleFileSelected,

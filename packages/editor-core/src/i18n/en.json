@@ -12,6 +12,7 @@
     "upload": "Upload (.md)",
     "download": "Download (.md)",
     "exportPdf": "Export as PDF",
+    "pdfPreparing": "Preparing for print...",
     "openFile": "Open",
     "saveFile": "Save",
     "saveAsFile": "Save As",

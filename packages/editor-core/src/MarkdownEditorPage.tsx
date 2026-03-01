@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import {
   Alert,
+  Backdrop,
   Box,
   CircularProgress,
   Paper,
@@ -143,7 +144,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   } = useFileSystem(fileSystemProvider ?? null);
 
   const {
-    notification, setNotification,
+    notification, setNotification, pdfExporting,
     fileInputRef, handleClear, handleFileSelected,
     handleDownload, handleImport, handleCopy,
     handleOpenFile, handleSaveFile, handleSaveAsFile,
@@ -468,6 +469,11 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         hideVersionInfo={hideVersionInfo}
         t={t}
       />
+
+      <Backdrop open={pdfExporting} sx={{ zIndex: (theme) => theme.zIndex.modal + 1, flexDirection: "column", gap: 2 }}>
+        <CircularProgress color="inherit" />
+        <Typography variant="body2" color="inherit">{t("pdfPreparing")}</Typography>
+      </Backdrop>
 
       <Snackbar
         open={notification !== null}
