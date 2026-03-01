@@ -357,7 +357,13 @@
     "slashMermaid": "Mermaid Diagram",
     "slashPlantUml": "PlantUML Diagram",
     "slashNoResults": "No matching commands",
-    "htmlPreview": "HTML"
+    "htmlPreview": "HTML",
+    "tableLabel": "Table",
+    "tableToolbar": "Table toolbar",
+    "resizeOutlinePanel": "Resize outline panel",
+    "mergeLeftToRight": "Left → Right",
+    "mergeRightToLeft": "Right → Left",
+    "imageOriginalSize": "original"
   },
   "Common": {
     "ok": "OK",

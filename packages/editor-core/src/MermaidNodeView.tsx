@@ -419,7 +419,7 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
     );
   }
 
-  const label = isMermaid ? "Mermaid" : "PlantUML";
+  const label = isMermaid ? t("mermaid") : t("plantuml");
 
   return (
     <NodeViewWrapper>

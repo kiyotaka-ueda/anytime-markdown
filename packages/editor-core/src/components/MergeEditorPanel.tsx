@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { Box, IconButton, Paper, Tooltip } from "@mui/material";
 import type { SxProps, Theme } from "@mui/material/styles";
 import { alpha, useTheme } from "@mui/material/styles";
+import { useTranslations } from "next-intl";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import type { DiffLine } from "../utils/diffEngine";
@@ -267,6 +268,7 @@ export function MergeEditorPanel({
   onHoverLine,
 }: MergeEditorPanelProps) {
   const theme = useTheme();
+  const t = useTranslations("MarkdownEditor");
   const editorSettings = useEditorSettingsContext();
   const fallbackTextareaRef = useRef<HTMLTextAreaElement>(null);
   const resolvedTextareaRef = textareaRef || fallbackTextareaRef;
@@ -399,7 +401,7 @@ export function MergeEditorPanel({
                   }}
                 >
                   <Tooltip
-                    title={panelSide === "left" ? "Left → Right" : "Right → Left"}
+                    title={panelSide === "left" ? t("mergeLeftToRight") : t("mergeRightToLeft")}
                     placement={panelSide === "left" ? "left" : "right"}
                   >
                     <IconButton

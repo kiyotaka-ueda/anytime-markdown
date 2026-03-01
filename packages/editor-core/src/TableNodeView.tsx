@@ -118,7 +118,7 @@ export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeVi
             </Tooltip>
           )}
           <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary", mr: 0.5 }}>
-            Table
+            {t("tableLabel")}
           </Typography>
 
           <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />

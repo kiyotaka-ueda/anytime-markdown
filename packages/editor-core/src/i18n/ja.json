@@ -357,7 +357,13 @@
     "slashMermaid": "Mermaid 図",
     "slashPlantUml": "PlantUML 図",
     "slashNoResults": "一致するコマンドがありません",
-    "htmlPreview": "HTML"
+    "htmlPreview": "HTML",
+    "tableLabel": "テーブル",
+    "tableToolbar": "テーブルツールバー",
+    "resizeOutlinePanel": "アウトラインパネルのリサイズ",
+    "mergeLeftToRight": "左 → 右",
+    "mergeRightToLeft": "右 → 左",
+    "imageOriginalSize": "元のサイズ"
   },
   "Common": {
     "ok": "OK",

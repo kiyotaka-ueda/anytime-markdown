@@ -186,7 +186,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
             </Tooltip>
           )}
           <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary", flexShrink: 0 }}>
-            Image
+            {t("image")}
           </Typography>
           <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
           {alt ? (
@@ -234,7 +234,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
           {imgSize && !collapsed && (<>
             <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
             <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.65rem", fontFamily: "monospace", whiteSpace: "nowrap", flexShrink: 0 }}>
-              {imgSize.w}×{imgSize.h} / original {imgSize.nw}×{imgSize.nh}
+              {imgSize.w}×{imgSize.h} / {t("imageOriginalSize")} {imgSize.nw}×{imgSize.nh}
             </Typography>
           </>)}
 

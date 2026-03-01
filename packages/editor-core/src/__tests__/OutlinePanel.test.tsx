@@ -153,7 +153,7 @@ describe("OutlinePanel", () => {
     renderWithTheme(<OutlinePanel {...props} />);
 
     // 各見出しには aria-expanded を持つ折りたたみボタンがある
-    const expandBtn = screen.getByLabelText('Collapse Title');
+    const expandBtn = screen.getByLabelText('collapseSection Title');
     fireEvent.click(expandBtn);
     expect(toggleFold).toHaveBeenCalledWith(0);
   });
