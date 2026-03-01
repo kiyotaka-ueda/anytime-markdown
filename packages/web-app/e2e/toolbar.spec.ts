@@ -4,7 +4,7 @@ test.describe("Toolbar", () => {
   test.beforeEach(async ({ page }) => {
     // デスクトップ幅でツールバーボタンを表示
     await page.setViewportSize({ width: 1280, height: 720 });
-    await page.goto("/");
+    await page.goto("/markdown");
     await page.locator(".tiptap").waitFor({ state: "visible" });
     // ウェルカムコンテンツをクリア
     const editor = page.locator(".tiptap");
