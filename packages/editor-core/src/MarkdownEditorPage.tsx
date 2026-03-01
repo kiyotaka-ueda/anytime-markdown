@@ -2,9 +2,11 @@
 
 import dynamic from "next/dynamic";
 import {
+  Alert,
   Box,
   CircularProgress,
   Paper,
+  Snackbar,
   Typography,
   useMediaQuery,
   useTheme,
@@ -141,6 +143,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   } = useFileSystem(fileSystemProvider ?? null);
 
   const {
+    notification, setNotification,
     fileInputRef, handleClear, handleFileSelected,
     handleDownload, handleImport, handleCopy,
     handleOpenFile, handleSaveFile, handleSaveAsFile,
@@ -465,6 +468,22 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         hideVersionInfo={hideVersionInfo}
         t={t}
       />
+
+      <Snackbar
+        open={notification !== null}
+        autoHideDuration={3000}
+        onClose={() => setNotification(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          onClose={() => setNotification(null)}
+          severity="success"
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          {notification && t(notification)}
+        </Alert>
+      </Snackbar>
 
     </Box>
     </PlantUmlToolbarContext.Provider>

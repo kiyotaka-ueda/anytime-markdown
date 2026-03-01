@@ -25,6 +25,8 @@ interface UseEditorFileOpsParams {
   resetFile?: () => void;
 }
 
+export type NotificationKey = "copiedToClipboard" | "fileSaved" | null;
+
 export function useEditorFileOps({
   editor,
   sourceMode,
@@ -38,12 +40,19 @@ export function useEditorFileOps({
   saveAsFile,
   resetFile,
 }: UseEditorFileOpsParams) {
-  const [copied, setCopied] = useState(false);
+  const [notification, setNotification] = useState<NotificationKey>(null);
+  const notificationTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const confirm = useConfirm();
   const t = useTranslations("MarkdownEditor");
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
+
+  const showNotification = useCallback((key: NotificationKey) => {
+    clearTimeout(notificationTimerRef.current);
+    setNotification(key);
+    notificationTimerRef.current = setTimeout(() => setNotification(null), 3000);
+  }, []);
 
   const handleClear = useCallback(async () => {
     try {
@@ -111,9 +120,8 @@ export function useEditorFileOps({
   const handleCopy = useCallback(async () => {
     const md = sourceMode ? sourceText : editor ? getMarkdownFromEditor(editor) : "";
     await navigator.clipboard.writeText(md);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [sourceMode, sourceText, editor]);
+    showNotification("copiedToClipboard");
+  }, [sourceMode, sourceText, editor, showNotification]);
 
   const handleOpenFile = useCallback(async () => {
     if (!openFile) return;
@@ -148,13 +156,15 @@ export function useEditorFileOps({
     if (!saveFile) return;
     const md = sourceMode ? sourceText : editor ? getMarkdownFromEditor(editor) : "";
     await saveFile(md);
-  }, [saveFile, editor, sourceMode, sourceText]);
+    showNotification("fileSaved");
+  }, [saveFile, editor, sourceMode, sourceText, showNotification]);
 
   const handleSaveAsFile = useCallback(async () => {
     if (!saveAsFile) return;
     const md = sourceMode ? sourceText : editor ? getMarkdownFromEditor(editor) : "";
     await saveAsFile(md);
-  }, [saveAsFile, editor, sourceMode, sourceText]);
+    showNotification("fileSaved");
+  }, [saveAsFile, editor, sourceMode, sourceText, showNotification]);
 
   const handleExportPdf = useCallback(async () => {
     if (typeof window === "undefined" || !editor) {
@@ -262,7 +272,8 @@ export function useEditorFileOps({
   }, [editor, isDark]);
 
   return {
-    copied,
+    notification,
+    setNotification,
     fileInputRef,
     handleClear,
     handleFileSelected,

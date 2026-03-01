@@ -363,7 +363,8 @@
     "resizeOutlinePanel": "アウトラインパネルのリサイズ",
     "mergeLeftToRight": "左 → 右",
     "mergeRightToLeft": "右 → 左",
-    "imageOriginalSize": "元のサイズ"
+    "imageOriginalSize": "元のサイズ",
+    "fileSaved": "ファイルを保存しました"
   },
   "Common": {
     "ok": "OK",

@@ -363,7 +363,8 @@
     "resizeOutlinePanel": "Resize outline panel",
     "mergeLeftToRight": "Left → Right",
     "mergeRightToLeft": "Right → Left",
-    "imageOriginalSize": "original"
+    "imageOriginalSize": "original",
+    "fileSaved": "File saved"
   },
   "Common": {
     "ok": "OK",
