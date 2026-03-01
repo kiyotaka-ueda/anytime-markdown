@@ -150,7 +150,7 @@ export function DiagramFullscreenDialog({
                 lineHeight: settings.lineHeight,
                 p: 2,
                 color: "text.primary",
-                bgcolor: isDark ? "grey.900" : "grey.50",
+                bgcolor: "background.paper",
                 boxSizing: "border-box",
                 overflow: "auto",
               }}
@@ -181,7 +181,7 @@ export function DiagramFullscreenDialog({
           sx={{
             flex: 1,
             overflow: "hidden",
-            bgcolor: isDark ? "grey.900" : "background.paper",
+            bgcolor: "background.paper",
             cursor: fsDragging ? "col-resize" : "grab",
             "&:active": { cursor: fsDragging ? "col-resize" : "grabbing" },
             // Prevent iframe/textarea stealing pointer events during drag

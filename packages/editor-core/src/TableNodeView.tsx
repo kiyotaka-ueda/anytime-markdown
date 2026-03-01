@@ -59,7 +59,7 @@ export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeVi
             position: "fixed",
             inset: 0,
             zIndex: 1300,
-            bgcolor: theme.palette.mode === "dark" ? "grey.900" : "background.paper",
+            bgcolor: "background.paper",
             display: "flex",
             flexDirection: "column",
           }),
