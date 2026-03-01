@@ -132,6 +132,7 @@
     "diagramGeneric": "Diagram",
     "plantUmlDiagram": "PlantUML diagram",
     "capture": "Capture as image",
+    "copyCode": "Copy code",
     "delete": "Delete",
     "insert": "Insert",
     "apply": "Apply",

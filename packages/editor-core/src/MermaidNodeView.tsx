@@ -12,6 +12,7 @@ import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import SchemaIcon from "@mui/icons-material/Schema";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import DOMPurify from "dompurify";
 import { useTranslations } from "next-intl";
@@ -94,6 +95,7 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
   const error = isMermaid ? mermaidError : plantUmlError;
 
   const handleCapture = useDiagramCapture({ isMermaid, isPlantUml, svg, plantUmlUrl, code, isDark });
+  const handleCopyCode = useCallback(() => { navigator.clipboard.writeText(code); }, [code]);
   const diagramScale = settings.fontSize / 16;
 
   // ダイアグラムコンテナのサイズを追跡
@@ -355,6 +357,13 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
           </>)}
 
           <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
+
+          {/* Copy code */}
+          <Tooltip title={t("copyCode")} placement="top">
+            <IconButton size="small" sx={{ p: 0.25 }} onClick={handleCopyCode} aria-label={t("copyCode")}>
+              <ContentCopyIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+            </IconButton>
+          </Tooltip>
 
           {/* Capture (hidden when collapsed, shown when diagram exists) */}
           {!allCollapsed && (svg || plantUmlUrl) && (
