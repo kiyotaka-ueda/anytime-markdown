@@ -94,6 +94,7 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
   const error = isMermaid ? mermaidError : plantUmlError;
 
   const handleCapture = useDiagramCapture({ isMermaid, isPlantUml, svg, plantUmlUrl, code, isDark });
+  const diagramScale = settings.fontSize / 16;
 
   // ダイアグラムコンテナのサイズを追跡
   useEffect(() => {
@@ -403,7 +404,7 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
                 ref={diagramResize.containerRef}
                 role="img"
                 aria-label={t(detectMermaidType(code))}
-                sx={{ overflow: "hidden", bgcolor: "background.paper", position: "relative", width: diagramResize.displayWidth, maxWidth: "100%", cursor: diagramResize.resizing ? "nwse-resize" : "grab", "&:active": { cursor: diagramResize.resizing ? "nwse-resize" : "grabbing" } }}
+                sx={{ overflow: "hidden", bgcolor: "background.paper", position: "relative", width: diagramResize.displayWidth || "fit-content", maxWidth: "100%", cursor: diagramResize.resizing ? "nwse-resize" : "grab", "&:active": { cursor: diagramResize.resizing ? "nwse-resize" : "grabbing" } }}
                 contentEditable={false}
                 onClick={selectNode}
                 onPointerDown={normalZP.handlePointerDown}
@@ -412,7 +413,7 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
                 onWheel={normalZP.handleWheel}
               >
                 <Box
-                  sx={{ p: 2, display: "flex", justifyContent: "center", transform: `translate(${normalZP.pan.x}px, ${normalZP.pan.y}px) scale(${normalZP.zoom})`, transformOrigin: "top center", transition: normalZP.isPanningRef.current ? "none" : "transform 0.15s", "@media (prefers-reduced-motion: reduce)": { transition: "none" }, pointerEvents: "none" }}
+                  sx={{ p: 2, display: "flex", justifyContent: "flex-start", zoom: diagramScale, transform: `translate(${normalZP.pan.x}px, ${normalZP.pan.y}px) scale(${normalZP.zoom})`, transformOrigin: "top left", transition: normalZP.isPanningRef.current ? "none" : "transform 0.15s", "@media (prefers-reduced-motion: reduce)": { transition: "none" }, pointerEvents: "none" }}
                   dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(svg, SVG_SANITIZE_CONFIG) }}
                 />
                 {isSelected && (
@@ -466,7 +467,7 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
             {isPlantUml && plantUmlUrl && (
               <Box
                 ref={diagramResize.containerRef}
-                sx={{ overflow: "hidden", bgcolor: "background.paper", position: "relative", width: diagramResize.displayWidth, maxWidth: "100%", cursor: diagramResize.resizing ? "nwse-resize" : "grab", "&:active": { cursor: diagramResize.resizing ? "nwse-resize" : "grabbing" } }}
+                sx={{ overflow: "hidden", bgcolor: "background.paper", position: "relative", width: diagramResize.displayWidth || "fit-content", maxWidth: "100%", cursor: diagramResize.resizing ? "nwse-resize" : "grab", "&:active": { cursor: diagramResize.resizing ? "nwse-resize" : "grabbing" } }}
                 contentEditable={false}
                 onClick={selectNode}
                 onPointerDown={normalZP.handlePointerDown}
@@ -474,9 +475,9 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
                 onPointerUp={() => diagramResize.resizing ? diagramResize.handlePointerUp() : normalZP.handlePointerUp()}
                 onWheel={normalZP.handleWheel}
               >
-                <Box sx={{ p: 2, display: "flex", justifyContent: "center", transform: `translate(${normalZP.pan.x}px, ${normalZP.pan.y}px) scale(${normalZP.zoom})`, transformOrigin: "top center", transition: normalZP.isPanningRef.current ? "none" : "transform 0.15s", "@media (prefers-reduced-motion: reduce)": { transition: "none" }, pointerEvents: "none" }}>
+                <Box sx={{ p: 2, display: "flex", justifyContent: "flex-start", zoom: diagramScale, transform: `translate(${normalZP.pan.x}px, ${normalZP.pan.y}px) scale(${normalZP.zoom})`, transformOrigin: "top left", transition: normalZP.isPanningRef.current ? "none" : "transform 0.15s", "@media (prefers-reduced-motion: reduce)": { transition: "none" }, pointerEvents: "none" }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={plantUmlUrl} alt={t("plantUmlDiagram")} style={{ width: "100%", height: "auto" }} />
+                  <img src={plantUmlUrl} alt={t("plantUmlDiagram")} style={{ maxWidth: "100%", height: "auto" }} />
                 </Box>
                 {isSelected && (
                   <Box
