@@ -35,11 +35,9 @@ function createDefaultProps(overrides: Partial<Parameters<typeof EditorToolbar>[
     onImage: jest.fn(),
     onToggleAllBlocks: jest.fn(),
     onToggleDiagramCode: jest.fn(),
-    onCopy: jest.fn(),
     onDownload: jest.fn(),
     onImport: jest.fn(),
     onClear: jest.fn(),
-    copied: false,
     onSetDiagramAnchor: jest.fn(),
     onSetTemplateAnchor: jest.fn(),
     onSetHelpAnchor: jest.fn(),
@@ -115,6 +113,34 @@ describe("EditorToolbar", () => {
 
     const saveBtn = screen.getByLabelText("saveFile");
     expect((saveBtn as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  test("onExportPdfが渡されたとき、PDFボタンが表示されクリックで呼ばれる", () => {
+    const onExportPdf = jest.fn();
+    const props = createDefaultProps({ onExportPdf });
+    render(<EditorToolbar {...props} />);
+
+    const btn = screen.getByRole("button", { name: "exportPdf" });
+    fireEvent.click(btn);
+    expect(onExportPdf).toHaveBeenCalledTimes(1);
+  });
+
+  test("sourceMode=true のとき、PDFボタンが無効化される", () => {
+    const onExportPdf = jest.fn();
+    const props = createDefaultProps({ onExportPdf, sourceMode: true });
+    render(<EditorToolbar {...props} />);
+
+    const btn = screen.getByRole("button", { name: "exportPdf" });
+    expect((btn as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  test("inlineMergeOpen=true のとき、PDFボタンが無効化される", () => {
+    const onExportPdf = jest.fn();
+    const props = createDefaultProps({ onExportPdf, inlineMergeOpen: true });
+    render(<EditorToolbar {...props} />);
+
+    const btn = screen.getByRole("button", { name: "exportPdf" });
+    expect((btn as HTMLButtonElement).disabled).toBe(true);
   });
 
   test("supportsDirectAccess=true のとき、openボタンをクリックするとonOpenFileが呼ばれる", () => {

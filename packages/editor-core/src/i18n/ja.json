@@ -11,6 +11,7 @@
     "copied": "コピー済み",
     "upload": "アップロード (.md)",
     "download": "ダウンロード (.md)",
+    "exportPdf": "PDFとしてエクスポート",
     "openFile": "開く",
     "saveFile": "上書き保存",
     "saveAsFile": "名前を付けて保存",

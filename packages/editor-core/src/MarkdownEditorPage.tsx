@@ -10,6 +10,7 @@ import {
   useTheme,
 } from "@mui/material";
 import { getEditorPaperSx } from "./styles/editorStyles";
+import { PrintStyles } from "./styles/printStyles";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useMemo, useRef } from "react";
@@ -143,6 +144,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     fileInputRef, handleClear, handleFileSelected,
     handleDownload, handleImport, handleCopy,
     handleOpenFile, handleSaveFile, handleSaveAsFile,
+    handleExportPdf,
   } = useEditorFileOps({
     editor, sourceMode, sourceText, setSourceText,
     saveContent, downloadMarkdown, clearContent,
@@ -229,6 +231,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   return (
     <EditorSettingsContext.Provider value={settings}>
     <PlantUmlToolbarContext.Provider value={plantUmlToolbarCtx}>
+    <PrintStyles />
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
       {/* Skip link (WCAG 2.4.1) */}
       <Box
@@ -302,6 +305,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         onOpenVersionDialog={() => setVersionDialogOpen(true)}
         onLoadRightFile={rightFileOps?.loadFile}
         onExportRightFile={rightFileOps?.exportFile}
+        onExportPdf={handleExportPdf}
         onAnnounce={setLiveMessage}
         t={t}
       />

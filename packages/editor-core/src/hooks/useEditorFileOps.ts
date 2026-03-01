@@ -149,6 +149,41 @@ export function useEditorFileOps({
     await saveAsFile(md);
   }, [saveAsFile, editor, sourceMode, sourceText]);
 
+  const handleExportPdf = useCallback(() => {
+    if (typeof window === "undefined" || !editor) {
+      if (typeof window !== "undefined") window.print();
+      return;
+    }
+    // 印刷前に折りたたまれたブロックを一時展開
+    const collapsedPositions: number[] = [];
+    editor.state.doc.descendants((node, pos) => {
+      if (node.attrs.collapsed) {
+        collapsedPositions.push(pos);
+      }
+    });
+    if (collapsedPositions.length > 0) {
+      const tr = editor.state.tr;
+      for (const pos of collapsedPositions) {
+        tr.setNodeAttribute(pos, "collapsed", false);
+      }
+      editor.view.dispatch(tr);
+    }
+    // React の再レンダーを待ってから印刷し、終了後に復元
+    // requestAnimationFrame では Tiptap NodeView の React 再レンダーが
+    // 間に合わないため setTimeout で十分な遅延を確保する
+    const delay = collapsedPositions.length > 0 ? 300 : 0;
+    setTimeout(() => {
+      window.print();
+      if (collapsedPositions.length > 0) {
+        const tr = editor.state.tr;
+        for (const pos of collapsedPositions) {
+          tr.setNodeAttribute(pos, "collapsed", true);
+        }
+        editor.view.dispatch(tr);
+      }
+    }, delay);
+  }, [editor]);
+
   return {
     copied,
     fileInputRef,
@@ -160,5 +195,6 @@ export function useEditorFileOps({
     handleOpenFile,
     handleSaveFile,
     handleSaveAsFile,
+    handleExportPdf,
   };
 }

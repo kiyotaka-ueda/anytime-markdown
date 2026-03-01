@@ -25,6 +25,7 @@ import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 import CodeOffIcon from "@mui/icons-material/CodeOff";
 import CodeIcon from "@mui/icons-material/Code";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import SettingsIcon from "@mui/icons-material/Settings";
 import WidgetsIcon from "@mui/icons-material/Widgets";
 
@@ -122,6 +123,7 @@ interface EditorToolbarProps {
   onSaveAsFile?: () => void;
   hasFileHandle?: boolean;
   supportsDirectAccess?: boolean;
+  onExportPdf?: () => void;
   onAnnounce?: (message: string) => void;
   t: TranslationFn;
 }
@@ -164,6 +166,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
   hasFileHandle,
   onAnnounce,
   supportsDirectAccess,
+  onExportPdf,
   t,
 }: EditorToolbarProps) {
   const [fileMenuAnchorEl, setFileMenuAnchorEl] = useState<HTMLElement | null>(null);
@@ -238,6 +241,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
   return (
     <>
     <Paper
+      id="md-editor-toolbar"
       variant="outlined"
       role="toolbar"
       aria-label={t("editorToolbar")}
@@ -301,6 +305,12 @@ export const EditorToolbar = React.memo(function EditorToolbar({
                 <ListItemText>{t("download")}</ListItemText>
               </MenuItem>,
             ])}
+            {onExportPdf && (
+              <MenuItem onClick={() => { onExportPdf(); setFileMenuAnchorEl(null); }} disabled={sourceMode || inlineMergeOpen}>
+                <ListItemIcon><PictureAsPdfIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>{t("exportPdf")}</ListItemText>
+              </MenuItem>
+            )}
           </Menu>
 
           {/* Desktop: individual file buttons */}
@@ -339,6 +349,13 @@ export const EditorToolbar = React.memo(function EditorToolbar({
                 </Tooltip>
               </ToggleButton>,
             ])}
+            {onExportPdf && (
+              <ToggleButton value="exportPdf" onClick={onExportPdf} disabled={sourceMode || inlineMergeOpen} aria-label={t("exportPdf")} sx={{ px: 0.75, py: 0.25 }}>
+                <Tooltip title={t("exportPdf")}>
+                  <span style={{ display: "inline-flex" }}><PictureAsPdfIcon fontSize="small" /></span>
+                </Tooltip>
+              </ToggleButton>
+            )}
             </ToggleButtonGroup>
             {inlineMergeOpen && (
               <>

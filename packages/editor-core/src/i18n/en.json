@@ -11,6 +11,7 @@
     "copied": "Copied",
     "upload": "Upload (.md)",
     "download": "Download (.md)",
+    "exportPdf": "Export as PDF",
     "openFile": "Open",
     "saveFile": "Save",
     "saveAsFile": "Save As",
