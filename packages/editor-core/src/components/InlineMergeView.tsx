@@ -17,7 +17,7 @@ import { MergeEditorPanel } from "./MergeEditorPanel";
 import { MergeRightBubbleMenu } from "./MergeRightBubbleMenu";
 import { RightEditorBlockMenu } from "./RightEditorBlockMenu";
 import { getMarkdownFromEditor } from "../types";
-import { preserveBlankLines } from "../utils/sanitizeMarkdown";
+import { preserveBlankLines, splitByCodeBlocks } from "../utils/sanitizeMarkdown";
 import { computeInlineDiff, type DiffLine, type DiffResult, type InlineSegment } from "../utils/diffEngine";
 
 export interface MergeUndoRedo {
@@ -318,11 +318,13 @@ export function InlineMergeView({
       }
       isRightEditorUpdate.current = true;
       // コードブロック内の HTML エンティティを復元
-      const md = getMarkdownFromEditor(e).replace(
-        /(^```[^\n]*\n)([\s\S]*?)(^```)/gm,
-        (_m, open, body, close) =>
-          open + body.replace(/&gt;/g, ">").replace(/&lt;/g, "<").replace(/&amp;/g, "&") + close,
-      );
+      const md = splitByCodeBlocks(getMarkdownFromEditor(e))
+        .map((part) =>
+          /^```/.test(part)
+            ? part.replace(/&gt;/g, ">").replace(/&lt;/g, "<").replace(/&amp;/g, "&")
+            : part,
+        )
+        .join("");
       setRightText(md);
     },
     immediatelyRender: false,
