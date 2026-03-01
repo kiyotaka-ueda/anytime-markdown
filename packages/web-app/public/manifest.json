@@ -2,6 +2,7 @@
   "name": "Anytime Markdown",
   "short_name": "Anytime MD",
   "description": "A rich markdown editor powered by Tiptap",
+  "version": "0.0.8",
   "start_url": "/markdown",
   "display": "standalone",
   "background_color": "#121212",
