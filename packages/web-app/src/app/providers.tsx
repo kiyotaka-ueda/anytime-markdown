@@ -50,7 +50,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     updateStatusBar(themeMode);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const theme = useMemo(() => createTheme({ palette: { mode: themeMode } }), [themeMode]);
 

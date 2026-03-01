@@ -10,9 +10,14 @@ export default tseslint.config(
   },
   ...tseslint.configs.recommended,
   {
+    linterOptions: {
+      reportUnusedDisableDirectives: "warn",
+    },
     rules: {
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-this-alias": "off",
+      "@typescript-eslint/no-unused-expressions": "off",
     },
   },
 );

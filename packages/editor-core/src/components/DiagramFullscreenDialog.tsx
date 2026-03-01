@@ -195,7 +195,6 @@ export function DiagramFullscreenDialog({
               <Box role="img" aria-label={t(detectMermaidType(code))} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(svg, SVG_SANITIZE_CONFIG) }} sx={{ width: "100%", "& svg": { width: "100%", height: "auto" } }} />
             )}
             {isPlantUml && plantUmlUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
               <img src={plantUmlUrl} alt={t("plantUmlDiagram")} referrerPolicy="no-referrer" style={{ maxWidth: "90vw", maxHeight: "85vh" }} />
             )}
           </Box>

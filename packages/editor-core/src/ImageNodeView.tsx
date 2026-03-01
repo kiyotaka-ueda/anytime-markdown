@@ -285,7 +285,6 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
             onPointerMove={handleResizePointerMove}
             onPointerUp={handleResizePointerUp}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               ref={imgRef}
               src={src}
