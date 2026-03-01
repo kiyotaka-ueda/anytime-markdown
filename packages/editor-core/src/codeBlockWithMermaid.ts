@@ -9,7 +9,7 @@ export const CodeBlockWithMermaid = CodeBlock.extend({
     return {
       ...this.parent?.(),
       collapsed: { default: false, rendered: false },
-      codeCollapsed: { default: false, rendered: false },
+      codeCollapsed: { default: true, rendered: false },
     };
   },
 
