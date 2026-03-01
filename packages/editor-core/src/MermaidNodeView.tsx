@@ -4,8 +4,6 @@ import type { NodeViewProps } from "@tiptap/react";
 import { NodeViewContent, NodeViewWrapper, useEditorState } from "@tiptap/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, ToggleButton, ToggleButtonGroup, Tooltip, Typography, useTheme } from "@mui/material";
-import CodeIcon from "@mui/icons-material/Code";
-import CodeOffIcon from "@mui/icons-material/CodeOff";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
 import UnfoldLessIcon from "@mui/icons-material/UnfoldLess";
@@ -66,6 +64,21 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
       return from >= pos && from <= pos + node.nodeSize;
     },
   });
+
+  const selectNode = useCallback(() => {
+    if (!editor || typeof getPos !== "function") return;
+    const pos = getPos();
+    if (pos == null) return;
+    editor.commands.setTextSelection(pos + 1);
+    if (codeCollapsed) updateAttributes({ codeCollapsed: false });
+  }, [editor, getPos, codeCollapsed, updateAttributes]);
+
+  // 選択解除時にコードを折りたたむ
+  useEffect(() => {
+    if (!isSelected && !codeCollapsed) {
+      updateAttributes({ codeCollapsed: true });
+    }
+  }, [isSelected]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const code = node.textContent;
 
@@ -340,25 +353,7 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
 
           <Box sx={{ flex: 1 }} />
 
-          {/* Collapse/Expand (code only, right-aligned) */}
-          {!allCollapsed && (
-            <>
-              <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
-              <Tooltip title={codeCollapsed ? t("diagramCodeShow") : t("diagramCodeHide")} placement="top">
-                <IconButton
-                  size="small"
-                  onClick={() => updateAttributes({ codeCollapsed: !codeCollapsed })}
-                  sx={{ p: 0.25 }}
-                  aria-label={codeCollapsed ? t("diagramCodeShow") : t("diagramCodeHide")}
-                >
-                  {codeCollapsed
-                    ? <CodeIcon sx={{ fontSize: 16, color: "text.secondary" }} />
-                    : <CodeOffIcon sx={{ fontSize: 16, color: "text.secondary" }} />}
-                </IconButton>
-              </Tooltip>
-              <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
-            </>
-          )}
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
 
           {/* Capture (hidden when collapsed, shown when diagram exists) */}
           {!allCollapsed && (svg || plantUmlUrl) && (
@@ -409,6 +404,7 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
                 aria-label={t(detectMermaidType(code))}
                 sx={{ overflow: "hidden", bgcolor: "background.paper", cursor: "grab", "&:active": { cursor: "grabbing" } }}
                 contentEditable={false}
+                onClick={selectNode}
                 onPointerDown={normalZP.handlePointerDown}
                 onPointerMove={normalZP.handlePointerMove}
                 onPointerUp={normalZP.handlePointerUp}
@@ -442,6 +438,7 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
               <Box
                 sx={{ overflow: "hidden", bgcolor: "background.paper", cursor: "grab", "&:active": { cursor: "grabbing" } }}
                 contentEditable={false}
+                onClick={selectNode}
                 onPointerDown={normalZP.handlePointerDown}
                 onPointerMove={normalZP.handlePointerMove}
                 onPointerUp={normalZP.handlePointerUp}

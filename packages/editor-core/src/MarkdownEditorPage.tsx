@@ -191,7 +191,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   // PlantUML/Mermaid 編集中はMarkdownツールバーを無効化
   const isInDiagramBlock = !!plantUmlFloating;
 
-  const { handleToggleAllBlocks, handleToggleDiagramCode } = useEditorBlockActions({ editor });
+  const { handleToggleAllBlocks } = useEditorBlockActions({ editor });
 
   useEditorShortcuts({
     editor, sourceMode, appendToSource,
@@ -273,7 +273,6 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         isInDiagramBlock={isInDiagramBlock}
         onImage={handleImage}
         onToggleAllBlocks={handleToggleAllBlocks}
-        onToggleDiagramCode={handleToggleDiagramCode}
         onDownload={handleDownload}
         onImport={() => fileInputRef.current?.click()}
         onClear={handleClear}

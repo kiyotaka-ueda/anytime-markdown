@@ -22,7 +22,6 @@ import TerminalIcon from "@mui/icons-material/Terminal";
 import UndoIcon from "@mui/icons-material/Undo";
 import UnfoldLessIcon from "@mui/icons-material/UnfoldLess";
 import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
-import CodeOffIcon from "@mui/icons-material/CodeOff";
 import CodeIcon from "@mui/icons-material/Code";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
@@ -91,7 +90,6 @@ interface EditorToolbarProps {
   isInDiagramBlock: boolean;
   onImage: () => void;
   onToggleAllBlocks: () => void;
-  onToggleDiagramCode: () => void;
   onDownload: () => void;
   onImport: () => void;
   onClear: () => void;
@@ -133,7 +131,6 @@ export const EditorToolbar = React.memo(function EditorToolbar({
   isInDiagramBlock,
   onImage,
   onToggleAllBlocks,
-  onToggleDiagramCode,
   onDownload,
   onImport,
   onClear,
@@ -528,13 +525,6 @@ export const EditorToolbar = React.memo(function EditorToolbar({
             </Tooltip>
           </ToggleButton>
         )}
-        {editorState?.hasDiagrams && (
-          <ToggleButton value="diagramCode" onClick={onToggleDiagramCode} disabled={inlineMergeOpen || sourceMode} aria-label={editorState.allDiagramCodeCollapsed ? t("diagramCodeShow") : t("diagramCodeHide")} sx={{ px: 0.75, py: 0.25 }}>
-            <Tooltip title={editorState.allDiagramCodeCollapsed ? t("diagramCodeShow") : t("diagramCodeHide")}>
-              <span style={{ display: "inline-flex" }}>{editorState.allDiagramCodeCollapsed ? <CodeIcon fontSize="small" /> : <CodeOffIcon fontSize="small" />}</span>
-            </Tooltip>
-          </ToggleButton>
-        )}
         <ToggleButton value="outline" selected={outlineOpen} onClick={onToggleOutline} disabled={inlineMergeOpen} aria-label={t("outline")} sx={{ px: 0.75, py: 0.25 }}>
           <Tooltip title={tip(t, "outline")}>
             <span style={{ display: "inline-flex" }}><ListAltIcon fontSize="small" /></span>
@@ -654,21 +644,6 @@ export const EditorToolbar = React.memo(function EditorToolbar({
           </ListItemIcon>
           <ListItemText>
             {editorState.allBlocksCollapsed ? t("unfoldAll") : t("foldAll")}
-          </ListItemText>
-        </MenuItem>
-      )}
-      {editorState?.hasDiagrams && (
-        <MenuItem
-          onClick={() => { onToggleDiagramCode(); setMobileMenuAnchorEl(null); }}
-          disabled={inlineMergeOpen || sourceMode}
-        >
-          <ListItemIcon>
-            {editorState.allDiagramCodeCollapsed
-              ? <CodeIcon fontSize="small" />
-              : <CodeOffIcon fontSize="small" />}
-          </ListItemIcon>
-          <ListItemText>
-            {editorState.allDiagramCodeCollapsed ? t("diagramCodeShow") : t("diagramCodeHide")}
           </ListItemText>
         </MenuItem>
       )}
