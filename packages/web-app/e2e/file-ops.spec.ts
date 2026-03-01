@@ -9,7 +9,7 @@ test.describe("File Operations", () => {
       delete (window as Record<string, unknown>)["showOpenFilePicker"];
       delete (window as Record<string, unknown>)["showSaveFilePicker"];
     });
-    await page.goto("/");
+    await page.goto("/markdown");
     await page.locator(".tiptap").waitFor({ state: "visible" });
     // ウェルカムコンテンツをクリア
     const editor = page.locator(".tiptap");

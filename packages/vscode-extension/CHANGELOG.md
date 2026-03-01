@@ -4,6 +4,19 @@ All notable changes to the "anytime-markdown" extension will be documented in th
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.0.8] - 2026-03-01
+
+### Added
+- ランディングページを `/` に新設（Hero、Features、エディタプレビュー、Footer）
+- エディタを `/markdown` ルートに移動
+- ランディングページの EN/JA 言語切替
+- フッターに VS Code Marketplace リンクを追加
+- Welcome コンテンツに Mermaid ワークフロー図を追加
+- エディタプレビュー画像（ダークモード）をランディングページに表示
+
+### Changed
+- PWA の start_url を `/markdown` に変更（PWA 起動時にエディタ直接表示）
+
 ## [0.0.7] - 2026-03-01
 
 ### Added

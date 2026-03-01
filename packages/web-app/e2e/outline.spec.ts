@@ -15,7 +15,7 @@ End text`;
 test.describe("Outline", () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
-    await page.goto("/");
+    await page.goto("/markdown");
     await page.locator(".tiptap").waitFor({ state: "visible" });
 
     // ソースモードに切替えて見出し付きコンテンツを入力

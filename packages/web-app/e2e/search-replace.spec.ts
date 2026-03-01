@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test.describe("Search and Replace", () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
-    await page.goto("/");
+    await page.goto("/markdown");
     await page.locator(".tiptap").waitFor({ state: "visible" });
     // ウェルカムコンテンツをクリア
     const editor = page.locator(".tiptap");

@@ -1,41 +1,19 @@
-'use client';
+import type { Metadata } from 'next';
+import LandingPage from './components/LandingPage';
 
-import { useMemo } from 'react';
-import dynamic from 'next/dynamic';
-import { Box, CircularProgress } from '@mui/material';
-import { useThemeMode } from './providers';
-import { useLocaleSwitch } from './LocaleProvider';
-import { WebFileSystemProvider } from '../lib/WebFileSystemProvider';
-import { FallbackFileSystemProvider } from '../lib/FallbackFileSystemProvider';
-
-const MarkdownEditorPage = dynamic(
-  () => import('@anytime-markdown/editor-core/src/MarkdownEditorPage'),
-  {
-    ssr: false,
-    loading: () => (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-        <CircularProgress />
-      </Box>
-    ),
-  }
-);
+export const metadata: Metadata = {
+  title: 'Anytime Markdown - Write Markdown, Beautifully',
+  description:
+    'A free, open-source WYSIWYG markdown editor that works entirely in your browser. No sign-up, no server.',
+  openGraph: {
+    title: 'Anytime Markdown',
+    description:
+      'A free, open-source WYSIWYG markdown editor that works entirely in your browser.',
+    type: 'website',
+    siteName: 'Anytime Markdown',
+  },
+};
 
 export default function Page() {
-  const { themeMode, setThemeMode } = useThemeMode();
-  const { setLocale } = useLocaleSwitch();
-
-  const fileSystemProvider = useMemo(() => {
-    if (typeof window === 'undefined') return null;
-    const web = new WebFileSystemProvider();
-    return web.supportsDirectAccess ? web : new FallbackFileSystemProvider();
-  }, []);
-
-  return (
-    <MarkdownEditorPage
-      themeMode={themeMode}
-      onThemeModeChange={setThemeMode}
-      onLocaleChange={setLocale}
-      fileSystemProvider={fileSystemProvider}
-    />
-  );
+  return <LandingPage />;
 }

@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 
 test.describe("Editor Basic", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/markdown");
     // ウェルカムコンテンツの読み込みを待機
     await page.locator(".tiptap").waitFor({ state: "visible" });
   });

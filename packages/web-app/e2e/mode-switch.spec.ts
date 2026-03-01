@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 
 test.describe("Mode Switch", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/markdown");
     await page.locator(".tiptap").waitFor({ state: "visible" });
   });
 

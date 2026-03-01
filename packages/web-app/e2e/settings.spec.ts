@@ -16,7 +16,7 @@ async function openSettingsPanel(page: import("@playwright/test").Page) {
 test.describe("Settings", () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
-    await page.goto("/");
+    await page.goto("/markdown");
     await page.locator(".tiptap").waitFor({ state: "visible" });
   });
 
