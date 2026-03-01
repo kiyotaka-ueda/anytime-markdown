@@ -77,6 +77,8 @@ export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeVi
         {/* Header toolbar */}
         <Box
           data-block-toolbar=""
+          role="toolbar"
+          aria-label={t("tableToolbar")}
           sx={{
             bgcolor: "action.hover",
             px: 0.75,

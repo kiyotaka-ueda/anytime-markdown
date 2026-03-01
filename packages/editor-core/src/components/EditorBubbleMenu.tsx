@@ -80,6 +80,7 @@ export const EditorBubbleMenu = React.memo(function EditorBubbleMenu({ editor, o
           <IconButton
             size="small"
             aria-label={t("bold")}
+            aria-pressed={editor.isActive("bold")}
             onClick={() => editor.chain().focus().toggleBold().run()}
             color={editor.isActive("bold") ? "primary" : "default"}
             sx={{ p: 0.5 }}
@@ -91,6 +92,7 @@ export const EditorBubbleMenu = React.memo(function EditorBubbleMenu({ editor, o
           <IconButton
             size="small"
             aria-label={t("italic")}
+            aria-pressed={editor.isActive("italic")}
             onClick={() => editor.chain().focus().toggleItalic().run()}
             color={editor.isActive("italic") ? "primary" : "default"}
             sx={{ p: 0.5 }}
@@ -102,6 +104,7 @@ export const EditorBubbleMenu = React.memo(function EditorBubbleMenu({ editor, o
           <IconButton
             size="small"
             aria-label={t("underline")}
+            aria-pressed={editor.isActive("underline")}
             onClick={() => editor.chain().focus().toggleUnderline().run()}
             color={editor.isActive("underline") ? "primary" : "default"}
             sx={{ p: 0.5 }}
@@ -113,6 +116,7 @@ export const EditorBubbleMenu = React.memo(function EditorBubbleMenu({ editor, o
           <IconButton
             size="small"
             aria-label={t("strikethrough")}
+            aria-pressed={editor.isActive("strike")}
             onClick={() => editor.chain().focus().toggleStrike().run()}
             color={editor.isActive("strike") ? "primary" : "default"}
             sx={{ p: 0.5 }}
@@ -124,6 +128,7 @@ export const EditorBubbleMenu = React.memo(function EditorBubbleMenu({ editor, o
           <IconButton
             size="small"
             aria-label={t("highlight")}
+            aria-pressed={editor.isActive("highlight")}
             onClick={() => editor.chain().focus().toggleHighlight().run()}
             color={editor.isActive("highlight") ? "primary" : "default"}
             sx={{ p: 0.5 }}
@@ -135,6 +140,7 @@ export const EditorBubbleMenu = React.memo(function EditorBubbleMenu({ editor, o
           <IconButton
             size="small"
             aria-label={t("code")}
+            aria-pressed={editor.isActive("code")}
             onClick={() => editor.chain().focus().toggleCode().run()}
             color={editor.isActive("code") ? "primary" : "default"}
             sx={{ p: 0.5 }}
