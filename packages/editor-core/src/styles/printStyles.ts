@@ -75,6 +75,10 @@ export const PrintStyles: React.FC = () =>
         "[data-drag-handle]": {
           display: "none !important",
         },
+        /* Mermaid/PlantUML コードブロックを非表示（図のみ印刷） */
+        "[data-node-view-wrapper] pre": {
+          display: "none !important",
+        },
 
         /* === Mermaid/PlantUML 図の印刷対応 === */
         "[role='img'] > div": {
