@@ -189,7 +189,11 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
       return;
     }
     if (!editor) return;
-    editor.chain().focus().insertContent(template.content).run();
+    // requestAnimationFrame で次フレームに遅延し、Popover 閉じ等の React レンダリングと
+    // Tiptap ReactRenderer の flushSync の競合を回避する
+    requestAnimationFrame(() => {
+      editor.chain().focus().insertContent(template.content).run();
+    });
   }, [editor, sourceMode, appendToSource]);
 
   // PlantUML/Mermaid 編集中はMarkdownツールバーを無効化
