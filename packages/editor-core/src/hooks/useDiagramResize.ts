@@ -38,7 +38,6 @@ export function useDiagramResize({ width, updateAttributes, onResizeEnd }: UseDi
     if (!resizing) return;
     setResizing(false);
     if (resizeWidth !== null) {
-      console.log(`[DiagramResize] pointer: ${resizeWidth}px`);
       updateAttributes({ width: `${resizeWidth}px` });
       onResizeEnd?.();
     }
@@ -54,7 +53,6 @@ export function useDiagramResize({ width, updateAttributes, onResizeEnd }: UseDi
     const currentWidth = (width && parseInt(width, 10)) || container.getBoundingClientRect().width;
     const delta = e.key === "ArrowRight" ? step : -step;
     const newWidth = Math.max(MIN_DIAGRAM_WIDTH, Math.round(currentWidth + delta));
-    console.log(`[DiagramResize] keyboard: ${newWidth}px`);
     updateAttributes({ width: `${newWidth}px` });
     onResizeEnd?.();
   }, [width, updateAttributes, onResizeEnd]);

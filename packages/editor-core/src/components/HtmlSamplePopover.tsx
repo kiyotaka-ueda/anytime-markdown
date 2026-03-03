@@ -18,6 +18,7 @@ export function HtmlSamplePopover({ anchorEl, onClose, editor, t }: HtmlSamplePo
       onClose={onClose}
       anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
       transformOrigin={{ vertical: "top", horizontal: "left" }}
+      aria-label={t("insertSample")}
     >
       <Box sx={{ display: "flex", flexDirection: "column", p: 0.5 }}>
         {HTML_SAMPLES.filter((s) => s.enabled).map((sample) => {

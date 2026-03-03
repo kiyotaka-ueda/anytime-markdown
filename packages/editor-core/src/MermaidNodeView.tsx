@@ -150,23 +150,7 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
       const rect = container.getBoundingClientRect();
       const w = Math.round(rect.width);
       const h = Math.round(rect.height);
-      console.log(`[${diagramType}] size: ${w}x${h}px`);
       setDiagramSize({ w, h });
-
-      // デバッグ: SVG 内テキストの見た目フォントサイズを出力
-      const svgEl = container.querySelector("svg");
-      const textEl = container.querySelector("svg foreignObject span, svg text");
-      if (svgEl && textEl) {
-        const internalFontSize = parseFloat(window.getComputedStyle(textEl).fontSize);
-        const viewBox = svgEl.getAttribute("viewBox");
-        const renderedWidth = svgEl.getBoundingClientRect().width;
-        const viewBoxWidth = viewBox ? parseFloat(viewBox.split(" ")[2]) : renderedWidth;
-        const visualScale = renderedWidth / viewBoxWidth;
-        const visualFontSize = internalFontSize * visualScale;
-        console.debug(`[${diagramType}] visualFontSize: ${visualFontSize.toFixed(1)}px (internal: ${internalFontSize}px, viewBoxWidth: ${viewBoxWidth}, renderedWidth: ${Math.round(renderedWidth)}, scale: ${visualScale.toFixed(3)})`);
-      } else {
-        console.debug(`[${diagramType}] No SVG/text element found`);
-      }
     };
     update();
     const ro = new ResizeObserver(update);

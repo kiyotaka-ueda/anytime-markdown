@@ -26,6 +26,11 @@ export function getEditorPaperSx(
       pr: 2,
       pl: 5,
       outline: "none",
+      "&:focus-visible": {
+        outline: "2px solid",
+        outlineColor: "primary.main",
+        outlineOffset: -2,
+      },
       fontSize: `${settings.fontSize}px`,
       lineHeight: settings.lineHeight,
       color: theme.palette.mode === "dark"

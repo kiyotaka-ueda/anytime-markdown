@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Box, Button, Menu, MenuItem, Typography } from "@mui/material";
+import { Box, Button, Menu, MenuItem, Tooltip, Typography } from "@mui/material";
+import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
 import type { Editor } from "@tiptap/react";
 import type { EncodingLabel, TranslationFn } from "../types";
 
@@ -86,9 +87,13 @@ export const StatusBar = React.memo(function StatusBar({ editor, sourceMode, sou
         </Typography>
       </Box>
       {fileName && (
-        <Typography variant="body2" sx={{ ml: 1, color: "text.secondary" }} aria-label={isDirty ? `${fileName} (${t("unsavedChanges")})` : fileName || undefined}>
+        <Typography variant="body2" sx={{ ml: 1, color: "text.secondary", display: "flex", alignItems: "center" }} aria-label={isDirty ? `${fileName} (${t("unsavedChanges")})` : fileName || undefined}>
           {fileName}
-          {isDirty && <Typography component="span" variant="body2" sx={{ color: "warning.main", ml: 0.5 }}>*</Typography>}
+          {isDirty && (
+            <Tooltip title={t("unsavedChanges")}>
+              <FiberManualRecordIcon sx={{ fontSize: 8, color: "warning.main", ml: 0.5 }} />
+            </Tooltip>
+          )}
         </Typography>
       )}
       <Box sx={{ flex: 1 }} />

@@ -77,14 +77,16 @@ describe("StatusBar", () => {
     expect(screen.getByText("document.md")).toBeTruthy();
   });
 
-  test("isDirtyがtrueの場合、ダーティインジケータ(*)を表示する", () => {
+  test("isDirtyがtrueの場合、ダーティインジケータを表示する", () => {
     const editor = createMockEditor();
     render(
       <StatusBar editor={editor} t={t} fileName="note.md" isDirty={true} />,
     );
 
     expect(screen.getByText("note.md")).toBeTruthy();
-    expect(screen.getByText("*")).toBeTruthy();
+    // FiberManualRecord SVG アイコンが表示される
+    const fileNameEl = screen.getByText("note.md");
+    expect(fileNameEl.querySelector("svg")).toBeTruthy();
   });
 
   test("isDirtyがfalseの場合、ダーティインジケータを表示しない", () => {
@@ -94,7 +96,8 @@ describe("StatusBar", () => {
     );
 
     expect(screen.getByText("note.md")).toBeTruthy();
-    expect(screen.queryByText("*")).toBeNull();
+    const fileNameEl = screen.getByText("note.md");
+    expect(fileNameEl.querySelector("svg")).toBeNull();
   });
 
   test("fileNameが未指定の場合、ファイル名エリアを表示しない", () => {

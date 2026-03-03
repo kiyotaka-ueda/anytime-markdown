@@ -18,6 +18,7 @@ export function MermaidSamplePopover({ anchorEl, onClose, editor, t }: MermaidSa
       onClose={onClose}
       anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
       transformOrigin={{ vertical: "top", horizontal: "left" }}
+      aria-label={t("insertSample")}
     >
       <Box sx={{ display: "flex", flexDirection: "column", p: 0.5 }}>
         {MERMAID_SAMPLES.filter((s) => s.enabled).map((sample) => {

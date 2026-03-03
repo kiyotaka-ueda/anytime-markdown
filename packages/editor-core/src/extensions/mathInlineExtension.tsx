@@ -44,7 +44,8 @@ function MathInlineView({ node, selected }: NodeViewProps) {
         });
         setHtml(rendered);
       } catch {
-        setHtml(`<span style="color:red">${formula}</span>`);
+        const safe = DOMPurify.sanitize(formula, { ALLOWED_TAGS: [] });
+        setHtml(`<span style="color:red">${safe}</span>`);
       }
     });
     return () => { cancelled = true; };
