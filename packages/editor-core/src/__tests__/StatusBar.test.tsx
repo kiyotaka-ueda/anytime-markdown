@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { StatusBar } from "../components/StatusBar";
 
 // Editor のモック
@@ -6,14 +6,16 @@ function createMockEditor(overrides: {
   textContent?: string;
   childCount?: number;
   selectionIndex?: number;
+  parentOffset?: number;
 } = {}) {
-  const { textContent = "", childCount = 1, selectionIndex = 0 } = overrides;
+  const { textContent = "", childCount = 1, selectionIndex = 0, parentOffset = 0 } = overrides;
   const listeners: Record<string, Array<() => void>> = {};
   return {
     state: {
       selection: {
         $from: {
           index: () => selectionIndex,
+          parentOffset,
         },
       },
       doc: {
@@ -51,12 +53,13 @@ describe("StatusBar", () => {
       textContent: "Hello, World!",
       childCount: 3,
       selectionIndex: 4,
+      parentOffset: 7,
     });
     render(<StatusBar editor={editor} t={t} />);
 
-    // cursorLine は selectionIndex + 1 = 5
+    // cursorLine は selectionIndex + 1 = 5, cursorCol は parentOffset + 1 = 8
     const cursorLineEl = screen.getByText(/cursorLine/);
-    expect(cursorLineEl.textContent).toBe("cursorLine 5");
+    expect(cursorLineEl.textContent).toBe("cursorLine 5 cursorCol 8");
     // 文字数 13
     const charsEl = screen.getByText(/chars/);
     expect(charsEl.textContent).toBe("13 chars");
@@ -103,8 +106,41 @@ describe("StatusBar", () => {
     expect(statusBar).toBeTruthy();
 
     // ファイル名に対応する要素がないことを確認
-    // cursorLine, chars, lines の3つのbody2のみ
+    // cursorLine, chars, lines, lineEnding, encoding の5つのbody2のみ
     const body2s = statusBar.querySelectorAll(".MuiTypography-body2");
-    expect(body2s).toHaveLength(3);
+    expect(body2s).toHaveLength(5);
+  });
+
+  test("onLineEndingChangeが指定されている場合、改行コードがボタンになりメニューで変換できる", () => {
+    const handleChange = jest.fn();
+    const editor = createMockEditor();
+    render(
+      <StatusBar editor={editor} t={t} sourceText="hello\nworld" onLineEndingChange={handleChange} />,
+    );
+
+    // LF がボタンとして表示されている
+    const button = screen.getByRole("button", { name: "LF" });
+    expect(button).toBeTruthy();
+
+    // ボタンをクリックするとメニューが開く
+    fireEvent.click(button);
+    const crlfItem = screen.getByRole("menuitem", { name: "CRLF" });
+    expect(crlfItem).toBeTruthy();
+
+    // CRLF を選択するとコールバックが呼ばれる
+    fireEvent.click(crlfItem);
+    expect(handleChange).toHaveBeenCalledWith("CRLF");
+  });
+
+  test("onLineEndingChangeが未指定の場合、改行コードはテキスト表示のまま", () => {
+    const editor = createMockEditor();
+    const crlfText = "hello\r\nworld";
+    render(
+      <StatusBar editor={editor} t={t} sourceText={crlfText} />,
+    );
+
+    // CRLF がテキストとして表示されている（ボタンではない）
+    expect(screen.getByText("CRLF")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "CRLF" })).toBeNull();
   });
 });

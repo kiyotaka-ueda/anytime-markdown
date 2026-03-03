@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
-import { Box, Typography } from "@mui/material";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Box, Button, Menu, MenuItem, Typography } from "@mui/material";
 import type { Editor } from "@tiptap/react";
 import type { TranslationFn } from "../types";
 
@@ -12,17 +12,22 @@ interface StatusBarProps {
   t: TranslationFn;
   fileName?: string | null;
   isDirty?: boolean;
+  onLineEndingChange?: (ending: "LF" | "CRLF") => void;
 }
 
-export const StatusBar = React.memo(function StatusBar({ editor, sourceMode, sourceText, t, fileName, isDirty }: StatusBarProps) {
+export const StatusBar = React.memo(function StatusBar({ editor, sourceMode, sourceText, t, fileName, isDirty, onLineEndingChange }: StatusBarProps) {
   const [cursorLine, setCursorLine] = useState(1);
+  const [cursorCol, setCursorCol] = useState(1);
   const [sourceCursorLine, setSourceCursorLine] = useState(1);
+  const [sourceCursorCol, setSourceCursorCol] = useState(1);
+  const [lineEndingAnchor, setLineEndingAnchor] = useState<HTMLElement | null>(null);
 
   // TipTap エディタのカーソル行
   useEffect(() => {
     const update = () => {
       const { $from } = editor.state.selection;
       setCursorLine($from.index(0) + 1);
+      setCursorCol($from.parentOffset + 1);
     };
     editor.on("selectionUpdate", update);
     editor.on("update", update);
@@ -39,7 +44,9 @@ export const StatusBar = React.memo(function StatusBar({ editor, sourceMode, sou
     if (!textarea) return;
     const pos = textarea.selectionStart ?? 0;
     const line = (textarea.value.substring(0, pos).match(/\n/g) || []).length + 1;
+    const col = pos - textarea.value.lastIndexOf("\n", pos - 1);
     setSourceCursorLine(line);
+    setSourceCursorCol(col);
   }, []);
 
   useEffect(() => {
@@ -53,18 +60,20 @@ export const StatusBar = React.memo(function StatusBar({ editor, sourceMode, sou
   }, [sourceMode, handleSourceCursor]);
 
   const displayLine = sourceMode ? sourceCursorLine : cursorLine;
+  const displayCol = sourceMode ? sourceCursorCol : cursorCol;
   const charCount = sourceMode
     ? (sourceText ?? "").length
     : editor.state.doc.textContent.length;
   const lineCount = sourceMode
     ? (sourceText ?? "").split("\n").length
     : editor.state.doc.content.childCount;
+  const lineEnding = useMemo(() => (sourceText ?? "").includes("\r\n") ? "CRLF" : "LF", [sourceText]);
 
   return (
     <Box role="region" aria-label={t("statusBar")} sx={{ display: "flex", alignItems: "center", gap: 2, px: 1.5, py: 0.75, borderTop: 1, borderColor: "divider" }} contentEditable={false}>
       <Box aria-live="polite" aria-atomic="true" sx={{ display: "contents" }}>
         <Typography variant="body2" sx={{ color: "text.secondary" }}>
-          {t("cursorLine")} {displayLine}
+          {t("cursorLine")} {displayLine} {t("cursorCol")} {displayCol}
         </Typography>
         <Typography variant="body2" sx={{ color: "text.secondary" }}>
           {charCount.toLocaleString()} {t("chars")}
@@ -80,6 +89,42 @@ export const StatusBar = React.memo(function StatusBar({ editor, sourceMode, sou
         </Typography>
       )}
       <Box sx={{ flex: 1 }} />
+      {onLineEndingChange ? (
+        <>
+          <Button
+            size="small"
+            onClick={(e) => setLineEndingAnchor(e.currentTarget)}
+            sx={{ color: "text.secondary", textTransform: "none", minWidth: 0, px: 0.5, py: 0, fontSize: "0.875rem", lineHeight: 1.43 }}
+          >
+            {lineEnding}
+          </Button>
+          <Menu
+            anchorEl={lineEndingAnchor}
+            open={Boolean(lineEndingAnchor)}
+            onClose={() => setLineEndingAnchor(null)}
+          >
+            {(["LF", "CRLF"] as const).map((opt) => (
+              <MenuItem
+                key={opt}
+                selected={opt === lineEnding}
+                onClick={() => {
+                  onLineEndingChange(opt);
+                  setLineEndingAnchor(null);
+                }}
+              >
+                {opt}
+              </MenuItem>
+            ))}
+          </Menu>
+        </>
+      ) : (
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          {lineEnding}
+        </Typography>
+      )}
+      <Typography variant="body2" sx={{ color: "text.secondary" }}>
+        UTF-8
+      </Typography>
     </Box>
   );
 });

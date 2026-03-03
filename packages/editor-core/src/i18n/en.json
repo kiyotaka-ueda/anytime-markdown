@@ -244,6 +244,7 @@
     "versionTech": "Built with Next.js, TipTap, Mermaid, PlantUML, Material UI featuring Claude Code",
     "versionCopyright": "Copyright © Kiyotaka Ueda",
     "cursorLine": "Ln",
+    "cursorCol": "Col",
     "helpPage": "Help",
     "helpBasicOps": "Basic Operations",
     "helpBasicOpsDesc": "The editor supports two modes and various file operations.",

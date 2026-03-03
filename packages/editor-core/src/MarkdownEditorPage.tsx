@@ -44,6 +44,7 @@ import type { Editor } from "@tiptap/react";
 import {
   type HeadingItem,
   PlantUmlToolbarContext,
+  getMarkdownFromEditor,
 } from "./types";
 import type { MarkdownTemplate } from "./constants/templates";
 import { useSourceMode } from "./hooks/useSourceMode";
@@ -60,6 +61,7 @@ import { useEditorBlockActions } from "./hooks/useEditorBlockActions";
 import { useEditorConfig } from "./hooks/useEditorConfig";
 import { useEditorSideEffects } from "./hooks/useEditorSideEffects";
 import type { FileSystemProvider } from "./types/fileSystem";
+import { sanitizeMarkdown, preserveBlankLines } from "./utils/sanitizeMarkdown";
 
 
 interface MarkdownEditorPageProps {
@@ -155,6 +157,25 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     saveContent, downloadMarkdown, clearContent,
     openFile, saveFile, saveAsFile, resetFile,
   });
+
+  const handleLineEndingChange = useCallback(
+    (ending: "LF" | "CRLF") => {
+      const convert = (text: string) =>
+        ending === "CRLF"
+          ? text.replace(/\r\n/g, "\n").replace(/\n/g, "\r\n")
+          : text.replace(/\r\n/g, "\n");
+
+      if (sourceMode) {
+        handleSourceChange(convert(sourceText));
+      } else if (editor) {
+        const md = convert(getMarkdownFromEditor(editor));
+        setSourceText(md);
+        editor.commands.setContent(preserveBlankLines(sanitizeMarkdown(md)));
+        saveContent(md);
+      }
+    },
+    [sourceMode, sourceText, handleSourceChange, editor, setSourceText, saveContent],
+  );
 
   // Update refs for useEditor callbacks
   setHeadingsRef.current = setHeadings;
@@ -530,7 +551,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
       )}
 
       {/* Status bar */}
-      {editor && <StatusBar editor={editor} sourceMode={sourceMode} sourceText={sourceText} t={t} fileName={fileName} isDirty={isDirty} />}
+      {editor && <StatusBar editor={editor} sourceMode={sourceMode} sourceText={sourceText} t={t} fileName={fileName} isDirty={isDirty} onLineEndingChange={handleLineEndingChange} />}
 
       <EditorMenuPopovers
         editor={editor}
