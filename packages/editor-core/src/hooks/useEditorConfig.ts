@@ -18,6 +18,7 @@ import {
   extractHeadings,
   type HeadingItem,
 } from "../types";
+import { toGitHubSlug } from "../utils/tocHelpers";
 
 interface HeadingMenuArg {
   anchorEl: HTMLElement;
@@ -111,8 +112,68 @@ export function useEditorConfig({
         return true;
       },
       handleDOMEvents: {
+        keydown: (_view: EditorView, event: KeyboardEvent) => {
+          if (event.key === "Control" || event.key === "Meta") {
+            _view.dom.classList.add("ctrl-held");
+          }
+          return false;
+        },
+        keyup: (_view: EditorView, event: KeyboardEvent) => {
+          if (event.key === "Control" || event.key === "Meta") {
+            _view.dom.classList.remove("ctrl-held");
+          }
+          return false;
+        },
+        blur: (_view: EditorView) => {
+          _view.dom.classList.remove("ctrl-held");
+          return false;
+        },
+        mousemove: (_view: EditorView, event: MouseEvent) => {
+          const hasCtrl = event.ctrlKey || event.metaKey;
+          if (hasCtrl !== _view.dom.classList.contains("ctrl-held")) {
+            _view.dom.classList.toggle("ctrl-held", hasCtrl);
+          }
+          return false;
+        },
+        mousedown: (_view: EditorView, event: MouseEvent) => {
+          // #anchor リンクのブラウザデフォルト遷移を mousedown 段階で防止
+          const anchor = (event.target as HTMLElement).closest("a[href^='#']");
+          if (anchor) {
+            event.preventDefault();
+            return true;
+          }
+          return false;
+        },
         click: (_view: EditorView, event: MouseEvent) => {
           const target = event.target as HTMLElement;
+          // #anchor リンク: 通常クリックは無効化、Ctrl/Cmd+Click で見出しにジャンプ
+          const anchorEl = target.closest("a[href^='#']") as HTMLAnchorElement | null;
+          if (anchorEl) {
+            event.preventDefault();
+            event.stopPropagation();
+            if ((event.ctrlKey || event.metaKey) && editorRef.current) {
+              const slug = decodeURIComponent(anchorEl.getAttribute("href")!.slice(1));
+              const headings = extractHeadings(editorRef.current).filter((h) => h.kind === "heading");
+              const usedSlugs = new Map<string, number>();
+              for (const h of headings) {
+                const s = toGitHubSlug(h.text, usedSlugs);
+                if (s === slug) {
+                  const editor = editorRef.current;
+                  editor.chain().setTextSelection(h.pos + 1).run();
+                  const domAtPos = editor.view.domAtPos(h.pos + 1);
+                  const node = domAtPos.node instanceof HTMLElement
+                    ? domAtPos.node : domAtPos.node.parentElement;
+                  if (node) {
+                    const dom = editor.view.dom; // .tiptap（スクロールコンテナ）
+                    const nodeTop = node.offsetTop - dom.offsetTop;
+                    dom.scrollTo({ top: nodeTop, behavior: "smooth" });
+                  }
+                  break;
+                }
+              }
+            }
+            return true;
+          }
           const headingEl = target.closest("h1, h2, h3, h4, h5") as HTMLElement | null;
           let blockEl: HTMLElement | null = headingEl;
           let level = 0;

@@ -64,6 +64,8 @@ import { useEditorConfig } from "./hooks/useEditorConfig";
 import { useEditorSideEffects } from "./hooks/useEditorSideEffects";
 import type { FileSystemProvider } from "./types/fileSystem";
 import { sanitizeMarkdown, preserveBlankLines } from "./utils/sanitizeMarkdown";
+import { extractHeadings } from "./types";
+import { generateTocMarkdown } from "./utils/tocHelpers";
 
 
 interface MarkdownEditorPageProps {
@@ -333,6 +335,20 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     });
   }, [editor, sourceMode, appendToSource]);
 
+  const handleInsertToc = useCallback(() => {
+    if (!editor) return;
+    const headings = extractHeadings(editor);
+    const tocMd = generateTocMarkdown(headings);
+    if (!tocMd) return;
+    if (sourceMode) {
+      appendToSource("\n" + tocMd);
+    } else {
+      requestAnimationFrame(() => {
+        editor.chain().focus().insertContent(tocMd).run();
+      });
+    }
+  }, [editor, sourceMode, appendToSource]);
+
   // PlantUML/Mermaid 編集中はMarkdownツールバーを無効化
   const isInDiagramBlock = !!plantUmlFloating;
 
@@ -435,6 +451,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         onSourceInsertCodeBlock={() => appendToSource("\n```\n\n```\n")}
         onSourceInsertHtmlBlock={() => appendToSource("\n```html\n\n```\n")}
         onSourceInsertTable={() => appendToSource("\n| Header | Header | Header |\n| ------ | ------ | ------ |\n|        |        |        |\n|        |        |        |\n")}
+        onInsertToc={handleInsertToc}
         mergeUndoRedo={inlineMergeOpen ? mergeUndoRedo : null}
         onOpenFile={handleOpenFile}
         onSaveFile={handleSaveFile}

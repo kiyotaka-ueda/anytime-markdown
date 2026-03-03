@@ -254,6 +254,12 @@ export function getEditorPaperSx(
         position: "relative",
         cursor: "pointer",
       },
+      '& a[href^="#"]': {
+        cursor: "text",
+      },
+      '&.ctrl-held a[href^="#"]': {
+        cursor: "pointer",
+      },
       "& a:hover::after": {
         content: "attr(href)",
         position: "absolute",
@@ -271,6 +277,12 @@ export function getEditorPaperSx(
         textOverflow: "ellipsis",
         zIndex: 1000,
         pointerEvents: "none",
+      },
+      '& a[href^="#"]:hover::after': {
+        content: "none",
+      },
+      '&.ctrl-held a[href^="#"]:hover::after': {
+        content: "attr(href)",
       },
       "& hr": {
         border: "none",
