@@ -30,6 +30,7 @@ import { MathSamplePopover } from "./components/MathSamplePopover";
 import { useZoomPan } from "./hooks/useZoomPan";
 import { useDiagramResize } from "./hooks/useDiagramResize";
 import { useTextareaSearch } from "./hooks/useTextareaSearch";
+import { extractDiagramAltText } from "./utils/diagramAltText";
 
 const pumlIconSx = { fontSize: 16 };
 
@@ -107,6 +108,39 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
     editor.commands.setTextSelection(pos + 1);
     if (codeCollapsed) updateAttributes({ codeCollapsed: false });
   }, [editor, getPos, codeCollapsed, updateAttributes]);
+
+  const handleBlockMove = useCallback((direction: "up" | "down") => {
+    if (!editor || typeof getPos !== "function") return;
+    const pos = getPos();
+    if (pos == null) return;
+    const { doc, tr } = editor.state;
+    const $pos = doc.resolve(pos);
+    const depth = $pos.depth;
+    const index = $pos.index(depth);
+    const parent = $pos.node(depth);
+    if (direction === "up" && index === 0) return;
+    if (direction === "down" && index >= parent.childCount - 1) return;
+    const thisNode = parent.child(index);
+    if (direction === "up") {
+      const prevNode = parent.child(index - 1);
+      const from = pos - prevNode.nodeSize;
+      tr.delete(from, from + prevNode.nodeSize);
+      const insertPos = from + thisNode.nodeSize;
+      tr.insert(insertPos, prevNode);
+    } else {
+      const nextNode = parent.child(index + 1);
+      const nextStart = pos + thisNode.nodeSize;
+      tr.delete(nextStart, nextStart + nextNode.nodeSize);
+      tr.insert(pos, nextNode);
+    }
+    editor.view.dispatch(tr);
+  }, [editor, getPos]);
+
+  const handleDragKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (!e.altKey) return;
+    if (e.key === "ArrowUp") { e.preventDefault(); handleBlockMove("up"); }
+    if (e.key === "ArrowDown") { e.preventDefault(); handleBlockMove("down"); }
+  }, [handleBlockMove]);
 
   // 選択解除時にコードを折りたたむ
   useEffect(() => {
@@ -233,7 +267,12 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
             {/* Drag handle */}
             <Box
               data-drag-handle=""
-              sx={{ cursor: "grab", display: "flex", alignItems: "center", opacity: 0.5, "&:hover": { opacity: 1 } }}
+              role="button"
+              tabIndex={0}
+              aria-roledescription="draggable item"
+              aria-label={t("dragHandle")}
+              onKeyDown={handleDragKeyDown}
+              sx={{ cursor: "grab", display: "flex", alignItems: "center", opacity: 0.5, "&:hover, &:focus-visible": { opacity: 1 }, "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", borderRadius: 0.5 } }}
             >
               <DragIndicatorIcon sx={{ fontSize: 16, color: "text.secondary" }} />
             </Box>
@@ -370,7 +409,12 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
             {/* Drag handle */}
             <Box
               data-drag-handle=""
-              sx={{ cursor: "grab", display: "flex", alignItems: "center", opacity: 0.5, "&:hover": { opacity: 1 } }}
+              role="button"
+              tabIndex={0}
+              aria-roledescription="draggable item"
+              aria-label={t("dragHandle")}
+              onKeyDown={handleDragKeyDown}
+              sx={{ cursor: "grab", display: "flex", alignItems: "center", opacity: 0.5, "&:hover, &:focus-visible": { opacity: 1 }, "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", borderRadius: 0.5 } }}
             >
               <DragIndicatorIcon sx={{ fontSize: 16, color: "text.secondary" }} />
             </Box>
@@ -503,7 +547,12 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
             {/* Drag handle */}
             <Box
               data-drag-handle=""
-              sx={{ cursor: "grab", display: "flex", alignItems: "center", opacity: 0.5, "&:hover": { opacity: 1 } }}
+              role="button"
+              tabIndex={0}
+              aria-roledescription="draggable item"
+              aria-label={t("dragHandle")}
+              onKeyDown={handleDragKeyDown}
+              sx={{ cursor: "grab", display: "flex", alignItems: "center", opacity: 0.5, "&:hover, &:focus-visible": { opacity: 1 }, "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", borderRadius: 0.5 } }}
             >
               <DragIndicatorIcon sx={{ fontSize: 16, color: "text.secondary" }} />
             </Box>
@@ -599,8 +648,9 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
               data-drag-handle=""
               role="button"
               tabIndex={0}
-              aria-roledescription="drag"
+              aria-roledescription="draggable item"
               aria-label={t("dragHandle")}
+              onKeyDown={handleDragKeyDown}
               sx={{ cursor: "grab", display: "flex", alignItems: "center", opacity: 0.5, "&:hover, &:focus-visible": { opacity: 1 }, "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", borderRadius: 0.5 } }}
             >
               <DragIndicatorIcon sx={{ fontSize: 16, color: "text.secondary" }} />
@@ -726,7 +776,7 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
               <Box
                 ref={diagramResize.containerRef}
                 role="img"
-                aria-label={t(detectMermaidType(code))}
+                aria-label={extractDiagramAltText(code, "mermaid")}
                 sx={{ overflow: "hidden", bgcolor: "background.paper", position: "relative", width: diagramResize.displayWidth || "fit-content", maxWidth: "100%", cursor: diagramResize.resizing ? "nwse-resize" : "grab", "&:active": { cursor: diagramResize.resizing ? "nwse-resize" : "grabbing" } }}
                 contentEditable={false}
                 onClick={selectNode}
@@ -799,7 +849,7 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
                 onWheel={normalZP.handleWheel}
               >
                 <Box sx={{ p: 2, display: "flex", justifyContent: "flex-start", zoom: diagramScale, transform: `translate(${normalZP.pan.x}px, ${normalZP.pan.y}px) scale(${normalZP.zoom})`, transformOrigin: "top left", transition: normalZP.isPanningRef.current ? "none" : "transform 0.15s", "@media (prefers-reduced-motion: reduce)": { transition: "none" }, pointerEvents: "none" }}>
-                  <img src={plantUmlUrl} alt={t("plantUmlDiagram")} referrerPolicy="no-referrer" style={{ maxWidth: "100%", height: "auto" }} />
+                  <img src={plantUmlUrl} alt={extractDiagramAltText(code, "plantuml")} referrerPolicy="no-referrer" style={{ maxWidth: "100%", height: "auto" }} />
                 </Box>
                 {isSelected && (
                   <Box

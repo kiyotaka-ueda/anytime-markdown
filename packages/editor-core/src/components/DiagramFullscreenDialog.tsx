@@ -9,7 +9,8 @@ import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import DOMPurify from "dompurify";
 import { useEditorSettingsContext } from "../useEditorSettings";
 import { FsSearchBar } from "./FsSearchBar";
-import { SVG_SANITIZE_CONFIG, detectMermaidType } from "../hooks/useMermaidRender";
+import { SVG_SANITIZE_CONFIG } from "../hooks/useMermaidRender";
+import { extractDiagramAltText } from "../utils/diagramAltText";
 import type { TextareaSearchState } from "../hooks/useTextareaSearch";
 import type { UseZoomPanReturn } from "../hooks/useZoomPan";
 
@@ -192,10 +193,10 @@ export function DiagramFullscreenDialog({
         >
           <Box sx={{ width: "100%", height: "100%", display: "flex", justifyContent: "center", alignItems: "center", transform: `translate(${fsZP.pan.x}px, ${fsZP.pan.y}px) scale(${fsZP.zoom})`, transformOrigin: "center center", transition: fsZP.isPanningRef.current ? "none" : "transform 0.15s", "@media (prefers-reduced-motion: reduce)": { transition: "none" }, pointerEvents: "none" }}>
             {isMermaid && svg && (
-              <Box role="img" aria-label={t(detectMermaidType(code))} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(svg, SVG_SANITIZE_CONFIG) }} sx={{ width: "100%", "& svg": { width: "100%", height: "auto" } }} />
+              <Box role="img" aria-label={extractDiagramAltText(code, "mermaid")} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(svg, SVG_SANITIZE_CONFIG) }} sx={{ width: "100%", "& svg": { width: "100%", height: "auto" } }} />
             )}
             {isPlantUml && plantUmlUrl && (
-              <img src={plantUmlUrl} alt={t("plantUmlDiagram")} referrerPolicy="no-referrer" style={{ maxWidth: "90vw", maxHeight: "85vh" }} />
+              <img src={plantUmlUrl} alt={extractDiagramAltText(code, "plantuml")} referrerPolicy="no-referrer" style={{ maxWidth: "90vw", maxHeight: "85vh" }} />
             )}
           </Box>
         </Box>
