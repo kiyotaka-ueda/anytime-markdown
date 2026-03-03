@@ -474,7 +474,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         t={t}
       />
 
-      <Backdrop open={pdfExporting} sx={{ zIndex: (theme) => theme.zIndex.modal + 1, flexDirection: "column", gap: 2 }}>
+      <Backdrop open={pdfExporting} sx={{ zIndex: (theme) => theme.zIndex.modal + 1, flexDirection: "column", gap: 2, "@media print": { display: "none" } }}>
         <CircularProgress color="inherit" />
         <Typography variant="body2" color="inherit">{t("pdfPreparing")}</Typography>
       </Backdrop>

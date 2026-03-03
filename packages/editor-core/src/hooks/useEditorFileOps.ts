@@ -190,8 +190,10 @@ export function useEditorFileOps({
 
     // ダークモード時、印刷用にライトテーマで図を差し替え
     const diagramRestores: (() => void)[] = [];
+    // Mermaid/PlantUML のライトSVGを事前レンダリング（DOM書き込みは print 直前に行う）
+    const pendingMermaidReplacements: { innerDiv: HTMLElement; lightHtml: string; originalHTML: string; imgBox: HTMLElement }[] = [];
     if (isDark) {
-      // Mermaid: ライトテーマで再レンダリング
+      // Mermaid: ライトテーマで事前レンダリング
       const mermaidWrappers = document.querySelectorAll<HTMLElement>("[data-node-view-wrapper]");
       try {
         const mermaidMod = await import("mermaid");
@@ -202,19 +204,21 @@ export function useEditorFileOps({
           const imgBox = wrapper.querySelector<HTMLElement>("[role='img']");
           const svgEl = imgBox?.querySelector("svg");
           if (!imgBox || !svgEl) continue;
-          // コードブロックからソースを取得
           const codeEl = wrapper.querySelector("code");
           const code = codeEl?.textContent?.trim();
           if (!code) continue;
-          const originalHTML = imgBox.innerHTML;
           try {
             const id = `print-mermaid-${++renderIdx}`;
             const { svg: lightSvg } = await mermaid.render(id, code);
             const innerDiv = imgBox.querySelector<HTMLElement>(":scope > div");
             if (innerDiv) {
-              innerDiv.innerHTML = DOMPurify.sanitize(lightSvg, SVG_SANITIZE_CONFIG);
+              pendingMermaidReplacements.push({
+                innerDiv,
+                lightHtml: DOMPurify.sanitize(lightSvg, SVG_SANITIZE_CONFIG),
+                originalHTML: imgBox.innerHTML,
+                imgBox,
+              });
             }
-            diagramRestores.push(() => { imgBox.innerHTML = originalHTML; });
           } catch {
             // レンダリング失敗時はスキップ
           }
@@ -257,9 +261,14 @@ export function useEditorFileOps({
     }
 
     // 再レンダーを待ってから印刷
-    const needsDelay = collapsedPositions.length > 0 || diagramRestores.length > 0;
+    const needsDelay = collapsedPositions.length > 0 || diagramRestores.length > 0 || pendingMermaidReplacements.length > 0;
     const delay = needsDelay ? 300 : 0;
     setTimeout(() => {
+      // Mermaid ライトSVGをprint直前に同期的にDOM書き込み（React再レンダリングの介入を防ぐ）
+      for (const { innerDiv, lightHtml, originalHTML, imgBox } of pendingMermaidReplacements) {
+        innerDiv.innerHTML = lightHtml;
+        diagramRestores.push(() => { imgBox.innerHTML = originalHTML; });
+      }
       window.print();
       // 復元
       for (const restore of diagramRestores) restore();
