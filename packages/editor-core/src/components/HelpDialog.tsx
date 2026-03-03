@@ -21,6 +21,19 @@ import { marked } from "marked";
 import { KEYBOARD_SHORTCUTS } from "../constants/shortcuts";
 import type { TranslationFn } from "../types";
 
+const HELP_SANITIZE_CONFIG: DOMPurify.Config = {
+  ALLOWED_TAGS: [
+    "h1", "h2", "h3", "h4", "h5", "h6",
+    "p", "br", "hr",
+    "ul", "ol", "li",
+    "table", "thead", "tbody", "tr", "th", "td",
+    "strong", "em", "code", "pre",
+    "a", "blockquote", "img",
+  ],
+  ALLOWED_ATTR: ["href", "target", "rel", "src", "alt", "title", "id", "class"],
+  ALLOW_DATA_ATTR: false,
+};
+
 interface HelpDialogProps {
   open: boolean;
   onClose: () => void;
@@ -124,7 +137,7 @@ export function HelpDialog({ open, onClose, locale, t }: HelpDialogProps) {
 
   const { html, headings } = useMemo(() => {
     const processed = processHtml(rawHtml);
-    return { html: DOMPurify.sanitize(processed.html), headings: processed.headings };
+    return { html: DOMPurify.sanitize(processed.html, HELP_SANITIZE_CONFIG), headings: processed.headings };
   }, [rawHtml]);
 
   // Add keyboard shortcuts heading to TOC
