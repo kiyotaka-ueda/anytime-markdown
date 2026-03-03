@@ -95,11 +95,12 @@ export function DiagramFullscreenDialog({
         <Box sx={{ flex: 1 }} />
         <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
         {/* Code toggle */}
-        <Tooltip title={fsCodeVisible ? t("foldAll") : t("unfoldAll")} placement="bottom">
+        <Tooltip title={fsCodeVisible ? t("diagramCodeHide") : t("diagramCodeShow")} placement="bottom">
           <IconButton
             size="small"
             onClick={onToggleFsCodeVisible}
-            aria-label={fsCodeVisible ? t("foldAll") : t("unfoldAll")}
+            aria-label={fsCodeVisible ? t("diagramCodeHide") : t("diagramCodeShow")}
+            aria-pressed={fsCodeVisible}
           >
             {fsCodeVisible ? <CodeOffIcon sx={{ fontSize: 18 }} /> : <CodeIcon sx={{ fontSize: 18 }} />}
           </IconButton>
