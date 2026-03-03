@@ -16,7 +16,8 @@ import { getEditorPaperSx } from "./styles/editorStyles";
 import { PrintStyles } from "./styles/printStyles";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { useLocale, useTranslations } from "next-intl";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { alpha } from "@mui/material/styles";
 
 import { useMarkdownEditor } from "./useMarkdownEditor";
 import { welcomeContent } from "./constants/welcomeContent";
@@ -41,8 +42,11 @@ const InlineMergeView = dynamic(
 import { MergeEditorPanel } from "./components/MergeEditorPanel";
 import type { Editor } from "@tiptap/react";
 import {
+  type EncodingLabel,
   type HeadingItem,
+  type MarkdownStorage,
   PlantUmlToolbarContext,
+  getMarkdownFromEditor,
 } from "./types";
 import type { MarkdownTemplate } from "./constants/templates";
 import { useSourceMode } from "./hooks/useSourceMode";
@@ -59,6 +63,9 @@ import { useEditorBlockActions } from "./hooks/useEditorBlockActions";
 import { useEditorConfig } from "./hooks/useEditorConfig";
 import { useEditorSideEffects } from "./hooks/useEditorSideEffects";
 import type { FileSystemProvider } from "./types/fileSystem";
+import { sanitizeMarkdown, preserveBlankLines } from "./utils/sanitizeMarkdown";
+import { extractHeadings } from "./types";
+import { generateTocMarkdown } from "./utils/tocHelpers";
 
 
 interface MarkdownEditorPageProps {
@@ -88,6 +95,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     clearContent,
   } = useMarkdownEditor(welcomeContent);
 
+  const [encoding, setEncoding] = useState<EncodingLabel>("UTF-8");
   const { settings, updateSettings, resetSettings } = useEditorSettings();
   const {
     settingsOpen, setSettingsOpen,
@@ -153,7 +161,56 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     editor, sourceMode, sourceText, setSourceText,
     saveContent, downloadMarkdown, clearContent,
     openFile, saveFile, saveAsFile, resetFile,
+    encoding, fileHandle,
   });
+
+  const handleLineEndingChange = useCallback(
+    (ending: "LF" | "CRLF") => {
+      const convert = (text: string) =>
+        ending === "CRLF"
+          ? text.replace(/\r\n/g, "\n").replace(/\n/g, "\r\n")
+          : text.replace(/\r\n/g, "\n");
+
+      if (sourceMode) {
+        handleSourceChange(convert(sourceText));
+      } else if (editor) {
+        const md = convert(getMarkdownFromEditor(editor));
+        setSourceText(md);
+        editor.commands.setContent(preserveBlankLines(sanitizeMarkdown(md)));
+        saveContent(md);
+      }
+    },
+    [sourceMode, sourceText, handleSourceChange, editor, setSourceText, saveContent],
+  );
+
+  const handleEncodingChange = useCallback(
+    async (newEncoding: EncodingLabel) => {
+      setEncoding(newEncoding);
+      // fileHandle がある場合、ファイルを新しいエンコーディングで再読み込み
+      if (fileHandle?.nativeHandle) {
+        try {
+          const nativeHandle = fileHandle.nativeHandle as FileSystemFileHandle;
+          const file = await nativeHandle.getFile();
+          const buffer = await file.arrayBuffer();
+          const decoder = new TextDecoder(newEncoding.toLowerCase());
+          const decoded = sanitizeMarkdown(decoder.decode(buffer));
+          if (sourceMode) {
+            setSourceText(decoded);
+          } else if (editor) {
+            editor.commands.setContent(
+              (editor.storage as unknown as MarkdownStorage).markdown.parser.parse(
+                preserveBlankLines(decoded),
+              ),
+            );
+          }
+          saveContent(decoded);
+        } catch (e) {
+          console.warn("Failed to re-read file with encoding:", newEncoding, e);
+        }
+      }
+    },
+    [fileHandle, sourceMode, setSourceText, editor, saveContent],
+  );
 
   // Update refs for useEditor callbacks
   setHeadingsRef.current = setHeadings;
@@ -163,6 +220,88 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   // Table toolbar is now embedded in TableNodeView
   // Mermaid toolbar is now embedded in MermaidNodeView
   const plantUmlFloating = useFloatingToolbar(editor, editorWrapperRef, "codeBlock", "plantuml");
+
+  // A4 ページ区切りガイド（page-break-inside: avoid を考慮した動的計算）
+  useEffect(() => {
+    if (!editor) return;
+    const contentEl = editorWrapperRef.current?.querySelector(".tiptap") as HTMLElement | null;
+    if (!contentEl) return;
+
+    if (!settings.showPageBreakGuide) {
+      contentEl.style.backgroundImage = "";
+      contentEl.style.backgroundAttachment = "";
+      return;
+    }
+
+    const PAGE_HEIGHT_PX = 267 * (96 / 25.4); // A4 297mm - margin 15mm*2
+    const lineColor = alpha(theme.palette.divider, 0.5);
+
+    const calculate = () => {
+      const blocks = Array.from(contentEl.children) as HTMLElement[];
+      const breaks: number[] = [];
+      let nextPageBreak = PAGE_HEIGHT_PX;
+
+      for (const block of blocks) {
+        const blockTop = block.offsetTop;
+        const blockHeight = block.offsetHeight;
+        const blockBottom = blockTop + blockHeight;
+
+        if (blockBottom <= nextPageBreak) continue;
+
+        const avoidsBreak =
+          block.matches("pre, blockquote, [data-node-view-wrapper]") ||
+          !!block.querySelector("img, svg");
+
+        if (avoidsBreak && blockTop < nextPageBreak && blockHeight < PAGE_HEIGHT_PX) {
+          breaks.push(blockTop);
+          nextPageBreak = blockTop + PAGE_HEIGHT_PX;
+        } else {
+          breaks.push(nextPageBreak);
+          nextPageBreak += PAGE_HEIGHT_PX;
+          while (blockBottom > nextPageBreak) {
+            breaks.push(nextPageBreak);
+            nextPageBreak += PAGE_HEIGHT_PX;
+          }
+        }
+      }
+
+      if (breaks.length === 0) {
+        contentEl.style.backgroundImage = "";
+        return;
+      }
+
+      const stops = breaks
+        .flatMap((pos) => [
+          `transparent ${pos - 0.5}px`,
+          `${lineColor} ${pos - 0.5}px`,
+          `${lineColor} ${pos + 0.5}px`,
+          `transparent ${pos + 0.5}px`,
+        ])
+        .join(", ");
+      contentEl.style.backgroundImage = `linear-gradient(to bottom, ${stops})`;
+      contentEl.style.backgroundAttachment = "local";
+    };
+
+    let rafId: number;
+    const scheduleCalculate = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(calculate);
+    };
+
+    scheduleCalculate();
+    const mutObs = new MutationObserver(scheduleCalculate);
+    mutObs.observe(contentEl, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["class", "data-type", "data-node-view-wrapper"] });
+    const resizeObs = new ResizeObserver(scheduleCalculate);
+    resizeObs.observe(contentEl);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      mutObs.disconnect();
+      resizeObs.disconnect();
+      contentEl.style.backgroundImage = "";
+      contentEl.style.backgroundAttachment = "";
+    };
+  }, [editor, theme, settings.fontSize, settings.lineHeight, settings.showPageBreakGuide]);
 
   const {
     inlineMergeOpen, setInlineMergeOpen,
@@ -189,7 +328,25 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
       return;
     }
     if (!editor) return;
-    editor.chain().focus().insertContent(template.content).run();
+    // requestAnimationFrame で次フレームに遅延し、Popover 閉じ等の React レンダリングと
+    // Tiptap ReactRenderer の flushSync の競合を回避する
+    requestAnimationFrame(() => {
+      editor.chain().focus().insertContent(template.content).run();
+    });
+  }, [editor, sourceMode, appendToSource]);
+
+  const handleInsertToc = useCallback(() => {
+    if (!editor) return;
+    const headings = extractHeadings(editor);
+    const tocMd = generateTocMarkdown(headings);
+    if (!tocMd) return;
+    if (sourceMode) {
+      appendToSource("\n" + tocMd);
+    } else {
+      requestAnimationFrame(() => {
+        editor.chain().focus().insertContent(tocMd).run();
+      });
+    }
   }, [editor, sourceMode, appendToSource]);
 
   // PlantUML/Mermaid 編集中はMarkdownツールバーを無効化
@@ -294,6 +451,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         onSourceInsertCodeBlock={() => appendToSource("\n```\n\n```\n")}
         onSourceInsertHtmlBlock={() => appendToSource("\n```html\n\n```\n")}
         onSourceInsertTable={() => appendToSource("\n| Header | Header | Header |\n| ------ | ------ | ------ |\n|        |        |        |\n|        |        |        |\n")}
+        onInsertToc={handleInsertToc}
         mergeUndoRedo={inlineMergeOpen ? mergeUndoRedo : null}
         onOpenFile={handleOpenFile}
         onSaveFile={handleSaveFile}
@@ -443,7 +601,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
       )}
 
       {/* Status bar */}
-      {editor && <StatusBar editor={editor} sourceMode={sourceMode} sourceText={sourceText} t={t} fileName={fileName} isDirty={isDirty} />}
+      {editor && <StatusBar editor={editor} sourceMode={sourceMode} sourceText={sourceText} t={t} fileName={fileName} isDirty={isDirty} onLineEndingChange={handleLineEndingChange} encoding={encoding} onEncodingChange={handleEncodingChange} />}
 
       <EditorMenuPopovers
         editor={editor}
@@ -470,7 +628,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         t={t}
       />
 
-      <Backdrop open={pdfExporting} sx={{ zIndex: (theme) => theme.zIndex.modal + 1, flexDirection: "column", gap: 2 }}>
+      <Backdrop open={pdfExporting} sx={{ zIndex: (theme) => theme.zIndex.modal + 1, flexDirection: "column", gap: 2, "@media print": { display: "none" } }}>
         <CircularProgress color="inherit" />
         <Typography variant="body2" color="inherit">{t("pdfPreparing")}</Typography>
       </Backdrop>

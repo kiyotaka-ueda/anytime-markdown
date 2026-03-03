@@ -26,11 +26,20 @@ export function getEditorPaperSx(
       pr: 2,
       pl: 5,
       outline: "none",
+      "&:focus-visible": {
+        outline: "2px solid",
+        outlineColor: "primary.main",
+        outlineOffset: -2,
+      },
       fontSize: `${settings.fontSize}px`,
       lineHeight: settings.lineHeight,
       color: theme.palette.mode === "dark"
         ? (settings.darkTextColor || theme.palette.text.primary)
         : (settings.lightTextColor || theme.palette.text.primary),
+      // A4 ページ区切りガイド（MarkdownEditorPage の useEffect で動的に設定）
+      "@media print": {
+        backgroundImage: "none !important",
+      },
       "& .heading-folded::after": {
         content: "' ...'",
         fontSize: "0.75rem",
@@ -250,6 +259,12 @@ export function getEditorPaperSx(
         position: "relative",
         cursor: "pointer",
       },
+      '& a[href^="#"]': {
+        cursor: "text",
+      },
+      '&.ctrl-held a[href^="#"]': {
+        cursor: "pointer",
+      },
       "& a:hover::after": {
         content: "attr(href)",
         position: "absolute",
@@ -267,6 +282,12 @@ export function getEditorPaperSx(
         textOverflow: "ellipsis",
         zIndex: 1000,
         pointerEvents: "none",
+      },
+      '& a[href^="#"]:hover::after': {
+        content: "none",
+      },
+      '&.ctrl-held a[href^="#"]:hover::after': {
+        content: "attr(href)",
       },
       "& hr": {
         border: "none",

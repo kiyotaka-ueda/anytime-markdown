@@ -112,6 +112,8 @@
     "moveColRight": "Move Column Right",
     "deleteTable": "Delete Table",
     "dragHandle": "Drag to reorder",
+    "moveBlockUp": "Move block up (Alt+\u2191)",
+    "moveBlockDown": "Move block down (Alt+\u2193)",
     "fullscreen": "Fullscreen",
     "zoomIn": "Zoom In",
     "zoomOut": "Zoom Out",
@@ -207,6 +209,13 @@
     "sampleHtmlList": "Navigation List",
     "sampleHtmlDetails": "Details / Summary",
     "sampleHtmlGrid": "CSS Grid Layout",
+    "sampleMathFraction": "Quadratic Formula",
+    "sampleMathSum": "Summation",
+    "sampleMathIntegral": "Integral",
+    "sampleMathMatrix": "Matrix",
+    "sampleMathLimit": "Limit",
+    "sampleMathDerivative": "Partial Derivative",
+    "sampleMathCases": "Piecewise Function",
     "settingLightBgColor": "Light mode background color",
     "settingLightTextColor": "Light mode text color",
     "settingDarkBgColor": "Dark mode background color",
@@ -214,6 +223,7 @@
     "settingColorDefault": "Default",
     "settingDarkMode": "Dark Mode",
     "settingLanguage": "Language",
+    "settingPageBreakGuide": "Page break guide",
     "settingReset": "Reset All to Default",
     "resetSettingsConfirm": "Reset all settings to default values?",
     "close": "Close",
@@ -243,6 +253,7 @@
     "versionTech": "Built with Next.js, TipTap, Mermaid, PlantUML, Material UI featuring Claude Code",
     "versionCopyright": "Copyright © Kiyotaka Ueda",
     "cursorLine": "Ln",
+    "cursorCol": "Col",
     "helpPage": "Help",
     "helpBasicOps": "Basic Operations",
     "helpBasicOpsDesc": "The editor supports two modes and various file operations.",
@@ -357,6 +368,9 @@
     "slashHorizontalRule": "Divider",
     "slashMermaid": "Mermaid Diagram",
     "slashPlantUml": "PlantUML Diagram",
+    "slashMath": "Math Equation",
+    "slashToc": "Table of Contents",
+    "slashDate": "Date",
     "slashNoResults": "No matching commands",
     "htmlPreview": "HTML",
     "tableLabel": "Table",
@@ -365,7 +379,8 @@
     "mergeLeftToRight": "Left → Right",
     "mergeRightToLeft": "Right → Left",
     "imageOriginalSize": "original",
-    "fileSaved": "File saved"
+    "fileSaved": "File saved",
+    "encodingChangeConfirm": "Change encoding to {encoding}? Some characters may not display correctly."
   },
   "Landing": {
     "heroTitle": "Write Markdown, Beautifully",
@@ -389,7 +404,8 @@
     "footerRights": "© 2026 Anytime Markdown",
     "footerPrivacy": "Privacy Policy",
     "footerGithub": "GitHub",
-    "footerVscode": "VS Code Extension"
+    "footerVscode": "VS Code Extension",
+    "experimentalNotice": "This site is an experimental project built with Claude Code, an AI coding assistant. Source code is available on <github>GitHub</github>."
   },
   "Common": {
     "ok": "OK",

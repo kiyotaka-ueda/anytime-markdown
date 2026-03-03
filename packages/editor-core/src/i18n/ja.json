@@ -112,6 +112,8 @@
     "moveColRight": "列を右に移動",
     "deleteTable": "テーブルを削除",
     "dragHandle": "ドラッグして並べ替え",
+    "moveBlockUp": "ブロックを上に移動 (Alt+\u2191)",
+    "moveBlockDown": "ブロックを下に移動 (Alt+\u2193)",
     "fullscreen": "全画面表示",
     "zoomIn": "拡大",
     "zoomOut": "縮小",
@@ -207,6 +209,13 @@
     "sampleHtmlList": "ナビゲーションリスト",
     "sampleHtmlDetails": "Details / Summary",
     "sampleHtmlGrid": "CSS Grid レイアウト",
+    "sampleMathFraction": "二次方程式の解の公式",
+    "sampleMathSum": "総和",
+    "sampleMathIntegral": "積分",
+    "sampleMathMatrix": "行列",
+    "sampleMathLimit": "極限",
+    "sampleMathDerivative": "偏微分",
+    "sampleMathCases": "場合分け",
     "settingLightBgColor": "ライトモード背景色",
     "settingLightTextColor": "ライトモード文字色",
     "settingDarkBgColor": "ダークモード背景色",
@@ -214,6 +223,7 @@
     "settingColorDefault": "デフォルト",
     "settingDarkMode": "ダークモード",
     "settingLanguage": "言語",
+    "settingPageBreakGuide": "ページ区切りガイド",
     "settingReset": "すべてデフォルトに戻す",
     "resetSettingsConfirm": "すべての設定をデフォルトに戻しますか？",
     "close": "閉じる",
@@ -243,6 +253,7 @@
     "versionTech": "Next.js, TipTap, Mermaid, PlantUML, Material UI で構築 featuring Claude Code",
     "versionCopyright": "Copyright © Kiyotaka Ueda",
     "cursorLine": "行",
+    "cursorCol": "列",
     "helpPage": "ヘルプ",
     "helpBasicOps": "基本操作",
     "helpBasicOpsDesc": "エディタは2つのモードと各種ファイル操作に対応しています。",
@@ -357,6 +368,9 @@
     "slashHorizontalRule": "区切り線",
     "slashMermaid": "Mermaid 図",
     "slashPlantUml": "PlantUML 図",
+    "slashMath": "数式",
+    "slashToc": "目次",
+    "slashDate": "日付",
     "slashNoResults": "一致するコマンドがありません",
     "htmlPreview": "HTML",
     "tableLabel": "テーブル",
@@ -365,7 +379,8 @@
     "mergeLeftToRight": "左 → 右",
     "mergeRightToLeft": "右 → 左",
     "imageOriginalSize": "元のサイズ",
-    "fileSaved": "ファイルを保存しました"
+    "fileSaved": "ファイルを保存しました",
+    "encodingChangeConfirm": "エンコーディングを {encoding} に変更しますか？一部の文字が正しく表示されなくなる可能性があります。"
   },
   "Landing": {
     "heroTitle": "美しくMarkdownを書こう",
@@ -389,7 +404,8 @@
     "footerRights": "© 2026 Anytime Markdown",
     "footerPrivacy": "プライバシーポリシー",
     "footerGithub": "GitHub",
-    "footerVscode": "VS Code 拡張機能"
+    "footerVscode": "VS Code 拡張機能",
+    "experimentalNotice": "本サイトは Claude Code（AI コーディングアシスタント）を活用して構築された実験的なプロジェクトです。ソースコードは <github>GitHub</github> で公開しています。"
   },
   "Common": {
     "ok": "OK",

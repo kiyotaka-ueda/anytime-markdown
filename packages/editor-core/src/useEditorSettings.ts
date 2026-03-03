@@ -13,6 +13,7 @@ export interface EditorSettings {
   lightTextColor: string;  // ライトモード文字色（空文字 = テーマデフォルト）
   darkBgColor: string;     // ダークモード背景色（空文字 = テーマデフォルト）
   darkTextColor: string;   // ダークモード文字色（空文字 = テーマデフォルト）
+  showPageBreakGuide: boolean;
 }
 
 export const DEFAULT_SETTINGS: EditorSettings = {
@@ -24,6 +25,7 @@ export const DEFAULT_SETTINGS: EditorSettings = {
   lightTextColor: "",
   darkBgColor: "",
   darkTextColor: "",
+  showPageBreakGuide: true,
 };
 
 export function useEditorSettings() {

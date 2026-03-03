@@ -27,6 +27,7 @@ import WebAssetIcon from "@mui/icons-material/WebAsset";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import SettingsIcon from "@mui/icons-material/Settings";
+import TocIcon from "@mui/icons-material/Toc";
 import WidgetsIcon from "@mui/icons-material/Widgets";
 
 import {
@@ -108,6 +109,7 @@ interface EditorToolbarProps {
   onSourceInsertCodeBlock?: () => void;
   onSourceInsertHtmlBlock?: () => void;
   onSourceInsertTable?: () => void;
+  onInsertToc?: () => void;
   mergeUndoRedo?: MergeUndoRedo | null;
   hideFileOps?: boolean;
   hideUndoRedo?: boolean;
@@ -150,6 +152,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
   onSourceInsertCodeBlock,
   onSourceInsertHtmlBlock,
   onSourceInsertTable,
+  onInsertToc,
   mergeUndoRedo,
   hideFileOps,
   hideUndoRedo,
@@ -480,6 +483,16 @@ export const EditorToolbar = React.memo(function EditorToolbar({
         </MenuItem>
         <MenuItem
           onClick={() => {
+            onInsertToc?.();
+            setPartsMenuAnchorEl(null);
+          }}
+          disabled={editorState?.isInDiagramCode || inlineMergeOpen}
+        >
+          <ListItemIcon><TocIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>{t("tableOfContents")}</ListItemText>
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
             setPartsMenuAnchorEl(null);
             if (partsMenuRef.current) onSetTemplateAnchor(partsMenuRef.current);
           }}
@@ -521,6 +534,11 @@ export const EditorToolbar = React.memo(function EditorToolbar({
         <ToggleButton value="diagram" onClick={(e) => onSetDiagramAnchor(e.currentTarget)} aria-label={t("insertDiagram")} disabled={isInDiagramBlock || editorState?.isInDiagramCode || inlineMergeOpen} sx={{ px: 0.75, py: 0.25 }}>
           <Tooltip title={tip(t, "insertDiagram")}>
             <span style={{ display: "inline-flex" }}><AccountTreeIcon fontSize="small" /></span>
+          </Tooltip>
+        </ToggleButton>
+        <ToggleButton value="toc" onClick={() => onInsertToc?.()} aria-label={t("tableOfContents")} disabled={editorState?.isInDiagramCode || inlineMergeOpen} sx={{ px: 0.75, py: 0.25 }}>
+          <Tooltip title={t("tableOfContents")}>
+            <span style={{ display: "inline-flex" }}><TocIcon fontSize="small" /></span>
           </Tooltip>
         </ToggleButton>
         <ToggleButton value="template" onClick={(e) => onSetTemplateAnchor(e.currentTarget)} aria-label={t("templates")} disabled={editorState?.isInDiagramCode || inlineMergeOpen} sx={{ px: 0.75, py: 0.25 }}>

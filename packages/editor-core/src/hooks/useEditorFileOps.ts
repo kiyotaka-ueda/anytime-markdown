@@ -4,7 +4,8 @@ import type { Editor } from "@tiptap/react";
 import { useTheme } from "@mui/material";
 import { useTranslations } from "next-intl";
 import useConfirm from "@/hooks/useConfirm";
-import { getMarkdownFromEditor, type MarkdownStorage } from "../types";
+import { getMarkdownFromEditor, type EncodingLabel, type MarkdownStorage } from "../types";
+import type { FileHandle } from "../types/fileSystem";
 import { sanitizeMarkdown, preserveBlankLines } from "../utils/sanitizeMarkdown";
 import DOMPurify from "dompurify";
 import { SVG_SANITIZE_CONFIG } from "./useMermaidRender";
@@ -17,12 +18,14 @@ interface UseEditorFileOpsParams {
   sourceText: string;
   setSourceText: Dispatch<SetStateAction<string>>;
   saveContent: (md: string) => void;
-  downloadMarkdown: (md: string) => void;
+  downloadMarkdown: (md: string, encoding?: EncodingLabel) => void;
   clearContent: () => void;
   openFile?: () => Promise<string | null>;
   saveFile?: (content: string) => Promise<void>;
   saveAsFile?: (content: string) => Promise<void>;
   resetFile?: () => void;
+  encoding?: EncodingLabel;
+  fileHandle?: FileHandle | null;
 }
 
 export type NotificationKey = "copiedToClipboard" | "fileSaved" | null;
@@ -39,6 +42,8 @@ export function useEditorFileOps({
   saveFile,
   saveAsFile,
   resetFile,
+  encoding,
+  fileHandle,
 }: UseEditorFileOpsParams) {
   const [notification, setNotification] = useState<NotificationKey>(null);
   const [pdfExporting, setPdfExporting] = useState(false);
@@ -91,9 +96,9 @@ export function useEditorFileOps({
           );
         }
       };
-      reader.readAsText(file);
+      reader.readAsText(file, encoding?.toLowerCase());
     },
-    [sourceMode, setSourceText, editor],
+    [sourceMode, setSourceText, editor, encoding],
   );
 
   const handleFileSelected = useCallback(async (file: File) => {
@@ -115,8 +120,8 @@ export function useEditorFileOps({
 
   const handleDownload = useCallback(() => {
     const md = sourceMode ? sourceText : editor ? getMarkdownFromEditor(editor) : "";
-    downloadMarkdown(md);
-  }, [sourceMode, sourceText, editor, downloadMarkdown]);
+    downloadMarkdown(md, encoding);
+  }, [sourceMode, sourceText, editor, downloadMarkdown, encoding]);
 
   const handleCopy = useCallback(async () => {
     const md = sourceMode ? sourceText : editor ? getMarkdownFromEditor(editor) : "";
@@ -156,9 +161,20 @@ export function useEditorFileOps({
   const handleSaveFile = useCallback(async () => {
     if (!saveFile) return;
     const md = sourceMode ? sourceText : editor ? getMarkdownFromEditor(editor) : "";
-    await saveFile(md);
+    if (encoding && encoding !== "UTF-8" && fileHandle?.nativeHandle) {
+      const nativeHandle = fileHandle.nativeHandle as FileSystemFileHandle;
+      const Encoding = (await import("encoding-japanese")).default;
+      const unicodeArray = Encoding.stringToCode(md);
+      const toEnc = encoding === "Shift_JIS" ? "SJIS" : "EUCJP";
+      const converted = Encoding.convert(unicodeArray, { to: toEnc, from: "UNICODE" });
+      const writable = await nativeHandle.createWritable();
+      await writable.write(new Uint8Array(converted));
+      await writable.close();
+    } else {
+      await saveFile(md);
+    }
     showNotification("fileSaved");
-  }, [saveFile, editor, sourceMode, sourceText, showNotification]);
+  }, [saveFile, editor, sourceMode, sourceText, showNotification, encoding, fileHandle]);
 
   const handleSaveAsFile = useCallback(async () => {
     if (!saveAsFile) return;
@@ -190,8 +206,10 @@ export function useEditorFileOps({
 
     // ダークモード時、印刷用にライトテーマで図を差し替え
     const diagramRestores: (() => void)[] = [];
+    // Mermaid/PlantUML のライトSVGを事前レンダリング（DOM書き込みは print 直前に行う）
+    const pendingMermaidReplacements: { innerDiv: HTMLElement; lightHtml: string; originalHTML: string; imgBox: HTMLElement }[] = [];
     if (isDark) {
-      // Mermaid: ライトテーマで再レンダリング
+      // Mermaid: ライトテーマで事前レンダリング
       const mermaidWrappers = document.querySelectorAll<HTMLElement>("[data-node-view-wrapper]");
       try {
         const mermaidMod = await import("mermaid");
@@ -202,19 +220,21 @@ export function useEditorFileOps({
           const imgBox = wrapper.querySelector<HTMLElement>("[role='img']");
           const svgEl = imgBox?.querySelector("svg");
           if (!imgBox || !svgEl) continue;
-          // コードブロックからソースを取得
           const codeEl = wrapper.querySelector("code");
           const code = codeEl?.textContent?.trim();
           if (!code) continue;
-          const originalHTML = imgBox.innerHTML;
           try {
             const id = `print-mermaid-${++renderIdx}`;
             const { svg: lightSvg } = await mermaid.render(id, code);
             const innerDiv = imgBox.querySelector<HTMLElement>(":scope > div");
             if (innerDiv) {
-              innerDiv.innerHTML = DOMPurify.sanitize(lightSvg, SVG_SANITIZE_CONFIG);
+              pendingMermaidReplacements.push({
+                innerDiv,
+                lightHtml: DOMPurify.sanitize(lightSvg, SVG_SANITIZE_CONFIG),
+                originalHTML: imgBox.innerHTML,
+                imgBox,
+              });
             }
-            diagramRestores.push(() => { imgBox.innerHTML = originalHTML; });
           } catch {
             // レンダリング失敗時はスキップ
           }
@@ -257,9 +277,14 @@ export function useEditorFileOps({
     }
 
     // 再レンダーを待ってから印刷
-    const needsDelay = collapsedPositions.length > 0 || diagramRestores.length > 0;
+    const needsDelay = collapsedPositions.length > 0 || diagramRestores.length > 0 || pendingMermaidReplacements.length > 0;
     const delay = needsDelay ? 300 : 0;
     setTimeout(() => {
+      // Mermaid ライトSVGをprint直前に同期的にDOM書き込み（React再レンダリングの介入を防ぐ）
+      for (const { innerDiv, lightHtml, originalHTML, imgBox } of pendingMermaidReplacements) {
+        innerDiv.innerHTML = lightHtml;
+        diagramRestores.push(() => { imgBox.innerHTML = originalHTML; });
+      }
       window.print();
       // 復元
       for (const restore of diagramRestores) restore();

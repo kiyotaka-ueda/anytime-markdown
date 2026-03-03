@@ -1,98 +1,111 @@
-# 見出し1
+# Anytime Markdown
 
-## 見出し2
+**いつでも、どこでも、美しく書く** — ブラウザで完結する WYSIWYG マークダウンエディタへようこそ。
 
-### 見出し3
+## テキスト装飾
 
-#### 見出し4
+文章に **太字** や *斜体* で強調を加えたり、<u>下線</u> や ~~取り消し線~~ で意図を伝えたり。重要な箇所には <mark>ハイライト</mark> を。`console.log("Hello")` のようなインラインコードも自然に書けます。
 
-##### 見出し5
+詳しくは [公式ドキュメント](https://code.claude.com/docs/ja/overview) をご覧ください。
 
-テキスト
+---
 
-**太字**
+## ブロック要素
 
-*斜体*
+### リスト
 
-<u>下線</u>
+- WYSIWYG モードでリッチに編集
+  - ツールバーとショートカットキーで素早く操作
+- ソースモードで Markdown を直接編集
 
-~~取り消し~~
+1. ファイルを開く
+   1. ツールバーの「開く」をクリック
+   2. `.md` ファイルを選択
+2. 編集する
+3. 保存する
 
-<mark>ハイライト</mark>
+### タスク管理
 
-`コード`
+- [x] エディタの基本操作を覚える
 
-[リンク](https://code.claude.com/docs/ja/overview)
+- [x] ダイアグラムを試す
 
+- [ ] 自分のドキュメントを書いてみる
 
-- 箇条書きリスト
+### 引用
 
-  - 箇条書きリスト
-
-- 箇条書きリスト
-
-
-1. 番号付きリスト
-
-   1. 番号付き
-
-   2. 番号付き
-
-2. 番号付きリスト
-
-3. 番号付きリスト
-
-
-- [x] タスクリスト
-
-- [x] タスクリスト
-
-
-> 引用1
+> シンプルさは究極の洗練である。
 >
-> 引用2
+> — *レオナルド・ダ・ヴィンチ*
 >
-> > 引用3
+> > 良いデザインは、できる限り少なくデザインすることだ。— *ディーター・ラムス*
 
+---
 
-![画像](help/camel_markdown.png)
+## テーブル
 
-```block
-コードブロック
+| 機能 | 説明 | ショートカット |
+| --- | --- | --- |
+| 太字 | テキストを強調 | `Ctrl+B` |
+| 斜体 | テキストを傾斜 | `Ctrl+I` |
+| コードブロック | コードを挿入 | `Ctrl+Shift+C` |
+| 検索 | テキストを検索 | `Ctrl+F` |
+
+---
+
+## コードブロック
+
+```typescript
+function greet(name: string): string {
+  return `Hello, ${name}!`;
+}
 
 ```
 
+---
 
-| ヘッダ1 | ヘッダ2 |  |  |
-| --- | --- | --- | --- |
-| 1 | 2 |  |  |
-| 3 | 4 |  |  |
-| 5 | 6 |  |  |
+## 数式
 
+円の面積 はインラインで書けます。
+
+$$
+\int_{-\infty}^{\infty} e^{-x^2} \, dx = \sqrt{\pi}
+
+$$
+
+---
+
+## ダイアグラム
+
+### Mermaid
 
 ```mermaid
-graph TD
-
-    A[Start] --> B{Condition}
-    B -->|Yes| C[Process A]
-    B -->|No| D[Process B]
-    C --> E[End]
-    D --> E
+graph LR
+    A[Markdown] -->|parse| B[Editor]
+    B -->|render| C[Preview]
+    B -->|export| D[PDF]
+    B -->|serialize| E[.md File]
 
 ```
 
+### PlantUML
 
 ```plantuml
 actor User
-participant App
+participant Editor
 participant Server
-participant DB
 
-User -> App: Request
-App -> Server: API Call
-Server -> DB: Query
-DB --> Server: Result
-Server --> App: Response
-App --> User: Display
+User -> Editor: Write Markdown
+Editor -> Editor: Real-time Preview
+User -> Editor: Export PDF
+Editor -> Server: Render Diagram
+Server --> Editor: SVG Image
+Editor --> User: Display
 
 ```
+
+---
+
+## 画像
+
+![画像](help/camel_markdown.png)さあ、書き始めましょう。

@@ -1,6 +1,8 @@
 import React from "react";
 import type { Editor } from "@tiptap/core";
 import type { TranslationFn } from "../types";
+import { extractHeadings } from "../types";
+import { generateTocMarkdown } from "../utils/tocHelpers";
 
 import LooksOneIcon from "@mui/icons-material/LooksOne";
 import LooksTwoIcon from "@mui/icons-material/LooksTwo";
@@ -14,6 +16,9 @@ import TableChartIcon from "@mui/icons-material/TableChart";
 import HorizontalRuleIcon from "@mui/icons-material/HorizontalRule";
 import SchemaIcon from "@mui/icons-material/Schema";
 import AccountTreeIcon from "@mui/icons-material/AccountTree";
+import FunctionsIcon from "@mui/icons-material/Functions";
+import TocIcon from "@mui/icons-material/Toc";
+import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 
 export interface SlashCommandItem {
   id: string;
@@ -130,6 +135,38 @@ export const slashCommandItems: SlashCommandItem[] = [
     keywords: ["plantuml", "uml", "diagram", "図"],
     action: (editor) => {
       editor.chain().focus().setCodeBlock({ language: "plantuml" }).run();
+    },
+  },
+  {
+    id: "math",
+    labelKey: "slashMath",
+    icon: React.createElement(FunctionsIcon, { fontSize: "small" }),
+    keywords: ["math", "equation", "formula", "latex", "katex", "数式", "すうしき"],
+    action: (editor) => {
+      editor.chain().focus().setCodeBlock({ language: "math" }).run();
+    },
+  },
+  {
+    id: "toc",
+    labelKey: "slashToc",
+    icon: React.createElement(TocIcon, { fontSize: "small" }),
+    keywords: ["toc", "table of contents", "目次", "もくじ"],
+    action: (editor) => {
+      const headings = extractHeadings(editor);
+      const tocMd = generateTocMarkdown(headings);
+      if (tocMd) {
+        editor.chain().focus().insertContent(tocMd).run();
+      }
+    },
+  },
+  {
+    id: "date",
+    labelKey: "slashDate",
+    icon: React.createElement(CalendarTodayIcon, { fontSize: "small" }),
+    keywords: ["date", "today", "日付", "きょう", "今日"],
+    action: (editor) => {
+      const today = new Date().toISOString().slice(0, 10);
+      editor.chain().focus().insertContent(today).run();
     },
   },
 ];

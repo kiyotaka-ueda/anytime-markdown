@@ -17,7 +17,7 @@ import { MergeEditorPanel } from "./MergeEditorPanel";
 import { MergeRightBubbleMenu } from "./MergeRightBubbleMenu";
 import { RightEditorBlockMenu } from "./RightEditorBlockMenu";
 import { getMarkdownFromEditor } from "../types";
-import { preserveBlankLines } from "../utils/sanitizeMarkdown";
+import { preserveBlankLines, splitByCodeBlocks } from "../utils/sanitizeMarkdown";
 import { computeInlineDiff, type DiffLine, type DiffResult, type InlineSegment } from "../utils/diffEngine";
 
 export interface MergeUndoRedo {
@@ -260,7 +260,6 @@ export function InlineMergeView({
   }, [rightText]);
 
   const isRightEditorUpdate = useRef(false);
-  const isProgrammaticUpdate = useRef(false);
   const [, setRightMeta] = useState<FileMetadata>(DEFAULT_METADATA);
   const hoverSetterRef = useRef<((v: number | null) => void) | null>(null);
   const handleHoverLine = useCallback((idx: number | null) => {
@@ -312,17 +311,15 @@ export function InlineMergeView({
     },
     content: "",
     onUpdate: ({ editor: e }) => {
-      if (isProgrammaticUpdate.current) {
-        isProgrammaticUpdate.current = false;
-        return;
-      }
       isRightEditorUpdate.current = true;
       // コードブロック内の HTML エンティティを復元
-      const md = getMarkdownFromEditor(e).replace(
-        /(^```[^\n]*\n)([\s\S]*?)(^```)/gm,
-        (_m, open, body, close) =>
-          open + body.replace(/&gt;/g, ">").replace(/&lt;/g, "<").replace(/&amp;/g, "&") + close,
-      );
+      const md = splitByCodeBlocks(getMarkdownFromEditor(e))
+        .map((part) =>
+          /^```/.test(part)
+            ? part.replace(/&gt;/g, ">").replace(/&lt;/g, "<").replace(/&amp;/g, "&")
+            : part,
+        )
+        .join("");
       setRightText(md);
     },
     immediatelyRender: false,
@@ -340,9 +337,7 @@ export function InlineMergeView({
       return;
     }
     if (rightEditor && !sourceMode) {
-      isProgrammaticUpdate.current = true;
       rightEditor.commands.setContent(preserveBlankLines(rightText));
-      isProgrammaticUpdate.current = false;
     }
   }, [rightText, rightEditor, sourceMode]);
 
@@ -350,9 +345,7 @@ export function InlineMergeView({
   const prevSourceMode = useRef(sourceMode);
   useEffect(() => {
     if (prevSourceMode.current && !sourceMode && rightEditor) {
-      isProgrammaticUpdate.current = true;
       rightEditor.commands.setContent(preserveBlankLines(rightText));
-      isProgrammaticUpdate.current = false;
     }
     prevSourceMode.current = sourceMode;
   }, [sourceMode, rightEditor, rightText]);
