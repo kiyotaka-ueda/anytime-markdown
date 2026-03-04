@@ -3,15 +3,28 @@ import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import Link from '@mui/material/Link';
+import NextLink from 'next/link';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { getTranslations } from 'next-intl/server';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy - Anytime Markdown',
   description: 'Anytime Markdown privacy policy',
 };
 
-export default function PrivacyPolicyPage() {
+export default async function PrivacyPolicyPage() {
+  const t = await getTranslations('Landing');
+
   return (
     <Container maxWidth="md" sx={{ py: 6 }}>
+      <Link
+        component={NextLink}
+        href="/"
+        sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, textDecoration: 'none', color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
+      >
+        <ArrowBackIcon sx={{ fontSize: 18 }} />
+        {t('backToHome')}
+      </Link>
       <Typography variant="h3" component="h1" gutterBottom>
         Privacy Policy
       </Typography>

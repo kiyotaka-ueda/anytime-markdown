@@ -149,6 +149,7 @@ export const CommentPanel = React.memo(function CommentPanel({
           }}
           size="small"
           fullWidth
+          aria-label={t("commentPanel")}
         >
           <ToggleButton
             value="all"
@@ -180,10 +181,10 @@ export const CommentPanel = React.memo(function CommentPanel({
             sx={{ textAlign: "center", mt: 2 }}
           >
             {filter === "all"
-              ? "No comments"
+              ? t("noComments")
               : filter === "open"
-                ? "No open comments"
-                : "No resolved comments"}
+                ? t("noOpenComments")
+                : t("noResolvedComments")}
           </Typography>
         )}
         {filtered.map((comment) => {

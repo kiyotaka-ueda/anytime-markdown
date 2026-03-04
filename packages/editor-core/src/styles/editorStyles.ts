@@ -96,7 +96,7 @@ export function getEditorPaperSx(
           opacity: 0,
           transition: "opacity 0.15s",
         },
-        "&:hover::before": {
+        "&:hover::before, &:focus-within::before": {
           opacity: 1,
         },
       },
@@ -142,7 +142,7 @@ export function getEditorPaperSx(
           opacity: 0,
           transition: "opacity 0.15s",
         },
-        "&:hover::before": {
+        "&:hover::before, &:focus-within::before": {
           opacity: 1,
         },
       },
@@ -169,7 +169,7 @@ export function getEditorPaperSx(
           transition: "opacity 0.15s",
           "&:hover": { bgcolor: theme.palette.action.selected },
         },
-        "&:hover::before": { opacity: 1 },
+        "&:hover::before, &:focus-within::before": { opacity: 1 },
       },
       "& ul, & ol": { pl: 3, mb: 1 },
       "& li": {
@@ -194,7 +194,7 @@ export function getEditorPaperSx(
           transition: "opacity 0.15s",
           "&:hover": { bgcolor: theme.palette.action.selected },
         },
-        "&:hover::before": { opacity: 1 },
+        "&:hover::before, &:focus-within::before": { opacity: 1 },
       },
       "& > ul:not([data-type='taskList']) > li": {
         "&::before": { content: "'UL'" },

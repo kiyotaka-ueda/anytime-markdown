@@ -194,6 +194,7 @@ export const SearchReplaceBar = React.memo(function SearchReplaceBar({ editor, t
   return (
     <Paper
       elevation={3}
+      role="search"
       sx={{
         position: "absolute",
         top: 0,
@@ -231,6 +232,7 @@ export const SearchReplaceBar = React.memo(function SearchReplaceBar({ editor, t
           component="input"
           ref={searchInputRef}
           aria-label={t("searchPlaceholder")}
+          autoComplete="off"
           value={searchTerm}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
             handleSearchChange(e.target.value)
@@ -370,6 +372,7 @@ export const SearchReplaceBar = React.memo(function SearchReplaceBar({ editor, t
           <Box
             component="input"
             aria-label={t("replacePlaceholder")}
+            autoComplete="off"
             value={replaceTerm}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
               handleReplaceChange(e.target.value)

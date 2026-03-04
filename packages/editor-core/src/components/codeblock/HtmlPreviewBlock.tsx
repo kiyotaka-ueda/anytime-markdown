@@ -128,6 +128,8 @@ export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
     >
       {!allCollapsed && (
         <Box
+          role="document"
+          aria-label={t("htmlPreview")}
           contentEditable={false}
           onClick={selectNode}
           sx={{ pt: 0, px: 2, pb: 2, bgcolor: "background.paper", borderTop: codeCollapsed ? 0 : 1, borderColor: "divider", overflow: "auto", maxHeight: 400, "& img": { maxWidth: "100%" } }}

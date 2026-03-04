@@ -409,7 +409,11 @@
     "mathFormula": "数式",
     "templateMenu": "テンプレートメニュー",
     "headingMenu": "見出しメニュー",
-    "resizeSplitter": "スプリッタを調整"
+    "resizeSplitter": "スプリッタを調整",
+    "headingParagraph": "段落",
+    "noComments": "コメントはありません",
+    "noOpenComments": "未解決のコメントはありません",
+    "noResolvedComments": "解決済みのコメントはありません"
   },
   "Landing": {
     "heroTitle": "美しくMarkdownを書こう",
@@ -434,7 +438,10 @@
     "footerPrivacy": "プライバシーポリシー",
     "footerGithub": "GitHub",
     "footerVscode": "VS Code 拡張機能",
-    "experimentalNotice": "本サイトは Claude Code（AI コーディングアシスタント）を活用して構築された実験的なプロジェクトです。ソースコードは <github>GitHub</github> で公開しています。"
+    "experimentalNotice": "本サイトは Claude Code（AI コーディングアシスタント）を活用して構築された実験的なプロジェクトです。ソースコードは <github>GitHub</github> で公開しています。",
+    "notFoundTitle": "ページが見つかりません",
+    "notFoundLink": "エディタへ",
+    "backToHome": "ホーム"
   },
   "Common": {
     "ok": "OK",

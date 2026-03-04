@@ -409,7 +409,11 @@
     "mathFormula": "Formula",
     "templateMenu": "Template menu",
     "headingMenu": "Heading menu",
-    "resizeSplitter": "Resize splitter"
+    "resizeSplitter": "Resize splitter",
+    "headingParagraph": "Paragraph",
+    "noComments": "No comments",
+    "noOpenComments": "No open comments",
+    "noResolvedComments": "No resolved comments"
   },
   "Landing": {
     "heroTitle": "Write Markdown, Beautifully",
@@ -434,7 +438,10 @@
     "footerPrivacy": "Privacy Policy",
     "footerGithub": "GitHub",
     "footerVscode": "VS Code Extension",
-    "experimentalNotice": "This site is an experimental project built with Claude Code, an AI coding assistant. Source code is available on <github>GitHub</github>."
+    "experimentalNotice": "This site is an experimental project built with Claude Code, an AI coding assistant. Source code is available on <github>GitHub</github>.",
+    "notFoundTitle": "Page not found",
+    "notFoundLink": "Go to Editor",
+    "backToHome": "Home"
   },
   "Common": {
     "ok": "OK",
