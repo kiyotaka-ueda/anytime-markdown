@@ -14,6 +14,15 @@ import { Markdown } from "tiptap-markdown";
 import { TableKit } from "@tiptap/extension-table";
 import { common, createLowlight } from "lowlight";
 import { CodeBlockWithMermaid } from "./codeBlockWithMermaid";
+
+/** lowlight インスタンス（シンタックスハイライト用） */
+const lowlight = createLowlight(common);
+
+// NodeView 専用言語を no-op 登録し、highlightAuto の誤検出を防止
+const noopGrammar = () => ({ name: "noop", contains: [] as never[] });
+for (const lang of ["math", "mermaid", "plantuml"]) {
+  lowlight.register(lang, noopGrammar);
+}
 import { CustomImage } from "./imageExtension";
 import { CustomTable } from "./tableExtension";
 import { CustomTableCell, CustomTableHeader } from "./extensions/customTableCells";
@@ -103,7 +112,7 @@ export function getBaseExtensions(): Extensions {
       blockquote: false, // AdmonitionBlockquote で置換
     }),
     AdmonitionBlockquote,
-    CodeBlockWithMermaid.configure({ lowlight: createLowlight(common) }),
+    CodeBlockWithMermaid.configure({ lowlight }),
     Highlight,
     Underline,
     LinkExtension.configure({ openOnClick: false, validate: () => true }),
