@@ -1,5 +1,6 @@
 import DOMPurify from "dompurify";
 import { preprocessMathBlock, preprocessMathInline } from "./mathHelpers";
+import { preprocessAdmonition } from "./admonitionHelpers";
 
 const ALLOWED_TAGS = ["details", "summary", "br", "hr", "sub", "sup", "mark", "kbd", "u"];
 const ALLOWED_ATTR = ["open"];
@@ -74,6 +75,8 @@ export function sanitizeMarkdown(md: string): string {
   // Math 前処理: $$...$$ → ```math, $...$ → <span data-math-inline>
   md = preprocessMathBlock(md);
   md = preprocessMathInline(md);
+  // Admonition 前処理: > [!TYPE] → <blockquote data-admonition-type>
+  md = preprocessAdmonition(md);
   // コードブロック境界で分割し、コードブロック外のみサニタイズ
   const parts = splitByCodeBlocks(md);
   return parts
@@ -90,6 +93,12 @@ export function sanitizeMarkdown(md: string): string {
         mathSpans.push(m);
         return `\x00MATH${mathSpans.length - 1}\x00`;
       });
+      // admonition blockquote を DOMPurify から保護
+      const admBlocks: string[] = [];
+      inner = inner.replace(/<blockquote data-admonition-type="[^"]*">[\s\S]*?<\/blockquote>/g, (m) => {
+        admBlocks.push(m);
+        return `\x00ADM${admBlocks.length - 1}\x00`;
+      });
       // DOMPurify でサニタイズ後、マークダウンで意味を持つ文字の
       // HTMLエンティティを元に戻す
       let sanitized = DOMPurify.sanitize(inner, { ALLOWED_TAGS, ALLOWED_ATTR, KEEP_CONTENT: true })
@@ -98,6 +107,8 @@ export function sanitizeMarkdown(md: string): string {
         .replace(/&amp;/g, "&");
       // math inline スパンを復元
       sanitized = sanitized.replace(/\x00MATH(\d+)\x00/g, (_, i) => mathSpans[Number(i)]);
+      // admonition blockquote を復元
+      sanitized = sanitized.replace(/\x00ADM(\d+)\x00/g, (_, i) => admBlocks[Number(i)]);
       return leadingNL + sanitized + trailingNL;
     })
     .join("");

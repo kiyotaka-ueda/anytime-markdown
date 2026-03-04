@@ -203,6 +203,34 @@ export function getEditorPaperSx(
         my: 1,
         color: theme.palette.text.secondary,
       },
+      "& blockquote[data-admonition-type]": {
+        borderLeftWidth: 4,
+        pl: 2,
+        py: 1,
+        my: 1.5,
+        borderRadius: 1,
+        color: theme.palette.text.primary,
+      },
+      "& blockquote[data-admonition-type='note']": {
+        borderLeftColor: theme.palette.info.main,
+        bgcolor: alpha(theme.palette.info.main, 0.05),
+      },
+      "& blockquote[data-admonition-type='tip']": {
+        borderLeftColor: theme.palette.success.main,
+        bgcolor: alpha(theme.palette.success.main, 0.05),
+      },
+      "& blockquote[data-admonition-type='important']": {
+        borderLeftColor: theme.palette.secondary.main,
+        bgcolor: alpha(theme.palette.secondary.main, 0.05),
+      },
+      "& blockquote[data-admonition-type='warning']": {
+        borderLeftColor: theme.palette.warning.main,
+        bgcolor: alpha(theme.palette.warning.main, 0.05),
+      },
+      "& blockquote[data-admonition-type='caution']": {
+        borderLeftColor: theme.palette.error.main,
+        bgcolor: alpha(theme.palette.error.main, 0.05),
+      },
       "& table": {
         borderCollapse: "collapse",
         width: settings.tableWidth,

@@ -20,6 +20,7 @@ import { DiffHighlight } from "./extensions/diffHighlight";
 import { HeadingFoldExtension } from "./extensions/headingFoldExtension";
 import { CodeBlockNavigation } from "./extensions/codeBlockNavigationExtension";
 import { MathInline } from "./extensions/mathInlineExtension";
+import { AdmonitionBlockquote } from "./extensions/admonitionExtension";
 import type { Extensions } from "@tiptap/react";
 
 /** 共通 Extension（メインエディタ / 比較エディタで共有） */
@@ -29,7 +30,9 @@ export function getBaseExtensions(): Extensions {
       heading: { levels: [1, 2, 3, 4, 5] },
       codeBlock: false,
       hardBreak: false,
+      blockquote: false, // AdmonitionBlockquote で置換
     }),
+    AdmonitionBlockquote,
     CodeBlockWithMermaid,
     Highlight,
     Underline,

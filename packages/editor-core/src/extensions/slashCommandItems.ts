@@ -19,6 +19,11 @@ import AccountTreeIcon from "@mui/icons-material/AccountTree";
 import FunctionsIcon from "@mui/icons-material/Functions";
 import TocIcon from "@mui/icons-material/Toc";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
+import InfoIcon from "@mui/icons-material/Info";
+import TipsAndUpdatesIcon from "@mui/icons-material/TipsAndUpdates";
+import PriorityHighIcon from "@mui/icons-material/PriorityHigh";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 
 export interface SlashCommandItem {
   id: string;
@@ -167,6 +172,76 @@ export const slashCommandItems: SlashCommandItem[] = [
     action: (editor) => {
       const today = new Date().toISOString().slice(0, 10);
       editor.chain().focus().insertContent(today).run();
+    },
+  },
+  {
+    id: "admonitionNote",
+    labelKey: "slashNote",
+    icon: React.createElement(InfoIcon, { fontSize: "small" }),
+    keywords: ["note", "info", "callout", "admonition", "注記", "ノート"],
+    action: (editor) => {
+      editor.chain().focus().setBlockquote().command(({ tr, state }) => {
+        const { $from } = state.selection;
+        const bqPos = $from.before($from.depth);
+        tr.setNodeAttribute(bqPos, "admonitionType", "note");
+        return true;
+      }).run();
+    },
+  },
+  {
+    id: "admonitionTip",
+    labelKey: "slashTip",
+    icon: React.createElement(TipsAndUpdatesIcon, { fontSize: "small" }),
+    keywords: ["tip", "hint", "ヒント"],
+    action: (editor) => {
+      editor.chain().focus().setBlockquote().command(({ tr, state }) => {
+        const { $from } = state.selection;
+        const bqPos = $from.before($from.depth);
+        tr.setNodeAttribute(bqPos, "admonitionType", "tip");
+        return true;
+      }).run();
+    },
+  },
+  {
+    id: "admonitionImportant",
+    labelKey: "slashImportant",
+    icon: React.createElement(PriorityHighIcon, { fontSize: "small" }),
+    keywords: ["important", "重要"],
+    action: (editor) => {
+      editor.chain().focus().setBlockquote().command(({ tr, state }) => {
+        const { $from } = state.selection;
+        const bqPos = $from.before($from.depth);
+        tr.setNodeAttribute(bqPos, "admonitionType", "important");
+        return true;
+      }).run();
+    },
+  },
+  {
+    id: "admonitionWarning",
+    labelKey: "slashWarning",
+    icon: React.createElement(WarningAmberIcon, { fontSize: "small" }),
+    keywords: ["warning", "warn", "警告"],
+    action: (editor) => {
+      editor.chain().focus().setBlockquote().command(({ tr, state }) => {
+        const { $from } = state.selection;
+        const bqPos = $from.before($from.depth);
+        tr.setNodeAttribute(bqPos, "admonitionType", "warning");
+        return true;
+      }).run();
+    },
+  },
+  {
+    id: "admonitionCaution",
+    labelKey: "slashCaution",
+    icon: React.createElement(ErrorOutlineIcon, { fontSize: "small" }),
+    keywords: ["caution", "danger", "注意", "危険"],
+    action: (editor) => {
+      editor.chain().focus().setBlockquote().command(({ tr, state }) => {
+        const { $from } = state.selection;
+        const bqPos = $from.before($from.depth);
+        tr.setNodeAttribute(bqPos, "admonitionType", "caution");
+        return true;
+      }).run();
     },
   },
 ];
