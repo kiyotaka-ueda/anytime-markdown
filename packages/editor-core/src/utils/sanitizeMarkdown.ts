@@ -27,7 +27,7 @@ export function splitByCodeBlocks(md: string): string[] {
     const atLineStart = i === 0 || md[i - 1] === "\n";
     if (atLineStart && i + 2 < len && md[i] === "`" && md[i + 1] === "`" && md[i + 2] === "`") {
       // 開きフェンス行の末尾を探す
-      let eol = md.indexOf("\n", i);
+      const eol = md.indexOf("\n", i);
       if (eol === -1) { i = len; break; } // 最終行に開きフェンスのみ → コードブロックなし
       // 閉じフェンスを行単位で探す
       let closeStart = -1;
