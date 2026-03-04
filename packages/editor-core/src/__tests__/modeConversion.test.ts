@@ -93,6 +93,20 @@ describe("sanitizeMarkdown", () => {
     expect(result).toContain("インライン");
   });
 
+  test("コメントハイライト span が保護・復元される", () => {
+    const md = 'Hello <!-- comment-start:c1 -->world<!-- comment-end:c1 --> end.';
+    const result = sanitizeMarkdown(md);
+    expect(result).toContain('data-comment-id="c1"');
+    expect(result).not.toContain("CMT");
+  });
+
+  test("コメントポイント span が保護・復元される", () => {
+    const md = 'Hello <!-- comment-point:c2 --> end.';
+    const result = sanitizeMarkdown(md);
+    expect(result).toContain('data-comment-point="c2"');
+    expect(result).not.toContain("CMTP");
+  });
+
   test("マークダウン記法（> 引用, **太字**）をサニタイズで壊さない", () => {
     const md = "> 引用テキスト\n\n**太字テキスト**";
     const result = sanitizeMarkdown(md);

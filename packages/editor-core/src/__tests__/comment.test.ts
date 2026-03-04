@@ -510,3 +510,130 @@ describe("CommentDataPlugin コマンド", () => {
     });
   });
 });
+
+// ============================================================
+// ソースモード切替ラウンドトリップテスト
+// ============================================================
+
+import {
+  sanitizeMarkdown,
+  preserveBlankLines,
+} from "../utils/sanitizeMarkdown";
+import { getMarkdownFromEditor } from "../types";
+
+describe("ソースモード切替ラウンドトリップ", () => {
+  let editor: Editor;
+
+  afterEach(() => {
+    editor?.destroy();
+  });
+
+  /**
+   * ソースモード→WYSIWYG 切替をシミュレートする。
+   * useSourceMode.handleSwitchToWysiwyg と同じフローを再現。
+   */
+  function sourceModeRoundTrip(sourceText: string): string {
+    // 1. parseCommentData でコメントブロックを分離
+    const { comments, body } = parseCommentData(sourceText);
+
+    // 2. sanitizeMarkdown + preserveBlankLines（useSourceMode と同じ処理）
+    const sanitized = preserveBlankLines(sanitizeMarkdown(body));
+
+    // 3. エディタに setContent（ソースモード→WYSIWYG 切替相当）
+    editor.commands.setContent(sanitized);
+
+    // 4. initComments で Plugin State を復元
+    if (comments.size > 0) {
+      editor.commands.initComments(comments);
+    }
+
+    // 5. getMarkdownFromEditor でシリアライズ（保存時と同じ処理）
+    return getMarkdownFromEditor(editor);
+  }
+
+  function createEditor(): Editor {
+    return new Editor({
+      extensions: [
+        StarterKit,
+        CommentHighlight,
+        CommentPoint,
+        CommentDataPlugin,
+        Markdown.configure({ html: true }),
+      ],
+    });
+  }
+
+  test("選択コメント: ソースモード→WYSIWYG でコメントマーカーが保持される", () => {
+    editor = createEditor();
+    const sourceText = [
+      "Hello <!-- comment-start:c1 -->world<!-- comment-end:c1 --> end.",
+      "",
+      "<!-- comments",
+      "c1: Review this | 2026-03-04T00:00:00Z",
+      "-->",
+    ].join("\n");
+
+    const result = sourceModeRoundTrip(sourceText);
+
+    expect(result).toContain("<!-- comment-start:c1 -->");
+    expect(result).toContain("<!-- comment-end:c1 -->");
+    expect(result).toContain("<!-- comments");
+    expect(result).toContain("c1: Review this | 2026-03-04T00:00:00Z");
+  });
+
+  test("ポイントコメント: ソースモード→WYSIWYG でコメントが保持される", () => {
+    editor = createEditor();
+    const sourceText = [
+      "Hello <!-- comment-point:c2 --> world.",
+      "",
+      "<!-- comments",
+      "c2: Point note | 2026-03-04T00:00:00Z",
+      "-->",
+    ].join("\n");
+
+    const result = sourceModeRoundTrip(sourceText);
+
+    expect(result).toContain("<!-- comment-point:c2 -->");
+    expect(result).toContain("<!-- comments");
+    expect(result).toContain("c2: Point note | 2026-03-04T00:00:00Z");
+  });
+
+  test("複数コメント: ソースモード→WYSIWYG で全コメントが保持される", () => {
+    editor = createEditor();
+    const sourceText = [
+      "# Title",
+      "",
+      "Some <!-- comment-start:c1 -->highlighted<!-- comment-end:c1 --> text.",
+      "",
+      "Another line.<!-- comment-point:c2 -->",
+      "",
+      "<!-- comments",
+      "c1: Highlight comment | 2026-03-04T00:00:00Z",
+      "c2: Point comment | 2026-03-04T01:00:00Z",
+      "-->",
+    ].join("\n");
+
+    const result = sourceModeRoundTrip(sourceText);
+
+    expect(result).toContain("<!-- comment-start:c1 -->");
+    expect(result).toContain("<!-- comment-end:c1 -->");
+    expect(result).toContain("<!-- comment-point:c2 -->");
+    expect(result).toContain("c1: Highlight comment");
+    expect(result).toContain("c2: Point comment");
+  });
+
+  test("resolved コメント: ソースモード→WYSIWYG で resolved 状態が保持される", () => {
+    editor = createEditor();
+    const sourceText = [
+      "Text <!-- comment-start:c1 -->here<!-- comment-end:c1 -->.",
+      "",
+      "<!-- comments",
+      "[resolved] c1: Already done | 2026-03-04T00:00:00Z",
+      "-->",
+    ].join("\n");
+
+    const result = sourceModeRoundTrip(sourceText);
+
+    expect(result).toContain("[resolved] c1: Already done");
+  });
+});

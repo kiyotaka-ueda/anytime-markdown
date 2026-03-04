@@ -94,32 +94,34 @@ export function sanitizeMarkdown(md: string): string {
       let inner = part.slice(leadingNL.length, part.length - (trailingNL.length || 0));
       if (!inner) return part;
       // math inline スパンを DOMPurify から保護するため、一時プレースホルダに退避
+      // 注意: \x00 (NUL) はブラウザの DOMPurify が HTML 仕様に従い除去するため、
+      // Unicode Private Use Area 文字 \uE000 をデリミタとして使用する。
       const mathSpans: string[] = [];
       inner = inner.replace(/<span data-math-inline="[^"]*"><\/span>/g, (m) => {
         mathSpans.push(m);
-        return `\x00MATH${mathSpans.length - 1}\x00`;
+        return `\uE000MATH${mathSpans.length - 1}\uE000`;
       });
       // 脚注参照 sup を DOMPurify から保護
       const fnSpans: string[] = [];
       inner = inner.replace(/<sup data-footnote-ref="[^"]*">[^<]*<\/sup>/g, (m) => {
         fnSpans.push(m);
-        return `\x00FN${fnSpans.length - 1}\x00`;
+        return `\uE000FN${fnSpans.length - 1}\uE000`;
       });
       // admonition blockquote を DOMPurify から保護
       const admBlocks: string[] = [];
       inner = inner.replace(/<blockquote data-admonition-type="[^"]*">[\s\S]*?<\/blockquote>/g, (m) => {
         admBlocks.push(m);
-        return `\x00ADM${admBlocks.length - 1}\x00`;
+        return `\uE000ADM${admBlocks.length - 1}\uE000`;
       });
       // コメントハイライト span を保護
       const cmtBlocks: string[] = [];
       inner = inner.replace(/<span data-comment-id="[^"]*">[\s\S]*?<\/span>/g, (m) => {
-        cmtBlocks.push(m); return `\x00CMT${cmtBlocks.length - 1}\x00`;
+        cmtBlocks.push(m); return `\uE000CMT${cmtBlocks.length - 1}\uE000`;
       });
       // コメントポイント span を保護
       const cmtPoints: string[] = [];
       inner = inner.replace(/<span data-comment-point="[^"]*"><\/span>/g, (m) => {
-        cmtPoints.push(m); return `\x00CMTP${cmtPoints.length - 1}\x00`;
+        cmtPoints.push(m); return `\uE000CMTP${cmtPoints.length - 1}\uE000`;
       });
       // DOMPurify でサニタイズ後、マークダウンで意味を持つ文字の
       // HTMLエンティティを元に戻す
@@ -128,15 +130,15 @@ export function sanitizeMarkdown(md: string): string {
         .replace(/&lt;/g, "<")
         .replace(/&amp;/g, "&");
       // math inline スパンを復元
-      sanitized = sanitized.replace(/\x00MATH(\d+)\x00/g, (_, i) => mathSpans[Number(i)]);
+      sanitized = sanitized.replace(/\uE000MATH(\d+)\uE000/g, (_, i) => mathSpans[Number(i)]);
       // admonition blockquote を復元
-      sanitized = sanitized.replace(/\x00ADM(\d+)\x00/g, (_, i) => admBlocks[Number(i)]);
+      sanitized = sanitized.replace(/\uE000ADM(\d+)\uE000/g, (_, i) => admBlocks[Number(i)]);
       // 脚注参照 sup を復元
-      sanitized = sanitized.replace(/\x00FN(\d+)\x00/g, (_, i) => fnSpans[Number(i)]);
+      sanitized = sanitized.replace(/\uE000FN(\d+)\uE000/g, (_, i) => fnSpans[Number(i)]);
       // コメントポイント span を復元
-      sanitized = sanitized.replace(/\x00CMTP(\d+)\x00/g, (_, i) => cmtPoints[Number(i)]);
+      sanitized = sanitized.replace(/\uE000CMTP(\d+)\uE000/g, (_, i) => cmtPoints[Number(i)]);
       // コメントハイライト span を復元
-      sanitized = sanitized.replace(/\x00CMT(\d+)\x00/g, (_, i) => cmtBlocks[Number(i)]);
+      sanitized = sanitized.replace(/\uE000CMT(\d+)\uE000/g, (_, i) => cmtBlocks[Number(i)]);
       return leadingNL + sanitized + trailingNL;
     })
     .join("");
