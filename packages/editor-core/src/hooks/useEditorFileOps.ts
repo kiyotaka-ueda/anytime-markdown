@@ -28,7 +28,7 @@ interface UseEditorFileOpsParams {
   fileHandle?: FileHandle | null;
 }
 
-export type NotificationKey = "copiedToClipboard" | "fileSaved" | null;
+export type NotificationKey = "copiedToClipboard" | "fileSaved" | "pdfExportError" | "encodingError" | "saveError" | null;
 
 export function useEditorFileOps({
   editor,
@@ -309,6 +309,7 @@ export function useEditorFileOps({
     }, delay);
     } catch {
       setPdfExporting(false);
+      showNotification("pdfExportError");
       return;
     }
   }, [editor, isDark]);
@@ -316,6 +317,7 @@ export function useEditorFileOps({
   return {
     notification,
     setNotification,
+    showNotification,
     pdfExporting,
     fileInputRef,
     handleClear,
