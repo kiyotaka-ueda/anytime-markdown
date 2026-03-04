@@ -353,10 +353,11 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
       return;
     }
     if (!editor) return;
+    const preprocessed = sanitizeMarkdown(template.content);
     // requestAnimationFrame で次フレームに遅延し、Popover 閉じ等の React レンダリングと
     // Tiptap ReactRenderer の flushSync の競合を回避する
     requestAnimationFrame(() => {
-      editor.chain().focus().insertContent(template.content).run();
+      editor.chain().focus().insertContent(preprocessed).run();
     });
   }, [editor, sourceMode, appendToSource]);
 
