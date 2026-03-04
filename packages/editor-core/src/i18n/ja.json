@@ -405,7 +405,11 @@
     "commentFilterOpen": "未解決",
     "commentFilterResolved": "解決済み",
     "commentPointLabel": "ポイントコメント",
-    "slashComment": "コメント"
+    "slashComment": "コメント",
+    "mathFormula": "数式",
+    "templateMenu": "テンプレートメニュー",
+    "headingMenu": "見出しメニュー",
+    "resizeSplitter": "スプリッタを調整"
   },
   "Landing": {
     "heroTitle": "美しくMarkdownを書こう",

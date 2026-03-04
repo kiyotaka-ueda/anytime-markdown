@@ -405,7 +405,11 @@
     "commentFilterOpen": "Open",
     "commentFilterResolved": "Resolved",
     "commentPointLabel": "Point comment",
-    "slashComment": "Comment"
+    "slashComment": "Comment",
+    "mathFormula": "Formula",
+    "templateMenu": "Template menu",
+    "headingMenu": "Heading menu",
+    "resizeSplitter": "Resize splitter"
   },
   "Landing": {
     "heroTitle": "Write Markdown, Beautifully",

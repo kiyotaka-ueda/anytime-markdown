@@ -214,6 +214,7 @@ export const SearchReplaceBar = React.memo(function SearchReplaceBar({ editor, t
           <IconButton
             size="small"
             aria-label={t("replace")}
+            aria-pressed={showReplace}
             onClick={() => setShowReplace((v) => !v)}
             sx={{ p: 0.25, minWidth: 24, minHeight: 24 }}
           >
@@ -282,6 +283,7 @@ export const SearchReplaceBar = React.memo(function SearchReplaceBar({ editor, t
           <IconButton
             size="small"
             aria-label={t("caseSensitive")}
+            aria-pressed={caseSensitive}
             onClick={() => editor.commands.toggleCaseSensitive()}
             sx={toggleBtnSx(caseSensitive)}
           >
@@ -293,6 +295,7 @@ export const SearchReplaceBar = React.memo(function SearchReplaceBar({ editor, t
             <IconButton
               size="small"
               aria-label={t("wholeWord")}
+              aria-pressed={wholeWord && !useRegex}
               onClick={() => editor.commands.toggleWholeWord()}
               disabled={useRegex}
               sx={toggleBtnSx(wholeWord && !useRegex)}
@@ -305,6 +308,7 @@ export const SearchReplaceBar = React.memo(function SearchReplaceBar({ editor, t
           <IconButton
             size="small"
             aria-label={t("regex")}
+            aria-pressed={useRegex}
             onClick={() => editor.commands.toggleUseRegex()}
             sx={toggleBtnSx(useRegex)}
           >
