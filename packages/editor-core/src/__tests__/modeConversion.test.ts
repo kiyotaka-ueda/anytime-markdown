@@ -603,18 +603,23 @@ describe("エッジケース ラウンドトリップ", () => {
   test("insertContent でネストされたリストが空行なしで保持される", () => {
     const template = "1. ファイルを開く\n   1. ツールバーの「開く」をクリック\n   2. `.md` ファイルを選択\n2. 編集する\n3. 保存する";
 
-    // setContent: markdown 出力を取得（参照）
+    // setContent: ドキュメント構造と markdown 出力を取得（参照）
     editor = createTestEditor({ withMarkdown: true });
     editor.commands.setContent("# テスト\n\n" + template);
+    const setDoc = JSON.stringify(editor.state.doc.toJSON(), null, 2);
     const setMd = getMarkdownFromEditor(editor);
     editor.destroy();
 
-    // insertContent: markdown 出力を取得
+    // insertContent: ドキュメント構造と markdown 出力を取得
     editor = createTestEditor({ withMarkdown: true });
     editor.commands.setContent("# テスト");
     editor.chain().focus().insertContent(template).run();
+    const insertDoc = JSON.stringify(editor.state.doc.toJSON(), null, 2);
     const insertMd = getMarkdownFromEditor(editor);
 
+    // ドキュメント構造が一致（末尾 \n が除去されている）
+    expect(insertDoc).toBe(setDoc);
+    // markdown 出力も一致
     expect(insertMd).toBe(setMd);
   });
 

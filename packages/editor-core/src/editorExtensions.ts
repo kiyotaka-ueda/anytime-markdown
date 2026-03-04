@@ -25,6 +25,7 @@ import { FootnoteRef } from "./extensions/footnoteExtension";
 import { HeadingNumberExtension } from "./extensions/headingNumberExtension";
 import { CommentHighlight, CommentPoint, CommentDataPlugin } from "./extensions/commentExtension";
 import { Extension, type Extensions } from "@tiptap/react";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
 
 /**
  * tiptap-markdown の MarkdownTightLists は bulletList / orderedList のみ対象。
@@ -48,6 +49,49 @@ const TaskListTight = Extension.create({
   },
 });
 
+/**
+ * insertContent 経由で挿入されたリスト内テキストノードの末尾 \n を除去する。
+ * tiptap-markdown のパーサーが { inline: true } で解析する際に末尾 \n が残り、
+ * WYSIWYG 表示でネストリスト手前に空行が表示される問題を修正する。
+ */
+const ListTextCleanup = Extension.create({
+  name: "listTextCleanup",
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey("listTextCleanup"),
+        appendTransaction(transactions, _oldState, newState) {
+          if (!transactions.some((tr) => tr.docChanged)) return null;
+          const changes: { from: number; to: number; text: string; marks: readonly import("@tiptap/pm/model").Mark[] }[] = [];
+          newState.doc.descendants((node, pos) => {
+            if (!node.isText || !node.text?.endsWith("\n")) return;
+            const $pos = newState.doc.resolve(pos);
+            if ($pos.parent.type.name !== "paragraph") return;
+            for (let d = $pos.depth; d > 0; d--) {
+              if ($pos.node(d).type.name === "listItem") {
+                const trimmed = node.text!.replace(/\n+$/, "");
+                changes.push({ from: pos, to: pos + node.text!.length, text: trimmed, marks: [...node.marks] });
+                break;
+              }
+            }
+          });
+          if (changes.length === 0) return null;
+          const tr = newState.tr;
+          for (let i = changes.length - 1; i >= 0; i--) {
+            const { from, to, text, marks } = changes[i];
+            if (text.length > 0) {
+              tr.replaceWith(from, to, newState.schema.text(text, marks));
+            } else {
+              tr.delete(from, to);
+            }
+          }
+          return tr;
+        },
+      }),
+    ];
+  },
+});
+
 /** 共通 Extension（メインエディタ / 比較エディタで共有） */
 export function getBaseExtensions(): Extensions {
   return [
@@ -66,6 +110,7 @@ export function getBaseExtensions(): Extensions {
     TaskList,
     TaskItem.configure({ nested: true }),
     TaskListTight,
+    ListTextCleanup,
     TableKit.configure({
       table: false,
       tableCell: false,
