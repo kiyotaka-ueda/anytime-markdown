@@ -58,8 +58,13 @@ export default function PrivacyPolicyPage() {
 
       <Section title="5. Analytics and Tracking">
         <P>
-          The App does not use analytics services, tracking pixels, or advertising SDKs.
-          We do not track your usage behavior.
+          The App may use Google Analytics to collect anonymous usage data such as page views and
+          session duration. This data is used solely to improve the App and is not used for
+          advertising or sold to third parties. No personally identifiable information is collected
+          through analytics.
+        </P>
+        <P>
+          The App does not use tracking pixels or advertising SDKs.
         </P>
       </Section>
 
