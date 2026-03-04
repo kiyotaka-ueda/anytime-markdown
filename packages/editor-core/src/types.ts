@@ -3,6 +3,9 @@ import type { Node as PMNode } from "@tiptap/pm/model";
 import type { Editor } from "@tiptap/react";
 import { restoreBlankLines } from "./utils/sanitizeMarkdown";
 import { postprocessMathBlock } from "./utils/mathHelpers";
+import { appendCommentData } from "./utils/commentHelpers";
+import { commentDataPluginKey } from "./extensions/commentExtension";
+import type { InlineComment } from "./utils/commentHelpers";
 
 export type EncodingLabel = "UTF-8" | "Shift_JIS" | "EUC-JP";
 
@@ -35,6 +38,13 @@ export function getMarkdownFromEditor(editor: Editor): string {
   md = md.replace(/([^\n])\n?(```)/gm, "$1\n\n$2");
   // ```math フェンスが残っている場合に $$...$$ に変換する（フォールバック）
   md = postprocessMathBlock(md);
+  // Plugin State からコメントデータを取得し、末尾に付加
+  const commentState = editor.state
+    ? commentDataPluginKey.getState(editor.state) as { comments: Map<string, InlineComment> } | undefined
+    : undefined;
+  if (commentState?.comments && commentState.comments.size > 0) {
+    md = appendCommentData(md, commentState.comments);
+  }
   return md;
 }
 

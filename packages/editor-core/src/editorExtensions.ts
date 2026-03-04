@@ -23,6 +23,7 @@ import { MathInline } from "./extensions/mathInlineExtension";
 import { AdmonitionBlockquote } from "./extensions/admonitionExtension";
 import { FootnoteRef } from "./extensions/footnoteExtension";
 import { HeadingNumberExtension } from "./extensions/headingNumberExtension";
+import { CommentHighlight, CommentPoint, CommentDataPlugin } from "./extensions/commentExtension";
 import type { Extensions } from "@tiptap/react";
 
 /** 共通 Extension（メインエディタ / 比較エディタで共有） */
@@ -61,5 +62,8 @@ export function getBaseExtensions(): Extensions {
     MathInline,
     FootnoteRef,
     HeadingNumberExtension,
+    CommentHighlight,
+    CommentPoint,
+    CommentDataPlugin,
   ];
 }

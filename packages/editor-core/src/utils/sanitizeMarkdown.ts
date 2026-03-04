@@ -2,6 +2,7 @@ import DOMPurify from "dompurify";
 import { preprocessMathBlock, preprocessMathInline } from "./mathHelpers";
 import { preprocessAdmonition } from "./admonitionHelpers";
 import { preprocessFootnoteRefs } from "./footnoteHelpers";
+import { preprocessComments } from "./commentHelpers";
 
 const ALLOWED_TAGS = ["details", "summary", "br", "hr", "sub", "sup", "mark", "kbd", "u"];
 const ALLOWED_ATTR = ["open"];
@@ -80,6 +81,8 @@ export function sanitizeMarkdown(md: string): string {
   md = preprocessAdmonition(md);
   // 脚注参照前処理: [^id] → <sup data-footnote-ref>
   md = preprocessFootnoteRefs(md);
+  // コメント前処理: <!-- comment-start/end/point --> → <span data-comment-id/point>
+  md = preprocessComments(md);
   // コードブロック境界で分割し、コードブロック外のみサニタイズ
   const parts = splitByCodeBlocks(md);
   return parts
@@ -108,6 +111,16 @@ export function sanitizeMarkdown(md: string): string {
         admBlocks.push(m);
         return `\x00ADM${admBlocks.length - 1}\x00`;
       });
+      // コメントハイライト span を保護
+      const cmtBlocks: string[] = [];
+      inner = inner.replace(/<span data-comment-id="[^"]*">[\s\S]*?<\/span>/g, (m) => {
+        cmtBlocks.push(m); return `\x00CMT${cmtBlocks.length - 1}\x00`;
+      });
+      // コメントポイント span を保護
+      const cmtPoints: string[] = [];
+      inner = inner.replace(/<span data-comment-point="[^"]*"><\/span>/g, (m) => {
+        cmtPoints.push(m); return `\x00CMTP${cmtPoints.length - 1}\x00`;
+      });
       // DOMPurify でサニタイズ後、マークダウンで意味を持つ文字の
       // HTMLエンティティを元に戻す
       let sanitized = DOMPurify.sanitize(inner, { ALLOWED_TAGS, ALLOWED_ATTR, KEEP_CONTENT: true })
@@ -120,6 +133,10 @@ export function sanitizeMarkdown(md: string): string {
       sanitized = sanitized.replace(/\x00ADM(\d+)\x00/g, (_, i) => admBlocks[Number(i)]);
       // 脚注参照 sup を復元
       sanitized = sanitized.replace(/\x00FN(\d+)\x00/g, (_, i) => fnSpans[Number(i)]);
+      // コメントポイント span を復元
+      sanitized = sanitized.replace(/\x00CMTP(\d+)\x00/g, (_, i) => cmtPoints[Number(i)]);
+      // コメントハイライト span を復元
+      sanitized = sanitized.replace(/\x00CMT(\d+)\x00/g, (_, i) => cmtBlocks[Number(i)]);
       return leadingNL + sanitized + trailingNL;
     })
     .join("");
