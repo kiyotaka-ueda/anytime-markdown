@@ -390,7 +390,18 @@
     "mergeRightToLeft": "右 → 左",
     "imageOriginalSize": "元のサイズ",
     "fileSaved": "ファイルを保存しました",
-    "encodingChangeConfirm": "エンコーディングを {encoding} に変更しますか？一部の文字が正しく表示されなくなる可能性があります。"
+    "encodingChangeConfirm": "エンコーディングを {encoding} に変更しますか？一部の文字が正しく表示されなくなる可能性があります。",
+    "comment": "コメント",
+    "commentPrompt": "コメントを入力:",
+    "commentPanel": "コメント",
+    "commentResolve": "解決",
+    "commentUnresolve": "再開",
+    "commentDelete": "削除",
+    "commentFilterAll": "全て",
+    "commentFilterOpen": "未解決",
+    "commentFilterResolved": "解決済み",
+    "commentPointLabel": "ポイントコメント",
+    "slashComment": "コメント"
   },
   "Landing": {
     "heroTitle": "美しくMarkdownを書こう",

@@ -25,6 +25,7 @@ import PriorityHighIcon from "@mui/icons-material/PriorityHigh";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import SuperscriptIcon from "@mui/icons-material/Superscript";
+import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 
 export interface SlashCommandItem {
   id: string;
@@ -256,6 +257,16 @@ export const slashCommandItems: SlashCommandItem[] = [
         tr.setNodeAttribute(bqPos, "admonitionType", "caution");
         return true;
       }).run();
+    },
+  },
+  {
+    id: "comment",
+    labelKey: "slashComment",
+    icon: React.createElement(ChatBubbleOutlineIcon, { fontSize: "small" }),
+    keywords: ["comment", "annotation", "note", "コメント", "注釈", "メモ"],
+    action: (editor) => {
+      const text = prompt("Comment:");
+      if (text) editor.chain().focus().addComment(text).run();
     },
   },
 ];

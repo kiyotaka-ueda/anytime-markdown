@@ -390,7 +390,18 @@
     "mergeRightToLeft": "Right → Left",
     "imageOriginalSize": "original",
     "fileSaved": "File saved",
-    "encodingChangeConfirm": "Change encoding to {encoding}? Some characters may not display correctly."
+    "encodingChangeConfirm": "Change encoding to {encoding}? Some characters may not display correctly.",
+    "comment": "Comment",
+    "commentPrompt": "Enter comment:",
+    "commentPanel": "Comments",
+    "commentResolve": "Resolve",
+    "commentUnresolve": "Reopen",
+    "commentDelete": "Delete",
+    "commentFilterAll": "All",
+    "commentFilterOpen": "Open",
+    "commentFilterResolved": "Resolved",
+    "commentPointLabel": "Point comment",
+    "slashComment": "Comment"
   },
   "Landing": {
     "heroTitle": "Write Markdown, Beautifully",

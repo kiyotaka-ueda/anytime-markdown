@@ -46,6 +46,28 @@ export function getEditorPaperSx(
         marginRight: "0.25em",
         userSelect: "none" as const,
       },
+      // コメントハイライト
+      "& .comment-highlight": {
+        backgroundColor: "rgba(255, 200, 0, 0.25)",
+        borderBottom: "2px solid rgba(255, 200, 0, 0.6)",
+        cursor: "pointer",
+        borderRadius: "2px",
+      },
+      "& .comment-highlight:hover": {
+        backgroundColor: "rgba(255, 200, 0, 0.4)",
+      },
+      // ポイントコメントマーカー
+      "& .comment-point-marker": {
+        display: "inline-block",
+        width: "8px",
+        height: "8px",
+        borderRadius: "50%",
+        backgroundColor: "rgba(255, 200, 0, 0.8)",
+        verticalAlign: "middle",
+        mx: "2px",
+        cursor: "pointer",
+        userSelect: "none" as const,
+      },
       "& .heading-folded::after": {
         content: "' ...'",
         fontSize: "0.75rem",
