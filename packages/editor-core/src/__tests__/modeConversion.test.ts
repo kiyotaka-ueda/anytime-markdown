@@ -424,6 +424,13 @@ describe("ラウンドトリップ: 複合要素", () => {
     expect(result).toContain("項目B");
   });
 
+  test("見出し + リスト（preserveBlankLines なしでは \n\n が \n に圧縮される）", () => {
+    const md = "### 構成\n\n- editor-core\n- web-app\n- vscode-extension";
+    const result = roundTrip(md);
+    // roundTrip は preserveBlankLines を通さないため、ZWNJ マーカーなし → \n\n が \n に圧縮される
+    expect(result).toMatch(/### 構成\n- editor-core/);
+  });
+
   test("ブロック引用 + コードブロック", () => {
     const md = "> 引用文\n\n```js\nconsole.log('hello');\n```";
     const result = roundTrip(md);
@@ -586,6 +593,21 @@ describe("エッジケース ラウンドトリップ", () => {
 
   test("タスクリスト（空行なし）が空行なしで保持される", () => {
     const md = "- [x] エディタの基本操作を覚える\n- [x] ダイアグラムを試す\n- [ ] 自分のドキュメントを書いてみる";
+    expect(fullRoundTrip(md)).toBe(md);
+  });
+
+  test("見出し直後のリスト（空行なし）が空行なしで保持される", () => {
+    const md = "### 構成\n- editor-core\n- web-app\n- vscode-extension";
+    expect(fullRoundTrip(md)).toBe(md);
+  });
+
+  test("見出し + 空行 + リスト（空行が保持される）", () => {
+    const md = "### 構成\n\n- editor-core\n- web-app\n- vscode-extension";
+    expect(fullRoundTrip(md)).toBe(md);
+  });
+
+  test("見出し直後の番号付きリスト（空行なし）が保持される", () => {
+    const md = "## 手順\n1. ファイルを開く\n2. 編集する\n3. 保存する";
     expect(fullRoundTrip(md)).toBe(md);
   });
 
