@@ -18,7 +18,7 @@ test.describe("Toolbar", () => {
     await editor.click();
     await page.keyboard.type("/h1");
     // スラッシュコマンドメニューが表示される
-    const menu = page.getByRole("listbox");
+    const menu = page.getByRole("menu", { name: "Type to filter..." });
     await expect(menu).toBeVisible();
     // Heading 1 メニュー項目をクリック
     await menu.getByRole("menuitem", { name: /Heading 1/i }).click();
@@ -26,41 +26,51 @@ test.describe("Toolbar", () => {
     await expect(editor.locator("h1")).toBeVisible();
   });
 
-  test("insert code block via toolbar", async ({ page }) => {
+  test("insert code block via slash command", async ({ page }) => {
     const editor = page.locator(".tiptap");
     await editor.click();
-    // ツールバーの Code Block ボタンをクリック
-    await page.getByRole("button", { name: "Code Block" }).click();
+    // スラッシュコマンドでコードブロックを挿入
+    await page.keyboard.type("/codeblock");
+    const menu = page.getByRole("menu", { name: "Type to filter..." });
+    await expect(menu).toBeVisible();
+    await menu.getByRole("menuitem", { name: /Code Block/i }).click();
     // pre > code 要素が挿入される
     await expect(editor.locator("pre code")).toBeVisible();
   });
 
-  test("insert table via toolbar", async ({ page }) => {
+  test("insert table via slash command", async ({ page }) => {
     const editor = page.locator(".tiptap");
     await editor.click();
-    // ツールバーの Insert Table ボタンをクリック
-    await page.getByRole("button", { name: "Insert Table" }).click();
+    // スラッシュコマンドでテーブルを挿入
+    await page.keyboard.type("/table");
+    const menu = page.getByRole("menu", { name: "Type to filter..." });
+    await expect(menu).toBeVisible();
+    await menu.getByRole("menuitem", { name: "Table", exact: true }).click();
     // table 要素が挿入される
     await expect(editor.locator("table")).toBeVisible();
   });
 
-  test("insert horizontal rule via toolbar", async ({ page }) => {
+  test("insert horizontal rule via slash command", async ({ page }) => {
     const editor = page.locator(".tiptap");
     await editor.click();
-    // ツールバーの Horizontal Rule ボタンをクリック
-    await page.getByRole("button", { name: "Horizontal Rule" }).click();
+    // スラッシュコマンドで区切り線を挿入
+    await page.keyboard.type("/divider");
+    const menu = page.getByRole("menu", { name: "Type to filter..." });
+    await expect(menu).toBeVisible();
+    await menu.getByRole("menuitem", { name: /Divider/i }).click();
     // hr 要素が挿入される
     await expect(editor.locator("hr")).toBeVisible();
   });
 
-  test("diagram menu opens", async ({ page }) => {
+  test("insert mermaid diagram via slash command", async ({ page }) => {
     const editor = page.locator(".tiptap");
     await editor.click();
-    // ツールバーの Insert Diagram ボタンをクリック
-    await page.getByRole("button", { name: "Insert Diagram" }).click();
-    // ダイアグラムメニューが開き、Mermaid オプションが表示される
-    const diagramMenu = page.getByRole("menu", { name: /diagram menu/i });
-    await expect(diagramMenu).toBeVisible();
-    await expect(diagramMenu.getByRole("menuitem", { name: "Mermaid" })).toBeVisible();
+    // スラッシュコマンドで Mermaid ダイアグラムを挿入
+    await page.keyboard.type("/mermaid");
+    const menu = page.getByRole("menu", { name: "Type to filter..." });
+    await expect(menu).toBeVisible();
+    await menu.getByRole("menuitem", { name: /Mermaid/i }).click();
+    // Mermaid コードブロックが挿入される（NodeView 内）
+    await expect(editor.locator("pre")).toBeVisible();
   });
 });
