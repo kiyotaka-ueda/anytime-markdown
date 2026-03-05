@@ -611,6 +611,16 @@ describe("エッジケース ラウンドトリップ", () => {
     expect(fullRoundTrip(md)).toBe(md);
   });
 
+  test("段落直後のリスト（空行なし）が保持される", () => {
+    const md = "**改善内容:**\n1. xs/sm ブレークポイントでボタンを分離\n2. テスト追加";
+    expect(fullRoundTrip(md)).toBe(md);
+  });
+
+  test("段落 + 空行 + リスト（空行が保持される）", () => {
+    const md = "改善内容:\n\n- 項目A\n- 項目B";
+    expect(fullRoundTrip(md)).toBe(md);
+  });
+
   test("通常リスト（空行なし）が空行なしで保持される", () => {
     const md = "- 項目A\n- 項目B\n- 項目C";
     const result = fullRoundTrip(md);

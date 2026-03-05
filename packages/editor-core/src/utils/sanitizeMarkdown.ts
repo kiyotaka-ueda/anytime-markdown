@@ -155,9 +155,10 @@ export function preserveBlankLines(md: string): string {
   return parts
     .map((part) => {
       if (/^```/.test(part)) return part;
-      // 見出し + 空行 + リストの境界を ZWNJ で目印付け
-      // （ProseMirror が \n\n に正規化するため、見出しテキスト末尾に ZWNJ を付加して意図的な空行を識別）
-      part = part.replace(/^(#{1,6} [^\n]+)\n\n([-*+] |\d+[.)] )/gm, "$1\u200C\n\n$2");
+      // ブロック + 空行 + リストの境界に ZWNJ マーカー段落を挿入
+      // （ProseMirror が \n\n に正規化するため、意図的な空行を識別する目印）
+      // ※ リスト項目行（- / * / + / 1. 等）は tightLists で制御するため除外
+      part = part.replace(/^((?!\s*[-*+] |\s*\d+[.)] )[^\n]+\n)\n([-*+] |\d+[.)] )/gm, "$1\n\u200C\n\n$2");
       return part.replace(/\n{3,}/g, (match) => {
         const extra = match.length - 2;
         return "\n\n" + `${BLANK_LINE_MARKER}\n\n`.repeat(extra);

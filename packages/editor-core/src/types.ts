@@ -32,11 +32,12 @@ export function getMarkdownFromEditor(editor: Editor): string {
   // ZWSP マーカー段落を除去し、元の空行を復元する
   // ※ コードフェンス修正より先に実行する（ZWSP が残っていると正規表現が一致しないため）
   md = restoreBlankLines(md);
-  // 見出し直後のリストに ProseMirror が挿入する \n\n を元の \n に戻す
-  // （ZWNJ 付き見出しは圧縮されないため、意図的な空行は保持される）
-  md = md.replace(/^(#{1,6} [^\n]+)\n\n([-*+] |\d+[.)] )/gm, "$1\n$2");
-  // ZWNJ マーカーを除去し、見出し→空行→リストの \n\n を復元する
-  md = md.replace(/\u200C\n/g, "\n\n");
+  // ブロック直後のリストに ProseMirror が挿入する \n\n を元の \n に戻す
+  // （ZWNJ マーカー段落が間にあるとリスト開始にマッチしないため、意図的な空行は保持される）
+  // ※ リスト項目行は tightLists で制御するため除外
+  md = md.replace(/^((?!\s*[-*+] |\s*\d+[.)] )[^\n]+)\n\n([-*+] |\d+[.)] )/gm, "$1\n$2");
+  // ZWNJ マーカー段落を除去（圧縮ステップで \u200C\n に変換済み）
+  md = md.replace(/\u200C\n/g, "");
   // tiptap-markdown の image シリアライザは closeBlock() を呼ばないため、
   // 画像直後のコードフェンスとの間に改行が出力されないことがある。
   // 改行が0個または1個の場合に空行（\n\n）を補完する。
