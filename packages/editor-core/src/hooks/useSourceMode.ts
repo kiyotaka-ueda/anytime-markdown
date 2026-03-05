@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Editor } from "@tiptap/react";
 import { getMarkdownFromEditor } from "../types";
 import { sanitizeMarkdown, preserveBlankLines } from "../utils/sanitizeMarkdown";
@@ -10,16 +10,32 @@ interface UseSourceModeParams {
   t: (key: string) => string;
 }
 
+const SOURCE_MODE_KEY = "markdown-editor-source-mode";
+
 export function useSourceMode({ editor, saveContent, t }: UseSourceModeParams) {
-  const [sourceMode, setSourceMode] = useState(false);
+  const [sourceMode, setSourceMode] = useState(() => {
+    try {
+      return localStorage.getItem(SOURCE_MODE_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
   const [sourceText, setSourceText] = useState("");
   const [liveMessage, setLiveMessage] = useState("");
+
+  // Restore sourceText from editor when reopening in source mode
+  useEffect(() => {
+    if (sourceMode && editor && !sourceText) {
+      setSourceText(getMarkdownFromEditor(editor));
+    }
+  }, [editor]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSwitchToSource = useCallback(() => {
     if (!editor) return;
     editor.commands.closeSearch();
     setSourceText(getMarkdownFromEditor(editor));
     setSourceMode(true);
+    try { localStorage.setItem(SOURCE_MODE_KEY, "true"); } catch { /* ignore */ }
     setLiveMessage(t("switchedToSource"));
   }, [editor, t]);
 
@@ -34,6 +50,7 @@ export function useSourceMode({ editor, saveContent, t }: UseSourceModeParams) {
       saveContent(sourceText);
     }
     setSourceMode(false);
+    try { localStorage.setItem(SOURCE_MODE_KEY, "false"); } catch { /* ignore */ }
     setLiveMessage(t("switchedToWysiwyg"));
   }, [editor, sourceText, saveContent, t]);
 
