@@ -108,6 +108,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           fontSize: config.get<number>('fontSize', 0),
           lineHeight: config.get<number>('lineHeight', 1.6),
           editorMaxWidth: config.get<number>('editorMaxWidth', 0),
+          showPageBreakGuide: false,
         },
       });
     };
@@ -202,13 +203,25 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         }
 
         case 'openLink': {
-          const href = (message as { type: string; href?: string }).href;
-          if (typeof href !== 'string') { return; }
+          const rawHref = (message as { type: string; href?: string }).href;
+          if (typeof rawHref !== 'string') { return; }
+          const href = decodeURIComponent(rawHref);
+          // #L行番号 フラグメントを解析
+          const lineMatch = href.match(/#L(\d+)$/);
+          const filePath = lineMatch ? href.replace(/#L\d+$/, '') : href;
           const docDir = path.dirname(document.uri.fsPath);
-          const targetPath = path.resolve(docDir, href);
+          const targetPath = path.resolve(docDir, filePath);
           const targetUri = vscode.Uri.file(targetPath);
           try {
-            await vscode.commands.executeCommand('vscode.open', targetUri);
+            if (lineMatch) {
+              const line = Math.max(0, parseInt(lineMatch[1], 10) - 1);
+              const doc = await vscode.workspace.openTextDocument(targetUri);
+              await vscode.window.showTextDocument(doc, {
+                selection: new vscode.Range(line, 0, line, 0),
+              });
+            } else {
+              await vscode.commands.executeCommand('vscode.open', targetUri);
+            }
           } catch {
             vscode.window.showWarningMessage(`Cannot open file: ${href}`);
           }
