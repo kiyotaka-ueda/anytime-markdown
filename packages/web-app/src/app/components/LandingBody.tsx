@@ -172,6 +172,33 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
         </Container>
       </Box>
 
+      {/* ---- Screenshot ---- */}
+      <Box sx={{ py: { xs: 6, md: 10 }, px: 3 }}>
+        <Container maxWidth="md">
+          <Box
+            sx={{
+              width: '100%',
+              borderRadius: 3,
+              border: 1,
+              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+              overflow: 'hidden',
+              boxShadow: isDark
+                ? '0 8px 32px rgba(0,0,0,0.4)'
+                : '0 8px 32px rgba(0,0,0,0.12)',
+            }}
+          >
+            <Image
+              src="/images/editor-preview.png"
+              alt={t('screenshot')}
+              width={2880}
+              height={1800}
+              priority
+              style={{ display: 'block', width: '100%', height: 'auto' }}
+            />
+          </Box>
+        </Container>
+      </Box>
+
       {/* ---- Features ---- */}
       <Box sx={{ py: { xs: 8, md: 12 }, px: 3 }}>
         <Container maxWidth="lg">
@@ -234,33 +261,6 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
               </Grid>
             ))}
           </Grid>
-        </Container>
-      </Box>
-
-      {/* ---- Screenshot ---- */}
-      <Box sx={{ py: { xs: 6, md: 10 }, px: 3 }}>
-        <Container maxWidth="md">
-          <Box
-            sx={{
-              width: '100%',
-              borderRadius: 3,
-              border: 1,
-              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-              overflow: 'hidden',
-              boxShadow: isDark
-                ? '0 8px 32px rgba(0,0,0,0.4)'
-                : '0 8px 32px rgba(0,0,0,0.12)',
-            }}
-          >
-            <Image
-              src="/images/editor-preview.png"
-              alt={t('screenshot')}
-              width={2880}
-              height={1800}
-              priority
-              style={{ display: 'block', width: '100%', height: 'auto' }}
-            />
-          </Box>
         </Container>
       </Box>
 
