@@ -1,6 +1,6 @@
 ## Basic Operations
 
-The editor supports two modes and various file operations.
+The editor supports three modes and various file operations.
 
 ![Basic Operations](/help/basic-ops.png)
 
@@ -8,6 +8,7 @@ Switch modes using the toggle button group on the right side of the toolbar.
 
 | Icon | Mode | Description |
 | :--: | ---- | ----------- |
+| ![View](/help/icons/view.png) | View mode | Read-only browsing mode. Text editing and block manipulation are disabled. Comments can still be added via the bubble menu. Double-click on diagrams, tables, or images to view them in fullscreen. |
 | ![WYSIWYG](/help/icons/wysiwyg.png) | WYSIWYG mode | Edit with rich-text formatting and real-time preview. |
 | ![Source](/help/icons/source.png) | Source mode | Edit raw Markdown directly. The Image, Horizontal Rule, Table, Code Block, and Diagram insert buttons are also available, inserting the corresponding Markdown syntax at the end of the text. |
 

@@ -29,6 +29,12 @@ VS Code 上で動作する WYSIWYG Markdown エディタ拡張機能です。Tip
 - **Compare with Markdown Editor**: エクスプローラーのコンテキストメニューから外部ファイルを右パネルに読み込み
 - 比較モード中の `Ctrl+S` で右パネルの内容も元ファイルに保存
 
+### ビューモード
+
+- 閲覧専用モード。テキスト編集やブロック操作は無効
+- バブルメニューからコメント追加のみ可能
+- 図・テーブル・画像はダブルクリックで全画面表示
+
 ### ソースモード
 
 - WYSIWYG とソース（生 Markdown）をワンクリックで切り替え
@@ -63,7 +69,7 @@ VS Code 上で動作する WYSIWYG Markdown エディタ拡張機能です。Tip
 | `Ctrl+Shift+9` | タスクリスト |
 | `Ctrl+Alt+T` | テーブル挿入 |
 | `Ctrl+Alt+R` | 水平線挿入 |
-| `Ctrl+Alt+S` | ソースモード切替 |
+| `Ctrl+Alt+S` | モード切替（ビュー / WYSIWYG / ソース） |
 | `Ctrl+S` | 保存 |
 
 > Mac の場合、`Ctrl` は `Cmd` に読み替えてください。
