@@ -438,62 +438,6 @@ export const EditorToolbar = React.memo(function EditorToolbar({
 
       <Box sx={{ flexGrow: 1 }} />
 
-      {/* Compare toggle (md 以上のみ表示) */}
-      <ToggleButtonGroup
-        value={inlineMergeOpen ? "compare" : "edit"}
-        exclusive
-        size="small"
-        aria-label={t("compareMode")}
-        sx={{
-          height: 34,
-          borderRadius: "20px",
-          bgcolor: "action.hover",
-          p: 0.25,
-          display: { xs: "none", md: "inline-flex" },
-          "& .MuiToggleButton-root": {
-            border: "none",
-            borderRadius: "20px !important",
-            px: 2,
-            py: 0,
-            gap: 0.5,
-            fontSize: "0.8rem",
-            textTransform: "none",
-            lineHeight: 1,
-          },
-          "& .Mui-selected": {
-            bgcolor: "background.paper !important",
-            color: "text.primary !important",
-            boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
-          },
-          "& .MuiToggleButton-root:not(.Mui-selected)": {
-            bgcolor: "transparent",
-            color: "text.secondary",
-            "&:hover": {
-              bgcolor: "action.selected",
-            },
-          },
-        }}
-      >
-        <ToggleButton
-          value="edit"
-          aria-label={t("normalMode")}
-          disabled={viewMode}
-          onClick={() => { if (inlineMergeOpen) onMerge(); }}
-        >
-          <EditNoteIcon sx={{ fontSize: "1rem" }} />
-          {t("normalMode")}
-        </ToggleButton>
-        <ToggleButton
-          value="compare"
-          aria-label={t("compare")}
-          disabled={viewMode}
-          onClick={() => { if (!inlineMergeOpen) onMerge(); }}
-        >
-          <ViewStreamIcon sx={{ fontSize: "1rem", transform: "rotate(90deg)" }} />
-          {t("compare")}
-        </ToggleButton>
-      </ToggleButtonGroup>
-
       {/* Source / WYSIWYG / Viewer toggle */}
       <ToggleButtonGroup
         value={viewMode ? "viewer" : sourceMode ? "source" : "wysiwyg"}
@@ -552,6 +496,62 @@ export const EditorToolbar = React.memo(function EditorToolbar({
         >
           <CodeIcon sx={{ fontSize: "1rem" }} />
           {t("source")}
+        </ToggleButton>
+      </ToggleButtonGroup>
+
+      {/* Compare toggle (md 以上のみ表示) */}
+      <ToggleButtonGroup
+        value={inlineMergeOpen ? "compare" : "edit"}
+        exclusive
+        size="small"
+        aria-label={t("compareMode")}
+        sx={{
+          height: 34,
+          borderRadius: "20px",
+          bgcolor: "action.hover",
+          p: 0.25,
+          display: { xs: "none", md: "inline-flex" },
+          "& .MuiToggleButton-root": {
+            border: "none",
+            borderRadius: "20px !important",
+            px: 2,
+            py: 0,
+            gap: 0.5,
+            fontSize: "0.8rem",
+            textTransform: "none",
+            lineHeight: 1,
+          },
+          "& .Mui-selected": {
+            bgcolor: "background.paper !important",
+            color: "text.primary !important",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
+          },
+          "& .MuiToggleButton-root:not(.Mui-selected)": {
+            bgcolor: "transparent",
+            color: "text.secondary",
+            "&:hover": {
+              bgcolor: "action.selected",
+            },
+          },
+        }}
+      >
+        <ToggleButton
+          value="edit"
+          aria-label={t("normalMode")}
+          disabled={viewMode}
+          onClick={() => { if (inlineMergeOpen) onMerge(); }}
+        >
+          <EditNoteIcon sx={{ fontSize: "1rem" }} />
+          {t("normalMode")}
+        </ToggleButton>
+        <ToggleButton
+          value="compare"
+          aria-label={t("compare")}
+          disabled={viewMode}
+          onClick={() => { if (!inlineMergeOpen) onMerge(); }}
+        >
+          <ViewStreamIcon sx={{ fontSize: "1rem", transform: "rotate(90deg)" }} />
+          {t("compare")}
         </ToggleButton>
       </ToggleButtonGroup>
 
