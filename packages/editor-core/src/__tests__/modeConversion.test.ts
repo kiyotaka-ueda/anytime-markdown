@@ -133,24 +133,24 @@ describe("sanitizeMarkdown", () => {
     expect(result).toBe(md);
   });
 
-  test("インラインコード内のHTMLタグがエンティティにエスケープされる", () => {
+  test("インラインコード内のHTMLタグがそのまま保持される", () => {
     const md = "- **HTML 安全性**: `<script>`, `<iframe>` 等の危険タグは除去される";
     const result = sanitizeMarkdown(md);
-    expect(result).toContain("`&lt;script&gt;`");
-    expect(result).toContain("`&lt;iframe&gt;`");
+    expect(result).toContain("`<script>`");
+    expect(result).toContain("`<iframe>`");
   });
 
-  test("複数のインラインコードのHTMLタグがエスケープされる", () => {
+  test("複数のインラインコードのHTMLタグがそのまま保持される", () => {
     const md = "`<div>` と `<span>` はブロック要素とインライン要素";
     const result = sanitizeMarkdown(md);
-    expect(result).toContain("`&lt;div&gt;`");
-    expect(result).toContain("`&lt;span&gt;`");
+    expect(result).toContain("`<div>`");
+    expect(result).toContain("`<span>`");
   });
 
-  test("ダブルバッククォートのインラインコードのHTMLタグがエスケープされる", () => {
+  test("ダブルバッククォートのインラインコードのHTMLタグがそのまま保持される", () => {
     const md = "`` `<script>` `` はネストされたバッククォート";
     const result = sanitizeMarkdown(md);
-    expect(result).toContain("&lt;script&gt;");
+    expect(result).toContain("`<script>`");
   });
 });
 
