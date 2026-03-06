@@ -35,7 +35,7 @@
 
 ---
 
-## [ファイル A: modeConversion.test.ts（28件）](../packages/editor-core/src/__tests__/modeConversion.test.ts)
+## [ファイル A: modeConversion.test.ts（28件）](../packages/editor-core/src/__tests__/modeConversion.test.ts#L1)
 
 ユニットテスト（エディタ不要 or モックエディタ使用）
 
