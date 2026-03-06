@@ -5,7 +5,7 @@ import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
 import FormatListNumberedIcon from "@mui/icons-material/FormatListNumbered";
 import FormatQuoteIcon from "@mui/icons-material/FormatQuote";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-import MenuBookIcon from "@mui/icons-material/MenuBook";
+import KeyboardIcon from "@mui/icons-material/Keyboard";
 import SchemaIcon from "@mui/icons-material/Schema";
 import SettingsIcon from "@mui/icons-material/Settings";
 import {
@@ -82,7 +82,7 @@ export const EditorMenuPopovers = React.memo(function EditorMenuPopovers({
               onClick={() => { setHelpDialogOpen(true); setHelpAnchorEl(null); }}
               sx={{ fontSize: "0.85rem", minHeight: 36 }}
             >
-              <ListItemIcon><MenuBookIcon fontSize="small" /></ListItemIcon>
+              <ListItemIcon><KeyboardIcon fontSize="small" /></ListItemIcon>
               <ListItemText>{t("helpPage")}</ListItemText>
             </MenuItem>
           )}

@@ -255,7 +255,7 @@
     "versionCopyright": "Copyright © Kiyotaka Ueda",
     "cursorLine": "行",
     "cursorCol": "列",
-    "helpPage": "ヘルプ",
+    "helpPage": "キーボードショートカット",
     "helpBasicOps": "基本操作",
     "helpBasicOpsDesc": "エディタは2つのモードと各種ファイル操作に対応しています。",
     "helpBasicOpsWysiwyg": "WYSIWYGモード：リッチテキスト書式でリアルタイムプレビューしながら編集できます。",

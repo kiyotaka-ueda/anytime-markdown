@@ -255,7 +255,7 @@
     "versionCopyright": "Copyright © Kiyotaka Ueda",
     "cursorLine": "Ln",
     "cursorCol": "Col",
-    "helpPage": "Help",
+    "helpPage": "Keyboard Shortcuts",
     "helpBasicOps": "Basic Operations",
     "helpBasicOpsDesc": "The editor supports two modes and various file operations.",
     "helpBasicOpsWysiwyg": "WYSIWYG mode: Edit with rich-text formatting and real-time preview.",

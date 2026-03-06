@@ -249,7 +249,7 @@ export const EditorDialogs = React.memo(function EditorDialogs({
       </Dialog>
 
       {/* Help page dialog */}
-      <HelpDialog open={helpDialogOpen} onClose={() => setHelpDialogOpen(false)} locale={locale} t={t} />
+      <HelpDialog open={helpDialogOpen} onClose={() => setHelpDialogOpen(false)} t={t} />
     </>
   );
 });
