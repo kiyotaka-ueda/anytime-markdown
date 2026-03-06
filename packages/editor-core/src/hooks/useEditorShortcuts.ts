@@ -5,6 +5,7 @@ import type { Editor } from "@tiptap/react";
 interface UseEditorShortcutsParams {
   editor: Editor | null;
   sourceMode: boolean;
+  viewMode?: boolean;
   appendToSource: (text: string) => void;
   handleSaveFile: () => void;
   handleSaveAsFile: () => void;
@@ -18,6 +19,7 @@ interface UseEditorShortcutsParams {
   handleToggleOutline: () => void;
   handleSwitchToSource: () => void;
   handleSwitchToWysiwyg: () => void;
+  handleSwitchToView?: () => void;
   handleMerge: () => void;
   setDiagramAnchorEl: Dispatch<SetStateAction<HTMLElement | null>>;
   setTemplateAnchorEl: Dispatch<SetStateAction<HTMLElement | null>>;
@@ -25,11 +27,11 @@ interface UseEditorShortcutsParams {
 }
 
 export function useEditorShortcuts({
-  editor, sourceMode, appendToSource,
+  editor, sourceMode, viewMode, appendToSource,
   handleSaveFile, handleSaveAsFile, handleOpenFile, handleImage,
   handleClear, handleCopy, handleImport, handleDownload,
   handleToggleAllBlocks, handleToggleOutline,
-  handleSwitchToSource, handleSwitchToWysiwyg, handleMerge,
+  handleSwitchToSource, handleSwitchToWysiwyg, handleSwitchToView, handleMerge,
   setDiagramAnchorEl, setTemplateAnchorEl, t,
 }: UseEditorShortcutsParams) {
   // ファイル操作ショートカット (Ctrl/Cmd+S, Ctrl/Cmd+O)
@@ -62,7 +64,17 @@ export function useEditorShortcuts({
     const handler = (e: KeyboardEvent) => {
       if (!e.altKey || !(e.ctrlKey || e.metaKey)) return;
       const key = e.key.toLowerCase();
-      if (key === "i") { e.preventDefault(); handleImage(); }
+      // ビューモード時は編集系ショートカットを無効化（モード切替・アウトラインは許可）
+      if (key === "s") {
+        // 3モード循環: View → WYSIWYG → Source → View
+        e.preventDefault();
+        if (viewMode) { handleSwitchToWysiwyg(); }
+        else if (sourceMode) { handleSwitchToView?.() ?? handleSwitchToWysiwyg(); }
+        else { handleSwitchToSource(); }
+      }
+      else if (key === "o") { e.preventDefault(); handleToggleOutline(); }
+      else if (viewMode) { return; } // ビューモードではこれ以降の編集系ショートカットを無効化
+      else if (key === "i") { e.preventDefault(); handleImage(); }
       else if (key === "r") {
         e.preventDefault();
         if (sourceMode) { appendToSource("\n---\n"); } else { editor?.chain().focus().setHorizontalRule().run(); }
@@ -74,15 +86,13 @@ export function useEditorShortcuts({
       }
       else if (key === "d") { e.preventDefault(); setDiagramAnchorEl(document.querySelector<HTMLElement>("[aria-label=\"" + t("insertDiagram") + "\"]")); }
       else if (key === "p") { e.preventDefault(); setTemplateAnchorEl(document.querySelector<HTMLElement>("[aria-label=\"" + t("templates") + "\"]")); }
-      else if (key === "s") { e.preventDefault(); sourceMode ? handleSwitchToWysiwyg() : handleSwitchToSource(); }
       else if (key === "m") { e.preventDefault(); handleMerge(); }
       else if (key === "n") { e.preventDefault(); handleClear(); }
       else if (key === "u") { e.preventDefault(); handleImport(); }
       else if (key === "e") { e.preventDefault(); handleDownload(); }
       else if (key === "f") { e.preventDefault(); handleToggleAllBlocks(); }
-      else if (key === "o") { e.preventDefault(); handleToggleOutline(); }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [editor, sourceMode, appendToSource, t, handleImage, handleSwitchToWysiwyg, handleSwitchToSource, handleMerge, setDiagramAnchorEl, setTemplateAnchorEl, handleClear, handleImport, handleDownload, handleToggleAllBlocks, handleToggleOutline]);
+  }, [editor, sourceMode, viewMode, appendToSource, t, handleImage, handleSwitchToWysiwyg, handleSwitchToSource, handleSwitchToView, handleMerge, setDiagramAnchorEl, setTemplateAnchorEl, handleClear, handleImport, handleDownload, handleToggleAllBlocks, handleToggleOutline]);
 }

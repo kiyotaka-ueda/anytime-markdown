@@ -55,6 +55,8 @@ export function DiagramBlock(props: DiagramBlockProps) {
     t, isDark,
   } = props;
 
+  const isEditable = editor?.isEditable ?? true;
+
   const settings = useEditorSettingsContext();
   const { setSampleAnchorEl } = usePlantUmlToolbar();
 
@@ -116,7 +118,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
       sx={{ bgcolor: "action.hover", px: 0.75, py: 0.25, display: "flex", alignItems: "center", gap: 0.25 }}
       contentEditable={false}
     >
-      {!fullscreen && (
+      {!fullscreen && isEditable && (
         <Box
           data-drag-handle=""
           role="button"
@@ -151,7 +153,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
       <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary", mr: 0.5 }}>
         {label}
       </Typography>
-      {!allCollapsed && (
+      {!allCollapsed && isEditable && (
         <>
           <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
           {isMermaid && (
@@ -191,14 +193,14 @@ export function DiagramBlock(props: DiagramBlockProps) {
           </IconButton>
         </Tooltip>
       )}
-      {!allCollapsed && isMermaid && (
+      {!allCollapsed && isEditable && isMermaid && (
         <Tooltip title={t("delete")} placement="top">
           <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setDeleteDialogOpen(true)} aria-label={t("delete")}>
             <DeleteOutlineIcon sx={pumlIconSx} />
           </IconButton>
         </Tooltip>
       )}
-      {!allCollapsed && isPlantUml && (
+      {!allCollapsed && isEditable && isPlantUml && (
         <Tooltip title={t("delete")} placement="top">
           <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setDeleteDialogOpen(true)} aria-label={t("delete")}>
             <DeleteOutlineIcon sx={pumlIconSx} />
@@ -208,7 +210,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
     </Box>
   );
 
-  const resizeHandle = isSelected && (
+  const resizeHandle = isSelected && isEditable && (
     <Box
       role="slider"
       tabIndex={0}
@@ -254,14 +256,21 @@ export function DiagramBlock(props: DiagramBlockProps) {
     pointerEvents: "none",
   };
 
+  const handleDoubleClickFullscreen = useCallback(() => {
+    if (!isEditable && (svg || plantUmlUrl)) {
+      fsZP.reset();
+      setFullscreen(true);
+    }
+  }, [isEditable, svg, plantUmlUrl, fsZP, setFullscreen]);
+
   return (
     <CodeBlockFrame
-      toolbar={toolbar}
+      toolbar={isEditable ? toolbar : null}
       allCollapsed={allCollapsed}
       codeCollapsed={codeCollapsed}
       isDiagramLayout
       isDark={isDark}
-      showBorder={allCollapsed || fullscreen || isSelected}
+      showBorder={isEditable && (allCollapsed || fullscreen || isSelected)}
       deleteDialogOpen={deleteDialogOpen}
       setDeleteDialogOpen={setDeleteDialogOpen}
       handleDeleteBlock={handleDeleteBlock}
@@ -283,6 +292,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
           fsCodeVisible={fsCodeVisible}
           onToggleFsCodeVisible={() => setFsCodeVisible((v) => !v)}
           fsZP={fsZP}
+          readOnly={!isEditable}
           t={t}
         />
         <MermaidSamplePopover
@@ -303,6 +313,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
               sx={diagramContainerSx}
               contentEditable={false}
               onClick={selectNode}
+              onDoubleClick={handleDoubleClickFullscreen}
               onPointerDown={normalZP.handlePointerDown}
               onPointerMove={(e) => diagramResize.resizing ? diagramResize.handlePointerMove(e) : normalZP.handlePointerMove(e)}
               onPointerUp={() => diagramResize.resizing ? diagramResize.handlePointerUp() : normalZP.handlePointerUp()}
@@ -340,6 +351,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
               sx={diagramContainerSx}
               contentEditable={false}
               onClick={selectNode}
+              onDoubleClick={handleDoubleClickFullscreen}
               onPointerDown={normalZP.handlePointerDown}
               onPointerMove={(e) => diagramResize.resizing ? diagramResize.handlePointerMove(e) : normalZP.handlePointerMove(e)}
               onPointerUp={() => diagramResize.resizing ? diagramResize.handlePointerUp() : normalZP.handlePointerUp()}

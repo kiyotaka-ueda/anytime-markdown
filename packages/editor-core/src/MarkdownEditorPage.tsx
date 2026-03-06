@@ -145,8 +145,9 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
 
   // --- Custom hooks ---
   const {
-    sourceMode, sourceText, setSourceText, liveMessage, setLiveMessage,
-    handleSwitchToSource, handleSwitchToWysiwyg, handleSourceChange, appendToSource,
+    sourceMode, viewMode, sourceText, setSourceText, liveMessage, setLiveMessage,
+    handleSwitchToSource, handleSwitchToWysiwyg, handleSwitchToView, executeInViewMode,
+    handleSourceChange, appendToSource,
   } = useSourceMode({ editor, saveContent, t });
 
   const {
@@ -383,13 +384,13 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   const { handleToggleAllBlocks } = useEditorBlockActions({ editor });
 
   useEditorShortcuts({
-    editor, sourceMode, appendToSource,
+    editor, sourceMode, viewMode, appendToSource,
     handleSaveFile, handleSaveAsFile, handleOpenFile, handleImage,
     handleClear, handleCopy,
     handleImport: () => fileInputRef.current?.click(),
     handleDownload,
     handleToggleAllBlocks, handleToggleOutline,
-    handleSwitchToSource, handleSwitchToWysiwyg, handleMerge,
+    handleSwitchToSource, handleSwitchToWysiwyg, handleSwitchToView, handleMerge,
     setDiagramAnchorEl, setTemplateAnchorEl, t,
   });
 
@@ -412,8 +413,9 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     headings, foldedIndices, hiddenByFold,
     foldAll, unfoldAll, toggleFold,
     handleOutlineClick, handleOutlineResizeStart,
-    onHeadingDragEnd: handleHeadingDragEnd,
-    onOutlineDelete: handleOutlineDelete,
+    onHeadingDragEnd: viewMode ? undefined : handleHeadingDragEnd,
+    onOutlineDelete: viewMode ? undefined : handleOutlineDelete,
+    showHeadingNumbers: settings.showHeadingNumbers,
     t,
   };
 
@@ -467,12 +469,14 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         onSetTemplateAnchor={setTemplateAnchorEl}
         onSetHelpAnchor={setHelpAnchorEl}
         sourceMode={sourceMode}
+        viewMode={viewMode}
         outlineOpen={outlineOpen}
         onToggleOutline={handleToggleOutline}
         onMerge={handleMerge}
         inlineMergeOpen={inlineMergeOpen}
         onSwitchToSource={handleSwitchToSource}
         onSwitchToWysiwyg={handleSwitchToWysiwyg}
+        onSwitchToView={handleSwitchToView}
 
         mergeUndoRedo={inlineMergeOpen ? mergeUndoRedo : null}
         onOpenFile={handleOpenFile}
@@ -624,11 +628,11 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
 
       {/* BubbleMenu (text formatting) – rendered for both merge and non-merge modes */}
       {editor && !sourceMode && (
-        <EditorBubbleMenu editor={editor} onLink={handleLink} t={t} />
+        <EditorBubbleMenu editor={editor} onLink={handleLink} viewMode={viewMode} executeInViewMode={executeInViewMode} t={t} />
       )}
 
       {/* Slash command menu */}
-      {editor && !sourceMode && (
+      {editor && !sourceMode && !viewMode && (
         <SlashCommandMenu editor={editor} t={t} slashCommandCallbackRef={slashCommandCallbackRef} />
       )}
 

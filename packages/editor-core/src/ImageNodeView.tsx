@@ -38,8 +38,9 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
     },
   });
 
+  const isEditable = editor?.isEditable ?? true;
   const { src, alt, title, width } = node.attrs;
-  const showToolbar = collapsed || fullscreen || isSelected;
+  const showToolbar = isEditable && (collapsed || fullscreen || isSelected);
 
   const handleDeleteBlock = useCallback(() => {
     if (!editor || typeof getPos !== "function") return;
@@ -145,7 +146,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
         tabIndex={fullscreen ? -1 : undefined}
         sx={{
         border: 1, borderRadius: fullscreen ? 0 : 1, overflow: "hidden", my: fullscreen ? 0 : 1,
-        borderColor: showToolbar ? "divider" : "transparent",
+        borderColor: showToolbar && isEditable ? "divider" : "transparent",
         ...(fullscreen && {
           position: "fixed",
           inset: 0,
@@ -160,15 +161,15 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
           },
         }),
       }}>
-        <Box
+        {isEditable && <Box
           data-block-toolbar=""
           role="toolbar"
           aria-label={t("imageToolbar")}
           sx={{ bgcolor: "action.hover", px: 0.75, py: 0.25, display: "flex", alignItems: "center", gap: 0.25 }}
           contentEditable={false}
         >
-          {/* Drag handle (hidden in fullscreen) */}
-          {!fullscreen && (
+          {/* Drag handle (hidden in fullscreen or view mode) */}
+          {!fullscreen && isEditable && (
             <Box
               data-drag-handle=""
               role="button"
@@ -224,7 +225,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
               {t("imageNotFound")}
             </Typography>
           )}
-          {!collapsed && (<>
+          {!collapsed && isEditable && (<>
             <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
             {/* Edit URL */}
             <Tooltip title={t("imageUrl")} placement="top">
@@ -250,7 +251,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
             </Typography>
           </>)}
 
-          {!collapsed && !fullscreen && (<>
+          {!collapsed && !fullscreen && isEditable && (<>
             <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
             {/* Delete */}
             <Tooltip title={t("delete")} placement="top">
@@ -267,7 +268,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
               </IconButton>
             </Tooltip>
           )}
-        </Box>
+        </Box>}
         {/* Image with resize handle */}
         {!collapsed && imgError && (
           <Box contentEditable={false} sx={{ height: "2em", borderTop: 1, borderColor: "divider", bgcolor: "action.hover" }} />
@@ -284,6 +285,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
             }}
             onPointerMove={handleResizePointerMove}
             onPointerUp={handleResizePointerUp}
+            onDoubleClick={!isEditable ? () => setFullscreen(true) : undefined}
           >
             <img
               ref={imgRef}
@@ -295,8 +297,8 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
                 : { width: displayWidth, maxWidth: "100%", height: "auto", display: "block" }
               }
             />
-            {/* Resize handle (bottom-right corner) */}
-            {isSelected && (
+            {/* Resize handle (bottom-right corner, hidden in view mode) */}
+            {isSelected && isEditable && (
               <Box
                 role="slider"
                 tabIndex={0}

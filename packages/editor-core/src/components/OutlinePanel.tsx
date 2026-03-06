@@ -16,7 +16,6 @@ import SchemaIcon from "@mui/icons-material/Schema";
 import MermaidIcon from "../icons/MermaidIcon";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import UnfoldLessIcon from "@mui/icons-material/UnfoldLess";
 import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 import React, { useState, useCallback, useMemo } from "react";
@@ -44,6 +43,7 @@ interface OutlinePanelProps {
   handleOutlineResizeStart: (e: React.MouseEvent) => void;
   onHeadingDragEnd?: (fromIdx: number, toIdx: number) => void;
   onOutlineDelete?: (pos: number, kind: string) => void;
+  showHeadingNumbers?: boolean;
   t: TranslationFn;
 }
 
@@ -61,11 +61,27 @@ export function OutlinePanel({
   handleOutlineResizeStart,
   onHeadingDragEnd,
   onOutlineDelete,
+  showHeadingNumbers,
   t,
 }: OutlinePanelProps) {
   const theme = useTheme();
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dropIdx, setDropIdx] = useState<number | null>(null);
+
+  // セクション番号マップ（見出しの pos → "1.2.3. "）
+  const sectionNumberMap = useMemo(() => {
+    if (!showHeadingNumbers) return null;
+    const map = new Map<number, string>();
+    const counters = [0, 0, 0, 0, 0]; // h1-h5
+    for (const h of headings) {
+      if (h.kind !== "heading") continue;
+      const level = h.level - 1; // 0-indexed
+      counters[level]++;
+      for (let i = level + 1; i < 5; i++) counters[i] = 0;
+      map.set(h.pos, counters.slice(0, level + 1).join(".") + ". ");
+    }
+    return map;
+  }, [showHeadingNumbers, headings]);
 
   // heading のみのインデックスマップ (headings 配列 idx → headingOnly idx)
   const headingOnlyIndices = useMemo(
@@ -83,61 +99,6 @@ export function OutlinePanel({
     [headingOnlyIndices]
   );
 
-  /** 下移動時のターゲットインデックスを算出（次の同レベル以上セクションの末尾） */
-  const getMoveDownTarget = useCallback(
-    (hoIdx: number): number => {
-      const level = headingOnly[hoIdx]?.level ?? 1;
-      // 次の同レベル以上の見出しを見つける
-      let nextSibIdx = -1;
-      for (let i = hoIdx + 1; i < headingOnly.length; i++) {
-        if (headingOnly[i].level <= level) { nextSibIdx = i; break; }
-      }
-      if (nextSibIdx === -1) return -1; // 末尾
-      // そのセクションの終端（次の同レベル以上の見出し）を見つける
-      for (let i = nextSibIdx + 1; i < headingOnly.length; i++) {
-        if (headingOnly[i].level <= level) return i;
-      }
-      return -1; // 末尾
-    },
-    [headingOnly]
-  );
-
-  /** 上移動時のターゲットインデックスを算出（前の同レベル以上セクションの開始位置） */
-  const getMoveUpTarget = useCallback(
-    (hoIdx: number): number => {
-      const level = headingOnly[hoIdx]?.level ?? 1;
-      // 前の同レベル以上の見出しを見つける
-      for (let i = hoIdx - 1; i >= 0; i--) {
-        if (headingOnly[i].level <= level) return i;
-      }
-      return 0;
-    },
-    [headingOnly]
-  );
-
-  /** 上移動が可能か（同レベル以上の前の見出しが存在するか） */
-  const canMoveUp = useCallback(
-    (hoIdx: number): boolean => {
-      const level = headingOnly[hoIdx]?.level ?? 1;
-      for (let i = hoIdx - 1; i >= 0; i--) {
-        if (headingOnly[i].level <= level) return true;
-      }
-      return false;
-    },
-    [headingOnly]
-  );
-
-  /** 下移動が可能か（同レベル以上の次の見出しが存在するか） */
-  const canMoveDown = useCallback(
-    (hoIdx: number): boolean => {
-      const level = headingOnly[hoIdx]?.level ?? 1;
-      for (let i = hoIdx + 1; i < headingOnly.length; i++) {
-        if (headingOnly[i].level <= level) return true;
-      }
-      return false;
-    },
-    [headingOnly]
-  );
 
   const handleDragStart = useCallback(
     (e: React.DragEvent, idx: number) => {
@@ -315,38 +276,10 @@ export function OutlinePanel({
                           "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 1 },
                         }}
                       >
-                        {h.text || "(empty)"}
+                        {sectionNumberMap?.get(h.pos) ?? ""}{h.text || "(empty)"}
                       </Box>
                     </Tooltip>
                     <Box className="outline-move-btns" sx={{ display: "flex", flexShrink: 0, transition: "opacity 0.15s", "@media (prefers-reduced-motion: reduce)": { transition: "none" } }}>
-                      {isHeading && onHeadingDragEnd && (<>
-                        <Tooltip title={t("moveRowUp")} placement="top">
-                          <span>
-                            <IconButton
-                              size="small"
-                              disabled={!canMoveUp(hoIdx)}
-                              onClick={(e) => { e.stopPropagation(); onHeadingDragEnd(hoIdx, getMoveUpTarget(hoIdx)); }}
-                              aria-label={`${t("moveRowUp")} ${h.text || ""}`}
-                              sx={{ p: 0.5 }}
-                            >
-                              <KeyboardArrowUpIcon sx={{ fontSize: 14 }} />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                        <Tooltip title={t("moveRowDown")} placement="top">
-                          <span>
-                            <IconButton
-                              size="small"
-                              disabled={!canMoveDown(hoIdx)}
-                              onClick={(e) => { e.stopPropagation(); onHeadingDragEnd(hoIdx, getMoveDownTarget(hoIdx)); }}
-                              aria-label={`${t("moveRowDown")} ${h.text || ""}`}
-                              sx={{ p: 0.5 }}
-                            >
-                              <KeyboardArrowDownIcon sx={{ fontSize: 14 }} />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                      </>)}
                       {onOutlineDelete && (
                         <Tooltip title={t("delete")} placement="top">
                           <IconButton

@@ -30,13 +30,14 @@ interface DiagramFullscreenDialogProps {
   fsCodeVisible: boolean;
   onToggleFsCodeVisible: () => void;
   fsZP: UseZoomPanReturn;
+  readOnly?: boolean;
   t: (key: string) => string;
 }
 
 export function DiagramFullscreenDialog({
   open, onClose, label, isMermaid, isPlantUml, svg, plantUmlUrl, code,
   fsCode, onFsCodeChange, fsTextareaRef, fsSearch,
-  fsCodeVisible, onToggleFsCodeVisible, fsZP, t,
+  fsCodeVisible, onToggleFsCodeVisible, fsZP, readOnly, t,
 }: DiagramFullscreenDialogProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
@@ -140,6 +141,7 @@ export function DiagramFullscreenDialog({
               ref={fsTextareaRef}
               value={fsCode}
               onChange={onFsCodeChange}
+              readOnly={readOnly}
               spellCheck={false}
               sx={{
                 flex: 1,

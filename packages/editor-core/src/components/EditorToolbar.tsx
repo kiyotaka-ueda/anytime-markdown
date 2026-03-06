@@ -10,7 +10,7 @@ import SaveIcon from "@mui/icons-material/Save";
 import SaveAsIcon from "@mui/icons-material/SaveAs";
 
 import MoreVertIcon from "@mui/icons-material/MoreVert";
-
+import VisibilityIcon from "@mui/icons-material/Visibility";
 
 import CompareIcon from "@mui/icons-material/Compare";
 import ViewStreamIcon from "@mui/icons-material/ViewStream";
@@ -93,12 +93,14 @@ interface EditorToolbarProps {
   onSetTemplateAnchor: (el: HTMLElement) => void;
   onSetHelpAnchor: (el: HTMLElement) => void;
   sourceMode: boolean;
+  viewMode?: boolean;
   outlineOpen: boolean;
   onToggleOutline: () => void;
   onMerge: () => void;
   inlineMergeOpen: boolean;
   onSwitchToSource: () => void;
   onSwitchToWysiwyg: () => void;
+  onSwitchToView?: () => void;
 
   mergeUndoRedo?: MergeUndoRedo | null;
   hideFileOps?: boolean;
@@ -133,12 +135,14 @@ export const EditorToolbar = React.memo(function EditorToolbar({
   onSetTemplateAnchor,
   onSetHelpAnchor,
   sourceMode,
+  viewMode,
   outlineOpen,
   onToggleOutline,
   onMerge,
   inlineMergeOpen,
   onSwitchToSource,
   onSwitchToWysiwyg,
+  onSwitchToView,
 
   mergeUndoRedo,
   hideFileOps,
@@ -270,7 +274,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
             open={!!fileMenuAnchorEl}
             onClose={() => setFileMenuAnchorEl(null)}
           >
-            <MenuItem onClick={() => { onClear(); setFileMenuAnchorEl(null); }}>
+            <MenuItem onClick={() => { onClear(); setFileMenuAnchorEl(null); }} disabled={viewMode}>
               <ListItemIcon><DescriptionIcon fontSize="small" /></ListItemIcon>
               <ListItemText>{t("createNew")}</ListItemText>
             </MenuItem>
@@ -288,7 +292,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
                 <ListItemText>{t("saveAsFile")}</ListItemText>
               </MenuItem>,
             ]) : ([
-              <MenuItem key="upload" onClick={() => { onImport(); setFileMenuAnchorEl(null); }}>
+              <MenuItem key="upload" onClick={() => { onImport(); setFileMenuAnchorEl(null); }} disabled={viewMode}>
                 <ListItemIcon><FileUploadIcon fontSize="small" /></ListItemIcon>
                 <ListItemText>{t("upload")}</ListItemText>
               </MenuItem>,
@@ -308,7 +312,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
           {/* Desktop: individual file buttons */}
           <Box sx={{ display: { xs: "none", md: "contents" } }}>
             <ToggleButtonGroup size="small" aria-label={t("fileActions")} sx={{ height: 30 }}>
-              <ToggleButton value="new" onClick={onClear} aria-label={t("createNew")} sx={{ px: 0.75, py: 0.25 }}>
+              <ToggleButton value="new" onClick={onClear} disabled={viewMode} aria-label={t("createNew")} sx={{ px: 0.75, py: 0.25 }}>
                 <Tooltip title={tip(t, "createNew")}>
                   <DescriptionIcon fontSize="small" />
                 </Tooltip>
@@ -330,7 +334,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
                 </Tooltip>
               </ToggleButton>,
             ]) : ([
-              <ToggleButton key="upload" value="upload" onClick={onImport} aria-label={t("upload")} sx={{ px: 0.75, py: 0.25 }}>
+              <ToggleButton key="upload" value="upload" onClick={onImport} disabled={viewMode} aria-label={t("upload")} sx={{ px: 0.75, py: 0.25 }}>
                 <Tooltip title={tip(t, "upload")}>
                   <FileUploadIcon fontSize="small" />
                 </Tooltip>
@@ -377,7 +381,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
             value="undo"
             aria-label={t("undo")}
             onClick={() => mergeUndoRedo ? mergeUndoRedo.undo() : editor?.chain().focus().undo().run()}
-            disabled={mergeUndoRedo ? !mergeUndoRedo.canUndo : !editorState?.canUndo}
+            disabled={viewMode || (mergeUndoRedo ? !mergeUndoRedo.canUndo : !editorState?.canUndo)}
             sx={{ px: 0.75, py: 0.25 }}
           >
             <Tooltip title={tip(t, "undo")}>
@@ -388,7 +392,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
             value="redo"
             aria-label={t("redo")}
             onClick={() => mergeUndoRedo ? mergeUndoRedo.redo() : editor?.chain().focus().redo().run()}
-            disabled={mergeUndoRedo ? !mergeUndoRedo.canRedo : !editorState?.canRedo}
+            disabled={viewMode || (mergeUndoRedo ? !mergeUndoRedo.canRedo : !editorState?.canRedo)}
             sx={{ px: 0.75, py: 0.25 }}
           >
             <Tooltip title={tip(t, "redo")}>
@@ -425,7 +429,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
 
       {/* Insert actions */}
       <ToggleButtonGroup size="small" aria-label={t("insertElements")} sx={{ height: 30 }}>
-        <ToggleButton value="template" onClick={(e) => onSetTemplateAnchor(e.currentTarget)} aria-label={t("templates")} disabled={editorState?.isInDiagramCode || inlineMergeOpen} sx={{ px: 0.75, py: 0.25 }}>
+        <ToggleButton value="template" onClick={(e) => onSetTemplateAnchor(e.currentTarget)} aria-label={t("templates")} disabled={viewMode || editorState?.isInDiagramCode || inlineMergeOpen} sx={{ px: 0.75, py: 0.25 }}>
           <Tooltip title={tip(t, "templates")}>
             <span style={{ display: "inline-flex" }}><ArticleIcon fontSize="small" /></span>
           </Tooltip>
@@ -473,6 +477,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
         <ToggleButton
           value="edit"
           aria-label={t("normalMode")}
+          disabled={viewMode}
           onClick={() => { if (inlineMergeOpen) onMerge(); }}
         >
           <EditNoteIcon sx={{ fontSize: "1rem" }} />
@@ -481,6 +486,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
         <ToggleButton
           value="compare"
           aria-label={t("compare")}
+          disabled={viewMode}
           onClick={() => { if (!inlineMergeOpen) onMerge(); }}
         >
           <ViewStreamIcon sx={{ fontSize: "1rem", transform: "rotate(90deg)" }} />
@@ -488,9 +494,9 @@ export const EditorToolbar = React.memo(function EditorToolbar({
         </ToggleButton>
       </ToggleButtonGroup>
 
-      {/* Source / WYSIWYG toggle */}
+      {/* Source / WYSIWYG / Viewer toggle */}
       <ToggleButtonGroup
-        value={sourceMode ? "source" : "wysiwyg"}
+        value={viewMode ? "viewer" : sourceMode ? "source" : "wysiwyg"}
         exclusive
         size="small"
         aria-label={t("editMode")}
@@ -523,6 +529,14 @@ export const EditorToolbar = React.memo(function EditorToolbar({
           },
         }}
       >
+        <ToggleButton
+          value="viewer"
+          aria-label={t("viewer")}
+          onClick={onSwitchToView}
+        >
+          <VisibilityIcon sx={{ fontSize: "1rem" }} />
+          {t("viewer")}
+        </ToggleButton>
         <ToggleButton
           value="wysiwyg"
           aria-label={t("wysiwyg")}
