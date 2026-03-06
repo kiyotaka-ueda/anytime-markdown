@@ -409,6 +409,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     onHeadingDragEnd: viewMode ? undefined : handleHeadingDragEnd,
     onOutlineDelete: viewMode ? undefined : handleOutlineDelete,
     showHeadingNumbers: settings.showHeadingNumbers,
+    onToggleHeadingNumbers: () => updateSettings({ showHeadingNumbers: !settings.showHeadingNumbers }),
     t,
   };
 
@@ -649,7 +650,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
       )}
         </Box>
         {commentOpen && editor && !sourceMode && (
-          <CommentPanel editor={editor} open={commentOpen} onClose={() => setCommentOpen(false)} t={t} />
+          <CommentPanel editor={editor} open={commentOpen} onClose={() => setCommentOpen(false)} onSave={() => saveContent(getMarkdownFromEditor(editor))} t={t} />
         )}
       </Box>
       )}

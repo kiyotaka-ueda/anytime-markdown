@@ -20,6 +20,7 @@ interface EditorOutlineSectionProps {
   onHeadingDragEnd?: (fromIdx: number, toIdx: number) => void;
   onOutlineDelete?: (pos: number, kind: string) => void;
   showHeadingNumbers?: boolean;
+  onToggleHeadingNumbers?: () => void;
   t: TranslationFn;
 }
 
@@ -41,6 +42,7 @@ export function EditorOutlineSection({
   onHeadingDragEnd,
   onOutlineDelete,
   showHeadingNumbers,
+  onToggleHeadingNumbers,
   t,
 }: EditorOutlineSectionProps) {
   if (isMd) {
@@ -61,6 +63,7 @@ export function EditorOutlineSection({
         onHeadingDragEnd={onHeadingDragEnd}
         onOutlineDelete={onOutlineDelete}
         showHeadingNumbers={showHeadingNumbers}
+        onToggleHeadingNumbers={onToggleHeadingNumbers}
         t={t}
       />
     );
@@ -88,6 +91,7 @@ export function EditorOutlineSection({
         onHeadingDragEnd={onHeadingDragEnd}
         onOutlineDelete={onOutlineDelete}
         showHeadingNumbers={showHeadingNumbers}
+        onToggleHeadingNumbers={onToggleHeadingNumbers}
         t={t}
       />
     </Drawer>

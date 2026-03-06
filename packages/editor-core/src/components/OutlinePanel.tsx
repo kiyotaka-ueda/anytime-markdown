@@ -14,7 +14,9 @@ import GridOnIcon from "@mui/icons-material/GridOn";
 import ImageIcon from "@mui/icons-material/Image";
 import SchemaIcon from "@mui/icons-material/Schema";
 import MermaidIcon from "../icons/MermaidIcon";
+import CategoryIcon from "@mui/icons-material/Category";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import FormatListNumberedIcon from "@mui/icons-material/FormatListNumbered";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import UnfoldLessIcon from "@mui/icons-material/UnfoldLess";
 import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
@@ -44,6 +46,7 @@ interface OutlinePanelProps {
   onHeadingDragEnd?: (fromIdx: number, toIdx: number) => void;
   onOutlineDelete?: (pos: number, kind: string) => void;
   showHeadingNumbers?: boolean;
+  onToggleHeadingNumbers?: () => void;
   t: TranslationFn;
 }
 
@@ -62,9 +65,11 @@ export function OutlinePanel({
   onHeadingDragEnd,
   onOutlineDelete,
   showHeadingNumbers,
+  onToggleHeadingNumbers,
   t,
 }: OutlinePanelProps) {
   const theme = useTheme();
+  const [showBlocks, setShowBlocks] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dropIdx, setDropIdx] = useState<number | null>(null);
 
@@ -168,18 +173,44 @@ export function OutlinePanel({
             >
               {t("outline")}
             </Typography>
-            {headingOnlyIndices.length > 0 && (
-              <Tooltip title={foldedIndices.size > 0 ? t("unfoldAll") : t("foldAll")}>
+            <Box sx={{ display: "flex", gap: 0.25 }}>
+              {onToggleHeadingNumbers && (
+                <Tooltip title={t("settingHeadingNumbers")}>
+                  <IconButton
+                    aria-label={t("settingHeadingNumbers")}
+                    aria-pressed={!!showHeadingNumbers}
+                    size="small"
+                    onClick={onToggleHeadingNumbers}
+                    sx={{ p: 0.5, color: showHeadingNumbers ? "primary.main" : "text.secondary" }}
+                  >
+                    <FormatListNumberedIcon sx={{ fontSize: 16 }} />
+                  </IconButton>
+                </Tooltip>
+              )}
+              <Tooltip title={t("outlineShowBlocks")}>
                 <IconButton
-                  aria-label={foldedIndices.size > 0 ? t("unfoldAll") : t("foldAll")}
+                  aria-label={t("outlineShowBlocks")}
+                  aria-pressed={showBlocks}
                   size="small"
-                  onClick={foldedIndices.size > 0 ? unfoldAll : foldAll}
-                  sx={{ p: 0.5 }}
+                  onClick={() => setShowBlocks((v) => !v)}
+                  sx={{ p: 0.5, color: showBlocks ? "primary.main" : "text.secondary" }}
                 >
-                  {foldedIndices.size > 0 ? <UnfoldMoreIcon sx={{ fontSize: 16 }} /> : <UnfoldLessIcon sx={{ fontSize: 16 }} />}
+                  <CategoryIcon sx={{ fontSize: 16 }} />
                 </IconButton>
               </Tooltip>
-            )}
+              {headingOnlyIndices.length > 0 && (
+                <Tooltip title={foldedIndices.size > 0 ? t("unfoldAll") : t("foldAll")}>
+                  <IconButton
+                    aria-label={foldedIndices.size > 0 ? t("unfoldAll") : t("foldAll")}
+                    size="small"
+                    onClick={foldedIndices.size > 0 ? unfoldAll : foldAll}
+                    sx={{ p: 0.5 }}
+                  >
+                    {foldedIndices.size > 0 ? <UnfoldMoreIcon sx={{ fontSize: 16 }} /> : <UnfoldLessIcon sx={{ fontSize: 16 }} />}
+                  </IconButton>
+                </Tooltip>
+              )}
+            </Box>
           </Box>
           {headings.length === 0 ? (
             <Typography variant="body2" sx={{ color: theme.palette.text.disabled, fontSize: "0.8rem" }}>
@@ -188,8 +219,8 @@ export function OutlinePanel({
           ) : (
             <>
               {headings.map((h, idx) => {
-                const isHidden = hiddenByFold.has(idx);
                 const isHeading = h.kind === "heading";
+                const isHidden = hiddenByFold.has(idx) || (!isHeading && !showBlocks);
                 const isFolded = isHeading && foldedIndices.has(h.headingIndex ?? -1);
                 const hoIdx = isHeading ? toHeadingOnlyIdx(idx) : -1;
                 const _isFirst = isHeading && hoIdx === 0;
@@ -210,11 +241,11 @@ export function OutlinePanel({
                 return (
                   <Collapse key={`${h.pos}-${idx}`} in={!isHidden} unmountOnExit timeout={150} sx={{ "@media (prefers-reduced-motion: reduce)": { transition: "none !important" } }}>
                   <Box
-                    draggable={isHeading}
-                    onDragStart={isHeading ? (e) => handleDragStart(e, idx) : undefined}
-                    onDragOver={isHeading ? (e) => handleDragOver(e, idx) : undefined}
-                    onDrop={isHeading ? (e) => handleDrop(e, idx) : undefined}
-                    onDragEnd={isHeading ? handleDragEnd : undefined}
+                    draggable={isHeading && !!onHeadingDragEnd}
+                    onDragStart={isHeading && onHeadingDragEnd ? (e) => handleDragStart(e, idx) : undefined}
+                    onDragOver={isHeading && onHeadingDragEnd ? (e) => handleDragOver(e, idx) : undefined}
+                    onDrop={isHeading && onHeadingDragEnd ? (e) => handleDrop(e, idx) : undefined}
+                    onDragEnd={isHeading && onHeadingDragEnd ? handleDragEnd : undefined}
                     sx={{
                       display: "flex",
                       alignItems: "center",
@@ -228,7 +259,7 @@ export function OutlinePanel({
                       },
                       "& .outline-move-btns": { opacity: 0 },
                       "&:hover .outline-move-btns, & .outline-move-btns:focus-within": { opacity: 1 },
-                      cursor: isHeading ? "grab" : undefined,
+                      cursor: isHeading && onHeadingDragEnd ? "grab" : undefined,
                     }}
                   >
                     {isHeading ? (
