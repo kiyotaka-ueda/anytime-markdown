@@ -15,8 +15,8 @@ export interface MarkdownTemplate {
 
 export const BUILTIN_TEMPLATES: MarkdownTemplate[] = [
   {
-    id: "sample-content",
-    name: "sampleContent",
+    id: "welcome",
+    name: "welcome",
     content: defaultContent,
     builtin: true,
   },
