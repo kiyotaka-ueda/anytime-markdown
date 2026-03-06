@@ -125,7 +125,7 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
             variant="body2"
             sx={{
               mt: 4,
-              color: 'text.disabled',
+              color: 'text.secondary',
               fontSize: '0.8rem',
               lineHeight: 1.6,
             }}
@@ -136,7 +136,7 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
                   href="https://github.com/kiyotaka-ueda/anytime-markdown"
                   target="_blank"
                   rel="noopener noreferrer"
-                  sx={{ color: 'text.disabled', textDecorationColor: 'inherit' }}
+                  sx={{ color: 'text.secondary', textDecorationColor: 'inherit' }}
                 >
                   {chunks}
                 </MuiLink>
@@ -156,7 +156,7 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
               display: 'block',
               textAlign: 'center',
               letterSpacing: '0.2em',
-              color: '#e8a012',
+              color: isDark ? '#e8a012' : '#9a6b00',
               fontWeight: 700,
               fontSize: '0.85rem',
               mb: 6,
@@ -251,14 +251,18 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
           borderColor: 'divider',
         }}
       >
-        <Container
-          maxWidth="lg"
+        <Box
+          component="nav"
+          aria-label="Footer navigation"
           sx={{
             display: 'flex',
             flexWrap: 'wrap',
             justifyContent: 'center',
             alignItems: 'center',
             gap: { xs: 1.5, sm: 3 },
+            maxWidth: 'lg',
+            mx: 'auto',
+            width: '100%',
           }}
         >
           <MuiLink
@@ -295,10 +299,10 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
           >
             {t('footerPrivacy')}
           </MuiLink>
-          <Typography variant="body2" sx={{ color: 'text.disabled', fontSize: '0.85rem' }}>
+          <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.85rem' }}>
             {t('footerRights')}
           </Typography>
-        </Container>
+        </Box>
       </Box>
     </Box>
   );

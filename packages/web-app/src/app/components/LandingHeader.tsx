@@ -24,7 +24,7 @@ export default function LandingHeader() {
       <Toolbar sx={{ justifyContent: 'space-between', px: { xs: 2, md: 4 } }}>
         <Typography
           variant="h6"
-          component="h1"
+          component="div"
           sx={{
             fontWeight: 700,
             letterSpacing: '-0.02em',
@@ -34,7 +34,7 @@ export default function LandingHeader() {
           Anytime Markdown
         </Typography>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
+        <Box component="nav" aria-label="Main navigation" sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
           <Button
             component={NextLink}
             href="/features"
@@ -48,6 +48,7 @@ export default function LandingHeader() {
             exclusive
             onChange={(_, val) => { if (val) setLocale(val); }}
             size="small"
+            aria-label="Language"
             sx={{
               '& .MuiToggleButton-root': {
                 px: 1.5,
