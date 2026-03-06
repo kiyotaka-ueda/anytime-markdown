@@ -479,7 +479,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
           onClick={onSwitchToView}
         >
           <VisibilityIcon sx={{ fontSize: "1rem" }} />
-          {t("viewer")}
+          <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>{t("viewer")}</Box>
         </ToggleButton>
         <ToggleButton
           value="wysiwyg"
@@ -487,7 +487,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
           onClick={onSwitchToWysiwyg}
         >
           <WysiwygIcon sx={{ fontSize: "1rem" }} />
-          {t("wysiwyg")}
+          <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>{t("wysiwyg")}</Box>
         </ToggleButton>
         <ToggleButton
           value="source"
@@ -495,7 +495,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
           onClick={onSwitchToSource}
         >
           <CodeIcon sx={{ fontSize: "1rem" }} />
-          {t("source")}
+          <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>{t("source")}</Box>
         </ToggleButton>
       </ToggleButtonGroup>
 
