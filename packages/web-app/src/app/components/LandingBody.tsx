@@ -7,7 +7,7 @@ import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import InstallDesktopIcon from '@mui/icons-material/InstallDesktop';
-import ChatIcon from '@mui/icons-material/Chat';
+import RateReviewIcon from '@mui/icons-material/RateReview';
 import TocIcon from '@mui/icons-material/Toc';
 import FlashOnIcon from '@mui/icons-material/FlashOn';
 import NextLink from 'next/link';
@@ -17,12 +17,12 @@ import { useTheme } from '@mui/material/styles';
 
 const featureItems = [
   { titleKey: 'featureWysiwyg' as const, descKey: 'featureWysiwygDesc' as const, Icon: EditNoteIcon },
+  { titleKey: 'featureComment' as const, descKey: 'featureCommentDesc' as const, Icon: RateReviewIcon },
   { titleKey: 'featureSource' as const, descKey: 'featureSourceDesc' as const, Icon: CodeIcon },
   { titleKey: 'featureDiff' as const, descKey: 'featureDiffDesc' as const, Icon: CompareArrowsIcon },
   { titleKey: 'featureDiagram' as const, descKey: 'featureDiagramDesc' as const, Icon: AccountTreeIcon },
   { titleKey: 'featurePdf' as const, descKey: 'featurePdfDesc' as const, Icon: PictureAsPdfIcon },
   { titleKey: 'featurePwa' as const, descKey: 'featurePwaDesc' as const, Icon: InstallDesktopIcon },
-  { titleKey: 'featureComment' as const, descKey: 'featureCommentDesc' as const, Icon: ChatIcon },
   { titleKey: 'featureOutline' as const, descKey: 'featureOutlineDesc' as const, Icon: TocIcon },
   { titleKey: 'featureSlash' as const, descKey: 'featureSlashDesc' as const, Icon: FlashOnIcon },
 ];
