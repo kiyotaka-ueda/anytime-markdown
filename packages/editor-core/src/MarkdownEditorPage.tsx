@@ -12,6 +12,7 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
+
 import { getEditorPaperSx } from "./styles/editorStyles";
 import { PrintStyles } from "./styles/printStyles";
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -29,6 +30,8 @@ import { EditorSettingsPanel } from "./components/EditorSettingsPanel";
 import { useEditorSettings, EditorSettingsContext } from "./useEditorSettings";
 import { EditorToolbar } from "./components/EditorToolbar";
 import { SearchReplaceBar } from "./components/SearchReplaceBar";
+import { SourceSearchBar } from "./components/SourceSearchBar";
+import { useTextareaSearch } from "./hooks/useTextareaSearch";
 import { EditorMenuPopovers } from "./components/EditorMenuPopovers";
 import { EditorBubbleMenu } from "./components/EditorBubbleMenu";
 import { SlashCommandMenu } from "./components/SlashCommandMenu";
@@ -119,6 +122,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     headingMenu, setHeadingMenu,
   } = useEditorMenuState();
   const editorWrapperRef = useRef<HTMLDivElement>(null);
+  const sourceTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const [sourceSearchOpen, setSourceSearchOpen] = useState(false);
 
   // Refs for callbacks used in useEditor config (avoids stale closures)
   const editorRef = useRef<Editor | null>(null);
@@ -149,6 +154,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     handleSwitchToSource, handleSwitchToWysiwyg, handleSwitchToView, executeInViewMode,
     handleSourceChange, appendToSource,
   } = useSourceMode({ editor, saveContent, t });
+
+  const sourceSearch = useTextareaSearch(sourceTextareaRef, sourceText, handleSourceChange);
 
   const {
     commentDialogOpen, setCommentDialogOpen, commentText, setCommentText,
@@ -582,19 +589,54 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         </InlineMergeView>
       ) : (
       <Box component="main" ref={editorContainerRef} sx={{ display: "flex", gap: 0 }}>
-        <EditorOutlineSection {...outlineProps} />
+        {!sourceMode && <EditorOutlineSection {...outlineProps} />}
 
         {/* Editor */}
         <Box sx={{ flex: 1, minWidth: 0 }}>
       {sourceMode ? (
-        <SourceModeEditor
-          sourceText={sourceText}
-          onSourceChange={handleSourceChange}
-          editorHeight={editorHeight}
-          ariaLabel={t("sourceEditor")}
-        />
+        <Box
+          sx={{ position: "relative" }}
+          onKeyDown={(e: React.KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+              e.preventDefault();
+              setSourceSearchOpen(true);
+              setTimeout(() => sourceSearch.focusSearch(), 50);
+            } else if (e.key === "Escape" && sourceSearchOpen) {
+              e.preventDefault();
+              setSourceSearchOpen(false);
+              sourceSearch.reset();
+            }
+          }}
+        >
+          {sourceSearchOpen && (
+            <SourceSearchBar
+              search={sourceSearch}
+              onClose={() => { setSourceSearchOpen(false); sourceSearch.reset(); }}
+              t={t}
+            />
+          )}
+          <SourceModeEditor
+            sourceText={sourceText}
+            onSourceChange={handleSourceChange}
+            editorHeight={editorHeight}
+            ariaLabel={t("sourceEditor")}
+            textareaRef={sourceTextareaRef}
+            searchMatches={sourceSearchOpen ? sourceSearch.matches : undefined}
+            searchCurrentIndex={sourceSearchOpen ? sourceSearch.currentIndex : undefined}
+          />
+        </Box>
       ) : (
-        <Box ref={editorWrapperRef} sx={{ position: "relative" }}>
+        <Box
+          ref={editorWrapperRef}
+          tabIndex={viewMode ? 0 : undefined}
+          onKeyDown={viewMode ? (e: React.KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+              e.preventDefault();
+              editor?.commands.openSearch();
+            }
+          } : undefined}
+          sx={{ position: "relative", outline: "none" }}
+        >
         {editor && <SearchReplaceBar editor={editor} t={t} />}
         <Paper
           id="md-editor-content"
