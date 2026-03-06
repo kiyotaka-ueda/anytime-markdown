@@ -5,6 +5,7 @@ import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
 import FormatListNumberedIcon from "@mui/icons-material/FormatListNumbered";
 import FormatQuoteIcon from "@mui/icons-material/FormatQuote";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import KeyboardIcon from "@mui/icons-material/Keyboard";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import SchemaIcon from "@mui/icons-material/Schema";
 import SettingsIcon from "@mui/icons-material/Settings";
@@ -47,6 +48,7 @@ interface EditorMenuPopoversProps {
   hideSettings?: boolean;
   hideHelp?: boolean;
   hideVersionInfo?: boolean;
+  featuresUrl?: string;
   t: TranslationFn;
 }
 
@@ -62,6 +64,7 @@ export const EditorMenuPopovers = React.memo(function EditorMenuPopovers({
   hideSettings,
   hideHelp,
   hideVersionInfo,
+  featuresUrl,
   t,
 }: EditorMenuPopoversProps) {
 
@@ -77,12 +80,25 @@ export const EditorMenuPopovers = React.memo(function EditorMenuPopovers({
         slotProps={{ paper: { role: "menu", "aria-label": t("helpMenu") } }}
       >
         <Box sx={{ py: 0.5, minWidth: 160 }}>
+          {featuresUrl && (
+            <MenuItem
+              component="a"
+              href={featuresUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setHelpAnchorEl(null)}
+              sx={{ fontSize: "0.85rem", minHeight: 36 }}
+            >
+              <ListItemIcon><MenuBookIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>{t("featuresPage")}</ListItemText>
+            </MenuItem>
+          )}
           {!hideHelp && (
             <MenuItem
               onClick={() => { setHelpDialogOpen(true); setHelpAnchorEl(null); }}
               sx={{ fontSize: "0.85rem", minHeight: 36 }}
             >
-              <ListItemIcon><MenuBookIcon fontSize="small" /></ListItemIcon>
+              <ListItemIcon><KeyboardIcon fontSize="small" /></ListItemIcon>
               <ListItemText>{t("helpPage")}</ListItemText>
             </MenuItem>
           )}

@@ -77,6 +77,7 @@ interface MarkdownEditorPageProps {
   hideSettings?: boolean;
   hideHelp?: boolean;
   hideVersionInfo?: boolean;
+  featuresUrl?: string;
   onCompareModeChange?: (active: boolean) => void;
   themeMode?: 'light' | 'dark';
   onThemeModeChange?: (mode: 'light' | 'dark') => void;
@@ -84,7 +85,7 @@ interface MarkdownEditorPageProps {
   fileSystemProvider?: FileSystemProvider | null;
 }
 
-export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, onCompareModeChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider }: MarkdownEditorPageProps = {}) {
+export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, featuresUrl, onCompareModeChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider }: MarkdownEditorPageProps = {}) {
   const theme = useTheme();
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
@@ -145,8 +146,9 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
 
   // --- Custom hooks ---
   const {
-    sourceMode, sourceText, setSourceText, liveMessage, setLiveMessage,
-    handleSwitchToSource, handleSwitchToWysiwyg, handleSourceChange, appendToSource,
+    sourceMode, viewMode, sourceText, setSourceText, liveMessage, setLiveMessage,
+    handleSwitchToSource, handleSwitchToWysiwyg, handleSwitchToView, executeInViewMode,
+    handleSourceChange, appendToSource,
   } = useSourceMode({ editor, saveContent, t });
 
   const {
@@ -383,13 +385,13 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   const { handleToggleAllBlocks } = useEditorBlockActions({ editor });
 
   useEditorShortcuts({
-    editor, sourceMode, appendToSource,
+    editor, sourceMode, viewMode, appendToSource,
     handleSaveFile, handleSaveAsFile, handleOpenFile, handleImage,
     handleClear, handleCopy,
     handleImport: () => fileInputRef.current?.click(),
     handleDownload,
     handleToggleAllBlocks, handleToggleOutline,
-    handleSwitchToSource, handleSwitchToWysiwyg, handleMerge,
+    handleSwitchToSource, handleSwitchToWysiwyg, handleSwitchToView, handleMerge,
     setDiagramAnchorEl, setTemplateAnchorEl, t,
   });
 
@@ -412,8 +414,9 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     headings, foldedIndices, hiddenByFold,
     foldAll, unfoldAll, toggleFold,
     handleOutlineClick, handleOutlineResizeStart,
-    onHeadingDragEnd: handleHeadingDragEnd,
-    onOutlineDelete: handleOutlineDelete,
+    onHeadingDragEnd: viewMode ? undefined : handleHeadingDragEnd,
+    onOutlineDelete: viewMode ? undefined : handleOutlineDelete,
+    showHeadingNumbers: settings.showHeadingNumbers,
     t,
   };
 
@@ -467,12 +470,14 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         onSetTemplateAnchor={setTemplateAnchorEl}
         onSetHelpAnchor={setHelpAnchorEl}
         sourceMode={sourceMode}
+        viewMode={viewMode}
         outlineOpen={outlineOpen}
         onToggleOutline={handleToggleOutline}
         onMerge={handleMerge}
         inlineMergeOpen={inlineMergeOpen}
         onSwitchToSource={handleSwitchToSource}
         onSwitchToWysiwyg={handleSwitchToWysiwyg}
+        onSwitchToView={handleSwitchToView}
 
         mergeUndoRedo={inlineMergeOpen ? mergeUndoRedo : null}
         onOpenFile={handleOpenFile}
@@ -624,11 +629,11 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
 
       {/* BubbleMenu (text formatting) – rendered for both merge and non-merge modes */}
       {editor && !sourceMode && (
-        <EditorBubbleMenu editor={editor} onLink={handleLink} t={t} />
+        <EditorBubbleMenu editor={editor} onLink={handleLink} viewMode={viewMode} executeInViewMode={executeInViewMode} t={t} />
       )}
 
       {/* Slash command menu */}
-      {editor && !sourceMode && (
+      {editor && !sourceMode && !viewMode && (
         <SlashCommandMenu editor={editor} t={t} slashCommandCallbackRef={slashCommandCallbackRef} />
       )}
 
@@ -657,6 +662,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         hideSettings={hideSettings}
         hideHelp={hideHelp}
         hideVersionInfo={hideVersionInfo}
+        featuresUrl={featuresUrl}
         t={t}
       />
 

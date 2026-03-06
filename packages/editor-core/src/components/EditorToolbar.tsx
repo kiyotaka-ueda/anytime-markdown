@@ -10,7 +10,7 @@ import SaveIcon from "@mui/icons-material/Save";
 import SaveAsIcon from "@mui/icons-material/SaveAs";
 
 import MoreVertIcon from "@mui/icons-material/MoreVert";
-
+import VisibilityIcon from "@mui/icons-material/Visibility";
 
 import CompareIcon from "@mui/icons-material/Compare";
 import ViewStreamIcon from "@mui/icons-material/ViewStream";
@@ -93,12 +93,14 @@ interface EditorToolbarProps {
   onSetTemplateAnchor: (el: HTMLElement) => void;
   onSetHelpAnchor: (el: HTMLElement) => void;
   sourceMode: boolean;
+  viewMode?: boolean;
   outlineOpen: boolean;
   onToggleOutline: () => void;
   onMerge: () => void;
   inlineMergeOpen: boolean;
   onSwitchToSource: () => void;
   onSwitchToWysiwyg: () => void;
+  onSwitchToView?: () => void;
 
   mergeUndoRedo?: MergeUndoRedo | null;
   hideFileOps?: boolean;
@@ -133,12 +135,14 @@ export const EditorToolbar = React.memo(function EditorToolbar({
   onSetTemplateAnchor,
   onSetHelpAnchor,
   sourceMode,
+  viewMode,
   outlineOpen,
   onToggleOutline,
   onMerge,
   inlineMergeOpen,
   onSwitchToSource,
   onSwitchToWysiwyg,
+  onSwitchToView,
 
   mergeUndoRedo,
   hideFileOps,
@@ -270,7 +274,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
             open={!!fileMenuAnchorEl}
             onClose={() => setFileMenuAnchorEl(null)}
           >
-            <MenuItem onClick={() => { onClear(); setFileMenuAnchorEl(null); }}>
+            <MenuItem onClick={() => { onClear(); setFileMenuAnchorEl(null); }} disabled={viewMode}>
               <ListItemIcon><DescriptionIcon fontSize="small" /></ListItemIcon>
               <ListItemText>{t("createNew")}</ListItemText>
             </MenuItem>
@@ -288,7 +292,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
                 <ListItemText>{t("saveAsFile")}</ListItemText>
               </MenuItem>,
             ]) : ([
-              <MenuItem key="upload" onClick={() => { onImport(); setFileMenuAnchorEl(null); }}>
+              <MenuItem key="upload" onClick={() => { onImport(); setFileMenuAnchorEl(null); }} disabled={viewMode}>
                 <ListItemIcon><FileUploadIcon fontSize="small" /></ListItemIcon>
                 <ListItemText>{t("upload")}</ListItemText>
               </MenuItem>,
@@ -308,7 +312,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
           {/* Desktop: individual file buttons */}
           <Box sx={{ display: { xs: "none", md: "contents" } }}>
             <ToggleButtonGroup size="small" aria-label={t("fileActions")} sx={{ height: 30 }}>
-              <ToggleButton value="new" onClick={onClear} aria-label={t("createNew")} sx={{ px: 0.75, py: 0.25 }}>
+              <ToggleButton value="new" onClick={onClear} disabled={viewMode} aria-label={t("createNew")} sx={{ px: 0.75, py: 0.25 }}>
                 <Tooltip title={tip(t, "createNew")}>
                   <DescriptionIcon fontSize="small" />
                 </Tooltip>
@@ -330,7 +334,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
                 </Tooltip>
               </ToggleButton>,
             ]) : ([
-              <ToggleButton key="upload" value="upload" onClick={onImport} aria-label={t("upload")} sx={{ px: 0.75, py: 0.25 }}>
+              <ToggleButton key="upload" value="upload" onClick={onImport} disabled={viewMode} aria-label={t("upload")} sx={{ px: 0.75, py: 0.25 }}>
                 <Tooltip title={tip(t, "upload")}>
                   <FileUploadIcon fontSize="small" />
                 </Tooltip>
@@ -377,7 +381,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
             value="undo"
             aria-label={t("undo")}
             onClick={() => mergeUndoRedo ? mergeUndoRedo.undo() : editor?.chain().focus().undo().run()}
-            disabled={mergeUndoRedo ? !mergeUndoRedo.canUndo : !editorState?.canUndo}
+            disabled={viewMode || (mergeUndoRedo ? !mergeUndoRedo.canUndo : !editorState?.canUndo)}
             sx={{ px: 0.75, py: 0.25 }}
           >
             <Tooltip title={tip(t, "undo")}>
@@ -388,7 +392,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
             value="redo"
             aria-label={t("redo")}
             onClick={() => mergeUndoRedo ? mergeUndoRedo.redo() : editor?.chain().focus().redo().run()}
-            disabled={mergeUndoRedo ? !mergeUndoRedo.canRedo : !editorState?.canRedo}
+            disabled={viewMode || (mergeUndoRedo ? !mergeUndoRedo.canRedo : !editorState?.canRedo)}
             sx={{ px: 0.75, py: 0.25 }}
           >
             <Tooltip title={tip(t, "redo")}>
@@ -397,17 +401,6 @@ export const EditorToolbar = React.memo(function EditorToolbar({
           </ToggleButton>
         </ToggleButtonGroup>
       )}
-
-      {/* Insert actions */}
-      <ToggleButtonGroup size="small" aria-label={t("insertElements")} sx={{ height: 30 }}>
-        <ToggleButton value="template" onClick={(e) => onSetTemplateAnchor(e.currentTarget)} aria-label={t("templates")} disabled={editorState?.isInDiagramCode || inlineMergeOpen} sx={{ px: 0.75, py: 0.25 }}>
-          <Tooltip title={tip(t, "templates")}>
-            <span style={{ display: "inline-flex" }}><ArticleIcon fontSize="small" /></span>
-          </Tooltip>
-        </ToggleButton>
-      </ToggleButtonGroup>
-
-      <Box sx={{ flexGrow: 1 }} />
 
       {/* Fold/Unfold, DiagramCode, Outline - hidden on mobile */}
       <Box sx={{ display: { xs: "none", md: "contents" } }}>
@@ -434,63 +427,131 @@ export const EditorToolbar = React.memo(function EditorToolbar({
       </ToggleButtonGroup>
       </Box>
 
+      {/* Insert actions */}
+      <ToggleButtonGroup size="small" aria-label={t("insertElements")} sx={{ height: 30 }}>
+        <ToggleButton value="template" onClick={(e) => onSetTemplateAnchor(e.currentTarget)} aria-label={t("templates")} disabled={viewMode || editorState?.isInDiagramCode || inlineMergeOpen} sx={{ px: 0.75, py: 0.25 }}>
+          <Tooltip title={tip(t, "templates")}>
+            <span style={{ display: "inline-flex" }}><ArticleIcon fontSize="small" /></span>
+          </Tooltip>
+        </ToggleButton>
+      </ToggleButtonGroup>
+
+      <Box sx={{ flexGrow: 1 }} />
+
       {/* Compare toggle (md 以上のみ表示) */}
       <ToggleButtonGroup
         value={inlineMergeOpen ? "compare" : "edit"}
         exclusive
         size="small"
         aria-label={t("compareMode")}
-        sx={{ height: 30, display: { xs: "none", md: "inline-flex" } }}
+        sx={{
+          height: 34,
+          borderRadius: "20px",
+          bgcolor: "action.hover",
+          p: 0.25,
+          display: { xs: "none", md: "inline-flex" },
+          "& .MuiToggleButton-root": {
+            border: "none",
+            borderRadius: "20px !important",
+            px: 2,
+            py: 0,
+            gap: 0.5,
+            fontSize: "0.8rem",
+            textTransform: "none",
+            lineHeight: 1,
+          },
+          "& .Mui-selected": {
+            bgcolor: "background.paper !important",
+            color: "text.primary !important",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
+          },
+          "& .MuiToggleButton-root:not(.Mui-selected)": {
+            bgcolor: "transparent",
+            color: "text.secondary",
+            "&:hover": {
+              bgcolor: "action.selected",
+            },
+          },
+        }}
       >
         <ToggleButton
           value="edit"
           aria-label={t("normalMode")}
+          disabled={viewMode}
           onClick={() => { if (inlineMergeOpen) onMerge(); }}
-          sx={{ px: 0.75, py: 0.25 }}
         >
-          <Tooltip title={tip(t, "normalMode")}>
-            <EditNoteIcon fontSize="small" />
-          </Tooltip>
+          <EditNoteIcon sx={{ fontSize: "1rem" }} />
+          {t("normalMode")}
         </ToggleButton>
         <ToggleButton
           value="compare"
           aria-label={t("compare")}
+          disabled={viewMode}
           onClick={() => { if (!inlineMergeOpen) onMerge(); }}
-          sx={{ px: 0.75, py: 0.25 }}
         >
-          <Tooltip title={tip(t, "compareMode")}>
-            <ViewStreamIcon fontSize="small" sx={{ transform: "rotate(90deg)" }} />
-          </Tooltip>
+          <ViewStreamIcon sx={{ fontSize: "1rem", transform: "rotate(90deg)" }} />
+          {t("compare")}
         </ToggleButton>
       </ToggleButtonGroup>
 
-      {/* Source / WYSIWYG toggle */}
+      {/* Source / WYSIWYG / Viewer toggle */}
       <ToggleButtonGroup
-        value={sourceMode ? "source" : "wysiwyg"}
+        value={viewMode ? "viewer" : sourceMode ? "source" : "wysiwyg"}
         exclusive
         size="small"
         aria-label={t("editMode")}
-        sx={{ height: 30 }}
+        sx={{
+          height: 34,
+          borderRadius: "20px",
+          bgcolor: "action.hover",
+          p: 0.25,
+          "& .MuiToggleButton-root": {
+            border: "none",
+            borderRadius: "20px !important",
+            px: 2,
+            py: 0,
+            gap: 0.5,
+            fontSize: "0.8rem",
+            textTransform: "none",
+            lineHeight: 1,
+          },
+          "& .Mui-selected": {
+            bgcolor: "background.paper !important",
+            color: "text.primary !important",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
+          },
+          "& .MuiToggleButton-root:not(.Mui-selected)": {
+            bgcolor: "transparent",
+            color: "text.secondary",
+            "&:hover": {
+              bgcolor: "action.selected",
+            },
+          },
+        }}
       >
+        <ToggleButton
+          value="viewer"
+          aria-label={t("viewer")}
+          onClick={onSwitchToView}
+        >
+          <VisibilityIcon sx={{ fontSize: "1rem" }} />
+          {t("viewer")}
+        </ToggleButton>
         <ToggleButton
           value="wysiwyg"
           aria-label={t("wysiwyg")}
           onClick={onSwitchToWysiwyg}
-          sx={{ px: 0.75, py: 0.25 }}
         >
-          <Tooltip title={tip(t, "normalMode")}>
-            <WysiwygIcon fontSize="small" />
-          </Tooltip>
+          <WysiwygIcon sx={{ fontSize: "1rem" }} />
+          {t("wysiwyg")}
         </ToggleButton>
         <ToggleButton
           value="source"
           aria-label={t("source")}
           onClick={onSwitchToSource}
-          sx={{ px: 0.75, py: 0.25 }}
         >
-          <Tooltip title={tip(t, "sourceMode")}>
-            <CodeIcon fontSize="small" />
-          </Tooltip>
+          <CodeIcon sx={{ fontSize: "1rem" }} />
+          {t("source")}
         </ToggleButton>
       </ToggleButtonGroup>
 

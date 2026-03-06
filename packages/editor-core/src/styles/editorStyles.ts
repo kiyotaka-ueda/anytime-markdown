@@ -26,6 +26,12 @@ export function getEditorPaperSx(
       pr: 2,
       pl: 5,
       outline: "none",
+      // ビューモード（contenteditable=false）時はホバーラベルを非表示
+      '&[contenteditable="false"]': {
+        "& h1::before, & h2::before, & h3::before, & h4::before, & h5::before, & > p::before, & > blockquote > p::before, & li::before": {
+          display: "none",
+        },
+      },
       "&:focus-visible": {
         outline: "2px solid",
         outlineColor: "primary.main",

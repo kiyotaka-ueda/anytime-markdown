@@ -34,10 +34,12 @@ function tip(t: TranslationFn, key: string): string {
 interface EditorBubbleMenuProps {
   editor: Editor;
   onLink: () => void;
+  viewMode?: boolean;
+  executeInViewMode?: (fn: () => void) => void;
   t: TranslationFn;
 }
 
-export const EditorBubbleMenu = React.memo(function EditorBubbleMenu({ editor, onLink, t }: EditorBubbleMenuProps) {
+export const EditorBubbleMenu = React.memo(function EditorBubbleMenu({ editor, onLink, viewMode, executeInViewMode, t }: EditorBubbleMenuProps) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
     e.preventDefault();
@@ -78,98 +80,107 @@ export const EditorBubbleMenu = React.memo(function EditorBubbleMenu({ editor, o
           borderRadius: 1,
         }}
       >
-        <Tooltip title={tip(t, "bold")}>
-          <IconButton
-            size="small"
-            aria-label={t("bold")}
-            aria-pressed={editor.isActive("bold")}
-            onClick={() => editor.chain().focus().toggleBold().run()}
-            color={editor.isActive("bold") ? "primary" : "default"}
-            sx={{ p: 0.5 }}
-          >
-            <FormatBoldIcon sx={{ fontSize: 18 }} />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title={tip(t, "italic")}>
-          <IconButton
-            size="small"
-            aria-label={t("italic")}
-            aria-pressed={editor.isActive("italic")}
-            onClick={() => editor.chain().focus().toggleItalic().run()}
-            color={editor.isActive("italic") ? "primary" : "default"}
-            sx={{ p: 0.5 }}
-          >
-            <FormatItalicIcon sx={{ fontSize: 18 }} />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title={tip(t, "underline")}>
-          <IconButton
-            size="small"
-            aria-label={t("underline")}
-            aria-pressed={editor.isActive("underline")}
-            onClick={() => editor.chain().focus().toggleUnderline().run()}
-            color={editor.isActive("underline") ? "primary" : "default"}
-            sx={{ p: 0.5 }}
-          >
-            <FormatUnderlinedIcon sx={{ fontSize: 18 }} />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title={tip(t, "strikethrough")}>
-          <IconButton
-            size="small"
-            aria-label={t("strikethrough")}
-            aria-pressed={editor.isActive("strike")}
-            onClick={() => editor.chain().focus().toggleStrike().run()}
-            color={editor.isActive("strike") ? "primary" : "default"}
-            sx={{ p: 0.5 }}
-          >
-            <StrikethroughSIcon sx={{ fontSize: 18 }} />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title={tip(t, "highlight")}>
-          <IconButton
-            size="small"
-            aria-label={t("highlight")}
-            aria-pressed={editor.isActive("highlight")}
-            onClick={() => editor.chain().focus().toggleHighlight().run()}
-            color={editor.isActive("highlight") ? "primary" : "default"}
-            sx={{ p: 0.5 }}
-          >
-            <BorderColorIcon sx={{ fontSize: 18 }} />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title={tip(t, "code")}>
-          <IconButton
-            size="small"
-            aria-label={t("code")}
-            aria-pressed={editor.isActive("code")}
-            onClick={() => editor.chain().focus().toggleCode().run()}
-            color={editor.isActive("code") ? "primary" : "default"}
-            sx={{ p: 0.5 }}
-          >
-            <CodeIcon sx={{ fontSize: 18 }} />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title={tip(t, "link")}>
-          <IconButton
-            size="small"
-            aria-label={t("link")}
-            onClick={onLink}
-            color={editor.isActive("link") ? "primary" : "default"}
-            sx={{ p: 0.5 }}
-          >
-            <InsertLinkIcon sx={{ fontSize: 18 }} />
-          </IconButton>
-        </Tooltip>
+        {!viewMode && (
+          <>
+            <Tooltip title={tip(t, "bold")}>
+              <IconButton
+                size="small"
+                aria-label={t("bold")}
+                aria-pressed={editor.isActive("bold")}
+                onClick={() => editor.chain().focus().toggleBold().run()}
+                color={editor.isActive("bold") ? "primary" : "default"}
+                sx={{ p: 0.5 }}
+              >
+                <FormatBoldIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={tip(t, "italic")}>
+              <IconButton
+                size="small"
+                aria-label={t("italic")}
+                aria-pressed={editor.isActive("italic")}
+                onClick={() => editor.chain().focus().toggleItalic().run()}
+                color={editor.isActive("italic") ? "primary" : "default"}
+                sx={{ p: 0.5 }}
+              >
+                <FormatItalicIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={tip(t, "underline")}>
+              <IconButton
+                size="small"
+                aria-label={t("underline")}
+                aria-pressed={editor.isActive("underline")}
+                onClick={() => editor.chain().focus().toggleUnderline().run()}
+                color={editor.isActive("underline") ? "primary" : "default"}
+                sx={{ p: 0.5 }}
+              >
+                <FormatUnderlinedIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={tip(t, "strikethrough")}>
+              <IconButton
+                size="small"
+                aria-label={t("strikethrough")}
+                aria-pressed={editor.isActive("strike")}
+                onClick={() => editor.chain().focus().toggleStrike().run()}
+                color={editor.isActive("strike") ? "primary" : "default"}
+                sx={{ p: 0.5 }}
+              >
+                <StrikethroughSIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={tip(t, "highlight")}>
+              <IconButton
+                size="small"
+                aria-label={t("highlight")}
+                aria-pressed={editor.isActive("highlight")}
+                onClick={() => editor.chain().focus().toggleHighlight().run()}
+                color={editor.isActive("highlight") ? "primary" : "default"}
+                sx={{ p: 0.5 }}
+              >
+                <BorderColorIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={tip(t, "code")}>
+              <IconButton
+                size="small"
+                aria-label={t("code")}
+                aria-pressed={editor.isActive("code")}
+                onClick={() => editor.chain().focus().toggleCode().run()}
+                color={editor.isActive("code") ? "primary" : "default"}
+                sx={{ p: 0.5 }}
+              >
+                <CodeIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={tip(t, "link")}>
+              <IconButton
+                size="small"
+                aria-label={t("link")}
+                onClick={onLink}
+                color={editor.isActive("link") ? "primary" : "default"}
+                sx={{ p: 0.5 }}
+              >
+                <InsertLinkIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+          </>
+        )}
         <Tooltip title={tip(t, "comment")}>
           <IconButton
             size="small"
             aria-label={t("comment")}
             onClick={() => {
-              const storage = editor.storage as unknown as Record<string, Record<string, unknown>>;
-              const openDialog = storage.commentDialog?.open as (() => void) | undefined;
-              if (openDialog) {
-                openDialog();
+              const openComment = () => {
+                const storage = editor.storage as unknown as Record<string, Record<string, unknown>>;
+                const openDialog = storage.commentDialog?.open as (() => void) | undefined;
+                if (openDialog) openDialog();
+              };
+              if (viewMode && executeInViewMode) {
+                executeInViewMode(openComment);
+              } else {
+                openComment();
               }
             }}
             color={editor.isActive("commentHighlight") ? "primary" : "default"}

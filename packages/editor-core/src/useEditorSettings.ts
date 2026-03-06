@@ -26,7 +26,7 @@ export const DEFAULT_SETTINGS: EditorSettings = {
   lightTextColor: "",
   darkBgColor: "",
   darkTextColor: "",
-  showPageBreakGuide: true,
+  showPageBreakGuide: false,
   showHeadingNumbers: false,
 };
 

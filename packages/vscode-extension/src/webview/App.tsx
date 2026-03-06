@@ -101,16 +101,18 @@ export function App() {
       if (!href) return;
       if (/^https?:\/\//.test(href)) return;
       e.preventDefault();
+      e.stopImmediatePropagation();
       vscode.postMessage({ type: 'openLink', href });
     };
     const handleCtrlClick = (e: MouseEvent) => {
       if (e.ctrlKey || e.metaKey) openLink(e);
     };
-    document.addEventListener('click', handleCtrlClick);
-    document.addEventListener('dblclick', openLink);
+    // capture フェーズで VS Code プリロードスクリプトより先にイベントを捕捉
+    document.addEventListener('click', handleCtrlClick, true);
+    document.addEventListener('dblclick', openLink, true);
     return () => {
-      document.removeEventListener('click', handleCtrlClick);
-      document.removeEventListener('dblclick', openLink);
+      document.removeEventListener('click', handleCtrlClick, true);
+      document.removeEventListener('dblclick', openLink, true);
     };
   }, []);
 

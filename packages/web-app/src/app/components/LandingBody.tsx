@@ -7,6 +7,9 @@ import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import InstallDesktopIcon from '@mui/icons-material/InstallDesktop';
+import ChatIcon from '@mui/icons-material/Chat';
+import TocIcon from '@mui/icons-material/Toc';
+import FlashOnIcon from '@mui/icons-material/FlashOn';
 import NextLink from 'next/link';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
@@ -19,6 +22,9 @@ const featureItems = [
   { titleKey: 'featureDiagram' as const, descKey: 'featureDiagramDesc' as const, Icon: AccountTreeIcon },
   { titleKey: 'featurePdf' as const, descKey: 'featurePdfDesc' as const, Icon: PictureAsPdfIcon },
   { titleKey: 'featurePwa' as const, descKey: 'featurePwaDesc' as const, Icon: InstallDesktopIcon },
+  { titleKey: 'featureComment' as const, descKey: 'featureCommentDesc' as const, Icon: ChatIcon },
+  { titleKey: 'featureOutline' as const, descKey: 'featureOutlineDesc' as const, Icon: TocIcon },
+  { titleKey: 'featureSlash' as const, descKey: 'featureSlashDesc' as const, Icon: FlashOnIcon },
 ];
 
 export default function LandingBody({ headingFontFamily }: { headingFontFamily?: string }) {
@@ -272,6 +278,14 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
             sx={{ color: 'text.secondary', fontSize: '0.85rem' }}
           >
             {t('footerVscode')}
+          </MuiLink>
+          <MuiLink
+            component={NextLink}
+            href="/features"
+            underline="hover"
+            sx={{ color: 'text.secondary', fontSize: '0.85rem' }}
+          >
+            {t('featuresPage')}
           </MuiLink>
           <MuiLink
             component={NextLink}

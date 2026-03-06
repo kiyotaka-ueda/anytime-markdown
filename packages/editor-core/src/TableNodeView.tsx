@@ -31,6 +31,7 @@ export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeVi
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const collapsed = !!node.attrs.collapsed;
   const toggleCollapsed = useCallback(() => updateAttributes({ collapsed: !collapsed }), [collapsed, updateAttributes]);
+  const isEditable = editor?.isEditable ?? true;
 
   // エディタのセレクションがこのテーブル内にあるかを検出
   const isSelected = useEditorState({
@@ -44,8 +45,8 @@ export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeVi
     },
   });
 
-  // ツールバーの表示条件: 折りたたみ中・全画面中・テーブル内選択中
-  const showToolbar = collapsed || fullscreen || isSelected;
+  // ツールバーの表示条件: 編集可能時のみ（折りたたみ中・全画面中・テーブル内選択中）
+  const showToolbar = isEditable && (collapsed || fullscreen || isSelected);
 
   return (
     <NodeViewWrapper>
@@ -60,7 +61,7 @@ export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeVi
         tabIndex={fullscreen ? -1 : undefined}
         sx={{
           border: 1,
-          borderColor: "divider",
+          borderColor: isEditable ? "divider" : "transparent",
           borderRadius: fullscreen ? 0 : 1,
           overflow: "hidden",
           my: fullscreen ? 0 : 1,
@@ -83,8 +84,8 @@ export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeVi
           }),
         }}
       >
-        {/* Header toolbar */}
-        <Box
+        {/* Header toolbar (hidden in view mode) */}
+        {isEditable && <Box
           data-block-toolbar=""
           role="toolbar"
           aria-label={t("tableToolbar")}
@@ -99,8 +100,8 @@ export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeVi
           }}
           contentEditable={false}
         >
-          {/* Drag handle (hidden in fullscreen) */}
-          {!fullscreen && (
+          {/* Drag handle (hidden in fullscreen or view mode) */}
+          {!fullscreen && isEditable && (
             <Box
               data-drag-handle=""
               role="button"
@@ -139,7 +140,7 @@ export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeVi
             <SearchReplaceBar editor={editor} t={t} />
           )}
 
-          {!collapsed && (
+          {!collapsed && isEditable && (
             <>
               {/* Column add/remove */}
               <ToggleButtonGroup size="small" sx={{ height: 24 }}>
@@ -237,8 +238,8 @@ export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeVi
 
           <Box sx={{ flex: 1 }} />
 
-          {/* Delete table (hidden in fullscreen or collapsed) */}
-          {!fullscreen && !collapsed && (
+          {/* Delete table (hidden in fullscreen, collapsed, or view mode) */}
+          {!fullscreen && !collapsed && isEditable && (
             <>
               <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
               <Tooltip title={t("deleteTable")} placement="top">
@@ -256,10 +257,13 @@ export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeVi
               </IconButton>
             </Tooltip>
           )}
-        </Box>
+        </Box>}
 
         {/* Table body */}
-        <Box sx={collapsed ? { height: 0, overflow: "hidden" } : { overflow: "auto", ...(fullscreen && { flex: 1 }) }}>
+        <Box
+          sx={collapsed ? { height: 0, overflow: "hidden" } : { overflow: "auto", ...(fullscreen && { flex: 1 }) }}
+          onDoubleClick={!isEditable ? () => setFullscreen(true) : undefined}
+        >
           <NodeViewContent<"table"> as="table" />
         </Box>
       </Box>

@@ -108,6 +108,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           fontSize: config.get<number>('fontSize', 0),
           lineHeight: config.get<number>('lineHeight', 1.6),
           editorMaxWidth: config.get<number>('editorMaxWidth', 0),
+          showPageBreakGuide: false,
         },
       });
     };
@@ -128,6 +129,31 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       if (e.document.uri.toString() !== document.uri.toString()) { return; }
       if (isApplyingWebviewEdit) { return; }
       updateWebview();
+      vscode.window.showInformationMessage('ファイルが外部で変更されました。再読み込みしました。');
+    });
+
+    // 外部変更検知（Claude Code、git 操作、他のエディタなど）
+    let lastApplyTime = 0;
+    const fileWatcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(vscode.Uri.file(path.dirname(document.uri.fsPath)), path.basename(document.uri.fsPath))
+    );
+    fileWatcher.onDidChange(async () => {
+      if (disposed) { return; }
+      // 自身の保存直後（2秒以内）は無視
+      if (Date.now() - lastApplyTime < 2000) { return; }
+      try {
+        const bytes = await vscode.workspace.fs.readFile(document.uri);
+        const diskContent = new TextDecoder().decode(bytes);
+        if (diskContent === document.getText()) { return; }
+        webviewPanel.webview.postMessage({ type: 'setBaseUri', baseUri });
+        webviewPanel.webview.postMessage({
+          type: 'setContent',
+          content: diskContent,
+        });
+        vscode.window.showInformationMessage('ファイルが外部で変更されました。再読み込みしました。');
+      } catch {
+        // ファイル読み取り失敗時は無視
+      }
     });
 
     const configChangeSubscription = vscode.workspace.onDidChangeConfiguration((e) => {
@@ -186,6 +212,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
               document.positionAt(document.getText().length)
             );
             edit.replace(document.uri, fullRange, newContent);
+            lastApplyTime = Date.now();
             isApplyingWebviewEdit = true;
             try {
               const success = await vscode.workspace.applyEdit(edit);
@@ -202,13 +229,25 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         }
 
         case 'openLink': {
-          const href = (message as { type: string; href?: string }).href;
-          if (typeof href !== 'string') { return; }
+          const rawHref = (message as { type: string; href?: string }).href;
+          if (typeof rawHref !== 'string') { return; }
+          const href = decodeURIComponent(rawHref);
+          // #L行番号 フラグメントを解析
+          const lineMatch = href.match(/#L(\d+)$/);
+          const filePath = lineMatch ? href.replace(/#L\d+$/, '') : href;
           const docDir = path.dirname(document.uri.fsPath);
-          const targetPath = path.resolve(docDir, href);
+          const targetPath = path.resolve(docDir, filePath);
           const targetUri = vscode.Uri.file(targetPath);
           try {
-            await vscode.commands.executeCommand('vscode.open', targetUri);
+            if (lineMatch) {
+              const line = Math.max(0, parseInt(lineMatch[1], 10) - 1);
+              const doc = await vscode.workspace.openTextDocument(targetUri);
+              await vscode.window.showTextDocument(doc, {
+                selection: new vscode.Range(line, 0, line, 0),
+              });
+            } else {
+              await vscode.commands.executeCommand('vscode.open', targetUri);
+            }
           } catch {
             vscode.window.showWarningMessage(`Cannot open file: ${href}`);
           }
@@ -244,6 +283,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       docChangeSubscription.dispose();
       configChangeSubscription.dispose();
       themeChangeSubscription.dispose();
+      fileWatcher.dispose();
       if (debounceTimer) { clearTimeout(debounceTimer); }
     });
   }
