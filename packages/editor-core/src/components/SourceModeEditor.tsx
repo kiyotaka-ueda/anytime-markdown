@@ -1,6 +1,6 @@
 import { Box, Paper, useTheme } from "@mui/material";
 import { alpha } from "@mui/material/styles";
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { useEditorSettingsContext } from "../useEditorSettings";
 import type { TextareaSearchMatch } from "../hooks/useTextareaSearch";
 
@@ -63,6 +63,14 @@ export function SourceModeEditor({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const hasMatches = searchMatches && searchMatches.length > 0;
+
+  // Auto-expand textarea height to content so parent Paper handles all scrolling
+  useLayoutEffect(() => {
+    const ta = textareaRef?.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = `${ta.scrollHeight}px`;
+  }, [sourceText, textareaRef, settings.fontSize, settings.lineHeight]);
 
   // Sync textarea scroll to highlight layer
   const handleScroll = useCallback(() => {
