@@ -339,7 +339,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   }, [editor, settings.showHeadingNumbers]);
 
   const {
-    inlineMergeOpen, _setInlineMergeOpen,
+    inlineMergeOpen, setInlineMergeOpen: _setInlineMergeOpen,
     editorMarkdown, setEditorMarkdown,
     mergeUndoRedo, setMergeUndoRedo,
     compareFileContent, setCompareFileContent,
