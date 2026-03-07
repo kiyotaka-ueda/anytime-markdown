@@ -68,10 +68,10 @@ export function useMarkdownEditor(defaultContent: string) {
     URL.revokeObjectURL(url);
   }, []);
 
-  // クリア
+  // クリア（空文字列を保存して HMR 時に defaultContent にフォールバックしないようにする）
   const clearContent = useCallback(() => {
     try {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.setItem(STORAGE_KEY, "");
     } catch (e) {
       console.warn("Failed to clear localStorage:", e);
     }
