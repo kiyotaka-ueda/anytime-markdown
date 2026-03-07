@@ -103,12 +103,18 @@ export default function DocsViewPage() {
   }
 
   return (
-    <MarkdownEditorPage
-      externalContent={content}
-      readOnly
-      themeMode={themeMode}
-      onThemeModeChange={setThemeMode}
-      onLocaleChange={setLocale}
-    />
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      <LandingHeader />
+      <Box sx={{ flex: 1, overflow: 'hidden' }}>
+        <MarkdownEditorPage
+          externalContent={content}
+          readOnly
+          hideToolbar
+          themeMode={themeMode}
+          onThemeModeChange={setThemeMode}
+          onLocaleChange={setLocale}
+        />
+      </Box>
+    </Box>
   );
 }

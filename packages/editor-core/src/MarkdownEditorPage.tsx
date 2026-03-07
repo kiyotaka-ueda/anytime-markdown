@@ -86,9 +86,10 @@ interface MarkdownEditorPageProps {
   fileSystemProvider?: FileSystemProvider | null;
   externalContent?: string;
   readOnly?: boolean;
+  hideToolbar?: boolean;
 }
 
-export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, featuresUrl, onCompareModeChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, externalContent, readOnly }: MarkdownEditorPageProps = {}) {
+export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, featuresUrl, onCompareModeChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, externalContent, readOnly, hideToolbar }: MarkdownEditorPageProps = {}) {
   const theme = useTheme();
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
@@ -385,7 +386,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         {liveMessage}
       </Box>
       {/* Toolbar */}
-      <EditorToolbar
+      {!hideToolbar && <EditorToolbar
         editor={editor}
         isInDiagramBlock={isInDiagramBlock}
         onToggleAllBlocks={handleToggleAllBlocks}
@@ -425,7 +426,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         commentOpen={commentOpen}
         onToggleComments={() => setCommentOpen((prev) => !prev)}
         t={t}
-      />
+      />}
       <input
         ref={fileInputRef}
         type="file"
