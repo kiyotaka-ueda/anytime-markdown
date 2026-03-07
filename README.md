@@ -1,67 +1,87 @@
 # Anytime Markdown
 
-Tiptap ベースのリッチマークダウンエディタ featuring Claude Code。Web アプリと VS Code 拡張機能の両方で動作します。
+Tiptap ベースのリッチマークダウンエディタ。\
+Web アプリ、VS Code 拡張機能、Android アプリの3つのプラットフォームで動作する。
+
+
+## 主な機能
+
+- リッチテキスト編集（見出し、リスト、テーブル、リンク、画像）
+- Mermaid / PlantUML ダイアグラム描画
+- マークダウンソースモード切替
+- 検索・置換
+- diff 比較・マージビュー
+- アウトラインパネル
+- インラインコメント
+- 脚注
+- PDF エクスポート
+- テンプレート挿入（スラッシュコマンド）
+- セクション自動番号
+- 日本語 / 英語 対応
+
 
 ## プロジェクト構成
 
-```
-packages/
-  editor-core/      # エディタ本体（共通ライブラリ）
-  web-app/          # Next.js Web アプリケーション
-  vscode-extension/ # VS Code 拡張機能
-  mobile-app/       # Capacitor Android アプリ
-
-```
-
 ```mermaid
-graph TB
-    subgraph "anytime-markdown (npm workspaces monorepo)"
-        EC["@anytime-markdown/editor-core<br/>共有エディタライブラリ"]
-        WA["@anytime-markdown/web-app<br/>Next.js Web アプリ"]
-        VE["@anytime-markdown/vscode-extension<br/>VS Code 拡張機能"]
-        MA["@anytime-markdown/mobile-app<br/>Capacitor Android アプリ"]
+flowchart TD
+    %% ノード定義
+    subgraph mono ["anytime-markdown (npm workspaces monorepo)"]
+        EC["editor-core<br/>共有エディタライブラリ"]
+        WA["web-app<br/>Next.js Web アプリ"]
+        VE["vscode-extension<br/>VS Code 拡張機能"]
+        MA["mobile-app<br/>Capacitor Android アプリ"]
     end
 
+    subgraph deps ["主要な外部依存"]
+        Tiptap["Tiptap / ProseMirror"]
+        React["React 19 + MUI 7"]
+        Next["Next.js 15"]
+        VSCodeAPI["VS Code Extension API"]
+    end
+
+    %% 接続定義
     WA -->|"workspace 依存"| EC
     VE -->|"workspace 依存"| EC
     MA -->|"静的ビルド参照"| WA
 
-    subgraph "外部依存"
-        Tiptap["@tiptap/core + 拡張"]
-        React["React 19"]
-        MUI["MUI 7"]
-        Next["Next.js 15"]
-        VSCodeAPI["VS Code Extension API"]
-        Mermaid["Mermaid.js"]
-        DOMPurify["DOMPurify"]
-    end
-
     EC --> Tiptap
     EC --> React
-    EC --> MUI
     WA --> Next
     VE --> VSCodeAPI
-    EC --> Mermaid
-    EC --> DOMPurify
-
-    subgraph "モバイル依存"
-        Capacitor["Capacitor 7"]
-    end
-
-    MA --> Capacitor
-
+    MA --> Capacitor["Capacitor 7"]
 ```
+
 
 ## 前提条件
 
-- Node.js 24+
-- npm 10+
-- Docker / Docker Compose（Docker で起動する場合）
+- WSL2（Windows の場合）
+- Docker Desktop（WSL2 バックエンド）
+- VS Code + [Dev Containers 拡張機能](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
 - Android Studio（Android アプリをビルドする場合）
 
-## Web アプリの起動手順
 
-### Docker を使う場合
+## 開発環境のセットアップ
+
+
+### Dev Container を使う場合（推奨）
+
+1. WSL2 上でリポジトリをクローンする
+2. VS Code でリポジトリを開く
+3. コマンドパレット → 「Dev Containers: Reopen in Container」を実行
+
+> 初回はコンテナのビルドと `npm install` が自動実行される。\
+> ポート `3000` は自動フォワードされる。
+
+```bash
+# 開発サーバーを起動
+cd packages/web-app
+npm run dev
+```
+
+ブラウザで http://localhost:3000 にアクセスする。
+
+
+### Docker を手動で使う場合
 
 ```bash
 # 1. コンテナをビルド・起動
@@ -76,100 +96,57 @@ npm install
 # 4. 開発サーバーを起動
 cd packages/web-app
 npm run dev
-
 ```
 
-ブラウザで http://localhost:3001 にアクセスしてください。
-
-> ポートマッピングが `3001:3000` のため、ホスト側は **3001** ポートです。
+ブラウザで http://localhost:3000 にアクセスする。
 
 
-## Android アプリのビルド手順
+## テスト
 
-Web アプリを Capacitor でラップした Android アプリです。
 
-### 前提条件（Android）
+### ユニットテスト
 
-- **Android Studio**（Windows / Mac にインストール）
-- **Android SDK**（Android Studio に同梱）
-- **JDK 21**
-
-> WSL2 / Docker 内では `npm run sync` までは実行できますが、Android Studio の起動やエミュレータは **Windows 側** で行う必要があります。
-
-WSL 内でコマンドラインビルドする場合は JDK 21 を別途インストール:
+追加インストールは不要。
 
 ```bash
-# (wsl host)
-sudo apt install -y openjdk-21-jdk
-
+# リポジトリルートで全パッケージのテストを実行
+npx jest --no-coverage
 ```
 
-### ビルド手順（WSL コンテナ 内で実行）
+
+### E2E テスト（Playwright）
+
+Playwright ブラウザは Dockerfile のビルド時にインストール済み。\
+パッケージ更新等でブラウザバージョンが変わった場合は、手動で再インストールする:
 
 ```bash
-# (wsl host)
-# 1. 依存パッケージをインストール（リポジトリルート）
-npm install
-
-# 2. 静的ビルド + Capacitor sync をワンコマンドで実行
-cd packages/mobile-app
-npm run sync
-
+npx playwright install --with-deps
 ```
 
-`npm run sync` は内部で Web アプリの静的エクスポート（`build:static`）と `cap sync` を順次実行します。
-
-
-#### コマンドラインで APK ビルド + エミュレータで確認
-
-Android Studio の GUI を使わず APK を生成し、エミュレータで確認する方法です。
-
-**APK ビルド（WSL 内で実行）:**
+E2E テストの実行:
 
 ```bash
-cd packages/mobile-app/android
-./gradlew assembleDebug
-
+cd packages/web-app
+npm run e2e
 ```
 
-APK の出力先: `app/build/outputs/apk/debug/app-debug.apk`
-
-**エミュレータで確認（Windows 側）:**
-
-1. Android Studio を起動（プロジェクトを開く必要なし）
-2. Device Manager → Create Virtual Device → Pixel 系を選択 → API 35 の System Image をダウンロード → Finish
-3. 作成したデバイスの ▶ ボタンでエミュレータを起動
-4. エクスプローラーで `\\wsl$\\<リポジトリパス>\packages\mobile-app\android\app\build\outputs\apk\debug\` を開く
-5. `app-debug.apk` をエミュレータの画面に**ドラッグ&ドロップ**でインストール
-
-## リリース準備
-### 1. mobile-app/android ディレクトリに移動
-cd packages/mobile-app/android
-
-### 2. キーストアファイルが配置されていることを確認
-ls anytime-markdown-release.keystore
-
-### 3. keystore.properties のパスワードが正しいことを確認
-cat keystore.properties
-
-### 4. AAB を生成
-./gradlew bundleRelease
-
-### 5. 出力ファイルの確認
-ls -la app/build/outputs/bundle/release/app-release.aab
+> E2E テストは開発サーバーが起動していなくても、テスト内で自動起動される。
 
 
+## VS Code 拡張機能
 
-## VS Code 拡張機能の使い方
+
+### デバッグ起動
 
 1. VS Code でこのリポジトリを開く
 2. `F5` で拡張機能のデバッグ起動
 3. 開いた Extension Development Host で `.md` ファイルを開く
 4. 右クリック → 「Open with Markdown Editor」を選択
 
-## VSIX ファイルの作成
 
-ローカルインストールやテスト配布用に `.vsix` ファイルを作成する手順です。
+### VSIX ファイルの作成
+
+ローカルインストールやテスト配布用に `.vsix` ファイルを作成する手順。
 
 ```bash
 # 1. リポジトリルートで依存パッケージをインストール
@@ -180,42 +157,105 @@ cd packages/vscode-extension
 
 # 3. VSIX ファイルを生成
 npx vsce package --no-dependencies
-
 ```
 
-`anytime-markdown-.vsix` が生成されます。
+`anytime-markdown-<version>.vsix` が生成される。
+
 
 ### ローカルへのインストール
 
 ```bash
 code --install-extension anytime-markdown-<version>.vsix
-
 ```
 
-または VS Code のコマンドパレットから「Extensions: Install from VSIX...」を選択してファイルを指定してください。
+または VS Code のコマンドパレットから「Extensions: Install from VSIX...」を選択してファイルを指定する。
 
-## Publishing
 
-VS Code Marketplace への公開手順です。
+### Marketplace への公開
 
 ```bash
 cd packages/vscode-extension
 npx vsce publish --no-dependencies --pat <your-token>
-
 ```
 
-### 手動アップロード
+手動アップロードの場合:
 
 1. `npx vsce package --no-dependencies` で `.vsix` ファイルを生成
 2. [Publisher 管理ページ](https://marketplace.visualstudio.com/manage) にアクセス
 3. New Extension → Visual Studio Code → `.vsix` ファイルをアップロード
 
-## 主な機能
 
-- リッチテキスト編集（見出し、リスト、テーブル、リンク、画像）
-- Mermaid / PlantUML ダイアグラム描画
-- マークダウンソースモード切替
-- 検索・置換
-- diff マージビュー
-- テンプレート挿入
-- 日本語 / 英語 対応
+## Android アプリ
+
+Web アプリを Capacitor でラップした Android アプリ。
+
+
+### 前提条件（Android）
+
+- **Android Studio**（Windows / Mac にインストール）
+- **Android SDK**（Android Studio に同梱）
+- **JDK 21**
+
+> WSL2 / Docker 内では `npm run sync` までは実行できますが、Android Studio の起動やエミュレータは **Windows 側** で行う必要があります。
+
+WSL 内でコマンドラインビルドする場合は JDK 21 を別途インストールする:
+
+```bash
+sudo apt install -y openjdk-21-jdk
+```
+
+
+### ビルド手順（WSL コンテナ内で実行）
+
+```bash
+# 1. 依存パッケージをインストール（リポジトリルート）
+npm install
+
+# 2. 静的ビルド + Capacitor sync をワンコマンドで実行
+cd packages/mobile-app
+npm run sync
+```
+
+`npm run sync` は内部で Web アプリの静的エクスポート（`build:static`）と `cap sync` を順次実行する。
+
+
+### コマンドラインで APK ビルド + エミュレータで確認
+
+Android Studio の GUI を使わず APK を生成し、エミュレータで確認する方法。
+
+**APK ビルド（WSL 内で実行）:**
+
+```bash
+cd packages/mobile-app/android
+./gradlew assembleDebug
+```
+
+APK の出力先: `app/build/outputs/apk/debug/app-debug.apk`
+
+**エミュレータで確認（Windows 側）:**
+
+1. Android Studio を起動（プロジェクトを開く必要なし）
+2. Device Manager → Create Virtual Device → Pixel 系を選択 → API 35 の System Image をダウンロード → Finish
+3. 作成したデバイスの ▶ ボタンでエミュレータを起動
+4. エクスプローラーで `\\wsl$\<リポジトリパス>\packages\mobile-app\android\app\build\outputs\apk\debug\` を開く
+5. `app-debug.apk` をエミュレータの画面にドラッグ&ドロップでインストール
+
+
+### リリースビルド
+
+```bash
+# 1. mobile-app/android ディレクトリに移動
+cd packages/mobile-app/android
+
+# 2. キーストアファイルが配置されていることを確認
+ls anytime-markdown-release.keystore
+
+# 3. keystore.properties のパスワードが正しいことを確認
+cat keystore.properties
+
+# 4. AAB を生成
+./gradlew bundleRelease
+
+# 5. 出力ファイルの確認
+ls -la app/build/outputs/bundle/release/app-release.aab
+```
