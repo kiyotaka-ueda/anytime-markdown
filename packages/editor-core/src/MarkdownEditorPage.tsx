@@ -87,9 +87,10 @@ interface MarkdownEditorPageProps {
   externalContent?: string;
   readOnly?: boolean;
   hideToolbar?: boolean;
+  showReadonlyMode?: boolean;
 }
 
-export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, featuresUrl, onCompareModeChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, externalContent, readOnly, hideToolbar }: MarkdownEditorPageProps = {}) {
+export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, featuresUrl, onCompareModeChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, externalContent, readOnly, hideToolbar, showReadonlyMode }: MarkdownEditorPageProps = {}) {
   const theme = useTheme();
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
@@ -154,9 +155,9 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
 
   // --- Custom hooks ---
   const {
-    sourceMode, reviewMode, sourceText, setSourceText, liveMessage, setLiveMessage,
-    handleSwitchToSource, handleSwitchToWysiwyg, handleSwitchToReview, executeInReviewMode,
-    handleSourceChange, appendToSource,
+    sourceMode, readonlyMode, reviewMode, sourceText, setSourceText, liveMessage, setLiveMessage,
+    handleSwitchToSource, handleSwitchToWysiwyg, handleSwitchToReview, handleSwitchToReadonly,
+    executeInReviewMode, handleSourceChange, appendToSource,
   } = useSourceMode({ editor, saveContent, t });
 
   useEffect(() => {
@@ -310,13 +311,13 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   const { handleToggleAllBlocks } = useEditorBlockActions({ editor });
 
   useEditorShortcuts({
-    editor, sourceMode, reviewMode, appendToSource,
+    editor, sourceMode, readonlyMode, reviewMode, appendToSource,
     handleSaveFile, handleSaveAsFile, handleOpenFile, handleImage,
     handleClear, handleCopy,
     handleImport: () => fileInputRef.current?.click(),
     handleDownload,
     handleToggleAllBlocks, handleToggleOutline,
-    handleSwitchToSource, handleSwitchToWysiwyg, handleSwitchToReview, handleMerge,
+    handleSwitchToSource, handleSwitchToWysiwyg, handleSwitchToReview, handleSwitchToReadonly, handleMerge,
     setDiagramAnchorEl, setTemplateAnchorEl, t,
   });
 
@@ -339,8 +340,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     headings, foldedIndices, hiddenByFold,
     foldAll, unfoldAll, toggleFold,
     handleOutlineClick, handleOutlineResizeStart,
-    onHeadingDragEnd: reviewMode ? undefined : handleHeadingDragEnd,
-    onOutlineDelete: reviewMode ? undefined : handleOutlineDelete,
+    onHeadingDragEnd: (readonlyMode || reviewMode) ? undefined : handleHeadingDragEnd,
+    onOutlineDelete: (readonlyMode || reviewMode) ? undefined : handleOutlineDelete,
     showHeadingNumbers: settings.showHeadingNumbers,
     onToggleHeadingNumbers: () => updateSettings({ showHeadingNumbers: !settings.showHeadingNumbers }),
     t,
@@ -396,6 +397,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         onSetTemplateAnchor={setTemplateAnchorEl}
         onSetHelpAnchor={setHelpAnchorEl}
         sourceMode={sourceMode}
+        readonlyMode={readonlyMode}
         reviewMode={reviewMode}
         outlineOpen={outlineOpen}
         onToggleOutline={handleToggleOutline}
@@ -404,6 +406,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         onSwitchToSource={handleSwitchToSource}
         onSwitchToWysiwyg={handleSwitchToWysiwyg}
         onSwitchToReview={handleSwitchToReview}
+        onSwitchToReadonly={handleSwitchToReadonly}
+        hideReadonlyToggle={!showReadonlyMode}
 
         mergeUndoRedo={inlineMergeOpen ? mergeUndoRedo : null}
         onOpenFile={handleOpenFile}
@@ -563,8 +567,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
       ) : (
         <Box
           ref={editorWrapperRef}
-          tabIndex={reviewMode ? 0 : undefined}
-          onKeyDown={reviewMode ? (e: React.KeyboardEvent) => {
+          tabIndex={(readonlyMode || reviewMode) ? 0 : undefined}
+          onKeyDown={(readonlyMode || reviewMode) ? (e: React.KeyboardEvent) => {
             if ((e.ctrlKey || e.metaKey) && e.key === "f") {
               e.preventDefault();
               editor?.commands.openSearch();
@@ -576,7 +580,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         <Paper
           id="md-editor-content"
           variant="outlined"
-          sx={getEditorPaperSx(theme, settings, editorHeight)}
+          sx={getEditorPaperSx(theme, settings, editorHeight, { readonlyMode })}
         >
           <EditorContent editor={editor} />
         </Paper>
@@ -591,11 +595,11 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
 
       {/* BubbleMenu (text formatting) – rendered for both merge and non-merge modes */}
       {editor && !sourceMode && (
-        <EditorBubbleMenu editor={editor} onLink={handleLink} reviewMode={reviewMode} executeInReviewMode={executeInReviewMode} t={t} />
+        <EditorBubbleMenu editor={editor} onLink={handleLink} readonlyMode={readonlyMode} reviewMode={reviewMode} executeInReviewMode={executeInReviewMode} t={t} />
       )}
 
       {/* Slash command menu */}
-      {editor && !sourceMode && !reviewMode && (
+      {editor && !sourceMode && !readonlyMode && !reviewMode && (
         <SlashCommandMenu editor={editor} t={t} slashCommandCallbackRef={slashCommandCallbackRef} />
       )}
 

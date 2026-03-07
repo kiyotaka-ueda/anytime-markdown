@@ -37,6 +37,7 @@ export default function Page() {
       onLocaleChange={setLocale}
       fileSystemProvider={fileSystemProvider}
       featuresUrl="/features"
+      showReadonlyMode={process.env.NEXT_PUBLIC_SHOW_READONLY_MODE === "1"}
     />
   );
 }

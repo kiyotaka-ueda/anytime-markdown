@@ -27,6 +27,7 @@ import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import SettingsIcon from "@mui/icons-material/Settings";
 
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
+import LockIcon from "@mui/icons-material/Lock";
 
 import {
   Box,
@@ -93,6 +94,7 @@ interface EditorToolbarProps {
   onSetTemplateAnchor: (el: HTMLElement) => void;
   onSetHelpAnchor: (el: HTMLElement) => void;
   sourceMode: boolean;
+  readonlyMode?: boolean;
   reviewMode?: boolean;
   outlineOpen: boolean;
   onToggleOutline: () => void;
@@ -101,6 +103,7 @@ interface EditorToolbarProps {
   onSwitchToSource: () => void;
   onSwitchToWysiwyg: () => void;
   onSwitchToReview?: () => void;
+  onSwitchToReadonly?: () => void;
 
   mergeUndoRedo?: MergeUndoRedo | null;
   hideFileOps?: boolean;
@@ -122,6 +125,7 @@ interface EditorToolbarProps {
   commentOpen?: boolean;
   onToggleComments?: () => void;
   hideModeToggle?: boolean;
+  hideReadonlyToggle?: boolean;
   t: TranslationFn;
 }
 
@@ -136,6 +140,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
   onSetTemplateAnchor,
   onSetHelpAnchor,
   sourceMode,
+  readonlyMode,
   reviewMode,
   outlineOpen,
   onToggleOutline,
@@ -144,6 +149,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
   onSwitchToSource,
   onSwitchToWysiwyg,
   onSwitchToReview,
+  onSwitchToReadonly,
 
   mergeUndoRedo,
   hideFileOps,
@@ -165,6 +171,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
   commentOpen,
   onToggleComments,
   hideModeToggle,
+  hideReadonlyToggle,
   t,
 }: EditorToolbarProps) {
   const [fileMenuAnchorEl, setFileMenuAnchorEl] = useState<HTMLElement | null>(null);
@@ -276,7 +283,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
             open={!!fileMenuAnchorEl}
             onClose={() => setFileMenuAnchorEl(null)}
           >
-            <MenuItem onClick={() => { onClear(); setFileMenuAnchorEl(null); }} disabled={reviewMode}>
+            <MenuItem onClick={() => { onClear(); setFileMenuAnchorEl(null); }} disabled={readonlyMode || reviewMode}>
               <ListItemIcon><DescriptionIcon fontSize="small" /></ListItemIcon>
               <ListItemText>{t("createNew")}</ListItemText>
             </MenuItem>
@@ -294,7 +301,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
                 <ListItemText>{t("saveAsFile")}</ListItemText>
               </MenuItem>,
             ]) : ([
-              <MenuItem key="upload" onClick={() => { onImport(); setFileMenuAnchorEl(null); }} disabled={reviewMode}>
+              <MenuItem key="upload" onClick={() => { onImport(); setFileMenuAnchorEl(null); }} disabled={readonlyMode || reviewMode}>
                 <ListItemIcon><FileUploadIcon fontSize="small" /></ListItemIcon>
                 <ListItemText>{t("upload")}</ListItemText>
               </MenuItem>,
@@ -314,7 +321,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
           {/* Desktop: individual file buttons */}
           <Box sx={{ display: { xs: "none", md: "contents" } }}>
             <ToggleButtonGroup size="small" aria-label={t("fileActions")} sx={{ height: 30 }}>
-              <ToggleButton value="new" onClick={onClear} disabled={reviewMode} aria-label={t("createNew")} sx={{ px: 0.75, py: 0.25 }}>
+              <ToggleButton value="new" onClick={onClear} disabled={readonlyMode || reviewMode} aria-label={t("createNew")} sx={{ px: 0.75, py: 0.25 }}>
                 <Tooltip title={tip(t, "createNew")}>
                   <DescriptionIcon fontSize="small" />
                 </Tooltip>
@@ -336,7 +343,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
                 </Tooltip>
               </ToggleButton>,
             ]) : ([
-              <ToggleButton key="upload" value="upload" onClick={onImport} disabled={reviewMode} aria-label={t("upload")} sx={{ px: 0.75, py: 0.25 }}>
+              <ToggleButton key="upload" value="upload" onClick={onImport} disabled={readonlyMode || reviewMode} aria-label={t("upload")} sx={{ px: 0.75, py: 0.25 }}>
                 <Tooltip title={tip(t, "upload")}>
                   <FileUploadIcon fontSize="small" />
                 </Tooltip>
@@ -383,7 +390,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
             value="undo"
             aria-label={t("undo")}
             onClick={() => mergeUndoRedo ? mergeUndoRedo.undo() : editor?.chain().focus().undo().run()}
-            disabled={reviewMode || (mergeUndoRedo ? !mergeUndoRedo.canUndo : !editorState?.canUndo)}
+            disabled={readonlyMode || reviewMode || (mergeUndoRedo ? !mergeUndoRedo.canUndo : !editorState?.canUndo)}
             sx={{ px: 0.75, py: 0.25 }}
           >
             <Tooltip title={tip(t, "undo")}>
@@ -394,7 +401,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
             value="redo"
             aria-label={t("redo")}
             onClick={() => mergeUndoRedo ? mergeUndoRedo.redo() : editor?.chain().focus().redo().run()}
-            disabled={reviewMode || (mergeUndoRedo ? !mergeUndoRedo.canRedo : !editorState?.canRedo)}
+            disabled={readonlyMode || reviewMode || (mergeUndoRedo ? !mergeUndoRedo.canRedo : !editorState?.canRedo)}
             sx={{ px: 0.75, py: 0.25 }}
           >
             <Tooltip title={tip(t, "redo")}>
@@ -408,7 +415,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
       <Box sx={{ display: { xs: "none", md: "contents" } }}>
       <ToggleButtonGroup size="small" aria-label={t("view")} sx={{ height: 30 }}>
         {editorState?.hasBlocks && (
-          <ToggleButton value="fold" onClick={onToggleAllBlocks} disabled={inlineMergeOpen || sourceMode || reviewMode} aria-label={editorState.allBlocksCollapsed ? t("unfoldAll") : t("foldAll")} sx={{ px: 0.75, py: 0.25 }}>
+          <ToggleButton value="fold" onClick={onToggleAllBlocks} disabled={inlineMergeOpen || sourceMode || readonlyMode || reviewMode} aria-label={editorState.allBlocksCollapsed ? t("unfoldAll") : t("foldAll")} sx={{ px: 0.75, py: 0.25 }}>
             <Tooltip title={editorState.allBlocksCollapsed ? tip(t, "unfoldAll") : tip(t, "foldAll")}>
               <span style={{ display: "inline-flex" }}>{editorState.allBlocksCollapsed ? <UnfoldMoreIcon fontSize="small" /> : <UnfoldLessIcon fontSize="small" />}</span>
             </Tooltip>
@@ -431,7 +438,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
 
       {/* Insert actions */}
       <ToggleButtonGroup size="small" aria-label={t("insertElements")} sx={{ height: 30 }}>
-        <ToggleButton value="template" onClick={(e) => onSetTemplateAnchor(e.currentTarget)} aria-label={t("templates")} disabled={reviewMode || editorState?.isInDiagramCode || inlineMergeOpen} sx={{ px: 0.75, py: 0.25 }}>
+        <ToggleButton value="template" onClick={(e) => onSetTemplateAnchor(e.currentTarget)} aria-label={t("templates")} disabled={readonlyMode || reviewMode || editorState?.isInDiagramCode || inlineMergeOpen} sx={{ px: 0.75, py: 0.25 }}>
           <Tooltip title={tip(t, "templates")}>
             <span style={{ display: "inline-flex" }}><ArticleIcon fontSize="small" /></span>
           </Tooltip>
@@ -442,7 +449,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
 
       {/* Source / Edit / Review toggle */}
       {!hideModeToggle && <ToggleButtonGroup
-        value={reviewMode ? "review" : sourceMode ? "source" : "wysiwyg"}
+        value={readonlyMode ? "readonly" : reviewMode ? "review" : sourceMode ? "source" : "wysiwyg"}
         exclusive
         size="small"
         aria-label={t("editMode")}
@@ -475,6 +482,16 @@ export const EditorToolbar = React.memo(function EditorToolbar({
           },
         }}
       >
+        {!hideReadonlyToggle && (
+          <ToggleButton
+            value="readonly"
+            aria-label={t("readonly")}
+            onClick={onSwitchToReadonly}
+          >
+            <LockIcon sx={{ fontSize: "1rem" }} />
+            <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>{t("readonly")}</Box>
+          </ToggleButton>
+        )}
         <ToggleButton
           value="review"
           aria-label={t("review")}
@@ -540,7 +557,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
         <ToggleButton
           value="edit"
           aria-label={t("normalMode")}
-          disabled={reviewMode}
+          disabled={readonlyMode || reviewMode}
           onClick={() => { if (inlineMergeOpen) onMerge(); }}
         >
           <EditNoteIcon sx={{ fontSize: "1rem" }} />
@@ -549,7 +566,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
         <ToggleButton
           value="compare"
           aria-label={t("compare")}
-          disabled={reviewMode}
+          disabled={readonlyMode || reviewMode}
           onClick={() => { if (!inlineMergeOpen) onMerge(); }}
         >
           <ViewStreamIcon sx={{ fontSize: "1rem", transform: "rotate(90deg)" }} />
@@ -608,7 +625,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
       {editorState?.hasBlocks && (
         <MenuItem
           onClick={() => { onToggleAllBlocks(); setMobileMenuAnchorEl(null); }}
-          disabled={inlineMergeOpen || sourceMode || reviewMode}
+          disabled={inlineMergeOpen || sourceMode || readonlyMode || reviewMode}
         >
           <ListItemIcon>
             {editorState.allBlocksCollapsed
@@ -622,7 +639,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
       )}
       <MenuItem
         onClick={() => { onMerge(); setMobileMenuAnchorEl(null); }}
-        disabled={reviewMode}
+        disabled={readonlyMode || reviewMode}
       >
         <ListItemIcon>
           <ViewStreamIcon fontSize="small" sx={{ transform: "rotate(90deg)" }} color={inlineMergeOpen ? "primary" : "inherit"} />

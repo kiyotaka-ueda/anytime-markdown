@@ -5,6 +5,7 @@ import type { Editor } from "@tiptap/react";
 interface UseEditorShortcutsParams {
   editor: Editor | null;
   sourceMode: boolean;
+  readonlyMode?: boolean;
   reviewMode?: boolean;
   appendToSource: (text: string) => void;
   handleSaveFile: () => void;
@@ -20,6 +21,7 @@ interface UseEditorShortcutsParams {
   handleSwitchToSource: () => void;
   handleSwitchToWysiwyg: () => void;
   handleSwitchToReview?: () => void;
+  handleSwitchToReadonly?: () => void;
   handleMerge: () => void;
   setDiagramAnchorEl: Dispatch<SetStateAction<HTMLElement | null>>;
   setTemplateAnchorEl: Dispatch<SetStateAction<HTMLElement | null>>;
@@ -27,11 +29,11 @@ interface UseEditorShortcutsParams {
 }
 
 export function useEditorShortcuts({
-  editor, sourceMode, reviewMode, appendToSource,
+  editor, sourceMode, readonlyMode, reviewMode, appendToSource,
   handleSaveFile, handleSaveAsFile, handleOpenFile, handleImage,
   handleClear, handleCopy, handleImport, handleDownload,
   handleToggleAllBlocks, handleToggleOutline,
-  handleSwitchToSource, handleSwitchToWysiwyg, handleSwitchToReview, handleMerge,
+  handleSwitchToSource, handleSwitchToWysiwyg, handleSwitchToReview, handleSwitchToReadonly, handleMerge,
   setDiagramAnchorEl, setTemplateAnchorEl, t,
 }: UseEditorShortcutsParams) {
   // ファイル操作ショートカット (Ctrl/Cmd+S, Ctrl/Cmd+O)
@@ -64,16 +66,17 @@ export function useEditorShortcuts({
     const handler = (e: KeyboardEvent) => {
       if (!e.altKey || !(e.ctrlKey || e.metaKey)) return;
       const key = e.key.toLowerCase();
-      // レビューモード時は編集系ショートカットを無効化（モード切替・アウトラインは許可）
+      // readonly/レビューモード時は編集系ショートカットを無効化（モード切替・アウトラインは許可）
       if (key === "s") {
-        // 3モード循環: Review → WYSIWYG → Source → Review
+        // 4モード循環: Readonly → Review → Edit → Source → Readonly
         e.preventDefault();
-        if (reviewMode) { handleSwitchToWysiwyg(); }
-        else if (sourceMode) { handleSwitchToReview?.() ?? handleSwitchToWysiwyg(); }
+        if (readonlyMode) { handleSwitchToReview?.() ?? handleSwitchToWysiwyg(); }
+        else if (reviewMode) { handleSwitchToWysiwyg(); }
+        else if (sourceMode) { handleSwitchToReadonly?.() ?? handleSwitchToWysiwyg(); }
         else { handleSwitchToSource(); }
       }
       else if (key === "o") { e.preventDefault(); handleToggleOutline(); }
-      else if (reviewMode) { return; } // レビューモードではこれ以降の編集系ショートカットを無効化
+      else if (readonlyMode || reviewMode) { return; } // readonly/レビューモードではこれ以降の編集系ショートカットを無効化
       else if (key === "i") { e.preventDefault(); handleImage(); }
       else if (key === "r") {
         e.preventDefault();
@@ -94,5 +97,5 @@ export function useEditorShortcuts({
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [editor, sourceMode, reviewMode, appendToSource, t, handleImage, handleSwitchToWysiwyg, handleSwitchToSource, handleSwitchToReview, handleMerge, setDiagramAnchorEl, setTemplateAnchorEl, handleClear, handleImport, handleDownload, handleToggleAllBlocks, handleToggleOutline]);
+  }, [editor, sourceMode, readonlyMode, reviewMode, appendToSource, t, handleImage, handleSwitchToWysiwyg, handleSwitchToSource, handleSwitchToReview, handleSwitchToReadonly, handleMerge, setDiagramAnchorEl, setTemplateAnchorEl, handleClear, handleImport, handleDownload, handleToggleAllBlocks, handleToggleOutline]);
 }

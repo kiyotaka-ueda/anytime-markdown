@@ -10,6 +10,7 @@ export function getEditorPaperSx(
   theme: Theme,
   settings: EditorSettings,
   editorHeight: number,
+  options?: { readonlyMode?: boolean },
 ): SxProps<Theme> {
   return {
     borderTopLeftRadius: 0,
@@ -26,12 +27,19 @@ export function getEditorPaperSx(
       pr: 2,
       pl: 5,
       outline: "none",
-      // ビューモード（contenteditable=false）時はホバーラベルを非表示
+      // readonly/レビューモード（contenteditable=false）時はホバーラベルを非表示
       '&[contenteditable="false"]': {
         "& h1::before, & h2::before, & h3::before, & h4::before, & h5::before, & > p::before, & > blockquote > p::before, & li::before": {
           display: "none",
         },
       },
+      // readonlyモード時はチェックボックスを無効化
+      ...(options?.readonlyMode ? {
+        '& input[type="checkbox"]': {
+          pointerEvents: "none",
+          opacity: 0.6,
+        },
+      } : {}),
       "&:focus-visible": {
         outline: "none",
       },
