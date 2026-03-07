@@ -458,7 +458,14 @@
     "docsLoadError": "Failed to load document list",
     "docsEmpty": "No documents available",
     "docsViewLoadError": "Failed to load document",
-    "docsViewNoUrl": "No document specified"
+    "docsViewNoUrl": "No document specified",
+    "docsUpload": "Upload",
+    "docsDelete": "Delete",
+    "docsDeleteConfirm": "Delete this document?",
+    "docsUploadSuccess": "Uploaded successfully",
+    "docsDeleteSuccess": "Deleted successfully",
+    "docsUploadError": "Failed to upload",
+    "docsDeleteError": "Failed to delete"
   },
   "Common": {
     "ok": "OK",

@@ -458,7 +458,14 @@
     "docsLoadError": "ドキュメント一覧の読み込みに失敗しました",
     "docsEmpty": "ドキュメントがありません",
     "docsViewLoadError": "ドキュメントの読み込みに失敗しました",
-    "docsViewNoUrl": "表示するドキュメントが指定されていません"
+    "docsViewNoUrl": "表示するドキュメントが指定されていません",
+    "docsUpload": "アップロード",
+    "docsDelete": "削除",
+    "docsDeleteConfirm": "このドキュメントを削除しますか？",
+    "docsUploadSuccess": "アップロードしました",
+    "docsDeleteSuccess": "削除しました",
+    "docsUploadError": "アップロードに失敗しました",
+    "docsDeleteError": "削除に失敗しました"
   },
   "Common": {
     "ok": "OK",
