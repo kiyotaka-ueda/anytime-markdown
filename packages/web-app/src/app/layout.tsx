@@ -7,6 +7,7 @@ import { LocaleProvider } from './LocaleProvider';
 import './globals.css';
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://anytime-markdown.vercel.app'),
   title: 'Anytime Markdown',
   description: 'A rich markdown editor powered by Tiptap',
   manifest: '/manifest.json',
@@ -18,6 +19,13 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: 'default',
     title: 'Anytime Markdown',
+  },
+  alternates: {
+    languages: {
+      en: '/',
+      ja: '/',
+      'x-default': '/',
+    },
   },
   openGraph: {
     title: 'Anytime Markdown',

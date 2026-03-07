@@ -35,6 +35,8 @@ describe("useSourceMode", () => {
   beforeEach(() => {
     mockedGetMarkdown.mockReset();
     localStorage.clear();
+    // デフォルトはビューモードだが、テストでは WYSIWYG 状態から開始
+    localStorage.setItem("markdown-editor-viewer-mode", "false");
   });
 
   test("初期状態 → sourceMode=false, sourceText=''", () => {

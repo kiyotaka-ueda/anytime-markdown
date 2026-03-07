@@ -12,6 +12,7 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
+
 import { getEditorPaperSx } from "./styles/editorStyles";
 import { PrintStyles } from "./styles/printStyles";
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -29,11 +30,13 @@ import { EditorSettingsPanel } from "./components/EditorSettingsPanel";
 import { useEditorSettings, EditorSettingsContext } from "./useEditorSettings";
 import { EditorToolbar } from "./components/EditorToolbar";
 import { SearchReplaceBar } from "./components/SearchReplaceBar";
+import { SourceSearchBar } from "./components/SourceSearchBar";
+import { useTextareaSearch } from "./hooks/useTextareaSearch";
 import { EditorMenuPopovers } from "./components/EditorMenuPopovers";
 import { EditorBubbleMenu } from "./components/EditorBubbleMenu";
 import { SlashCommandMenu } from "./components/SlashCommandMenu";
 import type { SlashCommandState } from "./extensions/slashCommandExtension";
-import type { MergeUndoRedo } from "./components/InlineMergeView";
+
 
 const InlineMergeView = dynamic(
   () => import("./components/InlineMergeView").then((m) => m.InlineMergeView),
@@ -64,8 +67,7 @@ import { useEditorConfig } from "./hooks/useEditorConfig";
 import { useEditorSideEffects } from "./hooks/useEditorSideEffects";
 import type { FileSystemProvider } from "./types/fileSystem";
 import { sanitizeMarkdown, preserveBlankLines } from "./utils/sanitizeMarkdown";
-import { extractHeadings } from "./types";
-import { generateTocMarkdown } from "./utils/tocHelpers";
+
 import { CommentPanel } from "./components/CommentPanel";
 import { parseCommentData } from "./utils/commentHelpers";
 import type { InlineComment } from "./utils/commentHelpers";
@@ -120,6 +122,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     headingMenu, setHeadingMenu,
   } = useEditorMenuState();
   const editorWrapperRef = useRef<HTMLDivElement>(null);
+  const sourceTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const [sourceSearchOpen, setSourceSearchOpen] = useState(false);
 
   // Refs for callbacks used in useEditor config (avoids stale closures)
   const editorRef = useRef<Editor | null>(null);
@@ -151,9 +155,11 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     handleSourceChange, appendToSource,
   } = useSourceMode({ editor, saveContent, t });
 
+  const sourceSearch = useTextareaSearch(sourceTextareaRef, sourceText, handleSourceChange);
+
   const {
     commentDialogOpen, setCommentDialogOpen, commentText, setCommentText,
-    handleCommentOpen, handleCommentInsert,
+    handleCommentInsert,
     linkDialogOpen, setLinkDialogOpen, linkUrl, setLinkUrl,
     handleLink, handleLinkInsert, imageDialogOpen, setImageDialogOpen,
     imageUrl, setImageUrl, imageAlt, setImageAlt, imageEditPos,
@@ -175,7 +181,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   } = useFileSystem(fileSystemProvider ?? null);
 
   const {
-    notification, setNotification, showNotification, pdfExporting,
+    notification, setNotification, pdfExporting,
     fileInputRef, handleClear, handleFileSelected,
     handleDownload, handleImport, handleCopy,
     handleOpenFile, handleSaveFile, handleSaveAsFile,
@@ -333,7 +339,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   }, [editor, settings.showHeadingNumbers]);
 
   const {
-    inlineMergeOpen, setInlineMergeOpen,
+    inlineMergeOpen, setInlineMergeOpen: _setInlineMergeOpen,
     editorMarkdown, setEditorMarkdown,
     mergeUndoRedo, setMergeUndoRedo,
     compareFileContent, setCompareFileContent,
@@ -363,20 +369,6 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     requestAnimationFrame(() => {
       editor.chain().focus().insertContent(preprocessed).run();
     });
-  }, [editor, sourceMode, appendToSource]);
-
-  const handleInsertToc = useCallback(() => {
-    if (!editor) return;
-    const headings = extractHeadings(editor);
-    const tocMd = generateTocMarkdown(headings);
-    if (!tocMd) return;
-    if (sourceMode) {
-      appendToSource("\n" + tocMd);
-    } else {
-      requestAnimationFrame(() => {
-        editor.chain().focus().insertContent(tocMd).run();
-      });
-    }
   }, [editor, sourceMode, appendToSource]);
 
   // PlantUML/Mermaid 編集中はMarkdownツールバーを無効化
@@ -417,6 +409,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     onHeadingDragEnd: viewMode ? undefined : handleHeadingDragEnd,
     onOutlineDelete: viewMode ? undefined : handleOutlineDelete,
     showHeadingNumbers: settings.showHeadingNumbers,
+    onToggleHeadingNumbers: () => updateSettings({ showHeadingNumbers: !settings.showHeadingNumbers }),
     t,
   };
 
@@ -597,19 +590,54 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         </InlineMergeView>
       ) : (
       <Box component="main" ref={editorContainerRef} sx={{ display: "flex", gap: 0 }}>
-        <EditorOutlineSection {...outlineProps} />
+        {!sourceMode && <EditorOutlineSection {...outlineProps} />}
 
         {/* Editor */}
         <Box sx={{ flex: 1, minWidth: 0 }}>
       {sourceMode ? (
-        <SourceModeEditor
-          sourceText={sourceText}
-          onSourceChange={handleSourceChange}
-          editorHeight={editorHeight}
-          ariaLabel={t("sourceEditor")}
-        />
+        <Box
+          sx={{ position: "relative" }}
+          onKeyDown={(e: React.KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+              e.preventDefault();
+              setSourceSearchOpen(true);
+              setTimeout(() => sourceSearch.focusSearch(), 50);
+            } else if (e.key === "Escape" && sourceSearchOpen) {
+              e.preventDefault();
+              setSourceSearchOpen(false);
+              sourceSearch.reset();
+            }
+          }}
+        >
+          {sourceSearchOpen && (
+            <SourceSearchBar
+              search={sourceSearch}
+              onClose={() => { setSourceSearchOpen(false); sourceSearch.reset(); }}
+              t={t}
+            />
+          )}
+          <SourceModeEditor
+            sourceText={sourceText}
+            onSourceChange={handleSourceChange}
+            editorHeight={editorHeight}
+            ariaLabel={t("sourceEditor")}
+            textareaRef={sourceTextareaRef}
+            searchMatches={sourceSearchOpen ? sourceSearch.matches : undefined}
+            searchCurrentIndex={sourceSearchOpen ? sourceSearch.currentIndex : undefined}
+          />
+        </Box>
       ) : (
-        <Box ref={editorWrapperRef} sx={{ position: "relative" }}>
+        <Box
+          ref={editorWrapperRef}
+          tabIndex={viewMode ? 0 : undefined}
+          onKeyDown={viewMode ? (e: React.KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+              e.preventDefault();
+              editor?.commands.openSearch();
+            }
+          } : undefined}
+          sx={{ position: "relative", outline: "none" }}
+        >
         {editor && <SearchReplaceBar editor={editor} t={t} />}
         <Paper
           id="md-editor-content"
@@ -622,7 +650,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
       )}
         </Box>
         {commentOpen && editor && !sourceMode && (
-          <CommentPanel editor={editor} open={commentOpen} onClose={() => setCommentOpen(false)} t={t} />
+          <CommentPanel editor={editor} open={commentOpen} onClose={() => setCommentOpen(false)} onSave={() => saveContent(getMarkdownFromEditor(editor))} t={t} />
         )}
       </Box>
       )}

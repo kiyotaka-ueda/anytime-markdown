@@ -49,7 +49,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     return vscode.window.registerCustomEditorProvider(
       MarkdownEditorProvider.viewType,
       provider,
-      { supportsMultipleEditorsPerDocument: false }
+      { supportsMultipleEditorsPerDocument: false, webviewOptions: { retainContextWhenHidden: true } }
     );
   }
 
@@ -128,8 +128,16 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     const docChangeSubscription = vscode.workspace.onDidChangeTextDocument((e) => {
       if (e.document.uri.toString() !== document.uri.toString()) { return; }
       if (isApplyingWebviewEdit) { return; }
-      updateWebview();
-      vscode.window.showInformationMessage('ファイルが外部で変更されました。再読み込みしました。');
+      // Undo/Redo は即反映、それ以外（外部変更の同期）は確認ダイアログ経由
+      if (e.reason === vscode.TextDocumentChangeReason.Undo || e.reason === vscode.TextDocumentChangeReason.Redo) {
+        updateWebview();
+      } else {
+        webviewPanel.webview.postMessage({ type: 'setBaseUri', baseUri });
+        webviewPanel.webview.postMessage({
+          type: 'externalChange',
+          content: document.getText(),
+        });
+      }
     });
 
     // 外部変更検知（Claude Code、git 操作、他のエディタなど）
@@ -147,10 +155,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         if (diskContent === document.getText()) { return; }
         webviewPanel.webview.postMessage({ type: 'setBaseUri', baseUri });
         webviewPanel.webview.postMessage({
-          type: 'setContent',
+          type: 'externalChange',
           content: diskContent,
         });
-        vscode.window.showInformationMessage('ファイルが外部で変更されました。再読み込みしました。');
       } catch {
         // ファイル読み取り失敗時は無視
       }
@@ -235,25 +242,48 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           // #L行番号 フラグメントを解析
           const lineMatch = href.match(/#L(\d+)$/);
           const filePath = lineMatch ? href.replace(/#L\d+$/, '') : href;
-          // パストラバーサル防止: 絶対パスおよび親ディレクトリ参照を拒否
-          if (path.isAbsolute(filePath) || path.normalize(filePath).startsWith('..')) {
+          // パストラバーサル防止: 絶対パスを拒否
+          if (path.isAbsolute(filePath)) {
             vscode.window.showWarningMessage(`Invalid file path: ${filePath}`);
             return;
           }
           const docDir = path.dirname(document.uri.fsPath);
           const targetPath = path.resolve(docDir, filePath);
-          const targetUri = vscode.Uri.file(targetPath);
-          try {
-            if (lineMatch) {
-              const line = Math.max(0, parseInt(lineMatch[1], 10) - 1);
-              const doc = await vscode.workspace.openTextDocument(targetUri);
-              await vscode.window.showTextDocument(doc, {
-                selection: new vscode.Range(line, 0, line, 0),
-              });
-            } else {
-              await vscode.commands.executeCommand('vscode.open', targetUri);
+          const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+          // resolve 後のパスがワークスペースルート配下であることを検証
+          if (workspaceRoot && !targetPath.startsWith(workspaceRoot + path.sep) && targetPath !== workspaceRoot) {
+            // ワークスペースルートからの相対パスもフォールバックとして試す
+            const fromRoot = path.resolve(workspaceRoot, filePath);
+            if (!fromRoot.startsWith(workspaceRoot + path.sep)) {
+              vscode.window.showWarningMessage(`Invalid file path: ${filePath}`);
+              return;
             }
-          } catch {
+          }
+          const candidates = [targetPath];
+          if (workspaceRoot) {
+            const fromRoot = path.resolve(workspaceRoot, filePath);
+            if (fromRoot !== targetPath) { candidates.push(fromRoot); }
+          }
+          let opened = false;
+          for (const candidate of candidates) {
+            const uri = vscode.Uri.file(candidate);
+            try {
+              if (lineMatch) {
+                const line = Math.max(0, parseInt(lineMatch[1], 10) - 1);
+                const doc = await vscode.workspace.openTextDocument(uri);
+                await vscode.window.showTextDocument(doc, {
+                  selection: new vscode.Range(line, 0, line, 0),
+                });
+              } else {
+                await vscode.commands.executeCommand('vscode.open', uri);
+              }
+              opened = true;
+              break;
+            } catch {
+              // 次の候補を試す
+            }
+          }
+          if (!opened) {
             vscode.window.showWarningMessage(`Cannot open file: ${href}`);
           }
           break;

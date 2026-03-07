@@ -81,6 +81,20 @@ function markTightBlockTransitions(text: string): string {
  * 位置ベースの線形スキャンで分割する。
  * parts.join("") === md が保証される。
  */
+/**
+ * テーブル行内のコードスパンに含まれるパイプ `|` を `&#124;` にエスケープする。
+ * tiptap-markdown がコードスパン認識前にパイプでセル分割するのを防ぐ。
+ */
+function escapeTableCodeSpanPipes(md: string): string {
+  return md.replace(/^(\|.+\|)$/gm, (line) => {
+    // コードスパンを検出し、その中のパイプをエスケープ
+    return line.replace(/(`+)(.*?)\1/g, (m, ticks: string, content: string) => {
+      if (!content.includes("|")) return m;
+      return ticks + content.replace(/\|/g, "&#124;") + ticks;
+    });
+  });
+}
+
 export function splitByCodeBlocks(md: string): string[] {
   const parts: string[] = [];
   const len = md.length;
@@ -144,6 +158,8 @@ export function sanitizeMarkdown(md: string): string {
   md = preprocessMathInline(md);
   // Admonition 前処理: > [!TYPE] → <blockquote data-admonition-type>
   md = preprocessAdmonition(md);
+  // テーブル行内コードスパンのパイプをエスケープ（セル区切りとの誤認防止）
+  md = escapeTableCodeSpanPipes(md);
   // 脚注参照前処理: [^id] → <sup data-footnote-ref>
   md = preprocessFootnoteRefs(md);
   // コメント前処理: <!-- comment-start/end/point --> → <span data-comment-id/point>
@@ -158,9 +174,46 @@ export function sanitizeMarkdown(md: string): string {
       const trailingNL = part.match(/\n*$/)?.[0] ?? "";
       let inner = part.slice(leadingNL.length, part.length - (trailingNL.length || 0));
       if (!inner) return part;
-      // math inline スパンを DOMPurify から保護するため、一時プレースホルダに退避
+      // インラインコード（任意長バッククォートのコードスパン）を DOMPurify から保護
       // 注意: \x00 (NUL) はブラウザの DOMPurify が HTML 仕様に従い除去するため、
       // Unicode Private Use Area 文字 \uE000 をデリミタとして使用する。
+      // CommonMark 仕様: コードスパンは同数のバッククォートで開閉する（1〜N個）
+      const inlineCodes: string[] = [];
+      {
+        let out = "";
+        let j = 0;
+        while (j < inner.length) {
+          if (inner[j] === "`") {
+            const tickStart = j;
+            while (j < inner.length && inner[j] === "`") j++;
+            const tickCount = j - tickStart;
+            const openTicks = "`".repeat(tickCount);
+            let found = false;
+            let searchFrom = j;
+            while (searchFrom < inner.length) {
+              const closePos = inner.indexOf(openTicks, searchFrom);
+              if (closePos === -1) break;
+              const before = closePos > 0 ? inner[closePos - 1] : "";
+              const after = closePos + tickCount < inner.length ? inner[closePos + tickCount] : "";
+              if (before !== "`" && after !== "`") {
+                const fullCode = inner.slice(tickStart, closePos + tickCount);
+                inlineCodes.push(fullCode);
+                out += `\uE000IC${inlineCodes.length - 1}\uE000`;
+                j = closePos + tickCount;
+                found = true;
+                break;
+              }
+              searchFrom = closePos + 1;
+            }
+            if (!found) out += openTicks;
+          } else {
+            out += inner[j];
+            j++;
+          }
+        }
+        inner = out;
+      }
+      // math inline スパンを DOMPurify から保護するため、一時プレースホルダに退避
       const mathSpans: string[] = [];
       inner = inner.replace(/<span data-math-inline="[^"]*"><\/span>/g, (m) => {
         mathSpans.push(m);
@@ -202,6 +255,9 @@ export function sanitizeMarkdown(md: string): string {
       sanitized = sanitized.replace(/\uE000CMTP(\d+)\uE000/g, (_, i) => cmtPoints[Number(i)]);
       // コメントハイライト span を復元
       sanitized = sanitized.replace(/\uE000CMT(\d+)\uE000/g, (_, i) => cmtBlocks[Number(i)]);
+      // インラインコードを復元（プレースホルダーから元のコードに戻す）
+      // DOMPurify はプレースホルダーしか見ないため、コード内の HTML は変更されない
+      sanitized = sanitized.replace(/\uE000IC(\d+)\uE000/g, (_, i) => inlineCodes[Number(i)]);
       return leadingNL + sanitized + trailingNL;
     })
     .join("");
@@ -270,4 +326,60 @@ export function restoreBlankLines(md: string): string {
   md = md.replace(/\u200C/g, "");
   // ZWSP マーカー除去で元の空行を復元
   return md.replace(/\u200B\n/g, "");
+}
+
+/**
+ * 1行内のインラインコードスパンのバッククォート区切りを最小限に正規化する。
+ * tiptap-markdown シリアライザはテーブルセル内でコンテンツ内のバッククォートを見て
+ * 区切り数を増やすが、CommonMark 仕様では同数のバッククォートのみが
+ * 閉じ区切りとなるため、より少ない区切りで安全にデリミットできる場合がある。
+ */
+export function normalizeCodeSpanDelimitersInLine(line: string): string {
+  let out = "";
+  let i = 0;
+  while (i < line.length) {
+    if (line[i] === "`") {
+      const tickStart = i;
+      while (i < line.length && line[i] === "`") i++;
+      const tickCount = i - tickStart;
+      const openTicks = "`".repeat(tickCount);
+
+      // 閉じ区切り（同数のバッククォート）を探す
+      let found = false;
+      let searchFrom = i;
+      while (searchFrom < line.length) {
+        const closePos = line.indexOf(openTicks, searchFrom);
+        if (closePos === -1) break;
+        const before = closePos > 0 ? line[closePos - 1] : "";
+        const after = closePos + tickCount < line.length ? line[closePos + tickCount] : "";
+        if (before !== "`" && after !== "`") {
+          const content = line.slice(i, closePos);
+          // content 内のバッククォート連続長を集める
+          const runs = new Set<number>();
+          let r = 0;
+          for (let c = 0; c < content.length; c++) {
+            if (content[c] === "`") { r++; }
+            else { if (r > 0) runs.add(r); r = 0; }
+          }
+          if (r > 0) runs.add(r);
+          // 最小の安全な区切り数を求める（runs に含まれない最小正整数）
+          let minTicks = 1;
+          while (runs.has(minTicks)) minTicks++;
+
+          out += "`".repeat(minTicks) + content + "`".repeat(minTicks);
+          i = closePos + tickCount;
+          found = true;
+          break;
+        }
+        searchFrom = closePos + 1;
+      }
+      if (!found) {
+        out += openTicks;
+      }
+    } else {
+      out += line[i];
+      i++;
+    }
+  }
+  return out;
 }

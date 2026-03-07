@@ -33,9 +33,7 @@ export function getEditorPaperSx(
         },
       },
       "&:focus-visible": {
-        outline: "2px solid",
-        outlineColor: "primary.main",
-        outlineOffset: -2,
+        outline: "none",
       },
       fontSize: `${settings.fontSize}px`,
       lineHeight: settings.lineHeight,

@@ -4,6 +4,16 @@ All notable changes to the "anytime-markdown" extension will be documented in th
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.1.3] - 2026-03-07
+
+### Added
+- 外部変更時に確認ダイアログを表示してから更新する（Claude Code、git 操作等）
+
+### Fixed
+- openLink のパストラバーサル検証をワークスペースルート基準に変更
+- ハードブレークのシリアライズをバックスラッシュ形式に変更
+- テーブルセル内コードスパンのラウンドトリップ安定化
+
 ## [0.1.2] - 2026-03-06
 
 ### Fixed

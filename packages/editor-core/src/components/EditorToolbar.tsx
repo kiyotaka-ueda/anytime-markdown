@@ -1,6 +1,6 @@
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import ArticleIcon from "@mui/icons-material/Article";
-import CheckIcon from "@mui/icons-material/Check";
+
 import DescriptionIcon from "@mui/icons-material/Description";
 import DownloadIcon from "@mui/icons-material/Download";
 import WysiwygIcon from "@mui/icons-material/Wysiwyg";
@@ -12,7 +12,7 @@ import SaveAsIcon from "@mui/icons-material/SaveAs";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 
-import CompareIcon from "@mui/icons-material/Compare";
+
 import ViewStreamIcon from "@mui/icons-material/ViewStream";
 import EditNoteIcon from "@mui/icons-material/EditNote";
 import ListAltIcon from "@mui/icons-material/ListAlt";
@@ -40,12 +40,12 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Tooltip,
-  Typography,
+
 } from "@mui/material";
 import { useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import type { TranslationFn } from "../types";
 import { modKey } from "../constants/shortcuts";
 
@@ -126,7 +126,7 @@ interface EditorToolbarProps {
 
 export const EditorToolbar = React.memo(function EditorToolbar({
   editor,
-  isInDiagramBlock,
+  isInDiagramBlock: _isInDiagramBlock,
 
   onToggleAllBlocks,
   onDownload,
@@ -158,7 +158,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
   onSaveFile,
   onSaveAsFile,
   hasFileHandle,
-  onAnnounce,
+  onAnnounce: _onAnnounce,
   supportsDirectAccess,
   onExportPdf,
   commentOpen,
@@ -406,13 +406,13 @@ export const EditorToolbar = React.memo(function EditorToolbar({
       <Box sx={{ display: { xs: "none", md: "contents" } }}>
       <ToggleButtonGroup size="small" aria-label={t("view")} sx={{ height: 30 }}>
         {editorState?.hasBlocks && (
-          <ToggleButton value="fold" onClick={onToggleAllBlocks} disabled={inlineMergeOpen || sourceMode} aria-label={editorState.allBlocksCollapsed ? t("unfoldAll") : t("foldAll")} sx={{ px: 0.75, py: 0.25 }}>
+          <ToggleButton value="fold" onClick={onToggleAllBlocks} disabled={inlineMergeOpen || sourceMode || viewMode} aria-label={editorState.allBlocksCollapsed ? t("unfoldAll") : t("foldAll")} sx={{ px: 0.75, py: 0.25 }}>
             <Tooltip title={editorState.allBlocksCollapsed ? tip(t, "unfoldAll") : tip(t, "foldAll")}>
               <span style={{ display: "inline-flex" }}>{editorState.allBlocksCollapsed ? <UnfoldMoreIcon fontSize="small" /> : <UnfoldLessIcon fontSize="small" />}</span>
             </Tooltip>
           </ToggleButton>
         )}
-        <ToggleButton value="outline" selected={outlineOpen} onClick={onToggleOutline} disabled={inlineMergeOpen} aria-label={t("outline")} sx={{ px: 0.75, py: 0.25 }}>
+        <ToggleButton value="outline" selected={outlineOpen} onClick={onToggleOutline} disabled={inlineMergeOpen || sourceMode} aria-label={t("outline")} sx={{ px: 0.75, py: 0.25 }}>
           <Tooltip title={tip(t, "outline")}>
             <span style={{ display: "inline-flex" }}><ListAltIcon fontSize="small" /></span>
           </Tooltip>
@@ -437,6 +437,67 @@ export const EditorToolbar = React.memo(function EditorToolbar({
       </ToggleButtonGroup>
 
       <Box sx={{ flexGrow: 1 }} />
+
+      {/* Source / Edit / Review toggle */}
+      <ToggleButtonGroup
+        value={viewMode ? "viewer" : sourceMode ? "source" : "wysiwyg"}
+        exclusive
+        size="small"
+        aria-label={t("editMode")}
+        sx={{
+          height: 34,
+          borderRadius: "20px",
+          bgcolor: "action.hover",
+          p: 0.25,
+          "& .MuiToggleButton-root": {
+            border: "none",
+            borderRadius: "20px !important",
+            px: 2,
+            py: 0,
+            gap: 0.5,
+            fontSize: "0.8rem",
+            textTransform: "none",
+            lineHeight: 1,
+          },
+          "& .Mui-selected": {
+            bgcolor: "background.paper !important",
+            color: "text.primary !important",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
+          },
+          "& .MuiToggleButton-root:not(.Mui-selected)": {
+            bgcolor: "transparent",
+            color: "text.secondary",
+            "&:hover": {
+              bgcolor: "action.selected",
+            },
+          },
+        }}
+      >
+        <ToggleButton
+          value="viewer"
+          aria-label={t("viewer")}
+          onClick={onSwitchToView}
+        >
+          <VisibilityIcon sx={{ fontSize: "1rem" }} />
+          <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>{t("viewer")}</Box>
+        </ToggleButton>
+        <ToggleButton
+          value="wysiwyg"
+          aria-label={t("wysiwyg")}
+          onClick={onSwitchToWysiwyg}
+        >
+          <WysiwygIcon sx={{ fontSize: "1rem" }} />
+          <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>{t("wysiwyg")}</Box>
+        </ToggleButton>
+        <ToggleButton
+          value="source"
+          aria-label={t("source")}
+          onClick={onSwitchToSource}
+        >
+          <CodeIcon sx={{ fontSize: "1rem" }} />
+          <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>{t("source")}</Box>
+        </ToggleButton>
+      </ToggleButtonGroup>
 
       {/* Compare toggle (md 以上のみ表示) */}
       <ToggleButtonGroup
@@ -494,67 +555,6 @@ export const EditorToolbar = React.memo(function EditorToolbar({
         </ToggleButton>
       </ToggleButtonGroup>
 
-      {/* Source / WYSIWYG / Viewer toggle */}
-      <ToggleButtonGroup
-        value={viewMode ? "viewer" : sourceMode ? "source" : "wysiwyg"}
-        exclusive
-        size="small"
-        aria-label={t("editMode")}
-        sx={{
-          height: 34,
-          borderRadius: "20px",
-          bgcolor: "action.hover",
-          p: 0.25,
-          "& .MuiToggleButton-root": {
-            border: "none",
-            borderRadius: "20px !important",
-            px: 2,
-            py: 0,
-            gap: 0.5,
-            fontSize: "0.8rem",
-            textTransform: "none",
-            lineHeight: 1,
-          },
-          "& .Mui-selected": {
-            bgcolor: "background.paper !important",
-            color: "text.primary !important",
-            boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
-          },
-          "& .MuiToggleButton-root:not(.Mui-selected)": {
-            bgcolor: "transparent",
-            color: "text.secondary",
-            "&:hover": {
-              bgcolor: "action.selected",
-            },
-          },
-        }}
-      >
-        <ToggleButton
-          value="viewer"
-          aria-label={t("viewer")}
-          onClick={onSwitchToView}
-        >
-          <VisibilityIcon sx={{ fontSize: "1rem" }} />
-          {t("viewer")}
-        </ToggleButton>
-        <ToggleButton
-          value="wysiwyg"
-          aria-label={t("wysiwyg")}
-          onClick={onSwitchToWysiwyg}
-        >
-          <WysiwygIcon sx={{ fontSize: "1rem" }} />
-          {t("wysiwyg")}
-        </ToggleButton>
-        <ToggleButton
-          value="source"
-          aria-label={t("source")}
-          onClick={onSwitchToSource}
-        >
-          <CodeIcon sx={{ fontSize: "1rem" }} />
-          {t("source")}
-        </ToggleButton>
-      </ToggleButtonGroup>
-
       {/* More menu - desktop: help/settings, mobile: all hidden items */}
       {!hideMoreMenu && (
         <>
@@ -589,7 +589,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
     >
       <MenuItem
         onClick={() => { onToggleOutline(); setMobileMenuAnchorEl(null); }}
-        disabled={inlineMergeOpen}
+        disabled={inlineMergeOpen || sourceMode}
       >
         <ListItemIcon><ListAltIcon fontSize="small" color={outlineOpen ? "primary" : "inherit"} /></ListItemIcon>
         <ListItemText>{t("outline")}</ListItemText>
@@ -606,7 +606,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
       {editorState?.hasBlocks && (
         <MenuItem
           onClick={() => { onToggleAllBlocks(); setMobileMenuAnchorEl(null); }}
-          disabled={inlineMergeOpen || sourceMode}
+          disabled={inlineMergeOpen || sourceMode || viewMode}
         >
           <ListItemIcon>
             {editorState.allBlocksCollapsed
@@ -618,6 +618,15 @@ export const EditorToolbar = React.memo(function EditorToolbar({
           </ListItemText>
         </MenuItem>
       )}
+      <MenuItem
+        onClick={() => { onMerge(); setMobileMenuAnchorEl(null); }}
+        disabled={viewMode}
+      >
+        <ListItemIcon>
+          <ViewStreamIcon fontSize="small" sx={{ transform: "rotate(90deg)" }} color={inlineMergeOpen ? "primary" : "inherit"} />
+        </ListItemIcon>
+        <ListItemText>{inlineMergeOpen ? t("normalMode") : t("compare")}</ListItemText>
+      </MenuItem>
       <Divider />
       <MenuItem
         onClick={() => {

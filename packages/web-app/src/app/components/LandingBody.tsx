@@ -7,22 +7,23 @@ import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import InstallDesktopIcon from '@mui/icons-material/InstallDesktop';
-import ChatIcon from '@mui/icons-material/Chat';
+import RateReviewIcon from '@mui/icons-material/RateReview';
 import TocIcon from '@mui/icons-material/Toc';
 import FlashOnIcon from '@mui/icons-material/FlashOn';
 import NextLink from 'next/link';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { useTheme } from '@mui/material/styles';
+import SiteFooter from './SiteFooter';
 
 const featureItems = [
   { titleKey: 'featureWysiwyg' as const, descKey: 'featureWysiwygDesc' as const, Icon: EditNoteIcon },
+  { titleKey: 'featureComment' as const, descKey: 'featureCommentDesc' as const, Icon: RateReviewIcon },
   { titleKey: 'featureSource' as const, descKey: 'featureSourceDesc' as const, Icon: CodeIcon },
   { titleKey: 'featureDiff' as const, descKey: 'featureDiffDesc' as const, Icon: CompareArrowsIcon },
   { titleKey: 'featureDiagram' as const, descKey: 'featureDiagramDesc' as const, Icon: AccountTreeIcon },
   { titleKey: 'featurePdf' as const, descKey: 'featurePdfDesc' as const, Icon: PictureAsPdfIcon },
   { titleKey: 'featurePwa' as const, descKey: 'featurePwaDesc' as const, Icon: InstallDesktopIcon },
-  { titleKey: 'featureComment' as const, descKey: 'featureCommentDesc' as const, Icon: ChatIcon },
   { titleKey: 'featureOutline' as const, descKey: 'featureOutlineDesc' as const, Icon: TocIcon },
   { titleKey: 'featureSlash' as const, descKey: 'featureSlashDesc' as const, Icon: FlashOnIcon },
 ];
@@ -120,12 +121,37 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
           >
             {t('openEditor')}
           </Button>
+          <Button
+            component={MuiLink}
+            href="https://github.com/kiyotaka-ueda/anytime-markdown"
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="outlined"
+            size="large"
+            sx={{
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '1.05rem',
+              borderRadius: 2.5,
+              px: 4,
+              py: 1.5,
+              ml: 2,
+              borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.23)',
+              color: 'text.primary',
+              '&:hover': {
+                borderColor: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)',
+                bgcolor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
+              },
+            }}
+          >
+            GitHub
+          </Button>
 
           <Typography
             variant="body2"
             sx={{
               mt: 4,
-              color: 'text.disabled',
+              color: 'text.secondary',
               fontSize: '0.8rem',
               lineHeight: 1.6,
             }}
@@ -136,13 +162,40 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
                   href="https://github.com/kiyotaka-ueda/anytime-markdown"
                   target="_blank"
                   rel="noopener noreferrer"
-                  sx={{ color: 'text.disabled', textDecorationColor: 'inherit' }}
+                  sx={{ color: 'text.secondary', textDecorationColor: 'inherit' }}
                 >
                   {chunks}
                 </MuiLink>
               ),
             })}
           </Typography>
+        </Container>
+      </Box>
+
+      {/* ---- Screenshot ---- */}
+      <Box sx={{ py: { xs: 6, md: 10 }, px: 3 }}>
+        <Container maxWidth="md">
+          <Box
+            sx={{
+              width: '100%',
+              borderRadius: 3,
+              border: 1,
+              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+              overflow: 'hidden',
+              boxShadow: isDark
+                ? '0 8px 32px rgba(0,0,0,0.4)'
+                : '0 8px 32px rgba(0,0,0,0.12)',
+            }}
+          >
+            <Image
+              src="/images/editor-preview.png"
+              alt={t('screenshot')}
+              width={2880}
+              height={1800}
+              priority
+              style={{ display: 'block', width: '100%', height: 'auto' }}
+            />
+          </Box>
         </Container>
       </Box>
 
@@ -156,7 +209,7 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
               display: 'block',
               textAlign: 'center',
               letterSpacing: '0.2em',
-              color: '#e8a012',
+              color: isDark ? '#e8a012' : '#9a6b00',
               fontWeight: 700,
               fontSize: '0.85rem',
               mb: 6,
@@ -178,10 +231,7 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
                     borderRadius: 3,
                     transition: 'border-color 0.2s, box-shadow 0.2s',
                     '&:hover': {
-                      borderColor: 'rgba(232,160,18,0.4)',
-                      boxShadow: isDark
-                        ? '0 0 24px rgba(232,160,18,0.08)'
-                        : '0 4px 16px rgba(232,160,18,0.1)',
+                      borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)',
                     },
                   }}
                 >
@@ -214,92 +264,7 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
         </Container>
       </Box>
 
-      {/* ---- Screenshot ---- */}
-      <Box sx={{ py: { xs: 6, md: 10 }, px: 3 }}>
-        <Container maxWidth="md">
-          <Box
-            sx={{
-              width: '100%',
-              borderRadius: 3,
-              border: 1,
-              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-              overflow: 'hidden',
-              boxShadow: isDark
-                ? '0 8px 32px rgba(0,0,0,0.4)'
-                : '0 8px 32px rgba(0,0,0,0.12)',
-            }}
-          >
-            <Image
-              src="/images/editor-preview.png"
-              alt={t('screenshot')}
-              width={2880}
-              height={1800}
-              priority
-              style={{ display: 'block', width: '100%', height: 'auto' }}
-            />
-          </Box>
-        </Container>
-      </Box>
-
-      {/* ---- Footer ---- */}
-      <Box
-        component="footer"
-        sx={{
-          py: 4,
-          px: 3,
-          borderTop: 1,
-          borderColor: 'divider',
-        }}
-      >
-        <Container
-          maxWidth="lg"
-          sx={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: { xs: 1.5, sm: 3 },
-          }}
-        >
-          <MuiLink
-            href="https://github.com/kiyotaka-ueda/anytime-markdown"
-            target="_blank"
-            rel="noopener noreferrer"
-            underline="hover"
-            sx={{ color: 'text.secondary', fontSize: '0.85rem' }}
-          >
-            {t('footerGithub')}
-          </MuiLink>
-          <MuiLink
-            href="https://marketplace.visualstudio.com/items?itemName=kiytaka-ueda.anytime-markdown"
-            target="_blank"
-            rel="noopener noreferrer"
-            underline="hover"
-            sx={{ color: 'text.secondary', fontSize: '0.85rem' }}
-          >
-            {t('footerVscode')}
-          </MuiLink>
-          <MuiLink
-            component={NextLink}
-            href="/features"
-            underline="hover"
-            sx={{ color: 'text.secondary', fontSize: '0.85rem' }}
-          >
-            {t('featuresPage')}
-          </MuiLink>
-          <MuiLink
-            component={NextLink}
-            href="/privacy"
-            underline="hover"
-            sx={{ color: 'text.secondary', fontSize: '0.85rem' }}
-          >
-            {t('footerPrivacy')}
-          </MuiLink>
-          <Typography variant="body2" sx={{ color: 'text.disabled', fontSize: '0.85rem' }}>
-            {t('footerRights')}
-          </Typography>
-        </Container>
-      </Box>
+      <SiteFooter />
     </Box>
   );
 }

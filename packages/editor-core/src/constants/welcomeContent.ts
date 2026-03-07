@@ -1,3 +1,3 @@
-import welcomeContent from "./templates/welcomeContent.md";
+import defaultContent from "./templates/defaultContent.md";
 
-export { welcomeContent };
+export { defaultContent as welcomeContent };

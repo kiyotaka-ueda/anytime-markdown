@@ -23,9 +23,10 @@ export function useSourceMode({ editor, saveContent, t }: UseSourceModeParams) {
   });
   const [viewMode, setViewMode] = useState(() => {
     try {
-      return localStorage.getItem(VIEWER_MODE_KEY) === "true";
+      const stored = localStorage.getItem(VIEWER_MODE_KEY);
+      return stored === null ? true : stored === "true";
     } catch {
-      return false;
+      return true;
     }
   });
   const [sourceText, setSourceText] = useState("");
