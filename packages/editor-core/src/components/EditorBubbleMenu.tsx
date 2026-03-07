@@ -34,12 +34,12 @@ function tip(t: TranslationFn, key: string): string {
 interface EditorBubbleMenuProps {
   editor: Editor;
   onLink: () => void;
-  viewMode?: boolean;
-  executeInViewMode?: (fn: () => void) => void;
+  reviewMode?: boolean;
+  executeInReviewMode?: (fn: () => void) => void;
   t: TranslationFn;
 }
 
-export const EditorBubbleMenu = React.memo(function EditorBubbleMenu({ editor, onLink, viewMode, executeInViewMode, t }: EditorBubbleMenuProps) {
+export const EditorBubbleMenu = React.memo(function EditorBubbleMenu({ editor, onLink, reviewMode, executeInReviewMode, t }: EditorBubbleMenuProps) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
     e.preventDefault();
@@ -80,7 +80,7 @@ export const EditorBubbleMenu = React.memo(function EditorBubbleMenu({ editor, o
           borderRadius: 1,
         }}
       >
-        {!viewMode && (
+        {!reviewMode && (
           <>
             <Tooltip title={tip(t, "bold")}>
               <IconButton
@@ -177,8 +177,8 @@ export const EditorBubbleMenu = React.memo(function EditorBubbleMenu({ editor, o
                 const openDialog = storage.commentDialog?.open as (() => void) | undefined;
                 if (openDialog) openDialog();
               };
-              if (viewMode && executeInViewMode) {
-                executeInViewMode(openComment);
+              if (reviewMode && executeInReviewMode) {
+                executeInReviewMode(openComment);
               } else {
                 openComment();
               }
