@@ -1,12 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
   CircularProgress,
   Container,
   Dialog,
@@ -14,267 +11,47 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  IconButton,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
   Snackbar,
   TextField,
   Typography,
 } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
-import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
-import DescriptionIcon from '@mui/icons-material/Description';
-import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
-import UploadFileIcon from '@mui/icons-material/UploadFile';
-import { useTranslations } from 'next-intl';
-import {
-  DndContext,
-  DragOverlay,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragStartEvent,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-  arrayMove,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import LandingHeader from '../../components/LandingHeader';
 import SiteFooter from '../../components/SiteFooter';
-import type { DocFile, LayoutCard } from '../../../types/layout';
-
-function generateId() {
-  return crypto.randomUUID();
-}
-
-function SortableCard({
-  card,
-  onEdit,
-  onDelete,
-  t,
-}: {
-  card: LayoutCard;
-  onEdit: (card: LayoutCard) => void;
-  onDelete: (id: string) => void;
-  t: ReturnType<typeof useTranslations>;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  return (
-    <Card ref={setNodeRef} style={style} sx={{ mb: 1 }}>
-      <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1, '&:last-child': { pb: 1 } }}>
-        <IconButton size="small" {...attributes} {...listeners} aria-roledescription="sortable" aria-label={`${card.title} - drag to reorder`} sx={{ cursor: 'grab', color: 'text.secondary' }}>
-          <DragIndicatorIcon fontSize="small" />
-        </IconButton>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
-            {card.title}
-          </Typography>
-          <Typography variant="caption" color="text.secondary" noWrap>
-            {card.docKey}
-          </Typography>
-        </Box>
-        <IconButton size="small" onClick={() => onEdit(card)} aria-label={t('sitesEdit')}>
-          <EditIcon fontSize="small" />
-        </IconButton>
-        <IconButton
-          size="small"
-          onClick={() => onDelete(card.id)}
-          aria-label={t('sitesCardDelete')}
-          sx={{ '&:hover': { color: 'error.main' } }}
-        >
-          <DeleteIcon fontSize="small" />
-        </IconButton>
-      </CardContent>
-    </Card>
-  );
-}
+import FileListPanel from './FileListPanel';
+import CardAreaPanel from './CardAreaPanel';
+import { useLayoutEditor } from './useLayoutEditor';
 
 export default function EditBody() {
-  const t = useTranslations('Landing');
-  const tCommon = useTranslations('Common');
-  const [files, setFiles] = useState<DocFile[]>([]);
-  const [cards, setCards] = useState<LayoutCard[]>([]);
-  const [siteDescription, setSiteDescription] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' } | null>(null);
-  const [editCard, setEditCard] = useState<LayoutCard | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<DocFile | null>(null);
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const editFormRef = useRef<{ title: string; description: string; thumbnail: string; tags: string }>({
-    title: '',
-    description: '',
-    thumbnail: '',
-    tags: '',
-  });
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
-
-  const fetchFiles = useCallback(() => {
-    return fetch('/api/docs')
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json() as Promise<{ files: DocFile[] }>;
-      })
-      .then((data) => setFiles(data.files));
-  }, []);
-
-  // ファイル一覧とレイアウトを並行取得
-  useEffect(() => {
-    Promise.all([
-      fetchFiles(),
-      fetch('/api/sites/layout').then((r) => r.json()) as Promise<{ cards: LayoutCard[]; siteDescription?: string }>,
-    ])
-      .then(([, layoutData]) => {
-        setCards(layoutData.cards.map((c) => ({ ...c, tags: c.tags ?? [] })).sort((a, b) => a.order - b.order));
-        if (layoutData.siteDescription) setSiteDescription(layoutData.siteDescription);
-      })
-      .catch(() => setSnackbar({ message: t('sitesLoadError'), severity: 'error' }))
-      .finally(() => setLoading(false));
-  }, [t, fetchFiles]);
-
-  const handleUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const res = await fetch('/api/docs/upload', { method: 'POST', body: formData });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setSnackbar({ message: t('docsUploadSuccess'), severity: 'success' });
-      fetchFiles();
-    } catch {
-      setSnackbar({ message: t('docsUploadError'), severity: 'error' });
-    }
-
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  }, [t, fetchFiles]);
-
-  const handleDeleteFile = useCallback(async () => {
-    if (!deleteTarget) return;
-
-    try {
-      const res = await fetch(`/api/docs/delete?key=${encodeURIComponent(deleteTarget.key)}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setSnackbar({ message: t('docsDeleteSuccess'), severity: 'success' });
-      // カード一覧からも該当ファイルを除去
-      setCards((prev) => prev.filter((c) => c.docKey !== deleteTarget.key));
-      fetchFiles();
-    } catch {
-      setSnackbar({ message: t('docsDeleteError'), severity: 'error' });
-    }
-
-    setDeleteTarget(null);
-  }, [deleteTarget, t, fetchFiles]);
-
-  const handleAddCard = useCallback((file: DocFile) => {
-    setCards((prev) => {
-      // 同じファイルが既に追加されている場合はスキップ
-      if (prev.some((c) => c.docKey === file.key)) return prev;
-      return [
-        ...prev,
-        {
-          id: generateId(),
-          docKey: file.key,
-          title: file.name.replace(/\.md$/, ''),
-          description: '',
-          thumbnail: '',
-          tags: [],
-          order: prev.length,
-        },
-      ];
-    });
-  }, []);
-
-  const handleDeleteCard = useCallback((id: string) => {
-    setCards((prev) => prev.filter((c) => c.id !== id));
-  }, []);
-
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    setActiveId(String(event.active.id));
-  }, []);
-
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    setActiveId(null);
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-
-    setCards((prev) => {
-      const oldIndex = prev.findIndex((c) => c.id === active.id);
-      const newIndex = prev.findIndex((c) => c.id === over.id);
-      if (oldIndex === -1 || newIndex === -1) return prev;
-      return arrayMove(prev, oldIndex, newIndex).map((c, i) => ({ ...c, order: i }));
-    });
-  }, []);
-
-  const handleEditOpen = useCallback((card: LayoutCard) => {
-    setEditCard(card);
-    editFormRef.current = {
-      title: card.title,
-      description: card.description,
-      thumbnail: card.thumbnail,
-      tags: (card.tags ?? []).join(', '),
-    };
-  }, []);
-
-  const handleEditSave = useCallback(() => {
-    if (!editCard) return;
-    setCards((prev) =>
-      prev.map((c) =>
-        c.id === editCard.id
-          ? {
-              ...c,
-              title: editFormRef.current.title,
-              description: editFormRef.current.description,
-              thumbnail: editFormRef.current.thumbnail,
-              tags: editFormRef.current.tags.split(',').map((s) => s.trim()).filter(Boolean),
-            }
-          : c,
-      ),
-    );
-    setEditCard(null);
-  }, [editCard]);
-
-  const handleSave = useCallback(async () => {
-    const layout = { cards: cards.map((c, i) => ({ ...c, order: i })), siteDescription };
-
-    try {
-      const res = await fetch('/api/sites/layout', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(layout),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setSnackbar({ message: t('sitesSaveSuccess'), severity: 'success' });
-    } catch {
-      setSnackbar({ message: t('sitesSaveError'), severity: 'error' });
-    }
-  }, [cards, t]);
-
-  const activeCard = activeId ? cards.find((c) => c.id === activeId) : null;
+  const editor = useLayoutEditor();
+  const {
+    t,
+    tCommon,
+    files,
+    cards,
+    siteDescription,
+    setSiteDescription,
+    loading,
+    snackbar,
+    setSnackbar,
+    editCard,
+    setEditCard,
+    deleteTarget,
+    setDeleteTarget,
+    fileInputRef,
+    editFormRef,
+    sensors,
+    activeCard,
+    handleUpload,
+    handleDeleteFile,
+    handleAddCard,
+    handleDeleteCard,
+    handleDragStart,
+    handleDragEnd,
+    handleEditOpen,
+    handleEditSave,
+    handleSave,
+  } = editor;
 
   if (loading) {
     return (
@@ -331,115 +108,25 @@ export default function EditBody() {
         />
 
         <Box sx={{ display: 'flex', gap: 3, flexDirection: { xs: 'column', md: 'row' } }}>
-          {/* 左パネル: ファイル一覧 */}
-          <Box sx={{ width: { xs: '100%', md: 300 }, flexShrink: 0 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
-                {t('sitesFileList')}
-              </Typography>
-              <Button
-                size="small"
-                startIcon={<UploadFileIcon />}
-                onClick={() => fileInputRef.current?.click()}
-                sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.8rem' }}
-              >
-                {t('docsUpload')}
-              </Button>
-            </Box>
-            <input ref={fileInputRef} type="file" accept=".md" hidden onChange={handleUpload} />
-            <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper', maxHeight: 400, overflow: 'auto' }}>
-              <List dense disablePadding>
-                {files.map((file) => {
-                  const alreadyAdded = cards.some((c) => c.docKey === file.key);
-                  return (
-                    <ListItem
-                      key={file.key}
-                      disablePadding
-                      secondaryAction={
-                        <IconButton
-                          edge="end"
-                          size="small"
-                          aria-label={t('docsDelete')}
-                          onClick={() => setDeleteTarget(file)}
-                          sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      }
-                    >
-                      <ListItemButton
-                        onClick={() => handleAddCard(file)}
-                        disabled={alreadyAdded}
-                        sx={{ opacity: alreadyAdded ? 0.5 : 1 }}
-                      >
-                        <ListItemIcon sx={{ minWidth: 36 }}>
-                          <DescriptionIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-                        </ListItemIcon>
-                        <ListItemText
-                          primary={file.name}
-                          primaryTypographyProps={{ fontSize: '0.85rem', noWrap: true }}
-                        />
-                      </ListItemButton>
-                    </ListItem>
-                  );
-                })}
-              </List>
-            </Box>
-          </Box>
-
-          {/* 右パネル: カード配置エリア */}
-          <Box sx={{ flex: 1 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600, color: 'text.secondary' }}>
-              {t('sitesCardArea')}
-            </Typography>
-            <Box
-              sx={{
-                border: 2,
-                borderColor: 'divider',
-                borderStyle: 'dashed',
-                borderRadius: 2,
-                p: 2,
-                minHeight: 200,
-                bgcolor: 'background.paper',
-              }}
-            >
-              {cards.length === 0 ? (
-                <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                  {t('sitesEmpty')}
-                </Typography>
-              ) : (
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext items={cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-                    {cards.map((card) => (
-                      <SortableCard
-                        key={card.id}
-                        card={card}
-                        onEdit={handleEditOpen}
-                        onDelete={handleDeleteCard}
-                        t={t}
-                      />
-                    ))}
-                  </SortableContext>
-                  <DragOverlay>
-                    {activeCard ? (
-                      <Card sx={{ opacity: 0.8 }}>
-                        <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {activeCard.title}
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    ) : null}
-                  </DragOverlay>
-                </DndContext>
-              )}
-            </Box>
-          </Box>
+          <FileListPanel
+            files={files}
+            cards={cards}
+            fileInputRef={fileInputRef}
+            onUpload={handleUpload}
+            onAddCard={handleAddCard}
+            onDeleteRequest={setDeleteTarget}
+            t={t}
+          />
+          <CardAreaPanel
+            cards={cards}
+            activeCard={activeCard}
+            sensors={sensors}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onEdit={handleEditOpen}
+            onDelete={handleDeleteCard}
+            t={t}
+          />
         </Box>
       </Container>
       <SiteFooter />
