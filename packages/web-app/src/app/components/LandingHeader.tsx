@@ -55,6 +55,13 @@ export default function LandingHeader() {
           >
             {t('docsPage')}
           </Button>
+          <Button
+            component={NextLink}
+            href="/sites"
+            sx={{ textTransform: 'none', color: 'text.secondary', fontWeight: 600, fontSize: '0.85rem', display: { xs: 'none', sm: 'inline-flex' } }}
+          >
+            {t('sitesPage')}
+          </Button>
 
           <ToggleButtonGroup
             value={locale}
@@ -125,6 +132,9 @@ export default function LandingHeader() {
             </ListItemButton>
             <ListItemButton component={NextLink} href="/docs" onClick={() => setDrawerOpen(false)}>
               <ListItemText primary={t('docsPage')} />
+            </ListItemButton>
+            <ListItemButton component={NextLink} href="/sites" onClick={() => setDrawerOpen(false)}>
+              <ListItemText primary={t('sitesPage')} />
             </ListItemButton>
             <ListItemButton component={NextLink} href="/markdown" onClick={() => setDrawerOpen(false)}>
               <ListItemText primary={t('openEditor')} />
