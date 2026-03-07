@@ -133,7 +133,9 @@ describe("仕様4: テーブル", () => {
   test("コードスパン内のパイプがセル区切りと誤認されない", () => {
     const md = "| A | B |\n| --- | --- |\n| `| --- |` 形式 | テスト |";
     const result = fullRoundTrip(md, { withTable: true });
-    expect(result).toContain("`| --- |`");
+    // テーブルパーサーが \| の \ を消費するため、出力は \| にエスケープされる
+    // 表示上は同じ | --- | として表示される
+    expect(result).toContain("`\\| --- \\|`");
     expect(result).toContain("| テスト |");
   });
 

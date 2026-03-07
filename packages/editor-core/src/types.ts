@@ -41,11 +41,13 @@ export function getMarkdownFromEditor(editor: Editor): string {
   // + コードスパンのバッククォート区切りをテーブル行内のみ最小限に正規化
   md = md.replace(/^(\|.+\|)$/gm, (line) => {
     line = line.replace(/\\([.#>+\-*])/g, "$1");
-    // &#124; はコードスパン内含め全体で復元（escapeTableCodeSpanPipes の逆変換）
-    line = line.replace(/&#124;/g, "|");
-    // &lt; &gt; はコードスパン外のみ復元（コードスパン内のエンティティ文字列を保護）
+    // コードスパンを保護: &lt;/&gt; 復元の対象外 + 内部の | を \| にエスケープ
     const codeSpans: string[] = [];
-    line = line.replace(/`[^`]*`/g, (m) => { codeSpans.push(m); return `\uE001CS${codeSpans.length - 1}\uE001`; });
+    line = line.replace(/`[^`]*`/g, (m) => {
+      // コードスパン内の | を \| にエスケープ（テーブルセル区切りとの衝突防止）
+      codeSpans.push(m.replace(/(?<!\\)\|/g, "\\|"));
+      return `\uE001CS${codeSpans.length - 1}\uE001`;
+    });
     line = line.replace(/&gt;/g, ">").replace(/&lt;/g, "<");
     line = line.replace(/\uE001CS(\d+)\uE001/g, (_, i) => codeSpans[Number(i)]);
     // 空セルの余分なスペースを正規化: "|  |" → "| |"

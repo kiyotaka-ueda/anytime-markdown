@@ -57,6 +57,21 @@ describe("Entity roundtrip in code spans", () => {
     expect(result).not.toContain("&#124;");
   });
 
+  test("pipe in code span is stored as | (not &#124;) in ProseMirror", () => {
+    const md = "| col |\n| --- |\n| b `\\|` az |";
+    editor = createTestEditor({ withMarkdown: true, withTable: true });
+    editor.commands.setContent(preserveBlankLines(sanitizeMarkdown(md)));
+
+    editor.state.doc.descendants((node) => {
+      if (node.isText && node.marks.some((m) => m.type.name === "code")) {
+        console.log(`Code span text: "${node.text}"`);
+        expect(node.text).not.toContain("&#124;");
+        // markdown-it テーブルパーサーが \| の \ を消費するため | のみ格納される
+        expect(node.text).toBe("|");
+      }
+    });
+  });
+
   test("ProseMirror stores &lt; correctly - inline", () => {
     const md = "`&lt;`";
     editor = createTestEditor({ withMarkdown: true });
