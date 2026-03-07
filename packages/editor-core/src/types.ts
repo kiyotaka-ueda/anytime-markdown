@@ -39,6 +39,12 @@ export function getMarkdownFromEditor(editor: Editor): string {
   // **** になる tiptap-markdown の不具合を補正
   // 例: "> ****text**" → "> **text**"
   md = md.replace(/^(> )\*{4}/gm, "$1**");
+  // preserveBlankLines で分離された連続 blockquote を1つに結合する
+  // 例: "> text1\n\n> text2" → "> text1\n>\n> text2"
+  md = md.replace(/^(> .+)\n\n(?=> )/gm, "$1\n>\n");
+  // リスト内ハードブレイク後の継続行に tiptap-markdown が付与する
+  // 2スペースインデントを除去する（元のインデントなしを保持）
+  md = md.replace(/\\\n {2}(?! )/gm, "\\\n");
   // NOTE: ProseMirror はブロック間を \n\n に正規化するため、
   // 元の \n が \n\n に変わる場合がある。これは ProseMirror の仕様として許容する。
   // ```math フェンスが残っている場合に $$...$$ に変換する（フォールバック）

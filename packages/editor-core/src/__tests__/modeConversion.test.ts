@@ -3,6 +3,7 @@ import { getMarkdownFromEditor } from "../types";
 import { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "tiptap-markdown";
+import { createTestEditor } from "../testUtils/createTestEditor";
 
 // ---------- sanitizeMarkdown ----------
 
@@ -237,6 +238,22 @@ describe("preserveBlankLines", () => {
     }
   });
 
+  test("バックスラッシュ改行（ハードブレイク）を tight transition と誤判定しない", () => {
+    // リスト内のバックスラッシュ改行は同一ブロックの継続
+    const input = "- テキスト。\\\n継続行1\\\n継続行2";
+    expect(preserveBlankLines(input)).toBe(input);
+  });
+
+  test("テーブルセル内のバックスラッシュ改行を <br> に変換する", () => {
+    const input = "| col1 | col2 |\n| --- | --- |\n| テスト。\\\n継続行 | 値 |";
+    const result = preserveBlankLines(input);
+    // \+改行 が <br> に変換されること
+    expect(result).toContain("テスト。<br>継続行");
+    // テーブル行が分割されないこと
+    const rows = result.split("\n").filter((l: string) => l.startsWith("|"));
+    expect(rows).toHaveLength(3); // ヘッダー + 区切り + データ行
+  });
+
   test("リスト前後の tight transition に ZWNJ マーカーを付与する", () => {
     // 非リスト → リスト（空行なし）
     expect(preserveBlankLines("テキスト\n- リスト")).toBe("テキスト\u200C\n- リスト");
@@ -322,8 +339,6 @@ describe("blockquote ラウンドトリップ", () => {
   });
 
   test("blockquote 内の空行が sanitizeMarkdown + ラウンドトリップで保持される", () => {
-    // tiptap-markdown は blockquote 内の複数段落を1段落に結合する既知の制約がある。
-    // ポスト処理で **** の化けだけは修正されることを検証する。
     const md = "> A11y: テスト行。\n>\n> **推奨案**: 推奨テキスト。";
     const afterSanitize = sanitizeMarkdown(md);
     const afterPreserve = preserveBlankLines(afterSanitize);
@@ -337,5 +352,61 @@ describe("blockquote ラウンドトリップ", () => {
     expect(output).not.toContain("****");
     // 推奨案の太字が保持されること
     expect(output).toContain("**推奨案**");
+    // blockquote 内の空行区切りが保持されること
+    expect(output).toContain(">\n>");
+  });
+
+  test("blockquote 内の bold 段落間の空行がフルパイプラインで保持される", () => {
+    const md = "> **【Engineer 注記】** コメント1\n>\n> **【Designer 質問】** コメント2";
+    const afterSanitize = sanitizeMarkdown(md);
+    const afterPreserve = preserveBlankLines(afterSanitize);
+    const editor = new Editor({
+      extensions: [StarterKit, Markdown.configure({ html: true })],
+      content: afterPreserve,
+    });
+    const output = getMarkdownFromEditor(editor);
+    editor.destroy();
+    // **** に化けないこと
+    expect(output).not.toContain("****");
+    // 両方の太字が保持されること
+    expect(output).toContain("**【Engineer 注記】**");
+    expect(output).toContain("**【Designer 質問】**");
+    // blockquote 内の空行区切りが保持されること
+    expect(output).toContain(">\n>");
+  });
+
+  test("リスト内のバックスラッシュ改行がラウンドトリップで保持される", () => {
+    const md = "- **A11y**: テスト確認済み。\\\n色のみ依存は解消。\\\n代替テキスト不備は解消。";
+    const afterSanitize = sanitizeMarkdown(md);
+    const afterPreserve = preserveBlankLines(afterSanitize);
+    const editor = new Editor({
+      extensions: [StarterKit, Markdown.configure({ html: true })],
+      content: afterPreserve,
+    });
+    const output = getMarkdownFromEditor(editor);
+    editor.destroy();
+    // バックスラッシュがエスケープされて \\\\ にならないこと
+    expect(output).not.toContain("\\\\");
+    // ハードブレイクが保持されること
+    expect(output).toContain("\\\n");
+    // 太字が保持されること
+    expect(output).toContain("**A11y**");
+    // 継続行に不要な2スペースインデントが追加されないこと
+    expect(output).not.toMatch(/\\\n {2}[^ ]/);
+  });
+
+  test("テーブルセル内のバックスラッシュ改行がラウンドトリップで行分割されない", () => {
+    const md = "| col1 | col2 | col3 |\n| --- | --- | --- |\n| KeyboardSensor 未検証 | 低 | 実機テストで確認。\\\n問題があれば代替 UI を追加 |";
+    const afterSanitize = sanitizeMarkdown(md);
+    const afterPreserve = preserveBlankLines(afterSanitize);
+    const editor = createTestEditor({ content: afterPreserve, withTable: true, withMarkdown: true });
+    const output = getMarkdownFromEditor(editor);
+    editor.destroy();
+    // テーブルが2行に分割されないこと（ヘッダー + 区切り + データ1行 = 3行）
+    const rows = output.trim().split("\n").filter((l: string) => l.startsWith("|"));
+    expect(rows).toHaveLength(3);
+    // セル内の改行コンテンツが保持されること
+    expect(output).toContain("実機テストで確認。");
+    expect(output).toContain("問題があれば代替 UI を追加");
   });
 });

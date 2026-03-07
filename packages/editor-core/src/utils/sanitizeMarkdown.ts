@@ -46,6 +46,8 @@ function markTightBlockTransitions(text: string): string {
     const nxt = lines[i + 1];
 
     if (cur === "" || nxt === "") continue;
+    // バックスラッシュ改行（ハードブレイク）は同一ブロックの継続
+    if (cur.endsWith("\\")) continue;
 
     // 同一ブロックの継続をスキップ
     // - 同じ blockquote 内
@@ -279,6 +281,15 @@ export function preserveBlankLines(md: string): string {
   // 1. 非コード部分: tight transition マーキング + ZWSP 処理
   const processed = parts.map((part) => {
     if (/^```/.test(part)) return part;
+    // テーブルセル内のバックスラッシュ改行を <br> に変換する。
+    // GFM テーブルは \+改行 をセル内改行として扱わないため、
+    // <br> に変換して tiptap がセル内改行として認識できるようにする。
+    part = part.replace(/^(\|.+)\\\n(?!\|)(.+\|)$/gm, "$1<br>$2");
+    // blockquote 内の空行区切り（> のみの行）の後に > ** が続く場合、
+    // tiptap-markdown が段落をマージする不具合がある。
+    // 空行区切りを二重改行に変換して別ブロックとして解析させ、
+    // tiptap が blockquote ノードを結合する挙動を利用して元に戻す。
+    part = part.replace(/^(>[ \t]*)\n(> \*\*)/gm, "$1\n\n$2");
     part = markTightBlockTransitions(part);
     return part.replace(/\n{3,}/g, (match) => {
       const extra = match.length - 2;
