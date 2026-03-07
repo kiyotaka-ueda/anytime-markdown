@@ -26,11 +26,11 @@
       },
       {
         "command": "anytime-markdown.openEditorWithFile",
-        "title": "Open with Markdown"
+        "title": "Open with Anytime"
       },
       {
         "command": "anytime-markdown.compareWithMarkdownEditor",
-        "title": "Compare with Markdown",
+        "title": "Compare with Anytime",
         "enablement": "anytimeMarkdown.compareModeActive"
       },
       {
