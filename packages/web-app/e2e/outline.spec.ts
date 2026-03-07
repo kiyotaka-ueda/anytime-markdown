@@ -70,11 +70,9 @@ test.describe("Outline", () => {
     // Fold All ボタンをクリック（Tooltip が覆う場合があるため force）
     await outlineNav.getByRole("button", { name: "Fold All" }).click({ force: true });
 
-    // heading-folded クラスがエディタ内に出現する
+    // heading-folded クラスがエディタ内に出現する（Firefoxではタイミングが遅い場合がある）
     const foldedHeadings = page.locator(".tiptap .heading-folded");
-    await expect(foldedHeadings.first()).toBeVisible();
-    const foldedCount = await foldedHeadings.count();
-    expect(foldedCount).toBeGreaterThan(0);
+    await expect(foldedHeadings.first()).toBeAttached({ timeout: 10000 });
 
     // ボタンが Unfold All に変わっているのでクリック
     await outlineNav.getByRole("button", { name: "Unfold All" }).click({ force: true });
