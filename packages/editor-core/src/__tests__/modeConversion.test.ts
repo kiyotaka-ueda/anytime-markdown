@@ -1,6 +1,8 @@
 import { sanitizeMarkdown, preserveBlankLines, restoreBlankLines } from "../utils/sanitizeMarkdown";
 import { getMarkdownFromEditor } from "../types";
 import { Editor } from "@tiptap/core";
+import StarterKit from "@tiptap/starter-kit";
+import { Markdown } from "tiptap-markdown";
 
 // ---------- sanitizeMarkdown ----------
 
@@ -109,6 +111,27 @@ describe("sanitizeMarkdown", () => {
     const result = sanitizeMarkdown(md);
     expect(result).toContain("> 引用テキスト");
     expect(result).toContain("**太字テキスト**");
+  });
+
+  // --- blockquote 内バックスラッシュ改行のリグレッションテスト (d851da9) ---
+
+  test("blockquote 内のバックスラッシュ改行で次行の > が欠落しない", () => {
+    const md = "> **【A11y】** 1行目。\\\n> **【Designer】** 2行目。";
+    const result = sanitizeMarkdown(md);
+    // > が欠落して **** に化けないことを検証
+    expect(result).not.toContain("****");
+    expect(result).toContain("> ");
+    expect(result).toContain("**【Designer】**");
+  });
+
+  test("blockquote 内の複数行バックスラッシュ改行を保持する", () => {
+    const md = "> 1行目\\\n> 2行目\\\n> 3行目";
+    const result = sanitizeMarkdown(md);
+    const lines = result.split("\n").filter((l: string) => l.trim());
+    // 全行が > で始まること
+    for (const line of lines) {
+      expect(line.startsWith(">")).toBe(true);
+    }
   });
 
   // --- DOMPurify 改行消失防止のリグレッションテスト (323227e) ---
@@ -235,5 +258,37 @@ describe("restoreBlankLines", () => {
   test("ZWSP がなければそのまま返す", () => {
     const input = "text1\n\ntext2";
     expect(restoreBlankLines(input)).toBe(input);
+  });
+});
+
+// ---------- ラウンドトリップ: blockquote 内バックスラッシュ改行 (d851da9) ----------
+
+describe("blockquote ラウンドトリップ", () => {
+  function roundtrip(md: string): string {
+    const editor = new Editor({
+      extensions: [StarterKit, Markdown.configure({ html: true })],
+      content: md,
+    });
+    const output = getMarkdownFromEditor(editor);
+    editor.destroy();
+    return output;
+  }
+
+  test("blockquote 内のバックスラッシュ改行で > が欠落し **** に化けない", () => {
+    const md = "> **【A11y】** 1行目。\\\n> **【Designer】** 2行目。";
+    const output = roundtrip(md);
+    // **** に化けないこと
+    expect(output).not.toContain("****");
+    // 太字マーカーが保持されること
+    expect(output).toContain("**【A11y】**");
+    expect(output).toContain("**【Designer】**");
+  });
+
+  test("blockquote 内の複数行がラウンドトリップで blockquote を維持する", () => {
+    const md = "> 1行目\\\n> 2行目\\\n> 3行目";
+    const output = roundtrip(md);
+    const lines = output.split("\n").filter((l: string) => l.trim());
+    // 少なくとも1行が > で始まること（blockquote が消えないこと）
+    expect(lines.some((l: string) => l.startsWith(">"))).toBe(true);
   });
 });
