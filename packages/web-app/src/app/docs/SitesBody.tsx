@@ -16,6 +16,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import CheckIcon from '@mui/icons-material/Check';
 import DescriptionIcon from '@mui/icons-material/Description';
 import NextLink from 'next/link';
 import { useTranslations } from 'next-intl';
@@ -99,8 +100,8 @@ export default function SitesBody() {
         )}
 
         {loading && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-            <CircularProgress size={32} />
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }} role="status">
+            <CircularProgress size={32} aria-label="Loading" />
           </Box>
         )}
 
@@ -108,7 +109,7 @@ export default function SitesBody() {
 
         {!loading && !error && cards.length === 0 && (
           <Box sx={{ textAlign: 'center', py: 8 }}>
-            <DescriptionIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
+            <DescriptionIcon aria-hidden="true" sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
             <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
               {t('sitesEmpty')}
             </Typography>
@@ -124,13 +125,15 @@ export default function SitesBody() {
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 3 }}>
                 <Chip
                   label={t('sitesFilterAll')}
+                  icon={activeTag === null ? <CheckIcon fontSize="small" /> : undefined}
                   variant={activeTag === null ? 'filled' : 'outlined'}
                   onClick={() => setActiveTag(null)}
+                  aria-pressed={activeTag === null}
                   sx={{
                     fontWeight: 600,
                     ...(activeTag === null && {
                       bgcolor: '#e8a012',
-                      color: '#1a1a1a',
+                      color: '#000000',
                       '&:hover': { bgcolor: '#d4920e' },
                     }),
                   }}
@@ -139,13 +142,15 @@ export default function SitesBody() {
                   <Chip
                     key={tag}
                     label={tag}
+                    icon={activeTag === tag ? <CheckIcon fontSize="small" /> : undefined}
                     variant={activeTag === tag ? 'filled' : 'outlined'}
                     onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+                    aria-pressed={activeTag === tag}
                     sx={{
                       fontWeight: 600,
                       ...(activeTag === tag && {
                         bgcolor: '#e8a012',
-                        color: '#1a1a1a',
+                        color: '#000000',
                         '&:hover': { bgcolor: '#d4920e' },
                       }),
                     }}
@@ -201,7 +206,7 @@ export default function SitesBody() {
                               width: 64,
                               height: 64,
                               bgcolor: '#e8a012',
-                              color: '#1a1a1a',
+                              color: '#000000',
                               fontSize: '1.8rem',
                               fontWeight: 700,
                             }}

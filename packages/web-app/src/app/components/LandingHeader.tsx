@@ -93,7 +93,7 @@ export default function LandingHeader() {
               borderRadius: 2,
               px: 2.5,
               bgcolor: 'secondary.main',
-              color: '#1a1a1a',
+              color: '#000000',
               '&:hover': { bgcolor: 'secondary.dark' },
             }}
           >
@@ -117,8 +117,9 @@ export default function LandingHeader() {
         anchor="right"
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
+        aria-label="Mobile navigation"
       >
-        <Box sx={{ width: 220, pt: 2 }} role="navigation" aria-label="Mobile navigation">
+        <Box sx={{ width: 220, pt: 2 }} component="nav" aria-label="Mobile navigation">
           <List>
             <ListItemButton component={NextLink} href="/features" onClick={() => setDrawerOpen(false)}>
               <ListItemText primary={t('featuresPage')} />

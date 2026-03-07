@@ -66,8 +66,8 @@ export default function DocsViewPage() {
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <LandingHeader />
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
-          <CircularProgress />
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }} role="status">
+          <CircularProgress aria-label="Loading" />
         </Box>
         <SiteFooter />
       </Box>

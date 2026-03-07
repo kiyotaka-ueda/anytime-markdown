@@ -107,7 +107,7 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
               px: 5,
               py: 1.5,
               bgcolor: '#e8a012',
-              color: '#1a1a1a',
+              color: '#000000',
               boxShadow: isDark
                 ? '0 0 40px rgba(232,160,18,0.25)'
                 : '0 4px 20px rgba(232,160,18,0.3)',
@@ -237,6 +237,7 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
                 >
                   <CardContent sx={{ p: 3.5 }}>
                     <Icon
+                      aria-hidden="true"
                       sx={{
                         fontSize: 32,
                         color: '#e8a012',

@@ -35,6 +35,7 @@ import {
   DndContext,
   DragOverlay,
   closestCenter,
+  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
@@ -43,6 +44,7 @@ import {
 } from '@dnd-kit/core';
 import {
   SortableContext,
+  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
   arrayMove,
@@ -94,7 +96,7 @@ function SortableCard({
   return (
     <Card ref={setNodeRef} style={style} sx={{ mb: 1 }}>
       <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1, '&:last-child': { pb: 1 } }}>
-        <IconButton size="small" {...attributes} {...listeners} sx={{ cursor: 'grab', color: 'text.secondary' }}>
+        <IconButton size="small" {...attributes} {...listeners} aria-roledescription="sortable" aria-label={`${card.title} - drag to reorder`} sx={{ cursor: 'grab', color: 'text.secondary' }}>
           <DragIndicatorIcon fontSize="small" />
         </IconButton>
         <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -142,6 +144,7 @@ export default function EditBody() {
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
   const fetchFiles = useCallback(() => {
@@ -293,8 +296,8 @@ export default function EditBody() {
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <LandingHeader />
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
-          <CircularProgress />
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }} role="status">
+          <CircularProgress aria-label="Loading" />
         </Box>
         <SiteFooter />
       </Box>
@@ -326,7 +329,7 @@ export default function EditBody() {
               fontWeight: 600,
               borderRadius: 2,
               bgcolor: 'secondary.main',
-              color: '#1a1a1a',
+              color: '#000000',
               '&:hover': { bgcolor: 'secondary.dark' },
             }}
           >
@@ -458,8 +461,8 @@ export default function EditBody() {
       <SiteFooter />
 
       {/* ファイル削除確認ダイアログ */}
-      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
-        <DialogTitle>{t('docsDelete')}</DialogTitle>
+      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} aria-labelledby="delete-dialog-title">
+        <DialogTitle id="delete-dialog-title">{t('docsDelete')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
             {t('docsDeleteConfirm')}
@@ -479,8 +482,8 @@ export default function EditBody() {
       </Dialog>
 
       {/* カード編集ダイアログ */}
-      <Dialog open={!!editCard} onClose={() => setEditCard(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>{t('sitesEdit')}</DialogTitle>
+      <Dialog open={!!editCard} onClose={() => setEditCard(null)} maxWidth="sm" fullWidth aria-labelledby="edit-dialog-title">
+        <DialogTitle id="edit-dialog-title">{t('sitesEdit')}</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
           <TextField
             label={t('sitesCardTitle')}
