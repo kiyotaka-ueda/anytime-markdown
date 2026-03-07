@@ -50,13 +50,6 @@ export default function LandingHeader() {
           </Button>
           <Button
             component={NextLink}
-            href="/docs"
-            sx={{ textTransform: 'none', color: 'text.secondary', fontWeight: 600, fontSize: '0.85rem', display: { xs: 'none', sm: 'inline-flex' } }}
-          >
-            {t('docsPage')}
-          </Button>
-          <Button
-            component={NextLink}
             href="/sites"
             sx={{ textTransform: 'none', color: 'text.secondary', fontWeight: 600, fontSize: '0.85rem', display: { xs: 'none', sm: 'inline-flex' } }}
           >
@@ -129,9 +122,6 @@ export default function LandingHeader() {
           <List>
             <ListItemButton component={NextLink} href="/features" onClick={() => setDrawerOpen(false)}>
               <ListItemText primary={t('featuresPage')} />
-            </ListItemButton>
-            <ListItemButton component={NextLink} href="/docs" onClick={() => setDrawerOpen(false)}>
-              <ListItemText primary={t('docsPage')} />
             </ListItemButton>
             <ListItemButton component={NextLink} href="/sites" onClick={() => setDrawerOpen(false)}>
               <ListItemText primary={t('sitesPage')} />
