@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { s3Client, DOCS_BUCKET, DOCS_PREFIX } from '../../../../lib/s3Client';
 import { checkBasicAuth } from '../../../../lib/basicAuth';
+import { layoutDataSchema } from '../../../../types/layout';
 
 const LAYOUT_KEY = DOCS_PREFIX + '_layout.json';
 
@@ -50,7 +51,15 @@ export async function PUT(request: NextRequest) {
   }
 
   try {
-    const layout = await request.json();
+    const raw = await request.json();
+    const result = layoutDataSchema.safeParse(raw);
+    if (!result.success) {
+      return NextResponse.json(
+        { error: 'Invalid layout data', details: result.error.issues },
+        { status: 400 },
+      );
+    }
+    const layout = result.data;
 
     const command = new PutObjectCommand({
       Bucket: DOCS_BUCKET,

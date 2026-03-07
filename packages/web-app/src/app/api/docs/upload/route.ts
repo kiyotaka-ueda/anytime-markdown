@@ -22,6 +22,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json({ error: 'File size exceeds 5MB limit' }, { status: 400 });
+    }
+
     if (!file.name.endsWith('.md')) {
       return NextResponse.json({ error: 'Only .md files are allowed' }, { status: 400 });
     }
