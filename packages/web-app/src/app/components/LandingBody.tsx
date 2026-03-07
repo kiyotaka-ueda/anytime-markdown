@@ -94,58 +94,61 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
             {t('heroDescription')}
           </Typography>
 
-          <Button
-            component={NextLink}
-            href="/markdown"
-            variant="contained"
-            size="large"
-            sx={{
-              textTransform: 'none',
-              fontWeight: 700,
-              fontSize: '1.05rem',
-              borderRadius: 2.5,
-              px: 5,
-              py: 1.5,
-              bgcolor: '#e8a012',
-              color: '#000000',
-              boxShadow: isDark
-                ? '0 0 40px rgba(232,160,18,0.25)'
-                : '0 4px 20px rgba(232,160,18,0.3)',
-              '&:hover': {
-                bgcolor: '#d4920e',
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 2 }}>
+            <Button
+              component={NextLink}
+              href="/markdown"
+              variant="contained"
+              size="large"
+              sx={{
+                textTransform: 'none',
+                fontWeight: 700,
+                fontSize: '1.05rem',
+                borderRadius: 2.5,
+                px: 5,
+                py: 1.5,
+                width: { xs: '100%', sm: 'auto' },
+                bgcolor: '#e8a012',
+                color: '#000000',
                 boxShadow: isDark
-                  ? '0 0 50px rgba(232,160,18,0.35)'
-                  : '0 6px 28px rgba(232,160,18,0.4)',
-              },
-            }}
-          >
-            {t('openEditor')}
-          </Button>
-          <Button
-            component={MuiLink}
-            href="https://github.com/kiyotaka-ueda/anytime-markdown"
-            target="_blank"
-            rel="noopener noreferrer"
-            variant="outlined"
-            size="large"
-            sx={{
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: '1.05rem',
-              borderRadius: 2.5,
-              px: 4,
-              py: 1.5,
-              ml: 2,
-              borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.23)',
-              color: 'text.primary',
-              '&:hover': {
-                borderColor: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)',
-                bgcolor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
-              },
-            }}
-          >
-            GitHub
-          </Button>
+                  ? '0 0 40px rgba(232,160,18,0.25)'
+                  : '0 4px 20px rgba(232,160,18,0.3)',
+                '&:hover': {
+                  bgcolor: '#d4920e',
+                  boxShadow: isDark
+                    ? '0 0 50px rgba(232,160,18,0.35)'
+                    : '0 6px 28px rgba(232,160,18,0.4)',
+                },
+              }}
+            >
+              {t('openEditor')}
+            </Button>
+            <Button
+              component={MuiLink}
+              href="https://github.com/kiyotaka-ueda/anytime-markdown"
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="outlined"
+              size="large"
+              sx={{
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '1.05rem',
+                borderRadius: 2.5,
+                px: 4,
+                py: 1.5,
+                width: { xs: '100%', sm: 'auto' },
+                borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.23)',
+                color: 'text.primary',
+                '&:hover': {
+                  borderColor: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)',
+                  bgcolor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
+                },
+              }}
+            >
+              GitHub
+            </Button>
+          </Box>
 
           <Typography
             variant="body2"

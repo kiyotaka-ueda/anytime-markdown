@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { Alert, Box, CircularProgress, Container, Link as MuiLink } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Container, Link as MuiLink } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import NextLink from 'next/link';
 import { useTranslations } from 'next-intl';
@@ -35,14 +35,15 @@ export default function DocsViewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchContent = useCallback(() => {
     if (!key) {
       setError(t('docsViewNoUrl'));
       setLoading(false);
       return;
     }
 
-    let cancelled = false;
+    setLoading(true);
+    setError(null);
 
     fetch(`/api/docs/content?key=${encodeURIComponent(key)}`)
       .then((res) => {
@@ -50,17 +51,19 @@ export default function DocsViewPage() {
         return res.text();
       })
       .then((text) => {
-        if (!cancelled) setContent(text);
+        setContent(text);
       })
       .catch(() => {
-        if (!cancelled) setError(t('docsViewLoadError'));
+        setError(t('docsViewLoadError'));
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        setLoading(false);
       });
-
-    return () => { cancelled = true; };
   }, [key, t]);
+
+  useEffect(() => {
+    fetchContent();
+  }, [fetchContent]);
 
   if (loading) {
     return (
@@ -95,7 +98,18 @@ export default function DocsViewPage() {
             <ArrowBackIcon sx={{ fontSize: 18 }} />
             {t('docsPage')}
           </MuiLink>
-          <Alert severity="error">{error ?? t('docsViewLoadError')}</Alert>
+          <Alert
+            severity="error"
+            action={
+              key ? (
+                <Button color="inherit" size="small" onClick={fetchContent}>
+                  {t('retry')}
+                </Button>
+              ) : undefined
+            }
+          >
+            {error ?? t('docsViewLoadError')}
+          </Alert>
         </Container>
         <SiteFooter />
       </Box>
