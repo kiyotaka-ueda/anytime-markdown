@@ -4,6 +4,17 @@ All notable changes to the "anytime-markdown" extension will be documented in th
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.1.4] - 2026-03-07
+
+### Changed
+- ページ区切りガイド機能を削除
+
+### Fixed
+- テーブルセル内コードスパンの `&lt;` `&gt;` エンティティがラウンドトリップで消失する問題を修正
+- テーブルセル内コードスパンのパイプエスケープを `&#124;` から `\|` に変更
+- マルチバッククォートのコードスパンがテーブルセル区切りを誤エスケープする問題を修正
+- 保存時にファイル末尾の改行を保証するよう修正
+
 ## [0.1.3] - 2026-03-07
 
 ### Added

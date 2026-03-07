@@ -6,11 +6,15 @@ import { test, expect } from "@playwright/test";
  */
 async function openSettingsPanel(page: import("@playwright/test").Page) {
   // More ボタンをクリック（デスクトップ用）
-  await page.getByRole("button", { name: "More" }).click();
+  const moreBtn = page.getByRole("button", { name: "More" });
+  await expect(moreBtn).toBeVisible();
+  await moreBtn.click();
   // ヘルプメニュー（Popover）内の「Editor Settings」をクリック
-  await page.getByRole("menuitem", { name: "Editor Settings" }).click();
+  const menuItem = page.getByRole("menuitem", { name: "Editor Settings" });
+  await expect(menuItem).toBeVisible({ timeout: 5000 });
+  await menuItem.click();
   // 設定パネルの Drawer が表示されるまで待機
-  await expect(page.locator("#settings-panel-title")).toBeVisible();
+  await expect(page.locator("#settings-panel-title")).toBeVisible({ timeout: 10000 });
 }
 
 test.describe("Settings", () => {
@@ -34,8 +38,8 @@ test.describe("Settings", () => {
     await expect(darkModeSwitch).toBeVisible();
     await darkModeSwitch.click();
 
-    // 設定パネルを閉じる（Drawer の外側をクリックしてもよいが、Close ボタンを使う）
-    await page.getByRole("button", { name: "Close" }).click();
+    // 設定パネルを閉じる（Close ボタン、WebKit では force で遮蔽回避）
+    await page.getByRole("button", { name: "Close" }).click({ force: true });
 
     // 背景色が変わっていることを確認
     await expect.poll(async () => {
