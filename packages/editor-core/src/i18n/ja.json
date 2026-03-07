@@ -465,7 +465,20 @@
     "docsUploadSuccess": "アップロードしました",
     "docsDeleteSuccess": "削除しました",
     "docsUploadError": "アップロードに失敗しました",
-    "docsDeleteError": "削除に失敗しました"
+    "docsDeleteError": "削除に失敗しました",
+    "sitesPage": "サイト",
+    "sitesEdit": "レイアウト編集",
+    "sitesFileList": "ファイル一覧",
+    "sitesCardArea": "カード配置エリア",
+    "sitesSave": "保存",
+    "sitesSaveSuccess": "レイアウトを保存しました",
+    "sitesSaveError": "レイアウトの保存に失敗しました",
+    "sitesLoadError": "レイアウトの読み込みに失敗しました",
+    "sitesCardTitle": "タイトル",
+    "sitesCardDescription": "説明文",
+    "sitesCardThumbnail": "サムネイル URL",
+    "sitesEmpty": "カードがありません",
+    "sitesCardDelete": "カードを削除"
   },
   "Common": {
     "ok": "OK",

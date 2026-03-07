@@ -465,7 +465,20 @@
     "docsUploadSuccess": "Uploaded successfully",
     "docsDeleteSuccess": "Deleted successfully",
     "docsUploadError": "Failed to upload",
-    "docsDeleteError": "Failed to delete"
+    "docsDeleteError": "Failed to delete",
+    "sitesPage": "Sites",
+    "sitesEdit": "Edit Layout",
+    "sitesFileList": "File List",
+    "sitesCardArea": "Card Area",
+    "sitesSave": "Save",
+    "sitesSaveSuccess": "Layout saved",
+    "sitesSaveError": "Failed to save layout",
+    "sitesLoadError": "Failed to load layout",
+    "sitesCardTitle": "Title",
+    "sitesCardDescription": "Description",
+    "sitesCardThumbnail": "Thumbnail URL",
+    "sitesEmpty": "No cards",
+    "sitesCardDelete": "Delete card"
   },
   "Common": {
     "ok": "OK",
