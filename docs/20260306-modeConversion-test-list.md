@@ -1,7 +1,6 @@
 # モード変換テスト項目一覧
 
-更新日: 2026-03-06
-テスト総数: 33 テスト（modeConversion.test.ts）
+更新日: 2026-03-06 テスト総数: 33 テスト（modeConversion.test.ts）
 
 ---
 
@@ -75,8 +74,8 @@
 
 | # | テスト名 | 検証内容 | IN | OUT（期待値） |
 | --- | --- | --- | --- | --- |
-| 17 | コメントハイライト span が保護・復元される | `data-comment-id` 変換・復元 | `Hello <!-- comment-start:c1 -->world<!-- comment-end:c1 --> end.` | `data-comment-id="c1"` 含む、`CMT` なし |
-| 18 | コメントポイント span が保護・復元される | `data-comment-point` 変換・復元 | `Hello <!-- comment-point:c2 --> end.` | `data-comment-point="c2"` 含む、`CMTP` なし |
+| 17 | コメントハイライト span が保護・復元される | `data-comment-id` 変換・復元 | `Hello <span data-comment-id="c1">world</span> end.` | `data-comment-id="c1"` 含む、`CMT` なし |
+| 18 | コメントポイント span が保護・復元される | `data-comment-point` 変換・復元 | `Hello <span data-comment-point="c2"></span> end.` | `data-comment-point="c2"` 含む、`CMTP` なし |
 
 ### 1-5. Markdown 記法保持（2件）
 
@@ -91,7 +90,7 @@
 | --- | --- | --- | --- | --- |
 | 21 | インラインコード内のHTMLタグがそのまま保持される | バッククォート内の `<script>` `<iframe>` が除去されない | リスト項目内に `` `<script>` `` `` `<iframe>` `` | `` `<script>` `` `` `<iframe>` `` 含む |
 | 22 | 複数のインラインコードのHTMLタグがそのまま保持される | 複数のインラインコード内タグが保持される | `` `<div>` `` と `` `<span>` `` | `` `<div>` `` `` `<span>` `` 含む |
-| 23 | ダブルバッククォートのインラインコードのHTMLタグがそのまま保持される | 2重バッククォート内のタグが保持される | ```` `` `<script>` `` ```` | `` `<script>` `` 含む |
+| 23 | ダブルバッククォートのインラインコードのHTMLタグがそのまま保持される | 2重バッククォート内のタグが保持される | ``` `` `<script>` `` ``` | `` `<script>` `` 含む |
 | 24 | `<br>` `<hr>` テスト（#14）を分割 | `<hr>` タグ保持 | `上<hr>下` | `<hr>` 含む |
 
 > 注: #14 は実装上 `<br>` と `<hr>` が別テストのため、実テスト数は24件。
