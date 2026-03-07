@@ -123,6 +123,26 @@ describe("仕様4: テーブル", () => {
     expect(result).not.toContain("&gt;");
     expect(result).toContain("a > b");
   });
+
+  test("空セルの余分なスペースが正規化される", () => {
+    const md = "| A | B |\n| --- | --- |\n| x | |";
+    const result = fullRoundTrip(md, { withTable: true });
+    expect(result).toContain("| x | |");
+  });
+
+  test("コードスパン内のパイプがセル区切りと誤認されない", () => {
+    const md = "| A | B |\n| --- | --- |\n| `| --- |` 形式 | テスト |";
+    const result = fullRoundTrip(md, { withTable: true });
+    expect(result).toContain("`| --- |`");
+    expect(result).toContain("| テスト |");
+  });
+
+  test("コードスパン内の脚注 [^id] が変換されない", () => {
+    const md = "| A | B |\n| --- | --- |\n| `[^1]` | テスト |";
+    const result = fullRoundTrip(md, { withTable: true });
+    expect(result).toContain("`[^1]`");
+    expect(result).not.toContain("data-footnote-ref");
+  });
 });
 
 // ==========================================================================
@@ -147,6 +167,13 @@ describe("仕様5: コードスパン", () => {
     const result = fullRoundTrip(md, { withTable: true });
     // バッククォートが不必要に増加していないこと
     expect(result).not.toContain("````");
+  });
+
+  test("コードスパン内の [^id] が脚注に変換されない", () => {
+    const md = "`[^1]` はテスト";
+    const result = fullRoundTrip(md);
+    expect(result).toContain("`[^1]`");
+    expect(result).not.toContain("data-footnote-ref");
   });
 });
 
