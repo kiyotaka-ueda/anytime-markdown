@@ -1,6 +1,8 @@
 {
   "MarkdownEditor": {
     "placeholder": "Start writing...",
+    "externalChangeTitle": "External Change Detected",
+    "externalChangeDescription": "The file has been modified externally. Do you want to apply the changes?",
     "edit": "Edit",
     "split": "Split",
     "preview": "Preview",

@@ -65,6 +65,10 @@ export function App() {
         window.dispatchEvent(new CustomEvent('vscode-load-compare-file', { detail: message.content }));
         return;
       }
+      if (message?.type === 'externalChange' && typeof message.content === 'string') {
+        window.dispatchEvent(new CustomEvent('vscode-external-change', { detail: message.content }));
+        return;
+      }
       if (message?.type === 'setContent' && typeof message.content === 'string') {
         const isInitial = !ready;
         currentContent = message.content;

@@ -128,8 +128,16 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     const docChangeSubscription = vscode.workspace.onDidChangeTextDocument((e) => {
       if (e.document.uri.toString() !== document.uri.toString()) { return; }
       if (isApplyingWebviewEdit) { return; }
-      updateWebview();
-      vscode.window.showInformationMessage('ファイルが外部で変更されました。再読み込みしました。');
+      // Undo/Redo は即反映、それ以外（外部変更の同期）は確認ダイアログ経由
+      if (e.reason === vscode.TextDocumentChangeReason.Undo || e.reason === vscode.TextDocumentChangeReason.Redo) {
+        updateWebview();
+      } else {
+        webviewPanel.webview.postMessage({ type: 'setBaseUri', baseUri });
+        webviewPanel.webview.postMessage({
+          type: 'externalChange',
+          content: document.getText(),
+        });
+      }
     });
 
     // 外部変更検知（Claude Code、git 操作、他のエディタなど）
@@ -147,10 +155,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         if (diskContent === document.getText()) { return; }
         webviewPanel.webview.postMessage({ type: 'setBaseUri', baseUri });
         webviewPanel.webview.postMessage({
-          type: 'setContent',
+          type: 'externalChange',
           content: diskContent,
         });
-        vscode.window.showInformationMessage('ファイルが外部で変更されました。再読み込みしました。');
       } catch {
         // ファイル読み取り失敗時は無視
       }

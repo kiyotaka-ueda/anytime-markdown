@@ -1,7 +1,10 @@
 import type { Editor } from "@tiptap/react";
 import type { RefObject } from "react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
+import useConfirm from "./useConfirm";
 import { getMarkdownFromEditor, extractHeadings, type HeadingItem } from "../types";
+import { sanitizeMarkdown, preserveBlankLines } from "../utils/sanitizeMarkdown";
 
 interface UseEditorSideEffectsParams {
   editor: Editor | null;
@@ -18,6 +21,10 @@ export function useEditorSideEffects({
   setHeadingsRef,
   setEditorMarkdown,
 }: UseEditorSideEffectsParams): void {
+  const confirm = useConfirm();
+  const t = useTranslations("MarkdownEditor");
+  const pendingContentRef = useRef<string | null>(null);
+  const isDialogOpenRef = useRef(false);
   // ファイル変更検知
   useEffect(() => {
     if (!editor || !markDirty) return;
@@ -52,4 +59,40 @@ export function useEditorSideEffects({
     window.addEventListener('vscode-set-content', handler);
     return () => window.removeEventListener('vscode-set-content', handler);
   }, [editor]);
+
+  // 外部変更の確認ダイアログ（Claude Code、git 操作など）
+  useEffect(() => {
+    const handler = async (e: Event) => {
+      const content = (e as CustomEvent<string>).detail;
+      if (!editor || editor.isDestroyed) return;
+
+      // ダイアログ表示中は最新のコンテンツのみ保持
+      pendingContentRef.current = content;
+      if (isDialogOpenRef.current) return;
+
+      isDialogOpenRef.current = true;
+      try {
+        await confirm({
+          open: true,
+          title: t("externalChangeTitle"),
+          description: t("externalChangeDescription"),
+          icon: "info",
+        });
+        // OK: 最新の外部変更を反映
+        const latestContent = pendingContentRef.current;
+        if (latestContent !== null && !editor.isDestroyed) {
+          editor.commands.setContent(preserveBlankLines(sanitizeMarkdown(latestContent)), { emitUpdate: false });
+          setHeadingsRef.current(extractHeadings(editor));
+          setEditorMarkdown(getMarkdownFromEditor(editor));
+        }
+      } catch {
+        // キャンセル: 変更を破棄
+      } finally {
+        pendingContentRef.current = null;
+        isDialogOpenRef.current = false;
+      }
+    };
+    window.addEventListener('vscode-external-change', handler);
+    return () => window.removeEventListener('vscode-external-change', handler);
+  }, [editor, confirm, t]);
 }

@@ -1,6 +1,8 @@
 {
   "MarkdownEditor": {
     "placeholder": "マークダウンを入力...",
+    "externalChangeTitle": "外部変更の検出",
+    "externalChangeDescription": "ファイルが外部で変更されました。変更を反映しますか？",
     "edit": "編集",
     "split": "分割",
     "preview": "プレビュー",
