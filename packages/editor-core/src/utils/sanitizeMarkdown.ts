@@ -81,6 +81,20 @@ function markTightBlockTransitions(text: string): string {
  * 位置ベースの線形スキャンで分割する。
  * parts.join("") === md が保証される。
  */
+/**
+ * テーブル行内のコードスパンに含まれるパイプ `|` を `&#124;` にエスケープする。
+ * tiptap-markdown がコードスパン認識前にパイプでセル分割するのを防ぐ。
+ */
+function escapeTableCodeSpanPipes(md: string): string {
+  return md.replace(/^(\|.+\|)$/gm, (line) => {
+    // コードスパンを検出し、その中のパイプをエスケープ
+    return line.replace(/(`+)(.*?)\1/g, (m, ticks: string, content: string) => {
+      if (!content.includes("|")) return m;
+      return ticks + content.replace(/\|/g, "&#124;") + ticks;
+    });
+  });
+}
+
 export function splitByCodeBlocks(md: string): string[] {
   const parts: string[] = [];
   const len = md.length;
@@ -144,6 +158,8 @@ export function sanitizeMarkdown(md: string): string {
   md = preprocessMathInline(md);
   // Admonition 前処理: > [!TYPE] → <blockquote data-admonition-type>
   md = preprocessAdmonition(md);
+  // テーブル行内コードスパンのパイプをエスケープ（セル区切りとの誤認防止）
+  md = escapeTableCodeSpanPipes(md);
   // 脚注参照前処理: [^id] → <sup data-footnote-ref>
   md = preprocessFootnoteRefs(md);
   // コメント前処理: <!-- comment-start/end/point --> → <span data-comment-id/point>

@@ -41,7 +41,9 @@ export function getMarkdownFromEditor(editor: Editor): string {
   // + コードスパンのバッククォート区切りをテーブル行内のみ最小限に正規化
   md = md.replace(/^(\|.+\|)$/gm, (line) => {
     line = line.replace(/\\([.#>+\-*])/g, "$1");
-    line = line.replace(/&gt;/g, ">").replace(/&lt;/g, "<");
+    line = line.replace(/&gt;/g, ">").replace(/&lt;/g, "<").replace(/&#124;/g, "|");
+    // 空セルの余分なスペースを正規化: "|  |" → "| |"
+    line = line.replace(/\| {2,}(?=\|)/g, "| ");
     return normalizeCodeSpanDelimitersInLine(line);
   });
   // Plugin State からコメントデータを取得し、末尾に付加
