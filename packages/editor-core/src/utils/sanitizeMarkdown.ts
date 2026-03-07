@@ -90,7 +90,7 @@ function escapeTableCodeSpanPipes(md: string): string {
     // コードスパンを検出し、その中のエスケープされていないパイプを \| でエスケープ
     // markdown-it テーブルパーサーが \| をエスケープ済みパイプとして処理し、
     // コードスパンのパースでは \ が消費されて | のみが残る
-    return line.replace(/(`+)(.*?)\1/g, (m, ticks: string, content: string) => {
+    return line.replace(/(?<!`)(`+)(?!`)(.*?)(?<!`)\1(?!`)/g, (m, ticks: string, content: string) => {
       if (!content.includes("|")) return m;
       return ticks + content.replace(/(?<!\\)\|/g, "\\|") + ticks;
     });

@@ -98,4 +98,16 @@ describe("Entity roundtrip in code spans", () => {
       }
     });
   });
+
+  test("multi-backtick code spans in table do not escape cell separators", () => {
+    const md = "| 単独の `` ` `` あり | 2個 | ``` `` foo`bar `` ``` |";
+    const result = fullRoundTrip(md);
+    console.log("Input: ", md);
+    console.log("Output:", result);
+    // セル区切りの | がエスケープされないこと
+    expect(result).not.toContain("あり \\|");
+    expect(result).not.toContain("\\| 2個");
+    // コードスパンが保持されること
+    expect(result).toContain("`` ` ``");
+  });
 });

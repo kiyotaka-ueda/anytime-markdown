@@ -43,7 +43,7 @@ export function getMarkdownFromEditor(editor: Editor): string {
     line = line.replace(/\\([.#>+\-*])/g, "$1");
     // コードスパンを保護: &lt;/&gt; 復元の対象外 + 内部の | を \| にエスケープ
     const codeSpans: string[] = [];
-    line = line.replace(/`[^`]*`/g, (m) => {
+    line = line.replace(/(?<!`)(`+)(?!`)(.*?)(?<!`)\1(?!`)/g, (m) => {
       // コードスパン内の | を \| にエスケープ（テーブルセル区切りとの衝突防止）
       codeSpans.push(m.replace(/(?<!\\)\|/g, "\\|"));
       return `\uE001CS${codeSpans.length - 1}\uE001`;
