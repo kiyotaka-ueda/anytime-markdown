@@ -14,6 +14,7 @@ import {
   Link as MuiLink,
   Typography,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import NextLink from 'next/link';
 import { useTranslations } from 'next-intl';
@@ -31,6 +32,8 @@ interface LayoutCard {
 
 export default function SitesBody() {
   const t = useTranslations('Landing');
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const [cards, setCards] = useState<LayoutCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -101,14 +104,18 @@ export default function SitesBody() {
             {cards.map((card) => (
               <Grid key={card.id} size={{ xs: 12, sm: 6, md: 4 }}>
                 <Card
+                  elevation={0}
                   sx={{
                     height: '100%',
                     display: 'flex',
                     flexDirection: 'column',
-                    transition: 'transform 0.2s, box-shadow 0.2s',
+                    bgcolor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                    border: 1,
+                    borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+                    borderRadius: 3,
+                    transition: 'border-color 0.2s',
                     '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: 6,
+                      borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)',
                     },
                   }}
                 >
@@ -126,12 +133,16 @@ export default function SitesBody() {
                         sx={{ objectFit: 'cover' }}
                       />
                     )}
-                    <CardContent sx={{ flex: 1 }}>
-                      <Typography variant="h6" component="h2" sx={{ fontWeight: 600, mb: 1 }}>
+                    <CardContent sx={{ flex: 1, p: 3.5 }}>
+                      <Typography
+                        variant="subtitle1"
+                        component="h2"
+                        sx={{ fontWeight: 700, mb: 1, color: 'text.primary' }}
+                      >
                         {card.title}
                       </Typography>
                       {card.description && (
-                        <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+                        <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.7 }}>
                           {card.description}
                         </Typography>
                       )}
