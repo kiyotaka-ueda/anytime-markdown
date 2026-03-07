@@ -108,7 +108,6 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           fontSize: config.get<number>('fontSize', 0),
           lineHeight: config.get<number>('lineHeight', 1.6),
           editorMaxWidth: config.get<number>('editorMaxWidth', 0),
-          showPageBreakGuide: false,
         },
       });
     };
@@ -204,8 +203,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           break;
 
         case 'contentChanged': {
-          const newContent = message.content;
+          let newContent = message.content;
           if (typeof newContent !== 'string') { return; }
+          // POSIX 準拠: テキストファイルは末尾改行で終わる
+          if (newContent && !newContent.endsWith("\n")) { newContent += "\n"; }
           if (newContent === document.getText()) { return; }
 
           if (debounceTimer) { clearTimeout(debounceTimer); }

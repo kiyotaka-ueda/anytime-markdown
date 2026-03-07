@@ -25,7 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN npm install -g @anthropic-ai/claude-code
 
 # Playwright ブラウザとシステム依存パッケージのインストール
-RUN npx playwright install --with-deps chromium
+RUN npx playwright install --with-deps
 
 ENV PATH="/home/node/.local/bin:${PATH}"
 

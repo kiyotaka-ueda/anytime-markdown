@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { openEmptyEditor } from "./helpers";
 
 test.describe("File Operations", () => {
   test.beforeEach(async ({ page }) => {
@@ -9,13 +10,7 @@ test.describe("File Operations", () => {
       delete (window as Record<string, unknown>)["showOpenFilePicker"];
       delete (window as Record<string, unknown>)["showSaveFilePicker"];
     });
-    await page.goto("/markdown");
-    await page.locator(".tiptap").waitFor({ state: "visible" });
-    // ウェルカムコンテンツをクリア
-    const editor = page.locator(".tiptap");
-    await editor.click();
-    await page.keyboard.press("Control+a");
-    await page.keyboard.press("Backspace");
+    await openEmptyEditor(page);
   });
 
   test("download markdown file", async ({ page }) => {

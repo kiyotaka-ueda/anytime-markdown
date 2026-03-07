@@ -1,20 +1,17 @@
 import { test, expect } from "@playwright/test";
+import { openEmptyEditor } from "./helpers";
 
 test.describe("Search and Replace", () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
-    await page.goto("/markdown");
-    await page.locator(".tiptap").waitFor({ state: "visible" });
-    // ウェルカムコンテンツをクリア
-    const editor = page.locator(".tiptap");
-    await editor.click();
-    await page.keyboard.press("Control+a");
-    await page.keyboard.press("Backspace");
+    await openEmptyEditor(page);
+    // WebKit/Firefox でエディタの初期化完了を待つ
+    await page.locator(".tiptap").click();
+    await page.waitForTimeout(300);
   });
 
   test("search highlights matches", async ({ page }) => {
     const editor = page.locator(".tiptap");
-    await editor.click();
     // 繰り返し単語を含むテキストを入力
     await page.keyboard.type("apple banana apple cherry apple");
 
@@ -36,7 +33,6 @@ test.describe("Search and Replace", () => {
 
   test("replace text", async ({ page }) => {
     const editor = page.locator(".tiptap");
-    await editor.click();
     await page.keyboard.type("foo bar foo baz foo");
 
     // Ctrl+H で検索/置換を開く
@@ -66,11 +62,9 @@ test.describe("Search and Replace", () => {
 
   test("regex search", async ({ page }) => {
     const editor = page.locator(".tiptap");
-    await editor.click();
     await page.keyboard.type("cat123 dog456 cat789");
 
-    // エディタにフォーカスを確保してから Ctrl+F で検索バーを開く
-    await editor.click();
+    // Ctrl+F で検索バーを開く
     await page.keyboard.press("Control+f");
 
     // 検索バーが表示されるまで待機

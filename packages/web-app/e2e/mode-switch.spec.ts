@@ -1,15 +1,14 @@
 import { test, expect } from "@playwright/test";
+import { openEmptyEditor } from "./helpers";
 
 test.describe("Mode Switch", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/markdown");
-    await page.locator(".tiptap").waitFor({ state: "visible" });
+    await openEmptyEditor(page);
   });
 
   test("switch to source mode and back preserves content", async ({ page }) => {
     const editor = page.locator(".tiptap");
     await editor.click();
-    await page.keyboard.press("Control+a");
     await page.keyboard.type("Test content for mode switch");
 
     // ソースモードに切替
