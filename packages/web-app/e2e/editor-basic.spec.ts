@@ -1,13 +1,10 @@
 import { test, expect } from "@playwright/test";
+import { openEmptyEditor } from "./helpers";
 
 test.describe("Editor Basic", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/markdown");
-    // ウェルカムコンテンツの読み込みを待機
-    await page.locator(".tiptap").waitFor({ state: "visible" });
-  });
-
   test("page loads with editor and toolbar", async ({ page }) => {
+    await page.goto("/markdown");
+    await page.locator(".tiptap").waitFor({ state: "visible" });
     // ツールバーが表示される
     await expect(page.getByRole("toolbar", { name: /editor/i })).toBeVisible();
     // エディタ領域が表示される
@@ -17,18 +14,17 @@ test.describe("Editor Basic", () => {
   });
 
   test("can type text in editor", async ({ page }) => {
+    await openEmptyEditor(page);
     const editor = page.locator(".tiptap");
-    // エディタをクリアしてテキスト入力
     await editor.click();
-    await page.keyboard.press("Control+a");
     await page.keyboard.type("Hello Playwright");
     await expect(editor).toContainText("Hello Playwright");
   });
 
   test("can apply bold formatting via toolbar", async ({ page }) => {
+    await openEmptyEditor(page);
     const editor = page.locator(".tiptap");
     await editor.click();
-    await page.keyboard.press("Control+a");
     await page.keyboard.type("bold text");
     // テキスト選択
     await page.keyboard.press("Control+a");

@@ -1,16 +1,11 @@
 import { test, expect } from "@playwright/test";
+import { openEmptyEditor } from "./helpers";
 
 test.describe("Toolbar", () => {
   test.beforeEach(async ({ page }) => {
     // デスクトップ幅でツールバーボタンを表示
     await page.setViewportSize({ width: 1280, height: 720 });
-    await page.goto("/markdown");
-    await page.locator(".tiptap").waitFor({ state: "visible" });
-    // ウェルカムコンテンツをクリア
-    const editor = page.locator(".tiptap");
-    await editor.click();
-    await page.keyboard.press("Control+a");
-    await page.keyboard.press("Backspace");
+    await openEmptyEditor(page);
   });
 
   test("insert heading via slash command", async ({ page }) => {
