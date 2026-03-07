@@ -478,7 +478,12 @@
     "sitesCardDescription": "Description",
     "sitesCardThumbnail": "Thumbnail URL",
     "sitesEmpty": "No cards",
-    "sitesCardDelete": "Delete card"
+    "sitesCardDelete": "Delete card",
+    "sitesCardTags": "Tags (comma separated)",
+    "sitesFilterAll": "All",
+    "docsEditPage": "Edit",
+    "siteDescription": "Site description",
+    "docsEmptyHint": "Add documents from the admin page"
   },
   "Common": {
     "ok": "OK",

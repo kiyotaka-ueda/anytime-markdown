@@ -478,7 +478,12 @@
     "sitesCardDescription": "説明文",
     "sitesCardThumbnail": "サムネイル URL",
     "sitesEmpty": "カードがありません",
-    "sitesCardDelete": "カードを削除"
+    "sitesCardDelete": "カードを削除",
+    "sitesCardTags": "タグ（カンマ区切り）",
+    "sitesFilterAll": "すべて",
+    "docsEditPage": "編集",
+    "siteDescription": "サイトの説明",
+    "docsEmptyHint": "管理画面からドキュメントを登録してください"
   },
   "Common": {
     "ok": "OK",

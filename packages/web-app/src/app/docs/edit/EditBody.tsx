@@ -64,6 +64,7 @@ interface LayoutCard {
   title: string;
   description: string;
   thumbnail: string;
+  tags: string[];
   order: number;
 }
 
@@ -125,16 +126,18 @@ export default function EditBody() {
   const tCommon = useTranslations('Common');
   const [files, setFiles] = useState<DocFile[]>([]);
   const [cards, setCards] = useState<LayoutCard[]>([]);
+  const [siteDescription, setSiteDescription] = useState('');
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' } | null>(null);
   const [editCard, setEditCard] = useState<LayoutCard | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DocFile | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const editFormRef = useRef<{ title: string; description: string; thumbnail: string }>({
+  const editFormRef = useRef<{ title: string; description: string; thumbnail: string; tags: string }>({
     title: '',
     description: '',
     thumbnail: '',
+    tags: '',
   });
 
   const sensors = useSensors(
@@ -154,10 +157,11 @@ export default function EditBody() {
   useEffect(() => {
     Promise.all([
       fetchFiles(),
-      fetch('/api/sites/layout').then((r) => r.json()) as Promise<{ cards: LayoutCard[] }>,
+      fetch('/api/sites/layout').then((r) => r.json()) as Promise<{ cards: LayoutCard[]; siteDescription?: string }>,
     ])
       .then(([, layoutData]) => {
-        setCards(layoutData.cards.sort((a, b) => a.order - b.order));
+        setCards(layoutData.cards.map((c) => ({ ...c, tags: c.tags ?? [] })).sort((a, b) => a.order - b.order));
+        if (layoutData.siteDescription) setSiteDescription(layoutData.siteDescription);
       })
       .catch(() => setSnackbar({ message: t('sitesLoadError'), severity: 'error' }))
       .finally(() => setLoading(false));
@@ -211,6 +215,7 @@ export default function EditBody() {
           title: file.name.replace(/\.md$/, ''),
           description: '',
           thumbnail: '',
+          tags: [],
           order: prev.length,
         },
       ];
@@ -244,6 +249,7 @@ export default function EditBody() {
       title: card.title,
       description: card.description,
       thumbnail: card.thumbnail,
+      tags: (card.tags ?? []).join(', '),
     };
   }, []);
 
@@ -252,7 +258,13 @@ export default function EditBody() {
     setCards((prev) =>
       prev.map((c) =>
         c.id === editCard.id
-          ? { ...c, title: editFormRef.current.title, description: editFormRef.current.description, thumbnail: editFormRef.current.thumbnail }
+          ? {
+              ...c,
+              title: editFormRef.current.title,
+              description: editFormRef.current.description,
+              thumbnail: editFormRef.current.thumbnail,
+              tags: editFormRef.current.tags.split(',').map((s) => s.trim()).filter(Boolean),
+            }
           : c,
       ),
     );
@@ -260,7 +272,7 @@ export default function EditBody() {
   }, [editCard]);
 
   const handleSave = useCallback(async () => {
-    const layout = { cards: cards.map((c, i) => ({ ...c, order: i })) };
+    const layout = { cards: cards.map((c, i) => ({ ...c, order: i })), siteDescription };
 
     try {
       const res = await fetch('/api/sites/layout', {
@@ -321,6 +333,15 @@ export default function EditBody() {
             {t('sitesSave')}
           </Button>
         </Box>
+
+        <TextField
+          label={t('siteDescription')}
+          value={siteDescription}
+          onChange={(e) => setSiteDescription(e.target.value)}
+          fullWidth
+          size="small"
+          sx={{ mb: 3 }}
+        />
 
         <Box sx={{ display: 'flex', gap: 3, flexDirection: { xs: 'column', md: 'row' } }}>
           {/* 左パネル: ファイル一覧 */}
@@ -484,6 +505,14 @@ export default function EditBody() {
             fullWidth
             size="small"
             placeholder="https://..."
+          />
+          <TextField
+            label={t('sitesCardTags')}
+            defaultValue={(editCard?.tags ?? []).join(', ')}
+            onChange={(e) => { editFormRef.current.tags = e.target.value; }}
+            fullWidth
+            size="small"
+            placeholder="tag1, tag2, tag3"
           />
         </DialogContent>
         <DialogActions>
