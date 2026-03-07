@@ -67,8 +67,8 @@ test.describe("Outline", () => {
     const outlineNav = page.getByRole("navigation", { name: "Heading navigation" });
     await expect(outlineNav).toBeVisible();
 
-    // Fold All ボタンをクリック
-    await outlineNav.getByRole("button", { name: "Fold All" }).click();
+    // Fold All ボタンをクリック（Tooltip が覆う場合があるため force）
+    await outlineNav.getByRole("button", { name: "Fold All" }).click({ force: true });
 
     // heading-folded クラスがエディタ内に出現する
     const foldedHeadings = page.locator(".tiptap .heading-folded");
@@ -77,7 +77,7 @@ test.describe("Outline", () => {
     expect(foldedCount).toBeGreaterThan(0);
 
     // ボタンが Unfold All に変わっているのでクリック
-    await outlineNav.getByRole("button", { name: "Unfold All" }).click();
+    await outlineNav.getByRole("button", { name: "Unfold All" }).click({ force: true });
 
     // heading-folded クラスがなくなる
     await expect(page.locator(".tiptap .heading-folded")).toHaveCount(0);
