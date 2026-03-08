@@ -7,7 +7,6 @@ import {
   IconButton,
   List,
   ListItem,
-  ListItemButton,
   ListItemIcon,
   ListItemText,
   Typography,
@@ -16,24 +15,20 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import DescriptionIcon from '@mui/icons-material/Description';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import type { useTranslations } from 'next-intl';
-import type { DocFile, LayoutCard } from '../../../types/layout';
+import type { DocFile } from '../../../types/layout';
 
 interface FileListPanelProps {
   files: DocFile[];
-  cards: LayoutCard[];
   fileInputRef: RefObject<HTMLInputElement | null>;
   onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onAddCard: (file: DocFile) => void;
   onDeleteRequest: (file: DocFile) => void;
   t: ReturnType<typeof useTranslations>;
 }
 
 export default function FileListPanel({
   files,
-  cards,
   fileInputRef,
   onUpload,
-  onAddCard,
   onDeleteRequest,
   t,
 }: FileListPanelProps) {
@@ -55,40 +50,30 @@ export default function FileListPanel({
       <input ref={fileInputRef} type="file" accept=".md" hidden onChange={onUpload} />
       <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper', maxHeight: 400, overflow: 'auto' }}>
         <List dense disablePadding>
-          {files.map((file) => {
-            const alreadyAdded = cards.some((c) => c.docKey === file.key);
-            return (
-              <ListItem
-                key={file.key}
-                disablePadding
-                secondaryAction={
-                  <IconButton
-                    edge="end"
-                    size="small"
-                    aria-label={t('docsDelete')}
-                    onClick={() => onDeleteRequest(file)}
-                    sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                }
-              >
-                <ListItemButton
-                  onClick={() => onAddCard(file)}
-                  disabled={alreadyAdded}
-                  sx={{ opacity: alreadyAdded ? 0.5 : 1 }}
+          {files.map((file) => (
+            <ListItem
+              key={file.key}
+              secondaryAction={
+                <IconButton
+                  edge="end"
+                  size="small"
+                  aria-label={t('docsDelete')}
+                  onClick={() => onDeleteRequest(file)}
+                  sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}
                 >
-                  <ListItemIcon sx={{ minWidth: 36 }}>
-                    <DescriptionIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={file.name}
-                    primaryTypographyProps={{ fontSize: '0.85rem', noWrap: true }}
-                  />
-                </ListItemButton>
-              </ListItem>
-            );
-          })}
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              }
+            >
+              <ListItemIcon sx={{ minWidth: 36 }}>
+                <DescriptionIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+              </ListItemIcon>
+              <ListItemText
+                primary={file.name}
+                primaryTypographyProps={{ fontSize: '0.85rem', noWrap: true }}
+              />
+            </ListItem>
+          ))}
         </List>
       </Box>
     </Box>
