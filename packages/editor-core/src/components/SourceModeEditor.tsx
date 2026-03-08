@@ -117,6 +117,9 @@ export function SourceModeEditor({
         borderTopRightRadius: 0,
         maxHeight: editorHeight,
         overflow: "auto",
+        "&:focus-within": {
+          outline: "none",
+        },
       }}
     >
       <Box sx={{ display: "flex", minHeight: "100%" }}>
@@ -178,12 +181,18 @@ export function SourceModeEditor({
               ...sharedPaddingSx,
               border: "none",
               outline: "none",
+              boxShadow: "none",
               resize: "none",
               overflow: "hidden",
               ...sharedTextSx,
               color: theme.palette.text.primary,
               bgcolor: "transparent",
               caretColor: theme.palette.text.primary,
+              "&:focus": {
+                border: "none",
+                outline: "none",
+                boxShadow: "none",
+              },
             }}
           />
         </Box>
