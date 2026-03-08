@@ -8,7 +8,6 @@ import { useEditor } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
 import { getBaseExtensions } from "../editorExtensions";
 import { useMergeDiff } from "../hooks/useMergeDiff";
-import { useCodeBlockAutoCollapse } from "../hooks/useCodeBlockAutoCollapse";
 import { useDiffBackground } from "../hooks/useDiffBackground";
 import { useDiffHighlight } from "../hooks/useDiffHighlight";
 import { useScrollSync } from "../hooks/useScrollSync";
@@ -272,7 +271,7 @@ export function InlineMergeView({
 
   // Right tiptap editor (for WYSIWYG mode)
   const rightEditor = useEditor({
-    extensions: getBaseExtensions(),
+    extensions: getBaseExtensions({ disableComments: true }),
     editorProps: {
       handleDOMEvents: {
         click: (_view, event) => {
@@ -352,8 +351,6 @@ export function InlineMergeView({
   }, [sourceMode, rightEditor, rightText]);
 
   useDiffHighlight(sourceMode, leftEditor, rightEditor);
-
-  useCodeBlockAutoCollapse(sourceMode, leftEditor, rightEditor);
 
   useScrollSync(leftContainerRef, rightScrollRef);
 
