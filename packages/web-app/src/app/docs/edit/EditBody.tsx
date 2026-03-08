@@ -19,7 +19,6 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import LandingHeader from '../../components/LandingHeader';
@@ -53,6 +52,15 @@ export default function EditBody() {
     handleDeleteFile,
     handleAddCategory,
     handleDeleteCategory,
+    handleRemoveItem,
+    handleUpdateField,
+    handleUpdateItemDisplayName,
+    handleReorderItems,
+    handleDropFile,
+    handleDropUrl,
+    urlLinks,
+    handleAddUrlLink,
+    handleDeleteUrlLink,
     handleDragStart,
     handleDragEnd,
     handleEditOpen,
@@ -93,14 +101,6 @@ export default function EditBody() {
           </Typography>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button
-              variant="outlined"
-              startIcon={<AddIcon />}
-              onClick={handleAddCategory}
-              sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
-            >
-              {t('sitesCategoryAdd')}
-            </Button>
-            <Button
               variant="contained"
               startIcon={<SaveIcon />}
               onClick={handleSave}
@@ -133,6 +133,9 @@ export default function EditBody() {
             fileInputRef={fileInputRef}
             onUpload={handleUpload}
             onDeleteRequest={setDeleteTarget}
+            urlLinks={urlLinks}
+            onAddUrlLink={handleAddUrlLink}
+            onDeleteUrlLink={handleDeleteUrlLink}
             t={t}
           />
           <CategoryAreaPanel
@@ -141,8 +144,14 @@ export default function EditBody() {
             sensors={sensors}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
-            onEdit={handleEditOpen}
             onDelete={handleDeleteCategory}
+            onRemoveItem={handleRemoveItem}
+            onUpdateField={handleUpdateField}
+            onUpdateItemDisplayName={handleUpdateItemDisplayName}
+            onReorderItems={handleReorderItems}
+            onDropFile={handleDropFile}
+            onDropUrl={handleDropUrl}
+            onAdd={handleAddCategory}
             t={t}
           />
         </Box>

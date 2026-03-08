@@ -28,6 +28,7 @@ export function useLayoutEditor() {
   const [editCategory, setEditCategory] = useState<LayoutCategory | null>(null);
   const [editItems, setEditItems] = useState<LayoutCategoryItem[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<DocFile | null>(null);
+  const [urlLinks, setUrlLinks] = useState<{ url: string; displayName: string }[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFormRef = useRef<{ title: string; description: string }>({
@@ -41,7 +42,7 @@ export function useLayoutEditor() {
   );
 
   const fetchFiles = useCallback(() => {
-    return fetch('/api/docs')
+    return fetch('/api/docs', { cache: 'no-store' })
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json() as Promise<{ files: DocFile[] }>;
@@ -55,11 +56,20 @@ export function useLayoutEditor() {
       fetch('/api/sites/layout').then((r) => r.json()) as Promise<{ categories: LayoutCategory[]; siteDescription?: string }>,
     ])
       .then(([, layoutData]) => {
-        setCategories(
-          (layoutData.categories ?? [])
-            .map((c) => ({ ...c, items: c.items ?? [] }))
-            .sort((a, b) => a.order - b.order),
-        );
+        const cats = (layoutData.categories ?? [])
+          .map((c) => ({ ...c, items: c.items ?? [] }))
+          .sort((a, b) => a.order - b.order);
+        setCategories(cats);
+        // URLリンクをカテゴリ内アイテムから収集して復元
+        const urls = new Map<string, string>();
+        for (const c of cats) {
+          for (const item of c.items) {
+            if (item.url && !urls.has(item.url)) {
+              urls.set(item.url, item.displayName);
+            }
+          }
+        }
+        setUrlLinks(Array.from(urls, ([url, displayName]) => ({ url, displayName })));
         if (layoutData.siteDescription) setSiteDescription(layoutData.siteDescription);
       })
       .catch(() => setSnackbar({ message: t('sitesLoadError'), severity: 'error' }))
@@ -67,20 +77,28 @@ export function useLayoutEditor() {
   }, [t, fetchFiles]);
 
   const handleUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
 
-    const formData = new FormData();
-    formData.append('file', file);
+    let hasError = false;
+    for (const file of Array.from(fileList)) {
+      const formData = new FormData();
+      formData.append('file', file);
 
-    try {
-      const res = await fetch('/api/docs/upload', { method: 'POST', body: formData });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setSnackbar({ message: t('docsUploadSuccess'), severity: 'success' });
-      fetchFiles();
-    } catch {
-      setSnackbar({ message: t('docsUploadError'), severity: 'error' });
+      try {
+        const res = await fetch('/api/docs/upload', { method: 'POST', body: formData });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } catch {
+        hasError = true;
+      }
     }
+
+    if (hasError) {
+      setSnackbar({ message: t('docsUploadError'), severity: 'error' });
+    } else {
+      setSnackbar({ message: t('docsUploadSuccess'), severity: 'success' });
+    }
+    fetchFiles();
 
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, [t, fetchFiles]);
@@ -121,6 +139,72 @@ export function useLayoutEditor() {
 
   const handleDeleteCategory = useCallback((id: string) => {
     setCategories((prev) => prev.filter((c) => c.id !== id));
+  }, []);
+
+  const handleRemoveItem = useCallback((categoryId: string, docKey: string) => {
+    setCategories((prev) =>
+      prev.map((c) =>
+        c.id === categoryId ? { ...c, items: c.items.filter((item) => item.docKey !== docKey) } : c,
+      ),
+    );
+  }, []);
+
+  const handleUpdateField = useCallback((categoryId: string, field: 'title' | 'description', value: string) => {
+    setCategories((prev) =>
+      prev.map((c) => (c.id === categoryId ? { ...c, [field]: value } : c)),
+    );
+  }, []);
+
+  const handleUpdateItemDisplayName = useCallback((categoryId: string, docKey: string, displayName: string) => {
+    setCategories((prev) =>
+      prev.map((c) =>
+        c.id === categoryId
+          ? { ...c, items: c.items.map((item) => (item.docKey === docKey ? { ...item, displayName } : item)) }
+          : c,
+      ),
+    );
+  }, []);
+
+  const handleReorderItems = useCallback((categoryId: string, oldIndex: number, newIndex: number) => {
+    setCategories((prev) =>
+      prev.map((c) => {
+        if (c.id !== categoryId) return c;
+        const items = arrayMove(c.items, oldIndex, newIndex);
+        return { ...c, items };
+      }),
+    );
+  }, []);
+
+  const handleDropFile = useCallback((categoryId: string, fileKey: string, fileName: string) => {
+    setCategories((prev) =>
+      prev.map((c) => {
+        if (c.id !== categoryId) return c;
+        if (c.items.some((item) => item.docKey === fileKey)) return c;
+        return { ...c, items: [...c.items, { docKey: fileKey, displayName: fileName.replace(/\.md$/, '') }] };
+      }),
+    );
+  }, []);
+
+  const handleDropUrl = useCallback((categoryId: string, url: string, displayName: string) => {
+    const docKey = `url:${url}`;
+    setCategories((prev) =>
+      prev.map((c) => {
+        if (c.id !== categoryId) return c;
+        if (c.items.some((item) => item.docKey === docKey)) return c;
+        return { ...c, items: [...c.items, { docKey, displayName, url }] };
+      }),
+    );
+  }, []);
+
+  const handleAddUrlLink = useCallback((url: string, displayName: string) => {
+    setUrlLinks((prev) => {
+      if (prev.some((l) => l.url === url)) return prev;
+      return [...prev, { url, displayName }];
+    });
+  }, []);
+
+  const handleDeleteUrlLink = useCallback((url: string) => {
+    setUrlLinks((prev) => prev.filter((l) => l.url !== url));
   }, []);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -225,6 +309,15 @@ export function useLayoutEditor() {
     handleDeleteFile,
     handleAddCategory,
     handleDeleteCategory,
+    handleRemoveItem,
+    handleUpdateField,
+    handleUpdateItemDisplayName,
+    handleReorderItems,
+    handleDropFile,
+    handleDropUrl,
+    urlLinks,
+    handleAddUrlLink,
+    handleDeleteUrlLink,
     handleDragStart,
     handleDragEnd,
     handleEditOpen,
