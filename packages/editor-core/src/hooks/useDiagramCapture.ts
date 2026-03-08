@@ -95,9 +95,19 @@ async function renderMermaidLight(code: string): Promise<string> {
   const mermaid = mod.default;
   mermaid.initialize({ startOnLoad: false, suppressErrorRendering: true, theme: "default" });
   const id = `mermaid-capture-${Date.now()}`;
-  const { svg } = await mermaid.render(id, code);
-  document.querySelectorAll(`[id^="dmermaid-capture-"]`).forEach((el) => el.remove());
-  return svg;
+  const container = document.createElement("div");
+  container.id = `d${id}`;
+  container.style.position = "absolute";
+  container.style.left = "-9999px";
+  container.style.top = "-9999px";
+  document.body.appendChild(container);
+  try {
+    const { svg } = await mermaid.render(id, code, container);
+    return svg;
+  } finally {
+    container.remove();
+    document.querySelectorAll(`[id^="dmermaid-capture-"]`).forEach((el) => el.remove());
+  }
 }
 
 /** Build light-mode PlantUML SVG URL */

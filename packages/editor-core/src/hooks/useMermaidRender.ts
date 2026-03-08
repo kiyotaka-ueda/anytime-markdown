@@ -73,8 +73,18 @@ export function useMermaidRender({ code, isMermaid, isDark }: UseMermaidRenderPa
       if (cancelled) return;
       try {
         const id = `mermaid-${++mermaidIdCounter}`;
-        const { svg: rendered } = await mermaid.render(id, code);
-        if (!cancelled) { setSvg(rendered); setError(""); }
+        const container = document.createElement("div");
+        container.id = `d${id}`;
+        container.style.position = "absolute";
+        container.style.left = "-9999px";
+        container.style.top = "-9999px";
+        document.body.appendChild(container);
+        try {
+          const { svg: rendered } = await mermaid.render(id, code, container);
+          if (!cancelled) { setSvg(rendered); setError(""); }
+        } finally {
+          container.remove();
+        }
       } catch (err) {
         if (!cancelled) { setError(`Mermaid: ${err instanceof Error ? err.message : "render error"}`); setSvg(""); }
       }
