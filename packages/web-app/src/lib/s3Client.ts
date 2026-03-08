@@ -27,7 +27,7 @@ export async function fetchFromCdn(key: string): Promise<string | null> {
   if (!CLOUDFRONT_URL) return null;
 
   const url = `${CLOUDFRONT_URL}/${key}`;
-  const res = await fetch(url);
+  const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) return null;
   return res.text();
 }
