@@ -106,7 +106,7 @@ function InlineEditField({
   const colorMap = {
     title: value ? 'text.primary' : 'text.disabled',
     description: value ? 'text.secondary' : 'text.disabled',
-    item: value ? 'primary.main' : 'text.disabled',
+    item: value ? 'text.primary' : 'text.disabled',
   };
 
   return (
@@ -276,11 +276,11 @@ function SortableCategory({
           bgcolor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
           border: 1,
           borderColor: dragOver
-            ? 'primary.main'
+            ? '#e8a012'
             : isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
           borderRadius: 3,
           outline: dragOver ? '1px solid' : 'none',
-          outlineColor: 'primary.main',
+          outlineColor: '#e8a012',
         }}
         onDragOver={(e) => {
           if (e.dataTransfer.types.includes('application/x-doc-file') || e.dataTransfer.types.includes('application/x-url-link')) {
