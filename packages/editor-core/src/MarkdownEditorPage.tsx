@@ -411,7 +411,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     return () => window.removeEventListener('vscode-toggle-section-numbers', handler);
   }, [updateSettings]);
 
-  const { editorContainerRef, editorHeight } = useEditorHeight(isMobile, isMd);
+  const statusBarHeight = hideStatusBar ? 0 : 33;
+  const { editorContainerRef, editorHeight } = useEditorHeight(isMobile, isMd, statusBarHeight);
 
   const handleInsertTemplate = useCallback((template: MarkdownTemplate) => {
     if (sourceMode) {
