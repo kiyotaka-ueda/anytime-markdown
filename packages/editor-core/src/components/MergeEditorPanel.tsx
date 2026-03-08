@@ -121,6 +121,12 @@ export function getMergeTiptapStyles(theme: Theme, fontSize = 14, lineHeight = 1
         ...(options?.showHoverLabels && { "&::before": { content: "'Task'", right: "calc(100% + 8px)" } }),
       },
       ...hoverLabels,
+      // レビュー/readonlyモード時はhover labelを非表示
+      '&[data-review-mode="true"], &[data-readonly-mode="true"]': {
+        "& h1::before, & h2::before, & h3::before, & h4::before, & h5::before, & > p::before, & > blockquote > p::before, & li::before": {
+          display: "none !important" as unknown as string,
+        },
+      },
       "& code": {
         bgcolor: theme.palette.action.hover,
         color: theme.palette.mode === "dark" ? theme.palette.grey[300] : theme.palette.error.main,
