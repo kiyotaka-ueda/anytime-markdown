@@ -129,6 +129,10 @@ export function App() {
     vscode.postMessage({ type: 'commentsChanged', comments });
   }, []);
 
+  const handleStatusChange = useCallback((status: { line: number; col: number; charCount: number; lineCount: number; lineEnding: string; encoding: string }) => {
+    vscode.postMessage({ type: 'statusChanged', status });
+  }, []);
+
   useEffect(() => {
     const openLink = (e: MouseEvent) => {
       const anchor = (e.target as HTMLElement).closest('a');
@@ -158,7 +162,7 @@ export function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <ConfirmProvider>
-        <MarkdownEditorPage hideFileOps hideUndoRedo hideSettings hideHelp hideVersionInfo hideOutline onCompareModeChange={handleCompareModeChange} onHeadingsChange={handleHeadingsChange} onCommentsChange={handleCommentsChange} />
+        <MarkdownEditorPage hideFileOps hideUndoRedo hideSettings hideHelp hideVersionInfo hideOutline hideComments hideTemplates hideStatusBar onCompareModeChange={handleCompareModeChange} onHeadingsChange={handleHeadingsChange} onCommentsChange={handleCommentsChange} onStatusChange={handleStatusChange} />
       </ConfirmProvider>
     </ThemeProvider>
   );

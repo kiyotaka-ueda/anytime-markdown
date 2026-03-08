@@ -7,6 +7,15 @@ import type { Editor } from "@tiptap/react";
 import type { EncodingLabel, TranslationFn } from "../types";
 import useConfirm from "../hooks/useConfirm";
 
+export interface StatusInfo {
+  line: number;
+  col: number;
+  charCount: number;
+  lineCount: number;
+  lineEnding: string;
+  encoding: string;
+}
+
 interface StatusBarProps {
   editor: Editor;
   sourceMode?: boolean;
@@ -17,9 +26,11 @@ interface StatusBarProps {
   onLineEndingChange?: (ending: "LF" | "CRLF") => void;
   encoding?: EncodingLabel;
   onEncodingChange?: (encoding: EncodingLabel) => void;
+  onStatusChange?: (status: StatusInfo) => void;
+  hidden?: boolean;
 }
 
-export const StatusBar = React.memo(function StatusBar({ editor, sourceMode, sourceText, t, fileName, isDirty, onLineEndingChange, encoding, onEncodingChange }: StatusBarProps) {
+export const StatusBar = React.memo(function StatusBar({ editor, sourceMode, sourceText, t, fileName, isDirty, onLineEndingChange, encoding, onEncodingChange, onStatusChange, hidden }: StatusBarProps) {
   const confirm = useConfirm();
   const [cursorLine, setCursorLine] = useState(1);
   const [cursorCol, setCursorCol] = useState(1);
@@ -74,6 +85,14 @@ export const StatusBar = React.memo(function StatusBar({ editor, sourceMode, sou
     ? (sourceText ?? "").split("\n").length
     : editor.state.doc.content.childCount;
   const lineEnding = useMemo(() => (sourceText ?? "").includes("\r\n") ? "CRLF" : "LF", [sourceText]);
+
+  const onStatusChangeRef = React.useRef(onStatusChange);
+  onStatusChangeRef.current = onStatusChange;
+  useEffect(() => {
+    onStatusChangeRef.current?.({ line: displayLine, col: displayCol, charCount, lineCount, lineEnding, encoding: encoding ?? "UTF-8" });
+  }, [displayLine, displayCol, charCount, lineCount, lineEnding, encoding]);
+
+  if (hidden) return null;
 
   return (
     <Box role="region" aria-label={t("statusBar")} sx={{ display: "flex", alignItems: "center", gap: 2, px: 1.5, py: 0.75, borderTop: 1, borderColor: "divider", flexWrap: "wrap", overflow: "hidden" }} contentEditable={false}>

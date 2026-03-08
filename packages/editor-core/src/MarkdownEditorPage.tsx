@@ -91,10 +91,14 @@ interface MarkdownEditorPageProps {
   readOnly?: boolean;
   hideToolbar?: boolean;
   hideOutline?: boolean;
+  hideComments?: boolean;
+  hideTemplates?: boolean;
+  hideStatusBar?: boolean;
+  onStatusChange?: (status: { line: number; col: number; charCount: number; lineCount: number; lineEnding: string; encoding: string }) => void;
   showReadonlyMode?: boolean;
 }
 
-export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, featuresUrl, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, externalContent, readOnly, hideToolbar, hideOutline, showReadonlyMode }: MarkdownEditorPageProps = {}) {
+export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, featuresUrl, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, externalContent, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideStatusBar, onStatusChange, showReadonlyMode }: MarkdownEditorPageProps = {}) {
   const theme = useTheme();
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
@@ -532,6 +536,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         onSwitchToReadonly={handleSwitchToReadonly}
         hideReadonlyToggle={!showReadonlyMode}
         hideOutline={hideOutline}
+        hideComments={hideComments}
+        hideTemplates={hideTemplates}
 
         mergeUndoRedo={inlineMergeOpen ? mergeUndoRedo : null}
         onOpenFile={handleOpenFile}
@@ -728,7 +734,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
       )}
 
       {/* Status bar */}
-      {editor && <StatusBar editor={editor} sourceMode={sourceMode} sourceText={sourceText} t={t} fileName={fileName} isDirty={isDirty} onLineEndingChange={handleLineEndingChange} encoding={encoding} onEncodingChange={handleEncodingChange} />}
+      {editor && <StatusBar editor={editor} sourceMode={sourceMode} sourceText={sourceText} t={t} fileName={fileName} isDirty={isDirty} onLineEndingChange={hideStatusBar ? undefined : handleLineEndingChange} encoding={encoding} onEncodingChange={hideStatusBar ? undefined : handleEncodingChange} onStatusChange={onStatusChange} hidden={hideStatusBar} />}
 
       <EditorMenuPopovers
         editor={editor}

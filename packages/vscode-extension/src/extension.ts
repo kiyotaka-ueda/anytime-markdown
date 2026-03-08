@@ -27,6 +27,28 @@ export function activate(context: vscode.ExtensionContext) {
 		treeDataProvider: commentProvider,
 	});
 
+	// ステータスバーアイテム（右側、テキストエディタと同等の位置）
+	const cursorStatusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+	const charCountItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
+	const lineCountItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 98);
+	const lineEndingItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 97);
+	const encodingItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 96);
+	const statusBarItems = [cursorStatusItem, charCountItem, lineCountItem, lineEndingItem, encodingItem];
+
+	const updateStatusBar = (status: { line: number; col: number; charCount: number; lineCount: number; lineEnding: string; encoding: string }) => {
+		cursorStatusItem.text = `Ln ${status.line}, Col ${status.col}`;
+		cursorStatusItem.tooltip = 'Go to Line';
+		charCountItem.text = `${status.charCount.toLocaleString()} chars`;
+		lineCountItem.text = `${status.lineCount.toLocaleString()} lines`;
+		lineEndingItem.text = status.lineEnding;
+		encodingItem.text = status.encoding;
+		statusBarItems.forEach(item => item.show());
+	};
+
+	const hideStatusBar = () => {
+		statusBarItems.forEach(item => item.hide());
+	};
+
 	// Webview からの変更通知を各パネルに反映
 	const provider = MarkdownEditorProvider.getInstance();
 	if (provider) {
@@ -35,6 +57,9 @@ export function activate(context: vscode.ExtensionContext) {
 		};
 		provider.onCommentsChanged = (comments) => {
 			commentProvider.update(comments as CommentData[]);
+		};
+		provider.onStatusChanged = (status) => {
+			updateStatusBar(status);
 		};
 	}
 
@@ -46,7 +71,13 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// カスタムエディタのアクティブ変更を監視
 	context.subscriptions.push(
-		vscode.window.onDidChangeActiveTextEditor(() => updateGitHistory()),
+		vscode.window.onDidChangeActiveTextEditor(() => {
+			updateGitHistory();
+			// テキストエディタがアクティブになった場合、Anytime のステータスバーを非表示
+			if (vscode.window.activeTextEditor) {
+				hideStatusBar();
+			}
+		}),
 	);
 
 	// activeDocumentUri の変更を検出するためのポーリング
@@ -61,6 +92,7 @@ export function activate(context: vscode.ExtensionContext) {
 			if (!currentUri) {
 				outlineProvider.clear();
 				commentProvider.clear();
+				hideStatusBar();
 			}
 		}
 		// コールバックの再設定（Provider 再生成時の対応）
@@ -73,6 +105,11 @@ export function activate(context: vscode.ExtensionContext) {
 		if (currentProvider && !currentProvider.onCommentsChanged) {
 			currentProvider.onCommentsChanged = (comments) => {
 				commentProvider.update(comments as CommentData[]);
+			};
+		}
+		if (currentProvider && !currentProvider.onStatusChanged) {
+			currentProvider.onStatusChanged = (status) => {
+				updateStatusBar(status);
 			};
 		}
 	}, 500);
@@ -204,6 +241,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		gitTreeView, outlineTreeView, commentTreeView,
+		...statusBarItems,
 		openEditorWithFile, compareCmd, compareWithCommit, scrollToHeading,
 		scrollToComment, resolveComment, unresolveComment, deleteComment,
 		filterCommentsAll, filterCommentsOpen, filterCommentsResolved,
