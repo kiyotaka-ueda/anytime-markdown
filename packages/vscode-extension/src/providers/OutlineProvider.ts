@@ -58,8 +58,8 @@ export class OutlineProvider implements vscode.TreeDataProvider<OutlineItem> {
 
 	private roots: OutlineItem[] = [];
 	private lastHeadings: HeadingData[] = [];
-	private _showSectionNumbers = true;
-	private _showBlockElements = true;
+	private _showSectionNumbers = false;
+	private _showBlockElements = false;
 
 	get showSectionNumbers(): boolean {
 		return this._showSectionNumbers;
