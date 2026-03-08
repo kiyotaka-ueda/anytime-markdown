@@ -27,7 +27,7 @@ export async function GET() {
       }));
 
     return NextResponse.json({ files }, {
-      headers: { 'Cache-Control': 'public, max-age=60, stale-while-revalidate=300' },
+      headers: { 'Cache-Control': 'no-store' },
     });
   } catch (e) {
     console.error('Failed to list S3 objects:', e);
