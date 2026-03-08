@@ -1,0 +1,98 @@
+'use client';
+
+import Box from '@mui/material/Box';
+import Container from '@mui/material/Container';
+import Typography from '@mui/material/Typography';
+import Link from '@mui/material/Link';
+import { useTranslations } from 'next-intl';
+import LandingHeader from '../components/LandingHeader';
+import SiteFooter from '../components/SiteFooter';
+
+export default function PrivacyBody() {
+  const t = useTranslations('Privacy');
+
+  return (
+    <div style={{ height: '100vh', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+      <LandingHeader />
+      <Container maxWidth="md" sx={{ py: 6, flex: 1 }}>
+        <Typography variant="h3" component="h1" gutterBottom>
+          {t('title')}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" gutterBottom>
+          {t('lastUpdated')}
+        </Typography>
+
+        <Section title={t('section1Title')}>
+          <P>{t('section1Body')}</P>
+        </Section>
+
+        <Section title={t('section2Title')}>
+          <P>{t.rich('section2Body', { strong: (chunks) => <strong>{chunks}</strong> })}</P>
+        </Section>
+
+        <Section title={t('section3Title')}>
+          <P>{t('section3Body')}</P>
+        </Section>
+
+        <Section title={t('section4Title')}>
+          <P>{t('section4Intro')}</P>
+          <Box component="ul" sx={{ pl: 3 }}>
+            <li>
+              <P>{t.rich('section4Plantuml', { strong: (chunks) => <strong>{chunks}</strong> })}</P>
+            </li>
+          </Box>
+        </Section>
+
+        <Section title={t('section5Title')}>
+          <P>{t('section5Body1')}</P>
+          <P>{t('section5Body2')}</P>
+        </Section>
+
+        <Section title={t('section6Title')}>
+          <P>{t('section6Body')}</P>
+        </Section>
+
+        <Section title={t('section7Title')}>
+          <P>{t('section7Body')}</P>
+        </Section>
+
+        <Section title={t('section8Title')}>
+          <P>
+            {t.rich('section8Body', {
+              link: (chunks) => (
+                <Link
+                  href="https://github.com/kiyotaka-ueda/anytime-markdown/issues"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {chunks}
+                </Link>
+              ),
+            })}
+          </P>
+        </Section>
+
+      </Container>
+      <SiteFooter />
+    </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <Box sx={{ mt: 4 }}>
+      <Typography variant="h5" component="h2" gutterBottom>
+        {title}
+      </Typography>
+      {children}
+    </Box>
+  );
+}
+
+function P({ children }: { children: React.ReactNode }) {
+  return (
+    <Typography variant="body1" paragraph sx={{ lineHeight: 1.8 }}>
+      {children}
+    </Typography>
+  );
+}
