@@ -7,6 +7,7 @@ import { alpha, useTheme } from "@mui/material/styles";
 import { useEditor } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
 import { getBaseExtensions } from "../editorExtensions";
+import { ReviewModeExtension } from "../extensions/reviewModeExtension";
 import { useMergeDiff } from "../hooks/useMergeDiff";
 import { useDiffBackground } from "../hooks/useDiffBackground";
 import { useDiffHighlight } from "../hooks/useDiffHighlight";
@@ -262,13 +263,25 @@ export function InlineMergeView({
   }, []);
   const [rightDragOver, setRightDragOver] = useState(false);
 
-  // Right tiptap editor (for WYSIWYG mode) – readonly
+  // Right tiptap editor (for WYSIWYG mode) – readonly (cursor visible)
   const rightEditor = useEditor({
-    extensions: getBaseExtensions({ disableComments: true }),
-    editable: false,
+    extensions: [...getBaseExtensions({ disableComments: true }), ReviewModeExtension],
     content: "",
     immediatelyRender: false,
+    editorProps: {
+      handleDOMEvents: {
+        // Skip ProseMirror drop handling; let event bubble to parent Box handler
+        drop: () => true,
+      },
+    },
   });
+
+  // Enable transaction filter to block edits while keeping cursor visible
+  useEffect(() => {
+    if (rightEditor) {
+      rightEditor.storage.reviewMode.enabled = true;
+    }
+  }, [rightEditor]);
 
   // editorContent -> leftText sync
   useEffect(() => {
@@ -278,7 +291,9 @@ export function InlineMergeView({
   // rightText -> right tiptap editor sync
   useEffect(() => {
     if (rightEditor && !sourceMode) {
+      rightEditor.storage.reviewMode.enabled = false;
       rightEditor.commands.setContent(preserveBlankLines(rightText));
+      rightEditor.storage.reviewMode.enabled = true;
     }
   }, [rightText, rightEditor, sourceMode]);
 
@@ -286,7 +301,9 @@ export function InlineMergeView({
   const prevSourceMode = useRef(sourceMode);
   useEffect(() => {
     if (prevSourceMode.current && !sourceMode && rightEditor) {
+      rightEditor.storage.reviewMode.enabled = false;
       rightEditor.commands.setContent(preserveBlankLines(rightText));
+      rightEditor.storage.reviewMode.enabled = true;
     }
     prevSourceMode.current = sourceMode;
   }, [sourceMode, rightEditor, rightText]);
