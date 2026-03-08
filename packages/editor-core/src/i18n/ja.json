@@ -486,6 +486,10 @@
     "sitesCategoryRemoveItem": "ドキュメントを削除",
     "sitesCategoryEmpty": "ドキュメントがありません",
     "sitesItemDisplayName": "表示名",
+    "sitesUrlLinks": "URLリンク",
+    "sitesUrlAdd": "追加",
+    "sitesUrlPlaceholder": "https://example.com または /path",
+    "sitesUrlDisplayName": "リンク名",
     "docsEditPage": "編集",
     "siteDescription": "サイトの説明",
     "docsEmptyHint": "管理画面からドキュメントを登録してください"

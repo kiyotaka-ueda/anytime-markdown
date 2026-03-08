@@ -3,6 +3,9 @@ import { z } from 'zod';
 export const layoutCategoryItemSchema = z.object({
   docKey: z.string().max(500),
   displayName: z.string().max(200),
+  url: z.string().max(2000).refine((v) => v.startsWith('/') || v.startsWith('http://') || v.startsWith('https://'), {
+    message: 'Must be a URL or an absolute path starting with /',
+  }).optional(),
 });
 
 export const layoutCategorySchema = z.object({

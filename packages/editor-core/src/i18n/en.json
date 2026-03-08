@@ -486,6 +486,10 @@
     "sitesCategoryRemoveItem": "Remove document",
     "sitesCategoryEmpty": "No documents",
     "sitesItemDisplayName": "Display name",
+    "sitesUrlLinks": "URL Links",
+    "sitesUrlAdd": "Add",
+    "sitesUrlPlaceholder": "https://example.com or /path",
+    "sitesUrlDisplayName": "Link name",
     "docsEditPage": "Edit",
     "siteDescription": "Site description",
     "docsEmptyHint": "Add documents from the admin page"

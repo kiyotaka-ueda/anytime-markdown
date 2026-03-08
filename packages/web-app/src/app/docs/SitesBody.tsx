@@ -111,8 +111,9 @@ export default function SitesBody({ initialData }: SitesBodyProps) {
                         {category.items.map((item) => (
                           <ListItem key={item.docKey} disablePadding>
                             <ListItemButton
-                              component={NextLink}
-                              href={`/docs/view?key=${encodeURIComponent(item.docKey)}`}
+                              component={item.url?.startsWith('http') ? 'a' : NextLink}
+                              href={item.url ?? `/docs/view?key=${encodeURIComponent(item.docKey)}`}
+                              {...(item.url?.startsWith('http') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                               sx={{
                                 borderRadius: 1,
                                 py: 0.5,
