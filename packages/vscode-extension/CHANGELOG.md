@@ -4,6 +4,18 @@ All notable changes to the "anytime-markdown" extension will be documented in th
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.5] - 2026-03-08
+
+### Added
+- devcontainer に GitHub MCP サーバー自動設定を追加
+- README に GitHub Personal Access Token の設定手順を追加
+
+### Fixed
+- /docs/view で別ドキュメントが表示されるキャッシュ問題を修正（Next.js Data Cache 無効化、Vary ヘッダー追加）
+- /docs ページのサーバーキャッシュを無効化（revalidate → force-dynamic）
+- _layout.json を CDN キャッシュではなく S3 から直接取得するよう変更
+- /privacy ページの言語切替が反映されない問題を修正（クライアントコンポーネントに分離）
+
 ## [0.2.4] - 2026-03-08
 
 ### Added
