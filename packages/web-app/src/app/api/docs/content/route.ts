@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { s3Client, DOCS_BUCKET, DOCS_PREFIX, fetchFromCdn } from '../../../../lib/s3Client';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   const key = request.nextUrl.searchParams.get('key');
 

@@ -17,15 +17,15 @@ FROM base AS local
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git openssh-client bash sudo tmux curl && \
+    git openssh-client sudo tmux && \
     echo "node ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
     rm -rf /var/lib/apt/lists/*
 
 # Claude Code CLI のインストール
 RUN npm install -g @anthropic-ai/claude-code
 
-# Playwright ブラウザとシステム依存パッケージのインストール
-RUN npx playwright install --with-deps
+# Playwright のシステム依存パッケージのインストール（root で実行）
+RUN npx playwright install-deps
 
 ENV PATH="/home/node/.local/bin:${PATH}"
 
@@ -33,17 +33,14 @@ ENV PATH="/home/node/.local/bin:${PATH}"
 RUN mkdir -p /home/node/.ssh /home/node/.claude && \
     chown -R node:node /home/node
 
-WORKDIR /anytime-markdown/
-
-COPY ./package.json ./
-RUN npm install
-
 # 作業ディレクトリの権限をnodeユーザーに変更
 RUN chown -R node:node /anytime-markdown
 
 USER node
 
-WORKDIR /anytime-markdown
+# Playwright ブラウザのインストール（node ユーザーで実行）
+RUN npx playwright install
+
 COPY --chown=node:node . .
 
 ENTRYPOINT ["sleep", "infinity"]
@@ -51,7 +48,6 @@ ENTRYPOINT ["sleep", "infinity"]
 # 開発サーバー用ステージ
 FROM base AS development
 
-WORKDIR /anytime-markdown
 COPY . .
 
 RUN npm run build
