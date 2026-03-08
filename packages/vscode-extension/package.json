@@ -19,6 +19,30 @@
   "icon": "images/camel_markdown.png",
   "main": "./dist/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "anytimeMarkdown",
+          "title": "Anytime Markdown",
+          "icon": "images/camel_markdown.png"
+        }
+      ]
+    },
+    "views": {
+      "anytimeMarkdown": [
+        {
+          "id": "anytimeMarkdown.gitHistory",
+          "name": "Git History",
+          "when": "activeCustomEditorId == anytimeMarkdown"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "anytimeMarkdown.gitHistory",
+        "contents": "No markdown file is open in Anytime editor.\n[Open with Anytime](command:anytime-markdown.openEditorWithFile)"
+      }
+    ],
     "commands": [
       {
         "command": "anytime-markdown.openEditorWithFile",
