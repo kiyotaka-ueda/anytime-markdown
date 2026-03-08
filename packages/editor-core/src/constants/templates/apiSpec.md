@@ -1,10 +1,12 @@
 # API Specification
 
+
 ## 1. Overview
 
 - **Base URL:** `https://api.example.com/v1`
 - **Authentication:** Bearer Token
 - **Content-Type:** `application/json`
+
 
 ## 2. Authentication
 
@@ -13,6 +15,7 @@ All requests require an `Authorization` header:
 ```
 Authorization: Bearer <token>
 ```
+
 
 ## 3. Endpoints
 
@@ -65,6 +68,7 @@ Authorization: Bearer <token>
 }
 ```
 
+
 ## 4. Error Codes
 
 | Code | Message | Description |
@@ -85,6 +89,7 @@ Authorization: Bearer <token>
   }
 }
 ```
+
 
 ## 5. Change History
 

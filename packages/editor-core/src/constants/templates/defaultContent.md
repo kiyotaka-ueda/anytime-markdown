@@ -89,11 +89,19 @@ $$
 ### Mermaid
 
 ```mermaid
-graph LR
-    A[Markdown] -->|parse| B[Editor]
-    B -->|render| C[Preview]
-    B -->|export| D[PDF]
-    B -->|serialize| E[.md File]
+flowchart LR
+    %% ノード定義
+    A["Markdown"]
+    B["Editor"]
+    C["Preview"]
+    D["PDF"]
+    E[".md File"]
+
+    %% 接続定義
+    A -->|"parse"| B
+    B -->|"render"| C
+    B -->|"export"| D
+    B -->|"serialize"| E
 ```
 
 

@@ -54,10 +54,10 @@ flowchart LR
     Sync ==> Build ==> Export ==> CapSync ==> Assets
 ```
 
-1. `npm run sync` を実行する。\
-2. `web-app` を `CAPACITOR_BUILD=true` で静的ビルドする。\
-3. Next.js が `out/` ディレクトリに静的ファイルをエクスポートする。\
-4. `cap sync` がアセットを Android プロジェクトにコピーする。\
+1. `npm run sync` を実行する。
+2. `web-app` を `CAPACITOR_BUILD=true` で静的ビルドする。
+3. Next.js が `out/` ディレクトリに静的ファイルをエクスポートする。
+4. `cap sync` がアセットを Android プロジェクトにコピーする。
 
 
 ### 3.2 ランタイム構成

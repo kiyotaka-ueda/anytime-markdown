@@ -146,9 +146,9 @@ flowchart TD
     Immediate --> Provider
 ```
 
-- 通常の編集は 300ms デバウンスで同期する。\
-- 100KB 以上の大ファイルは 800ms デバウンスに切り替える。\
-- 外部変更は確認ダイアログを表示してから反映する。\
+- 通常の編集は 300ms デバウンスで同期する。
+- 100KB 以上の大ファイルは 800ms デバウンスに切り替える。
+- 外部変更は確認ダイアログを表示してから反映する。
 - 自己編集の二重処理を防ぐため 2 秒間のグレースピリオドを設ける。
 
 
@@ -195,8 +195,8 @@ flowchart TD
 
 ### 7.2 Webview ビルドの制約
 
-- VS Code の CSP 制約により、コード分割は不可（`LimitChunkCountPlugin` で 1 チャンクに制限）。\
-- Webpack エイリアスで `next-intl` と `next/dynamic` をシムに差し替える。\
+- VS Code の CSP 制約により、コード分割は不可（`LimitChunkCountPlugin` で 1 チャンクに制限）。
+- Webpack エイリアスで `next-intl` と `next/dynamic` をシムに差し替える。
 - `@` エイリアスを `editor-core/src/` にマッピングする。
 
 
@@ -223,9 +223,9 @@ flowchart TD
 
 ## 10. セキュリティ
 
-- CSP（Content Security Policy）を nonce ベースで設定する。\
-- DOMPurify による XSS 防止を editor-core 側で実施する。\
-- リンクオープン時のパストラバーサル防止（`..` チェック、絶対パス拒否）を実装する。\
+- CSP（Content Security Policy）を nonce ベースで設定する。
+- DOMPurify による XSS 防止を editor-core 側で実施する。
+- リンクオープン時のパストラバーサル防止（`..` チェック、絶対パス拒否）を実装する。
 - 相対パスとワークスペースルートの両方でリンク先を解決する。
 
 

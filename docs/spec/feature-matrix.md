@@ -82,7 +82,7 @@
 
 ## 3. モード切替の制御
 
-各モードは排他的で、`localStorage` に状態を保持する。\
+各モードは排他的で、`localStorage` に状態を保持する。
 
 - `markdown-editor-source-mode`
 - `markdown-editor-review-mode`
