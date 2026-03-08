@@ -5,7 +5,7 @@
 
 ## 1. 概要
 
-Anytime Markdown のインフラストラクチャは、Netlify（Web ホスティング）、AWS S3（ドキュメントストレージ）、GitHub Actions（CI/CD）で構成される。
+Anytime Markdown のインフラストラクチャは、Netlify（Web ホスティング）、AWS S3（ドキュメントストレージ）、CloudFront（CDN）、GitHub Actions（CI/CD）で構成される。
 
 
 ## 2. 全体構成
@@ -23,7 +23,9 @@ flowchart TD
     end
 
     subgraph Storage ["ストレージ"]
+        CF["CloudFront<br/><small>CDN</small>"]
         S3["AWS S3<br/><small>ap-northeast-1</small>"]
+        CF --> S3
     end
 
     subgraph CI ["CI/CD"]
@@ -86,16 +88,16 @@ flowchart LR
 
 ### 3.3 Publish ジョブ（master のみ）
 
-`master` ブランチへの push 時に以下を実行する。\
+`master` ブランチへの push 時に以下を実行する。
 
-1. `vscode-extension/package.json` からバージョンを取得する。\
-2. 同一バージョンの Git タグが存在する場合はスキップする。\
-3. VSIX ファイルをビルド・パッケージングする。\
-4. `vsce publish` で VS Code Marketplace に公開する。\
-5. Git タグを作成する。\
-6. VSIX ファイルをアーティファクトとしてアップロードする。\
+1. `vscode-extension/package.json` からバージョンを取得する。
+2. 同一バージョンの Git タグが存在する場合はスキップする。
+3. VSIX ファイルをビルド・パッケージングする。
+4. `vsce publish` で VS Code Marketplace に公開する。
+5. Git タグを作成する。
+6. VSIX ファイルをアーティファクトとしてアップロードする。
 
-> 認証には GitHub Secrets の `VSCE_PAT` を使用する。\
+> 認証には GitHub Secrets の `VSCE_PAT` を使用する。
 
 
 ## 4. 開発環境
@@ -176,9 +178,9 @@ s3://{S3_DOCS_BUCKET}/
 
 ## 6. ホスティング（Netlify）
 
-- Next.js 15 の SSR をサポートする。\
-- `master` ブランチのデプロイでプロダクション更新する。\
-- プレビューデプロイは PR ごとに自動生成される。\
+- Next.js 15 の SSR をサポートする。
+- `master` ブランチのデプロイでプロダクション更新する。
+- プレビューデプロイは PR ごとに自動生成される。
 
 
 ## 7. セキュリティ設計
@@ -197,7 +199,7 @@ s3://{S3_DOCS_BUCKET}/
 
 ### 7.2 環境変数管理
 
-機密性の高い環境変数（AWS 認証情報、CMS パスワード、VSCE トークン）は以下で管理する。\
+機密性の高い環境変数（AWS 認証情報、CMS パスワード、VSCE トークン）は以下で管理する。
 
 - ローカル開発: `.env.local`（`.gitignore` に含む）
 - CI/CD: GitHub Secrets
@@ -222,9 +224,9 @@ flowchart LR
     Hotfix -->|"マージ"| Develop
 ```
 
-- `master`: 本番リリースブランチ。\
-- `develop`: 開発統合ブランチ。\
-- 作業ブランチは `develop` から作成し、完了後に `develop` へマージする。\
+- `master`: 本番リリースブランチ。
+- `develop`: 開発統合ブランチ。
+- 作業ブランチは `develop` から作成し、完了後に `develop` へマージする。
 - コミットメッセージは Conventional Commits 形式（`feat` / `fix` / `refactor` / `test` / `a11y` / `perf` / `security`）。
 
 

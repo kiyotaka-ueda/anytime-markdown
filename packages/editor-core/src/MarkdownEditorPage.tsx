@@ -70,6 +70,7 @@ import { sanitizeMarkdown, preserveBlankLines } from "./utils/sanitizeMarkdown";
 import { CommentPanel } from "./components/CommentPanel";
 import { parseCommentData } from "./utils/commentHelpers";
 import type { InlineComment } from "./utils/commentHelpers";
+import { commentDataPluginKey } from "./extensions/commentExtension";
 
 
 interface MarkdownEditorPageProps {
@@ -80,6 +81,8 @@ interface MarkdownEditorPageProps {
   hideVersionInfo?: boolean;
   featuresUrl?: string;
   onCompareModeChange?: (active: boolean) => void;
+  onHeadingsChange?: (headings: HeadingItem[]) => void;
+  onCommentsChange?: (comments: Array<{ id: string; text: string; resolved: boolean; createdAt: string; targetText: string; pos: number; isPoint: boolean }>) => void;
   themeMode?: 'light' | 'dark';
   onThemeModeChange?: (mode: 'light' | 'dark') => void;
   onLocaleChange?: (locale: string) => void;
@@ -87,10 +90,15 @@ interface MarkdownEditorPageProps {
   externalContent?: string;
   readOnly?: boolean;
   hideToolbar?: boolean;
+  hideOutline?: boolean;
+  hideComments?: boolean;
+  hideTemplates?: boolean;
+  hideStatusBar?: boolean;
+  onStatusChange?: (status: { line: number; col: number; charCount: number; lineCount: number; lineEnding: string; encoding: string }) => void;
   showReadonlyMode?: boolean;
 }
 
-export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, featuresUrl, onCompareModeChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, externalContent, readOnly, hideToolbar, showReadonlyMode }: MarkdownEditorPageProps = {}) {
+export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, featuresUrl, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, externalContent, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideStatusBar, onStatusChange, showReadonlyMode }: MarkdownEditorPageProps = {}) {
   const theme = useTheme();
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
@@ -253,8 +261,60 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   );
 
   // Update refs for useEditor callbacks
-  setHeadingsRef.current = setHeadings;
+  const onHeadingsChangeRef = useRef(onHeadingsChange);
+  onHeadingsChangeRef.current = onHeadingsChange;
+  setHeadingsRef.current = (h: HeadingItem[]) => {
+    setHeadings(h);
+    onHeadingsChangeRef.current?.(h);
+  };
   handleImportRef.current = handleImport;
+
+  // コメント変更通知
+  const onCommentsChangeRef = useRef(onCommentsChange);
+  onCommentsChangeRef.current = onCommentsChange;
+  const commentsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!editor || !onCommentsChangeRef.current) return;
+    const extractComments = () => {
+      const pluginState = commentDataPluginKey.getState(editor.state) as { comments: Map<string, InlineComment> } | undefined;
+      const comments = pluginState?.comments ?? new Map<string, InlineComment>();
+      const result: Array<{ id: string; text: string; resolved: boolean; createdAt: string; targetText: string; pos: number; isPoint: boolean }> = [];
+      for (const [, c] of comments) {
+        let targetText = '';
+        let pos = 0;
+        let isPoint = false;
+        editor.state.doc.descendants((node, nodePos) => {
+          if (pos > 0 || isPoint) return false;
+          if (node.type.name === 'commentPoint' && node.attrs.commentId === c.id) {
+            pos = nodePos;
+            isPoint = true;
+            return false;
+          }
+          if (node.isText) {
+            const mark = node.marks.find(m => m.type.name === 'commentHighlight' && m.attrs.commentId === c.id);
+            if (mark) {
+              targetText = node.text || '';
+              pos = nodePos;
+              return false;
+            }
+          }
+        });
+        result.push({ id: c.id, text: c.text, resolved: c.resolved, createdAt: c.createdAt, targetText, pos, isPoint });
+      }
+      onCommentsChangeRef.current?.(result);
+    };
+    const handler = () => {
+      if (commentsDebounceRef.current) clearTimeout(commentsDebounceRef.current);
+      commentsDebounceRef.current = setTimeout(extractComments, 300);
+    };
+    // 初回送信
+    handler();
+    editor.on('update', handler);
+    return () => {
+      editor.off('update', handler);
+      if (commentsDebounceRef.current) clearTimeout(commentsDebounceRef.current);
+    };
+  }, [editor]);
 
   // Floating toolbar positions (M-5: unified hook)
   // Table toolbar is now embedded in TableNodeView
@@ -284,7 +344,75 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
 
   useEditorSideEffects({ editor, isDirty, markDirty, setHeadingsRef, setEditorMarkdown });
 
-  const { editorContainerRef, editorHeight } = useEditorHeight(isMobile, isMd);
+  // VS Code TreeView からの見出しスクロール要求
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const pos = (e as CustomEvent<number>).detail;
+      if (!editor || editor.isDestroyed) return;
+      if (editor.isEditable) {
+        editor.chain().focus().setTextSelection(pos).run();
+      }
+      const domAtPos = editor.view.domAtPos(pos);
+      const node = domAtPos.node instanceof HTMLElement ? domAtPos.node : domAtPos.node.parentElement;
+      node?.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
+    window.addEventListener('vscode-scroll-to-heading', handler);
+    return () => window.removeEventListener('vscode-scroll-to-heading', handler);
+  }, [editor]);
+
+  // VS Code TreeView からのコメントスクロール要求
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const pos = (e as CustomEvent<number>).detail;
+      if (!editor || editor.isDestroyed) return;
+      if (editor.isEditable) {
+        editor.chain().focus().setTextSelection(pos + 1).run();
+      }
+      const domAtPos = editor.view.domAtPos(pos + 1);
+      const node = domAtPos.node instanceof HTMLElement ? domAtPos.node : domAtPos.node.parentElement;
+      node?.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
+    window.addEventListener('vscode-scroll-to-comment', handler);
+    return () => window.removeEventListener('vscode-scroll-to-comment', handler);
+  }, [editor]);
+
+  // VS Code TreeView からのコメント解決/再開
+  useEffect(() => {
+    if (!editor) return;
+    const handleResolve = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      editor.commands.resolveComment(id);
+    };
+    const handleUnresolve = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      editor.commands.unresolveComment(id);
+    };
+    const handleDelete = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      editor.commands.removeComment(id);
+    };
+    window.addEventListener('vscode-resolve-comment', handleResolve);
+    window.addEventListener('vscode-unresolve-comment', handleUnresolve);
+    window.addEventListener('vscode-delete-comment', handleDelete);
+    return () => {
+      window.removeEventListener('vscode-resolve-comment', handleResolve);
+      window.removeEventListener('vscode-unresolve-comment', handleUnresolve);
+      window.removeEventListener('vscode-delete-comment', handleDelete);
+    };
+  }, [editor]);
+
+  // VS Code TreeView からのセクション番号トグル
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const show = (e as CustomEvent<boolean>).detail;
+      updateSettings({ showHeadingNumbers: show });
+    };
+    window.addEventListener('vscode-toggle-section-numbers', handler);
+    return () => window.removeEventListener('vscode-toggle-section-numbers', handler);
+  }, [updateSettings]);
+
+  const statusBarHeight = hideStatusBar ? 0 : 33;
+  const { editorContainerRef, editorHeight } = useEditorHeight(isMobile, isMd, statusBarHeight);
 
   const handleInsertTemplate = useCallback((template: MarkdownTemplate) => {
     if (sourceMode) {
@@ -408,6 +536,9 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         onSwitchToReview={handleSwitchToReview}
         onSwitchToReadonly={handleSwitchToReadonly}
         hideReadonlyToggle={!showReadonlyMode}
+        hideOutline={hideOutline}
+        hideComments={hideComments}
+        hideTemplates={hideTemplates}
 
         mergeUndoRedo={inlineMergeOpen ? mergeUndoRedo : null}
         onOpenFile={handleOpenFile}
@@ -604,7 +735,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
       )}
 
       {/* Status bar */}
-      {editor && <StatusBar editor={editor} sourceMode={sourceMode} sourceText={sourceText} t={t} fileName={fileName} isDirty={isDirty} onLineEndingChange={handleLineEndingChange} encoding={encoding} onEncodingChange={handleEncodingChange} />}
+      {editor && <StatusBar editor={editor} sourceMode={sourceMode} sourceText={sourceText} t={t} fileName={fileName} isDirty={isDirty} onLineEndingChange={hideStatusBar ? undefined : handleLineEndingChange} encoding={encoding} onEncodingChange={hideStatusBar ? undefined : handleEncodingChange} onStatusChange={onStatusChange} hidden={hideStatusBar} />}
 
       <EditorMenuPopovers
         editor={editor}

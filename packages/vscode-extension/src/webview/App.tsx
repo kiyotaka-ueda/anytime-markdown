@@ -69,6 +69,30 @@ export function App() {
         window.dispatchEvent(new CustomEvent('vscode-external-change', { detail: message.content }));
         return;
       }
+      if (message?.type === 'scrollToHeading' && typeof message.pos === 'number') {
+        window.dispatchEvent(new CustomEvent('vscode-scroll-to-heading', { detail: message.pos }));
+        return;
+      }
+      if (message?.type === 'scrollToComment' && typeof message.pos === 'number') {
+        window.dispatchEvent(new CustomEvent('vscode-scroll-to-comment', { detail: message.pos }));
+        return;
+      }
+      if (message?.type === 'resolveComment' && typeof message.id === 'string') {
+        window.dispatchEvent(new CustomEvent('vscode-resolve-comment', { detail: message.id }));
+        return;
+      }
+      if (message?.type === 'unresolveComment' && typeof message.id === 'string') {
+        window.dispatchEvent(new CustomEvent('vscode-unresolve-comment', { detail: message.id }));
+        return;
+      }
+      if (message?.type === 'deleteComment' && typeof message.id === 'string') {
+        window.dispatchEvent(new CustomEvent('vscode-delete-comment', { detail: message.id }));
+        return;
+      }
+      if (message?.type === 'toggleSectionNumbers' && typeof message.show === 'boolean') {
+        window.dispatchEvent(new CustomEvent('vscode-toggle-section-numbers', { detail: message.show }));
+        return;
+      }
       if (message?.type === 'setContent' && typeof message.content === 'string') {
         const isInitial = !ready;
         currentContent = message.content;
@@ -95,6 +119,18 @@ export function App() {
 
   const handleCompareModeChange = useCallback((active: boolean) => {
     vscode.postMessage({ type: 'compareModeChanged', active });
+  }, []);
+
+  const handleHeadingsChange = useCallback((headings: Array<{ level: number; text: string; pos: number; kind: string }>) => {
+    vscode.postMessage({ type: 'headingsChanged', headings });
+  }, []);
+
+  const handleCommentsChange = useCallback((comments: Array<{ id: string; text: string; resolved: boolean; createdAt: string; targetText: string; pos: number; isPoint: boolean }>) => {
+    vscode.postMessage({ type: 'commentsChanged', comments });
+  }, []);
+
+  const handleStatusChange = useCallback((status: { line: number; col: number; charCount: number; lineCount: number; lineEnding: string; encoding: string }) => {
+    vscode.postMessage({ type: 'statusChanged', status });
   }, []);
 
   useEffect(() => {
@@ -126,7 +162,7 @@ export function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <ConfirmProvider>
-        <MarkdownEditorPage hideFileOps hideUndoRedo hideSettings hideHelp hideVersionInfo onCompareModeChange={handleCompareModeChange} />
+        <MarkdownEditorPage hideFileOps hideUndoRedo hideSettings hideHelp hideVersionInfo hideOutline hideComments hideTemplates hideStatusBar onCompareModeChange={handleCompareModeChange} onHeadingsChange={handleHeadingsChange} onCommentsChange={handleCommentsChange} onStatusChange={handleStatusChange} />
       </ConfirmProvider>
     </ThemeProvider>
   );

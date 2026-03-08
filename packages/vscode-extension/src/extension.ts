@@ -1,34 +1,119 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
 import { MarkdownEditorProvider } from './providers/MarkdownEditorProvider';
-
-interface GitExtension {
-	getAPI(version: 1): GitAPI;
-}
-interface GitAPI {
-	getRepository(uri: vscode.Uri): Repository | null;
-}
-interface Repository {
-	rootUri: vscode.Uri;
-	show(ref: string, path: string): Promise<string>;
-}
+import { GitHistoryProvider, GitHistoryItem } from './providers/GitHistoryProvider';
+import { OutlineProvider } from './providers/OutlineProvider';
+import { CommentProvider } from './providers/CommentProvider';
+import type { CommentData } from './providers/CommentProvider';
 
 export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(MarkdownEditorProvider.register(context));
 
-	const openEditor = vscode.commands.registerCommand(
-		'anytime-markdown.openEditor',
-		() => {
-			const activeEditor = vscode.window.activeTextEditor;
-			if (activeEditor && activeEditor.document.languageId === 'markdown') {
-				vscode.commands.executeCommand(
-					'vscode.openWith',
-					activeEditor.document.uri,
-					MarkdownEditorProvider.viewType
-				);
+	// Git 履歴パネル
+	const gitHistoryProvider = new GitHistoryProvider();
+	const gitTreeView = vscode.window.createTreeView('anytimeMarkdown.gitHistory', {
+		treeDataProvider: gitHistoryProvider,
+	});
+
+	// アウトラインパネル
+	const outlineProvider = new OutlineProvider();
+	const outlineTreeView = vscode.window.createTreeView('anytimeMarkdown.outline', {
+		treeDataProvider: outlineProvider,
+		showCollapseAll: true,
+	});
+
+	// コメントパネル
+	const commentProvider = new CommentProvider();
+	const commentTreeView = vscode.window.createTreeView('anytimeMarkdown.comments', {
+		treeDataProvider: commentProvider,
+	});
+
+	// ステータスバーアイテム（右側、テキストエディタと同等の位置）
+	const cursorStatusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+	const charCountItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
+	const lineCountItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 98);
+	const lineEndingItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 97);
+	const encodingItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 96);
+	const statusBarItems = [cursorStatusItem, charCountItem, lineCountItem, lineEndingItem, encodingItem];
+
+	const updateStatusBar = (status: { line: number; col: number; charCount: number; lineCount: number; lineEnding: string; encoding: string }) => {
+		cursorStatusItem.text = `Ln ${status.line}, Col ${status.col}`;
+		cursorStatusItem.tooltip = 'Go to Line';
+		charCountItem.text = `${status.charCount.toLocaleString()} chars`;
+		lineCountItem.text = `${status.lineCount.toLocaleString()} lines`;
+		lineEndingItem.text = status.lineEnding;
+		encodingItem.text = status.encoding;
+		statusBarItems.forEach(item => item.show());
+	};
+
+	const hideStatusBar = () => {
+		statusBarItems.forEach(item => item.hide());
+	};
+
+	// Webview からの変更通知を各パネルに反映
+	const provider = MarkdownEditorProvider.getInstance();
+	if (provider) {
+		provider.onHeadingsChanged = (headings) => {
+			outlineProvider.update(headings as Array<{ level: number; text: string; pos: number; kind: string }>);
+		};
+		provider.onCommentsChanged = (comments) => {
+			commentProvider.update(comments as CommentData[]);
+		};
+		provider.onStatusChanged = (status) => {
+			updateStatusBar(status);
+		};
+	}
+
+	// アクティブドキュメント変更時に履歴を更新
+	const updateGitHistory = () => {
+		const p = MarkdownEditorProvider.getInstance();
+		gitHistoryProvider.refresh(p?.activeDocumentUri ?? null);
+	};
+
+	// カスタムエディタのアクティブ変更を監視
+	context.subscriptions.push(
+		vscode.window.onDidChangeActiveTextEditor(() => {
+			updateGitHistory();
+			// テキストエディタがアクティブになった場合、Anytime のステータスバーを非表示
+			if (vscode.window.activeTextEditor) {
+				hideStatusBar();
+			}
+		}),
+	);
+
+	// activeDocumentUri の変更を検出するためのポーリング
+	let lastActiveUri: string | null = null;
+	const intervalId = setInterval(() => {
+		const p = MarkdownEditorProvider.getInstance();
+		const currentUri = p?.activeDocumentUri?.toString() ?? null;
+		if (currentUri !== lastActiveUri) {
+			lastActiveUri = currentUri;
+			updateGitHistory();
+			// アクティブドキュメントが変わったらアウトラインをクリア（新しい見出しが来るまで）
+			if (!currentUri) {
+				outlineProvider.clear();
+				commentProvider.clear();
+				hideStatusBar();
 			}
 		}
-	);
+		// コールバックの再設定（Provider 再生成時の対応）
+		const currentProvider = MarkdownEditorProvider.getInstance();
+		if (currentProvider && !currentProvider.onHeadingsChanged) {
+			currentProvider.onHeadingsChanged = (headings) => {
+				outlineProvider.update(headings as Array<{ level: number; text: string; pos: number; kind: string }>);
+			};
+		}
+		if (currentProvider && !currentProvider.onCommentsChanged) {
+			currentProvider.onCommentsChanged = (comments) => {
+				commentProvider.update(comments as CommentData[]);
+			};
+		}
+		if (currentProvider && !currentProvider.onStatusChanged) {
+			currentProvider.onStatusChanged = (status) => {
+				updateStatusBar(status);
+			};
+		}
+	}, 500);
+	context.subscriptions.push({ dispose: () => clearInterval(intervalId) });
 
 	const openEditorWithFile = vscode.commands.registerCommand(
 		'anytime-markdown.openEditorWithFile',
@@ -49,69 +134,119 @@ export function activate(context: vscode.ExtensionContext) {
 		async (uri?: vscode.Uri) => {
 			const fileUri = uri ?? vscode.window.activeTextEditor?.document.uri;
 			if (!fileUri) { return; }
-			const provider = MarkdownEditorProvider.getInstance();
-			if (!provider) { return; }
+			const p = MarkdownEditorProvider.getInstance();
+			if (!p) { return; }
 			const content = new TextDecoder().decode(await vscode.workspace.fs.readFile(fileUri));
-			provider.compareFileUri = fileUri;
-			provider.postMessageToActivePanel({
+			p.compareFileUri = fileUri;
+			p.postMessageToActivePanel({
 				type: 'loadCompareFile',
 				content,
 			});
 		}
 	);
 
-	const compareWithGitHead = vscode.commands.registerCommand(
-		'anytime-markdown.compareWithGitHead',
-		async (resourceState?: { resourceUri: vscode.Uri }) => {
-			const provider = MarkdownEditorProvider.getInstance();
-			if (!provider) { return; }
-
-			const fileUri = resourceState?.resourceUri ?? provider.activeDocumentUri;
-			if (!fileUri) {
-				vscode.window.showWarningMessage('No markdown file selected.');
+	const compareWithCommit = vscode.commands.registerCommand(
+		'anytime-markdown.compareWithCommit',
+		async (item: GitHistoryItem) => {
+			const p = MarkdownEditorProvider.getInstance();
+			if (!p) { return; }
+			const content = await gitHistoryProvider.getCommitContent(item);
+			if (content == null) {
+				vscode.window.showWarningMessage('Could not load file content for this commit.');
 				return;
 			}
-
-			const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git');
-			if (!gitExtension) {
-				vscode.window.showErrorMessage('Git extension is not available.');
-				return;
-			}
-			if (!gitExtension.isActive) {
-				await gitExtension.activate();
-			}
-			const git = gitExtension.exports.getAPI(1);
-			const repo = git.getRepository(fileUri);
-			if (!repo) {
-				vscode.window.showErrorMessage('No Git repository found for this file.');
-				return;
-			}
-
-			const relativePath = path.relative(repo.rootUri.fsPath, fileUri.fsPath).replace(/\\/g, '/');
-			let headContent: string;
-			try {
-				headContent = await repo.show('HEAD', relativePath);
-			} catch (err) {
-				const msg = err instanceof Error ? err.message : String(err);
-				vscode.window.showWarningMessage(`Cannot load HEAD version: ${msg}`);
-				return;
-			}
-
-			await vscode.commands.executeCommand(
-				'vscode.openWith',
-				fileUri,
-				MarkdownEditorProvider.viewType
-			);
-
-			await provider.waitForReady(fileUri);
-			await new Promise(resolve => setTimeout(resolve, 500));
-
-			provider.compareFileUri = null;
-			provider.postMessageToPanel(fileUri, { type: 'loadCompareFile', content: headContent });
+			p.compareFileUri = null;
+			p.postMessageToActivePanel({
+				type: 'loadCompareFile',
+				content,
+			});
 		}
 	);
 
-	context.subscriptions.push(openEditor, openEditorWithFile, compareCmd, compareWithGitHead);
+	const scrollToHeading = vscode.commands.registerCommand(
+		'anytime-markdown.scrollToHeading',
+		(pos: number) => {
+			const p = MarkdownEditorProvider.getInstance();
+			p?.postMessageToActivePanel({ type: 'scrollToHeading', pos });
+		}
+	);
+
+	const scrollToComment = vscode.commands.registerCommand(
+		'anytime-markdown.scrollToComment',
+		(pos: number) => {
+			const p = MarkdownEditorProvider.getInstance();
+			p?.postMessageToActivePanel({ type: 'scrollToComment', pos });
+		}
+	);
+
+	const resolveComment = vscode.commands.registerCommand(
+		'anytime-markdown.resolveComment',
+		(item: { comment?: { id?: string } }) => {
+			const id = item?.comment?.id;
+			if (!id) return;
+			const p = MarkdownEditorProvider.getInstance();
+			p?.postMessageToActivePanel({ type: 'resolveComment', id });
+		}
+	);
+
+	const unresolveComment = vscode.commands.registerCommand(
+		'anytime-markdown.unresolveComment',
+		(item: { comment?: { id?: string } }) => {
+			const id = item?.comment?.id;
+			if (!id) return;
+			const p = MarkdownEditorProvider.getInstance();
+			p?.postMessageToActivePanel({ type: 'unresolveComment', id });
+		}
+	);
+
+	const deleteComment = vscode.commands.registerCommand(
+		'anytime-markdown.deleteComment',
+		(item: { comment?: { id?: string } }) => {
+			const id = item?.comment?.id;
+			if (!id) return;
+			const p = MarkdownEditorProvider.getInstance();
+			p?.postMessageToActivePanel({ type: 'deleteComment', id });
+		}
+	);
+
+	// コメントフィルタ
+	const filterCommentsAll = vscode.commands.registerCommand(
+		'anytime-markdown.filterCommentsAll', () => commentProvider.setFilter('all')
+	);
+	const filterCommentsOpen = vscode.commands.registerCommand(
+		'anytime-markdown.filterCommentsOpen', () => commentProvider.setFilter('open')
+	);
+	const filterCommentsResolved = vscode.commands.registerCommand(
+		'anytime-markdown.filterCommentsResolved', () => commentProvider.setFilter('resolved')
+	);
+
+	const toggleSectionNumbers = vscode.commands.registerCommand(
+		'anytime-markdown.toggleSectionNumbers',
+		() => {
+			outlineProvider.toggleSectionNumbers();
+			const p = MarkdownEditorProvider.getInstance();
+			p?.postMessageToActivePanel({
+				type: 'toggleSectionNumbers',
+				show: outlineProvider.showSectionNumbers,
+			});
+		}
+	);
+
+	const toggleBlockElements = vscode.commands.registerCommand(
+		'anytime-markdown.toggleBlockElements',
+		() => {
+			outlineProvider.toggleBlockElements();
+		}
+	);
+
+	context.subscriptions.push(
+		gitTreeView, outlineTreeView, commentTreeView,
+		...statusBarItems,
+		openEditorWithFile, compareCmd, compareWithCommit, scrollToHeading,
+		scrollToComment, resolveComment, unresolveComment, deleteComment,
+		filterCommentsAll, filterCommentsOpen, filterCommentsResolved,
+		toggleSectionNumbers, toggleBlockElements,
+	);
 }
 
 export function deactivate() {}

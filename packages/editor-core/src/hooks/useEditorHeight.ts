@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-export function useEditorHeight(isMobile: boolean, isMd: boolean) {
+export function useEditorHeight(isMobile: boolean, isMd: boolean, bottomOffset = 0) {
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const [editorHeight, setEditorHeight] = useState(isMd ? 600 : isMobile ? 350 : 450);
 
@@ -8,8 +8,11 @@ export function useEditorHeight(isMobile: boolean, isMd: boolean) {
     const update = () => {
       if (!editorContainerRef.current) return;
       const top = editorContainerRef.current.getBoundingClientRect().top;
-      const padding = isMobile ? 16 : 24;
-      setEditorHeight(Math.max(Math.floor(window.innerHeight - top - padding), 200));
+      const parent = editorContainerRef.current.closest("#main-content");
+      const paddingBottom = parent
+        ? parseFloat(getComputedStyle(parent).paddingBottom) || 0
+        : (isMobile ? 16 : 24);
+      setEditorHeight(Math.max(Math.floor(window.innerHeight - top - paddingBottom - bottomOffset), 200));
     };
     update();
     const timer = setTimeout(update, 100);
@@ -18,7 +21,7 @@ export function useEditorHeight(isMobile: boolean, isMd: boolean) {
       clearTimeout(timer);
       window.removeEventListener("resize", update);
     };
-  }, [isMobile]);
+  }, [isMobile, bottomOffset]);
 
   return { editorContainerRef, editorHeight };
 }

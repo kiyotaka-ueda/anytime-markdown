@@ -1,5 +1,6 @@
 # Basic Design Document
 
+
 ## 1. Overview
 
 ### 1.1 Purpose
@@ -16,6 +17,7 @@ Define the scope and boundaries of the system.
 | --- | --- |
 |  |  |
 
+
 ## 2. Requirements
 
 | ID | Requirement | Priority | Status |
@@ -23,13 +25,21 @@ Define the scope and boundaries of the system.
 | REQ-001 |  | High | Open |
 | REQ-002 |  | Medium | Open |
 
+
 ## 3. System Architecture
 
 ```mermaid
-graph TB
-    Client[Client] --> API[API Server]
-    API --> DB[(Database)]
-    API --> Cache[(Cache)]
+flowchart TD
+    %% ノード定義
+    Client["Client"]
+    API["API Server"]
+    DB[("Database")]
+    Cache[("Cache")]
+
+    %% 接続定義
+    Client --> API
+    API --> DB
+    API --> Cache
 ```
 
 ### 3.1 Component Overview
@@ -55,6 +65,7 @@ sequenceDiagram
     Frontend-->>User: Display
 ```
 
+
 ## 4. Database Design
 
 ```mermaid
@@ -71,12 +82,14 @@ erDiagram
 | --- | --- |
 |  |  |
 
+
 ## 5. API Design
 
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | GET | /api/v1/resource | List resources |
 | POST | /api/v1/resource | Create resource |
+
 
 ## 6. Non-Functional Requirements
 
@@ -85,6 +98,7 @@ erDiagram
 | Performance |  |
 | Security |  |
 | Availability |  |
+
 
 ## 7. Change History
 

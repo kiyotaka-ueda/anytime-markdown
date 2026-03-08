@@ -65,7 +65,7 @@
 
 | 機能 | Readonly | Review | WYSIWYG | Source | 備考 |
 | --- | :---: | :---: | :---: | :---: | --- |
-| 通常 / 比較 切替 | x | x | o | o | デスクトップのみ表示 |
+| 通常 / 比較 切替 | x | o | o | o | デスクトップのみ表示 |
 | 比較ファイル読込 | x | x | o | o | 比較モード中のみ表示 |
 | 比較ファイル保存 | x | x | o | o | 比較モード中のみ表示 |
 
@@ -82,7 +82,7 @@
 
 ## 3. モード切替の制御
 
-各モードは排他的で、`localStorage` に状態を保持する。\
+各モードは排他的で、`localStorage` に状態を保持する。
 
 - `markdown-editor-source-mode`
 - `markdown-editor-review-mode`

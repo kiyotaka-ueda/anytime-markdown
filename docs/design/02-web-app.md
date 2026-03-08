@@ -106,7 +106,7 @@ flowchart TD
 
 ### 4.2 状態管理
 
-外部の状態管理ライブラリは使用せず、React の標準機能で管理する。\
+外部の状態管理ライブラリは使用せず、React の標準機能で管理する。
 
 | コンテキスト | ファイル | 責務 |
 | --- | --- | --- |
@@ -170,7 +170,7 @@ LayoutCategory {
 
 ## 6. ファイルシステムプロバイダー
 
-プラットフォームごとに異なるファイル操作を抽象化する。\
+プラットフォームごとに異なるファイル操作を抽象化する。
 
 | プロバイダー | 対象環境 | 仕組み |
 | --- | --- | --- |
@@ -184,9 +184,9 @@ LayoutCategory {
 
 `middleware.ts` で全リクエストに CSP ヘッダーを設定する。
 
-- リクエストごとに nonce を生成する。\
-- Google Analytics、PlantUML サーバーを CSP で許可する。\
-- インラインスタイルは `unsafe-inline` で許可する（MUI の制約）。\
+- リクエストごとに nonce を生成する。
+- Google Analytics、PlantUML サーバーを CSP で許可する。
+- インラインスタイルは `unsafe-inline` で許可する（MUI の制約）。
 - 開発環境では nonce 付きインラインスクリプトを許可する。
 
 
@@ -194,8 +194,8 @@ LayoutCategory {
 
 Serwist を使用してサービスワーカーを生成する。
 
-- アセットのキャッシュによるオフライン対応を提供する。\
-- Capacitor ビルド時は無効化する（ネイティブアプリでは不要）。\
+- アセットのキャッシュによるオフライン対応を提供する。
+- Capacitor ビルド時は無効化する（ネイティブアプリでは不要）。
 - `public/manifest.json` で PWA メタデータを定義する。
 
 
@@ -223,6 +223,7 @@ Serwist を使用してサービスワーカーを生成する。
 | `S3_DOCS_PREFIX` | S3 フォルダプレフィックス | `docs/` |
 | `CMS_BASIC_USER` | CMS 認証ユーザー名 | `admin` |
 | `CMS_BASIC_PASSWORD` | CMS 認証パスワード | `anytime` |
+| `CLOUDFRONT_DOCS_URL` | CloudFront ディストリビューション URL | (省略可) |
 | `CAPACITOR_BUILD` | モバイルビルドフラグ | (省略可) |
 
 
@@ -238,7 +239,7 @@ Serwist を使用してサービスワーカーを生成する。
 
 ### 11.2 共通設定
 
-- `@anytime-markdown/editor-core` をトランスパイル対象に追加する。\
+- `@anytime-markdown/editor-core` をトランスパイル対象に追加する。
 - `.md` ファイルを asset としてロードする Webpack ルールを設定する。
 
 

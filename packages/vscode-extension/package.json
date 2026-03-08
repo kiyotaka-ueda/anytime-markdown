@@ -2,7 +2,7 @@
   "name": "anytime-markdown",
   "displayName": "Anytime Markdown",
   "description": "markdown editor featuring Claude Code",
-  "version": "0.2.1",
+  "version": "0.2.4",
   "license": "MIT",
   "publisher": "kiytaka-ueda",
   "repository": {
@@ -19,11 +19,46 @@
   "icon": "images/camel_markdown.png",
   "main": "./dist/extension.js",
   "contributes": {
-    "commands": [
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "anytimeMarkdown",
+          "title": "Anytime Markdown",
+          "icon": "images/camel-activitybar.svg"
+        }
+      ]
+    },
+    "views": {
+      "anytimeMarkdown": [
+        {
+          "id": "anytimeMarkdown.outline",
+          "name": "Outline"
+        },
+        {
+          "id": "anytimeMarkdown.gitHistory",
+          "name": "Git History"
+        },
+        {
+          "id": "anytimeMarkdown.comments",
+          "name": "Comments"
+        }
+      ]
+    },
+    "viewsWelcome": [
       {
-        "command": "anytime-markdown.openEditor",
-        "title": "Open Markdown Editor"
+        "view": "anytimeMarkdown.outline",
+        "contents": "No items."
       },
+      {
+        "view": "anytimeMarkdown.gitHistory",
+        "contents": "No items."
+      },
+      {
+        "view": "anytimeMarkdown.comments",
+        "contents": "No comments."
+      }
+    ],
+    "commands": [
       {
         "command": "anytime-markdown.openEditorWithFile",
         "title": "Open with Anytime"
@@ -31,12 +66,44 @@
       {
         "command": "anytime-markdown.compareWithMarkdownEditor",
         "title": "Compare with Anytime",
-        "enablement": "anytimeMarkdown.compareModeActive"
+        "enablement": "activeCustomEditorId == anytimeMarkdown"
       },
       {
-        "command": "anytime-markdown.compareWithGitHead",
-        "title": "Compare with Git HEAD",
-        "icon": "$(git-compare)"
+        "command": "anytime-markdown.toggleSectionNumbers",
+        "title": "Toggle Section Numbers",
+        "icon": "$(list-ordered)"
+      },
+      {
+        "command": "anytime-markdown.resolveComment",
+        "title": "Resolve",
+        "icon": "$(check)"
+      },
+      {
+        "command": "anytime-markdown.unresolveComment",
+        "title": "Reopen",
+        "icon": "$(circle-outline)"
+      },
+      {
+        "command": "anytime-markdown.deleteComment",
+        "title": "Delete",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "anytime-markdown.filterCommentsAll",
+        "title": "All"
+      },
+      {
+        "command": "anytime-markdown.filterCommentsOpen",
+        "title": "Open"
+      },
+      {
+        "command": "anytime-markdown.filterCommentsResolved",
+        "title": "Resolved"
+      },
+      {
+        "command": "anytime-markdown.toggleBlockElements",
+        "title": "Toggle Block Elements",
+        "icon": "$(symbol-misc)"
       }
     ],
     "customEditors": [
@@ -80,7 +147,59 @@
         }
       }
     },
+    "submenus": [
+      {
+        "id": "anytimeMarkdown.commentFilter",
+        "label": "Filter",
+        "icon": "$(filter)"
+      }
+    ],
     "menus": {
+      "anytimeMarkdown.commentFilter": [
+        {
+          "command": "anytime-markdown.filterCommentsAll"
+        },
+        {
+          "command": "anytime-markdown.filterCommentsOpen"
+        },
+        {
+          "command": "anytime-markdown.filterCommentsResolved"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "anytime-markdown.resolveComment",
+          "when": "view == anytimeMarkdown.comments && viewItem == unresolved",
+          "group": "inline@1"
+        },
+        {
+          "command": "anytime-markdown.unresolveComment",
+          "when": "view == anytimeMarkdown.comments && viewItem == resolved",
+          "group": "inline@1"
+        },
+        {
+          "command": "anytime-markdown.deleteComment",
+          "when": "view == anytimeMarkdown.comments",
+          "group": "inline@2"
+        }
+      ],
+      "view/title": [
+        {
+          "submenu": "anytimeMarkdown.commentFilter",
+          "when": "view == anytimeMarkdown.comments",
+          "group": "navigation@1"
+        },
+        {
+          "command": "anytime-markdown.toggleSectionNumbers",
+          "when": "view == anytimeMarkdown.outline",
+          "group": "navigation@1"
+        },
+        {
+          "command": "anytime-markdown.toggleBlockElements",
+          "when": "view == anytimeMarkdown.outline",
+          "group": "navigation@2"
+        }
+      ],
       "explorer/context": [
         {
           "command": "anytime-markdown.openEditorWithFile",
@@ -91,25 +210,6 @@
           "command": "anytime-markdown.compareWithMarkdownEditor",
           "when": "resourceLangId == markdown",
           "group": "navigation@2"
-        }
-      ],
-      "editor/title": [
-        {
-          "command": "anytime-markdown.compareWithGitHead",
-          "when": "activeCustomEditorId == anytimeMarkdown",
-          "group": "navigation"
-        }
-      ],
-      "scm/resourceState/context": [
-        {
-          "command": "anytime-markdown.compareWithGitHead",
-          "group": "navigation"
-        }
-      ],
-      "commandPalette": [
-        {
-          "command": "anytime-markdown.compareWithGitHead",
-          "when": "activeCustomEditorId == anytimeMarkdown || scmProvider == git"
         }
       ],
       "editor/title/context": [

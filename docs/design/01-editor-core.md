@@ -78,7 +78,7 @@ flowchart TD
 ### 3.2 メインコンポーネント
 
 `MarkdownEditorPage` がすべてのサブコンポーネントを統合するオーケストレータである。\
-以下の Props で各プラットフォームに適応する。\
+以下の Props で各プラットフォームに適応する。
 
 | Prop | 型 | 用途 |
 | --- | --- | --- |
@@ -309,7 +309,7 @@ flowchart LR
     MD ==> Sanitize ==> Parse ==> Doc
 ```
 
-前処理で以下を実行する。\
+前処理で以下を実行する。
 
 - コードブロック・数式ブロックの保護
 - Admonition の変換
@@ -334,7 +334,7 @@ flowchart LR
 
 ### 11.1 テストファイル構成
 
-39 以上のテストファイルで以下を網羅する。\
+39 以上のテストファイルで以下を網羅する。
 
 - ユーティリティのユニットテスト（diff, sanitize, math 等）
 - コンポーネントテスト（NodeView, パネル, ツールバー）
@@ -346,4 +346,4 @@ flowchart LR
 
 ### 11.2 テストフレームワーク
 
-Jest + React Testing Library を使用する。\
+Jest + React Testing Library を使用する。

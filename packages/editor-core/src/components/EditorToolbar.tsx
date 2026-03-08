@@ -126,6 +126,9 @@ interface EditorToolbarProps {
   onToggleComments?: () => void;
   hideModeToggle?: boolean;
   hideReadonlyToggle?: boolean;
+  hideOutline?: boolean;
+  hideComments?: boolean;
+  hideTemplates?: boolean;
   t: TranslationFn;
 }
 
@@ -172,6 +175,9 @@ export const EditorToolbar = React.memo(function EditorToolbar({
   onToggleComments,
   hideModeToggle,
   hideReadonlyToggle,
+  hideOutline,
+  hideComments,
+  hideTemplates,
   t,
 }: EditorToolbarProps) {
   const [fileMenuAnchorEl, setFileMenuAnchorEl] = useState<HTMLElement | null>(null);
@@ -421,12 +427,12 @@ export const EditorToolbar = React.memo(function EditorToolbar({
             </Tooltip>
           </ToggleButton>
         )}
-        <ToggleButton value="outline" selected={outlineOpen} onClick={onToggleOutline} disabled={inlineMergeOpen || sourceMode} aria-label={t("outline")} sx={{ px: 0.75, py: 0.25 }}>
+        {!hideOutline && <ToggleButton value="outline" selected={outlineOpen} onClick={onToggleOutline} disabled={inlineMergeOpen || sourceMode} aria-label={t("outline")} sx={{ px: 0.75, py: 0.25 }}>
           <Tooltip title={tip(t, "outline")}>
             <span style={{ display: "inline-flex" }}><ListAltIcon fontSize="small" /></span>
           </Tooltip>
-        </ToggleButton>
-        {onToggleComments && (
+        </ToggleButton>}
+        {!hideComments && onToggleComments && (
           <ToggleButton value="comments" selected={commentOpen} onClick={onToggleComments} disabled={inlineMergeOpen || sourceMode} aria-label={t("commentPanel") || "Comments"} sx={{ px: 0.75, py: 0.25 }}>
             <Tooltip title={t("commentPanel") || "Comments"}>
               <span style={{ display: "inline-flex" }}><ChatBubbleOutlineIcon fontSize="small" /></span>
@@ -437,13 +443,13 @@ export const EditorToolbar = React.memo(function EditorToolbar({
       </Box>
 
       {/* Insert actions */}
-      <ToggleButtonGroup size="small" aria-label={t("insertElements")} sx={{ height: 30 }}>
+      {!hideTemplates && <ToggleButtonGroup size="small" aria-label={t("insertElements")} sx={{ height: 30 }}>
         <ToggleButton value="template" onClick={(e) => onSetTemplateAnchor(e.currentTarget)} aria-label={t("templates")} disabled={readonlyMode || reviewMode || editorState?.isInDiagramCode || inlineMergeOpen} sx={{ px: 0.75, py: 0.25 }}>
           <Tooltip title={tip(t, "templates")}>
             <span style={{ display: "inline-flex" }}><ArticleIcon fontSize="small" /></span>
           </Tooltip>
         </ToggleButton>
-      </ToggleButtonGroup>
+      </ToggleButtonGroup>}
 
       <Box sx={{ flexGrow: 1 }} />
 
@@ -557,7 +563,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
         <ToggleButton
           value="edit"
           aria-label={t("normalMode")}
-          disabled={readonlyMode || reviewMode}
+          disabled={readonlyMode}
           onClick={() => { if (inlineMergeOpen) onMerge(); }}
         >
           <EditNoteIcon sx={{ fontSize: "1rem" }} />
@@ -566,7 +572,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
         <ToggleButton
           value="compare"
           aria-label={t("compare")}
-          disabled={readonlyMode || reviewMode}
+          disabled={readonlyMode}
           onClick={() => { if (!inlineMergeOpen) onMerge(); }}
         >
           <ViewStreamIcon sx={{ fontSize: "1rem", transform: "rotate(90deg)" }} />
@@ -606,14 +612,14 @@ export const EditorToolbar = React.memo(function EditorToolbar({
       open={!!mobileMenuAnchorEl}
       onClose={() => setMobileMenuAnchorEl(null)}
     >
-      <MenuItem
+      {!hideOutline && <MenuItem
         onClick={() => { onToggleOutline(); setMobileMenuAnchorEl(null); }}
         disabled={inlineMergeOpen || sourceMode}
       >
         <ListItemIcon><ListAltIcon fontSize="small" color={outlineOpen ? "primary" : "inherit"} /></ListItemIcon>
         <ListItemText>{t("outline")}</ListItemText>
-      </MenuItem>
-      {onToggleComments && (
+      </MenuItem>}
+      {!hideComments && onToggleComments && (
         <MenuItem
           onClick={() => { onToggleComments(); setMobileMenuAnchorEl(null); }}
           disabled={inlineMergeOpen || sourceMode}
@@ -639,7 +645,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
       )}
       <MenuItem
         onClick={() => { onMerge(); setMobileMenuAnchorEl(null); }}
-        disabled={readonlyMode || reviewMode}
+        disabled={readonlyMode}
       >
         <ListItemIcon>
           <ViewStreamIcon fontSize="small" sx={{ transform: "rotate(90deg)" }} color={inlineMergeOpen ? "primary" : "inherit"} />
