@@ -657,6 +657,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
                 bgGradient={leftBgGradient}
                 diffLines={leftDiffLines}
                 side="left"
+                showHoverLabels
                 onMerge={onMerge}
                 onHoverLine={onHoverLine}
               />

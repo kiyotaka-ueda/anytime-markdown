@@ -11,7 +11,83 @@ import type { Editor } from "@tiptap/react";
 import { useEditorSettingsContext } from "../useEditorSettings";
 
 /** マージエディタ共通のtiptapスタイル */
-export function getMergeTiptapStyles(theme: Theme, fontSize = 14, lineHeight = 1.6) {
+export function getMergeTiptapStyles(theme: Theme, fontSize = 14, lineHeight = 1.6, options?: { showHoverLabels?: boolean }) {
+  const hoverLabelBase = {
+    position: "absolute" as const,
+    fontSize: "0.6rem",
+    fontWeight: 700,
+    lineHeight: 1,
+    px: 0.5,
+    py: 0.25,
+    borderRadius: 0.5,
+    bgcolor: theme.palette.action.hover,
+    color: theme.palette.text.secondary,
+    fontFamily: "monospace",
+    whiteSpace: "nowrap" as const,
+    cursor: "pointer",
+    opacity: 0,
+    transition: "opacity 0.15s",
+  };
+
+  const hoverLabels = options?.showHoverLabels ? {
+    "& h1, & h2, & h3, & h4, & h5": {
+      position: "relative",
+      "&::before": {
+        ...hoverLabelBase,
+        right: "calc(100% + 8px)",
+        top: "50%",
+        transform: "translateY(-50%)",
+      },
+      "&:hover::before, &:focus-within::before": { opacity: 1 },
+    },
+    "& h1": { "&::before": { content: "'H1'" } },
+    "& h2": { "&::before": { content: "'H2'" } },
+    "& h3": { "&::before": { content: "'H3'" } },
+    "& h4": { "&::before": { content: "'H4'" } },
+    "& h5": { "&::before": { content: "'H5'" } },
+    "& > p": {
+      position: "relative",
+      "&::before": {
+        content: "'P'",
+        ...hoverLabelBase,
+        right: "calc(100% + 8px)",
+        top: "50%",
+        transform: "translateY(-50%)",
+      },
+      "&:hover::before, &:focus-within::before": { opacity: 1 },
+    },
+    "& > blockquote > p": {
+      position: "relative",
+      "&::before": {
+        content: "'Quote'",
+        ...hoverLabelBase,
+        right: "calc(100% + 30px)",
+        top: 2,
+        "&:hover": { bgcolor: theme.palette.action.selected },
+      },
+      "&:hover::before, &:focus-within::before": { opacity: 1 },
+    },
+    "& li": {
+      position: "relative",
+      "&::before": {
+        ...hoverLabelBase,
+        right: "calc(100% + 32px)",
+        top: 2,
+        "&:hover": { bgcolor: theme.palette.action.selected },
+      },
+      "&:hover::before, &:focus-within::before": { opacity: 1 },
+    },
+    "& > ul:not([data-type='taskList']) > li": {
+      "&::before": { content: "'UL'" },
+    },
+    "& > ol > li": {
+      "&::before": { content: "'OL'" },
+    },
+    "& > ul[data-type='taskList'] > li": {
+      "&::before": { content: "'Task'", right: "calc(100% + 8px)" },
+    },
+  } : {};
+
   return {
     "& .tiptap": {
       minHeight: "100%",
@@ -42,6 +118,7 @@ export function getMergeTiptapStyles(theme: Theme, fontSize = 14, lineHeight = 1
       "& li": {
         mb: 0.25,
       },
+      ...hoverLabels,
       "& code": {
         bgcolor: theme.palette.action.hover,
         color: theme.palette.mode === "dark" ? theme.palette.grey[300] : theme.palette.error.main,
@@ -152,6 +229,7 @@ interface MergeEditorPanelProps {
   diffLines?: DiffLine[];
   side?: "left" | "right";
   readOnly?: boolean;
+  showHoverLabels?: boolean;
   onMerge?: (blockId: number, direction: "left-to-right" | "right-to-left") => void;
   onHoverLine?: (lineIndex: number | null) => void;
 }
@@ -173,6 +251,7 @@ export function MergeEditorPanel({
   diffLines,
   side,
   readOnly,
+  showHoverLabels,
   onMerge,
   onHoverLine,
 }: MergeEditorPanelProps) {
@@ -466,7 +545,7 @@ export function MergeEditorPanel({
     );
   }
 
-  const tiptapStyles = getMergeTiptapStyles(theme, editorSettings.fontSize, editorSettings.lineHeight);
+  const tiptapStyles = getMergeTiptapStyles(theme, editorSettings.fontSize, editorSettings.lineHeight, { showHoverLabels });
 
   const paperContent = (
     <Paper
