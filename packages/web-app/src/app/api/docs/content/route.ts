@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
-import { s3Client, DOCS_BUCKET, DOCS_PREFIX } from '../../../../lib/s3Client';
+import { s3Client, DOCS_BUCKET, DOCS_PREFIX, fetchFromCdn } from '../../../../lib/s3Client';
 
 export async function GET(request: NextRequest) {
   const key = request.nextUrl.searchParams.get('key');
@@ -18,14 +18,26 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid key' }, { status: 400 });
   }
 
-  if (!DOCS_BUCKET) {
-    return NextResponse.json(
-      { error: 'S3_DOCS_BUCKET is not configured' },
-      { status: 500 },
-    );
-  }
+  const cacheHeaders = {
+    'Content-Type': 'text/markdown; charset=utf-8',
+    'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+  };
 
   try {
+    // CloudFront 経由で取得を試みる
+    const cdnBody = await fetchFromCdn(key);
+    if (cdnBody !== null) {
+      return new NextResponse(cdnBody, { status: 200, headers: cacheHeaders });
+    }
+
+    // S3 SDK フォールバック
+    if (!DOCS_BUCKET) {
+      return NextResponse.json(
+        { error: 'S3_DOCS_BUCKET is not configured' },
+        { status: 500 },
+      );
+    }
+
     const command = new GetObjectCommand({
       Bucket: DOCS_BUCKET,
       Key: key,
@@ -37,13 +49,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Empty document' }, { status: 404 });
     }
 
-    return new NextResponse(body, {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/markdown; charset=utf-8',
-        'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
-      },
-    });
+    return new NextResponse(body, { status: 200, headers: cacheHeaders });
   } catch (e: unknown) {
     if (e instanceof Error && e.name === 'NoSuchKey') {
       return NextResponse.json({ error: 'Document not found' }, { status: 404 });

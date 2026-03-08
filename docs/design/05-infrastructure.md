@@ -5,7 +5,7 @@
 
 ## 1. 概要
 
-Anytime Markdown のインフラストラクチャは、Netlify（Web ホスティング）、AWS S3（ドキュメントストレージ）、GitHub Actions（CI/CD）で構成される。
+Anytime Markdown のインフラストラクチャは、Netlify（Web ホスティング）、AWS S3（ドキュメントストレージ）、CloudFront（CDN）、GitHub Actions（CI/CD）で構成される。\
 
 
 ## 2. 全体構成
@@ -23,7 +23,9 @@ flowchart TD
     end
 
     subgraph Storage ["ストレージ"]
+        CF["CloudFront<br/><small>CDN</small>"]
         S3["AWS S3<br/><small>ap-northeast-1</small>"]
+        CF --> S3
     end
 
     subgraph CI ["CI/CD"]
