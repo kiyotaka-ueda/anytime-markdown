@@ -8,27 +8,23 @@ import type { EncodingLabel } from "./types";
 const STORAGE_KEY = "markdown-editor-content";
 const DEBOUNCE_MS = 500;
 
-export function useMarkdownEditor(defaultContent: string) {
-  const [initialContent, setInitialContent] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // localStorage から読み込み
-  useEffect(() => {
+export function useMarkdownEditor(defaultContent: string, skipLocalStorage = false) {
+  // localStorage から同期的に読み込み（HMR 時のローディングフラッシュを防止）
+  // skipLocalStorage が true の場合（readOnly / externalContent）は localStorage を参照しない
+  const [initialContent] = useState<string>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = skipLocalStorage ? null : localStorage.getItem(STORAGE_KEY);
       const raw = saved ?? defaultContent;
-      // コメントデータブロックを分離してからサニタイズし、再付加する
-      // （DOMPurify が <!-- comments --> ブロックを除去するのを防ぐ）
       const { comments, body } = parseCommentData(raw);
       const sanitized = preserveBlankLines(sanitizeMarkdown(body));
-      setInitialContent(comments.size > 0 ? appendCommentData(sanitized, comments) : sanitized);
+      return comments.size > 0 ? appendCommentData(sanitized, comments) : sanitized;
     } catch (e) {
       console.warn("Failed to read localStorage:", e);
-      setInitialContent(defaultContent);
+      return defaultContent;
     }
-    setLoading(false);
-  }, [defaultContent]);
+  });
+  const loading = false;
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // debounce 自動保存（Tiptap の onUpdate から呼ばれる）
   const saveContent = useCallback((markdown: string) => {
@@ -68,10 +64,10 @@ export function useMarkdownEditor(defaultContent: string) {
     URL.revokeObjectURL(url);
   }, []);
 
-  // クリア
+  // クリア（空文字列を保存して HMR 時に defaultContent にフォールバックしないようにする）
   const clearContent = useCallback(() => {
     try {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.setItem(STORAGE_KEY, "");
     } catch (e) {
       console.warn("Failed to clear localStorage:", e);
     }

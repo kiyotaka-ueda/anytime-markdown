@@ -168,7 +168,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
           sx={{ bgcolor: "action.hover", px: 0.75, py: 0.25, display: "flex", alignItems: "center", gap: 0.25 }}
           contentEditable={false}
         >
-          {/* Drag handle (hidden in fullscreen or view mode) */}
+          {/* Drag handle (hidden in fullscreen or review mode) */}
           {!fullscreen && isEditable && (
             <Box
               data-drag-handle=""
@@ -297,7 +297,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
                 : { width: displayWidth, maxWidth: "100%", height: "auto", display: "block" }
               }
             />
-            {/* Resize handle (bottom-right corner, hidden in view mode) */}
+            {/* Resize handle (bottom-right corner, hidden in review mode) */}
             {isSelected && isEditable && (
               <Box
                 role="slider"

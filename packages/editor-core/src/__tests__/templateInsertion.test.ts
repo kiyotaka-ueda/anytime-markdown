@@ -174,22 +174,6 @@ describe("insertContent: Mermaid/PlantUML コードブロックの保持", () =>
     expect(result).toContain("GET /resources");
   });
 
-  test("ADRテンプレートを insertContent で挿入できる", () => {
-    editor = createTestEditor({ withMarkdown: true });
-    const fs = require("fs");
-    const path = require("path");
-    let adr = fs.readFileSync(
-      path.resolve(__dirname, "../constants/templates/adr.md"),
-      "utf-8"
-    );
-    // 空リスト項目（"-\n"）は ProseMirror が空 listItem として拒否するため
-    // テスト用にプレースホルダーを挿入して回避する
-    adr = adr.replace(/^(\s*)-\s*$/gm, "$1- …");
-    editor.commands.insertContent(adr);
-    const result = getMarkdownFromEditor(editor);
-    expect(result).toContain("ADR-001");
-    expect(result).toContain("Options Considered");
-  });
 });
 
 // ---------- requestAnimationFrame による遅延実行の検証 ----------

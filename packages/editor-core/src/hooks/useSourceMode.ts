@@ -11,7 +11,8 @@ interface UseSourceModeParams {
 }
 
 const SOURCE_MODE_KEY = "markdown-editor-source-mode";
-const VIEWER_MODE_KEY = "markdown-editor-viewer-mode";
+const REVIEW_MODE_KEY = "markdown-editor-review-mode";
+const READONLY_MODE_KEY = "markdown-editor-readonly-mode";
 
 export function useSourceMode({ editor, saveContent, t }: UseSourceModeParams) {
   const [sourceMode, setSourceMode] = useState(() => {
@@ -21,9 +22,18 @@ export function useSourceMode({ editor, saveContent, t }: UseSourceModeParams) {
       return false;
     }
   });
-  const [viewMode, setViewMode] = useState(() => {
+  const [readonlyMode, setReadonlyMode] = useState(() => {
     try {
-      const stored = localStorage.getItem(VIEWER_MODE_KEY);
+      return localStorage.getItem(READONLY_MODE_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
+  const [reviewMode, setReviewMode] = useState(() => {
+    try {
+      const stored = localStorage.getItem(REVIEW_MODE_KEY);
+      // readonlyMode が有効な場合は reviewMode を無効化
+      if (localStorage.getItem(READONLY_MODE_KEY) === "true") return false;
       return stored === null ? true : stored === "true";
     } catch {
       return true;
@@ -39,33 +49,37 @@ export function useSourceMode({ editor, saveContent, t }: UseSourceModeParams) {
     }
   }, [editor]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Restore viewMode editable state on init
+  // Restore readonly/review editable state on init
   useEffect(() => {
-    if (editor && viewMode) {
+    if (editor && (readonlyMode || reviewMode)) {
       editor.setEditable(false);
     }
   }, [editor]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSwitchToSource = useCallback(() => {
     if (!editor) return;
-    if (viewMode) {
+    if (readonlyMode || reviewMode) {
       editor.setEditable(true);
-      setViewMode(false);
-      try { localStorage.setItem(VIEWER_MODE_KEY, "false"); } catch { /* ignore */ }
+      setReadonlyMode(false);
+      setReviewMode(false);
+      try { localStorage.setItem(READONLY_MODE_KEY, "false"); } catch { /* ignore */ }
+      try { localStorage.setItem(REVIEW_MODE_KEY, "false"); } catch { /* ignore */ }
     }
     editor.commands.closeSearch();
     setSourceText(getMarkdownFromEditor(editor));
     setSourceMode(true);
     try { localStorage.setItem(SOURCE_MODE_KEY, "true"); } catch { /* ignore */ }
     setLiveMessage(t("switchedToSource"));
-  }, [editor, viewMode, t]);
+  }, [editor, readonlyMode, reviewMode, t]);
 
   const handleSwitchToWysiwyg = useCallback(() => {
     if (editor) {
-      if (viewMode) {
+      if (readonlyMode || reviewMode) {
         editor.setEditable(true);
-        setViewMode(false);
-        try { localStorage.setItem(VIEWER_MODE_KEY, "false"); } catch { /* ignore */ }
+        setReadonlyMode(false);
+        setReviewMode(false);
+        try { localStorage.setItem(READONLY_MODE_KEY, "false"); } catch { /* ignore */ }
+        try { localStorage.setItem(REVIEW_MODE_KEY, "false"); } catch { /* ignore */ }
       }
       if (sourceMode) {
         const { comments, body } = parseCommentData(sourceText);
@@ -80,9 +94,9 @@ export function useSourceMode({ editor, saveContent, t }: UseSourceModeParams) {
     setSourceMode(false);
     try { localStorage.setItem(SOURCE_MODE_KEY, "false"); } catch { /* ignore */ }
     setLiveMessage(t("switchedToWysiwyg"));
-  }, [editor, sourceMode, viewMode, sourceText, saveContent, t]);
+  }, [editor, sourceMode, readonlyMode, reviewMode, sourceText, saveContent, t]);
 
-  const handleSwitchToView = useCallback(() => {
+  const handleSwitchToReview = useCallback(() => {
     if (!editor) return;
     // Source モードから切り替える場合、まず WYSIWYG に同期
     if (sourceMode) {
@@ -97,13 +111,37 @@ export function useSourceMode({ editor, saveContent, t }: UseSourceModeParams) {
       try { localStorage.setItem(SOURCE_MODE_KEY, "false"); } catch { /* ignore */ }
     }
     editor.setEditable(false);
-    setViewMode(true);
-    try { localStorage.setItem(VIEWER_MODE_KEY, "true"); } catch { /* ignore */ }
-    setLiveMessage(t("switchedToView"));
+    setReadonlyMode(false);
+    setReviewMode(true);
+    try { localStorage.setItem(READONLY_MODE_KEY, "false"); } catch { /* ignore */ }
+    try { localStorage.setItem(REVIEW_MODE_KEY, "true"); } catch { /* ignore */ }
+    setLiveMessage(t("switchedToReview"));
+  }, [editor, sourceMode, sourceText, saveContent, t]);
+
+  const handleSwitchToReadonly = useCallback(() => {
+    if (!editor) return;
+    // Source モードから切り替える場合、まず WYSIWYG に同期
+    if (sourceMode) {
+      const { comments, body } = parseCommentData(sourceText);
+      const sanitized = preserveBlankLines(sanitizeMarkdown(body));
+      editor.commands.setContent(sanitized);
+      if (comments.size > 0) {
+        (editor.commands as any).initComments(comments);
+      }
+      saveContent(sourceText);
+      setSourceMode(false);
+      try { localStorage.setItem(SOURCE_MODE_KEY, "false"); } catch { /* ignore */ }
+    }
+    editor.setEditable(false);
+    setReadonlyMode(true);
+    setReviewMode(false);
+    try { localStorage.setItem(READONLY_MODE_KEY, "true"); } catch { /* ignore */ }
+    try { localStorage.setItem(REVIEW_MODE_KEY, "false"); } catch { /* ignore */ }
+    setLiveMessage(t("switchedToReadonly"));
   }, [editor, sourceMode, sourceText, saveContent, t]);
 
   /** コメント操作用: 一時的に editable を true にしてコマンド実行後に戻す */
-  const executeInViewMode = useCallback((fn: () => void) => {
+  const executeInReviewMode = useCallback((fn: () => void) => {
     if (!editor) return;
     editor.setEditable(true);
     try {
@@ -138,15 +176,17 @@ export function useSourceMode({ editor, saveContent, t }: UseSourceModeParams) {
 
   return {
     sourceMode,
-    viewMode,
+    readonlyMode,
+    reviewMode,
     sourceText,
     setSourceText,
     liveMessage,
     setLiveMessage,
     handleSwitchToSource,
     handleSwitchToWysiwyg,
-    handleSwitchToView,
-    executeInViewMode,
+    handleSwitchToReview,
+    handleSwitchToReadonly,
+    executeInReviewMode,
     handleSourceChange,
     appendToSource,
   };

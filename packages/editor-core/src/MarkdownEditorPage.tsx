@@ -20,7 +20,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useMarkdownEditor } from "./useMarkdownEditor";
-import { welcomeContent } from "./constants/welcomeContent";
+import { defaultContent } from "./constants/defaultContent";
 import { EditorOutlineSection } from "./components/EditorOutlineSection";
 import { SourceModeEditor } from "./components/SourceModeEditor";
 import { StatusBar } from "./components/StatusBar";
@@ -84,21 +84,27 @@ interface MarkdownEditorPageProps {
   onThemeModeChange?: (mode: 'light' | 'dark') => void;
   onLocaleChange?: (locale: string) => void;
   fileSystemProvider?: FileSystemProvider | null;
+  externalContent?: string;
+  readOnly?: boolean;
+  hideToolbar?: boolean;
+  showReadonlyMode?: boolean;
 }
 
-export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, featuresUrl, onCompareModeChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider }: MarkdownEditorPageProps = {}) {
+export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, featuresUrl, onCompareModeChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, externalContent, readOnly, hideToolbar, showReadonlyMode }: MarkdownEditorPageProps = {}) {
   const theme = useTheme();
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isMd = useMediaQuery(theme.breakpoints.up("md"));
+  const noopSave = useCallback(() => {}, []);
   const {
     initialContent,
     loading,
-    saveContent,
+    saveContent: _saveContent,
     downloadMarkdown,
     clearContent,
-  } = useMarkdownEditor(welcomeContent);
+  } = useMarkdownEditor(externalContent ?? defaultContent, !!externalContent);
+  const saveContent = readOnly ? noopSave : _saveContent;
 
   const [encoding, setEncoding] = useState<EncodingLabel>("UTF-8");
   const [commentOpen, setCommentOpen] = useState(false);
@@ -149,10 +155,16 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
 
   // --- Custom hooks ---
   const {
-    sourceMode, viewMode, sourceText, setSourceText, liveMessage, setLiveMessage,
-    handleSwitchToSource, handleSwitchToWysiwyg, handleSwitchToView, executeInViewMode,
-    handleSourceChange, appendToSource,
+    sourceMode, readonlyMode, reviewMode, sourceText, setSourceText, liveMessage, setLiveMessage,
+    handleSwitchToSource, handleSwitchToWysiwyg, handleSwitchToReview, handleSwitchToReadonly,
+    executeInReviewMode, handleSourceChange, appendToSource,
   } = useSourceMode({ editor, saveContent, t });
+
+  useEffect(() => {
+    if (readOnly && editor) {
+      editor.setEditable(false);
+    }
+  }, [readOnly, editor]);
 
   const sourceSearch = useTextareaSearch(sourceTextareaRef, sourceText, handleSourceChange);
 
@@ -299,13 +311,13 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   const { handleToggleAllBlocks } = useEditorBlockActions({ editor });
 
   useEditorShortcuts({
-    editor, sourceMode, viewMode, appendToSource,
+    editor, sourceMode, readonlyMode, reviewMode, appendToSource,
     handleSaveFile, handleSaveAsFile, handleOpenFile, handleImage,
     handleClear, handleCopy,
     handleImport: () => fileInputRef.current?.click(),
     handleDownload,
     handleToggleAllBlocks, handleToggleOutline,
-    handleSwitchToSource, handleSwitchToWysiwyg, handleSwitchToView, handleMerge,
+    handleSwitchToSource, handleSwitchToWysiwyg, handleSwitchToReview, handleSwitchToReadonly, handleMerge,
     setDiagramAnchorEl, setTemplateAnchorEl, t,
   });
 
@@ -328,8 +340,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     headings, foldedIndices, hiddenByFold,
     foldAll, unfoldAll, toggleFold,
     handleOutlineClick, handleOutlineResizeStart,
-    onHeadingDragEnd: viewMode ? undefined : handleHeadingDragEnd,
-    onOutlineDelete: viewMode ? undefined : handleOutlineDelete,
+    onHeadingDragEnd: (readonlyMode || reviewMode) ? undefined : handleHeadingDragEnd,
+    onOutlineDelete: (readonlyMode || reviewMode) ? undefined : handleOutlineDelete,
     showHeadingNumbers: settings.showHeadingNumbers,
     onToggleHeadingNumbers: () => updateSettings({ showHeadingNumbers: !settings.showHeadingNumbers }),
     t,
@@ -375,7 +387,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         {liveMessage}
       </Box>
       {/* Toolbar */}
-      <EditorToolbar
+      {!hideToolbar && <EditorToolbar
         editor={editor}
         isInDiagramBlock={isInDiagramBlock}
         onToggleAllBlocks={handleToggleAllBlocks}
@@ -385,14 +397,17 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         onSetTemplateAnchor={setTemplateAnchorEl}
         onSetHelpAnchor={setHelpAnchorEl}
         sourceMode={sourceMode}
-        viewMode={viewMode}
+        readonlyMode={readonlyMode}
+        reviewMode={reviewMode}
         outlineOpen={outlineOpen}
         onToggleOutline={handleToggleOutline}
         onMerge={handleMerge}
         inlineMergeOpen={inlineMergeOpen}
         onSwitchToSource={handleSwitchToSource}
         onSwitchToWysiwyg={handleSwitchToWysiwyg}
-        onSwitchToView={handleSwitchToView}
+        onSwitchToReview={handleSwitchToReview}
+        onSwitchToReadonly={handleSwitchToReadonly}
+        hideReadonlyToggle={!showReadonlyMode}
 
         mergeUndoRedo={inlineMergeOpen ? mergeUndoRedo : null}
         onOpenFile={handleOpenFile}
@@ -400,9 +415,10 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         onSaveAsFile={handleSaveAsFile}
         hasFileHandle={fileHandle !== null}
         supportsDirectAccess={supportsDirectAccess}
-        hideFileOps={hideFileOps}
-        hideUndoRedo={hideUndoRedo}
-        hideMoreMenu={hideHelp && hideVersionInfo && hideSettings}
+        hideFileOps={readOnly || hideFileOps}
+        hideUndoRedo={readOnly || hideUndoRedo}
+        hideMoreMenu={(readOnly || hideHelp) && (readOnly || hideVersionInfo) && (readOnly || hideSettings)}
+        hideModeToggle={readOnly}
         hideSettings={hideSettings}
         hideVersionInfo={hideVersionInfo}
         onOpenSettings={() => setSettingsOpen(true)}
@@ -414,7 +430,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         commentOpen={commentOpen}
         onToggleComments={() => setCommentOpen((prev) => !prev)}
         t={t}
-      />
+      />}
       <input
         ref={fileInputRef}
         type="file"
@@ -551,8 +567,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
       ) : (
         <Box
           ref={editorWrapperRef}
-          tabIndex={viewMode ? 0 : undefined}
-          onKeyDown={viewMode ? (e: React.KeyboardEvent) => {
+          tabIndex={(readonlyMode || reviewMode) ? 0 : undefined}
+          onKeyDown={(readonlyMode || reviewMode) ? (e: React.KeyboardEvent) => {
             if ((e.ctrlKey || e.metaKey) && e.key === "f") {
               e.preventDefault();
               editor?.commands.openSearch();
@@ -564,7 +580,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         <Paper
           id="md-editor-content"
           variant="outlined"
-          sx={getEditorPaperSx(theme, settings, editorHeight)}
+          sx={getEditorPaperSx(theme, settings, editorHeight, { readonlyMode })}
         >
           <EditorContent editor={editor} />
         </Paper>
@@ -579,11 +595,11 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
 
       {/* BubbleMenu (text formatting) – rendered for both merge and non-merge modes */}
       {editor && !sourceMode && (
-        <EditorBubbleMenu editor={editor} onLink={handleLink} viewMode={viewMode} executeInViewMode={executeInViewMode} t={t} />
+        <EditorBubbleMenu editor={editor} onLink={handleLink} readonlyMode={readonlyMode} reviewMode={reviewMode} executeInReviewMode={executeInReviewMode} t={t} />
       )}
 
       {/* Slash command menu */}
-      {editor && !sourceMode && !viewMode && (
+      {editor && !sourceMode && !readonlyMode && !reviewMode && (
         <SlashCommandMenu editor={editor} t={t} slashCommandCallbackRef={slashCommandCallbackRef} />
       )}
 

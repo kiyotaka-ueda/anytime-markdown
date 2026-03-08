@@ -4,6 +4,29 @@ All notable changes to the "anytime-markdown" extension will be documented in th
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.0] - 2026-03-08
+
+### Added
+- /docs ページを GitHub Docs 風カテゴリレイアウトにリデザイン（ヒーローセクション、フラットカードデザイン）
+- カテゴリ内アイテムのラベル編集・ツールチップ表示・ドラッグ並べ替え機能
+- URL リンクアイテムのカテゴリ追加機能（外部URL・相対パス対応）
+- /privacy ページに LandingHeader を追加
+- readonly モードを追加（環境変数で表示制御）
+
+### Changed
+- レイアウトデータ構造を LayoutCard から LayoutCategory に変更
+- AWS 環境変数に ANYTIME_ プレフィックスを追加（SDK 自動認識から明示的 credentials 設定に変更）
+- ヘッダーロゴクリックでトップページに遷移するように変更
+- ランディングヘッダから機能一覧リンクを削除
+- features ページからホームへ戻るリンクを削除
+
+### Fixed
+- docs/view で異なるドキュメントの内容が表示される問題を修正（localStorage キャッシュ競合）
+- ソースモードのテキストエリアのフォーカス時の青い枠線を除去
+- HMR 時のローディングフラッシュを防止
+- 新規作成後に HMR でデフォルトコンテンツに戻る問題を修正
+- blockquote 空行・リスト/テーブル内ハードブレイクのラウンドトリップ修正
+
 ## [0.1.4] - 2026-03-07
 
 ### Changed

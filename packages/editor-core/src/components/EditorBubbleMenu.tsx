@@ -34,12 +34,13 @@ function tip(t: TranslationFn, key: string): string {
 interface EditorBubbleMenuProps {
   editor: Editor;
   onLink: () => void;
-  viewMode?: boolean;
-  executeInViewMode?: (fn: () => void) => void;
+  readonlyMode?: boolean;
+  reviewMode?: boolean;
+  executeInReviewMode?: (fn: () => void) => void;
   t: TranslationFn;
 }
 
-export const EditorBubbleMenu = React.memo(function EditorBubbleMenu({ editor, onLink, viewMode, executeInViewMode, t }: EditorBubbleMenuProps) {
+export const EditorBubbleMenu = React.memo(function EditorBubbleMenu({ editor, onLink, readonlyMode, reviewMode, executeInReviewMode, t }: EditorBubbleMenuProps) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
     e.preventDefault();
@@ -60,6 +61,7 @@ export const EditorBubbleMenu = React.memo(function EditorBubbleMenu({ editor, o
     <BubbleMenu
       editor={editor}
       shouldShow={({ editor: e, state }) => {
+        if (readonlyMode) return false;
         const { selection } = state;
         if (selection.empty) return false;
         if (e.isActive("codeBlock")) return false;
@@ -80,7 +82,7 @@ export const EditorBubbleMenu = React.memo(function EditorBubbleMenu({ editor, o
           borderRadius: 1,
         }}
       >
-        {!viewMode && (
+        {!readonlyMode && !reviewMode && (
           <>
             <Tooltip title={tip(t, "bold")}>
               <IconButton
@@ -167,28 +169,30 @@ export const EditorBubbleMenu = React.memo(function EditorBubbleMenu({ editor, o
             </Tooltip>
           </>
         )}
-        <Tooltip title={tip(t, "comment")}>
-          <IconButton
-            size="small"
-            aria-label={t("comment")}
-            onClick={() => {
-              const openComment = () => {
-                const storage = editor.storage as unknown as Record<string, Record<string, unknown>>;
-                const openDialog = storage.commentDialog?.open as (() => void) | undefined;
-                if (openDialog) openDialog();
-              };
-              if (viewMode && executeInViewMode) {
-                executeInViewMode(openComment);
-              } else {
-                openComment();
-              }
-            }}
-            color={editor.isActive("commentHighlight") ? "primary" : "default"}
-            sx={{ p: 0.5 }}
-          >
-            <ChatBubbleOutlineIcon sx={{ fontSize: 18 }} />
-          </IconButton>
-        </Tooltip>
+        {!readonlyMode && (
+          <Tooltip title={tip(t, "comment")}>
+            <IconButton
+              size="small"
+              aria-label={t("comment")}
+              onClick={() => {
+                const openComment = () => {
+                  const storage = editor.storage as unknown as Record<string, Record<string, unknown>>;
+                  const openDialog = storage.commentDialog?.open as (() => void) | undefined;
+                  if (openDialog) openDialog();
+                };
+                if (reviewMode && executeInReviewMode) {
+                  executeInReviewMode(openComment);
+                } else {
+                  openComment();
+                }
+              }}
+              color={editor.isActive("commentHighlight") ? "primary" : "default"}
+              sx={{ p: 0.5 }}
+            >
+              <ChatBubbleOutlineIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+        )}
       </Paper>
     </BubbleMenu>
   );

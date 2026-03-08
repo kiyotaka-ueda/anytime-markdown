@@ -83,7 +83,7 @@ export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeVi
           }),
         }}
       >
-        {/* Header toolbar (hidden in view mode) */}
+        {/* Header toolbar (hidden in rereview mode) */}
         {isEditable && <Box
           data-block-toolbar=""
           role="toolbar"
@@ -99,7 +99,7 @@ export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeVi
           }}
           contentEditable={false}
         >
-          {/* Drag handle (hidden in fullscreen or view mode) */}
+          {/* Drag handle (hidden in fullscreen or review mode) */}
           {!fullscreen && isEditable && (
             <Box
               data-drag-handle=""
@@ -237,7 +237,7 @@ export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeVi
 
           <Box sx={{ flex: 1 }} />
 
-          {/* Delete table (hidden in fullscreen, collapsed, or view mode) */}
+          {/* Delete table (hidden in fullscreen, collapsed, or review mode) */}
           {!fullscreen && !collapsed && isEditable && (
             <>
               <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
