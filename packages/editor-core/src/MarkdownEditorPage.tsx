@@ -706,7 +706,6 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
       ) : (
         <Box
           ref={editorWrapperRef}
-          tabIndex={(readonlyMode || reviewMode) ? 0 : undefined}
           onKeyDown={(readonlyMode || reviewMode) ? (e: React.KeyboardEvent) => {
             if ((e.ctrlKey || e.metaKey) && e.key === "f") {
               e.preventDefault();

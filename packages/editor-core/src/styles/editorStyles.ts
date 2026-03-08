@@ -27,8 +27,8 @@ export function getEditorPaperSx(
       pr: 2,
       pl: 5,
       outline: "none",
-      // readonly/レビューモード（contenteditable=false）時はホバーラベルを非表示
-      '&[contenteditable="false"]': {
+      // readonly/レビューモード時はホバーラベルを非表示
+      '&[contenteditable="false"], &[data-review-mode="true"], &[data-readonly-mode="true"]': {
         "& h1::before, & h2::before, & h3::before, & h4::before, & h5::before, & > p::before, & > blockquote > p::before, & li::before": {
           display: "none !important" as unknown as string,
         },

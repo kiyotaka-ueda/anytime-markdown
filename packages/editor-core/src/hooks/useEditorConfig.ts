@@ -13,6 +13,7 @@ import { SearchReplaceExtension } from "../searchReplaceExtension";
 import { Details, DetailsSummary } from "../detailsExtension";
 import { SlashCommandExtension } from "../extensions/slashCommandExtension";
 import type { SlashCommandState } from "../extensions/slashCommandExtension";
+import { ReviewModeExtension } from "../extensions/reviewModeExtension";
 import {
   getMarkdownFromEditor,
   extractHeadings,
@@ -70,6 +71,7 @@ export function useEditorConfig({
       SlashCommandExtension.configure({
         onStateChange: (state: SlashCommandState) => slashCommandCallbackRef.current(state),
       }),
+      ReviewModeExtension,
     ],
     editorProps: {
       handleDrop: (view: EditorView, event: DragEvent, _slice: Slice, moved: boolean) => {
@@ -146,11 +148,12 @@ export function useEditorConfig({
         },
         click: (_view: EditorView, event: MouseEvent) => {
           const target = event.target as HTMLElement;
-          // ビューモード時のチェックボックス操作: ProseMirror ドキュメントに反映して保存
-          if (!_view.editable && target instanceof HTMLInputElement && target.type === "checkbox") {
+          // レビューモード時のチェックボックス操作: ProseMirror ドキュメントに反映して保存
+          // (readonlyモードではCSSでpointerEvents:noneのためここに到達しない)
+          const isFilterActive = editorRef.current?.storage.reviewMode?.enabled;
+          if (isFilterActive && target instanceof HTMLInputElement && target.type === "checkbox") {
             const li = target.closest("li[data-checked]") as HTMLElement | null;
             if (li) {
-              // onReadOnlyChecked(change イベント)が DOM を更新した後に ProseMirror を同期
               setTimeout(() => {
                 const editor = editorRef.current;
                 if (!editor) return;
@@ -160,16 +163,19 @@ export function useEditorConfig({
                   const nodePos = pos - 1;
                   const node = editor.state.doc.nodeAt(nodePos);
                   if (!node || node.type.name !== "taskItem") return;
-                  editor.setEditable(true);
+                  editor.storage.reviewMode.enabled = false;
                   editor.view.dispatch(
                     editor.state.tr.setNodeMarkup(nodePos, undefined, {
                       ...node.attrs, checked,
                     }),
                   );
                   saveContent(getMarkdownFromEditor(editor));
-                  editor.setEditable(false);
+                  editor.storage.reviewMode.enabled = true;
                 } catch {
-                  try { editor.setEditable(false); } catch { /* ignore */ }
+                  const editor2 = editorRef.current;
+                  if (editor2?.storage.reviewMode) {
+                    editor2.storage.reviewMode.enabled = true;
+                  }
                 }
               }, 0);
               return false;
