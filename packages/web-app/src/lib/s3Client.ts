@@ -2,7 +2,15 @@ import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import type { LayoutData } from '../types/layout';
 
 export const s3Client = new S3Client({
-  region: process.env.AWS_REGION ?? 'ap-northeast-1',
+  region: process.env.ANYTIME_AWS_REGION ?? 'ap-northeast-1',
+  ...(process.env.ANYTIME_AWS_ACCESS_KEY_ID && process.env.ANYTIME_AWS_SECRET_ACCESS_KEY
+    ? {
+        credentials: {
+          accessKeyId: process.env.ANYTIME_AWS_ACCESS_KEY_ID,
+          secretAccessKey: process.env.ANYTIME_AWS_SECRET_ACCESS_KEY,
+        },
+      }
+    : {}),
 });
 
 export const DOCS_BUCKET = process.env.S3_DOCS_BUCKET ?? '';
