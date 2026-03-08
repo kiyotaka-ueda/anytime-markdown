@@ -37,17 +37,25 @@
         {
           "id": "anytimeMarkdown.gitHistory",
           "name": "Git History"
+        },
+        {
+          "id": "anytimeMarkdown.comments",
+          "name": "Comments"
         }
       ]
     },
     "viewsWelcome": [
       {
         "view": "anytimeMarkdown.outline",
-        "contents": "No markdown file is open in Anytime editor.\n[Open with Anytime](command:anytime-markdown.openEditorWithFile)"
+        "contents": "No items."
       },
       {
         "view": "anytimeMarkdown.gitHistory",
-        "contents": "No markdown file is open in Anytime editor.\n[Open with Anytime](command:anytime-markdown.openEditorWithFile)"
+        "contents": "No items."
+      },
+      {
+        "view": "anytimeMarkdown.comments",
+        "contents": "No comments."
       }
     ],
     "commands": [
@@ -64,6 +72,33 @@
         "command": "anytime-markdown.toggleSectionNumbers",
         "title": "Toggle Section Numbers",
         "icon": "$(list-ordered)"
+      },
+      {
+        "command": "anytime-markdown.resolveComment",
+        "title": "Resolve",
+        "icon": "$(check)"
+      },
+      {
+        "command": "anytime-markdown.unresolveComment",
+        "title": "Reopen",
+        "icon": "$(circle-outline)"
+      },
+      {
+        "command": "anytime-markdown.deleteComment",
+        "title": "Delete",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "anytime-markdown.filterCommentsAll",
+        "title": "All"
+      },
+      {
+        "command": "anytime-markdown.filterCommentsOpen",
+        "title": "Open"
+      },
+      {
+        "command": "anytime-markdown.filterCommentsResolved",
+        "title": "Resolved"
       },
       {
         "command": "anytime-markdown.toggleBlockElements",
@@ -112,8 +147,48 @@
         }
       }
     },
+    "submenus": [
+      {
+        "id": "anytimeMarkdown.commentFilter",
+        "label": "Filter",
+        "icon": "$(filter)"
+      }
+    ],
     "menus": {
+      "anytimeMarkdown.commentFilter": [
+        {
+          "command": "anytime-markdown.filterCommentsAll"
+        },
+        {
+          "command": "anytime-markdown.filterCommentsOpen"
+        },
+        {
+          "command": "anytime-markdown.filterCommentsResolved"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "anytime-markdown.resolveComment",
+          "when": "view == anytimeMarkdown.comments && viewItem == unresolved",
+          "group": "inline@1"
+        },
+        {
+          "command": "anytime-markdown.unresolveComment",
+          "when": "view == anytimeMarkdown.comments && viewItem == resolved",
+          "group": "inline@1"
+        },
+        {
+          "command": "anytime-markdown.deleteComment",
+          "when": "view == anytimeMarkdown.comments",
+          "group": "inline@2"
+        }
+      ],
       "view/title": [
+        {
+          "submenu": "anytimeMarkdown.commentFilter",
+          "when": "view == anytimeMarkdown.comments",
+          "group": "navigation@1"
+        },
         {
           "command": "anytime-markdown.toggleSectionNumbers",
           "when": "view == anytimeMarkdown.outline",

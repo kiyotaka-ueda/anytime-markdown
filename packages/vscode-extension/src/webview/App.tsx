@@ -73,6 +73,22 @@ export function App() {
         window.dispatchEvent(new CustomEvent('vscode-scroll-to-heading', { detail: message.pos }));
         return;
       }
+      if (message?.type === 'scrollToComment' && typeof message.pos === 'number') {
+        window.dispatchEvent(new CustomEvent('vscode-scroll-to-comment', { detail: message.pos }));
+        return;
+      }
+      if (message?.type === 'resolveComment' && typeof message.id === 'string') {
+        window.dispatchEvent(new CustomEvent('vscode-resolve-comment', { detail: message.id }));
+        return;
+      }
+      if (message?.type === 'unresolveComment' && typeof message.id === 'string') {
+        window.dispatchEvent(new CustomEvent('vscode-unresolve-comment', { detail: message.id }));
+        return;
+      }
+      if (message?.type === 'deleteComment' && typeof message.id === 'string') {
+        window.dispatchEvent(new CustomEvent('vscode-delete-comment', { detail: message.id }));
+        return;
+      }
       if (message?.type === 'toggleSectionNumbers' && typeof message.show === 'boolean') {
         window.dispatchEvent(new CustomEvent('vscode-toggle-section-numbers', { detail: message.show }));
         return;
@@ -109,6 +125,10 @@ export function App() {
     vscode.postMessage({ type: 'headingsChanged', headings });
   }, []);
 
+  const handleCommentsChange = useCallback((comments: Array<{ id: string; text: string; resolved: boolean; createdAt: string; targetText: string; pos: number; isPoint: boolean }>) => {
+    vscode.postMessage({ type: 'commentsChanged', comments });
+  }, []);
+
   useEffect(() => {
     const openLink = (e: MouseEvent) => {
       const anchor = (e.target as HTMLElement).closest('a');
@@ -138,7 +158,7 @@ export function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <ConfirmProvider>
-        <MarkdownEditorPage hideFileOps hideUndoRedo hideSettings hideHelp hideVersionInfo hideOutline onCompareModeChange={handleCompareModeChange} onHeadingsChange={handleHeadingsChange} />
+        <MarkdownEditorPage hideFileOps hideUndoRedo hideSettings hideHelp hideVersionInfo hideOutline onCompareModeChange={handleCompareModeChange} onHeadingsChange={handleHeadingsChange} onCommentsChange={handleCommentsChange} />
       </ConfirmProvider>
     </ThemeProvider>
   );

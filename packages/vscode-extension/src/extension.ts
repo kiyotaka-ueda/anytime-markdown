@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import { MarkdownEditorProvider } from './providers/MarkdownEditorProvider';
 import { GitHistoryProvider, GitHistoryItem } from './providers/GitHistoryProvider';
 import { OutlineProvider } from './providers/OutlineProvider';
+import { CommentProvider } from './providers/CommentProvider';
+import type { CommentData } from './providers/CommentProvider';
 
 export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(MarkdownEditorProvider.register(context));
@@ -19,11 +21,20 @@ export function activate(context: vscode.ExtensionContext) {
 		showCollapseAll: true,
 	});
 
-	// Webview からの見出し変更通知をアウトラインに反映
+	// コメントパネル
+	const commentProvider = new CommentProvider();
+	const commentTreeView = vscode.window.createTreeView('anytimeMarkdown.comments', {
+		treeDataProvider: commentProvider,
+	});
+
+	// Webview からの変更通知を各パネルに反映
 	const provider = MarkdownEditorProvider.getInstance();
 	if (provider) {
 		provider.onHeadingsChanged = (headings) => {
 			outlineProvider.update(headings as Array<{ level: number; text: string; pos: number; kind: string }>);
+		};
+		provider.onCommentsChanged = (comments) => {
+			commentProvider.update(comments as CommentData[]);
 		};
 	}
 
@@ -49,13 +60,19 @@ export function activate(context: vscode.ExtensionContext) {
 			// アクティブドキュメントが変わったらアウトラインをクリア（新しい見出しが来るまで）
 			if (!currentUri) {
 				outlineProvider.clear();
+				commentProvider.clear();
 			}
 		}
-		// onHeadingsChanged コールバックの再設定（Provider 再生成時の対応）
+		// コールバックの再設定（Provider 再生成時の対応）
 		const currentProvider = MarkdownEditorProvider.getInstance();
 		if (currentProvider && !currentProvider.onHeadingsChanged) {
 			currentProvider.onHeadingsChanged = (headings) => {
 				outlineProvider.update(headings as Array<{ level: number; text: string; pos: number; kind: string }>);
+			};
+		}
+		if (currentProvider && !currentProvider.onCommentsChanged) {
+			currentProvider.onCommentsChanged = (comments) => {
+				commentProvider.update(comments as CommentData[]);
 			};
 		}
 	}, 500);
@@ -117,6 +134,55 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	);
 
+	const scrollToComment = vscode.commands.registerCommand(
+		'anytime-markdown.scrollToComment',
+		(pos: number) => {
+			const p = MarkdownEditorProvider.getInstance();
+			p?.postMessageToActivePanel({ type: 'scrollToComment', pos });
+		}
+	);
+
+	const resolveComment = vscode.commands.registerCommand(
+		'anytime-markdown.resolveComment',
+		(item: { comment?: { id?: string } }) => {
+			const id = item?.comment?.id;
+			if (!id) return;
+			const p = MarkdownEditorProvider.getInstance();
+			p?.postMessageToActivePanel({ type: 'resolveComment', id });
+		}
+	);
+
+	const unresolveComment = vscode.commands.registerCommand(
+		'anytime-markdown.unresolveComment',
+		(item: { comment?: { id?: string } }) => {
+			const id = item?.comment?.id;
+			if (!id) return;
+			const p = MarkdownEditorProvider.getInstance();
+			p?.postMessageToActivePanel({ type: 'unresolveComment', id });
+		}
+	);
+
+	const deleteComment = vscode.commands.registerCommand(
+		'anytime-markdown.deleteComment',
+		(item: { comment?: { id?: string } }) => {
+			const id = item?.comment?.id;
+			if (!id) return;
+			const p = MarkdownEditorProvider.getInstance();
+			p?.postMessageToActivePanel({ type: 'deleteComment', id });
+		}
+	);
+
+	// コメントフィルタ
+	const filterCommentsAll = vscode.commands.registerCommand(
+		'anytime-markdown.filterCommentsAll', () => commentProvider.setFilter('all')
+	);
+	const filterCommentsOpen = vscode.commands.registerCommand(
+		'anytime-markdown.filterCommentsOpen', () => commentProvider.setFilter('open')
+	);
+	const filterCommentsResolved = vscode.commands.registerCommand(
+		'anytime-markdown.filterCommentsResolved', () => commentProvider.setFilter('resolved')
+	);
+
 	const toggleSectionNumbers = vscode.commands.registerCommand(
 		'anytime-markdown.toggleSectionNumbers',
 		() => {
@@ -137,8 +203,10 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	context.subscriptions.push(
-		gitTreeView, outlineTreeView,
+		gitTreeView, outlineTreeView, commentTreeView,
 		openEditorWithFile, compareCmd, compareWithCommit, scrollToHeading,
+		scrollToComment, resolveComment, unresolveComment, deleteComment,
+		filterCommentsAll, filterCommentsOpen, filterCommentsResolved,
 		toggleSectionNumbers, toggleBlockElements,
 	);
 }

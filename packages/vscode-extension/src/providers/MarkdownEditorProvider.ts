@@ -10,6 +10,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   public compareFileUri: vscode.Uri | null = null;
   public activeDocumentUri: vscode.Uri | null = null;
   public onHeadingsChanged?: (headings: unknown[]) => void;
+  public onCommentsChanged?: (comments: unknown[]) => void;
 
   private panels = new Map<string, vscode.WebviewPanel>();
   private readyPanels = new Set<string>();
@@ -173,7 +174,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       sendTheme();
     });
 
-    webviewPanel.webview.onDidReceiveMessage(async (message: { type: string; content?: string; active?: boolean; headings?: unknown[] }) => {
+    webviewPanel.webview.onDidReceiveMessage(async (message: { type: string; content?: string; active?: boolean; headings?: unknown[]; comments?: unknown[] }) => {
       switch (message.type) {
         case 'ready': {
           updateWebview();
@@ -195,6 +196,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
         case 'headingsChanged':
           if (message.headings) { this.onHeadingsChanged?.(message.headings); }
+          break;
+
+        case 'commentsChanged':
+          if (message.comments) { this.onCommentsChanged?.(message.comments); }
           break;
 
         case 'saveCompareFile':
