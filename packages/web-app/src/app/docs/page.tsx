@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: '/docs' },
 };
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
 
 export default async function SitesPage() {
   let initialData;
