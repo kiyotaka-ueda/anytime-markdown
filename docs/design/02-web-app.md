@@ -223,6 +223,7 @@ Serwist を使用してサービスワーカーを生成する。
 | `S3_DOCS_PREFIX` | S3 フォルダプレフィックス | `docs/` |
 | `CMS_BASIC_USER` | CMS 認証ユーザー名 | `admin` |
 | `CMS_BASIC_PASSWORD` | CMS 認証パスワード | `anytime` |
+| `CLOUDFRONT_DOCS_URL` | CloudFront ディストリビューション URL | (省略可) |
 | `CAPACITOR_BUILD` | モバイルビルドフラグ | (省略可) |
 
 
