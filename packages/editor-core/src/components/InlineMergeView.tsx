@@ -265,6 +265,7 @@ export function InlineMergeView({
   const handleHoverLine = useCallback((idx: number | null) => {
     hoverSetterRef.current?.(idx);
   }, []);
+  const [rightDragOver, setRightDragOver] = useState(false);
   const [rightHeadingMenu, setRightHeadingMenu] = useState<{
     anchorEl: HTMLElement; pos: number; currentLevel: number;
   } | null>(null);
@@ -413,7 +414,45 @@ export function InlineMergeView({
         <Divider orientation="vertical" flexItem />
 
         {/* Right: editor + DiffMap */}
-        <Box sx={{ flex: 1, minWidth: 0, display: "flex", overflow: "hidden" }}>
+        <Box
+          sx={{
+            flex: 1, minWidth: 0, display: "flex", overflow: "hidden",
+            position: "relative",
+            ...(rightDragOver && {
+              outline: "2px dashed",
+              outlineColor: "primary.main",
+              outlineOffset: -2,
+              bgcolor: "action.hover",
+            }),
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setRightDragOver(true);
+          }}
+          onDragEnter={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setRightDragOver(true);
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            // Box 外に出たときだけ解除（子要素間の移動では解除しない）
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+              setRightDragOver(false);
+            }
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setRightDragOver(false);
+            const file = e.dataTransfer.files?.[0];
+            if (file && (file.name.endsWith(".md") || file.name.endsWith(".markdown") || file.type.startsWith("text/"))) {
+              loadFile(setRightText, setRightMeta)(file);
+            }
+          }}
+        >
           <MergeEditorPanel
             sourceMode={sourceMode}
             sourceText={rightText}
