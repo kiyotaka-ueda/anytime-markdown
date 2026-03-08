@@ -31,12 +31,20 @@
     "views": {
       "anytimeMarkdown": [
         {
+          "id": "anytimeMarkdown.outline",
+          "name": "Outline"
+        },
+        {
           "id": "anytimeMarkdown.gitHistory",
           "name": "Git History"
         }
       ]
     },
     "viewsWelcome": [
+      {
+        "view": "anytimeMarkdown.outline",
+        "contents": "No markdown file is open in Anytime editor.\n[Open with Anytime](command:anytime-markdown.openEditorWithFile)"
+      },
       {
         "view": "anytimeMarkdown.gitHistory",
         "contents": "No markdown file is open in Anytime editor.\n[Open with Anytime](command:anytime-markdown.openEditorWithFile)"

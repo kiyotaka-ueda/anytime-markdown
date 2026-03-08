@@ -80,6 +80,7 @@ interface MarkdownEditorPageProps {
   hideVersionInfo?: boolean;
   featuresUrl?: string;
   onCompareModeChange?: (active: boolean) => void;
+  onHeadingsChange?: (headings: HeadingItem[]) => void;
   themeMode?: 'light' | 'dark';
   onThemeModeChange?: (mode: 'light' | 'dark') => void;
   onLocaleChange?: (locale: string) => void;
@@ -90,7 +91,7 @@ interface MarkdownEditorPageProps {
   showReadonlyMode?: boolean;
 }
 
-export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, featuresUrl, onCompareModeChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, externalContent, readOnly, hideToolbar, showReadonlyMode }: MarkdownEditorPageProps = {}) {
+export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, featuresUrl, onCompareModeChange, onHeadingsChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, externalContent, readOnly, hideToolbar, showReadonlyMode }: MarkdownEditorPageProps = {}) {
   const theme = useTheme();
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
@@ -253,7 +254,12 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   );
 
   // Update refs for useEditor callbacks
-  setHeadingsRef.current = setHeadings;
+  const onHeadingsChangeRef = useRef(onHeadingsChange);
+  onHeadingsChangeRef.current = onHeadingsChange;
+  setHeadingsRef.current = (h: HeadingItem[]) => {
+    setHeadings(h);
+    onHeadingsChangeRef.current?.(h);
+  };
   handleImportRef.current = handleImport;
 
   // Floating toolbar positions (M-5: unified hook)
@@ -283,6 +289,22 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   setEditorMarkdownRef.current = setEditorMarkdown;
 
   useEditorSideEffects({ editor, isDirty, markDirty, setHeadingsRef, setEditorMarkdown });
+
+  // VS Code TreeView からの見出しスクロール要求
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const pos = (e as CustomEvent<number>).detail;
+      if (!editor || editor.isDestroyed) return;
+      if (editor.isEditable) {
+        editor.chain().focus().setTextSelection(pos).run();
+      }
+      const domAtPos = editor.view.domAtPos(pos);
+      const node = domAtPos.node instanceof HTMLElement ? domAtPos.node : domAtPos.node.parentElement;
+      node?.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
+    window.addEventListener('vscode-scroll-to-heading', handler);
+    return () => window.removeEventListener('vscode-scroll-to-heading', handler);
+  }, [editor]);
 
   const { editorContainerRef, editorHeight } = useEditorHeight(isMobile, isMd);
 

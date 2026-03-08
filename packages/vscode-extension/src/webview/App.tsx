@@ -69,6 +69,10 @@ export function App() {
         window.dispatchEvent(new CustomEvent('vscode-external-change', { detail: message.content }));
         return;
       }
+      if (message?.type === 'scrollToHeading' && typeof message.pos === 'number') {
+        window.dispatchEvent(new CustomEvent('vscode-scroll-to-heading', { detail: message.pos }));
+        return;
+      }
       if (message?.type === 'setContent' && typeof message.content === 'string') {
         const isInitial = !ready;
         currentContent = message.content;
@@ -95,6 +99,10 @@ export function App() {
 
   const handleCompareModeChange = useCallback((active: boolean) => {
     vscode.postMessage({ type: 'compareModeChanged', active });
+  }, []);
+
+  const handleHeadingsChange = useCallback((headings: Array<{ level: number; text: string; pos: number; kind: string }>) => {
+    vscode.postMessage({ type: 'headingsChanged', headings });
   }, []);
 
   useEffect(() => {
@@ -126,7 +134,7 @@ export function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <ConfirmProvider>
-        <MarkdownEditorPage hideFileOps hideUndoRedo hideSettings hideHelp hideVersionInfo onCompareModeChange={handleCompareModeChange} />
+        <MarkdownEditorPage hideFileOps hideUndoRedo hideSettings hideHelp hideVersionInfo onCompareModeChange={handleCompareModeChange} onHeadingsChange={handleHeadingsChange} />
       </ConfirmProvider>
     </ThemeProvider>
   );
