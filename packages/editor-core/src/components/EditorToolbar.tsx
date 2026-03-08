@@ -557,7 +557,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
         <ToggleButton
           value="edit"
           aria-label={t("normalMode")}
-          disabled={readonlyMode || reviewMode}
+          disabled={readonlyMode}
           onClick={() => { if (inlineMergeOpen) onMerge(); }}
         >
           <EditNoteIcon sx={{ fontSize: "1rem" }} />
@@ -566,7 +566,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
         <ToggleButton
           value="compare"
           aria-label={t("compare")}
-          disabled={readonlyMode || reviewMode}
+          disabled={readonlyMode}
           onClick={() => { if (!inlineMergeOpen) onMerge(); }}
         >
           <ViewStreamIcon sx={{ fontSize: "1rem", transform: "rotate(90deg)" }} />
@@ -639,7 +639,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
       )}
       <MenuItem
         onClick={() => { onMerge(); setMobileMenuAnchorEl(null); }}
-        disabled={readonlyMode || reviewMode}
+        disabled={readonlyMode}
       >
         <ListItemIcon>
           <ViewStreamIcon fontSize="small" sx={{ transform: "rotate(90deg)" }} color={inlineMergeOpen ? "primary" : "inherit"} />
