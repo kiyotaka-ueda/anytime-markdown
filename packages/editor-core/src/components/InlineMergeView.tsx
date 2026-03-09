@@ -316,6 +316,69 @@ export function InlineMergeView({
     prevSourceMode.current = sourceMode;
   }, [sourceMode, rightEditor, rightText]);
 
+  // 左エディタのブロック展開/折りたたみ状態を右エディタに同期
+  useEffect(() => {
+    if (!leftEditor || !rightEditor || sourceMode) return;
+    const syncCollapsed = () => {
+      if (leftEditor.isDestroyed || rightEditor.isDestroyed) return;
+      const targetTypes = new Set(["codeBlock", "table", "image"]);
+      // 左エディタの collapsed / codeCollapsed 状態を収集
+      const leftStates: { type: string; index: number; collapsed?: boolean; codeCollapsed?: boolean }[] = [];
+      const counters: Record<string, number> = {};
+      leftEditor.state.doc.descendants((node) => {
+        if (targetTypes.has(node.type.name)) {
+          const key = node.type.name;
+          counters[key] = (counters[key] || 0) + 1;
+          leftStates.push({
+            type: key,
+            index: counters[key] - 1,
+            collapsed: node.attrs.collapsed,
+            codeCollapsed: node.attrs.codeCollapsed,
+          });
+        }
+      });
+      // 右エディタに適用
+      const rightCounters: Record<string, number> = {};
+      let changed = false;
+      const tr = rightEditor.state.tr;
+      rightEditor.state.doc.descendants((node, pos) => {
+        if (targetTypes.has(node.type.name)) {
+          const key = node.type.name;
+          rightCounters[key] = (rightCounters[key] || 0) + 1;
+          const idx = rightCounters[key] - 1;
+          const leftState = leftStates.find(s => s.type === key && s.index === idx);
+          if (leftState) {
+            const newAttrs: Record<string, unknown> = { ...node.attrs };
+            if (leftState.collapsed !== undefined && node.attrs.collapsed !== leftState.collapsed) {
+              newAttrs.collapsed = leftState.collapsed;
+              changed = true;
+            }
+            if (leftState.codeCollapsed !== undefined && node.attrs.codeCollapsed !== leftState.codeCollapsed) {
+              newAttrs.codeCollapsed = leftState.codeCollapsed;
+              changed = true;
+            }
+            if (changed) {
+              tr.setNodeMarkup(pos, undefined, newAttrs);
+            }
+          }
+        }
+      });
+      if (changed) {
+        requestAnimationFrame(() => {
+          if (!rightEditor.isDestroyed) {
+            reviewModeStorage(rightEditor).enabled = false;
+            rightEditor.view.dispatch(tr);
+            reviewModeStorage(rightEditor).enabled = true;
+          }
+        });
+      }
+    };
+    leftEditor.on("update", syncCollapsed);
+    return () => {
+      leftEditor.off("update", syncCollapsed);
+    };
+  }, [leftEditor, rightEditor, sourceMode]);
+
   useDiffHighlight(sourceMode, leftEditor, rightEditor);
 
   useScrollSync(leftContainerRef, rightScrollRef);
