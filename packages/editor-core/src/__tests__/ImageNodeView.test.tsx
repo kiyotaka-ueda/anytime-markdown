@@ -138,19 +138,6 @@ describe("ImageNodeView", () => {
     expect(screen.queryByRole("img")).toBeNull();
   });
 
-  // --- collapsed toggle ---
-  test("collapse ボタン → updateAttributes 呼び出し", () => {
-    const { updateAttributes } = setup({ isSelected: true });
-    const foldButton = screen.getByLabelText("foldAll");
-    fireEvent.click(foldButton);
-    expect(updateAttributes).toHaveBeenCalledWith({ collapsed: true });
-  });
-
-  test("collapsed=true → unfold ボタン表示", () => {
-    setup({ nodeAttrs: { collapsed: true }, isSelected: true });
-    expect(screen.getByLabelText("unfoldAll")).toBeTruthy();
-  });
-
   // --- fullscreen ---
   test("fullscreen ボタン → close ボタンが表示される", () => {
     setup({ isSelected: true });

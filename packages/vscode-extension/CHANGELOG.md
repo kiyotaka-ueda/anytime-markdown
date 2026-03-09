@@ -4,6 +4,11 @@ All notable changes to the "anytime-markdown" extension will be documented in th
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.9] - 2026-03-09
+
+### Fixed
+- ImageNodeView テストから存在しない fold/unfold ボタンのテストを削除
+
 ## [0.2.8] - 2026-03-09
 
 ### Added
