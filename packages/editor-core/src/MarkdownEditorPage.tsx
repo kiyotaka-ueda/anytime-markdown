@@ -32,6 +32,7 @@ import { getEditorPaperSx } from "./styles/editorStyles";
 import { PrintStyles } from "./styles/printStyles";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { useLocale, useTranslations } from "next-intl";
+import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useMarkdownEditor } from "./useMarkdownEditor";
@@ -152,6 +153,20 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   } = useEditorMenuState();
   const editorWrapperRef = useRef<HTMLDivElement>(null);
   const sourceTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // EditorContent を常時マウントするための永続的なポータルターゲット
+  const [editorPortalTarget] = useState(() => {
+    if (typeof document === "undefined") return null;
+    const el = document.createElement("div");
+    el.style.display = "contents";
+    return el;
+  });
+  // callback ref: DOM 出現時に即座にポータルターゲットを移動（dynamic import 対応）
+  const editorMountCallback = useCallback((node: HTMLDivElement | null) => {
+    if (node && editorPortalTarget && editorPortalTarget.parentElement !== node) {
+      node.appendChild(editorPortalTarget);
+    }
+  }, [editorPortalTarget]);
   const [sourceSearchOpen, setSourceSearchOpen] = useState(false);
 
   // Refs for callbacks used in useEditor config (avoids stale closures)
@@ -667,6 +682,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
                 textareaAriaLabel={t("sourceEditor")}
                 editor={editor}
                 editorWrapperRef={editorWrapperRef}
+                editorMountRef={editorMountCallback}
                 autoResize
                 bgGradient={leftBgGradient}
                 diffLines={leftDiffLines}
@@ -737,7 +753,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
           variant="outlined"
           sx={getEditorPaperSx(theme, settings, editorHeight, { readonlyMode })}
         >
-          <EditorContent editor={editor} />
+          <div ref={editorMountCallback} style={{ display: "contents" }} />
         </Paper>
         </Box>
       )}
@@ -747,6 +763,9 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         )}
       </Box>
       )}
+
+      {/* EditorContent は常時マウント – ポータル経由で DOM を移動 */}
+      {editorPortalTarget && createPortal(<EditorContent editor={editor} />, editorPortalTarget)}
 
       {/* BubbleMenu (text formatting) – rendered for both merge and non-merge modes */}
       {editor && !sourceMode && (

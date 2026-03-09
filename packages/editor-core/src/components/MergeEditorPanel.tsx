@@ -223,6 +223,7 @@ interface MergeEditorPanelProps {
   textareaAriaLabel?: string;
   editor?: Editor | null;
   editorWrapperRef?: React.RefObject<HTMLDivElement | null>;
+  editorMountRef?: React.Ref<HTMLDivElement>;
   children?: React.ReactNode;
   scrollRef?: React.RefObject<HTMLDivElement | null>;
   bgGradient?: string;
@@ -245,6 +246,7 @@ export function MergeEditorPanel({
   textareaAriaLabel,
   editor,
   editorWrapperRef,
+  editorMountRef,
   children,
   scrollRef,
   bgGradient,
@@ -598,7 +600,10 @@ export function MergeEditorPanel({
         ...(Array.isArray(paperSx) ? paperSx : paperSx ? [paperSx] : []),
       ]}
     >
-      <EditorContent editor={editor ?? null} />
+      {editorMountRef
+        ? <div ref={editorMountRef} style={{ display: "contents" }} />
+        : <EditorContent editor={editor ?? null} />
+      }
       {children}
     </Paper>
   );

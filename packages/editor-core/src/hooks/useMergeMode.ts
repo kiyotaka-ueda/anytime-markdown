@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
 import type { MergeUndoRedo } from "../components/InlineMergeView";
 import { getMarkdownFromEditor } from "../types";
@@ -40,13 +40,18 @@ export function useMergeMode({
   }, [sourceMode, editor, inlineMergeOpen, isMd, outlineOpen, handleToggleOutline, t, setLiveMessage]);
 
   // マージモードが閉じたときにデコレーションをクリア
+  const prevMergeOpen = useRef(false);
   useEffect(() => {
-    if (!inlineMergeOpen && editor) {
-      // React レンダリング中の flushSync 競合を回避するため次フレームに遅延
-      requestAnimationFrame(() => {
-        if (!editor.isDestroyed) editor.commands.clearDiffHighlight();
-      });
+    if (prevMergeOpen.current && !inlineMergeOpen && editor) {
+      const timer = setTimeout(() => {
+        if (!editor.isDestroyed) {
+          editor.commands.clearDiffHighlight();
+        }
+      }, 100);
+      prevMergeOpen.current = inlineMergeOpen;
+      return () => clearTimeout(timer);
     }
+    prevMergeOpen.current = inlineMergeOpen;
   }, [inlineMergeOpen, editor]);
 
   // 比較モード変更を外部に通知（VS Code 拡張用）

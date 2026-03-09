@@ -11,13 +11,11 @@ jest.mock("../types", () => ({
 const mockedGetMarkdown = getMarkdownFromEditor as jest.MockedFunction<typeof getMarkdownFromEditor>;
 
 beforeEach(() => {
-  jest.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
-    cb(0);
-    return 0;
-  });
+  jest.useFakeTimers();
 });
 
 afterEach(() => {
+  jest.useRealTimers();
   jest.restoreAllMocks();
 });
 
@@ -124,6 +122,9 @@ describe("useMergeMode", () => {
     // Open then close
     act(() => result.current.handleMerge());
     act(() => result.current.handleMerge());
+
+    // clearDiffHighlight は setTimeout(100ms) 内で呼ばれる
+    act(() => { jest.advanceTimersByTime(100); });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((editor.commands as any).clearDiffHighlight).toHaveBeenCalled();
