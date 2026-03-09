@@ -667,13 +667,16 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
                 textareaAriaLabel={t("sourceEditor")}
                 editor={editor}
                 editorWrapperRef={editorWrapperRef}
-                hideScrollbar
                 autoResize
                 bgGradient={leftBgGradient}
                 diffLines={leftDiffLines}
                 side="left"
                 showHoverLabels
                 onHoverLine={onHoverLine}
+                paperSx={{
+                  "&::-webkit-scrollbar": { background: "transparent" },
+                  "&::-webkit-scrollbar-thumb": { background: "transparent" },
+                }}
               />
             </Box>
           </Box>
