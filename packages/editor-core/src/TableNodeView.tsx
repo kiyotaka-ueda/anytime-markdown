@@ -16,8 +16,6 @@ import MoveDownIcon from "@mui/icons-material/MoveDown";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import CloseIcon from "@mui/icons-material/Close";
-import UnfoldLessIcon from "@mui/icons-material/UnfoldLess";
-import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 import { useTranslations } from "next-intl";
 import { moveTableRow, moveTableColumn } from "./utils/tableHelpers";
 import { SearchReplaceBar } from "./components/SearchReplaceBar";
@@ -111,14 +109,6 @@ export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeVi
             >
               <DragIndicatorIcon sx={iconSx} />
             </Box>
-          )}
-          {/* Collapse/Expand (hidden in fullscreen) */}
-          {!fullscreen && (
-            <Tooltip title={collapsed ? t("unfoldAll") : t("foldAll")} placement="top">
-              <IconButton size="small" sx={{ p: 0.25 }} onClick={toggleCollapsed} aria-label={collapsed ? t("unfoldAll") : t("foldAll")}>
-                {collapsed ? <UnfoldMoreIcon sx={iconSx} /> : <UnfoldLessIcon sx={iconSx} />}
-              </IconButton>
-            </Tooltip>
           )}
           {/* Fullscreen enter (not shown in fullscreen — close is at right end) */}
           {!collapsed && !fullscreen && (

@@ -4,8 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Box, Button, Divider, IconButton, Tooltip, Typography } from "@mui/material";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
-import UnfoldLessIcon from "@mui/icons-material/UnfoldLess";
-import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import SchemaIcon from "@mui/icons-material/Schema";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
@@ -134,13 +132,6 @@ export function DiagramBlock(props: DiagramBlockProps) {
         >
           <DragIndicatorIcon sx={{ fontSize: 16, color: "text.secondary" }} />
         </Box>
-      )}
-      {!fullscreen && (
-        <Tooltip title={allCollapsed ? t("unfoldAll") : t("foldAll")} placement="top">
-          <IconButton size="small" sx={{ p: 0.25 }} onClick={toggleAllCollapsed} aria-label={allCollapsed ? t("unfoldAll") : t("foldAll")}>
-            {allCollapsed ? <UnfoldMoreIcon sx={{ fontSize: 16, color: "text.secondary" }} /> : <UnfoldLessIcon sx={{ fontSize: 16, color: "text.secondary" }} />}
-          </IconButton>
-        </Tooltip>
       )}
       {!allCollapsed && (svg || plantUmlUrl) && (
         <Tooltip title={fullscreen ? t("close") : t("fullscreen")} placement="top">

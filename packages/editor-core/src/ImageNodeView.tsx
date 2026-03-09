@@ -10,8 +10,6 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditIcon from "@mui/icons-material/Edit";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import CloseIcon from "@mui/icons-material/Close";
-import UnfoldLessIcon from "@mui/icons-material/UnfoldLess";
-import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import { useTranslations } from "next-intl";
@@ -180,14 +178,6 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
             >
               <DragIndicatorIcon sx={iconSx} />
             </Box>
-          )}
-          {/* Collapse/Expand (hidden in fullscreen) */}
-          {!fullscreen && (
-            <Tooltip title={collapsed ? t("unfoldAll") : t("foldAll")} placement="top">
-              <IconButton size="small" sx={{ p: 0.25 }} onClick={toggleCollapsed} aria-label={collapsed ? t("unfoldAll") : t("foldAll")}>
-                {collapsed ? <UnfoldMoreIcon sx={iconSx} /> : <UnfoldLessIcon sx={iconSx} />}
-              </IconButton>
-            </Tooltip>
           )}
           {/* Fullscreen enter (not shown in fullscreen or collapsed) */}
           {!collapsed && !fullscreen && (

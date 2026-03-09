@@ -2,8 +2,6 @@
 
 import { Box, Divider, IconButton, Tooltip, Typography } from "@mui/material";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
-import UnfoldLessIcon from "@mui/icons-material/UnfoldLess";
-import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { CodeBlockFullscreenDialog } from "../CodeBlockFullscreenDialog";
@@ -46,11 +44,6 @@ export function RegularCodeBlock(props: RegularCodeBlockProps) {
       >
         <DragIndicatorIcon sx={{ fontSize: 16, color: "text.secondary" }} />
       </Box>
-      <Tooltip title={allCollapsed ? t("unfoldAll") : t("foldAll")} placement="top">
-        <IconButton size="small" sx={{ p: 0.25 }} onClick={toggleAllCollapsed} aria-label={allCollapsed ? t("unfoldAll") : t("foldAll")}>
-          {allCollapsed ? <UnfoldMoreIcon sx={{ fontSize: 16, color: "text.secondary" }} /> : <UnfoldLessIcon sx={{ fontSize: 16, color: "text.secondary" }} />}
-        </IconButton>
-      </Tooltip>
       {!allCollapsed && (
         <Tooltip title={t("fullscreen")} placement="top">
           <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setFullscreen(true)} aria-label={t("fullscreen")}>

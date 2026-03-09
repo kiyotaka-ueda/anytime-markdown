@@ -337,41 +337,42 @@ export function InlineMergeView({
           });
         }
       });
-      // 右エディタに適用
-      const rightCounters: Record<string, number> = {};
-      let changed = false;
-      const tr = rightEditor.state.tr;
-      rightEditor.state.doc.descendants((node, pos) => {
-        if (targetTypes.has(node.type.name)) {
-          const key = node.type.name;
-          rightCounters[key] = (rightCounters[key] || 0) + 1;
-          const idx = rightCounters[key] - 1;
-          const leftState = leftStates.find(s => s.type === key && s.index === idx);
-          if (leftState) {
-            const newAttrs: Record<string, unknown> = { ...node.attrs };
-            if (leftState.collapsed !== undefined && node.attrs.collapsed !== leftState.collapsed) {
-              newAttrs.collapsed = leftState.collapsed;
-              changed = true;
+      // rAF 内でトランザクションを作成して適用（stale state 回避）
+      requestAnimationFrame(() => {
+        if (rightEditor.isDestroyed) return;
+        const rightCounters: Record<string, number> = {};
+        let changed = false;
+        const tr = rightEditor.state.tr;
+        rightEditor.state.doc.descendants((node, pos) => {
+          if (targetTypes.has(node.type.name)) {
+            const key = node.type.name;
+            rightCounters[key] = (rightCounters[key] || 0) + 1;
+            const idx = rightCounters[key] - 1;
+            const leftState = leftStates.find(s => s.type === key && s.index === idx);
+            if (leftState) {
+              let nodeChanged = false;
+              const newAttrs: Record<string, unknown> = { ...node.attrs };
+              if (leftState.collapsed !== undefined && node.attrs.collapsed !== leftState.collapsed) {
+                newAttrs.collapsed = leftState.collapsed;
+                nodeChanged = true;
+              }
+              if (leftState.codeCollapsed !== undefined && node.attrs.codeCollapsed !== leftState.codeCollapsed) {
+                newAttrs.codeCollapsed = leftState.codeCollapsed;
+                nodeChanged = true;
+              }
+              if (nodeChanged) {
+                tr.setNodeMarkup(pos, undefined, newAttrs);
+                changed = true;
+              }
             }
-            if (leftState.codeCollapsed !== undefined && node.attrs.codeCollapsed !== leftState.codeCollapsed) {
-              newAttrs.codeCollapsed = leftState.codeCollapsed;
-              changed = true;
-            }
-            if (changed) {
-              tr.setNodeMarkup(pos, undefined, newAttrs);
-            }
-          }
-        }
-      });
-      if (changed) {
-        requestAnimationFrame(() => {
-          if (!rightEditor.isDestroyed) {
-            reviewModeStorage(rightEditor).enabled = false;
-            rightEditor.view.dispatch(tr);
-            reviewModeStorage(rightEditor).enabled = true;
           }
         });
-      }
+        if (changed) {
+          reviewModeStorage(rightEditor).enabled = false;
+          rightEditor.view.dispatch(tr);
+          reviewModeStorage(rightEditor).enabled = true;
+        }
+      });
     };
     leftEditor.on("update", syncCollapsed);
     return () => {
