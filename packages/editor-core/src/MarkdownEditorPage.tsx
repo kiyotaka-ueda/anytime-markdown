@@ -1,5 +1,20 @@
 "use client";
 
+// Tiptap の ReactRenderer が componentDidMount 内で flushSync を呼ぶ問題を抑制
+// @see https://github.com/ueberdosis/tiptap/issues/3764
+if (typeof window !== "undefined") {
+  const origError = console.error;
+  console.error = (...args: unknown[]) => {
+    if (
+      typeof args[0] === "string" &&
+      args[0].includes("flushSync was called from inside a lifecycle method")
+    ) {
+      return;
+    }
+    origError.apply(console, args);
+  };
+}
+
 import dynamic from "next/dynamic";
 import {
   Alert,
@@ -17,6 +32,7 @@ import { getEditorPaperSx } from "./styles/editorStyles";
 import { PrintStyles } from "./styles/printStyles";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { useLocale, useTranslations } from "next-intl";
+import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useMarkdownEditor } from "./useMarkdownEditor";
@@ -137,6 +153,20 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   } = useEditorMenuState();
   const editorWrapperRef = useRef<HTMLDivElement>(null);
   const sourceTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // EditorContent を常時マウントするための永続的なポータルターゲット
+  const [editorPortalTarget] = useState(() => {
+    if (typeof document === "undefined") return null;
+    const el = document.createElement("div");
+    el.style.display = "contents";
+    return el;
+  });
+  // callback ref: DOM 出現時に即座にポータルターゲットを移動（dynamic import 対応）
+  const editorMountCallback = useCallback((node: HTMLDivElement | null) => {
+    if (node && editorPortalTarget && editorPortalTarget.parentElement !== node) {
+      node.appendChild(editorPortalTarget);
+    }
+  }, [editorPortalTarget]);
   const [sourceSearchOpen, setSourceSearchOpen] = useState(false);
 
   // Refs for callbacks used in useEditor config (avoids stale closures)
@@ -421,7 +451,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
       return;
     }
     if (!editor) return;
-    const preprocessed = sanitizeMarkdown(template.content);
+    const preprocessed = preserveBlankLines(sanitizeMarkdown(template.content));
     // requestAnimationFrame で次フレームに遅延し、Popover 閉じ等の React レンダリングと
     // Tiptap ReactRenderer の flushSync の競合を回避する
     requestAnimationFrame(() => {
@@ -652,14 +682,17 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
                 textareaAriaLabel={t("sourceEditor")}
                 editor={editor}
                 editorWrapperRef={editorWrapperRef}
-                hideScrollbar
+                editorMountRef={editorMountCallback}
                 autoResize
                 bgGradient={leftBgGradient}
                 diffLines={leftDiffLines}
                 side="left"
                 showHoverLabels
-                onMerge={onMerge}
                 onHoverLine={onHoverLine}
+                paperSx={{
+                  "&::-webkit-scrollbar": { background: "transparent" },
+                  "&::-webkit-scrollbar-thumb": { background: "transparent" },
+                }}
               />
             </Box>
           </Box>
@@ -706,7 +739,6 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
       ) : (
         <Box
           ref={editorWrapperRef}
-          tabIndex={(readonlyMode || reviewMode) ? 0 : undefined}
           onKeyDown={(readonlyMode || reviewMode) ? (e: React.KeyboardEvent) => {
             if ((e.ctrlKey || e.metaKey) && e.key === "f") {
               e.preventDefault();
@@ -721,7 +753,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
           variant="outlined"
           sx={getEditorPaperSx(theme, settings, editorHeight, { readonlyMode })}
         >
-          <EditorContent editor={editor} />
+          <div ref={editorMountCallback} style={{ display: "contents" }} />
         </Paper>
         </Box>
       )}
@@ -731,6 +763,9 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         )}
       </Box>
       )}
+
+      {/* EditorContent は常時マウント – ポータル経由で DOM を移動 */}
+      {editorPortalTarget && createPortal(<EditorContent editor={editor} />, editorPortalTarget)}
 
       {/* BubbleMenu (text formatting) – rendered for both merge and non-merge modes */}
       {editor && !sourceMode && (

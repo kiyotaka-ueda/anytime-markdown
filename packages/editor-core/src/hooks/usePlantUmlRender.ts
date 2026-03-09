@@ -1,6 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import plantumlEncoder from "plantuml-encoder";
 import { PLANTUML_SERVER, PLANTUML_CONSENT_KEY, PLANTUML_DARK_SKINPARAMS } from "../utils/plantumlHelpers";
+
+/**
+ * モジュールレベルの URL キャッシュ。
+ * コンポーネントがアンマウント→再マウントを繰り返しても即座に復元。
+ */
+const urlCache = new Map<string, string>();
+function cacheKey(code: string, isDark: boolean): string {
+  return `${code}\0${isDark}`;
+}
 
 interface UsePlantUmlRenderParams {
   code: string;
@@ -9,17 +18,35 @@ interface UsePlantUmlRenderParams {
 }
 
 export function usePlantUmlRender({ code, isPlantUml, isDark }: UsePlantUmlRenderParams) {
-  const [plantUmlUrl, setPlantUmlUrl] = useState("");
+  const [plantUmlUrl, setPlantUmlUrl] = useState(() => {
+    if (!isPlantUml || !code.trim()) return "";
+    return urlCache.get(cacheKey(code, isDark)) ?? "";
+  });
   const [error, setError] = useState("");
   const [plantUmlConsent, setPlantUmlConsent] = useState<"pending" | "accepted" | "rejected">(() => {
     if (typeof window === "undefined") return "pending";
     const v = sessionStorage.getItem(PLANTUML_CONSENT_KEY);
     return v === "accepted" || v === "rejected" ? v : "pending";
   });
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   useEffect(() => {
     if (!isPlantUml || !code.trim() || plantUmlConsent !== "accepted") {
       if (isPlantUml) { setPlantUmlUrl(""); setError(""); }
+      return;
+    }
+
+    // キャッシュから即座に復元
+    const key = cacheKey(code, isDark);
+    const cached = urlCache.get(key);
+    if (cached) {
+      setPlantUmlUrl(cached);
+      setError("");
       return;
     }
 
@@ -35,11 +62,17 @@ export function usePlantUmlRender({ code, isPlantUml, isDark }: UsePlantUmlRende
           src = isDark ? `@startuml\n${PLANTUML_DARK_SKINPARAMS}\n${code}\n@enduml` : `@startuml\n${code}\n@enduml`;
         }
         const encoded = plantumlEncoder.encode(src);
-        setPlantUmlUrl(`${PLANTUML_SERVER}/svg/${encoded}`);
-        setError("");
+        const url = `${PLANTUML_SERVER}/svg/${encoded}`;
+        urlCache.set(key, url);
+        if (mountedRef.current) {
+          setPlantUmlUrl(url);
+          setError("");
+        }
       } catch (err) {
-        setError(`PlantUML: ${err instanceof Error ? err.message : "encode error"}`);
-        setPlantUmlUrl("");
+        if (mountedRef.current) {
+          setError(`PlantUML: ${err instanceof Error ? err.message : "encode error"}`);
+          setPlantUmlUrl("");
+        }
       }
     }, 500);
 

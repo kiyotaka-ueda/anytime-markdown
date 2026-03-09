@@ -48,8 +48,12 @@ function createMockNode(lang?: string) {
 
 function setup(overrides?: { allCollapsed?: boolean; isSelected?: boolean; language?: string }) {
   const fsSearch = { reset: jest.fn(), query: "", setQuery: jest.fn(), matches: [], currentIdx: 0, next: jest.fn(), prev: jest.fn(), replace: jest.fn(), replaceAll: jest.fn() };
+  const mockNode = createMockNode(overrides?.language);
   const props = {
-    node: createMockNode(overrides?.language),
+    editor: null as never,
+    node: mockNode,
+    getPos: (() => 0) as never,
+    code: mockNode.textContent,
     allCollapsed: overrides?.allCollapsed ?? false,
     isSelected: overrides?.isSelected ?? true,
     toggleAllCollapsed: jest.fn(),

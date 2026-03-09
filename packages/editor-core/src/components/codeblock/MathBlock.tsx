@@ -1,10 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Box, Divider, IconButton, Tooltip, Typography } from "@mui/material";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
-import UnfoldLessIcon from "@mui/icons-material/UnfoldLess";
-import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import SchemaIcon from "@mui/icons-material/Schema";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
@@ -14,6 +12,7 @@ import { useKatexRender, MATH_SANITIZE_CONFIG } from "../../hooks/useKatexRender
 import { CodeBlockFullscreenDialog } from "../CodeBlockFullscreenDialog";
 import { MathSamplePopover } from "../MathSamplePopover";
 import { CodeBlockFrame } from "./CodeBlockFrame";
+import { getMergeEditors, findCounterpartCode, getCodeBlockIndex, findCodeBlockByIndex } from "../../contexts/MergeEditorsContext";
 import type { CodeBlockSharedProps } from "./types";
 
 type MathBlockProps = Pick<
@@ -39,6 +38,53 @@ export function MathBlock(props: MathBlockProps) {
   const [mathSampleAnchorEl, setMathSampleAnchorEl] = useState<HTMLElement | null>(null);
   const { html: mathHtml, error: mathError } = useKatexRender({ code, isMath: true });
 
+  // 比較モード: 対応するブロックのコードを取得
+  const mergeEditors = getMergeEditors();
+  const isCompareMode = !!mergeEditors;
+  const compareCode = useMemo(() => {
+    if (!fullscreen || !mergeEditors || !editor) return null;
+    const isRight = !!editor.view?.dom?.dataset?.reviewMode;
+    const otherEditor = isRight ? mergeEditors.leftEditor : mergeEditors.rightEditor;
+    return findCounterpartCode(editor, otherEditor, "math", code);
+  }, [fullscreen, mergeEditors, editor, code]);
+
+  const blockIndexRef = useRef(-1);
+  useEffect(() => {
+    if (fullscreen && mergeEditors && editor) {
+      blockIndexRef.current = getCodeBlockIndex(editor, "math", code);
+    }
+  }, [fullscreen, mergeEditors, editor, code]);
+
+  const handleMergeApply = useCallback((newThisCode: string, newOtherCode: string) => {
+    if (!mergeEditors || !editor || blockIndexRef.current === -1) return;
+    const isRight = !!editor.view?.dom?.dataset?.reviewMode;
+    const otherEditor = isRight ? mergeEditors.leftEditor : mergeEditors.rightEditor;
+
+    const thisBlock = findCodeBlockByIndex(editor, "math", blockIndexRef.current);
+    if (thisBlock) {
+      editor.chain().command(({ tr }) => {
+        const from = thisBlock.pos + 1;
+        const to = from + thisBlock.size;
+        if (newThisCode) tr.replaceWith(from, to, editor.schema.text(newThisCode));
+        else tr.delete(from, to);
+        return true;
+      }).run();
+    }
+
+    if (otherEditor) {
+      const otherBlock = findCodeBlockByIndex(otherEditor, "math", blockIndexRef.current);
+      if (otherBlock) {
+        otherEditor.chain().command(({ tr }) => {
+          const from = otherBlock.pos + 1;
+          const to = from + otherBlock.size;
+          if (newOtherCode) tr.replaceWith(from, to, otherEditor.schema.text(newOtherCode));
+          else tr.delete(from, to);
+          return true;
+        }).run();
+      }
+    }
+  }, [mergeEditors, editor]);
+
   const toolbar = (
     <Box
       data-block-toolbar=""
@@ -56,11 +102,6 @@ export function MathBlock(props: MathBlockProps) {
       >
         <DragIndicatorIcon sx={{ fontSize: 16, color: "text.secondary" }} />
       </Box>
-      <Tooltip title={allCollapsed ? t("unfoldAll") : t("foldAll")} placement="top">
-        <IconButton size="small" sx={{ p: 0.25 }} onClick={toggleAllCollapsed} aria-label={allCollapsed ? t("unfoldAll") : t("foldAll")}>
-          {allCollapsed ? <UnfoldMoreIcon sx={{ fontSize: 16, color: "text.secondary" }} /> : <UnfoldLessIcon sx={{ fontSize: 16, color: "text.secondary" }} />}
-        </IconButton>
-      </Tooltip>
       {!allCollapsed && (
         <Tooltip title={t("fullscreen")} placement="top">
           <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setFullscreen(true)} aria-label={t("fullscreen")}>
@@ -117,6 +158,9 @@ export function MathBlock(props: MathBlockProps) {
           onFsCodeChange={onFsCodeChange}
           fsTextareaRef={fsTextareaRef}
           fsSearch={fsSearch}
+          isCompareMode={isCompareMode}
+          compareCode={compareCode}
+          onMergeApply={handleMergeApply}
           t={t}
         />
         <MathSamplePopover

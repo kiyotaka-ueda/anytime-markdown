@@ -10,6 +10,15 @@ jest.mock("../types", () => ({
 
 const mockedGetMarkdown = getMarkdownFromEditor as jest.MockedFunction<typeof getMarkdownFromEditor>;
 
+beforeEach(() => {
+  jest.useFakeTimers();
+});
+
+afterEach(() => {
+  jest.useRealTimers();
+  jest.restoreAllMocks();
+});
+
 function createMockEditor(overrides?: Record<string, unknown>): Editor {
   return {
     commands: {
@@ -113,6 +122,9 @@ describe("useMergeMode", () => {
     // Open then close
     act(() => result.current.handleMerge());
     act(() => result.current.handleMerge());
+
+    // clearDiffHighlight は setTimeout(100ms) 内で呼ばれる
+    act(() => { jest.advanceTimersByTime(100); });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((editor.commands as any).clearDiffHighlight).toHaveBeenCalled();

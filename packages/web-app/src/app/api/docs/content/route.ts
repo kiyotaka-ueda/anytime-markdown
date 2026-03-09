@@ -22,8 +22,9 @@ export async function GET(request: NextRequest) {
 
   const cacheHeaders = {
     'Content-Type': 'text/markdown; charset=utf-8',
-    'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
-    'Vary': 'url',
+    'Cache-Control': 'private, max-age=3600, stale-while-revalidate=86400',
+    'CDN-Cache-Control': 'no-store',
+    'Netlify-CDN-Cache-Control': 'no-store',
   };
 
   try {

@@ -29,22 +29,19 @@ export function getMergeTiptapStyles(theme: Theme, fontSize = 14, lineHeight = 1
     transition: "opacity 0.15s",
   };
 
-  const hoverLabels = options?.showHoverLabels ? {
-    "& h1, & h2, & h3, & h4, & h5": {
-      position: "relative",
-      "&::before": {
-        ...hoverLabelBase,
-        right: "calc(100% + 8px)",
-        top: "50%",
-        transform: "translateY(-50%)",
-      },
-      "&:hover::before, &:focus-within::before": { opacity: 1 },
+  const hoverLabelHeadingBase = {
+    position: "relative" as const,
+    "&::before": {
+      ...hoverLabelBase,
+      right: "calc(100% + 8px)",
+      top: "50%",
+      transform: "translateY(-50%)",
     },
-    "& h1": { "&::before": { content: "'H1'" } },
-    "& h2": { "&::before": { content: "'H2'" } },
-    "& h3": { "&::before": { content: "'H3'" } },
-    "& h4": { "&::before": { content: "'H4'" } },
-    "& h5": { "&::before": { content: "'H5'" } },
+    "&:hover::before, &:focus-within::before": { opacity: 1 },
+  };
+
+  const hoverLabels = options?.showHoverLabels ? {
+    "& h1, & h2, & h3, & h4, & h5": hoverLabelHeadingBase,
     "& > p": {
       position: "relative",
       "&::before": {
@@ -67,25 +64,6 @@ export function getMergeTiptapStyles(theme: Theme, fontSize = 14, lineHeight = 1
       },
       "&:hover::before, &:focus-within::before": { opacity: 1 },
     },
-    "& li": {
-      position: "relative",
-      "&::before": {
-        ...hoverLabelBase,
-        right: "calc(100% + 32px)",
-        top: 2,
-        "&:hover": { bgcolor: theme.palette.action.selected },
-      },
-      "&:hover::before, &:focus-within::before": { opacity: 1 },
-    },
-    "& > ul:not([data-type='taskList']) > li": {
-      "&::before": { content: "'UL'" },
-    },
-    "& > ol > li": {
-      "&::before": { content: "'OL'" },
-    },
-    "& > ul[data-type='taskList'] > li": {
-      "&::before": { content: "'Task'", right: "calc(100% + 8px)" },
-    },
   } : {};
 
   return {
@@ -100,25 +78,62 @@ export function getMergeTiptapStyles(theme: Theme, fontSize = 14, lineHeight = 1
       color: theme.palette.text.primary,
       "& h1": {
         fontSize: "2em", fontWeight: 700, mt: 2, mb: 1,
+        ...(options?.showHoverLabels && { "&::before": { content: "'H1'" } }),
       },
       "& h2": {
         fontSize: "1.5em", fontWeight: 600, mt: 1.5, mb: 1,
+        ...(options?.showHoverLabels && { "&::before": { content: "'H2'" } }),
       },
       "& h3": {
         fontSize: "1.25em", fontWeight: 600, mt: 1, mb: 0.5,
+        ...(options?.showHoverLabels && { "&::before": { content: "'H3'" } }),
       },
       "& h4": {
         fontSize: "1.1em", fontWeight: 600, mt: 1, mb: 0.5,
+        ...(options?.showHoverLabels && { "&::before": { content: "'H4'" } }),
       },
       "& h5": {
         fontSize: "1em", fontWeight: 600, mt: 0.75, mb: 0.5,
+        ...(options?.showHoverLabels && { "&::before": { content: "'H5'" } }),
       },
       "& p": { mb: 1 },
       "& ul, & ol": { pl: 3, mb: 1 },
       "& li": {
         mb: 0.25,
+        ...(options?.showHoverLabels && {
+          position: "relative" as const,
+          "&::before": {
+            ...hoverLabelBase,
+            right: "calc(100% + 32px)",
+            top: 2,
+            "&:hover": { bgcolor: theme.palette.action.selected },
+          },
+          "&:hover::before, &:focus-within::before": { opacity: 1 },
+        }),
+      },
+      "& > ul:not([data-type='taskList']) > li": {
+        ...(options?.showHoverLabels && { "&::before": { content: "'UL'" } }),
+      },
+      "& > ol > li": {
+        ...(options?.showHoverLabels && { "&::before": { content: "'OL'" } }),
+      },
+      "& > ul[data-type='taskList'] > li": {
+        ...(options?.showHoverLabels && { "&::before": { content: "'Task'", right: "calc(100% + 8px)" } }),
       },
       ...hoverLabels,
+      // レビュー/readonlyモード時はhover labelを非表示
+      '&[data-review-mode="true"], &[data-readonly-mode="true"]': {
+        "& h1::before, & h2::before, & h3::before, & h4::before, & h5::before, & > p::before, & > blockquote > p::before, & li::before": {
+          display: "none !important" as unknown as string,
+        },
+      },
+      // readonly/レビューモード時はコードブロックツールバーとリサイズハンドルを非表示
+      '&[contenteditable="false"] [data-block-toolbar], &[data-review-mode="true"] [data-block-toolbar], &[data-readonly-mode="true"] [data-block-toolbar]': {
+        display: "none !important" as unknown as string,
+      },
+      '&[contenteditable="false"] [data-resize-handle], &[data-review-mode="true"] [data-resize-handle], &[data-readonly-mode="true"] [data-resize-handle]': {
+        display: "none !important" as unknown as string,
+      },
       "& code": {
         bgcolor: theme.palette.action.hover,
         color: theme.palette.mode === "dark" ? theme.palette.grey[300] : theme.palette.error.main,
@@ -199,19 +214,6 @@ function _getLineBgColor(type: DiffLine["type"], theme: Theme) {
   }
 }
 
-function getDiffLineSymbol(type: DiffLine["type"]): string {
-  switch (type) {
-    case "added":
-    case "modified-new":
-      return "+";
-    case "removed":
-    case "modified-old":
-      return "-";
-    default:
-      return " ";
-  }
-}
-
 interface MergeEditorPanelProps {
   sourceMode: boolean;
   sourceText?: string;
@@ -221,6 +223,7 @@ interface MergeEditorPanelProps {
   textareaAriaLabel?: string;
   editor?: Editor | null;
   editorWrapperRef?: React.RefObject<HTMLDivElement | null>;
+  editorMountRef?: React.Ref<HTMLDivElement>;
   children?: React.ReactNode;
   scrollRef?: React.RefObject<HTMLDivElement | null>;
   bgGradient?: string;
@@ -243,6 +246,7 @@ export function MergeEditorPanel({
   textareaAriaLabel,
   editor,
   editorWrapperRef,
+  editorMountRef,
   children,
   scrollRef,
   bgGradient,
@@ -262,6 +266,8 @@ export function MergeEditorPanel({
   const resolvedTextareaRef = textareaRef || fallbackTextareaRef;
   const gutterRef = useRef<HTMLDivElement>(null);
   const mergeGutterRef = useRef<HTMLDivElement>(null);
+  const mirrorRef = useRef<HTMLDivElement>(null);
+  const textContainerRef = useRef<HTMLDivElement>(null);
 
   const hideScrollbarSx = hideScrollbar
     ? {
@@ -302,6 +308,32 @@ export function MergeEditorPanel({
       ? { backgroundImage: bgGradient, backgroundAttachment: "local" }
       : undefined;
 
+  // ミラー要素で各行の描画高さを計測し、行番号・マージボタンの高さに反映
+  useEffect(() => {
+    if (!sourceMode) return;
+    const applyHeights = () => {
+      const mirror = mirrorRef.current;
+      const gutter = gutterRef.current;
+      if (!mirror || !gutter) return;
+      for (let i = 0; i < mirror.children.length; i++) {
+        const h = (mirror.children[i] as HTMLElement).getBoundingClientRect().height;
+        if (i < gutter.children.length) {
+          (gutter.children[i] as HTMLElement).style.height = `${h}px`;
+        }
+        const mg = mergeGutterRef.current;
+        if (mg && i < mg.children.length) {
+          (mg.children[i] as HTMLElement).style.height = `${h}px`;
+        }
+      }
+    };
+    applyHeights();
+    const container = textContainerRef.current;
+    if (!container) return;
+    const ro = new ResizeObserver(applyHeights);
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [sourceMode, sourceText, editorSettings.fontSize, editorSettings.lineHeight]);
+
   if (sourceMode) {
     // textarea（編集可能）+ マージボタン列（diffLines提供時）
     const rawText = sourceText ?? "";
@@ -326,14 +358,11 @@ export function MergeEditorPanel({
     const alignedCount = diffLines ? diffLines.length : rawLineCount;
 
     // 行番号: diffLines があれば diffLines ベース（パディング行は空欄）、なければ連番
-    const lineNumbers = diffLines
-      ? diffLines.map(dl => dl.lineNumber != null ? String(dl.lineNumber) : "").join("\n")
-      : Array.from({ length: rawLineCount }, (_, i) => i + 1).join("\n");
+    const lineNumbersArray = diffLines
+      ? diffLines.map(dl => dl.lineNumber != null ? String(dl.lineNumber) : "")
+      : Array.from({ length: rawLineCount }, (_, i) => String(i + 1));
 
-    // 差分記号列: +/-/空白
-    const diffSymbols = diffLines
-      ? diffLines.map(dl => getDiffLineSymbol(dl.type)).join("\n")
-      : null;
+    const displayLines = displayText.split("\n");
 
     // Build merge button map: diffLines index -> blockId (first line of each diff block only)
     const mergeButtonIndices = new Map<number, number>();
@@ -435,10 +464,9 @@ export function MergeEditorPanel({
           {/* 右パネル: 行番号ガター左にマージボタン列 */}
           {side === "right" && hasMergeButtons && renderMergeGutter("right")}
 
-          {/* 行番号ガター（diffLines ベースで左右揃え） */}
+          {/* 行番号ガター（各行の高さはミラー計測値で設定） */}
           <Box
             ref={gutterRef}
-            component="pre"
             sx={{
               width: `${Math.max(3, digits + 1)}ch`,
               minWidth: `${Math.max(3, digits + 1)}ch`,
@@ -446,7 +474,6 @@ export function MergeEditorPanel({
               px: 1,
               m: 0,
               textAlign: "right",
-              whiteSpace: "pre",
               fontFamily: "monospace",
               fontSize: `${editorSettings.fontSize}px`,
               lineHeight: editorSettings.lineHeight,
@@ -457,86 +484,96 @@ export function MergeEditorPanel({
               flexShrink: 0,
             }}
           >
-            {lineNumbers}
+            {lineNumbersArray.map((num, i) => (
+              <div key={i}>{num || "\u00A0"}</div>
+            ))}
           </Box>
-          {/* 差分記号列 (+/-) */}
-          {diffSymbols && (
+          {/* Textarea + hidden mirror for line height measurement */}
+          <Box ref={textContainerRef} sx={{ flex: 1, minWidth: 0, position: "relative" }}>
+            {/* ミラー: textarea と同じ幅・フォントで描画し、折り返し後の各行高さを計測 */}
             <Box
-              component="pre"
+              ref={mirrorRef}
               aria-hidden="true"
               sx={{
-                width: "2ch",
-                minWidth: "2ch",
-                py: 2,
-                m: 0,
-                textAlign: "center",
-                whiteSpace: "pre",
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                visibility: "hidden",
+                pointerEvents: "none",
                 fontFamily: "monospace",
                 fontSize: `${editorSettings.fontSize}px`,
                 lineHeight: editorSettings.lineHeight,
-                color: alpha(theme.palette.text.secondary, 0.6),
-                userSelect: "none",
-                overflow: "hidden",
+                whiteSpace: "pre-wrap",
+                overflowWrap: "break-word",
+                pt: 2,
+                pb: 2,
+                pr: side === "left" && hasMergeButtons ? 0 : 2,
+                pl: 1,
                 boxSizing: "border-box",
-                flexShrink: 0,
               }}
             >
-              {diffSymbols}
+              {displayLines.map((line, i) => (
+                <div key={i}>{line || "\u00A0"}</div>
+              ))}
             </Box>
-          )}
-
-          {/* Textarea */}
-          <Box
-            component="textarea"
-            ref={resolvedTextareaRef}
-            aria-label={textareaAriaLabel}
-            readOnly={readOnly}
-            value={displayText}
-            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
-              const newText = e.target.value;
-              if (paddingIndices.size === 0) {
-                onSourceChange?.(newText);
-                return;
-              }
-              // padding行（既知のインデックスで空行のまま）を除去して実テキストに変換
-              const lines = newText.split("\n");
-              const realLines: string[] = [];
-              for (let i = 0; i < lines.length; i++) {
-                if (paddingIndices.has(i) && lines[i] === "") continue;
-                realLines.push(lines[i]);
-              }
-              onSourceChange?.(realLines.join("\n"));
-            }}
-            onSelect={(e: React.SyntheticEvent<HTMLTextAreaElement>) => {
-              if (!onHoverLine || !diffLines) return;
-              const ta = e.currentTarget;
-              const pos = ta.selectionStart ?? 0;
-              // padded text ではカーソル行インデックスが diffLines インデックスに直接対応
-              const lineIdx = (ta.value.slice(0, pos).match(/\n/g) || []).length;
-              onHoverLine(lineIdx < diffLines.length ? lineIdx : null);
-            }}
-            style={gradientStyle}
-            sx={{
-              flex: 1,
-              minWidth: 0,
-              minHeight: "100%",
-              pt: 2,
-              pb: 2,
-              pr: side === "left" && hasMergeButtons ? 0 : 2,
-              pl: 1,
-              border: "none",
-              outline: "none",
-              resize: "none",
-              ...(autoResize ? { overflow: "hidden" } : {}),
-              ...hideScrollbarSx,
-              fontFamily: "monospace",
-              fontSize: `${editorSettings.fontSize}px`,
-              lineHeight: editorSettings.lineHeight,
-              color: theme.palette.text.primary,
-              bgcolor: "transparent",
-              boxSizing: "border-box",
-            }}
-          />
+            <Box
+              component="textarea"
+              ref={resolvedTextareaRef}
+              aria-label={textareaAriaLabel}
+              readOnly={readOnly}
+              value={displayText}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                const newText = e.target.value;
+                if (paddingIndices.size === 0) {
+                  onSourceChange?.(newText);
+                  return;
+                }
+                // padding行（既知のインデックスで空行のまま）を除去して実テキストに変換
+                const lines = newText.split("\n");
+                const realLines: string[] = [];
+                for (let i = 0; i < lines.length; i++) {
+                  if (paddingIndices.has(i) && lines[i] === "") continue;
+                  realLines.push(lines[i]);
+                }
+                onSourceChange?.(realLines.join("\n"));
+              }}
+              onSelect={(e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+                if (!onHoverLine || !diffLines) return;
+                const ta = e.currentTarget;
+                const pos = ta.selectionStart ?? 0;
+                // padded text ではカーソル行インデックスが diffLines インデックスに直接対応
+                const lineIdx = (ta.value.slice(0, pos).match(/\n/g) || []).length;
+                onHoverLine(lineIdx < diffLines.length ? lineIdx : null);
+              }}
+              style={gradientStyle}
+              sx={{
+                width: "100%",
+                minHeight: "100%",
+                pt: 2,
+                pb: 2,
+                pr: side === "left" && hasMergeButtons ? 0 : 2,
+                pl: 1,
+                border: "none",
+                outline: "none",
+                boxShadow: "none",
+                resize: "none",
+                ...(autoResize ? { overflow: "hidden" } : {}),
+                ...hideScrollbarSx,
+                fontFamily: "monospace",
+                fontSize: `${editorSettings.fontSize}px`,
+                lineHeight: editorSettings.lineHeight,
+                color: theme.palette.text.primary,
+                bgcolor: "transparent",
+                boxSizing: "border-box",
+                "&:focus": {
+                  border: "none",
+                  outline: "none",
+                  boxShadow: "none",
+                },
+              }}
+            />
+          </Box>
 
           {/* 左パネル: textarea右にマージボタン列 */}
           {side === "left" && hasMergeButtons && renderMergeGutter("left")}
@@ -563,7 +600,10 @@ export function MergeEditorPanel({
         ...(Array.isArray(paperSx) ? paperSx : paperSx ? [paperSx] : []),
       ]}
     >
-      <EditorContent editor={editor ?? null} />
+      {editorMountRef
+        ? <div ref={editorMountRef} style={{ display: "contents" }} />
+        : <EditorContent editor={editor ?? null} />
+      }
       {children}
     </Paper>
   );

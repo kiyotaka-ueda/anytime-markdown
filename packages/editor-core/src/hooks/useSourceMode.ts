@@ -3,6 +3,7 @@ import type { Editor } from "@tiptap/react";
 import { getMarkdownFromEditor } from "../types";
 import { sanitizeMarkdown, preserveBlankLines } from "../utils/sanitizeMarkdown";
 import { parseCommentData } from "../utils/commentHelpers";
+import { reviewModeStorage } from "../extensions/reviewModeExtension";
 
 interface UseSourceModeParams {
   editor: Editor | null;
@@ -49,21 +50,30 @@ export function useSourceMode({ editor, saveContent, t }: UseSourceModeParams) {
     }
   }, [editor]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Restore readonly/review editable state on init
+  // Restore readonly/review state on init
   useEffect(() => {
-    if (editor && (readonlyMode || reviewMode)) {
-      editor.setEditable(false);
+    if (!editor) return;
+    if (reviewMode) {
+      reviewModeStorage(editor).enabled = true;
+      editor.view.dom.setAttribute("data-review-mode", "true");
+    } else if (readonlyMode) {
+      reviewModeStorage(editor).enabled = true;
+      editor.view.dom.setAttribute("data-readonly-mode", "true");
     }
   }, [editor]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSwitchToSource = useCallback(() => {
     if (!editor) return;
-    if (readonlyMode || reviewMode) {
-      editor.setEditable(true);
-      setReadonlyMode(false);
+    if (reviewMode) {
+      reviewModeStorage(editor).enabled = false;
+      editor.view.dom.removeAttribute("data-review-mode");
       setReviewMode(false);
-      try { localStorage.setItem(READONLY_MODE_KEY, "false"); } catch { /* ignore */ }
       try { localStorage.setItem(REVIEW_MODE_KEY, "false"); } catch { /* ignore */ }
+    } else if (readonlyMode) {
+      reviewModeStorage(editor).enabled = false;
+      editor.view.dom.removeAttribute("data-readonly-mode");
+      setReadonlyMode(false);
+      try { localStorage.setItem(READONLY_MODE_KEY, "false"); } catch { /* ignore */ }
     }
     editor.commands.closeSearch();
     setSourceText(getMarkdownFromEditor(editor));
@@ -74,12 +84,16 @@ export function useSourceMode({ editor, saveContent, t }: UseSourceModeParams) {
 
   const handleSwitchToWysiwyg = useCallback(() => {
     if (editor) {
-      if (readonlyMode || reviewMode) {
-        editor.setEditable(true);
-        setReadonlyMode(false);
+      if (reviewMode) {
+        reviewModeStorage(editor).enabled = false;
+        editor.view.dom.removeAttribute("data-review-mode");
         setReviewMode(false);
-        try { localStorage.setItem(READONLY_MODE_KEY, "false"); } catch { /* ignore */ }
         try { localStorage.setItem(REVIEW_MODE_KEY, "false"); } catch { /* ignore */ }
+      } else if (readonlyMode) {
+        reviewModeStorage(editor).enabled = false;
+        editor.view.dom.removeAttribute("data-readonly-mode");
+        setReadonlyMode(false);
+        try { localStorage.setItem(READONLY_MODE_KEY, "false"); } catch { /* ignore */ }
       }
       if (sourceMode) {
         const { comments, body } = parseCommentData(sourceText);
@@ -110,13 +124,19 @@ export function useSourceMode({ editor, saveContent, t }: UseSourceModeParams) {
       setSourceMode(false);
       try { localStorage.setItem(SOURCE_MODE_KEY, "false"); } catch { /* ignore */ }
     }
-    editor.setEditable(false);
+    // Readonly モードから切り替える場合、フィルタを解除
+    if (readonlyMode) {
+      reviewModeStorage(editor).enabled = false;
+      editor.view.dom.removeAttribute("data-readonly-mode");
+    }
+    reviewModeStorage(editor).enabled = true;
+    editor.view.dom.setAttribute("data-review-mode", "true");
     setReadonlyMode(false);
     setReviewMode(true);
     try { localStorage.setItem(READONLY_MODE_KEY, "false"); } catch { /* ignore */ }
     try { localStorage.setItem(REVIEW_MODE_KEY, "true"); } catch { /* ignore */ }
     setLiveMessage(t("switchedToReview"));
-  }, [editor, sourceMode, sourceText, saveContent, t]);
+  }, [editor, sourceMode, readonlyMode, sourceText, saveContent, t]);
 
   const handleSwitchToReadonly = useCallback(() => {
     if (!editor) return;
@@ -132,24 +152,28 @@ export function useSourceMode({ editor, saveContent, t }: UseSourceModeParams) {
       setSourceMode(false);
       try { localStorage.setItem(SOURCE_MODE_KEY, "false"); } catch { /* ignore */ }
     }
-    editor.setEditable(false);
+    // Review モードから切り替える場合、属性を切り替え
+    if (reviewMode) {
+      editor.view.dom.removeAttribute("data-review-mode");
+    }
+    reviewModeStorage(editor).enabled = true;
+    editor.view.dom.setAttribute("data-readonly-mode", "true");
     setReadonlyMode(true);
     setReviewMode(false);
     try { localStorage.setItem(READONLY_MODE_KEY, "true"); } catch { /* ignore */ }
     try { localStorage.setItem(REVIEW_MODE_KEY, "false"); } catch { /* ignore */ }
     setLiveMessage(t("switchedToReadonly"));
-  }, [editor, sourceMode, sourceText, saveContent, t]);
+  }, [editor, sourceMode, reviewMode, sourceText, saveContent, t]);
 
-  /** コメント操作用: 一時的に editable を true にしてコマンド実行後に戻す */
+  /** コメント操作用: 一時的にレビューモードのフィルタを解除してコマンド実行後に戻す */
   const executeInReviewMode = useCallback((fn: () => void) => {
     if (!editor) return;
-    editor.setEditable(true);
+    reviewModeStorage(editor).enabled = false;
     try {
       fn();
     } finally {
-      // 次のマイクロタスクで editable を戻す（コマンドの非同期処理完了を待つ）
       queueMicrotask(() => {
-        editor.setEditable(false);
+        reviewModeStorage(editor).enabled = true;
       });
     }
   }, [editor]);

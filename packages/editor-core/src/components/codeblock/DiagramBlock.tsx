@@ -1,11 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Box, Button, Divider, IconButton, Tooltip, Typography } from "@mui/material";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
-import UnfoldLessIcon from "@mui/icons-material/UnfoldLess";
-import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import SchemaIcon from "@mui/icons-material/Schema";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
@@ -24,6 +22,7 @@ import { DiagramFullscreenDialog } from "../DiagramFullscreenDialog";
 import { MermaidSamplePopover } from "../MermaidSamplePopover";
 import { extractDiagramAltText } from "../../utils/diagramAltText";
 import { CodeBlockFrame } from "./CodeBlockFrame";
+import { getMergeEditors, findCounterpartCode, getCodeBlockIndex, findCodeBlockByIndex } from "../../contexts/MergeEditorsContext";
 import type { CodeBlockSharedProps } from "./types";
 
 const pumlIconSx = { fontSize: 16 };
@@ -56,6 +55,10 @@ export function DiagramBlock(props: DiagramBlockProps) {
   } = props;
 
   const isEditable = editor?.isEditable ?? true;
+  // ReviewModeExtension では isEditable が true のままなので、DOM属性で判定
+  const domDataset = editor?.view?.dom?.dataset;
+  const isReviewOrReadonly = !!domDataset?.reviewMode || !!domDataset?.readonlyMode;
+  const canInteract = isEditable && !isReviewOrReadonly;
 
   const settings = useEditorSettingsContext();
   const { setSampleAnchorEl } = usePlantUmlToolbar();
@@ -110,6 +113,60 @@ export function DiagramBlock(props: DiagramBlockProps) {
     return () => ro.disconnect();
   }, [svg, plantUmlUrl, allCollapsed]);
 
+  // 比較モード: 対応するブロックのコードを取得
+  const mergeEditors = getMergeEditors();
+  const isCompareMode = !!mergeEditors;
+  // fullscreen 開始時に再計算するため fullscreen を依存配列に含める
+  const compareCode = useMemo(() => {
+    if (!fullscreen || !mergeEditors || !editor) return null;
+    const isRight = !!editor.view?.dom?.dataset?.reviewMode;
+    const otherEditor = isRight ? mergeEditors.leftEditor : mergeEditors.rightEditor;
+    return findCounterpartCode(editor, otherEditor, language, code);
+  }, [fullscreen, mergeEditors, editor, language, code]);
+
+  // マージ適用時: インデックスベースで両エディタのコードブロックを更新
+  const blockIndexRef = useRef(-1);
+  useEffect(() => {
+    if (fullscreen && mergeEditors && editor) {
+      blockIndexRef.current = getCodeBlockIndex(editor, language, code);
+    }
+  }, [fullscreen, mergeEditors, editor, language, code]);
+
+  const handleMergeApply = useCallback((newThisCode: string, newOtherCode: string) => {
+    if (!mergeEditors || !editor || blockIndexRef.current === -1) return;
+    const isRight = !!editor.view?.dom?.dataset?.reviewMode;
+    const otherEditor = isRight ? mergeEditors.leftEditor : mergeEditors.rightEditor;
+
+    // Update this editor's block
+    const thisPos = _getPos();
+    if (thisPos != null) {
+      const thisBlock = findCodeBlockByIndex(editor, language, blockIndexRef.current);
+      if (thisBlock) {
+        editor.chain().command(({ tr }) => {
+          const from = thisBlock.pos + 1;
+          const to = from + thisBlock.size;
+          if (newThisCode) tr.replaceWith(from, to, editor.schema.text(newThisCode));
+          else tr.delete(from, to);
+          return true;
+        }).run();
+      }
+    }
+
+    // Update other editor's block
+    if (otherEditor) {
+      const otherBlock = findCodeBlockByIndex(otherEditor, language, blockIndexRef.current);
+      if (otherBlock) {
+        otherEditor.chain().command(({ tr }) => {
+          const from = otherBlock.pos + 1;
+          const to = from + otherBlock.size;
+          if (newOtherCode) tr.replaceWith(from, to, otherEditor.schema.text(newOtherCode));
+          else tr.delete(from, to);
+          return true;
+        }).run();
+      }
+    }
+  }, [mergeEditors, editor, language, _getPos]);
+
   const label = isMermaid ? t("mermaid") : t("plantuml");
 
   const toolbar = (
@@ -130,13 +187,6 @@ export function DiagramBlock(props: DiagramBlockProps) {
         >
           <DragIndicatorIcon sx={{ fontSize: 16, color: "text.secondary" }} />
         </Box>
-      )}
-      {!fullscreen && (
-        <Tooltip title={allCollapsed ? t("unfoldAll") : t("foldAll")} placement="top">
-          <IconButton size="small" sx={{ p: 0.25 }} onClick={toggleAllCollapsed} aria-label={allCollapsed ? t("unfoldAll") : t("foldAll")}>
-            {allCollapsed ? <UnfoldMoreIcon sx={{ fontSize: 16, color: "text.secondary" }} /> : <UnfoldLessIcon sx={{ fontSize: 16, color: "text.secondary" }} />}
-          </IconButton>
-        </Tooltip>
       )}
       {!allCollapsed && (svg || plantUmlUrl) && (
         <Tooltip title={fullscreen ? t("close") : t("fullscreen")} placement="top">
@@ -212,6 +262,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
 
   const resizeHandle = isSelected && isEditable && (
     <Box
+      data-resize-handle=""
       role="slider"
       tabIndex={0}
       aria-label={t("resizeDiagram")}
@@ -243,8 +294,8 @@ export function DiagramBlock(props: DiagramBlockProps) {
   const diagramContainerSx = {
     overflow: "hidden", bgcolor: "background.paper", position: "relative",
     width: diagramResize.displayWidth || "fit-content", maxWidth: "100%",
-    cursor: !isEditable ? "default" : diagramResize.resizing ? "nwse-resize" : "grab",
-    "&:active": { cursor: !isEditable ? "default" : diagramResize.resizing ? "nwse-resize" : "grabbing" },
+    cursor: !canInteract ? "default" : diagramResize.resizing ? "nwse-resize" : "grab",
+    "&:active": { cursor: !canInteract ? "default" : diagramResize.resizing ? "nwse-resize" : "grabbing" },
   };
 
   const panTransformSx = {
@@ -257,11 +308,11 @@ export function DiagramBlock(props: DiagramBlockProps) {
   };
 
   const handleDoubleClickFullscreen = useCallback(() => {
-    if (!isEditable && (svg || plantUmlUrl)) {
+    if (!canInteract && (svg || plantUmlUrl)) {
       fsZP.reset();
       setFullscreen(true);
     }
-  }, [isEditable, svg, plantUmlUrl, fsZP, setFullscreen]);
+  }, [canInteract, svg, plantUmlUrl, fsZP, setFullscreen]);
 
   return (
     <CodeBlockFrame
@@ -293,6 +344,9 @@ export function DiagramBlock(props: DiagramBlockProps) {
           onToggleFsCodeVisible={() => setFsCodeVisible((v) => !v)}
           fsZP={fsZP}
           readOnly={!isEditable}
+          isCompareMode={isCompareMode}
+          compareCode={compareCode}
+          onMergeApply={handleMergeApply}
           t={t}
         />
         <MermaidSamplePopover
@@ -314,17 +368,17 @@ export function DiagramBlock(props: DiagramBlockProps) {
               contentEditable={false}
               onClick={selectNode}
               onDoubleClick={handleDoubleClickFullscreen}
-              onPointerDown={isEditable ? normalZP.handlePointerDown : undefined}
-              onPointerMove={isEditable ? (e) => diagramResize.resizing ? diagramResize.handlePointerMove(e) : normalZP.handlePointerMove(e) : undefined}
-              onPointerUp={isEditable ? () => diagramResize.resizing ? diagramResize.handlePointerUp() : normalZP.handlePointerUp() : undefined}
-              onWheel={isEditable ? normalZP.handleWheel : undefined}
+              onPointerDown={canInteract ? normalZP.handlePointerDown : undefined}
+              onPointerMove={canInteract ? (e) => diagramResize.resizing ? diagramResize.handlePointerMove(e) : normalZP.handlePointerMove(e) : undefined}
+              onPointerUp={canInteract ? () => diagramResize.resizing ? diagramResize.handlePointerUp() : normalZP.handlePointerUp() : undefined}
+              onWheel={canInteract ? normalZP.handleWheel : undefined}
             >
               <Box
                 sx={panTransformSx}
                 dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(displaySvg, SVG_SANITIZE_CONFIG) }}
               />
-              {isEditable && resizeHandle}
-              {isEditable && resizeIndicator}
+              {canInteract && resizeHandle}
+              {canInteract && resizeIndicator}
             </Box>
           )}
           {isPlantUml && plantUmlConsent !== "accepted" && (
@@ -352,16 +406,16 @@ export function DiagramBlock(props: DiagramBlockProps) {
               contentEditable={false}
               onClick={selectNode}
               onDoubleClick={handleDoubleClickFullscreen}
-              onPointerDown={isEditable ? normalZP.handlePointerDown : undefined}
-              onPointerMove={isEditable ? (e) => diagramResize.resizing ? diagramResize.handlePointerMove(e) : normalZP.handlePointerMove(e) : undefined}
-              onPointerUp={isEditable ? () => diagramResize.resizing ? diagramResize.handlePointerUp() : normalZP.handlePointerUp() : undefined}
-              onWheel={isEditable ? normalZP.handleWheel : undefined}
+              onPointerDown={canInteract ? normalZP.handlePointerDown : undefined}
+              onPointerMove={canInteract ? (e) => diagramResize.resizing ? diagramResize.handlePointerMove(e) : normalZP.handlePointerMove(e) : undefined}
+              onPointerUp={canInteract ? () => diagramResize.resizing ? diagramResize.handlePointerUp() : normalZP.handlePointerUp() : undefined}
+              onWheel={canInteract ? normalZP.handleWheel : undefined}
             >
               <Box sx={panTransformSx}>
                 <img src={plantUmlUrl} alt={extractDiagramAltText(code, "plantuml")} referrerPolicy="no-referrer" style={{ maxWidth: "100%", height: "auto" }} />
               </Box>
-              {isEditable && resizeHandle}
-              {isEditable && resizeIndicator}
+              {canInteract && resizeHandle}
+              {canInteract && resizeIndicator}
             </Box>
           )}
           {error && (

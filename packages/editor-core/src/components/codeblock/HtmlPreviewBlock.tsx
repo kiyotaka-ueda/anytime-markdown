@@ -3,8 +3,6 @@
 import { useState } from "react";
 import { Box, Divider, IconButton, Tooltip, Typography } from "@mui/material";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
-import UnfoldLessIcon from "@mui/icons-material/UnfoldLess";
-import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import SchemaIcon from "@mui/icons-material/Schema";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
@@ -55,11 +53,6 @@ export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
       >
         <DragIndicatorIcon sx={{ fontSize: 16, color: "text.secondary" }} />
       </Box>
-      <Tooltip title={allCollapsed ? t("unfoldAll") : t("foldAll")} placement="top">
-        <IconButton size="small" sx={{ p: 0.25 }} onClick={toggleAllCollapsed} aria-label={allCollapsed ? t("unfoldAll") : t("foldAll")}>
-          {allCollapsed ? <UnfoldMoreIcon sx={{ fontSize: 16, color: "text.secondary" }} /> : <UnfoldLessIcon sx={{ fontSize: 16, color: "text.secondary" }} />}
-        </IconButton>
-      </Tooltip>
       {!allCollapsed && (
         <Tooltip title={t("fullscreen")} placement="top">
           <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setFullscreen(true)} aria-label={t("fullscreen")}>

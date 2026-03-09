@@ -7,14 +7,17 @@ import { alpha, useTheme } from "@mui/material/styles";
 import { useEditor } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
 import { getBaseExtensions } from "../editorExtensions";
+import { CustomHardBreak } from "../extensions/customHardBreak";
+import { ReviewModeExtension, reviewModeStorage } from "../extensions/reviewModeExtension";
 import { useMergeDiff } from "../hooks/useMergeDiff";
 import { useDiffBackground } from "../hooks/useDiffBackground";
 import { useDiffHighlight } from "../hooks/useDiffHighlight";
 import { useScrollSync } from "../hooks/useScrollSync";
 import { useEditorSettingsContext } from "../useEditorSettings";
 import { MergeEditorPanel } from "./MergeEditorPanel";
-import { preserveBlankLines } from "../utils/sanitizeMarkdown";
+import { sanitizeMarkdown, preserveBlankLines } from "../utils/sanitizeMarkdown";
 import { computeInlineDiff, type DiffLine, type DiffResult, type InlineSegment } from "../utils/diffEngine";
+import { setMergeEditors } from "../contexts/MergeEditorsContext";
 
 export interface MergeUndoRedo {
   undo: () => void;
@@ -262,13 +265,25 @@ export function InlineMergeView({
   }, []);
   const [rightDragOver, setRightDragOver] = useState(false);
 
-  // Right tiptap editor (for WYSIWYG mode) – readonly
+  // Right tiptap editor (for WYSIWYG mode) – readonly (cursor visible)
   const rightEditor = useEditor({
-    extensions: getBaseExtensions({ disableComments: true }),
-    editable: false,
+    extensions: [...getBaseExtensions({ disableComments: true }), CustomHardBreak, ReviewModeExtension],
     content: "",
     immediatelyRender: false,
+    editorProps: {
+      handleDOMEvents: {
+        // Skip ProseMirror drop handling; let event bubble to parent Box handler
+        drop: () => true,
+      },
+    },
   });
+
+  // Enable transaction filter to block edits while keeping cursor visible
+  useEffect(() => {
+    if (rightEditor) {
+      reviewModeStorage(rightEditor).enabled = true;
+    }
+  }, [rightEditor]);
 
   // editorContent -> leftText sync
   useEffect(() => {
@@ -278,7 +293,13 @@ export function InlineMergeView({
   // rightText -> right tiptap editor sync
   useEffect(() => {
     if (rightEditor && !sourceMode) {
-      rightEditor.commands.setContent(preserveBlankLines(rightText));
+      // React レンダリング中の flushSync 競合を回避するため次フレームに遅延
+      requestAnimationFrame(() => {
+        if (rightEditor.isDestroyed) return;
+        reviewModeStorage(rightEditor).enabled = false;
+        rightEditor.commands.setContent(preserveBlankLines(sanitizeMarkdown(rightText)));
+        reviewModeStorage(rightEditor).enabled = true;
+      });
     }
   }, [rightText, rightEditor, sourceMode]);
 
@@ -286,10 +307,79 @@ export function InlineMergeView({
   const prevSourceMode = useRef(sourceMode);
   useEffect(() => {
     if (prevSourceMode.current && !sourceMode && rightEditor) {
-      rightEditor.commands.setContent(preserveBlankLines(rightText));
+      requestAnimationFrame(() => {
+        if (rightEditor.isDestroyed) return;
+        reviewModeStorage(rightEditor).enabled = false;
+        rightEditor.commands.setContent(preserveBlankLines(sanitizeMarkdown(rightText)));
+        reviewModeStorage(rightEditor).enabled = true;
+      });
     }
     prevSourceMode.current = sourceMode;
   }, [sourceMode, rightEditor, rightText]);
+
+  // 左エディタのブロック展開/折りたたみ状態を右エディタに同期
+  useEffect(() => {
+    if (!leftEditor || !rightEditor || sourceMode) return;
+    const syncCollapsed = () => {
+      if (leftEditor.isDestroyed || rightEditor.isDestroyed) return;
+      const targetTypes = new Set(["codeBlock", "table", "image"]);
+      // 左エディタの collapsed / codeCollapsed 状態を収集
+      const leftStates: { type: string; index: number; collapsed?: boolean; codeCollapsed?: boolean }[] = [];
+      const counters: Record<string, number> = {};
+      leftEditor.state.doc.descendants((node) => {
+        if (targetTypes.has(node.type.name)) {
+          const key = node.type.name;
+          counters[key] = (counters[key] || 0) + 1;
+          leftStates.push({
+            type: key,
+            index: counters[key] - 1,
+            collapsed: node.attrs.collapsed,
+            codeCollapsed: node.attrs.codeCollapsed,
+          });
+        }
+      });
+      // rAF 内でトランザクションを作成して適用（stale state 回避）
+      requestAnimationFrame(() => {
+        if (rightEditor.isDestroyed) return;
+        const rightCounters: Record<string, number> = {};
+        let changed = false;
+        const tr = rightEditor.state.tr;
+        rightEditor.state.doc.descendants((node, pos) => {
+          if (targetTypes.has(node.type.name)) {
+            const key = node.type.name;
+            rightCounters[key] = (rightCounters[key] || 0) + 1;
+            const idx = rightCounters[key] - 1;
+            const leftState = leftStates.find(s => s.type === key && s.index === idx);
+            if (leftState) {
+              let nodeChanged = false;
+              const newAttrs: Record<string, unknown> = { ...node.attrs };
+              if (leftState.collapsed !== undefined && node.attrs.collapsed !== leftState.collapsed) {
+                newAttrs.collapsed = leftState.collapsed;
+                nodeChanged = true;
+              }
+              if (leftState.codeCollapsed !== undefined && node.attrs.codeCollapsed !== leftState.codeCollapsed) {
+                newAttrs.codeCollapsed = leftState.codeCollapsed;
+                nodeChanged = true;
+              }
+              if (nodeChanged) {
+                tr.setNodeMarkup(pos, undefined, newAttrs);
+                changed = true;
+              }
+            }
+          }
+        });
+        if (changed) {
+          reviewModeStorage(rightEditor).enabled = false;
+          rightEditor.view.dispatch(tr);
+          reviewModeStorage(rightEditor).enabled = true;
+        }
+      });
+    };
+    leftEditor.on("update", syncCollapsed);
+    return () => {
+      leftEditor.off("update", syncCollapsed);
+    };
+  }, [leftEditor, rightEditor, sourceMode]);
 
   useDiffHighlight(sourceMode, leftEditor, rightEditor);
 
@@ -318,6 +408,12 @@ export function InlineMergeView({
     };
     reader.readAsArrayBuffer(file);
   };
+
+  // モジュールレベルストアに左右エディタを登録（NodeView ポータルからアクセス可能にする）
+  useEffect(() => {
+    setMergeEditors({ leftEditor: leftEditor ?? null, rightEditor: rightEditor ?? null });
+    return () => setMergeEditors(null);
+  }, [leftEditor, rightEditor]);
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: editorHeight, minWidth: 0, overflow: "hidden" }}>
