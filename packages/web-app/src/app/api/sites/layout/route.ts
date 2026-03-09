@@ -13,7 +13,11 @@ export async function GET() {
   try {
     const data = await fetchLayoutData();
     return NextResponse.json(data, {
-      headers: { 'Cache-Control': 'public, max-age=60, stale-while-revalidate=300' },
+      headers: {
+        'Cache-Control': 'private, max-age=60, stale-while-revalidate=300',
+        'CDN-Cache-Control': 'no-store',
+        'Netlify-CDN-Cache-Control': 'no-store',
+      },
     });
   } catch (e) {
     console.error('Failed to get layout:', e);
