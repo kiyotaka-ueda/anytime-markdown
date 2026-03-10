@@ -1,5 +1,4 @@
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-import ArticleIcon from "@mui/icons-material/Article";
 
 import DescriptionIcon from "@mui/icons-material/Description";
 import DownloadIcon from "@mui/icons-material/Download";
@@ -419,15 +418,6 @@ export const EditorToolbar = React.memo(function EditorToolbar({
         )}
       </ToggleButtonGroup>
       </Box>
-
-      {/* Insert actions */}
-      {!hideTemplates && <ToggleButtonGroup size="small" aria-label={t("insertElements")} sx={{ height: 30 }}>
-        <ToggleButton value="template" onClick={(e) => onSetTemplateAnchor(e.currentTarget)} aria-label={t("templates")} disabled={readonlyMode || reviewMode || editorState?.isInDiagramCode || inlineMergeOpen} sx={{ px: 0.75, py: 0.25 }}>
-          <Tooltip title={tip(t, "templates")}>
-            <span style={{ display: "inline-flex" }}><ArticleIcon fontSize="small" /></span>
-          </Tooltip>
-        </ToggleButton>
-      </ToggleButtonGroup>}
 
       <Box sx={{ flexGrow: 1 }} />
 

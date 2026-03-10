@@ -1,5 +1,6 @@
 import React from "react";
 import MermaidIcon from "../icons/MermaidIcon";
+import ArticleIcon from "@mui/icons-material/Article";
 import CheckBoxIcon from "@mui/icons-material/CheckBox";
 import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
 import FormatListNumberedIcon from "@mui/icons-material/FormatListNumbered";
@@ -48,6 +49,8 @@ interface EditorMenuPopoversProps {
   hideSettings?: boolean;
   hideHelp?: boolean;
   hideVersionInfo?: boolean;
+  hideTemplates?: boolean;
+  templateDisabled?: boolean;
   featuresUrl?: string;
   t: TranslationFn;
 }
@@ -64,6 +67,8 @@ export const EditorMenuPopovers = React.memo(function EditorMenuPopovers({
   hideSettings,
   hideHelp,
   hideVersionInfo,
+  hideTemplates,
+  templateDisabled,
   featuresUrl,
   t,
 }: EditorMenuPopoversProps) {
@@ -80,6 +85,21 @@ export const EditorMenuPopovers = React.memo(function EditorMenuPopovers({
         slotProps={{ paper: { role: "menu", "aria-label": t("helpMenu") } }}
       >
         <Box sx={{ py: 0.5, minWidth: 160 }}>
+          {!hideTemplates && (
+            <MenuItem
+              onClick={(e) => {
+                const anchor = helpAnchorEl;
+                setHelpAnchorEl(null);
+                if (anchor) setTemplateAnchorEl(anchor);
+              }}
+              disabled={templateDisabled}
+              sx={{ fontSize: "0.85rem", minHeight: 36 }}
+            >
+              <ListItemIcon><ArticleIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>{t("templates")}</ListItemText>
+            </MenuItem>
+          )}
+          {!hideTemplates && <Divider />}
           {featuresUrl && (
             <MenuItem
               component="a"

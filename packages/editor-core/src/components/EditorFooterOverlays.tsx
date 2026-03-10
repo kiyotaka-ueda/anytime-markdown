@@ -54,6 +54,8 @@ interface EditorFooterOverlaysProps {
   hideSettings?: boolean;
   hideHelp?: boolean;
   hideVersionInfo?: boolean;
+  hideTemplates?: boolean;
+  inlineMergeOpen?: boolean;
   featuresUrl?: string;
   appendToSource: (text: string) => void;
   // overlay state
@@ -97,6 +99,8 @@ export function EditorFooterOverlays({
   hideSettings,
   hideHelp,
   hideVersionInfo,
+  hideTemplates,
+  inlineMergeOpen,
   featuresUrl,
   appendToSource,
   pdfExporting,
@@ -144,6 +148,8 @@ export function EditorFooterOverlays({
         hideSettings={hideSettings}
         hideHelp={hideHelp}
         hideVersionInfo={hideVersionInfo}
+        hideTemplates={hideTemplates}
+        templateDisabled={readonlyMode || reviewMode || !!inlineMergeOpen}
         featuresUrl={featuresUrl}
         t={t}
       />

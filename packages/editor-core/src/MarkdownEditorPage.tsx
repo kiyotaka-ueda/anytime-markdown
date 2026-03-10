@@ -351,6 +351,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         onInsertTemplate={handleInsertTemplate} headingMenu={headingMenu} setHeadingMenu={setHeadingMenu}
         setSettingsOpen={setSettingsOpen} setVersionDialogOpen={setVersionDialogOpen} setHelpDialogOpen={setHelpDialogOpen}
         hideSettings={hideSettings} hideHelp={hideHelp} hideVersionInfo={hideVersionInfo}
+        hideTemplates={hideTemplates} inlineMergeOpen={inlineMergeOpen}
         featuresUrl={featuresUrl} appendToSource={appendToSource}
         pdfExporting={pdfExporting} notification={notification} setNotification={setNotification} t={t}
       />
