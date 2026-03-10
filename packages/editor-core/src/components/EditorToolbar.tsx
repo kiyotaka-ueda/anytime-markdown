@@ -8,7 +8,7 @@ import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import SaveIcon from "@mui/icons-material/Save";
 import SaveAsIcon from "@mui/icons-material/SaveAs";
 
-import MoreVertIcon from "@mui/icons-material/MoreVert";
+import MenuIcon from "@mui/icons-material/Menu";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 
 
@@ -558,7 +558,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
                 size="small"
                 onClick={(e) => onSetHelpAnchor(e.currentTarget)}
               >
-                <MoreVertIcon fontSize="small" />
+                <MenuIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           </Box>
@@ -569,7 +569,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
             onClick={(e) => setMobileMenuAnchorEl(e.currentTarget)}
             sx={{ display: { xs: "inline-flex", md: "none" } }}
           >
-            <MoreVertIcon fontSize="small" />
+            <MenuIcon fontSize="small" />
           </IconButton>
         </>
       )}
