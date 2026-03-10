@@ -10,7 +10,7 @@ import { sanitizeMarkdown, preserveBlankLines } from "../utils/sanitizeMarkdown"
 import { prependFrontmatter } from "../utils/frontmatterHelpers";
 import DOMPurify from "dompurify";
 import { SVG_SANITIZE_CONFIG } from "./useMermaidRender";
-import { PLANTUML_SERVER } from "../utils/plantumlHelpers";
+import { buildPlantUmlUrl } from "../utils/plantumlHelpers";
 import plantumlEncoder from "plantuml-encoder";
 
 interface UseEditorFileOpsParams {
@@ -287,7 +287,7 @@ export function useEditorFileOps({
           const startMatch = code.match(/@start(uml|mindmap|wbs|json|yaml)/);
           const src = startMatch ? code : `@startuml\n${code}\n@enduml`;
           const encoded = plantumlEncoder.encode(src);
-          const newUrl = `${PLANTUML_SERVER}/svg/${encoded}`;
+          const newUrl = buildPlantUmlUrl(encoded);
           pumlLoadPromises.push(new Promise<void>((resolve) => {
             img.onload = () => resolve();
             img.onerror = () => resolve();

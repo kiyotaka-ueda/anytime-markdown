@@ -89,7 +89,7 @@ export type { DiffBlock, DiffLine, DiffResult, DiffOptions, InlineSegment } from
 export { sanitizeMarkdown, preserveBlankLines, restoreBlankLines, splitByCodeBlocks } from './utils/sanitizeMarkdown';
 export { getSectionRange, moveHeadingSection } from './utils/sectionHelpers';
 export { moveTableRow, moveTableColumn } from './utils/tableHelpers';
-export { PLANTUML_SERVER, PLANTUML_CONSENT_KEY, PLANTUML_DARK_SKINPARAMS } from './utils/plantumlHelpers';
+export { PLANTUML_SERVER, PLANTUML_CONSENT_KEY, PLANTUML_DARK_SKINPARAMS, buildPlantUmlUrl } from './utils/plantumlHelpers';
 
 // Icons
 export { default as MarkdownIcon } from './icons/MarkdownIcon';

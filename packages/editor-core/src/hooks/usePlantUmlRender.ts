@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import plantumlEncoder from "plantuml-encoder";
-import { PLANTUML_SERVER, PLANTUML_CONSENT_KEY, PLANTUML_DARK_SKINPARAMS } from "../utils/plantumlHelpers";
+import { PLANTUML_CONSENT_KEY, PLANTUML_DARK_SKINPARAMS, buildPlantUmlUrl } from "../utils/plantumlHelpers";
 
 /**
  * モジュールレベルの URL キャッシュ。
@@ -62,7 +62,7 @@ export function usePlantUmlRender({ code, isPlantUml, isDark }: UsePlantUmlRende
           src = isDark ? `@startuml\n${PLANTUML_DARK_SKINPARAMS}\n${code}\n@enduml` : `@startuml\n${code}\n@enduml`;
         }
         const encoded = plantumlEncoder.encode(src);
-        const url = `${PLANTUML_SERVER}/svg/${encoded}`;
+        const url = buildPlantUmlUrl(encoded);
         urlCache.set(key, url);
         if (mountedRef.current) {
           setPlantUmlUrl(url);

@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import plantumlEncoder from "plantuml-encoder";
-import { PLANTUML_SERVER } from "../utils/plantumlHelpers";
+import { buildPlantUmlUrl } from "../utils/plantumlHelpers";
 
 interface UseDiagramCaptureParams {
   isMermaid: boolean;
@@ -115,7 +115,7 @@ function buildPlantUmlLightUrl(code: string): string {
   const startMatch = code.match(/@start(uml|mindmap|wbs|json|yaml)/);
   const diagramType = startMatch ? startMatch[1] : null;
   const src = diagramType ? code : `@startuml\n${code}\n@enduml`;
-  return `${PLANTUML_SERVER}/svg/${plantumlEncoder.encode(src)}`;
+  return buildPlantUmlUrl(plantumlEncoder.encode(src));
 }
 
 export function useDiagramCapture({ isMermaid, isPlantUml, svg, plantUmlUrl, code, isDark }: UseDiagramCaptureParams) {
