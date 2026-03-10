@@ -4,7 +4,7 @@ import type { Editor } from "@tiptap/react";
 import type React from "react";
 
 import { getEditorPaperSx } from "../styles/editorStyles";
-import { useEditorSettings } from "../useEditorSettings";
+import { useEditorSettingsContext } from "../useEditorSettings";
 import { EditorOutlineSection } from "./EditorOutlineSection";
 import { SourceModeEditor } from "./SourceModeEditor";
 import { SourceSearchBar } from "./SourceSearchBar";
@@ -119,7 +119,7 @@ export function EditorMainContent({
   t,
 }: EditorMainContentProps) {
   const theme = useTheme();
-  const settings = useEditorSettings().settings;
+  const settings = useEditorSettingsContext();
 
   if (inlineMergeOpen) {
     return (
