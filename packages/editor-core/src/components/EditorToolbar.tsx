@@ -260,6 +260,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
         top: 0,
         zIndex: 10,
         bgcolor: isDark ? "#0D1117" : "#F8F9FA",
+        color: isDark ? undefined : "#2D3748",
       }}
     >
       {/* File actions */}
