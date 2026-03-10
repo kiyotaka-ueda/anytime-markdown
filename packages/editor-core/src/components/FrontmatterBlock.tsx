@@ -100,7 +100,7 @@ export function FrontmatterBlock({ frontmatter, onChange, readOnly, t }: Frontma
           component="textarea"
           ref={textareaRef}
           value={frontmatter}
-          onChange={readOnly ? undefined : handleChange}
+          onChange={readOnly ? () => {} : handleChange}
           onKeyDown={readOnly ? (e: React.KeyboardEvent) => {
             // 選択・コピー系以外のキー入力を無効化
             if (!e.ctrlKey && !e.metaKey && !e.key.startsWith("Arrow") && e.key !== "Home" && e.key !== "End" && e.key !== "Shift" && e.key !== "Control" && e.key !== "Meta" && e.key !== "Tab") {
