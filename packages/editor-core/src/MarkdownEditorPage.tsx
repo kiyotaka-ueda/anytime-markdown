@@ -92,8 +92,10 @@ interface MarkdownEditorPageProps {
 export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, featuresUrl, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, externalContent, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, showReadonlyMode }: MarkdownEditorPageProps = {}) {
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
-  const isMobile = useMediaQuery(useTheme().breakpoints.down("sm"));
-  const isMd = useMediaQuery(useTheme().breakpoints.up("md"));
+  const muiTheme = useTheme();
+  const isMobile = useMediaQuery(muiTheme.breakpoints.down("sm"));
+  const isMd = useMediaQuery(muiTheme.breakpoints.up("md"));
+  const isDark = muiTheme.palette.mode === "dark";
   const noopSave = useCallback(() => {}, []);
   const {
     initialContent, loading, saveContent: _saveContent, downloadMarkdown, clearContent, frontmatterRef,
@@ -280,7 +282,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   };
 
   return (
-    <EditorSettingsContext.Provider value={settings}>
+    <EditorSettingsContext.Provider value={{ ...settings, lineHeight: isDark ? 1.8 : 1.6 }}>
     <PlantUmlToolbarContext.Provider value={plantUmlToolbarCtx}>
     <PrintStyles />
     <Box id="main-content" component="main" sx={{ p: { xs: 2, sm: 3 } }}>

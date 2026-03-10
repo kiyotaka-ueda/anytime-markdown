@@ -138,13 +138,6 @@
           "maximum": 72,
           "description": "Font size in pixels for the editor. 0 uses the VS Code default."
         },
-        "anytimeMarkdown.lineHeight": {
-          "type": "number",
-          "default": 1.6,
-          "minimum": 1,
-          "maximum": 3,
-          "description": "Line height for the editor content."
-        },
         "anytimeMarkdown.editorMaxWidth": {
           "type": "number",
           "default": 0,

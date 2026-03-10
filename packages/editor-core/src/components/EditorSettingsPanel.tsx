@@ -124,28 +124,6 @@ export const EditorSettingsPanel = React.memo(function EditorSettingsPanel({
         </>
       )}
 
-      {/* Line Height */}
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary" }}>
-          {t("settingLineHeight")}
-        </Typography>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5 }}>
-          <Slider
-            value={settings.lineHeight}
-            onChange={(_, v) => updateSettings({ lineHeight: v as number })}
-            min={1.0}
-            max={2.0}
-            step={0.1}
-            size="small"
-            aria-label={t("settingLineHeight")}
-            aria-valuetext={`${settings.lineHeight}x`}
-          />
-          <Typography variant="body2" sx={{ minWidth: 32, textAlign: "right", fontFamily: "monospace" }}>
-            {settings.lineHeight.toFixed(1)}
-          </Typography>
-        </Box>
-      </Box>
-
       {/* Font Size */}
       <Box sx={{ mb: 3 }}>
         <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary" }}>
