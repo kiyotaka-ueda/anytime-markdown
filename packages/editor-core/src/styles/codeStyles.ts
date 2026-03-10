@@ -10,8 +10,8 @@ const hljsDark = {
   "& .hljs-params": { color: "#c9d1d9" },
   "& .hljs-meta, & .hljs-meta keyword": { color: "#ffa657" },
   "& .hljs-symbol, & .hljs-bullet": { color: "#ffa657" },
-  "& .hljs-addition": { color: "#aff5b4", bgcolor: "rgba(46,160,67,0.15)" },
-  "& .hljs-deletion": { color: "#ffdcd7", bgcolor: "rgba(248,81,73,0.15)" },
+  "& .hljs-addition": { color: "#aff5b4", bgcolor: "rgba(46,160,67,0.15)", "&::before": { content: "'+ '", fontWeight: 700 } },
+  "& .hljs-deletion": { color: "#ffdcd7", bgcolor: "rgba(248,81,73,0.15)", "&::before": { content: "'- '", fontWeight: 700 } },
 } as const;
 
 const hljsLight = {
@@ -23,8 +23,8 @@ const hljsLight = {
   "& .hljs-params": { color: "#24292f" },
   "& .hljs-meta, & .hljs-meta keyword": { color: "#953800" },
   "& .hljs-symbol, & .hljs-bullet": { color: "#953800" },
-  "& .hljs-addition": { color: "#116329", bgcolor: "rgba(46,160,67,0.15)" },
-  "& .hljs-deletion": { color: "#82071e", bgcolor: "rgba(248,81,73,0.15)" },
+  "& .hljs-addition": { color: "#116329", bgcolor: "rgba(46,160,67,0.15)", "&::before": { content: "'+ '", fontWeight: 700 } },
+  "& .hljs-deletion": { color: "#82071e", bgcolor: "rgba(248,81,73,0.15)", "&::before": { content: "'- '", fontWeight: 700 } },
 } as const;
 
 /** インラインコード・コードブロック・シンタックスハイライトスタイル */
