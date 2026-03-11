@@ -1,8 +1,9 @@
 import DOMPurify from "dompurify";
-import { preprocessMathBlock, preprocessMathInline } from "./mathHelpers";
+
 import { preprocessAdmonition } from "./admonitionHelpers";
-import { preprocessFootnoteRefs } from "./footnoteHelpers";
 import { preprocessComments } from "./commentHelpers";
+import { preprocessFootnoteRefs } from "./footnoteHelpers";
+import { preprocessMathBlock, preprocessMathInline } from "./mathHelpers";
 
 const ALLOWED_TAGS = ["details", "summary", "br", "hr", "sub", "sup", "mark", "kbd", "u"];
 const ALLOWED_ATTR = ["open"];

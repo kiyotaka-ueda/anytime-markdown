@@ -1,16 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  type DragEndEvent,
+  type DragStartEvent,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
-  type DragStartEvent,
-  type DragEndEvent,
 } from '@dnd-kit/core';
-import { sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
+import { arrayMove,sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { useTranslations } from 'next-intl';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
 import type { DocFile, LayoutCategory, LayoutCategoryItem } from '../../../types/layout';
 
 function generateId() {

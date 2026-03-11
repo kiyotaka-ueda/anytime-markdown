@@ -1,31 +1,24 @@
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-
+import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
+import CodeIcon from "@mui/icons-material/Code";
 import DescriptionIcon from "@mui/icons-material/Description";
 import DownloadIcon from "@mui/icons-material/Download";
-import WysiwygIcon from "@mui/icons-material/Wysiwyg";
+import EditNoteIcon from "@mui/icons-material/EditNote";
 import FileUploadIcon from "@mui/icons-material/FileUpload";
 import FolderOpenIcon from "@mui/icons-material/FolderOpen";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
+import ListAltIcon from "@mui/icons-material/ListAlt";
+import LockIcon from "@mui/icons-material/Lock";
+import MenuIcon from "@mui/icons-material/Menu";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
+import RedoIcon from "@mui/icons-material/Redo";
 import SaveIcon from "@mui/icons-material/Save";
 import SaveAsIcon from "@mui/icons-material/SaveAs";
-
-import MenuIcon from "@mui/icons-material/Menu";
-import VisibilityIcon from "@mui/icons-material/Visibility";
-
-
-import ViewStreamIcon from "@mui/icons-material/ViewStream";
-import EditNoteIcon from "@mui/icons-material/EditNote";
-import ListAltIcon from "@mui/icons-material/ListAlt";
-import RedoIcon from "@mui/icons-material/Redo";
-
-import UndoIcon from "@mui/icons-material/Undo";
-import CodeIcon from "@mui/icons-material/Code";
-import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
-import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import SettingsIcon from "@mui/icons-material/Settings";
-
-import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
-import LockIcon from "@mui/icons-material/Lock";
-
+import UndoIcon from "@mui/icons-material/Undo";
+import ViewStreamIcon from "@mui/icons-material/ViewStream";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import WysiwygIcon from "@mui/icons-material/Wysiwyg";
 import {
   Box,
   Divider,
@@ -40,17 +33,16 @@ import {
   Tooltip,
   useTheme,
 } from "@mui/material";
-import { useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
-
+import { useEditorState } from "@tiptap/react";
 import React, { useCallback, useRef, useState } from "react";
-import type { TranslationFn } from "../types";
-import { modKey } from "../constants/shortcuts";
-import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, DEFAULT_LIGHT_TEXT } from "../constants/colors";
-import { Z_TOOLBAR } from "../constants/zIndex";
 
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, DEFAULT_LIGHT_TEXT } from "../constants/colors";
+import { modKey } from "../constants/shortcuts";
+import { Z_TOOLBAR } from "../constants/zIndex";
+import type { TranslationFn } from "../types";
+import type { ToolbarFileCapabilities, ToolbarFileHandlers, ToolbarModeHandlers,ToolbarModeState, ToolbarVisibility } from "../types/toolbar";
 import type { MergeUndoRedo } from "./InlineMergeView";
-import type { ToolbarVisibility, ToolbarFileHandlers, ToolbarFileCapabilities, ToolbarModeState, ToolbarModeHandlers } from "../types/toolbar";
 
 /** WAI-ARIA Toolbar パターン: 矢印キーでフォーカス移動 */
 const FOCUSABLE_SELECTOR = 'button:not([disabled]), [role="button"]:not([disabled]), input:not([disabled])';

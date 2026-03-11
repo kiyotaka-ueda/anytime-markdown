@@ -1,11 +1,11 @@
 "use client";
 
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ClearIcon from "@mui/icons-material/Clear";
 import CloseIcon from "@mui/icons-material/Close";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import FindReplaceIcon from "@mui/icons-material/FindReplace";
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import {
@@ -17,8 +17,9 @@ import {
   useTheme,
 } from "@mui/material";
 import React, { useCallback, useState } from "react";
-import type { TextareaSearchState } from "../hooks/useTextareaSearch";
+
 import { Z_TOOLBAR } from "../constants/zIndex";
+import type { TextareaSearchState } from "../hooks/useTextareaSearch";
 
 interface SourceSearchBarProps {
   search: TextareaSearchState;

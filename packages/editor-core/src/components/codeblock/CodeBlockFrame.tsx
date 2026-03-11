@@ -1,10 +1,11 @@
 "use client";
 
-import { NodeViewContent, NodeViewWrapper } from "@tiptap/react";
 import type { SxProps, Theme } from "@mui/material";
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from "@mui/material";
-import { useEditorSettingsContext } from "../../useEditorSettings";
+import { NodeViewContent, NodeViewWrapper } from "@tiptap/react";
+
 import { DEFAULT_DARK_CODE_BG, DEFAULT_LIGHT_CODE_BG } from "../../constants/colors";
+import { useEditorSettingsContext } from "../../useEditorSettings";
 
 interface CodeBlockFrameProps {
   /** Toolbar row rendered above the code editor */

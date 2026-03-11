@@ -1,8 +1,9 @@
-import { useCallback } from "react";
 import plantumlEncoder from "plantuml-encoder";
-import { buildPlantUmlUrl } from "../utils/plantumlHelpers";
+import { useCallback } from "react";
+
 import { CAPTURE_BG } from "../constants/colors";
 import { FETCH_TIMEOUT } from "../constants/timing";
+import { buildPlantUmlUrl } from "../utils/plantumlHelpers";
 
 interface UseDiagramCaptureParams {
   isMermaid: boolean;

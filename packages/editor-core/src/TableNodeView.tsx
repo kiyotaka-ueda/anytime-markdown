@@ -1,26 +1,27 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import type { NodeViewProps } from "@tiptap/react";
-import { NodeViewWrapper, NodeViewContent, useEditorState } from "@tiptap/react";
+import CloseIcon from "@mui/icons-material/Close";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
+import FormatAlignCenterIcon from "@mui/icons-material/FormatAlignCenter";
+import FormatAlignLeftIcon from "@mui/icons-material/FormatAlignLeft";
+import FormatAlignRightIcon from "@mui/icons-material/FormatAlignRight";
+import FullscreenIcon from "@mui/icons-material/Fullscreen";
+import MoveDownIcon from "@mui/icons-material/MoveDown";
+import MoveUpIcon from "@mui/icons-material/MoveUp";
+import TableRowsIcon from "@mui/icons-material/TableRows";
+import ViewColumnIcon from "@mui/icons-material/ViewColumn";
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, ToggleButton, ToggleButtonGroup, Tooltip, Typography, useTheme } from "@mui/material";
 import FocusTrap from "@mui/material/Unstable_TrapFocus";
-import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
-import ViewColumnIcon from "@mui/icons-material/ViewColumn";
-import TableRowsIcon from "@mui/icons-material/TableRows";
-import FormatAlignLeftIcon from "@mui/icons-material/FormatAlignLeft";
-import FormatAlignCenterIcon from "@mui/icons-material/FormatAlignCenter";
-import FormatAlignRightIcon from "@mui/icons-material/FormatAlignRight";
-import MoveUpIcon from "@mui/icons-material/MoveUp";
-import MoveDownIcon from "@mui/icons-material/MoveDown";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import FullscreenIcon from "@mui/icons-material/Fullscreen";
-import CloseIcon from "@mui/icons-material/Close";
+import type { NodeViewProps } from "@tiptap/react";
+import { NodeViewContent, NodeViewWrapper, useEditorState } from "@tiptap/react";
 import { useTranslations } from "next-intl";
-import { moveTableRow, moveTableColumn } from "./utils/tableHelpers";
+import { useCallback, useState } from "react";
+
 import { SearchReplaceBar } from "./components/SearchReplaceBar";
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "./constants/colors";
 import { Z_FULLSCREEN } from "./constants/zIndex";
+import { moveTableColumn,moveTableRow } from "./utils/tableHelpers";
 
 const iconSx = { fontSize: 16 };
 

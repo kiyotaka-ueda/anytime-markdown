@@ -1,5 +1,5 @@
-import type { Editor } from "@tiptap/react";
 import type { Node as PMNode } from "@tiptap/pm/model";
+import type { Editor } from "@tiptap/react";
 
 /** テーブルの行を上下に移動するヘルパー */
 export function moveTableRow(editor: Editor, direction: "up" | "down") {

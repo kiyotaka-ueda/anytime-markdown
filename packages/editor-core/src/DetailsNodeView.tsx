@@ -1,11 +1,11 @@
 "use client";
 
-import { NodeViewContent, NodeViewWrapper } from "@tiptap/react";
-import { useCallback, useState } from "react";
-import { Box, GlobalStyles } from "@mui/material";
-import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
+import { Box, GlobalStyles } from "@mui/material";
+import { NodeViewContent, NodeViewWrapper } from "@tiptap/react";
 import { useTranslations } from "next-intl";
+import { useCallback, useState } from "react";
 
 export function DetailsNodeView() {
   const t = useTranslations("MarkdownEditor");

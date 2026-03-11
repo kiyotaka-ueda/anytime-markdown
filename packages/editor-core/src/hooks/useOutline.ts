@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { OUTLINE_WIDTH_DEFAULT, OUTLINE_WIDTH_MAX,OUTLINE_WIDTH_MIN } from "../constants/dimensions";
 import type { HeadingItem } from "../types";
 import { extractHeadings } from "../types";
 import { moveHeadingSection } from "../utils/sectionHelpers";
-import { OUTLINE_WIDTH_DEFAULT, OUTLINE_WIDTH_MIN, OUTLINE_WIDTH_MAX } from "../constants/dimensions";
 
 interface UseOutlineParams {
   editor: Editor | null;

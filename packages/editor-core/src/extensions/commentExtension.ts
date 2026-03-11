@@ -6,8 +6,9 @@
  * - CommentPoint Node: カーソル位置にポイントコメントを挿入
  * - CommentDataPlugin: Plugin State でコメントデータを管理 + コマンド
  */
-import { Mark, Node, Extension } from "@tiptap/core";
+import { Extension,Mark, Node } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
+
 import type { InlineComment } from "../utils/commentHelpers";
 
 // ============================================================

@@ -1,6 +1,7 @@
 import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight";
-import { ReactNodeViewRenderer } from "@tiptap/react";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+import { ReactNodeViewRenderer } from "@tiptap/react";
+
 import { CodeBlockNodeView } from "./MermaidNodeView";
 
 interface MarkdownSerializerState {

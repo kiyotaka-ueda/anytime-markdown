@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
 import type katexType from "katex";
+import { useEffect, useState } from "react";
 
 /** Lazy-load KaTeX only when needed */
 let katexInstance: typeof katexType | null = null;

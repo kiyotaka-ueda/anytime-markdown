@@ -1,8 +1,9 @@
 "use client";
-import React, { useState, useCallback } from "react";
 import { Box, Button, Popover, TextField } from "@mui/material";
-import type { TranslationFn } from "../types";
+import React, { useCallback,useState } from "react";
+
 import { COMMENT_PANEL_WIDTH } from "../constants/dimensions";
+import type { TranslationFn } from "../types";
 
 interface CommentPopoverProps {
   open: boolean;

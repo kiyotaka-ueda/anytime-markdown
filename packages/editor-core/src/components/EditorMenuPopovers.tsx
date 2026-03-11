@@ -1,5 +1,3 @@
-import React from "react";
-import MermaidIcon from "../icons/MermaidIcon";
 import ArticleIcon from "@mui/icons-material/Article";
 import CheckBoxIcon from "@mui/icons-material/CheckBox";
 import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
@@ -22,8 +20,11 @@ import {
   Typography,
 } from "@mui/material";
 import type { Editor } from "@tiptap/react";
+import React from "react";
+
 import { PLANTUML_SAMPLES } from "../constants/samples";
 import { BUILTIN_TEMPLATES, type MarkdownTemplate } from "../constants/templates";
+import MermaidIcon from "../icons/MermaidIcon";
 import type { TranslationFn } from "../types";
 
 

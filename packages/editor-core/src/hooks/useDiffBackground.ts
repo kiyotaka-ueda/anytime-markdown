@@ -1,5 +1,6 @@
-import { useCallback, useMemo } from "react";
 import { alpha, useTheme } from "@mui/material/styles";
+import { useCallback, useMemo } from "react";
+
 import { useEditorSettingsContext } from "../useEditorSettings";
 import type { DiffResult } from "../utils/diffEngine";
 

@@ -4,15 +4,16 @@
  * メインエディタと比較エディタで共有する Extension リストを一元管理する。
  * エディタ固有の Extension（検索、削除行ショートカット等）は各エディタで追加する。
  */
-import StarterKit from "@tiptap/starter-kit";
-import LinkExtension from "@tiptap/extension-link";
 import Highlight from "@tiptap/extension-highlight";
-import Underline from "@tiptap/extension-underline";
+import LinkExtension from "@tiptap/extension-link";
+import { TableKit } from "@tiptap/extension-table";
 import TaskItem from "@tiptap/extension-task-item";
 import TaskList from "@tiptap/extension-task-list";
-import { Markdown } from "tiptap-markdown";
-import { TableKit } from "@tiptap/extension-table";
+import Underline from "@tiptap/extension-underline";
+import StarterKit from "@tiptap/starter-kit";
 import { common, createLowlight } from "lowlight";
+import { Markdown } from "tiptap-markdown";
+
 import { CodeBlockWithMermaid } from "./codeBlockWithMermaid";
 
 /** lowlight インスタンス（シンタックスハイライト用） */
@@ -23,19 +24,20 @@ const noopGrammar = () => ({ name: "noop", contains: [] as never[] });
 for (const lang of ["math", "mermaid", "plantuml"]) {
   lowlight.register(lang, noopGrammar);
 }
-import { CustomImage } from "./imageExtension";
-import { CustomTable } from "./tableExtension";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Extension, type Extensions } from "@tiptap/react";
+
+import { AdmonitionBlockquote } from "./extensions/admonitionExtension";
+import { CodeBlockNavigation } from "./extensions/codeBlockNavigationExtension";
+import { CommentDataPlugin,CommentHighlight, CommentPoint } from "./extensions/commentExtension";
 import { CustomTableCell, CustomTableHeader } from "./extensions/customTableCells";
 import { DiffHighlight } from "./extensions/diffHighlight";
-import { HeadingFoldExtension } from "./extensions/headingFoldExtension";
-import { CodeBlockNavigation } from "./extensions/codeBlockNavigationExtension";
-import { MathInline } from "./extensions/mathInlineExtension";
-import { AdmonitionBlockquote } from "./extensions/admonitionExtension";
 import { FootnoteRef } from "./extensions/footnoteExtension";
+import { HeadingFoldExtension } from "./extensions/headingFoldExtension";
 import { HeadingNumberExtension } from "./extensions/headingNumberExtension";
-import { CommentHighlight, CommentPoint, CommentDataPlugin } from "./extensions/commentExtension";
-import { Extension, type Extensions } from "@tiptap/react";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { MathInline } from "./extensions/mathInlineExtension";
+import { CustomImage } from "./imageExtension";
+import { CustomTable } from "./tableExtension";
 
 /**
  * tiptap-markdown の MarkdownTightLists は bulletList / orderedList のみ対象。

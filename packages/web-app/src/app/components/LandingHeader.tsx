@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import {
-  AppBar, Toolbar, Typography, ToggleButtonGroup, ToggleButton,
-  Button, Box, IconButton, Drawer, List, ListItemButton, ListItemText,
-} from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
+import {
+  AppBar, Box,   Button, Drawer, IconButton, List, ListItemButton, ListItemText,
+ToggleButton,
+ToggleButtonGroup, Toolbar, Typography, } from '@mui/material';
 import NextLink from 'next/link';
 import { useTranslations } from 'next-intl';
+import { useState } from 'react';
+
 import { useLocaleSwitch } from '../LocaleProvider';
 
 export default function LandingHeader() {

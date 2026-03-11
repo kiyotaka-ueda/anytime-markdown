@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
 import type { RefObject } from "react";
+import { useEffect, useRef } from "react";
 
 /** Find the first scrollable child element (BFS) */
 function findScrollableChild(container: HTMLElement): HTMLElement | null {

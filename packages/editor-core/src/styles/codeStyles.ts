@@ -1,5 +1,6 @@
-import type { Theme, SxProps } from "@mui/material/styles";
-import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, DEFAULT_DARK_CODE_BG, DEFAULT_LIGHT_CODE_BG } from "../constants/colors";
+import type { SxProps,Theme } from "@mui/material/styles";
+
+import { DEFAULT_DARK_BG, DEFAULT_DARK_CODE_BG, DEFAULT_LIGHT_BG, DEFAULT_LIGHT_CODE_BG } from "../constants/colors";
 
 /** シンタックスハイライト（hljs）カラー定義 */
 const hljsDark = {

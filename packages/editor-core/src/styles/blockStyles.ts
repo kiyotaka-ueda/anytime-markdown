@@ -1,5 +1,6 @@
-import type { Theme, SxProps } from "@mui/material/styles";
+import type { SxProps,Theme } from "@mui/material/styles";
 import { alpha } from "@mui/material/styles";
+
 import type { EditorSettings } from "../useEditorSettings";
 
 /** blockquote・admonition・table・list・taskList・hr・img スタイル */

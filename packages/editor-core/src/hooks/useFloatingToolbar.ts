@@ -1,6 +1,6 @@
 import type { Editor } from "@tiptap/react";
 import type { RefObject } from "react";
-import { useState, useEffect } from "react";
+import { useEffect,useState } from "react";
 
 // Floating toolbar position hook (M-5: shared logic for table/plantuml/mermaid)
 export function useFloatingToolbar(

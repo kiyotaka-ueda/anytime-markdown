@@ -1,5 +1,6 @@
-import type { Theme, SxProps } from "@mui/material/styles";
+import type { SxProps,Theme } from "@mui/material/styles";
 import { alpha } from "@mui/material/styles";
+
 import { Z_LINK_TOOLTIP } from "../constants/zIndex";
 
 /** リンク・コメント・検索マッチ・脚注スタイル */

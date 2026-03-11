@@ -1,29 +1,30 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Box, Button, Divider, IconButton, Tooltip, Typography } from "@mui/material";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
-import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
-import SchemaIcon from "@mui/icons-material/Schema";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import SchemaIcon from "@mui/icons-material/Schema";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import { Alert, Box, Button, Divider, IconButton, Tooltip, Typography } from "@mui/material";
 import DOMPurify from "dompurify";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { getEditorBg } from "../../constants/colors";
+import { findCodeBlockByIndex,findCounterpartCode, getCodeBlockIndex, getMergeEditors } from "../../contexts/MergeEditorsContext";
+import { useDiagramCapture } from "../../hooks/useDiagramCapture";
+import { useDiagramResize } from "../../hooks/useDiagramResize";
+import { SVG_SANITIZE_CONFIG,useMermaidRender } from "../../hooks/useMermaidRender";
+import { usePlantUmlRender } from "../../hooks/usePlantUmlRender";
+import { useZoomPan } from "../../hooks/useZoomPan";
 import { usePlantUmlToolbar } from "../../types";
 import { useEditorSettingsContext } from "../../useEditorSettings";
-import { getEditorBg } from "../../constants/colors";
-import { useMermaidRender, SVG_SANITIZE_CONFIG } from "../../hooks/useMermaidRender";
-import { usePlantUmlRender } from "../../hooks/usePlantUmlRender";
-import { useDiagramCapture } from "../../hooks/useDiagramCapture";
-import { useZoomPan } from "../../hooks/useZoomPan";
-import { useDiagramResize } from "../../hooks/useDiagramResize";
+import { extractDiagramAltText } from "../../utils/diagramAltText";
 import { DiagramFullscreenDialog } from "../DiagramFullscreenDialog";
 import { MermaidSamplePopover } from "../MermaidSamplePopover";
-import { extractDiagramAltText } from "../../utils/diagramAltText";
 import { CodeBlockFrame } from "./CodeBlockFrame";
-import { getMergeEditors, findCounterpartCode, getCodeBlockIndex, findCodeBlockByIndex } from "../../contexts/MergeEditorsContext";
 import type { CodeBlockSharedProps } from "./types";
 
 const pumlIconSx = { fontSize: 16 };

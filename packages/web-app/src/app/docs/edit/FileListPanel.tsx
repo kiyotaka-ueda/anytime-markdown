@@ -1,6 +1,10 @@
 'use client';
 
-import { RefObject, useState } from 'react';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
+import DescriptionIcon from '@mui/icons-material/Description';
+import LinkIcon from '@mui/icons-material/Link';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import {
   Box,
   Button,
@@ -12,12 +16,9 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import DeleteIcon from '@mui/icons-material/Delete';
-import DescriptionIcon from '@mui/icons-material/Description';
-import LinkIcon from '@mui/icons-material/Link';
-import UploadFileIcon from '@mui/icons-material/UploadFile';
 import type { useTranslations } from 'next-intl';
+import { RefObject, useState } from 'react';
+
 import type { DocFile } from '../../../types/layout';
 
 interface FileListPanelProps {

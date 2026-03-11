@@ -1,10 +1,12 @@
+import './globals.css';
+
 import type { Metadata, Viewport } from 'next';
 import { headers } from 'next/headers';
-import { getLocale } from 'next-intl/server';
 import Script from 'next/script';
-import { Providers } from './providers';
+import { getLocale } from 'next-intl/server';
+
 import { LocaleProvider } from './LocaleProvider';
-import './globals.css';
+import { Providers } from './providers';
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://anytime-markdown.vercel.app'),

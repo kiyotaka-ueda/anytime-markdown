@@ -1,20 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Box, Divider, IconButton, Tooltip, Typography } from "@mui/material";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import SchemaIcon from "@mui/icons-material/Schema";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import { Alert, Box, Divider, IconButton, Tooltip, Typography } from "@mui/material";
 import DOMPurify from "dompurify";
-import { useKatexRender, MATH_SANITIZE_CONFIG } from "../../hooks/useKatexRender";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../../constants/colors";
+import { PREVIEW_MAX_HEIGHT } from "../../constants/dimensions";
+import { findCodeBlockByIndex,findCounterpartCode, getCodeBlockIndex, getMergeEditors } from "../../contexts/MergeEditorsContext";
+import { MATH_SANITIZE_CONFIG,useKatexRender } from "../../hooks/useKatexRender";
 import { CodeBlockFullscreenDialog } from "../CodeBlockFullscreenDialog";
 import { MathSamplePopover } from "../MathSamplePopover";
 import { CodeBlockFrame } from "./CodeBlockFrame";
-import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../../constants/colors";
-import { PREVIEW_MAX_HEIGHT } from "../../constants/dimensions";
-import { getMergeEditors, findCounterpartCode, getCodeBlockIndex, findCodeBlockByIndex } from "../../contexts/MergeEditorsContext";
 import type { CodeBlockSharedProps } from "./types";
 
 type MathBlockProps = Pick<

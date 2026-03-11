@@ -1,14 +1,15 @@
-import React, { useEffect, useRef } from "react";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { Box, IconButton, Paper, Tooltip } from "@mui/material";
 import type { SxProps, Theme } from "@mui/material/styles";
 import { alpha, useTheme } from "@mui/material/styles";
-import { useTranslations } from "next-intl";
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
-import type { DiffLine } from "../utils/diffEngine";
-import { EditorContent } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
+import { EditorContent } from "@tiptap/react";
+import { useTranslations } from "next-intl";
+import React, { useEffect, useRef } from "react";
+
 import { useEditorSettingsContext } from "../useEditorSettings";
+import type { DiffLine } from "../utils/diffEngine";
 
 /** マージエディタ共通のtiptapスタイル */
 export function getMergeTiptapStyles(theme: Theme, fontSize = 14, lineHeight = 1.6, options?: { showHoverLabels?: boolean }) {

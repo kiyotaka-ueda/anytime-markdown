@@ -1,18 +1,20 @@
-import { useCallback, useRef, useState } from "react";
-import type { Dispatch, SetStateAction } from "react";
-import type { Editor } from "@tiptap/react";
 import { useTheme } from "@mui/material";
-import { useTranslations } from "next-intl";
-import useConfirm from "@/hooks/useConfirm";
-import { getMarkdownFromEditor, getMarkdownStorage, type EncodingLabel } from "../types";
-import type { FileHandle } from "../types/fileSystem";
-import { sanitizeMarkdown, preserveBlankLines } from "../utils/sanitizeMarkdown";
-import { prependFrontmatter } from "../utils/frontmatterHelpers";
+import type { Editor } from "@tiptap/react";
 import DOMPurify from "dompurify";
-import { SVG_SANITIZE_CONFIG } from "./useMermaidRender";
-import { NOTIFICATION_DURATION, MERMAID_RENDER_TIMEOUT, PRINT_DELAY } from "../constants/timing";
-import { buildPlantUmlUrl } from "../utils/plantumlHelpers";
+import { useTranslations } from "next-intl";
 import plantumlEncoder from "plantuml-encoder";
+import type { Dispatch, SetStateAction } from "react";
+import { useCallback, useRef, useState } from "react";
+
+import useConfirm from "@/hooks/useConfirm";
+
+import { MERMAID_RENDER_TIMEOUT, NOTIFICATION_DURATION, PRINT_DELAY } from "../constants/timing";
+import { type EncodingLabel,getMarkdownFromEditor, getMarkdownStorage } from "../types";
+import type { FileHandle } from "../types/fileSystem";
+import { prependFrontmatter } from "../utils/frontmatterHelpers";
+import { buildPlantUmlUrl } from "../utils/plantumlHelpers";
+import { preserveBlankLines,sanitizeMarkdown } from "../utils/sanitizeMarkdown";
+import { SVG_SANITIZE_CONFIG } from "./useMermaidRender";
 
 interface UseEditorFileOpsParams {
   editor: Editor | null;

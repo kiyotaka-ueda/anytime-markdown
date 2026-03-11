@@ -1,12 +1,13 @@
-import type { Theme, SxProps } from "@mui/material/styles";
-import type { EditorSettings } from "../useEditorSettings";
+import type { SxProps,Theme } from "@mui/material/styles";
+
 import { getEditorBg, getEditorText } from "../constants/colors";
-import { EDITOR_PADDING_TOP, EDITOR_PADDING_BORDER } from "../constants/dimensions";
-import { getHeadingStyles } from "./headingStyles";
-import { getCodeStyles } from "./codeStyles";
-import { getBlockStyles } from "./blockStyles";
-import { getInlineStyles } from "./inlineStyles";
+import { EDITOR_PADDING_BORDER,EDITOR_PADDING_TOP } from "../constants/dimensions";
+import type { EditorSettings } from "../useEditorSettings";
 import { getBaseStyles } from "./baseStyles";
+import { getBlockStyles } from "./blockStyles";
+import { getCodeStyles } from "./codeStyles";
+import { getHeadingStyles } from "./headingStyles";
+import { getInlineStyles } from "./inlineStyles";
 
 /**
  * WYSIWYG エディタ Paper の sx スタイルを生成する。

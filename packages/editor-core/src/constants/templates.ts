@@ -1,6 +1,6 @@
 import { defaultContent } from "./defaultContent";
-import basicDesign from "./templates/basicDesign.md";
 import apiSpec from "./templates/apiSpec.md";
+import basicDesign from "./templates/basicDesign.md";
 
 export interface MarkdownTemplate {
   id: string;

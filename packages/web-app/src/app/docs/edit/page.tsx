@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+
 import EditBody from './EditBody';
 
 export const metadata: Metadata = {

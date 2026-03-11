@@ -1,6 +1,7 @@
 "use client";
 
 import type { NodeViewProps } from "@tiptap/react";
+
 import type { useTextareaSearch } from "../../hooks/useTextareaSearch";
 
 /** Props shared by all code block sub-components */

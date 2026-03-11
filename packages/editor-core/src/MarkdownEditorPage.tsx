@@ -15,23 +15,23 @@ if (typeof window !== "undefined") {
   };
 }
 
-import dynamic from "next/dynamic";
 import { Box, CircularProgress, useMediaQuery, useTheme } from "@mui/material";
-import { PrintStyles } from "./styles/printStyles";
 import { useEditor } from "@tiptap/react";
+import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { useMarkdownEditor } from "./useMarkdownEditor";
+import { EditorDialogsSection } from "./components/EditorDialogsSection";
+import { EditorFooterOverlays } from "./components/EditorFooterOverlays";
+import { EditorMainContent } from "./components/EditorMainContent";
+import { EditorToolbarSection } from "./components/EditorToolbarSection";
 import { defaultContent } from "./constants/defaultContent";
 import { STATUSBAR_HEIGHT } from "./constants/dimensions";
-import { useEditorSettings, EditorSettingsContext } from "./useEditorSettings";
-import { useTextareaSearch } from "./hooks/useTextareaSearch";
-import { EditorToolbarSection } from "./components/EditorToolbarSection";
-import { EditorDialogsSection } from "./components/EditorDialogsSection";
-import { EditorMainContent } from "./components/EditorMainContent";
-import { EditorFooterOverlays } from "./components/EditorFooterOverlays";
 import type { SlashCommandState } from "./extensions/slashCommandExtension";
+import { useTextareaSearch } from "./hooks/useTextareaSearch";
+import { PrintStyles } from "./styles/printStyles";
+import { EditorSettingsContext,useEditorSettings } from "./useEditorSettings";
+import { useMarkdownEditor } from "./useMarkdownEditor";
 
 const InlineMergeView = dynamic(
   () => import("./components/InlineMergeView").then((m) => m.InlineMergeView),
@@ -39,30 +39,31 @@ const InlineMergeView = dynamic(
 );
 
 import type { Editor } from "@tiptap/react";
-import { type HeadingItem, PlantUmlToolbarContext, getMarkdownFromEditor } from "./types";
+
 import type { MarkdownTemplate } from "./constants/templates";
-import { useSourceMode } from "./hooks/useSourceMode";
-import { useEditorDialogs } from "./hooks/useEditorDialogs";
-import { useOutline } from "./hooks/useOutline";
-import { useEditorFileOps } from "./hooks/useEditorFileOps";
-import { useFileSystem } from "./hooks/useFileSystem";
-import { useEditorMenuState } from "./hooks/useEditorMenuState";
-import { useEditorHeight } from "./hooks/useEditorHeight";
-import { useMergeMode } from "./hooks/useMergeMode";
-import { useEditorShortcuts } from "./hooks/useEditorShortcuts";
-import { useFloatingToolbar } from "./hooks/useFloatingToolbar";
 import { useEditorBlockActions } from "./hooks/useEditorBlockActions";
-import { useEditorConfig } from "./hooks/useEditorConfig";
-import { useEditorSideEffects } from "./hooks/useEditorSideEffects";
-import { useEditorFileHandling } from "./hooks/useEditorFileHandling";
-import { useVSCodeIntegration } from "./hooks/useVSCodeIntegration";
 import { useEditorCommentNotifications } from "./hooks/useEditorCommentNotifications";
+import { useEditorConfig } from "./hooks/useEditorConfig";
+import { useEditorDialogs } from "./hooks/useEditorDialogs";
+import { useEditorFileHandling } from "./hooks/useEditorFileHandling";
+import { useEditorFileOps } from "./hooks/useEditorFileOps";
+import { useEditorHeight } from "./hooks/useEditorHeight";
+import { useEditorMenuState } from "./hooks/useEditorMenuState";
 import { useEditorSettingsSync } from "./hooks/useEditorSettingsSync";
+import { useEditorShortcuts } from "./hooks/useEditorShortcuts";
+import { useEditorSideEffects } from "./hooks/useEditorSideEffects";
+import { useFileSystem } from "./hooks/useFileSystem";
+import { useFloatingToolbar } from "./hooks/useFloatingToolbar";
+import { useMergeMode } from "./hooks/useMergeMode";
+import { useOutline } from "./hooks/useOutline";
+import { useSourceMode } from "./hooks/useSourceMode";
+import { useVSCodeIntegration } from "./hooks/useVSCodeIntegration";
+import { getMarkdownFromEditor,type HeadingItem, PlantUmlToolbarContext } from "./types";
 import type { FileSystemProvider } from "./types/fileSystem";
-import { sanitizeMarkdown, preserveBlankLines } from "./utils/sanitizeMarkdown";
-import { parseFrontmatter } from "./utils/frontmatterHelpers";
-import { parseCommentData } from "./utils/commentHelpers";
 import type { InlineComment } from "./utils/commentHelpers";
+import { parseCommentData } from "./utils/commentHelpers";
+import { parseFrontmatter } from "./utils/frontmatterHelpers";
+import { preserveBlankLines,sanitizeMarkdown } from "./utils/sanitizeMarkdown";
 
 interface MarkdownEditorPageProps {
   hideFileOps?: boolean;

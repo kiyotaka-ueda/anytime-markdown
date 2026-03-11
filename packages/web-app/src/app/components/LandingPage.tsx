@@ -1,6 +1,7 @@
 import { Playfair_Display } from 'next/font/google';
-import LandingHeader from './LandingHeader';
+
 import LandingBody from './LandingBody';
+import LandingHeader from './LandingHeader';
 
 const playfair = Playfair_Display({ subsets: ['latin'], weight: ['700'], display: 'swap' });
 

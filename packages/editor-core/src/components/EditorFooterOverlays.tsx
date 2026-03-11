@@ -6,18 +6,18 @@ import {
   Typography,
 } from "@mui/material";
 import type { Editor } from "@tiptap/react";
-import type { MarkdownTemplate } from "../constants/templates";
-import type { NotificationKey } from "../hooks/useEditorFileOps";
 import { EditorContent } from "@tiptap/react";
 import { createPortal } from "react-dom";
-import type { SlashCommandState } from "../extensions/slashCommandExtension";
 
+import type { MarkdownTemplate } from "../constants/templates";
+import { NOTIFICATION_DURATION } from "../constants/timing";
+import type { SlashCommandState } from "../extensions/slashCommandExtension";
+import type { NotificationKey } from "../hooks/useEditorFileOps";
+import type { EncodingLabel } from "../types";
 import { EditorBubbleMenu } from "./EditorBubbleMenu";
+import { EditorMenuPopovers } from "./EditorMenuPopovers";
 import { SlashCommandMenu } from "./SlashCommandMenu";
 import { StatusBar } from "./StatusBar";
-import { EditorMenuPopovers } from "./EditorMenuPopovers";
-import type { EncodingLabel } from "../types";
-import { NOTIFICATION_DURATION } from "../constants/timing";
 
 interface EditorFooterOverlaysProps {
   editor: Editor | null;

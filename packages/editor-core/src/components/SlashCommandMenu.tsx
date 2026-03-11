@@ -1,4 +1,3 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ListItemIcon,
   ListItemText,
@@ -7,15 +6,17 @@ import {
   Paper,
   Popper,
 } from "@mui/material";
+import type { VirtualElement } from "@popperjs/core";
 import type { Editor } from "@tiptap/react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+
+import { Z_FULLSCREEN } from "../constants/zIndex";
 import type { SlashCommandState } from "../extensions/slashCommandExtension";
 import {
-  slashCommandItems,
   filterSlashItems,
+  slashCommandItems,
 } from "../extensions/slashCommandItems";
-import type { VirtualElement } from "@popperjs/core";
 import type { TranslationFn } from "../types";
-import { Z_FULLSCREEN } from "../constants/zIndex";
 
 interface SlashCommandMenuProps {
   editor: Editor;

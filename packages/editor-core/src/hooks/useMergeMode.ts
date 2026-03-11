@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
 import type { MergeUndoRedo } from "../components/InlineMergeView";
 import { getMarkdownFromEditor } from "../types";
 

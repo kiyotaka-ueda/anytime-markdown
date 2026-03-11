@@ -1,21 +1,22 @@
 'use client';
 
-import { Box, Container, Typography, Button, Card, CardContent, Grid, Link as MuiLink } from '@mui/material';
-import EditNoteIcon from '@mui/icons-material/EditNote';
+import { ACCENT_COLOR } from '@anytime-markdown/editor-core';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import CodeIcon from '@mui/icons-material/Code';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import EditNoteIcon from '@mui/icons-material/EditNote';
+import FlashOnIcon from '@mui/icons-material/FlashOn';
 import InstallDesktopIcon from '@mui/icons-material/InstallDesktop';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import TocIcon from '@mui/icons-material/Toc';
-import FlashOnIcon from '@mui/icons-material/FlashOn';
-import NextLink from 'next/link';
-import Image from 'next/image';
-import { useTranslations } from 'next-intl';
+import { Box, Button, Card, CardContent, Container, Grid, Link as MuiLink,Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import Image from 'next/image';
+import NextLink from 'next/link';
+import { useTranslations } from 'next-intl';
+
 import SiteFooter from './SiteFooter';
-import { ACCENT_COLOR } from '@anytime-markdown/editor-core';
 
 const featureItems = [
   { titleKey: 'featureWysiwyg' as const, descKey: 'featureWysiwygDesc' as const, Icon: EditNoteIcon },

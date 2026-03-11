@@ -1,21 +1,22 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
-import type { NodeViewProps } from "@tiptap/react";
-import { NodeViewWrapper, useEditorState } from "@tiptap/react";
+import CloseIcon from "@mui/icons-material/Close";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
+import EditIcon from "@mui/icons-material/Edit";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
+import FullscreenIcon from "@mui/icons-material/Fullscreen";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, Tooltip, Typography, useTheme } from "@mui/material";
 import FocusTrap from "@mui/material/Unstable_TrapFocus";
-import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import EditIcon from "@mui/icons-material/Edit";
-import FullscreenIcon from "@mui/icons-material/Fullscreen";
-import CloseIcon from "@mui/icons-material/Close";
-import WarningAmberIcon from "@mui/icons-material/WarningAmber";
-import { getEditorStorage } from "./types";
-import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
+import type { NodeViewProps } from "@tiptap/react";
+import { NodeViewWrapper, useEditorState } from "@tiptap/react";
 import { useTranslations } from "next-intl";
+import { useCallback, useEffect,useRef, useState } from "react";
+
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "./constants/colors";
 import { Z_FULLSCREEN } from "./constants/zIndex";
+import { getEditorStorage } from "./types";
 
 const iconSx = { fontSize: 16 };
 const MIN_WIDTH = 50;

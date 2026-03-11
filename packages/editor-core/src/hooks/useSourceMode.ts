@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
 import type { Editor } from "@tiptap/react";
+import { useCallback, useEffect, useState } from "react";
+
+import { STORAGE_KEY_READONLY_MODE,STORAGE_KEY_REVIEW_MODE, STORAGE_KEY_SOURCE_MODE } from "../constants/storageKeys";
+import { reviewModeStorage } from "../extensions/reviewModeExtension";
 import { getMarkdownFromEditor } from "../types";
-import { sanitizeMarkdown, preserveBlankLines } from "../utils/sanitizeMarkdown";
 import { parseCommentData } from "../utils/commentHelpers";
 import { parseFrontmatter, prependFrontmatter } from "../utils/frontmatterHelpers";
-import { reviewModeStorage } from "../extensions/reviewModeExtension";
-import { STORAGE_KEY_SOURCE_MODE, STORAGE_KEY_REVIEW_MODE, STORAGE_KEY_READONLY_MODE } from "../constants/storageKeys";
+import { preserveBlankLines,sanitizeMarkdown } from "../utils/sanitizeMarkdown";
 
 interface UseSourceModeParams {
   editor: Editor | null;

@@ -1,5 +1,6 @@
 "use client";
 
+import KeyboardIcon from "@mui/icons-material/Keyboard";
 import {
   Box,
   Button,
@@ -9,7 +10,7 @@ import {
   DialogTitle,
   Typography,
 } from "@mui/material";
-import KeyboardIcon from "@mui/icons-material/Keyboard";
+
 import { KEYBOARD_SHORTCUTS } from "../constants/shortcuts";
 import type { TranslationFn } from "../types";
 

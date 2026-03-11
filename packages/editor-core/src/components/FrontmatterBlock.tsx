@@ -2,9 +2,11 @@
 
 import { Box, IconButton, Typography, useTheme } from "@mui/material";
 import { useCallback, useRef, useState } from "react";
+
 import useConfirm from "@/hooks/useConfirm";
-import { useEditorSettingsContext } from "../useEditorSettings";
+
 import { DEFAULT_DARK_CODE_BG, DEFAULT_LIGHT_CODE_BG } from "../constants/colors";
+import { useEditorSettingsContext } from "../useEditorSettings";
 
 interface FrontmatterBlockProps {
   frontmatter: string | null;

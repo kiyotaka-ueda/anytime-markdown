@@ -1,19 +1,20 @@
-import React, { useRef, useState } from "react";
-import { Box, Dialog, DialogTitle, Divider, IconButton, ToggleButton, ToggleButtonGroup, Tooltip, Typography, useMediaQuery, useTheme } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import CodeIcon from "@mui/icons-material/Code";
 import CodeOffIcon from "@mui/icons-material/CodeOff";
+import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import ZoomInIcon from "@mui/icons-material/ZoomIn";
 import ZoomOutIcon from "@mui/icons-material/ZoomOut";
-import RestartAltIcon from "@mui/icons-material/RestartAlt";
+import { Box, Dialog, DialogTitle, Divider, IconButton, ToggleButton, ToggleButtonGroup, Tooltip, Typography, useMediaQuery, useTheme } from "@mui/material";
 import DOMPurify from "dompurify";
-import { useEditorSettingsContext } from "../useEditorSettings";
-import { FsSearchBar } from "./FsSearchBar";
-import { FullscreenDiffView } from "./FullscreenDiffView";
+import React, { useRef, useState } from "react";
+
 import { SVG_SANITIZE_CONFIG } from "../hooks/useMermaidRender";
-import { extractDiagramAltText } from "../utils/diagramAltText";
 import type { TextareaSearchState } from "../hooks/useTextareaSearch";
 import type { UseZoomPanReturn } from "../hooks/useZoomPan";
+import { useEditorSettingsContext } from "../useEditorSettings";
+import { extractDiagramAltText } from "../utils/diagramAltText";
+import { FsSearchBar } from "./FsSearchBar";
+import { FullscreenDiffView } from "./FullscreenDiffView";
 
 interface DiagramFullscreenDialogProps {
   open: boolean;

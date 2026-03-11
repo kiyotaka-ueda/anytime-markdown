@@ -1,8 +1,9 @@
-import { useCallback, useState } from "react";
 import type { Editor } from "@tiptap/react";
+import { useCallback, useState } from "react";
+
 import type { EncodingLabel } from "../types";
 import { getMarkdownFromEditor, getMarkdownStorage } from "../types";
-import { sanitizeMarkdown, preserveBlankLines } from "../utils/sanitizeMarkdown";
+import { preserveBlankLines,sanitizeMarkdown } from "../utils/sanitizeMarkdown";
 
 interface UseEditorFileHandlingArgs {
   editor: Editor | null;

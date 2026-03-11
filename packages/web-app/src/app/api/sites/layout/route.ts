@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { revalidatePath } from 'next/cache';
-import { s3Client, DOCS_BUCKET, DOCS_PREFIX, fetchLayoutData } from '../../../../lib/s3Client';
+import { NextRequest, NextResponse } from 'next/server';
+
 import { checkBasicAuth } from '../../../../lib/basicAuth';
+import { DOCS_BUCKET, DOCS_PREFIX, fetchLayoutData,s3Client } from '../../../../lib/s3Client';
 import { layoutDataSchema } from '../../../../types/layout';
 
 const LAYOUT_KEY = DOCS_PREFIX + '_layout.json';

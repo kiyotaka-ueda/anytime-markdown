@@ -1,8 +1,9 @@
-import { useEffect, useRef } from "react";
 import type { Editor } from "@tiptap/react";
+import { useEffect, useRef } from "react";
+
+import { DEBOUNCE_MEDIUM } from "../constants/timing";
 import { commentDataPluginKey } from "../extensions/commentExtension";
 import type { InlineComment } from "../utils/commentHelpers";
-import { DEBOUNCE_MEDIUM } from "../constants/timing";
 
 type CommentInfo = {
   id: string;

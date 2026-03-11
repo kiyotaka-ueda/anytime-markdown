@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { EDITOR_HEIGHT_MD, EDITOR_HEIGHT_MOBILE, EDITOR_HEIGHT_DEFAULT, EDITOR_HEIGHT_MIN } from "../constants/dimensions";
+
+import { EDITOR_HEIGHT_DEFAULT, EDITOR_HEIGHT_MD, EDITOR_HEIGHT_MIN,EDITOR_HEIGHT_MOBILE } from "../constants/dimensions";
 import { DEBOUNCE_SHORT } from "../constants/timing";
 
 export function useEditorHeight(isMobile: boolean, isMd: boolean, bottomOffset = 0) {

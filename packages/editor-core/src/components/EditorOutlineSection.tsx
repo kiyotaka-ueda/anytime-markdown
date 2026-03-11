@@ -1,7 +1,8 @@
 import { Drawer } from "@mui/material";
-import OutlinePanel from "./OutlinePanel";
-import type { HeadingItem, TranslationFn } from "../types";
+
 import { COMMENT_PANEL_WIDTH } from "../constants/dimensions";
+import type { HeadingItem, TranslationFn } from "../types";
+import OutlinePanel from "./OutlinePanel";
 
 interface EditorOutlineSectionProps {
   isMd: boolean;

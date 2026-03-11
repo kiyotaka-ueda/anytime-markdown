@@ -1,15 +1,16 @@
-import React from "react";
-import { IconButton, Tooltip } from "@mui/material";
-import Paper from "@mui/material/Paper";
+import BorderColorIcon from "@mui/icons-material/BorderColor";
+import CodeIcon from "@mui/icons-material/Code";
 import FormatBoldIcon from "@mui/icons-material/FormatBold";
 import FormatItalicIcon from "@mui/icons-material/FormatItalic";
 import FormatUnderlinedIcon from "@mui/icons-material/FormatUnderlined";
-import StrikethroughSIcon from "@mui/icons-material/StrikethroughS";
-import BorderColorIcon from "@mui/icons-material/BorderColor";
-import CodeIcon from "@mui/icons-material/Code";
 import InsertLinkIcon from "@mui/icons-material/InsertLink";
-import { BubbleMenu } from "@tiptap/react/menus";
+import StrikethroughSIcon from "@mui/icons-material/StrikethroughS";
+import { IconButton, Tooltip } from "@mui/material";
+import Paper from "@mui/material/Paper";
 import type { Editor } from "@tiptap/react";
+import { BubbleMenu } from "@tiptap/react/menus";
+import React from "react";
+
 import { getEditorStorage } from "../types";
 
 interface MergeRightBubbleMenuProps {

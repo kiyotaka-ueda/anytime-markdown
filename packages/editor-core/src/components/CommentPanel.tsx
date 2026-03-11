@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useRef, useState } from "react";
+import CloseIcon from "@mui/icons-material/Close";
 import {
   Box,
   Button,
@@ -10,13 +10,14 @@ import {
   ToggleButtonGroup,
   Typography,
 } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
 import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
-import { commentDataPluginKey } from "../extensions/commentExtension";
-import type { InlineComment } from "../utils/commentHelpers";
-import type { TranslationFn } from "../types";
+import React, { useCallback, useRef, useState } from "react";
+
 import { COMMENT_PANEL_WIDTH } from "../constants/dimensions";
+import { commentDataPluginKey } from "../extensions/commentExtension";
+import type { TranslationFn } from "../types";
+import type { InlineComment } from "../utils/commentHelpers";
 
 interface CommentPanelProps {
   editor: Editor;

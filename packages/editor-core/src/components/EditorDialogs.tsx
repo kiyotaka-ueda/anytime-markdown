@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import HelpCenterIcon from "@mui/icons-material/HelpCenter";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import {
   Box,
   Button,
@@ -11,12 +12,12 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import HelpCenterIcon from "@mui/icons-material/HelpCenter";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import React from "react";
+
 import { KEYBOARD_SHORTCUTS } from "../constants/shortcuts";
+import type { TranslationFn } from "../types";
 import { APP_VERSION } from "../version";
 import { HelpDialog } from "./HelpDialog";
-import type { TranslationFn } from "../types";
 
 interface EditorDialogsProps {
   commentDialogOpen: boolean;

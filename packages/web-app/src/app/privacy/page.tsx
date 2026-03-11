@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
+
 import PrivacyBody from './PrivacyBody';
 
 export async function generateMetadata(): Promise<Metadata> {

@@ -1,4 +1,4 @@
-import { PLANTUML_DARK_FG, PLANTUML_DARK_BG, PLANTUML_DARK_SURFACE } from "../constants/colors";
+import { PLANTUML_DARK_BG, PLANTUML_DARK_FG, PLANTUML_DARK_SURFACE } from "../constants/colors";
 
 /** PlantUML 外部サーバー URL */
 export const PLANTUML_SERVER = "https://www.plantuml.com/plantuml";

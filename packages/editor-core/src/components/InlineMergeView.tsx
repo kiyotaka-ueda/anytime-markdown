@@ -1,24 +1,25 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Box,
   Divider,
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
-import { useEditor } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
+import { useEditor } from "@tiptap/react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+
+import { getEditorBg } from "../constants/colors";
+import { setMergeEditors } from "../contexts/MergeEditorsContext";
 import { getBaseExtensions } from "../editorExtensions";
 import { CustomHardBreak } from "../extensions/customHardBreak";
 import { ReviewModeExtension, reviewModeStorage } from "../extensions/reviewModeExtension";
-import { useMergeDiff } from "../hooks/useMergeDiff";
 import { useDiffBackground } from "../hooks/useDiffBackground";
 import { useDiffHighlight } from "../hooks/useDiffHighlight";
+import { useMergeDiff } from "../hooks/useMergeDiff";
 import { useScrollSync } from "../hooks/useScrollSync";
 import { useEditorSettingsContext } from "../useEditorSettings";
-import { getEditorBg } from "../constants/colors";
-import { MergeEditorPanel } from "./MergeEditorPanel";
-import { sanitizeMarkdown, preserveBlankLines } from "../utils/sanitizeMarkdown";
 import { computeInlineDiff, type DiffLine, type DiffResult, type InlineSegment } from "../utils/diffEngine";
-import { setMergeEditors } from "../contexts/MergeEditorsContext";
+import { preserveBlankLines,sanitizeMarkdown } from "../utils/sanitizeMarkdown";
+import { MergeEditorPanel } from "./MergeEditorPanel";
 
 export interface MergeUndoRedo {
   undo: () => void;

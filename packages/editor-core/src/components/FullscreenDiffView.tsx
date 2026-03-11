@@ -1,10 +1,11 @@
-import React, { useMemo, useState, useRef, useCallback, useEffect } from "react";
-import { Box, IconButton, Tooltip, alpha, useTheme, type Theme } from "@mui/material";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
-import { computeDiff, applyMerge, type DiffLine, type DiffResult } from "../utils/diffEngine";
-import { useEditorSettingsContext } from "../useEditorSettings";
+import { alpha, Box, IconButton, type Theme,Tooltip, useTheme } from "@mui/material";
+import React, { useCallback, useEffect,useMemo, useRef, useState } from "react";
+
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../constants/colors";
+import { useEditorSettingsContext } from "../useEditorSettings";
+import { applyMerge, computeDiff, type DiffLine, type DiffResult } from "../utils/diffEngine";
 
 interface FullscreenDiffViewProps {
   initialLeftCode: string;

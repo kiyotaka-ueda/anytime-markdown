@@ -1,5 +1,7 @@
 'use client';
 
+import DeleteIcon from '@mui/icons-material/Delete';
+import SaveIcon from '@mui/icons-material/Save';
 import {
   Alert,
   Box,
@@ -19,12 +21,11 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
-import SaveIcon from '@mui/icons-material/Save';
+
 import LandingHeader from '../../components/LandingHeader';
 import SiteFooter from '../../components/SiteFooter';
-import FileListPanel from './FileListPanel';
 import CategoryAreaPanel from './CardAreaPanel';
+import FileListPanel from './FileListPanel';
 import { useLayoutEditor } from './useLayoutEditor';
 
 export default function EditBody() {

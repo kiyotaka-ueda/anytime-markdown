@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
 import { ListObjectsV2Command } from '@aws-sdk/client-s3';
-import { s3Client, DOCS_BUCKET, DOCS_PREFIX } from '../../../lib/s3Client';
+import { NextResponse } from 'next/server';
+
+import { DOCS_BUCKET, DOCS_PREFIX,s3Client } from '../../../lib/s3Client';
 
 export const dynamic = 'force-dynamic';
 

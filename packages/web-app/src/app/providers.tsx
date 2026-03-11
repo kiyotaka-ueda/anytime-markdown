@@ -1,11 +1,11 @@
 'use client';
 
-import { createContext, useContext, useCallback, useEffect, useMemo, useState } from 'react';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
-import { ConfirmProvider, DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, ACCENT_COLOR } from '@anytime-markdown/editor-core';
+import { ACCENT_COLOR,ConfirmProvider, DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from '@anytime-markdown/editor-core';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
+import CssBaseline from '@mui/material/CssBaseline';
+import { createTheme,ThemeProvider } from '@mui/material/styles';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 type ThemeMode = 'light' | 'dark';
 

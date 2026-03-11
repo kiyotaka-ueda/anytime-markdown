@@ -1,5 +1,5 @@
-import { useEffect } from "react";
 import type { Editor } from "@tiptap/react";
+import { useEffect } from "react";
 
 /**
  * VS Code TreeView からのカスタムイベントを購読する。

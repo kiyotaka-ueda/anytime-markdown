@@ -1,10 +1,11 @@
-import React from "react";
-import { Box, Dialog, DialogTitle, IconButton, Tooltip, useTheme } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+import { Box, Dialog, DialogTitle, IconButton, Tooltip, useTheme } from "@mui/material";
+import React from "react";
+
+import type { TextareaSearchState } from "../hooks/useTextareaSearch";
 import { useEditorSettingsContext } from "../useEditorSettings";
 import { FsSearchBar } from "./FsSearchBar";
 import { FullscreenDiffView } from "./FullscreenDiffView";
-import type { TextareaSearchState } from "../hooks/useTextareaSearch";
 
 interface CodeBlockFullscreenDialogProps {
   open: boolean;

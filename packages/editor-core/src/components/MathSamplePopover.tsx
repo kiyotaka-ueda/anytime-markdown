@@ -1,6 +1,7 @@
-import React from "react";
 import { Box, IconButton, Popover, Tooltip, Typography } from "@mui/material";
 import type { Editor } from "@tiptap/react";
+import React from "react";
+
 import { MATH_SAMPLES } from "../constants/samples";
 
 interface MathSamplePopoverProps {

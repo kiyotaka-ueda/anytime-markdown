@@ -1,11 +1,12 @@
-import { createContext, useContext } from "react";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { Editor } from "@tiptap/react";
-import { restoreBlankLines, normalizeCodeSpanDelimitersInLine } from "./utils/sanitizeMarkdown";
-import { postprocessMathBlock } from "./utils/mathHelpers";
-import { appendCommentData } from "./utils/commentHelpers";
+import { createContext, useContext } from "react";
+
 import { commentDataPluginKey } from "./extensions/commentExtension";
 import type { InlineComment } from "./utils/commentHelpers";
+import { appendCommentData } from "./utils/commentHelpers";
+import { postprocessMathBlock } from "./utils/mathHelpers";
+import { normalizeCodeSpanDelimitersInLine,restoreBlankLines } from "./utils/sanitizeMarkdown";
 
 export type EncodingLabel = "UTF-8" | "Shift_JIS" | "EUC-JP";
 

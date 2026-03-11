@@ -1,15 +1,16 @@
 "use client";
 
+import { useTheme } from "@mui/material";
 import type { NodeViewProps } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useTheme } from "@mui/material";
 import { useTranslations } from "next-intl";
-import { useTextareaSearch } from "./hooks/useTextareaSearch";
-import { MathBlock } from "./components/codeblock/MathBlock";
-import { HtmlPreviewBlock } from "./components/codeblock/HtmlPreviewBlock";
-import { RegularCodeBlock } from "./components/codeblock/RegularCodeBlock";
+import { useCallback, useEffect, useRef, useState } from "react";
+
 import { DiagramBlock } from "./components/codeblock/DiagramBlock";
+import { HtmlPreviewBlock } from "./components/codeblock/HtmlPreviewBlock";
+import { MathBlock } from "./components/codeblock/MathBlock";
+import { RegularCodeBlock } from "./components/codeblock/RegularCodeBlock";
+import { useTextareaSearch } from "./hooks/useTextareaSearch";
 
 export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: NodeViewProps) {
   const theme = useTheme();

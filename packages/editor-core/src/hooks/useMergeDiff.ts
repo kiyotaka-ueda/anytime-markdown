@@ -1,5 +1,6 @@
-import { useState, useMemo, useCallback, useRef } from "react";
-import { computeDiff, applyMerge, type DiffOptions, type DiffResult } from "../utils/diffEngine";
+import { useCallback, useMemo, useRef,useState } from "react";
+
+import { applyMerge, computeDiff, type DiffOptions, type DiffResult } from "../utils/diffEngine";
 
 interface TextSnapshot {
   left: string;

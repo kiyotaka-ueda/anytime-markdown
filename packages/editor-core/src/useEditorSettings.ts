@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+
 import { STORAGE_KEY_SETTINGS } from "./constants/storageKeys";
 const SETTINGS_VERSION = 6; // showHeadingNumbers を auto 化（設定から除外）
 

@@ -1,10 +1,11 @@
 import type { Editor } from "@tiptap/react";
+import { useTranslations } from "next-intl";
 import type { RefObject } from "react";
 import { useEffect, useRef } from "react";
-import { useTranslations } from "next-intl";
+
+import { extractHeadings, getMarkdownFromEditor, type HeadingItem } from "../types";
+import { preserveBlankLines,sanitizeMarkdown } from "../utils/sanitizeMarkdown";
 import useConfirm from "./useConfirm";
-import { getMarkdownFromEditor, extractHeadings, type HeadingItem } from "../types";
-import { sanitizeMarkdown, preserveBlankLines } from "../utils/sanitizeMarkdown";
 
 interface UseEditorSideEffectsParams {
   editor: Editor | null;

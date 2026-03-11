@@ -2,21 +2,21 @@ import { Box, Paper } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import type { Editor } from "@tiptap/react";
 import type React from "react";
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useCallback,useEffect, useRef, useState } from "react";
 
-import { getEditorPaperSx } from "../styles/editorStyles";
 import { getEditorBg } from "../constants/colors";
+import type { TextareaSearchState } from "../hooks/useTextareaSearch";
+import { getEditorPaperSx } from "../styles/editorStyles";
+import { getMarkdownFromEditor, type HeadingItem } from "../types";
 import { useEditorSettingsContext } from "../useEditorSettings";
 import type { DiffLine } from "../utils/diffEngine";
+import { CommentPanel } from "./CommentPanel";
 import { EditorOutlineSection } from "./EditorOutlineSection";
+import { FrontmatterBlock } from "./FrontmatterBlock";
+import { MergeEditorPanel } from "./MergeEditorPanel";
+import { SearchReplaceBar } from "./SearchReplaceBar";
 import { SourceModeEditor } from "./SourceModeEditor";
 import { SourceSearchBar } from "./SourceSearchBar";
-import { SearchReplaceBar } from "./SearchReplaceBar";
-import { FrontmatterBlock } from "./FrontmatterBlock";
-import { CommentPanel } from "./CommentPanel";
-import { MergeEditorPanel } from "./MergeEditorPanel";
-import { getMarkdownFromEditor, type HeadingItem } from "../types";
-import type { TextareaSearchState } from "../hooks/useTextareaSearch";
 
 // InlineMergeView は dynamic import のため親から渡す
 // InlineMergeViewProps と同じシグネチャにする

@@ -1,6 +1,6 @@
+import type { EditorSettings } from "../useEditorSettings";
 import { EditorDialogs } from "./EditorDialogs";
 import { EditorSettingsPanel } from "./EditorSettingsPanel";
-import type { EditorSettings } from "../useEditorSettings";
 
 interface EditorDialogsSectionProps {
   // comment dialog

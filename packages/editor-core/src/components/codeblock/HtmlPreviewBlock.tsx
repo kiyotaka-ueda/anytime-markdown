@@ -1,20 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import { Box, Divider, IconButton, Tooltip, Typography } from "@mui/material";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import SchemaIcon from "@mui/icons-material/Schema";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import { Box, Divider, IconButton, Tooltip, Typography } from "@mui/material";
 import DOMPurify from "dompurify";
+import { useState } from "react";
+
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../../constants/colors";
+import { PREVIEW_MAX_HEIGHT } from "../../constants/dimensions";
 import { CodeBlockFullscreenDialog } from "../CodeBlockFullscreenDialog";
 import { HtmlSamplePopover } from "../HtmlSamplePopover";
 import { CodeBlockFrame } from "./CodeBlockFrame";
-import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../../constants/colors";
-import { PREVIEW_MAX_HEIGHT } from "../../constants/dimensions";
-import { HTML_SANITIZE_CONFIG } from "./types";
 import type { CodeBlockSharedProps } from "./types";
+import { HTML_SANITIZE_CONFIG } from "./types";
 
 type HtmlPreviewBlockProps = Pick<
   CodeBlockSharedProps,

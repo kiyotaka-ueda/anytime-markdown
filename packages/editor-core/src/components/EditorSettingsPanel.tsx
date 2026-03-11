@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import CloseIcon from "@mui/icons-material/Close";
+import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import {
   Box,
   Button,
@@ -13,12 +14,13 @@ import {
   ToggleButtonGroup,
   Typography,
 } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
-import RestartAltIcon from "@mui/icons-material/RestartAlt";
-import useConfirm from "@/hooks/useConfirm";
 import { useLocale } from "next-intl";
-import type { EditorSettings } from "../useEditorSettings";
+import React from "react";
+
+import useConfirm from "@/hooks/useConfirm";
+
 import type { TranslationFn } from "../types";
+import type { EditorSettings } from "../useEditorSettings";
 
 interface EditorSettingsPanelProps {
   open: boolean;

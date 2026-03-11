@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
 import type mermaidAPI from "mermaid";
+import { useEffect, useRef, useState } from "react";
 
 /** Lazy-load mermaid (~1.5 MB) only when needed */
 let mermaidInstance: typeof mermaidAPI | null = null;

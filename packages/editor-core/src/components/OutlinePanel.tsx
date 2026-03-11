@@ -1,5 +1,14 @@
 "use client";
 
+import CategoryIcon from "@mui/icons-material/Category";
+import CodeIcon from "@mui/icons-material/Code";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import GridOnIcon from "@mui/icons-material/GridOn";
+import ImageIcon from "@mui/icons-material/Image";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import SchemaIcon from "@mui/icons-material/Schema";
+import UnfoldLessIcon from "@mui/icons-material/UnfoldLess";
+import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 import {
   Box,
   Collapse,
@@ -9,17 +18,9 @@ import {
   Typography,
   useTheme,
 } from "@mui/material";
-import CodeIcon from "@mui/icons-material/Code";
-import GridOnIcon from "@mui/icons-material/GridOn";
-import ImageIcon from "@mui/icons-material/Image";
-import SchemaIcon from "@mui/icons-material/Schema";
+import React, { useCallback, useMemo,useState } from "react";
+
 import MermaidIcon from "../icons/MermaidIcon";
-import CategoryIcon from "@mui/icons-material/Category";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import UnfoldLessIcon from "@mui/icons-material/UnfoldLess";
-import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
-import React, { useState, useCallback, useMemo } from "react";
 import type { HeadingItem, OutlineKind, TranslationFn } from "../types";
 
 const blockIcon: Record<Exclude<OutlineKind, "heading">, React.ReactElement> = {

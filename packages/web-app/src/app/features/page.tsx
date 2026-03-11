@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+
 import FeaturesBody from './FeaturesBody';
 
 export const metadata: Metadata = {

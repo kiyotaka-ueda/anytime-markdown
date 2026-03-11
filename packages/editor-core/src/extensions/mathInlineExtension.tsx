@@ -1,12 +1,13 @@
 "use client";
 
-import { Node, InputRule } from "@tiptap/core";
-import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
-import type { NodeViewProps } from "@tiptap/react";
-import { useEffect, useState, useCallback } from "react";
 import { Box, useTheme } from "@mui/material";
+import { InputRule,Node } from "@tiptap/core";
+import type { NodeViewProps } from "@tiptap/react";
+import { NodeViewWrapper,ReactNodeViewRenderer } from "@tiptap/react";
 import DOMPurify from "dompurify";
 import type katexType from "katex";
+import { useCallback,useEffect, useState } from "react";
+
 import { MATH_SANITIZE_CONFIG } from "../hooks/useKatexRender";
 
 /** Lazy-load KaTeX (shared instance with useKatexRender) */

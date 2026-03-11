@@ -1,11 +1,11 @@
 import { Box } from "@mui/material";
 import type { Editor } from "@tiptap/react";
 import type React from "react";
-import type { MergeUndoRedo } from "./InlineMergeView";
+
 import { Z_SKIP_LINK } from "../constants/zIndex";
 import type { ToolbarVisibility } from "../types/toolbar";
-
 import { EditorToolbar } from "./EditorToolbar";
+import type { MergeUndoRedo } from "./InlineMergeView";
 
 interface EditorToolbarSectionProps {
   editor: Editor | null;

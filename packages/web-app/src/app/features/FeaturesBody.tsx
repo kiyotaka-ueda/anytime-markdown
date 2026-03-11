@@ -1,25 +1,24 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ACCENT_COLOR } from '@anytime-markdown/editor-core';
 import {
   Box,
   CircularProgress,
   Container,
-
   List,
   ListItemButton,
   ListItemText,
   Typography,
 } from '@mui/material';
-
-import { useTranslations } from 'next-intl';
 import { useTheme } from '@mui/material/styles';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
+import { useTranslations } from 'next-intl';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
 import LandingHeader from '../components/LandingHeader';
 import SiteFooter from '../components/SiteFooter';
 import { useLocaleSwitch } from '../LocaleProvider';
-import { ACCENT_COLOR } from '@anytime-markdown/editor-core';
 
 const SANITIZE_CONFIG = {
   ALLOWED_TAGS: [

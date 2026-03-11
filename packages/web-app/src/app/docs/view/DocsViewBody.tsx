@@ -1,16 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
-import dynamic from 'next/dynamic';
-import { Alert, Box, Button, CircularProgress, Container, Link as MuiLink } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { Alert, Box, Button, CircularProgress, Container, Link as MuiLink } from '@mui/material';
+import dynamic from 'next/dynamic';
 import NextLink from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { useThemeMode } from '../../providers';
-import { useLocaleSwitch } from '../../LocaleProvider';
+import { useCallback, useEffect, useState } from 'react';
+
 import LandingHeader from '../../components/LandingHeader';
 import SiteFooter from '../../components/SiteFooter';
+import { useLocaleSwitch } from '../../LocaleProvider';
+import { useThemeMode } from '../../providers';
 
 const MarkdownEditorPage = dynamic(
   () => import('@anytime-markdown/editor-core/src/MarkdownEditorPage'),
