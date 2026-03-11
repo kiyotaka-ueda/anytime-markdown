@@ -20,6 +20,7 @@ import {
 } from "@mui/material";
 import React, { useCallback, useMemo,useState } from "react";
 
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../constants/colors";
 import MermaidIcon from "../icons/MermaidIcon";
 import type { HeadingItem, OutlineKind, TranslationFn } from "../types";
 
@@ -157,6 +158,7 @@ export function OutlinePanel({
           borderRight: "none",
           overflow: "auto",
           maxHeight: editorHeight,
+          bgcolor: theme.palette.mode === "dark" ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
         }}
       >
         <Box sx={{ p: 1.5 }}>

@@ -9,11 +9,13 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Typography,
+  useTheme,
 } from "@mui/material";
 import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
 import React, { useCallback, useRef, useState } from "react";
 
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../constants/colors";
 import { COMMENT_PANEL_WIDTH } from "../constants/dimensions";
 import { commentDataPluginKey } from "../extensions/commentExtension";
 import type { TranslationFn } from "../types";
@@ -68,6 +70,7 @@ export const CommentPanel = React.memo(function CommentPanel({
   onSave,
   t,
 }: CommentPanelProps) {
+  const theme = useTheme();
   const [filter, setFilter] = useState<"all" | "open" | "resolved">("all");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
@@ -141,6 +144,7 @@ export const CommentPanel = React.memo(function CommentPanel({
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
+        bgcolor: theme.palette.mode === "dark" ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
       }}
     >
       {/* Header */}

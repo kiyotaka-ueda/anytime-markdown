@@ -239,7 +239,7 @@ export function DiagramFullscreenDialog({
             sx={{
               flex: 1,
               overflow: "hidden",
-              bgcolor: "background.paper",
+              bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
               cursor: fsDragging ? "col-resize" : "grab",
               "&:active": { cursor: fsDragging ? "col-resize" : "grabbing" },
               pointerEvents: fsDragging ? "none" : "auto",

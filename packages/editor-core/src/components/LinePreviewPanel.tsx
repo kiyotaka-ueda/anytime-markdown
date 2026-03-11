@@ -5,6 +5,7 @@ import {
 import { alpha, useTheme } from "@mui/material/styles";
 import React, { useEffect, useRef, useState } from "react";
 
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../constants/colors";
 import { useEditorSettingsContext } from "../useEditorSettings";
 import { computeInlineDiff, type DiffResult, type InlineSegment } from "../utils/diffEngine";
 
@@ -85,7 +86,7 @@ export const LinePreviewPanel = React.memo(function LinePreviewPanel({
   };
 
   return (
-    <Box sx={{ borderTop: 1, borderColor: "divider", bgcolor: "background.paper", flexShrink: 0 }}>
+    <Box sx={{ borderTop: 1, borderColor: "divider", bgcolor: theme.palette.mode === "dark" ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG, flexShrink: 0 }}>
       <div
         ref={previewTopRef}
         style={previewStyle}

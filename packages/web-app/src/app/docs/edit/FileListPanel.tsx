@@ -16,6 +16,8 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from '@anytime-markdown/editor-core';
 import type { useTranslations } from 'next-intl';
 import { RefObject, useState } from 'react';
 
@@ -42,6 +44,8 @@ export default function FileListPanel({
   onDeleteUrlLink,
   t,
 }: FileListPanelProps) {
+  const theme = useTheme();
+  const bgColor = theme.palette.mode === 'dark' ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG;
   const [urlDraft, setUrlDraft] = useState('');
   const [nameDraft, setNameDraft] = useState('');
 
@@ -71,7 +75,7 @@ export default function FileListPanel({
         </Button>
       </Box>
       <input ref={fileInputRef} type="file" accept=".md" multiple hidden onChange={onUpload} />
-      <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper', maxHeight: 400, overflow: 'auto' }}>
+      <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: bgColor, maxHeight: 400, overflow: 'auto' }}>
         <List dense disablePadding>
           {files.map((file) => (
             <ListItem
@@ -145,7 +149,7 @@ export default function FileListPanel({
         </Box>
       </Box>
       {urlLinks.length > 0 && (
-        <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper', maxHeight: 200, overflow: 'auto' }}>
+        <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: bgColor, maxHeight: 200, overflow: 'auto' }}>
           <List dense disablePadding>
             {urlLinks.map((link) => (
               <ListItem

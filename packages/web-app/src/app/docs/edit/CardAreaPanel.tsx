@@ -1,6 +1,6 @@
 'use client';
 
-import { ACCENT_COLOR } from '@anytime-markdown/editor-core';
+import { ACCENT_COLOR, DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from '@anytime-markdown/editor-core';
 import {
   closestCenter,
   DndContext,
@@ -428,7 +428,7 @@ export default function CategoryAreaPanel({
           borderRadius: 2,
           p: 2,
           minHeight: 200,
-          bgcolor: 'background.paper',
+          bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
         }}
       >
         {categories.length === 0 ? (
