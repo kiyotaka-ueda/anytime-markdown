@@ -143,6 +143,8 @@ export function useDiagramCapture({ isMermaid, isPlantUml, svg, plantUmlUrl, cod
           a.click();
         }
       }
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error("useDiagramCapture: failed to capture diagram", err);
+    }
   }, [isMermaid, isPlantUml, svg, plantUmlUrl, code, isDark]);
 }

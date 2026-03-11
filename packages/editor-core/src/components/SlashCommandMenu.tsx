@@ -147,7 +147,8 @@ export const SlashCommandMenu = React.memo(function SlashCommandMenu({
           toJSON: () => ({}),
         }),
       };
-    } catch {
+    } catch (err) {
+      console.warn("SlashCommandMenu: failed to get cursor coordinates", err);
       return null;
     }
   }, [active, from, editor?.view]);
