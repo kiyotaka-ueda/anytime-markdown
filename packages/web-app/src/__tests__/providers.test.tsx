@@ -13,6 +13,9 @@ jest.mock("@capacitor/status-bar", () => ({
 // editor-core の ConfirmProvider をモック（next-intl ESM 依存チェーンを回避）
 jest.mock("@anytime-markdown/editor-core", () => ({
   ConfirmProvider: ({ children }: { children: React.ReactNode }) => children,
+  ACCENT_COLOR: "#e8a012",
+  DEFAULT_DARK_BG: "#0D1117",
+  DEFAULT_LIGHT_BG: "#F8F9FA",
 }));
 
 import { Providers, useThemeMode } from "../app/providers";

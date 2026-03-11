@@ -7,6 +7,8 @@ interface HeadingData {
 	kind: string;
 }
 
+const MANUAL_NUMBER_RE = /^\d+(\.\d+)*\.?\s/;
+
 const KIND_ICONS: Record<string, string> = {
 	heading: 'symbol-structure',
 	mermaid: 'graph',
@@ -21,12 +23,9 @@ export class OutlineItem extends vscode.TreeItem {
 
 	constructor(
 		public readonly heading: HeadingData,
-		sectionNumber?: string,
 	) {
 		const text = heading.text || '(empty)';
-		const label = heading.kind === 'heading'
-			? (sectionNumber ? `${sectionNumber} ${text}` : text)
-			: text;
+		const label = text;
 		super(label, vscode.TreeItemCollapsibleState.None);
 		if (heading.kind !== 'heading') {
 			this.iconPath = new vscode.ThemeIcon(KIND_ICONS[heading.kind] ?? 'symbol-misc');
@@ -39,44 +38,31 @@ export class OutlineItem extends vscode.TreeItem {
 	}
 }
 
-function computeSectionNumbers(headings: HeadingData[]): Map<number, string> {
-	const map = new Map<number, string>();
-	const counters = [0, 0, 0, 0, 0]; // h1-h5
-	for (const h of headings) {
-		if (h.kind !== 'heading') continue;
-		const level = h.level - 1; // 0-indexed
-		counters[level]++;
-		for (let i = level + 1; i < 5; i++) counters[i] = 0;
-		map.set(h.pos, counters.slice(0, level + 1).join('.'));
-	}
-	return map;
-}
-
 export class OutlineProvider implements vscode.TreeDataProvider<OutlineItem> {
 	private _onDidChangeTreeData = new vscode.EventEmitter<void>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
 	private roots: OutlineItem[] = [];
 	private lastHeadings: HeadingData[] = [];
-	private _showSectionNumbers = false;
 	private _showBlockElements = false;
-
-	get showSectionNumbers(): boolean {
-		return this._showSectionNumbers;
-	}
+	private _allCollapsed = false;
 
 	get showBlockElements(): boolean {
 		return this._showBlockElements;
 	}
 
-	toggleSectionNumbers(): void {
-		this._showSectionNumbers = !this._showSectionNumbers;
-		this.roots = this.buildTree(this.lastHeadings);
-		this._onDidChangeTreeData.fire();
+	get allCollapsed(): boolean {
+		return this._allCollapsed;
 	}
 
 	toggleBlockElements(): void {
 		this._showBlockElements = !this._showBlockElements;
+		this.roots = this.buildTree(this.lastHeadings);
+		this._onDidChangeTreeData.fire();
+	}
+
+	toggleCollapseAll(): void {
+		this._allCollapsed = !this._allCollapsed;
 		this.roots = this.buildTree(this.lastHeadings);
 		this._onDidChangeTreeData.fire();
 	}
@@ -107,8 +93,32 @@ export class OutlineProvider implements vscode.TreeDataProvider<OutlineItem> {
 		const filtered = this._showBlockElements
 			? headings
 			: headings.filter(h => h.kind === 'heading');
-		const sectionNumbers = this._showSectionNumbers ? computeSectionNumbers(filtered) : new Map();
-		const items = filtered.map(h => new OutlineItem(h, sectionNumbers.get(h.pos)));
+
+		// セクション番号マップ（web アプリの OutlinePanel と同じ自動判定）
+		const headingItems = headings.filter(h => h.kind === 'heading');
+		let sectionNumberMap: Map<number, string> | null = null;
+		if (headingItems.length >= 2) {
+			const numberedCount = headingItems.filter(h => MANUAL_NUMBER_RE.test(h.text)).length;
+			if (numberedCount < headingItems.length / 2) {
+				sectionNumberMap = new Map();
+				const counters = [0, 0, 0, 0, 0];
+				for (const h of headingItems) {
+					const level = h.level - 1;
+					counters[level]++;
+					for (let i = level + 1; i < 5; i++) counters[i] = 0;
+					sectionNumberMap.set(h.pos, counters.slice(0, level + 1).join('.') + '. ');
+				}
+			}
+		}
+
+		const items = filtered.map(h => {
+			const item = new OutlineItem(h);
+			const prefix = sectionNumberMap?.get(h.pos);
+			if (prefix) {
+				item.label = prefix + (h.text || '(empty)');
+			}
+			return item;
+		});
 		const roots: OutlineItem[] = [];
 		const stack: OutlineItem[] = [];
 
@@ -118,7 +128,9 @@ export class OutlineProvider implements vscode.TreeDataProvider<OutlineItem> {
 				if (stack.length > 0) {
 					const parent = stack[stack.length - 1];
 					parent.children.push(item);
-					parent.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+					parent.collapsibleState = this._allCollapsed
+					? vscode.TreeItemCollapsibleState.Collapsed
+					: vscode.TreeItemCollapsibleState.Expanded;
 				} else {
 					roots.push(item);
 				}
@@ -133,7 +145,9 @@ export class OutlineProvider implements vscode.TreeDataProvider<OutlineItem> {
 			if (stack.length > 0) {
 				const parent = stack[stack.length - 1];
 				parent.children.push(item);
-				parent.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+				parent.collapsibleState = this._allCollapsed
+					? vscode.TreeItemCollapsibleState.Collapsed
+					: vscode.TreeItemCollapsibleState.Expanded;
 			} else {
 				roots.push(item);
 			}

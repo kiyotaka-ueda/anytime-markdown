@@ -1,4 +1,4 @@
-import { diffLines, diffWords, type Change } from "diff";
+import { type Change,diffLines, diffWords } from "diff";
 
 // --- Type definitions ---
 

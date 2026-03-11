@@ -2,9 +2,10 @@
 
 import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
-import Typography from '@mui/material/Typography';
 import Link from '@mui/material/Link';
+import Typography from '@mui/material/Typography';
 import { useTranslations } from 'next-intl';
+
 import LandingHeader from '../components/LandingHeader';
 import SiteFooter from '../components/SiteFooter';
 

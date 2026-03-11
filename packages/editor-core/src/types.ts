@@ -1,11 +1,12 @@
-import { createContext, useContext } from "react";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { Editor } from "@tiptap/react";
-import { restoreBlankLines, normalizeCodeSpanDelimitersInLine } from "./utils/sanitizeMarkdown";
-import { postprocessMathBlock } from "./utils/mathHelpers";
-import { appendCommentData } from "./utils/commentHelpers";
+import { createContext, useContext } from "react";
+
 import { commentDataPluginKey } from "./extensions/commentExtension";
 import type { InlineComment } from "./utils/commentHelpers";
+import { appendCommentData } from "./utils/commentHelpers";
+import { postprocessMathBlock } from "./utils/mathHelpers";
+import { normalizeCodeSpanDelimitersInLine,restoreBlankLines } from "./utils/sanitizeMarkdown";
 
 export type EncodingLabel = "UTF-8" | "Shift_JIS" | "EUC-JP";
 
@@ -26,9 +27,19 @@ export interface MarkdownStorage {
   };
 }
 
+/** editor.storage を汎用 Record として取得する型安全ヘルパー */
+export function getEditorStorage(editor: Editor): Record<string, Record<string, unknown>> {
+  return editor.storage as unknown as Record<string, Record<string, unknown>>;
+}
+
+/** editor.storage から tiptap-markdown の storage を取得する型安全ヘルパー */
+export function getMarkdownStorage(editor: Editor): MarkdownStorage["markdown"] {
+  return (editor.storage as unknown as MarkdownStorage).markdown;
+}
+
 /** tiptap-markdown の storage から markdown を取得するヘルパー */
 export function getMarkdownFromEditor(editor: Editor): string {
-  let md = (editor.storage as unknown as MarkdownStorage).markdown.getMarkdown();
+  let md = getMarkdownStorage(editor).getMarkdown();
   // ZWSP マーカー段落を除去し、元の空行を復元する
   // ※ コードフェンス修正より先に実行する（ZWSP が残っていると正規表現が一致しないため）
   md = restoreBlankLines(md);

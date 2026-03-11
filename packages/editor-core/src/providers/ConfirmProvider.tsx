@@ -1,15 +1,18 @@
 "use client";
 
+import { useTranslations } from 'next-intl';
+import React, { useCallback, useState } from 'react';
+
 import ConfirmDialog from './ConfirmDialog';
 import { DialogOptions } from './types';
-import React, { useCallback, useState } from 'react';
-import { useTranslations } from 'next-intl';
 
-export const ConfirmContext = React.createContext(
-  {} as {
-    confirm: (options: DialogOptions) => Promise<void>
-  }
-);
+const defaultContextValue: {
+  confirm: (options: DialogOptions) => Promise<void>;
+} = {
+  confirm: () => Promise.resolve(),
+};
+
+export const ConfirmContext = React.createContext(defaultContextValue);
 
 const DEFAULT_OPTIONS: DialogOptions = {
   open: false,

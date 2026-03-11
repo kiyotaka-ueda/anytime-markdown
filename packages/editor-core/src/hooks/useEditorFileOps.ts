@@ -1,17 +1,20 @@
-import { useCallback, useRef, useState } from "react";
-import type { Dispatch, SetStateAction } from "react";
-import type { Editor } from "@tiptap/react";
 import { useTheme } from "@mui/material";
-import { useTranslations } from "next-intl";
-import useConfirm from "@/hooks/useConfirm";
-import { getMarkdownFromEditor, type EncodingLabel, type MarkdownStorage } from "../types";
-import type { FileHandle } from "../types/fileSystem";
-import { sanitizeMarkdown, preserveBlankLines } from "../utils/sanitizeMarkdown";
-import { prependFrontmatter } from "../utils/frontmatterHelpers";
+import type { Editor } from "@tiptap/react";
 import DOMPurify from "dompurify";
-import { SVG_SANITIZE_CONFIG } from "./useMermaidRender";
-import { PLANTUML_SERVER } from "../utils/plantumlHelpers";
+import { useTranslations } from "next-intl";
 import plantumlEncoder from "plantuml-encoder";
+import type { Dispatch, SetStateAction } from "react";
+import { useCallback, useRef, useState } from "react";
+
+import useConfirm from "@/hooks/useConfirm";
+
+import { MERMAID_RENDER_TIMEOUT, NOTIFICATION_DURATION, PRINT_DELAY } from "../constants/timing";
+import { type EncodingLabel,getMarkdownFromEditor, getMarkdownStorage } from "../types";
+import type { FileHandle } from "../types/fileSystem";
+import { prependFrontmatter } from "../utils/frontmatterHelpers";
+import { buildPlantUmlUrl } from "../utils/plantumlHelpers";
+import { preserveBlankLines,sanitizeMarkdown } from "../utils/sanitizeMarkdown";
+import { SVG_SANITIZE_CONFIG } from "./useMermaidRender";
 
 interface UseEditorFileOpsParams {
   editor: Editor | null;
@@ -66,7 +69,7 @@ export function useEditorFileOps({
   const showNotification = useCallback((key: NotificationKey) => {
     clearTimeout(notificationTimerRef.current);
     setNotification(key);
-    notificationTimerRef.current = setTimeout(() => setNotification(null), 3000);
+    notificationTimerRef.current = setTimeout(() => setNotification(null), NOTIFICATION_DURATION);
   }, []);
 
   const handleClear = useCallback(async () => {
@@ -100,7 +103,7 @@ export function useEditorFileOps({
           setSourceText(sanitizeMarkdown(reader.result));
         } else if (editor) {
           editor.commands.setContent(
-            (editor.storage as unknown as MarkdownStorage).markdown.parser.parse(
+            getMarkdownStorage(editor).parser.parse(
               preserveBlankLines(sanitizeMarkdown(reader.result)),
             ),
           );
@@ -162,7 +165,7 @@ export function useEditorFileOps({
       setSourceText(sanitized);
     } else if (editor) {
       editor.commands.setContent(
-        (editor.storage as unknown as MarkdownStorage).markdown.parser.parse(
+        getMarkdownStorage(editor).parser.parse(
           preserveBlankLines(sanitized),
         ),
       );
@@ -248,7 +251,7 @@ export function useEditorFileOps({
             const { svg: lightSvg } = await Promise.race([
               mermaid.render(id, code, container),
               new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error("mermaid render timeout")), 5000),
+                setTimeout(() => reject(new Error("mermaid render timeout")), MERMAID_RENDER_TIMEOUT),
               ),
             ]);
             container.remove();
@@ -287,7 +290,7 @@ export function useEditorFileOps({
           const startMatch = code.match(/@start(uml|mindmap|wbs|json|yaml)/);
           const src = startMatch ? code : `@startuml\n${code}\n@enduml`;
           const encoded = plantumlEncoder.encode(src);
-          const newUrl = `${PLANTUML_SERVER}/svg/${encoded}`;
+          const newUrl = buildPlantUmlUrl(encoded);
           pumlLoadPromises.push(new Promise<void>((resolve) => {
             img.onload = () => resolve();
             img.onerror = () => resolve();
@@ -305,7 +308,7 @@ export function useEditorFileOps({
 
     // 再レンダーを待ってから印刷
     const needsDelay = collapsedPositions.length > 0 || diagramRestores.length > 0 || pendingMermaidReplacements.length > 0;
-    const delay = needsDelay ? 300 : 0;
+    const delay = needsDelay ? PRINT_DELAY : 0;
     setTimeout(() => {
       try {
         // Mermaid ライトSVGをprint直前に同期的にDOM書き込み（React再レンダリングの介入を防ぐ）
@@ -332,6 +335,8 @@ export function useEditorFileOps({
       showNotification("pdfExportError");
       return;
     }
+    // showNotification は安定な関数のため依存配列から除外
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, isDark]);
 
   return {

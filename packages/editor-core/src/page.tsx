@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from 'next/dynamic';
+
 import FullPageLoader from '@/components/loader/FullPageLoader';
 
 const MarkdownEditorPage = dynamic(

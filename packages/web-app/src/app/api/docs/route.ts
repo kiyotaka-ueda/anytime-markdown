@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
 import { ListObjectsV2Command } from '@aws-sdk/client-s3';
-import { s3Client, DOCS_BUCKET, DOCS_PREFIX } from '../../../lib/s3Client';
+import { NextResponse } from 'next/server';
+
+import { DOCS_BUCKET, DOCS_PREFIX,s3Client } from '../../../lib/s3Client';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,8 +23,8 @@ export async function GET() {
     const files = (response.Contents ?? [])
       .filter((obj) => obj.Key && obj.Key.endsWith('.md') && obj.Key !== DOCS_PREFIX)
       .map((obj) => ({
-        key: obj.Key!,
-        name: obj.Key!.slice(DOCS_PREFIX.length),
+        key: obj.Key ?? "",
+        name: (obj.Key ?? "").slice(DOCS_PREFIX.length),
         lastModified: obj.LastModified?.toISOString() ?? '',
         size: obj.Size ?? 0,
       }));

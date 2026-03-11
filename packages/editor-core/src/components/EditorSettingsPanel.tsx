@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import CloseIcon from "@mui/icons-material/Close";
+import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import {
   Box,
   Button,
@@ -13,12 +14,13 @@ import {
   ToggleButtonGroup,
   Typography,
 } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
-import RestartAltIcon from "@mui/icons-material/RestartAlt";
-import useConfirm from "@/hooks/useConfirm";
 import { useLocale } from "next-intl";
-import type { EditorSettings } from "../useEditorSettings";
+import React from "react";
+
+import useConfirm from "@/hooks/useConfirm";
+
 import type { TranslationFn } from "../types";
+import type { EditorSettings } from "../useEditorSettings";
 
 interface EditorSettingsPanelProps {
   open: boolean;
@@ -123,28 +125,6 @@ export const EditorSettingsPanel = React.memo(function EditorSettingsPanel({
           <Divider sx={{ mb: 2 }} />
         </>
       )}
-
-      {/* Line Height */}
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary" }}>
-          {t("settingLineHeight")}
-        </Typography>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5 }}>
-          <Slider
-            value={settings.lineHeight}
-            onChange={(_, v) => updateSettings({ lineHeight: v as number })}
-            min={1.0}
-            max={2.0}
-            step={0.1}
-            size="small"
-            aria-label={t("settingLineHeight")}
-            aria-valuetext={`${settings.lineHeight}x`}
-          />
-          <Typography variant="body2" sx={{ minWidth: 32, textAlign: "right", fontFamily: "monospace" }}>
-            {settings.lineHeight.toFixed(1)}
-          </Typography>
-        </Box>
-      </Box>
 
       {/* Font Size */}
       <Box sx={{ mb: 3 }}>

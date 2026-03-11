@@ -1,11 +1,11 @@
 'use client';
 
-import { createContext, useContext, useCallback, useEffect, useMemo, useState } from 'react';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
-import { ConfirmProvider } from '@anytime-markdown/editor-core';
+import { ACCENT_COLOR,ConfirmProvider, DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from '@anytime-markdown/editor-core';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
+import CssBaseline from '@mui/material/CssBaseline';
+import { createTheme,ThemeProvider } from '@mui/material/styles';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 type ThemeMode = 'light' | 'dark';
 
@@ -52,7 +52,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     updateStatusBar(themeMode);
   }, [themeMode]);
 
-  const theme = useMemo(() => createTheme({ palette: { mode: themeMode, secondary: { main: '#e8a012', contrastText: '#000000' } } }), [themeMode]);
+  const theme = useMemo(() => createTheme({ palette: { mode: themeMode, secondary: { main: ACCENT_COLOR, contrastText: '#000000' }, background: { default: themeMode === 'dark' ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG } } }), [themeMode]);
 
   const contextValue = useMemo(() => ({ themeMode, setThemeMode }), [themeMode, setThemeMode]);
 

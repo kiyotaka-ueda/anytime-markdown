@@ -1,18 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Box, Divider, IconButton, Tooltip, Typography } from "@mui/material";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import SchemaIcon from "@mui/icons-material/Schema";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import { Alert, Box, Divider, IconButton, Tooltip, Typography } from "@mui/material";
 import DOMPurify from "dompurify";
-import { useKatexRender, MATH_SANITIZE_CONFIG } from "../../hooks/useKatexRender";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../../constants/colors";
+import { PREVIEW_MAX_HEIGHT } from "../../constants/dimensions";
+import { findCodeBlockByIndex,findCounterpartCode, getCodeBlockIndex, getMergeEditors } from "../../contexts/MergeEditorsContext";
+import { MATH_SANITIZE_CONFIG,useKatexRender } from "../../hooks/useKatexRender";
 import { CodeBlockFullscreenDialog } from "../CodeBlockFullscreenDialog";
 import { MathSamplePopover } from "../MathSamplePopover";
 import { CodeBlockFrame } from "./CodeBlockFrame";
-import { getMergeEditors, findCounterpartCode, getCodeBlockIndex, findCodeBlockByIndex } from "../../contexts/MergeEditorsContext";
 import type { CodeBlockSharedProps } from "./types";
 
 type MathBlockProps = Pick<
@@ -28,7 +31,7 @@ type MathBlockProps = Pick<
 export function MathBlock(props: MathBlockProps) {
   const {
     editor, node, getPos,
-    allCollapsed, codeCollapsed, isSelected, toggleAllCollapsed,
+    allCollapsed, codeCollapsed, isSelected, toggleAllCollapsed: _toggleAllCollapsed,
     selectNode, handleDragKeyDown, code,
     handleCopyCode, handleDeleteBlock, deleteDialogOpen, setDeleteDialogOpen,
     fullscreen, setFullscreen, fsCode, onFsCodeChange, fsTextareaRef, fsSearch,
@@ -182,7 +185,7 @@ export function MathBlock(props: MathBlockProps) {
           role="img"
           aria-label={t("mathFormula")}
           onClick={selectNode}
-          sx={{ pt: 0, px: 2, pb: 2, bgcolor: "background.paper", borderTop: codeCollapsed ? 0 : 1, borderColor: "divider", overflow: "auto", maxHeight: 400, display: "flex", justifyContent: "flex-start" }}
+          sx={{ pt: 0, px: 2, pb: 2, bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG, borderTop: codeCollapsed ? 0 : 1, borderColor: "divider", overflow: "auto", maxHeight: PREVIEW_MAX_HEIGHT, display: "flex", justifyContent: "flex-start" }}
           dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(mathHtml, MATH_SANITIZE_CONFIG) }}
         />
       )}

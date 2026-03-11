@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import plantumlEncoder from "plantuml-encoder";
-import { PLANTUML_SERVER, PLANTUML_CONSENT_KEY, PLANTUML_DARK_SKINPARAMS } from "../utils/plantumlHelpers";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import { BoundedMap } from "../utils/BoundedMap";
+import { buildPlantUmlUrl,PLANTUML_CONSENT_KEY, PLANTUML_DARK_SKINPARAMS } from "../utils/plantumlHelpers";
 
 /**
  * モジュールレベルの URL キャッシュ。
  * コンポーネントがアンマウント→再マウントを繰り返しても即座に復元。
  */
-const urlCache = new Map<string, string>();
+const urlCache = new BoundedMap<string, string>(128);
 function cacheKey(code: string, isDark: boolean): string {
   return `${code}\0${isDark}`;
 }
@@ -55,14 +57,23 @@ export function usePlantUmlRender({ code, isPlantUml, isDark }: UsePlantUmlRende
         const startMatch = code.match(/@start(uml|mindmap|wbs|json|yaml)/);
         const diagramType = startMatch ? startMatch[1] : null;
         const needsSkinParam = diagramType === "uml" || diagramType === null;
+        const lightSkinParam = "skinparam backgroundColor transparent";
         let src: string;
         if (diagramType) {
-          src = needsSkinParam && isDark ? code.replace(/@startuml/, `@startuml\n${PLANTUML_DARK_SKINPARAMS}`) : code;
+          if (needsSkinParam && isDark) {
+            src = code.replace(/@startuml/, `@startuml\n${PLANTUML_DARK_SKINPARAMS}`);
+          } else if (needsSkinParam) {
+            src = code.replace(/@startuml/, `@startuml\n${lightSkinParam}`);
+          } else {
+            src = code;
+          }
         } else {
-          src = isDark ? `@startuml\n${PLANTUML_DARK_SKINPARAMS}\n${code}\n@enduml` : `@startuml\n${code}\n@enduml`;
+          src = isDark
+            ? `@startuml\n${PLANTUML_DARK_SKINPARAMS}\n${code}\n@enduml`
+            : `@startuml\n${lightSkinParam}\n${code}\n@enduml`;
         }
         const encoded = plantumlEncoder.encode(src);
-        const url = `${PLANTUML_SERVER}/svg/${encoded}`;
+        const url = buildPlantUmlUrl(encoded);
         urlCache.set(key, url);
         if (mountedRef.current) {
           setPlantUmlUrl(url);

@@ -14,6 +14,7 @@ import {
   useTheme,
 } from "@mui/material";
 import { useCallback } from "react";
+
 import type { TextareaSearchState } from "../hooks/useTextareaSearch";
 
 interface FsSearchBarProps {

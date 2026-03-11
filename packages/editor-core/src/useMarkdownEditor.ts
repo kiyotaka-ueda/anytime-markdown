@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { sanitizeMarkdown, preserveBlankLines } from "./utils/sanitizeMarkdown";
-import { parseCommentData, appendCommentData } from "./utils/commentHelpers";
-import { parseFrontmatter, prependFrontmatter } from "./utils/frontmatterHelpers";
-import type { EncodingLabel } from "./types";
 
-const STORAGE_KEY = "markdown-editor-content";
+import { STORAGE_KEY_CONTENT } from "./constants/storageKeys";
+import type { EncodingLabel } from "./types";
+import { appendCommentData,parseCommentData } from "./utils/commentHelpers";
+import { parseFrontmatter, prependFrontmatter } from "./utils/frontmatterHelpers";
+import { preserveBlankLines,sanitizeMarkdown } from "./utils/sanitizeMarkdown";
 const DEBOUNCE_MS = 500;
 
 export function useMarkdownEditor(defaultContent: string, skipLocalStorage = false) {
@@ -17,7 +17,7 @@ export function useMarkdownEditor(defaultContent: string, skipLocalStorage = fal
   // skipLocalStorage が true の場合（readOnly / externalContent）は localStorage を参照しない
   const [initialContent] = useState<string>(() => {
     try {
-      const saved = skipLocalStorage ? null : localStorage.getItem(STORAGE_KEY);
+      const saved = skipLocalStorage ? null : localStorage.getItem(STORAGE_KEY_CONTENT);
       const raw = saved ?? defaultContent;
       const { frontmatter, body: bodyWithoutFm } = parseFrontmatter(raw);
       frontmatterRef.current = frontmatter;
@@ -39,7 +39,7 @@ export function useMarkdownEditor(defaultContent: string, skipLocalStorage = fal
     timerRef.current = setTimeout(() => {
       try {
         const toSave = withFrontmatter ? prependFrontmatter(markdown, frontmatterRef.current) : markdown;
-        localStorage.setItem(STORAGE_KEY, toSave);
+        localStorage.setItem(STORAGE_KEY_CONTENT, toSave);
       } catch (e) {
         if (e instanceof DOMException && e.name === "QuotaExceededError") {
           console.warn("localStorage quota exceeded. Content not saved.");
@@ -75,7 +75,7 @@ export function useMarkdownEditor(defaultContent: string, skipLocalStorage = fal
   // クリア（空文字列を保存して HMR 時に defaultContent にフォールバックしないようにする）
   const clearContent = useCallback(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, "");
+      localStorage.setItem(STORAGE_KEY_CONTENT, "");
     } catch (e) {
       console.warn("Failed to clear localStorage:", e);
     }

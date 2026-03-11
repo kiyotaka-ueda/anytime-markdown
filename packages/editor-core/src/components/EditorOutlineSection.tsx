@@ -1,6 +1,8 @@
 import { Drawer } from "@mui/material";
-import OutlinePanel from "./OutlinePanel";
+
+import { COMMENT_PANEL_WIDTH } from "../constants/dimensions";
 import type { HeadingItem, TranslationFn } from "../types";
+import OutlinePanel from "./OutlinePanel";
 
 interface EditorOutlineSectionProps {
   isMd: boolean;
@@ -19,8 +21,6 @@ interface EditorOutlineSectionProps {
   handleOutlineResizeStart: (e: React.MouseEvent) => void;
   onHeadingDragEnd?: (fromIdx: number, toIdx: number) => void;
   onOutlineDelete?: (pos: number, kind: string) => void;
-  showHeadingNumbers?: boolean;
-  onToggleHeadingNumbers?: () => void;
   t: TranslationFn;
 }
 
@@ -41,8 +41,6 @@ export function EditorOutlineSection({
   handleOutlineResizeStart,
   onHeadingDragEnd,
   onOutlineDelete,
-  showHeadingNumbers,
-  onToggleHeadingNumbers,
   t,
 }: EditorOutlineSectionProps) {
   if (isMd) {
@@ -62,8 +60,6 @@ export function EditorOutlineSection({
         handleOutlineResizeStart={handleOutlineResizeStart}
         onHeadingDragEnd={onHeadingDragEnd}
         onOutlineDelete={onOutlineDelete}
-        showHeadingNumbers={showHeadingNumbers}
-        onToggleHeadingNumbers={onToggleHeadingNumbers}
         t={t}
       />
     );
@@ -74,7 +70,7 @@ export function EditorOutlineSection({
       anchor="left"
       open={outlineOpen}
       onClose={handleToggleOutline}
-      slotProps={{ paper: { sx: { width: 280 } } }}
+      slotProps={{ paper: { sx: { width: COMMENT_PANEL_WIDTH } } }}
     >
       <OutlinePanel
         outlineWidth={280}
@@ -90,8 +86,6 @@ export function EditorOutlineSection({
         handleOutlineResizeStart={handleOutlineResizeStart}
         onHeadingDragEnd={onHeadingDragEnd}
         onOutlineDelete={onOutlineDelete}
-        showHeadingNumbers={showHeadingNumbers}
-        onToggleHeadingNumbers={onToggleHeadingNumbers}
         t={t}
       />
     </Drawer>

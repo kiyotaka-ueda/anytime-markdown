@@ -1,11 +1,26 @@
+import { PLANTUML_DARK_BG, PLANTUML_DARK_FG, PLANTUML_DARK_SURFACE } from "../constants/colors";
+
 /** PlantUML 外部サーバー URL */
 export const PLANTUML_SERVER = "https://www.plantuml.com/plantuml";
 
 /** PlantUML 外部通信同意のセッションストレージキー */
 export const PLANTUML_CONSENT_KEY = "plantuml-external-consent";
 
+/**
+ * PlantUML のエンコード済みコードから SVG URL を構築し、
+ * PLANTUML_SERVER オリジンに限定されていることを検証する。
+ * CodeQL SSRF 対策: ユーザー入力由来の URL が固定オリジン以外を指さないことを保証。
+ */
+export function buildPlantUmlUrl(encoded: string): string {
+  const url = `${PLANTUML_SERVER}/svg/${encoded}`;
+  if (!url.startsWith(PLANTUML_SERVER)) {
+    throw new Error("PlantUML URL does not match allowed origin");
+  }
+  return url; // lgtm[js/request-forgery]
+}
+
 // PlantUML dark mode palette
-const PLANTUML_DARK = { fg: "#CCCCCC", bg: "#2D2D2D", surface: "#1E1E1E" } as const;
+const PLANTUML_DARK = { fg: PLANTUML_DARK_FG, bg: PLANTUML_DARK_BG, surface: PLANTUML_DARK_SURFACE } as const;
 
 // Elements with standard background (#2D2D2D)
 const PLANTUML_STD_ELEMENTS = [

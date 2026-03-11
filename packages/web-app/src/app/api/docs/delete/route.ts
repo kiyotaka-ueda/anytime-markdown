@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
-import { s3Client, DOCS_BUCKET, DOCS_PREFIX } from '../../../../lib/s3Client';
+import { NextRequest, NextResponse } from 'next/server';
+
 import { checkBasicAuth } from '../../../../lib/basicAuth';
+import { DOCS_BUCKET, DOCS_PREFIX,s3Client } from '../../../../lib/s3Client';
 
 export async function DELETE(request: NextRequest) {
   const authError = checkBasicAuth(request);

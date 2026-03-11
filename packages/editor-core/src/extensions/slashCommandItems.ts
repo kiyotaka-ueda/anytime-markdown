@@ -1,32 +1,32 @@
-import React from "react";
-import type { Editor } from "@tiptap/core";
-import type { TranslationFn } from "../types";
-import { extractHeadings } from "../types";
-import { generateTocMarkdown } from "../utils/tocHelpers";
-
-import LooksOneIcon from "@mui/icons-material/LooksOne";
-import LooksTwoIcon from "@mui/icons-material/LooksTwo";
-import Looks3Icon from "@mui/icons-material/Looks3";
+import AccountTreeIcon from "@mui/icons-material/AccountTree";
+import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
+import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
+import CheckBoxIcon from "@mui/icons-material/CheckBox";
+import CodeIcon from "@mui/icons-material/Code";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
 import FormatListNumberedIcon from "@mui/icons-material/FormatListNumbered";
-import CheckBoxIcon from "@mui/icons-material/CheckBox";
 import FormatQuoteIcon from "@mui/icons-material/FormatQuote";
-import CodeIcon from "@mui/icons-material/Code";
-import TableChartIcon from "@mui/icons-material/TableChart";
-import HorizontalRuleIcon from "@mui/icons-material/HorizontalRule";
-import SchemaIcon from "@mui/icons-material/Schema";
-import AccountTreeIcon from "@mui/icons-material/AccountTree";
 import FunctionsIcon from "@mui/icons-material/Functions";
-import TocIcon from "@mui/icons-material/Toc";
-import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
+import HorizontalRuleIcon from "@mui/icons-material/HorizontalRule";
 import InfoIcon from "@mui/icons-material/Info";
-import TipsAndUpdatesIcon from "@mui/icons-material/TipsAndUpdates";
+import Looks3Icon from "@mui/icons-material/Looks3";
+import LooksOneIcon from "@mui/icons-material/LooksOne";
+import LooksTwoIcon from "@mui/icons-material/LooksTwo";
 import PriorityHighIcon from "@mui/icons-material/PriorityHigh";
-import WarningAmberIcon from "@mui/icons-material/WarningAmber";
-import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
+import SchemaIcon from "@mui/icons-material/Schema";
 import SuperscriptIcon from "@mui/icons-material/Superscript";
-import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
+import TableChartIcon from "@mui/icons-material/TableChart";
+import TipsAndUpdatesIcon from "@mui/icons-material/TipsAndUpdates";
+import TocIcon from "@mui/icons-material/Toc";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import WebIcon from "@mui/icons-material/Web";
+import type { Editor } from "@tiptap/core";
+import React from "react";
+
+import type { TranslationFn } from "../types";
+import { extractHeadings, getEditorStorage } from "../types";
+import { generateTocMarkdown } from "../utils/tocHelpers";
 
 export interface SlashCommandItem {
   id: string;
@@ -275,7 +275,7 @@ export const slashCommandItems: SlashCommandItem[] = [
     icon: React.createElement(ChatBubbleOutlineIcon, { fontSize: "small" }),
     keywords: ["comment", "annotation", "note", "コメント", "注釈", "メモ"],
     action: (editor) => {
-      const storage = editor.storage as unknown as Record<string, Record<string, unknown>>;
+      const storage = getEditorStorage(editor);
       const openDialog = storage.commentDialog?.open as (() => void) | undefined;
       if (openDialog) {
         openDialog();

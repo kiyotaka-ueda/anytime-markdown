@@ -1,15 +1,15 @@
-import React from "react";
+import CheckBoxIcon from "@mui/icons-material/CheckBox";
+import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
+import FormatListNumberedIcon from "@mui/icons-material/FormatListNumbered";
+import FormatQuoteIcon from "@mui/icons-material/FormatQuote";
 import {
   Box,
   Divider,
   MenuItem,
   Popover,
 } from "@mui/material";
-import CheckBoxIcon from "@mui/icons-material/CheckBox";
-import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
-import FormatListNumberedIcon from "@mui/icons-material/FormatListNumbered";
-import FormatQuoteIcon from "@mui/icons-material/FormatQuote";
 import type { Editor } from "@tiptap/react";
+import React from "react";
 
 export interface HeadingMenuState {
   anchorEl: HTMLElement;

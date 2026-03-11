@@ -1,6 +1,9 @@
-import { useCallback } from "react";
 import plantumlEncoder from "plantuml-encoder";
-import { PLANTUML_SERVER } from "../utils/plantumlHelpers";
+import { useCallback } from "react";
+
+import { CAPTURE_BG } from "../constants/colors";
+import { FETCH_TIMEOUT } from "../constants/timing";
+import { buildPlantUmlUrl } from "../utils/plantumlHelpers";
 
 interface UseDiagramCaptureParams {
   isMermaid: boolean;
@@ -73,7 +76,7 @@ function downloadSvgAsPng(svgText: string) {
     const ctx = canvas.getContext("2d");
     if (!ctx) { URL.revokeObjectURL(url); return; }
     ctx.scale(scale, scale);
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = CAPTURE_BG;
     ctx.fillRect(0, 0, w, h);
     ctx.drawImage(img, 0, 0, w, h);
     URL.revokeObjectURL(url);
@@ -115,7 +118,7 @@ function buildPlantUmlLightUrl(code: string): string {
   const startMatch = code.match(/@start(uml|mindmap|wbs|json|yaml)/);
   const diagramType = startMatch ? startMatch[1] : null;
   const src = diagramType ? code : `@startuml\n${code}\n@enduml`;
-  return `${PLANTUML_SERVER}/svg/${plantumlEncoder.encode(src)}`;
+  return buildPlantUmlUrl(plantumlEncoder.encode(src));
 }
 
 export function useDiagramCapture({ isMermaid, isPlantUml, svg, plantUmlUrl, code, isDark }: UseDiagramCaptureParams) {
@@ -127,7 +130,10 @@ export function useDiagramCapture({ isMermaid, isPlantUml, svg, plantUmlUrl, cod
       } else if (isPlantUml && plantUmlUrl) {
         const url = isDark ? buildPlantUmlLightUrl(code) : plantUmlUrl;
         try {
-          const res = await fetch(url);
+          const controller = new AbortController();
+          const timerId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+          const res = await fetch(url, { signal: controller.signal });
+          clearTimeout(timerId);
           const svgText = await res.text();
           downloadSvgAsPng(svgText);
         } catch {
@@ -137,6 +143,8 @@ export function useDiagramCapture({ isMermaid, isPlantUml, svg, plantUmlUrl, cod
           a.click();
         }
       }
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error("useDiagramCapture: failed to capture diagram", err);
+    }
   }, [isMermaid, isPlantUml, svg, plantUmlUrl, code, isDark]);
 }

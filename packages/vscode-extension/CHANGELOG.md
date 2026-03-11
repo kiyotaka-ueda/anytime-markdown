@@ -4,6 +4,47 @@ All notable changes to the "anytime-markdown" extension will be documented in th
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.0] - 2026-03-11
+
+### Added
+- アウトラインパネルの折りたたみ/展開トグルボタン
+- アウトラインにセクション番号の自動表示（web アプリと同じ自動判定ロジック）
+- sanitizeMarkdown のユニットテスト（50テスト）
+- BoundedMap ユーティリティ（FIFO eviction 付きサイズ上限 Map）
+- ESLint ルール追加（型アサーション制限、非ヌルアサーション警告、console 制限、import 整列）
+- WCAG2.2 AA 監査レポートとフルコードレビューレポート
+- CHANGELOG（editor-core、web-app）
+
+### Changed
+- パネル背景色を全体で統一（OutlinePanel, CommentPanel, LinePreviewPanel 等）
+- アウトラインからセクション番号トグルアイコンを削除（自動表示に統合）
+- ソースモード・全画面ダイアログの背景色をコードブロックと統一
+- EditorToolbar を 588→393 行に分割（ToolbarFileActions、ToolbarMobileMenu を抽出）
+- MergeEditorPanel・InlineMergeView を 500 行以下に分割
+- EditorToolbar の Props を 4 つのオブジェクトに集約（48→17 props）
+- ソース→WYSIWYG 同期ロジックの 3 重複を共通関数に抽出
+- editor.storage キャストを型安全ヘルパーに集約
+- MarkdownEditorPage を 361 行に縮小
+- package.json の依存バージョンを exact 固定に変更
+- aria-label の英語固定を i18n 対応
+- global-error.tsx のダークモード対応
+
+### Fixed
+- 外部通信に AbortController タイムアウトを追加
+- svgCache / urlCache のメモリ無制限成長を防止
+- 空の catch ブロックにエラーログを追加
+- useLayoutEditor の useEffect にキャンセル処理を追加
+- 未使用変数・import を 21 件削除
+- Frontmatter 表示時にエディタ下部が切れる問題を修正
+- useSourceMode の不要な `as any` キャストを削除
+
+### Security
+- tar パッケージの Symlink Path Traversal 脆弱性を修正
+- PlantUML URL 構築にオリジン検証を追加（SSRF 対策）
+- HTML タグ除去を正規表現から DOMParser.textContent に変更
+- commentHelpers の正規表現を indexOf ベースに置換（ReDoS 対策）
+- fetchFromCdn で構築 URL のオリジン検証を追加（SSRF 対策）
+
 ## [0.3.0] - 2026-03-10
 
 ### Added

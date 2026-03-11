@@ -1,4 +1,3 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ListItemIcon,
   ListItemText,
@@ -7,13 +6,16 @@ import {
   Paper,
   Popper,
 } from "@mui/material";
+import type { VirtualElement } from "@popperjs/core";
 import type { Editor } from "@tiptap/react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+
+import { Z_FULLSCREEN } from "../constants/zIndex";
 import type { SlashCommandState } from "../extensions/slashCommandExtension";
 import {
-  slashCommandItems,
   filterSlashItems,
+  slashCommandItems,
 } from "../extensions/slashCommandItems";
-import type { VirtualElement } from "@popperjs/core";
 import type { TranslationFn } from "../types";
 
 interface SlashCommandMenuProps {
@@ -145,7 +147,8 @@ export const SlashCommandMenu = React.memo(function SlashCommandMenu({
           toJSON: () => ({}),
         }),
       };
-    } catch {
+    } catch (err) {
+      console.warn("SlashCommandMenu: failed to get cursor coordinates", err);
       return null;
     }
   }, [active, from, editor?.view]);
@@ -159,7 +162,7 @@ export const SlashCommandMenu = React.memo(function SlashCommandMenu({
       placement="bottom-start"
       role="menu"
       aria-label={t("slashCommandPlaceholder")}
-      style={{ zIndex: 1300 }}
+      style={{ zIndex: Z_FULLSCREEN }}
       modifiers={[
         { name: "offset", options: { offset: [0, 4] } },
         { name: "flip", enabled: true },

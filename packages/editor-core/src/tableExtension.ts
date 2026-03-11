@@ -1,8 +1,9 @@
 import { Table } from "@tiptap/extension-table";
+import type { Node as PMNode } from "@tiptap/pm/model";
 import { ReactNodeViewRenderer } from "@tiptap/react";
+
 import { TableNodeView } from "./TableNodeView";
 import type { MdSerializerState } from "./types";
-import type { Node as PMNode } from "@tiptap/pm/model";
 
 export const CustomTable = Table.extend({
   draggable: true,

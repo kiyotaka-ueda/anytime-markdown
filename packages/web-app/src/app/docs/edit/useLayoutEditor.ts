@@ -1,16 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  type DragEndEvent,
+  type DragStartEvent,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
-  type DragStartEvent,
-  type DragEndEvent,
 } from '@dnd-kit/core';
-import { sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
+import { arrayMove,sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { useTranslations } from 'next-intl';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
 import type { DocFile, LayoutCategory, LayoutCategoryItem } from '../../../types/layout';
 
 function generateId() {
@@ -51,11 +52,13 @@ export function useLayoutEditor() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     Promise.all([
       fetchFiles(),
       fetch('/api/sites/layout').then((r) => r.json()) as Promise<{ categories: LayoutCategory[]; siteDescription?: string }>,
     ])
       .then(([, layoutData]) => {
+        if (cancelled) return;
         const cats = (layoutData.categories ?? [])
           .map((c) => ({ ...c, items: c.items ?? [] }))
           .sort((a, b) => a.order - b.order);
@@ -72,8 +75,9 @@ export function useLayoutEditor() {
         setUrlLinks(Array.from(urls, ([url, displayName]) => ({ url, displayName })));
         if (layoutData.siteDescription) setSiteDescription(layoutData.siteDescription);
       })
-      .catch(() => setSnackbar({ message: t('sitesLoadError'), severity: 'error' }))
-      .finally(() => setLoading(false));
+      .catch(() => { if (!cancelled) setSnackbar({ message: t('sitesLoadError'), severity: 'error' }); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [t, fetchFiles]);
 
   const handleUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+
 import { fetchLayoutData } from '../../../lib/s3Client';
 import DocsViewBody from './DocsViewBody';
 

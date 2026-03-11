@@ -1,7 +1,8 @@
-import { Node, mergeAttributes } from "@tiptap/core";
-import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+import { mergeAttributes,Node } from "@tiptap/core";
 import type { MarkdownSerializerState } from "@tiptap/pm/markdown";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { ReactNodeViewRenderer } from "@tiptap/react";
+
 import { DetailsNodeView } from "./DetailsNodeView";
 
 export const DetailsSummary = Node.create({

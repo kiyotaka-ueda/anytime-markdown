@@ -1,5 +1,8 @@
 'use client';
 
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import DescriptionIcon from '@mui/icons-material/Description';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import {
   Alert,
   Box,
@@ -10,14 +13,12 @@ import {
   Typography,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import DescriptionIcon from '@mui/icons-material/Description';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import NextLink from 'next/link';
 import { useTranslations } from 'next-intl';
+
+import type { LayoutCategory } from '../../types/layout';
 import LandingHeader from '../components/LandingHeader';
 import SiteFooter from '../components/SiteFooter';
-import type { LayoutCategory } from '../../types/layout';
 
 interface SitesBodyProps {
   initialData: {

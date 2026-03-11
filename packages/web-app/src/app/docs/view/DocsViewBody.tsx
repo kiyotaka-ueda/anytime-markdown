@@ -1,16 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
-import dynamic from 'next/dynamic';
-import { Alert, Box, Button, CircularProgress, Container, Link as MuiLink } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { Alert, Box, Button, CircularProgress, Container, Link as MuiLink } from '@mui/material';
+import dynamic from 'next/dynamic';
 import NextLink from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { useThemeMode } from '../../providers';
-import { useLocaleSwitch } from '../../LocaleProvider';
+import { useCallback, useEffect, useState } from 'react';
+
 import LandingHeader from '../../components/LandingHeader';
 import SiteFooter from '../../components/SiteFooter';
+import { useLocaleSwitch } from '../../LocaleProvider';
+import { useThemeMode } from '../../providers';
 
 const MarkdownEditorPage = dynamic(
   () => import('@anytime-markdown/editor-core/src/MarkdownEditorPage'),
@@ -28,6 +29,7 @@ export default function DocsViewBody() {
   const searchParams = useSearchParams();
   const key = searchParams.get('key');
   const t = useTranslations('Landing');
+  const tCommon = useTranslations('Common');
   const { themeMode, setThemeMode } = useThemeMode();
   const { setLocale } = useLocaleSwitch();
 
@@ -70,7 +72,7 @@ export default function DocsViewBody() {
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <LandingHeader />
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }} role="status">
-          <CircularProgress aria-label="Loading" />
+          <CircularProgress aria-label={tCommon('loading')} />
         </Box>
         <SiteFooter />
       </Box>

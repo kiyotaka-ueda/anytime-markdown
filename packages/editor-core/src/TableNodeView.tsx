@@ -1,33 +1,36 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import type { NodeViewProps } from "@tiptap/react";
-import { NodeViewWrapper, NodeViewContent, useEditorState } from "@tiptap/react";
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from "@mui/material";
-import FocusTrap from "@mui/material/Unstable_TrapFocus";
-import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
-import ViewColumnIcon from "@mui/icons-material/ViewColumn";
-import TableRowsIcon from "@mui/icons-material/TableRows";
-import FormatAlignLeftIcon from "@mui/icons-material/FormatAlignLeft";
-import FormatAlignCenterIcon from "@mui/icons-material/FormatAlignCenter";
-import FormatAlignRightIcon from "@mui/icons-material/FormatAlignRight";
-import MoveUpIcon from "@mui/icons-material/MoveUp";
-import MoveDownIcon from "@mui/icons-material/MoveDown";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import CloseIcon from "@mui/icons-material/Close";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
+import FormatAlignCenterIcon from "@mui/icons-material/FormatAlignCenter";
+import FormatAlignLeftIcon from "@mui/icons-material/FormatAlignLeft";
+import FormatAlignRightIcon from "@mui/icons-material/FormatAlignRight";
+import FullscreenIcon from "@mui/icons-material/Fullscreen";
+import MoveDownIcon from "@mui/icons-material/MoveDown";
+import MoveUpIcon from "@mui/icons-material/MoveUp";
+import TableRowsIcon from "@mui/icons-material/TableRows";
+import ViewColumnIcon from "@mui/icons-material/ViewColumn";
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, ToggleButton, ToggleButtonGroup, Tooltip, Typography, useTheme } from "@mui/material";
+import FocusTrap from "@mui/material/Unstable_TrapFocus";
+import type { NodeViewProps } from "@tiptap/react";
+import { NodeViewContent, NodeViewWrapper, useEditorState } from "@tiptap/react";
 import { useTranslations } from "next-intl";
-import { moveTableRow, moveTableColumn } from "./utils/tableHelpers";
+import { useState } from "react";
+
 import { SearchReplaceBar } from "./components/SearchReplaceBar";
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "./constants/colors";
+import { Z_FULLSCREEN } from "./constants/zIndex";
+import { moveTableColumn,moveTableRow } from "./utils/tableHelpers";
 
 const iconSx = { fontSize: 16 };
 
-export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeViewProps) {
+export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
   const t = useTranslations("MarkdownEditor");
+  const isDark = useTheme().palette.mode === "dark";
   const [fullscreen, setFullscreen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const collapsed = !!node.attrs.collapsed;
-  const toggleCollapsed = useCallback(() => updateAttributes({ collapsed: !collapsed }), [collapsed, updateAttributes]);
   const isEditable = editor?.isEditable ?? true;
 
   // エディタのセレクションがこのテーブル内にあるかを検出
@@ -65,8 +68,8 @@ export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeVi
           ...(fullscreen && {
             position: "fixed",
             inset: 0,
-            zIndex: 1300,
-            bgcolor: "background.paper",
+            zIndex: Z_FULLSCREEN,
+            bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
             display: "flex",
             flexDirection: "column",
           }),

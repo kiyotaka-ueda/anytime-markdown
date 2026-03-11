@@ -1,22 +1,23 @@
+import type { AnyExtension } from "@tiptap/core";
+import Placeholder from "@tiptap/extension-placeholder";
+import type { MarkdownSerializerState } from "@tiptap/pm/markdown";
+import type { Node as ProseMirrorNode,Slice } from "@tiptap/pm/model";
+import type { EditorView } from "@tiptap/pm/view";
+import type { Editor } from "@tiptap/react";
 import type { RefObject } from "react";
 import { useEffect } from "react";
-import type { AnyExtension } from "@tiptap/core";
-import type { Editor } from "@tiptap/react";
-import type { EditorView } from "@tiptap/pm/view";
-import type { Slice, Node as ProseMirrorNode } from "@tiptap/pm/model";
-import type { MarkdownSerializerState } from "@tiptap/pm/markdown";
-import Placeholder from "@tiptap/extension-placeholder";
+
+import { Details, DetailsSummary } from "../detailsExtension";
 import { getBaseExtensions } from "../editorExtensions";
 import { CustomHardBreak } from "../extensions/customHardBreak";
 import { DeleteLineExtension } from "../extensions/deleteLineExtension";
-import { SearchReplaceExtension } from "../searchReplaceExtension";
-import { Details, DetailsSummary } from "../detailsExtension";
-import { SlashCommandExtension } from "../extensions/slashCommandExtension";
-import type { SlashCommandState } from "../extensions/slashCommandExtension";
 import { ReviewModeExtension, reviewModeStorage } from "../extensions/reviewModeExtension";
+import type { SlashCommandState } from "../extensions/slashCommandExtension";
+import { SlashCommandExtension } from "../extensions/slashCommandExtension";
+import { SearchReplaceExtension } from "../searchReplaceExtension";
 import {
-  getMarkdownFromEditor,
   extractHeadings,
+  getMarkdownFromEditor,
   type HeadingItem,
 } from "../types";
 import { toGitHubSlug } from "../utils/tocHelpers";
@@ -53,10 +54,12 @@ export function useEditorConfig({
   slashCommandCallbackRef,
 }: UseEditorConfigParams) {
   // Clean up debounce timer on unmount
+  // headingsDebounceRef は安定な ref オブジェクトのため依存配列から除外
   useEffect(() => {
     return () => {
       if (headingsDebounceRef.current) clearTimeout(headingsDebounceRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {
@@ -187,7 +190,7 @@ export function useEditorConfig({
             event.preventDefault();
             event.stopPropagation();
             if ((event.ctrlKey || event.metaKey) && editorRef.current) {
-              const slug = decodeURIComponent(anchorEl.getAttribute("href")!.slice(1));
+              const slug = decodeURIComponent((anchorEl.getAttribute("href") ?? "").slice(1));
               const headings = extractHeadings(editorRef.current).filter((h) => h.kind === "heading");
               const usedSlugs = new Map<string, number>();
               for (const h of headings) {

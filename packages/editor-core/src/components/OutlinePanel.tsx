@@ -1,5 +1,14 @@
 "use client";
 
+import CategoryIcon from "@mui/icons-material/Category";
+import CodeIcon from "@mui/icons-material/Code";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import GridOnIcon from "@mui/icons-material/GridOn";
+import ImageIcon from "@mui/icons-material/Image";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import SchemaIcon from "@mui/icons-material/Schema";
+import UnfoldLessIcon from "@mui/icons-material/UnfoldLess";
+import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 import {
   Box,
   Collapse,
@@ -9,19 +18,13 @@ import {
   Typography,
   useTheme,
 } from "@mui/material";
-import CodeIcon from "@mui/icons-material/Code";
-import GridOnIcon from "@mui/icons-material/GridOn";
-import ImageIcon from "@mui/icons-material/Image";
-import SchemaIcon from "@mui/icons-material/Schema";
+import React, { useCallback, useMemo,useState } from "react";
+
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../constants/colors";
 import MermaidIcon from "../icons/MermaidIcon";
-import CategoryIcon from "@mui/icons-material/Category";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import FormatListNumberedIcon from "@mui/icons-material/FormatListNumbered";
-import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import UnfoldLessIcon from "@mui/icons-material/UnfoldLess";
-import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
-import React, { useState, useCallback, useMemo } from "react";
 import type { HeadingItem, OutlineKind, TranslationFn } from "../types";
+
+const MANUAL_NUMBER_RE = /^\d+(\.\d+)*\.?\s/;
 
 const blockIcon: Record<Exclude<OutlineKind, "heading">, React.ReactElement> = {
   codeBlock: <CodeIcon sx={{ fontSize: 14 }} />,
@@ -45,8 +48,6 @@ interface OutlinePanelProps {
   handleOutlineResizeStart: (e: React.MouseEvent) => void;
   onHeadingDragEnd?: (fromIdx: number, toIdx: number) => void;
   onOutlineDelete?: (pos: number, kind: string) => void;
-  showHeadingNumbers?: boolean;
-  onToggleHeadingNumbers?: () => void;
   t: TranslationFn;
 }
 
@@ -64,8 +65,6 @@ export function OutlinePanel({
   handleOutlineResizeStart,
   onHeadingDragEnd,
   onOutlineDelete,
-  showHeadingNumbers,
-  onToggleHeadingNumbers,
   t,
 }: OutlinePanelProps) {
   const theme = useTheme();
@@ -74,19 +73,22 @@ export function OutlinePanel({
   const [dropIdx, setDropIdx] = useState<number | null>(null);
 
   // セクション番号マップ（見出しの pos → "1.2.3. "）
+  // 自動判定: 見出しに手動番号が多い場合は非表示
   const sectionNumberMap = useMemo(() => {
-    if (!showHeadingNumbers) return null;
+    const headingItems = headings.filter((h) => h.kind === "heading");
+    if (headingItems.length < 2) return null;
+    const numberedCount = headingItems.filter((h) => MANUAL_NUMBER_RE.test(h.text)).length;
+    if (numberedCount >= headingItems.length / 2) return null;
     const map = new Map<number, string>();
     const counters = [0, 0, 0, 0, 0]; // h1-h5
-    for (const h of headings) {
-      if (h.kind !== "heading") continue;
+    for (const h of headingItems) {
       const level = h.level - 1; // 0-indexed
       counters[level]++;
       for (let i = level + 1; i < 5; i++) counters[i] = 0;
       map.set(h.pos, counters.slice(0, level + 1).join(".") + ". ");
     }
     return map;
-  }, [showHeadingNumbers, headings]);
+  }, [headings]);
 
   // heading のみのインデックスマップ (headings 配列 idx → headingOnly idx)
   const headingOnlyIndices = useMemo(
@@ -157,6 +159,7 @@ export function OutlinePanel({
           borderRight: "none",
           overflow: "auto",
           maxHeight: editorHeight,
+          bgcolor: theme.palette.mode === "dark" ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
         }}
       >
         <Box sx={{ p: 1.5 }}>
@@ -174,19 +177,6 @@ export function OutlinePanel({
               {t("outline")}
             </Typography>
             <Box sx={{ display: "flex", gap: 0.25 }}>
-              {onToggleHeadingNumbers && (
-                <Tooltip title={t("settingHeadingNumbers")}>
-                  <IconButton
-                    aria-label={t("settingHeadingNumbers")}
-                    aria-pressed={!!showHeadingNumbers}
-                    size="small"
-                    onClick={onToggleHeadingNumbers}
-                    sx={{ p: 0.5, color: showHeadingNumbers ? "primary.main" : "text.secondary" }}
-                  >
-                    <FormatListNumberedIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                </Tooltip>
-              )}
               <Tooltip title={t("outlineShowBlocks")}>
                 <IconButton
                   aria-label={t("outlineShowBlocks")}
@@ -223,8 +213,6 @@ export function OutlinePanel({
                 const isHidden = hiddenByFold.has(idx) || (!isHeading && !showBlocks);
                 const isFolded = isHeading && foldedIndices.has(h.headingIndex ?? -1);
                 const hoIdx = isHeading ? toHeadingOnlyIdx(idx) : -1;
-                const _isFirst = isHeading && hoIdx === 0;
-                const _isLast = isHeading && hoIdx === headingOnlyIndices.length - 1;
                 const isDragging = isHeading && hoIdx === dragIdx;
                 const isDropTarget = isHeading && hoIdx === dropIdx && hoIdx !== dragIdx;
                 // ブロック要素は直近の見出しレベルに合わせてインデント
@@ -287,7 +275,17 @@ export function OutlinePanel({
                         role="button"
                         tabIndex={0}
                         onClick={() => handleOutlineClick(h.pos)}
-                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleOutlineClick(h.pos); } }}
+                        {...(isHeading && onHeadingDragEnd ? { "aria-roledescription": t("draggableHeading") } : {})}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleOutlineClick(h.pos); }
+                          if (isHeading && onHeadingDragEnd && e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+                            e.preventDefault();
+                            const targetIdx = e.key === "ArrowUp" ? hoIdx - 1 : hoIdx + 1;
+                            if (targetIdx >= 0 && targetIdx < headingOnlyIndices.length) {
+                              onHeadingDragEnd(hoIdx, targetIdx);
+                            }
+                          }
+                        }}
                         sx={{
                           cursor: "pointer",
                           fontSize: "0.8rem",

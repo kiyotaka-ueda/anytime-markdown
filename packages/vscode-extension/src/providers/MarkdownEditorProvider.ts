@@ -109,7 +109,6 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         type: 'setSettings',
         settings: {
           fontSize: config.get<number>('fontSize', 0),
-          lineHeight: config.get<number>('lineHeight', 1.6),
           editorMaxWidth: config.get<number>('editorMaxWidth', 0),
         },
       });

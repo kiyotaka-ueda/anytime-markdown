@@ -1,18 +1,22 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
-import type { NodeViewProps } from "@tiptap/react";
-import { NodeViewWrapper, useEditorState } from "@tiptap/react";
+import CloseIcon from "@mui/icons-material/Close";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
+import EditIcon from "@mui/icons-material/Edit";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
+import FullscreenIcon from "@mui/icons-material/Fullscreen";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, Tooltip, Typography, useTheme } from "@mui/material";
 import FocusTrap from "@mui/material/Unstable_TrapFocus";
-import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import EditIcon from "@mui/icons-material/Edit";
-import FullscreenIcon from "@mui/icons-material/Fullscreen";
-import CloseIcon from "@mui/icons-material/Close";
-import WarningAmberIcon from "@mui/icons-material/WarningAmber";
-import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
+import type { NodeViewProps } from "@tiptap/react";
+import { NodeViewWrapper, useEditorState } from "@tiptap/react";
 import { useTranslations } from "next-intl";
+import { useCallback, useEffect,useRef, useState } from "react";
+
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "./constants/colors";
+import { Z_FULLSCREEN } from "./constants/zIndex";
+import { getEditorStorage } from "./types";
 
 const iconSx = { fontSize: 16 };
 const MIN_WIDTH = 50;
@@ -23,7 +27,6 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const collapsed = !!node.attrs.collapsed;
-  const toggleCollapsed = useCallback(() => updateAttributes({ collapsed: !collapsed }), [collapsed, updateAttributes]);
 
   const isSelected = useEditorState({
     editor,
@@ -148,8 +151,8 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
         ...(fullscreen && {
           position: "fixed",
           inset: 0,
-          zIndex: 1300,
-          bgcolor: theme.palette.mode === "dark" ? "grey.900" : "background.paper",
+          zIndex: Z_FULLSCREEN,
+          bgcolor: theme.palette.mode === "dark" ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
           display: "flex",
           flexDirection: "column",
         }),
@@ -223,7 +226,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
                 if (typeof getPos !== "function") return;
                 const pos = getPos();
                 if (pos == null) return;
-                const storage = editor.storage as unknown as Record<string, Record<string, unknown>>;
+                const storage = getEditorStorage(editor);
                 const onEdit = storage.image?.onEditImage as ((data: { pos: number; src: string; alt: string }) => void) | undefined;
                 if (onEdit) onEdit({ pos, src: src || "", alt: alt || "" });
               }} aria-label={t("imageUrl")}>

@@ -1,19 +1,21 @@
-import React, { useRef, useState } from "react";
-import { Box, Dialog, DialogTitle, Divider, IconButton, ToggleButton, ToggleButtonGroup, Tooltip, Typography, useTheme } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import CodeIcon from "@mui/icons-material/Code";
 import CodeOffIcon from "@mui/icons-material/CodeOff";
+import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import ZoomInIcon from "@mui/icons-material/ZoomIn";
 import ZoomOutIcon from "@mui/icons-material/ZoomOut";
-import RestartAltIcon from "@mui/icons-material/RestartAlt";
+import { Box, Dialog, DialogTitle, Divider, IconButton, ToggleButton, ToggleButtonGroup, Tooltip, Typography, useMediaQuery, useTheme } from "@mui/material";
 import DOMPurify from "dompurify";
-import { useEditorSettingsContext } from "../useEditorSettings";
-import { FsSearchBar } from "./FsSearchBar";
-import { FullscreenDiffView } from "./FullscreenDiffView";
+import React, { useRef, useState } from "react";
+
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../constants/colors";
 import { SVG_SANITIZE_CONFIG } from "../hooks/useMermaidRender";
-import { extractDiagramAltText } from "../utils/diagramAltText";
 import type { TextareaSearchState } from "../hooks/useTextareaSearch";
 import type { UseZoomPanReturn } from "../hooks/useZoomPan";
+import { useEditorSettingsContext } from "../useEditorSettings";
+import { extractDiagramAltText } from "../utils/diagramAltText";
+import { FsSearchBar } from "./FsSearchBar";
+import { FullscreenDiffView } from "./FullscreenDiffView";
 
 interface DiagramFullscreenDialogProps {
   open: boolean;
@@ -38,7 +40,7 @@ interface DiagramFullscreenDialogProps {
   t: (key: string) => string;
 }
 
-const textareaSx = (fontSize: number, lineHeight: number) => ({
+const textareaSx = (fontSize: number, lineHeight: number, isDark: boolean) => ({
   flex: 1,
   width: "100%",
   border: "none",
@@ -49,7 +51,7 @@ const textareaSx = (fontSize: number, lineHeight: number) => ({
   lineHeight,
   p: 2,
   color: "text.primary",
-  bgcolor: "background.paper",
+  bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
   boxSizing: "border-box",
   overflow: "auto",
 } as const);
@@ -63,6 +65,7 @@ export function DiagramFullscreenDialog({
 }: DiagramFullscreenDialogProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const settings = useEditorSettingsContext();
 
   const [fsSplitPct, setFsSplitPct] = useState(40);
@@ -158,7 +161,7 @@ export function DiagramFullscreenDialog({
         /* Normal view: Code + Divider + Preview */
         <Box
           ref={fsContainerRef}
-          sx={{ flex: 1, display: "flex", overflow: "hidden", position: "relative" }}
+          sx={{ flex: 1, display: "flex", flexDirection: isMobile ? "column" : "row", overflow: "hidden", position: "relative" }}
           onPointerMove={(e: React.PointerEvent) => {
             if (fsDragging && fsContainerRef.current) {
               const rect = fsContainerRef.current.getBoundingClientRect();
@@ -178,7 +181,7 @@ export function DiagramFullscreenDialog({
         >
           {/* Code editor */}
           {fsCodeVisible && (
-            <Box sx={{ width: `${fsSplitPct}%`, minWidth: 120, display: "flex", flexDirection: "column", pointerEvents: fsDragging ? "none" : "auto" }}>
+            <Box sx={{ width: isMobile ? "100%" : `${fsSplitPct}%`, height: isMobile ? "40%" : "auto", minWidth: isMobile ? undefined : 120, display: "flex", flexDirection: "column", pointerEvents: fsDragging ? "none" : "auto" }}>
               <Box
                 component="textarea"
                 ref={fsTextareaRef}
@@ -186,11 +189,11 @@ export function DiagramFullscreenDialog({
                 onChange={onFsCodeChange}
                 readOnly={readOnly}
                 spellCheck={false}
-                sx={textareaSx(settings.fontSize, settings.lineHeight)}
+                sx={textareaSx(settings.fontSize, settings.lineHeight, isDark)}
               />
             </Box>
           )}
-          {/* Draggable divider */}
+          {/* Draggable divider (desktop only) */}
           {fsCodeVisible && (
             <Box
               role="separator"
@@ -215,6 +218,7 @@ export function DiagramFullscreenDialog({
                 e.preventDefault();
               }}
               sx={{
+                display: isMobile ? "none" : "block",
                 width: 4,
                 cursor: "col-resize",
                 bgcolor: "divider",
@@ -226,12 +230,16 @@ export function DiagramFullscreenDialog({
               }}
             />
           )}
+          {/* Horizontal divider (mobile only) */}
+          {fsCodeVisible && (
+            <Divider sx={{ display: isMobile ? "block" : "none" }} />
+          )}
           {/* Preview */}
           <Box
             sx={{
               flex: 1,
               overflow: "hidden",
-              bgcolor: "background.paper",
+              bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
               cursor: fsDragging ? "col-resize" : "grab",
               "&:active": { cursor: fsDragging ? "col-resize" : "grabbing" },
               pointerEvents: fsDragging ? "none" : "auto",

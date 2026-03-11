@@ -9,10 +9,10 @@
  * - InputRule: [^id] パターンで FootnoteRef ノードに変換
  * - serialize: [^id] を出力
  */
-import { Node, InputRule } from "@tiptap/core";
-import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
-import type { NodeViewProps } from "@tiptap/react";
 import { Box, useTheme } from "@mui/material";
+import { InputRule,Node } from "@tiptap/core";
+import type { NodeViewProps } from "@tiptap/react";
+import { NodeViewWrapper,ReactNodeViewRenderer } from "@tiptap/react";
 
 /** FootnoteRef NodeView コンポーネント */
 function FootnoteRefView({ node, selected }: NodeViewProps) {

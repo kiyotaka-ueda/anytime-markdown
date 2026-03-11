@@ -1,6 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { ACCENT_COLOR, DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from '@anytime-markdown/editor-core';
+import {
+  closestCenter,
+  DndContext,
+  type DragEndEvent,
+  DragOverlay,
+  type DragStartEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  rectSortingStrategy,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
+import DeleteIcon from '@mui/icons-material/Delete';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import {
   Box,
   Button,
@@ -10,36 +33,14 @@ import {
   IconButton,
   List,
   ListItem,
-  ListItemText,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import AddIcon from '@mui/icons-material/Add';
-import CloseIcon from '@mui/icons-material/Close';
-import DeleteIcon from '@mui/icons-material/Delete';
-import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
-import {
-  DndContext,
-  DragOverlay,
-  closestCenter,
-  PointerSensor,
-  KeyboardSensor,
-  useSensor,
-  useSensors,
-  type DragStartEvent,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  useSortable,
-  sortableKeyboardCoordinates,
-  rectSortingStrategy,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import type { useTranslations } from 'next-intl';
+import { useState } from 'react';
+
 import type { LayoutCategory } from '../../../types/layout';
 
 const hoverShowSx = {
@@ -276,11 +277,11 @@ function SortableCategory({
           bgcolor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
           border: 1,
           borderColor: dragOver
-            ? '#e8a012'
+            ? ACCENT_COLOR
             : isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
           borderRadius: 3,
           outline: dragOver ? '1px solid' : 'none',
-          outlineColor: '#e8a012',
+          outlineColor: ACCENT_COLOR,
         }}
         onDragOver={(e) => {
           if (e.dataTransfer.types.includes('application/x-doc-file') || e.dataTransfer.types.includes('application/x-url-link')) {
@@ -427,7 +428,7 @@ export default function CategoryAreaPanel({
           borderRadius: 2,
           p: 2,
           minHeight: 200,
-          bgcolor: 'background.paper',
+          bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
         }}
       >
         {categories.length === 0 ? (

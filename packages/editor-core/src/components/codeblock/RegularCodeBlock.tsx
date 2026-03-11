@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import { Box, Divider, IconButton, Tooltip, Typography } from "@mui/material";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import { getMergeEditors, findCounterpartCode, getCodeBlockIndex, findCodeBlockByIndex } from "../../contexts/MergeEditorsContext";
+import { Box, Divider, IconButton, Tooltip, Typography } from "@mui/material";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+
+import { findCodeBlockByIndex,findCounterpartCode, getCodeBlockIndex, getMergeEditors } from "../../contexts/MergeEditorsContext";
 import { CodeBlockFullscreenDialog } from "../CodeBlockFullscreenDialog";
 import { CodeBlockFrame } from "./CodeBlockFrame";
 import type { CodeBlockSharedProps } from "./types";
@@ -21,8 +22,8 @@ type RegularCodeBlockProps = Pick<
 
 export function RegularCodeBlock(props: RegularCodeBlockProps) {
   const {
-    editor, node, getPos, code,
-    allCollapsed, isSelected, toggleAllCollapsed, handleDragKeyDown,
+    editor, node, getPos: _getPos, code,
+    allCollapsed, isSelected, toggleAllCollapsed: _toggleAllCollapsed, handleDragKeyDown,
     handleDeleteBlock, deleteDialogOpen, setDeleteDialogOpen,
     fullscreen, setFullscreen, fsCode, onFsCodeChange, fsTextareaRef, fsSearch,
     t, isDark,

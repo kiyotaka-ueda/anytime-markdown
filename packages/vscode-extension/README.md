@@ -91,7 +91,6 @@ VS Code 上で動作する WYSIWYG Markdown エディタ拡張機能です。Tip
 | 設定 | 型 | デフォルト | 説明 |
 |---|---|---|---|
 | `anytimeMarkdown.fontSize` | number | `0` | フォントサイズ（px）。0 で VS Code デフォルト |
-| `anytimeMarkdown.lineHeight` | number | `1.6` | 行の高さ |
 | `anytimeMarkdown.editorMaxWidth` | number | `0` | エディタの最大幅（px）。0 で制限なし |
 
 ## Testing

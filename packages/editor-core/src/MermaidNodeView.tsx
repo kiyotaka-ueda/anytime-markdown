@@ -1,15 +1,16 @@
 "use client";
 
+import { useTheme } from "@mui/material";
 import type { NodeViewProps } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useTheme } from "@mui/material";
 import { useTranslations } from "next-intl";
-import { useTextareaSearch } from "./hooks/useTextareaSearch";
-import { MathBlock } from "./components/codeblock/MathBlock";
-import { HtmlPreviewBlock } from "./components/codeblock/HtmlPreviewBlock";
-import { RegularCodeBlock } from "./components/codeblock/RegularCodeBlock";
+import { useCallback, useEffect, useRef, useState } from "react";
+
 import { DiagramBlock } from "./components/codeblock/DiagramBlock";
+import { HtmlPreviewBlock } from "./components/codeblock/HtmlPreviewBlock";
+import { MathBlock } from "./components/codeblock/MathBlock";
+import { RegularCodeBlock } from "./components/codeblock/RegularCodeBlock";
+import { useTextareaSearch } from "./hooks/useTextareaSearch";
 
 export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: NodeViewProps) {
   const theme = useTheme();
@@ -83,18 +84,22 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
   }, [handleBlockMove]);
 
   // Auto-collapse code when deselected
+  // codeCollapsed, updateAttributes は意図的に除外（選択解除時のみ発火させる）
   useEffect(() => {
     if (!isSelected && !codeCollapsed) {
       updateAttributes({ codeCollapsed: true });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSelected]);
 
   const code = node.textContent;
   const handleCopyCode = useCallback(() => { navigator.clipboard.writeText(code); }, [code]);
 
   // Sync code on fullscreen open
+  // code は意図的に除外（fullscreen 切替時のスナップショットのみ取得）
   useEffect(() => {
     if (fullscreen) setFsCode(code);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fullscreen]);
 
   /** Sync fullscreen code editor changes back to TipTap node */

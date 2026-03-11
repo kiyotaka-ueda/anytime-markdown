@@ -125,6 +125,7 @@
     "unfoldAll": "すべて展開する",
     "collapseSection": "セクションを折りたたむ",
     "expandSection": "セクションを展開する",
+    "draggableHeading": "ドラッグ可能な見出し、Alt+矢印キーで並び替え",
     "diagramCodeHide": "ダイアグラムコードを隠す",
     "diagramCodeShow": "ダイアグラムコードを表示する",
     "diagramFlowchart": "フローチャート",
@@ -175,6 +176,7 @@
     "mmdClassName": "クラス名",
     "mmdParticipantAlias": "別名",
     "cancel": "キャンセル",
+    "requiredField": "この項目は必須です",
     "editorSettings": "エディタ設定",
     "settingLineHeight": "行間",
     "settingFontSize": "フォントサイズ",
@@ -497,13 +499,21 @@
     "sitesUrlDisplayName": "リンク名",
     "docsEditPage": "編集",
     "siteDescription": "サイトの説明",
-    "docsEmptyHint": "管理画面からドキュメントを登録してください"
+    "docsEmptyHint": "管理画面からドキュメントを登録してください",
+    "ariaMainNavigation": "メインナビゲーション",
+    "ariaFooterNavigation": "フッターナビゲーション",
+    "ariaMobileNavigation": "モバイルナビゲーション",
+    "ariaLanguage": "言語",
+    "ariaMenu": "メニュー",
+    "ariaSkipToContent": "メインコンテンツへスキップ"
   },
   "Common": {
     "ok": "OK",
     "cancel": "キャンセル",
     "error": "エラーが発生しました",
-    "retry": "もう一度試す"
+    "retry": "もう一度試す",
+    "loading": "読み込み中",
+    "loadingEditor": "エディタを読み込み中"
   },
   "Privacy": {
     "title": "プライバシーポリシー",

@@ -2,6 +2,7 @@ import {
   PLANTUML_SERVER,
   PLANTUML_CONSENT_KEY,
   PLANTUML_DARK_SKINPARAMS,
+  buildPlantUmlUrl,
 } from "../utils/plantumlHelpers";
 
 describe("plantumlHelpers", () => {
@@ -44,5 +45,17 @@ describe("plantumlHelpers", () => {
     expect(PLANTUML_DARK_SKINPARAMS).toContain("skinparam sequenceLifeLineBorderColor");
     expect(PLANTUML_DARK_SKINPARAMS).toContain("skinparam sequenceGroupBorderColor");
     expect(PLANTUML_DARK_SKINPARAMS).toContain("skinparam sequenceMessageAlignment");
+  });
+
+  describe("buildPlantUmlUrl", () => {
+    test("PLANTUML_SERVER オリジンで始まる URL を返す", () => {
+      const url = buildPlantUmlUrl("SoWkIImgAStDuNBAJrBGjLDmpCbCJbMmKiX8pSd9vt98pKi1IW80");
+      expect(url).toBe(`${PLANTUML_SERVER}/svg/SoWkIImgAStDuNBAJrBGjLDmpCbCJbMmKiX8pSd9vt98pKi1IW80`);
+    });
+
+    test("空文字列のエンコード値でも正しい URL を返す", () => {
+      const url = buildPlantUmlUrl("");
+      expect(url).toBe(`${PLANTUML_SERVER}/svg/`);
+    });
   });
 });

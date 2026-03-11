@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import {
-  AppBar, Toolbar, Typography, ToggleButtonGroup, ToggleButton,
-  Button, Box, IconButton, Drawer, List, ListItemButton, ListItemText,
-} from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
+import {
+  AppBar, Box,   Button, Drawer, IconButton, List, ListItemButton, ListItemText,
+ToggleButton,
+ToggleButtonGroup, Toolbar, Typography, } from '@mui/material';
 import NextLink from 'next/link';
 import { useTranslations } from 'next-intl';
+import { useState } from 'react';
+
 import { useLocaleSwitch } from '../LocaleProvider';
 
 export default function LandingHeader() {
@@ -42,7 +43,7 @@ export default function LandingHeader() {
           Anytime Markdown
         </Typography>
 
-        <Box component="nav" aria-label="Main navigation" sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
+        <Box component="nav" aria-label={t('ariaMainNavigation')} sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
           <Button
             component={NextLink}
             href="/docs"
@@ -56,8 +57,9 @@ export default function LandingHeader() {
             exclusive
             onChange={(_, val) => { if (val) setLocale(val); }}
             size="small"
-            aria-label="Language"
+            aria-label={t('ariaLanguage')}
             sx={{
+              display: { xs: 'none', sm: 'inline-flex' },
               '& .MuiToggleButton-root': {
                 px: 1.5,
                 py: 0.25,
@@ -89,6 +91,7 @@ export default function LandingHeader() {
               px: 2.5,
               bgcolor: 'secondary.main',
               color: '#000000',
+              display: { xs: 'none', sm: 'inline-flex' },
               '&:hover': { bgcolor: 'secondary.dark' },
             }}
           >
@@ -96,7 +99,7 @@ export default function LandingHeader() {
           </Button>
 
           <IconButton
-            aria-label="Menu"
+            aria-label={t('ariaMenu')}
             aria-expanded={drawerOpen}
             aria-controls="mobile-nav-drawer"
             onClick={() => setDrawerOpen(true)}
@@ -112,9 +115,9 @@ export default function LandingHeader() {
         anchor="right"
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        aria-label="Mobile navigation"
+        aria-label={t('ariaMobileNavigation')}
       >
-        <Box sx={{ width: 220, pt: 2 }} component="nav" aria-label="Mobile navigation">
+        <Box sx={{ width: 220, pt: 2 }} component="nav" aria-label={t('ariaMobileNavigation')}>
           <List>
             <ListItemButton component={NextLink} href="/docs" onClick={() => setDrawerOpen(false)}>
               <ListItemText primary={t('sitesPage')} />
@@ -123,6 +126,28 @@ export default function LandingHeader() {
               <ListItemText primary={t('openEditor')} />
             </ListItemButton>
           </List>
+          <Box sx={{ px: 2, pt: 1 }}>
+            <ToggleButtonGroup
+              value={locale}
+              exclusive
+              onChange={(_, val) => { if (val) setLocale(val); }}
+              size="small"
+              fullWidth
+              aria-label={t('ariaLanguage')}
+              sx={{
+                '& .MuiToggleButton-root': {
+                  px: 1.5,
+                  py: 0.5,
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                },
+              }}
+            >
+              <ToggleButton value="en" aria-label="English">EN</ToggleButton>
+              <ToggleButton value="ja" aria-label="Japanese">JA</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
         </Box>
       </Drawer>
     </AppBar>

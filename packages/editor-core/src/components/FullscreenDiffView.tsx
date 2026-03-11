@@ -1,9 +1,11 @@
-import React, { useMemo, useState, useRef, useCallback, useEffect } from "react";
-import { Box, IconButton, Tooltip, alpha, useTheme, type Theme } from "@mui/material";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
-import { computeDiff, applyMerge, type DiffLine, type DiffResult } from "../utils/diffEngine";
+import { alpha, Box, IconButton, type Theme,Tooltip, useTheme } from "@mui/material";
+import React, { useCallback, useEffect,useMemo, useRef, useState } from "react";
+
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../constants/colors";
 import { useEditorSettingsContext } from "../useEditorSettings";
+import { applyMerge, computeDiff, type DiffLine } from "../utils/diffEngine";
 
 interface FullscreenDiffViewProps {
   initialLeftCode: string;
@@ -373,7 +375,6 @@ function DiffPanel({
   );
 
   const isDark = theme.palette.mode === "dark";
-  const settings = useEditorSettingsContext();
 
   return (
     <Box
@@ -384,7 +385,7 @@ function DiffPanel({
         minWidth: 0,
         borderLeft: side === "right" ? 1 : 0,
         borderColor: "divider",
-        bgcolor: settings.editorBg === "grey" && !isDark ? "grey.50" : "background.paper",
+        bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
       }}
     >
       <Box sx={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>

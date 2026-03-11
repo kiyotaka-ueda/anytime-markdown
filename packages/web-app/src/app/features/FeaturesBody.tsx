@@ -1,21 +1,21 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ACCENT_COLOR } from '@anytime-markdown/editor-core';
 import {
   Box,
   CircularProgress,
   Container,
-
   List,
   ListItemButton,
   ListItemText,
   Typography,
 } from '@mui/material';
-
-import { useTranslations } from 'next-intl';
 import { useTheme } from '@mui/material/styles';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
+import { useTranslations } from 'next-intl';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
 import LandingHeader from '../components/LandingHeader';
 import SiteFooter from '../components/SiteFooter';
 import { useLocaleSwitch } from '../LocaleProvider';
@@ -302,13 +302,13 @@ function getContentSx(isDark: boolean) {
         },
       },
       '& a': {
-        color: '#e8a012',
+        color: ACCENT_COLOR,
         textDecoration: 'none',
         '&:hover': { textDecoration: 'underline' },
       },
       '& blockquote': {
         borderLeft: 3,
-        borderColor: '#e8a012',
+        borderColor: ACCENT_COLOR,
         pl: 2,
         ml: 0,
         my: 2,

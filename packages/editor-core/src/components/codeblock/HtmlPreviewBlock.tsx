@@ -1,18 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import { Box, Divider, IconButton, Tooltip, Typography } from "@mui/material";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import SchemaIcon from "@mui/icons-material/Schema";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import { Box, Divider, IconButton, Tooltip, Typography } from "@mui/material";
 import DOMPurify from "dompurify";
+import { useState } from "react";
+
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../../constants/colors";
+import { PREVIEW_MAX_HEIGHT } from "../../constants/dimensions";
 import { CodeBlockFullscreenDialog } from "../CodeBlockFullscreenDialog";
 import { HtmlSamplePopover } from "../HtmlSamplePopover";
 import { CodeBlockFrame } from "./CodeBlockFrame";
-import { HTML_SANITIZE_CONFIG } from "./types";
 import type { CodeBlockSharedProps } from "./types";
+import { HTML_SANITIZE_CONFIG } from "./types";
 
 type HtmlPreviewBlockProps = Pick<
   CodeBlockSharedProps,
@@ -27,7 +30,7 @@ type HtmlPreviewBlockProps = Pick<
 export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
   const {
     editor,
-    allCollapsed, codeCollapsed, isSelected, toggleAllCollapsed,
+    allCollapsed, codeCollapsed, isSelected, toggleAllCollapsed: _toggleAllCollapsed,
     selectNode, handleDragKeyDown, code,
     handleCopyCode, handleDeleteBlock, deleteDialogOpen, setDeleteDialogOpen,
     fullscreen, setFullscreen, fsCode, onFsCodeChange, fsTextareaRef, fsSearch,
@@ -125,7 +128,7 @@ export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
           aria-label={t("htmlPreview")}
           contentEditable={false}
           onClick={selectNode}
-          sx={{ pt: 0, px: 2, pb: 2, bgcolor: "background.paper", borderTop: codeCollapsed ? 0 : 1, borderColor: "divider", overflow: "auto", maxHeight: 400, "& img": { maxWidth: "100%" } }}
+          sx={{ pt: 0, px: 2, pb: 2, bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG, borderTop: codeCollapsed ? 0 : 1, borderColor: "divider", overflow: "auto", maxHeight: PREVIEW_MAX_HEIGHT, "& img": { maxWidth: "100%" } }}
           dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(code, HTML_SANITIZE_CONFIG) }}
         />
       )}

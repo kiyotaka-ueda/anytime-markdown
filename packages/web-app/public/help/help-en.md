@@ -35,6 +35,17 @@ File operations are available from the toolbar.
 | :--: | ------ | ----------- |
 | ![Outline](/help/icons/outline.png) | Outline Toggle | Toggle the outline panel visibility from the toolbar. |
 
+### YAML Frontmatter
+
+Add YAML metadata (frontmatter) at the beginning of your document.
+
+- In source mode, write a block enclosed by `---` delimiters.
+- In edit mode, frontmatter is displayed as a collapsible block above the editor.
+- Manage metadata such as title, date, and tags.
+- Frontmatter is read-only in review mode and compare mode.
+- Delete frontmatter from the block toolbar (with a confirmation dialog).
+- Frontmatter blocks are hidden when printing.
+
 ### Other
 
 - More menu: Access Help Page, Editor Settings, and Version Info from the "⋮" button at the right end of the toolbar.
@@ -294,6 +305,7 @@ Customize the editor appearance and behavior.
 
 - Adjustable settings: Line Height, Font Size, Table Width, Editor Min Width, Editor Background Color.
 - Section numbers: Toggle the "Section numbers" switch to auto-number headings (e.g. 1, 1.1, 1.1.1).
+- Spell check: Toggle the "Spell check" switch to enable or disable the browser's built-in spell checker (default: OFF).
 
 ### Encoding & Line Ending
 

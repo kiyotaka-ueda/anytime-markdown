@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+
 import { fetchLayoutData } from "../lib/s3Client";
 
 const BASE_URL =

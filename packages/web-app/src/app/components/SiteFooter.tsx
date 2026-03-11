@@ -20,7 +20,7 @@ export default function SiteFooter() {
     >
       <Box
         component="nav"
-        aria-label="Footer navigation"
+        aria-label={t('ariaFooterNavigation')}
         sx={{
           display: 'flex',
           flexWrap: 'wrap',

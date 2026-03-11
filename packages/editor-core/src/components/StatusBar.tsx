@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Box, Button, Menu, MenuItem, Tooltip, Typography } from "@mui/material";
 import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
+import { Box, Button, Menu, MenuItem, Tooltip, Typography } from "@mui/material";
 import type { Editor } from "@tiptap/react";
-import type { EncodingLabel, TranslationFn } from "../types";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+
 import useConfirm from "../hooks/useConfirm";
+import type { EncodingLabel, TranslationFn } from "../types";
 
 export interface StatusInfo {
   line: number;

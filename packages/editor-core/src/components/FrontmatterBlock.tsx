@@ -2,7 +2,10 @@
 
 import { Box, IconButton, Typography, useTheme } from "@mui/material";
 import { useCallback, useRef, useState } from "react";
+
 import useConfirm from "@/hooks/useConfirm";
+
+import { DEFAULT_DARK_CODE_BG, DEFAULT_LIGHT_CODE_BG } from "../constants/colors";
 import { useEditorSettingsContext } from "../useEditorSettings";
 
 interface FrontmatterBlockProps {
@@ -123,7 +126,7 @@ export function FrontmatterBlock({ frontmatter, onChange, readOnly, t }: Frontma
             fontFamily: "monospace",
             fontSize: `${settings.fontSize}px`,
             lineHeight: settings.lineHeight,
-            bgcolor: isDark ? "grey.900" : "grey.50",
+            bgcolor: isDark ? DEFAULT_DARK_CODE_BG : DEFAULT_LIGHT_CODE_BG,
             color: isDark ? "grey.100" : "grey.900",
             maxHeight: 300,
             overflow: "auto",

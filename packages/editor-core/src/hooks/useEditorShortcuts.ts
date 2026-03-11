@@ -1,6 +1,6 @@
-import { useEffect } from "react";
-import type { Dispatch, SetStateAction } from "react";
 import type { Editor } from "@tiptap/react";
+import type { Dispatch, SetStateAction } from "react";
+import { useEffect } from "react";
 
 interface UseEditorShortcutsParams {
   editor: Editor | null;

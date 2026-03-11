@@ -1,7 +1,8 @@
 import { renderHook, act } from "@testing-library/react";
 import { useMarkdownEditor } from "../useMarkdownEditor";
+import { STORAGE_KEY_CONTENT } from "../constants/storageKeys";
 
-const STORAGE_KEY = "markdown-editor-content";
+const STORAGE_KEY = STORAGE_KEY_CONTENT;
 
 describe("useMarkdownEditor", () => {
   beforeEach(() => {

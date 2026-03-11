@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import HelpCenterIcon from "@mui/icons-material/HelpCenter";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import {
   Box,
   Button,
@@ -11,12 +12,12 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import HelpCenterIcon from "@mui/icons-material/HelpCenter";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import React from "react";
+
 import { KEYBOARD_SHORTCUTS } from "../constants/shortcuts";
+import type { TranslationFn } from "../types";
 import { APP_VERSION } from "../version";
 import { HelpDialog } from "./HelpDialog";
-import type { TranslationFn } from "../types";
 
 interface EditorDialogsProps {
   commentDialogOpen: boolean;
@@ -75,6 +76,14 @@ export const EditorDialogs = React.memo(function EditorDialogs({
   locale: _locale,
   t,
 }: EditorDialogsProps) {
+  const [touched, setTouched] = React.useState<Set<string>>(new Set());
+  const markTouched = React.useCallback((field: string) => setTouched((prev) => new Set(prev).add(field)), []);
+
+  // Reset touched state when dialogs open
+  React.useEffect(() => { if (commentDialogOpen) setTouched(new Set()); }, [commentDialogOpen]);
+  React.useEffect(() => { if (linkDialogOpen) setTouched(new Set()); }, [linkDialogOpen]);
+  React.useEffect(() => { if (imageDialogOpen) setTouched(new Set()); }, [imageDialogOpen]);
+
   return (
     <>
       {/* Comment input dialog */}
@@ -89,13 +98,17 @@ export const EditorDialogs = React.memo(function EditorDialogs({
         <DialogContent>
           <TextField
             autoFocus
+            required
             multiline
             minRows={2}
             maxRows={8}
             label={t("commentPrompt")}
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
+            onBlur={() => markTouched("comment")}
             onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleCommentInsert(); }}
+            error={touched.has("comment") && !commentText.trim()}
+            helperText={touched.has("comment") && !commentText.trim() ? t("requiredField") : undefined}
             fullWidth
             size="small"
             sx={{ mt: 1 }}
@@ -121,10 +134,14 @@ export const EditorDialogs = React.memo(function EditorDialogs({
         <DialogContent>
           <TextField
             autoFocus
+            required
             label={t("linkUrl")}
             value={linkUrl}
             onChange={(e) => setLinkUrl(e.target.value)}
+            onBlur={() => markTouched("linkUrl")}
             onKeyDown={(e) => { if (e.key === "Enter") handleLinkInsert(); }}
+            error={touched.has("linkUrl") && !linkUrl.trim()}
+            helperText={touched.has("linkUrl") && !linkUrl.trim() ? t("requiredField") : undefined}
             fullWidth
             size="small"
             sx={{ mt: 1 }}
@@ -150,9 +167,13 @@ export const EditorDialogs = React.memo(function EditorDialogs({
         <DialogContent>
           <TextField
             autoFocus
+            required
             label={t("imageUrl")}
             value={imageUrl}
             onChange={(e) => setImageUrl(e.target.value)}
+            onBlur={() => markTouched("imageUrl")}
+            error={touched.has("imageUrl") && !imageUrl.trim()}
+            helperText={touched.has("imageUrl") && !imageUrl.trim() ? t("requiredField") : undefined}
             fullWidth
             size="small"
             sx={{ mt: 1 }}

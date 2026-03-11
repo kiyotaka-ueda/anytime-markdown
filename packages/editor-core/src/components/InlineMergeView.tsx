@@ -1,23 +1,26 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Box,
   Divider,
 } from "@mui/material";
-import { alpha, useTheme } from "@mui/material/styles";
-import { useEditor } from "@tiptap/react";
+import { useTheme } from "@mui/material/styles";
 import type { Editor } from "@tiptap/react";
+import { useEditor } from "@tiptap/react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+
+import { getEditorBg } from "../constants/colors";
+import { setMergeEditors } from "../contexts/MergeEditorsContext";
 import { getBaseExtensions } from "../editorExtensions";
 import { CustomHardBreak } from "../extensions/customHardBreak";
 import { ReviewModeExtension, reviewModeStorage } from "../extensions/reviewModeExtension";
-import { useMergeDiff } from "../hooks/useMergeDiff";
 import { useDiffBackground } from "../hooks/useDiffBackground";
 import { useDiffHighlight } from "../hooks/useDiffHighlight";
+import { useMergeDiff } from "../hooks/useMergeDiff";
 import { useScrollSync } from "../hooks/useScrollSync";
 import { useEditorSettingsContext } from "../useEditorSettings";
+import { type DiffLine } from "../utils/diffEngine";
+import { preserveBlankLines,sanitizeMarkdown } from "../utils/sanitizeMarkdown";
+import { LinePreviewPanel } from "./LinePreviewPanel";
 import { MergeEditorPanel } from "./MergeEditorPanel";
-import { sanitizeMarkdown, preserveBlankLines } from "../utils/sanitizeMarkdown";
-import { computeInlineDiff, type DiffLine, type DiffResult, type InlineSegment } from "../utils/diffEngine";
-import { setMergeEditors } from "../contexts/MergeEditorsContext";
 
 export interface MergeUndoRedo {
   undo: () => void;
@@ -87,117 +90,12 @@ function downloadText(text: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-/** ホバー行プレビュー（独自 state で再レンダリングを局所化） */
-const LinePreviewPanel = React.memo(function LinePreviewPanel({
-  diffResult,
-  sourceMode,
-  hoverSetterRef,
-}: {
-  diffResult: DiffResult | null;
-  sourceMode: boolean;
-  hoverSetterRef: React.MutableRefObject<((v: number | null) => void) | null>;
-}) {
-  const theme = useTheme();
-  const settings = useEditorSettingsContext();
-  const [hoveredLineIdx, setHoveredLineIdx] = useState<number | null>(null);
-  const previewTopRef = useRef<HTMLDivElement>(null);
-  const previewBottomRef = useRef<HTMLDivElement>(null);
-  const isSyncingPreview = useRef(false);
-
-  useEffect(() => {
-    hoverSetterRef.current = setHoveredLineIdx;
-    return () => { hoverSetterRef.current = null; };
-  }, [hoverSetterRef]);
-
-  if (!sourceMode || !diffResult) return null;
-
-  const leftLine = hoveredLineIdx !== null ? diffResult.leftLines?.[hoveredLineIdx] : null;
-  const rightLine = hoveredLineIdx !== null ? diffResult.rightLines?.[hoveredLineIdx] : null;
-  const leftText = leftLine?.text ?? "";
-  const rightText_ = rightLine?.text ?? "";
-  const hasBoth = hoveredLineIdx !== null && leftText !== "" && rightText_ !== "" && leftText !== rightText_;
-  const inlineDiff = hasBoth ? computeInlineDiff(leftText, rightText_) : null;
-
-  const previewStyle: React.CSSProperties = {
-    paddingLeft: 16,
-    paddingRight: 16,
-    paddingTop: 2,
-    paddingBottom: 2,
-    fontFamily: "monospace",
-    fontSize: `${settings.fontSize + 4}px`,
-    lineHeight: 1.4,
-    whiteSpace: "pre",
-    overflowX: "auto",
-    overflowY: "hidden",
-    color: theme.palette.text.primary,
-  };
-
-  const renderSegments = (segments: InlineSegment[], highlightType: "removed" | "added") =>
-    segments.map((seg, i) => (
-      <span
-        key={i}
-        style={
-          seg.type === highlightType
-            ? {
-                backgroundColor: alpha(
-                  highlightType === "removed"
-                    ? theme.palette.error.main
-                    : theme.palette.success.main,
-                  0.35,
-                ),
-                textDecoration: highlightType === "removed" ? "line-through" : "underline",
-                borderRadius: 2,
-              }
-            : undefined
-        }
-      >
-        {seg.text}
-      </span>
-    ));
-
-  const handlePreviewScroll = (source: React.UIEvent<HTMLDivElement>, targetRef: React.RefObject<HTMLDivElement | null>) => {
-    if (isSyncingPreview.current) return;
-    isSyncingPreview.current = true;
-    const target = targetRef.current;
-    if (target) target.scrollLeft = source.currentTarget.scrollLeft;
-    requestAnimationFrame(() => { isSyncingPreview.current = false; });
-  };
-
-  return (
-    <Box sx={{ borderTop: 1, borderColor: "divider", bgcolor: "background.paper", flexShrink: 0 }}>
-      <div
-        ref={previewTopRef}
-        style={previewStyle}
-        onScroll={(e) => handlePreviewScroll(e, previewBottomRef)}
-      >
-        {inlineDiff
-          ? renderSegments(inlineDiff.oldSegments, "removed")
-          : hoveredLineIdx !== null && leftText
-            ? leftText
-            : "\u00A0"}
-      </div>
-      <Divider />
-      <div
-        ref={previewBottomRef}
-        style={previewStyle}
-        onScroll={(e) => handlePreviewScroll(e, previewTopRef)}
-      >
-        {inlineDiff
-          ? renderSegments(inlineDiff.newSegments, "added")
-          : hoveredLineIdx !== null && rightText_
-            ? rightText_
-            : "\u00A0"}
-      </div>
-    </Box>
-  );
-});
-
 export function InlineMergeView({
   leftEditor,
   editorContent,
   sourceMode,
   editorHeight,
-  t,
+  t: _t,
   onUndoRedoReady,
   onLeftTextChange,
   externalRightContent,
@@ -205,6 +103,9 @@ export function InlineMergeView({
   onRightFileOpsReady,
   children,
 }: InlineMergeViewProps) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+  const settings = useEditorSettingsContext();
   const {
     rightText,
     setLeftText,
@@ -501,6 +402,7 @@ export function InlineMergeView({
             readOnly
             onMerge={mergeBlock}
             onHoverLine={handleHoverLine}
+            paperSx={{ bgcolor: getEditorBg(isDark, settings) }}
           />
         </Box>
       </Box>

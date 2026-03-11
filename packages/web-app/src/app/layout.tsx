@@ -1,15 +1,17 @@
+import './globals.css';
+
 import type { Metadata, Viewport } from 'next';
 import { headers } from 'next/headers';
-import { getLocale } from 'next-intl/server';
 import Script from 'next/script';
-import { Providers } from './providers';
+import { getLocale,getTranslations } from 'next-intl/server';
+
 import { LocaleProvider } from './LocaleProvider';
-import './globals.css';
+import { Providers } from './providers';
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://anytime-markdown.vercel.app'),
   title: 'Anytime Markdown',
-  description: 'Free browser-based WYSIWYG Markdown editor with Mermaid/PlantUML diagrams, KaTeX math, diff comparison, merge, tables, and code blocks. No sign-up required. | 無料のブラウザ対応WYSIWYGマークダウンエディタ。Mermaid/PlantUML図、KaTeX数式、マークダウン差分比較、マークダウンマージ、テーブル、コードブロック対応。設計書作成にも最適。登録不要。',
+  description: 'Free browser-based WYSIWYG Markdown editor. Mermaid diagrams, PlantUML preview, KaTeX math, diff comparison, merge, table editor, and code blocks. VSCode extension available. No sign-up, no install required. | 無料のブラウザ対応 WYSIWYG マークダウン エディタ。Mermaid/PlantUML図解作成、KaTeX数式、マークダウン差分(diff)、マージ(merge)、表編集、コードブロック、VSCode拡張対応。設計書・仕様書作成に最適なエンジニア ツール。登録不要・インストール不要。',
   manifest: '/manifest.json',
   icons: [
     { rel: 'icon', url: '/favicon.ico', sizes: '32x32' },
@@ -29,14 +31,14 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'Anytime Markdown',
-    description: 'Free WYSIWYG Markdown editor with Mermaid, PlantUML, KaTeX, diff, merge, tables. No sign-up required.',
+    description: 'Free WYSIWYG Markdown editor with Mermaid, PlantUML, KaTeX, diff, merge, table editor. No sign-up required.',
     type: 'website',
     siteName: 'Anytime Markdown',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Anytime Markdown',
-    description: 'Free WYSIWYG Markdown editor with Mermaid, PlantUML, KaTeX, diff, merge, tables. No sign-up required.',
+    description: 'Free WYSIWYG Markdown editor with Mermaid, PlantUML, KaTeX, diff, merge, table editor. No sign-up required.',
   },
 };
 
@@ -52,7 +54,7 @@ const jsonLd = {
   '@type': 'WebApplication',
   name: 'Anytime Markdown',
   url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://anytime-markdown.vercel.app',
-  description: 'Free browser-based WYSIWYG Markdown editor with Mermaid/PlantUML diagrams, KaTeX math, diff comparison, merge, tables, and code blocks. No sign-up required.',
+  description: 'Free browser-based WYSIWYG Markdown editor. Mermaid diagrams, PlantUML preview, KaTeX math, diff comparison, merge, table editor, and code blocks. VSCode extension available. No sign-up, no install required.',
   applicationCategory: 'Productivity',
   operatingSystem: 'Any',
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
@@ -69,11 +71,15 @@ const jsonLd = {
     'PWA support',
     'YAML frontmatter',
     'Design document creation',
+    'VSCode extension',
+    'Table editing',
+    'No installation required',
   ],
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();
+  const t = await getTranslations('Landing');
   const nonce = (await headers()).get('x-nonce') ?? undefined;
   const gaId = process.env.NEXT_PUBLIC_GA_ID;
 
@@ -84,7 +90,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
-        <a href="#main-content" className="skip-link">Skip to content</a>
+        <a href="#main-content" className="skip-link">{t('ariaSkipToContent')}</a>
         <LocaleProvider serverLocale={locale}>
           <Providers>
             <main id="main-content">

@@ -2,7 +2,7 @@
   "name": "anytime-markdown",
   "displayName": "Anytime Markdown",
   "description": "markdown editor featuring Claude Code",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "license": "MIT",
   "publisher": "kiytaka-ueda",
   "repository": {
@@ -17,8 +17,8 @@
   ],
   "keywords": [
     "markdown",
+    "diff",
     "merge",
-    "wysiwyg",
     "mermaid",
     "plantuml"
   ],
@@ -76,11 +76,6 @@
         "enablement": "activeCustomEditorId == anytimeMarkdown"
       },
       {
-        "command": "anytime-markdown.toggleSectionNumbers",
-        "title": "Toggle Section Numbers",
-        "icon": "$(list-ordered)"
-      },
-      {
         "command": "anytime-markdown.resolveComment",
         "title": "Resolve",
         "icon": "$(check)"
@@ -111,6 +106,11 @@
         "command": "anytime-markdown.toggleBlockElements",
         "title": "Toggle Block Elements",
         "icon": "$(symbol-misc)"
+      },
+      {
+        "command": "anytime-markdown.toggleCollapseExpand",
+        "title": "Collapse All / Expand All",
+        "icon": "$(collapse-all)"
       }
     ],
     "customEditors": [
@@ -137,13 +137,6 @@
           "minimum": 0,
           "maximum": 72,
           "description": "Font size in pixels for the editor. 0 uses the VS Code default."
-        },
-        "anytimeMarkdown.lineHeight": {
-          "type": "number",
-          "default": 1.6,
-          "minimum": 1,
-          "maximum": 3,
-          "description": "Line height for the editor content."
         },
         "anytimeMarkdown.editorMaxWidth": {
           "type": "number",
@@ -197,7 +190,7 @@
           "group": "navigation@1"
         },
         {
-          "command": "anytime-markdown.toggleSectionNumbers",
+          "command": "anytime-markdown.toggleCollapseExpand",
           "when": "view == anytimeMarkdown.outline",
           "group": "navigation@1"
         },
@@ -245,37 +238,37 @@
     "test": "vscode-test || echo \"vscode-test skipped (headless environment)\""
   },
   "devDependencies": {
-    "@types/mocha": "^10.0.10",
+    "@types/mocha": "10.0.10",
     "@types/node": "22.x",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@types/vscode": "^1.109.0",
-    "@types/dompurify": "^3.0.5",
-    "@types/diff": "^7.0.2",
-    "@types/plantuml-encoder": "^1.4.2",
-    "@vscode/test-cli": "^0.0.12",
-    "@vscode/test-electron": "^2.5.2",
-    "css-loader": "^7.1.4",
-    "eslint": "^9.39.2",
-    "style-loader": "^4.0.0",
-    "ts-loader": "^9.5.4",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.54.0",
-    "webpack": "^5.104.1",
-    "webpack-cli": "^6.0.1"
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@types/vscode": "1.109.0",
+    "@types/dompurify": "3.0.5",
+    "@types/diff": "7.0.2",
+    "@types/plantuml-encoder": "1.4.2",
+    "@vscode/test-cli": "0.0.12",
+    "@vscode/test-electron": "2.5.2",
+    "css-loader": "7.1.4",
+    "eslint": "9.39.2",
+    "style-loader": "4.0.0",
+    "ts-loader": "9.5.4",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.54.0",
+    "webpack": "5.104.1",
+    "webpack-cli": "6.0.1"
   },
   "dependencies": {
     "@anytime-markdown/editor-core": "*",
-    "@mui/material": "^7.3.7",
-    "@mui/icons-material": "^7.3.7",
-    "@emotion/react": "^11.14.0",
-    "@emotion/styled": "^11.14.0",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "dompurify": "^3.3.1",
-    "marked": "^17.0.3",
-    "diff": "^8.0.3",
-    "plantuml-encoder": "^1.4.0",
-    "mermaid": "^11.12.3"
+    "@mui/material": "7.3.7",
+    "@mui/icons-material": "7.3.7",
+    "@emotion/react": "11.14.0",
+    "@emotion/styled": "11.14.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "dompurify": "3.3.3",
+    "marked": "17.0.3",
+    "diff": "8.0.3",
+    "plantuml-encoder": "1.4.0",
+    "mermaid": "11.12.3"
   }
 }

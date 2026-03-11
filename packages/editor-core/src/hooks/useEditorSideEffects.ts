@@ -1,10 +1,11 @@
 import type { Editor } from "@tiptap/react";
+import { useTranslations } from "next-intl";
 import type { RefObject } from "react";
 import { useEffect, useRef } from "react";
-import { useTranslations } from "next-intl";
+
+import { extractHeadings, getMarkdownFromEditor, type HeadingItem } from "../types";
+import { preserveBlankLines,sanitizeMarkdown } from "../utils/sanitizeMarkdown";
 import useConfirm from "./useConfirm";
-import { getMarkdownFromEditor, extractHeadings, type HeadingItem } from "../types";
-import { sanitizeMarkdown, preserveBlankLines } from "../utils/sanitizeMarkdown";
 
 interface UseEditorSideEffectsParams {
   editor: Editor | null;
@@ -58,6 +59,8 @@ export function useEditorSideEffects({
     };
     window.addEventListener('vscode-set-content', handler);
     return () => window.removeEventListener('vscode-set-content', handler);
+    // setHeadingsRef, setEditorMarkdown は安定な ref/関数のため依存配列から除外
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
 
   // 外部変更の確認ダイアログ（Claude Code、git 操作など）
@@ -94,5 +97,7 @@ export function useEditorSideEffects({
     };
     window.addEventListener('vscode-external-change', handler);
     return () => window.removeEventListener('vscode-external-change', handler);
+    // setHeadingsRef, setEditorMarkdown は安定な ref/関数のため依存配列から除外
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, confirm, t]);
 }

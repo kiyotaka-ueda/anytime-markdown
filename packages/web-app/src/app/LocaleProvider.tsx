@@ -1,9 +1,9 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useMemo } from 'react';
-import { NextIntlClientProvider } from 'next-intl';
-import jaMessages from '@anytime-markdown/editor-core/src/i18n/ja.json';
 import enMessages from '@anytime-markdown/editor-core/src/i18n/en.json';
+import jaMessages from '@anytime-markdown/editor-core/src/i18n/ja.json';
+import { NextIntlClientProvider } from 'next-intl';
+import { createContext, useCallback, useContext, useMemo,useState } from 'react';
 
 type Locale = 'ja' | 'en';
 

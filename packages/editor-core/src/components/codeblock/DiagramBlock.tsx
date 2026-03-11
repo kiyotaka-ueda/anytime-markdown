@@ -1,28 +1,30 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Box, Button, Divider, IconButton, Tooltip, Typography } from "@mui/material";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
-import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
-import SchemaIcon from "@mui/icons-material/Schema";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import SchemaIcon from "@mui/icons-material/Schema";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import { Alert, Box, Button, Divider, IconButton, Tooltip, Typography } from "@mui/material";
 import DOMPurify from "dompurify";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { getEditorBg } from "../../constants/colors";
+import { findCodeBlockByIndex,findCounterpartCode, getCodeBlockIndex, getMergeEditors } from "../../contexts/MergeEditorsContext";
+import { useDiagramCapture } from "../../hooks/useDiagramCapture";
+import { useDiagramResize } from "../../hooks/useDiagramResize";
+import { SVG_SANITIZE_CONFIG,useMermaidRender } from "../../hooks/useMermaidRender";
+import { usePlantUmlRender } from "../../hooks/usePlantUmlRender";
+import { useZoomPan } from "../../hooks/useZoomPan";
 import { usePlantUmlToolbar } from "../../types";
 import { useEditorSettingsContext } from "../../useEditorSettings";
-import { useMermaidRender, SVG_SANITIZE_CONFIG } from "../../hooks/useMermaidRender";
-import { usePlantUmlRender } from "../../hooks/usePlantUmlRender";
-import { useDiagramCapture } from "../../hooks/useDiagramCapture";
-import { useZoomPan } from "../../hooks/useZoomPan";
-import { useDiagramResize } from "../../hooks/useDiagramResize";
+import { extractDiagramAltText } from "../../utils/diagramAltText";
 import { DiagramFullscreenDialog } from "../DiagramFullscreenDialog";
 import { MermaidSamplePopover } from "../MermaidSamplePopover";
-import { extractDiagramAltText } from "../../utils/diagramAltText";
 import { CodeBlockFrame } from "./CodeBlockFrame";
-import { getMergeEditors, findCounterpartCode, getCodeBlockIndex, findCodeBlockByIndex } from "../../contexts/MergeEditorsContext";
 import type { CodeBlockSharedProps } from "./types";
 
 const pumlIconSx = { fontSize: 16 };
@@ -46,7 +48,7 @@ type DiagramBlockProps = Pick<
 export function DiagramBlock(props: DiagramBlockProps) {
   const {
     editor, node, updateAttributes, getPos: _getPos,
-    allCollapsed, codeCollapsed, isSelected, toggleAllCollapsed,
+    allCollapsed, codeCollapsed, isSelected, toggleAllCollapsed: _toggleAllCollapsed,
     selectNode, handleDragKeyDown, code,
     handleCopyCode, handleDeleteBlock, deleteDialogOpen, setDeleteDialogOpen,
     fullscreen, setFullscreen, fsCode, onFsCodeChange, fsTextareaRef, fsSearch,
@@ -111,6 +113,8 @@ export function DiagramBlock(props: DiagramBlockProps) {
     const ro = new ResizeObserver(update);
     ro.observe(container);
     return () => ro.disconnect();
+    // diagramResize.containerRef は安定な ref オブジェクトのため依存配列から除外
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [svg, plantUmlUrl, allCollapsed]);
 
   // 比較モード: 対応するブロックのコードを取得
@@ -291,8 +295,9 @@ export function DiagramBlock(props: DiagramBlockProps) {
     </Box>
   );
 
+  const editorBg = getEditorBg(isDark, settings);
   const diagramContainerSx = {
-    overflow: "hidden", bgcolor: "background.paper", position: "relative",
+    overflow: "hidden", bgcolor: editorBg, position: "relative",
     width: diagramResize.displayWidth || "fit-content", maxWidth: "100%",
     cursor: !canInteract ? "default" : diagramResize.resizing ? "nwse-resize" : "grab",
     "&:active": { cursor: !canInteract ? "default" : diagramResize.resizing ? "nwse-resize" : "grabbing" },

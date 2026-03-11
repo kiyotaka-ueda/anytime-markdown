@@ -1,17 +1,18 @@
-import React from "react";
 import BorderColorIcon from "@mui/icons-material/BorderColor";
+import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import CodeIcon from "@mui/icons-material/Code";
 import FormatBoldIcon from "@mui/icons-material/FormatBold";
 import FormatItalicIcon from "@mui/icons-material/FormatItalic";
 import FormatUnderlinedIcon from "@mui/icons-material/FormatUnderlined";
 import InsertLinkIcon from "@mui/icons-material/InsertLink";
-import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import StrikethroughSIcon from "@mui/icons-material/StrikethroughS";
 import { IconButton, Paper, Tooltip } from "@mui/material";
 import type { Editor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
+import React from "react";
+
 import { modKey } from "../constants/shortcuts";
-import type { TranslationFn } from "../types";
+import { getEditorStorage, type TranslationFn } from "../types";
 
 /** ツールチップキー → ショートカットキー表示マッピング */
 const TOOLTIP_SHORTCUTS: Record<string, string> = {
@@ -176,7 +177,7 @@ export const EditorBubbleMenu = React.memo(function EditorBubbleMenu({ editor, o
               aria-label={t("comment")}
               onClick={() => {
                 const openComment = () => {
-                  const storage = editor.storage as unknown as Record<string, Record<string, unknown>>;
+                  const storage = getEditorStorage(editor);
                   const openDialog = storage.commentDialog?.open as (() => void) | undefined;
                   if (openDialog) openDialog();
                 };

@@ -1,5 +1,5 @@
-import { Extension } from "@tiptap/core";
 import type { Editor } from "@tiptap/core";
+import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 
 /** Type-safe accessor for ReviewModeExtension storage */
