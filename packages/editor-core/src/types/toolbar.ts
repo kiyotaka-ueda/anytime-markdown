@@ -14,3 +14,22 @@ export interface ToolbarVisibility {
   toolbar?: boolean;   // EditorToolbarSection 専用
   help?: boolean;      // EditorToolbarSection 専用
 }
+
+/** ファイル操作ハンドラ */
+export interface ToolbarFileHandlers {
+  onDownload: () => void;
+  onImport: () => void;
+  onClear: () => void;
+  onOpenFile?: () => void;
+  onSaveFile?: () => void;
+  onSaveAsFile?: () => void;
+  onExportPdf?: () => void;
+  onLoadRightFile?: () => void;
+  onExportRightFile?: () => void;
+}
+
+/** ファイルシステム機能フラグ */
+export interface ToolbarFileCapabilities {
+  hasFileHandle?: boolean;
+  supportsDirectAccess?: boolean;
+}

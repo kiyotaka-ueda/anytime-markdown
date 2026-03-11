@@ -50,7 +50,7 @@ import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, DEFAULT_LIGHT_TEXT } from "../consta
 import { Z_TOOLBAR } from "../constants/zIndex";
 
 import type { MergeUndoRedo } from "./InlineMergeView";
-import type { ToolbarVisibility } from "../types/toolbar";
+import type { ToolbarVisibility, ToolbarFileHandlers, ToolbarFileCapabilities } from "../types/toolbar";
 
 /** WAI-ARIA Toolbar パターン: 矢印キーでフォーカス移動 */
 const FOCUSABLE_SELECTOR = 'button:not([disabled]), [role="button"]:not([disabled]), input:not([disabled])';
@@ -86,9 +86,8 @@ interface EditorToolbarProps {
   isInDiagramBlock: boolean;
 
   onToggleAllBlocks: () => void;
-  onDownload: () => void;
-  onImport: () => void;
-  onClear: () => void;
+  fileHandlers: ToolbarFileHandlers;
+  fileCapabilities?: ToolbarFileCapabilities;
   onSetTemplateAnchor: (el: HTMLElement) => void;
   onSetHelpAnchor: (el: HTMLElement) => void;
   sourceMode: boolean;
@@ -107,14 +106,6 @@ interface EditorToolbarProps {
   hide?: ToolbarVisibility;
   onOpenSettings?: () => void;
   onOpenVersionDialog?: () => void;
-  onLoadRightFile?: () => void;
-  onExportRightFile?: () => void;
-  onOpenFile?: () => void;
-  onSaveFile?: () => void;
-  onSaveAsFile?: () => void;
-  hasFileHandle?: boolean;
-  supportsDirectAccess?: boolean;
-  onExportPdf?: () => void;
   onAnnounce?: (message: string) => void;
   commentOpen?: boolean;
   onToggleComments?: () => void;
@@ -126,9 +117,8 @@ export const EditorToolbar = React.memo(function EditorToolbar({
   isInDiagramBlock: _isInDiagramBlock,
 
   onToggleAllBlocks,
-  onDownload,
-  onImport,
-  onClear,
+  fileHandlers,
+  fileCapabilities,
   onSetTemplateAnchor,
   onSetHelpAnchor,
   sourceMode,
@@ -147,15 +137,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
   hide = {},
   onOpenSettings,
   onOpenVersionDialog,
-  onLoadRightFile,
-  onExportRightFile,
-  onOpenFile,
-  onSaveFile,
-  onSaveAsFile,
-  hasFileHandle,
   onAnnounce: _onAnnounce,
-  supportsDirectAccess,
-  onExportPdf,
   commentOpen,
   onToggleComments,
   t,
@@ -167,6 +149,11 @@ export const EditorToolbar = React.memo(function EditorToolbar({
     outline: hideOutline, comments: hideComments,
     templates: hideTemplates, foldAll: hideFoldAll,
   } = hide;
+  const {
+    onDownload, onImport, onClear, onOpenFile, onSaveFile, onSaveAsFile,
+    onExportPdf, onLoadRightFile, onExportRightFile,
+  } = fileHandlers;
+  const { hasFileHandle, supportsDirectAccess } = fileCapabilities ?? {};
   const isDark = useTheme().palette.mode === "dark";
   const [fileMenuAnchorEl, setFileMenuAnchorEl] = useState<HTMLElement | null>(null);
 

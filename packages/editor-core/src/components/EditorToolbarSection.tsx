@@ -11,9 +11,15 @@ interface EditorToolbarSectionProps {
   editor: Editor | null;
   isInDiagramBlock: boolean;
   handleToggleAllBlocks: () => void;
-  handleDownload: () => void;
+  fileHandlers: {
+    onDownload: () => void;
+    onClear: () => void;
+    onOpenFile: () => void;
+    onSaveFile: () => void;
+    onSaveAsFile: () => void;
+    onExportPdf: () => void;
+  };
   fileInputRef: React.RefObject<HTMLInputElement | null>;
-  handleClear: () => void;
   handleFileSelected: (f: File) => void;
   setTemplateAnchorEl: (el: HTMLElement | null) => void;
   setHelpAnchorEl: (el: HTMLElement | null) => void;
@@ -30,16 +36,12 @@ interface EditorToolbarSectionProps {
   handleSwitchToReadonly: () => void;
   hide?: ToolbarVisibility;
   mergeUndoRedo: MergeUndoRedo | null;
-  handleOpenFile: () => void;
-  handleSaveFile: () => void;
-  handleSaveAsFile: () => void;
   fileHandle: unknown;
   supportsDirectAccess: boolean;
   readOnly?: boolean;
   setSettingsOpen: (open: boolean) => void;
   setVersionDialogOpen: (open: boolean) => void;
   rightFileOps: { loadFile: () => void; exportFile: () => void } | null;
-  handleExportPdf: () => void;
   setLiveMessage: (msg: string) => void;
   commentOpen: boolean;
   setCommentOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -51,9 +53,8 @@ export function EditorToolbarSection({
   editor,
   isInDiagramBlock,
   handleToggleAllBlocks,
-  handleDownload,
+  fileHandlers,
   fileInputRef,
-  handleClear,
   handleFileSelected,
   setTemplateAnchorEl,
   setHelpAnchorEl,
@@ -70,16 +71,12 @@ export function EditorToolbarSection({
   handleSwitchToReadonly,
   hide,
   mergeUndoRedo,
-  handleOpenFile,
-  handleSaveFile,
-  handleSaveAsFile,
   fileHandle,
   supportsDirectAccess,
   readOnly,
   setSettingsOpen,
   setVersionDialogOpen,
   rightFileOps,
-  handleExportPdf,
   setLiveMessage,
   commentOpen,
   setCommentOpen,
@@ -118,9 +115,21 @@ export function EditorToolbarSection({
         editor={editor}
         isInDiagramBlock={isInDiagramBlock}
         onToggleAllBlocks={handleToggleAllBlocks}
-        onDownload={handleDownload}
-        onImport={() => fileInputRef.current?.click()}
-        onClear={handleClear}
+        fileHandlers={{
+          onDownload: fileHandlers.onDownload,
+          onImport: () => fileInputRef.current?.click(),
+          onClear: fileHandlers.onClear,
+          onOpenFile: fileHandlers.onOpenFile,
+          onSaveFile: fileHandlers.onSaveFile,
+          onSaveAsFile: fileHandlers.onSaveAsFile,
+          onExportPdf: fileHandlers.onExportPdf,
+          onLoadRightFile: rightFileOps?.loadFile,
+          onExportRightFile: rightFileOps?.exportFile,
+        }}
+        fileCapabilities={{
+          hasFileHandle: fileHandle !== null,
+          supportsDirectAccess,
+        }}
         onSetTemplateAnchor={setTemplateAnchorEl}
         onSetHelpAnchor={setHelpAnchorEl}
         sourceMode={sourceMode}
@@ -148,16 +157,8 @@ export function EditorToolbarSection({
           versionInfo: hide?.versionInfo,
         }}
         mergeUndoRedo={inlineMergeOpen ? mergeUndoRedo : null}
-        onOpenFile={handleOpenFile}
-        onSaveFile={handleSaveFile}
-        onSaveAsFile={handleSaveAsFile}
-        hasFileHandle={fileHandle !== null}
-        supportsDirectAccess={supportsDirectAccess}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenVersionDialog={() => setVersionDialogOpen(true)}
-        onLoadRightFile={rightFileOps?.loadFile}
-        onExportRightFile={rightFileOps?.exportFile}
-        onExportPdf={handleExportPdf}
         onAnnounce={setLiveMessage}
         commentOpen={commentOpen}
         onToggleComments={() => setCommentOpen((prev) => !prev)}

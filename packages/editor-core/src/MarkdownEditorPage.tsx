@@ -287,7 +287,12 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     <Box id="main-content" component="main" sx={{ p: { xs: 2, sm: 3 } }}>
       <EditorToolbarSection
         editor={editor} isInDiagramBlock={isInDiagramBlock} handleToggleAllBlocks={handleToggleAllBlocks}
-        handleDownload={handleDownload} fileInputRef={fileInputRef} handleClear={handleClear}
+        fileHandlers={{
+          onDownload: handleDownload, onClear: handleClear,
+          onOpenFile: handleOpenFile, onSaveFile: handleSaveFile,
+          onSaveAsFile: handleSaveAsFile, onExportPdf: handleExportPdf,
+        }}
+        fileInputRef={fileInputRef}
         handleFileSelected={handleFileSelected} setTemplateAnchorEl={setTemplateAnchorEl} setHelpAnchorEl={setHelpAnchorEl}
         sourceMode={sourceMode} readonlyMode={readonlyMode} reviewMode={reviewMode}
         outlineOpen={outlineOpen} handleToggleOutline={handleToggleOutline} handleMerge={handleMerge}
@@ -302,11 +307,10 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
           readonlyToggle: !showReadonlyMode,
         }}
         mergeUndoRedo={inlineMergeOpen ? mergeUndoRedo : null}
-        handleOpenFile={handleOpenFile} handleSaveFile={handleSaveFile} handleSaveAsFile={handleSaveAsFile}
         fileHandle={fileHandle} supportsDirectAccess={supportsDirectAccess}
         readOnly={readOnly}
         setSettingsOpen={setSettingsOpen} setVersionDialogOpen={setVersionDialogOpen}
-        rightFileOps={rightFileOps} handleExportPdf={handleExportPdf}
+        rightFileOps={rightFileOps}
         setLiveMessage={setLiveMessage} commentOpen={commentOpen} setCommentOpen={setCommentOpen}
         liveMessage={liveMessage} t={t}
       />
