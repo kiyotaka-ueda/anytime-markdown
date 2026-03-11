@@ -76,7 +76,7 @@ export default function EditBody() {
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <LandingHeader />
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }} role="status">
-          <CircularProgress aria-label="Loading" />
+          <CircularProgress aria-label={tCommon('loading')} />
         </Box>
         <SiteFooter />
       </Box>

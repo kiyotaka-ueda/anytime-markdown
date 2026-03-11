@@ -3,7 +3,7 @@ import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { headers } from 'next/headers';
 import Script from 'next/script';
-import { getLocale } from 'next-intl/server';
+import { getLocale,getTranslations } from 'next-intl/server';
 
 import { LocaleProvider } from './LocaleProvider';
 import { Providers } from './providers';
@@ -79,6 +79,7 @@ const jsonLd = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();
+  const t = await getTranslations('Landing');
   const nonce = (await headers()).get('x-nonce') ?? undefined;
   const gaId = process.env.NEXT_PUBLIC_GA_ID;
 
@@ -89,7 +90,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
-        <a href="#main-content" className="skip-link">Skip to content</a>
+        <a href="#main-content" className="skip-link">{t('ariaSkipToContent')}</a>
         <LocaleProvider serverLocale={locale}>
           <Providers>
             <main id="main-content">

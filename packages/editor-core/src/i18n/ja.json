@@ -499,13 +499,21 @@
     "sitesUrlDisplayName": "リンク名",
     "docsEditPage": "編集",
     "siteDescription": "サイトの説明",
-    "docsEmptyHint": "管理画面からドキュメントを登録してください"
+    "docsEmptyHint": "管理画面からドキュメントを登録してください",
+    "ariaMainNavigation": "メインナビゲーション",
+    "ariaFooterNavigation": "フッターナビゲーション",
+    "ariaMobileNavigation": "モバイルナビゲーション",
+    "ariaLanguage": "言語",
+    "ariaMenu": "メニュー",
+    "ariaSkipToContent": "メインコンテンツへスキップ"
   },
   "Common": {
     "ok": "OK",
     "cancel": "キャンセル",
     "error": "エラーが発生しました",
-    "retry": "もう一度試す"
+    "retry": "もう一度試す",
+    "loading": "読み込み中",
+    "loadingEditor": "エディタを読み込み中"
   },
   "Privacy": {
     "title": "プライバシーポリシー",

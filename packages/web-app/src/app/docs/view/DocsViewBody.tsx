@@ -29,6 +29,7 @@ export default function DocsViewBody() {
   const searchParams = useSearchParams();
   const key = searchParams.get('key');
   const t = useTranslations('Landing');
+  const tCommon = useTranslations('Common');
   const { themeMode, setThemeMode } = useThemeMode();
   const { setLocale } = useLocaleSwitch();
 
@@ -71,7 +72,7 @@ export default function DocsViewBody() {
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <LandingHeader />
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }} role="status">
-          <CircularProgress aria-label="Loading" />
+          <CircularProgress aria-label={tCommon('loading')} />
         </Box>
         <SiteFooter />
       </Box>

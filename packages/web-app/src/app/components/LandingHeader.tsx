@@ -43,7 +43,7 @@ export default function LandingHeader() {
           Anytime Markdown
         </Typography>
 
-        <Box component="nav" aria-label="Main navigation" sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
+        <Box component="nav" aria-label={t('ariaMainNavigation')} sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
           <Button
             component={NextLink}
             href="/docs"
@@ -57,7 +57,7 @@ export default function LandingHeader() {
             exclusive
             onChange={(_, val) => { if (val) setLocale(val); }}
             size="small"
-            aria-label="Language"
+            aria-label={t('ariaLanguage')}
             sx={{
               display: { xs: 'none', sm: 'inline-flex' },
               '& .MuiToggleButton-root': {
@@ -99,7 +99,7 @@ export default function LandingHeader() {
           </Button>
 
           <IconButton
-            aria-label="Menu"
+            aria-label={t('ariaMenu')}
             aria-expanded={drawerOpen}
             aria-controls="mobile-nav-drawer"
             onClick={() => setDrawerOpen(true)}
@@ -115,9 +115,9 @@ export default function LandingHeader() {
         anchor="right"
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        aria-label="Mobile navigation"
+        aria-label={t('ariaMobileNavigation')}
       >
-        <Box sx={{ width: 220, pt: 2 }} component="nav" aria-label="Mobile navigation">
+        <Box sx={{ width: 220, pt: 2 }} component="nav" aria-label={t('ariaMobileNavigation')}>
           <List>
             <ListItemButton component={NextLink} href="/docs" onClick={() => setDrawerOpen(false)}>
               <ListItemText primary={t('sitesPage')} />
@@ -133,7 +133,7 @@ export default function LandingHeader() {
               onChange={(_, val) => { if (val) setLocale(val); }}
               size="small"
               fullWidth
-              aria-label="Language"
+              aria-label={t('ariaLanguage')}
               sx={{
                 '& .MuiToggleButton-root': {
                   px: 1.5,
