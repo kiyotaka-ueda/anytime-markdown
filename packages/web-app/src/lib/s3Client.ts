@@ -30,7 +30,10 @@ export async function fetchFromCdn(key: string): Promise<string | null> {
   const target = new URL(`${CLOUDFRONT_URL}/${key}`);
   if (target.origin !== base.origin) return null;
 
-  const res = await fetch(target.href, { cache: 'no-store' });
+  const controller = new AbortController();
+  const timerId = setTimeout(() => controller.abort(), 10_000);
+  const res = await fetch(target.href, { cache: 'no-store', signal: controller.signal });
+  clearTimeout(timerId);
   if (!res.ok) return null;
   return res.text();
 }

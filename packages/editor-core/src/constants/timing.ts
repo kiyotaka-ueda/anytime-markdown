@@ -12,3 +12,6 @@ export const DEBOUNCE_SHORT = 100;
 
 /** 中程度のデバウンス: コメント抽出等（ms） */
 export const DEBOUNCE_MEDIUM = 300;
+
+/** 外部通信タイムアウト（ms） */
+export const FETCH_TIMEOUT = 10000;

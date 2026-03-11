@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import plantumlEncoder from "plantuml-encoder";
 import { buildPlantUmlUrl } from "../utils/plantumlHelpers";
 import { CAPTURE_BG } from "../constants/colors";
+import { FETCH_TIMEOUT } from "../constants/timing";
 
 interface UseDiagramCaptureParams {
   isMermaid: boolean;
@@ -128,7 +129,10 @@ export function useDiagramCapture({ isMermaid, isPlantUml, svg, plantUmlUrl, cod
       } else if (isPlantUml && plantUmlUrl) {
         const url = isDark ? buildPlantUmlLightUrl(code) : plantUmlUrl;
         try {
-          const res = await fetch(url);
+          const controller = new AbortController();
+          const timerId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+          const res = await fetch(url, { signal: controller.signal });
+          clearTimeout(timerId);
           const svgText = await res.text();
           downloadSvgAsPng(svgText);
         } catch {
