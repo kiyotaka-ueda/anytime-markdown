@@ -27,7 +27,6 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const collapsed = !!node.attrs.collapsed;
-  const toggleCollapsed = useCallback(() => updateAttributes({ collapsed: !collapsed }), [collapsed, updateAttributes]);
 
   const isSelected = useEditorState({
     editor,

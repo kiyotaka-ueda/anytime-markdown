@@ -88,7 +88,7 @@ export const EditorMenuPopovers = React.memo(function EditorMenuPopovers({
         <Box sx={{ py: 0.5, minWidth: 160 }}>
           {!hideTemplates && (
             <MenuItem
-              onClick={(e) => {
+              onClick={() => {
                 const anchor = helpAnchorEl;
                 setHelpAnchorEl(null);
                 if (anchor) setTemplateAnchorEl(anchor);

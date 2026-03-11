@@ -16,7 +16,7 @@ import FocusTrap from "@mui/material/Unstable_TrapFocus";
 import type { NodeViewProps } from "@tiptap/react";
 import { NodeViewContent, NodeViewWrapper, useEditorState } from "@tiptap/react";
 import { useTranslations } from "next-intl";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 
 import { SearchReplaceBar } from "./components/SearchReplaceBar";
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "./constants/colors";
@@ -25,13 +25,12 @@ import { moveTableColumn,moveTableRow } from "./utils/tableHelpers";
 
 const iconSx = { fontSize: 16 };
 
-export function TableNodeView({ editor, node, updateAttributes, getPos }: NodeViewProps) {
+export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
   const t = useTranslations("MarkdownEditor");
   const isDark = useTheme().palette.mode === "dark";
   const [fullscreen, setFullscreen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const collapsed = !!node.attrs.collapsed;
-  const toggleCollapsed = useCallback(() => updateAttributes({ collapsed: !collapsed }), [collapsed, updateAttributes]);
   const isEditable = editor?.isEditable ?? true;
 
   // エディタのセレクションがこのテーブル内にあるかを検出

@@ -31,7 +31,7 @@ type MathBlockProps = Pick<
 export function MathBlock(props: MathBlockProps) {
   const {
     editor, node, getPos,
-    allCollapsed, codeCollapsed, isSelected, toggleAllCollapsed,
+    allCollapsed, codeCollapsed, isSelected, toggleAllCollapsed: _toggleAllCollapsed,
     selectNode, handleDragKeyDown, code,
     handleCopyCode, handleDeleteBlock, deleteDialogOpen, setDeleteDialogOpen,
     fullscreen, setFullscreen, fsCode, onFsCodeChange, fsTextareaRef, fsSearch,

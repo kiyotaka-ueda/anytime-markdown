@@ -30,7 +30,7 @@ type HtmlPreviewBlockProps = Pick<
 export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
   const {
     editor,
-    allCollapsed, codeCollapsed, isSelected, toggleAllCollapsed,
+    allCollapsed, codeCollapsed, isSelected, toggleAllCollapsed: _toggleAllCollapsed,
     selectNode, handleDragKeyDown, code,
     handleCopyCode, handleDeleteBlock, deleteDialogOpen, setDeleteDialogOpen,
     fullscreen, setFullscreen, fsCode, onFsCodeChange, fsTextareaRef, fsSearch,

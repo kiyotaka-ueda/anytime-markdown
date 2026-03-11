@@ -100,7 +100,6 @@ const LinePreviewPanel = React.memo(function LinePreviewPanel({
   hoverSetterRef: React.MutableRefObject<((v: number | null) => void) | null>;
 }) {
   const theme = useTheme();
-  const isDark = theme.palette.mode === "dark";
   const settings = useEditorSettingsContext();
   const [hoveredLineIdx, setHoveredLineIdx] = useState<number | null>(null);
   const previewTopRef = useRef<HTMLDivElement>(null);
@@ -200,7 +199,7 @@ export function InlineMergeView({
   editorContent,
   sourceMode,
   editorHeight,
-  t,
+  t: _t,
   onUndoRedoReady,
   onLeftTextChange,
   externalRightContent,

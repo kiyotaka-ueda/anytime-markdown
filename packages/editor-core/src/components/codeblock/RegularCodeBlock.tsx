@@ -22,8 +22,8 @@ type RegularCodeBlockProps = Pick<
 
 export function RegularCodeBlock(props: RegularCodeBlockProps) {
   const {
-    editor, node, getPos, code,
-    allCollapsed, isSelected, toggleAllCollapsed, handleDragKeyDown,
+    editor, node, getPos: _getPos, code,
+    allCollapsed, isSelected, toggleAllCollapsed: _toggleAllCollapsed, handleDragKeyDown,
     handleDeleteBlock, deleteDialogOpen, setDeleteDialogOpen,
     fullscreen, setFullscreen, fsCode, onFsCodeChange, fsTextareaRef, fsSearch,
     t, isDark,

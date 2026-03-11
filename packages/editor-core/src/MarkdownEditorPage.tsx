@@ -58,7 +58,7 @@ import { useMergeMode } from "./hooks/useMergeMode";
 import { useOutline } from "./hooks/useOutline";
 import { useSourceMode } from "./hooks/useSourceMode";
 import { useVSCodeIntegration } from "./hooks/useVSCodeIntegration";
-import { getMarkdownFromEditor,type HeadingItem, PlantUmlToolbarContext } from "./types";
+import { type HeadingItem, PlantUmlToolbarContext } from "./types";
 import type { FileSystemProvider } from "./types/fileSystem";
 import type { InlineComment } from "./utils/commentHelpers";
 import { parseCommentData } from "./utils/commentHelpers";

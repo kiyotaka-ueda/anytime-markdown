@@ -5,7 +5,7 @@ import React, { useCallback, useEffect,useMemo, useRef, useState } from "react";
 
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../constants/colors";
 import { useEditorSettingsContext } from "../useEditorSettings";
-import { applyMerge, computeDiff, type DiffLine, type DiffResult } from "../utils/diffEngine";
+import { applyMerge, computeDiff, type DiffLine } from "../utils/diffEngine";
 
 interface FullscreenDiffViewProps {
   initialLeftCode: string;
@@ -375,7 +375,6 @@ function DiffPanel({
   );
 
   const isDark = theme.palette.mode === "dark";
-  const settings = useEditorSettingsContext();
 
   return (
     <Box

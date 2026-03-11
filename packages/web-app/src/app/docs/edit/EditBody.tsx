@@ -64,7 +64,6 @@ export default function EditBody() {
     handleDeleteUrlLink,
     handleDragStart,
     handleDragEnd,
-    handleEditOpen,
     handleEditAddItem,
     handleEditRemoveItem,
     handleEditItemDisplayName,

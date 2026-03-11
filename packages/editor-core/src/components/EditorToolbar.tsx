@@ -97,10 +97,10 @@ export const EditorToolbar = React.memo(function EditorToolbar({
   editor,
   isInDiagramBlock: _isInDiagramBlock,
 
-  onToggleAllBlocks,
+  onToggleAllBlocks: _onToggleAllBlocks,
   fileHandlers,
   fileCapabilities,
-  onSetTemplateAnchor,
+  onSetTemplateAnchor: _onSetTemplateAnchor,
   onSetHelpAnchor,
   modeState,
   modeHandlers,
@@ -117,11 +117,11 @@ export const EditorToolbar = React.memo(function EditorToolbar({
     settings: hideSettings, versionInfo: hideVersionInfo,
     modeToggle: hideModeToggle, readonlyToggle: hideReadonlyToggle,
     outline: hideOutline, comments: hideComments,
-    templates: hideTemplates, foldAll: hideFoldAll,
+    templates: _hideTemplates, foldAll: _hideFoldAll,
   } = hide;
   const {
     onDownload, onImport, onClear, onOpenFile, onSaveFile, onSaveAsFile,
-    onExportPdf, onLoadRightFile, onExportRightFile,
+    onExportPdf, onLoadRightFile, onExportRightFile: _onExportRightFile,
   } = fileHandlers;
   const { hasFileHandle, supportsDirectAccess } = fileCapabilities ?? {};
   const { sourceMode, readonlyMode, reviewMode, outlineOpen, inlineMergeOpen, commentOpen } = modeState;

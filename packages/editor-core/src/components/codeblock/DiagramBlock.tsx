@@ -48,7 +48,7 @@ type DiagramBlockProps = Pick<
 export function DiagramBlock(props: DiagramBlockProps) {
   const {
     editor, node, updateAttributes, getPos: _getPos,
-    allCollapsed, codeCollapsed, isSelected, toggleAllCollapsed,
+    allCollapsed, codeCollapsed, isSelected, toggleAllCollapsed: _toggleAllCollapsed,
     selectNode, handleDragKeyDown, code,
     handleCopyCode, handleDeleteBlock, deleteDialogOpen, setDeleteDialogOpen,
     fullscreen, setFullscreen, fsCode, onFsCodeChange, fsTextareaRef, fsSearch,
