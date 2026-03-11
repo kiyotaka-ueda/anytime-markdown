@@ -16,6 +16,7 @@ import { useEditorState } from "@tiptap/react";
 import { commentDataPluginKey } from "../extensions/commentExtension";
 import type { InlineComment } from "../utils/commentHelpers";
 import type { TranslationFn } from "../types";
+import { COMMENT_PANEL_WIDTH } from "../constants/dimensions";
 
 interface CommentPanelProps {
   editor: Editor;
@@ -132,8 +133,8 @@ export const CommentPanel = React.memo(function CommentPanel({
     <Paper
       variant="outlined"
       sx={{
-        width: 280,
-        minWidth: 280,
+        width: COMMENT_PANEL_WIDTH,
+        minWidth: COMMENT_PANEL_WIDTH,
         borderLeft: 1,
         borderColor: "divider",
         display: "flex",

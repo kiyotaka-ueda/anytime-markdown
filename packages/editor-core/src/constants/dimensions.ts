@@ -14,3 +14,12 @@ export const PREVIEW_MAX_HEIGHT = 400;
 
 // ── StatusBar 高さ ──
 export const STATUSBAR_HEIGHT = 33;
+
+// ── コメントパネル ──
+export const COMMENT_PANEL_WIDTH = 280;
+
+// ── エディタ内部オフセット ──
+/** .tiptap minHeight 算出用（上部パディング + ツールバー分） */
+export const EDITOR_PADDING_TOP = 36;
+/** .tiptap maxHeight 算出用（ボーダー分） */
+export const EDITOR_PADDING_BORDER = 4;

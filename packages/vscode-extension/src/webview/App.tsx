@@ -3,13 +3,13 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import type { PaletteMode } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { getVsCodeApi } from './vscodeApi';
-import { ConfirmProvider } from '@anytime-markdown/editor-core';
+import { ConfirmProvider, STORAGE_KEY_CONTENT, STORAGE_KEY_SETTINGS } from '@anytime-markdown/editor-core';
 import MarkdownEditorPage from '@anytime-markdown/editor-core/src/MarkdownEditorPage';
 
 const vscode = getVsCodeApi();
 
 // localStorage bridge: intercept content key to sync with VS Code
-const CONTENT_KEY = 'markdown-editor-content';
+const CONTENT_KEY = STORAGE_KEY_CONTENT;
 let currentContent: string | null = null;
 
 const originalSetItem = localStorage.setItem.bind(localStorage);
@@ -41,7 +41,7 @@ localStorage.removeItem = (key: string) => {
 };
 
 // VS Code extension: force showTitle off
-const SETTINGS_KEY = 'markdown-editor-settings';
+const SETTINGS_KEY = STORAGE_KEY_SETTINGS;
 try {
   const saved = localStorage.getItem(SETTINGS_KEY);
   const obj = saved ? JSON.parse(saved) : {};

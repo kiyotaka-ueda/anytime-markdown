@@ -15,6 +15,7 @@ import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { useTheme } from '@mui/material/styles';
 import SiteFooter from './SiteFooter';
+import { ACCENT_COLOR } from '@anytime-markdown/editor-core';
 
 const featureItems = [
   { titleKey: 'featureWysiwyg' as const, descKey: 'featureWysiwygDesc' as const, Icon: EditNoteIcon },
@@ -108,7 +109,7 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
                 px: 5,
                 py: 1.5,
                 width: { xs: '100%', sm: 'auto' },
-                bgcolor: '#e8a012',
+                bgcolor: ACCENT_COLOR,
                 color: '#000000',
                 boxShadow: isDark
                   ? '0 0 40px rgba(232,160,18,0.25)'
@@ -212,7 +213,7 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
               display: 'block',
               textAlign: 'center',
               letterSpacing: '0.2em',
-              color: isDark ? '#e8a012' : '#9a6b00',
+              color: isDark ? ACCENT_COLOR : '#9a6b00',
               fontWeight: 700,
               fontSize: '0.85rem',
               mb: 6,
@@ -243,7 +244,7 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
                       aria-hidden="true"
                       sx={{
                         fontSize: 32,
-                        color: '#e8a012',
+                        color: ACCENT_COLOR,
                         mb: 1.5,
                       }}
                     />

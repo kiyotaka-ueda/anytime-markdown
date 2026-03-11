@@ -17,6 +17,7 @@ import { SlashCommandMenu } from "./SlashCommandMenu";
 import { StatusBar } from "./StatusBar";
 import { EditorMenuPopovers } from "./EditorMenuPopovers";
 import type { EncodingLabel } from "../types";
+import { NOTIFICATION_DURATION } from "../constants/timing";
 
 interface EditorFooterOverlaysProps {
   editor: Editor | null;
@@ -163,7 +164,7 @@ export function EditorFooterOverlays({
 
       <Snackbar
         open={notification !== null}
-        autoHideDuration={3000}
+        autoHideDuration={NOTIFICATION_DURATION}
         onClose={() => setNotification(null)}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >

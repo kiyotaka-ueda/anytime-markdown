@@ -2,6 +2,7 @@ import { renderHook, act } from "@testing-library/react";
 import { useSourceMode } from "../hooks/useSourceMode";
 import { getMarkdownFromEditor } from "../types";
 import type { Editor } from "@tiptap/react";
+import { STORAGE_KEY_REVIEW_MODE } from "../constants/storageKeys";
 
 jest.mock("../types", () => ({
   ...jest.requireActual("../types"),
@@ -41,7 +42,7 @@ describe("useSourceMode", () => {
     mockedGetMarkdown.mockReset();
     localStorage.clear();
     // デフォルトはレビューモードだが、テストでは WYSIWYG 状態から開始
-    localStorage.setItem("markdown-editor-review-mode", "false");
+    localStorage.setItem(STORAGE_KEY_REVIEW_MODE, "false");
   });
 
   test("初期状態 → sourceMode=false, sourceText=''", () => {

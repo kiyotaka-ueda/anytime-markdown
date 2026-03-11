@@ -2,6 +2,7 @@
 import React, { useState, useCallback } from "react";
 import { Box, Button, Popover, TextField } from "@mui/material";
 import type { TranslationFn } from "../types";
+import { COMMENT_PANEL_WIDTH } from "../constants/dimensions";
 
 interface CommentPopoverProps {
   open: boolean;
@@ -52,7 +53,7 @@ export const CommentPopover = React.memo(function CommentPopover({
       anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
       transformOrigin={{ vertical: "top", horizontal: "left" }}
     >
-      <Box sx={{ p: 1.5, width: 280 }}>
+      <Box sx={{ p: 1.5, width: COMMENT_PANEL_WIDTH }}>
         <TextField
           autoFocus
           fullWidth

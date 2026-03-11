@@ -41,6 +41,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import type { useTranslations } from 'next-intl';
 import type { LayoutCategory } from '../../../types/layout';
+import { ACCENT_COLOR } from '@anytime-markdown/editor-core';
 
 const hoverShowSx = {
   opacity: 0,
@@ -276,11 +277,11 @@ function SortableCategory({
           bgcolor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
           border: 1,
           borderColor: dragOver
-            ? '#e8a012'
+            ? ACCENT_COLOR
             : isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
           borderRadius: 3,
           outline: dragOver ? '1px solid' : 'none',
-          outlineColor: '#e8a012',
+          outlineColor: ACCENT_COLOR,
         }}
         onDragOver={(e) => {
           if (e.dataTransfer.types.includes('application/x-doc-file') || e.dataTransfer.types.includes('application/x-url-link')) {

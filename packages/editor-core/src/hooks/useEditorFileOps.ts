@@ -10,7 +10,7 @@ import { sanitizeMarkdown, preserveBlankLines } from "../utils/sanitizeMarkdown"
 import { prependFrontmatter } from "../utils/frontmatterHelpers";
 import DOMPurify from "dompurify";
 import { SVG_SANITIZE_CONFIG } from "./useMermaidRender";
-import { NOTIFICATION_DURATION, MERMAID_RENDER_TIMEOUT } from "../constants/timing";
+import { NOTIFICATION_DURATION, MERMAID_RENDER_TIMEOUT, PRINT_DELAY } from "../constants/timing";
 import { buildPlantUmlUrl } from "../utils/plantumlHelpers";
 import plantumlEncoder from "plantuml-encoder";
 
@@ -306,7 +306,7 @@ export function useEditorFileOps({
 
     // 再レンダーを待ってから印刷
     const needsDelay = collapsedPositions.length > 0 || diagramRestores.length > 0 || pendingMermaidReplacements.length > 0;
-    const delay = needsDelay ? 300 : 0;
+    const delay = needsDelay ? PRINT_DELAY : 0;
     setTimeout(() => {
       try {
         // Mermaid ライトSVGをprint直前に同期的にDOM書き込み（React再レンダリングの介入を防ぐ）

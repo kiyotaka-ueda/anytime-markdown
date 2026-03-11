@@ -18,6 +18,7 @@ import {
 } from "@mui/material";
 import React, { useCallback, useState } from "react";
 import type { TextareaSearchState } from "../hooks/useTextareaSearch";
+import { Z_TOOLBAR } from "../constants/zIndex";
 
 interface SourceSearchBarProps {
   search: TextareaSearchState;
@@ -114,7 +115,7 @@ export const SourceSearchBar = React.memo(function SourceSearchBar({
         position: "absolute",
         top: 0,
         right: 16,
-        zIndex: 10,
+        zIndex: Z_TOOLBAR,
         borderRadius: 1,
         px: 1.5,
         py: 0.5,

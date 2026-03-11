@@ -2,6 +2,7 @@ import { Box } from "@mui/material";
 import type { Editor } from "@tiptap/react";
 import type React from "react";
 import type { MergeUndoRedo } from "./InlineMergeView";
+import { Z_SKIP_LINK } from "../constants/zIndex";
 
 import { EditorToolbar } from "./EditorToolbar";
 
@@ -114,7 +115,7 @@ export function EditorToolbarSection({
           position: "absolute",
           left: -9999,
           "&:focus": {
-            left: 16, top: 16, zIndex: 9999, bgcolor: "background.paper",
+            left: 16, top: 16, zIndex: Z_SKIP_LINK, bgcolor: "background.paper",
             color: "primary.main", px: 2, py: 1, borderRadius: 1, boxShadow: 3,
             fontWeight: 600, fontSize: "0.875rem", textDecoration: "none",
           },

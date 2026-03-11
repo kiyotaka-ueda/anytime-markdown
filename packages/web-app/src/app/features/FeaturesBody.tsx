@@ -19,6 +19,7 @@ import { marked } from 'marked';
 import LandingHeader from '../components/LandingHeader';
 import SiteFooter from '../components/SiteFooter';
 import { useLocaleSwitch } from '../LocaleProvider';
+import { ACCENT_COLOR } from '@anytime-markdown/editor-core';
 
 const SANITIZE_CONFIG = {
   ALLOWED_TAGS: [
@@ -302,13 +303,13 @@ function getContentSx(isDark: boolean) {
         },
       },
       '& a': {
-        color: '#e8a012',
+        color: ACCENT_COLOR,
         textDecoration: 'none',
         '&:hover': { textDecoration: 'underline' },
       },
       '& blockquote': {
         borderLeft: 3,
-        borderColor: '#e8a012',
+        borderColor: ACCENT_COLOR,
         pl: 2,
         ml: 0,
         my: 2,

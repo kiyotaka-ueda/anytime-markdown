@@ -47,6 +47,7 @@ import React, { useCallback, useRef, useState } from "react";
 import type { TranslationFn } from "../types";
 import { modKey } from "../constants/shortcuts";
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, DEFAULT_LIGHT_TEXT } from "../constants/colors";
+import { Z_TOOLBAR } from "../constants/zIndex";
 
 import type { MergeUndoRedo } from "./InlineMergeView";
 
@@ -259,7 +260,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
         borderBottom: inlineMergeOpen ? undefined : "none",
         position: "sticky",
         top: 0,
-        zIndex: 10,
+        zIndex: Z_TOOLBAR,
         bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
         color: isDark ? undefined : DEFAULT_LIGHT_TEXT,
       }}

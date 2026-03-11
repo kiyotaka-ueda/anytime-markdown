@@ -1,6 +1,7 @@
 import type { Theme, SxProps } from "@mui/material/styles";
 import type { EditorSettings } from "../useEditorSettings";
 import { getEditorBg, getEditorText } from "../constants/colors";
+import { EDITOR_PADDING_TOP, EDITOR_PADDING_BORDER } from "../constants/dimensions";
 import { getHeadingStyles } from "./headingStyles";
 import { getCodeStyles } from "./codeStyles";
 import { getBlockStyles } from "./blockStyles";
@@ -23,8 +24,8 @@ export function getEditorPaperSx(
     overflow: "hidden",
     bgcolor: getEditorBg(theme.palette.mode === "dark", settings),
     "& .tiptap": {
-      minHeight: editorHeight - 36,
-      maxHeight: editorHeight - 4,
+      minHeight: editorHeight - EDITOR_PADDING_TOP,
+      maxHeight: editorHeight - EDITOR_PADDING_BORDER,
       overflowY: "auto",
       py: 2,
       pr: 2,

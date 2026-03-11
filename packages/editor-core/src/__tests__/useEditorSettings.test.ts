@@ -1,7 +1,8 @@
 import { renderHook, act } from "@testing-library/react";
 import { useEditorSettings, DEFAULT_SETTINGS } from "../useEditorSettings";
+import { STORAGE_KEY_SETTINGS } from "../constants/storageKeys";
 
-const SETTINGS_KEY = "markdown-editor-settings";
+const SETTINGS_KEY = STORAGE_KEY_SETTINGS;
 
 describe("useEditorSettings", () => {
   beforeEach(() => {

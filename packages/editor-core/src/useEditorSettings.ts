@@ -2,7 +2,6 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { STORAGE_KEY_SETTINGS } from "./constants/storageKeys";
-const SETTINGS_KEY = STORAGE_KEY_SETTINGS;
 const SETTINGS_VERSION = 6; // showHeadingNumbers を auto 化（設定から除外）
 
 export interface EditorSettings {
@@ -36,7 +35,7 @@ export function useEditorSettings() {
   // Load from localStorage
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(SETTINGS_KEY);
+      const saved = localStorage.getItem(STORAGE_KEY_SETTINGS);
       if (saved) {
         const raw = JSON.parse(saved) as Record<string, unknown>;
         // マイグレーション: バージョンが古い場合、改名/変更されたキーをリセット
@@ -50,7 +49,7 @@ export function useEditorSettings() {
         const merged = { ...DEFAULT_SETTINGS, ...parsed };
         setSettings(merged);
         // バージョンを保存
-        try { localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...merged, _version: SETTINGS_VERSION })); } catch { /* */ }
+        try { localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify({ ...merged, _version: SETTINGS_VERSION })); } catch { /* */ }
       }
     } catch {
       // ignore
@@ -63,7 +62,7 @@ export function useEditorSettings() {
     setSettings((prev) => {
       const next = { ...prev, ...patch };
       try {
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...next, _version: SETTINGS_VERSION }));
+        localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify({ ...next, _version: SETTINGS_VERSION }));
       } catch {
         // storage full
       }
@@ -74,7 +73,7 @@ export function useEditorSettings() {
   const resetSettings = useCallback(() => {
     setSettings(DEFAULT_SETTINGS);
     try {
-      localStorage.removeItem(SETTINGS_KEY);
+      localStorage.removeItem(STORAGE_KEY_SETTINGS);
     } catch {
       // ignore
     }

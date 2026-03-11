@@ -1,6 +1,7 @@
 import { Drawer } from "@mui/material";
 import OutlinePanel from "./OutlinePanel";
 import type { HeadingItem, TranslationFn } from "../types";
+import { COMMENT_PANEL_WIDTH } from "../constants/dimensions";
 
 interface EditorOutlineSectionProps {
   isMd: boolean;
@@ -68,7 +69,7 @@ export function EditorOutlineSection({
       anchor="left"
       open={outlineOpen}
       onClose={handleToggleOutline}
-      slotProps={{ paper: { sx: { width: 280 } } }}
+      slotProps={{ paper: { sx: { width: COMMENT_PANEL_WIDTH } } }}
     >
       <OutlinePanel
         outlineWidth={280}

@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import type { Editor } from "@tiptap/react";
 import { commentDataPluginKey } from "../extensions/commentExtension";
 import type { InlineComment } from "../utils/commentHelpers";
+import { DEBOUNCE_MEDIUM } from "../constants/timing";
 
 type CommentInfo = {
   id: string;
@@ -56,7 +57,7 @@ export function useEditorCommentNotifications(
     };
     const handler = () => {
       if (commentsDebounceRef.current) clearTimeout(commentsDebounceRef.current);
-      commentsDebounceRef.current = setTimeout(extractComments, 300);
+      commentsDebounceRef.current = setTimeout(extractComments, DEBOUNCE_MEDIUM);
     };
     // 初回送信
     handler();

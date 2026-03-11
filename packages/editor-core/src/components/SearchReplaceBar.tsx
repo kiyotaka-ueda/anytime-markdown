@@ -18,6 +18,7 @@ import {
 } from "@mui/material";
 import type { Editor } from "@tiptap/react";
 import type { TranslationFn } from "../types";
+import { Z_TOOLBAR } from "../constants/zIndex";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 
@@ -199,7 +200,7 @@ export const SearchReplaceBar = React.memo(function SearchReplaceBar({ editor, t
         position: "absolute",
         top: 0,
         right: 16,
-        zIndex: 10,
+        zIndex: Z_TOOLBAR,
         borderRadius: 1,
         px: 1.5,
         py: 0.5,
