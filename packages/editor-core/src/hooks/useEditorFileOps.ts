@@ -102,11 +102,14 @@ export function useEditorFileOps({
       if (sourceMode) {
         setSourceText(sanitizeMarkdown(text));
       } else {
-        const { frontmatter, body } = preprocessMarkdown(text);
+        const { frontmatter, comments, body } = preprocessMarkdown(text);
         frontmatterRef.current = frontmatter;
         onFrontmatterChange?.(frontmatter);
         if (editor) {
           editor.commands.setContent(body);
+          if (comments.size > 0) {
+            editor.commands.initComments(comments);
+          }
         }
       }
     },
