@@ -17,7 +17,6 @@ import { useDiffBackground } from "../hooks/useDiffBackground";
 import { useDiffHighlight } from "../hooks/useDiffHighlight";
 import { useMergeDiff } from "../hooks/useMergeDiff";
 import { useScrollSync } from "../hooks/useScrollSync";
-import { getMarkdownStorage } from "../types";
 import { useEditorSettingsContext } from "../useEditorSettings";
 import { type DiffLine } from "../utils/diffEngine";
 import { readFileAsText } from "../utils/fileReading";
@@ -183,9 +182,7 @@ export function InlineMergeView({
         if (rightEditor.isDestroyed) return;
         reviewModeStorage(rightEditor).enabled = false;
         const { body: rightBody } = preprocessMarkdown(rightText);
-        rightEditor.commands.setContent(
-          getMarkdownStorage(rightEditor).parser.parse(rightBody),
-        );
+        rightEditor.commands.setContent(rightBody);
         reviewModeStorage(rightEditor).enabled = true;
       });
     }
@@ -199,9 +196,7 @@ export function InlineMergeView({
         if (rightEditor.isDestroyed) return;
         reviewModeStorage(rightEditor).enabled = false;
         const { body: rightBody } = preprocessMarkdown(rightText);
-        rightEditor.commands.setContent(
-          getMarkdownStorage(rightEditor).parser.parse(rightBody),
-        );
+        rightEditor.commands.setContent(rightBody);
         reviewModeStorage(rightEditor).enabled = true;
       });
     }

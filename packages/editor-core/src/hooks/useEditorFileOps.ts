@@ -9,7 +9,7 @@ import { useCallback, useRef, useState } from "react";
 import useConfirm from "@/hooks/useConfirm";
 
 import { MERMAID_RENDER_TIMEOUT, NOTIFICATION_DURATION, PRINT_DELAY } from "../constants/timing";
-import { type EncodingLabel,getMarkdownFromEditor, getMarkdownStorage } from "../types";
+import { type EncodingLabel,getMarkdownFromEditor } from "../types";
 import type { FileHandle } from "../types/fileSystem";
 import { readFileAsText } from "../utils/fileReading";
 import { preprocessMarkdown, prependFrontmatter } from "../utils/frontmatterHelpers";
@@ -106,9 +106,7 @@ export function useEditorFileOps({
         frontmatterRef.current = frontmatter;
         onFrontmatterChange?.(frontmatter);
         if (editor) {
-          editor.commands.setContent(
-            getMarkdownStorage(editor).parser.parse(body),
-          );
+          editor.commands.setContent(body);
         }
       }
     },
