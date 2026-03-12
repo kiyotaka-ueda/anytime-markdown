@@ -12,7 +12,8 @@ import { MERMAID_RENDER_TIMEOUT, NOTIFICATION_DURATION, PRINT_DELAY } from "../c
 import { type EncodingLabel,getMarkdownFromEditor } from "../types";
 import type { FileHandle } from "../types/fileSystem";
 import { readFileAsText } from "../utils/fileReading";
-import { preprocessMarkdown, prependFrontmatter } from "../utils/frontmatterHelpers";
+import { applyMarkdownToEditor } from "../utils/editorContentLoader";
+import { prependFrontmatter } from "../utils/frontmatterHelpers";
 import { buildPlantUmlUrl } from "../utils/plantumlHelpers";
 import { SVG_SANITIZE_CONFIG } from "./useMermaidRender";
 
@@ -100,16 +101,10 @@ export function useEditorFileOps({
     (text: string) => {
       if (sourceMode) {
         setSourceText(text);
-      } else {
-        const { frontmatter, comments, body } = preprocessMarkdown(text);
+      } else if (editor) {
+        const { frontmatter } = applyMarkdownToEditor(editor, text);
         frontmatterRef.current = frontmatter;
         onFrontmatterChange?.(frontmatter);
-        if (editor) {
-          editor.commands.setContent(body);
-          if (comments.size > 0) {
-            editor.commands.initComments(comments);
-          }
-        }
       }
     },
     [sourceMode, setSourceText, editor, frontmatterRef, onFrontmatterChange],

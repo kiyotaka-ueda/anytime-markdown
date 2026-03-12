@@ -19,6 +19,7 @@ import { useMergeDiff } from "../hooks/useMergeDiff";
 import { useScrollSync } from "../hooks/useScrollSync";
 import { useEditorSettingsContext } from "../useEditorSettings";
 import { type DiffLine } from "../utils/diffEngine";
+import { applyMarkdownToEditor } from "../utils/editorContentLoader";
 import { readFileAsText } from "../utils/fileReading";
 import { preprocessMarkdown } from "../utils/frontmatterHelpers";
 import { FrontmatterBlock } from "./FrontmatterBlock";
@@ -180,8 +181,7 @@ export function InlineMergeView({
       requestAnimationFrame(() => {
         if (rightEditor.isDestroyed) return;
         reviewModeStorage(rightEditor).enabled = false;
-        const { body: rightBody } = preprocessMarkdown(rightText);
-        rightEditor.commands.setContent(rightBody);
+        applyMarkdownToEditor(rightEditor, rightText);
         reviewModeStorage(rightEditor).enabled = true;
       });
     }
@@ -194,8 +194,7 @@ export function InlineMergeView({
       requestAnimationFrame(() => {
         if (rightEditor.isDestroyed) return;
         reviewModeStorage(rightEditor).enabled = false;
-        const { body: rightBody } = preprocessMarkdown(rightText);
-        rightEditor.commands.setContent(rightBody);
+        applyMarkdownToEditor(rightEditor, rightText);
         reviewModeStorage(rightEditor).enabled = true;
       });
     }
