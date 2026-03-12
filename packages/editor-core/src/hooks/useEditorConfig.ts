@@ -20,6 +20,7 @@ import {
   getMarkdownFromEditor,
   type HeadingItem,
 } from "../types";
+import { setTrailingNewline } from "../utils/editorContentLoader";
 import { toGitHubSlug } from "../utils/tocHelpers";
 
 interface HeadingMenuArg {
@@ -31,12 +32,14 @@ interface HeadingMenuArg {
 interface UseEditorConfigParams {
   t: (key: string) => string;
   initialContent: string | null;
+  initialTrailingNewline?: boolean;
   saveContent: (md: string) => void;
   editorRef: RefObject<Editor | null>;
   setEditorMarkdownRef: RefObject<(md: string) => void>;
   setHeadingsRef: RefObject<(h: HeadingItem[]) => void>;
   headingsDebounceRef: RefObject<ReturnType<typeof setTimeout> | null>;
-  handleImportRef: RefObject<(file: File) => void>;
+  handleImportRef: RefObject<(file: File, nativeHandle?: FileSystemFileHandle) => void>;
+  onFileDragOverRef: RefObject<(over: boolean) => void>;
   setHeadingMenu: (menu: HeadingMenuArg) => void;
   slashCommandCallbackRef: RefObject<(state: SlashCommandState) => void>;
 }
@@ -44,12 +47,14 @@ interface UseEditorConfigParams {
 export function useEditorConfig({
   t,
   initialContent,
+  initialTrailingNewline,
   saveContent,
   editorRef,
   setEditorMarkdownRef,
   setHeadingsRef,
   headingsDebounceRef,
   handleImportRef,
+  onFileDragOverRef,
   setHeadingMenu,
   slashCommandCallbackRef,
 }: UseEditorConfigParams) {
@@ -79,8 +84,22 @@ export function useEditorConfig({
     editorProps: {
       handleDrop: (view: EditorView, event: DragEvent, _slice: Slice, moved: boolean) => {
         if (moved || !event.dataTransfer?.files.length) return false;
-        const mdFile = Array.from(event.dataTransfer.files).find((f) => f.name.endsWith(".md") || f.type === "text/markdown");
-        if (mdFile) { event.preventDefault(); handleImportRef.current(mdFile); return true; }
+        const mdFile = Array.from(event.dataTransfer.files).find((f) => f.name.endsWith(".md") || f.name.endsWith(".markdown") || f.type === "text/markdown");
+        if (mdFile) {
+          event.preventDefault();
+          // File System Access API でネイティブハンドルを取得（対応ブラウザのみ）
+          const items = event.dataTransfer.items;
+          const mdItem = items ? Array.from(items).find((item) => item.kind === "file" && (mdFile.name.endsWith(".md") || mdFile.name.endsWith(".markdown"))) : null;
+          const mdItemAny = mdItem as (DataTransferItem & { getAsFileSystemHandle?: () => Promise<FileSystemHandle | null> }) | null;
+          if (mdItemAny?.getAsFileSystemHandle) {
+            mdItemAny.getAsFileSystemHandle().then((handle: FileSystemHandle | null) => {
+              handleImportRef.current(mdFile, handle?.kind === "file" ? handle as FileSystemFileHandle : undefined);
+            }).catch(() => { handleImportRef.current(mdFile); });
+          } else {
+            handleImportRef.current(mdFile);
+          }
+          return true;
+        }
         const images = Array.from(event.dataTransfer.files).filter((f) => f.type.startsWith("image/"));
         if (!images.length) return false;
         event.preventDefault();
@@ -117,6 +136,23 @@ export function useEditorConfig({
         return true;
       },
       handleDOMEvents: {
+        dragover: (_view: EditorView, event: DragEvent) => {
+          if (event.dataTransfer?.types.includes("Files")) {
+            onFileDragOverRef.current(true);
+          }
+          return false;
+        },
+        dragleave: (_view: EditorView, event: DragEvent) => {
+          // エディタ外に出たときだけ解除
+          if (!_view.dom.contains(event.relatedTarget as Node)) {
+            onFileDragOverRef.current(false);
+          }
+          return false;
+        },
+        drop: () => {
+          onFileDragOverRef.current(false);
+          return false;
+        },
         keydown: (_view: EditorView, event: KeyboardEvent) => {
           if (event.key === "Control" || event.key === "Meta") {
             _view.dom.classList.add("ctrl-held");
@@ -281,6 +317,9 @@ export function useEditorConfig({
       }, 300);
     },
     onCreate: ({ editor: e }: { editor: Editor }) => {
+      // 初期コンテンツの末尾改行フラグを storage に記録
+      // （applyMarkdownToEditor と同じキーで、getMarkdownFromEditor が参照する）
+      setTrailingNewline(e, !!initialTrailingNewline);
       setHeadingsRef.current(extractHeadings(e));
       setEditorMarkdownRef.current(getMarkdownFromEditor(e));
       // 引用ブロックのマークダウン出力で継続行に > を付加しない（lazy blockquote）

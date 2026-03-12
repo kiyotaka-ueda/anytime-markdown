@@ -5,6 +5,7 @@ import { createContext, useContext } from "react";
 import { commentDataPluginKey } from "./extensions/commentExtension";
 import type { InlineComment } from "./utils/commentHelpers";
 import { appendCommentData } from "./utils/commentHelpers";
+import { getTrailingNewline } from "./utils/editorContentLoader";
 import { postprocessMathBlock } from "./utils/mathHelpers";
 import { normalizeCodeSpanDelimitersInLine,restoreBlankLines } from "./utils/sanitizeMarkdown";
 
@@ -84,6 +85,10 @@ export function getMarkdownFromEditor(editor: Editor): string {
     : undefined;
   if (commentState?.comments && commentState.comments.size > 0) {
     md = appendCommentData(md, commentState.comments);
+  }
+  // applyMarkdownToEditor で記録された末尾改行フラグに基づき復元する
+  if (md && getTrailingNewline(editor) && !md.endsWith("\n")) {
+    md += "\n";
   }
   return md;
 }

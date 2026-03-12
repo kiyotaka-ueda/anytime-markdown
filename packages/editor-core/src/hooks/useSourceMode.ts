@@ -4,9 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { STORAGE_KEY_READONLY_MODE,STORAGE_KEY_REVIEW_MODE, STORAGE_KEY_SOURCE_MODE } from "../constants/storageKeys";
 import { reviewModeStorage } from "../extensions/reviewModeExtension";
 import { getMarkdownFromEditor } from "../types";
-import { parseCommentData } from "../utils/commentHelpers";
-import { parseFrontmatter, prependFrontmatter } from "../utils/frontmatterHelpers";
-import { preserveBlankLines,sanitizeMarkdown } from "../utils/sanitizeMarkdown";
+import { applyMarkdownToEditor } from "../utils/editorContentLoader";
+import { prependFrontmatter } from "../utils/frontmatterHelpers";
 
 interface UseSourceModeParams {
   editor: Editor | null;
@@ -84,14 +83,8 @@ export function useSourceMode({ editor, saveContent, t, frontmatterRef }: UseSou
 
   /** ソースモードのテキストをエディタに同期し、ソースモードを終了する */
   const syncSourceToEditor = useCallback((ed: Editor, src: string) => {
-    const { frontmatter, body: bodyWithoutFm } = parseFrontmatter(src);
+    const { frontmatter } = applyMarkdownToEditor(ed, src);
     frontmatterRef.current = frontmatter;
-    const { comments, body } = parseCommentData(bodyWithoutFm);
-    const sanitized = preserveBlankLines(sanitizeMarkdown(body));
-    ed.commands.setContent(sanitized);
-    if (comments.size > 0) {
-      ed.commands.initComments(comments);
-    }
     saveContent(src, false);
     setSourceMode(false);
     try { localStorage.setItem(STORAGE_KEY_SOURCE_MODE, "false"); } catch { /* ignore */ }

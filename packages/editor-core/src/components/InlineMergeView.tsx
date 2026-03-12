@@ -1,13 +1,14 @@
 import {
   Box,
   Divider,
+  Typography,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import type { Editor } from "@tiptap/react";
 import { useEditor } from "@tiptap/react";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { getEditorBg } from "../constants/colors";
+import { FILE_DROP_OVERLAY_COLOR, getEditorBg } from "../constants/colors";
 import { setMergeEditors } from "../contexts/MergeEditorsContext";
 import { getBaseExtensions } from "../editorExtensions";
 import { CustomHardBreak } from "../extensions/customHardBreak";
@@ -18,7 +19,10 @@ import { useMergeDiff } from "../hooks/useMergeDiff";
 import { useScrollSync } from "../hooks/useScrollSync";
 import { useEditorSettingsContext } from "../useEditorSettings";
 import { type DiffLine } from "../utils/diffEngine";
-import { preserveBlankLines,sanitizeMarkdown } from "../utils/sanitizeMarkdown";
+import { applyMarkdownToEditor } from "../utils/editorContentLoader";
+import { readFileAsText } from "../utils/fileReading";
+import { preprocessMarkdown } from "../utils/frontmatterHelpers";
+import { FrontmatterBlock } from "./FrontmatterBlock";
 import { LinePreviewPanel } from "./LinePreviewPanel";
 import { MergeEditorPanel } from "./MergeEditorPanel";
 
@@ -35,6 +39,8 @@ interface InlineMergeViewProps {
   sourceMode: boolean;
   editorHeight: number;
   t: (key: string) => string;
+  leftFrontmatter?: string | null;
+  onLeftFrontmatterChange?: (value: string | null) => void;
   onUndoRedoReady?: (ur: MergeUndoRedo) => void;
   onLeftTextChange?: (text: string) => void;
   externalRightContent?: string | null;
@@ -55,31 +61,6 @@ interface FileMetadata {
 
 const DEFAULT_METADATA: FileMetadata = { encoding: "UTF-8", lineEnding: "LF" };
 
-function detectEncoding(buffer: ArrayBuffer): { encoding: string; bomLength: number } {
-  const bytes = new Uint8Array(buffer);
-  if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
-    return { encoding: "UTF-8 (BOM)", bomLength: 3 };
-  }
-  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
-    return { encoding: "UTF-16 LE", bomLength: 2 };
-  }
-  if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
-    return { encoding: "UTF-16 BE", bomLength: 2 };
-  }
-  return { encoding: "UTF-8", bomLength: 0 };
-}
-
-function detectLineEnding(text: string): string {
-  const crlf = (text.match(/\r\n/g) || []).length;
-  const lf = (text.match(/(?<!\r)\n/g) || []).length;
-  const cr = (text.match(/\r(?!\n)/g) || []).length;
-  if (crlf === 0 && lf === 0 && cr === 0) return "N/A";
-  if (crlf > 0 && lf === 0 && cr === 0) return "CRLF";
-  if (lf > 0 && crlf === 0 && cr === 0) return "LF";
-  if (cr > 0 && crlf === 0 && lf === 0) return "CR";
-  return "Mixed";
-}
-
 function downloadText(text: string, filename: string) {
   const blob = new Blob([text], { type: "text/markdown;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -95,7 +76,9 @@ export function InlineMergeView({
   editorContent,
   sourceMode,
   editorHeight,
-  t: _t,
+  t,
+  leftFrontmatter,
+  onLeftFrontmatterChange,
   onUndoRedoReady,
   onLeftTextChange,
   externalRightContent,
@@ -198,7 +181,7 @@ export function InlineMergeView({
       requestAnimationFrame(() => {
         if (rightEditor.isDestroyed) return;
         reviewModeStorage(rightEditor).enabled = false;
-        rightEditor.commands.setContent(preserveBlankLines(sanitizeMarkdown(rightText)));
+        applyMarkdownToEditor(rightEditor, rightText);
         reviewModeStorage(rightEditor).enabled = true;
       });
     }
@@ -211,7 +194,7 @@ export function InlineMergeView({
       requestAnimationFrame(() => {
         if (rightEditor.isDestroyed) return;
         reviewModeStorage(rightEditor).enabled = false;
-        rightEditor.commands.setContent(preserveBlankLines(sanitizeMarkdown(rightText)));
+        applyMarkdownToEditor(rightEditor, rightText);
         reviewModeStorage(rightEditor).enabled = true;
       });
     }
@@ -286,28 +269,15 @@ export function InlineMergeView({
 
   useScrollSync(leftContainerRef, rightScrollRef);
 
+  const rightFrontmatter = useMemo(() => preprocessMarkdown(rightText).frontmatter, [rightText]);
+
   const { leftBgGradient, rightBgGradient } = useDiffBackground(diffResult, sourceMode);
 
   const loadFile = (setter: (text: string) => void, metaSetter: (meta: FileMetadata) => void) => (file: File) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (!(reader.result instanceof ArrayBuffer)) return;
-      const buffer = reader.result;
-      const { encoding, bomLength } = detectEncoding(buffer);
-      let text: string;
-      if (encoding.startsWith("UTF-16 LE")) {
-        text = new TextDecoder("utf-16le").decode(buffer.slice(bomLength));
-      } else if (encoding.startsWith("UTF-16 BE")) {
-        text = new TextDecoder("utf-16be").decode(buffer.slice(bomLength));
-      } else {
-        text = new TextDecoder("utf-8").decode(buffer.slice(bomLength));
-      }
-      metaSetter({ encoding, lineEnding: detectLineEnding(text) });
-      // ブラウザのtextareaはLFに正規化するため、diff比較のためにCRLF/CRもLFに統一
-      const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-      setter(normalized);
-    };
-    reader.readAsArrayBuffer(file);
+    readFileAsText(file).then(({ text, encoding, lineEnding }) => {
+      metaSetter({ encoding, lineEnding });
+      setter(text);
+    });
   };
 
   // モジュールレベルストアに左右エディタを登録（NodeView ポータルからアクセス可能にする）
@@ -332,6 +302,45 @@ export function InlineMergeView({
       />
 
 
+      {/* Frontmatter comparison row */}
+      {!sourceMode && (leftFrontmatter != null || rightFrontmatter != null) && (
+        <Box sx={{ display: "flex", gap: 0, flexShrink: 0, alignItems: "stretch" }}>
+          <Box sx={{ flex: 1, minWidth: 0, px: 1, pt: 1 }}>
+            {leftFrontmatter != null ? (
+              <FrontmatterBlock
+                frontmatter={leftFrontmatter}
+                onChange={onLeftFrontmatterChange ?? (() => {})}
+                readOnly
+                t={t}
+              />
+            ) : (
+              <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1, mb: 1, opacity: 0.4, p: 1, height: "calc(100% - 8px)", boxSizing: "border-box" }}>
+                <Typography variant="caption" sx={{ fontFamily: "monospace", color: "text.disabled", fontSize: "0.75rem" }}>
+                  No Frontmatter
+                </Typography>
+              </Box>
+            )}
+          </Box>
+          <Divider orientation="vertical" flexItem />
+          <Box sx={{ flex: 1, minWidth: 0, px: 1, pt: 1 }}>
+            {rightFrontmatter != null ? (
+              <FrontmatterBlock
+                frontmatter={rightFrontmatter}
+                onChange={() => {}}
+                readOnly
+                t={t}
+              />
+            ) : (
+              <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1, mb: 1, opacity: 0.4, p: 1, height: "calc(100% - 8px)", boxSizing: "border-box" }}>
+                <Typography variant="caption" sx={{ fontFamily: "monospace", color: "text.disabled", fontSize: "0.75rem" }}>
+                  No Frontmatter
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        </Box>
+      )}
+
       {/* Content area: left = editor (children), right = editor */}
       <Box sx={{ display: "flex", flex: 1, overflow: "hidden" }}>
         {/* Left: editor (children) */}
@@ -354,10 +363,7 @@ export function InlineMergeView({
             flex: 1, minWidth: 0, display: "flex", overflow: "hidden",
             position: "relative",
             ...(rightDragOver && {
-              outline: "2px dashed",
-              outlineColor: "primary.main",
-              outlineOffset: -2,
-              bgcolor: "action.hover",
+              "&::after": { content: '""', position: "absolute", inset: 0, bgcolor: FILE_DROP_OVERLAY_COLOR, pointerEvents: "none", zIndex: 1 },
             }),
           }}
           onDragOver={(e) => {
@@ -388,22 +394,24 @@ export function InlineMergeView({
             }
           }}
         >
-          <MergeEditorPanel
-            sourceMode={sourceMode}
-            sourceText={rightText}
-            onSourceChange={setRightText}
-            textareaRef={rightTextareaRef}
-            autoResize
-            scrollRef={rightScrollRef}
-            bgGradient={rightBgGradient}
-            editor={rightEditor}
-            diffLines={diffResult?.rightLines}
-            side="right"
-            readOnly
-            onMerge={mergeBlock}
-            onHoverLine={handleHoverLine}
-            paperSx={{ bgcolor: getEditorBg(isDark, settings) }}
-          />
+          <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            <MergeEditorPanel
+              sourceMode={sourceMode}
+              sourceText={rightText}
+              onSourceChange={setRightText}
+              textareaRef={rightTextareaRef}
+              autoResize
+              scrollRef={rightScrollRef}
+              bgGradient={rightBgGradient}
+              editor={rightEditor}
+              diffLines={diffResult?.rightLines}
+              side="right"
+              readOnly
+              onMerge={mergeBlock}
+              onHoverLine={handleHoverLine}
+              paperSx={{ bgcolor: getEditorBg(isDark, settings) }}
+            />
+          </Box>
         </Box>
       </Box>
 

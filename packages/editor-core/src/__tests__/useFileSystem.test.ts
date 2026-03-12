@@ -13,6 +13,10 @@ function createMockProvider(overrides?: Partial<FileSystemProvider>): FileSystem
 }
 
 describe('useFileSystem', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   test('初期状態: handle が null, isDirty が false', () => {
     const provider = createMockProvider();
     const { result } = renderHook(() => useFileSystem(provider));
@@ -44,8 +48,9 @@ describe('useFileSystem', () => {
     expect(result.current.fileHandle).toBeNull();
   });
 
-  test('saveFile: ハンドルあり時に provider.save を呼び出す', async () => {
-    const mockHandle: FileHandle = { name: 'test.md' };
+  test('saveFile: nativeHandle あり時に provider.save を呼び出す', async () => {
+    const nativeHandle = {} as FileSystemHandle;
+    const mockHandle: FileHandle = { name: 'test.md', nativeHandle };
     const saveFn = jest.fn().mockResolvedValue(undefined);
     const provider = createMockProvider({
       open: jest.fn().mockResolvedValue({ handle: mockHandle, content: '# Hello' }),
@@ -58,6 +63,23 @@ describe('useFileSystem', () => {
     await act(async () => { await result.current.saveFile('# Updated'); });
     expect(saveFn).toHaveBeenCalledWith(mockHandle, '# Updated');
     expect(result.current.isDirty).toBe(false);
+  });
+
+  test('saveFile: nativeHandle なし時に saveAs にフォールバック', async () => {
+    const mockHandle: FileHandle = { name: 'test.md' };
+    const newHandle: FileHandle = { name: 'test.md', nativeHandle: {} as FileSystemHandle };
+    const saveFn = jest.fn().mockResolvedValue(undefined);
+    const saveAsFn = jest.fn().mockResolvedValue(newHandle);
+    const provider = createMockProvider({
+      open: jest.fn().mockResolvedValue({ handle: mockHandle, content: '# Hello' }),
+      save: saveFn,
+      saveAs: saveAsFn,
+    });
+    const { result } = renderHook(() => useFileSystem(provider));
+    await act(async () => { await result.current.openFile(); });
+    await act(async () => { await result.current.saveFile('# Updated'); });
+    expect(saveFn).not.toHaveBeenCalled();
+    expect(saveAsFn).toHaveBeenCalledWith('# Updated');
   });
 
   test('saveFile: ハンドルなし時に saveAs にフォールバック', async () => {

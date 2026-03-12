@@ -9,11 +9,12 @@ import { useCallback, useRef, useState } from "react";
 import useConfirm from "@/hooks/useConfirm";
 
 import { MERMAID_RENDER_TIMEOUT, NOTIFICATION_DURATION, PRINT_DELAY } from "../constants/timing";
-import { type EncodingLabel,getMarkdownFromEditor, getMarkdownStorage } from "../types";
+import { type EncodingLabel,getMarkdownFromEditor } from "../types";
 import type { FileHandle } from "../types/fileSystem";
+import { readFileAsText } from "../utils/fileReading";
+import { applyMarkdownToEditor } from "../utils/editorContentLoader";
 import { prependFrontmatter } from "../utils/frontmatterHelpers";
 import { buildPlantUmlUrl } from "../utils/plantumlHelpers";
-import { preserveBlankLines,sanitizeMarkdown } from "../utils/sanitizeMarkdown";
 import { SVG_SANITIZE_CONFIG } from "./useMermaidRender";
 
 interface UseEditorFileOpsParams {
@@ -25,12 +26,14 @@ interface UseEditorFileOpsParams {
   downloadMarkdown: (md: string, encoding?: EncodingLabel) => void;
   clearContent: () => void;
   openFile?: () => Promise<string | null>;
-  saveFile?: (content: string) => Promise<void>;
-  saveAsFile?: (content: string) => Promise<void>;
+  saveFile?: (content: string) => Promise<boolean>;
+  saveAsFile?: (content: string) => Promise<boolean>;
   resetFile?: () => void;
   encoding?: EncodingLabel;
   fileHandle?: FileHandle | null;
+  setFileHandle?: (handle: FileHandle | null) => void;
   frontmatterRef: React.MutableRefObject<string | null>;
+  onFrontmatterChange?: (value: string | null) => void;
 }
 
 export type NotificationKey = "copiedToClipboard" | "fileSaved" | "pdfExportError" | "encodingError" | "saveError" | null;
@@ -49,7 +52,9 @@ export function useEditorFileOps({
   resetFile,
   encoding,
   fileHandle,
+  setFileHandle,
   frontmatterRef,
+  onFrontmatterChange,
 }: UseEditorFileOpsParams) {
   const [notification, setNotification] = useState<NotificationKey>(null);
   const [pdfExporting, setPdfExporting] = useState(false);
@@ -93,28 +98,32 @@ export function useEditorFileOps({
     resetFile?.();
   }, [confirm, t, sourceMode, setSourceText, editor, clearContent, resetFile, frontmatterRef]);
 
-  const handleImport = useCallback(
-    (file: File) => {
-      if (!file.name.endsWith(".md") && !file.type.startsWith("text/")) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result !== "string") return;
-        if (sourceMode) {
-          setSourceText(sanitizeMarkdown(reader.result));
-        } else if (editor) {
-          editor.commands.setContent(
-            getMarkdownStorage(editor).parser.parse(
-              preserveBlankLines(sanitizeMarkdown(reader.result)),
-            ),
-          );
-        }
-      };
-      reader.readAsText(file, encoding?.toLowerCase());
+  /** Markdown テキストをエディタに適用する共通処理 */
+  const applyMarkdownContent = useCallback(
+    (text: string) => {
+      if (sourceMode) {
+        setSourceText(text);
+      } else if (editor) {
+        const { frontmatter } = applyMarkdownToEditor(editor, text);
+        frontmatterRef.current = frontmatter;
+        onFrontmatterChange?.(frontmatter);
+      }
     },
-    [sourceMode, setSourceText, editor, encoding],
+    [sourceMode, setSourceText, editor, frontmatterRef, onFrontmatterChange],
   );
 
-  const handleFileSelected = useCallback(async (file: File) => {
+  const handleImport = useCallback(
+    (file: File, nativeHandle?: FileSystemFileHandle) => {
+      if (!file.name.endsWith(".md") && !file.type.startsWith("text/")) return;
+      readFileAsText(file).then(({ text }) => {
+        setFileHandle?.(nativeHandle ? { name: file.name, nativeHandle } : { name: file.name });
+        applyMarkdownContent(text);
+      });
+    },
+    [applyMarkdownContent, setFileHandle],
+  );
+
+  const handleFileSelected = useCallback(async (file: File, nativeHandle?: FileSystemFileHandle) => {
     const hasContent = sourceMode ? sourceText.trim() !== "" : !editor?.isEmpty;
     if (hasContent) {
       try {
@@ -128,7 +137,7 @@ export function useEditorFileOps({
         return;
       }
     }
-    handleImport(file);
+    handleImport(file, nativeHandle);
   }, [sourceMode, sourceText, editor, confirm, t, handleImport]);
 
   const handleDownload = useCallback(() => {
@@ -160,17 +169,8 @@ export function useEditorFileOps({
     }
     const content = await openFile();
     if (content === null) return;
-    const sanitized = sanitizeMarkdown(content);
-    if (sourceMode) {
-      setSourceText(sanitized);
-    } else if (editor) {
-      editor.commands.setContent(
-        getMarkdownStorage(editor).parser.parse(
-          preserveBlankLines(sanitized),
-        ),
-      );
-    }
-  }, [openFile, editor, sourceMode, sourceText, setSourceText, confirm, t]);
+    applyMarkdownContent(content);
+  }, [openFile, applyMarkdownContent, sourceMode, sourceText, editor, confirm, t]);
 
   const handleSaveFile = useCallback(async () => {
     if (!saveFile) return;
@@ -186,7 +186,8 @@ export function useEditorFileOps({
       await writable.write(new Uint8Array(converted));
       await writable.close();
     } else {
-      await saveFile(md);
+      const saved = await saveFile(md);
+      if (!saved) return;
     }
     showNotification("fileSaved");
   }, [saveFile, getFullMarkdown, showNotification, encoding, fileHandle]);
@@ -195,8 +196,8 @@ export function useEditorFileOps({
     if (!saveAsFile) return;
     let md = getFullMarkdown();
     if (md && !md.endsWith("\n")) md += "\n";
-    await saveAsFile(md);
-    showNotification("fileSaved");
+    const saved = await saveAsFile(md);
+    if (saved) showNotification("fileSaved");
   }, [saveAsFile, getFullMarkdown, showNotification]);
 
   const handleExportPdf = useCallback(async () => {

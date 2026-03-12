@@ -4,26 +4,25 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { STORAGE_KEY_CONTENT } from "./constants/storageKeys";
 import type { EncodingLabel } from "./types";
-import { appendCommentData,parseCommentData } from "./utils/commentHelpers";
-import { parseFrontmatter, prependFrontmatter } from "./utils/frontmatterHelpers";
-import { preserveBlankLines,sanitizeMarkdown } from "./utils/sanitizeMarkdown";
+import { appendCommentData } from "./utils/commentHelpers";
+import { preprocessMarkdown, prependFrontmatter } from "./utils/frontmatterHelpers";
 const DEBOUNCE_MS = 500;
 
 export function useMarkdownEditor(defaultContent: string, skipLocalStorage = false) {
   // フロントマターをエディタ外で保持する ref
   const frontmatterRef = useRef<string | null>(null);
-
+  // 元テキストの末尾改行の有無（エディタの onCreate で storage に記録するため）
+  const initialTrailingNewline = useRef(false);
   // localStorage から同期的に読み込み（HMR 時のローディングフラッシュを防止）
   // skipLocalStorage が true の場合（readOnly / externalContent）は localStorage を参照しない
   const [initialContent] = useState<string>(() => {
     try {
       const saved = skipLocalStorage ? null : localStorage.getItem(STORAGE_KEY_CONTENT);
       const raw = saved ?? defaultContent;
-      const { frontmatter, body: bodyWithoutFm } = parseFrontmatter(raw);
+      initialTrailingNewline.current = raw.endsWith("\n");
+      const { frontmatter, comments, body } = preprocessMarkdown(raw);
       frontmatterRef.current = frontmatter;
-      const { comments, body } = parseCommentData(bodyWithoutFm);
-      const sanitized = preserveBlankLines(sanitizeMarkdown(body));
-      return comments.size > 0 ? appendCommentData(sanitized, comments) : sanitized;
+      return comments.size > 0 ? appendCommentData(body, comments) : body;
     } catch (e) {
       console.warn("Failed to read localStorage:", e);
       return defaultContent;
@@ -95,5 +94,6 @@ export function useMarkdownEditor(defaultContent: string, skipLocalStorage = fal
     downloadMarkdown,
     clearContent,
     frontmatterRef,
+    initialTrailingNewline: initialTrailingNewline.current,
   };
 }

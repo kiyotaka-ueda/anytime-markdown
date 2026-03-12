@@ -62,8 +62,7 @@ import { type HeadingItem, PlantUmlToolbarContext } from "./types";
 import type { FileSystemProvider } from "./types/fileSystem";
 import type { InlineComment } from "./utils/commentHelpers";
 import { parseCommentData } from "./utils/commentHelpers";
-import { parseFrontmatter } from "./utils/frontmatterHelpers";
-import { preserveBlankLines,sanitizeMarkdown } from "./utils/sanitizeMarkdown";
+import { preprocessMarkdown } from "./utils/frontmatterHelpers";
 
 interface MarkdownEditorPageProps {
   hideFileOps?: boolean;
@@ -100,7 +99,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   const isDark = muiTheme.palette.mode === "dark";
   const noopSave = useCallback(() => {}, []);
   const {
-    initialContent, loading, saveContent: _saveContent, downloadMarkdown, clearContent, frontmatterRef,
+    initialContent, loading, saveContent: _saveContent, downloadMarkdown, clearContent, frontmatterRef, initialTrailingNewline,
   } = useMarkdownEditor(externalContent ?? defaultContent, !!externalContent);
   const saveContent = readOnly ? noopSave : _saveContent;
 
@@ -140,13 +139,15 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   const setEditorMarkdownRef = useRef<(md: string) => void>(() => {});
   const setHeadingsRef = useRef<(h: HeadingItem[]) => void>(() => {});
   const headingsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const handleImportRef = useRef<(f: File) => void>(() => {});
+  const handleImportRef = useRef<(f: File, nativeHandle?: FileSystemFileHandle) => void>(() => {});
+  const [fileDragOver, setFileDragOver] = useState(false);
+  const onFileDragOverRef = useRef<(over: boolean) => void>((over) => setFileDragOver(over));
   const slashCommandCallbackRef = useRef<(state: SlashCommandState) => void>(() => {});
 
   const editorConfig = useEditorConfig({
-    t, initialContent: processedInitialContent, saveContent,
+    t, initialContent: processedInitialContent, initialTrailingNewline, saveContent,
     editorRef, setEditorMarkdownRef, setHeadingsRef,
-    headingsDebounceRef, handleImportRef, setHeadingMenu, slashCommandCallbackRef,
+    headingsDebounceRef, handleImportRef, onFileDragOverRef, setHeadingMenu, slashCommandCallbackRef,
   });
   const editor = useEditor(editorConfig, [processedInitialContent]);
   editorRef.current = editor;
@@ -163,7 +164,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   } = useSourceMode({ editor, saveContent, t, frontmatterRef });
 
   const {
-    fileHandle, fileName, isDirty, supportsDirectAccess,
+    fileHandle, setFileHandle, fileName, isDirty, supportsDirectAccess,
     openFile, saveFile, saveAsFile, markDirty, resetFile,
   } = useFileSystem(fileSystemProvider ?? null);
 
@@ -210,14 +211,15 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     editor, sourceMode, sourceText, setSourceText,
     saveContent, downloadMarkdown, clearContent: clearContentWithFrontmatter,
     openFile, saveFile, saveAsFile, resetFile,
-    encoding: fileHandling.encoding, fileHandle, frontmatterRef,
+    encoding: fileHandling.encoding, fileHandle, setFileHandle, frontmatterRef,
+    onFrontmatterChange: fileHandling.setFrontmatterText,
   });
 
   // Update refs for useEditor callbacks
   const onHeadingsChangeRef = useRef(onHeadingsChange);
   onHeadingsChangeRef.current = onHeadingsChange;
   setHeadingsRef.current = (h: HeadingItem[]) => { setHeadings(h); onHeadingsChangeRef.current?.(h); };
-  handleImportRef.current = handleImport;
+  handleImportRef.current = handleFileSelected;
 
   useEditorCommentNotifications(editor, onCommentsChange);
 
@@ -247,11 +249,10 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   const handleInsertTemplate = useCallback((template: MarkdownTemplate) => {
     if (sourceMode) { appendToSource(template.content); return; }
     if (!editor) return;
-    const { frontmatter, body } = parseFrontmatter(template.content);
+    const { frontmatter, body } = preprocessMarkdown(template.content);
     if (frontmatter !== null) { frontmatterRef.current = frontmatter; fileHandling.setFrontmatterText(frontmatter); }
-    const preprocessed = preserveBlankLines(sanitizeMarkdown(body));
     requestAnimationFrame(() => {
-      editor.chain().focus().insertContent(preprocessed).run();
+      editor.chain().focus().insertContent(body).run();
       requestAnimationFrame(() => { editor.commands.setTextSelection(0); editor.view.dom.scrollTop = 0; });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -348,6 +349,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         outlineProps={outlineProps} editorMarkdown={editorMarkdown}
         setMergeUndoRedo={setMergeUndoRedo} compareFileContent={compareFileContent}
         setCompareFileContent={setCompareFileContent} setRightFileOps={setRightFileOps} t={t}
+        onFileDrop={handleFileSelected}
+        fileDragOver={fileDragOver} onFileDragOverChange={setFileDragOver}
       />
 
       <EditorFooterOverlays
