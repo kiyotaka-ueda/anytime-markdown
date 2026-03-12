@@ -143,6 +143,7 @@ describe("useSourceMode", () => {
           setContent: jest.fn(),
           initComments,
         },
+        storage: {},
       } as unknown as Editor;
       const { hook } = setup(mockEditor);
 
@@ -200,6 +201,7 @@ describe("useSourceMode", () => {
           setContent: jest.fn(),
           initComments,
         },
+        storage: {},
       } as unknown as Editor;
       const { hook } = setup(mockEditor);
 

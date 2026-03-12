@@ -99,7 +99,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   const isDark = muiTheme.palette.mode === "dark";
   const noopSave = useCallback(() => {}, []);
   const {
-    initialContent, loading, saveContent: _saveContent, downloadMarkdown, clearContent, frontmatterRef,
+    initialContent, loading, saveContent: _saveContent, downloadMarkdown, clearContent, frontmatterRef, initialTrailingNewline,
   } = useMarkdownEditor(externalContent ?? defaultContent, !!externalContent);
   const saveContent = readOnly ? noopSave : _saveContent;
 
@@ -143,7 +143,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   const slashCommandCallbackRef = useRef<(state: SlashCommandState) => void>(() => {});
 
   const editorConfig = useEditorConfig({
-    t, initialContent: processedInitialContent, saveContent,
+    t, initialContent: processedInitialContent, initialTrailingNewline, saveContent,
     editorRef, setEditorMarkdownRef, setHeadingsRef,
     headingsDebounceRef, handleImportRef, setHeadingMenu, slashCommandCallbackRef,
   });

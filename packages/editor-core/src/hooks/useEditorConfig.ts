@@ -20,6 +20,7 @@ import {
   getMarkdownFromEditor,
   type HeadingItem,
 } from "../types";
+import { setTrailingNewline } from "../utils/editorContentLoader";
 import { toGitHubSlug } from "../utils/tocHelpers";
 
 interface HeadingMenuArg {
@@ -31,6 +32,7 @@ interface HeadingMenuArg {
 interface UseEditorConfigParams {
   t: (key: string) => string;
   initialContent: string | null;
+  initialTrailingNewline?: boolean;
   saveContent: (md: string) => void;
   editorRef: RefObject<Editor | null>;
   setEditorMarkdownRef: RefObject<(md: string) => void>;
@@ -44,6 +46,7 @@ interface UseEditorConfigParams {
 export function useEditorConfig({
   t,
   initialContent,
+  initialTrailingNewline,
   saveContent,
   editorRef,
   setEditorMarkdownRef,
@@ -281,6 +284,9 @@ export function useEditorConfig({
       }, 300);
     },
     onCreate: ({ editor: e }: { editor: Editor }) => {
+      // 初期コンテンツの末尾改行フラグを storage に記録
+      // （applyMarkdownToEditor と同じキーで、getMarkdownFromEditor が参照する）
+      setTrailingNewline(e, !!initialTrailingNewline);
       setHeadingsRef.current(extractHeadings(e));
       setEditorMarkdownRef.current(getMarkdownFromEditor(e));
       // 引用ブロックのマークダウン出力で継続行に > を付加しない（lazy blockquote）

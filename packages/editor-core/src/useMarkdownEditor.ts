@@ -11,13 +11,15 @@ const DEBOUNCE_MS = 500;
 export function useMarkdownEditor(defaultContent: string, skipLocalStorage = false) {
   // フロントマターをエディタ外で保持する ref
   const frontmatterRef = useRef<string | null>(null);
-
+  // 元テキストの末尾改行の有無（エディタの onCreate で storage に記録するため）
+  const initialTrailingNewline = useRef(false);
   // localStorage から同期的に読み込み（HMR 時のローディングフラッシュを防止）
   // skipLocalStorage が true の場合（readOnly / externalContent）は localStorage を参照しない
   const [initialContent] = useState<string>(() => {
     try {
       const saved = skipLocalStorage ? null : localStorage.getItem(STORAGE_KEY_CONTENT);
       const raw = saved ?? defaultContent;
+      initialTrailingNewline.current = raw.endsWith("\n");
       const { frontmatter, comments, body } = preprocessMarkdown(raw);
       frontmatterRef.current = frontmatter;
       return comments.size > 0 ? appendCommentData(body, comments) : body;
@@ -92,5 +94,6 @@ export function useMarkdownEditor(defaultContent: string, skipLocalStorage = fal
     downloadMarkdown,
     clearContent,
     frontmatterRef,
+    initialTrailingNewline: initialTrailingNewline.current,
   };
 }
