@@ -313,11 +313,11 @@ export function DiagramBlock(props: DiagramBlockProps) {
   };
 
   const handleDoubleClickFullscreen = useCallback(() => {
-    if (!canInteract && (svg || plantUmlUrl)) {
+    if (svg || plantUmlUrl) {
       fsZP.reset();
       setFullscreen(true);
     }
-  }, [canInteract, svg, plantUmlUrl, fsZP, setFullscreen]);
+  }, [svg, plantUmlUrl, fsZP, setFullscreen]);
 
   return (
     <CodeBlockFrame
@@ -326,7 +326,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
       codeCollapsed={codeCollapsed}
       isDiagramLayout
       isDark={isDark}
-      showBorder={isEditable && (allCollapsed || fullscreen || isSelected)}
+      showBorder={isEditable && (allCollapsed || fullscreen)}
       deleteDialogOpen={deleteDialogOpen}
       setDeleteDialogOpen={setDeleteDialogOpen}
       handleDeleteBlock={handleDeleteBlock}
@@ -371,7 +371,6 @@ export function DiagramBlock(props: DiagramBlockProps) {
               aria-label={extractDiagramAltText(code, "mermaid")}
               sx={diagramContainerSx}
               contentEditable={false}
-              onClick={selectNode}
               onDoubleClick={handleDoubleClickFullscreen}
               onPointerDown={canInteract ? normalZP.handlePointerDown : undefined}
               onPointerMove={canInteract ? (e) => diagramResize.resizing ? diagramResize.handlePointerMove(e) : normalZP.handlePointerMove(e) : undefined}
@@ -382,8 +381,6 @@ export function DiagramBlock(props: DiagramBlockProps) {
                 sx={panTransformSx}
                 dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(displaySvg, SVG_SANITIZE_CONFIG) }}
               />
-              {canInteract && resizeHandle}
-              {canInteract && resizeIndicator}
             </Box>
           )}
           {isPlantUml && plantUmlConsent !== "accepted" && (
@@ -411,7 +408,6 @@ export function DiagramBlock(props: DiagramBlockProps) {
               aria-label={extractDiagramAltText(code, "plantuml")}
               sx={diagramContainerSx}
               contentEditable={false}
-              onClick={selectNode}
               onDoubleClick={handleDoubleClickFullscreen}
               onPointerDown={canInteract ? normalZP.handlePointerDown : undefined}
               onPointerMove={canInteract ? (e) => diagramResize.resizing ? diagramResize.handlePointerMove(e) : normalZP.handlePointerMove(e) : undefined}
@@ -421,8 +417,6 @@ export function DiagramBlock(props: DiagramBlockProps) {
               <Box sx={panTransformSx}>
                 <img src={plantUmlUrl} alt={extractDiagramAltText(code, "plantuml")} referrerPolicy="no-referrer" style={{ maxWidth: "100%", height: "auto" }} />
               </Box>
-              {canInteract && resizeHandle}
-              {canInteract && resizeIndicator}
             </Box>
           )}
           {error && (
