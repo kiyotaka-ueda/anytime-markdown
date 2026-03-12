@@ -17,11 +17,11 @@ import { useDiffBackground } from "../hooks/useDiffBackground";
 import { useDiffHighlight } from "../hooks/useDiffHighlight";
 import { useMergeDiff } from "../hooks/useMergeDiff";
 import { useScrollSync } from "../hooks/useScrollSync";
+import { getMarkdownStorage } from "../types";
 import { useEditorSettingsContext } from "../useEditorSettings";
 import { type DiffLine } from "../utils/diffEngine";
 import { readFileAsText } from "../utils/fileReading";
-import { parseFrontmatter } from "../utils/frontmatterHelpers";
-import { preserveBlankLines,sanitizeMarkdown } from "../utils/sanitizeMarkdown";
+import { preprocessMarkdown } from "../utils/frontmatterHelpers";
 import { FrontmatterBlock } from "./FrontmatterBlock";
 import { LinePreviewPanel } from "./LinePreviewPanel";
 import { MergeEditorPanel } from "./MergeEditorPanel";
@@ -181,8 +181,10 @@ export function InlineMergeView({
       requestAnimationFrame(() => {
         if (rightEditor.isDestroyed) return;
         reviewModeStorage(rightEditor).enabled = false;
-        const { body: rightBody } = parseFrontmatter(rightText);
-        rightEditor.commands.setContent(preserveBlankLines(sanitizeMarkdown(rightBody)));
+        const { body: rightBody } = preprocessMarkdown(rightText);
+        rightEditor.commands.setContent(
+          getMarkdownStorage(rightEditor).parser.parse(rightBody),
+        );
         reviewModeStorage(rightEditor).enabled = true;
       });
     }
@@ -195,8 +197,10 @@ export function InlineMergeView({
       requestAnimationFrame(() => {
         if (rightEditor.isDestroyed) return;
         reviewModeStorage(rightEditor).enabled = false;
-        const { body: rightBody } = parseFrontmatter(rightText);
-        rightEditor.commands.setContent(preserveBlankLines(sanitizeMarkdown(rightBody)));
+        const { body: rightBody } = preprocessMarkdown(rightText);
+        rightEditor.commands.setContent(
+          getMarkdownStorage(rightEditor).parser.parse(rightBody),
+        );
         reviewModeStorage(rightEditor).enabled = true;
       });
     }
@@ -271,7 +275,7 @@ export function InlineMergeView({
 
   useScrollSync(leftContainerRef, rightScrollRef);
 
-  const rightFrontmatter = useMemo(() => parseFrontmatter(rightText).frontmatter, [rightText]);
+  const rightFrontmatter = useMemo(() => preprocessMarkdown(rightText).frontmatter, [rightText]);
 
   const { leftBgGradient, rightBgGradient } = useDiffBackground(diffResult, sourceMode);
 
