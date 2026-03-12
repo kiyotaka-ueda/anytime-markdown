@@ -140,12 +140,14 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   const setHeadingsRef = useRef<(h: HeadingItem[]) => void>(() => {});
   const headingsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleImportRef = useRef<(f: File, nativeHandle?: FileSystemFileHandle) => void>(() => {});
+  const [fileDragOver, setFileDragOver] = useState(false);
+  const onFileDragOverRef = useRef<(over: boolean) => void>((over) => setFileDragOver(over));
   const slashCommandCallbackRef = useRef<(state: SlashCommandState) => void>(() => {});
 
   const editorConfig = useEditorConfig({
     t, initialContent: processedInitialContent, initialTrailingNewline, saveContent,
     editorRef, setEditorMarkdownRef, setHeadingsRef,
-    headingsDebounceRef, handleImportRef, setHeadingMenu, slashCommandCallbackRef,
+    headingsDebounceRef, handleImportRef, onFileDragOverRef, setHeadingMenu, slashCommandCallbackRef,
   });
   const editor = useEditor(editorConfig, [processedInitialContent]);
   editorRef.current = editor;
@@ -348,6 +350,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         setMergeUndoRedo={setMergeUndoRedo} compareFileContent={compareFileContent}
         setCompareFileContent={setCompareFileContent} setRightFileOps={setRightFileOps} t={t}
         onFileDrop={handleFileSelected}
+        fileDragOver={fileDragOver} onFileDragOverChange={setFileDragOver}
       />
 
       <EditorFooterOverlays

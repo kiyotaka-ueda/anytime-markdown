@@ -39,6 +39,7 @@ interface UseEditorConfigParams {
   setHeadingsRef: RefObject<(h: HeadingItem[]) => void>;
   headingsDebounceRef: RefObject<ReturnType<typeof setTimeout> | null>;
   handleImportRef: RefObject<(file: File, nativeHandle?: FileSystemFileHandle) => void>;
+  onFileDragOverRef: RefObject<(over: boolean) => void>;
   setHeadingMenu: (menu: HeadingMenuArg) => void;
   slashCommandCallbackRef: RefObject<(state: SlashCommandState) => void>;
 }
@@ -53,6 +54,7 @@ export function useEditorConfig({
   setHeadingsRef,
   headingsDebounceRef,
   handleImportRef,
+  onFileDragOverRef,
   setHeadingMenu,
   slashCommandCallbackRef,
 }: UseEditorConfigParams) {
@@ -134,6 +136,23 @@ export function useEditorConfig({
         return true;
       },
       handleDOMEvents: {
+        dragover: (_view: EditorView, event: DragEvent) => {
+          if (event.dataTransfer?.types.includes("Files")) {
+            onFileDragOverRef.current(true);
+          }
+          return false;
+        },
+        dragleave: (_view: EditorView, event: DragEvent) => {
+          // エディタ外に出たときだけ解除
+          if (!_view.dom.contains(event.relatedTarget as Node)) {
+            onFileDragOverRef.current(false);
+          }
+          return false;
+        },
+        drop: () => {
+          onFileDragOverRef.current(false);
+          return false;
+        },
         keydown: (_view: EditorView, event: KeyboardEvent) => {
           if (event.key === "Control" || event.key === "Meta") {
             _view.dom.classList.add("ctrl-held");

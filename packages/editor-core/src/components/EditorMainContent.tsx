@@ -4,7 +4,7 @@ import type { Editor } from "@tiptap/react";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { getEditorBg } from "../constants/colors";
+import { FILE_DROP_OVERLAY_COLOR, getEditorBg } from "../constants/colors";
 import type { TextareaSearchState } from "../hooks/useTextareaSearch";
 import { getEditorPaperSx } from "../styles/editorStyles";
 import { getMarkdownFromEditor, type HeadingItem } from "../types";
@@ -95,6 +95,8 @@ interface EditorMainContentProps {
   setCompareFileContent: (v: string | null) => void;
   setRightFileOps: (ops: { loadFile: () => void; exportFile: () => void } | null) => void;
   onFileDrop?: (file: File, nativeHandle?: FileSystemFileHandle) => void;
+  fileDragOver?: boolean;
+  onFileDragOverChange?: (over: boolean) => void;
   t: (key: string) => string;
 }
 
@@ -127,6 +129,8 @@ export function EditorMainContent({
   setCompareFileContent,
   setRightFileOps,
   onFileDrop,
+  fileDragOver,
+  onFileDragOverChange,
   t,
 }: EditorMainContentProps) {
   const theme = useTheme();
@@ -152,9 +156,17 @@ export function EditorMainContent({
     if (!e.dataTransfer.types.includes("Files")) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "copy";
-  }, []);
+    onFileDragOverChange?.(true);
+  }, [onFileDragOverChange]);
+
+  const handleContainerDragLeave = useCallback((e: React.DragEvent) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      onFileDragOverChange?.(false);
+    }
+  }, [onFileDragOverChange]);
 
   const handleContainerDrop = useCallback((e: React.DragEvent) => {
+    onFileDragOverChange?.(false);
     const file = Array.from(e.dataTransfer.files).find(
       (f) => f.name.endsWith(".md") || f.name.endsWith(".markdown") || f.type.startsWith("text/"),
     );
@@ -190,7 +202,8 @@ export function EditorMainContent({
         onRightFileOpsReady={setRightFileOps}
       >
         {(leftBgGradient, leftDiffLines, onMerge, onHoverLine) => (
-        <Box component="main" ref={editorContainerRef} sx={{ display: "flex", gap: 0, height: "100%" }} onDragOver={handleContainerDragOver} onDrop={handleContainerDrop}>
+        <Box component="main" ref={editorContainerRef} sx={{ display: "flex", gap: 0, height: "100%", position: "relative" }} onDragOver={handleContainerDragOver} onDragLeave={handleContainerDragLeave} onDrop={handleContainerDrop}>
+          {fileDragOver && <Box sx={{ position: "absolute", inset: 0, bgcolor: FILE_DROP_OVERLAY_COLOR, zIndex: 10, pointerEvents: "none" }} />}
           <EditorOutlineSection {...outlineProps} />
           <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
             <MergeEditorPanel
@@ -221,7 +234,8 @@ export function EditorMainContent({
   }
 
   return (
-    <Box component="main" ref={editorContainerRef} sx={{ display: "flex", gap: 0 }} onDragOver={handleContainerDragOver} onDrop={handleContainerDrop}>
+    <Box component="main" ref={editorContainerRef} sx={{ display: "flex", gap: 0, position: "relative" }} onDragOver={handleContainerDragOver} onDragLeave={handleContainerDragLeave} onDrop={handleContainerDrop}>
+      {fileDragOver && <Box sx={{ position: "absolute", inset: 0, bgcolor: FILE_DROP_OVERLAY_COLOR, zIndex: 10, pointerEvents: "none" }} />}
       {!sourceMode && <EditorOutlineSection {...outlineProps} />}
 
       {/* Editor */}

@@ -32,6 +32,9 @@ export const PLANTUML_DARK_SURFACE = "#1E1E1E";
 // ── 図キャプチャ Canvas 背景 ──
 export const CAPTURE_BG = "#ffffff";
 
+// ── ファイルドラッグオーバー ──
+export const FILE_DROP_OVERLAY_COLOR = "rgba(66, 133, 244, 0.15)";
+
 // ── ヘルパー関数 ──
 
 /** ユーザー設定を考慮したエディタ背景色を返す */

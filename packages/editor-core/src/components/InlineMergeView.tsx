@@ -8,7 +8,7 @@ import type { Editor } from "@tiptap/react";
 import { useEditor } from "@tiptap/react";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { getEditorBg } from "../constants/colors";
+import { FILE_DROP_OVERLAY_COLOR, getEditorBg } from "../constants/colors";
 import { setMergeEditors } from "../contexts/MergeEditorsContext";
 import { getBaseExtensions } from "../editorExtensions";
 import { CustomHardBreak } from "../extensions/customHardBreak";
@@ -363,10 +363,7 @@ export function InlineMergeView({
             flex: 1, minWidth: 0, display: "flex", overflow: "hidden",
             position: "relative",
             ...(rightDragOver && {
-              outline: "2px dashed",
-              outlineColor: "primary.main",
-              outlineOffset: -2,
-              bgcolor: "action.hover",
+              "&::after": { content: '""', position: "absolute", inset: 0, bgcolor: FILE_DROP_OVERLAY_COLOR, pointerEvents: "none", zIndex: 1 },
             }),
           }}
           onDragOver={(e) => {
