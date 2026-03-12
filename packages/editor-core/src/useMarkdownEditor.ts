@@ -4,9 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { STORAGE_KEY_CONTENT } from "./constants/storageKeys";
 import type { EncodingLabel } from "./types";
-import { appendCommentData,parseCommentData } from "./utils/commentHelpers";
-import { parseFrontmatter, prependFrontmatter } from "./utils/frontmatterHelpers";
-import { preserveBlankLines,sanitizeMarkdown } from "./utils/sanitizeMarkdown";
+import { appendCommentData } from "./utils/commentHelpers";
+import { preprocessMarkdown, prependFrontmatter } from "./utils/frontmatterHelpers";
 const DEBOUNCE_MS = 500;
 
 export function useMarkdownEditor(defaultContent: string, skipLocalStorage = false) {
@@ -19,11 +18,9 @@ export function useMarkdownEditor(defaultContent: string, skipLocalStorage = fal
     try {
       const saved = skipLocalStorage ? null : localStorage.getItem(STORAGE_KEY_CONTENT);
       const raw = saved ?? defaultContent;
-      const { frontmatter, body: bodyWithoutFm } = parseFrontmatter(raw);
+      const { frontmatter, comments, body } = preprocessMarkdown(raw);
       frontmatterRef.current = frontmatter;
-      const { comments, body } = parseCommentData(bodyWithoutFm);
-      const sanitized = preserveBlankLines(sanitizeMarkdown(body));
-      return comments.size > 0 ? appendCommentData(sanitized, comments) : sanitized;
+      return comments.size > 0 ? appendCommentData(body, comments) : body;
     } catch (e) {
       console.warn("Failed to read localStorage:", e);
       return defaultContent;

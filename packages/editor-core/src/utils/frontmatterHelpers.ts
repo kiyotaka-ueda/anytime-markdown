@@ -5,6 +5,7 @@
  * エディタ本文とは別に管理する。YAML の構造解析は行わず文字列のまま保持する。
  */
 
+import { type InlineComment, parseCommentData } from "./commentHelpers";
 import { preserveBlankLines, sanitizeMarkdown } from "./sanitizeMarkdown";
 
 const FENCE = "---";
@@ -41,17 +42,19 @@ export function parseFrontmatter(md: string): {
 }
 
 /**
- * Markdown テキストからフロントマターを分離し、本文をサニタイズして返す。
+ * Markdown テキストからフロントマター・コメントを分離し、本文をサニタイズして返す。
  *
- * parseFrontmatter → sanitizeMarkdown → preserveBlankLines の順序を
- * 一箇所に固定し、順序誤りによるフロントマター破壊を防ぐ。
+ * parseFrontmatter → parseCommentData → sanitizeMarkdown → preserveBlankLines
+ * の順序を一箇所に固定し、順序誤りによるフロントマター破壊を防ぐ。
  */
 export function preprocessMarkdown(text: string): {
   frontmatter: string | null;
+  comments: Map<string, InlineComment>;
   body: string;
 } {
-  const { frontmatter, body } = parseFrontmatter(text);
-  return { frontmatter, body: preserveBlankLines(sanitizeMarkdown(body)) };
+  const { frontmatter, body: bodyWithoutFm } = parseFrontmatter(text);
+  const { comments, body } = parseCommentData(bodyWithoutFm);
+  return { frontmatter, comments, body: preserveBlankLines(sanitizeMarkdown(body)) };
 }
 
 /**
