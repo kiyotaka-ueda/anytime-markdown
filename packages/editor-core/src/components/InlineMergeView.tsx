@@ -1,6 +1,7 @@
 import {
   Box,
   Divider,
+  Typography,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import type { Editor } from "@tiptap/react";
@@ -38,6 +39,8 @@ interface InlineMergeViewProps {
   sourceMode: boolean;
   editorHeight: number;
   t: (key: string) => string;
+  leftFrontmatter?: string | null;
+  onLeftFrontmatterChange?: (value: string | null) => void;
   onUndoRedoReady?: (ur: MergeUndoRedo) => void;
   onLeftTextChange?: (text: string) => void;
   externalRightContent?: string | null;
@@ -74,6 +77,8 @@ export function InlineMergeView({
   sourceMode,
   editorHeight,
   t,
+  leftFrontmatter,
+  onLeftFrontmatterChange,
   onUndoRedoReady,
   onLeftTextChange,
   externalRightContent,
@@ -299,6 +304,45 @@ export function InlineMergeView({
       />
 
 
+      {/* Frontmatter comparison row */}
+      {!sourceMode && (leftFrontmatter != null || rightFrontmatter != null) && (
+        <Box sx={{ display: "flex", gap: 0, flexShrink: 0, alignItems: "stretch" }}>
+          <Box sx={{ flex: 1, minWidth: 0, px: 1, pt: 1 }}>
+            {leftFrontmatter != null ? (
+              <FrontmatterBlock
+                frontmatter={leftFrontmatter}
+                onChange={onLeftFrontmatterChange ?? (() => {})}
+                readOnly
+                t={t}
+              />
+            ) : (
+              <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1, mb: 1, opacity: 0.4, p: 1, height: "calc(100% - 8px)", boxSizing: "border-box" }}>
+                <Typography variant="caption" sx={{ fontFamily: "monospace", color: "text.disabled", fontSize: "0.75rem" }}>
+                  No Frontmatter
+                </Typography>
+              </Box>
+            )}
+          </Box>
+          <Divider orientation="vertical" flexItem />
+          <Box sx={{ flex: 1, minWidth: 0, px: 1, pt: 1 }}>
+            {rightFrontmatter != null ? (
+              <FrontmatterBlock
+                frontmatter={rightFrontmatter}
+                onChange={() => {}}
+                readOnly
+                t={t}
+              />
+            ) : (
+              <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1, mb: 1, opacity: 0.4, p: 1, height: "calc(100% - 8px)", boxSizing: "border-box" }}>
+                <Typography variant="caption" sx={{ fontFamily: "monospace", color: "text.disabled", fontSize: "0.75rem" }}>
+                  No Frontmatter
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        </Box>
+      )}
+
       {/* Content area: left = editor (children), right = editor */}
       <Box sx={{ display: "flex", flex: 1, overflow: "hidden" }}>
         {/* Left: editor (children) */}
@@ -356,9 +400,6 @@ export function InlineMergeView({
           }}
         >
           <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-            {!sourceMode && rightFrontmatter && (
-              <FrontmatterBlock frontmatter={rightFrontmatter} onChange={() => {}} readOnly t={t} />
-            )}
             <MergeEditorPanel
               sourceMode={sourceMode}
               sourceText={rightText}

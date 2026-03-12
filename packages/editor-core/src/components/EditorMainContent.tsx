@@ -26,6 +26,8 @@ type InlineMergeViewComponent = React.ComponentType<{
   sourceMode: boolean;
   editorHeight: number;
   t: (key: string) => string;
+  leftFrontmatter?: string | null;
+  onLeftFrontmatterChange?: (value: string | null) => void;
   onUndoRedoReady?: (ur: { undo: () => void; redo: () => void; canUndo: boolean; canRedo: boolean }) => void;
   onLeftTextChange?: (text: string) => void;
   externalRightContent?: string | null;
@@ -169,6 +171,8 @@ export function EditorMainContent({
         sourceMode={sourceMode}
         editorHeight={editorHeight}
         t={t}
+        leftFrontmatter={frontmatterText}
+        onLeftFrontmatterChange={handleFrontmatterChange}
         onUndoRedoReady={setMergeUndoRedo}
         onLeftTextChange={handleSourceChange}
         externalRightContent={compareFileContent}
@@ -179,9 +183,6 @@ export function EditorMainContent({
         <Box component="main" ref={editorContainerRef} sx={{ display: "flex", gap: 0, height: "100%" }} onDragOver={handleContainerDragOver} onDrop={handleContainerDrop}>
           <EditorOutlineSection {...outlineProps} />
           <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-            {!sourceMode && (
-              <FrontmatterBlock frontmatter={frontmatterText} onChange={handleFrontmatterChange} readOnly t={t} />
-            )}
             <MergeEditorPanel
               sourceMode={sourceMode}
               sourceText={sourceText}
