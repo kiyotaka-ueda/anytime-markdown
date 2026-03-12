@@ -139,7 +139,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   const setEditorMarkdownRef = useRef<(md: string) => void>(() => {});
   const setHeadingsRef = useRef<(h: HeadingItem[]) => void>(() => {});
   const headingsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const handleImportRef = useRef<(f: File) => void>(() => {});
+  const handleImportRef = useRef<(f: File, nativeHandle?: FileSystemFileHandle) => void>(() => {});
   const slashCommandCallbackRef = useRef<(state: SlashCommandState) => void>(() => {});
 
   const editorConfig = useEditorConfig({

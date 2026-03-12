@@ -26,8 +26,8 @@ interface UseEditorFileOpsParams {
   downloadMarkdown: (md: string, encoding?: EncodingLabel) => void;
   clearContent: () => void;
   openFile?: () => Promise<string | null>;
-  saveFile?: (content: string) => Promise<void>;
-  saveAsFile?: (content: string) => Promise<void>;
+  saveFile?: (content: string) => Promise<boolean>;
+  saveAsFile?: (content: string) => Promise<boolean>;
   resetFile?: () => void;
   encoding?: EncodingLabel;
   fileHandle?: FileHandle | null;
@@ -113,17 +113,17 @@ export function useEditorFileOps({
   );
 
   const handleImport = useCallback(
-    (file: File) => {
+    (file: File, nativeHandle?: FileSystemFileHandle) => {
       if (!file.name.endsWith(".md") && !file.type.startsWith("text/")) return;
       readFileAsText(file).then(({ text }) => {
-        setFileHandle?.({ name: file.name });
+        setFileHandle?.(nativeHandle ? { name: file.name, nativeHandle } : { name: file.name });
         applyMarkdownContent(text);
       });
     },
     [applyMarkdownContent, setFileHandle],
   );
 
-  const handleFileSelected = useCallback(async (file: File) => {
+  const handleFileSelected = useCallback(async (file: File, nativeHandle?: FileSystemFileHandle) => {
     const hasContent = sourceMode ? sourceText.trim() !== "" : !editor?.isEmpty;
     if (hasContent) {
       try {
@@ -137,7 +137,7 @@ export function useEditorFileOps({
         return;
       }
     }
-    handleImport(file);
+    handleImport(file, nativeHandle);
   }, [sourceMode, sourceText, editor, confirm, t, handleImport]);
 
   const handleDownload = useCallback(() => {
@@ -186,7 +186,8 @@ export function useEditorFileOps({
       await writable.write(new Uint8Array(converted));
       await writable.close();
     } else {
-      await saveFile(md);
+      const saved = await saveFile(md);
+      if (!saved) return;
     }
     showNotification("fileSaved");
   }, [saveFile, getFullMarkdown, showNotification, encoding, fileHandle]);
@@ -195,8 +196,8 @@ export function useEditorFileOps({
     if (!saveAsFile) return;
     let md = getFullMarkdown();
     if (md && !md.endsWith("\n")) md += "\n";
-    await saveAsFile(md);
-    showNotification("fileSaved");
+    const saved = await saveAsFile(md);
+    if (saved) showNotification("fileSaved");
   }, [saveAsFile, getFullMarkdown, showNotification]);
 
   const handleExportPdf = useCallback(async () => {

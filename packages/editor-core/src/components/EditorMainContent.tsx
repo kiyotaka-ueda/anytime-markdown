@@ -94,7 +94,7 @@ interface EditorMainContentProps {
   compareFileContent: string | null;
   setCompareFileContent: (v: string | null) => void;
   setRightFileOps: (ops: { loadFile: () => void; exportFile: () => void } | null) => void;
-  onFileDrop?: (file: File) => void;
+  onFileDrop?: (file: File, nativeHandle?: FileSystemFileHandle) => void;
   t: (key: string) => string;
 }
 
@@ -160,7 +160,17 @@ export function EditorMainContent({
     );
     if (!file) return;
     e.preventDefault();
-    onFileDrop?.(file);
+    // File System Access API でネイティブハンドルを取得（対応ブラウザのみ）
+    const items = e.dataTransfer.items;
+    const mdItem = items ? Array.from(items).find((item) => item.kind === "file" && (file.name.endsWith(".md") || file.name.endsWith(".markdown"))) : null;
+    const mdItemAny = mdItem as (DataTransferItem & { getAsFileSystemHandle?: () => Promise<FileSystemHandle | null> }) | null;
+    if (mdItemAny?.getAsFileSystemHandle) {
+      mdItemAny.getAsFileSystemHandle().then((handle: FileSystemHandle | null) => {
+        onFileDrop?.(file, handle?.kind === "file" ? handle as FileSystemFileHandle : undefined);
+      }).catch(() => { onFileDrop?.(file); });
+    } else {
+      onFileDrop?.(file);
+    }
   }, [onFileDrop]);
 
   if (inlineMergeOpen) {

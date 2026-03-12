@@ -38,7 +38,7 @@ interface UseEditorConfigParams {
   setEditorMarkdownRef: RefObject<(md: string) => void>;
   setHeadingsRef: RefObject<(h: HeadingItem[]) => void>;
   headingsDebounceRef: RefObject<ReturnType<typeof setTimeout> | null>;
-  handleImportRef: RefObject<(file: File) => void>;
+  handleImportRef: RefObject<(file: File, nativeHandle?: FileSystemFileHandle) => void>;
   setHeadingMenu: (menu: HeadingMenuArg) => void;
   slashCommandCallbackRef: RefObject<(state: SlashCommandState) => void>;
 }
@@ -83,7 +83,21 @@ export function useEditorConfig({
       handleDrop: (view: EditorView, event: DragEvent, _slice: Slice, moved: boolean) => {
         if (moved || !event.dataTransfer?.files.length) return false;
         const mdFile = Array.from(event.dataTransfer.files).find((f) => f.name.endsWith(".md") || f.name.endsWith(".markdown") || f.type === "text/markdown");
-        if (mdFile) { event.preventDefault(); handleImportRef.current(mdFile); return true; }
+        if (mdFile) {
+          event.preventDefault();
+          // File System Access API でネイティブハンドルを取得（対応ブラウザのみ）
+          const items = event.dataTransfer.items;
+          const mdItem = items ? Array.from(items).find((item) => item.kind === "file" && (mdFile.name.endsWith(".md") || mdFile.name.endsWith(".markdown"))) : null;
+          const mdItemAny = mdItem as (DataTransferItem & { getAsFileSystemHandle?: () => Promise<FileSystemHandle | null> }) | null;
+          if (mdItemAny?.getAsFileSystemHandle) {
+            mdItemAny.getAsFileSystemHandle().then((handle: FileSystemHandle | null) => {
+              handleImportRef.current(mdFile, handle?.kind === "file" ? handle as FileSystemFileHandle : undefined);
+            }).catch(() => { handleImportRef.current(mdFile); });
+          } else {
+            handleImportRef.current(mdFile);
+          }
+          return true;
+        }
         const images = Array.from(event.dataTransfer.files).filter((f) => f.type.startsWith("image/"));
         if (!images.length) return false;
         event.preventDefault();

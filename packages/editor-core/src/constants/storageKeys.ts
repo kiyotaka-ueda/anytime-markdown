@@ -12,3 +12,6 @@ export const STORAGE_KEY_REVIEW_MODE = "markdown-editor-review-mode";
 
 /** 読み取り専用モード状態 */
 export const STORAGE_KEY_READONLY_MODE = "markdown-editor-readonly-mode";
+
+/** 開いているファイル名 */
+export const STORAGE_KEY_FILENAME = "markdown-editor-filename";

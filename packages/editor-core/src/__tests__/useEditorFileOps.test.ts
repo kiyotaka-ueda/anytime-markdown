@@ -52,8 +52,8 @@ interface SetupOptions {
   sourceMode?: boolean;
   sourceText?: string;
   openFile?: () => Promise<string | null>;
-  saveFile?: (content: string) => Promise<void>;
-  saveAsFile?: (content: string) => Promise<void>;
+  saveFile?: (content: string) => Promise<boolean>;
+  saveAsFile?: (content: string) => Promise<boolean>;
   resetFile?: () => void;
 }
 
