@@ -11,6 +11,7 @@ import useConfirm from "@/hooks/useConfirm";
 import { MERMAID_RENDER_TIMEOUT, NOTIFICATION_DURATION, PRINT_DELAY } from "../constants/timing";
 import { type EncodingLabel,getMarkdownFromEditor, getMarkdownStorage } from "../types";
 import type { FileHandle } from "../types/fileSystem";
+import { readFileAsText } from "../utils/fileReading";
 import { parseFrontmatter, prependFrontmatter } from "../utils/frontmatterHelpers";
 import { buildPlantUmlUrl } from "../utils/plantumlHelpers";
 import { preserveBlankLines,sanitizeMarkdown } from "../utils/sanitizeMarkdown";
@@ -98,13 +99,11 @@ export function useEditorFileOps({
   const handleImport = useCallback(
     (file: File) => {
       if (!file.name.endsWith(".md") && !file.type.startsWith("text/")) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result !== "string") return;
+      readFileAsText(file).then(({ text }) => {
         if (sourceMode) {
-          setSourceText(sanitizeMarkdown(reader.result));
+          setSourceText(sanitizeMarkdown(text));
         } else {
-          const { frontmatter, body } = parseFrontmatter(reader.result);
+          const { frontmatter, body } = parseFrontmatter(text);
           frontmatterRef.current = frontmatter;
           onFrontmatterChange?.(frontmatter);
           if (editor) {
@@ -115,10 +114,9 @@ export function useEditorFileOps({
             );
           }
         }
-      };
-      reader.readAsText(file, encoding?.toLowerCase());
+      });
     },
-    [sourceMode, setSourceText, editor, encoding, frontmatterRef],
+    [sourceMode, setSourceText, editor, frontmatterRef, onFrontmatterChange],
   );
 
   const handleFileSelected = useCallback(async (file: File) => {

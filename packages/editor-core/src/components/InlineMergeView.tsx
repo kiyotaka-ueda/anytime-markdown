@@ -18,6 +18,7 @@ import { useMergeDiff } from "../hooks/useMergeDiff";
 import { useScrollSync } from "../hooks/useScrollSync";
 import { useEditorSettingsContext } from "../useEditorSettings";
 import { type DiffLine } from "../utils/diffEngine";
+import { readFileAsText } from "../utils/fileReading";
 import { parseFrontmatter } from "../utils/frontmatterHelpers";
 import { preserveBlankLines,sanitizeMarkdown } from "../utils/sanitizeMarkdown";
 import { FrontmatterBlock } from "./FrontmatterBlock";
@@ -56,31 +57,6 @@ interface FileMetadata {
 }
 
 const DEFAULT_METADATA: FileMetadata = { encoding: "UTF-8", lineEnding: "LF" };
-
-function detectEncoding(buffer: ArrayBuffer): { encoding: string; bomLength: number } {
-  const bytes = new Uint8Array(buffer);
-  if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
-    return { encoding: "UTF-8 (BOM)", bomLength: 3 };
-  }
-  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
-    return { encoding: "UTF-16 LE", bomLength: 2 };
-  }
-  if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
-    return { encoding: "UTF-16 BE", bomLength: 2 };
-  }
-  return { encoding: "UTF-8", bomLength: 0 };
-}
-
-function detectLineEnding(text: string): string {
-  const crlf = (text.match(/\r\n/g) || []).length;
-  const lf = (text.match(/(?<!\r)\n/g) || []).length;
-  const cr = (text.match(/\r(?!\n)/g) || []).length;
-  if (crlf === 0 && lf === 0 && cr === 0) return "N/A";
-  if (crlf > 0 && lf === 0 && cr === 0) return "CRLF";
-  if (lf > 0 && crlf === 0 && cr === 0) return "LF";
-  if (cr > 0 && crlf === 0 && lf === 0) return "CR";
-  return "Mixed";
-}
 
 function downloadText(text: string, filename: string) {
   const blob = new Blob([text], { type: "text/markdown;charset=utf-8" });
@@ -295,25 +271,10 @@ export function InlineMergeView({
   const { leftBgGradient, rightBgGradient } = useDiffBackground(diffResult, sourceMode);
 
   const loadFile = (setter: (text: string) => void, metaSetter: (meta: FileMetadata) => void) => (file: File) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (!(reader.result instanceof ArrayBuffer)) return;
-      const buffer = reader.result;
-      const { encoding, bomLength } = detectEncoding(buffer);
-      let text: string;
-      if (encoding.startsWith("UTF-16 LE")) {
-        text = new TextDecoder("utf-16le").decode(buffer.slice(bomLength));
-      } else if (encoding.startsWith("UTF-16 BE")) {
-        text = new TextDecoder("utf-16be").decode(buffer.slice(bomLength));
-      } else {
-        text = new TextDecoder("utf-8").decode(buffer.slice(bomLength));
-      }
-      metaSetter({ encoding, lineEnding: detectLineEnding(text) });
-      // ブラウザのtextareaはLFに正規化するため、diff比較のためにCRLF/CRもLFに統一
-      const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-      setter(normalized);
-    };
-    reader.readAsArrayBuffer(file);
+    readFileAsText(file).then(({ text, encoding, lineEnding }) => {
+      metaSetter({ encoding, lineEnding });
+      setter(text);
+    });
   };
 
   // モジュールレベルストアに左右エディタを登録（NodeView ポータルからアクセス可能にする）
