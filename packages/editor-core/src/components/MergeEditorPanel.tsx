@@ -169,6 +169,10 @@ export function MergeEditorPanel({
         }
       }
       displayText = displayLines.join("\n");
+      // diff エンジンが末尾空行を除去するため、元テキストの末尾改行を復元
+      if (rawText.endsWith("\n") && !displayText.endsWith("\n")) {
+        displayText += "\n";
+      }
     }
     const alignedCount = diffLines ? diffLines.length : rawLineCount;
 
