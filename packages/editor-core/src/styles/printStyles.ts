@@ -21,6 +21,11 @@ export const PrintStyles: React.FC = () =>
           maxHeight: "none !important",
         },
 
+        /* === 文字色を印刷用に統一 === */
+        ".tiptap, .tiptap *": {
+          color: "#000 !important",
+        },
+
         /* === レイアウト制御 === */
         ".tiptap": {
           maxHeight: "none !important",
@@ -43,7 +48,7 @@ export const PrintStyles: React.FC = () =>
          * Table は孫要素に overflow: auto を持つため
          * 全子孫要素を対象にする。
          */
-        "[data-node-view-wrapper], [data-node-view-wrapper] *:not(svg *):not(svg)": {
+        "[data-node-view-wrapper], [data-node-view-wrapper] *:not(svg *):not(svg):not(.katex *):not(.katex)": {
           overflow: "visible !important",
           height: "auto !important",
           maxHeight: "none !important",
@@ -52,6 +57,9 @@ export const PrintStyles: React.FC = () =>
 
         /* === 非表示要素 === */
         "#md-editor-toolbar": {
+          display: "none !important",
+        },
+        "#md-editor-statusbar": {
           display: "none !important",
         },
         ".MuiDrawer-root": {
@@ -88,8 +96,8 @@ export const PrintStyles: React.FC = () =>
         "[data-drag-handle]": {
           display: "none !important",
         },
-        /* Mermaid/PlantUML コードブロックを非表示（図のみ印刷） */
-        "[data-node-view-wrapper] pre": {
+        /* Mermaid/PlantUML/Math: 図プレビューがある場合のみコードを非表示 */
+        "[data-node-view-wrapper]:has([role='img']) pre": {
           display: "none !important",
         },
 

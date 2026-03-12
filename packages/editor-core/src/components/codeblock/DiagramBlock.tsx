@@ -407,6 +407,8 @@ export function DiagramBlock(props: DiagramBlockProps) {
           {isPlantUml && plantUmlUrl && (
             <Box
               ref={diagramResize.containerRef}
+              role="img"
+              aria-label={extractDiagramAltText(code, "plantuml")}
               sx={diagramContainerSx}
               contentEditable={false}
               onClick={selectNode}
