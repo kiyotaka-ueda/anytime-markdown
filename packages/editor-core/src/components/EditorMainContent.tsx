@@ -145,7 +145,7 @@ export function EditorMainContent({
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [frontmatterText]);
+  }, [frontmatterText, sourceMode]);
   const adjustedEditorHeight = editorHeight - frontmatterHeight;
 
   const handleContainerDragOver = useCallback((e: React.DragEvent) => {
