@@ -5,6 +5,8 @@
  * エディタ本文とは別に管理する。YAML の構造解析は行わず文字列のまま保持する。
  */
 
+import { preserveBlankLines, sanitizeMarkdown } from "./sanitizeMarkdown";
+
 const FENCE = "---";
 
 /**
@@ -36,6 +38,20 @@ export function parseFrontmatter(md: string): {
 
   const body = md.slice(bodyStart);
   return { frontmatter, body };
+}
+
+/**
+ * Markdown テキストからフロントマターを分離し、本文をサニタイズして返す。
+ *
+ * parseFrontmatter → sanitizeMarkdown → preserveBlankLines の順序を
+ * 一箇所に固定し、順序誤りによるフロントマター破壊を防ぐ。
+ */
+export function preprocessMarkdown(text: string): {
+  frontmatter: string | null;
+  body: string;
+} {
+  const { frontmatter, body } = parseFrontmatter(text);
+  return { frontmatter, body: preserveBlankLines(sanitizeMarkdown(body)) };
 }
 
 /**

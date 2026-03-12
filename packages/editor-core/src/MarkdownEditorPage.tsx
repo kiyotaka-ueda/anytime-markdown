@@ -62,8 +62,7 @@ import { type HeadingItem, PlantUmlToolbarContext } from "./types";
 import type { FileSystemProvider } from "./types/fileSystem";
 import type { InlineComment } from "./utils/commentHelpers";
 import { parseCommentData } from "./utils/commentHelpers";
-import { parseFrontmatter } from "./utils/frontmatterHelpers";
-import { preserveBlankLines,sanitizeMarkdown } from "./utils/sanitizeMarkdown";
+import { preprocessMarkdown } from "./utils/frontmatterHelpers";
 
 interface MarkdownEditorPageProps {
   hideFileOps?: boolean;
@@ -248,11 +247,10 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   const handleInsertTemplate = useCallback((template: MarkdownTemplate) => {
     if (sourceMode) { appendToSource(template.content); return; }
     if (!editor) return;
-    const { frontmatter, body } = parseFrontmatter(template.content);
+    const { frontmatter, body } = preprocessMarkdown(template.content);
     if (frontmatter !== null) { frontmatterRef.current = frontmatter; fileHandling.setFrontmatterText(frontmatter); }
-    const preprocessed = preserveBlankLines(sanitizeMarkdown(body));
     requestAnimationFrame(() => {
-      editor.chain().focus().insertContent(preprocessed).run();
+      editor.chain().focus().insertContent(body).run();
       requestAnimationFrame(() => { editor.commands.setTextSelection(0); editor.view.dom.scrollTop = 0; });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps

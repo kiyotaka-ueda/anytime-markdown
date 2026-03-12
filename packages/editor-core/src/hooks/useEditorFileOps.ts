@@ -12,9 +12,9 @@ import { MERMAID_RENDER_TIMEOUT, NOTIFICATION_DURATION, PRINT_DELAY } from "../c
 import { type EncodingLabel,getMarkdownFromEditor, getMarkdownStorage } from "../types";
 import type { FileHandle } from "../types/fileSystem";
 import { readFileAsText } from "../utils/fileReading";
-import { parseFrontmatter, prependFrontmatter } from "../utils/frontmatterHelpers";
+import { preprocessMarkdown, prependFrontmatter } from "../utils/frontmatterHelpers";
 import { buildPlantUmlUrl } from "../utils/plantumlHelpers";
-import { preserveBlankLines,sanitizeMarkdown } from "../utils/sanitizeMarkdown";
+import { sanitizeMarkdown } from "../utils/sanitizeMarkdown";
 import { SVG_SANITIZE_CONFIG } from "./useMermaidRender";
 
 interface UseEditorFileOpsParams {
@@ -102,14 +102,12 @@ export function useEditorFileOps({
       if (sourceMode) {
         setSourceText(sanitizeMarkdown(text));
       } else {
-        const { frontmatter, body } = parseFrontmatter(text);
+        const { frontmatter, body } = preprocessMarkdown(text);
         frontmatterRef.current = frontmatter;
         onFrontmatterChange?.(frontmatter);
         if (editor) {
           editor.commands.setContent(
-            getMarkdownStorage(editor).parser.parse(
-              preserveBlankLines(sanitizeMarkdown(body)),
-            ),
+            getMarkdownStorage(editor).parser.parse(body),
           );
         }
       }
