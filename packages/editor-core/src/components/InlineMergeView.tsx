@@ -5,7 +5,7 @@ import {
 import { useTheme } from "@mui/material/styles";
 import type { Editor } from "@tiptap/react";
 import { useEditor } from "@tiptap/react";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getEditorBg } from "../constants/colors";
 import { setMergeEditors } from "../contexts/MergeEditorsContext";
@@ -18,7 +18,9 @@ import { useMergeDiff } from "../hooks/useMergeDiff";
 import { useScrollSync } from "../hooks/useScrollSync";
 import { useEditorSettingsContext } from "../useEditorSettings";
 import { type DiffLine } from "../utils/diffEngine";
+import { parseFrontmatter } from "../utils/frontmatterHelpers";
 import { preserveBlankLines,sanitizeMarkdown } from "../utils/sanitizeMarkdown";
+import { FrontmatterBlock } from "./FrontmatterBlock";
 import { LinePreviewPanel } from "./LinePreviewPanel";
 import { MergeEditorPanel } from "./MergeEditorPanel";
 
@@ -95,7 +97,7 @@ export function InlineMergeView({
   editorContent,
   sourceMode,
   editorHeight,
-  t: _t,
+  t,
   onUndoRedoReady,
   onLeftTextChange,
   externalRightContent,
@@ -198,7 +200,8 @@ export function InlineMergeView({
       requestAnimationFrame(() => {
         if (rightEditor.isDestroyed) return;
         reviewModeStorage(rightEditor).enabled = false;
-        rightEditor.commands.setContent(preserveBlankLines(sanitizeMarkdown(rightText)));
+        const { body: rightBody } = parseFrontmatter(rightText);
+        rightEditor.commands.setContent(preserveBlankLines(sanitizeMarkdown(rightBody)));
         reviewModeStorage(rightEditor).enabled = true;
       });
     }
@@ -211,7 +214,8 @@ export function InlineMergeView({
       requestAnimationFrame(() => {
         if (rightEditor.isDestroyed) return;
         reviewModeStorage(rightEditor).enabled = false;
-        rightEditor.commands.setContent(preserveBlankLines(sanitizeMarkdown(rightText)));
+        const { body: rightBody } = parseFrontmatter(rightText);
+        rightEditor.commands.setContent(preserveBlankLines(sanitizeMarkdown(rightBody)));
         reviewModeStorage(rightEditor).enabled = true;
       });
     }
@@ -285,6 +289,8 @@ export function InlineMergeView({
   useDiffHighlight(sourceMode, leftEditor, rightEditor);
 
   useScrollSync(leftContainerRef, rightScrollRef);
+
+  const rightFrontmatter = useMemo(() => parseFrontmatter(rightText).frontmatter, [rightText]);
 
   const { leftBgGradient, rightBgGradient } = useDiffBackground(diffResult, sourceMode);
 
@@ -388,22 +394,27 @@ export function InlineMergeView({
             }
           }}
         >
-          <MergeEditorPanel
-            sourceMode={sourceMode}
-            sourceText={rightText}
-            onSourceChange={setRightText}
-            textareaRef={rightTextareaRef}
-            autoResize
-            scrollRef={rightScrollRef}
-            bgGradient={rightBgGradient}
-            editor={rightEditor}
-            diffLines={diffResult?.rightLines}
-            side="right"
-            readOnly
-            onMerge={mergeBlock}
-            onHoverLine={handleHoverLine}
-            paperSx={{ bgcolor: getEditorBg(isDark, settings) }}
-          />
+          <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            {!sourceMode && rightFrontmatter && (
+              <FrontmatterBlock frontmatter={rightFrontmatter} onChange={() => {}} readOnly t={t} />
+            )}
+            <MergeEditorPanel
+              sourceMode={sourceMode}
+              sourceText={rightText}
+              onSourceChange={setRightText}
+              textareaRef={rightTextareaRef}
+              autoResize
+              scrollRef={rightScrollRef}
+              bgGradient={rightBgGradient}
+              editor={rightEditor}
+              diffLines={diffResult?.rightLines}
+              side="right"
+              readOnly
+              onMerge={mergeBlock}
+              onHoverLine={handleHoverLine}
+              paperSx={{ bgcolor: getEditorBg(isDark, settings) }}
+            />
+          </Box>
         </Box>
       </Box>
 

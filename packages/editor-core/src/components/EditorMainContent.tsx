@@ -179,6 +179,9 @@ export function EditorMainContent({
         <Box component="main" ref={editorContainerRef} sx={{ display: "flex", gap: 0, height: "100%" }} onDragOver={handleContainerDragOver} onDrop={handleContainerDrop}>
           <EditorOutlineSection {...outlineProps} />
           <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            {!sourceMode && (
+              <FrontmatterBlock frontmatter={frontmatterText} onChange={handleFrontmatterChange} readOnly t={t} />
+            )}
             <MergeEditorPanel
               sourceMode={sourceMode}
               sourceText={sourceText}
