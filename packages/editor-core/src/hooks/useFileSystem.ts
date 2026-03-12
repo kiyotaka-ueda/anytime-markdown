@@ -46,7 +46,7 @@ export function useFileSystem(provider: FileSystemProvider | null | undefined) {
   }, []);
 
   return {
-    fileHandle, fileName, isDirty, supportsDirectAccess,
+    fileHandle, setFileHandle, fileName, isDirty, supportsDirectAccess,
     openFile, saveFile, saveAsFile, markDirty, resetFile,
   };
 }

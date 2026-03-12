@@ -31,6 +31,7 @@ interface UseEditorFileOpsParams {
   resetFile?: () => void;
   encoding?: EncodingLabel;
   fileHandle?: FileHandle | null;
+  setFileHandle?: (handle: FileHandle | null) => void;
   frontmatterRef: React.MutableRefObject<string | null>;
   onFrontmatterChange?: (value: string | null) => void;
 }
@@ -51,6 +52,7 @@ export function useEditorFileOps({
   resetFile,
   encoding,
   fileHandle,
+  setFileHandle,
   frontmatterRef,
   onFrontmatterChange,
 }: UseEditorFileOpsParams) {
@@ -113,9 +115,12 @@ export function useEditorFileOps({
   const handleImport = useCallback(
     (file: File) => {
       if (!file.name.endsWith(".md") && !file.type.startsWith("text/")) return;
-      readFileAsText(file).then(({ text }) => applyMarkdownContent(text));
+      readFileAsText(file).then(({ text }) => {
+        setFileHandle?.({ name: file.name });
+        applyMarkdownContent(text);
+      });
     },
-    [applyMarkdownContent],
+    [applyMarkdownContent, setFileHandle],
   );
 
   const handleFileSelected = useCallback(async (file: File) => {

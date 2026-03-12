@@ -162,7 +162,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   } = useSourceMode({ editor, saveContent, t, frontmatterRef });
 
   const {
-    fileHandle, fileName, isDirty, supportsDirectAccess,
+    fileHandle, setFileHandle, fileName, isDirty, supportsDirectAccess,
     openFile, saveFile, saveAsFile, markDirty, resetFile,
   } = useFileSystem(fileSystemProvider ?? null);
 
@@ -209,7 +209,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     editor, sourceMode, sourceText, setSourceText,
     saveContent, downloadMarkdown, clearContent: clearContentWithFrontmatter,
     openFile, saveFile, saveAsFile, resetFile,
-    encoding: fileHandling.encoding, fileHandle, frontmatterRef,
+    encoding: fileHandling.encoding, fileHandle, setFileHandle, frontmatterRef,
     onFrontmatterChange: fileHandling.setFrontmatterText,
   });
 
