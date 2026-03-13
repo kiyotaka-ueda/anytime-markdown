@@ -520,21 +520,23 @@ const TreeNode: FC<{
         )}
         {!isRenaming && (
           <>
-            {/* Rename icon (file & folder) */}
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                onStartRename(entry.path);
-              }}
-              sx={{
-                p: 0.25,
-                opacity: 0,
-                ".MuiListItemButton-root:hover &": { opacity: 1 },
-              }}
-            >
-              <DriveFileRenameOutlineIcon sx={{ fontSize: 14 }} />
-            </IconButton>
+            {/* Rename icon (file & folder, hidden for empty folders) */}
+            {!empty && (
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStartRename(entry.path);
+                }}
+                sx={{
+                  p: 0.25,
+                  opacity: 0,
+                  ".MuiListItemButton-root:hover &": { opacity: 1 },
+                }}
+              >
+                <DriveFileRenameOutlineIcon sx={{ fontSize: 14 }} />
+              </IconButton>
+            )}
             {/* Folder: new folder icon */}
             {isDir && (
               <IconButton
@@ -571,22 +573,24 @@ const TreeNode: FC<{
                 <AddIcon sx={{ fontSize: 14 }} />
               </IconButton>
             )}
-            {/* Delete icon (file & folder) */}
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDeleteFile(entry.path);
-              }}
-              sx={{
-                p: 0.25,
-                opacity: 0,
-                ".MuiListItemButton-root:hover &": { opacity: 1 },
-                color: "error.main",
-              }}
-            >
-              <DeleteOutlineIcon sx={{ fontSize: 14 }} />
-            </IconButton>
+            {/* Delete icon (file & folder, hidden for empty folders) */}
+            {!empty && (
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteFile(entry.path);
+                }}
+                sx={{
+                  p: 0.25,
+                  opacity: 0,
+                  ".MuiListItemButton-root:hover &": { opacity: 1 },
+                  color: "error.main",
+                }}
+              >
+                <DeleteOutlineIcon sx={{ fontSize: 14 }} />
+              </IconButton>
+            )}
           </>
         )}
       </ListItemButton>
