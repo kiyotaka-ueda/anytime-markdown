@@ -10,6 +10,7 @@ export { useSourceMode } from './hooks/useSourceMode';
 export type { TextareaSearchMatch, TextareaSearchState } from './hooks/useTextareaSearch';
 export { useTextareaSearch } from './hooks/useTextareaSearch';
 export type { UseZoomPanReturn } from './hooks/useZoomPan';
+export { useTimeline } from './hooks/useTimeline';
 export { useZoomPan } from './hooks/useZoomPan';
 export type { EditorSettings } from './useEditorSettings';
 export {
