@@ -17,6 +17,9 @@ import {
   Button,
   CircularProgress,
   Collapse,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Divider,
   IconButton,
   InputAdornment,
@@ -24,12 +27,11 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  MenuItem,
-  Select,
   TextField,
   Tooltip,
   Typography,
 } from "@mui/material";
+import AccountTreeIcon from "@mui/icons-material/AccountTree";
 import LogoutIcon from "@mui/icons-material/Logout";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { type FC, useCallback, useEffect, useRef, useState } from "react";
@@ -464,6 +466,11 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
   const [commitsLoading, setCommitsLoading] = useState(false);
   const [selectedSha, setSelectedSha] = useState<string | null>(null);
 
+  // ブランチ選択ダイアログ
+  const [branchDialogOpen, setBranchDialogOpen] = useState(false);
+  const [branchDialogRepo, setBranchDialogRepo] = useState<GitHubRepo | null>(null);
+  const [branchesLoading, setBranchesLoading] = useState(false);
+
   // 新規ファイル作成
   const [creatingInDir, setCreatingInDir] = useState<string | null>(null);
 
@@ -547,29 +554,34 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
 
   const handleSelectRepo = useCallback(
     async (repo: GitHubRepo) => {
-      setSelectedRepo(repo);
-      setSelectedBranch(repo.defaultBranch);
+      setBranchDialogRepo(repo);
       setBranches([]);
-      await loadTree(repo, repo.defaultBranch);
-
-      // ブランチ一覧をバックグラウンドで取得
-      fetchBranches(repo.fullName).then((b) => {
-        // デフォルトブランチを先頭に配置
-        const sorted = [repo.defaultBranch, ...b.filter((n) => n !== repo.defaultBranch)];
-        setBranches(sorted);
-      });
+      setBranchesLoading(true);
+      setBranchDialogOpen(true);
+      const b = await fetchBranches(repo.fullName);
+      const sorted = [repo.defaultBranch, ...b.filter((n) => n !== repo.defaultBranch)];
+      setBranches(sorted);
+      setBranchesLoading(false);
     },
-    [loadTree],
+    [],
   );
 
-  const handleBranchChange = useCallback(
+  const handleBranchSelect = useCallback(
     async (branch: string) => {
-      if (!selectedRepo || branch === selectedBranch) return;
+      const repo = branchDialogRepo;
+      if (!repo) return;
+      setBranchDialogOpen(false);
+      setSelectedRepo(repo);
       setSelectedBranch(branch);
-      await loadTree(selectedRepo, branch);
+      await loadTree(repo, branch);
     },
-    [selectedRepo, selectedBranch, loadTree],
+    [branchDialogRepo, loadTree],
   );
+
+  const handleBranchDialogClose = useCallback(() => {
+    setBranchDialogOpen(false);
+    setBranchDialogRepo(null);
+  }, []);
 
   const handleBackToRepos = useCallback(() => {
     setSelectedRepo(null);
@@ -793,25 +805,24 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
       </Box>
       <Divider />
 
-      {selectedRepo && branches.length > 1 && (
-        <Box sx={{ px: 1, py: 0.5 }}>
-          <Select
-            value={selectedBranch}
-            onChange={(e) => handleBranchChange(e.target.value)}
+      {selectedRepo && selectedBranch && (
+        <Box sx={{ px: 1, py: 0.25 }}>
+          <Button
             size="small"
-            fullWidth
+            startIcon={<AccountTreeIcon sx={{ fontSize: 14 }} />}
+            onClick={() => handleSelectRepo(selectedRepo)}
             sx={{
-              fontSize: "0.75rem",
-              height: 28,
-              "& .MuiSelect-select": { py: 0.25 },
+              textTransform: "none",
+              fontSize: "0.7rem",
+              py: 0,
+              px: 0.5,
+              minHeight: 24,
+              color: "text.secondary",
+              justifyContent: "flex-start",
             }}
           >
-            {branches.map((b) => (
-              <MenuItem key={b} value={b} sx={{ fontSize: "0.75rem" }}>
-                {b}
-              </MenuItem>
-            ))}
-          </Select>
+            {selectedBranch}
+          </Button>
         </Box>
       )}
 
@@ -956,6 +967,60 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
           </Box>
         </>
       )}
+
+      {/* === Branch selection dialog === */}
+      <Dialog
+        open={branchDialogOpen}
+        onClose={handleBranchDialogClose}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle sx={{ fontSize: "0.9rem", pb: 0 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <AccountTreeIcon sx={{ fontSize: 18 }} />
+            {branchDialogRepo?.fullName}
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ px: 1, py: 1 }}>
+          {branchesLoading ? (
+            <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+              <CircularProgress size={24} />
+            </Box>
+          ) : (
+            <List dense disablePadding>
+              {branches.map((branch) => (
+                <ListItemButton
+                  key={branch}
+                  onClick={() => handleBranchSelect(branch)}
+                  sx={{ py: 0.5, borderRadius: 1 }}
+                >
+                  <ListItemIcon sx={{ minWidth: 28 }}>
+                    <AccountTreeIcon sx={{ fontSize: 16 }} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={branch}
+                    primaryTypographyProps={{
+                      variant: "body2",
+                      fontWeight:
+                        branch === branchDialogRepo?.defaultBranch
+                          ? 700
+                          : 400,
+                    }}
+                  />
+                  {branch === branchDialogRepo?.defaultBranch && (
+                    <Typography
+                      variant="caption"
+                      sx={{ color: "text.secondary", fontSize: "0.65rem" }}
+                    >
+                      default
+                    </Typography>
+                  )}
+                </ListItemButton>
+              ))}
+            </List>
+          )}
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };
