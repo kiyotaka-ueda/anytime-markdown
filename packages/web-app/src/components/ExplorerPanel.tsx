@@ -10,6 +10,7 @@ import GitHubIcon from "@mui/icons-material/GitHub";
 import HistoryIcon from "@mui/icons-material/History";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import LockIcon from "@mui/icons-material/Lock";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import NoteAddIcon from "@mui/icons-material/NoteAdd";
 import {
   Box,
@@ -105,6 +106,24 @@ async function fetchCommits(
   const data = await res.json();
   if (!Array.isArray(data)) return [];
   return data as CommitEntry[];
+}
+
+async function deleteFile(
+  repo: string,
+  filePath: string,
+  branch: string,
+): Promise<boolean> {
+  const res = await fetch("/api/github/content", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      repo,
+      path: filePath,
+      message: `Delete ${filePath}`,
+      branch,
+    }),
+  });
+  return res.ok;
 }
 
 async function createFile(
@@ -216,10 +235,11 @@ const TreeNode: FC<{
   onToggle: (entry: TreeEntry) => void;
   onSelectFile: (path: string) => void;
   onCreateFile: (dirPath: string, fileName: string) => void;
+  onDeleteFile: (filePath: string) => void;
   creatingInDir: string | null;
   onStartCreate: (dirPath: string) => void;
   onCancelCreate: () => void;
-}> = ({ entry, depth, repo, expanded, loadingDirs, childrenCache, hasMdCache, selectedFilePath, onToggle, onSelectFile, onCreateFile, creatingInDir, onStartCreate, onCancelCreate }) => {
+}> = ({ entry, depth, repo, expanded, loadingDirs, childrenCache, hasMdCache, selectedFilePath, onToggle, onSelectFile, onCreateFile, onDeleteFile, creatingInDir, onStartCreate, onCancelCreate }) => {
   const isDir = entry.type === "tree";
   const isOpen = expanded.has(entry.path);
   const isLoading = loadingDirs.has(entry.path);
@@ -296,6 +316,23 @@ const TreeNode: FC<{
             <AddIcon sx={{ fontSize: 14 }} />
           </IconButton>
         )}
+        {!isDir && (
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDeleteFile(entry.path);
+            }}
+            sx={{
+              p: 0.25,
+              opacity: 0,
+              ".MuiListItemButton-root:hover &": { opacity: 1 },
+              color: "error.main",
+            }}
+          >
+            <DeleteOutlineIcon sx={{ fontSize: 14 }} />
+          </IconButton>
+        )}
       </ListItemButton>
       {isDir && (
         <Collapse in={isOpen} timeout="auto" unmountOnExit>
@@ -314,6 +351,7 @@ const TreeNode: FC<{
                 onToggle={onToggle}
                 onSelectFile={onSelectFile}
                 onCreateFile={onCreateFile}
+                onDeleteFile={onDeleteFile}
                 creatingInDir={creatingInDir}
                 onStartCreate={onStartCreate}
                 onCancelCreate={onCancelCreate}
@@ -597,6 +635,44 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
     [selectedRepo, bumpCache, handleFileSelect],
   );
 
+  const handleDeleteFile = useCallback(
+    async (filePath: string) => {
+      if (!selectedRepo) return;
+      if (!window.confirm(`Delete "${filePath.split("/").pop()}"?`)) return;
+
+      const ok = await deleteFile(
+        selectedRepo.fullName,
+        filePath,
+        selectedRepo.defaultBranch,
+      );
+      if (!ok) return;
+
+      // キャッシュからエントリを削除
+      const dirPath = filePath.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/")) : "";
+      const entries = childrenCacheRef.current.get(dirPath);
+      if (entries) {
+        const updated = entries.filter((e) => e.path !== filePath);
+        childrenCacheRef.current.set(dirPath, updated);
+        // md ファイルがなくなったらキャッシュ更新
+        if (!updated.some((e) => e.type === "blob")) {
+          hasMdCacheRef.current.set(dirPath, updated.some((e) => e.type === "tree" && hasMdCacheRef.current.get(e.path) === true));
+        }
+        if (dirPath === "") {
+          setRootEntries([...updated]);
+        }
+        bumpCache();
+      }
+
+      // 削除したファイルが選択中なら選択解除
+      if (selectedFilePath === filePath) {
+        setSelectedFilePath(null);
+        setCommits([]);
+        setSelectedSha(null);
+      }
+    },
+    [selectedRepo, selectedFilePath, bumpCache],
+  );
+
   if (!open) return null;
 
   void cacheVersion;
@@ -747,6 +823,7 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
                 onToggle={handleToggle}
                 onSelectFile={handleFileSelect}
                 onCreateFile={handleCreateFile}
+                onDeleteFile={handleDeleteFile}
                 creatingInDir={creatingInDir}
                 onStartCreate={setCreatingInDir}
                 onCancelCreate={() => setCreatingInDir(null)}

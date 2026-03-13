@@ -101,3 +101,72 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     sha: (data as { content?: { sha?: string } }).content?.sha,
   });
 }
+
+/** Delete a file via GitHub Contents API (DELETE) */
+export async function DELETE(request: NextRequest): Promise<NextResponse> {
+  const token = await getGitHubToken();
+  if (!token) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+  const body = (await request.json()) as {
+    repo?: string;
+    path?: string;
+    message?: string;
+    branch?: string;
+  };
+  const { repo, path, message, branch } = body;
+  if (!repo || !path) {
+    return NextResponse.json({ error: "Missing params" }, { status: 400 });
+  }
+  const encodedPath = path
+    .split("/")
+    .map((seg) => encodeURIComponent(seg))
+    .join("/");
+
+  // ファイルの SHA を取得
+  const getRes = await fetch(
+    `https://api.github.com/repos/${repo}/contents/${encodedPath}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    },
+  );
+  if (!getRes.ok) {
+    return NextResponse.json(
+      { error: "File not found" },
+      { status: getRes.status },
+    );
+  }
+  const fileData = (await getRes.json()) as { sha?: string };
+  const sha = fileData.sha;
+  if (!sha) {
+    return NextResponse.json({ error: "Cannot get file SHA" }, { status: 400 });
+  }
+
+  const res = await fetch(
+    `https://api.github.com/repos/${repo}/contents/${encodedPath}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github.v3+json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: message ?? `Delete ${path}`,
+        sha,
+        ...(branch ? { branch } : {}),
+      }),
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    return NextResponse.json(
+      { error: (err as { message?: string }).message ?? "GitHub API error" },
+      { status: res.status },
+    );
+  }
+  return NextResponse.json({ deleted: true });
+}
