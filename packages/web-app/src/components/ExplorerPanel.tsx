@@ -1,13 +1,16 @@
 "use client";
 
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import FolderIcon from "@mui/icons-material/Folder";
+import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import LockIcon from "@mui/icons-material/Lock";
 import {
   Box,
   Button,
   CircularProgress,
+  Collapse,
   Divider,
   List,
   ListItemButton,
@@ -16,7 +19,7 @@ import {
   Typography,
 } from "@mui/material";
 import { signIn } from "next-auth/react";
-import { type FC, useCallback, useEffect, useState } from "react";
+import { type FC, useCallback, useEffect, useRef, useState } from "react";
 
 interface GitHubRepo {
   fullName: string;
@@ -37,6 +40,120 @@ interface ExplorerPanelProps {
 }
 
 const PANEL_WIDTH = 260;
+const INDENT_PX = 16;
+
+/** フォルダの子要素キャッシュ */
+type ChildrenCache = Map<string, TreeEntry[]>;
+
+async function fetchDirEntries(
+  repo: string,
+  branch: string,
+  dirPath: string,
+): Promise<TreeEntry[]> {
+  const res = await fetch(
+    `/api/github/content?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(dirPath)}&ref=${encodeURIComponent(branch)}`,
+  );
+  if (!res.ok) return [];
+  const data: unknown = await res.json();
+  if (!Array.isArray(data)) return [];
+  return (data as { path: string; type: string; name: string }[])
+    .map((item) => ({
+      path: item.path,
+      type: (item.type === "dir" ? "tree" : "blob") as "tree" | "blob",
+      name: item.name,
+    }))
+    .filter(
+      (e) =>
+        e.type === "tree" ||
+        e.name.endsWith(".md") ||
+        e.name.endsWith(".markdown"),
+    )
+    .sort((a, b) => {
+      if (a.type !== b.type) return a.type === "tree" ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+}
+
+/** 再帰ツリーノード */
+const TreeNode: FC<{
+  entry: TreeEntry;
+  depth: number;
+  repo: GitHubRepo;
+  expanded: Set<string>;
+  loadingDirs: Set<string>;
+  childrenCache: ChildrenCache;
+  onToggle: (entry: TreeEntry) => void;
+  onSelectFile: (path: string) => void;
+}> = ({ entry, depth, repo, expanded, loadingDirs, childrenCache, onToggle, onSelectFile }) => {
+  const isDir = entry.type === "tree";
+  const isOpen = expanded.has(entry.path);
+  const isLoading = loadingDirs.has(entry.path);
+  const children = childrenCache.get(entry.path);
+
+  return (
+    <>
+      <ListItemButton
+        onClick={() => (isDir ? onToggle(entry) : onSelectFile(entry.path))}
+        sx={{ py: 0.25, pl: 1 + depth * (INDENT_PX / 8), minHeight: 28 }}
+      >
+        {isDir && (
+          <ListItemIcon sx={{ minWidth: 20 }}>
+            {isLoading ? (
+              <CircularProgress size={14} />
+            ) : isOpen ? (
+              <ExpandMoreIcon sx={{ fontSize: 18 }} />
+            ) : (
+              <ChevronRightIcon sx={{ fontSize: 18 }} />
+            )}
+          </ListItemIcon>
+        )}
+        {!isDir && <Box sx={{ width: 20 }} />}
+        <ListItemIcon sx={{ minWidth: 24 }}>
+          {isDir ? (
+            isOpen ? (
+              <FolderOpenIcon sx={{ fontSize: 18 }} />
+            ) : (
+              <FolderIcon sx={{ fontSize: 18 }} />
+            )
+          ) : (
+            <InsertDriveFileIcon sx={{ fontSize: 18 }} />
+          )}
+        </ListItemIcon>
+        <ListItemText
+          primary={entry.name}
+          primaryTypographyProps={{ variant: "body2", noWrap: true, fontSize: "0.8rem" }}
+        />
+      </ListItemButton>
+      {isDir && (
+        <Collapse in={isOpen} timeout="auto" unmountOnExit>
+          <List dense disablePadding>
+            {children?.map((child) => (
+              <TreeNode
+                key={child.path}
+                entry={child}
+                depth={depth + 1}
+                repo={repo}
+                expanded={expanded}
+                loadingDirs={loadingDirs}
+                childrenCache={childrenCache}
+                onToggle={onToggle}
+                onSelectFile={onSelectFile}
+              />
+            ))}
+            {children?.length === 0 && (
+              <Typography
+                variant="caption"
+                sx={{ pl: 2 + (depth + 1) * 2, py: 0.5, color: "text.secondary", display: "block" }}
+              >
+                Empty
+              </Typography>
+            )}
+          </List>
+        </Collapse>
+      )}
+    </>
+  );
+};
 
 export const ExplorerPanel: FC<ExplorerPanelProps> = ({
   open,
@@ -45,10 +162,12 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
 }) => {
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
   const [selectedRepo, setSelectedRepo] = useState<GitHubRepo | null>(null);
-  const [tree, setTree] = useState<TreeEntry[]>([]);
-  const [currentPath, setCurrentPath] = useState("");
+  const [rootEntries, setRootEntries] = useState<TreeEntry[]>([]);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [loadingDirs, setLoadingDirs] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [needsAuth, setNeedsAuth] = useState(false);
+  const childrenCacheRef = useRef<ChildrenCache>(new Map());
 
   // Fetch repos on first open
   useEffect(() => {
@@ -69,79 +188,69 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
       .finally(() => setLoading(false));
   }, [open, repos.length, needsAuth]);
 
-  const fetchDirectory = useCallback(
-    async (repo: GitHubRepo, dirPath: string) => {
+  const handleSelectRepo = useCallback(
+    async (repo: GitHubRepo) => {
+      setSelectedRepo(repo);
+      setExpanded(new Set());
+      childrenCacheRef.current = new Map();
       setLoading(true);
-      try {
-        const res = await fetch(
-          `/api/github/content?repo=${encodeURIComponent(repo.fullName)}&path=${encodeURIComponent(dirPath)}&ref=${encodeURIComponent(repo.defaultBranch)}`,
-        );
-        if (!res.ok) throw new Error("Failed to fetch tree");
-        const data: unknown = await res.json();
-        if (Array.isArray(data)) {
-          const entries: TreeEntry[] = (
-            data as { path: string; type: string; name: string }[]
-          )
-            .map((item) => ({
-              path: item.path,
-              type: (item.type === "dir" ? "tree" : "blob") as
-                | "tree"
-                | "blob",
-              name: item.name,
-            }))
-            .filter(
-              (e) =>
-                e.type === "tree" ||
-                e.name.endsWith(".md") ||
-                e.name.endsWith(".markdown"),
-            )
-            .sort((a, b) => {
-              if (a.type !== b.type) return a.type === "tree" ? -1 : 1;
-              return a.name.localeCompare(b.name);
-            });
-          setTree(entries);
-        }
-      } catch {
-        setTree([]);
-      } finally {
-        setLoading(false);
-      }
+      const entries = await fetchDirEntries(repo.fullName, repo.defaultBranch, "");
+      setRootEntries(entries);
+      setLoading(false);
     },
     [],
   );
 
-  const handleSelectRepo = useCallback(
-    (repo: GitHubRepo) => {
-      setSelectedRepo(repo);
-      setCurrentPath("");
-      fetchDirectory(repo, "");
+  const handleBackToRepos = useCallback(() => {
+    setSelectedRepo(null);
+    setRootEntries([]);
+    setExpanded(new Set());
+    childrenCacheRef.current = new Map();
+  }, []);
+
+  const handleToggle = useCallback(
+    async (entry: TreeEntry) => {
+      if (!selectedRepo) return;
+      const path = entry.path;
+
+      if (expanded.has(path)) {
+        // Collapse
+        setExpanded((prev) => {
+          const next = new Set(prev);
+          next.delete(path);
+          return next;
+        });
+        return;
+      }
+
+      // Expand: fetch children if not cached
+      if (!childrenCacheRef.current.has(path)) {
+        setLoadingDirs((prev) => new Set(prev).add(path));
+        const children = await fetchDirEntries(
+          selectedRepo.fullName,
+          selectedRepo.defaultBranch,
+          path,
+        );
+        childrenCacheRef.current.set(path, children);
+        setLoadingDirs((prev) => {
+          const next = new Set(prev);
+          next.delete(path);
+          return next;
+        });
+      }
+
+      setExpanded((prev) => new Set(prev).add(path));
     },
-    [fetchDirectory],
+    [selectedRepo, expanded],
   );
 
-  const handleBack = useCallback(() => {
-    if (currentPath) {
-      const parts = currentPath.split("/");
-      parts.pop();
-      const parentPath = parts.join("/");
-      setCurrentPath(parentPath);
-      if (selectedRepo) fetchDirectory(selectedRepo, parentPath);
-    } else {
-      setSelectedRepo(null);
-      setTree([]);
-    }
-  }, [currentPath, selectedRepo, fetchDirectory]);
-
-  const handleSelectEntry = useCallback(
-    (entry: TreeEntry) => {
-      if (entry.type === "tree") {
-        setCurrentPath(entry.path);
-        if (selectedRepo) fetchDirectory(selectedRepo, entry.path);
-      } else if (selectedRepo) {
-        onSelectFile(selectedRepo.fullName, entry.path);
+  const handleFileSelect = useCallback(
+    (filePath: string) => {
+      if (selectedRepo) {
+        onSelectFile(selectedRepo.fullName, filePath);
       }
     },
-    [selectedRepo, onSelectFile, fetchDirectory],
+    [selectedRepo, onSelectFile],
   );
 
   if (!open) return null;
@@ -170,12 +279,15 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
           minHeight: 36,
         }}
       >
-        {selectedRepo && (
-          <Button size="small" startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ minWidth: 0, textTransform: "none" }}>
-            {currentPath ? currentPath.split("/").pop() : selectedRepo.fullName.split("/").pop()}
+        {selectedRepo ? (
+          <Button
+            size="small"
+            onClick={handleBackToRepos}
+            sx={{ minWidth: 0, textTransform: "none", fontSize: "0.75rem" }}
+          >
+            ← {selectedRepo.fullName}
           </Button>
-        )}
-        {!selectedRepo && (
+        ) : (
           <Typography variant="caption" sx={{ fontWeight: 600, px: 0.5 }}>
             EXPLORER
           </Typography>
@@ -234,26 +346,20 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
           </List>
         ) : (
           <List dense disablePadding>
-            {tree.map((entry) => (
-              <ListItemButton
+            {rootEntries.map((entry) => (
+              <TreeNode
                 key={entry.path}
-                onClick={() => handleSelectEntry(entry)}
-                sx={{ py: 0.25 }}
-              >
-                <ListItemIcon sx={{ minWidth: 28 }}>
-                  {entry.type === "tree" ? (
-                    <FolderIcon fontSize="small" />
-                  ) : (
-                    <InsertDriveFileIcon fontSize="small" />
-                  )}
-                </ListItemIcon>
-                <ListItemText
-                  primary={entry.name}
-                  primaryTypographyProps={{ variant: "body2", noWrap: true }}
-                />
-              </ListItemButton>
+                entry={entry}
+                depth={0}
+                repo={selectedRepo}
+                expanded={expanded}
+                loadingDirs={loadingDirs}
+                childrenCache={childrenCacheRef.current}
+                onToggle={handleToggle}
+                onSelectFile={handleFileSelect}
+              />
             ))}
-            {tree.length === 0 && (
+            {rootEntries.length === 0 && (
               <Typography
                 variant="body2"
                 sx={{ py: 2, textAlign: "center", color: "text.secondary" }}
