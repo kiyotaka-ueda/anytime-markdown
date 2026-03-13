@@ -461,13 +461,12 @@ const TreeNode: FC<{
           if (isDir) { if (!empty) onToggle(entry); }
           else onSelectFile(entry.path);
         }}
-        disabled={empty}
         selected={isSelected}
         sx={{
           py: 0.25,
           pl: 1 + depth * (INDENT_PX / 8),
           minHeight: 28,
-          "&.Mui-disabled": { opacity: 1 },
+          ...(empty && { cursor: "default" }),
           ...(isDragOver && {
             bgcolor: "action.hover",
             outline: "1px dashed",
@@ -522,24 +521,22 @@ const TreeNode: FC<{
         {!isRenaming && (
           <>
             {/* Rename icon (file & folder) */}
-            {!empty && (
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onStartRename(entry.path);
-                }}
-                sx={{
-                  p: 0.25,
-                  opacity: 0,
-                  ".MuiListItemButton-root:hover &": { opacity: 1 },
-                }}
-              >
-                <DriveFileRenameOutlineIcon sx={{ fontSize: 14 }} />
-              </IconButton>
-            )}
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                onStartRename(entry.path);
+              }}
+              sx={{
+                p: 0.25,
+                opacity: 0,
+                ".MuiListItemButton-root:hover &": { opacity: 1 },
+              }}
+            >
+              <DriveFileRenameOutlineIcon sx={{ fontSize: 14 }} />
+            </IconButton>
             {/* Folder: new folder icon */}
-            {isDir && !empty && (
+            {isDir && (
               <IconButton
                 size="small"
                 onClick={(e) => {
@@ -557,7 +554,7 @@ const TreeNode: FC<{
               </IconButton>
             )}
             {/* Folder: new file icon */}
-            {isDir && !empty && (
+            {isDir && (
               <IconButton
                 size="small"
                 onClick={(e) => {
@@ -596,7 +593,7 @@ const TreeNode: FC<{
         )}
       </ListItemButton>
       {isDir && (
-        <Collapse in={isOpen} timeout="auto" unmountOnExit>
+        <Collapse in={isOpen || creatingInDir === entry.path || creatingFolderInDir === entry.path} timeout="auto" unmountOnExit>
           <List dense disablePadding>
             {children?.map((child) => (
               <TreeNode
