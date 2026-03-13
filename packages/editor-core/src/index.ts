@@ -35,6 +35,8 @@ export { getMergeTiptapStyles,MergeEditorPanel } from './components/MergeEditorP
 export { OutlinePanel } from './components/OutlinePanel';
 export { SearchReplaceBar } from './components/SearchReplaceBar';
 export { StatusBar } from './components/StatusBar';
+export { TimelineBar } from './components/TimelineBar';
+export { TimelineDiffView } from './components/TimelineDiffView';
 
 // NodeView components
 export { DetailsNodeView } from './DetailsNodeView';
