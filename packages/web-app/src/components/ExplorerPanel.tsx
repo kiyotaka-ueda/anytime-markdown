@@ -24,6 +24,8 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  MenuItem,
+  Select,
   TextField,
   Tooltip,
   Typography,
@@ -106,6 +108,15 @@ async function fetchCommits(
   const data = await res.json();
   if (!Array.isArray(data)) return [];
   return data as CommitEntry[];
+}
+
+async function fetchBranches(repo: string): Promise<string[]> {
+  const res = await fetch(
+    `/api/github/branches?repo=${encodeURIComponent(repo)}`,
+  );
+  if (!res.ok) return [];
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
 }
 
 async function deleteFile(
@@ -435,6 +446,8 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
   const { data: session } = useSession();
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
   const [selectedRepo, setSelectedRepo] = useState<GitHubRepo | null>(null);
+  const [branches, setBranches] = useState<string[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<string>("");
   const [rootEntries, setRootEntries] = useState<TreeEntry[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [loadingDirs, setLoadingDirs] = useState<Set<string>>(new Set());
@@ -455,13 +468,13 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
   const [creatingInDir, setCreatingInDir] = useState<string | null>(null);
 
   const prefetchSubtree = useCallback(
-    async (repo: GitHubRepo, dirPath: string): Promise<boolean> => {
+    async (repo: GitHubRepo, branch: string, dirPath: string): Promise<boolean> => {
       const cached = hasMdCacheRef.current.get(dirPath);
       if (cached !== undefined) return cached;
 
       let entries = childrenCacheRef.current.get(dirPath);
       if (!entries) {
-        entries = await fetchDirEntries(repo.fullName, repo.defaultBranch, dirPath);
+        entries = await fetchDirEntries(repo.fullName, branch, dirPath);
         childrenCacheRef.current.set(dirPath, entries);
       }
 
@@ -470,7 +483,7 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
         hasMdCacheRef.current.set(dirPath, true);
         bumpCache();
         const subDirs = entries.filter((e) => e.type === "tree");
-        await Promise.all(subDirs.map((d) => prefetchSubtree(repo, d.path)));
+        await Promise.all(subDirs.map((d) => prefetchSubtree(repo, branch, d.path)));
         return true;
       }
 
@@ -482,7 +495,7 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
       }
 
       const results = await Promise.all(
-        subDirs.map((d) => prefetchSubtree(repo, d.path)),
+        subDirs.map((d) => prefetchSubtree(repo, branch, d.path)),
       );
       const hasMd = results.some(Boolean);
       hasMdCacheRef.current.set(dirPath, hasMd);
@@ -511,29 +524,57 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
       .finally(() => setLoading(false));
   }, [open, repos.length, needsAuth]);
 
-  const handleSelectRepo = useCallback(
-    async (repo: GitHubRepo) => {
-      setSelectedRepo(repo);
+  const loadTree = useCallback(
+    async (repo: GitHubRepo, branch: string) => {
       setExpanded(new Set());
       setSelectedFilePath(null);
       setCommits([]);
       setSelectedSha(null);
+      setCreatingInDir(null);
       childrenCacheRef.current = new Map();
       hasMdCacheRef.current = new Map();
       setLoading(true);
-      const entries = await fetchDirEntries(repo.fullName, repo.defaultBranch, "");
+      const entries = await fetchDirEntries(repo.fullName, branch, "");
       childrenCacheRef.current.set("", entries);
       setRootEntries(entries);
       setLoading(false);
 
       const subDirs = entries.filter((e) => e.type === "tree");
-      subDirs.forEach((d) => prefetchSubtree(repo, d.path));
+      subDirs.forEach((d) => prefetchSubtree(repo, branch, d.path));
     },
     [prefetchSubtree],
   );
 
+  const handleSelectRepo = useCallback(
+    async (repo: GitHubRepo) => {
+      setSelectedRepo(repo);
+      setSelectedBranch(repo.defaultBranch);
+      setBranches([]);
+      await loadTree(repo, repo.defaultBranch);
+
+      // ブランチ一覧をバックグラウンドで取得
+      fetchBranches(repo.fullName).then((b) => {
+        // デフォルトブランチを先頭に配置
+        const sorted = [repo.defaultBranch, ...b.filter((n) => n !== repo.defaultBranch)];
+        setBranches(sorted);
+      });
+    },
+    [loadTree],
+  );
+
+  const handleBranchChange = useCallback(
+    async (branch: string) => {
+      if (!selectedRepo || branch === selectedBranch) return;
+      setSelectedBranch(branch);
+      await loadTree(selectedRepo, branch);
+    },
+    [selectedRepo, selectedBranch, loadTree],
+  );
+
   const handleBackToRepos = useCallback(() => {
     setSelectedRepo(null);
+    setBranches([]);
+    setSelectedBranch("");
     setRootEntries([]);
     setExpanded(new Set());
     setSelectedFilePath(null);
@@ -561,7 +602,7 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
         setLoadingDirs((prev) => new Set(prev).add(path));
         const children = await fetchDirEntries(
           selectedRepo.fullName,
-          selectedRepo.defaultBranch,
+          selectedBranch,
           path,
         );
         childrenCacheRef.current.set(path, children);
@@ -571,12 +612,12 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
           return next;
         });
         const subDirs = children.filter((e) => e.type === "tree");
-        subDirs.forEach((d) => prefetchSubtree(selectedRepo, d.path));
+        subDirs.forEach((d) => prefetchSubtree(selectedRepo, selectedBranch, d.path));
       }
 
       setExpanded((prev) => new Set(prev).add(path));
     },
-    [selectedRepo, expanded, prefetchSubtree],
+    [selectedRepo, selectedBranch, expanded, prefetchSubtree],
   );
 
   const handleFileSelect = useCallback(
@@ -612,7 +653,7 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
       const result = await createFile(
         selectedRepo.fullName,
         filePath,
-        selectedRepo.defaultBranch,
+        selectedBranch,
       );
       if (!result) return;
 
@@ -632,7 +673,7 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
       // 作成したファイルを選択
       handleFileSelect(filePath);
     },
-    [selectedRepo, bumpCache, handleFileSelect],
+    [selectedRepo, selectedBranch, bumpCache, handleFileSelect],
   );
 
   const handleDeleteFile = useCallback(
@@ -643,7 +684,7 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
       const ok = await deleteFile(
         selectedRepo.fullName,
         filePath,
-        selectedRepo.defaultBranch,
+        selectedBranch,
       );
       if (!ok) return;
 
@@ -670,7 +711,7 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
         setSelectedSha(null);
       }
     },
-    [selectedRepo, selectedFilePath, bumpCache],
+    [selectedRepo, selectedBranch, selectedFilePath, bumpCache],
   );
 
   if (!open) return null;
@@ -751,6 +792,28 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
         )}
       </Box>
       <Divider />
+
+      {selectedRepo && branches.length > 1 && (
+        <Box sx={{ px: 1, py: 0.5 }}>
+          <Select
+            value={selectedBranch}
+            onChange={(e) => handleBranchChange(e.target.value)}
+            size="small"
+            fullWidth
+            sx={{
+              fontSize: "0.75rem",
+              height: 28,
+              "& .MuiSelect-select": { py: 0.25 },
+            }}
+          >
+            {branches.map((b) => (
+              <MenuItem key={b} value={b} sx={{ fontSize: "0.75rem" }}>
+                {b}
+              </MenuItem>
+            ))}
+          </Select>
+        </Box>
+      )}
 
       <Box sx={{ flex: 1, overflow: "auto", minHeight: 0 }}>
         {needsAuth ? (
