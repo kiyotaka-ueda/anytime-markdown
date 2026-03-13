@@ -79,7 +79,6 @@ export type { FileHandle, FileOpenResult, FileSystemProvider } from './types/fil
 export type {
   TimelineCommit,
   TimelineDataProvider,
-  PlaybackSpeed,
   TimelineState,
 } from './types/timeline';
 export type {

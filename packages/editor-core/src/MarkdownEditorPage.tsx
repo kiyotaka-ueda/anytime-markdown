@@ -462,9 +462,6 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         fileDragOver={fileDragOver} onFileDragOverChange={setFileDragOver}
         timelineState={isTimelineActive ? timeline.state : null}
         onTimelineSelectCommit={timeline.selectCommit}
-        onTimelineStartPlayback={timeline.startPlayback}
-        onTimelineStopPlayback={timeline.stopPlayback}
-        onTimelineSetPlaybackSpeed={timeline.setPlaybackSpeed}
         onTimelineClose={timeline.close}
       />
 

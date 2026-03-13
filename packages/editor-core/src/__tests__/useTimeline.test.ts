@@ -24,7 +24,6 @@ describe("useTimeline", () => {
     const { result } = renderHook(() => useTimeline(provider, null));
     expect(result.current.state.commits).toEqual([]);
     expect(result.current.state.isLoading).toBe(false);
-    expect(result.current.state.isPlaying).toBe(false);
   });
 
   test("loadTimeline: コミット一覧を取得し最新を選択", async () => {
@@ -95,18 +94,6 @@ describe("useTimeline", () => {
 
     expect(result.current.state.commits).toEqual([]);
     expect(result.current.state.content).toBeNull();
-    expect(result.current.state.isPlaying).toBe(false);
-  });
-
-  test("setPlaybackSpeed: 再生速度を変更", async () => {
-    const provider = createMockProvider();
-    const { result } = renderHook(() => useTimeline(provider, null));
-
-    act(() => {
-      result.current.setPlaybackSpeed(5);
-    });
-
-    expect(result.current.state.playbackSpeed).toBe(5);
   });
 
   test("loadTimeline: エラー時に error を設定", async () => {

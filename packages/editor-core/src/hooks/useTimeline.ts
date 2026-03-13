@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type {
-  PlaybackSpeed,
   TimelineCommit,
   TimelineDataProvider,
   TimelineState,
@@ -11,8 +10,6 @@ const INITIAL_STATE: TimelineState = {
   selectedIndex: 0,
   content: null,
   previousContent: null,
-  isPlaying: false,
-  playbackSpeed: 2,
   isLoading: false,
   error: null,
 };
@@ -24,24 +21,10 @@ export function useTimeline(
   const [state, setState] = useState<TimelineState>(INITIAL_STATE);
   const filePathRef = useRef(filePath);
   const activeFilePathRef = useRef<string | null>(null);
-  const playTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const commitsRef = useRef<TimelineCommit[]>([]);
 
   filePathRef.current = filePath;
-
-  const stopPlayback = useCallback(() => {
-    if (playTimerRef.current) {
-      clearInterval(playTimerRef.current);
-      playTimerRef.current = null;
-    }
-    setState((prev) => ({ ...prev, isPlaying: false }));
-  }, []);
-
-  // クリーンアップ
-  useEffect(() => {
-    return () => {
-      if (playTimerRef.current) clearInterval(playTimerRef.current);
-    };
-  }, []);
+  commitsRef.current = state.commits;
 
   const fetchContent = useCallback(
     async (
@@ -82,8 +65,6 @@ export function useTimeline(
           selectedIndex: 0,
           content,
           previousContent,
-          isPlaying: false,
-          playbackSpeed: 2,
           isLoading: false,
           error: null,
         });
@@ -102,10 +83,11 @@ export function useTimeline(
     async (index: number) => {
       const fp = activeFilePathRef.current ?? filePathRef.current;
       if (!provider || !fp) return;
+      const commits = commitsRef.current;
       setState((prev) => ({ ...prev, isLoading: true }));
       try {
         const { content, previousContent } = await fetchContent(
-          state.commits,
+          commits,
           index,
           fp,
         );
@@ -124,70 +106,18 @@ export function useTimeline(
         }));
       }
     },
-    [provider, state.commits, fetchContent],
+    [provider, fetchContent],
   );
 
-  const startPlayback = useCallback(() => {
-    if (state.commits.length === 0) return;
-    const startIndex = state.commits.length - 1;
-    setState((prev) => ({
-      ...prev,
-      isPlaying: true,
-      selectedIndex: startIndex,
-    }));
-
-    const fp = activeFilePathRef.current ?? filePathRef.current;
-    if (!fp || !provider) return;
-
-    let currentIndex = startIndex;
-
-    fetchContent(state.commits, currentIndex, fp).then(
-      ({ content, previousContent }) => {
-        setState((prev) => ({
-          ...prev,
-          content,
-          previousContent,
-          selectedIndex: currentIndex,
-        }));
-      },
-    );
-
-    playTimerRef.current = setInterval(() => {
-      currentIndex -= 1;
-      if (currentIndex < 0) {
-        stopPlayback();
-        return;
-      }
-      fetchContent(state.commits, currentIndex, fp).then(
-        ({ content, previousContent }) => {
-          setState((prev) => ({
-            ...prev,
-            content,
-            previousContent,
-            selectedIndex: currentIndex,
-          }));
-        },
-      );
-    }, state.playbackSpeed * 1000);
-  }, [state.commits, state.playbackSpeed, provider, fetchContent, stopPlayback]);
-
-  const setPlaybackSpeed = useCallback((speed: PlaybackSpeed) => {
-    setState((prev) => ({ ...prev, playbackSpeed: speed }));
-  }, []);
-
   const close = useCallback(() => {
-    stopPlayback();
     activeFilePathRef.current = null;
     setState(INITIAL_STATE);
-  }, [stopPlayback]);
+  }, []);
 
   return {
     state,
     loadTimeline,
     selectCommit,
-    startPlayback,
-    stopPlayback,
-    setPlaybackSpeed,
     close,
   };
 }

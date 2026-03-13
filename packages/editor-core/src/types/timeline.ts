@@ -16,9 +16,6 @@ export interface TimelineDataProvider {
   getFileContent(filePath: string, sha: string): Promise<string>;
 }
 
-/** タイムライン再生速度（秒） */
-export type PlaybackSpeed = 1 | 2 | 5;
-
 /** タイムラインの状態 */
 export interface TimelineState {
   /** コミット一覧 */
@@ -29,10 +26,6 @@ export interface TimelineState {
   content: string | null;
   /** 前コミットとの差分テキスト（差分ハイライト用） */
   previousContent: string | null;
-  /** 再生中かどうか */
-  isPlaying: boolean;
-  /** 再生速度 */
-  playbackSpeed: PlaybackSpeed;
   /** 読み込み中 */
   isLoading: boolean;
   /** エラーメッセージ */

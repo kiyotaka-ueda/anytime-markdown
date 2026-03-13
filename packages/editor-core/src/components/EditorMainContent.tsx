@@ -10,7 +10,7 @@ import { getEditorPaperSx } from "../styles/editorStyles";
 import { getMarkdownFromEditor, type HeadingItem } from "../types";
 import { useEditorSettingsContext } from "../useEditorSettings";
 import type { DiffLine } from "../utils/diffEngine";
-import type { PlaybackSpeed, TimelineState } from "../types/timeline";
+import type { TimelineState } from "../types/timeline";
 import { CommentPanel } from "./CommentPanel";
 import { EditorOutlineSection } from "./EditorOutlineSection";
 import { FrontmatterBlock } from "./FrontmatterBlock";
@@ -102,9 +102,6 @@ interface EditorMainContentProps {
   // timeline
   timelineState?: TimelineState | null;
   onTimelineSelectCommit?: (index: number) => void;
-  onTimelineStartPlayback?: () => void;
-  onTimelineStopPlayback?: () => void;
-  onTimelineSetPlaybackSpeed?: (speed: PlaybackSpeed) => void;
   onTimelineClose?: () => void;
   t: (key: string) => string;
 }
@@ -142,9 +139,6 @@ export function EditorMainContent({
   onFileDragOverChange,
   timelineState,
   onTimelineSelectCommit,
-  onTimelineStartPlayback,
-  onTimelineStopPlayback,
-  onTimelineSetPlaybackSpeed,
   onTimelineClose,
   t,
 }: EditorMainContentProps) {
@@ -323,9 +317,6 @@ export function EditorMainContent({
         <TimelineBar
           state={timelineState}
           onSelectCommit={onTimelineSelectCommit!}
-          onStartPlayback={onTimelineStartPlayback!}
-          onStopPlayback={onTimelineStopPlayback!}
-          onSetPlaybackSpeed={onTimelineSetPlaybackSpeed!}
           onClose={onTimelineClose!}
           t={t}
         />

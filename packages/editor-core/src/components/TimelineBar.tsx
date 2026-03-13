@@ -1,20 +1,14 @@
 import CloseIcon from "@mui/icons-material/Close";
-import PauseIcon from "@mui/icons-material/Pause";
-import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import SpeedIcon from "@mui/icons-material/Speed";
 import {
   Box,
   IconButton,
-  Menu,
-  MenuItem,
   Slider,
   Tooltip,
   Typography,
 } from "@mui/material";
-import { type FC, useCallback, useMemo, useState } from "react";
+import { type FC, useCallback, useMemo } from "react";
 
 import type {
-  PlaybackSpeed,
   TimelineCommit,
   TimelineState,
 } from "../types/timeline";
@@ -22,9 +16,6 @@ import type {
 interface TimelineBarProps {
   state: TimelineState;
   onSelectCommit: (index: number) => void;
-  onStartPlayback: () => void;
-  onStopPlayback: () => void;
-  onSetPlaybackSpeed: (speed: PlaybackSpeed) => void;
   onClose: () => void;
   t: (key: string) => string;
 }
@@ -45,19 +36,13 @@ function truncateMessage(msg: string, max = 60): string {
     : firstLine;
 }
 
-const SPEED_OPTIONS: PlaybackSpeed[] = [1, 2, 5];
-
 export const TimelineBar: FC<TimelineBarProps> = ({
   state,
   onSelectCommit,
-  onStartPlayback,
-  onStopPlayback,
-  onSetPlaybackSpeed,
   onClose,
   t,
 }) => {
-  const { commits, selectedIndex, isPlaying, playbackSpeed, isLoading } = state;
-  const [speedAnchor, setSpeedAnchor] = useState<HTMLElement | null>(null);
+  const { commits, selectedIndex, isLoading } = state;
 
   const selectedCommit: TimelineCommit | null = commits[selectedIndex] ?? null;
 
@@ -99,16 +84,6 @@ export const TimelineBar: FC<TimelineBarProps> = ({
         minHeight: 48,
       }}
     >
-      <Tooltip title={isPlaying ? t("timelineStop") : t("timelinePlay")}>
-        <IconButton
-          size="small"
-          onClick={isPlaying ? onStopPlayback : onStartPlayback}
-          disabled={isLoading}
-        >
-          {isPlaying ? <PauseIcon /> : <PlayArrowIcon />}
-        </IconButton>
-      </Tooltip>
-
       <Slider
         value={sliderValue}
         min={0}
@@ -116,7 +91,7 @@ export const TimelineBar: FC<TimelineBarProps> = ({
         step={1}
         marks={marks}
         onChange={handleSliderChange}
-        disabled={isPlaying || isLoading}
+        disabled={isLoading}
         sx={{ width: "50%", flexShrink: 0, mx: 1 }}
       />
 
@@ -130,33 +105,6 @@ export const TimelineBar: FC<TimelineBarProps> = ({
           {truncateMessage(selectedCommit.message)}
         </Typography>
       )}
-
-      <Tooltip title={t("timelineSpeed")}>
-        <IconButton
-          size="small"
-          onClick={(e) => setSpeedAnchor(e.currentTarget)}
-        >
-          <SpeedIcon />
-        </IconButton>
-      </Tooltip>
-      <Menu
-        anchorEl={speedAnchor}
-        open={Boolean(speedAnchor)}
-        onClose={() => setSpeedAnchor(null)}
-      >
-        {SPEED_OPTIONS.map((s) => (
-          <MenuItem
-            key={s}
-            selected={s === playbackSpeed}
-            onClick={() => {
-              onSetPlaybackSpeed(s);
-              setSpeedAnchor(null);
-            }}
-          >
-            {s}s
-          </MenuItem>
-        ))}
-      </Menu>
 
       <Tooltip title={t("timelineClose")}>
         <IconButton size="small" onClick={onClose}>
