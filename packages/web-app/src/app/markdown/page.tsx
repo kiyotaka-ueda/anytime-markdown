@@ -3,7 +3,7 @@
 import { Box, CircularProgress } from '@mui/material';
 import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { FallbackFileSystemProvider } from '../../lib/FallbackFileSystemProvider';
 import { GitHubTimelineProvider } from '../../lib/GitHubTimelineProvider';
@@ -25,11 +25,6 @@ const MarkdownEditorPage = dynamic(
   { ssr: false, loading: () => <EditorLoading /> },
 );
 
-const GitHubRepoBrowser = dynamic(
-  () => import('../../components/GitHubRepoBrowser').then((m) => ({ default: m.GitHubRepoBrowser })),
-  { ssr: false },
-);
-
 const ExplorerPanel = dynamic(
   () => import('../../components/ExplorerPanel').then((m) => ({ default: m.ExplorerPanel })),
   { ssr: false },
@@ -47,10 +42,16 @@ async function fetchFileContent(repo: string, filePath: string): Promise<string>
 export default function Page() {
   const { themeMode, setThemeMode } = useThemeMode();
   const { setLocale } = useLocaleSwitch();
-  const [repoBrowserOpen, setRepoBrowserOpen] = useState(false);
-  const [explorerOpen, setExplorerOpen] = useState(false);
+  const [explorerOpen, setExplorerOpen] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem('explorerOpen') === '1';
+  });
   const [timelineProvider, setTimelineProvider] = useState<GitHubTimelineProvider | null>(null);
+  const [timelineRequested, setTimelineRequested] = useState(false);
+  const [isTimelineActive, setIsTimelineActive] = useState(false);
   const [externalContent, setExternalContent] = useState<string | undefined>(undefined);
+  const [externalCompareContent, setExternalCompareContent] = useState<string | null>(null);
+  const [compareModeOpen, setCompareModeOpen] = useState(false);
   const [editorKey, setEditorKey] = useState(0);
   const selectedFileRef = useRef<{ repo: string; filePath: string } | null>(null);
 
@@ -60,18 +61,21 @@ export default function Page() {
     return web.supportsDirectAccess ? web : new FallbackFileSystemProvider();
   }, []);
 
-  const handleRequestTimeline = useCallback(() => {
-    setRepoBrowserOpen(true);
-  }, []);
-
-  const handleRepoSelect = useCallback((repo: string, filePath: string) => {
-    selectedFileRef.current = { repo, filePath };
-    setTimelineProvider(new GitHubTimelineProvider(repo));
-    setRepoBrowserOpen(false);
-  }, []);
+  useEffect(() => {
+    sessionStorage.setItem('explorerOpen', explorerOpen ? '1' : '0');
+  }, [explorerOpen]);
 
   const handleToggleExplorer = useCallback(() => {
     setExplorerOpen((prev) => !prev);
+  }, []);
+
+  const handleToggleTimeline = useCallback(() => {
+    setTimelineRequested((prev) => !prev);
+  }, []);
+
+  const handleTimelineActiveChange = useCallback((active: boolean) => {
+    setIsTimelineActive(active);
+    if (!active) setTimelineRequested(false);
   }, []);
 
   const handleExplorerSelectFile = useCallback(async (repo: string, filePath: string) => {
@@ -82,6 +86,10 @@ export default function Page() {
     setEditorKey((k) => k + 1);
   }, []);
 
+  const handleCompareModeChange = useCallback((active: boolean) => {
+    setCompareModeOpen(active);
+  }, []);
+
   const handleExplorerSelectCommit = useCallback(async (repo: string, filePath: string, sha: string) => {
     const res = await fetch(
       `/api/github/content?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(filePath)}&ref=${encodeURIComponent(sha)}`,
@@ -89,8 +97,8 @@ export default function Page() {
     if (!res.ok) return;
     const data = await res.json();
     const content = data.content ?? '';
-    setExternalContent(content);
-    setEditorKey((k) => k + 1);
+    // 比較モードの右パネルにロード（比較モードが閉じていても自動で開く）
+    setExternalCompareContent(content);
   }, []);
 
   return (
@@ -99,6 +107,8 @@ export default function Page() {
         open={explorerOpen}
         onSelectFile={handleExplorerSelectFile}
         onSelectCommit={handleExplorerSelectCommit}
+        isTimelineActive={isTimelineActive}
+        onToggleTimeline={handleToggleTimeline}
       />
       <Box sx={{ flex: 1, minWidth: 0, overflow: "auto" }}>
         <MarkdownEditorPage
@@ -108,7 +118,10 @@ export default function Page() {
           onLocaleChange={setLocale}
           fileSystemProvider={fileSystemProvider}
           timelineProvider={timelineProvider}
-          onRequestTimeline={handleRequestTimeline}
+          timelineRequested={timelineRequested}
+          onTimelineActiveChange={handleTimelineActiveChange}
+          onCompareModeChange={handleCompareModeChange}
+          externalCompareContent={externalCompareContent}
           explorerOpen={explorerOpen}
           onToggleExplorer={handleToggleExplorer}
           externalContent={externalContent}
@@ -116,11 +129,6 @@ export default function Page() {
           showReadonlyMode={process.env.NEXT_PUBLIC_SHOW_READONLY_MODE === "1"}
         />
       </Box>
-      <GitHubRepoBrowser
-        open={repoBrowserOpen}
-        onClose={() => setRepoBrowserOpen(false)}
-        onSelect={handleRepoSelect}
-      />
     </Box>
   );
 }

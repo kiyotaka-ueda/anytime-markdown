@@ -93,15 +93,19 @@ interface MarkdownEditorPageProps {
   hideStatusBar?: boolean;
   onStatusChange?: (status: { line: number; col: number; charCount: number; lineCount: number; lineEnding: string; encoding: string }) => void;
   showReadonlyMode?: boolean;
-  /** タイムライン表示リクエスト（provider 未設定時にリポジトリ選択等を促す） */
-  onRequestTimeline?: () => void;
+  /** 外部からタイムラインの開閉を要求 */
+  timelineRequested?: boolean;
+  /** タイムラインの開閉状態が変化したとき */
+  onTimelineActiveChange?: (active: boolean) => void;
+  /** 外部から比較モードの右パネルにコンテンツをロード */
+  externalCompareContent?: string | null;
   /** エクスプローラパネルの開閉状態 */
   explorerOpen?: boolean;
   /** エクスプローラパネルの開閉トグル */
   onToggleExplorer?: () => void;
 }
 
-export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, featuresUrl, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, timelineProvider, externalContent, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, showReadonlyMode, onRequestTimeline, explorerOpen, onToggleExplorer }: MarkdownEditorPageProps = {}) {
+export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, featuresUrl, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, timelineProvider, externalContent, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, showReadonlyMode, timelineRequested, onTimelineActiveChange, externalCompareContent, explorerOpen, onToggleExplorer }: MarkdownEditorPageProps = {}) {
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
   const muiTheme = useTheme();
@@ -245,7 +249,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   useEditorSettingsSync(editor, settings, { readOnly, hideFoldAll, handleExpandAllBlocks });
 
   const {
-    inlineMergeOpen, editorMarkdown, setEditorMarkdown,
+    inlineMergeOpen, setInlineMergeOpen, editorMarkdown, setEditorMarkdown,
     mergeUndoRedo, setMergeUndoRedo,
     compareFileContent, setCompareFileContent,
     rightFileOps, setRightFileOps, handleMerge,
@@ -254,9 +258,40 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     onCompareModeChange, t, setLiveMessage,
   });
 
+  // 外部から比較コンテンツを受け取ったら右パネルにロード＆比較モード自動オープン
+  const prevCompareContentRef = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (externalCompareContent == null || externalCompareContent === prevCompareContentRef.current) return;
+    prevCompareContentRef.current = externalCompareContent;
+    setCompareFileContent(externalCompareContent);
+    if (!inlineMergeOpen) {
+      if (!sourceMode && editor) {
+        setEditorMarkdown(getMarkdownFromEditor(editor));
+      }
+      setInlineMergeOpen(true);
+    }
+  }, [externalCompareContent, inlineMergeOpen, sourceMode, editor, setCompareFileContent, setEditorMarkdown, setInlineMergeOpen]);
+
   const timeline = useTimeline(timelineProvider ?? null, null);
   const isTimelineActive = timeline.state.commits.length > 0;
   const handleOpenTimeline = useCallback((fp: string) => { timeline.loadTimeline(fp); }, [timeline]);
+
+  // 外部からのタイムライン開閉要求を処理
+  const prevTimelineRequestedRef = useRef(timelineRequested);
+  useEffect(() => {
+    if (timelineRequested === prevTimelineRequestedRef.current) return;
+    prevTimelineRequestedRef.current = timelineRequested;
+    if (timelineRequested && !isTimelineActive && timelineProvider) {
+      handleOpenTimeline(fileName ?? "untitled.md");
+    } else if (!timelineRequested && isTimelineActive) {
+      timeline.close();
+    }
+  }, [timelineRequested, isTimelineActive, timelineProvider, handleOpenTimeline, timeline, fileName]);
+
+  // タイムライン状態の変化を外部に通知
+  useEffect(() => {
+    onTimelineActiveChange?.(isTimelineActive);
+  }, [isTimelineActive, onTimelineActiveChange]);
 
   // タイムライン: エディタ内容をコミットの Markdown で差し替え、終了時に復元
   const savedContentRef = useRef<string | null>(null);
@@ -358,9 +393,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
           onSwitchToSource: handleSwitchToSource, onSwitchToWysiwyg: handleSwitchToWysiwyg,
           onSwitchToReview: handleSwitchToReview, onSwitchToReadonly: handleSwitchToReadonly,
           onToggleOutline: handleToggleOutline, onMerge: handleMerge,
-          onOpenTimeline: timelineProvider
-            ? () => handleOpenTimeline(fileName ?? "untitled.md")
-            : onRequestTimeline,
+          onOpenTimeline: undefined,
           onToggleExplorer,
         }}
         isTimelineActive={isTimelineActive}

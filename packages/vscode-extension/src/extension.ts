@@ -249,13 +249,21 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	);
 
+	const toggleTimeline = vscode.commands.registerCommand(
+		'anytime-markdown.toggleTimeline',
+		() => {
+			const p = MarkdownEditorProvider.getInstance();
+			p?.postMessageToActivePanel({ type: 'toggleTimeline' });
+		}
+	);
+
 	context.subscriptions.push(
 		gitTreeView, outlineTreeView, commentTreeView,
 		...statusBarItems,
 		openEditorWithFile, compareCmd, compareWithCommit, scrollToHeading,
 		scrollToComment, resolveComment, unresolveComment, deleteComment,
 		filterCommentsAll, filterCommentsOpen, filterCommentsResolved,
-		toggleCollapseExpand, toggleBlockElements,
+		toggleCollapseExpand, toggleBlockElements, toggleTimeline,
 	);
 }
 

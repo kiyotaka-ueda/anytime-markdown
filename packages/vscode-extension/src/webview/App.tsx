@@ -92,6 +92,7 @@ class WebviewTimelineProvider implements TimelineDataProvider {
 export function App() {
   const [ready, setReady] = useState(false);
   const [themeMode, setThemeMode] = useState<PaletteMode>('dark');
+  const [timelineRequested, setTimelineRequested] = useState(false);
   const theme = useMemo(() => createTheme({ palette: { mode: themeMode } }), [themeMode]);
   const timelineProviderRef = useRef(new WebviewTimelineProvider());
 
@@ -128,6 +129,10 @@ export function App() {
       }
       if (message?.type === 'deleteComment' && typeof message.id === 'string') {
         window.dispatchEvent(new CustomEvent('vscode-delete-comment', { detail: message.id }));
+        return;
+      }
+      if (message?.type === 'toggleTimeline') {
+        setTimelineRequested((prev) => !prev);
         return;
       }
       if (message?.type === 'timelineCommits' && Array.isArray(message.commits)) {
@@ -167,6 +172,11 @@ export function App() {
 
   const handleCompareModeChange = useCallback((active: boolean) => {
     vscode.postMessage({ type: 'compareModeChanged', active });
+  }, []);
+
+  const handleTimelineActiveChange = useCallback((active: boolean) => {
+    vscode.postMessage({ type: 'timelineActiveChanged', active });
+    if (!active) setTimelineRequested(false);
   }, []);
 
   const handleHeadingsChange = useCallback((headings: Array<{ level: number; text: string; pos: number; kind: string }>) => {
@@ -210,7 +220,7 @@ export function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <ConfirmProvider>
-        <MarkdownEditorPage hideFileOps hideUndoRedo hideSettings hideHelp hideVersionInfo hideOutline hideComments hideTemplates hideFoldAll hideStatusBar timelineProvider={timelineProviderRef.current} onCompareModeChange={handleCompareModeChange} onHeadingsChange={handleHeadingsChange} onCommentsChange={handleCommentsChange} onStatusChange={handleStatusChange} />
+        <MarkdownEditorPage hideFileOps hideUndoRedo hideSettings hideHelp hideVersionInfo hideOutline hideComments hideTemplates hideFoldAll hideStatusBar timelineProvider={timelineProviderRef.current} timelineRequested={timelineRequested} onTimelineActiveChange={handleTimelineActiveChange} onCompareModeChange={handleCompareModeChange} onHeadingsChange={handleHeadingsChange} onCommentsChange={handleCommentsChange} onStatusChange={handleStatusChange} />
       </ConfirmProvider>
     </ThemeProvider>
   );

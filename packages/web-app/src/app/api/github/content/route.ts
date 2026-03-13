@@ -50,3 +50,54 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   ).toString("utf-8");
   return NextResponse.json({ content });
 }
+
+/** Create a new file via GitHub Contents API (PUT) */
+export async function PUT(request: NextRequest): Promise<NextResponse> {
+  const token = await getGitHubToken();
+  if (!token) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+  const body = (await request.json()) as {
+    repo?: string;
+    path?: string;
+    content?: string;
+    message?: string;
+    branch?: string;
+  };
+  const { repo, path, content, message, branch } = body;
+  if (!repo || !path) {
+    return NextResponse.json({ error: "Missing params" }, { status: 400 });
+  }
+  const encodedPath = path
+    .split("/")
+    .map((seg) => encodeURIComponent(seg))
+    .join("/");
+  const res = await fetch(
+    `https://api.github.com/repos/${repo}/contents/${encodedPath}`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github.v3+json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: message ?? `Create ${path}`,
+        content: Buffer.from(content ?? "").toString("base64"),
+        ...(branch ? { branch } : {}),
+      }),
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    return NextResponse.json(
+      { error: (err as { message?: string }).message ?? "GitHub API error" },
+      { status: res.status },
+    );
+  }
+  const data = await res.json();
+  return NextResponse.json({
+    path: (data as { content?: { path?: string } }).content?.path,
+    sha: (data as { content?: { sha?: string } }).content?.sha,
+  });
+}
