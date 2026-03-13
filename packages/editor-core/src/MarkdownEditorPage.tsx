@@ -60,7 +60,7 @@ import { useOutline } from "./hooks/useOutline";
 import { useSourceMode } from "./hooks/useSourceMode";
 import { useTimeline } from "./hooks/useTimeline";
 import { useVSCodeIntegration } from "./hooks/useVSCodeIntegration";
-import { type HeadingItem, PlantUmlToolbarContext } from "./types";
+import { getMarkdownFromEditor, type HeadingItem, PlantUmlToolbarContext } from "./types";
 import type { FileSystemProvider } from "./types/fileSystem";
 import type { TimelineDataProvider } from "./types/timeline";
 import type { InlineComment } from "./utils/commentHelpers";
@@ -261,7 +261,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     if (isTimelineActive) {
       // 初回: 元の内容を保存
       if (savedContentRef.current === null) {
-        savedContentRef.current = editor.storage.markdown?.getMarkdown?.() ?? "";
+        savedContentRef.current = getMarkdownFromEditor(editor);
       }
       // タイムラインのコンテンツをエディタに反映
       if (timeline.state.content !== null) {
