@@ -178,20 +178,22 @@ export function InlineMergeView({
   useEffect(() => {
     if (rightEditor && !sourceMode) {
       // React レンダリング中の flushSync 競合を回避するため次フレームに遅延
-      requestAnimationFrame(() => {
+      const id = requestAnimationFrame(() => {
         if (rightEditor.isDestroyed) return;
         reviewModeStorage(rightEditor).enabled = false;
         applyMarkdownToEditor(rightEditor, rightText);
         reviewModeStorage(rightEditor).enabled = true;
       });
+      return () => cancelAnimationFrame(id);
     }
   }, [rightText, rightEditor, sourceMode]);
 
   // When switching from source -> WYSIWYG, populate right editor
   const prevSourceMode = useRef(sourceMode);
   useEffect(() => {
+    let id: number | undefined;
     if (prevSourceMode.current && !sourceMode && rightEditor) {
-      requestAnimationFrame(() => {
+      id = requestAnimationFrame(() => {
         if (rightEditor.isDestroyed) return;
         reviewModeStorage(rightEditor).enabled = false;
         applyMarkdownToEditor(rightEditor, rightText);
@@ -199,6 +201,7 @@ export function InlineMergeView({
       });
     }
     prevSourceMode.current = sourceMode;
+    return () => { if (id !== undefined) cancelAnimationFrame(id); };
   }, [sourceMode, rightEditor, rightText]);
 
   // 左エディタのブロック展開/折りたたみ状態を右エディタに同期

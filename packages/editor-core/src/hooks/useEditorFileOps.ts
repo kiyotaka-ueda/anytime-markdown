@@ -4,7 +4,7 @@ import DOMPurify from "dompurify";
 import { useTranslations } from "next-intl";
 import plantumlEncoder from "plantuml-encoder";
 import type { Dispatch, SetStateAction } from "react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import useConfirm from "@/hooks/useConfirm";
 
@@ -71,6 +71,9 @@ export function useEditorFileOps({
     return sourceMode ? md : prependFrontmatter(md, frontmatterRef.current);
   }, [sourceMode, sourceText, editor, frontmatterRef]);
 
+  // アンマウント時にタイマーをクリア
+  useEffect(() => () => clearTimeout(notificationTimerRef.current), []);
+
   const showNotification = useCallback((key: NotificationKey) => {
     clearTimeout(notificationTimerRef.current);
     setNotification(key);
@@ -119,6 +122,8 @@ export function useEditorFileOps({
       readFileAsText(file).then(({ text }) => {
         setFileHandle?.(nativeHandle ? { name: file.name, nativeHandle } : { name: file.name });
         applyMarkdownContent(text);
+      }).catch((err) => {
+        console.warn("Failed to read file:", err);
       });
     },
     [applyMarkdownContent, setFileHandle],
@@ -322,7 +327,7 @@ export function useEditorFileOps({
       } finally {
         // 復元
         for (const restore of diagramRestores) restore();
-        if (collapsedPositions.length > 0) {
+        if (collapsedPositions.length > 0 && !editor.isDestroyed) {
           const tr = editor.state.tr;
           for (const pos of collapsedPositions) {
             tr.setNodeAttribute(pos, "collapsed", true);
