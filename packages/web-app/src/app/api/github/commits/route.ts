@@ -44,5 +44,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         date: c.commit.author.date,
       }),
     ),
+    { headers: { "Cache-Control": "private, max-age=600" } },
   );
 }

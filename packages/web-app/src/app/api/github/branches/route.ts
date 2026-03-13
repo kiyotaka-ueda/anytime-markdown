@@ -29,5 +29,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const data = await res.json();
   return NextResponse.json(
     (data as { name: string }[]).map((b) => b.name),
+    { headers: { "Cache-Control": "private, max-age=300" } },
   );
 }

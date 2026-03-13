@@ -42,12 +42,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         path: item.path,
         type: item.type,
       })),
+      { headers: { "Cache-Control": "private, max-age=60" } },
     );
   }
   // Single file: decode base64 content
   const raw = (data as { content?: string | null }).content;
   const content = raw ? Buffer.from(raw, "base64").toString("utf-8") : "";
-  return NextResponse.json({ content });
+  return NextResponse.json(
+    { content },
+    { headers: { "Cache-Control": "private, max-age=60" } },
+  );
 }
 
 /** Create a new file via GitHub Contents API (PUT) */
@@ -241,19 +245,33 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // 2. PUT new file (preserve raw base64 content)
-  const putRes = await fetchWithRetry(
-    `https://api.github.com/repos/${repo}/contents/${encodeSegments(newPath)}`,
-    {
-      method: "PUT",
-      headers: { ...headers, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: `Rename ${oldPath} → ${newPath}`,
-        content: fileData.content.replace(/\n/g, ""),
-        ...(branch ? { branch } : {}),
-      }),
-    },
-  );
+  // 2. PUT new file + DELETE old file in parallel
+  const [putRes, delRes] = await Promise.all([
+    fetchWithRetry(
+      `https://api.github.com/repos/${repo}/contents/${encodeSegments(newPath)}`,
+      {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: `Rename ${oldPath} → ${newPath}`,
+          content: fileData.content.replace(/\n/g, ""),
+          ...(branch ? { branch } : {}),
+        }),
+      },
+    ),
+    fetchWithRetry(
+      `https://api.github.com/repos/${repo}/contents/${encodeSegments(oldPath)}`,
+      {
+        method: "DELETE",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: `Rename ${oldPath} → ${newPath} (delete old)`,
+          sha: fileData.sha,
+          ...(branch ? { branch } : {}),
+        }),
+      },
+    ),
+  ]);
   if (!putRes.ok) {
     const err = await putRes.json().catch(() => ({}));
     return NextResponse.json(
@@ -261,20 +279,6 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
       { status: putRes.status },
     );
   }
-
-  // 3. DELETE old file
-  const delRes = await fetchWithRetry(
-    `https://api.github.com/repos/${repo}/contents/${encodeSegments(oldPath)}`,
-    {
-      method: "DELETE",
-      headers: { ...headers, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: `Rename ${oldPath} → ${newPath} (delete old)`,
-        sha: fileData.sha,
-        ...(branch ? { branch } : {}),
-      }),
-    },
-  );
   if (!delRes.ok) {
     const err = await delRes.json().catch(() => ({}));
     return NextResponse.json(

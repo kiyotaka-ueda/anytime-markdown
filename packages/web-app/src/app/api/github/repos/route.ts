@@ -8,7 +8,7 @@ export async function GET(): Promise<NextResponse> {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
   const res = await fetchWithRetry(
-    "https://api.github.com/user/repos?sort=updated&per_page=30",
+    "https://api.github.com/user/repos?sort=updated&per_page=100",
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -29,5 +29,6 @@ export async function GET(): Promise<NextResponse> {
       private: r.private,
       defaultBranch: r.default_branch,
     })),
+    { headers: { "Cache-Control": "private, max-age=300" } },
   );
 }

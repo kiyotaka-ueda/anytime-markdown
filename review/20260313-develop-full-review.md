@@ -1,9 +1,9 @@
 # コードレビュー: develop ブランチ全体
 
 レビュー日: 2026-03-13\
-対象: `packages/editor-core/src/` (master...develop 差分)\
-利用スキル: `code-review-checklist`, `requesting-code-review`\
-レビューエージェント: セキュリティ・型安全 / パフォーマンス・状態管理 / コード品質・アーキテクチャ
+対象: `packages/` 全体 (master...develop 差分, 507ファイル, +61330/-11363)\
+利用スキル: `code-review-checklist`, `requesting-code-review`, `markdown-output`\
+レビューエージェント: セキュリティ / パフォーマンス / アクセシビリティ・コード品質
 
 
 ## レビュー種別
@@ -11,240 +11,299 @@
 develop -> master マージ前の全観点レビュー。
 
 
+## 自動チェック結果
+
+| チェック項目 | 結果 |
+| --- | --- |
+| `tsc --noEmit` | pass |
+| `npm audit` | 脆弱性 0件 |
+| `any` 型の使用 (`: any`) | 0件 |
+| `as any` | 2件 (テストファイルのみ) |
+| 非null アサーション (`!.`) | 18件 (テストファイルのみ) |
+| `console.log` | 8ファイル (うち3件テスト) |
+| `dangerouslySetInnerHTML` | 7ファイル (全箇所 DOMPurify 経由) |
+| TODO コメント | 1件 (tiptap v3 関連, 既知) |
+
+
 ## サマリ
 
 | 重要度 | 件数 |
 | --- | --- |
-| Critical | 2 |
-| Important | 8 |
-| Minor | 9 |
-| Info (良い点) | 8 |
+| Critical | 0 (2件とも修正済み) |
+| High | 10 |
+| Medium | 16 |
+| Low | 9 |
+| Info (良い点) | 12 |
 
 
 ## Critical (即修正必要)
 
-### C1: `readFileAsText` に `onerror` / `reject` がない
+> C1, C2 ともに修正済みであることを確認。(2026-03-13)
 
-- ファイル: `utils/fileReading.ts`
-- カテゴリ: エラーハンドリング
+### ~~C1: `readFileAsText` に `onerror` / `reject` がない~~ (修正済み)
 
-`readFileAsText` は `new Promise((resolve) => { ... })` で `reject` を受け取らず、`reader.onerror` も未設定。
-ファイル読み込み失敗時に Promise が永久 pending になり、呼び出し元の `.then()` が実行されない。
+- ファイル: `editor-core/src/utils/fileReading.ts`
+- 状態: `reject` を受け取り `reader.onerror` で reject 済み。呼び出し元の `.catch()` も対応済み。
 
-**修正方針**: `reject` を受け取り `reader.onerror` で reject する。
-呼び出し元にも `.catch()` を追加する。
+### ~~C2: `notificationTimerRef` のアンマウント時クリーンアップ欠落~~ (修正済み)
 
-### C2: `notificationTimerRef` のアンマウント時クリーンアップ欠落
-
-- ファイル: `hooks/useEditorFileOps.ts` (61行目付近)
-- カテゴリ: メモリリーク
-
-`notificationTimerRef` に `setTimeout` の戻り値が保存されるが、アンマウント時に `clearTimeout` する `useEffect` がない。
-アンマウント後にタイマーが発火し、破棄済みコンポーネントの `setNotification` が呼ばれる。
-
-**修正方針**: `useEffect(() => () => clearTimeout(notificationTimerRef.current), [])` を追加する。
+- ファイル: `editor-core/src/hooks/useEditorFileOps.ts` (77行目)
+- 状態: `useEffect(() => () => clearTimeout(notificationTimerRef.current), [])` が実装済み。
 
 
-## Important (次のステップ前に修正)
+## High (早期修正推奨)
 
-### I1: InlineMergeView の rAF キャンセル漏れ
+### H1: InlineMergeView の rAF キャンセル漏れ (一部修正済み)
 
-- ファイル: `components/InlineMergeView.tsx` (178-188, 192-202, 226行目)
+- ファイル: `editor-core/src/components/InlineMergeView.tsx`
 - カテゴリ: レースコンディション
 
-`rightText` 変更時の `requestAnimationFrame` で `cancelAnimationFrame` していない。
-高頻度変更時に古い rAF コールバックが残り、レースコンディションや無駄な処理が発生する。
-モード切替同期 (192-202行目) と折りたたみ状態同期 (226行目) にも同様の問題がある。
+`rightText` 同期 (181行目) とモード切替同期 (196行目) は `cancelAnimationFrame` 済み。\
+折りたたみ同期 (229行目) の rAF キャンセル漏れを修正した。(2026-03-13)
 
-**修正方針**: rAF の ID を保持し、クリーンアップ関数で `cancelAnimationFrame` する。
+### ~~H2: `useFileSystem` の `loadNativeHandle` 競合~~ (修正済み)
 
-### I2: `handleExportPdf` の setTimeout 内で `isDestroyed` チェック欠落
+- ファイル: `editor-core/src/hooks/useFileSystem.ts` (23, 29行目)
+- 状態: `cancelled` フラグによるクリーンアップが実装済み。
 
-- ファイル: `hooks/useEditorFileOps.ts`
-- カテゴリ: ProseMirror 状態管理
+### ~~H3: `fileHandleStore.ts` の IndexedDB 接続リーク~~ (修正済み)
 
-PDF エクスポートの `setTimeout` コールバック内で折りたたみ復元のトランザクションを dispatch する際、`editor.isDestroyed` チェックがない。
-エクスポート中にページ遷移すると例外が発生する可能性がある。
+- ファイル: `editor-core/src/utils/fileHandleStore.ts`
+- 状態: 全関数で `try/finally { db.close() }` が実装済み。
 
-**修正方針**: 折りたたみ復元前に `editor.isDestroyed` チェックを追加する。
+### ~~H4: `[\s\S]*?` パターンの ReDoS リスク~~ (修正済み)
 
-### I3: `handleImport` の `.catch()` 欠落
+- ファイル: `editor-core/src/utils/sanitizeMarkdown.ts` (235, 241行目)
+- 状態: `[^<]*(?:<(?!\/blockquote>)[^<]*)*` 等のネスト非許容パターンに置換済み。
 
-- ファイル: `hooks/useEditorFileOps.ts` (118-127行目)
-- カテゴリ: エラーハンドリング
+### ~~H5: `handleExportPdf` の setTimeout 内で `isDestroyed` チェック欠落~~ (修正済み)
 
-```typescript
-readFileAsText(file).then(({ text }) => {
-  // ...
-});
-```
+- ファイル: `editor-core/src/hooks/useEditorFileOps.ts` (337行目)
+- 状態: `!editor.isDestroyed` チェックが実装済み。
 
-`.catch()` がないため、`readFileAsText` が reject した場合に unhandled promise rejection になる。
+### ~~H6: `handleImport` の `.catch()` 欠落~~ (修正済み)
 
-**修正方針**: `.catch()` を追加し、ユーザーへのエラー通知を行う。
+- ファイル: `editor-core/src/hooks/useEditorFileOps.ts`
+- 状態: `.catch()` が実装済み。
 
-### I4: `useFileSystem` の `loadNativeHandle` 競合
+### H7: OutlinePanel の大リスト仮想化なし
 
-- ファイル: `hooks/useFileSystem.ts` (19-28行目)
-- カテゴリ: レースコンディション
+- ファイル: `editor-core/src/components/OutlinePanel.tsx` (212行目)
+- カテゴリ: パフォーマンス
 
-`useEffect` 内の `loadNativeHandle()` が非同期で解決する間に、ユーザーが `openFile` や `setFileHandle` を呼んだ場合、古い IndexedDB のハンドルが後から上書きされる可能性がある。
+`headings` 配列全体を DOM にレンダリングしている。\
+100+見出しのドキュメントでスクロールパフォーマンスが低下する。
 
-**修正方針**: `let cancelled = false` フラグを使い、クリーンアップで `cancelled = true` に設定する。
-StrictMode の二重実行にも対応できる。
+**修正方針**: `react-window` 等でリスト仮想化する。
 
-### I5: `fileHandleStore.ts` の IndexedDB 接続リーク
+### ~~H8: ExplorerPanel のツリー展開が遅延レンダリングなし~~ (対応不要)
 
-- ファイル: `utils/fileHandleStore.ts`
-- カテゴリ: メモリリーク
+- ファイル: `web-app/src/components/ExplorerPanel.tsx`
+- 状態: `Collapse unmountOnExit` + API オンデマンド取得により、展開済みノードのみレンダリング。\
+  1ディレクトリ数百ファイルの極端なケース以外は問題なし。現時点では過剰最適化。
 
-`saveNativeHandle`, `loadNativeHandle`, `clearNativeHandle` がそれぞれ `openDB()` を呼び、毎回新しい `IDBDatabase` 接続を開く。
-`db.close()` がないため接続がリークする。
+### ~~H9: GitHub API レスポンスにキャッシュヘッダなし~~ (修正済み)
 
-**修正方針**: モジュールレベルで DB 接続をキャッシュするか、使用後に `db.close()` を呼ぶ。
+- ファイル: `web-app/src/app/api/github/` 各 `route.ts`
+- 状態: 全 GET レスポンスに `Cache-Control: private` を追加。(2026-03-13)\
+  repos: 300s / branches: 300s / commits: 600s / content: 60s
 
-### I6: `[\s\S]*?` パターンの ReDoS リスク
+### ~~H10: GitHub PATCH (リネーム) が3回の逐次API呼び出し~~ (修正済み)
 
-- ファイル: `utils/sanitizeMarkdown.ts` (235, 241行目)
+- ファイル: `web-app/src/app/api/github/content/route.ts`
+- 状態: PUT と DELETE を `Promise.all` で並列化。GET → (PUT || DELETE) の2ステップに短縮。(2026-03-13)
+
+
+## Medium
+
+### ~~M1: Basic Auth のタイミング攻撃リスク~~ (修正済み)
+
+- ファイル: `web-app/src/lib/basicAuth.ts`
+- 状態: `crypto.timingSafeEqual` による定数時間比較に変更。(2026-03-13)
+
+### M2: GitHub repo パラメータの形式検証なし
+
+- ファイル: `web-app/src/app/api/github/branches/route.ts` 他
 - カテゴリ: セキュリティ
 
-```typescript
-/<blockquote data-admonition-type="[^"]*">[\s\S]*?<\/blockquote>/g
-/<span data-comment-id="[^"]*">[\s\S]*?<\/span>/g
-```
+`repo` パラメータが未検証で GitHub API URL に埋め込まれる。\
+`owner/repo` パターンの検証を推奨。
 
-83行目のコメントで「ReDoS を回避するため位置ベースの線形スキャンで分割する」と明記しつつ、235行目・241行目では `[\s\S]*?` を使用しており方針が矛盾している。
-ファイルインポート経由で悪意あるコンテンツが流入する可能性がある。
+### ~~M3: ファイルアップロードのファイル名検証不足~~ (修正済み)
 
-**修正方針**: `[^<]*(?:<(?!\/blockquote>)[^<]*)*` のようなネスト非許容パターンに置き換えるか、`splitByCodeBlocks` と同様の線形スキャンに統一する。
+- ファイル: `web-app/src/app/api/docs/upload/route.ts`
+- 状態: ファイル名を安全な文字パターン (英数字・日本語・`-_.` スペース) に制限。\
+  パス区切り文字 (`/`, `\\`) も明示的に拒否。(2026-03-13)
 
-### I7: `editor.storage` への二重キャスト
+### M4: `editor.storage` への二重キャスト (`as unknown as`)
 
-- ファイル: `utils/editorContentLoader.ts` (21-26行目)
+- ファイル: `editor-core/src/utils/editorContentLoader.ts` (21-26行目)
 - カテゴリ: 型安全
 
-```typescript
-(editor.storage as unknown as Record<string, unknown>)[TRAILING_NEWLINE_KEY] = value;
-```
+`(editor.storage as unknown as Record<string, unknown>)` は型安全を無視。\
+既存の `getEditorStorage()` ヘルパーを使うべき。
 
-`as unknown as Record<string, unknown>` は型安全を完全に無視している。
-`types.ts` に `getEditorStorage()` ヘルパーが存在するが使われていない。
+### ~~M5: `types.ts` に実行時ロジック混在~~ (対応済み)
 
-**修正方針**: `getEditorStorage()` を使用するか、`trailingNewline` を TipTap Extension の `storage` に正式に定義する。
+- ファイル: `editor-core/src/types.ts`
+- 状態: 主対象の `getMarkdownFromEditor` は `utils/markdownSerializer.ts` に分離済み。\
+  残る小規模ヘルパー (`getEditorStorage` 等) は re-export で後方互換を維持しており、\
+  変更ファイル数 (50+) に対して改善が限定的なため現状維持。
 
-### I8: `types.ts` に実行時ロジックが混在
+### ~~M6: SlashCommandMenu のフィルタ計算が `useMemo` なし~~ (修正済み)
 
-- ファイル: `types.ts` (42-93行目)
-- カテゴリ: モジュール設計
+- ファイル: `editor-core/src/components/SlashCommandMenu.tsx`
+- 状態: `useMemo(() => filterSlashItems(...), [query, t])` に変更。(2026-03-13)
 
-`getMarkdownFromEditor` 関数 (約50行) が型定義ファイルに存在し、5モジュールをインポートしている。
-循環依存のリスクを高め、ファイル名から期待される内容と乖離している。
+### ~~M7: `useEditorHeight.ts` の `update()` が `useCallback` なし~~ (修正済み)
 
-**修正方針**: `getMarkdownFromEditor` および関連ヘルパーを `utils/markdownSerializer.ts` 等に分離し、`types.ts` は純粋な型定義のみとする。
+- ファイル: `editor-core/src/hooks/useEditorHeight.ts`
+- 状態: `update` を `useCallback` に抽出し、`useEffect` の依存配列を `[update]` に変更。(2026-03-13)
 
+### M8: `useEditorCommentNotifications` の O(n*m) コメント検索
 
-## Minor (後で対応可)
+- ファイル: `editor-core/src/hooks/useEditorCommentNotifications.ts` (31-58行目)
+- カテゴリ: パフォーマンス
 
-### M1: テスト `entityRoundTrip.test.ts` に `console.log` 15箇所残存
+コメント毎に `doc.descendants()` を呼ぶ O(n*m) アルゴリズム。\
+大ドキュメント + 多コメントで性能低下する。
 
-- ファイル: `__tests__/entityRoundTrip.test.ts`
+### M9: `useMermaidRender` の `pendingRenders` マップにタイムアウトなし
+
+- ファイル: `editor-core/src/hooks/useMermaidRender.ts`
+- カテゴリ: メモリリーク
+
+エラー時にエントリが蓄積する可能性がある。\
+30秒等のタイムアウトで自動クリーンアップすべき。
+
+### M10: `MarkdownEditorPage` の props 過多 (30+)
+
+- ファイル: `editor-core/src/MarkdownEditorPage.tsx` (114行目)
+- カテゴリ: 設計
+
+props が多すぎて re-render の影響範囲が広い。\
+Context や `React.memo` でサブコンポーネントを隔離すべき。
+
+### M11: エラーハンドリングの一貫性欠如
+
+- ファイル: `editor-core/src/hooks/useEditorFileOps.ts` 各所
 - カテゴリ: コード品質
 
-デバッグ用の `console.log("Input: ", md)` / `console.log("Output:", result)` が15箇所残存。
-CI のテスト出力にノイズを追加する。
+`console.warn` / `showNotification` / サイレント catch が混在。\
+ユーザー通知 + debug ログに統一すべき。
 
-### M2: `useEditorConfig.ts` の click ハンドラが過大
+### M12: コードブロックのツールバー重複
 
-- ファイル: `hooks/useEditorConfig.ts` (188-298行目)
+- ファイル: `editor-core/src/components/codeblock/` 各ファイル
+- カテゴリ: コード品質
+
+`RegularCodeBlock`, `MathBlock`, `DiagramBlock`, `HtmlPreviewBlock` でドラッグハンドル・削除ボタン・全画面ボタンが重複。\
+共通コンポーネントに抽出可能。
+
+### M13: マージモードロジックの重複
+
+- ファイル: `RegularCodeBlock.tsx` (52-80行目) / `MathBlock.tsx` (61-89行目)
+- カテゴリ: コード品質
+
+`handleMergeApply`, `compareCode`, `blockIndexRef` のパターンが同一。\
+`useMergeCodeBlock()` カスタムフックに抽出可能。
+
+### ~~M14: GitHubRepoBrowser の IconButton に `aria-label` なし~~ (修正済み)
+
+- ファイル: `web-app/src/components/GitHubRepoBrowser.tsx`
+- 状態: 戻るボタンに `aria-label="Go back"` を追加。(2026-03-13)
+
+### ~~M15: ExplorerPanel の IconButton に `aria-label` なし~~ (修正済み)
+
+- ファイル: `web-app/src/components/ExplorerPanel.tsx`
+- 状態: NewFileInput に `aria-label="Create file"`、NewFolderInput に `aria-label="Create folder"` を追加。(2026-03-13)
+
+### ~~M16: `mathInlineExtension` のエラー表示がハードコード赤~~ (修正済み)
+
+- ファイル: `editor-core/src/extensions/mathInlineExtension.tsx`
+- 状態: `color:red` を `color:var(--vscode-errorForeground, #d32f2f)` に変更。\
+  ダークモード (`#f44747`) / ライトモード (`#d32f2f`) の両対応。(2026-03-13)
+
+
+## Low
+
+### L1: テスト `entityRoundTrip.test.ts` に `console.log` 15箇所残存
+
+- ファイル: `editor-core/src/__tests__/entityRoundTrip.test.ts`
+- カテゴリ: コード品質
+
+### L2: `useEditorConfig.ts` の click ハンドラが過大 (~110行, 4責務)
+
+- ファイル: `editor-core/src/hooks/useEditorConfig.ts` (188-298行目)
 - カテゴリ: 単一責任
 
-`handleDOMEvents.click` ハンドラが1つのクロージャ内に4つの責務を持つ (約110行)。
+### L3: `console.error` グローバルモンキーパッチ
 
-- レビューモードのチェックボックス操作
-- アンカーリンクのスクロール
-- 見出しメニュー表示
-- blockquote/リストのコンテキストメニュー
+- ファイル: `editor-core/src/MarkdownEditorPage.tsx` (5-16行目)
+- カテゴリ: 保守性
 
-### M3: `console.error` グローバルモンキーパッチ
+TipTap の flushSync 警告抑制目的だが、他モジュールの正当なエラーも影響を受ける。
 
-- ファイル: `MarkdownEditorPage.tsx` (5-16行目)
-- カテゴリ: セキュリティ / 保守性
+### L4: デバウンス 300ms が定数化されていない
 
-モジュールスコープで `console.error` をグローバルに上書きしている。
-TipTap の flushSync 警告を抑制する目的だが、他モジュールからの正当なエラー報告も影響を受ける可能性がある。
-
-### M4: デバウンス 300ms が定数化されていない
-
-- ファイル: `hooks/useEditorConfig.ts` (323行目)
+- ファイル: `editor-core/src/hooks/useEditorConfig.ts` (323行目)
 - カテゴリ: マジックナンバー
 
-`setTimeout(() => { ... }, 300)` の 300ms が定数化されていない。
-`useMarkdownEditor.ts` の `DEBOUNCE_MS = 500` と同様に命名定数にすべき。
+### L5: `handleInsertTemplate` の rAF 内で `isDestroyed` チェックなし
 
-### M5: `handleInsertTemplate` の rAF 内で `isDestroyed` チェックなし
-
-- ファイル: `MarkdownEditorPage.tsx` (254-256行目)
+- ファイル: `editor-core/src/MarkdownEditorPage.tsx` (254-256行目)
 - カテゴリ: ProseMirror 状態管理
 
-ネストされた rAF 内で `editor.isDestroyed` チェックがない。
-テンプレート挿入直後にページ遷移した場合に例外が発生する可能性がある。
-
-### M6: `UseEditorConfigParams` の引数が12個
-
-- ファイル: `hooks/useEditorConfig.ts` (32-44行目)
-- カテゴリ: 基本原則
-
-関連する Ref をグループ化 (`EditorRefs`, `CallbackRefs` 等) すると可読性が向上する。
-
-### M7: cookie 設定に `SameSite=Lax` 未設定
+### L6: cookie 設定に `SameSite=Lax` 未設定
 
 - ファイル: 設定パネル内
 - カテゴリ: セキュリティ
 
-```typescript
-document.cookie = `NEXT_LOCALE=${newLocale};path=/;max-age=31536000`;
-```
+`document.cookie` に `Secure` / `SameSite` 属性がない。
 
-`Secure` / `SameSite` 属性が未設定。
-`newLocale` は列挙型からの選択値だが、`SameSite=Lax` は付与すべき。
+### L7: `handleDrop` の catch 内でエラー無視
 
-### M8: `editorContentLoader.ts` の JSDoc が対象関数から離れている
-
-- ファイル: `utils/editorContentLoader.ts` (15-16行目)
-- カテゴリ: コード品質
-
-`applyMarkdownToEditor` 用の JSDoc が関数定義 (30行目) から離れており、間に `TRAILING_NEWLINE_KEY`, `setTrailingNewline`, `getTrailingNewline` が挟まっている。
-
-### M9: `handleDrop` の catch 内でエラー無視
-
-- ファイル: `hooks/useEditorConfig.ts` (97行目)
+- ファイル: `editor-core/src/hooks/useEditorConfig.ts` (97行目)
 - カテゴリ: エラーハンドリング
 
-```typescript
-.catch(() => { handleImportRef.current(mdFile); });
-```
+### L8: GitHub repos API がページネーション未対応
 
-`getAsFileSystemHandle()` の失敗時にエラーを完全に無視してフォールバック処理のみ。
-最低限 `console.warn` を入れるか、コメントで意図を明記すると良い。
+- ファイル: `web-app/src/app/api/github/repos/route.ts`
+- カテゴリ: 機能
+
+30件のみ取得。`per_page=100` への変更またはページネーション対応を推奨。
+
+### L9: `global-error.tsx` のダークモードボタンコントラストがボーダーライン
+
+- ファイル: `web-app/src/app/global-error.tsx`
+- カテゴリ: アクセシビリティ
+
+ダークモードでのボタンテキスト `#e0e0e0` on `#2a2a2a` が約6:1。\
+`#f0f0f0` 以上に変更すると WCAG AA をより確実に満たす。
 
 
 ## Info (良い点)
 
 | # | 観点 | 内容 |
 | --- | --- | --- |
-| 1 | セキュリティ | `dangerouslySetInnerHTML` は全箇所で `DOMPurify.sanitize()` 経由。設定もスコープ別に適切。 |
-| 2 | セキュリティ | `eval` / `Function()` の使用なし。 |
-| 3 | 状態管理 | `isDestroyed` チェックが rAF 内で一貫して実装されている。 |
-| 4 | 状態管理 | `reviewModeStorage` の enabled フラグ管理が一貫。try/catch の catch 内でも復元処理あり。 |
-| 5 | メモリ管理 | イベントリスナーのクリーンアップが全体的に適切 (`addEventListener` / `editor.on()` に対応する解除あり)。 |
-| 6 | 設計 | ref パターンによる stale closure 回避が正しい (`handleImportRef`, `onFileDragOverRef` 等)。 |
-| 7 | 設計 | `readFileAsText` / `applyMarkdownToEditor` / `preprocessMarkdown` への共通化で重複ロジックが統一された。 |
-| 8 | コード品質 | ハードコーディング色なし。定数が `constants/colors.ts` に集約済み。 |
+| 1 | セキュリティ | `dangerouslySetInnerHTML` は全7箇所で `DOMPurify.sanitize()` 経由。設定もスコープ別に適切。 |
+| 2 | セキュリティ | `eval` / `Function()` の使用なし。CSP ヘッダも nonce ベースで適切。 |
+| 3 | セキュリティ | PlantUML URL のオリジン検証あり。SSRF リスクなし。 |
+| 4 | セキュリティ | 環境変数の分離が適切。サーバー秘密がクライアントに漏洩していない。 |
+| 5 | 型安全 | `any` 型がソースコードに0件。`as any` もテストのみ。 |
+| 6 | 状態管理 | `isDestroyed` チェックが rAF 内で概ね一貫して実装されている。 |
+| 7 | 状態管理 | ref パターンによる stale closure 回避が適切 (`handleImportRef`, `commitsRef` 等)。 |
+| 8 | メモリ管理 | イベントリスナーのクリーンアップが全体的に適切。 |
+| 9 | 設計 | `fetchWithRetry` による 429/5xx リトライが API ルート全体に適用済み。 |
+| 10 | 設計 | docs API に `Cache-Control` ヘッダが適切に設定済み。 |
+| 11 | a11y | M1-M4 改善 (aria-describedby, roving tabindex, フォーカスコントラスト, エラーバウンダリ) が適用済み。 |
+| 12 | コード品質 | `constants/colors.ts` への色定数集約が適切。 |
 
 
 ## 修正優先度
 
-1. **即対応**: C1, C2 (アプリの安定性に直結)
-2. **次回開発時**: I1-I7 (品質向上、潜在バグ防止)
-3. **構造改善**: I8, M2, M3, M6 (リファクタリング枠)
-4. **軽微**: M1, M4, M5, M7-M9
+1. ~~**即対応**: C1, C2~~ → 修正済み
+2. **早期修正**: H1-H6 (潜在バグ・セキュリティ)
+3. **パフォーマンス改善**: H7-H10 (大規模コンテンツ時の UX)
+4. **中期対応**: M1-M16 (品質向上・構造改善)
+5. **軽微**: L1-L9 (後日対応可)
