@@ -10,11 +10,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const repo = searchParams.get("repo");
   const path = searchParams.get("path");
   const ref = searchParams.get("ref");
-  if (!repo || !path || !ref) {
+  if (!repo || path === null || !ref) {
     return NextResponse.json({ error: "Missing params" }, { status: 400 });
   }
+  const encodedPath = path
+    .split("/")
+    .map((seg) => encodeURIComponent(seg))
+    .join("/");
   const res = await fetch(
-    `https://api.github.com/repos/${repo}/contents/${encodeURIComponent(path)}?ref=${ref}`,
+    `https://api.github.com/repos/${repo}/contents/${encodedPath}?ref=${ref}`,
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -28,7 +32,21 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       { status: res.status },
     );
   }
-  const data = (await res.json()) as { content: string };
-  const content = Buffer.from(data.content, "base64").toString("utf-8");
+  const data = await res.json();
+  // Directory listing: GitHub returns an array
+  if (Array.isArray(data)) {
+    return NextResponse.json(
+      data.map((item: Record<string, unknown>) => ({
+        name: item.name,
+        path: item.path,
+        type: item.type,
+      })),
+    );
+  }
+  // Single file: decode base64 content
+  const content = Buffer.from(
+    (data as { content: string }).content,
+    "base64",
+  ).toString("utf-8");
   return NextResponse.json({ content });
 }
