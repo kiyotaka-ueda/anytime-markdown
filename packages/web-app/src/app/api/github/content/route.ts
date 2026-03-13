@@ -170,3 +170,98 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
   }
   return NextResponse.json({ deleted: true });
 }
+
+/** Rename a file via GitHub Contents API (GET + PUT + DELETE) */
+export async function PATCH(request: NextRequest): Promise<NextResponse> {
+  const token = await getGitHubToken();
+  if (!token) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+  const body = (await request.json()) as {
+    repo?: string;
+    oldPath?: string;
+    newPath?: string;
+    branch?: string;
+  };
+  const { repo, oldPath, newPath, branch } = body;
+  if (!repo || !oldPath || !newPath) {
+    return NextResponse.json({ error: "Missing params" }, { status: 400 });
+  }
+
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/vnd.github.v3+json",
+  };
+
+  const encodeSegments = (p: string) =>
+    p
+      .split("/")
+      .map((seg) => encodeURIComponent(seg))
+      .join("/");
+
+  // 1. GET old file (content + sha)
+  const getRes = await fetch(
+    `https://api.github.com/repos/${repo}/contents/${encodeSegments(oldPath)}${branch ? `?ref=${branch}` : ""}`,
+    { headers },
+  );
+  if (!getRes.ok) {
+    return NextResponse.json(
+      { error: "File not found" },
+      { status: getRes.status },
+    );
+  }
+  const fileData = (await getRes.json()) as {
+    content?: string;
+    sha?: string;
+  };
+  if (!fileData.sha || fileData.content == null) {
+    return NextResponse.json(
+      { error: "Cannot read file" },
+      { status: 400 },
+    );
+  }
+
+  // 2. PUT new file (preserve raw base64 content)
+  const putRes = await fetch(
+    `https://api.github.com/repos/${repo}/contents/${encodeSegments(newPath)}`,
+    {
+      method: "PUT",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: `Rename ${oldPath} → ${newPath}`,
+        content: fileData.content.replace(/\n/g, ""),
+        ...(branch ? { branch } : {}),
+      }),
+    },
+  );
+  if (!putRes.ok) {
+    const err = await putRes.json().catch(() => ({}));
+    return NextResponse.json(
+      { error: (err as { message?: string }).message ?? "GitHub API error" },
+      { status: putRes.status },
+    );
+  }
+
+  // 3. DELETE old file
+  const delRes = await fetch(
+    `https://api.github.com/repos/${repo}/contents/${encodeSegments(oldPath)}`,
+    {
+      method: "DELETE",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: `Rename ${oldPath} → ${newPath} (delete old)`,
+        sha: fileData.sha,
+        ...(branch ? { branch } : {}),
+      }),
+    },
+  );
+  if (!delRes.ok) {
+    const err = await delRes.json().catch(() => ({}));
+    return NextResponse.json(
+      { error: (err as { message?: string }).message ?? "Failed to delete old file" },
+      { status: delRes.status },
+    );
+  }
+
+  return NextResponse.json({ renamed: true });
+}

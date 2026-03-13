@@ -3,6 +3,8 @@
 import AddIcon from "@mui/icons-material/Add";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import CommitIcon from "@mui/icons-material/Commit";
+import CreateNewFolderIcon from "@mui/icons-material/CreateNewFolder";
+import DriveFileRenameOutlineIcon from "@mui/icons-material/DriveFileRenameOutline";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import FolderIcon from "@mui/icons-material/Folder";
 import FolderOpenIcon from "@mui/icons-material/FolderOpen";
@@ -159,6 +161,39 @@ async function createFile(
   return (await res.json()) as { path: string };
 }
 
+async function renameFile(
+  repo: string,
+  oldPath: string,
+  newPath: string,
+  branch: string,
+): Promise<boolean> {
+  const res = await fetch("/api/github/content", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ repo, oldPath, newPath, branch }),
+  });
+  return res.ok;
+}
+
+/** フォルダ内の全ファイルを再帰取得 */
+async function listAllFiles(
+  repo: string,
+  branch: string,
+  dirPath: string,
+): Promise<string[]> {
+  const entries = await fetchDirEntries(repo, branch, dirPath);
+  const paths: string[] = [];
+  for (const entry of entries) {
+    if (entry.type === "blob") {
+      paths.push(entry.path);
+    } else {
+      const sub = await listAllFiles(repo, branch, entry.path);
+      paths.push(...sub);
+    }
+  }
+  return paths;
+}
+
 function formatCommitDate(dateStr: string): string {
   const d = new Date(dateStr);
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -235,6 +270,116 @@ const NewFileInput: FC<{
   );
 };
 
+/** リネーム入力行 */
+const RenameInput: FC<{
+  currentName: string;
+  isDir: boolean;
+  onSubmit: (newName: string) => void;
+  onCancel: () => void;
+}> = ({ currentName, isDir, onSubmit, onCancel }) => {
+  const [value, setValue] = useState(currentName);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    // 拡張子を除いた部分を選択
+    if (inputRef.current) {
+      const dotIdx = currentName.lastIndexOf(".");
+      const end = !isDir && dotIdx > 0 ? dotIdx : currentName.length;
+      inputRef.current.setSelectionRange(0, end);
+    }
+  }, [currentName, isDir]);
+
+  const handleSubmit = () => {
+    const name = value.trim();
+    if (!name || name === currentName) { onCancel(); return; }
+    onSubmit(name);
+  };
+
+  return (
+    <TextField
+      inputRef={inputRef}
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") handleSubmit();
+        if (e.key === "Escape") onCancel();
+        e.stopPropagation();
+      }}
+      onClick={(e) => e.stopPropagation()}
+      onBlur={handleSubmit}
+      variant="standard"
+      size="small"
+      fullWidth
+      InputProps={{
+        disableUnderline: false,
+        sx: { fontSize: "0.78rem", py: 0 },
+      }}
+    />
+  );
+};
+
+/** 新規フォルダ入力行 */
+const NewFolderInput: FC<{
+  depth: number;
+  onSubmit: (name: string) => void;
+  onCancel: () => void;
+}> = ({ depth, onSubmit, onCancel }) => {
+  const [value, setValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const handleSubmit = () => {
+    const name = value.trim();
+    if (!name) { onCancel(); return; }
+    onSubmit(name);
+  };
+
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        pl: 1 + (depth + 1) * (INDENT_PX / 8),
+        pr: 0.5,
+        py: 0.25,
+        minHeight: 28,
+      }}
+    >
+      <Box sx={{ width: 20 }} />
+      <CreateNewFolderIcon sx={{ fontSize: 16, color: "primary.main", mr: 0.5, flexShrink: 0 }} />
+      <TextField
+        inputRef={inputRef}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") handleSubmit();
+          if (e.key === "Escape") onCancel();
+        }}
+        onBlur={handleSubmit}
+        placeholder="folder name"
+        variant="standard"
+        size="small"
+        fullWidth
+        InputProps={{
+          disableUnderline: false,
+          sx: { fontSize: "0.78rem", py: 0 },
+          endAdornment: (
+            <InputAdornment position="end">
+              <IconButton size="small" onClick={handleSubmit} sx={{ p: 0.25 }}>
+                <AddIcon sx={{ fontSize: 14 }} />
+              </IconButton>
+            </InputAdornment>
+          ),
+        }}
+      />
+    </Box>
+  );
+};
+
 /** 再帰ツリーノード */
 const TreeNode: FC<{
   entry: TreeEntry;
@@ -249,10 +394,18 @@ const TreeNode: FC<{
   onSelectFile: (path: string) => void;
   onCreateFile: (dirPath: string, fileName: string) => void;
   onDeleteFile: (filePath: string) => void;
+  onRename: (oldPath: string, newName: string) => void;
+  onCreateFolder: (dirPath: string, folderName: string) => void;
+  renamingPath: string | null;
+  onStartRename: (path: string) => void;
+  onCancelRename: () => void;
   creatingInDir: string | null;
   onStartCreate: (dirPath: string) => void;
   onCancelCreate: () => void;
-}> = ({ entry, depth, repo, expanded, loadingDirs, childrenCache, hasMdCache, selectedFilePath, onToggle, onSelectFile, onCreateFile, onDeleteFile, creatingInDir, onStartCreate, onCancelCreate }) => {
+  creatingFolderInDir: string | null;
+  onStartCreateFolder: (dirPath: string) => void;
+  onCancelCreateFolder: () => void;
+}> = ({ entry, depth, repo, expanded, loadingDirs, childrenCache, hasMdCache, selectedFilePath, onToggle, onSelectFile, onCreateFile, onDeleteFile, onRename, onCreateFolder, renamingPath, onStartRename, onCancelRename, creatingInDir, onStartCreate, onCancelCreate, creatingFolderInDir, onStartCreateFolder, onCancelCreateFolder }) => {
   const isDir = entry.type === "tree";
   const isOpen = expanded.has(entry.path);
   const isLoading = loadingDirs.has(entry.path);
@@ -261,11 +414,13 @@ const TreeNode: FC<{
   const empty = isDir && hasMd === false;
   const emptyColor = "text.disabled";
   const isSelected = !isDir && entry.path === selectedFilePath;
+  const isRenaming = renamingPath === entry.path;
 
   return (
     <>
       <ListItemButton
         onClick={() => {
+          if (isRenaming) return;
           if (isDir) { if (!empty) onToggle(entry); }
           else onSelectFile(entry.path);
         }}
@@ -303,48 +458,98 @@ const TreeNode: FC<{
             <InsertDriveFileIcon sx={{ fontSize: 18 }} />
           )}
         </ListItemIcon>
-        <ListItemText
-          primary={entry.name}
-          primaryTypographyProps={{
-            variant: "body2",
-            noWrap: true,
-            fontSize: "0.8rem",
-            color: empty ? emptyColor : undefined,
-          }}
-        />
-        {isDir && !empty && (
-          <IconButton
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!isOpen) onToggle(entry);
-              onStartCreate(entry.path);
+        {isRenaming ? (
+          <RenameInput
+            currentName={entry.name}
+            isDir={isDir}
+            onSubmit={(newName) => onRename(entry.path, newName)}
+            onCancel={onCancelRename}
+          />
+        ) : (
+          <ListItemText
+            primary={entry.name}
+            primaryTypographyProps={{
+              variant: "body2",
+              noWrap: true,
+              fontSize: "0.8rem",
+              color: empty ? emptyColor : undefined,
             }}
-            sx={{
-              p: 0.25,
-              opacity: 0,
-              ".MuiListItemButton-root:hover &": { opacity: 1 },
-            }}
-          >
-            <AddIcon sx={{ fontSize: 14 }} />
-          </IconButton>
+          />
         )}
-        {!isDir && (
-          <IconButton
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDeleteFile(entry.path);
-            }}
-            sx={{
-              p: 0.25,
-              opacity: 0,
-              ".MuiListItemButton-root:hover &": { opacity: 1 },
-              color: "error.main",
-            }}
-          >
-            <DeleteOutlineIcon sx={{ fontSize: 14 }} />
-          </IconButton>
+        {!isRenaming && (
+          <>
+            {/* Rename icon (file & folder) */}
+            {!empty && (
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStartRename(entry.path);
+                }}
+                sx={{
+                  p: 0.25,
+                  opacity: 0,
+                  ".MuiListItemButton-root:hover &": { opacity: 1 },
+                }}
+              >
+                <DriveFileRenameOutlineIcon sx={{ fontSize: 14 }} />
+              </IconButton>
+            )}
+            {/* Folder: new folder icon */}
+            {isDir && !empty && (
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!isOpen) onToggle(entry);
+                  onStartCreateFolder(entry.path);
+                }}
+                sx={{
+                  p: 0.25,
+                  opacity: 0,
+                  ".MuiListItemButton-root:hover &": { opacity: 1 },
+                }}
+              >
+                <CreateNewFolderIcon sx={{ fontSize: 14 }} />
+              </IconButton>
+            )}
+            {/* Folder: new file icon */}
+            {isDir && !empty && (
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!isOpen) onToggle(entry);
+                  onStartCreate(entry.path);
+                }}
+                sx={{
+                  p: 0.25,
+                  opacity: 0,
+                  ".MuiListItemButton-root:hover &": { opacity: 1 },
+                }}
+              >
+                <AddIcon sx={{ fontSize: 14 }} />
+              </IconButton>
+            )}
+            {/* File: delete icon */}
+            {!isDir && (
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteFile(entry.path);
+                }}
+                sx={{
+                  p: 0.25,
+                  opacity: 0,
+                  ".MuiListItemButton-root:hover &": { opacity: 1 },
+                  color: "error.main",
+                }}
+              >
+                <DeleteOutlineIcon sx={{ fontSize: 14 }} />
+              </IconButton>
+            )}
+          </>
         )}
       </ListItemButton>
       {isDir && (
@@ -365,11 +570,26 @@ const TreeNode: FC<{
                 onSelectFile={onSelectFile}
                 onCreateFile={onCreateFile}
                 onDeleteFile={onDeleteFile}
+                onRename={onRename}
+                onCreateFolder={onCreateFolder}
+                renamingPath={renamingPath}
+                onStartRename={onStartRename}
+                onCancelRename={onCancelRename}
                 creatingInDir={creatingInDir}
                 onStartCreate={onStartCreate}
                 onCancelCreate={onCancelCreate}
+                creatingFolderInDir={creatingFolderInDir}
+                onStartCreateFolder={onStartCreateFolder}
+                onCancelCreateFolder={onCancelCreateFolder}
               />
             ))}
+            {creatingFolderInDir === entry.path && (
+              <NewFolderInput
+                depth={depth}
+                onSubmit={(name) => onCreateFolder(entry.path, name)}
+                onCancel={onCancelCreateFolder}
+              />
+            )}
             {creatingInDir === entry.path && (
               <NewFileInput
                 depth={depth}
@@ -473,6 +693,10 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
 
   // 新規ファイル作成
   const [creatingInDir, setCreatingInDir] = useState<string | null>(null);
+  // 新規フォルダ作成
+  const [creatingFolderInDir, setCreatingFolderInDir] = useState<string | null>(null);
+  // リネーム
+  const [renamingPath, setRenamingPath] = useState<string | null>(null);
 
   const prefetchSubtree = useCallback(
     async (repo: GitHubRepo, branch: string, dirPath: string): Promise<boolean> => {
@@ -726,6 +950,134 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
     [selectedRepo, selectedBranch, selectedFilePath, bumpCache],
   );
 
+  const handleCreateFolder = useCallback(
+    async (dirPath: string, folderName: string) => {
+      if (!selectedRepo) return;
+      setCreatingFolderInDir(null);
+      const folderPath = dirPath ? `${dirPath}/${folderName}` : folderName;
+      const gitkeepPath = `${folderPath}/.gitkeep`;
+      const result = await createFile(
+        selectedRepo.fullName,
+        gitkeepPath,
+        selectedBranch,
+      );
+      if (!result) return;
+
+      // キャッシュにフォルダエントリを追加
+      const newEntry: TreeEntry = { path: folderPath, type: "tree", name: folderName };
+      const existing = childrenCacheRef.current.get(dirPath) ?? [];
+      childrenCacheRef.current.set(dirPath, [...existing, newEntry].sort((a, b) => {
+        if (a.type !== b.type) return a.type === "tree" ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      }));
+      // 新フォルダの子エントリ (.gitkeep は md でないので空リスト)
+      childrenCacheRef.current.set(folderPath, []);
+      hasMdCacheRef.current.set(folderPath, false);
+      hasMdCacheRef.current.set(dirPath, true);
+      if (dirPath === "") {
+        setRootEntries([...childrenCacheRef.current.get("") ?? []]);
+      }
+      bumpCache();
+    },
+    [selectedRepo, selectedBranch, bumpCache],
+  );
+
+  const handleRename = useCallback(
+    async (oldPath: string, newName: string) => {
+      if (!selectedRepo) return;
+      setRenamingPath(null);
+
+      const dirPath = oldPath.includes("/") ? oldPath.slice(0, oldPath.lastIndexOf("/")) : "";
+      const entries = childrenCacheRef.current.get(dirPath) ?? [];
+      const entry = entries.find((e) => e.path === oldPath);
+      if (!entry) return;
+
+      const isDir = entry.type === "tree";
+      const newPath = dirPath ? `${dirPath}/${newName}` : newName;
+
+      if (isDir) {
+        // フォルダリネーム: 全ファイルを再帰取得してリネーム
+        const allFiles = await listAllFiles(
+          selectedRepo.fullName,
+          selectedBranch,
+          oldPath,
+        );
+        if (allFiles.length === 0) return;
+
+        let allOk = true;
+        for (const filePath of allFiles) {
+          const relativeSuffix = filePath.slice(oldPath.length);
+          const newFilePath = newPath + relativeSuffix;
+          const ok = await renameFile(
+            selectedRepo.fullName,
+            filePath,
+            newFilePath,
+            selectedBranch,
+          );
+          if (!ok) { allOk = false; break; }
+        }
+        if (!allOk) return;
+
+        // キャッシュ更新: 古いエントリを新しいパスに差し替え
+        const updated = entries.map((e) =>
+          e.path === oldPath ? { ...e, path: newPath, name: newName } : e,
+        ).sort((a, b) => {
+          if (a.type !== b.type) return a.type === "tree" ? -1 : 1;
+          return a.name.localeCompare(b.name);
+        });
+        childrenCacheRef.current.set(dirPath, updated);
+
+        // 古いキャッシュを削除し、サブツリーを再取得
+        childrenCacheRef.current.delete(oldPath);
+        hasMdCacheRef.current.delete(oldPath);
+
+        if (dirPath === "") {
+          setRootEntries([...updated]);
+        }
+
+        // 展開状態を更新
+        setExpanded((prev) => {
+          const next = new Set<string>();
+          for (const p of prev) {
+            if (p === oldPath) next.add(newPath);
+            else if (p.startsWith(oldPath + "/")) next.add(newPath + p.slice(oldPath.length));
+            else next.add(p);
+          }
+          return next;
+        });
+      } else {
+        // ファイルリネーム
+        const ok = await renameFile(
+          selectedRepo.fullName,
+          oldPath,
+          newPath,
+          selectedBranch,
+        );
+        if (!ok) return;
+
+        // キャッシュ更新
+        const updated = entries.map((e) =>
+          e.path === oldPath ? { ...e, path: newPath, name: newName } : e,
+        ).sort((a, b) => {
+          if (a.type !== b.type) return a.type === "tree" ? -1 : 1;
+          return a.name.localeCompare(b.name);
+        });
+        childrenCacheRef.current.set(dirPath, updated);
+
+        // 選択中のファイルパスを更新
+        if (selectedFilePath === oldPath) {
+          setSelectedFilePath(newPath);
+        }
+      }
+
+      if (dirPath === "") {
+        setRootEntries([...childrenCacheRef.current.get("") ?? []]);
+      }
+      bumpCache();
+    },
+    [selectedRepo, selectedBranch, selectedFilePath, bumpCache],
+  );
+
   if (!open) return null;
 
   void cacheVersion;
@@ -898,11 +1250,26 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
                 onSelectFile={handleFileSelect}
                 onCreateFile={handleCreateFile}
                 onDeleteFile={handleDeleteFile}
+                onRename={handleRename}
+                onCreateFolder={handleCreateFolder}
+                renamingPath={renamingPath}
+                onStartRename={setRenamingPath}
+                onCancelRename={() => setRenamingPath(null)}
                 creatingInDir={creatingInDir}
                 onStartCreate={setCreatingInDir}
                 onCancelCreate={() => setCreatingInDir(null)}
+                creatingFolderInDir={creatingFolderInDir}
+                onStartCreateFolder={setCreatingFolderInDir}
+                onCancelCreateFolder={() => setCreatingFolderInDir(null)}
               />
             ))}
+            {creatingFolderInDir === "" && (
+              <NewFolderInput
+                depth={-1}
+                onSubmit={(name) => handleCreateFolder("", name)}
+                onCancel={() => setCreatingFolderInDir(null)}
+              />
+            )}
             {creatingInDir === "" && (
               <NewFileInput
                 depth={-1}
