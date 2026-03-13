@@ -3,7 +3,7 @@
 import { Box, CircularProgress } from '@mui/material';
 import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { FallbackFileSystemProvider } from '../../lib/FallbackFileSystemProvider';
 import { GitHubTimelineProvider } from '../../lib/GitHubTimelineProvider';
@@ -35,6 +35,7 @@ export default function Page() {
   const { setLocale } = useLocaleSwitch();
   const [repoBrowserOpen, setRepoBrowserOpen] = useState(false);
   const [timelineProvider, setTimelineProvider] = useState<GitHubTimelineProvider | null>(null);
+  const selectedFileRef = useRef<{ repo: string; filePath: string } | null>(null);
 
   const fileSystemProvider = useMemo(() => {
     if (typeof window === 'undefined') return null;
@@ -42,7 +43,12 @@ export default function Page() {
     return web.supportsDirectAccess ? web : new FallbackFileSystemProvider();
   }, []);
 
-  const handleRepoSelect = useCallback((repo: string, _filePath: string) => {
+  const handleRequestTimeline = useCallback(() => {
+    setRepoBrowserOpen(true);
+  }, []);
+
+  const handleRepoSelect = useCallback((repo: string, filePath: string) => {
+    selectedFileRef.current = { repo, filePath };
     setTimelineProvider(new GitHubTimelineProvider(repo));
     setRepoBrowserOpen(false);
   }, []);
@@ -55,6 +61,7 @@ export default function Page() {
         onLocaleChange={setLocale}
         fileSystemProvider={fileSystemProvider}
         timelineProvider={timelineProvider}
+        onRequestTimeline={handleRequestTimeline}
         featuresUrl="/features"
         showReadonlyMode={process.env.NEXT_PUBLIC_SHOW_READONLY_MODE === "1"}
       />

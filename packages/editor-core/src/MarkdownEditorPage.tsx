@@ -92,9 +92,11 @@ interface MarkdownEditorPageProps {
   hideStatusBar?: boolean;
   onStatusChange?: (status: { line: number; col: number; charCount: number; lineCount: number; lineEnding: string; encoding: string }) => void;
   showReadonlyMode?: boolean;
+  /** タイムライン表示リクエスト（provider 未設定時にリポジトリ選択等を促す） */
+  onRequestTimeline?: () => void;
 }
 
-export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, featuresUrl, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, timelineProvider, externalContent, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, showReadonlyMode }: MarkdownEditorPageProps = {}) {
+export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, featuresUrl, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, timelineProvider, externalContent, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, showReadonlyMode, onRequestTimeline }: MarkdownEditorPageProps = {}) {
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
   const muiTheme = useTheme();
@@ -321,7 +323,9 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
           onSwitchToSource: handleSwitchToSource, onSwitchToWysiwyg: handleSwitchToWysiwyg,
           onSwitchToReview: handleSwitchToReview, onSwitchToReadonly: handleSwitchToReadonly,
           onToggleOutline: handleToggleOutline, onMerge: handleMerge,
-          onOpenTimeline: timelineProvider ? () => handleOpenTimeline(fileName ?? "untitled.md") : undefined,
+          onOpenTimeline: timelineProvider
+            ? () => handleOpenTimeline(fileName ?? "untitled.md")
+            : onRequestTimeline,
         }}
         isTimelineActive={isTimelineActive}
         inlineMergeOpen={inlineMergeOpen}
