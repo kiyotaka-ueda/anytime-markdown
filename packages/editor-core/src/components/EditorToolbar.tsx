@@ -1,7 +1,7 @@
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import CodeIcon from "@mui/icons-material/Code";
 import EditNoteIcon from "@mui/icons-material/EditNote";
-import FolderOpenIcon from "@mui/icons-material/FolderOpen";
+import GitHubIcon from "@mui/icons-material/GitHub";
 import HistoryIcon from "@mui/icons-material/History";
 import ListAltIcon from "@mui/icons-material/ListAlt";
 import LockIcon from "@mui/icons-material/Lock";
@@ -293,7 +293,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
         {onToggleExplorer && (
           <ToggleButton value="explorer" selected={!!explorerOpen} onClick={onToggleExplorer} disabled={inlineMergeOpen} aria-label={t("explorer")} sx={{ px: 0.75, py: 0.25 }}>
             <Tooltip title={t("explorer")}>
-              <span style={{ display: "inline-flex" }}><FolderOpenIcon fontSize="small" /></span>
+              <span style={{ display: "inline-flex" }}><GitHubIcon fontSize="small" /></span>
             </Tooltip>
           </ToggleButton>
         )}
