@@ -82,11 +82,23 @@ export default function Page() {
     setEditorKey((k) => k + 1);
   }, []);
 
+  const handleExplorerSelectCommit = useCallback(async (repo: string, filePath: string, sha: string) => {
+    const res = await fetch(
+      `/api/github/content?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(filePath)}&ref=${encodeURIComponent(sha)}`,
+    );
+    if (!res.ok) return;
+    const data = await res.json();
+    const content = data.content ?? '';
+    setExternalContent(content);
+    setEditorKey((k) => k + 1);
+  }, []);
+
   return (
     <Box sx={{ display: "flex", height: "100vh", overflow: "hidden" }}>
       <ExplorerPanel
         open={explorerOpen}
         onSelectFile={handleExplorerSelectFile}
+        onSelectCommit={handleExplorerSelectCommit}
       />
       <Box sx={{ flex: 1, minWidth: 0, overflow: "auto" }}>
         <MarkdownEditorPage

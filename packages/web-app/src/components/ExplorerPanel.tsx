@@ -1,6 +1,7 @@
 "use client";
 
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import CommitIcon from "@mui/icons-material/Commit";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import FolderIcon from "@mui/icons-material/Folder";
 import FolderOpenIcon from "@mui/icons-material/FolderOpen";
@@ -33,22 +34,24 @@ interface TreeEntry {
   name: string;
 }
 
+interface CommitEntry {
+  sha: string;
+  message: string;
+  author: string;
+  date: string;
+}
+
 interface ExplorerPanelProps {
   open: boolean;
   width?: number;
   onSelectFile: (repo: string, filePath: string) => void;
+  onSelectCommit?: (repo: string, filePath: string, sha: string) => void;
 }
 
 const PANEL_WIDTH = 260;
 const INDENT_PX = 16;
 
-/** フォルダの子要素キャッシュ */
 type ChildrenCache = Map<string, TreeEntry[]>;
-
-/**
- * md ファイル有無キャッシュ
- * true = 配下に md あり, false = なし, undefined = 未確認
- */
 type HasMdCache = Map<string, boolean>;
 
 async function fetchDirEntries(
@@ -80,6 +83,33 @@ async function fetchDirEntries(
     });
 }
 
+async function fetchCommits(
+  repo: string,
+  filePath: string,
+): Promise<CommitEntry[]> {
+  const res = await fetch(
+    `/api/github/commits?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(filePath)}`,
+  );
+  if (!res.ok) return [];
+  const data = await res.json();
+  if (!Array.isArray(data)) return [];
+  return data as CommitEntry[];
+}
+
+function formatCommitDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const h = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${m}/${day} ${h}:${min}`;
+}
+
+function truncateMessage(msg: string, max = 40): string {
+  const firstLine = msg.split("\n")[0];
+  return firstLine.length > max ? firstLine.slice(0, max) + "..." : firstLine;
+}
+
 /** 再帰ツリーノード */
 const TreeNode: FC<{
   entry: TreeEntry;
@@ -89,17 +119,18 @@ const TreeNode: FC<{
   loadingDirs: Set<string>;
   childrenCache: ChildrenCache;
   hasMdCache: HasMdCache;
+  selectedFilePath: string | null;
   onToggle: (entry: TreeEntry) => void;
   onSelectFile: (path: string) => void;
-}> = ({ entry, depth, repo, expanded, loadingDirs, childrenCache, hasMdCache, onToggle, onSelectFile }) => {
+}> = ({ entry, depth, repo, expanded, loadingDirs, childrenCache, hasMdCache, selectedFilePath, onToggle, onSelectFile }) => {
   const isDir = entry.type === "tree";
   const isOpen = expanded.has(entry.path);
   const isLoading = loadingDirs.has(entry.path);
   const children = childrenCache.get(entry.path);
   const hasMd = hasMdCache.get(entry.path);
-  // hasMd === false → 配下に md なし（色を変えて展開不可）
   const empty = isDir && hasMd === false;
   const emptyColor = "text.disabled";
+  const isSelected = !isDir && entry.path === selectedFilePath;
 
   return (
     <>
@@ -109,6 +140,7 @@ const TreeNode: FC<{
           else onSelectFile(entry.path);
         }}
         disabled={empty}
+        selected={isSelected}
         sx={{
           py: 0.25,
           pl: 1 + depth * (INDENT_PX / 8),
@@ -164,6 +196,7 @@ const TreeNode: FC<{
                 loadingDirs={loadingDirs}
                 childrenCache={childrenCache}
                 hasMdCache={hasMdCache}
+                selectedFilePath={selectedFilePath}
                 onToggle={onToggle}
                 onSelectFile={onSelectFile}
               />
@@ -183,10 +216,56 @@ const TreeNode: FC<{
   );
 };
 
+/** Git History セクション */
+const GitHistorySection: FC<{
+  commits: CommitEntry[];
+  loading: boolean;
+  selectedSha: string | null;
+  onSelectCommit: (sha: string) => void;
+}> = ({ commits, loading, selectedSha, onSelectCommit }) => {
+  if (loading) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
+        <CircularProgress size={20} />
+      </Box>
+    );
+  }
+  if (commits.length === 0) {
+    return (
+      <Typography variant="caption" sx={{ py: 2, textAlign: "center", display: "block", color: "text.secondary" }}>
+        No commit history
+      </Typography>
+    );
+  }
+  return (
+    <List dense disablePadding>
+      {commits.map((c) => (
+        <ListItemButton
+          key={c.sha}
+          selected={c.sha === selectedSha}
+          onClick={() => onSelectCommit(c.sha)}
+          sx={{ py: 0.25, minHeight: 32, alignItems: "flex-start" }}
+        >
+          <ListItemIcon sx={{ minWidth: 24, mt: 0.5 }}>
+            <CommitIcon sx={{ fontSize: 16 }} />
+          </ListItemIcon>
+          <ListItemText
+            primary={truncateMessage(c.message)}
+            secondary={`${formatCommitDate(c.date)} · ${c.author}`}
+            primaryTypographyProps={{ variant: "body2", fontSize: "0.78rem", noWrap: true }}
+            secondaryTypographyProps={{ variant: "caption", fontSize: "0.68rem", noWrap: true }}
+          />
+        </ListItemButton>
+      ))}
+    </List>
+  );
+};
+
 export const ExplorerPanel: FC<ExplorerPanelProps> = ({
   open,
   width = PANEL_WIDTH,
   onSelectFile,
+  onSelectCommit,
 }) => {
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
   const [selectedRepo, setSelectedRepo] = useState<GitHubRepo | null>(null);
@@ -197,14 +276,17 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
   const [needsAuth, setNeedsAuth] = useState(false);
   const childrenCacheRef = useRef<ChildrenCache>(new Map());
   const hasMdCacheRef = useRef<HasMdCache>(new Map());
-  // re-render トリガー（キャッシュ更新を反映するため）
   const [cacheVersion, setCacheVersion] = useState(0);
   const bumpCache = useCallback(() => setCacheVersion((v) => v + 1), []);
 
-  // バックグラウンドで再帰的にサブディレクトリを探索し hasMd を確定する
+  // 選択中ファイル & Git History
+  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
+  const [commits, setCommits] = useState<CommitEntry[]>([]);
+  const [commitsLoading, setCommitsLoading] = useState(false);
+  const [selectedSha, setSelectedSha] = useState<string | null>(null);
+
   const prefetchSubtree = useCallback(
     async (repo: GitHubRepo, dirPath: string): Promise<boolean> => {
-      // 既にキャッシュ済みならそれを返す
       const cached = hasMdCacheRef.current.get(dirPath);
       if (cached !== undefined) return cached;
 
@@ -214,18 +296,15 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
         childrenCacheRef.current.set(dirPath, entries);
       }
 
-      // 直下に md ファイルがあれば true
       const hasDirectMd = entries.some((e) => e.type === "blob");
       if (hasDirectMd) {
         hasMdCacheRef.current.set(dirPath, true);
         bumpCache();
-        // 子ディレクトリも並行して探索（結果更新のため）
         const subDirs = entries.filter((e) => e.type === "tree");
         await Promise.all(subDirs.map((d) => prefetchSubtree(repo, d.path)));
         return true;
       }
 
-      // サブディレクトリを並行探索
       const subDirs = entries.filter((e) => e.type === "tree");
       if (subDirs.length === 0) {
         hasMdCacheRef.current.set(dirPath, false);
@@ -267,6 +346,9 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
     async (repo: GitHubRepo) => {
       setSelectedRepo(repo);
       setExpanded(new Set());
+      setSelectedFilePath(null);
+      setCommits([]);
+      setSelectedSha(null);
       childrenCacheRef.current = new Map();
       hasMdCacheRef.current = new Map();
       setLoading(true);
@@ -275,7 +357,6 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
       setRootEntries(entries);
       setLoading(false);
 
-      // バックグラウンドでサブディレクトリを再帰探索
       const subDirs = entries.filter((e) => e.type === "tree");
       subDirs.forEach((d) => prefetchSubtree(repo, d.path));
     },
@@ -286,6 +367,9 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
     setSelectedRepo(null);
     setRootEntries([]);
     setExpanded(new Set());
+    setSelectedFilePath(null);
+    setCommits([]);
+    setSelectedSha(null);
     childrenCacheRef.current = new Map();
     hasMdCacheRef.current = new Map();
   }, []);
@@ -304,7 +388,6 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
         return;
       }
 
-      // Expand: fetch children if not cached
       if (!childrenCacheRef.current.has(path)) {
         setLoadingDirs((prev) => new Set(prev).add(path));
         const children = await fetchDirEntries(
@@ -318,7 +401,6 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
           next.delete(path);
           return next;
         });
-        // 新たに取得した子ディレクトリをバックグラウンド探索
         const subDirs = children.filter((e) => e.type === "tree");
         subDirs.forEach((d) => prefetchSubtree(selectedRepo, d.path));
       }
@@ -329,17 +411,32 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
   );
 
   const handleFileSelect = useCallback(
-    (filePath: string) => {
-      if (selectedRepo) {
-        onSelectFile(selectedRepo.fullName, filePath);
-      }
+    async (filePath: string) => {
+      if (!selectedRepo) return;
+      setSelectedFilePath(filePath);
+      setSelectedSha(null);
+      onSelectFile(selectedRepo.fullName, filePath);
+
+      // コミット履歴を取得
+      setCommitsLoading(true);
+      const commitList = await fetchCommits(selectedRepo.fullName, filePath);
+      setCommits(commitList);
+      setCommitsLoading(false);
     },
     [selectedRepo, onSelectFile],
   );
 
+  const handleCommitSelect = useCallback(
+    (sha: string) => {
+      if (!selectedRepo || !selectedFilePath) return;
+      setSelectedSha(sha);
+      onSelectCommit?.(selectedRepo.fullName, selectedFilePath, sha);
+    },
+    [selectedRepo, selectedFilePath, onSelectCommit],
+  );
+
   if (!open) return null;
 
-  // cacheVersion を参照して再描画を保証
   void cacheVersion;
 
   return (
@@ -355,7 +452,7 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
         bgcolor: "background.default",
       }}
     >
-      {/* Header */}
+      {/* === Upper: Explorer === */}
       <Box
         sx={{
           display: "flex",
@@ -363,7 +460,7 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
           gap: 0.5,
           px: 1,
           py: 0.5,
-          minHeight: 36,
+          minHeight: 32,
         }}
       >
         {selectedRepo ? (
@@ -382,8 +479,7 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
       </Box>
       <Divider />
 
-      {/* Content */}
-      <Box sx={{ flex: 1, overflow: "auto" }}>
+      <Box sx={{ flex: 1, overflow: "auto", minHeight: 0 }}>
         {needsAuth ? (
           <Box sx={{ textAlign: "center", py: 4, px: 2 }}>
             <Typography variant="body2" sx={{ mb: 2 }}>
@@ -443,6 +539,7 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
                 loadingDirs={loadingDirs}
                 childrenCache={childrenCacheRef.current}
                 hasMdCache={hasMdCacheRef.current}
+                selectedFilePath={selectedFilePath}
                 onToggle={handleToggle}
                 onSelectFile={handleFileSelect}
               />
@@ -458,6 +555,38 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
           </List>
         )}
       </Box>
+
+      {/* === Lower: Git History === */}
+      {selectedFilePath && (
+        <>
+          <Divider />
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              px: 1,
+              py: 0.5,
+              minHeight: 32,
+            }}
+          >
+            <Typography variant="caption" sx={{ fontWeight: 600, px: 0.5 }}>
+              GIT HISTORY
+            </Typography>
+            <Typography variant="caption" sx={{ ml: 0.5, color: "text.secondary", fontSize: "0.65rem" }} noWrap>
+              {selectedFilePath.split("/").pop()}
+            </Typography>
+          </Box>
+          <Divider />
+          <Box sx={{ flex: 1, overflow: "auto", minHeight: 100, maxHeight: "40%" }}>
+            <GitHistorySection
+              commits={commits}
+              loading={commitsLoading}
+              selectedSha={selectedSha}
+              onSelectCommit={handleCommitSelect}
+            />
+          </Box>
+        </>
+      )}
     </Box>
   );
 };
