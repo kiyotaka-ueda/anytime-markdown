@@ -60,7 +60,7 @@ interface CommitEntry {
 interface ExplorerPanelProps {
   open: boolean;
   width?: number;
-  onSelectFile: (repo: string, filePath: string) => void;
+  onSelectFile: (repo: string, filePath: string, branch: string) => void;
   onSelectCommit?: (repo: string, filePath: string, sha: string) => void;
   isTimelineActive?: boolean;
   onToggleTimeline?: () => void;
@@ -906,7 +906,7 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
       if (!selectedRepo) return;
       setSelectedFilePath(filePath);
       setSelectedSha(null);
-      onSelectFile(selectedRepo.fullName, filePath);
+      onSelectFile(selectedRepo.fullName, filePath, selectedBranch);
 
       // コミット履歴を取得
       setCommitsLoading(true);
@@ -914,7 +914,7 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
       setCommits(commitList);
       setCommitsLoading(false);
     },
-    [selectedRepo, onSelectFile],
+    [selectedRepo, selectedBranch, onSelectFile],
   );
 
   const handleCommitSelect = useCallback(

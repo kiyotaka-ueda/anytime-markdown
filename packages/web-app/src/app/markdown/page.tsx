@@ -30,9 +30,9 @@ const ExplorerPanel = dynamic(
   { ssr: false },
 );
 
-async function fetchFileContent(repo: string, filePath: string): Promise<string> {
+async function fetchFileContent(repo: string, filePath: string, branch: string): Promise<string> {
   const res = await fetch(
-    `/api/github/content?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(filePath)}&ref=HEAD`,
+    `/api/github/content?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(filePath)}&ref=${encodeURIComponent(branch)}`,
   );
   if (!res.ok) return '';
   const data = await res.json();
@@ -78,10 +78,10 @@ export default function Page() {
     if (!active) setTimelineRequested(false);
   }, []);
 
-  const handleExplorerSelectFile = useCallback(async (repo: string, filePath: string) => {
+  const handleExplorerSelectFile = useCallback(async (repo: string, filePath: string, branch: string) => {
     selectedFileRef.current = { repo, filePath };
     setTimelineProvider(new GitHubTimelineProvider(repo));
-    const content = await fetchFileContent(repo, filePath);
+    const content = await fetchFileContent(repo, filePath, branch);
     setExternalContent(content);
     setEditorKey((k) => k + 1);
   }, []);
