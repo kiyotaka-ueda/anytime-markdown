@@ -571,24 +571,22 @@ const TreeNode: FC<{
                 <AddIcon sx={{ fontSize: 14 }} />
               </IconButton>
             )}
-            {/* File: delete icon */}
-            {!isDir && (
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDeleteFile(entry.path);
-                }}
-                sx={{
-                  p: 0.25,
-                  opacity: 0,
-                  ".MuiListItemButton-root:hover &": { opacity: 1 },
-                  color: "error.main",
-                }}
-              >
-                <DeleteOutlineIcon sx={{ fontSize: 14 }} />
-              </IconButton>
-            )}
+            {/* Delete icon (file & folder) */}
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteFile(entry.path);
+              }}
+              sx={{
+                p: 0.25,
+                opacity: 0,
+                ".MuiListItemButton-root:hover &": { opacity: 1 },
+                color: "error.main",
+              }}
+            >
+              <DeleteOutlineIcon sx={{ fontSize: 14 }} />
+            </IconButton>
           </>
         )}
       </ListItemButton>
@@ -960,35 +958,60 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
   );
 
   const handleDeleteFile = useCallback(
-    async (filePath: string) => {
+    async (targetPath: string) => {
       if (!selectedRepo) return;
-      if (!window.confirm(`Delete "${filePath.split("/").pop()}"?`)) return;
 
-      const ok = await deleteFile(
-        selectedRepo.fullName,
-        filePath,
-        selectedBranch,
-      );
-      if (!ok) return;
+      const dirPath = targetPath.includes("/") ? targetPath.slice(0, targetPath.lastIndexOf("/")) : "";
+      const parentEntries = childrenCacheRef.current.get(dirPath) ?? [];
+      const entry = parentEntries.find((e) => e.path === targetPath);
+      const isDir = entry?.type === "tree";
 
-      // キャッシュからエントリを削除
-      const dirPath = filePath.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/")) : "";
-      const entries = childrenCacheRef.current.get(dirPath);
-      if (entries) {
-        const updated = entries.filter((e) => e.path !== filePath);
-        childrenCacheRef.current.set(dirPath, updated);
-        // md ファイルがなくなったらキャッシュ更新
-        if (!updated.some((e) => e.type === "blob")) {
-          hasMdCacheRef.current.set(dirPath, updated.some((e) => e.type === "tree" && hasMdCacheRef.current.get(e.path) === true));
+      const name = targetPath.split("/").pop();
+      if (!window.confirm(isDir ? `Delete folder "${name}" and all its contents?` : `Delete "${name}"?`)) return;
+
+      if (isDir) {
+        // フォルダ内の全ファイルを再帰取得して削除
+        const allFiles = await listAllFiles(
+          selectedRepo.fullName,
+          selectedBranch,
+          targetPath,
+        );
+        let allOk = true;
+        for (const fp of allFiles) {
+          const ok = await deleteFile(selectedRepo.fullName, fp, selectedBranch);
+          if (!ok) { allOk = false; break; }
         }
-        if (dirPath === "") {
-          setRootEntries([...updated]);
-        }
-        bumpCache();
+        if (!allOk) return;
+
+        // キャッシュからフォルダとサブキャッシュを削除
+        childrenCacheRef.current.delete(targetPath);
+        hasMdCacheRef.current.delete(targetPath);
+        // 展開状態からも削除
+        setExpanded((prev) => {
+          const next = new Set<string>();
+          for (const p of prev) {
+            if (p !== targetPath && !p.startsWith(targetPath + "/")) next.add(p);
+          }
+          return next;
+        });
+      } else {
+        const ok = await deleteFile(selectedRepo.fullName, targetPath, selectedBranch);
+        if (!ok) return;
       }
 
-      // 削除したファイルが選択中なら選択解除
-      if (selectedFilePath === filePath) {
+      // 親キャッシュからエントリを削除
+      const updated = parentEntries.filter((e) => e.path !== targetPath);
+      childrenCacheRef.current.set(dirPath, updated);
+      if (!updated.some((e) => e.type === "blob")) {
+        hasMdCacheRef.current.set(dirPath, updated.some((e) => e.type === "tree" && hasMdCacheRef.current.get(e.path) === true));
+      }
+      if (dirPath === "") {
+        setRootEntries([...updated]);
+      }
+      bumpCache();
+
+      // 削除対象が選択中なら選択解除
+      if (selectedFilePath === targetPath || (isDir && selectedFilePath?.startsWith(targetPath + "/"))) {
         setSelectedFilePath(null);
         setCommits([]);
         setSelectedSha(null);
