@@ -32,6 +32,8 @@ export interface ToolbarFileHandlers {
 export interface ToolbarFileCapabilities {
   hasFileHandle?: boolean;
   supportsDirectAccess?: boolean;
+  /** 外部保存のみ（GitHub SSO 等）: 新規作成・開く・名前を付けて保存を非表示 */
+  externalSaveOnly?: boolean;
 }
 
 /** エディタのモード状態 */

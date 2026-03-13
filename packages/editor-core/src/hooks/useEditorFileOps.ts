@@ -34,6 +34,7 @@ interface UseEditorFileOpsParams {
   setFileHandle?: (handle: FileHandle | null) => void;
   frontmatterRef: React.MutableRefObject<string | null>;
   onFrontmatterChange?: (value: string | null) => void;
+  onExternalSave?: (content: string) => void;
 }
 
 export type NotificationKey = "copiedToClipboard" | "fileSaved" | "pdfExportError" | "encodingError" | "saveError" | null;
@@ -55,6 +56,7 @@ export function useEditorFileOps({
   setFileHandle,
   frontmatterRef,
   onFrontmatterChange,
+  onExternalSave,
 }: UseEditorFileOpsParams) {
   const [notification, setNotification] = useState<NotificationKey>(null);
   const [pdfExporting, setPdfExporting] = useState(false);
@@ -179,24 +181,29 @@ export function useEditorFileOps({
   }, [openFile, applyMarkdownContent, sourceMode, sourceText, editor, confirm, t]);
 
   const handleSaveFile = useCallback(async () => {
-    if (!saveFile) return;
     let md = getFullMarkdown();
     if (md && !md.endsWith("\n")) md += "\n";
-    if (encoding && encoding !== "UTF-8" && fileHandle?.nativeHandle) {
-      const nativeHandle = fileHandle.nativeHandle as FileSystemFileHandle;
-      const Encoding = (await import("encoding-japanese")).default;
-      const unicodeArray = Encoding.stringToCode(md);
-      const toEnc = encoding === "Shift_JIS" ? "SJIS" : "EUCJP";
-      const converted = Encoding.convert(unicodeArray, { to: toEnc, from: "UNICODE" });
-      const writable = await nativeHandle.createWritable();
-      await writable.write(new Uint8Array(converted));
-      await writable.close();
+    if (saveFile) {
+      if (encoding && encoding !== "UTF-8" && fileHandle?.nativeHandle) {
+        const nativeHandle = fileHandle.nativeHandle as FileSystemFileHandle;
+        const Encoding = (await import("encoding-japanese")).default;
+        const unicodeArray = Encoding.stringToCode(md);
+        const toEnc = encoding === "Shift_JIS" ? "SJIS" : "EUCJP";
+        const converted = Encoding.convert(unicodeArray, { to: toEnc, from: "UNICODE" });
+        const writable = await nativeHandle.createWritable();
+        await writable.write(new Uint8Array(converted));
+        await writable.close();
+      } else {
+        const saved = await saveFile(md);
+        if (!saved) return;
+      }
+    } else if (onExternalSave) {
+      onExternalSave(md);
     } else {
-      const saved = await saveFile(md);
-      if (!saved) return;
+      return;
     }
     showNotification("fileSaved");
-  }, [saveFile, getFullMarkdown, showNotification, encoding, fileHandle]);
+  }, [saveFile, onExternalSave, getFullMarkdown, showNotification, encoding, fileHandle]);
 
   const handleSaveAsFile = useCallback(async () => {
     if (!saveAsFile) return;

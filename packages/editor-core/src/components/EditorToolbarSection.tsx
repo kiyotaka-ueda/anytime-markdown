@@ -44,6 +44,7 @@ interface EditorToolbarSectionProps {
   mergeUndoRedo: MergeUndoRedo | null;
   fileHandle: unknown;
   supportsDirectAccess: boolean;
+  externalSaveOnly?: boolean;
   readOnly?: boolean;
   setSettingsOpen: (open: boolean) => void;
   setVersionDialogOpen: (open: boolean) => void;
@@ -76,6 +77,7 @@ export function EditorToolbarSection({
   mergeUndoRedo,
   fileHandle,
   supportsDirectAccess,
+  externalSaveOnly,
   readOnly,
   setSettingsOpen,
   setVersionDialogOpen,
@@ -132,6 +134,7 @@ export function EditorToolbarSection({
         fileCapabilities={{
           hasFileHandle: fileHandle !== null,
           supportsDirectAccess,
+          externalSaveOnly,
         }}
         onSetTemplateAnchor={setTemplateAnchorEl}
         onSetHelpAnchor={setHelpAnchorEl}

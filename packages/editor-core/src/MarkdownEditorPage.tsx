@@ -86,6 +86,8 @@ interface MarkdownEditorPageProps {
   externalContent?: string;
   /** 外部コンテンツのファイル名（ステータスバー表示用） */
   externalFileName?: string;
+  /** 外部コンテンツの上書き保存コールバック */
+  onExternalSave?: (content: string) => void;
   readOnly?: boolean;
   hideToolbar?: boolean;
   hideOutline?: boolean;
@@ -107,7 +109,7 @@ interface MarkdownEditorPageProps {
   onToggleExplorer?: () => void;
 }
 
-export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, featuresUrl, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, timelineProvider, externalContent, externalFileName, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, showReadonlyMode, timelineRequested, onTimelineActiveChange, externalCompareContent, explorerOpen, onToggleExplorer }: MarkdownEditorPageProps = {}) {
+export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, featuresUrl, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, timelineProvider, externalContent, externalFileName, onExternalSave, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, showReadonlyMode, timelineRequested, onTimelineActiveChange, externalCompareContent, explorerOpen, onToggleExplorer }: MarkdownEditorPageProps = {}) {
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
   const muiTheme = useTheme();
@@ -117,7 +119,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   const noopSave = useCallback(() => {}, []);
   const {
     initialContent, loading, saveContent: _saveContent, downloadMarkdown, clearContent, frontmatterRef, initialTrailingNewline,
-  } = useMarkdownEditor(externalContent ?? defaultContent, externalContent !== undefined);
+  } = useMarkdownEditor(externalContent ?? (onExternalSave ? "" : defaultContent), externalContent !== undefined || !!onExternalSave);
   const saveContent = readOnly ? noopSave : _saveContent;
 
   const [commentOpen, setCommentOpen] = useState(false);
@@ -234,6 +236,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     openFile, saveFile, saveAsFile, resetFile,
     encoding: fileHandling.encoding, fileHandle, setFileHandle, frontmatterRef,
     onFrontmatterChange: fileHandling.setFrontmatterText,
+    onExternalSave,
   });
 
   // Update refs for useEditor callbacks
@@ -410,7 +413,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
           readonlyToggle: !showReadonlyMode,
         }}
         mergeUndoRedo={inlineMergeOpen ? mergeUndoRedo : null}
-        fileHandle={fileHandle} supportsDirectAccess={supportsDirectAccess}
+        fileHandle={fileHandle ?? (onExternalSave && externalContent !== undefined ? true : null)} supportsDirectAccess={supportsDirectAccess}
+        externalSaveOnly={!!onExternalSave}
         readOnly={readOnly}
         setSettingsOpen={setSettingsOpen} setVersionDialogOpen={setVersionDialogOpen}
         rightFileOps={rightFileOps}

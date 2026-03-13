@@ -5,6 +5,8 @@ import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useSession } from 'next-auth/react';
+
 import { FallbackFileSystemProvider } from '../../lib/FallbackFileSystemProvider';
 import { GitHubTimelineProvider } from '../../lib/GitHubTimelineProvider';
 import { WebFileSystemProvider } from '../../lib/WebFileSystemProvider';
@@ -42,6 +44,8 @@ async function fetchFileContent(repo: string, filePath: string, branch: string):
 export default function Page() {
   const { themeMode, setThemeMode } = useThemeMode();
   const { setLocale } = useLocaleSwitch();
+  const { data: session } = useSession();
+  const isGitHubLoggedIn = !!session;
   const [explorerOpen, setExplorerOpen] = useState(() => {
     if (typeof window === 'undefined') return false;
     return sessionStorage.getItem('explorerOpen') === '1';
@@ -54,13 +58,26 @@ export default function Page() {
   const [externalCompareContent, setExternalCompareContent] = useState<string | null>(null);
   const [compareModeOpen, setCompareModeOpen] = useState(false);
   const [editorKey, setEditorKey] = useState(0);
-  const selectedFileRef = useRef<{ repo: string; filePath: string } | null>(null);
+  const selectedFileRef = useRef<{ repo: string; filePath: string; branch: string } | null>(null);
 
   const fileSystemProvider = useMemo(() => {
     if (typeof window === 'undefined') return null;
     const web = new WebFileSystemProvider();
     return web.supportsDirectAccess ? web : new FallbackFileSystemProvider();
   }, []);
+
+  // SSO ログイン/ログアウト時にエディタを空の初期状態にリセット
+  const prevSessionRef = useRef(session);
+  useEffect(() => {
+    if (prevSessionRef.current === session) return;
+    prevSessionRef.current = session;
+    selectedFileRef.current = null;
+    setExternalContent(undefined);
+    setExternalFileName(undefined);
+    setExternalCompareContent(null);
+    setTimelineProvider(null);
+    setEditorKey((k) => k + 1);
+  }, [session]);
 
   useEffect(() => {
     sessionStorage.setItem('explorerOpen', explorerOpen ? '1' : '0');
@@ -80,12 +97,31 @@ export default function Page() {
   }, []);
 
   const handleExplorerSelectFile = useCallback(async (repo: string, filePath: string, branch: string) => {
-    selectedFileRef.current = { repo, filePath };
+    selectedFileRef.current = { repo, filePath, branch };
     setTimelineProvider(new GitHubTimelineProvider(repo));
     const content = await fetchFileContent(repo, filePath, branch);
     setExternalContent(content);
     setExternalFileName(filePath.split("/").pop() ?? filePath);
     setEditorKey((k) => k + 1);
+  }, []);
+
+  const handleExternalSave = useCallback(async (content: string) => {
+    const sel = selectedFileRef.current;
+    if (!sel) return;
+    const res = await fetch('/api/github/content', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        repo: sel.repo,
+        path: sel.filePath,
+        content,
+        branch: sel.branch,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.warn('Failed to save to GitHub:', (err as { error?: string }).error);
+    }
   }, []);
 
   const handleCompareModeChange = useCallback((active: boolean) => {
@@ -128,6 +164,7 @@ export default function Page() {
           onToggleExplorer={handleToggleExplorer}
           externalContent={externalContent}
           externalFileName={externalFileName}
+          onExternalSave={isGitHubLoggedIn ? handleExternalSave : undefined}
           featuresUrl="/features"
           showReadonlyMode={process.env.NEXT_PUBLIC_SHOW_READONLY_MODE === "1"}
         />

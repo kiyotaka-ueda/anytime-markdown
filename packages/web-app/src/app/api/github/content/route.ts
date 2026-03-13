@@ -61,8 +61,9 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     content?: string;
     message?: string;
     branch?: string;
+    sha?: string;
   };
-  const { repo, path, content, message, branch } = body;
+  const { repo, path, content, message, branch, sha } = body;
   if (!repo || !path) {
     return NextResponse.json({ error: "Missing params" }, { status: 400 });
   }
@@ -70,6 +71,25 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     .split("/")
     .map((seg) => encodeURIComponent(seg))
     .join("/");
+
+  // 既存ファイル更新時: sha が未指定なら自動取得
+  let fileSha = sha;
+  if (!fileSha && content != null) {
+    const getRes = await fetch(
+      `https://api.github.com/repos/${repo}/contents/${encodedPath}${branch ? `?ref=${branch}` : ""}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      },
+    );
+    if (getRes.ok) {
+      const fileData = (await getRes.json()) as { sha?: string };
+      fileSha = fileData.sha;
+    }
+  }
+
   const res = await fetch(
     `https://api.github.com/repos/${repo}/contents/${encodedPath}`,
     {
@@ -80,8 +100,9 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        message: message ?? `Create ${path}`,
+        message: message ?? (fileSha ? `Update ${path}` : `Create ${path}`),
         content: Buffer.from(content ?? "").toString("base64"),
+        ...(fileSha ? { sha: fileSha } : {}),
         ...(branch ? { branch } : {}),
       }),
     },
