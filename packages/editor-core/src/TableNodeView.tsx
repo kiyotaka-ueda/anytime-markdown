@@ -11,14 +11,17 @@ import MoveDownIcon from "@mui/icons-material/MoveDown";
 import MoveUpIcon from "@mui/icons-material/MoveUp";
 import TableRowsIcon from "@mui/icons-material/TableRows";
 import ViewColumnIcon from "@mui/icons-material/ViewColumn";
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, ToggleButton, ToggleButtonGroup, Tooltip, Typography, useTheme } from "@mui/material";
+import { Box, Divider, IconButton, ToggleButton, ToggleButtonGroup, Tooltip, Typography, useTheme } from "@mui/material";
 import FocusTrap from "@mui/material/Unstable_TrapFocus";
 import type { NodeViewProps } from "@tiptap/react";
-import { NodeViewContent, NodeViewWrapper, useEditorState } from "@tiptap/react";
+import { NodeViewContent, NodeViewWrapper } from "@tiptap/react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
+import { DeleteBlockDialog } from "./components/codeblock/DeleteBlockDialog";
 import { SearchReplaceBar } from "./components/SearchReplaceBar";
+import { useDeleteBlock } from "./hooks/useDeleteBlock";
+import { useNodeSelected } from "./hooks/useNodeSelected";
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "./constants/colors";
 import { Z_FULLSCREEN } from "./constants/zIndex";
 import { moveTableColumn,moveTableRow } from "./utils/tableHelpers";
@@ -34,16 +37,8 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
   const isEditable = editor?.isEditable ?? true;
 
   // エディタのセレクションがこのテーブル内にあるかを検出
-  const isSelected = useEditorState({
-    editor,
-    selector: (ctx) => {
-      if (!ctx.editor || typeof getPos !== "function") return false;
-      const pos = getPos();
-      if (pos == null) return false;
-      const from = ctx.editor.state.selection.from;
-      return from >= pos && from <= pos + node.nodeSize;
-    },
-  });
+  const isSelected = useNodeSelected(editor, getPos, node.nodeSize);
+  const handleDeleteBlock = useDeleteBlock(editor, getPos, node.nodeSize);
 
   // ツールバーの表示条件: 編集可能時のみ（折りたたみ中・全画面中・テーブル内選択中）
   const showToolbar = isEditable && (collapsed || fullscreen || isSelected);
@@ -260,21 +255,12 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
         </Box>
       </Box>
       </FocusTrap>
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>{t("delete")}</DialogTitle>
-        <DialogContent><Typography>{t("clearConfirm")}</Typography></DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>{t("cancel")}</Button>
-          <Button color="error" variant="contained" onClick={() => {
-            setDeleteDialogOpen(false);
-            if (typeof getPos !== "function") return;
-            const pos = getPos();
-            if (pos == null) return;
-            const to = pos + node.nodeSize;
-            editor.chain().focus().command(({ tr }) => { tr.delete(pos, to); return true; }).run();
-          }}>{t("delete")}</Button>
-        </DialogActions>
-      </Dialog>
+      <DeleteBlockDialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        onDelete={handleDeleteBlock}
+        t={t}
+      />
     </NodeViewWrapper>
   );
 }

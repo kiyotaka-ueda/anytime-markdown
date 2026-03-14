@@ -7,11 +7,11 @@ import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import SchemaIcon from "@mui/icons-material/Schema";
 import { Alert, Box, Divider, IconButton, Tooltip, Typography } from "@mui/material";
 import DOMPurify from "dompurify";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useState } from "react";
 
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../../constants/colors";
 import { PREVIEW_MAX_HEIGHT } from "../../constants/dimensions";
-import { findCodeBlockByIndex,findCounterpartCode, getCodeBlockIndex, getMergeEditors } from "../../contexts/MergeEditorsContext";
+import { useBlockMergeCompare } from "../../hooks/useBlockMergeCompare";
 import { MATH_SANITIZE_CONFIG,useKatexRender } from "../../hooks/useKatexRender";
 import { CodeBlockFullscreenDialog } from "../CodeBlockFullscreenDialog";
 import { MathSamplePopover } from "../MathSamplePopover";
@@ -21,7 +21,7 @@ import type { CodeBlockSharedProps } from "./types";
 type MathBlockProps = Pick<
   CodeBlockSharedProps,
   | "editor" | "node" | "getPos"
-  | "allCollapsed" | "codeCollapsed" | "isSelected" | "toggleAllCollapsed"
+  | "codeCollapsed" | "isSelected"
   | "selectNode" | "handleDragKeyDown" | "code"
   | "handleCopyCode" | "handleDeleteBlock" | "deleteDialogOpen" | "setDeleteDialogOpen"
   | "fullscreen" | "setFullscreen" | "fsCode" | "onFsCodeChange" | "fsTextareaRef" | "fsSearch"
@@ -31,7 +31,7 @@ type MathBlockProps = Pick<
 export function MathBlock(props: MathBlockProps) {
   const {
     editor, node, getPos,
-    allCollapsed, codeCollapsed, isSelected, toggleAllCollapsed: _toggleAllCollapsed,
+    codeCollapsed, isSelected,
     selectNode, handleDragKeyDown, code,
     handleCopyCode, handleDeleteBlock, deleteDialogOpen, setDeleteDialogOpen,
     fullscreen, setFullscreen, fsCode, onFsCodeChange, fsTextareaRef, fsSearch,
@@ -41,52 +41,9 @@ export function MathBlock(props: MathBlockProps) {
   const [mathSampleAnchorEl, setMathSampleAnchorEl] = useState<HTMLElement | null>(null);
   const { html: mathHtml, error: mathError } = useKatexRender({ code, isMath: true });
 
-  // 比較モード: 対応するブロックのコードを取得
-  const mergeEditors = getMergeEditors();
-  const isCompareMode = !!mergeEditors;
-  const compareCode = useMemo(() => {
-    if (!fullscreen || !mergeEditors || !editor) return null;
-    const isRight = !!editor.view?.dom?.dataset?.reviewMode;
-    const otherEditor = isRight ? mergeEditors.leftEditor : mergeEditors.rightEditor;
-    return findCounterpartCode(editor, otherEditor, "math", code);
-  }, [fullscreen, mergeEditors, editor, code]);
-
-  const blockIndexRef = useRef(-1);
-  useEffect(() => {
-    if (fullscreen && mergeEditors && editor) {
-      blockIndexRef.current = getCodeBlockIndex(editor, "math", code);
-    }
-  }, [fullscreen, mergeEditors, editor, code]);
-
-  const handleMergeApply = useCallback((newThisCode: string, newOtherCode: string) => {
-    if (!mergeEditors || !editor || blockIndexRef.current === -1) return;
-    const isRight = !!editor.view?.dom?.dataset?.reviewMode;
-    const otherEditor = isRight ? mergeEditors.leftEditor : mergeEditors.rightEditor;
-
-    const thisBlock = findCodeBlockByIndex(editor, "math", blockIndexRef.current);
-    if (thisBlock) {
-      editor.chain().command(({ tr }) => {
-        const from = thisBlock.pos + 1;
-        const to = from + thisBlock.size;
-        if (newThisCode) tr.replaceWith(from, to, editor.schema.text(newThisCode));
-        else tr.delete(from, to);
-        return true;
-      }).run();
-    }
-
-    if (otherEditor) {
-      const otherBlock = findCodeBlockByIndex(otherEditor, "math", blockIndexRef.current);
-      if (otherBlock) {
-        otherEditor.chain().command(({ tr }) => {
-          const from = otherBlock.pos + 1;
-          const to = from + otherBlock.size;
-          if (newOtherCode) tr.replaceWith(from, to, otherEditor.schema.text(newOtherCode));
-          else tr.delete(from, to);
-          return true;
-        }).run();
-      }
-    }
-  }, [mergeEditors, editor]);
+  const { isCompareMode, compareCode, handleMergeApply } = useBlockMergeCompare({
+    editor, getPos, language: "math", code, fullscreen,
+  });
 
   const toolbar = (
     <Box
@@ -105,49 +62,42 @@ export function MathBlock(props: MathBlockProps) {
       >
         <DragIndicatorIcon sx={{ fontSize: 16, color: "text.secondary" }} />
       </Box>
-      {!allCollapsed && (
-        <Tooltip title={t("fullscreen")} placement="top">
-          <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setFullscreen(true)} aria-label={t("fullscreen")}>
-            <FullscreenIcon sx={{ fontSize: 16, color: "text.secondary" }} />
-          </IconButton>
-        </Tooltip>
-      )}
+      <Tooltip title={t("fullscreen")} placement="top">
+        <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setFullscreen(true)} aria-label={t("fullscreen")}>
+          <FullscreenIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+        </IconButton>
+      </Tooltip>
       <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary" }}>
         Math
       </Typography>
-      {!allCollapsed && (<>
-        <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
-        <Tooltip title={t("insertSample")} placement="top">
-          <IconButton size="small" sx={{ p: 0.25 }} onClick={(e) => setMathSampleAnchorEl(e.currentTarget)} aria-label={t("insertSample")}>
-            <SchemaIcon sx={{ fontSize: 16, color: "text.secondary" }} />
-          </IconButton>
-        </Tooltip>
-        <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
-      </>)}
+      <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
+      <Tooltip title={t("insertSample")} placement="top">
+        <IconButton size="small" sx={{ p: 0.25 }} onClick={(e) => setMathSampleAnchorEl(e.currentTarget)} aria-label={t("insertSample")}>
+          <SchemaIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+        </IconButton>
+      </Tooltip>
+      <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
       <Box sx={{ flex: 1 }} />
-      {!allCollapsed && (<>
-        <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
-        <Tooltip title={t("copyCode")} placement="top">
-          <IconButton size="small" sx={{ p: 0.25 }} onClick={handleCopyCode} aria-label={t("copyCode")}>
-            <ContentCopyIcon sx={{ fontSize: 16, color: "text.secondary" }} />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title={t("delete")} placement="top">
-          <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setDeleteDialogOpen(true)} aria-label={t("delete")}>
-            <DeleteOutlineIcon sx={{ fontSize: 16 }} />
-          </IconButton>
-        </Tooltip>
-      </>)}
+      <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
+      <Tooltip title={t("copyCode")} placement="top">
+        <IconButton size="small" sx={{ p: 0.25 }} onClick={handleCopyCode} aria-label={t("copyCode")}>
+          <ContentCopyIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title={t("delete")} placement="top">
+        <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setDeleteDialogOpen(true)} aria-label={t("delete")}>
+          <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+        </IconButton>
+      </Tooltip>
     </Box>
   );
 
   return (
     <CodeBlockFrame
       toolbar={toolbar}
-      allCollapsed={allCollapsed}
       codeCollapsed={codeCollapsed}
       isDark={isDark}
-      showBorder={(allCollapsed || isSelected) && editor.isEditable}
+      showBorder={isSelected && editor.isEditable}
       deleteDialogOpen={deleteDialogOpen}
       setDeleteDialogOpen={setDeleteDialogOpen}
       handleDeleteBlock={handleDeleteBlock}
@@ -176,10 +126,10 @@ export function MathBlock(props: MathBlockProps) {
         />
       </>}
     >
-      {!allCollapsed && mathError && (
+      {mathError && (
         <Alert severity="warning" sx={{ borderRadius: 0 }}>{mathError}</Alert>
       )}
-      {!allCollapsed && mathHtml && (
+      {mathHtml && (
         <Box
           contentEditable={false}
           role="img"

@@ -7,14 +7,17 @@ import EditIcon from "@mui/icons-material/Edit";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, Tooltip, Typography, useTheme } from "@mui/material";
+import { Box, Divider, IconButton, Tooltip, Typography, useTheme } from "@mui/material";
 import FocusTrap from "@mui/material/Unstable_TrapFocus";
 import type { NodeViewProps } from "@tiptap/react";
-import { NodeViewWrapper, useEditorState } from "@tiptap/react";
+import { NodeViewWrapper } from "@tiptap/react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect,useRef, useState } from "react";
 
+import { DeleteBlockDialog } from "./components/codeblock/DeleteBlockDialog";
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "./constants/colors";
+import { useDeleteBlock } from "./hooks/useDeleteBlock";
+import { useNodeSelected } from "./hooks/useNodeSelected";
 import { Z_FULLSCREEN } from "./constants/zIndex";
 import { getEditorStorage } from "./types";
 
@@ -28,27 +31,12 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
   const [fullscreen, setFullscreen] = useState(false);
   const collapsed = !!node.attrs.collapsed;
 
-  const isSelected = useEditorState({
-    editor,
-    selector: (ctx) => {
-      if (!ctx.editor || typeof getPos !== "function") return false;
-      const pos = getPos();
-      if (pos == null) return false;
-      const from = ctx.editor.state.selection.from;
-      return from >= pos && from <= pos + node.nodeSize;
-    },
-  });
+  const isSelected = useNodeSelected(editor, getPos, node.nodeSize);
+  const handleDeleteBlock = useDeleteBlock(editor, getPos, node.nodeSize);
 
   const isEditable = editor?.isEditable ?? true;
   const { src, alt, title, width } = node.attrs;
   const showToolbar = isEditable && (collapsed || fullscreen || isSelected);
-
-  const handleDeleteBlock = useCallback(() => {
-    if (!editor || typeof getPos !== "function") return;
-    const pos = getPos();
-    if (pos == null) return;
-    editor.chain().focus().command(({ tr }) => { tr.delete(pos, pos + node.nodeSize); return true; }).run();
-  }, [editor, getPos, node.nodeSize]);
 
   // --- Image size display ---
   const imgRef = useRef<HTMLImageElement>(null);
@@ -341,14 +329,12 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
         )}
       </Box>
       </FocusTrap>
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>{t("delete")}</DialogTitle>
-        <DialogContent><Typography>{t("clearConfirm")}</Typography></DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>{t("cancel")}</Button>
-          <Button color="error" variant="contained" onClick={() => { setDeleteDialogOpen(false); handleDeleteBlock(); }}>{t("delete")}</Button>
-        </DialogActions>
-      </Dialog>
+      <DeleteBlockDialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        onDelete={handleDeleteBlock}
+        t={t}
+      />
     </NodeViewWrapper>
   );
 }

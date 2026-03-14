@@ -10,6 +10,8 @@ import { DiagramBlock } from "./components/codeblock/DiagramBlock";
 import { HtmlPreviewBlock } from "./components/codeblock/HtmlPreviewBlock";
 import { MathBlock } from "./components/codeblock/MathBlock";
 import { RegularCodeBlock } from "./components/codeblock/RegularCodeBlock";
+import { useDeleteBlock } from "./hooks/useDeleteBlock";
+import { useNodeSelected } from "./hooks/useNodeSelected";
 import { useTextareaSearch } from "./hooks/useTextareaSearch";
 
 export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: NodeViewProps) {
@@ -22,25 +24,14 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
   const isDiagram = language === "mermaid" || language === "plantuml";
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const allCollapsed = !!node.attrs.collapsed;
   const isEditable = useEditorState({ editor, selector: (ctx) => !!ctx.editor?.isEditable });
   const codeCollapsed = !!node.attrs.codeCollapsed || !isEditable;
-  const toggleAllCollapsed = useCallback(() => updateAttributes(allCollapsed ? { collapsed: false, codeCollapsed: false } : { collapsed: true }), [allCollapsed, updateAttributes]);
   const [fullscreen, setFullscreen] = useState(false);
   const [fsCodeVisible, setFsCodeVisible] = useState(true);
   const [fsCode, setFsCode] = useState("");
   const fsTextareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const isSelected = useEditorState({
-    editor,
-    selector: (ctx) => {
-      if (!ctx.editor || typeof getPos !== "function") return false;
-      const pos = getPos();
-      if (pos == null) return false;
-      const from = ctx.editor.state.selection.from;
-      return from >= pos && from <= pos + node.nodeSize;
-    },
-  });
+  const isSelected = useNodeSelected(editor, getPos, node.nodeSize);
 
   const selectNode = useCallback(() => {
     if (!editor || typeof getPos !== "function") return;
@@ -142,19 +133,12 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
   const fsSearch = useTextareaSearch(fsTextareaRef, fsCode, handleFsTextChange);
 
   /** Delete the code block */
-  const handleDeleteBlock = useCallback(() => {
-    if (!editor || typeof getPos !== "function") return;
-    const pos = getPos();
-    if (pos == null) return;
-    const from = pos;
-    const to = pos + node.nodeSize;
-    editor.chain().focus().command(({ tr }) => { tr.delete(from, to); return true; }).run();
-  }, [editor, getPos, node.nodeSize]);
+  const handleDeleteBlock = useDeleteBlock(editor, getPos, node.nodeSize);
 
   // Shared props for all block sub-components
   const shared = {
     editor, node, updateAttributes, getPos,
-    isSelected, allCollapsed, codeCollapsed, toggleAllCollapsed,
+    isSelected, codeCollapsed,
     selectNode, handleDragKeyDown, code,
     handleCopyCode, handleDeleteBlock, deleteDialogOpen, setDeleteDialogOpen,
     fullscreen, setFullscreen, fsCode, onFsCodeChange: handleFsCodeChange, fsTextareaRef, fsSearch,
