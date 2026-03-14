@@ -119,10 +119,20 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
       { status: res.status },
     );
   }
-  const data = await res.json();
+  const data = await res.json() as {
+    content?: { path?: string; sha?: string };
+    commit?: { sha?: string; message?: string; author?: { name?: string; date?: string } };
+  };
+  console.log("[content PUT] repo=%s path=%s commit=%s", repo, path, JSON.stringify(data.commit ?? null));
   return NextResponse.json({
-    path: (data as { content?: { path?: string } }).content?.path,
-    sha: (data as { content?: { sha?: string } }).content?.sha,
+    path: data.content?.path,
+    sha: data.content?.sha,
+    commit: data.commit ? {
+      sha: data.commit.sha,
+      message: data.commit.message,
+      author: data.commit.author?.name,
+      date: data.commit.author?.date,
+    } : undefined,
   });
 }
 

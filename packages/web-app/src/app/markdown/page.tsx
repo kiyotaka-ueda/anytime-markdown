@@ -61,6 +61,8 @@ export default function Page() {
   const selectedCommitContentRef = useRef<string | null>(null);
   const originalContentRef = useRef<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+  const [newCommit, setNewCommit] = useState<{ sha: string; message: string; author: string; date: string } | null>(null);
+  const [saveSnackbar, setSaveSnackbar] = useState<{ message: string; severity: 'success' | 'error' } | null>(null);
 
   // localStorage への書き込みを監視して dirty 判定
   useEffect(() => {
@@ -145,11 +147,20 @@ export default function Page() {
         branch: sel.branch,
       }),
     });
-    if (!res.ok) {
+    if (res.ok) {
+      originalContentRef.current = content;
+      setIsDirty(false);
+      const data = await res.json().catch(() => ({}));
+      if (data.commit) {
+        setNewCommit(data.commit);
+      }
+      setSaveSnackbar({ message: t('fileSaved'), severity: 'success' });
+    } else {
       const err = await res.json().catch(() => ({}));
       console.warn('Failed to save to GitHub:', (err as { error?: string }).error);
+      setSaveSnackbar({ message: t('saveError'), severity: 'error' });
     }
-  }, []);
+  }, [t]);
 
   const handleCompareModeChange = useCallback((active: boolean) => {
     setCompareModeOpen(active);
@@ -172,10 +183,8 @@ export default function Page() {
     const data = await res.json();
     const content = data.content ?? '';
     if (compareModeOpen) {
-      // 比較モード: 左=localStorage の編集中データ、右=選択コミット
-      setExternalContent(undefined);
+      // 比較モード: 右パネルのみ更新（リマウントせずモードを維持）
       setExternalCompareContent(content);
-      setEditorKey((k) => k + 1);
     } else {
       // 通常モード: エディタに直接表示
       selectedCommitContentRef.current = content;
@@ -187,12 +196,13 @@ export default function Page() {
     }
   }, [compareModeOpen]);
 
-  // 編集中データに戻す（左側を編集中データに、右側は空欄、比較モード維持）
+  // 編集中データに戻す
   const handleSelectCurrent = useCallback(() => {
     setExternalContent(undefined);
-    setExternalCompareContent("");
+    // 比較モード: 右側を空欄にしてモード維持、通常モード: 比較を開かない
+    setExternalCompareContent(compareModeOpen ? "" : null);
     setEditorKey((k) => k + 1);
-  }, []);
+  }, [compareModeOpen]);
 
   return (
     <Box sx={{ display: "flex", height: "100vh", overflow: "hidden" }}>
@@ -202,6 +212,7 @@ export default function Page() {
         onSelectCommit={handleExplorerSelectCommit}
         onSelectCurrent={handleSelectCurrent}
         isDirty={isDirty}
+        newCommit={newCommit}
       />
       <Box sx={{ flex: 1, minWidth: 0, overflow: "auto" }}>
         <MarkdownEditorPage
@@ -237,6 +248,22 @@ export default function Page() {
           sx={{ width: '100%' }}
         >
           {ssoSnackbar}
+        </Alert>
+      </Snackbar>
+      <Snackbar
+        open={!!saveSnackbar}
+        autoHideDuration={4000}
+        onClose={() => setSaveSnackbar(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSaveSnackbar(null)}
+          severity={saveSnackbar?.severity ?? 'info'}
+          variant="filled"
+          role="status"
+          sx={{ width: '100%' }}
+        >
+          {saveSnackbar?.message}
         </Alert>
       </Snackbar>
     </Box>

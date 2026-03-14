@@ -355,7 +355,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
           readonlyToggle: !showReadonlyMode,
         }}
         mergeUndoRedo={inlineMergeOpen ? mergeUndoRedo : null}
-        fileHandle={fileHandle ?? (onExternalSave && externalContent !== undefined ? true : null)} supportsDirectAccess={supportsDirectAccess}
+        fileHandle={fileHandle ?? (onExternalSave ? true : null)} supportsDirectAccess={supportsDirectAccess}
         externalSaveOnly={!!onExternalSave}
         readOnly={readOnly}
         setSettingsOpen={setSettingsOpen} setVersionDialogOpen={setVersionDialogOpen}

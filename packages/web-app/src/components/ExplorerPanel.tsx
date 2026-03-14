@@ -64,6 +64,7 @@ interface ExplorerPanelProps {
   onSelectCommit?: (repo: string, filePath: string, sha: string) => void;
   onSelectCurrent?: () => void;
   isDirty?: boolean;
+  newCommit?: { sha: string; message: string; author: string; date: string } | null;
 }
 
 const PANEL_WIDTH = 260;
@@ -104,14 +105,19 @@ async function fetchDirEntries(
 async function fetchCommits(
   repo: string,
   filePath: string,
-): Promise<CommitEntry[]> {
-  const res = await fetch(
-    `/api/github/commits?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(filePath)}`,
-  );
-  if (!res.ok) return [];
+  branch?: string,
+): Promise<{ commits: CommitEntry[]; stale: boolean }> {
+  let url = `/api/github/commits?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(filePath)}`;
+  if (branch) url += `&branch=${encodeURIComponent(branch)}`;
+  const res = await fetch(url);
+  if (!res.ok) return { commits: [], stale: false };
   const data = await res.json();
-  if (!Array.isArray(data)) return [];
-  return data as CommitEntry[];
+  if (data && typeof data === "object" && "commits" in data) {
+    return { commits: data.commits ?? [], stale: !!data.stale };
+  }
+  // 後方互換: 配列レスポンス
+  if (Array.isArray(data)) return { commits: data, stale: false };
+  return { commits: [], stale: false };
 }
 
 async function fetchBranches(repo: string): Promise<string[]> {
@@ -666,7 +672,8 @@ const GitHistorySection: FC<{
   onSelectCommit: (sha: string) => void;
   isDirty?: boolean;
   onSelectCurrent?: () => void;
-}> = ({ commits, loading, selectedSha, onSelectCommit, isDirty, onSelectCurrent }) => {
+  stale?: boolean;
+}> = ({ commits, loading, selectedSha, onSelectCommit, isDirty, onSelectCurrent, stale }) => {
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
@@ -698,6 +705,14 @@ const GitHistorySection: FC<{
           />
         </ListItemButton>
       )}
+      {stale && (
+        <Typography
+          variant="caption"
+          sx={{ display: "block", px: 2, py: 0.5, color: "warning.main", fontSize: "0.7rem" }}
+        >
+          * History may not reflect the latest commits
+        </Typography>
+      )}
       {commits.map((c) => (
         <ListItemButton
           key={c.sha}
@@ -727,6 +742,7 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
   onSelectCommit,
   onSelectCurrent: onSelectCurrentProp,
   isDirty,
+  newCommit,
 }) => {
   const { data: session } = useSession();
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
@@ -748,6 +764,18 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
   const [commits, setCommits] = useState<CommitEntry[]>([]);
   const [commitsLoading, setCommitsLoading] = useState(false);
   const [selectedSha, setSelectedSha] = useState<string | null>(null);
+  const [commitsStale, setCommitsStale] = useState(false);
+
+  // 新しいコミットをリストの先頭に追加
+  useEffect(() => {
+    if (!newCommit) return;
+    setCommits((prev) => {
+      if (prev.some((c) => c.sha === newCommit.sha)) return prev;
+      return [newCommit, ...prev];
+    });
+    setCommitsStale(false);
+    setSelectedSha(null);
+  }, [newCommit]);
 
   // ブランチ選択ダイアログ
   const [branchDialogOpen, setBranchDialogOpen] = useState(false);
@@ -931,8 +959,9 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
 
       // コミット履歴を取得
       setCommitsLoading(true);
-      const commitList = await fetchCommits(selectedRepo.fullName, filePath);
+      const { commits: commitList, stale } = await fetchCommits(selectedRepo.fullName, filePath, selectedBranch);
       setCommits(commitList);
+      setCommitsStale(stale);
       setCommitsLoading(false);
     },
     [selectedRepo, selectedBranch, onSelectFile],
@@ -1539,6 +1568,7 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
               onSelectCommit={handleCommitSelect}
               isDirty={isDirty}
               onSelectCurrent={handleSelectCurrent}
+              stale={commitsStale}
             />
           </Box>
         </>

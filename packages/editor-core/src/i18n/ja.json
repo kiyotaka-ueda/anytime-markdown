@@ -519,7 +519,9 @@
     "loading": "読み込み中",
     "loadingEditor": "エディタを読み込み中",
     "githubConnected": "GitHub に接続しました",
-    "githubDisconnected": "GitHub から切断しました"
+    "githubDisconnected": "GitHub から切断しました",
+    "fileSaved": "ファイルを保存しました",
+    "saveError": "ファイルの保存に失敗しました"
   },
   "Privacy": {
     "title": "プライバシーポリシー",

@@ -183,7 +183,9 @@ export function useEditorFileOps({
   const handleSaveFile = useCallback(async () => {
     let md = getFullMarkdown();
     if (md && !md.endsWith("\n")) md += "\n";
-    if (saveFile) {
+    if (onExternalSave) {
+      onExternalSave(md);
+    } else if (saveFile) {
       if (encoding && encoding !== "UTF-8" && fileHandle?.nativeHandle) {
         const nativeHandle = fileHandle.nativeHandle as FileSystemFileHandle;
         const Encoding = (await import("encoding-japanese")).default;
@@ -197,8 +199,6 @@ export function useEditorFileOps({
         const saved = await saveFile(md);
         if (!saved) return;
       }
-    } else if (onExternalSave) {
-      onExternalSave(md);
     } else {
       return;
     }

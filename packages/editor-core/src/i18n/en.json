@@ -519,7 +519,9 @@
     "loading": "Loading",
     "loadingEditor": "Loading editor",
     "githubConnected": "Connected to GitHub",
-    "githubDisconnected": "Disconnected from GitHub"
+    "githubDisconnected": "Disconnected from GitHub",
+    "fileSaved": "File saved",
+    "saveError": "Failed to save file"
   },
   "Privacy": {
     "title": "Privacy Policy",
