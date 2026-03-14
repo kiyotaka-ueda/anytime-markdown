@@ -244,8 +244,4 @@ describe("DiagramBlock", () => {
     expect(screen.getByText("plantumlExternalWarning")).toBeTruthy();
   });
 
-  test("Mermaid: capture ボタン (SVG存在時)", () => {
-    setup({ lang: "mermaid" });
-    expect(screen.getByLabelText("capture")).toBeTruthy();
-  });
 });

@@ -5,7 +5,6 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
-import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import { Alert, Box, Button, Divider, IconButton, Tooltip, Typography } from "@mui/material";
 import DOMPurify from "dompurify";
@@ -200,20 +199,14 @@ export function DiagramBlock(props: DiagramBlockProps) {
             isCompareMode={isCompareMode}
             compareCode={compareCode}
             onMergeApply={handleMergeApply}
-            toolbarExtra={<>
-              {(svg) && (
-                <Tooltip title={t("capture")} placement="bottom">
-                  <IconButton size="small" sx={{ p: 0.25 }} onClick={handleCapture} aria-label={t("capture")}>
-                    <PhotoCameraIcon sx={{ fontSize: 16, color: "text.secondary" }} />
-                  </IconButton>
-                </Tooltip>
-              )}
+            onCapture={handleCapture}
+            toolbarExtra={
               <Tooltip title={t("copyCode")} placement="bottom">
                 <IconButton size="small" sx={{ p: 0.25 }} onClick={handleCopyCode} aria-label={t("copyCode")}>
                   <ContentCopyIcon sx={{ fontSize: 16, color: "text.secondary" }} />
                 </IconButton>
               </Tooltip>
-            </>}
+            }
             t={t}
           />
         )}
@@ -234,20 +227,14 @@ export function DiagramBlock(props: DiagramBlockProps) {
             isCompareMode={isCompareMode}
             compareCode={compareCode}
             onMergeApply={handleMergeApply}
-            toolbarExtra={<>
-              {(plantUmlUrl) && (
-                <Tooltip title={t("capture")} placement="bottom">
-                  <IconButton size="small" sx={{ p: 0.25 }} onClick={handleCapture} aria-label={t("capture")}>
-                    <PhotoCameraIcon sx={{ fontSize: 16, color: "text.secondary" }} />
-                  </IconButton>
-                </Tooltip>
-              )}
+            onCapture={handleCapture}
+            toolbarExtra={
               <Tooltip title={t("copyCode")} placement="bottom">
                 <IconButton size="small" sx={{ p: 0.25 }} onClick={handleCopyCode} aria-label={t("copyCode")}>
                   <ContentCopyIcon sx={{ fontSize: 16, color: "text.secondary" }} />
                 </IconButton>
               </Tooltip>
-            </>}
+            }
             t={t}
           />
         )}

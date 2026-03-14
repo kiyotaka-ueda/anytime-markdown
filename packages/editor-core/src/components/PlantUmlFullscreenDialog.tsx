@@ -1,6 +1,7 @@
 import CloseIcon from "@mui/icons-material/Close";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import ZoomInIcon from "@mui/icons-material/ZoomIn";
 import ZoomOutIcon from "@mui/icons-material/ZoomOut";
@@ -33,6 +34,7 @@ interface PlantUmlFullscreenDialogProps {
   isCompareMode?: boolean;
   compareCode?: string | null;
   onMergeApply?: (newThisCode: string, newOtherCode: string) => void;
+  onCapture?: () => void;
   toolbarExtra?: React.ReactNode;
   t: (key: string) => string;
 }
@@ -41,7 +43,7 @@ export function PlantUmlFullscreenDialog({
   open, onClose, label, plantUmlUrl, code,
   fsCode, onFsCodeChange, onFsTextChange, fsTextareaRef, fsSearch,
   fsZP, readOnly,
-  isCompareMode, compareCode, onMergeApply, toolbarExtra,
+  isCompareMode, compareCode, onMergeApply, onCapture, toolbarExtra,
   t,
 }: PlantUmlFullscreenDialogProps) {
   const theme = useTheme();
@@ -268,8 +270,15 @@ export function PlantUmlFullscreenDialog({
           <Divider sx={{ display: isMobile ? "block" : "none" }} />
           {/* Preview area */}
           <Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-            {/* Zoom toolbar */}
+            {/* Preview toolbar */}
             <Box sx={{ display: "flex", alignItems: "center", borderBottom: 1, borderColor: "divider", px: 1, py: 0.25, minHeight: 32 }}>
+              {onCapture && (
+                <Tooltip title={t("capture")} placement="bottom">
+                  <IconButton size="small" sx={{ p: 0.25, mr: 0.5 }} onClick={onCapture} aria-label={t("capture")}>
+                    <PhotoCameraIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+                  </IconButton>
+                </Tooltip>
+              )}
               <Tooltip title={t("zoomOut")} placement="bottom">
                 <IconButton size="small" sx={{ p: 0.25 }} onClick={fsZP.zoomOut} aria-label={t("zoomOut")}>
                   <ZoomOutIcon sx={{ fontSize: 16, color: "text.secondary" }} />
