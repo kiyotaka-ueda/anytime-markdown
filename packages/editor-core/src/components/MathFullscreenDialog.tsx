@@ -1,7 +1,10 @@
 import CloseIcon from "@mui/icons-material/Close";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import SchemaIcon from "@mui/icons-material/Schema";
+import ZoomInIcon from "@mui/icons-material/ZoomIn";
+import ZoomOutIcon from "@mui/icons-material/ZoomOut";
 import { Box, Chip, Dialog, DialogTitle, Divider, IconButton, Tooltip, Typography, useMediaQuery, useTheme } from "@mui/material";
 import DOMPurify from "dompurify";
 import React, { useCallback, useRef, useState } from "react";
@@ -10,6 +13,7 @@ import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../constants/colors";
 import { MATH_SAMPLES } from "../constants/samples";
 import { MATH_SANITIZE_CONFIG, useKatexRender } from "../hooks/useKatexRender";
 import type { TextareaSearchState } from "../hooks/useTextareaSearch";
+import { useZoomPan } from "../hooks/useZoomPan";
 import { useEditorSettingsContext } from "../useEditorSettings";
 import { FullscreenDiffView } from "./FullscreenDiffView";
 import { LineNumberTextarea } from "./LineNumberTextarea";
@@ -45,6 +49,9 @@ export function MathFullscreenDialog({
   const [fsSplitPx, setFsSplitPx] = useState(500);
   const [fsDragging, setFsDragging] = useState(false);
   const fsContainerRef = useRef<HTMLDivElement>(null);
+
+  // Zoom/pan for preview
+  const fsZP = useZoomPan();
 
   // Live math preview
   const { html: mathHtml, error: mathError } = useKatexRender({ code: fsCode, isMath: open });
@@ -198,32 +205,62 @@ export function MathFullscreenDialog({
           />
           {/* Horizontal divider (mobile only) */}
           <Divider sx={{ display: isMobile ? "block" : "none" }} />
-          {/* Math preview */}
-          <Box
-            sx={{
-              flex: 1,
-              overflow: "auto",
-              bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              p: 4,
-              pointerEvents: fsDragging ? "none" : "auto",
-            }}
-          >
-            {mathError && (
-              <Typography color="error" sx={{ fontFamily: "monospace", fontSize: "0.85rem" }}>
-                {mathError}
+          {/* Preview area */}
+          <Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            {/* Zoom toolbar */}
+            <Box sx={{ display: "flex", alignItems: "center", borderBottom: 1, borderColor: "divider", px: 1, py: 0.25, minHeight: 32 }}>
+              <Tooltip title={t("zoomOut")} placement="bottom">
+                <IconButton size="small" sx={{ p: 0.25 }} onClick={fsZP.zoomOut} aria-label={t("zoomOut")}>
+                  <ZoomOutIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={t("zoomIn")} placement="bottom">
+                <IconButton size="small" sx={{ p: 0.25 }} onClick={fsZP.zoomIn} aria-label={t("zoomIn")}>
+                  <ZoomInIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+                </IconButton>
+              </Tooltip>
+              {fsZP.isDirty && (
+                <Tooltip title={t("zoomReset")} placement="bottom">
+                  <IconButton size="small" sx={{ p: 0.25 }} onClick={fsZP.reset} aria-label={t("zoomReset")}>
+                    <RestartAltIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+                  </IconButton>
+                </Tooltip>
+              )}
+              <Typography variant="caption" sx={{ minWidth: 36, textAlign: "center", fontSize: "0.7rem" }}>
+                {Math.round(fsZP.zoom * 100)}%
               </Typography>
-            )}
-            {mathHtml && (
-              <Box
-                role="img"
-                aria-label={`${t("mathFormula")}: ${fsCode}`}
-                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(mathHtml, MATH_SANITIZE_CONFIG) }}
-                sx={{ "& .katex": { fontSize: "1.5em" } }}
-              />
-            )}
+            </Box>
+            {/* Preview */}
+            <Box
+              sx={{
+                flex: 1,
+                overflow: "hidden",
+                bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
+                cursor: fsDragging ? "col-resize" : "grab",
+                "&:active": { cursor: fsDragging ? "col-resize" : "grabbing" },
+                pointerEvents: fsDragging ? "none" : "auto",
+              }}
+              onPointerDown={fsZP.handlePointerDown}
+              onPointerMove={fsZP.handlePointerMove}
+              onPointerUp={fsZP.handlePointerUp}
+              onWheel={fsZP.handleWheel}
+            >
+              <Box sx={{ width: "100%", height: "100%", display: "flex", justifyContent: "center", alignItems: "center", transform: `translate(${fsZP.pan.x}px, ${fsZP.pan.y}px) scale(${fsZP.zoom})`, transformOrigin: "center center", transition: fsZP.isPanningRef.current ? "none" : "transform 0.15s", "@media (prefers-reduced-motion: reduce)": { transition: "none" }, pointerEvents: "none" }}>
+                {mathError && (
+                  <Typography color="error" sx={{ fontFamily: "monospace", fontSize: "0.85rem" }}>
+                    {mathError}
+                  </Typography>
+                )}
+                {mathHtml && (
+                  <Box
+                    role="img"
+                    aria-label={`${t("mathFormula")}: ${fsCode}`}
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(mathHtml, MATH_SANITIZE_CONFIG) }}
+                    sx={{ "& .katex": { fontSize: "1.5em" } }}
+                  />
+                )}
+              </Box>
+            </Box>
           </Box>
         </Box>
       )}
