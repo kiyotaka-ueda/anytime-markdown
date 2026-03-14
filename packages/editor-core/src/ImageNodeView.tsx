@@ -152,7 +152,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
       }}>
         {/* Fullscreen toolbar (Mermaid-style header) */}
         {fullscreen && (
-          <Box sx={{ display: "flex", alignItems: "center", px: 2, py: 1, borderBottom: 1, borderColor: "divider" }} contentEditable={false}>
+          <Box sx={{ display: "flex", alignItems: "center", px: 2, py: 1, borderBottom: 1, borderColor: "divider", bgcolor: "background.paper" }} contentEditable={false}>
             <Tooltip title={t("close")} placement="bottom">
               <IconButton size="small" onClick={() => setFullscreen(false)} sx={{ mr: 1 }} aria-label={t("close")}>
                 <CloseIcon sx={{ fontSize: 20 }} />
