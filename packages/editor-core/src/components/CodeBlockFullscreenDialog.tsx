@@ -54,12 +54,14 @@ interface CodeBlockFullscreenDialogProps {
   compareCode?: string | null;
   onMergeApply?: (newThisCode: string, newOtherCode: string) => void;
   toolbarExtra?: React.ReactNode;
+  /** Custom samples to use instead of Hello World samples */
+  customSamples?: { label: string; i18nKey: string; code: string }[];
   t: (key: string) => string;
 }
 
 export function CodeBlockFullscreenDialog({
   open, onClose, label, language, fsCode, onFsCodeChange, onFsTextChange, fsTextareaRef, fsSearch,
-  readOnly, isCompareMode, compareCode, onMergeApply, toolbarExtra,
+  readOnly, isCompareMode, compareCode, onMergeApply, toolbarExtra, customSamples,
   t,
 }: CodeBlockFullscreenDialogProps) {
   const theme = useTheme();
@@ -183,27 +185,39 @@ export function CodeBlockFullscreenDialog({
                 </Box>
                 {samplesOpen && (
                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, px: 1.5, pb: 1.5 }}>
-                    {currentLangSample && (
-                      <Chip
-                        label={`${language} (Hello World)`}
-                        size="small"
-                        color="primary"
-                        variant="outlined"
-                        onClick={() => handleInsertSample(currentLangSample)}
-                        sx={{ fontSize: "0.7rem", height: FS_CHIP_HEIGHT }}
-                      />
-                    )}
-                    {sampleEntries
-                      .filter(([lang]) => lang !== language)
-                      .map(([lang, code]) => (
+                    {customSamples ? (
+                      customSamples.map((sample) => (
                         <Chip
-                          key={lang}
-                          label={lang}
+                          key={sample.label}
+                          label={t(sample.i18nKey)}
                           size="small"
-                          onClick={() => handleInsertSample(code)}
+                          onClick={() => handleInsertSample(sample.code)}
                           sx={{ fontSize: "0.7rem", height: FS_CHIP_HEIGHT }}
                         />
-                      ))}
+                      ))
+                    ) : (<>
+                      {currentLangSample && (
+                        <Chip
+                          label={`${language} (Hello World)`}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                          onClick={() => handleInsertSample(currentLangSample)}
+                          sx={{ fontSize: "0.7rem", height: FS_CHIP_HEIGHT }}
+                        />
+                      )}
+                      {sampleEntries
+                        .filter(([lang]) => lang !== language)
+                        .map(([lang, code]) => (
+                          <Chip
+                            key={lang}
+                            label={lang}
+                            size="small"
+                            onClick={() => handleInsertSample(code)}
+                            sx={{ fontSize: "0.7rem", height: FS_CHIP_HEIGHT }}
+                          />
+                        ))}
+                    </>)}
                   </Box>
                 )}
               </Box>

@@ -9,6 +9,7 @@ import DOMPurify from "dompurify";
 
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../../constants/colors";
 import { PREVIEW_MAX_HEIGHT } from "../../constants/dimensions";
+import htmlSamples from "../../constants/htmlSamples.json";
 import { CodeBlockFullscreenDialog } from "../CodeBlockFullscreenDialog";
 import { CodeBlockFrame } from "./CodeBlockFrame";
 import type { CodeBlockSharedProps } from "./types";
@@ -93,6 +94,7 @@ export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
           fsTextareaRef={fsTextareaRef}
           fsSearch={fsSearch}
           readOnly={!editor.isEditable}
+          customSamples={htmlSamples.filter((s) => s.enabled)}
           toolbarExtra={
             <Tooltip title={t("copyCode")} placement="bottom">
               <IconButton size="small" sx={{ p: 0.25 }} onClick={handleCopyCode} aria-label={t("copyCode")}>
