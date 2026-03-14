@@ -148,7 +148,7 @@ export function MathFullscreenDialog({
                 >
                   <SchemaIcon sx={{ fontSize: 16, mr: 0.75, color: "text.secondary" }} />
                   <Typography variant="caption" sx={{ fontWeight: 600, fontSize: "0.75rem", flex: 1 }}>
-                    {t("sampleDiagrams")}
+                    {t("sampleContent")}
                   </Typography>
                   {samplesOpen ? <ExpandLessIcon sx={{ fontSize: 16, color: "text.secondary" }} /> : <ExpandMoreIcon sx={{ fontSize: 16, color: "text.secondary" }} />}
                 </Box>
