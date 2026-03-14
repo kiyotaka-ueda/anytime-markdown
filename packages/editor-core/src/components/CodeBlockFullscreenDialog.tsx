@@ -1,4 +1,5 @@
 import CloseIcon from "@mui/icons-material/Close";
+import DOMPurify from "dompurify";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SchemaIcon from "@mui/icons-material/Schema";
@@ -279,7 +280,7 @@ export function CodeBlockFullscreenDialog({
                 "& .hljs-selector-class": { color: isDark ? "#d7ba7d" : "#267f99" },
                 "& .hljs-property": { color: isDark ? "#9cdcfe" : "#001080" },
               }}
-              dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(highlightedHtml, { ALLOWED_TAGS: ["span"], ALLOWED_ATTR: ["class"] }) }}
             />
           </Box>
         </Box>
