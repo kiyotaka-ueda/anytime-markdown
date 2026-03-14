@@ -1,6 +1,4 @@
 import DescriptionIcon from "@mui/icons-material/Description";
-import DownloadIcon from "@mui/icons-material/Download";
-import FileUploadIcon from "@mui/icons-material/FileUpload";
 import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
@@ -98,13 +96,13 @@ export const ToolbarFileActions = React.memo(function ToolbarFileActions({
             <ListItemText>{t("saveAsFile")}</ListItemText>
           </MenuItem>,
         ]) : ([
-          <MenuItem key="upload" onClick={() => { onImport(); setFileMenuAnchorEl(null); }} disabled={readonlyMode || reviewMode}>
-            <ListItemIcon><FileUploadIcon fontSize="small" /></ListItemIcon>
-            <ListItemText>{t("upload")}</ListItemText>
+          <MenuItem key="open" onClick={() => { onImport(); setFileMenuAnchorEl(null); }}>
+            <ListItemIcon><FolderOpenIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>{t("openFile")}</ListItemText>
           </MenuItem>,
-          <MenuItem key="download" onClick={() => { onDownload(); setFileMenuAnchorEl(null); }}>
-            <ListItemIcon><DownloadIcon fontSize="small" /></ListItemIcon>
-            <ListItemText>{t("download")}</ListItemText>
+          <MenuItem key="saveAs" onClick={() => { onDownload(); setFileMenuAnchorEl(null); }}>
+            <ListItemIcon><SaveAsIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>{t("saveAsFile")}</ListItemText>
           </MenuItem>,
         ])}
         {onExportPdf && (
@@ -147,14 +145,14 @@ export const ToolbarFileActions = React.memo(function ToolbarFileActions({
               </Tooltip>
             </ToggleButton>,
           ] : [
-            <ToggleButton key="upload" value="upload" onClick={onImport} disabled={readonlyMode || reviewMode} aria-label={t("upload")} sx={{ px: 0.75, py: 0.25 }}>
-              <Tooltip title={tip(t, "upload", tooltipShortcuts)}>
-                <FileUploadIcon fontSize="small" />
+            <ToggleButton key="open" value="open" onClick={onImport} aria-label={t("openFile")} sx={{ px: 0.75, py: 0.25 }}>
+              <Tooltip title={t("openFile")}>
+                <FolderOpenIcon fontSize="small" />
               </Tooltip>
             </ToggleButton>,
-            <ToggleButton key="download" value="download" onClick={onDownload} aria-label={t("download")} sx={{ px: 0.75, py: 0.25 }}>
-              <Tooltip title={tip(t, "download", tooltipShortcuts)}>
-                <DownloadIcon fontSize="small" />
+            <ToggleButton key="saveAs" value="saveAs" onClick={onDownload} aria-label={t("saveAsFile")} sx={{ px: 0.75, py: 0.25 }}>
+              <Tooltip title={t("saveAsFile")}>
+                <SaveAsIcon fontSize="small" />
               </Tooltip>
             </ToggleButton>,
           ]),
