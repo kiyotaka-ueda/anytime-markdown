@@ -80,9 +80,7 @@ jest.mock("../../components/PlantUmlFullscreenDialog", () => ({
   PlantUmlFullscreenDialog: ({ toolbarExtra }: { toolbarExtra?: React.ReactNode }) => <div data-testid="fs-dialog">{toolbarExtra}</div>,
 }));
 
-jest.mock("../../components/MermaidSamplePopover", () => ({
-  MermaidSamplePopover: () => null,
-}));
+
 
 jest.mock("../../utils/diagramAltText", () => ({
   extractDiagramAltText: () => "diagram alt text",
