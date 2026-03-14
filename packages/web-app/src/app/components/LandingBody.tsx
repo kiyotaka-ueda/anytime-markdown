@@ -6,9 +6,12 @@ import CodeIcon from '@mui/icons-material/Code';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import FlashOnIcon from '@mui/icons-material/FlashOn';
+import FunctionsIcon from '@mui/icons-material/Functions';
+import GitHubIcon from '@mui/icons-material/GitHub';
 import InstallDesktopIcon from '@mui/icons-material/InstallDesktop';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import RateReviewIcon from '@mui/icons-material/RateReview';
+import TableChartIcon from '@mui/icons-material/TableChart';
 import TocIcon from '@mui/icons-material/Toc';
 import { Box, Button, Card, CardContent, Container, Grid, Link as MuiLink,Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
@@ -25,6 +28,9 @@ const featureItems = [
   { titleKey: 'featureDiff' as const, descKey: 'featureDiffDesc' as const, Icon: CompareArrowsIcon },
   { titleKey: 'featureDiagram' as const, descKey: 'featureDiagramDesc' as const, Icon: AccountTreeIcon },
   { titleKey: 'featurePdf' as const, descKey: 'featurePdfDesc' as const, Icon: PictureAsPdfIcon },
+  { titleKey: 'featureTable' as const, descKey: 'featureTableDesc' as const, Icon: TableChartIcon },
+  { titleKey: 'featureMath' as const, descKey: 'featureMathDesc' as const, Icon: FunctionsIcon },
+  { titleKey: 'featureGithub' as const, descKey: 'featureGithubDesc' as const, Icon: GitHubIcon },
   { titleKey: 'featurePwa' as const, descKey: 'featurePwaDesc' as const, Icon: InstallDesktopIcon },
   { titleKey: 'featureOutline' as const, descKey: 'featureOutlineDesc' as const, Icon: TocIcon },
   { titleKey: 'featureSlash' as const, descKey: 'featureSlashDesc' as const, Icon: FlashOnIcon },
