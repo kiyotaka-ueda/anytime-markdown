@@ -63,13 +63,6 @@ jest.mock("../../hooks/useZoomPan", () => ({
   }),
 }));
 
-jest.mock("../../hooks/useDiagramResize", () => ({
-  useDiagramResize: () => ({
-    containerRef: { current: null }, displayWidth: null, resizing: false, resizeWidth: null,
-    MIN_WIDTH: 100, handlePointerDown: jest.fn(), handlePointerMove: jest.fn(), handlePointerUp: jest.fn(), handleKeyDown: jest.fn(),
-  }),
-}));
-
 jest.mock("../../types", () => ({
   usePlantUmlToolbar: () => ({ setSampleAnchorEl: jest.fn() }),
 }));
@@ -114,7 +107,7 @@ function createMockNode(lang: string) {
   } as unknown as NodeViewProps["node"];
 }
 
-function setup(overrides?: { lang?: string; allCollapsed?: boolean; isSelected?: boolean; fullscreen?: boolean }) {
+function setup(overrides?: { lang?: string; isSelected?: boolean; fullscreen?: boolean }) {
   mockSvg = '<svg viewBox="0 0 200 100" width="100%"><rect /></svg>';
   mockMermaidError = null;
   mockPlantUmlUrl = null;
@@ -133,10 +126,8 @@ function setup(overrides?: { lang?: string; allCollapsed?: boolean; isSelected?:
     node: createMockNode(lang),
     updateAttributes: jest.fn(),
     getPos: jest.fn(() => 0) as unknown as NodeViewProps["getPos"],
-    allCollapsed: overrides?.allCollapsed ?? false,
     codeCollapsed: true,
     isSelected: overrides?.isSelected ?? true,
-    toggleAllCollapsed: jest.fn(),
     selectNode: jest.fn(),
     handleDragKeyDown: jest.fn(),
     code: "graph TD; A-->B",
@@ -180,11 +171,6 @@ describe("DiagramBlock", () => {
     expect(screen.getByRole("img")).toBeTruthy();
   });
 
-  test("Mermaid: collapsed -> SVG 非表示", () => {
-    setup({ lang: "mermaid", allCollapsed: true });
-    expect(screen.queryByRole("img")).toBeNull();
-  });
-
   test("Mermaid: エラー表示", () => {
     mockMermaidError = "Syntax error in graph";
     mockSvg = null;
@@ -195,10 +181,8 @@ describe("DiagramBlock", () => {
         node={createMockNode("mermaid")}
         updateAttributes={jest.fn()}
         getPos={jest.fn(() => 0) as unknown as NodeViewProps["getPos"]}
-        allCollapsed={false}
         codeCollapsed={true}
         isSelected={true}
-        toggleAllCollapsed={jest.fn()}
         selectNode={jest.fn()}
         handleDragKeyDown={jest.fn()}
         code="invalid"
@@ -244,10 +228,8 @@ describe("DiagramBlock", () => {
         node={createMockNode("plantuml")}
         updateAttributes={jest.fn()}
         getPos={jest.fn(() => 0) as unknown as NodeViewProps["getPos"]}
-        allCollapsed={false}
         codeCollapsed={true}
         isSelected={true}
-        toggleAllCollapsed={jest.fn()}
         selectNode={jest.fn()}
         handleDragKeyDown={jest.fn()}
         code="@startuml\nA->B\n@enduml"

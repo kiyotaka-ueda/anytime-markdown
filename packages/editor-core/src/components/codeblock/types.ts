@@ -12,12 +12,8 @@ export interface CodeBlockSharedProps {
   getPos: NodeViewProps["getPos"];
   /** Whether node is selected in the editor */
   isSelected: boolean;
-  /** All-collapsed state from node attrs */
-  allCollapsed: boolean;
   /** Code-collapsed state from node attrs */
   codeCollapsed: boolean;
-  /** Toggle all-collapsed */
-  toggleAllCollapsed: () => void;
   /** Focus the node */
   selectNode: () => void;
   /** Move block up/down */

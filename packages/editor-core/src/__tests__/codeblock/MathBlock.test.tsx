@@ -74,7 +74,7 @@ function createMockNode() {
   } as unknown as NodeViewProps["node"];
 }
 
-function setup(overrides?: { allCollapsed?: boolean; codeCollapsed?: boolean }) {
+function setup(overrides?: { codeCollapsed?: boolean }) {
   mockKatexHtml = "<span>E=mc^2</span>";
   mockKatexError = null;
   const fsSearch = { reset: jest.fn(), query: "", setQuery: jest.fn(), matches: [], currentIdx: 0, next: jest.fn(), prev: jest.fn(), replace: jest.fn(), replaceAll: jest.fn() };
@@ -82,10 +82,8 @@ function setup(overrides?: { allCollapsed?: boolean; codeCollapsed?: boolean }) 
     editor: createMockEditor(),
     node: createMockNode(),
     getPos: jest.fn(() => 0) as unknown as NodeViewProps["getPos"],
-    allCollapsed: overrides?.allCollapsed ?? false,
     codeCollapsed: overrides?.codeCollapsed ?? true,
     isSelected: true,
-    toggleAllCollapsed: jest.fn(),
     selectNode: jest.fn(),
     handleDragKeyDown: jest.fn(),
     code: "E=mc^2",
@@ -117,11 +115,6 @@ describe("MathBlock", () => {
     expect(screen.getByText("E=mc^2")).toBeTruthy();
   });
 
-  test("collapsed -> プレビュー非表示", () => {
-    setup({ allCollapsed: true });
-    expect(screen.queryByText("E=mc^2")).toBeNull();
-  });
-
   test("エラー時 -> Alert 表示", () => {
     mockKatexError = "Parse error";
     mockKatexHtml = null;
@@ -130,10 +123,8 @@ describe("MathBlock", () => {
         editor={createMockEditor()}
         node={createMockNode()}
         getPos={jest.fn(() => 0) as unknown as NodeViewProps["getPos"]}
-        allCollapsed={false}
         codeCollapsed={true}
         isSelected={true}
-        toggleAllCollapsed={jest.fn()}
         selectNode={jest.fn()}
         handleDragKeyDown={jest.fn()}
         code="invalid"

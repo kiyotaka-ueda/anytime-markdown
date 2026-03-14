@@ -20,7 +20,7 @@ import { HTML_SANITIZE_CONFIG } from "./types";
 type HtmlPreviewBlockProps = Pick<
   CodeBlockSharedProps,
   | "editor"
-  | "allCollapsed" | "codeCollapsed" | "isSelected" | "toggleAllCollapsed"
+  | "codeCollapsed" | "isSelected"
   | "selectNode" | "handleDragKeyDown" | "code"
   | "handleCopyCode" | "handleDeleteBlock" | "deleteDialogOpen" | "setDeleteDialogOpen"
   | "fullscreen" | "setFullscreen" | "fsCode" | "onFsCodeChange" | "fsTextareaRef" | "fsSearch"
@@ -30,7 +30,7 @@ type HtmlPreviewBlockProps = Pick<
 export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
   const {
     editor,
-    allCollapsed, codeCollapsed, isSelected, toggleAllCollapsed: _toggleAllCollapsed,
+    codeCollapsed, isSelected,
     selectNode, handleDragKeyDown, code,
     handleCopyCode, handleDeleteBlock, deleteDialogOpen, setDeleteDialogOpen,
     fullscreen, setFullscreen, fsCode, onFsCodeChange, fsTextareaRef, fsSearch,
@@ -56,49 +56,42 @@ export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
       >
         <DragIndicatorIcon sx={{ fontSize: 16, color: "text.secondary" }} />
       </Box>
-      {!allCollapsed && (
-        <Tooltip title={t("fullscreen")} placement="top">
-          <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setFullscreen(true)} aria-label={t("fullscreen")}>
-            <FullscreenIcon sx={{ fontSize: 16, color: "text.secondary" }} />
-          </IconButton>
-        </Tooltip>
-      )}
+      <Tooltip title={t("fullscreen")} placement="top">
+        <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setFullscreen(true)} aria-label={t("fullscreen")}>
+          <FullscreenIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+        </IconButton>
+      </Tooltip>
       <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary" }}>
         {t("htmlPreview")}
       </Typography>
-      {!allCollapsed && (<>
-        <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
-        <Tooltip title={t("insertSample")} placement="top">
-          <IconButton size="small" sx={{ p: 0.25 }} onClick={(e) => setHtmlSampleAnchorEl(e.currentTarget)} aria-label={t("insertSample")}>
-            <SchemaIcon sx={{ fontSize: 16, color: "text.secondary" }} />
-          </IconButton>
-        </Tooltip>
-        <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
-      </>)}
+      <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
+      <Tooltip title={t("insertSample")} placement="top">
+        <IconButton size="small" sx={{ p: 0.25 }} onClick={(e) => setHtmlSampleAnchorEl(e.currentTarget)} aria-label={t("insertSample")}>
+          <SchemaIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+        </IconButton>
+      </Tooltip>
+      <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
       <Box sx={{ flex: 1 }} />
-      {!allCollapsed && (<>
-        <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
-        <Tooltip title={t("copyCode")} placement="top">
-          <IconButton size="small" sx={{ p: 0.25 }} onClick={handleCopyCode} aria-label={t("copyCode")}>
-            <ContentCopyIcon sx={{ fontSize: 16, color: "text.secondary" }} />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title={t("delete")} placement="top">
-          <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setDeleteDialogOpen(true)} aria-label={t("delete")}>
-            <DeleteOutlineIcon sx={{ fontSize: 16 }} />
-          </IconButton>
-        </Tooltip>
-      </>)}
+      <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
+      <Tooltip title={t("copyCode")} placement="top">
+        <IconButton size="small" sx={{ p: 0.25 }} onClick={handleCopyCode} aria-label={t("copyCode")}>
+          <ContentCopyIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title={t("delete")} placement="top">
+        <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setDeleteDialogOpen(true)} aria-label={t("delete")}>
+          <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+        </IconButton>
+      </Tooltip>
     </Box>
   );
 
   return (
     <CodeBlockFrame
       toolbar={toolbar}
-      allCollapsed={allCollapsed}
       codeCollapsed={codeCollapsed}
       isDark={isDark}
-      showBorder={allCollapsed || isSelected}
+      showBorder={isSelected}
       deleteDialogOpen={deleteDialogOpen}
       setDeleteDialogOpen={setDeleteDialogOpen}
       handleDeleteBlock={handleDeleteBlock}
@@ -122,8 +115,7 @@ export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
         />
       </>}
     >
-      {!allCollapsed && (
-        <Box
+      <Box
           role="document"
           aria-label={t("htmlPreview")}
           contentEditable={false}
@@ -131,7 +123,6 @@ export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
           sx={{ pt: 0, px: 2, pb: 2, bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG, borderTop: codeCollapsed ? 0 : 1, borderColor: "divider", overflow: "auto", maxHeight: PREVIEW_MAX_HEIGHT, "& img": { maxWidth: "100%" } }}
           dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(code, HTML_SANITIZE_CONFIG) }}
         />
-      )}
     </CodeBlockFrame>
   );
 }

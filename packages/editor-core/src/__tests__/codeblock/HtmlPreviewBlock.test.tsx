@@ -54,15 +54,13 @@ function createMockEditor(): NodeViewProps["editor"] {
   } as unknown as NodeViewProps["editor"];
 }
 
-function setup(overrides?: { allCollapsed?: boolean; code?: string }) {
+function setup(overrides?: { code?: string }) {
   const fsSearch = { reset: jest.fn(), query: "", setQuery: jest.fn(), matches: [], currentIdx: 0, next: jest.fn(), prev: jest.fn(), replace: jest.fn(), replaceAll: jest.fn() };
   const htmlCode = overrides?.code ?? "<p>Hello World</p>";
   const props = {
     editor: createMockEditor(),
-    allCollapsed: overrides?.allCollapsed ?? false,
     codeCollapsed: true,
     isSelected: true,
-    toggleAllCollapsed: jest.fn(),
     selectNode: jest.fn(),
     handleDragKeyDown: jest.fn(),
     code: htmlCode,
@@ -92,11 +90,6 @@ describe("HtmlPreviewBlock", () => {
   test("HTML プレビューが表示される", () => {
     setup({ code: "<p>Test Content</p>" });
     expect(screen.getByText("Test Content")).toBeTruthy();
-  });
-
-  test("collapsed -> プレビュー非表示", () => {
-    setup({ allCollapsed: true, code: "<p>Test Content</p>" });
-    expect(screen.queryByText("Test Content")).toBeNull();
   });
 
   test("copyCode ボタン表示", () => {
