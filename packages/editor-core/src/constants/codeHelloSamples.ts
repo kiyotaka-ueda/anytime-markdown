@@ -168,8 +168,3 @@ cat(greet("World"), "\\n")`,
 
 print greet("World"), "\\n";`,
 };
-
-/** 指定言語の Hello World サンプルを取得。未登録なら null */
-export function getHelloSample(language: string): string | null {
-  return CODE_HELLO_SAMPLES[language] ?? null;
-}
