@@ -9,6 +9,8 @@ import { Box, Chip, Dialog, DialogTitle, Divider, IconButton, Tab, Tabs, Tooltip
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, getFullscreenBg } from "../constants/colors";
+import { FS_CHIP_HEIGHT, FS_CODE_INITIAL_WIDTH, FS_CODE_MIN_WIDTH, FS_TOOLBAR_HEIGHT, FS_ZOOM_LABEL_WIDTH } from "../constants/dimensions";
+import { REDUCED_MOTION_SX, SPLITTER_SX, TRANSITION_FAST } from "../constants/uiPatterns";
 import { PLANTUML_SAMPLES } from "../constants/samples";
 import type { TextareaSearchState } from "../hooks/useTextareaSearch";
 import type { UseZoomPanReturn } from "../hooks/useZoomPan";
@@ -51,7 +53,7 @@ export function PlantUmlFullscreenDialog({
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const settings = useEditorSettingsContext();
 
-  const [fsSplitPx, setFsSplitPx] = useState(500);
+  const [fsSplitPx, setFsSplitPx] = useState(FS_CODE_INITIAL_WIDTH);
   const [fsDragging, setFsDragging] = useState(false);
   const fsContainerRef = useRef<HTMLDivElement>(null);
 
@@ -151,7 +153,7 @@ export function PlantUmlFullscreenDialog({
             if (fsDragging && fsContainerRef.current) {
               const rect = fsContainerRef.current.getBoundingClientRect();
               const px = e.clientX - rect.left;
-              setFsSplitPx(Math.min(rect.width - 120, Math.max(120, px)));
+              setFsSplitPx(Math.min(rect.width - FS_CODE_MIN_WIDTH, Math.max(FS_CODE_MIN_WIDTH, px)));
             }
             if (!fsDragging) fsZP.handlePointerMove(e);
           }}
@@ -165,13 +167,13 @@ export function PlantUmlFullscreenDialog({
           }}
         >
           {/* Code / Config editor */}
-          <Box sx={{ width: isMobile ? "100%" : `${fsSplitPx}px`, height: isMobile ? "40%" : "auto", minWidth: isMobile ? undefined : 120, display: "flex", flexDirection: "column", pointerEvents: fsDragging ? "none" : "auto" }}>
+          <Box sx={{ width: isMobile ? "100%" : `${fsSplitPx}px`, height: isMobile ? "40%" : "auto", minWidth: isMobile ? undefined : FS_CODE_MIN_WIDTH, display: "flex", flexDirection: "column", pointerEvents: fsDragging ? "none" : "auto" }}>
               {/* Tabs */}
               <Box sx={{ display: "flex", alignItems: "center", borderBottom: 1, borderColor: "divider" }}>
                 <Tabs
                   value={activeTab}
                   onChange={(_, v) => setActiveTab(v)}
-                  sx={{ minHeight: 32, flex: 1, "& .MuiTab-root": { minHeight: 32, py: 0.5, px: 2, fontSize: "0.75rem", textTransform: "none" } }}
+                  sx={{ minHeight: FS_TOOLBAR_HEIGHT, flex: 1, "& .MuiTab-root": { minHeight: FS_TOOLBAR_HEIGHT, py: 0.5, px: 2, fontSize: "0.75rem", textTransform: "none" } }}
                 >
                   <Tab value="code" label={t("codeTab")} />
                   <Tab value="config" label={t("configTab")} />
@@ -223,7 +225,7 @@ export function PlantUmlFullscreenDialog({
                           label={t(sample.i18nKey)}
                           size="small"
                           onClick={() => handleInsertSample(sample.code)}
-                          sx={{ fontSize: "0.7rem", height: 26 }}
+                          sx={{ fontSize: "0.7rem", height: FS_CHIP_HEIGHT }}
                         />
                       ))}
                     </Box>
@@ -237,12 +239,12 @@ export function PlantUmlFullscreenDialog({
               aria-orientation="vertical"
               aria-label={t("resizeSplitter")}
               aria-valuenow={fsSplitPx}
-              aria-valuemin={120}
+              aria-valuemin={FS_CODE_MIN_WIDTH}
               aria-valuemax={1200}
               tabIndex={0}
               onKeyDown={(e: React.KeyboardEvent) => {
                 if (e.key === "ArrowLeft") {
-                  setFsSplitPx((v) => Math.max(120, v - 40));
+                  setFsSplitPx((v) => Math.max(FS_CODE_MIN_WIDTH, v - 40));
                   e.preventDefault();
                 } else if (e.key === "ArrowRight") {
                   setFsSplitPx((v) => v + 40);
@@ -254,24 +256,14 @@ export function PlantUmlFullscreenDialog({
                 (e.target as HTMLElement).setPointerCapture(e.pointerId);
                 e.preventDefault();
               }}
-              sx={{
-                display: isMobile ? "none" : "block",
-                width: 4,
-                cursor: "col-resize",
-                bgcolor: "divider",
-                flexShrink: 0,
-                "&:hover": { bgcolor: "primary.main" },
-                "&:focus-visible": { bgcolor: "primary.main", outline: "2px solid", outlineColor: "primary.main" },
-                transition: "background-color 0.15s",
-                "@media (prefers-reduced-motion: reduce)": { transition: "none" },
-              }}
+              sx={{ display: isMobile ? "none" : "block", ...SPLITTER_SX }}
             />
           {/* Horizontal divider (mobile only) */}
           <Divider sx={{ display: isMobile ? "block" : "none" }} />
           {/* Preview area */}
           <Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
             {/* Preview toolbar */}
-            <Box sx={{ display: "flex", alignItems: "center", borderBottom: 1, borderColor: "divider", px: 1, py: 0.25, minHeight: 32 }}>
+            <Box sx={{ display: "flex", alignItems: "center", borderBottom: 1, borderColor: "divider", px: 1, py: 0.25, minHeight: FS_TOOLBAR_HEIGHT }}>
               {onCapture && (
                 <Tooltip title={t("capture")} placement="bottom">
                   <IconButton size="small" sx={{ p: 0.25, mr: 0.5 }} onClick={onCapture} aria-label={t("capture")}>
@@ -296,7 +288,7 @@ export function PlantUmlFullscreenDialog({
                   </IconButton>
                 </Tooltip>
               )}
-              <Typography variant="caption" sx={{ minWidth: 36, textAlign: "center", fontSize: "0.7rem" }}>
+              <Typography variant="caption" sx={{ minWidth: FS_ZOOM_LABEL_WIDTH, textAlign: "center", fontSize: "0.7rem" }}>
                 {Math.round(fsZP.zoom * 100)}%
               </Typography>
             </Box>
@@ -313,7 +305,7 @@ export function PlantUmlFullscreenDialog({
               onPointerDown={fsZP.handlePointerDown}
               onWheel={fsZP.handleWheel}
             >
-              <Box sx={{ width: "100%", height: "100%", display: "flex", justifyContent: "center", alignItems: "center", transform: `translate(${fsZP.pan.x}px, ${fsZP.pan.y}px) scale(${fsZP.zoom})`, transformOrigin: "center center", transition: fsZP.isPanningRef.current ? "none" : "transform 0.15s", "@media (prefers-reduced-motion: reduce)": { transition: "none" }, pointerEvents: "none" }}>
+              <Box sx={{ width: "100%", height: "100%", display: "flex", justifyContent: "center", alignItems: "center", transform: `translate(${fsZP.pan.x}px, ${fsZP.pan.y}px) scale(${fsZP.zoom})`, transformOrigin: "center center", transition: fsZP.isPanningRef.current ? "none" : `transform ${TRANSITION_FAST}`, ...REDUCED_MOTION_SX, pointerEvents: "none" }}>
                 {plantUmlUrl && (
                   <img src={plantUmlUrl} alt={extractDiagramAltText(code, "plantuml")} referrerPolicy="no-referrer" style={{ maxWidth: "90vw", maxHeight: "85vh" }} />
               )}
