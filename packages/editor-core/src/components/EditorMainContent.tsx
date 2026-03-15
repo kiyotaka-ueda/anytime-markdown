@@ -204,8 +204,84 @@ export function EditorMainContent({
     }
   }, [onFileDrop, onFileDragOverChange]);
 
+  const sideToolbarNode = sideToolbar ? (
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        py: 1,
+        gap: 0.5,
+        borderLeft: 1,
+        borderColor: "divider",
+        flexShrink: 0,
+      }}
+    >
+      <Tooltip title={t("outline")} placement="left">
+        <IconButton
+          size="small"
+          onClick={() => {
+            if (outlineProps.outlineOpen) {
+              onToggleOutline?.();
+            } else {
+              setCommentOpen(false);
+              if (explorerOpen) onToggleExplorer?.();
+              onToggleOutline?.();
+            }
+          }}
+          disabled={sourceMode}
+          color={outlineProps.outlineOpen ? "primary" : "default"}
+          sx={{ width: 32, height: 32 }}
+        >
+          <ListAltIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title={t("commentPanel")} placement="left">
+        <IconButton
+          size="small"
+          onClick={() => {
+            if (commentOpen) {
+              setCommentOpen(false);
+            } else {
+              if (outlineProps.outlineOpen) onToggleOutline?.();
+              if (explorerOpen) onToggleExplorer?.();
+              setCommentOpen(true);
+            }
+          }}
+          disabled={sourceMode}
+          color={commentOpen ? "primary" : "default"}
+          sx={{ width: 32, height: 32 }}
+        >
+          <ChatBubbleOutlineIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+      {onToggleExplorer && (
+        <Tooltip title={t("explorer")} placement="left">
+          <IconButton
+            size="small"
+            onClick={() => {
+              if (explorerOpen) {
+                onToggleExplorer?.();
+              } else {
+                if (outlineProps.outlineOpen) onToggleOutline?.();
+                setCommentOpen(false);
+                onToggleExplorer?.();
+              }
+            }}
+            color={explorerOpen ? "primary" : "default"}
+            sx={{ width: 32, height: 32 }}
+          >
+            <GitHubIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
+    </Box>
+  ) : null;
+
   if (inlineMergeOpen) {
     return (
+      <Box sx={{ display: "flex", flexDirection: "row" }}>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
       <InlineMergeView
         leftEditor={editor}
         editorContent={sourceMode ? sourceText : editorMarkdown}
@@ -219,14 +295,14 @@ export function EditorMainContent({
         externalRightContent={compareFileContent}
         onExternalRightContentConsumed={() => setCompareFileContent(null)}
         onRightFileOpsReady={setRightFileOps}
-        commentSlot={commentOpen && editor && !sourceMode ? (
+        commentSlot={!sideToolbar && commentOpen && editor && !sourceMode ? (
           <CommentPanel editor={editor} open={commentOpen} onClose={() => setCommentOpen(false)} onSave={() => saveContent(getMarkdownFromEditor(editor))} t={t} />
         ) : undefined}
       >
         {(leftBgGradient, leftDiffLines, onMerge, onHoverLine) => (
         <Box component="main" ref={editorContainerRef} sx={{ display: "flex", gap: 0, height: "100%", position: "relative" }} onDragOver={handleContainerDragOver} onDragLeave={handleContainerDragLeave} onDrop={handleContainerDrop}>
           {fileDragOver && <Box sx={{ position: "absolute", inset: 0, bgcolor: FILE_DROP_OVERLAY_COLOR, zIndex: 10, pointerEvents: "none" }} />}
-          <EditorOutlineSection {...outlineProps} />
+          {!sideToolbar && <EditorOutlineSection {...outlineProps} />}
           <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
             <MergeEditorPanel
               sourceMode={sourceMode}
@@ -252,6 +328,33 @@ export function EditorMainContent({
         </Box>
         )}
       </InlineMergeView>
+      </Box>
+      {sideToolbar && commentOpen && editor && !sourceMode && (
+        <CommentPanel editor={editor} open={commentOpen} onClose={() => setCommentOpen(false)} onSave={() => saveContent(getMarkdownFromEditor(editor))} t={t} />
+      )}
+      {sideToolbar && outlineProps.outlineOpen && !sourceMode && (
+        <OutlinePanel
+          outlineWidth={COMMENT_PANEL_WIDTH}
+          setOutlineWidth={outlineProps.setOutlineWidth}
+          editorHeight={outlineProps.editorHeight}
+          headings={outlineProps.headings}
+          foldedIndices={outlineProps.foldedIndices}
+          hiddenByFold={outlineProps.hiddenByFold}
+          foldAll={outlineProps.foldAll}
+          unfoldAll={outlineProps.unfoldAll}
+          toggleFold={outlineProps.toggleFold}
+          handleOutlineClick={outlineProps.handleOutlineClick}
+          handleOutlineResizeStart={outlineProps.handleOutlineResizeStart}
+          onHeadingDragEnd={outlineProps.onHeadingDragEnd}
+          onOutlineDelete={outlineProps.onOutlineDelete}
+          onInsertSectionNumbers={outlineProps.onInsertSectionNumbers}
+          onRemoveSectionNumbers={outlineProps.onRemoveSectionNumbers}
+          t={t}
+        />
+      )}
+      {sideToolbar && explorerOpen && explorerSlot}
+      {sideToolbarNode}
+      </Box>
     );
   }
 
@@ -347,79 +450,7 @@ export function EditorMainContent({
       {sideToolbar && explorerOpen && explorerSlot}
       </Box>
       </Box>
-      {sideToolbar && (
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            py: 1,
-            gap: 0.5,
-            borderLeft: 1,
-            borderColor: "divider",
-            flexShrink: 0,
-          }}
-        >
-          <Tooltip title={t("outline")} placement="left">
-            <IconButton
-              size="small"
-              onClick={() => {
-                if (outlineProps.outlineOpen) {
-                  onToggleOutline?.();
-                } else {
-                  setCommentOpen(false);
-                  if (explorerOpen) onToggleExplorer?.();
-                  onToggleOutline?.();
-                }
-              }}
-              disabled={sourceMode}
-              color={outlineProps.outlineOpen ? "primary" : "default"}
-              sx={{ width: 32, height: 32 }}
-            >
-              <ListAltIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title={t("commentPanel")} placement="left">
-            <IconButton
-              size="small"
-              onClick={() => {
-                if (commentOpen) {
-                  setCommentOpen(false);
-                } else {
-                  if (outlineProps.outlineOpen) onToggleOutline?.();
-                  if (explorerOpen) onToggleExplorer?.();
-                  setCommentOpen(true);
-                }
-              }}
-              disabled={sourceMode}
-              color={commentOpen ? "primary" : "default"}
-              sx={{ width: 32, height: 32 }}
-            >
-              <ChatBubbleOutlineIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          {onToggleExplorer && (
-            <Tooltip title={t("explorer")} placement="left">
-              <IconButton
-                size="small"
-                onClick={() => {
-                  if (explorerOpen) {
-                    onToggleExplorer?.();
-                  } else {
-                    if (outlineProps.outlineOpen) onToggleOutline?.();
-                    setCommentOpen(false);
-                    onToggleExplorer?.();
-                  }
-                }}
-                color={explorerOpen ? "primary" : "default"}
-                sx={{ width: 32, height: 32 }}
-              >
-                <GitHubIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
-        </Box>
-      )}
+      {sideToolbarNode}
     </Box>
   );
 }
