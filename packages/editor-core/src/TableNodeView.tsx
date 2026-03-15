@@ -40,7 +40,7 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
 
   const showToolbar = isEditable && (collapsed || editOpen || isSelected);
 
-  const fsBg = getEditDialogBg(isDark, settings) ?? (isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG);
+  const editBg = getEditDialogBg(isDark, settings) ?? "background.paper";
 
   return (
     <NodeViewWrapper>
@@ -62,7 +62,7 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
             position: "fixed",
             inset: 0,
             zIndex: Z_FULLSCREEN,
-            bgcolor: fsBg,
+            bgcolor: editBg,
             display: "flex",
             flexDirection: "column",
           }),
