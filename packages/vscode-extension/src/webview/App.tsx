@@ -172,18 +172,29 @@ export function App() {
 
   // スクロール同期: スクロール位置を extension host に送信
   useEffect(() => {
+    let currentEl: Element | null = null;
     const handler = () => {
-      if (isSyncingScroll) return;
-      const el = document.querySelector('textarea') ?? document.querySelector('.tiptap');
-      if (!el) return;
-      const maxScroll = el.scrollHeight - el.clientHeight;
+      if (isSyncingScroll || !currentEl) return;
+      const maxScroll = currentEl.scrollHeight - currentEl.clientHeight;
       if (maxScroll <= 0) return;
-      const ratio = el.scrollTop / maxScroll;
+      const ratio = currentEl.scrollTop / maxScroll;
       vscode.postMessage({ type: 'scrollChanged', ratio });
     };
-    // capture で textarea と tiptap の両方を捕捉
-    document.addEventListener('scroll', handler, true);
-    return () => document.removeEventListener('scroll', handler, true);
+    const attach = () => {
+      const el = document.querySelector('textarea') ?? document.querySelector('.tiptap');
+      if (el === currentEl) return;
+      if (currentEl) currentEl.removeEventListener('scroll', handler);
+      currentEl = el;
+      if (currentEl) currentEl.addEventListener('scroll', handler, { passive: true });
+    };
+    attach();
+    // DOM 変更時にリスナーを再アタッチ（モード切替等）
+    const observer = new MutationObserver(attach);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      if (currentEl) currentEl.removeEventListener('scroll', handler);
+    };
   }, []);
 
   useEffect(() => {
