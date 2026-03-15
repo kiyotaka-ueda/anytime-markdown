@@ -21,6 +21,7 @@ import { SearchReplaceBar } from "./components/SearchReplaceBar";
 import { useBlockNodeState } from "./hooks/useBlockNodeState";
 import { findCounterpartTableHtml, getMergeEditors } from "./contexts/MergeEditorsContext";
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "./constants/colors";
+import { useEditorSettingsContext } from "./useEditorSettings";
 import { Z_FULLSCREEN } from "./constants/zIndex";
 import { moveTableColumn,moveTableRow } from "./utils/tableHelpers";
 
@@ -29,6 +30,7 @@ const iconSx = { fontSize: 16 };
 export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
   const t = useTranslations("MarkdownEditor");
   const isDark = useTheme().palette.mode === "dark";
+  const settings = useEditorSettingsContext();
   const {
     deleteDialogOpen, setDeleteDialogOpen, editOpen, setEditOpen,
     collapsed, isEditable, isSelected, handleDeleteBlock, showToolbar,
@@ -48,7 +50,7 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
 
   const tableSx = {
     borderCollapse: "collapse",
-    width: "100%",
+    width: settings.tableWidth,
     "& th, & td": { border: 1, borderColor: "divider", px: 1, py: 0.5, textAlign: "left", minWidth: 80 },
     "& th": { bgcolor: "action.hover", fontWeight: 600 },
     "& .selectedCell": { bgcolor: "action.selected" },
