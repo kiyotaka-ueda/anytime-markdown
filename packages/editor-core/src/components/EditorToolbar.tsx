@@ -138,7 +138,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
     fileOps: hideFileOps, undoRedo: hideUndoRedo, moreMenu: hideMoreMenu,
     settings: hideSettings, versionInfo: hideVersionInfo,
     modeToggle: hideModeToggle, readonlyToggle: hideReadonlyToggle,
-    outline: hideOutline, comments: hideComments,
+    outline: hideOutline, comments: hideComments, explorer: hideExplorer,
     templates: _hideTemplates, foldAll: _hideFoldAll,
   } = hide;
   const { sourceMode, readonlyMode, reviewMode, outlineOpen, inlineMergeOpen, commentOpen, explorerOpen } = modeState;
@@ -302,7 +302,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
       {/* Outline, Comments - hidden on mobile */}
       <Box sx={{ display: { xs: "none", md: "contents" } }}>
       <ToggleButtonGroup size="small" aria-label={t("view")} sx={{ height: 30 }}>
-        {onToggleExplorer && (
+        {!hideExplorer && onToggleExplorer && (
           <ToggleButton value="explorer" selected={!!explorerOpen} onClick={onToggleExplorer} aria-label={t("explorer")} sx={{ px: 0.75, py: 0.25 }}>
             <Tooltip title={t("explorer")}>
               <span style={{ display: "inline-flex" }}><GitHubIcon fontSize="small" /></span>

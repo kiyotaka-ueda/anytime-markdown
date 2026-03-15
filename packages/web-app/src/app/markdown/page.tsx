@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useSession } from 'next-auth/react';
 
-import { STORAGE_KEY_CONTENT } from '@anytime-markdown/editor-core';
+import { STORAGE_KEY_CONTENT, COMMENT_PANEL_WIDTH } from '@anytime-markdown/editor-core';
 import { FallbackFileSystemProvider } from '../../lib/FallbackFileSystemProvider';
 import { WebFileSystemProvider } from '../../lib/WebFileSystemProvider';
 import { useLocaleSwitch } from '../LocaleProvider';
@@ -223,18 +223,20 @@ export default function Page() {
     setEditorKey((k) => k + 1);
   }, [compareModeOpen]);
 
+  const explorerSlotNode = enableGitHub ? (
+    <ExplorerPanel
+      open={explorerOpen}
+      width={COMMENT_PANEL_WIDTH}
+      onSelectFile={handleExplorerSelectFile}
+      onSelectCommit={handleExplorerSelectCommit}
+      onSelectCurrent={handleSelectCurrent}
+      isDirty={isDirty}
+      newCommit={newCommit}
+    />
+  ) : undefined;
+
   return (
     <Box sx={{ display: "flex", height: "100vh", overflow: "hidden" }}>
-      {enableGitHub && (
-        <ExplorerPanel
-          open={explorerOpen}
-          onSelectFile={handleExplorerSelectFile}
-          onSelectCommit={handleExplorerSelectCommit}
-          onSelectCurrent={handleSelectCurrent}
-          isDirty={isDirty}
-          newCommit={newCommit}
-        />
-      )}
       <Box sx={{ flex: 1, minWidth: 0, overflow: "auto" }}>
         <MarkdownEditorPage
           key={editorKey}
@@ -252,6 +254,8 @@ export default function Page() {
           onExternalSave={isGitHubLoggedIn ? handleExternalSave : undefined}
           readOnly={externalContent !== undefined}
           showReadonlyMode={process.env.NEXT_PUBLIC_SHOW_READONLY_MODE === "1"}
+          sideToolbar
+          explorerSlot={explorerSlotNode}
         />
       </Box>
       <Snackbar
