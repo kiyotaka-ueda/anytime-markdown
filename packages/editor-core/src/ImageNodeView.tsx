@@ -123,6 +123,15 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
 
   const displayWidth = resizeWidth !== null ? `${resizeWidth}px` : width || undefined;
 
+  const handleEditUrl = useCallback(() => {
+    if (typeof getPos !== "function") return;
+    const pos = getPos();
+    if (pos == null) return;
+    const storage = getEditorStorage(editor);
+    const onEdit = storage.image?.onEditImage as ((data: { pos: number; src: string; alt: string }) => void) | undefined;
+    if (onEdit) onEdit({ pos, src: src || "", alt: alt || "" });
+  }, [editor, getPos, src, alt]);
+
   return (
     <NodeViewWrapper>
       {/* Fullscreen Dialog */}
@@ -149,6 +158,16 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
             </Typography>
           )}
         </Box>
+        {/* Image toolbar (second row) */}
+        {isEditable && (
+          <Box sx={{ display: "flex", alignItems: "center", borderBottom: 1, borderColor: "divider", px: 1, py: 0.25, minHeight: 32 }}>
+            <Tooltip title={t("imageUrl")} placement="bottom">
+              <IconButton size="small" sx={{ p: 0.25 }} onClick={handleEditUrl} aria-label={t("imageUrl")}>
+                <EditIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        )}
         <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", overflow: "auto", p: 2, bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG }}>
           {src && !imgError && (
             <img
@@ -224,21 +243,6 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
               {t("imageNotFound")}
             </Typography>
           )}
-          {!collapsed && (<>
-            <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
-            <Tooltip title={t("imageUrl")} placement="top">
-              <IconButton size="small" sx={{ p: 0.25 }} onClick={() => {
-                if (typeof getPos !== "function") return;
-                const pos = getPos();
-                if (pos == null) return;
-                const storage = getEditorStorage(editor);
-                const onEdit = storage.image?.onEditImage as ((data: { pos: number; src: string; alt: string }) => void) | undefined;
-                if (onEdit) onEdit({ pos, src: src || "", alt: alt || "" });
-              }} aria-label={t("imageUrl")}>
-                <EditIcon sx={iconSx} />
-              </IconButton>
-            </Tooltip>
-          </>)}
           <Box sx={{ flex: 1 }} />
           {imgSize && !collapsed && (<>
             <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
