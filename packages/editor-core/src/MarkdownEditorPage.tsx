@@ -65,6 +65,8 @@ import type { InlineComment } from "./utils/commentHelpers";
 import { parseCommentData } from "./utils/commentHelpers";
 import { preprocessMarkdown } from "./utils/frontmatterHelpers";
 
+const SECTION_NUMBER_RE = /^\d+(\.\d+)*\.?\s/;
+
 interface MarkdownEditorPageProps {
   hideFileOps?: boolean;
   hideUndoRedo?: boolean;
@@ -308,7 +310,6 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
 
   const plantUmlToolbarCtx = useMemo(() => ({ setSampleAnchorEl }), [setSampleAnchorEl]);
 
-  const SECTION_NUMBER_RE = /^\d+(\.\d+)*\.?\s/;
   const handleInsertSectionNumbers = useCallback(() => {
     if (!editor) return;
     const targets: { pos: number; level: number; text: string }[] = [];
