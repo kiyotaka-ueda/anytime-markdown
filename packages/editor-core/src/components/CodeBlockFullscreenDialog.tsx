@@ -6,7 +6,7 @@ import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import ZoomInIcon from "@mui/icons-material/ZoomIn";
 import ZoomOutIcon from "@mui/icons-material/ZoomOut";
 import { Box, Chip, Dialog, DialogTitle, Divider, IconButton, Tooltip, Typography, useMediaQuery, useTheme } from "@mui/material";
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { common, createLowlight } from "lowlight";
 
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, getFullscreenBg } from "../constants/colors";
@@ -75,6 +75,17 @@ export function CodeBlockFullscreenDialog({
   const [fsSplitPx, setFsSplitPx] = useState(FS_CODE_INITIAL_WIDTH);
   const [fsDragging, setFsDragging] = useState(false);
   const fsContainerRef = useRef<HTMLDivElement>(null);
+
+  // Set initial split to 50% of container for HTML live preview
+  useEffect(() => {
+    if (!open || !renderPreview) return;
+    requestAnimationFrame(() => {
+      if (fsContainerRef.current) {
+        const w = fsContainerRef.current.getBoundingClientRect().width;
+        if (w > 0) setFsSplitPx(Math.round(w / 2));
+      }
+    });
+  }, [open, renderPreview]);
 
   const [samplesOpen, setSamplesOpen] = useState(false);
 
@@ -156,7 +167,7 @@ export function CodeBlockFullscreenDialog({
           }}
         >
           {/* Code editor */}
-          <Box sx={{ width: isMobile ? "100%" : renderPreview ? "50%" : `${fsSplitPx}px`, height: isMobile ? "40%" : "auto", minWidth: isMobile ? undefined : FS_CODE_MIN_WIDTH, display: "flex", flexDirection: "column", pointerEvents: fsDragging ? "none" : "auto" }}>
+          <Box sx={{ width: isMobile ? "100%" : `${fsSplitPx}px`, height: isMobile ? "40%" : "auto", minWidth: isMobile ? undefined : FS_CODE_MIN_WIDTH, display: "flex", flexDirection: "column", pointerEvents: fsDragging ? "none" : "auto" }}>
             {/* Code toolbar */}
             <Box sx={{ display: "flex", alignItems: "center", borderBottom: 1, borderColor: "divider", px: 1, py: 0.25, minHeight: FS_TOOLBAR_HEIGHT }}>
               <Typography variant="caption" sx={{ fontWeight: 600, fontSize: "0.75rem", flex: 1 }}>
@@ -248,7 +259,7 @@ export function CodeBlockFullscreenDialog({
               (e.target as HTMLElement).setPointerCapture(e.pointerId);
               e.preventDefault();
             }}
-            sx={{ display: isMobile || renderPreview ? "none" : "block", ...SPLITTER_SX }}
+            sx={{ display: isMobile ? "none" : "block", ...SPLITTER_SX }}
           />
           {/* Horizontal divider (mobile only) */}
           <Divider sx={{ display: isMobile ? "block" : "none" }} />
