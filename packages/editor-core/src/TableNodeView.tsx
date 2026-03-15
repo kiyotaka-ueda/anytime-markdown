@@ -78,106 +78,107 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
               label={t("tableLabel")}
               onClose={() => setEditOpen(false)}
               t={t}
-              extra={<>
+            />
+            {/* Table operations toolbar (second row) */}
+            {isEditable && (
+              <Box sx={{ display: "flex", alignItems: "center", borderBottom: 1, borderColor: "divider", px: 1, py: 0.25, gap: 0.5, flexWrap: "wrap" }}>
+                {/* Column add/remove */}
+                <ToggleButtonGroup size="small" sx={{ height: 24 }}>
+                  <ToggleButton value="addCol" aria-label={t("addColumn")} sx={{ px: 0.5, py: 0.125 }} onClick={() => editor.chain().focus().addColumnAfter().run()}>
+                    <Tooltip title={t("addColumn")} placement="top">
+                      <Box sx={{ position: "relative", display: "inline-flex" }}>
+                        <ViewColumnIcon sx={iconSx} />
+                        <Box component="span" sx={{ position: "absolute", right: -4, top: -4, fontSize: 10, fontWeight: "bold", lineHeight: 1 }}>+</Box>
+                      </Box>
+                    </Tooltip>
+                  </ToggleButton>
+                  <ToggleButton value="removeCol" aria-label={t("removeColumn")} sx={{ px: 0.5, py: 0.125 }} onClick={() => editor.chain().focus().deleteColumn().run()}>
+                    <Tooltip title={t("removeColumn")} placement="top">
+                      <Box sx={{ position: "relative", display: "inline-flex" }}>
+                        <ViewColumnIcon sx={iconSx} />
+                        <Box component="span" sx={{ position: "absolute", right: -4, top: -4, fontSize: 10, fontWeight: "bold", lineHeight: 1, color: "error.main" }}>×</Box>
+                      </Box>
+                    </Tooltip>
+                  </ToggleButton>
+                </ToggleButtonGroup>
+
+                {/* Row add/remove */}
+                <ToggleButtonGroup size="small" sx={{ height: 24 }}>
+                  <ToggleButton value="addRow" aria-label={t("addRow")} sx={{ px: 0.5, py: 0.125 }} onClick={() => editor.chain().focus().addRowAfter().run()}>
+                    <Tooltip title={t("addRow")} placement="top">
+                      <Box sx={{ position: "relative", display: "inline-flex" }}>
+                        <TableRowsIcon sx={iconSx} />
+                        <Box component="span" sx={{ position: "absolute", right: -4, top: -4, fontSize: 10, fontWeight: "bold", lineHeight: 1 }}>+</Box>
+                      </Box>
+                    </Tooltip>
+                  </ToggleButton>
+                  <ToggleButton value="removeRow" aria-label={t("removeRow")} sx={{ px: 0.5, py: 0.125 }} onClick={() => editor.chain().focus().deleteRow().run()}>
+                    <Tooltip title={t("removeRow")} placement="top">
+                      <Box sx={{ position: "relative", display: "inline-flex" }}>
+                        <TableRowsIcon sx={iconSx} />
+                        <Box component="span" sx={{ position: "absolute", right: -4, top: -4, fontSize: 10, fontWeight: "bold", lineHeight: 1, color: "error.main" }}>×</Box>
+                      </Box>
+                    </Tooltip>
+                  </ToggleButton>
+                </ToggleButtonGroup>
+
+                {/* Alignment */}
+                <ToggleButtonGroup
+                  exclusive
+                  size="small"
+                  sx={{ height: 24 }}
+                  onChange={(_e, val) => { if (val) editor.chain().focus().setCellAttribute("textAlign", val).run(); }}
+                >
+                  <ToggleButton value="left" aria-label={t("alignLeft")} sx={{ px: 0.5, py: 0.125 }}>
+                    <Tooltip title={t("alignLeft")} placement="top">
+                      <FormatAlignLeftIcon sx={iconSx} />
+                    </Tooltip>
+                  </ToggleButton>
+                  <ToggleButton value="center" aria-label={t("alignCenter")} sx={{ px: 0.5, py: 0.125 }}>
+                    <Tooltip title={t("alignCenter")} placement="top">
+                      <FormatAlignCenterIcon sx={iconSx} />
+                    </Tooltip>
+                  </ToggleButton>
+                  <ToggleButton value="right" aria-label={t("alignRight")} sx={{ px: 0.5, py: 0.125 }}>
+                    <Tooltip title={t("alignRight")} placement="top">
+                      <FormatAlignRightIcon sx={iconSx} />
+                    </Tooltip>
+                  </ToggleButton>
+                </ToggleButtonGroup>
+
+                {/* Move row */}
+                <ToggleButtonGroup size="small" sx={{ height: 24 }}>
+                  <ToggleButton value="rowUp" aria-label={t("moveRowUp")} sx={{ px: 0.5, py: 0.125 }} onClick={() => moveTableRow(editor, "up")}>
+                    <Tooltip title={t("moveRowUp")} placement="top">
+                      <MoveUpIcon sx={iconSx} />
+                    </Tooltip>
+                  </ToggleButton>
+                  <ToggleButton value="rowDown" aria-label={t("moveRowDown")} sx={{ px: 0.5, py: 0.125 }} onClick={() => moveTableRow(editor, "down")}>
+                    <Tooltip title={t("moveRowDown")} placement="top">
+                      <MoveDownIcon sx={iconSx} />
+                    </Tooltip>
+                  </ToggleButton>
+                </ToggleButtonGroup>
+
+                {/* Move column */}
+                <ToggleButtonGroup size="small" sx={{ height: 24 }}>
+                  <ToggleButton value="colLeft" aria-label={t("moveColLeft")} sx={{ px: 0.5, py: 0.125 }} onClick={() => moveTableColumn(editor, "left")}>
+                    <Tooltip title={t("moveColLeft")} placement="top">
+                      <MoveUpIcon sx={{ ...iconSx, transform: "rotate(-90deg)" }} />
+                    </Tooltip>
+                  </ToggleButton>
+                  <ToggleButton value="colRight" aria-label={t("moveColRight")} sx={{ px: 0.5, py: 0.125 }} onClick={() => moveTableColumn(editor, "right")}>
+                    <Tooltip title={t("moveColRight")} placement="top">
+                      <MoveDownIcon sx={{ ...iconSx, transform: "rotate(-90deg)" }} />
+                    </Tooltip>
+                  </ToggleButton>
+                </ToggleButtonGroup>
+
                 <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
 
                 <SearchReplaceBar editor={editor} t={t} />
-
-                {isEditable && (<>
-                  {/* Column add/remove */}
-                  <ToggleButtonGroup size="small" sx={{ height: 24 }}>
-                    <ToggleButton value="addCol" aria-label={t("addColumn")} sx={{ px: 0.5, py: 0.125 }} onClick={() => editor.chain().focus().addColumnAfter().run()}>
-                      <Tooltip title={t("addColumn")} placement="top">
-                        <Box sx={{ position: "relative", display: "inline-flex" }}>
-                          <ViewColumnIcon sx={iconSx} />
-                          <Box component="span" sx={{ position: "absolute", right: -4, top: -4, fontSize: 10, fontWeight: "bold", lineHeight: 1 }}>+</Box>
-                        </Box>
-                      </Tooltip>
-                    </ToggleButton>
-                    <ToggleButton value="removeCol" aria-label={t("removeColumn")} sx={{ px: 0.5, py: 0.125 }} onClick={() => editor.chain().focus().deleteColumn().run()}>
-                      <Tooltip title={t("removeColumn")} placement="top">
-                        <Box sx={{ position: "relative", display: "inline-flex" }}>
-                          <ViewColumnIcon sx={iconSx} />
-                          <Box component="span" sx={{ position: "absolute", right: -4, top: -4, fontSize: 10, fontWeight: "bold", lineHeight: 1, color: "error.main" }}>×</Box>
-                        </Box>
-                      </Tooltip>
-                    </ToggleButton>
-                  </ToggleButtonGroup>
-
-                  {/* Row add/remove */}
-                  <ToggleButtonGroup size="small" sx={{ height: 24 }}>
-                    <ToggleButton value="addRow" aria-label={t("addRow")} sx={{ px: 0.5, py: 0.125 }} onClick={() => editor.chain().focus().addRowAfter().run()}>
-                      <Tooltip title={t("addRow")} placement="top">
-                        <Box sx={{ position: "relative", display: "inline-flex" }}>
-                          <TableRowsIcon sx={iconSx} />
-                          <Box component="span" sx={{ position: "absolute", right: -4, top: -4, fontSize: 10, fontWeight: "bold", lineHeight: 1 }}>+</Box>
-                        </Box>
-                      </Tooltip>
-                    </ToggleButton>
-                    <ToggleButton value="removeRow" aria-label={t("removeRow")} sx={{ px: 0.5, py: 0.125 }} onClick={() => editor.chain().focus().deleteRow().run()}>
-                      <Tooltip title={t("removeRow")} placement="top">
-                        <Box sx={{ position: "relative", display: "inline-flex" }}>
-                          <TableRowsIcon sx={iconSx} />
-                          <Box component="span" sx={{ position: "absolute", right: -4, top: -4, fontSize: 10, fontWeight: "bold", lineHeight: 1, color: "error.main" }}>×</Box>
-                        </Box>
-                      </Tooltip>
-                    </ToggleButton>
-                  </ToggleButtonGroup>
-
-                  {/* Alignment */}
-                  <ToggleButtonGroup
-                    exclusive
-                    size="small"
-                    sx={{ height: 24 }}
-                    onChange={(_e, val) => { if (val) editor.chain().focus().setCellAttribute("textAlign", val).run(); }}
-                  >
-                    <ToggleButton value="left" aria-label={t("alignLeft")} sx={{ px: 0.5, py: 0.125 }}>
-                      <Tooltip title={t("alignLeft")} placement="top">
-                        <FormatAlignLeftIcon sx={iconSx} />
-                      </Tooltip>
-                    </ToggleButton>
-                    <ToggleButton value="center" aria-label={t("alignCenter")} sx={{ px: 0.5, py: 0.125 }}>
-                      <Tooltip title={t("alignCenter")} placement="top">
-                        <FormatAlignCenterIcon sx={iconSx} />
-                      </Tooltip>
-                    </ToggleButton>
-                    <ToggleButton value="right" aria-label={t("alignRight")} sx={{ px: 0.5, py: 0.125 }}>
-                      <Tooltip title={t("alignRight")} placement="top">
-                        <FormatAlignRightIcon sx={iconSx} />
-                      </Tooltip>
-                    </ToggleButton>
-                  </ToggleButtonGroup>
-
-                  {/* Move row */}
-                  <ToggleButtonGroup size="small" sx={{ height: 24 }}>
-                    <ToggleButton value="rowUp" aria-label={t("moveRowUp")} sx={{ px: 0.5, py: 0.125 }} onClick={() => moveTableRow(editor, "up")}>
-                      <Tooltip title={t("moveRowUp")} placement="top">
-                        <MoveUpIcon sx={iconSx} />
-                      </Tooltip>
-                    </ToggleButton>
-                    <ToggleButton value="rowDown" aria-label={t("moveRowDown")} sx={{ px: 0.5, py: 0.125 }} onClick={() => moveTableRow(editor, "down")}>
-                      <Tooltip title={t("moveRowDown")} placement="top">
-                        <MoveDownIcon sx={iconSx} />
-                      </Tooltip>
-                    </ToggleButton>
-                  </ToggleButtonGroup>
-
-                  {/* Move column */}
-                  <ToggleButtonGroup size="small" sx={{ height: 24 }}>
-                    <ToggleButton value="colLeft" aria-label={t("moveColLeft")} sx={{ px: 0.5, py: 0.125 }} onClick={() => moveTableColumn(editor, "left")}>
-                      <Tooltip title={t("moveColLeft")} placement="top">
-                        <MoveUpIcon sx={{ ...iconSx, transform: "rotate(-90deg)" }} />
-                      </Tooltip>
-                    </ToggleButton>
-                    <ToggleButton value="colRight" aria-label={t("moveColRight")} sx={{ px: 0.5, py: 0.125 }} onClick={() => moveTableColumn(editor, "right")}>
-                      <Tooltip title={t("moveColRight")} placement="top">
-                        <MoveDownIcon sx={{ ...iconSx, transform: "rotate(-90deg)" }} />
-                      </Tooltip>
-                    </ToggleButton>
-                  </ToggleButtonGroup>
-                </>)}
-              </>}
-            />
+              </Box>
+            )}
           </Box>
         )}
 
