@@ -2,20 +2,20 @@
 
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
-import FullscreenIcon from "@mui/icons-material/Fullscreen";
+import EditIcon from "@mui/icons-material/Edit";
 import { Box, Divider, IconButton, Tooltip, Typography } from "@mui/material";
 import React from "react";
 
 interface BlockInlineToolbarProps {
   /** Block label (e.g. "Mermaid", "Math", "Table") */
   label: string;
-  /** Show fullscreen button */
+  /** Show edit (fullscreen) button */
   onFullscreen?: () => void;
   /** Show delete button */
   onDelete?: () => void;
   /** Whether code/content is collapsed */
   collapsed?: boolean;
-  /** Extra content between label and spacer */
+  /** Extra content between edit button and spacer */
   extra?: React.ReactNode;
   /** Translation function */
   t: (key: string) => string;
@@ -44,16 +44,16 @@ export function BlockInlineToolbar({
       >
         <DragIndicatorIcon sx={iconSx} />
       </Box>
-      {onFullscreen && !collapsed && (
-        <Tooltip title={t("fullscreen")} placement="top">
-          <IconButton size="small" sx={{ p: 0.25 }} onClick={onFullscreen} aria-label={t("fullscreen")}>
-            <FullscreenIcon sx={iconSx} />
-          </IconButton>
-        </Tooltip>
-      )}
       <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary", flexShrink: 0 }}>
         {label}
       </Typography>
+      {onFullscreen && !collapsed && (
+        <Tooltip title={t("edit")} placement="top">
+          <IconButton size="small" sx={{ p: 0.25 }} onClick={onFullscreen} aria-label={t("edit")}>
+            <EditIcon sx={iconSx} />
+          </IconButton>
+        </Tooltip>
+      )}
       {extra}
       <Box sx={{ flex: 1 }} />
       {onDelete && !collapsed && (<>
