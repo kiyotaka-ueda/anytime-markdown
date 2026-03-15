@@ -91,9 +91,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     let isApplyingWebviewEdit = false;
     let debounceTimer: ReturnType<typeof setTimeout> | undefined;
     let disposed = false;
-    // 初回ロード後の TipTap 正規化による contentChanged を無視するフラグ
-    // ユーザーが実際に編集するまでファイルへの書き戻しを抑制
-    let initialLoadComplete = false;
+    // 初回ロード後の TipTap 正規化による contentChanged を無視するタイムスタンプ
+    // ready 受信後 3 秒以内の最初の contentChanged をスキップ
+    let initialLoadTime = 0;
+    let initialNormalizationSkipped = false;
 
     const isLargeFile = () => document.getText().length > 100 * 1024;
 
@@ -198,6 +199,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     webviewPanel.webview.onDidReceiveMessage(async (message: { type: string; content?: string; active?: boolean; headings?: unknown[]; comments?: unknown[]; status?: { line: number; col: number; charCount: number; lineCount: number; lineEnding: string; encoding: string } }) => {
       switch (message.type) {
         case 'ready': {
+          initialLoadTime = Date.now();
+          initialNormalizationSkipped = false;
           updateWebview();
           sendSettings();
           sendTheme();
@@ -244,9 +247,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           // POSIX 準拠: テキストファイルは末尾改行で終わる
           if (newContent && !newContent.endsWith("\n")) { newContent += "\n"; }
           if (newContent === document.getText()) { return; }
-          // 初回ロード後の TipTap 正規化による変更を無視（書き戻しはしない）
-          if (!initialLoadComplete) {
-            initialLoadComplete = true;
+          // 初回ロード後 3 秒以内の最初の contentChanged は TipTap 正規化として無視
+          if (!initialNormalizationSkipped && Date.now() - initialLoadTime < 3000) {
+            initialNormalizationSkipped = true;
             const fileName = path.basename(document.uri.fsPath);
             vscode.window.showInformationMessage(
               `${fileName}: 保存時にフォーマット整形が行われます`
