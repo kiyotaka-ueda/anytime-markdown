@@ -96,6 +96,8 @@ interface MarkdownEditorPageProps {
   onStatusChange?: (status: { line: number; col: number; charCount: number; lineCount: number; lineEnding: string; encoding: string }) => void;
   /** ファイル再読込コールバック（VS Code 拡張用） */
   onReload?: () => void;
+  /** 初期表示をソースモードにする */
+  defaultSourceMode?: boolean;
   showReadonlyMode?: boolean;
   /** 外部から比較モードの右パネルにコンテンツをロード */
   externalCompareContent?: string | null;
@@ -105,7 +107,7 @@ interface MarkdownEditorPageProps {
   onToggleExplorer?: () => void;
 }
 
-export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideVersionInfo, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, externalContent, externalFileName, externalFilePath: _externalFilePath, onExternalSave, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, onReload, showReadonlyMode, externalCompareContent, explorerOpen, onToggleExplorer }: MarkdownEditorPageProps = {}) {
+export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideVersionInfo, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, externalContent, externalFileName, externalFilePath: _externalFilePath, onExternalSave, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, onReload, defaultSourceMode, showReadonlyMode, externalCompareContent, explorerOpen, onToggleExplorer }: MarkdownEditorPageProps = {}) {
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
   const muiTheme = useTheme();
@@ -180,7 +182,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     sourceMode, readonlyMode: _readonlyMode, reviewMode, sourceText, setSourceText, liveMessage, setLiveMessage,
     handleSwitchToSource, handleSwitchToWysiwyg, handleSwitchToReview, handleSwitchToReadonly,
     executeInReviewMode, handleSourceChange, appendToSource,
-  } = useSourceMode({ editor, saveContent, t, frontmatterRef });
+  } = useSourceMode({ editor, saveContent, t, frontmatterRef, defaultSourceMode });
   // readOnly prop が true の場合は常に readonlyMode を強制
   const readonlyMode = readOnly || _readonlyMode;
 

@@ -12,10 +12,12 @@ interface UseSourceModeParams {
   saveContent: (md: string, withFrontmatter?: boolean) => void;
   t: (key: string) => string;
   frontmatterRef: React.MutableRefObject<string | null>;
+  defaultSourceMode?: boolean;
 }
 
-export function useSourceMode({ editor, saveContent, t, frontmatterRef }: UseSourceModeParams) {
+export function useSourceMode({ editor, saveContent, t, frontmatterRef, defaultSourceMode }: UseSourceModeParams) {
   const [sourceMode, setSourceMode] = useState(() => {
+    if (defaultSourceMode !== undefined) return defaultSourceMode;
     try {
       return localStorage.getItem(STORAGE_KEY_SOURCE_MODE) === "true";
     } catch {
