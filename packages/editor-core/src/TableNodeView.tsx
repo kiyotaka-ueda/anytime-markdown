@@ -17,6 +17,7 @@ import { NodeViewContent, NodeViewWrapper } from "@tiptap/react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
+import { BlockInlineToolbar } from "./components/codeblock/BlockInlineToolbar";
 import { DeleteBlockDialog } from "./components/codeblock/DeleteBlockDialog";
 import { SearchReplaceBar } from "./components/SearchReplaceBar";
 import { useDeleteBlock } from "./hooks/useDeleteBlock";
@@ -195,43 +196,13 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
 
         {/* Inline toolbar (non-fullscreen) */}
         {!fullscreen && isEditable && (
-          <Box
-            data-block-toolbar=""
-            role="toolbar"
-            aria-label={t("tableToolbar")}
-            sx={{ bgcolor: "action.hover", px: 0.75, py: 0.25, display: "flex", alignItems: "center", gap: 0.25 }}
-            contentEditable={false}
-          >
-            <Box
-              data-drag-handle=""
-              role="button"
-              tabIndex={0}
-              aria-roledescription="drag"
-              aria-label={t("dragHandle")}
-              sx={{ cursor: "grab", display: "flex", alignItems: "center", opacity: 0.7, "&:hover, &:focus-visible": { opacity: 1 }, "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", borderRadius: 0.5 } }}
-            >
-              <DragIndicatorIcon sx={iconSx} />
-            </Box>
-            {!collapsed && (
-              <Tooltip title={t("fullscreen")} placement="top">
-                <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setFullscreen(true)} aria-label={t("fullscreen")}>
-                  <FullscreenIcon sx={iconSx} />
-                </IconButton>
-              </Tooltip>
-            )}
-            <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary", mr: 0.5 }}>
-              {t("tableLabel")}
-            </Typography>
-            <Box sx={{ flex: 1 }} />
-            {!collapsed && isEditable && (<>
-              <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
-              <Tooltip title={t("deleteTable")} placement="top">
-                <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setDeleteDialogOpen(true)} aria-label={t("deleteTable")}>
-                  <DeleteOutlineIcon sx={iconSx} />
-                </IconButton>
-              </Tooltip>
-            </>)}
-          </Box>
+          <BlockInlineToolbar
+            label={t("tableLabel")}
+            onFullscreen={!collapsed ? () => setFullscreen(true) : undefined}
+            onDelete={!collapsed ? () => setDeleteDialogOpen(true) : undefined}
+            collapsed={collapsed}
+            t={t}
+          />
         )}
 
         {/* Table body (single instance, shared between inline and fullscreen) */}

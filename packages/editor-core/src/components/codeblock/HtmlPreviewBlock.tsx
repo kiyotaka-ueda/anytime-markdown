@@ -1,16 +1,14 @@
 "use client";
 
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
-import FullscreenIcon from "@mui/icons-material/Fullscreen";
-import { Box, Divider, IconButton, Tooltip, Typography } from "@mui/material";
+import { Box, IconButton, Tooltip } from "@mui/material";
 import DOMPurify from "dompurify";
 
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../../constants/colors";
 import { PREVIEW_MAX_HEIGHT } from "../../constants/dimensions";
 import htmlSamples from "../../constants/htmlSamples.json";
 import { CodeBlockFullscreenDialog } from "../CodeBlockFullscreenDialog";
+import { BlockInlineToolbar } from "./BlockInlineToolbar";
 import { CodeBlockFrame } from "./CodeBlockFrame";
 import type { CodeBlockSharedProps } from "./types";
 import { HTML_SANITIZE_CONFIG } from "./types";
@@ -39,37 +37,12 @@ export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
   } = props;
 
   const toolbar = (
-    <Box
-      data-block-toolbar=""
-      sx={{ bgcolor: "action.hover", px: 0.75, py: 0.25, display: "flex", alignItems: "center", gap: 0.25 }}
-      contentEditable={false}
-    >
-      <Box
-        data-drag-handle=""
-        role="button"
-        tabIndex={0}
-        aria-roledescription="draggable item"
-        aria-label={t("dragHandle")}
-        sx={{ cursor: "grab", display: "flex", alignItems: "center", opacity: 0.7, "&:hover, &:focus-visible": { opacity: 1 }, "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", borderRadius: 0.5 } }}
-      >
-        <DragIndicatorIcon sx={{ fontSize: 16, color: "text.secondary" }} />
-      </Box>
-      <Tooltip title={t("fullscreen")} placement="top">
-        <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setFullscreen(true)} aria-label={t("fullscreen")}>
-          <FullscreenIcon sx={{ fontSize: 16, color: "text.secondary" }} />
-        </IconButton>
-      </Tooltip>
-      <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary" }}>
-        {t("htmlPreview")}
-      </Typography>
-      <Box sx={{ flex: 1 }} />
-      <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
-      <Tooltip title={t("delete")} placement="top">
-        <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setDeleteDialogOpen(true)} aria-label={t("delete")}>
-          <DeleteOutlineIcon sx={{ fontSize: 16 }} />
-        </IconButton>
-      </Tooltip>
-    </Box>
+    <BlockInlineToolbar
+      label={t("htmlPreview")}
+      onFullscreen={() => setFullscreen(true)}
+      onDelete={() => setDeleteDialogOpen(true)}
+      t={t}
+    />
   );
 
   return (

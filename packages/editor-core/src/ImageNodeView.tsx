@@ -1,11 +1,8 @@
 "use client";
 
 import CloseIcon from "@mui/icons-material/Close";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import EditIcon from "@mui/icons-material/Edit";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
-import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import { Box, Dialog, DialogTitle, Divider, IconButton, Tooltip, Typography, useTheme } from "@mui/material";
 import type { NodeViewProps } from "@tiptap/react";
@@ -13,6 +10,7 @@ import { NodeViewWrapper } from "@tiptap/react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect,useRef, useState } from "react";
 
+import { BlockInlineToolbar } from "./components/codeblock/BlockInlineToolbar";
 import { DeleteBlockDialog } from "./components/codeblock/DeleteBlockDialog";
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, getFullscreenBg } from "./constants/colors";
 import { useDeleteBlock } from "./hooks/useDeleteBlock";
@@ -191,74 +189,36 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
           }),
         }}
       >
-        {isEditable && <Box
-          data-block-toolbar=""
-          role="toolbar"
-          aria-label={t("imageToolbar")}
-          sx={{ bgcolor: "action.hover", px: 0.75, py: 0.25, display: "flex", alignItems: "center", gap: 0.25 }}
-          contentEditable={false}
-        >
-          <Box
-            data-drag-handle=""
-            role="button"
-            tabIndex={0}
-            aria-roledescription="drag"
-            aria-label={t("dragHandle")}
-            sx={{ cursor: "grab", display: "flex", alignItems: "center", opacity: 0.7, "&:hover, &:focus-visible": { opacity: 1 }, "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", borderRadius: 0.5 } }}
-          >
-            <DragIndicatorIcon sx={iconSx} />
-          </Box>
-          {!collapsed && (
-            <Tooltip title={t("fullscreen")} placement="top">
-              <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setFullscreen(true)} aria-label={t("fullscreen")}>
-                <FullscreenIcon sx={iconSx} />
-              </IconButton>
-            </Tooltip>
-          )}
-          <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary", flexShrink: 0 }}>
-            {t("image")}
-          </Typography>
-          <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
-          {alt ? (
-            <Typography
-              variant="caption"
-              sx={{ color: "text.secondary", fontSize: "0.65rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flexShrink: 1 }}
-            >
-              {alt}
-            </Typography>
-          ) : (
-            <Tooltip title={t("imageNoAltWarning")} placement="top">
-              <WarningAmberIcon sx={{ fontSize: 14, color: "warning.main" }} />
-            </Tooltip>
-          )}
-          <Typography
-            variant="caption"
-            sx={{ color: "text.disabled", fontSize: "0.65rem", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}
-          >
-            {src?.startsWith("data:") ? "(base64)" : src ? `(${src})` : ""}
-          </Typography>
-          {imgError && (
-            <Typography variant="caption" sx={{ color: "error.main", fontSize: "0.65rem", fontWeight: 600, flexShrink: 0, display: "flex", alignItems: "center", gap: 0.25 }}>
-              <ErrorOutlineIcon sx={{ fontSize: 14 }} />
-              {t("imageNotFound")}
-            </Typography>
-          )}
-          <Box sx={{ flex: 1 }} />
-          {imgSize && !collapsed && (<>
-            <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
-            <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.65rem", fontFamily: "monospace", whiteSpace: "nowrap", flexShrink: 0 }}>
-              {imgSize.w}×{imgSize.h} / {t("imageOriginalSize")} {imgSize.nw}×{imgSize.nh}
-            </Typography>
-          </>)}
-          {!collapsed && (<>
-            <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
-            <Tooltip title={t("delete")} placement="top">
-              <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setDeleteDialogOpen(true)} aria-label={t("delete")}>
-                <DeleteOutlineIcon sx={iconSx} />
-              </IconButton>
-            </Tooltip>
-          </>)}
-        </Box>}
+        {isEditable && (
+          <BlockInlineToolbar
+            label={t("image")}
+            onFullscreen={!collapsed ? () => setFullscreen(true) : undefined}
+            onDelete={!collapsed ? () => setDeleteDialogOpen(true) : undefined}
+            collapsed={collapsed}
+            extra={<>
+              <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
+              {alt ? (
+                <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.65rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flexShrink: 1 }}>
+                  {alt}
+                </Typography>
+              ) : (
+                <Tooltip title={t("imageNoAltWarning")} placement="top">
+                  <WarningAmberIcon sx={{ fontSize: 14, color: "warning.main" }} />
+                </Tooltip>
+              )}
+              <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.65rem", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+                {src?.startsWith("data:") ? "(base64)" : src ? `(${src})` : ""}
+              </Typography>
+              {imgError && (
+                <Typography variant="caption" sx={{ color: "error.main", fontSize: "0.65rem", fontWeight: 600, flexShrink: 0, display: "flex", alignItems: "center", gap: 0.25 }}>
+                  <ErrorOutlineIcon sx={{ fontSize: 14 }} />
+                  {t("imageNotFound")}
+                </Typography>
+              )}
+            </>}
+            t={t}
+          />
+        )}
         {/* Image with resize handle */}
         {!collapsed && imgError && (
           <Box contentEditable={false} sx={{ height: "2em", borderTop: 1, borderColor: "divider", bgcolor: "action.hover" }} />

@@ -1,10 +1,6 @@
 "use client";
 
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
-import FullscreenIcon from "@mui/icons-material/Fullscreen";
-import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import { Alert, Box, Button, Divider, IconButton, Tooltip, Typography } from "@mui/material";
 import DOMPurify from "dompurify";
@@ -20,6 +16,7 @@ import { useEditorSettingsContext } from "../../useEditorSettings";
 import { extractDiagramAltText } from "../../utils/diagramAltText";
 import { MermaidFullscreenDialog } from "../MermaidFullscreenDialog";
 import { PlantUmlFullscreenDialog } from "../PlantUmlFullscreenDialog";
+import { BlockInlineToolbar } from "./BlockInlineToolbar";
 import { CodeBlockFrame } from "./CodeBlockFrame";
 import type { CodeBlockSharedProps } from "./types";
 
@@ -100,60 +97,18 @@ export function DiagramBlock(props: DiagramBlockProps) {
   const label = isMermaid ? t("mermaid") : t("plantuml");
 
   const toolbar = (
-    <Box
-      data-block-toolbar=""
-      sx={{ bgcolor: "action.hover", px: 0.75, py: 0.25, display: "flex", alignItems: "center", gap: 0.25 }}
-      contentEditable={false}
-    >
-      {!fullscreen && isEditable && (
-        <Box
-          data-drag-handle=""
-          role="button"
-          tabIndex={0}
-          aria-roledescription="draggable item"
-          aria-label={t("dragHandle")}
-          sx={{ cursor: "grab", display: "flex", alignItems: "center", opacity: 0.7, "&:hover, &:focus-visible": { opacity: 1 }, "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", borderRadius: 0.5 } }}
-        >
-          <DragIndicatorIcon sx={{ fontSize: 16, color: "text.secondary" }} />
-        </Box>
-      )}
-      {(svg || plantUmlUrl) && (
-        <Tooltip title={fullscreen ? t("close") : t("fullscreen")} placement="top">
-          <IconButton
-            size="small"
-            onClick={() => { if (fullscreen) { fsSearch.reset(); setFullscreen(false); } else { fsZP.reset(); setFullscreen(true); } }}
-            sx={{ p: 0.25 }}
-            aria-label={fullscreen ? t("close") : t("fullscreen")}
-          >
-            {fullscreen ? <FullscreenExitIcon sx={{ fontSize: 16, color: "text.secondary" }} /> : <FullscreenIcon sx={{ fontSize: 16, color: "text.secondary" }} />}
-          </IconButton>
-        </Tooltip>
-      )}
-      <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary", mr: 0.5 }}>
-        {label}
-      </Typography>
-      <Box sx={{ flex: 1 }} />
-      {diagramSize && (<>
+    <BlockInlineToolbar
+      label={label}
+      onFullscreen={(svg || plantUmlUrl) ? () => { fsZP.reset(); setFullscreen(true); } : undefined}
+      onDelete={isEditable ? () => setDeleteDialogOpen(true) : undefined}
+      extra={diagramSize ? (<>
         <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
         <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.65rem", fontFamily: "monospace", whiteSpace: "nowrap", flexShrink: 0 }}>
           {diagramSize.w}&times;{diagramSize.h}
         </Typography>
-      </>)}
-      {isEditable && isMermaid && (
-        <Tooltip title={t("delete")} placement="top">
-          <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setDeleteDialogOpen(true)} aria-label={t("delete")}>
-            <DeleteOutlineIcon sx={pumlIconSx} />
-          </IconButton>
-        </Tooltip>
-      )}
-      {isEditable && isPlantUml && (
-        <Tooltip title={t("delete")} placement="top">
-          <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setDeleteDialogOpen(true)} aria-label={t("delete")}>
-            <DeleteOutlineIcon sx={pumlIconSx} />
-          </IconButton>
-        </Tooltip>
-      )}
-    </Box>
+      </>) : undefined}
+      t={t}
+    />
   );
 
   // --- Resize ---

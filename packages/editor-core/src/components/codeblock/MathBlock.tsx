@@ -1,10 +1,7 @@
 "use client";
 
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
-import FullscreenIcon from "@mui/icons-material/Fullscreen";
-import { Alert, Box, Divider, IconButton, Tooltip, Typography } from "@mui/material";
+import { Alert, Box, IconButton, Tooltip } from "@mui/material";
 import DOMPurify from "dompurify";
 import { useCallback, useRef, useState } from "react";
 
@@ -13,6 +10,7 @@ import { PREVIEW_MAX_HEIGHT } from "../../constants/dimensions";
 import { useBlockMergeCompare } from "../../hooks/useBlockMergeCompare";
 import { MATH_SANITIZE_CONFIG,useKatexRender } from "../../hooks/useKatexRender";
 import { MathFullscreenDialog } from "../MathFullscreenDialog";
+import { BlockInlineToolbar } from "./BlockInlineToolbar";
 import { CodeBlockFrame } from "./CodeBlockFrame";
 import type { CodeBlockSharedProps } from "./types";
 
@@ -83,37 +81,12 @@ export function MathBlock(props: MathBlockProps) {
   });
 
   const toolbar = (
-    <Box
-      data-block-toolbar=""
-      sx={{ bgcolor: "action.hover", px: 0.75, py: 0.25, display: "flex", alignItems: "center", gap: 0.25 }}
-      contentEditable={false}
-    >
-      <Box
-        data-drag-handle=""
-        role="button"
-        tabIndex={0}
-        aria-roledescription="draggable item"
-        aria-label={t("dragHandle")}
-        sx={{ cursor: "grab", display: "flex", alignItems: "center", opacity: 0.7, "&:hover, &:focus-visible": { opacity: 1 }, "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", borderRadius: 0.5 } }}
-      >
-        <DragIndicatorIcon sx={{ fontSize: 16, color: "text.secondary" }} />
-      </Box>
-      <Tooltip title={t("fullscreen")} placement="top">
-        <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setFullscreen(true)} aria-label={t("fullscreen")}>
-          <FullscreenIcon sx={{ fontSize: 16, color: "text.secondary" }} />
-        </IconButton>
-      </Tooltip>
-      <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary" }}>
-        Math
-      </Typography>
-      <Box sx={{ flex: 1 }} />
-      <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
-      <Tooltip title={t("delete")} placement="top">
-        <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setDeleteDialogOpen(true)} aria-label={t("delete")}>
-          <DeleteOutlineIcon sx={{ fontSize: 16 }} />
-        </IconButton>
-      </Tooltip>
-    </Box>
+    <BlockInlineToolbar
+      label="Math"
+      onFullscreen={() => setFullscreen(true)}
+      onDelete={() => setDeleteDialogOpen(true)}
+      t={t}
+    />
   );
 
   return (
