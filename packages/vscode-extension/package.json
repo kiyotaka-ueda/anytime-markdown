@@ -42,6 +42,10 @@
           "name": "%view.specDocs%"
         },
         {
+          "id": "anytimeMarkdown.changes",
+          "name": "%view.changes%"
+        },
+        {
           "id": "anytimeMarkdown.gitHistory",
           "name": "Git History"
         }
@@ -52,6 +56,10 @@
         "view": "anytimeMarkdown.specDocs",
         "contents": "%viewsWelcome.specDocs%",
         "when": "!anytimeMarkdown.specDocsHasRoot"
+      },
+      {
+        "view": "anytimeMarkdown.changes",
+        "contents": "%viewsWelcome.changes%"
       },
       {
         "view": "anytimeMarkdown.gitHistory",
@@ -102,6 +110,26 @@
         "command": "anytime-markdown.toggleMdOnly",
         "title": "%command.toggleMdOnly%",
         "icon": "$(filter)"
+      },
+      {
+        "command": "anytime-markdown.changesRefresh",
+        "title": "%command.changesRefresh%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "anytime-markdown.stageFile",
+        "title": "%command.stageFile%",
+        "icon": "$(add)"
+      },
+      {
+        "command": "anytime-markdown.unstageFile",
+        "title": "%command.unstageFile%",
+        "icon": "$(remove)"
+      },
+      {
+        "command": "anytime-markdown.discardChanges",
+        "title": "%command.discardChanges%",
+        "icon": "$(discard)"
       }
     ],
     "customEditors": [
@@ -154,6 +182,28 @@
           "command": "anytime-markdown.specDocsClose",
           "when": "view == anytimeMarkdown.specDocs && anytimeMarkdown.specDocsHasRoot",
           "group": "navigation@3"
+        },
+        {
+          "command": "anytime-markdown.changesRefresh",
+          "when": "view == anytimeMarkdown.changes",
+          "group": "navigation@1"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "anytime-markdown.stageFile",
+          "when": "view == anytimeMarkdown.changes && viewItem == changesFileUnstaged",
+          "group": "inline@2"
+        },
+        {
+          "command": "anytime-markdown.discardChanges",
+          "when": "view == anytimeMarkdown.changes && viewItem == changesFileUnstaged",
+          "group": "inline@1"
+        },
+        {
+          "command": "anytime-markdown.unstageFile",
+          "when": "view == anytimeMarkdown.changes && viewItem == changesFileStaged",
+          "group": "inline@1"
         }
       ],
       "explorer/context": [

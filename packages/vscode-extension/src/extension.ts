@@ -1,10 +1,17 @@
 import * as vscode from 'vscode';
 import { MarkdownEditorProvider } from './providers/MarkdownEditorProvider';
 import { GitHistoryProvider, GitHistoryItem } from './providers/GitHistoryProvider';
+import { ChangesProvider, ChangesFileItem } from './providers/ChangesProvider';
 import { SpecDocsProvider } from './providers/SpecDocsProvider';
 
 export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(MarkdownEditorProvider.register(context));
+
+	// Git 変更パネル
+	const changesProvider = new ChangesProvider();
+	const changesTreeView = vscode.window.createTreeView('anytimeMarkdown.changes', {
+		treeDataProvider: changesProvider,
+	});
 
 	// Git 履歴パネル
 	const gitHistoryProvider = new GitHistoryProvider();
@@ -173,11 +180,32 @@ export function activate(context: vscode.ExtensionContext) {
 		'anytime-markdown.toggleMdOnly', () => specDocsProvider.toggleMdOnly()
 	);
 
+	// Git 変更コマンド
+	const changesRefresh = vscode.commands.registerCommand(
+		'anytime-markdown.changesRefresh', () => changesProvider.refresh()
+	);
+	const stageFile = vscode.commands.registerCommand(
+		'anytime-markdown.stageFile', (item: ChangesFileItem) => changesProvider.stageFile(item)
+	);
+	const unstageFile = vscode.commands.registerCommand(
+		'anytime-markdown.unstageFile', (item: ChangesFileItem) => changesProvider.unstageFile(item)
+	);
+	const discardChanges = vscode.commands.registerCommand(
+		'anytime-markdown.discardChanges', (item: ChangesFileItem) => changesProvider.discardChanges(item)
+	);
+
+	// ファイル保存時にリフレッシュ
 	context.subscriptions.push(
-		gitTreeView, specDocsTreeView,
+		vscode.workspace.onDidSaveTextDocument(() => changesProvider.refresh()),
+	);
+
+	context.subscriptions.push(
+		changesTreeView, gitTreeView, specDocsTreeView,
+		{ dispose: () => changesProvider.dispose() },
 		...statusBarItems,
 		openEditorWithFile, compareCmd, compareWithCommit,
 		insertSectionNumbers, removeSectionNumbers,
+		changesRefresh, stageFile, unstageFile, discardChanges,
 		specDocsOpenFolder, specDocsCloneRepo, specDocsClose, specDocsRefresh, toggleMdOnly,
 	);
 }

@@ -16,5 +16,11 @@
   "command.specDocsCloneRepo": "Clone Repository",
   "command.specDocsClose": "Close Folder",
   "command.specDocsRefresh": "Refresh",
-  "command.toggleMdOnly": "Toggle Markdown Only Filter"
+  "command.toggleMdOnly": "Toggle Markdown Only Filter",
+  "view.changes": "Changes",
+  "viewsWelcome.changes": "No changes detected.",
+  "command.changesRefresh": "Refresh Changes",
+  "command.stageFile": "Stage Changes",
+  "command.unstageFile": "Unstage Changes",
+  "command.discardChanges": "Discard Changes"
 }
