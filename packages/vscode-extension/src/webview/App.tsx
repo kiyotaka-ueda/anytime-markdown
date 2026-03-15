@@ -8,6 +8,9 @@ import MarkdownEditorPage from '@anytime-markdown/editor-core/src/MarkdownEditor
 
 const vscode = getVsCodeApi();
 
+// スクロール同期の無限ループ防止フラグ
+let isSyncingScroll = false;
+
 // localStorage bridge: intercept content key to sync with VS Code
 const CONTENT_KEY = STORAGE_KEY_CONTENT;
 let currentContent: string | null = null;
@@ -67,6 +70,16 @@ export function App() {
       }
       if (message?.type === 'loadCompareFile' && typeof message.content === 'string') {
         window.dispatchEvent(new CustomEvent('vscode-load-compare-file', { detail: message.content }));
+        return;
+      }
+      if (message?.type === 'syncScroll' && typeof message.ratio === 'number') {
+        // 他パネルからのスクロール同期（無限ループ防止フラグ付き）
+        isSyncingScroll = true;
+        const el = document.querySelector('textarea') ?? document.querySelector('.tiptap');
+        if (el) {
+          el.scrollTop = message.ratio * (el.scrollHeight - el.clientHeight);
+        }
+        requestAnimationFrame(() => { isSyncingScroll = false; });
         return;
       }
       // externalChange は VS Code 通知で処理するため webview では不要
@@ -155,6 +168,22 @@ export function App() {
 
   const handleReload = useCallback(() => {
     vscode.postMessage({ type: 'requestReload' });
+  }, []);
+
+  // スクロール同期: スクロール位置を extension host に送信
+  useEffect(() => {
+    const handler = () => {
+      if (isSyncingScroll) return;
+      const el = document.querySelector('textarea') ?? document.querySelector('.tiptap');
+      if (!el) return;
+      const maxScroll = el.scrollHeight - el.clientHeight;
+      if (maxScroll <= 0) return;
+      const ratio = el.scrollTop / maxScroll;
+      vscode.postMessage({ type: 'scrollChanged', ratio });
+    };
+    // capture で textarea と tiptap の両方を捕捉
+    document.addEventListener('scroll', handler, true);
+    return () => document.removeEventListener('scroll', handler, true);
   }, []);
 
   useEffect(() => {

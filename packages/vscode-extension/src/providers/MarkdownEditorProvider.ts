@@ -214,6 +214,17 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           break;
         }
 
+        case 'scrollChanged': {
+          // 自分以外の全パネルにスクロール位置を中継
+          const ratio = (message as { type: string; ratio: number }).ratio;
+          for (const [, panel] of this.panels) {
+            if (panel !== webviewPanel) {
+              panel.webview.postMessage({ type: 'syncScroll', ratio });
+            }
+          }
+          break;
+        }
+
         case 'compareModeChanged':
           this.compareModeActive = !!message.active;
           vscode.commands.executeCommand('setContext', 'anytimeMarkdown.compareModeActive', this.compareModeActive);
