@@ -244,22 +244,8 @@ export function App() {
       }}>
         {logoUri && <img src={logoUri} alt="Anytime Markdown" style={{ width: 64, height: 64, opacity: 0.8 }} />}
         <div style={{ fontSize: '14px', textAlign: 'center', lineHeight: 1.6 }}>
-          Anytime Markdown Editor
+          差分は、SidebarのAnytime Markdownの<br />git historyで確認してください。
         </div>
-        <button
-          onClick={() => setLanding(false)}
-          style={{
-            padding: '8px 24px',
-            fontSize: '13px',
-            cursor: 'pointer',
-            border: 'none',
-            borderRadius: '4px',
-            backgroundColor: isDark ? '#0e639c' : '#007acc',
-            color: '#ffffff',
-          }}
-        >
-          Anytime Markdown で編集
-        </button>
       </div>
     );
   }
