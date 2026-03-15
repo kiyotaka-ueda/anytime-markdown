@@ -54,6 +54,7 @@ try {
 
 export function App() {
   const [ready, setReady] = useState(false);
+  const [landing, setLanding] = useState(true);
   const [themeMode, setThemeMode] = useState<PaletteMode>('dark');
   const [editorKey, setEditorKey] = useState(0);
   const [compareContent, setCompareContent] = useState<string | null>(null);
@@ -221,6 +222,43 @@ export function App() {
   }, []);
 
   if (!ready) return null;
+
+  if (landing) {
+    const isDark = themeMode === 'dark';
+    const logoUri = (window as unknown as { __LOGO_URI__?: string }).__LOGO_URI__;
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        backgroundColor: isDark ? '#1e1e1e' : '#ffffff',
+        color: isDark ? '#cccccc' : '#333333',
+        fontFamily: 'var(--vscode-font-family, sans-serif)',
+        gap: '24px',
+      }}>
+        {logoUri && <img src={logoUri} alt="Anytime Markdown" style={{ width: 64, height: 64, opacity: 0.8 }} />}
+        <div style={{ fontSize: '14px', textAlign: 'center', lineHeight: 1.6 }}>
+          Anytime Markdown Editor
+        </div>
+        <button
+          onClick={() => setLanding(false)}
+          style={{
+            padding: '8px 24px',
+            fontSize: '13px',
+            cursor: 'pointer',
+            border: 'none',
+            borderRadius: '4px',
+            backgroundColor: isDark ? '#0e639c' : '#007acc',
+            color: '#ffffff',
+          }}
+        >
+          Anytime Markdown で編集
+        </button>
+      </div>
+    );
+  }
 
   return (
     <ThemeProvider theme={theme}>
