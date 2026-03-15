@@ -1,5 +1,5 @@
 import { Box, Divider, useMediaQuery, useTheme } from "@mui/material";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import { FS_CODE_INITIAL_WIDTH, FS_CODE_MIN_WIDTH } from "../constants/dimensions";
 import { SPLITTER_SX } from "../constants/uiPatterns";
@@ -7,6 +7,8 @@ import { SPLITTER_SX } from "../constants/uiPatterns";
 interface DraggableSplitLayoutProps {
   /** Initial code panel width in px (default: FS_CODE_INITIAL_WIDTH) */
   initialWidth?: number;
+  /** Initial code panel width as percentage of container (overrides initialWidth on mount) */
+  initialPercent?: number;
   /** Left panel content (code editor) */
   left: React.ReactNode;
   /** Right panel content (preview) */
@@ -23,7 +25,7 @@ interface DraggableSplitLayoutProps {
  * 編集ダイアログのコード / プレビュー分割に使用。
  */
 export function DraggableSplitLayout({
-  initialWidth, left, right, onPointerMove, onPointerUp, t,
+  initialWidth, initialPercent, left, right, onPointerMove, onPointerUp, t,
 }: DraggableSplitLayoutProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -31,6 +33,17 @@ export function DraggableSplitLayout({
   const [splitPx, setSplitPx] = useState(initialWidth ?? FS_CODE_INITIAL_WIDTH);
   const [dragging, setDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Set initial split as percentage of container width
+  useEffect(() => {
+    if (initialPercent == null) return;
+    requestAnimationFrame(() => {
+      if (containerRef.current) {
+        const w = containerRef.current.getBoundingClientRect().width;
+        if (w > 0) setSplitPx(Math.round(w * initialPercent / 100));
+      }
+    });
+  }, [initialPercent]);
 
   return (
     <Box
