@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /anytime-markdown/
+WORKDIR /anytime-markdown-docs/
 
 COPY ./package.json ./
 RUN npm install
@@ -35,6 +36,7 @@ RUN mkdir -p /home/node/.ssh /home/node/.claude && \
 
 # 作業ディレクトリの権限をnodeユーザーに変更
 RUN chown -R node:node /anytime-markdown
+RUN chown -R node:node /anytime-markdown-docs
 
 USER node
 
