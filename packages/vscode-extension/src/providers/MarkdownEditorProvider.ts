@@ -362,10 +362,6 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           break;
         }
 
-        case 'openWithTextEditor':
-          vscode.commands.executeCommand('vscode.openWith', document.uri, 'default');
-          break;
-
         case 'requestReload':
           try {
             const bytes = await vscode.workspace.fs.readFile(document.uri);
