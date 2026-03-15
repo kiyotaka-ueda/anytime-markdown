@@ -153,7 +153,7 @@ export function EditorToolbarSection({
         hide={{
           fileOps: readOnly || hide?.fileOps,
           undoRedo: readOnly || hide?.undoRedo,
-          moreMenu: (readOnly || hide?.help) && (readOnly || hide?.versionInfo) && (readOnly || hide?.settings),
+          moreMenu: (readOnly || hide?.versionInfo) && (readOnly || hide?.settings),
           modeToggle: readOnly,
           readonlyToggle: hide?.readonlyToggle,
           outline: hide?.outline,

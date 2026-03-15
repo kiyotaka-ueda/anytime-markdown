@@ -280,7 +280,6 @@
     "versionLicense": "MIT License",
     "cursorLine": "Ln",
     "cursorCol": "Col",
-    "helpPage": "Keyboard Shortcuts",
     "helpBasicOps": "Basic Operations",
     "helpBasicOpsDesc": "The editor supports two modes and various file operations.",
     "helpBasicOpsWysiwyg": "Edit mode: Edit with rich-text formatting and real-time preview.",

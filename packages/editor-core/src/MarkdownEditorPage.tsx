@@ -69,7 +69,6 @@ interface MarkdownEditorPageProps {
   hideFileOps?: boolean;
   hideUndoRedo?: boolean;
   hideSettings?: boolean;
-  hideHelp?: boolean;
   hideVersionInfo?: boolean;
   onCompareModeChange?: (active: boolean) => void;
   onHeadingsChange?: (headings: HeadingItem[]) => void;
@@ -102,7 +101,7 @@ interface MarkdownEditorPageProps {
   onToggleExplorer?: () => void;
 }
 
-export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, externalContent, externalFileName, externalFilePath: _externalFilePath, onExternalSave, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, showReadonlyMode, externalCompareContent, explorerOpen, onToggleExplorer }: MarkdownEditorPageProps = {}) {
+export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideVersionInfo, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, externalContent, externalFileName, externalFilePath: _externalFilePath, onExternalSave, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, showReadonlyMode, externalCompareContent, explorerOpen, onToggleExplorer }: MarkdownEditorPageProps = {}) {
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
   const muiTheme = useTheme();
@@ -204,7 +203,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     handleLink, handleLinkInsert, imageDialogOpen, setImageDialogOpen,
     imageUrl, setImageUrl, imageAlt, setImageAlt, imageEditPos,
     handleImage, handleImageInsert, shortcutDialogOpen, setShortcutDialogOpen,
-    versionDialogOpen, setVersionDialogOpen, helpDialogOpen, setHelpDialogOpen,
+    versionDialogOpen, setVersionDialogOpen,
   } = useEditorDialogs({ editor, sourceMode, appendToSource });
 
   const {
@@ -348,7 +347,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
           outline: hideOutline, comments: hideComments,
           templates: hideTemplates, foldAll: hideFoldAll,
           fileOps: hideFileOps, undoRedo: hideUndoRedo,
-          help: hideHelp, versionInfo: hideVersionInfo,
+          versionInfo: hideVersionInfo,
           settings: hideSettings, toolbar: hideToolbar,
           readonlyToggle: !showReadonlyMode,
         }}
@@ -371,7 +370,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         handleImageInsert={handleImageInsert} imageEditMode={imageEditPos !== null}
         shortcutDialogOpen={shortcutDialogOpen} setShortcutDialogOpen={setShortcutDialogOpen}
         versionDialogOpen={versionDialogOpen} setVersionDialogOpen={setVersionDialogOpen}
-        helpDialogOpen={helpDialogOpen} setHelpDialogOpen={setHelpDialogOpen} locale={locale}
+        locale={locale}
         hideSettings={hideSettings} settingsOpen={settingsOpen} setSettingsOpen={setSettingsOpen}
         settings={settings} updateSettings={updateSettings} resetSettings={resetSettings}
         themeMode={themeMode} onThemeModeChange={onThemeModeChange} onLocaleChange={onLocaleChange} t={t}
@@ -408,8 +407,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         sampleAnchorEl={sampleAnchorEl} setSampleAnchorEl={setSampleAnchorEl}
         templateAnchorEl={templateAnchorEl} setTemplateAnchorEl={setTemplateAnchorEl}
         onInsertTemplate={handleInsertTemplate} headingMenu={headingMenu} setHeadingMenu={setHeadingMenu}
-        setSettingsOpen={setSettingsOpen} setVersionDialogOpen={setVersionDialogOpen} setHelpDialogOpen={setHelpDialogOpen}
-        hideSettings={hideSettings} hideHelp={hideHelp} hideVersionInfo={hideVersionInfo}
+        setSettingsOpen={setSettingsOpen} setVersionDialogOpen={setVersionDialogOpen}
+        hideSettings={hideSettings} hideVersionInfo={hideVersionInfo}
         hideTemplates={hideTemplates} inlineMergeOpen={inlineMergeOpen}
         appendToSource={appendToSource}
         pdfExporting={pdfExporting} notification={notification} setNotification={setNotification} t={t}

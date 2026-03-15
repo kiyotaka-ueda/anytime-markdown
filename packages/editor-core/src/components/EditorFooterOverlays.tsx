@@ -53,9 +53,7 @@ interface EditorFooterOverlaysProps {
   setHeadingMenu: (menu: { anchorEl: HTMLElement; pos: number; currentLevel: number } | null) => void;
   setSettingsOpen: (open: boolean) => void;
   setVersionDialogOpen: (open: boolean) => void;
-  setHelpDialogOpen: (open: boolean) => void;
   hideSettings?: boolean;
-  hideHelp?: boolean;
   hideVersionInfo?: boolean;
   hideTemplates?: boolean;
   inlineMergeOpen?: boolean;
@@ -97,9 +95,7 @@ export function EditorFooterOverlays({
   setHeadingMenu,
   setSettingsOpen,
   setVersionDialogOpen,
-  setHelpDialogOpen,
   hideSettings,
-  hideHelp,
   hideVersionInfo,
   hideTemplates,
   inlineMergeOpen,
@@ -145,9 +141,7 @@ export function EditorFooterOverlays({
         setHeadingMenu={setHeadingMenu}
         setSettingsOpen={setSettingsOpen}
         setVersionDialogOpen={setVersionDialogOpen}
-        setHelpDialogOpen={setHelpDialogOpen}
         hideSettings={hideSettings}
-        hideHelp={hideHelp}
         hideVersionInfo={hideVersionInfo}
         hideTemplates={hideTemplates}
         templateDisabled={readonlyMode || reviewMode || !!inlineMergeOpen}

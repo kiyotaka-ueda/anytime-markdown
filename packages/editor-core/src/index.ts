@@ -26,7 +26,6 @@ export { EditorDialogs } from './components/EditorDialogs';
 export { EditorMenuPopovers } from './components/EditorMenuPopovers';
 export { EditorSettingsPanel } from './components/EditorSettingsPanel';
 export { EditorToolbar } from './components/EditorToolbar';
-export { HelpDialog } from './components/HelpDialog';
 export type { MergeUndoRedo } from './components/InlineMergeView';
 export { InlineMergeView } from './components/InlineMergeView';
 export { getMergeTiptapStyles,MergeEditorPanel } from './components/MergeEditorPanel';

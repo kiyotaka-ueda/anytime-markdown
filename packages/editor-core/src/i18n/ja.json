@@ -280,7 +280,6 @@
     "versionLicense": "MIT License",
     "cursorLine": "行",
     "cursorCol": "列",
-    "helpPage": "キーボードショートカット",
     "helpBasicOps": "基本操作",
     "helpBasicOpsDesc": "エディタは2つのモードと各種ファイル操作に対応しています。",
     "helpBasicOpsWysiwyg": "編集モード：リッチテキスト書式でリアルタイムプレビューしながら編集できます。",

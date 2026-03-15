@@ -24,7 +24,6 @@ export function useEditorDialogs({
   const [commentText, setCommentText] = useState("");
   const [shortcutDialogOpen, setShortcutDialogOpen] = useState(false);
   const [versionDialogOpen, setVersionDialogOpen] = useState(false);
-  const [helpDialogOpen, setHelpDialogOpen] = useState(false);
 
   // ImageNodeView からの編集ダイアログ呼び出し (editor.storage 経由)
   useEffect(() => {
@@ -152,7 +151,5 @@ export function useEditorDialogs({
     setShortcutDialogOpen,
     versionDialogOpen,
     setVersionDialogOpen,
-    helpDialogOpen,
-    setHelpDialogOpen,
   };
 }

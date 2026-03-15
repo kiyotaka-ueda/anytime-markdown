@@ -4,7 +4,6 @@ import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
 import FormatListNumberedIcon from "@mui/icons-material/FormatListNumbered";
 import FormatQuoteIcon from "@mui/icons-material/FormatQuote";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-import KeyboardIcon from "@mui/icons-material/Keyboard";
 import SchemaIcon from "@mui/icons-material/Schema";
 import SettingsIcon from "@mui/icons-material/Settings";
 import {
@@ -46,9 +45,7 @@ interface EditorMenuPopoversProps {
   setHeadingMenu: (menu: { anchorEl: HTMLElement; pos: number; currentLevel: number } | null) => void;
   setSettingsOpen: (open: boolean) => void;
   setVersionDialogOpen: (open: boolean) => void;
-  setHelpDialogOpen: (open: boolean) => void;
   hideSettings?: boolean;
-  hideHelp?: boolean;
   hideVersionInfo?: boolean;
   hideTemplates?: boolean;
   templateDisabled?: boolean;
@@ -63,9 +60,8 @@ export const EditorMenuPopovers = React.memo(function EditorMenuPopovers({
   templateAnchorEl, setTemplateAnchorEl, onInsertTemplate,
   sourceMode, onSourceInsertMermaid, onSourceInsertPlantUml,
   headingMenu, setHeadingMenu,
-  setSettingsOpen, setVersionDialogOpen, setHelpDialogOpen,
+  setSettingsOpen, setVersionDialogOpen,
   hideSettings,
-  hideHelp,
   hideVersionInfo,
   hideTemplates,
   templateDisabled,
@@ -101,15 +97,6 @@ export const EditorMenuPopovers = React.memo(function EditorMenuPopovers({
             </MenuItem>
           )}
           {!hideTemplates && <Divider />}
-          {!hideHelp && (
-            <MenuItem
-              onClick={() => { setHelpDialogOpen(true); setHelpAnchorEl(null); }}
-              sx={{ fontSize: "0.85rem", minHeight: 36 }}
-            >
-              <ListItemIcon><KeyboardIcon fontSize="small" /></ListItemIcon>
-              <ListItemText>{t("helpPage")}</ListItemText>
-            </MenuItem>
-          )}
           {!hideSettings && (
             <MenuItem
               onClick={() => { setSettingsOpen(true); setHelpAnchorEl(null); }}

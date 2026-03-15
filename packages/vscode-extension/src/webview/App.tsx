@@ -181,7 +181,7 @@ export function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <ConfirmProvider>
-        <MarkdownEditorPage key={editorKey} hideFileOps hideUndoRedo hideSettings hideHelp hideVersionInfo hideOutline hideComments hideTemplates hideFoldAll hideStatusBar externalCompareContent={compareContent} onCompareModeChange={handleCompareModeChange} onHeadingsChange={handleHeadingsChange} onCommentsChange={handleCommentsChange} onStatusChange={handleStatusChange} />
+        <MarkdownEditorPage key={editorKey} hideFileOps hideUndoRedo hideSettings hideVersionInfo hideOutline hideComments hideTemplates hideFoldAll hideStatusBar externalCompareContent={compareContent} onCompareModeChange={handleCompareModeChange} onHeadingsChange={handleHeadingsChange} onCommentsChange={handleCommentsChange} onStatusChange={handleStatusChange} />
       </ConfirmProvider>
     </ThemeProvider>
   );
