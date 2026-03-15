@@ -125,19 +125,29 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       });
     };
 
+    // 自身の編集・保存直後（2秒以内）の変更通知を抑制するタイムスタンプ
+    let lastApplyTime = 0;
+
     const docChangeSubscription = vscode.workspace.onDidChangeTextDocument((e) => {
       if (e.document.uri.toString() !== document.uri.toString()) { return; }
       if (isApplyingWebviewEdit) { return; }
       // Undo/Redo は即反映、それ以外（外部変更の同期）は VS Code 通知
       if (e.reason === vscode.TextDocumentChangeReason.Undo || e.reason === vscode.TextDocumentChangeReason.Redo) {
         updateWebview();
-      } else {
+      } else if (Date.now() - lastApplyTime >= 2000) {
         showExternalChangeNotification(document.getText());
       }
     });
 
+    // 保存前に lastApplyTime を更新（Ctrl+S 等の VS Code ネイティブ保存を含む）
+    // onWillSave はファイル書き込み前に発火するため、fileWatcher より先に抑制できる
+    const saveSubscription = vscode.workspace.onWillSaveTextDocument((e) => {
+      if (e.document.uri.toString() === document.uri.toString()) {
+        lastApplyTime = Date.now();
+      }
+    });
+
     // 外部変更検知（Claude Code、git 操作、他のエディタなど）
-    let lastApplyTime = 0;
     let notificationVisible = false;
     const showExternalChangeNotification = (content: string) => {
       if (disposed || notificationVisible) { return; }
@@ -352,6 +362,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         vscode.commands.executeCommand('setContext', 'anytimeMarkdown.compareModeActive', false);
       }
       docChangeSubscription.dispose();
+      saveSubscription.dispose();
       configChangeSubscription.dispose();
       themeChangeSubscription.dispose();
       fileWatcher.dispose();
