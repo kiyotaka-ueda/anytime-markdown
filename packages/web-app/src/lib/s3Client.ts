@@ -27,9 +27,14 @@ const LAYOUT_KEY = DOCS_PREFIX + '_layout.json';
 export async function fetchFromCdn(key: string): Promise<string | null> {
   if (!CLOUDFRONT_URL) return null;
 
+  // SSRF 対策: パストラバーサル・プロトコル注入を防止
+  if (key.includes('..') || key.includes('://') || key.includes('\0')) return null;
+
   const base = new URL(CLOUDFRONT_URL);
   const target = new URL(`${CLOUDFRONT_URL}/${key}`);
   if (target.origin !== base.origin) return null;
+  // パス正規化後もプレフィックス内に収まることを検証
+  if (!target.pathname.startsWith(base.pathname)) return null;
 
   const controller = new AbortController();
   const timerId = setTimeout(() => controller.abort(), 10_000);
