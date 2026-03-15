@@ -17,7 +17,6 @@ import React from "react";
 import { KEYBOARD_SHORTCUTS } from "../constants/shortcuts";
 import type { TranslationFn } from "../types";
 import { APP_VERSION } from "../version";
-import { HelpDialog } from "./HelpDialog";
 
 interface EditorDialogsProps {
   commentDialogOpen: boolean;
@@ -42,8 +41,6 @@ interface EditorDialogsProps {
   setShortcutDialogOpen: (open: boolean) => void;
   versionDialogOpen: boolean;
   setVersionDialogOpen: (open: boolean) => void;
-  helpDialogOpen: boolean;
-  setHelpDialogOpen: (open: boolean) => void;
   locale: "en" | "ja";
   t: TranslationFn;
 }
@@ -71,8 +68,6 @@ export const EditorDialogs = React.memo(function EditorDialogs({
   setShortcutDialogOpen,
   versionDialogOpen,
   setVersionDialogOpen,
-  helpDialogOpen,
-  setHelpDialogOpen,
   locale: _locale,
   t,
 }: EditorDialogsProps) {
@@ -282,7 +277,6 @@ export const EditorDialogs = React.memo(function EditorDialogs({
       </Dialog>
 
       {/* Help page dialog */}
-      <HelpDialog open={helpDialogOpen} onClose={() => setHelpDialogOpen(false)} t={t} />
     </>
   );
 });

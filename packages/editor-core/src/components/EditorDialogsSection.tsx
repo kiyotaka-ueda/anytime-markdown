@@ -29,8 +29,6 @@ interface EditorDialogsSectionProps {
   setShortcutDialogOpen: (open: boolean) => void;
   versionDialogOpen: boolean;
   setVersionDialogOpen: (open: boolean) => void;
-  helpDialogOpen: boolean;
-  setHelpDialogOpen: (open: boolean) => void;
   locale: "en" | "ja";
   // settings panel
   hideSettings?: boolean;
@@ -51,7 +49,6 @@ export function EditorDialogsSection({
   imageDialogOpen, setImageDialogOpen, imageUrl, setImageUrl, imageAlt, setImageAlt, handleImageInsert, imageEditMode,
   shortcutDialogOpen, setShortcutDialogOpen,
   versionDialogOpen, setVersionDialogOpen,
-  helpDialogOpen, setHelpDialogOpen,
   locale,
   hideSettings, settingsOpen, setSettingsOpen, settings, updateSettings, resetSettings,
   themeMode, onThemeModeChange, onLocaleChange,
@@ -82,8 +79,6 @@ export function EditorDialogsSection({
         setShortcutDialogOpen={setShortcutDialogOpen}
         versionDialogOpen={versionDialogOpen}
         setVersionDialogOpen={setVersionDialogOpen}
-        helpDialogOpen={helpDialogOpen}
-        setHelpDialogOpen={setHelpDialogOpen}
         locale={locale}
         t={t}
       />

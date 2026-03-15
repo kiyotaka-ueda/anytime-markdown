@@ -47,11 +47,6 @@ describe("sanitizeMarkdown", () => {
 
   // ── 許可タグの保持 ──
 
-  test("details/summary タグを保持する", () => {
-    const md = "<details><summary>Title</summary>Content</details>";
-    expect(sanitizeMarkdown(md)).toBe(md);
-  });
-
   test("mark タグを保持する", () => {
     expect(sanitizeMarkdown("<mark>highlighted</mark>")).toBe("<mark>highlighted</mark>");
   });
@@ -115,12 +110,6 @@ describe("sanitizeMarkdown", () => {
     const md = "$$\nx^2\n$$";
     const result = sanitizeMarkdown(md);
     expect(result).toContain("```math");
-  });
-
-  test("インライン数式 ($.$) をデータ属性スパンに変換する", () => {
-    const md = "inline $x^2$ math";
-    const result = sanitizeMarkdown(md);
-    expect(result).toContain('data-math-inline');
   });
 
   // ── エッジケース ──

@@ -12,7 +12,6 @@ export interface ToolbarVisibility {
   templates?: boolean;
   foldAll?: boolean;
   toolbar?: boolean;   // EditorToolbarSection 専用
-  help?: boolean;      // EditorToolbarSection 専用
 }
 
 /** ファイル操作ハンドラ */

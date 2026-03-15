@@ -35,7 +35,6 @@ import { DiffHighlight } from "./extensions/diffHighlight";
 import { FootnoteRef } from "./extensions/footnoteExtension";
 import { HeadingFoldExtension } from "./extensions/headingFoldExtension";
 import { HeadingNumberExtension } from "./extensions/headingNumberExtension";
-import { MathInline } from "./extensions/mathInlineExtension";
 import { CustomImage } from "./imageExtension";
 import { CustomTable } from "./tableExtension";
 
@@ -113,10 +112,33 @@ export function getBaseExtensions(options?: { disableComments?: boolean }): Exte
       codeBlock: false,
       hardBreak: false,
       blockquote: false, // AdmonitionBlockquote で置換
+      bold: { HTMLAttributes: {}, },
+      italic: { HTMLAttributes: {}, },
+      strike: { HTMLAttributes: {}, },
+      code: { HTMLAttributes: {}, },
+    }),
+    // 書式・リストのキーボードショートカットを無効化
+    // （バブルメニュー・ツールバー・スラッシュコマンドから操作）
+    Extension.create({
+      name: "disableFormattingShortcuts",
+      addKeyboardShortcuts() {
+        return {
+          "Mod-b": () => true,
+          "Mod-i": () => true,
+          "Mod-u": () => true,
+          "Mod-e": () => true,
+          "Mod-Shift-x": () => true,
+          "Mod-Shift-h": () => true,
+          "Mod-Shift-7": () => true,
+          "Mod-Shift-8": () => true,
+          "Mod-Shift-9": () => true,
+          "Mod-k": () => true,
+        };
+      },
     }),
     AdmonitionBlockquote,
     CodeBlockWithMermaid.configure({ lowlight }),
-    Highlight,
+    Highlight.configure({ multicolor: false }),
     Underline,
     LinkExtension.configure({ openOnClick: false, validate: () => true, isAllowedUri: () => true }),
     CustomImage.configure({ inline: false, allowBase64: true }),
@@ -143,7 +165,6 @@ export function getBaseExtensions(options?: { disableComments?: boolean }): Exte
     DiffHighlight,
     HeadingFoldExtension,
     CodeBlockNavigation,
-    MathInline,
     FootnoteRef,
     HeadingNumberExtension,
   ];

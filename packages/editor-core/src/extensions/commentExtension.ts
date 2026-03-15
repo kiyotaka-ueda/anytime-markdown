@@ -185,14 +185,6 @@ const EMPTY_STATE: CommentPluginState = {
 export const CommentDataPlugin = Extension.create({
   name: "commentData",
 
-  addKeyboardShortcuts() {
-    return {
-      "Mod-Shift-m": () => {
-        // コメント追加のショートカット。テキストは空文字で作成（UI 側で後から入力）
-        return this.editor.commands.addComment("");
-      },
-    };
-  },
 
   addCommands() {
     return {

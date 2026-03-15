@@ -52,6 +52,7 @@ interface EditorToolbarSectionProps {
   setCommentOpen: React.Dispatch<React.SetStateAction<boolean>>;
   liveMessage: string;
   t: (key: string) => string;
+  onReload?: () => void;
 }
 
 export function EditorToolbarSection({
@@ -84,6 +85,7 @@ export function EditorToolbarSection({
   setCommentOpen,
   liveMessage,
   t,
+  onReload,
 }: EditorToolbarSectionProps) {
   return (
     <>
@@ -153,7 +155,7 @@ export function EditorToolbarSection({
         hide={{
           fileOps: readOnly || hide?.fileOps,
           undoRedo: readOnly || hide?.undoRedo,
-          moreMenu: (readOnly || hide?.help) && (readOnly || hide?.versionInfo) && (readOnly || hide?.settings),
+          moreMenu: (readOnly || hide?.versionInfo) && (readOnly || hide?.settings),
           modeToggle: readOnly,
           readonlyToggle: hide?.readonlyToggle,
           outline: hide?.outline,
@@ -167,6 +169,7 @@ export function EditorToolbarSection({
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenVersionDialog={() => setVersionDialogOpen(true)}
         onAnnounce={setLiveMessage}
+        onReload={onReload}
         t={t}
       />}
       <input

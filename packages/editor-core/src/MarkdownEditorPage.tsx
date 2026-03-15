@@ -65,13 +65,13 @@ import type { InlineComment } from "./utils/commentHelpers";
 import { parseCommentData } from "./utils/commentHelpers";
 import { preprocessMarkdown } from "./utils/frontmatterHelpers";
 
+const SECTION_NUMBER_RE = /^\d+(\.\d+)*\.?\s/;
+
 interface MarkdownEditorPageProps {
   hideFileOps?: boolean;
   hideUndoRedo?: boolean;
   hideSettings?: boolean;
-  hideHelp?: boolean;
   hideVersionInfo?: boolean;
-  featuresUrl?: string;
   onCompareModeChange?: (active: boolean) => void;
   onHeadingsChange?: (headings: HeadingItem[]) => void;
   onCommentsChange?: (comments: Array<{ id: string; text: string; resolved: boolean; createdAt: string; targetText: string; pos: number; isPoint: boolean }>) => void;
@@ -94,6 +94,10 @@ interface MarkdownEditorPageProps {
   hideFoldAll?: boolean;
   hideStatusBar?: boolean;
   onStatusChange?: (status: { line: number; col: number; charCount: number; lineCount: number; lineEnding: string; encoding: string }) => void;
+  /** ファイル再読込コールバック（VS Code 拡張用） */
+  onReload?: () => void;
+  /** 初期表示をソースモードにする */
+  defaultSourceMode?: boolean;
   showReadonlyMode?: boolean;
   /** 外部から比較モードの右パネルにコンテンツをロード */
   externalCompareContent?: string | null;
@@ -103,7 +107,7 @@ interface MarkdownEditorPageProps {
   onToggleExplorer?: () => void;
 }
 
-export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideHelp, hideVersionInfo, featuresUrl, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, externalContent, externalFileName, externalFilePath: _externalFilePath, onExternalSave, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, showReadonlyMode, externalCompareContent, explorerOpen, onToggleExplorer }: MarkdownEditorPageProps = {}) {
+export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideVersionInfo, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, externalContent, externalFileName, externalFilePath: _externalFilePath, onExternalSave, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, onReload, defaultSourceMode, showReadonlyMode, externalCompareContent, explorerOpen, onToggleExplorer }: MarkdownEditorPageProps = {}) {
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
   const muiTheme = useTheme();
@@ -178,7 +182,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     sourceMode, readonlyMode: _readonlyMode, reviewMode, sourceText, setSourceText, liveMessage, setLiveMessage,
     handleSwitchToSource, handleSwitchToWysiwyg, handleSwitchToReview, handleSwitchToReadonly,
     executeInReviewMode, handleSourceChange, appendToSource,
-  } = useSourceMode({ editor, saveContent, t, frontmatterRef });
+  } = useSourceMode({ editor, saveContent, t, frontmatterRef, defaultSourceMode });
   // readOnly prop が true の場合は常に readonlyMode を強制
   const readonlyMode = readOnly || _readonlyMode;
 
@@ -205,7 +209,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     handleLink, handleLinkInsert, imageDialogOpen, setImageDialogOpen,
     imageUrl, setImageUrl, imageAlt, setImageAlt, imageEditPos,
     handleImage, handleImageInsert, shortcutDialogOpen, setShortcutDialogOpen,
-    versionDialogOpen, setVersionDialogOpen, helpDialogOpen, setHelpDialogOpen,
+    versionDialogOpen, setVersionDialogOpen,
   } = useEditorDialogs({ editor, sourceMode, appendToSource });
 
   const {
@@ -308,6 +312,70 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
 
   const plantUmlToolbarCtx = useMemo(() => ({ setSampleAnchorEl }), [setSampleAnchorEl]);
 
+  const handleInsertSectionNumbers = useCallback(() => {
+    if (!editor) return;
+    const targets: { pos: number; level: number; text: string }[] = [];
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name !== "heading") return;
+      const level = node.attrs.level as number;
+      if (level > 5) return;
+      targets.push({ pos, level, text: node.textContent });
+    });
+    if (targets.length === 0) return;
+    const counters = [0, 0, 0, 0, 0];
+    const prefixes: string[] = [];
+    for (const h of targets) {
+      const idx = h.level - 1;
+      counters[idx]++;
+      for (let i = idx + 1; i < 5; i++) counters[i] = 0;
+      prefixes.push(counters.slice(0, idx + 1).join(".") + ". ");
+    }
+    const { tr } = editor.state;
+    for (let i = targets.length - 1; i >= 0; i--) {
+      const contentStart = targets[i].pos + 1;
+      const existingMatch = targets[i].text.match(SECTION_NUMBER_RE);
+      if (existingMatch) {
+        tr.replaceWith(contentStart, contentStart + existingMatch[0].length, editor.schema.text(prefixes[i]));
+      } else {
+        tr.insertText(prefixes[i], contentStart);
+      }
+    }
+    editor.view.dispatch(tr);
+  }, [editor]);
+  const handleRemoveSectionNumbers = useCallback(() => {
+    if (!editor) return;
+    const { tr } = editor.state;
+    const removals: { from: number; to: number }[] = [];
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name !== "heading") return;
+      const level = (node.attrs.level as number);
+      if (level > 5) return;
+      const text = node.textContent;
+      const match = text.match(SECTION_NUMBER_RE);
+      if (match) {
+        removals.push({ from: pos + 1, to: pos + 1 + match[0].length });
+      }
+    });
+    for (let i = removals.length - 1; i >= 0; i--) {
+      tr.delete(removals[i].from, removals[i].to);
+    }
+    editor.view.dispatch(tr);
+  }, [editor]);
+
+  // VS Code からのセクション番号挿入/削除イベント
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const show = (e as CustomEvent<boolean>).detail;
+      if (show) {
+        handleInsertSectionNumbers();
+      } else {
+        handleRemoveSectionNumbers();
+      }
+    };
+    window.addEventListener('vscode-toggle-section-numbers', handler);
+    return () => window.removeEventListener('vscode-toggle-section-numbers', handler);
+  }, [handleInsertSectionNumbers, handleRemoveSectionNumbers]);
+
   if (loading) {
     return <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}><CircularProgress /></Box>;
   }
@@ -318,6 +386,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     handleOutlineClick, handleOutlineResizeStart,
     onHeadingDragEnd: (readonlyMode || reviewMode) ? undefined : handleHeadingDragEnd,
     onOutlineDelete: (readonlyMode || reviewMode) ? undefined : handleOutlineDelete,
+    onInsertSectionNumbers: handleInsertSectionNumbers,
+    onRemoveSectionNumbers: handleRemoveSectionNumbers,
     t,
   };
 
@@ -349,7 +419,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
           outline: hideOutline, comments: hideComments,
           templates: hideTemplates, foldAll: hideFoldAll,
           fileOps: hideFileOps, undoRedo: hideUndoRedo,
-          help: hideHelp, versionInfo: hideVersionInfo,
+          versionInfo: hideVersionInfo,
           settings: hideSettings, toolbar: hideToolbar,
           readonlyToggle: !showReadonlyMode,
         }}
@@ -361,6 +431,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         rightFileOps={rightFileOps}
         setLiveMessage={setLiveMessage} commentOpen={commentOpen} setCommentOpen={setCommentOpen}
         liveMessage={liveMessage} t={t}
+        onReload={onReload}
       />
 
       <EditorDialogsSection
@@ -372,7 +443,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         handleImageInsert={handleImageInsert} imageEditMode={imageEditPos !== null}
         shortcutDialogOpen={shortcutDialogOpen} setShortcutDialogOpen={setShortcutDialogOpen}
         versionDialogOpen={versionDialogOpen} setVersionDialogOpen={setVersionDialogOpen}
-        helpDialogOpen={helpDialogOpen} setHelpDialogOpen={setHelpDialogOpen} locale={locale}
+        locale={locale}
         hideSettings={hideSettings} settingsOpen={settingsOpen} setSettingsOpen={setSettingsOpen}
         settings={settings} updateSettings={updateSettings} resetSettings={resetSettings}
         themeMode={themeMode} onThemeModeChange={onThemeModeChange} onLocaleChange={onLocaleChange} t={t}
@@ -409,10 +480,10 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         sampleAnchorEl={sampleAnchorEl} setSampleAnchorEl={setSampleAnchorEl}
         templateAnchorEl={templateAnchorEl} setTemplateAnchorEl={setTemplateAnchorEl}
         onInsertTemplate={handleInsertTemplate} headingMenu={headingMenu} setHeadingMenu={setHeadingMenu}
-        setSettingsOpen={setSettingsOpen} setVersionDialogOpen={setVersionDialogOpen} setHelpDialogOpen={setHelpDialogOpen}
-        hideSettings={hideSettings} hideHelp={hideHelp} hideVersionInfo={hideVersionInfo}
+        setSettingsOpen={setSettingsOpen} setVersionDialogOpen={setVersionDialogOpen}
+        hideSettings={hideSettings} hideVersionInfo={hideVersionInfo}
         hideTemplates={hideTemplates} inlineMergeOpen={inlineMergeOpen}
-        featuresUrl={featuresUrl} appendToSource={appendToSource}
+        appendToSource={appendToSource}
         pdfExporting={pdfExporting} notification={notification} setNotification={setNotification} t={t}
       />
     </Box>

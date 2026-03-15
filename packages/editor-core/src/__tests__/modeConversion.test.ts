@@ -21,14 +21,6 @@ describe("sanitizeMarkdown", () => {
     expect(result).toContain("world");
   });
 
-  test("許可タグ（details, mark等）を保持する", () => {
-    const md = "<details><summary>Title</summary>\n\ncontent\n\n</details>";
-    const result = sanitizeMarkdown(md);
-    expect(result).toContain("<details>");
-    expect(result).toContain("<summary>");
-    expect(result).toContain("</details>");
-  });
-
   test("コードブロック内の > < & 文字を保持する", () => {
     const md = "```js\nif (a > 0 && b < 1) { return a & b; }\n```";
     expect(sanitizeMarkdown(md)).toBe(md);
@@ -231,11 +223,29 @@ describe("preserveBlankLines", () => {
     const cases = [
       "テキスト\n\n- リスト",
       "- 項目A\n\n1. 項目B",
-      "行1\n行2\n行3",
     ];
     for (const input of cases) {
       expect(preserveBlankLines(input)).toBe(input);
     }
+  });
+
+  test("連続プレーンテキスト行にハードブレイクを付加する", () => {
+    expect(preserveBlankLines("行1\n行2\n行3")).toBe("行1\\\n行2\\\n行3");
+  });
+
+  test("既にハードブレイクがある行はそのまま保持する", () => {
+    const input = "行1\\\n行2\\\n行3";
+    expect(preserveBlankLines(input)).toBe(input);
+  });
+
+  test("タブ区切りデータには <br> を付加する", () => {
+    const input = "列1\t列2\t列3\nデータ1\tデータ2\tデータ3";
+    expect(preserveBlankLines(input)).toBe("列1\t列2\t列3<br>\nデータ1\tデータ2\tデータ3");
+  });
+
+  test("マークダウンテーブル行にはハードブレイクを付加しない", () => {
+    const input = "| Header1 | Header2 |\n| --- | --- |\n| Cell1 | Cell2 |";
+    expect(preserveBlankLines(input)).toBe(input);
   });
 
   test("バックスラッシュ改行（ハードブレイク）を tight transition と誤判定しない", () => {

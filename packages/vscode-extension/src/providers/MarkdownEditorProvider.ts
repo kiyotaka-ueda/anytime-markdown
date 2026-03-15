@@ -13,6 +13,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   public onStatusChanged?: (status: { line: number; col: number; charCount: number; lineCount: number; lineEnding: string; encoding: string }) => void;
   public compareModeActive = false;
   private panels = new Map<string, vscode.WebviewPanel>();
+  /** diff ビュー検出用: 最後にパネルが開かれた時刻 */
+  private lastPanelOpenTime = 0;
   private readyPanels = new Set<string>();
   private readyResolvers = new Map<string, Array<() => void>>();
 
@@ -88,9 +90,18 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     this.activeDocumentUri = document.uri;
     this.panels.set(document.uri.toString(), webviewPanel);
 
+    // diff ビュー検出: 1秒以内に2つ目のパネルが開かれた場合
+    const now = Date.now();
+    const isDiffView = now - this.lastPanelOpenTime < 1000;
+    this.lastPanelOpenTime = now;
+
     let isApplyingWebviewEdit = false;
     let debounceTimer: ReturnType<typeof setTimeout> | undefined;
     let disposed = false;
+    // 初回ロード後の TipTap 正規化による contentChanged を無視するタイムスタンプ
+    // ready 受信後 3 秒以内の最初の contentChanged をスキップ
+    let initialLoadTime = 0;
+    let initialNormalizationSkipped = false;
 
     const isLargeFile = () => document.getText().length > 100 * 1024;
 
@@ -125,23 +136,46 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       });
     };
 
+    // 自身の編集・保存直後（2秒以内）の変更通知を抑制するタイムスタンプ
+    let lastApplyTime = 0;
+
     const docChangeSubscription = vscode.workspace.onDidChangeTextDocument((e) => {
       if (e.document.uri.toString() !== document.uri.toString()) { return; }
       if (isApplyingWebviewEdit) { return; }
-      // Undo/Redo は即反映、それ以外（外部変更の同期）は確認ダイアログ経由
+      // Undo/Redo は即反映、それ以外（外部変更の同期）は VS Code 通知
       if (e.reason === vscode.TextDocumentChangeReason.Undo || e.reason === vscode.TextDocumentChangeReason.Redo) {
         updateWebview();
-      } else {
-        webviewPanel.webview.postMessage({ type: 'setBaseUri', baseUri });
-        webviewPanel.webview.postMessage({
-          type: 'externalChange',
-          content: document.getText(),
-        });
+      } else if (Date.now() - lastApplyTime >= 2000) {
+        showExternalChangeNotification(document.getText());
+      }
+    });
+
+    // 保存前に lastApplyTime を更新（Ctrl+S 等の VS Code ネイティブ保存を含む）
+    // onWillSave はファイル書き込み前に発火するため、fileWatcher より先に抑制できる
+    const saveSubscription = vscode.workspace.onWillSaveTextDocument((e) => {
+      if (e.document.uri.toString() === document.uri.toString()) {
+        lastApplyTime = Date.now();
       }
     });
 
     // 外部変更検知（Claude Code、git 操作、他のエディタなど）
-    let lastApplyTime = 0;
+    let notificationVisible = false;
+    const showExternalChangeNotification = (content: string) => {
+      if (disposed || notificationVisible) { return; }
+      notificationVisible = true;
+      const fileName = path.basename(document.uri.fsPath);
+      vscode.window.showInformationMessage(
+        `${fileName} が外部で変更されました`,
+        '再読込'
+      ).then((selection) => {
+        notificationVisible = false;
+        if (selection === '再読込' && !disposed) {
+          webviewPanel.webview.postMessage({ type: 'setBaseUri', baseUri });
+          webviewPanel.webview.postMessage({ type: 'setContent', content });
+        }
+      });
+    };
+
     const fileWatcher = vscode.workspace.createFileSystemWatcher(
       new vscode.RelativePattern(vscode.Uri.file(path.dirname(document.uri.fsPath)), path.basename(document.uri.fsPath))
     );
@@ -153,11 +187,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         const bytes = await vscode.workspace.fs.readFile(document.uri);
         const diskContent = new TextDecoder().decode(bytes);
         if (diskContent === document.getText()) { return; }
-        webviewPanel.webview.postMessage({ type: 'setBaseUri', baseUri });
-        webviewPanel.webview.postMessage({
-          type: 'externalChange',
-          content: diskContent,
-        });
+        showExternalChangeNotification(diskContent);
       } catch {
         // ファイル読み取り失敗時は無視
       }
@@ -176,15 +206,34 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     webviewPanel.webview.onDidReceiveMessage(async (message: { type: string; content?: string; active?: boolean; headings?: unknown[]; comments?: unknown[]; status?: { line: number; col: number; charCount: number; lineCount: number; lineEnding: string; encoding: string } }) => {
       switch (message.type) {
         case 'ready': {
+          initialLoadTime = Date.now();
+          initialNormalizationSkipped = false;
           updateWebview();
           sendSettings();
           sendTheme();
+          // diff ビューの場合は全パネルにランディング画面を表示するよう通知
+          if (isDiffView) {
+            for (const [, panel] of this.panels) {
+              panel.webview.postMessage({ type: 'setLanding', landing: true });
+            }
+          }
           const key = document.uri.toString();
           this.readyPanels.add(key);
           const resolvers = this.readyResolvers.get(key);
           if (resolvers) {
             this.readyResolvers.delete(key);
             resolvers.forEach(r => r());
+          }
+          break;
+        }
+
+        case 'scrollChanged': {
+          // 自分以外の全パネルにスクロール位置を中継
+          const ratio = (message as { type: string; ratio: number }).ratio;
+          for (const [, panel] of this.panels) {
+            if (panel !== webviewPanel) {
+              panel.webview.postMessage({ type: 'syncScroll', ratio });
+            }
           }
           break;
         }
@@ -222,6 +271,15 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           // POSIX 準拠: テキストファイルは末尾改行で終わる
           if (newContent && !newContent.endsWith("\n")) { newContent += "\n"; }
           if (newContent === document.getText()) { return; }
+          // 初回ロード後 3 秒以内の最初の contentChanged は TipTap 正規化として無視
+          if (!initialNormalizationSkipped && Date.now() - initialLoadTime < 3000) {
+            initialNormalizationSkipped = true;
+            const fileName = path.basename(document.uri.fsPath);
+            vscode.window.showInformationMessage(
+              `${fileName}: 保存時にフォーマット整形が行われます`
+            );
+            return;
+          }
 
           if (debounceTimer) { clearTimeout(debounceTimer); }
           const delay = isLargeFile() ? 800 : 300;
@@ -304,6 +362,17 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           break;
         }
 
+        case 'requestReload':
+          try {
+            const bytes = await vscode.workspace.fs.readFile(document.uri);
+            const diskContent = new TextDecoder().decode(bytes);
+            webviewPanel.webview.postMessage({ type: 'setBaseUri', baseUri });
+            webviewPanel.webview.postMessage({ type: 'setContent', content: diskContent });
+          } catch (err) {
+            vscode.window.showErrorMessage(`Error reloading file: ${err instanceof Error ? err.message : String(err)}`);
+          }
+          break;
+
         case 'save':
           try {
             await document.save();
@@ -332,6 +401,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         vscode.commands.executeCommand('setContext', 'anytimeMarkdown.compareModeActive', false);
       }
       docChangeSubscription.dispose();
+      saveSubscription.dispose();
       configChangeSubscription.dispose();
       themeChangeSubscription.dispose();
       fileWatcher.dispose();

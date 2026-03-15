@@ -8,6 +8,9 @@ import MarkdownEditorPage from '@anytime-markdown/editor-core/src/MarkdownEditor
 
 const vscode = getVsCodeApi();
 
+// スクロール同期の無限ループ防止フラグ
+let isSyncingScroll = false;
+
 // localStorage bridge: intercept content key to sync with VS Code
 const CONTENT_KEY = STORAGE_KEY_CONTENT;
 let currentContent: string | null = null;
@@ -51,6 +54,7 @@ try {
 
 export function App() {
   const [ready, setReady] = useState(false);
+  const [landing, setLanding] = useState(false);
   const [themeMode, setThemeMode] = useState<PaletteMode>('dark');
   const [editorKey, setEditorKey] = useState(0);
   const [compareContent, setCompareContent] = useState<string | null>(null);
@@ -65,12 +69,27 @@ export function App() {
         setThemeMode(message.mode);
         return;
       }
+      if (message?.type === 'setLanding' && message.landing === true) {
+        setLanding(true);
+        return;
+      }
       if (message?.type === 'loadCompareFile' && typeof message.content === 'string') {
         window.dispatchEvent(new CustomEvent('vscode-load-compare-file', { detail: message.content }));
         return;
       }
-      if (message?.type === 'externalChange' && typeof message.content === 'string') {
-        window.dispatchEvent(new CustomEvent('vscode-external-change', { detail: message.content }));
+      if (message?.type === 'syncScroll' && typeof message.ratio === 'number') {
+        // 他パネルからのスクロール同期（無限ループ防止フラグ付き）
+        isSyncingScroll = true;
+        const el = document.querySelector('textarea') ?? document.querySelector('.tiptap');
+        if (el) {
+          el.scrollTop = message.ratio * (el.scrollHeight - el.clientHeight);
+        }
+        requestAnimationFrame(() => { isSyncingScroll = false; });
+        return;
+      }
+      // externalChange は VS Code 通知で処理するため webview では不要
+      if (message?.type === 'toggleSectionNumbers' && typeof message.show === 'boolean') {
+        window.dispatchEvent(new CustomEvent('vscode-toggle-section-numbers', { detail: message.show }));
         return;
       }
       if (message?.type === 'scrollToHeading' && typeof message.pos === 'number') {
@@ -152,6 +171,37 @@ export function App() {
     vscode.postMessage({ type: 'statusChanged', status });
   }, []);
 
+  const handleReload = useCallback(() => {
+    vscode.postMessage({ type: 'requestReload' });
+  }, []);
+
+  // スクロール同期: スクロール位置を extension host に送信
+  useEffect(() => {
+    let currentEl: Element | null = null;
+    const handler = () => {
+      if (isSyncingScroll || !currentEl) return;
+      const maxScroll = currentEl.scrollHeight - currentEl.clientHeight;
+      if (maxScroll <= 0) return;
+      const ratio = currentEl.scrollTop / maxScroll;
+      vscode.postMessage({ type: 'scrollChanged', ratio });
+    };
+    const attach = () => {
+      const el = document.querySelector('textarea') ?? document.querySelector('.tiptap');
+      if (el === currentEl) return;
+      if (currentEl) currentEl.removeEventListener('scroll', handler);
+      currentEl = el;
+      if (currentEl) currentEl.addEventListener('scroll', handler, { passive: true });
+    };
+    attach();
+    // DOM 変更時にリスナーを再アタッチ（モード切替等）
+    const observer = new MutationObserver(attach);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      if (currentEl) currentEl.removeEventListener('scroll', handler);
+    };
+  }, []);
+
   useEffect(() => {
     const openLink = (e: MouseEvent) => {
       const anchor = (e.target as HTMLElement).closest('a');
@@ -177,11 +227,53 @@ export function App() {
 
   if (!ready) return null;
 
+  if (landing) {
+    const isDark = themeMode === 'dark';
+    const logoUri = (window as unknown as { __LOGO_URI__?: string }).__LOGO_URI__;
+    const isJa = (document.documentElement.lang || navigator.language || '').startsWith('ja');
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        backgroundColor: isDark ? '#1e1e1e' : '#ffffff',
+        color: isDark ? '#cccccc' : '#333333',
+        fontFamily: 'var(--vscode-font-family, sans-serif)',
+        gap: '24px',
+      }}>
+        {logoUri && <img src={logoUri} alt="Anytime Markdown" style={{ width: 64, height: 64, opacity: 0.8 }} />}
+        <div style={{ fontSize: '14px', textAlign: 'center', lineHeight: 1.8 }}>
+          {isJa ? (
+            <>差分は、サイドバー「Anytime Markdown」の<br />GIT HISTORY で確認してください。</>
+          ) : (
+            <>To view diffs, use <strong>GIT HISTORY</strong> in the<br />&quot;Anytime Markdown&quot; sidebar.</>
+          )}
+        </div>
+        <button
+          onClick={() => setLanding(false)}
+          style={{
+            padding: '8px 24px',
+            fontSize: '13px',
+            cursor: 'pointer',
+            border: 'none',
+            borderRadius: '4px',
+            backgroundColor: isDark ? '#0e639c' : '#007acc',
+            color: '#ffffff',
+          }}
+        >
+          {isJa ? 'Anytime Markdown で編集' : 'Open in Anytime Markdown'}
+        </button>
+      </div>
+    );
+  }
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <ConfirmProvider>
-        <MarkdownEditorPage key={editorKey} hideFileOps hideUndoRedo hideSettings hideHelp hideVersionInfo hideOutline hideComments hideTemplates hideFoldAll hideStatusBar externalCompareContent={compareContent} onCompareModeChange={handleCompareModeChange} onHeadingsChange={handleHeadingsChange} onCommentsChange={handleCommentsChange} onStatusChange={handleStatusChange} />
+        <MarkdownEditorPage key={editorKey} hideFileOps hideUndoRedo hideSettings hideVersionInfo hideOutline hideComments hideTemplates hideFoldAll hideStatusBar externalCompareContent={compareContent} onCompareModeChange={handleCompareModeChange} onHeadingsChange={handleHeadingsChange} onCommentsChange={handleCommentsChange} onStatusChange={handleStatusChange} onReload={handleReload} />
       </ConfirmProvider>
     </ThemeProvider>
   );

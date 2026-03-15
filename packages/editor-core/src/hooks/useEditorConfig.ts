@@ -8,7 +8,6 @@ import type { RefObject } from "react";
 import { useEffect } from "react";
 
 import { DEBOUNCE_MEDIUM } from "../constants/timing";
-import { Details, DetailsSummary } from "../detailsExtension";
 import { getBaseExtensions } from "../editorExtensions";
 import { CustomHardBreak } from "../extensions/customHardBreak";
 import { DeleteLineExtension } from "../extensions/deleteLineExtension";
@@ -190,8 +189,6 @@ export function useEditorConfig({
       CustomHardBreak,
       DeleteLineExtension,
       SearchReplaceExtension,
-      Details,
-      DetailsSummary,
       Placeholder.configure({ placeholder: t("placeholder") }),
       SlashCommandExtension.configure({
         onStateChange: (state: SlashCommandState) => slashCommandCallbackRef.current(state),
@@ -240,6 +237,10 @@ export function useEditorConfig({
         if (!items) return false;
         const images = Array.from(items).filter((item) => item.type.startsWith("image/"));
         if (!images.length) return false;
+        // テキストまたはHTMLが含まれる場合はTipTapのデフォルト処理に委ねる
+        // （Excel等はimage/pngとtext/htmlの両方を含むため、画像優先を抑制）
+        const hasText = Array.from(items).some((item) => item.type === "text/plain" || item.type === "text/html");
+        if (hasText) return false;
         event.preventDefault();
         images.forEach((item) => {
           const file = item.getAsFile();

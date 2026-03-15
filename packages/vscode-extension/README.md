@@ -1,129 +1,119 @@
-# Anytime Markdown Editor
+# 1. Anytime Markdown Editor
 
-VS Code 上で動作する WYSIWYG Markdown エディタ拡張機能です。Tiptap ベースのリッチエディタにより、Markdown ファイルをリアルタイムにプレビューしながら編集できます。
+A WYSIWYG Markdown editor extension for VS Code.\
+Edit Markdown files with real-time preview powered by a Tiptap-based rich editor.
 
-## Features
+## 1.1. Editor Modes
 
-### WYSIWYG 編集
+Switch modes via the pill-shaped toggles in the toolbar.
 
-- **リッチテキスト編集**: Bold, Italic, Underline, Strikethrough, Highlight
-- **見出し**: H1 - H5
-- **リスト**: 箇条書き、番号付きリスト、タスクリスト（チェックボックス）
-- **ブロック要素**: 引用、コードブロック（シンタックスハイライト対応）、水平線
-- **テーブル**: 挿入・行列の追加/削除
-- **画像**: 相対パス解決、ドラッグ&ドロップ、クリップボードからのペースト
-- **リンク**: ダイアログによる挿入/編集/削除 (`Ctrl+K`)
-- **Details**: HTML `<details>` の折りたたみブロック
-- **Mermaid / PlantUML ダイアグラム**: ライブプレビュー付きコードブロック
-- **数式 (KaTeX)**: インライン `$...$` およびブロック数式（`/math` スラッシュコマンド）
-- **目次自動生成**: `/toc` スラッシュコマンドまたはツールバーボタンで見出しから目次を生成
-- **エンコーディング変換**: ステータスバーから UTF-8 / Shift_JIS / EUC-JP を切り替え
-- **改行コード変換**: ステータスバーから LF / CRLF を切り替え
-- **改ページガイド**: 設定パネルで改ページ位置の表示/非表示を切り替え
-- **スラッシュコマンド**: `/` 入力でブロック要素をすばやく挿入（見出し、リスト、テーブル、図、数式、日付など）
+### 1.1.1. Edit Mode (`Ctrl+Alt+S`)
 
-### 比較（マージ）モード
+| Mode | Description |
+| --- | --- |
+| **WYSIWYG** | Rich text editing with visual formatting and block insertion |
+| **Source** | Edit raw Markdown text directly |
+| **Review** | Read-only. Only comment insertion and checkbox toggling allowed |
 
-- 左右パネルでの差分比較、ブロック単位の差分ハイライト
-- 行単位のマージ操作
-- **Compare with Markdown Editor**: エクスプローラーのコンテキストメニューから外部ファイルを右パネルに読み込み
-- 比較モード中の `Ctrl+S` で右パネルの内容も元ファイルに保存
+### 1.1.2. Compare Mode (`Ctrl+Alt+M`)
 
-### ビューモード
+| Mode | Description |
+| --- | --- |
+| **Normal** | Single-panel editing |
+| **Compare** | Side-by-side diff comparison and merge operations |
 
-- 閲覧専用モード。テキスト編集やブロック操作は無効
-- バブルメニューからコメント追加のみ可能
-- 図・テーブル・画像はダブルクリックで全画面表示
+## 1.2. Features
 
-### ソースモード
+### 1.2.1. Markdown Elements
 
-- WYSIWYG とソース（生 Markdown）をワンクリックで切り替え
-- ソースモードでも行番号・文字数・行数をステータスバーに表示
+| Category | Elements |
+| --- | --- |
+| Text formatting | Bold, Italic, Underline, Strikethrough, Highlight, Inline code, Links |
+| Headings | H1–H5 (collapsible, auto-numbered) |
+| Lists | Bullet, Numbered, Task list (checkbox) |
+| Blocks | Blockquote, Admonitions (NOTE / TIP / IMPORTANT / WARNING / CAUTION), Horizontal rule |
+| Code blocks | Syntax highlighting (37 languages) |
+| Tables | Add/remove rows & columns, cell alignment, row/column reorder, paste from Excel/Google Sheets |
+| Diagrams | Mermaid, PlantUML — with live preview |
+| Math | Block math via KaTeX |
+| HTML | Live preview with DOMPurify sanitization |
+| Images | Relative path resolution, drag & drop, clipboard paste |
+| Other | TOC, Footnotes, YAML front matter, Comments |
 
-### アウトラインパネル
+### 1.2.2. Slash Commands
 
-- 見出しの一覧表示・折りたたみ
-- ドラッグ&ドロップによる見出しの並べ替え
+Type `/` in the editor to open the command menu.
 
-### テンプレート挿入
+| Command | Description |
+| --- | --- |
+| `/heading1`–`/heading3` | Headings H1–H3 |
+| `/bulletList` | Bullet list |
+| `/orderedList` | Numbered list |
+| `/taskList` | Task list (checkbox) |
+| `/blockquote` | Blockquote |
+| `/codeBlock` | Code block |
+| `/table` | Table (3×3) |
+| `/horizontalRule` | Horizontal rule |
+| `/mermaid` | Mermaid diagram |
+| `/plantuml` | PlantUML diagram |
+| `/math` | Math (KaTeX) |
+| `/html` | HTML block |
+| `/toc` | Table of contents (auto-generated) |
+| `/date` | Today's date (YYYY-MM-DD) |
+| `/footnote` | Footnote |
+| `/note` `/tip` `/important` `/warning` `/caution` | Admonitions |
+| `/comment` | Add comment |
 
-- 定型テンプレートをワンクリックで挿入
+### 1.2.3. Compare (Merge) Mode
 
-### 検索・置換
+- Side-by-side diff comparison with block-level diff highlighting
+- Line-level merge operations
+- **Compare with Markdown Editor**: Load an external file into the right panel via explorer context menu
+- **Git History**: View past versions in the right panel by selecting a commit
 
-- `Ctrl+F` で検索、`Ctrl+H` で検索＆置換
-- 大文字/小文字区別、単語一致、正規表現オプション対応
+### 1.2.4. Outline Panel
 
-### キーボードショートカット
+- Display heading list in the VS Code sidebar
+- Click to scroll to the corresponding position
 
-| ショートカット | 機能 |
-|---|---|
-| `Ctrl+B` | Bold |
-| `Ctrl+I` | Italic |
-| `Ctrl+U` | Underline |
-| `Ctrl+Shift+X` | Strikethrough |
-| `Ctrl+Shift+H` | Highlight |
-| `Ctrl+K` | リンク挿入/編集 |
-| `Ctrl+Shift+8` | 箇条書きリスト |
-| `Ctrl+Shift+7` | 番号付きリスト |
-| `Ctrl+Shift+9` | タスクリスト |
-| `Ctrl+Alt+T` | テーブル挿入 |
-| `Ctrl+Alt+R` | 水平線挿入 |
-| `Ctrl+Alt+S` | モード切替（ビュー / WYSIWYG / ソース） |
-| `Ctrl+S` | 保存 |
+### 1.2.5. Comment Panel
 
-> Mac の場合、`Ctrl` は `Cmd` に読み替えてください。
+- Display document comments in the VS Code sidebar
+- Resolve comments, filter by status (unresolved / resolved)
 
-### バブルメニュー
+### 1.2.6. Keyboard Shortcuts
 
-テキストを選択すると、書式設定用のフローティングメニューが表示されます。
+| Shortcut | Action |
+| --- | --- |
+| `Ctrl+Alt+S` | Switch mode (Review / WYSIWYG / Source) |
+| `Ctrl+S` | Save (VS Code native) |
 
-### ステータスバー
+> On Mac, replace `Ctrl` with `Cmd`.
 
-行番号、文字数、行数をリアルタイム表示します。
+## 1.3. Extension Settings
 
-### VS Code 設定連携
+| Setting | Type | Default | Description |
+| --- | --- | --- | --- |
+| `anytimeMarkdown.fontSize` | number | `0` | Font size (px). 0 uses VS Code default |
+| `anytimeMarkdown.editorMaxWidth` | number | `0` | Editor max width (px). 0 for no limit |
 
-エディタの表示を VS Code の設定からカスタマイズできます。
+## 1.4. Usage
 
-## Extension Settings
+`.md` / `.markdown` files open automatically with Anytime Markdown editor.
 
-| 設定 | 型 | デフォルト | 説明 |
-|---|---|---|---|
-| `anytimeMarkdown.fontSize` | number | `0` | フォントサイズ（px）。0 で VS Code デフォルト |
-| `anytimeMarkdown.editorMaxWidth` | number | `0` | エディタの最大幅（px）。0 で制限なし |
+To open with the standard VS Code text editor, right-click the file → select **"Open With..."** → choose **"Text Editor"**.
 
-## Testing
+## 1.5. Requirements
 
-```bash
-cd packages/vscode-extension
-npm test
-```
+- VS Code 1.109.0 or later
 
-`@vscode/test-electron` により実際の VS Code インスタンスが起動し、`src/test/` 配下のテストが実行されます。
+## 1.6. Known Issues
 
-- テストは `pretest` スクリプトで自動的にコンパイル・lint された後に実行されます
-- ヘッドレス CI 環境（Linux）では `xvfb-run npm test` が必要な場合があります
+- Drag & drop images are embedded as base64. Large images will increase the Markdown file size.
+- Markdown round-trip through TipTap may reformat content on load. A notification is shown on first load.
+- **Source Control diff**: VS Code's standard diff view is not available when Anytime Markdown is the default editor. \
+Use the **GIT HISTORY** panel in the "Anytime Markdown" sidebar to view diffs.
 
-## Usage
-
-1. `.md` ファイルを右クリック → **"Open with Markdown Editor"** を選択
-2. または、コマンドパレット（`Ctrl+Shift+P`）から **"Open Markdown Editor"** を実行
-
-## Requirements
-
-- VS Code 1.109.0 以上
-
-## Known Issues
-
-- 画像のドラッグ&ドロップは base64 としてファイルに埋め込まれます。大きな画像は Markdown ファイルのサイズが増大するため注意してください。
-
-## Release Notes
-
-### 0.0.1
-
-Initial release.
-
-## License
+## 1.7. License
 
 MIT License

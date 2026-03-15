@@ -26,7 +26,6 @@ export { EditorDialogs } from './components/EditorDialogs';
 export { EditorMenuPopovers } from './components/EditorMenuPopovers';
 export { EditorSettingsPanel } from './components/EditorSettingsPanel';
 export { EditorToolbar } from './components/EditorToolbar';
-export { HelpDialog } from './components/HelpDialog';
 export type { MergeUndoRedo } from './components/InlineMergeView';
 export { InlineMergeView } from './components/InlineMergeView';
 export { getMergeTiptapStyles,MergeEditorPanel } from './components/MergeEditorPanel';
@@ -35,14 +34,12 @@ export { SearchReplaceBar } from './components/SearchReplaceBar';
 export { StatusBar } from './components/StatusBar';
 
 // NodeView components
-export { DetailsNodeView } from './DetailsNodeView';
 export { ImageNodeView } from './ImageNodeView';
 export { CodeBlockNodeView } from './MermaidNodeView';
 export { TableNodeView } from './TableNodeView';
 
 // Extensions
 export { CodeBlockWithMermaid } from './codeBlockWithMermaid';
-export { Details, DetailsSummary } from './detailsExtension';
 export { getBaseExtensions } from './editorExtensions';
 export { CustomHardBreak } from './extensions/customHardBreak';
 export { CustomTableCell, CustomTableHeader } from './extensions/customTableCells';

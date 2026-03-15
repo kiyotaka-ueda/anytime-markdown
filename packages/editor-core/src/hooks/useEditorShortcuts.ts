@@ -75,7 +75,6 @@ export function useEditorShortcuts({
         else if (sourceMode) { handleSwitchToReadonly?.() ?? handleSwitchToWysiwyg(); }
         else { handleSwitchToSource(); }
       }
-      else if (key === "o") { e.preventDefault(); handleToggleOutline(); }
       else if (readonlyMode || reviewMode) { return; } // readonly/レビューモードではこれ以降の編集系ショートカットを無効化
       else if (key === "i") { e.preventDefault(); handleImage(); }
       else if (key === "r") {
