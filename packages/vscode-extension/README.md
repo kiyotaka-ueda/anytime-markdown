@@ -1,51 +1,51 @@
-# Anytime Markdown Editor
+# 1. Anytime Markdown Editor
 
 A WYSIWYG Markdown editor extension for VS Code.\
 Edit Markdown files with real-time preview powered by a Tiptap-based rich editor.
 
-## Editor Modes
+## 1.1. Editor Modes
 
 Switch modes via the pill-shaped toggles in the toolbar.
 
-### Edit Mode (`Ctrl+Alt+S`)
+### 1.1.1. Edit Mode (`Ctrl+Alt+S`)
 
 | Mode | Description |
-|---|---|
+| --- | --- |
 | **WYSIWYG** | Rich text editing with visual formatting and block insertion |
 | **Source** | Edit raw Markdown text directly |
 | **Review** | Read-only. Only comment insertion and checkbox toggling allowed |
 
-### Compare Mode (`Ctrl+Alt+M`)
+### 1.1.2. Compare Mode (`Ctrl+Alt+M`)
 
 | Mode | Description |
-|---|---|
+| --- | --- |
 | **Normal** | Single-panel editing |
 | **Compare** | Side-by-side diff comparison and merge operations |
 
-## Features
+## 1.2. Features
 
-### Supported Markdown Elements
+### 1.2.1. Supported Markdown Elements
 
 | Category | Elements |
-|---|---|
+| --- | --- |
 | Text formatting | Bold, Italic, Underline, Strikethrough, Highlight, Inline code, Links |
 | Headings | H1–H5 (collapsible, auto-numbered) |
 | Lists | Bullet, Numbered, Task list (checkbox) |
 | Blocks | Blockquote, Admonitions (NOTE / TIP / IMPORTANT / WARNING / CAUTION), Horizontal rule |
 | Code blocks | Syntax highlighting (37 languages) |
 | Tables | Add/remove rows & columns, cell alignment, row/column reorder, paste from Excel/Google Sheets |
-| Diagrams | Mermaid (23 types), PlantUML (12 types) — with live preview |
+| Diagrams | Mermaid, PlantUML — with live preview |
 | Math | Block math via KaTeX |
 | HTML | Live preview with DOMPurify sanitization |
 | Images | Relative path resolution, drag & drop, clipboard paste |
 | Other | TOC, Footnotes, YAML front matter, Comments |
 
-### Slash Commands
+### 1.2.2. Slash Commands
 
 Type `/` in the editor to open the command menu.
 
 | Command | Description |
-|---|---|
+| --- | --- |
 | `/heading1`–`/heading3` | Headings H1–H3 |
 | `/bulletList` | Bullet list |
 | `/orderedList` | Numbered list |
@@ -64,67 +64,58 @@ Type `/` in the editor to open the command menu.
 | `/note` `/tip` `/important` `/warning` `/caution` | Admonitions |
 | `/comment` | Add comment |
 
-### Compare (Merge) Mode
+### 1.2.3. Compare (Merge) Mode
 
 - Side-by-side diff comparison with block-level diff highlighting
 - Line-level merge operations
 - **Compare with Markdown Editor**: Load an external file into the right panel via explorer context menu
 - **Git History**: View past versions in the right panel by selecting a commit
 
-### Outline Panel
+### 1.2.4. Outline Panel
 
 - Display heading list in the VS Code sidebar
 - Click to scroll to the corresponding position
 
-### Comment Panel
+### 1.2.5. Comment Panel
 
 - Display document comments in the VS Code sidebar
 - Resolve comments, filter by status (unresolved / resolved)
 
-### Keyboard Shortcuts
+### 1.2.6. Keyboard Shortcuts
 
 | Shortcut | Action |
-|---|---|
-| `Ctrl+B` | Bold |
-| `Ctrl+I` | Italic |
-| `Ctrl+U` | Underline |
-| `Ctrl+Shift+X` | Strikethrough |
-| `Ctrl+Shift+H` | Highlight |
-| `Ctrl+E` | Inline code |
-| `Ctrl+K` | Insert/edit link |
-| `Ctrl+Shift+M` | Add comment |
+| --- | --- |
 | `Ctrl+Shift+8` | Bullet list |
 | `Ctrl+Shift+7` | Numbered list |
 | `Ctrl+Shift+9` | Task list |
 | `Ctrl+Alt+S` | Switch mode (Review / WYSIWYG / Source) |
-| `Ctrl+Alt+M` | Toggle compare mode |
-| `Ctrl+Alt+O` | Toggle outline |
-| `Ctrl+S` | Save |
+| `Ctrl+S` | Save (VS Code native) |
 
-> On Mac, replace `Ctrl` with `Cmd`.
+> On Mac, replace `Ctrl` with `Cmd`.\
+> `Ctrl+K` (Link), `Ctrl+Shift+M` (Comment), `Ctrl+Alt+M` (Compare), and `Ctrl+Alt+O` (Outline) conflict with VS Code shortcuts. Use the toolbar instead.
 
-## Extension Settings
+## 1.3. Extension Settings
 
 | Setting | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `anytimeMarkdown.fontSize` | number | `0` | Font size (px). 0 uses VS Code default |
 | `anytimeMarkdown.editorMaxWidth` | number | `0` | Editor max width (px). 0 for no limit |
 
-## Usage
+## 1.4. Usage
 
 `.md` / `.markdown` files open automatically with Anytime Markdown editor.
 
 To open with the standard VS Code text editor, right-click the file → select **"Open With..."** → choose **"Text Editor"**.
 
-## Requirements
+## 1.5. Requirements
 
 - VS Code 1.109.0 or later
 
-## Known Issues
+## 1.6. Known Issues
 
 - Drag & drop images are embedded as base64. Large images will increase the Markdown file size.
 - Markdown round-trip through TipTap may reformat content on load. A notification is shown on first load.
 
-## License
+## 1.7. License
 
 MIT License

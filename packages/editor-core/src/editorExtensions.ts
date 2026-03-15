@@ -112,10 +112,29 @@ export function getBaseExtensions(options?: { disableComments?: boolean }): Exte
       codeBlock: false,
       hardBreak: false,
       blockquote: false, // AdmonitionBlockquote で置換
+      bold: { HTMLAttributes: {}, },
+      italic: { HTMLAttributes: {}, },
+      strike: { HTMLAttributes: {}, },
+      code: { HTMLAttributes: {}, },
+    }),
+    // Bold/Italic/Strike/Code のキーボードショートカットを無効化
+    // （バブルメニュー・ツールバーから操作）
+    Extension.create({
+      name: "disableFormattingShortcuts",
+      addKeyboardShortcuts() {
+        return {
+          "Mod-b": () => true,
+          "Mod-i": () => true,
+          "Mod-u": () => true,
+          "Mod-e": () => true,
+          "Mod-Shift-x": () => true,
+          "Mod-Shift-h": () => true,
+        };
+      },
     }),
     AdmonitionBlockquote,
     CodeBlockWithMermaid.configure({ lowlight }),
-    Highlight,
+    Highlight.configure({ multicolor: false }),
     Underline,
     LinkExtension.configure({ openOnClick: false, validate: () => true, isAllowedUri: () => true }),
     CustomImage.configure({ inline: false, allowBase64: true }),
