@@ -7,6 +7,7 @@ import DOMPurify from "dompurify";
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../../constants/colors";
 import { PREVIEW_MAX_HEIGHT } from "../../constants/dimensions";
 import htmlSamples from "../../constants/htmlSamples.json";
+import { useBlockMergeCompare } from "../../hooks/useBlockMergeCompare";
 import { CodeBlockEditDialog } from "../CodeBlockEditDialog";
 import { BlockInlineToolbar } from "./BlockInlineToolbar";
 import { CodeBlockFrame } from "./CodeBlockFrame";
@@ -15,7 +16,7 @@ import { HTML_SANITIZE_CONFIG } from "./types";
 
 type HtmlPreviewBlockProps = Pick<
   CodeBlockSharedProps,
-  | "editor"
+  | "editor" | "node" | "getPos"
   | "codeCollapsed" | "isSelected"
   | "selectNode" | "code"
   | "handleCopyCode" | "handleDeleteBlock" | "deleteDialogOpen" | "setDeleteDialogOpen"
@@ -27,7 +28,7 @@ type HtmlPreviewBlockProps = Pick<
 
 export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
   const {
-    editor,
+    editor, node, getPos,
     codeCollapsed, isSelected,
     selectNode, code,
     handleCopyCode, handleDeleteBlock, deleteDialogOpen, setDeleteDialogOpen,
@@ -35,6 +36,10 @@ export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
     handleFsTextChange,
     t, isDark,
   } = props;
+
+  const { isCompareMode, compareCode, handleMergeApply } = useBlockMergeCompare({
+    editor, getPos, language: "html", code, editOpen,
+  });
 
   const toolbar = (
     <BlockInlineToolbar
@@ -67,6 +72,9 @@ export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
           fsTextareaRef={fsTextareaRef}
           fsSearch={fsSearch}
           readOnly={!editor.isEditable}
+          isCompareMode={isCompareMode}
+          compareCode={compareCode}
+          onMergeApply={handleMergeApply}
           customSamples={htmlSamples.filter((s) => s.enabled)}
           renderPreview={(code) => (
             <Box

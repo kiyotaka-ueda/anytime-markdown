@@ -56,6 +56,8 @@ function setup(overrides?: { code?: string }) {
   const htmlCode = overrides?.code ?? "<p>Hello World</p>";
   const props = {
     editor: createMockEditor(),
+    node: { attrs: { language: "html" }, content: { size: 10 } } as never,
+    getPos: jest.fn(() => 0) as never,
     codeCollapsed: true,
     isSelected: true,
     selectNode: jest.fn(),
