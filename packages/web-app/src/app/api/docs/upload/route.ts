@@ -32,8 +32,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Only .md files are allowed' }, { status: 400 });
     }
 
-    // ファイル名を英数字・ハイフン・アンダースコア・ドット・スペースに制限
-    if (!/^[a-zA-Z0-9\u3000-\u9FFF\uF900-\uFAFF\u{20000}-\u{2FA1F}\w\-. ]+$/u.test(file.name)) {
+    // ファイル名に制御文字・パス区切り・シェル特殊文字を禁止
+    if (/[\x00-\x1f\x7f<>:"|?*;`${}[\]#!~&()']/.test(file.name)) {
       return NextResponse.json({ error: 'Invalid file name' }, { status: 400 });
     }
 

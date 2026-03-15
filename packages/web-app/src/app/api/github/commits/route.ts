@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { fetchWithRetry } from "../../../../lib/fetchWithRetry";
+import { fetchWithRetry, validateGitHubRepo } from "../../../../lib/fetchWithRetry";
 import { getGitHubToken } from "../../../../lib/githubAuth";
 
 async function getFileBlobSha(
@@ -9,7 +9,7 @@ async function getFileBlobSha(
   token: string,
 ): Promise<string | null> {
   const encodedPath = path.split("/").map((s) => encodeURIComponent(s)).join("/");
-  const res = await fetch(
+  const res = await fetchWithRetry(
     `https://api.github.com/repos/${repo}/contents/${encodedPath}?ref=${ref}`,
     {
       headers: {
@@ -19,6 +19,7 @@ async function getFileBlobSha(
       cache: "no-store",
       next: { revalidate: 0 },
     },
+    0,
   );
   if (!res.ok) return null;
   const data = (await res.json()) as { sha?: string };
@@ -34,9 +35,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const repo = searchParams.get("repo");
   const path = searchParams.get("path");
   const branch = searchParams.get("branch");
-  if (!repo || !path) {
+  if (!repo || !validateGitHubRepo(repo) || !path) {
     return NextResponse.json(
-      { error: "Missing repo or path" },
+      { error: "Invalid or missing params" },
       { status: 400 },
     );
   }

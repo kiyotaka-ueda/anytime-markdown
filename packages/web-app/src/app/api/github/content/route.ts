@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { fetchWithRetry } from "../../../../lib/fetchWithRetry";
+import { fetchWithRetry, validateGitHubRepo } from "../../../../lib/fetchWithRetry";
 import { getGitHubToken } from "../../../../lib/githubAuth";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -11,8 +11,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const repo = searchParams.get("repo");
   const path = searchParams.get("path");
   const ref = searchParams.get("ref");
-  if (!repo || path === null || !ref) {
-    return NextResponse.json({ error: "Missing params" }, { status: 400 });
+  if (!repo || !validateGitHubRepo(repo) || path === null || !ref) {
+    return NextResponse.json({ error: "Invalid or missing params" }, { status: 400 });
   }
   const encodedPath = path
     .split("/")
@@ -69,8 +69,8 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     sha?: string;
   };
   const { repo, path, content, message, branch, sha } = body;
-  if (!repo || !path) {
-    return NextResponse.json({ error: "Missing params" }, { status: 400 });
+  if (!repo || !validateGitHubRepo(repo) || !path) {
+    return NextResponse.json({ error: "Invalid or missing params" }, { status: 400 });
   }
   const encodedPath = path
     .split("/")
@@ -149,8 +149,8 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
     branch?: string;
   };
   const { repo, path, message, branch } = body;
-  if (!repo || !path) {
-    return NextResponse.json({ error: "Missing params" }, { status: 400 });
+  if (!repo || !validateGitHubRepo(repo) || !path) {
+    return NextResponse.json({ error: "Invalid or missing params" }, { status: 400 });
   }
   const encodedPath = path
     .split("/")
@@ -218,8 +218,8 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     branch?: string;
   };
   const { repo, oldPath, newPath, branch } = body;
-  if (!repo || !oldPath || !newPath) {
-    return NextResponse.json({ error: "Missing params" }, { status: 400 });
+  if (!repo || !validateGitHubRepo(repo) || !oldPath || !newPath) {
+    return NextResponse.json({ error: "Invalid or missing params" }, { status: 400 });
   }
 
   const headers = {

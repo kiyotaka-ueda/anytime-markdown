@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { fetchWithRetry } from "../../../../lib/fetchWithRetry";
+import { fetchWithRetry, validateGitHubRepo } from "../../../../lib/fetchWithRetry";
 import { getGitHubToken } from "../../../../lib/githubAuth";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -8,8 +8,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
   const repo = request.nextUrl.searchParams.get("repo");
-  if (!repo) {
-    return NextResponse.json({ error: "Missing repo param" }, { status: 400 });
+  if (!repo || !validateGitHubRepo(repo)) {
+    return NextResponse.json({ error: "Invalid or missing repo param" }, { status: 400 });
   }
   const res = await fetchWithRetry(
     `https://api.github.com/repos/${repo}/branches?per_page=100`,
