@@ -308,14 +308,9 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
 
   const plantUmlToolbarCtx = useMemo(() => ({ setSampleAnchorEl }), [setSampleAnchorEl]);
 
-  if (loading) {
-    return <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}><CircularProgress /></Box>;
-  }
-
   const SECTION_NUMBER_RE = /^\d+(\.\d+)*\.?\s/;
   const handleInsertSectionNumbers = useCallback(() => {
     if (!editor) return;
-    // 1. すべての対象見出しを収集
     const targets: { pos: number; level: number; text: string }[] = [];
     editor.state.doc.descendants((node, pos) => {
       if (node.type.name !== "heading") return;
@@ -324,7 +319,6 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
       targets.push({ pos, level, text: node.textContent });
     });
     if (targets.length === 0) return;
-    // 2. セクション番号を計算（前から順に）
     const counters = [0, 0, 0, 0, 0];
     const prefixes: string[] = [];
     for (const h of targets) {
@@ -333,7 +327,6 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
       for (let i = idx + 1; i < 5; i++) counters[i] = 0;
       prefixes.push(counters.slice(0, idx + 1).join(".") + ". ");
     }
-    // 3. 後ろから適用してポジションのずれを防止
     const { tr } = editor.state;
     for (let i = targets.length - 1; i >= 0; i--) {
       const contentStart = targets[i].pos + 1;
@@ -349,7 +342,6 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   const handleRemoveSectionNumbers = useCallback(() => {
     if (!editor) return;
     const { tr } = editor.state;
-    // 後ろから処理してポジションのずれを防止
     const removals: { from: number; to: number }[] = [];
     editor.state.doc.descendants((node, pos) => {
       if (node.type.name !== "heading") return;
@@ -380,6 +372,10 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     window.addEventListener('vscode-toggle-section-numbers', handler);
     return () => window.removeEventListener('vscode-toggle-section-numbers', handler);
   }, [handleInsertSectionNumbers, handleRemoveSectionNumbers]);
+
+  if (loading) {
+    return <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}><CircularProgress /></Box>;
+  }
 
   const outlineProps = {
     isMd, outlineOpen, handleToggleOutline, outlineWidth, setOutlineWidth, editorHeight,
