@@ -38,7 +38,9 @@ export async function fetchFromCdn(key: string): Promise<string | null> {
 
   const controller = new AbortController();
   const timerId = setTimeout(() => controller.abort(), 10_000);
-  const res = await fetch(target.href, { cache: 'no-store', signal: controller.signal });
+  // バリデーション済みのオリジンとパスから URL を再構築（SSRF 対策）
+  const safeUrl = `${base.origin}${target.pathname}`;
+  const res = await fetch(safeUrl, { cache: 'no-store', signal: controller.signal });
   clearTimeout(timerId);
   if (!res.ok) return null;
   return res.text();
