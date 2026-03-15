@@ -12,6 +12,13 @@ body.editor-page {
   height: 100%;
 }
 
+/* エディタページのアプリラッパーのスクロールバーを抑制 */
+body.editor-page > #main-content,
+body.editor-page > #main-content > .MuiBox-root,
+body.editor-page > #main-content > .MuiBox-root > .MuiBox-root {
+  overflow: hidden !important;
+}
+
 /* ========== Dark Theme (default) ========== */
 :root {
   --vscode-editor-background: #1e1e1e;
