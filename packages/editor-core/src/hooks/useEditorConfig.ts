@@ -8,7 +8,6 @@ import type { RefObject } from "react";
 import { useEffect } from "react";
 
 import { DEBOUNCE_MEDIUM } from "../constants/timing";
-import { Details, DetailsSummary } from "../detailsExtension";
 import { getBaseExtensions } from "../editorExtensions";
 import { CustomHardBreak } from "../extensions/customHardBreak";
 import { DeleteLineExtension } from "../extensions/deleteLineExtension";
@@ -190,8 +189,6 @@ export function useEditorConfig({
       CustomHardBreak,
       DeleteLineExtension,
       SearchReplaceExtension,
-      Details,
-      DetailsSummary,
       Placeholder.configure({ placeholder: t("placeholder") }),
       SlashCommandExtension.configure({
         onStateChange: (state: SlashCommandState) => slashCommandCallbackRef.current(state),

@@ -21,14 +21,6 @@ describe("sanitizeMarkdown", () => {
     expect(result).toContain("world");
   });
 
-  test("許可タグ（details, mark等）を保持する", () => {
-    const md = "<details><summary>Title</summary>\n\ncontent\n\n</details>";
-    const result = sanitizeMarkdown(md);
-    expect(result).toContain("<details>");
-    expect(result).toContain("<summary>");
-    expect(result).toContain("</details>");
-  });
-
   test("コードブロック内の > < & 文字を保持する", () => {
     const md = "```js\nif (a > 0 && b < 1) { return a & b; }\n```";
     expect(sanitizeMarkdown(md)).toBe(md);

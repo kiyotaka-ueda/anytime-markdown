@@ -5,8 +5,8 @@ import { preprocessComments } from "./commentHelpers";
 import { preprocessFootnoteRefs } from "./footnoteHelpers";
 import { preprocessMathBlock } from "./mathHelpers";
 
-const ALLOWED_TAGS = ["details", "summary", "br", "hr", "sub", "sup", "mark", "kbd", "u"];
-const ALLOWED_ATTR = ["open"];
+const ALLOWED_TAGS = ["br", "hr", "sub", "sup", "mark", "kbd", "u"];
+const ALLOWED_ATTR: string[] = [];
 
 /** 空行保持用の Zero-Width Space マーカー */
 export const BLANK_LINE_MARKER = "\u200B";

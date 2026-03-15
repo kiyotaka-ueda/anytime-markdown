@@ -34,14 +34,12 @@ export { SearchReplaceBar } from './components/SearchReplaceBar';
 export { StatusBar } from './components/StatusBar';
 
 // NodeView components
-export { DetailsNodeView } from './DetailsNodeView';
 export { ImageNodeView } from './ImageNodeView';
 export { CodeBlockNodeView } from './MermaidNodeView';
 export { TableNodeView } from './TableNodeView';
 
 // Extensions
 export { CodeBlockWithMermaid } from './codeBlockWithMermaid';
-export { Details, DetailsSummary } from './detailsExtension';
 export { getBaseExtensions } from './editorExtensions';
 export { CustomHardBreak } from './extensions/customHardBreak';
 export { CustomTableCell, CustomTableHeader } from './extensions/customTableCells';

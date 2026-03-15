@@ -47,11 +47,6 @@ describe("sanitizeMarkdown", () => {
 
   // ── 許可タグの保持 ──
 
-  test("details/summary タグを保持する", () => {
-    const md = "<details><summary>Title</summary>Content</details>";
-    expect(sanitizeMarkdown(md)).toBe(md);
-  });
-
   test("mark タグを保持する", () => {
     expect(sanitizeMarkdown("<mark>highlighted</mark>")).toBe("<mark>highlighted</mark>");
   });
