@@ -24,7 +24,7 @@ Switch modes via the pill-shaped toggles in the toolbar.
 
 ## 1.2. Features
 
-### 1.2.1. Supported Markdown Elements
+### 1.2.1. Markdown Elements
 
 | Category | Elements |
 | --- | --- |
@@ -85,14 +85,10 @@ Type `/` in the editor to open the command menu.
 
 | Shortcut | Action |
 | --- | --- |
-| `Ctrl+Shift+8` | Bullet list |
-| `Ctrl+Shift+7` | Numbered list |
-| `Ctrl+Shift+9` | Task list |
 | `Ctrl+Alt+S` | Switch mode (Review / WYSIWYG / Source) |
 | `Ctrl+S` | Save (VS Code native) |
 
-> On Mac, replace `Ctrl` with `Cmd`.\
-> `Ctrl+K` (Link), `Ctrl+Shift+M` (Comment), `Ctrl+Alt+M` (Compare), and `Ctrl+Alt+O` (Outline) conflict with VS Code shortcuts. Use the toolbar instead.
+> On Mac, replace `Ctrl` with `Cmd`.
 
 ## 1.3. Extension Settings
 

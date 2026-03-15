@@ -117,8 +117,8 @@ export function getBaseExtensions(options?: { disableComments?: boolean }): Exte
       strike: { HTMLAttributes: {}, },
       code: { HTMLAttributes: {}, },
     }),
-    // Bold/Italic/Strike/Code のキーボードショートカットを無効化
-    // （バブルメニュー・ツールバーから操作）
+    // 書式・リストのキーボードショートカットを無効化
+    // （バブルメニュー・ツールバー・スラッシュコマンドから操作）
     Extension.create({
       name: "disableFormattingShortcuts",
       addKeyboardShortcuts() {
@@ -129,6 +129,10 @@ export function getBaseExtensions(options?: { disableComments?: boolean }): Exte
           "Mod-e": () => true,
           "Mod-Shift-x": () => true,
           "Mod-Shift-h": () => true,
+          "Mod-Shift-7": () => true,
+          "Mod-Shift-8": () => true,
+          "Mod-Shift-9": () => true,
+          "Mod-k": () => true,
         };
       },
     }),
