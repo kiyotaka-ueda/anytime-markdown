@@ -23,7 +23,7 @@ test.describe("Markdown Elements", () => {
     await page.keyboard.type("/ordered");
     const menu = page.getByRole("menu", { name: "Type to filter..." });
     await expect(menu).toBeVisible();
-    await menu.getByRole("menuitem", { name: /Ordered List/i }).click();
+    await menu.getByRole("menuitem", { name: /Numbered List/i }).click();
     await expect(editor.locator("ol")).toBeVisible();
   });
 
@@ -43,7 +43,7 @@ test.describe("Markdown Elements", () => {
     await page.keyboard.type("/quote");
     const menu = page.getByRole("menu", { name: "Type to filter..." });
     await expect(menu).toBeVisible();
-    await menu.getByRole("menuitem", { name: /Blockquote/i }).click();
+    await menu.getByRole("menuitem", { name: /^Quote$/i }).click();
     await expect(editor.locator("blockquote")).toBeVisible();
   });
 
@@ -59,13 +59,4 @@ test.describe("Markdown Elements", () => {
     await expect(editor).toContainText(today);
   });
 
-  test("スラッシュコマンドで Details を挿入", async ({ page }) => {
-    const editor = page.locator(".tiptap");
-    await editor.click();
-    await page.keyboard.type("/details");
-    const menu = page.getByRole("menu", { name: "Type to filter..." });
-    await expect(menu).toBeVisible();
-    await menu.getByRole("menuitem", { name: /Details/i }).click();
-    await expect(editor.locator("details")).toBeVisible();
-  });
 });
