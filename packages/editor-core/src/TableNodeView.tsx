@@ -127,7 +127,7 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
             <SearchReplaceBar editor={editor} t={t} />
           )}
 
-          {!collapsed && isEditable && (
+          {!collapsed && isEditable && fullscreen && (
             <>
               {/* Column add/remove */}
               <ToggleButtonGroup size="small" sx={{ height: 24 }}>
