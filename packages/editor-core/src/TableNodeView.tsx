@@ -11,14 +11,12 @@ import { Box, Divider, Paper, ToggleButton, ToggleButtonGroup, Tooltip, useTheme
 import type { NodeViewProps } from "@tiptap/react";
 import { NodeViewContent, NodeViewWrapper } from "@tiptap/react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
 
 import { BlockInlineToolbar } from "./components/codeblock/BlockInlineToolbar";
 import { EditDialogHeader } from "./components/EditDialogHeader";
 import { DeleteBlockDialog } from "./components/codeblock/DeleteBlockDialog";
 import { SearchReplaceBar } from "./components/SearchReplaceBar";
-import { useDeleteBlock } from "./hooks/useDeleteBlock";
-import { useNodeSelected } from "./hooks/useNodeSelected";
+import { useBlockNodeState } from "./hooks/useBlockNodeState";
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "./constants/colors";
 import { Z_FULLSCREEN } from "./constants/zIndex";
 import { moveTableColumn,moveTableRow } from "./utils/tableHelpers";
@@ -28,15 +26,10 @@ const iconSx = { fontSize: 16 };
 export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
   const t = useTranslations("MarkdownEditor");
   const isDark = useTheme().palette.mode === "dark";
-  const [editOpen, setEditOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const collapsed = !!node.attrs.collapsed;
-  const isEditable = editor?.isEditable ?? true;
-
-  const isSelected = useNodeSelected(editor, getPos, node.nodeSize);
-  const handleDeleteBlock = useDeleteBlock(editor, getPos, node.nodeSize);
-
-  const showToolbar = isEditable && (collapsed || editOpen || isSelected);
+  const {
+    deleteDialogOpen, setDeleteDialogOpen, editOpen, setEditOpen,
+    collapsed, isEditable, isSelected, handleDeleteBlock, showToolbar,
+  } = useBlockNodeState(editor, node, getPos);
 
   return (
     <NodeViewWrapper>

@@ -13,10 +13,9 @@ import { BlockInlineToolbar } from "./components/codeblock/BlockInlineToolbar";
 import { DeleteBlockDialog } from "./components/codeblock/DeleteBlockDialog";
 import { EditDialogHeader } from "./components/EditDialogHeader";
 import { EditDialogWrapper } from "./components/EditDialogWrapper";
+import { useBlockNodeState } from "./hooks/useBlockNodeState";
 import { useBlockResize } from "./hooks/useBlockResize";
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "./constants/colors";
-import { useDeleteBlock } from "./hooks/useDeleteBlock";
-import { useNodeSelected } from "./hooks/useNodeSelected";
 import { getEditorStorage } from "./types";
 
 const MIN_WIDTH = 50;
@@ -25,16 +24,11 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
   const t = useTranslations("MarkdownEditor");
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
-  const collapsed = !!node.attrs.collapsed;
-
-  const isSelected = useNodeSelected(editor, getPos, node.nodeSize);
-  const handleDeleteBlock = useDeleteBlock(editor, getPos, node.nodeSize);
-
-  const isEditable = editor?.isEditable ?? true;
+  const {
+    deleteDialogOpen, setDeleteDialogOpen, editOpen, setEditOpen,
+    collapsed, isEditable, isSelected, handleDeleteBlock, showToolbar,
+  } = useBlockNodeState(editor, node, getPos);
   const { src, alt, title, width } = node.attrs;
-  const showToolbar = isEditable && (collapsed || editOpen || isSelected);
 
   // --- Image size display ---
   const imgRef = useRef<HTMLImageElement>(null);
