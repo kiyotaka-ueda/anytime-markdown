@@ -251,6 +251,20 @@ export function App() {
             <>To view diffs, use <strong>GIT HISTORY</strong> in the<br />&quot;Anytime Markdown&quot; sidebar.</>
           )}
         </div>
+        <button
+          onClick={() => setLanding(false)}
+          style={{
+            padding: '8px 24px',
+            fontSize: '13px',
+            cursor: 'pointer',
+            border: 'none',
+            borderRadius: '4px',
+            backgroundColor: isDark ? '#0e639c' : '#007acc',
+            color: '#ffffff',
+          }}
+        >
+          {isJa ? 'Anytime Markdown で編集' : 'Open in Anytime Markdown'}
+        </button>
       </div>
     );
   }
