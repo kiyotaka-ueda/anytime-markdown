@@ -166,7 +166,28 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
         </Box>
 
         {/* Table body (fullscreen) */}
-        <Box sx={{ flex: 1, overflow: "auto", bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG }}>
+        <Box sx={{
+          flex: 1, overflow: "auto", bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG, p: 2,
+          "& table": {
+            borderCollapse: "collapse",
+            width: "100%",
+            "& th, & td": {
+              border: 1,
+              borderColor: "divider",
+              px: 1,
+              py: 0.5,
+              textAlign: "left",
+              minWidth: 80,
+            },
+            "& th": {
+              bgcolor: "action.hover",
+              fontWeight: 600,
+            },
+            "& .selectedCell": {
+              bgcolor: "action.selected",
+            },
+          },
+        }}>
           <NodeViewContent<"table"> as="table" />
         </Box>
       </Dialog>
