@@ -6,24 +6,23 @@ test.describe("Keyboard Shortcuts", () => {
     await openEmptyEditor(page);
   });
 
-  test("Ctrl+B toggles bold", async ({ page }) => {
+  test("バブルメニューから Bold を適用・解除", async ({ page }) => {
     const editor = page.locator(".tiptap");
     await editor.click();
     await page.keyboard.type("bold test");
-    // テキストを全選択してBold適用
     await page.keyboard.press("Control+a");
-    await page.keyboard.press("Control+b");
-    // <strong> 要素が存在することを確認
+    // バブルメニューの Bold ボタンをクリック
+    const boldBtn = page.getByRole("button", { name: "Bold" });
+    await expect(boldBtn).toBeVisible();
+    await boldBtn.click();
     await expect(editor.locator("strong")).toContainText("bold test");
-    // もう一度 Ctrl+B で Bold 解除
-    await page.keyboard.press("Control+b");
-    // <strong> 要素が消えていることを確認
+    // もう一度クリックで Bold 解除
+    await boldBtn.click();
     await expect(editor.locator("strong")).toHaveCount(0);
-    // テキスト自体は残っている
     await expect(editor).toContainText("bold test");
   });
 
-  test("Ctrl+Z undoes and Ctrl+Y redoes", async ({ page }) => {
+  test("Ctrl+Z undoes and Ctrl+Shift+Z redoes", async ({ page }) => {
     const editor = page.locator(".tiptap");
     await editor.click();
     await page.keyboard.type("first");
@@ -32,8 +31,8 @@ test.describe("Keyboard Shortcuts", () => {
     // Ctrl+Z で undo: 追加テキストが消える
     await page.keyboard.press("Control+z");
     await expect(editor).not.toContainText("second");
-    // Ctrl+Y で redo: 追加テキストが戻る
-    await page.keyboard.press("Control+y");
+    // Ctrl+Shift+Z で redo: 追加テキストが戻る
+    await page.keyboard.press("Control+Shift+z");
     await expect(editor).toContainText("first second");
   });
 
