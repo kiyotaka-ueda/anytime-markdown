@@ -230,6 +230,7 @@ export function App() {
   if (landing) {
     const isDark = themeMode === 'dark';
     const logoUri = (window as unknown as { __LOGO_URI__?: string }).__LOGO_URI__;
+    const isJa = (document.documentElement.lang || navigator.language || '').startsWith('ja');
     return (
       <div style={{
         display: 'flex',
@@ -243,8 +244,12 @@ export function App() {
         gap: '24px',
       }}>
         {logoUri && <img src={logoUri} alt="Anytime Markdown" style={{ width: 64, height: 64, opacity: 0.8 }} />}
-        <div style={{ fontSize: '14px', textAlign: 'center', lineHeight: 1.6 }}>
-          差分は、SidebarのAnytime Markdownの<br />git historyで確認してください。
+        <div style={{ fontSize: '14px', textAlign: 'center', lineHeight: 1.8 }}>
+          {isJa ? (
+            <>差分は、サイドバー「Anytime Markdown」の<br />GIT HISTORY で確認してください。</>
+          ) : (
+            <>To view diffs, use <strong>GIT HISTORY</strong> in the<br />&quot;Anytime Markdown&quot; sidebar.</>
+          )}
         </div>
       </div>
     );
