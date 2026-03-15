@@ -26,8 +26,8 @@ export interface CodeBlockSharedProps {
   deleteDialogOpen: boolean;
   setDeleteDialogOpen: (open: boolean) => void;
   /** Fullscreen state */
-  fullscreen: boolean;
-  setFullscreen: (open: boolean) => void;
+  editOpen: boolean;
+  setEditOpen: (open: boolean) => void;
   /** Fullscreen code state */
   fsCode: string;
   onFsCodeChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;

@@ -12,7 +12,7 @@ import { useCallback, useEffect,useRef, useState } from "react";
 
 import { BlockInlineToolbar } from "./components/codeblock/BlockInlineToolbar";
 import { DeleteBlockDialog } from "./components/codeblock/DeleteBlockDialog";
-import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, getFullscreenBg } from "./constants/colors";
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, getEditDialogBg } from "./constants/colors";
 import { useDeleteBlock } from "./hooks/useDeleteBlock";
 import { useEditorSettingsContext } from "./useEditorSettings";
 import { useNodeSelected } from "./hooks/useNodeSelected";
@@ -26,7 +26,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
   const isDark = theme.palette.mode === "dark";
   const settings = useEditorSettingsContext();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [fullscreen, setFullscreen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const collapsed = !!node.attrs.collapsed;
 
   const isSelected = useNodeSelected(editor, getPos, node.nodeSize);
@@ -34,7 +34,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
 
   const isEditable = editor?.isEditable ?? true;
   const { src, alt, title, width } = node.attrs;
-  const showToolbar = isEditable && (collapsed || fullscreen || isSelected);
+  const showToolbar = isEditable && (collapsed || editOpen || isSelected);
 
   // --- Image size display ---
   const imgRef = useRef<HTMLImageElement>(null);
@@ -131,21 +131,21 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
 
   return (
     <NodeViewWrapper>
-      {/* Fullscreen Dialog */}
+      {/* Edit Dialog */}
       <Dialog
-        open={fullscreen}
-        onClose={() => setFullscreen(false)}
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
         fullScreen
-        aria-labelledby="image-fullscreen-title"
-        slotProps={{ paper: { sx: { bgcolor: getFullscreenBg(isDark, settings), display: "flex", flexDirection: "column" } } }}
+        aria-labelledby="image-edit-title"
+        slotProps={{ paper: { sx: { bgcolor: getEditDialogBg(isDark, settings), display: "flex", flexDirection: "column" } } }}
       >
         <Box sx={{ display: "flex", alignItems: "center", px: 2, py: 1, borderBottom: 1, borderColor: "divider" }}>
           <Tooltip title={t("close")} placement="bottom">
-            <IconButton size="small" onClick={() => setFullscreen(false)} sx={{ mr: 1 }} aria-label={t("close")}>
+            <IconButton size="small" onClick={() => setEditOpen(false)} sx={{ mr: 1 }} aria-label={t("close")}>
               <CloseIcon sx={{ fontSize: 20 }} />
             </IconButton>
           </Tooltip>
-          <DialogTitle id="image-fullscreen-title" sx={{ p: 0, fontSize: "0.875rem", fontWeight: 600, mr: 1 }}>
+          <DialogTitle id="image-edit-title" sx={{ p: 0, fontSize: "0.875rem", fontWeight: 600, mr: 1 }}>
             {t("image")}
           </DialogTitle>
           <Box sx={{ flex: 1 }} />
@@ -191,7 +191,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
         {isEditable && (
           <BlockInlineToolbar
             label={t("image")}
-            onFullscreen={!collapsed ? () => setFullscreen(true) : undefined}
+            onEdit={!collapsed ? () => setEditOpen(true) : undefined}
             onDelete={!collapsed ? () => setDeleteDialogOpen(true) : undefined}
             collapsed={collapsed}
             extra={<>
@@ -229,7 +229,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
             sx={{ lineHeight: 0, position: "relative", display: "inline-block" }}
             onPointerMove={handleResizePointerMove}
             onPointerUp={handleResizePointerUp}
-            onDoubleClick={!isEditable ? () => setFullscreen(true) : undefined}
+            onDoubleClick={!isEditable ? () => setEditOpen(true) : undefined}
           >
             <img
               ref={imgRef}

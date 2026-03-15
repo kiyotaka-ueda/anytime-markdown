@@ -19,7 +19,7 @@ import { DeleteBlockDialog } from "./components/codeblock/DeleteBlockDialog";
 import { SearchReplaceBar } from "./components/SearchReplaceBar";
 import { useDeleteBlock } from "./hooks/useDeleteBlock";
 import { useNodeSelected } from "./hooks/useNodeSelected";
-import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, getFullscreenBg } from "./constants/colors";
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, getEditDialogBg } from "./constants/colors";
 import { Z_FULLSCREEN } from "./constants/zIndex";
 import { useEditorSettingsContext } from "./useEditorSettings";
 import { moveTableColumn,moveTableRow } from "./utils/tableHelpers";
@@ -30,7 +30,7 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
   const t = useTranslations("MarkdownEditor");
   const isDark = useTheme().palette.mode === "dark";
   const settings = useEditorSettingsContext();
-  const [fullscreen, setFullscreen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const collapsed = !!node.attrs.collapsed;
   const isEditable = editor?.isEditable ?? true;
@@ -38,27 +38,27 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
   const isSelected = useNodeSelected(editor, getPos, node.nodeSize);
   const handleDeleteBlock = useDeleteBlock(editor, getPos, node.nodeSize);
 
-  const showToolbar = isEditable && (collapsed || fullscreen || isSelected);
+  const showToolbar = isEditable && (collapsed || editOpen || isSelected);
 
-  const fsBg = getFullscreenBg(isDark, settings) ?? (isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG);
+  const fsBg = getEditDialogBg(isDark, settings) ?? (isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG);
 
   return (
     <NodeViewWrapper>
       <Box
-        {...(fullscreen && {
+        {...(editOpen && {
           role: "dialog" as const,
           "aria-modal": true,
           "aria-label": t("tableLabel"),
-          onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Escape") setFullscreen(false); },
+          onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Escape") setEditOpen(false); },
         })}
-        tabIndex={fullscreen ? -1 : undefined}
+        tabIndex={editOpen ? -1 : undefined}
         sx={{
           border: 1,
           borderColor: isEditable ? "divider" : "transparent",
-          borderRadius: fullscreen ? 0 : 1,
+          borderRadius: editOpen ? 0 : 1,
           overflow: "hidden",
-          my: fullscreen ? 0 : 1,
-          ...(fullscreen && {
+          my: editOpen ? 0 : 1,
+          ...(editOpen && {
             position: "fixed",
             inset: 0,
             zIndex: Z_FULLSCREEN,
@@ -74,14 +74,14 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
           }),
         }}
       >
-        {/* Fullscreen header toolbar (Mermaid-style) */}
-        {fullscreen && (
+        {/* Edit header toolbar (Mermaid-style) */}
+        {editOpen && (
           <Box
             sx={{ display: "flex", alignItems: "center", px: 2, py: 1, borderBottom: 1, borderColor: "divider", flexWrap: "wrap", gap: 0.5 }}
             contentEditable={false}
           >
             <Tooltip title={t("close")} placement="bottom">
-              <IconButton size="small" onClick={() => setFullscreen(false)} sx={{ mr: 1 }} aria-label={t("close")}>
+              <IconButton size="small" onClick={() => setEditOpen(false)} sx={{ mr: 1 }} aria-label={t("close")}>
                 <CloseIcon sx={{ fontSize: 20 }} />
               </IconButton>
             </Tooltip>
@@ -191,24 +191,24 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
           </Box>
         )}
 
-        {/* Inline toolbar (non-fullscreen) */}
-        {!fullscreen && isEditable && (
+        {/* Inline toolbar (non-edit) */}
+        {!editOpen && isEditable && (
           <BlockInlineToolbar
             label={t("tableLabel")}
-            onFullscreen={!collapsed ? () => setFullscreen(true) : undefined}
+            onEdit={!collapsed ? () => setEditOpen(true) : undefined}
             onDelete={!collapsed ? () => setDeleteDialogOpen(true) : undefined}
             collapsed={collapsed}
             t={t}
           />
         )}
 
-        {/* Table body (single instance, shared between inline and fullscreen) */}
+        {/* Table body (single instance, shared between inline and edit) */}
         <Box
           sx={collapsed
             ? { height: 0, overflow: "hidden" }
             : {
                 overflow: "auto",
-                ...(fullscreen && {
+                ...(editOpen && {
                   flex: 1,
                   bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
                   p: 2,
@@ -222,7 +222,7 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
                 }),
               }
           }
-          onDoubleClick={!isEditable ? () => setFullscreen(true) : undefined}
+          onDoubleClick={!isEditable ? () => setEditOpen(true) : undefined}
         >
           <NodeViewContent<"table"> as="table" />
         </Box>

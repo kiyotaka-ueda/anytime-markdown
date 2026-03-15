@@ -26,7 +26,7 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const isEditable = useEditorState({ editor, selector: (ctx) => !!ctx.editor?.isEditable });
   const codeCollapsed = !!node.attrs.codeCollapsed || !isEditable;
-  const [fullscreen, setFullscreen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [fsCode, setFsCode] = useState("");
   const fsTextareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -52,14 +52,14 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
   const code = node.textContent;
   const handleCopyCode = useCallback(() => { navigator.clipboard.writeText(code); }, [code]);
 
-  // Sync code on fullscreen open
-  // code は意図的に除外（fullscreen 切替時のスナップショットのみ取得）
+  // Sync code on editOpen open
+  // code は意図的に除外（editOpen 切替時のスナップショットのみ取得）
   useEffect(() => {
-    if (fullscreen) setFsCode(code);
+    if (editOpen) setFsCode(code);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fullscreen]);
+  }, [editOpen]);
 
-  /** Sync fullscreen code editor changes back to TipTap node */
+  /** Sync editOpen code editor changes back to TipTap node */
   const handleFsCodeChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newCode = e.target.value;
     setFsCode(newCode);
@@ -107,7 +107,7 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
     isSelected, codeCollapsed,
     selectNode, code,
     handleCopyCode, handleDeleteBlock, deleteDialogOpen, setDeleteDialogOpen,
-    fullscreen, setFullscreen, fsCode, onFsCodeChange: handleFsCodeChange, fsTextareaRef, fsSearch,
+    editOpen, setEditOpen, fsCode, onFsCodeChange: handleFsCodeChange, fsTextareaRef, fsSearch,
     t, isDark,
   };
 

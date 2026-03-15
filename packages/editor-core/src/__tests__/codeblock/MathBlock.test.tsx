@@ -44,8 +44,8 @@ jest.mock("dompurify", () => ({
   default: { sanitize: (html: string) => html },
 }));
 
-jest.mock("../../components/MathFullscreenDialog", () => ({
-  MathFullscreenDialog: ({ toolbarExtra }: { toolbarExtra?: React.ReactNode }) => <div data-testid="fs-dialog">{toolbarExtra}</div>,
+jest.mock("../../components/MathEditDialog", () => ({
+  MathEditDialog: ({ toolbarExtra }: { toolbarExtra?: React.ReactNode }) => <div data-testid="fs-dialog">{toolbarExtra}</div>,
 }));
 
 import { MathBlock } from "../../components/codeblock/MathBlock";
@@ -87,8 +87,8 @@ function setup(overrides?: { codeCollapsed?: boolean }) {
     handleDeleteBlock: jest.fn(),
     deleteDialogOpen: false,
     setDeleteDialogOpen: jest.fn(),
-    fullscreen: false,
-    setFullscreen: jest.fn(),
+    editOpen: false,
+    setEditOpen: jest.fn(),
     fsCode: "",
     onFsCodeChange: jest.fn(),
     fsTextareaRef: { current: null },
@@ -129,8 +129,8 @@ describe("MathBlock", () => {
         handleDeleteBlock={jest.fn()}
         deleteDialogOpen={false}
         setDeleteDialogOpen={jest.fn()}
-        fullscreen={false}
-        setFullscreen={jest.fn()}
+        editOpen={false}
+        setEditOpen={jest.fn()}
         fsCode=""
         onFsCodeChange={jest.fn()}
         fsTextareaRef={{ current: null }}

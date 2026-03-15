@@ -44,8 +44,8 @@ export function getEditorBg(isDark: boolean, settings?: Pick<EditorSettings, "da
     : (settings?.lightBgColor || DEFAULT_LIGHT_BG);
 }
 
-/** 全画面ダイアログの Paper 背景色を返す */
-export function getFullscreenBg(isDark: boolean, settings?: Pick<EditorSettings, "editorBg">): string | undefined {
+/** ブロック要素編集ダイアログの Paper 背景色を返す */
+export function getEditDialogBg(isDark: boolean, settings?: Pick<EditorSettings, "editorBg">): string | undefined {
   return settings?.editorBg === "grey" && !isDark ? "grey.50" : undefined;
 }
 

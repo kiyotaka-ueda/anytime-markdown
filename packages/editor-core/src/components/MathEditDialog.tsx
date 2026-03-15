@@ -8,7 +8,7 @@ import { Box, Chip, Dialog, DialogTitle, Divider, IconButton, Tooltip, Typograph
 import DOMPurify from "dompurify";
 import React, { useCallback, useRef, useState } from "react";
 
-import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, getFullscreenBg } from "../constants/colors";
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, getEditDialogBg } from "../constants/colors";
 import { FS_CHIP_HEIGHT, FS_CODE_INITIAL_WIDTH, FS_CODE_MIN_WIDTH, FS_TOOLBAR_HEIGHT, FS_ZOOM_LABEL_WIDTH } from "../constants/dimensions";
 import { REDUCED_MOTION_SX, SPLITTER_SX, TRANSITION_FAST } from "../constants/uiPatterns";
 import { MATH_SAMPLES } from "../constants/samples";
@@ -19,7 +19,7 @@ import { useEditorSettingsContext } from "../useEditorSettings";
 import { FullscreenDiffView } from "./FullscreenDiffView";
 import { LineNumberTextarea } from "./LineNumberTextarea";
 
-interface MathFullscreenDialogProps {
+interface MathEditDialogProps {
   open: boolean;
   onClose: () => void;
   label: string;
@@ -36,12 +36,12 @@ interface MathFullscreenDialogProps {
   t: (key: string) => string;
 }
 
-export function MathFullscreenDialog({
+export function MathEditDialog({
   open, onClose, label,
   fsCode, onFsCodeChange, onFsTextChange, fsTextareaRef, fsSearch,
   readOnly, isCompareMode, compareCode, onMergeApply, toolbarExtra,
   t,
-}: MathFullscreenDialogProps) {
+}: MathEditDialogProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -70,8 +70,8 @@ export function MathFullscreenDialog({
       open={open}
       onClose={onClose}
       fullScreen
-      aria-labelledby="math-fullscreen-title"
-      slotProps={{ paper: { sx: { bgcolor: getFullscreenBg(isDark, settings), display: "flex", flexDirection: "column" } } }}
+      aria-labelledby="math-edit-title"
+      slotProps={{ paper: { sx: { bgcolor: getEditDialogBg(isDark, settings), display: "flex", flexDirection: "column" } } }}
       onKeyDown={(e: React.KeyboardEvent) => {
         if (showCompareView) return;
         const mod = e.metaKey || e.ctrlKey;
@@ -89,7 +89,7 @@ export function MathFullscreenDialog({
             <CloseIcon sx={{ fontSize: 20 }} />
           </IconButton>
         </Tooltip>
-        <DialogTitle id="math-fullscreen-title" sx={{ p: 0, fontSize: "0.875rem", fontWeight: 600, mr: 1 }}>
+        <DialogTitle id="math-edit-title" sx={{ p: 0, fontSize: "0.875rem", fontWeight: 600, mr: 1 }}>
           {label}{showCompareView ? ` - ${t("compare")}` : ""}
         </DialogTitle>
         <Box sx={{ flex: 1 }} />

@@ -9,8 +9,8 @@ import React from "react";
 interface BlockInlineToolbarProps {
   /** Block label (e.g. "Mermaid", "Math", "Table") */
   label: string;
-  /** Show edit (fullscreen) button */
-  onFullscreen?: () => void;
+  /** Show edit button */
+  onEdit?: () => void;
   /** Show delete button */
   onDelete?: () => void;
   /** Whether code/content is collapsed */
@@ -24,7 +24,7 @@ interface BlockInlineToolbarProps {
 const iconSx = { fontSize: 16, color: "text.secondary" };
 
 export function BlockInlineToolbar({
-  label, onFullscreen, onDelete, collapsed, extra, t,
+  label, onEdit, onDelete, collapsed, extra, t,
 }: BlockInlineToolbarProps) {
   return (
     <Box
@@ -47,9 +47,9 @@ export function BlockInlineToolbar({
       <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary", flexShrink: 0 }}>
         {label}
       </Typography>
-      {onFullscreen && !collapsed && (
+      {onEdit && !collapsed && (
         <Tooltip title={t("edit")} placement="top">
-          <IconButton size="small" sx={{ p: 0.25 }} onClick={onFullscreen} aria-label={t("edit")}>
+          <IconButton size="small" sx={{ p: 0.25 }} onClick={onEdit} aria-label={t("edit")}>
             <EditIcon sx={iconSx} />
           </IconButton>
         </Tooltip>

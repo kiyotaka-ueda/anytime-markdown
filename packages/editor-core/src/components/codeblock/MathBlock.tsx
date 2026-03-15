@@ -9,7 +9,7 @@ import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../../constants/colors";
 import { PREVIEW_MAX_HEIGHT } from "../../constants/dimensions";
 import { useBlockMergeCompare } from "../../hooks/useBlockMergeCompare";
 import { MATH_SANITIZE_CONFIG,useKatexRender } from "../../hooks/useKatexRender";
-import { MathFullscreenDialog } from "../MathFullscreenDialog";
+import { MathEditDialog } from "../MathEditDialog";
 import { BlockInlineToolbar } from "./BlockInlineToolbar";
 import { CodeBlockFrame } from "./CodeBlockFrame";
 import type { CodeBlockSharedProps } from "./types";
@@ -20,7 +20,7 @@ type MathBlockProps = Pick<
   | "codeCollapsed" | "isSelected"
   | "selectNode" | "code"
   | "handleCopyCode" | "handleDeleteBlock" | "deleteDialogOpen" | "setDeleteDialogOpen"
-  | "fullscreen" | "setFullscreen" | "fsCode" | "onFsCodeChange" | "fsTextareaRef" | "fsSearch"
+  | "editOpen" | "setEditOpen" | "fsCode" | "onFsCodeChange" | "fsTextareaRef" | "fsSearch"
   | "t" | "isDark"
 > & {
   handleFsTextChange: (newCode: string) => void;
@@ -32,7 +32,7 @@ export function MathBlock(props: MathBlockProps) {
     codeCollapsed, isSelected,
     selectNode, code,
     handleCopyCode, handleDeleteBlock, deleteDialogOpen, setDeleteDialogOpen,
-    fullscreen, setFullscreen, fsCode, onFsCodeChange, fsTextareaRef, fsSearch,
+    editOpen, setEditOpen, fsCode, onFsCodeChange, fsTextareaRef, fsSearch,
     handleFsTextChange,
     t, isDark,
   } = props;
@@ -77,13 +77,13 @@ export function MathBlock(props: MathBlockProps) {
   const displayWidth = resizeWidth !== null ? `${resizeWidth}px` : node.attrs.width || undefined;
 
   const { isCompareMode, compareCode, handleMergeApply } = useBlockMergeCompare({
-    editor, getPos, language: "math", code, fullscreen,
+    editor, getPos, language: "math", code, editOpen,
   });
 
   const toolbar = (
     <BlockInlineToolbar
       label="Math"
-      onFullscreen={() => setFullscreen(true)}
+      onEdit={() => setEditOpen(true)}
       onDelete={() => setDeleteDialogOpen(true)}
       t={t}
     />
@@ -100,9 +100,9 @@ export function MathBlock(props: MathBlockProps) {
       handleDeleteBlock={handleDeleteBlock}
       t={t}
       afterFrame={
-        <MathFullscreenDialog
-          open={fullscreen}
-          onClose={() => { fsSearch.reset(); setFullscreen(false); }}
+        <MathEditDialog
+          open={editOpen}
+          onClose={() => { fsSearch.reset(); setEditOpen(false); }}
           label="Math"
           fsCode={fsCode}
           onFsCodeChange={onFsCodeChange}
@@ -134,7 +134,7 @@ export function MathBlock(props: MathBlockProps) {
           role="img"
           aria-label={`${t("mathFormula")}: ${code}`}
           onClick={() => { selectNode(); if (!codeCollapsed) updateAttributes({ codeCollapsed: true }); }}
-          onDoubleClick={() => setFullscreen(true)}
+          onDoubleClick={() => setEditOpen(true)}
           onPointerMove={handleResizePointerMove}
           onPointerUp={handleResizePointerUp}
           sx={{ pt: 0, px: 2, pb: 2, bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG, borderTop: codeCollapsed ? 0 : 1, borderColor: "divider", overflow: "auto", maxHeight: PREVIEW_MAX_HEIGHT, display: "flex", justifyContent: "flex-start", cursor: "pointer", position: "relative", width: displayWidth || "fit-content", maxWidth: "100%" }}

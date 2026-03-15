@@ -14,8 +14,8 @@ import { usePlantUmlRender } from "../../hooks/usePlantUmlRender";
 import { useZoomPan } from "../../hooks/useZoomPan";
 import { useEditorSettingsContext } from "../../useEditorSettings";
 import { extractDiagramAltText } from "../../utils/diagramAltText";
-import { MermaidFullscreenDialog } from "../MermaidFullscreenDialog";
-import { PlantUmlFullscreenDialog } from "../PlantUmlFullscreenDialog";
+import { MermaidEditDialog } from "../MermaidEditDialog";
+import { PlantUmlEditDialog } from "../PlantUmlEditDialog";
 import { BlockInlineToolbar } from "./BlockInlineToolbar";
 import { CodeBlockFrame } from "./CodeBlockFrame";
 import type { CodeBlockSharedProps } from "./types";
@@ -26,7 +26,7 @@ type DiagramBlockProps = Pick<
   | "codeCollapsed" | "isSelected"
   | "selectNode" | "code"
   | "handleCopyCode" | "handleDeleteBlock" | "deleteDialogOpen" | "setDeleteDialogOpen"
-  | "fullscreen" | "setFullscreen" | "fsCode" | "onFsCodeChange" | "fsTextareaRef" | "fsSearch"
+  | "editOpen" | "setEditOpen" | "fsCode" | "onFsCodeChange" | "fsTextareaRef" | "fsSearch"
   | "t" | "isDark"
 > & {
   /** Fullscreen code text sync */
@@ -39,7 +39,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
     codeCollapsed, isSelected,
     selectNode, code,
     handleCopyCode, handleDeleteBlock, deleteDialogOpen, setDeleteDialogOpen,
-    fullscreen, setFullscreen, fsCode, onFsCodeChange, fsTextareaRef, fsSearch,
+    editOpen, setEditOpen, fsCode, onFsCodeChange, fsTextareaRef, fsSearch,
     handleFsTextChange: _handleFsTextChange,
     t, isDark,
   } = props;
@@ -89,7 +89,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
   }, [svg, plantUmlUrl]);
 
   const { isCompareMode, compareCode, handleMergeApply } = useBlockMergeCompare({
-    editor, getPos: _getPos, language, code, fullscreen,
+    editor, getPos: _getPos, language, code, editOpen,
   });
 
   const label = isMermaid ? t("mermaid") : t("plantuml");
@@ -97,7 +97,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
   const toolbar = (
     <BlockInlineToolbar
       label={label}
-      onFullscreen={(svg || plantUmlUrl) ? () => { fsZP.reset(); setFullscreen(true); } : undefined}
+      onEdit={(svg || plantUmlUrl) ? () => { fsZP.reset(); setEditOpen(true); } : undefined}
       onDelete={isEditable ? () => setDeleteDialogOpen(true) : undefined}
       extra={diagramSize ? (<>
         <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
@@ -155,9 +155,9 @@ export function DiagramBlock(props: DiagramBlockProps) {
   const handleDoubleClickFullscreen = useCallback(() => {
     if (svg || plantUmlUrl) {
       fsZP.reset();
-      setFullscreen(true);
+      setEditOpen(true);
     }
-  }, [svg, plantUmlUrl, fsZP, setFullscreen]);
+  }, [svg, plantUmlUrl, fsZP, setEditOpen]);
 
   return (
     <CodeBlockFrame
@@ -165,16 +165,16 @@ export function DiagramBlock(props: DiagramBlockProps) {
       codeCollapsed={codeCollapsed}
       isDiagramLayout
       isDark={isDark}
-      showBorder={isEditable && (isSelected || fullscreen)}
+      showBorder={isEditable && (isSelected || editOpen)}
       deleteDialogOpen={deleteDialogOpen}
       setDeleteDialogOpen={setDeleteDialogOpen}
       handleDeleteBlock={handleDeleteBlock}
       t={t}
       afterFrame={<>
         {isMermaid && (
-          <MermaidFullscreenDialog
-            open={fullscreen}
-            onClose={() => { fsSearch.reset(); setFullscreen(false); }}
+          <MermaidEditDialog
+            open={editOpen}
+            onClose={() => { fsSearch.reset(); setEditOpen(false); }}
             label={label}
             svg={svg}
             code={code}
@@ -200,9 +200,9 @@ export function DiagramBlock(props: DiagramBlockProps) {
           />
         )}
         {isPlantUml && (
-          <PlantUmlFullscreenDialog
-            open={fullscreen}
-            onClose={() => { fsSearch.reset(); setFullscreen(false); }}
+          <PlantUmlEditDialog
+            open={editOpen}
+            onClose={() => { fsSearch.reset(); setEditOpen(false); }}
             label={label}
             plantUmlUrl={plantUmlUrl}
             code={code}

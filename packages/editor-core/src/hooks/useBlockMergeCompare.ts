@@ -14,30 +14,30 @@ export function useBlockMergeCompare(params: {
   getPos: NodeViewProps["getPos"];
   language: string;
   code: string;
-  fullscreen: boolean;
+  editOpen: boolean;
 }): {
   isCompareMode: boolean;
   compareCode: string | null;
   handleMergeApply: (newThisCode: string, newOtherCode: string) => void;
 } {
-  const { editor, language, code, fullscreen } = params;
+  const { editor, language, code, editOpen } = params;
 
   const mergeEditors = getMergeEditors();
   const isCompareMode = !!mergeEditors;
 
   const compareCode = useMemo(() => {
-    if (!fullscreen || !mergeEditors || !editor) return null;
+    if (!editOpen || !mergeEditors || !editor) return null;
     const isRight = !!editor.view?.dom?.dataset?.reviewMode;
     const otherEditor = isRight ? mergeEditors.leftEditor : mergeEditors.rightEditor;
     return findCounterpartCode(editor, otherEditor, language, code);
-  }, [fullscreen, mergeEditors, editor, language, code]);
+  }, [editOpen, mergeEditors, editor, language, code]);
 
   const blockIndexRef = useRef(-1);
   useEffect(() => {
-    if (fullscreen && mergeEditors && editor) {
+    if (editOpen && mergeEditors && editor) {
       blockIndexRef.current = getCodeBlockIndex(editor, language, code);
     }
-  }, [fullscreen, mergeEditors, editor, language, code]);
+  }, [editOpen, mergeEditors, editor, language, code]);
 
   const handleMergeApply = useCallback((newThisCode: string, newOtherCode: string) => {
     if (!mergeEditors || !editor || blockIndexRef.current === -1) return;

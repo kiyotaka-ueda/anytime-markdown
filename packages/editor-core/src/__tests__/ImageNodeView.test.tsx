@@ -138,8 +138,8 @@ describe("ImageNodeView", () => {
     expect(screen.queryByRole("img")).toBeNull();
   });
 
-  // --- fullscreen ---
-  test("fullscreen ボタン → close ボタンが表示される", () => {
+  // --- editOpen ---
+  test("editOpen ボタン → close ボタンが表示される", () => {
     setup({ isSelected: true });
     const fullscreenBtn = screen.getByLabelText("edit");
     fireEvent.click(fullscreenBtn);
@@ -216,7 +216,7 @@ describe("ImageNodeView", () => {
   });
 
   // --- drag handle ---
-  test("fullscreen 時 → inline toolbar 非表示", () => {
+  test("editOpen 時 → inline toolbar 非表示", () => {
     setup({ isSelected: true });
     fireEvent.click(screen.getByLabelText("edit"));
     expect(screen.queryByRole("toolbar")).toBeNull();

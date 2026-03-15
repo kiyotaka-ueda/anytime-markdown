@@ -36,8 +36,8 @@ jest.mock("dompurify", () => ({
   default: { sanitize: (html: string) => html },
 }));
 
-jest.mock("../../components/CodeBlockFullscreenDialog", () => ({
-  CodeBlockFullscreenDialog: ({ toolbarExtra }: { toolbarExtra?: React.ReactNode }) => <div data-testid="fs-dialog">{toolbarExtra}</div>,
+jest.mock("../../components/CodeBlockEditDialog", () => ({
+  CodeBlockEditDialog: ({ toolbarExtra }: { toolbarExtra?: React.ReactNode }) => <div data-testid="fs-dialog">{toolbarExtra}</div>,
 }));
 
 
@@ -64,8 +64,8 @@ function setup(overrides?: { code?: string }) {
     handleDeleteBlock: jest.fn(),
     deleteDialogOpen: false,
     setDeleteDialogOpen: jest.fn(),
-    fullscreen: false,
-    setFullscreen: jest.fn(),
+    editOpen: false,
+    setEditOpen: jest.fn(),
     fsCode: "",
     onFsCodeChange: jest.fn(),
     fsTextareaRef: { current: null },

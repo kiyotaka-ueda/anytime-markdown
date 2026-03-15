@@ -72,12 +72,12 @@ jest.mock("dompurify", () => ({
   default: { sanitize: (html: string) => html },
 }));
 
-jest.mock("../../components/MermaidFullscreenDialog", () => ({
-  MermaidFullscreenDialog: ({ toolbarExtra }: { toolbarExtra?: React.ReactNode }) => <div data-testid="fs-dialog">{toolbarExtra}</div>,
+jest.mock("../../components/MermaidEditDialog", () => ({
+  MermaidEditDialog: ({ toolbarExtra }: { toolbarExtra?: React.ReactNode }) => <div data-testid="fs-dialog">{toolbarExtra}</div>,
 }));
 
-jest.mock("../../components/PlantUmlFullscreenDialog", () => ({
-  PlantUmlFullscreenDialog: ({ toolbarExtra }: { toolbarExtra?: React.ReactNode }) => <div data-testid="fs-dialog">{toolbarExtra}</div>,
+jest.mock("../../components/PlantUmlEditDialog", () => ({
+  PlantUmlEditDialog: ({ toolbarExtra }: { toolbarExtra?: React.ReactNode }) => <div data-testid="fs-dialog">{toolbarExtra}</div>,
 }));
 
 
@@ -109,7 +109,7 @@ function createMockNode(lang: string) {
   } as unknown as NodeViewProps["node"];
 }
 
-function setup(overrides?: { lang?: string; isSelected?: boolean; fullscreen?: boolean }) {
+function setup(overrides?: { lang?: string; isSelected?: boolean; editOpen?: boolean }) {
   mockSvg = '<svg viewBox="0 0 200 100" width="100%"><rect /></svg>';
   mockMermaidError = null;
   mockPlantUmlUrl = null;
@@ -136,8 +136,8 @@ function setup(overrides?: { lang?: string; isSelected?: boolean; fullscreen?: b
     handleDeleteBlock: jest.fn(),
     deleteDialogOpen: false,
     setDeleteDialogOpen: jest.fn(),
-    fullscreen: overrides?.fullscreen ?? false,
-    setFullscreen: jest.fn(),
+    editOpen: overrides?.editOpen ?? false,
+    setEditOpen: jest.fn(),
     fsCode: "",
     onFsCodeChange: jest.fn(),
     fsTextareaRef: { current: null },
@@ -189,8 +189,8 @@ describe("DiagramBlock", () => {
         handleDeleteBlock={jest.fn()}
         deleteDialogOpen={false}
         setDeleteDialogOpen={jest.fn()}
-        fullscreen={false}
-        setFullscreen={jest.fn()}
+        editOpen={false}
+        setEditOpen={jest.fn()}
         fsCode=""
         onFsCodeChange={jest.fn()}
         fsTextareaRef={{ current: null }}
@@ -229,8 +229,8 @@ describe("DiagramBlock", () => {
         handleDeleteBlock={jest.fn()}
         deleteDialogOpen={false}
         setDeleteDialogOpen={jest.fn()}
-        fullscreen={false}
-        setFullscreen={jest.fn()}
+        editOpen={false}
+        setEditOpen={jest.fn()}
         fsCode=""
         onFsCodeChange={jest.fn()}
         fsTextareaRef={{ current: null }}

@@ -31,8 +31,8 @@ jest.mock("../../useEditorSettings", () => ({
   useEditorSettingsContext: () => ({ fontSize: 16, lineHeight: 1.6 }),
 }));
 
-jest.mock("../../components/CodeBlockFullscreenDialog", () => ({
-  CodeBlockFullscreenDialog: () => null,
+jest.mock("../../components/CodeBlockEditDialog", () => ({
+  CodeBlockEditDialog: () => null,
 }));
 
 import { RegularCodeBlock } from "../../components/codeblock/RegularCodeBlock";
@@ -59,8 +59,8 @@ function setup(overrides?: { isSelected?: boolean; language?: string }) {
     handleDeleteBlock: jest.fn(),
     deleteDialogOpen: false,
     setDeleteDialogOpen: jest.fn(),
-    fullscreen: false,
-    setFullscreen: jest.fn(),
+    editOpen: false,
+    setEditOpen: jest.fn(),
     fsCode: "",
     onFsCodeChange: jest.fn(),
     fsTextareaRef: { current: null },

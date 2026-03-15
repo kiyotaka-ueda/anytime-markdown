@@ -1,7 +1,7 @@
 "use client";
 
 import { useBlockMergeCompare } from "../../hooks/useBlockMergeCompare";
-import { CodeBlockFullscreenDialog } from "../CodeBlockFullscreenDialog";
+import { CodeBlockEditDialog } from "../CodeBlockEditDialog";
 import { BlockInlineToolbar } from "./BlockInlineToolbar";
 import { CodeBlockFrame } from "./CodeBlockFrame";
 import type { CodeBlockSharedProps } from "./types";
@@ -11,7 +11,7 @@ type RegularCodeBlockProps = Pick<
   | "editor" | "node" | "getPos" | "code"
   | "isSelected"
   | "handleCopyCode" | "handleDeleteBlock" | "deleteDialogOpen" | "setDeleteDialogOpen"
-  | "fullscreen" | "setFullscreen" | "fsCode" | "onFsCodeChange" | "fsTextareaRef" | "fsSearch"
+  | "editOpen" | "setEditOpen" | "fsCode" | "onFsCodeChange" | "fsTextareaRef" | "fsSearch"
   | "t" | "isDark"
 > & {
   handleFsTextChange: (newCode: string) => void;
@@ -22,7 +22,7 @@ export function RegularCodeBlock(props: RegularCodeBlockProps) {
     editor, node, getPos: _getPos, code,
     isSelected,
     handleDeleteBlock, deleteDialogOpen, setDeleteDialogOpen,
-    fullscreen, setFullscreen, fsCode, onFsCodeChange, fsTextareaRef, fsSearch,
+    editOpen, setEditOpen, fsCode, onFsCodeChange, fsTextareaRef, fsSearch,
     handleFsTextChange,
     t, isDark,
   } = props;
@@ -31,13 +31,13 @@ export function RegularCodeBlock(props: RegularCodeBlockProps) {
   const codeLabel = language ? `Code (${language})` : "Code";
 
   const { isCompareMode, compareCode, handleMergeApply } = useBlockMergeCompare({
-    editor, getPos: _getPos, language, code, fullscreen,
+    editor, getPos: _getPos, language, code, editOpen,
   });
 
   const toolbar = (
     <BlockInlineToolbar
       label={codeLabel}
-      onFullscreen={() => setFullscreen(true)}
+      onEdit={() => setEditOpen(true)}
       onDelete={() => setDeleteDialogOpen(true)}
       t={t}
     />
@@ -54,9 +54,9 @@ export function RegularCodeBlock(props: RegularCodeBlockProps) {
       handleDeleteBlock={handleDeleteBlock}
       t={t}
       afterFrame={
-        <CodeBlockFullscreenDialog
-          open={fullscreen}
-          onClose={() => { fsSearch.reset(); setFullscreen(false); }}
+        <CodeBlockEditDialog
+          open={editOpen}
+          onClose={() => { fsSearch.reset(); setEditOpen(false); }}
           label={codeLabel}
           language={language || "plaintext"}
           fsCode={fsCode}

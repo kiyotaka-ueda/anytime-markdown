@@ -9,7 +9,7 @@ import { Box, Chip, Dialog, DialogTitle, Divider, IconButton, Tooltip, Typograph
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { common, createLowlight } from "lowlight";
 
-import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, getFullscreenBg } from "../constants/colors";
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, getEditDialogBg } from "../constants/colors";
 import { FS_CHIP_HEIGHT, FS_CODE_INITIAL_WIDTH, FS_CODE_MIN_WIDTH, FS_TOOLBAR_HEIGHT, FS_ZOOM_LABEL_WIDTH } from "../constants/dimensions";
 import { REDUCED_MOTION_SX, SPLITTER_SX, TRANSITION_FAST } from "../constants/uiPatterns";
 import { CODE_HELLO_SAMPLES } from "../constants/codeHelloSamples";
@@ -39,7 +39,7 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-interface CodeBlockFullscreenDialogProps {
+interface CodeBlockEditDialogProps {
   open: boolean;
   onClose: () => void;
   label: string;
@@ -61,11 +61,11 @@ interface CodeBlockFullscreenDialogProps {
   t: (key: string) => string;
 }
 
-export function CodeBlockFullscreenDialog({
+export function CodeBlockEditDialog({
   open, onClose, label, language, fsCode, onFsCodeChange, onFsTextChange, fsTextareaRef, fsSearch,
   readOnly, isCompareMode, compareCode, onMergeApply, toolbarExtra, customSamples, renderPreview,
   t,
-}: CodeBlockFullscreenDialogProps) {
+}: CodeBlockEditDialogProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -116,8 +116,8 @@ export function CodeBlockFullscreenDialog({
       open={open}
       onClose={onClose}
       fullScreen
-      aria-labelledby="codeblock-fullscreen-title"
-      slotProps={{ paper: { sx: { bgcolor: getFullscreenBg(isDark, settings), display: "flex", flexDirection: "column" } } }}
+      aria-labelledby="codeblock-edit-title"
+      slotProps={{ paper: { sx: { bgcolor: getEditDialogBg(isDark, settings), display: "flex", flexDirection: "column" } } }}
       onKeyDown={(e: React.KeyboardEvent) => {
         if (showCompareView) return;
         const mod = e.metaKey || e.ctrlKey;
@@ -135,7 +135,7 @@ export function CodeBlockFullscreenDialog({
             <CloseIcon sx={{ fontSize: 20 }} />
           </IconButton>
         </Tooltip>
-        <DialogTitle id="codeblock-fullscreen-title" sx={{ p: 0, fontSize: "0.875rem", fontWeight: 600, mr: 1 }}>
+        <DialogTitle id="codeblock-edit-title" sx={{ p: 0, fontSize: "0.875rem", fontWeight: 600, mr: 1 }}>
           {label}{showCompareView ? ` - ${t("compare")}` : ""}
         </DialogTitle>
         <Box sx={{ flex: 1 }} />

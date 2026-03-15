@@ -9,7 +9,7 @@ import { Box, Chip, Dialog, DialogTitle, Divider, IconButton, Tab, Tabs, Tooltip
 import DOMPurify from "dompurify";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, getFullscreenBg } from "../constants/colors";
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, getEditDialogBg } from "../constants/colors";
 import { FS_CHIP_HEIGHT, FS_CODE_INITIAL_WIDTH, FS_CODE_MIN_WIDTH, FS_TOOLBAR_HEIGHT, FS_ZOOM_LABEL_WIDTH } from "../constants/dimensions";
 import { REDUCED_MOTION_SX, SPLITTER_SX, TRANSITION_FAST } from "../constants/uiPatterns";
 import { MERMAID_SAMPLES } from "../constants/samples";
@@ -22,7 +22,7 @@ import { extractMermaidConfig, mergeMermaidConfig } from "../utils/mermaidConfig
 import { LineNumberTextarea } from "./LineNumberTextarea";
 import { FullscreenDiffView } from "./FullscreenDiffView";
 
-interface MermaidFullscreenDialogProps {
+interface MermaidEditDialogProps {
   open: boolean;
   onClose: () => void;
   label: string;
@@ -44,13 +44,13 @@ interface MermaidFullscreenDialogProps {
   t: (key: string) => string;
 }
 
-export function MermaidFullscreenDialog({
+export function MermaidEditDialog({
   open, onClose, label, svg, code,
   fsCode, onFsCodeChange, onFsTextChange, fsTextareaRef, fsSearch,
   fsZP, readOnly,
   isCompareMode, compareCode, onMergeApply, onCapture, toolbarExtra,
   t,
-}: MermaidFullscreenDialogProps) {
+}: MermaidEditDialogProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -130,8 +130,8 @@ export function MermaidFullscreenDialog({
       open={open}
       onClose={onClose}
       fullScreen
-      aria-labelledby="mermaid-fullscreen-title"
-      slotProps={{ paper: { sx: { bgcolor: getFullscreenBg(isDark, settings), display: "flex", flexDirection: "column" } } }}
+      aria-labelledby="mermaid-edit-title"
+      slotProps={{ paper: { sx: { bgcolor: getEditDialogBg(isDark, settings), display: "flex", flexDirection: "column" } } }}
       onKeyDown={(e: React.KeyboardEvent) => {
         if (showCompareView) return;
         const mod = e.metaKey || e.ctrlKey;
@@ -149,7 +149,7 @@ export function MermaidFullscreenDialog({
             <CloseIcon sx={{ fontSize: 20 }} />
           </IconButton>
         </Tooltip>
-        <DialogTitle id="mermaid-fullscreen-title" sx={{ p: 0, fontSize: "0.875rem", fontWeight: 600, mr: 1 }}>
+        <DialogTitle id="mermaid-edit-title" sx={{ p: 0, fontSize: "0.875rem", fontWeight: 600, mr: 1 }}>
           {label}{showCompareView ? ` - ${t("compare")}` : ""}
         </DialogTitle>
         <Box sx={{ flex: 1 }} />
