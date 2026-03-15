@@ -7,7 +7,7 @@ import MoveDownIcon from "@mui/icons-material/MoveDown";
 import MoveUpIcon from "@mui/icons-material/MoveUp";
 import TableRowsIcon from "@mui/icons-material/TableRows";
 import ViewColumnIcon from "@mui/icons-material/ViewColumn";
-import { Box, Divider, ToggleButton, ToggleButtonGroup, Tooltip, useTheme } from "@mui/material";
+import { Box, Divider, Paper, ToggleButton, ToggleButtonGroup, Tooltip, useTheme } from "@mui/material";
 import type { NodeViewProps } from "@tiptap/react";
 import { NodeViewContent, NodeViewWrapper } from "@tiptap/react";
 import { useTranslations } from "next-intl";
@@ -19,9 +19,8 @@ import { DeleteBlockDialog } from "./components/codeblock/DeleteBlockDialog";
 import { SearchReplaceBar } from "./components/SearchReplaceBar";
 import { useDeleteBlock } from "./hooks/useDeleteBlock";
 import { useNodeSelected } from "./hooks/useNodeSelected";
-import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, getEditDialogBg } from "./constants/colors";
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "./constants/colors";
 import { Z_FULLSCREEN } from "./constants/zIndex";
-import { useEditorSettingsContext } from "./useEditorSettings";
 import { moveTableColumn,moveTableRow } from "./utils/tableHelpers";
 
 const iconSx = { fontSize: 16 };
@@ -29,7 +28,6 @@ const iconSx = { fontSize: 16 };
 export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
   const t = useTranslations("MarkdownEditor");
   const isDark = useTheme().palette.mode === "dark";
-  const settings = useEditorSettingsContext();
   const [editOpen, setEditOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const collapsed = !!node.attrs.collapsed;
@@ -40,11 +38,11 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
 
   const showToolbar = isEditable && (collapsed || editOpen || isSelected);
 
-  const editBg = getEditDialogBg(isDark, settings) ?? "background.paper";
-
   return (
     <NodeViewWrapper>
-      <Box
+      <Paper
+        component={editOpen ? "div" : Box}
+        elevation={editOpen ? 24 : 0}
         {...(editOpen && {
           role: "dialog" as const,
           "aria-modal": true,
@@ -53,7 +51,7 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
         })}
         tabIndex={editOpen ? -1 : undefined}
         sx={{
-          border: 1,
+          border: editOpen ? 0 : 1,
           borderColor: isEditable ? "divider" : "transparent",
           borderRadius: editOpen ? 0 : 1,
           overflow: "hidden",
@@ -62,7 +60,6 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
             position: "fixed",
             inset: 0,
             zIndex: Z_FULLSCREEN,
-            bgcolor: editBg,
             display: "flex",
             flexDirection: "column",
           }),
@@ -219,7 +216,7 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
         >
           <NodeViewContent<"table"> as="table" />
         </Box>
-      </Box>
+      </Paper>
       <DeleteBlockDialog
         open={deleteDialogOpen}
         onClose={() => setDeleteDialogOpen(false)}
