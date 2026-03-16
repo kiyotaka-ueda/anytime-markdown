@@ -1,10 +1,18 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { MarkdownEditorProvider } from './providers/MarkdownEditorProvider';
 import { GitHistoryProvider, GitHistoryItem } from './providers/GitHistoryProvider';
+import { ChangesProvider, ChangesFileItem } from './providers/ChangesProvider';
 import { SpecDocsProvider } from './providers/SpecDocsProvider';
 
 export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(MarkdownEditorProvider.register(context));
+
+	// Git 変更パネル
+	const changesProvider = new ChangesProvider();
+	const changesTreeView = vscode.window.createTreeView('anytimeMarkdown.changes', {
+		treeDataProvider: changesProvider,
+	});
 
 	// Git 履歴パネル
 	const gitHistoryProvider = new GitHistoryProvider();
@@ -157,6 +165,34 @@ export function activate(context: vscode.ExtensionContext) {
 	const specDocsTreeView = vscode.window.createTreeView('anytimeMarkdown.specDocs', {
 		treeDataProvider: specDocsProvider,
 	});
+	const updateSpecDocsDescription = () => {
+		const info = specDocsProvider.getRepoInfo();
+		if (info) {
+			specDocsTreeView.title = info.branchName
+				? `${info.repoName} / ${info.branchName}`
+				: info.repoName;
+			specDocsTreeView.description = '';
+		} else {
+			specDocsTreeView.title = undefined as unknown as string;
+			specDocsTreeView.description = '';
+		}
+	};
+	specDocsProvider.onDidChangeTreeData(() => {
+		updateSpecDocsDescription();
+		changesProvider.setTargetRoot(specDocsProvider.root);
+	});
+	updateSpecDocsDescription();
+	// 初回: git 初期化を待ってからターゲットを設定
+	setTimeout(() => changesProvider.setTargetRoot(specDocsProvider.root), 2000);
+
+	// エクスプローラと変更の選択を排他制御
+	specDocsTreeView.onDidChangeSelection(e => {
+		if (e.selection.length > 0) { changesProvider.refresh(); }
+	});
+	changesTreeView.onDidChangeSelection(e => {
+		if (e.selection.length > 0) { specDocsProvider.refresh(); }
+	});
+
 	const specDocsOpenFolder = vscode.commands.registerCommand(
 		'anytime-markdown.specDocsOpenFolder', () => specDocsProvider.openFolder()
 	);
@@ -169,13 +205,78 @@ export function activate(context: vscode.ExtensionContext) {
 	const specDocsRefresh = vscode.commands.registerCommand(
 		'anytime-markdown.specDocsRefresh', () => specDocsProvider.refresh()
 	);
+	const switchBranch = vscode.commands.registerCommand(
+		'anytime-markdown.switchBranch', () => specDocsProvider.switchBranch()
+	);
+	const toggleMdOnly = vscode.commands.registerCommand(
+		'anytime-markdown.toggleMdOnly', () => {
+			specDocsProvider.toggleMdOnly();
+			changesProvider.refresh();
+		}
+	);
+	changesProvider.setMdOnlyGetter(() => specDocsProvider.mdOnly);
+
+	// Git 変更コマンド
+	const changesRefresh = vscode.commands.registerCommand(
+		'anytime-markdown.changesRefresh', () => changesProvider.refresh()
+	);
+	const stageFile = vscode.commands.registerCommand(
+		'anytime-markdown.stageFile', (item: ChangesFileItem) => changesProvider.stageFile(item)
+	);
+	const unstageFile = vscode.commands.registerCommand(
+		'anytime-markdown.unstageFile', (item: ChangesFileItem) => changesProvider.unstageFile(item)
+	);
+	const discardChanges = vscode.commands.registerCommand(
+		'anytime-markdown.discardChanges', (item: ChangesFileItem) => changesProvider.discardChanges(item)
+	);
+	const commitChanges = vscode.commands.registerCommand(
+		'anytime-markdown.commitChanges', () => changesProvider.commit()
+	);
+	const pushChanges = vscode.commands.registerCommand(
+		'anytime-markdown.pushChanges', () => changesProvider.push()
+	);
+	const openChangeDiff = vscode.commands.registerCommand(
+		'anytime-markdown.openChangeDiff',
+		async (gitRoot: string, filePath: string, group: 'staged' | 'changes', currentUri: vscode.Uri) => {
+			// git コマンドで変更前コンテンツを取得
+			let originalContent: string;
+			try {
+				const { execSync } = await import('child_process');
+				if (group === 'staged') {
+					// ステージ済み: HEAD のコンテンツ
+					originalContent = execSync(`git show HEAD:"${filePath}"`, { cwd: gitRoot, encoding: 'utf-8' });
+				} else {
+					// 未ステージ: インデックス（ステージ済み or HEAD）のコンテンツ
+					originalContent = execSync(`git show :"${filePath}"`, { cwd: gitRoot, encoding: 'utf-8' });
+				}
+			} catch {
+				originalContent = '';
+			}
+			const p = MarkdownEditorProvider.getInstance();
+			if (p) {
+				p.pendingCompareContent = originalContent;
+			}
+			await vscode.commands.executeCommand(
+				'vscode.openWith',
+				currentUri,
+				MarkdownEditorProvider.viewType,
+			);
+		}
+	);
+
+	// ファイル保存時にリフレッシュ
+	context.subscriptions.push(
+		vscode.workspace.onDidSaveTextDocument(() => changesProvider.refresh()),
+	);
 
 	context.subscriptions.push(
-		gitTreeView, specDocsTreeView,
+		changesTreeView, gitTreeView, specDocsTreeView,
+		{ dispose: () => changesProvider.dispose() },
 		...statusBarItems,
 		openEditorWithFile, compareCmd, compareWithCommit,
 		insertSectionNumbers, removeSectionNumbers,
-		specDocsOpenFolder, specDocsCloneRepo, specDocsClose, specDocsRefresh,
+		changesRefresh, stageFile, unstageFile, discardChanges, commitChanges, pushChanges, openChangeDiff,
+		specDocsOpenFolder, specDocsCloneRepo, specDocsClose, specDocsRefresh, switchBranch, toggleMdOnly,
 	);
 }
 

@@ -15,5 +15,15 @@
   "command.specDocsOpenFolder": "フォルダーを開く",
   "command.specDocsCloneRepo": "リポジトリをクローンする",
   "command.specDocsClose": "フォルダーを閉じる",
-  "command.specDocsRefresh": "更新"
+  "command.specDocsRefresh": "更新",
+  "command.switchBranch": "ブランチを切替",
+  "command.toggleMdOnly": "Markdownファイルのみ表示を切替",
+  "view.changes": "変更",
+  "viewsWelcome.changes": "変更はありません。",
+  "command.changesRefresh": "変更を更新",
+  "command.stageFile": "変更をステージ",
+  "command.unstageFile": "ステージを解除",
+  "command.discardChanges": "変更を破棄",
+  "command.commitChanges": "コミット",
+  "command.pushChanges": "プッシュ"
 }

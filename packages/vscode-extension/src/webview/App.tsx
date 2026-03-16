@@ -124,6 +124,10 @@ export function App() {
         const isInitial = !ready;
         currentContent = message.content;
         if (isInitial) {
+          // 初回ロード時に compareContent があれば比較モードで直接開始
+          if (typeof message.compareContent === 'string') {
+            setCompareContent(message.compareContent);
+          }
           setReady(true);
         } else {
           // VS Code からの外部更新（メニュー Undo/Redo など）→ Tiptap エディタに反映
