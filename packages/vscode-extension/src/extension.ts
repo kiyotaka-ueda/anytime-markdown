@@ -270,6 +270,44 @@ export function activate(context: vscode.ExtensionContext) {
 	const discardChanges = vscode.commands.registerCommand(
 		'anytime-markdown.discardChanges', (item: ChangesFileItem) => changesProvider.discardChanges(item)
 	);
+	// 変更: シングルクリックでプレビュー、ダブルクリックで固定タブ
+	let lastChangesClickUri: string | null = null;
+	let lastChangesClickTime = 0;
+	const changesOpenFile = vscode.commands.registerCommand(
+		'anytime-markdown.changesOpenFile',
+		async (gitRoot: string, filePath: string, group: 'staged' | 'changes', currentUri: vscode.Uri, isMd: boolean, diffLabel: string) => {
+			const now = Date.now();
+			const uriStr = currentUri.toString();
+			const isDoubleClick = lastChangesClickUri === uriStr && (now - lastChangesClickTime) < 500;
+			lastChangesClickUri = uriStr;
+			lastChangesClickTime = now;
+
+			if (isMd) {
+				const p = MarkdownEditorProvider.getInstance();
+				if (p) { p.skipDiffDetection = true; }
+				// git コマンドで変更前コンテンツを取得
+				let originalContent: string;
+				try {
+					const { execSync } = await import('child_process');
+					originalContent = group === 'staged'
+						? execSync(`git show HEAD:"${filePath}"`, { cwd: gitRoot, encoding: 'utf-8' })
+						: execSync(`git show :"${filePath}"`, { cwd: gitRoot, encoding: 'utf-8' });
+				} catch {
+					originalContent = '';
+				}
+				if (p) { p.pendingCompareContent = originalContent; }
+				await vscode.commands.executeCommand('vscode.openWith', currentUri, MarkdownEditorProvider.viewType, { preview: !isDoubleClick });
+			} else {
+				await vscode.commands.executeCommand('vscode.diff', currentUri, currentUri, diffLabel);
+			}
+
+			// git history を更新
+			if (gitRoot) {
+				gitHistoryProvider.refreshWithGitRoot(currentUri.fsPath, gitRoot);
+			}
+		}
+	);
+
 	const commitChanges = vscode.commands.registerCommand(
 		'anytime-markdown.commitChanges', () => changesProvider.commit()
 	);
@@ -320,7 +358,7 @@ export function activate(context: vscode.ExtensionContext) {
 		...statusBarItems,
 		openEditorWithFile, compareCmd, compareWithCommit,
 		insertSectionNumbers, removeSectionNumbers,
-		changesRefresh, stageFile, unstageFile, discardChanges, commitChanges, pushChanges, syncChanges, openChangeDiff,
+		changesRefresh, stageFile, unstageFile, discardChanges, commitChanges, pushChanges, syncChanges, changesOpenFile, openChangeDiff,
 		specDocsOpenFile, specDocsOpenFolder, specDocsCloneRepo, specDocsClose, specDocsRefresh, switchBranch, toggleMdOnly,
 	);
 }

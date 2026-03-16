@@ -78,23 +78,12 @@ export class ChangesFileItem extends vscode.TreeItem {
 		);
 
 		const lower = fileName.toLowerCase();
-		if (lower.endsWith('.md') || lower.endsWith('.markdown')) {
-			this.command = {
-				command: 'anytime-markdown.openChangeDiff',
-				title: 'Show Changes in Anytime Markdown',
-				arguments: [gitRoot, change.filePath, change.group, vscode.Uri.file(change.absPath)],
-			};
-		} else {
-			this.command = {
-				command: 'vscode.diff',
-				title: 'Show Changes',
-				arguments: [
-					vscode.Uri.file(change.absPath),
-					vscode.Uri.file(change.absPath),
-					`${fileName} (${statusLabel})`,
-				],
-			};
-		}
+		const isMd = lower.endsWith('.md') || lower.endsWith('.markdown');
+		this.command = {
+			command: 'anytime-markdown.changesOpenFile',
+			title: 'Open Changes',
+			arguments: [gitRoot, change.filePath, change.group, vscode.Uri.file(change.absPath), isMd, `${fileName} (${statusLabel})`],
+		};
 	}
 }
 
