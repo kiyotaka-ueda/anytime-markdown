@@ -3,7 +3,7 @@ import * as path from 'path';
 import { MarkdownEditorProvider } from './providers/MarkdownEditorProvider';
 import { GitHistoryProvider, GitHistoryItem } from './providers/GitHistoryProvider';
 import { ChangesProvider, ChangesFileItem } from './providers/ChangesProvider';
-import { SpecDocsProvider } from './providers/SpecDocsProvider';
+import { SpecDocsProvider, SpecDocsItem, SpecDocsDragAndDrop } from './providers/SpecDocsProvider';
 
 export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(MarkdownEditorProvider.register(context));
@@ -156,8 +156,10 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// 仕様書管理パネル
 	const specDocsProvider = new SpecDocsProvider(context);
+	const specDocsDragAndDrop = new SpecDocsDragAndDrop(specDocsProvider);
 	const specDocsTreeView = vscode.window.createTreeView('anytimeMarkdown.specDocs', {
 		treeDataProvider: specDocsProvider,
+		dragAndDropController: specDocsDragAndDrop,
 	});
 	const updateSpecDocsDescription = () => {
 		const info = specDocsProvider.getRepoInfo();
@@ -233,6 +235,20 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	);
 	changesProvider.setMdOnlyGetter(() => specDocsProvider.mdOnly);
+
+	// 仕様書管理: ファイル/フォルダ操作
+	const specDocsCreateFile = vscode.commands.registerCommand(
+		'anytime-markdown.specDocsCreateFile', (item?: SpecDocsItem) => specDocsProvider.createFile(item)
+	);
+	const specDocsCreateFolder = vscode.commands.registerCommand(
+		'anytime-markdown.specDocsCreateFolder', (item?: SpecDocsItem) => specDocsProvider.createFolder(item)
+	);
+	const specDocsDelete = vscode.commands.registerCommand(
+		'anytime-markdown.specDocsDelete', (item: SpecDocsItem) => specDocsProvider.deleteItem(item)
+	);
+	const specDocsRename = vscode.commands.registerCommand(
+		'anytime-markdown.specDocsRename', (item: SpecDocsItem) => specDocsProvider.renameItem(item)
+	);
 
 	// Git 変更コマンド
 	const changesRefresh = vscode.commands.registerCommand(
@@ -342,6 +358,7 @@ export function activate(context: vscode.ExtensionContext) {
 		insertSectionNumbers, removeSectionNumbers,
 		changesRefresh, stageFile, unstageFile, discardChanges, commitChanges, pushChanges, syncChanges, changesOpenFile, openChangeDiff,
 		specDocsOpenFile, specDocsOpenFolder, specDocsCloneRepo, specDocsClose, specDocsRefresh, switchBranch, toggleMdOnly,
+		specDocsCreateFile, specDocsCreateFolder, specDocsDelete, specDocsRename,
 	);
 }
 

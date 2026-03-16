@@ -117,6 +117,25 @@
         "icon": "$(git-branch)"
       },
       {
+        "command": "anytime-markdown.specDocsCreateFile",
+        "title": "%command.specDocsCreateFile%",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "anytime-markdown.specDocsCreateFolder",
+        "title": "%command.specDocsCreateFolder%",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "anytime-markdown.specDocsDelete",
+        "title": "%command.specDocsDelete%",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "anytime-markdown.specDocsRename",
+        "title": "%command.specDocsRename%"
+      },
+      {
         "command": "anytime-markdown.changesRefresh",
         "title": "%command.changesRefresh%",
         "icon": "$(refresh)"
@@ -209,14 +228,24 @@
           "group": "navigation@2"
         },
         {
-          "command": "anytime-markdown.specDocsRefresh",
+          "command": "anytime-markdown.specDocsCreateFile",
           "when": "view == anytimeMarkdown.specDocs && anytimeMarkdown.specDocsHasRoot",
           "group": "navigation@3"
         },
         {
-          "command": "anytime-markdown.specDocsClose",
+          "command": "anytime-markdown.specDocsCreateFolder",
           "when": "view == anytimeMarkdown.specDocs && anytimeMarkdown.specDocsHasRoot",
           "group": "navigation@4"
+        },
+        {
+          "command": "anytime-markdown.specDocsRefresh",
+          "when": "view == anytimeMarkdown.specDocs && anytimeMarkdown.specDocsHasRoot",
+          "group": "navigation@5"
+        },
+        {
+          "command": "anytime-markdown.specDocsClose",
+          "when": "view == anytimeMarkdown.specDocs && anytimeMarkdown.specDocsHasRoot",
+          "group": "navigation@6"
         },
         {
           "command": "anytime-markdown.changesRefresh",
@@ -230,6 +259,26 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "anytime-markdown.specDocsCreateFile",
+          "when": "view == anytimeMarkdown.specDocs && viewItem == folder",
+          "group": "1_new@1"
+        },
+        {
+          "command": "anytime-markdown.specDocsCreateFolder",
+          "when": "view == anytimeMarkdown.specDocs && viewItem == folder",
+          "group": "1_new@2"
+        },
+        {
+          "command": "anytime-markdown.specDocsRename",
+          "when": "view == anytimeMarkdown.specDocs",
+          "group": "2_edit@1"
+        },
+        {
+          "command": "anytime-markdown.specDocsDelete",
+          "when": "view == anytimeMarkdown.specDocs",
+          "group": "2_edit@2"
+        },
         {
           "command": "anytime-markdown.stageFile",
           "when": "view == anytimeMarkdown.changes && viewItem == changesFileUnstaged",

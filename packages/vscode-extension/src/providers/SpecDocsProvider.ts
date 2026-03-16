@@ -33,6 +33,53 @@ export class SpecDocsItem extends vscode.TreeItem {
 	}
 }
 
+export class SpecDocsDragAndDrop implements vscode.TreeDragAndDropController<SpecDocsItem> {
+	readonly dropMimeTypes = ['application/vnd.code.tree.anytimemarkdown.specdocs'];
+	readonly dragMimeTypes = ['application/vnd.code.tree.anytimemarkdown.specdocs'];
+
+	constructor(private readonly provider: SpecDocsProvider) {}
+
+	handleDrag(source: readonly SpecDocsItem[], dataTransfer: vscode.DataTransfer): void {
+		dataTransfer.set(
+			'application/vnd.code.tree.anytimemarkdown.specdocs',
+			new vscode.DataTransferItem(source.map(s => s.resourceUri.fsPath)),
+		);
+	}
+
+	async handleDrop(target: SpecDocsItem | undefined, dataTransfer: vscode.DataTransfer): Promise<void> {
+		const raw = dataTransfer.get('application/vnd.code.tree.anytimemarkdown.specdocs');
+		if (!raw) return;
+		const sourcePaths: string[] = raw.value;
+		if (!sourcePaths || sourcePaths.length === 0) return;
+
+		// ドロップ先のディレクトリを決定
+		let destDir: string;
+		if (target && target.isDirectory) {
+			destDir = target.resourceUri.fsPath;
+		} else if (target && !target.isDirectory) {
+			destDir = path.dirname(target.resourceUri.fsPath);
+		} else {
+			// ルートにドロップ
+			const root = this.provider.root;
+			if (!root) return;
+			destDir = root;
+		}
+
+		for (const srcPath of sourcePaths) {
+			const name = path.basename(srcPath);
+			const dest = path.join(destDir, name);
+			if (srcPath === dest) continue;
+			try {
+				fs.renameSync(srcPath, dest);
+			} catch (e: unknown) {
+				const msg = e instanceof Error ? e.message : String(e);
+				vscode.window.showErrorMessage(`Move failed: ${msg}`);
+			}
+		}
+		this.provider.refresh();
+	}
+}
+
 export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsItem> {
 	private _onDidChangeTreeData = new vscode.EventEmitter<SpecDocsItem | undefined>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
@@ -202,6 +249,66 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsItem> {
 
 	refresh(): void {
 		this._onDidChangeTreeData.fire(undefined);
+	}
+
+	async createFile(item?: SpecDocsItem): Promise<void> {
+		const dir = item?.isDirectory ? item.resourceUri.fsPath : item ? path.dirname(item.resourceUri.fsPath) : this.rootPath;
+		if (!dir) return;
+		const name = await vscode.window.showInputBox({ prompt: 'File name', placeHolder: 'newfile.md' });
+		if (!name) return;
+		const filePath = path.join(dir, name);
+		try {
+			fs.writeFileSync(filePath, '', 'utf-8');
+			this.refresh();
+		} catch (e: unknown) {
+			vscode.window.showErrorMessage(`Create file failed: ${e instanceof Error ? e.message : String(e)}`);
+		}
+	}
+
+	async deleteItem(item: SpecDocsItem): Promise<void> {
+		const answer = await vscode.window.showWarningMessage(
+			`"${item.label}" を削除しますか？`,
+			{ modal: true },
+			'Delete',
+		);
+		if (answer !== 'Delete') return;
+		try {
+			if (item.isDirectory) {
+				fs.rmSync(item.resourceUri.fsPath, { recursive: true });
+			} else {
+				fs.unlinkSync(item.resourceUri.fsPath);
+			}
+			this.refresh();
+		} catch (e: unknown) {
+			vscode.window.showErrorMessage(`Delete failed: ${e instanceof Error ? e.message : String(e)}`);
+		}
+	}
+
+	async renameItem(item: SpecDocsItem): Promise<void> {
+		const oldName = path.basename(item.resourceUri.fsPath);
+		const name = await vscode.window.showInputBox({ prompt: 'New name', value: oldName });
+		if (!name || name === oldName) return;
+		const newPath = path.join(path.dirname(item.resourceUri.fsPath), name);
+		try {
+			fs.renameSync(item.resourceUri.fsPath, newPath);
+			this.refresh();
+		} catch (e: unknown) {
+			vscode.window.showErrorMessage(`Rename failed: ${e instanceof Error ? e.message : String(e)}`);
+		}
+	}
+
+	async createFolder(item?: SpecDocsItem): Promise<void> {
+		const dir = item?.isDirectory ? item.resourceUri.fsPath : item ? path.dirname(item.resourceUri.fsPath) : this.rootPath;
+		if (!dir) return;
+		const name = await vscode.window.showInputBox({ prompt: 'Folder name', placeHolder: 'newfolder' });
+		if (!name) return;
+		const folderPath = path.join(dir, name);
+		try {
+			fs.mkdirSync(folderPath, { recursive: true });
+			this.refresh();
+		} catch (e: unknown) {
+			vscode.window.showErrorMessage(`Create folder failed: ${e instanceof Error ? e.message : String(e)}`);
+		}
 	}
 
 	/** git リポジトリのルートディレクトリを返す */
