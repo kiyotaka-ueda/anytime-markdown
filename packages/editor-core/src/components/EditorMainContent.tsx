@@ -280,8 +280,8 @@ export function EditorMainContent({
 
   if (inlineMergeOpen) {
     return (
-      <Box sx={{ display: "flex", flexDirection: "row" }}>
-      <Box sx={{ flex: 1, minWidth: 0 }}>
+      <Box ref={editorContainerRef} sx={{ display: "flex", flexDirection: "row", height: editorHeight }}>
+      <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
       <InlineMergeView
         leftEditor={editor}
         editorContent={sourceMode ? sourceText : editorMarkdown}
@@ -300,7 +300,7 @@ export function EditorMainContent({
         ) : undefined}
       >
         {(leftBgGradient, leftDiffLines, onMerge, onHoverLine) => (
-        <Box component="main" ref={editorContainerRef} sx={{ display: "flex", gap: 0, height: "100%", position: "relative" }} onDragOver={handleContainerDragOver} onDragLeave={handleContainerDragLeave} onDrop={handleContainerDrop}>
+        <Box component="main" sx={{ display: "flex", gap: 0, height: "100%", position: "relative" }} onDragOver={handleContainerDragOver} onDragLeave={handleContainerDragLeave} onDrop={handleContainerDrop}>
           {fileDragOver && <Box sx={{ position: "absolute", inset: 0, bgcolor: FILE_DROP_OVERLAY_COLOR, zIndex: 10, pointerEvents: "none" }} />}
           {!sideToolbar && <EditorOutlineSection {...outlineProps} />}
           <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -315,13 +315,11 @@ export function EditorMainContent({
               autoResize
               bgGradient={leftBgGradient}
               diffLines={leftDiffLines}
-              side="left"
+              side="right"
               showHoverLabels
               onHoverLine={onHoverLine}
               paperSx={{
                 bgcolor: getEditorBg(theme.palette.mode === "dark", settings),
-                "&::-webkit-scrollbar": { background: "transparent" },
-                "&::-webkit-scrollbar-thumb": { background: "transparent" },
               }}
             />
           </Box>

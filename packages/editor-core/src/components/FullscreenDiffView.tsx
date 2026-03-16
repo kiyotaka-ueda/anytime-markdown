@@ -138,7 +138,9 @@ export function FullscreenDiffView({
     (blockId: number, direction: "left-to-right" | "right-to-left") => {
       const block = diffResult.blocks.find((b) => b.id === blockId);
       if (!block) return;
-      const { newLeftText, newRightText } = applyMerge(leftText, rightText, block, direction);
+      // 画面上の左=rightText, 右=leftText なので direction を反転
+      const flipped = direction === "left-to-right" ? "right-to-left" : "left-to-right";
+      const { newLeftText, newRightText } = applyMerge(leftText, rightText, block, flipped);
       setLeftText(newLeftText);
       setRightText(newRightText);
       onMergeApply(newLeftText, newRightText);
@@ -165,34 +167,36 @@ export function FullscreenDiffView({
   const handleLeftChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newText = e.target.value;
+      let realText: string;
       if (leftData.paddingIndices.size === 0) {
-        setLeftText(newText);
-        return;
+        realText = newText;
+      } else {
+        // padding 行を除去して実テキストに変換
+        const lines = newText.split("\n");
+        const realLines: string[] = [];
+        for (let i = 0; i < lines.length; i++) {
+          if (leftData.paddingIndices.has(i) && lines[i] === "") continue;
+          realLines.push(lines[i]);
+        }
+        realText = realLines.join("\n");
       }
-      // padding 行を除去して実テキストに変換
-      const lines = newText.split("\n");
-      const realLines: string[] = [];
-      for (let i = 0; i < lines.length; i++) {
-        if (leftData.paddingIndices.has(i) && lines[i] === "") continue;
-        realLines.push(lines[i]);
-      }
-      setLeftText(realLines.join("\n"));
+      setLeftText(realText);
+      onMergeApply(realText, rightText);
     },
-    [leftData.paddingIndices],
+    [leftData.paddingIndices, onMergeApply, rightText],
   );
 
   return (
     <Box sx={{ flex: 1, display: "flex", overflow: "hidden" }}>
-      {/* Left panel (editable) */}
+      {/* Left panel (read-only, compare) */}
       <DiffPanel
-        diffLines={diffResult.leftLines}
-        displayData={leftData}
-        gradient={leftGradient}
+        diffLines={diffResult.rightLines}
+        displayData={rightData}
+        gradient={rightGradient}
         mergeButtonIndices={mergeButtonIndices}
         hasMergeButtons={hasMergeButtons}
         side="left"
-        readOnly={false}
-        onChange={handleLeftChange}
+        readOnly
         onMerge={handleMergeBlock}
         fontSize={fontSize}
         lineHeight={lineHeight}
@@ -200,15 +204,16 @@ export function FullscreenDiffView({
         t={t}
       />
 
-      {/* Right panel (read-only) */}
+      {/* Right panel (editable) */}
       <DiffPanel
-        diffLines={diffResult.rightLines}
-        displayData={rightData}
-        gradient={rightGradient}
+        diffLines={diffResult.leftLines}
+        displayData={leftData}
+        gradient={leftGradient}
         mergeButtonIndices={mergeButtonIndices}
         hasMergeButtons={hasMergeButtons}
         side="right"
-        readOnly
+        readOnly={false}
+        onChange={handleLeftChange}
         onMerge={handleMergeBlock}
         fontSize={fontSize}
         lineHeight={lineHeight}

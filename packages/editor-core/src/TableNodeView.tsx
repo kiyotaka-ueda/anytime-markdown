@@ -218,13 +218,8 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
         {editOpen && isCompareMode && compareTableHtml ? (
           /* Compare mode: side-by-side tables */
           <Box sx={{ flex: 1, display: "flex", overflow: "hidden" }}>
-            {/* Left: current table (editable) */}
-            <Box sx={{ flex: 1, overflow: "auto", bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG, p: 2, borderRight: 1, borderColor: "divider", "& table": tableSx }}>
-              <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem", mb: 1, display: "block" }}>{t("compare")} - {t("edit")}</Typography>
-              <NodeViewContent<"table"> as="table" />
-            </Box>
-            {/* Right: comparison table (read-only) */}
-            <Box sx={{ flex: 1, overflow: "auto", bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG, p: 2 }}>
+            {/* Left: comparison table (read-only) */}
+            <Box sx={{ flex: 1, overflow: "auto", bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG, p: 2, borderRight: 1, borderColor: "divider" }}>
               <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem", mb: 1, display: "block" }}>{t("compare")}</Typography>
               <Box
                 ref={(el: HTMLDivElement | null) => {
@@ -239,6 +234,11 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
                   "& th": { bgcolor: "action.hover", fontWeight: 600 },
                 }}
               />
+            </Box>
+            {/* Right: current table (editable) */}
+            <Box sx={{ flex: 1, overflow: "auto", bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG, p: 2, "& table": tableSx }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem", mb: 1, display: "block" }}>{t("compare")} - {t("edit")}</Typography>
+              <NodeViewContent<"table"> as="table" />
             </Box>
           </Box>
         ) : (

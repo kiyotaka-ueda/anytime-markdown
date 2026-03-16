@@ -103,6 +103,15 @@ export function InlineMergeView({
     canRedo,
   } = useMergeDiff(onLeftTextChange);
 
+  // 画面上の左右とデータモデルの左右が逆なので direction を反転
+  const flippedMergeBlock = useCallback(
+    (blockId: number, direction: "left-to-right" | "right-to-left") => {
+      const flipped = direction === "left-to-right" ? "right-to-left" : "left-to-right";
+      mergeBlock(blockId, flipped);
+    },
+    [mergeBlock],
+  );
+
   // Expose undo/redo to parent
   useEffect(() => {
     onUndoRedoReady?.({ undo, redo, canUndo, canRedo });
@@ -295,7 +304,7 @@ export function InlineMergeView({
   }, [leftEditor, rightEditor]);
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", height: editorHeight, minWidth: 0, overflow: "hidden" }}>
+    <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, minWidth: 0, overflow: "hidden" }}>
       {/* Hidden file input for right panel */}
       <input
         ref={fileInputRightRef}
@@ -314,23 +323,6 @@ export function InlineMergeView({
       {!sourceMode && (leftFrontmatter != null || rightFrontmatter != null) && (
         <Box sx={{ display: "flex", gap: 0, flexShrink: 0, alignItems: "stretch" }}>
           <Box sx={{ flex: 1, minWidth: 0, px: 1, pt: 1 }}>
-            {leftFrontmatter != null ? (
-              <FrontmatterBlock
-                frontmatter={leftFrontmatter}
-                onChange={onLeftFrontmatterChange ?? (() => {})}
-                readOnly
-                t={t}
-              />
-            ) : (
-              <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1, mb: 1, opacity: 0.4, p: 1, height: "calc(100% - 8px)", boxSizing: "border-box" }}>
-                <Typography variant="caption" sx={{ fontFamily: "monospace", color: "text.disabled", fontSize: "0.75rem" }}>
-                  No Frontmatter
-                </Typography>
-              </Box>
-            )}
-          </Box>
-          <Divider orientation="vertical" flexItem />
-          <Box sx={{ flex: 1, minWidth: 0, px: 1, pt: 1 }}>
             {rightFrontmatter != null ? (
               <FrontmatterBlock
                 frontmatter={rightFrontmatter}
@@ -346,26 +338,28 @@ export function InlineMergeView({
               </Box>
             )}
           </Box>
+          <Divider orientation="vertical" flexItem />
+          <Box sx={{ flex: 1, minWidth: 0, px: 1, pt: 1 }}>
+            {leftFrontmatter != null ? (
+              <FrontmatterBlock
+                frontmatter={leftFrontmatter}
+                onChange={onLeftFrontmatterChange ?? (() => {})}
+                t={t}
+              />
+            ) : (
+              <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1, mb: 1, opacity: 0.4, p: 1, height: "calc(100% - 8px)", boxSizing: "border-box" }}>
+                <Typography variant="caption" sx={{ fontFamily: "monospace", color: "text.disabled", fontSize: "0.75rem" }}>
+                  No Frontmatter
+                </Typography>
+              </Box>
+            )}
+          </Box>
         </Box>
       )}
 
-      {/* Content area: left = editor (children), right = editor */}
+      {/* Content area: left = compare (read-only), right = editor (children) */}
       <Box sx={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        {/* Left: editor (children) */}
-        <Box
-          ref={leftContainerRef}
-          sx={{
-            flex: 1,
-            minWidth: 0,
-            overflow: "hidden",
-          }}
-        >
-          {children(leftBgGradient, diffResult?.leftLines, mergeBlock, handleHoverLine)}
-        </Box>
-
-        <Divider orientation="vertical" flexItem />
-
-        {/* Right: editor + DiffMap */}
+        {/* Left: compare (read-only) + DiffMap */}
         <Box
           sx={{
             flex: 1, minWidth: 0, display: "flex", overflow: "hidden",
@@ -387,7 +381,6 @@ export function InlineMergeView({
           onDragLeave={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            // Box 外に出たときだけ解除（子要素間の移動では解除しない）
             if (!e.currentTarget.contains(e.relatedTarget as Node)) {
               setRightDragOver(false);
             }
@@ -413,13 +406,28 @@ export function InlineMergeView({
               bgGradient={rightBgGradient}
               editor={rightEditor}
               diffLines={diffResult?.rightLines}
-              side="right"
+              side="left"
               readOnly
-              onMerge={mergeBlock}
+              hideScrollbar
+              onMerge={flippedMergeBlock}
               onHoverLine={handleHoverLine}
               paperSx={{ bgcolor: getEditorBg(isDark, settings) }}
             />
           </Box>
+        </Box>
+
+        <Divider orientation="vertical" flexItem />
+
+        {/* Right: editor (children) */}
+        <Box
+          ref={leftContainerRef}
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            overflow: "hidden",
+          }}
+        >
+          {children(leftBgGradient, diffResult?.leftLines, flippedMergeBlock, handleHoverLine)}
         </Box>
         {commentSlot}
       </Box>
