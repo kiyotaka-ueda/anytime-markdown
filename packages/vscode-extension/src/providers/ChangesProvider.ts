@@ -206,6 +206,12 @@ export class ChangesProvider implements vscode.TreeDataProvider<ChangesTreeItem>
 		this._onDidChangeTreeData.fire();
 	}
 
+	/** 変更ファイルの総数を返す */
+	getChangesCount(): number {
+		const { staged, unstaged } = this.getChanges();
+		return staged.length + unstaged.length;
+	}
+
 	private getChanges(): { staged: ParsedChange[]; unstaged: ParsedChange[] } {
 		if (!this.gitRoot) { return { staged: [], unstaged: [] }; }
 
@@ -394,11 +400,52 @@ export class ChangesProvider implements vscode.TreeDataProvider<ChangesTreeItem>
 		if (answer !== 'Discard') { return; }
 		try {
 			execSync(`git checkout -- "${item.filePath}"`, { cwd: this.gitRoot });
+			await this.closeTab(item.absPath);
 			this.refresh();
 		} catch (e: unknown) {
 			const msg = e instanceof Error ? e.message : String(e);
 			vscode.window.showErrorMessage(`Discard failed: ${msg}`);
 		}
+	}
+
+	/** 指定パスのファイルタブを閉じる */
+	private async closeTab(absPath: string): Promise<void> {
+		const uri = vscode.Uri.file(absPath);
+		for (const group of vscode.window.tabGroups.all) {
+			for (const tab of group.tabs) {
+				const input = tab.input;
+				if (input && typeof input === 'object' && 'uri' in input) {
+					const tabUri = (input as { uri: vscode.Uri }).uri;
+					if (tabUri.fsPath === uri.fsPath) {
+						await vscode.window.tabGroups.close(tab);
+						return;
+					}
+				}
+			}
+		}
+	}
+
+	/** 変更一覧から消えたファイルのタブを閉じる */
+	async closeRemovedTabs(previousPaths: Set<string>): Promise<void> {
+		const { staged, unstaged } = this.getChanges();
+		const currentPaths = new Set([
+			...staged.map(c => c.absPath),
+			...unstaged.map(c => c.absPath),
+		]);
+		for (const p of previousPaths) {
+			if (!currentPaths.has(p)) {
+				await this.closeTab(p);
+			}
+		}
+	}
+
+	/** 現在の変更ファイルパス一覧を返す */
+	getChangedPaths(): Set<string> {
+		const { staged, unstaged } = this.getChanges();
+		return new Set([
+			...staged.map(c => c.absPath),
+			...unstaged.map(c => c.absPath),
+		]);
 	}
 
 	dispose(): void {

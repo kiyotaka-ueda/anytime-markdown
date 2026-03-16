@@ -14,6 +14,23 @@ export function activate(context: vscode.ExtensionContext) {
 		treeDataProvider: changesProvider,
 	});
 
+	// 変更ファイル数をサイドバーバッジに表示 + 消えたファイルのタブを閉じる
+	let previousChangedPaths = new Set<string>();
+	const updateChangesBadge = () => {
+		const count = changesProvider.getChangesCount();
+		changesTreeView.badge = count > 0
+			? { value: count, tooltip: `${count} changes` }
+			: undefined;
+		// 変更一覧から消えたファイルのタブを閉じる
+		changesProvider.closeRemovedTabs(previousChangedPaths);
+		previousChangedPaths = changesProvider.getChangedPaths();
+	};
+	changesProvider.onDidChangeTreeData(updateChangesBadge);
+	setTimeout(() => {
+		updateChangesBadge();
+		previousChangedPaths = changesProvider.getChangedPaths();
+	}, 2000);
+
 	// Git 履歴パネル
 	const gitHistoryProvider = new GitHistoryProvider();
 	const gitTreeView = vscode.window.createTreeView('anytimeMarkdown.gitHistory', {
