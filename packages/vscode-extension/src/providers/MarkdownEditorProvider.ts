@@ -12,6 +12,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   public onCommentsChanged?: (comments: unknown[]) => void;
   public onStatusChanged?: (status: { line: number; col: number; charCount: number; lineCount: number; lineEnding: string; encoding: string }) => void;
   public compareModeActive = false;
+  public pendingCompareContent: string | null = null;
   private panels = new Map<string, vscode.WebviewPanel>();
   /** diff ビュー検出用: 最後にパネルが開かれた時刻 */
   private lastPanelOpenTime = 0;
@@ -130,10 +131,15 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         type: 'setBaseUri',
         baseUri,
       });
-      webviewPanel.webview.postMessage({
+      const msg: { type: string; content: string; compareContent?: string } = {
         type: 'setContent',
         content: document.getText(),
-      });
+      };
+      if (this.pendingCompareContent !== null) {
+        msg.compareContent = this.pendingCompareContent;
+        this.pendingCompareContent = null;
+      }
+      webviewPanel.webview.postMessage(msg);
     };
 
     // 自身の編集・保存直後（2秒以内）の変更通知を抑制するタイムスタンプ

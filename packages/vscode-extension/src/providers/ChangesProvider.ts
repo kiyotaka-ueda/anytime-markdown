@@ -75,11 +75,20 @@ export class ChangesFileItem extends vscode.TreeItem {
 			getStatusColor(change.status, group),
 		);
 
-		this.command = {
-			command: 'vscode.diff',
-			title: 'Show Changes',
-			arguments: [change.originalUri, change.uri, `${fileName} (${statusLabel})`],
-		};
+		const lower = fileName.toLowerCase();
+		if (lower.endsWith('.md') || lower.endsWith('.markdown')) {
+			this.command = {
+				command: 'anytime-markdown.openChangeDiff',
+				title: 'Show Changes in Anytime Markdown',
+				arguments: [change.originalUri, change.uri],
+			};
+		} else {
+			this.command = {
+				command: 'vscode.diff',
+				title: 'Show Changes',
+				arguments: [change.originalUri, change.uri, `${fileName} (${statusLabel})`],
+			};
+		}
 	}
 }
 
@@ -132,9 +141,18 @@ export class ChangesProvider implements vscode.TreeDataProvider<ChangesTreeItem>
 
 	private disposables: vscode.Disposable[] = [];
 	private repo: Repository | null = null;
+	private _mdOnlyGetter: (() => boolean) | null = null;
 
 	constructor() {
 		this.initGit();
+	}
+
+	setMdOnlyGetter(getter: () => boolean): void {
+		this._mdOnlyGetter = getter;
+	}
+
+	private get mdOnly(): boolean {
+		return this._mdOnlyGetter ? this._mdOnlyGetter() : false;
 	}
 
 	private async initGit(): Promise<void> {
@@ -175,8 +193,11 @@ export class ChangesProvider implements vscode.TreeDataProvider<ChangesTreeItem>
 
 		if (!element) {
 			const items: ChangesTreeItem[] = [];
-			const staged = this.repo.state.indexChanges;
-			const unstaged = this.repo.state.workingTreeChanges;
+			const filterFn = this.mdOnly
+				? (c: Change) => { const l = path.basename(c.uri.fsPath).toLowerCase(); return l.endsWith('.md') || l.endsWith('.markdown'); }
+				: () => true;
+			const staged = this.repo.state.indexChanges.filter(filterFn);
+			const unstaged = this.repo.state.workingTreeChanges.filter(filterFn);
 			if (staged.length > 0) {
 				items.push(new ChangesGroupItem('staged', staged.length));
 			}
@@ -187,9 +208,12 @@ export class ChangesProvider implements vscode.TreeDataProvider<ChangesTreeItem>
 		}
 
 		if (element instanceof ChangesGroupItem) {
-			const changes = element.group === 'staged'
+			let changes = element.group === 'staged'
 				? this.repo.state.indexChanges
 				: this.repo.state.workingTreeChanges;
+			if (this.mdOnly) {
+				changes = changes.filter(c => { const l = path.basename(c.uri.fsPath).toLowerCase(); return l.endsWith('.md') || l.endsWith('.markdown'); });
+			}
 			return changes.map(c => new ChangesFileItem(c, element.group, this.repo!.rootUri));
 		}
 

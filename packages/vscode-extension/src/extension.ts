@@ -177,8 +177,12 @@ export function activate(context: vscode.ExtensionContext) {
 		'anytime-markdown.specDocsRefresh', () => specDocsProvider.refresh()
 	);
 	const toggleMdOnly = vscode.commands.registerCommand(
-		'anytime-markdown.toggleMdOnly', () => specDocsProvider.toggleMdOnly()
+		'anytime-markdown.toggleMdOnly', () => {
+			specDocsProvider.toggleMdOnly();
+			changesProvider.refresh();
+		}
 	);
+	changesProvider.setMdOnlyGetter(() => specDocsProvider.mdOnly);
 
 	// Git 変更コマンド
 	const changesRefresh = vscode.commands.registerCommand(
@@ -193,6 +197,27 @@ export function activate(context: vscode.ExtensionContext) {
 	const discardChanges = vscode.commands.registerCommand(
 		'anytime-markdown.discardChanges', (item: ChangesFileItem) => changesProvider.discardChanges(item)
 	);
+	const openChangeDiff = vscode.commands.registerCommand(
+		'anytime-markdown.openChangeDiff',
+		async (originalUri: vscode.Uri, currentUri: vscode.Uri) => {
+			// 比較コンテンツを先に読み込む
+			let originalContent: string;
+			try {
+				originalContent = new TextDecoder().decode(await vscode.workspace.fs.readFile(originalUri));
+			} catch {
+				originalContent = '';
+			}
+			const p = MarkdownEditorProvider.getInstance();
+			if (p) {
+				p.pendingCompareContent = originalContent;
+			}
+			await vscode.commands.executeCommand(
+				'vscode.openWith',
+				currentUri,
+				MarkdownEditorProvider.viewType,
+			);
+		}
+	);
 
 	// ファイル保存時にリフレッシュ
 	context.subscriptions.push(
@@ -205,7 +230,7 @@ export function activate(context: vscode.ExtensionContext) {
 		...statusBarItems,
 		openEditorWithFile, compareCmd, compareWithCommit,
 		insertSectionNumbers, removeSectionNumbers,
-		changesRefresh, stageFile, unstageFile, discardChanges,
+		changesRefresh, stageFile, unstageFile, discardChanges, openChangeDiff,
 		specDocsOpenFolder, specDocsCloneRepo, specDocsClose, specDocsRefresh, toggleMdOnly,
 	);
 }
