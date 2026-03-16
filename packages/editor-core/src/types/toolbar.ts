@@ -6,6 +6,7 @@ export interface ToolbarVisibility {
   settings?: boolean;
   versionInfo?: boolean;
   modeToggle?: boolean;
+  compareToggle?: boolean;
   readonlyToggle?: boolean;
   outline?: boolean;
   comments?: boolean;

@@ -421,7 +421,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         inlineMergeOpen={inlineMergeOpen}
         hide={{
           outline: hideOutline || sideToolbar, comments: hideComments || sideToolbar,
-          explorer: sideToolbar,
+          explorer: sideToolbar, compareToggle: sideToolbar,
           templates: hideTemplates, foldAll: hideFoldAll,
           fileOps: hideFileOps, undoRedo: hideUndoRedo,
           versionInfo: hideVersionInfo,

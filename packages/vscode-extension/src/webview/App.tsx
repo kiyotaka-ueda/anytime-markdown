@@ -77,6 +77,10 @@ export function App() {
         window.dispatchEvent(new CustomEvent('vscode-load-compare-file', { detail: message.content }));
         return;
       }
+      if (message?.type === 'exitCompareMode') {
+        window.dispatchEvent(new CustomEvent('vscode-exit-compare-mode'));
+        return;
+      }
       if (message?.type === 'syncScroll' && typeof message.ratio === 'number') {
         // 他パネルからのスクロール同期（無限ループ防止フラグ付き）
         isSyncingScroll = true;

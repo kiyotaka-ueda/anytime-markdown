@@ -130,18 +130,11 @@ export function activate(context: vscode.ExtensionContext) {
 				vscode.window.showWarningMessage('Could not load file content for this commit.');
 				return;
 			}
-			if (p.compareModeActive) {
-				p.compareFileUri = null;
-				p.postMessageToActivePanel({
-					type: 'loadCompareFile',
-					content,
-				});
-			} else {
-				p.postMessageToActivePanel({
-					type: 'loadHistoryContent',
-					content,
-				});
-			}
+			p.compareFileUri = null;
+			p.postMessageToActivePanel({
+				type: 'loadCompareFile',
+				content,
+			});
 		}
 	);
 
@@ -186,7 +179,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// 初回: git 初期化を待ってからターゲットを設定
 	setTimeout(() => changesProvider.setTargetRoot(specDocsProvider.root), 2000);
 
-	// 仕様書管理: シングルクリックでプレビュー、ダブルクリックで固定タブ
+	// 仕様書管理: シングルクリックでプレビュー、ダブルクリックで固定タブ（常に通常モード）
 	let lastSpecClickUri: string | null = null;
 	let lastSpecClickTime = 0;
 	const specDocsOpenFile = vscode.commands.registerCommand(
@@ -198,33 +191,17 @@ export function activate(context: vscode.ExtensionContext) {
 			lastSpecClickTime = now;
 
 			const p = MarkdownEditorProvider.getInstance();
-			const wasCompareMode = p?.compareModeActive ?? false;
-
-			if (p) { p.skipDiffDetection = true; }
-
-			// 比較モード中: HEAD コンテンツを右パネルに設定
-			if (wasCompareMode && p && changesProvider.targetGitRoot) {
-				const relativePath = path.relative(changesProvider.targetGitRoot, uri.fsPath).replace(/\\/g, '/');
-				let headContent = '';
-				try {
-					const { execSync } = await import('child_process');
-					headContent = execSync(`git show HEAD:"${relativePath}"`, { cwd: changesProvider.targetGitRoot, encoding: 'utf-8' });
-				} catch { /* new file or no HEAD */ }
-				p.pendingCompareContent = headContent;
+			if (p) {
+				p.skipDiffDetection = true;
+				p.pendingCompareContent = null; // 通常モードで開く
 			}
 
 			await vscode.commands.executeCommand('vscode.openWith', uri, MarkdownEditorProvider.viewType, { preview: !isDoubleClick });
 
-			// 既に開いているタブの場合、waitForReady + postMessage で比較モードを設定
-			if (wasCompareMode && p && changesProvider.targetGitRoot && p.pendingCompareContent === null) {
-				const relativePath = path.relative(changesProvider.targetGitRoot, uri.fsPath).replace(/\\/g, '/');
-				let headContent = '';
-				try {
-					const { execSync } = await import('child_process');
-					headContent = execSync(`git show HEAD:"${relativePath}"`, { cwd: changesProvider.targetGitRoot, encoding: 'utf-8' });
-				} catch { /* new file or no HEAD */ }
+			// 既に開いているタブが比較モードの場合、通常モードに戻す
+			if (p?.compareModeActive) {
 				await p.waitForReady(uri);
-				p.postMessageToPanel(uri, { type: 'loadCompareFile', content: headContent });
+				p.postMessageToPanel(uri, { type: 'exitCompareMode' });
 			}
 
 			// git history を更新
@@ -297,6 +274,11 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 				if (p) { p.pendingCompareContent = originalContent; }
 				await vscode.commands.executeCommand('vscode.openWith', currentUri, MarkdownEditorProvider.viewType, { preview: !isDoubleClick });
+				// 既に開いているタブの場合、比較モードを強制設定
+				if (p && p.pendingCompareContent === null) {
+					await p.waitForReady(currentUri);
+					p.postMessageToPanel(currentUri, { type: 'loadCompareFile', content: originalContent });
+				}
 			} else {
 				await vscode.commands.executeCommand('vscode.diff', currentUri, currentUri, diffLabel);
 			}

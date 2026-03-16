@@ -139,6 +139,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
     settings: hideSettings, versionInfo: hideVersionInfo,
     modeToggle: hideModeToggle, readonlyToggle: hideReadonlyToggle,
     outline: hideOutline, comments: hideComments, explorer: hideExplorer,
+    compareToggle: hideCompareToggle,
     templates: _hideTemplates, foldAll: _hideFoldAll,
   } = hide;
   const { sourceMode, readonlyMode, reviewMode, outlineOpen, inlineMergeOpen, commentOpen, explorerOpen } = modeState;
@@ -355,7 +356,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
       </ToggleButtonGroup>}
 
       {/* Compare toggle (md 以上のみ表示) */}
-      {!hideModeToggle && <ToggleButtonGroup
+      {!hideModeToggle && !hideCompareToggle && <ToggleButtonGroup
         value={inlineMergeOpen ? "compare" : "edit"}
         exclusive
         size="small"
