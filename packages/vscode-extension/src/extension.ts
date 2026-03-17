@@ -210,13 +210,19 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const setActiveRoot = (rootPath: string | null) => {
 		activeRoot = rootPath;
-		changesProvider.setTargetRoot(rootPath);
+		changesProvider.setPrimaryRoot(rootPath);
 		graphProvider.setTargetRoot(rootPath);
 	};
 
+	let previousRoots: string[] = [];
 	specDocsProvider.onDidChangeTreeData(() => {
 		updateSpecDocsTitle();
 		const roots = specDocsProvider.roots;
+		// ルート一覧が変わった場合のみ changesProvider を更新
+		if (JSON.stringify(roots) !== JSON.stringify(previousRoots)) {
+			previousRoots = roots;
+			changesProvider.setTargetRoots(roots);
+		}
 		if (roots.length === 0) {
 			setActiveRoot(null);
 		} else if (activeRoot && !roots.includes(activeRoot)) {
@@ -229,6 +235,8 @@ export function activate(context: vscode.ExtensionContext) {
 	updateSpecDocsTitle();
 	// 初回: git 初期化を待ってからターゲットを設定
 	setTimeout(() => {
+		changesProvider.setTargetRoots(specDocsProvider.roots);
+		previousRoots = specDocsProvider.roots;
 		setActiveRoot(activeRoot);
 	}, 2000);
 
@@ -264,8 +272,9 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 
 			// git history を更新
-			if (changesProvider.targetGitRoot) {
-				timelineProvider.refreshWithGitRoot(uri.fsPath, changesProvider.targetGitRoot);
+			const fileGitRoot = changesProvider.findGitRootForPath(uri.fsPath);
+			if (fileGitRoot) {
+				timelineProvider.refreshWithGitRoot(uri.fsPath, fileGitRoot);
 			}
 		}
 	);
@@ -376,7 +385,7 @@ export function activate(context: vscode.ExtensionContext) {
 		'anytime-markdown.commitChanges', () => changesProvider.commit()
 	);
 	const syncChanges = vscode.commands.registerCommand(
-		'anytime-markdown.syncChanges', () => changesProvider.sync()
+		'anytime-markdown.syncChanges', (gitRoot?: string) => changesProvider.sync(gitRoot)
 	);
 	const pushChanges = vscode.commands.registerCommand(
 		'anytime-markdown.pushChanges', () => changesProvider.push()

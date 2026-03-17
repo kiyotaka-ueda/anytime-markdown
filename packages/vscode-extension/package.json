@@ -236,11 +236,6 @@
       ],
       "view/title": [
         {
-          "command": "anytime-markdown.switchBranch",
-          "when": "view == anytimeMarkdown.specDocs && anytimeMarkdown.specDocsHasRoot",
-          "group": "navigation@1"
-        },
-        {
           "command": "anytime-markdown.toggleMdOnly",
           "when": "view == anytimeMarkdown.specDocs",
           "group": "navigation@2"
@@ -318,9 +313,14 @@
           "group": "2_edit@2"
         },
         {
-          "command": "anytime-markdown.specDocsRemoveRoot",
+          "command": "anytime-markdown.switchBranch",
           "when": "view == anytimeMarkdown.specDocs && viewItem == specDocsRoot",
           "group": "3_root@1"
+        },
+        {
+          "command": "anytime-markdown.specDocsRemoveRoot",
+          "when": "view == anytimeMarkdown.specDocs && viewItem == specDocsRoot",
+          "group": "3_root@2"
         },
         {
           "command": "anytime-markdown.stageFile",
