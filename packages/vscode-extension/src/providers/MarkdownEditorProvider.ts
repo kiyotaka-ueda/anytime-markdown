@@ -12,6 +12,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   public onCommentsChanged?: (comments: unknown[]) => void;
   public onStatusChanged?: (status: { line: number; col: number; charCount: number; lineCount: number; lineEnding: string; encoding: string }) => void;
   public compareModeActive = false;
+  public pendingCompareContent: string | null = null;
+  public skipDiffDetection = false;
   private panels = new Map<string, vscode.WebviewPanel>();
   /** diff ビュー検出用: 最後にパネルが開かれた時刻 */
   private lastPanelOpenTime = 0;
@@ -91,9 +93,11 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     this.panels.set(document.uri.toString(), webviewPanel);
 
     // diff ビュー検出: 1秒以内に2つ目のパネルが開かれた場合
+    // skipDiffDetection が true の場合は拡張機能からの意図的なオープンなのでスキップ
     const now = Date.now();
-    const isDiffView = now - this.lastPanelOpenTime < 1000;
+    const isDiffView = !this.skipDiffDetection && now - this.lastPanelOpenTime < 1000;
     this.lastPanelOpenTime = now;
+    this.skipDiffDetection = false;
 
     let isApplyingWebviewEdit = false;
     let debounceTimer: ReturnType<typeof setTimeout> | undefined;
@@ -130,10 +134,15 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         type: 'setBaseUri',
         baseUri,
       });
-      webviewPanel.webview.postMessage({
+      const msg: { type: string; content: string; compareContent?: string } = {
         type: 'setContent',
         content: document.getText(),
-      });
+      };
+      if (this.pendingCompareContent !== null) {
+        msg.compareContent = this.pendingCompareContent;
+        this.pendingCompareContent = null;
+      }
+      webviewPanel.webview.postMessage(msg);
     };
 
     // 自身の編集・保存直後（2秒以内）の変更通知を抑制するタイムスタンプ

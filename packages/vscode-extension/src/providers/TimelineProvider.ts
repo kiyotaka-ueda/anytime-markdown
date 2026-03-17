@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { execSync } from 'child_process';
 
 interface GitExtension {
 	getAPI(version: 1): GitAPI;
@@ -19,7 +20,7 @@ interface Commit {
 	authorDate?: Date;
 }
 
-export class GitHistoryItem extends vscode.TreeItem {
+export class TimelineItem extends vscode.TreeItem {
 	constructor(
 		public readonly commit: Commit,
 		public readonly fileUri: vscode.Uri,
@@ -51,24 +52,38 @@ function formatDate(date: Date): string {
 	return `${y}-${m}-${d} ${h}:${min}`;
 }
 
-export class GitHistoryProvider implements vscode.TreeDataProvider<GitHistoryItem> {
+export class TimelineProvider implements vscode.TreeDataProvider<TimelineItem> {
 	private _onDidChangeTreeData = new vscode.EventEmitter<void>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
 	private fileUri: vscode.Uri | null = null;
-	private items: GitHistoryItem[] = [];
+	private items: TimelineItem[] = [];
+
+	private gitRoot: string | null = null;
+
+	/** 外部リポジトリ（マークダウン管理）の履歴表示中かどうか */
+	get isExternalMode(): boolean { return this.gitRoot !== null; }
 
 	refresh(uri: vscode.Uri | null): void {
 		this.fileUri = uri;
+		this.gitRoot = null;
 		this.items = [];
 		this._onDidChangeTreeData.fire();
 	}
 
-	getTreeItem(element: GitHistoryItem): vscode.TreeItem {
+	/** git コマンドベースで履歴を表示（外部リポジトリ対応） */
+	refreshWithGitRoot(fileAbsPath: string, gitRoot: string): void {
+		this.fileUri = vscode.Uri.file(fileAbsPath);
+		this.gitRoot = gitRoot;
+		this.items = [];
+		this._onDidChangeTreeData.fire();
+	}
+
+	getTreeItem(element: TimelineItem): vscode.TreeItem {
 		return element;
 	}
 
-	async getChildren(): Promise<GitHistoryItem[]> {
+	async getChildren(): Promise<TimelineItem[]> {
 		if (!this.fileUri) {
 			return [];
 		}
@@ -76,6 +91,12 @@ export class GitHistoryProvider implements vscode.TreeDataProvider<GitHistoryIte
 			return this.items;
 		}
 
+		// git コマンドベース（外部リポジトリ）
+		if (this.gitRoot) {
+			return this.getChildrenFromGitCommand();
+		}
+
+		// vscode.git API（メインプロジェクト）
 		const repo = await this.getRepository(this.fileUri);
 		if (!repo) {
 			return [];
@@ -84,14 +105,51 @@ export class GitHistoryProvider implements vscode.TreeDataProvider<GitHistoryIte
 		const relativePath = path.relative(repo.rootUri.fsPath, this.fileUri.fsPath).replace(/\\/g, '/');
 		try {
 			const commits = await repo.log({ path: relativePath });
-			this.items = commits.map(c => new GitHistoryItem(c, this.fileUri!));
+			this.items = commits.map(c => new TimelineItem(c, this.fileUri!));
 			return this.items;
 		} catch {
 			return [];
 		}
 	}
 
-	async getCommitContent(item: GitHistoryItem): Promise<string | null> {
+	private getChildrenFromGitCommand(): TimelineItem[] {
+		if (!this.gitRoot || !this.fileUri) { return []; }
+		const relativePath = path.relative(this.gitRoot, this.fileUri.fsPath).replace(/\\/g, '/');
+		try {
+			const output = execSync(
+				`git log --format="%H%n%s%n%an%n%aI" -50 -- "${relativePath}"`,
+				{ cwd: this.gitRoot, encoding: 'utf-8' },
+			);
+			const lines = output.trim().split('\n');
+			const commits: TimelineItem[] = [];
+			for (let i = 0; i + 3 < lines.length; i += 4) {
+				const hash = lines[i];
+				const message = lines[i + 1];
+				const authorName = lines[i + 2];
+				const authorDate = new Date(lines[i + 3]);
+				commits.push(new TimelineItem(
+					{ hash, message, authorName, authorDate },
+					this.fileUri!,
+				));
+			}
+			this.items = commits;
+			return this.items;
+		} catch {
+			return [];
+		}
+	}
+
+	async getCommitContent(item: TimelineItem): Promise<string | null> {
+		// git コマンドベース
+		if (this.gitRoot) {
+			const relativePath = path.relative(this.gitRoot, item.fileUri.fsPath).replace(/\\/g, '/');
+			try {
+				return execSync(`git show ${item.commit.hash}:"${relativePath}"`, { cwd: this.gitRoot, encoding: 'utf-8' });
+			} catch {
+				return null;
+			}
+		}
+		// vscode.git API
 		const repo = await this.getRepository(item.fileUri);
 		if (!repo) { return null; }
 		const relativePath = path.relative(repo.rootUri.fsPath, item.fileUri.fsPath).replace(/\\/g, '/');

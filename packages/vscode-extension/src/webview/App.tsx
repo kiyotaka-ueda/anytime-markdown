@@ -77,6 +77,10 @@ export function App() {
         window.dispatchEvent(new CustomEvent('vscode-load-compare-file', { detail: message.content }));
         return;
       }
+      if (message?.type === 'exitCompareMode') {
+        window.dispatchEvent(new CustomEvent('vscode-exit-compare-mode'));
+        return;
+      }
       if (message?.type === 'syncScroll' && typeof message.ratio === 'number') {
         // 他パネルからのスクロール同期（無限ループ防止フラグ付き）
         isSyncingScroll = true;
@@ -124,6 +128,10 @@ export function App() {
         const isInitial = !ready;
         currentContent = message.content;
         if (isInitial) {
+          // 初回ロード時に compareContent があれば比較モードで直接開始
+          if (typeof message.compareContent === 'string') {
+            setCompareContent(message.compareContent);
+          }
           setReady(true);
         } else {
           // VS Code からの外部更新（メニュー Undo/Redo など）→ Tiptap エディタに反映
@@ -273,7 +281,7 @@ export function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <ConfirmProvider>
-        <MarkdownEditorPage key={editorKey} hideFileOps hideUndoRedo hideSettings hideVersionInfo hideOutline hideComments hideTemplates hideFoldAll hideStatusBar externalCompareContent={compareContent} onCompareModeChange={handleCompareModeChange} onHeadingsChange={handleHeadingsChange} onCommentsChange={handleCommentsChange} onStatusChange={handleStatusChange} onReload={handleReload} />
+        <MarkdownEditorPage key={editorKey} hideFileOps hideUndoRedo hideSettings hideVersionInfo hideTemplates hideFoldAll hideStatusBar sideToolbar hideCompareToggle externalCompareContent={compareContent} onCompareModeChange={handleCompareModeChange} onHeadingsChange={handleHeadingsChange} onCommentsChange={handleCommentsChange} onStatusChange={handleStatusChange} onReload={handleReload} />
       </ConfirmProvider>
     </ThemeProvider>
   );

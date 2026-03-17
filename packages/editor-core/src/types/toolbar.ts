@@ -6,9 +6,11 @@ export interface ToolbarVisibility {
   settings?: boolean;
   versionInfo?: boolean;
   modeToggle?: boolean;
+  compareToggle?: boolean;
   readonlyToggle?: boolean;
   outline?: boolean;
   comments?: boolean;
+  explorer?: boolean;
   templates?: boolean;
   foldAll?: boolean;
   toolbar?: boolean;   // EditorToolbarSection 専用

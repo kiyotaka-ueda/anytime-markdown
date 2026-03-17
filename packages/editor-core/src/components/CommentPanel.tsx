@@ -16,7 +16,7 @@ import { useEditorState } from "@tiptap/react";
 import React, { useCallback, useRef, useState } from "react";
 
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../constants/colors";
-import { COMMENT_PANEL_WIDTH } from "../constants/dimensions";
+import { COMMENT_PANEL_WIDTH, PANEL_HEADER_MIN_HEIGHT } from "../constants/dimensions";
 import { commentDataPluginKey } from "../extensions/commentExtension";
 import type { TranslationFn } from "../types";
 import type { InlineComment } from "../utils/commentHelpers";
@@ -152,7 +152,8 @@ export const CommentPanel = React.memo(function CommentPanel({
         sx={{
           display: "flex",
           alignItems: "center",
-          p: 1,
+          px: 1,
+          minHeight: PANEL_HEADER_MIN_HEIGHT,
           borderBottom: 1,
           borderColor: "divider",
         }}

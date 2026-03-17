@@ -29,7 +29,7 @@ type DiagramBlockProps = Pick<
   | "selectNode" | "code"
   | "handleCopyCode" | "handleDeleteBlock" | "deleteDialogOpen" | "setDeleteDialogOpen"
   | "editOpen" | "setEditOpen" | "fsCode" | "onFsCodeChange" | "fsTextareaRef" | "fsSearch"
-  | "t" | "isDark"
+  | "t" | "isDark" | "isCompareLeft"
 > & {
   /** Fullscreen code text sync */
   handleFsTextChange: (newCode: string) => void;
@@ -90,7 +90,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
     return () => ro.disconnect();
   }, [svg, plantUmlUrl]);
 
-  const { isCompareMode, compareCode, handleMergeApply } = useBlockMergeCompare({
+  const { isCompareMode, compareCode, thisCode, handleMergeApply } = useBlockMergeCompare({
     editor, getPos: _getPos, language, code, editOpen,
   });
 
@@ -99,7 +99,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
   const toolbar = (
     <BlockInlineToolbar
       label={label}
-      onEdit={(svg || plantUmlUrl) ? () => { fsZP.reset(); setEditOpen(true); } : undefined}
+      onEdit={props.isCompareLeft ? undefined : (svg || plantUmlUrl) ? () => { fsZP.reset(); setEditOpen(true); } : undefined}
       onDelete={isEditable ? () => setDeleteDialogOpen(true) : undefined}
       extra={diagramSize ? (<>
         <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
@@ -156,6 +156,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
             isCompareMode={isCompareMode}
             compareCode={compareCode}
             onMergeApply={handleMergeApply}
+            thisCode={thisCode}
             onCapture={handleCapture}
             toolbarExtra={
               <Tooltip title={t("copyCode")} placement="bottom">
@@ -184,6 +185,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
             isCompareMode={isCompareMode}
             compareCode={compareCode}
             onMergeApply={handleMergeApply}
+            thisCode={thisCode}
             onCapture={handleCapture}
             toolbarExtra={
               <Tooltip title={t("copyCode")} placement="bottom">

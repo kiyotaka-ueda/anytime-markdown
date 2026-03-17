@@ -72,8 +72,17 @@ export function useMergeMode({
         setInlineMergeOpen(true);
       }
     };
+    const exitHandler = () => {
+      if (inlineMergeOpen) {
+        setInlineMergeOpen(false);
+      }
+    };
     window.addEventListener('vscode-load-compare-file', handler);
-    return () => window.removeEventListener('vscode-load-compare-file', handler);
+    window.addEventListener('vscode-exit-compare-mode', exitHandler);
+    return () => {
+      window.removeEventListener('vscode-load-compare-file', handler);
+      window.removeEventListener('vscode-exit-compare-mode', exitHandler);
+    };
   }, [editor, sourceMode, inlineMergeOpen]);
 
   // 画面が小さくなったら比較モードを自動で閉じる

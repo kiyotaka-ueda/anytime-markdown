@@ -118,15 +118,15 @@ describe("useCodeBlockAutoCollapse", () => {
   });
 
   test("両エディタを処理する", () => {
-    const leftEditor = createMockEditor([
+    const rightEditor = createMockEditor([
       { type: { name: "codeBlock" }, attrs: { language: "mermaid", collapsed: false } },
     ]);
-    const rightEditor = createMockEditor([
+    const leftEditor = createMockEditor([
       { type: { name: "codeBlock" }, attrs: { language: "plantuml", collapsed: false } },
     ]);
-    renderHook(() => useCodeBlockAutoCollapse(false, leftEditor, rightEditor));
-    expect(mockFn(leftEditor, "view.dispatch")).toHaveBeenCalled();
+    renderHook(() => useCodeBlockAutoCollapse(false, rightEditor, leftEditor));
     expect(mockFn(rightEditor, "view.dispatch")).toHaveBeenCalled();
+    expect(mockFn(leftEditor, "view.dispatch")).toHaveBeenCalled();
   });
 
   test("update イベントハンドラが登録される", () => {

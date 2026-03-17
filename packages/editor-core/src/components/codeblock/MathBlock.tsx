@@ -23,7 +23,7 @@ type MathBlockProps = Pick<
   | "selectNode" | "code"
   | "handleCopyCode" | "handleDeleteBlock" | "deleteDialogOpen" | "setDeleteDialogOpen"
   | "editOpen" | "setEditOpen" | "fsCode" | "onFsCodeChange" | "fsTextareaRef" | "fsSearch"
-  | "t" | "isDark"
+  | "t" | "isDark" | "isCompareLeft"
 > & {
   handleFsTextChange: (newCode: string) => void;
 };
@@ -44,14 +44,14 @@ export function MathBlock(props: MathBlockProps) {
   const mathContainerRef = useRef<HTMLDivElement>(null);
   const { resizing, resizeWidth, displayWidth, handleResizePointerDown, handleResizePointerMove, handleResizePointerUp } = useBlockResize({ containerRef: mathContainerRef, updateAttributes, currentWidth: node.attrs.width });
 
-  const { isCompareMode, compareCode, handleMergeApply } = useBlockMergeCompare({
+  const { isCompareMode, compareCode, thisCode, handleMergeApply } = useBlockMergeCompare({
     editor, getPos, language: "math", code, editOpen,
   });
 
   const toolbar = (
     <BlockInlineToolbar
       label="Math"
-      onEdit={() => setEditOpen(true)}
+      onEdit={props.isCompareLeft ? undefined : () => setEditOpen(true)}
       onDelete={() => setDeleteDialogOpen(true)}
       t={t}
     />
@@ -81,6 +81,7 @@ export function MathBlock(props: MathBlockProps) {
           isCompareMode={isCompareMode}
           compareCode={compareCode}
           onMergeApply={handleMergeApply}
+          thisCode={thisCode}
           toolbarExtra={
             <Tooltip title={t("copyCode")} placement="bottom">
               <IconButton size="small" sx={{ p: 0.25 }} onClick={handleCopyCode} aria-label={t("copyCode")}>

@@ -2,8 +2,8 @@ import { DOMSerializer } from "@tiptap/pm/model";
 import type { Editor } from "@tiptap/react";
 
 interface MergeEditorsValue {
-  leftEditor: Editor | null;
   rightEditor: Editor | null;
+  leftEditor: Editor | null;
 }
 
 /** モジュールレベルのストア（TipTap NodeView ポータルからもアクセス可能） */

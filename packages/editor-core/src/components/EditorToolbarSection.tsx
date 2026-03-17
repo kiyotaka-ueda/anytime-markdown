@@ -160,6 +160,8 @@ export function EditorToolbarSection({
           readonlyToggle: hide?.readonlyToggle,
           outline: hide?.outline,
           comments: hide?.comments,
+          explorer: hide?.explorer,
+          compareToggle: hide?.compareToggle,
           templates: hide?.templates,
           foldAll: hide?.foldAll,
           settings: hide?.settings,

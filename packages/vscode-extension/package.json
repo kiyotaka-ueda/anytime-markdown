@@ -2,7 +2,7 @@
   "name": "anytime-markdown",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "license": "MIT",
   "publisher": "kiytaka-ueda",
   "repository": {
@@ -38,31 +38,40 @@
     "views": {
       "anytimeMarkdown": [
         {
-          "id": "anytimeMarkdown.outline",
-          "name": "Outline"
+          "id": "anytimeMarkdown.specDocs",
+          "name": "%view.specDocs%"
         },
         {
-          "id": "anytimeMarkdown.gitHistory",
-          "name": "Git History"
+          "id": "anytimeMarkdown.changes",
+          "name": "%view.changes%"
         },
         {
-          "id": "anytimeMarkdown.comments",
-          "name": "Comments"
+          "id": "anytimeMarkdown.graph",
+          "name": "%view.graph%"
+        },
+        {
+          "id": "anytimeMarkdown.timeline",
+          "name": "Timeline"
         }
       ]
     },
     "viewsWelcome": [
       {
-        "view": "anytimeMarkdown.outline",
+        "view": "anytimeMarkdown.specDocs",
+        "contents": "%viewsWelcome.specDocs%",
+        "when": "!anytimeMarkdown.specDocsHasRoot"
+      },
+      {
+        "view": "anytimeMarkdown.changes",
+        "contents": "%viewsWelcome.changes%"
+      },
+      {
+        "view": "anytimeMarkdown.timeline",
         "contents": "No items."
       },
       {
-        "view": "anytimeMarkdown.gitHistory",
+        "view": "anytimeMarkdown.graph",
         "contents": "No items."
-      },
-      {
-        "view": "anytimeMarkdown.comments",
-        "contents": "No comments."
       }
     ],
     "commands": [
@@ -76,43 +85,6 @@
         "enablement": "activeCustomEditorId == anytimeMarkdown"
       },
       {
-        "command": "anytime-markdown.resolveComment",
-        "title": "%command.resolveComment%",
-        "icon": "$(check)"
-      },
-      {
-        "command": "anytime-markdown.unresolveComment",
-        "title": "%command.unresolveComment%",
-        "icon": "$(circle-outline)"
-      },
-      {
-        "command": "anytime-markdown.deleteComment",
-        "title": "%command.deleteComment%",
-        "icon": "$(trash)"
-      },
-      {
-        "command": "anytime-markdown.filterCommentsAll",
-        "title": "%command.filterCommentsAll%"
-      },
-      {
-        "command": "anytime-markdown.filterCommentsOpen",
-        "title": "%command.filterCommentsOpen%"
-      },
-      {
-        "command": "anytime-markdown.filterCommentsResolved",
-        "title": "%command.filterCommentsResolved%"
-      },
-      {
-        "command": "anytime-markdown.toggleBlockElements",
-        "title": "%command.toggleBlockElements%",
-        "icon": "$(symbol-misc)"
-      },
-      {
-        "command": "anytime-markdown.toggleCollapseExpand",
-        "title": "%command.toggleCollapseExpand%",
-        "icon": "$(collapse-all)"
-      },
-      {
         "command": "anytime-markdown.insertSectionNumbers",
         "title": "%command.insertSectionNumbers%",
         "icon": "$(list-ordered)"
@@ -121,6 +93,93 @@
         "command": "anytime-markdown.removeSectionNumbers",
         "title": "%command.removeSectionNumbers%",
         "icon": "$(list-flat)"
+      },
+      {
+        "command": "anytime-markdown.specDocsOpenFolder",
+        "title": "%command.specDocsOpenFolder%",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "anytime-markdown.specDocsCloneRepo",
+        "title": "%command.specDocsCloneRepo%",
+        "icon": "$(repo-clone)"
+      },
+      {
+        "command": "anytime-markdown.specDocsClose",
+        "title": "%command.specDocsClose%",
+        "icon": "$(close)"
+      },
+      {
+        "command": "anytime-markdown.specDocsRefresh",
+        "title": "%command.specDocsRefresh%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "anytime-markdown.toggleMdOnly",
+        "title": "%command.toggleMdOnly%",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "anytime-markdown.switchBranch",
+        "title": "%command.switchBranch%",
+        "icon": "$(git-branch)"
+      },
+      {
+        "command": "anytime-markdown.specDocsCreateFile",
+        "title": "%command.specDocsCreateFile%",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "anytime-markdown.specDocsCreateFolder",
+        "title": "%command.specDocsCreateFolder%",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "anytime-markdown.specDocsDelete",
+        "title": "%command.specDocsDelete%",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "anytime-markdown.specDocsRename",
+        "title": "%command.specDocsRename%"
+      },
+      {
+        "command": "anytime-markdown.graphRefresh",
+        "title": "%command.graphRefresh%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "anytime-markdown.changesRefresh",
+        "title": "%command.changesRefresh%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "anytime-markdown.stageFile",
+        "title": "%command.stageFile%",
+        "icon": "$(add)"
+      },
+      {
+        "command": "anytime-markdown.unstageFile",
+        "title": "%command.unstageFile%",
+        "icon": "$(remove)"
+      },
+      {
+        "command": "anytime-markdown.discardChanges",
+        "title": "%command.discardChanges%",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "anytime-markdown.commitChanges",
+        "title": "%command.commitChanges%"
+      },
+      {
+        "command": "anytime-markdown.pushChanges",
+        "title": "%command.pushChanges%"
+      },
+      {
+        "command": "anytime-markdown.specDocsRemoveRoot",
+        "title": "%command.specDocsRemoveRoot%",
+        "icon": "$(close)"
       }
     ],
     "customEditors": [
@@ -159,65 +218,124 @@
     },
     "submenus": [
       {
-        "id": "anytimeMarkdown.commentFilter",
-        "label": "Filter",
-        "icon": "$(filter)"
+        "id": "anytimeMarkdown.changesMore",
+        "label": "More Actions...",
+        "icon": "$(ellipsis)"
       }
     ],
     "menus": {
-      "anytimeMarkdown.commentFilter": [
+      "anytimeMarkdown.changesMore": [
         {
-          "command": "anytime-markdown.filterCommentsAll"
+          "command": "anytime-markdown.commitChanges",
+          "group": "1_commit@1"
         },
         {
-          "command": "anytime-markdown.filterCommentsOpen"
-        },
-        {
-          "command": "anytime-markdown.filterCommentsResolved"
-        }
-      ],
-      "view/item/context": [
-        {
-          "command": "anytime-markdown.resolveComment",
-          "when": "view == anytimeMarkdown.comments && viewItem == unresolved",
-          "group": "inline@1"
-        },
-        {
-          "command": "anytime-markdown.unresolveComment",
-          "when": "view == anytimeMarkdown.comments && viewItem == resolved",
-          "group": "inline@1"
-        },
-        {
-          "command": "anytime-markdown.deleteComment",
-          "when": "view == anytimeMarkdown.comments",
-          "group": "inline@2"
+          "command": "anytime-markdown.pushChanges",
+          "group": "1_commit@2"
         }
       ],
       "view/title": [
         {
-          "submenu": "anytimeMarkdown.commentFilter",
-          "when": "view == anytimeMarkdown.comments",
-          "group": "navigation@1"
-        },
-        {
-          "command": "anytime-markdown.insertSectionNumbers",
-          "when": "view == anytimeMarkdown.outline",
-          "group": "navigation@1"
-        },
-        {
-          "command": "anytime-markdown.removeSectionNumbers",
-          "when": "view == anytimeMarkdown.outline",
+          "command": "anytime-markdown.toggleMdOnly",
+          "when": "view == anytimeMarkdown.specDocs",
           "group": "navigation@2"
         },
         {
-          "command": "anytime-markdown.toggleCollapseExpand",
-          "when": "view == anytimeMarkdown.outline",
+          "command": "anytime-markdown.specDocsCreateFile",
+          "when": "view == anytimeMarkdown.specDocs && anytimeMarkdown.specDocsHasRoot",
           "group": "navigation@3"
         },
         {
-          "command": "anytime-markdown.toggleBlockElements",
-          "when": "view == anytimeMarkdown.outline",
+          "command": "anytime-markdown.specDocsCreateFolder",
+          "when": "view == anytimeMarkdown.specDocs && anytimeMarkdown.specDocsHasRoot",
           "group": "navigation@4"
+        },
+        {
+          "command": "anytime-markdown.specDocsRefresh",
+          "when": "view == anytimeMarkdown.specDocs && anytimeMarkdown.specDocsHasRoot",
+          "group": "navigation@5"
+        },
+        {
+          "command": "anytime-markdown.specDocsOpenFolder",
+          "when": "view == anytimeMarkdown.specDocs && anytimeMarkdown.specDocsHasRoot",
+          "group": "navigation@6"
+        },
+        {
+          "command": "anytime-markdown.specDocsCloneRepo",
+          "when": "view == anytimeMarkdown.specDocs && anytimeMarkdown.specDocsHasRoot",
+          "group": "navigation@7"
+        },
+        {
+          "command": "anytime-markdown.graphRefresh",
+          "when": "view == anytimeMarkdown.graph",
+          "group": "navigation@1"
+        },
+        {
+          "command": "anytime-markdown.changesRefresh",
+          "when": "view == anytimeMarkdown.changes",
+          "group": "navigation@1"
+        },
+        {
+          "submenu": "anytimeMarkdown.changesMore",
+          "when": "view == anytimeMarkdown.changes",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "anytime-markdown.specDocsCreateFile",
+          "when": "view == anytimeMarkdown.specDocs && viewItem == folder",
+          "group": "1_new@1"
+        },
+        {
+          "command": "anytime-markdown.specDocsCreateFolder",
+          "when": "view == anytimeMarkdown.specDocs && viewItem == folder",
+          "group": "1_new@2"
+        },
+        {
+          "command": "anytime-markdown.specDocsCreateFile",
+          "when": "view == anytimeMarkdown.specDocs && viewItem == specDocsRoot",
+          "group": "1_new@1"
+        },
+        {
+          "command": "anytime-markdown.specDocsCreateFolder",
+          "when": "view == anytimeMarkdown.specDocs && viewItem == specDocsRoot",
+          "group": "1_new@2"
+        },
+        {
+          "command": "anytime-markdown.specDocsRename",
+          "when": "view == anytimeMarkdown.specDocs && viewItem != specDocsRoot",
+          "group": "2_edit@1"
+        },
+        {
+          "command": "anytime-markdown.specDocsDelete",
+          "when": "view == anytimeMarkdown.specDocs && viewItem != specDocsRoot",
+          "group": "2_edit@2"
+        },
+        {
+          "command": "anytime-markdown.switchBranch",
+          "when": "view == anytimeMarkdown.specDocs && viewItem == specDocsRoot",
+          "group": "3_root@1"
+        },
+        {
+          "command": "anytime-markdown.specDocsRemoveRoot",
+          "when": "view == anytimeMarkdown.specDocs && viewItem == specDocsRoot",
+          "group": "3_root@2"
+        },
+        {
+          "command": "anytime-markdown.stageFile",
+          "when": "view == anytimeMarkdown.changes && viewItem == changesFileUnstaged",
+          "group": "inline@2"
+        },
+        {
+          "command": "anytime-markdown.discardChanges",
+          "when": "view == anytimeMarkdown.changes && viewItem == changesFileUnstaged",
+          "group": "inline@1"
+        },
+        {
+          "command": "anytime-markdown.unstageFile",
+          "when": "view == anytimeMarkdown.changes && viewItem == changesFileStaged",
+          "group": "inline@1"
         }
       ],
       "explorer/context": [

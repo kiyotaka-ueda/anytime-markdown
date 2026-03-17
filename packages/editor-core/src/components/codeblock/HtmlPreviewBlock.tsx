@@ -24,7 +24,7 @@ type HtmlPreviewBlockProps = Pick<
   | "selectNode" | "code"
   | "handleCopyCode" | "handleDeleteBlock" | "deleteDialogOpen" | "setDeleteDialogOpen"
   | "editOpen" | "setEditOpen" | "fsCode" | "onFsCodeChange" | "fsTextareaRef" | "fsSearch"
-  | "t" | "isDark"
+  | "t" | "isDark" | "isCompareLeft"
 > & {
   handleFsTextChange: (newCode: string) => void;
 };
@@ -40,7 +40,7 @@ export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
     t, isDark,
   } = props;
 
-  const { isCompareMode, compareCode, handleMergeApply } = useBlockMergeCompare({
+  const { isCompareMode, compareCode, thisCode, handleMergeApply } = useBlockMergeCompare({
     editor, getPos, language: "html", code, editOpen,
   });
 
@@ -50,7 +50,7 @@ export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
   const toolbar = (
     <BlockInlineToolbar
       label={t("htmlPreview")}
-      onEdit={() => setEditOpen(true)}
+      onEdit={props.isCompareLeft ? undefined : () => setEditOpen(true)}
       onDelete={() => setDeleteDialogOpen(true)}
       t={t}
     />
@@ -81,6 +81,7 @@ export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
           isCompareMode={isCompareMode}
           compareCode={compareCode}
           onMergeApply={handleMergeApply}
+          thisCode={thisCode}
           customSamples={htmlSamples.filter((s) => s.enabled)}
           renderPreview={(code) => (
             <Box

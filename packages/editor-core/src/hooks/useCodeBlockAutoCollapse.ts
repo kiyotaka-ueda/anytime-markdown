@@ -3,8 +3,8 @@ import { useEffect } from "react";
 
 export function useCodeBlockAutoCollapse(
   sourceMode: boolean,
-  leftEditor: Editor | null | undefined,
   rightEditor: Editor | null | undefined,
+  leftEditor: Editor | null | undefined,
 ): void {
   // マージプレビューモード時: mermaid/plantuml を常に折りたたむ
   useEffect(() => {
@@ -25,7 +25,7 @@ export function useCodeBlockAutoCollapse(
       if (modified) ed.view.dispatch(tr);
     };
 
-    const editors = [leftEditor, rightEditor].filter((e): e is Editor => !!e);
+    const editors = [rightEditor, leftEditor].filter((e): e is Editor => !!e);
     // 初回折りたたみ
     for (const ed of editors) collapseIfNeeded(ed);
 
@@ -39,5 +39,5 @@ export function useCodeBlockAutoCollapse(
     });
 
     return () => { for (const off of handlers) off(); };
-  }, [sourceMode, leftEditor, rightEditor]);
+  }, [sourceMode, rightEditor, leftEditor]);
 }

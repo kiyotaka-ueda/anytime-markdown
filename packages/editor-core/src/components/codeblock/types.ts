@@ -37,6 +37,8 @@ export interface CodeBlockSharedProps {
   t: (key: string) => string;
   /** Whether dark mode */
   isDark: boolean;
+  /** 比較モードの左側（比較元）エディタかどうか */
+  isCompareLeft?: boolean;
 }
 
 /** DOMPurify config for HTML preview blocks */

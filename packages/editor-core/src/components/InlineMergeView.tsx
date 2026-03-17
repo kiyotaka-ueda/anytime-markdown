@@ -34,7 +34,7 @@ export interface MergeUndoRedo {
 }
 
 interface InlineMergeViewProps {
-  leftEditor?: Editor | null;
+  rightEditor?: Editor | null;
   editorContent: string;
   sourceMode: boolean;
   editorHeight: number;
@@ -73,7 +73,7 @@ function downloadText(text: string, filename: string) {
 }
 
 export function InlineMergeView({
-  leftEditor,
+  rightEditor,
   editorContent,
   sourceMode,
   editorHeight,
@@ -92,9 +92,9 @@ export function InlineMergeView({
   const isDark = theme.palette.mode === "dark";
   const settings = useEditorSettingsContext();
   const {
-    rightText,
-    setLeftText,
-    setRightText,
+    compareText,
+    setEditText,
+    setCompareText,
     diffResult,
     mergeBlock,
     undo,
@@ -102,6 +102,15 @@ export function InlineMergeView({
     canUndo,
     canRedo,
   } = useMergeDiff(onLeftTextChange);
+
+  // 画面上の左右とデータモデルの左右が逆なので direction を反転
+  const flippedMergeBlock = useCallback(
+    (blockId: number, direction: "left-to-right" | "right-to-left") => {
+      const flipped = direction === "left-to-right" ? "right-to-left" : "left-to-right";
+      mergeBlock(blockId, flipped);
+    },
+    [mergeBlock],
+  );
 
   // Expose undo/redo to parent
   useEffect(() => {
@@ -111,14 +120,14 @@ export function InlineMergeView({
   // 外部から渡された比較ファイル内容を右パネルに反映（1回限り）
   useEffect(() => {
     if (externalRightContent != null) {
-      setRightText(externalRightContent);
+      setCompareText(externalRightContent);
       onExternalRightContentConsumed?.();
     }
-  }, [externalRightContent, setRightText, onExternalRightContentConsumed]);
+  }, [externalRightContent, setCompareText, onExternalRightContentConsumed]);
 
   const leftContainerRef = useRef<HTMLDivElement>(null);
   const rightScrollRef = useRef<HTMLDivElement>(null);
-  const rightTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const compareTextareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRightRef = useRef<HTMLInputElement>(null);
 
   // 右パネルのファイル操作を親に公開
@@ -128,21 +137,21 @@ export function InlineMergeView({
       exportFile: () => {
         const n = new Date();
         const ts = `${n.getFullYear()}${String(n.getMonth() + 1).padStart(2, "0")}${String(n.getDate()).padStart(2, "0")}_${String(n.getHours()).padStart(2, "0")}${String(n.getMinutes()).padStart(2, "0")}${String(n.getSeconds()).padStart(2, "0")}`;
-        downloadText(rightText, `document_right_${ts}.md`);
+        downloadText(compareText, `document_right_${ts}.md`);
       },
     });
-  }, [onRightFileOpsReady, rightText]);
+  }, [onRightFileOpsReady, compareText]);
 
   // Ctrl+S で右パネル内容も保存
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        window.dispatchEvent(new CustomEvent('vscode-save-compare-file', { detail: rightText }));
+        window.dispatchEvent(new CustomEvent('vscode-save-compare-file', { detail: compareText }));
       }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [rightText]);
+  }, [compareText]);
 
   const [, setRightMeta] = useState<FileMetadata>(DEFAULT_METADATA);
   const hoverSetterRef = useRef<((v: number | null) => void) | null>(null);
@@ -152,7 +161,7 @@ export function InlineMergeView({
   const [rightDragOver, setRightDragOver] = useState(false);
 
   // Right tiptap editor (for WYSIWYG mode) – readonly (cursor visible)
-  const rightEditor = useEditor({
+  const leftEditor = useEditor({
     extensions: [...getBaseExtensions({ disableComments: true }), CustomHardBreak, ReviewModeExtension],
     content: "",
     immediatelyRender: false,
@@ -166,58 +175,58 @@ export function InlineMergeView({
 
   // Enable transaction filter to block edits while keeping cursor visible
   useEffect(() => {
-    if (rightEditor) {
-      reviewModeStorage(rightEditor).enabled = true;
+    if (leftEditor) {
+      reviewModeStorage(leftEditor).enabled = true;
     }
-  }, [rightEditor]);
+  }, [leftEditor]);
 
   // editorContent -> leftText sync
   useEffect(() => {
-    setLeftText(editorContent);
-  }, [editorContent, setLeftText]);
+    setEditText(editorContent);
+  }, [editorContent, setEditText]);
 
-  // rightText -> right tiptap editor sync
+  // compareText -> right tiptap editor sync
   useEffect(() => {
-    if (rightEditor && !sourceMode) {
+    if (leftEditor && !sourceMode) {
       // React レンダリング中の flushSync 競合を回避するため次フレームに遅延
       const id = requestAnimationFrame(() => {
-        if (rightEditor.isDestroyed) return;
-        reviewModeStorage(rightEditor).enabled = false;
-        applyMarkdownToEditor(rightEditor, rightText);
-        reviewModeStorage(rightEditor).enabled = true;
+        if (leftEditor.isDestroyed) return;
+        reviewModeStorage(leftEditor).enabled = false;
+        applyMarkdownToEditor(leftEditor, compareText);
+        reviewModeStorage(leftEditor).enabled = true;
       });
       return () => cancelAnimationFrame(id);
     }
-  }, [rightText, rightEditor, sourceMode]);
+  }, [compareText, leftEditor, sourceMode]);
 
   // When switching from source -> WYSIWYG, populate right editor
   const prevSourceMode = useRef(sourceMode);
   useEffect(() => {
     let id: number | undefined;
-    if (prevSourceMode.current && !sourceMode && rightEditor) {
+    if (prevSourceMode.current && !sourceMode && leftEditor) {
       id = requestAnimationFrame(() => {
-        if (rightEditor.isDestroyed) return;
-        reviewModeStorage(rightEditor).enabled = false;
-        applyMarkdownToEditor(rightEditor, rightText);
-        reviewModeStorage(rightEditor).enabled = true;
+        if (leftEditor.isDestroyed) return;
+        reviewModeStorage(leftEditor).enabled = false;
+        applyMarkdownToEditor(leftEditor, compareText);
+        reviewModeStorage(leftEditor).enabled = true;
       });
     }
     prevSourceMode.current = sourceMode;
     return () => { if (id !== undefined) cancelAnimationFrame(id); };
-  }, [sourceMode, rightEditor, rightText]);
+  }, [sourceMode, leftEditor, compareText]);
 
   // 左エディタのブロック展開/折りたたみ状態を右エディタに同期
   useEffect(() => {
-    if (!leftEditor || !rightEditor || sourceMode) return;
+    if (!rightEditor || !leftEditor || sourceMode) return;
     let rafId: number | undefined;
     const syncCollapsed = () => {
-      if (leftEditor.isDestroyed || rightEditor.isDestroyed) return;
+      if (rightEditor.isDestroyed || leftEditor.isDestroyed) return;
       if (rafId !== undefined) cancelAnimationFrame(rafId);
       const targetTypes = new Set(["codeBlock", "table", "image"]);
       // 左エディタの collapsed / codeCollapsed 状態を収集
       const leftStates: { type: string; index: number; collapsed?: boolean; codeCollapsed?: boolean }[] = [];
       const counters: Record<string, number> = {};
-      leftEditor.state.doc.descendants((node) => {
+      rightEditor.state.doc.descendants((node) => {
         if (targetTypes.has(node.type.name)) {
           const key = node.type.name;
           counters[key] = (counters[key] || 0) + 1;
@@ -231,11 +240,11 @@ export function InlineMergeView({
       });
       // rAF 内でトランザクションを作成して適用（stale state 回避）
       rafId = requestAnimationFrame(() => {
-        if (rightEditor.isDestroyed) return;
+        if (leftEditor.isDestroyed) return;
         const rightCounters: Record<string, number> = {};
         let changed = false;
-        const tr = rightEditor.state.tr;
-        rightEditor.state.doc.descendants((node, pos) => {
+        const tr = leftEditor.state.tr;
+        leftEditor.state.doc.descendants((node, pos) => {
           if (targetTypes.has(node.type.name)) {
             const key = node.type.name;
             rightCounters[key] = (rightCounters[key] || 0) + 1;
@@ -260,24 +269,24 @@ export function InlineMergeView({
           }
         });
         if (changed) {
-          reviewModeStorage(rightEditor).enabled = false;
-          rightEditor.view.dispatch(tr);
-          reviewModeStorage(rightEditor).enabled = true;
+          reviewModeStorage(leftEditor).enabled = false;
+          leftEditor.view.dispatch(tr);
+          reviewModeStorage(leftEditor).enabled = true;
         }
       });
     };
-    leftEditor.on("update", syncCollapsed);
+    rightEditor.on("update", syncCollapsed);
     return () => {
-      leftEditor.off("update", syncCollapsed);
+      rightEditor.off("update", syncCollapsed);
       if (rafId !== undefined) cancelAnimationFrame(rafId);
     };
-  }, [leftEditor, rightEditor, sourceMode]);
+  }, [rightEditor, leftEditor, sourceMode]);
 
-  useDiffHighlight(sourceMode, leftEditor, rightEditor);
+  useDiffHighlight(sourceMode, rightEditor, leftEditor);
 
   useScrollSync(leftContainerRef, rightScrollRef);
 
-  const rightFrontmatter = useMemo(() => preprocessMarkdown(rightText).frontmatter, [rightText]);
+  const rightFrontmatter = useMemo(() => preprocessMarkdown(compareText).frontmatter, [compareText]);
 
   const { leftBgGradient, rightBgGradient } = useDiffBackground(diffResult, sourceMode);
 
@@ -290,12 +299,12 @@ export function InlineMergeView({
 
   // モジュールレベルストアに左右エディタを登録（NodeView ポータルからアクセス可能にする）
   useEffect(() => {
-    setMergeEditors({ leftEditor: leftEditor ?? null, rightEditor: rightEditor ?? null });
+    setMergeEditors({ rightEditor: rightEditor ?? null, leftEditor: leftEditor ?? null });
     return () => setMergeEditors(null);
-  }, [leftEditor, rightEditor]);
+  }, [rightEditor, leftEditor]);
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", height: editorHeight, minWidth: 0, overflow: "hidden" }}>
+    <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, minWidth: 0, overflow: "hidden" }}>
       {/* Hidden file input for right panel */}
       <input
         ref={fileInputRightRef}
@@ -304,7 +313,7 @@ export function InlineMergeView({
         hidden
         onChange={(e) => {
           const f = e.target.files?.[0];
-          if (f) loadFile(setRightText, setRightMeta)(f);
+          if (f) loadFile(setCompareText, setRightMeta)(f);
           e.target.value = "";
         }}
       />
@@ -313,23 +322,6 @@ export function InlineMergeView({
       {/* Frontmatter comparison row */}
       {!sourceMode && (leftFrontmatter != null || rightFrontmatter != null) && (
         <Box sx={{ display: "flex", gap: 0, flexShrink: 0, alignItems: "stretch" }}>
-          <Box sx={{ flex: 1, minWidth: 0, px: 1, pt: 1 }}>
-            {leftFrontmatter != null ? (
-              <FrontmatterBlock
-                frontmatter={leftFrontmatter}
-                onChange={onLeftFrontmatterChange ?? (() => {})}
-                readOnly
-                t={t}
-              />
-            ) : (
-              <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1, mb: 1, opacity: 0.4, p: 1, height: "calc(100% - 8px)", boxSizing: "border-box" }}>
-                <Typography variant="caption" sx={{ fontFamily: "monospace", color: "text.disabled", fontSize: "0.75rem" }}>
-                  No Frontmatter
-                </Typography>
-              </Box>
-            )}
-          </Box>
-          <Divider orientation="vertical" flexItem />
           <Box sx={{ flex: 1, minWidth: 0, px: 1, pt: 1 }}>
             {rightFrontmatter != null ? (
               <FrontmatterBlock
@@ -346,26 +338,28 @@ export function InlineMergeView({
               </Box>
             )}
           </Box>
+          <Divider orientation="vertical" flexItem />
+          <Box sx={{ flex: 1, minWidth: 0, px: 1, pt: 1 }}>
+            {leftFrontmatter != null ? (
+              <FrontmatterBlock
+                frontmatter={leftFrontmatter}
+                onChange={onLeftFrontmatterChange ?? (() => {})}
+                t={t}
+              />
+            ) : (
+              <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1, mb: 1, opacity: 0.4, p: 1, height: "calc(100% - 8px)", boxSizing: "border-box" }}>
+                <Typography variant="caption" sx={{ fontFamily: "monospace", color: "text.disabled", fontSize: "0.75rem" }}>
+                  No Frontmatter
+                </Typography>
+              </Box>
+            )}
+          </Box>
         </Box>
       )}
 
-      {/* Content area: left = editor (children), right = editor */}
+      {/* Content area: left = compare (read-only), right = editor (children) */}
       <Box sx={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        {/* Left: editor (children) */}
-        <Box
-          ref={leftContainerRef}
-          sx={{
-            flex: 1,
-            minWidth: 0,
-            overflow: "hidden",
-          }}
-        >
-          {children(leftBgGradient, diffResult?.leftLines, mergeBlock, handleHoverLine)}
-        </Box>
-
-        <Divider orientation="vertical" flexItem />
-
-        {/* Right: editor + DiffMap */}
+        {/* Left: compare (read-only) + DiffMap */}
         <Box
           sx={{
             flex: 1, minWidth: 0, display: "flex", overflow: "hidden",
@@ -387,7 +381,6 @@ export function InlineMergeView({
           onDragLeave={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            // Box 外に出たときだけ解除（子要素間の移動では解除しない）
             if (!e.currentTarget.contains(e.relatedTarget as Node)) {
               setRightDragOver(false);
             }
@@ -398,28 +391,43 @@ export function InlineMergeView({
             setRightDragOver(false);
             const file = e.dataTransfer.files?.[0];
             if (file && (file.name.endsWith(".md") || file.name.endsWith(".markdown") || file.type.startsWith("text/"))) {
-              loadFile(setRightText, setRightMeta)(file);
+              loadFile(setCompareText, setRightMeta)(file);
             }
           }}
         >
           <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
             <MergeEditorPanel
               sourceMode={sourceMode}
-              sourceText={rightText}
-              onSourceChange={setRightText}
-              textareaRef={rightTextareaRef}
+              sourceText={compareText}
+              onSourceChange={setCompareText}
+              textareaRef={compareTextareaRef}
               autoResize
               scrollRef={rightScrollRef}
               bgGradient={rightBgGradient}
-              editor={rightEditor}
+              editor={leftEditor}
               diffLines={diffResult?.rightLines}
-              side="right"
+              side="left"
               readOnly
-              onMerge={mergeBlock}
+              hideScrollbar
+              onMerge={flippedMergeBlock}
               onHoverLine={handleHoverLine}
               paperSx={{ bgcolor: getEditorBg(isDark, settings) }}
             />
           </Box>
+        </Box>
+
+        <Divider orientation="vertical" flexItem />
+
+        {/* Right: editor (children) */}
+        <Box
+          ref={leftContainerRef}
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            overflow: "hidden",
+          }}
+        >
+          {children(leftBgGradient, diffResult?.leftLines, flippedMergeBlock, handleHoverLine)}
         </Box>
         {commentSlot}
       </Box>

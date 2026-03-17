@@ -1,6 +1,7 @@
 import type { NodeViewProps } from "@tiptap/react";
 import { useState } from "react";
 
+import { getMergeEditors } from "../contexts/MergeEditorsContext";
 import { useDeleteBlock } from "./useDeleteBlock";
 import { useNodeSelected } from "./useNodeSelected";
 
@@ -14,6 +15,8 @@ interface UseBlockNodeStateReturn {
   isSelected: boolean;
   handleDeleteBlock: () => void;
   showToolbar: boolean;
+  /** 比較モードの左側（比較元）エディタかどうか */
+  isCompareLeft: boolean;
 }
 
 /**
@@ -32,11 +35,13 @@ export function useBlockNodeState(
   const isSelected = useNodeSelected(editor, getPos, node.nodeSize);
   const handleDeleteBlock = useDeleteBlock(editor, getPos, node.nodeSize);
   const showToolbar = isEditable && (collapsed || editOpen || isSelected);
+  const mergeEditors = getMergeEditors();
+  const isCompareLeft = !!mergeEditors && editor === mergeEditors.leftEditor;
 
   return {
     deleteDialogOpen, setDeleteDialogOpen,
     editOpen, setEditOpen,
     collapsed, isEditable, isSelected,
-    handleDeleteBlock, showToolbar,
+    handleDeleteBlock, showToolbar, isCompareLeft,
   };
 }

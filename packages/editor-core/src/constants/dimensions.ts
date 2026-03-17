@@ -31,6 +31,16 @@ export const FS_CODE_INITIAL_WIDTH = 500;
 /** コードエリアの最小幅 (px) */
 export const FS_CODE_MIN_WIDTH = 120;
 
+// ── パネルヘッダー ──
+/** アウトライン・コメント・エクスプローラ パネル共通のヘッダー高さ */
+export const PANEL_HEADER_MIN_HEIGHT = 40;
+
+// ── サイドツールバー ──
+/** 右端の縦ツールバー幅（ハンバーガーメニュー中心と揃える） */
+export const SIDE_TOOLBAR_WIDTH = 46;
+/** サイドツールバー内のアイコンボタンサイズ */
+export const SIDE_TOOLBAR_ICON_SIZE = 32;
+
 // ── エディタ内部オフセット ──
 /** .tiptap minHeight 算出用（上部パディング + ツールバー分） */
 export const EDITOR_PADDING_TOP = 36;
