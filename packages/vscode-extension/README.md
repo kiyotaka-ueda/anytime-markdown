@@ -15,13 +15,6 @@ Switch modes via the pill-shaped toggles in the toolbar.
 | **Source** | Edit raw Markdown text directly |
 | **Review** | Read-only. Only comment insertion and checkbox toggling allowed |
 
-### 1.1.2. Compare Mode (`Ctrl+Alt+M`)
-
-| Mode | Description |
-| --- | --- |
-| **Normal** | Single-panel editing |
-| **Compare** | Side-by-side diff comparison and merge operations |
-
 ## 1.2. Features
 
 ### 1.2.1. Markdown Elements
