@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef,useState } from "react";
 
-import { applyMerge, computeDiff, type DiffOptions, type DiffResult } from "../utils/diffEngine";
+import { applyMerge, computeDiff, computeSemanticDiff, type DiffOptions, type DiffResult } from "../utils/diffEngine";
 
 interface TextSnapshot {
   edit: string;
@@ -28,7 +28,9 @@ export function useMergeDiff(onEditTextChange?: (text: string) => void) {
 
   const diffResult: DiffResult | null = useMemo(() => {
     if (editText === "" && compareText === "") return null;
-    return computeDiff(editText, compareText, diffOptions);
+    return diffOptions.semantic
+      ? computeSemanticDiff(editText, compareText, diffOptions)
+      : computeDiff(editText, compareText, diffOptions);
   }, [editText, compareText, diffOptions]);
 
   const diffResultRef = useRef<DiffResult | null>(diffResult);

@@ -32,6 +32,7 @@ export interface DiffOptions {
   ignoreWhitespace?: boolean;
   ignoreCase?: boolean;
   ignoreBlankLines?: boolean;
+  semantic?: boolean;
 }
 
 // --- Helpers ---
