@@ -23,5 +23,6 @@ export type {
   ToolbarVisibility,
 } from '../types/toolbar';
 export type { DiffBlock, DiffLine, DiffOptions, DiffResult, InlineSegment } from '../utils/diffEngine';
+export type { MarkdownSection, SectionMatch } from '../utils/sectionParser';
 export type { EditorSettings } from '../useEditorSettings';
 export type { DialogOptions } from '../providers/types';
