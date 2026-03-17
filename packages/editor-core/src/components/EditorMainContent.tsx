@@ -281,6 +281,33 @@ export function EditorMainContent({
     </Box>
   ) : null;
 
+  // サイドツールバー使用時の OutlinePanel / CommentPanel（比較モード・通常モード共通）
+  const sideOutlineSlot = sideToolbar && outlineProps.outlineOpen && !sourceMode ? (
+    <OutlinePanel
+      outlineWidth={COMMENT_PANEL_WIDTH}
+      setOutlineWidth={outlineProps.setOutlineWidth}
+      editorHeight={outlineProps.editorHeight}
+      headings={outlineProps.headings}
+      foldedIndices={outlineProps.foldedIndices}
+      hiddenByFold={outlineProps.hiddenByFold}
+      foldAll={outlineProps.foldAll}
+      unfoldAll={outlineProps.unfoldAll}
+      toggleFold={outlineProps.toggleFold}
+      handleOutlineClick={outlineProps.handleOutlineClick}
+      handleOutlineResizeStart={outlineProps.handleOutlineResizeStart}
+      hideResize={sideToolbar}
+      onHeadingDragEnd={outlineProps.onHeadingDragEnd}
+      onOutlineDelete={outlineProps.onOutlineDelete}
+      onInsertSectionNumbers={outlineProps.onInsertSectionNumbers}
+      onRemoveSectionNumbers={outlineProps.onRemoveSectionNumbers}
+      t={t}
+    />
+  ) : null;
+
+  const commentSlot = commentOpen && editor && !sourceMode ? (
+    <CommentPanel editor={editor} open={commentOpen} onClose={() => setCommentOpen(false)} onSave={() => saveContent(getMarkdownFromEditor(editor))} t={t} />
+  ) : null;
+
   if (inlineMergeOpen) {
     return (
       <Box ref={editorContainerRef} sx={{ display: "flex", flexDirection: "row", height: editorHeight }}>
@@ -298,9 +325,7 @@ export function EditorMainContent({
         externalRightContent={compareFileContent}
         onExternalRightContentConsumed={() => setCompareFileContent(null)}
         onRightFileOpsReady={setRightFileOps}
-        commentSlot={!sideToolbar && commentOpen && editor && !sourceMode ? (
-          <CommentPanel editor={editor} open={commentOpen} onClose={() => setCommentOpen(false)} onSave={() => saveContent(getMarkdownFromEditor(editor))} t={t} />
-        ) : undefined}
+        commentSlot={!sideToolbar ? commentSlot : undefined}
       >
         {(leftBgGradient, leftDiffLines, onMerge, onHoverLine) => (
         <Box component="main" sx={{ display: "flex", gap: 0, height: "100%", position: "relative" }} onDragOver={handleContainerDragOver} onDragLeave={handleContainerDragLeave} onDrop={handleContainerDrop}>
@@ -330,30 +355,8 @@ export function EditorMainContent({
         )}
       </InlineMergeView>
       </Box>
-      {sideToolbar && commentOpen && editor && !sourceMode && (
-        <CommentPanel editor={editor} open={commentOpen} onClose={() => setCommentOpen(false)} onSave={() => saveContent(getMarkdownFromEditor(editor))} t={t} />
-      )}
-      {sideToolbar && outlineProps.outlineOpen && !sourceMode && (
-        <OutlinePanel
-          outlineWidth={COMMENT_PANEL_WIDTH}
-          setOutlineWidth={outlineProps.setOutlineWidth}
-          editorHeight={outlineProps.editorHeight}
-          headings={outlineProps.headings}
-          foldedIndices={outlineProps.foldedIndices}
-          hiddenByFold={outlineProps.hiddenByFold}
-          foldAll={outlineProps.foldAll}
-          unfoldAll={outlineProps.unfoldAll}
-          toggleFold={outlineProps.toggleFold}
-          handleOutlineClick={outlineProps.handleOutlineClick}
-          handleOutlineResizeStart={outlineProps.handleOutlineResizeStart}
-          hideResize={sideToolbar}
-          onHeadingDragEnd={outlineProps.onHeadingDragEnd}
-          onOutlineDelete={outlineProps.onOutlineDelete}
-          onInsertSectionNumbers={outlineProps.onInsertSectionNumbers}
-          onRemoveSectionNumbers={outlineProps.onRemoveSectionNumbers}
-          t={t}
-        />
-      )}
+      {sideToolbar && commentSlot}
+      {sideOutlineSlot}
       {sideToolbar && explorerOpen && explorerSlot}
       {sideToolbarNode}
       </Box>
@@ -426,30 +429,8 @@ export function EditorMainContent({
           </Box>
         )}
       </Box>
-      {commentOpen && editor && !sourceMode && (
-        <CommentPanel editor={editor} open={commentOpen} onClose={() => setCommentOpen(false)} onSave={() => saveContent(getMarkdownFromEditor(editor))} t={t} />
-      )}
-      {sideToolbar && outlineProps.outlineOpen && !sourceMode && (
-        <OutlinePanel
-          outlineWidth={COMMENT_PANEL_WIDTH}
-          setOutlineWidth={outlineProps.setOutlineWidth}
-          editorHeight={outlineProps.editorHeight}
-          headings={outlineProps.headings}
-          foldedIndices={outlineProps.foldedIndices}
-          hiddenByFold={outlineProps.hiddenByFold}
-          foldAll={outlineProps.foldAll}
-          unfoldAll={outlineProps.unfoldAll}
-          toggleFold={outlineProps.toggleFold}
-          handleOutlineClick={outlineProps.handleOutlineClick}
-          handleOutlineResizeStart={outlineProps.handleOutlineResizeStart}
-          hideResize={sideToolbar}
-          onHeadingDragEnd={outlineProps.onHeadingDragEnd}
-          onOutlineDelete={outlineProps.onOutlineDelete}
-          onInsertSectionNumbers={outlineProps.onInsertSectionNumbers}
-          onRemoveSectionNumbers={outlineProps.onRemoveSectionNumbers}
-          t={t}
-        />
-      )}
+      {commentSlot}
+      {sideOutlineSlot}
       {sideToolbar && explorerOpen && explorerSlot}
       </Box>
       </Box>

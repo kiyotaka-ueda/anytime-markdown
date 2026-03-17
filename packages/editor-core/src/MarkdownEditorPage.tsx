@@ -57,6 +57,7 @@ import { useFileSystem } from "./hooks/useFileSystem";
 import { useFloatingToolbar } from "./hooks/useFloatingToolbar";
 import { useMergeMode } from "./hooks/useMergeMode";
 import { useOutline } from "./hooks/useOutline";
+import { useSectionNumbers } from "./hooks/useSectionNumbers";
 import { useSourceMode } from "./hooks/useSourceMode";
 import { useVSCodeIntegration } from "./hooks/useVSCodeIntegration";
 import { getMarkdownFromEditor, type HeadingItem, PlantUmlToolbarContext } from "./types";
@@ -64,8 +65,6 @@ import type { FileSystemProvider } from "./types/fileSystem";
 import type { InlineComment } from "./utils/commentHelpers";
 import { parseCommentData } from "./utils/commentHelpers";
 import { preprocessMarkdown } from "./utils/frontmatterHelpers";
-
-const SECTION_NUMBER_RE = /^\d+(\.\d+)*\.?\s/;
 
 interface MarkdownEditorPageProps {
   hideFileOps?: boolean;
@@ -316,71 +315,13 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     setDiagramAnchorEl, setTemplateAnchorEl, t,
   });
 
+  const settingsValue = useMemo(
+    () => ({ ...settings, lineHeight: isDark ? 1.8 : 1.6 }),
+    [settings, isDark],
+  );
   const plantUmlToolbarCtx = useMemo(() => ({ setSampleAnchorEl }), [setSampleAnchorEl]);
 
-  const handleInsertSectionNumbers = useCallback(() => {
-    if (!editor) return;
-    const targets: { pos: number; level: number; text: string }[] = [];
-    editor.state.doc.descendants((node, pos) => {
-      if (node.type.name !== "heading") return;
-      const level = node.attrs.level as number;
-      if (level > 5) return;
-      targets.push({ pos, level, text: node.textContent });
-    });
-    if (targets.length === 0) return;
-    const counters = [0, 0, 0, 0, 0];
-    const prefixes: string[] = [];
-    for (const h of targets) {
-      const idx = h.level - 1;
-      counters[idx]++;
-      for (let i = idx + 1; i < 5; i++) counters[i] = 0;
-      prefixes.push(counters.slice(0, idx + 1).join(".") + ". ");
-    }
-    const { tr } = editor.state;
-    for (let i = targets.length - 1; i >= 0; i--) {
-      const contentStart = targets[i].pos + 1;
-      const existingMatch = targets[i].text.match(SECTION_NUMBER_RE);
-      if (existingMatch) {
-        tr.replaceWith(contentStart, contentStart + existingMatch[0].length, editor.schema.text(prefixes[i]));
-      } else {
-        tr.insertText(prefixes[i], contentStart);
-      }
-    }
-    editor.view.dispatch(tr);
-  }, [editor]);
-  const handleRemoveSectionNumbers = useCallback(() => {
-    if (!editor) return;
-    const { tr } = editor.state;
-    const removals: { from: number; to: number }[] = [];
-    editor.state.doc.descendants((node, pos) => {
-      if (node.type.name !== "heading") return;
-      const level = (node.attrs.level as number);
-      if (level > 5) return;
-      const text = node.textContent;
-      const match = text.match(SECTION_NUMBER_RE);
-      if (match) {
-        removals.push({ from: pos + 1, to: pos + 1 + match[0].length });
-      }
-    });
-    for (let i = removals.length - 1; i >= 0; i--) {
-      tr.delete(removals[i].from, removals[i].to);
-    }
-    editor.view.dispatch(tr);
-  }, [editor]);
-
-  // VS Code からのセクション番号挿入/削除イベント
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const show = (e as CustomEvent<boolean>).detail;
-      if (show) {
-        handleInsertSectionNumbers();
-      } else {
-        handleRemoveSectionNumbers();
-      }
-    };
-    window.addEventListener('vscode-toggle-section-numbers', handler);
-    return () => window.removeEventListener('vscode-toggle-section-numbers', handler);
-  }, [handleInsertSectionNumbers, handleRemoveSectionNumbers]);
+  const { handleInsertSectionNumbers, handleRemoveSectionNumbers } = useSectionNumbers(editor);
 
   if (loading) {
     return <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}><CircularProgress /></Box>;
@@ -398,7 +339,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   };
 
   return (
-    <EditorSettingsContext.Provider value={{ ...settings, lineHeight: isDark ? 1.8 : 1.6 }}>
+    <EditorSettingsContext.Provider value={settingsValue}>
     <PlantUmlToolbarContext.Provider value={plantUmlToolbarCtx}>
     <PrintStyles />
     <Box id="main-content" component="main" sx={{ p: { xs: 2, sm: 3 } }}>
