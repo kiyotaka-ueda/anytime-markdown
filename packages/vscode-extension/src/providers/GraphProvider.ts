@@ -130,7 +130,11 @@ export class GraphProvider implements vscode.TreeDataProvider<GraphItem> {
 				// グラフ文字とハッシュを分離
 				const hashMatch = graphAndHash.match(/([0-9a-f]{7,})\s*$/);
 				const hash = hashMatch ? hashMatch[1] : '';
-				const graph = hashMatch ? graphAndHash.substring(0, hashMatch.index).trimEnd() : graphAndHash;
+				let graph = hashMatch ? graphAndHash.substring(0, hashMatch.index).trimEnd() : graphAndHash;
+				// 分岐なし（* のみ）の場合は * を除去
+				if (graph.replace(/\s/g, '') === '*') {
+					graph = '';
+				}
 
 				const isLocal = hash ? localOnlyHashes.has(hash) : false;
 				this.items.push(new GraphItem(graph, hash, message, refs, date, author, isLocal));
