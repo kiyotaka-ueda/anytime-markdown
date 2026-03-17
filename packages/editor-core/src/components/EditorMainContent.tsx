@@ -5,7 +5,7 @@ import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { FILE_DROP_OVERLAY_COLOR, getEditorBg } from "../constants/colors";
-import { COMMENT_PANEL_WIDTH } from "../constants/dimensions";
+import { COMMENT_PANEL_WIDTH, PANEL_HEADER_MIN_HEIGHT, SIDE_TOOLBAR_WIDTH, SIDE_TOOLBAR_ICON_SIZE } from "../constants/dimensions";
 import type { TextareaSearchState } from "../hooks/useTextareaSearch";
 import { getEditorPaperSx } from "../styles/editorStyles";
 import { getMarkdownFromEditor, type HeadingItem } from "../types";
@@ -210,7 +210,7 @@ export function EditorMainContent({
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        width: 46,
+        width: SIDE_TOOLBAR_WIDTH,
         py: 1,
         gap: 0.5,
         borderLeft: 1,
@@ -234,7 +234,7 @@ export function EditorMainContent({
           }}
           disabled={sourceMode}
           color={outlineProps.outlineOpen ? "primary" : "default"}
-          sx={{ width: 32, height: 32 }}
+          sx={{ width: SIDE_TOOLBAR_ICON_SIZE, height: SIDE_TOOLBAR_ICON_SIZE }}
         >
           <ListAltIcon fontSize="small" />
         </IconButton>
@@ -253,7 +253,7 @@ export function EditorMainContent({
           }}
           disabled={sourceMode}
           color={commentOpen ? "primary" : "default"}
-          sx={{ width: 32, height: 32 }}
+          sx={{ width: SIDE_TOOLBAR_ICON_SIZE, height: SIDE_TOOLBAR_ICON_SIZE }}
         >
           <ChatBubbleOutlineIcon fontSize="small" />
         </IconButton>
@@ -272,7 +272,7 @@ export function EditorMainContent({
               }
             }}
             color={explorerOpen ? "primary" : "default"}
-            sx={{ width: 32, height: 32 }}
+            sx={{ width: SIDE_TOOLBAR_ICON_SIZE, height: SIDE_TOOLBAR_ICON_SIZE }}
           >
             <GitHubIcon fontSize="small" />
           </IconButton>

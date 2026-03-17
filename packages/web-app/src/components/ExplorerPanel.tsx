@@ -70,6 +70,7 @@ interface ExplorerPanelProps {
 
 const PANEL_WIDTH = 260;
 const INDENT_PX = 16;
+const PANEL_HEADER_MIN_HEIGHT = 40;
 
 type ChildrenCache = Map<string, TreeEntry[]>;
 type HasMdCache = Map<string, boolean>;
@@ -1400,7 +1401,7 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
           alignItems: "center",
           gap: 0.5,
           px: 1,
-          minHeight: 40,
+          minHeight: PANEL_HEADER_MIN_HEIGHT,
           borderBottom: 1,
           borderColor: "divider",
         }}

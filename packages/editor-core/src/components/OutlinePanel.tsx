@@ -23,6 +23,7 @@ import {
 import React, { useCallback, useMemo,useState } from "react";
 
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../constants/colors";
+import { PANEL_HEADER_MIN_HEIGHT } from "../constants/dimensions";
 import MermaidIcon from "../icons/MermaidIcon";
 import type { HeadingItem, OutlineKind, TranslationFn } from "../types";
 
@@ -151,7 +152,7 @@ export function OutlinePanel({
         }}
       >
         <Box>
-          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", px: 1, minHeight: 40, borderBottom: 1, borderColor: "divider" }}>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", px: 1, minHeight: PANEL_HEADER_MIN_HEIGHT, borderBottom: 1, borderColor: "divider" }}>
             <Typography
               id="outline-panel-title"
               variant="subtitle2"

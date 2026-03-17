@@ -3,6 +3,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { execSync } from 'child_process';
 
+const REFRESH_DEBOUNCE_MS = 500;
+
 const enum GitStatus {
 	INDEX_MODIFIED = 0,
 	INDEX_ADDED = 1,
@@ -203,7 +205,7 @@ export class ChangesProvider implements vscode.TreeDataProvider<ChangesTreeItem>
 					const watcher = vscode.workspace.createFileSystemWatcher(pattern);
 					const debouncedRefresh = () => {
 						if (this.refreshTimer) { clearTimeout(this.refreshTimer); }
-						this.refreshTimer = setTimeout(() => this.refresh(), 500);
+						this.refreshTimer = setTimeout(() => this.refresh(), REFRESH_DEBOUNCE_MS);
 					};
 					watcher.onDidChange(debouncedRefresh);
 					watcher.onDidCreate(debouncedRefresh);

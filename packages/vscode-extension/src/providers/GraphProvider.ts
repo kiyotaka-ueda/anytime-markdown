@@ -2,6 +2,9 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { execSync } from 'child_process';
 
+const GIT_LOG_LIMIT = 100;
+const GIT_LOG_MAX_BUFFER = 1024 * 1024;
+
 /** 拡張機能ルートからの相対パスで SVG アイコンを返す */
 let extensionPath = '';
 function iconPath(name: string): { light: vscode.Uri; dark: vscode.Uri } {
@@ -108,8 +111,8 @@ export class GraphProvider implements vscode.TreeDataProvider<GraphItem> {
 
 			// %x00 をセパレータに使用
 			const output = execSync(
-				'git log --graph --all --oneline --decorate --format="%h%x00%s%x00%d%x00%ar%x00%an" -100',
-				{ cwd: this.gitRoot, encoding: 'utf-8', maxBuffer: 1024 * 1024 },
+				`git log --graph --all --oneline --decorate --format="%h%x00%s%x00%d%x00%ar%x00%an" -${GIT_LOG_LIMIT}`,
+				{ cwd: this.gitRoot, encoding: 'utf-8', maxBuffer: GIT_LOG_MAX_BUFFER },
 			);
 			for (const line of output.split('\n')) {
 				if (!line.trim()) continue;
