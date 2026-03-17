@@ -24,7 +24,7 @@ type HtmlPreviewBlockProps = Pick<
   | "selectNode" | "code"
   | "handleCopyCode" | "handleDeleteBlock" | "deleteDialogOpen" | "setDeleteDialogOpen"
   | "editOpen" | "setEditOpen" | "fsCode" | "onFsCodeChange" | "fsTextareaRef" | "fsSearch"
-  | "t" | "isDark"
+  | "t" | "isDark" | "isCompareLeft"
 > & {
   handleFsTextChange: (newCode: string) => void;
 };
@@ -50,7 +50,7 @@ export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
   const toolbar = (
     <BlockInlineToolbar
       label={t("htmlPreview")}
-      onEdit={() => setEditOpen(true)}
+      onEdit={props.isCompareLeft ? undefined : () => setEditOpen(true)}
       onDelete={() => setDeleteDialogOpen(true)}
       t={t}
     />

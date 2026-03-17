@@ -23,7 +23,7 @@ type MathBlockProps = Pick<
   | "selectNode" | "code"
   | "handleCopyCode" | "handleDeleteBlock" | "deleteDialogOpen" | "setDeleteDialogOpen"
   | "editOpen" | "setEditOpen" | "fsCode" | "onFsCodeChange" | "fsTextareaRef" | "fsSearch"
-  | "t" | "isDark"
+  | "t" | "isDark" | "isCompareLeft"
 > & {
   handleFsTextChange: (newCode: string) => void;
 };
@@ -51,7 +51,7 @@ export function MathBlock(props: MathBlockProps) {
   const toolbar = (
     <BlockInlineToolbar
       label="Math"
-      onEdit={() => setEditOpen(true)}
+      onEdit={props.isCompareLeft ? undefined : () => setEditOpen(true)}
       onDelete={() => setDeleteDialogOpen(true)}
       t={t}
     />

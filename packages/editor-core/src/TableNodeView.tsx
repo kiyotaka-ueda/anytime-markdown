@@ -33,7 +33,7 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
   const settings = useEditorSettingsContext();
   const {
     deleteDialogOpen, setDeleteDialogOpen, editOpen, setEditOpen,
-    collapsed, isEditable, isSelected: _isSelected, handleDeleteBlock, showToolbar,
+    collapsed, isEditable, isSelected: _isSelected, handleDeleteBlock, showToolbar, isCompareLeft,
   } = useBlockNodeState(editor, node, getPos);
 
   // Compare mode
@@ -44,7 +44,7 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
     const pos = getPos();
     if (pos == null) return null;
     const isRight = !!editor.view?.dom?.dataset?.reviewMode;
-    const otherEditor = isRight ? mergeEditors.leftEditor : mergeEditors.rightEditor;
+    const otherEditor = isRight ? mergeEditors.rightEditor : mergeEditors.leftEditor;
     return findCounterpartTableHtml(editor, otherEditor, pos);
   }, [editOpen, mergeEditors, editor, getPos]);
 
@@ -207,7 +207,7 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
         {!editOpen && isEditable && (
           <BlockInlineToolbar
             label={t("tableLabel")}
-            onEdit={!collapsed ? () => setEditOpen(true) : undefined}
+            onEdit={!collapsed && !isCompareLeft ? () => setEditOpen(true) : undefined}
             onDelete={!collapsed ? () => setDeleteDialogOpen(true) : undefined}
             collapsed={collapsed}
             t={t}

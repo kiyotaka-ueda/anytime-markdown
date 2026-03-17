@@ -27,7 +27,7 @@ import { SourceSearchBar } from "./SourceSearchBar";
 // InlineMergeView は dynamic import のため親から渡す
 // InlineMergeViewProps と同じシグネチャにする
 type InlineMergeViewComponent = React.ComponentType<{
-  leftEditor?: Editor | null;
+  rightEditor?: Editor | null;
   editorContent: string;
   sourceMode: boolean;
   editorHeight: number;
@@ -286,7 +286,7 @@ export function EditorMainContent({
       <Box ref={editorContainerRef} sx={{ display: "flex", flexDirection: "row", height: editorHeight }}>
       <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
       <InlineMergeView
-        leftEditor={editor}
+        rightEditor={editor}
         editorContent={sourceMode ? sourceText : editorMarkdown}
         sourceMode={sourceMode}
         editorHeight={editorHeight}

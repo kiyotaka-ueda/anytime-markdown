@@ -12,7 +12,7 @@ type RegularCodeBlockProps = Pick<
   | "isSelected"
   | "handleCopyCode" | "handleDeleteBlock" | "deleteDialogOpen" | "setDeleteDialogOpen"
   | "editOpen" | "setEditOpen" | "fsCode" | "onFsCodeChange" | "fsTextareaRef" | "fsSearch"
-  | "t" | "isDark"
+  | "t" | "isDark" | "isCompareLeft"
 > & {
   handleFsTextChange: (newCode: string) => void;
 };
@@ -37,7 +37,7 @@ export function RegularCodeBlock(props: RegularCodeBlockProps) {
   const toolbar = (
     <BlockInlineToolbar
       label={codeLabel}
-      onEdit={() => setEditOpen(true)}
+      onEdit={props.isCompareLeft ? undefined : () => setEditOpen(true)}
       onDelete={() => setDeleteDialogOpen(true)}
       t={t}
     />

@@ -27,7 +27,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
   const isDark = theme.palette.mode === "dark";
   const {
     deleteDialogOpen, setDeleteDialogOpen, editOpen, setEditOpen,
-    collapsed, isEditable, isSelected, handleDeleteBlock, showToolbar,
+    collapsed, isEditable, isSelected, handleDeleteBlock, showToolbar, isCompareLeft,
   } = useBlockNodeState(editor, node, getPos);
   const { src, alt, title, width } = node.attrs;
 
@@ -140,7 +140,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
         {isEditable && (
           <BlockInlineToolbar
             label={t("image")}
-            onEdit={!collapsed ? () => setEditOpen(true) : undefined}
+            onEdit={!collapsed && !isCompareLeft ? () => setEditOpen(true) : undefined}
             onDelete={!collapsed ? () => setDeleteDialogOpen(true) : undefined}
             collapsed={collapsed}
             extra={<>

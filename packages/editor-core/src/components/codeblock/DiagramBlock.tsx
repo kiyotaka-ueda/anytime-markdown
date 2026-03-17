@@ -29,7 +29,7 @@ type DiagramBlockProps = Pick<
   | "selectNode" | "code"
   | "handleCopyCode" | "handleDeleteBlock" | "deleteDialogOpen" | "setDeleteDialogOpen"
   | "editOpen" | "setEditOpen" | "fsCode" | "onFsCodeChange" | "fsTextareaRef" | "fsSearch"
-  | "t" | "isDark"
+  | "t" | "isDark" | "isCompareLeft"
 > & {
   /** Fullscreen code text sync */
   handleFsTextChange: (newCode: string) => void;
@@ -99,7 +99,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
   const toolbar = (
     <BlockInlineToolbar
       label={label}
-      onEdit={(svg || plantUmlUrl) ? () => { fsZP.reset(); setEditOpen(true); } : undefined}
+      onEdit={props.isCompareLeft ? undefined : (svg || plantUmlUrl) ? () => { fsZP.reset(); setEditOpen(true); } : undefined}
       onDelete={isEditable ? () => setDeleteDialogOpen(true) : undefined}
       extra={diagramSize ? (<>
         <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />

@@ -27,15 +27,15 @@ export function useBlockMergeCompare(params: {
   const mergeEditors = getMergeEditors();
   const isCompareMode = !!mergeEditors;
 
-  // 比較エディタ（画面左 = mergeEditors.rightEditor）かどうかを判定
+  // 比較エディタ（画面左 = mergeEditors.leftEditor）かどうかを判定
   const isCompareEditor = useMemo(() => {
     if (!editor || !mergeEditors) return false;
-    return editor === mergeEditors.rightEditor;
+    return editor === mergeEditors.leftEditor;
   }, [editor, mergeEditors]);
 
   const counterpartCode = useMemo(() => {
     if (!editOpen || !mergeEditors || !editor) return null;
-    const otherEditor = isCompareEditor ? mergeEditors.leftEditor : mergeEditors.rightEditor;
+    const otherEditor = isCompareEditor ? mergeEditors.rightEditor : mergeEditors.leftEditor;
     return findCounterpartCode(editor, otherEditor, language, code);
   }, [editOpen, mergeEditors, editor, isCompareEditor, language, code]);
 
@@ -53,11 +53,11 @@ export function useBlockMergeCompare(params: {
 
   const handleMergeApply = useCallback((newEditCode: string, newCompareCode: string) => {
     if (!mergeEditors || !editor || blockIndexRef.current === -1) return;
-    const isCompare = mergeEditors ? editor === mergeEditors.rightEditor : false;
-    const otherEditor = isCompare ? mergeEditors.leftEditor : mergeEditors.rightEditor;
+    const isCompare = mergeEditors ? editor === mergeEditors.leftEditor : false;
+    const otherEditor = isCompare ? mergeEditors.rightEditor : mergeEditors.leftEditor;
 
-    // 比較エディタから開いた場合: editCode → 相手(leftEditor), compareCode → 自分(editor)
-    // 編集エディタから開いた場合: editCode → 自分(editor), compareCode → 相手(rightEditor)
+    // 比較エディタから開いた場合: editCode → 相手(rightEditor), compareCode → 自分(editor)
+    // 編集エディタから開いた場合: editCode → 自分(editor), compareCode → 相手(leftEditor)
     const thisEditor = isCompare ? otherEditor : editor;
     const compareEditor = isCompare ? editor : otherEditor;
     const thisNewCode = newEditCode;

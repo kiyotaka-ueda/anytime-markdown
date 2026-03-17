@@ -80,13 +80,13 @@ describe("useDiffHighlight", () => {
     expect(mockFn(right, "commands.setDiffHighlight")).toHaveBeenCalledWith(mockResult.right, "right");
   });
 
-  test("leftEditor=null → 何もしない", () => {
+  test("rightEditor=null → 何もしない", () => {
     const right = createMockEditor();
     renderHook(() => useDiffHighlight(false, null, right));
     expect(mockedComputeBlockDiff).not.toHaveBeenCalled();
   });
 
-  test("rightEditor=null → 何もしない", () => {
+  test("leftEditor=null → 何もしない", () => {
     const left = createMockEditor();
     renderHook(() => useDiffHighlight(false, left, null));
     expect(mockedComputeBlockDiff).not.toHaveBeenCalled();
