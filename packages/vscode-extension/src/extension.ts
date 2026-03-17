@@ -39,7 +39,7 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	// Git グラフパネル
-	const graphProvider = new GraphProvider();
+	const graphProvider = new GraphProvider(context);
 	const graphTreeView = vscode.window.createTreeView('anytimeMarkdown.graph', {
 		treeDataProvider: graphProvider,
 	});
