@@ -311,13 +311,15 @@ function processMatch(
     if (match.left.children.length > 0 || match.right.children.length > 0) {
       // 見出し行の比較
       if (match.left.headingLine && match.right.headingLine) {
+        const leftLn = allLeftLines.filter(l => l.lineNumber !== null).length + 1;
+        const rightLn = allRightLines.filter(l => l.lineNumber !== null).length + 1;
         if (match.left.headingLine === match.right.headingLine) {
-          allLeftLines.push({ text: match.left.headingLine, type: "equal", blockId: null, lineNumber: allLeftLines.length + 1 });
-          allRightLines.push({ text: match.right.headingLine, type: "equal", blockId: null, lineNumber: allRightLines.length + 1 });
+          allLeftLines.push({ text: match.left.headingLine, type: "equal", blockId: null, lineNumber: leftLn });
+          allRightLines.push({ text: match.right.headingLine, type: "equal", blockId: null, lineNumber: rightLn });
         } else {
           const blockId = blockIdCounter++;
-          allLeftLines.push({ text: match.left.headingLine, type: "modified-old", blockId, lineNumber: allLeftLines.length + 1 });
-          allRightLines.push({ text: match.right.headingLine, type: "modified-new", blockId, lineNumber: allRightLines.length + 1 });
+          allLeftLines.push({ text: match.left.headingLine, type: "modified-old", blockId, lineNumber: leftLn });
+          allRightLines.push({ text: match.right.headingLine, type: "modified-new", blockId, lineNumber: rightLn });
           allBlocks.push({
             id: blockId, type: "modified",
             leftStartLine: allLeftLines.length - 1, leftEndLine: allLeftLines.length,
@@ -350,8 +352,10 @@ function processMatch(
     const lines: string[] = [];
     collectSectionLines(match.left, lines);
     const leftStart = allLeftLines.length;
+    let leftLineNum = allLeftLines.filter(l => l.lineNumber !== null).length;
     for (let k = 0; k < lineCount; k++) {
-      allLeftLines.push({ text: lines[k] ?? "", type: "removed", blockId, lineNumber: allLeftLines.length + 1 });
+      leftLineNum++;
+      allLeftLines.push({ text: lines[k] ?? "", type: "removed", blockId, lineNumber: leftLineNum });
       allRightLines.push({ text: "", type: "padding", blockId, lineNumber: null });
     }
     allBlocks.push({
@@ -367,9 +371,11 @@ function processMatch(
     const lines: string[] = [];
     collectSectionLines(match.right, lines);
     const rightStart = allRightLines.length;
+    let rightLineNum = allRightLines.filter(l => l.lineNumber !== null).length;
     for (let k = 0; k < lineCount; k++) {
+      rightLineNum++;
       allLeftLines.push({ text: "", type: "padding", blockId, lineNumber: null });
-      allRightLines.push({ text: lines[k] ?? "", type: "added", blockId, lineNumber: allRightLines.length + 1 });
+      allRightLines.push({ text: lines[k] ?? "", type: "added", blockId, lineNumber: rightLineNum });
     }
     allBlocks.push({
       id: blockId, type: "added",
@@ -391,20 +397,21 @@ function appendSubDiff(
   const sub = computeDiff(leftText || "", rightText || "", options);
   const leftOffset = allLeftLines.length;
   const rightOffset = allRightLines.length;
-  // リナンバリング
+  // 直前までの実テキスト行数（パディング行を除く）をカウントして行番号オフセットに使用
+  const leftLineNumOffset = allLeftLines.filter(l => l.lineNumber !== null).length;
+  const rightLineNumOffset = allRightLines.filter(l => l.lineNumber !== null).length;
   for (const line of sub.leftLines) {
     allLeftLines.push({
       ...line,
       blockId: line.blockId !== null ? line.blockId + blockIdCounter : null,
-      lineNumber: line.lineNumber !== null ? leftOffset + allLeftLines.length - leftOffset + 1 : null,
+      lineNumber: line.lineNumber !== null ? line.lineNumber + leftLineNumOffset : null,
     });
   }
-  // 修正: leftLines のプッシュで長さが変わるので rightLines は別途カウント
   for (const line of sub.rightLines) {
     allRightLines.push({
       ...line,
       blockId: line.blockId !== null ? line.blockId + blockIdCounter : null,
-      lineNumber: line.lineNumber !== null ? rightOffset + allRightLines.length - rightOffset + 1 : null,
+      lineNumber: line.lineNumber !== null ? line.lineNumber + rightLineNumOffset : null,
     });
   }
   for (const block of sub.blocks) {
