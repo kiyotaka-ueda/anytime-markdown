@@ -104,6 +104,20 @@ export function EditorContextMenu({ editor, readOnly, t }: EditorContextMenuProp
     handleClose();
   }, [editor, handleClose]);
 
+  const handlePaste = useCallback(async () => {
+    if (!editor || !!readOnly) { handleClose(); return; }
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        editor.chain().focus().insertContent(text, { parseOptions: { preserveWhitespace: true } }).run();
+        handleClose();
+        return;
+      }
+    } catch { /* Clipboard API 不可 */ }
+    // VS Code 環境: 通常貼り付けは Ctrl+V で処理されるため、ここでは何もしない
+    handleClose();
+  }, [editor, readOnly, handleClose]);
+
   const handlePasteAsMarkdown = useCallback(async () => {
     if (!editor || !editor.isEditable) { handleClose(); return; }
     try {
@@ -158,6 +172,18 @@ export function EditorContextMenu({ editor, readOnly, t }: EditorContextMenuProp
           Ctrl+C
         </Typography>
       </MenuItem>
+      <MenuItem onClick={handlePaste} disabled={!!readOnly}>
+        <ListItemIcon>
+          <ContentPasteIcon sx={{ fontSize: 16 }} />
+        </ListItemIcon>
+        <ListItemText primaryTypographyProps={{ fontSize: "0.8125rem" }}>
+          {t("paste")}
+        </ListItemText>
+        <Typography variant="body2" sx={{ color: "text.secondary", fontSize: "0.75rem", ml: 2 }}>
+          Ctrl+V
+        </Typography>
+      </MenuItem>
+      <Divider sx={{ my: 0.5 }} />
       <MenuItem onClick={handlePasteAsMarkdown} disabled={!!readOnly}>
         <ListItemIcon>
           <ContentPasteIcon sx={{ fontSize: 16 }} />

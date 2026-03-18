@@ -11,6 +11,7 @@
     "fileActions": "File",
     "cut": "Cut",
     "copy": "Copy",
+    "paste": "Paste",
     "copied": "Copied",
     "upload": "Upload (.md)",
     "download": "Download (.md)",
