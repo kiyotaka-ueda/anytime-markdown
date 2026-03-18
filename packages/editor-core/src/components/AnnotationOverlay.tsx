@@ -7,30 +7,38 @@ interface AnnotationOverlayProps {
   style?: React.CSSProperties;
 }
 
-function renderAnnotation(a: ImageAnnotation) {
+function renderAnnotation(a: ImageAnnotation, index: number) {
   const stroke = a.color;
   const strokeWidth = 2;
   const fill = "none";
-  switch (a.type) {
-    case "rect": {
-      const x = Math.min(a.x1, a.x2);
-      const y = Math.min(a.y1, a.y2);
-      const w = Math.abs(a.x2 - a.x1);
-      const h = Math.abs(a.y2 - a.y1);
-      return <rect key={a.id} x={x} y={y} width={w} height={h} stroke={stroke} strokeWidth={strokeWidth} fill={fill} />;
-    }
-    case "circle": {
-      const cx = (a.x1 + a.x2) / 2;
-      const cy = (a.y1 + a.y2) / 2;
-      const rx = Math.abs(a.x2 - a.x1) / 2;
-      const ry = Math.abs(a.y2 - a.y1) / 2;
-      return <ellipse key={a.id} cx={cx} cy={cy} rx={rx} ry={ry} stroke={stroke} strokeWidth={strokeWidth} fill={fill} />;
-    }
-    case "line":
-      return <line key={a.id} x1={a.x1} y1={a.y1} x2={a.x2} y2={a.y2} stroke={stroke} strokeWidth={strokeWidth} />;
-    default:
-      return null;
-  }
+  const badgeX = Math.min(a.x1, a.x2);
+  const badgeY = Math.min(a.y1, a.y2);
+
+  return (
+    <g key={a.id}>
+      {a.type === "rect" && (
+        <rect
+          x={Math.min(a.x1, a.x2)} y={Math.min(a.y1, a.y2)}
+          width={Math.abs(a.x2 - a.x1)} height={Math.abs(a.y2 - a.y1)}
+          stroke={stroke} strokeWidth={strokeWidth} fill={fill}
+        />
+      )}
+      {a.type === "circle" && (
+        <ellipse
+          cx={(a.x1 + a.x2) / 2} cy={(a.y1 + a.y2) / 2}
+          rx={Math.abs(a.x2 - a.x1) / 2} ry={Math.abs(a.y2 - a.y1) / 2}
+          stroke={stroke} strokeWidth={strokeWidth} fill={fill}
+        />
+      )}
+      {a.type === "line" && (
+        <line x1={a.x1} y1={a.y1} x2={a.x2} y2={a.y2} stroke={stroke} strokeWidth={strokeWidth} />
+      )}
+      <circle cx={badgeX} cy={badgeY} r={2.5} fill={stroke} />
+      <text x={badgeX} y={badgeY} textAnchor="middle" dominantBaseline="central" fontSize={3} fill="white" fontWeight="bold" style={{ pointerEvents: "none" }}>
+        {index + 1}
+      </text>
+    </g>
+  );
 }
 
 /** 画像上に SVG でアノテーションを描画する読み取り専用オーバーレイ */
@@ -49,7 +57,7 @@ export function AnnotationOverlay({ annotations, style }: AnnotationOverlayProps
         ...style,
       }}
     >
-      {annotations.map(renderAnnotation)}
+      {annotations.map((a, i) => renderAnnotation(a, i))}
     </svg>
   );
 }

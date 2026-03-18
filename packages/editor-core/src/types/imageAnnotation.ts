@@ -6,6 +6,7 @@ export interface ImageAnnotation {
   x2: number;  // 終了 X（画像に対する %）
   y2: number;  // 終了 Y（画像に対する %）
   color: string;
+  comment?: string;
 }
 
 export type AnnotationTool = "rect" | "circle" | "line" | "eraser";
