@@ -1,5 +1,6 @@
 "use client";
 
+import CodeIcon from "@mui/icons-material/Code";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import ContentCutIcon from "@mui/icons-material/ContentCut";
 import ContentPasteIcon from "@mui/icons-material/ContentPaste";
@@ -75,6 +76,23 @@ export function EditorContextMenu({ editor, readOnly, t }: EditorContextMenuProp
     return () => window.removeEventListener("vscode-paste-markdown", handler);
   }, [editor]);
 
+  // VS Code 拡張からのコードブロック貼り付けイベント
+  useEffect(() => {
+    if (!editor) return;
+    const handler = (e: Event) => {
+      const text = (e as CustomEvent<string>).detail;
+      if (text && editor.isEditable) {
+        editor.chain().focus().insertContent({
+          type: "codeBlock",
+          attrs: { language: "" },
+          content: [{ type: "text", text }],
+        }).run();
+      }
+    };
+    window.addEventListener("vscode-paste-codeblock", handler);
+    return () => window.removeEventListener("vscode-paste-codeblock", handler);
+  }, [editor]);
+
   const handleClose = useCallback(() => {
     setMenuPos(null);
   }, []);
@@ -115,6 +133,28 @@ export function EditorContextMenu({ editor, readOnly, t }: EditorContextMenuProp
       }
     } catch { /* Clipboard API 不可 */ }
     // VS Code 環境: 通常貼り付けは Ctrl+V で処理されるため、ここでは何もしない
+    handleClose();
+  }, [editor, readOnly, handleClose]);
+
+  const handlePasteAsCodeBlock = useCallback(async () => {
+    if (!editor || !!readOnly) { handleClose(); return; }
+    const pasteIntoCodeBlock = (text: string) => {
+      editor.chain().focus().insertContent({
+        type: "codeBlock",
+        attrs: { language: "" },
+        content: [{ type: "text", text }],
+      }).run();
+    };
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) { pasteIntoCodeBlock(text); handleClose(); return; }
+    } catch { /* Clipboard API 不可 */ }
+    // VS Code 環境: vscode-paste-codeblock イベントで処理
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const w = window as any;
+    if (w.__vscode) {
+      w.__vscode.postMessage({ type: "readClipboardForCodeBlock" });
+    }
     handleClose();
   }, [editor, readOnly, handleClose]);
 
@@ -194,6 +234,14 @@ export function EditorContextMenu({ editor, readOnly, t }: EditorContextMenuProp
         <Typography variant="body2" sx={{ color: "text.secondary", fontSize: "0.75rem", ml: 2 }}>
           Ctrl+Shift+V
         </Typography>
+      </MenuItem>
+      <MenuItem onClick={handlePasteAsCodeBlock} disabled={!!readOnly}>
+        <ListItemIcon>
+          <CodeIcon sx={{ fontSize: 16 }} />
+        </ListItemIcon>
+        <ListItemText primaryTypographyProps={{ fontSize: "0.8125rem" }}>
+          {t("pasteAsCodeBlock")}
+        </ListItemText>
       </MenuItem>
     </Menu>
   );

@@ -395,6 +395,7 @@
     "slashCommandNoResults": "No matching commands",
     "semanticDiff": "Semantic comparison",
     "pasteAsMarkdown": "Paste as Markdown",
+    "pasteAsCodeBlock": "Paste as Code Block",
     "slashH1": "Heading 1",
     "slashH2": "Heading 2",
     "slashH3": "Heading 3",

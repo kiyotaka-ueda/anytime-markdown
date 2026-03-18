@@ -323,6 +323,12 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           break;
         }
 
+        case 'readClipboardForCodeBlock': {
+          const cbText = await vscode.env.clipboard.readText();
+          webviewPanel.webview.postMessage({ type: 'pasteCodeBlock', text: cbText });
+          break;
+        }
+
         case 'openLink': {
           const rawHref = (message as { type: string; href?: string }).href;
           if (typeof rawHref !== 'string') { return; }

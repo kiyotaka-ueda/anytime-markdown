@@ -131,6 +131,10 @@ export function App() {
         window.dispatchEvent(new CustomEvent('vscode-paste-markdown', { detail: message.text }));
         return;
       }
+      if (message?.type === 'pasteCodeBlock' && typeof message.text === 'string') {
+        window.dispatchEvent(new CustomEvent('vscode-paste-codeblock', { detail: message.text }));
+        return;
+      }
       if (message?.type === 'setContent' && typeof message.content === 'string') {
         const isInitial = !ready;
         currentContent = message.content;
