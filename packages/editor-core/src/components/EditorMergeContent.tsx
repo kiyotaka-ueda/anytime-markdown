@@ -2,8 +2,10 @@ import { Box } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import type { Editor } from "@tiptap/react";
 import type React from "react";
+import { useEffect } from "react";
 
 import { FILE_DROP_OVERLAY_COLOR, getEditorBg } from "../constants/colors";
+import { getMergeEditors, setMergeEditors } from "../contexts/MergeEditorsContext";
 import type { DiffLine } from "../utils/diffEngine";
 import { useEditorSettingsContext } from "../useEditorSettings";
 import { EditorOutlineSection } from "./EditorOutlineSection";
@@ -37,6 +39,7 @@ export interface EditorMergeContentProps {
   InlineMergeView: InlineMergeViewComponent;
   editor: Editor | null;
   sourceMode: boolean;
+  reviewMode?: boolean;
   editorHeight: number;
   editorWrapperRef: React.RefObject<HTMLDivElement | null>;
   editorMountCallback: (node: HTMLDivElement | null) => void;
@@ -63,6 +66,7 @@ export function EditorMergeContent({
   InlineMergeView,
   editor,
   sourceMode,
+  reviewMode,
   editorHeight,
   editorWrapperRef,
   editorMountCallback,
@@ -85,6 +89,14 @@ export function EditorMergeContent({
   t,
 }: EditorMergeContentProps) {
   const theme = useTheme();
+
+  // reviewMode を MergeEditorsContext に反映
+  useEffect(() => {
+    const current = getMergeEditors();
+    if (current) {
+      setMergeEditors({ ...current, isReviewMode: !!reviewMode });
+    }
+  }, [reviewMode]);
   const settings = useEditorSettingsContext();
 
   return (

@@ -27,7 +27,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
   const isDark = theme.palette.mode === "dark";
   const {
     deleteDialogOpen, setDeleteDialogOpen, editOpen, setEditOpen,
-    collapsed, isEditable, isSelected, handleDeleteBlock, showToolbar, isCompareLeft,
+    collapsed, isEditable, isSelected, handleDeleteBlock, showToolbar, isCompareLeft, isCompareLeftEditable,
   } = useBlockNodeState(editor, node, getPos);
   const { src, alt, title, width } = node.attrs;
 
@@ -129,20 +129,20 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
       <Box
         sx={{
           border: 1, borderRadius: 1, overflow: "hidden", my: 1,
-          borderColor: (showToolbar || (isCompareLeft && isSelected)) ? "divider" : "transparent",
-          ...(!(showToolbar || (isCompareLeft && isSelected)) && {
+          borderColor: (showToolbar || (isCompareLeftEditable && isSelected)) ? "divider" : "transparent",
+          ...(!(showToolbar || (isCompareLeftEditable && isSelected)) && {
             "& > [data-block-toolbar]": {
               maxHeight: 0, opacity: 0, py: 0, overflow: "hidden",
             },
           }),
         }}
       >
-        {(isEditable || isCompareLeft) && (
+        {(isEditable || isCompareLeftEditable) && (
           <BlockInlineToolbar
             label={t("image")}
             onEdit={!collapsed && !isCompareLeft ? () => setEditOpen(true) : undefined}
             onDelete={!collapsed && !isCompareLeft ? () => setDeleteDialogOpen(true) : undefined}
-            labelOnly={isCompareLeft}
+            labelOnly={isCompareLeftEditable}
             collapsed={collapsed}
             extra={<>
               <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />

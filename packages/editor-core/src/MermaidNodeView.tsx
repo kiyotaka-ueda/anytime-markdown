@@ -104,6 +104,7 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
 
   const mergeEditors = getMergeEditors();
   const isCompareLeft = !!mergeEditors && editor === mergeEditors.leftEditor;
+  const isCompareLeftEditable = isCompareLeft && !mergeEditors?.isReviewMode;
 
   // Shared props for all block sub-components
   const shared = {
@@ -112,7 +113,7 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
     selectNode, code,
     handleCopyCode, handleDeleteBlock, deleteDialogOpen, setDeleteDialogOpen,
     editOpen, setEditOpen, fsCode, onFsCodeChange: handleFsCodeChange, fsTextareaRef, fsSearch,
-    t, isDark, isCompareLeft,
+    t, isDark, isCompareLeft, isCompareLeftEditable,
   };
 
   if (isMath) return <MathBlock {...shared} handleFsTextChange={handleFsTextChange} />;

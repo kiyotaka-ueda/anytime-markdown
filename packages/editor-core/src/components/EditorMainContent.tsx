@@ -219,6 +219,7 @@ export function EditorMainContent({
           InlineMergeView={InlineMergeView}
           editor={editor}
           sourceMode={sourceMode}
+          reviewMode={readonlyMode || reviewMode}
           editorHeight={editorHeight}
           editorWrapperRef={editorWrapperRef}
           editorMountCallback={editorMountCallback}

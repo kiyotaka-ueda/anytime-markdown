@@ -12,7 +12,7 @@ type RegularCodeBlockProps = Pick<
   | "isSelected"
   | "handleCopyCode" | "handleDeleteBlock" | "deleteDialogOpen" | "setDeleteDialogOpen"
   | "editOpen" | "setEditOpen" | "fsCode" | "onFsCodeChange" | "fsTextareaRef" | "fsSearch"
-  | "t" | "isDark" | "isCompareLeft"
+  | "t" | "isDark" | "isCompareLeft" | "isCompareLeftEditable"
 > & {
   handleFsTextChange: (newCode: string) => void;
 };
@@ -39,7 +39,7 @@ export function RegularCodeBlock(props: RegularCodeBlockProps) {
       label={codeLabel}
       onEdit={props.isCompareLeft ? undefined : () => setEditOpen(true)}
       onDelete={props.isCompareLeft ? undefined : () => setDeleteDialogOpen(true)}
-      labelOnly={props.isCompareLeft}
+      labelOnly={props.isCompareLeftEditable}
       t={t}
     />
   );
@@ -48,7 +48,7 @@ export function RegularCodeBlock(props: RegularCodeBlockProps) {
     <CodeBlockFrame
       toolbar={toolbar}
       isDark={isDark}
-      showBorder={isSelected}
+      showBorder={isSelected && (!props.isCompareLeft || !!props.isCompareLeftEditable)}
       codeMaxHeight={400}
       deleteDialogOpen={deleteDialogOpen}
       setDeleteDialogOpen={setDeleteDialogOpen}

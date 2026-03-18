@@ -24,7 +24,7 @@ type HtmlPreviewBlockProps = Pick<
   | "selectNode" | "code"
   | "handleCopyCode" | "handleDeleteBlock" | "deleteDialogOpen" | "setDeleteDialogOpen"
   | "editOpen" | "setEditOpen" | "fsCode" | "onFsCodeChange" | "fsTextareaRef" | "fsSearch"
-  | "t" | "isDark" | "isCompareLeft"
+  | "t" | "isDark" | "isCompareLeft" | "isCompareLeftEditable"
 > & {
   handleFsTextChange: (newCode: string) => void;
 };
@@ -52,7 +52,7 @@ export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
       label={t("htmlPreview")}
       onEdit={props.isCompareLeft ? undefined : () => setEditOpen(true)}
       onDelete={props.isCompareLeft ? undefined : () => setDeleteDialogOpen(true)}
-      labelOnly={props.isCompareLeft}
+      labelOnly={props.isCompareLeftEditable}
       t={t}
     />
   );
@@ -62,7 +62,7 @@ export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
       toolbar={toolbar}
       codeCollapsed={codeCollapsed}
       isDark={isDark}
-      showBorder={isSelected}
+      showBorder={isSelected && (!props.isCompareLeft || !!props.isCompareLeftEditable)}
       deleteDialogOpen={deleteDialogOpen}
       setDeleteDialogOpen={setDeleteDialogOpen}
       handleDeleteBlock={handleDeleteBlock}

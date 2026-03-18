@@ -39,6 +39,8 @@ export interface CodeBlockSharedProps {
   isDark: boolean;
   /** 比較モードの左側（比較元）エディタかどうか */
   isCompareLeft?: boolean;
+  /** 比較モードの左側で編集モード（レビューモードではない） */
+  isCompareLeftEditable?: boolean;
 }
 
 /** DOMPurify config for HTML preview blocks */

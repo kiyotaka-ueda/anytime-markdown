@@ -29,7 +29,7 @@ type DiagramBlockProps = Pick<
   | "selectNode" | "code"
   | "handleCopyCode" | "handleDeleteBlock" | "deleteDialogOpen" | "setDeleteDialogOpen"
   | "editOpen" | "setEditOpen" | "fsCode" | "onFsCodeChange" | "fsTextareaRef" | "fsSearch"
-  | "t" | "isDark" | "isCompareLeft"
+  | "t" | "isDark" | "isCompareLeft" | "isCompareLeftEditable"
 > & {
   /** Fullscreen code text sync */
   handleFsTextChange: (newCode: string) => void;
@@ -101,7 +101,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
       label={label}
       onEdit={props.isCompareLeft ? undefined : (svg || plantUmlUrl) ? () => { fsZP.reset(); setEditOpen(true); } : undefined}
       onDelete={isEditable && !props.isCompareLeft ? () => setDeleteDialogOpen(true) : undefined}
-      labelOnly={props.isCompareLeft}
+      labelOnly={props.isCompareLeftEditable}
       extra={diagramSize ? (<>
         <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
         <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.65rem", fontFamily: "monospace", whiteSpace: "nowrap", flexShrink: 0 }}>
@@ -130,11 +130,11 @@ export function DiagramBlock(props: DiagramBlockProps) {
 
   return (
     <CodeBlockFrame
-      toolbar={isEditable || props.isCompareLeft ? toolbar : null}
+      toolbar={isEditable || props.isCompareLeftEditable ? toolbar : null}
       codeCollapsed={codeCollapsed}
       isDiagramLayout
       isDark={isDark}
-      showBorder={(isSelected && (props.isCompareLeft || isEditable)) || (!props.isCompareLeft && isEditable && editOpen)}
+      showBorder={(isSelected && (props.isCompareLeftEditable || isEditable)) || (!props.isCompareLeft && isEditable && editOpen)}
       deleteDialogOpen={deleteDialogOpen}
       setDeleteDialogOpen={setDeleteDialogOpen}
       handleDeleteBlock={handleDeleteBlock}
