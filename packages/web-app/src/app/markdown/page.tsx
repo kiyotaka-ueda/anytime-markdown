@@ -32,14 +32,7 @@ const ExplorerPanel = dynamic(
   { ssr: false },
 );
 
-async function fetchFileContent(repo: string, filePath: string, branch: string): Promise<string> {
-  const res = await fetch(
-    `/api/github/content?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(filePath)}&ref=${encodeURIComponent(branch)}`,
-  );
-  if (!res.ok) return '';
-  const data = await res.json();
-  return data.content ?? '';
-}
+import { fetchFileContent } from '../../lib/githubApi';
 
 export default function Page() {
   const t = useTranslations('Common');
@@ -193,12 +186,8 @@ export default function Page() {
   }, []);
 
   const handleExplorerSelectCommit = useCallback(async (repo: string, filePath: string, sha: string) => {
-    const res = await fetch(
-      `/api/github/content?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(filePath)}&ref=${encodeURIComponent(sha)}`,
-    );
-    if (!res.ok) return;
-    const data = await res.json();
-    const content = data.content ?? '';
+    const content = await fetchFileContent(repo, filePath, sha);
+    if (!content && content !== '') return;
     if (compareModeOpen) {
       // 比較モード: 右パネルのみ更新（リマウントせずモードを維持）
       setExternalCompareContent(content);
