@@ -5,7 +5,6 @@ import { ListItemIcon, ListItemText, Menu, MenuItem } from "@mui/material";
 import type { Editor } from "@tiptap/react";
 import { useCallback, useEffect, useState } from "react";
 
-import { getMarkdownStorage } from "../types";
 import { boxTableToMarkdown, containsBoxTable } from "../utils/boxTableToMarkdown";
 
 interface EditorContextMenuProps {
@@ -24,13 +23,7 @@ function insertMarkdownText(editor: Editor, text: string): void {
   if (containsBoxTable(md)) {
     md = boxTableToMarkdown(md);
   }
-  const { parser } = getMarkdownStorage(editor);
-  const parsed = parser.parse(md);
-  if (parsed) {
-    const { from, to } = editor.state.selection;
-    const tr = editor.state.tr.replaceWith(from, to, parsed.content);
-    editor.view.dispatch(tr);
-  }
+  editor.chain().focus().insertContent(md).run();
 }
 
 export function EditorContextMenu({ editor, t }: EditorContextMenuProps) {
@@ -97,14 +90,35 @@ export function EditorContextMenu({ editor, t }: EditorContextMenuProps) {
           : undefined
       }
       slotProps={{
-        paper: { sx: { minWidth: 180 } },
+        paper: {
+          sx: {
+            minWidth: 160,
+            bgcolor: "background.paper",
+            border: 1,
+            borderColor: "divider",
+            borderRadius: 1,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+            py: 0.5,
+            "& .MuiMenuItem-root": {
+              fontSize: "0.8125rem",
+              minHeight: 28,
+              px: 2,
+              py: 0.25,
+            },
+            "& .MuiListItemIcon-root": {
+              minWidth: 28,
+            },
+          },
+        },
       }}
     >
       <MenuItem onClick={handlePasteAsMarkdown} disabled={!editor?.isEditable}>
         <ListItemIcon>
-          <ContentPasteIcon fontSize="small" />
+          <ContentPasteIcon sx={{ fontSize: 16 }} />
         </ListItemIcon>
-        <ListItemText>{t("pasteAsMarkdown")}</ListItemText>
+        <ListItemText primaryTypographyProps={{ fontSize: "0.8125rem" }}>
+          {t("pasteAsMarkdown")}
+        </ListItemText>
       </MenuItem>
     </Menu>
   );
