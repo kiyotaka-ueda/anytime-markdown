@@ -287,6 +287,20 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   useEditorSideEffects({ editor, isDirty, markDirty, setHeadingsRef, setEditorMarkdown, frontmatterRef, onFrontmatterChange: fileHandling.setFrontmatterText });
   useVSCodeIntegration(editor);
 
+  // VS Code Undo/Redo: ソースモード時は vscode-set-content で sourceText を更新
+  // saveContent は呼ばない（contentChanged ループ防止）
+  useEffect(() => {
+    if (!sourceMode) return;
+    const handler = (e: Event) => {
+      const content = (e as CustomEvent<string>).detail;
+      if (typeof content !== "string") return;
+      const { body } = preprocessMarkdown(content);
+      setSourceText(body);
+    };
+    window.addEventListener("vscode-set-content", handler);
+    return () => window.removeEventListener("vscode-set-content", handler);
+  }, [sourceMode, setSourceText]);
+
   const statusBarHeight = hideStatusBar ? 0 : STATUSBAR_HEIGHT;
   const { editorContainerRef, editorHeight } = useEditorHeight(isMobile, isMd, statusBarHeight);
 
