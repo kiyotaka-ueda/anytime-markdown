@@ -134,7 +134,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
       codeCollapsed={codeCollapsed}
       isDiagramLayout
       isDark={isDark}
-      showBorder={props.isCompareLeft || (isEditable && (isSelected || editOpen))}
+      showBorder={(isSelected && (props.isCompareLeft || isEditable)) || (!props.isCompareLeft && isEditable && editOpen)}
       deleteDialogOpen={deleteDialogOpen}
       setDeleteDialogOpen={setDeleteDialogOpen}
       handleDeleteBlock={handleDeleteBlock}

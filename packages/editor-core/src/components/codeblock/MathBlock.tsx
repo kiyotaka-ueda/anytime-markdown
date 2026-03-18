@@ -63,7 +63,7 @@ export function MathBlock(props: MathBlockProps) {
       toolbar={toolbar}
       codeCollapsed={codeCollapsed}
       isDark={isDark}
-      showBorder={props.isCompareLeft || (isSelected && editor.isEditable)}
+      showBorder={isSelected && (props.isCompareLeft || editor.isEditable)}
       deleteDialogOpen={deleteDialogOpen}
       setDeleteDialogOpen={setDeleteDialogOpen}
       handleDeleteBlock={handleDeleteBlock}

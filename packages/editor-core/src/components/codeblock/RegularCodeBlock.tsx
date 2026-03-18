@@ -48,7 +48,7 @@ export function RegularCodeBlock(props: RegularCodeBlockProps) {
     <CodeBlockFrame
       toolbar={toolbar}
       isDark={isDark}
-      showBorder={props.isCompareLeft || isSelected}
+      showBorder={isSelected}
       codeMaxHeight={400}
       deleteDialogOpen={deleteDialogOpen}
       setDeleteDialogOpen={setDeleteDialogOpen}
