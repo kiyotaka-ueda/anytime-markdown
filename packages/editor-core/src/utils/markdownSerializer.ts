@@ -25,11 +25,13 @@ function embedImageAnnotations(editor: Editor, md: string): string {
   if (imageAnnotations.length === 0) return md;
 
   // 各画像の Markdown 行 (![alt](src)) の直後にコメントを挿入
+  // 正規表現を使わず indexOf で検索（Base64 src の特殊文字を回避）
   for (const img of imageAnnotations) {
-    // ![alt](src) パターンを探す（src のエスケープを考慮）
-    const escapedSrc = img.src.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const re = new RegExp(`(!\\[[^\\]]*\\]\\(${escapedSrc}[^)]*\\))`, "g");
-    md = md.replace(re, `$1\n<!-- img-annotations: ${img.annotations} -->`);
+    const needle = `](${img.src})`;
+    const idx = md.indexOf(needle);
+    if (idx === -1) continue;
+    const insertPos = idx + needle.length;
+    md = md.slice(0, insertPos) + `\n<!-- img-annotations: ${img.annotations} -->` + md.slice(insertPos);
   }
   return md;
 }
