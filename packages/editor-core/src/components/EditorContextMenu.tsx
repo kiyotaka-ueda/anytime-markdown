@@ -6,6 +6,7 @@ import type { Editor } from "@tiptap/react";
 import { useCallback, useEffect, useState } from "react";
 
 import { getMarkdownStorage } from "../types";
+import { boxTableToMarkdown, containsBoxTable } from "../utils/boxTableToMarkdown";
 
 interface EditorContextMenuProps {
   editor: Editor | null;
@@ -38,8 +39,12 @@ export function EditorContextMenu({ editor, t }: EditorContextMenuProps) {
   const handlePasteAsMarkdown = useCallback(async () => {
     if (!editor || !editor.isEditable) { handleClose(); return; }
     try {
-      const text = await navigator.clipboard.readText();
+      let text = await navigator.clipboard.readText();
       if (!text) { handleClose(); return; }
+      // 罫線テーブルを Markdown テーブルに変換
+      if (containsBoxTable(text)) {
+        text = boxTableToMarkdown(text);
+      }
       // Markdown パーサーで ProseMirror ノードに変換して挿入
       const { parser } = getMarkdownStorage(editor);
       const parsed = parser.parse(text);
