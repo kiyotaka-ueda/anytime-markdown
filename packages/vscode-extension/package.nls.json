@@ -34,5 +34,6 @@
   "command.pushChanges": "Push",
   "command.specDocsRemoveRoot": "Close Repository",
   "command.specDocsCopyPath": "Copy Path",
-  "command.specDocsImportFiles": "Import Files"
+  "command.specDocsImportFiles": "Import Files",
+  "command.pasteAsMarkdown": "Paste as Markdown"
 }

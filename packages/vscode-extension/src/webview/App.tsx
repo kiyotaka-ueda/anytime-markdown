@@ -127,6 +127,10 @@ export function App() {
         window.dispatchEvent(new CustomEvent('vscode-set-content', { detail: message.content }));
         return;
       }
+      if (message?.type === 'pasteMarkdown' && typeof message.text === 'string') {
+        window.dispatchEvent(new CustomEvent('vscode-paste-markdown', { detail: message.text }));
+        return;
+      }
       if (message?.type === 'setContent' && typeof message.content === 'string') {
         const isInitial = !ready;
         currentContent = message.content;

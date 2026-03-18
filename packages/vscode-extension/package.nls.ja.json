@@ -34,5 +34,6 @@
   "command.pushChanges": "プッシュ",
   "command.specDocsRemoveRoot": "リポジトリを閉じる",
   "command.specDocsCopyPath": "パスのコピー",
-  "command.specDocsImportFiles": "ファイルをインポート"
+  "command.specDocsImportFiles": "ファイルをインポート",
+  "command.pasteAsMarkdown": "Markdownで貼り付け"
 }

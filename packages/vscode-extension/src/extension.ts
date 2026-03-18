@@ -334,6 +334,18 @@ export function activate(context: vscode.ExtensionContext) {
 		'anytime-markdown.specDocsImportFiles', (item?: SpecDocsRootItem | SpecDocsItem) => specDocsProvider.importFiles(item)
 	);
 
+	// Markdown で貼り付け
+	const pasteAsMarkdown = vscode.commands.registerCommand(
+		'anytime-markdown.pasteAsMarkdown', async () => {
+			const p = MarkdownEditorProvider.getInstance();
+			if (!p) return;
+			const text = await vscode.env.clipboard.readText();
+			if (text) {
+				p.postMessageToActivePanel({ type: 'pasteMarkdown', text });
+			}
+		}
+	);
+
 	// Git 変更コマンド
 	const changesRefresh = vscode.commands.registerCommand(
 		'anytime-markdown.changesRefresh', () => changesProvider.refresh()
@@ -443,7 +455,7 @@ export function activate(context: vscode.ExtensionContext) {
 		insertSectionNumbers, removeSectionNumbers,
 		changesRefresh, stageFile, unstageFile, discardChanges, commitChanges, pushChanges, syncChanges, changesOpenFile, openChangeDiff,
 		specDocsOpenFile, specDocsOpenFolder, specDocsCloneRepo, specDocsClose, specDocsRefresh, switchBranch, toggleMdOnly,
-		specDocsCreateFile, specDocsCreateFolder, specDocsDelete, specDocsRename, specDocsRemoveRoot, specDocsCopyPath, specDocsImportFiles,
+		specDocsCreateFile, specDocsCreateFolder, specDocsDelete, specDocsRename, specDocsRemoveRoot, specDocsCopyPath, specDocsImportFiles, pasteAsMarkdown,
 		graphTreeView, graphRefresh,
 	);
 }

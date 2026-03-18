@@ -319,7 +319,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
         case 'readClipboard': {
           const text = await vscode.env.clipboard.readText();
-          webviewPanel.webview.postMessage({ type: 'clipboardText', text });
+          webviewPanel.webview.postMessage({ type: 'pasteMarkdown', text });
           break;
         }
 
