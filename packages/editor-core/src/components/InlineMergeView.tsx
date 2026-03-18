@@ -175,6 +175,15 @@ export function InlineMergeView({
         // Skip ProseMirror drop handling; let event bubble to parent Box handler
         drop: () => true,
       },
+      handleClickOn: (_view, _pos, node, _nodePos, event) => {
+        // チェックボックスのクリックをブロック
+        const target = event.target as HTMLElement;
+        if (target.tagName === "INPUT" && (target as HTMLInputElement).type === "checkbox") {
+          event.preventDefault();
+          return true;
+        }
+        return false;
+      },
     },
   });
 
