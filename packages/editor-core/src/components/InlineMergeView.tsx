@@ -167,7 +167,7 @@ export function InlineMergeView({
 
   // Right tiptap editor (for WYSIWYG mode) – readonly (cursor visible)
   const leftEditor = useEditor({
-    extensions: [...getBaseExtensions({ disableComments: true }), CustomHardBreak, ReviewModeExtension],
+    extensions: [...getBaseExtensions({ disableComments: true, disableCheckboxToggle: true }), CustomHardBreak, ReviewModeExtension],
     content: "",
     immediatelyRender: false,
     editorProps: {

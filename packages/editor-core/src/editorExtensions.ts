@@ -105,7 +105,7 @@ const ListTextCleanup = Extension.create({
 });
 
 /** 共通 Extension（メインエディタ / 比較エディタで共有） */
-export function getBaseExtensions(options?: { disableComments?: boolean }): Extensions {
+export function getBaseExtensions(options?: { disableComments?: boolean; disableCheckboxToggle?: boolean }): Extensions {
   const extensions: Extensions = [
     StarterKit.configure({
       heading: { levels: [1, 2, 3, 4, 5] },
@@ -145,7 +145,7 @@ export function getBaseExtensions(options?: { disableComments?: boolean }): Exte
     TaskList,
     TaskItem.configure({
       nested: true,
-      onReadOnlyChecked: () => true,
+      onReadOnlyChecked: options?.disableCheckboxToggle ? () => false : () => true,
     }),
     TaskListTight,
     ListTextCleanup,
