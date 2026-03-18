@@ -129,19 +129,20 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
       <Box
         sx={{
           border: 1, borderRadius: 1, overflow: "hidden", my: 1,
-          borderColor: showToolbar && isEditable ? "divider" : "transparent",
-          ...(!showToolbar && {
+          borderColor: (showToolbar || (isCompareLeft && isSelected)) ? "divider" : "transparent",
+          ...(!(showToolbar || (isCompareLeft && isSelected)) && {
             "& > [data-block-toolbar]": {
               maxHeight: 0, opacity: 0, py: 0, overflow: "hidden",
             },
           }),
         }}
       >
-        {isEditable && (
+        {(isEditable || isCompareLeft) && (
           <BlockInlineToolbar
             label={t("image")}
             onEdit={!collapsed && !isCompareLeft ? () => setEditOpen(true) : undefined}
             onDelete={!collapsed && !isCompareLeft ? () => setDeleteDialogOpen(true) : undefined}
+            labelOnly={isCompareLeft}
             collapsed={collapsed}
             extra={<>
               <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
