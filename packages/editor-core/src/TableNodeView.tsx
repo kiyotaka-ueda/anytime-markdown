@@ -102,16 +102,11 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
         tabIndex={editOpen ? -1 : undefined}
         sx={{
           border: editOpen ? 0 : 1,
-          borderColor: (isEditable || (isCompareLeft && isSelected)) ? "divider" : "transparent",
+          borderColor: isEditable ? "divider" : "transparent",
           borderRadius: editOpen ? 0 : 1,
           overflow: "hidden",
           my: editOpen ? 0 : 1,
           ...(!editOpen && { bgcolor: "transparent" }),
-          ...(isCompareLeft && !isSelected && {
-            "& > [data-block-toolbar]": {
-              maxHeight: 0, opacity: 0, py: 0, overflow: "hidden",
-            },
-          }),
           ...(editOpen && {
             position: "fixed",
             inset: 0,
@@ -241,12 +236,11 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
         )}
 
         {/* Inline toolbar (non-edit) */}
-        {!editOpen && (isEditable || isCompareLeft) && (
+        {!editOpen && isEditable && (
           <BlockInlineToolbar
             label={t("tableLabel")}
             onEdit={!collapsed && !isCompareLeft ? () => setEditOpen(true) : undefined}
             onDelete={!collapsed && !isCompareLeft ? () => setDeleteDialogOpen(true) : undefined}
-            labelOnly={isCompareLeft}
             collapsed={collapsed}
             t={t}
           />
