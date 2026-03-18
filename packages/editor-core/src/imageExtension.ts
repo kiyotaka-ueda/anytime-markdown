@@ -24,6 +24,14 @@ export const CustomImage = Image.extend({
           return { width: attributes.width };
         },
       },
+      annotations: {
+        default: null,
+        parseHTML: (element: HTMLElement) => element.getAttribute("data-annotations") || null,
+        renderHTML: (attributes: Record<string, unknown>) => {
+          if (!attributes.annotations) return {};
+          return { "data-annotations": attributes.annotations };
+        },
+      },
     };
   },
 
