@@ -11,6 +11,7 @@ import { boxTableToMarkdown, containsBoxTable } from "../utils/boxTableToMarkdow
 
 interface EditorContextMenuProps {
   editor: Editor | null;
+  readOnly?: boolean;
   t: (key: string) => string;
 }
 
@@ -47,7 +48,7 @@ const menuPaperSx = {
   },
 };
 
-export function EditorContextMenu({ editor, t }: EditorContextMenuProps) {
+export function EditorContextMenu({ editor, readOnly, t }: EditorContextMenuProps) {
   const [menuPos, setMenuPos] = useState<MenuPosition | null>(null);
 
   useEffect(() => {
@@ -135,7 +136,7 @@ export function EditorContextMenu({ editor, t }: EditorContextMenuProps) {
       }
       slotProps={{ paper: { sx: menuPaperSx } }}
     >
-      <MenuItem onClick={handleCut} disabled={!editor?.isEditable || !hasSelection}>
+      <MenuItem onClick={handleCut} disabled={!!readOnly || !hasSelection}>
         <ListItemIcon>
           <ContentCutIcon sx={{ fontSize: 16 }} />
         </ListItemIcon>
@@ -157,7 +158,7 @@ export function EditorContextMenu({ editor, t }: EditorContextMenuProps) {
           Ctrl+C
         </Typography>
       </MenuItem>
-      <MenuItem onClick={handlePasteAsMarkdown} disabled={!editor?.isEditable}>
+      <MenuItem onClick={handlePasteAsMarkdown} disabled={!!readOnly}>
         <ListItemIcon>
           <ContentPasteIcon sx={{ fontSize: 16 }} />
         </ListItemIcon>
