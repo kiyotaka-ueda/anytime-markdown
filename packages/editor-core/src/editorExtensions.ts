@@ -150,6 +150,65 @@ export function getBaseExtensions(options?: { disableComments?: boolean; disable
             if (level <= 1) return true; // H1 が最小
             return editor.chain().focus().setHeading({ level: (level - 1) as 1|2|3|4|5 }).run();
           },
+          // Alt+Up/Down: ブロックを上下に移動
+          "Alt-ArrowUp": ({ editor }) => {
+            const { $from } = editor.state.selection;
+            const pos = $from.before(1); // トップレベルノードの開始位置
+            if (pos <= 0) return true; // 先頭ノード
+            const { tr } = editor.state;
+            const node = $from.node(1);
+            const $posBefore = tr.doc.resolve(pos);
+            const prevPos = $posBefore.before(1);
+            // 現在のノードを削除して前のノードの前に挿入
+            tr.delete(pos, pos + node.nodeSize);
+            tr.insert(prevPos, node);
+            tr.setSelection(editor.state.selection.constructor.near(tr.doc.resolve(prevPos + 1)));
+            editor.view.dispatch(tr.scrollIntoView());
+            return true;
+          },
+          "Alt-ArrowDown": ({ editor }) => {
+            const { $from } = editor.state.selection;
+            const pos = $from.before(1);
+            const node = $from.node(1);
+            const afterPos = pos + node.nodeSize;
+            if (afterPos >= editor.state.doc.content.size) return true; // 末尾ノード
+            const { tr } = editor.state;
+            const $afterPos = tr.doc.resolve(afterPos);
+            const nextNode = $afterPos.nodeAfter;
+            if (!nextNode) return true;
+            const nextEnd = afterPos + nextNode.nodeSize;
+            // 次のノードを削除して現在のノードの前に挿入
+            tr.delete(afterPos, nextEnd);
+            tr.insert(pos, nextNode);
+            const newPos = pos + nextNode.nodeSize + 1;
+            tr.setSelection(editor.state.selection.constructor.near(tr.doc.resolve(Math.min(newPos, tr.doc.content.size))));
+            editor.view.dispatch(tr.scrollIntoView());
+            return true;
+          },
+          // Shift+Alt+Up/Down: ブロックを上下に複製
+          "Shift-Alt-ArrowUp": ({ editor }) => {
+            const { $from } = editor.state.selection;
+            const pos = $from.before(1);
+            const node = $from.node(1);
+            const { tr } = editor.state;
+            tr.insert(pos, node.copy(node.content));
+            // カーソルを複製した上のノードに配置
+            tr.setSelection(editor.state.selection.constructor.near(tr.doc.resolve(pos + 1)));
+            editor.view.dispatch(tr.scrollIntoView());
+            return true;
+          },
+          "Shift-Alt-ArrowDown": ({ editor }) => {
+            const { $from } = editor.state.selection;
+            const pos = $from.before(1);
+            const node = $from.node(1);
+            const afterPos = pos + node.nodeSize;
+            const { tr } = editor.state;
+            tr.insert(afterPos, node.copy(node.content));
+            // カーソルを複製した下のノードに配置
+            tr.setSelection(editor.state.selection.constructor.near(tr.doc.resolve(afterPos + 1)));
+            editor.view.dispatch(tr.scrollIntoView());
+            return true;
+          },
         };
       },
     }),
