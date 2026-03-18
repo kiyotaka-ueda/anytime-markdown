@@ -37,8 +37,8 @@ function createMockEditor(overrides?: Record<string, unknown>): Editor {
 }
 
 const mockResult = {
-  left: { changedBlocks: new Set([0]), cellDiffs: new Map() },
-  right: { changedBlocks: new Set([1]), cellDiffs: new Map() },
+  left: { changedBlocks: new Set([0]), cellDiffs: new Map(), placeholderPositions: [] },
+  right: { changedBlocks: new Set([1]), cellDiffs: new Map(), placeholderPositions: [] },
 };
 
 describe("useDiffHighlight", () => {
@@ -75,7 +75,7 @@ describe("useDiffHighlight", () => {
     const left = createMockEditor();
     const right = createMockEditor();
     renderHook(() => useDiffHighlight(false, left, right));
-    expect(mockedComputeBlockDiff).toHaveBeenCalledWith(left.state.doc, right.state.doc);
+    expect(mockedComputeBlockDiff).toHaveBeenCalledWith(left.state.doc, right.state.doc, { semantic: undefined });
     expect(mockFn(left, "commands.setDiffHighlight")).toHaveBeenCalledWith(mockResult.left, "left");
     expect(mockFn(right, "commands.setDiffHighlight")).toHaveBeenCalledWith(mockResult.right, "right");
   });

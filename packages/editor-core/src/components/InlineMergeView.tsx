@@ -287,7 +287,7 @@ export function InlineMergeView({
     };
   }, [rightEditor, leftEditor, sourceMode]);
 
-  useDiffHighlight(sourceMode, rightEditor, leftEditor);
+  useDiffHighlight(sourceMode, rightEditor, leftEditor, diffOptions.semantic);
 
   useScrollSync(leftContainerRef, rightScrollRef);
 
