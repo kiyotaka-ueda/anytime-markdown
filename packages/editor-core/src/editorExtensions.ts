@@ -133,6 +133,23 @@ export function getBaseExtensions(options?: { disableComments?: boolean; disable
           "Mod-Shift-8": () => true,
           "Mod-Shift-9": () => true,
           "Mod-k": () => true,
+          // 見出し内で Tab: レベルを下げる（H2→H3）、Shift+Tab: 上げる（H3→H2）
+          "Tab": ({ editor }) => {
+            const { $from } = editor.state.selection;
+            const node = $from.parent;
+            if (node.type.name !== "heading") return false;
+            const level = node.attrs.level as number;
+            if (level >= 5) return true; // H5 が最大
+            return editor.chain().focus().setHeading({ level: (level + 1) as 1|2|3|4|5 }).run();
+          },
+          "Shift-Tab": ({ editor }) => {
+            const { $from } = editor.state.selection;
+            const node = $from.parent;
+            if (node.type.name !== "heading") return false;
+            const level = node.attrs.level as number;
+            if (level <= 1) return true; // H1 が最小
+            return editor.chain().focus().setHeading({ level: (level - 1) as 1|2|3|4|5 }).run();
+          },
         };
       },
     }),
