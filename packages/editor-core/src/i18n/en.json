@@ -9,6 +9,7 @@
     "source": "Source",
     "wysiwyg": "Edit",
     "fileActions": "File",
+    "cut": "Cut",
     "copy": "Copy",
     "copied": "Copied",
     "upload": "Upload (.md)",

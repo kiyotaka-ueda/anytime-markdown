@@ -9,6 +9,7 @@
     "source": "ソース",
     "wysiwyg": "編集",
     "fileActions": "ファイル",
+    "cut": "切り取り",
     "copy": "コピー",
     "copied": "コピー済み",
     "upload": "アップロード (.md)",

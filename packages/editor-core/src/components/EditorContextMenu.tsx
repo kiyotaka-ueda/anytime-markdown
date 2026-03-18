@@ -1,7 +1,9 @@
 "use client";
 
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import ContentCutIcon from "@mui/icons-material/ContentCut";
 import ContentPasteIcon from "@mui/icons-material/ContentPaste";
-import { ListItemIcon, ListItemText, Menu, MenuItem } from "@mui/material";
+import { Divider, ListItemIcon, ListItemText, Menu, MenuItem, Typography } from "@mui/material";
 import type { Editor } from "@tiptap/react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -26,10 +28,28 @@ function insertMarkdownText(editor: Editor, text: string): void {
   editor.chain().focus().insertContent(md).run();
 }
 
+const menuPaperSx = {
+  minWidth: 180,
+  bgcolor: "background.paper",
+  border: 1,
+  borderColor: "divider",
+  borderRadius: 1,
+  boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+  py: 0.5,
+  "& .MuiMenuItem-root": {
+    fontSize: "0.8125rem",
+    minHeight: 28,
+    px: 2,
+    py: 0.25,
+  },
+  "& .MuiListItemIcon-root": {
+    minWidth: 28,
+  },
+};
+
 export function EditorContextMenu({ editor, t }: EditorContextMenuProps) {
   const [menuPos, setMenuPos] = useState<MenuPosition | null>(null);
 
-  // 右クリックメニュー表示
   useEffect(() => {
     if (!editor) return;
     const dom = editor.view.dom;
@@ -41,7 +61,7 @@ export function EditorContextMenu({ editor, t }: EditorContextMenuProps) {
     return () => dom.removeEventListener("contextmenu", handler);
   }, [editor]);
 
-  // VS Code 拡張からの Markdown 貼り付けイベント（Ctrl+Shift+V / コマンド経由）
+  // VS Code 拡張からの Markdown 貼り付けイベント
   useEffect(() => {
     if (!editor) return;
     const handler = (e: Event) => {
@@ -58,10 +78,34 @@ export function EditorContextMenu({ editor, t }: EditorContextMenuProps) {
     setMenuPos(null);
   }, []);
 
+  const hasSelection = editor ? editor.state.selection.from !== editor.state.selection.to : false;
+
+  const handleCut = useCallback(() => {
+    if (!editor || !editor.isEditable) return;
+    const { from, to } = editor.state.selection;
+    if (from === to) { handleClose(); return; }
+    const text = editor.state.doc.textBetween(from, to, "\n");
+    navigator.clipboard.writeText(text).catch(() => {
+      document.execCommand("copy");
+    });
+    editor.chain().focus().deleteSelection().run();
+    handleClose();
+  }, [editor, handleClose]);
+
+  const handleCopy = useCallback(() => {
+    if (!editor) return;
+    const { from, to } = editor.state.selection;
+    if (from === to) { handleClose(); return; }
+    const text = editor.state.doc.textBetween(from, to, "\n");
+    navigator.clipboard.writeText(text).catch(() => {
+      document.execCommand("copy");
+    });
+    handleClose();
+  }, [editor, handleClose]);
+
   const handlePasteAsMarkdown = useCallback(async () => {
     if (!editor || !editor.isEditable) { handleClose(); return; }
     try {
-      // Clipboard API を試行（Web アプリ用）
       const text = await navigator.clipboard.readText();
       if (text) {
         insertMarkdownText(editor, text);
@@ -89,29 +133,30 @@ export function EditorContextMenu({ editor, t }: EditorContextMenuProps) {
           ? { top: menuPos.mouseY, left: menuPos.mouseX }
           : undefined
       }
-      slotProps={{
-        paper: {
-          sx: {
-            minWidth: 160,
-            bgcolor: "background.paper",
-            border: 1,
-            borderColor: "divider",
-            borderRadius: 1,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
-            py: 0.5,
-            "& .MuiMenuItem-root": {
-              fontSize: "0.8125rem",
-              minHeight: 28,
-              px: 2,
-              py: 0.25,
-            },
-            "& .MuiListItemIcon-root": {
-              minWidth: 28,
-            },
-          },
-        },
-      }}
+      slotProps={{ paper: { sx: menuPaperSx } }}
     >
+      <MenuItem onClick={handleCut} disabled={!editor?.isEditable || !hasSelection}>
+        <ListItemIcon>
+          <ContentCutIcon sx={{ fontSize: 16 }} />
+        </ListItemIcon>
+        <ListItemText primaryTypographyProps={{ fontSize: "0.8125rem" }}>
+          {t("cut")}
+        </ListItemText>
+        <Typography variant="body2" sx={{ color: "text.secondary", fontSize: "0.75rem", ml: 2 }}>
+          Ctrl+X
+        </Typography>
+      </MenuItem>
+      <MenuItem onClick={handleCopy} disabled={!hasSelection}>
+        <ListItemIcon>
+          <ContentCopyIcon sx={{ fontSize: 16 }} />
+        </ListItemIcon>
+        <ListItemText primaryTypographyProps={{ fontSize: "0.8125rem" }}>
+          {t("copy")}
+        </ListItemText>
+        <Typography variant="body2" sx={{ color: "text.secondary", fontSize: "0.75rem", ml: 2 }}>
+          Ctrl+C
+        </Typography>
+      </MenuItem>
       <MenuItem onClick={handlePasteAsMarkdown} disabled={!editor?.isEditable}>
         <ListItemIcon>
           <ContentPasteIcon sx={{ fontSize: 16 }} />
@@ -119,6 +164,9 @@ export function EditorContextMenu({ editor, t }: EditorContextMenuProps) {
         <ListItemText primaryTypographyProps={{ fontSize: "0.8125rem" }}>
           {t("pasteAsMarkdown")}
         </ListItemText>
+        <Typography variant="body2" sx={{ color: "text.secondary", fontSize: "0.75rem", ml: 2 }}>
+          Ctrl+Shift+V
+        </Typography>
       </MenuItem>
     </Menu>
   );
