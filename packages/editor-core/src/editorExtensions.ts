@@ -4,6 +4,7 @@
  * メインエディタと比較エディタで共有する Extension リストを一元管理する。
  * エディタ固有の Extension（検索、削除行ショートカット等）は各エディタで追加する。
  */
+import { TextSelection } from "@tiptap/pm/state";
 import Highlight from "@tiptap/extension-highlight";
 import LinkExtension from "@tiptap/extension-link";
 import { TableKit } from "@tiptap/extension-table";
@@ -162,7 +163,7 @@ export function getBaseExtensions(options?: { disableComments?: boolean; disable
             // 現在のノードを削除して前のノードの前に挿入
             tr.delete(pos, pos + node.nodeSize);
             tr.insert(prevPos, node);
-            tr.setSelection(editor.state.selection.constructor.near(tr.doc.resolve(prevPos + 1)));
+            tr.setSelection(TextSelection.near(tr.doc.resolve(prevPos + 1)));
             editor.view.dispatch(tr.scrollIntoView());
             return true;
           },
@@ -181,7 +182,7 @@ export function getBaseExtensions(options?: { disableComments?: boolean; disable
             tr.delete(afterPos, nextEnd);
             tr.insert(pos, nextNode);
             const newPos = pos + nextNode.nodeSize + 1;
-            tr.setSelection(editor.state.selection.constructor.near(tr.doc.resolve(Math.min(newPos, tr.doc.content.size))));
+            tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(newPos, tr.doc.content.size))));
             editor.view.dispatch(tr.scrollIntoView());
             return true;
           },
@@ -193,7 +194,7 @@ export function getBaseExtensions(options?: { disableComments?: boolean; disable
             const { tr } = editor.state;
             tr.insert(pos, node.copy(node.content));
             // カーソルを複製した上のノードに配置
-            tr.setSelection(editor.state.selection.constructor.near(tr.doc.resolve(pos + 1)));
+            tr.setSelection(TextSelection.near(tr.doc.resolve(pos + 1)));
             editor.view.dispatch(tr.scrollIntoView());
             return true;
           },
@@ -205,7 +206,7 @@ export function getBaseExtensions(options?: { disableComments?: boolean; disable
             const { tr } = editor.state;
             tr.insert(afterPos, node.copy(node.content));
             // カーソルを複製した下のノードに配置
-            tr.setSelection(editor.state.selection.constructor.near(tr.doc.resolve(afterPos + 1)));
+            tr.setSelection(TextSelection.near(tr.doc.resolve(afterPos + 1)));
             editor.view.dispatch(tr.scrollIntoView());
             return true;
           },
