@@ -13,7 +13,7 @@ type RegularCodeBlockProps = Pick<
   | "isSelected"
   | "handleCopyCode" | "handleDeleteBlock" | "deleteDialogOpen" | "setDeleteDialogOpen"
   | "editOpen" | "setEditOpen" | "fsCode" | "onFsCodeChange" | "fsTextareaRef" | "fsSearch"
-  | "t" | "isDark" | "isCompareLeft" | "isCompareLeftEditable"
+  | "t" | "isDark" | "isEditable" | "isCompareLeft" | "isCompareLeftEditable"
 > & {
   handleFsTextChange: (newCode: string) => void;
 };
@@ -49,7 +49,7 @@ export function RegularCodeBlock(props: RegularCodeBlockProps) {
     <CodeBlockFrame
       toolbar={toolbar}
       isDark={isDark}
-      showBorder={shouldShowBorder({ isSelected, isCompareLeft: props.isCompareLeft, isCompareLeftEditable: props.isCompareLeftEditable, isEditable: editor.isEditable })}
+      showBorder={shouldShowBorder({ isSelected, isCompareLeft: props.isCompareLeft, isCompareLeftEditable: props.isCompareLeftEditable, isEditable: props.isEditable })}
       codeMaxHeight={400}
       deleteDialogOpen={deleteDialogOpen}
       setDeleteDialogOpen={setDeleteDialogOpen}
@@ -66,7 +66,7 @@ export function RegularCodeBlock(props: RegularCodeBlockProps) {
           onFsTextChange={handleFsTextChange}
           fsTextareaRef={fsTextareaRef}
           fsSearch={fsSearch}
-          readOnly={!editor.isEditable}
+          readOnly={!props.isEditable}
           isCompareMode={isCompareMode}
           compareCode={compareCode}
           onMergeApply={handleMergeApply}

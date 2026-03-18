@@ -113,7 +113,7 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
     selectNode, code,
     handleCopyCode, handleDeleteBlock, deleteDialogOpen, setDeleteDialogOpen,
     editOpen, setEditOpen, fsCode, onFsCodeChange: handleFsCodeChange, fsTextareaRef, fsSearch,
-    t, isDark, isCompareLeft, isCompareLeftEditable,
+    t, isDark, isEditable, isCompareLeft, isCompareLeftEditable,
   };
 
   if (isMath) return <MathBlock {...shared} handleFsTextChange={handleFsTextChange} />;

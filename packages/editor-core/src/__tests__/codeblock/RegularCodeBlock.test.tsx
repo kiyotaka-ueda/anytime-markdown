@@ -68,6 +68,7 @@ function setup(overrides?: { isSelected?: boolean; language?: string }) {
     handleFsTextChange: jest.fn(),
     t: (key: string) => key,
     isDark: false,
+    isEditable: true,
   };
   const result = render(<RegularCodeBlock {...props} />);
   return { ...result, ...props };

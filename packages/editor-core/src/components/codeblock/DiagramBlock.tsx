@@ -31,7 +31,7 @@ type DiagramBlockProps = Pick<
   | "selectNode" | "code"
   | "handleCopyCode" | "handleDeleteBlock" | "deleteDialogOpen" | "setDeleteDialogOpen"
   | "editOpen" | "setEditOpen" | "fsCode" | "onFsCodeChange" | "fsTextareaRef" | "fsSearch"
-  | "t" | "isDark" | "isCompareLeft" | "isCompareLeftEditable"
+  | "t" | "isDark" | "isEditable" | "isCompareLeft" | "isCompareLeftEditable"
 > & {
   /** Fullscreen code text sync */
   handleFsTextChange: (newCode: string) => void;
@@ -48,7 +48,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
     t, isDark,
   } = props;
 
-  const isEditable = editor?.isEditable ?? true;
+  const { isEditable } = props;
   const settings = useEditorSettingsContext();
   const language = node.attrs.language;
   const isMermaid = language === "mermaid";

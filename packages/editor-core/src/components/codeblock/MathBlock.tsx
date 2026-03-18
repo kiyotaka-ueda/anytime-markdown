@@ -25,7 +25,7 @@ type MathBlockProps = Pick<
   | "selectNode" | "code"
   | "handleCopyCode" | "handleDeleteBlock" | "deleteDialogOpen" | "setDeleteDialogOpen"
   | "editOpen" | "setEditOpen" | "fsCode" | "onFsCodeChange" | "fsTextareaRef" | "fsSearch"
-  | "t" | "isDark" | "isCompareLeft" | "isCompareLeftEditable"
+  | "t" | "isDark" | "isEditable" | "isCompareLeft" | "isCompareLeftEditable"
 > & {
   handleFsTextChange: (newCode: string) => void;
 };
@@ -62,10 +62,10 @@ export function MathBlock(props: MathBlockProps) {
 
   return (
     <CodeBlockFrame
-      toolbar={shouldShowToolbar({ isCompareLeft: props.isCompareLeft, isCompareLeftEditable: props.isCompareLeftEditable, isEditable: editor.isEditable }) ? toolbar : null}
+      toolbar={shouldShowToolbar({ isCompareLeft: props.isCompareLeft, isCompareLeftEditable: props.isCompareLeftEditable, isEditable: props.isEditable }) ? toolbar : null}
       codeCollapsed={codeCollapsed}
       isDark={isDark}
-      showBorder={shouldShowBorder({ isSelected, isCompareLeft: props.isCompareLeft, isCompareLeftEditable: props.isCompareLeftEditable, isEditable: editor.isEditable })}
+      showBorder={shouldShowBorder({ isSelected, isCompareLeft: props.isCompareLeft, isCompareLeftEditable: props.isCompareLeftEditable, isEditable: props.isEditable })}
       deleteDialogOpen={deleteDialogOpen}
       setDeleteDialogOpen={setDeleteDialogOpen}
       handleDeleteBlock={handleDeleteBlock}
@@ -80,7 +80,7 @@ export function MathBlock(props: MathBlockProps) {
           onFsTextChange={handleFsTextChange}
           fsTextareaRef={fsTextareaRef}
           fsSearch={fsSearch}
-          readOnly={!editor.isEditable}
+          readOnly={!props.isEditable}
           isCompareMode={isCompareMode}
           compareCode={compareCode}
           onMergeApply={handleMergeApply}
@@ -115,7 +115,7 @@ export function MathBlock(props: MathBlockProps) {
             dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(mathHtml, MATH_SANITIZE_CONFIG) }}
             sx={{ pointerEvents: "none" }}
           />
-          <ResizeGrip visible={isSelected && editor.isEditable} resizing={resizing} resizeWidth={resizeWidth} onPointerDown={handleResizePointerDown} />
+          <ResizeGrip visible={isSelected && props.isEditable} resizing={resizing} resizeWidth={resizeWidth} onPointerDown={handleResizePointerDown} />
         </Box>
       )}
     </CodeBlockFrame>
