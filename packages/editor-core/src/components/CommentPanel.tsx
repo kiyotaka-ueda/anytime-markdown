@@ -1,9 +1,11 @@
 "use client";
 import CloseIcon from "@mui/icons-material/Close";
+import ImageIcon from "@mui/icons-material/Image";
 import {
   Box,
   Button,
   ButtonBase,
+  Divider,
   IconButton,
   Paper,
   TextField,
@@ -14,12 +16,14 @@ import {
 } from "@mui/material";
 import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../constants/colors";
 import { COMMENT_PANEL_WIDTH, PANEL_HEADER_MIN_HEIGHT } from "../constants/dimensions";
 import { commentDataPluginKey } from "../extensions/commentExtension";
 import type { TranslationFn } from "../types";
+import type { ImageAnnotation } from "../types/imageAnnotation";
+import { parseAnnotations } from "../types/imageAnnotation";
 import type { InlineComment } from "../utils/commentHelpers";
 
 interface CommentPanelProps {
@@ -107,6 +111,29 @@ export const CommentPanel = React.memo(function CommentPanel({
     },
   });
 
+  // 画像アノテーションをドキュメントから収集
+  const imageAnnotations = useEditorState({
+    editor,
+    selector: (ctx) => {
+      const result: { pos: number; src: string; annotations: ImageAnnotation[] }[] = [];
+      ctx.editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === "image" && node.attrs.annotations) {
+          const parsed = parseAnnotations(node.attrs.annotations as string);
+          const withComments = parsed.filter(a => a.comment);
+          if (withComments.length > 0) {
+            result.push({ pos, src: node.attrs.src as string, annotations: withComments });
+          }
+        }
+      });
+      return result;
+    },
+  });
+
+  const totalImageAnnotations = useMemo(
+    () => imageAnnotations.reduce((sum, img) => sum + img.annotations.length, 0),
+    [imageAnnotations],
+  );
+
   if (!open) return null;
 
   const allComments = Array.from(comments.values());
@@ -161,7 +188,7 @@ export const CommentPanel = React.memo(function CommentPanel({
       >
         <Typography variant="subtitle2" aria-live="polite" aria-atomic="true" sx={{ flex: 1, fontWeight: 700 }}>
           {t("commentPanel") || "Comments"} ({unresolvedCount}/
-          {allComments.length})
+          {allComments.length + totalImageAnnotations})
         </Typography>
         <IconButton
           size="small"
@@ -337,6 +364,61 @@ export const CommentPanel = React.memo(function CommentPanel({
             </ButtonBase>
           );
         })}
+
+        {/* 画像アノテーションコメント */}
+        {imageAnnotations.length > 0 && (
+          <>
+            <Divider sx={{ my: 1 }} />
+            <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 0.5, color: "text.secondary", fontWeight: 700, mb: 0.5 }}>
+              <ImageIcon sx={{ fontSize: 14 }} />
+              {t("annotate")} ({totalImageAnnotations})
+            </Typography>
+            {imageAnnotations.map((img) => (
+              <Box key={img.pos}>
+                {img.annotations.map((a, i) => (
+                  <ButtonBase
+                    key={a.id}
+                    component="div"
+                    onClick={() => {
+                      // 画像の位置にスクロール
+                      editor.chain().setTextSelection(img.pos).focus().run();
+                      const domAtPos = editor.view.domAtPos(img.pos);
+                      const el = domAtPos.node instanceof HTMLElement ? domAtPos.node : domAtPos.node.parentElement;
+                      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }}
+                    sx={{
+                      display: "block",
+                      textAlign: "left",
+                      width: "100%",
+                      mb: 0.5,
+                      p: 0.75,
+                      border: 1,
+                      borderColor: "divider",
+                      borderRadius: 1,
+                      cursor: "pointer",
+                      "&:hover, &:focus-visible": { bgcolor: "action.hover" },
+                    }}
+                  >
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.25 }}>
+                      <Box sx={{
+                        width: 16, height: 16, borderRadius: "50%", bgcolor: a.color,
+                        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                      }}>
+                        <Typography variant="caption" sx={{ color: "white", fontSize: "0.55rem", fontWeight: 700 }}>{i + 1}</Typography>
+                      </Box>
+                      <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem" }}>
+                        {a.type === "rect" ? t("annotationRect") : a.type === "circle" ? t("annotationCircle") : t("annotationLine")}
+                      </Typography>
+                    </Box>
+                    <Typography variant="body2" sx={{ fontSize: "0.8rem" }}>
+                      {a.comment}
+                    </Typography>
+                  </ButtonBase>
+                ))}
+              </Box>
+            ))}
+          </>
+        )}
       </Box>
     </Paper>
   );
