@@ -17,6 +17,8 @@ interface BlockInlineToolbarProps {
   collapsed?: boolean;
   /** Extra content between edit button and spacer */
   extra?: React.ReactNode;
+  /** Show label only (no buttons) */
+  labelOnly?: boolean;
   /** Translation function */
   t: (key: string) => string;
 }
@@ -24,8 +26,22 @@ interface BlockInlineToolbarProps {
 const iconSx = { fontSize: 16, color: "text.secondary" };
 
 export function BlockInlineToolbar({
-  label, onEdit, onDelete, collapsed, extra, t,
+  label, onEdit, onDelete, collapsed, extra, labelOnly, t,
 }: BlockInlineToolbarProps) {
+  if (labelOnly) {
+    return (
+      <Box
+        data-block-toolbar=""
+        aria-label={label}
+        sx={{ bgcolor: "action.hover", px: 0.75, py: 0.25, display: "flex", alignItems: "center", gap: 0.25 }}
+        contentEditable={false}
+      >
+        <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary", flexShrink: 0 }}>
+          {label}
+        </Typography>
+      </Box>
+    );
+  }
   return (
     <Box
       data-block-toolbar=""

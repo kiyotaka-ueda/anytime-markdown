@@ -52,6 +52,7 @@ export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
       label={t("htmlPreview")}
       onEdit={props.isCompareLeft ? undefined : () => setEditOpen(true)}
       onDelete={props.isCompareLeft ? undefined : () => setDeleteDialogOpen(true)}
+      labelOnly={props.isCompareLeft}
       t={t}
     />
   );
@@ -61,7 +62,7 @@ export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
       toolbar={toolbar}
       codeCollapsed={codeCollapsed}
       isDark={isDark}
-      showBorder={isSelected && !props.isCompareLeft}
+      showBorder={props.isCompareLeft || isSelected}
       deleteDialogOpen={deleteDialogOpen}
       setDeleteDialogOpen={setDeleteDialogOpen}
       handleDeleteBlock={handleDeleteBlock}

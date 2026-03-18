@@ -53,6 +53,7 @@ export function MathBlock(props: MathBlockProps) {
       label="Math"
       onEdit={props.isCompareLeft ? undefined : () => setEditOpen(true)}
       onDelete={props.isCompareLeft ? undefined : () => setDeleteDialogOpen(true)}
+      labelOnly={props.isCompareLeft}
       t={t}
     />
   );
@@ -62,7 +63,7 @@ export function MathBlock(props: MathBlockProps) {
       toolbar={toolbar}
       codeCollapsed={codeCollapsed}
       isDark={isDark}
-      showBorder={isSelected && editor.isEditable && !props.isCompareLeft}
+      showBorder={props.isCompareLeft || (isSelected && editor.isEditable)}
       deleteDialogOpen={deleteDialogOpen}
       setDeleteDialogOpen={setDeleteDialogOpen}
       handleDeleteBlock={handleDeleteBlock}

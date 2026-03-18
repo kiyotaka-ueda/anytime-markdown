@@ -101,6 +101,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
       label={label}
       onEdit={props.isCompareLeft ? undefined : (svg || plantUmlUrl) ? () => { fsZP.reset(); setEditOpen(true); } : undefined}
       onDelete={isEditable && !props.isCompareLeft ? () => setDeleteDialogOpen(true) : undefined}
+      labelOnly={props.isCompareLeft}
       extra={diagramSize ? (<>
         <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
         <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.65rem", fontFamily: "monospace", whiteSpace: "nowrap", flexShrink: 0 }}>
@@ -129,11 +130,11 @@ export function DiagramBlock(props: DiagramBlockProps) {
 
   return (
     <CodeBlockFrame
-      toolbar={isEditable ? toolbar : null}
+      toolbar={isEditable || props.isCompareLeft ? toolbar : null}
       codeCollapsed={codeCollapsed}
       isDiagramLayout
       isDark={isDark}
-      showBorder={isEditable && !props.isCompareLeft && (isSelected || editOpen)}
+      showBorder={props.isCompareLeft || (isEditable && (isSelected || editOpen))}
       deleteDialogOpen={deleteDialogOpen}
       setDeleteDialogOpen={setDeleteDialogOpen}
       handleDeleteBlock={handleDeleteBlock}

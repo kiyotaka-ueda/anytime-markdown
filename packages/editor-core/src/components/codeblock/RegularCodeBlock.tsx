@@ -39,6 +39,7 @@ export function RegularCodeBlock(props: RegularCodeBlockProps) {
       label={codeLabel}
       onEdit={props.isCompareLeft ? undefined : () => setEditOpen(true)}
       onDelete={props.isCompareLeft ? undefined : () => setDeleteDialogOpen(true)}
+      labelOnly={props.isCompareLeft}
       t={t}
     />
   );
@@ -47,7 +48,7 @@ export function RegularCodeBlock(props: RegularCodeBlockProps) {
     <CodeBlockFrame
       toolbar={toolbar}
       isDark={isDark}
-      showBorder={isSelected && !props.isCompareLeft}
+      showBorder={props.isCompareLeft || isSelected}
       codeMaxHeight={400}
       deleteDialogOpen={deleteDialogOpen}
       setDeleteDialogOpen={setDeleteDialogOpen}
