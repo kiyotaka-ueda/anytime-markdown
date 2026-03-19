@@ -103,6 +103,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
       label={label}
       onEdit={props.isCompareLeft ? undefined : (svg || plantUmlUrl) ? () => { fsZP.reset(); setEditOpen(true); } : undefined}
       onDelete={isEditable && !props.isCompareLeft ? () => setDeleteDialogOpen(true) : undefined}
+      onCapture={(svg || plantUmlUrl) ? handleCapture : undefined}
       labelOnly={props.isCompareLeftEditable}
       extra={diagramSize ? (<>
         <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />

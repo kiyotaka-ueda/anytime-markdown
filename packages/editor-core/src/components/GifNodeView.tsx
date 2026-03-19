@@ -15,6 +15,7 @@ import { BlockInlineToolbar } from "./codeblock/BlockInlineToolbar";
 import { DeleteBlockDialog } from "./codeblock/DeleteBlockDialog";
 import { GifRecorderDialog } from "./GifRecorderDialog";
 import { GifPlayerDialog } from "./GifPlayerDialog";
+import { useBlockCapture } from "../hooks/useBlockCapture";
 import { useBlockNodeState } from "../hooks/useBlockNodeState";
 import type { GifSettings } from "../utils/gifEncoder";
 
@@ -27,6 +28,7 @@ export function GifNodeView({ editor, node, updateAttributes, getPos }: NodeView
     editOpen, setEditOpen,
     collapsed, isEditable, isSelected, handleDeleteBlock, showToolbar, isCompareLeft, isCompareLeftEditable,
   } = useBlockNodeState(editor, node, getPos);
+  const handleCapture = useBlockCapture(editor, getPos, "gif-block.png");
 
   const { src, alt, width } = node.attrs;
   const [recorderOpen, setRecorderOpen] = useState(false);
@@ -138,6 +140,7 @@ export function GifNodeView({ editor, node, updateAttributes, getPos }: NodeView
             label="GIF"
             onEdit={!collapsed && !isCompareLeft ? handleEditClick : undefined}
             onDelete={!collapsed && !isCompareLeft ? () => setDeleteDialogOpen(true) : undefined}
+            onCapture={handleCapture}
             labelOnly={isCompareLeftEditable}
             collapsed={collapsed}
             extra={

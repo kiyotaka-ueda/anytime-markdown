@@ -11,6 +11,7 @@ import { HtmlPreviewBlock } from "./components/codeblock/HtmlPreviewBlock";
 import { MathBlock } from "./components/codeblock/MathBlock";
 import { RegularCodeBlock } from "./components/codeblock/RegularCodeBlock";
 import { getMergeEditors } from "./contexts/MergeEditorsContext";
+import { useBlockCapture } from "./hooks/useBlockCapture";
 import { useDeleteBlock } from "./hooks/useDeleteBlock";
 import { useNodeSelected } from "./hooks/useNodeSelected";
 import { useTextareaSearch } from "./hooks/useTextareaSearch";
@@ -106,6 +107,8 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
   const isCompareLeft = !!mergeEditors && editor === mergeEditors.leftEditor;
   const isCompareLeftEditable = isCompareLeft && !mergeEditors?.isReviewMode;
 
+  const handleCapture = useBlockCapture(editor, getPos, `${language || "code"}.png`);
+
   // Shared props for all block sub-components
   const shared = {
     editor, node, updateAttributes, getPos,
@@ -114,6 +117,7 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: No
     handleCopyCode, handleDeleteBlock, deleteDialogOpen, setDeleteDialogOpen,
     editOpen, setEditOpen, fsCode, onFsCodeChange: handleFsCodeChange, fsTextareaRef, fsSearch,
     t, isDark, isEditable, isCompareLeft, isCompareLeftEditable,
+    onCapture: handleCapture,
   };
 
   if (isMath) return <MathBlock {...shared} handleFsTextChange={handleFsTextChange} />;

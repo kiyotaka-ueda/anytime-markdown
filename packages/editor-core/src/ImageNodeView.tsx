@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import { BlockInlineToolbar } from "./components/codeblock/BlockInlineToolbar";
 import { DeleteBlockDialog } from "./components/codeblock/DeleteBlockDialog";
+import { useBlockCapture } from "./hooks/useBlockCapture";
 import { AnnotationOverlay } from "./components/AnnotationOverlay";
 import { ImageAnnotationDialog } from "./components/ImageAnnotationDialog";
 import { ImageCropTool } from "./components/ImageCropTool";
@@ -34,6 +35,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
     deleteDialogOpen, setDeleteDialogOpen, editOpen, setEditOpen,
     collapsed, isEditable, isSelected, handleDeleteBlock, showToolbar, isCompareLeft, isCompareLeftEditable,
   } = useBlockNodeState(editor, node, getPos);
+  const handleCapture = useBlockCapture(editor, getPos, "image.png");
   const { src, alt, title, width, annotations: annotationsJson } = node.attrs;
   const [annotationOpen, setAnnotationOpen] = useState(false);
   const annotations = parseAnnotations(annotationsJson as string | null);
@@ -166,6 +168,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
             label={t("image")}
             onEdit={!collapsed && !isCompareLeft ? () => setEditOpen(true) : undefined}
             onDelete={!collapsed && !isCompareLeft ? () => setDeleteDialogOpen(true) : undefined}
+            onCapture={handleCapture}
             labelOnly={isCompareLeftEditable}
             collapsed={collapsed}
             extra={<>
