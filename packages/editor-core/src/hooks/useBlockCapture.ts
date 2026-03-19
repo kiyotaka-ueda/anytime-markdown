@@ -120,13 +120,16 @@ async function captureImgElement(imgEl: HTMLImageElement, w: number, h: number, 
  * SVG（foreignObject でレンダリング忠実再現）と PNG（テキスト描画）の両方を選択可能。
  */
 async function captureHtmlPreview(el: HTMLElement, w: number, h: number, scale: number, fileName: string) {
-  const clone = el.cloneNode(true) as HTMLElement;
-  const serialized = new XMLSerializer().serializeToString(clone);
+  // el は div[role="document"] コンテナ。CSS クラスのスタイルは SVG に含まれないため、
+  // 内側の HTML コンテンツ（ユーザーが書いたインラインスタイル付き HTML）を直接使う
+  const innerHTML = el.innerHTML;
+  const bgColor = findBackgroundColor(el);
 
   const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">
+  <rect width="100%" height="100%" fill="${bgColor}"/>
   <foreignObject width="100%" height="100%">
     <div xmlns="http://www.w3.org/1999/xhtml" style="width:${w}px;height:${h}px;overflow:hidden;padding:0;margin:0">
-      ${serialized}
+      ${innerHTML}
     </div>
   </foreignObject>
 </svg>`;
