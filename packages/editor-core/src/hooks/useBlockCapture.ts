@@ -116,43 +116,26 @@ async function captureImgElement(imgEl: HTMLImageElement, w: number, h: number, 
 }
 
 /**
- * HTML プレビュー要素を foreignObject 経由で PNG としてキャプチャ。
- * プレビューにはインラインスタイルが含まれているため、外部CSS不要で動作する。
+ * HTML プレビュー要素を SVG としてキャプチャ。
+ * foreignObject + Canvas は tainted canvas になるため PNG 化できない。
+ * SVG ファイルとして直接保存する（ブラウザで画像として表示可能）。
  */
-async function captureHtmlPreview(el: HTMLElement, w: number, h: number, scale: number, fileName: string) {
-  // DOM を XMLSerializer で valid XML に変換
+async function captureHtmlPreview(el: HTMLElement, w: number, h: number, _scale: number, fileName: string) {
   const clone = el.cloneNode(true) as HTMLElement;
   const serialized = new XMLSerializer().serializeToString(clone);
-
-  // 背景色を要素から取得
   const bgColor = findBackgroundColor(el);
 
-  const svgNs = "http://www.w3.org/2000/svg";
-  const svgStr = `<svg xmlns="${svgNs}" width="${w}" height="${h}">
-    <foreignObject width="100%" height="100%">
-      <div xmlns="http://www.w3.org/1999/xhtml" style="width:${w}px;height:${h}px;background:${bgColor};overflow:hidden;font-family:sans-serif;font-size:14px;padding:0;margin:0">
-        ${serialized}
-      </div>
-    </foreignObject>
-  </svg>`;
+  const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">
+  <foreignObject width="100%" height="100%">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="width:${w}px;height:${h}px;background:${bgColor};overflow:hidden;font-family:sans-serif;font-size:14px;padding:0;margin:0">
+      ${serialized}
+    </div>
+  </foreignObject>
+</svg>`;
 
   const svgBlob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(svgBlob);
-
-  try {
-    const img = await loadImage(url);
-    const canvas = createScaledCanvas(w, h, scale);
-    const ctx = canvas.getContext("2d")!;
-    ctx.scale(scale, scale);
-    ctx.drawImage(img, 0, 0, w, h);
-    URL.revokeObjectURL(url);
-    await downloadCanvas(canvas, fileName);
-  } catch (err) {
-    console.warn("HTML preview foreignObject capture failed:", err);
-    URL.revokeObjectURL(url);
-    // foreignObject 失敗時: テキスト描画方式にフォールバック
-    await captureHtmlElement(el, w, h, scale, fileName);
-  }
+  const svgFileName = fileName.replace(/\.png$/, ".svg");
+  await saveBlob(svgBlob, svgFileName);
 }
 
 /**
@@ -257,9 +240,13 @@ async function downloadCanvas(canvas: HTMLCanvasElement, fileName: string) {
 async function saveBlob(blob: Blob, suggestedName: string) {
   if ("showSaveFilePicker" in window) {
     try {
+      const isSvg = suggestedName.endsWith(".svg");
       const handle = await (window as unknown as { showSaveFilePicker: (opts: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker({
         suggestedName,
-        types: [{
+        types: [isSvg ? {
+          description: "SVG Image",
+          accept: { "image/svg+xml": [".svg"] },
+        } : {
           description: "PNG Image",
           accept: { "image/png": [".png"] },
         }],
