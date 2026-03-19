@@ -15,6 +15,7 @@ import { BlockInlineToolbar } from "./components/codeblock/BlockInlineToolbar";
 import { DeleteBlockDialog } from "./components/codeblock/DeleteBlockDialog";
 import { AnnotationOverlay } from "./components/AnnotationOverlay";
 import { ImageAnnotationDialog } from "./components/ImageAnnotationDialog";
+import { ImageCropTool } from "./components/ImageCropTool";
 import { EditDialogHeader } from "./components/EditDialogHeader";
 import { EditDialogWrapper } from "./components/EditDialogWrapper";
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "./constants/colors";
@@ -120,13 +121,14 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
             </Tooltip>
           </Box>
         )}
-        <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", overflow: "auto", p: 2, bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG }}>
+        <Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG }}>
           {src && !imgError && (
-            <img
+            <ImageCropTool
               src={src}
-              alt={alt || t("imageNoAlt")}
-              title={title || undefined}
-              style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" }}
+              onCrop={(croppedDataUrl) => {
+                updateAttributes({ src: croppedDataUrl });
+              }}
+              t={t}
             />
           )}
         </Box>
