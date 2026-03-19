@@ -30,7 +30,7 @@ export function getTrailingNewline(editor: Editor): boolean {
 export function applyMarkdownToEditor(editor: Editor, text: string): ApplyResult {
   // 元テキストの末尾改行を記録（getMarkdownFromEditor で復元するため）
   setTrailingNewline(editor, text.endsWith("\n"));
-  const { frontmatter, comments, body, imageAnnotations } = preprocessMarkdown(text);
+  const { frontmatter, comments, body, imageAnnotations, gifSettings } = preprocessMarkdown(text);
   editor.commands.setContent(body);
   if (typeof editor.commands.initComments === "function") {
     editor.commands.initComments(comments);
@@ -49,6 +49,20 @@ export function applyMarkdownToEditor(editor: Editor, text: string): ApplyResult
           editor.view.dispatch(tr);
         }
         imgIndex++;
+      }
+    });
+  }
+  // GIF 設定を復元
+  if (gifSettings && gifSettings.size > 0) {
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === "gifBlock") {
+        const src = (node.attrs.src as string) ?? "";
+        const data = gifSettings.get(src);
+        if (data) {
+          const { tr } = editor.state;
+          tr.setNodeMarkup(pos, undefined, { ...node.attrs, gifSettings: data });
+          editor.view.dispatch(tr);
+        }
       }
     });
   }

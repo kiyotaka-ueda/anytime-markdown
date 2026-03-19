@@ -101,8 +101,9 @@ export function extractGifSettings(md: string): {
   body: string;
 } {
   const result = new Map<string, string>();
-  // <!-- gif-settings: {...} --> を検出し、直前の ![...](....gif) の src をキーにする
-  const pattern = /!\[([^\]]*)\]\(([^)]+\.gif)\)\s*\n<!-- gif-settings:\s*(\{.*?\})\s*-->/g;
+  // <!-- gif-settings: {...} --> を検出し、直前の ![...](src) の src をキーにする
+  // src は .gif 拡張子または blob: URL のいずれにもマッチ
+  const pattern = /!\[([^\]]*)\]\(([^)]+)\)\s*\n<!-- gif-settings:\s*(\{.*?\})\s*-->/g;
   const body = md.replace(pattern, (match, alt: string, src: string, json: string) => {
     try {
       // JSON として妥当か検証
