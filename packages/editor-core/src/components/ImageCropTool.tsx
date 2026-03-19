@@ -3,7 +3,9 @@
 import CropIcon from "@mui/icons-material/Crop";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
+import GridOnIcon from "@mui/icons-material/GridOn";
 import PhotoSizeSelectLargeIcon from "@mui/icons-material/PhotoSizeSelectLarge";
+import StraightenIcon from "@mui/icons-material/Straighten";
 import { Box, Button, Chip, IconButton, Tooltip, Typography } from "@mui/material";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
@@ -27,6 +29,8 @@ export function ImageCropTool({ src, onCrop, t }: ImageCropToolProps) {
   const [cropRect, setCropRect] = useState<CropRect | null>(null);
   const [drawing, setDrawing] = useState(false);
   const [startPos, setStartPos] = useState<{ x: number; y: number } | null>(null);
+  const [showRuler, setShowRuler] = useState(false);
+  const [showGrid, setShowGrid] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -146,11 +150,35 @@ export function ImageCropTool({ src, onCrop, t }: ImageCropToolProps) {
                 sx={{ height: 22, fontSize: "0.7rem", cursor: "pointer" }}
               />
             ))}
-            {imgNatural && (
-              <Typography variant="caption" sx={{ ml: "auto", color: "text.disabled", fontSize: "0.65rem", fontFamily: "monospace" }}>
-                {imgNatural.w} × {imgNatural.h}
-              </Typography>
-            )}
+            <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 0.5 }}>
+              <Tooltip title={t("imageRuler")}>
+                <IconButton
+                  size="small"
+                  onClick={() => setShowRuler(v => !v)}
+                  color={showRuler ? "primary" : "default"}
+                  aria-label={t("imageRuler")}
+                  aria-pressed={showRuler}
+                >
+                  <StraightenIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={t("imageGrid")}>
+                <IconButton
+                  size="small"
+                  onClick={() => setShowGrid(v => !v)}
+                  color={showGrid ? "primary" : "default"}
+                  aria-label={t("imageGrid")}
+                  aria-pressed={showGrid}
+                >
+                  <GridOnIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Tooltip>
+              {imgNatural && (
+                <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.65rem", fontFamily: "monospace", ml: 0.5 }}>
+                  {imgNatural.w} × {imgNatural.h}
+                </Typography>
+              )}
+            </Box>
           </>
         ) : (
           <>
@@ -209,6 +237,45 @@ export function ImageCropTool({ src, onCrop, t }: ImageCropToolProps) {
               userSelect: "none",
             }}
           />
+          {/* Ruler + Grid overlay */}
+          {(showRuler || showGrid) && imgNatural && (
+            <svg
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", overflow: "visible" }}
+              viewBox={`-20 -20 ${imgNatural.w + 20} ${imgNatural.h + 20}`}
+              preserveAspectRatio="none"
+            >
+              {/* Grid lines */}
+              {showGrid && (() => {
+                const step = Math.max(50, Math.round(Math.max(imgNatural.w, imgNatural.h) / 10 / 50) * 50);
+                const lines: React.ReactNode[] = [];
+                for (let x = step; x < imgNatural.w; x += step) {
+                  lines.push(<line key={`gv${x}`} x1={x} y1={0} x2={x} y2={imgNatural.h} stroke="rgba(255,255,255,0.2)" strokeWidth={1} />);
+                }
+                for (let y = step; y < imgNatural.h; y += step) {
+                  lines.push(<line key={`gh${y}`} x1={0} y1={y} x2={imgNatural.w} y2={y} stroke="rgba(255,255,255,0.2)" strokeWidth={1} />);
+                }
+                return lines;
+              })()}
+              {/* Ruler - top */}
+              {showRuler && (() => {
+                const step = Math.max(50, Math.round(Math.max(imgNatural.w, imgNatural.h) / 10 / 50) * 50);
+                const ticks: React.ReactNode[] = [];
+                // Top ruler background
+                ticks.push(<rect key="rtbg" x={0} y={-20} width={imgNatural.w} height={20} fill="rgba(0,0,0,0.6)" />);
+                for (let x = 0; x <= imgNatural.w; x += step) {
+                  ticks.push(<line key={`rt${x}`} x1={x} y1={-20} x2={x} y2={0} stroke="rgba(255,255,255,0.6)" strokeWidth={1} />);
+                  ticks.push(<text key={`rtl${x}`} x={x + 3} y={-6} fontSize={10} fill="rgba(255,255,255,0.7)">{x}</text>);
+                }
+                // Left ruler background
+                ticks.push(<rect key="rlbg" x={-20} y={0} width={20} height={imgNatural.h} fill="rgba(0,0,0,0.6)" />);
+                for (let y = 0; y <= imgNatural.h; y += step) {
+                  ticks.push(<line key={`rl${y}`} x1={-20} y1={y} x2={0} y2={y} stroke="rgba(255,255,255,0.6)" strokeWidth={1} />);
+                  ticks.push(<text key={`rll${y}`} x={-18} y={y + 12} fontSize={10} fill="rgba(255,255,255,0.7)">{y}</text>);
+                }
+                return ticks;
+              })()}
+            </svg>
+          )}
           {/* Crop overlay */}
           {cropping && cropRect && (
             <svg
