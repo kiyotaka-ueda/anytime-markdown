@@ -2,6 +2,8 @@
 
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { Box, IconButton, Tooltip } from "@mui/material";
+
+import { shouldShowBorder } from "./compareHelpers";
 import DOMPurify from "dompurify";
 import { useRef } from "react";
 
@@ -24,7 +26,7 @@ type HtmlPreviewBlockProps = Pick<
   | "selectNode" | "code"
   | "handleCopyCode" | "handleDeleteBlock" | "deleteDialogOpen" | "setDeleteDialogOpen"
   | "editOpen" | "setEditOpen" | "fsCode" | "onFsCodeChange" | "fsTextareaRef" | "fsSearch"
-  | "t" | "isDark" | "isCompareLeft"
+  | "t" | "isDark" | "isEditable" | "isCompareLeft" | "isCompareLeftEditable"
 > & {
   handleFsTextChange: (newCode: string) => void;
 };
@@ -51,7 +53,8 @@ export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
     <BlockInlineToolbar
       label={t("htmlPreview")}
       onEdit={props.isCompareLeft ? undefined : () => setEditOpen(true)}
-      onDelete={() => setDeleteDialogOpen(true)}
+      onDelete={props.isCompareLeft ? undefined : () => setDeleteDialogOpen(true)}
+      labelOnly={props.isCompareLeftEditable}
       t={t}
     />
   );
@@ -61,7 +64,7 @@ export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
       toolbar={toolbar}
       codeCollapsed={codeCollapsed}
       isDark={isDark}
-      showBorder={isSelected}
+      showBorder={shouldShowBorder({ isSelected, isCompareLeft: props.isCompareLeft, isCompareLeftEditable: props.isCompareLeftEditable, isEditable: props.isEditable })}
       deleteDialogOpen={deleteDialogOpen}
       setDeleteDialogOpen={setDeleteDialogOpen}
       handleDeleteBlock={handleDeleteBlock}
@@ -77,7 +80,7 @@ export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
           onFsTextChange={handleFsTextChange}
           fsTextareaRef={fsTextareaRef}
           fsSearch={fsSearch}
-          readOnly={!editor.isEditable}
+          readOnly={!props.isEditable}
           isCompareMode={isCompareMode}
           compareCode={compareCode}
           onMergeApply={handleMergeApply}
@@ -115,7 +118,7 @@ export function HtmlPreviewBlock(props: HtmlPreviewBlockProps) {
             dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(code, HTML_SANITIZE_CONFIG) }}
             sx={{ pointerEvents: "none" }}
           />
-          <ResizeGrip visible={isSelected && editor.isEditable} resizing={resizing} resizeWidth={resizeWidth} onPointerDown={handleResizePointerDown} />
+          <ResizeGrip visible={isSelected && props.isEditable} resizing={resizing} resizeWidth={resizeWidth} onPointerDown={handleResizePointerDown} />
         </Box>
     </CodeBlockFrame>
   );

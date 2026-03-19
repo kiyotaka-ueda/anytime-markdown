@@ -5,9 +5,13 @@ import { TimelineProvider, TimelineItem } from './providers/TimelineProvider';
 import { GraphProvider } from './providers/GraphProvider';
 import { ChangesProvider, ChangesFileItem } from './providers/ChangesProvider';
 import { SpecDocsProvider, SpecDocsItem, SpecDocsRootItem, SpecDocsDragAndDrop } from './providers/SpecDocsProvider';
+import { LinkValidationProvider } from './providers/LinkValidationProvider';
 
 export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(MarkdownEditorProvider.register(context));
+
+	// リンク検証（壊れたリンクの波線警告）
+	context.subscriptions.push(new LinkValidationProvider());
 
 	// Git 変更パネル
 	const changesProvider = new ChangesProvider();
@@ -323,6 +327,28 @@ export function activate(context: vscode.ExtensionContext) {
 	const specDocsRemoveRoot = vscode.commands.registerCommand(
 		'anytime-markdown.specDocsRemoveRoot', (item: SpecDocsRootItem) => specDocsProvider.removeRoot(item.rootPath)
 	);
+	const specDocsCopyPath = vscode.commands.registerCommand(
+		'anytime-markdown.specDocsCopyPath', (item: SpecDocsItem) => {
+			if (item?.resourceUri) {
+				vscode.env.clipboard.writeText(item.resourceUri.fsPath);
+			}
+		}
+	);
+	const specDocsImportFiles = vscode.commands.registerCommand(
+		'anytime-markdown.specDocsImportFiles', (item?: SpecDocsRootItem | SpecDocsItem) => specDocsProvider.importFiles(item)
+	);
+
+	// Markdown で貼り付け
+	const pasteAsMarkdown = vscode.commands.registerCommand(
+		'anytime-markdown.pasteAsMarkdown', async () => {
+			const p = MarkdownEditorProvider.getInstance();
+			if (!p) return;
+			const text = await vscode.env.clipboard.readText();
+			if (text) {
+				p.postMessageToActivePanel({ type: 'pasteMarkdown', text });
+			}
+		}
+	);
 
 	// Git 変更コマンド
 	const changesRefresh = vscode.commands.registerCommand(
@@ -433,7 +459,7 @@ export function activate(context: vscode.ExtensionContext) {
 		insertSectionNumbers, removeSectionNumbers,
 		changesRefresh, stageFile, unstageFile, discardChanges, commitChanges, pushChanges, syncChanges, changesOpenFile, openChangeDiff,
 		specDocsOpenFile, specDocsOpenFolder, specDocsCloneRepo, specDocsClose, specDocsRefresh, switchBranch, toggleMdOnly,
-		specDocsCreateFile, specDocsCreateFolder, specDocsDelete, specDocsRename, specDocsRemoveRoot,
+		specDocsCreateFile, specDocsCreateFolder, specDocsDelete, specDocsRename, specDocsRemoveRoot, specDocsCopyPath, specDocsImportFiles, pasteAsMarkdown,
 		graphTreeView, graphRefresh,
 	);
 }

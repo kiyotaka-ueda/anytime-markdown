@@ -2,6 +2,8 @@
 
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { Alert, Box, IconButton, Tooltip } from "@mui/material";
+
+import { shouldShowBorder, shouldShowToolbar } from "./compareHelpers";
 import DOMPurify from "dompurify";
 import { useRef } from "react";
 
@@ -23,7 +25,7 @@ type MathBlockProps = Pick<
   | "selectNode" | "code"
   | "handleCopyCode" | "handleDeleteBlock" | "deleteDialogOpen" | "setDeleteDialogOpen"
   | "editOpen" | "setEditOpen" | "fsCode" | "onFsCodeChange" | "fsTextareaRef" | "fsSearch"
-  | "t" | "isDark" | "isCompareLeft"
+  | "t" | "isDark" | "isEditable" | "isCompareLeft" | "isCompareLeftEditable"
 > & {
   handleFsTextChange: (newCode: string) => void;
 };
@@ -52,17 +54,18 @@ export function MathBlock(props: MathBlockProps) {
     <BlockInlineToolbar
       label="Math"
       onEdit={props.isCompareLeft ? undefined : () => setEditOpen(true)}
-      onDelete={() => setDeleteDialogOpen(true)}
+      onDelete={props.isCompareLeft ? undefined : () => setDeleteDialogOpen(true)}
+      labelOnly={props.isCompareLeftEditable}
       t={t}
     />
   );
 
   return (
     <CodeBlockFrame
-      toolbar={toolbar}
+      toolbar={shouldShowToolbar({ isCompareLeft: props.isCompareLeft, isCompareLeftEditable: props.isCompareLeftEditable, isEditable: props.isEditable }) ? toolbar : null}
       codeCollapsed={codeCollapsed}
       isDark={isDark}
-      showBorder={isSelected && editor.isEditable}
+      showBorder={shouldShowBorder({ isSelected, isCompareLeft: props.isCompareLeft, isCompareLeftEditable: props.isCompareLeftEditable, isEditable: props.isEditable })}
       deleteDialogOpen={deleteDialogOpen}
       setDeleteDialogOpen={setDeleteDialogOpen}
       handleDeleteBlock={handleDeleteBlock}
@@ -77,7 +80,7 @@ export function MathBlock(props: MathBlockProps) {
           onFsTextChange={handleFsTextChange}
           fsTextareaRef={fsTextareaRef}
           fsSearch={fsSearch}
-          readOnly={!editor.isEditable}
+          readOnly={!props.isEditable}
           isCompareMode={isCompareMode}
           compareCode={compareCode}
           onMergeApply={handleMergeApply}
@@ -112,7 +115,7 @@ export function MathBlock(props: MathBlockProps) {
             dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(mathHtml, MATH_SANITIZE_CONFIG) }}
             sx={{ pointerEvents: "none" }}
           />
-          <ResizeGrip visible={isSelected && editor.isEditable} resizing={resizing} resizeWidth={resizeWidth} onPointerDown={handleResizePointerDown} />
+          <ResizeGrip visible={isSelected && props.isEditable} resizing={resizing} resizeWidth={resizeWidth} onPointerDown={handleResizePointerDown} />
         </Box>
       )}
     </CodeBlockFrame>

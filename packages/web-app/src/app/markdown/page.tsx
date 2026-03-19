@@ -32,14 +32,7 @@ const ExplorerPanel = dynamic(
   { ssr: false },
 );
 
-async function fetchFileContent(repo: string, filePath: string, branch: string): Promise<string> {
-  const res = await fetch(
-    `/api/github/content?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(filePath)}&ref=${encodeURIComponent(branch)}`,
-  );
-  if (!res.ok) return '';
-  const data = await res.json();
-  return data.content ?? '';
-}
+import { fetchFileContent } from '../../lib/githubApi';
 
 export default function Page() {
   const t = useTranslations('Common');
@@ -138,14 +131,12 @@ export default function Page() {
     const isSameFile = prev && prev.repo === repo && prev.filePath === filePath && prev.branch === branch;
     selectedFileRef.current = { repo, filePath, branch };
     selectedCommitContentRef.current = null;
-    if (!isSameFile) {
-      // 別ファイル: 即座に dirty をリセット
-      setIsDirty(false);
-      const content = await fetchFileContent(repo, filePath, branch);
-      originalContentRef.current = content;
-      localStorage.setItem(STORAGE_KEY_CONTENT, content);
-    }
-    // 同じファイル: localStorage の編集中データをそのまま使用
+    if (isSameFile) return;
+    // 別ファイル: 即座に dirty をリセット
+    setIsDirty(false);
+    const content = await fetchFileContent(repo, filePath, branch);
+    originalContentRef.current = content;
+    localStorage.setItem(STORAGE_KEY_CONTENT, content);
     setExternalContent(undefined);
     setExternalFileName(filePath.split("/").pop() ?? filePath);
     setExternalFilePath(filePath);
@@ -195,12 +186,8 @@ export default function Page() {
   }, []);
 
   const handleExplorerSelectCommit = useCallback(async (repo: string, filePath: string, sha: string) => {
-    const res = await fetch(
-      `/api/github/content?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(filePath)}&ref=${encodeURIComponent(sha)}`,
-    );
-    if (!res.ok) return;
-    const data = await res.json();
-    const content = data.content ?? '';
+    const content = await fetchFileContent(repo, filePath, sha);
+    if (!content && content !== '') return;
     if (compareModeOpen) {
       // 比較モード: 右パネルのみ更新（リマウントせずモードを維持）
       setExternalCompareContent(content);

@@ -110,7 +110,7 @@ export { Z_FULLSCREEN, Z_LINK_TOOLTIP, Z_SKIP_LINK,Z_TOOLBAR } from './constants
 
 // Utils
 export type { DiffBlock, DiffLine, DiffOptions, DiffResult, InlineSegment } from './utils/diffEngine';
-export { applyMerge,computeDiff, computeInlineDiff } from './utils/diffEngine';
+export { applyMerge,computeDiff, computeInlineDiff, computeSemanticDiff } from './utils/diffEngine';
 export { buildPlantUmlUrl,PLANTUML_CONSENT_KEY, PLANTUML_DARK_SKINPARAMS, PLANTUML_SERVER } from './utils/plantumlHelpers';
 export { preserveBlankLines, restoreBlankLines, sanitizeMarkdown, splitByCodeBlocks } from './utils/sanitizeMarkdown';
 export { getSectionRange, moveHeadingSection } from './utils/sectionHelpers';

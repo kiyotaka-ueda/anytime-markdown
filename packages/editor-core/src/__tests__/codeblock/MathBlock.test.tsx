@@ -58,6 +58,7 @@ function createMockEditor(): NodeViewProps["editor"] {
     commands: { setTextSelection: jest.fn() },
     state: { selection: { from: 0 } },
     schema: { text: jest.fn((t: string) => t) },
+    isEditable: true,
   } as unknown as NodeViewProps["editor"];
 }
 
@@ -96,6 +97,7 @@ function setup(overrides?: { codeCollapsed?: boolean }) {
     handleFsTextChange: jest.fn(),
     t: (key: string) => key,
     isDark: false,
+    isEditable: true,
   };
   const result = render(<MathBlock {...props} />);
   return { ...result, ...props };
@@ -137,7 +139,7 @@ describe("MathBlock", () => {
         fsSearch={{ reset: jest.fn(), query: "", setQuery: jest.fn(), matches: [], currentIdx: 0, next: jest.fn(), prev: jest.fn(), replace: jest.fn(), replaceAll: jest.fn() } as never}
         handleFsTextChange={jest.fn()}
         t={(key: string) => key}
-        isDark={false}
+        isDark={false} isEditable={true}
       />
     );
     expect(screen.getByText("Parse error")).toBeTruthy();

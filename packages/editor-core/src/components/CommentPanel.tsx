@@ -1,8 +1,11 @@
 "use client";
 import CloseIcon from "@mui/icons-material/Close";
+import ImageIcon from "@mui/icons-material/Image";
 import {
   Box,
   Button,
+  ButtonBase,
+  Divider,
   IconButton,
   Paper,
   TextField,
@@ -13,12 +16,14 @@ import {
 } from "@mui/material";
 import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../constants/colors";
 import { COMMENT_PANEL_WIDTH, PANEL_HEADER_MIN_HEIGHT } from "../constants/dimensions";
 import { commentDataPluginKey } from "../extensions/commentExtension";
 import type { TranslationFn } from "../types";
+import type { ImageAnnotation } from "../types/imageAnnotation";
+import { parseAnnotations, serializeAnnotations } from "../types/imageAnnotation";
 import type { InlineComment } from "../utils/commentHelpers";
 
 interface CommentPanelProps {
@@ -106,6 +111,58 @@ export const CommentPanel = React.memo(function CommentPanel({
     },
   });
 
+  // 画像アノテーションをドキュメントから収集（全アノテーション）
+  const imageAnnotations = useEditorState({
+    editor,
+    selector: (ctx) => {
+      const result: { pos: number; src: string; allAnnotations: ImageAnnotation[]; annotations: ImageAnnotation[] }[] = [];
+      ctx.editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === "image" && node.attrs.annotations) {
+          const allAnnotations = parseAnnotations(node.attrs.annotations as string);
+          const withComments = allAnnotations.filter(a => a.comment);
+          if (withComments.length > 0) {
+            result.push({ pos, src: node.attrs.src as string, allAnnotations, annotations: withComments });
+          }
+        }
+      });
+      return result;
+    },
+  });
+
+  const totalImageAnnotations = useMemo(
+    () => imageAnnotations.reduce((sum, img) => sum + img.annotations.length, 0),
+    [imageAnnotations],
+  );
+
+  const unresolvedImageAnnotations = useMemo(
+    () => imageAnnotations.reduce((sum, img) => sum + img.annotations.filter(a => !a.resolved).length, 0),
+    [imageAnnotations],
+  );
+
+  /** 画像アノテーションの resolved を切替 */
+  const toggleAnnotationResolved = useCallback((imgPos: number, annotationId: string) => {
+    const node = editor.state.doc.nodeAt(imgPos);
+    if (!node || node.type.name !== "image") return;
+    const all = parseAnnotations(node.attrs.annotations as string);
+    const updated = all.map(a => a.id === annotationId ? { ...a, resolved: !a.resolved } : a);
+    const { tr } = editor.state;
+    tr.setNodeMarkup(imgPos, undefined, { ...node.attrs, annotations: serializeAnnotations(updated) });
+    editor.view.dispatch(tr);
+    onSave?.();
+  }, [editor, onSave]);
+
+  /** 画像アノテーションを削除 */
+  const deleteAnnotation = useCallback((imgPos: number, annotationId: string) => {
+    const node = editor.state.doc.nodeAt(imgPos);
+    if (!node || node.type.name !== "image") return;
+    const all = parseAnnotations(node.attrs.annotations as string);
+    const updated = all.filter(a => a.id !== annotationId);
+    const { tr } = editor.state;
+    tr.setNodeMarkup(imgPos, undefined, { ...node.attrs, annotations: serializeAnnotations(updated) });
+    editor.view.dispatch(tr);
+    onSave?.();
+  }, [editor, onSave]);
+
   if (!open) return null;
 
   const allComments = Array.from(comments.values());
@@ -158,9 +215,9 @@ export const CommentPanel = React.memo(function CommentPanel({
           borderColor: "divider",
         }}
       >
-        <Typography variant="subtitle2" sx={{ flex: 1, fontWeight: 700 }}>
-          {t("commentPanel") || "Comments"} ({unresolvedCount}/
-          {allComments.length})
+        <Typography variant="subtitle2" aria-live="polite" aria-atomic="true" sx={{ flex: 1, fontWeight: 700 }}>
+          {t("commentPanel") || "Comments"} ({unresolvedCount + unresolvedImageAnnotations}/
+          {allComments.length + totalImageAnnotations})
         </Typography>
         <IconButton
           size="small"
@@ -222,18 +279,14 @@ export const CommentPanel = React.memo(function CommentPanel({
         {filtered.map((comment) => {
           const found = findCommentInDoc(editor, comment.id);
           return (
-            <Box
+            <ButtonBase
               key={comment.id}
-              role="button"
-              tabIndex={0}
+              component="div"
               onClick={() => handleClick(comment.id)}
-              onKeyDown={(e: React.KeyboardEvent) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  handleClick(comment.id);
-                }
-              }}
               sx={{
+                display: "block",
+                textAlign: "left",
+                width: "100%",
                 mb: 1,
                 p: 1,
                 border: 1,
@@ -337,9 +390,91 @@ export const CommentPanel = React.memo(function CommentPanel({
                   {t("commentDelete") || "Delete"}
                 </Button>
               </Box>
-            </Box>
+            </ButtonBase>
           );
         })}
+
+        {/* 画像アノテーションコメント */}
+        {imageAnnotations.length > 0 && (
+          <>
+            <Divider sx={{ my: 1 }} />
+            <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 0.5, color: "text.secondary", fontWeight: 700, mb: 0.5 }}>
+              <ImageIcon sx={{ fontSize: 14 }} />
+              {t("annotate")} ({unresolvedImageAnnotations}/{totalImageAnnotations})
+            </Typography>
+            {imageAnnotations.map((img) => {
+              const filteredAnnotations = img.annotations.filter((a) => {
+                if (filter === "open") return !a.resolved;
+                if (filter === "resolved") return !!a.resolved;
+                return true;
+              });
+              if (filteredAnnotations.length === 0) return null;
+              return (
+              <Box key={img.pos}>
+                {filteredAnnotations.map((a, i) => (
+                  <Box
+                    key={a.id}
+                    sx={{
+                      mb: 0.5, p: 0.75,
+                      border: 1,
+                      borderColor: "divider",
+                      borderRadius: 1,
+                      opacity: a.resolved ? 0.5 : 1,
+                    }}
+                  >
+                    <ButtonBase
+                      component="div"
+                      onClick={() => {
+                        editor.chain().setTextSelection(img.pos).focus().run();
+                        const domAtPos = editor.view.domAtPos(img.pos);
+                        const el = domAtPos.node instanceof HTMLElement ? domAtPos.node : domAtPos.node.parentElement;
+                        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+                      }}
+                      sx={{ display: "block", textAlign: "left", width: "100%", cursor: "pointer" }}
+                    >
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.25 }}>
+                        <Box sx={{
+                          width: 16, height: 16, borderRadius: "50%", bgcolor: a.color,
+                          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                        }}>
+                          <Typography variant="caption" sx={{ color: "white", fontSize: "0.55rem", fontWeight: 700 }}>{i + 1}</Typography>
+                        </Box>
+                        <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem" }}>
+                          {a.type === "rect" ? t("annotationRect") : a.type === "circle" ? t("annotationCircle") : t("annotationLine")}
+                        </Typography>
+                      </Box>
+                      <Typography variant="body2" sx={{ fontSize: "0.8rem", mb: 0.5 }}>
+                        {a.comment}
+                      </Typography>
+                    </ButtonBase>
+                    <Box sx={{ display: "flex", gap: 0.5 }}>
+                      <Button
+                        size="small"
+                        variant="text"
+                        sx={{ fontSize: "0.7rem", minWidth: 0, px: 0.5 }}
+                        onClick={() => toggleAnnotationResolved(img.pos, a.id)}
+                      >
+                        {a.resolved
+                          ? t("commentUnresolve") || "Reopen"
+                          : t("commentResolve") || "Resolve"}
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="text"
+                        color="error"
+                        sx={{ fontSize: "0.7rem", minWidth: 0, px: 0.5 }}
+                        onClick={() => deleteAnnotation(img.pos, a.id)}
+                      >
+                        {t("commentDelete") || "Delete"}
+                      </Button>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+              );
+            })}
+          </>
+        )}
       </Box>
     </Paper>
   );

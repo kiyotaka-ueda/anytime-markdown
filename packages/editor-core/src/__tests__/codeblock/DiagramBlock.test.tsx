@@ -146,6 +146,7 @@ function setup(overrides?: { lang?: string; isSelected?: boolean; editOpen?: boo
     handleFsTextChange: jest.fn(),
     t: (key: string) => key,
     isDark: false,
+    isEditable: true,
   };
   const result = render(<DiagramBlock {...props} />);
   return { ...result, ...props };
@@ -198,7 +199,7 @@ describe("DiagramBlock", () => {
 
         handleFsTextChange={jest.fn()}
         t={(key: string) => key}
-        isDark={false}
+        isDark={false} isEditable={true}
       />
     );
     expect(screen.getByText("Syntax error in graph")).toBeTruthy();
@@ -238,7 +239,7 @@ describe("DiagramBlock", () => {
 
         handleFsTextChange={jest.fn()}
         t={(key: string) => key}
-        isDark={false}
+        isDark={false} isEditable={true}
       />
     );
     expect(screen.getByText("plantumlExternalWarning")).toBeTruthy();

@@ -10,14 +10,19 @@ import { NodeViewWrapper } from "@tiptap/react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import { BlockInlineToolbar } from "./components/codeblock/BlockInlineToolbar";
 import { DeleteBlockDialog } from "./components/codeblock/DeleteBlockDialog";
+import { AnnotationOverlay } from "./components/AnnotationOverlay";
+import { ImageAnnotationDialog } from "./components/ImageAnnotationDialog";
+import { ImageCropTool } from "./components/ImageCropTool";
 import { EditDialogHeader } from "./components/EditDialogHeader";
 import { EditDialogWrapper } from "./components/EditDialogWrapper";
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "./constants/colors";
 import { useBlockNodeState } from "./hooks/useBlockNodeState";
 import { useBlockResize } from "./hooks/useBlockResize";
 import { getEditorStorage } from "./types";
+import { parseAnnotations, serializeAnnotations } from "./types/imageAnnotation";
 
 const MIN_WIDTH = 50;
 
@@ -27,9 +32,11 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
   const isDark = theme.palette.mode === "dark";
   const {
     deleteDialogOpen, setDeleteDialogOpen, editOpen, setEditOpen,
-    collapsed, isEditable, isSelected, handleDeleteBlock, showToolbar, isCompareLeft,
+    collapsed, isEditable, isSelected, handleDeleteBlock, showToolbar, isCompareLeft, isCompareLeftEditable,
   } = useBlockNodeState(editor, node, getPos);
-  const { src, alt, title, width } = node.attrs;
+  const { src, alt, title, width, annotations: annotationsJson } = node.attrs;
+  const [annotationOpen, setAnnotationOpen] = useState(false);
+  const annotations = parseAnnotations(annotationsJson as string | null);
 
   // --- Image size display ---
   const imgRef = useRef<HTMLImageElement>(null);
@@ -114,13 +121,30 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
             </Tooltip>
           </Box>
         )}
-        <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", overflow: "auto", p: 2, bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG }}>
+        <Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG }}>
           {src && !imgError && (
-            <img
+            <ImageCropTool
               src={src}
-              alt={alt || t("imageNoAlt")}
-              title={title || undefined}
-              style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" }}
+              onCrop={(croppedDataUrl) => {
+                const isDataUrl = src.startsWith("data:");
+                if (isDataUrl) {
+                  // Base64 画像: そのまま src を更新
+                  updateAttributes({ src: croppedDataUrl });
+                } else {
+                  // リンク画像: VS Code にファイル上書き保存を依頼
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const vscodeApi = (window as any).__vscode;
+                  if (vscodeApi) {
+                    vscodeApi.postMessage({ type: "overwriteImage", path: src, dataUrl: croppedDataUrl });
+                    // src は変更しない（同じパスのまま）。ブラウザキャッシュを破棄するため query を付与
+                    updateAttributes({ src: src.split("?")[0] + "?t=" + Date.now() });
+                  } else {
+                    // Web アプリ: Base64 に変換
+                    updateAttributes({ src: croppedDataUrl });
+                  }
+                }
+              }}
+              t={t}
             />
           )}
         </Box>
@@ -129,19 +153,20 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
       <Box
         sx={{
           border: 1, borderRadius: 1, overflow: "hidden", my: 1,
-          borderColor: showToolbar && isEditable ? "divider" : "transparent",
-          ...(!showToolbar && {
+          borderColor: (showToolbar || (isCompareLeftEditable && isSelected)) ? "divider" : "transparent",
+          ...(!(showToolbar || (isCompareLeftEditable && isSelected)) && {
             "& > [data-block-toolbar]": {
               maxHeight: 0, opacity: 0, py: 0, overflow: "hidden",
             },
           }),
         }}
       >
-        {isEditable && (
+        {(isEditable || isCompareLeftEditable) && (
           <BlockInlineToolbar
             label={t("image")}
             onEdit={!collapsed && !isCompareLeft ? () => setEditOpen(true) : undefined}
-            onDelete={!collapsed ? () => setDeleteDialogOpen(true) : undefined}
+            onDelete={!collapsed && !isCompareLeft ? () => setDeleteDialogOpen(true) : undefined}
+            labelOnly={isCompareLeftEditable}
             collapsed={collapsed}
             extra={<>
               <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
@@ -162,6 +187,16 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
                   <ErrorOutlineIcon sx={{ fontSize: 14 }} />
                   {t("imageNotFound")}
                 </Typography>
+              )}
+              {!isCompareLeft && isEditable && !collapsed && (
+                <>
+                  <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
+                  <Tooltip title={t("annotate")} placement="top">
+                    <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setAnnotationOpen(true)} aria-label={t("annotate")}>
+                      <ChatBubbleOutlineIcon sx={{ fontSize: 16, color: annotations.length > 0 ? "primary.main" : "text.secondary" }} />
+                    </IconButton>
+                  </Tooltip>
+                </>
               )}
             </>}
             t={t}
@@ -187,6 +222,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
               title={title || undefined}
               style={{ width: displayWidth, maxWidth: "100%", height: "auto", display: "block" }}
             />
+            <AnnotationOverlay annotations={annotations} />
             {/* Resize handle */}
             {isSelected && isEditable && (
               <Box
@@ -241,6 +277,16 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
         onDelete={handleDeleteBlock}
         t={t}
       />
+      {annotationOpen && (
+        <ImageAnnotationDialog
+          open={annotationOpen}
+          onClose={() => setAnnotationOpen(false)}
+          src={src}
+          annotations={annotations}
+          onSave={(items) => updateAttributes({ annotations: serializeAnnotations(items) })}
+          t={t}
+        />
+      )}
     </NodeViewWrapper>
   );
 }

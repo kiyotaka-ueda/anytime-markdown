@@ -1,85 +1,64 @@
 # Anytime Markdown Editor
 
-**Manage AI-generated documents alongside your code — in a single VS Code window.**
+![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/kiytaka-ueda.anytime-markdown?label=VS%20Marketplace&logo=visual-studio-code)![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)**Review AI-generated docs while you code — all inside VS Code.**
 
-Modern development workflows produce a growing volume of Markdown: specs written by AI assistants, design documents, meeting notes, and runbooks. Anytime Markdown lets you **open a separate documentation Git repository** right next to your source code, review AI-generated Markdown with a rich WYSIWYG editor, and track changes — all without leaving VS Code.
+AI assistants are great at writing specs, designs, and notes in Markdown. But reviewing them in plain text is painful, and switching between your editor and a Git GUI breaks your flow.
 
-## Why Anytime Markdown?
+Anytime Markdown gives you a rich WYSIWYG editor with built-in Git support, so you can **open a docs repository right next to your code** and keep everything in one window.
 
-| Pain point | How Anytime Markdown helps |
+## 1. What You Can Do
+
+- **Open multiple doc repos** in the sidebar alongside your source code
+- **Review AI output** with live-rendered tables, diagrams (Mermaid / PlantUML), and math
+- **Compare versions** side-by-side with diff highlighting (semantic section-based diff available)
+- **Annotate images** with shapes and comments directly in the editor
+- **Edit images** with crop, resize, ruler, and grid tools
+- **Commit and push** docs without leaving VS Code
+- **Track history** with a visual Git graph and per-file timeline
+- **Validate links** with diagnostics for broken file/anchor references
+
+## 2. How It Works
+
+1. AI generates a Markdown document
+2. Open the docs repo in the **Markdown Docs** panel
+3. Review in **WYSIWYG** or **Review** mode
+4. Compare with previous versions
+5. Edit, commit, push — done
+
+## 3. Editor Modes
+
+| Mode | What it does |
 | --- | --- |
-| AI outputs Markdown that's hard to review in plain text | WYSIWYG editor with live diagrams, tables, and math rendering |
-| Docs live in a separate repo but you need them while coding | Open multiple Git repositories side-by-side in the Markdown Docs panel |
-| Reviewing diffs of AI-generated docs is tedious | Built-in compare mode with block-level diff highlighting |
-| Switching between editor and Git GUI breaks your flow | Git changes, graph, and timeline panels integrated in the sidebar |
+| **WYSIWYG** | Visual editing with formatting, diagrams, and tables |
+| **Source** | Edit raw Markdown directly |
+| **Review** | Read-only. Great for reviewing AI output |
 
-## Key Features
+Switch with the toolbar toggles or `Ctrl+Alt+S` (`Cmd+Alt+S` on Mac).
 
-### Markdown Docs Panel — Your Documentation Hub
+## 4. Sidebar Panels
 
-Open one or more Git repositories dedicated to documentation. Each repository appears as a top-level node with full file tree, branch switching, and file operations (create, rename, delete, drag & drop). A Markdown-only filter keeps the view focused.
+- **Markdown Docs** — file tree with multi-repo support, branch switching, Markdown filter
+- **Changes** — stage, unstage, discard, commit, push (per repo)
+- **Graph** — visual commit log (blue = local, red = remote)
+- **Timeline** — file history, click to compare
 
-### Built-in Git Workflow
+## 5. Slash Commands
 
-- **Changes panel**: staged / unstaged changes grouped by repository, with stage, unstage, discard, commit, and push
-- **Git Graph**: visual commit history with colored icons (blue = local, red = pushed to remote)
-- **Timeline**: per-file commit history — select any commit to load it into the compare panel
+Type `/` to insert: headings, lists, tables, code blocks, Mermaid / PlantUML diagrams, math (KaTeX), HTML, TOC, footnotes, admonitions, comments, and more.
 
-### Rich WYSIWYG Editing
+## 6. Settings
 
-Edit Markdown visually with real-time preview. Supports tables (paste from Excel / Google Sheets), Mermaid and PlantUML diagrams, KaTeX math, code blocks with syntax highlighting (37 languages), admonitions, task lists, footnotes, and more.
+| Setting | Default | Description |
+| --- | --- | --- |
+| `anytimeMarkdown.fontSize` | `0` | Font size (px). 0 = VS Code default |
+| `anytimeMarkdown.editorMaxWidth` | `0` | Max editor width (px). 0 = no limit |
 
-### Compare & Merge Mode
+## 7. Getting Started
 
-Side-by-side diff comparison with block-level highlighting. Load any file or past commit into the compare panel. Full-screen table comparison with cell-level diff highlighting.
+`.md` / `.markdown` files open with Anytime Markdown automatically. To use the standard text editor instead, right-click a file and choose **"Open With..."** &gt; **"Text Editor"**.
 
-### Three Editor Modes
+Requires VS Code 1.109.0 or later.
 
-| Mode | Description |
-| --- | --- |
-| **WYSIWYG** | Rich text editing with visual formatting and block insertion |
-| **Source** | Edit raw Markdown text directly |
-| **Review** | Read-only view for reviewing AI-generated content. Only comments and checkboxes are editable |
+## 8. License
 
-Switch modes via the pill-shaped toggles in the toolbar, or press `Ctrl+Alt+S`.
-
-## Typical Workflow
-
-1. AI assistant generates a spec or design document in Markdown
-2. Clone or open the documentation repository in the **Markdown Docs** panel
-3. Review the generated content in **Review** or **WYSIWYG** mode
-4. Use **Compare mode** to diff against previous versions
-5. Edit, commit, and push — all from the sidebar panels
-6. Continue coding in VS Code with the documentation always accessible
-
-## Slash Commands
-
-Type `/` in the editor to insert elements:
-
-`/heading1`..`/heading3`, `/bulletList`, `/orderedList`, `/taskList`, `/blockquote`, `/codeBlock`, `/table`, `/horizontalRule`, `/mermaid`, `/plantuml`, `/math`, `/html`, `/toc`, `/date`, `/footnote`, `/note`, `/tip`, `/important`, `/warning`, `/caution`, `/comment`
-
-## Extension Settings
-
-| Setting | Type | Default | Description |
-| --- | --- | --- | --- |
-| `anytimeMarkdown.fontSize` | number | `0` | Font size (px). 0 uses VS Code default |
-| `anytimeMarkdown.editorMaxWidth` | number | `0` | Editor max width (px). 0 for no limit |
-
-## Usage
-
-`.md` / `.markdown` files open automatically with Anytime Markdown editor.
-
-To open with the standard VS Code text editor, right-click the file and select **"Open With..."** then choose **"Text Editor"**.
-
-## Requirements
-
-- VS Code 1.109.0 or later
-
-## Known Issues
-
-- Drag & drop images are embedded as base64. Large images will increase the Markdown file size.
-- Markdown round-trip through TipTap may reformat content on load. A notification is shown on first load.
-
-## License
-
-MIT License
+MIT

@@ -7,6 +7,9 @@ import { ConfirmProvider, STORAGE_KEY_CONTENT, STORAGE_KEY_SETTINGS } from '@any
 import MarkdownEditorPage from '@anytime-markdown/editor-core/src/MarkdownEditorPage';
 
 const vscode = getVsCodeApi();
+// editor-core の EditorContextMenu から VS Code API にアクセスするため公開
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(window as any).__vscode = vscode;
 
 // スクロール同期の無限ループ防止フラグ
 let isSyncingScroll = false;
@@ -122,6 +125,32 @@ export function App() {
         historicalContentRef.current = message.content;
         currentContent = message.content;
         window.dispatchEvent(new CustomEvent('vscode-set-content', { detail: message.content }));
+        return;
+      }
+      if (message?.type === 'setBaseUri' && typeof message.baseUri === 'string') {
+        // baseUri のバリデーション: vscode-webview-resource スキームのみ許可
+        const uri = message.baseUri;
+        if (!uri.startsWith('https://') && !uri.startsWith('vscode-webview-resource:')) {
+          return; // 不正な URI を拒否
+        }
+        let baseEl = document.querySelector('base');
+        if (!baseEl) {
+          baseEl = document.createElement('base');
+          document.head.appendChild(baseEl);
+        }
+        baseEl.setAttribute('href', uri + '/');
+        return;
+      }
+      if (message?.type === 'imageSaved' && typeof message.path === 'string') {
+        window.dispatchEvent(new CustomEvent('vscode-image-saved', { detail: message.path }));
+        return;
+      }
+      if (message?.type === 'pasteMarkdown' && typeof message.text === 'string') {
+        window.dispatchEvent(new CustomEvent('vscode-paste-markdown', { detail: message.text }));
+        return;
+      }
+      if (message?.type === 'pasteCodeBlock' && typeof message.text === 'string') {
+        window.dispatchEvent(new CustomEvent('vscode-paste-codeblock', { detail: message.text }));
         return;
       }
       if (message?.type === 'setContent' && typeof message.content === 'string') {

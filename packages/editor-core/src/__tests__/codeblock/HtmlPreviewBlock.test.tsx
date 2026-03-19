@@ -76,6 +76,7 @@ function setup(overrides?: { code?: string }) {
     handleFsTextChange: jest.fn(),
     t: (key: string) => key,
     isDark: false,
+    isEditable: true,
   };
   const result = render(<HtmlPreviewBlock {...props} />);
   return { ...result, ...props };

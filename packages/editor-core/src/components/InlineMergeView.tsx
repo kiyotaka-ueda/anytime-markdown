@@ -1,6 +1,9 @@
+import AccountTreeOutlinedIcon from "@mui/icons-material/AccountTreeOutlined";
 import {
   Box,
   Divider,
+  IconButton,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
@@ -96,6 +99,8 @@ export function InlineMergeView({
     setEditText,
     setCompareText,
     diffResult,
+    diffOptions,
+    setDiffOptions,
     mergeBlock,
     undo,
     redo,
@@ -162,13 +167,22 @@ export function InlineMergeView({
 
   // Right tiptap editor (for WYSIWYG mode) – readonly (cursor visible)
   const leftEditor = useEditor({
-    extensions: [...getBaseExtensions({ disableComments: true }), CustomHardBreak, ReviewModeExtension],
+    extensions: [...getBaseExtensions({ disableComments: true, disableCheckboxToggle: true }), CustomHardBreak, ReviewModeExtension],
     content: "",
     immediatelyRender: false,
     editorProps: {
       handleDOMEvents: {
         // Skip ProseMirror drop handling; let event bubble to parent Box handler
         drop: () => true,
+      },
+      handleClickOn: (_view, _pos, node, _nodePos, event) => {
+        // チェックボックスのクリックをブロック
+        const target = event.target as HTMLElement;
+        if (target.tagName === "INPUT" && (target as HTMLInputElement).type === "checkbox") {
+          event.preventDefault();
+          return true;
+        }
+        return false;
       },
     },
   });
@@ -178,6 +192,27 @@ export function InlineMergeView({
     if (leftEditor) {
       reviewModeStorage(leftEditor).enabled = true;
     }
+  }, [leftEditor]);
+
+  // 左側エディタのチェックボックスクリックをキャプチャフェーズでブロック
+  useEffect(() => {
+    if (!leftEditor) return;
+    const dom = leftEditor.view.dom;
+    const handler = (e: Event) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" && (target as HTMLInputElement).type === "checkbox") {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    };
+    dom.addEventListener("click", handler, true);
+    dom.addEventListener("change", handler, true);
+    dom.addEventListener("mousedown", handler, true);
+    return () => {
+      dom.removeEventListener("click", handler, true);
+      dom.removeEventListener("change", handler, true);
+      dom.removeEventListener("mousedown", handler, true);
+    };
   }, [leftEditor]);
 
   // editorContent -> leftText sync
@@ -282,7 +317,7 @@ export function InlineMergeView({
     };
   }, [rightEditor, leftEditor, sourceMode]);
 
-  useDiffHighlight(sourceMode, rightEditor, leftEditor);
+  useDiffHighlight(sourceMode, rightEditor, leftEditor, diffOptions.semantic);
 
   useScrollSync(leftContainerRef, rightScrollRef);
 
@@ -357,6 +392,22 @@ export function InlineMergeView({
         </Box>
       )}
 
+      {/* Semantic diff toggle */}
+      <Box sx={{ display: "flex", justifyContent: "flex-end", px: 1, py: 0.5, flexShrink: 0 }}>
+        <Tooltip title={t("semanticDiff")}>
+          <IconButton
+            size="small"
+            onClick={() => setDiffOptions((prev) => ({ ...prev, semantic: !prev.semantic }))}
+            color={diffOptions.semantic ? "primary" : "default"}
+            aria-label={t("semanticDiff")}
+            aria-pressed={!!diffOptions.semantic}
+            sx={{ p: 0.5 }}
+          >
+            <AccountTreeOutlinedIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Box>
+
       {/* Content area: left = compare (read-only), right = editor (children) */}
       <Box sx={{ display: "flex", flex: 1, overflow: "hidden" }}>
         {/* Left: compare (read-only) + DiffMap */}
@@ -411,7 +462,7 @@ export function InlineMergeView({
               hideScrollbar
               onMerge={flippedMergeBlock}
               onHoverLine={handleHoverLine}
-              paperSx={{ bgcolor: getEditorBg(isDark, settings) }}
+              paperSx={{ bgcolor: getEditorBg(isDark, settings), '& input[type="checkbox"]': { pointerEvents: "none" } }}
             />
           </Box>
         </Box>

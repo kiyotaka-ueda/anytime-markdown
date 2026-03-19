@@ -4,6 +4,8 @@ import type { Editor } from "@tiptap/react";
 interface MergeEditorsValue {
   rightEditor: Editor | null;
   leftEditor: Editor | null;
+  /** メインエディタがレビュー/readonly モードかどうか */
+  isReviewMode?: boolean;
 }
 
 /** モジュールレベルのストア（TipTap NodeView ポータルからもアクセス可能） */

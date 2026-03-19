@@ -10,12 +10,13 @@ export const diffHighlightPluginKey = new PluginKey("diffHighlight");
 interface BlockInfo {
   text: string;
   typeName: string;
+  level?: number;
 }
 
 function getTopLevelBlocks(doc: PMNode): BlockInfo[] {
   const blocks: BlockInfo[] = [];
   doc.forEach((node) => {
-    blocks.push({ text: node.textContent, typeName: node.type.name });
+    blocks.push({ text: node.textContent, typeName: node.type.name, level: node.attrs.level as number | undefined });
   });
   return blocks;
 }
@@ -85,11 +86,18 @@ function compareTableCells(
   return { leftCells: leftChanged, rightCells: rightChanged };
 }
 
+export interface PlaceholderPosition {
+  pos: number;       // ProseMirror ドキュメント内の挿入位置
+  lineCount: number; // プレースホルダーの行数（高さの目安）
+}
+
 export interface BlockDiffResult {
   /** ブロック全体をハイライトするインデックス */
   changedBlocks: Set<number>;
   /** テーブルのセル単位ハイライト: blockIndex → 変更セルの flat index set */
   cellDiffs: Map<number, Set<number>>;
+  /** セマンティック比較で反対側にのみ存在するセクションのプレースホルダー位置 */
+  placeholderPositions: PlaceholderPosition[];
 }
 
 /**
@@ -99,73 +107,236 @@ export interface BlockDiffResult {
 export function computeBlockDiff(
   leftDoc: PMNode,
   rightDoc: PMNode,
+  options?: { semantic?: boolean },
+): { left: BlockDiffResult; right: BlockDiffResult } {
+  if (options?.semantic) {
+    return computeSemanticBlockDiff(leftDoc, rightDoc);
+  }
+  return computeFlatBlockDiff(leftDoc, rightDoc);
+}
+
+/** heading ノードを検出し、セクション範囲（ブロックインデックス）を返す */
+interface BlockSection {
+  headingText: string;
+  headingIndex: number; // トップレベルブロックの index
+  startIndex: number;   // セクション開始（見出し含む）
+  endIndex: number;     // セクション終了（排他）
+}
+
+function getBlockSections(blocks: BlockInfo[]): { preSections: number[]; sections: BlockSection[] } {
+  const sections: BlockSection[] = [];
+  const preSections: number[] = []; // 最初の見出しより前のブロック
+
+  // 最初の heading レベルを検出
+  let splitLevel = 0;
+  for (let i = 0; i < blocks.length; i++) {
+    if (blocks[i].typeName === "heading") {
+      splitLevel = blocks[i].level ?? 1;
+      break;
+    }
+  }
+  if (splitLevel === 0) {
+    // heading なし → 全ブロックが pre-section
+    return { preSections: blocks.map((_, i) => i), sections: [] };
+  }
+
+  let i = 0;
+  // pre-section: 最初の heading より前
+  while (i < blocks.length) {
+    if (blocks[i].typeName === "heading" && (blocks[i].level ?? 1) === splitLevel) break;
+    preSections.push(i);
+    i++;
+  }
+
+  // heading ごとにセクション分割
+  while (i < blocks.length) {
+    if (blocks[i].typeName !== "heading" || (blocks[i].level ?? 1) !== splitLevel) { i++; continue; }
+    const headingIndex = i;
+    const headingText = blocks[i].text;
+    i++;
+    while (i < blocks.length) {
+      if (blocks[i].typeName === "heading" && (blocks[i].level ?? 1) <= splitLevel) break;
+      i++;
+    }
+    sections.push({ headingText, headingIndex, startIndex: headingIndex, endIndex: i });
+  }
+
+  return { preSections, sections };
+}
+
+/** セクション LCS マッチング（heading テキストベース） */
+function matchBlockSections(
+  leftSections: BlockSection[], rightSections: BlockSection[],
+): { matched: [BlockSection, BlockSection][]; leftOnly: BlockSection[]; rightOnly: BlockSection[] } {
+  const leftTexts = leftSections.map(s => s.headingText);
+  const rightTexts = rightSections.map(s => s.headingText);
+  const n = leftTexts.length;
+  const m = rightTexts.length;
+
+  const dp: number[][] = Array.from({ length: n + 1 }, () => Array(m + 1).fill(0));
+  for (let i = 1; i <= n; i++) {
+    for (let j = 1; j <= m; j++) {
+      dp[i][j] = leftTexts[i - 1] === rightTexts[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+    }
+  }
+  const pairs: [number, number][] = [];
+  let li = n, ri = m;
+  while (li > 0 && ri > 0) {
+    if (leftTexts[li - 1] === rightTexts[ri - 1]) { pairs.push([li - 1, ri - 1]); li--; ri--; }
+    else if (dp[li - 1][ri] >= dp[li][ri - 1]) { li--; }
+    else { ri--; }
+  }
+  pairs.reverse();
+
+  const matched: [BlockSection, BlockSection][] = [];
+  const leftOnly: BlockSection[] = [];
+  const rightOnly: BlockSection[] = [];
+  const matchedLeftSet = new Set(pairs.map(p => p[0]));
+  const matchedRightSet = new Set(pairs.map(p => p[1]));
+
+  // インターリーブして出力順序を維持
+  let lp = 0, rp = 0, pp = 0;
+  while (pp < pairs.length || lp < leftSections.length || rp < rightSections.length) {
+    if (pp < pairs.length) {
+      const [lIdx, rIdx] = pairs[pp];
+      while (lp < lIdx) { if (!matchedLeftSet.has(lp)) leftOnly.push(leftSections[lp]); lp++; }
+      while (rp < rIdx) { if (!matchedRightSet.has(rp)) rightOnly.push(rightSections[rp]); rp++; }
+      matched.push([leftSections[lIdx], rightSections[rIdx]]);
+      lp = lIdx + 1; rp = rIdx + 1; pp++;
+    } else {
+      while (lp < leftSections.length) { if (!matchedLeftSet.has(lp)) leftOnly.push(leftSections[lp]); lp++; }
+      while (rp < rightSections.length) { if (!matchedRightSet.has(rp)) rightOnly.push(rightSections[rp]); rp++; }
+      break;
+    }
+  }
+
+  return { matched, leftOnly, rightOnly };
+}
+
+/** セマンティック（見出しベース）ブロック差分 */
+function computeSemanticBlockDiff(
+  leftDoc: PMNode, rightDoc: PMNode,
 ): { left: BlockDiffResult; right: BlockDiffResult } {
   const leftBlocks = getTopLevelBlocks(leftDoc);
   const rightBlocks = getTopLevelBlocks(rightDoc);
-  const n = leftBlocks.length;
-  const m = rightBlocks.length;
+  const leftSec = getBlockSections(leftBlocks);
+  const rightSec = getBlockSections(rightBlocks);
 
-  // LCS DP (完全一致のブロックのみマッチ)
+  const leftResult: BlockDiffResult = { changedBlocks: new Set(), cellDiffs: new Map(), placeholderPositions: [] };
+  const rightResult: BlockDiffResult = { changedBlocks: new Set(), cellDiffs: new Map(), placeholderPositions: [] };
+
+  // heading がない場合はフォールバック
+  if (leftSec.sections.length === 0 && rightSec.sections.length === 0) {
+    return computeFlatBlockDiff(leftDoc, rightDoc);
+  }
+
+  const leftNodes: PMNode[] = [];
+  leftDoc.forEach((node) => leftNodes.push(node));
+  const rightNodes: PMNode[] = [];
+  rightDoc.forEach((node) => rightNodes.push(node));
+
+  // pre-section の比較（フラットブロック diff）
+  diffBlockRange(leftBlocks, rightBlocks, leftNodes, rightNodes,
+    leftSec.preSections, rightSec.preSections, leftResult, rightResult);
+
+  // セクション LCS マッチング
+  const { matched, leftOnly, rightOnly } = matchBlockSections(leftSec.sections, rightSec.sections);
+
+  // マッチしたセクション: セクション内ブロックを diff
+  for (const [ls, rs] of matched) {
+    const leftRange = Array.from({ length: ls.endIndex - ls.startIndex }, (_, i) => ls.startIndex + i);
+    const rightRange = Array.from({ length: rs.endIndex - rs.startIndex }, (_, i) => rs.startIndex + i);
+    diffBlockRange(leftBlocks, rightBlocks, leftNodes, rightNodes, leftRange, rightRange, leftResult, rightResult);
+  }
+
+  // 左にのみ存在するセクション: 全ブロックを changed + 右にプレースホルダー
+  for (const sec of leftOnly) {
+    for (let k = sec.startIndex; k < sec.endIndex; k++) {
+      leftResult.changedBlocks.add(k);
+    }
+    // 右側のプレースホルダー位置: このセクションの直前のマッチセクションの終端
+    const afterPos = findInsertPosition(rightNodes, sec, matched, "right");
+    rightResult.placeholderPositions.push({ pos: afterPos, lineCount: sec.endIndex - sec.startIndex });
+  }
+
+  // 右にのみ存在するセクション: 全ブロックを changed + 左にプレースホルダー
+  for (const sec of rightOnly) {
+    for (let k = sec.startIndex; k < sec.endIndex; k++) {
+      rightResult.changedBlocks.add(k);
+    }
+    const afterPos = findInsertPosition(leftNodes, sec, matched, "left");
+    leftResult.placeholderPositions.push({ pos: afterPos, lineCount: sec.endIndex - sec.startIndex });
+  }
+
+  return { left: leftResult, right: rightResult };
+}
+
+/** マッチしなかったセクションのプレースホルダー挿入位置を計算 */
+function findInsertPosition(
+  targetNodes: PMNode[],
+  unmatched: BlockSection,
+  matched: [BlockSection, BlockSection][],
+  side: "left" | "right",
+): number {
+  // unmatched セクションの直前にあるマッチセクションの終端位置を探す
+  let bestEndIndex = 0;
+  for (const [ls, rs] of matched) {
+    const ref = side === "left" ? rs : ls; // unmatched の反対側でマッチしたセクション
+    const target = side === "left" ? ls : rs; // プレースホルダーを入れる側のセクション
+    if (ref.startIndex < unmatched.startIndex) {
+      bestEndIndex = Math.max(bestEndIndex, target.endIndex);
+    }
+  }
+  // ProseMirror の pos を計算
+  let pos = 0;
+  for (let i = 0; i < bestEndIndex && i < targetNodes.length; i++) {
+    pos += targetNodes[i].nodeSize;
+  }
+  return pos;
+}
+
+/** ブロック範囲内のフラット diff（既存ロジック） */
+function diffBlockRange(
+  leftBlocks: BlockInfo[], rightBlocks: BlockInfo[],
+  leftNodes: PMNode[], rightNodes: PMNode[],
+  leftIndices: number[], rightIndices: number[],
+  leftResult: BlockDiffResult, rightResult: BlockDiffResult,
+): void {
+  const lb = leftIndices.map(i => leftBlocks[i]);
+  const rb = rightIndices.map(i => rightBlocks[i]);
+  const n = lb.length;
+  const m = rb.length;
+
   const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
   for (let i = 1; i <= n; i++) {
     for (let j = 1; j <= m; j++) {
-      if (
-        leftBlocks[i - 1].text === rightBlocks[j - 1].text &&
-        leftBlocks[i - 1].typeName === rightBlocks[j - 1].typeName
-      ) {
+      if (lb[i - 1].text === rb[j - 1].text && lb[i - 1].typeName === rb[j - 1].typeName) {
         dp[i][j] = dp[i - 1][j - 1] + 1;
       } else {
         dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
       }
     }
   }
-
-  // Backtrack → マッチペア
-  const matchedPairs: [number, number][] = [];
-  let i = n;
-  let j = m;
+  const pairs: [number, number][] = [];
+  let i = n, j = m;
   while (i > 0 && j > 0) {
-    if (
-      leftBlocks[i - 1].text === rightBlocks[j - 1].text &&
-      leftBlocks[i - 1].typeName === rightBlocks[j - 1].typeName
-    ) {
-      matchedPairs.unshift([i - 1, j - 1]);
-      i--;
-      j--;
-    } else if (dp[i - 1][j] > dp[i][j - 1]) {
-      i--;
-    } else {
-      j--;
-    }
+    if (lb[i - 1].text === rb[j - 1].text && lb[i - 1].typeName === rb[j - 1].typeName) {
+      pairs.unshift([i - 1, j - 1]); i--; j--;
+    } else if (dp[i - 1][j] > dp[i][j - 1]) { i--; } else { j--; }
   }
 
-  const leftResult: BlockDiffResult = { changedBlocks: new Set(), cellDiffs: new Map() };
-  const rightResult: BlockDiffResult = { changedBlocks: new Set(), cellDiffs: new Map() };
+  let prevL = -1, prevR = -1;
+  for (const [ml, mr] of [...pairs, [n, m] as [number, number]]) {
+    const unmL: number[] = [];
+    for (let k = prevL + 1; k < ml; k++) unmL.push(k);
+    const unmR: number[] = [];
+    for (let k = prevR + 1; k < mr; k++) unmR.push(k);
 
-  // ギャップ（マッチ間の未マッチブロック）を処理
-  // ProseMirror ノードへアクセスするため、doc を再走査
-  const leftNodes: PMNode[] = [];
-  leftDoc.forEach((node) => leftNodes.push(node));
-  const rightNodes: PMNode[] = [];
-  rightDoc.forEach((node) => rightNodes.push(node));
-
-  let prevLeft = -1;
-  let prevRight = -1;
-  const sentinel: [number, number][] = [[n, m]];
-
-  for (const [ml, mr] of [...matchedPairs, ...sentinel]) {
-    const unmatchedLeft: number[] = [];
-    for (let k = prevLeft + 1; k < ml; k++) unmatchedLeft.push(k);
-    const unmatchedRight: number[] = [];
-    for (let k = prevRight + 1; k < mr; k++) unmatchedRight.push(k);
-
-    // 貪欲にペアリング
-    const pairLen = Math.min(unmatchedLeft.length, unmatchedRight.length);
+    const pairLen = Math.min(unmL.length, unmR.length);
     for (let k = 0; k < pairLen; k++) {
-      const li = unmatchedLeft[k];
-      const ri = unmatchedRight[k];
+      const li = leftIndices[unmL[k]];
+      const ri = rightIndices[unmR[k]];
       if (leftBlocks[li].typeName === "table" && rightBlocks[ri].typeName === "table") {
-        // テーブル → セル単位比較
         const { leftCells, rightCells } = compareTableCells(leftNodes[li], rightNodes[ri]);
         if (leftCells.size > 0) leftResult.cellDiffs.set(li, leftCells);
         if (rightCells.size > 0) rightResult.cellDiffs.set(ri, rightCells);
@@ -174,17 +345,29 @@ export function computeBlockDiff(
         rightResult.changedBlocks.add(ri);
       }
     }
-    // 残りの未ペアブロック
-    for (let k = pairLen; k < unmatchedLeft.length; k++) {
-      leftResult.changedBlocks.add(unmatchedLeft[k]);
-    }
-    for (let k = pairLen; k < unmatchedRight.length; k++) {
-      rightResult.changedBlocks.add(unmatchedRight[k]);
-    }
+    for (let k = pairLen; k < unmL.length; k++) leftResult.changedBlocks.add(leftIndices[unmL[k]]);
+    for (let k = pairLen; k < unmR.length; k++) rightResult.changedBlocks.add(rightIndices[unmR[k]]);
 
-    prevLeft = ml;
-    prevRight = mr;
+    prevL = ml; prevR = mr;
   }
+}
+
+function computeFlatBlockDiff(
+  leftDoc: PMNode, rightDoc: PMNode,
+): { left: BlockDiffResult; right: BlockDiffResult } {
+  const leftBlocks = getTopLevelBlocks(leftDoc);
+  const rightBlocks = getTopLevelBlocks(rightDoc);
+  const leftNodes: PMNode[] = [];
+  leftDoc.forEach((node) => leftNodes.push(node));
+  const rightNodes: PMNode[] = [];
+  rightDoc.forEach((node) => rightNodes.push(node));
+
+  const leftResult: BlockDiffResult = { changedBlocks: new Set(), cellDiffs: new Map(), placeholderPositions: [] };
+  const rightResult: BlockDiffResult = { changedBlocks: new Set(), cellDiffs: new Map(), placeholderPositions: [] };
+
+  const allLeft = leftBlocks.map((_, i) => i);
+  const allRight = rightBlocks.map((_, i) => i);
+  diffBlockRange(leftBlocks, rightBlocks, leftNodes, rightNodes, allLeft, allRight, leftResult, rightResult);
 
   return { left: leftResult, right: rightResult };
 }
@@ -194,12 +377,14 @@ export function computeBlockDiff(
 interface DiffHighlightState {
   changedBlocks: Set<number>;
   cellDiffs: Map<number, Set<number>>;
+  placeholderPositions: PlaceholderPosition[];
   side: "left" | "right";
 }
 
 const EMPTY_STATE: DiffHighlightState = {
   changedBlocks: new Set(),
   cellDiffs: new Map(),
+  placeholderPositions: [],
   side: "left",
 };
 
@@ -232,6 +417,7 @@ export const DiffHighlight = Extension.create({
             tr.setMeta(diffHighlightPluginKey, {
               changedBlocks: result.changedBlocks,
               cellDiffs: result.cellDiffs,
+              placeholderPositions: result.placeholderPositions ?? [],
               side,
             } satisfies DiffHighlightState);
           }
@@ -268,8 +454,8 @@ export const DiffHighlight = Extension.create({
               | DiffHighlightState
               | undefined;
             if (!pluginState) return DecorationSet.empty;
-            const { changedBlocks, cellDiffs, side } = pluginState;
-            if (changedBlocks.size === 0 && cellDiffs.size === 0) {
+            const { changedBlocks, cellDiffs, placeholderPositions, side } = pluginState;
+            if (changedBlocks.size === 0 && cellDiffs.size === 0 && placeholderPositions.length === 0) {
               return DecorationSet.empty;
             }
 
@@ -303,6 +489,24 @@ export const DiffHighlight = Extension.create({
               }
               blockIndex++;
             });
+
+            // プレースホルダー Widget（セマンティック比較で反対側にのみ存在するセクション用）
+            for (const ph of placeholderPositions) {
+              const lineHeight = 1.6;
+              const fontSize = 16;
+              const height = ph.lineCount * fontSize * lineHeight;
+              decorations.push(
+                Decoration.widget(ph.pos, () => {
+                  const el = document.createElement("div");
+                  el.style.height = `${height}px`;
+                  el.style.backgroundColor = "rgba(128, 128, 128, 0.06)";
+                  el.style.borderRadius = "4px";
+                  el.style.margin = "2px 0";
+                  el.setAttribute("aria-hidden", "true");
+                  return el;
+                }, { side: 1 }),
+              );
+            }
 
             return DecorationSet.create(state.doc, decorations);
           },

@@ -17,6 +17,8 @@ interface UseBlockNodeStateReturn {
   showToolbar: boolean;
   /** 比較モードの左側（比較元）エディタかどうか */
   isCompareLeft: boolean;
+  /** 比較モードの左側で編集モード（レビューモードではない） */
+  isCompareLeftEditable: boolean;
 }
 
 /**
@@ -34,14 +36,17 @@ export function useBlockNodeState(
   const isEditable = editor?.isEditable ?? true;
   const isSelected = useNodeSelected(editor, getPos, node.nodeSize);
   const handleDeleteBlock = useDeleteBlock(editor, getPos, node.nodeSize);
-  const showToolbar = isEditable && (collapsed || editOpen || isSelected);
   const mergeEditors = getMergeEditors();
   const isCompareLeft = !!mergeEditors && editor === mergeEditors.leftEditor;
+  const isCompareLeftEditable = isCompareLeft && !mergeEditors?.isReviewMode;
+  const showToolbar = isCompareLeftEditable
+    ? isSelected
+    : isEditable && !isCompareLeft && (collapsed || editOpen || isSelected);
 
   return {
     deleteDialogOpen, setDeleteDialogOpen,
     editOpen, setEditOpen,
     collapsed, isEditable, isSelected,
-    handleDeleteBlock, showToolbar, isCompareLeft,
+    handleDeleteBlock, showToolbar, isCompareLeft, isCompareLeftEditable,
   };
 }

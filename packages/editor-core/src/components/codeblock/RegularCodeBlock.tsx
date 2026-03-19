@@ -3,6 +3,7 @@
 import { useBlockMergeCompare } from "../../hooks/useBlockMergeCompare";
 import { CodeBlockEditDialog } from "../CodeBlockEditDialog";
 import { BlockInlineToolbar } from "./BlockInlineToolbar";
+import { shouldShowBorder } from "./compareHelpers";
 import { CodeBlockFrame } from "./CodeBlockFrame";
 import type { CodeBlockSharedProps } from "./types";
 
@@ -12,7 +13,7 @@ type RegularCodeBlockProps = Pick<
   | "isSelected"
   | "handleCopyCode" | "handleDeleteBlock" | "deleteDialogOpen" | "setDeleteDialogOpen"
   | "editOpen" | "setEditOpen" | "fsCode" | "onFsCodeChange" | "fsTextareaRef" | "fsSearch"
-  | "t" | "isDark" | "isCompareLeft"
+  | "t" | "isDark" | "isEditable" | "isCompareLeft" | "isCompareLeftEditable"
 > & {
   handleFsTextChange: (newCode: string) => void;
 };
@@ -38,7 +39,8 @@ export function RegularCodeBlock(props: RegularCodeBlockProps) {
     <BlockInlineToolbar
       label={codeLabel}
       onEdit={props.isCompareLeft ? undefined : () => setEditOpen(true)}
-      onDelete={() => setDeleteDialogOpen(true)}
+      onDelete={props.isCompareLeft ? undefined : () => setDeleteDialogOpen(true)}
+      labelOnly={props.isCompareLeftEditable}
       t={t}
     />
   );
@@ -47,7 +49,7 @@ export function RegularCodeBlock(props: RegularCodeBlockProps) {
     <CodeBlockFrame
       toolbar={toolbar}
       isDark={isDark}
-      showBorder={isSelected}
+      showBorder={shouldShowBorder({ isSelected, isCompareLeft: props.isCompareLeft, isCompareLeftEditable: props.isCompareLeftEditable, isEditable: props.isEditable })}
       codeMaxHeight={400}
       deleteDialogOpen={deleteDialogOpen}
       setDeleteDialogOpen={setDeleteDialogOpen}
@@ -64,7 +66,7 @@ export function RegularCodeBlock(props: RegularCodeBlockProps) {
           onFsTextChange={handleFsTextChange}
           fsTextareaRef={fsTextareaRef}
           fsSearch={fsSearch}
-          readOnly={!editor.isEditable}
+          readOnly={!props.isEditable}
           isCompareMode={isCompareMode}
           compareCode={compareCode}
           onMergeApply={handleMergeApply}

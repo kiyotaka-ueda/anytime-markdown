@@ -7,11 +7,10 @@ export function useDiffHighlight(
   sourceMode: boolean,
   rightEditor: Editor | null | undefined,
   leftEditor: Editor | null | undefined,
+  semantic?: boolean,
 ): void {
   useEffect(() => {
     if (sourceMode) {
-      // ソースモードではクリア（行単位ハイライトを使用）
-      // React レンダリング中の flushSync 競合を回避するため次フレームに遅延
       requestAnimationFrame(() => {
         if (rightEditor && !rightEditor.isDestroyed) {
           rightEditor.commands.clearDiffHighlight();
@@ -29,6 +28,7 @@ export function useDiffHighlight(
       const { left, right } = computeBlockDiff(
         rightEditor.state.doc,
         leftEditor.state.doc,
+        { semantic },
       );
       requestAnimationFrame(() => {
         if (rightEditor.isDestroyed || leftEditor.isDestroyed) return;
@@ -44,11 +44,10 @@ export function useDiffHighlight(
     return () => {
       rightEditor.off("update", updateHighlights);
       leftEditor.off("update", updateHighlights);
-      // React レンダリング中の flushSync 競合を回避するため次フレームに遅延
       requestAnimationFrame(() => {
         if (!rightEditor.isDestroyed) rightEditor.commands.clearDiffHighlight();
         if (!leftEditor.isDestroyed) leftEditor.commands.clearDiffHighlight();
       });
     };
-  }, [sourceMode, rightEditor, leftEditor]);
+  }, [sourceMode, rightEditor, leftEditor, semantic]);
 }

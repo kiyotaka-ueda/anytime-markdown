@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { randomBytes } from 'crypto';
+import * as fs from 'fs';
 import * as path from 'path';
 export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   public static readonly viewType = 'anytimeMarkdown';
@@ -212,7 +213,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       sendTheme();
     });
 
-    webviewPanel.webview.onDidReceiveMessage(async (message: { type: string; content?: string; active?: boolean; headings?: unknown[]; comments?: unknown[]; status?: { line: number; col: number; charCount: number; lineCount: number; lineEnding: string; encoding: string } }) => {
+    webviewPanel.webview.onDidReceiveMessage(async (message: { type: string; content?: string; active?: boolean; headings?: unknown[]; comments?: unknown[]; status?: { line: number; col: number; charCount: number; lineCount: number; lineEnding: string; encoding: string }; dataUrl?: string; fileName?: string; path?: string }) => {
       switch (message.type) {
         case 'ready': {
           initialLoadTime = Date.now();
@@ -314,6 +315,79 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
               isApplyingWebviewEdit = false;
             }
           }, delay);
+          break;
+        }
+
+        case 'readClipboard': {
+          const text = await vscode.env.clipboard.readText();
+          webviewPanel.webview.postMessage({ type: 'pasteMarkdown', text });
+          break;
+        }
+
+        case 'readClipboardForCodeBlock': {
+          const cbText = await vscode.env.clipboard.readText();
+          webviewPanel.webview.postMessage({ type: 'pasteCodeBlock', text: cbText });
+          break;
+        }
+
+        case 'saveClipboardImage': {
+          const imgData = typeof message.dataUrl === 'string' ? message.dataUrl : '';
+          const imgFileName = typeof message.fileName === 'string' ? message.fileName : '';
+          if (!imgData || !imgFileName) break;
+          // ファイル名のバリデーション: パス区切りや相対パスを拒否
+          if (imgFileName.includes('/') || imgFileName.includes('\\') || imgFileName.startsWith('.')) {
+            vscode.window.showErrorMessage('Invalid filename');
+            break;
+          }
+          const docDir = path.dirname(document.uri.fsPath);
+          const imagesDir = path.join(docDir, 'images');
+          try {
+            if (!fs.existsSync(imagesDir)) {
+              fs.mkdirSync(imagesDir, { recursive: true });
+            }
+            // data:image/png;base64,... → Buffer
+            const match = imgData.match(/^data:image\/\w+;base64,(.+)$/);
+            if (!match) break;
+            const buffer = Buffer.from(match[1], 'base64');
+            const filePath = path.join(imagesDir, imgFileName);
+            // パストラバーサル防止: images ディレクトリ内に限定
+            if (!filePath.startsWith(imagesDir + path.sep) && filePath !== imagesDir) {
+              vscode.window.showErrorMessage('Path traversal detected');
+              break;
+            }
+            fs.writeFileSync(filePath, buffer);
+            const relativePath = `images/${imgFileName}`;
+            const webviewUri = webviewPanel.webview.asWebviewUri(vscode.Uri.file(filePath)).toString();
+            webviewPanel.webview.postMessage({ type: 'imageSaved', path: relativePath, webviewUri });
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            vscode.window.showErrorMessage(`Image save failed: ${msg}`);
+          }
+          break;
+        }
+
+        case 'overwriteImage': {
+          const imgPath = typeof message.path === 'string' ? message.path : '';
+          const imgDataUrl = typeof message.dataUrl === 'string' ? message.dataUrl : '';
+          if (!imgPath || !imgDataUrl) break;
+          try {
+            const match = imgDataUrl.match(/^data:image\/\w+;base64,(.+)$/);
+            if (!match) break;
+            const buffer = Buffer.from(match[1], 'base64');
+            // 相対パスを絶対パスに解決（query string を除去）
+            const cleanPath = imgPath.split('?')[0];
+            const docDir = path.dirname(document.uri.fsPath);
+            const absPath = path.resolve(docDir, cleanPath);
+            // パストラバーサル防止: ドキュメントディレクトリ内に限定
+            if (!absPath.startsWith(docDir + path.sep) && absPath !== docDir) {
+              vscode.window.showErrorMessage('Path traversal detected');
+              break;
+            }
+            fs.writeFileSync(absPath, buffer);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            vscode.window.showErrorMessage(`Image overwrite failed: ${msg}`);
+          }
           break;
         }
 
@@ -441,7 +515,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} https: data:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} https: data:;">
     <title>Markdown Editor</title>
     <style>
       html, body, #root { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }

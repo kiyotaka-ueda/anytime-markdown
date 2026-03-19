@@ -8,6 +8,32 @@ import { getTrailingNewline } from "./editorContentLoader";
 import { postprocessMathBlock } from "./mathHelpers";
 import { normalizeCodeSpanDelimitersInLine, restoreBlankLines } from "./sanitizeMarkdown";
 
+/**
+ * 画像アノテーションを Markdown 末尾に `<!-- image-comments -->` ブロックとして埋め込む。
+ * 各画像は src のハッシュ（先頭20文字）で識別する。
+ */
+function embedImageAnnotations(editor: Editor, md: string): string {
+  if (!editor.state?.doc) return md;
+  const entries: { key: string; data: string }[] = [];
+  let imgIndex = 0;
+  editor.state.doc.descendants((node) => {
+    if (node.type.name === "image") {
+      if (node.attrs.annotations) {
+        const src = (node.attrs.src as string) ?? "";
+        // src が長い場合（Base64）は先頭20文字 + インデックスで識別
+        const key = src.length > 100 ? `img${imgIndex}:${src.slice(0, 20)}` : `img${imgIndex}:${src}`;
+        entries.push({ key, data: node.attrs.annotations as string });
+      }
+      imgIndex++;
+    }
+  });
+  if (entries.length === 0) return md;
+  const block = "\n<!-- image-comments\n" +
+    entries.map(e => `${e.key}=${e.data}`).join("\n") +
+    "\n-->";
+  return md + block;
+}
+
 /** tiptap-markdown の storage から markdown を取得するヘルパー */
 export function getMarkdownFromEditor(editor: Editor): string {
   let md = getMarkdownStorage(editor).getMarkdown();
@@ -51,6 +77,10 @@ export function getMarkdownFromEditor(editor: Editor): string {
     line = line.replace(/\| {2,}(?=\|)/g, "| ");
     return normalizeCodeSpanDelimitersInLine(line);
   });
+  // 画像 src のキャッシュバスター（?t=...）を除去
+  md = md.replace(/(!\[[^\]]*\]\([^)?]+)\?t=\d+(\))/g, "$1$2");
+  // 画像アノテーションを HTML コメントとして画像の直後に埋め込む
+  md = embedImageAnnotations(editor, md);
   // Plugin State からコメントデータを取得し、末尾に付加
   const commentState = editor.state
     ? commentDataPluginKey.getState(editor.state) as { comments: Map<string, InlineComment> } | undefined
