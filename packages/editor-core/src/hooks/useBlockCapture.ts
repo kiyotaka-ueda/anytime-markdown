@@ -122,11 +122,10 @@ async function captureImgElement(imgEl: HTMLImageElement, w: number, h: number, 
 async function captureHtmlPreview(el: HTMLElement, w: number, h: number, scale: number, fileName: string) {
   const clone = el.cloneNode(true) as HTMLElement;
   const serialized = new XMLSerializer().serializeToString(clone);
-  const bgColor = findBackgroundColor(el);
 
   const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">
   <foreignObject width="100%" height="100%">
-    <div xmlns="http://www.w3.org/1999/xhtml" style="width:${w}px;height:${h}px;background:${bgColor};overflow:hidden;font-family:sans-serif;font-size:14px;padding:0;margin:0">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="width:${w}px;height:${h}px;overflow:hidden;padding:0;margin:0">
       ${serialized}
     </div>
   </foreignObject>
