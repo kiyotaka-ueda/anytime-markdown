@@ -221,12 +221,27 @@ export function useEditorConfig({
         if (!images.length) return false;
         event.preventDefault();
         const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos ?? view.state.selection.from;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const vscodeApi = (window as any).__vscode;
         images.forEach((file: File) => {
           const reader = new FileReader();
           reader.onload = () => {
             if (typeof reader.result !== "string") return;
-            const tr = view.state.tr.insert(pos, view.state.schema.nodes.image.create({ src: reader.result, alt: file.name }));
-            view.dispatch(tr);
+            if (vscodeApi) {
+              // VS Code 環境: ファイルに保存して相対パスで挿入
+              const ext = file.type.split("/")[1] || "png";
+              // 元のファイル名があればそれを使用、なければタイムスタンプ
+              const baseName = file.name && !file.name.startsWith("image") ? file.name : (() => {
+                const now = new Date();
+                const ts = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}-${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`;
+                return `drop-${ts}.${ext}`;
+              })();
+              vscodeApi.postMessage({ type: "saveClipboardImage", dataUrl: reader.result, fileName: baseName });
+            } else {
+              // Web アプリ: Base64 データ URL として直接挿入
+              const tr = view.state.tr.insert(pos, view.state.schema.nodes.image.create({ src: reader.result, alt: file.name }));
+              view.dispatch(tr);
+            }
           };
           reader.readAsDataURL(file);
         });
