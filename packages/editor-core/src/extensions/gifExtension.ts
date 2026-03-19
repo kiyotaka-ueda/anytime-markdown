@@ -2,7 +2,8 @@ import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 
 import { GifNodeView } from "../components/GifNodeView";
-import type { MdSerializerState, PMNode } from "../types";
+import type { Node as PMNode } from "@tiptap/pm/model";
+import type { MdSerializerState } from "../types";
 
 export const GifBlock = Node.create({
   name: "gifBlock",
