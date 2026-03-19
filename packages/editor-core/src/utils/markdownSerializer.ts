@@ -77,6 +77,8 @@ export function getMarkdownFromEditor(editor: Editor): string {
     line = line.replace(/\| {2,}(?=\|)/g, "| ");
     return normalizeCodeSpanDelimitersInLine(line);
   });
+  // 画像 src のキャッシュバスター（?t=...）を除去
+  md = md.replace(/(!\[[^\]]*\]\([^)?]+)\?t=\d+(\))/g, "$1$2");
   // 画像アノテーションを HTML コメントとして画像の直後に埋め込む
   md = embedImageAnnotations(editor, md);
   // Plugin State からコメントデータを取得し、末尾に付加

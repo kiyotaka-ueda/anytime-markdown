@@ -126,7 +126,23 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
             <ImageCropTool
               src={src}
               onCrop={(croppedDataUrl) => {
-                updateAttributes({ src: croppedDataUrl });
+                const isDataUrl = src.startsWith("data:");
+                if (isDataUrl) {
+                  // Base64 画像: そのまま src を更新
+                  updateAttributes({ src: croppedDataUrl });
+                } else {
+                  // リンク画像: VS Code にファイル上書き保存を依頼
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const vscodeApi = (window as any).__vscode;
+                  if (vscodeApi) {
+                    vscodeApi.postMessage({ type: "overwriteImage", path: src, dataUrl: croppedDataUrl });
+                    // src は変更しない（同じパスのまま）。ブラウザキャッシュを破棄するため query を付与
+                    updateAttributes({ src: src.split("?")[0] + "?t=" + Date.now() });
+                  } else {
+                    // Web アプリ: Base64 に変換
+                    updateAttributes({ src: croppedDataUrl });
+                  }
+                }
               }}
               t={t}
             />

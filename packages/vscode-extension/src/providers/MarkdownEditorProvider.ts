@@ -356,6 +356,26 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           break;
         }
 
+        case 'overwriteImage': {
+          const imgPath = (message as { type: string; path: string; dataUrl: string }).path;
+          const imgDataUrl = (message as { type: string; path: string; dataUrl: string }).dataUrl;
+          if (!imgPath || !imgDataUrl) break;
+          try {
+            const match = imgDataUrl.match(/^data:image\/\w+;base64,(.+)$/);
+            if (!match) break;
+            const buffer = Buffer.from(match[1], 'base64');
+            // 相対パスを絶対パスに解決（query string を除去）
+            const cleanPath = imgPath.split('?')[0];
+            const docDir = path.dirname(document.uri.fsPath);
+            const absPath = path.resolve(docDir, cleanPath);
+            fs.writeFileSync(absPath, buffer);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            vscode.window.showErrorMessage(`Image overwrite failed: ${msg}`);
+          }
+          break;
+        }
+
         case 'openLink': {
           const rawHref = (message as { type: string; href?: string }).href;
           if (typeof rawHref !== 'string') { return; }
