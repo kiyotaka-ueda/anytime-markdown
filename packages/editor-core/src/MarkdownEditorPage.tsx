@@ -301,6 +301,18 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     return () => window.removeEventListener("vscode-set-content", handler);
   }, [sourceMode, setSourceText]);
 
+  // VS Code: クリップボード画像の保存完了 → エディタに相対パスで画像挿入
+  useEffect(() => {
+    if (!editor) return;
+    const handler = (e: Event) => {
+      const relativePath = (e as CustomEvent<string>).detail;
+      if (typeof relativePath !== "string") return;
+      editor.chain().focus().setImage({ src: relativePath, alt: "" }).run();
+    };
+    window.addEventListener("vscode-image-saved", handler);
+    return () => window.removeEventListener("vscode-image-saved", handler);
+  }, [editor]);
+
   const statusBarHeight = hideStatusBar ? 0 : STATUSBAR_HEIGHT;
   const { editorContainerRef, editorHeight } = useEditorHeight(isMobile, isMd, statusBarHeight);
 

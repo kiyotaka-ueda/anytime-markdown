@@ -242,15 +242,27 @@ export function useEditorConfig({
         const hasText = Array.from(items).some((item) => item.type === "text/plain" || item.type === "text/html");
         if (hasText) return false;
         event.preventDefault();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const vscodeApi = (window as any).__vscode;
         images.forEach((item) => {
           const file = item.getAsFile();
           if (!file) return;
           const reader = new FileReader();
           reader.onload = () => {
             if (typeof reader.result !== "string") return;
-            const { from } = view.state.selection;
-            const tr = view.state.tr.insert(from, view.state.schema.nodes.image.create({ src: reader.result, alt: file.name }));
-            view.dispatch(tr);
+            if (vscodeApi) {
+              // VS Code 環境: ファイルに保存して相対パスで挿入
+              const now = new Date();
+              const ts = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}-${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`;
+              const ext = file.type.split("/")[1] || "png";
+              const fileName = `paste-${ts}.${ext}`;
+              vscodeApi.postMessage({ type: "saveClipboardImage", dataUrl: reader.result, fileName });
+            } else {
+              // Web アプリ: Base64 データ URL として直接挿入
+              const { from } = view.state.selection;
+              const tr = view.state.tr.insert(from, view.state.schema.nodes.image.create({ src: reader.result, alt: file.name }));
+              view.dispatch(tr);
+            }
           };
           reader.readAsDataURL(file);
         });

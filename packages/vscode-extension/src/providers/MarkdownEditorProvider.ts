@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { randomBytes } from 'crypto';
+import * as fs from 'fs';
 import * as path from 'path';
 export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   public static readonly viewType = 'anytimeMarkdown';
@@ -326,6 +327,31 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         case 'readClipboardForCodeBlock': {
           const cbText = await vscode.env.clipboard.readText();
           webviewPanel.webview.postMessage({ type: 'pasteCodeBlock', text: cbText });
+          break;
+        }
+
+        case 'saveClipboardImage': {
+          const imgData = (message as { type: string; dataUrl: string; fileName: string }).dataUrl;
+          const imgFileName = (message as { type: string; dataUrl: string; fileName: string }).fileName;
+          if (!imgData || !imgFileName) break;
+          const docDir = path.dirname(document.uri.fsPath);
+          const imagesDir = path.join(docDir, 'images');
+          try {
+            if (!fs.existsSync(imagesDir)) {
+              fs.mkdirSync(imagesDir, { recursive: true });
+            }
+            // data:image/png;base64,... → Buffer
+            const match = imgData.match(/^data:image\/\w+;base64,(.+)$/);
+            if (!match) break;
+            const buffer = Buffer.from(match[1], 'base64');
+            const filePath = path.join(imagesDir, imgFileName);
+            fs.writeFileSync(filePath, buffer);
+            const relativePath = `images/${imgFileName}`;
+            webviewPanel.webview.postMessage({ type: 'imageSaved', path: relativePath });
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            vscode.window.showErrorMessage(`Image save failed: ${msg}`);
+          }
           break;
         }
 

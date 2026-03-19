@@ -127,6 +127,10 @@ export function App() {
         window.dispatchEvent(new CustomEvent('vscode-set-content', { detail: message.content }));
         return;
       }
+      if (message?.type === 'imageSaved' && typeof message.path === 'string') {
+        window.dispatchEvent(new CustomEvent('vscode-image-saved', { detail: message.path }));
+        return;
+      }
       if (message?.type === 'pasteMarkdown' && typeof message.text === 'string') {
         window.dispatchEvent(new CustomEvent('vscode-paste-markdown', { detail: message.text }));
         return;
