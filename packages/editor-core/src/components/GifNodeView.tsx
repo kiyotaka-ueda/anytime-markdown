@@ -30,23 +30,29 @@ export function GifNodeView({ editor, node, updateAttributes, getPos }: NodeView
   } = useBlockNodeState(editor, node, getPos);
   const pngCapture = useBlockCapture(editor, getPos, "gif-block.png");
   const { src, alt, width } = node.attrs;
+  // 録画完了時の元 Blob を保持（fetch 経由だとアニメーションが失われる可能性がある）
+  const gifBlobRef = useRef<Blob | null>(null);
 
-  // GIF の場合は元ファイルをそのまま GIF として保存、それ以外は PNG キャプチャ
   const handleCapture = useCallback(async () => {
-    const imgSrc = (src as string) || "";
     const gifFileName = ((alt as string) || "animation").replace(/\.gif$/, "") + ".gif";
 
-    // src が .gif または blob: URL（GIF ブロック内なので GIF とみなす）の場合
+    // 元 Blob が保持されていればそれを直接保存
+    if (gifBlobRef.current) {
+      await saveBlob(gifBlobRef.current, gifFileName);
+      return;
+    }
+
+    // Blob がない場合（ファイルから読み込んだ GIF 等）は fetch で取得
+    const imgSrc = (src as string) || "";
     if (imgSrc && (imgSrc.endsWith(".gif") || imgSrc.startsWith("blob:"))) {
       try {
         const res = await fetch(imgSrc);
         const blob = await res.blob();
-        // blob の type が不正でも GIF として保存
         const gifBlob = blob.type === "image/gif" ? blob : new Blob([blob], { type: "image/gif" });
         await saveBlob(gifBlob, gifFileName);
         return;
       } catch {
-        // fetch 失敗時は PNG キャプチャにフォールバック
+        // フォールバック
       }
     }
     await pngCapture();
@@ -93,6 +99,8 @@ export function GifNodeView({ editor, node, updateAttributes, getPos }: NodeView
   const handleRecordComplete = useCallback(
     (blob: Blob, fileName: string, settings: GifSettings) => {
       setRecorderOpen(false);
+      // 元 Blob を保持（キャプチャ保存時にそのまま使う）
+      gifBlobRef.current = blob;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const vscodeApi = (window as any).__vscode;
       if (vscodeApi) {
