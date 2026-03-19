@@ -77,6 +77,22 @@ export function extractFrameFromCanvas(
   return canvas;
 }
 
+import { GIF_WORKER_SCRIPT } from "./gifWorkerScript";
+
+/**
+ * gif.js の Worker スクリプトを Blob URL として生成する。
+ * webpack / Next.js 環境では node_modules のファイルに直接アクセスできないため、
+ * Worker コードを文字列定数から Blob URL を生成する。
+ */
+let workerBlobUrl: string | null = null;
+
+function getWorkerUrl(): string {
+  if (workerBlobUrl) return workerBlobUrl;
+  const blob = new Blob([GIF_WORKER_SCRIPT], { type: "application/javascript" });
+  workerBlobUrl = URL.createObjectURL(blob);
+  return workerBlobUrl;
+}
+
 /**
  * ImageData 配列から GIF Blob を生成する。
  * gif.js を動的インポートし Web Worker でエンコード。
@@ -90,6 +106,7 @@ export async function encodeGif(
 ): Promise<Blob> {
   const GIF = (await import("gif.js")).default;
   const delay = Math.round(1000 / fps);
+  const workerUrl = getWorkerUrl();
 
   return new Promise((resolve, reject) => {
     try {
@@ -98,6 +115,7 @@ export async function encodeGif(
         quality: 10,
         width,
         height,
+        ...(workerUrl ? { workerScript: workerUrl } : {}),
       });
 
       for (const frame of frames) {
