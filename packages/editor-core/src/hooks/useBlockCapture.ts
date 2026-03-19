@@ -98,13 +98,38 @@ function cloneWithStyles(el: HTMLElement): HTMLElement {
   return clone;
 }
 
-function downloadCanvas(canvas: HTMLCanvasElement, fileName: string) {
-  canvas.toBlob((blob) => {
-    if (!blob) return;
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = fileName;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }, "image/png");
+async function downloadCanvas(canvas: HTMLCanvasElement, fileName: string) {
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+  if (!blob) return;
+  await saveBlob(blob, fileName);
+}
+
+/** showSaveFilePicker が使えればネイティブ保存ダイアログ、なければ従来のダウンロード */
+async function saveBlob(blob: Blob, suggestedName: string) {
+  // File System Access API (Chrome/Edge)
+  if ("showSaveFilePicker" in window) {
+    try {
+      const handle = await (window as unknown as { showSaveFilePicker: (opts: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker({
+        suggestedName,
+        types: [{
+          description: "PNG Image",
+          accept: { "image/png": [".png"] },
+        }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return;
+    } catch (err) {
+      // ユーザーがキャンセルした場合は何もしない
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      // その他のエラーはフォールバック
+    }
+  }
+  // フォールバック: 従来のダウンロード
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = suggestedName;
+  a.click();
+  URL.revokeObjectURL(a.href);
 }

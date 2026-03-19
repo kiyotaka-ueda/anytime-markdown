@@ -61,35 +61,58 @@ function getSvgDimensions(svgEl: Element): { w: number; h: number } {
   return { w: w || 800, h: h || 600 };
 }
 
-function downloadSvgAsPng(svgText: string) {
+async function downloadSvgAsPng(svgText: string, fileName = "diagram.png") {
   const cleanSvg = sanitizeSvgForCanvas(svgText);
   const svgEl = new DOMParser().parseFromString(cleanSvg, "image/svg+xml").documentElement;
   const { w, h } = getSvgDimensions(svgEl);
-  const blob = new Blob([cleanSvg], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
+  const svgBlob = new Blob([cleanSvg], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(svgBlob);
   const img = new Image();
-  img.onload = () => {
-    const scale = 2;
-    const canvas = document.createElement("canvas");
-    canvas.width = w * scale;
-    canvas.height = h * scale;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) { URL.revokeObjectURL(url); return; }
-    ctx.scale(scale, scale);
-    ctx.fillStyle = CAPTURE_BG;
-    ctx.fillRect(0, 0, w, h);
-    ctx.drawImage(img, 0, 0, w, h);
-    URL.revokeObjectURL(url);
-    canvas.toBlob((b) => {
-      if (!b) return;
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(b);
-      a.download = "diagram.png";
-      a.click();
-      URL.revokeObjectURL(a.href);
-    }, "image/png");
-  };
-  img.src = url;
+  await new Promise<void>((resolve) => {
+    img.onload = () => resolve();
+    img.onerror = () => resolve();
+    img.src = url;
+  });
+  const scale = 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = w * scale;
+  canvas.height = h * scale;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) { URL.revokeObjectURL(url); return; }
+  ctx.scale(scale, scale);
+  ctx.fillStyle = CAPTURE_BG;
+  ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(img, 0, 0, w, h);
+  URL.revokeObjectURL(url);
+  const pngBlob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+  if (!pngBlob) return;
+  await saveBlob(pngBlob, fileName);
+}
+
+/** showSaveFilePicker が使えればネイティブ保存ダイアログ、なければ従来のダウンロード */
+async function saveBlob(blob: Blob, suggestedName: string) {
+  if ("showSaveFilePicker" in window) {
+    try {
+      const handle = await (window as unknown as { showSaveFilePicker: (opts: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker({
+        suggestedName,
+        types: [{
+          description: "PNG Image",
+          accept: { "image/png": [".png"] },
+        }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return;
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+    }
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = suggestedName;
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 /** Render Mermaid code as light-mode SVG */
@@ -124,9 +147,10 @@ function buildPlantUmlLightUrl(code: string): string {
 export function useDiagramCapture({ isMermaid, isPlantUml, svg, plantUmlUrl, code, isDark }: UseDiagramCaptureParams) {
   return useCallback(async () => {
     try {
+      const diagramFileName = isMermaid ? "mermaid.png" : "plantuml.png";
       if (isMermaid && svg) {
         const captureSvg = isDark ? await renderMermaidLight(code) : svg;
-        downloadSvgAsPng(captureSvg);
+        await downloadSvgAsPng(captureSvg, diagramFileName);
       } else if (isPlantUml && plantUmlUrl) {
         const url = isDark ? buildPlantUmlLightUrl(code) : plantUmlUrl;
         try {
@@ -135,12 +159,21 @@ export function useDiagramCapture({ isMermaid, isPlantUml, svg, plantUmlUrl, cod
           const res = await fetch(url, { signal: controller.signal });
           clearTimeout(timerId);
           const svgText = await res.text();
-          downloadSvgAsPng(svgText);
+          await downloadSvgAsPng(svgText, diagramFileName);
         } catch {
-          const a = document.createElement("a");
-          a.href = url.replace("/svg/", "/png/");
-          a.download = "diagram.png";
-          a.click();
+          // fetch 失敗時は PNG URL で保存ダイアログを表示
+          try {
+            const pngUrl = url.replace("/svg/", "/png/");
+            const res2 = await fetch(pngUrl);
+            const pngBlob = await res2.blob();
+            await saveBlob(pngBlob, diagramFileName);
+          } catch {
+            // 最終フォールバック
+            const a = document.createElement("a");
+            a.href = url.replace("/svg/", "/png/");
+            a.download = diagramFileName;
+            a.click();
+          }
         }
       }
     } catch (err) {
