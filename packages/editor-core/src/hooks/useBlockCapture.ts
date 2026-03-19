@@ -304,14 +304,19 @@ export async function saveBlob(blob: Blob, suggestedName: string) {
   if ("showSaveFilePicker" in window) {
     try {
       const ext = suggestedName.match(/\.(\w+)$/)?.[1]?.toLowerCase() ?? "png";
-      const typeMap: Record<string, { description: string; accept: Record<string, string[]> }> = {
-        svg: { description: "SVG Image", accept: { "image/svg+xml": [".svg"] } },
-        gif: { description: "GIF Image", accept: { "image/gif": [".gif"] } },
-        png: { description: "PNG Image", accept: { "image/png": [".png"] } },
-      };
+      const allTypes = [
+        { ext: "gif", type: { description: "GIF Image", accept: { "image/gif": [".gif"] } } },
+        { ext: "png", type: { description: "PNG Image", accept: { "image/png": [".png"] } } },
+        { ext: "svg", type: { description: "SVG Image", accept: { "image/svg+xml": [".svg"] } } },
+      ];
+      // suggestedName の拡張子を先頭にし、残りを後ろに並べる
+      const types = [
+        ...allTypes.filter((t) => t.ext === ext).map((t) => t.type),
+        ...allTypes.filter((t) => t.ext !== ext).map((t) => t.type),
+      ];
       const handle = await (window as unknown as { showSaveFilePicker: (opts: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker({
         suggestedName,
-        types: [typeMap[ext] ?? typeMap.png],
+        types,
       });
       const writable = await handle.createWritable();
       await writable.write(blob);
