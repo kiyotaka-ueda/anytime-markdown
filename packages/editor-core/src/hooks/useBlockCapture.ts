@@ -116,11 +116,10 @@ async function captureImgElement(imgEl: HTMLImageElement, w: number, h: number, 
 }
 
 /**
- * HTML プレビュー要素を SVG としてキャプチャ。
- * foreignObject + Canvas は tainted canvas になるため PNG 化できない。
- * SVG ファイルとして直接保存する（ブラウザで画像として表示可能）。
+ * HTML プレビュー要素をキャプチャ。
+ * SVG（foreignObject でレンダリング忠実再現）と PNG（テキスト描画）の両方を選択可能。
  */
-async function captureHtmlPreview(el: HTMLElement, w: number, h: number, _scale: number, fileName: string) {
+async function captureHtmlPreview(el: HTMLElement, w: number, h: number, scale: number, fileName: string) {
   const clone = el.cloneNode(true) as HTMLElement;
   const serialized = new XMLSerializer().serializeToString(clone);
   const bgColor = findBackgroundColor(el);
@@ -134,61 +133,88 @@ async function captureHtmlPreview(el: HTMLElement, w: number, h: number, _scale:
 </svg>`;
 
   const svgBlob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
-  const svgFileName = fileName.replace(/\.png$/, ".svg");
-  await saveBlob(svgBlob, svgFileName);
+
+  // showSaveFilePicker で SVG / PNG を選択可能にする
+  if ("showSaveFilePicker" in window) {
+    try {
+      const handle = await (window as unknown as { showSaveFilePicker: (opts: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker({
+        suggestedName: fileName.replace(/\.png$/, ".svg"),
+        types: [
+          { description: "SVG Image (styled)", accept: { "image/svg+xml": [".svg"] } },
+          { description: "PNG Image (text only)", accept: { "image/png": [".png"] } },
+        ],
+      });
+      const chosenName = handle.name;
+      if (chosenName.endsWith(".png")) {
+        // PNG: テキスト描画方式で Canvas → Blob
+        const pngBlob = await renderTextToPngBlob(el, w, h, scale);
+        if (pngBlob) {
+          const writable = await handle.createWritable();
+          await writable.write(pngBlob);
+          await writable.close();
+        }
+      } else {
+        // SVG: foreignObject 付き SVG をそのまま保存
+        const writable = await handle.createWritable();
+        await writable.write(svgBlob);
+        await writable.close();
+      }
+      return;
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+    }
+  }
+
+  // フォールバック: SVG としてダウンロード
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(svgBlob);
+  a.download = fileName.replace(/\.png$/, ".svg");
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
-/**
- * HTML/コード要素を PNG としてキャプチャ。
- * Canvas 2D API でテキストを直接描画する方式（foreignObject 不使用）。
- */
-async function captureHtmlElement(el: HTMLElement, _w: number, _h: number, scale: number, fileName: string) {
+/** テキストを Canvas に描画して PNG Blob を生成 */
+async function renderTextToPngBlob(el: HTMLElement, w: number, h: number, scale: number): Promise<Blob | null> {
   const text = el.innerText || el.textContent || "";
-  if (!text.trim()) {
-    console.warn("captureHtmlElement: no text content found");
-    return;
-  }
+  if (!text.trim()) return null;
 
   const lines = text.split("\n");
   const fontSize = 14;
   const lineHeight = fontSize * 1.5;
   const padding = 16;
-  const maxWidth = Math.max(_w, 600);
+  const canvasH = lines.length * lineHeight + padding * 2;
 
-  // Canvas でテキストの実際の幅を計測
-  const measureCanvas = document.createElement("canvas");
-  const measureCtx = measureCanvas.getContext("2d")!;
-  measureCtx.font = `${fontSize}px monospace`;
-
-  let textMaxWidth = 0;
-  for (const line of lines) {
-    const m = measureCtx.measureText(line);
-    if (m.width > textMaxWidth) textMaxWidth = m.width;
-  }
-
-  const w = Math.min(Math.max(textMaxWidth + padding * 2, 300), maxWidth);
-  const h = lines.length * lineHeight + padding * 2;
-
-  const canvas = createScaledCanvas(w, h, scale);
+  const canvas = createScaledCanvas(Math.max(w, 300), canvasH, scale);
   const ctx = canvas.getContext("2d")!;
   ctx.scale(scale, scale);
 
-  // 背景色を要素から遡って探す（透明の場合は親を辿る）
   const bgColor = findBackgroundColor(el);
   const computed = getComputedStyle(el);
   ctx.fillStyle = bgColor;
-  ctx.fillRect(0, 0, w, h);
+  ctx.fillRect(0, 0, Math.max(w, 300), canvasH);
 
-  // テキスト描画
   ctx.font = `${fontSize}px monospace`;
   ctx.fillStyle = computed.color || "#333";
   ctx.textBaseline = "top";
-
   for (let i = 0; i < lines.length; i++) {
     ctx.fillText(lines[i], padding, padding + i * lineHeight);
   }
 
-  await downloadCanvas(canvas, fileName);
+  return new Promise<Blob | null>((resolve) => {
+    canvas.toBlob((b) => resolve(b), "image/png");
+  });
+}
+
+/**
+ * HTML/コード要素を PNG としてキャプチャ（テキスト直接描画方式）。
+ */
+async function captureHtmlElement(el: HTMLElement, w: number, _h: number, scale: number, fileName: string) {
+  const blob = await renderTextToPngBlob(el, w, _h, scale);
+  if (!blob) {
+    console.warn("captureHtmlElement: no text content found");
+    return;
+  }
+  await saveBlob(blob, fileName);
 }
 
 /** 要素の背景色を取得。透明の場合は親要素を遡る */
