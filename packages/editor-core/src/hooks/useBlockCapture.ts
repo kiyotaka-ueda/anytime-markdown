@@ -303,16 +303,15 @@ async function downloadCanvas(canvas: HTMLCanvasElement, fileName: string) {
 export async function saveBlob(blob: Blob, suggestedName: string) {
   if ("showSaveFilePicker" in window) {
     try {
-      const isSvg = suggestedName.endsWith(".svg");
+      const ext = suggestedName.match(/\.(\w+)$/)?.[1]?.toLowerCase() ?? "png";
+      const typeMap: Record<string, { description: string; accept: Record<string, string[]> }> = {
+        svg: { description: "SVG Image", accept: { "image/svg+xml": [".svg"] } },
+        gif: { description: "GIF Image", accept: { "image/gif": [".gif"] } },
+        png: { description: "PNG Image", accept: { "image/png": [".png"] } },
+      };
       const handle = await (window as unknown as { showSaveFilePicker: (opts: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker({
         suggestedName,
-        types: [isSvg ? {
-          description: "SVG Image",
-          accept: { "image/svg+xml": [".svg"] },
-        } : {
-          description: "PNG Image",
-          accept: { "image/png": [".png"] },
-        }],
+        types: [typeMap[ext] ?? typeMap.png],
       });
       const writable = await handle.createWritable();
       await writable.write(blob);
