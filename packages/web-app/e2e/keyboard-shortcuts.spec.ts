@@ -16,8 +16,10 @@ test.describe("Keyboard Shortcuts - ブロック操作", () => {
     await page.keyboard.type("third");
     // "second" の行にカーソルを移動
     await page.keyboard.press("ArrowUp");
-    // Alt+Down で移動
+    // エディタにフォーカスを確保してから Alt+Down で移動
+    await editor.focus();
     await page.keyboard.press("Alt+ArrowDown");
+    await page.waitForTimeout(200);
     // "second" が "third" の後に移動
     const text = await editor.innerText();
     const lines = text.split("\n").filter(l => l.trim());
@@ -52,7 +54,9 @@ test.describe("Keyboard Shortcuts - ブロック操作", () => {
     // "original" にカーソルを移動
     await page.keyboard.press("ArrowUp");
     await page.keyboard.press("Home");
+    await editor.focus();
     await page.keyboard.press("Shift+Alt+ArrowDown");
+    await page.waitForTimeout(200);
     const text = await editor.innerText();
     const lines = text.split("\n").filter(l => l.trim());
     expect(lines.filter(l => l === "original").length).toBe(2);

@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-03-19
+
+### Added
+- 画像コメント機能: SVG オーバーレイで矩形/円/線を描画しコメントを追加（解決/削除対応、コメントパネルに統合表示）
+- 画像トリム機能: ドラッグで範囲選択しトリミング（Base64/リンク画像の分岐保存対応）
+- 画像リサイズ: プリセットボタン（25%〜200%）による倍率変更
+- 画像編集画面にルーラー（ピクセル目盛り）とグリッド線を表示
+- セマンティック比較: 見出しベースのセクション単位で LCS マッチングし差分を表示（トグル切替）
+- 右クリックコンテキストメニュー: 切り取り/コピー/貼り付け/Markdownで貼り付け/コードブロックで貼り付け（ショートカット表示付き）
+- 罫線テーブル（Unicode Box Drawing）の Markdown テーブル自動変換（貼り付け時）
+- キーボードショートカット追加: Alt+Arrow（ブロック移動）、Shift+Alt+Arrow（ブロック複製）、Ctrl+Enter/Shift+Enter（空行挿入）、Ctrl+L（行選択）、Ctrl+D（単語選択）、Tab/Shift+Tab（見出しレベル変更）
+- VS Code 拡張: クリップボード画像の自動ファイル保存（Ctrl+V / D&D で images/ に保存しリンク挿入）
+- VS Code 拡張: activationEvents 最適化（onLanguage:markdown + onView）
+- VS Code 拡張: Workspace Trust 対応（untrustedWorkspaces: limited）
+- VS Code 拡張: Markdown リンク検証（ファイル存在・アンカー存在チェック、Diagnostics API）
+- VS Code 拡張: パスのコピー・ファイルインポート・外部ファイル D&D をツリービューに追加
+- Playwright+Electron によるデモ GIF 作成ツール
+- React Error Boundary（role="alert"、リロードボタン付き）
+- キーボードショートカットのユニットテスト・E2E テストを追加
+
+### Changed
+- EditorMainContent を EditorContentArea / EditorMergeContent / EditorSideToolbar に分割
+- Context 値を useMemo でメモ化、パネル重複排除、セクション番号ロジックを hook に抽出
+- isEditable 取得方法を統一（useCurrentEditor フック）
+- GitHub API ユーティリティを集約、ExplorerPanel を分割
+- 比較モード左側ブロック要素: レビューモードではツールバー非表示、編集モードでは選択時にラベルのみ表示
+- 比較モード左側のチェックボックスを DOM キャプチャフェーズで操作無効化
+- README バッジを整理、文体をリライト
+
+### Fixed
+- VS Code ソースモードで Ctrl+Z（Undo）が効かない問題を修正
+- 貼り付け画像が VS Code webview で表示されない問題を修正（base href 動的設定）
+- GitHub エクスプローラのファイル選択で無限ループする問題を修正
+- Service Worker の navigationPreload 警告を修正
+- セマンティック diff の行番号計算を修正（パディング行の除外）
+- 画像アノテーションのソースモード切替時消失を修正（Markdown 末尾ブロック保存方式）
+- Base64 画像でアノテーション保存時にクラッシュする問題を修正（indexOf ベース検索）
+
+### Security
+- overwriteImage/saveClipboardImage のパストラバーサル脆弱性を修正（ディレクトリ境界チェック）
+- CSP に base-uri ディレクティブを追加（javascript: スキーム注入防止）
+- ウェブビューメッセージの実行時型ガードを追加（TypeScript 型アサーションから typeof チェックに変更）
+- Canvas taint エラーの try-catch ハンドリングを追加
+
 ## [0.5.2] - 2026-03-17
 
 ### Added
@@ -618,7 +662,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - エラーハンドリング: 保存失敗時のメッセージ表示
 - 大ファイル (100KB超) のデバウンス最適化
 
-[Unreleased]: https://github.com/kiyotaka-ueda/anytime-markdown/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/kiyotaka-ueda/anytime-markdown/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/kiyotaka-ueda/anytime-markdown/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/kiyotaka-ueda/anytime-markdown/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/kiyotaka-ueda/anytime-markdown/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/kiyotaka-ueda/anytime-markdown/compare/v0.4.1...v0.5.0

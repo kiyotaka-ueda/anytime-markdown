@@ -10,9 +10,12 @@ Anytime Markdown gives you a rich WYSIWYG editor with built-in Git support, so y
 
 - **Open multiple doc repos** in the sidebar alongside your source code
 - **Review AI output** with live-rendered tables, diagrams (Mermaid / PlantUML), and math
-- **Compare versions** side-by-side with diff highlighting
+- **Compare versions** side-by-side with diff highlighting (semantic section-based diff available)
+- **Annotate images** with shapes and comments directly in the editor
+- **Edit images** with crop, resize, ruler, and grid tools
 - **Commit and push** docs without leaving VS Code
 - **Track history** with a visual Git graph and per-file timeline
+- **Validate links** with diagnostics for broken file/anchor references
 
 ## 2. How It Works
 
