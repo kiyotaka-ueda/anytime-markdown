@@ -120,18 +120,18 @@ async function captureImgElement(imgEl: HTMLImageElement, w: number, h: number, 
  * プレビューにはインラインスタイルが含まれているため、外部CSS不要で動作する。
  */
 async function captureHtmlPreview(el: HTMLElement, w: number, h: number, scale: number, fileName: string) {
-  // innerHTML を取得（インラインスタイル付き）
-  const html = el.innerHTML;
+  // DOM を XMLSerializer で valid XML に変換
+  const clone = el.cloneNode(true) as HTMLElement;
+  const serialized = new XMLSerializer().serializeToString(clone);
 
   // 背景色を要素から取得
   const bgColor = findBackgroundColor(el);
 
   const svgNs = "http://www.w3.org/2000/svg";
-  const xhtml = "http://www.w3.org/1999/xhtml";
   const svgStr = `<svg xmlns="${svgNs}" width="${w}" height="${h}">
     <foreignObject width="100%" height="100%">
-      <div xmlns="${xhtml}" style="width:${w}px;height:${h}px;background:${bgColor};overflow:hidden;font-family:sans-serif;font-size:14px;color:inherit;padding:0;margin:0">
-        ${html}
+      <div xmlns="http://www.w3.org/1999/xhtml" style="width:${w}px;height:${h}px;background:${bgColor};overflow:hidden;font-family:sans-serif;font-size:14px;padding:0;margin:0">
+        ${serialized}
       </div>
     </foreignObject>
   </svg>`;
@@ -147,7 +147,8 @@ async function captureHtmlPreview(el: HTMLElement, w: number, h: number, scale: 
     ctx.drawImage(img, 0, 0, w, h);
     URL.revokeObjectURL(url);
     await downloadCanvas(canvas, fileName);
-  } catch {
+  } catch (err) {
+    console.warn("HTML preview foreignObject capture failed:", err);
     URL.revokeObjectURL(url);
     // foreignObject 失敗時: テキスト描画方式にフォールバック
     await captureHtmlElement(el, w, h, scale, fileName);
@@ -160,7 +161,10 @@ async function captureHtmlPreview(el: HTMLElement, w: number, h: number, scale: 
  */
 async function captureHtmlElement(el: HTMLElement, _w: number, _h: number, scale: number, fileName: string) {
   const text = el.innerText || el.textContent || "";
-  if (!text.trim()) return;
+  if (!text.trim()) {
+    console.warn("captureHtmlElement: no text content found");
+    return;
+  }
 
   const lines = text.split("\n");
   const fontSize = 14;
@@ -236,12 +240,16 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 async function downloadCanvas(canvas: HTMLCanvasElement, fileName: string) {
   const blob = await new Promise<Blob | null>((resolve) => {
     try {
-      canvas.toBlob(resolve, "image/png");
-    } catch {
+      canvas.toBlob((b) => resolve(b), "image/png");
+    } catch (err) {
+      console.warn("canvas.toBlob failed (tainted?):", err);
       resolve(null);
     }
   });
-  if (!blob) return;
+  if (!blob) {
+    console.warn("downloadCanvas: toBlob returned null (canvas may be tainted)");
+    return;
+  }
   await saveBlob(blob, fileName);
 }
 
