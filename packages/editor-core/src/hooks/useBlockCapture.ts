@@ -142,9 +142,10 @@ async function captureHtmlElement(el: HTMLElement, _w: number, _h: number, scale
   const ctx = canvas.getContext("2d")!;
   ctx.scale(scale, scale);
 
-  // 背景
+  // 背景色を要素から遡って探す（透明の場合は親を辿る）
+  const bgColor = findBackgroundColor(el);
   const computed = getComputedStyle(el);
-  ctx.fillStyle = computed.backgroundColor || CAPTURE_BG;
+  ctx.fillStyle = bgColor;
   ctx.fillRect(0, 0, w, h);
 
   // テキスト描画
@@ -157,6 +158,19 @@ async function captureHtmlElement(el: HTMLElement, _w: number, _h: number, scale
   }
 
   await downloadCanvas(canvas, fileName);
+}
+
+/** 要素の背景色を取得。透明の場合は親要素を遡る */
+function findBackgroundColor(el: HTMLElement): string {
+  let current: HTMLElement | null = el;
+  while (current) {
+    const bg = getComputedStyle(current).backgroundColor;
+    if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
+      return bg;
+    }
+    current = current.parentElement;
+  }
+  return CAPTURE_BG;
 }
 
 function createScaledCanvas(w: number, h: number, scale: number): HTMLCanvasElement {
