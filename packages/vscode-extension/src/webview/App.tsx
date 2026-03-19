@@ -127,6 +127,16 @@ export function App() {
         window.dispatchEvent(new CustomEvent('vscode-set-content', { detail: message.content }));
         return;
       }
+      if (message?.type === 'setBaseUri' && typeof message.baseUri === 'string') {
+        // <base href> を設定して相対パスの画像を解決可能にする
+        let baseEl = document.querySelector('base');
+        if (!baseEl) {
+          baseEl = document.createElement('base');
+          document.head.appendChild(baseEl);
+        }
+        baseEl.setAttribute('href', message.baseUri + '/');
+        return;
+      }
       if (message?.type === 'imageSaved' && typeof message.path === 'string') {
         window.dispatchEvent(new CustomEvent('vscode-image-saved', { detail: message.path }));
         return;

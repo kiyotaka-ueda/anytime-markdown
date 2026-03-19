@@ -347,7 +347,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
             const filePath = path.join(imagesDir, imgFileName);
             fs.writeFileSync(filePath, buffer);
             const relativePath = `images/${imgFileName}`;
-            webviewPanel.webview.postMessage({ type: 'imageSaved', path: relativePath });
+            const webviewUri = webviewPanel.webview.asWebviewUri(vscode.Uri.file(filePath)).toString();
+            webviewPanel.webview.postMessage({ type: 'imageSaved', path: relativePath, webviewUri });
           } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             vscode.window.showErrorMessage(`Image save failed: ${msg}`);

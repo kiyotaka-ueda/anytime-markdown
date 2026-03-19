@@ -302,12 +302,13 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   }, [sourceMode, setSourceText]);
 
   // VS Code: クリップボード画像の保存完了 → エディタに相対パスで画像挿入
+  // <base href> が設定されているため、相対パスで画像が表示される
   useEffect(() => {
     if (!editor) return;
     const handler = (e: Event) => {
-      const relativePath = (e as CustomEvent<string>).detail;
-      if (typeof relativePath !== "string") return;
-      editor.chain().focus().setImage({ src: relativePath, alt: "" }).run();
+      const detail = (e as CustomEvent<string>).detail;
+      if (typeof detail !== "string") return;
+      editor.chain().focus().setImage({ src: detail, alt: "" }).run();
     };
     window.addEventListener("vscode-image-saved", handler);
     return () => window.removeEventListener("vscode-image-saved", handler);
