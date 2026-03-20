@@ -73,6 +73,6 @@
 - 編集モードでのテンプレート挿入時に連続空行が圧縮される問題を修正
 - 比較モード切替時に NodeViews（図表・画像・テーブル）が消失する問題を修正
 
-[Unreleased]: https://github.com/kiyotaka-ueda/anytime-markdown/compare/v0.4.0...HEAD
-[0.4.0]: https://github.com/kiyotaka-ueda/anytime-markdown/compare/v0.3.0...v0.4.0
-[0.3.0]: https://github.com/kiyotaka-ueda/anytime-markdown/releases/tag/v0.3.0
+[Unreleased]: https://github.com/anytime-trial/anytime-markdown/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/anytime-trial/anytime-markdown/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/anytime-trial/anytime-markdown/releases/tag/v0.3.0

@@ -33,7 +33,7 @@ export default function SiteFooter() {
         }}
       >
         <MuiLink
-          href="https://github.com/kiyotaka-ueda/anytime-markdown"
+          href="https://github.com/anytime-trial/anytime-markdown"
           target="_blank"
           rel="noopener noreferrer"
           underline="hover"

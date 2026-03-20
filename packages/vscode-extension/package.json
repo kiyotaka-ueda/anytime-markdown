@@ -7,7 +7,7 @@
   "publisher": "kiytaka-ueda",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kiyotaka-ueda/anytime-markdown.git"
+    "url": "https://github.com/anytime-trial/anytime-markdown.git"
   },
   "engines": {
     "vscode": "^1.109.0"

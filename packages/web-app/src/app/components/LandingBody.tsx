@@ -139,7 +139,7 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
             </Typography>
             <Button
               component={MuiLink}
-              href="https://github.com/kiyotaka-ueda/anytime-markdown"
+              href="https://github.com/anytime-trial/anytime-markdown"
               target="_blank"
               rel="noopener noreferrer"
               variant="text"
@@ -172,7 +172,7 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
             {t.rich('experimentalNotice', {
               github: (chunks) => (
                 <MuiLink
-                  href="https://github.com/kiyotaka-ueda/anytime-markdown"
+                  href="https://github.com/anytime-trial/anytime-markdown"
                   target="_blank"
                   rel="noopener noreferrer"
                   sx={{ color: 'text.secondary', textDecorationColor: 'inherit' }}
