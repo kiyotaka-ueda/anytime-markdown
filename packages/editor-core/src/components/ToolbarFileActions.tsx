@@ -78,7 +78,7 @@ export const ToolbarFileActions = React.memo(function ToolbarFileActions({
           </MenuItem>
         )}
         {externalSaveOnly ? ([
-          <MenuItem key="save" onClick={() => { onSaveFile?.(); setFileMenuAnchorEl(null); }} disabled={!hasFileHandle}>
+          <MenuItem key="save" onClick={() => { onSaveFile?.(); setFileMenuAnchorEl(null); }} disabled={readonlyMode || !hasFileHandle}>
             <ListItemIcon><SaveIcon fontSize="small" /></ListItemIcon>
             <ListItemText>{t("saveFile")}</ListItemText>
           </MenuItem>,
@@ -87,11 +87,11 @@ export const ToolbarFileActions = React.memo(function ToolbarFileActions({
             <ListItemIcon><FolderOpenIcon fontSize="small" /></ListItemIcon>
             <ListItemText>{t("openFile")}</ListItemText>
           </MenuItem>,
-          <MenuItem key="save" onClick={() => { onSaveFile?.(); setFileMenuAnchorEl(null); }} disabled={!hasFileHandle}>
+          <MenuItem key="save" onClick={() => { onSaveFile?.(); setFileMenuAnchorEl(null); }} disabled={readonlyMode || !hasFileHandle}>
             <ListItemIcon><SaveIcon fontSize="small" /></ListItemIcon>
             <ListItemText>{t("saveFile")}</ListItemText>
           </MenuItem>,
-          <MenuItem key="saveAs" onClick={() => { onSaveAsFile?.(); setFileMenuAnchorEl(null); }}>
+          <MenuItem key="saveAs" onClick={() => { onSaveAsFile?.(); setFileMenuAnchorEl(null); }} disabled={readonlyMode}>
             <ListItemIcon><SaveAsIcon fontSize="small" /></ListItemIcon>
             <ListItemText>{t("saveAsFile")}</ListItemText>
           </MenuItem>,
@@ -100,7 +100,7 @@ export const ToolbarFileActions = React.memo(function ToolbarFileActions({
             <ListItemIcon><FolderOpenIcon fontSize="small" /></ListItemIcon>
             <ListItemText>{t("openFile")}</ListItemText>
           </MenuItem>,
-          <MenuItem key="saveAs" onClick={() => { onDownload(); setFileMenuAnchorEl(null); }}>
+          <MenuItem key="saveAs" onClick={() => { onDownload(); setFileMenuAnchorEl(null); }} disabled={readonlyMode}>
             <ListItemIcon><SaveAsIcon fontSize="small" /></ListItemIcon>
             <ListItemText>{t("saveAsFile")}</ListItemText>
           </MenuItem>,
@@ -117,7 +117,7 @@ export const ToolbarFileActions = React.memo(function ToolbarFileActions({
       <Box sx={{ display: { xs: "none", md: "contents" } }}>
         <ToggleButtonGroup size="small" aria-label={t("fileActions")} sx={{ height: 30 }}>
         {externalSaveOnly ? ([
-          <ToggleButton key="save" value="save" onClick={onSaveFile} disabled={!hasFileHandle} aria-label={t("saveFile")} sx={{ px: 0.75, py: 0.25 }}>
+          <ToggleButton key="save" value="save" onClick={onSaveFile} disabled={readonlyMode || !hasFileHandle} aria-label={t("saveFile")} sx={{ px: 0.75, py: 0.25 }}>
             <Tooltip title={hasFileHandle ? tip(t, "saveFile", tooltipShortcuts) : t("saveFileNoHandle")}>
               <span style={{ display: "inline-flex" }}><SaveIcon fontSize="small" /></span>
             </Tooltip>
@@ -134,14 +134,14 @@ export const ToolbarFileActions = React.memo(function ToolbarFileActions({
                 <FolderOpenIcon fontSize="small" />
               </Tooltip>
             </ToggleButton>,
-            <ToggleButton key="save" value="save" onClick={onSaveFile} disabled={!hasFileHandle} aria-label={t("saveFile")} sx={{ px: 0.75, py: 0.25 }}>
+            <ToggleButton key="save" value="save" onClick={onSaveFile} disabled={readonlyMode || !hasFileHandle} aria-label={t("saveFile")} sx={{ px: 0.75, py: 0.25 }}>
               <Tooltip title={hasFileHandle ? tip(t, "saveFile", tooltipShortcuts) : t("saveFileNoHandle")}>
                 <span style={{ display: "inline-flex" }}><SaveIcon fontSize="small" /></span>
               </Tooltip>
             </ToggleButton>,
-            <ToggleButton key="saveAs" value="saveAs" onClick={onSaveAsFile} aria-label={t("saveAsFile")} sx={{ px: 0.75, py: 0.25 }}>
+            <ToggleButton key="saveAs" value="saveAs" onClick={onSaveAsFile} disabled={readonlyMode} aria-label={t("saveAsFile")} sx={{ px: 0.75, py: 0.25 }}>
               <Tooltip title={tip(t, "saveAsFile", tooltipShortcuts)}>
-                <SaveAsIcon fontSize="small" />
+                <span style={{ display: "inline-flex" }}><SaveAsIcon fontSize="small" /></span>
               </Tooltip>
             </ToggleButton>,
           ] : [
@@ -150,9 +150,9 @@ export const ToolbarFileActions = React.memo(function ToolbarFileActions({
                 <FolderOpenIcon fontSize="small" />
               </Tooltip>
             </ToggleButton>,
-            <ToggleButton key="saveAs" value="saveAs" onClick={onDownload} aria-label={t("saveAsFile")} sx={{ px: 0.75, py: 0.25 }}>
+            <ToggleButton key="saveAs" value="saveAs" onClick={onDownload} disabled={readonlyMode} aria-label={t("saveAsFile")} sx={{ px: 0.75, py: 0.25 }}>
               <Tooltip title={t("saveAsFile")}>
-                <SaveAsIcon fontSize="small" />
+                <span style={{ display: "inline-flex" }}><SaveAsIcon fontSize="small" /></span>
               </Tooltip>
             </ToggleButton>,
           ]),

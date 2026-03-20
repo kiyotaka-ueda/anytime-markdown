@@ -35,7 +35,7 @@ export function getCodeStyles(theme: Theme): SxProps<Theme> {
   return {
     "& code": {
       bgcolor: isDark ? DEFAULT_DARK_CODE_BG : DEFAULT_LIGHT_CODE_BG,
-      color: isDark ? theme.palette.grey[300] : theme.palette.error.main,
+      color: isDark ? theme.palette.grey[300] : "#c62828",
       px: 0.5,
       py: 0.25,
       borderRadius: 0.5,

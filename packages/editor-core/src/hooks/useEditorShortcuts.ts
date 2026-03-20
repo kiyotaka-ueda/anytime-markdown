@@ -1,40 +1,26 @@
-import type { Editor } from "@tiptap/react";
-import type { Dispatch, SetStateAction } from "react";
 import { useEffect } from "react";
 
 interface UseEditorShortcutsParams {
-  editor: Editor | null;
   sourceMode: boolean;
   readonlyMode?: boolean;
   reviewMode?: boolean;
-  appendToSource: (text: string) => void;
   handleSaveFile: () => void;
   handleSaveAsFile: () => void;
   handleOpenFile: () => void;
-  handleImage: () => void;
   handleClear: () => void;
   handleCopy: () => void;
-  handleImport: () => void;
-  handleDownload: () => void;
-  handleToggleAllBlocks: () => void;
-  handleToggleOutline: () => void;
   handleSwitchToSource: () => void;
   handleSwitchToWysiwyg: () => void;
   handleSwitchToReview?: () => void;
   handleSwitchToReadonly?: () => void;
   handleMerge: () => void;
-  setDiagramAnchorEl: Dispatch<SetStateAction<HTMLElement | null>>;
-  setTemplateAnchorEl: Dispatch<SetStateAction<HTMLElement | null>>;
-  t: (key: string) => string;
 }
 
 export function useEditorShortcuts({
-  editor, sourceMode, readonlyMode, reviewMode, appendToSource,
-  handleSaveFile, handleSaveAsFile, handleOpenFile, handleImage,
-  handleClear, handleCopy, handleImport, handleDownload,
-  handleToggleAllBlocks, handleToggleOutline,
+  sourceMode, readonlyMode, reviewMode,
+  handleSaveFile, handleSaveAsFile, handleOpenFile,
+  handleClear, handleCopy,
   handleSwitchToSource, handleSwitchToWysiwyg, handleSwitchToReview, handleSwitchToReadonly, handleMerge,
-  setDiagramAnchorEl, setTemplateAnchorEl, t,
 }: UseEditorShortcutsParams) {
   // ファイル操作ショートカット (Ctrl/Cmd+S, Ctrl/Cmd+O)
   useEffect(() => {
@@ -76,25 +62,10 @@ export function useEditorShortcuts({
         else { handleSwitchToSource(); }
       }
       else if (readonlyMode || reviewMode) { return; } // readonly/レビューモードではこれ以降の編集系ショートカットを無効化
-      else if (key === "i") { e.preventDefault(); handleImage(); }
-      else if (key === "r") {
-        e.preventDefault();
-        if (sourceMode) { appendToSource("\n---\n"); } else { editor?.chain().focus().setHorizontalRule().run(); }
-      }
-      else if (key === "t") {
-        e.preventDefault();
-        if (sourceMode) { appendToSource("\n| Header | Header | Header |\n| ------ | ------ | ------ |\n|        |        |        |\n|        |        |        |\n"); }
-        else { editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(); }
-      }
-      else if (key === "d") { e.preventDefault(); setDiagramAnchorEl(document.querySelector<HTMLElement>("[aria-label=\"" + t("insertDiagram") + "\"]")); }
-      else if (key === "p") { e.preventDefault(); setTemplateAnchorEl(document.querySelector<HTMLElement>("[aria-label=\"" + t("templates") + "\"]")); }
       else if (key === "m") { e.preventDefault(); handleMerge(); }
       else if (key === "n") { e.preventDefault(); handleClear(); }
-      else if (key === "u") { e.preventDefault(); handleImport(); }
-      else if (key === "e") { e.preventDefault(); handleDownload(); }
-      else if (key === "f") { e.preventDefault(); handleToggleAllBlocks(); }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [editor, sourceMode, readonlyMode, reviewMode, appendToSource, t, handleImage, handleSwitchToWysiwyg, handleSwitchToSource, handleSwitchToReview, handleSwitchToReadonly, handleMerge, setDiagramAnchorEl, setTemplateAnchorEl, handleClear, handleImport, handleDownload, handleToggleAllBlocks, handleToggleOutline]);
+  }, [sourceMode, readonlyMode, reviewMode, handleSwitchToWysiwyg, handleSwitchToSource, handleSwitchToReview, handleSwitchToReadonly, handleMerge, handleClear]);
 }

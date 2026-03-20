@@ -335,12 +335,10 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   }, [editor, sourceMode, appendToSource, frontmatterRef]);
 
   useEditorShortcuts({
-    editor, sourceMode, readonlyMode, reviewMode, appendToSource,
-    handleSaveFile, handleSaveAsFile, handleOpenFile, handleImage,
-    handleClear, handleCopy, handleImport: () => fileInputRef.current?.click(),
-    handleDownload, handleToggleAllBlocks, handleToggleOutline,
+    sourceMode, readonlyMode, reviewMode,
+    handleSaveFile, handleSaveAsFile, handleOpenFile,
+    handleClear, handleCopy,
     handleSwitchToSource, handleSwitchToWysiwyg, handleSwitchToReview, handleSwitchToReadonly, handleMerge,
-    setDiagramAnchorEl, setTemplateAnchorEl, t,
   });
 
   const settingsValue = useMemo(

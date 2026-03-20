@@ -10,6 +10,7 @@ import { TableKit } from "@tiptap/extension-table";
 import TaskItem from "@tiptap/extension-task-item";
 import TaskList from "@tiptap/extension-task-list";
 import Underline from "@tiptap/extension-underline";
+import type { Editor } from "@tiptap/core";
 import { Fragment } from "@tiptap/pm/model";
 import { TextSelection } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
@@ -153,61 +154,61 @@ export function getBaseExtensions(options?: { disableComments?: boolean; disable
             if (level <= 1) return true; // H1 が最小
             return editor.chain().focus().setHeading({ level: (level - 1) as 1|2|3|4|5 }).run();
           },
-          // Alt+Up/Down: ブロックを上下に移動
-          "Alt-ArrowUp": ({ editor }) => {
-            const { $from } = editor.state.selection;
-            const curStart = $from.before(1);
-            if (curStart <= 0) return true;
-            const curNode = $from.node(1);
-            const $prev = editor.state.doc.resolve(curStart - 1);
-            const prevStart = $prev.before(1);
-            const prevNode = $prev.node(1);
-            const { tr } = editor.state;
-            tr.replaceWith(prevStart, curStart + curNode.nodeSize, Fragment.from([curNode, prevNode]));
-            tr.setSelection(TextSelection.near(tr.doc.resolve(prevStart + 1)));
-            editor.view.dispatch(tr.scrollIntoView());
-            return true;
-          },
-          "Alt-ArrowDown": ({ editor }) => {
-            const { $from } = editor.state.selection;
-            const curStart = $from.before(1);
-            const curNode = $from.node(1);
-            const curEnd = curStart + curNode.nodeSize;
-            if (curEnd >= editor.state.doc.content.size) return true;
-            const $next = editor.state.doc.resolve(curEnd + 1);
-            const nextNode = $next.node(1);
-            const nextEnd = curEnd + nextNode.nodeSize;
-            const { tr } = editor.state;
-            tr.replaceWith(curStart, nextEnd, Fragment.from([nextNode, curNode]));
-            const newPos = curStart + nextNode.nodeSize + 1;
-            tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(newPos, tr.doc.content.size))));
-            editor.view.dispatch(tr.scrollIntoView());
-            return true;
-          },
-          // Shift+Alt+Up/Down: ブロックを上下に複製
-          "Shift-Alt-ArrowUp": ({ editor }) => {
-            const { $from } = editor.state.selection;
-            const pos = $from.before(1);
-            const node = $from.node(1);
-            const { tr } = editor.state;
-            tr.insert(pos, node.copy(node.content));
-            // カーソルを複製した上のノードに配置
-            tr.setSelection(TextSelection.near(tr.doc.resolve(pos + 1)));
-            editor.view.dispatch(tr.scrollIntoView());
-            return true;
-          },
-          "Shift-Alt-ArrowDown": ({ editor }) => {
-            const { $from } = editor.state.selection;
-            const pos = $from.before(1);
-            const node = $from.node(1);
-            const afterPos = pos + node.nodeSize;
-            const { tr } = editor.state;
-            tr.insert(afterPos, node.copy(node.content));
-            // カーソルを複製した下のノードに配置
-            tr.setSelection(TextSelection.near(tr.doc.resolve(afterPos + 1)));
-            editor.view.dispatch(tr.scrollIntoView());
-            return true;
-          },
+          // Alt+Up/Down: ブロックを上下に移動（VS Code のみ有効、Web は Chromium 競合のため無効）
+          ...(window.__vscode ? {
+            "Alt-ArrowUp": ({ editor }: { editor: Editor }) => {
+              const { $from } = editor.state.selection;
+              const curStart = $from.before(1);
+              if (curStart <= 0) return true;
+              const curNode = $from.node(1);
+              const $prev = editor.state.doc.resolve(curStart - 1);
+              const prevStart = $prev.before(1);
+              const prevNode = $prev.node(1);
+              const { tr } = editor.state;
+              tr.replaceWith(prevStart, curStart + curNode.nodeSize, Fragment.from([curNode, prevNode]));
+              tr.setSelection(TextSelection.near(tr.doc.resolve(prevStart + 1)));
+              editor.view.dispatch(tr.scrollIntoView());
+              return true;
+            },
+            "Alt-ArrowDown": ({ editor }: { editor: Editor }) => {
+              const { $from } = editor.state.selection;
+              const curStart = $from.before(1);
+              const curNode = $from.node(1);
+              const curEnd = curStart + curNode.nodeSize;
+              if (curEnd >= editor.state.doc.content.size) return true;
+              const $next = editor.state.doc.resolve(curEnd + 1);
+              const nextNode = $next.node(1);
+              const nextEnd = curEnd + nextNode.nodeSize;
+              const { tr } = editor.state;
+              tr.replaceWith(curStart, nextEnd, Fragment.from([nextNode, curNode]));
+              const newPos = curStart + nextNode.nodeSize + 1;
+              tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(newPos, tr.doc.content.size))));
+              editor.view.dispatch(tr.scrollIntoView());
+              return true;
+            },
+            // Shift+Alt+Up/Down: ブロックを上下に複製
+            "Shift-Alt-ArrowUp": ({ editor }: { editor: Editor }) => {
+              const { $from } = editor.state.selection;
+              const pos = $from.before(1);
+              const node = $from.node(1);
+              const { tr } = editor.state;
+              tr.insert(pos, node.copy(node.content));
+              tr.setSelection(TextSelection.near(tr.doc.resolve(pos + 1)));
+              editor.view.dispatch(tr.scrollIntoView());
+              return true;
+            },
+            "Shift-Alt-ArrowDown": ({ editor }: { editor: Editor }) => {
+              const { $from } = editor.state.selection;
+              const pos = $from.before(1);
+              const node = $from.node(1);
+              const afterPos = pos + node.nodeSize;
+              const { tr } = editor.state;
+              tr.insert(afterPos, node.copy(node.content));
+              tr.setSelection(TextSelection.near(tr.doc.resolve(afterPos + 1)));
+              editor.view.dispatch(tr.scrollIntoView());
+              return true;
+            },
+          } : {}),
           // Ctrl+Enter: カーソル位置の下に空行を挿入
           "Mod-Enter": ({ editor }) => {
             const { $from } = editor.state.selection;

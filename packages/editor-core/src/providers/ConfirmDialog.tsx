@@ -75,7 +75,7 @@ const ConfirmDialog: React.FC<ConfirmProps> = ({
       </DialogContent>
       <DialogActions>
         {!alert && onCancel && (
-          <Button onClick={onCancel} color="primary" autoFocus>
+          <Button onClick={onCancel} color="primary" autoFocus={!alert}>
             {cancellationText}
           </Button>
         )}

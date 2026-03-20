@@ -1,3 +1,5 @@
+import type React from "react";
+
 export interface GitHubRepo {
   fullName: string;
   private: boolean;
@@ -29,6 +31,36 @@ export interface ExplorerPanelProps {
 
 export type ChildrenCache = Map<string, TreeEntry[]>;
 export type HasMdCache = Map<string, boolean>;
+
+export interface TreeNodeProps {
+  entry: TreeEntry;
+  depth: number;
+  repo: GitHubRepo;
+  expanded: Set<string>;
+  loadingDirs: Set<string>;
+  childrenCache: ChildrenCache;
+  hasMdCache: HasMdCache;
+  selectedFilePath: string | null;
+  onToggle: (entry: TreeEntry) => void;
+  onSelectFile: (path: string) => void;
+  onCreateFile: (dirPath: string, fileName: string) => void;
+  onDeleteFile: (filePath: string) => void;
+  onRename: (oldPath: string, newName: string) => void;
+  onCreateFolder: (dirPath: string, folderName: string) => void;
+  renamingPath: string | null;
+  onStartRename: (path: string) => void;
+  onCancelRename: () => void;
+  creatingInDir: string | null;
+  onStartCreate: (dirPath: string) => void;
+  onCancelCreate: () => void;
+  creatingFolderInDir: string | null;
+  onStartCreateFolder: (dirPath: string) => void;
+  onCancelCreateFolder: () => void;
+  dragOverPath: string | null;
+  onMoveEntry: (sourcePath: string, targetDir: string) => void;
+  onDragOverPath: (path: string | null) => void;
+  dragSourceRef: React.MutableRefObject<string | null>;
+}
 
 export const PANEL_WIDTH = 260;
 export const INDENT_PX = 16;
