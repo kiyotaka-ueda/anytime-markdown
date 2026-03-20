@@ -8,7 +8,7 @@ import { Divider, ListItemIcon, ListItemText, Menu, MenuItem, Typography } from 
 import type { Editor } from "@tiptap/react";
 import { useCallback, useEffect, useState } from "react";
 
-import { findBlockNode, getCopiedBlockNode, setCopiedBlockNode } from "../utils/blockClipboard";
+import { findBlockNode, getCopiedBlockNode, performBlockCopy } from "../utils/blockClipboard";
 import { boxTableToMarkdown, containsBoxTable } from "../utils/boxTableToMarkdown";
 import { copyTextToClipboard, readTextFromClipboard } from "../utils/clipboardHelpers";
 
@@ -100,50 +100,18 @@ export function EditorContextMenu({ editor, readOnly, t }: EditorContextMenuProp
   }, []);
 
   const hasSelection = editor ? editor.state.selection.from !== editor.state.selection.to : false;
-  const blockInfo = editor ? findBlockNode(editor) : null;
+  const blockInfo = editor ? findBlockNode(editor.state) : null;
   const canCopy = hasSelection || !!blockInfo;
 
   const handleCut = useCallback(() => {
     if (!editor || !editor.isEditable) return;
-    const { from, to } = editor.state.selection;
-
-    if (from !== to) {
-      setCopiedBlockNode(null);
-      const text = editor.state.doc.textBetween(from, to, "\n");
-      copyTextToClipboard(text);
-      editor.chain().focus().deleteSelection().run();
-      handleClose();
-      return;
-    }
-
-    const block = findBlockNode(editor);
-    if (block) {
-      setCopiedBlockNode(block.node);
-      copyTextToClipboard(block.text);
-      const { tr } = editor.state;
-      tr.delete(block.pos, block.pos + block.node.nodeSize);
-      editor.view.dispatch(tr);
-    }
+    performBlockCopy(editor.view, true, (text) => copyTextToClipboard(text));
     handleClose();
   }, [editor, handleClose]);
 
   const handleCopy = useCallback(() => {
     if (!editor) return;
-    const { from, to } = editor.state.selection;
-
-    if (from !== to) {
-      setCopiedBlockNode(null);
-      const text = editor.state.doc.textBetween(from, to, "\n");
-      copyTextToClipboard(text);
-      handleClose();
-      return;
-    }
-
-    const block = findBlockNode(editor);
-    if (block) {
-      setCopiedBlockNode(block.node);
-      copyTextToClipboard(block.text);
-    }
+    performBlockCopy(editor.view, false, (text) => copyTextToClipboard(text));
     handleClose();
   }, [editor, handleClose]);
 
