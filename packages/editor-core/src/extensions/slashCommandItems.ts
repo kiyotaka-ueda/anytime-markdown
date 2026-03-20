@@ -1,3 +1,4 @@
+import ArticleIcon from "@mui/icons-material/Article";
 import AccountTreeIcon from "@mui/icons-material/AccountTree";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
@@ -29,8 +30,12 @@ import WebIcon from "@mui/icons-material/Web";
 import type { Editor } from "@tiptap/core";
 import React from "react";
 
+import { getDefaultContent } from "../constants/defaultContent";
+import apiSpec from "../constants/templates/apiSpec.md";
+import basicDesign from "../constants/templates/basicDesign.md";
 import type { TranslationFn } from "../types";
 import { extractHeadings, getEditorStorage } from "../types";
+import { preprocessMarkdown } from "../utils/frontmatterHelpers";
 import { generateTocMarkdown } from "../utils/tocHelpers";
 
 export interface SlashCommandItem {
@@ -360,6 +365,37 @@ export const slashCommandItems: SlashCommandItem[] = [
     keywords: ["gif", "record", "screen", "capture", "録画", "キャプチャ", "アニメーション"],
     action: (editor) => {
       editor.chain().focus().insertContent({ type: "gifBlock" }).run();
+    },
+  },
+  {
+    id: "template-welcome",
+    labelKey: "slashTemplateWelcome",
+    icon: React.createElement(ArticleIcon, { fontSize: "small" }),
+    keywords: ["template", "welcome", "テンプレート", "ウェルカム"],
+    action: (editor) => {
+      const locale = document.cookie.match(/NEXT_LOCALE=(\w+)/)?.[1] ?? "ja";
+      const { body } = preprocessMarkdown(getDefaultContent(locale));
+      editor.chain().focus().insertContent(body).run();
+    },
+  },
+  {
+    id: "template-basic-design",
+    labelKey: "slashTemplateBasicDesign",
+    icon: React.createElement(ArticleIcon, { fontSize: "small" }),
+    keywords: ["template", "design", "テンプレート", "設計", "設計書"],
+    action: (editor) => {
+      const { body } = preprocessMarkdown(basicDesign);
+      editor.chain().focus().insertContent(body).run();
+    },
+  },
+  {
+    id: "template-api-spec",
+    labelKey: "slashTemplateApiSpec",
+    icon: React.createElement(ArticleIcon, { fontSize: "small" }),
+    keywords: ["template", "api", "spec", "テンプレート", "API", "仕様", "仕様書"],
+    action: (editor) => {
+      const { body } = preprocessMarkdown(apiSpec);
+      editor.chain().focus().insertContent(body).run();
     },
   },
 ];
