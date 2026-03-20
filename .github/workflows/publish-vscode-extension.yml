@@ -56,8 +56,26 @@ jobs:
         working-directory: packages/web-app
 
       - name: Build web-app
-        run: npx next build
+        run: npx next build | tee build-output.txt
         working-directory: packages/web-app
+
+      - name: Extract bundle size report
+        if: github.event_name == 'pull_request'
+        working-directory: packages/web-app
+        run: |
+          echo "## Bundle Size Report" > bundle-report.md
+          echo '```' >> bundle-report.md
+          grep -E '(^[├└○ƒ\+]|First Load)' build-output.txt >> bundle-report.md || true
+          echo '```' >> bundle-report.md
+          cat bundle-report.md
+
+      - name: Upload bundle report
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-size-report
+          path: packages/web-app/bundle-report.md
+          retention-days: 7
 
       - name: Build extension
         run: npm run package
