@@ -22,7 +22,7 @@ const searchReplacePluginKey = new PluginKey("searchReplace");
  * - nested quantifiers: (a+)+, (a*)+, (a+)*, (a{2,})+
  * - quantified groups with alternation: (a|b)+ where branches may overlap
  * - star/plus after optional groups: (a?)+ , (a?b*)+ */
-function isRedosRisk(pattern: string): boolean {
+export function isRedosRisk(pattern: string): boolean {
   const QUANTIFIERS = new Set(["+", "*", "{"]);
   let depth = 0;
   let groupHasQuantifier = false;
@@ -53,7 +53,7 @@ function isRedosRisk(pattern: string): boolean {
 }
 
 /** Escape all regex special characters so the string matches literally. */
-function escapeRegExp(s: string): string {
+export function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
