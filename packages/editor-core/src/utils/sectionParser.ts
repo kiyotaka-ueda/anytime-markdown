@@ -24,26 +24,60 @@ function isCodeFence(line: string): boolean {
   return line.startsWith("```");
 }
 
+/** lines[start..end) 内で parentLevel より深い最初の見出しレベルを返す。見つからなければ 0 */
+function detectSplitLevel(lines: string[], start: number, end: number, parentLevel: number): number {
+  let inCodeBlock = false;
+  for (let j = start; j < end; j++) {
+    if (isCodeFence(lines[j])) inCodeBlock = !inCodeBlock;
+    if (inCodeBlock) continue;
+    const h = matchHeading(lines[j]);
+    if (h && h.level > parentLevel) return h.level;
+  }
+  return 0;
+}
+
+/** 最初の splitLevel 見出しより前の行を収集し、読み進めた位置を返す */
+function collectRootBody(
+  lines: string[], start: number, end: number, splitLevel: number,
+): { rootBodyLines: string[]; nextIndex: number } {
+  const rootBodyLines: string[] = [];
+  let i = start;
+  let inCodeBlock = false;
+  while (i < end) {
+    if (isCodeFence(lines[i])) inCodeBlock = !inCodeBlock;
+    if (!inCodeBlock) {
+      const h = matchHeading(lines[i]);
+      if (h && h.level === splitLevel) break;
+    }
+    rootBodyLines.push(lines[i]);
+    i++;
+  }
+  return { rootBodyLines, nextIndex: i };
+}
+
+/** 現在位置から同レベルの見出しまでスキャンしてセクション終端位置を返す */
+function findSectionEnd(lines: string[], start: number, end: number, level: number): number {
+  let i = start;
+  let inCodeBlock = false;
+  while (i < end) {
+    if (isCodeFence(lines[i])) inCodeBlock = !inCodeBlock;
+    if (!inCodeBlock) {
+      const next = matchHeading(lines[i]);
+      if (next && next.level <= level) break;
+    }
+    i++;
+  }
+  return i;
+}
+
 /**
  * lines[start..end) を見出しで分割してセクション配列を返す。
  * parentLevel: 親セクションの見出しレベル（ルート呼び出しは 0）
  */
 function buildSections(lines: string[], start: number, end: number, parentLevel: number): MarkdownSection[] {
   const sections: MarkdownSection[] = [];
-  let i = start;
-  let inCodeBlock = false;
 
-  // 最初の見出しのレベルを検出（このレベルで分割する）
-  let splitLevel = 0;
-  {
-    let cb = false;
-    for (let j = start; j < end; j++) {
-      if (isCodeFence(lines[j])) cb = !cb;
-      if (cb) continue;
-      const h = matchHeading(lines[j]);
-      if (h && h.level > parentLevel) { splitLevel = h.level; break; }
-    }
-  }
+  const splitLevel = detectSplitLevel(lines, start, end, parentLevel);
 
   // 見出しが見つからない場合: 全行をルートセクションとして返す
   if (splitLevel === 0) {
@@ -57,22 +91,14 @@ function buildSections(lines: string[], start: number, end: number, parentLevel:
   }
 
   // 最初の見出しより前の行をルートセクションとして収集
-  const rootBodyLines: string[] = [];
-  while (i < end) {
-    if (isCodeFence(lines[i])) inCodeBlock = !inCodeBlock;
-    if (!inCodeBlock) {
-      const h = matchHeading(lines[i]);
-      if (h && h.level === splitLevel) break;
-    }
-    rootBodyLines.push(lines[i]);
-    i++;
-  }
+  const { rootBodyLines, nextIndex } = collectRootBody(lines, start, end, splitLevel);
+  let i = nextIndex;
   if (rootBodyLines.length > 0) {
     sections.push({ heading: null, level: 0, headingLine: "", bodyLines: rootBodyLines, children: [] });
   }
 
   // splitLevel の見出しでセクション分割
-  inCodeBlock = false;
+  let inCodeBlock = false;
   while (i < end) {
     if (isCodeFence(lines[i])) inCodeBlock = !inCodeBlock;
     if (inCodeBlock) { i++; continue; }
@@ -85,23 +111,14 @@ function buildSections(lines: string[], start: number, end: number, parentLevel:
     const level = h.level;
     i++;
 
-    // このセクションの終端を探す（同レベルの見出しまで）
-    const bodyStart = i;
-    let cb = false;
-    while (i < end) {
-      if (isCodeFence(lines[i])) cb = !cb;
-      if (!cb) {
-        const next = matchHeading(lines[i]);
-        if (next && next.level <= level) break;
-      }
-      i++;
-    }
+    const sectionEnd = findSectionEnd(lines, i, end, level);
 
-    // bodyStart〜i の範囲でサブ見出しを再帰解析
+    // bodyStart〜sectionEnd の範囲でサブ見出しを再帰解析
     const bodyLines: string[] = [];
-    const children = extractChildren(lines, bodyStart, i, level, bodyLines);
+    const children = extractChildren(lines, i, sectionEnd, level, bodyLines);
 
     sections.push({ heading, level, headingLine, bodyLines, children });
+    i = sectionEnd;
   }
 
   return sections;

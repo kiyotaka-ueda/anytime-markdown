@@ -5,6 +5,85 @@ import * as fs from 'fs';
 const LINK_RE = /\[([^\]]*)\]\(([^)]+)\)/g;
 const HEADING_ID_RE = /^#{1,6}\s+(.+)$/gm;
 
+/** Markdown テキストから見出し ID のセットを収集する */
+function collectHeadings(text: string): Set<string> {
+	const headings = new Set<string>();
+	let headingMatch: RegExpExecArray | null;
+	while ((headingMatch = HEADING_ID_RE.exec(text)) !== null) {
+		const headingText = headingMatch[1].trim();
+		// GitHub 風の anchor ID 生成
+		const id = headingText
+			.toLowerCase()
+			.replace(/[^\w\s\u3000-\u9FFF\uF900-\uFAFF-]/g, '')
+			.replace(/\s+/g, '-');
+		headings.add(id);
+		// 元のテキストもそのまま追加（完全一致用）
+		headings.add(headingText.toLowerCase());
+	}
+	return headings;
+}
+
+/** コードブロック（フェンス）の範囲を収集する */
+function collectCodeRanges(text: string): { start: number; end: number }[] {
+	const codeRanges: { start: number; end: number }[] = [];
+	const fenceRe = /^```[\s\S]*?^```/gm;
+	let fenceMatch: RegExpExecArray | null;
+	while ((fenceMatch = fenceRe.exec(text)) !== null) {
+		codeRanges.push({ start: fenceMatch.index, end: fenceMatch.index + fenceMatch[0].length });
+	}
+	return codeRanges;
+}
+
+/** href が検証対象外（外部URL, data URL, 空）かどうか */
+function shouldSkipHref(href: string): boolean {
+	if (!href) return true;
+	if (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('mailto:')) return true;
+	if (href.startsWith('data:')) return true;
+	return false;
+}
+
+/** ファイルリンクの Diagnostic を生成する */
+function validateFileLink(
+	filePart: string, docDir: string, document: vscode.TextDocument,
+	linkStart: number, linkEnd: number,
+): vscode.Diagnostic | null {
+	const targetPath = path.resolve(docDir, filePart);
+	if (fs.existsSync(targetPath)) return null;
+	const range = new vscode.Range(
+		document.positionAt(linkStart),
+		document.positionAt(linkEnd),
+	);
+	const diagnostic = new vscode.Diagnostic(
+		range,
+		`File not found: ${filePart}`,
+		vscode.DiagnosticSeverity.Warning,
+	);
+	diagnostic.source = 'anytime-markdown';
+	diagnostic.code = 'link-file-not-found';
+	return diagnostic;
+}
+
+/** 見出しリンクの Diagnostic を生成する */
+function validateHeadingLink(
+	fragment: string, headings: Set<string>, document: vscode.TextDocument,
+	linkStart: number, linkEnd: number,
+): vscode.Diagnostic | null {
+	const normalizedFragment = fragment.toLowerCase().replace(/\s+/g, '-');
+	if (headings.has(normalizedFragment) || headings.has(fragment.toLowerCase())) return null;
+	const range = new vscode.Range(
+		document.positionAt(linkStart),
+		document.positionAt(linkEnd),
+	);
+	const diagnostic = new vscode.Diagnostic(
+		range,
+		`Heading not found: #${fragment}`,
+		vscode.DiagnosticSeverity.Warning,
+	);
+	diagnostic.source = 'anytime-markdown';
+	diagnostic.code = 'link-heading-not-found';
+	return diagnostic;
+}
+
 /**
  * Markdown ファイル内のリンクを検証し、壊れたリンクに Diagnostic を生成する。
  * - ローカルファイルリンク: ファイル存在チェック
@@ -62,28 +141,8 @@ export class LinkValidationProvider implements vscode.Disposable {
 		const docDir = path.dirname(document.uri.fsPath);
 		const diagnostics: vscode.Diagnostic[] = [];
 
-		// 同一ファイル内の見出しを収集
-		const headings = new Set<string>();
-		let headingMatch: RegExpExecArray | null;
-		while ((headingMatch = HEADING_ID_RE.exec(text)) !== null) {
-			const headingText = headingMatch[1].trim();
-			// GitHub 風の anchor ID 生成
-			const id = headingText
-				.toLowerCase()
-				.replace(/[^\w\s\u3000-\u9FFF\uF900-\uFAFF-]/g, '')
-				.replace(/\s+/g, '-');
-			headings.add(id);
-			// 元のテキストもそのまま追加（完全一致用）
-			headings.add(headingText.toLowerCase());
-		}
-
-		// コードブロック内のリンクを除外するためのフェンス位置を収集
-		const codeRanges: { start: number; end: number }[] = [];
-		const fenceRe = /^```[\s\S]*?^```/gm;
-		let fenceMatch: RegExpExecArray | null;
-		while ((fenceMatch = fenceRe.exec(text)) !== null) {
-			codeRanges.push({ start: fenceMatch.index, end: fenceMatch.index + fenceMatch[0].length });
-		}
+		const headings = collectHeadings(text);
+		const codeRanges = collectCodeRanges(text);
 
 		const isInCodeBlock = (pos: number): boolean => {
 			return codeRanges.some(r => pos >= r.start && pos <= r.end);
@@ -96,53 +155,20 @@ export class LinkValidationProvider implements vscode.Disposable {
 			if (isInCodeBlock(match.index)) continue;
 
 			const href = match[2].trim();
+			if (shouldSkipHref(href)) continue;
+
 			const linkStart = match.index + match[0].indexOf('(') + 1;
 			const linkEnd = linkStart + href.length;
-
-			// 外部 URL はスキップ
-			if (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('mailto:')) continue;
-			// データ URL はスキップ
-			if (href.startsWith('data:')) continue;
-			// 空リンクはスキップ
-			if (!href) continue;
 
 			// パスとフラグメントを分離
 			const [filePart, fragment] = href.split('#');
 
 			if (filePart) {
-				// ファイルリンクの検証
-				const targetPath = path.resolve(docDir, filePart);
-				if (!fs.existsSync(targetPath)) {
-					const range = new vscode.Range(
-						document.positionAt(linkStart),
-						document.positionAt(linkEnd),
-					);
-					const diagnostic = new vscode.Diagnostic(
-						range,
-						`File not found: ${filePart}`,
-						vscode.DiagnosticSeverity.Warning,
-					);
-					diagnostic.source = 'anytime-markdown';
-					diagnostic.code = 'link-file-not-found';
-					diagnostics.push(diagnostic);
-				}
+				const diag = validateFileLink(filePart, docDir, document, linkStart, linkEnd);
+				if (diag) diagnostics.push(diag);
 			} else if (fragment) {
-				// 同一ファイル内の見出しリンクの検証
-				const normalizedFragment = fragment.toLowerCase().replace(/\s+/g, '-');
-				if (!headings.has(normalizedFragment) && !headings.has(fragment.toLowerCase())) {
-					const range = new vscode.Range(
-						document.positionAt(linkStart),
-						document.positionAt(linkEnd),
-					);
-					const diagnostic = new vscode.Diagnostic(
-						range,
-						`Heading not found: #${fragment}`,
-						vscode.DiagnosticSeverity.Warning,
-					);
-					diagnostic.source = 'anytime-markdown';
-					diagnostic.code = 'link-heading-not-found';
-					diagnostics.push(diagnostic);
-				}
+				const diag = validateHeadingLink(fragment, headings, document, linkStart, linkEnd);
+				if (diag) diagnostics.push(diag);
 			}
 		}
 

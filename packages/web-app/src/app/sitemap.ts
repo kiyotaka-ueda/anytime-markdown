@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 import { fetchLayoutData } from "../lib/s3Client";
 
 const BASE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://anytime-markdown.vercel.app";
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.anytime-trial.com";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [

@@ -60,6 +60,61 @@ export class GraphItem extends vscode.TreeItem {
 	}
 }
 
+/** ローカルのみのコミットハッシュを取得する */
+function collectLocalOnlyHashes(gitRoot: string): Set<string> {
+	const hashes = new Set<string>();
+	try {
+		const output = execSync(
+			'git log --format=%h --branches --not --remotes',
+			{ cwd: gitRoot, encoding: 'utf-8' },
+		);
+		for (const h of output.split('\n')) {
+			const trimmed = h.trim();
+			if (trimmed) { hashes.add(trimmed); }
+		}
+	} catch { /* リモートなしの場合は全てローカル扱い */ }
+	return hashes;
+}
+
+/** git log の1行をパースして GraphItem を返す */
+function parseGitLogLine(line: string, localOnlyHashes: Set<string>): GraphItem | null {
+	if (!line.trim()) return null;
+
+	const nullIdx = line.indexOf('\0');
+	if (nullIdx === -1) {
+		// グラフのみの行（マージライン等）
+		return new GraphItem(line.trim(), '', '', '', '', '', false);
+	}
+
+	const parts = line.split('\0');
+	const graphAndHash = parts[0];
+	const message = parts[1] ?? '';
+	const refs = (parts[2] ?? '').trim().replace(/^\(|\)$/g, '');
+	const date = parts[3] ?? '';
+	const author = parts[4] ?? '';
+
+	// グラフ文字とハッシュを分離
+	const hashMatch = graphAndHash.match(/([0-9a-f]{7,})\s*$/);
+	const hash = hashMatch ? hashMatch[1] : '';
+	let graph = hashMatch ? graphAndHash.substring(0, hashMatch.index).trimEnd() : graphAndHash;
+	if (graph.replace(/\s/g, '') === '*') {
+		graph = '';
+	}
+
+	const isLocal = hash ? localOnlyHashes.has(hash) : false;
+	return new GraphItem(graph, hash, message, refs, date, author, isLocal);
+}
+
+/** git log 出力全体をパースして GraphItem 配列を返す */
+function parseGitLogOutput(output: string, localOnlyHashes: Set<string>): GraphItem[] {
+	const items: GraphItem[] = [];
+	for (const line of output.split('\n')) {
+		const item = parseGitLogLine(line, localOnlyHashes);
+		if (item) items.push(item);
+	}
+	return items;
+}
+
 export class GraphProvider implements vscode.TreeDataProvider<GraphItem> {
 	private _onDidChangeTreeData = new vscode.EventEmitter<void>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
@@ -96,52 +151,12 @@ export class GraphProvider implements vscode.TreeDataProvider<GraphItem> {
 		if (this.items.length > 0) { return this.items; }
 
 		try {
-			// ローカルのみのコミットハッシュを取得（リモートに存在しないもの）
-			const localOnlyHashes = new Set<string>();
-			try {
-				const localOutput = execSync(
-					'git log --format=%h --branches --not --remotes',
-					{ cwd: this.gitRoot, encoding: 'utf-8' },
-				);
-				for (const h of localOutput.split('\n')) {
-					const trimmed = h.trim();
-					if (trimmed) { localOnlyHashes.add(trimmed); }
-				}
-			} catch { /* リモートなしの場合は全てローカル扱い */ }
-
-			// %x00 をセパレータに使用
+			const localOnlyHashes = collectLocalOnlyHashes(this.gitRoot);
 			const output = execSync(
 				`git log --graph --all --oneline --decorate --format="%h%x00%s%x00%d%x00%ar%x00%an" -${GIT_LOG_LIMIT}`,
 				{ cwd: this.gitRoot, encoding: 'utf-8', maxBuffer: GIT_LOG_MAX_BUFFER },
 			);
-			for (const line of output.split('\n')) {
-				if (!line.trim()) continue;
-				// グラフ部分とデータ部分を分離
-				const nullIdx = line.indexOf('\0');
-				if (nullIdx === -1) {
-					// グラフのみの行（マージライン等）
-					this.items.push(new GraphItem(line.trim(), '', '', '', '', '', false));
-					continue;
-				}
-				const parts = line.split('\0');
-				const graphAndHash = parts[0];
-				const message = parts[1] ?? '';
-				const refs = (parts[2] ?? '').trim().replace(/^\(|\)$/g, '');
-				const date = parts[3] ?? '';
-				const author = parts[4] ?? '';
-
-				// グラフ文字とハッシュを分離
-				const hashMatch = graphAndHash.match(/([0-9a-f]{7,})\s*$/);
-				const hash = hashMatch ? hashMatch[1] : '';
-				let graph = hashMatch ? graphAndHash.substring(0, hashMatch.index).trimEnd() : graphAndHash;
-				// 分岐なし（* のみ）の場合は * を除去
-				if (graph.replace(/\s/g, '') === '*') {
-					graph = '';
-				}
-
-				const isLocal = hash ? localOnlyHashes.has(hash) : false;
-				this.items.push(new GraphItem(graph, hash, message, refs, date, author, isLocal));
-			}
+			this.items = parseGitLogOutput(output, localOnlyHashes);
 			return this.items;
 		} catch {
 			return [];

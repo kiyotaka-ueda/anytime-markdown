@@ -6,12 +6,11 @@ on:
   pull_request:
     branches: [develop, master]
 
-permissions:
-  contents: read
-
 jobs:
   ci:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v5
 

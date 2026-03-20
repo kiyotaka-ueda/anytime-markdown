@@ -6,12 +6,11 @@ on:
     - cron: '0 21 * * *'
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v5
 
@@ -92,6 +91,10 @@ jobs:
       - name: Run editor-core tests with coverage
         run: npx jest --coverage --coverageReporters=lcov
         working-directory: packages/editor-core
+
+      - name: Run web-app tests with coverage
+        run: npx jest --coverage --coverageReporters=lcov
+        working-directory: packages/web-app
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v6
