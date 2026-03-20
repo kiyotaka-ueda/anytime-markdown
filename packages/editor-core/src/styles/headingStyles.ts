@@ -1,9 +1,10 @@
 import type { SxProps,Theme } from "@mui/material/styles";
 
-import { DEFAULT_DARK_HEADING_LINK, DEFAULT_LIGHT_HEADING_LINK } from "../constants/colors";
+import { DEFAULT_DARK_HEADING_LINK, DEFAULT_LIGHT_HEADING_LINK, getTextDisabled, getTextSecondary } from "../constants/colors";
 
 /** ブロックラベル共通スタイル（::before 擬似要素） */
 function blockLabel(theme: Theme, right = "calc(100% + 8px)") {
+  const isDark = theme.palette.mode === "dark";
   return {
     position: "absolute",
     right,
@@ -16,7 +17,7 @@ function blockLabel(theme: Theme, right = "calc(100% + 8px)") {
     py: 0.25,
     borderRadius: 0.5,
     bgcolor: theme.palette.action.hover,
-    color: theme.palette.text.secondary,
+    color: getTextSecondary(isDark),
     fontFamily: "monospace",
     whiteSpace: "nowrap",
     cursor: "pointer",
@@ -52,7 +53,7 @@ export function getHeadingStyles(theme: Theme): SxProps<Theme> {
     "& .heading-folded::after": {
       content: "' ...'",
       fontSize: "0.75rem",
-      color: theme.palette.text.disabled,
+      color: getTextDisabled(isDark),
       fontWeight: 400,
       fontStyle: "italic",
     },

@@ -8,6 +8,14 @@ export const DEFAULT_LIGHT_BG = "#F8F9FA";
 export const DEFAULT_DARK_TEXT = "#E2E8F0";
 export const DEFAULT_LIGHT_TEXT = "#2D3748";
 
+// ── UI テキスト色（MUI テーマ準拠） ──
+export const DARK_TEXT_PRIMARY = "#ffffffde";
+export const DARK_TEXT_SECONDARY = "#ffffff99";
+export const DARK_TEXT_DISABLED = "#ffffff61";
+export const LIGHT_TEXT_PRIMARY = "#000000de";
+export const LIGHT_TEXT_SECONDARY = "#00000099";
+export const LIGHT_TEXT_DISABLED = "#00000061";
+
 // ── コードブロック背景色 ──
 export const DEFAULT_DARK_CODE_BG = "#161B22";
 export const DEFAULT_LIGHT_CODE_BG = "#F1F5F9";
@@ -61,4 +69,15 @@ export function getEditorText(isDark: boolean, settings?: Pick<EditorSettings, "
   return isDark
     ? (settings?.darkTextColor || DEFAULT_DARK_TEXT)
     : (settings?.lightTextColor || DEFAULT_LIGHT_TEXT);
+}
+
+/** ダーク/ライトモードに応じた UI テキスト色を返すヘルパー */
+export function getTextPrimary(isDark: boolean): string {
+  return isDark ? DARK_TEXT_PRIMARY : LIGHT_TEXT_PRIMARY;
+}
+export function getTextSecondary(isDark: boolean): string {
+  return isDark ? DARK_TEXT_SECONDARY : LIGHT_TEXT_SECONDARY;
+}
+export function getTextDisabled(isDark: boolean): string {
+  return isDark ? DARK_TEXT_DISABLED : LIGHT_TEXT_DISABLED;
 }

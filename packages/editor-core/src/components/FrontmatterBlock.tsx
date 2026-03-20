@@ -5,7 +5,7 @@ import { useCallback, useRef, useState } from "react";
 
 import useConfirm from "@/hooks/useConfirm";
 
-import { DEFAULT_DARK_CODE_BG, DEFAULT_LIGHT_CODE_BG } from "../constants/colors";
+import { DEFAULT_DARK_CODE_BG, DEFAULT_LIGHT_CODE_BG, getTextSecondary } from "../constants/colors";
 import { useEditorSettingsContext } from "../useEditorSettings";
 
 interface FrontmatterBlockProps {
@@ -63,7 +63,7 @@ export function FrontmatterBlock({ frontmatter, onChange, readOnly, t }: Frontma
           sx={{
             fontFamily: "monospace",
             fontWeight: 600,
-            color: "text.secondary",
+            color: getTextSecondary(isDark),
             fontSize: "0.75rem",
           }}
         >
@@ -90,7 +90,7 @@ export function FrontmatterBlock({ frontmatter, onChange, readOnly, t }: Frontma
             }}
             sx={{ p: 0.25 }}
           >
-            <Typography variant="caption" sx={{ fontSize: "0.7rem", color: "text.secondary" }}>
+            <Typography variant="caption" sx={{ fontSize: "0.7rem", color: getTextSecondary(isDark) }}>
               ✕
             </Typography>
           </IconButton>

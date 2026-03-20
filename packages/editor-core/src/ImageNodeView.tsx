@@ -18,7 +18,7 @@ import { EditDialogHeader } from "./components/EditDialogHeader";
 import { EditDialogWrapper } from "./components/EditDialogWrapper";
 import { ImageAnnotationDialog } from "./components/ImageAnnotationDialog";
 import { ImageCropTool } from "./components/ImageCropTool";
-import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "./constants/colors";
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, getTextDisabled, getTextSecondary } from "./constants/colors";
 import { useBlockCapture } from "./hooks/useBlockCapture";
 import { useBlockNodeState } from "./hooks/useBlockNodeState";
 import { useBlockResize } from "./hooks/useBlockResize";
@@ -83,18 +83,19 @@ function handleCropComplete(
 
 // --- Extracted sub-component: Image toolbar extra info ---
 function ImageToolbarExtra({
-  alt, src, imgError, isCompareLeft, isEditable, collapsed, annotations, onAnnotationOpen, t,
+  alt, src, imgError, isCompareLeft, isEditable, collapsed, annotations, onAnnotationOpen, isDark, t,
 }: {
   alt: string; src: string; imgError: boolean;
   isCompareLeft: boolean; isEditable: boolean; collapsed: boolean;
   annotations: ImageAnnotation[]; onAnnotationOpen: () => void;
+  isDark: boolean;
   t: (key: string) => string;
 }) {
   return (
     <>
       <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
       {alt ? (
-        <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.65rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flexShrink: 1 }}>
+        <Typography variant="caption" sx={{ color: getTextSecondary(isDark), fontSize: "0.65rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flexShrink: 1 }}>
           {alt}
         </Typography>
       ) : (
@@ -102,7 +103,7 @@ function ImageToolbarExtra({
           <WarningAmberIcon sx={{ fontSize: 14, color: "warning.main" }} />
         </Tooltip>
       )}
-      <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.65rem", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+      <Typography variant="caption" sx={{ color: getTextDisabled(isDark), fontSize: "0.65rem", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
         {src?.startsWith("data:") ? "(base64)" : src ? `(${src})` : ""}
       </Typography>
       {imgError && (
@@ -116,7 +117,7 @@ function ImageToolbarExtra({
           <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
           <Tooltip title={t("annotate")} placement="top">
             <IconButton size="small" sx={{ p: 0.25 }} onClick={onAnnotationOpen} aria-label={t("annotate")}>
-              <ChatBubbleOutlineIcon sx={{ fontSize: 16, color: annotations.length > 0 ? "primary.main" : "text.secondary" }} />
+              <ChatBubbleOutlineIcon sx={{ fontSize: 16, color: annotations.length > 0 ? "primary.main" : getTextSecondary(isDark) }} />
             </IconButton>
           </Tooltip>
         </>
@@ -267,7 +268,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
           icon={<ImageIcon sx={{ fontSize: 18 }} />}
           t={t}
           extra={imgSize ? (
-            <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.65rem", fontFamily: "monospace", whiteSpace: "nowrap" }}>
+            <Typography variant="caption" sx={{ color: getTextDisabled(isDark), fontSize: "0.65rem", fontFamily: "monospace", whiteSpace: "nowrap" }}>
               {imgSize.w}x{imgSize.h} / {imgSize.nw}x{imgSize.nh}
             </Typography>
           ) : undefined}
@@ -277,7 +278,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
           <Box sx={{ display: "flex", alignItems: "center", borderBottom: 1, borderColor: "divider", px: 1, py: 0.25, minHeight: 32 }}>
             <Tooltip title={t("imageUrl")} placement="bottom">
               <IconButton size="small" sx={{ p: 0.25 }} onClick={handleEditUrl} aria-label={t("imageUrl")}>
-                <EditIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+                <EditIcon sx={{ fontSize: 16, color: getTextSecondary(isDark) }} />
               </IconButton>
             </Tooltip>
           </Box>
@@ -322,6 +323,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
                 collapsed={collapsed}
                 annotations={annotations}
                 onAnnotationOpen={() => setAnnotationOpen(true)}
+                isDark={isDark}
                 t={t}
               />
             }

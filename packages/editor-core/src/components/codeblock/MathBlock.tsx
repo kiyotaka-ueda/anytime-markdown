@@ -5,7 +5,7 @@ import { Alert, Box, IconButton, Tooltip } from "@mui/material";
 import DOMPurify from "dompurify";
 import { useRef } from "react";
 
-import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../../constants/colors";
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, getTextSecondary } from "../../constants/colors";
 import { PREVIEW_MAX_HEIGHT } from "../../constants/dimensions";
 import { useBlockMergeCompare } from "../../hooks/useBlockMergeCompare";
 import { useBlockResize } from "../../hooks/useBlockResize";
@@ -87,7 +87,7 @@ export function MathBlock(props: MathBlockProps) {
           toolbarExtra={
             <Tooltip title={t("copyCode")} placement="bottom">
               <IconButton size="small" sx={{ p: 0.25 }} onClick={handleCopyCode} aria-label={t("copyCode")}>
-                <ContentCopyIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+                <ContentCopyIcon sx={{ fontSize: 16, color: getTextSecondary(isDark) }} />
               </IconButton>
             </Tooltip>
           }

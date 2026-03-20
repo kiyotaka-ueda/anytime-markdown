@@ -1,7 +1,10 @@
 import type { Theme } from "@mui/material/styles";
 
+import { getTextPrimary, getTextSecondary } from "../constants/colors";
+
 /** マージエディタ共通のtiptapスタイル */
 export function getMergeTiptapStyles(theme: Theme, fontSize = 14, lineHeight = 1.6, options?: { showHoverLabels?: boolean }) {
+  const isDark = theme.palette.mode === "dark";
   const hoverLabelBase = {
     position: "absolute" as const,
     fontSize: "0.6rem",
@@ -11,7 +14,7 @@ export function getMergeTiptapStyles(theme: Theme, fontSize = 14, lineHeight = 1
     py: 0.25,
     borderRadius: 0.5,
     bgcolor: theme.palette.action.hover,
-    color: theme.palette.text.secondary,
+    color: getTextSecondary(isDark),
     fontFamily: "monospace",
     whiteSpace: "nowrap" as const,
     cursor: "pointer",
@@ -65,7 +68,7 @@ export function getMergeTiptapStyles(theme: Theme, fontSize = 14, lineHeight = 1
       outline: "none",
       fontSize: `${fontSize}px`,
       lineHeight,
-      color: theme.palette.text.primary,
+      color: getTextPrimary(isDark),
       "& h1": {
         fontSize: "2em", fontWeight: 700, mt: 2, mb: 1,
         ...(options?.showHoverLabels && { "&::before": { content: "'H1'" } }),
@@ -146,7 +149,7 @@ export function getMergeTiptapStyles(theme: Theme, fontSize = 14, lineHeight = 1
         pl: 2,
         ml: 0,
         my: 1,
-        color: theme.palette.text.secondary,
+        color: getTextSecondary(isDark),
       },
       "& table": {
         borderCollapse: "collapse",

@@ -10,6 +10,7 @@ import { NodeViewWrapper } from "@tiptap/react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { getTextDisabled } from "../constants/colors";
 import { saveBlob,useBlockCapture } from "../hooks/useBlockCapture";
 import { useBlockNodeState } from "../hooks/useBlockNodeState";
 import type { GifSettings } from "../utils/gifEncoder";
@@ -126,8 +127,8 @@ function GifPlaceholder({ isEditable, isDark, onClick }: { isEditable: boolean; 
         "&:hover": isEditable ? { bgcolor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)" } : {},
       }}
     >
-      <GifIcon sx={{ fontSize: 36, color: "text.disabled", mb: 0.5 }} />
-      <Typography variant="caption" sx={{ color: "text.disabled" }}>
+      <GifIcon sx={{ fontSize: 36, color: getTextDisabled(isDark), mb: 0.5 }} />
+      <Typography variant="caption" sx={{ color: getTextDisabled(isDark) }}>
         Click to record GIF
       </Typography>
     </Box>
@@ -261,7 +262,7 @@ export function GifNodeView({ editor, node, updateAttributes, getPos }: NodeView
                 {src && (
                   <>
                     <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
-                    <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.65rem", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+                    <Typography variant="caption" sx={{ color: getTextDisabled(isDark), fontSize: "0.65rem", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
                       {src.startsWith("data:") || src.startsWith("blob:") ? "(embedded)" : `(${src})`}
                     </Typography>
                   </>

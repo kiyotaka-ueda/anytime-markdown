@@ -4,8 +4,10 @@ import GifIcon from "@mui/icons-material/Gif";
 import PauseIcon from "@mui/icons-material/Pause";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import { Box, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import { useCallback, useRef, useState } from "react";
 
+import { getTextSecondary } from "../constants/colors";
 import type { GifSettings } from "../utils/gifEncoder";
 import { EditDialogHeader } from "./EditDialogHeader";
 import { EditDialogWrapper } from "./EditDialogWrapper";
@@ -19,6 +21,7 @@ interface GifPlayerDialogProps {
 
 /** GIF 再生・情報表示ダイアログ */
 export function GifPlayerDialog({ open, onClose, src, settings }: GifPlayerDialogProps) {
+  const isDark = useTheme().palette.mode === "dark";
   const t = (key: string) => key;
 
   const imgRef = useRef<HTMLImageElement>(null);
@@ -131,18 +134,18 @@ export function GifPlayerDialog({ open, onClose, src, settings }: GifPlayerDialo
         {/* Info row */}
         {settings && (
           <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: getTextSecondary(isDark) }}>
               Duration: {settings.duration.toFixed(1)}s
             </Typography>
             {frames !== null && (
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: getTextSecondary(isDark) }}>
                 Frames: {frames}
               </Typography>
             )}
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: getTextSecondary(isDark) }}>
               {settings.fps} fps
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: getTextSecondary(isDark) }}>
               Width: {settings.width}px
             </Typography>
           </Box>

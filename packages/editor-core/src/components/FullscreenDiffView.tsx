@@ -3,7 +3,7 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { alpha, Box, IconButton, type Theme,Tooltip, useTheme } from "@mui/material";
 import React, { useCallback, useEffect,useMemo, useRef, useState } from "react";
 
-import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../constants/colors";
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, getTextPrimary, getTextSecondary } from "../constants/colors";
 import { useEditorSettingsContext } from "../useEditorSettings";
 import { applyMerge, computeDiff, type DiffLine } from "../utils/diffEngine";
 
@@ -406,7 +406,7 @@ function DiffPanel({
             fontFamily: "monospace",
             fontSize: `${fontSize}px`,
             lineHeight,
-            color: alpha(theme.palette.text.secondary, 0.6),
+            color: alpha(getTextSecondary(isDark), 0.6),
             userSelect: "none",
             overflow: "hidden",
             boxSizing: "border-box",
@@ -468,7 +468,7 @@ function DiffPanel({
               fontFamily: "monospace",
               fontSize: `${fontSize}px`,
               lineHeight,
-              color: theme.palette.text.primary,
+              color: getTextPrimary(isDark),
               bgcolor: "transparent",
               boxSizing: "border-box",
               "&:focus": {

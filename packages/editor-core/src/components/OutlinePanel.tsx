@@ -23,7 +23,7 @@ import {
 } from "@mui/material";
 import React, { useCallback, useMemo,useState } from "react";
 
-import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../constants/colors";
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, getTextDisabled, getTextPrimary, getTextSecondary } from "../constants/colors";
 import { PANEL_HEADER_MIN_HEIGHT } from "../constants/dimensions";
 import MermaidIcon from "../icons/MermaidIcon";
 import type { HeadingItem, OutlineKind, TranslationFn } from "../types";
@@ -76,6 +76,7 @@ export function OutlinePanel({
   t,
 }: OutlinePanelProps) {
   const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
   const [showBlocks, setShowBlocks] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dropIdx, setDropIdx] = useState<number | null>(null);
@@ -149,7 +150,7 @@ export function OutlinePanel({
           borderRight: "none",
           overflow: "auto",
           maxHeight: editorHeight,
-          bgcolor: theme.palette.mode === "dark" ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
+          bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
         }}
       >
         <Box>
@@ -196,7 +197,7 @@ export function OutlinePanel({
                   aria-pressed={showBlocks}
                   size="small"
                   onClick={() => setShowBlocks((v) => !v)}
-                  sx={{ p: 0.5, color: showBlocks ? "primary.main" : "text.secondary" }}
+                  sx={{ p: 0.5, color: showBlocks ? "primary.main" : getTextSecondary(isDark) }}
                 >
                   <CategoryIcon sx={{ fontSize: 16 }} />
                 </IconButton>
@@ -217,7 +218,7 @@ export function OutlinePanel({
           </Box>
           <Box sx={{ p: 1 }}>
           {headings.length === 0 ? (
-            <Typography variant="body2" sx={{ color: theme.palette.text.disabled, fontSize: "0.8rem" }}>
+            <Typography variant="body2" sx={{ color: getTextDisabled(isDark), fontSize: "0.8rem" }}>
               {t("noHeadings")}
             </Typography>
           ) : (
@@ -273,14 +274,14 @@ export function OutlinePanel({
                         sx={{
                           p: 0.5,
                           mr: 0.25,
-                          color: theme.palette.text.secondary,
+                          color: getTextSecondary(isDark),
                           flexShrink: 0,
                         }}
                       >
                         <KeyboardArrowDownIcon sx={{ fontSize: 16, transition: "transform 0.15s", "@media (prefers-reduced-motion: reduce)": { transition: "none" }, transform: isFolded ? "rotate(-90deg)" : "rotate(0deg)" }} />
                       </IconButton>
                     ) : (
-                      <Box sx={{ display: "flex", alignItems: "center", mr: 0.5, color: theme.palette.text.disabled, flexShrink: 0 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", mr: 0.5, color: getTextDisabled(isDark), flexShrink: 0 }}>
                         {blockIcon[h.kind as keyof typeof blockIcon]}
                       </Box>
                     )}
@@ -302,7 +303,7 @@ export function OutlinePanel({
                           cursor: "pointer",
                           fontSize: "0.8rem",
                           fontWeight: 400,
-                          color: isFolded ? theme.palette.text.disabled : theme.palette.text.primary,
+                          color: isFolded ? getTextDisabled(isDark) : getTextPrimary(isDark),
                           whiteSpace: "nowrap",
                           overflow: "hidden",
                           textOverflow: "ellipsis",

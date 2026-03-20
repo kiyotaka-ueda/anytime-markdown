@@ -4,6 +4,7 @@ import DOMPurify from "dompurify";
 import { common, createLowlight } from "lowlight";
 import React, { useCallback, useMemo, useState } from "react";
 
+import { getTextPrimary } from "../constants/colors";
 import { CODE_HELLO_SAMPLES } from "../constants/codeHelloSamples";
 import { FS_CHIP_HEIGHT, FS_TOOLBAR_HEIGHT } from "../constants/dimensions";
 import type { TextareaSearchState } from "../hooks/useTextareaSearch";
@@ -174,7 +175,7 @@ export function CodeBlockEditDialog({
               m: 0,
               whiteSpace: "pre-wrap",
               overflowWrap: "break-word",
-              color: "text.primary",
+              color: getTextPrimary(isDark),
               "& .hljs-keyword, & .hljs-selector-tag, & .hljs-built_in, & .hljs-type": { color: isDark ? "#ff7b72" : "#cf222e" },
               "& .hljs-string, & .hljs-attr, & .hljs-template-tag, & .hljs-template-variable": { color: isDark ? "#a5d6ff" : "#0a3069" },
               "& .hljs-comment, & .hljs-doctag": { color: isDark ? "#8b949e" : "#6e7781" },

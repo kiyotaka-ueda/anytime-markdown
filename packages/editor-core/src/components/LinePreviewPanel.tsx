@@ -5,7 +5,7 @@ import {
 import { alpha, useTheme } from "@mui/material/styles";
 import React, { useEffect, useRef, useState } from "react";
 
-import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../constants/colors";
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, getTextPrimary } from "../constants/colors";
 import { useEditorSettingsContext } from "../useEditorSettings";
 import { computeInlineDiff, type DiffResult, type InlineSegment } from "../utils/diffEngine";
 
@@ -20,6 +20,7 @@ export const LinePreviewPanel = React.memo(function LinePreviewPanel({
   hoverSetterRef: React.MutableRefObject<((v: number | null) => void) | null>;
 }) {
   const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
   const settings = useEditorSettingsContext();
   const [hoveredLineIdx, setHoveredLineIdx] = useState<number | null>(null);
   const previewTopRef = useRef<HTMLDivElement>(null);
@@ -51,7 +52,7 @@ export const LinePreviewPanel = React.memo(function LinePreviewPanel({
     whiteSpace: "pre",
     overflowX: "auto",
     overflowY: "hidden",
-    color: theme.palette.text.primary,
+    color: getTextPrimary(isDark),
   };
 
   const renderSegments = (segments: InlineSegment[], highlightType: "removed" | "added") =>

@@ -1,6 +1,9 @@
 import CloseIcon from "@mui/icons-material/Close";
 import { Box, IconButton, Tooltip, Typography } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import React from "react";
+
+import { getTextSecondary } from "../constants/colors";
 
 interface EditDialogHeaderProps {
   label: string;
@@ -15,6 +18,7 @@ interface EditDialogHeaderProps {
 
 /** ブロック要素編集ダイアログの共通ヘッダー */
 export function EditDialogHeader({ label, onClose, showCompareView, icon, extra, t }: EditDialogHeaderProps) {
+  const isDark = useTheme().palette.mode === "dark";
   return (
     <Box sx={{ display: "flex", alignItems: "center", px: 2, py: 1, borderBottom: 1, borderColor: "divider" }}>
       <Tooltip title={t("close")} placement="bottom">
@@ -22,7 +26,7 @@ export function EditDialogHeader({ label, onClose, showCompareView, icon, extra,
           <CloseIcon sx={{ fontSize: 20 }} />
         </IconButton>
       </Tooltip>
-      {icon && <Box sx={{ display: "flex", alignItems: "center", mr: 0.75, color: "text.secondary" }}>{icon}</Box>}
+      {icon && <Box sx={{ display: "flex", alignItems: "center", mr: 0.75, color: getTextSecondary(isDark) }}>{icon}</Box>}
       <Typography variant="subtitle2" sx={{ p: 0, fontSize: "0.875rem", fontWeight: 600, mr: 1 }}>
         {label}{showCompareView ? ` - ${t("compare")}` : ""}
       </Typography>

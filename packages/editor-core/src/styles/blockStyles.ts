@@ -1,11 +1,12 @@
 import type { SxProps,Theme } from "@mui/material/styles";
 import { alpha } from "@mui/material/styles";
 
-import { ADMONITION_CAUTION, ADMONITION_IMPORTANT, ADMONITION_NOTE, ADMONITION_TIP, ADMONITION_WARNING } from "../constants/colors";
+import { ADMONITION_CAUTION, ADMONITION_IMPORTANT, ADMONITION_NOTE, ADMONITION_TIP, ADMONITION_WARNING, getTextPrimary, getTextSecondary } from "../constants/colors";
 import type { EditorSettings } from "../useEditorSettings";
 
 /** blockquote・admonition・table・list・taskList・hr・img スタイル */
 export function getBlockStyles(theme: Theme, settings: EditorSettings): SxProps<Theme> {
+  const isDark = theme.palette.mode === "dark";
   return {
     "& ul, & ol": { pl: 3, mb: 1 },
     "& blockquote": {
@@ -13,7 +14,7 @@ export function getBlockStyles(theme: Theme, settings: EditorSettings): SxProps<
       pl: 2,
       ml: 0,
       my: 1,
-      color: theme.palette.text.secondary,
+      color: getTextSecondary(isDark),
     },
     "& blockquote[data-admonition-type]": {
       borderLeftWidth: 4,
@@ -22,7 +23,7 @@ export function getBlockStyles(theme: Theme, settings: EditorSettings): SxProps<
       pb: 1,
       my: 1.5,
       borderRadius: 1,
-      color: theme.palette.text.primary,
+      color: getTextPrimary(isDark),
       position: "relative",
       "&::before": {
         position: "absolute",
@@ -115,11 +116,11 @@ export function getBlockStyles(theme: Theme, settings: EditorSettings): SxProps<
       my: 2,
     },
     "& hr.ProseMirror-selectednode": {
-      borderLeft: `1.5px solid ${theme.palette.text.primary}`,
+      borderLeft: `1.5px solid ${getTextPrimary(isDark)}`,
       py: "0.5em",
       animation: "blink-caret 1s step-end infinite",
       "@keyframes blink-caret": {
-        "0%, 100%": { borderLeftColor: theme.palette.text.primary },
+        "0%, 100%": { borderLeftColor: getTextPrimary(isDark) },
         "50%": { borderLeftColor: "transparent" },
       },
     },

@@ -8,6 +8,7 @@ import { EditorContent } from "@tiptap/react";
 import { useTranslations } from "next-intl";
 import React, { useEffect, useRef } from "react";
 
+import { getTextPrimary, getTextSecondary } from "../constants/colors";
 import { useEditorSettingsContext } from "../useEditorSettings";
 import type { DiffLine } from "../utils/diffEngine";
 import { getMergeTiptapStyles } from "./mergeTiptapStyles";
@@ -75,6 +76,7 @@ export function MergeEditorPanel({
   onHoverLine,
 }: MergeEditorPanelProps) {
   const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
   const t = useTranslations("MarkdownEditor");
   const editorSettings = useEditorSettingsContext();
   const fallbackTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -296,7 +298,7 @@ export function MergeEditorPanel({
               fontFamily: "monospace",
               fontSize: `${editorSettings.fontSize}px`,
               lineHeight: editorSettings.lineHeight,
-              color: alpha(theme.palette.text.secondary, 0.6),
+              color: alpha(getTextSecondary(isDark), 0.6),
               userSelect: "none",
               overflow: "hidden",
               boxSizing: "border-box",
@@ -382,7 +384,7 @@ export function MergeEditorPanel({
                 fontFamily: "monospace",
                 fontSize: `${editorSettings.fontSize}px`,
                 lineHeight: editorSettings.lineHeight,
-                color: theme.palette.text.primary,
+                color: getTextPrimary(isDark),
                 bgcolor: "transparent",
                 boxSizing: "border-box",
                 "&:focus": {

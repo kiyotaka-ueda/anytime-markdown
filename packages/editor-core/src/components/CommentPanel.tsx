@@ -18,7 +18,7 @@ import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 
-import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../constants/colors";
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, getTextDisabled, getTextSecondary } from "../constants/colors";
 import { COMMENT_PANEL_WIDTH, PANEL_HEADER_MIN_HEIGHT } from "../constants/dimensions";
 import { commentDataPluginKey } from "../extensions/commentExtension";
 import type { TranslationFn } from "../types";
@@ -76,6 +76,7 @@ export const CommentPanel = React.memo(function CommentPanel({
   t,
 }: CommentPanelProps) {
   const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
   const [filter, setFilter] = useState<"all" | "open" | "resolved">("all");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
@@ -201,7 +202,7 @@ export const CommentPanel = React.memo(function CommentPanel({
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
-        bgcolor: theme.palette.mode === "dark" ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
+        bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
       }}
     >
       {/* Header */}
@@ -266,8 +267,7 @@ export const CommentPanel = React.memo(function CommentPanel({
         {filtered.length === 0 && (
           <Typography
             variant="body2"
-            color="text.secondary"
-            sx={{ textAlign: "center", mt: 2 }}
+            sx={{ textAlign: "center", mt: 2, color: getTextSecondary(isDark) }}
           >
             {filter === "all"
               ? t("noComments")
@@ -306,7 +306,7 @@ export const CommentPanel = React.memo(function CommentPanel({
                     display: "block",
                     mb: 0.5,
                     fontStyle: "italic",
-                    color: "text.secondary",
+                    color: getTextSecondary(isDark),
                     borderLeft: 2,
                     borderColor: "divider",
                     pl: 1,
@@ -320,7 +320,7 @@ export const CommentPanel = React.memo(function CommentPanel({
               {found?.isPoint && (
                 <Typography
                   variant="caption"
-                  sx={{ display: "block", mb: 0.5, color: "text.secondary" }}
+                  sx={{ display: "block", mb: 0.5, color: getTextSecondary(isDark) }}
                 >
                   {t("commentPointLabel") || "Point comment"}
                 </Typography>
@@ -354,7 +354,7 @@ export const CommentPanel = React.memo(function CommentPanel({
                     "&:hover": { bgcolor: "action.hover", borderRadius: 0.5 },
                   }}
                 >
-                  {comment.text || <Box component="span" sx={{ color: "text.disabled", fontStyle: "italic" }}>{t("commentPlaceholder") || "Add comment..."}</Box>}
+                  {comment.text || <Box component="span" sx={{ color: getTextDisabled(isDark), fontStyle: "italic" }}>{t("commentPlaceholder") || "Add comment..."}</Box>}
                 </Typography>
               )}
               {/* Actions */}
@@ -398,7 +398,7 @@ export const CommentPanel = React.memo(function CommentPanel({
         {imageAnnotations.length > 0 && (
           <>
             <Divider sx={{ my: 1 }} />
-            <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 0.5, color: "text.secondary", fontWeight: 700, mb: 0.5 }}>
+            <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 0.5, color: getTextSecondary(isDark), fontWeight: 700, mb: 0.5 }}>
               <ImageIcon sx={{ fontSize: 14 }} />
               {t("annotate")} ({unresolvedImageAnnotations}/{totalImageAnnotations})
             </Typography>
@@ -439,7 +439,7 @@ export const CommentPanel = React.memo(function CommentPanel({
                         }}>
                           <Typography variant="caption" sx={{ color: "white", fontSize: "0.55rem", fontWeight: 700 }}>{i + 1}</Typography>
                         </Box>
-                        <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem" }}>
+                        <Typography variant="caption" sx={{ color: getTextSecondary(isDark), fontSize: "0.7rem" }}>
                           {a.type === "rect" ? t("annotationRect") : a.type === "circle" ? t("annotationCircle") : t("annotationLine")}
                         </Typography>
                       </Box>

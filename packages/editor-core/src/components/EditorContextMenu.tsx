@@ -5,9 +5,11 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import ContentCutIcon from "@mui/icons-material/ContentCut";
 import ContentPasteIcon from "@mui/icons-material/ContentPaste";
 import { Divider, ListItemIcon, ListItemText, Menu, MenuItem, Typography } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import type { Editor } from "@tiptap/react";
 import { useCallback, useEffect, useState } from "react";
 
+import { getTextSecondary } from "../constants/colors";
 import { findBlockNode, getCopiedBlockNode, performBlockCopy } from "../utils/blockClipboard";
 import { boxTableToMarkdown, containsBoxTable } from "../utils/boxTableToMarkdown";
 import { copyTextToClipboard, readTextFromClipboard } from "../utils/clipboardHelpers";
@@ -52,6 +54,7 @@ const menuPaperSx = {
 };
 
 export function EditorContextMenu({ editor, readOnly, t }: EditorContextMenuProps) {
+  const isDark = useTheme().palette.mode === "dark";
   const [menuPos, setMenuPos] = useState<MenuPosition | null>(null);
 
   useEffect(() => {
@@ -189,7 +192,7 @@ export function EditorContextMenu({ editor, readOnly, t }: EditorContextMenuProp
         <ListItemText primaryTypographyProps={{ fontSize: "0.8125rem" }}>
           {t("cut")}
         </ListItemText>
-        <Typography variant="body2" sx={{ color: "text.secondary", fontSize: "0.75rem", ml: 2 }}>
+        <Typography variant="body2" sx={{ color: getTextSecondary(isDark), fontSize: "0.75rem", ml: 2 }}>
           Ctrl+X
         </Typography>
       </MenuItem>
@@ -200,7 +203,7 @@ export function EditorContextMenu({ editor, readOnly, t }: EditorContextMenuProp
         <ListItemText primaryTypographyProps={{ fontSize: "0.8125rem" }}>
           {t("copy")}
         </ListItemText>
-        <Typography variant="body2" sx={{ color: "text.secondary", fontSize: "0.75rem", ml: 2 }}>
+        <Typography variant="body2" sx={{ color: getTextSecondary(isDark), fontSize: "0.75rem", ml: 2 }}>
           Ctrl+C
         </Typography>
       </MenuItem>
@@ -211,7 +214,7 @@ export function EditorContextMenu({ editor, readOnly, t }: EditorContextMenuProp
         <ListItemText primaryTypographyProps={{ fontSize: "0.8125rem" }}>
           {t("paste")}
         </ListItemText>
-        <Typography variant="body2" sx={{ color: "text.secondary", fontSize: "0.75rem", ml: 2 }}>
+        <Typography variant="body2" sx={{ color: getTextSecondary(isDark), fontSize: "0.75rem", ml: 2 }}>
           Ctrl+V
         </Typography>
       </MenuItem>
@@ -223,7 +226,7 @@ export function EditorContextMenu({ editor, readOnly, t }: EditorContextMenuProp
         <ListItemText primaryTypographyProps={{ fontSize: "0.8125rem" }}>
           {t("pasteAsMarkdown")}
         </ListItemText>
-        <Typography variant="body2" sx={{ color: "text.secondary", fontSize: "0.75rem", ml: 2 }}>
+        <Typography variant="body2" sx={{ color: getTextSecondary(isDark), fontSize: "0.75rem", ml: 2 }}>
           Ctrl+Shift+V
         </Typography>
       </MenuItem>

@@ -8,7 +8,10 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import HorizontalRuleIcon from "@mui/icons-material/HorizontalRule";
 import RectangleOutlinedIcon from "@mui/icons-material/RectangleOutlined";
 import { Box, IconButton, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import React, { useCallback, useRef, useState } from "react";
+
+import { getTextSecondary } from "../constants/colors";
 
 import type { AnnotationTool,ImageAnnotation } from "../types/imageAnnotation";
 import { ANNOTATION_COLORS, generateAnnotationId } from "../types/imageAnnotation";
@@ -85,6 +88,7 @@ function renderAnnotation(
 export function ImageAnnotationDialog({
   open, onClose, src, annotations, onSave, t,
 }: ImageAnnotationDialogProps) {
+  const isDark = useTheme().palette.mode === "dark";
   const [tool, setTool] = useState<AnnotationTool>("rect");
   const [color, setColor] = useState<string>(ANNOTATION_COLORS[0].value);
   const [items, setItems] = useState<ImageAnnotation[]>(annotations);
@@ -277,7 +281,7 @@ export function ImageAnnotationDialog({
           </Box>
           <Box sx={{ flex: 1, overflow: "auto", p: 1 }}>
             {items.length === 0 && (
-              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", textAlign: "center", py: 4 }}>
+              <Typography variant="caption" sx={{ color: getTextSecondary(isDark), display: "block", textAlign: "center", py: 4 }}>
                 {t("annotate")}
               </Typography>
             )}
@@ -298,7 +302,7 @@ export function ImageAnnotationDialog({
                   <Box sx={{ width: 18, height: 18, borderRadius: "50%", bgcolor: a.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     <Typography variant="caption" sx={{ color: "white", fontSize: "0.6rem", fontWeight: 700 }}>{i + 1}</Typography>
                   </Box>
-                  <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem" }}>
+                  <Typography variant="caption" sx={{ color: getTextSecondary(isDark), fontSize: "0.7rem" }}>
                     {a.type === "rect" ? t("annotationRect") : a.type === "circle" ? t("annotationCircle") : t("annotationLine")}
                   </Typography>
                   <Box sx={{ flex: 1 }} />

@@ -5,7 +5,10 @@ import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import EditIcon from "@mui/icons-material/Edit";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
 import { Box, Divider, IconButton, Tooltip, Typography } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import React from "react";
+
+import { getTextSecondary } from "../../constants/colors";
 
 interface BlockInlineToolbarProps {
   /** Block label (e.g. "Mermaid", "Math", "Table") */
@@ -26,11 +29,11 @@ interface BlockInlineToolbarProps {
   t: (key: string) => string;
 }
 
-const iconSx = { fontSize: 16, color: "text.secondary" };
-
 export function BlockInlineToolbar({
   label, onEdit, onDelete, onCapture, collapsed, extra, labelOnly, t,
 }: BlockInlineToolbarProps) {
+  const isDark = useTheme().palette.mode === "dark";
+  const iconSx = { fontSize: 16, color: getTextSecondary(isDark) };
   if (labelOnly) {
     return (
       <Box
@@ -39,7 +42,7 @@ export function BlockInlineToolbar({
         sx={{ bgcolor: "action.hover", px: 0.75, py: 0.25, display: "flex", alignItems: "center", gap: 0.25 }}
         contentEditable={false}
       >
-        <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary", flexShrink: 0 }}>
+        <Typography variant="caption" sx={{ fontWeight: 600, color: getTextSecondary(isDark), flexShrink: 0 }}>
           {label}
         </Typography>
       </Box>
@@ -63,7 +66,7 @@ export function BlockInlineToolbar({
       >
         <DragIndicatorIcon sx={iconSx} />
       </Box>
-      <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary", flexShrink: 0 }}>
+      <Typography variant="caption" sx={{ fontWeight: 600, color: getTextSecondary(isDark), flexShrink: 0 }}>
         {label}
       </Typography>
       {onEdit && !collapsed && (
