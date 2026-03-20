@@ -23,7 +23,7 @@ import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
 import React, { useCallback, useRef, useState } from "react";
 
-import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, DEFAULT_LIGHT_TEXT, getActionHover, getActionSelected, getBgPaper, getTextSecondary } from "../constants/colors";
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, DEFAULT_LIGHT_TEXT, getActionHover, getActionSelected, getBgPaper, getTextPrimary, getTextSecondary } from "../constants/colors";
 import { modKey } from "../constants/shortcuts";
 import { Z_TOOLBAR } from "../constants/zIndex";
 import AppIcon from "../icons/AppIcon";
@@ -81,7 +81,7 @@ function getPillToggleSx(isDark: boolean) {
     },
     "& .Mui-selected": {
       bgcolor: `${getBgPaper(isDark)} !important`,
-      color: "text.primary !important",
+      color: `${getTextPrimary(isDark)} !important`,
       boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
     },
     "& .MuiToggleButton-root:not(.Mui-selected)": {

@@ -87,7 +87,7 @@ export const LinePreviewPanel = React.memo(function LinePreviewPanel({
   };
 
   return (
-    <Box sx={{ borderTop: 1, borderColor: getDivider(isDark), bgcolor: theme.palette.mode === "dark" ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG, flexShrink: 0 }}>
+    <Box sx={{ borderTop: 1, borderColor: getDivider(isDark), bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG, flexShrink: 0 }}>
       <div
         ref={previewTopRef}
         style={previewStyle}
