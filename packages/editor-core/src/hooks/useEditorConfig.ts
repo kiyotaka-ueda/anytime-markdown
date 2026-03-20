@@ -83,6 +83,53 @@ function handleReviewCheckboxClick(
   return true;
 }
 
+/** ブロック要素の Ctrl+C/Ctrl+X ハンドラ */
+const BLOCK_NODE_TYPES = new Set(["codeBlock", "table", "gifBlock"]);
+
+function handleBlockClipboard(view: EditorView, event: ClipboardEvent, isCut: boolean): boolean {
+  if (!event.clipboardData) return false;
+  const { $from, $to, from, to } = view.state.selection;
+
+  // テキスト選択がある場合: コードブロック内のテキストコピー（既存動作）
+  if (from !== to && $from.parent.type.name === "codeBlock" && $from.sameParent($to)) {
+    event.clipboardData.setData("text/plain", view.state.doc.textBetween(from, to));
+    event.preventDefault();
+    if (isCut) view.dispatch(view.state.tr.deleteSelection());
+    return true;
+  }
+
+  // ブロックノード全体のコピー/カット
+  // カーソルがブロックノード内にある場合、ブロック全体を対象にする
+  const depth = $from.depth;
+  for (let d = depth; d >= 1; d--) {
+    const node = $from.node(d);
+    if (BLOCK_NODE_TYPES.has(node.type.name)) {
+      const blockStart = $from.before(d);
+      const blockEnd = blockStart + node.nodeSize;
+      // ブロック全体のテキストコンテンツをクリップボードに設定
+      const text = view.state.doc.textBetween(blockStart, blockEnd, "\n");
+      event.clipboardData.setData("text/plain", text);
+      // ProseMirror の HTML シリアライズもクリップボードに設定（ペースト時にブロック構造を維持）
+      const slice = view.state.doc.slice(blockStart, blockEnd);
+      const serializer = view.dom.ownerDocument.defaultView
+        ? (view as unknown as { clipboardSerializer?: { serializeFragment: (f: typeof slice.content) => DocumentFragment } }).clipboardSerializer
+        : undefined;
+      if (serializer) {
+        const fragment = serializer.serializeFragment(slice.content);
+        const div = document.createElement("div");
+        div.appendChild(fragment);
+        event.clipboardData.setData("text/html", div.innerHTML);
+      }
+      event.preventDefault();
+      if (isCut) {
+        view.dispatch(view.state.tr.delete(blockStart, blockEnd));
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
 /** #anchor リンク: 通常クリックは無効化、Ctrl/Cmd+Click で見出しにジャンプ */
 function handleAnchorLinkClick(
   target: HTMLElement,
@@ -343,24 +390,11 @@ export function useEditorConfig({
           return false;
         },
         copy: (view: EditorView, event: ClipboardEvent) => {
-          const { $from, $to } = view.state.selection;
-          if ($from.parent.type.name === "codeBlock" && $from.sameParent($to)) {
-            if (!event.clipboardData) return false;
-            event.clipboardData.setData("text/plain", view.state.doc.textBetween($from.pos, $to.pos));
-            event.preventDefault();
-            return true;
-          }
+          if (handleBlockClipboard(view, event, false)) return true;
           return false;
         },
         cut: (view: EditorView, event: ClipboardEvent) => {
-          const { $from, $to } = view.state.selection;
-          if ($from.parent.type.name === "codeBlock" && $from.sameParent($to)) {
-            if (!event.clipboardData) return false;
-            event.clipboardData.setData("text/plain", view.state.doc.textBetween($from.pos, $to.pos));
-            event.preventDefault();
-            view.dispatch(view.state.tr.deleteSelection());
-            return true;
-          }
+          if (handleBlockClipboard(view, event, true)) return true;
           return false;
         },
       },
