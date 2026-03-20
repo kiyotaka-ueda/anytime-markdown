@@ -101,34 +101,60 @@ export function EditorContextMenu({ editor, readOnly, t }: EditorContextMenuProp
     setMenuPos(null);
   }, []);
 
-  const BLOCK_NODE_TYPES = new Set(["codeBlock", "table", "gifBlock"]);
+  const BLOCK_NODE_TYPES = new Set(["codeBlock", "table", "gifBlock", "image"]);
 
-  // テキスト選択またはブロック内にカーソルがある場合にコピー/切り取りを有効化
-  const hasSelection = editor ? editor.state.selection.from !== editor.state.selection.to : false;
-  const isInBlock = editor ? (() => {
-    const { $from } = editor.state.selection;
-    for (let d = $from.depth; d >= 1; d--) {
-      if (BLOCK_NODE_TYPES.has($from.node(d).type.name)) return true;
-    }
-    return false;
-  })() : false;
-  const canCopy = hasSelection || isInBlock;
-
-  /** ブロック全体の情報を取得（カーソルがブロック内にある場合） */
-  const getBlockInfo = useCallback((): { text: string; node: PMNode; blockStart: number; blockEnd: number } | null => {
+  /** カーソル位置周辺のブロックノードを探す */
+  const findBlockNode = useCallback((): { node: PMNode; pos: number } | null => {
     if (!editor) return null;
-    const { $from } = editor.state.selection;
+    const { $from, from } = editor.state.selection;
+
+    // 1. 祖先ノードをチェック
     for (let d = $from.depth; d >= 1; d--) {
       const node = $from.node(d);
       if (BLOCK_NODE_TYPES.has(node.type.name)) {
-        const blockStart = $from.before(d);
-        const blockEnd = blockStart + node.nodeSize;
-        const text = editor.state.doc.textBetween(blockStart, blockEnd, "\n");
-        return { text, node, blockStart, blockEnd };
+        return { node, pos: $from.before(d) };
       }
     }
+
+    // 2. カーソル位置のノード（NodeView の外にカーソルがある場合）
+    const nodeAt = editor.state.doc.nodeAt(from);
+    if (nodeAt && BLOCK_NODE_TYPES.has(nodeAt.type.name)) {
+      return { node: nodeAt, pos: from };
+    }
+
+    // 3. カーソルの直前のノード（カーソルがノードの直後にある場合）
+    if (from > 0) {
+      const $pos = editor.state.doc.resolve(from);
+      const before = $pos.nodeBefore;
+      if (before && BLOCK_NODE_TYPES.has(before.type.name)) {
+        return { node: before, pos: from - before.nodeSize };
+      }
+    }
+
+    // 4. トップレベルノードをチェック（depth=1）
+    if ($from.depth >= 1) {
+      const topNode = $from.node(1);
+      if (BLOCK_NODE_TYPES.has(topNode.type.name)) {
+        return { node: topNode, pos: $from.before(1) };
+      }
+    }
+
     return null;
   }, [editor]);
+
+  const hasSelection = editor ? editor.state.selection.from !== editor.state.selection.to : false;
+  const isInBlock = !!findBlockNode();
+  const canCopy = hasSelection || isInBlock;
+
+  /** ブロック全体の情報を取得 */
+  const getBlockInfo = useCallback((): { text: string; node: PMNode; blockStart: number; blockEnd: number } | null => {
+    const found = findBlockNode();
+    if (!found || !editor) return null;
+    const { node, pos: blockStart } = found;
+    const blockEnd = blockStart + node.nodeSize;
+    const text = editor.state.doc.textBetween(blockStart, blockEnd, "\n");
+    return { text, node, blockStart, blockEnd };
+  }, [editor, findBlockNode]);
 
   const handleCut = useCallback(() => {
     if (!editor || !editor.isEditable) return;
