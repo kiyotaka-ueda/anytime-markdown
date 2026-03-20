@@ -262,12 +262,9 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsRootIte
 
 	getChildren(element?: SpecDocsRootItem | SpecDocsItem): (SpecDocsRootItem | SpecDocsItem)[] {
 		if (!element) {
-			// トップレベル: ルートが1つならファイルツリーを直接表示、複数ならRootItem
+			// トップレベル: 常にリポジトリノードを表示
 			if (this.rootPaths.length === 0) {
 				return [];
-			}
-			if (this.rootPaths.length === 1) {
-				return this.getFileChildren(this.rootPaths[0]);
 			}
 			return this.rootPaths.map(rootPath => {
 				const info = this.getRepoInfo(rootPath);

@@ -272,6 +272,26 @@ export class ChangesProvider implements vscode.TreeDataProvider<ChangesTreeItem>
 			const x = line[0]; // index status
 			const y = line[1]; // working tree status
 			const filePath = line.substring(3).trim();
+			// 未追跡ディレクトリ（?? dir/）は中のファイルを個別に展開
+			if (filePath.endsWith('/') && x === '?') {
+				try {
+					const files = execFileSync(
+						'git', ['ls-files', '--others', '--exclude-standard', '--', filePath],
+						{ cwd: gitRoot, encoding: 'utf-8' },
+					);
+					for (const f of files.split('\n')) {
+						const trimmed = f.trim();
+						if (!trimmed) continue;
+						unstaged.push({
+							filePath: trimmed,
+							absPath: path.join(gitRoot, trimmed),
+							status: parseStatusCode('?', 'changes'),
+							group: 'changes',
+						});
+					}
+				} catch { /* ignore */ }
+				continue;
+			}
 
 			if (x !== ' ' && x !== '?') {
 				staged.push({
@@ -327,11 +347,7 @@ export class ChangesProvider implements vscode.TreeDataProvider<ChangesTreeItem>
 		if (this.gitRootEntries.length === 0) { return []; }
 
 		if (!element) {
-			if (this.gitRootEntries.length === 1) {
-				// 単一リポジトリ: フラット表示
-				return this.getGroupItems(this.gitRootEntries[0].gitRoot);
-			}
-			// 複数リポジトリ: リポジトリノードを表示
+			// 常にリポジトリノードを表示
 			return this.gitRootEntries.map(entry => {
 				const info = this.getRepoInfo(entry.gitRoot);
 				return new ChangesRepoItem(entry.gitRoot, info.repoName, info.branchName);
@@ -395,6 +411,50 @@ export class ChangesProvider implements vscode.TreeDataProvider<ChangesTreeItem>
 		} catch (e: unknown) {
 			const msg = e instanceof Error ? e.message : String(e);
 			vscode.window.showErrorMessage(`Unstage failed: ${msg}`);
+		}
+	}
+
+	async stageAll(gitRoot?: string): Promise<void> {
+		const target = gitRoot ?? this.primaryGitRoot;
+		if (!target) return;
+		try {
+			execFileSync('git', ['add', '-A'], { cwd: target });
+			this.refresh();
+		} catch (e: unknown) {
+			const msg = e instanceof Error ? e.message : String(e);
+			vscode.window.showErrorMessage(`Stage all failed: ${msg}`);
+		}
+	}
+
+	async unstageAll(gitRoot?: string): Promise<void> {
+		const target = gitRoot ?? this.primaryGitRoot;
+		if (!target) return;
+		try {
+			execFileSync('git', ['reset', 'HEAD'], { cwd: target });
+			this.refresh();
+		} catch (e: unknown) {
+			const msg = e instanceof Error ? e.message : String(e);
+			vscode.window.showErrorMessage(`Unstage all failed: ${msg}`);
+		}
+	}
+
+	async discardAll(gitRoot?: string): Promise<void> {
+		const target = gitRoot ?? this.primaryGitRoot;
+		if (!target) return;
+		const answer = await vscode.window.showWarningMessage(
+			'Discard all changes? This cannot be undone.',
+			{ modal: true },
+			'Discard All',
+		);
+		if (answer !== 'Discard All') return;
+		try {
+			execFileSync('git', ['checkout', '--', '.'], { cwd: target });
+			// 未追跡ファイルも削除
+			execFileSync('git', ['clean', '-fd'], { cwd: target });
+			this.refresh();
+		} catch (e: unknown) {
+			const msg = e instanceof Error ? e.message : String(e);
+			vscode.window.showErrorMessage(`Discard all failed: ${msg}`);
 		}
 	}
 
