@@ -3,8 +3,8 @@
 import { useBlockMergeCompare } from "../../hooks/useBlockMergeCompare";
 import { CodeBlockEditDialog } from "../CodeBlockEditDialog";
 import { BlockInlineToolbar } from "./BlockInlineToolbar";
-import { shouldShowBorder } from "./compareHelpers";
 import { CodeBlockFrame } from "./CodeBlockFrame";
+import { shouldShowBorder } from "./compareHelpers";
 import type { CodeBlockSharedProps } from "./types";
 
 type RegularCodeBlockProps = Pick<

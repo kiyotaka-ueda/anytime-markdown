@@ -6,8 +6,8 @@ import { Box, CircularProgress, List, ListItemButton, ListItemIcon, ListItemText
 import { useTranslations } from "next-intl";
 import type { FC } from "react";
 
-import type { CommitEntry } from "./types";
 import { formatCommitDate, truncateMessage } from "./helpers";
+import type { CommitEntry } from "./types";
 
 interface GitHistorySectionProps {
   commits: CommitEntry[];

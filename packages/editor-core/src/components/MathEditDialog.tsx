@@ -1,7 +1,7 @@
 import FunctionsIcon from "@mui/icons-material/Functions";
 import { Box, Typography, useTheme } from "@mui/material";
 import DOMPurify from "dompurify";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback } from "react";
 
 import { FS_TOOLBAR_HEIGHT } from "../constants/dimensions";
 import { MATH_SAMPLES } from "../constants/samples";
@@ -15,8 +15,8 @@ import { EditDialogWrapper } from "./EditDialogWrapper";
 import { FullscreenDiffView } from "./FullscreenDiffView";
 import { LineNumberTextarea } from "./LineNumberTextarea";
 import { SamplePanel } from "./SamplePanel";
-import { ZoomToolbar } from "./ZoomToolbar";
 import { ZoomablePreview } from "./ZoomablePreview";
+import { ZoomToolbar } from "./ZoomToolbar";
 
 interface MathEditDialogProps {
   open: boolean;
@@ -38,7 +38,7 @@ interface MathEditDialogProps {
 
 export function MathEditDialog({
   open, onClose, label,
-  fsCode, onFsCodeChange, onFsTextChange, fsTextareaRef, fsSearch,
+  fsCode, onFsCodeChange, onFsTextChange, fsTextareaRef, fsSearch: _fsSearch,
   readOnly, isCompareMode, compareCode, onMergeApply, thisCode, toolbarExtra,
   t,
 }: MathEditDialogProps) {

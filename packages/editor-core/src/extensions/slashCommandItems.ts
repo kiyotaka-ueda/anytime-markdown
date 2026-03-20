@@ -1,5 +1,4 @@
 import AccountTreeIcon from "@mui/icons-material/AccountTree";
-import GifBoxIcon from "@mui/icons-material/GifBox";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import CheckBoxIcon from "@mui/icons-material/CheckBox";
@@ -9,6 +8,7 @@ import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
 import FormatListNumberedIcon from "@mui/icons-material/FormatListNumbered";
 import FormatQuoteIcon from "@mui/icons-material/FormatQuote";
 import FunctionsIcon from "@mui/icons-material/Functions";
+import GifBoxIcon from "@mui/icons-material/GifBox";
 import HorizontalRuleIcon from "@mui/icons-material/HorizontalRule";
 import ImageIcon from "@mui/icons-material/Image";
 import InfoIcon from "@mui/icons-material/Info";

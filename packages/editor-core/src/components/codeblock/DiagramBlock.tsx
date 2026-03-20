@@ -3,8 +3,6 @@
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import { Alert, Box, Button, Divider, IconButton, Tooltip, Typography } from "@mui/material";
-
-import { shouldShowBorder, shouldShowToolbar } from "./compareHelpers";
 import DOMPurify from "dompurify";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -21,6 +19,7 @@ import { MermaidEditDialog } from "../MermaidEditDialog";
 import { PlantUmlEditDialog } from "../PlantUmlEditDialog";
 import { BlockInlineToolbar } from "./BlockInlineToolbar";
 import { CodeBlockFrame } from "./CodeBlockFrame";
+import { shouldShowBorder, shouldShowToolbar } from "./compareHelpers";
 import { ResizeGrip } from "./ResizeGrip";
 import type { CodeBlockSharedProps } from "./types";
 

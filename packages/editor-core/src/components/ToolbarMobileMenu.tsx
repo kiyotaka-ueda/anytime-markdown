@@ -45,7 +45,7 @@ export const ToolbarMobileMenu = React.memo(function ToolbarMobileMenu({
   commentOpen,
   inlineMergeOpen,
   sourceMode,
-  readonlyMode,
+  readonlyMode: _readonlyMode,
   hideOutline,
   hideComments,
   hideSettings,

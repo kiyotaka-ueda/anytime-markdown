@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { STORAGE_KEY_CONTENT } from "./constants/storageKeys";
 import type { EncodingLabel } from "./types";
 import { appendCommentData } from "./utils/commentHelpers";
-import { preprocessMarkdown, prependFrontmatter } from "./utils/frontmatterHelpers";
+import { prependFrontmatter,preprocessMarkdown } from "./utils/frontmatterHelpers";
 const DEBOUNCE_MS = 500;
 
 export interface UseMarkdownEditorReturn {

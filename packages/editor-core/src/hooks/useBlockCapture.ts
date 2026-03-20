@@ -74,7 +74,8 @@ async function captureSvgElement(svg: SVGElement, w: number, h: number, scale: n
   try {
     const img = await loadImage(url);
     const canvas = createScaledCanvas(w, h, scale);
-    const ctx = canvas.getContext("2d")!;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
     ctx.scale(scale, scale);
     ctx.fillStyle = CAPTURE_BG;
     ctx.fillRect(0, 0, w, h);
@@ -95,7 +96,8 @@ async function captureImgElement(imgEl: HTMLImageElement, w: number, h: number, 
   }
 
   const canvas = createScaledCanvas(w, h, scale);
-  const ctx = canvas.getContext("2d")!;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
   ctx.scale(scale, scale);
   ctx.fillStyle = CAPTURE_BG;
   ctx.fillRect(0, 0, w, h);
@@ -193,7 +195,8 @@ async function renderTextToPngBlob(el: HTMLElement, w: number, h: number, scale:
   const canvasH = lines.length * lineHeight + padding * 2;
 
   const canvas = createScaledCanvas(Math.max(w, 300), canvasH, scale);
-  const ctx = canvas.getContext("2d")!;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
   ctx.scale(scale, scale);
 
   const computed = getComputedStyle(el);

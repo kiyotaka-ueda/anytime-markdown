@@ -326,7 +326,7 @@ function lzwEncode(width: number, height: number, pixels: Uint8Array, colorDepth
   let ent = nextPixel();
   output(ClearCode);
   let c: number;
-  // eslint-disable-next-line no-constant-condition
+   
   while (true) {
     c = nextPixel();
     if (c === -1) break;
@@ -424,7 +424,7 @@ export async function encodeGif(
     // Index pixels
     const nPix = frame.width * frame.height;
     const indexedPixels = new Uint8Array(nPix);
-    const palette = (i === 0 && globalPalette) ? globalPalette : colorTab;
+    const _palette = (i === 0 && globalPalette) ? globalPalette : colorTab;
     const useNq = nq;
     for (let p = 0, k = 0; p < nPix; p++, k += 3) {
       indexedPixels[p] = useNq.lookupRGB(rgb[k + 2], rgb[k + 1], rgb[k]);

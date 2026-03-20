@@ -2,8 +2,6 @@
 
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { Box, IconButton, Tooltip } from "@mui/material";
-
-import { shouldShowBorder } from "./compareHelpers";
 import DOMPurify from "dompurify";
 import { useRef } from "react";
 
@@ -15,6 +13,7 @@ import { useBlockResize } from "../../hooks/useBlockResize";
 import { CodeBlockEditDialog } from "../CodeBlockEditDialog";
 import { BlockInlineToolbar } from "./BlockInlineToolbar";
 import { CodeBlockFrame } from "./CodeBlockFrame";
+import { shouldShowBorder } from "./compareHelpers";
 import { ResizeGrip } from "./ResizeGrip";
 import type { CodeBlockSharedProps } from "./types";
 import { HTML_SANITIZE_CONFIG } from "./types";

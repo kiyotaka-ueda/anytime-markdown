@@ -2,8 +2,6 @@
 
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { Alert, Box, IconButton, Tooltip } from "@mui/material";
-
-import { shouldShowBorder, shouldShowToolbar } from "./compareHelpers";
 import DOMPurify from "dompurify";
 import { useRef } from "react";
 
@@ -15,6 +13,7 @@ import { MATH_SANITIZE_CONFIG,useKatexRender } from "../../hooks/useKatexRender"
 import { MathEditDialog } from "../MathEditDialog";
 import { BlockInlineToolbar } from "./BlockInlineToolbar";
 import { CodeBlockFrame } from "./CodeBlockFrame";
+import { shouldShowBorder, shouldShowToolbar } from "./compareHelpers";
 import { ResizeGrip } from "./ResizeGrip";
 import type { CodeBlockSharedProps } from "./types";
 

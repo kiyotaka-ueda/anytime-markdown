@@ -1,4 +1,5 @@
 /** @anytime-markdown/editor-core/types サブパスエクスポート */
+export type { DialogOptions } from '../providers/types';
 export type {
   HeadingItem,
   MarkdownStorage,
@@ -22,7 +23,6 @@ export type {
   ToolbarModeState,
   ToolbarVisibility,
 } from '../types/toolbar';
+export type { EditorSettings } from '../useEditorSettings';
 export type { DiffBlock, DiffLine, DiffOptions, DiffResult, InlineSegment } from '../utils/diffEngine';
 export type { MarkdownSection, SectionMatch } from '../utils/sectionParser';
-export type { EditorSettings } from '../useEditorSettings';
-export type { DialogOptions } from '../providers/types';

@@ -9,7 +9,6 @@ import { useEffect } from "react";
 
 import { DEBOUNCE_MEDIUM } from "../constants/timing";
 import { getBaseExtensions } from "../editorExtensions";
-import { handleBlockClipboardEvent } from "../utils/blockClipboard";
 import { CustomHardBreak } from "../extensions/customHardBreak";
 import { DeleteLineExtension } from "../extensions/deleteLineExtension";
 import { ReviewModeExtension, reviewModeStorage } from "../extensions/reviewModeExtension";
@@ -21,6 +20,7 @@ import {
   getMarkdownFromEditor,
   type HeadingItem,
 } from "../types";
+import { handleBlockClipboardEvent } from "../utils/blockClipboard";
 import { setTrailingNewline } from "../utils/editorContentLoader";
 import { toGitHubSlug } from "../utils/tocHelpers";
 

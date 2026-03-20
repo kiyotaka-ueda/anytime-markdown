@@ -17,8 +17,8 @@ import { EditDialogWrapper } from "./EditDialogWrapper";
 import { FullscreenDiffView } from "./FullscreenDiffView";
 import { LineNumberTextarea } from "./LineNumberTextarea";
 import { SamplePanel } from "./SamplePanel";
-import { ZoomToolbar } from "./ZoomToolbar";
 import { ZoomablePreview } from "./ZoomablePreview";
+import { ZoomToolbar } from "./ZoomToolbar";
 
 interface MermaidEditDialogProps {
   open: boolean;
@@ -45,7 +45,7 @@ interface MermaidEditDialogProps {
 
 export function MermaidEditDialog({
   open, onClose, label, svg, code,
-  fsCode, onFsCodeChange, onFsTextChange, fsTextareaRef, fsSearch,
+  fsCode, onFsCodeChange: _onFsCodeChange, onFsTextChange, fsTextareaRef, fsSearch: _fsSearch,
   fsZP, readOnly,
   isCompareMode, compareCode, onMergeApply, thisCode, onCapture, toolbarExtra,
   t,

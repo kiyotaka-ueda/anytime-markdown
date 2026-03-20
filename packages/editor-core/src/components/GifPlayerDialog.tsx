@@ -6,9 +6,9 @@ import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import { Box, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
 import { useCallback, useRef, useState } from "react";
 
+import type { GifSettings } from "../utils/gifEncoder";
 import { EditDialogHeader } from "./EditDialogHeader";
 import { EditDialogWrapper } from "./EditDialogWrapper";
-import type { GifSettings } from "../utils/gifEncoder";
 
 interface GifPlayerDialogProps {
   open: boolean;
