@@ -105,6 +105,8 @@ function addHardBreaksToConsecutiveLines(text: string): string {
     if (isBlockquoteStart(cur) || isBlockquoteStart(nxt)) continue;
     // マークダウンテーブル行はスキップ（行が完結しているため改行不要）
     if (isTableRow(cur) || isTableRow(nxt)) continue;
+    // HTML タグ行はスキップ（Admonition blockquote 等の前処理済み HTML）
+    if (cur.startsWith("<") || nxt.startsWith("<") || cur.startsWith("</") || nxt.startsWith("</")) continue;
     // タブ区切りデータ（スプレッドシートからのコピー等）は <br> を付加
     if (cur.includes("\t") || nxt.includes("\t")) {
       result[i] = cur + "<br>";

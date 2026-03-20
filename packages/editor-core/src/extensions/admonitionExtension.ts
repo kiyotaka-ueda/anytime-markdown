@@ -17,6 +17,10 @@ const ADMONITION_RE = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*/i;
 interface SerializerState {
   wrapBlock: (delim: string, firstDelim: string | null, node: unknown, f: () => void) => void;
   renderContent: (node: unknown) => void;
+  write: (content: string) => void;
+  ensureNewLine: () => void;
+  closeBlock: (node: unknown) => void;
+  out: string;
 }
 
 interface SerializedNode {
@@ -94,6 +98,10 @@ export const AdmonitionBlockquote = Blockquote.extend({
             state.wrapBlock("> ", `> [!${type}]\n`, node, () => {
               state.renderContent(node);
             });
+            // 連続する Admonition blockquote 間に空行を確保
+            if (!state.out.endsWith("\n\n")) {
+              state.write("\n");
+            }
           } else {
             state.wrapBlock("> ", null, node, () => {
               state.renderContent(node);
