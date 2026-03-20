@@ -196,7 +196,7 @@ async function renderTextToPngBlob(el: HTMLElement, w: number, h: number, scale:
 
   const canvas = createScaledCanvas(Math.max(w, 300), canvasH, scale);
   const ctx = canvas.getContext("2d");
-  if (!ctx) return;
+  if (!ctx) return null;
   ctx.scale(scale, scale);
 
   const computed = getComputedStyle(el);
