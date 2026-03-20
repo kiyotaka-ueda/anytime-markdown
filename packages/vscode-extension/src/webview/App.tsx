@@ -73,8 +73,9 @@ function handleSetBaseUri(message: { baseUri: string }) {
   }
   if (!ALLOWED_BASE_URI_SCHEMES.includes(parsed.protocol)) return;
 
-  // 正規化された URL を使用（ユーザー入力をそのまま DOM に設定しない）
-  const sanitized = parsed.href.endsWith('/') ? parsed.href : parsed.href + '/';
+  // スキーム検証済みの元 URL を使用（parsed.href で正規化するとパスエンコーディングが
+  // 変わり VS Code webview リソースが解決できなくなるため）
+  const sanitized = raw.endsWith('/') ? raw : raw + '/';
   let baseEl = document.querySelector('base');
   if (!baseEl) {
     baseEl = document.createElement('base');
