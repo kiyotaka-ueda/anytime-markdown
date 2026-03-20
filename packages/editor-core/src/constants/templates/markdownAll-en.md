@@ -1,146 +1,219 @@
 ---
-title: Anytime Markdown
-date: 2026-03-09
-tags: [markdown, editor, WYSIWYG]
+title: Markdown All — Every Expression You Can Write
+date: 2026-03-20
+tags: [markdown, editor, guide]
 ---
 
-# Anytime Markdown
+# Markdown All — Every Expression You Can Write
 
-**Write beautifully, anytime, anywhere** — Welcome to a Markdown editor that runs entirely in your browser.
-
-
-## Text Formatting
-
-Add emphasis with **bold** or *italic*, convey intent with <u>underline</u> or ~~strikethrough~~.\
-Use <mark>highlight</mark> for important sections.\
-Inline code like `console.log("Hello")` blends naturally into your text.
-
-See the [official documentation](/) for more details.
-
----
+This document is a guide to every expression available in Anytime Markdown.\
+Not just a syntax reference, but a look at how each element communicates meaning.
 
 
-## Block Elements
+## Polishing Prose — Text Formatting
+
+Good writing balances structure and emphasis.
+
+**Bold** stops the reader's eye, while *italic* adds nuance or context.\
+<u>Underline</u> works for proper nouns and definitions, ~~strikethrough~~ for tracking changes.\
+For truly critical points, <mark>highlight</mark> is the most effective tool.
+
+In technical writing, wrapping `variable names` or `function names` in inline code is standard practice.\
+This visually separates code from surrounding prose.
+
+Use [links](/) to point readers to external sources.
 
 
-### Lists
-
-- Edit with rich formatting in edit mode
-  - Quick access via toolbar and keyboard shortcuts
-- Edit Markdown directly in source mode
-
-1. Open a file
-   1. Click "Open" in the toolbar
-   2. Select a `.md` file
-2. Edit
-3. Save
+## Building Structure — Lists and Headings
 
 
-### Task Management
+### Organizing with Bullet Lists
 
-- [x] Learn the basic editor operations
-- [x] Try creating diagrams
-- [ ] Write your own document
+Bullet lists are the simplest way to organize parallel information.
+
+- Markdown is a lightweight markup language focused on writing
+    - Created by John Gruber in 2004
+- Write structured documents without thinking about HTML
+- Readable as plain text, even without rendering
 
 
-### Blockquotes
+### Showing Steps
 
-> Simplicity is the ultimate sophistication.
+Numbered lists are for information where order matters.
+
+1. Create a document in the editor
+    1. Press `/` to invoke slash commands
+    2. Select and insert the element you need
+2. Check the preview
+3. Save to file
+
+
+### Tracking Progress
+
+Task lists visualize progress with checkboxes.
+
+- [x] Understood text formatting
+- [x] Learned when to use each list type
+- [ ] Try drawing a diagram
+- [ ] Put it into practice on a real project
+
+
+## Quotes and Notes — Adding Context
+
+Blockquotes separate others' words or key premises from your own text.
+
+> Documentation starts becoming outdated the moment it's written.\
+> That's exactly why it matters to write in a format that's easy to update.
+
+Nested quotes can express dialogue or structured discussion.
+
+> "Why did you choose Markdown?"
 >
-> — *Leonardo da Vinci*
->
-> > Good design is as little design as possible.\
-> > — *Dieter Rams*
-
----
+> > "Because it's plain text. Diffs show up in Git, and any editor can open it.\
+> > There aren't many formats you can be sure will still be readable in ten years."
 
 
-## Tables
+### Admonitions — Drawing Attention
 
-| Feature | Description | Shortcut |
+> [!NOTE]
+> Supplementary information or helpful hints.
+
+> [!TIP]
+> Efficient workflows or useful shortcuts.
+
+> [!IMPORTANT]
+> Critical information that shouldn't be overlooked.
+
+> [!WARNING]
+> Operations requiring caution or known limitations.
+
+> [!CAUTION]
+> Alerts about data loss or irreversible actions.
+
+
+## Showing Data — Tables
+
+Tables are ideal for comparisons and listings.
+
+| Expression | Purpose | Example |
 | --- | --- | --- |
-| Bold | Emphasize text | `Ctrl+B` |
-| Italic | Italicize text | `Ctrl+I` |
-| Code Block | Insert code | `Ctrl+Shift+C` |
-| Find | Search text | `Ctrl+F` |
+| Bold | Emphasis, keywords | **Important** |
+| Italic | Context, attribution | *Leonardo da Vinci* |
+| Code | Technical terms, commands | `git commit` |
+| Link | Citing sources | [Official site](/) |
+| Highlight | Top priority | <mark>Must read</mark> |
 
----
 
+## Communicating Code — Code Blocks
 
-## Code Block
+Code blocks apply syntax highlighting when a language is specified.
 
 ```typescript
-function greet(name: string): string {
-  return `Hello, ${name}!`;
+interface Document {
+  title: string;
+  content: string;
+  createdAt: Date;
+}
+
+function summarize(doc: Document): string {
+  const age = Date.now() - doc.createdAt.getTime();
+  const days = Math.floor(age / (1000 * 60 * 60 * 24));
+  return `${doc.title} (created ${days} days ago)`;
 }
 ```
 
----
 
+## Writing Math — KaTeX
 
-## Math
+For technical documents and papers that need mathematical notation.
 
-You can write math formulas inline.
+The Gaussian integral is one of the fundamental results in analysis.
 
 $$
 \int_{-\infty}^{\infty} e^{-x^2} \, dx = \sqrt{\pi}
 $$
 
----
+The quadratic formula is another commonly referenced equation.
+
+$$
+x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}
+$$
 
 
-## Diagrams
+## Thinking in Diagrams
 
 
-### Mermaid
+### Mermaid — Flows and Architecture
+
+Processes that are hard to explain in words become instantly clear as diagrams.
 
 ```mermaid
-flowchart LR
-    %% Node definitions
-    A["Markdown"]
-    B["Editor"]
-    C["Preview"]
-    D["PDF"]
-    E[".md File"]
-
-    %% Connections
-    A -->|"parse"| B
-    B -->|"render"| C
-    B -->|"export"| D
-    B -->|"serialize"| E
+flowchart TD
+    A["Write Markdown"] --> B{"Check preview"}
+    B -->|"Looks good"| C["Save"]
+    B -->|"Needs changes"| A
+    C --> D["Share / Publish"]
+    C --> E["Export to PDF"]
 ```
 
 
-### PlantUML
+### PlantUML — Sequences and Design
+
+Interactions between systems are best expressed as sequence diagrams.
 
 ```plantuml
-actor User
+actor Writer
 participant Editor
-participant Server
+participant FileSystem
+database Storage
 
-User -> Editor: Write Markdown
-Editor -> Editor: Real-time Preview
-User -> Editor: Export PDF
-Editor -> Server: Render Diagram
-Server --> Editor: SVG Image
-Editor --> User: Display
+Writer -> Editor: Edit document
+Editor -> Editor: Real-time preview
+Writer -> Editor: Save
+Editor -> FileSystem: Write to file
+FileSystem -> Storage: Persist
+Storage --> FileSystem: Done
+FileSystem --> Editor: Save successful
+Editor --> Writer: Show notification
 ```
 
----
 
+## Free Expression — HTML Blocks
 
-## HTML Block
+When you need layouts beyond Markdown's capabilities, HTML blocks are available.
 
 ```html
-<div style="padding: 16px; border-radius: 8px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-family: sans-serif;">
-  <h3 style="margin: 0 0 8px 0;">Notice</h3>
-  <p style="margin: 0;">HTML blocks let you write custom layouts and styles directly.</p>
+<div style="padding: 20px; border-radius: 8px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-family: sans-serif;">
+  <h3 style="margin: 0 0 8px 0;">Custom Design</h3>
+  <p style="margin: 0;">Gradients, rounded corners, custom fonts — anything CSS can express, you can write here.</p>
 </div>
 ```
 
+
+## Horizontal Rules — Section Breaks
+
+Use horizontal rules to signal a shift in topic.
+
 ---
 
+Three or more hyphens `---` create a visual break.
 
-## Images
 
-![Image](help/camel_markdown.png)Now, let's start writing.
+## Footnotes — Non-Intrusive Supplements
+
+When you want to add context without disrupting the flow, footnotes[^1] are the answer.\
+They're well suited for technical details and citations[^2].
+
+[^1]: Footnotes are collected and displayed at the end of the document.
+[^2]: Readers consult footnotes only when needed, keeping the main text readable.
+
+
+## Images — Visual Communication
+
+A picture is worth a thousand words. Screenshots and diagrams convey far more than text alone.
+
+![Anytime Markdown](help/camel_markdown.png)
+
+---
+
+You now have every expression at your fingertips. Start writing your document.
