@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 import { STORAGE_KEY_SETTINGS } from "./constants/storageKeys";
-const SETTINGS_VERSION = 6; // showHeadingNumbers を auto 化（設定から除外）
+const SETTINGS_VERSION = 7; // 用紙サイズ表示を追加
 
 export interface EditorSettings {
   lineHeight: number;
@@ -15,6 +15,8 @@ export interface EditorSettings {
   darkBgColor: string;     // ダークモード背景色（空文字 = テーマデフォルト）
   darkTextColor: string;   // ダークモード文字色（空文字 = テーマデフォルト）
   spellCheck: boolean;
+  paperSize: "off" | "A3" | "A4" | "B4" | "B5";
+  paperMargin: number; // mm単位、10-40
 }
 
 export const DEFAULT_SETTINGS: EditorSettings = {
@@ -27,6 +29,8 @@ export const DEFAULT_SETTINGS: EditorSettings = {
   darkBgColor: "",
   darkTextColor: "",
   spellCheck: false,
+  paperSize: "A4",
+  paperMargin: 20,
 };
 
 export interface UseEditorSettingsReturn {
