@@ -109,11 +109,14 @@ function handleBlockClipboard(view: EditorView, event: ClipboardEvent, isCut: bo
       // ブロック全体のテキストコンテンツをクリップボードに設定
       const text = view.state.doc.textBetween(blockStart, blockEnd, "\n");
       event.clipboardData.setData("text/plain", text);
-      // DOMSerializer でブロックノードを HTML に変換（ペースト時にブロック構造を維持）
+      // DOMSerializer でブロックノードを HTML に変換
+      // data-pm-slice 属性を付与して ProseMirror がペースト時にブロック構造を復元できるようにする
       const domSerializer = DOMSerializer.fromSchema(view.state.schema);
       const htmlFragment = domSerializer.serializeNode(node);
       const wrapper = document.createElement("div");
       wrapper.appendChild(htmlFragment);
+      // data-pm-slice="openStart openEnd [schemaVersion]" — 0 0 はブロック全体のスライス
+      wrapper.firstElementChild?.setAttribute("data-pm-slice", "0 0 []");
       event.clipboardData.setData("text/html", wrapper.innerHTML);
       event.preventDefault();
       if (isCut) {
