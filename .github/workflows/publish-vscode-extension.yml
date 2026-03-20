@@ -13,6 +13,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v5
         with:
@@ -31,13 +33,18 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Run editor-core tests
-        run: npm test
+      - name: Run editor-core tests with coverage
+        run: npx jest --coverage --coverageReporters=lcov
         working-directory: packages/editor-core
 
-      - name: Run web-app tests
-        run: npm test
+      - name: Run web-app tests with coverage
+        run: npx jest --coverage --coverageReporters=lcov
         working-directory: packages/web-app
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarqube-scan-action@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium firefox webkit
