@@ -7,7 +7,10 @@ import {
   Button,
   Divider,
   Drawer,
+  FormControl,
   IconButton,
+  MenuItem,
+  Select,
   Slider,
   Switch,
   ToggleButton,
@@ -19,6 +22,7 @@ import React from "react";
 
 import useConfirm from "@/hooks/useConfirm";
 
+import { PAPER_MARGIN_MAX, PAPER_MARGIN_MIN, PAPER_MARGIN_STEP, PAPER_SIZE_OPTIONS } from "../constants/dimensions";
 import type { TranslationFn } from "../types";
 import type { EditorSettings } from "../useEditorSettings";
 
@@ -167,6 +171,52 @@ export const EditorSettingsPanel = React.memo(function EditorSettingsPanel({
           <ToggleButton value="100%">{t("settingTableFull")}</ToggleButton>
         </ToggleButtonGroup>
       </Box>
+
+      {/* Paper Size */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary", mb: 0.5, display: "block" }}>
+          {t("settingPaperSize")}
+        </Typography>
+        <FormControl size="small" fullWidth>
+          <Select
+            value={settings.paperSize}
+            onChange={(e) => updateSettings({ paperSize: e.target.value as EditorSettings["paperSize"] })}
+            aria-label={t("settingPaperSize")}
+          >
+            {PAPER_SIZE_OPTIONS.map((size) => (
+              <MenuItem key={size} value={size}>
+                {size === "off" ? t("settingPaperSizeOff") : size}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Box>
+
+      {/* Paper Margin */}
+      {settings.paperSize !== "off" && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary" }}>
+            {t("settingPaperMargin")}
+          </Typography>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5 }}>
+            <Slider
+              value={settings.paperMargin}
+              onChange={(_, v) => updateSettings({ paperMargin: v as number })}
+              min={PAPER_MARGIN_MIN}
+              max={PAPER_MARGIN_MAX}
+              step={PAPER_MARGIN_STEP}
+              size="small"
+              aria-label={t("settingPaperMargin")}
+              aria-valuetext={`${settings.paperMargin}mm`}
+            />
+            <Typography variant="body2" sx={{ minWidth: 48, textAlign: "right", fontFamily: "monospace" }}>
+              {settings.paperMargin}mm
+            </Typography>
+          </Box>
+        </Box>
+      )}
+
+      <Divider sx={{ mb: 2 }} />
 
       {/* Spell Check */}
       <Box sx={{ mb: 2, display: "flex", alignItems: "center", justifyContent: "space-between" }}>

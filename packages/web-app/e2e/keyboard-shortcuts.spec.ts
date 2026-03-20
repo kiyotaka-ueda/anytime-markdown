@@ -16,14 +16,14 @@ test.describe("Keyboard Shortcuts - ブロック操作", () => {
     await page.keyboard.type("third");
     // "second" の行にカーソルを移動
     await page.keyboard.press("ArrowUp");
-    // エディタにフォーカスを確保してから Alt+Down で移動
     await editor.focus();
+    await page.waitForTimeout(100);
     await page.keyboard.press("Alt+ArrowDown");
-    await page.waitForTimeout(200);
-    // "second" が "third" の後に移動
+    // DOM の状態変化を待機（waitForTimeout ではなく expect で待つ）
+    const thirdP = editor.locator("p").nth(0);
+    await expect(thirdP).toContainText("first", { timeout: 3000 });
     const text = await editor.innerText();
     const lines = text.split("\n").filter(l => l.trim());
-    expect(lines[0]).toBe("first");
     expect(lines[1]).toBe("third");
     expect(lines[2]).toBe("second");
   });
@@ -36,12 +36,15 @@ test.describe("Keyboard Shortcuts - ブロック操作", () => {
     await page.keyboard.type("second");
     await page.keyboard.press("Enter");
     await page.keyboard.type("third");
-    // "third" にカーソルがある状態で Alt+Up
+    await editor.focus();
+    await page.waitForTimeout(100);
     await page.keyboard.press("Alt+ArrowUp");
+    // "third" が "second" の前に移動するのを待機
+    const secondP = editor.locator("p").nth(1);
+    await expect(secondP).toContainText("third", { timeout: 3000 });
     const text = await editor.innerText();
     const lines = text.split("\n").filter(l => l.trim());
     expect(lines[0]).toBe("first");
-    expect(lines[1]).toBe("third");
     expect(lines[2]).toBe("second");
   });
 
@@ -51,12 +54,13 @@ test.describe("Keyboard Shortcuts - ブロック操作", () => {
     await page.keyboard.type("original");
     await page.keyboard.press("Enter");
     await page.keyboard.type("other");
-    // "original" にカーソルを移動
     await page.keyboard.press("ArrowUp");
     await page.keyboard.press("Home");
     await editor.focus();
+    await page.waitForTimeout(100);
     await page.keyboard.press("Shift+Alt+ArrowDown");
-    await page.waitForTimeout(200);
+    // 段落が3つになるのを待機（元2つ + 複製1つ）
+    await expect(editor.locator("p")).toHaveCount(3, { timeout: 3000 });
     const text = await editor.innerText();
     const lines = text.split("\n").filter(l => l.trim());
     expect(lines.filter(l => l === "original").length).toBe(2);
@@ -68,7 +72,10 @@ test.describe("Keyboard Shortcuts - ブロック操作", () => {
     await page.keyboard.type("other");
     await page.keyboard.press("Enter");
     await page.keyboard.type("original");
+    await editor.focus();
+    await page.waitForTimeout(100);
     await page.keyboard.press("Shift+Alt+ArrowUp");
+    await expect(editor.locator("p")).toHaveCount(3, { timeout: 3000 });
     const text = await editor.innerText();
     const lines = text.split("\n").filter(l => l.trim());
     expect(lines.filter(l => l === "original").length).toBe(2);
