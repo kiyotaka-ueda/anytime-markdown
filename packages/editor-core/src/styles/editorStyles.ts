@@ -1,6 +1,8 @@
 import type { SxProps,Theme } from "@mui/material/styles";
 
 import { getEditorBg, getEditorText } from "../constants/colors";
+import { calcPaperContentWidth } from "../constants/dimensions";
+import type { PaperSize } from "../constants/dimensions";
 import { EDITOR_PADDING_BORDER,EDITOR_PADDING_TOP } from "../constants/dimensions";
 import type { EditorSettings } from "../useEditorSettings";
 import { getBaseStyles } from "./baseStyles";
@@ -41,6 +43,13 @@ export function getEditorPaperSx(
       ...(getCodeStyles(theme) as Record<string, unknown>),
       ...(getBlockStyles(theme, settings) as Record<string, unknown>),
       ...(getInlineStyles(theme) as Record<string, unknown>),
+      // 用紙サイズ制限
+      ...(settings.paperSize !== "off" && {
+        maxWidth: calcPaperContentWidth(settings.paperSize as Exclude<PaperSize, "off">, settings.paperMargin),
+        mx: "auto",
+        wordBreak: "break-word",
+        overflowWrap: "break-word",
+      }),
     },
   };
 }
