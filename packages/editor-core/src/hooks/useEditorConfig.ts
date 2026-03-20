@@ -1,7 +1,7 @@
 import type { AnyExtension } from "@tiptap/core";
 import Placeholder from "@tiptap/extension-placeholder";
 import type { MarkdownSerializerState } from "@tiptap/pm/markdown";
-import type { Node as ProseMirrorNode,Slice } from "@tiptap/pm/model";
+import type { Node as ProseMirrorNode, Slice } from "@tiptap/pm/model";
 import type { EditorView } from "@tiptap/pm/view";
 import type { Editor } from "@tiptap/react";
 import type { RefObject } from "react";
@@ -9,6 +9,7 @@ import { useEffect } from "react";
 
 import { DEBOUNCE_MEDIUM } from "../constants/timing";
 import { getBaseExtensions } from "../editorExtensions";
+import { handleBlockClipboardEvent } from "../utils/blockClipboard";
 import { CustomHardBreak } from "../extensions/customHardBreak";
 import { DeleteLineExtension } from "../extensions/deleteLineExtension";
 import { ReviewModeExtension, reviewModeStorage } from "../extensions/reviewModeExtension";
@@ -343,24 +344,11 @@ export function useEditorConfig({
           return false;
         },
         copy: (view: EditorView, event: ClipboardEvent) => {
-          const { $from, $to } = view.state.selection;
-          if ($from.parent.type.name === "codeBlock" && $from.sameParent($to)) {
-            if (!event.clipboardData) return false;
-            event.clipboardData.setData("text/plain", view.state.doc.textBetween($from.pos, $to.pos));
-            event.preventDefault();
-            return true;
-          }
+          if (handleBlockClipboardEvent(view, event, false)) return true;
           return false;
         },
         cut: (view: EditorView, event: ClipboardEvent) => {
-          const { $from, $to } = view.state.selection;
-          if ($from.parent.type.name === "codeBlock" && $from.sameParent($to)) {
-            if (!event.clipboardData) return false;
-            event.clipboardData.setData("text/plain", view.state.doc.textBetween($from.pos, $to.pos));
-            event.preventDefault();
-            view.dispatch(view.state.tr.deleteSelection());
-            return true;
-          }
+          if (handleBlockClipboardEvent(view, event, true)) return true;
           return false;
         },
       },

@@ -65,7 +65,7 @@ export default function PrivacyBody() {
             {t.rich('section8Body', {
               link: (chunks) => (
                 <Link
-                  href="https://github.com/kiyotaka-ueda/anytime-markdown/issues"
+                  href="https://github.com/anytime-trial/anytime-markdown/issues"
                   target="_blank"
                   rel="noopener noreferrer"
                 >

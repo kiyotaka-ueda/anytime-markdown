@@ -30,7 +30,7 @@ export function getTrailingNewline(editor: Editor): boolean {
 export function applyMarkdownToEditor(editor: Editor, text: string): ApplyResult {
   // 元テキストの末尾改行を記録（getMarkdownFromEditor で復元するため）
   setTrailingNewline(editor, text.endsWith("\n"));
-  const { frontmatter, comments, body, imageAnnotations } = preprocessMarkdown(text);
+  const { frontmatter, comments, body, imageAnnotations, gifSettings } = preprocessMarkdown(text);
   editor.commands.setContent(body);
   if (typeof editor.commands.initComments === "function") {
     editor.commands.initComments(comments);
@@ -51,6 +51,30 @@ export function applyMarkdownToEditor(editor: Editor, text: string): ApplyResult
         imgIndex++;
       }
     });
+  }
+  // GIF 設定を復元: tiptap-markdown は ![](*.gif) を image ノードとしてパースするため、
+  // gifSettings にマッチする image ノードを gifBlock ノードに変換する
+  if (gifSettings && gifSettings.size > 0) {
+    const gifBlockType = editor.schema.nodes.gifBlock;
+    if (gifBlockType) {
+      const { tr } = editor.state;
+      let offset = 0;
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === "image" || node.type.name === "gifBlock") {
+          const src = (node.attrs.src as string) ?? "";
+          const data = gifSettings.get(src);
+          if (data) {
+            const adjustedPos = pos + offset;
+            const newNode = gifBlockType.create({ src, alt: node.attrs.alt ?? "", gifSettings: data });
+            tr.replaceWith(adjustedPos, adjustedPos + node.nodeSize, newNode);
+            offset += newNode.nodeSize - node.nodeSize;
+          }
+        }
+      });
+      if (tr.docChanged) {
+        editor.view.dispatch(tr);
+      }
+    }
   }
   return { frontmatter, comments, body };
 }
