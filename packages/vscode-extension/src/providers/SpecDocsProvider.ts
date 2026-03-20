@@ -13,6 +13,30 @@ function isMarkdownFile(name: string): boolean {
 	return lower.endsWith('.md') || lower.endsWith('.markdown');
 }
 
+/** ディレクトリを遡って .git ディレクトリ/ファイルのパスを返す */
+function findGitDir(startDir: string): string | null {
+	let dir = startDir;
+	while (dir !== path.dirname(dir)) {
+		const gitPath = path.join(dir, '.git');
+		if (fs.existsSync(gitPath)) return gitPath;
+		dir = path.dirname(dir);
+	}
+	return null;
+}
+
+/** .git パスからブランチ名を読み取る */
+function readGitBranch(gitPath: string): string {
+	try {
+		if (!fs.statSync(gitPath).isDirectory()) return 'HEAD';
+		const headPath = path.join(gitPath, 'HEAD');
+		const head = fs.readFileSync(headPath, 'utf-8').trim();
+		const match = head.match(/^ref: refs\/heads\/(.+)$/);
+		return match ? match[1] : head.substring(0, 7);
+	} catch {
+		return 'HEAD';
+	}
+}
+
 export class SpecDocsRootItem extends vscode.TreeItem {
 	constructor(public readonly rootPath: string, repoName: string) {
 		super(repoName, vscode.TreeItemCollapsibleState.Expanded);
@@ -69,6 +93,14 @@ export class SpecDocsDragAndDrop implements vscode.TreeDragAndDropController<Spe
 		);
 	}
 
+	/** ドロップターゲットからディレクトリパスを解決する */
+	private resolveDropDir(target: SpecDocsRootItem | SpecDocsItem | undefined, fallbackRoots?: string[]): string | undefined {
+		if (target instanceof SpecDocsRootItem) return target.rootPath;
+		if (target && target.isDirectory) return target.resourceUri.fsPath;
+		if (target && !target.isDirectory) return path.dirname(target.resourceUri.fsPath);
+		return fallbackRoots?.[0];
+	}
+
 	async handleDrop(target: SpecDocsRootItem | SpecDocsItem | undefined, dataTransfer: vscode.DataTransfer): Promise<void> {
 		// 外部ファイルのドロップ（コピー）
 		const uriList = dataTransfer.get('text/uri-list');
@@ -83,26 +115,8 @@ export class SpecDocsDragAndDrop implements vscode.TreeDragAndDropController<Spe
 		const sourcePaths: string[] = raw.value;
 		if (!sourcePaths || sourcePaths.length === 0) return;
 
-		// ドロップ先のディレクトリを決定
-		let destDir: string;
-		if (target instanceof SpecDocsRootItem) {
-			destDir = target.rootPath;
-		} else if (target && target.isDirectory) {
-			destDir = target.resourceUri.fsPath;
-		} else if (target && !target.isDirectory) {
-			destDir = path.dirname(target.resourceUri.fsPath);
-		} else {
-			// ルートにドロップ（複数ルートの場合はソースのルートを使用）
-			const roots = this.provider.roots;
-			if (roots.length === 0) return;
-			// ソースファイルが属するルートを判定
-			const srcRoot = roots.find(r => {
-				const nr = r.endsWith(path.sep) ? r : r + path.sep;
-				return sourcePaths[0] === r || sourcePaths[0].startsWith(nr);
-			});
-			if (!srcRoot) return;
-			destDir = srcRoot;
-		}
+		const destDir = this.resolveInternalDropDir(target, sourcePaths);
+		if (!destDir) return;
 
 		for (const srcPath of sourcePaths) {
 			const name = path.basename(srcPath);
@@ -117,58 +131,66 @@ export class SpecDocsDragAndDrop implements vscode.TreeDragAndDropController<Spe
 		this.provider.refresh();
 	}
 
+	/** 内部ドラッグのドロップ先ディレクトリを決定する */
+	private resolveInternalDropDir(target: SpecDocsRootItem | SpecDocsItem | undefined, sourcePaths: string[]): string | undefined {
+		const resolved = this.resolveDropDir(target);
+		if (resolved) return resolved;
+
+		// ルートにドロップ（複数ルートの場合はソースのルートを使用）
+		const roots = this.provider.roots;
+		if (roots.length === 0) return undefined;
+		const srcRoot = roots.find(r => {
+			const nr = r.endsWith(path.sep) ? r : r + path.sep;
+			return sourcePaths[0] === r || sourcePaths[0].startsWith(nr);
+		});
+		return srcRoot;
+	}
+
 	private async handleExternalDrop(target: SpecDocsRootItem | SpecDocsItem | undefined, uriList: vscode.DataTransferItem): Promise<void> {
-		// ドロップ先のディレクトリを決定
-		let destDir: string | undefined;
-		if (target instanceof SpecDocsRootItem) {
-			destDir = target.rootPath;
-		} else if (target && target.isDirectory) {
-			destDir = target.resourceUri.fsPath;
-		} else if (target && !target.isDirectory) {
-			destDir = path.dirname(target.resourceUri.fsPath);
-		} else {
-			const roots = this.provider.roots;
-			destDir = roots[0];
-		}
+		const destDir = this.resolveDropDir(target, this.provider.roots);
 		if (!destDir) return;
 
-		// text/uri-list から URI を解析
+		const uris = await this.parseUriList(uriList);
+		if (uris.length === 0) return;
+
+		for (const uri of uris) {
+			await this.copyFileWithOverwriteCheck(uri.fsPath, destDir);
+		}
+		this.provider.refresh();
+	}
+
+	/** text/uri-list からファイル URI を解析する */
+	private async parseUriList(uriList: vscode.DataTransferItem): Promise<vscode.Uri[]> {
 		const raw = await uriList.asString();
-		const uris = raw.split(/\r?\n/)
+		return raw.split(/\r?\n/)
 			.map(line => line.trim())
 			.filter(line => line && !line.startsWith('#'))
 			.map(line => {
 				try { return vscode.Uri.parse(line); } catch { return null; }
 			})
 			.filter((u): u is vscode.Uri => u !== null && u.scheme === 'file');
+	}
 
-		if (uris.length === 0) return;
+	/** ファイルをコピーする（上書き確認付き） */
+	private async copyFileWithOverwriteCheck(srcPath: string, destDir: string): Promise<void> {
+		const name = path.basename(srcPath);
+		const dest = path.join(destDir, name);
+		if (srcPath === dest) return;
 
-		for (const uri of uris) {
-			const srcPath = uri.fsPath;
-			const name = path.basename(srcPath);
-			const dest = path.join(destDir, name);
-
-			// 同一パスならスキップ
-			if (srcPath === dest) continue;
-
-			// 同名ファイルが存在する場合は確認
-			if (fs.existsSync(dest)) {
-				const answer = await vscode.window.showWarningMessage(
-					`"${name}" already exists. Overwrite?`,
-					{ modal: true },
-					'Overwrite',
-				);
-				if (answer !== 'Overwrite') continue;
-			}
-
-			try {
-				fs.copyFileSync(srcPath, dest);
-			} catch (e: unknown) {
-				showError('Copy failed', e);
-			}
+		if (fs.existsSync(dest)) {
+			const answer = await vscode.window.showWarningMessage(
+				`"${name}" already exists. Overwrite?`,
+				{ modal: true },
+				'Overwrite',
+			);
+			if (answer !== 'Overwrite') return;
 		}
-		this.provider.refresh();
+
+		try {
+			fs.copyFileSync(srcPath, dest);
+		} catch (e: unknown) {
+			showError('Copy failed', e);
+		}
 	}
 }
 
@@ -212,28 +234,13 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsRootIte
 	getRepoInfo(rootPath?: string): { repoName: string; branchName: string } | null {
 		const target = rootPath ?? this.rootPaths[0];
 		if (!target) { return null; }
-		// .git ディレクトリまたはファイルを探す
-		let dir = target;
-		while (dir !== path.dirname(dir)) {
-			const gitPath = path.join(dir, '.git');
-			if (fs.existsSync(gitPath)) {
-				const repoName = path.basename(dir);
-				let branchName = 'HEAD';
-				try {
-					const headPath = fs.statSync(gitPath).isDirectory()
-						? path.join(gitPath, 'HEAD')
-						: gitPath;
-					if (fs.statSync(gitPath).isDirectory()) {
-						const head = fs.readFileSync(headPath, 'utf-8').trim();
-						const match = head.match(/^ref: refs\/heads\/(.+)$/);
-						branchName = match ? match[1] : head.substring(0, 7);
-					}
-				} catch { /* ignore */ }
-				return { repoName, branchName };
-			}
-			dir = path.dirname(dir);
+		const gitPath = findGitDir(target);
+		if (!gitPath) {
+			return { repoName: path.basename(target), branchName: '' };
 		}
-		return { repoName: path.basename(target), branchName: '' };
+		const repoName = path.basename(path.dirname(gitPath));
+		const branchName = readGitBranch(gitPath);
+		return { repoName, branchName };
 	}
 
 	/** ファイルパスが属するルートを返す */

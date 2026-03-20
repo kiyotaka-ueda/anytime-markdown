@@ -297,60 +297,70 @@ function sectionLineCount(section: MarkdownSection): number {
   return count;
 }
 
-function processMatch(
-  match: { type: string; left: MarkdownSection | null; right: MarkdownSection | null },
+/** マッチしたセクションの見出し行を比較して DiffLine を追加する */
+function compareHeadingLines(
+  leftHeading: string, rightHeading: string,
+  allLeftLines: DiffLine[], allRightLines: DiffLine[], allBlocks: DiffBlock[],
+  blockIdCounter: number,
+): number {
+  const leftLn = allLeftLines.filter(l => l.lineNumber !== null).length + 1;
+  const rightLn = allRightLines.filter(l => l.lineNumber !== null).length + 1;
+  if (leftHeading === rightHeading) {
+    allLeftLines.push({ text: leftHeading, type: "equal", blockId: null, lineNumber: leftLn });
+    allRightLines.push({ text: rightHeading, type: "equal", blockId: null, lineNumber: rightLn });
+    return blockIdCounter;
+  }
+  const blockId = blockIdCounter++;
+  allLeftLines.push({ text: leftHeading, type: "modified-old", blockId, lineNumber: leftLn });
+  allRightLines.push({ text: rightHeading, type: "modified-new", blockId, lineNumber: rightLn });
+  allBlocks.push({
+    id: blockId, type: "modified",
+    leftStartLine: allLeftLines.length - 1, leftEndLine: allLeftLines.length,
+    rightStartLine: allRightLines.length - 1, rightEndLine: allRightLines.length,
+    leftLines: [leftHeading], rightLines: [rightHeading],
+  });
+  return blockIdCounter;
+}
+
+/** マッチしたセクション同士を比較する */
+function processMatchedSections(
+  left: MarkdownSection, right: MarkdownSection,
   allLeftLines: DiffLine[], allRightLines: DiffLine[], allBlocks: DiffBlock[],
   blockIdCounter: number, options?: DiffOptions,
 ): number {
-  if (match.type === "matched" && match.left && match.right) {
-    // マッチしたセクション: 見出し行を比較 + bodyLines + 子セクションを再帰
-    const leftText = sectionToText(match.left);
-    const rightText = sectionToText(match.right);
-
-    // 子セクションがある場合は再帰的にマッチング
-    if (match.left.children.length > 0 || match.right.children.length > 0) {
-      // 見出し行の比較
-      if (match.left.headingLine && match.right.headingLine) {
-        const leftLn = allLeftLines.filter(l => l.lineNumber !== null).length + 1;
-        const rightLn = allRightLines.filter(l => l.lineNumber !== null).length + 1;
-        if (match.left.headingLine === match.right.headingLine) {
-          allLeftLines.push({ text: match.left.headingLine, type: "equal", blockId: null, lineNumber: leftLn });
-          allRightLines.push({ text: match.right.headingLine, type: "equal", blockId: null, lineNumber: rightLn });
-        } else {
-          const blockId = blockIdCounter++;
-          allLeftLines.push({ text: match.left.headingLine, type: "modified-old", blockId, lineNumber: leftLn });
-          allRightLines.push({ text: match.right.headingLine, type: "modified-new", blockId, lineNumber: rightLn });
-          allBlocks.push({
-            id: blockId, type: "modified",
-            leftStartLine: allLeftLines.length - 1, leftEndLine: allLeftLines.length,
-            rightStartLine: allRightLines.length - 1, rightEndLine: allRightLines.length,
-            leftLines: [match.left.headingLine], rightLines: [match.right.headingLine],
-          });
-        }
-      }
-
-      // bodyLines の比較
-      const bodyLeft = match.left.bodyLines.join("\n");
-      const bodyRight = match.right.bodyLines.join("\n");
-      if (bodyLeft || bodyRight) {
-        blockIdCounter = appendSubDiff(bodyLeft, bodyRight, allLeftLines, allRightLines, allBlocks, blockIdCounter, options);
-      }
-
-      // 子セクションを再帰マッチング
-      const childMatches = matchSections(match.left.children, match.right.children);
-      for (const childMatch of childMatches) {
-        blockIdCounter = processMatch(childMatch, allLeftLines, allRightLines, allBlocks, blockIdCounter, options);
-      }
-    } else {
-      // 子セクションなし: セクション全体を行ベース diff
-      blockIdCounter = appendSubDiff(leftText, rightText, allLeftLines, allRightLines, allBlocks, blockIdCounter, options);
+  if (left.children.length > 0 || right.children.length > 0) {
+    if (left.headingLine && right.headingLine) {
+      blockIdCounter = compareHeadingLines(left.headingLine, right.headingLine, allLeftLines, allRightLines, allBlocks, blockIdCounter);
     }
-  } else if (match.type === "left-only" && match.left) {
-    // 左にのみ存在: removed + 右にパディング
-    const lineCount = sectionLineCount(match.left);
-    const blockId = blockIdCounter++;
-    const lines: string[] = [];
-    collectSectionLines(match.left, lines);
+    const bodyLeft = left.bodyLines.join("\n");
+    const bodyRight = right.bodyLines.join("\n");
+    if (bodyLeft || bodyRight) {
+      blockIdCounter = appendSubDiff(bodyLeft, bodyRight, allLeftLines, allRightLines, allBlocks, blockIdCounter, options);
+    }
+    const childMatches = matchSections(left.children, right.children);
+    for (const childMatch of childMatches) {
+      blockIdCounter = processMatch(childMatch, allLeftLines, allRightLines, allBlocks, blockIdCounter, options);
+    }
+  } else {
+    const leftText = sectionToText(left);
+    const rightText = sectionToText(right);
+    blockIdCounter = appendSubDiff(leftText, rightText, allLeftLines, allRightLines, allBlocks, blockIdCounter, options);
+  }
+  return blockIdCounter;
+}
+
+/** 片側のみに存在するセクションを removed/added として追加する */
+function processOneSideSection(
+  section: MarkdownSection, side: "left" | "right",
+  allLeftLines: DiffLine[], allRightLines: DiffLine[], allBlocks: DiffBlock[],
+  blockIdCounter: number,
+): number {
+  const lineCount = sectionLineCount(section);
+  const blockId = blockIdCounter++;
+  const lines: string[] = [];
+  collectSectionLines(section, lines);
+
+  if (side === "left") {
     const leftStart = allLeftLines.length;
     let leftLineNum = allLeftLines.filter(l => l.lineNumber !== null).length;
     for (let k = 0; k < lineCount; k++) {
@@ -364,12 +374,7 @@ function processMatch(
       rightStartLine: allRightLines.length - lineCount, rightEndLine: allRightLines.length,
       leftLines: lines, rightLines: [],
     });
-  } else if (match.type === "right-only" && match.right) {
-    // 右にのみ存在: added + 左にパディング
-    const lineCount = sectionLineCount(match.right);
-    const blockId = blockIdCounter++;
-    const lines: string[] = [];
-    collectSectionLines(match.right, lines);
+  } else {
     const rightStart = allRightLines.length;
     let rightLineNum = allRightLines.filter(l => l.lineNumber !== null).length;
     for (let k = 0; k < lineCount; k++) {
@@ -383,6 +388,23 @@ function processMatch(
       rightStartLine: rightStart, rightEndLine: rightStart + lineCount,
       leftLines: [], rightLines: lines,
     });
+  }
+  return blockIdCounter;
+}
+
+function processMatch(
+  match: { type: string; left: MarkdownSection | null; right: MarkdownSection | null },
+  allLeftLines: DiffLine[], allRightLines: DiffLine[], allBlocks: DiffBlock[],
+  blockIdCounter: number, options?: DiffOptions,
+): number {
+  if (match.type === "matched" && match.left && match.right) {
+    return processMatchedSections(match.left, match.right, allLeftLines, allRightLines, allBlocks, blockIdCounter, options);
+  }
+  if (match.type === "left-only" && match.left) {
+    return processOneSideSection(match.left, "left", allLeftLines, allRightLines, allBlocks, blockIdCounter);
+  }
+  if (match.type === "right-only" && match.right) {
+    return processOneSideSection(match.right, "right", allLeftLines, allRightLines, allBlocks, blockIdCounter);
   }
   return blockIdCounter;
 }

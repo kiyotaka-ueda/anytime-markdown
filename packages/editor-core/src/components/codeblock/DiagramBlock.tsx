@@ -36,6 +36,87 @@ type DiagramBlockProps = Pick<
   handleFsTextChange: (newCode: string) => void;
 };
 
+/** Copy-code button shared between Mermaid and PlantUML edit dialogs */
+function CopyCodeButton({ handleCopyCode, t }: { handleCopyCode: () => void; t: DiagramBlockProps["t"] }) {
+  return (
+    <Tooltip title={t("copyCode")} placement="bottom">
+      <IconButton size="small" sx={{ p: 0.25 }} onClick={handleCopyCode} aria-label={t("copyCode")}>
+        <ContentCopyIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+      </IconButton>
+    </Tooltip>
+  );
+}
+
+/** Renders the diagram preview container (shared between mermaid SVG and PlantUML img) */
+function DiagramPreviewContainer({
+  containerRef, code, language, diagramContainerSx,
+  selectNode, handleDoubleClickFullscreen,
+  handleResizePointerMove, handleResizePointerUp,
+  isSelected, isEditable, resizing, resizeWidth, handleResizePointerDown,
+  children,
+}: {
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  code: string;
+  language: "mermaid" | "plantuml";
+  diagramContainerSx: object;
+  selectNode: () => void;
+  handleDoubleClickFullscreen: () => void;
+  handleResizePointerMove: (e: React.PointerEvent) => void;
+  handleResizePointerUp: (e: React.PointerEvent) => void;
+  isSelected: boolean;
+  isEditable: boolean;
+  resizing: boolean;
+  resizeWidth: number | null;
+  handleResizePointerDown: (e: React.PointerEvent) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Box
+      ref={containerRef}
+      role="img"
+      aria-label={extractDiagramAltText(code, language)}
+      sx={diagramContainerSx}
+      contentEditable={false}
+      onClick={selectNode}
+      onDoubleClick={handleDoubleClickFullscreen}
+      onPointerMove={handleResizePointerMove}
+      onPointerUp={handleResizePointerUp}
+    >
+      {children}
+      <ResizeGrip visible={isSelected && isEditable} resizing={resizing} resizeWidth={resizeWidth} onPointerDown={handleResizePointerDown} />
+    </Box>
+  );
+}
+
+/** PlantUML consent alert */
+function PlantUmlConsentAlert({
+  plantUmlConsent, handlePlantUmlReject, handlePlantUmlAccept, t,
+}: {
+  plantUmlConsent: string;
+  handlePlantUmlReject: () => void;
+  handlePlantUmlAccept: () => void;
+  t: DiagramBlockProps["t"];
+}) {
+  return (
+    <Alert
+      severity="warning"
+      icon={<WarningAmberIcon />}
+      contentEditable={false}
+      sx={{ m: 1 }}
+      action={
+        plantUmlConsent === "pending" ? (
+          <Box sx={{ display: "flex", gap: 1 }}>
+            <Button size="small" color="inherit" onClick={handlePlantUmlReject}>{t("plantumlReject")}</Button>
+            <Button size="small" variant="contained" color="warning" onClick={handlePlantUmlAccept}>{t("plantumlAccept")}</Button>
+          </Box>
+        ) : undefined
+      }
+    >
+      {t("plantumlExternalWarning")}
+    </Alert>
+  );
+}
+
 export function DiagramBlock(props: DiagramBlockProps) {
   const {
     editor, node, updateAttributes, getPos: _getPos,
@@ -130,6 +211,14 @@ export function DiagramBlock(props: DiagramBlockProps) {
     }
   }, [svg, plantUmlUrl, fsZP, setEditOpen]);
 
+  const handleCloseDialog = useCallback(() => { fsSearch.reset(); setEditOpen(false); }, [fsSearch, setEditOpen]);
+
+  const sharedContainerProps = {
+    containerRef, code, diagramContainerSx, selectNode, handleDoubleClickFullscreen,
+    handleResizePointerMove, handleResizePointerUp,
+    isSelected, isEditable, resizing, resizeWidth, handleResizePointerDown,
+  };
+
   return (
     <CodeBlockFrame
       toolbar={shouldShowToolbar({ isCompareLeft: props.isCompareLeft, isCompareLeftEditable: props.isCompareLeftEditable, isEditable }) ? toolbar : null}
@@ -145,7 +234,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
         {isMermaid && (
           <MermaidEditDialog
             open={editOpen}
-            onClose={() => { fsSearch.reset(); setEditOpen(false); }}
+            onClose={handleCloseDialog}
             label={label}
             svg={svg}
             code={code}
@@ -161,20 +250,14 @@ export function DiagramBlock(props: DiagramBlockProps) {
             onMergeApply={handleMergeApply}
             thisCode={thisCode}
             onCapture={handleCapture}
-            toolbarExtra={
-              <Tooltip title={t("copyCode")} placement="bottom">
-                <IconButton size="small" sx={{ p: 0.25 }} onClick={handleCopyCode} aria-label={t("copyCode")}>
-                  <ContentCopyIcon sx={{ fontSize: 16, color: "text.secondary" }} />
-                </IconButton>
-              </Tooltip>
-            }
+            toolbarExtra={<CopyCodeButton handleCopyCode={handleCopyCode} t={t} />}
             t={t}
           />
         )}
         {isPlantUml && (
           <PlantUmlEditDialog
             open={editOpen}
-            onClose={() => { fsSearch.reset(); setEditOpen(false); }}
+            onClose={handleCloseDialog}
             label={label}
             plantUmlUrl={plantUmlUrl}
             code={code}
@@ -190,72 +273,34 @@ export function DiagramBlock(props: DiagramBlockProps) {
             onMergeApply={handleMergeApply}
             thisCode={thisCode}
             onCapture={handleCapture}
-            toolbarExtra={
-              <Tooltip title={t("copyCode")} placement="bottom">
-                <IconButton size="small" sx={{ p: 0.25 }} onClick={handleCopyCode} aria-label={t("copyCode")}>
-                  <ContentCopyIcon sx={{ fontSize: 16, color: "text.secondary" }} />
-                </IconButton>
-              </Tooltip>
-            }
+            toolbarExtra={<CopyCodeButton handleCopyCode={handleCopyCode} t={t} />}
             t={t}
           />
         )}
       </>}
     >
       {isMermaid && svg && (
-        <Box
-          ref={containerRef}
-          role="img"
-          aria-label={extractDiagramAltText(code, "mermaid")}
-          sx={diagramContainerSx}
-          contentEditable={false}
-          onClick={selectNode}
-          onDoubleClick={handleDoubleClickFullscreen}
-          onPointerMove={handleResizePointerMove}
-          onPointerUp={handleResizePointerUp}
-        >
+        <DiagramPreviewContainer {...sharedContainerProps} language="mermaid">
           <Box
             sx={{ pt: 0, px: 2, pb: 2, display: "flex", justifyContent: "flex-start", pointerEvents: "none" }}
             dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(displaySvg, SVG_SANITIZE_CONFIG) }}
           />
-          <ResizeGrip visible={isSelected && isEditable} resizing={resizing} resizeWidth={resizeWidth} onPointerDown={handleResizePointerDown} />
-        </Box>
+        </DiagramPreviewContainer>
       )}
       {isPlantUml && plantUmlConsent !== "accepted" && (
-        <Alert
-          severity="warning"
-          icon={<WarningAmberIcon />}
-          contentEditable={false}
-          sx={{ m: 1 }}
-          action={
-            plantUmlConsent === "pending" ? (
-              <Box sx={{ display: "flex", gap: 1 }}>
-                <Button size="small" color="inherit" onClick={handlePlantUmlReject}>{t("plantumlReject")}</Button>
-                <Button size="small" variant="contained" color="warning" onClick={handlePlantUmlAccept}>{t("plantumlAccept")}</Button>
-              </Box>
-            ) : undefined
-          }
-        >
-          {t("plantumlExternalWarning")}
-        </Alert>
+        <PlantUmlConsentAlert
+          plantUmlConsent={plantUmlConsent}
+          handlePlantUmlReject={handlePlantUmlReject}
+          handlePlantUmlAccept={handlePlantUmlAccept}
+          t={t}
+        />
       )}
       {isPlantUml && plantUmlUrl && (
-        <Box
-          ref={containerRef}
-          role="img"
-          aria-label={extractDiagramAltText(code, "plantuml")}
-          sx={diagramContainerSx}
-          contentEditable={false}
-          onClick={selectNode}
-          onDoubleClick={handleDoubleClickFullscreen}
-          onPointerMove={handleResizePointerMove}
-          onPointerUp={handleResizePointerUp}
-        >
+        <DiagramPreviewContainer {...sharedContainerProps} language="plantuml">
           <Box sx={{ pt: 0, px: 2, pb: 2, display: "flex", justifyContent: "flex-start", pointerEvents: "none" }}>
             <img src={plantUmlUrl} alt={extractDiagramAltText(code, "plantuml")} referrerPolicy="no-referrer" style={{ maxWidth: "100%", height: "auto" }} />
           </Box>
-          <ResizeGrip visible={isSelected && isEditable} resizing={resizing} resizeWidth={resizeWidth} onPointerDown={handleResizePointerDown} />
-        </Box>
+        </DiagramPreviewContainer>
       )}
       {error && (
         <Typography variant="caption" sx={{ p: 1.5, color: "error.main", display: "block" }} contentEditable={false}>
