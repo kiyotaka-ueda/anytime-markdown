@@ -46,3 +46,28 @@ export const SIDE_TOOLBAR_ICON_SIZE = 32;
 export const EDITOR_PADDING_TOP = 36;
 /** .tiptap maxHeight 算出用（ボーダー分） */
 export const EDITOR_PADDING_BORDER = 4;
+
+// ── 用紙サイズ (mm) ──
+export type PaperSize = "off" | "A3" | "A4" | "B4" | "B5";
+
+export const PAPER_WIDTHS_MM: Record<Exclude<PaperSize, "off">, number> = {
+  A3: 297,
+  A4: 210,
+  B4: 257,
+  B5: 182,
+};
+
+/** 用紙サイズ選択肢の表示順 */
+export const PAPER_SIZE_OPTIONS: PaperSize[] = ["off", "A3", "A4", "B4", "B5"];
+
+/** 余白デフォルト (mm) */
+export const PAPER_MARGIN_DEFAULT = 20;
+export const PAPER_MARGIN_MIN = 10;
+export const PAPER_MARGIN_MAX = 40;
+export const PAPER_MARGIN_STEP = 5;
+
+/** 用紙の本文幅を px で計算する */
+export function calcPaperContentWidth(paperSize: Exclude<PaperSize, "off">, marginMm: number): number {
+  const contentMm = PAPER_WIDTHS_MM[paperSize] - marginMm * 2;
+  return Math.round(contentMm * (96 / 25.4));
+}
