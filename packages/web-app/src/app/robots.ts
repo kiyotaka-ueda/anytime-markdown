@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: ["/", "/markdown", "/privacy"],
       disallow: ["/api/"],
     },
-    sitemap: `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://anytime-markdown.vercel.app"}/sitemap.xml`,
+    sitemap: `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.anytime-trial.com"}/sitemap.xml`,
   };
 }
