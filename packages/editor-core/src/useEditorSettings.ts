@@ -29,7 +29,7 @@ export const DEFAULT_SETTINGS: EditorSettings = {
   darkBgColor: "",
   darkTextColor: "",
   spellCheck: false,
-  paperSize: "A4",
+  paperSize: "off",
   paperMargin: 20,
 };
 

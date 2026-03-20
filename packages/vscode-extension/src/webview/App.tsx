@@ -57,17 +57,30 @@ try {
 
 // --- Message handler helpers (extracted to reduce cognitive complexity) ---
 
+/** 許可するスキームのホワイトリスト */
+const ALLOWED_BASE_URI_SCHEMES = ['https:', 'vscode-webview-resource:', 'vscode-webview:'];
+
 function handleSetBaseUri(message: { baseUri: string }) {
-  const uri = message.baseUri;
-  if (!uri.startsWith('https://') && !uri.startsWith('vscode-webview-resource:')) {
-    return;
+  const raw = message.baseUri;
+  if (typeof raw !== 'string' || raw.length === 0) return;
+
+  // URL として解析し、スキームをホワイトリストで検証
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return; // 不正な URL は無視
   }
+  if (!ALLOWED_BASE_URI_SCHEMES.includes(parsed.protocol)) return;
+
+  // 正規化された URL を使用（ユーザー入力をそのまま DOM に設定しない）
+  const sanitized = parsed.href.endsWith('/') ? parsed.href : parsed.href + '/';
   let baseEl = document.querySelector('base');
   if (!baseEl) {
     baseEl = document.createElement('base');
     document.head.appendChild(baseEl);
   }
-  baseEl.setAttribute('href', uri + '/');
+  baseEl.setAttribute('href', sanitized);
 }
 
 function handleSyncScroll(message: { ratio: number }) {

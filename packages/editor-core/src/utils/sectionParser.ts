@@ -1,4 +1,4 @@
-const HEADING_RE = /^(#{1,5})\s+(.+)$/;
+const HEADING_RE = /^(#{1,5}) (.+)$/;
 
 export interface MarkdownSection {
   heading: string | null;

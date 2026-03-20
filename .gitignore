@@ -9,6 +9,7 @@ node_modules
 .vscode
 docs/project-structure.md
 *.tsbuildinfo
+coverage/
 
 # Serwist
 packages/web-app/public/sw*

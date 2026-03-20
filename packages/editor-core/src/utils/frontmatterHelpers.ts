@@ -101,21 +101,45 @@ export function extractGifSettings(md: string): {
   body: string;
 } {
   const result = new Map<string, string>();
-  // <!-- gif-settings: {...} --> を検出し、直前の ![...](src) の src をキーにする
-  // src は .gif 拡張子または blob: URL のいずれにもマッチ
-  const pattern = /!\[([^\]]*)\]\(([^)]+)\)\s*\n<!-- gif-settings:\s*(\{.*?\})\s*-->/g;
-  const body = md.replace(pattern, (match, alt: string, src: string, json: string) => {
-    try {
-      // JSON として妥当か検証
-      JSON.parse(json);
-      result.set(src, json);
-    } catch {
-      // パース失敗時はコメントを残す
-      return match;
+  // indexOf ベースの線形時間パーサー（ReDoS 防止）
+  const GIF_COMMENT_START = "<!-- gif-settings:";
+  const GIF_COMMENT_END = "-->";
+  const lines = md.split("\n");
+  const outputLines: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    // gif-settings コメント行を検出
+    if (trimmed.startsWith(GIF_COMMENT_START) && trimmed.endsWith(GIF_COMMENT_END) && i > 0) {
+      // 直前の行が ![alt](src) 形式か確認
+      const prevLine = lines[i - 1];
+      const imgStart = prevLine.indexOf("![");
+      const bracketEnd = imgStart >= 0 ? prevLine.indexOf("](", imgStart + 2) : -1;
+      const parenEnd = bracketEnd >= 0 ? prevLine.indexOf(")", bracketEnd + 2) : -1;
+      if (imgStart >= 0 && bracketEnd >= 0 && parenEnd >= 0) {
+        const src = prevLine.slice(bracketEnd + 2, parenEnd);
+        // JSON 部分を抽出
+        const jsonStart = trimmed.indexOf("{");
+        const jsonEnd = trimmed.lastIndexOf("}");
+        if (jsonStart >= 0 && jsonEnd > jsonStart) {
+          const json = trimmed.slice(jsonStart, jsonEnd + 1);
+          try {
+            JSON.parse(json);
+            result.set(src, json);
+            // コメント行をスキップ（直前の画像行は既に出力済み）
+            i++;
+            continue;
+          } catch {
+            // パース失敗時はコメント行を残す
+          }
+        }
+      }
     }
-    return `![${alt}](${src})`;
-  });
-  return { gifSettings: result, body };
+    outputLines.push(line);
+    i++;
+  }
+  return { gifSettings: result, body: outputLines.join("\n") };
 }
 
 /**

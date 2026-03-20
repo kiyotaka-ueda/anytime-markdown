@@ -1,4 +1,5 @@
 import AccountTreeIcon from "@mui/icons-material/AccountTree";
+import ArticleIcon from "@mui/icons-material/Article";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import CheckBoxIcon from "@mui/icons-material/CheckBox";
@@ -29,8 +30,15 @@ import WebIcon from "@mui/icons-material/Web";
 import type { Editor } from "@tiptap/core";
 import React from "react";
 
+import apiSpec from "../constants/templates/apiSpec.md";
+import basicDesign from "../constants/templates/basicDesign.md";
+import markdownAllJa from "../constants/templates/markdownAll.md";
+import markdownAllEn from "../constants/templates/markdownAll-en.md";
+import welcomeJa from "../constants/templates/welcome.md";
+import welcomeEn from "../constants/templates/welcome-en.md";
 import type { TranslationFn } from "../types";
 import { extractHeadings, getEditorStorage } from "../types";
+import { preprocessMarkdown } from "../utils/frontmatterHelpers";
 import { generateTocMarkdown } from "../utils/tocHelpers";
 
 export interface SlashCommandItem {
@@ -360,6 +368,50 @@ export const slashCommandItems: SlashCommandItem[] = [
     keywords: ["gif", "record", "screen", "capture", "録画", "キャプチャ", "アニメーション"],
     action: (editor) => {
       editor.chain().focus().insertContent({ type: "gifBlock" }).run();
+    },
+  },
+  {
+    id: "template-welcome",
+    labelKey: "slashTemplateWelcome",
+    icon: React.createElement(ArticleIcon, { fontSize: "small" }),
+    keywords: ["template", "welcome", "テンプレート", "ウェルカム", "操作", "ガイド"],
+    action: (editor) => {
+      const locale = document.cookie.match(/NEXT_LOCALE=(\w+)/)?.[1] ?? "ja";
+      const content = locale === "ja" ? welcomeJa : welcomeEn;
+      const { body } = preprocessMarkdown(content);
+      editor.chain().focus().insertContent(body).run();
+    },
+  },
+  {
+    id: "template-markdown-all",
+    labelKey: "slashTemplateMarkdownAll",
+    icon: React.createElement(ArticleIcon, { fontSize: "small" }),
+    keywords: ["template", "markdown", "all", "テンプレート", "マークダウン"],
+    action: (editor) => {
+      const locale = document.cookie.match(/NEXT_LOCALE=(\w+)/)?.[1] ?? "ja";
+      const content = locale === "ja" ? markdownAllJa : markdownAllEn;
+      const { body } = preprocessMarkdown(content);
+      editor.chain().focus().insertContent(body).run();
+    },
+  },
+  {
+    id: "template-basic-design",
+    labelKey: "slashTemplateBasicDesign",
+    icon: React.createElement(ArticleIcon, { fontSize: "small" }),
+    keywords: ["template", "design", "テンプレート", "設計", "設計書"],
+    action: (editor) => {
+      const { body } = preprocessMarkdown(basicDesign);
+      editor.chain().focus().insertContent(body).run();
+    },
+  },
+  {
+    id: "template-api-spec",
+    labelKey: "slashTemplateApiSpec",
+    icon: React.createElement(ArticleIcon, { fontSize: "small" }),
+    keywords: ["template", "api", "spec", "テンプレート", "API", "仕様", "仕様書"],
+    action: (editor) => {
+      const { body } = preprocessMarkdown(apiSpec);
+      editor.chain().focus().insertContent(body).run();
     },
   },
 ];
