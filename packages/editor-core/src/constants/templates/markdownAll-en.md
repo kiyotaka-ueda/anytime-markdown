@@ -78,14 +78,18 @@ Nested quotes can express dialogue or structured discussion.
 > [!NOTE]
 > Supplementary information or helpful hints.
 
+
 > [!TIP]
 > Efficient workflows or useful shortcuts.
+
 
 > [!IMPORTANT]
 > Critical information that shouldn't be overlooked.
 
+
 > [!WARNING]
 > Operations requiring caution or known limitations.
+
 
 > [!CAUTION]
 > Alerts about data loss or irreversible actions.

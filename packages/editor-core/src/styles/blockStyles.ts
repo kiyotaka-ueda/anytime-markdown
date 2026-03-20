@@ -1,6 +1,7 @@
 import type { SxProps,Theme } from "@mui/material/styles";
 import { alpha } from "@mui/material/styles";
 
+import { ADMONITION_CAUTION, ADMONITION_IMPORTANT, ADMONITION_NOTE, ADMONITION_TIP, ADMONITION_WARNING } from "../constants/colors";
 import type { EditorSettings } from "../useEditorSettings";
 
 /** blockquote・admonition・table・list・taskList・hr・img スタイル */
@@ -17,30 +18,45 @@ export function getBlockStyles(theme: Theme, settings: EditorSettings): SxProps<
     "& blockquote[data-admonition-type]": {
       borderLeftWidth: 4,
       pl: 2,
-      py: 1,
+      pt: 4,
+      pb: 1,
       my: 1.5,
       borderRadius: 1,
       color: theme.palette.text.primary,
+      position: "relative",
+      "&::before": {
+        position: "absolute",
+        top: 8,
+        left: 16,
+        fontSize: "0.8rem",
+        fontWeight: 700,
+        lineHeight: 1,
+      },
     },
     "& blockquote[data-admonition-type='note']": {
-      borderLeftColor: theme.palette.info.main,
-      bgcolor: alpha(theme.palette.info.main, 0.05),
+      borderLeftColor: ADMONITION_NOTE,
+      bgcolor: alpha(ADMONITION_NOTE, 0.06),
+      "&::before": { content: '"\\24D8  Note"', color: ADMONITION_NOTE },
     },
     "& blockquote[data-admonition-type='tip']": {
-      borderLeftColor: theme.palette.success.main,
-      bgcolor: alpha(theme.palette.success.main, 0.05),
+      borderLeftColor: ADMONITION_TIP,
+      bgcolor: alpha(ADMONITION_TIP, 0.06),
+      "&::before": { content: '"\\2618  Tip"', color: ADMONITION_TIP },
     },
     "& blockquote[data-admonition-type='important']": {
-      borderLeftColor: theme.palette.secondary.main,
-      bgcolor: alpha(theme.palette.secondary.main, 0.05),
+      borderLeftColor: ADMONITION_IMPORTANT,
+      bgcolor: alpha(ADMONITION_IMPORTANT, 0.06),
+      "&::before": { content: '"\\2709  Important"', color: ADMONITION_IMPORTANT },
     },
     "& blockquote[data-admonition-type='warning']": {
-      borderLeftColor: theme.palette.warning.main,
-      bgcolor: alpha(theme.palette.warning.main, 0.05),
+      borderLeftColor: ADMONITION_WARNING,
+      bgcolor: alpha(ADMONITION_WARNING, 0.06),
+      "&::before": { content: '"\\26A0  Warning"', color: ADMONITION_WARNING },
     },
     "& blockquote[data-admonition-type='caution']": {
-      borderLeftColor: theme.palette.error.main,
-      bgcolor: alpha(theme.palette.error.main, 0.05),
+      borderLeftColor: ADMONITION_CAUTION,
+      bgcolor: alpha(ADMONITION_CAUTION, 0.06),
+      "&::before": { content: '"\\2299  Caution"', color: ADMONITION_CAUTION },
     },
     "& table": {
       borderCollapse: "collapse",

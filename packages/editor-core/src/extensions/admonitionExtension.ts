@@ -98,10 +98,9 @@ export const AdmonitionBlockquote = Blockquote.extend({
             state.wrapBlock("> ", `> [!${type}]\n`, node, () => {
               state.renderContent(node);
             });
-            // 連続する Admonition blockquote 間に空行を確保
-            if (!state.out.endsWith("\n\n")) {
-              state.write("\n");
-            }
+            // Admonition 間に空行を確保
+            state.ensureNewLine();
+            state.out += "\n";
           } else {
             state.wrapBlock("> ", null, node, () => {
               state.renderContent(node);

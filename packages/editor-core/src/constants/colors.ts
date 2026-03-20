@@ -20,6 +20,13 @@ export const DEFAULT_LIGHT_HEADING_BG = "#EDF2F7";
 export const DEFAULT_DARK_HEADING_LINK = "#63B3ED";
 export const DEFAULT_LIGHT_HEADING_LINK = "#3182CE";
 
+// ── Admonition（GitHub 準拠） ──
+export const ADMONITION_NOTE = "#1f6feb";
+export const ADMONITION_TIP = "#238636";
+export const ADMONITION_IMPORTANT = "#8957e5";
+export const ADMONITION_WARNING = "#d29922";
+export const ADMONITION_CAUTION = "#da3633";
+
 // ── アクセントカラー（検索ハイライト等） ──
 export const ACCENT_COLOR = "#e8a012";
 export const ACCENT_COLOR_ALPHA = "rgba(232,160,18,0.35)";

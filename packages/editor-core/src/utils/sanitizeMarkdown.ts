@@ -337,6 +337,8 @@ export function preserveBlankLines(md: string): string {
     part = part.replace(/^(>[ \t]*)\n(> \*\*)/gm, "$1\n\n$2");
     part = markTightBlockTransitions(part);
     part = addHardBreaksToConsecutiveLines(part);
+    // Admonition blockquote 間の余分な空行を正規化（シリアライザの出力で \n\n\n になる場合がある）
+    part = part.replace(/(<\/blockquote>)\n{3,}/g, "$1\n\n");
     return part.replace(/\n{3,}/g, (match) => {
       const extra = match.length - 2;
       return "\n\n" + `${BLANK_LINE_MARKER}\n\n`.repeat(extra);
