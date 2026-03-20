@@ -174,11 +174,22 @@ export const SlashCommandMenu = React.memo(function SlashCommandMenu({
         elevation={8}
         sx={{ maxHeight: 300, overflow: "auto", minWidth: 200, maxWidth: 280 }}
       >
-        {filteredItems.length === 0 ? (
-          <Typography role="status" aria-live="polite" variant="body2" sx={{ px: 2, py: 1.5, color: "text.secondary", fontSize: "0.85rem" }}>
-            {t("slashCommandNoResults")}
-          </Typography>
-        ) : (
+        {/* Always render status for screen readers */}
+        <Typography
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          variant="body2"
+          sx={filteredItems.length > 0
+            ? { position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0,0,0,0)" }
+            : { px: 2, py: 1.5, color: "text.secondary", fontSize: "0.85rem", textAlign: "center" }
+          }
+        >
+          {filteredItems.length > 0
+            ? `${filteredItems.length} items`
+            : t("slashCommandNoResults")}
+        </Typography>
+        {filteredItems.length > 0 && (
         <MenuList ref={menuListRef} dense>
           {filteredItems.map((item, i) => (
             <MenuItem

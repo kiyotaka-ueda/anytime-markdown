@@ -39,15 +39,15 @@ export function getEditorPaperSx(
       maxHeight: editorHeight - EDITOR_PADDING_BORDER,
       overflowY: "auto",
       scrollbarWidth: "thin",
-      scrollbarColor: isDark ? "rgba(255,255,255,0.2) transparent" : "rgba(0,0,0,0.15) transparent",
+      scrollbarColor: isDark ? "rgba(255,255,255,0.45) transparent" : "rgba(0,0,0,0.4) transparent",
       "&::-webkit-scrollbar": { width: 6 },
       "&::-webkit-scrollbar-track": { background: "transparent" },
       "&::-webkit-scrollbar-thumb": {
-        background: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)",
+        background: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.4)",
         borderRadius: 3,
       },
       "&::-webkit-scrollbar-thumb:hover": {
-        background: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.25)",
+        background: isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.55)",
       },
       py: 2,
       pr: 2,
