@@ -5,10 +5,14 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import ContentCutIcon from "@mui/icons-material/ContentCut";
 import ContentPasteIcon from "@mui/icons-material/ContentPaste";
 import { Divider, ListItemIcon, ListItemText, Menu, MenuItem, Typography } from "@mui/material";
+import type { Node as PMNode } from "@tiptap/pm/model";
 import type { Editor } from "@tiptap/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { boxTableToMarkdown, containsBoxTable } from "../utils/boxTableToMarkdown";
+
+/** コンテキストメニューでコピーしたブロックノードを保持 */
+let copiedBlockNode: PMNode | null = null;
 
 interface EditorContextMenuProps {
   editor: Editor | null;
@@ -110,8 +114,8 @@ export function EditorContextMenu({ editor, readOnly, t }: EditorContextMenuProp
   })() : false;
   const canCopy = hasSelection || isInBlock;
 
-  /** ブロック全体のテキストを取得（カーソルがブロック内にある場合） */
-  const getBlockText = useCallback((): { text: string; blockStart: number; blockEnd: number } | null => {
+  /** ブロック全体の情報を取得（カーソルがブロック内にある場合） */
+  const getBlockInfo = useCallback((): { text: string; node: PMNode; blockStart: number; blockEnd: number } | null => {
     if (!editor) return null;
     const { $from } = editor.state.selection;
     for (let d = $from.depth; d >= 1; d--) {
@@ -120,7 +124,7 @@ export function EditorContextMenu({ editor, readOnly, t }: EditorContextMenuProp
         const blockStart = $from.before(d);
         const blockEnd = blockStart + node.nodeSize;
         const text = editor.state.doc.textBetween(blockStart, blockEnd, "\n");
-        return { text, blockStart, blockEnd };
+        return { text, node, blockStart, blockEnd };
       }
     }
     return null;
@@ -130,8 +134,8 @@ export function EditorContextMenu({ editor, readOnly, t }: EditorContextMenuProp
     if (!editor || !editor.isEditable) return;
     const { from, to } = editor.state.selection;
 
-    // テキスト選択がある場合
     if (from !== to) {
+      copiedBlockNode = null;
       const text = editor.state.doc.textBetween(from, to, "\n");
       navigator.clipboard.writeText(text).catch(() => { document.execCommand("copy"); });
       editor.chain().focus().deleteSelection().run();
@@ -139,39 +143,51 @@ export function EditorContextMenu({ editor, readOnly, t }: EditorContextMenuProp
       return;
     }
 
-    // ブロック要素全体を切り取り
-    const block = getBlockText();
+    const block = getBlockInfo();
     if (block) {
+      copiedBlockNode = block.node;
       navigator.clipboard.writeText(block.text).catch(() => { document.execCommand("copy"); });
       const { tr } = editor.state;
       tr.delete(block.blockStart, block.blockEnd);
       editor.view.dispatch(tr);
     }
     handleClose();
-  }, [editor, handleClose, getBlockText]);
+  }, [editor, handleClose, getBlockInfo]);
 
   const handleCopy = useCallback(() => {
     if (!editor) return;
     const { from, to } = editor.state.selection;
 
-    // テキスト選択がある場合
     if (from !== to) {
+      copiedBlockNode = null;
       const text = editor.state.doc.textBetween(from, to, "\n");
       navigator.clipboard.writeText(text).catch(() => { document.execCommand("copy"); });
       handleClose();
       return;
     }
 
-    // ブロック要素全体をコピー
-    const block = getBlockText();
+    const block = getBlockInfo();
     if (block) {
+      copiedBlockNode = block.node;
       navigator.clipboard.writeText(block.text).catch(() => { document.execCommand("copy"); });
     }
     handleClose();
-  }, [editor, handleClose, getBlockText]);
+  }, [editor, handleClose, getBlockInfo]);
 
   const handlePaste = useCallback(async () => {
     if (!editor || !!readOnly) { handleClose(); return; }
+
+    // コンテキストメニューでコピーしたブロックノードがある場合はそれを挿入
+    if (copiedBlockNode) {
+      const { $from } = editor.state.selection;
+      const insertPos = $from.after(1); // 現在のブロックの末尾に挿入
+      const { tr } = editor.state;
+      tr.insert(Math.min(insertPos, tr.doc.content.size), copiedBlockNode.copy(copiedBlockNode.content));
+      editor.view.dispatch(tr.scrollIntoView());
+      handleClose();
+      return;
+    }
+
     try {
       const text = await navigator.clipboard.readText();
       if (text) {
@@ -180,7 +196,6 @@ export function EditorContextMenu({ editor, readOnly, t }: EditorContextMenuProp
         return;
       }
     } catch { /* Clipboard API 不可 */ }
-    // VS Code 環境: 通常貼り付けは Ctrl+V で処理されるため、ここでは何もしない
     handleClose();
   }, [editor, readOnly, handleClose]);
 
