@@ -243,7 +243,7 @@ export function computeInlineDiff(
 
 // --- Semantic diff (heading-based) ---
 
-import { matchSections, parseMarkdownSections, type MarkdownSection } from "./sectionParser";
+import { type MarkdownSection,matchSections, parseMarkdownSections } from "./sectionParser";
 
 export function computeSemanticDiff(leftText: string, rightText: string, options?: DiffOptions): DiffResult {
   if (leftText === "" && rightText === "") {

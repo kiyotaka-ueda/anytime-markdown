@@ -1,10 +1,10 @@
 "use client";
 
+import AccountTreeIcon from "@mui/icons-material/AccountTree";
 import AddIcon from "@mui/icons-material/Add";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
-import CommitIcon from "@mui/icons-material/Commit";
-import EditIcon from "@mui/icons-material/Edit";
 import CreateNewFolderIcon from "@mui/icons-material/CreateNewFolder";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import DriveFileRenameOutlineIcon from "@mui/icons-material/DriveFileRenameOutline";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import FolderIcon from "@mui/icons-material/Folder";
@@ -12,7 +12,7 @@ import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import GitHubIcon from "@mui/icons-material/GitHub";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import LockIcon from "@mui/icons-material/Lock";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import LogoutIcon from "@mui/icons-material/Logout";
 import NoteAddIcon from "@mui/icons-material/NoteAdd";
 import {
   Box,
@@ -33,16 +33,14 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import AccountTreeIcon from "@mui/icons-material/AccountTree";
-import LogoutIcon from "@mui/icons-material/Logout";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import { type FC, useCallback, useEffect, useRef, useState } from "react";
 
 import { GitHistorySection } from "./explorer/GitHistorySection";
+import { createFile, deleteFile, fetchBranches, fetchCommits, fetchDirEntries, listAllFiles, renameFile } from "./explorer/helpers";
 import type { ChildrenCache, CommitEntry, ExplorerPanelProps, GitHubRepo, HasMdCache, TreeEntry } from "./explorer/types";
 import { INDENT_PX, PANEL_HEADER_MIN_HEIGHT, PANEL_WIDTH } from "./explorer/types";
-import { createFile, deleteFile, fetchBranches, fetchCommits, fetchDirEntries, listAllFiles, renameFile, formatCommitDate, truncateMessage } from "./explorer/helpers";
 
 
 /** 新規ファイル入力行 */
@@ -624,13 +622,14 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
       if (raw) saved = JSON.parse(raw);
     } catch { /* ignore */ }
     if (!saved) return;
-    const repo = repos.find((r) => r.fullName === saved!.repo);
+    const savedState = saved;
+    const repo = repos.find((r) => r.fullName === savedState.repo);
     if (!repo) return;
     restoredRef.current = true;
     // リポジトリ→ブランチ→ツリー→ファイル選択を自動実行
     (async () => {
       setSelectedRepo(repo);
-      setSelectedBranch(saved!.branch);
+      setSelectedBranch(savedState.branch);
       setExpanded(new Set());
       setSelectedFilePath(null);
       setCommits([]);
@@ -638,20 +637,20 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
       childrenCacheRef.current = new Map();
       hasMdCacheRef.current = new Map();
       setLoading(true);
-      const entries = await fetchDirEntries(repo.fullName, saved!.branch, "");
+      const entries = await fetchDirEntries(repo.fullName, savedState.branch, "");
       childrenCacheRef.current.set("", entries);
       setRootEntries(entries);
       setLoading(false);
 
       // ファイルパスの親ディレクトリを展開
-      const parts = saved!.filePath.split("/");
+      const parts = savedState.filePath.split("/");
       const dirsToExpand: string[] = [];
       for (let i = 1; i < parts.length; i++) {
         dirsToExpand.push(parts.slice(0, i).join("/"));
       }
       for (const dir of dirsToExpand) {
         if (!childrenCacheRef.current.has(dir)) {
-          const children = await fetchDirEntries(repo.fullName, saved!.branch, dir);
+          const children = await fetchDirEntries(repo.fullName, savedState.branch, dir);
           childrenCacheRef.current.set(dir, children);
           bumpCache();
         }
@@ -659,16 +658,16 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({
       setExpanded(new Set(dirsToExpand));
 
       // ファイル選択を実行
-      setSelectedFilePath(saved!.filePath);
+      setSelectedFilePath(savedState.filePath);
       setSelectedSha(null);
-      onSelectFile(repo.fullName, saved!.filePath, saved!.branch);
+      onSelectFile(repo.fullName, savedState.filePath, savedState.branch);
       setCommitsLoading(true);
-      const { commits: commitList, stale } = await fetchCommits(repo.fullName, saved!.filePath, saved!.branch);
+      const { commits: commitList, stale } = await fetchCommits(repo.fullName, savedState.filePath, savedState.branch);
       setCommits(commitList);
       setCommitsStale(stale);
       setCommitsLoading(false);
     })();
-  }, [repos, selectedRepo, onSelectFile, bumpCache]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [repos, selectedRepo, onSelectFile, bumpCache]);  
 
   const loadTree = useCallback(
     async (repo: GitHubRepo, branch: string) => {

@@ -1,23 +1,22 @@
 "use client";
 
-import EditIcon from "@mui/icons-material/Edit";
 import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
-import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import PauseIcon from "@mui/icons-material/Pause";
 import GifIcon from "@mui/icons-material/Gif";
+import PauseIcon from "@mui/icons-material/Pause";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import { Box, Divider, IconButton, Tooltip, Typography, useTheme } from "@mui/material";
 import type { NodeViewProps } from "@tiptap/react";
 import { NodeViewWrapper } from "@tiptap/react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { BlockInlineToolbar } from "./codeblock/BlockInlineToolbar";
-import { DeleteBlockDialog } from "./codeblock/DeleteBlockDialog";
-import { GifRecorderDialog } from "./GifRecorderDialog";
-import { GifPlayerDialog } from "./GifPlayerDialog";
-import { useBlockCapture, saveBlob } from "../hooks/useBlockCapture";
+import { saveBlob,useBlockCapture } from "../hooks/useBlockCapture";
 import { useBlockNodeState } from "../hooks/useBlockNodeState";
 import type { GifSettings } from "../utils/gifEncoder";
+import { BlockInlineToolbar } from "./codeblock/BlockInlineToolbar";
+import { DeleteBlockDialog } from "./codeblock/DeleteBlockDialog";
+import { GifPlayerDialog } from "./GifPlayerDialog";
+import { GifRecorderDialog } from "./GifRecorderDialog";
 
 export function GifNodeView({ editor, node, updateAttributes, getPos }: NodeViewProps) {
   const t = useTranslations("MarkdownEditor");
@@ -25,7 +24,7 @@ export function GifNodeView({ editor, node, updateAttributes, getPos }: NodeView
   const isDark = theme.palette.mode === "dark";
   const {
     deleteDialogOpen, setDeleteDialogOpen,
-    editOpen, setEditOpen,
+    editOpen: _editOpen, setEditOpen: _setEditOpen,
     collapsed, isEditable, isSelected, handleDeleteBlock, showToolbar, isCompareLeft, isCompareLeftEditable,
   } = useBlockNodeState(editor, node, getPos);
   const pngCapture = useBlockCapture(editor, getPos, "gif-block.png");

@@ -1,24 +1,24 @@
 "use client";
 
+import CropFreeIcon from "@mui/icons-material/CropFree";
 import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
-import StopIcon from "@mui/icons-material/Stop";
 import GifIcon from "@mui/icons-material/Gif";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SaveIcon from "@mui/icons-material/Save";
-import CropFreeIcon from "@mui/icons-material/CropFree";
 import ScreenShareIcon from "@mui/icons-material/ScreenShare";
+import StopIcon from "@mui/icons-material/Stop";
 import { Box, Button, LinearProgress, TextField, Typography } from "@mui/material";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { EditDialogHeader } from "./EditDialogHeader";
-import { EditDialogWrapper } from "./EditDialogWrapper";
 import {
-  GifRecorderState,
-  extractFrameFromCanvas,
-  encodeGif,
   type CropRect,
+  encodeGif,
+  extractFrameFromCanvas,
+  GifRecorderState,
   type GifSettings,
 } from "../utils/gifEncoder";
+import { EditDialogHeader } from "./EditDialogHeader";
+import { EditDialogWrapper } from "./EditDialogWrapper";
 
 type RecordingPhase = "idle" | "previewing" | "selecting" | "ready" | "recording" | "encoding" | "done";
 
@@ -220,7 +220,8 @@ export function GifRecorderDialog({ open, onClose, onComplete }: GifRecorderDial
     const hiddenCanvas = document.createElement("canvas");
     hiddenCanvas.width = video.videoWidth;
     hiddenCanvas.height = video.videoHeight;
-    const hiddenCtx = hiddenCanvas.getContext("2d")!;
+    const hiddenCtx = hiddenCanvas.getContext("2d");
+    if (!hiddenCtx) return;
 
     intervalRef.current = setInterval(() => {
       hiddenCtx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);

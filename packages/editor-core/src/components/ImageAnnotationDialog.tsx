@@ -1,16 +1,16 @@
 "use client";
 
+import AutoFixOffIcon from "@mui/icons-material/AutoFixOff";
 import CancelIcon from "@mui/icons-material/Cancel";
 import CircleOutlinedIcon from "@mui/icons-material/CircleOutlined";
 import CloseIcon from "@mui/icons-material/Close";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import HorizontalRuleIcon from "@mui/icons-material/HorizontalRule";
 import RectangleOutlinedIcon from "@mui/icons-material/RectangleOutlined";
-import AutoFixOffIcon from "@mui/icons-material/AutoFixOff";
-import { Box, Divider, IconButton, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from "@mui/material";
+import { Box, IconButton, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from "@mui/material";
 import React, { useCallback, useRef, useState } from "react";
 
-import type { ImageAnnotation, AnnotationTool } from "../types/imageAnnotation";
+import type { AnnotationTool,ImageAnnotation } from "../types/imageAnnotation";
 import { ANNOTATION_COLORS, generateAnnotationId } from "../types/imageAnnotation";
 
 interface ImageAnnotationDialogProps {

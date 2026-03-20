@@ -61,5 +61,5 @@ export async function fetchWithRetry(
     }
   }
 
-  return lastResponse!;
+  return lastResponse ?? new Response(null, { status: 500 });
 }

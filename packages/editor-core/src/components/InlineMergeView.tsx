@@ -79,7 +79,7 @@ export function InlineMergeView({
   rightEditor,
   editorContent,
   sourceMode,
-  editorHeight,
+  editorHeight: _editorHeight,
   t,
   leftFrontmatter,
   onLeftFrontmatterChange,

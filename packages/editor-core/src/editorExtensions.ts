@@ -4,14 +4,14 @@
  * メインエディタと比較エディタで共有する Extension リストを一元管理する。
  * エディタ固有の Extension（検索、削除行ショートカット等）は各エディタで追加する。
  */
-import { Fragment } from "@tiptap/pm/model";
-import { TextSelection } from "@tiptap/pm/state";
 import Highlight from "@tiptap/extension-highlight";
 import LinkExtension from "@tiptap/extension-link";
 import { TableKit } from "@tiptap/extension-table";
 import TaskItem from "@tiptap/extension-task-item";
 import TaskList from "@tiptap/extension-task-list";
 import Underline from "@tiptap/extension-underline";
+import { Fragment } from "@tiptap/pm/model";
+import { TextSelection } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
 import { common, createLowlight } from "lowlight";
 import { Markdown } from "tiptap-markdown";
@@ -35,9 +35,9 @@ import { CommentDataPlugin,CommentHighlight, CommentPoint } from "./extensions/c
 import { CustomTableCell, CustomTableHeader } from "./extensions/customTableCells";
 import { DiffHighlight } from "./extensions/diffHighlight";
 import { FootnoteRef } from "./extensions/footnoteExtension";
+import { GifBlock } from "./extensions/gifExtension";
 import { HeadingFoldExtension } from "./extensions/headingFoldExtension";
 import { HeadingNumberExtension } from "./extensions/headingNumberExtension";
-import { GifBlock } from "./extensions/gifExtension";
 import { CustomImage } from "./imageExtension";
 import { CustomTable } from "./tableExtension";
 

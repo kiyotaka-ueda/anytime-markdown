@@ -1,5 +1,5 @@
-import defaultContentEn from "./templates/defaultContent-en.md";
 import defaultContentJa from "./templates/defaultContent.md";
+import defaultContentEn from "./templates/defaultContent-en.md";
 
 /** 言語に応じたデフォルトコンテンツを返す */
 export function getDefaultContent(locale: string): string {

@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+
 import { fetchWithRetry, validateGitHubRepo } from "../../../../lib/fetchWithRetry";
 import { getGitHubToken } from "../../../../lib/githubAuth";
 
@@ -77,7 +78,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (headBlobSha && firstCommitBlobSha && headBlobSha !== firstCommitBlobSha) {
       stale = true;
     }
-    console.log("[commits] repo=%s path=%s count=%d stale=%s headBlob=%s firstCommitBlob=%s",
+    console.warn("[commits] repo=%s path=%s count=%d stale=%s headBlob=%s firstCommitBlob=%s",
       repo, path, commitList.length, stale, headBlobSha, firstCommitBlobSha);
   }
 

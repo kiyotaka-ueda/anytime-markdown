@@ -15,8 +15,8 @@ import { EditDialogWrapper } from "./EditDialogWrapper";
 import { FullscreenDiffView } from "./FullscreenDiffView";
 import { LineNumberTextarea } from "./LineNumberTextarea";
 import { SamplePanel } from "./SamplePanel";
-import { ZoomToolbar } from "./ZoomToolbar";
 import { ZoomablePreview } from "./ZoomablePreview";
+import { ZoomToolbar } from "./ZoomToolbar";
 
 interface PlantUmlEditDialogProps {
   open: boolean;
@@ -42,7 +42,7 @@ interface PlantUmlEditDialogProps {
 
 export function PlantUmlEditDialog({
   open, onClose, label, plantUmlUrl, code,
-  fsCode, onFsCodeChange, onFsTextChange, fsTextareaRef, fsSearch,
+  fsCode, onFsCodeChange: _onFsCodeChange, onFsTextChange, fsTextareaRef, fsSearch: _fsSearch,
   fsZP, readOnly,
   isCompareMode, compareCode, onMergeApply, thisCode, onCapture, toolbarExtra,
   t,

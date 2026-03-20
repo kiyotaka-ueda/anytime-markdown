@@ -1,5 +1,6 @@
 "use client";
 
+import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import EditIcon from "@mui/icons-material/Edit";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import ImageIcon from "@mui/icons-material/Image";
@@ -10,16 +11,15 @@ import { NodeViewWrapper } from "@tiptap/react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
+import { AnnotationOverlay } from "./components/AnnotationOverlay";
 import { BlockInlineToolbar } from "./components/codeblock/BlockInlineToolbar";
 import { DeleteBlockDialog } from "./components/codeblock/DeleteBlockDialog";
-import { useBlockCapture } from "./hooks/useBlockCapture";
-import { AnnotationOverlay } from "./components/AnnotationOverlay";
-import { ImageAnnotationDialog } from "./components/ImageAnnotationDialog";
-import { ImageCropTool } from "./components/ImageCropTool";
 import { EditDialogHeader } from "./components/EditDialogHeader";
 import { EditDialogWrapper } from "./components/EditDialogWrapper";
+import { ImageAnnotationDialog } from "./components/ImageAnnotationDialog";
+import { ImageCropTool } from "./components/ImageCropTool";
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "./constants/colors";
+import { useBlockCapture } from "./hooks/useBlockCapture";
 import { useBlockNodeState } from "./hooks/useBlockNodeState";
 import { useBlockResize } from "./hooks/useBlockResize";
 import { getEditorStorage } from "./types";

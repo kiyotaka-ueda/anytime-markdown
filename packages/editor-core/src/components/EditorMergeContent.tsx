@@ -6,11 +6,11 @@ import { useEffect } from "react";
 
 import { FILE_DROP_OVERLAY_COLOR, getEditorBg } from "../constants/colors";
 import { getMergeEditors, setMergeEditors } from "../contexts/MergeEditorsContext";
-import type { DiffLine } from "../utils/diffEngine";
 import { useEditorSettingsContext } from "../useEditorSettings";
+import type { DiffLine } from "../utils/diffEngine";
+import type { OutlineProps } from "./EditorMainContent";
 import { EditorOutlineSection } from "./EditorOutlineSection";
 import { MergeEditorPanel } from "./MergeEditorPanel";
-import type { OutlineProps } from "./EditorMainContent";
 
 // InlineMergeView は dynamic import のため親から渡す
 type InlineMergeViewComponent = React.ComponentType<{

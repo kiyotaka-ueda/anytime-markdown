@@ -9,8 +9,8 @@ import type { Editor } from "@tiptap/react";
 import { useCallback, useEffect, useState } from "react";
 
 import { findBlockNode, getCopiedBlockNode, setCopiedBlockNode } from "../utils/blockClipboard";
-import { copyTextToClipboard, readTextFromClipboard } from "../utils/clipboardHelpers";
 import { boxTableToMarkdown, containsBoxTable } from "../utils/boxTableToMarkdown";
+import { copyTextToClipboard, readTextFromClipboard } from "../utils/clipboardHelpers";
 
 interface EditorContextMenuProps {
   editor: Editor | null;
