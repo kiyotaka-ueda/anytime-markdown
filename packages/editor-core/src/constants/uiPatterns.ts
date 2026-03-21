@@ -11,6 +11,7 @@ export function getFocusOutlineSx(isDark: boolean) {
   return {
     outline: "2px solid",
     outlineColor: getPrimaryMain(isDark),
+    outlineOffset: 2,
     borderRadius: 0.5,
   } as const;
 }
@@ -20,6 +21,7 @@ export function getFocusOutlineBare(isDark: boolean) {
   return {
     outline: "2px solid",
     outlineColor: getPrimaryMain(isDark),
+    outlineOffset: 2,
   } as const;
 }
 
