@@ -46,8 +46,18 @@ test.describe("Keyboard Shortcuts - 行選択・単語選択", () => {
     await page.keyboard.type("second line");
     // Ctrl+L で現在行を選択
     await page.keyboard.press("Control+l");
+    // Firefox: 選択状態が確定するまで待機
+    await expect(async () => {
+      const selection = await page.evaluate(() => window.getSelection()?.toString());
+      expect(selection).toBeTruthy();
+    }).toPass({ timeout: 3000 });
     // 選択されたテキストをコピーして確認
     await page.keyboard.press("Control+c");
+    // Firefox: クリップボードへのコピー完了を待機
+    await expect(async () => {
+      const clip = await page.evaluate(() => navigator.clipboard.readText().catch(() => ""));
+      expect(clip.length).toBeGreaterThan(0);
+    }).toPass({ timeout: 3000 }).catch(() => {});
     // 新しい行を追加して貼り付け
     await page.keyboard.press("End");
     await page.keyboard.press("Enter");

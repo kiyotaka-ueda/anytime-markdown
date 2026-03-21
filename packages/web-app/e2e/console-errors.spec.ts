@@ -4,7 +4,11 @@ test.describe("Console Errors", () => {
   test.afterEach(async ({ page }) => {
     // Firefox: Tiptap/ProseMirror の非同期クリーンアップ完了前に
     // browserContext.close が呼ばれるとクラッシュするため、先にページを破棄する
-    await page.goto("about:blank");
+    try {
+      await page.goto("about:blank");
+    } catch {
+      // ページが既にクラッシュ/クローズ済みの場合は無視
+    }
   });
 
   test("no console errors on landing page", async ({ page }) => {
