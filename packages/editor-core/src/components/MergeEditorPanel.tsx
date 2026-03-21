@@ -232,7 +232,7 @@ function SourceModePanel({
           }}
         >
           {lineNumbersArray.map((num, i) => (
-            <div key={i}>{num || "\u00A0"}</div>
+            <div key={`line-${i}`}>{num || "\u00A0"}</div>
           ))}
         </Box>
 
@@ -248,7 +248,7 @@ function SourceModePanel({
             }}
           >
             {displayLines.map((line, i) => (
-              <div key={i}>{line || "\u00A0"}</div>
+              <div key={`line-${i}`}>{line || "\u00A0"}</div>
             ))}
           </Box>
           <Box

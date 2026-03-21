@@ -415,7 +415,7 @@ function DiffPanel({
           }}
         >
           {lineNumbers.map((num, i) => (
-            <div key={i}>{num || "\u00A0"}</div>
+            <div key={`line-${i}`}>{num || "\u00A0"}</div>
           ))}
         </Box>
 
@@ -444,7 +444,7 @@ function DiffPanel({
             }}
           >
             {displayLines.map((line, i) => (
-              <div key={i}>{line || "\u00A0"}</div>
+              <div key={`line-${i}`}>{line || "\u00A0"}</div>
             ))}
           </Box>
 

@@ -111,19 +111,9 @@ export default function FileListPanel({
                     <Typography sx={{ fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {file.name}
                     </Typography>
-                    {file.name.endsWith('.md') && (() => {
-                      const isEn = file.name.endsWith('-en.md');
-                      const baseName = isEn ? file.name.slice(0, -6) + '.md' : file.name;
-                      const enName = isEn ? file.name : file.name.slice(0, -3) + '-en.md';
-                      const hasJa = mdFileNames.has(baseName);
-                      const hasEn = mdFileNames.has(enName);
-                      return (
-                        <>
-                          <Chip label="JA" size="small" sx={{ height: 16, fontSize: '0.6rem', fontWeight: 700, bgcolor: hasJa ? 'primary.main' : 'action.disabledBackground', color: hasJa ? 'primary.contrastText' : 'text.disabled' }} />
-                          <Chip label="EN" size="small" sx={{ height: 16, fontSize: '0.6rem', fontWeight: 700, bgcolor: hasEn ? 'primary.main' : 'action.disabledBackground', color: hasEn ? 'primary.contrastText' : 'text.disabled' }} />
-                        </>
-                      );
-                    })()}
+                    {file.name.endsWith('.md') && (
+                      <LanguageBadges fileName={file.name} mdFileNames={mdFileNames} />
+                    )}
                   </Box>
                 }
               />
@@ -209,5 +199,19 @@ export default function FileListPanel({
         </Box>
       )}
     </Box>
+  );
+}
+
+function LanguageBadges({ fileName, mdFileNames }: { fileName: string; mdFileNames: Set<string> }) {
+  const isEn = fileName.endsWith('-en.md');
+  const baseName = isEn ? fileName.slice(0, -6) + '.md' : fileName;
+  const enName = isEn ? fileName : fileName.slice(0, -3) + '-en.md';
+  const hasJa = mdFileNames.has(baseName);
+  const hasEn = mdFileNames.has(enName);
+  return (
+    <>
+      <Chip label="JA" size="small" sx={{ height: 16, fontSize: '0.6rem', fontWeight: 700, bgcolor: hasJa ? 'primary.main' : 'action.disabledBackground', color: hasJa ? 'primary.contrastText' : 'text.disabled' }} />
+      <Chip label="EN" size="small" sx={{ height: 16, fontSize: '0.6rem', fontWeight: 700, bgcolor: hasEn ? 'primary.main' : 'action.disabledBackground', color: hasEn ? 'primary.contrastText' : 'text.disabled' }} />
+    </>
   );
 }
