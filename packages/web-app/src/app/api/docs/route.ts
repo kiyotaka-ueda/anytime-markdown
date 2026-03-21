@@ -21,7 +21,7 @@ export async function GET() {
     const response = await s3Client.send(command);
 
     const files = (response.Contents ?? [])
-      .filter((obj) => obj.Key && obj.Key.endsWith('.md') && obj.Key !== DOCS_PREFIX)
+      .filter((obj) => obj.Key && obj.Key !== DOCS_PREFIX && !obj.Key.endsWith('/') && !obj.Key.endsWith('.json'))
       .map((obj) => ({
         key: obj.Key ?? "",
         name: (obj.Key ?? "").slice(DOCS_PREFIX.length),

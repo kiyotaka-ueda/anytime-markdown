@@ -4,10 +4,12 @@ date: 2026-03-20
 tags: [markdown, editor, guide]
 ---
 
-# Markdown All — Every Expression You Can Write
+# Anytime Markdown — Every Expression You Can Write
 
 This document is a guide to every expression available in Anytime Markdown.\
 Not just a syntax reference, but a look at how each element communicates meaning.
+
+Type `/` in an empty paragraph to open the slash command menu and insert any element from the keyboard.
 
 
 ## Polishing Prose — Text Formatting
@@ -21,10 +23,13 @@ For truly critical points, <mark>highlight</mark> is the most effective tool.
 In technical writing, wrapping `variable names` or `function names` in inline code is standard practice.\
 This visually separates code from surrounding prose.
 
-Use [links](/) to point readers to external sources.
+Use [links](/) to point readers to external sources.\
+Select text and press `Ctrl+K` (Mac: `⌘+K`) to insert a link, or `Ctrl+Shift+M` (Mac: `⌘+Shift+M`) to add an inline comment.
 
 
 ## Building Structure — Lists and Headings
+
+Press `Ctrl+Alt+O` (Mac: `⌘+Alt+O`) to open the outline panel — browse your heading structure, reorder sections by drag & drop, and auto-insert section numbers.
 
 
 ### Organizing with Bullet Lists
@@ -97,7 +102,8 @@ Nested quotes can express dialogue or structured discussion.
 
 ## Showing Data — Tables
 
-Tables are ideal for comparisons and listings.
+Tables are ideal for comparisons and listings.\
+Insert with `/table`, navigate cells with `Tab` / `Shift+Tab`. Toggle table width between `auto` and `100%` in the settings panel.
 
 | Expression | Purpose | Example |
 | --- | --- | --- |
@@ -110,7 +116,8 @@ Tables are ideal for comparisons and listings.
 
 ## Communicating Code — Code Blocks
 
-Code blocks apply syntax highlighting when a language is specified.
+Code blocks apply syntax highlighting when a language is specified.\
+Use right-click "Paste as code block" to insert clipboard contents directly into a code block.
 
 ```typescript
 interface Document {
@@ -129,7 +136,8 @@ function summarize(doc: Document): string {
 
 ## Writing Math — KaTeX
 
-For technical documents and papers that need mathematical notation.
+For technical documents and papers that need mathematical notation.\
+Insert with `/math` — KaTeX renders the result in real time as you type.
 
 The Gaussian integral is one of the fundamental results in analysis.
 
@@ -149,7 +157,8 @@ $$
 
 ### Mermaid — Flows and Architecture
 
-Processes that are hard to explain in words become instantly clear as diagrams.
+Processes that are hard to explain in words become instantly clear as diagrams.\
+Insert with `/mermaid` — the diagram is previewed in real time as you edit the code.
 
 ```mermaid
 flowchart TD
@@ -163,7 +172,8 @@ flowchart TD
 
 ### PlantUML — Sequences and Design
 
-Interactions between systems are best expressed as sequence diagrams.
+Interactions between systems are best expressed as sequence diagrams.\
+Insert with `/plantuml` — real-time preview works just like Mermaid.
 
 ```plantuml
 actor Writer
@@ -214,7 +224,8 @@ They're well suited for technical details and citations[^2].
 
 ## Images — Visual Communication
 
-A picture is worth a thousand words. Screenshots and diagrams convey far more than text alone.
+A picture is worth a thousand words. Screenshots and diagrams convey far more than text alone.\
+Use `/image` to pick a file, or `/screenshot` to capture and crop your screen. You can also add arrow, rectangle, and other annotations to inserted images.
 
 ![Anytime Markdown](help/camel_markdown.png)
 
@@ -228,4 +239,6 @@ Use the slash command `/gif` to insert a GIF block, then click to start recordin
 
 ---
 
-You now have every expression at your fingertips. Start writing your document.
+You now have every expression at your fingertips.\
+Press `Ctrl+Alt+S` (Mac: `⌘+Alt+S`) to switch to source mode and edit Raw Markdown directly.\
+Now start writing your document.

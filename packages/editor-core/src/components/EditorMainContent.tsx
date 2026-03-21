@@ -97,6 +97,7 @@ interface EditorMainContentProps {
   onToggleExplorer?: () => void;
   onOpenSettings?: () => void;
   explorerSlot?: React.ReactNode;
+  noScroll?: boolean;
   t: (key: string) => string;
 }
 
@@ -137,6 +138,7 @@ export function EditorMainContent({
   onToggleExplorer,
   onOpenSettings,
   explorerSlot,
+  noScroll,
   t,
 }: EditorMainContentProps) {
   // --- ドラッグ＆ドロップ ---
@@ -277,6 +279,7 @@ export function EditorMainContent({
         sourceSearch={sourceSearch}
         frontmatterText={frontmatterText}
         handleFrontmatterChange={handleFrontmatterChange}
+        noScroll={noScroll}
         t={t}
       />
 

@@ -114,9 +114,17 @@ interface MarkdownEditorPageProps {
   hideCompareToggle?: boolean;
   /** エクスプローラパネルのスロット（コメントパネルと同じ位置に表示） */
   explorerSlot?: React.ReactNode;
+  /** スクロールなしで全体表示 */
+  noScroll?: boolean;
+  /** アウトラインパネルの初期表示状態 */
+  defaultOutlineOpen?: boolean;
+  /** エディタの高さを固定指定（useEditorHeight の自動計算を上書き） */
+  fixedEditorHeight?: number;
+  /** フォントサイズの上書き（px） */
+  defaultFontSize?: number;
 }
 
-export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideVersionInfo, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, externalContent, externalFileName, externalFilePath: _externalFilePath, onExternalSave, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, autoReload, onToggleAutoReload, defaultSourceMode, showReadonlyMode, externalCompareContent, explorerOpen, onToggleExplorer, sideToolbar, hideCompareToggle, explorerSlot }: MarkdownEditorPageProps = {}) {
+export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideVersionInfo, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, externalContent, externalFileName, externalFilePath: _externalFilePath, onExternalSave, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, autoReload, onToggleAutoReload, defaultSourceMode, showReadonlyMode, externalCompareContent, explorerOpen, onToggleExplorer, sideToolbar, hideCompareToggle, explorerSlot, noScroll, defaultOutlineOpen, fixedEditorHeight, defaultFontSize }: MarkdownEditorPageProps = {}) {
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
   const muiTheme = useTheme();
@@ -138,7 +146,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     return body;
   }, [initialContent]);
 
-  const { settings, updateSettings, resetSettings } = useEditorSettings();
+  const { settings: rawSettings, updateSettings, resetSettings } = useEditorSettings();
+  const settings = defaultFontSize ? { ...rawSettings, fontSize: defaultFontSize } : rawSettings;
   const {
     settingsOpen, setSettingsOpen, sampleAnchorEl, setSampleAnchorEl,
     diagramAnchorEl, setDiagramAnchorEl, helpAnchorEl, setHelpAnchorEl,
@@ -227,7 +236,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     outlineWidth, setOutlineWidth, handleToggleOutline, handleHeadingDragEnd,
     handleOutlineDelete, handleOutlineClick, toggleFold, foldAll, unfoldAll,
     handleOutlineResizeStart,
-  } = useOutline({ editor, sourceMode });
+  } = useOutline({ editor, sourceMode, defaultOutlineOpen });
+
 
   const clearContentWithFrontmatter = useCallback(() => {
     clearContent();
@@ -355,7 +365,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   }, []);
 
   const statusBarHeight = hideStatusBar ? 0 : STATUSBAR_HEIGHT;
-  const { editorContainerRef, editorHeight } = useEditorHeight(isMobile, isMd, statusBarHeight);
+  const { editorContainerRef, editorHeight: autoEditorHeight } = useEditorHeight(isMobile, isMd, statusBarHeight);
+  const editorHeight = fixedEditorHeight ?? autoEditorHeight;
 
   const handleInsertTemplate = useCallback((template: MarkdownTemplate) => {
     if (sourceMode) { appendToSource(template.content); return; }
@@ -399,8 +410,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     handleOutlineClick, handleOutlineResizeStart,
     onHeadingDragEnd: (readonlyMode || reviewMode) ? undefined : handleHeadingDragEnd,
     onOutlineDelete: (readonlyMode || reviewMode) ? undefined : handleOutlineDelete,
-    onInsertSectionNumbers: handleInsertSectionNumbers,
-    onRemoveSectionNumbers: handleRemoveSectionNumbers,
+    onInsertSectionNumbers: (readonlyMode || reviewMode) ? undefined : handleInsertSectionNumbers,
+    onRemoveSectionNumbers: (readonlyMode || reviewMode) ? undefined : handleRemoveSectionNumbers,
     t,
   };
 
@@ -430,7 +441,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         explorerOpen={explorerOpen}
         inlineMergeOpen={inlineMergeOpen}
         hide={{
-          outline: hideOutline || sideToolbar, comments: hideComments || sideToolbar,
+          outline: hideOutline || (sideToolbar && !readonlyMode), comments: hideComments || sideToolbar,
           explorer: sideToolbar, compareToggle: hideCompareToggle,
           templates: hideTemplates, foldAll: hideFoldAll,
           fileOps: hideFileOps, undoRedo: hideUndoRedo,
@@ -489,12 +500,13 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         setCompareFileContent={setCompareFileContent} setRightFileOps={setRightFileOps} t={t}
         onFileDrop={handleFileSelected}
         fileDragOver={fileDragOver} onFileDragOverChange={setFileDragOver}
-        sideToolbar={sideToolbar}
+        sideToolbar={sideToolbar && !readonlyMode}
         onToggleOutline={handleToggleOutline}
         explorerOpen={explorerOpen}
         onToggleExplorer={onToggleExplorer}
         onOpenSettings={hideSettings ? undefined : () => setSettingsOpen(true)}
         explorerSlot={explorerSlot}
+        noScroll={noScroll}
       />
 
       <EditorFooterOverlays

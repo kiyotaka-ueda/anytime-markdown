@@ -1,11 +1,11 @@
 'use client';
 
 import { ACCENT_COLOR } from '@anytime-markdown/editor-core';
-import { Box, Button, Container, Link as MuiLink, Typography } from '@mui/material';
+import { Box, Button, Container, IconButton, Link as MuiLink, Tooltip, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import Image from 'next/image';
 import NextLink from 'next/link';
 import { useTranslations } from 'next-intl';
+import { useEffect, useState } from 'react';
 
 import MarkdownViewer from './MarkdownViewer';
 import SiteFooter from './SiteFooter';
@@ -14,6 +14,22 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
   const t = useTranslations('Landing');
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+
+  const [viewerHeight, setViewerHeight] = useState(600);
+  useEffect(() => {
+    const update = () => setViewerHeight(Math.round(window.innerHeight * 0.8));
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
+  type FontSize = 'small' | 'medium' | 'large';
+  const [viewerFontSize, setViewerFontSize] = useState<FontSize>('medium');
+  const fontSizeOptions: { value: FontSize; iconSize: number; label: string }[] = [
+    { value: 'small', iconSize: 12, label: t('fontSmall') },
+    { value: 'medium', iconSize: 15, label: t('fontMedium') },
+    { value: 'large', iconSize: 18, label: t('fontLarge') },
+  ];
 
   return (
     <Box
@@ -159,37 +175,30 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
         </Container>
       </Box>
 
-      {/* ---- Screenshot ---- */}
-      <Box sx={{ py: { xs: 6, md: 10 }, px: 3 }}>
-        <Container maxWidth="md">
-          <Box
-            sx={{
-              width: '100%',
-              borderRadius: 3,
-              border: 1,
-              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-              overflow: 'hidden',
-              boxShadow: isDark
-                ? '0 8px 32px rgba(0,0,0,0.4)'
-                : '0 8px 32px rgba(0,0,0,0.12)',
-            }}
-          >
-            <Image
-              src="/images/editor-preview.png"
-              alt={t('screenshot')}
-              width={2880}
-              height={1800}
-              priority
-              style={{ display: 'block', width: '100%', height: 'auto' }}
-            />
-          </Box>
-        </Container>
-      </Box>
-
       {/* ---- Features (Markdown) ---- */}
       <Box sx={{ py: { xs: 4, md: 6 }, px: 3 }}>
         <Container maxWidth="lg">
-          <MarkdownViewer docKey="docs%2Finfrastructure.md" />
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1, gap: 0.5 }}>
+            {fontSizeOptions.map(({ value, iconSize, label }) => (
+              <Tooltip key={value} title={label}>
+                <IconButton
+                  size="small"
+                  onClick={() => setViewerFontSize(value)}
+                  sx={{
+                    width: 28,
+                    height: 28,
+                    color: viewerFontSize === value ? 'primary.main' : 'text.secondary',
+                    bgcolor: viewerFontSize === value ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)') : 'transparent',
+                  }}
+                  aria-label={label}
+                  aria-pressed={viewerFontSize === value}
+                >
+                  <Typography sx={{ fontSize: iconSize, fontWeight: 700, lineHeight: 1 }}>A</Typography>
+                </IconButton>
+              </Tooltip>
+            ))}
+          </Box>
+          <MarkdownViewer docKey="docs/infrastructure.md" docKeyByLocale={{ en: "docs/infrastructure-en.md" }} editorHeight={viewerHeight} showOutline fontSize={viewerFontSize} />
         </Container>
       </Box>
 

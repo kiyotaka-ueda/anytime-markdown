@@ -14,7 +14,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'key parameter is required' }, { status: 400 });
   }
 
-  if (!key.startsWith(DOCS_PREFIX) || !key.endsWith('.md')) {
+  if (!key.startsWith(DOCS_PREFIX)) {
     return NextResponse.json({ error: 'Invalid key' }, { status: 400 });
   }
 
