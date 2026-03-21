@@ -58,23 +58,27 @@ export function getEditorPaperSx(
       fontSize: `${settings.fontSize}px`,
       lineHeight: settings.lineHeight,
       color: getEditorText(theme.palette.mode === "dark", settings),
-      ...(settings.blockAlign !== "left" && {
-        // 画像の配置（NodeViewWrapper の div に text-align を適用）
-        "& [data-type='image'], & p:has(> img)": {
-          textAlign: settings.blockAlign,
-        },
-        // テーブルの配置
-        "& .tableWrapper": {
-          display: "flex",
-          justifyContent: settings.blockAlign === "center" ? "center" : "flex-end",
-        },
-        // コードブロック・GIFブロックの配置
-        "& .code-block-wrapper, & [data-type='gifBlock']": {
-          ...(settings.blockAlign === "center"
-            ? { marginLeft: "auto", marginRight: "auto", maxWidth: "90%" }
-            : { marginLeft: "auto", marginRight: 0, maxWidth: "90%" }),
-        },
-      }),
+      ...(settings.blockAlign !== "left" && (() => {
+        const align = settings.blockAlign === "center"
+          ? { marginLeft: "auto", marginRight: "auto" }
+          : { marginLeft: "auto", marginRight: 0 };
+        return {
+          // 画像: display: block にして margin で配置
+          "& img": {
+            display: "block",
+            ...align,
+          },
+          // テーブル
+          "& table": {
+            ...align,
+          },
+          // コードブロック (pre > code 構造)
+          "& pre": {
+            ...align,
+            maxWidth: "90%",
+          },
+        };
+      })()),
       ...(getBaseStyles(theme, options) as Record<string, unknown>),
       ...(getHeadingStyles(theme) as Record<string, unknown>),
       ...(getCodeStyles(theme) as Record<string, unknown>),
