@@ -167,6 +167,25 @@ interface MarkdownEditorPageProps {
   defaultBlockAlign?: "left" | "center" | "right";
 }
 
+/** Apply external compare content and open merge mode if needed (extracted to reduce component complexity). */
+function applyExternalCompareContent(
+  content: string,
+  inlineMergeOpen: boolean,
+  sourceMode: boolean,
+  editor: ReturnType<typeof useEditor>,
+  setCompareFileContent: (v: string) => void,
+  setEditorMarkdown: (v: string) => void,
+  setInlineMergeOpen: (v: boolean) => void,
+): void {
+  setCompareFileContent(content);
+  if (!inlineMergeOpen) {
+    if (!sourceMode && editor) {
+      setEditorMarkdown(getMarkdownFromEditor(editor));
+    }
+    setInlineMergeOpen(true);
+  }
+}
+
 export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideVersionInfo, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, presetName, onPresetChange, onLocaleChange, fileSystemProvider, externalContent, externalFileName, externalFilePath: _externalFilePath, onExternalSave, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, autoReload, onToggleAutoReload, defaultSourceMode, showReadonlyMode, externalCompareContent, explorerOpen, onToggleExplorer, sideToolbar, hideCompareToggle, explorerSlot, noScroll, defaultOutlineOpen, fixedEditorHeight, defaultFontSize, defaultBlockAlign }: MarkdownEditorPageProps = {}) {
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
@@ -331,13 +350,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   useEffect(() => {
     if (externalCompareContent == null || externalCompareContent === prevCompareContentRef.current) return;
     prevCompareContentRef.current = externalCompareContent;
-    setCompareFileContent(externalCompareContent);
-    if (!inlineMergeOpen) {
-      if (!sourceMode && editor) {
-        setEditorMarkdown(getMarkdownFromEditor(editor));
-      }
-      setInlineMergeOpen(true);
-    }
+    applyExternalCompareContent(externalCompareContent, inlineMergeOpen, sourceMode, editor, setCompareFileContent, setEditorMarkdown, setInlineMergeOpen);
   }, [externalCompareContent, inlineMergeOpen, sourceMode, editor, setCompareFileContent, setEditorMarkdown, setInlineMergeOpen]);
 
   setEditorMarkdownRef.current = setEditorMarkdown;

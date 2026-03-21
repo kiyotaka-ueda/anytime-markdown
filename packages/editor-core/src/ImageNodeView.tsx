@@ -283,6 +283,41 @@ function ImageEditDialog({ editOpen, setEditOpen, src, imgError, imgSize, onCrop
   );
 }
 
+/** Trigger external image URL edit callback (extracted to reduce component complexity). */
+function triggerImageEditUrl(
+  editor: NodeViewProps["editor"],
+  getPos: NodeViewProps["getPos"],
+  src: string,
+  alt: string,
+): void {
+  if (typeof getPos !== "function") return;
+  const pos = getPos();
+  if (pos == null) return;
+  const storage = getEditorStorage(editor);
+  const onEdit = storage.image?.onEditImage as ((data: { pos: number; src: string; alt: string }) => void) | undefined;
+  if (onEdit) onEdit({ pos, src: src || "", alt: alt || "" });
+}
+
+/** Handle arrow-key resizing of the image block (extracted to reduce component complexity). */
+function handleResizeKeyDownImpl(
+  e: React.KeyboardEvent,
+  imgContainerRef: React.RefObject<HTMLDivElement | null>,
+  width: string,
+  updateAttributes: (attrs: Record<string, unknown>) => void,
+): void {
+  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+  e.preventDefault();
+  const step = e.shiftKey ? 50 : 10;
+  const container = imgContainerRef.current;
+  if (!container) return;
+  const img = container.querySelector("img");
+  if (!img) return;
+  const currentWidth = parseInt(width, 10) || img.getBoundingClientRect().width;
+  const delta = e.key === "ArrowRight" ? step : -step;
+  const newWidth = Math.max(MIN_WIDTH, Math.round(currentWidth + delta));
+  updateAttributes({ width: `${newWidth}px` });
+}
+
 export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeViewProps) {
   const t = useTranslations("MarkdownEditor");
   const theme = useTheme();
@@ -304,28 +339,15 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
   const imgContainerRef = useRef<HTMLDivElement>(null);
   const { resizing, resizeWidth, displayWidth, handleResizePointerDown, handleResizePointerMove, handleResizePointerUp } = useBlockResize({ containerRef: imgContainerRef, updateAttributes, currentWidth: width });
 
-  const handleResizeKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-    e.preventDefault();
-    const step = e.shiftKey ? 50 : 10;
-    const container = imgContainerRef.current;
-    if (!container) return;
-    const img = container.querySelector("img");
-    if (!img) return;
-    const currentWidth = parseInt(width, 10) || img.getBoundingClientRect().width;
-    const delta = e.key === "ArrowRight" ? step : -step;
-    const newWidth = Math.max(MIN_WIDTH, Math.round(currentWidth + delta));
-    updateAttributes({ width: `${newWidth}px` });
-  }, [width, updateAttributes]);
+  const handleResizeKeyDown = useCallback(
+    (e: React.KeyboardEvent) => handleResizeKeyDownImpl(e, imgContainerRef, width, updateAttributes),
+    [width, updateAttributes],
+  );
 
-  const handleEditUrl = useCallback(() => {
-    if (typeof getPos !== "function") return;
-    const pos = getPos();
-    if (pos == null) return;
-    const storage = getEditorStorage(editor);
-    const onEdit = storage.image?.onEditImage as ((data: { pos: number; src: string; alt: string }) => void) | undefined;
-    if (onEdit) onEdit({ pos, src: src || "", alt: alt || "" });
-  }, [editor, getPos, src, alt]);
+  const handleEditUrl = useCallback(
+    () => triggerImageEditUrl(editor, getPos, src, alt),
+    [editor, getPos, src, alt],
+  );
 
   const onCrop = useCallback((croppedDataUrl: string) => {
     handleCropComplete(src, updateAttributes, croppedDataUrl);

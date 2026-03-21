@@ -160,6 +160,13 @@ function DiagramContent({ isMermaid, isPlantUml, svg, displaySvg, plantUmlUrl, p
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- internal helper, props vary by diagram type
+function getEditDialog(isMermaid: boolean, isPlantUml: boolean, commonDialogProps: any, svg: string | null, plantUmlUrl: string | null) {
+  if (isMermaid) return <MermaidEditDialog {...commonDialogProps} svg={svg} />;
+  if (isPlantUml) return <PlantUmlEditDialog {...commonDialogProps} plantUmlUrl={plantUmlUrl} />;
+  return null;
+}
+
 export function DiagramBlock(props: DiagramBlockProps) {
   const {
     editor, node, updateAttributes, getPos: _getPos,
@@ -252,12 +259,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
     toolbarExtra: <CopyCodeButton handleCopyCode={handleCopyCode} t={t} />, t,
   };
 
-  const plantUmlDialog = isPlantUml
-    ? <PlantUmlEditDialog {...commonDialogProps} plantUmlUrl={plantUmlUrl} />
-    : null;
-  const editDialog = isMermaid
-    ? <MermaidEditDialog {...commonDialogProps} svg={svg} />
-    : plantUmlDialog;
+  const editDialog = getEditDialog(isMermaid, isPlantUml, commonDialogProps, svg, plantUmlUrl);
 
   const showToolbar = shouldShowToolbar({ isCompareLeft: props.isCompareLeft, isCompareLeftEditable: props.isCompareLeftEditable, isEditable });
   const showBorder = shouldShowBorder({ isSelected, isCompareLeft: props.isCompareLeft, isCompareLeftEditable: props.isCompareLeftEditable, isEditable, editOpen });

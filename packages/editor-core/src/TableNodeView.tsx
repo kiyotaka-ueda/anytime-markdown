@@ -251,6 +251,21 @@ function TableEditHeader({ editor, isDark, isEditable, setEditOpen, t }: {
   );
 }
 
+/** Extract compare-table HTML lookup from the useMemo to reduce component complexity. */
+function getCompareTableHtml(
+  editOpen: boolean,
+  mergeEditors: ReturnType<typeof getMergeEditors>,
+  editor: NodeViewProps["editor"] | null,
+  getPos: NodeViewProps["getPos"],
+): string | null {
+  if (!editOpen || !mergeEditors || !editor || typeof getPos !== "function") return null;
+  const pos = getPos();
+  if (pos == null) return null;
+  const isRight = !!editor.view?.dom?.dataset?.reviewMode;
+  const otherEditor = isRight ? mergeEditors.rightEditor : mergeEditors.leftEditor;
+  return findCounterpartTableHtml(editor, otherEditor, pos);
+}
+
 export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
   const t = useTranslations("MarkdownEditor");
   const isDark = useTheme().palette.mode === "dark";
@@ -263,14 +278,10 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
   // Compare mode
   const mergeEditors = getMergeEditors();
   const isCompareMode = !!mergeEditors;
-  const compareTableHtml = useMemo(() => {
-    if (!editOpen || !mergeEditors || !editor || typeof getPos !== "function") return null;
-    const pos = getPos();
-    if (pos == null) return null;
-    const isRight = !!editor.view?.dom?.dataset?.reviewMode;
-    const otherEditor = isRight ? mergeEditors.rightEditor : mergeEditors.leftEditor;
-    return findCounterpartTableHtml(editor, otherEditor, pos);
-  }, [editOpen, mergeEditors, editor, getPos]);
+  const compareTableHtml = useMemo(
+    () => getCompareTableHtml(editOpen, mergeEditors, editor, getPos),
+    [editOpen, mergeEditors, editor, getPos],
+  );
 
   const highlightedCompareHtml = useMemo(() => {
     if (!compareTableHtml) return null;

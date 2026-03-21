@@ -597,6 +597,27 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsRootIte
 		this.clipboard = { paths: [item.resourceUri.fsPath], isCut: false };
 	}
 
+	private async confirmOverwrite(name: string): Promise<boolean> {
+		const answer = await vscode.window.showWarningMessage(
+			`"${name}" already exists. Overwrite?`,
+			{ modal: true },
+			'Overwrite',
+		);
+		return answer === 'Overwrite';
+	}
+
+	private copyOrMoveFile(srcPath: string, dest: string, isCut: boolean): void {
+		if (isCut) {
+			fs.renameSync(srcPath, dest);
+			return;
+		}
+		if (fs.statSync(srcPath).isDirectory()) {
+			fs.cpSync(srcPath, dest, { recursive: true });
+		} else {
+			fs.copyFileSync(srcPath, dest);
+		}
+	}
+
 	async paste(item?: SpecDocsRootItem | SpecDocsItem): Promise<void> {
 		if (!this.clipboard || this.clipboard.paths.length === 0) return;
 
@@ -608,23 +629,10 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsRootIte
 			const dest = path.join(destDir, name);
 			if (srcPath === dest) continue;
 
-			if (fs.existsSync(dest)) {
-				const answer = await vscode.window.showWarningMessage(
-					`"${name}" already exists. Overwrite?`,
-					{ modal: true },
-					'Overwrite',
-				);
-				if (answer !== 'Overwrite') continue;
-			}
+			if (fs.existsSync(dest) && !(await this.confirmOverwrite(name))) continue;
 
 			try {
-				if (this.clipboard.isCut) {
-					fs.renameSync(srcPath, dest);
-				} else if (fs.statSync(srcPath).isDirectory()) {
-					fs.cpSync(srcPath, dest, { recursive: true });
-				} else {
-					fs.copyFileSync(srcPath, dest);
-				}
+				this.copyOrMoveFile(srcPath, dest, this.clipboard.isCut);
 			} catch (e: unknown) {
 				showError(this.clipboard.isCut ? 'Move failed' : 'Copy failed', e);
 			}
