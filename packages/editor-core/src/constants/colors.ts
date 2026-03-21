@@ -11,7 +11,7 @@ export const DEFAULT_LIGHT_TEXT = "#2D3748";
 // ── UI テキスト色（MUI テーマ準拠） ──
 export const DARK_TEXT_PRIMARY = "#ffffffde";
 export const DARK_TEXT_SECONDARY = "#ffffff99";
-export const DARK_TEXT_DISABLED = "#ffffff61";
+export const DARK_TEXT_DISABLED = "#ffffff73";
 export const LIGHT_TEXT_PRIMARY = "#000000de";
 export const LIGHT_TEXT_SECONDARY = "#00000099";
 export const LIGHT_TEXT_DISABLED = "#00000061";
