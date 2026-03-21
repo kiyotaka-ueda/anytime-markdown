@@ -456,17 +456,6 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       }
     };
 
-    const handleRequestReload = async () => {
-      try {
-        const bytes = await vscode.workspace.fs.readFile(ctx.document.uri);
-        const diskContent = new TextDecoder().decode(bytes);
-        ctx.webviewPanel.webview.postMessage({ type: 'setBaseUri', baseUri: ctx.baseUri });
-        ctx.webviewPanel.webview.postMessage({ type: 'setContent', content: diskContent });
-      } catch (err) {
-        vscode.window.showErrorMessage(`Error reloading file: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    };
-
     const handleSave = async () => {
       try {
         await ctx.document.save();
@@ -491,7 +480,6 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         case 'saveClipboardImage': handleSaveClipboardImage(message); break;
         case 'overwriteImage': handleOverwriteImage(message); break;
         case 'openLink': await handleOpenLink(message); break;
-        case 'requestReload': await handleRequestReload(); break;
         case 'setAutoReload': autoReload = !!message.enabled; break;
         case 'save': await handleSave(); break;
       }

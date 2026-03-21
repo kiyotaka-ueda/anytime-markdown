@@ -6,7 +6,6 @@ import GitHubIcon from "@mui/icons-material/GitHub";
 import ListAltIcon from "@mui/icons-material/ListAlt";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import RedoIcon from "@mui/icons-material/Redo";
-import RefreshIcon from "@mui/icons-material/Refresh";
 import SyncIcon from "@mui/icons-material/Sync";
 import SyncDisabledIcon from "@mui/icons-material/SyncDisabled";
 import UndoIcon from "@mui/icons-material/Undo";
@@ -114,7 +113,6 @@ interface EditorToolbarProps {
   onOpenSettings?: () => void;
   onOpenVersionDialog?: () => void;
   onAnnounce?: (message: string) => void;
-  onReload?: () => void;
   autoReload?: boolean;
   onToggleAutoReload?: () => void;
   t: TranslationFn;
@@ -137,7 +135,6 @@ export const EditorToolbar = React.memo(function EditorToolbar({
   onOpenSettings,
   onOpenVersionDialog,
   onAnnounce: _onAnnounce,
-  onReload,
   autoReload,
   onToggleAutoReload,
   t,
@@ -303,24 +300,15 @@ export const EditorToolbar = React.memo(function EditorToolbar({
         </ToggleButtonGroup>
       )}
 
-      {/* Reload & Auto-reload toggle (VS Code extension only) */}
-      {onReload && (
-        <>
-          <Tooltip title={t("reload")}>
-            <IconButton size="small" aria-label={t("reload")} onClick={onReload}>
-              <RefreshIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          {onToggleAutoReload && (
-            <Tooltip title={autoReload ? t("autoReloadOn") : t("autoReloadOff")}>
-              <IconButton size="small" aria-label={autoReload ? t("autoReloadOn") : t("autoReloadOff")} onClick={onToggleAutoReload}
-                sx={{ color: autoReload ? "primary.main" : undefined }}
-              >
-                {autoReload ? <SyncIcon fontSize="small" /> : <SyncDisabledIcon fontSize="small" />}
-              </IconButton>
-            </Tooltip>
-          )}
-        </>
+      {/* Auto-reload toggle (VS Code extension only) */}
+      {onToggleAutoReload && (
+        <Tooltip title={autoReload ? t("autoReloadOn") : t("autoReloadOff")}>
+          <IconButton size="small" aria-label={autoReload ? t("autoReloadOn") : t("autoReloadOff")} onClick={onToggleAutoReload}
+            sx={{ color: autoReload ? "primary.main" : undefined }}
+          >
+            {autoReload ? <SyncIcon fontSize="small" /> : <SyncDisabledIcon fontSize="small" />}
+          </IconButton>
+        </Tooltip>
       )}
 
       {/* Outline, Comments - hidden on mobile */}

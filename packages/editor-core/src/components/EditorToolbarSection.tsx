@@ -55,7 +55,6 @@ interface EditorToolbarSectionProps {
   setCommentOpen: React.Dispatch<React.SetStateAction<boolean>>;
   liveMessage: string;
   t: (key: string) => string;
-  onReload?: () => void;
   autoReload?: boolean;
   onToggleAutoReload?: () => void;
 }
@@ -90,7 +89,6 @@ export function EditorToolbarSection({
   setCommentOpen,
   liveMessage,
   t,
-  onReload,
   autoReload,
   onToggleAutoReload,
 }: EditorToolbarSectionProps) {
@@ -179,7 +177,6 @@ export function EditorToolbarSection({
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenVersionDialog={() => setVersionDialogOpen(true)}
         onAnnounce={setLiveMessage}
-        onReload={onReload}
         autoReload={autoReload}
         onToggleAutoReload={onToggleAutoReload}
         t={t}

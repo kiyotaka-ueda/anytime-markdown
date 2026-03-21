@@ -95,8 +95,6 @@ interface MarkdownEditorPageProps {
   hideFoldAll?: boolean;
   hideStatusBar?: boolean;
   onStatusChange?: (status: { line: number; col: number; charCount: number; lineCount: number; lineEnding: string; encoding: string }) => void;
-  /** ファイル再読込コールバック（VS Code 拡張用） */
-  onReload?: () => void;
   /** 自動再読み込み状態（VS Code 拡張用） */
   autoReload?: boolean;
   /** 自動再読み込みトグルコールバック（VS Code 拡張用） */
@@ -118,7 +116,7 @@ interface MarkdownEditorPageProps {
   explorerSlot?: React.ReactNode;
 }
 
-export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideVersionInfo, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, externalContent, externalFileName, externalFilePath: _externalFilePath, onExternalSave, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, onReload, autoReload, onToggleAutoReload, defaultSourceMode, showReadonlyMode, externalCompareContent, explorerOpen, onToggleExplorer, sideToolbar, hideCompareToggle, explorerSlot }: MarkdownEditorPageProps = {}) {
+export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideVersionInfo, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, onLocaleChange, fileSystemProvider, externalContent, externalFileName, externalFilePath: _externalFilePath, onExternalSave, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, autoReload, onToggleAutoReload, defaultSourceMode, showReadonlyMode, externalCompareContent, explorerOpen, onToggleExplorer, sideToolbar, hideCompareToggle, explorerSlot }: MarkdownEditorPageProps = {}) {
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
   const muiTheme = useTheme();
@@ -448,7 +446,6 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         rightFileOps={rightFileOps}
         setLiveMessage={setLiveMessage} commentOpen={commentOpen} setCommentOpen={setCommentOpen}
         liveMessage={liveMessage} t={t}
-        onReload={onReload}
         autoReload={autoReload}
         onToggleAutoReload={onToggleAutoReload}
       />

@@ -254,10 +254,6 @@ export function App() {
     vscode.postMessage({ type: 'statusChanged', status });
   }, []);
 
-  const handleReload = useCallback(() => {
-    vscode.postMessage({ type: 'requestReload' });
-  }, []);
-
   const [autoReload, setAutoReload] = useState(false);
   const handleToggleAutoReload = useCallback(() => {
     setAutoReload((prev) => {
@@ -327,7 +323,7 @@ export function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <ConfirmProvider>
-        <MarkdownEditorPage key={editorKey} hideFileOps hideUndoRedo hideSettings hideVersionInfo hideTemplates hideFoldAll hideStatusBar sideToolbar hideCompareToggle externalCompareContent={compareContent} onCompareModeChange={handleCompareModeChange} onHeadingsChange={handleHeadingsChange} onCommentsChange={handleCommentsChange} onStatusChange={handleStatusChange} onReload={handleReload} autoReload={autoReload} onToggleAutoReload={handleToggleAutoReload} />
+        <MarkdownEditorPage key={editorKey} hideFileOps hideUndoRedo hideSettings hideVersionInfo hideTemplates hideFoldAll hideStatusBar sideToolbar hideCompareToggle externalCompareContent={compareContent} onCompareModeChange={handleCompareModeChange} onHeadingsChange={handleHeadingsChange} onCommentsChange={handleCommentsChange} onStatusChange={handleStatusChange} autoReload={autoReload} onToggleAutoReload={handleToggleAutoReload} />
       </ConfirmProvider>
     </ThemeProvider>
   );
