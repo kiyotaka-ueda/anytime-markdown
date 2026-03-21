@@ -63,7 +63,7 @@ export const AdmonitionBlockquote = Blockquote.extend({
             const first = node.firstChild;
             if (first?.type.name !== "paragraph") return;
             const text = first.textContent;
-            const match = text.match(ADMONITION_RE);
+            const match = ADMONITION_RE.exec(text);
             if (!match) return;
             const textStart = pos + 2; // blockquote(1) + paragraph(1)
             modifications.push({

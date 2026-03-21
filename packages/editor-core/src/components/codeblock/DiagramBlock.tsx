@@ -7,7 +7,7 @@ import { useTheme } from "@mui/material/styles";
 import DOMPurify from "dompurify";
 import React, { useCallback, useMemo, useRef } from "react";
 
-import { getEditorBg, getErrorMain, getTextDisabled, getTextSecondary } from "../../constants/colors";
+import { getEditorBg, getErrorMain, getTextSecondary } from "../../constants/colors";
 import { useBlockMergeCompare } from "../../hooks/useBlockMergeCompare";
 import { useBlockResize } from "../../hooks/useBlockResize";
 import { useDiagramCapture } from "../../hooks/useDiagramCapture";
@@ -198,7 +198,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
 
   const displaySvg = useMemo(() => {
     if (!svg) return svg;
-    const viewBoxMatch = svg.match(/viewBox="[\d.]+ [\d.]+ ([\d.]+) [\d.]+"/);
+    const viewBoxMatch = /viewBox="[\d.]+ [\d.]+ ([\d.]+) [\d.]+"/.exec(svg);
     if (!viewBoxMatch) return svg;
     const viewBoxWidth = parseFloat(viewBoxMatch[1]);
     const targetWidth = (settings.fontSize / 16) * viewBoxWidth;

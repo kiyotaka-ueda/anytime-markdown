@@ -12,7 +12,8 @@ import TaskList from "@tiptap/extension-task-list";
 import Underline from "@tiptap/extension-underline";
 import type { Editor } from "@tiptap/core";
 import { Fragment } from "@tiptap/pm/model";
-import { TextSelection } from "@tiptap/pm/state";
+import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
+import { Extension, type Extensions } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { common, createLowlight } from "lowlight";
 import { Markdown } from "tiptap-markdown";
@@ -27,8 +28,6 @@ const noopGrammar = () => ({ name: "noop", contains: [] as never[] });
 for (const lang of ["math", "mermaid", "plantuml"]) {
   lowlight.register(lang, noopGrammar);
 }
-import { Plugin, PluginKey } from "@tiptap/pm/state";
-import { Extension, type Extensions } from "@tiptap/react";
 
 import { AdmonitionBlockquote } from "./extensions/admonitionExtension";
 import { BlockGapCursorExtension } from "./extensions/blockGapCursorExtension";

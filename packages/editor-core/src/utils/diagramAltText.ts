@@ -102,7 +102,7 @@ function extractSourceId(code: string, pos: number): string {
 function skipPipeLabel(code: string, pos: number): number {
   if (code[pos] !== "|") return pos;
   const pipeEnd = code.indexOf("|", pos + 1);
-  return pipeEnd !== -1 ? skipWhitespace(code, pipeEnd + 1) : pos;
+  return pipeEnd === -1 ? pos : skipWhitespace(code, pipeEnd + 1);
 }
 
 /** Extract a forward node ID starting at `pos`, return the ID or "" */
@@ -161,7 +161,7 @@ export function extractNameFromPlantUmlLine(rest: string): string {
   }
   const name = rest.split(/\s/)[0];
   const asIdx = name.toLowerCase().indexOf(" as ");
-  return asIdx !== -1 ? name.slice(0, asIdx) : name;
+  return asIdx === -1 ? name : name.slice(0, asIdx);
 }
 
 /** PlantUML キーワードに一致する行からキーワード後の rest 部分を返す。一致しなければ null。 */

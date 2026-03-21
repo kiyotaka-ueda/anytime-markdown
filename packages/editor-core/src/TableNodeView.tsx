@@ -10,8 +10,7 @@ import TableRowsIcon from "@mui/icons-material/TableRows";
 import ViewColumnIcon from "@mui/icons-material/ViewColumn";
 import { Box, Divider, Paper, ToggleButton, ToggleButtonGroup, Tooltip, Typography, useTheme } from "@mui/material";
 import type { Fragment } from "@tiptap/pm/model";
-import type { Editor } from "@tiptap/react";
-import type { NodeViewProps } from "@tiptap/react";
+import type { Editor, NodeViewProps } from "@tiptap/react";
 import { NodeViewContent, NodeViewWrapper } from "@tiptap/react";
 import { useTranslations } from "next-intl";
 import { useMemo } from "react";
@@ -201,7 +200,7 @@ function buildPaperSx(editOpen: boolean, isEditable: boolean, isDark: boolean, s
     overflow: "hidden",
     my: editOpen ? 0 : 1,
   };
-  const editClosedSx = !editOpen ? { bgcolor: "transparent" } : {};
+  const editClosedSx = editOpen ? {} : { bgcolor: "transparent" };
   const editOpenSx = editOpen ? {
     position: "fixed" as const,
     inset: 0,
@@ -210,12 +209,12 @@ function buildPaperSx(editOpen: boolean, isEditable: boolean, isDark: boolean, s
     flexDirection: "column" as const,
     bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
   } : {};
-  const hiddenToolbarSx = !showToolbar ? {
+  const hiddenToolbarSx = showToolbar ? {} : {
     borderColor: "transparent",
     "& > [data-block-toolbar]": {
       maxHeight: 0, opacity: 0, py: 0, overflow: "hidden",
     },
-  } : {};
+  };
   return { ...base, ...editClosedSx, ...editOpenSx, ...hiddenToolbarSx };
 }
 
@@ -338,7 +337,7 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
         ) : (
           <Box
             sx={buildTableBodySx(collapsed, editOpen, isDark, tableSx)}
-            onDoubleClick={!isEditable ? () => setEditOpen(true) : undefined}
+            onDoubleClick={isEditable ? undefined : () => setEditOpen(true)}
           >
             <NodeViewContent<"table"> as="table" />
           </Box>

@@ -7,7 +7,7 @@ import { Box, Button, Typography } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { getDivider, getTextSecondary } from "../constants/colors";
+import { getDivider } from "../constants/colors";
 
 import { EditDialogHeader } from "./EditDialogHeader";
 import { EditDialogWrapper } from "./EditDialogWrapper";

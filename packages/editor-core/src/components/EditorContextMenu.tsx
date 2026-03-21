@@ -180,9 +180,9 @@ export function EditorContextMenu({ editor, readOnly, t }: Readonly<EditorContex
       onClose={handleClose}
       anchorReference="anchorPosition"
       anchorPosition={
-        menuPos !== null
-          ? { top: menuPos.mouseY, left: menuPos.mouseX }
-          : undefined
+        menuPos === null
+          ? undefined
+          : { top: menuPos.mouseY, left: menuPos.mouseX }
       }
       slotProps={{ paper: { sx: getMenuPaperSx(isDark) } }}
     >

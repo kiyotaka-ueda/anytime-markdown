@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import * as path from 'node:path';
 import { MarkdownEditorProvider } from './providers/MarkdownEditorProvider';
 import { TimelineProvider, TimelineItem } from './providers/TimelineProvider';
 import { GraphProvider } from './providers/GraphProvider';
@@ -8,10 +7,11 @@ import { SpecDocsProvider, SpecDocsItem, SpecDocsRootItem, SpecDocsDragAndDrop }
 import { LinkValidationProvider } from './providers/LinkValidationProvider';
 
 export function activate(context: vscode.ExtensionContext) {
-	context.subscriptions.push(MarkdownEditorProvider.register(context));
-
-	// リンク検証（壊れたリンクの波線警告）
-	context.subscriptions.push(new LinkValidationProvider());
+	context.subscriptions.push(
+		MarkdownEditorProvider.register(context),
+		// リンク検証（壊れたリンクの波線警告）
+		new LinkValidationProvider(),
+	);
 
 	// Git 変更パネル
 	const changesProvider = new ChangesProvider();

@@ -336,11 +336,11 @@ export class ChangesProvider implements vscode.TreeDataProvider<ChangesTreeItem>
 		let behind = 0;
 		try {
 			const aheadOut = execFileSync('git', ['rev-list', '@{u}..HEAD', '--count'], { cwd: gitRoot, encoding: 'utf-8' }).trim();
-			ahead = parseInt(aheadOut, 10) || 0;
+			ahead = Number.parseInt(aheadOut, 10) || 0;
 		} catch { /* no upstream or error */ }
 		try {
 			const behindOut = execFileSync('git', ['rev-list', 'HEAD..@{u}', '--count'], { cwd: gitRoot, encoding: 'utf-8' }).trim();
-			behind = parseInt(behindOut, 10) || 0;
+			behind = Number.parseInt(behindOut, 10) || 0;
 		} catch { /* no upstream or error */ }
 		return { ahead, behind };
 	}

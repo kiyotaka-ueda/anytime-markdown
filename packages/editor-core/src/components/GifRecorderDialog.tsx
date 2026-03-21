@@ -330,9 +330,9 @@ export function GifRecorderDialog({ open, onClose, onComplete }: Readonly<GifRec
                 height: "100%",
                 cursor: phase === "recording" ? "default" : "crosshair",
               }}
-              onMouseDown={phase !== "recording" ? handleCanvasMouseDown : undefined}
-              onMouseMove={phase !== "recording" ? handleCanvasMouseMove : undefined}
-              onMouseUp={phase !== "recording" ? handleCanvasMouseUp : undefined}
+              onMouseDown={phase === "recording" ? undefined : handleCanvasMouseDown}
+              onMouseMove={phase === "recording" ? undefined : handleCanvasMouseMove}
+              onMouseUp={phase === "recording" ? undefined : handleCanvasMouseUp}
             />
           )}
           {phase === "idle" && (

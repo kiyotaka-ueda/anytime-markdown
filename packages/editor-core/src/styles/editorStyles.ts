@@ -2,8 +2,7 @@ import type { SxProps,Theme } from "@mui/material/styles";
 
 import { getEditorBg, getEditorText } from "../constants/colors";
 import type { PaperSize } from "../constants/dimensions";
-import { calcPaperContentWidth } from "../constants/dimensions";
-import { EDITOR_PADDING_BORDER,EDITOR_PADDING_TOP } from "../constants/dimensions";
+import { calcPaperContentWidth, EDITOR_PADDING_BORDER,EDITOR_PADDING_TOP } from "../constants/dimensions";
 import type { EditorSettings } from "../useEditorSettings";
 import { getBaseStyles } from "./baseStyles";
 import { getBlockStyles } from "./blockStyles";

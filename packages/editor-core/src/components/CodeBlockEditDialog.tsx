@@ -197,9 +197,9 @@ export function CodeBlockEditDialog({
 
   const showCompareView = isCompareMode && compareCode != null;
 
-  const builtInPanel = !readOnly
-    ? <BuiltInSamplePanel language={language} samplesOpen={samplesOpen} setSamplesOpen={setSamplesOpen} handleInsertSample={handleInsertSample} isDark={isDark} t={t} />
-    : null;
+  const builtInPanel = readOnly
+    ? null
+    : <BuiltInSamplePanel language={language} samplesOpen={samplesOpen} setSamplesOpen={setSamplesOpen} handleInsertSample={handleInsertSample} isDark={isDark} t={t} />;
   const samplePanel = customSamples
     ? <SamplePanel samples={customSamples} onInsert={handleInsertSample} readOnly={readOnly} t={t} />
     : builtInPanel;

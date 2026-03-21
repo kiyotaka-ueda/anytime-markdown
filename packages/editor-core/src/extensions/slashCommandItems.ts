@@ -409,7 +409,7 @@ export const slashCommandItems: SlashCommandItem[] = [
     icon: React.createElement(ArticleIcon, { fontSize: "small" }),
     keywords: ["template", "welcome", "テンプレート", "ウェルカム", "操作", "ガイド"],
     action: (editor) => {
-      const locale = document.cookie.match(/NEXT_LOCALE=(\w+)/)?.[1] ?? "ja";
+      const locale = /NEXT_LOCALE=(\w+)/.exec(document.cookie)?.[1] ?? "ja";
       const content = locale === "ja" ? welcomeJa : welcomeEn;
       const { body } = preprocessMarkdown(content);
       insertTemplate(editor, body);
@@ -421,7 +421,7 @@ export const slashCommandItems: SlashCommandItem[] = [
     icon: React.createElement(ArticleIcon, { fontSize: "small" }),
     keywords: ["template", "markdown", "all", "テンプレート", "マークダウン"],
     action: (editor) => {
-      const locale = document.cookie.match(/NEXT_LOCALE=(\w+)/)?.[1] ?? "ja";
+      const locale = /NEXT_LOCALE=(\w+)/.exec(document.cookie)?.[1] ?? "ja";
       const content = locale === "ja" ? markdownAllJa : markdownAllEn;
       const { body } = preprocessMarkdown(content);
       insertTemplate(editor, body);

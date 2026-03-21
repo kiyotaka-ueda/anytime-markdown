@@ -147,7 +147,7 @@ function handleBlockContextMenu(
 ): boolean {
   const headingEl = target.closest("h1, h2, h3, h4, h5") as HTMLElement | null;
   const blockEl = headingEl ?? findBlockCandidate(target);
-  const level = headingEl ? parseInt(headingEl.tagName.substring(1)) : 0;
+  const level = headingEl ? Number.parseInt(headingEl.tagName.substring(1)) : 0;
   if (!blockEl) return false;
   const rect = blockEl.getBoundingClientRect();
   if (event.clientX < rect.left) {

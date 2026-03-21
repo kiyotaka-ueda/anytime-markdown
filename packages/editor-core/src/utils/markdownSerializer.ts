@@ -54,9 +54,9 @@ function embedGifSettings(editor: Editor, md: string): string {
   let result = md;
   for (const entry of entries) {
     // ![alt](src.gif) の行を見つけて直後に gif-settings コメントを挿入
-    const escapedSrc = entry.src.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const escapedSrc = entry.src.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
     const imgPattern = new RegExp(
-      `(!\\[[^\\]]*\\]\\(${escapedSrc}\\))(?!\\s*\\n<!-- gif-settings:)`,
+      String.raw`(!\[[^\]]*\]\(${escapedSrc}\))(?!\s*\n<!-- gif-settings:)`,
     );
     result = result.replace(imgPattern, `$1\n<!-- gif-settings: ${entry.settings} -->`);
   }
@@ -97,7 +97,7 @@ export function getMarkdownFromEditor(editor: Editor): string {
     const codeSpans: string[] = [];
     line = line.replaceAll(/(?<!`)(`+)(?!`)(.*?)(?<!`)\1(?!`)/g, (m) => {
       // コードスパン内の | を \| にエスケープ（テーブルセル区切りとの衝突防止）
-      codeSpans.push(m.replaceAll(/(?<!\\)\|/g, "\\|"));
+      codeSpans.push(m.replaceAll(/(?<!\\)\|/g, String.raw`\|`));
       return `\uE001CS${codeSpans.length - 1}\uE001`;
     });
     line = line.replaceAll("&gt;", ">").replaceAll("&lt;", "<");

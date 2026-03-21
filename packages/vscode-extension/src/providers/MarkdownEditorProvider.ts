@@ -367,7 +367,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         if (!fs.existsSync(imagesDir)) {
           fs.mkdirSync(imagesDir, { recursive: true });
         }
-        const match = imgData.match(/^data:image\/\w+;base64,(.+)$/);
+        const match = /^data:image\/\w+;base64,(.+)$/.exec(imgData);
         if (!match) return;
         const buffer = Buffer.from(match[1], 'base64');
         const filePath = path.join(imagesDir, imgFileName);
@@ -390,7 +390,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       const imgDataUrl = typeof message.dataUrl === 'string' ? message.dataUrl : '';
       if (!imgPath || !imgDataUrl) return;
       try {
-        const match = imgDataUrl.match(/^data:image\/\w+;base64,(.+)$/);
+        const match = /^data:image\/\w+;base64,(.+)$/.exec(imgDataUrl);
         if (!match) return;
         const buffer = Buffer.from(match[1], 'base64');
         const cleanPath = imgPath.split('?')[0];
@@ -444,7 +444,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       const rawHref = (message as { type: string; href?: string }).href;
       if (typeof rawHref !== 'string') return;
       const href = decodeURIComponent(rawHref);
-      const lineMatch = href.match(/#L(\d+)$/);
+      const lineMatch = /#L(\d+)$/.exec(href);
       const filePath = lineMatch ? href.replace(/#L\d+$/, '') : href;
       const candidates = buildLinkCandidates(filePath);
       if (!candidates) {

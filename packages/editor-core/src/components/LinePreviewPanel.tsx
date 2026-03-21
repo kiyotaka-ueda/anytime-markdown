@@ -34,8 +34,8 @@ export const LinePreviewPanel = React.memo(function LinePreviewPanel({
 
   if (!sourceMode || !diffResult) return null;
 
-  const leftLine = hoveredLineIdx !== null ? diffResult.leftLines?.[hoveredLineIdx] : null;
-  const rightLine = hoveredLineIdx !== null ? diffResult.rightLines?.[hoveredLineIdx] : null;
+  const leftLine = hoveredLineIdx === null ? null : diffResult.leftLines?.[hoveredLineIdx];
+  const rightLine = hoveredLineIdx === null ? null : diffResult.rightLines?.[hoveredLineIdx];
   const leftText = leftLine?.text ?? "";
   const rightText_ = rightLine?.text ?? "";
   const hasBoth = hoveredLineIdx !== null && leftText !== "" && rightText_ !== "" && leftText !== rightText_;

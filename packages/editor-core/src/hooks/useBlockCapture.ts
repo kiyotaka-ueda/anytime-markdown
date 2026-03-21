@@ -254,7 +254,7 @@ function getEffectiveBackground(el: HTMLElement): string | null {
   // background-image（グラデーション）から最初の色を抽出
   const bgImage = style.backgroundImage;
   if (bgImage && bgImage !== "none") {
-    const colorMatch = bgImage.match(/#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)/);
+    const colorMatch = /#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)/.exec(bgImage);
     if (colorMatch) return colorMatch[0];
   }
   return null;

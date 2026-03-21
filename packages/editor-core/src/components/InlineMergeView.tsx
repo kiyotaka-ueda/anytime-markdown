@@ -382,35 +382,35 @@ export function InlineMergeView({
       {!sourceMode && (leftFrontmatter != null || rightFrontmatter != null) && (
         <Box sx={{ display: "flex", gap: 0, flexShrink: 0, alignItems: "stretch" }}>
           <Box sx={{ flex: 1, minWidth: 0, px: 1, pt: 1 }}>
-            {rightFrontmatter != null ? (
+            {rightFrontmatter == null ? (
+              <Box sx={{ border: 1, borderColor: getDivider(isDark), borderRadius: 1, mb: 1, opacity: 0.4, p: 1, height: "calc(100% - 8px)", boxSizing: "border-box" }}>
+                <Typography variant="caption" sx={{ fontFamily: "monospace", color: getTextDisabled(isDark), fontSize: MERGE_INFO_FONT_SIZE }}>
+                  No Frontmatter
+                </Typography>
+              </Box>
+            ) : (
               <FrontmatterBlock
                 frontmatter={rightFrontmatter}
                 onChange={() => {}}
                 readOnly
                 t={t}
               />
-            ) : (
+            )}
+          </Box>
+          <Divider orientation="vertical" flexItem />
+          <Box sx={{ flex: 1, minWidth: 0, px: 1, pt: 1 }}>
+            {leftFrontmatter == null ? (
               <Box sx={{ border: 1, borderColor: getDivider(isDark), borderRadius: 1, mb: 1, opacity: 0.4, p: 1, height: "calc(100% - 8px)", boxSizing: "border-box" }}>
                 <Typography variant="caption" sx={{ fontFamily: "monospace", color: getTextDisabled(isDark), fontSize: MERGE_INFO_FONT_SIZE }}>
                   No Frontmatter
                 </Typography>
               </Box>
-            )}
-          </Box>
-          <Divider orientation="vertical" flexItem />
-          <Box sx={{ flex: 1, minWidth: 0, px: 1, pt: 1 }}>
-            {leftFrontmatter != null ? (
+            ) : (
               <FrontmatterBlock
                 frontmatter={leftFrontmatter}
                 onChange={onLeftFrontmatterChange ?? (() => {})}
                 t={t}
               />
-            ) : (
-              <Box sx={{ border: 1, borderColor: getDivider(isDark), borderRadius: 1, mb: 1, opacity: 0.4, p: 1, height: "calc(100% - 8px)", boxSizing: "border-box" }}>
-                <Typography variant="caption" sx={{ fontFamily: "monospace", color: getTextDisabled(isDark), fontSize: MERGE_INFO_FONT_SIZE }}>
-                  No Frontmatter
-                </Typography>
-              </Box>
             )}
           </Box>
         </Box>

@@ -131,9 +131,9 @@ interface BlockSection {
 
 /** 最初の heading レベルを検出する */
 function findSplitLevel(blocks: BlockInfo[]): number {
-  for (let i = 0; i < blocks.length; i++) {
-    if (blocks[i].typeName === "heading") {
-      return blocks[i].level ?? 1;
+  for (const block of blocks) {
+    if (block.typeName === "heading") {
+      return block.level ?? 1;
     }
   }
   return 0;
@@ -183,7 +183,7 @@ function getBlockSections(blocks: BlockInfo[]): { preSections: number[]; section
 function computeLcsPairs(leftTexts: string[], rightTexts: string[]): [number, number][] {
   const n = leftTexts.length;
   const m = rightTexts.length;
-  const dp: number[][] = Array.from({ length: n + 1 }, () => Array(m + 1).fill(0));
+  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
   for (let i = 1; i <= n; i++) {
     for (let j = 1; j <= m; j++) {
       dp[i][j] = leftTexts[i - 1] === rightTexts[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);

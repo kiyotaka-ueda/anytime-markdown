@@ -17,7 +17,7 @@ async function hasWritePermissionDenied(handle: FileSystemFileHandle): Promise<b
 export function useFileSystem(provider: FileSystemProvider | null | undefined) {
   const [fileHandle, setFileHandleRaw] = useState<FileHandle | null>(() => {
     try {
-      const saved = typeof globalThis !== 'undefined' ? localStorage.getItem(STORAGE_KEY_FILENAME) : null;
+      const saved = typeof globalThis === 'undefined' ? null : localStorage.getItem(STORAGE_KEY_FILENAME);
       return saved ? { name: saved } : null;
     } catch {
       return null;
