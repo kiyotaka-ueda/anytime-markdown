@@ -105,7 +105,7 @@ export default function MarkdownViewer({ docKey, docKeyByLocale, minHeight = '60
   return (
     <Box sx={{ minHeight, overflow: 'hidden' }}>
       <MarkdownEditorPage
-        key={editorKeyRef.current}
+        key={`${editorKeyRef.current}-${showOutline}`}
         externalContent={content}
         readOnly
         hideToolbar
