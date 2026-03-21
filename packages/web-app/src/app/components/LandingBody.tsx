@@ -198,7 +198,7 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
               </Tooltip>
             ))}
           </Box>
-          <MarkdownViewer docKey="docs/infrastructure.md" docKeyByLocale={{ en: "docs/infrastructure-en.md" }} editorHeight={viewerHeight} showOutline fontSize={viewerFontSize} />
+          <MarkdownViewer docKey="docs/markdownAll/markdownAll.ja.md" docKeyByLocale={{ en: "docs/markdownAll/markdownAll.en.md" }} editorHeight={viewerHeight} showOutline fontSize={viewerFontSize} />
         </Container>
       </Box>
 
