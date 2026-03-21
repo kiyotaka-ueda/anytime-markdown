@@ -1,6 +1,10 @@
 'use client';
 
-import { ACCENT_COLOR,ConfirmProvider, DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from '@anytime-markdown/editor-core';
+import {
+  ACCENT_COLOR, ConfirmProvider, DEFAULT_DARK_BG, DEFAULT_LIGHT_BG,
+  DEFAULT_PRESET_NAME, getPreset, isPresetName,
+  type ThemePresetName,
+} from '@anytime-markdown/editor-core';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -16,6 +20,7 @@ interface ThemeModeContextValue {
 }
 
 const THEME_STORAGE_KEY = 'anytime-markdown-theme-mode';
+const PRESET_STORAGE_KEY = 'anytime-markdown-theme-preset';
 
 export const ThemeModeContext = createContext<ThemeModeContextValue>({
   themeMode: 'dark',
@@ -24,6 +29,20 @@ export const ThemeModeContext = createContext<ThemeModeContextValue>({
 
 export function useThemeMode() {
   return useContext(ThemeModeContext);
+}
+
+interface PresetContextValue {
+  presetName: ThemePresetName;
+  setPresetName: (name: ThemePresetName) => void;
+}
+
+export const PresetContext = createContext<PresetContextValue>({
+  presetName: DEFAULT_PRESET_NAME,
+  setPresetName: () => {},
+});
+
+export function usePreset() {
+  return useContext(PresetContext);
 }
 
 function updateStatusBar(mode: ThemeMode) {
@@ -42,29 +61,55 @@ export function Providers({ children }: { children: React.ReactNode }) {
     return 'dark';
   });
 
+  const [presetName, setPresetNameState] = useState<ThemePresetName>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(PRESET_STORAGE_KEY);
+      if (stored && isPresetName(stored)) return stored;
+    }
+    return DEFAULT_PRESET_NAME;
+  });
+
   const setThemeMode = useCallback((mode: ThemeMode) => {
     setThemeModeState(mode);
     localStorage.setItem(THEME_STORAGE_KEY, mode);
     updateStatusBar(mode);
   }, []);
 
+  const setPresetName = useCallback((name: ThemePresetName) => {
+    setPresetNameState(name);
+    localStorage.setItem(PRESET_STORAGE_KEY, name);
+  }, []);
+
   useEffect(() => {
     updateStatusBar(themeMode);
   }, [themeMode]);
 
-  const theme = useMemo(() => createTheme({ palette: { mode: themeMode, secondary: { main: ACCENT_COLOR, contrastText: '#000000' }, background: { default: themeMode === 'dark' ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG } } }), [themeMode]);
+  const preset = getPreset(presetName);
 
-  const contextValue = useMemo(() => ({ themeMode, setThemeMode }), [themeMode, setThemeMode]);
+  const theme = useMemo(() => createTheme({
+    palette: {
+      mode: themeMode,
+      secondary: { main: ACCENT_COLOR, contrastText: '#000000' },
+      background: { default: themeMode === 'dark' ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG },
+    },
+    shape: { borderRadius: preset.borderRadius.md },
+    typography: { fontFamily: preset.fontFamily },
+  }), [themeMode, preset]);
+
+  const themeModeValue = useMemo(() => ({ themeMode, setThemeMode }), [themeMode, setThemeMode]);
+  const presetValue = useMemo(() => ({ presetName, setPresetName }), [presetName, setPresetName]);
 
   return (
     <SessionProvider>
-    <ThemeModeContext.Provider value={contextValue}>
+    <ThemeModeContext.Provider value={themeModeValue}>
+    <PresetContext.Provider value={presetValue}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <ConfirmProvider>
           {children}
         </ConfirmProvider>
       </ThemeProvider>
+    </PresetContext.Provider>
     </ThemeModeContext.Provider>
     </SessionProvider>
   );
