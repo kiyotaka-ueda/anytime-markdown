@@ -132,7 +132,7 @@ export default function EditBody() {
             files={files}
             fileInputRef={fileInputRef}
             onUpload={handleUpload}
-            onDeleteRequest={setDeleteTarget}
+            onDeleteFolderRequest={(folder, folderFiles) => setDeleteTarget({ kind: 'folder', folder, files: folderFiles })}
             urlLinks={urlLinks}
             onAddUrlLink={handleAddUrlLink}
             onDeleteUrlLink={handleDeleteUrlLink}
@@ -163,10 +163,12 @@ export default function EditBody() {
         <DialogTitle id="delete-dialog-title">{t('docsDelete')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            {t('docsDeleteConfirm')}
+            {deleteTarget?.kind === 'folder'
+              ? t('docsDeleteFolderConfirm', { count: deleteTarget.files.length })
+              : t('docsDeleteConfirm')}
             {deleteTarget && (
               <Box component="span" sx={{ display: 'block', mt: 1, fontWeight: 600 }}>
-                {deleteTarget.name}
+                {deleteTarget.kind === 'folder' ? `${deleteTarget.folder}/` : deleteTarget.file.name}
               </Box>
             )}
           </DialogContentText>

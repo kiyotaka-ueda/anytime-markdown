@@ -288,7 +288,7 @@ function SortableCategory({
           outlineColor: ACCENT_COLOR,
         }}
         onDragOver={(e) => {
-          if (e.dataTransfer.types.includes('application/x-doc-file') || e.dataTransfer.types.includes('application/x-url-link')) {
+          if (e.dataTransfer.types.includes('application/x-doc-file') || e.dataTransfer.types.includes('application/x-doc-folder') || e.dataTransfer.types.includes('application/x-url-link')) {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'copy';
             setDragOver(true);
@@ -297,6 +297,15 @@ function SortableCategory({
         onDragLeave={() => setDragOver(false)}
         onDrop={(e) => {
           setDragOver(false);
+          const folderRaw = e.dataTransfer.getData('application/x-doc-folder');
+          if (folderRaw) {
+            e.preventDefault();
+            const droppedFiles = JSON.parse(folderRaw) as { key: string; name: string }[];
+            for (const f of droppedFiles) {
+              onDropFile(category.id, f.key, f.name);
+            }
+            return;
+          }
           const fileRaw = e.dataTransfer.getData('application/x-doc-file');
           if (fileRaw) {
             e.preventDefault();

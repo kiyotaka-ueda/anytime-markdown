@@ -3,22 +3,16 @@
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from '@anytime-markdown/editor-core';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
-import DescriptionIcon from '@mui/icons-material/Description';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import FolderIcon from '@mui/icons-material/Folder';
-import ImageIcon from '@mui/icons-material/Image';
 import LinkIcon from '@mui/icons-material/Link';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import {
   Box,
   Button,
   Chip,
-  Collapse,
   IconButton,
   List,
   ListItem,
-  ListItemButton,
   ListItemIcon,
   ListItemText,
   TextField,
@@ -34,7 +28,7 @@ interface FileListPanelProps {
   files: DocFile[];
   fileInputRef: RefObject<HTMLInputElement | null>;
   onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onDeleteRequest: (file: DocFile) => void;
+  onDeleteFolderRequest: (folder: string, files: DocFile[]) => void;
   urlLinks: { url: string; displayName: string }[];
   onAddUrlLink: (url: string, displayName: string) => void;
   onDeleteUrlLink: (url: string) => void;
@@ -45,7 +39,7 @@ export default function FileListPanel({
   files,
   fileInputRef,
   onUpload,
-  onDeleteRequest,
+  onDeleteFolderRequest,
   urlLinks,
   onAddUrlLink,
   onDeleteUrlLink,
@@ -56,32 +50,19 @@ export default function FileListPanel({
   const [urlDraft, setUrlDraft] = useState('');
   const [nameDraft, setNameDraft] = useState('');
 
-  // md ファイル名のセット（日英ペア判定用）
-  const mdFileNames = new Set(files.filter((f) => f.name.endsWith('.md')).map((f) => f.name));
-
-  // フォルダごとにグルーピング
+  // フォルダごとにグルーピング（ルート直下は除外）
   const folderGroups = useMemo(() => {
     const groups = new Map<string, DocFile[]>();
     for (const file of files) {
-      // key から docs/ プレフィックスを除去し、最初のフォルダ名を取得
       const withoutPrefix = file.key.replace(/^docs\//, '');
       const slashIdx = withoutPrefix.indexOf('/');
       const folder = slashIdx >= 0 ? withoutPrefix.slice(0, slashIdx) : '';
+      if (!folder) continue; // ルート直下のファイルは除外
       if (!groups.has(folder)) groups.set(folder, []);
       groups.get(folder)!.push(file);
     }
     return groups;
   }, [files]);
-
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
-  const toggleFolder = (folder: string) => {
-    setExpandedFolders((prev) => {
-      const next = new Set(prev);
-      if (next.has(folder)) next.delete(folder);
-      else next.add(folder);
-      return next;
-    });
-  };
 
   const handleAdd = () => {
     const trimmedUrl = urlDraft.trim();
@@ -111,39 +92,43 @@ export default function FileListPanel({
       <input ref={fileInputRef} type="file" accept=".md,.png,.jpg,.jpeg,.gif,.svg,.webp" multiple hidden onChange={onUpload} />
       <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: bgColor, maxHeight: 400, overflow: 'auto' }}>
         <List dense disablePadding>
-          {[...folderGroups.entries()].map(([folder, folderFiles]) => {
-            if (!folder) {
-              // ルート直下のファイル（フォルダなし）
-              return folderFiles.map((file) => (
-                <FileListItem key={file.key} file={file} mdFileNames={mdFileNames} onDeleteRequest={onDeleteRequest} t={t} />
-              ));
-            }
-            const isExpanded = expandedFolders.has(folder);
-            return (
-              <Box key={folder}>
-                <ListItemButton onClick={() => toggleFolder(folder)} dense sx={{ py: 0.5 }}>
-                  <ListItemIcon sx={{ minWidth: 36 }}>
-                    <FolderIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={
-                      <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>
-                        {folder}/
-                      </Typography>
-                    }
-                  />
-                  {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-                </ListItemButton>
-                <Collapse in={isExpanded}>
-                  <List dense disablePadding>
-                    {folderFiles.map((file) => (
-                      <FileListItem key={file.key} file={file} mdFileNames={mdFileNames} onDeleteRequest={onDeleteRequest} t={t} indent />
-                    ))}
-                  </List>
-                </Collapse>
-              </Box>
-            );
-          })}
+          {[...folderGroups.entries()].map(([folder, folderFiles]) => (
+            <ListItem
+              key={folder}
+              draggable
+              onDragStart={(e) => {
+                const payload = folderFiles.map((f) => ({ key: f.key, name: f.name }));
+                e.dataTransfer.setData('application/x-doc-folder', JSON.stringify(payload));
+                e.dataTransfer.effectAllowed = 'copy';
+              }}
+              secondaryAction={
+                <IconButton
+                  edge="end"
+                  size="small"
+                  aria-label={t('docsDelete')}
+                  onClick={() => onDeleteFolderRequest(folder, folderFiles)}
+                  sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              }
+              sx={{ cursor: 'grab', '&:active': { cursor: 'grabbing' } }}
+            >
+              <ListItemIcon sx={{ minWidth: 36 }}>
+                <FolderIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+              </ListItemIcon>
+              <ListItemText
+                primary={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {folder}/
+                    </Typography>
+                    <FolderLanguageBadges files={folderFiles} />
+                  </Box>
+                }
+              />
+            </ListItem>
+          ))}
         </List>
       </Box>
 
@@ -227,69 +212,11 @@ export default function FileListPanel({
   );
 }
 
-function isImageFile(name: string) {
-  return /\.(png|jpe?g|gif|svg|webp)$/i.test(name);
-}
-
-function FileListItem({ file, mdFileNames, onDeleteRequest, t, indent }: {
-  file: DocFile;
-  mdFileNames: Set<string>;
-  onDeleteRequest: (file: DocFile) => void;
-  t: ReturnType<typeof useTranslations>;
-  indent?: boolean;
-}) {
-  // フォルダ内のファイル名のみ表示（パスから最後の部分を取得）
-  const displayName = file.name.includes('/') ? file.name.split('/').pop()! : file.name;
-  const isImage = isImageFile(displayName);
-
-  return (
-    <ListItem
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData('application/x-doc-file', JSON.stringify({ key: file.key, name: file.name }));
-        e.dataTransfer.effectAllowed = 'copy';
-      }}
-      secondaryAction={
-        <IconButton
-          edge="end"
-          size="small"
-          aria-label={t('docsDelete')}
-          onClick={() => onDeleteRequest(file)}
-          sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}
-        >
-          <DeleteIcon fontSize="small" />
-        </IconButton>
-      }
-      sx={{ cursor: 'grab', '&:active': { cursor: 'grabbing' }, ...(indent && { pl: 4 }) }}
-    >
-      <ListItemIcon sx={{ minWidth: 36 }}>
-        {isImage
-          ? <ImageIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-          : <DescriptionIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-        }
-      </ListItemIcon>
-      <ListItemText
-        primary={
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Typography sx={{ fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {displayName}
-            </Typography>
-            {displayName.endsWith('.md') && (
-              <LanguageBadges fileName={displayName} mdFileNames={mdFileNames} />
-            )}
-          </Box>
-        }
-      />
-    </ListItem>
-  );
-}
-
-function LanguageBadges({ fileName, mdFileNames }: { fileName: string; mdFileNames: Set<string> }) {
-  const isEn = fileName.endsWith('-en.md');
-  const baseName = isEn ? fileName.slice(0, -6) + '.md' : fileName;
-  const enName = isEn ? fileName : fileName.slice(0, -3) + '-en.md';
-  const hasJa = mdFileNames.has(baseName);
-  const hasEn = mdFileNames.has(enName);
+function FolderLanguageBadges({ files }: { files: DocFile[] }) {
+  const mdFiles = files.filter((f) => f.name.endsWith('.md'));
+  const hasJa = mdFiles.some((f) => !f.name.endsWith('-en.md'));
+  const hasEn = mdFiles.some((f) => f.name.endsWith('-en.md'));
+  if (!hasJa && !hasEn) return null;
   return (
     <>
       <Chip label="JA" size="small" sx={{ height: 16, fontSize: '0.6rem', fontWeight: 700, bgcolor: hasJa ? 'primary.main' : 'action.disabledBackground', color: hasJa ? 'primary.contrastText' : 'text.disabled' }} />

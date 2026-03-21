@@ -561,6 +561,7 @@
     "docsUpload": "Upload",
     "docsDelete": "Delete",
     "docsDeleteConfirm": "Delete this document?",
+    "docsDeleteFolderConfirm": "Delete this folder and all {count} file(s) inside?",
     "docsUploadSuccess": "Uploaded successfully",
     "docsDeleteSuccess": "Deleted successfully",
     "docsUploadError": "Failed to upload",

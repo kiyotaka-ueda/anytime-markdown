@@ -561,6 +561,7 @@
     "docsUpload": "アップロード",
     "docsDelete": "削除",
     "docsDeleteConfirm": "このドキュメントを削除しますか？",
+    "docsDeleteFolderConfirm": "このフォルダとその中のファイル({count}件)をすべて削除しますか？",
     "docsUploadSuccess": "アップロードしました",
     "docsDeleteSuccess": "削除しました",
     "docsUploadError": "アップロードに失敗しました",

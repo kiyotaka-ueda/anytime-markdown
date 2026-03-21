@@ -14,6 +14,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { DocFile, LayoutCategory, LayoutCategoryItem } from '../../../types/layout';
 
+export type DeleteTarget = { kind: 'file'; file: DocFile } | { kind: 'folder'; folder: string; files: DocFile[] } | null;
+
 function generateId() {
   return crypto.randomUUID();
 }
@@ -50,7 +52,7 @@ export function useLayoutEditor() {
   const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' } | null>(null);
   const [editCategory, setEditCategory] = useState<LayoutCategory | null>(null);
   const [editItems, setEditItems] = useState<LayoutCategoryItem[]>([]);
-  const [deleteTarget, setDeleteTarget] = useState<DocFile | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
   const [urlLinks, setUrlLinks] = useState<{ url: string; displayName: string }[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -133,12 +135,31 @@ export function useLayoutEditor() {
     if (!deleteTarget) return;
 
     try {
-      const res = await fetch(`/api/docs/delete?key=${encodeURIComponent(deleteTarget.key)}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setSnackbar({ message: t('docsDeleteSuccess'), severity: 'success' });
-      setCategories((prev) =>
-        prev.map((cat) => removeItemFromCategory(cat, deleteTarget.key)),
+      const filesToDelete = deleteTarget.kind === 'folder'
+        ? deleteTarget.files
+        : [deleteTarget.file];
+
+      const results = await Promise.allSettled(
+        filesToDelete.map((f) =>
+          fetch(`/api/docs/delete?key=${encodeURIComponent(f.key)}`, { method: 'DELETE' })
+            .then((res) => { if (!res.ok) throw new Error(`HTTP ${res.status}`); }),
+        ),
       );
+
+      const failed = results.filter((r) => r.status === 'rejected').length;
+      if (failed > 0) {
+        setSnackbar({ message: t('docsDeleteError'), severity: 'error' });
+      } else {
+        setSnackbar({ message: t('docsDeleteSuccess'), severity: 'success' });
+      }
+
+      setCategories((prev) => {
+        let cats = prev;
+        for (const f of filesToDelete) {
+          cats = cats.map((cat) => removeItemFromCategory(cat, f.key));
+        }
+        return cats;
+      });
       fetchFiles();
     } catch {
       setSnackbar({ message: t('docsDeleteError'), severity: 'error' });
