@@ -204,6 +204,25 @@ export const EditorSettingsPanel = React.memo(function EditorSettingsPanel({
         </ToggleButtonGroup>
       </Box>
 
+      {/* Block Align */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="caption" sx={{ fontWeight: 600, color: getTextSecondary(isDark), mb: 0.5, display: "block" }}>
+          {t("settingBlockAlign")}
+        </Typography>
+        <ToggleButtonGroup
+          value={settings.blockAlign}
+          exclusive
+          onChange={(_, v) => { if (v) updateSettings({ blockAlign: v }); }}
+          size="small"
+          fullWidth
+          aria-label={t("settingBlockAlign")}
+        >
+          <ToggleButton value="left">{t("settingAlignLeft")}</ToggleButton>
+          <ToggleButton value="center">{t("settingAlignCenter")}</ToggleButton>
+          <ToggleButton value="right">{t("settingAlignRight")}</ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
+
       {/* Paper Size */}
       <Box sx={{ mb: 3 }}>
         <Typography variant="caption" sx={{ fontWeight: 600, color: getTextSecondary(isDark), mb: 0.5, display: "block" }}>

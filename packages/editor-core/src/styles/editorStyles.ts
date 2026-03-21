@@ -58,6 +58,11 @@ export function getEditorPaperSx(
       fontSize: `${settings.fontSize}px`,
       lineHeight: settings.lineHeight,
       color: getEditorText(theme.palette.mode === "dark", settings),
+      ...(settings.blockAlign !== "left" && {
+        "& img, & .tableWrapper, & blockquote, & .admonition, & hr, & .code-block-wrapper, & [data-type='gifBlock']": {
+          ...(settings.blockAlign === "center" ? { marginLeft: "auto", marginRight: "auto" } : { marginLeft: "auto", marginRight: 0 }),
+        },
+      }),
       ...(getBaseStyles(theme, options) as Record<string, unknown>),
       ...(getHeadingStyles(theme) as Record<string, unknown>),
       ...(getCodeStyles(theme) as Record<string, unknown>),
