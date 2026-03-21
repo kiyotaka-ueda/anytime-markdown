@@ -17,10 +17,10 @@ interface EditorToolbarSectionProps {
   fileHandlers: {
     onDownload: () => void;
     onClear: () => void;
-    onOpenFile: () => void;
-    onSaveFile: () => void;
-    onSaveAsFile: () => void;
-    onExportPdf: () => void;
+    onOpenFile: () => void | Promise<void>;
+    onSaveFile: () => void | Promise<void>;
+    onSaveAsFile: () => void | Promise<void>;
+    onExportPdf: () => void | Promise<void>;
   };
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   handleFileSelected: (f: File) => void;

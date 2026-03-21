@@ -21,10 +21,10 @@ export interface ToolbarFileHandlers {
   onDownload: () => void;
   onImport: () => void;
   onClear: () => void;
-  onOpenFile?: () => void;
-  onSaveFile?: () => void;
-  onSaveAsFile?: () => void;
-  onExportPdf?: () => void;
+  onOpenFile?: () => void | Promise<void>;
+  onSaveFile?: () => void | Promise<void>;
+  onSaveAsFile?: () => void | Promise<void>;
+  onExportPdf?: () => void | Promise<void>;
   onLoadRightFile?: () => void;
   onExportRightFile?: () => void;
 }
