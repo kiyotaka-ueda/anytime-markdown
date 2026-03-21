@@ -293,6 +293,16 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   useEditorSideEffects({ editor, isDirty, markDirty, setHeadingsRef, setEditorMarkdown, frontmatterRef, onFrontmatterChange: fileHandling.setFrontmatterText });
   useVSCodeIntegration(editor);
 
+  // 自動再読み込みトグル: ON で baseline を保存、OFF でクリア
+  useEffect(() => {
+    if (!editor) return;
+    if (autoReload) {
+      editor.commands.setChangeGutterBaseline();
+    } else {
+      editor.commands.clearChangeGutter();
+    }
+  }, [editor, autoReload]);
+
   // VS Code Undo/Redo: ソースモード時は vscode-set-content で sourceText を更新
   // saveContent は呼ばない（contentChanged ループ防止）
   useEffect(() => {

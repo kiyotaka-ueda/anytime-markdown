@@ -15,6 +15,7 @@ import { ReviewModeExtension, reviewModeStorage } from "../extensions/reviewMode
 import type { SlashCommandState } from "../extensions/slashCommandExtension";
 import { SlashCommandExtension } from "../extensions/slashCommandExtension";
 import { SearchReplaceExtension } from "../searchReplaceExtension";
+import { ChangeGutterExtension } from "../extensions/changeGutterExtension";
 import {
   extractHeadings,
   getMarkdownFromEditor,
@@ -257,6 +258,7 @@ export function useEditorConfig({
         onStateChange: (state: SlashCommandState) => slashCommandCallbackRef.current(state),
       }),
       ReviewModeExtension,
+      ChangeGutterExtension,
     ],
     editorProps: {
       handleDrop: (view: EditorView, event: DragEvent, _slice: Slice, moved: boolean) => {
