@@ -21,9 +21,9 @@ const MarkdownEditorPage = dynamic(
 );
 
 interface MarkdownViewerProps {
-  /** S3 ドキュメントキー（デコード済み、例: "docs/infrastructure.md"） */
+  /** S3 ドキュメントキー（デコード済み、例: "docs/markdownAll/markdownAll.ja.md"） */
   docKey: string;
-  /** ロケール別の docKey マップ（例: { en: "docs/infrastructure-en.md" }）。未指定ロケールは docKey を使用 */
+  /** ロケール別の docKey マップ（例: { en: "docs/markdownAll/markdownAll.en.md" }）。未指定ロケールは docKey を使用 */
   docKeyByLocale?: Partial<Record<string, string>>;
   /** コンテナの最小高さ */
   minHeight?: string;
@@ -31,17 +31,9 @@ interface MarkdownViewerProps {
   editorHeight?: number;
   /** スクロールなしで全体表示 */
   noScroll?: boolean;
-  /** アウトラインパネルを表示 */
-  showOutline?: boolean;
-  /** フォントサイズ（デフォルト: "medium"） */
-  fontSize?: "small" | "medium" | "large";
-  /** ビューア上部に表示するスロット（アイコンバー等） */
-  topSlot?: React.ReactNode;
 }
 
-const FONT_SIZE_MAP = { small: 14, medium: 16, large: 18 } as const;
-
-export default function MarkdownViewer({ docKey, docKeyByLocale, minHeight = '60vh', editorHeight, noScroll, showOutline, fontSize = 'medium', topSlot }: MarkdownViewerProps) {
+export default function MarkdownViewer({ docKey, docKeyByLocale, minHeight = '60vh', editorHeight, noScroll }: MarkdownViewerProps) {
   const t = useTranslations('Landing');
   const { themeMode, setThemeMode } = useThemeMode();
   const { locale, setLocale } = useLocaleSwitch();
@@ -106,18 +98,14 @@ export default function MarkdownViewer({ docKey, docKeyByLocale, minHeight = '60
 
   return (
     <Box sx={{ minHeight, overflow: 'hidden' }}>
-      {topSlot}
       <MarkdownEditorPage
-        key={`${editorKeyRef.current}-${showOutline}`}
+        key={editorKeyRef.current}
         externalContent={content}
         readOnly
         hideToolbar
         hideStatusBar
-        hideOutline={!showOutline}
-        defaultOutlineOpen={showOutline}
         noScroll={noScroll}
         fixedEditorHeight={editorHeight}
-        defaultFontSize={FONT_SIZE_MAP[fontSize]}
         themeMode={themeMode}
         onThemeModeChange={setThemeMode}
         onLocaleChange={setLocale}

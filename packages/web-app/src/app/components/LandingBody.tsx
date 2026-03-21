@@ -1,8 +1,7 @@
 'use client';
 
 import { ACCENT_COLOR } from '@anytime-markdown/editor-core';
-import ListAltIcon from '@mui/icons-material/ListAlt';
-import { Box, Button, Container, IconButton, Link as MuiLink, Tooltip, Typography } from '@mui/material';
+import { Box, Button, Container, Link as MuiLink, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import NextLink from 'next/link';
 import { useTranslations } from 'next-intl';
@@ -23,15 +22,6 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
   }, []);
-
-  type FontSize = 'small' | 'medium' | 'large';
-  const [viewerFontSize, setViewerFontSize] = useState<FontSize>('medium');
-  const [showOutline, setShowOutline] = useState(false);
-  const fontSizeOptions: { value: FontSize; iconSize: number; label: string }[] = [
-    { value: 'small', iconSize: 12, label: t('fontSmall') },
-    { value: 'medium', iconSize: 15, label: t('fontMedium') },
-    { value: 'large', iconSize: 18, label: t('fontLarge') },
-  ];
 
   return (
     <Box
@@ -184,48 +174,6 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
             docKey="docs/markdownAll/markdownAll.ja.md"
             docKeyByLocale={{ en: "docs/markdownAll/markdownAll.en.md" }}
             editorHeight={viewerHeight}
-            showOutline={showOutline}
-            fontSize={viewerFontSize}
-            topSlot={
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, alignItems: 'center' }}>
-                <Tooltip title={t('toggleOutline')}>
-                  <IconButton
-                    size="small"
-                    onClick={() => setShowOutline((v) => !v)}
-                    sx={{
-                      width: 28,
-                      height: 28,
-                      color: showOutline ? 'primary.main' : 'text.secondary',
-                      bgcolor: showOutline ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)') : 'transparent',
-                    }}
-                    aria-label={t('toggleOutline')}
-                    aria-pressed={showOutline}
-                  >
-                    <ListAltIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                </Tooltip>
-                <Box sx={{ display: 'flex', gap: 0.5 }}>
-                  {fontSizeOptions.map(({ value, iconSize, label }) => (
-                    <Tooltip key={value} title={label}>
-                      <IconButton
-                        size="small"
-                        onClick={() => setViewerFontSize(value)}
-                        sx={{
-                          width: 28,
-                          height: 28,
-                          color: viewerFontSize === value ? 'primary.main' : 'text.secondary',
-                          bgcolor: viewerFontSize === value ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)') : 'transparent',
-                        }}
-                        aria-label={label}
-                        aria-pressed={viewerFontSize === value}
-                      >
-                        <Typography sx={{ fontSize: iconSize, fontWeight: 700, lineHeight: 1 }}>A</Typography>
-                      </IconButton>
-                    </Tooltip>
-                  ))}
-                </Box>
-              </Box>
-            }
           />
         </Container>
       </Box>
