@@ -211,6 +211,18 @@
         "icon": "$(file-add)"
       },
       {
+        "command": "anytime-markdown.specDocsCut",
+        "title": "%command.specDocsCut%"
+      },
+      {
+        "command": "anytime-markdown.specDocsCopy",
+        "title": "%command.specDocsCopy%"
+      },
+      {
+        "command": "anytime-markdown.specDocsPaste",
+        "title": "%command.specDocsPaste%"
+      },
+      {
         "command": "anytime-markdown.pasteAsMarkdown",
         "title": "%command.pasteAsMarkdown%"
       }
@@ -346,19 +358,39 @@
           "group": "1_new@3"
         },
         {
-          "command": "anytime-markdown.specDocsRename",
-          "when": "view == anytimeMarkdown.specDocs && viewItem != specDocsRoot",
-          "group": "2_edit@1"
+          "command": "anytime-markdown.specDocsPaste",
+          "when": "view == anytimeMarkdown.specDocs && viewItem == specDocsRoot",
+          "group": "1_new@4"
         },
         {
-          "command": "anytime-markdown.specDocsDelete",
+          "command": "anytime-markdown.specDocsCut",
           "when": "view == anytimeMarkdown.specDocs && viewItem != specDocsRoot",
-          "group": "2_edit@2"
+          "group": "2_clipboard@1"
+        },
+        {
+          "command": "anytime-markdown.specDocsCopy",
+          "when": "view == anytimeMarkdown.specDocs && viewItem != specDocsRoot",
+          "group": "2_clipboard@2"
+        },
+        {
+          "command": "anytime-markdown.specDocsPaste",
+          "when": "view == anytimeMarkdown.specDocs && viewItem != specDocsRoot",
+          "group": "2_clipboard@3"
         },
         {
           "command": "anytime-markdown.specDocsCopyPath",
           "when": "view == anytimeMarkdown.specDocs && viewItem != specDocsRoot",
-          "group": "2_edit@3"
+          "group": "3_path@1"
+        },
+        {
+          "command": "anytime-markdown.specDocsRename",
+          "when": "view == anytimeMarkdown.specDocs && viewItem != specDocsRoot",
+          "group": "4_modify@1"
+        },
+        {
+          "command": "anytime-markdown.specDocsDelete",
+          "when": "view == anytimeMarkdown.specDocs && viewItem != specDocsRoot",
+          "group": "4_modify@2"
         },
         {
           "command": "anytime-markdown.switchBranch",
@@ -432,6 +464,24 @@
         "key": "ctrl+shift+v",
         "mac": "cmd+shift+v",
         "when": "activeCustomEditorId == anytimeMarkdown"
+      },
+      {
+        "command": "anytime-markdown.specDocsCut",
+        "key": "ctrl+x",
+        "mac": "cmd+x",
+        "when": "focusedView == anytimeMarkdown.specDocs"
+      },
+      {
+        "command": "anytime-markdown.specDocsCopy",
+        "key": "ctrl+c",
+        "mac": "cmd+c",
+        "when": "focusedView == anytimeMarkdown.specDocs"
+      },
+      {
+        "command": "anytime-markdown.specDocsPaste",
+        "key": "ctrl+v",
+        "mac": "cmd+v",
+        "when": "focusedView == anytimeMarkdown.specDocs"
       }
     ]
   },

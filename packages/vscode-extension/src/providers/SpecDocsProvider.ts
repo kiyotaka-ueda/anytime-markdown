@@ -200,6 +200,7 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsRootIte
 
 	private rootPaths: string[] = [];
 	private _mdOnly: boolean;
+	private clipboard: { paths: string[]; isCut: boolean } | null = null;
 
 	constructor(private readonly context: vscode.ExtensionContext) {
 		// マイグレーション: 旧 string → 新 string[]
@@ -586,5 +587,54 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsRootIte
 		this.context.globalState.update(MD_ONLY_KEY, this._mdOnly);
 		vscode.commands.executeCommand('setContext', 'anytimeMarkdown.mdOnly', this._mdOnly);
 		this._onDidChangeTreeData.fire(undefined);
+	}
+
+	cut(item: SpecDocsItem): void {
+		this.clipboard = { paths: [item.resourceUri.fsPath], isCut: true };
+	}
+
+	copy(item: SpecDocsItem): void {
+		this.clipboard = { paths: [item.resourceUri.fsPath], isCut: false };
+	}
+
+	async paste(item?: SpecDocsRootItem | SpecDocsItem): Promise<void> {
+		if (!this.clipboard || this.clipboard.paths.length === 0) return;
+
+		const destDir = this.resolveDestDir(item);
+		if (!destDir) return;
+
+		for (const srcPath of this.clipboard.paths) {
+			const name = path.basename(srcPath);
+			const dest = path.join(destDir, name);
+			if (srcPath === dest) continue;
+
+			if (fs.existsSync(dest)) {
+				const answer = await vscode.window.showWarningMessage(
+					`"${name}" already exists. Overwrite?`,
+					{ modal: true },
+					'Overwrite',
+				);
+				if (answer !== 'Overwrite') continue;
+			}
+
+			try {
+				if (this.clipboard.isCut) {
+					fs.renameSync(srcPath, dest);
+				} else {
+					if (fs.statSync(srcPath).isDirectory()) {
+						fs.cpSync(srcPath, dest, { recursive: true });
+					} else {
+						fs.copyFileSync(srcPath, dest);
+					}
+				}
+			} catch (e: unknown) {
+				showError(this.clipboard.isCut ? 'Move failed' : 'Copy failed', e);
+			}
+		}
+
+		if (this.clipboard.isCut) {
+			this.clipboard = null;
+		}
+		this.refresh();
 	}
 }

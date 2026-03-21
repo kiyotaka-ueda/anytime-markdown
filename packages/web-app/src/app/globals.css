@@ -5,6 +5,15 @@ html, body {
   padding: 0;
 }
 
+/* ランディングページのスクロールバーを非表示（スクロール機能は維持） */
+.landing-scroll {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+.landing-scroll::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
 /* エディタページのみビューポート固定（ランディング/docsページは通常スクロール） */
 html:has(body.editor-page),
 body.editor-page {

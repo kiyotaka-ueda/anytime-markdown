@@ -19,7 +19,7 @@
   "command.switchBranch": "Switch Branch",
   "command.specDocsCreateFile": "New File",
   "command.specDocsCreateFolder": "New Folder",
-  "command.specDocsDelete": "Delete",
+  "command.specDocsDelete": "Delete Permanently",
   "command.specDocsRename": "Rename",
   "view.graph": "Graph",
   "command.graphRefresh": "Refresh Graph",
@@ -38,5 +38,8 @@
   "command.specDocsRemoveRoot": "Close Repository",
   "command.specDocsCopyPath": "Copy Path",
   "command.specDocsImportFiles": "Import Files",
+  "command.specDocsCut": "Cut",
+  "command.specDocsCopy": "Copy",
+  "command.specDocsPaste": "Paste",
   "command.pasteAsMarkdown": "Paste as Markdown"
 }
