@@ -214,8 +214,8 @@ export default function FileListPanel({
 
 function FolderLanguageBadges({ files }: { files: DocFile[] }) {
   const mdFiles = files.filter((f) => f.name.endsWith('.md'));
-  const hasJa = mdFiles.some((f) => !f.name.endsWith('-en.md'));
-  const hasEn = mdFiles.some((f) => f.name.endsWith('-en.md'));
+  const hasJa = mdFiles.some((f) => !f.name.endsWith('.en.md'));
+  const hasEn = mdFiles.some((f) => f.name.endsWith('.en.md'));
   if (!hasJa && !hasEn) return null;
   return (
     <>
