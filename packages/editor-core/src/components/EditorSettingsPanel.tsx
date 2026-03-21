@@ -25,6 +25,8 @@ import useConfirm from "@/hooks/useConfirm";
 
 import { getTextSecondary } from "../constants/colors";
 import { PAPER_MARGIN_MAX, PAPER_MARGIN_MIN, PAPER_MARGIN_STEP, PAPER_SIZE_OPTIONS } from "../constants/dimensions";
+import { PRESET_NAMES, THEME_PRESETS } from "../constants/themePresets";
+import type { ThemePresetName } from "../constants/themePresets";
 import type { TranslationFn } from "../types";
 import type { EditorSettings } from "../useEditorSettings";
 
@@ -38,6 +40,8 @@ interface EditorSettingsPanelProps {
   themeMode?: 'light' | 'dark';
   onThemeModeChange?: (mode: 'light' | 'dark') => void;
   onLocaleChange?: (locale: string) => void;
+  presetName?: ThemePresetName;
+  onPresetChange?: (name: ThemePresetName) => void;
 }
 
 export const EditorSettingsPanel = React.memo(function EditorSettingsPanel({
@@ -50,6 +54,8 @@ export const EditorSettingsPanel = React.memo(function EditorSettingsPanel({
   themeMode,
   onThemeModeChange,
   onLocaleChange,
+  presetName,
+  onPresetChange,
 }: EditorSettingsPanelProps) {
   const isDark = useTheme().palette.mode === "dark";
   const confirm = useConfirm();
@@ -128,6 +134,29 @@ export const EditorSettingsPanel = React.memo(function EditorSettingsPanel({
               <ToggleButton value="en">English</ToggleButton>
             </ToggleButtonGroup>
           </Box>
+
+          {/* Theme Preset */}
+          {presetName !== undefined && onPresetChange && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="caption" sx={{ fontWeight: 600, color: getTextSecondary(isDark), mb: 0.5, display: "block" }}>
+                {t("settingThemePreset")}
+              </Typography>
+              <ToggleButtonGroup
+                value={presetName}
+                exclusive
+                onChange={(_, v) => { if (v) onPresetChange(v as ThemePresetName); }}
+                size="small"
+                fullWidth
+                aria-label={t("settingThemePreset")}
+              >
+                {PRESET_NAMES.map((name) => (
+                  <ToggleButton key={name} value={name}>
+                    {THEME_PRESETS[name].label}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+            </Box>
+          )}
 
           <Divider sx={{ mb: 2 }} />
         </>
