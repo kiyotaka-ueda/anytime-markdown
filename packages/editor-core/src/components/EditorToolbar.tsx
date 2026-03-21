@@ -6,7 +6,8 @@ import GitHubIcon from "@mui/icons-material/GitHub";
 import ListAltIcon from "@mui/icons-material/ListAlt";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import RedoIcon from "@mui/icons-material/Redo";
-import RefreshIcon from "@mui/icons-material/Refresh";
+import SyncIcon from "@mui/icons-material/Sync";
+import SyncDisabledIcon from "@mui/icons-material/SyncDisabled";
 import UndoIcon from "@mui/icons-material/Undo";
 import ViewStreamIcon from "@mui/icons-material/ViewStream";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
@@ -23,8 +24,9 @@ import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
 import React, { useCallback, useRef, useState } from "react";
 
-import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, DEFAULT_LIGHT_TEXT, getActionHover, getActionSelected, getBgPaper, getTextSecondary } from "../constants/colors";
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, DEFAULT_LIGHT_TEXT, getActionHover, getActionSelected, getBgPaper, getTextPrimary, getTextSecondary } from "../constants/colors";
 import { modKey } from "../constants/shortcuts";
+import { TOOLBAR_FONT_SIZE } from "../constants/dimensions";
 import { Z_TOOLBAR } from "../constants/zIndex";
 import AppIcon from "../icons/AppIcon";
 import type { TranslationFn } from "../types";
@@ -75,13 +77,13 @@ function getPillToggleSx(isDark: boolean) {
       px: 2,
       py: 0,
       gap: 0.5,
-      fontSize: "0.8rem",
+      fontSize: TOOLBAR_FONT_SIZE,
       textTransform: "none",
       lineHeight: 1,
     },
     "& .Mui-selected": {
       bgcolor: `${getBgPaper(isDark)} !important`,
-      color: "text.primary !important",
+      color: `${getTextPrimary(isDark)} !important`,
       boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
     },
     "& .MuiToggleButton-root:not(.Mui-selected)": {
@@ -111,7 +113,8 @@ interface EditorToolbarProps {
   onOpenSettings?: () => void;
   onOpenVersionDialog?: () => void;
   onAnnounce?: (message: string) => void;
-  onReload?: () => void;
+  autoReload?: boolean;
+  onToggleAutoReload?: () => void;
   t: TranslationFn;
 }
 
@@ -132,7 +135,8 @@ export const EditorToolbar = React.memo(function EditorToolbar({
   onOpenSettings,
   onOpenVersionDialog,
   onAnnounce: _onAnnounce,
-  onReload,
+  autoReload,
+  onToggleAutoReload,
   t,
 }: EditorToolbarProps) {
   const {
@@ -296,11 +300,13 @@ export const EditorToolbar = React.memo(function EditorToolbar({
         </ToggleButtonGroup>
       )}
 
-      {/* Reload (VS Code extension only) */}
-      {onReload && (
-        <Tooltip title={t("reload")}>
-          <IconButton size="small" aria-label={t("reload")} onClick={onReload}>
-            <RefreshIcon fontSize="small" />
+      {/* Auto-reload toggle (VS Code extension only) */}
+      {onToggleAutoReload && (
+        <Tooltip title={autoReload ? t("autoReloadOn") : t("autoReloadOff")}>
+          <IconButton size="small" aria-label={autoReload ? t("autoReloadOn") : t("autoReloadOff")} onClick={onToggleAutoReload}
+            sx={{ color: autoReload ? "primary.main" : undefined }}
+          >
+            {autoReload ? <SyncIcon fontSize="small" /> : <SyncDisabledIcon fontSize="small" />}
           </IconButton>
         </Tooltip>
       )}

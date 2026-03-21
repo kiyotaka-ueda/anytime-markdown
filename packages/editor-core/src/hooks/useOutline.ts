@@ -9,10 +9,11 @@ import { moveHeadingSection } from "../utils/sectionHelpers";
 interface UseOutlineParams {
   editor: Editor | null;
   sourceMode: boolean;
+  defaultOutlineOpen?: boolean;
 }
 
-export function useOutline({ editor, sourceMode }: UseOutlineParams) {
-  const [outlineOpen, setOutlineOpen] = useState(false);
+export function useOutline({ editor, sourceMode, defaultOutlineOpen }: UseOutlineParams) {
+  const [outlineOpen, setOutlineOpen] = useState(defaultOutlineOpen ?? false);
   const [headings, setHeadings] = useState<HeadingItem[]>([]);
   const [foldedIndices, setFoldedIndices] = useState<Set<number>>(new Set());
   const [outlineWidth, setOutlineWidth] = useState(OUTLINE_WIDTH_DEFAULT);

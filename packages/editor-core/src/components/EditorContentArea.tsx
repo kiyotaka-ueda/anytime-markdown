@@ -29,6 +29,7 @@ interface EditorContentAreaProps {
   sourceSearch: TextareaSearchState;
   frontmatterText: string | null;
   handleFrontmatterChange: (value: string | null) => void;
+  noScroll?: boolean;
   t: (key: string) => string;
 }
 
@@ -48,6 +49,7 @@ export function EditorContentArea({
   sourceSearch,
   frontmatterText,
   handleFrontmatterChange,
+  noScroll,
   t,
 }: EditorContentAreaProps) {
   const theme = useTheme();
@@ -127,7 +129,7 @@ export function EditorContentArea({
         <Paper
           id="md-editor-content"
           variant="outlined"
-          sx={getEditorPaperSx(theme, settings, adjustedEditorHeight, { readonlyMode })}
+          sx={getEditorPaperSx(theme, settings, adjustedEditorHeight, { readonlyMode, noScroll })}
         >
           <div ref={editorMountCallback} style={{ display: "contents" }} />
         </Paper>

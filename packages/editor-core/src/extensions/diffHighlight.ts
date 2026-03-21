@@ -21,26 +21,48 @@ function getTopLevelBlocks(doc: PMNode): BlockInfo[] {
   return blocks;
 }
 
+/** テーブルノードから行×列のテキスト配列を取得 */
+function getTableRows(table: PMNode): string[][] {
+  const rows: string[][] = [];
+  table.forEach((row) => {
+    const cells: string[] = [];
+    row.forEach((cell) => {
+      cells.push(cell.textContent);
+    });
+    rows.push(cells);
+  });
+  return rows;
+}
+
+/** 片側のみに存在する行の全セルを変更セットに追加 */
+function markAllCells(row: string[], flatIdx: number, changed: Set<number>): void {
+  for (let c = 0; c < row.length; c++) changed.add(flatIdx + c);
+}
+
+/** 両側に存在する行を列単位で比較 */
+function compareRowCells(
+  lRow: string[], rRow: string[],
+  leftFlatIdx: number, rightFlatIdx: number,
+  leftChanged: Set<number>, rightChanged: Set<number>,
+): void {
+  const maxCol = Math.max(lRow.length, rRow.length);
+  for (let c = 0; c < maxCol; c++) {
+    if (c >= lRow.length) rightChanged.add(rightFlatIdx + c);
+    else if (c >= rRow.length) leftChanged.add(leftFlatIdx + c);
+    else if (lRow[c] !== rRow[c]) {
+      leftChanged.add(leftFlatIdx + c);
+      rightChanged.add(rightFlatIdx + c);
+    }
+  }
+}
+
 /** セル単位でテーブルを比較する */
 function compareTableCells(
   leftTable: PMNode,
   rightTable: PMNode,
 ): { leftCells: Set<number>; rightCells: Set<number> } {
-  // 行×列構造で取得（行数・列数が異なる場合に対応）
-  const getRows = (table: PMNode): string[][] => {
-    const rows: string[][] = [];
-    table.forEach((row) => {
-      const cells: string[] = [];
-      row.forEach((cell) => {
-        cells.push(cell.textContent);
-      });
-      rows.push(cells);
-    });
-    return rows;
-  };
-
-  const leftRows = getRows(leftTable);
-  const rightRows = getRows(rightTable);
+  const leftRows = getTableRows(leftTable);
+  const rightRows = getTableRows(rightTable);
   const leftChanged = new Set<number>();
   const rightChanged = new Set<number>();
 
@@ -53,32 +75,16 @@ function compareTableCells(
     const rRow = rightRows[r];
 
     if (!lRow) {
-      // 右側のみに存在する行 → 全セルを変更マーク
-      if (rRow) {
-        for (let c = 0; c < rRow.length; c++) rightChanged.add(rightFlatIdx + c);
-        rightFlatIdx += rRow.length;
-      }
+      if (rRow) { markAllCells(rRow, rightFlatIdx, rightChanged); rightFlatIdx += rRow.length; }
       continue;
     }
     if (!rRow) {
-      // 左側のみに存在する行 → 全セルを変更マーク
-      for (let c = 0; c < lRow.length; c++) leftChanged.add(leftFlatIdx + c);
+      markAllCells(lRow, leftFlatIdx, leftChanged);
       leftFlatIdx += lRow.length;
       continue;
     }
 
-    // 両方に行が存在 → 列単位で比較
-    const maxColLen = Math.max(lRow.length, rRow.length);
-    for (let c = 0; c < maxColLen; c++) {
-      if (c >= lRow.length) {
-        rightChanged.add(rightFlatIdx + c);
-      } else if (c >= rRow.length) {
-        leftChanged.add(leftFlatIdx + c);
-      } else if (lRow[c] !== rRow[c]) {
-        leftChanged.add(leftFlatIdx + c);
-        rightChanged.add(rightFlatIdx + c);
-      }
-    }
+    compareRowCells(lRow, rRow, leftFlatIdx, rightFlatIdx, leftChanged, rightChanged);
     leftFlatIdx += lRow.length;
     rightFlatIdx += rRow.length;
   }
@@ -194,6 +200,13 @@ function computeLcsPairs(leftTexts: string[], rightTexts: string[]): [number, nu
   return pairs;
 }
 
+/** 指定 Set に含まれないアイテムを収集する */
+function collectUnmatched<T>(items: T[], from: number, to: number, matchedSet: Set<number>, out: T[]): void {
+  for (let i = from; i < to; i++) {
+    if (!matchedSet.has(i)) out.push(items[i]);
+  }
+}
+
 /** LCS ペアからマッチ/左のみ/右のみに分類する */
 function classifyByPairs<T>(
   leftItems: T[], rightItems: T[], pairs: [number, number][],
@@ -204,20 +217,16 @@ function classifyByPairs<T>(
   const matchedLeftSet = new Set(pairs.map(p => p[0]));
   const matchedRightSet = new Set(pairs.map(p => p[1]));
 
-  let lp = 0, rp = 0, pp = 0;
-  while (pp < pairs.length || lp < leftItems.length || rp < rightItems.length) {
-    if (pp < pairs.length) {
-      const [lIdx, rIdx] = pairs[pp];
-      while (lp < lIdx) { if (!matchedLeftSet.has(lp)) leftOnly.push(leftItems[lp]); lp++; }
-      while (rp < rIdx) { if (!matchedRightSet.has(rp)) rightOnly.push(rightItems[rp]); rp++; }
-      matched.push([leftItems[lIdx], rightItems[rIdx]]);
-      lp = lIdx + 1; rp = rIdx + 1; pp++;
-    } else {
-      while (lp < leftItems.length) { if (!matchedLeftSet.has(lp)) leftOnly.push(leftItems[lp]); lp++; }
-      while (rp < rightItems.length) { if (!matchedRightSet.has(rp)) rightOnly.push(rightItems[rp]); rp++; }
-      break;
-    }
+  let lp = 0, rp = 0;
+  for (const [lIdx, rIdx] of pairs) {
+    collectUnmatched(leftItems, lp, lIdx, matchedLeftSet, leftOnly);
+    collectUnmatched(rightItems, rp, rIdx, matchedRightSet, rightOnly);
+    matched.push([leftItems[lIdx], rightItems[rIdx]]);
+    lp = lIdx + 1;
+    rp = rIdx + 1;
   }
+  collectUnmatched(leftItems, lp, leftItems.length, matchedLeftSet, leftOnly);
+  collectUnmatched(rightItems, rp, rightItems.length, matchedRightSet, rightOnly);
 
   return { matched, leftOnly, rightOnly };
 }
@@ -230,6 +239,24 @@ function matchBlockSections(
   const rightTexts = rightSections.map(s => s.headingText);
   const pairs = computeLcsPairs(leftTexts, rightTexts);
   return classifyByPairs(leftSections, rightSections, pairs);
+}
+
+/** 片側のみのセクションを changed に追加し、反対側にプレースホルダーを挿入する */
+function markUnmatchedSections(
+  sections: BlockSection[],
+  ownResult: BlockDiffResult,
+  otherResult: BlockDiffResult,
+  otherNodes: PMNode[],
+  matched: [BlockSection, BlockSection][],
+  side: "left" | "right",
+): void {
+  for (const sec of sections) {
+    for (let k = sec.startIndex; k < sec.endIndex; k++) {
+      ownResult.changedBlocks.add(k);
+    }
+    const afterPos = findInsertPosition(otherNodes, sec, matched, side);
+    otherResult.placeholderPositions.push({ pos: afterPos, lineCount: sec.endIndex - sec.startIndex });
+  }
 }
 
 /** セマンティック（見出しベース）ブロック差分 */
@@ -268,24 +295,9 @@ function computeSemanticBlockDiff(
     diffBlockRange(leftBlocks, rightBlocks, leftNodes, rightNodes, leftRange, rightRange, leftResult, rightResult);
   }
 
-  // 左にのみ存在するセクション: 全ブロックを changed + 右にプレースホルダー
-  for (const sec of leftOnly) {
-    for (let k = sec.startIndex; k < sec.endIndex; k++) {
-      leftResult.changedBlocks.add(k);
-    }
-    // 右側のプレースホルダー位置: このセクションの直前のマッチセクションの終端
-    const afterPos = findInsertPosition(rightNodes, sec, matched, "right");
-    rightResult.placeholderPositions.push({ pos: afterPos, lineCount: sec.endIndex - sec.startIndex });
-  }
-
-  // 右にのみ存在するセクション: 全ブロックを changed + 左にプレースホルダー
-  for (const sec of rightOnly) {
-    for (let k = sec.startIndex; k < sec.endIndex; k++) {
-      rightResult.changedBlocks.add(k);
-    }
-    const afterPos = findInsertPosition(leftNodes, sec, matched, "left");
-    leftResult.placeholderPositions.push({ pos: afterPos, lineCount: sec.endIndex - sec.startIndex });
-  }
+  // 片側のみのセクションを処理
+  markUnmatchedSections(leftOnly, leftResult, rightResult, rightNodes, matched, "right");
+  markUnmatchedSections(rightOnly, rightResult, leftResult, leftNodes, matched, "left");
 
   return { left: leftResult, right: rightResult };
 }

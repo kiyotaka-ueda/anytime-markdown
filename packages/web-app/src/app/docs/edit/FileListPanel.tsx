@@ -9,6 +9,7 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import {
   Box,
   Button,
+  Chip,
   IconButton,
   List,
   ListItem,
@@ -49,6 +50,9 @@ export default function FileListPanel({
   const [urlDraft, setUrlDraft] = useState('');
   const [nameDraft, setNameDraft] = useState('');
 
+  // md ファイル名のセット（日英ペア判定用）
+  const mdFileNames = new Set(files.filter((f) => f.name.endsWith('.md')).map((f) => f.name));
+
   const handleAdd = () => {
     const trimmedUrl = urlDraft.trim();
     const trimmedName = nameDraft.trim() || trimmedUrl;
@@ -74,7 +78,7 @@ export default function FileListPanel({
           {t('docsUpload')}
         </Button>
       </Box>
-      <input ref={fileInputRef} type="file" accept=".md" multiple hidden onChange={onUpload} />
+      <input ref={fileInputRef} type="file" accept=".md,.png,.jpg,.jpeg,.gif,.svg,.webp" multiple hidden onChange={onUpload} />
       <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: bgColor, maxHeight: 400, overflow: 'auto' }}>
         <List dense disablePadding>
           {files.map((file) => (
@@ -102,8 +106,26 @@ export default function FileListPanel({
                 <DescriptionIcon fontSize="small" sx={{ color: 'text.secondary' }} />
               </ListItemIcon>
               <ListItemText
-                primary={file.name}
-                primaryTypographyProps={{ fontSize: '0.85rem', noWrap: true }}
+                primary={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Typography sx={{ fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {file.name}
+                    </Typography>
+                    {file.name.endsWith('.md') && (() => {
+                      const isEn = file.name.endsWith('-en.md');
+                      const baseName = isEn ? file.name.slice(0, -6) + '.md' : file.name;
+                      const enName = isEn ? file.name : file.name.slice(0, -3) + '-en.md';
+                      const hasJa = mdFileNames.has(baseName);
+                      const hasEn = mdFileNames.has(enName);
+                      return (
+                        <>
+                          <Chip label="JA" size="small" sx={{ height: 16, fontSize: '0.6rem', fontWeight: 700, bgcolor: hasJa ? 'primary.main' : 'action.disabledBackground', color: hasJa ? 'primary.contrastText' : 'text.disabled' }} />
+                          <Chip label="EN" size="small" sx={{ height: 16, fontSize: '0.6rem', fontWeight: 700, bgcolor: hasEn ? 'primary.main' : 'action.disabledBackground', color: hasEn ? 'primary.contrastText' : 'text.disabled' }} />
+                        </>
+                      );
+                    })()}
+                  </Box>
+                }
               />
             </ListItem>
           ))}

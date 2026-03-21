@@ -15,6 +15,33 @@ type CommentInfo = {
   isPoint: boolean;
 };
 
+/** descendants コールバック: コメントに対応するノード位置とテキストを探す */
+function findCommentTarget(
+  doc: import("@tiptap/pm/model").Node,
+  commentId: string,
+): { targetText: string; pos: number; isPoint: boolean } {
+  let targetText = '';
+  let pos = 0;
+  let isPoint = false;
+  doc.descendants((node, nodePos) => {
+    if (pos > 0 || isPoint) return false;
+    if (node.type.name === 'commentPoint' && node.attrs.commentId === commentId) {
+      pos = nodePos;
+      isPoint = true;
+      return false;
+    }
+    if (node.isText) {
+      const mark = node.marks.find(m => m.type.name === 'commentHighlight' && m.attrs.commentId === commentId);
+      if (mark) {
+        targetText = node.text || '';
+        pos = nodePos;
+        return false;
+      }
+    }
+  });
+  return { targetText, pos, isPoint };
+}
+
 /**
  * エディタ内のコメント変更をデバウンス付きで外部コールバックへ通知する。
  */
@@ -33,25 +60,7 @@ export function useEditorCommentNotifications(
       const comments = pluginState?.comments ?? new Map<string, InlineComment>();
       const result: CommentInfo[] = [];
       for (const [, c] of comments) {
-        let targetText = '';
-        let pos = 0;
-        let isPoint = false;
-        editor.state.doc.descendants((node, nodePos) => {
-          if (pos > 0 || isPoint) return false;
-          if (node.type.name === 'commentPoint' && node.attrs.commentId === c.id) {
-            pos = nodePos;
-            isPoint = true;
-            return false;
-          }
-          if (node.isText) {
-            const mark = node.marks.find(m => m.type.name === 'commentHighlight' && m.attrs.commentId === c.id);
-            if (mark) {
-              targetText = node.text || '';
-              pos = nodePos;
-              return false;
-            }
-          }
-        });
+        const { targetText, pos, isPoint } = findCommentTarget(editor.state.doc, c.id);
         result.push({ id: c.id, text: c.text, resolved: c.resolved, createdAt: c.createdAt, targetText, pos, isPoint });
       }
       onCommentsChangeRef.current?.(result);

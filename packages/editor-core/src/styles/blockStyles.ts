@@ -2,6 +2,7 @@ import type { SxProps,Theme } from "@mui/material/styles";
 import { alpha } from "@mui/material/styles";
 
 import { ADMONITION_CAUTION, ADMONITION_IMPORTANT, ADMONITION_NOTE, ADMONITION_TIP, ADMONITION_WARNING, getActionHover, getActionSelected, getBgPaper, getDivider, getPrimaryMain, getTextPrimary, getTextSecondary } from "../constants/colors";
+import { BLOCK_STYLE_FONT_SIZE } from "../constants/dimensions";
 import type { EditorSettings } from "../useEditorSettings";
 
 /** blockquote・admonition・table・list・taskList・hr・img スタイル */
@@ -29,7 +30,7 @@ export function getBlockStyles(theme: Theme, settings: EditorSettings): SxProps<
         position: "absolute",
         top: 8,
         left: 16,
-        fontSize: "0.8rem",
+        fontSize: BLOCK_STYLE_FONT_SIZE,
         fontWeight: 700,
         lineHeight: 1,
       },
@@ -123,6 +124,31 @@ export function getBlockStyles(theme: Theme, settings: EditorSettings): SxProps<
         "0%, 100%": { borderLeftColor: getTextPrimary(isDark) },
         "50%": { borderLeftColor: "transparent" },
       },
+    },
+    /* ProseMirror GapCursor — ブロック要素の前後に縦線カーソルを表示 */
+    "& .ProseMirror-gapcursor": {
+      display: "none !important",
+      pointerEvents: "none",
+      position: "relative",
+    },
+    "& .ProseMirror-gapcursor::after": {
+      content: '""',
+      display: "block",
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "2px",
+      height: "100%",
+      borderTop: "none",
+      backgroundColor: getPrimaryMain(isDark),
+      animation: "blink-gap-cursor 1s step-end infinite",
+    },
+    "&.ProseMirror-focused .ProseMirror-gapcursor": {
+      display: "block !important",
+    },
+    "@keyframes blink-gap-cursor": {
+      "0%, 100%": { opacity: 1 },
+      "50%": { opacity: 0 },
     },
   };
 }

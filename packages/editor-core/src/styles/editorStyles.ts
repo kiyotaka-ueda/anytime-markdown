@@ -19,7 +19,7 @@ export function getEditorPaperSx(
   theme: Theme,
   settings: EditorSettings,
   editorHeight: number,
-  options?: { readonlyMode?: boolean },
+  options?: { readonlyMode?: boolean; noScroll?: boolean },
 ): SxProps<Theme> {
   const isDark = theme.palette.mode === "dark";
   const editorBg = getEditorBg(isDark, settings);
@@ -35,9 +35,10 @@ export function getEditorPaperSx(
     overflow: "hidden",
     bgcolor: outerBg,
     "& .tiptap": {
-      minHeight: editorHeight - EDITOR_PADDING_TOP,
-      maxHeight: editorHeight - EDITOR_PADDING_BORDER,
-      overflowY: "auto",
+      position: "relative",
+      minHeight: options?.noScroll ? undefined : editorHeight - EDITOR_PADDING_TOP,
+      maxHeight: options?.noScroll ? undefined : editorHeight - EDITOR_PADDING_BORDER,
+      overflowY: options?.noScroll ? "visible" : "auto",
       scrollbarWidth: "thin",
       scrollbarColor: isDark ? "rgba(255,255,255,0.45) transparent" : "rgba(0,0,0,0.4) transparent",
       "&::-webkit-scrollbar": { width: 6 },

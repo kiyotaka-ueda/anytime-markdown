@@ -110,12 +110,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
     const isLargeFile = () => document.getText().length > 100 * 1024;
 
-    const sendTheme = () => {
-      if (disposed) { return; }
-      const kind = vscode.window.activeColorTheme.kind;
-      const mode = (kind === vscode.ColorThemeKind.Light || kind === vscode.ColorThemeKind.HighContrastLight) ? 'light' : 'dark';
-      webviewPanel.webview.postMessage({ type: 'setTheme', mode });
-    };
+    // テーマはエディタ設定でのみ変更（VS Code テーマ同期を無効化）
+    const sendTheme = () => {};
 
     const sendSettings = () => {
       if (disposed) { return; }
@@ -170,8 +166,16 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
     // 外部変更検知（Claude Code、git 操作、他のエディタなど）
     let notificationVisible = false;
+    let autoReload = false;
     const showExternalChangeNotification = (content: string) => {
-      if (disposed || notificationVisible) { return; }
+      if (disposed) { return; }
+      // 自動再読み込みモード: 通知なしで即座にコンテンツを更新
+      if (autoReload) {
+        webviewPanel.webview.postMessage({ type: 'setBaseUri', baseUri });
+        webviewPanel.webview.postMessage({ type: 'setContent', content });
+        return;
+      }
+      if (notificationVisible) { return; }
       notificationVisible = true;
       const fileName = path.basename(document.uri.fsPath);
       vscode.window.showInformationMessage(
@@ -403,63 +407,57 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       }
     };
 
-    const handleOpenLink = async (message: Record<string, unknown>) => {
-      const rawHref = (message as { type: string; href?: string }).href;
-      if (typeof rawHref !== 'string') { return; }
-      const href = decodeURIComponent(rawHref);
-      const lineMatch = href.match(/#L(\d+)$/);
-      const filePath = lineMatch ? href.replace(/#L\d+$/, '') : href;
-      if (path.isAbsolute(filePath)) {
-        vscode.window.showWarningMessage(`Invalid file path: ${filePath}`);
-        return;
-      }
+    const buildLinkCandidates = (filePath: string): string[] | null => {
+      if (path.isAbsolute(filePath)) return null;
       const docDir = path.dirname(ctx.document.uri.fsPath);
       const targetPath = path.resolve(docDir, filePath);
       const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
       if (workspaceRoot && !targetPath.startsWith(workspaceRoot + path.sep) && targetPath !== workspaceRoot) {
         const fromRoot = path.resolve(workspaceRoot, filePath);
-        if (!fromRoot.startsWith(workspaceRoot + path.sep)) {
-          vscode.window.showWarningMessage(`Invalid file path: ${filePath}`);
-          return;
-        }
+        if (!fromRoot.startsWith(workspaceRoot + path.sep)) return null;
       }
       const candidates = [targetPath];
       if (workspaceRoot) {
         const fromRoot = path.resolve(workspaceRoot, filePath);
-        if (fromRoot !== targetPath) { candidates.push(fromRoot); }
+        if (fromRoot !== targetPath) candidates.push(fromRoot);
       }
-      let opened = false;
-      for (const candidate of candidates) {
-        const uri = vscode.Uri.file(candidate);
-        try {
-          if (lineMatch) {
-            const line = Math.max(0, parseInt(lineMatch[1], 10) - 1);
-            const doc = await vscode.workspace.openTextDocument(uri);
-            await vscode.window.showTextDocument(doc, {
-              selection: new vscode.Range(line, 0, line, 0),
-            });
-          } else {
-            await vscode.commands.executeCommand('vscode.open', uri);
-          }
-          opened = true;
-          break;
-        } catch {
-          // 次の候補を試す
+      return candidates;
+    };
+
+    const tryOpenCandidate = async (candidate: string, lineMatch: RegExpMatchArray | null): Promise<boolean> => {
+      const uri = vscode.Uri.file(candidate);
+      try {
+        if (lineMatch) {
+          const line = Math.max(0, parseInt(lineMatch[1], 10) - 1);
+          const doc = await vscode.workspace.openTextDocument(uri);
+          await vscode.window.showTextDocument(doc, { selection: new vscode.Range(line, 0, line, 0) });
+        } else {
+          await vscode.commands.executeCommand('vscode.open', uri);
         }
-      }
-      if (!opened) {
-        vscode.window.showWarningMessage(`Cannot open file: ${href}`);
+        return true;
+      } catch {
+        return false;
       }
     };
 
-    const handleRequestReload = async () => {
-      try {
-        const bytes = await vscode.workspace.fs.readFile(ctx.document.uri);
-        const diskContent = new TextDecoder().decode(bytes);
-        ctx.webviewPanel.webview.postMessage({ type: 'setBaseUri', baseUri: ctx.baseUri });
-        ctx.webviewPanel.webview.postMessage({ type: 'setContent', content: diskContent });
-      } catch (err) {
-        vscode.window.showErrorMessage(`Error reloading file: ${err instanceof Error ? err.message : String(err)}`);
+    const handleOpenLink = async (message: Record<string, unknown>) => {
+      const rawHref = (message as { type: string; href?: string }).href;
+      if (typeof rawHref !== 'string') return;
+      const href = decodeURIComponent(rawHref);
+      const lineMatch = href.match(/#L(\d+)$/);
+      const filePath = lineMatch ? href.replace(/#L\d+$/, '') : href;
+      const candidates = buildLinkCandidates(filePath);
+      if (!candidates) {
+        vscode.window.showWarningMessage(`Invalid file path: ${filePath}`);
+        return;
+      }
+      let opened = false;
+      for (const candidate of candidates) {
+        opened = await tryOpenCandidate(candidate, lineMatch);
+        if (opened) break;
+      }
+      if (!opened) {
+        vscode.window.showWarningMessage(`Cannot open file: ${href}`);
       }
     };
 
@@ -487,7 +485,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         case 'saveClipboardImage': handleSaveClipboardImage(message); break;
         case 'overwriteImage': handleOverwriteImage(message); break;
         case 'openLink': await handleOpenLink(message); break;
-        case 'requestReload': await handleRequestReload(); break;
+        case 'setAutoReload': autoReload = !!message.enabled; break;
         case 'save': await handleSave(); break;
       }
     });

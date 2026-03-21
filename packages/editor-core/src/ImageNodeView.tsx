@@ -3,7 +3,9 @@
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import EditIcon from "@mui/icons-material/Edit";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
+import LinkIcon from "@mui/icons-material/Link";
 import ImageIcon from "@mui/icons-material/Image";
+import ScreenshotMonitorIcon from "@mui/icons-material/ScreenshotMonitor";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import { Box, Divider, IconButton, Tooltip, Typography, useTheme } from "@mui/material";
 import type { NodeViewProps } from "@tiptap/react";
@@ -18,7 +20,9 @@ import { EditDialogHeader } from "./components/EditDialogHeader";
 import { EditDialogWrapper } from "./components/EditDialogWrapper";
 import { ImageAnnotationDialog } from "./components/ImageAnnotationDialog";
 import { ImageCropTool } from "./components/ImageCropTool";
+import { ScreenCaptureDialog } from "./components/ScreenCaptureDialog";
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, getActionHover, getDivider, getErrorMain, getPrimaryMain, getTextDisabled, getTextSecondary, getWarningMain } from "./constants/colors";
+import { HANDLEBAR_CAPTION_FONT_SIZE, SMALL_CAPTION_FONT_SIZE, STATUSBAR_FONT_SIZE } from "./constants/dimensions";
 import { useBlockCapture } from "./hooks/useBlockCapture";
 import { useBlockNodeState } from "./hooks/useBlockNodeState";
 import { useBlockResize } from "./hooks/useBlockResize";
@@ -26,6 +30,17 @@ import { getEditorStorage } from "./types";
 import { type ImageAnnotation, parseAnnotations, serializeAnnotations } from "./types/imageAnnotation";
 
 const MIN_WIDTH = 50;
+
+/** base64 DataURL のバイトサイズを算出してフォーマットする */
+function formatDataUrlSize(dataUrl: string): string {
+  const commaIdx = dataUrl.indexOf(",");
+  if (commaIdx < 0) return "";
+  const base64 = dataUrl.slice(commaIdx + 1);
+  const bytes = Math.ceil(base64.length * 3 / 4);
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
 
 // --- Extracted: image size tracking hook ---
 function useImageSize(imgRef: React.RefObject<HTMLImageElement | null>, src: string, collapsed: boolean) {
@@ -83,19 +98,23 @@ function handleCropComplete(
 
 // --- Extracted sub-component: Image toolbar extra info ---
 function ImageToolbarExtra({
-  alt, src, imgError, isCompareLeft, isEditable, collapsed, annotations, onAnnotationOpen, isDark, t,
+  alt, src, imgError, isCompareLeft, isEditable, collapsed, annotations, onAnnotationOpen, onEdit, onEditUrl, onScreenCapture, isDark, t,
 }: {
   alt: string; src: string; imgError: boolean;
   isCompareLeft: boolean; isEditable: boolean; collapsed: boolean;
   annotations: ImageAnnotation[]; onAnnotationOpen: () => void;
+  onEdit?: () => void;
+  onEditUrl?: () => void;
+  onScreenCapture?: () => void;
   isDark: boolean;
   t: (key: string) => string;
 }) {
+  const iconSx = { fontSize: 16, color: getTextSecondary(isDark) };
   return (
     <>
       <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
       {alt ? (
-        <Typography variant="caption" sx={{ color: getTextSecondary(isDark), fontSize: "0.65rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flexShrink: 1 }}>
+        <Typography variant="caption" sx={{ color: getTextSecondary(isDark), fontSize: HANDLEBAR_CAPTION_FONT_SIZE, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flexShrink: 1 }}>
           {alt}
         </Typography>
       ) : (
@@ -103,11 +122,11 @@ function ImageToolbarExtra({
           <WarningAmberIcon sx={{ fontSize: 14, color: getWarningMain(isDark) }} />
         </Tooltip>
       )}
-      <Typography variant="caption" sx={{ color: getTextDisabled(isDark), fontSize: "0.65rem", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+      <Typography variant="caption" sx={{ color: getTextDisabled(isDark), fontSize: HANDLEBAR_CAPTION_FONT_SIZE, fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
         {src?.startsWith("data:") ? "(base64)" : src ? `(${src})` : ""}
       </Typography>
       {imgError && (
-        <Typography variant="caption" sx={{ color: getErrorMain(isDark), fontSize: "0.65rem", fontWeight: 600, flexShrink: 0, display: "flex", alignItems: "center", gap: 0.25 }}>
+        <Typography variant="caption" sx={{ color: getErrorMain(isDark), fontSize: HANDLEBAR_CAPTION_FONT_SIZE, fontWeight: 600, flexShrink: 0, display: "flex", alignItems: "center", gap: 0.25 }}>
           <ErrorOutlineIcon sx={{ fontSize: 14 }} />
           {t("imageNotFound")}
         </Typography>
@@ -115,11 +134,32 @@ function ImageToolbarExtra({
       {!isCompareLeft && isEditable && !collapsed && (
         <>
           <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
+          {onEdit && (
+            <Tooltip title={t("edit")} placement="top">
+              <IconButton size="small" sx={{ p: 0.25 }} onClick={onEdit} aria-label={t("edit")}>
+                <EditIcon sx={iconSx} />
+              </IconButton>
+            </Tooltip>
+          )}
+          {onEditUrl && (
+            <Tooltip title={t("imageUrl")} placement="top">
+              <IconButton size="small" sx={{ p: 0.25 }} onClick={onEditUrl} aria-label={t("imageUrl")}>
+                <LinkIcon sx={iconSx} />
+              </IconButton>
+            </Tooltip>
+          )}
           <Tooltip title={t("annotate")} placement="top">
             <IconButton size="small" sx={{ p: 0.25 }} onClick={onAnnotationOpen} aria-label={t("annotate")}>
               <ChatBubbleOutlineIcon sx={{ fontSize: 16, color: annotations.length > 0 ? getPrimaryMain(isDark) : getTextSecondary(isDark) }} />
             </IconButton>
           </Tooltip>
+          {onScreenCapture && (
+            <Tooltip title={t("screenCapture")} placement="top">
+              <IconButton size="small" sx={{ p: 0.25 }} onClick={onScreenCapture} aria-label={t("screenCapture")}>
+                <ScreenshotMonitorIcon sx={iconSx} />
+              </IconButton>
+            </Tooltip>
+          )}
         </>
       )}
     </>
@@ -200,7 +240,7 @@ function ImageWithResize({
           px: 1,
           py: 0.25,
           borderRadius: 1,
-          fontSize: "0.7rem",
+          fontSize: SMALL_CAPTION_FONT_SIZE,
           fontFamily: "monospace",
           pointerEvents: "none",
         }}>
@@ -222,6 +262,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
   const handleCapture = useBlockCapture(editor, getPos, "image.png");
   const { src, alt, title, width, annotations: annotationsJson } = node.attrs;
   const [annotationOpen, setAnnotationOpen] = useState(false);
+  const [screenCaptureOpen, setScreenCaptureOpen] = useState(false);
   const annotations = parseAnnotations(annotationsJson as string | null);
 
   const imgRef = useRef<HTMLImageElement>(null);
@@ -267,22 +308,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
           onClose={() => setEditOpen(false)}
           icon={<ImageIcon sx={{ fontSize: 18 }} />}
           t={t}
-          extra={imgSize ? (
-            <Typography variant="caption" sx={{ color: getTextDisabled(isDark), fontSize: "0.65rem", fontFamily: "monospace", whiteSpace: "nowrap" }}>
-              {imgSize.w}x{imgSize.h} / {imgSize.nw}x{imgSize.nh}
-            </Typography>
-          ) : undefined}
         />
-        {/* Image toolbar (second row) */}
-        {isEditable && (
-          <Box sx={{ display: "flex", alignItems: "center", borderBottom: 1, borderColor: getDivider(isDark), px: 1, py: 0.25, minHeight: 32 }}>
-            <Tooltip title={t("imageUrl")} placement="bottom">
-              <IconButton size="small" sx={{ p: 0.25 }} onClick={handleEditUrl} aria-label={t("imageUrl")}>
-                <EditIcon sx={{ fontSize: 16, color: getTextSecondary(isDark) }} />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        )}
         <Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG }}>
           {src && !imgError && (
             <ImageCropTool
@@ -291,6 +317,12 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
               t={t}
             />
           )}
+        </Box>
+        <Box sx={{ display: "flex", alignItems: "center", px: 2, py: 0.5, borderTop: 1, borderColor: getDivider(isDark), gap: 1 }}>
+          <Box sx={{ flex: 1 }} />
+          <Typography variant="caption" sx={{ color: getTextDisabled(isDark), fontSize: STATUSBAR_FONT_SIZE, fontFamily: "monospace", whiteSpace: "nowrap" }}>
+            {imgSize ? `${imgSize.nw}x${imgSize.nh}` : ""}{imgSize && src?.startsWith("data:") ? " / " : ""}{src?.startsWith("data:") ? formatDataUrlSize(src) : ""}
+          </Typography>
         </Box>
       </EditDialogWrapper>
       {/* Inline view */}
@@ -308,9 +340,8 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
         {(isEditable || isCompareLeftEditable) && (
           <BlockInlineToolbar
             label={t("image")}
-            onEdit={!collapsed && !isCompareLeft ? () => setEditOpen(true) : undefined}
             onDelete={!collapsed && !isCompareLeft ? () => setDeleteDialogOpen(true) : undefined}
-            onCapture={handleCapture}
+            onExport={handleCapture}
             labelOnly={isCompareLeftEditable}
             collapsed={collapsed}
             extra={
@@ -323,6 +354,9 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
                 collapsed={collapsed}
                 annotations={annotations}
                 onAnnotationOpen={() => setAnnotationOpen(true)}
+                onEdit={!collapsed && !isCompareLeft ? () => setEditOpen(true) : undefined}
+                onEditUrl={!collapsed && !isCompareLeft ? handleEditUrl : undefined}
+                onScreenCapture={!collapsed && !isCompareLeft && typeof navigator !== "undefined" && !!navigator.mediaDevices?.getDisplayMedia ? () => setScreenCaptureOpen(true) : undefined}
                 isDark={isDark}
                 t={t}
               />
@@ -374,6 +408,12 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: NodeVi
           t={t}
         />
       )}
+      <ScreenCaptureDialog
+        open={screenCaptureOpen}
+        onClose={() => setScreenCaptureOpen(false)}
+        onCapture={(dataUrl) => updateAttributes({ src: dataUrl })}
+        t={t}
+      />
     </NodeViewWrapper>
   );
 }

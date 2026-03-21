@@ -162,7 +162,7 @@ export function App() {
 
       switch (message.type) {
         case 'setTheme':
-          if (message.mode === 'dark' || message.mode === 'light') setThemeMode(message.mode);
+          // テーマはエディタ設定でのみ変更（VS Code テーマ同期を無効化）
           return;
         case 'setLanding':
           if (message.landing === true) setLanding(true);
@@ -254,8 +254,13 @@ export function App() {
     vscode.postMessage({ type: 'statusChanged', status });
   }, []);
 
-  const handleReload = useCallback(() => {
-    vscode.postMessage({ type: 'requestReload' });
+  const [autoReload, setAutoReload] = useState(false);
+  const handleToggleAutoReload = useCallback(() => {
+    setAutoReload((prev) => {
+      const next = !prev;
+      vscode.postMessage({ type: 'setAutoReload', enabled: next });
+      return next;
+    });
   }, []);
 
   // スクロール同期: スクロール位置を extension host に送信
@@ -318,7 +323,7 @@ export function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <ConfirmProvider>
-        <MarkdownEditorPage key={editorKey} hideFileOps hideUndoRedo hideSettings hideVersionInfo hideTemplates hideFoldAll hideStatusBar sideToolbar hideCompareToggle externalCompareContent={compareContent} onCompareModeChange={handleCompareModeChange} onHeadingsChange={handleHeadingsChange} onCommentsChange={handleCommentsChange} onStatusChange={handleStatusChange} onReload={handleReload} />
+        <MarkdownEditorPage key={editorKey} hideFileOps hideUndoRedo hideSettings hideVersionInfo hideTemplates hideFoldAll hideStatusBar sideToolbar hideCompareToggle externalCompareContent={compareContent} onCompareModeChange={handleCompareModeChange} onHeadingsChange={handleHeadingsChange} onCommentsChange={handleCommentsChange} onStatusChange={handleStatusChange} autoReload={autoReload} onToggleAutoReload={handleToggleAutoReload} />
       </ConfirmProvider>
     </ThemeProvider>
   );

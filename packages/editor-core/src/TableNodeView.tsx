@@ -21,6 +21,7 @@ import { DeleteBlockDialog } from "./components/codeblock/DeleteBlockDialog";
 import { EditDialogHeader } from "./components/EditDialogHeader";
 import { SearchReplaceBar } from "./components/SearchReplaceBar";
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, getActionHover, getActionSelected, getBgPaper, getDivider, getErrorMain, getTextSecondary } from "./constants/colors";
+import { SMALL_CAPTION_FONT_SIZE } from "./constants/dimensions";
 import { Z_FULLSCREEN } from "./constants/zIndex";
 import { findCounterpartTableHtml, getMergeEditors } from "./contexts/MergeEditorsContext";
 import { useBlockNodeState } from "./hooks/useBlockNodeState";
@@ -177,16 +178,75 @@ function TableCompareView({
   return (
     <Box sx={{ flex: 1, display: "flex", overflow: "hidden" }}>
       <Box sx={{ flex: 1, overflow: "auto", bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG, p: 2, borderRight: 1, borderColor: getDivider(isDark) }}>
-        <Typography variant="caption" sx={{ color: getTextSecondary(isDark), fontSize: "0.7rem", mb: 1, display: "block" }}>{t("compare")}</Typography>
+        <Typography variant="caption" sx={{ color: getTextSecondary(isDark), fontSize: SMALL_CAPTION_FONT_SIZE, mb: 1, display: "block" }}>{t("compare")}</Typography>
         <Box
           dangerouslySetInnerHTML={{ __html: highlightedCompareHtml }}
           sx={{ "& table": tableSx }}
         />
       </Box>
       <Box sx={{ flex: 1, overflow: "auto", bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG, p: 2, "& table": tableSx }}>
-        <Typography variant="caption" sx={{ color: getTextSecondary(isDark), fontSize: "0.7rem", mb: 1, display: "block" }}>{t("compare")} - {t("edit")}</Typography>
+        <Typography variant="caption" sx={{ color: getTextSecondary(isDark), fontSize: SMALL_CAPTION_FONT_SIZE, mb: 1, display: "block" }}>{t("compare")} - {t("edit")}</Typography>
         <NodeViewContent<"table"> as="table" />
       </Box>
+    </Box>
+  );
+}
+
+/** Paper の sx スタイルを構築する */
+function buildPaperSx(editOpen: boolean, isEditable: boolean, isDark: boolean, showToolbar: boolean) {
+  const base = {
+    border: editOpen ? 0 : 1,
+    borderColor: isEditable ? getDivider(isDark) : "transparent",
+    borderRadius: editOpen ? 0 : 1,
+    overflow: "hidden",
+    my: editOpen ? 0 : 1,
+  };
+  const editClosedSx = !editOpen ? { bgcolor: "transparent" } : {};
+  const editOpenSx = editOpen ? {
+    position: "fixed" as const,
+    inset: 0,
+    zIndex: Z_FULLSCREEN,
+    display: "flex",
+    flexDirection: "column" as const,
+    bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
+  } : {};
+  const hiddenToolbarSx = !showToolbar ? {
+    borderColor: "transparent",
+    "& > [data-block-toolbar]": {
+      maxHeight: 0, opacity: 0, py: 0, overflow: "hidden",
+    },
+  } : {};
+  return { ...base, ...editClosedSx, ...editOpenSx, ...hiddenToolbarSx };
+}
+
+/** テーブル本体の sx スタイルを構築する */
+function buildTableBodySx(collapsed: boolean, editOpen: boolean, isDark: boolean, tableSx: Record<string, unknown>) {
+  if (collapsed) return { height: 0, overflow: "hidden" };
+  return {
+    overflow: "auto",
+    ...(editOpen && {
+      flex: 1,
+      bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
+      p: 2,
+      "& table": tableSx,
+    }),
+  };
+}
+
+/** 編集ヘッダーツールバー */
+function TableEditHeader({ editor, isDark, isEditable, setEditOpen, t }: {
+  editor: Editor; isDark: boolean; isEditable: boolean;
+  setEditOpen: (v: boolean) => void; t: (key: string) => string;
+}) {
+  return (
+    <Box contentEditable={false}>
+      <EditDialogHeader
+        label={t("tableLabel")}
+        onClose={() => setEditOpen(false)}
+        icon={<TableChartIcon sx={{ fontSize: 18 }} />}
+        t={t}
+      />
+      {isEditable && <TableOperationsToolbar editor={editor} isDark={isDark} t={t} />}
     </Box>
   );
 }
@@ -225,6 +285,8 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
     "& .selectedCell": { bgcolor: getActionSelected(isDark) },
   };
 
+  const showCompare = editOpen && isCompareMode && !!highlightedCompareHtml;
+
   return (
     <NodeViewWrapper>
       <Paper
@@ -237,55 +299,22 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
           onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Escape") setEditOpen(false); },
         })}
         tabIndex={editOpen ? -1 : undefined}
-        sx={{
-          border: editOpen ? 0 : 1,
-          borderColor: isEditable ? getDivider(isDark) : "transparent",
-          borderRadius: editOpen ? 0 : 1,
-          overflow: "hidden",
-          my: editOpen ? 0 : 1,
-          ...(!editOpen && { bgcolor: "transparent" }),
-          ...(editOpen && {
-            position: "fixed",
-            inset: 0,
-            zIndex: Z_FULLSCREEN,
-            display: "flex",
-            flexDirection: "column",
-            bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
-          }),
-          ...(!showToolbar && {
-            borderColor: "transparent",
-            "& > [data-block-toolbar]": {
-              maxHeight: 0, opacity: 0, py: 0, overflow: "hidden",
-            },
-          }),
-        }}
+        sx={buildPaperSx(editOpen, isEditable, isDark, showToolbar)}
       >
-        {/* Edit header toolbar */}
-        {editOpen && (
-          <Box contentEditable={false}>
-            <EditDialogHeader
-              label={t("tableLabel")}
-              onClose={() => setEditOpen(false)}
-              icon={<TableChartIcon sx={{ fontSize: 18 }} />}
-              t={t}
-            />
-            {isEditable && <TableOperationsToolbar editor={editor} isDark={isDark} t={t} />}
-          </Box>
-        )}
+        {editOpen && <TableEditHeader editor={editor} isDark={isDark} isEditable={isEditable} setEditOpen={setEditOpen} t={t} />}
 
-        {/* Inline toolbar (non-edit) */}
         {!editOpen && isEditable && (
           <BlockInlineToolbar
             label={t("tableLabel")}
             onEdit={!collapsed && !isCompareLeft ? () => setEditOpen(true) : undefined}
             onDelete={!collapsed && !isCompareLeft ? () => setDeleteDialogOpen(true) : undefined}
             collapsed={collapsed}
+            labelDivider
             t={t}
           />
         )}
 
-        {/* Table body */}
-        {editOpen && isCompareMode && highlightedCompareHtml ? (
+        {showCompare ? (
           <TableCompareView
             highlightedCompareHtml={highlightedCompareHtml}
             tableSx={tableSx}
@@ -294,18 +323,7 @@ export function TableNodeView({ editor, node, getPos }: NodeViewProps) {
           />
         ) : (
           <Box
-            sx={collapsed
-              ? { height: 0, overflow: "hidden" }
-              : {
-                  overflow: "auto",
-                  ...(editOpen && {
-                    flex: 1,
-                    bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
-                    p: 2,
-                    "& table": tableSx,
-                  }),
-                }
-            }
+            sx={buildTableBodySx(collapsed, editOpen, isDark, tableSx)}
             onDoubleClick={!isEditable ? () => setEditOpen(true) : undefined}
           >
             <NodeViewContent<"table"> as="table" />

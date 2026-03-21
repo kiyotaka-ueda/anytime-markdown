@@ -4,6 +4,7 @@ import type { Editor } from "@tiptap/react";
 import type React from "react";
 
 import { getBgPaper, getPrimaryMain } from "../constants/colors";
+import { SKIP_LINK_FONT_SIZE } from "../constants/dimensions";
 import { Z_SKIP_LINK } from "../constants/zIndex";
 import type { ToolbarVisibility } from "../types/toolbar";
 import { EditorToolbar } from "./EditorToolbar";
@@ -16,10 +17,10 @@ interface EditorToolbarSectionProps {
   fileHandlers: {
     onDownload: () => void;
     onClear: () => void;
-    onOpenFile: () => void;
-    onSaveFile: () => void;
-    onSaveAsFile: () => void;
-    onExportPdf: () => void;
+    onOpenFile: () => void | Promise<void>;
+    onSaveFile: () => void | Promise<void>;
+    onSaveAsFile: () => void | Promise<void>;
+    onExportPdf: () => void | Promise<void>;
   };
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   handleFileSelected: (f: File) => void;
@@ -54,7 +55,8 @@ interface EditorToolbarSectionProps {
   setCommentOpen: React.Dispatch<React.SetStateAction<boolean>>;
   liveMessage: string;
   t: (key: string) => string;
-  onReload?: () => void;
+  autoReload?: boolean;
+  onToggleAutoReload?: () => void;
 }
 
 export function EditorToolbarSection({
@@ -87,7 +89,8 @@ export function EditorToolbarSection({
   setCommentOpen,
   liveMessage,
   t,
-  onReload,
+  autoReload,
+  onToggleAutoReload,
 }: EditorToolbarSectionProps) {
   const isDark = useTheme().palette.mode === "dark";
   return (
@@ -102,7 +105,7 @@ export function EditorToolbarSection({
           "&:focus": {
             left: 16, top: 16, zIndex: Z_SKIP_LINK, bgcolor: getBgPaper(isDark),
             color: getPrimaryMain(isDark), px: 2, py: 1, borderRadius: 1, boxShadow: 3,
-            fontWeight: 600, fontSize: "0.875rem", textDecoration: "none",
+            fontWeight: 600, fontSize: SKIP_LINK_FONT_SIZE, textDecoration: "none",
           },
         }}
       >
@@ -174,7 +177,8 @@ export function EditorToolbarSection({
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenVersionDialog={() => setVersionDialogOpen(true)}
         onAnnounce={setLiveMessage}
-        onReload={onReload}
+        autoReload={autoReload}
+        onToggleAutoReload={onToggleAutoReload}
         t={t}
       />}
       <input

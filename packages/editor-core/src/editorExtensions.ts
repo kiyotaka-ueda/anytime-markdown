@@ -31,6 +31,7 @@ import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Extension, type Extensions } from "@tiptap/react";
 
 import { AdmonitionBlockquote } from "./extensions/admonitionExtension";
+import { BlockGapCursorExtension } from "./extensions/blockGapCursorExtension";
 import { CodeBlockNavigation } from "./extensions/codeBlockNavigationExtension";
 import { CommentDataPlugin,CommentHighlight, CommentPoint } from "./extensions/commentExtension";
 import { CustomTableCell, CustomTableHeader } from "./extensions/customTableCells";
@@ -160,7 +161,7 @@ export function getBaseExtensions(options?: { disableComments?: boolean; disable
             "Alt-ArrowUp": ({ editor }: { editor: Editor }) => {
               const { $from } = editor.state.selection;
               const curStart = $from.before(1);
-              if (curStart <= 0) return true;
+              if (curStart <= 0) return false;
               const curNode = $from.node(1);
               const $prev = editor.state.doc.resolve(curStart - 1);
               const prevStart = $prev.before(1);
@@ -176,7 +177,7 @@ export function getBaseExtensions(options?: { disableComments?: boolean; disable
               const curStart = $from.before(1);
               const curNode = $from.node(1);
               const curEnd = curStart + curNode.nodeSize;
-              if (curEnd >= editor.state.doc.content.size) return true;
+              if (curEnd >= editor.state.doc.content.size) return false;
               const $next = editor.state.doc.resolve(curEnd + 1);
               const nextNode = $next.node(1);
               const nextEnd = curEnd + nextNode.nodeSize;
@@ -300,6 +301,7 @@ export function getBaseExtensions(options?: { disableComments?: boolean; disable
     FootnoteRef,
     HeadingNumberExtension,
     GifBlock,
+    BlockGapCursorExtension,
   ];
   if (!options?.disableComments) {
     extensions.push(CommentHighlight, CommentPoint, CommentDataPlugin);

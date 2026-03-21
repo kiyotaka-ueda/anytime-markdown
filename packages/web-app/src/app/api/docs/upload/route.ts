@@ -4,6 +4,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { checkBasicAuth } from '../../../../lib/basicAuth';
 import { DOCS_BUCKET, DOCS_PREFIX,s3Client } from '../../../../lib/s3Client';
 
+/** 許可するファイル拡張子と ContentType のマッピング */
+const ALLOWED_EXTENSIONS: Record<string, string> = {
+  '.md': 'text/markdown; charset=utf-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
+};
+
+function getAllowedContentType(fileName: string): string | null {
+  const ext = fileName.slice(fileName.lastIndexOf('.')).toLowerCase();
+  return ALLOWED_EXTENSIONS[ext] ?? null;
+}
+
 export async function POST(request: NextRequest) {
   const authError = checkBasicAuth(request);
   if (authError) return authError;
@@ -28,8 +44,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'File size exceeds 5MB limit' }, { status: 400 });
     }
 
-    if (!file.name.endsWith('.md')) {
-      return NextResponse.json({ error: 'Only .md files are allowed' }, { status: 400 });
+    const contentType = getAllowedContentType(file.name);
+    if (!contentType) {
+      return NextResponse.json({ error: 'Only .md and image files (.png, .jpg, .jpeg, .gif, .svg, .webp) are allowed' }, { status: 400 });
     }
 
     // ファイル名に制御文字・パス区切り・シェル特殊文字を禁止
@@ -42,13 +59,14 @@ export async function POST(request: NextRequest) {
     }
 
     const key = DOCS_PREFIX + file.name;
-    const body = await file.text();
+    const isText = contentType.startsWith('text/');
+    const body = isText ? await file.text() : Buffer.from(await file.arrayBuffer());
 
     const command = new PutObjectCommand({
       Bucket: DOCS_BUCKET,
       Key: key,
       Body: body,
-      ContentType: 'text/markdown; charset=utf-8',
+      ContentType: contentType,
     });
     await s3Client.send(command);
 

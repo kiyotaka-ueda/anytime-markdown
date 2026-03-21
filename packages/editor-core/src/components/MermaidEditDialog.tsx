@@ -4,7 +4,7 @@ import DOMPurify from "dompurify";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getDivider } from "../constants/colors";
-import { FS_TOOLBAR_HEIGHT } from "../constants/dimensions";
+import { FS_TAB_FONT_SIZE, FS_TOOLBAR_HEIGHT } from "../constants/dimensions";
 import { MERMAID_SAMPLES } from "../constants/samples";
 import { SVG_SANITIZE_CONFIG } from "../hooks/useMermaidRender";
 import type { TextareaSearchState } from "../hooks/useTextareaSearch";
@@ -39,7 +39,7 @@ interface MermaidEditDialogProps {
   compareCode?: string | null;
   onMergeApply?: (newThisCode: string, newOtherCode: string) => void;
   thisCode?: string;
-  onCapture?: () => void;
+  onExport?: () => void;
   toolbarExtra?: React.ReactNode;
   t: (key: string) => string;
 }
@@ -48,7 +48,7 @@ export function MermaidEditDialog({
   open, onClose, label, svg, code,
   fsCode, onFsCodeChange: _onFsCodeChange, onFsTextChange, fsTextareaRef, fsSearch: _fsSearch,
   fsZP, readOnly,
-  isCompareMode, compareCode, onMergeApply, thisCode, onCapture, toolbarExtra,
+  isCompareMode, compareCode, onMergeApply, thisCode, onExport, toolbarExtra,
   t,
 }: MermaidEditDialogProps) {
   const theme = useTheme();
@@ -144,7 +144,7 @@ export function MermaidEditDialog({
                 <Tabs
                   value={activeTab}
                   onChange={(_, v) => setActiveTab(v)}
-                  sx={{ minHeight: FS_TOOLBAR_HEIGHT, flex: 1, "& .MuiTab-root": { minHeight: FS_TOOLBAR_HEIGHT, py: 0.5, px: 2, fontSize: "0.75rem", textTransform: "none" } }}
+                  sx={{ minHeight: FS_TOOLBAR_HEIGHT, flex: 1, "& .MuiTab-root": { minHeight: FS_TOOLBAR_HEIGHT, py: 0.5, px: 2, fontSize: FS_TAB_FONT_SIZE, textTransform: "none" } }}
                 >
                   <Tab value="code" label={t("codeTab")} />
                   <Tab value="config" label={t("configTab")} />
@@ -181,7 +181,7 @@ export function MermaidEditDialog({
           }
           right={
             <>
-              <ZoomToolbar fsZP={fsZP} onCapture={onCapture} t={t} />
+              <ZoomToolbar fsZP={fsZP} onExport={onExport} t={t} />
               <ZoomablePreview fsZP={fsZP}>
                 {displaySvg && (
                   <Box role="img" aria-label={extractDiagramAltText(code, "mermaid")} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(displaySvg, SVG_SANITIZE_CONFIG) }} sx={{ "& svg": { maxWidth: "100%", height: "auto" } }} />
