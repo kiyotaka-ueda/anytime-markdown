@@ -620,12 +620,10 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsRootIte
 			try {
 				if (this.clipboard.isCut) {
 					fs.renameSync(srcPath, dest);
+				} else if (fs.statSync(srcPath).isDirectory()) {
+					fs.cpSync(srcPath, dest, { recursive: true });
 				} else {
-					if (fs.statSync(srcPath).isDirectory()) {
-						fs.cpSync(srcPath, dest, { recursive: true });
-					} else {
-						fs.copyFileSync(srcPath, dest);
-					}
+					fs.copyFileSync(srcPath, dest);
 				}
 			} catch (e: unknown) {
 				showError(this.clipboard.isCut ? 'Move failed' : 'Copy failed', e);

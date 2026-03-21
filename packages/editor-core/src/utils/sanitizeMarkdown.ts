@@ -249,7 +249,7 @@ export function splitByCodeBlocks(md: string): string[] {
       continue;
     }
     const eol = md.indexOf("\n", i);
-    if (eol === -1) { i = len; break; }
+    if (eol === -1) { break; }
     const closeStart = findClosingFence(md, eol + 1);
     if (closeStart === -1) { i = eol + 1; continue; }
     const closeEnd = findFenceEnd(md, closeStart);

@@ -75,15 +75,16 @@ function tryExtractBracketedLabel(code: string, i: number): { label: string; end
 export function extractFlowchartLabelsAndIds(code: string): { labels: string[]; nodeIds: string[] } {
   const labels: string[] = [];
   const nodeIds: string[] = [];
-  for (let i = 0; i < code.length; i++) {
-    if (!isNodeIdChar(code[i])) continue;
+  let i = 0;
+  while (i < code.length) {
+    if (!isNodeIdChar(code[i])) { i++; continue; }
     const [id, afterId] = readNodeId(code, i);
-    i = skipWhitespace(code, afterId);
-    const bracket = tryExtractBracketedLabel(code, i);
-    if (!bracket) { i = afterId - 1; continue; }
+    const ws = skipWhitespace(code, afterId);
+    const bracket = tryExtractBracketedLabel(code, ws);
+    if (!bracket) { i = afterId; continue; }
     if (bracket.label) labels.push(bracket.label);
     nodeIds.push(id);
-    i = bracket.endPos;
+    i = bracket.endPos + 1;
   }
   return { labels, nodeIds };
 }

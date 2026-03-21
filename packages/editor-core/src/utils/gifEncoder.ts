@@ -194,7 +194,7 @@ class NeuQuant {
     if (fwd.best >= 0) { bestd = fwd.bestd; best = fwd.best; }
 
     const bwd = searchBackward(this.network, startIdx - 1, r, g, b, bestd);
-    if (bwd.best >= 0) { bestd = bwd.bestd; best = bwd.best; }
+    if (bwd.best >= 0) { best = bwd.best; }
 
     return best;
   }
@@ -374,7 +374,7 @@ function lzwOutput(s: LzwState, code: number): void {
   s.cur_bits += s.n_bits;
   while (s.cur_bits >= 8) { lzwCharOut(s, s.cur_accum & 0xff); s.cur_accum >>= 8; s.cur_bits -= 8; }
   if (s.free_ent > s.maxcode || s.clear_flg) {
-    if (s.clear_flg) { s.maxcode = lzwMaxcode(s.n_bits = s.g_init_bits); s.clear_flg = false; }
+    if (s.clear_flg) { s.n_bits = s.g_init_bits; s.maxcode = lzwMaxcode(s.n_bits); s.clear_flg = false; }
     else { ++s.n_bits; s.maxcode = s.n_bits === 12 ? (1 << 12) : lzwMaxcode(s.n_bits); }
   }
   if (code === (1 << s.initCodeSize) + 1) { // EOFCode
