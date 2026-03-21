@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@jest/globals";
 import { THEME_PRESETS, DEFAULT_PRESET_NAME, isPresetName } from "../constants/themePresets";
 
 describe("themePresets", () => {
