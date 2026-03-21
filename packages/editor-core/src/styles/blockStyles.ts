@@ -127,24 +127,24 @@ export function getBlockStyles(theme: Theme, settings: EditorSettings): SxProps<
     },
     /* ProseMirror GapCursor — ブロック要素の前後に縦線カーソルを表示 */
     "& .ProseMirror-gapcursor": {
-      display: "none",
+      display: "none !important",
       pointerEvents: "none",
       position: "relative",
-      "&::after": {
-        content: '""',
-        display: "block",
-        position: "absolute",
-        top: -2,
-        left: 0,
-        width: 2,
-        height: 20,
-        borderTop: "none",
-        bgcolor: getPrimaryMain(isDark),
-        animation: "blink-gap-cursor 1s step-end infinite",
-      },
+    },
+    "& .ProseMirror-gapcursor::after": {
+      content: '""',
+      display: "block",
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "2px",
+      height: "100%",
+      borderTop: "none",
+      backgroundColor: getPrimaryMain(isDark),
+      animation: "blink-gap-cursor 1s step-end infinite",
     },
     "&.ProseMirror-focused .ProseMirror-gapcursor": {
-      display: "block",
+      display: "block !important",
     },
     "@keyframes blink-gap-cursor": {
       "0%, 100%": { opacity: 1 },

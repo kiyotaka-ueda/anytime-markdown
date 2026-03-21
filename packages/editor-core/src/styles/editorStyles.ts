@@ -35,6 +35,7 @@ export function getEditorPaperSx(
     overflow: "hidden",
     bgcolor: outerBg,
     "& .tiptap": {
+      position: "relative",
       minHeight: editorHeight - EDITOR_PADDING_TOP,
       maxHeight: editorHeight - EDITOR_PADDING_BORDER,
       overflowY: "auto",
