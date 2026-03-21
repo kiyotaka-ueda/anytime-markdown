@@ -84,6 +84,26 @@ export function Providers({ children }: { children: React.ReactNode }) {
     updateStatusBar(themeMode);
   }, [themeMode]);
 
+  useEffect(() => {
+    const p = getPreset(presetName);
+    const families = [p.fontFamily, p.displayFont]
+      .flatMap(s => s.split(','))
+      .map(s => s.trim().replace(/^["']|["']$/g, ''))
+      .filter(f => !['Helvetica', 'Helvetica Neue', 'Arial', 'sans-serif', 'serif',
+        'Georgia', 'Times New Roman', 'Arial Rounded MT Bold', 'Roboto'].includes(f));
+    if (families.length === 0) return;
+    const id = 'google-fonts-preset';
+    if (document.getElementById(id)) {
+      document.getElementById(id)!.remove();
+    }
+    const params = families.map(f => `family=${f.replace(/ /g, '+')}:wght@400;600;700`).join('&');
+    const link = document.createElement('link');
+    link.id = id;
+    link.rel = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?${params}&display=swap`;
+    document.head.appendChild(link);
+  }, [presetName]);
+
   const preset = getPreset(presetName);
 
   const theme = useMemo(() => createTheme({
