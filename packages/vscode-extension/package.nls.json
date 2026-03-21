@@ -38,5 +38,8 @@
   "command.specDocsRemoveRoot": "Close Repository",
   "command.specDocsCopyPath": "Copy Path",
   "command.specDocsImportFiles": "Import Files",
+  "command.specDocsCut": "Cut",
+  "command.specDocsCopy": "Copy",
+  "command.specDocsPaste": "Paste",
   "command.pasteAsMarkdown": "Paste as Markdown"
 }

@@ -38,5 +38,8 @@
   "command.specDocsRemoveRoot": "リポジトリを閉じる",
   "command.specDocsCopyPath": "パスのコピー",
   "command.specDocsImportFiles": "ファイルをインポート",
+  "command.specDocsCut": "切り取り",
+  "command.specDocsCopy": "コピー",
+  "command.specDocsPaste": "貼り付け",
   "command.pasteAsMarkdown": "Markdownで貼り付け"
 }
