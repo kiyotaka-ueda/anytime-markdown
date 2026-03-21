@@ -184,6 +184,22 @@ export default function EditBody() {
         </DialogActions>
       </Dialog>
 
+      {/* フォルダ上書き確認ダイアログ */}
+      <Dialog open={!!uploadConfirm} onClose={handleCancelOverwrite} aria-labelledby="overwrite-dialog-title">
+        <DialogTitle id="overwrite-dialog-title">{t('docsUpload')}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {uploadConfirm && t('docsUploadFolderOverwrite', { folder: uploadConfirm.folder, count: uploadConfirm.existingFiles.length })}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelOverwrite}>{tCommon('cancel')}</Button>
+          <Button onClick={handleConfirmOverwrite} color="error" variant="contained">
+            {t('docsUpload')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* カテゴリ編集ダイアログ */}
       <Dialog open={!!editCategory} onClose={() => setEditCategory(null)} maxWidth="sm" fullWidth aria-labelledby="edit-dialog-title">
         <DialogTitle id="edit-dialog-title">{t('sitesEdit')}</DialogTitle>
