@@ -18,6 +18,28 @@ function generateId() {
   return crypto.randomUUID();
 }
 
+/** カテゴリ内の指定アイテムを除外する */
+function removeItemFromCategory(cat: LayoutCategory, docKey: string): LayoutCategory {
+  return { ...cat, items: cat.items.filter((item) => item.docKey !== docKey) };
+}
+
+/** カテゴリ内の指定アイテムの displayName を更新する */
+function updateItemDisplayNameInCategory(cat: LayoutCategory, docKey: string, displayName: string): LayoutCategory {
+  return { ...cat, items: cat.items.map((item) => (item.docKey === docKey ? { ...item, displayName } : item)) };
+}
+
+/** カテゴリにファイルアイテムを追加する（重複なし） */
+function addFileItemToCategory(cat: LayoutCategory, fileKey: string, fileName: string): LayoutCategory {
+  if (cat.items.some((item) => item.docKey === fileKey)) return cat;
+  return { ...cat, items: [...cat.items, { docKey: fileKey, displayName: fileName.replace(/\.md$/, '') }] };
+}
+
+/** カテゴリに URL アイテムを追加する（重複なし） */
+function addUrlItemToCategory(cat: LayoutCategory, docKey: string, displayName: string, url: string): LayoutCategory {
+  if (cat.items.some((item) => item.docKey === docKey)) return cat;
+  return { ...cat, items: [...cat.items, { docKey, displayName, url }] };
+}
+
 export function useLayoutEditor() {
   const t = useTranslations('Landing');
   const tCommon = useTranslations('Common');
@@ -115,10 +137,7 @@ export function useLayoutEditor() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setSnackbar({ message: t('docsDeleteSuccess'), severity: 'success' });
       setCategories((prev) =>
-        prev.map((cat) => ({
-          ...cat,
-          items: cat.items.filter((item) => item.docKey !== deleteTarget.key),
-        })),
+        prev.map((cat) => removeItemFromCategory(cat, deleteTarget.key)),
       );
       fetchFiles();
     } catch {
@@ -147,9 +166,7 @@ export function useLayoutEditor() {
 
   const handleRemoveItem = useCallback((categoryId: string, docKey: string) => {
     setCategories((prev) =>
-      prev.map((c) =>
-        c.id === categoryId ? { ...c, items: c.items.filter((item) => item.docKey !== docKey) } : c,
-      ),
+      prev.map((c) => (c.id === categoryId ? removeItemFromCategory(c, docKey) : c)),
     );
   }, []);
 
@@ -161,11 +178,7 @@ export function useLayoutEditor() {
 
   const handleUpdateItemDisplayName = useCallback((categoryId: string, docKey: string, displayName: string) => {
     setCategories((prev) =>
-      prev.map((c) =>
-        c.id === categoryId
-          ? { ...c, items: c.items.map((item) => (item.docKey === docKey ? { ...item, displayName } : item)) }
-          : c,
-      ),
+      prev.map((c) => (c.id === categoryId ? updateItemDisplayNameInCategory(c, docKey, displayName) : c)),
     );
   }, []);
 
@@ -181,22 +194,14 @@ export function useLayoutEditor() {
 
   const handleDropFile = useCallback((categoryId: string, fileKey: string, fileName: string) => {
     setCategories((prev) =>
-      prev.map((c) => {
-        if (c.id !== categoryId) return c;
-        if (c.items.some((item) => item.docKey === fileKey)) return c;
-        return { ...c, items: [...c.items, { docKey: fileKey, displayName: fileName.replace(/\.md$/, '') }] };
-      }),
+      prev.map((c) => (c.id === categoryId ? addFileItemToCategory(c, fileKey, fileName) : c)),
     );
   }, []);
 
   const handleDropUrl = useCallback((categoryId: string, url: string, displayName: string) => {
     const docKey = `url:${url}`;
     setCategories((prev) =>
-      prev.map((c) => {
-        if (c.id !== categoryId) return c;
-        if (c.items.some((item) => item.docKey === docKey)) return c;
-        return { ...c, items: [...c.items, { docKey, displayName, url }] };
-      }),
+      prev.map((c) => (c.id === categoryId ? addUrlItemToCategory(c, docKey, displayName, url) : c)),
     );
   }, []);
 

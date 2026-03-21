@@ -210,16 +210,26 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsRootIte
 			const savedSingle = context.globalState.get<string>(STORAGE_KEY);
 			if (savedSingle && fs.existsSync(savedSingle)) {
 				this.rootPaths = [savedSingle];
-				// 新キーに保存してから旧キーをクリア
-				context.globalState.update(STORAGE_KEY_MULTI, this.rootPaths);
 			}
-			context.globalState.update(STORAGE_KEY, undefined);
-		}
-		if (this.rootPaths.length > 0) {
-			vscode.commands.executeCommand('setContext', 'anytimeMarkdown.specDocsHasRoot', true);
 		}
 		this._mdOnly = context.globalState.get<boolean>(MD_ONLY_KEY, true);
-		vscode.commands.executeCommand('setContext', 'anytimeMarkdown.mdOnly', this._mdOnly);
+		this.initAsync();
+	}
+
+	/** コンストラクタから呼び出す非同期初期化（Thenable を返す操作を分離） */
+	private initAsync(): void {
+		// マイグレーション: 旧キーから新キーへの移行（rootPaths が旧キー由来ならば新キーに保存）
+		const savedMulti = this.context.globalState.get<string[]>(STORAGE_KEY_MULTI);
+		if (!savedMulti && this.rootPaths.length > 0) {
+			void this.context.globalState.update(STORAGE_KEY_MULTI, this.rootPaths);
+		}
+		if (!savedMulti) {
+			void this.context.globalState.update(STORAGE_KEY, undefined);
+		}
+		if (this.rootPaths.length > 0) {
+			void vscode.commands.executeCommand('setContext', 'anytimeMarkdown.specDocsHasRoot', true);
+		}
+		void vscode.commands.executeCommand('setContext', 'anytimeMarkdown.mdOnly', this._mdOnly);
 	}
 
 	get mdOnly(): boolean { return this._mdOnly; }
