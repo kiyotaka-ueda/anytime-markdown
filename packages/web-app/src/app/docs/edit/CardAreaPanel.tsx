@@ -49,6 +49,11 @@ const hoverShowSx = {
   '.category-card:hover &': { opacity: 1 },
 } as const;
 
+function getBorderColor(dragOver: boolean, isDark: boolean): string {
+  if (dragOver) return ACCENT_COLOR;
+  return isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+}
+
 function InlineEditField({
   value,
   placeholder,
@@ -69,7 +74,8 @@ function InlineEditField({
   };
 
   const fontSize = variant === 'title' ? '1.25rem' : '0.875rem';
-  const fontWeight = variant === 'title' ? 700 : variant === 'item' ? 500 : 400;
+  const fontWeightMap = { title: 700, item: 500, description: 400 } as const;
+  const fontWeight = fontWeightMap[variant];
 
   if (editing) {
     return (
@@ -276,9 +282,7 @@ function SortableCategory({
           height: '100%',
           bgcolor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
           border: 1,
-          borderColor: dragOver
-            ? ACCENT_COLOR
-            : isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+          borderColor: getBorderColor(dragOver, isDark),
           borderRadius: 3,
           outline: dragOver ? '1px solid' : 'none',
           outlineColor: ACCENT_COLOR,

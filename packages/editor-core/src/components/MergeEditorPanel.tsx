@@ -15,6 +15,13 @@ import { getMergeTiptapStyles } from "./mergeTiptapStyles";
 
 export { getMergeTiptapStyles } from "./mergeTiptapStyles";
 
+/** Normalize optional SxProps into a spreadable array (avoids nested ternary). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- sx array type is complex; matches MUI's internal spread pattern
+function normalizeSx(sx: SxProps<Theme> | undefined): any[] {
+  if (!sx) return [];
+  return Array.isArray(sx) ? sx : [sx];
+}
+
 function _getLineBgColor(type: DiffLine["type"], theme: Theme) {
   const isDark = theme.palette.mode === "dark";
   switch (type) {
@@ -213,7 +220,7 @@ function SourceModePanel({
       ref={scrollRef as React.RefObject<HTMLDivElement> | undefined}
       sx={[
         { flex: 1, overflow: autoResize ? "auto" : "hidden", borderRadius: 0, border: 0, ...hideScrollbarSx },
-        ...(Array.isArray(paperSx) ? paperSx : paperSx ? [paperSx] : []),
+        ...normalizeSx(paperSx),
       ]}
     >
       <Box sx={{ display: "flex", minHeight: "100%" }}>
@@ -424,7 +431,7 @@ export function MergeEditorPanel({
           ...tiptapStyles,
           ...hideScrollbarSx,
         },
-        ...(Array.isArray(paperSx) ? paperSx : paperSx ? [paperSx] : []),
+        ...normalizeSx(paperSx),
       ]}
     >
       {editorMountRef
