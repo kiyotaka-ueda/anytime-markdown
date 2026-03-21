@@ -59,22 +59,20 @@ export function getEditorPaperSx(
       lineHeight: settings.lineHeight,
       color: getEditorText(theme.palette.mode === "dark", settings),
       ...(settings.blockAlign !== "left" && {
-        // テキスト・インライン要素（img 等）の配置
-        textAlign: settings.blockAlign,
-        // ブロック要素の配置（display: block なので margin で制御）
-        "& blockquote, & blockquote[data-admonition-type], & .code-block-wrapper, & [data-type='gifBlock']": {
-          ...(settings.blockAlign === "center"
-            ? { marginLeft: "auto", marginRight: "auto", maxWidth: "90%" }
-            : { marginLeft: "auto", marginRight: 0, maxWidth: "90%" }),
+        // 画像の配置（NodeViewWrapper の div に text-align を適用）
+        "& [data-type='image'], & p:has(> img)": {
+          textAlign: settings.blockAlign,
         },
+        // テーブルの配置
         "& .tableWrapper": {
           display: "flex",
           justifyContent: settings.blockAlign === "center" ? "center" : "flex-end",
         },
-        "& hr": {
+        // コードブロック・GIFブロックの配置
+        "& .code-block-wrapper, & [data-type='gifBlock']": {
           ...(settings.blockAlign === "center"
-            ? { marginLeft: "auto", marginRight: "auto", width: "80%" }
-            : { marginLeft: "auto", marginRight: 0, width: "80%" }),
+            ? { marginLeft: "auto", marginRight: "auto", maxWidth: "90%" }
+            : { marginLeft: "auto", marginRight: 0, maxWidth: "90%" }),
         },
       }),
       ...(getBaseStyles(theme, options) as Record<string, unknown>),
