@@ -180,7 +180,7 @@ export default function LandingBody({ headingFontFamily }: { headingFontFamily?:
       {/* ---- Features (Markdown) ---- */}
       <Box sx={{ py: { xs: 4, md: 6 }, px: 3 }}>
         <Container maxWidth="lg">
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, alignItems: 'center', mx: -0.5 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, alignItems: 'center' }}>
             <Tooltip title={t('toggleOutline')}>
               <IconButton
                 size="small"
