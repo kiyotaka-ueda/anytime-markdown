@@ -58,32 +58,31 @@ export function getEditorPaperSx(
       fontSize: `${settings.fontSize}px`,
       lineHeight: settings.lineHeight,
       color: getEditorText(theme.palette.mode === "dark", settings),
-      ...(settings.blockAlign !== "left" && (() => {
-        const align = settings.blockAlign === "center"
-          ? { marginLeft: "auto", marginRight: "auto" }
-          : { marginLeft: "auto", marginRight: 0 };
-        return {
-          // 画像: display: block にして margin で配置
-          "& img": {
-            display: "block",
-            ...align,
-          },
-          // テーブル
-          "& table": {
-            ...align,
-          },
-          // コードブロック (pre > code 構造)
-          "& pre": {
-            ...align,
-            maxWidth: "90%",
-          },
-        };
-      })()),
       ...(getBaseStyles(theme, options) as Record<string, unknown>),
       ...(getHeadingStyles(theme) as Record<string, unknown>),
       ...(getCodeStyles(theme) as Record<string, unknown>),
       ...(getBlockStyles(theme, settings) as Record<string, unknown>),
       ...(getInlineStyles(theme) as Record<string, unknown>),
+      // blockAlign: blockStyles の後に配置して確実に上書き
+      ...(settings.blockAlign !== "left" && (() => {
+        const isCenter = settings.blockAlign === "center";
+        return {
+          "& img": {
+            display: "block",
+            marginLeft: isCenter ? "auto" : "auto",
+            marginRight: isCenter ? "auto" : "0",
+          },
+          "& table": {
+            marginLeft: isCenter ? "auto" : "auto",
+            marginRight: isCenter ? "auto" : "0",
+          },
+          "& pre": {
+            marginLeft: isCenter ? "auto" : "auto",
+            marginRight: isCenter ? "auto" : "0",
+            maxWidth: "90%",
+          },
+        };
+      })()),
       // 用紙サイズ制限
       ...(hasPaper && {
         maxWidth: calcPaperContentWidth(settings.paperSize as Exclude<PaperSize, "off">, settings.paperMargin),
