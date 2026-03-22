@@ -251,11 +251,25 @@ export const slashCommandItems: SlashCommandItem[] = [
     icon: React.createElement(SuperscriptIcon, { fontSize: "small" }),
     keywords: ["footnote", "note", "reference", "脚注", "きゃくちゅう"],
     action: (editor) => {
-      const noteId = String(Date.now()).slice(-4);
-      const node = editor.state.schema.nodes.footnoteRef?.create({ noteId });
-      if (node) {
-        editor.chain().focus().insertContent(node.toJSON()).run();
-      }
+      let maxId = 0;
+      editor.state.doc.descendants((node) => {
+        if (node.type.name === "footnoteRef") {
+          const n = parseInt(node.attrs.noteId, 10);
+          if (!isNaN(n) && n > maxId) maxId = n;
+        }
+      });
+      const noteId = String(maxId + 1);
+      const refNode = editor.state.schema.nodes.footnoteRef?.create({ noteId });
+      if (!refNode) return;
+      // カーソル位置に脚注参照を挿入
+      editor.chain().focus().insertContent(refNode.toJSON()).run();
+      // ドキュメント末尾に脚注定義を追加
+      // footnoteRef ノード + ": " テキストで構成し、シリアライザが [^id]: を正しく出力する
+      const { state } = editor;
+      const endPos = state.doc.content.size;
+      const defRef = state.schema.nodes.footnoteRef.create({ noteId });
+      const defParagraph = state.schema.nodes.paragraph.create(null, [defRef, state.schema.text(": ")]);
+      editor.view.dispatch(state.tr.insert(endPos, defParagraph));
     },
   },
   {
