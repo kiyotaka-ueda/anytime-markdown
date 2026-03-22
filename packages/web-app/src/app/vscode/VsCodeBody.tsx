@@ -262,6 +262,47 @@ export default function VsCodeBody() {
         </Container>
       </Box>
 
+      {/* ---- Web Editor ---- */}
+      <Box sx={{ py: { xs: 6, md: 8 }, px: 3, textAlign: 'center' }}>
+        <Container maxWidth="md">
+          <Typography
+            variant="h6"
+            component="p"
+            sx={{
+              color: 'text.secondary',
+              fontSize: { xs: '1rem', md: '1.15rem' },
+              lineHeight: 1.7,
+              fontWeight: 400,
+              mb: 3,
+            }}
+          >
+            {tLanding('heroDescription')}
+          </Typography>
+          <Button
+            component={NextLink}
+            href="/markdown"
+            variant="outlined"
+            size="large"
+            sx={{
+              textTransform: 'none',
+              fontWeight: 700,
+              fontSize: { xs: '1rem', md: '1.1rem' },
+              borderRadius: 3,
+              px: { xs: 4, md: 6 },
+              py: { xs: 1, md: 1.5 },
+              borderColor: ACCENT_COLOR,
+              color: ACCENT_COLOR,
+              '&:hover': {
+                borderColor: '#d4920e',
+                bgcolor: isDark ? 'rgba(232,160,18,0.08)' : 'rgba(232,160,18,0.04)',
+              },
+            }}
+          >
+            {tLanding('openEditor')}
+          </Button>
+        </Container>
+      </Box>
+
       {/* ---- Markdown Preview ---- */}
       <Box sx={{ py: { xs: 4, md: 6 }, px: 3 }}>
         <Container maxWidth="lg">
