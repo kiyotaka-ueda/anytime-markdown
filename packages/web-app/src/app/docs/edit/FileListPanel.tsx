@@ -44,7 +44,7 @@ export default function FileListPanel({
   onAddUrlLink,
   onDeleteUrlLink,
   t,
-}: FileListPanelProps) {
+}: Readonly<FileListPanelProps>) {
   const theme = useTheme();
   const bgColor = theme.palette.mode === 'dark' ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG;
   const [urlDraft, setUrlDraft] = useState('');

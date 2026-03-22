@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-03-22
+
+### Changed
+- TypeScript ターゲットを ES2023 にアップグレードし findLast 等のモダン API を使用 (S7750)
+- SonarQube 残存 CODE_SMELL を追加修正
+
+### Fixed
+- docs アップロード API でファイル名の basename 抽出が正しく動作しない問題を修正
+- Firefox CI e2e テストのクラッシュを解消
+
 ## [0.7.1] - 2026-03-22
 
 ### Added

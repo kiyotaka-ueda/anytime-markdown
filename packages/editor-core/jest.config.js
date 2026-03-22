@@ -10,6 +10,15 @@ const config = {
     "^@/(.*)$": "<rootDir>/src/$1",
   },
   maxWorkers: 2,
+  collectCoverageFrom: [
+    "src/**/*.{ts,tsx}",
+    "!src/__tests__/**",
+    "!src/__mocks__/**",
+    "!src/exports/**",
+    "!src/index.ts",
+    "!src/md.d.ts",
+    "!src/i18n/**",
+  ],
 };
 
 module.exports = config;

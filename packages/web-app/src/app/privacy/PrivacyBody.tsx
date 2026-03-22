@@ -9,6 +9,25 @@ import { useTranslations } from 'next-intl';
 import LandingHeader from '../components/LandingHeader';
 import SiteFooter from '../components/SiteFooter';
 
+function Section({ title, children }: Readonly<{ title: string; children: React.ReactNode }>) {
+  return (
+    <Box sx={{ mt: 4 }}>
+      <Typography variant="h5" component="h2" gutterBottom>
+        {title}
+      </Typography>
+      {children}
+    </Box>
+  );
+}
+
+function P({ children }: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <Typography variant="body1" sx={{ lineHeight: 1.8, mb: 2 }}>
+      {children}
+    </Typography>
+  );
+}
+
 export default function PrivacyBody() {
   const t = useTranslations('Privacy');
 
@@ -79,24 +98,5 @@ export default function PrivacyBody() {
       </Container>
       <SiteFooter />
     </div>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <Box sx={{ mt: 4 }}>
-      <Typography variant="h5" component="h2" gutterBottom>
-        {title}
-      </Typography>
-      {children}
-    </Box>
-  );
-}
-
-function P({ children }: { children: React.ReactNode }) {
-  return (
-    <Typography variant="body1" paragraph sx={{ lineHeight: 1.8 }}>
-      {children}
-    </Typography>
   );
 }
