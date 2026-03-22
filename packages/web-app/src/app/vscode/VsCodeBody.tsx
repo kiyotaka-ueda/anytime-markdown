@@ -116,7 +116,7 @@ export default function VsCodeBody() {
                 lineHeight: 1.15,
                 letterSpacing: '-0.02em',
                 color: 'text.primary',
-                pl: '1em',
+                pl: '2em',
               }}
             >
               {t('heroTitle2')}
