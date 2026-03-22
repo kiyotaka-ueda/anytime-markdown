@@ -24,6 +24,11 @@ const config = {
     "!src/hooks/useDiagramCapture.ts",
     "!src/components/ImageCropTool.tsx",
     "!src/components/GifRecorderDialog.tsx",
+    "!src/components/EditorDialogsSection.tsx",
+    "!src/components/EditorMainContent.tsx",
+    "!src/components/EditorMergeContent.tsx",
+    "!src/components/EditorOutlineSection.tsx",
+    "!src/components/EditorToolbarSection.tsx",
   ],
 };
 
