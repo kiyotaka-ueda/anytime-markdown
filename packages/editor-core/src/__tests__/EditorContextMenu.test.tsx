@@ -48,13 +48,13 @@ describe("EditorContextMenu", () => {
       <EditorContextMenu editor={null} t={t} />,
     );
     // Menu should not be open, so no menu items visible
-    expect(screen.queryByText("cut")).not.toBeInTheDocument();
+    expect(screen.queryByText("cut")).toBeNull();
   });
 
   it("renders without crashing with readOnly", () => {
     renderWithTheme(
       <EditorContextMenu editor={null} readOnly t={t} />,
     );
-    expect(screen.queryByText("cut")).not.toBeInTheDocument();
+    expect(screen.queryByText("cut")).toBeNull();
   });
 });

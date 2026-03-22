@@ -110,9 +110,11 @@ describe("TableNodeView", () => {
           deleteNode={jest.fn()}
           updateAttributes={jest.fn()}
           decorations={[] as any}
+          innerDecorations={[] as any}
           extension={{} as any}
           selected={false}
           HTMLAttributes={{}}
+          view={{} as any}
         />
       </ThemeProvider>,
     );

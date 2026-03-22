@@ -2,15 +2,22 @@
  * editorExtensions.ts のテスト
  * getBaseExtensions の設定オブジェクト構造を検証
  */
-import { getBaseExtensions } from "../editorExtensions";
 
-// tiptap が DOM を必要とするため最小限モック
+// next-intl をモックして ESM import エラーを回避
+jest.mock("next-intl", () => ({
+  useTranslations: () => (key: string) => key,
+  useLocale: () => "en",
+}));
+
+// lowlight モック
 jest.mock("lowlight", () => ({
   createLowlight: () => ({
     register: jest.fn(),
   }),
   common: {},
 }));
+
+import { getBaseExtensions } from "../editorExtensions";
 
 describe("getBaseExtensions", () => {
   it("returns an array of extensions", () => {

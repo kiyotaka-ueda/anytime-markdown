@@ -44,19 +44,19 @@ jest.mock("../hooks/useBlockNodeState", () => ({
   }),
 }));
 
-jest.mock("./codeblock/BlockInlineToolbar", () => ({
+jest.mock("../components/codeblock/BlockInlineToolbar", () => ({
   BlockInlineToolbar: () => <div data-testid="block-inline-toolbar" />,
 }));
 
-jest.mock("./codeblock/DeleteBlockDialog", () => ({
+jest.mock("../components/codeblock/DeleteBlockDialog", () => ({
   DeleteBlockDialog: () => null,
 }));
 
-jest.mock("./GifPlayerDialog", () => ({
+jest.mock("../components/GifPlayerDialog", () => ({
   GifPlayerDialog: () => null,
 }));
 
-jest.mock("./GifRecorderDialog", () => ({
+jest.mock("../components/GifRecorderDialog", () => ({
   GifRecorderDialog: () => null,
 }));
 
@@ -85,9 +85,11 @@ describe("GifNodeView", () => {
           deleteNode={jest.fn()}
           updateAttributes={jest.fn()}
           decorations={[] as any}
+          innerDecorations={[] as any}
           extension={{} as any}
           selected={false}
           HTMLAttributes={{}}
+          view={{} as any}
         />
       </ThemeProvider>,
     );
@@ -107,9 +109,11 @@ describe("GifNodeView", () => {
           deleteNode={jest.fn()}
           updateAttributes={jest.fn()}
           decorations={[] as any}
+          innerDecorations={[] as any}
           extension={{} as any}
           selected={false}
           HTMLAttributes={{}}
+          view={{} as any}
         />
       </ThemeProvider>,
     );
