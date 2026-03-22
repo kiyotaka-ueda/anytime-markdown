@@ -291,37 +291,74 @@ export default function VsCodeBody() {
       {/* ---- CTA ---- */}
       <Box sx={{ py: { xs: 8, md: 10 }, px: 3, textAlign: 'center' }}>
         <Container maxWidth="sm">
-          <Button
-            component={MuiLink}
-            href={MARKETPLACE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            variant="contained"
-            size="large"
-            sx={{
-              textTransform: 'none',
-              fontWeight: 700,
-              fontSize: { xs: '1.1rem', md: '1.25rem' },
-              borderRadius: 3,
-              px: { xs: 5, md: 7 },
-              py: { xs: 1.5, md: 2 },
-              width: { xs: '100%', sm: 'auto' },
-              bgcolor: ACCENT_COLOR,
-              color: '#000000',
-              boxShadow: isDark
-                ? '0 0 40px rgba(232,160,18,0.25)'
-                : '0 4px 20px rgba(232,160,18,0.3)',
-              '&:hover': {
-                bgcolor: '#d4920e',
-                boxShadow: isDark
-                  ? '0 0 50px rgba(232,160,18,0.35)'
-                  : '0 6px 28px rgba(232,160,18,0.4)',
-                textDecoration: 'none',
-              },
-            }}
-          >
-            {t('installButton')}
-          </Button>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'center', gap: 3 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+              <Button
+                component={MuiLink}
+                href={MARKETPLACE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="contained"
+                size="large"
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  fontSize: { xs: '1rem', md: '1.15rem' },
+                  borderRadius: 3,
+                  px: { xs: 4, md: 6 },
+                  py: { xs: 1.2, md: 1.8 },
+                  width: { xs: '100%', sm: 'auto' },
+                  minWidth: { sm: 240 },
+                  bgcolor: ACCENT_COLOR,
+                  color: '#000000',
+                  boxShadow: isDark
+                    ? '0 0 40px rgba(232,160,18,0.25)'
+                    : '0 4px 20px rgba(232,160,18,0.3)',
+                  '&:hover': {
+                    bgcolor: '#d4920e',
+                    boxShadow: isDark
+                      ? '0 0 50px rgba(232,160,18,0.35)'
+                      : '0 6px 28px rgba(232,160,18,0.4)',
+                    textDecoration: 'none',
+                  },
+                }}
+              >
+                {t('installButton')}
+              </Button>
+              <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.7rem' }}>
+                {t('installCaption')}
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+              <Button
+                component={NextLink}
+                href="/markdown"
+                variant="outlined"
+                size="large"
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  fontSize: { xs: '1rem', md: '1.15rem' },
+                  borderRadius: 3,
+                  px: { xs: 4, md: 6 },
+                  py: { xs: 1.2, md: 1.8 },
+                  width: { xs: '100%', sm: 'auto' },
+                  minWidth: { sm: 240 },
+                  borderColor: ACCENT_COLOR,
+                  color: ACCENT_COLOR,
+                  '&:hover': {
+                    borderColor: '#d4920e',
+                    bgcolor: isDark ? 'rgba(232,160,18,0.08)' : 'rgba(232,160,18,0.04)',
+                  },
+                }}
+              >
+                {tLanding('openEditor')}
+              </Button>
+              <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.7rem' }}>
+                {t('editorCaption')}
+              </Typography>
+            </Box>
+          </Box>
         </Container>
       </Box>
 
