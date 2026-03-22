@@ -2,9 +2,13 @@ name: CI / Publish VS Code Extension
 
 on:
   push:
-    branches: [master]
+    branches: [develop, master]
   pull_request:
     branches: [develop, master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   ci:
@@ -47,13 +51,26 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
+      # e2e: develop push → Chromium のみ、master PR / Daily → 3ブラウザ
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium firefox webkit
+        run: |
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/develop" ]; then
+            npx playwright install --with-deps chromium
+          else
+            npx playwright install --with-deps chromium firefox webkit
+          fi
         working-directory: packages/web-app
 
       - name: Run e2e tests
-        run: xvfb-run npm run e2e
+        run: |
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/develop" ]; then
+            xvfb-run npx playwright test --project=chromium
+          else
+            xvfb-run npm run e2e
+          fi
         working-directory: packages/web-app
+        env:
+          AUTH_SECRET: test-secret-for-ci
 
       - name: Build web-app
         run: npx next build | tee build-output.txt

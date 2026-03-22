@@ -23,12 +23,12 @@ import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { EditorDialogsSection } from "./components/EditorDialogsSection";
-import { ScreenCaptureDialog } from "./components/ScreenCaptureDialog";
 import { EditorErrorBoundary } from "./components/EditorErrorBoundary";
 import { EditorFooterOverlays } from "./components/EditorFooterOverlays";
 import { EditorMainContent } from "./components/EditorMainContent";
 import { EditorToolbarSection } from "./components/EditorToolbarSection";
 import { ReadonlyToolbar } from "./components/ReadonlyToolbar";
+import { ScreenCaptureDialog } from "./components/ScreenCaptureDialog";
 import { getDefaultContent } from "./constants/defaultContent";
 import { STATUSBAR_HEIGHT } from "./constants/dimensions";
 import type { ThemePresetName } from "./constants/themePresets";
@@ -220,7 +220,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
       updateSettings({ fontSize: initialFontSize });
     }
   }
-  const settings = { ...rawSettings, ...(defaultFontSize && { fontSize: defaultFontSize }), ...(defaultBlockAlign && { blockAlign: defaultBlockAlign }) };
+  const settings = useMemo(() => ({ ...rawSettings, ...(defaultFontSize && { fontSize: defaultFontSize }), ...(defaultBlockAlign && { blockAlign: defaultBlockAlign }) }), [rawSettings, defaultFontSize, defaultBlockAlign]);
   const {
     settingsOpen, setSettingsOpen, sampleAnchorEl, setSampleAnchorEl,
     diagramAnchorEl, setDiagramAnchorEl, helpAnchorEl, setHelpAnchorEl,

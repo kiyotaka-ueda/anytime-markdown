@@ -3,8 +3,8 @@
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import EditIcon from "@mui/icons-material/Edit";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
-import LinkIcon from "@mui/icons-material/Link";
 import ImageIcon from "@mui/icons-material/Image";
+import LinkIcon from "@mui/icons-material/Link";
 import ScreenshotMonitorIcon from "@mui/icons-material/ScreenshotMonitor";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import { Box, Divider, IconButton, Tooltip, Typography, useTheme } from "@mui/material";
@@ -87,7 +87,7 @@ function handleCropComplete(
     updateAttributes({ src: croppedDataUrl });
     return;
   }
-  const vscodeApi = (window as any).__vscode;
+  const vscodeApi = window.__vscode;
   if (vscodeApi) {
     vscodeApi.postMessage({ type: "overwriteImage", path: src, dataUrl: croppedDataUrl });
     updateAttributes({ src: src.split("?")[0] + "?t=" + Date.now() });
