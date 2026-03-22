@@ -24,6 +24,7 @@ Anytime Markdown gives you a rich WYSIWYG editor with built-in Git support, so y
 - **Commit and push** docs without leaving VS Code
 - **Track history** with a visual Git graph and per-file timeline
 - **Validate links** with diagnostics for broken file/anchor references
+- **AI integration** — share visual notes with AI tools, browse session logs, and manage AI memory
 
 ## 2. How It Works
 
@@ -45,6 +46,9 @@ Switch with the toolbar toggles or `Ctrl+Alt+S` (`Cmd+Alt+S` on Mac).
 
 ## 4. Sidebar Panels
 
+- **AI Note** — a Markdown scratchpad for sharing visual context (images, tables) with AI CLI tools like Claude Code. Click "Edit AI Note" to open, use the clipboard icon to copy the file path, and the trash icon to clear
+- **AI Log** — browse past Claude Code session logs. Click a session to convert it into a readable Markdown summary with user messages, assistant responses (with model/version), and tool usage overview
+- **AI Memory** — browse and edit Claude Code auto-memory files. Displays memory name and type (feedback, project, user, reference) from frontmatter
 - **Markdown Docs** — file tree with multi-repo support, branch switching, Markdown filter
 - **Changes** — stage, unstage, discard, commit, push (per repo)
 - **Graph** — visual commit log (blue = local, red = remote)
