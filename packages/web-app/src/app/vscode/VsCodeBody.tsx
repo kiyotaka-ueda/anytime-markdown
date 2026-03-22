@@ -141,6 +141,7 @@ export default function VsCodeBody() {
                   px: { xs: 4, md: 6 },
                   py: { xs: 1.2, md: 1.8 },
                   width: { xs: '100%', sm: 'auto' },
+                  minWidth: { sm: 240 },
                   bgcolor: ACCENT_COLOR,
                   color: '#000000',
                   boxShadow: isDark
@@ -175,6 +176,7 @@ export default function VsCodeBody() {
                   px: { xs: 4, md: 6 },
                   py: { xs: 1.2, md: 1.8 },
                   width: { xs: '100%', sm: 'auto' },
+                  minWidth: { sm: 240 },
                   borderColor: ACCENT_COLOR,
                   color: ACCENT_COLOR,
                   '&:hover': {
