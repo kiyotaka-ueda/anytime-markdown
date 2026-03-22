@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.6] - 2026-03-22
+
+### Added
+- Slash command: auto-open fullscreen edit dialog for mermaid, PlantUML, math, HTML, and GIF blocks
+- Slash command: frontmatter now outputs correct `---` fence format instead of yaml code block
+- Slash command: footnotes use sequential numbering (1, 2, 3...) and auto-append definition at document end
+- Tab/Shift+Tab in blockquote to nest/unnest (max 6 levels)
+- Suppress Tab key focus escape from editor to toolbar
+- Breadcrumb navigation with document title on /docs/view page
+- next-auth v5 (Auth.js) migration with type-safe session handling
+
+### Changed
+- Admonition slash command labels: removed "Callout" suffix (ja), replaced with "Admonition" (en)
+
+### Fixed
+- Admonition slash commands now correctly set admonitionType attribute (was silently failing)
+- HTML block fullscreen preview background aligned with editor theme
+- Website accessibility: contrast ratios, aria-hidden on icons, keyboard support for InlineEditField
+- Removed dead code (LandingPage/LandingBody), debug console.warn, globalThis usage
+- CTA buttons extracted to shared VsCodeCtaButtons component
+- Hero heading structure simplified (single h1 with span children)
+
 ## [0.7.5] - 2026-03-22
 
 ### Changed
