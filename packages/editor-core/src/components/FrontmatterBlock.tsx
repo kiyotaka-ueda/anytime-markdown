@@ -104,6 +104,7 @@ export function FrontmatterBlock({ frontmatter, onChange, readOnly, defaultColla
         <Box
           component="textarea"
           ref={textareaRef}
+          data-frontmatter-editor=""
           value={frontmatter}
           onChange={readOnly ? () => {} : handleChange}
           onKeyDown={readOnly ? (e: React.KeyboardEvent) => {

@@ -64,7 +64,7 @@ import { useOutline } from "./hooks/useOutline";
 import { useSectionNumbers } from "./hooks/useSectionNumbers";
 import { useSourceMode } from "./hooks/useSourceMode";
 import { useVSCodeIntegration } from "./hooks/useVSCodeIntegration";
-import { getMarkdownFromEditor, type HeadingItem, PlantUmlToolbarContext } from "./types";
+import { getEditorStorage, getMarkdownFromEditor, type HeadingItem, PlantUmlToolbarContext } from "./types";
 import type { FileSystemProvider } from "./types/fileSystem";
 import type { InlineComment } from "./utils/commentHelpers";
 import { parseCommentData } from "./utils/commentHelpers";
@@ -367,6 +367,19 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   setEditorMarkdownRef.current = setEditorMarkdown;
   useEditorSideEffects({ editor, isDirty, markDirty, setHeadingsRef, setEditorMarkdown, frontmatterRef, onFrontmatterChange: fileHandling.setFrontmatterText });
   useVSCodeIntegration(editor);
+
+  // スラッシュコマンドからフロントマターを操作するためのストレージ登録
+  const setFrontmatterTextRef = useRef(fileHandling.setFrontmatterText);
+  setFrontmatterTextRef.current = fileHandling.setFrontmatterText;
+  useEffect(() => {
+    if (!editor) return;
+    const storage = getEditorStorage(editor);
+    storage.frontmatter = {
+      get: () => frontmatterRef.current,
+      set: (value: string | null) => { frontmatterRef.current = value; setFrontmatterTextRef.current(value); },
+    };
+    return () => { delete storage.frontmatter; };
+  }, [editor, frontmatterRef]);
 
   // 自動再読み込みトグル: ON で baseline を保存、OFF でクリア
   useEffect(() => {

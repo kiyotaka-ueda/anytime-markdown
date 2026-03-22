@@ -34,6 +34,17 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: Re
 
   const isSelected = useNodeSelected(editor, getPos, node.nodeSize);
 
+  // autoEditOpen: スラッシュコマンドから作成された場合、即座に全画面編集を開く
+  useEffect(() => {
+    if ((isDiagram || isMath || isHtml) && node.attrs.autoEditOpen) {
+      requestAnimationFrame(() => {
+        updateAttributes({ autoEditOpen: false });
+        setEditOpen(true);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const selectNode = useCallback(() => {
     if (!editor || typeof getPos !== "function") return;
     const pos = getPos();
