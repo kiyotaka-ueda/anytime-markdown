@@ -300,8 +300,8 @@ describe("EditorToolbar - coverage", () => {
     expect((outlineBtn as HTMLButtonElement).disabled).toBe(true);
   });
 
-  // --- outline disabled in inlineMergeOpen ---
-  test("inlineMergeOpen で outline が disabled", () => {
+  // --- outline enabled in inlineMergeOpen ---
+  test("inlineMergeOpen でも outline は enabled", () => {
     const props = createDefaultProps({
       modeState: {
         sourceMode: false, readonlyMode: false, reviewMode: false,
@@ -311,7 +311,7 @@ describe("EditorToolbar - coverage", () => {
     render(<EditorToolbar {...props} />);
 
     const outlineBtn = screen.getByLabelText("outline");
-    expect((outlineBtn as HTMLButtonElement).disabled).toBe(true);
+    expect((outlineBtn as HTMLButtonElement).disabled).toBe(false);
   });
 
   // --- hideOutline ---
