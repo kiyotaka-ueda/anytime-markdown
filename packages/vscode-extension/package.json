@@ -2,9 +2,9 @@
   "name": "anytime-markdown",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "license": "MIT",
-  "publisher": "kiytaka-ueda",
+  "publisher": "anytime-trial",
   "repository": {
     "type": "git",
     "url": "https://github.com/anytime-trial/anytime-markdown.git"
