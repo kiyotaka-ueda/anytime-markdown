@@ -116,10 +116,15 @@ function InlineEditField({
     item: value ? 'text.primary' : 'text.disabled',
   };
 
+  const handleStartEdit = () => { setDraft(value); setEditing(true); };
+
   return (
     <Box
-      sx={{ minWidth: 0, cursor: 'pointer' }}
-      onClick={() => { setDraft(value); setEditing(true); }}
+      role="button"
+      tabIndex={0}
+      sx={{ minWidth: 0, cursor: 'pointer', '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', borderRadius: 0.5 } }}
+      onClick={handleStartEdit}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleStartEdit(); } }}
     >
       {variant === 'title' ? (
         <Typography variant="h6" sx={{ fontWeight: 700, minWidth: 0, color: colorMap.title }} noWrap>

@@ -3,7 +3,8 @@
 import { Alert, Box, Button, CircularProgress } from '@mui/material';
 import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTheme } from '@mui/material/styles';
 
 import { useLocaleSwitch } from '../LocaleProvider';
@@ -39,7 +40,7 @@ export default function MarkdownViewer({ docKey, docKeyByLocale, minHeight = '60
   const { themeMode, setThemeMode } = useThemeMode();
   const { locale, setLocale } = useLocaleSwitch();
   const muiTheme = useTheme();
-  const isBelowMd = useMemo(() => typeof window !== 'undefined' && window.innerWidth < muiTheme.breakpoints.values.md, [muiTheme]);
+  const isBelowMd = useMediaQuery(muiTheme.breakpoints.down('md'));
 
   // ロケールに応じた docKey を決定
   const resolvedDocKey = docKeyByLocale?.[locale] ?? docKey;

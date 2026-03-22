@@ -125,7 +125,6 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     content?: { path?: string; sha?: string };
     commit?: { sha?: string; message?: string; author?: { name?: string; date?: string } };
   };
-  console.warn("[content PUT] repo=%s path=%s commit=%s", repo, path, JSON.stringify(data.commit ?? null));
   return NextResponse.json({
     path: data.content?.path,
     sha: data.content?.sha,

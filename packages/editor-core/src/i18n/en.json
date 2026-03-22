@@ -596,6 +596,7 @@
     "docsEmptyHint": "Add documents from the admin page",
     "ariaMainNavigation": "Main navigation",
     "ariaFooterNavigation": "Footer navigation",
+    "ariaBreadcrumb": "Breadcrumb",
     "ariaMobileNavigation": "Mobile navigation",
     "ariaLanguage": "Language",
     "ariaMenu": "Menu",

@@ -78,8 +78,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (headBlobSha && firstCommitBlobSha && headBlobSha !== firstCommitBlobSha) {
       stale = true;
     }
-    console.warn("[commits] repo=%s path=%s count=%d stale=%s headBlob=%s firstCommitBlob=%s",
-      repo, path, commitList.length, stale, headBlobSha, firstCommitBlobSha);
   }
 
   return NextResponse.json(

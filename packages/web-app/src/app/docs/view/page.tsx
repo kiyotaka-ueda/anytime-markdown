@@ -35,6 +35,15 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   }
 }
 
-export default function DocsViewPage() {
-  return <DocsViewBody />;
+export default async function DocsViewPage({ searchParams }: Props) {
+  const { key } = await searchParams;
+  let docTitle: string | undefined;
+  if (key) {
+    try {
+      const layout = await fetchLayoutData();
+      const item = layout.categories.flatMap((c) => c.items).find((i) => i.docKey === key);
+      docTitle = item?.displayName;
+    } catch { /* fallback to key-derived name in client */ }
+  }
+  return <DocsViewBody docTitle={docTitle} />;
 }

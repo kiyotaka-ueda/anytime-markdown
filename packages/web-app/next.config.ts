@@ -1,18 +1,21 @@
-const createNextIntlPlugin = require('next-intl/plugin');
+import type { NextConfig } from 'next';
+import withBundleAnalyzerInit from '@next/bundle-analyzer';
+import withSerwistInit from '@serwist/next';
+import createNextIntlPlugin from 'next-intl/plugin';
+
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
-const withBundleAnalyzer = require('@next/bundle-analyzer')({
+const withBundleAnalyzer = withBundleAnalyzerInit({
   enabled: process.env.ANALYZE === 'true',
   openAnalyzer: false,
 });
 
 const isCapacitorBuild = process.env.CAPACITOR_BUILD === 'true';
 
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+const nextConfig: NextConfig = {
   devIndicators: false,
   transpilePackages: ['@anytime-markdown/editor-core'],
   ...(isCapacitorBuild && {
-    output: 'export',
+    output: 'export' as const,
     trailingSlash: true,
   }),
   ...(!isCapacitorBuild && {
@@ -56,12 +59,15 @@ const nextConfig = {
 };
 
 // Capacitor ビルド時は serwist を無効化
+let finalConfig: NextConfig;
 if (!isCapacitorBuild) {
-  const withSerwist = require('@serwist/next').default({
+  const withSerwist = withSerwistInit({
     swSrc: 'src/app/sw.ts',
     swDest: 'public/sw.js',
   });
-  module.exports = withBundleAnalyzer(withSerwist(withNextIntl(nextConfig)));
+  finalConfig = withBundleAnalyzer(withSerwist(withNextIntl(nextConfig)));
 } else {
-  module.exports = withBundleAnalyzer(withNextIntl(nextConfig));
+  finalConfig = withBundleAnalyzer(withNextIntl(nextConfig));
 }
+
+export default finalConfig;

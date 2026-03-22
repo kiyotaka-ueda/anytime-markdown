@@ -32,7 +32,7 @@ export default function PrivacyBody() {
   const t = useTranslations('Privacy');
 
   return (
-    <div style={{ height: '100vh', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ minHeight: '100vh', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
       <LandingHeader />
       <Container maxWidth="md" sx={{ py: 6, flex: 1 }}>
         <Typography variant="h3" component="h1" gutterBottom>
@@ -97,6 +97,6 @@ export default function PrivacyBody() {
 
       </Container>
       <SiteFooter />
-    </div>
+    </Box>
   );
 }

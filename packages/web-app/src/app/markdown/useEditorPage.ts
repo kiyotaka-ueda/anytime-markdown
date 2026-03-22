@@ -67,6 +67,12 @@ export function useEditorPage({
   const [newCommit, setNewCommit] = useState<{ sha: string; message: string; author: string; date: string } | null>(null);
   const [saveSnackbar, setSaveSnackbar] = useState<{ message: string; severity: 'success' | 'error' } | null>(null);
 
+  // エディタページでのみ body に editor-page クラスを付与し overflow: hidden を適用
+  useEffect(() => {
+    document.body.classList.add('editor-page');
+    return () => { document.body.classList.remove('editor-page'); };
+  }, []);
+
   // SSO ログイン状態で初回アクセス時に localStorage をクリアしパネルを開く
   useEffect(() => {
     if (!isGitHubLoggedIn) return;

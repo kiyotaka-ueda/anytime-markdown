@@ -1,7 +1,9 @@
 'use client';
 
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { Alert, Box, Container, Link as MuiLink } from '@mui/material';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import DescriptionIcon from '@mui/icons-material/Description';
+import FolderIcon from '@mui/icons-material/Folder';
+import { Alert, Box, Breadcrumbs, Container, Link as MuiLink, Typography } from '@mui/material';
 import NextLink from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -33,13 +35,23 @@ function resolveDocKeys(docKey: string, locale: string): { resolved: string; loc
   return { resolved: docKey };
 }
 
-export default function DocsViewBody() {
+/** docKey からユーザー向けの表示名を導出する */
+function deriveDisplayName(docKey: string): string {
+  if (docKey.endsWith('/')) {
+    return docKey.split('/').findLast(Boolean) ?? docKey;
+  }
+  const name = docKey.split('/').pop() ?? docKey;
+  return name.replace(/\.(ja|en)\.md$/, '').replace(/\.md$/, '');
+}
+
+export default function DocsViewBody({ docTitle }: Readonly<{ docTitle?: string }>) {
   const searchParams = useSearchParams();
   const key = searchParams.get('key');
   const t = useTranslations('Landing');
   const { locale } = useLocaleSwitch();
 
   const { resolved, localeMap } = key ? resolveDocKeys(key, locale) : { resolved: '', localeMap: undefined };
+  const displayName = docTitle ?? (key ? deriveDisplayName(key) : '');
 
   if (!key) {
     return (
@@ -59,7 +71,7 @@ export default function DocsViewBody() {
               '&:hover': { color: 'primary.main' },
             }}
           >
-            <ArrowBackIcon sx={{ fontSize: 18 }} />
+            <FolderIcon sx={{ fontSize: 18 }} />
             {t('docsPage')}
           </MuiLink>
           <Alert severity="error">{t('docsViewNoUrl')}</Alert>
@@ -72,8 +84,59 @@ export default function DocsViewBody() {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <LandingHeader />
+      <Box
+        component="nav"
+        aria-label={t('ariaBreadcrumb')}
+        sx={{
+          px: 2,
+          py: 0.75,
+          borderBottom: 1,
+          borderColor: 'divider',
+          bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)',
+        }}
+      >
+        <Breadcrumbs
+          separator={<ChevronRightIcon sx={{ fontSize: 16, color: 'text.disabled' }} />}
+          sx={{ '& .MuiBreadcrumbs-ol': { flexWrap: 'nowrap' } }}
+        >
+          <MuiLink
+            component={NextLink}
+            href="/docs"
+            underline="hover"
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 0.5,
+              fontSize: '0.8rem',
+              color: 'text.secondary',
+              transition: 'color 0.15s',
+              '&:hover': { color: 'primary.main' },
+            }}
+          >
+            <FolderIcon sx={{ fontSize: 15 }} />
+            {t('docsPage')}
+          </MuiLink>
+          <Typography
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 0.5,
+              fontSize: '0.8rem',
+              color: 'text.primary',
+              fontWeight: 500,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: { xs: 200, sm: 400, md: 'none' },
+            }}
+          >
+            <DescriptionIcon sx={{ fontSize: 15, flexShrink: 0, opacity: 0.7 }} />
+            {displayName}
+          </Typography>
+        </Breadcrumbs>
+      </Box>
       <Box sx={{ flex: 1, overflow: 'hidden' }}>
-        <MarkdownViewer docKey={resolved} docKeyByLocale={localeMap} minHeight="calc(100vh - 64px)" />
+        <MarkdownViewer docKey={resolved} docKeyByLocale={localeMap} minHeight="calc(100vh - 64px - 41px)" />
       </Box>
     </Box>
   );
