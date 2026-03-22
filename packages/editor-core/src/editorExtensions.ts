@@ -142,18 +142,22 @@ export function getBaseExtensions(options?: { disableComments?: boolean; disable
           "Tab": ({ editor }) => {
             const { $from } = editor.state.selection;
             const node = $from.parent;
-            if (node.type.name !== "heading") return false;
-            const level = node.attrs.level as number;
-            if (level >= 5) return true; // H5 が最大
-            return editor.chain().focus().setHeading({ level: (level + 1) as 1|2|3|4|5 }).run();
+            if (node.type.name === "heading") {
+              const level = node.attrs.level as number;
+              if (level >= 5) return true; // H5 が最大
+              return editor.chain().focus().setHeading({ level: (level + 1) as 1|2|3|4|5 }).run();
+            }
+            return true; // ブラウザデフォルトのフォーカス移動を抑制
           },
           "Shift-Tab": ({ editor }) => {
             const { $from } = editor.state.selection;
             const node = $from.parent;
-            if (node.type.name !== "heading") return false;
-            const level = node.attrs.level as number;
-            if (level <= 1) return true; // H1 が最小
-            return editor.chain().focus().setHeading({ level: (level - 1) as 1|2|3|4|5 }).run();
+            if (node.type.name === "heading") {
+              const level = node.attrs.level as number;
+              if (level <= 1) return true; // H1 が最小
+              return editor.chain().focus().setHeading({ level: (level - 1) as 1|2|3|4|5 }).run();
+            }
+            return true; // ブラウザデフォルトのフォーカス移動を抑制
           },
           // Alt+Up/Down: ブロックを上下に移動（VS Code のみ有効、Web は Chromium 競合のため無効）
           ...((window as any).__vscode ? {
