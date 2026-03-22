@@ -43,14 +43,6 @@ export default function SiteFooter() {
         </MuiLink>
         <MuiLink
           component={NextLink}
-          href="/vscode"
-          underline="hover"
-          sx={{ color: 'text.secondary', fontSize: '0.85rem' }}
-        >
-          {t('footerWebApp')}
-        </MuiLink>
-        <MuiLink
-          component={NextLink}
           href="/docs"
           underline="hover"
           sx={{ color: 'text.secondary', fontSize: '0.85rem' }}

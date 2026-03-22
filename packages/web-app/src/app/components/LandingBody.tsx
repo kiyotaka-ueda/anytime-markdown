@@ -133,25 +133,6 @@ export default function LandingBody({ headingFontFamily }: Readonly<{ headingFon
               {t('noSignupRequired')}
             </Typography>
             <Button
-              component={NextLink}
-              href="/"
-              variant="text"
-              size="small"
-              sx={{
-                textTransform: 'none',
-                fontWeight: 500,
-                fontSize: '0.85rem',
-                color: 'text.secondary',
-                '&:hover': {
-                  color: 'text.primary',
-                  bgcolor: 'transparent',
-                  textDecoration: 'underline',
-                },
-              }}
-            >
-              {t('vsCodeExtension')}
-            </Button>
-            <Button
               component={MuiLink}
               href="https://github.com/anytime-trial/anytime-markdown"
               target="_blank"
