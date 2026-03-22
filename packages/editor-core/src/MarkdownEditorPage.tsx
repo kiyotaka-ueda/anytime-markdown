@@ -373,7 +373,9 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   setFrontmatterTextRef.current = fileHandling.setFrontmatterText;
   useEffect(() => {
     if (!editor) return;
-    const storage = getEditorStorage(editor);
+    let storage: Record<string, unknown>;
+    try { storage = getEditorStorage(editor); } catch { return; }
+    if (!storage) return;
     storage.frontmatter = {
       get: () => frontmatterRef.current,
       set: (value: string | null) => { frontmatterRef.current = value; setFrontmatterTextRef.current(value); },

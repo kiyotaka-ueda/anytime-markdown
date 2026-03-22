@@ -393,7 +393,7 @@ describe("editorExtensions coverage - disableFormattingShortcuts", () => {
     }
   });
 
-  it("Tab in non-heading returns false", () => {
+  it("Tab in non-heading returns true (suppresses focus escape)", () => {
     const extensions = getBaseExtensions();
     const ext = extensions.find((e: any) => (e.name || e.config?.name) === "disableFormattingShortcuts") as any;
 
@@ -408,7 +408,7 @@ describe("editorExtensions coverage - disableFormattingShortcuts", () => {
           },
         },
       };
-      expect(shortcuts["Tab"]({ editor: mockEditor })).toBe(false);
+      expect(shortcuts["Tab"]({ editor: mockEditor })).toBe(true);
     }
   });
 
@@ -453,7 +453,7 @@ describe("editorExtensions coverage - disableFormattingShortcuts", () => {
     }
   });
 
-  it("Shift-Tab in non-heading returns false", () => {
+  it("Shift-Tab in non-heading returns true (suppresses focus escape)", () => {
     const extensions = getBaseExtensions();
     const ext = extensions.find((e: any) => (e.name || e.config?.name) === "disableFormattingShortcuts") as any;
 
@@ -468,7 +468,7 @@ describe("editorExtensions coverage - disableFormattingShortcuts", () => {
           },
         },
       };
-      expect(shortcuts["Shift-Tab"]({ editor: mockEditor })).toBe(false);
+      expect(shortcuts["Shift-Tab"]({ editor: mockEditor })).toBe(true);
     }
   });
 
