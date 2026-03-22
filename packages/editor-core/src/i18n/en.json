@@ -510,7 +510,7 @@
   "Landing": {
     "heroTitle": "Write Markdown, Beautifully",
     "heroDescription": "A free, open-source markdown editor that works entirely in your browser. No sign-up, no server — your words stay yours.",
-    "openEditor": "Open Editor",
+    "openEditor": "Online Editor",
     "noSignupRequired": "No sign-up required — start writing instantly",
     "vsCodeExtension": "VS Code Extension",
     "toggleOutline": "Toggle Outline",
