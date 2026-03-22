@@ -46,6 +46,8 @@ jobs:
       - name: Run e2e tests
         run: xvfb-run npm run e2e
         working-directory: packages/web-app
+        env:
+          AUTH_SECRET: test-secret-for-ci
 
       - name: Build web-app
         run: npx next build | tee build-output.txt
