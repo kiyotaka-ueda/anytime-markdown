@@ -31,7 +31,7 @@ import LandingHeader from '../components/LandingHeader';
 import SiteFooter from '../components/SiteFooter';
 
 const MARKETPLACE_URL =
-  'https://marketplace.visualstudio.com/items?itemName=anytime-trial.anytime-markdown';
+  'https://marketplace.visualstudio.com/items?itemName=kiytaka-ueda.anytime-markdown';
 
 const BENEFITS = [
   { key: 'benefit1', icon: <CodeIcon sx={{ fontSize: 40 }} /> },
