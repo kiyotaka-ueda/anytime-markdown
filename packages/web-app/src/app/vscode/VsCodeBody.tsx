@@ -60,7 +60,7 @@ export default function VsCodeBody() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          textAlign: 'center',
+          textAlign: { xs: 'center', md: 'left' },
           px: 3,
           py: { xs: 10, md: 0 },
           '&::before': {
@@ -113,8 +113,6 @@ export default function VsCodeBody() {
             variant="h6"
             component="p"
             sx={{
-              maxWidth: 600,
-              mx: 'auto',
               color: 'text.secondary',
               fontSize: { xs: '1rem', md: '1.15rem' },
               lineHeight: 1.7,
@@ -125,7 +123,7 @@ export default function VsCodeBody() {
             {t('heroDescription')}
           </Typography>
 
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: { xs: 'center', md: 'flex-start' }, gap: 1.5 }}>
             <Button
               component={MuiLink}
               href={MARKETPLACE_URL}
