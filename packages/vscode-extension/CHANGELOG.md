@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.5] - 2026-03-22
+
+### Changed
+- 「AI Note」を「Agent Note」に名称変更（コマンド名・メッセージ・CLAUDE.md 自動追記）
+- ランディングページのヒーローテキストを「AI と協力して」に変更
+- VS Code ランディングページの Benefits セクションにワイド画面向け maxWidth 制約を追加
+
+### Fixed
+- VS Code ランディングページで二重スクロールバーが表示される問題を修正
+
 ## [0.7.4] - 2026-03-22
 
 ### Fixed
