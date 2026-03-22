@@ -49,7 +49,7 @@ export default function VsCodeBody() {
   }, []);
 
   return (
-    <Box sx={{ height: '100vh', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <LandingHeader />
 
       {/* ---- Hero ---- */}
@@ -61,7 +61,7 @@ export default function VsCodeBody() {
           alignItems: 'center',
           justifyContent: 'center',
           textAlign: { xs: 'center', md: 'left' },
-          px: 3,
+          px: { xs: 0, md: 3 },
           py: { xs: 10, md: 0 },
           '&::before': {
             content: '""',
@@ -74,7 +74,7 @@ export default function VsCodeBody() {
           },
         }}
       >
-        <Container maxWidth="md" sx={{ position: 'relative', zIndex: 1 }}>
+        <Container maxWidth="md" disableGutters sx={{ position: 'relative', zIndex: 1, px: { xs: 2, md: 3 } }}>
           <Box component="h1" sx={{ m: 0, mb: 3, pl: '1em', pr: '1em' }}>
             <Typography
               variant="h2"
@@ -83,7 +83,7 @@ export default function VsCodeBody() {
                 display: 'block',
                 fontFamily: 'Georgia, "Times New Roman", serif',
                 fontWeight: 700,
-                fontSize: { xs: '2.2rem', sm: '3rem', md: '3.8rem' },
+                fontSize: { xs: '2.2rem', md: '3.8rem' },
                 lineHeight: 1.15,
                 letterSpacing: '-0.02em',
                 color: 'text.primary',
@@ -98,7 +98,7 @@ export default function VsCodeBody() {
                 display: 'block',
                 fontFamily: 'Georgia, "Times New Roman", serif',
                 fontWeight: 700,
-                fontSize: { xs: '2.2rem', sm: '3rem', md: '3.8rem' },
+                fontSize: { xs: '2.2rem', md: '3.8rem' },
                 lineHeight: 1.15,
                 letterSpacing: '-0.02em',
                 color: 'text.primary',
@@ -219,8 +219,8 @@ export default function VsCodeBody() {
       </Box>
 
       {/* ---- Benefits ---- */}
-      <Box sx={{ py: { xs: 8, md: 12 }, px: 3 }}>
-        <Container maxWidth="lg">
+      <Box sx={{ py: { xs: 8, md: 12 }, px: { xs: 0, md: 3 } }}>
+        <Container maxWidth="lg" disableGutters sx={{ px: { xs: 2, md: 3 } }}>
           <Typography
             variant="h4"
             component="h2"
@@ -243,6 +243,8 @@ export default function VsCodeBody() {
                   flexDirection: { xs: 'column', md: i % 2 === 0 ? 'row' : 'row-reverse' },
                   alignItems: 'center',
                   gap: { xs: 3, md: 6 },
+                  maxWidth: 700,
+                  mx: 'auto',
                 }}
               >
                 <Box
@@ -278,8 +280,12 @@ export default function VsCodeBody() {
       </Box>
 
       {/* ---- Markdown Preview ---- */}
-      <Box sx={{ py: { xs: 4, md: 6 }, px: 3 }}>
-        <Container maxWidth="lg">
+      <Box sx={{
+        py: { xs: 4, md: 6 },
+        px: 0,
+        '& .ProseMirror': { pl: { xs: 2, md: 5 }, pr: { xs: 1, md: 2 } },
+      }}>
+        <Container maxWidth="lg" disableGutters>
           <MarkdownViewer
             docKey="docs/markdownAll/markdownAll.ja.md"
             docKeyByLocale={{ en: "docs/markdownAll/markdownAll.en.md" }}
@@ -289,8 +295,8 @@ export default function VsCodeBody() {
       </Box>
 
       {/* ---- CTA ---- */}
-      <Box sx={{ py: { xs: 8, md: 10 }, px: 3, textAlign: 'center' }}>
-        <Container maxWidth="sm">
+      <Box sx={{ py: { xs: 8, md: 10 }, px: { xs: 0, md: 3 }, textAlign: 'center' }}>
+        <Container maxWidth="sm" disableGutters sx={{ px: { xs: 2, md: 3 } }}>
           <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'center', gap: 3 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
               <Button

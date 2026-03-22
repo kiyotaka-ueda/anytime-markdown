@@ -51,7 +51,7 @@ export default function LandingBody({ headingFontFamily }: Readonly<{ headingFon
           alignItems: 'center',
           justifyContent: 'center',
           textAlign: 'center',
-          px: 3,
+          px: { xs: 0, md: 3 },
           py: { xs: 10, md: 0 },
           '&::before': {
             content: '""',
@@ -64,14 +64,14 @@ export default function LandingBody({ headingFontFamily }: Readonly<{ headingFon
           },
         }}
       >
-        <Container maxWidth="md" sx={{ position: 'relative', zIndex: 1 }}>
+        <Container maxWidth="md" disableGutters sx={{ position: 'relative', zIndex: 1, px: { xs: 2, md: 3 } }}>
           <Typography
             variant="h2"
             component="h1"
             sx={{
               fontFamily: headingFontFamily || 'Georgia, "Times New Roman", serif',
               fontWeight: 700,
-              fontSize: { xs: '2.5rem', sm: '3.2rem', md: '4rem' },
+              fontSize: { xs: '2.5rem', md: '4rem' },
               lineHeight: 1.15,
               letterSpacing: '-0.02em',
               mb: 3,
@@ -172,8 +172,12 @@ export default function LandingBody({ headingFontFamily }: Readonly<{ headingFon
       </Box>
 
       {/* ---- Features (Markdown) ---- */}
-      <Box sx={{ py: { xs: 4, md: 6 }, px: 3 }}>
-        <Container maxWidth="lg">
+      <Box sx={{
+        py: { xs: 4, md: 6 },
+        px: 0,
+        '& .ProseMirror': { pl: { xs: 2, md: 5 }, pr: { xs: 1, md: 2 } },
+      }}>
+        <Container maxWidth="lg" disableGutters>
           <MarkdownViewer
             docKey="docs/markdownAll/markdownAll.ja.md"
             docKeyByLocale={{ en: "docs/markdownAll/markdownAll.en.md" }}

@@ -161,8 +161,10 @@ interface MarkdownEditorPageProps {
   defaultOutlineOpen?: boolean;
   /** エディタの高さを固定指定（useEditorHeight の自動計算を上書き） */
   fixedEditorHeight?: number;
-  /** フォントサイズの上書き（px） */
+  /** フォントサイズの上書き（px） — 常に強制適用 */
   defaultFontSize?: number;
+  /** フォントサイズの初期値（px） — 初回のみ適用、ユーザー変更可 */
+  initialFontSize?: number;
   /** ブロック要素の配置の上書き */
   defaultBlockAlign?: "left" | "center" | "right";
 }
@@ -186,7 +188,7 @@ function applyExternalCompareContent(
   }
 }
 
-export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideVersionInfo, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, presetName, onPresetChange, onLocaleChange, fileSystemProvider, externalContent, externalFileName, externalFilePath: _externalFilePath, onExternalSave, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, autoReload, onToggleAutoReload, defaultSourceMode, showReadonlyMode, externalCompareContent, explorerOpen, onToggleExplorer, sideToolbar, hideCompareToggle, explorerSlot, noScroll, defaultOutlineOpen, fixedEditorHeight, defaultFontSize, defaultBlockAlign }: MarkdownEditorPageProps = {}) {
+export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideVersionInfo, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, presetName, onPresetChange, onLocaleChange, fileSystemProvider, externalContent, externalFileName, externalFilePath: _externalFilePath, onExternalSave, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, autoReload, onToggleAutoReload, defaultSourceMode, showReadonlyMode, externalCompareContent, explorerOpen, onToggleExplorer, sideToolbar, hideCompareToggle, explorerSlot, noScroll, defaultOutlineOpen, fixedEditorHeight, defaultFontSize, initialFontSize, defaultBlockAlign }: MarkdownEditorPageProps = {}) {
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
   const muiTheme = useTheme();
@@ -209,6 +211,13 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   }, [initialContent]);
 
   const { settings: rawSettings, updateSettings, resetSettings } = useEditorSettings();
+  const initialFontSizeApplied = useRef(false);
+  if (initialFontSize && !initialFontSizeApplied.current) {
+    initialFontSizeApplied.current = true;
+    if (rawSettings.fontSize !== initialFontSize) {
+      updateSettings({ fontSize: initialFontSize });
+    }
+  }
   const settings = { ...rawSettings, ...(defaultFontSize && { fontSize: defaultFontSize }), ...(defaultBlockAlign && { blockAlign: defaultBlockAlign }) };
   const {
     settingsOpen, setSettingsOpen, sampleAnchorEl, setSampleAnchorEl,

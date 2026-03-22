@@ -44,17 +44,17 @@
       "anytimeMarkdown": [
         {
           "id": "anytimeMarkdown.aiNote",
-          "name": "AI Note",
+          "name": "Agent Note",
           "initialSize": 1
         },
         {
           "id": "anytimeMarkdown.aiLog",
-          "name": "AI Log",
+          "name": "Agent Log",
           "initialSize": 2
         },
         {
           "id": "anytimeMarkdown.aiMemory",
-          "name": "AI Memory",
+          "name": "Agent Memory",
           "initialSize": 2
         },
         {
