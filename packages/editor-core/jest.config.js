@@ -18,6 +18,12 @@ const config = {
     "!src/index.ts",
     "!src/md.d.ts",
     "!src/i18n/**",
+    "!src/page.tsx",
+    "!src/version.ts",
+    "!src/hooks/useBlockCapture.ts",
+    "!src/hooks/useDiagramCapture.ts",
+    "!src/components/ImageCropTool.tsx",
+    "!src/components/GifRecorderDialog.tsx",
   ],
 };
 
