@@ -1,29 +1,29 @@
 import type { Metadata } from 'next';
 
-import LandingPage from './components/LandingPage';
+import VsCodeBody from './vscode/VsCodeBody';
 
 export const metadata: Metadata = {
-  title: 'Anytime Markdown - Write Markdown, Beautifully',
+  title: 'Anytime Markdown - Code and docs with AI, in one editor',
   description:
-    'Free browser-based WYSIWYG Markdown editor. Mermaid diagrams, PlantUML preview, KaTeX math, diff comparison, merge, table editor, and code blocks. VSCode extension available. No sign-up, no install required. | 無料のブラウザ対応 WYSIWYG マークダウン エディタ。Mermaid/PlantUML図解作成、KaTeX数式、マークダウン差分(diff)、マージ(merge)、表編集、コードブロック、VSCode拡張対応。設計書・仕様書作成に最適なエンジニア ツール。登録不要・インストール不要。',
+    'Rich Markdown editing in VS Code. WYSIWYG, AI diff highlighting, image annotation, and Git integration. | VS Code で Markdown をリッチに編集。AI 差分ハイライト、画像アノテーション、Git 連携。',
   alternates: {
     canonical: '/',
   },
   openGraph: {
-    title: 'Anytime Markdown - Write Markdown, Beautifully',
+    title: 'Anytime Markdown - Code and docs with AI, in one editor',
     description:
-      'Free WYSIWYG Markdown editor with Mermaid, PlantUML, KaTeX, diff, merge, table editor. No sign-up required.',
+      'Rich Markdown editing in VS Code. WYSIWYG, AI diff highlighting, image annotation, and Git integration.',
     type: 'website',
     siteName: 'Anytime Markdown',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Anytime Markdown - Write Markdown, Beautifully',
+    title: 'Anytime Markdown - Code and docs with AI, in one editor',
     description:
-      'Free WYSIWYG Markdown editor with Mermaid, PlantUML, KaTeX, diff, merge, table editor. No sign-up required.',
+      'Rich Markdown editing in VS Code. WYSIWYG, AI diff highlighting, image annotation, and Git integration.',
   },
 };
 
 export default function Page() {
-  return <LandingPage />;
+  return <VsCodeBody />;
 }

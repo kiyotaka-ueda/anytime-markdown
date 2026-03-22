@@ -47,7 +47,7 @@ export default function SiteFooter() {
           underline="hover"
           sx={{ color: 'text.secondary', fontSize: '0.85rem' }}
         >
-          {t('footerVscode')}
+          {t('footerWebApp')}
         </MuiLink>
         <MuiLink
           component={NextLink}

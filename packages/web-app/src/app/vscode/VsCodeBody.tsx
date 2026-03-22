@@ -159,7 +159,7 @@ export default function VsCodeBody() {
             </Button>
             <Button
               component={NextLink}
-              href="/"
+              href="/vscode"
               variant="text"
               size="small"
               sx={{

@@ -1,23 +1,23 @@
 import type { Metadata } from 'next';
 
-import VsCodeBody from './VsCodeBody';
+import LandingPage from '../components/LandingPage';
 
 export const metadata: Metadata = {
-  title: 'VS Code Extension - Anytime Markdown',
+  title: 'Web App - Anytime Markdown',
   description:
-    'Rich Markdown editing in VS Code. WYSIWYG, AI diff highlighting, image annotation, and Git integration. | VS Code で Markdown をリッチに編集。',
+    'Free browser-based WYSIWYG Markdown editor. Mermaid diagrams, PlantUML preview, KaTeX math, diff comparison, merge, table editor, and code blocks. No sign-up, no install required. | 無料のブラウザ対応 WYSIWYG マークダウン エディタ。登録不要・インストール不要。',
   alternates: { canonical: '/vscode' },
   openGraph: {
-    title: 'VS Code Extension - Anytime Markdown',
-    description: 'Rich Markdown editing in VS Code. WYSIWYG, AI diff highlighting, image annotation, and Git integration.',
+    title: 'Web App - Anytime Markdown',
+    description: 'Free WYSIWYG Markdown editor with Mermaid, PlantUML, KaTeX, diff, merge, table editor. No sign-up required.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'VS Code Extension - Anytime Markdown',
-    description: 'Rich Markdown editing in VS Code. WYSIWYG, AI diff highlighting, image annotation, and Git integration.',
+    title: 'Web App - Anytime Markdown',
+    description: 'Free WYSIWYG Markdown editor with Mermaid, PlantUML, KaTeX, diff, merge, table editor. No sign-up required.',
   },
 };
 
 export default function VsCodePage() {
-  return <VsCodeBody />;
+  return <LandingPage />;
 }

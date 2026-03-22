@@ -134,7 +134,7 @@ export default function LandingBody({ headingFontFamily }: Readonly<{ headingFon
             </Typography>
             <Button
               component={NextLink}
-              href="/vscode"
+              href="/"
               variant="text"
               size="small"
               sx={{

@@ -548,6 +548,7 @@
     "footerPrivacy": "Privacy Policy",
     "footerGithub": "GitHub",
     "footerVscode": "VS Code Extension",
+    "footerWebApp": "Web App",
     "experimentalNotice": "This site is an experimental project where all design, implementation, and testing are performed by Claude Code, an AI coding assistant — humans provide only instructions. Anytime Markdown itself is used to review specifications and verify test plans during development. Source code is available on <github>GitHub</github>.",
     "notFoundTitle": "Page not found",
     "notFoundLink": "Back to Home",

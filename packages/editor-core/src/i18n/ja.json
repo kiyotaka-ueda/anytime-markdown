@@ -548,6 +548,7 @@
     "footerPrivacy": "プライバシーポリシー",
     "footerGithub": "GitHub",
     "footerVscode": "VS Code 拡張機能",
+    "footerWebApp": "Web アプリ",
     "experimentalNotice": "本サイトは、設計・実装・テストのすべてを Claude Code（AI コーディングアシスタント）が行い、人間は指示のみを担当する実験的なプロジェクトです。Anytime Markdown 自体を仕様の把握やテスト内容の確認に活用しながら開発しています。ソースコードは <github>GitHub</github> で公開しています。",
     "notFoundTitle": "ページが見つかりません",
     "notFoundLink": "ホームに戻る",
