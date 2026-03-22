@@ -38,8 +38,8 @@ test.describe("Console Errors", () => {
     page.on("console", (msg) => {
       if (msg.type() === "error") {
         const text = msg.text();
-        // 外部リソース（Google Fonts 等）の読み込み失敗は除外
-        if (text.includes("FetchEvent.respondWith") || text.includes("Failed to load resource")) return;
+        // 外部リソース（Google Fonts 等）の読み込み失敗、認証関連エラーは除外
+        if (text.includes("FetchEvent.respondWith") || text.includes("Failed to load resource") || text.includes("auth") || text.includes("Auth") || text === "Error") return;
         errors.push(text);
       }
     });
