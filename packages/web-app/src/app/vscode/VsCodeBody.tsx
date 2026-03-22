@@ -16,7 +16,7 @@ import {
 import { useTheme } from '@mui/material/styles';
 import NextLink from 'next/link';
 import { useTranslations } from 'next-intl';
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 
 import LandingHeader from '../components/LandingHeader';
 import MarkdownViewer from '../components/MarkdownViewer';
@@ -36,6 +36,7 @@ const BENEFITS = [
 
 export default function VsCodeBody() {
   const t = useTranslations('VsCode');
+  const tLanding = useTranslations('Landing');
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
@@ -176,6 +177,29 @@ export default function VsCodeBody() {
               {t('tryOnline')}
             </Button>
           </Box>
+
+          <Typography
+            variant="body2"
+            sx={{
+              mt: 4,
+              color: 'text.secondary',
+              fontSize: '0.8rem',
+              lineHeight: 1.6,
+            }}
+          >
+            {tLanding.rich('experimentalNotice', {
+              github: (chunks: ReactNode) => (
+                <MuiLink
+                  href="https://github.com/anytime-trial/anytime-markdown"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{ color: 'text.secondary', textDecorationColor: 'inherit' }}
+                >
+                  {chunks}
+                </MuiLink>
+              ),
+            })}
+          </Typography>
         </Container>
       </Box>
 
