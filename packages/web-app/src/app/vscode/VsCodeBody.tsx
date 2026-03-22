@@ -16,8 +16,10 @@ import {
 import { useTheme } from '@mui/material/styles';
 import NextLink from 'next/link';
 import { useTranslations } from 'next-intl';
+import { useEffect, useState } from 'react';
 
 import LandingHeader from '../components/LandingHeader';
+import MarkdownViewer from '../components/MarkdownViewer';
 import SiteFooter from '../components/SiteFooter';
 
 const MARKETPLACE_URL =
@@ -36,6 +38,14 @@ export default function VsCodeBody() {
   const t = useTranslations('VsCode');
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+
+  const [viewerHeight, setViewerHeight] = useState(600);
+  useEffect(() => {
+    const update = () => setViewerHeight(Math.round(globalThis.innerHeight * 0.8));
+    update();
+    globalThis.addEventListener('resize', update);
+    return () => globalThis.removeEventListener('resize', update);
+  }, []);
 
   return (
     <Box sx={{ height: '100vh', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
@@ -225,6 +235,17 @@ export default function VsCodeBody() {
               </Box>
             ))}
           </Box>
+        </Container>
+      </Box>
+
+      {/* ---- Markdown Preview ---- */}
+      <Box sx={{ py: { xs: 4, md: 6 }, px: 3 }}>
+        <Container maxWidth="lg">
+          <MarkdownViewer
+            docKey="docs/markdownAll/markdownAll.ja.md"
+            docKeyByLocale={{ en: "docs/markdownAll/markdownAll.en.md" }}
+            editorHeight={viewerHeight}
+          />
         </Container>
       </Box>
 
