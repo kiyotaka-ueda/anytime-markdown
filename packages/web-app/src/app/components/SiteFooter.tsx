@@ -42,9 +42,8 @@ export default function SiteFooter() {
           {t('footerGithub')}
         </MuiLink>
         <MuiLink
-          href="https://marketplace.visualstudio.com/items?itemName=kiytaka-ueda.anytime-markdown"
-          target="_blank"
-          rel="noopener noreferrer"
+          component={NextLink}
+          href="/vscode"
           underline="hover"
           sx={{ color: 'text.secondary', fontSize: '0.85rem' }}
         >
