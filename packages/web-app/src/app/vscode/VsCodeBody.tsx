@@ -2,25 +2,14 @@
 
 import { ACCENT_COLOR } from '@anytime-markdown/editor-core';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import ChatIcon from '@mui/icons-material/Chat';
 import CodeIcon from '@mui/icons-material/Code';
-import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
-import DescriptionIcon from '@mui/icons-material/Description';
-import EditNoteIcon from '@mui/icons-material/EditNote';
-import GifBoxIcon from '@mui/icons-material/GifBox';
 import ImageIcon from '@mui/icons-material/Image';
-import InsertLinkIcon from '@mui/icons-material/InsertLink';
-import ListAltIcon from '@mui/icons-material/ListAlt';
 import SchemaIcon from '@mui/icons-material/Schema';
 import SourceIcon from '@mui/icons-material/Source';
-import TranslateIcon from '@mui/icons-material/Translate';
 import {
   Box,
   Button,
-  Card,
-  CardContent,
   Container,
-  Grid,
   Link as MuiLink,
   Typography,
 } from '@mui/material';
@@ -42,20 +31,6 @@ const BENEFITS = [
   { key: 'benefit5', icon: <SchemaIcon sx={{ fontSize: 40 }} /> },
 ] as const;
 
-const FEATURES = [
-  { key: 'feature1', icon: <EditNoteIcon /> },
-  { key: 'feature2', icon: <CodeIcon /> },
-  { key: 'feature3', icon: <AutoFixHighIcon /> },
-  { key: 'feature4', icon: <CompareArrowsIcon /> },
-  { key: 'feature5', icon: <ImageIcon /> },
-  { key: 'feature6', icon: <GifBoxIcon /> },
-  { key: 'feature7', icon: <SourceIcon /> },
-  { key: 'feature8', icon: <InsertLinkIcon /> },
-  { key: 'feature9', icon: <ChatIcon /> },
-  { key: 'feature10', icon: <ListAltIcon /> },
-  { key: 'feature11', icon: <DescriptionIcon /> },
-  { key: 'feature12', icon: <TranslateIcon /> },
-] as const;
 
 export default function VsCodeBody() {
   const t = useTranslations('VsCode');
@@ -250,61 +225,6 @@ export default function VsCodeBody() {
               </Box>
             ))}
           </Box>
-        </Container>
-      </Box>
-
-      {/* ---- Features Grid ---- */}
-      <Box
-        sx={{
-          py: { xs: 8, md: 12 },
-          px: 3,
-          bgcolor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)',
-        }}
-      >
-        <Container maxWidth="lg">
-          <Typography
-            variant="h4"
-            component="h2"
-            sx={{
-              fontWeight: 700,
-              textAlign: 'center',
-              mb: { xs: 6, md: 8 },
-              color: 'text.primary',
-            }}
-          >
-            {t('featuresTitle')}
-          </Typography>
-
-          <Grid container spacing={3}>
-            {FEATURES.map(({ key, icon }) => (
-              <Grid key={key} size={{ xs: 12, sm: 6, md: 4 }}>
-                <Card
-                  elevation={0}
-                  sx={{
-                    height: '100%',
-                    bgcolor: isDark ? 'rgba(255,255,255,0.04)' : 'background.paper',
-                    border: 1,
-                    borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-                    borderRadius: 3,
-                    transition: 'border-color 0.2s',
-                    '&:hover': {
-                      borderColor: ACCENT_COLOR,
-                    },
-                  }}
-                >
-                  <CardContent sx={{ p: 3 }}>
-                    <Box sx={{ color: ACCENT_COLOR, mb: 1.5 }}>{icon}</Box>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>
-                      {t(`${key}Title`)}
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.6 }}>
-                      {t(`${key}Body`)}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
         </Container>
       </Box>
 
