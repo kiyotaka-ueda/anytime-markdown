@@ -100,6 +100,7 @@ export default function VsCodeBody() {
               letterSpacing: '-0.02em',
               mb: 3,
               color: 'text.primary',
+              whiteSpace: 'pre-line',
             }}
           >
             {t('heroTitle')}
