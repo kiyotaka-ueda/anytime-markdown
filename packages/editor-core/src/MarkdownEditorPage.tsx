@@ -171,6 +171,67 @@ interface MarkdownEditorPageProps {
   onContentChange?: (content: string) => void;
 }
 
+/** Register frontmatter get/set in editor storage (extracted to reduce component CC). */
+function registerFrontmatterStorage(
+  editor: Editor | null,
+  frontmatterRef: React.RefObject<string | null>,
+  setFrontmatterTextRef: React.RefObject<(value: string | null) => void>,
+): (() => void) | undefined {
+  if (!editor) return;
+  let storage: Record<string, unknown>;
+  try { storage = getEditorStorage(editor); } catch { return; }
+  if (!storage) return;
+  storage.frontmatter = {
+    get: () => frontmatterRef.current,
+    set: (value: string | null) => { frontmatterRef.current = value; setFrontmatterTextRef.current(value); },
+  };
+  return () => { delete storage.frontmatter; };
+}
+
+/** Handle vscode-set-content events in source mode (extracted to reduce component CC). */
+function subscribeVSCodeSetContent(
+  sourceMode: boolean,
+  setSourceText: (text: string) => void,
+): (() => void) | undefined {
+  if (!sourceMode) return;
+  const handler = (e: Event) => {
+    const content = (e as CustomEvent<string>).detail;
+    if (typeof content !== "string") return;
+    const { body } = preprocessMarkdown(content);
+    setSourceText(body);
+  };
+  globalThis.addEventListener("vscode-set-content", handler);
+  return () => globalThis.removeEventListener("vscode-set-content", handler);
+}
+
+/** Handle vscode-image-saved events (extracted to reduce component CC). */
+function subscribeVSCodeImageSaved(
+  editor: Editor | null,
+): (() => void) | undefined {
+  if (!editor) return;
+  const handler = (e: Event) => {
+    const detail = (e as CustomEvent<string>).detail;
+    if (typeof detail !== "string") return;
+    editor.chain().focus().setImage({ src: detail, alt: "" }).run();
+  };
+  globalThis.addEventListener("vscode-image-saved", handler);
+  return () => globalThis.removeEventListener("vscode-image-saved", handler);
+}
+
+/** Apply initial font size on first render (extracted to reduce component CC). */
+function applyInitialFontSize(
+  initialFontSize: number | undefined,
+  appliedRef: React.RefObject<boolean>,
+  currentFontSize: number,
+  updateSettings: (patch: Record<string, unknown>) => void,
+): void {
+  if (!initialFontSize || appliedRef.current) return;
+  appliedRef.current = true;
+  if (currentFontSize !== initialFontSize) {
+    updateSettings({ fontSize: initialFontSize });
+  }
+}
+
 /** Apply external compare content and open merge mode if needed (extracted to reduce component complexity). */
 function applyExternalCompareContent(
   content: string,
@@ -214,12 +275,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
 
   const { settings: rawSettings, updateSettings, resetSettings } = useEditorSettings();
   const initialFontSizeApplied = useRef(false);
-  if (initialFontSize && !initialFontSizeApplied.current) {
-    initialFontSizeApplied.current = true;
-    if (rawSettings.fontSize !== initialFontSize) {
-      updateSettings({ fontSize: initialFontSize });
-    }
-  }
+  applyInitialFontSize(initialFontSize, initialFontSizeApplied, rawSettings.fontSize, updateSettings);
   const settings = useMemo(() => ({ ...rawSettings, ...(defaultFontSize && { fontSize: defaultFontSize }), ...(defaultBlockAlign && { blockAlign: defaultBlockAlign }) }), [rawSettings, defaultFontSize, defaultBlockAlign]);
   const {
     settingsOpen, setSettingsOpen, sampleAnchorEl, setSampleAnchorEl,
@@ -371,17 +427,10 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   // スラッシュコマンドからフロントマターを操作するためのストレージ登録
   const setFrontmatterTextRef = useRef(fileHandling.setFrontmatterText);
   setFrontmatterTextRef.current = fileHandling.setFrontmatterText;
-  useEffect(() => {
-    if (!editor) return;
-    let storage: Record<string, unknown>;
-    try { storage = getEditorStorage(editor); } catch { return; }
-    if (!storage) return;
-    storage.frontmatter = {
-      get: () => frontmatterRef.current,
-      set: (value: string | null) => { frontmatterRef.current = value; setFrontmatterTextRef.current(value); },
-    };
-    return () => { delete storage.frontmatter; };
-  }, [editor, frontmatterRef]);
+  useEffect(
+    () => registerFrontmatterStorage(editor, frontmatterRef, setFrontmatterTextRef),
+    [editor, frontmatterRef],
+  );
 
   // 自動再読み込みトグル: ON で baseline を保存、OFF でクリア
   useEffect(() => {
@@ -400,30 +449,17 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
 
   // VS Code Undo/Redo: ソースモード時は vscode-set-content で sourceText を更新
   // saveContent は呼ばない（contentChanged ループ防止）
-  useEffect(() => {
-    if (!sourceMode) return;
-    const handler = (e: Event) => {
-      const content = (e as CustomEvent<string>).detail;
-      if (typeof content !== "string") return;
-      const { body } = preprocessMarkdown(content);
-      setSourceText(body);
-    };
-    globalThis.addEventListener("vscode-set-content", handler);
-    return () => globalThis.removeEventListener("vscode-set-content", handler);
-  }, [sourceMode, setSourceText]);
+  useEffect(
+    () => subscribeVSCodeSetContent(sourceMode, setSourceText),
+    [sourceMode, setSourceText],
+  );
 
   // VS Code: クリップボード画像の保存完了 → エディタに相対パスで画像挿入
   // <base href> が設定されているため、相対パスで画像が表示される
-  useEffect(() => {
-    if (!editor) return;
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent<string>).detail;
-      if (typeof detail !== "string") return;
-      editor.chain().focus().setImage({ src: detail, alt: "" }).run();
-    };
-    globalThis.addEventListener("vscode-image-saved", handler);
-    return () => globalThis.removeEventListener("vscode-image-saved", handler);
-  }, [editor]);
+  useEffect(
+    () => subscribeVSCodeImageSaved(editor),
+    [editor],
+  );
 
   // Screen capture slash command event
   useEffect(() => {
