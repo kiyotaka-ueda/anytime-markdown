@@ -3,7 +3,9 @@
 import { Alert, Box, Button, CircularProgress } from '@mui/material';
 import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTheme } from '@mui/material/styles';
 
 import { useLocaleSwitch } from '../LocaleProvider';
 import { useThemeMode } from '../providers';
@@ -37,6 +39,8 @@ export default function MarkdownViewer({ docKey, docKeyByLocale, minHeight = '60
   const t = useTranslations('Landing');
   const { themeMode, setThemeMode } = useThemeMode();
   const { locale, setLocale } = useLocaleSwitch();
+  const muiTheme = useTheme();
+  const isBelowMd = useMediaQuery(muiTheme.breakpoints.down('md'));
 
   // ロケールに応じた docKey を決定
   const resolvedDocKey = docKeyByLocale?.[locale] ?? docKey;
@@ -106,6 +110,7 @@ export default function MarkdownViewer({ docKey, docKeyByLocale, minHeight = '60
         hideStatusBar
         noScroll={noScroll}
         fixedEditorHeight={editorHeight}
+        initialFontSize={isBelowMd ? 14 : undefined}
         defaultBlockAlign="left"
         themeMode={themeMode}
         onThemeModeChange={setThemeMode}

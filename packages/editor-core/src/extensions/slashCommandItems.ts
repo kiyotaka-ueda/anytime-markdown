@@ -43,6 +43,20 @@ import { preprocessMarkdown } from "../utils/frontmatterHelpers";
 import { preserveBlankLines, sanitizeMarkdown } from "../utils/sanitizeMarkdown";
 import { generateTocMarkdown } from "../utils/tocHelpers";
 
+/** blockquote を作成し admonitionType を設定する */
+function setAdmonition(editor: Editor, type: string): void {
+  editor.chain().focus().setBlockquote().command(({ tr }) => {
+    const { $from } = tr.selection;
+    for (let d = $from.depth; d > 0; d--) {
+      if ($from.node(d).type.name === "blockquote") {
+        tr.setNodeAttribute($from.before(d), "admonitionType", type);
+        return true;
+      }
+    }
+    return true;
+  }).run();
+}
+
 /** テンプレート Markdown をエディタのカーソル位置に挿入する。
  *  sanitizeMarkdown + preserveBlankLines を通した上で、
  *  一度 setContent でパースし ProseMirror Fragment として直接挿入する。 */
@@ -187,7 +201,7 @@ export const slashCommandItems: SlashCommandItem[] = [
     icon: React.createElement(AccountTreeIcon, { fontSize: "small" }),
     keywords: ["mermaid", "diagram", "chart", "図"],
     action: (editor) => {
-      editor.chain().focus().setCodeBlock({ language: "mermaid" }).run();
+      editor.chain().focus().setCodeBlock({ language: "mermaid" }).updateAttributes("codeBlock", { autoEditOpen: true }).run();
     },
   },
   {
@@ -196,7 +210,7 @@ export const slashCommandItems: SlashCommandItem[] = [
     icon: React.createElement(SchemaIcon, { fontSize: "small" }),
     keywords: ["plantuml", "uml", "diagram", "図"],
     action: (editor) => {
-      editor.chain().focus().setCodeBlock({ language: "plantuml" }).run();
+      editor.chain().focus().setCodeBlock({ language: "plantuml" }).updateAttributes("codeBlock", { autoEditOpen: true }).run();
     },
   },
   {
@@ -205,7 +219,7 @@ export const slashCommandItems: SlashCommandItem[] = [
     icon: React.createElement(FunctionsIcon, { fontSize: "small" }),
     keywords: ["math", "equation", "formula", "latex", "katex", "数式", "すうしき"],
     action: (editor) => {
-      editor.chain().focus().setCodeBlock({ language: "math" }).run();
+      editor.chain().focus().setCodeBlock({ language: "math" }).updateAttributes("codeBlock", { autoEditOpen: true }).run();
     },
   },
   {
@@ -237,11 +251,25 @@ export const slashCommandItems: SlashCommandItem[] = [
     icon: React.createElement(SuperscriptIcon, { fontSize: "small" }),
     keywords: ["footnote", "note", "reference", "脚注", "きゃくちゅう"],
     action: (editor) => {
-      const noteId = String(Date.now()).slice(-4);
-      const node = editor.state.schema.nodes.footnoteRef?.create({ noteId });
-      if (node) {
-        editor.chain().focus().insertContent(node.toJSON()).run();
-      }
+      let maxId = 0;
+      editor.state.doc.descendants((node) => {
+        if (node.type.name === "footnoteRef") {
+          const n = parseInt(node.attrs.noteId, 10);
+          if (!isNaN(n) && n > maxId) maxId = n;
+        }
+      });
+      const noteId = String(maxId + 1);
+      const refNode = editor.state.schema.nodes.footnoteRef?.create({ noteId });
+      if (!refNode) return;
+      // カーソル位置に脚注参照を挿入
+      editor.chain().focus().insertContent(refNode.toJSON()).run();
+      // ドキュメント末尾に脚注定義を追加
+      // footnoteRef ノード + ": " テキストで構成し、シリアライザが [^id]: を正しく出力する
+      const { state } = editor;
+      const endPos = state.doc.content.size;
+      const defRef = state.schema.nodes.footnoteRef.create({ noteId });
+      const defParagraph = state.schema.nodes.paragraph.create(null, [defRef, state.schema.text(": ")]);
+      editor.view.dispatch(state.tr.insert(endPos, defParagraph));
     },
   },
   {
@@ -249,70 +277,35 @@ export const slashCommandItems: SlashCommandItem[] = [
     labelKey: "slashNote",
     icon: React.createElement(InfoIcon, { fontSize: "small" }),
     keywords: ["note", "info", "callout", "admonition", "注記", "ノート"],
-    action: (editor) => {
-      editor.chain().focus().setBlockquote().command(({ tr, state }) => {
-        const { $from } = state.selection;
-        const bqPos = $from.before($from.depth);
-        tr.setNodeAttribute(bqPos, "admonitionType", "note");
-        return true;
-      }).run();
-    },
+    action: (editor) => { setAdmonition(editor, "note"); },
   },
   {
     id: "admonitionTip",
     labelKey: "slashTip",
     icon: React.createElement(TipsAndUpdatesIcon, { fontSize: "small" }),
     keywords: ["tip", "hint", "ヒント"],
-    action: (editor) => {
-      editor.chain().focus().setBlockquote().command(({ tr, state }) => {
-        const { $from } = state.selection;
-        const bqPos = $from.before($from.depth);
-        tr.setNodeAttribute(bqPos, "admonitionType", "tip");
-        return true;
-      }).run();
-    },
+    action: (editor) => { setAdmonition(editor, "tip"); },
   },
   {
     id: "admonitionImportant",
     labelKey: "slashImportant",
     icon: React.createElement(PriorityHighIcon, { fontSize: "small" }),
     keywords: ["important", "重要"],
-    action: (editor) => {
-      editor.chain().focus().setBlockquote().command(({ tr, state }) => {
-        const { $from } = state.selection;
-        const bqPos = $from.before($from.depth);
-        tr.setNodeAttribute(bqPos, "admonitionType", "important");
-        return true;
-      }).run();
-    },
+    action: (editor) => { setAdmonition(editor, "important"); },
   },
   {
     id: "admonitionWarning",
     labelKey: "slashWarning",
     icon: React.createElement(WarningAmberIcon, { fontSize: "small" }),
     keywords: ["warning", "warn", "警告"],
-    action: (editor) => {
-      editor.chain().focus().setBlockquote().command(({ tr, state }) => {
-        const { $from } = state.selection;
-        const bqPos = $from.before($from.depth);
-        tr.setNodeAttribute(bqPos, "admonitionType", "warning");
-        return true;
-      }).run();
-    },
+    action: (editor) => { setAdmonition(editor, "warning"); },
   },
   {
     id: "admonitionCaution",
     labelKey: "slashCaution",
     icon: React.createElement(ErrorOutlineIcon, { fontSize: "small" }),
     keywords: ["caution", "danger", "注意", "危険"],
-    action: (editor) => {
-      editor.chain().focus().setBlockquote().command(({ tr, state }) => {
-        const { $from } = state.selection;
-        const bqPos = $from.before($from.depth);
-        tr.setNodeAttribute(bqPos, "admonitionType", "caution");
-        return true;
-      }).run();
-    },
+    action: (editor) => { setAdmonition(editor, "caution"); },
   },
   {
     id: "html",
@@ -320,7 +313,7 @@ export const slashCommandItems: SlashCommandItem[] = [
     icon: React.createElement(WebIcon, { fontSize: "small" }),
     keywords: ["html", "web", "markup", "ウェブ"],
     action: (editor) => {
-      editor.chain().focus().setCodeBlock({ language: "html" }).run();
+      editor.chain().focus().setCodeBlock({ language: "html" }).updateAttributes("codeBlock", { autoEditOpen: true }).run();
     },
   },
   {
@@ -375,23 +368,22 @@ export const slashCommandItems: SlashCommandItem[] = [
     icon: React.createElement(IntegrationInstructionsIcon, { fontSize: "small" }),
     keywords: ["frontmatter", "yaml", "metadata", "メタデータ", "フロントマター"],
     action: (editor) => {
-      // フロントマターが既に存在するか確認
-      const doc = editor.state.doc;
-      const firstNode = doc.firstChild;
-      if (firstNode?.type.name === "codeBlock" && firstNode.attrs.language === "yaml") {
-        // 既存のフロントマターにフォーカス
-        editor.chain().focus().setTextSelection(1).run();
+      const storage = getEditorStorage(editor);
+      const fm = storage.frontmatter as { get: () => string | null; set: (v: string | null) => void } | null;
+      if (!fm) return;
+      const current = fm.get();
+      if (current !== null) {
+        // 既存のフロントマターがある場合は FrontmatterBlock にフォーカス
+        const el = document.querySelector<HTMLTextAreaElement>("[data-frontmatter-editor]");
+        el?.focus();
         return;
       }
-      // 先頭に空のフロントマターブロックを挿入
-      const { tr } = editor.state;
-      const yamlBlock = editor.schema.nodes.codeBlock.create(
-        { language: "yaml" },
-        editor.schema.text("title: "),
-      );
-      tr.insert(0, yamlBlock);
-      editor.view.dispatch(tr);
-      editor.chain().focus().setTextSelection(1).run();
+      // 空のフロントマターを作成し、テキストエリアにフォーカス
+      fm.set("title: ");
+      requestAnimationFrame(() => {
+        const el = document.querySelector<HTMLTextAreaElement>("[data-frontmatter-editor]");
+        el?.focus();
+      });
     },
   },
   {
@@ -400,7 +392,7 @@ export const slashCommandItems: SlashCommandItem[] = [
     icon: React.createElement(GifBoxIcon, { fontSize: "small" }),
     keywords: ["gif", "record", "screen", "capture", "録画", "キャプチャ", "アニメーション"],
     action: (editor) => {
-      editor.chain().focus().insertContent({ type: "gifBlock" }).run();
+      editor.chain().focus().insertContent({ type: "gifBlock", attrs: { autoEditOpen: true } }).run();
     },
   },
   {

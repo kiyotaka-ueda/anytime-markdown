@@ -180,9 +180,9 @@ export default function SitesBody({ initialData }: Readonly<SitesBodyProps>) {
                                   {item.displayName}
                                 </Box>
                                 {isExternal ? (
-                                  <OpenInNewIcon sx={{ fontSize: 14, flexShrink: 0, opacity: 0.6 }} />
+                                  <OpenInNewIcon aria-hidden="true" sx={{ fontSize: 14, flexShrink: 0, opacity: 0.6 }} />
                                 ) : (
-                                  <ArrowForwardIcon className="arrow-icon" sx={{ fontSize: 16, flexShrink: 0 }} />
+                                  <ArrowForwardIcon aria-hidden="true" className="arrow-icon" sx={{ fontSize: 16, flexShrink: 0 }} />
                                 )}
                               </Box>
                             </Box>

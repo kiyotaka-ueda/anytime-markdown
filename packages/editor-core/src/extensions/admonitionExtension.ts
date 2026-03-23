@@ -13,6 +13,7 @@ import Blockquote from "@tiptap/extension-blockquote";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 
 const ADMONITION_RE = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*/i;
+const MAX_BLOCKQUOTE_DEPTH = 6;
 
 interface SerializerState {
   wrapBlock: (delim: string, firstDelim: string | null, node: unknown, f: () => void) => void;
@@ -39,6 +40,34 @@ export const AdmonitionBlockquote = Blockquote.extend({
           attrs.admonitionType
             ? { "data-admonition-type": attrs.admonitionType }
             : {},
+      },
+    };
+  },
+
+  addKeyboardShortcuts() {
+    return {
+      Tab: () => {
+        const { $from } = this.editor.state.selection;
+        let bqDepth = 0;
+        for (let d = $from.depth; d > 0; d--) {
+          if ($from.node(d).type.name === "blockquote") bqDepth++;
+        }
+        if (bqDepth >= 1 && bqDepth < MAX_BLOCKQUOTE_DEPTH) {
+          return this.editor.chain().wrapIn("blockquote").run();
+        }
+        return false;
+      },
+      "Shift-Tab": () => {
+        const { $from } = this.editor.state.selection;
+        // 外側の blockquote が存在する場合のみ lift
+        let bqCount = 0;
+        for (let d = $from.depth; d > 0; d--) {
+          if ($from.node(d).type.name === "blockquote") bqCount++;
+        }
+        if (bqCount >= 2) {
+          return this.editor.chain().lift("blockquote").run();
+        }
+        return false;
       },
     };
   },

@@ -61,16 +61,17 @@ function createMockEditor(overrides: Record<string, unknown> = {}) {
     // Actually invoke the command callback to cover admonition lines
     const mockTr = {
       setNodeAttribute: jest.fn(),
-    };
-    const mockState = {
       selection: {
         $from: {
           depth: 2,
           before: jest.fn().mockReturnValue(5),
+          node: jest.fn().mockImplementation((d: number) => ({
+            type: { name: d === 1 ? "blockquote" : "paragraph" },
+          })),
         },
       },
     };
-    fn({ tr: mockTr, state: mockState });
+    fn({ tr: mockTr, state: {} });
     return { run: runFn };
   });
 
@@ -84,6 +85,9 @@ function createMockEditor(overrides: Record<string, unknown> = {}) {
     setBlockquote: jest.fn().mockReturnThis(),
     toggleCodeBlock: jest.fn().mockReturnThis(),
     setCodeBlock: jest.fn().mockReturnThis(),
+    updateAttributes: jest.fn().mockReturnThis(),
+    wrapIn: jest.fn().mockReturnThis(),
+    lift: jest.fn().mockReturnThis(),
     insertTable: jest.fn().mockReturnThis(),
     setHorizontalRule: jest.fn().mockReturnThis(),
     insertContent: jest.fn().mockReturnThis(),
@@ -98,6 +102,7 @@ function createMockEditor(overrides: Record<string, unknown> = {}) {
     content: docContent,
     toJSON: jest.fn().mockReturnValue({ type: "doc", content: [] }),
     firstChild: overrides.firstChild ?? null,
+    descendants: jest.fn(),
   };
 
   return {
@@ -114,13 +119,17 @@ function createMockEditor(overrides: Record<string, unknown> = {}) {
         nodes: {
           footnoteRef: {
             create: jest.fn().mockReturnValue({
-              toJSON: jest.fn().mockReturnValue({ type: "footnoteRef", attrs: { noteId: "1234" } }),
+              toJSON: jest.fn().mockReturnValue({ type: "footnoteRef", attrs: { noteId: "1" } }),
             }),
           },
           codeBlock: {
             create: jest.fn().mockReturnValue({ type: "codeBlock" }),
           },
+          paragraph: {
+            create: jest.fn().mockReturnValue({ type: "paragraph" }),
+          },
         },
+        text: jest.fn().mockReturnValue({ type: "text" }),
       },
     },
     view: { dispatch: jest.fn() },
@@ -189,11 +198,19 @@ describe("slashCommandItems.extra", () => {
 
         // command callback 内で setNodeAttribute が呼ばれたことを確認
         const commandCallback = editor._command.mock.calls[0][0];
-        const mockTr = { setNodeAttribute: jest.fn() };
-        const mockState = {
-          selection: { $from: { depth: 2, before: jest.fn().mockReturnValue(10) } },
+        const mockTr = {
+          setNodeAttribute: jest.fn(),
+          selection: {
+            $from: {
+              depth: 2,
+              before: jest.fn().mockReturnValue(10),
+              node: jest.fn().mockImplementation((d: number) => ({
+                type: { name: d === 1 ? "blockquote" : "paragraph" },
+              })),
+            },
+          },
         };
-        const result = commandCallback({ tr: mockTr, state: mockState });
+        const result = commandCallback({ tr: mockTr, state: {} });
         expect(result).toBe(true);
         expect(mockTr.setNodeAttribute).toHaveBeenCalledWith(10, "admonitionType", type);
       });
@@ -253,19 +270,32 @@ describe("slashCommandItems.extra", () => {
 
   describe("frontmatter action", () => {
     it("既存フロントマターがある場合はフォーカスのみ", () => {
-      const editor = createMockEditor({
-        firstChild: { type: { name: "codeBlock" }, attrs: { language: "yaml" } },
+      const mockGet = jest.fn().mockReturnValue("title: existing");
+      const mockSet = jest.fn();
+      mockGetEditorStorage.mockReturnValue({
+        frontmatter: { get: mockGet, set: mockSet },
       });
+      const editor = createMockEditor();
       findItem("frontmatter").action(editor);
-      expect(editor._chain.setTextSelection).toHaveBeenCalledWith(1);
-      expect(editor.schema.nodes.codeBlock.create).not.toHaveBeenCalled();
+      expect(mockGet).toHaveBeenCalled();
+      expect(mockSet).not.toHaveBeenCalled();
     });
 
-    it("フロントマターがない場合は YAML ブロックを挿入する", () => {
+    it("フロントマターがない場合は set を呼ぶ", () => {
+      const mockGet = jest.fn().mockReturnValue(null);
+      const mockSet = jest.fn();
+      mockGetEditorStorage.mockReturnValue({
+        frontmatter: { get: mockGet, set: mockSet },
+      });
       const editor = createMockEditor({ firstChild: null });
       findItem("frontmatter").action(editor);
-      expect(editor.schema.nodes.codeBlock.create).toHaveBeenCalled();
-      expect(editor.view.dispatch).toHaveBeenCalled();
+      expect(mockSet).toHaveBeenCalledWith("title: ");
+    });
+
+    it("storage.frontmatter がない場合は何もしない", () => {
+      mockGetEditorStorage.mockReturnValue({});
+      const editor = createMockEditor();
+      expect(() => findItem("frontmatter").action(editor)).not.toThrow();
     });
   });
 

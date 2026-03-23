@@ -104,6 +104,9 @@ describe("slashCommandItems", () => {
         setBlockquote: jest.fn().mockReturnThis(),
         toggleCodeBlock: jest.fn().mockReturnThis(),
         setCodeBlock: jest.fn().mockReturnThis(),
+        updateAttributes: jest.fn().mockReturnThis(),
+        wrapIn: jest.fn().mockReturnThis(),
+        lift: jest.fn().mockReturnThis(),
         insertTable: jest.fn().mockReturnThis(),
         setHorizontalRule: jest.fn().mockReturnThis(),
         insertContent: jest.fn().mockReturnThis(),
@@ -199,7 +202,7 @@ describe("slashCommandItems", () => {
       const editor = createMockEditor();
       const item = slashCommandItems.find((i) => i.id === "gif")!;
       item.action(editor);
-      expect(editor._chain.insertContent).toHaveBeenCalledWith({ type: "gifBlock" });
+      expect(editor._chain.insertContent).toHaveBeenCalledWith({ type: "gifBlock", attrs: { autoEditOpen: true } });
     });
 
     it("orderedList action が toggleOrderedList を呼ぶ", () => {

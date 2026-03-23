@@ -217,6 +217,17 @@ export function GifNodeView({ editor, node, updateAttributes, getPos }: Readonly
     return () => window.removeEventListener("message", handler);
   }, [updateAttributes]);
 
+  // autoEditOpen: スラッシュコマンドから作成された場合、即座にレコーダーを開く
+  useEffect(() => {
+    if (node.attrs.autoEditOpen && isEditable) {
+      requestAnimationFrame(() => {
+        updateAttributes({ autoEditOpen: false });
+        setRecorderOpen(true);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handlePlaceholderClick = useCallback(() => {
     if (isEditable) setRecorderOpen(true);
   }, [isEditable]);

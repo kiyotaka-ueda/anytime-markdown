@@ -26,13 +26,85 @@ const MARKETPLACE_URL =
   'https://marketplace.visualstudio.com/items?itemName=anytime-trial.anytime-markdown';
 
 const BENEFITS = [
-  { key: 'benefit1', icon: <CodeIcon sx={{ fontSize: 40 }} /> },
-  { key: 'benefit2', icon: <AutoFixHighIcon sx={{ fontSize: 40 }} /> },
-  { key: 'benefit3', icon: <ImageIcon sx={{ fontSize: 40 }} /> },
-  { key: 'benefit4', icon: <SourceIcon sx={{ fontSize: 40 }} /> },
-  { key: 'benefit5', icon: <SchemaIcon sx={{ fontSize: 40 }} /> },
+  { key: 'benefit1', icon: <CodeIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
+  { key: 'benefit2', icon: <AutoFixHighIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
+  { key: 'benefit3', icon: <ImageIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
+  { key: 'benefit4', icon: <SourceIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
+  { key: 'benefit5', icon: <SchemaIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
 ] as const;
 
+function VsCodeCtaButtons({ isDark, t, tLanding }: Readonly<{ isDark: boolean; t: ReturnType<typeof useTranslations<'VsCode'>>; tLanding: ReturnType<typeof useTranslations<'Landing'>> }>) {
+  return (
+    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'center', gap: 3 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+        <Button
+          component={MuiLink}
+          href={MARKETPLACE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          variant="contained"
+          size="large"
+          sx={{
+            textTransform: 'none',
+            fontWeight: 700,
+            fontSize: { xs: '1rem', md: '1.15rem' },
+            borderRadius: 3,
+            px: { xs: 4, md: 6 },
+            py: { xs: 1.2, md: 1.8 },
+            width: { xs: '100%', sm: 'auto' },
+            minWidth: { sm: 240 },
+            bgcolor: ACCENT_COLOR,
+            color: '#000000',
+            boxShadow: isDark
+              ? '0 0 40px rgba(232,160,18,0.25)'
+              : '0 4px 20px rgba(232,160,18,0.3)',
+            '&:hover': {
+              bgcolor: '#d4920e',
+              boxShadow: isDark
+                ? '0 0 50px rgba(232,160,18,0.35)'
+                : '0 6px 28px rgba(232,160,18,0.4)',
+              textDecoration: 'none',
+            },
+          }}
+        >
+          {t('installButton')}
+        </Button>
+        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
+          {t('installCaption')}
+        </Typography>
+      </Box>
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+        <Button
+          component={NextLink}
+          href="/markdown"
+          variant="outlined"
+          size="large"
+          sx={{
+            textTransform: 'none',
+            fontWeight: 700,
+            fontSize: { xs: '1rem', md: '1.15rem' },
+            borderRadius: 3,
+            px: { xs: 4, md: 6 },
+            py: { xs: 1.2, md: 1.8 },
+            width: { xs: '100%', sm: 'auto' },
+            minWidth: { sm: 240 },
+            borderColor: ACCENT_COLOR,
+            color: ACCENT_COLOR,
+            '&:hover': {
+              borderColor: '#d4920e',
+              bgcolor: isDark ? 'rgba(232,160,18,0.08)' : 'rgba(232,160,18,0.04)',
+            },
+          }}
+        >
+          {tLanding('openEditor')}
+        </Button>
+        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
+          {t('editorCaption')}
+        </Typography>
+      </Box>
+    </Box>
+  );
+}
 
 export default function VsCodeBody() {
   const t = useTranslations('VsCode');
@@ -42,14 +114,14 @@ export default function VsCodeBody() {
 
   const [viewerHeight, setViewerHeight] = useState(600);
   useEffect(() => {
-    const update = () => setViewerHeight(Math.round(globalThis.innerHeight * 0.8));
+    const update = () => setViewerHeight(Math.round(window.innerHeight * 0.8));
     update();
-    globalThis.addEventListener('resize', update);
-    return () => globalThis.removeEventListener('resize', update);
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
   }, []);
 
   return (
-    <Box sx={{ height: '100vh', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <LandingHeader />
 
       {/* ---- Hero ---- */}
@@ -61,7 +133,7 @@ export default function VsCodeBody() {
           alignItems: 'center',
           justifyContent: 'center',
           textAlign: { xs: 'center', md: 'left' },
-          px: 3,
+          px: { xs: 0, md: 3 },
           py: { xs: 10, md: 0 },
           '&::before': {
             content: '""',
@@ -74,40 +146,29 @@ export default function VsCodeBody() {
           },
         }}
       >
-        <Container maxWidth="md" sx={{ position: 'relative', zIndex: 1 }}>
-          <Box component="h1" sx={{ m: 0, mb: 3, pl: '1em', pr: '1em' }}>
-            <Typography
-              variant="h2"
-              component="span"
-              sx={{
-                display: 'block',
-                fontFamily: 'Georgia, "Times New Roman", serif',
-                fontWeight: 700,
-                fontSize: { xs: '2.2rem', sm: '3rem', md: '3.8rem' },
-                lineHeight: 1.15,
-                letterSpacing: '-0.02em',
-                color: 'text.primary',
-              }}
-            >
+        <Container maxWidth="md" disableGutters sx={{ position: 'relative', zIndex: 1, px: { xs: 2, md: 3 } }}>
+          <Typography
+            component="h1"
+            sx={{
+              m: 0,
+              mb: 3,
+              pl: '1em',
+              pr: '1em',
+              fontFamily: 'Georgia, "Times New Roman", serif',
+              fontWeight: 700,
+              fontSize: { xs: '2.2rem', md: '3.8rem' },
+              lineHeight: 1.15,
+              letterSpacing: '-0.02em',
+              color: 'text.primary',
+            }}
+          >
+            <Box component="span" sx={{ display: 'block' }}>
               {t('heroTitle1')}
-            </Typography>
-            <Typography
-              variant="h2"
-              component="span"
-              sx={{
-                display: 'block',
-                fontFamily: 'Georgia, "Times New Roman", serif',
-                fontWeight: 700,
-                fontSize: { xs: '2.2rem', sm: '3rem', md: '3.8rem' },
-                lineHeight: 1.15,
-                letterSpacing: '-0.02em',
-                color: 'text.primary',
-                textAlign: 'right',
-              }}
-            >
+            </Box>
+            <Box component="span" sx={{ display: 'block', textAlign: 'right' }}>
               {t('heroTitle2')}
-            </Typography>
-          </Box>
+            </Box>
+          </Typography>
 
           <Typography
             variant="h6"
@@ -124,74 +185,7 @@ export default function VsCodeBody() {
             {t('heroDescription')}
           </Typography>
 
-          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'center', gap: 3 }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-              <Button
-                component={MuiLink}
-                href={MARKETPLACE_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                variant="contained"
-                size="large"
-                sx={{
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  fontSize: { xs: '1rem', md: '1.15rem' },
-                  borderRadius: 3,
-                  px: { xs: 4, md: 6 },
-                  py: { xs: 1.2, md: 1.8 },
-                  width: { xs: '100%', sm: 'auto' },
-                  minWidth: { sm: 240 },
-                  bgcolor: ACCENT_COLOR,
-                  color: '#000000',
-                  boxShadow: isDark
-                    ? '0 0 40px rgba(232,160,18,0.25)'
-                    : '0 4px 20px rgba(232,160,18,0.3)',
-                  '&:hover': {
-                    bgcolor: '#d4920e',
-                    boxShadow: isDark
-                      ? '0 0 50px rgba(232,160,18,0.35)'
-                      : '0 6px 28px rgba(232,160,18,0.4)',
-                    textDecoration: 'none',
-                  },
-                }}
-              >
-                {t('installButton')}
-              </Button>
-              <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.7rem' }}>
-                {t('installCaption')}
-              </Typography>
-            </Box>
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-              <Button
-                component={NextLink}
-                href="/markdown"
-                variant="outlined"
-                size="large"
-                sx={{
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  fontSize: { xs: '1rem', md: '1.15rem' },
-                  borderRadius: 3,
-                  px: { xs: 4, md: 6 },
-                  py: { xs: 1.2, md: 1.8 },
-                  width: { xs: '100%', sm: 'auto' },
-                  minWidth: { sm: 240 },
-                  borderColor: ACCENT_COLOR,
-                  color: ACCENT_COLOR,
-                  '&:hover': {
-                    borderColor: '#d4920e',
-                    bgcolor: isDark ? 'rgba(232,160,18,0.08)' : 'rgba(232,160,18,0.04)',
-                  },
-                }}
-              >
-                {tLanding('openEditor')}
-              </Button>
-              <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.7rem' }}>
-                {t('editorCaption')}
-              </Typography>
-            </Box>
-          </Box>
+          <VsCodeCtaButtons isDark={isDark} t={t} tLanding={tLanding} />
 
           <Typography
             variant="body2"
@@ -219,8 +213,8 @@ export default function VsCodeBody() {
       </Box>
 
       {/* ---- Benefits ---- */}
-      <Box sx={{ py: { xs: 8, md: 12 }, px: 3 }}>
-        <Container maxWidth="lg">
+      <Box sx={{ py: { xs: 8, md: 12 }, px: { xs: 0, md: 3 } }}>
+        <Container maxWidth="lg" disableGutters sx={{ px: { xs: 2, md: 3 } }}>
           <Typography
             variant="h4"
             component="h2"
@@ -243,6 +237,8 @@ export default function VsCodeBody() {
                   flexDirection: { xs: 'column', md: i % 2 === 0 ? 'row' : 'row-reverse' },
                   alignItems: 'center',
                   gap: { xs: 3, md: 6 },
+                  maxWidth: 700,
+                  mx: 'auto',
                 }}
               >
                 <Box
@@ -278,8 +274,12 @@ export default function VsCodeBody() {
       </Box>
 
       {/* ---- Markdown Preview ---- */}
-      <Box sx={{ py: { xs: 4, md: 6 }, px: 3 }}>
-        <Container maxWidth="lg">
+      <Box sx={{
+        py: { xs: 4, md: 6 },
+        px: 0,
+        '& .ProseMirror': { pl: { xs: 2, md: 5 }, pr: { xs: 1, md: 2 } },
+      }}>
+        <Container maxWidth="lg" disableGutters>
           <MarkdownViewer
             docKey="docs/markdownAll/markdownAll.ja.md"
             docKeyByLocale={{ en: "docs/markdownAll/markdownAll.en.md" }}
@@ -289,76 +289,9 @@ export default function VsCodeBody() {
       </Box>
 
       {/* ---- CTA ---- */}
-      <Box sx={{ py: { xs: 8, md: 10 }, px: 3, textAlign: 'center' }}>
-        <Container maxWidth="sm">
-          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'center', gap: 3 }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-              <Button
-                component={MuiLink}
-                href={MARKETPLACE_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                variant="contained"
-                size="large"
-                sx={{
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  fontSize: { xs: '1rem', md: '1.15rem' },
-                  borderRadius: 3,
-                  px: { xs: 4, md: 6 },
-                  py: { xs: 1.2, md: 1.8 },
-                  width: { xs: '100%', sm: 'auto' },
-                  minWidth: { sm: 240 },
-                  bgcolor: ACCENT_COLOR,
-                  color: '#000000',
-                  boxShadow: isDark
-                    ? '0 0 40px rgba(232,160,18,0.25)'
-                    : '0 4px 20px rgba(232,160,18,0.3)',
-                  '&:hover': {
-                    bgcolor: '#d4920e',
-                    boxShadow: isDark
-                      ? '0 0 50px rgba(232,160,18,0.35)'
-                      : '0 6px 28px rgba(232,160,18,0.4)',
-                    textDecoration: 'none',
-                  },
-                }}
-              >
-                {t('installButton')}
-              </Button>
-              <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.7rem' }}>
-                {t('installCaption')}
-              </Typography>
-            </Box>
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-              <Button
-                component={NextLink}
-                href="/markdown"
-                variant="outlined"
-                size="large"
-                sx={{
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  fontSize: { xs: '1rem', md: '1.15rem' },
-                  borderRadius: 3,
-                  px: { xs: 4, md: 6 },
-                  py: { xs: 1.2, md: 1.8 },
-                  width: { xs: '100%', sm: 'auto' },
-                  minWidth: { sm: 240 },
-                  borderColor: ACCENT_COLOR,
-                  color: ACCENT_COLOR,
-                  '&:hover': {
-                    borderColor: '#d4920e',
-                    bgcolor: isDark ? 'rgba(232,160,18,0.08)' : 'rgba(232,160,18,0.04)',
-                  },
-                }}
-              >
-                {tLanding('openEditor')}
-              </Button>
-              <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.7rem' }}>
-                {t('editorCaption')}
-              </Typography>
-            </Box>
-          </Box>
+      <Box sx={{ py: { xs: 8, md: 10 }, px: { xs: 0, md: 3 }, textAlign: 'center' }}>
+        <Container maxWidth="sm" disableGutters sx={{ px: { xs: 2, md: 3 } }}>
+          <VsCodeCtaButtons isDark={isDark} t={t} tLanding={tLanding} />
         </Container>
       </Box>
 

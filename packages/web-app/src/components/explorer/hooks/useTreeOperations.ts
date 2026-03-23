@@ -382,7 +382,7 @@ export function useTreeOperations({
       const isDir = entry?.type === "tree";
 
       const name = targetPath.split("/").pop();
-      if (!globalThis.confirm(isDir ? `Delete folder "${name}" and all its contents?` : `Delete "${name}"?`)) return;
+      if (!window.confirm(isDir ? `Delete folder "${name}" and all its contents?` : `Delete "${name}"?`)) return;
 
       if (isDir) {
         const allOk = await deleteFolderContents(

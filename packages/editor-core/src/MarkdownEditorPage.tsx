@@ -23,12 +23,12 @@ import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { EditorDialogsSection } from "./components/EditorDialogsSection";
-import { ScreenCaptureDialog } from "./components/ScreenCaptureDialog";
 import { EditorErrorBoundary } from "./components/EditorErrorBoundary";
 import { EditorFooterOverlays } from "./components/EditorFooterOverlays";
 import { EditorMainContent } from "./components/EditorMainContent";
 import { EditorToolbarSection } from "./components/EditorToolbarSection";
 import { ReadonlyToolbar } from "./components/ReadonlyToolbar";
+import { ScreenCaptureDialog } from "./components/ScreenCaptureDialog";
 import { getDefaultContent } from "./constants/defaultContent";
 import { STATUSBAR_HEIGHT } from "./constants/dimensions";
 import type { ThemePresetName } from "./constants/themePresets";
@@ -64,7 +64,7 @@ import { useOutline } from "./hooks/useOutline";
 import { useSectionNumbers } from "./hooks/useSectionNumbers";
 import { useSourceMode } from "./hooks/useSourceMode";
 import { useVSCodeIntegration } from "./hooks/useVSCodeIntegration";
-import { getMarkdownFromEditor, type HeadingItem, PlantUmlToolbarContext } from "./types";
+import { getEditorStorage, getMarkdownFromEditor, type HeadingItem, PlantUmlToolbarContext } from "./types";
 import type { FileSystemProvider } from "./types/fileSystem";
 import type { InlineComment } from "./utils/commentHelpers";
 import { parseCommentData } from "./utils/commentHelpers";
@@ -161,10 +161,14 @@ interface MarkdownEditorPageProps {
   defaultOutlineOpen?: boolean;
   /** エディタの高さを固定指定（useEditorHeight の自動計算を上書き） */
   fixedEditorHeight?: number;
-  /** フォントサイズの上書き（px） */
+  /** フォントサイズの上書き（px） — 常に強制適用 */
   defaultFontSize?: number;
+  /** フォントサイズの初期値（px） — 初回のみ適用、ユーザー変更可 */
+  initialFontSize?: number;
   /** ブロック要素の配置の上書き */
   defaultBlockAlign?: "left" | "center" | "right";
+  /** コンテンツ保存時のコールバック（localStorage 書き込み後に呼ばれる） */
+  onContentChange?: (content: string) => void;
 }
 
 /** Apply external compare content and open merge mode if needed (extracted to reduce component complexity). */
@@ -186,7 +190,7 @@ function applyExternalCompareContent(
   }
 }
 
-export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideVersionInfo, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, presetName, onPresetChange, onLocaleChange, fileSystemProvider, externalContent, externalFileName, externalFilePath: _externalFilePath, onExternalSave, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, autoReload, onToggleAutoReload, defaultSourceMode, showReadonlyMode, externalCompareContent, explorerOpen, onToggleExplorer, sideToolbar, hideCompareToggle, explorerSlot, noScroll, defaultOutlineOpen, fixedEditorHeight, defaultFontSize, defaultBlockAlign }: MarkdownEditorPageProps = {}) {
+export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideVersionInfo, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, presetName, onPresetChange, onLocaleChange, fileSystemProvider, externalContent, externalFileName, externalFilePath: _externalFilePath, onExternalSave, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, autoReload, onToggleAutoReload, defaultSourceMode, showReadonlyMode, externalCompareContent, explorerOpen, onToggleExplorer, sideToolbar, hideCompareToggle, explorerSlot, noScroll, defaultOutlineOpen, fixedEditorHeight, defaultFontSize, initialFontSize, defaultBlockAlign, onContentChange }: MarkdownEditorPageProps = {}) {
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
   const muiTheme = useTheme();
@@ -196,7 +200,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   const noopSave = useCallback(() => {}, []);
   const {
     initialContent, loading, saveContent: _saveContent, downloadMarkdown, clearContent, frontmatterRef, initialTrailingNewline,
-  } = useMarkdownEditor(externalContent ?? getDefaultContent(locale), externalContent !== undefined);
+  } = useMarkdownEditor(externalContent ?? getDefaultContent(locale), externalContent !== undefined, onContentChange);
   const saveContent = readOnly ? noopSave : _saveContent;
 
   const [commentOpen, setCommentOpen] = useState(false);
@@ -209,7 +213,14 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   }, [initialContent]);
 
   const { settings: rawSettings, updateSettings, resetSettings } = useEditorSettings();
-  const settings = { ...rawSettings, ...(defaultFontSize && { fontSize: defaultFontSize }), ...(defaultBlockAlign && { blockAlign: defaultBlockAlign }) };
+  const initialFontSizeApplied = useRef(false);
+  if (initialFontSize && !initialFontSizeApplied.current) {
+    initialFontSizeApplied.current = true;
+    if (rawSettings.fontSize !== initialFontSize) {
+      updateSettings({ fontSize: initialFontSize });
+    }
+  }
+  const settings = useMemo(() => ({ ...rawSettings, ...(defaultFontSize && { fontSize: defaultFontSize }), ...(defaultBlockAlign && { blockAlign: defaultBlockAlign }) }), [rawSettings, defaultFontSize, defaultBlockAlign]);
   const {
     settingsOpen, setSettingsOpen, sampleAnchorEl, setSampleAnchorEl,
     diagramAnchorEl, setDiagramAnchorEl, helpAnchorEl, setHelpAnchorEl,
@@ -356,6 +367,21 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   setEditorMarkdownRef.current = setEditorMarkdown;
   useEditorSideEffects({ editor, isDirty, markDirty, setHeadingsRef, setEditorMarkdown, frontmatterRef, onFrontmatterChange: fileHandling.setFrontmatterText });
   useVSCodeIntegration(editor);
+
+  // スラッシュコマンドからフロントマターを操作するためのストレージ登録
+  const setFrontmatterTextRef = useRef(fileHandling.setFrontmatterText);
+  setFrontmatterTextRef.current = fileHandling.setFrontmatterText;
+  useEffect(() => {
+    if (!editor) return;
+    let storage: Record<string, unknown>;
+    try { storage = getEditorStorage(editor); } catch { return; }
+    if (!storage) return;
+    storage.frontmatter = {
+      get: () => frontmatterRef.current,
+      set: (value: string | null) => { frontmatterRef.current = value; setFrontmatterTextRef.current(value); },
+    };
+    return () => { delete storage.frontmatter; };
+  }, [editor, frontmatterRef]);
 
   // 自動再読み込みトグル: ON で baseline を保存、OFF でクリア
   useEffect(() => {

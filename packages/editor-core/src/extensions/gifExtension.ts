@@ -33,6 +33,7 @@ export const GifBlock = Node.create({
       src: { default: null },
       alt: { default: "" },
       width: { default: null },
+      autoEditOpen: { default: false, rendered: false },
       gifSettings: {
         default: null,
         parseHTML: (element: HTMLElement) => element.dataset.gifSettings ?? null,

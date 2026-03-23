@@ -17,40 +17,48 @@ export function activate(context: vscode.ExtensionContext) {
 		new LinkValidationProvider(),
 	);
 
-	// Git 変更パネル
-	const changesProvider = new ChangesProvider();
-	const changesTreeView = vscode.window.createTreeView('anytimeMarkdown.changes', {
-		treeDataProvider: changesProvider,
-	});
+	// Git 関連パネル（ワークスペースが開かれている場合のみ初期化）
+	const hasWorkspace = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0;
 
-	// 変更ファイル数をサイドバーバッジに表示 + 消えたファイルのタブを閉じる
-	let previousChangedPaths = new Set<string>();
-	const updateChangesBadge = () => {
-		const count = changesProvider.getChangesCount();
-		changesTreeView.badge = count > 0
-			? { value: count, tooltip: `${count} changes` }
-			: undefined;
-		// 変更一覧から消えたファイルのタブを閉じる
-		changesProvider.closeRemovedTabs(previousChangedPaths);
-		previousChangedPaths = changesProvider.getChangedPaths();
-	};
-	changesProvider.onDidChangeTreeData(updateChangesBadge);
-	setTimeout(() => {
-		updateChangesBadge();
-		previousChangedPaths = changesProvider.getChangedPaths();
-	}, 2000);
+	let changesProvider: ChangesProvider | undefined;
+	let changesTreeView: vscode.TreeView<vscode.TreeItem> | undefined;
+	let timelineProvider: TimelineProvider | undefined;
+	let timelineTreeView: vscode.TreeView<TimelineItem> | undefined;
+	let graphProvider: GraphProvider | undefined;
+	let graphTreeView: vscode.TreeView<vscode.TreeItem> | undefined;
 
-	// Git 履歴パネル
-	const timelineProvider = new TimelineProvider();
-	const timelineTreeView = vscode.window.createTreeView('anytimeMarkdown.timeline', {
-		treeDataProvider: timelineProvider,
-	});
+	if (hasWorkspace) {
+		changesProvider = new ChangesProvider();
+		changesTreeView = vscode.window.createTreeView('anytimeMarkdown.changes', {
+			treeDataProvider: changesProvider,
+		});
 
-	// Git グラフパネル
-	const graphProvider = new GraphProvider(context);
-	const graphTreeView = vscode.window.createTreeView('anytimeMarkdown.graph', {
-		treeDataProvider: graphProvider,
-	});
+		// 変更ファイル数をサイドバーバッジに表示 + 消えたファイルのタブを閉じる
+		let previousChangedPaths = new Set<string>();
+		const updateChangesBadge = () => {
+			const count = changesProvider!.getChangesCount();
+			changesTreeView!.badge = count > 0
+				? { value: count, tooltip: `${count} changes` }
+				: undefined;
+			changesProvider!.closeRemovedTabs(previousChangedPaths);
+			previousChangedPaths = changesProvider!.getChangedPaths();
+		};
+		changesProvider.onDidChangeTreeData(updateChangesBadge);
+		setTimeout(() => {
+			updateChangesBadge();
+			previousChangedPaths = changesProvider!.getChangedPaths();
+		}, 2000);
+
+		timelineProvider = new TimelineProvider();
+		timelineTreeView = vscode.window.createTreeView('anytimeMarkdown.timeline', {
+			treeDataProvider: timelineProvider,
+		});
+
+		graphProvider = new GraphProvider(context);
+		graphTreeView = vscode.window.createTreeView('anytimeMarkdown.graph', {
+			treeDataProvider: graphProvider,
+		});
+	}
 
 	// ステータスバーアイテム（右側、テキストエディタと同等の位置）
 	const cursorStatusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
@@ -84,7 +92,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// アクティブドキュメント変更時に履歴を更新（外部リポジトリモード中はスキップ）
 	const updateTimeline = () => {
-		if (timelineProvider.isExternalMode) return;
+		if (!timelineProvider || timelineProvider.isExternalMode) return;
 		const p = MarkdownEditorProvider.getInstance();
 		timelineProvider.refresh(p?.activeDocumentUri ?? null);
 	};
@@ -157,7 +165,7 @@ export function activate(context: vscode.ExtensionContext) {
 		async (item: TimelineItem) => {
 			const p = MarkdownEditorProvider.getInstance();
 			if (!p) { return; }
-			const content = await timelineProvider.getCommitContent(item);
+			const content = await timelineProvider?.getCommitContent(item);
 			if (content == null) {
 				vscode.window.showWarningMessage('Could not load file content for this commit.');
 				return;
@@ -204,8 +212,8 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const setActiveRoot = (rootPath: string | null) => {
 		activeRoot = rootPath;
-		changesProvider.setPrimaryRoot(rootPath);
-		graphProvider.setTargetRoot(rootPath);
+		changesProvider?.setPrimaryRoot(rootPath);
+		graphProvider?.setTargetRoot(rootPath);
 	};
 
 	let previousRoots: string[] = [];
@@ -215,7 +223,7 @@ export function activate(context: vscode.ExtensionContext) {
 		// ルート一覧が変わった場合のみ changesProvider を更新
 		if (JSON.stringify(roots) !== JSON.stringify(previousRoots)) {
 			previousRoots = roots;
-			changesProvider.setTargetRoots(roots);
+			changesProvider?.setTargetRoots(roots);
 		}
 		if (roots.length === 0) {
 			setActiveRoot(null);
@@ -228,11 +236,13 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 	updateSpecDocsTitle();
 	// 初回: git 初期化を待ってからターゲットを設定
-	setTimeout(() => {
-		changesProvider.setTargetRoots(specDocsProvider.roots);
-		previousRoots = specDocsProvider.roots;
-		setActiveRoot(activeRoot);
-	}, 2000);
+	if (changesProvider) {
+		setTimeout(() => {
+			changesProvider!.setTargetRoots(specDocsProvider.roots);
+			previousRoots = specDocsProvider.roots;
+			setActiveRoot(activeRoot);
+		}, 2000);
+	}
 
 	// マークダウン管理: シングルクリックでプレビュー、ダブルクリックで固定タブ（常に通常モード）
 	let lastSpecClickUri: string | null = null;
@@ -266,9 +276,9 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 
 			// git history を更新
-			const fileGitRoot = changesProvider.findGitRootForPath(uri.fsPath);
+			const fileGitRoot = changesProvider?.findGitRootForPath(uri.fsPath);
 			if (fileGitRoot) {
-				timelineProvider.refreshWithGitRoot(uri.fsPath, fileGitRoot);
+				timelineProvider?.refreshWithGitRoot(uri.fsPath, fileGitRoot);
 			}
 		}
 	);
@@ -291,15 +301,15 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	);
 	const graphRefresh = vscode.commands.registerCommand(
-		'anytime-markdown.graphRefresh', () => graphProvider.refresh()
+		'anytime-markdown.graphRefresh', () => graphProvider?.refresh()
 	);
 	const toggleMdOnly = vscode.commands.registerCommand(
 		'anytime-markdown.toggleMdOnly', () => {
 			specDocsProvider.toggleMdOnly();
-			changesProvider.refresh();
+			changesProvider?.refresh();
 		}
 	);
-	changesProvider.setMdOnlyGetter(() => specDocsProvider.mdOnly);
+	changesProvider?.setMdOnlyGetter(() => specDocsProvider.mdOnly);
 
 	// マークダウン管理: ファイル/フォルダ操作
 	const specDocsCreateFile = vscode.commands.registerCommand(
@@ -351,25 +361,25 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Git 変更コマンド
 	const changesRefresh = vscode.commands.registerCommand(
-		'anytime-markdown.changesRefresh', () => changesProvider.refresh()
+		'anytime-markdown.changesRefresh', () => changesProvider?.refresh()
 	);
 	const stageFile = vscode.commands.registerCommand(
-		'anytime-markdown.stageFile', (item: ChangesFileItem) => changesProvider.stageFile(item)
+		'anytime-markdown.stageFile', (item: ChangesFileItem) => changesProvider?.stageFile(item)
 	);
 	const unstageFile = vscode.commands.registerCommand(
-		'anytime-markdown.unstageFile', (item: ChangesFileItem) => changesProvider.unstageFile(item)
+		'anytime-markdown.unstageFile', (item: ChangesFileItem) => changesProvider?.unstageFile(item)
 	);
 	const stageAll = vscode.commands.registerCommand(
-		'anytime-markdown.stageAll', (gitRoot?: string) => changesProvider.stageAll(gitRoot)
+		'anytime-markdown.stageAll', (gitRoot?: string) => changesProvider?.stageAll(gitRoot)
 	);
 	const unstageAll = vscode.commands.registerCommand(
-		'anytime-markdown.unstageAll', (gitRoot?: string) => changesProvider.unstageAll(gitRoot)
+		'anytime-markdown.unstageAll', (gitRoot?: string) => changesProvider?.unstageAll(gitRoot)
 	);
 	const discardAll = vscode.commands.registerCommand(
-		'anytime-markdown.discardAll', (gitRoot?: string) => changesProvider.discardAll(gitRoot)
+		'anytime-markdown.discardAll', (gitRoot?: string) => changesProvider?.discardAll(gitRoot)
 	);
 	const discardChanges = vscode.commands.registerCommand(
-		'anytime-markdown.discardChanges', (item: ChangesFileItem) => changesProvider.discardChanges(item)
+		'anytime-markdown.discardChanges', (item: ChangesFileItem) => changesProvider?.discardChanges(item)
 	);
 	// 変更: シングルクリックでプレビュー、ダブルクリックで固定タブ
 	let lastChangesClickUri: string | null = null;
@@ -410,19 +420,19 @@ export function activate(context: vscode.ExtensionContext) {
 
 			// git history を更新
 			if (gitRoot) {
-				timelineProvider.refreshWithGitRoot(currentUri.fsPath, gitRoot);
+				timelineProvider?.refreshWithGitRoot(currentUri.fsPath, gitRoot);
 			}
 		}
 	);
 
 	const commitChanges = vscode.commands.registerCommand(
-		'anytime-markdown.commitChanges', () => changesProvider.commit()
+		'anytime-markdown.commitChanges', () => changesProvider?.commit()
 	);
 	const syncChanges = vscode.commands.registerCommand(
-		'anytime-markdown.syncChanges', (gitRoot?: string) => changesProvider.sync(gitRoot)
+		'anytime-markdown.syncChanges', (gitRoot?: string) => changesProvider?.sync(gitRoot)
 	);
 	const pushChanges = vscode.commands.registerCommand(
-		'anytime-markdown.pushChanges', () => changesProvider.push()
+		'anytime-markdown.pushChanges', () => changesProvider?.push()
 	);
 	const openChangeDiff = vscode.commands.registerCommand(
 		'anytime-markdown.openChangeDiff',
@@ -454,20 +464,20 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	);
 
-	// AI Note ビュー（空のツリーで Welcome Content を表示）
+	// Agent Note ビュー（空のツリーで Welcome Content を表示）
 	vscode.window.createTreeView('anytimeMarkdown.aiNote', {
 		treeDataProvider: { getTreeItem: (e: never) => e, getChildren: () => [] },
 	});
 
-	// AI Log ビュー（セッション一覧）
-	const sessionsDir = path.join(
-		process.env.HOME || process.env.USERPROFILE || '',
-		'.claude', 'projects',
-	);
-	// ワークスペースのパスからプロジェクトディレクトリを特定
+	// Claude Code 連携（~/.claude/ が存在する場合のみ有効）
+	const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+	const claudeDir = homeDir ? path.join(homeDir, '.claude') : '';
+	const hasClaudeDir = claudeDir && fs.existsSync(claudeDir);
+
+	const sessionsDir = hasClaudeDir ? path.join(claudeDir, 'projects') : '';
 	const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
 	const projectDirName = workspaceRoot.replace(/\//g, '-') || '-';
-	const projectSessionsDir = path.join(sessionsDir, projectDirName);
+	const projectSessionsDir = sessionsDir ? path.join(sessionsDir, projectDirName) : '';
 
 	const aiLogProvider = new AiLogProvider(projectSessionsDir);
 	const aiLogTreeView = vscode.window.createTreeView('anytimeMarkdown.aiLog', {
@@ -519,7 +529,7 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	);
 
-	// AI Note ファイルを開く
+	// Agent Note ファイルを開く
 	const openContext = vscode.commands.registerCommand(
 		'anytime-markdown.openContext',
 		async () => {
@@ -532,24 +542,44 @@ export function activate(context: vscode.ExtensionContext) {
 				fs.writeFileSync(filePath, '# Anytime Context\n\n', 'utf-8');
 			}
 
-			// CLAUDE.local.md に AI Note のパスを自動追記（未記載の場合のみ）
-			const claudeLocalMdPath = path.join(projectSessionsDir, 'CLAUDE.local.md');
-			if (fs.existsSync(path.dirname(claudeLocalMdPath))) {
-				const existing = fs.existsSync(claudeLocalMdPath)
-					? fs.readFileSync(claudeLocalMdPath, 'utf-8')
-					: '';
-				if (!existing.includes('anytime-context.md')) {
-					const section = [
-						existing ? '' : '# Project Local Settings',
+			// ~/.claude/skills/anytime-note/SKILL.md を自動生成（未作成の場合のみ）
+			if (hasClaudeDir) {
+				const skillDir = path.join(claudeDir, 'skills', 'anytime-note');
+				const skillPath = path.join(skillDir, 'SKILL.md');
+				if (!fs.existsSync(skillPath)) {
+					fs.mkdirSync(skillDir, { recursive: true });
+					const imagesDir = path.join(dir, 'images');
+					const skillContent = [
+						'---',
+						'name: anytime-note',
+						'description: Agent Note（anytime-context.md）を読んで指示を実行する。「/anytime-note 対応内容」の形式で使用。ノートに書かれたコンテキスト（画像・テキスト・メモ）を参照し、指示された作業を行う。',
+						'user_invocable: true',
+						'argument: task',
+						'---',
 						'',
-						'## AI Note',
+						'# Agent Note 連携',
 						'',
-						'拡張機能の AI Note パネルに視覚情報（画像・表）がある場合は以下を参照:',
-						`\`${filePath}\``,
+						'## 手順',
+						'',
+						'1. Agent Note ファイルを読み込む',
+						`   - パス: \`${filePath}\``,
+						`   - 画像フォルダ: \`${imagesDir}\``,
+						'   - 画像（`images/` 内の png 等）が参照されている場合は Read ツールで画像も読み込む',
+						'',
+						'2. ノート内容を確認し、ユーザーに概要を報告する',
+						'   - テキスト・画像の有無を簡潔に伝える',
+						'',
+						'3. 引数（`task`）で指定された作業を、ノートの内容をコンテキストとして実行する',
+						'   - 引数が空の場合はノート内容を要約し、何をすべきか提案する',
+						'   - 引数がある場合はノートを踏まえて作業を実行する',
+						'',
+						'## 注意事項',
+						'',
+						'- ノートの内容を変更・削除しない（読み取り専用）',
+						'- 作業結果はノートではなく、通常のコードベースやドキュメントに出力する',
 						'',
 					].join('\n');
-					fs.appendFileSync(claudeLocalMdPath, section, 'utf-8');
-					vscode.window.showInformationMessage('CLAUDE.local.md に AI Note のパスを追記しました。');
+					fs.writeFileSync(skillPath, skillContent, 'utf-8');
 				}
 			}
 
@@ -568,39 +598,42 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	);
 
-	// AI Note ストレージをクリア
+	// Agent Note ストレージをクリア
 	const clearContext = vscode.commands.registerCommand(
 		'anytime-markdown.clearContext',
 		async () => {
 			const answer = await vscode.window.showWarningMessage(
-				'AI Note のファイルをすべて削除しますか？',
+				'Agent Note のファイルをすべて削除しますか？',
 				{ modal: true },
 				'Delete'
 			);
 			if (answer !== 'Delete') { return; }
 			const dir = context.globalStorageUri.fsPath;
-			if (fs.existsSync(dir)) {
-				for (const entry of fs.readdirSync(dir)) {
-					const full = path.join(dir, entry);
-					fs.rmSync(full, { recursive: true, force: true });
-				}
+			const aiNotePath = path.join(dir, 'anytime-context.md');
+			const imagesDir = path.join(dir, 'images');
+			if (fs.existsSync(aiNotePath)) {
+				fs.rmSync(aiNotePath);
 			}
-			vscode.window.showInformationMessage('AI Note をクリアしました。');
+			if (fs.existsSync(imagesDir)) {
+				fs.rmSync(imagesDir, { recursive: true, force: true });
+			}
+			vscode.window.showInformationMessage('Agent Note をクリアしました。');
 		}
 	);
 
 	// ファイル保存時にリフレッシュ
 	context.subscriptions.push(
-		vscode.workspace.onDidSaveTextDocument(() => changesProvider.refresh()),
-		changesTreeView, timelineTreeView, specDocsTreeView,
-		{ dispose: () => changesProvider.dispose() },
+		vscode.workspace.onDidSaveTextDocument(() => changesProvider?.refresh()),
+		specDocsTreeView,
+		...(changesProvider ? [changesTreeView!, { dispose: () => changesProvider!.dispose() }] : []),
+		...(timelineTreeView ? [timelineTreeView] : []),
 		...statusBarItems,
 		openEditorWithFile, compareCmd, compareWithCommit,
 		insertSectionNumbers, removeSectionNumbers,
 		changesRefresh, stageFile, unstageFile, stageAll, unstageAll, discardAll, discardChanges, commitChanges, pushChanges, syncChanges, changesOpenFile, openChangeDiff,
 		specDocsOpenFile, specDocsOpenFolder, specDocsCloneRepo, specDocsClose, specDocsRefresh, switchBranch, toggleMdOnly,
 		specDocsCreateFile, specDocsCreateFolder, specDocsDelete, specDocsRename, specDocsRemoveRoot, specDocsCopyPath, specDocsImportFiles, specDocsCut, specDocsCopy, specDocsPaste, pasteAsMarkdown,
-		graphTreeView, graphRefresh,
+		...(graphTreeView ? [graphTreeView] : []), graphRefresh,
 		openContext, copyContextPath, clearContext,
 		aiLogTreeView, aiLogRefresh, openAiLog,
 		aiMemoryTreeView, aiMemoryRefresh, openAiMemory,

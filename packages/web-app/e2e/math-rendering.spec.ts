@@ -15,10 +15,15 @@ test.describe("Math Rendering", () => {
     await page.keyboard.type("math");
     await page.waitForTimeout(200);
     await page.getByRole("menuitem").first().click();
-    // Type a simple formula
-    await page.keyboard.type("E = mc^2");
-    // Click outside the code block to trigger rendering
-    await editor.click({ position: { x: 10, y: 10 } });
+    // Fullscreen edit dialog opens automatically — type formula in textarea
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible({ timeout: 3000 });
+    const textarea = dialog.locator("textarea").first();
+    await expect(textarea).toBeVisible();
+    await textarea.fill("E = mc^2");
+    // Close dialog
+    await dialog.getByRole("button", { name: /close/i }).click();
+    await expect(dialog).not.toBeVisible();
     // Verify KaTeX rendered (look for .katex class in the rendered output)
     await expect(editor.locator(".katex")).toBeVisible({ timeout: 5000 });
   });

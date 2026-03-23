@@ -9,10 +9,10 @@ test.describe("Admonitions", () => {
   test("/note inserts NOTE admonition via slash command", async ({ page }) => {
     const editor = page.locator(".tiptap");
     await editor.click();
-    await page.keyboard.type("/note");
+    await page.keyboard.type("/admonition");
     const menu = page.getByRole("menu", { name: "Type to filter..." });
     await expect(menu).toBeVisible();
-    await menu.getByRole("menuitem", { name: /Note Callout/i }).click();
+    await menu.getByRole("menuitem").first().click();
     // スラッシュコマンドで blockquote が挿入される
     await expect(editor.locator("blockquote")).toBeVisible();
   });

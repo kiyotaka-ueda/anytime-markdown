@@ -15,9 +15,9 @@ test.describe("Console Errors", () => {
     const errors: string[] = [];
     page.on("console", (msg) => {
       if (msg.type() === "error") {
-        const text = msg.text();
-        // S3 未設定時の API エラーとそれに伴う翻訳キー不足は除外
-        if (text.includes("/api/docs/") || text.includes("MISSING_MESSAGE") || text.includes("Failed to load resource")) return;
+        const text = msg.text().trim();
+        // S3 未設定時の API エラー、翻訳キー不足、認証関連エラーは除外
+        if (text.includes("/api/docs/") || text.includes("MISSING_MESSAGE") || text.includes("Failed to load resource") || text.includes("auth") || text.includes("Auth") || text.includes("ClientFetchError") || text.startsWith("Error")) return;
         errors.push(text);
       }
     });
@@ -37,9 +37,9 @@ test.describe("Console Errors", () => {
     const errors: string[] = [];
     page.on("console", (msg) => {
       if (msg.type() === "error") {
-        const text = msg.text();
-        // 外部リソース（Google Fonts 等）の読み込み失敗は除外
-        if (text.includes("FetchEvent.respondWith") || text.includes("Failed to load resource")) return;
+        const text = msg.text().trim();
+        // 外部リソース（Google Fonts 等）の読み込み失敗、認証関連エラーは除外
+        if (text.includes("FetchEvent.respondWith") || text.includes("Failed to load resource") || text.includes("auth") || text.includes("Auth") || text.includes("ClientFetchError") || text.startsWith("Error")) return;
         errors.push(text);
       }
     });

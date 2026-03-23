@@ -20,6 +20,7 @@ export const CodeBlockWithMermaid = CodeBlockLowlight.extend({
       collapsed: { default: false, rendered: false },
       codeCollapsed: { default: true, rendered: false },
       width: { default: null, rendered: false },
+      autoEditOpen: { default: false, rendered: false },
     };
   },
 

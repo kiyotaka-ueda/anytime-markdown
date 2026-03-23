@@ -304,7 +304,7 @@ export default function EditBody() {
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         {snackbar ? (
-          <Alert severity={snackbar.severity} onClose={() => setSnackbar(null)} variant="filled">
+          <Alert severity={snackbar.severity} onClose={() => setSnackbar(null)} variant="filled" role={snackbar.severity === 'error' ? 'alert' : 'status'}>
             {snackbar.message}
           </Alert>
         ) : undefined}
