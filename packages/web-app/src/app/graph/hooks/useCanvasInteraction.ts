@@ -535,6 +535,11 @@ export function useCanvasInteraction({
       spaceRef.current = true;
       return;
     }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      dispatch({ type: 'SET_SELECTION', selection: { nodeIds: [], edgeIds: [] } });
+      return;
+    }
     if ((e.key === 'Delete' || e.key === 'Backspace') && (selection.nodeIds.length > 0 || selection.edgeIds.length > 0)) {
       e.preventDefault();
       dispatch({ type: 'DELETE_SELECTED' });
