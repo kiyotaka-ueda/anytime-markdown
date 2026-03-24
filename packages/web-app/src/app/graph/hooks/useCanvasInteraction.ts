@@ -304,13 +304,40 @@ export function useCanvasInteraction({
       const hit = hitTest(nodes, edges, world.x, world.y, viewport.scale, []);
       const edgeType: 'line' | 'arrow' | 'connector' =
         (tool === 'line' || tool === 'arrow' || tool === 'connector') ? tool : 'connector';
-      const edge = createEdge(
-        edgeType,
-        { nodeId: drag.nodeId, x: drag.startWorldX, y: drag.startWorldY },
-        { nodeId: hit.type === 'node' ? hit.id : undefined, x: world.x, y: world.y },
-      );
-      if (Math.hypot(world.x - drag.startWorldX, world.y - drag.startWorldY) > 5) {
-        dispatch({ type: 'ADD_EDGE', edge });
+      const dist = Math.hypot(world.x - drag.startWorldX, world.y - drag.startWorldY);
+
+      if (dist > 5) {
+        if (hit.type === 'node' && hit.id) {
+          // 既存ノードに接続
+          const edge = createEdge(
+            edgeType,
+            { nodeId: drag.nodeId, x: drag.startWorldX, y: drag.startWorldY },
+            { nodeId: hit.id, x: world.x, y: world.y },
+          );
+          dispatch({ type: 'ADD_EDGE', edge });
+        } else {
+          // 空白にドロップ → 子ノード自動作成 + コネクタ接続
+          const parentNode = drag.nodeId ? nodes.find(n => n.id === drag.nodeId) : undefined;
+          const childType = parentNode?.type === 'sticky' ? 'sticky'
+            : parentNode?.type === 'insight' ? 'insight'
+            : parentNode?.type === 'ellipse' ? 'ellipse'
+            : 'rect';
+          const childW = 150;
+          const childH = childType === 'insight' ? 140 : 100;
+          const child = createNode(childType, world.x - childW / 2, world.y - childH / 2, {
+            width: childW,
+            height: childH,
+          });
+          const edge = createEdge(
+            edgeType,
+            { nodeId: drag.nodeId, x: drag.startWorldX, y: drag.startWorldY },
+            { nodeId: child.id, x: world.x, y: world.y },
+          );
+          dispatch({ type: 'ADD_NODE', node: child });
+          dispatch({ type: 'ADD_EDGE', edge });
+          // 子ノードのテキスト編集を即開始
+          onTextEdit(child.id);
+        }
       }
       onToolChange('select');
     }
