@@ -21,12 +21,13 @@ interface GraphCanvasProps {
   onContextMenu: (e: React.MouseEvent) => void;
   previewRef: React.RefObject<DragPreview>;
   hoverNodeIdRef: React.RefObject<string | undefined>;
+  mouseWorldRef: React.RefObject<{ x: number; y: number }>;
 }
 
 export function GraphCanvas({
   nodes, edges, viewport, selection, showGrid, canvasRef,
   onMouseDown, onMouseMove, onMouseUp, onWheel, onDoubleClick, onContextMenu,
-  previewRef, hoverNodeIdRef,
+  previewRef, hoverNodeIdRef, mouseWorldRef,
 }: GraphCanvasProps) {
   const rafRef = useRef<number>(0);
 
@@ -54,7 +55,7 @@ export function GraphCanvas({
       return e;
     });
 
-    render(ctx, canvas.width, canvas.height, nodes, resolvedEdges, viewport, selection, showGrid, hoverNodeIdRef.current);
+    render(ctx, canvas.width, canvas.height, nodes, resolvedEdges, viewport, selection, showGrid, hoverNodeIdRef.current, mouseWorldRef.current.x, mouseWorldRef.current.y);
 
     // ドラッグプレビュー描画
     const preview = previewRef.current;
@@ -88,7 +89,7 @@ export function GraphCanvas({
       drawSmartGuides(ctx, preview.guides);
       ctx.restore();
     }
-  }, [canvasRef, nodes, edges, viewport, selection, showGrid, previewRef, hoverNodeIdRef]);
+  }, [canvasRef, nodes, edges, viewport, selection, showGrid, previewRef, hoverNodeIdRef, mouseWorldRef]);
 
   useEffect(() => {
     const loop = () => {

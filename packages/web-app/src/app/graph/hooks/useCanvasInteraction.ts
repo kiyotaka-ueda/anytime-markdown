@@ -79,6 +79,7 @@ export function useCanvasInteraction({
   const previewRef = useRef<DragPreview>({ ...EMPTY_PREVIEW });
   const clipboardRef = useRef<{ nodes: GraphNode[]; edges: GraphEdge[] } | null>(null);
   const hoverNodeIdRef = useRef<string | undefined>(undefined);
+  const mouseWorldRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const cursorRef = useRef<string>('default');
 
   const getWorldPos = useCallback((e: MouseEvent | React.MouseEvent) => {
@@ -234,6 +235,7 @@ export function useCanvasInteraction({
     // ホバーノード検出 + カーソル更新（ドラッグ中でないとき）
     if (drag.type === 'none' && tool === 'select') {
       const world = screenToWorld(viewport, sx, sy);
+      mouseWorldRef.current = world;
       const resolved = resolveEdgesWithWaypoints(edges, nodes);
       const fullHit = hitTest(nodes, resolved, world.x, world.y, viewport.scale, selection.nodeIds, undefined, selection.edgeIds);
       // ホバー判定はリサイズハンドルを無視
@@ -583,6 +585,7 @@ export function useCanvasInteraction({
     previewRef,
     clipboardRef,
     hoverNodeIdRef,
+    mouseWorldRef,
     cursorRef,
     copySelected,
     pasteFromClipboard,

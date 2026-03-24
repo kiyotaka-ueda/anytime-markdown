@@ -56,7 +56,7 @@ export function GraphEditor() {
 
   const {
     handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, handleDoubleClick, previewRef, dragRef,
-    clipboardRef, copySelected, pasteFromClipboard, hoverNodeIdRef,
+    clipboardRef, copySelected, pasteFromClipboard, hoverNodeIdRef, mouseWorldRef,
   } = useCanvasInteraction({
     canvasRef, tool,
     nodes: state.document.nodes,
@@ -191,6 +191,7 @@ export function GraphEditor() {
           onContextMenu={handleContextMenu}
           previewRef={previewRef}
           hoverNodeIdRef={hoverNodeIdRef}
+          mouseWorldRef={mouseWorldRef}
         />
         {selectedNode && !editingNodeId && !docEditNodeId && !isDragging && (
           <ShapeHoverBar

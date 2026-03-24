@@ -26,6 +26,8 @@ export function render(
   selection: SelectionState,
   showGrid: boolean,
   hoverNodeId?: string,
+  mouseWorldX?: number,
+  mouseWorldY?: number,
 ): void {
   ctx.fillStyle = BG_COLOR;
   ctx.fillRect(0, 0, width, height);
@@ -49,7 +51,7 @@ export function render(
   // ホバー接続ポイント
   if (hoverNodeId) {
     const hoverNode = nodes.find(n => n.id === hoverNodeId);
-    if (hoverNode) drawConnectionPoints(ctx, hoverNode, viewport.scale);
+    if (hoverNode) drawConnectionPoints(ctx, hoverNode, viewport.scale, mouseWorldX, mouseWorldY);
   }
 
   ctx.restore();
@@ -489,11 +491,13 @@ export function drawEdgeEndpointHandles(
   ctx.restore();
 }
 
-/** ホバー時の接続ポイント（4辺中央の丸）を描画 */
+/** ホバー時の接続ポイント（マウスに最も近い1点のみ描画） */
 export function drawConnectionPoints(
   ctx: CanvasRenderingContext2D,
   node: GraphNode,
   scale: number,
+  mouseWX?: number,
+  mouseWY?: number,
 ): void {
   const { x, y, width: w, height: h } = node;
   const r = 6 / scale;
@@ -503,8 +507,21 @@ export function drawConnectionPoints(
     { px: x + w / 2, py: y + h },
     { px: x, py: y + h / 2 },
   ];
+
+  // マウス座標が渡された場合、最も近い1点のみ表示
+  let visiblePoints = points;
+  if (mouseWX !== undefined && mouseWY !== undefined) {
+    let best = points[0];
+    let bestDist = Infinity;
+    for (const p of points) {
+      const d = Math.hypot(p.px - mouseWX, p.py - mouseWY);
+      if (d < bestDist) { bestDist = d; best = p; }
+    }
+    visiblePoints = [best];
+  }
+
   ctx.save();
-  for (const { px, py } of points) {
+  for (const { px, py } of visiblePoints) {
     // 外円
     ctx.beginPath();
     ctx.arc(px, py, r, 0, Math.PI * 2);
