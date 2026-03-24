@@ -254,7 +254,7 @@ export function useCanvasInteraction({
       } else if (fullHit.type === 'edge-segment') {
         cursorRef.current = fullHit.segmentDirection === 'vertical' ? 'ew-resize' : 'ns-resize';
       } else if (fullHit.type === 'node') {
-        cursorRef.current = 'move';
+        cursorRef.current = 'grab';
       } else if (fullHit.type === 'edge') {
         cursorRef.current = 'pointer';
       } else {
