@@ -22,6 +22,7 @@ export {
   bestSides,
 } from './connector';
 export type { Side } from './connector';
+export { computeAvoidancePath } from './pathfinding';
 export { snapToGrid, snapRect } from './gridSnap';
 export {
   alignLeft, alignRight, alignTop, alignBottom,
