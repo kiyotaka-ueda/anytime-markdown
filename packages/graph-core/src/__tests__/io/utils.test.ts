@@ -1,8 +1,8 @@
 import { escapeXml, toHexColor } from '../../io/utils';
 
 describe('escapeXml', () => {
-  it('should escape &, <, >, "', () => {
-    expect(escapeXml('a & b < c > d "e"')).toBe('a &amp; b &lt; c &gt; d &quot;e&quot;');
+  it('should escape &, <, >, ", \'', () => {
+    expect(escapeXml('a & b < c > d "e" \'f\'')).toBe('a &amp; b &lt; c &gt; d &quot;e&quot; &apos;f&apos;');
   });
   it('should return unchanged string without special chars', () => {
     expect(escapeXml('hello world')).toBe('hello world');

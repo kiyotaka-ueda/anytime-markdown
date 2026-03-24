@@ -28,6 +28,8 @@ export function GraphEditor() {
   const [showProperty, setShowProperty] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const selectionRef = useRef(state.selection);
+  selectionRef.current = state.selection;
   const [docEditNodeId, setDocEditNodeId] = useState<string | null>(null);
   const { state, dispatch } = useGraphState();
   const t = useTranslations('Graph');
@@ -106,7 +108,7 @@ export function GraphEditor() {
       if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.getAttribute('contenteditable') === 'true') return;
       if (editingNodeId) return;
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-        const ids = state.selection.nodeIds;
+        const ids = selectionRef.current.nodeIds;
         if (ids.length === 0) return;
         const step = e.shiftKey ? 10 : 1;
         const dx = e.key === 'ArrowRight' ? step : e.key === 'ArrowLeft' ? -step : 0;
@@ -129,7 +131,7 @@ export function GraphEditor() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [editingNodeId, state.selection.nodeIds, dispatch]);
+  }, [editingNodeId, dispatch]);
 
   const handleTextCommit = useCallback((id: string, text: string) => {
     dispatch({ type: 'UPDATE_NODE', id, changes: { text } });
@@ -389,17 +391,17 @@ export function GraphEditor() {
         }}
         onClose={() => setDocEditNodeId(null)}
       />
-      <Dialog open={confirmDialog.open} onClose={() => setConfirmDialog(prev => ({ ...prev, open: false }))}>
+      <Dialog open={confirmDialog.open} onClose={() => setConfirmDialog({ open: false, title: '', message: '', onConfirm: () => {} })}>
         <DialogTitle>{confirmDialog.title}</DialogTitle>
         <DialogContent>
           <DialogContentText>{confirmDialog.message}</DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmDialog(prev => ({ ...prev, open: false }))}>{t('cancel')}</Button>
+          <Button onClick={() => setConfirmDialog({ open: false, title: '', message: '', onConfirm: () => {} })}>{t('cancel')}</Button>
           <Button
             onClick={() => {
               confirmDialog.onConfirm();
-              setConfirmDialog(prev => ({ ...prev, open: false }));
+              setConfirmDialog({ open: false, title: '', message: '', onConfirm: () => {} });
             }}
             color="error"
             autoFocus
