@@ -116,10 +116,15 @@ export function GraphCanvas({
       }
     }
 
-    // 慣性スクロール
+    // 慣性スクロール（reduced-motion 時は即停止）
     if (velocityRef && onPanInertia) {
       const vel = velocityRef.current;
-      if (Math.abs(vel.vx) > 0.5 || Math.abs(vel.vy) > 0.5) {
+      const prefersReducedMotion = typeof window !== 'undefined'
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (prefersReducedMotion) {
+        vel.vx = 0;
+        vel.vy = 0;
+      } else if (Math.abs(vel.vx) > 0.5 || Math.abs(vel.vy) > 0.5) {
         onPanInertia(vel.vx, vel.vy);
         vel.vx *= 0.92;
         vel.vy *= 0.92;

@@ -70,6 +70,10 @@ export function ShapeHoverBar({ node, viewport, onChangeType }: ShapeHoverBarPro
           from: { opacity: 0, transform: 'translateY(6px)' },
           to: { opacity: 1, transform: 'translateY(0)' },
         },
+        '@media (prefers-reduced-motion: reduce)': {
+          animation: 'none',
+          opacity: 1,
+        },
       }}
       onMouseDown={(e) => e.stopPropagation()}
     >
