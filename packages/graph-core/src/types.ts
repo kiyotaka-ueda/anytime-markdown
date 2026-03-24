@@ -10,9 +10,13 @@ export interface NodeStyle {
   fontFamily: string;
 }
 
+export type EndpointShape = 'none' | 'arrow' | 'circle' | 'diamond' | 'bar';
+
 export interface EdgeStyle {
   stroke: string;
   strokeWidth: number;
+  startShape?: EndpointShape;
+  endShape?: EndpointShape;
 }
 
 export interface GraphNode {

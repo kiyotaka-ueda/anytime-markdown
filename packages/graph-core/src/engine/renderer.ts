@@ -1,4 +1,4 @@
-import { GraphNode, GraphEdge, Viewport, SelectionState } from '../types';
+import { GraphNode, GraphEdge, Viewport, SelectionState, EndpointShape } from '../types';
 import type { GuideLine } from './smartGuide';
 import {
   CANVAS_BG, CANVAS_GRID, CANVAS_SELECTION, CANVAS_SELECTION_FILL,
@@ -357,28 +357,31 @@ export function drawEdge(
   ctx.strokeStyle = selected ? SELECTION_COLOR : style.stroke;
   ctx.lineWidth = selected ? style.strokeWidth + 1 : style.strokeWidth;
 
+  const color = selected ? SELECTION_COLOR : style.stroke;
+  // 端点形状（未設定の場合、arrow/connectorタイプは endShape='arrow' をデフォルトにする）
+  const startShape: EndpointShape = style.startShape ?? 'none';
+  const endShape: EndpointShape = style.endShape ?? ((type === 'arrow' || type === 'connector') ? 'arrow' : 'none');
+
   if (waypoints && waypoints.length >= 2) {
-    // 折れ線描画
     ctx.beginPath();
     ctx.moveTo(waypoints[0].x, waypoints[0].y);
     for (let i = 1; i < waypoints.length; i++) {
       ctx.lineTo(waypoints[i].x, waypoints[i].y);
     }
     ctx.stroke();
-    // 矢印は最後の2点から
-    if (type === 'arrow' || type === 'connector') {
-      const last = waypoints[waypoints.length - 1];
-      const prev = waypoints[waypoints.length - 2];
-      drawArrowHead(ctx, prev.x, prev.y, last.x, last.y, selected ? SELECTION_COLOR : style.stroke);
-    }
+    const first = waypoints[0];
+    const second = waypoints[1];
+    const last = waypoints[waypoints.length - 1];
+    const prev = waypoints[waypoints.length - 2];
+    drawEndpointShape(ctx, startShape, first.x, first.y, second.x, second.y, color);
+    drawEndpointShape(ctx, endShape, last.x, last.y, prev.x, prev.y, color);
   } else {
     ctx.beginPath();
     ctx.moveTo(from.x, from.y);
     ctx.lineTo(to.x, to.y);
     ctx.stroke();
-    if (type === 'arrow' || type === 'connector') {
-      drawArrowHead(ctx, from.x, from.y, to.x, to.y, selected ? SELECTION_COLOR : style.stroke);
-    }
+    drawEndpointShape(ctx, startShape, from.x, from.y, to.x, to.y, color);
+    drawEndpointShape(ctx, endShape, to.x, to.y, from.x, from.y, color);
   }
 
   if (edge.label) {
@@ -428,6 +431,56 @@ export function drawArrowHead(
   );
   ctx.closePath();
   ctx.fill();
+  ctx.restore();
+}
+
+/** 端点形状を描画 */
+function drawEndpointShape(
+  ctx: CanvasRenderingContext2D,
+  shape: EndpointShape,
+  tipX: number, tipY: number,
+  fromX: number, fromY: number,
+  color: string,
+): void {
+  if (shape === 'none') return;
+  const angle = Math.atan2(tipY - fromY, tipX - fromX);
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  if (shape === 'arrow') {
+    const len = 12;
+    ctx.beginPath();
+    ctx.moveTo(tipX, tipY);
+    ctx.lineTo(tipX - len * Math.cos(angle - Math.PI / 6), tipY - len * Math.sin(angle - Math.PI / 6));
+    ctx.lineTo(tipX - len * Math.cos(angle + Math.PI / 6), tipY - len * Math.sin(angle + Math.PI / 6));
+    ctx.closePath();
+    ctx.fill();
+  } else if (shape === 'circle') {
+    const r = 5;
+    ctx.beginPath();
+    ctx.arc(tipX - r * Math.cos(angle), tipY - r * Math.sin(angle), r, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (shape === 'diamond') {
+    const s = 8;
+    ctx.save();
+    ctx.translate(tipX, tipY);
+    ctx.rotate(angle);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-s, -s / 2);
+    ctx.lineTo(-s * 2, 0);
+    ctx.lineTo(-s, s / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  } else if (shape === 'bar') {
+    const len = 8;
+    ctx.beginPath();
+    ctx.moveTo(tipX - len * Math.cos(angle - Math.PI / 2), tipY - len * Math.sin(angle - Math.PI / 2));
+    ctx.lineTo(tipX + len * Math.cos(angle - Math.PI / 2), tipY + len * Math.sin(angle - Math.PI / 2));
+    ctx.stroke();
+  }
   ctx.restore();
 }
 

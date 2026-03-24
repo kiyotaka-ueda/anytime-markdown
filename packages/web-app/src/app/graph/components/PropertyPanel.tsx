@@ -2,11 +2,11 @@
 
 import React from 'react';
 import {
-  Box, Typography, TextField, Slider, Divider, IconButton,
+  Box, Typography, TextField, Slider, Divider, IconButton, ToggleButton, ToggleButtonGroup,
 } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
 import { useTranslations } from 'next-intl';
-import { GraphNode, GraphEdge } from '../types';
+import { GraphNode, GraphEdge, EndpointShape } from '../types';
 import {
   COLOR_CHARCOAL, COLOR_BORDER, COLOR_ICE_BLUE,
   COLOR_TEXT_PRIMARY, COLOR_TEXT_SECONDARY,
@@ -149,8 +149,38 @@ export function PropertyPanel({ selectedNode, selectedEdge, onUpdateNode, onUpda
             min={1} max={10} step={0.5}
             onChange={(_, v) => onUpdateEdge(selectedEdge.id, { style: { ...selectedEdge.style, strokeWidth: v as number } })}
             size="small"
-            sx={{ color: COLOR_ICE_BLUE }}
+            sx={{ mb: 2, color: COLOR_ICE_BLUE }}
           />
+
+          <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>{t('startShape')}</Typography>
+          <ToggleButtonGroup
+            value={selectedEdge.style.startShape ?? 'none'}
+            exclusive
+            onChange={(_, v) => v && onUpdateEdge(selectedEdge.id, { style: { ...selectedEdge.style, startShape: v as EndpointShape } })}
+            size="small"
+            sx={{ mb: 2, display: 'flex', '& .MuiToggleButton-root': { flex: 1, fontSize: '0.65rem', py: 0.3, color: COLOR_TEXT_SECONDARY, borderColor: COLOR_BORDER, '&.Mui-selected': { color: COLOR_ICE_BLUE, backgroundColor: 'rgba(144,202,249,0.12)' } } }}
+          >
+            <ToggleButton value="none">{t('shapeNone')}</ToggleButton>
+            <ToggleButton value="arrow">{t('shapeArrow')}</ToggleButton>
+            <ToggleButton value="circle">{t('shapeCircle')}</ToggleButton>
+            <ToggleButton value="diamond">{t('shapeDiamond')}</ToggleButton>
+            <ToggleButton value="bar">{t('shapeBar')}</ToggleButton>
+          </ToggleButtonGroup>
+
+          <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>{t('endShape')}</Typography>
+          <ToggleButtonGroup
+            value={selectedEdge.style.endShape ?? ((selectedEdge.type === 'arrow' || selectedEdge.type === 'connector') ? 'arrow' : 'none')}
+            exclusive
+            onChange={(_, v) => v && onUpdateEdge(selectedEdge.id, { style: { ...selectedEdge.style, endShape: v as EndpointShape } })}
+            size="small"
+            sx={{ mb: 2, display: 'flex', '& .MuiToggleButton-root': { flex: 1, fontSize: '0.65rem', py: 0.3, color: COLOR_TEXT_SECONDARY, borderColor: COLOR_BORDER, '&.Mui-selected': { color: COLOR_ICE_BLUE, backgroundColor: 'rgba(144,202,249,0.12)' } } }}
+          >
+            <ToggleButton value="none">{t('shapeNone')}</ToggleButton>
+            <ToggleButton value="arrow">{t('shapeArrow')}</ToggleButton>
+            <ToggleButton value="circle">{t('shapeCircle')}</ToggleButton>
+            <ToggleButton value="diamond">{t('shapeDiamond')}</ToggleButton>
+            <ToggleButton value="bar">{t('shapeBar')}</ToggleButton>
+          </ToggleButtonGroup>
         </>
       )}
     </Box>

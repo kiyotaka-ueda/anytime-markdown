@@ -724,7 +724,14 @@
     "label": "Label",
     "labelColor": "Label Color",
     "untitledDocument": "Untitled Document",
-    "writePlaceholder": "Write your markdown here..."
+    "writePlaceholder": "Write your markdown here...",
+    "startShape": "Start",
+    "endShape": "End",
+    "shapeNone": "None",
+    "shapeArrow": "Arrow",
+    "shapeCircle": "Circle",
+    "shapeDiamond": "Diamond",
+    "shapeBar": "Bar"
   },
   "Privacy": {
     "title": "Privacy Policy",

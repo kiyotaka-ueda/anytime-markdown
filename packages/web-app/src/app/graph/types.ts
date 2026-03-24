@@ -1,7 +1,7 @@
 // Re-export all types from graph-core
 export {
   type NodeType, type EdgeType, type ToolType,
-  type NodeStyle, type EdgeStyle,
+  type NodeStyle, type EdgeStyle, type EndpointShape,
   type GraphNode, type EdgeEndpoint, type GraphEdge,
   type Viewport, type GraphDocument,
   type SelectionState, type HistoryEntry,

@@ -724,7 +724,14 @@
     "label": "ラベル",
     "labelColor": "ラベル色",
     "untitledDocument": "無題のドキュメント",
-    "writePlaceholder": "ここにマークダウンを入力..."
+    "writePlaceholder": "ここにマークダウンを入力...",
+    "startShape": "始点",
+    "endShape": "終点",
+    "shapeNone": "なし",
+    "shapeArrow": "矢印",
+    "shapeCircle": "丸",
+    "shapeDiamond": "菱形",
+    "shapeBar": "バー"
   },
   "Privacy": {
     "title": "プライバシーポリシー",
