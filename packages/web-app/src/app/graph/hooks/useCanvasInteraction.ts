@@ -78,6 +78,7 @@ export function useCanvasInteraction({
   const previewRef = useRef<DragPreview>({ ...EMPTY_PREVIEW });
   const clipboardRef = useRef<{ nodes: GraphNode[]; edges: GraphEdge[] } | null>(null);
   const hoverNodeIdRef = useRef<string | undefined>(undefined);
+  const cursorRef = useRef<string>('default');
 
   const getWorldPos = useCallback((e: MouseEvent | React.MouseEvent) => {
     const canvas = canvasRef.current;
@@ -228,14 +229,59 @@ export function useCanvasInteraction({
     const sy = e.clientY - rect.top;
     const drag = dragRef.current;
 
-    // ホバーノード検出（ドラッグ中でないとき）
+    // ホバーノード検出 + カーソル更新（ドラッグ中でないとき）
     if (drag.type === 'none' && tool === 'select') {
       const world = screenToWorld(viewport, sx, sy);
-      // ホバー判定はリサイズハンドルを無視（選択ノードIDを空にして判定）
-      const hoverHit = hitTest(nodes, edges, world.x, world.y, viewport.scale, []);
+      const resolved = resolveEdgesWithWaypoints(edges, nodes);
+      const fullHit = hitTest(nodes, resolved, world.x, world.y, viewport.scale, selection.nodeIds, undefined, selection.edgeIds);
+      // ホバー判定はリサイズハンドルを無視
+      const hoverHit = hitTest(nodes, resolved, world.x, world.y, viewport.scale, []);
       hoverNodeIdRef.current = hoverHit.type === 'node' ? hoverHit.id : undefined;
+
+      // カーソル設定
+      const RESIZE_CURSORS: Record<string, string> = {
+        nw: 'nwse-resize', se: 'nwse-resize',
+        ne: 'nesw-resize', sw: 'nesw-resize',
+        n: 'ns-resize', s: 'ns-resize',
+        e: 'ew-resize', w: 'ew-resize',
+      };
+      if (fullHit.type === 'resize-handle' && fullHit.handle) {
+        cursorRef.current = RESIZE_CURSORS[fullHit.handle] ?? 'default';
+      } else if (fullHit.type === 'edge-endpoint') {
+        cursorRef.current = 'crosshair';
+      } else if (fullHit.type === 'connection-point') {
+        cursorRef.current = 'crosshair';
+      } else if (fullHit.type === 'edge-segment') {
+        cursorRef.current = fullHit.segmentDirection === 'vertical' ? 'ew-resize' : 'ns-resize';
+      } else if (fullHit.type === 'node') {
+        cursorRef.current = 'move';
+      } else if (fullHit.type === 'edge') {
+        cursorRef.current = 'pointer';
+      } else {
+        cursorRef.current = 'default';
+      }
+    } else if (drag.type === 'move') {
+      cursorRef.current = 'grabbing';
+      hoverNodeIdRef.current = undefined;
+    } else if (drag.type === 'resize') {
+      // リサイズ中はカーソル維持
+      hoverNodeIdRef.current = undefined;
+    } else if (drag.type === 'pan') {
+      cursorRef.current = 'grabbing';
+      hoverNodeIdRef.current = undefined;
+    } else if (drag.type === 'create-edge') {
+      cursorRef.current = 'crosshair';
+      hoverNodeIdRef.current = undefined;
+    } else if (drag.type === 'create-shape') {
+      cursorRef.current = 'crosshair';
+      hoverNodeIdRef.current = undefined;
     } else if (drag.type !== 'none') {
       hoverNodeIdRef.current = undefined;
+    }
+
+    // カーソルをcanvasに反映
+    if (canvasRef.current) {
+      canvasRef.current.style.cursor = cursorRef.current;
     }
 
     if (drag.type === 'pan') {
@@ -530,6 +576,7 @@ export function useCanvasInteraction({
     previewRef,
     clipboardRef,
     hoverNodeIdRef,
+    cursorRef,
     copySelected,
     pasteFromClipboard,
   };

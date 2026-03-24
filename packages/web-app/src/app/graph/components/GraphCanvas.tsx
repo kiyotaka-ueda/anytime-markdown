@@ -121,7 +121,7 @@ export function GraphCanvas({
   return (
     <canvas
       ref={canvasRef}
-      style={{ display: 'block', width: '100%', height: '100%', cursor: 'default' }}
+      style={{ display: 'block', width: '100%', height: '100%' }}
       onMouseDown={onMouseDown}
       onMouseMove={onMouseMove}
       onMouseUp={onMouseUp}
