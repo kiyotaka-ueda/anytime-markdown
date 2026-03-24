@@ -151,6 +151,15 @@ export function useCanvasInteraction({
         return;
       }
 
+      // Ctrl+クリック（またはCmd+クリック）でURLを開く
+      if ((e.ctrlKey || e.metaKey) && hit.type === 'node' && hit.id) {
+        const node = nodes.find(n => n.id === hit.id);
+        if (node?.url) {
+          window.open(node.url, '_blank', 'noopener,noreferrer');
+          return;
+        }
+      }
+
       if (hit.type === 'node' && hit.id) {
         const isSelected = selection.nodeIds.includes(hit.id);
         let selectedIds: string[];
@@ -286,7 +295,12 @@ export function useCanvasInteraction({
       } else if (fullHit.type === 'edge-segment') {
         cursorRef.current = fullHit.segmentDirection === 'vertical' ? 'ew-resize' : 'ns-resize';
       } else if (fullHit.type === 'node') {
-        cursorRef.current = 'move';
+        const hitNode = nodes.find(n => n.id === fullHit.id);
+        if ((e.ctrlKey || e.metaKey) && hitNode?.url) {
+          cursorRef.current = 'pointer';
+        } else {
+          cursorRef.current = 'move';
+        }
       } else if (fullHit.type === 'edge') {
         cursorRef.current = 'pointer';
       } else {
