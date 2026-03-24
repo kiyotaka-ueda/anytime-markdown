@@ -1,6 +1,6 @@
 # 変更履歴
 
-`@anytime-markdown/editor-core` に関する主な変更はこのファイルに記録されます。
+`@anytime-markdown/markdown-core` に関する主な変更はこのファイルに記録されます。
 
 このファイルのフォーマットは [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) に基づいており、
 [Semantic Versioning](https://semver.org/lang/ja/) に準拠しています。

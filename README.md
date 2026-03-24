@@ -31,7 +31,7 @@ Available on three platforms: Web app, VS Code extension, and Android app.
 flowchart TD
     %% Node definitions
     subgraph mono ["anytime-markdown (npm workspaces monorepo)"]
-        EC["editor-core<br/>Shared editor library"]
+        EC["markdown-core<br/>Shared editor library"]
         WA["web-app<br/>Next.js Web app"]
         VE["vscode-extension<br/>VS Code extension"]
         MA["mobile-app<br/>Capacitor Android app"]

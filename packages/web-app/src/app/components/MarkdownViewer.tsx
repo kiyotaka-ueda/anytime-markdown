@@ -11,7 +11,7 @@ import { useLocaleSwitch } from '../LocaleProvider';
 import { useThemeMode } from '../providers';
 
 const MarkdownEditorPage = dynamic(
-  () => import('@anytime-markdown/editor-core/src/MarkdownEditorPage'),
+  () => import('@anytime-markdown/markdown-core/src/MarkdownEditorPage'),
   {
     ssr: false,
     loading: () => (

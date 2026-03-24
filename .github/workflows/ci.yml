@@ -37,9 +37,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Run editor-core tests with coverage
+      - name: Run markdown-core tests with coverage
         run: npx jest --coverage --coverageReporters=lcov
-        working-directory: packages/editor-core
+        working-directory: packages/markdown-core
 
       - name: Run web-app tests with coverage
         run: npx jest --coverage --coverageReporters=lcov

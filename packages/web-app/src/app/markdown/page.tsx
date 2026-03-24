@@ -1,6 +1,6 @@
 'use client';
 
-import { COMMENT_PANEL_WIDTH } from '@anytime-markdown/editor-core';
+import { COMMENT_PANEL_WIDTH } from '@anytime-markdown/markdown-core';
 import { Alert, Box, CircularProgress, Snackbar } from '@mui/material';
 import dynamic from 'next/dynamic';
 import { useSession } from 'next-auth/react';
@@ -20,7 +20,7 @@ function EditorLoading() {
 }
 
 const MarkdownEditorPage = dynamic(
-  () => import('@anytime-markdown/editor-core/src/MarkdownEditorPage'),
+  () => import('@anytime-markdown/markdown-core/src/MarkdownEditorPage'),
   { ssr: false, loading: () => <EditorLoading /> },
 );
 

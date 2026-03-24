@@ -597,7 +597,7 @@
     "webpack-cli": "6.0.1"
   },
   "dependencies": {
-    "@anytime-markdown/editor-core": "*",
+    "@anytime-markdown/markdown-core": "*",
     "@mui/material": "7.3.7",
     "@mui/icons-material": "7.3.7",
     "@emotion/react": "11.14.0",

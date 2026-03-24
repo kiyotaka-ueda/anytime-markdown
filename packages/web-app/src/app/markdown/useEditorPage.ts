@@ -1,6 +1,6 @@
 'use client';
 
-import { STORAGE_KEY_CONTENT } from '@anytime-markdown/editor-core/src/constants/storageKeys';
+import { STORAGE_KEY_CONTENT } from '@anytime-markdown/markdown-core/src/constants/storageKeys';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { FallbackFileSystemProvider } from '../../lib/FallbackFileSystemProvider';

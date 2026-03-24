@@ -223,7 +223,7 @@
 - BoundedMap ユーティリティ（FIFO eviction 付きサイズ上限 Map）
 - ESLint ルール追加（型アサーション制限、非ヌルアサーション警告、console 制限、import 整列）
 - WCAG2.2 AA 監査レポートとフルコードレビューレポート
-- CHANGELOG（editor-core、web-app）
+- CHANGELOG（markdown-core、web-app）
 
 ### Changed
 
@@ -694,7 +694,7 @@
 
 ### Added
 
-- editor-core / web-app / vscode-extension のテストスイートを追加
+- markdown-core / web-app / vscode-extension のテストスイートを追加
 
 ### Changed
 

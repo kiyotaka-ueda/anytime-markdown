@@ -1,5 +1,5 @@
 /* next-intl shim for VS Code webview (webpack) */
-import messagesJa from '../../../../editor-core/src/i18n/ja.json';
+import messagesJa from '../../../../markdown-core/src/i18n/ja.json';
 
 type Messages = Record<string, Record<string, string>>;
 const messages: Messages = messagesJa as unknown as Messages;

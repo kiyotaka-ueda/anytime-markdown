@@ -4,7 +4,7 @@ import {
   ACCENT_COLOR, ConfirmProvider, DEFAULT_DARK_BG, DEFAULT_LIGHT_BG,
   DEFAULT_PRESET_NAME, getPreset, isPresetName,
   type ThemePresetName,
-} from '@anytime-markdown/editor-core';
+} from '@anytime-markdown/markdown-core';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import CssBaseline from '@mui/material/CssBaseline';

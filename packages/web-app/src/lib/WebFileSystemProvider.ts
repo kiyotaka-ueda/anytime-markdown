@@ -1,4 +1,4 @@
-import type { FileHandle, FileOpenResult, FileSystemProvider } from '@anytime-markdown/editor-core';
+import type { FileHandle, FileOpenResult, FileSystemProvider } from '@anytime-markdown/markdown-core';
 
 /** File System Access API の最小型定義 */
 interface FileSystemWritableFileStream extends WritableStream {

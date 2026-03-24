@@ -59,7 +59,7 @@ const webviewConfig = {
       'next-intl': path.resolve(__dirname, 'src/webview/shims/next-intl.ts'),
       'next-intl/server': path.resolve(__dirname, 'src/webview/shims/next-intl.ts'),
       'next/dynamic': path.resolve(__dirname, 'src/webview/shims/next-dynamic.ts'),
-      '@': path.resolve(__dirname, '../editor-core/src'),
+      '@': path.resolve(__dirname, '../markdown-core/src'),
     },
   },
   module: {

@@ -1,4 +1,4 @@
-/** @anytime-markdown/editor-core/types サブパスエクスポート */
+/** @anytime-markdown/markdown-core/types サブパスエクスポート */
 export type { DialogOptions } from '../providers/types';
 export type {
   HeadingItem,

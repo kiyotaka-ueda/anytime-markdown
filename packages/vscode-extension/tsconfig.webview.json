@@ -5,17 +5,17 @@
 		"moduleResolution": "bundler",
 		"resolveJsonModule": true,
 		"paths": {
-			"@anytime-markdown/editor-core": ["../editor-core/src/index.ts"],
-			"@anytime-markdown/editor-core/*": ["../editor-core/*"],
-			"@/*": ["../editor-core/src/*"]
+			"@anytime-markdown/markdown-core": ["../markdown-core/src/index.ts"],
+			"@anytime-markdown/markdown-core/*": ["../markdown-core/*"],
+			"@/*": ["../markdown-core/src/*"]
 		}
 	},
 	"include": [
 		"src/webview/**/*",
-		"../editor-core/src/**/*"
+		"../markdown-core/src/**/*"
 	],
 	"exclude": [
-		"../editor-core/src/__tests__/**/*",
-		"../editor-core/src/testUtils/**/*"
+		"../markdown-core/src/__tests__/**/*",
+		"../markdown-core/src/testUtils/**/*"
 	]
 }

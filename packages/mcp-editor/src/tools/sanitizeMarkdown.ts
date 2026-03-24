@@ -9,7 +9,7 @@ export interface SanitizeInput {
   path?: string;
 }
 
-// Set up DOM globals for DOMPurify before importing editor-core
+// Set up DOM globals for DOMPurify before importing markdown-core
 function setupDomGlobals(): void {
   if (typeof window === 'undefined') {
     const dom = new JSDOM('');
@@ -30,7 +30,7 @@ async function getSanitizeFunction(): Promise<(md: string) => string> {
 
   setupDomGlobals();
   // Import directly from the util file to avoid pulling in React/Next.js dependencies
-  const mod = await import('@anytime-markdown/editor-core/src/utils/sanitizeMarkdown');
+  const mod = await import('@anytime-markdown/markdown-core/src/utils/sanitizeMarkdown');
   sanitizeMarkdownFn = mod.sanitizeMarkdown as (md: string) => string;
   return sanitizeMarkdownFn;
 }

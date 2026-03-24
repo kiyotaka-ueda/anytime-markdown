@@ -82,7 +82,7 @@ export function createMcpServer(options: McpEditorOptions): McpServer {
 
   server.tool(
     'sanitize_markdown',
-    'Normalize and sanitize Markdown content using editor-core rules',
+    'Normalize and sanitize Markdown content using markdown-core rules',
     {
       content: z.string().optional().describe('Markdown content to sanitize'),
       path: z.string().optional().describe('Relative path to the Markdown file to sanitize'),

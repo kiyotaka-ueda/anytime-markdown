@@ -1,7 +1,7 @@
 /** @type {import('jest').Config} */
 const config = {
   projects: [
-    "<rootDir>/packages/editor-core",
+    "<rootDir>/packages/markdown-core",
     "<rootDir>/packages/web-app",
   ],
 };

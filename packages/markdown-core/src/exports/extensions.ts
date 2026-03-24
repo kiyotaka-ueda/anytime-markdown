@@ -1,4 +1,4 @@
-/** @anytime-markdown/editor-core/extensions サブパスエクスポート */
+/** @anytime-markdown/markdown-core/extensions サブパスエクスポート */
 export { CodeBlockWithMermaid } from '../codeBlockWithMermaid';
 export { getBaseExtensions } from '../editorExtensions';
 export { CustomHardBreak } from '../extensions/customHardBreak';

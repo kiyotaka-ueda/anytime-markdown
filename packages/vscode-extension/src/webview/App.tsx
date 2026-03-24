@@ -3,11 +3,11 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import type { PaletteMode } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { getVsCodeApi } from './vscodeApi';
-import { ConfirmProvider, STORAGE_KEY_CONTENT, STORAGE_KEY_SETTINGS } from '@anytime-markdown/editor-core';
-import MarkdownEditorPage from '@anytime-markdown/editor-core/src/MarkdownEditorPage';
+import { ConfirmProvider, STORAGE_KEY_CONTENT, STORAGE_KEY_SETTINGS } from '@anytime-markdown/markdown-core';
+import MarkdownEditorPage from '@anytime-markdown/markdown-core/src/MarkdownEditorPage';
 
 const vscode = getVsCodeApi();
-// editor-core の EditorContextMenu から VS Code API にアクセスするため公開
+// markdown-core の EditorContextMenu から VS Code API にアクセスするため公開
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (window as any).__vscode = vscode;
 

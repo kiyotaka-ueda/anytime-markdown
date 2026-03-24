@@ -438,7 +438,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - BoundedMap ユーティリティ（FIFO eviction 付きサイズ上限 Map）
 - ESLint ルール追加（型アサーション制限、非ヌルアサーション警告、console 制限、import 整列）
 - WCAG2.2 AA 監査レポートとフルコードレビューレポート
-- CHANGELOG（editor-core、web-app）
+- CHANGELOG（markdown-core、web-app）
 
 ### Changed
 - パネル背景色を全体で統一（OutlinePanel, CommentPanel, LinePreviewPanel 等）
@@ -861,7 +861,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - ヘッダーの空ボックスを除去
 
 ### Added
-- editor-core / web-app / vscode-extension のテストスイートを追加
+- markdown-core / web-app / vscode-extension のテストスイートを追加
 
 ## [0.0.3] - 2026-02-27
 
