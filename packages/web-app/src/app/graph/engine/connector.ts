@@ -38,12 +38,32 @@ export function ellipseIntersection(
   return { x: cx + rx * Math.cos(angle), y: cy + ry * Math.sin(angle) };
 }
 
+function diamondIntersection(
+  node: GraphNode,
+  targetX: number,
+  targetY: number,
+): { x: number; y: number } {
+  const cx = node.x + node.width / 2;
+  const cy = node.y + node.height / 2;
+  const dx = targetX - cx;
+  const dy = targetY - cy;
+  if (dx === 0 && dy === 0) return { x: cx, y: cy };
+
+  const hw = node.width / 2;
+  const hh = node.height / 2;
+  // Diamond edge equation: |dx/hw| + |dy/hh| = 1
+  const scale = 1 / (Math.abs(dx) / hw + Math.abs(dy) / hh);
+  return { x: cx + dx * scale, y: cy + dy * scale };
+}
+
 export function nodeIntersection(
   node: GraphNode,
   targetX: number,
   targetY: number,
 ): { x: number; y: number } {
   if (node.type === 'ellipse') return ellipseIntersection(node, targetX, targetY);
+  if (node.type === 'diamond') return diamondIntersection(node, targetX, targetY);
+  // parallelogram and cylinder use rectIntersection (default)
   return rectIntersection(node, targetX, targetY);
 }
 

@@ -50,9 +50,40 @@ export function hitTestResizeHandles(node: GraphNode, wx: number, wy: number, sc
   return null;
 }
 
+function pointInPolygon(px: number, py: number, polygon: {x: number; y: number}[]): boolean {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].x, yi = polygon[i].y;
+    const xj = polygon[j].x, yj = polygon[j].y;
+    if ((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
 export function hitTestNode(node: GraphNode, wx: number, wy: number): boolean {
   if (node.type === 'ellipse') {
     return pointInEllipse(wx, wy, node.x + node.width / 2, node.y + node.height / 2, node.width / 2, node.height / 2);
+  }
+  if (node.type === 'diamond') {
+    const { x, y, width: w, height: h } = node;
+    return pointInPolygon(wx, wy, [
+      { x: x + w / 2, y },
+      { x: x + w, y: y + h / 2 },
+      { x: x + w / 2, y: y + h },
+      { x, y: y + h / 2 },
+    ]);
+  }
+  if (node.type === 'parallelogram') {
+    const { x, y, width: w, height: h } = node;
+    const offset = w * 0.2;
+    return pointInPolygon(wx, wy, [
+      { x: x + offset, y },
+      { x: x + w, y },
+      { x: x + w - offset, y: y + h },
+      { x, y: y + h },
+    ]);
   }
   return pointInRect(wx, wy, node.x, node.y, node.width, node.height);
 }
