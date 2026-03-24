@@ -37,10 +37,10 @@ function colorFromHex(hex: string | undefined, fallback: string): string {
 }
 
 /** Convert NodeList/HTMLCollection to array for cross-platform compatibility (browser + xmldom) */
-function toArray<T extends Node>(nodeList: NodeListOf<T> | HTMLCollectionOf<Element>): T[] {
-  const result: T[] = [];
+function toArray(nodeList: NodeListOf<Element> | HTMLCollectionOf<Element>): Element[] {
+  const result: Element[] = [];
   for (let i = 0; i < nodeList.length; i++) {
-    result.push(nodeList[i] as T);
+    result.push(nodeList[i]);
   }
   return result;
 }

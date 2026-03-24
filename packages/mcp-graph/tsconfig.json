@@ -6,7 +6,13 @@
     "lib": ["ES2023"],
     "noEmit": true,
     "isolatedModules": true,
-    "declaration": true
+    "declaration": true,
+    "baseUrl": ".",
+    "paths": {
+      "@anytime-markdown/graph-core/src/*": ["../graph-core/src/*"]
+    },
+    "skipLibCheck": true
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "exclude": ["../graph-core/**/*"]
 }
