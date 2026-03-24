@@ -717,7 +717,14 @@
     "distributeH": "Distribute Horizontally",
     "distributeV": "Distribute Vertically",
     "alignment": "Alignment",
-    "navLabel": "Graph"
+    "navLabel": "Graph",
+    "insight": "Insight",
+    "doc": "Document",
+    "clearAll": "Clear All",
+    "label": "Label",
+    "labelColor": "Label Color",
+    "untitledDocument": "Untitled Document",
+    "writePlaceholder": "Write your markdown here..."
   },
   "Privacy": {
     "title": "Privacy Policy",

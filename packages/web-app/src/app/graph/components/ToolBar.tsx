@@ -33,6 +33,7 @@ import {
   Lightbulb as InsightIcon,
   Description as DocIcon,
 } from '@mui/icons-material';
+import { useTranslations } from 'next-intl';
 import { ToolType } from '../types';
 import { COLOR_CHARCOAL, COLOR_BORDER } from '@anytime-markdown/graph-core';
 
@@ -61,6 +62,7 @@ export function GraphToolBar({
   showGrid, onToggleGrid, onZoomIn, onZoomOut, onFitContent,
   onDelete, onClearAll, onAlign, selectionCount, hasSelection, scale,
 }: ToolBarProps) {
+  const t = useTranslations('Graph');
   const [alignAnchor, setAlignAnchor] = React.useState<null | HTMLElement>(null);
   return (
     <AppBar
@@ -81,54 +83,54 @@ export function GraphToolBar({
           onChange={(_, val) => val && onToolChange(val)}
           size="small"
         >
-          <ToggleButton value="select" aria-label="Select">
-            <Tooltip title="Select (V)"><SelectIcon fontSize="small" /></Tooltip>
+          <ToggleButton value="select" aria-label={t('select')}>
+            <Tooltip title={`${t('select')} (V)`}><SelectIcon fontSize="small" /></Tooltip>
           </ToggleButton>
-          <ToggleButton value="rect" aria-label="Rectangle">
-            <Tooltip title="Rectangle (R)"><RectIcon fontSize="small" /></Tooltip>
+          <ToggleButton value="rect" aria-label={t('rect')}>
+            <Tooltip title={`${t('rect')} (R)`}><RectIcon fontSize="small" /></Tooltip>
           </ToggleButton>
-          <ToggleButton value="sticky" aria-label="Sticky Note">
-            <Tooltip title="Sticky Note (S)"><StickyIcon fontSize="small" /></Tooltip>
+          <ToggleButton value="sticky" aria-label={t('sticky')}>
+            <Tooltip title={`${t('sticky')} (S)`}><StickyIcon fontSize="small" /></Tooltip>
           </ToggleButton>
-          <ToggleButton value="text" aria-label="Text">
-            <Tooltip title="Text (T)"><TextIcon fontSize="small" /></Tooltip>
+          <ToggleButton value="text" aria-label={t('text')}>
+            <Tooltip title={`${t('text')} (T)`}><TextIcon fontSize="small" /></Tooltip>
           </ToggleButton>
-          <ToggleButton value="insight" aria-label="Insight">
-            <Tooltip title="Insight (I)"><InsightIcon fontSize="small" /></Tooltip>
+          <ToggleButton value="insight" aria-label={t('insight')}>
+            <Tooltip title={`${t('insight')} (I)`}><InsightIcon fontSize="small" /></Tooltip>
           </ToggleButton>
-          <ToggleButton value="doc" aria-label="Document">
-            <Tooltip title="Document (M)"><DocIcon fontSize="small" /></Tooltip>
+          <ToggleButton value="doc" aria-label={t('doc')}>
+            <Tooltip title={`${t('doc')} (M)`}><DocIcon fontSize="small" /></Tooltip>
           </ToggleButton>
-          <ToggleButton value="line" aria-label="Line">
-            <Tooltip title="Line (L)"><LineIcon fontSize="small" /></Tooltip>
+          <ToggleButton value="line" aria-label={t('line')}>
+            <Tooltip title={`${t('line')} (L)`}><LineIcon fontSize="small" /></Tooltip>
           </ToggleButton>
-          <ToggleButton value="arrow" aria-label="Arrow">
-            <Tooltip title="Arrow (A)"><ArrowIcon fontSize="small" /></Tooltip>
+          <ToggleButton value="arrow" aria-label={t('arrow')}>
+            <Tooltip title={`${t('arrow')} (A)`}><ArrowIcon fontSize="small" /></Tooltip>
           </ToggleButton>
-          <ToggleButton value="pan" aria-label="Pan">
-            <Tooltip title="Pan (Space)"><PanIcon fontSize="small" /></Tooltip>
+          <ToggleButton value="pan" aria-label={t('pan')}>
+            <Tooltip title={`${t('pan')} (Space)`}><PanIcon fontSize="small" /></Tooltip>
           </ToggleButton>
         </ToggleButtonGroup>
 
         <Divider orientation="vertical" flexItem />
 
-        <Tooltip title="Undo (Ctrl+Z)">
+        <Tooltip title={`${t('undo')} (Ctrl+Z)`}>
           <span><IconButton size="small" onClick={onUndo} disabled={!canUndo}><UndoIcon fontSize="small" /></IconButton></span>
         </Tooltip>
-        <Tooltip title="Redo (Ctrl+Y)">
+        <Tooltip title={`${t('redo')} (Ctrl+Y)`}>
           <span><IconButton size="small" onClick={onRedo} disabled={!canRedo}><RedoIcon fontSize="small" /></IconButton></span>
         </Tooltip>
 
         <Divider orientation="vertical" flexItem />
 
-        <Tooltip title="Delete (Del)">
+        <Tooltip title={`${t('delete')} (Del)`}>
           <span><IconButton size="small" onClick={onDelete} disabled={!hasSelection}><DeleteIcon fontSize="small" /></IconButton></span>
         </Tooltip>
-        <Tooltip title="Clear All">
+        <Tooltip title={t('clearAll')}>
           <IconButton size="small" onClick={onClearAll}><ClearAllIcon fontSize="small" /></IconButton>
         </Tooltip>
 
-        <Tooltip title="Alignment">
+        <Tooltip title={t('alignment')}>
           <span>
             <IconButton size="small" onClick={e => setAlignAnchor(e.currentTarget)} disabled={selectionCount < 2}>
               <AlignHorizontalLeftIcon fontSize="small" />
@@ -136,35 +138,35 @@ export function GraphToolBar({
           </span>
         </Tooltip>
         <Menu anchorEl={alignAnchor} open={Boolean(alignAnchor)} onClose={() => setAlignAnchor(null)}>
-          <MenuItem onClick={() => { onAlign('left'); setAlignAnchor(null); }}><ListItemIcon><AlignHorizontalLeftIcon fontSize="small" /></ListItemIcon><ListItemText>Align Left</ListItemText></MenuItem>
-          <MenuItem onClick={() => { onAlign('right'); setAlignAnchor(null); }}><ListItemIcon><AlignHorizontalRightIcon fontSize="small" /></ListItemIcon><ListItemText>Align Right</ListItemText></MenuItem>
-          <MenuItem onClick={() => { onAlign('top'); setAlignAnchor(null); }}><ListItemIcon><AlignVerticalTopIcon fontSize="small" /></ListItemIcon><ListItemText>Align Top</ListItemText></MenuItem>
-          <MenuItem onClick={() => { onAlign('bottom'); setAlignAnchor(null); }}><ListItemIcon><AlignVerticalBottomIcon fontSize="small" /></ListItemIcon><ListItemText>Align Bottom</ListItemText></MenuItem>
-          <MenuItem onClick={() => { onAlign('centerH'); setAlignAnchor(null); }}><ListItemIcon><AlignHorizontalCenterIcon fontSize="small" /></ListItemIcon><ListItemText>Center Horizontally</ListItemText></MenuItem>
-          <MenuItem onClick={() => { onAlign('centerV'); setAlignAnchor(null); }}><ListItemIcon><AlignVerticalCenterIcon fontSize="small" /></ListItemIcon><ListItemText>Center Vertically</ListItemText></MenuItem>
+          <MenuItem onClick={() => { onAlign('left'); setAlignAnchor(null); }}><ListItemIcon><AlignHorizontalLeftIcon fontSize="small" /></ListItemIcon><ListItemText>{t('alignLeft')}</ListItemText></MenuItem>
+          <MenuItem onClick={() => { onAlign('right'); setAlignAnchor(null); }}><ListItemIcon><AlignHorizontalRightIcon fontSize="small" /></ListItemIcon><ListItemText>{t('alignRight')}</ListItemText></MenuItem>
+          <MenuItem onClick={() => { onAlign('top'); setAlignAnchor(null); }}><ListItemIcon><AlignVerticalTopIcon fontSize="small" /></ListItemIcon><ListItemText>{t('alignTop')}</ListItemText></MenuItem>
+          <MenuItem onClick={() => { onAlign('bottom'); setAlignAnchor(null); }}><ListItemIcon><AlignVerticalBottomIcon fontSize="small" /></ListItemIcon><ListItemText>{t('alignBottom')}</ListItemText></MenuItem>
+          <MenuItem onClick={() => { onAlign('centerH'); setAlignAnchor(null); }}><ListItemIcon><AlignHorizontalCenterIcon fontSize="small" /></ListItemIcon><ListItemText>{t('alignCenterH')}</ListItemText></MenuItem>
+          <MenuItem onClick={() => { onAlign('centerV'); setAlignAnchor(null); }}><ListItemIcon><AlignVerticalCenterIcon fontSize="small" /></ListItemIcon><ListItemText>{t('alignCenterV')}</ListItemText></MenuItem>
           <Divider />
-          <MenuItem onClick={() => { onAlign('distributeH'); setAlignAnchor(null); }} disabled={selectionCount < 3}><ListItemIcon><ViewColumnIcon fontSize="small" /></ListItemIcon><ListItemText>Distribute Horizontally</ListItemText></MenuItem>
-          <MenuItem onClick={() => { onAlign('distributeV'); setAlignAnchor(null); }} disabled={selectionCount < 3}><ListItemIcon><TableRowsIcon fontSize="small" /></ListItemIcon><ListItemText>Distribute Vertically</ListItemText></MenuItem>
+          <MenuItem onClick={() => { onAlign('distributeH'); setAlignAnchor(null); }} disabled={selectionCount < 3}><ListItemIcon><ViewColumnIcon fontSize="small" /></ListItemIcon><ListItemText>{t('distributeH')}</ListItemText></MenuItem>
+          <MenuItem onClick={() => { onAlign('distributeV'); setAlignAnchor(null); }} disabled={selectionCount < 3}><ListItemIcon><TableRowsIcon fontSize="small" /></ListItemIcon><ListItemText>{t('distributeV')}</ListItemText></MenuItem>
         </Menu>
 
         <Box sx={{ flex: 1 }} />
 
-        <Tooltip title="Zoom Out">
+        <Tooltip title={t('zoomOut')}>
           <IconButton size="small" onClick={onZoomOut}><ZoomOutIcon fontSize="small" /></IconButton>
         </Tooltip>
         <Box sx={{ minWidth: 48, textAlign: 'center', fontSize: '0.75rem', color: 'text.secondary' }}>
           {Math.round(scale * 100)}%
         </Box>
-        <Tooltip title="Zoom In">
+        <Tooltip title={t('zoomIn')}>
           <IconButton size="small" onClick={onZoomIn}><ZoomInIcon fontSize="small" /></IconButton>
         </Tooltip>
-        <Tooltip title="Fit Content">
+        <Tooltip title={t('fitContent')}>
           <IconButton size="small" onClick={onFitContent}><FitIcon fontSize="small" /></IconButton>
         </Tooltip>
 
         <Divider orientation="vertical" flexItem />
 
-        <Tooltip title="Toggle Grid">
+        <Tooltip title={t('grid')}>
           <IconButton size="small" onClick={onToggleGrid} color={showGrid ? 'primary' : 'default'}>
             <GridIcon fontSize="small" />
           </IconButton>

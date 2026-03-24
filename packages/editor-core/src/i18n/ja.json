@@ -717,7 +717,14 @@
     "distributeH": "水平均等配置",
     "distributeV": "垂直均等配置",
     "alignment": "整列",
-    "navLabel": "グラフ"
+    "navLabel": "グラフ",
+    "insight": "インサイト",
+    "doc": "ドキュメント",
+    "clearAll": "全消去",
+    "label": "ラベル",
+    "labelColor": "ラベル色",
+    "untitledDocument": "無題のドキュメント",
+    "writePlaceholder": "ここにマークダウンを入力..."
   },
   "Privacy": {
     "title": "プライバシーポリシー",

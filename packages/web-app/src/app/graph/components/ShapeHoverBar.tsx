@@ -13,6 +13,7 @@ import {
   Lightbulb as InsightIcon,
   Description as DocIcon,
 } from '@mui/icons-material';
+import { useTranslations } from 'next-intl';
 import { GraphNode, NodeType, Viewport } from '../types';
 import { worldToScreen } from '../engine/viewport';
 import {
@@ -20,16 +21,16 @@ import {
   COLOR_TEXT_PRIMARY, COLOR_TEXT_SECONDARY,
 } from '@anytime-markdown/graph-core';
 
-const SHAPES: { type: NodeType; icon: React.ReactNode; label: string }[] = [
-  { type: 'rect', icon: <RectIcon sx={{ fontSize: 18 }} />, label: 'Rectangle' },
-  { type: 'ellipse', icon: <EllipseIcon sx={{ fontSize: 18 }} />, label: 'Ellipse' },
-  { type: 'diamond', icon: <DiamondIcon sx={{ fontSize: 18 }} />, label: 'Diamond' },
-  { type: 'parallelogram', icon: <ParallelogramIcon sx={{ fontSize: 18 }} />, label: 'Parallelogram' },
-  { type: 'cylinder', icon: <CylinderIcon sx={{ fontSize: 18 }} />, label: 'Cylinder' },
-  { type: 'sticky', icon: <StickyIcon sx={{ fontSize: 18 }} />, label: 'Sticky' },
-  { type: 'text', icon: <TextIcon sx={{ fontSize: 18 }} />, label: 'Text' },
-  { type: 'insight', icon: <InsightIcon sx={{ fontSize: 18 }} />, label: 'Insight' },
-  { type: 'doc', icon: <DocIcon sx={{ fontSize: 18 }} />, label: 'Document' },
+const SHAPES: { type: NodeType; icon: React.ReactNode; i18nKey: string }[] = [
+  { type: 'rect', icon: <RectIcon sx={{ fontSize: 18 }} />, i18nKey: 'rect' },
+  { type: 'ellipse', icon: <EllipseIcon sx={{ fontSize: 18 }} />, i18nKey: 'ellipse' },
+  { type: 'diamond', icon: <DiamondIcon sx={{ fontSize: 18 }} />, i18nKey: 'diamond' },
+  { type: 'parallelogram', icon: <ParallelogramIcon sx={{ fontSize: 18 }} />, i18nKey: 'parallelogram' },
+  { type: 'cylinder', icon: <CylinderIcon sx={{ fontSize: 18 }} />, i18nKey: 'cylinder' },
+  { type: 'sticky', icon: <StickyIcon sx={{ fontSize: 18 }} />, i18nKey: 'sticky' },
+  { type: 'text', icon: <TextIcon sx={{ fontSize: 18 }} />, i18nKey: 'text' },
+  { type: 'insight', icon: <InsightIcon sx={{ fontSize: 18 }} />, i18nKey: 'insight' },
+  { type: 'doc', icon: <DocIcon sx={{ fontSize: 18 }} />, i18nKey: 'doc' },
 ];
 
 interface ShapeHoverBarProps {
@@ -39,6 +40,7 @@ interface ShapeHoverBarProps {
 }
 
 export function ShapeHoverBar({ node, viewport, onChangeType }: ShapeHoverBarProps) {
+  const t = useTranslations('Graph');
   const screen = worldToScreen(viewport, node.x + node.width / 2, node.y);
   const barWidth = SHAPES.length * 30 + 16;
 
@@ -68,7 +70,7 @@ export function ShapeHoverBar({ node, viewport, onChangeType }: ShapeHoverBarPro
       onMouseDown={(e) => e.stopPropagation()}
     >
       {SHAPES.map(s => (
-        <Tooltip key={s.type} title={s.label} placement="top">
+        <Tooltip key={s.type} title={t(s.i18nKey)} placement="top">
           <IconButton
             size="small"
             onClick={() => onChangeType(node.id, s.type)}

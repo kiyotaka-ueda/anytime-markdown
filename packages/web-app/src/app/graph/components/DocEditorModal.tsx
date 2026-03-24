@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, IconButton, Typography } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
+import { useTranslations } from 'next-intl';
 import {
   COLOR_MIDNIGHT_NAVY, COLOR_BORDER, COLOR_TEXT_PRIMARY,
   COLOR_TEXT_SECONDARY, COLOR_CHARCOAL,
@@ -17,6 +18,7 @@ interface DocEditorModalProps {
 }
 
 export function DocEditorModal({ open, title, content, onSave, onClose }: DocEditorModalProps) {
+  const t = useTranslations('Graph');
   const [editorContent, setEditorContent] = useState(content);
 
   useEffect(() => {
@@ -70,7 +72,7 @@ export function DocEditorModal({ open, title, content, onSave, onClose }: DocEdi
           }}
         >
           <Typography variant="subtitle1" sx={{ color: COLOR_TEXT_PRIMARY, fontWeight: 600 }}>
-            {title || 'Untitled Document'}
+            {title || t('untitledDocument')}
           </Typography>
           <IconButton size="small" onClick={handleClose} sx={{ color: COLOR_TEXT_SECONDARY }}>
             <CloseIcon />
@@ -99,7 +101,7 @@ export function DocEditorModal({ open, title, content, onSave, onClose }: DocEdi
                 color: COLOR_TEXT_SECONDARY,
               },
             }}
-            placeholder="Write your markdown here..."
+            placeholder={t('writePlaceholder')}
           />
         </Box>
       </Box>

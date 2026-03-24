@@ -5,6 +5,7 @@ import {
   Box, Typography, TextField, Slider, Divider, IconButton,
 } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
+import { useTranslations } from 'next-intl';
 import { GraphNode, GraphEdge } from '../types';
 import {
   COLOR_CHARCOAL, COLOR_BORDER, COLOR_ICE_BLUE,
@@ -28,6 +29,7 @@ interface PropertyPanelProps {
 }
 
 export function PropertyPanel({ selectedNode, selectedEdge, onUpdateNode, onUpdateEdge, onClose }: PropertyPanelProps) {
+  const t = useTranslations('Graph');
   if (!selectedNode && !selectedEdge) return null;
 
   return (
@@ -40,14 +42,14 @@ export function PropertyPanel({ selectedNode, selectedEdge, onUpdateNode, onUpda
       }}
     >
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-        <Typography variant="subtitle2" sx={{ color: COLOR_TEXT_PRIMARY }}>Properties</Typography>
+        <Typography variant="subtitle2" sx={{ color: COLOR_TEXT_PRIMARY }}>{t('properties')}</Typography>
         <IconButton size="small" onClick={onClose} sx={{ color: COLOR_TEXT_SECONDARY }}><CloseIcon fontSize="small" /></IconButton>
       </Box>
       <Divider sx={{ mb: 2 }} />
 
       {selectedNode && (
         <>
-          <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>Fill Color</Typography>
+          <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>{t('fillColor')}</Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 2 }}>
             {COLORS.map(c => (
               <Box
@@ -61,7 +63,7 @@ export function PropertyPanel({ selectedNode, selectedEdge, onUpdateNode, onUpda
             ))}
           </Box>
 
-          <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>Stroke Color</Typography>
+          <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>{t('strokeColor')}</Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 2 }}>
             {COLORS.map(c => (
               <Box
@@ -75,7 +77,7 @@ export function PropertyPanel({ selectedNode, selectedEdge, onUpdateNode, onUpda
             ))}
           </Box>
 
-          <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>Stroke Width</Typography>
+          <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>{t('strokeWidth')}</Typography>
           <Slider
             value={selectedNode.style.strokeWidth}
             min={0} max={10} step={0.5}
@@ -84,7 +86,7 @@ export function PropertyPanel({ selectedNode, selectedEdge, onUpdateNode, onUpda
             sx={{ mb: 2, color: COLOR_ICE_BLUE }}
           />
 
-          <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>Font Size</Typography>
+          <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>{t('fontSize')}</Typography>
           <Slider
             value={selectedNode.style.fontSize}
             min={8} max={48} step={1}
@@ -95,7 +97,7 @@ export function PropertyPanel({ selectedNode, selectedEdge, onUpdateNode, onUpda
 
           {selectedNode.type === 'insight' && (
             <>
-              <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>Label</Typography>
+              <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>{t('label')}</Typography>
               <TextField
                 value={selectedNode.label ?? ''}
                 onChange={(e) => onUpdateNode(selectedNode.id, { label: e.target.value })}
@@ -107,7 +109,7 @@ export function PropertyPanel({ selectedNode, selectedEdge, onUpdateNode, onUpda
                   '& .MuiOutlinedInput-notchedOutline': { borderColor: COLOR_BORDER },
                 }}
               />
-              <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>Label Color</Typography>
+              <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>{t('labelColor')}</Typography>
               <Box sx={{ display: 'flex', gap: 0.5, mb: 2 }}>
                 {INSIGHT_LABEL_COLORS.map(c => (
                   <Box
@@ -127,7 +129,7 @@ export function PropertyPanel({ selectedNode, selectedEdge, onUpdateNode, onUpda
 
       {selectedEdge && (
         <>
-          <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>Stroke Color</Typography>
+          <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>{t('strokeColor')}</Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 2 }}>
             {COLORS.map(c => (
               <Box
@@ -141,7 +143,7 @@ export function PropertyPanel({ selectedNode, selectedEdge, onUpdateNode, onUpda
             ))}
           </Box>
 
-          <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>Stroke Width</Typography>
+          <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>{t('strokeWidth')}</Typography>
           <Slider
             value={selectedEdge.style.strokeWidth}
             min={1} max={10} step={0.5}
