@@ -55,7 +55,8 @@ export function GraphEditor() {
       if (editingNodeId) return;
       const map: Record<string, ToolType> = {
         v: 'select', r: 'rect', o: 'ellipse', s: 'sticky',
-        t: 'text', l: 'line', a: 'arrow', c: 'connector',
+        t: 'text', d: 'diamond', p: 'parallelogram', y: 'cylinder',
+        l: 'line', a: 'arrow', c: 'connector',
       };
       if (map[e.key] && !e.ctrlKey && !e.metaKey) {
         setTool(map[e.key]);

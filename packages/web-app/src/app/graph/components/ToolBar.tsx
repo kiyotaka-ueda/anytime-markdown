@@ -31,6 +31,9 @@ import {
   AlignVerticalCenter as AlignVerticalCenterIcon,
   ViewColumn as ViewColumnIcon,
   TableRows as TableRowsIcon,
+  Diamond as DiamondIcon,
+  Hexagon as ParallelogramIcon,
+  Storage as CylinderIcon,
 } from '@mui/icons-material';
 import { ToolType } from '../types';
 
@@ -87,6 +90,15 @@ export function GraphToolBar({
           </ToggleButton>
           <ToggleButton value="text" aria-label="Text">
             <Tooltip title="Text (T)"><TextIcon fontSize="small" /></Tooltip>
+          </ToggleButton>
+          <ToggleButton value="diamond" aria-label="Diamond">
+            <Tooltip title="Diamond (D)"><DiamondIcon fontSize="small" /></Tooltip>
+          </ToggleButton>
+          <ToggleButton value="parallelogram" aria-label="Parallelogram">
+            <Tooltip title="Parallelogram (P)"><ParallelogramIcon fontSize="small" /></Tooltip>
+          </ToggleButton>
+          <ToggleButton value="cylinder" aria-label="Cylinder">
+            <Tooltip title="Cylinder (Y)"><CylinderIcon fontSize="small" /></Tooltip>
           </ToggleButton>
           <ToggleButton value="line" aria-label="Line">
             <Tooltip title="Line (L)"><LineIcon fontSize="small" /></Tooltip>

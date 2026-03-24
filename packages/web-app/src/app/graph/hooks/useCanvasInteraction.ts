@@ -36,7 +36,7 @@ export interface DragPreview {
   fromY: number;
   toX: number;
   toY: number;
-  shapeType?: 'rect' | 'ellipse' | 'sticky' | 'text';
+  shapeType?: 'rect' | 'ellipse' | 'sticky' | 'text' | 'diamond' | 'parallelogram' | 'cylinder';
   edgeType?: 'line' | 'arrow' | 'connector';
   /** ドラッグ中にスナップしているノードID */
   snapNodeId?: string;
@@ -132,7 +132,7 @@ export function useCanvasInteraction({
       return;
     }
 
-    if (['rect', 'ellipse', 'sticky', 'text'].includes(tool)) {
+    if (['rect', 'ellipse', 'sticky', 'text', 'diamond', 'parallelogram', 'cylinder'].includes(tool)) {
       dragRef.current = {
         type: 'create-shape', startWorldX: world.x, startWorldY: world.y,
         startScreenX: sx, startScreenY: sy,
@@ -212,7 +212,7 @@ export function useCanvasInteraction({
         type: 'shape',
         fromX: drag.startWorldX, fromY: drag.startWorldY,
         toX: world.x, toY: world.y,
-        shapeType: tool as 'rect' | 'ellipse' | 'sticky' | 'text',
+        shapeType: tool as 'rect' | 'ellipse' | 'sticky' | 'text' | 'diamond' | 'parallelogram' | 'cylinder',
       };
       return;
     }
@@ -250,7 +250,7 @@ export function useCanvasInteraction({
         fw = snapToGrid(fw);
         fh = snapToGrid(fh);
       }
-      const nodeType = tool as 'rect' | 'ellipse' | 'sticky' | 'text';
+      const nodeType = tool as 'rect' | 'ellipse' | 'sticky' | 'text' | 'diamond' | 'parallelogram' | 'cylinder';
       const node = createNode(nodeType, x, y, { width: fw, height: fh });
       dispatch({ type: 'ADD_NODE', node });
     }
