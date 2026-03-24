@@ -222,6 +222,40 @@ export function PropertyPanel({ selectedNode, selectedEdge, onUpdateNode, onUpda
               </Box>
             </>
           )}
+
+          {/* 接続点 */}
+          <Divider sx={{ my: 1 }} />
+          <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>{t('connectionPoints')}</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY, fontSize: '0.65rem' }}>
+              {4 + (selectedNode.extraConnectionPoints?.length ?? 0)} {t('points')}
+            </Typography>
+            <IconButton
+              size="small"
+              onClick={() => {
+                const current = selectedNode.extraConnectionPoints ?? [];
+                const newPoints = [
+                  { x: 0.25, y: 0 }, { x: 0.75, y: 0 },
+                  { x: 1, y: 0.25 }, { x: 1, y: 0.75 },
+                  { x: 0.25, y: 1 }, { x: 0.75, y: 1 },
+                  { x: 0, y: 0.25 }, { x: 0, y: 0.75 },
+                ].filter(np => !current.some(cp => cp.x === np.x && cp.y === np.y));
+                onUpdateNode(selectedNode.id, { extraConnectionPoints: [...current, ...newPoints] });
+              }}
+              sx={{ color: COLOR_TEXT_SECONDARY, fontSize: '0.7rem' }}
+            >
+              <Typography variant="caption">+8</Typography>
+            </IconButton>
+            {(selectedNode.extraConnectionPoints?.length ?? 0) > 0 && (
+              <IconButton
+                size="small"
+                onClick={() => onUpdateNode(selectedNode.id, { extraConnectionPoints: undefined })}
+                sx={{ color: COLOR_TEXT_SECONDARY, fontSize: '0.7rem' }}
+              >
+                <Typography variant="caption">{t('reset')}</Typography>
+              </IconButton>
+            )}
+          </Box>
         </>
       )}
 
