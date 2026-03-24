@@ -271,7 +271,7 @@ export function useCanvasInteraction({
       };
       return;
     }
-  }, [canvasRef, viewport, tool, dispatch, showGrid]);
+  }, [canvasRef, viewport, tool, nodes, edges, selection, dispatch, showGrid]);
 
   const handleMouseUp = useCallback((e: React.MouseEvent) => {
     const canvas = canvasRef.current;
