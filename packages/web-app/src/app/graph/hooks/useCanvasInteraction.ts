@@ -57,6 +57,7 @@ export function useCanvasInteraction({
   const spaceRef = useRef(false);
   const previewRef = useRef<DragPreview>({ ...EMPTY_PREVIEW });
   const clipboardRef = useRef<{ nodes: GraphNode[]; edges: GraphEdge[] } | null>(null);
+  const hoverNodeIdRef = useRef<string | undefined>(undefined);
 
   const getWorldPos = useCallback((e: MouseEvent | React.MouseEvent) => {
     const canvas = canvasRef.current;
@@ -79,7 +80,20 @@ export function useCanvasInteraction({
     }
 
     if (tool === 'select') {
-      const hit = hitTest(nodes, edges, world.x, world.y, viewport.scale, selection.nodeIds);
+      const hit = hitTest(nodes, edges, world.x, world.y, viewport.scale, selection.nodeIds, hoverNodeIdRef.current);
+
+      // 接続ポイントクリック → コネクタ作成開始
+      if (hit.type === 'connection-point' && hit.id) {
+        const node = nodes.find(n => n.id === hit.id);
+        if (node) {
+          const cp = { top: { x: node.x + node.width / 2, y: node.y }, right: { x: node.x + node.width, y: node.y + node.height / 2 }, bottom: { x: node.x + node.width / 2, y: node.y + node.height }, left: { x: node.x, y: node.y + node.height / 2 } }[hit.connectionSide!];
+          dragRef.current = {
+            type: 'create-edge', startWorldX: cp.x, startWorldY: cp.y,
+            startScreenX: sx, startScreenY: sy, nodeId: hit.id,
+          };
+        }
+        return;
+      }
 
       if (hit.type === 'resize-handle' && hit.id && hit.handle) {
         const node = nodes.find(n => n.id === hit.id)!;
@@ -162,6 +176,15 @@ export function useCanvasInteraction({
     const sx = e.clientX - rect.left;
     const sy = e.clientY - rect.top;
     const drag = dragRef.current;
+
+    // ホバーノード検出（ドラッグ中でないとき）
+    if (drag.type === 'none' && tool === 'select') {
+      const world = screenToWorld(viewport, sx, sy);
+      const hit = hitTest(nodes, edges, world.x, world.y, viewport.scale, selection.nodeIds);
+      hoverNodeIdRef.current = hit.type === 'node' ? hit.id : undefined;
+    } else if (drag.type !== 'none') {
+      hoverNodeIdRef.current = undefined;
+    }
 
     if (drag.type === 'pan') {
       const dx = sx - drag.startScreenX;
@@ -404,6 +427,7 @@ export function useCanvasInteraction({
     dragRef,
     previewRef,
     clipboardRef,
+    hoverNodeIdRef,
     copySelected,
     pasteFromClipboard,
   };

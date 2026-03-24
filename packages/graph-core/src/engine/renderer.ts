@@ -25,6 +25,7 @@ export function render(
   viewport: Viewport,
   selection: SelectionState,
   showGrid: boolean,
+  hoverNodeId?: string,
 ): void {
   ctx.fillStyle = BG_COLOR;
   ctx.fillRect(0, 0, width, height);
@@ -39,6 +40,12 @@ export function render(
   nodes
     .filter(n => selection.nodeIds.includes(n.id))
     .forEach(n => drawResizeHandles(ctx, n, viewport.scale));
+
+  // ホバー接続ポイント
+  if (hoverNodeId && !selection.nodeIds.includes(hoverNodeId)) {
+    const hoverNode = nodes.find(n => n.id === hoverNodeId);
+    if (hoverNode) drawConnectionPoints(ctx, hoverNode, viewport.scale);
+  }
 
   ctx.restore();
 }
@@ -333,23 +340,38 @@ export function wrapText(
 
 export function drawEdge(
   ctx: CanvasRenderingContext2D,
-  edge: GraphEdge,
+  edge: GraphEdge & { waypoints?: { x: number; y: number }[] },
   selected: boolean,
 ): void {
   ctx.save();
 
-  const { from, to, style, type } = edge;
+  const { from, to, style, type, waypoints } = edge;
 
   ctx.strokeStyle = selected ? SELECTION_COLOR : style.stroke;
   ctx.lineWidth = selected ? style.strokeWidth + 1 : style.strokeWidth;
 
-  ctx.beginPath();
-  ctx.moveTo(from.x, from.y);
-  ctx.lineTo(to.x, to.y);
-  ctx.stroke();
-
-  if (type === 'arrow' || type === 'connector') {
-    drawArrowHead(ctx, from.x, from.y, to.x, to.y, selected ? SELECTION_COLOR : style.stroke);
+  if (waypoints && waypoints.length >= 2) {
+    // 折れ線描画
+    ctx.beginPath();
+    ctx.moveTo(waypoints[0].x, waypoints[0].y);
+    for (let i = 1; i < waypoints.length; i++) {
+      ctx.lineTo(waypoints[i].x, waypoints[i].y);
+    }
+    ctx.stroke();
+    // 矢印は最後の2点から
+    if (type === 'arrow' || type === 'connector') {
+      const last = waypoints[waypoints.length - 1];
+      const prev = waypoints[waypoints.length - 2];
+      drawArrowHead(ctx, prev.x, prev.y, last.x, last.y, selected ? SELECTION_COLOR : style.stroke);
+    }
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
+    if (type === 'arrow' || type === 'connector') {
+      drawArrowHead(ctx, from.x, from.y, to.x, to.y, selected ? SELECTION_COLOR : style.stroke);
+    }
   }
 
   if (edge.label) {
@@ -432,6 +454,36 @@ export function drawResizeHandles(
     ctx.strokeRect(hx - half, hy - half, handleSize, handleSize);
   });
 
+  ctx.restore();
+}
+
+/** ホバー時の接続ポイント（4辺中央の丸）を描画 */
+export function drawConnectionPoints(
+  ctx: CanvasRenderingContext2D,
+  node: GraphNode,
+  scale: number,
+): void {
+  const { x, y, width: w, height: h } = node;
+  const r = 6 / scale;
+  const points = [
+    { px: x + w / 2, py: y },
+    { px: x + w, py: y + h / 2 },
+    { px: x + w / 2, py: y + h },
+    { px: x, py: y + h / 2 },
+  ];
+  ctx.save();
+  for (const { px, py } of points) {
+    // 外円
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, Math.PI * 2);
+    ctx.fillStyle = SELECTION_COLOR;
+    ctx.fill();
+    // 内円
+    ctx.beginPath();
+    ctx.arc(px, py, r * 0.5, 0, Math.PI * 2);
+    ctx.fillStyle = BG_COLOR;
+    ctx.fill();
+  }
   ctx.restore();
 }
 

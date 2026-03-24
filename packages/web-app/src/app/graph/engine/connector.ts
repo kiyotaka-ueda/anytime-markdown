@@ -1,4 +1,5 @@
 export {
   nodeCenter, rectIntersection, ellipseIntersection, nodeIntersection,
-  resolveConnectorEndpoints,
+  resolveConnectorEndpoints, computeOrthogonalPath,
+  getConnectionPoints, nearestConnectionPoint, hitTestConnectionPoint,
 } from '@anytime-markdown/graph-core/engine';

@@ -1,5 +1,5 @@
 export {
   render, drawGrid, drawNode, drawEdge, drawArrowHead, drawResizeHandles,
   drawRoundedRect, wrapText, drawEdgePreview, drawSnapHighlight,
-  drawShapePreview, drawSmartGuides, drawSelectionRect,
+  drawShapePreview, drawSmartGuides, drawSelectionRect, drawConnectionPoints,
 } from '@anytime-markdown/graph-core/engine';

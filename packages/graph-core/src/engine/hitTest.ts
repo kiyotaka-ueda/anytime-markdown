@@ -2,10 +2,13 @@ import { GraphNode, GraphEdge } from '../types';
 
 export type ResizeHandle = 'nw' | 'ne' | 'sw' | 'se' | 'n' | 's' | 'e' | 'w';
 
+export type ConnectionSide = 'top' | 'right' | 'bottom' | 'left';
+
 export interface HitResult {
-  type: 'node' | 'edge' | 'resize-handle' | 'none';
+  type: 'node' | 'edge' | 'resize-handle' | 'connection-point' | 'none';
   id?: string;
   handle?: ResizeHandle;
+  connectionSide?: ConnectionSide;
 }
 
 const HANDLE_SIZE = 8;
@@ -93,9 +96,36 @@ export function hitTestEdge(edge: GraphEdge, wx: number, wy: number, scale: numb
   return distanceToSegment(wx, wy, edge.from.x, edge.from.y, edge.to.x, edge.to.y) <= tolerance;
 }
 
+const CONNECTION_POINT_RADIUS = 10;
+
+function hitTestConnectionPoints(node: GraphNode, wx: number, wy: number, scale: number): ConnectionSide | null {
+  const r = CONNECTION_POINT_RADIUS / scale;
+  const { x, y, width: w, height: h } = node;
+  const points: { side: ConnectionSide; px: number; py: number }[] = [
+    { side: 'top', px: x + w / 2, py: y },
+    { side: 'right', px: x + w, py: y + h / 2 },
+    { side: 'bottom', px: x + w / 2, py: y + h },
+    { side: 'left', px: x, py: y + h / 2 },
+  ];
+  for (const { side, px, py } of points) {
+    if (Math.hypot(wx - px, wy - py) <= r) return side;
+  }
+  return null;
+}
+
 export function hitTest(
   nodes: GraphNode[], edges: GraphEdge[], wx: number, wy: number, scale: number, selectedNodeIds: string[],
+  hoverNodeId?: string,
 ): HitResult {
+  // 接続ポイント判定（ホバー中ノードのみ）
+  if (hoverNodeId) {
+    const hoverNode = nodes.find(n => n.id === hoverNodeId);
+    if (hoverNode) {
+      const side = hitTestConnectionPoints(hoverNode, wx, wy, scale);
+      if (side) return { type: 'connection-point', id: hoverNode.id, connectionSide: side };
+    }
+  }
+
   for (const id of selectedNodeIds) {
     const node = nodes.find(n => n.id === id);
     if (node) {

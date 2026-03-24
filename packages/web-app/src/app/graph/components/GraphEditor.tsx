@@ -76,7 +76,7 @@ export function GraphEditor() {
 
   const {
     handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, handleDoubleClick, previewRef,
-    clipboardRef, copySelected, pasteFromClipboard,
+    clipboardRef, copySelected, pasteFromClipboard, hoverNodeIdRef,
   } = useCanvasInteraction({
     canvasRef, tool,
     nodes: state.document.nodes,
@@ -239,6 +239,7 @@ export function GraphEditor() {
           onDoubleClick={handleDoubleClick}
           onContextMenu={handleContextMenu}
           previewRef={previewRef}
+          hoverNodeIdRef={hoverNodeIdRef}
         />
         <TextEditOverlay
           node={editingNode}

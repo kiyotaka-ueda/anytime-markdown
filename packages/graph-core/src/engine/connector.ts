@@ -67,6 +67,123 @@ export function nodeIntersection(
   return rectIntersection(node, targetX, targetY);
 }
 
+export type Side = 'top' | 'right' | 'bottom' | 'left';
+
+/** ノードの4辺中央の接続ポイント */
+export function getConnectionPoints(node: GraphNode): { side: Side; x: number; y: number }[] {
+  const { x, y, width: w, height: h } = node;
+  return [
+    { side: 'top', x: x + w / 2, y },
+    { side: 'right', x: x + w, y: y + h / 2 },
+    { side: 'bottom', x: x + w / 2, y: y + h },
+    { side: 'left', x: x, y: y + h / 2 },
+  ];
+}
+
+/** 指定座標に最も近い接続ポイントを返す */
+export function nearestConnectionPoint(node: GraphNode, tx: number, ty: number): { side: Side; x: number; y: number } {
+  const points = getConnectionPoints(node);
+  let best = points[0];
+  let bestDist = Infinity;
+  for (const p of points) {
+    const d = Math.hypot(p.x - tx, p.y - ty);
+    if (d < bestDist) { bestDist = d; best = p; }
+  }
+  return best;
+}
+
+/** 接続ポイントのhit判定 */
+export function hitTestConnectionPoint(
+  node: GraphNode, wx: number, wy: number, scale: number,
+): { side: Side; x: number; y: number } | null {
+  const radius = 10 / scale;
+  for (const p of getConnectionPoints(node)) {
+    if (Math.hypot(wx - p.x, wy - p.y) <= radius) return p;
+  }
+  return null;
+}
+
+/** 2ノード間の最適な接続辺を決定 */
+function bestSides(fromNode: GraphNode, toNode: GraphNode): { fromSide: Side; toSide: Side } {
+  const fc = nodeCenter(fromNode);
+  const tc = nodeCenter(toNode);
+  const dx = tc.x - fc.x;
+  const dy = tc.y - fc.y;
+
+  let fromSide: Side;
+  let toSide: Side;
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    fromSide = dx > 0 ? 'right' : 'left';
+    toSide = dx > 0 ? 'left' : 'right';
+  } else {
+    fromSide = dy > 0 ? 'bottom' : 'top';
+    toSide = dy > 0 ? 'top' : 'bottom';
+  }
+
+  return { fromSide, toSide };
+}
+
+/** 辺の方向に応じたオフセット座標 */
+function offsetPoint(pt: { x: number; y: number }, side: Side, margin: number): { x: number; y: number } {
+  switch (side) {
+    case 'top': return { x: pt.x, y: pt.y - margin };
+    case 'bottom': return { x: pt.x, y: pt.y + margin };
+    case 'left': return { x: pt.x - margin, y: pt.y };
+    case 'right': return { x: pt.x + margin, y: pt.y };
+  }
+}
+
+/** 直角折れ線のウェイポイントを計算 */
+export function computeOrthogonalPath(
+  fromNode: GraphNode,
+  toNode: GraphNode,
+  margin: number = 20,
+): { x: number; y: number }[] {
+  const { fromSide, toSide } = bestSides(fromNode, toNode);
+  const fromPts = getConnectionPoints(fromNode);
+  const toPts = getConnectionPoints(toNode);
+  const fromPt = fromPts.find(p => p.side === fromSide)!;
+  const toPt = toPts.find(p => p.side === toSide)!;
+
+  const p1 = offsetPoint(fromPt, fromSide, margin);
+  const p4 = offsetPoint(toPt, toSide, margin);
+
+  const points: { x: number; y: number }[] = [fromPt];
+
+  // 対向する辺（right↔left, top↔bottom）の場合: 中間点で折れる
+  const isHorizontal = fromSide === 'right' || fromSide === 'left';
+  const isOpposite =
+    (fromSide === 'right' && toSide === 'left') ||
+    (fromSide === 'left' && toSide === 'right') ||
+    (fromSide === 'top' && toSide === 'bottom') ||
+    (fromSide === 'bottom' && toSide === 'top');
+
+  if (isOpposite) {
+    if (isHorizontal) {
+      const midX = (p1.x + p4.x) / 2;
+      points.push({ x: midX, y: fromPt.y });
+      points.push({ x: midX, y: toPt.y });
+    } else {
+      const midY = (p1.y + p4.y) / 2;
+      points.push({ x: fromPt.x, y: midY });
+      points.push({ x: toPt.x, y: midY });
+    }
+  } else {
+    // 同方向や直交する場合: L字またはZ字
+    points.push(p1);
+    if (isHorizontal) {
+      points.push({ x: p1.x, y: p4.y });
+    } else {
+      points.push({ x: p4.x, y: p1.y });
+    }
+    points.push(p4);
+  }
+
+  points.push(toPt);
+  return points;
+}
+
 export function resolveConnectorEndpoints(
   edge: GraphEdge,
   nodes: GraphNode[],

@@ -3,7 +3,7 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { GraphNode, GraphEdge, Viewport, SelectionState } from '../types';
 import { render, drawSelectionRect, drawEdgePreview, drawShapePreview, drawSnapHighlight, drawSmartGuides } from '../engine/renderer';
-import { resolveConnectorEndpoints } from '../engine/connector';
+import { resolveConnectorEndpoints, computeOrthogonalPath } from '../engine/connector';
 import type { DragPreview } from '../hooks/useCanvasInteraction';
 
 interface GraphCanvasProps {
@@ -20,11 +20,13 @@ interface GraphCanvasProps {
   onDoubleClick: (e: React.MouseEvent) => void;
   onContextMenu: (e: React.MouseEvent) => void;
   previewRef: React.RefObject<DragPreview>;
+  hoverNodeIdRef: React.RefObject<string | undefined>;
 }
 
 export function GraphCanvas({
   nodes, edges, viewport, selection, showGrid, canvasRef,
-  onMouseDown, onMouseMove, onMouseUp, onWheel, onDoubleClick, onContextMenu, previewRef,
+  onMouseDown, onMouseMove, onMouseUp, onWheel, onDoubleClick, onContextMenu,
+  previewRef, hoverNodeIdRef,
 }: GraphCanvasProps) {
   const rafRef = useRef<number>(0);
 
@@ -35,6 +37,16 @@ export function GraphCanvas({
     if (!ctx) return;
 
     const resolvedEdges = edges.map(e => {
+      if (e.type === 'connector' && e.from.nodeId && e.to.nodeId) {
+        const fromNode = nodes.find(n => n.id === e.from.nodeId);
+        const toNode = nodes.find(n => n.id === e.to.nodeId);
+        if (fromNode && toNode) {
+          const waypoints = computeOrthogonalPath(fromNode, toNode);
+          return { ...e, from: { ...e.from, ...waypoints[0] }, to: { ...e.to, ...waypoints[waypoints.length - 1] }, waypoints };
+        }
+        const pts = resolveConnectorEndpoints(e, nodes);
+        return { ...e, from: { ...e.from, ...pts.from }, to: { ...e.to, ...pts.to } };
+      }
       if (e.type === 'connector') {
         const pts = resolveConnectorEndpoints(e, nodes);
         return { ...e, from: { ...e.from, ...pts.from }, to: { ...e.to, ...pts.to } };
@@ -42,7 +54,7 @@ export function GraphCanvas({
       return e;
     });
 
-    render(ctx, canvas.width, canvas.height, nodes, resolvedEdges, viewport, selection, showGrid);
+    render(ctx, canvas.width, canvas.height, nodes, resolvedEdges, viewport, selection, showGrid, hoverNodeIdRef.current);
 
     // ドラッグプレビュー描画
     const preview = previewRef.current;
@@ -51,7 +63,6 @@ export function GraphCanvas({
       ctx.translate(viewport.offsetX, viewport.offsetY);
       ctx.scale(viewport.scale, viewport.scale);
       if (preview.type === 'edge' && preview.edgeType) {
-        // スナップ対象ノードのハイライト
         if (preview.snapNodeId) {
           const snapNode = nodes.find(n => n.id === preview.snapNodeId);
           if (snapNode) drawSnapHighlight(ctx, snapNode);
@@ -69,7 +80,7 @@ export function GraphCanvas({
       ctx.restore();
     }
 
-    // スマートガイド描画（moveドラッグ中、preview.type === 'none' でも guides がある場合）
+    // スマートガイド描画
     if (preview.guides && preview.guides.length > 0) {
       ctx.save();
       ctx.translate(viewport.offsetX, viewport.offsetY);
@@ -77,7 +88,7 @@ export function GraphCanvas({
       drawSmartGuides(ctx, preview.guides);
       ctx.restore();
     }
-  }, [canvasRef, nodes, edges, viewport, selection, showGrid, previewRef]);
+  }, [canvasRef, nodes, edges, viewport, selection, showGrid, previewRef, hoverNodeIdRef]);
 
   useEffect(() => {
     const loop = () => {
