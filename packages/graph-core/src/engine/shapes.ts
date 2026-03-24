@@ -402,12 +402,17 @@ export function drawNode(
 
     const padding = 8;
     const maxWidth = width - padding * 2;
-    const lines = wrapText(ctx, text, maxWidth);
+    const wrappedLines = wrapText(ctx, text, maxWidth);
     const lineHeight = style.fontSize * 1.3;
-    const totalHeight = lines.length * lineHeight;
+    const maxLines = Math.max(1, Math.floor((height - padding * 2) / lineHeight));
+    const visibleLines = wrappedLines.slice(0, maxLines);
+    if (wrappedLines.length > maxLines && visibleLines.length > 0) {
+      visibleLines[visibleLines.length - 1] += '\u2026';
+    }
+    const totalHeight = visibleLines.length * lineHeight;
     const startY = y + height / 2 - totalHeight / 2 + lineHeight / 2;
 
-    lines.forEach((line, i) => {
+    visibleLines.forEach((line, i) => {
       ctx.fillText(line, x + width / 2, startY + i * lineHeight, maxWidth);
     });
   }
