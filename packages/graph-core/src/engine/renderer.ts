@@ -42,7 +42,7 @@ export function render(
     .forEach(n => drawResizeHandles(ctx, n, viewport.scale));
 
   // ホバー接続ポイント
-  if (hoverNodeId && !selection.nodeIds.includes(hoverNodeId)) {
+  if (hoverNodeId) {
     const hoverNode = nodes.find(n => n.id === hoverNodeId);
     if (hoverNode) drawConnectionPoints(ctx, hoverNode, viewport.scale);
   }
