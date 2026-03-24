@@ -41,6 +41,11 @@ export function render(
     .filter(n => selection.nodeIds.includes(n.id))
     .forEach(n => drawResizeHandles(ctx, n, viewport.scale));
 
+  // 選択中エッジのエンドポイントハンドル
+  edges
+    .filter(e => selection.edgeIds.includes(e.id))
+    .forEach(e => drawEdgeEndpointHandles(ctx, e, viewport.scale));
+
   // ホバー接続ポイント
   if (hoverNodeId) {
     const hoverNode = nodes.find(n => n.id === hoverNodeId);
@@ -454,6 +459,33 @@ export function drawResizeHandles(
     ctx.strokeRect(hx - half, hy - half, handleSize, handleSize);
   });
 
+  ctx.restore();
+}
+
+/** 選択中エッジの両端にドラッグ可能なハンドルを描画 */
+export function drawEdgeEndpointHandles(
+  ctx: CanvasRenderingContext2D,
+  edge: GraphEdge & { waypoints?: { x: number; y: number }[] },
+  scale: number,
+): void {
+  const r = 7 / scale;
+  const pts = edge.waypoints && edge.waypoints.length >= 2
+    ? [edge.waypoints[0], edge.waypoints[edge.waypoints.length - 1]]
+    : [{ x: edge.from.x, y: edge.from.y }, { x: edge.to.x, y: edge.to.y }];
+
+  ctx.save();
+  for (const pt of pts) {
+    // 外円
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = SELECTION_COLOR;
+    ctx.fill();
+    // 内円
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, r * 0.45, 0, Math.PI * 2);
+    ctx.fillStyle = BG_COLOR;
+    ctx.fill();
+  }
   ctx.restore();
 }
 

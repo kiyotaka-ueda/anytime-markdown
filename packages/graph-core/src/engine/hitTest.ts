@@ -4,13 +4,17 @@ export type ResizeHandle = 'nw' | 'ne' | 'sw' | 'se' | 'n' | 's' | 'e' | 'w';
 
 export type ConnectionSide = 'top' | 'right' | 'bottom' | 'left';
 
+export type EdgeEndpointEnd = 'from' | 'to';
+
 export interface HitResult {
-  type: 'node' | 'edge' | 'resize-handle' | 'connection-point' | 'edge-segment' | 'none';
+  type: 'node' | 'edge' | 'resize-handle' | 'connection-point' | 'edge-segment' | 'edge-endpoint' | 'none';
   id?: string;
   handle?: ResizeHandle;
   connectionSide?: ConnectionSide;
   /** ドラッグ可能なエッジセグメントの方向 */
   segmentDirection?: 'horizontal' | 'vertical';
+  /** エッジエンドポイント（from/to） */
+  endpointEnd?: EdgeEndpointEnd;
 }
 
 const HANDLE_SIZE = 8;
@@ -142,10 +146,36 @@ function hitTestConnectionPoints(node: GraphNode, wx: number, wy: number, scale:
   return null;
 }
 
+const ENDPOINT_HANDLE_RADIUS = 10;
+
+function hitTestEdgeEndpoints(
+  edge: GraphEdge & { waypoints?: { x: number; y: number }[] },
+  wx: number, wy: number, scale: number,
+): EdgeEndpointEnd | null {
+  const r = ENDPOINT_HANDLE_RADIUS / scale;
+  const pts = edge.waypoints && edge.waypoints.length >= 2
+    ? [edge.waypoints[0], edge.waypoints[edge.waypoints.length - 1]]
+    : [{ x: edge.from.x, y: edge.from.y }, { x: edge.to.x, y: edge.to.y }];
+  if (Math.hypot(wx - pts[0].x, wy - pts[0].y) <= r) return 'from';
+  if (Math.hypot(wx - pts[1].x, wy - pts[1].y) <= r) return 'to';
+  return null;
+}
+
 export function hitTest(
-  nodes: GraphNode[], edges: GraphEdge[], wx: number, wy: number, scale: number, selectedNodeIds: string[],
-  hoverNodeId?: string,
+  nodes: GraphNode[], edges: (GraphEdge & { waypoints?: { x: number; y: number }[] })[], wx: number, wy: number, scale: number, selectedNodeIds: string[],
+  hoverNodeId?: string, selectedEdgeIds?: string[],
 ): HitResult {
+  // 選択中エッジのエンドポイントハンドル判定
+  if (selectedEdgeIds) {
+    for (const eid of selectedEdgeIds) {
+      const edge = edges.find(e => e.id === eid);
+      if (edge) {
+        const end = hitTestEdgeEndpoints(edge, wx, wy, scale);
+        if (end) return { type: 'edge-endpoint', id: edge.id, endpointEnd: end };
+      }
+    }
+  }
+
   // 接続ポイント判定（ホバー中ノードのみ）
   if (hoverNodeId) {
     const hoverNode = nodes.find(n => n.id === hoverNodeId);

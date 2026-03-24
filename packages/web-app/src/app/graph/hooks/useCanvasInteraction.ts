@@ -34,6 +34,7 @@ interface DragState {
   nodeId?: string;
   edgeId?: string;
   segmentDirection?: 'horizontal' | 'vertical';
+  endpointEnd?: 'from' | 'to';
   initialMidpoint?: number;
   initialNodes?: Map<string, { x: number; y: number; width: number; height: number }>;
 }
@@ -100,7 +101,24 @@ export function useCanvasInteraction({
 
     if (tool === 'select') {
       const resolved = resolveEdgesWithWaypoints(edges, nodes);
-      const hit = hitTest(nodes, resolved, world.x, world.y, viewport.scale, selection.nodeIds, hoverNodeIdRef.current);
+      const hit = hitTest(nodes, resolved, world.x, world.y, viewport.scale, selection.nodeIds, hoverNodeIdRef.current, selection.edgeIds);
+
+      // エッジエンドポイントハンドル → 端点再接続ドラッグ
+      if (hit.type === 'edge-endpoint' && hit.id && hit.endpointEnd) {
+        const edge = edges.find(ed => ed.id === hit.id);
+        if (edge) {
+          const endpoint = hit.endpointEnd === 'from' ? edge.from : edge.to;
+          dispatch({ type: 'SNAPSHOT' });
+          dragRef.current = {
+            type: 'create-edge', startWorldX: endpoint.x, startWorldY: endpoint.y,
+            startScreenX: sx, startScreenY: sy,
+            edgeId: hit.id, endpointEnd: hit.endpointEnd,
+            // 反対側のnodeIdを保持
+            nodeId: hit.endpointEnd === 'from' ? edge.to.nodeId : edge.from.nodeId,
+          };
+        }
+        return;
+      }
 
       // 接続ポイントクリック → コネクタ作成開始
       if (hit.type === 'connection-point' && hit.id) {
@@ -347,7 +365,23 @@ export function useCanvasInteraction({
         (tool === 'line' || tool === 'arrow' || tool === 'connector') ? tool : 'connector';
       const dist = Math.hypot(world.x - drag.startWorldX, world.y - drag.startWorldY);
 
-      if (dist > 5) {
+      // エッジエンドポイント再接続（既存エッジの端点変更）
+      if (drag.edgeId && drag.endpointEnd) {
+        const targetNodeId = hit.type === 'node' ? hit.id : undefined;
+        if (drag.endpointEnd === 'from') {
+          dispatch({ type: 'UPDATE_EDGE', id: drag.edgeId, changes: {
+            from: { nodeId: targetNodeId, x: world.x, y: world.y },
+            to: { nodeId: drag.nodeId, x: drag.startWorldX, y: drag.startWorldY },
+            manualMidpoint: undefined,
+          } });
+        } else {
+          dispatch({ type: 'UPDATE_EDGE', id: drag.edgeId, changes: {
+            from: { nodeId: drag.nodeId, x: drag.startWorldX, y: drag.startWorldY },
+            to: { nodeId: targetNodeId, x: world.x, y: world.y },
+            manualMidpoint: undefined,
+          } });
+        }
+      } else if (dist > 5) {
         if (hit.type === 'node' && hit.id) {
           // 既存ノードに接続
           const edge = createEdge(
@@ -376,7 +410,6 @@ export function useCanvasInteraction({
           );
           dispatch({ type: 'ADD_NODE', node: child });
           dispatch({ type: 'ADD_EDGE', edge });
-          // 子ノードのテキスト編集を即開始
           onTextEdit(child.id);
         }
       }

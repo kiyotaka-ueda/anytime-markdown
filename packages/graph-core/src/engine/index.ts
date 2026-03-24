@@ -1,12 +1,12 @@
 export {
   render, drawGrid, drawNode, drawEdge, drawArrowHead, drawResizeHandles,
   drawRoundedRect, wrapText, drawEdgePreview, drawSnapHighlight,
-  drawShapePreview, drawSmartGuides, drawSelectionRect, drawConnectionPoints,
+  drawShapePreview, drawSmartGuides, drawSelectionRect, drawConnectionPoints, drawEdgeEndpointHandles,
 } from './renderer';
 export {
   hitTest, hitTestNode, hitTestEdge, hitTestEdgeSegment, hitTestResizeHandles,
 } from './hitTest';
-export type { HitResult, ResizeHandle, ConnectionSide } from './hitTest';
+export type { HitResult, ResizeHandle, ConnectionSide, EdgeEndpointEnd } from './hitTest';
 export { screenToWorld, worldToScreen, pan, zoom, fitToContent } from './viewport';
 export {
   nodeCenter, rectIntersection, ellipseIntersection, nodeIntersection,
