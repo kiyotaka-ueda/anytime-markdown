@@ -81,6 +81,8 @@ export function useCanvasInteraction({
   const hoverNodeIdRef = useRef<string | undefined>(undefined);
   const mouseWorldRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const cursorRef = useRef<string>('default');
+  const velocityRef = useRef<{ vx: number; vy: number }>({ vx: 0, vy: 0 });
+  const panHistoryRef = useRef<{ x: number; y: number; t: number }[]>([]);
 
   const getWorldPos = useCallback((e: MouseEvent | React.MouseEvent) => {
     const canvas = canvasRef.current;
@@ -293,6 +295,11 @@ export function useCanvasInteraction({
       const dy = sy - drag.startScreenY;
       dispatch({ type: 'SET_VIEWPORT', viewport: panViewport(viewport, dx, dy) });
       dragRef.current = { ...drag, startScreenX: sx, startScreenY: sy };
+
+      // 速度履歴記録（直近3フレーム）
+      const now = performance.now();
+      panHistoryRef.current.push({ x: sx, y: sy, t: now });
+      if (panHistoryRef.current.length > 3) panHistoryRef.current.shift();
       return;
     }
 
@@ -487,6 +494,23 @@ export function useCanvasInteraction({
       }
     }
 
+    // パン終了時に慣性速度を算出
+    if (drag.type === 'pan') {
+      const history = panHistoryRef.current;
+      if (history.length >= 2) {
+        const first = history[0];
+        const last = history[history.length - 1];
+        const dt = last.t - first.t;
+        if (dt > 0 && dt < 100) {
+          velocityRef.current = {
+            vx: (last.x - first.x) / dt * 16,
+            vy: (last.y - first.y) / dt * 16,
+          };
+        }
+      }
+      panHistoryRef.current = [];
+    }
+
     dragRef.current = { type: 'none', startWorldX: 0, startWorldY: 0, startScreenX: 0, startScreenY: 0 };
     previewRef.current = { ...EMPTY_PREVIEW };
   }, [canvasRef, viewport, tool, nodes, edges, dispatch, showGrid]);
@@ -595,6 +619,7 @@ export function useCanvasInteraction({
     hoverNodeIdRef,
     mouseWorldRef,
     cursorRef,
+    velocityRef,
     copySelected,
     pasteFromClipboard,
   };

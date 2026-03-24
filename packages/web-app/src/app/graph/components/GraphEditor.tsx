@@ -12,7 +12,7 @@ import { PropertyPanel } from './PropertyPanel';
 import { TextEditOverlay } from './TextEditOverlay';
 import { DocEditorModal } from './DocEditorModal';
 import { ShapeHoverBar } from './ShapeHoverBar';
-import { zoom as zoomViewport, fitToContent } from '../engine/viewport';
+import { pan as panViewport, zoom as zoomViewport, fitToContent } from '../engine/viewport';
 import { interpolateViewport, ViewportAnimation } from '@anytime-markdown/graph-core/engine';
 import { alignLeft, alignRight, alignTop, alignBottom, alignCenterH, alignCenterV, distributeH, distributeV } from '../engine/alignment';
 import { loadDocument, getLastDocumentId } from '../store/graphStorage';
@@ -58,7 +58,7 @@ export function GraphEditor() {
 
   const {
     handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, handleDoubleClick, previewRef, dragRef,
-    clipboardRef, copySelected, pasteFromClipboard, hoverNodeIdRef, mouseWorldRef,
+    clipboardRef, copySelected, pasteFromClipboard, hoverNodeIdRef, mouseWorldRef, velocityRef,
   } = useCanvasInteraction({
     canvasRef, tool,
     nodes: state.document.nodes,
@@ -137,6 +137,10 @@ export function GraphEditor() {
   const handleViewportUpdate = useCallback((vp: Viewport) => {
     dispatch({ type: 'SET_VIEWPORT', viewport: vp });
   }, [dispatch]);
+
+  const handlePanInertia = useCallback((dx: number, dy: number) => {
+    dispatch({ type: 'SET_VIEWPORT', viewport: panViewport(state.document.viewport, dx, dy) });
+  }, [state.document.viewport, dispatch]);
 
   const handleClearAll = useCallback(() => {
     dispatch({ type: 'SET_DOCUMENT', doc: createDocument('Untitled') });
@@ -247,6 +251,8 @@ export function GraphEditor() {
           mouseWorldRef={mouseWorldRef}
           viewportAnimRef={viewportAnimRef}
           onViewportUpdate={handleViewportUpdate}
+          velocityRef={velocityRef}
+          onPanInertia={handlePanInertia}
         />
         {selectedNode && !editingNodeId && !docEditNodeId && !isDragging && (
           <ShapeHoverBar

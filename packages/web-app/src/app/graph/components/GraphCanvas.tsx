@@ -26,6 +26,8 @@ interface GraphCanvasProps {
   mouseWorldRef: React.RefObject<{ x: number; y: number }>;
   viewportAnimRef?: React.RefObject<ViewportAnimation | null>;
   onViewportUpdate?: (viewport: Viewport) => void;
+  velocityRef?: React.RefObject<{ vx: number; vy: number }>;
+  onPanInertia?: (dx: number, dy: number) => void;
 }
 
 export function GraphCanvas({
@@ -33,6 +35,7 @@ export function GraphCanvas({
   onMouseDown, onMouseMove, onMouseUp, onWheel, onDoubleClick, onContextMenu,
   previewRef, hoverNodeIdRef, mouseWorldRef,
   viewportAnimRef, onViewportUpdate,
+  velocityRef, onPanInertia,
 }: GraphCanvasProps) {
   const rafRef = useRef<number>(0);
 
@@ -51,6 +54,18 @@ export function GraphCanvas({
       onViewportUpdate?.(interpolated);
       if (done) {
         viewportAnimRef.current = null;
+      }
+    }
+
+    // 慣性スクロール
+    if (velocityRef && onPanInertia) {
+      const vel = velocityRef.current;
+      if (Math.abs(vel.vx) > 0.5 || Math.abs(vel.vy) > 0.5) {
+        onPanInertia(vel.vx, vel.vy);
+        vel.vx *= 0.92;
+        vel.vy *= 0.92;
+        if (Math.abs(vel.vx) < 0.5) vel.vx = 0;
+        if (Math.abs(vel.vy) < 0.5) vel.vy = 0;
       }
     }
 
@@ -106,7 +121,7 @@ export function GraphCanvas({
       drawSmartGuides(ctx, preview.guides);
       ctx.restore();
     }
-  }, [canvasRef, nodes, edges, viewport, selection, showGrid, previewRef, hoverNodeIdRef, mouseWorldRef, viewportAnimRef, onViewportUpdate]);
+  }, [canvasRef, nodes, edges, viewport, selection, showGrid, previewRef, hoverNodeIdRef, mouseWorldRef, viewportAnimRef, onViewportUpdate, velocityRef, onPanInertia]);
 
   useEffect(() => {
     const loop = () => {
