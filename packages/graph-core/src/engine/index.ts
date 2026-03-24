@@ -21,3 +21,5 @@ export {
 } from './alignment';
 export { computeSmartGuides } from './smartGuide';
 export type { GuideLine } from './smartGuide';
+export { easeOutCubic, interpolateViewport } from './animation';
+export type { ViewportAnimation } from './animation';
