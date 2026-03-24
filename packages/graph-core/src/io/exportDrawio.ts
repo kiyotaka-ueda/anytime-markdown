@@ -89,7 +89,8 @@ export function exportToDrawio(doc: GraphDocument): string {
   for (const node of doc.nodes) {
     const style = nodeStyle(node);
     const label = escapeXml(node.text);
-    lines.push(`<mxCell id="${escapeXml(node.id)}" value="${label}" style="${style}" vertex="1" parent="1">`);
+    const urlAttr = node.url ? ` link="${escapeXml(node.url)}"` : '';
+    lines.push(`<mxCell id="${escapeXml(node.id)}" value="${label}" style="${style}" vertex="1" parent="1"${urlAttr}>`);
     lines.push(`<mxGeometry x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" as="geometry"/>`);
     lines.push('</mxCell>');
   }

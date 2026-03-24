@@ -69,6 +69,7 @@ export function importFromDrawio(xmlString: string): GraphDocument {
       const fontSize = parseFloat(style['fontSize'] ?? '14');
       const fontFamily = style['fontFamily'] ?? DEFAULT_NODE_STYLE.fontFamily;
 
+      const url = cell.getAttribute('link') ?? undefined;
       nodes.push({
         id,
         type: nodeType,
@@ -76,6 +77,7 @@ export function importFromDrawio(xmlString: string): GraphDocument {
         // Canvas fillText 専用。DOM に出力する場合は DOMPurify 等でサニタイズすること
         text: value.replace(/<br\s*\/?>/g, '\n').replace(/<[^>]*>/g, ''),
         style: { fill, stroke, strokeWidth, fontSize, fontFamily },
+        ...(url ? { url } : {}),
       });
     } else if (isEdge) {
       const source = cell.getAttribute('source') ?? undefined;
