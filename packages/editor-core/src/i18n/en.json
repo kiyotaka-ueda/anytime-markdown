@@ -751,7 +751,8 @@
     "exportDrawio": "Export draw.io",
     "importDrawio": "Import draw.io",
     "export": "Export",
-    "import": "Import"
+    "import": "Import",
+    "url": "URL"
   },
   "Privacy": {
     "title": "Privacy Policy",

@@ -193,6 +193,21 @@ export function PropertyPanel({ selectedNode, selectedEdge, onUpdateNode, onUpda
             </>
           )}
 
+          {/* URL */}
+          <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>{t('url')}</Typography>
+          <TextField
+            value={selectedNode.url ?? ''}
+            onChange={(e) => onUpdateNode(selectedNode.id, { url: e.target.value || undefined })}
+            size="small"
+            fullWidth
+            placeholder="https://..."
+            sx={{
+              mb: 2,
+              '& .MuiInputBase-input': { color: COLOR_TEXT_PRIMARY, fontSize: '0.8rem', py: 0.5 },
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: COLOR_BORDER },
+            }}
+          />
+
           {selectedNode.type === 'insight' && (
             <>
               <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>{t('label')}</Typography>
