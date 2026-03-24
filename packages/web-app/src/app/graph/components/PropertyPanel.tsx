@@ -279,6 +279,38 @@ export function PropertyPanel({ selectedNode, selectedEdge, onUpdateNode, onUpda
             <ToggleButton value="diamond">{t('shapeDiamond')}</ToggleButton>
             <ToggleButton value="bar">{t('shapeBar')}</ToggleButton>
           </ToggleButtonGroup>
+
+          {/* ラベル */}
+          <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>{t('edgeLabel')}</Typography>
+          <TextField
+            value={selectedEdge.label ?? ''}
+            onChange={(e) => onUpdateEdge(selectedEdge.id, { label: e.target.value || undefined })}
+            size="small"
+            fullWidth
+            placeholder="Label"
+            sx={{
+              mb: 2,
+              '& .MuiInputBase-input': { color: COLOR_TEXT_PRIMARY, fontSize: '0.8rem', py: 0.5 },
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: COLOR_BORDER },
+            }}
+          />
+
+          {/* ルーティングモード（connector タイプのみ） */}
+          {selectedEdge.type === 'connector' && (
+            <>
+              <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>{t('routing')}</Typography>
+              <ToggleButtonGroup
+                value={selectedEdge.style.routing ?? 'orthogonal'}
+                exclusive
+                onChange={(_, v) => v && onUpdateEdge(selectedEdge.id, { style: { ...selectedEdge.style, routing: v } })}
+                size="small"
+                sx={{ mb: 2, display: 'flex', '& .MuiToggleButton-root': { flex: 1, fontSize: '0.65rem', py: 0.3, color: COLOR_TEXT_SECONDARY, borderColor: COLOR_BORDER, '&.Mui-selected': { color: COLOR_ICE_BLUE, backgroundColor: 'rgba(144,202,249,0.12)' } } }}
+              >
+                <ToggleButton value="orthogonal">{t('routingOrthogonal')}</ToggleButton>
+                <ToggleButton value="bezier">{t('routingBezier')}</ToggleButton>
+              </ToggleButtonGroup>
+            </>
+          )}
         </>
       )}
     </Box>
