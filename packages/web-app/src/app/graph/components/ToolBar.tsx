@@ -36,6 +36,10 @@ import {
   CloudDone as CloudDoneIcon,
   CloudSync as CloudSyncIcon,
   CloudOff as CloudOffIcon,
+  CircleOutlined as EllipseIcon,
+  DiamondOutlined as DiamondIcon,
+  ChangeHistoryOutlined as ParallelogramIcon,
+  StorageOutlined as CylinderIcon,
 } from '@mui/icons-material';
 import { useTranslations } from 'next-intl';
 import { ToolType } from '../types';
@@ -97,6 +101,18 @@ export function GraphToolBar({
           </ToggleButton>
           <ToggleButton value="rect" aria-label={t('rect')}>
             <Tooltip title={`${t('rect')} (R)`}><RectIcon fontSize="small" /></Tooltip>
+          </ToggleButton>
+          <ToggleButton value="ellipse" aria-label={t('ellipse')}>
+            <Tooltip title={t('ellipse')}><EllipseIcon fontSize="small" /></Tooltip>
+          </ToggleButton>
+          <ToggleButton value="diamond" aria-label={t('diamond')}>
+            <Tooltip title={t('diamond')}><DiamondIcon fontSize="small" /></Tooltip>
+          </ToggleButton>
+          <ToggleButton value="parallelogram" aria-label={t('parallelogram')}>
+            <Tooltip title={t('parallelogram')}><ParallelogramIcon fontSize="small" sx={{ transform: 'rotate(90deg) skewX(-15deg)' }} /></Tooltip>
+          </ToggleButton>
+          <ToggleButton value="cylinder" aria-label={t('cylinder')}>
+            <Tooltip title={t('cylinder')}><CylinderIcon fontSize="small" /></Tooltip>
           </ToggleButton>
           <ToggleButton value="sticky" aria-label={t('sticky')}>
             <Tooltip title={`${t('sticky')} (S)`}><StickyIcon fontSize="small" /></Tooltip>
