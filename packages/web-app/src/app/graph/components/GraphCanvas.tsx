@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect, useCallback } from 'react';
 import { GraphNode, GraphEdge, Viewport, SelectionState } from '../types';
-import { render, drawSelectionRect, drawEdgePreview, drawShapePreview } from '../engine/renderer';
+import { render, drawSelectionRect, drawEdgePreview, drawShapePreview, drawSnapHighlight } from '../engine/renderer';
 import { resolveConnectorEndpoints } from '../engine/connector';
 import type { DragPreview } from '../hooks/useCanvasInteraction';
 
@@ -50,6 +50,11 @@ export function GraphCanvas({
       ctx.translate(viewport.offsetX, viewport.offsetY);
       ctx.scale(viewport.scale, viewport.scale);
       if (preview.type === 'edge' && preview.edgeType) {
+        // スナップ対象ノードのハイライト
+        if (preview.snapNodeId) {
+          const snapNode = nodes.find(n => n.id === preview.snapNodeId);
+          if (snapNode) drawSnapHighlight(ctx, snapNode);
+        }
         drawEdgePreview(ctx, preview.fromX, preview.fromY, preview.toX, preview.toY, preview.edgeType);
       } else if (preview.type === 'shape' && preview.shapeType) {
         drawShapePreview(ctx, preview.fromX, preview.fromY, preview.toX, preview.toY, preview.shapeType);

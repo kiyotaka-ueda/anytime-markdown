@@ -36,6 +36,8 @@ export interface DragPreview {
   toY: number;
   shapeType?: 'rect' | 'ellipse' | 'sticky' | 'text';
   edgeType?: 'line' | 'arrow' | 'connector';
+  /** ドラッグ中にスナップしているノードID */
+  snapNodeId?: string;
 }
 
 const EMPTY_PREVIEW: DragPreview = { type: 'none', fromX: 0, fromY: 0, toX: 0, toY: 0 };
@@ -184,11 +186,13 @@ export function useCanvasInteraction({
 
     if (drag.type === 'create-edge') {
       const world = screenToWorld(viewport, sx, sy);
+      const hit = hitTest(nodes, edges, world.x, world.y, viewport.scale, []);
       previewRef.current = {
         type: 'edge',
         fromX: drag.startWorldX, fromY: drag.startWorldY,
         toX: world.x, toY: world.y,
         edgeType: tool as 'line' | 'arrow' | 'connector',
+        snapNodeId: hit.type === 'node' ? hit.id : undefined,
       };
       return;
     }

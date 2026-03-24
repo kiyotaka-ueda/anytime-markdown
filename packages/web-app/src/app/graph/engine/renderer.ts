@@ -314,6 +314,54 @@ export function drawEdgePreview(
   ctx.restore();
 }
 
+const SNAP_HIGHLIGHT_COLOR = '#4caf50';
+const SNAP_INDICATOR_RADIUS = 6;
+
+/** スナップ対象ノードのハイライト枠を描画 */
+export function drawSnapHighlight(
+  ctx: CanvasRenderingContext2D,
+  node: GraphNode,
+): void {
+  ctx.save();
+  ctx.strokeStyle = SNAP_HIGHLIGHT_COLOR;
+  ctx.lineWidth = 3;
+  ctx.setLineDash([]);
+
+  const pad = 4;
+  const { x, y, width, height, type } = node;
+
+  if (type === 'ellipse') {
+    ctx.beginPath();
+    ctx.ellipse(x + width / 2, y + height / 2, width / 2 + pad, height / 2 + pad, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  } else {
+    ctx.strokeRect(x - pad, y - pad, width + pad * 2, height + pad * 2);
+  }
+
+  // 接続点インジケータ（ノードの4辺中央に丸を表示）
+  ctx.fillStyle = SNAP_HIGHLIGHT_COLOR;
+  const points = [
+    { px: x + width / 2, py: y },             // top
+    { px: x + width, py: y + height / 2 },    // right
+    { px: x + width / 2, py: y + height },     // bottom
+    { px: x, py: y + height / 2 },             // left
+  ];
+  for (const { px, py } of points) {
+    ctx.beginPath();
+    ctx.arc(px, py, SNAP_INDICATOR_RADIUS, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // 白い内円
+  ctx.fillStyle = '#ffffff';
+  for (const { px, py } of points) {
+    ctx.beginPath();
+    ctx.arc(px, py, SNAP_INDICATOR_RADIUS - 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
 /** ドラッグ中のシェイププレビューを描画 */
 export function drawShapePreview(
   ctx: CanvasRenderingContext2D,
