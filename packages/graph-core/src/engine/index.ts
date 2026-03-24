@@ -1,7 +1,7 @@
 export {
   render, drawGrid, drawNode, drawEdge, drawArrowHead, drawResizeHandles,
   drawRoundedRect, wrapText, drawEdgePreview, drawSnapHighlight,
-  drawShapePreview, drawSmartGuides, drawSelectionRect, drawConnectionPoints, drawEdgeEndpointHandles,
+  drawShapePreview, drawSmartGuides, drawSelectionRect, drawConnectionPoints, drawEdgeEndpointHandles, drawBoundingBox,
 } from './renderer';
 export {
   hitTest, hitTestNode, hitTestEdge, hitTestEdgeSegment, hitTestResizeHandles,

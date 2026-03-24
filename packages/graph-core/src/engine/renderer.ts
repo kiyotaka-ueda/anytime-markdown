@@ -39,9 +39,17 @@ export function render(
 
   edges.forEach(e => drawEdge(ctx, e, selection.edgeIds.includes(e.id)));
   nodes.forEach(n => drawNode(ctx, n, selection.nodeIds.includes(n.id)));
-  nodes
-    .filter(n => selection.nodeIds.includes(n.id))
-    .forEach(n => drawResizeHandles(ctx, n, viewport.scale));
+  // 単一選択時のみ個別リサイズハンドル表示
+  if (selection.nodeIds.length === 1) {
+    const sn = nodes.find(n => n.id === selection.nodeIds[0]);
+    if (sn) drawResizeHandles(ctx, sn, viewport.scale);
+  }
+
+  // マルチ選択バウンディングボックス
+  const selectedNodes = nodes.filter(n => selection.nodeIds.includes(n.id));
+  if (selectedNodes.length >= 2) {
+    drawBoundingBox(ctx, selectedNodes, viewport.scale);
+  }
 
   // 選択中エッジのエンドポイントハンドル
   edges
@@ -480,6 +488,52 @@ function drawEndpointShape(
     ctx.moveTo(tipX - len * Math.cos(angle - Math.PI / 2), tipY - len * Math.sin(angle - Math.PI / 2));
     ctx.lineTo(tipX + len * Math.cos(angle - Math.PI / 2), tipY + len * Math.sin(angle - Math.PI / 2));
     ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** マルチ選択時のバウンディングボックス + リサイズハンドル */
+export function drawBoundingBox(
+  ctx: CanvasRenderingContext2D,
+  selectedNodes: GraphNode[],
+  scale: number,
+): void {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const n of selectedNodes) {
+    minX = Math.min(minX, n.x);
+    minY = Math.min(minY, n.y);
+    maxX = Math.max(maxX, n.x + n.width);
+    maxY = Math.max(maxY, n.y + n.height);
+  }
+  const pad = 6 / scale;
+  const bx = minX - pad;
+  const by = minY - pad;
+  const bw = maxX - minX + pad * 2;
+  const bh = maxY - minY + pad * 2;
+
+  ctx.save();
+  // 破線枠
+  ctx.strokeStyle = SELECTION_COLOR;
+  ctx.lineWidth = 1 / scale;
+  ctx.setLineDash([6 / scale, 4 / scale]);
+  ctx.strokeRect(bx, by, bw, bh);
+  ctx.setLineDash([]);
+
+  // 8点ハンドル
+  const hs = HANDLE_SIZE / scale;
+  const half = hs / 2;
+  const handles = [
+    { hx: bx, hy: by }, { hx: bx + bw / 2, hy: by }, { hx: bx + bw, hy: by },
+    { hx: bx + bw, hy: by + bh / 2 },
+    { hx: bx + bw, hy: by + bh }, { hx: bx + bw / 2, hy: by + bh }, { hx: bx, hy: by + bh },
+    { hx: bx, hy: by + bh / 2 },
+  ];
+  ctx.fillStyle = LABEL_BG_COLOR;
+  ctx.strokeStyle = SELECTION_COLOR;
+  ctx.lineWidth = 1.5 / scale;
+  for (const { hx, hy } of handles) {
+    ctx.fillRect(hx - half, hy - half, hs, hs);
+    ctx.strokeRect(hx - half, hy - half, hs, hs);
   }
   ctx.restore();
 }
