@@ -73,6 +73,7 @@ export function importFromDrawio(xmlString: string): GraphDocument {
         id,
         type: nodeType,
         x, y, width, height,
+        // Canvas fillText 専用。DOM に出力する場合は DOMPurify 等でサニタイズすること
         text: value.replace(/<br\s*\/?>/g, '\n').replace(/<[^>]*>/g, ''),
         style: { fill, stroke, strokeWidth, fontSize, fontFamily },
       });
@@ -90,7 +91,9 @@ export function importFromDrawio(xmlString: string): GraphDocument {
       const toY = parseFloat(tgtPt?.getAttribute('y') ?? '0');
 
       const isOrthogonal = style['edgeStyle'] === 'orthogonalEdgeStyle';
+      const isCurved = style['curved'] === '1';
       const edgeType: EdgeType = isOrthogonal ? 'connector' : (style['endArrow'] && style['endArrow'] !== 'none' ? 'arrow' : 'line');
+      const routing = isCurved ? 'bezier' as const : undefined;
 
       const edgeStroke = colorFromHex(style['strokeColor'], DEFAULT_EDGE_STYLE.stroke);
       const edgeStrokeWidth = parseFloat(style['strokeWidth'] ?? '2');
@@ -102,7 +105,7 @@ export function importFromDrawio(xmlString: string): GraphDocument {
         type: edgeType,
         from: { nodeId: source, x: fromX, y: fromY },
         to: { nodeId: target, x: toX, y: toY },
-        style: { stroke: edgeStroke, strokeWidth: edgeStrokeWidth, startShape, endShape },
+        style: { stroke: edgeStroke, strokeWidth: edgeStrokeWidth, startShape, endShape, routing },
         label: value.replace(/<[^>]*>/g, '') || undefined,
       });
     }

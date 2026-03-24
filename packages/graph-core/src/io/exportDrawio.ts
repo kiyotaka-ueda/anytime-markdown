@@ -1,13 +1,10 @@
 import { GraphDocument, GraphNode, GraphEdge } from '../types';
-
-function escapeXml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+import { escapeXml, toHexColor } from './utils';
 
 function nodeStyle(node: GraphNode): string {
   const parts: string[] = [];
-  const fill = node.style.fill.replace('#', '');
-  const stroke = node.style.stroke.replace('#', '');
+  const fill = toHexColor(node.style.fill).replace('#', '');
+  const stroke = toHexColor(node.style.stroke).replace('#', '');
 
   switch (node.type) {
     case 'ellipse':
@@ -46,10 +43,15 @@ function nodeStyle(node: GraphNode): string {
 
 function edgeStyle(edge: GraphEdge): string {
   const parts: string[] = [];
-  const stroke = edge.style.stroke.replace('#', '');
+  const stroke = toHexColor(edge.style.stroke).replace('#', '');
 
   if (edge.type === 'connector') {
-    parts.push('edgeStyle=orthogonalEdgeStyle');
+    const routing = edge.style.routing ?? 'orthogonal';
+    if (routing === 'bezier') {
+      parts.push('edgeStyle=orthogonalEdgeStyle;curved=1');
+    } else {
+      parts.push('edgeStyle=orthogonalEdgeStyle');
+    }
   }
 
   parts.push(`strokeColor=#${stroke}`);
