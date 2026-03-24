@@ -1,32 +1,38 @@
 interface Rect { id: string; x: number; y: number; width: number; height: number }
 
 export function alignLeft<T extends Rect>(rects: T[]): T[] {
+  if (rects.length === 0) return rects;
   const minX = Math.min(...rects.map(r => r.x));
   return rects.map(r => ({ ...r, x: minX }));
 }
 
 export function alignRight<T extends Rect>(rects: T[]): T[] {
+  if (rects.length === 0) return rects;
   const maxRight = Math.max(...rects.map(r => r.x + r.width));
   return rects.map(r => ({ ...r, x: maxRight - r.width }));
 }
 
 export function alignTop<T extends Rect>(rects: T[]): T[] {
+  if (rects.length === 0) return rects;
   const minY = Math.min(...rects.map(r => r.y));
   return rects.map(r => ({ ...r, y: minY }));
 }
 
 export function alignBottom<T extends Rect>(rects: T[]): T[] {
+  if (rects.length === 0) return rects;
   const maxBottom = Math.max(...rects.map(r => r.y + r.height));
   return rects.map(r => ({ ...r, y: maxBottom - r.height }));
 }
 
 export function alignCenterH<T extends Rect>(rects: T[]): T[] {
+  if (rects.length === 0) return rects;
   const centers = rects.map(r => r.x + r.width / 2);
   const avg = centers.reduce((a, b) => a + b, 0) / centers.length;
   return rects.map(r => ({ ...r, x: avg - r.width / 2 }));
 }
 
 export function alignCenterV<T extends Rect>(rects: T[]): T[] {
+  if (rects.length === 0) return rects;
   const centers = rects.map(r => r.y + r.height / 2);
   const avg = centers.reduce((a, b) => a + b, 0) / centers.length;
   return rects.map(r => ({ ...r, y: avg - r.height / 2 }));

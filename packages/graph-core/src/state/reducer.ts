@@ -19,7 +19,9 @@ export type Action =
   | { type: 'UPDATE_EDGE'; id: string; changes: Partial<GraphEdge> }
   | { type: 'SET_SELECTION'; selection: SelectionState }
   | { type: 'SET_VIEWPORT'; viewport: Viewport }
+  /** ドラッグ中に毎フレーム発行。履歴は記録しない。ドラッグ完了時に SNAPSHOT を発行すること */
   | { type: 'MOVE_NODES'; ids: string[]; dx: number; dy: number }
+  /** リサイズ中に毎フレーム発行。履歴は記録しない。リサイズ完了時に SNAPSHOT を発行すること */
   | { type: 'RESIZE_NODE'; id: string; x: number; y: number; width: number; height: number }
   | { type: 'GROUP_SELECTED'; groupId: string }
   | { type: 'UNGROUP_SELECTED' }
@@ -36,8 +38,8 @@ export const MAX_HISTORY = 100;
 
 function pushHistory(state: GraphState): GraphState {
   const entry: HistoryEntry = {
-    nodes: JSON.parse(JSON.stringify(state.document.nodes)),
-    edges: JSON.parse(JSON.stringify(state.document.edges)),
+    nodes: structuredClone(state.document.nodes),
+    edges: structuredClone(state.document.edges),
   };
   const history = state.history.slice(0, state.historyIndex + 1);
   history.push(entry);
@@ -50,7 +52,7 @@ export function createInitialState(doc?: GraphDocument): GraphState {
   return {
     document: d,
     selection: { nodeIds: [], edgeIds: [] },
-    history: [{ nodes: [...d.nodes], edges: [...d.edges] }],
+    history: [{ nodes: structuredClone(d.nodes), edges: structuredClone(d.edges) }],
     historyIndex: 0,
   };
 }
@@ -61,7 +63,7 @@ export function graphReducer(state: GraphState, action: Action): GraphState {
       return {
         ...state,
         document: action.doc,
-        history: [{ nodes: [...action.doc.nodes], edges: [...action.doc.edges] }],
+        history: [{ nodes: structuredClone(action.doc.nodes), edges: structuredClone(action.doc.edges) }],
         historyIndex: 0,
         selection: { nodeIds: [], edgeIds: [] },
       };
@@ -251,8 +253,8 @@ export function graphReducer(state: GraphState, action: Action): GraphState {
         historyIndex: idx,
         document: {
           ...state.document,
-          nodes: JSON.parse(JSON.stringify(entry.nodes)),
-          edges: JSON.parse(JSON.stringify(entry.edges)),
+          nodes: structuredClone(entry.nodes),
+          edges: structuredClone(entry.edges),
         },
         selection: { nodeIds: [], edgeIds: [] },
       };
@@ -267,8 +269,8 @@ export function graphReducer(state: GraphState, action: Action): GraphState {
         historyIndex: idx,
         document: {
           ...state.document,
-          nodes: JSON.parse(JSON.stringify(entry.nodes)),
-          edges: JSON.parse(JSON.stringify(entry.edges)),
+          nodes: structuredClone(entry.nodes),
+          edges: structuredClone(entry.edges),
         },
         selection: { nodeIds: [], edgeIds: [] },
       };

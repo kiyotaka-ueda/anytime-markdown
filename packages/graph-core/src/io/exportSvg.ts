@@ -2,12 +2,9 @@ import { GraphDocument, GraphNode, GraphEdge } from '../types';
 import { computeOrthogonalPath, getConnectionPoints, nodeCenter } from '../engine/connector';
 import {
   CANVAS_BG, COLOR_TEXT_PRIMARY, COLOR_TEXT_SECONDARY,
-  FONT_FAMILY, DOC_ICON_COLOR,
+  FONT_FAMILY, DOC_ICON_COLOR, COLOR_ICE_BLUE,
 } from '../theme';
-
-function escapeXml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+import { escapeXml } from './utils';
 
 function renderNodeSvg(node: GraphNode): string {
   const { id, type, x, y, width: w, height: h, text, style } = node;
@@ -36,7 +33,7 @@ function renderNodeSvg(node: GraphNode): string {
   }
 
   if (type === 'insight' && node.label) {
-    lines.push(`<text x="${x + 16}" y="${y + 20}" fill="${escapeXml(node.labelColor ?? '#90CAF9')}" font-size="10" font-weight="bold" font-family="${FONT_FAMILY}">${escapeXml(node.label)}</text>`);
+    lines.push(`<text x="${x + 16}" y="${y + 20}" fill="${escapeXml(node.labelColor ?? COLOR_ICE_BLUE)}" font-size="10" font-weight="bold" font-family="${FONT_FAMILY}">${escapeXml(node.label)}</text>`);
   }
 
   lines.push('</g>');
