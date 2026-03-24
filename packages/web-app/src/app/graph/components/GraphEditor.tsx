@@ -167,6 +167,10 @@ export function GraphEditor() {
     });
   }, [state.document.nodes, dispatch]);
 
+  const handleClearAll = useCallback(() => {
+    dispatch({ type: 'SET_DOCUMENT', doc: createDocument('Untitled') });
+  }, [dispatch]);
+
   const handleAlign = useCallback((type: string) => {
     const selectedNodes = state.document.nodes.filter(n => state.selection.nodeIds.includes(n.id));
     if (selectedNodes.length < 2) return;
@@ -205,6 +209,7 @@ export function GraphEditor() {
         onZoomOut={handleZoomOut}
         onFitContent={handleFitContent}
         onDelete={() => dispatch({ type: 'DELETE_SELECTED' })}
+        onClearAll={handleClearAll}
         onAlign={handleAlign}
         selectionCount={state.selection.nodeIds.length}
         hasSelection={state.selection.nodeIds.length > 0 || state.selection.edgeIds.length > 0}
