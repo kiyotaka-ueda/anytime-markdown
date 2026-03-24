@@ -695,11 +695,19 @@ export function useCanvasInteraction({
   }, [canvasRef]);
 
   useEffect(() => {
+    const handleWindowMouseUp = () => {
+      if (dragRef.current.type !== 'none') {
+        dragRef.current = { type: 'none', startWorldX: 0, startWorldY: 0, startScreenX: 0, startScreenY: 0 };
+        previewRef.current = { ...EMPTY_PREVIEW };
+      }
+    };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('mouseup', handleWindowMouseUp);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('mouseup', handleWindowMouseUp);
     };
   }, [handleKeyDown, handleKeyUp]);
 
