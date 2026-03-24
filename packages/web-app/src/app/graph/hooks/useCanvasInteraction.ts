@@ -6,6 +6,7 @@ import { screenToWorld } from '../engine/viewport';
 import { hitTest, HitResult, ResizeHandle } from '../engine/hitTest';
 import { pan as panViewport, zoom as zoomViewport } from '../engine/viewport';
 import { snapToGrid } from '../engine/gridSnap';
+import { computeSmartGuides, GuideLine } from '../engine/smartGuide';
 
 interface DragState {
   type: 'none' | 'pan' | 'move' | 'resize' | 'create-shape' | 'select-rect' | 'create-edge';
@@ -40,6 +41,8 @@ export interface DragPreview {
   edgeType?: 'line' | 'arrow' | 'connector';
   /** ドラッグ中にスナップしているノードID */
   snapNodeId?: string;
+  /** スマートガイドライン */
+  guides?: GuideLine[];
 }
 
 const EMPTY_PREVIEW: DragPreview = { type: 'none', fromX: 0, fromY: 0, toX: 0, toY: 0 };
@@ -172,12 +175,28 @@ export function useCanvasInteraction({
       const dx = world.x - drag.startWorldX;
       const dy = world.y - drag.startWorldY;
       const ids = [...drag.initialNodes.keys()];
-      ids.forEach(id => {
-        const init = drag.initialNodes!.get(id)!;
-        const nx = showGrid ? snapToGrid(init.x + dx) : init.x + dx;
-        const ny = showGrid ? snapToGrid(init.y + dy) : init.y + dy;
-        dispatch({ type: 'RESIZE_NODE', id, x: nx, y: ny, width: init.width, height: init.height });
-      });
+
+      if (!showGrid && ids.length === 1) {
+        // Smart guides: snap to other nodes when grid is off
+        const id = ids[0];
+        const init = drag.initialNodes.get(id)!;
+        const rawX = init.x + dx;
+        const rawY = init.y + dy;
+        const otherRects = nodes
+          .filter(n => !drag.initialNodes!.has(n.id))
+          .map(n => ({ id: n.id, x: n.x, y: n.y, width: n.width, height: n.height }));
+        const result = computeSmartGuides(rawX, rawY, init.width, init.height, otherRects, 5);
+        dispatch({ type: 'RESIZE_NODE', id, x: result.snappedX, y: result.snappedY, width: init.width, height: init.height });
+        previewRef.current = { type: 'none', fromX: 0, fromY: 0, toX: 0, toY: 0, guides: result.guides };
+      } else {
+        ids.forEach(id => {
+          const init = drag.initialNodes!.get(id)!;
+          const nx = showGrid ? snapToGrid(init.x + dx) : init.x + dx;
+          const ny = showGrid ? snapToGrid(init.y + dy) : init.y + dy;
+          dispatch({ type: 'RESIZE_NODE', id, x: nx, y: ny, width: init.width, height: init.height });
+        });
+        previewRef.current = { type: 'none', fromX: 0, fromY: 0, toX: 0, toY: 0 };
+      }
       return;
     }
 

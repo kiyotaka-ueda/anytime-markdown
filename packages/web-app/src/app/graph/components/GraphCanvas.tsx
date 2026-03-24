@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect, useCallback } from 'react';
 import { GraphNode, GraphEdge, Viewport, SelectionState } from '../types';
-import { render, drawSelectionRect, drawEdgePreview, drawShapePreview, drawSnapHighlight } from '../engine/renderer';
+import { render, drawSelectionRect, drawEdgePreview, drawShapePreview, drawSnapHighlight, drawSmartGuides } from '../engine/renderer';
 import { resolveConnectorEndpoints } from '../engine/connector';
 import type { DragPreview } from '../hooks/useCanvasInteraction';
 
@@ -66,6 +66,15 @@ export function GraphCanvas({
         const h = Math.abs(preview.toY - preview.fromY);
         drawSelectionRect(ctx, x, y, w, h);
       }
+      ctx.restore();
+    }
+
+    // スマートガイド描画（moveドラッグ中、preview.type === 'none' でも guides がある場合）
+    if (preview.guides && preview.guides.length > 0) {
+      ctx.save();
+      ctx.translate(viewport.offsetX, viewport.offsetY);
+      ctx.scale(viewport.scale, viewport.scale);
+      drawSmartGuides(ctx, preview.guides);
       ctx.restore();
     }
   }, [canvasRef, nodes, edges, viewport, selection, showGrid, previewRef]);

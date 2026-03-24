@@ -1,4 +1,5 @@
 import { GraphNode, GraphEdge, Viewport, SelectionState } from '../types';
+import type { GuideLine } from './smartGuide';
 
 const GRID_SIZE = 20;
 const HANDLE_SIZE = 8;
@@ -471,6 +472,26 @@ export function drawShapePreview(
     ctx.strokeRect(x, y, w, h);
   }
 
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+export function drawSmartGuides(ctx: CanvasRenderingContext2D, guides: GuideLine[]): void {
+  ctx.save();
+  ctx.strokeStyle = '#f44336';
+  ctx.lineWidth = 0.5;
+  ctx.setLineDash([4, 4]);
+  for (const g of guides) {
+    ctx.beginPath();
+    if (g.axis === 'x') {
+      ctx.moveTo(g.position, g.from - 10);
+      ctx.lineTo(g.position, g.to + 10);
+    } else {
+      ctx.moveTo(g.from - 10, g.position);
+      ctx.lineTo(g.to + 10, g.position);
+    }
+    ctx.stroke();
+  }
   ctx.setLineDash([]);
   ctx.restore();
 }
