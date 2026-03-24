@@ -81,6 +81,8 @@ export function useCanvasInteraction({
   const hoverNodeIdRef = useRef<string | undefined>(undefined);
   const mouseWorldRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const cursorRef = useRef<string>('default');
+  const velocityRef = useRef<{ vx: number; vy: number }>({ vx: 0, vy: 0 });
+  const panHistoryRef = useRef<{ x: number; y: number; t: number }[]>([]);
 
   const getWorldPos = useCallback((e: MouseEvent | React.MouseEvent) => {
     const canvas = canvasRef.current;
@@ -249,6 +251,15 @@ export function useCanvasInteraction({
     const sy = e.clientY - rect.top;
     const drag = dragRef.current;
 
+    // ツール別デフォルトカーソル（ドラッグ中でないとき）
+    if (drag.type === 'none') {
+      if (tool === 'pan') {
+        cursorRef.current = 'grab';
+      } else if (['rect', 'ellipse', 'sticky', 'text', 'diamond', 'parallelogram', 'cylinder', 'insight', 'doc', 'line', 'arrow', 'connector'].includes(tool)) {
+        cursorRef.current = 'crosshair';
+      }
+    }
+
     // ホバーノード検出 + カーソル更新（ドラッグ中でないとき）
     if (drag.type === 'none' && tool === 'select') {
       const world = screenToWorld(viewport, sx, sy);
@@ -275,7 +286,7 @@ export function useCanvasInteraction({
       } else if (fullHit.type === 'edge-segment') {
         cursorRef.current = fullHit.segmentDirection === 'vertical' ? 'ew-resize' : 'ns-resize';
       } else if (fullHit.type === 'node') {
-        cursorRef.current = 'default';
+        cursorRef.current = 'move';
       } else if (fullHit.type === 'edge') {
         cursorRef.current = 'pointer';
       } else {
@@ -310,6 +321,11 @@ export function useCanvasInteraction({
       const dy = sy - drag.startScreenY;
       dispatch({ type: 'SET_VIEWPORT', viewport: panViewport(viewport, dx, dy) });
       dragRef.current = { ...drag, startScreenX: sx, startScreenY: sy };
+
+      // 速度履歴記録（直近3フレーム）
+      const now = performance.now();
+      panHistoryRef.current.push({ x: sx, y: sy, t: now });
+      if (panHistoryRef.current.length > 3) panHistoryRef.current.shift();
       return;
     }
 
@@ -504,6 +520,23 @@ export function useCanvasInteraction({
       }
     }
 
+    // パン終了時に慣性速度を算出
+    if (drag.type === 'pan') {
+      const history = panHistoryRef.current;
+      if (history.length >= 2) {
+        const first = history[0];
+        const last = history[history.length - 1];
+        const dt = last.t - first.t;
+        if (dt > 0 && dt < 100) {
+          velocityRef.current = {
+            vx: (last.x - first.x) / dt * 16,
+            vy: (last.y - first.y) / dt * 16,
+          };
+        }
+      }
+      panHistoryRef.current = [];
+    }
+
     dragRef.current = { type: 'none', startWorldX: 0, startWorldY: 0, startScreenX: 0, startScreenY: 0 };
     previewRef.current = { ...EMPTY_PREVIEW };
   }, [canvasRef, viewport, tool, nodes, edges, dispatch, showGrid]);
@@ -560,6 +593,7 @@ export function useCanvasInteraction({
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.code === 'Space' && !e.repeat) {
       spaceRef.current = true;
+      if (canvasRef.current) canvasRef.current.style.cursor = 'grab';
       return;
     }
     if (e.key === 'Escape') {
@@ -591,11 +625,14 @@ export function useCanvasInteraction({
       if (e.key === 'c') { e.preventDefault(); copySelected(); return; }
       if (e.key === 'v') { e.preventDefault(); pasteFromClipboard(); return; }
     }
-  }, [selection, nodes, dispatch, copySelected, pasteFromClipboard]);
+  }, [canvasRef, selection, nodes, dispatch, copySelected, pasteFromClipboard]);
 
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
-    if (e.code === 'Space') spaceRef.current = false;
-  }, []);
+    if (e.code === 'Space') {
+      spaceRef.current = false;
+      if (canvasRef.current) canvasRef.current.style.cursor = 'default';
+    }
+  }, [canvasRef]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -618,6 +655,7 @@ export function useCanvasInteraction({
     hoverNodeIdRef,
     mouseWorldRef,
     cursorRef,
+    velocityRef,
     copySelected,
     pasteFromClipboard,
   };

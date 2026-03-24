@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Box } from '@mui/material';
-import { ToolType, GraphDocument, createDocument, createNode } from '../types';
+import { ToolType, GraphDocument, Viewport, createDocument, createNode } from '../types';
 import { screenToWorld } from '../engine/viewport';
 import { useGraphState } from '../hooks/useGraphState';
 import { useCanvasInteraction } from '../hooks/useCanvasInteraction';
