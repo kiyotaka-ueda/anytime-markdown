@@ -29,6 +29,66 @@ const COLORS = [
   '#ff9800', '#ff5722', '#795548', '#607d8b', '#333333',
 ];
 
+function ColorPalette({
+  colors,
+  selectedColor,
+  onSelect,
+  label,
+}: {
+  colors: string[];
+  selectedColor: string;
+  onSelect: (color: string) => void;
+  label: string;
+}) {
+  const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
+    let nextIndex = index;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      nextIndex = (index + 1) % colors.length;
+      e.preventDefault();
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      nextIndex = (index - 1 + colors.length) % colors.length;
+      e.preventDefault();
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      onSelect(colors[index]);
+      e.preventDefault();
+      return;
+    } else {
+      return;
+    }
+    const container = (e.target as HTMLElement).parentElement;
+    const next = container?.children[nextIndex] as HTMLElement | undefined;
+    next?.focus();
+  };
+
+  return (
+    <Box role="radiogroup" aria-label={label} sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 2 }}>
+      {colors.map((c, i) => (
+        <Box
+          key={c}
+          role="radio"
+          aria-checked={selectedColor === c}
+          aria-label={c}
+          tabIndex={selectedColor === c ? 0 : -1}
+          onClick={() => onSelect(c)}
+          onKeyDown={(e) => handleKeyDown(e, i)}
+          sx={{
+            width: 24,
+            height: 24,
+            backgroundColor: c,
+            borderRadius: '4px',
+            cursor: 'pointer',
+            border: selectedColor === c ? `2px solid ${COLOR_ICE_BLUE}` : `1px solid ${COLOR_BORDER}`,
+            '&:focus-visible': {
+              outline: `2px solid ${COLOR_ICE_BLUE}`,
+              outlineOffset: '2px',
+            },
+          }}
+        />
+      ))}
+    </Box>
+  );
+}
+
 interface PropertyPanelProps {
   selectedNode: GraphNode | null;
   selectedEdge: GraphEdge | null;
@@ -86,32 +146,20 @@ export function PropertyPanel({ selectedNode, selectedEdge, onUpdateNode, onUpda
           </Box>
 
           <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>{t('fillColor')}</Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 2 }}>
-            {COLORS.map(c => (
-              <Box
-                key={c}
-                onClick={() => onUpdateNode(selectedNode.id, { style: { ...selectedNode.style, fill: c } })}
-                sx={{
-                  width: 24, height: 24, backgroundColor: c, borderRadius: '4px', cursor: 'pointer',
-                  border: selectedNode.style.fill === c ? `2px solid ${COLOR_ICE_BLUE}` : `1px solid ${COLOR_BORDER}`,
-                }}
-              />
-            ))}
-          </Box>
+          <ColorPalette
+            colors={COLORS}
+            selectedColor={selectedNode.style.fill}
+            onSelect={(c) => onUpdateNode(selectedNode.id, { style: { ...selectedNode.style, fill: c } })}
+            label={t('fillColor')}
+          />
 
           <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>{t('strokeColor')}</Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 2 }}>
-            {COLORS.map(c => (
-              <Box
-                key={c}
-                onClick={() => onUpdateNode(selectedNode.id, { style: { ...selectedNode.style, stroke: c } })}
-                sx={{
-                  width: 24, height: 24, backgroundColor: c, borderRadius: '4px', cursor: 'pointer',
-                  border: selectedNode.style.stroke === c ? `2px solid ${COLOR_ICE_BLUE}` : `1px solid ${COLOR_BORDER}`,
-                }}
-              />
-            ))}
-          </Box>
+          <ColorPalette
+            colors={COLORS}
+            selectedColor={selectedNode.style.stroke}
+            onSelect={(c) => onUpdateNode(selectedNode.id, { style: { ...selectedNode.style, stroke: c } })}
+            label={t('strokeColor')}
+          />
 
           <Typography variant="caption" sx={{ color: COLOR_TEXT_SECONDARY }}>{t('strokeWidth')}</Typography>
           <Slider
