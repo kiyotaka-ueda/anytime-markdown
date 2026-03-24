@@ -11,6 +11,7 @@ import { GraphCanvas } from './GraphCanvas';
 import { PropertyPanel } from './PropertyPanel';
 import { TextEditOverlay } from './TextEditOverlay';
 import { zoom as zoomViewport, fitToContent } from '../engine/viewport';
+import { alignLeft, alignRight, alignTop, alignBottom, alignCenterH, alignCenterV, distributeH, distributeV } from '../engine/alignment';
 import { loadDocument, getLastDocumentId } from '../store/graphStorage';
 
 export function GraphEditor() {
@@ -105,6 +106,23 @@ export function GraphEditor() {
     });
   }, [state.document.nodes, dispatch]);
 
+  const handleAlign = useCallback((type: string) => {
+    const selectedNodes = state.document.nodes.filter(n => state.selection.nodeIds.includes(n.id));
+    if (selectedNodes.length < 2) return;
+
+    const fns: Record<string, (rects: typeof selectedNodes) => typeof selectedNodes> = {
+      left: alignLeft, right: alignRight, top: alignTop, bottom: alignBottom,
+      centerH: alignCenterH, centerV: alignCenterV, distributeH, distributeV,
+    };
+    const fn = fns[type];
+    if (!fn) return;
+    const result = fn(selectedNodes);
+    dispatch({
+      type: 'ALIGN_NODES',
+      updates: result.map(n => ({ id: n.id, x: n.x, y: n.y })),
+    });
+  }, [state.document.nodes, state.selection.nodeIds, dispatch]);
+
   const selectedNode = state.selection.nodeIds.length === 1
     ? state.document.nodes.find(n => n.id === state.selection.nodeIds[0]) ?? null : null;
   const selectedEdge = state.selection.edgeIds.length === 1
@@ -126,6 +144,8 @@ export function GraphEditor() {
         onZoomOut={handleZoomOut}
         onFitContent={handleFitContent}
         onDelete={() => dispatch({ type: 'DELETE_SELECTED' })}
+        onAlign={handleAlign}
+        selectionCount={state.selection.nodeIds.length}
         hasSelection={state.selection.nodeIds.length > 0 || state.selection.edgeIds.length > 0}
         scale={state.document.viewport.scale}
       />

@@ -27,6 +27,7 @@ type Action =
   | { type: 'GROUP_SELECTED'; groupId: string }
   | { type: 'UNGROUP_SELECTED' }
   | { type: 'PASTE_NODES'; nodes: GraphNode[]; edges: GraphEdge[] }
+  | { type: 'ALIGN_NODES'; updates: Array<{ id: string; x?: number; y?: number }> }
   | { type: 'UNDO' }
   | { type: 'REDO' }
   | { type: 'SNAPSHOT' };
@@ -185,6 +186,21 @@ function reducer(state: GraphState, action: Action): GraphState {
           edges: [...s.document.edges, ...action.edges],
         },
         selection: { nodeIds: action.nodes.map(n => n.id), edgeIds: [] },
+      };
+    }
+
+    case 'ALIGN_NODES': {
+      const s = pushHistory(state);
+      return {
+        ...s,
+        document: {
+          ...s.document,
+          nodes: s.document.nodes.map(n => {
+            const u = action.updates.find(u => u.id === n.id);
+            if (!u) return n;
+            return { ...n, ...(u.x !== undefined ? { x: u.x } : {}), ...(u.y !== undefined ? { y: u.y } : {}) };
+          }),
+        },
       };
     }
 

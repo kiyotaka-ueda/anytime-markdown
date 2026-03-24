@@ -3,7 +3,8 @@
 import React from 'react';
 import {
   AppBar, Toolbar, ToggleButton, ToggleButtonGroup,
-  IconButton, Tooltip, Divider, Box,
+  IconButton, Tooltip, Divider, Box, Menu, MenuItem,
+  ListItemIcon, ListItemText,
 } from '@mui/material';
 import {
   NearMe as SelectIcon,
@@ -22,6 +23,14 @@ import {
   ZoomOut as ZoomOutIcon,
   FitScreen as FitIcon,
   Delete as DeleteIcon,
+  AlignHorizontalLeft as AlignHorizontalLeftIcon,
+  AlignHorizontalRight as AlignHorizontalRightIcon,
+  AlignVerticalTop as AlignVerticalTopIcon,
+  AlignVerticalBottom as AlignVerticalBottomIcon,
+  AlignHorizontalCenter as AlignHorizontalCenterIcon,
+  AlignVerticalCenter as AlignVerticalCenterIcon,
+  ViewColumn as ViewColumnIcon,
+  TableRows as TableRowsIcon,
 } from '@mui/icons-material';
 import { ToolType } from '../types';
 
@@ -38,6 +47,8 @@ interface ToolBarProps {
   onZoomOut: () => void;
   onFitContent: () => void;
   onDelete: () => void;
+  onAlign: (type: string) => void;
+  selectionCount: number;
   hasSelection: boolean;
   scale: number;
 }
@@ -45,8 +56,9 @@ interface ToolBarProps {
 export function GraphToolBar({
   tool, onToolChange, onUndo, onRedo, canUndo, canRedo,
   showGrid, onToggleGrid, onZoomIn, onZoomOut, onFitContent,
-  onDelete, hasSelection, scale,
+  onDelete, onAlign, selectionCount, hasSelection, scale,
 }: ToolBarProps) {
+  const [alignAnchor, setAlignAnchor] = React.useState<null | HTMLElement>(null);
   return (
     <AppBar
       position="static"
@@ -104,6 +116,25 @@ export function GraphToolBar({
         <Tooltip title="Delete (Del)">
           <span><IconButton size="small" onClick={onDelete} disabled={!hasSelection}><DeleteIcon fontSize="small" /></IconButton></span>
         </Tooltip>
+
+        <Tooltip title="Alignment">
+          <span>
+            <IconButton size="small" onClick={e => setAlignAnchor(e.currentTarget)} disabled={selectionCount < 2}>
+              <AlignHorizontalLeftIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Menu anchorEl={alignAnchor} open={Boolean(alignAnchor)} onClose={() => setAlignAnchor(null)}>
+          <MenuItem onClick={() => { onAlign('left'); setAlignAnchor(null); }}><ListItemIcon><AlignHorizontalLeftIcon fontSize="small" /></ListItemIcon><ListItemText>Align Left</ListItemText></MenuItem>
+          <MenuItem onClick={() => { onAlign('right'); setAlignAnchor(null); }}><ListItemIcon><AlignHorizontalRightIcon fontSize="small" /></ListItemIcon><ListItemText>Align Right</ListItemText></MenuItem>
+          <MenuItem onClick={() => { onAlign('top'); setAlignAnchor(null); }}><ListItemIcon><AlignVerticalTopIcon fontSize="small" /></ListItemIcon><ListItemText>Align Top</ListItemText></MenuItem>
+          <MenuItem onClick={() => { onAlign('bottom'); setAlignAnchor(null); }}><ListItemIcon><AlignVerticalBottomIcon fontSize="small" /></ListItemIcon><ListItemText>Align Bottom</ListItemText></MenuItem>
+          <MenuItem onClick={() => { onAlign('centerH'); setAlignAnchor(null); }}><ListItemIcon><AlignHorizontalCenterIcon fontSize="small" /></ListItemIcon><ListItemText>Center Horizontally</ListItemText></MenuItem>
+          <MenuItem onClick={() => { onAlign('centerV'); setAlignAnchor(null); }}><ListItemIcon><AlignVerticalCenterIcon fontSize="small" /></ListItemIcon><ListItemText>Center Vertically</ListItemText></MenuItem>
+          <Divider />
+          <MenuItem onClick={() => { onAlign('distributeH'); setAlignAnchor(null); }} disabled={selectionCount < 3}><ListItemIcon><ViewColumnIcon fontSize="small" /></ListItemIcon><ListItemText>Distribute Horizontally</ListItemText></MenuItem>
+          <MenuItem onClick={() => { onAlign('distributeV'); setAlignAnchor(null); }} disabled={selectionCount < 3}><ListItemIcon><TableRowsIcon fontSize="small" /></ListItemIcon><ListItemText>Distribute Vertically</ListItemText></MenuItem>
+        </Menu>
 
         <Box sx={{ flex: 1 }} />
 
