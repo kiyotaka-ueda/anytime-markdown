@@ -230,12 +230,10 @@ const renderDoc: SpecialShapeRenderer = (ctx, node, selected, _isDragging, fill)
   setupStroke(ctx, style, selected);
   drawRoundedRect(ctx, x, y, width, height, radius);
   ctx.stroke();
-  // Doc icon
+  // Doc icon (path-based)
   ctx.fillStyle = DOC_ICON_COLOR;
-  ctx.font = `18px ${FONT_FAMILY}`;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  ctx.fillText('\u{1F4C4}', x + 10, y + 10);
+  ctx.strokeStyle = DOC_ICON_COLOR;
+  drawDocIcon(ctx, x + 18, y + 18, 18);
   // Title
   if (text) {
     ctx.fillStyle = COLOR_TEXT_PRIMARY;
@@ -514,16 +512,51 @@ export function wrapText(
   return lines.length > 0 ? lines : [''];
 }
 
+/** パスベースの南京錠アイコンを描画 */
+function drawLockIcon(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number): void {
+  const s = size;
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+  ctx.lineWidth = 1.5;
+  // Lock body (rectangle)
+  ctx.fillRect(cx - s * 0.35, cy, s * 0.7, s * 0.5);
+  // Lock shackle (arc)
+  ctx.beginPath();
+  ctx.arc(cx, cy, s * 0.25, Math.PI, 0);
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** パスベースのドキュメントアイコンを描画 */
+function drawDocIcon(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number): void {
+  const s = size;
+  const fold = s * 0.25;
+  ctx.save();
+  // Main body
+  ctx.beginPath();
+  ctx.moveTo(cx - s * 0.35, cy - s * 0.45);
+  ctx.lineTo(cx + s * 0.35 - fold, cy - s * 0.45);
+  ctx.lineTo(cx + s * 0.35, cy - s * 0.45 + fold);
+  ctx.lineTo(cx + s * 0.35, cy + s * 0.45);
+  ctx.lineTo(cx - s * 0.35, cy + s * 0.45);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // Fold
+  ctx.beginPath();
+  ctx.moveTo(cx + s * 0.35 - fold, cy - s * 0.45);
+  ctx.lineTo(cx + s * 0.35 - fold, cy - s * 0.45 + fold);
+  ctx.lineTo(cx + s * 0.35, cy - s * 0.45 + fold);
+  ctx.stroke();
+  ctx.restore();
+}
+
 /** ロック中ノードに南京錠アイコンを描画 */
 export function drawLockIndicator(ctx: CanvasRenderingContext2D, node: GraphNode, scale: number): void {
   const size = 14 / scale;
   const px = node.x + node.width - size - 4 / scale;
   const py = node.y + 4 / scale;
-  ctx.save();
-  ctx.fillStyle = 'rgba(255,255,255,0.5)';
-  ctx.font = `${size}px ${FONT_FAMILY}`;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  ctx.fillText('\u{1F512}', px, py);
-  ctx.restore();
+  drawLockIcon(ctx, px + size / 2, py + size / 2, size);
 }
