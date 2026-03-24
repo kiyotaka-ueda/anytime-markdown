@@ -181,15 +181,20 @@ function drawEndpointShape(
   ctx.restore();
 }
 
+/** 無効なドロップターゲットの色 */
+const COLOR_INVALID_TARGET = 'rgba(244, 67, 54, 0.6)';
+
 /** ドラッグ中のエッジプレビュー線を描画 */
 export function drawEdgePreview(
   ctx: CanvasRenderingContext2D,
   fromX: number, fromY: number,
   toX: number, toY: number,
   edgeType: 'line' | 'arrow' | 'connector',
+  isValid: boolean = true,
 ): void {
+  const color = isValid ? CANVAS_SELECTION : COLOR_INVALID_TARGET;
   ctx.save();
-  ctx.strokeStyle = CANVAS_SELECTION;
+  ctx.strokeStyle = color;
   ctx.lineWidth = 2;
   ctx.setLineDash([6, 4]);
   ctx.beginPath();
@@ -199,7 +204,7 @@ export function drawEdgePreview(
   ctx.setLineDash([]);
 
   if (edgeType === 'arrow' || edgeType === 'connector') {
-    drawArrowHead(ctx, fromX, fromY, toX, toY, CANVAS_SELECTION);
+    drawArrowHead(ctx, fromX, fromY, toX, toY, color);
   }
   ctx.restore();
 }

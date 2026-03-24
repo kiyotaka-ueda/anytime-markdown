@@ -152,7 +152,8 @@ export function GraphCanvas({
           const snapNode = nodes.find(n => n.id === preview.snapNodeId);
           if (snapNode) drawSnapHighlight(ctx, snapNode);
         }
-        drawEdgePreview(ctx, preview.fromX, preview.fromY, preview.toX, preview.toY, preview.edgeType);
+        const isValidTarget = !!preview.snapNodeId;
+        drawEdgePreview(ctx, preview.fromX, preview.fromY, preview.toX, preview.toY, preview.edgeType, isValidTarget);
       } else if (preview.type === 'shape' && preview.shapeType) {
         drawShapePreview(ctx, preview.fromX, preview.fromY, preview.toX, preview.toY, preview.shapeType);
       } else if (preview.type === 'select-rect') {
