@@ -37,7 +37,7 @@ export function GraphEditor() {
   }, []);
 
   const {
-    handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, handleDoubleClick,
+    handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, handleDoubleClick, previewRef,
   } = useCanvasInteraction({
     canvasRef, tool,
     nodes: state.document.nodes,
@@ -141,6 +141,7 @@ export function GraphEditor() {
           onMouseUp={handleMouseUp}
           onWheel={handleWheel}
           onDoubleClick={handleDoubleClick}
+          previewRef={previewRef}
         />
         <TextEditOverlay
           node={editingNode}

@@ -2,8 +2,9 @@
 
 import React, { useRef, useEffect, useCallback } from 'react';
 import { GraphNode, GraphEdge, Viewport, SelectionState } from '../types';
-import { render, drawSelectionRect } from '../engine/renderer';
+import { render, drawSelectionRect, drawEdgePreview, drawShapePreview } from '../engine/renderer';
 import { resolveConnectorEndpoints } from '../engine/connector';
+import type { DragPreview } from '../hooks/useCanvasInteraction';
 
 interface GraphCanvasProps {
   nodes: GraphNode[];
@@ -17,11 +18,12 @@ interface GraphCanvasProps {
   onMouseUp: (e: React.MouseEvent) => void;
   onWheel: (e: React.WheelEvent) => void;
   onDoubleClick: (e: React.MouseEvent) => void;
+  previewRef: React.RefObject<DragPreview>;
 }
 
 export function GraphCanvas({
   nodes, edges, viewport, selection, showGrid, canvasRef,
-  onMouseDown, onMouseMove, onMouseUp, onWheel, onDoubleClick,
+  onMouseDown, onMouseMove, onMouseUp, onWheel, onDoubleClick, previewRef,
 }: GraphCanvasProps) {
   const rafRef = useRef<number>(0);
 
@@ -40,7 +42,27 @@ export function GraphCanvas({
     });
 
     render(ctx, canvas.width, canvas.height, nodes, resolvedEdges, viewport, selection, showGrid);
-  }, [canvasRef, nodes, edges, viewport, selection, showGrid]);
+
+    // ドラッグプレビュー描画
+    const preview = previewRef.current;
+    if (preview.type !== 'none') {
+      ctx.save();
+      ctx.translate(viewport.offsetX, viewport.offsetY);
+      ctx.scale(viewport.scale, viewport.scale);
+      if (preview.type === 'edge' && preview.edgeType) {
+        drawEdgePreview(ctx, preview.fromX, preview.fromY, preview.toX, preview.toY, preview.edgeType);
+      } else if (preview.type === 'shape' && preview.shapeType) {
+        drawShapePreview(ctx, preview.fromX, preview.fromY, preview.toX, preview.toY, preview.shapeType);
+      } else if (preview.type === 'select-rect') {
+        const x = Math.min(preview.fromX, preview.toX);
+        const y = Math.min(preview.fromY, preview.toY);
+        const w = Math.abs(preview.toX - preview.fromX);
+        const h = Math.abs(preview.toY - preview.fromY);
+        drawSelectionRect(ctx, x, y, w, h);
+      }
+      ctx.restore();
+    }
+  }, [canvasRef, nodes, edges, viewport, selection, showGrid, previewRef]);
 
   useEffect(() => {
     const loop = () => {

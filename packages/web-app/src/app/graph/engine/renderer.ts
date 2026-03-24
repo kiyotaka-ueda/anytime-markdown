@@ -291,6 +291,62 @@ export function drawResizeHandles(
   ctx.restore();
 }
 
+/** ドラッグ中のエッジプレビュー線を描画 */
+export function drawEdgePreview(
+  ctx: CanvasRenderingContext2D,
+  fromX: number, fromY: number,
+  toX: number, toY: number,
+  edgeType: 'line' | 'arrow' | 'connector',
+): void {
+  ctx.save();
+  ctx.strokeStyle = SELECTION_COLOR;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  ctx.moveTo(fromX, fromY);
+  ctx.lineTo(toX, toY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  if (edgeType === 'arrow' || edgeType === 'connector') {
+    drawArrowHead(ctx, fromX, fromY, toX, toY, SELECTION_COLOR);
+  }
+  ctx.restore();
+}
+
+/** ドラッグ中のシェイププレビューを描画 */
+export function drawShapePreview(
+  ctx: CanvasRenderingContext2D,
+  fromX: number, fromY: number,
+  toX: number, toY: number,
+  shapeType: 'rect' | 'ellipse' | 'sticky' | 'text',
+): void {
+  const x = Math.min(fromX, toX);
+  const y = Math.min(fromY, toY);
+  const w = Math.abs(toX - fromX);
+  const h = Math.abs(toY - fromY);
+  if (w < 2 && h < 2) return;
+
+  ctx.save();
+  ctx.strokeStyle = SELECTION_COLOR;
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([6, 4]);
+  ctx.fillStyle = 'rgba(33, 150, 243, 0.05)';
+
+  if (shapeType === 'ellipse') {
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeRect(x, y, w, h);
+  }
+
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
 export function drawSelectionRect(
   ctx: CanvasRenderingContext2D,
   x: number,

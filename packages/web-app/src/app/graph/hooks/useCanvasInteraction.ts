@@ -28,6 +28,18 @@ interface UseCanvasInteractionProps {
   onTextEdit: (nodeId: string) => void;
 }
 
+export interface DragPreview {
+  type: 'none' | 'edge' | 'shape' | 'select-rect';
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  shapeType?: 'rect' | 'ellipse' | 'sticky' | 'text';
+  edgeType?: 'line' | 'arrow' | 'connector';
+}
+
+const EMPTY_PREVIEW: DragPreview = { type: 'none', fromX: 0, fromY: 0, toX: 0, toY: 0 };
+
 export function useCanvasInteraction({
   canvasRef, tool, nodes, edges, viewport, selection, dispatch, onTextEdit,
 }: UseCanvasInteractionProps) {
@@ -35,6 +47,7 @@ export function useCanvasInteraction({
     type: 'none', startWorldX: 0, startWorldY: 0, startScreenX: 0, startScreenY: 0,
   });
   const spaceRef = useRef(false);
+  const previewRef = useRef<DragPreview>({ ...EMPTY_PREVIEW });
 
   const getWorldPos = useCallback((e: MouseEvent | React.MouseEvent) => {
     const canvas = canvasRef.current;
@@ -168,7 +181,39 @@ export function useCanvasInteraction({
       dispatch({ type: 'RESIZE_NODE', id: drag.nodeId, x, y, width, height });
       return;
     }
-  }, [canvasRef, viewport, dispatch]);
+
+    if (drag.type === 'create-edge') {
+      const world = screenToWorld(viewport, sx, sy);
+      previewRef.current = {
+        type: 'edge',
+        fromX: drag.startWorldX, fromY: drag.startWorldY,
+        toX: world.x, toY: world.y,
+        edgeType: tool as 'line' | 'arrow' | 'connector',
+      };
+      return;
+    }
+
+    if (drag.type === 'create-shape') {
+      const world = screenToWorld(viewport, sx, sy);
+      previewRef.current = {
+        type: 'shape',
+        fromX: drag.startWorldX, fromY: drag.startWorldY,
+        toX: world.x, toY: world.y,
+        shapeType: tool as 'rect' | 'ellipse' | 'sticky' | 'text',
+      };
+      return;
+    }
+
+    if (drag.type === 'select-rect') {
+      const world = screenToWorld(viewport, sx, sy);
+      previewRef.current = {
+        type: 'select-rect',
+        fromX: drag.startWorldX, fromY: drag.startWorldY,
+        toX: world.x, toY: world.y,
+      };
+      return;
+    }
+  }, [canvasRef, viewport, tool, dispatch]);
 
   const handleMouseUp = useCallback((e: React.MouseEvent) => {
     const canvas = canvasRef.current;
@@ -219,6 +264,7 @@ export function useCanvasInteraction({
     }
 
     dragRef.current = { type: 'none', startWorldX: 0, startWorldY: 0, startScreenX: 0, startScreenY: 0 };
+    previewRef.current = { ...EMPTY_PREVIEW };
   }, [canvasRef, viewport, tool, nodes, edges, dispatch]);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -277,6 +323,7 @@ export function useCanvasInteraction({
     handleWheel,
     handleDoubleClick,
     dragRef,
+    previewRef,
   };
 }
 
