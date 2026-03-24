@@ -69,15 +69,37 @@ export function nodeIntersection(
 
 export type Side = 'top' | 'right' | 'bottom' | 'left';
 
-/** ノードの4辺中央の接続ポイント */
+/** ノードの4辺中央の接続ポイント + extraConnectionPoints */
 export function getConnectionPoints(node: GraphNode): { side: Side; x: number; y: number }[] {
   const { x, y, width: w, height: h } = node;
-  return [
+  const points: { side: Side; x: number; y: number }[] = [
     { side: 'top', x: x + w / 2, y },
     { side: 'right', x: x + w, y: y + h / 2 },
     { side: 'bottom', x: x + w / 2, y: y + h },
     { side: 'left', x: x, y: y + h / 2 },
   ];
+
+  if (node.extraConnectionPoints) {
+    for (const ep of node.extraConnectionPoints) {
+      const px = x + w * ep.x;
+      const py = y + h * ep.y;
+      const side = determineSide(ep.x, ep.y);
+      points.push({ side, x: px, y: py });
+    }
+  }
+
+  return points;
+}
+
+/** 正規化座標からどの辺に最も近いかを判定 */
+function determineSide(nx: number, ny: number): Side {
+  const dists: { side: Side; d: number }[] = [
+    { side: 'top', d: ny },
+    { side: 'bottom', d: 1 - ny },
+    { side: 'left', d: nx },
+    { side: 'right', d: 1 - nx },
+  ];
+  return dists.sort((a, b) => a.d - b.d)[0].side;
 }
 
 /** 指定座標に最も近い接続ポイントを返す */
@@ -104,7 +126,7 @@ export function hitTestConnectionPoint(
 }
 
 /** 2ノード間の最適な接続辺を決定 */
-function bestSides(fromNode: GraphNode, toNode: GraphNode): { fromSide: Side; toSide: Side } {
+export function bestSides(fromNode: GraphNode, toNode: GraphNode): { fromSide: Side; toSide: Side } {
   const fc = nodeCenter(fromNode);
   const tc = nodeCenter(toNode);
   const dx = tc.x - fc.x;
@@ -183,6 +205,26 @@ export function computeOrthogonalPath(
 
   points.push(toPt);
   return points;
+}
+
+/** ベジェ曲線の制御点を含む4点パスを計算 [start, cp1, cp2, end] */
+export function computeBezierPath(
+  fromNode: GraphNode,
+  toNode: GraphNode,
+): { x: number; y: number }[] {
+  const { fromSide, toSide } = bestSides(fromNode, toNode);
+  const fromPts = getConnectionPoints(fromNode);
+  const toPts = getConnectionPoints(toNode);
+  const fromPt = fromPts.find(p => p.side === fromSide)!;
+  const toPt = toPts.find(p => p.side === toSide)!;
+
+  const dist = Math.hypot(toPt.x - fromPt.x, toPt.y - fromPt.y);
+  const cpDist = Math.max(dist / 3, 30);
+
+  const cp1 = offsetPoint(fromPt, fromSide, cpDist);
+  const cp2 = offsetPoint(toPt, toSide, cpDist);
+
+  return [fromPt, cp1, cp2, toPt];
 }
 
 export function resolveConnectorEndpoints(

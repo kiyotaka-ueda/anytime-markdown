@@ -1,8 +1,15 @@
+export { render, drawGrid } from './renderer';
+export type { RenderOptions } from './renderer';
 export {
-  render, drawGrid, drawNode, drawEdge, drawArrowHead, drawResizeHandles,
-  drawRoundedRect, wrapText, drawEdgePreview, drawSnapHighlight,
-  drawShapePreview, drawSmartGuides, drawSelectionRect, drawConnectionPoints, drawEdgeEndpointHandles, drawBoundingBox,
-} from './renderer';
+  drawNode, drawRoundedRect, wrapText, drawLockIndicator, clearImageCache,
+  drawDiamond, drawParallelogram, drawCylinderBody, drawCylinderTop,
+} from './shapes';
+export { drawEdge, drawArrowHead, drawEdgePreview } from './edgeRenderer';
+export {
+  drawResizeHandles, drawBoundingBox, drawConnectionPoints,
+  drawSnapHighlight, drawSmartGuides, drawSelectionRect,
+  drawEdgeEndpointHandles, drawShapePreview,
+} from './overlays';
 export {
   hitTest, hitTestNode, hitTestEdge, hitTestEdgeSegment, hitTestResizeHandles,
 } from './hitTest';
@@ -10,8 +17,9 @@ export type { HitResult, ResizeHandle, ConnectionSide, EdgeEndpointEnd } from '.
 export { screenToWorld, worldToScreen, pan, zoom, fitToContent } from './viewport';
 export {
   nodeCenter, rectIntersection, ellipseIntersection, nodeIntersection,
-  resolveConnectorEndpoints, computeOrthogonalPath,
+  resolveConnectorEndpoints, computeOrthogonalPath, computeBezierPath,
   getConnectionPoints, nearestConnectionPoint, hitTestConnectionPoint,
+  bestSides,
 } from './connector';
 export type { Side } from './connector';
 export { snapToGrid, snapRect } from './gridSnap';
