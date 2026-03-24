@@ -6,6 +6,7 @@ import { ToolType, GraphDocument, Viewport, createDocument } from '../types';
 import { useGraphState } from '../hooks/useGraphState';
 import { useCanvasInteraction } from '../hooks/useCanvasInteraction';
 import { useAutoSave } from '../hooks/useAutoSave';
+import { useTouchInteraction } from '../hooks/useTouchInteraction';
 import { GraphToolBar } from './ToolBar';
 import { GraphCanvas } from './GraphCanvas';
 import { PropertyPanel } from './PropertyPanel';
@@ -69,6 +70,13 @@ export function GraphEditor() {
     onTextEdit: handleTextEdit,
     onToolChange: setTool,
     showGrid,
+  });
+
+  useTouchInteraction({
+    canvasRef,
+    viewport: state.document.viewport,
+    dispatch,
+    velocityRef,
   });
 
   useEffect(() => {
