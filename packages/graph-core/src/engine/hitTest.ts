@@ -1,4 +1,5 @@
 import { GraphNode, GraphEdge } from '../types';
+import { HANDLE_SIZE, EDGE_TOLERANCE, CONNECTION_POINT_RADIUS, ENDPOINT_HANDLE_RADIUS } from './constants';
 
 export type ResizeHandle = 'nw' | 'ne' | 'sw' | 'se' | 'n' | 's' | 'e' | 'w';
 
@@ -16,9 +17,6 @@ export interface HitResult {
   /** エッジエンドポイント（from/to） */
   endpointEnd?: EdgeEndpointEnd;
 }
-
-const HANDLE_SIZE = 8;
-const EDGE_TOLERANCE = 6;
 
 function pointInRect(px: number, py: number, x: number, y: number, w: number, h: number): boolean {
   return px >= x && px <= x + w && py >= y && py <= y + h;
@@ -129,8 +127,6 @@ export function hitTestEdgeSegment(
   return null;
 }
 
-const CONNECTION_POINT_RADIUS = 10;
-
 function hitTestConnectionPoints(node: GraphNode, wx: number, wy: number, scale: number): ConnectionSide | null {
   const r = CONNECTION_POINT_RADIUS / scale;
   const { x, y, width: w, height: h } = node;
@@ -145,8 +141,6 @@ function hitTestConnectionPoints(node: GraphNode, wx: number, wy: number, scale:
   }
   return null;
 }
-
-const ENDPOINT_HANDLE_RADIUS = 10;
 
 function hitTestEdgeEndpoints(
   edge: GraphEdge,

@@ -5,8 +5,7 @@ import {
   CANVAS_SMART_GUIDE, CANVAS_BG, COLOR_CHARCOAL,
 } from '../theme';
 import { drawRoundedRect, drawDiamond, drawParallelogram, drawCylinderBody, drawCylinderTop } from './shapes';
-
-const HANDLE_SIZE = 8;
+import { HANDLE_SIZE, SNAP_INDICATOR_RADIUS } from './constants';
 
 export function drawResizeHandles(
   ctx: CanvasRenderingContext2D,
@@ -158,8 +157,6 @@ export function drawConnectionPoints(
   }
   ctx.restore();
 }
-
-const SNAP_INDICATOR_RADIUS = 6;
 
 /** スナップ対象ノードのハイライト枠を描画 */
 export function drawSnapHighlight(

@@ -4,7 +4,6 @@ import {
   DOC_ICON_COLOR, FRAME_TITLE_BG, COLOR_ICE_BLUE,
 } from '../theme';
 
-const HANDLE_SIZE = 8;
 const MAX_IMAGE_CACHE = 50;
 
 /** 画像キャッシュ（dataURL → HTMLImageElement） */
