@@ -5,7 +5,7 @@ import {
   CANVAS_BG, CANVAS_GRID, CANVAS_SELECTION, CANVAS_SELECTION_FILL,
   CANVAS_SNAP, CANVAS_SNAP_INNER, CANVAS_SMART_GUIDE,
   COLOR_TEXT_PRIMARY, COLOR_CHARCOAL, COLOR_TEXT_SECONDARY, FONT_FAMILY,
-  DOC_ICON_COLOR, FRAME_TITLE_BG,
+  DOC_ICON_COLOR, FRAME_TITLE_BG, COLOR_ICE_BLUE,
 } from '../theme';
 
 const GRID_SIZE = 20;
@@ -80,6 +80,36 @@ export function render(
   if (hoverNodeId) {
     const hoverNode = nodes.find(n => n.id === hoverNodeId);
     if (hoverNode) drawConnectionPoints(ctx, hoverNode, viewport.scale, mouseWorldX, mouseWorldY);
+  }
+
+  // ホバー中ノードのURL表示
+  if (hoverNodeId) {
+    const hoverNode = nodes.find(n => n.id === hoverNodeId);
+    if (hoverNode?.url && mouseWorldX !== undefined && mouseWorldY !== undefined) {
+      ctx.save();
+      ctx.font = `11px ${FONT_FAMILY}`;
+      const urlText = hoverNode.url.length > 50 ? hoverNode.url.slice(0, 50) + '...' : hoverNode.url;
+      const metrics = ctx.measureText(urlText);
+      const pad = 4;
+      const tipX = mouseWorldX + 12;
+      const tipY = mouseWorldY + 16;
+
+      // 背景
+      ctx.fillStyle = 'rgba(13, 17, 23, 0.9)';
+      drawRoundedRect(ctx, tipX - pad, tipY - pad, metrics.width + pad * 2, 16 + pad * 2, 4);
+      ctx.fill();
+      // 枠線
+      ctx.strokeStyle = 'rgba(144, 202, 249, 0.3)';
+      ctx.lineWidth = 1;
+      drawRoundedRect(ctx, tipX - pad, tipY - pad, metrics.width + pad * 2, 16 + pad * 2, 4);
+      ctx.stroke();
+      // テキスト
+      ctx.fillStyle = COLOR_ICE_BLUE;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(urlText, tipX, tipY);
+      ctx.restore();
+    }
   }
 
   ctx.restore();
@@ -409,6 +439,17 @@ export function drawNode(
     lines.forEach((line, i) => {
       ctx.fillText(line, x + width / 2, startY + i * lineHeight, maxWidth);
     });
+  }
+
+  // リンクアイコン（URL設定済みノード）
+  if (node.url) {
+    ctx.save();
+    ctx.font = `12px ${FONT_FAMILY}`;
+    ctx.fillStyle = COLOR_ICE_BLUE;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+    ctx.fillText('\u{1F517}', x + width - 4, y + 4);
+    ctx.restore();
   }
 
   ctx.restore();
