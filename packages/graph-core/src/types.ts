@@ -45,6 +45,8 @@ export interface GraphNode {
   imageData?: string;
   /** 追加の接続ポイント（正規化座標 0-1） */
   extraConnectionPoints?: { x: number; y: number }[];
+  /** ハイパーリンクURL */
+  url?: string;
 }
 
 export interface EdgeEndpoint {
