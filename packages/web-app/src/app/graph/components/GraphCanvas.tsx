@@ -22,12 +22,13 @@ interface GraphCanvasProps {
   previewRef: React.RefObject<DragPreview>;
   hoverNodeIdRef: React.RefObject<string | undefined>;
   mouseWorldRef: React.RefObject<{ x: number; y: number }>;
+  onDropImage?: (dataUrl: string, x: number, y: number, width: number, height: number) => void;
 }
 
 export function GraphCanvas({
   nodes, edges, viewport, selection, showGrid, canvasRef,
   onMouseDown, onMouseMove, onMouseUp, onWheel, onDoubleClick, onContextMenu,
-  previewRef, hoverNodeIdRef, mouseWorldRef,
+  previewRef, hoverNodeIdRef, mouseWorldRef, onDropImage,
 }: GraphCanvasProps) {
   const rafRef = useRef<number>(0);
 
@@ -119,6 +120,39 @@ export function GraphCanvas({
     return () => window.removeEventListener('resize', handleResize);
   }, [canvasRef]);
 
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    if (files.length === 0 || !onDropImage || !canvasRef.current) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+
+    for (const file of files) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const img = new Image();
+        img.onload = () => {
+          // アスペクト比を維持して最大300px幅に
+          const maxW = 300;
+          const scale = img.width > maxW ? maxW / img.width : 1;
+          const w = img.width * scale;
+          const h = img.height * scale;
+          onDropImage(dataUrl, sx, sy, w, h);
+        };
+        img.src = dataUrl;
+      };
+      reader.readAsDataURL(file);
+    }
+  }, [canvasRef, onDropImage]);
+
   return (
     <canvas
       ref={canvasRef}
@@ -129,6 +163,8 @@ export function GraphCanvas({
       onWheel={onWheel}
       onDoubleClick={onDoubleClick}
       onContextMenu={onContextMenu}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
     />
   );
 }

@@ -733,6 +733,7 @@
     "shapeDiamond": "Diamond",
     "shapeBar": "Bar",
     "frame": "Frame",
+    "image": "Image",
     "locked": "Locked",
     "unlocked": "Unlocked",
     "borderRadius": "Border Radius",

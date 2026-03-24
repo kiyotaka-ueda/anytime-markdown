@@ -13,6 +13,7 @@ import {
   Lightbulb as InsightIcon,
   Description as DocIcon,
   Dashboard as FrameIcon,
+  Image as ImageIcon,
 } from '@mui/icons-material';
 import { useTranslations } from 'next-intl';
 import { GraphNode, NodeType, Viewport } from '../types';
@@ -33,6 +34,7 @@ const SHAPES: { type: NodeType; icon: React.ReactNode; i18nKey: string }[] = [
   { type: 'insight', icon: <InsightIcon sx={{ fontSize: 18 }} />, i18nKey: 'insight' },
   { type: 'doc', icon: <DocIcon sx={{ fontSize: 18 }} />, i18nKey: 'doc' },
   { type: 'frame', icon: <FrameIcon sx={{ fontSize: 18 }} />, i18nKey: 'frame' },
+  { type: 'image', icon: <ImageIcon sx={{ fontSize: 18 }} />, i18nKey: 'image' },
 ];
 
 interface ShapeHoverBarProps {

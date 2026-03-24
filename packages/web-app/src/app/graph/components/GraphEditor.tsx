@@ -2,7 +2,8 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Box } from '@mui/material';
-import { ToolType, GraphDocument, createDocument } from '../types';
+import { ToolType, GraphDocument, createDocument, createNode } from '../types';
+import { screenToWorld } from '../engine/viewport';
 import { useGraphState } from '../hooks/useGraphState';
 import { useCanvasInteraction } from '../hooks/useCanvasInteraction';
 import { useAutoSave } from '../hooks/useAutoSave';
@@ -128,6 +129,16 @@ export function GraphEditor() {
     });
   }, [state.document.nodes, dispatch]);
 
+  const handleDropImage = useCallback((dataUrl: string, sx: number, sy: number, w: number, h: number) => {
+    const world = screenToWorld(state.document.viewport, sx, sy);
+    const node = createNode('image', world.x - w / 2, world.y - h / 2, {
+      width: w,
+      height: h,
+      imageData: dataUrl,
+    });
+    dispatch({ type: 'ADD_NODE', node });
+  }, [state.document.viewport, dispatch]);
+
   const handleClearAll = useCallback(() => {
     dispatch({ type: 'SET_DOCUMENT', doc: createDocument('Untitled') });
   }, [dispatch]);
@@ -252,6 +263,7 @@ export function GraphEditor() {
           previewRef={previewRef}
           hoverNodeIdRef={hoverNodeIdRef}
           mouseWorldRef={mouseWorldRef}
+          onDropImage={handleDropImage}
         />
         {selectedNode && !editingNodeId && !docEditNodeId && !isDragging && (
           <ShapeHoverBar

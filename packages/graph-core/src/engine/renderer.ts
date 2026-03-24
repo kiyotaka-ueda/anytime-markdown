@@ -107,6 +107,19 @@ export function drawGrid(
   ctx.restore();
 }
 
+/** 画像キャッシュ（dataURL → HTMLImageElement） */
+const imageCache = new Map<string, HTMLImageElement>();
+
+function getOrLoadImage(dataUrl: string): HTMLImageElement | null {
+  const cached = imageCache.get(dataUrl);
+  if (cached) return cached.complete ? cached : null;
+  if (typeof Image === 'undefined') return null;
+  const img = new Image();
+  img.src = dataUrl;
+  imageCache.set(dataUrl, img);
+  return img.complete ? img : null;
+}
+
 /** グラデーション fill を生成 */
 function makeFill(ctx: CanvasRenderingContext2D, style: GraphNode['style'], x: number, y: number, w: number, h: number): string | CanvasGradient {
   if (!style.gradientTo) return style.fill;
@@ -291,6 +304,30 @@ export function drawNode(
         ctx.fillText(line.slice(0, 30), x + 10, y + 40 + i * 15, width - 20);
       });
     }
+  } else if (type === 'image') {
+    const r = radius > 0 ? radius : 4;
+    applyShadow(ctx, style);
+    // 背景プレースホルダー
+    ctx.fillStyle = style.fill;
+    drawRoundedRect(ctx, x, y, width, height, r);
+    ctx.fill();
+    clearShadow(ctx);
+    // 画像描画
+    if (node.imageData) {
+      const img = getOrLoadImage(node.imageData);
+      if (img) {
+        ctx.save();
+        drawRoundedRect(ctx, x, y, width, height, r);
+        ctx.clip();
+        ctx.drawImage(img, x, y, width, height);
+        ctx.restore();
+      }
+    }
+    // 枠線
+    ctx.strokeStyle = selected ? SELECTION_COLOR : style.stroke;
+    ctx.lineWidth = selected ? 2 : style.strokeWidth;
+    drawRoundedRect(ctx, x, y, width, height, r);
+    ctx.stroke();
   } else if (type === 'frame') {
     // フレーム背景
     const fr = radius > 0 ? radius : 8;
@@ -339,7 +376,7 @@ export function drawNode(
     }
   }
 
-  if (text && type !== 'insight' && type !== 'doc' && type !== 'frame') {
+  if (text && type !== 'insight' && type !== 'doc' && type !== 'frame' && type !== 'image') {
     ctx.fillStyle = TEXT_ON_SHAPE_COLOR;
     ctx.font = `${style.fontSize}px ${style.fontFamily}`;
     ctx.textAlign = 'center';

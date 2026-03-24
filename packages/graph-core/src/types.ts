@@ -1,4 +1,4 @@
-export type NodeType = 'rect' | 'ellipse' | 'sticky' | 'text' | 'diamond' | 'parallelogram' | 'cylinder' | 'insight' | 'doc' | 'frame';
+export type NodeType = 'rect' | 'ellipse' | 'sticky' | 'text' | 'diamond' | 'parallelogram' | 'cylinder' | 'insight' | 'doc' | 'frame' | 'image';
 export type EdgeType = 'line' | 'arrow' | 'connector';
 export type ToolType = 'select' | 'rect' | 'ellipse' | 'sticky' | 'text' | 'diamond' | 'parallelogram' | 'cylinder' | 'insight' | 'doc' | 'frame' | 'line' | 'arrow' | 'connector' | 'pan';
 
@@ -39,6 +39,8 @@ export interface GraphNode {
   docContent?: string;
   locked?: boolean;
   zIndex?: number;
+  /** 画像ノード用: data URL */
+  imageData?: string;
 }
 
 export interface EdgeEndpoint {
@@ -160,6 +162,7 @@ export function createNode(type: NodeType, x: number, y: number, overrides?: Par
     insight: { width: 220, height: 140 },
     doc: { width: 200, height: 120 },
     frame: { width: 400, height: 300 },
+    image: { width: 200, height: 150 },
   };
   const size = sizeMap[type] ?? { width: 150, height: 100 };
   const extra: Partial<GraphNode> = {};
