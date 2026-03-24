@@ -180,8 +180,9 @@ export function useCanvasInteraction({
     // ホバーノード検出（ドラッグ中でないとき）
     if (drag.type === 'none' && tool === 'select') {
       const world = screenToWorld(viewport, sx, sy);
-      const hit = hitTest(nodes, edges, world.x, world.y, viewport.scale, selection.nodeIds);
-      hoverNodeIdRef.current = hit.type === 'node' ? hit.id : undefined;
+      // ホバー判定はリサイズハンドルを無視（選択ノードIDを空にして判定）
+      const hoverHit = hitTest(nodes, edges, world.x, world.y, viewport.scale, []);
+      hoverNodeIdRef.current = hoverHit.type === 'node' ? hoverHit.id : undefined;
     } else if (drag.type !== 'none') {
       hoverNodeIdRef.current = undefined;
     }
