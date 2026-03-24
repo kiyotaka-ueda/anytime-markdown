@@ -490,28 +490,51 @@ export function wrapText(
   maxWidth: number,
 ): string[] {
   const lines: string[] = [];
-  let currentLine = '';
 
-  for (const char of text) {
-    if (char === '\n') {
-      lines.push(currentLine);
-      currentLine = '';
-      continue;
+  for (const paragraph of text.split('\n')) {
+    if (paragraph === '') { lines.push(''); continue; }
+
+    let currentLine = '';
+    // Split by spaces while preserving CJK character boundaries
+    const tokens = paragraph.match(/[\S]+|\s/g) ?? [paragraph];
+
+    for (const token of tokens) {
+      if (token === ' ') {
+        const testLine = currentLine + ' ';
+        if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+          lines.push(currentLine);
+          currentLine = '';
+        } else {
+          currentLine = testLine;
+        }
+        continue;
+      }
+
+      const testLine = currentLine + token;
+      if (ctx.measureText(testLine).width <= maxWidth || currentLine === '') {
+        currentLine = testLine;
+      } else {
+        lines.push(currentLine);
+        currentLine = token;
+      }
+
+      // If single token exceeds maxWidth, break it character by character
+      if (ctx.measureText(currentLine).width > maxWidth) {
+        let rebuild = '';
+        for (const c of currentLine) {
+          const test = rebuild + c;
+          if (ctx.measureText(test).width > maxWidth && rebuild) {
+            lines.push(rebuild);
+            rebuild = c;
+          } else {
+            rebuild = test;
+          }
+        }
+        currentLine = rebuild;
+      }
     }
 
-    const testLine = currentLine + char;
-    const metrics = ctx.measureText(testLine);
-
-    if (metrics.width > maxWidth && currentLine.length > 0) {
-      lines.push(currentLine);
-      currentLine = char;
-    } else {
-      currentLine = testLine;
-    }
-  }
-
-  if (currentLine) {
-    lines.push(currentLine);
+    if (currentLine) lines.push(currentLine);
   }
 
   return lines.length > 0 ? lines : [''];
