@@ -12,6 +12,7 @@
     "packages/editor-core",
     "packages/graph-core",
     "packages/vscode-extension",
+    "packages/vscode-graph-extension",
     "packages/web-app",
     "packages/mobile-app"
   ],
