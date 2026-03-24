@@ -5,10 +5,12 @@ export type ResizeHandle = 'nw' | 'ne' | 'sw' | 'se' | 'n' | 's' | 'e' | 'w';
 export type ConnectionSide = 'top' | 'right' | 'bottom' | 'left';
 
 export interface HitResult {
-  type: 'node' | 'edge' | 'resize-handle' | 'connection-point' | 'none';
+  type: 'node' | 'edge' | 'resize-handle' | 'connection-point' | 'edge-segment' | 'none';
   id?: string;
   handle?: ResizeHandle;
   connectionSide?: ConnectionSide;
+  /** ドラッグ可能なエッジセグメントの方向 */
+  segmentDirection?: 'horizontal' | 'vertical';
 }
 
 const HANDLE_SIZE = 8;
@@ -91,9 +93,36 @@ export function hitTestNode(node: GraphNode, wx: number, wy: number): boolean {
   return pointInRect(wx, wy, node.x, node.y, node.width, node.height);
 }
 
-export function hitTestEdge(edge: GraphEdge, wx: number, wy: number, scale: number): boolean {
+export function hitTestEdge(edge: GraphEdge & { waypoints?: { x: number; y: number }[] }, wx: number, wy: number, scale: number): boolean {
   const tolerance = EDGE_TOLERANCE / scale;
+  if (edge.waypoints && edge.waypoints.length >= 2) {
+    for (let i = 0; i < edge.waypoints.length - 1; i++) {
+      if (distanceToSegment(wx, wy, edge.waypoints[i].x, edge.waypoints[i].y, edge.waypoints[i + 1].x, edge.waypoints[i + 1].y) <= tolerance) {
+        return true;
+      }
+    }
+    return false;
+  }
   return distanceToSegment(wx, wy, edge.from.x, edge.from.y, edge.to.x, edge.to.y) <= tolerance;
+}
+
+/** 折れ線コネクタの中間セグメントhit判定。ドラッグ方向を返す */
+export function hitTestEdgeSegment(
+  edge: GraphEdge & { waypoints?: { x: number; y: number }[] },
+  wx: number, wy: number, scale: number,
+): { segmentDirection: 'horizontal' | 'vertical' } | null {
+  if (!edge.waypoints || edge.waypoints.length < 4) return null;
+  const tolerance = EDGE_TOLERANCE / scale;
+  // 最初と最後のセグメントは端点接続なので除外。中間セグメントのみ判定
+  for (let i = 1; i < edge.waypoints.length - 2; i++) {
+    const p1 = edge.waypoints[i];
+    const p2 = edge.waypoints[i + 1];
+    if (distanceToSegment(wx, wy, p1.x, p1.y, p2.x, p2.y) <= tolerance) {
+      const isHorizontal = Math.abs(p1.y - p2.y) < 1;
+      return { segmentDirection: isHorizontal ? 'horizontal' : 'vertical' };
+    }
+  }
+  return null;
 }
 
 const CONNECTION_POINT_RADIUS = 10;
@@ -137,6 +166,8 @@ export function hitTest(
     if (hitTestNode(nodes[i], wx, wy)) return { type: 'node', id: nodes[i].id };
   }
   for (let i = edges.length - 1; i >= 0; i--) {
+    const seg = hitTestEdgeSegment(edges[i] as GraphEdge & { waypoints?: { x: number; y: number }[] }, wx, wy, scale);
+    if (seg) return { type: 'edge-segment', id: edges[i].id, segmentDirection: seg.segmentDirection };
     if (hitTestEdge(edges[i], wx, wy, scale)) return { type: 'edge', id: edges[i].id };
   }
   return { type: 'none' };

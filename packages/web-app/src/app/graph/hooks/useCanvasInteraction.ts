@@ -7,15 +7,34 @@ import { hitTest, HitResult, ResizeHandle } from '../engine/hitTest';
 import { pan as panViewport, zoom as zoomViewport } from '../engine/viewport';
 import { snapToGrid } from '../engine/gridSnap';
 import { computeSmartGuides, GuideLine } from '../engine/smartGuide';
+import { computeOrthogonalPath } from '../engine/connector';
+
+/** edges に waypoints を付与して hitTest で使えるようにする */
+function resolveEdgesWithWaypoints(edges: GraphEdge[], nodes: GraphNode[]): (GraphEdge & { waypoints?: { x: number; y: number }[] })[] {
+  return edges.map(e => {
+    if (e.type === 'connector' && e.from.nodeId && e.to.nodeId) {
+      const fromNode = nodes.find(n => n.id === e.from.nodeId);
+      const toNode = nodes.find(n => n.id === e.to.nodeId);
+      if (fromNode && toNode) {
+        const waypoints = computeOrthogonalPath(fromNode, toNode, 20, e.manualMidpoint);
+        return { ...e, waypoints };
+      }
+    }
+    return e;
+  });
+}
 
 interface DragState {
-  type: 'none' | 'pan' | 'move' | 'resize' | 'create-shape' | 'select-rect' | 'create-edge';
+  type: 'none' | 'pan' | 'move' | 'resize' | 'create-shape' | 'select-rect' | 'create-edge' | 'move-edge-segment';
   startWorldX: number;
   startWorldY: number;
   startScreenX: number;
   startScreenY: number;
   handle?: ResizeHandle;
   nodeId?: string;
+  edgeId?: string;
+  segmentDirection?: 'horizontal' | 'vertical';
+  initialMidpoint?: number;
   initialNodes?: Map<string, { x: number; y: number; width: number; height: number }>;
 }
 
@@ -80,7 +99,8 @@ export function useCanvasInteraction({
     }
 
     if (tool === 'select') {
-      const hit = hitTest(nodes, edges, world.x, world.y, viewport.scale, selection.nodeIds, hoverNodeIdRef.current);
+      const resolved = resolveEdgesWithWaypoints(edges, nodes);
+      const hit = hitTest(nodes, resolved, world.x, world.y, viewport.scale, selection.nodeIds, hoverNodeIdRef.current);
 
       // 接続ポイントクリック → コネクタ作成開始
       if (hit.type === 'connection-point' && hit.id) {
@@ -132,6 +152,19 @@ export function useCanvasInteraction({
           startScreenX: sx, startScreenY: sy, initialNodes,
         };
         dispatch({ type: 'SNAPSHOT' });
+        return;
+      }
+
+      if (hit.type === 'edge-segment' && hit.id && hit.segmentDirection) {
+        const edge = edges.find(ed => ed.id === hit.id);
+        dispatch({ type: 'SET_SELECTION', selection: { nodeIds: [], edgeIds: [hit.id] } });
+        dispatch({ type: 'SNAPSHOT' });
+        dragRef.current = {
+          type: 'move-edge-segment', startWorldX: world.x, startWorldY: world.y,
+          startScreenX: sx, startScreenY: sy,
+          edgeId: hit.id, segmentDirection: hit.segmentDirection,
+          initialMidpoint: edge?.manualMidpoint,
+        };
         return;
       }
 
@@ -235,6 +268,13 @@ export function useCanvasInteraction({
       const width = showGrid ? Math.max(MIN, snapToGrid(resized.width)) : resized.width;
       const height = showGrid ? Math.max(MIN, snapToGrid(resized.height)) : resized.height;
       dispatch({ type: 'RESIZE_NODE', id: drag.nodeId, x, y, width, height });
+      return;
+    }
+
+    if (drag.type === 'move-edge-segment' && drag.edgeId) {
+      const world = screenToWorld(viewport, sx, sy);
+      const newMidpoint = drag.segmentDirection === 'vertical' ? world.x : world.y;
+      dispatch({ type: 'UPDATE_EDGE', id: drag.edgeId, changes: { manualMidpoint: newMidpoint } });
       return;
     }
 

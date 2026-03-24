@@ -41,7 +41,7 @@ export function GraphCanvas({
         const fromNode = nodes.find(n => n.id === e.from.nodeId);
         const toNode = nodes.find(n => n.id === e.to.nodeId);
         if (fromNode && toNode) {
-          const waypoints = computeOrthogonalPath(fromNode, toNode);
+          const waypoints = computeOrthogonalPath(fromNode, toNode, 20, e.manualMidpoint);
           return { ...e, from: { ...e.from, ...waypoints[0] }, to: { ...e.to, ...waypoints[waypoints.length - 1] }, waypoints };
         }
         const pts = resolveConnectorEndpoints(e, nodes);

@@ -139,6 +139,7 @@ export function computeOrthogonalPath(
   fromNode: GraphNode,
   toNode: GraphNode,
   margin: number = 20,
+  manualMidpoint?: number,
 ): { x: number; y: number }[] {
   const { fromSide, toSide } = bestSides(fromNode, toNode);
   const fromPts = getConnectionPoints(fromNode);
@@ -161,11 +162,11 @@ export function computeOrthogonalPath(
 
   if (isOpposite) {
     if (isHorizontal) {
-      const midX = (p1.x + p4.x) / 2;
+      const midX = manualMidpoint ?? (p1.x + p4.x) / 2;
       points.push({ x: midX, y: fromPt.y });
       points.push({ x: midX, y: toPt.y });
     } else {
-      const midY = (p1.y + p4.y) / 2;
+      const midY = manualMidpoint ?? (p1.y + p4.y) / 2;
       points.push({ x: fromPt.x, y: midY });
       points.push({ x: toPt.x, y: midY });
     }

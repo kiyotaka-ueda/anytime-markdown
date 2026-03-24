@@ -44,6 +44,8 @@ export interface GraphEdge {
   to: EdgeEndpoint;
   style: EdgeStyle;
   label?: string;
+  /** 手動調整した中間セグメントの位置（直角コネクタ用） */
+  manualMidpoint?: number;
 }
 
 export interface Viewport {

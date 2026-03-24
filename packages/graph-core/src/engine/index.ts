@@ -4,7 +4,7 @@ export {
   drawShapePreview, drawSmartGuides, drawSelectionRect, drawConnectionPoints,
 } from './renderer';
 export {
-  hitTest, hitTestNode, hitTestEdge, hitTestResizeHandles,
+  hitTest, hitTestNode, hitTestEdge, hitTestEdgeSegment, hitTestResizeHandles,
 } from './hitTest';
 export type { HitResult, ResizeHandle, ConnectionSide } from './hitTest';
 export { screenToWorld, worldToScreen, pan, zoom, fitToContent } from './viewport';
