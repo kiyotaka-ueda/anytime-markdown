@@ -6,12 +6,13 @@ import {
 } from '../theme';
 import { escapeXml } from './utils';
 
-function renderNodeSvg(node: GraphNode): string {
+function renderNodeSvg(node: GraphNode, gradFill?: string): string {
   const { id, type, x, y, width: w, height: h, text, style } = node;
   const lines: string[] = [];
-  const fill = escapeXml(style.fill);
+  const fill = gradFill ?? escapeXml(style.fill);
   const stroke = escapeXml(style.stroke);
   const sw = style.strokeWidth;
+  const r = style.borderRadius ?? 0;
 
   lines.push(`<g id="${escapeXml(id)}">`);
 
@@ -20,12 +21,26 @@ function renderNodeSvg(node: GraphNode): string {
   } else if (type === 'diamond') {
     const pts = `${x + w / 2},${y} ${x + w},${y + h / 2} ${x + w / 2},${y + h} ${x},${y + h / 2}`;
     lines.push(`<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`);
+  } else if (type === 'parallelogram') {
+    const offset = w * 0.2;
+    lines.push(`<polygon points="${x + offset},${y} ${x + w},${y} ${x + w - offset},${y + h} ${x},${y + h}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`);
+  } else if (type === 'cylinder') {
+    const ry = h * 0.1;
+    lines.push(`<path d="M${x},${y + ry} A${w / 2},${ry} 0 0,1 ${x + w},${y + ry} V${y + h - ry} A${w / 2},${ry} 0 0,1 ${x},${y + h - ry} Z" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`);
+    lines.push(`<ellipse cx="${x + w / 2}" cy="${y + ry}" rx="${w / 2}" ry="${ry}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`);
+  } else if (type === 'frame') {
+    lines.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="${stroke}" stroke-width="${sw}" stroke-dasharray="8 4" rx="${r}"/>`);
+  } else if (type === 'image') {
+    lines.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" rx="${r}"/>`);
+    if (node.imageData) {
+      lines.push(`<image href="${escapeXml(node.imageData)}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet"/>`);
+    }
   } else if (type === 'sticky') {
     lines.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`);
   } else if (type === 'text') {
     // テキストノードは枠なし
   } else {
-    lines.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`);
+    lines.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" rx="${r}"/>`);
   }
 
   if (text) {
@@ -101,13 +116,31 @@ export function exportToSvg(doc: GraphDocument): string {
   const vw = maxX - minX + pad * 2;
   const vh = maxY - minY + pad * 2;
 
+  // グラデーション定義を収集
+  const defs: string[] = [];
+  const gradFills = new Map<string, string>();
+  for (const n of nodes) {
+    if (n.style.gradientTo) {
+      const dir = n.style.gradientDirection ?? 'vertical';
+      const x1 = '0%', y1 = '0%';
+      const x2 = dir === 'horizontal' ? '100%' : dir === 'diagonal' ? '100%' : '0%';
+      const y2 = dir === 'horizontal' ? '0%' : '100%';
+      const gradId = `grad-${n.id}`;
+      defs.push(`<linearGradient id="${escapeXml(gradId)}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"><stop offset="0%" stop-color="${escapeXml(n.style.fill)}"/><stop offset="100%" stop-color="${escapeXml(n.style.gradientTo)}"/></linearGradient>`);
+      gradFills.set(n.id, `url(#${gradId})`);
+    }
+  }
+
   const parts: string[] = [];
   parts.push(`<?xml version="1.0" encoding="UTF-8"?>`);
-  parts.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vx} ${vy} ${vw} ${vh}" width="${vw}" height="${vh}">`);
+  parts.push(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="${vx} ${vy} ${vw} ${vh}" width="${vw}" height="${vh}">`);
+  if (defs.length > 0) {
+    parts.push(`<defs>${defs.join('')}</defs>`);
+  }
   parts.push(`<rect x="${vx}" y="${vy}" width="${vw}" height="${vh}" fill="${CANVAS_BG}"/>`);
 
   edges.forEach(e => parts.push(renderEdgeSvg(e, nodes)));
-  nodes.forEach(n => parts.push(renderNodeSvg(n)));
+  nodes.forEach(n => parts.push(renderNodeSvg(n, gradFills.get(n.id))));
 
   parts.push('</svg>');
   return parts.join('\n');
