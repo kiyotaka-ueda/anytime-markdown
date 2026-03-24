@@ -10,7 +10,9 @@ import { GraphToolBar } from './ToolBar';
 import { GraphCanvas } from './GraphCanvas';
 import { PropertyPanel } from './PropertyPanel';
 import { TextEditOverlay } from './TextEditOverlay';
-import { zoom as zoomViewport, fitToContent } from '../engine/viewport';
+import { ContextMenu, ContextTarget } from './ContextMenu';
+import { zoom as zoomViewport, fitToContent, screenToWorld } from '../engine/viewport';
+import { hitTest } from '../engine/hitTest';
 import { alignLeft, alignRight, alignTop, alignBottom, alignCenterH, alignCenterV, distributeH, distributeV } from '../engine/alignment';
 import { loadDocument, getLastDocumentId } from '../store/graphStorage';
 
@@ -20,6 +22,10 @@ export function GraphEditor() {
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [showProperty, setShowProperty] = useState(true);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    position: { top: number; left: number };
+    targetType: ContextTarget;
+  } | null>(null);
   const { state, dispatch } = useGraphState();
 
   useEffect(() => {
@@ -32,6 +38,59 @@ export function GraphEditor() {
   }, [dispatch]);
 
   useAutoSave(state.document);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+    const world = screenToWorld(state.document.viewport, sx, sy);
+    const hit = hitTest(state.document.nodes, state.document.edges, world.x, world.y, state.document.viewport.scale, state.selection.nodeIds);
+
+    let targetType: ContextTarget = 'canvas';
+    if (hit.type === 'node' && hit.id) {
+      targetType = 'node';
+      if (!state.selection.nodeIds.includes(hit.id)) {
+        dispatch({ type: 'SET_SELECTION', selection: { nodeIds: [hit.id], edgeIds: [] } });
+      }
+    } else if (hit.type === 'edge' && hit.id) {
+      targetType = 'edge';
+      dispatch({ type: 'SET_SELECTION', selection: { nodeIds: [], edgeIds: [hit.id] } });
+    }
+
+    setContextMenu({ position: { top: e.clientY, left: e.clientX }, targetType });
+  }, [state.document.viewport, state.document.nodes, state.document.edges, state.selection.nodeIds, dispatch]);
+
+  const handleContextAction = useCallback((action: string) => {
+    switch (action) {
+      case 'copy':
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'c', ctrlKey: true }));
+        break;
+      case 'paste':
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'v', ctrlKey: true }));
+        break;
+      case 'delete':
+        dispatch({ type: 'DELETE_SELECTED' });
+        break;
+      case 'bringToFront':
+        dispatch({ type: 'BRING_TO_FRONT', nodeIds: state.selection.nodeIds });
+        break;
+      case 'sendToBack':
+        dispatch({ type: 'SEND_TO_BACK', nodeIds: state.selection.nodeIds });
+        break;
+      case 'group':
+        dispatch({ type: 'GROUP_SELECTED', groupId: crypto.randomUUID() });
+        break;
+      case 'ungroup':
+        dispatch({ type: 'UNGROUP_SELECTED' });
+        break;
+      case 'selectAll':
+        dispatch({ type: 'SELECT_ALL' });
+        break;
+    }
+  }, [dispatch, state.selection.nodeIds]);
 
   const handleTextEdit = useCallback((nodeId: string) => {
     setEditingNodeId(nodeId);
@@ -163,6 +222,7 @@ export function GraphEditor() {
           onMouseUp={handleMouseUp}
           onWheel={handleWheel}
           onDoubleClick={handleDoubleClick}
+          onContextMenu={handleContextMenu}
           previewRef={previewRef}
         />
         <TextEditOverlay
@@ -170,6 +230,13 @@ export function GraphEditor() {
           viewport={state.document.viewport}
           onCommit={handleTextCommit}
           onCancel={() => setEditingNodeId(null)}
+        />
+        <ContextMenu
+          anchorPosition={contextMenu?.position ?? null}
+          targetType={contextMenu?.targetType ?? 'canvas'}
+          onAction={handleContextAction}
+          onClose={() => setContextMenu(null)}
+          hasClipboard={true}
         />
         {showProperty && (selectedNode || selectedEdge) && (
           <PropertyPanel

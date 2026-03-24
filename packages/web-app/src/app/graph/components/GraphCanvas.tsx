@@ -18,12 +18,13 @@ interface GraphCanvasProps {
   onMouseUp: (e: React.MouseEvent) => void;
   onWheel: (e: React.WheelEvent) => void;
   onDoubleClick: (e: React.MouseEvent) => void;
+  onContextMenu: (e: React.MouseEvent) => void;
   previewRef: React.RefObject<DragPreview>;
 }
 
 export function GraphCanvas({
   nodes, edges, viewport, selection, showGrid, canvasRef,
-  onMouseDown, onMouseMove, onMouseUp, onWheel, onDoubleClick, previewRef,
+  onMouseDown, onMouseMove, onMouseUp, onWheel, onDoubleClick, onContextMenu, previewRef,
 }: GraphCanvasProps) {
   const rafRef = useRef<number>(0);
 
@@ -106,6 +107,7 @@ export function GraphCanvas({
       onMouseUp={onMouseUp}
       onWheel={onWheel}
       onDoubleClick={onDoubleClick}
+      onContextMenu={onContextMenu}
     />
   );
 }

@@ -28,6 +28,9 @@ type Action =
   | { type: 'UNGROUP_SELECTED' }
   | { type: 'PASTE_NODES'; nodes: GraphNode[]; edges: GraphEdge[] }
   | { type: 'ALIGN_NODES'; updates: Array<{ id: string; x?: number; y?: number }> }
+  | { type: 'BRING_TO_FRONT'; nodeIds: string[] }
+  | { type: 'SEND_TO_BACK'; nodeIds: string[] }
+  | { type: 'SELECT_ALL' }
   | { type: 'UNDO' }
   | { type: 'REDO' }
   | { type: 'SNAPSHOT' };
@@ -203,6 +206,34 @@ function reducer(state: GraphState, action: Action): GraphState {
         },
       };
     }
+
+    case 'BRING_TO_FRONT': {
+      const s = pushHistory(state);
+      const targetSet = new Set(action.nodeIds);
+      const rest = s.document.nodes.filter(n => !targetSet.has(n.id));
+      const targets = s.document.nodes.filter(n => targetSet.has(n.id));
+      return {
+        ...s,
+        document: { ...s.document, nodes: [...rest, ...targets] },
+      };
+    }
+
+    case 'SEND_TO_BACK': {
+      const s = pushHistory(state);
+      const targetSet = new Set(action.nodeIds);
+      const rest = s.document.nodes.filter(n => !targetSet.has(n.id));
+      const targets = s.document.nodes.filter(n => targetSet.has(n.id));
+      return {
+        ...s,
+        document: { ...s.document, nodes: [...targets, ...rest] },
+      };
+    }
+
+    case 'SELECT_ALL':
+      return {
+        ...state,
+        selection: { nodeIds: state.document.nodes.map(n => n.id), edgeIds: [] },
+      };
 
     case 'UNDO': {
       if (state.historyIndex <= 0) return state;
