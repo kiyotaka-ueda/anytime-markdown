@@ -12,7 +12,6 @@ import {
   StickyNote2Outlined as StickyIcon,
   TextFields as TextIcon,
   Remove as LineIcon,
-  ArrowRightAlt as ArrowIcon,
   PanTool as PanIcon,
   Undo as UndoIcon,
   Redo as RedoIcon,
@@ -107,9 +106,6 @@ export function GraphToolBar({
           </ToggleButton>
           <ToggleButton value="line" aria-label={t('line')}>
             <Tooltip title={`${t('line')} (L)`}><LineIcon fontSize="small" /></Tooltip>
-          </ToggleButton>
-          <ToggleButton value="arrow" aria-label={t('arrow')}>
-            <Tooltip title={`${t('arrow')} (A)`}><ArrowIcon fontSize="small" /></Tooltip>
           </ToggleButton>
           <ToggleButton value="pan" aria-label={t('pan')}>
             <Tooltip title={`${t('pan')} (Space)`}><PanIcon fontSize="small" /></Tooltip>
