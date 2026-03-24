@@ -15,6 +15,7 @@ import { ShapeHoverBar } from './ShapeHoverBar';
 import { zoom as zoomViewport, fitToContent } from '../engine/viewport';
 import { alignLeft, alignRight, alignTop, alignBottom, alignCenterH, alignCenterV, distributeH, distributeV } from '../engine/alignment';
 import { loadDocument, getLastDocumentId } from '../store/graphStorage';
+import { exportToSvg, exportToDrawio, importFromDrawio } from '@anytime-markdown/graph-core';
 
 export function GraphEditor() {
   const [tool, setTool] = useState<ToolType>('select');
@@ -131,6 +132,46 @@ export function GraphEditor() {
     dispatch({ type: 'SET_DOCUMENT', doc: createDocument('Untitled') });
   }, [dispatch]);
 
+  const handleExportSvg = useCallback(() => {
+    const svg = exportToSvg(state.document);
+    const blob = new Blob([svg], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${state.document.name || 'graph'}.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [state.document]);
+
+  const handleExportDrawio = useCallback(() => {
+    const xml = exportToDrawio(state.document);
+    const blob = new Blob([xml], { type: 'application/xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${state.document.name || 'graph'}.drawio`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [state.document]);
+
+  const handleImportDrawio = useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.drawio,.xml';
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const xml = reader.result as string;
+        const doc = importFromDrawio(xml);
+        dispatch({ type: 'SET_DOCUMENT', doc });
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }, [dispatch]);
+
   const handleAlign = useCallback((type: string) => {
     const selectedNodes = state.document.nodes.filter(n => state.selection.nodeIds.includes(n.id));
     if (selectedNodes.length < 2) return;
@@ -169,6 +210,9 @@ export function GraphEditor() {
         onZoomOut={handleZoomOut}
         onFitContent={handleFitContent}
         onClearAll={handleClearAll}
+        onExportSvg={handleExportSvg}
+        onExportDrawio={handleExportDrawio}
+        onImportDrawio={handleImportDrawio}
         onAlign={handleAlign}
         selectionCount={state.selection.nodeIds.length}
         hasSelection={state.selection.nodeIds.length > 0 || state.selection.edgeIds.length > 0}

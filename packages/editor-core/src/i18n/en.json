@@ -731,7 +731,12 @@
     "shapeArrow": "Arrow",
     "shapeCircle": "Circle",
     "shapeDiamond": "Diamond",
-    "shapeBar": "Bar"
+    "shapeBar": "Bar",
+    "exportSvg": "Export SVG",
+    "exportDrawio": "Export draw.io",
+    "importDrawio": "Import draw.io",
+    "export": "Export",
+    "import": "Import"
   },
   "Privacy": {
     "title": "Privacy Policy",

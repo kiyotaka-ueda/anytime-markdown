@@ -731,7 +731,12 @@
     "shapeArrow": "矢印",
     "shapeCircle": "丸",
     "shapeDiamond": "菱形",
-    "shapeBar": "バー"
+    "shapeBar": "バー",
+    "exportSvg": "SVGエクスポート",
+    "exportDrawio": "draw.ioエクスポート",
+    "importDrawio": "draw.ioインポート",
+    "export": "エクスポート",
+    "import": "インポート"
   },
   "Privacy": {
     "title": "プライバシーポリシー",

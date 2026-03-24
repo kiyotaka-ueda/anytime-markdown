@@ -21,6 +21,8 @@ import {
   ZoomOut as ZoomOutIcon,
   FitScreen as FitIcon,
   LayersClear as ClearAllIcon,
+  FileDownload as ExportIcon,
+  FileUpload as ImportIcon,
   AlignHorizontalLeft as AlignHorizontalLeftIcon,
   AlignHorizontalRight as AlignHorizontalRightIcon,
   AlignVerticalTop as AlignVerticalTopIcon,
@@ -49,6 +51,9 @@ interface ToolBarProps {
   onZoomOut: () => void;
   onFitContent: () => void;
   onClearAll: () => void;
+  onExportSvg: () => void;
+  onExportDrawio: () => void;
+  onImportDrawio: () => void;
   onAlign: (type: string) => void;
   selectionCount: number;
   hasSelection: boolean;
@@ -58,10 +63,11 @@ interface ToolBarProps {
 export function GraphToolBar({
   tool, onToolChange, onUndo, onRedo, canUndo, canRedo,
   showGrid, onToggleGrid, onZoomIn, onZoomOut, onFitContent,
-  onClearAll, onAlign, selectionCount, hasSelection, scale,
+  onClearAll, onExportSvg, onExportDrawio, onImportDrawio, onAlign, selectionCount, hasSelection, scale,
 }: ToolBarProps) {
   const t = useTranslations('Graph');
   const [alignAnchor, setAlignAnchor] = React.useState<null | HTMLElement>(null);
+  const [exportAnchor, setExportAnchor] = React.useState<null | HTMLElement>(null);
   return (
     <AppBar
       position="static"
@@ -164,6 +170,24 @@ export function GraphToolBar({
         <Tooltip title={t('grid')}>
           <IconButton size="small" onClick={onToggleGrid} color={showGrid ? 'primary' : 'default'}>
             <GridIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+
+        <Divider orientation="vertical" flexItem />
+
+        <Tooltip title={t('export')}>
+          <IconButton size="small" onClick={e => setExportAnchor(e.currentTarget)}>
+            <ExportIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Menu anchorEl={exportAnchor} open={Boolean(exportAnchor)} onClose={() => setExportAnchor(null)}>
+          <MenuItem onClick={() => { onExportSvg(); setExportAnchor(null); }}><ListItemText>{t('exportSvg')}</ListItemText></MenuItem>
+          <MenuItem onClick={() => { onExportDrawio(); setExportAnchor(null); }}><ListItemText>{t('exportDrawio')}</ListItemText></MenuItem>
+        </Menu>
+
+        <Tooltip title={t('import')}>
+          <IconButton size="small" onClick={onImportDrawio}>
+            <ImportIcon fontSize="small" />
           </IconButton>
         </Tooltip>
       </Toolbar>
