@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@anytime-markdown/editor-core": "*",
+    "jsdom": "26.1.0",
     "@modelcontextprotocol/sdk": "1.12.1"
   },
   "devDependencies": {
