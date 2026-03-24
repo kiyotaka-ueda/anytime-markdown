@@ -1,5 +1,6 @@
 import { GraphNode, GraphEdge, Viewport, SelectionState, EndpointShape } from '../types';
 import type { GuideLine } from './smartGuide';
+import { getVisibleBounds, isNodeVisible, isEdgeVisible } from './culling';
 import {
   CANVAS_BG, CANVAS_GRID, CANVAS_SELECTION, CANVAS_SELECTION_FILL,
   CANVAS_SNAP, CANVAS_SNAP_INNER, CANVAS_SMART_GUIDE,
@@ -28,6 +29,7 @@ export function render(
   hoverNodeId?: string,
   mouseWorldX?: number,
   mouseWorldY?: number,
+  draggingNodeIds?: string[],
 ): void {
   ctx.fillStyle = BG_COLOR;
   ctx.fillRect(0, 0, width, height);
@@ -37,6 +39,9 @@ export function render(
 
   if (showGrid) drawGrid(ctx, viewport, width, height);
 
+  // ビューポートカリング
+  const visibleBounds = getVisibleBounds(viewport, width, height);
+
   // zIndex順にソートして描画（フレームは常に背面）
   const sortedNodes = [...nodes].sort((a, b) => {
     const aIsFrame = a.type === 'frame' ? 0 : 1;
@@ -44,13 +49,14 @@ export function render(
     if (aIsFrame !== bIsFrame) return aIsFrame - bIsFrame;
     return (a.zIndex ?? 0) - (b.zIndex ?? 0);
   });
-  const frameNodes = sortedNodes.filter(n => n.type === 'frame');
-  const nonFrameNodes = sortedNodes.filter(n => n.type !== 'frame');
+  const frameNodes = sortedNodes.filter(n => n.type === 'frame' && isNodeVisible(n, visibleBounds));
+  const nonFrameNodes = sortedNodes.filter(n => n.type !== 'frame' && isNodeVisible(n, visibleBounds));
+  const visibleEdges = edges.filter(e => isEdgeVisible(e, visibleBounds));
   frameNodes.forEach(n => drawNode(ctx, n, selection.nodeIds.includes(n.id)));
-  edges.forEach(e => drawEdge(ctx, e, selection.edgeIds.includes(e.id)));
+  visibleEdges.forEach(e => drawEdge(ctx, e, selection.edgeIds.includes(e.id)));
   nonFrameNodes.forEach(n => {
-    drawNode(ctx, n, selection.nodeIds.includes(n.id));
-    // ロック中ノードにロックインジケータ
+    const isDragging = draggingNodeIds?.includes(n.id) ?? false;
+    drawNode(ctx, n, selection.nodeIds.includes(n.id), isDragging);
     if (n.locked) drawLockIndicator(ctx, n, viewport.scale);
   });
   // 単一選択時のみ個別リサイズハンドル表示
@@ -154,20 +160,31 @@ export function drawNode(
   ctx: CanvasRenderingContext2D,
   node: GraphNode,
   selected: boolean,
+  isDragging: boolean = false,
 ): void {
   ctx.save();
+
+  // ドラッグ中の浮き上がりエフェクト
+  if (isDragging) {
+    ctx.shadowColor = 'rgba(144, 202, 249, 0.3)';
+    ctx.shadowBlur = 16;
+    ctx.shadowOffsetX = 4;
+    ctx.shadowOffsetY = 4;
+  }
 
   const { x, y, width, height, type, style, text } = node;
   const radius = style.borderRadius ?? 0;
   const fill = makeFill(ctx, style, x, y, width, height);
 
   if (type === 'sticky') {
-    // sticky は常に影・角丸
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
-    ctx.shadowBlur = 8;
-    ctx.shadowOffsetX = 2;
-    ctx.shadowOffsetY = 2;
-    if (style.shadow) { ctx.shadowBlur = 12; ctx.shadowOffsetX = 3; ctx.shadowOffsetY = 3; }
+    // sticky は常に影・角丸（ドラッグ中は上で設定済み）
+    if (!isDragging) {
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetX = 2;
+      ctx.shadowOffsetY = 2;
+    }
+    if (!isDragging && style.shadow) { ctx.shadowBlur = 12; ctx.shadowOffsetX = 3; ctx.shadowOffsetY = 3; }
 
     ctx.fillStyle = fill;
     drawRoundedRect(ctx, x, y, width, height, Math.max(4, radius));

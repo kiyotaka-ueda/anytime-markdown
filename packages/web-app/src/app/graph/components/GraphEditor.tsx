@@ -7,13 +7,15 @@ import { screenToWorld } from '../engine/viewport';
 import { useGraphState } from '../hooks/useGraphState';
 import { useCanvasInteraction } from '../hooks/useCanvasInteraction';
 import { useAutoSave } from '../hooks/useAutoSave';
+import { useTouchInteraction } from '../hooks/useTouchInteraction';
 import { GraphToolBar } from './ToolBar';
 import { GraphCanvas } from './GraphCanvas';
 import { PropertyPanel } from './PropertyPanel';
 import { TextEditOverlay } from './TextEditOverlay';
 import { DocEditorModal } from './DocEditorModal';
 import { ShapeHoverBar } from './ShapeHoverBar';
-import { zoom as zoomViewport, fitToContent } from '../engine/viewport';
+import { pan as panViewport, zoom as zoomViewport, fitToContent } from '../engine/viewport';
+import { interpolateViewport, ViewportAnimation } from '@anytime-markdown/graph-core/engine';
 import { alignLeft, alignRight, alignTop, alignBottom, alignCenterH, alignCenterV, distributeH, distributeV } from '../engine/alignment';
 import { loadDocument, getLastDocumentId } from '../store/graphStorage';
 import { exportToSvg, exportToDrawio, importFromDrawio } from '@anytime-markdown/graph-core';
@@ -58,7 +60,7 @@ export function GraphEditor() {
 
   const {
     handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, handleDoubleClick, previewRef, dragRef,
-    clipboardRef, copySelected, pasteFromClipboard, hoverNodeIdRef, mouseWorldRef,
+    clipboardRef, copySelected, pasteFromClipboard, hoverNodeIdRef, mouseWorldRef, velocityRef,
   } = useCanvasInteraction({
     canvasRef, tool,
     nodes: state.document.nodes,
@@ -69,6 +71,13 @@ export function GraphEditor() {
     onTextEdit: handleTextEdit,
     onToolChange: setTool,
     showGrid,
+  });
+
+  useTouchInteraction({
+    canvasRef,
+    viewport: state.document.viewport,
+    dispatch,
+    velocityRef,
   });
 
   useEffect(() => {
@@ -93,25 +102,32 @@ export function GraphEditor() {
     setEditingNodeId(null);
   }, [dispatch]);
 
+  const viewportAnimRef = useRef<ViewportAnimation | null>(null);
+
+  const startViewportAnimation = useCallback((to: Viewport) => {
+    viewportAnimRef.current = {
+      from: { ...state.document.viewport },
+      to,
+      startTime: performance.now(),
+      duration: 200,
+    };
+  }, [state.document.viewport]);
+
   const handleZoomIn = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    dispatch({
-      type: 'SET_VIEWPORT',
-      viewport: zoomViewport(state.document.viewport, rect.width / 2, rect.height / 2, -1),
-    });
-  }, [state.document.viewport, dispatch]);
+    const target = zoomViewport(state.document.viewport, rect.width / 2, rect.height / 2, -300);
+    startViewportAnimation(target);
+  }, [state.document.viewport, startViewportAnimation]);
 
   const handleZoomOut = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    dispatch({
-      type: 'SET_VIEWPORT',
-      viewport: zoomViewport(state.document.viewport, rect.width / 2, rect.height / 2, 1),
-    });
-  }, [state.document.viewport, dispatch]);
+    const target = zoomViewport(state.document.viewport, rect.width / 2, rect.height / 2, 300);
+    startViewportAnimation(target);
+  }, [state.document.viewport, startViewportAnimation]);
 
   const handleFitContent = useCallback(() => {
     const canvas = canvasRef.current;
@@ -123,11 +139,17 @@ export function GraphEditor() {
     const minY = Math.min(...nodes.map(n => n.y));
     const maxX = Math.max(...nodes.map(n => n.x + n.width));
     const maxY = Math.max(...nodes.map(n => n.y + n.height));
-    dispatch({
-      type: 'SET_VIEWPORT',
-      viewport: fitToContent(rect.width, rect.height, { minX, minY, maxX, maxY }),
-    });
-  }, [state.document.nodes, dispatch]);
+    const target = fitToContent(rect.width, rect.height, { minX, minY, maxX, maxY });
+    startViewportAnimation(target);
+  }, [state.document.nodes, startViewportAnimation]);
+
+  const handleViewportUpdate = useCallback((vp: Viewport) => {
+    dispatch({ type: 'SET_VIEWPORT', viewport: vp });
+  }, [dispatch]);
+
+  const handlePanInertia = useCallback((dx: number, dy: number) => {
+    dispatch({ type: 'SET_VIEWPORT', viewport: panViewport(state.document.viewport, dx, dy) });
+  }, [state.document.viewport, dispatch]);
 
   const handleDropImage = useCallback((dataUrl: string, sx: number, sy: number, w: number, h: number) => {
     const world = screenToWorld(state.document.viewport, sx, sy);
@@ -264,6 +286,11 @@ export function GraphEditor() {
           hoverNodeIdRef={hoverNodeIdRef}
           mouseWorldRef={mouseWorldRef}
           onDropImage={handleDropImage}
+          viewportAnimRef={viewportAnimRef}
+          onViewportUpdate={handleViewportUpdate}
+          velocityRef={velocityRef}
+          onPanInertia={handlePanInertia}
+          draggingNodeIds={isDragging && dragRef.current.type === 'move' ? state.selection.nodeIds : undefined}
         />
         {selectedNode && !editingNodeId && !docEditNodeId && !isDragging && (
           <ShapeHoverBar
