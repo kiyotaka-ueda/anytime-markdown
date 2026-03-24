@@ -14,7 +14,6 @@ import {
   TextFields as TextIcon,
   Remove as LineIcon,
   ArrowRightAlt as ArrowIcon,
-  Timeline as ConnectorIcon,
   PanTool as PanIcon,
   Undo as UndoIcon,
   Redo as RedoIcon,
@@ -121,9 +120,6 @@ export function GraphToolBar({
           </ToggleButton>
           <ToggleButton value="arrow" aria-label="Arrow">
             <Tooltip title="Arrow (A)"><ArrowIcon fontSize="small" /></Tooltip>
-          </ToggleButton>
-          <ToggleButton value="connector" aria-label="Connector">
-            <Tooltip title="Connector (C)"><ConnectorIcon fontSize="small" /></Tooltip>
           </ToggleButton>
           <ToggleButton value="pan" aria-label="Pan">
             <Tooltip title="Pan (Space)"><PanIcon fontSize="small" /></Tooltip>
