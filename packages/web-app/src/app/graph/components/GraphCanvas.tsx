@@ -3,8 +3,8 @@
 import React, { useRef, useEffect, useCallback, useMemo } from 'react';
 import { GraphNode, GraphEdge, Viewport, SelectionState } from '../types';
 import { render, drawSelectionRect, drawEdgePreview, drawShapePreview, drawSnapHighlight, drawSmartGuides } from '../engine/renderer';
-import { resolveConnectorEndpoints, computeOrthogonalPath } from '../engine/connector';
-import { interpolateViewport } from '@anytime-markdown/graph-core/engine';
+import { resolveConnectorEndpoints, computeOrthogonalPath, computeBezierPath, bestSides, getConnectionPoints } from '../engine/connector';
+import { interpolateViewport, computeAvoidancePath } from '@anytime-markdown/graph-core/engine';
 import type { ViewportAnimation } from '@anytime-markdown/graph-core/engine';
 import type { DragPreview } from '../hooks/useCanvasInteraction';
 
@@ -49,6 +49,39 @@ export function GraphCanvas({
         const fromNode = nodes.find(n => n.id === e.from.nodeId);
         const toNode = nodes.find(n => n.id === e.to.nodeId);
         if (fromNode && toNode) {
+          const routing = e.style.routing ?? 'orthogonal';
+
+          if (routing === 'bezier') {
+            const bezierPath = computeBezierPath(fromNode, toNode);
+            return {
+              ...e,
+              from: { ...e.from, ...bezierPath[0] },
+              to: { ...e.to, ...bezierPath[3] },
+              bezierPath,
+            };
+          }
+
+          // orthogonal with obstacle avoidance
+          const obstacles = nodes
+            .filter(n => n.id !== fromNode.id && n.id !== toNode.id)
+            .map(n => ({ x: n.x, y: n.y, width: n.width, height: n.height }));
+
+          if (obstacles.length > 0) {
+            const sides = bestSides(fromNode, toNode);
+            const fromPts = getConnectionPoints(fromNode);
+            const toPts = getConnectionPoints(toNode);
+            const fromPt = fromPts.find(p => p.side === sides.fromSide) ?? fromPts[0];
+            const toPt = toPts.find(p => p.side === sides.toSide) ?? toPts[0];
+            const waypoints = computeAvoidancePath(fromPt, sides.fromSide, toPt, sides.toSide, obstacles);
+            return {
+              ...e,
+              from: { ...e.from, ...waypoints[0] },
+              to: { ...e.to, ...waypoints[waypoints.length - 1] },
+              waypoints,
+            };
+          }
+
+          // No obstacles → standard orthogonal
           const waypoints = computeOrthogonalPath(fromNode, toNode, 20, e.manualMidpoint);
           return { ...e, from: { ...e.from, ...waypoints[0] }, to: { ...e.to, ...waypoints[waypoints.length - 1] }, waypoints };
         }
@@ -93,7 +126,13 @@ export function GraphCanvas({
       }
     }
 
-    render(ctx, canvas.width, canvas.height, nodes, resolvedEdges, activeViewport, selection, showGrid, hoverNodeIdRef.current, mouseWorldRef.current.x, mouseWorldRef.current.y, draggingNodeIds);
+    render({
+      ctx, width: canvas.width, height: canvas.height,
+      nodes, edges: resolvedEdges, viewport: activeViewport, selection, showGrid,
+      hoverNodeId: hoverNodeIdRef.current,
+      mouseWorldX: mouseWorldRef.current.x, mouseWorldY: mouseWorldRef.current.y,
+      draggingNodeIds,
+    });
 
     // ドラッグプレビュー描画
     const preview = previewRef.current;
