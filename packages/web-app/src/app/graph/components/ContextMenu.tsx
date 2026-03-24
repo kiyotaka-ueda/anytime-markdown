@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import { Menu, MenuItem, ListItemIcon, ListItemText, Divider } from '@mui/material';
 import {
   ContentCopy as CopyIcon,
@@ -24,6 +25,7 @@ interface ContextMenuProps {
 }
 
 export function ContextMenu({ anchorPosition, targetType, onAction, onClose, hasClipboard }: ContextMenuProps) {
+  const t = useTranslations('Graph');
   if (!anchorPosition) return null;
 
   const handleAction = (action: string) => {
@@ -41,49 +43,49 @@ export function ContextMenu({ anchorPosition, targetType, onAction, onClose, has
       {targetType === 'node' && [
         <MenuItem key="copy" onClick={() => handleAction('copy')}>
           <ListItemIcon><CopyIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Copy</ListItemText>
+          <ListItemText>{t('copy')}</ListItemText>
         </MenuItem>,
         <MenuItem key="paste" onClick={() => handleAction('paste')} disabled={!hasClipboard}>
           <ListItemIcon><PasteIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Paste</ListItemText>
+          <ListItemText>{t('paste')}</ListItemText>
         </MenuItem>,
         <MenuItem key="delete" onClick={() => handleAction('delete')}>
           <ListItemIcon><DeleteIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Delete</ListItemText>
+          <ListItemText>{t('delete')}</ListItemText>
         </MenuItem>,
         <Divider key="d1" />,
         <MenuItem key="front" onClick={() => handleAction('bringToFront')}>
           <ListItemIcon><FrontIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Bring to Front</ListItemText>
+          <ListItemText>{t('bringToFront')}</ListItemText>
         </MenuItem>,
         <MenuItem key="back" onClick={() => handleAction('sendToBack')}>
           <ListItemIcon><BackIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Send to Back</ListItemText>
+          <ListItemText>{t('sendToBack')}</ListItemText>
         </MenuItem>,
         <Divider key="d2" />,
         <MenuItem key="group" onClick={() => handleAction('group')}>
           <ListItemIcon><GroupIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Group</ListItemText>
+          <ListItemText>{t('group')}</ListItemText>
         </MenuItem>,
         <MenuItem key="ungroup" onClick={() => handleAction('ungroup')}>
           <ListItemIcon><UngroupIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Ungroup</ListItemText>
+          <ListItemText>{t('ungroup')}</ListItemText>
         </MenuItem>,
       ]}
       {targetType === 'edge' && (
         <MenuItem onClick={() => handleAction('delete')}>
           <ListItemIcon><DeleteIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Delete</ListItemText>
+          <ListItemText>{t('delete')}</ListItemText>
         </MenuItem>
       )}
       {targetType === 'canvas' && [
         <MenuItem key="paste" onClick={() => handleAction('paste')} disabled={!hasClipboard}>
           <ListItemIcon><PasteIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Paste</ListItemText>
+          <ListItemText>{t('paste')}</ListItemText>
         </MenuItem>,
         <MenuItem key="selectAll" onClick={() => handleAction('selectAll')}>
           <ListItemIcon><SelectAllIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Select All</ListItemText>
+          <ListItemText>{t('selectAll')}</ListItemText>
         </MenuItem>,
       ]}
     </Menu>
