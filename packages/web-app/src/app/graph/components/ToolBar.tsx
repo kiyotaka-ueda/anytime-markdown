@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   AppBar, Toolbar, ToggleButton, ToggleButtonGroup,
   IconButton, Tooltip, Divider, Box, Menu, MenuItem,
@@ -63,6 +63,7 @@ interface ToolBarProps {
   onExportDrawio: () => void;
   onImportDrawio: () => void;
   onAlign: (type: string) => void;
+  onSetScale: (scale: number) => void;
   selectionCount: number;
   hasSelection: boolean;
   scale: number;
@@ -72,11 +73,12 @@ interface ToolBarProps {
 export function GraphToolBar({
   tool, onToolChange, onUndo, onRedo, canUndo, canRedo,
   showGrid, onToggleGrid, onZoomIn, onZoomOut, onFitContent,
-  onClearAll, onExportSvg, onExportDrawio, onImportDrawio, onAlign, selectionCount, hasSelection, scale, saveStatus,
+  onClearAll, onExportSvg, onExportDrawio, onImportDrawio, onAlign, onSetScale, selectionCount, hasSelection, scale, saveStatus,
 }: ToolBarProps) {
   const t = useTranslations('Graph');
   const [alignAnchor, setAlignAnchor] = React.useState<null | HTMLElement>(null);
   const [exportAnchor, setExportAnchor] = React.useState<null | HTMLElement>(null);
+  const [zoomAnchor, setZoomAnchor] = useState<null | HTMLElement>(null);
   return (
     <AppBar
       position="static"
@@ -176,9 +178,19 @@ export function GraphToolBar({
         <Tooltip title={t('zoomOut')}>
           <IconButton size="small" onClick={onZoomOut}><ZoomOutIcon fontSize="small" /></IconButton>
         </Tooltip>
-        <Box sx={{ minWidth: 48, textAlign: 'center', fontSize: '0.75rem', color: 'text.secondary' }}>
+        <Box
+          onClick={(e) => setZoomAnchor(e.currentTarget)}
+          sx={{ minWidth: 48, textAlign: 'center', fontSize: '0.75rem', color: 'text.secondary', cursor: 'pointer', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }, borderRadius: 1, px: 0.5 }}
+        >
           {Math.round(scale * 100)}%
         </Box>
+        <Menu anchorEl={zoomAnchor} open={Boolean(zoomAnchor)} onClose={() => setZoomAnchor(null)}>
+          {[50, 75, 100, 150, 200].map(pct => (
+            <MenuItem key={pct} onClick={() => { onSetScale(pct / 100); setZoomAnchor(null); }}>
+              {pct}%
+            </MenuItem>
+          ))}
+        </Menu>
         <Tooltip title={t('zoomIn')}>
           <IconButton size="small" onClick={onZoomIn}><ZoomInIcon fontSize="small" /></IconButton>
         </Tooltip>

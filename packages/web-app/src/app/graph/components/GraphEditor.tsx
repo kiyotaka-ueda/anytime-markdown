@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Box, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
+import { Box, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Typography } from '@mui/material';
 import { useTranslations } from 'next-intl';
 import { ToolType, GraphDocument, Viewport, createDocument, createNode } from '../types';
 import { screenToWorld } from '../engine/viewport';
@@ -182,6 +182,24 @@ export function GraphEditor() {
     startViewportAnimation(target);
   }, [state.document.viewport, startViewportAnimation]);
 
+  const handleSetScale = useCallback((newScale: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    const vp = state.document.viewport;
+    // Keep the center of the canvas fixed while changing scale
+    const worldCenterX = (cx - vp.offsetX) / vp.scale;
+    const worldCenterY = (cy - vp.offsetY) / vp.scale;
+    const target: Viewport = {
+      offsetX: cx - worldCenterX * newScale,
+      offsetY: cy - worldCenterY * newScale,
+      scale: newScale,
+    };
+    startViewportAnimation(target);
+  }, [state.document.viewport, startViewportAnimation]);
+
   const handleFitContent = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -329,6 +347,7 @@ export function GraphEditor() {
         onExportDrawio={handleExportDrawio}
         onImportDrawio={handleImportDrawio}
         onAlign={handleAlign}
+        onSetScale={handleSetScale}
         selectionCount={state.selection.nodeIds.length}
         hasSelection={state.selection.nodeIds.length > 0 || state.selection.edgeIds.length > 0}
         scale={state.document.viewport.scale}
@@ -359,6 +378,21 @@ export function GraphEditor() {
           draggingNodeIds={isDragging && dragRef.current.type === 'move' ? state.selection.nodeIds : undefined}
           ariaLabel={canvasAriaLabel}
         />
+        {state.document.nodes.length === 0 && (
+          <Box sx={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            color: 'rgba(255,255,255,0.45)',
+            textAlign: 'center',
+            pointerEvents: 'none',
+            zIndex: 10,
+          }}>
+            <Typography variant="h6" sx={{ mb: 1, fontWeight: 300 }}>{t('emptyCanvasTitle')}</Typography>
+            <Typography variant="body2">{t('emptyCanvasHint')}</Typography>
+          </Box>
+        )}
         {selectedNode && !editingNodeId && !docEditNodeId && !isDragging && (
           <ShapeHoverBar
             node={selectedNode}
