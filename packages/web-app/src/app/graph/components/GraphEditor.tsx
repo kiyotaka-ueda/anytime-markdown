@@ -395,7 +395,7 @@ export function GraphEditor() {
             top: '50%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
-            color: 'rgba(255,255,255,0.45)',
+            color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.35)',
             textAlign: 'center',
             pointerEvents: 'none',
             zIndex: 10,

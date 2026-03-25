@@ -242,7 +242,7 @@ export function PropertyPanel({ selectedNode, selectedEdge, onUpdateNode, onUpda
                 exclusive
                 onChange={(_, v) => v && onUpdateNode(selectedNode.id, { style: { ...selectedNode.style, gradientDirection: v } })}
                 size="small"
-                sx={{ mb: 2, display: 'flex', '& .MuiToggleButton-root': { flex: 1, fontSize: '0.65rem', py: 0.3, color: colors.textSecondary, borderColor: colors.panelBorder, '&.Mui-selected': { color: colors.accentColor, backgroundColor: 'rgba(144,202,249,0.12)' } } }}
+                sx={{ mb: 2, display: 'flex', '& .MuiToggleButton-root': { flex: 1, fontSize: '0.65rem', py: 0.3, color: colors.textSecondary, borderColor: colors.panelBorder, '&.Mui-selected': { color: colors.accentColor, backgroundColor: `${colors.accentColor}1F` } } }}
               >
                 <ToggleButton value="vertical" aria-label={t('gradientVertical')}>↕</ToggleButton>
                 <ToggleButton value="horizontal" aria-label={t('gradientHorizontal')}>↔</ToggleButton>
@@ -366,7 +366,7 @@ export function PropertyPanel({ selectedNode, selectedEdge, onUpdateNode, onUpda
             exclusive
             onChange={(_, v) => v && onUpdateEdge(selectedEdge.id, { style: { ...selectedEdge.style, startShape: v as EndpointShape } })}
             size="small"
-            sx={{ mb: 2, display: 'flex', '& .MuiToggleButton-root': { flex: 1, fontSize: '0.65rem', py: 0.3, color: colors.textSecondary, borderColor: colors.panelBorder, '&.Mui-selected': { color: colors.accentColor, backgroundColor: 'rgba(144,202,249,0.12)' } } }}
+            sx={{ mb: 2, display: 'flex', '& .MuiToggleButton-root': { flex: 1, fontSize: '0.65rem', py: 0.3, color: colors.textSecondary, borderColor: colors.panelBorder, '&.Mui-selected': { color: colors.accentColor, backgroundColor: `${colors.accentColor}1F` } } }}
           >
             <ToggleButton value="none">{t('shapeNone')}</ToggleButton>
             <ToggleButton value="arrow">{t('shapeArrow')}</ToggleButton>
@@ -381,7 +381,7 @@ export function PropertyPanel({ selectedNode, selectedEdge, onUpdateNode, onUpda
             exclusive
             onChange={(_, v) => v && onUpdateEdge(selectedEdge.id, { style: { ...selectedEdge.style, endShape: v as EndpointShape } })}
             size="small"
-            sx={{ mb: 2, display: 'flex', '& .MuiToggleButton-root': { flex: 1, fontSize: '0.65rem', py: 0.3, color: colors.textSecondary, borderColor: colors.panelBorder, '&.Mui-selected': { color: colors.accentColor, backgroundColor: 'rgba(144,202,249,0.12)' } } }}
+            sx={{ mb: 2, display: 'flex', '& .MuiToggleButton-root': { flex: 1, fontSize: '0.65rem', py: 0.3, color: colors.textSecondary, borderColor: colors.panelBorder, '&.Mui-selected': { color: colors.accentColor, backgroundColor: `${colors.accentColor}1F` } } }}
           >
             <ToggleButton value="none">{t('shapeNone')}</ToggleButton>
             <ToggleButton value="arrow">{t('shapeArrow')}</ToggleButton>
@@ -414,7 +414,7 @@ export function PropertyPanel({ selectedNode, selectedEdge, onUpdateNode, onUpda
                 exclusive
                 onChange={(_, v) => v && onUpdateEdge(selectedEdge.id, { style: { ...selectedEdge.style, routing: v } })}
                 size="small"
-                sx={{ mb: 2, display: 'flex', '& .MuiToggleButton-root': { flex: 1, fontSize: '0.65rem', py: 0.3, color: colors.textSecondary, borderColor: colors.panelBorder, '&.Mui-selected': { color: colors.accentColor, backgroundColor: 'rgba(144,202,249,0.12)' } } }}
+                sx={{ mb: 2, display: 'flex', '& .MuiToggleButton-root': { flex: 1, fontSize: '0.65rem', py: 0.3, color: colors.textSecondary, borderColor: colors.panelBorder, '&.Mui-selected': { color: colors.accentColor, backgroundColor: `${colors.accentColor}1F` } } }}
               >
                 <ToggleButton value="orthogonal">{t('routingOrthogonal')}</ToggleButton>
                 <ToggleButton value="bezier">{t('routingBezier')}</ToggleButton>

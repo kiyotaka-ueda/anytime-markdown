@@ -87,10 +87,10 @@ export function ShapeHoverBar({ node, viewport, onChangeType }: ShapeHoverBarPro
               width: 28,
               height: 28,
               color: node.type === s.type ? colors.accentColor : colors.textSecondary,
-              backgroundColor: node.type === s.type ? 'rgba(144,202,249,0.12)' : 'transparent',
+              backgroundColor: node.type === s.type ? `${colors.accentColor}1F` : 'transparent',
               borderRadius: '6px',
               '&:hover': {
-                backgroundColor: 'rgba(255,255,255,0.08)',
+                backgroundColor: colors.hoverBg,
                 color: colors.textPrimary,
               },
             }}

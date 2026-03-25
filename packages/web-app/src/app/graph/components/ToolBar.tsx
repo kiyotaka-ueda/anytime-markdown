@@ -94,12 +94,13 @@ export function GraphToolBar({
         zIndex: 10,
       }}
     >
-      <Toolbar variant="dense" sx={{ gap: 1, minHeight: 48 }}>
+      <Toolbar variant="dense" sx={{ gap: 1, minHeight: 48, '& .MuiIconButton-root': { color: colors.textSecondary }, '& .MuiDivider-root': { borderColor: colors.panelBorder } }}>
         <ToggleButtonGroup
           value={tool}
           exclusive
           onChange={(_, val) => val && onToolChange(val)}
           size="small"
+          sx={{ '& .MuiToggleButton-root': { color: colors.textSecondary, '&.Mui-selected': { color: colors.accentColor, backgroundColor: `${colors.accentColor}1F` } } }}
         >
           <ToggleButton value="select" aria-label={t('select')}>
             <Tooltip title={`${t('select')} (V)`}><SelectIcon fontSize="small" /></Tooltip>
