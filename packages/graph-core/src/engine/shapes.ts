@@ -1,8 +1,16 @@
 import { GraphNode, NodeType } from '../types';
 import {
   CANVAS_SELECTION, COLOR_TEXT_PRIMARY, COLOR_TEXT_SECONDARY, FONT_FAMILY,
-  DOC_ICON_COLOR, FRAME_TITLE_BG, COLOR_ICE_BLUE,
+  DOC_ICON_COLOR, FRAME_TITLE_BG, COLOR_ICE_BLUE, COLOR_TEXT_ON_LIGHT,
+  COLOR_LOCK_ICON,
 } from '../theme';
+import {
+  SHADOW_DEFAULT, SHADOW_STICKY, SHADOW_DRAGGING,
+  FONT_SIZE_BADGE, FONT_SIZE_PREVIEW, FONT_SIZE_LINK_ICON,
+  DASH_DEFAULT, DASH_FRAME, STROKE_WIDTH_SELECTED,
+  TEXT_PREVIEW_MAX_CHARS, TEXT_PREVIEW_MAX_LINES, TEXT_LINE_MAX_CHARS,
+} from './constants';
+import type { ShadowStyle } from './constants';
 
 const MAX_IMAGE_CACHE = 50;
 
@@ -48,13 +56,38 @@ function makeFill(ctx: CanvasRenderingContext2D, style: GraphNode['style'], x: n
 }
 
 /** 影を適用 */
-function applyShadow(ctx: CanvasRenderingContext2D, style: GraphNode['style']): void {
+function applyShadow(ctx: CanvasRenderingContext2D, style: GraphNode['style'], shadow: ShadowStyle = SHADOW_DEFAULT): void {
   if (style.shadow) {
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
-    ctx.shadowBlur = 12;
-    ctx.shadowOffsetX = 3;
-    ctx.shadowOffsetY = 3;
+    ctx.shadowColor = shadow.color;
+    ctx.shadowBlur = shadow.blur;
+    ctx.shadowOffsetX = shadow.offsetX;
+    ctx.shadowOffsetY = shadow.offsetY;
   }
+}
+
+/** borderRadius の実効値を算出（未設定時はフォールバック値を使用） */
+function effectiveBorderRadius(style: GraphNode['style'], fallback: number): number {
+  return Math.max(fallback, style.borderRadius ?? 0);
+}
+
+/** 角丸シェイプの共通描画パターン（shadow → fill → clearShadow → stroke） */
+function renderRoundedShape(
+  ctx: CanvasRenderingContext2D,
+  node: GraphNode,
+  selected: boolean,
+  fill: string | CanvasGradient,
+  radiusFallback: number,
+): void {
+  const { x, y, width, height, style } = node;
+  const radius = effectiveBorderRadius(style, radiusFallback);
+  applyShadow(ctx, style);
+  drawRoundedRect(ctx, x, y, width, height, radius);
+  ctx.fillStyle = fill;
+  ctx.fill();
+  clearShadow(ctx);
+  setupStroke(ctx, style, selected);
+  drawRoundedRect(ctx, x, y, width, height, radius);
+  ctx.stroke();
 }
 
 function clearShadow(ctx: CanvasRenderingContext2D): void {
@@ -67,7 +100,7 @@ function clearShadow(ctx: CanvasRenderingContext2D): void {
 /** 選択状態に応じた stroke スタイルを設定 */
 function setupStroke(ctx: CanvasRenderingContext2D, style: GraphNode['style'], selected: boolean): void {
   ctx.strokeStyle = selected ? CANVAS_SELECTION : style.stroke;
-  ctx.lineWidth = selected ? 3 : style.strokeWidth;
+  ctx.lineWidth = selected ? STROKE_WIDTH_SELECTED : style.strokeWidth;
 }
 
 // ---------------------------------------------------------------------------
@@ -139,16 +172,16 @@ function renderStandardShape(
 
 const renderSticky: SpecialShapeRenderer = (ctx, node, selected, isDragging, fill) => {
   const { x, y, width, height, style } = node;
-  const radius = Math.max(4, style.borderRadius ?? 0);
+  const radius = effectiveBorderRadius(style, 4);
 
   // sticky は常に影・角丸（ドラッグ中は上で設定済み）
   if (!isDragging) {
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
-    ctx.shadowBlur = 8;
-    ctx.shadowOffsetX = 2;
-    ctx.shadowOffsetY = 2;
+    const shadow = style.shadow ? SHADOW_DEFAULT : SHADOW_STICKY;
+    ctx.shadowColor = shadow.color;
+    ctx.shadowBlur = shadow.blur;
+    ctx.shadowOffsetX = shadow.offsetX;
+    ctx.shadowOffsetY = shadow.offsetY;
   }
-  if (!isDragging && style.shadow) { ctx.shadowBlur = 12; ctx.shadowOffsetX = 3; ctx.shadowOffsetY = 3; }
 
   ctx.fillStyle = fill;
   drawRoundedRect(ctx, x, y, width, height, radius);
@@ -164,7 +197,7 @@ const renderText: SpecialShapeRenderer = (ctx, node, selected) => {
   if (selected) {
     ctx.strokeStyle = CANVAS_SELECTION;
     ctx.lineWidth = 1;
-    ctx.setLineDash([4, 4]);
+    ctx.setLineDash([...DASH_DEFAULT]);
     ctx.strokeRect(node.x, node.y, node.width, node.height);
     ctx.setLineDash([]);
   }
@@ -186,21 +219,11 @@ const renderCylinder: SpecialShapeRenderer = (ctx, node, selected, _isDragging, 
 };
 
 const renderInsight: SpecialShapeRenderer = (ctx, node, selected, _isDragging, fill) => {
-  const { x, y, width, height, style, text } = node;
-  const radius = Math.max(8, style.borderRadius ?? 0);
-
-  applyShadow(ctx, style);
-  drawRoundedRect(ctx, x, y, width, height, radius);
-  ctx.fillStyle = fill;
-  ctx.fill();
-  clearShadow(ctx);
-  setupStroke(ctx, style, selected);
-  drawRoundedRect(ctx, x, y, width, height, radius);
-  ctx.stroke();
+  const { x, y, width, style, text } = node;
+  renderRoundedShape(ctx, node, selected, fill, 8);
   // Label badge
   if (node.label) {
-    const labelFont = `bold 10px ${FONT_FAMILY}`;
-    ctx.font = labelFont;
+    ctx.font = `bold ${FONT_SIZE_BADGE}px ${FONT_FAMILY}`;
     const labelW = ctx.measureText(node.label).width + 12;
     const badgeH = 18;
     const badgeX = x + 10;
@@ -208,7 +231,7 @@ const renderInsight: SpecialShapeRenderer = (ctx, node, selected, _isDragging, f
     drawRoundedRect(ctx, badgeX, badgeY, labelW, badgeH, 4);
     ctx.fillStyle = node.labelColor ?? COLOR_ICE_BLUE;
     ctx.fill();
-    ctx.fillStyle = 'rgba(0,0,0,0.87)';
+    ctx.fillStyle = COLOR_TEXT_ON_LIGHT;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText(node.label, badgeX + 6, badgeY + badgeH / 2);
@@ -224,17 +247,8 @@ const renderInsight: SpecialShapeRenderer = (ctx, node, selected, _isDragging, f
 };
 
 const renderDoc: SpecialShapeRenderer = (ctx, node, selected, _isDragging, fill) => {
-  const { x, y, width, height, style, text } = node;
-  const radius = Math.max(8, style.borderRadius ?? 0);
-
-  applyShadow(ctx, style);
-  drawRoundedRect(ctx, x, y, width, height, radius);
-  ctx.fillStyle = fill;
-  ctx.fill();
-  clearShadow(ctx);
-  setupStroke(ctx, style, selected);
-  drawRoundedRect(ctx, x, y, width, height, radius);
-  ctx.stroke();
+  const { x, y, width, style, text } = node;
+  renderRoundedShape(ctx, node, selected, fill, 8);
   // Doc icon (path-based)
   ctx.fillStyle = DOC_ICON_COLOR;
   ctx.strokeStyle = DOC_ICON_COLOR;
@@ -250,19 +264,19 @@ const renderDoc: SpecialShapeRenderer = (ctx, node, selected, _isDragging, fill)
   // Preview text
   if (node.docContent) {
     ctx.fillStyle = COLOR_TEXT_SECONDARY;
-    ctx.font = `11px ${FONT_FAMILY}`;
+    ctx.font = `${FONT_SIZE_PREVIEW}px ${FONT_FAMILY}`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    const preview = node.docContent.slice(0, 100).split('\n').slice(0, 3);
+    const preview = node.docContent.slice(0, TEXT_PREVIEW_MAX_CHARS).split('\n').slice(0, TEXT_PREVIEW_MAX_LINES);
     preview.forEach((line, i) => {
-      ctx.fillText(line.slice(0, 30), x + 10, y + 40 + i * 15, width - 20);
+      ctx.fillText(line.slice(0, TEXT_LINE_MAX_CHARS), x + 10, y + 40 + i * 15, width - 20);
     });
   }
 };
 
 const renderImage: SpecialShapeRenderer = (ctx, node, selected) => {
   const { x, y, width, height, style } = node;
-  const r = (style.borderRadius ?? 0) > 0 ? (style.borderRadius ?? 0) : 4;
+  const r = effectiveBorderRadius(style, 4);
 
   applyShadow(ctx, style);
   // 背景プレースホルダー
@@ -289,14 +303,14 @@ const renderImage: SpecialShapeRenderer = (ctx, node, selected) => {
 
 const renderFrame: SpecialShapeRenderer = (ctx, node, selected, _isDragging, fill) => {
   const { x, y, width, height, style, text } = node;
-  const fr = (style.borderRadius ?? 0) > 0 ? (style.borderRadius ?? 0) : 8;
+  const fr = effectiveBorderRadius(style, 8);
 
   // フレーム背景
   ctx.fillStyle = fill;
   drawRoundedRect(ctx, x, y, width, height, fr);
   ctx.fill();
   setupStroke(ctx, style, selected);
-  ctx.setLineDash([6, 3]);
+  ctx.setLineDash([...DASH_FRAME]);
   drawRoundedRect(ctx, x, y, width, height, fr);
   ctx.stroke();
   ctx.setLineDash([]);
@@ -372,10 +386,10 @@ export function drawNode(
 
   // ドラッグ中の浮き上がりエフェクト
   if (isDragging) {
-    ctx.shadowColor = 'rgba(144, 202, 249, 0.3)';
-    ctx.shadowBlur = 16;
-    ctx.shadowOffsetX = 4;
-    ctx.shadowOffsetY = 4;
+    ctx.shadowColor = SHADOW_DRAGGING.color;
+    ctx.shadowBlur = SHADOW_DRAGGING.blur;
+    ctx.shadowOffsetX = SHADOW_DRAGGING.offsetX;
+    ctx.shadowOffsetY = SHADOW_DRAGGING.offsetY;
   }
 
   const { x, y, width, height, type, style, text } = node;
@@ -420,7 +434,7 @@ export function drawNode(
   // リンクアイコン（URL設定済みノード）
   if (node.url) {
     ctx.save();
-    ctx.font = `12px ${FONT_FAMILY}`;
+    ctx.font = `${FONT_SIZE_LINK_ICON}px ${FONT_FAMILY}`;
     ctx.fillStyle = COLOR_ICE_BLUE;
     ctx.textAlign = 'right';
     ctx.textBaseline = 'top';
@@ -549,8 +563,8 @@ export function wrapText(
 function drawLockIcon(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number): void {
   const s = size;
   ctx.save();
-  ctx.fillStyle = 'rgba(255,255,255,0.7)';
-  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+  ctx.fillStyle = COLOR_LOCK_ICON;
+  ctx.strokeStyle = COLOR_LOCK_ICON;
   ctx.lineWidth = 1.5;
   // Lock body (rectangle)
   ctx.fillRect(cx - s * 0.35, cy, s * 0.7, s * 0.5);

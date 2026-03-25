@@ -5,6 +5,11 @@ import {
   resolveConnectorEndpoints,
   computeBezierPath,
   getConnectionPoints,
+  nodeIntersection,
+  nearestConnectionPoint,
+  hitTestConnectionPoint,
+  computeOrthogonalPath,
+  bestSides,
 } from '../../engine/connector';
 import { GraphNode, GraphEdge, DEFAULT_NODE_STYLE, DEFAULT_EDGE_STYLE } from '../../types';
 
@@ -136,5 +141,162 @@ describe('getConnectionPoints with extraConnectionPoints', () => {
     // Extra point at x=0.75, y=1 → world: 100 + 200*0.75 = 250, 200 + 100*1 = 300
     const extra2 = points.find(p => p.x === 250 && p.y === 300);
     expect(extra2).toBeDefined();
+  });
+});
+
+describe('nodeIntersection', () => {
+  it('should use diamond intersection for diamond nodes', () => {
+    const diamond: GraphNode = { id: 'd1', type: 'diamond', x: 0, y: 0, width: 200, height: 100, text: '', style: { ...DEFAULT_NODE_STYLE } };
+    const pt = nodeIntersection(diamond, 500, 50);
+    expect(pt.x).toBeCloseTo(200);
+    expect(pt.y).toBeCloseTo(50);
+  });
+
+  it('should use rect intersection for rect nodes', () => {
+    const rect: GraphNode = { id: 'r1', type: 'rect', x: 0, y: 0, width: 200, height: 100, text: '', style: { ...DEFAULT_NODE_STYLE } };
+    const pt = nodeIntersection(rect, 500, 50);
+    expect(pt.x).toBe(200);
+  });
+
+  it('should return center when target equals center', () => {
+    const diamond: GraphNode = { id: 'd2', type: 'diamond', x: 0, y: 0, width: 200, height: 100, text: '', style: { ...DEFAULT_NODE_STYLE } };
+    const pt = nodeIntersection(diamond, 100, 50);
+    expect(pt.x).toBe(100);
+    expect(pt.y).toBe(50);
+  });
+});
+
+describe('nearestConnectionPoint', () => {
+  it('should return the closest connection point', () => {
+    const node = makeNode('n1', 0, 0, 200, 100);
+    const result = nearestConnectionPoint(node, 300, 50);
+    expect(result.side).toBe('right');
+    expect(result.x).toBe(200);
+  });
+
+  it('should return top when target is above', () => {
+    const node = makeNode('n1', 0, 0, 200, 100);
+    const result = nearestConnectionPoint(node, 100, -100);
+    expect(result.side).toBe('top');
+  });
+});
+
+describe('hitTestConnectionPoint', () => {
+  it('should detect connection point within radius', () => {
+    const node = makeNode('n1', 100, 100, 200, 100);
+    const result = hitTestConnectionPoint(node, 200, 100, 1);
+    expect(result).not.toBeNull();
+    expect(result!.side).toBe('top');
+  });
+
+  it('should return null when far from all points', () => {
+    const node = makeNode('n1', 100, 100, 200, 100);
+    const result = hitTestConnectionPoint(node, 150, 150, 1);
+    expect(result).toBeNull();
+  });
+});
+
+describe('bestSides', () => {
+  it('should return right/left for horizontally separated nodes', () => {
+    const from = makeNode('a', 0, 0, 100, 100);
+    const to = makeNode('b', 300, 0, 100, 100);
+    const { fromSide, toSide } = bestSides(from, to);
+    expect(fromSide).toBe('right');
+    expect(toSide).toBe('left');
+  });
+
+  it('should return bottom/top for vertically separated nodes', () => {
+    const from = makeNode('a', 0, 0, 100, 100);
+    const to = makeNode('b', 0, 300, 100, 100);
+    const { fromSide, toSide } = bestSides(from, to);
+    expect(fromSide).toBe('bottom');
+    expect(toSide).toBe('top');
+  });
+
+  it('should return left/right when to is to the left', () => {
+    const from = makeNode('a', 300, 0, 100, 100);
+    const to = makeNode('b', 0, 0, 100, 100);
+    const { fromSide, toSide } = bestSides(from, to);
+    expect(fromSide).toBe('left');
+    expect(toSide).toBe('right');
+  });
+
+  it('should return top/bottom when to is above', () => {
+    const from = makeNode('a', 0, 300, 100, 100);
+    const to = makeNode('b', 0, 0, 100, 100);
+    const { fromSide, toSide } = bestSides(from, to);
+    expect(fromSide).toBe('top');
+    expect(toSide).toBe('bottom');
+  });
+});
+
+describe('computeOrthogonalPath', () => {
+  it('should produce path for horizontally opposite nodes (right->left)', () => {
+    const from = makeNode('a', 0, 0, 100, 100);
+    const to = makeNode('b', 300, 0, 100, 100);
+    const path = computeOrthogonalPath(from, to);
+    expect(path.length).toBeGreaterThanOrEqual(4);
+    expect(path[0]).toEqual({ side: 'right', x: 100, y: 50 });
+    expect(path[path.length - 1]).toEqual({ side: 'left', x: 300, y: 50 });
+  });
+
+  it('should produce path for vertically opposite nodes (bottom->top)', () => {
+    const from = makeNode('a', 0, 0, 100, 100);
+    const to = makeNode('b', 0, 300, 100, 100);
+    const path = computeOrthogonalPath(from, to);
+    expect(path.length).toBeGreaterThanOrEqual(4);
+    expect(path[0].y).toBe(100);
+    expect(path[path.length - 1].y).toBe(300);
+  });
+
+  it('should use manualMidpoint when provided (horizontal)', () => {
+    const from = makeNode('a', 0, 0, 100, 100);
+    const to = makeNode('b', 300, 0, 100, 100);
+    const path = computeOrthogonalPath(from, to, 20, 250);
+    const midPoints = path.filter(p => p.x === 250);
+    expect(midPoints.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should produce path for non-opposite sides', () => {
+    const from = makeNode('a', 0, 0, 100, 100);
+    const to = makeNode('b', 300, 200, 100, 100);
+    const path = computeOrthogonalPath(from, to);
+    expect(path.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('should handle manualMidpoint for vertical opposite', () => {
+    const from = makeNode('a', 0, 0, 100, 100);
+    const to = makeNode('b', 0, 300, 100, 100);
+    const path = computeOrthogonalPath(from, to, 20, 200);
+    const midPoints = path.filter(p => p.y === 200);
+    expect(midPoints.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('resolveConnectorEndpoints - partial node attachment', () => {
+  it('should resolve from node only', () => {
+    const fromNode: GraphNode = { id: 'r1', type: 'rect', x: 0, y: 0, width: 200, height: 100, text: '', style: DEFAULT_NODE_STYLE };
+    const edge: GraphEdge = {
+      id: 'c3', type: 'line',
+      from: { nodeId: 'r1', x: 0, y: 0 },
+      to: { x: 300, y: 50 },
+      style: DEFAULT_EDGE_STYLE,
+    };
+    const result = resolveConnectorEndpoints(edge, [fromNode]);
+    expect(result.from.x).toBe(200);
+    expect(result.to).toEqual({ x: 300, y: 50 });
+  });
+
+  it('should resolve to node only', () => {
+    const toNode: GraphNode = { id: 'r2', type: 'rect', x: 300, y: 0, width: 200, height: 100, text: '', style: DEFAULT_NODE_STYLE };
+    const edge: GraphEdge = {
+      id: 'c4', type: 'line',
+      from: { x: 0, y: 50 },
+      to: { nodeId: 'r2', x: 0, y: 0 },
+      style: DEFAULT_EDGE_STYLE,
+    };
+    const result = resolveConnectorEndpoints(edge, [toNode]);
+    expect(result.from).toEqual({ x: 0, y: 50 });
+    expect(result.to.x).toBe(300);
   });
 });

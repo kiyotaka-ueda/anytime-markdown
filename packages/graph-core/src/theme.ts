@@ -30,6 +30,21 @@ export const COLOR_ERROR = '#EF5350';
 export const COLOR_WARNING = '#FFA726';
 export const COLOR_INFO = '#42A5F5';
 
+// ── Shadow ──
+export const COLOR_SHADOW = 'rgba(0, 0, 0, 0.35)';
+export const COLOR_SHADOW_LIGHT = 'rgba(0, 0, 0, 0.2)';
+
+// ── Effect ──
+export const COLOR_DRAG_GLOW = 'rgba(144, 202, 249, 0.3)';
+export const COLOR_LOCK_ICON = 'rgba(255,255,255,0.7)';
+
+// ── Tooltip ──
+export const COLOR_TOOLTIP_BG = 'rgba(13, 17, 23, 0.9)';
+export const COLOR_TOOLTIP_BORDER = 'rgba(144, 202, 249, 0.3)';
+
+// ── Edge ──
+export const COLOR_INVALID_TARGET = 'rgba(244, 67, 54, 0.6)';
+
 // ── Canvas-specific ──
 export const CANVAS_BG = COLOR_MIDNIGHT_NAVY;
 export const CANVAS_GRID = 'rgba(255,255,255,0.06)';

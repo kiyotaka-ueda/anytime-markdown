@@ -107,7 +107,7 @@ export function useCanvasInteraction({
 
     if (tool === 'select') {
       const resolved = resolveEdgesWithWaypoints(edges, nodes);
-      const hit = hitTest(nodes, resolved, world.x, world.y, viewport.scale, selection.nodeIds, hoverNodeIdRef.current, selection.edgeIds);
+      const hit = hitTest({ nodes, edges: resolved, wx: world.x, wy: world.y, scale: viewport.scale, selectedNodeIds: selection.nodeIds, hoverNodeId: hoverNodeIdRef.current, selectedEdgeIds: selection.edgeIds });
 
       // エッジエンドポイントハンドル → 端点再接続ドラッグ
       if (hit.type === 'edge-endpoint' && hit.id && hit.endpointEnd) {
@@ -243,7 +243,7 @@ export function useCanvasInteraction({
     }
 
     if (['line', 'arrow', 'connector'].includes(tool)) {
-      const hit = hitTest(nodes, edges, world.x, world.y, viewport.scale, []);
+      const hit = hitTest({ nodes, edges, wx: world.x, wy: world.y, scale: viewport.scale, selectedNodeIds: [] });
       dragRef.current = {
         type: 'create-edge', startWorldX: world.x, startWorldY: world.y,
         startScreenX: sx, startScreenY: sy,
@@ -275,9 +275,9 @@ export function useCanvasInteraction({
       const world = screenToWorld(viewport, sx, sy);
       mouseWorldRef.current = world;
       const resolved = resolveEdgesWithWaypoints(edges, nodes);
-      const fullHit = hitTest(nodes, resolved, world.x, world.y, viewport.scale, selection.nodeIds, undefined, selection.edgeIds);
+      const fullHit = hitTest({ nodes, edges: resolved, wx: world.x, wy: world.y, scale: viewport.scale, selectedNodeIds: selection.nodeIds, selectedEdgeIds: selection.edgeIds });
       // ホバー判定はリサイズハンドルを無視
-      const hoverHit = hitTest(nodes, resolved, world.x, world.y, viewport.scale, []);
+      const hoverHit = hitTest({ nodes, edges: resolved, wx: world.x, wy: world.y, scale: viewport.scale, selectedNodeIds: [] });
       hoverNodeIdRef.current = hoverHit.type === 'node' ? hoverHit.id : undefined;
 
       // カーソル設定
@@ -408,7 +408,7 @@ export function useCanvasInteraction({
 
     if (drag.type === 'create-edge') {
       const world = screenToWorld(viewport, sx, sy);
-      const hit = hitTest(nodes, edges, world.x, world.y, viewport.scale, []);
+      const hit = hitTest({ nodes, edges, wx: world.x, wy: world.y, scale: viewport.scale, selectedNodeIds: [] });
       previewRef.current = {
         type: 'edge',
         fromX: drag.startWorldX, fromY: drag.startWorldY,
@@ -470,7 +470,7 @@ export function useCanvasInteraction({
     }
 
     if (drag.type === 'create-edge') {
-      const hit = hitTest(nodes, edges, world.x, world.y, viewport.scale, []);
+      const hit = hitTest({ nodes, edges, wx: world.x, wy: world.y, scale: viewport.scale, selectedNodeIds: [] });
       const edgeType: 'line' | 'arrow' | 'connector' =
         (tool === 'line' || tool === 'arrow' || tool === 'connector') ? tool : 'connector';
       const dist = Math.hypot(world.x - drag.startWorldX, world.y - drag.startWorldY);
@@ -580,7 +580,7 @@ export function useCanvasInteraction({
 
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     const world = getWorldPos(e as unknown as MouseEvent);
-    const hit = hitTest(nodes, edges, world.x, world.y, viewport.scale, selection.nodeIds);
+    const hit = hitTest({ nodes, edges, wx: world.x, wy: world.y, scale: viewport.scale, selectedNodeIds: selection.nodeIds });
     if (hit.type === 'node' && hit.id) {
       onTextEdit(hit.id);
     }

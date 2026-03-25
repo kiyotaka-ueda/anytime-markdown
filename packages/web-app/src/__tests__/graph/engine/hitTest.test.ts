@@ -54,16 +54,16 @@ describe('hitTestResizeHandles', () => {
 
 describe('hitTest', () => {
   it('should prioritize resize handle over node', () => {
-    const result = hitTest([rectNode], [], 100, 100, 1, ['r1']);
+    const result = hitTest({ nodes: [rectNode], edges: [], wx: 100, wy: 100, scale: 1, selectedNodeIds: ['r1'] });
     expect(result.type).toBe('resize-handle');
   });
   it('should return last node (frontmost)', () => {
     const node2: GraphNode = { ...rectNode, id: 'r2', x: 150, y: 120 };
-    const result = hitTest([rectNode, node2], [], 200, 150, 1, []);
+    const result = hitTest({ nodes: [rectNode, node2], edges: [], wx: 200, wy: 150, scale: 1, selectedNodeIds: [] });
     expect(result.id).toBe('r2');
   });
   it('should return none for empty area', () => {
-    const result = hitTest([rectNode], [edge], 0, 0, 1, []);
+    const result = hitTest({ nodes: [rectNode], edges: [edge], wx: 0, wy: 0, scale: 1, selectedNodeIds: [] });
     expect(result.type).toBe('none');
   });
 });

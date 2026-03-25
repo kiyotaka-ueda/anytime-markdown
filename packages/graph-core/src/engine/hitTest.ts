@@ -150,10 +150,19 @@ function hitTestEdgeEndpoints(
   return null;
 }
 
-export function hitTest(
-  nodes: GraphNode[], edges: GraphEdge[], wx: number, wy: number, scale: number, selectedNodeIds: string[],
-  hoverNodeId?: string, selectedEdgeIds?: string[],
-): HitResult {
+export interface HitTestContext {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  wx: number;
+  wy: number;
+  scale: number;
+  selectedNodeIds: string[];
+  hoverNodeId?: string;
+  selectedEdgeIds?: string[];
+}
+
+export function hitTest(ctx: HitTestContext): HitResult {
+  const { nodes, edges, wx, wy, scale, selectedNodeIds, hoverNodeId, selectedEdgeIds } = ctx;
   // 選択中エッジのエンドポイントハンドル判定
   if (selectedEdgeIds) {
     for (const eid of selectedEdgeIds) {

@@ -5,7 +5,7 @@ import {
   CANVAS_SMART_GUIDE, CANVAS_BG, COLOR_CHARCOAL,
 } from '../theme';
 import { drawRoundedRect, drawDiamond, drawParallelogram, drawCylinderBody, drawCylinderTop } from './shapes';
-import { HANDLE_SIZE, SNAP_INDICATOR_RADIUS } from './constants';
+import { HANDLE_SIZE, SNAP_INDICATOR_RADIUS, DASH_DEFAULT, DASH_OVERLAY } from './constants';
 import { getConnectionPoints } from './connector';
 
 export function drawResizeHandles(
@@ -64,7 +64,7 @@ export function drawBoundingBox(
   // 破線枠
   ctx.strokeStyle = CANVAS_SELECTION;
   ctx.lineWidth = 1 / scale;
-  ctx.setLineDash([6 / scale, 4 / scale]);
+  ctx.setLineDash(DASH_OVERLAY.map(v => v / scale));
   ctx.strokeRect(bx, by, bw, bh);
   ctx.setLineDash([]);
 
@@ -214,7 +214,7 @@ export function drawShapePreview(
   ctx.save();
   ctx.strokeStyle = CANVAS_SELECTION;
   ctx.lineWidth = 1.5;
-  ctx.setLineDash([6, 4]);
+  ctx.setLineDash([...DASH_OVERLAY]);
   ctx.fillStyle = CANVAS_SELECTION_FILL;
 
   if (shapeType === 'ellipse') {
@@ -249,7 +249,7 @@ export function drawSmartGuides(ctx: CanvasRenderingContext2D, guides: GuideLine
   ctx.save();
   ctx.strokeStyle = CANVAS_SMART_GUIDE;
   ctx.lineWidth = 0.5;
-  ctx.setLineDash([4, 4]);
+  ctx.setLineDash([...DASH_DEFAULT]);
   for (const g of guides) {
     ctx.beginPath();
     if (g.axis === 'x') {
@@ -279,7 +279,7 @@ export function drawSelectionRect(
 
   ctx.strokeStyle = CANVAS_SELECTION;
   ctx.lineWidth = 1;
-  ctx.setLineDash([4, 4]);
+  ctx.setLineDash([...DASH_DEFAULT]);
   ctx.strokeRect(x, y, width, height);
   ctx.setLineDash([]);
 

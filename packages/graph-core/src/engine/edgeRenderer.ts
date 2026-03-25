@@ -1,7 +1,12 @@
 import { GraphEdge, EndpointShape } from '../types';
 import {
   CANVAS_BG, CANVAS_SELECTION, COLOR_TEXT_SECONDARY, FONT_FAMILY,
+  COLOR_INVALID_TARGET,
 } from '../theme';
+import {
+  FONT_SIZE_EDGE_LABEL, DASH_OVERLAY,
+  ARROW_HEAD_LENGTH, ENDPOINT_CIRCLE_RADIUS, ENDPOINT_DIAMOND_SIZE, ENDPOINT_BAR_LENGTH,
+} from './constants';
 
 export function drawEdge(
   ctx: CanvasRenderingContext2D,
@@ -86,7 +91,7 @@ export function drawEdge(
 /** エッジラベルを背景付きで描画 */
 function drawEdgeLabel(ctx: CanvasRenderingContext2D, label: string, x: number, y: number): void {
   ctx.save();
-  ctx.font = `12px ${FONT_FAMILY}`;
+  ctx.font = `${FONT_SIZE_EDGE_LABEL}px ${FONT_FAMILY}`;
   const metrics = ctx.measureText(label);
   const padding = 4;
   ctx.fillStyle = CANVAS_BG;
@@ -111,7 +116,7 @@ export function drawArrowHead(
   toY: number,
   color: string,
 ): void {
-  const headLength = 12;
+  const headLength = ARROW_HEAD_LENGTH;
   const angle = Math.atan2(toY - fromY, toX - fromX);
 
   ctx.save();
@@ -146,7 +151,7 @@ function drawEndpointShape(
   ctx.strokeStyle = color;
   ctx.lineWidth = 2;
   if (shape === 'arrow') {
-    const len = 12;
+    const len = ARROW_HEAD_LENGTH;
     ctx.beginPath();
     ctx.moveTo(tipX, tipY);
     ctx.lineTo(tipX - len * Math.cos(angle - Math.PI / 6), tipY - len * Math.sin(angle - Math.PI / 6));
@@ -154,12 +159,12 @@ function drawEndpointShape(
     ctx.closePath();
     ctx.fill();
   } else if (shape === 'circle') {
-    const r = 5;
+    const r = ENDPOINT_CIRCLE_RADIUS;
     ctx.beginPath();
     ctx.arc(tipX - r * Math.cos(angle), tipY - r * Math.sin(angle), r, 0, Math.PI * 2);
     ctx.fill();
   } else if (shape === 'diamond') {
-    const s = 8;
+    const s = ENDPOINT_DIAMOND_SIZE;
     ctx.save();
     ctx.translate(tipX, tipY);
     ctx.rotate(angle);
@@ -172,7 +177,7 @@ function drawEndpointShape(
     ctx.fill();
     ctx.restore();
   } else if (shape === 'bar') {
-    const len = 8;
+    const len = ENDPOINT_BAR_LENGTH;
     ctx.beginPath();
     ctx.moveTo(tipX - len * Math.cos(angle - Math.PI / 2), tipY - len * Math.sin(angle - Math.PI / 2));
     ctx.lineTo(tipX + len * Math.cos(angle - Math.PI / 2), tipY + len * Math.sin(angle - Math.PI / 2));
@@ -180,9 +185,6 @@ function drawEndpointShape(
   }
   ctx.restore();
 }
-
-/** 無効なドロップターゲットの色 */
-const COLOR_INVALID_TARGET = 'rgba(244, 67, 54, 0.6)';
 
 /** ドラッグ中のエッジプレビュー線を描画 */
 export function drawEdgePreview(
@@ -196,7 +198,7 @@ export function drawEdgePreview(
   ctx.save();
   ctx.strokeStyle = color;
   ctx.lineWidth = 2;
-  ctx.setLineDash([6, 4]);
+  ctx.setLineDash([...DASH_OVERLAY]);
   ctx.beginPath();
   ctx.moveTo(fromX, fromY);
   ctx.lineTo(toX, toY);

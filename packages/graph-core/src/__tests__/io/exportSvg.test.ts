@@ -121,4 +121,101 @@ describe('exportToSvg', () => {
     expect(svg).not.toContain('<filter id="shadow"');
     expect(svg).not.toContain('filter="url(#shadow)"');
   });
+
+  it('should export a sticky node', () => {
+    const doc = createDocument('Test');
+    const node = createNode('sticky', 0, 0, { id: 'st1', text: 'Note' });
+    doc.nodes = [node];
+    const svg = exportToSvg(doc);
+    expect(svg).toContain('rx="4"');
+    expect(svg).toContain('Note');
+  });
+
+  it('should export a text node without shape', () => {
+    const doc = createDocument('Test');
+    const node = createNode('text', 0, 0, { id: 't1', text: 'Label' });
+    doc.nodes = [node];
+    const svg = exportToSvg(doc);
+    expect(svg).toContain('Label');
+    // text nodes should not have rect/ellipse/polygon
+    expect(svg).not.toContain('<rect x="0"');
+  });
+
+  it('should export an insight node with label', () => {
+    const doc = createDocument('Test');
+    const node = createNode('insight', 0, 0, { id: 'i1', text: 'Finding', label: 'Insight' });
+    doc.nodes = [node];
+    const svg = exportToSvg(doc);
+    expect(svg).toContain('Finding');
+    expect(svg).toContain('Insight');
+    expect(svg).toContain('font-weight="bold"');
+  });
+
+  it('should export a line edge', () => {
+    const doc = createDocument('Test');
+    const node1 = createNode('rect', 0, 0, { id: 'n1', text: 'A' });
+    const node2 = createNode('rect', 300, 0, { id: 'n2', text: 'B' });
+    doc.nodes = [node1, node2];
+    doc.edges = [{
+      id: 'e1', type: 'line',
+      from: { x: 150, y: 50 }, to: { x: 300, y: 50 },
+      style: { stroke: '#FFFFFF', strokeWidth: 2 },
+    }];
+    const svg = exportToSvg(doc);
+    expect(svg).toContain('<line');
+    expect(svg).toContain('x1="150"');
+  });
+
+  it('should export an arrow edge with arrowhead', () => {
+    const doc = createDocument('Test');
+    const node1 = createNode('rect', 0, 0, { id: 'n1', text: 'A' });
+    const node2 = createNode('rect', 300, 0, { id: 'n2', text: 'B' });
+    doc.nodes = [node1, node2];
+    doc.edges = [{
+      id: 'e2', type: 'arrow',
+      from: { x: 150, y: 50 }, to: { x: 300, y: 50 },
+      style: { stroke: '#FFFFFF', strokeWidth: 2 },
+    }];
+    const svg = exportToSvg(doc);
+    expect(svg).toContain('<polygon'); // arrowhead
+  });
+
+  it('should export a connector edge with path', () => {
+    const doc = createDocument('Test');
+    const node1 = createNode('rect', 0, 0, { id: 'n1', text: 'A', width: 100, height: 80 });
+    const node2 = createNode('rect', 300, 0, { id: 'n2', text: 'B', width: 100, height: 80 });
+    doc.nodes = [node1, node2];
+    doc.edges = [{
+      id: 'e3', type: 'connector',
+      from: { nodeId: 'n1', x: 100, y: 40 }, to: { nodeId: 'n2', x: 300, y: 40 },
+      style: { stroke: '#FFFFFF', strokeWidth: 2 },
+    }];
+    const svg = exportToSvg(doc);
+    expect(svg).toContain('<path');
+    expect(svg).toContain('<polygon'); // connector has arrow by default
+  });
+
+  it('should export edge without arrow when endShape is none', () => {
+    const doc = createDocument('Test');
+    doc.edges = [{
+      id: 'e4', type: 'line',
+      from: { x: 0, y: 0 }, to: { x: 100, y: 100 },
+      style: { stroke: '#FFFFFF', strokeWidth: 2, endShape: 'none' },
+    }];
+    const svg = exportToSvg(doc);
+    // Should not contain polygon for arrowhead
+    const edgeGroup = svg.split('id="e4"')[1]?.split('</g>')[0] ?? '';
+    expect(edgeGroup).not.toContain('<polygon');
+  });
+
+  it('should support diagonal gradient direction', () => {
+    const doc = createDocument('Test');
+    const node = createNode('rect', 0, 0, { id: 'g3' });
+    node.style.gradientTo = '#FF0000';
+    node.style.gradientDirection = 'diagonal';
+    doc.nodes = [node];
+    const svg = exportToSvg(doc);
+    expect(svg).toContain('x2="100%"');
+    expect(svg).toContain('y2="100%"');
+  });
 });

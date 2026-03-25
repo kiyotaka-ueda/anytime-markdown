@@ -124,7 +124,7 @@ export function exportToSvg(doc: GraphDocument): string {
     if (n.style.gradientTo) {
       const dir = n.style.gradientDirection ?? 'vertical';
       const x1 = '0%', y1 = '0%';
-      const x2 = dir === 'horizontal' ? '100%' : dir === 'diagonal' ? '100%' : '0%';
+      const x2 = (dir === 'horizontal' || dir === 'diagonal') ? '100%' : '0%';
       const y2 = dir === 'horizontal' ? '0%' : '100%';
       const gradId = `grad-${n.id}`;
       defs.push(`<linearGradient id="${escapeXml(gradId)}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"><stop offset="0%" stop-color="${escapeXml(n.style.fill)}"/><stop offset="100%" stop-color="${escapeXml(n.style.gradientTo)}"/></linearGradient>`);

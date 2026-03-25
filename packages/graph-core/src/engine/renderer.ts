@@ -1,5 +1,6 @@
 import { GraphNode, GraphEdge, Viewport, SelectionState } from '../types';
-import { CANVAS_BG, CANVAS_GRID, COLOR_ICE_BLUE, FONT_FAMILY } from '../theme';
+import { CANVAS_BG, CANVAS_GRID, COLOR_ICE_BLUE, FONT_FAMILY, COLOR_TOOLTIP_BG, COLOR_TOOLTIP_BORDER } from '../theme';
+import { FONT_SIZE_TOOLTIP, URL_TRUNCATE_LENGTH } from './constants';
 import { getVisibleBounds, isNodeVisible, isEdgeVisible } from './culling';
 import { drawNode, drawLockIndicator, drawRoundedRect } from './shapes';
 import { drawEdge } from './edgeRenderer';
@@ -97,19 +98,19 @@ export function render(options: RenderOptions): void {
     const hoverNode = nodes.find(n => n.id === hoverNodeId);
     if (hoverNode?.url && mouseWorldX !== undefined && mouseWorldY !== undefined) {
       ctx.save();
-      ctx.font = `11px ${FONT_FAMILY}`;
-      const urlText = hoverNode.url.length > 50 ? hoverNode.url.slice(0, 50) + '...' : hoverNode.url;
+      ctx.font = `${FONT_SIZE_TOOLTIP}px ${FONT_FAMILY}`;
+      const urlText = hoverNode.url.length > URL_TRUNCATE_LENGTH ? hoverNode.url.slice(0, URL_TRUNCATE_LENGTH) + '...' : hoverNode.url;
       const metrics = ctx.measureText(urlText);
       const pad = 4;
       const tipX = mouseWorldX + 12;
       const tipY = mouseWorldY + 16;
 
       // 背景
-      ctx.fillStyle = 'rgba(13, 17, 23, 0.9)';
+      ctx.fillStyle = COLOR_TOOLTIP_BG;
       drawRoundedRect(ctx, tipX - pad, tipY - pad, metrics.width + pad * 2, 16 + pad * 2, 4);
       ctx.fill();
       // 枠線
-      ctx.strokeStyle = 'rgba(144, 202, 249, 0.3)';
+      ctx.strokeStyle = COLOR_TOOLTIP_BORDER;
       ctx.lineWidth = 1;
       drawRoundedRect(ctx, tipX - pad, tipY - pad, metrics.width + pad * 2, 16 + pad * 2, 4);
       ctx.stroke();

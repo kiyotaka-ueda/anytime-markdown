@@ -13,7 +13,7 @@ export {
 export {
   hitTest, hitTestNode, hitTestEdge, hitTestEdgeSegment, hitTestResizeHandles,
 } from './hitTest';
-export type { HitResult, ResizeHandle, ConnectionSide, EdgeEndpointEnd } from './hitTest';
+export type { HitResult, HitTestContext, ResizeHandle, ConnectionSide, EdgeEndpointEnd } from './hitTest';
 export { screenToWorld, worldToScreen, pan, zoom, fitToContent } from './viewport';
 export {
   nodeCenter, rectIntersection, ellipseIntersection, nodeIntersection,
