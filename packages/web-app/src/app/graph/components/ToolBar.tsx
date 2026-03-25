@@ -44,7 +44,8 @@ import {
 import { useTranslations } from 'next-intl';
 import { ToolType } from '../types';
 import { SaveStatus } from '../hooks/useAutoSave';
-import { COLOR_CHARCOAL, COLOR_BORDER } from '@anytime-markdown/graph-core';
+import { getCanvasColors } from '@anytime-markdown/graph-core';
+import { useThemeMode } from '../../providers';
 
 interface ToolBarProps {
   tool: ToolType;
@@ -76,6 +77,8 @@ export function GraphToolBar({
   onClearAll, onExportSvg, onExportDrawio, onImportDrawio, onAlign, onSetScale, selectionCount, hasSelection, scale, saveStatus,
 }: ToolBarProps) {
   const t = useTranslations('Graph');
+  const { themeMode } = useThemeMode();
+  const colors = getCanvasColors(themeMode === 'dark');
   const [alignAnchor, setAlignAnchor] = React.useState<null | HTMLElement>(null);
   const [exportAnchor, setExportAnchor] = React.useState<null | HTMLElement>(null);
   const [zoomAnchor, setZoomAnchor] = useState<null | HTMLElement>(null);
@@ -85,8 +88,8 @@ export function GraphToolBar({
       color="default"
       elevation={1}
       sx={{
-        backgroundColor: COLOR_CHARCOAL,
-        borderBottom: `1px solid ${COLOR_BORDER}`,
+        backgroundColor: colors.panelBg,
+        borderBottom: `1px solid ${colors.panelBorder}`,
         backdropFilter: 'blur(12px)',
         zIndex: 10,
       }}
@@ -180,7 +183,7 @@ export function GraphToolBar({
         </Tooltip>
         <Box
           onClick={(e) => setZoomAnchor(e.currentTarget)}
-          sx={{ minWidth: 48, textAlign: 'center', fontSize: '0.75rem', color: 'text.secondary', cursor: 'pointer', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }, borderRadius: 1, px: 0.5 }}
+          sx={{ minWidth: 48, textAlign: 'center', fontSize: '0.75rem', color: 'text.secondary', cursor: 'pointer', '&:hover': { bgcolor: colors.hoverBg }, borderRadius: 1, px: 0.5 }}
         >
           {Math.round(scale * 100)}%
         </Box>
