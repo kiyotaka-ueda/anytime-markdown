@@ -28,10 +28,10 @@ export function GraphEditor() {
   const [showProperty, setShowProperty] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const { state, dispatch } = useGraphState();
   const selectionRef = useRef(state.selection);
   selectionRef.current = state.selection;
   const [docEditNodeId, setDocEditNodeId] = useState<string | null>(null);
-  const { state, dispatch } = useGraphState();
   const t = useTranslations('Graph');
   const [liveMessage, setLiveMessage] = useState('');
   const [confirmDialog, setConfirmDialog] = useState<{
