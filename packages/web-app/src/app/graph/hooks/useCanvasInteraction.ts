@@ -52,6 +52,7 @@ interface UseCanvasInteractionProps {
   onToolChange: (tool: ToolType) => void;
   showGrid: boolean;
   onLiveMessage?: (message: string) => void;
+  isDark?: boolean;
 }
 
 export interface DragPreview {
@@ -71,7 +72,7 @@ export interface DragPreview {
 const EMPTY_PREVIEW: DragPreview = { type: 'none', fromX: 0, fromY: 0, toX: 0, toY: 0 };
 
 export function useCanvasInteraction({
-  canvasRef, tool, nodes, edges, viewport, selection, dispatch, onTextEdit, onToolChange, showGrid, onLiveMessage,
+  canvasRef, tool, nodes, edges, viewport, selection, dispatch, onTextEdit, onToolChange, showGrid, onLiveMessage, isDark = true,
 }: UseCanvasInteractionProps) {
   const dragRef = useRef<DragState>({
     type: 'none', startWorldX: 0, startWorldY: 0, startScreenX: 0, startScreenY: 0,
@@ -468,7 +469,7 @@ export function useCanvasInteraction({
         fh = snapToGrid(fh);
       }
       const nodeType = tool as 'rect' | 'ellipse' | 'sticky' | 'text' | 'diamond' | 'parallelogram' | 'cylinder' | 'insight' | 'doc' | 'frame';
-      const node = createNode(nodeType, x, y, { width: fw, height: fh });
+      const node = createNode(nodeType, x, y, { width: fw, height: fh }, isDark);
       dispatch({ type: 'ADD_NODE', node });
       onToolChange('select');
     }
@@ -502,6 +503,7 @@ export function useCanvasInteraction({
             edgeType,
             { nodeId: drag.nodeId, x: drag.startWorldX, y: drag.startWorldY },
             { nodeId: hit.id, x: world.x, y: world.y },
+            undefined, isDark,
           );
           dispatch({ type: 'ADD_EDGE', edge });
         } else if (!drag.fromConnectionPoint && (tool === 'line' || tool === 'arrow' || tool === 'connector')) {
@@ -510,6 +512,7 @@ export function useCanvasInteraction({
             edgeType,
             { nodeId: drag.nodeId, x: drag.startWorldX, y: drag.startWorldY },
             { x: world.x, y: world.y },
+            undefined, isDark,
           );
           dispatch({ type: 'ADD_EDGE', edge });
         } else if (drag.fromConnectionPoint) {
@@ -524,11 +527,12 @@ export function useCanvasInteraction({
           const child = createNode(childType, world.x - childW / 2, world.y - childH / 2, {
             width: childW,
             height: childH,
-          });
+          }, isDark);
           const edge = createEdge(
             edgeType,
             { nodeId: drag.nodeId, x: drag.startWorldX, y: drag.startWorldY },
             { nodeId: child.id, x: world.x, y: world.y },
+            undefined, isDark,
           );
           dispatch({ type: 'ADD_NODE', node: child });
           dispatch({ type: 'ADD_EDGE', edge });

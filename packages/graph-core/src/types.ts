@@ -102,6 +102,7 @@ import {
   INSIGHT_FILL, INSIGHT_STROKE, INSIGHT_LABEL_COLORS,
   DOC_FILL, DOC_STROKE,
   FRAME_FILL, FRAME_STROKE,
+  getCanvasColors,
 } from './theme';
 
 export const DEFAULT_NODE_STYLE: NodeStyle = {
@@ -150,20 +151,46 @@ export const DEFAULT_EDGE_STYLE: EdgeStyle = {
   strokeWidth: 2,
 };
 
+/** テーマ対応のデフォルトノードスタイルを返す */
+export function getDefaultNodeStyle(isDark: boolean): NodeStyle {
+  if (isDark) return { ...DEFAULT_NODE_STYLE };
+  const colors = getCanvasColors(false);
+  return { fill: '#F5F5F0', stroke: 'rgba(0,0,0,0.2)', strokeWidth: 2, fontSize: 14, fontFamily: FONT_FAMILY };
+}
+
+/** テーマ対応のデフォルトスタイルマップを返す */
+function getStyleMap(isDark: boolean): Partial<Record<NodeType, NodeStyle>> {
+  if (isDark) {
+    return {
+      sticky: { ...DEFAULT_STICKY_STYLE },
+      insight: { ...DEFAULT_INSIGHT_STYLE },
+      doc: { ...DEFAULT_DOC_STYLE },
+      frame: { ...DEFAULT_FRAME_STYLE },
+    };
+  }
+  const colors = getCanvasColors(false);
+  return {
+    sticky: { ...DEFAULT_STICKY_STYLE },
+    insight: { fill: colors.insightFill, stroke: colors.insightStroke, strokeWidth: 1, fontSize: 13, fontFamily: FONT_FAMILY },
+    doc: { fill: colors.docFill, stroke: colors.docStroke, strokeWidth: 1, fontSize: 13, fontFamily: FONT_FAMILY },
+    frame: { fill: colors.frameFill, stroke: colors.frameStroke, strokeWidth: 1, fontSize: 14, fontFamily: FONT_FAMILY, borderRadius: 8 },
+  };
+}
+
+/** テーマ対応のデフォルトエッジスタイルを返す */
+export function getDefaultEdgeStyle(isDark: boolean): EdgeStyle {
+  if (isDark) return { ...DEFAULT_EDGE_STYLE };
+  return { stroke: 'rgba(0,0,0,0.3)', strokeWidth: 2 };
+}
+
 export const DEFAULT_VIEWPORT: Viewport = {
   offsetX: 0,
   offsetY: 0,
   scale: 1,
 };
 
-export function createNode(type: NodeType, x: number, y: number, overrides?: Partial<GraphNode>): GraphNode {
-  const styleMap: Partial<Record<NodeType, NodeStyle>> = {
-    sticky: { ...DEFAULT_STICKY_STYLE },
-    insight: { ...DEFAULT_INSIGHT_STYLE },
-    doc: { ...DEFAULT_DOC_STYLE },
-    frame: { ...DEFAULT_FRAME_STYLE },
-  };
-  const baseStyle = styleMap[type] ?? { ...DEFAULT_NODE_STYLE };
+export function createNode(type: NodeType, x: number, y: number, overrides?: Partial<GraphNode>, isDark: boolean = true): GraphNode {
+  const baseStyle = getStyleMap(isDark)[type] ?? getDefaultNodeStyle(isDark);
   const sizeMap: Partial<Record<NodeType, { width: number; height: number }>> = {
     text: { width: 150, height: 30 },
     diamond: { width: 120, height: 120 },
@@ -196,13 +223,13 @@ export function createNode(type: NodeType, x: number, y: number, overrides?: Par
   };
 }
 
-export function createEdge(type: EdgeType, from: EdgeEndpoint, to: EdgeEndpoint, overrides?: Partial<GraphEdge>): GraphEdge {
+export function createEdge(type: EdgeType, from: EdgeEndpoint, to: EdgeEndpoint, overrides?: Partial<GraphEdge>, isDark: boolean = true): GraphEdge {
   return {
     id: crypto.randomUUID(),
     type,
     from,
     to,
-    style: { ...DEFAULT_EDGE_STYLE },
+    style: getDefaultEdgeStyle(isDark),
     ...overrides,
   };
 }

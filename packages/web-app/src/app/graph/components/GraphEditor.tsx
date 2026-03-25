@@ -115,6 +115,7 @@ export function GraphEditor() {
     onTextEdit: handleTextEdit,
     onToolChange: setTool,
     showGrid,
+    isDark,
     onLiveMessage: useCallback((key: string) => {
       if (key === 'undo') setLiveMessage(t('undone'));
       else if (key === 'redo') setLiveMessage(t('redone'));
@@ -237,9 +238,9 @@ export function GraphEditor() {
       width: w,
       height: h,
       imageData: dataUrl,
-    });
+    }, isDark);
     dispatch({ type: 'ADD_NODE', node });
-  }, [state.document.viewport, dispatch]);
+  }, [state.document.viewport, dispatch, isDark]);
 
   const handleClearAll = useCallback(() => {
     setConfirmDialog({
