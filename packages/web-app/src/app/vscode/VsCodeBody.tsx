@@ -22,6 +22,19 @@ import LandingHeader from '../components/LandingHeader';
 import MarkdownViewer from '../components/MarkdownViewer';
 import SiteFooter from '../components/SiteFooter';
 
+function GitHubLink(chunks: ReactNode) {
+  return (
+    <MuiLink
+      href="https://github.com/anytime-trial/anytime-markdown"
+      target="_blank"
+      rel="noopener noreferrer"
+      sx={{ color: 'text.secondary', textDecorationColor: 'inherit' }}
+    >
+      {chunks}
+    </MuiLink>
+  );
+}
+
 const MARKETPLACE_URL =
   'https://marketplace.visualstudio.com/items?itemName=anytime-trial.anytime-markdown';
 
@@ -197,16 +210,7 @@ export default function VsCodeBody() {
             }}
           >
             {tLanding.rich('experimentalNotice', {
-              github: (chunks: ReactNode) => (
-                <MuiLink
-                  href="https://github.com/anytime-trial/anytime-markdown"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  sx={{ color: 'text.secondary', textDecorationColor: 'inherit' }}
-                >
-                  {chunks}
-                </MuiLink>
-              ),
+              github: GitHubLink,
             })}
           </Typography>
         </Container>
