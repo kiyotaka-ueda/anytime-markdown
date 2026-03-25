@@ -43,7 +43,7 @@ interface ShapeHoverBarProps {
   onChangeType: (id: string, type: NodeType) => void;
 }
 
-export function ShapeHoverBar({ node, viewport, onChangeType }: ShapeHoverBarProps) {
+export function ShapeHoverBar({ node, viewport, onChangeType }: Readonly<ShapeHoverBarProps>) {
   const t = useTranslations('Graph');
   const screen = worldToScreen(viewport, node.x + node.width / 2, node.y);
   const barWidth = SHAPES.length * 30 + 16;

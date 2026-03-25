@@ -12,7 +12,7 @@ interface TextEditOverlayProps {
   onCancel: () => void;
 }
 
-export function TextEditOverlay({ node, viewport, onCommit, onCancel }: TextEditOverlayProps) {
+export function TextEditOverlay({ node, viewport, onCommit, onCancel }: Readonly<TextEditOverlayProps>) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {

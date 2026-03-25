@@ -17,7 +17,7 @@ interface DocEditorModalProps {
   onClose: () => void;
 }
 
-export function DocEditorModal({ open, title, content, onSave, onClose }: DocEditorModalProps) {
+export function DocEditorModal({ open, title, content, onSave, onClose }: Readonly<DocEditorModalProps>) {
   const t = useTranslations('Graph');
   const [editorContent, setEditorContent] = useState(content);
 
