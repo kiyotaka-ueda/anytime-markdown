@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-03-25
+
+### Changed
+- Updated Next.js to 15.5.14 (security fix)
+- Updated @modelcontextprotocol/sdk to 1.27.1 (security fix)
+
+### Fixed
+- Fixed test type errors for Next.js 15.5.14 compatibility
+
 ## [0.8.0] - 2026-03-25
 
 ### Added

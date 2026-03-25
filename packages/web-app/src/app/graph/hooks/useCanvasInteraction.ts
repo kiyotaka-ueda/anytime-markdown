@@ -369,18 +369,22 @@ export function useCanvasInteraction({
         // Apply snap offset uniformly to all dragged nodes
         const snapDx = result.snappedX - bboxX;
         const snapDy = result.snappedY - bboxY;
-        ids.forEach(id => {
+        const snapUpdates = ids.map(id => {
           const init = drag.initialNodes!.get(id)!;
-          dispatch({ type: 'RESIZE_NODE', id, x: init.x + dx + snapDx, y: init.y + dy + snapDy, width: init.width, height: init.height });
+          return { id, x: init.x + dx + snapDx, y: init.y + dy + snapDy };
         });
+        dispatch({ type: 'SET_NODE_POSITIONS', updates: snapUpdates });
         previewRef.current = { type: 'none', fromX: 0, fromY: 0, toX: 0, toY: 0, guides: result.guides };
       } else {
-        ids.forEach(id => {
+        const moveUpdates = ids.map(id => {
           const init = drag.initialNodes!.get(id)!;
-          const nx = showGrid ? snapToGrid(init.x + dx) : init.x + dx;
-          const ny = showGrid ? snapToGrid(init.y + dy) : init.y + dy;
-          dispatch({ type: 'RESIZE_NODE', id, x: nx, y: ny, width: init.width, height: init.height });
+          return {
+            id,
+            x: showGrid ? snapToGrid(init.x + dx) : init.x + dx,
+            y: showGrid ? snapToGrid(init.y + dy) : init.y + dy,
+          };
         });
+        dispatch({ type: 'SET_NODE_POSITIONS', updates: moveUpdates });
         previewRef.current = { type: 'none', fromX: 0, fromY: 0, toX: 0, toY: 0 };
       }
       return;
