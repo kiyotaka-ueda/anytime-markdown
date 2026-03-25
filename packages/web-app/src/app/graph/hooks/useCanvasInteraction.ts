@@ -70,6 +70,254 @@ export interface DragPreview {
 
 const EMPTY_PREVIEW: DragPreview = { type: 'none', fromX: 0, fromY: 0, toX: 0, toY: 0 };
 
+// ---- Module-level pure helper functions ----
+
+function buildEdgeEndpointDrag(
+  hit: HitResult,
+  edges: GraphEdge[],
+  sx: number, sy: number,
+): DragState | null {
+  if (hit.type !== 'edge-endpoint' || !hit.id || !hit.endpointEnd) return null;
+  const edge = edges.find(ed => ed.id === hit.id);
+  if (!edge) return null;
+  const endpoint = hit.endpointEnd === 'from' ? edge.from : edge.to;
+  return {
+    type: 'create-edge', startWorldX: endpoint.x, startWorldY: endpoint.y,
+    startScreenX: sx, startScreenY: sy,
+    edgeId: hit.id, endpointEnd: hit.endpointEnd,
+    nodeId: hit.endpointEnd === 'from' ? edge.to.nodeId : edge.from.nodeId,
+  };
+}
+
+function buildConnectionPointDrag(
+  hit: HitResult,
+  nodes: GraphNode[],
+  sx: number, sy: number,
+): DragState | null {
+  if (hit.type !== 'connection-point' || !hit.id) return null;
+  const node = nodes.find(n => n.id === hit.id);
+  if (!node) return null;
+  const cpMap = {
+    top: { x: node.x + node.width / 2, y: node.y },
+    right: { x: node.x + node.width, y: node.y + node.height / 2 },
+    bottom: { x: node.x + node.width / 2, y: node.y + node.height },
+    left: { x: node.x, y: node.y + node.height / 2 },
+  };
+  const cp = cpMap[hit.connectionSide!];
+  return {
+    type: 'create-edge', startWorldX: cp.x, startWorldY: cp.y,
+    startScreenX: sx, startScreenY: sy, nodeId: hit.id,
+    fromConnectionPoint: true,
+  };
+}
+
+function buildResizeDrag(
+  hit: HitResult,
+  nodes: GraphNode[],
+  world: { x: number; y: number },
+  sx: number, sy: number,
+): DragState | null {
+  if (hit.type !== 'resize-handle' || !hit.id || !hit.handle) return null;
+  const node = nodes.find(n => n.id === hit.id);
+  if (!node || node.locked) return null;
+  return {
+    type: 'resize', startWorldX: world.x, startWorldY: world.y,
+    startScreenX: sx, startScreenY: sy, handle: hit.handle, nodeId: hit.id,
+    initialNodes: new Map([[node.id, { x: node.x, y: node.y, width: node.width, height: node.height }]]),
+  };
+}
+
+function buildNodeSelectedIds(
+  hitId: string,
+  nodes: GraphNode[],
+  selection: SelectionState,
+  shiftKey: boolean,
+): string[] {
+  const isSelected = selection.nodeIds.includes(hitId);
+  let selectedIds: string[];
+  if (shiftKey) {
+    selectedIds = isSelected
+      ? selection.nodeIds.filter(id => id !== hitId)
+      : [...selection.nodeIds, hitId];
+  } else {
+    selectedIds = isSelected ? selection.nodeIds : [hitId];
+  }
+
+  // グループ展開
+  const groupIds = new Set(nodes.filter(n => selectedIds.includes(n.id) && n.groupId).map(n => n.groupId));
+  if (groupIds.size > 0) {
+    nodes.forEach(n => { if (n.groupId && groupIds.has(n.groupId)) selectedIds.push(n.id); });
+    selectedIds = [...new Set(selectedIds)];
+  }
+
+  // フレーム選択時: 内部ノードも移動対象に含める
+  const frameNodes = nodes.filter(n => selectedIds.includes(n.id) && n.type === 'frame');
+  for (const frame of frameNodes) {
+    nodes.forEach(n => {
+      if (n.id !== frame.id && n.type !== 'frame' &&
+          n.x >= frame.x && n.y >= frame.y &&
+          n.x + n.width <= frame.x + frame.width &&
+          n.y + n.height <= frame.y + frame.height) {
+        selectedIds.push(n.id);
+      }
+    });
+  }
+  return [...new Set(selectedIds)];
+}
+
+const RESIZE_CURSORS: Record<string, string> = {
+  nw: 'nwse-resize', se: 'nwse-resize',
+  ne: 'nesw-resize', sw: 'nesw-resize',
+  n: 'ns-resize', s: 'ns-resize',
+  e: 'ew-resize', w: 'ew-resize',
+};
+
+function getCursorForHit(hit: HitResult, nodes: GraphNode[], ctrlKey: boolean): string {
+  if (hit.type === 'resize-handle' && hit.handle) return RESIZE_CURSORS[hit.handle] ?? 'default';
+  if (hit.type === 'edge-endpoint') return 'crosshair';
+  if (hit.type === 'connection-point') return 'crosshair';
+  if (hit.type === 'edge-segment') return hit.segmentDirection === 'vertical' ? 'ew-resize' : 'ns-resize';
+  if (hit.type === 'node') {
+    const hitNode = nodes.find(n => n.id === hit.id);
+    return ctrlKey && hitNode?.url ? 'pointer' : 'move';
+  }
+  if (hit.type === 'edge') return 'pointer';
+  return 'default';
+}
+
+function getCursorForDragState(
+  drag: DragState,
+  hoverNodeIdRef: React.MutableRefObject<string | undefined>,
+): string | null {
+  if (drag.type === 'move') { hoverNodeIdRef.current = undefined; return 'grabbing'; }
+  if (drag.type === 'resize') { hoverNodeIdRef.current = undefined; return null; }
+  if (drag.type === 'pan') { hoverNodeIdRef.current = undefined; return 'grabbing'; }
+  if (drag.type === 'create-edge') { hoverNodeIdRef.current = undefined; return 'crosshair'; }
+  if (drag.type === 'create-shape') { hoverNodeIdRef.current = undefined; return 'crosshair'; }
+  if (drag.type !== 'none') { hoverNodeIdRef.current = undefined; }
+  return null;
+}
+
+function dispatchCreateEdge(
+  drag: DragState,
+  world: { x: number; y: number },
+  tool: ToolType,
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+  viewport: Viewport,
+  dispatch: React.Dispatch<any>,
+  onTextEdit: (nodeId: string) => void,
+  onToolChange: (tool: ToolType) => void,
+): void {
+  const hit = hitTest({ nodes, edges, wx: world.x, wy: world.y, scale: viewport.scale, selectedNodeIds: [] });
+  const edgeType: 'line' | 'arrow' | 'connector' =
+    (tool === 'line' || tool === 'arrow' || tool === 'connector') ? tool : 'connector';
+  const dist = Math.hypot(world.x - drag.startWorldX, world.y - drag.startWorldY);
+
+  if (drag.edgeId && drag.endpointEnd) {
+    const targetNodeId = hit.type === 'node' ? hit.id : undefined;
+    if (drag.endpointEnd === 'from') {
+      dispatch({ type: 'UPDATE_EDGE', id: drag.edgeId, changes: {
+        from: { nodeId: targetNodeId, x: world.x, y: world.y },
+        to: { nodeId: drag.nodeId, x: drag.startWorldX, y: drag.startWorldY },
+        manualMidpoint: undefined,
+      } });
+    } else {
+      dispatch({ type: 'UPDATE_EDGE', id: drag.edgeId, changes: {
+        from: { nodeId: drag.nodeId, x: drag.startWorldX, y: drag.startWorldY },
+        to: { nodeId: targetNodeId, x: world.x, y: world.y },
+        manualMidpoint: undefined,
+      } });
+    }
+  } else if (dist > 5) {
+    dispatchNewEdgeFromDrag(drag, hit, world, edgeType, tool, nodes, dispatch, onTextEdit);
+  }
+  onToolChange('select');
+}
+
+function dispatchNewEdgeFromDrag(
+  drag: DragState,
+  hit: HitResult,
+  world: { x: number; y: number },
+  edgeType: 'line' | 'arrow' | 'connector',
+  tool: ToolType,
+  nodes: GraphNode[],
+  dispatch: React.Dispatch<any>,
+  onTextEdit: (nodeId: string) => void,
+): void {
+  if (hit.type === 'node' && hit.id) {
+    const edge = createEdge(
+      edgeType,
+      { nodeId: drag.nodeId, x: drag.startWorldX, y: drag.startWorldY },
+      { nodeId: hit.id, x: world.x, y: world.y },
+    );
+    dispatch({ type: 'ADD_EDGE', edge });
+    return;
+  }
+  if (!drag.fromConnectionPoint && (tool === 'line' || tool === 'arrow' || tool === 'connector')) {
+    const edge = createEdge(
+      edgeType,
+      { nodeId: drag.nodeId, x: drag.startWorldX, y: drag.startWorldY },
+      { x: world.x, y: world.y },
+    );
+    dispatch({ type: 'ADD_EDGE', edge });
+    return;
+  }
+  if (drag.fromConnectionPoint) {
+    dispatchChildNodeFromConnectionPoint(drag, world, edgeType, nodes, dispatch, onTextEdit);
+  }
+}
+
+function dispatchChildNodeFromConnectionPoint(
+  drag: DragState,
+  world: { x: number; y: number },
+  edgeType: 'line' | 'arrow' | 'connector',
+  nodes: GraphNode[],
+  dispatch: React.Dispatch<any>,
+  onTextEdit: (nodeId: string) => void,
+): void {
+  const parentNode = drag.nodeId ? nodes.find(n => n.id === drag.nodeId) : undefined;
+  const childType = parentNode?.type === 'sticky' ? 'sticky'
+    : parentNode?.type === 'insight' ? 'insight'
+    : parentNode?.type === 'ellipse' ? 'ellipse'
+    : 'rect';
+  const childW = 150;
+  const childH = childType === 'insight' ? 140 : 100;
+  const child = createNode(childType, world.x - childW / 2, world.y - childH / 2, {
+    width: childW,
+    height: childH,
+  });
+  const edge = createEdge(
+    edgeType,
+    { nodeId: drag.nodeId, x: drag.startWorldX, y: drag.startWorldY },
+    { nodeId: child.id, x: world.x, y: world.y },
+  );
+  dispatch({ type: 'ADD_NODE', node: child });
+  dispatch({ type: 'ADD_EDGE', edge });
+  onTextEdit(child.id);
+}
+
+function handleCtrlKey(
+  e: KeyboardEvent,
+  nodes: GraphNode[],
+  dispatch: React.Dispatch<any>,
+  copySelected: () => void,
+  pasteFromClipboard: () => Promise<void>,
+  onLiveMessage?: (message: string) => void,
+): void {
+  if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); dispatch({ type: 'UNDO' }); onLiveMessage?.('undo'); return; }
+  if ((e.key === 'y') || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); dispatch({ type: 'REDO' }); onLiveMessage?.('redo'); return; }
+  if (e.key === 'g' && !e.shiftKey) { e.preventDefault(); dispatch({ type: 'GROUP_SELECTED', groupId: crypto.randomUUID() }); return; }
+  if (e.key === 'g' && e.shiftKey) { e.preventDefault(); dispatch({ type: 'UNGROUP_SELECTED' }); return; }
+  if (e.key === 'a') {
+    e.preventDefault();
+    dispatch({ type: 'SET_SELECTION', selection: { nodeIds: nodes.map(n => n.id), edgeIds: [] } });
+    return;
+  }
+  if (e.key === 'c') { e.preventDefault(); copySelected(); return; }
+  if (e.key === 'v') { e.preventDefault(); pasteFromClipboard(); }
+}
+
 export function useCanvasInteraction({
   canvasRef, tool, nodes, edges, viewport, selection, dispatch, onTextEdit, onToolChange, showGrid, onLiveMessage,
 }: UseCanvasInteractionProps) {
@@ -106,131 +354,7 @@ export function useCanvasInteraction({
     }
 
     if (tool === 'select') {
-      const resolved = resolveEdgesWithWaypoints(edges, nodes);
-      const hit = hitTest({ nodes, edges: resolved, wx: world.x, wy: world.y, scale: viewport.scale, selectedNodeIds: selection.nodeIds, hoverNodeId: hoverNodeIdRef.current, selectedEdgeIds: selection.edgeIds });
-
-      // エッジエンドポイントハンドル → 端点再接続ドラッグ
-      if (hit.type === 'edge-endpoint' && hit.id && hit.endpointEnd) {
-        const edge = edges.find(ed => ed.id === hit.id);
-        if (edge) {
-          const endpoint = hit.endpointEnd === 'from' ? edge.from : edge.to;
-          dispatch({ type: 'SNAPSHOT' });
-          dragRef.current = {
-            type: 'create-edge', startWorldX: endpoint.x, startWorldY: endpoint.y,
-            startScreenX: sx, startScreenY: sy,
-            edgeId: hit.id, endpointEnd: hit.endpointEnd,
-            // 反対側のnodeIdを保持
-            nodeId: hit.endpointEnd === 'from' ? edge.to.nodeId : edge.from.nodeId,
-          };
-        }
-        return;
-      }
-
-      // 接続ポイントクリック → コネクタ作成開始
-      if (hit.type === 'connection-point' && hit.id) {
-        const node = nodes.find(n => n.id === hit.id);
-        if (node) {
-          const cp = { top: { x: node.x + node.width / 2, y: node.y }, right: { x: node.x + node.width, y: node.y + node.height / 2 }, bottom: { x: node.x + node.width / 2, y: node.y + node.height }, left: { x: node.x, y: node.y + node.height / 2 } }[hit.connectionSide!];
-          dragRef.current = {
-            type: 'create-edge', startWorldX: cp.x, startWorldY: cp.y,
-            startScreenX: sx, startScreenY: sy, nodeId: hit.id,
-            fromConnectionPoint: true,
-          };
-        }
-        return;
-      }
-
-      if (hit.type === 'resize-handle' && hit.id && hit.handle) {
-        const node = nodes.find(n => n.id === hit.id)!;
-        if (node.locked) return;
-        dragRef.current = {
-          type: 'resize', startWorldX: world.x, startWorldY: world.y,
-          startScreenX: sx, startScreenY: sy, handle: hit.handle, nodeId: hit.id,
-          initialNodes: new Map([[node.id, { x: node.x, y: node.y, width: node.width, height: node.height }]]),
-        };
-        dispatch({ type: 'SNAPSHOT' });
-        return;
-      }
-
-      // Ctrl+クリック（またはCmd+クリック）でURLを開く
-      if ((e.ctrlKey || e.metaKey) && hit.type === 'node' && hit.id) {
-        const node = nodes.find(n => n.id === hit.id);
-        if (node?.url) {
-          window.open(node.url, '_blank', 'noopener,noreferrer');
-          return;
-        }
-      }
-
-      if (hit.type === 'node' && hit.id) {
-        const isSelected = selection.nodeIds.includes(hit.id);
-        let selectedIds: string[];
-        if (e.shiftKey) {
-          selectedIds = isSelected
-            ? selection.nodeIds.filter(id => id !== hit.id)
-            : [...selection.nodeIds, hit.id];
-        } else {
-          selectedIds = isSelected ? selection.nodeIds : [hit.id];
-        }
-        const groupIds = new Set(nodes.filter(n => selectedIds.includes(n.id) && n.groupId).map(n => n.groupId));
-        if (groupIds.size > 0) {
-          nodes.forEach(n => { if (n.groupId && groupIds.has(n.groupId)) selectedIds.push(n.id); });
-          selectedIds = [...new Set(selectedIds)];
-        }
-        // フレーム選択時: 内部ノードも移動対象に含める
-        const frameNodes = nodes.filter(n => selectedIds.includes(n.id) && n.type === 'frame');
-        for (const frame of frameNodes) {
-          nodes.forEach(n => {
-            if (n.id !== frame.id && n.type !== 'frame' &&
-                n.x >= frame.x && n.y >= frame.y &&
-                n.x + n.width <= frame.x + frame.width &&
-                n.y + n.height <= frame.y + frame.height) {
-              selectedIds.push(n.id);
-            }
-          });
-        }
-        selectedIds = [...new Set(selectedIds)];
-        dispatch({ type: 'SET_SELECTION', selection: { nodeIds: selectedIds, edgeIds: [] } });
-        // ロック中ノードが含まれる場合は移動しない
-        const hitNode = nodes.find(n => n.id === hit.id);
-        if (hitNode?.locked) return;
-        const initialNodes = new Map<string, { x: number; y: number; width: number; height: number }>();
-        selectedIds.forEach(id => {
-          const n = nodes.find(nd => nd.id === id);
-          if (n && !n.locked) initialNodes.set(id, { x: n.x, y: n.y, width: n.width, height: n.height });
-        });
-        dragRef.current = {
-          type: 'move', startWorldX: world.x, startWorldY: world.y,
-          startScreenX: sx, startScreenY: sy, initialNodes,
-        };
-        dispatch({ type: 'SNAPSHOT' });
-        return;
-      }
-
-      if (hit.type === 'edge-segment' && hit.id && hit.segmentDirection) {
-        const edge = edges.find(ed => ed.id === hit.id);
-        dispatch({ type: 'SET_SELECTION', selection: { nodeIds: [], edgeIds: [hit.id] } });
-        dispatch({ type: 'SNAPSHOT' });
-        dragRef.current = {
-          type: 'move-edge-segment', startWorldX: world.x, startWorldY: world.y,
-          startScreenX: sx, startScreenY: sy,
-          edgeId: hit.id, segmentDirection: hit.segmentDirection,
-          initialMidpoint: edge?.manualMidpoint,
-        };
-        return;
-      }
-
-      if (hit.type === 'edge' && hit.id) {
-        dispatch({ type: 'SET_SELECTION', selection: { nodeIds: [], edgeIds: [hit.id] } });
-        return;
-      }
-
-      if (!e.shiftKey) {
-        dispatch({ type: 'SET_SELECTION', selection: { nodeIds: [], edgeIds: [] } });
-      }
-      dragRef.current = {
-        type: 'select-rect', startWorldX: world.x, startWorldY: world.y,
-        startScreenX: sx, startScreenY: sy,
-      };
+      handleSelectToolMouseDown(e, world, sx, sy, nodes, edges, viewport, selection, hoverNodeIdRef, dragRef, previewRef, dispatch);
       return;
     }
 
@@ -276,54 +400,12 @@ export function useCanvasInteraction({
       mouseWorldRef.current = world;
       const resolved = resolveEdgesWithWaypoints(edges, nodes);
       const fullHit = hitTest({ nodes, edges: resolved, wx: world.x, wy: world.y, scale: viewport.scale, selectedNodeIds: selection.nodeIds, selectedEdgeIds: selection.edgeIds });
-      // ホバー判定はリサイズハンドルを無視
       const hoverHit = hitTest({ nodes, edges: resolved, wx: world.x, wy: world.y, scale: viewport.scale, selectedNodeIds: [] });
       hoverNodeIdRef.current = hoverHit.type === 'node' ? hoverHit.id : undefined;
-
-      // カーソル設定
-      const RESIZE_CURSORS: Record<string, string> = {
-        nw: 'nwse-resize', se: 'nwse-resize',
-        ne: 'nesw-resize', sw: 'nesw-resize',
-        n: 'ns-resize', s: 'ns-resize',
-        e: 'ew-resize', w: 'ew-resize',
-      };
-      if (fullHit.type === 'resize-handle' && fullHit.handle) {
-        cursorRef.current = RESIZE_CURSORS[fullHit.handle] ?? 'default';
-      } else if (fullHit.type === 'edge-endpoint') {
-        cursorRef.current = 'crosshair';
-      } else if (fullHit.type === 'connection-point') {
-        cursorRef.current = 'crosshair';
-      } else if (fullHit.type === 'edge-segment') {
-        cursorRef.current = fullHit.segmentDirection === 'vertical' ? 'ew-resize' : 'ns-resize';
-      } else if (fullHit.type === 'node') {
-        const hitNode = nodes.find(n => n.id === fullHit.id);
-        if ((e.ctrlKey || e.metaKey) && hitNode?.url) {
-          cursorRef.current = 'pointer';
-        } else {
-          cursorRef.current = 'move';
-        }
-      } else if (fullHit.type === 'edge') {
-        cursorRef.current = 'pointer';
-      } else {
-        cursorRef.current = 'default';
-      }
-    } else if (drag.type === 'move') {
-      cursorRef.current = 'grabbing';
-      hoverNodeIdRef.current = undefined;
-    } else if (drag.type === 'resize') {
-      // リサイズ中はカーソル維持
-      hoverNodeIdRef.current = undefined;
-    } else if (drag.type === 'pan') {
-      cursorRef.current = 'grabbing';
-      hoverNodeIdRef.current = undefined;
-    } else if (drag.type === 'create-edge') {
-      cursorRef.current = 'crosshair';
-      hoverNodeIdRef.current = undefined;
-    } else if (drag.type === 'create-shape') {
-      cursorRef.current = 'crosshair';
-      hoverNodeIdRef.current = undefined;
-    } else if (drag.type !== 'none') {
-      hoverNodeIdRef.current = undefined;
+      cursorRef.current = getCursorForHit(fullHit, nodes, e.ctrlKey || e.metaKey);
+    } else {
+      const cursor = getCursorForDragState(drag, hoverNodeIdRef);
+      if (cursor !== null) cursorRef.current = cursor;
     }
 
     // カーソルをcanvasに反映
@@ -336,8 +418,6 @@ export function useCanvasInteraction({
       const dy = sy - drag.startScreenY;
       dispatch({ type: 'SET_VIEWPORT', viewport: panViewport(viewport, dx, dy) });
       dragRef.current = { ...drag, startScreenX: sx, startScreenY: sy };
-
-      // 速度履歴記録（直近3フレーム）
       const now = performance.now();
       panHistoryRef.current.push({ x: sx, y: sy, t: now });
       if (panHistoryRef.current.length > 3) panHistoryRef.current.shift();
@@ -351,22 +431,15 @@ export function useCanvasInteraction({
       const ids = [...drag.initialNodes.keys()];
 
       if (!showGrid && ids.length > 0) {
-        // Smart guides: snap to other nodes when grid is off
-        // Compute bounding box of all dragged nodes (works for single and multi-node)
         const draggedInits = ids.map(id => ({ id, init: drag.initialNodes!.get(id)! }));
         const bboxX = Math.min(...draggedInits.map(d => d.init.x + dx));
         const bboxY = Math.min(...draggedInits.map(d => d.init.y + dy));
         const bboxRight = Math.max(...draggedInits.map(d => d.init.x + dx + d.init.width));
         const bboxBottom = Math.max(...draggedInits.map(d => d.init.y + dy + d.init.height));
-        const bboxWidth = bboxRight - bboxX;
-        const bboxHeight = bboxBottom - bboxY;
-
         const otherRects = nodes
           .filter(n => !drag.initialNodes!.has(n.id))
           .map(n => ({ id: n.id, x: n.x, y: n.y, width: n.width, height: n.height }));
-        const result = computeSmartGuides(bboxX, bboxY, bboxWidth, bboxHeight, otherRects, 5);
-
-        // Apply snap offset uniformly to all dragged nodes
+        const result = computeSmartGuides(bboxX, bboxY, bboxRight - bboxX, bboxBottom - bboxY, otherRects, 5);
         const snapDx = result.snappedX - bboxX;
         const snapDy = result.snappedY - bboxY;
         const snapUpdates = ids.map(id => {
@@ -474,68 +547,7 @@ export function useCanvasInteraction({
     }
 
     if (drag.type === 'create-edge') {
-      const hit = hitTest({ nodes, edges, wx: world.x, wy: world.y, scale: viewport.scale, selectedNodeIds: [] });
-      const edgeType: 'line' | 'arrow' | 'connector' =
-        (tool === 'line' || tool === 'arrow' || tool === 'connector') ? tool : 'connector';
-      const dist = Math.hypot(world.x - drag.startWorldX, world.y - drag.startWorldY);
-
-      // エッジエンドポイント再接続（既存エッジの端点変更）
-      if (drag.edgeId && drag.endpointEnd) {
-        const targetNodeId = hit.type === 'node' ? hit.id : undefined;
-        if (drag.endpointEnd === 'from') {
-          dispatch({ type: 'UPDATE_EDGE', id: drag.edgeId, changes: {
-            from: { nodeId: targetNodeId, x: world.x, y: world.y },
-            to: { nodeId: drag.nodeId, x: drag.startWorldX, y: drag.startWorldY },
-            manualMidpoint: undefined,
-          } });
-        } else {
-          dispatch({ type: 'UPDATE_EDGE', id: drag.edgeId, changes: {
-            from: { nodeId: drag.nodeId, x: drag.startWorldX, y: drag.startWorldY },
-            to: { nodeId: targetNodeId, x: world.x, y: world.y },
-            manualMidpoint: undefined,
-          } });
-        }
-      } else if (dist > 5) {
-        if (hit.type === 'node' && hit.id) {
-          // 既存ノードに接続
-          const edge = createEdge(
-            edgeType,
-            { nodeId: drag.nodeId, x: drag.startWorldX, y: drag.startWorldY },
-            { nodeId: hit.id, x: world.x, y: world.y },
-          );
-          dispatch({ type: 'ADD_EDGE', edge });
-        } else if (!drag.fromConnectionPoint && (tool === 'line' || tool === 'arrow' || tool === 'connector')) {
-          // 線ツールで空白→空白: フリーなエッジを作成
-          const edge = createEdge(
-            edgeType,
-            { nodeId: drag.nodeId, x: drag.startWorldX, y: drag.startWorldY },
-            { x: world.x, y: world.y },
-          );
-          dispatch({ type: 'ADD_EDGE', edge });
-        } else if (drag.fromConnectionPoint) {
-          // 接続ポイント起点 + 空白にドロップ → 子ノード自動作成 + コネクタ接続
-          const parentNode = drag.nodeId ? nodes.find(n => n.id === drag.nodeId) : undefined;
-          const childType = parentNode?.type === 'sticky' ? 'sticky'
-            : parentNode?.type === 'insight' ? 'insight'
-            : parentNode?.type === 'ellipse' ? 'ellipse'
-            : 'rect';
-          const childW = 150;
-          const childH = childType === 'insight' ? 140 : 100;
-          const child = createNode(childType, world.x - childW / 2, world.y - childH / 2, {
-            width: childW,
-            height: childH,
-          });
-          const edge = createEdge(
-            edgeType,
-            { nodeId: drag.nodeId, x: drag.startWorldX, y: drag.startWorldY },
-            { nodeId: child.id, x: world.x, y: world.y },
-          );
-          dispatch({ type: 'ADD_NODE', node: child });
-          dispatch({ type: 'ADD_EDGE', edge });
-          onTextEdit(child.id);
-        }
-      }
-      onToolChange('select');
+      dispatchCreateEdge(drag, world, tool, nodes, edges, viewport, dispatch, onTextEdit, onToolChange);
     }
 
     if (drag.type === 'select-rect') {
@@ -551,7 +563,6 @@ export function useCanvasInteraction({
       }
     }
 
-    // パン終了時に慣性速度を算出
     if (drag.type === 'pan') {
       const history = panHistoryRef.current;
       if (history.length >= 2) {
@@ -598,7 +609,6 @@ export function useCanvasInteraction({
       edges.filter(edge => selectedSet.has(edge.from.nodeId ?? '') && selectedSet.has(edge.to.nodeId ?? '')),
     ));
     clipboardRef.current = { nodes: copiedNodes, edges: copiedEdges };
-    // Also write to system clipboard for cross-tab support
     try {
       const data = JSON.stringify({ type: 'anytime-graph', nodes: copiedNodes, edges: copiedEdges });
       navigator.clipboard.writeText(data).catch(() => {/* ignore clipboard errors */});
@@ -622,20 +632,17 @@ export function useCanvasInteraction({
         to: { ...edge.to, nodeId: edge.to.nodeId ? idMap.get(edge.to.nodeId) : undefined },
       }));
       dispatch({ type: 'PASTE_NODES', nodes: newNodes, edges: newEdges });
-      // Update source positions for subsequent pastes
       return {
         nodes: sourceNodes.map(n => ({ ...n, x: n.x + 20, y: n.y + 20 })),
         edges: sourceEdges,
       };
     };
 
-    // Try system clipboard first for cross-tab support
     try {
       const text = await navigator.clipboard.readText();
       const parsed = JSON.parse(text);
       if (parsed?.type === 'anytime-graph' && Array.isArray(parsed.nodes)) {
         const updated = doPaste(parsed.nodes, parsed.edges ?? []);
-        // Update system clipboard with offset positions for subsequent pastes
         clipboardRef.current = updated;
         try {
           const data = JSON.stringify({ type: 'anytime-graph', nodes: updated.nodes, edges: updated.edges });
@@ -649,7 +656,6 @@ export function useCanvasInteraction({
       // Fall through to internal clipboard
     }
 
-    // Fall back to internal clipboard
     if (!clipboardRef.current) return;
     clipboardRef.current = doPaste(clipboardRef.current.nodes, clipboardRef.current.edges);
   }, [dispatch]);
@@ -667,7 +673,6 @@ export function useCanvasInteraction({
     }
     if ((e.key === 'Delete' || e.key === 'Backspace') && (selection.nodeIds.length > 0 || selection.edgeIds.length > 0)) {
       e.preventDefault();
-      // ロック中ノードは削除から除外
       const hasLocked = selection.nodeIds.some(id => nodes.find(n => n.id === id)?.locked);
       if (hasLocked) {
         const unlocked = selection.nodeIds.filter(id => !nodes.find(n => n.id === id)?.locked);
@@ -677,19 +682,9 @@ export function useCanvasInteraction({
       return;
     }
     if (e.ctrlKey || e.metaKey) {
-      if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); dispatch({ type: 'UNDO' }); onLiveMessage?.('undo'); return; }
-      if ((e.key === 'y') || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); dispatch({ type: 'REDO' }); onLiveMessage?.('redo'); return; }
-      if (e.key === 'g' && !e.shiftKey) { e.preventDefault(); dispatch({ type: 'GROUP_SELECTED', groupId: crypto.randomUUID() }); return; }
-      if (e.key === 'g' && e.shiftKey) { e.preventDefault(); dispatch({ type: 'UNGROUP_SELECTED' }); return; }
-      if (e.key === 'a') {
-        e.preventDefault();
-        dispatch({ type: 'SET_SELECTION', selection: { nodeIds: nodes.map(n => n.id), edgeIds: [] } });
-        return;
-      }
-      if (e.key === 'c') { e.preventDefault(); copySelected(); return; }
-      if (e.key === 'v') { e.preventDefault(); pasteFromClipboard(); return; }
+      handleCtrlKey(e, nodes, dispatch, copySelected, pasteFromClipboard, onLiveMessage);
     }
-  }, [canvasRef, selection, nodes, dispatch, copySelected, pasteFromClipboard]);
+  }, [canvasRef, selection, nodes, dispatch, copySelected, pasteFromClipboard, onLiveMessage]);
 
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
     if (e.code === 'Space') {
@@ -730,6 +725,99 @@ export function useCanvasInteraction({
     velocityRef,
     copySelected,
     pasteFromClipboard,
+  };
+}
+
+/** select ツール時の mousedown ハンドラ（module-level helper） */
+function handleSelectToolMouseDown(
+  e: React.MouseEvent,
+  world: { x: number; y: number },
+  sx: number, sy: number,
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+  viewport: Viewport,
+  selection: SelectionState,
+  hoverNodeIdRef: React.MutableRefObject<string | undefined>,
+  dragRef: React.MutableRefObject<DragState>,
+  previewRef: React.MutableRefObject<DragPreview>,
+  dispatch: React.Dispatch<any>,
+): void {
+  const resolved = resolveEdgesWithWaypoints(edges, nodes);
+  const hit = hitTest({ nodes, edges: resolved, wx: world.x, wy: world.y, scale: viewport.scale, selectedNodeIds: selection.nodeIds, hoverNodeId: hoverNodeIdRef.current, selectedEdgeIds: selection.edgeIds });
+
+  const edgeDrag = buildEdgeEndpointDrag(hit, edges, sx, sy);
+  if (edgeDrag) {
+    dispatch({ type: 'SNAPSHOT' });
+    dragRef.current = edgeDrag;
+    return;
+  }
+
+  const connDrag = buildConnectionPointDrag(hit, nodes, sx, sy);
+  if (connDrag) {
+    dragRef.current = connDrag;
+    return;
+  }
+
+  const resizeDrag = buildResizeDrag(hit, nodes, world, sx, sy);
+  if (resizeDrag) {
+    dragRef.current = resizeDrag;
+    dispatch({ type: 'SNAPSHOT' });
+    return;
+  }
+
+  // Ctrl+クリック（またはCmd+クリック）でURLを開く
+  if ((e.ctrlKey || e.metaKey) && hit.type === 'node' && hit.id) {
+    const node = nodes.find(n => n.id === hit.id);
+    if (node?.url) {
+      window.open(node.url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+  }
+
+  if (hit.type === 'node' && hit.id) {
+    const selectedIds = buildNodeSelectedIds(hit.id, nodes, selection, e.shiftKey);
+    dispatch({ type: 'SET_SELECTION', selection: { nodeIds: selectedIds, edgeIds: [] } });
+
+    const hitNode = nodes.find(n => n.id === hit.id);
+    if (hitNode?.locked) return;
+
+    const initialNodes = new Map<string, { x: number; y: number; width: number; height: number }>();
+    selectedIds.forEach(id => {
+      const n = nodes.find(nd => nd.id === id);
+      if (n && !n.locked) initialNodes.set(id, { x: n.x, y: n.y, width: n.width, height: n.height });
+    });
+    dragRef.current = {
+      type: 'move', startWorldX: world.x, startWorldY: world.y,
+      startScreenX: sx, startScreenY: sy, initialNodes,
+    };
+    dispatch({ type: 'SNAPSHOT' });
+    return;
+  }
+
+  if (hit.type === 'edge-segment' && hit.id && hit.segmentDirection) {
+    const edge = edges.find(ed => ed.id === hit.id);
+    dispatch({ type: 'SET_SELECTION', selection: { nodeIds: [], edgeIds: [hit.id] } });
+    dispatch({ type: 'SNAPSHOT' });
+    dragRef.current = {
+      type: 'move-edge-segment', startWorldX: world.x, startWorldY: world.y,
+      startScreenX: sx, startScreenY: sy,
+      edgeId: hit.id, segmentDirection: hit.segmentDirection,
+      initialMidpoint: edge?.manualMidpoint,
+    };
+    return;
+  }
+
+  if (hit.type === 'edge' && hit.id) {
+    dispatch({ type: 'SET_SELECTION', selection: { nodeIds: [], edgeIds: [hit.id] } });
+    return;
+  }
+
+  if (!e.shiftKey) {
+    dispatch({ type: 'SET_SELECTION', selection: { nodeIds: [], edgeIds: [] } });
+  }
+  dragRef.current = {
+    type: 'select-rect', startWorldX: world.x, startWorldY: world.y,
+    startScreenX: sx, startScreenY: sy,
   };
 }
 
