@@ -150,6 +150,17 @@ export function GraphEditor() {
         }
         return;
       }
+      // 単一ノード選択中に印字可能キーを押したらテキスト編集開始（ショートカットより優先）
+      const ids = selectionRef.current.nodeIds;
+      if (ids.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) {
+        const node = state.document.nodes.find(n => n.id === ids[0]);
+        if (node && node.type !== 'image' && node.type !== 'doc' && !node.locked) {
+          e.preventDefault();
+          setTextEditAppendMode(true);
+          handleTextEdit(ids[0]);
+          return;
+        }
+      }
       const map: Record<string, ToolType> = {
         v: 'select', r: 'rect', o: 'ellipse', s: 'sticky',
         t: 'text', d: 'diamond', p: 'parallelogram', y: 'cylinder',
@@ -158,17 +169,6 @@ export function GraphEditor() {
       };
       if (map[e.key] && !e.ctrlKey && !e.metaKey) {
         setTool(map[e.key]);
-        return;
-      }
-      // 単一ノード選択中に印字可能キーを押したらテキスト編集開始
-      const ids = selectionRef.current.nodeIds;
-      if (ids.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) {
-        const node = state.document.nodes.find(n => n.id === ids[0]);
-        if (node && node.type !== 'image' && node.type !== 'doc' && !node.locked) {
-          e.preventDefault();
-          setTextEditAppendMode(true);
-          handleTextEdit(ids[0]);
-        }
       }
     };
     window.addEventListener('keydown', handler);
