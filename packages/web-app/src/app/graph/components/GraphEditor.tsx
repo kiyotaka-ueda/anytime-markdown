@@ -21,6 +21,36 @@ import { alignLeft, alignRight, alignTop, alignBottom, alignCenterH, alignCenter
 import { loadDocument, getLastDocumentId } from '../store/graphStorage';
 import { exportToSvg, exportToDrawio, importFromDrawio } from '@anytime-markdown/graph-core';
 
+const TOOL_SHORTCUT_MAP: Record<string, ToolType> = {
+  v: 'select', r: 'rect', o: 'ellipse', s: 'sticky',
+  t: 'text', d: 'diamond', p: 'parallelogram', y: 'cylinder',
+  i: 'insight', m: 'doc', f: 'frame',
+  l: 'line', a: 'arrow', c: 'connector',
+};
+
+function isEditingTarget(): boolean {
+  const tag = document.activeElement?.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.getAttribute('contenteditable') === 'true';
+}
+
+function handleArrowKeyMove(
+  e: KeyboardEvent,
+  selectionRef: React.RefObject<{ nodeIds: string[]; edgeIds: string[] }>,
+  dispatch: React.Dispatch<any>,
+): boolean {
+  if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return false;
+  const ids = selectionRef.current.nodeIds;
+  if (ids.length === 0) return true;
+  const step = e.shiftKey ? 10 : 1;
+  const dx = e.key === 'ArrowRight' ? step : e.key === 'ArrowLeft' ? -step : 0;
+  const dy = e.key === 'ArrowDown' ? step : e.key === 'ArrowUp' ? -step : 0;
+  if (dx !== 0 || dy !== 0) {
+    dispatch({ type: 'MOVE_NODES', ids, dx, dy });
+    e.preventDefault();
+  }
+  return true;
+}
+
 export function GraphEditor() {
   const [tool, setTool] = useState<ToolType>('select');
   const [showGrid, setShowGrid] = useState(true);
@@ -127,29 +157,11 @@ export function GraphEditor() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      const tag = document.activeElement?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.getAttribute('contenteditable') === 'true') return;
+      if (isEditingTarget()) return;
       if (editingNodeId) return;
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-        const ids = selectionRef.current.nodeIds;
-        if (ids.length === 0) return;
-        const step = e.shiftKey ? 10 : 1;
-        const dx = e.key === 'ArrowRight' ? step : e.key === 'ArrowLeft' ? -step : 0;
-        const dy = e.key === 'ArrowDown' ? step : e.key === 'ArrowUp' ? -step : 0;
-        if (dx !== 0 || dy !== 0) {
-          dispatch({ type: 'MOVE_NODES', ids, dx, dy });
-          e.preventDefault();
-        }
-        return;
-      }
-      const map: Record<string, ToolType> = {
-        v: 'select', r: 'rect', o: 'ellipse', s: 'sticky',
-        t: 'text', d: 'diamond', p: 'parallelogram', y: 'cylinder',
-        i: 'insight', m: 'doc', f: 'frame',
-        l: 'line', a: 'arrow', c: 'connector',
-      };
-      if (map[e.key] && !e.ctrlKey && !e.metaKey) {
-        setTool(map[e.key]);
+      if (handleArrowKeyMove(e, selectionRef, dispatch)) return;
+      if (TOOL_SHORTCUT_MAP[e.key] && !e.ctrlKey && !e.metaKey) {
+        setTool(TOOL_SHORTCUT_MAP[e.key]);
       }
     };
     window.addEventListener('keydown', handler);
