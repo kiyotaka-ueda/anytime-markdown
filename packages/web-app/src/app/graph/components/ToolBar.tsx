@@ -177,6 +177,9 @@ export function GraphToolBar({
           <ToggleButton value="select" aria-label={t('select')}>
             <Tooltip title={`${t('select')} (V)`}><SelectIcon fontSize="small" /></Tooltip>
           </ToggleButton>
+          <ToggleButton value="pan" aria-label={t('pan')}>
+            <Tooltip title={`${t('pan')} (Space)`}><PanIcon fontSize="small" /></Tooltip>
+          </ToggleButton>
           <ToggleButton
             value={lastShape}
             selected={isShapeSelected}
@@ -207,9 +210,6 @@ export function GraphToolBar({
           </ToggleButton>
           <ToggleButton value="frame" aria-label={t('frame')}>
             <Tooltip title={`${t('frame')} (F)`}><FrameIcon fontSize="small" /></Tooltip>
-          </ToggleButton>
-          <ToggleButton value="pan" aria-label={t('pan')}>
-            <Tooltip title={`${t('pan')} (Space)`}><PanIcon fontSize="small" /></Tooltip>
           </ToggleButton>
         </ToggleButtonGroup>
 
