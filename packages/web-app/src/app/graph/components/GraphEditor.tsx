@@ -19,9 +19,12 @@ import { pan as panViewport, zoom as zoomViewport, fitToContent } from '../engin
 import { interpolateViewport, ViewportAnimation, clearImageCache } from '@anytime-markdown/graph-core/engine';
 import { alignLeft, alignRight, alignTop, alignBottom, alignCenterH, alignCenterV, distributeH, distributeV } from '../engine/alignment';
 import { loadDocument, getLastDocumentId } from '../store/graphStorage';
-import { exportToSvg, exportToDrawio, importFromDrawio } from '@anytime-markdown/graph-core';
+import { exportToSvg, exportToDrawio, importFromDrawio, getCanvasColors } from '@anytime-markdown/graph-core';
+import { useThemeMode } from '../../providers';
 
 export function GraphEditor() {
+  const { themeMode } = useThemeMode();
+  const isDark = themeMode === 'dark';
   const [tool, setTool] = useState<ToolType>('select');
   const [showGrid, setShowGrid] = useState(true);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
@@ -383,6 +386,7 @@ export function GraphEditor() {
           onPanInertia={handlePanInertia}
           draggingNodeIds={isDragging && dragRef.current.type === 'move' ? state.selection.nodeIds : undefined}
           ariaLabel={canvasAriaLabel}
+          isDark={isDark}
         />
         {state.document.nodes.length === 0 && (
           <Box sx={{

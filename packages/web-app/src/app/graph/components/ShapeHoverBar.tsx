@@ -18,10 +18,8 @@ import {
 import { useTranslations } from 'next-intl';
 import { GraphNode, NodeType, Viewport } from '../types';
 import { worldToScreen } from '../engine/viewport';
-import {
-  COLOR_CHARCOAL, COLOR_BORDER, COLOR_ICE_BLUE,
-  COLOR_TEXT_PRIMARY, COLOR_TEXT_SECONDARY,
-} from '@anytime-markdown/graph-core';
+import { getCanvasColors } from '@anytime-markdown/graph-core';
+import { useThemeMode } from '../../providers';
 
 const SHAPES: { type: NodeType; icon: React.ReactNode; i18nKey: string }[] = [
   { type: 'rect', icon: <RectIcon sx={{ fontSize: 18 }} />, i18nKey: 'rect' },
@@ -45,6 +43,9 @@ interface ShapeHoverBarProps {
 
 export function ShapeHoverBar({ node, viewport, onChangeType }: ShapeHoverBarProps) {
   const t = useTranslations('Graph');
+  const { themeMode } = useThemeMode();
+  const isDark = themeMode === 'dark';
+  const colors = getCanvasColors(isDark);
   const screen = worldToScreen(viewport, node.x + node.width / 2, node.y);
   const barWidth = SHAPES.length * 30 + 16;
 
@@ -56,8 +57,8 @@ export function ShapeHoverBar({ node, viewport, onChangeType }: ShapeHoverBarPro
         top: screen.y - 44,
         display: 'flex',
         gap: '2px',
-        backgroundColor: COLOR_CHARCOAL,
-        border: `1px solid ${COLOR_BORDER}`,
+        backgroundColor: colors.panelBg,
+        border: `1px solid ${colors.panelBorder}`,
         borderRadius: '8px',
         px: 1,
         py: 0.5,
@@ -85,12 +86,12 @@ export function ShapeHoverBar({ node, viewport, onChangeType }: ShapeHoverBarPro
             sx={{
               width: 28,
               height: 28,
-              color: node.type === s.type ? COLOR_ICE_BLUE : COLOR_TEXT_SECONDARY,
+              color: node.type === s.type ? colors.accentColor : colors.textSecondary,
               backgroundColor: node.type === s.type ? 'rgba(144,202,249,0.12)' : 'transparent',
               borderRadius: '6px',
               '&:hover': {
                 backgroundColor: 'rgba(255,255,255,0.08)',
-                color: COLOR_TEXT_PRIMARY,
+                color: colors.textPrimary,
               },
             }}
           >
