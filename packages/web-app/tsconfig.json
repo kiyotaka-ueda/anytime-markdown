@@ -18,17 +18,19 @@
     "jsx": "preserve",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["../editor-core/src/*"],
-      "@anytime-markdown/editor-core/src/*": ["../editor-core/src/*"],
-      "@anytime-markdown/editor-core": ["../editor-core/src/index.ts"]
+      "@/*": ["../markdown-core/src/*"],
+      "@anytime-markdown/markdown-core/src/*": ["../markdown-core/src/*"],
+      "@anytime-markdown/markdown-core": ["../markdown-core/src/index.ts"],
+      "@anytime-markdown/graph-core": ["../graph-core/src/index.ts"],
+      "@anytime-markdown/graph-core/*": ["../graph-core/src/*"]
     }
   },
   "include": [
     "src/**/*",
     "next-env.d.ts",
     ".next/types/**/*.ts",
-    "../editor-core/src/md.d.ts",
-    "../editor-core/src/types/vscode.d.ts"
+    "../markdown-core/src/md.d.ts",
+    "../markdown-core/src/types/vscode.d.ts"
   ],
   "exclude": [
     "node_modules",

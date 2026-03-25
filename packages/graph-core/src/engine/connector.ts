@@ -1,0 +1,249 @@
+import { GraphNode, GraphEdge } from '../types';
+
+export function nodeCenter(node: GraphNode): { x: number; y: number } {
+  return { x: node.x + node.width / 2, y: node.y + node.height / 2 };
+}
+
+export function rectIntersection(
+  node: GraphNode,
+  targetX: number,
+  targetY: number,
+): { x: number; y: number } {
+  const cx = node.x + node.width / 2;
+  const cy = node.y + node.height / 2;
+  const dx = targetX - cx;
+  const dy = targetY - cy;
+  if (dx === 0 && dy === 0) return { x: cx, y: cy };
+  const hw = node.width / 2;
+  const hh = node.height / 2;
+  const scaleX = hw / Math.abs(dx || 1);
+  const scaleY = hh / Math.abs(dy || 1);
+  const scale = Math.min(scaleX, scaleY);
+  return { x: cx + dx * scale, y: cy + dy * scale };
+}
+
+export function ellipseIntersection(
+  node: GraphNode,
+  targetX: number,
+  targetY: number,
+): { x: number; y: number } {
+  const cx = node.x + node.width / 2;
+  const cy = node.y + node.height / 2;
+  const dx = targetX - cx;
+  const dy = targetY - cy;
+  if (dx === 0 && dy === 0) return { x: cx, y: cy };
+  const rx = node.width / 2;
+  const ry = node.height / 2;
+  const angle = Math.atan2(dy, dx);
+  return { x: cx + rx * Math.cos(angle), y: cy + ry * Math.sin(angle) };
+}
+
+function diamondIntersection(
+  node: GraphNode,
+  targetX: number,
+  targetY: number,
+): { x: number; y: number } {
+  const cx = node.x + node.width / 2;
+  const cy = node.y + node.height / 2;
+  const dx = targetX - cx;
+  const dy = targetY - cy;
+  if (dx === 0 && dy === 0) return { x: cx, y: cy };
+
+  const hw = node.width / 2;
+  const hh = node.height / 2;
+  // Diamond edge equation: |dx/hw| + |dy/hh| = 1
+  const scale = 1 / (Math.abs(dx) / hw + Math.abs(dy) / hh);
+  return { x: cx + dx * scale, y: cy + dy * scale };
+}
+
+export function nodeIntersection(
+  node: GraphNode,
+  targetX: number,
+  targetY: number,
+): { x: number; y: number } {
+  if (node.type === 'ellipse') return ellipseIntersection(node, targetX, targetY);
+  if (node.type === 'diamond') return diamondIntersection(node, targetX, targetY);
+  // parallelogram and cylinder use rectIntersection (default)
+  return rectIntersection(node, targetX, targetY);
+}
+
+export type Side = 'top' | 'right' | 'bottom' | 'left';
+
+/** ノードの4辺中央の接続ポイント + extraConnectionPoints */
+export function getConnectionPoints(node: GraphNode): { side: Side; x: number; y: number }[] {
+  const { x, y, width: w, height: h } = node;
+  const points: { side: Side; x: number; y: number }[] = [
+    { side: 'top', x: x + w / 2, y },
+    { side: 'right', x: x + w, y: y + h / 2 },
+    { side: 'bottom', x: x + w / 2, y: y + h },
+    { side: 'left', x: x, y: y + h / 2 },
+  ];
+
+  if (node.extraConnectionPoints) {
+    for (const ep of node.extraConnectionPoints) {
+      const px = x + w * ep.x;
+      const py = y + h * ep.y;
+      const side = determineSide(ep.x, ep.y);
+      points.push({ side, x: px, y: py });
+    }
+  }
+
+  return points;
+}
+
+/** 正規化座標からどの辺に最も近いかを判定 */
+function determineSide(nx: number, ny: number): Side {
+  const dists: { side: Side; d: number }[] = [
+    { side: 'top', d: ny },
+    { side: 'bottom', d: 1 - ny },
+    { side: 'left', d: nx },
+    { side: 'right', d: 1 - nx },
+  ];
+  return dists.sort((a, b) => a.d - b.d)[0].side;
+}
+
+/** 指定座標に最も近い接続ポイントを返す */
+export function nearestConnectionPoint(node: GraphNode, tx: number, ty: number): { side: Side; x: number; y: number } {
+  const points = getConnectionPoints(node);
+  let best = points[0];
+  let bestDist = Infinity;
+  for (const p of points) {
+    const d = Math.hypot(p.x - tx, p.y - ty);
+    if (d < bestDist) { bestDist = d; best = p; }
+  }
+  return best;
+}
+
+/** 接続ポイントのhit判定 */
+export function hitTestConnectionPoint(
+  node: GraphNode, wx: number, wy: number, scale: number,
+): { side: Side; x: number; y: number } | null {
+  const radius = 10 / scale;
+  for (const p of getConnectionPoints(node)) {
+    if (Math.hypot(wx - p.x, wy - p.y) <= radius) return p;
+  }
+  return null;
+}
+
+/** 2ノード間の最適な接続辺を決定 */
+export function bestSides(fromNode: GraphNode, toNode: GraphNode): { fromSide: Side; toSide: Side } {
+  const fc = nodeCenter(fromNode);
+  const tc = nodeCenter(toNode);
+  const dx = tc.x - fc.x;
+  const dy = tc.y - fc.y;
+
+  let fromSide: Side;
+  let toSide: Side;
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    fromSide = dx > 0 ? 'right' : 'left';
+    toSide = dx > 0 ? 'left' : 'right';
+  } else {
+    fromSide = dy > 0 ? 'bottom' : 'top';
+    toSide = dy > 0 ? 'top' : 'bottom';
+  }
+
+  return { fromSide, toSide };
+}
+
+/** 辺の方向に応じたオフセット座標 */
+function offsetPoint(pt: { x: number; y: number }, side: Side, margin: number): { x: number; y: number } {
+  switch (side) {
+    case 'top': return { x: pt.x, y: pt.y - margin };
+    case 'bottom': return { x: pt.x, y: pt.y + margin };
+    case 'left': return { x: pt.x - margin, y: pt.y };
+    case 'right': return { x: pt.x + margin, y: pt.y };
+  }
+}
+
+/** 直角折れ線のウェイポイントを計算 */
+export function computeOrthogonalPath(
+  fromNode: GraphNode,
+  toNode: GraphNode,
+  margin: number = 20,
+  manualMidpoint?: number,
+): { x: number; y: number }[] {
+  const { fromSide, toSide } = bestSides(fromNode, toNode);
+  const fromPts = getConnectionPoints(fromNode);
+  const toPts = getConnectionPoints(toNode);
+  const fromPt = fromPts.find(p => p.side === fromSide)!;
+  const toPt = toPts.find(p => p.side === toSide)!;
+
+  const p1 = offsetPoint(fromPt, fromSide, margin);
+  const p4 = offsetPoint(toPt, toSide, margin);
+
+  const points: { x: number; y: number }[] = [fromPt];
+
+  // 対向する辺（right↔left, top↔bottom）の場合: 中間点で折れる
+  const isHorizontal = fromSide === 'right' || fromSide === 'left';
+  const isOpposite =
+    (fromSide === 'right' && toSide === 'left') ||
+    (fromSide === 'left' && toSide === 'right') ||
+    (fromSide === 'top' && toSide === 'bottom') ||
+    (fromSide === 'bottom' && toSide === 'top');
+
+  if (isOpposite) {
+    if (isHorizontal) {
+      const midX = manualMidpoint ?? (p1.x + p4.x) / 2;
+      points.push({ x: midX, y: fromPt.y });
+      points.push({ x: midX, y: toPt.y });
+    } else {
+      const midY = manualMidpoint ?? (p1.y + p4.y) / 2;
+      points.push({ x: fromPt.x, y: midY });
+      points.push({ x: toPt.x, y: midY });
+    }
+  } else {
+    // 同方向や直交する場合: L字またはZ字
+    points.push(p1);
+    if (isHorizontal) {
+      points.push({ x: p1.x, y: p4.y });
+    } else {
+      points.push({ x: p4.x, y: p1.y });
+    }
+    points.push(p4);
+  }
+
+  points.push(toPt);
+  return points;
+}
+
+/** ベジェ曲線の制御点を含む4点パスを計算 [start, cp1, cp2, end] */
+export function computeBezierPath(
+  fromNode: GraphNode,
+  toNode: GraphNode,
+): { x: number; y: number }[] {
+  const { fromSide, toSide } = bestSides(fromNode, toNode);
+  const fromPts = getConnectionPoints(fromNode);
+  const toPts = getConnectionPoints(toNode);
+  const fromPt = fromPts.find(p => p.side === fromSide)!;
+  const toPt = toPts.find(p => p.side === toSide)!;
+
+  const dist = Math.hypot(toPt.x - fromPt.x, toPt.y - fromPt.y);
+  const cpDist = Math.max(dist / 3, 30);
+
+  const cp1 = offsetPoint(fromPt, fromSide, cpDist);
+  const cp2 = offsetPoint(toPt, toSide, cpDist);
+
+  return [fromPt, cp1, cp2, toPt];
+}
+
+export function resolveConnectorEndpoints(
+  edge: GraphEdge,
+  nodes: GraphNode[],
+): { from: { x: number; y: number }; to: { x: number; y: number } } {
+  const fromNode = edge.from.nodeId ? nodes.find((n) => n.id === edge.from.nodeId) : null;
+  const toNode = edge.to.nodeId ? nodes.find((n) => n.id === edge.to.nodeId) : null;
+  let fromPt = { x: edge.from.x, y: edge.from.y };
+  let toPt = { x: edge.to.x, y: edge.to.y };
+  if (fromNode && toNode) {
+    const fromCenter = nodeCenter(fromNode);
+    const toCenter = nodeCenter(toNode);
+    fromPt = nodeIntersection(fromNode, toCenter.x, toCenter.y);
+    toPt = nodeIntersection(toNode, fromCenter.x, fromCenter.y);
+  } else if (fromNode) {
+    fromPt = nodeIntersection(fromNode, toPt.x, toPt.y);
+  } else if (toNode) {
+    toPt = nodeIntersection(toNode, fromPt.x, fromPt.y);
+  }
+  return { from: fromPt, to: toPt };
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import { ACCENT_COLOR, DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from '@anytime-markdown/editor-core';
+import { ACCENT_COLOR, DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from '@anytime-markdown/markdown-core';
 import {
   closestCenter,
   DndContext,

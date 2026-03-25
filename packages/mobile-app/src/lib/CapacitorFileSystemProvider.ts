@@ -1,6 +1,6 @@
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { FilePicker } from '@capawesome/capacitor-file-picker';
-import type { FileHandle, FileOpenResult, FileSystemProvider } from '@anytime-markdown/editor-core';
+import type { FileHandle, FileOpenResult, FileSystemProvider } from '@anytime-markdown/markdown-core';
 
 export class CapacitorFileSystemProvider implements FileSystemProvider {
   readonly supportsDirectAccess = true;

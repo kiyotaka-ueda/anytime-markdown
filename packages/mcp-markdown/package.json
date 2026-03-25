@@ -1,0 +1,29 @@
+{
+  "name": "@anytime-markdown/mcp-markdown",
+  "version": "0.8.0",
+  "license": "MIT",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "bin": {
+    "mcp-markdown": "./bin/mcp-markdown.js"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "jest"
+  },
+  "dependencies": {
+    "@anytime-markdown/markdown-core": "*",
+    "@modelcontextprotocol/sdk": "1.27.1",
+    "jsdom": "26.1.0",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/jest": "30.0.0",
+    "@types/node": "22.15.21",
+    "jest": "30.2.0",
+    "ts-jest": "29.4.6"
+  }
+}

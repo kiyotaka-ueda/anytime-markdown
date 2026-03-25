@@ -18,7 +18,7 @@ export default getRequestConfig(async () => {
     // Static export (CAPACITOR_BUILD) does not support cookies() — use default locale
   }
 
-  const messages = (await import(`@anytime-markdown/editor-core/src/i18n/${locale}.json`)).default;
+  const messages = (await import(`@anytime-markdown/markdown-core/src/i18n/${locale}.json`)).default;
 
   return {
     locale,

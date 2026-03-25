@@ -1,0 +1,21 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"resolveJsonModule": true,
+		"paths": {
+			"@anytime-markdown/markdown-core": ["../markdown-core/src/index.ts"],
+			"@anytime-markdown/markdown-core/*": ["../markdown-core/*"],
+			"@/*": ["../markdown-core/src/*"]
+		}
+	},
+	"include": [
+		"src/webview/**/*",
+		"../markdown-core/src/**/*"
+	],
+	"exclude": [
+		"../markdown-core/src/__tests__/**/*",
+		"../markdown-core/src/testUtils/**/*"
+	]
+}

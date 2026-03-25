@@ -7,8 +7,8 @@ const config = {
   testMatch: ["<rootDir>/src/__tests__/**/*.test.{ts,tsx}"],
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json"],
   moduleNameMapper: {
-    "^@anytime-markdown/editor-core/src/(.*)$": "<rootDir>/../editor-core/src/$1",
-    "^@anytime-markdown/editor-core$": "<rootDir>/../editor-core/src/index.ts",
+    "^@anytime-markdown/markdown-core/src/(.*)$": "<rootDir>/../markdown-core/src/$1",
+    "^@anytime-markdown/markdown-core$": "<rootDir>/../markdown-core/src/index.ts",
     "^next-auth/providers/(.*)$": "<rootDir>/src/__mocks__/next-auth-provider.js",
     "^next-auth(.*)$": "<rootDir>/src/__mocks__/next-auth.js",
   },

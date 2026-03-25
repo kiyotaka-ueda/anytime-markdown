@@ -1,7 +1,9 @@
 {
 	"files": [],
 	"references": [
-		{ "path": "packages/editor-core" },
-		{ "path": "packages/vscode-extension" }
+		{ "path": "packages/markdown-core" },
+		{ "path": "packages/mcp-markdown" },
+		{ "path": "packages/mcp-graph" },
+		{ "path": "packages/vscode-markdown-extension" }
 	]
 }

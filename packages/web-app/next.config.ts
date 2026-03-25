@@ -13,7 +13,7 @@ const isCapacitorBuild = process.env.CAPACITOR_BUILD === 'true';
 
 const nextConfig: NextConfig = {
   devIndicators: false,
-  transpilePackages: ['@anytime-markdown/editor-core'],
+  transpilePackages: ['@anytime-markdown/markdown-core'],
   ...(isCapacitorBuild && {
     output: 'export' as const,
     trailingSlash: true,

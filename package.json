@@ -1,16 +1,20 @@
 {
   "name": "anytime-markdown-monorepo",
-  "version": "0.7.7",
+  "version": "0.8.0",
   "license": "MIT",
   "private": true,
   "scripts": {
     "version:sync": "npm version --no-git-tag-version --workspaces",
-    "lint": "eslint packages/editor-core/src packages/web-app/src",
-    "lint:fix": "eslint --fix packages/editor-core/src packages/web-app/src"
+    "lint": "eslint packages/markdown-core/src packages/web-app/src",
+    "lint:fix": "eslint --fix packages/markdown-core/src packages/web-app/src"
   },
   "workspaces": [
-    "packages/editor-core",
-    "packages/vscode-extension",
+    "packages/markdown-core",
+    "packages/graph-core",
+    "packages/mcp-markdown",
+    "packages/mcp-graph",
+    "packages/vscode-markdown-extension",
+    "packages/vscode-graph-extension",
     "packages/web-app",
     "packages/mobile-app"
   ],
