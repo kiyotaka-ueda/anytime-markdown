@@ -171,6 +171,10 @@ export function useMermaidRender({ code, isMermaid, isDark }: UseMermaidRenderPa
       return;
     }
 
+    // キャッシュミス: 古いテーマの SVG をクリアして再レンダリングを待つ
+    setSvg("");
+    setError("");
+
     // モジュールレベルのレンダリングをリクエスト
     const cancel = requestMermaidRender(code, isDark, (renderedSvg, renderedError) => {
       if (mountedRef.current) {
