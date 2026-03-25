@@ -15,6 +15,7 @@ import { PropertyPanel } from './PropertyPanel';
 import { TextEditOverlay } from './TextEditOverlay';
 import { DocEditorModal } from './DocEditorModal';
 import { ShapeHoverBar } from './ShapeHoverBar';
+import { SettingsPanel } from './SettingsPanel';
 import { pan as panViewport, zoom as zoomViewport, fitToContent } from '../engine/viewport';
 import { interpolateViewport, ViewportAnimation, clearImageCache } from '@anytime-markdown/graph-core/engine';
 import { alignLeft, alignRight, alignTop, alignBottom, alignCenterH, alignCenterV, distributeH, distributeV } from '../engine/alignment';
@@ -29,6 +30,7 @@ export function GraphEditor() {
   const [showGrid, setShowGrid] = useState(true);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [showProperty, setShowProperty] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { state, dispatch } = useGraphState();
@@ -362,7 +364,9 @@ export function GraphEditor() {
         hasSelection={state.selection.nodeIds.length > 0 || state.selection.edgeIds.length > 0}
         scale={state.document.viewport.scale}
         saveStatus={saveStatus}
+        onToggleSettings={() => setShowSettings(v => !v)}
       />
+      <Box sx={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden' }}>
       <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
         <GraphCanvas
           nodes={state.document.nodes}
@@ -445,6 +449,8 @@ export function GraphEditor() {
         >
           {liveMessage}
         </div>
+      </Box>
+      <SettingsPanel open={showSettings} width={260} onClose={() => setShowSettings(false)} />
       </Box>
       <DocEditorModal
         open={docEditNodeId !== null}
