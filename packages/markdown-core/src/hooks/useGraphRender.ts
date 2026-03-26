@@ -1,7 +1,17 @@
 import { useEffect, useState } from "react";
 
 import { BoundedMap } from "../utils/BoundedMap";
-import { type GraphExpr, parseLatexToGraph } from "../utils/latexToExpr";
+import type { GraphExpr } from "../utils/latexToExpr";
+
+/** Lazy-load latexToExpr (includes mathjs ~180KB) */
+let parseLatexToGraphFn: typeof import("../utils/latexToExpr").parseLatexToGraph | null = null;
+async function getParser() {
+  if (!parseLatexToGraphFn) {
+    const mod = await import("../utils/latexToExpr");
+    parseLatexToGraphFn = mod.parseLatexToGraph;
+  }
+  return parseLatexToGraphFn;
+}
 
 /** Lazy-load JSXGraph */
 let jsxGraphModule: typeof import("jsxgraph") | null = null;
@@ -53,40 +63,47 @@ export function useGraphRender({ code, enabled }: UseGraphRenderParams): UseGrap
     }
 
     let cancelled = false;
-
-    let expr = exprCache.get(code);
-    if (!expr) {
-      expr = parseLatexToGraph(code);
-      exprCache.set(code, expr);
-    }
-
-    if (expr.type === "unknown") {
-      setGraphExpr(null);
-      setError(expr.error || "この数式はグラフ化できません");
-      setLoading(false);
-      return;
-    }
-
-    setGraphExpr(expr);
-    setError("");
-
-    const is3d = expr.type === "surface3d" || expr.type === "parametric3d";
     setLoading(true);
 
-    const loadLib = is3d ? getPlotly() : getJSXGraph();
-    loadLib.then((mod) => {
-      if (cancelled) return;
-      if (is3d) {
-        setPlotly(mod as typeof import("plotly.js-gl3d-dist-min"));
-      } else {
-        setJsxGraph(mod as typeof import("jsxgraph"));
+    (async () => {
+      try {
+        // パーサー (+ mathjs) を動的ロード
+        const parseLatex = await getParser();
+        if (cancelled) return;
+
+        let expr = exprCache.get(code);
+        if (!expr) {
+          expr = parseLatex(code);
+          exprCache.set(code, expr);
+        }
+
+        if (expr.type === "unknown") {
+          setGraphExpr(null);
+          setError(expr.error || "この数式はグラフ化できません");
+          setLoading(false);
+          return;
+        }
+
+        setGraphExpr(expr);
+        setError("");
+
+        // 描画ライブラリを動的ロード
+        const is3d = expr.type === "surface3d" || expr.type === "parametric3d";
+        const mod = is3d ? await getPlotly() : await getJSXGraph();
+        if (cancelled) return;
+
+        if (is3d) {
+          setPlotly(mod as typeof import("plotly.js-gl3d-dist-min"));
+        } else {
+          setJsxGraph(mod as typeof import("jsxgraph"));
+        }
+        setLoading(false);
+      } catch (err) {
+        if (cancelled) return;
+        setError(`ライブラリの読み込みに失敗しました: ${err instanceof Error ? err.message : "unknown"}`);
+        setLoading(false);
       }
-      setLoading(false);
-    }).catch((err) => {
-      if (cancelled) return;
-      setError(`ライブラリの読み込みに失敗しました: ${err instanceof Error ? err.message : "unknown"}`);
-      setLoading(false);
-    });
+    })();
 
     return () => { cancelled = true; };
   }, [code, enabled]);
