@@ -36,7 +36,7 @@ export function GraphEditor() {
   const [isDragging, setIsDragging] = useState(false);
   const [layoutRunning, setLayoutRunning] = useState(false);
   const [collisionEnabled, setCollisionEnabled] = useState(false);
-  const [layoutAlgorithm, setLayoutAlgorithm] = useState<'eades' | 'fruchterman-reingold'>('eades');
+  const [layoutAlgorithm, setLayoutAlgorithm] = useState<'eades' | 'fruchterman-reingold' | 'eades-vpsc' | 'fruchterman-reingold-vpsc'>('eades');
   const physicsRef = useRef<physics.PhysicsEngine | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { state, dispatch } = useGraphState();

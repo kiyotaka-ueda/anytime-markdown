@@ -5,6 +5,7 @@ import { createBody, syncBodies } from './PhysicsBody';
 import { SpatialGrid } from './SpatialGrid';
 import { applySpring, applyRepulsion, applyCenterGravity, applyFRAttraction, applyFRRepulsion } from './forces';
 import { detectCollision, resolveCollision } from './collision';
+import { applyVpsc } from './vpsc';
 
 export class PhysicsEngine {
   private bodies = new Map<string, PhysicsBody>();
@@ -44,7 +45,8 @@ export class PhysicsEngine {
     this.edges = edges;
     this.iteration = 0;
 
-    if (this.config.algorithm === 'fruchterman-reingold') {
+    const algo = this.config.algorithm;
+    if (algo === 'fruchterman-reingold' || algo === 'fruchterman-reingold-vpsc') {
       const n = this.bodies.size || 1;
       const area = n * 200 * 200 * this.config.frAreaMultiplier;
       this.frK = Math.sqrt(area / n);
@@ -68,10 +70,14 @@ export class PhysicsEngine {
   }
 
   private step(): void {
-    if (this.config.algorithm === 'fruchterman-reingold') {
+    const algo = this.config.algorithm;
+    if (algo === 'fruchterman-reingold' || algo === 'fruchterman-reingold-vpsc') {
       this.stepFR();
     } else {
       this.stepEades();
+    }
+    if ((algo === 'eades-vpsc' || algo === 'fruchterman-reingold-vpsc') && this.iteration % 5 === 0) {
+      applyVpsc(Array.from(this.bodies.values()), this.config.collisionPadding);
     }
   }
 
@@ -195,7 +201,8 @@ export class PhysicsEngine {
   }
 
   private isConverged(): boolean {
-    if (this.config.algorithm === 'fruchterman-reingold') {
+    const algo = this.config.algorithm;
+    if (algo === 'fruchterman-reingold' || algo === 'fruchterman-reingold-vpsc') {
       return this.temperature < 0.5;
     }
     for (const body of this.bodies.values()) {

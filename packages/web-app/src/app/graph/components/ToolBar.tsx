@@ -84,8 +84,8 @@ interface ToolBarProps {
   collisionEnabled?: boolean;
   onAutoLayout?: () => void;
   onToggleCollision?: (enabled: boolean) => void;
-  layoutAlgorithm?: 'eades' | 'fruchterman-reingold';
-  onChangeAlgorithm?: (algorithm: 'eades' | 'fruchterman-reingold') => void;
+  layoutAlgorithm?: 'eades' | 'fruchterman-reingold' | 'eades-vpsc' | 'fruchterman-reingold-vpsc';
+  onChangeAlgorithm?: (algorithm: 'eades' | 'fruchterman-reingold' | 'eades-vpsc' | 'fruchterman-reingold-vpsc') => void;
   onSpreadConnected?: () => void;
 }
 
@@ -298,7 +298,9 @@ export function GraphToolBar({
           <MenuItem onClick={() => { onAlign('distributeV'); setAlignAnchor(null); }} disabled={selectionCount < 3}><ListItemIcon><TableRowsIcon fontSize="small" /></ListItemIcon><ListItemText>{t('distributeV')}</ListItemText></MenuItem>
         </Menu>
 
-        <Tooltip title={`${t('autoLayout')} (${layoutAlgorithm === 'eades' ? 'Eades' : 'FR'})`}>
+        <Tooltip title={`${t('autoLayout')} (${
+          { 'eades': 'Eades', 'fruchterman-reingold': 'FR', 'eades-vpsc': 'Eades+VPSC', 'fruchterman-reingold-vpsc': 'FR+VPSC' }[layoutAlgorithm]
+        })`}>
           <span>
             <IconButton
               onClick={onAutoLayout}
@@ -311,12 +313,16 @@ export function GraphToolBar({
         </Tooltip>
         <Tooltip title={t('switchAlgorithm')}>
           <IconButton
-            onClick={() => onChangeAlgorithm?.(layoutAlgorithm === 'eades' ? 'fruchterman-reingold' : 'eades')}
+            onClick={() => {
+              const cycle: Array<'eades' | 'fruchterman-reingold' | 'eades-vpsc' | 'fruchterman-reingold-vpsc'> = ['eades', 'fruchterman-reingold', 'eades-vpsc', 'fruchterman-reingold-vpsc'];
+              const idx = cycle.indexOf(layoutAlgorithm);
+              onChangeAlgorithm?.(cycle[(idx + 1) % cycle.length]);
+            }}
             size="small"
             disabled={layoutRunning}
           >
             <Typography variant="caption" sx={{ fontSize: 10, fontWeight: 'bold', lineHeight: 1 }}>
-              {layoutAlgorithm === 'eades' ? 'EA' : 'FR'}
+              {{ 'eades': 'EA', 'fruchterman-reingold': 'FR', 'eades-vpsc': 'EA+V', 'fruchterman-reingold-vpsc': 'FR+V' }[layoutAlgorithm]}
             </Typography>
           </IconButton>
         </Tooltip>

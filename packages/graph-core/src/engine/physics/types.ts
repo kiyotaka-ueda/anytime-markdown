@@ -12,7 +12,7 @@ export interface PhysicsBody {
   mass: number;
 }
 
-export type LayoutAlgorithm = 'eades' | 'fruchterman-reingold';
+export type LayoutAlgorithm = 'eades' | 'fruchterman-reingold' | 'eades-vpsc' | 'fruchterman-reingold-vpsc';
 
 export interface PhysicsConfig {
   algorithm: LayoutAlgorithm;
