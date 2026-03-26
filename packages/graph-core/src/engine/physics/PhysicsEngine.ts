@@ -11,18 +11,11 @@ export class PhysicsEngine {
   private edges: GraphEdge[] = [];
   private grid: SpatialGrid;
   private config: PhysicsConfig;
-  private running = false;
-  private animFrameId: number | null = null;
   private iteration = 0;
-  private onUpdate: (positions: Map<string, { x: number; y: number }>) => void;
 
-  constructor(
-    config: Partial<PhysicsConfig>,
-    onUpdate: (positions: Map<string, { x: number; y: number }>) => void,
-  ) {
+  constructor(config: Partial<PhysicsConfig> = {}) {
     this.config = { ...DEFAULT_PHYSICS_CONFIG, ...config };
     this.grid = new SpatialGrid(200);
-    this.onUpdate = onUpdate;
   }
 
   addBody(node: GraphNode): void {
@@ -44,36 +37,25 @@ export class PhysicsEngine {
     this.bodies = syncBodies(nodes, this.bodies);
   }
 
-  startLayout(nodes: GraphNode[], edges: GraphEdge[]): void {
+  initLayout(nodes: GraphNode[], edges: GraphEdge[]): void {
     this.syncFromNodes(nodes);
     this.edges = edges;
     this.iteration = 0;
-    this.running = true;
-    this.tick();
   }
 
-  stopLayout(): void {
-    this.running = false;
-    if (this.animFrameId !== null) {
-      cancelAnimationFrame(this.animFrameId);
-      this.animFrameId = null;
-    }
-  }
-
-  private tick(): void {
-    if (!this.running) return;
-
+  /** Run one simulation step. Returns true if still running, false if converged. */
+  tick(): boolean {
     this.step();
     this.iteration++;
+    return !this.isConverged() && this.iteration < this.config.maxIterations;
+  }
 
-    if (this.isConverged() || this.iteration >= this.config.maxIterations) {
-      this.running = false;
-      this.emitPositions();
-      return;
+  getPositions(): Map<string, { x: number; y: number }> {
+    const positions = new Map<string, { x: number; y: number }>();
+    for (const [id, body] of this.bodies) {
+      positions.set(id, { x: body.x, y: body.y });
     }
-
-    this.emitPositions();
-    this.animFrameId = requestAnimationFrame(() => this.tick());
+    return positions;
   }
 
   private step(): void {
@@ -152,14 +134,6 @@ export class PhysicsEngine {
       if (speed > this.config.velocityThreshold) return false;
     }
     return true;
-  }
-
-  private emitPositions(): void {
-    const positions = new Map<string, { x: number; y: number }>();
-    for (const [id, body] of this.bodies) {
-      positions.set(id, { x: body.x, y: body.y });
-    }
-    this.onUpdate(positions);
   }
 
   resolveCollisions(movedId: string): { id: string; x: number; y: number }[] {

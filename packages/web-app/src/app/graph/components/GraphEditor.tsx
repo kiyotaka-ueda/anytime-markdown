@@ -101,48 +101,27 @@ export function GraphEditor() {
     setLayoutRunning(true);
     dispatch({ type: 'SNAPSHOT' });
 
-    let lastUpdateTime = Date.now();
-    let pendingUpdates: Array<{ id: string; x: number; y: number }> | null = null;
-    let rafId: number | null = null;
-
-    // Batch position updates to avoid excessive re-renders
-    const flushUpdates = () => {
-      rafId = null;
-      if (pendingUpdates) {
-        dispatch({ type: 'SET_NODE_POSITIONS', updates: pendingUpdates });
-        pendingUpdates = null;
-      }
-    };
-
-    const engine = new physics.PhysicsEngine(
-      { collisionEnabled: true },
-      (positions) => {
-        lastUpdateTime = Date.now();
-        const updates: Array<{ id: string; x: number; y: number }> = [];
-        for (const [id, pos] of positions) {
-          updates.push({ id, x: pos.x, y: pos.y });
-        }
-        pendingUpdates = updates;
-        if (rafId === null) {
-          rafId = requestAnimationFrame(flushUpdates);
-        }
-      },
-    );
-
-    engine.startLayout(nodesRef.current, edgesRef.current);
+    const engine = new physics.PhysicsEngine({ collisionEnabled: true });
+    engine.initLayout(nodesRef.current, edgesRef.current);
     physicsRef.current = engine;
 
-    const checkDone = setInterval(() => {
-      if (Date.now() - lastUpdateTime > 200) {
-        clearInterval(checkDone);
-        if (rafId !== null) cancelAnimationFrame(rafId);
-        if (pendingUpdates) {
-          dispatch({ type: 'SET_NODE_POSITIONS', updates: pendingUpdates });
-        }
+    const loop = () => {
+      const running = engine.tick();
+      const positions = engine.getPositions();
+      const updates: Array<{ id: string; x: number; y: number }> = [];
+      for (const [id, pos] of positions) {
+        updates.push({ id, x: pos.x, y: pos.y });
+      }
+      dispatch({ type: 'SET_NODE_POSITIONS', updates });
+
+      if (running) {
+        requestAnimationFrame(loop);
+      } else {
         setLayoutRunning(false);
         dispatch({ type: 'SNAPSHOT' });
       }
-    }, 100);
+    };
+    requestAnimationFrame(loop);
   }, [layoutRunning, dispatch]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
