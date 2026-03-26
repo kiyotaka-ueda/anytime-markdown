@@ -39,6 +39,10 @@ export function GraphEditor() {
   const physicsRef = useRef<physics.PhysicsEngine | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { state, dispatch } = useGraphState();
+  const nodesRef = useRef(state.document.nodes);
+  const edgesRef = useRef(state.document.edges);
+  nodesRef.current = state.document.nodes;
+  edgesRef.current = state.document.edges;
   const selectionRef = useRef(state.selection);
   selectionRef.current = state.selection;
   const [docEditNodeId, setDocEditNodeId] = useState<string | null>(null);
@@ -98,6 +102,17 @@ export function GraphEditor() {
     dispatch({ type: 'SNAPSHOT' });
 
     let lastUpdateTime = Date.now();
+    let pendingUpdates: Array<{ id: string; x: number; y: number }> | null = null;
+    let rafId: number | null = null;
+
+    // Batch position updates to avoid excessive re-renders
+    const flushUpdates = () => {
+      rafId = null;
+      if (pendingUpdates) {
+        dispatch({ type: 'SET_NODE_POSITIONS', updates: pendingUpdates });
+        pendingUpdates = null;
+      }
+    };
 
     const engine = new physics.PhysicsEngine(
       { collisionEnabled: true },
@@ -107,22 +122,28 @@ export function GraphEditor() {
         for (const [id, pos] of positions) {
           updates.push({ id, x: pos.x, y: pos.y });
         }
-        dispatch({ type: 'SET_NODE_POSITIONS', updates });
+        pendingUpdates = updates;
+        if (rafId === null) {
+          rafId = requestAnimationFrame(flushUpdates);
+        }
       },
     );
 
-    engine.startLayout(state.document.nodes, state.document.edges);
+    engine.startLayout(nodesRef.current, edgesRef.current);
     physicsRef.current = engine;
 
-    // Check for convergence (engine stops calling onUpdate when converged)
     const checkDone = setInterval(() => {
       if (Date.now() - lastUpdateTime > 200) {
         clearInterval(checkDone);
+        if (rafId !== null) cancelAnimationFrame(rafId);
+        if (pendingUpdates) {
+          dispatch({ type: 'SET_NODE_POSITIONS', updates: pendingUpdates });
+        }
         setLayoutRunning(false);
         dispatch({ type: 'SNAPSHOT' });
       }
     }, 100);
-  }, [layoutRunning, state.document.nodes, state.document.edges, dispatch]);
+  }, [layoutRunning, dispatch]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
