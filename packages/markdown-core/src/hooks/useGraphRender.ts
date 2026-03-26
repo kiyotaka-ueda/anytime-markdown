@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { BoundedMap } from "../utils/BoundedMap";
 import { type GraphExpr, parseLatexToGraph } from "../utils/latexToExpr";
@@ -44,12 +44,6 @@ export function useGraphRender({ code, enabled }: UseGraphRenderParams): UseGrap
   const [error, setError] = useState("");
   const [jsxGraph, setJsxGraph] = useState<typeof import("jsxgraph") | null>(null);
   const [plotly, setPlotly] = useState<typeof import("plotly.js-gl3d-dist-min") | null>(null);
-  const mountedRef = useRef(true);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => { mountedRef.current = false; };
-  }, []);
 
   useEffect(() => {
     if (!enabled || !code.trim()) {
@@ -57,6 +51,8 @@ export function useGraphRender({ code, enabled }: UseGraphRenderParams): UseGrap
       setError("");
       return;
     }
+
+    let cancelled = false;
 
     let expr = exprCache.get(code);
     if (!expr) {
@@ -79,7 +75,7 @@ export function useGraphRender({ code, enabled }: UseGraphRenderParams): UseGrap
 
     const loadLib = is3d ? getPlotly() : getJSXGraph();
     loadLib.then((mod) => {
-      if (!mountedRef.current) return;
+      if (cancelled) return;
       if (is3d) {
         setPlotly(mod as typeof import("plotly.js-gl3d-dist-min"));
       } else {
@@ -87,10 +83,12 @@ export function useGraphRender({ code, enabled }: UseGraphRenderParams): UseGrap
       }
       setLoading(false);
     }).catch((err) => {
-      if (!mountedRef.current) return;
+      if (cancelled) return;
       setError(`ライブラリの読み込みに失敗しました: ${err instanceof Error ? err.message : "unknown"}`);
       setLoading(false);
     });
+
+    return () => { cancelled = true; };
   }, [code, enabled]);
 
   return { graphExpr, loading, error, jsxGraph, plotly };

@@ -45,7 +45,16 @@ export function Graph2DView({ graphExpr, jsxGraph, isDark, width = 500, height =
 
   const strokeColor = isDark ? "#90caf9" : "#1976d2";
 
-  /** ボードの初期化・更新 */
+  /** paramValuesRef: renderBoard内でクロージャ経由で最新値を参照 */
+  const paramValuesRef = useRef(paramValues);
+
+  /** paramValues変更時にrefを同期し、ボードを軽量更新 */
+  useEffect(() => {
+    paramValuesRef.current = paramValues;
+    boardRef.current?.update();
+  }, [paramValues]);
+
+  /** ボードの初期化 */
   const renderBoard = useCallback(() => {
     if (!containerRef.current) return;
 
@@ -65,14 +74,13 @@ export function Graph2DView({ graphExpr, jsxGraph, isDark, width = 500, height =
     });
     boardRef.current = board;
 
-    const vars = { ...paramValues };
     const evalFn = graphExpr.evaluate;
 
     try {
       switch (graphExpr.type) {
         case "explicit2d": {
           board.create("functiongraph", [
-            (x: number) => evalFn({ ...vars, x }) as number,
+            (x: number) => evalFn({ ...paramValuesRef.current, x }) as number,
             DEFAULT_BBOX[0],
             DEFAULT_BBOX[2],
           ], { strokeColor, strokeWidth: 2 });
@@ -80,11 +88,11 @@ export function Graph2DView({ graphExpr, jsxGraph, isDark, width = 500, height =
         }
         case "polar": {
           const xFn = (theta: number) => {
-            const r = evalFn({ ...vars, theta }) as number;
+            const r = evalFn({ ...paramValuesRef.current, theta }) as number;
             return r * Math.cos(theta);
           };
           const yFn = (theta: number) => {
-            const r = evalFn({ ...vars, theta }) as number;
+            const r = evalFn({ ...paramValuesRef.current, theta }) as number;
             return r * Math.sin(theta);
           };
           board.create("curve", [xFn, yFn, 0, 2 * Math.PI], {
@@ -98,11 +106,11 @@ export function Graph2DView({ graphExpr, jsxGraph, isDark, width = 500, height =
           const tMin = -10;
           const tMax = 10;
           const xParam = (t: number) => {
-            const result = evalFn({ ...vars, t });
+            const result = evalFn({ ...paramValuesRef.current, t });
             return typeof result === "object" && result !== null ? (result as Record<string, number>).x : 0;
           };
           const yParam = (t: number) => {
-            const result = evalFn({ ...vars, t });
+            const result = evalFn({ ...paramValuesRef.current, t });
             return typeof result === "object" && result !== null ? (result as Record<string, number>).y : 0;
           };
           board.create("curve", [xParam, yParam, tMin, tMax], {
@@ -114,7 +122,7 @@ export function Graph2DView({ graphExpr, jsxGraph, isDark, width = 500, height =
         }
         case "implicit2d": {
           board.create("implicitcurve", [
-            (x: number, y: number) => evalFn({ ...vars, x, y }) as number,
+            (x: number, y: number) => evalFn({ ...paramValuesRef.current, x, y }) as number,
           ], { strokeColor, strokeWidth: 2 });
           break;
         }
@@ -122,9 +130,9 @@ export function Graph2DView({ graphExpr, jsxGraph, isDark, width = 500, height =
     } catch {
       // 評価エラーは無視（不正な値域など）
     }
-  }, [graphExpr, jsxGraph, paramValues, stableId, strokeColor]);
+  }, [graphExpr, jsxGraph, stableId, strokeColor]);
 
-  /** 初回マウント・パラメータ変更時にボードを再描画 */
+  /** 初回マウント・依存変更時にボードを再描画 */
   useEffect(() => {
     renderBoard();
     return () => {

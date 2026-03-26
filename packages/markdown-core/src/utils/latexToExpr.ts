@@ -74,7 +74,7 @@ export function latexToMathjs(latex: string): string {
   // \left, \right, \, を除去
   expr = expr.replace(/\\left/g, "");
   expr = expr.replace(/\\right/g, "");
-  expr = expr.replace(/\\,/g, "*");
+  expr = expr.replace(/\\,/g, " ");
 
   // \frac{a}{b} → ((a)/(b))
   // ネストに対応するため繰り返し適用
@@ -116,21 +116,8 @@ export function latexToMathjs(latex: string): string {
   expr = expr.replace(/\{/g, "(");
   expr = expr.replace(/\}/g, ")");
 
-  // 暗黙の乗算: 数字の直後に英字が来る場合（関数名は除外）
-  expr = expr.replace(
-    /(\d)([a-zA-Z])/g,
-    (_match, digit: string, letter: string) => {
-      // 関数名の先頭でないか確認
-      const restIdx = expr.indexOf(letter, expr.indexOf(digit + letter));
-      const rest = expr.substring(restIdx);
-      for (const fn of MATH_FUNCTIONS) {
-        if (rest.startsWith(fn + "(")) {
-          return digit + "*" + letter;
-        }
-      }
-      return digit + "*" + letter;
-    }
-  );
+  // 暗黙の乗算: 数字の直後に英字が来る場合
+  expr = expr.replace(/(\d)([a-zA-Z])/g, "$1*$2");
 
   // 閉じ括弧の直後に英字または開き括弧が来る場合の暗黙の乗算
   expr = expr.replace(/\)([a-zA-Z])/g, ")*$1");

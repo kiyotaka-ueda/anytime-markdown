@@ -3,7 +3,7 @@
 import PauseIcon from "@mui/icons-material/Pause";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import { Box, IconButton, Slider, Tooltip, Typography } from "@mui/material";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, getTextSecondary } from "../../constants/colors";
 import type { GraphExpr } from "../../utils/latexToExpr";
@@ -42,140 +42,161 @@ export function Graph3DView({ graphExpr, plotly, isDark, width = 500, height = 4
   const [animating, setAnimating] = useState<Record<string, boolean>>({});
   const animFrameRef = useRef<Record<string, number>>({});
 
-  /** Plotly描画 */
-  const renderPlot = useCallback(() => {
-    if (!containerRef.current) return;
+  /** paramValuesRef: renderPlot内でクロージャ経由で最新値を参照 */
+  const paramValuesRef = useRef(paramValues);
+  const plotInitializedRef = useRef(false);
 
-    const vars = { ...paramValues };
+  /** Plotlyデータを生成 */
+  const buildPlotData = useCallback(() => {
+    const vars = { ...paramValuesRef.current };
     const evalFn = graphExpr.evaluate;
 
-    const layout = {
-      width,
-      height,
-      margin: { l: 0, r: 0, t: 0, b: 0 },
-      paper_bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
-      scene: {
-        bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
-        xaxis: { color: isDark ? "#aaa" : "#333" },
-        yaxis: { color: isDark ? "#aaa" : "#333" },
-        zaxis: { color: isDark ? "#aaa" : "#333" },
-      },
-    };
+    if (graphExpr.type === "surface3d") {
+      const xVals: number[] = [];
+      const yVals: number[] = [];
+      for (let i = 0; i <= GRID_SIZE; i++) {
+        const v = DEFAULT_RANGE[0] + (DEFAULT_RANGE[1] - DEFAULT_RANGE[0]) * (i / GRID_SIZE);
+        xVals.push(v);
+        yVals.push(v);
+      }
 
-    const config = {
-      displayModeBar: true,
-      modeBarButtonsToRemove: ["toImage", "sendDataToCloud"],
-      responsive: true,
-    };
-
-    try {
-      if (graphExpr.type === "surface3d") {
-        // z = f(x, y) のサーフェスプロット
-        const xVals: number[] = [];
-        const yVals: number[] = [];
-        for (let i = 0; i <= GRID_SIZE; i++) {
-          const v = DEFAULT_RANGE[0] + (DEFAULT_RANGE[1] - DEFAULT_RANGE[0]) * (i / GRID_SIZE);
-          xVals.push(v);
-          yVals.push(v);
-        }
-
-        const zVals: number[][] = [];
-        for (let yi = 0; yi <= GRID_SIZE; yi++) {
-          const row: number[] = [];
-          for (let xi = 0; xi <= GRID_SIZE; xi++) {
-            try {
-              const z = evalFn({ ...vars, x: xVals[xi], y: yVals[yi] }) as number;
-              row.push(Number.isFinite(z) ? z : NaN);
-            } catch {
-              row.push(NaN);
-            }
+      const zVals: number[][] = [];
+      for (let yi = 0; yi <= GRID_SIZE; yi++) {
+        const row: number[] = [];
+        for (let xi = 0; xi <= GRID_SIZE; xi++) {
+          try {
+            const z = evalFn({ ...vars, x: xVals[xi], y: yVals[yi] }) as number;
+            row.push(Number.isFinite(z) ? z : NaN);
+          } catch {
+            row.push(NaN);
           }
-          zVals.push(row);
         }
+        zVals.push(row);
+      }
 
-        const data = [{
-          type: "surface" as const,
-          x: xVals,
-          y: yVals,
-          z: zVals,
-          colorscale: isDark ? "Viridis" : "YlGnBu",
-          showscale: false,
-        }];
+      return [{
+        type: "surface" as const,
+        x: xVals,
+        y: yVals,
+        z: zVals,
+        colorscale: isDark ? "Viridis" : "YlGnBu",
+        showscale: false,
+      }];
+    } else if (graphExpr.type === "parametric3d") {
+      const uMin = 0;
+      const uMax = 2 * Math.PI;
+      const vMin = 0;
+      const vMax = Math.PI;
 
-        plotly.react(containerRef.current, data, layout, config).catch(() => {
-          // Plotly render error - silently ignore
-        });
-      } else if (graphExpr.type === "parametric3d") {
-        // パラメトリック3D: u, v → (x, y, z)
-        const uMin = 0;
-        const uMax = 2 * Math.PI;
-        const vMin = 0;
-        const vMax = Math.PI;
+      const xGrid: number[][] = [];
+      const yGrid: number[][] = [];
+      const zGrid: number[][] = [];
 
-        const xGrid: number[][] = [];
-        const yGrid: number[][] = [];
-        const zGrid: number[][] = [];
+      for (let vi = 0; vi <= GRID_SIZE; vi++) {
+        const v = vMin + (vMax - vMin) * (vi / GRID_SIZE);
+        const xRow: number[] = [];
+        const yRow: number[] = [];
+        const zRow: number[] = [];
 
-        for (let vi = 0; vi <= GRID_SIZE; vi++) {
-          const v = vMin + (vMax - vMin) * (vi / GRID_SIZE);
-          const xRow: number[] = [];
-          const yRow: number[] = [];
-          const zRow: number[] = [];
-
-          for (let ui = 0; ui <= GRID_SIZE; ui++) {
-            const u = uMin + (uMax - uMin) * (ui / GRID_SIZE);
-            try {
-              const result = evalFn({ ...vars, u, v });
-              if (typeof result === "object" && result !== null) {
-                const r = result as Record<string, number>;
-                xRow.push(Number.isFinite(r.x) ? r.x : NaN);
-                yRow.push(Number.isFinite(r.y) ? r.y : NaN);
-                zRow.push(Number.isFinite(r.z) ? r.z : NaN);
-              } else {
-                xRow.push(NaN);
-                yRow.push(NaN);
-                zRow.push(NaN);
-              }
-            } catch {
+        for (let ui = 0; ui <= GRID_SIZE; ui++) {
+          const u = uMin + (uMax - uMin) * (ui / GRID_SIZE);
+          try {
+            const result = evalFn({ ...vars, u, v });
+            if (typeof result === "object" && result !== null) {
+              const r = result as Record<string, number>;
+              xRow.push(Number.isFinite(r.x) ? r.x : NaN);
+              yRow.push(Number.isFinite(r.y) ? r.y : NaN);
+              zRow.push(Number.isFinite(r.z) ? r.z : NaN);
+            } else {
               xRow.push(NaN);
               yRow.push(NaN);
               zRow.push(NaN);
             }
+          } catch {
+            xRow.push(NaN);
+            yRow.push(NaN);
+            zRow.push(NaN);
           }
-
-          xGrid.push(xRow);
-          yGrid.push(yRow);
-          zGrid.push(zRow);
         }
 
-        const data = [{
-          type: "surface" as const,
-          x: xGrid,
-          y: yGrid,
-          z: zGrid,
-          colorscale: isDark ? "Viridis" : "YlGnBu",
-          showscale: false,
-        }];
+        xGrid.push(xRow);
+        yGrid.push(yRow);
+        zGrid.push(zRow);
+      }
 
-        plotly.react(containerRef.current, data, layout, config).catch(() => {
+      return [{
+        type: "surface" as const,
+        x: xGrid,
+        y: yGrid,
+        z: zGrid,
+        colorscale: isDark ? "Viridis" : "YlGnBu",
+        showscale: false,
+      }];
+    }
+
+    return null;
+  }, [graphExpr, isDark]);
+
+  /** Plotlyレイアウト */
+  const plotLayout = useMemo(() => ({
+    width,
+    height,
+    margin: { l: 0, r: 0, t: 0, b: 0 },
+    paper_bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
+    scene: {
+      bgcolor: isDark ? DEFAULT_DARK_BG : DEFAULT_LIGHT_BG,
+      xaxis: { color: isDark ? "#aaa" : "#333" },
+      yaxis: { color: isDark ? "#aaa" : "#333" },
+      zaxis: { color: isDark ? "#aaa" : "#333" },
+    },
+  }), [width, height, isDark]);
+
+  const plotConfig = useMemo(() => ({
+    displayModeBar: true,
+    modeBarButtonsToRemove: ["toImage", "sendDataToCloud"],
+    responsive: true,
+  }), []);
+
+  /** 初回マウント・構造変更時にプロット作成 */
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    try {
+      const data = buildPlotData();
+      if (data) {
+        plotly.react(containerRef.current, data, plotLayout, plotConfig).catch(() => {
+          // Plotly render error - silently ignore
+        });
+        plotInitializedRef.current = true;
+      }
+    } catch {
+      // 評価エラーは無視
+    }
+
+    return () => {
+      if (containerRef.current) {
+        plotly.purge(containerRef.current);
+      }
+      plotInitializedRef.current = false;
+    };
+  }, [buildPlotData, plotly, plotLayout, plotConfig]);
+
+  /** paramValues変更時にrefを同期し、軽量再描画 */
+  useEffect(() => {
+    paramValuesRef.current = paramValues;
+    if (!plotInitializedRef.current || !containerRef.current) return;
+
+    try {
+      const data = buildPlotData();
+      if (data) {
+        plotly.react(containerRef.current, data, plotLayout, plotConfig).catch(() => {
           // Plotly render error - silently ignore
         });
       }
     } catch {
       // 評価エラーは無視
     }
-  }, [graphExpr, plotly, isDark, paramValues, width, height]);
-
-  /** 初回マウント・パラメータ変更時に描画 */
-  useEffect(() => {
-    renderPlot();
-    return () => {
-      if (containerRef.current) {
-        plotly.purge(containerRef.current);
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [renderPlot]);
+  }, [paramValues, buildPlotData, plotly, plotLayout, plotConfig]);
 
   /** パラメータ値の更新 */
   const handleParamChange = useCallback((param: string, value: number) => {

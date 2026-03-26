@@ -62,8 +62,8 @@ describe("latexToMathjs", () => {
     expect(latexToMathjs("\\left(x\\right)")).toBe("(x)");
   });
 
-  test("\\, (薄いスペース) を除去", () => {
-    expect(latexToMathjs("x\\,y")).toBe("x*y");
+  test("\\, (薄いスペース) を空白に変換", () => {
+    expect(latexToMathjs("x\\,y")).toBe("x y");
   });
 
   test("ネストした\\frac", () => {
