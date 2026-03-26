@@ -307,7 +307,11 @@ export function GraphToolBar({
           <IconButton
             onClick={() => onToggleCollision?.(!collisionEnabled)}
             size="small"
-            sx={{ color: collisionEnabled ? 'primary.main' : 'inherit' }}
+            sx={{
+              color: collisionEnabled ? '#90caf9' : 'inherit',
+              backgroundColor: collisionEnabled ? 'rgba(144,202,249,0.16)' : 'transparent',
+              borderRadius: 1,
+            }}
           >
             <LayersIcon fontSize="small" />
           </IconButton>
