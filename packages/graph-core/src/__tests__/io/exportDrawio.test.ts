@@ -241,4 +241,176 @@ describe('exportToDrawio', () => {
     const xml = exportToDrawio(doc);
     expect(xml).toContain('value="yes"');
   });
+
+  it('should export fontColor from node style', () => {
+    const doc = createDocument('Test');
+    const node = createNode('rect', 0, 0, { id: 'fc1', text: 'Red' });
+    node.style.fontColor = '#FF0000';
+    doc.nodes = [node];
+    const xml = exportToDrawio(doc);
+    expect(xml).toContain('fontColor=#FF0000');
+  });
+
+  it('should export default fontColor as white when not set', () => {
+    const doc = createDocument('Test');
+    const node = createNode('rect', 0, 0, { id: 'fc2', text: 'Default' });
+    doc.nodes = [node];
+    const xml = exportToDrawio(doc);
+    expect(xml).toContain('fontColor=#FFFFFF');
+  });
+
+  it('should export fontStyle bitmask', () => {
+    const doc = createDocument('Test');
+    const node = createNode('rect', 0, 0, { id: 'fs1', text: 'Bold' });
+    node.style.fontStyle = 1;
+    doc.nodes = [node];
+    const xml = exportToDrawio(doc);
+    expect(xml).toContain('fontStyle=1');
+  });
+
+  it('should export align and verticalAlign', () => {
+    const doc = createDocument('Test');
+    const node = createNode('rect', 0, 0, { id: 'al1', text: 'Left' });
+    node.style.align = 'left';
+    node.style.verticalAlign = 'top';
+    doc.nodes = [node];
+    const xml = exportToDrawio(doc);
+    expect(xml).toContain('align=left');
+    expect(xml).toContain('verticalAlign=top');
+  });
+
+  it('should not export default align=center and verticalAlign=middle', () => {
+    const doc = createDocument('Test');
+    const node = createNode('rect', 0, 0, { id: 'al2', text: 'Center' });
+    node.style.align = 'center';
+    node.style.verticalAlign = 'middle';
+    doc.nodes = [node];
+    const xml = exportToDrawio(doc);
+    expect(xml).not.toContain('align=');
+    expect(xml).not.toContain('verticalAlign=');
+  });
+
+  it('should export opacity', () => {
+    const doc = createDocument('Test');
+    const node = createNode('rect', 0, 0, { id: 'op1', text: 'Semi' });
+    node.style.opacity = 50;
+    doc.nodes = [node];
+    const xml = exportToDrawio(doc);
+    expect(xml).toContain('opacity=50');
+  });
+
+  it('should not export opacity=100 (default)', () => {
+    const doc = createDocument('Test');
+    const node = createNode('rect', 0, 0, { id: 'op2', text: 'Full' });
+    node.style.opacity = 100;
+    doc.nodes = [node];
+    const xml = exportToDrawio(doc);
+    expect(xml).not.toContain('opacity=');
+  });
+
+  it('should export dashed style', () => {
+    const doc = createDocument('Test');
+    const node = createNode('rect', 0, 0, { id: 'da1', text: 'Dashed' });
+    node.style.dashed = true;
+    doc.nodes = [node];
+    const xml = exportToDrawio(doc);
+    expect(xml).toContain('dashed=1');
+  });
+
+  it('should export rounded=1 when borderRadius is set', () => {
+    const doc = createDocument('Test');
+    const node = createNode('rect', 0, 0, { id: 'rd1', text: 'Rounded' });
+    node.style.borderRadius = 10;
+    doc.nodes = [node];
+    const xml = exportToDrawio(doc);
+    expect(xml).toContain('rounded=1');
+  });
+
+  it('should export spacing properties', () => {
+    const doc = createDocument('Test');
+    const node = createNode('rect', 0, 0, { id: 'sp1', text: 'Spaced' });
+    node.style.spacing = 5;
+    node.style.spacingTop = 10;
+    node.style.spacingRight = 8;
+    node.style.spacingBottom = 12;
+    node.style.spacingLeft = 6;
+    doc.nodes = [node];
+    const xml = exportToDrawio(doc);
+    expect(xml).toContain('spacing=5');
+    expect(xml).toContain('spacingTop=10');
+    expect(xml).toContain('spacingRight=8');
+    expect(xml).toContain('spacingBottom=12');
+    expect(xml).toContain('spacingLeft=6');
+  });
+
+  it('should export locked node with connectable=0', () => {
+    const doc = createDocument('Test');
+    const node = createNode('rect', 0, 0, { id: 'lk1', text: 'Locked', locked: true });
+    doc.nodes = [node];
+    const xml = exportToDrawio(doc);
+    expect(xml).toContain('connectable="0"');
+  });
+
+  it('should export groupId as parent attribute', () => {
+    const doc = createDocument('Test');
+    const group = createNode('rect', 0, 0, { id: 'g1', text: 'Group' });
+    const child = createNode('rect', 10, 10, { id: 'c1', text: 'Child', groupId: 'g1' });
+    doc.nodes = [group, child];
+    const xml = exportToDrawio(doc);
+    expect(xml).toContain('id="c1"');
+    expect(xml).toContain('parent="g1"');
+  });
+
+  it('should export nodes sorted by zIndex', () => {
+    const doc = createDocument('Test');
+    const n1 = createNode('rect', 0, 0, { id: 'z2', text: 'Top', zIndex: 2 });
+    const n2 = createNode('rect', 100, 0, { id: 'z0', text: 'Bottom', zIndex: 0 });
+    const n3 = createNode('rect', 200, 0, { id: 'z1', text: 'Middle', zIndex: 1 });
+    doc.nodes = [n1, n2, n3];
+    const xml = exportToDrawio(doc);
+    const z0Pos = xml.indexOf('id="z0"');
+    const z1Pos = xml.indexOf('id="z1"');
+    const z2Pos = xml.indexOf('id="z2"');
+    expect(z0Pos).toBeLessThan(z1Pos);
+    expect(z1Pos).toBeLessThan(z2Pos);
+  });
+
+  it('should export edge with dashed and opacity', () => {
+    const doc = createDocument('Test');
+    const edge = createEdge('arrow', { x: 0, y: 0 }, { x: 100, y: 100 }, { id: 'ed1' });
+    edge.style.dashed = true;
+    edge.style.opacity = 70;
+    doc.edges = [edge];
+    const xml = exportToDrawio(doc);
+    expect(xml).toContain('dashed=1');
+    expect(xml).toContain('opacity=70');
+  });
+
+  it('should round-trip new style properties', () => {
+    const doc = createDocument('RoundTrip');
+    const node = createNode('rect', 50, 50, { id: 'rt2', text: 'Styled', locked: true, zIndex: 3 });
+    node.style.fontColor = '#00FF00';
+    node.style.fontStyle = 5; // bold + underline
+    node.style.align = 'right';
+    node.style.verticalAlign = 'bottom';
+    node.style.opacity = 80;
+    node.style.dashed = true;
+    node.style.borderRadius = 15;
+    node.style.spacing = 4;
+    doc.nodes = [node];
+
+    const xml = exportToDrawio(doc);
+    const imported = importFromDrawio(xml);
+    const n = imported.nodes[0];
+
+    expect(n.style.fontColor).toBe('#00FF00');
+    expect(n.style.fontStyle).toBe(5);
+    expect(n.style.align).toBe('right');
+    expect(n.style.verticalAlign).toBe('bottom');
+    expect(n.style.opacity).toBe(80);
+    expect(n.style.dashed).toBe(true);
+    expect(n.style.borderRadius).toBeTruthy();
+    expect(n.style.spacing).toBe(4);
+    expect(n.locked).toBe(true);
+  });
 });

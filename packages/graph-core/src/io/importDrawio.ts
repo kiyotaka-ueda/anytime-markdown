@@ -1,4 +1,4 @@
-import { GraphDocument, GraphNode, GraphEdge, NodeType, EdgeType, EndpointShape, DEFAULT_NODE_STYLE, DEFAULT_EDGE_STYLE, DEFAULT_VIEWPORT } from '../types';
+import { GraphDocument, GraphNode, GraphEdge, NodeType, EdgeType, EndpointShape, TextAlign, VerticalAlign, DEFAULT_NODE_STYLE, DEFAULT_EDGE_STYLE, DEFAULT_VIEWPORT } from '../types';
 
 function parseStyle(styleStr: string): Record<string, string> {
   const result: Record<string, string> = {};
@@ -98,14 +98,51 @@ export function importFromDrawio(xmlString: string): GraphDocument {
       const fontFamily = style['fontFamily'] ?? DEFAULT_NODE_STYLE.fontFamily;
 
       const url = cell.getAttribute('link') ?? undefined;
+
+      // Optional style properties
+      const fontColor = style['fontColor'] ? colorFromHex(style['fontColor'], '#FFFFFF') : undefined;
+      const fontStyleVal = style['fontStyle'] ? parseInt(style['fontStyle'], 10) : undefined;
+      const align = (['left', 'center', 'right'].includes(style['align']) ? style['align'] : undefined) as TextAlign | undefined;
+      const verticalAlign = (['top', 'middle', 'bottom'].includes(style['verticalAlign']) ? style['verticalAlign'] : undefined) as VerticalAlign | undefined;
+      const opacity = style['opacity'] !== undefined ? parseFloat(style['opacity']) : undefined;
+      const dashed = style['dashed'] === '1' ? true : undefined;
+      const rounded = style['rounded'] === '1';
+      const borderRadius = rounded ? (parseFloat(style['arcSize'] ?? '0') || 10) : undefined;
+      const spacing = style['spacing'] !== undefined ? parseFloat(style['spacing']) : undefined;
+      const spacingTop = style['spacingTop'] !== undefined ? parseFloat(style['spacingTop']) : undefined;
+      const spacingRight = style['spacingRight'] !== undefined ? parseFloat(style['spacingRight']) : undefined;
+      const spacingBottom = style['spacingBottom'] !== undefined ? parseFloat(style['spacingBottom']) : undefined;
+      const spacingLeft = style['spacingLeft'] !== undefined ? parseFloat(style['spacingLeft']) : undefined;
+
+      // Metadata from cell attributes
+      const locked = cell.getAttribute('connectable') === '0' ? true : undefined;
+      const parent = cell.getAttribute('parent');
+      const groupId = (parent && parent !== '1') ? parent : undefined;
+
       nodes.push({
         id,
         type: nodeType,
         x, y, width, height,
         // Canvas fillText 専用。DOM に出力する場合は DOMPurify 等でサニタイズすること
         text: value.replace(/<br\s*\/?>/g, '\n').replace(/<[^>]*>/g, ''),
-        style: { fill, stroke, strokeWidth, fontSize, fontFamily },
+        style: {
+          fill, stroke, strokeWidth, fontSize, fontFamily,
+          ...(fontColor ? { fontColor } : {}),
+          ...(fontStyleVal ? { fontStyle: fontStyleVal } : {}),
+          ...(align ? { align } : {}),
+          ...(verticalAlign ? { verticalAlign } : {}),
+          ...(opacity !== undefined ? { opacity } : {}),
+          ...(dashed ? { dashed } : {}),
+          ...(borderRadius ? { borderRadius } : {}),
+          ...(spacing !== undefined ? { spacing } : {}),
+          ...(spacingTop !== undefined ? { spacingTop } : {}),
+          ...(spacingRight !== undefined ? { spacingRight } : {}),
+          ...(spacingBottom !== undefined ? { spacingBottom } : {}),
+          ...(spacingLeft !== undefined ? { spacingLeft } : {}),
+        },
         ...(url ? { url } : {}),
+        ...(locked ? { locked } : {}),
+        ...(groupId ? { groupId } : {}),
       });
     } else if (isEdge) {
       const source = cell.getAttribute('source') ?? undefined;
@@ -131,16 +168,26 @@ export function importFromDrawio(xmlString: string): GraphDocument {
       const endShape = resolveEndpointShape(style['endArrow'], style['endFill']);
       const startShape = resolveEndpointShape(style['startArrow'], style['startFill']);
 
+      const edgeOpacity = style['opacity'] !== undefined ? parseFloat(style['opacity']) : undefined;
+      const edgeDashed = style['dashed'] === '1' ? true : undefined;
+
       edges.push({
         id,
         type: edgeType,
         from: { nodeId: source, x: fromX, y: fromY },
         to: { nodeId: target, x: toX, y: toY },
-        style: { stroke: edgeStroke, strokeWidth: edgeStrokeWidth, startShape, endShape, routing },
+        style: {
+          stroke: edgeStroke, strokeWidth: edgeStrokeWidth, startShape, endShape, routing,
+          ...(edgeOpacity !== undefined ? { opacity: edgeOpacity } : {}),
+          ...(edgeDashed ? { dashed: edgeDashed } : {}),
+        },
         label: value.replace(/<[^>]*>/g, '') || undefined,
       });
     }
   });
+
+  // Assign zIndex based on cell order (draw.io renders later cells on top)
+  nodes.forEach((node, i) => { node.zIndex = i; });
 
   const now = Date.now();
   return {
