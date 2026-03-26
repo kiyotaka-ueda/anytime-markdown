@@ -726,6 +726,8 @@
     "distributeH": "水平均等配置",
     "distributeV": "垂直均等配置",
     "alignment": "整列",
+    "autoLayout": "自動レイアウト",
+    "collisionDetection": "衝突検出",
     "navLabel": "グラフ",
     "doc": "ドキュメント",
     "clearAll": "全消去",

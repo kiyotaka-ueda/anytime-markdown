@@ -726,6 +726,8 @@
     "distributeH": "Distribute Horizontally",
     "distributeV": "Distribute Vertically",
     "alignment": "Alignment",
+    "autoLayout": "Auto Layout",
+    "collisionDetection": "Collision Detection",
     "navLabel": "Graph",
     "doc": "Document",
     "clearAll": "Clear All",
