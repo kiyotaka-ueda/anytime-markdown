@@ -101,8 +101,8 @@ export function MathEditDialog({
             </>
           }
           right={
-            <>
-              <Box sx={{ display: "flex", alignItems: "center" }}>
+            <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
+              <Box sx={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
                 <Box sx={{ flex: 1 }}>
                   <ZoomToolbar fsZP={fsZP} t={t} />
                 </Box>
@@ -118,7 +118,7 @@ export function MathEditDialog({
                 </Tooltip>
               </Box>
               {graphEnabled ? (
-                <Box sx={{ flex: 1, overflow: "hidden" }}>
+                <Box sx={{ flex: 1, overflow: "hidden", minHeight: 0 }}>
                   <GraphView code={fsCode} enabled={graphEnabled} isDark={isDark} fill />
                 </Box>
               ) : (
@@ -138,7 +138,7 @@ export function MathEditDialog({
                   )}
                 </ZoomablePreview>
               )}
-            </>
+            </Box>
           }
         />
       )}

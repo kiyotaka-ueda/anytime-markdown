@@ -46,19 +46,9 @@ export function GraphView({ code, enabled, isDark, width, height, fill }: GraphV
 
   if (!enabled) return null;
 
-  // fill モードのラッパー
-  const wrapFill = (content: React.ReactNode) => {
-    if (!fill) return content;
-    return (
-      <Box ref={fillRef} sx={{ width: "100%", height: "100%", minHeight: 200 }}>
-        {fillSize ? content : null}
-      </Box>
-    );
-  };
-
   if (loading) {
-    return wrapFill(
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, p: 2, height: "100%" }}>
+    return (
+      <Box ref={fill ? fillRef : undefined} sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, p: 2, ...(fill && { width: "100%", height: "100%", minHeight: 200 }) }}>
         <CircularProgress size={20} />
         <Typography variant="body2" color="text.secondary">
           グラフライブラリを読み込み中...
@@ -68,43 +58,49 @@ export function GraphView({ code, enabled, isDark, width, height, fill }: GraphV
   }
 
   if (error) {
-    return wrapFill(
-      <Alert severity="info" sx={{ mx: 1, my: 0.5 }}>
-        {error}
-      </Alert>
+    return (
+      <Box ref={fill ? fillRef : undefined} sx={fill ? { width: "100%", height: "100%", minHeight: 200 } : undefined}>
+        <Alert severity="info" sx={{ mx: 1, my: 0.5 }}>
+          {error}
+        </Alert>
+      </Box>
     );
   }
 
   if (!graphExpr) return null;
 
   const resolvedWidth = fill && fillSize ? fillSize.width : width;
-  const resolvedHeight = fill && fillSize ? fillSize.height - 40 : height;
+  const resolvedHeight = fill && fillSize ? fillSize.height : height;
 
   const is3d = graphExpr.type === "surface3d" || graphExpr.type === "parametric3d";
 
-  if (is3d && plotly) {
-    return wrapFill(
-      <Graph3DView
-        graphExpr={graphExpr}
-        plotly={plotly}
-        isDark={isDark}
-        width={resolvedWidth}
-        height={resolvedHeight}
-      />
+  const graphContent = is3d && plotly ? (
+    <Graph3DView
+      graphExpr={graphExpr}
+      plotly={plotly}
+      isDark={isDark}
+      width={resolvedWidth}
+      height={resolvedHeight}
+    />
+  ) : !is3d && jsxGraph ? (
+    <Graph2DView
+      graphExpr={graphExpr}
+      jsxGraph={jsxGraph}
+      isDark={isDark}
+      width={resolvedWidth}
+      height={resolvedHeight}
+    />
+  ) : null;
+
+  if (!graphContent) return null;
+
+  if (fill) {
+    return (
+      <Box ref={fillRef} sx={{ width: "100%", height: "100%", minHeight: 200 }}>
+        {fillSize ? graphContent : null}
+      </Box>
     );
   }
 
-  if (!is3d && jsxGraph) {
-    return wrapFill(
-      <Graph2DView
-        graphExpr={graphExpr}
-        jsxGraph={jsxGraph}
-        isDark={isDark}
-        width={resolvedWidth}
-        height={resolvedHeight}
-      />
-    );
-  }
-
-  return null;
+  return graphContent;
 }
