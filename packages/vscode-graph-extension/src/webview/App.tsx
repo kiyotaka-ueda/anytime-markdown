@@ -70,7 +70,7 @@ export function App() {
     nodes: state.document.nodes, edges: state.document.edges,
     viewport: state.document.viewport, selection: state.selection,
     dispatch: wrappedDispatch, onTextEdit: setEditingNodeId, onToolChange: setTool, showGrid,
-    collisionEnabled, physicsRef,
+    isDark: themeMode === 'dark', collisionEnabled, physicsRef,
   });
 
   const handleZoomIn = useCallback(() => {
