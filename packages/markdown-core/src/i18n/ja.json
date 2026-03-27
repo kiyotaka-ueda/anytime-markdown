@@ -419,6 +419,7 @@
     "semanticDiff": "セマンティック比較",
     "pasteAsMarkdown": "Markdownで貼り付け",
     "pasteAsCodeBlock": "コードブロックで貼り付け",
+    "clearScreen": "画面クリア",
     "annotate": "アノテーション",
     "annotationRect": "矩形",
     "annotationCircle": "丸",

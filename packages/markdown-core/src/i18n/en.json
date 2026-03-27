@@ -419,6 +419,7 @@
     "semanticDiff": "Semantic comparison",
     "pasteAsMarkdown": "Paste as Markdown",
     "pasteAsCodeBlock": "Paste as Code Block",
+    "clearScreen": "Clear Screen",
     "annotate": "Annotate",
     "annotationRect": "Rectangle",
     "annotationCircle": "Circle",

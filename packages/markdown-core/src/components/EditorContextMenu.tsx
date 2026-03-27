@@ -1,5 +1,6 @@
 "use client";
 
+import ClearAllIcon from "@mui/icons-material/ClearAll";
 import CodeIcon from "@mui/icons-material/Code";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import ContentCutIcon from "@mui/icons-material/ContentCut";
@@ -159,6 +160,12 @@ export function EditorContextMenu({ editor, readOnly, t }: Readonly<EditorContex
     handleClose();
   }, [editor, readOnly, handleClose]);
 
+  const handleClearScreen = useCallback(() => {
+    if (!editor?.isEditable) { handleClose(); return; }
+    editor.chain().focus().clearContent().run();
+    handleClose();
+  }, [editor, handleClose]);
+
   const handlePasteAsMarkdown = useCallback(async () => {
     if (!editor?.isEditable) { handleClose(); return; }
     const text = await readTextFromClipboard();
@@ -237,6 +244,15 @@ export function EditorContextMenu({ editor, readOnly, t }: Readonly<EditorContex
         </ListItemIcon>
         <ListItemText primaryTypographyProps={{ fontSize: CONTEXT_MENU_FONT_SIZE }}>
           {t("pasteAsCodeBlock")}
+        </ListItemText>
+      </MenuItem>
+      <Divider sx={{ my: 0.5 }} />
+      <MenuItem onClick={handleClearScreen} disabled={!!readOnly}>
+        <ListItemIcon>
+          <ClearAllIcon sx={{ fontSize: 16 }} />
+        </ListItemIcon>
+        <ListItemText primaryTypographyProps={{ fontSize: CONTEXT_MENU_FONT_SIZE }}>
+          {t("clearScreen")}
         </ListItemText>
       </MenuItem>
     </Menu>
