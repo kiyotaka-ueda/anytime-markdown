@@ -36,6 +36,7 @@ import type { SlashCommandState } from "./extensions/slashCommandExtension";
 import { useTextareaSearch } from "./hooks/useTextareaSearch";
 import { PrintStyles } from "./styles/printStyles";
 import { EditorSettingsContext,useEditorSettings } from "./useEditorSettings";
+import { EditorFeaturesContext } from "./contexts/EditorFeaturesContext";
 import { useMarkdownEditor } from "./useMarkdownEditor";
 
 const InlineMergeView = dynamic(
@@ -153,6 +154,8 @@ interface MarkdownEditorPageProps {
   sideToolbar?: boolean;
   /** 比較モードトグルを非表示 */
   hideCompareToggle?: boolean;
+  /** グラフ表示機能を非表示（jsxgraph/plotly 未バンドル環境向け） */
+  hideGraph?: boolean;
   /** エクスプローラパネルのスロット（コメントパネルと同じ位置に表示） */
   explorerSlot?: React.ReactNode;
   /** スクロールなしで全体表示 */
@@ -190,7 +193,7 @@ function applyExternalCompareContent(
   }
 }
 
-export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideVersionInfo, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, presetName, onPresetChange, onLocaleChange, fileSystemProvider, externalContent, externalFileName, externalFilePath: _externalFilePath, onExternalSave, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, autoReload, onToggleAutoReload, defaultSourceMode, showReadonlyMode, externalCompareContent, explorerOpen, onToggleExplorer, sideToolbar, hideCompareToggle, explorerSlot, noScroll, defaultOutlineOpen, fixedEditorHeight, defaultFontSize, initialFontSize, defaultBlockAlign, onContentChange }: MarkdownEditorPageProps = {}) {
+export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideVersionInfo, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, presetName, onPresetChange, onLocaleChange, fileSystemProvider, externalContent, externalFileName, externalFilePath: _externalFilePath, onExternalSave, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, autoReload, onToggleAutoReload, defaultSourceMode, showReadonlyMode, externalCompareContent, explorerOpen, onToggleExplorer, sideToolbar, hideCompareToggle, hideGraph, explorerSlot, noScroll, defaultOutlineOpen, fixedEditorHeight, defaultFontSize, initialFontSize, defaultBlockAlign, onContentChange }: MarkdownEditorPageProps = {}) {
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
   const muiTheme = useTheme();
@@ -476,6 +479,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   return (
     <EditorErrorBoundary>
     <EditorSettingsContext.Provider value={settingsValue}>
+    <EditorFeaturesContext.Provider value={{ hideGraph: !!hideGraph }}>
     <PlantUmlToolbarContext.Provider value={plantUmlToolbarCtx}>
     <PrintStyles />
     <Box id="main-content" component="main" sx={{ p: { xs: 2, sm: 3 } }}>
@@ -603,6 +607,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
       />
     </Box>
     </PlantUmlToolbarContext.Provider>
+    </EditorFeaturesContext.Provider>
     </EditorSettingsContext.Provider>
     </EditorErrorBoundary>
   );
