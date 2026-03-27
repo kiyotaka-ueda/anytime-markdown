@@ -6,26 +6,310 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
-### Added
-- ランディングページのモバイル対応
-- docs カテゴリ編集ページの URL リンク対応
-- CodeQL (SAST) と SonarCloud を daily-build に追加
-
-### Changed
-- aria-label の英語固定を i18n 対応（LandingHeader、SiteFooter、layout.tsx 等）
-- global-error.tsx のダークモード対応（prefers-color-scheme）
-- useLayoutEditor の useEffect にキャンセル処理を追加
-- package.json の依存バージョンを exact 固定に変更
+## [0.8.3] - 2026-03-27
 
 ### Fixed
-- Netlify CDN キャッシュにより API レスポンスが同一データを返す問題を修正
-- docs スクロール位置の不具合を修正
+- MCP: Wrapped top-level await in async main for tsx compatibility
+
+## [0.8.2] - 2026-03-25
+
+### Fixed
+- Next.js version mismatch prevention
+
+## [0.8.1] - 2026-03-25
+
+### Changed
+- Updated Next.js to 15.5.14 (security fix)
+- Updated @modelcontextprotocol/sdk to 1.27.1 (security fix)
+
+### Fixed
+- Fixed test type errors for Next.js 15.5.14 compatibility
+
+## [0.8.0] - 2026-03-25
+
+### Added
+- MCP Server: `mcp-markdown` package with 7 tools (read/write, outline, section, sanitize, diff)
+
+### Changed
+- Renamed `editor-core` package to `markdown-core`
+
+## [0.7.7] - 2026-03-23
+
+### Changed
+- CI: reuse VSIX artifact from CI job in publish (eliminates duplicate build)
+- CI: auto-create GitHub Release with VSIX attachment on publish
+- CI: use `.node-version` file for consistent Node.js version across local and CI
+- CI: add `.gitattributes` for consistent line endings (`eol=lf`)
+- CI: change daily build schedule to JST 5:00
+
+## [0.7.6] - 2026-03-22
+
+### Added
+- Breadcrumb navigation with document title on /docs/view page
+- next-auth v5 (Auth.js) migration with type-safe session handling
+
+### Fixed
+- Website accessibility: contrast ratios, aria-hidden on icons, keyboard support for InlineEditField
+- Removed dead code (LandingPage/LandingBody), debug console.warn, globalThis usage
+- CTA buttons extracted to shared VsCodeCtaButtons component
+- Hero heading structure simplified (single h1 with span children)
+
+## [0.7.5] - 2026-03-22
+
+### Changed
+- Landing page hero text changed to "Collaborate with AI"
+- VS Code landing page Benefits section: added maxWidth constraint for wide screens
+
+### Fixed
+- VS Code landing page double scrollbar issue
+
+## [0.7.4] - 2026-03-22
+
+### Fixed
+- middleware.ts config.matcher with String.raw causing Next.js build failure
+- VS Code link disappeared from SiteFooter
+- e2e test landing page wait locator fix
+
+## [0.7.3] - 2026-03-22
+
+### Added
+- VS Code extension landing page (/vscode) with features, benefits, and Marketplace link
+- Top page and VS Code page cross-navigation links
+- Privacy policy updated to focus on editor features
+- NEXT_PUBLIC_ENABLE_DOCS_EDIT flag to hide /docs/edit in production
+
+### Changed
+- Removed "open editor" button from landing page hero section
+- docs/view block elements aligned to left
+- Footer VS Code link changed from Marketplace to /vscode page
+- SonarQube remaining CODE_SMELL fixes (S2681, S6479, S3358, S6478, S4624, etc.)
+
+### Fixed
+- File list language badge English detection fixed to .en.md suffix
+- commentHelpers String.raw backtick conflict fix
+- Firefox CI e2e test: GPU disabled and xvfb-run added
+
+## [0.7.2] - 2026-03-22
+
+### Changed
+- TypeScript target upgraded to ES2023 for findLast and other modern APIs (S7750)
+- SonarQube remaining CODE_SMELL fixes
+
+### Fixed
+- docs upload API basename extraction not working correctly
+- Firefox CI e2e test crash resolved
+
+## [0.7.1] - 2026-03-22
+
+### Added
+- /docs/view: locale-aware language switch (.ja.md/.en.md auto-detection, folder key support)
+- /docs/edit: folder D&D improvement (show folder name instead of expanding all files)
+- /docs/edit: overwrite confirmation dialog for folder upload
+- /docs/edit: language badges (JA/EN) in folder list
+
+## [0.7.0] - 2026-03-21
+
+### Added
+- /screenshot slash command (Web only)
+- Landing page: Markdown document display, font size toggle icon
+- CMS: image file upload support (png/jpg/gif/svg/webp)
+- CMS: JA/EN badge display for md file pairs in file list
+
+### Changed
+- Landing page: feature cards section replaced with Markdown display
+
+## [0.6.4] - 2026-03-20
+
+### Added
+- CI bundle size report added (daily-build + PR)
+
+### Changed
+- ExplorerPanel split into smaller components and hooks
+
+### Fixed
+- E2E tests updated to follow UI changes (settings panel, Edit button selector)
+- Local E2E test retry added (Firefox flaky test fix)
+
+## [0.6.3] - 2026-03-20
 
 ### Security
-- SEO メタタグのキーワード拡充・最適化
+- sonarcloud job permissions added (least privilege principle, CodeQL CWE-275)
+
+### Changed
+- SonarCloud scan and coverage integration added to publish workflow
+- e2e tests changed to expect-based waiting (CI flaky test fix)
+
+## [0.6.2] - 2026-03-20
+
+### Changed
+- SonarCloud CRITICAL 23 resolved: Cognitive Complexity functions split into helpers and subcomponents
+- lint warning 36 resolved (unused imports, non-null assertions, console.log → warn)
+- Site URL changed to `www.anytime-trial.com`
+- GitHub username changed to `anytime-trial`
+
+### Fixed
+- SonarCloud BUG: `error.tsx` function name `Error` → `ErrorPage` (reserved word conflict)
+- flatted Prototype Pollution vulnerability fix (npm audit fix)
+
+### Security
+- GitHub Actions permissions moved from workflow level to job level (least privilege principle)
+
+## [0.6.1] - 2026-03-20
+
+### Changed
+- GitHub username changed from `kiyotaka-ueda` to `anytime-trial`
+
+## [0.6.0] - 2026-03-19
+
+### Changed
+- GitHub API utilities consolidated, ExplorerPanel split
+
+### Fixed
+- GitHub explorer file selection infinite loop fix
+- Service Worker navigationPreload warning fix
+
+### Security
+- overwriteImage/saveClipboardImage path traversal fix (directory boundary check)
+
+## [0.5.0] - 2026-03-15
+
+### Added
+- English version of defaultContent with language-based selection
+- Landing page: table editing, math, GitHub integration feature cards added
+- HTML block sample added to defaultContent
+
+### Changed
+- README.md translated to English
+
+## [0.4.1] - 2026-03-12
+
+### Added
+- File handle persistence (IndexedDB) for save-in-place and filename display after reload
+- FileSystemFileHandle acquisition on drag-and-drop for direct overwrite save
+- Editor area background color change on file drag for visual feedback
+
+## [0.4.0] - 2026-03-11
+
+### Added
+- WCAG2.2 AA audit report and full code review report
+- CHANGELOG (markdown-core, web-app)
+
+### Changed
+- package.json dependency versions pinned to exact
+- aria-label English-only replaced with i18n support
+- global-error.tsx dark mode support
+
+### Fixed
+- External communication AbortController timeout added
+- useLayoutEditor useEffect cancellation added
+- 21 unused variables/imports removed
+
+### Security
+- tar package Symlink Path Traversal vulnerability fix
 
 ## [0.3.0] - 2026-03-10
 
 ### Added
-- SEO 改善: OG 画像動的生成、Twitter Card、JSON-LD 構造化データ、各ページ個別 meta
-- ヘルプページのスクリーンショット更新・v0.3.0 機能ドキュメント追加
+- SEO improvements: OG image dynamic generation, Twitter Card, JSON-LD structured data, per-page meta
+
+## [0.2.8] - 2026-03-09
+
+### Fixed
+- Netlify CDN cache causing API responses to return stale data
+
+## [0.2.7] - 2026-03-08
+
+### Fixed
+- /api/docs/content production cache fix (force-dynamic added)
+- Dockerfile cleanup (Playwright browser install under node user)
+
+## [0.2.6] - 2026-03-08
+
+### Fixed
+- /docs/view page production cache fix (force-dynamic added)
+
+## [0.2.5] - 2026-03-08
+
+### Added
+- GitHub MCP server auto-configuration in devcontainer
+
+### Fixed
+- /docs/view showing wrong document (Next.js Data Cache disabled, Vary header added)
+- /docs page server cache disabled (revalidate → force-dynamic)
+- _layout.json fetched directly from S3 instead of CDN cache
+- /privacy page language switch not reflecting (separated into client component)
+
+## [0.2.1] - 2026-03-08
+
+### Added
+- Daily build check and weekly cache cleanup CI workflows
+
+### Fixed
+- Document list not updating after deletion
+- Document list API Next.js server-side cache disabled
+- Document API cache control improved (Cache-Control header added)
+
+### Security
+- HSTS header added to security headers
+
+## [0.2.0] - 2026-03-08
+
+### Added
+- /docs page redesigned to GitHub Docs-style category layout
+- Category item label editing, tooltip display, and drag reordering
+- URL link item category addition (external URL and relative path support)
+- LandingHeader added to /privacy page
+- Readonly mode (environment variable controlled)
+
+### Changed
+- Layout data structure changed from LayoutCard to LayoutCategory
+- AWS environment variables prefixed with ANYTIME_
+- Header logo click navigates to top page
+
+### Fixed
+- docs/view showing wrong document content (localStorage cache conflict)
+- HMR loading flash prevention
+- blockquote empty line and list/table hard break round-trip fix
+
+## [0.0.8] - 2026-03-01
+
+### Added
+- Landing page at `/` (Hero, Features, editor preview, Footer)
+- Editor moved to `/markdown` route
+- Landing page EN/JA language switch
+- VS Code Marketplace link added to footer
+
+### Changed
+- PWA start_url changed to `/markdown`
+
+## [0.0.7] - 2026-03-01
+
+### Added
+- Nonce-based CSP implemented in middleware (unsafe-inline removed from script-src)
+- Playwright E2E tests
+- OpenGraph metadata
+
+### Security
+- HTML sanitization changed to allowlist approach
+- CSP script-src migrated from unsafe-inline to nonce-based
+
+## [0.0.5] - 2026-02-28
+
+### Added
+- Landing page mobile support
+- Browser/OS language setting auto-detection for initial language
+
+## [0.0.4] - 2026-02-28
+
+### Added
+- web-app test suite
+
+## [0.0.3] - 2026-02-27
+
+### Changed
+- GitHub Actions publish trigger changed from tag push to master merge
+
+## [0.0.2] - 2026-02-26
+
+### Added
+- GitHub Actions Marketplace auto-publish workflow

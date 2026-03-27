@@ -8,6 +8,7 @@ import { ThemeProvider, createTheme } from "@mui/material/styles";
 // Mock all complex dependencies
 jest.mock("../constants/colors", () => ({
   getDivider: () => "#ccc",
+  getTextSecondary: () => "#666",
 }));
 
 jest.mock("../constants/dimensions", () => ({

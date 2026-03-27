@@ -27,10 +27,10 @@ jest.mock("../constants/dimensions", () => ({
 }));
 
 jest.mock("../constants/themePresets", () => ({
-  PRESET_NAMES: ["default", "sepia"],
+  PRESET_NAMES: ["professional", "handwritten"],
   THEME_PRESETS: {
-    default: { label: "Default" },
-    sepia: { label: "Sepia" },
+    professional: { label: "Professional" },
+    handwritten: { label: "Handwritten" },
   },
 }));
 
@@ -74,28 +74,30 @@ describe("EditorSettingsPanel coverage", () => {
     expect(onLocaleChange).toHaveBeenCalledWith("en");
   });
 
-  it("renders theme preset buttons when provided", () => {
+  it("renders theme preset select when provided", () => {
     const onPresetChange = jest.fn();
     renderPanel({
       themeMode: "light",
       onThemeModeChange: jest.fn(),
-      presetName: "default",
+      presetName: "professional",
       onPresetChange,
     });
-    expect(screen.getByText("Default")).toBeTruthy();
-    expect(screen.getByText("Sepia")).toBeTruthy();
+    expect(screen.getByLabelText("settingThemePreset")).toBeTruthy();
   });
 
-  it("calls onPresetChange when preset clicked", () => {
+  it("calls onPresetChange when preset selected", () => {
     const onPresetChange = jest.fn();
     renderPanel({
       themeMode: "light",
       onThemeModeChange: jest.fn(),
-      presetName: "default",
+      presetName: "professional",
       onPresetChange,
     });
-    fireEvent.click(screen.getByText("Sepia"));
-    expect(onPresetChange).toHaveBeenCalledWith("sepia");
+    const select = screen.getByLabelText("settingThemePreset");
+    // MUI Select の内部 input に change イベントを発火
+    const input = select.querySelector("input") ?? select;
+    fireEvent.change(input, { target: { value: "handwritten" } });
+    expect(onPresetChange).toHaveBeenCalledWith("handwritten");
   });
 
   it("renders font size slider", () => {

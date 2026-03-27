@@ -7,49 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.8.0] - 2026-03-25
+## [0.0.1] - 2026-03-27
+
+Initial release.
 
 ### Added
+
+**Nodes**
 - 10 node types: rect, ellipse, diamond, parallelogram, cylinder, sticky, text, doc, frame, image
-- 3 edge types: line, arrow, connector
-- Orthogonal connectors with A* obstacle avoidance routing
-- Bezier curve edges with manual control points
-- SVG export with support for all node types and gradients
-- draw.io XML export/import (xmldom compatible for Node.js)
-- Smart guides with snap-to-alignment
-- Grid snap for nodes and resize
-- Node alignment (left, right, top, bottom, center) and distribution
-- Viewport: pan, zoom (0.1-10x), fit-to-content
-- Animated zoom with easeOutCubic easing
-- Viewport culling for rendering performance
 - Frame node for visual grouping
 - Node locking and z-index layer ordering
 - Drag-and-drop image placement
 - Node URL hyperlinks
+- Text overflow clipping with ellipsis
+
+**Edges**
+- 3 edge types: line, arrow, connector
+- Orthogonal connectors with A* obstacle avoidance routing (binary heap open set)
+- Bezier curve edges with manual control points
 - Edge labels and configurable endpoint shapes (arrow, circle, diamond, bar)
 - Extra connection points customization
+
+**Canvas**
+- Smart guides with snap-to-alignment
+- Grid snap for nodes and resize
+- Node alignment (left, right, top, bottom, center) and distribution
+- Viewport: pan, zoom (0.1-10x), fit-to-content with animated easeOutCubic easing
+- Viewport culling for rendering performance
 - Undo/redo with selection state preservation (max 50 history entries)
-- MCP Server: `mcp-graph` package with 12 tools (CRUD, export/import, node/edge operations)
+- Shape hover bar for quick actions on selected nodes
+- Drag-time collision detection
+- Dark/light theme support with theme-aware rendering
 
-### Changed
-- Optimized wrapText with word-by-word measurement instead of character-by-character
-- Replaced A* open set with binary heap for O(log n) extraction
-- Optimized render loop with single-pass node partitioning
-- Replaced drawNode if-else chain with shape registry pattern
-- Unified z-order management to use zIndex property exclusively
-- Unified connection point calculation via getConnectionPoints
-- Consolidated shared constants into constants.ts
+**Layout**
+- Physics-based layout (force-directed, Fruchterman-Reingold algorithms)
+- VPSC constraint-based overlap removal
+- Auto-spread connected nodes for readable layouts
 
-### Fixed
-- Text overflow clipping with ellipsis for truncated node text
-- mouseup outside canvas no longer causes stuck drag state
-- Locked nodes cannot be deleted
-- Tool shortcuts no longer fire during text input
-- Improved contrast, text color consistency, and selection visibility
-- Malformed XML detection in importFromDrawio
-- Edge label background theme consistency
+**Export / Import**
+- SVG export with support for all node types and gradients
+- draw.io XML export/import (xmldom compatible for Node.js)
 
-### Accessibility
+**Accessibility**
 - Canvas ARIA role, labels, and live status region
 - Arrow key navigation for node movement
 - Color palette keyboard navigation with ARIA roles
