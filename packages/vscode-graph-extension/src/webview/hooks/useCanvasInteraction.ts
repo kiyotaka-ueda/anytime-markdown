@@ -27,6 +27,7 @@ interface UseCanvasInteractionProps {
   selection: SelectionState;
   dispatch: React.Dispatch<any>;
   onTextEdit: (nodeId: string) => void;
+  onToolChange: (tool: ToolType) => void;
   showGrid: boolean;
   collisionEnabled?: boolean;
   physicsRef?: React.RefObject<physics.PhysicsEngine | null>;
@@ -47,7 +48,7 @@ export interface DragPreview {
 const EMPTY_PREVIEW: DragPreview = { type: 'none', fromX: 0, fromY: 0, toX: 0, toY: 0 };
 
 export function useCanvasInteraction({
-  canvasRef, tool, nodes, edges, viewport, selection, dispatch, onTextEdit, showGrid,
+  canvasRef, tool, nodes, edges, viewport, selection, dispatch, onTextEdit, onToolChange, showGrid,
   collisionEnabled, physicsRef,
 }: UseCanvasInteractionProps) {
   const dragRef = useRef<DragState>({
@@ -291,6 +292,7 @@ export function useCanvasInteraction({
       const nodeType = tool as 'rect' | 'ellipse' | 'sticky' | 'text' | 'diamond' | 'parallelogram' | 'cylinder' | 'doc' | 'frame';
       const node = createNode(nodeType, x, y, { width: fw, height: fh });
       dispatch({ type: 'ADD_NODE', node });
+      onToolChange('select');
     }
 
     if (drag.type === 'create-edge') {

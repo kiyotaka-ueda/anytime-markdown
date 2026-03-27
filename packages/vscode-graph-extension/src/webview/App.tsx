@@ -69,7 +69,7 @@ export function App() {
     canvasRef, tool,
     nodes: state.document.nodes, edges: state.document.edges,
     viewport: state.document.viewport, selection: state.selection,
-    dispatch: wrappedDispatch, onTextEdit: setEditingNodeId, showGrid,
+    dispatch: wrappedDispatch, onTextEdit: setEditingNodeId, onToolChange: setTool, showGrid,
     collisionEnabled, physicsRef,
   });
 
