@@ -97,7 +97,7 @@ jobs:
         working-directory: packages/vscode-git-extension
 
       - name: Package extension pack VSIX
-        run: npx vsce package
+        run: npx vsce package --no-dependencies
         working-directory: packages/vscode-extension-pack
 
       - name: Install Playwright browsers

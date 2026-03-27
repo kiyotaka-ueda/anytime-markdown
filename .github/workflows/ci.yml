@@ -158,7 +158,7 @@ jobs:
 
       - name: Package extension pack VSIX
         if: (github.event_name == 'pull_request' && github.base_ref == 'master') || github.ref == 'refs/heads/master'
-        run: npx vsce package
+        run: npx vsce package --no-dependencies
         working-directory: packages/vscode-extension-pack
 
       - name: Upload extension pack VSIX artifact
