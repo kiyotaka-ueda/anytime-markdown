@@ -54,11 +54,15 @@ export function setupClaudeHooks(): boolean {
     return true;
   }
 
+  // フックコマンド: stdin の JSON から tool_input.file_path を jq で取得
+  const preCommand = `FP=$(jq -r '.tool_input.file_path // empty'); [ -n "$FP" ] && echo "{\\"editing\\":true,\\"file\\":\\"$FP\\",\\"timestamp\\":$(date +%s000)}" > ${STATUS_FILE}`;
+  const postCommand = `FP=$(jq -r '.tool_input.file_path // empty'); [ -n "$FP" ] && echo "{\\"editing\\":false,\\"file\\":\\"$FP\\",\\"timestamp\\":$(date +%s000)}" > ${STATUS_FILE}`;
+
   if (!hasPreHook) {
     settings.hooks.PreToolUse.push({
       id: HOOK_ID,
       matcher: 'Edit|Write',
-      command: `echo '{"editing":true,"file":"'$CLAUDE_FILE_PATH'","timestamp":'$(date +%s000)'}' > ${STATUS_FILE}`,
+      command: preCommand,
     });
   }
 
@@ -66,7 +70,7 @@ export function setupClaudeHooks(): boolean {
     settings.hooks.PostToolUse.push({
       id: HOOK_ID,
       matcher: 'Edit|Write',
-      command: `echo '{"editing":false,"file":"'$CLAUDE_FILE_PATH'","timestamp":'$(date +%s000)'}' > ${STATUS_FILE}`,
+      command: postCommand,
     });
   }
 
