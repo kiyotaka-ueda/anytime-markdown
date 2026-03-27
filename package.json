@@ -16,6 +16,7 @@
     "packages/vscode-markdown-extension",
     "packages/vscode-graph-extension",
     "packages/vscode-git-extension",
+    "packages/vscode-extension-pack",
     "packages/web-app",
     "packages/mobile-app"
   ],

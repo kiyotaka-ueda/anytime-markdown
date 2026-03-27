@@ -1,0 +1,31 @@
+{
+  "name": "anytime-extension-pack",
+  "displayName": "Anytime Extension Pack",
+  "description": "Extension pack bundling Anytime Markdown, Anytime Graph, and Anytime Git for VS Code.",
+  "version": "0.0.1",
+  "license": "MIT",
+  "publisher": "anytime-trial",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anytime-trial/anytime-markdown.git"
+  },
+  "engines": {
+    "vscode": "^1.109.0"
+  },
+  "icon": "images/anytime-pack.png",
+  "categories": [
+    "Extension Packs"
+  ],
+  "keywords": [
+    "markdown",
+    "graph",
+    "git",
+    "editor",
+    "pack"
+  ],
+  "extensionPack": [
+    "anytime-trial.anytime-markdown",
+    "anytime-trial.anytime-graph",
+    "anytime-trial.anytime-git"
+  ]
+}
