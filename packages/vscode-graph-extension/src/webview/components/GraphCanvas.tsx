@@ -13,6 +13,7 @@ interface GraphCanvasProps {
   selection: SelectionState;
   showGrid: boolean;
   previewRef: React.RefObject<DragPreview>;
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
   onMouseDown: (e: React.MouseEvent) => void;
   onMouseMove: (e: React.MouseEvent) => void;
   onMouseUp: (e: React.MouseEvent) => void;
@@ -22,9 +23,8 @@ interface GraphCanvasProps {
 
 export function GraphCanvas({
   nodes, edges, viewport, selection, showGrid,
-  previewRef, onMouseDown, onMouseMove, onMouseUp, onWheel, onDoubleClick,
+  previewRef, canvasRef, onMouseDown, onMouseMove, onMouseUp, onWheel, onDoubleClick,
 }: GraphCanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const renderFrame = useCallback(() => {
     const canvas = canvasRef.current;

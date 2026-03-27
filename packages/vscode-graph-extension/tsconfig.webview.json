@@ -3,10 +3,24 @@
   "compilerOptions": {
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "resolveJsonModule": true,
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     "isolatedModules": true,
-    "outDir": "out/webview"
+    "outDir": "out/webview",
+    "paths": {
+      "@anytime-markdown/graph-core": ["../graph-core/src/index.ts"],
+      "@anytime-markdown/graph-core/*": ["../graph-core/*"]
+    }
   },
-  "include": ["src/webview/**/*"]
+  "include": [
+    "src/webview/**/*",
+    "../graph-core/src/**/*",
+    "../web-app/src/app/graph/components/ToolBar.tsx",
+    "../web-app/src/app/graph/components/ShapeIcons.tsx",
+    "../web-app/src/app/graph/types.ts"
+  ],
+  "exclude": [
+    "../graph-core/src/__tests__/**/*"
+  ]
 }
