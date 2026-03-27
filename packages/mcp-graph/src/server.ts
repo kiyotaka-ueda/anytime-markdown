@@ -17,7 +17,7 @@ export interface McpGraphOptions {
   rootDir: string;
 }
 
-const nodeTypeEnum = z.enum(['rect', 'ellipse', 'sticky', 'text', 'diamond', 'parallelogram', 'cylinder', 'insight', 'doc', 'frame', 'image']);
+const nodeTypeEnum = z.enum(['rect', 'ellipse', 'sticky', 'text', 'diamond', 'parallelogram', 'cylinder', 'doc', 'frame', 'image']);
 const edgeTypeEnum = z.enum(['line', 'arrow', 'connector']);
 const endpointSchema = z.object({
   nodeId: z.string().optional(),
@@ -35,8 +35,8 @@ export function createMcpServer(options: McpGraphOptions): McpServer {
 
   server.tool(
     'read_graph',
-    'Read a graph document (.graph.json)',
-    { path: z.string().describe('Relative path to the .graph.json file') },
+    'Read a graph document (.graph)',
+    { path: z.string().describe('Relative path to the .graph file') },
     async ({ path }) => {
       const doc = await readGraph({ path }, rootDir);
       return { content: [{ type: 'text' as const, text: JSON.stringify(doc, null, 2) }] };
@@ -45,9 +45,9 @@ export function createMcpServer(options: McpGraphOptions): McpServer {
 
   server.tool(
     'write_graph',
-    'Write a graph document to a .graph.json file',
+    'Write a graph document to a .graph file',
     {
-      path: z.string().describe('Relative path to the .graph.json file'),
+      path: z.string().describe('Relative path to the .graph file'),
       document: z.string().describe('Graph document as JSON string'),
     },
     async ({ path, document: docStr }) => {
@@ -61,7 +61,7 @@ export function createMcpServer(options: McpGraphOptions): McpServer {
     'create_graph',
     'Create a new empty graph document',
     {
-      path: z.string().describe('Relative path for the new .graph.json file'),
+      path: z.string().describe('Relative path for the new .graph file'),
       name: z.string().describe('Name of the graph document'),
     },
     async ({ path, name }) => {
@@ -74,7 +74,7 @@ export function createMcpServer(options: McpGraphOptions): McpServer {
     'add_node',
     'Add a node to a graph document (with grid snap)',
     {
-      path: z.string().describe('Relative path to the .graph.json file'),
+      path: z.string().describe('Relative path to the .graph file'),
       type: nodeTypeEnum.describe('Node type'),
       x: z.number().describe('X coordinate'),
       y: z.number().describe('Y coordinate'),
@@ -92,7 +92,7 @@ export function createMcpServer(options: McpGraphOptions): McpServer {
     'update_node',
     'Update properties of a node in a graph document',
     {
-      path: z.string().describe('Relative path to the .graph.json file'),
+      path: z.string().describe('Relative path to the .graph file'),
       nodeId: z.string().describe('ID of the node to update'),
       changes: z.string().describe('JSON string of properties to update'),
     },
@@ -106,7 +106,7 @@ export function createMcpServer(options: McpGraphOptions): McpServer {
     'remove_node',
     'Remove a node and its connected edges from a graph document',
     {
-      path: z.string().describe('Relative path to the .graph.json file'),
+      path: z.string().describe('Relative path to the .graph file'),
       nodeId: z.string().describe('ID of the node to remove'),
     },
     async ({ path, nodeId }) => {
@@ -119,7 +119,7 @@ export function createMcpServer(options: McpGraphOptions): McpServer {
     'add_edge',
     'Add an edge between two nodes in a graph document',
     {
-      path: z.string().describe('Relative path to the .graph.json file'),
+      path: z.string().describe('Relative path to the .graph file'),
       type: edgeTypeEnum.describe('Edge type'),
       from: endpointSchema.describe('Source endpoint'),
       to: endpointSchema.describe('Target endpoint'),
@@ -135,7 +135,7 @@ export function createMcpServer(options: McpGraphOptions): McpServer {
     'remove_edge',
     'Remove an edge from a graph document',
     {
-      path: z.string().describe('Relative path to the .graph.json file'),
+      path: z.string().describe('Relative path to the .graph file'),
       edgeId: z.string().describe('ID of the edge to remove'),
     },
     async ({ path, edgeId }) => {
@@ -147,7 +147,7 @@ export function createMcpServer(options: McpGraphOptions): McpServer {
   server.tool(
     'list_nodes',
     'List all nodes in a graph document with summary info',
-    { path: z.string().describe('Relative path to the .graph.json file') },
+    { path: z.string().describe('Relative path to the .graph file') },
     async ({ path }) => {
       const nodes = await listNodes({ path }, rootDir);
       return { content: [{ type: 'text' as const, text: JSON.stringify(nodes, null, 2) }] };
@@ -157,7 +157,7 @@ export function createMcpServer(options: McpGraphOptions): McpServer {
   server.tool(
     'export_svg',
     'Export a graph document as SVG',
-    { path: z.string().describe('Relative path to the .graph.json file') },
+    { path: z.string().describe('Relative path to the .graph file') },
     async ({ path }) => {
       const svg = await exportSvg({ path }, rootDir);
       return { content: [{ type: 'text' as const, text: svg }] };
@@ -167,7 +167,7 @@ export function createMcpServer(options: McpGraphOptions): McpServer {
   server.tool(
     'export_drawio',
     'Export a graph document as draw.io XML',
-    { path: z.string().describe('Relative path to the .graph.json file') },
+    { path: z.string().describe('Relative path to the .graph file') },
     async ({ path }) => {
       const xml = await exportDrawio({ path }, rootDir);
       return { content: [{ type: 'text' as const, text: xml }] };
@@ -178,7 +178,7 @@ export function createMcpServer(options: McpGraphOptions): McpServer {
     'import_drawio',
     'Import a draw.io XML and create a graph document',
     {
-      path: z.string().describe('Relative path for the output .graph.json file'),
+      path: z.string().describe('Relative path for the output .graph file'),
       drawioContent: z.string().describe('draw.io XML content'),
     },
     async ({ path, drawioContent }) => {

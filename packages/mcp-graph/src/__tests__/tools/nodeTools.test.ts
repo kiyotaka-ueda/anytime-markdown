@@ -13,7 +13,7 @@ describe('addNode', () => {
 
   beforeEach(async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-graph-'));
-    await createGraphFile({ path: 'test.graph.json', name: 'Test' }, tmpDir);
+    await createGraphFile({ path: 'test.graph', name: 'Test' }, tmpDir);
   });
 
   afterEach(async () => {
@@ -22,7 +22,7 @@ describe('addNode', () => {
 
   it('should add a node with gridSnap applied', async () => {
     const node = await addNode({
-      path: 'test.graph.json',
+      path: 'test.graph',
       type: 'rect',
       x: 103,
       y: 207,
@@ -34,13 +34,13 @@ describe('addNode', () => {
     expect(node.x % 20).toBe(0);
     expect(node.y % 20).toBe(0);
     // verify persisted
-    const doc = await readGraph({ path: 'test.graph.json' }, tmpDir);
+    const doc = await readGraph({ path: 'test.graph' }, tmpDir);
     expect(doc.nodes).toHaveLength(1);
   });
 
   it('should add node with custom dimensions', async () => {
     const node = await addNode({
-      path: 'test.graph.json',
+      path: 'test.graph',
       type: 'ellipse',
       x: 100,
       y: 200,
@@ -57,7 +57,7 @@ describe('updateNode', () => {
 
   beforeEach(async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-graph-'));
-    await createGraphFile({ path: 'test.graph.json', name: 'Test' }, tmpDir);
+    await createGraphFile({ path: 'test.graph', name: 'Test' }, tmpDir);
   });
 
   afterEach(async () => {
@@ -65,15 +65,15 @@ describe('updateNode', () => {
   });
 
   it('should update node properties', async () => {
-    const node = await addNode({ path: 'test.graph.json', type: 'rect', x: 100, y: 100, text: 'Old' }, tmpDir);
-    const updated = await updateNode({ path: 'test.graph.json', nodeId: node.id, changes: { text: 'New' } }, tmpDir);
+    const node = await addNode({ path: 'test.graph', type: 'rect', x: 100, y: 100, text: 'Old' }, tmpDir);
+    const updated = await updateNode({ path: 'test.graph', nodeId: node.id, changes: { text: 'New' } }, tmpDir);
     expect(updated.text).toBe('New');
-    const doc = await readGraph({ path: 'test.graph.json' }, tmpDir);
+    const doc = await readGraph({ path: 'test.graph' }, tmpDir);
     expect(doc.nodes[0].text).toBe('New');
   });
 
   it('should throw for non-existent node', async () => {
-    await expect(updateNode({ path: 'test.graph.json', nodeId: 'fake-id', changes: { text: 'X' } }, tmpDir))
+    await expect(updateNode({ path: 'test.graph', nodeId: 'fake-id', changes: { text: 'X' } }, tmpDir))
       .rejects.toThrow('not found');
   });
 });
@@ -83,7 +83,7 @@ describe('removeNode', () => {
 
   beforeEach(async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-graph-'));
-    await createGraphFile({ path: 'test.graph.json', name: 'Test' }, tmpDir);
+    await createGraphFile({ path: 'test.graph', name: 'Test' }, tmpDir);
   });
 
   afterEach(async () => {
@@ -91,23 +91,23 @@ describe('removeNode', () => {
   });
 
   it('should remove node and connected edges', async () => {
-    const n1 = await addNode({ path: 'test.graph.json', type: 'rect', x: 0, y: 0, text: 'A' }, tmpDir);
-    const n2 = await addNode({ path: 'test.graph.json', type: 'rect', x: 200, y: 0, text: 'B' }, tmpDir);
+    const n1 = await addNode({ path: 'test.graph', type: 'rect', x: 0, y: 0, text: 'A' }, tmpDir);
+    const n2 = await addNode({ path: 'test.graph', type: 'rect', x: 200, y: 0, text: 'B' }, tmpDir);
 
     // manually add an edge
-    const doc = await readGraph({ path: 'test.graph.json' }, tmpDir);
+    const doc = await readGraph({ path: 'test.graph' }, tmpDir);
     const edge = createEdge('arrow', { nodeId: n1.id, x: 0, y: 0 }, { nodeId: n2.id, x: 0, y: 0 });
     doc.edges.push(edge);
-    await fs.writeFile(path.join(tmpDir, 'test.graph.json'), JSON.stringify(doc, null, 2));
+    await fs.writeFile(path.join(tmpDir, 'test.graph'), JSON.stringify(doc, null, 2));
 
-    await removeNode({ path: 'test.graph.json', nodeId: n1.id }, tmpDir);
-    const after = await readGraph({ path: 'test.graph.json' }, tmpDir);
+    await removeNode({ path: 'test.graph', nodeId: n1.id }, tmpDir);
+    const after = await readGraph({ path: 'test.graph' }, tmpDir);
     expect(after.nodes).toHaveLength(1);
     expect(after.nodes[0].id).toBe(n2.id);
     expect(after.edges).toHaveLength(0);
   });
 
   it('should throw for non-existent node', async () => {
-    await expect(removeNode({ path: 'test.graph.json', nodeId: 'fake' }, tmpDir)).rejects.toThrow('not found');
+    await expect(removeNode({ path: 'test.graph', nodeId: 'fake' }, tmpDir)).rejects.toThrow('not found');
   });
 });

@@ -18,7 +18,7 @@ export function activate(context: vscode.ExtensionContext) {
 			});
 			if (!name) return;
 
-			const fileName = name.endsWith('.graph.json') ? name : `${name}.graph.json`;
+			const fileName = name.endsWith('.graph') ? name : `${name}.graph`;
 			const uri = vscode.Uri.joinPath(workspaceFolders[0].uri, fileName);
 
 			const now = Date.now();

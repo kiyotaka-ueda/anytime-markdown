@@ -30,7 +30,7 @@
         "displayName": "Graph Editor",
         "selector": [
           {
-            "filenamePattern": "*.graph.json"
+            "filenamePattern": "*.graph"
           }
         ],
         "priority": "default"

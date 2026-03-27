@@ -21,10 +21,10 @@ describe('exportSvg', () => {
   });
 
   it('should export graph as SVG string', async () => {
-    await createGraphFile({ path: 'test.graph.json', name: 'Test' }, tmpDir);
-    await addNode({ path: 'test.graph.json', type: 'rect', x: 0, y: 0, text: 'A' }, tmpDir);
-    await addNode({ path: 'test.graph.json', type: 'rect', x: 200, y: 0, text: 'B' }, tmpDir);
-    const svg = await exportSvg({ path: 'test.graph.json' }, tmpDir);
+    await createGraphFile({ path: 'test.graph', name: 'Test' }, tmpDir);
+    await addNode({ path: 'test.graph', type: 'rect', x: 0, y: 0, text: 'A' }, tmpDir);
+    await addNode({ path: 'test.graph', type: 'rect', x: 200, y: 0, text: 'B' }, tmpDir);
+    const svg = await exportSvg({ path: 'test.graph' }, tmpDir);
     expect(svg).toContain('<svg');
     expect(svg).toContain('</svg>');
   });
@@ -42,9 +42,9 @@ describe('exportDrawio', () => {
   });
 
   it('should export graph as draw.io XML', async () => {
-    await createGraphFile({ path: 'test.graph.json', name: 'Test' }, tmpDir);
-    await addNode({ path: 'test.graph.json', type: 'rect', x: 0, y: 0, text: 'A' }, tmpDir);
-    const xml = await exportDrawio({ path: 'test.graph.json' }, tmpDir);
+    await createGraphFile({ path: 'test.graph', name: 'Test' }, tmpDir);
+    await addNode({ path: 'test.graph', type: 'rect', x: 0, y: 0, text: 'A' }, tmpDir);
+    const xml = await exportDrawio({ path: 'test.graph' }, tmpDir);
     expect(xml).toContain('mxGraphModel');
   });
 });
@@ -70,10 +70,10 @@ describe('importDrawio', () => {
         </mxCell>
       </root>
     </mxGraphModel>`;
-    const doc = await importDrawio({ path: 'imported.graph.json', drawioContent: drawioXml }, tmpDir);
+    const doc = await importDrawio({ path: 'imported.graph', drawioContent: drawioXml }, tmpDir);
     expect(doc.nodes.length).toBeGreaterThan(0);
     // Verify file was saved
-    const saved = await readGraph({ path: 'imported.graph.json' }, tmpDir);
+    const saved = await readGraph({ path: 'imported.graph' }, tmpDir);
     expect(saved.nodes.length).toBeGreaterThan(0);
   });
 });

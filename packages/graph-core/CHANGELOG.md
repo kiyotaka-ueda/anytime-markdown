@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [0.8.0] - 2026-03-25
 
 ### Added
-- 11 node types: rect, ellipse, diamond, parallelogram, cylinder, sticky, text, insight, doc, frame, image
+- 10 node types: rect, ellipse, diamond, parallelogram, cylinder, sticky, text, doc, frame, image
 - 3 edge types: line, arrow, connector
 - Orthogonal connectors with A* obstacle avoidance routing
 - Bezier curve edges with manual control points

@@ -47,18 +47,18 @@ describe('mcp-graph integration', () => {
 
   it('should create graph, add nodes, add edge, export SVG', async () => {
     // Create
-    await client.callTool({ name: 'create_graph', arguments: { path: 'test.graph.json', name: 'E2E' } });
+    await client.callTool({ name: 'create_graph', arguments: { path: 'test.graph', name: 'E2E' } });
 
     // Add nodes
     const n1Result = await client.callTool({
       name: 'add_node',
-      arguments: { path: 'test.graph.json', type: 'rect', x: 0, y: 0, text: 'Start' },
+      arguments: { path: 'test.graph', type: 'rect', x: 0, y: 0, text: 'Start' },
     });
     const n1 = JSON.parse(getText(n1Result));
 
     const n2Result = await client.callTool({
       name: 'add_node',
-      arguments: { path: 'test.graph.json', type: 'rect', x: 200, y: 0, text: 'End' },
+      arguments: { path: 'test.graph', type: 'rect', x: 200, y: 0, text: 'End' },
     });
     const n2 = JSON.parse(getText(n2Result));
 
@@ -66,7 +66,7 @@ describe('mcp-graph integration', () => {
     await client.callTool({
       name: 'add_edge',
       arguments: {
-        path: 'test.graph.json',
+        path: 'test.graph',
         type: 'arrow',
         from: { nodeId: n1.id, x: 0, y: 0 },
         to: { nodeId: n2.id, x: 0, y: 0 },
@@ -74,26 +74,26 @@ describe('mcp-graph integration', () => {
     });
 
     // List nodes
-    const listResult = await client.callTool({ name: 'list_nodes', arguments: { path: 'test.graph.json' } });
+    const listResult = await client.callTool({ name: 'list_nodes', arguments: { path: 'test.graph' } });
     const nodes = JSON.parse(getText(listResult));
     expect(nodes).toHaveLength(2);
 
     // Export SVG
-    const svgResult = await client.callTool({ name: 'export_svg', arguments: { path: 'test.graph.json' } });
+    const svgResult = await client.callTool({ name: 'export_svg', arguments: { path: 'test.graph' } });
     expect(getText(svgResult)).toContain('<svg');
 
     // Export draw.io
-    const drawioResult = await client.callTool({ name: 'export_drawio', arguments: { path: 'test.graph.json' } });
+    const drawioResult = await client.callTool({ name: 'export_drawio', arguments: { path: 'test.graph' } });
     expect(getText(drawioResult)).toContain('mxGraphModel');
   });
 
   it('should return error for non-existent file', async () => {
-    const result = await client.callTool({ name: 'read_graph', arguments: { path: 'missing.graph.json' } });
+    const result = await client.callTool({ name: 'read_graph', arguments: { path: 'missing.graph' } });
     expect(result.isError).toBe(true);
   });
 
   it('should return error for path traversal', async () => {
-    const result = await client.callTool({ name: 'read_graph', arguments: { path: '../evil.graph.json' } });
+    const result = await client.callTool({ name: 'read_graph', arguments: { path: '../evil.graph' } });
     expect(result.isError).toBe(true);
   });
 });
