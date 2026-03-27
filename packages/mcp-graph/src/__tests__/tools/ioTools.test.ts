@@ -60,6 +60,18 @@ describe('importDrawio', () => {
     await fs.rm(tmpDir, { recursive: true });
   });
 
+  it('should skip DOMParser setup when already defined', async () => {
+    // First import sets up DOMParser on globalThis
+    const drawioXml1 = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel>`;
+    await importDrawio({ path: 'first.graph', drawioContent: drawioXml1 }, tmpDir);
+    // DOMParser should now be on globalThis
+    expect(typeof globalThis.DOMParser).not.toBe('undefined');
+    // Second import should skip setup (covers the if branch at line 8)
+    const drawioXml2 = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel>`;
+    const doc = await importDrawio({ path: 'second.graph', drawioContent: drawioXml2 }, tmpDir);
+    expect(doc).toBeDefined();
+  });
+
   it('should import draw.io XML and create graph', async () => {
     const drawioXml = `<mxGraphModel>
       <root>
