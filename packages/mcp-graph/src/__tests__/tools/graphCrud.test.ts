@@ -18,12 +18,12 @@ describe('createGraphFile', () => {
   });
 
   it('should create a new graph document', async () => {
-    const result = await createGraphFile({ path: 'test.graph.json', name: 'Test' }, tmpDir);
+    const result = await createGraphFile({ path: 'test.graph', name: 'Test' }, tmpDir);
     expect(result.name).toBe('Test');
     expect(result.nodes).toEqual([]);
     expect(result.edges).toEqual([]);
     expect(result.id).toBeDefined();
-    const content = await fs.readFile(path.join(tmpDir, 'test.graph.json'), 'utf-8');
+    const content = await fs.readFile(path.join(tmpDir, 'test.graph'), 'utf-8');
     expect(JSON.parse(content).name).toBe('Test');
   });
 
@@ -44,18 +44,18 @@ describe('readGraph', () => {
   });
 
   it('should read a graph document', async () => {
-    await createGraphFile({ path: 'test.graph.json', name: 'Read' }, tmpDir);
-    const result = await readGraph({ path: 'test.graph.json' }, tmpDir);
+    await createGraphFile({ path: 'test.graph', name: 'Read' }, tmpDir);
+    const result = await readGraph({ path: 'test.graph' }, tmpDir);
     expect(result.name).toBe('Read');
     expect(result.nodes).toEqual([]);
   });
 
   it('should reject path traversal', async () => {
-    await expect(readGraph({ path: '../evil.graph.json' }, tmpDir)).rejects.toThrow('Access denied');
+    await expect(readGraph({ path: '../evil.graph' }, tmpDir)).rejects.toThrow('Access denied');
   });
 
   it('should throw on non-existent file', async () => {
-    await expect(readGraph({ path: 'missing.graph.json' }, tmpDir)).rejects.toThrow();
+    await expect(readGraph({ path: 'missing.graph' }, tmpDir)).rejects.toThrow();
   });
 });
 
@@ -71,10 +71,10 @@ describe('writeGraph', () => {
   });
 
   it('should write a graph document', async () => {
-    const doc = await createGraphFile({ path: 'test.graph.json', name: 'Write' }, tmpDir);
+    const doc = await createGraphFile({ path: 'test.graph', name: 'Write' }, tmpDir);
     doc.name = 'Updated';
-    await writeGraph({ path: 'test.graph.json', document: doc }, tmpDir);
-    const content = JSON.parse(await fs.readFile(path.join(tmpDir, 'test.graph.json'), 'utf-8'));
+    await writeGraph({ path: 'test.graph', document: doc }, tmpDir);
+    const content = JSON.parse(await fs.readFile(path.join(tmpDir, 'test.graph'), 'utf-8'));
     expect(content.name).toBe('Updated');
   });
 });

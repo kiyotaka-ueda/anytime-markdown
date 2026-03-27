@@ -7,72 +7,339 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-03-27
+
+### Added
+- Math Graph: Graph visualization for LaTeX math expressions (JSXGraph, Plotly.js)
+- Math Graph: LaTeX to math.js expression converter with graph type detection
+- Math Graph: Full-screen graph preview with fill mode using ResizeObserver
+- Handwritten theme preset with hand-drawn headings, admonitions, and diagrams
+
+### Changed
+- Default theme preset changed to Handwritten
+
+## [0.8.2] - 2026-03-25
+
+### Fixed
+- Mermaid: Clear stale SVG on theme change before re-rendering
+- Light mode color scheme and PDF export improvements
+
+## [0.8.0] - 2026-03-25
+
+### Changed
+- Renamed package from `editor-core` to `markdown-core`
+
+## [0.7.6] - 2026-03-22
+
+### Added
+- Slash command: auto-open fullscreen edit dialog for mermaid, PlantUML, math, HTML, and GIF blocks
+- Slash command: frontmatter now outputs correct `---` fence format instead of yaml code block
+- Slash command: footnotes use sequential numbering and auto-append definition at document end
+- Tab/Shift+Tab in blockquote to nest/unnest (max 6 levels)
+- Suppress Tab key focus escape from editor to toolbar
+
+### Changed
+- Admonition slash command labels: removed "Callout" suffix (ja), replaced with "Admonition" (en)
+
+### Fixed
+- Admonition slash commands now correctly set admonitionType attribute
+- HTML block fullscreen preview background aligned with editor theme
+
+## [0.7.1] - 2026-03-22
+
+### Changed
+- Block element alignment unified to text-align + inline-block pattern (images, PlantUML, Mermaid, math)
+- SonarQube 588 CODE_SMELL fixes (Cognitive Complexity, readonly, optional chaining, etc.)
+
+### Fixed
+- closest() return type cast for dataset access
+
+## [0.7.0] - 2026-03-21
+
+### Added
+- GapCursor display on the left side of block elements (ArrowUp/Down/Left/Right + Enter)
+- Screen capture with ImageCropTool trimming (Screen Capture API)
+- ImageCropTool: move and resize trim area (8-direction handles) with real-time size/capacity display
+- Source mode: base64 image data folding
+- Auto-reload toggle for external changes
+- Change gutter highlight with Alt+F5 sequential jump and ESC reset
+- MarkdownViewer component (readonly display, locale switch, font size switch)
+
+### Changed
+- Block handlebar: separator between label and edit icons
+- Image handlebar: moved edit icon before annotation
+- Font sizes consolidated to constants/dimensions.ts (28 constants)
+
+### Fixed
+- GapCursor positioned immediately left of block elements
+- Initial mode changed from review to edit
+- Theme controlled exclusively by editor settings
+
+### Security
+- Regex backtracking vulnerability fixes (SonarQube Hotspots MEDIUM 7)
+- SonarQube BLOCKER: functions always returning same value (7)
+- SonarQube CRITICAL: Cognitive Complexity reduction (34 functions refactored)
+
+## [0.6.5] - 2026-03-20
+
+### Changed
+- Admonition style changed to GitHub-compliant
+- MUI theme color references replaced with constant helpers (253 locations)
+
+### Fixed
+- Table text selection Ctrl+C/X copying entire table instead of selection
+- Admonition consecutive display and template insertion issues
+
+### Security
+- ReDoS vulnerable regexes replaced with linear-time parsers
+
+## [0.6.4] - 2026-03-20
+
+### Added
+- Paper size display (A3/A4/B4/B5, adjustable margins, toggle in editor settings)
+- Template insertion via slash command (Welcome, Markdown All, etc.)
+- Editor settings button in side toolbar
+- Slash command menu screen reader result count notification
+- localStorage wrapper (`safeSetItem`) for quota exceeded handling
+
+### Changed
+- Toolbar height fixed to 44px
+- Scrollbar styled thin and rounded
+
+### Fixed
+- Scrollbar and inline code color contrast to WCAG AA compliance
+- ConfirmDialog autoFocus separated for alert/non-alert
+- Readonly mode: save and save-as disabled
+
+## [0.6.3] - 2026-03-20
+
+### Security
+- Base URI XSS vulnerability fix (URL object normalization + scheme whitelist, CodeQL CWE-79)
+- gif-settings extraction ReDoS fix (regex → indexOf linear-time parser)
+- Heading parser ReDoS fix (`\s+` → single space)
+
+### Changed
+- Template filename change (defaultContent → welcome), markdownAll template added
+- Heading style changed to left border + gradient background
+
+## [0.6.1] - 2026-03-20
+
+### Added
+- GIF recorder block: screen capture → rectangle select → record → animated GIF (`/gif` slash command)
+- Block element capture save: PNG/SVG/GIF from handlebar camera icon
+- Block-level Ctrl+C/Ctrl+X: copy/cut code blocks, tables, GIFs preserving block structure
+- Right-click menu block support: cut/copy enabled within block elements
+- Slash commands: `/h4`, `/h5`, `/image`, `/frontmatter`
+
+### Changed
+- Clipboard operations consolidated to `clipboardHelpers.ts`
+- Block clipboard operations consolidated to `blockClipboard.ts`
+
+### Fixed
+- GIF encoder replaced with custom implementation (gif.js Web Worker CSP block)
+- Source mode switch causing GIF block/gif-settings disappearance
+- HTML preview capture changed to direct SVG save (foreignObject tainted canvas workaround)
+
+## [0.6.0] - 2026-03-19
+
+### Added
+- Image annotation: SVG overlay with rectangles/circles/lines and comments (resolve/delete, comment panel integration)
+- Image crop: drag selection trimming (Base64/link image branched save)
+- Image resize: preset buttons (25%-200%)
+- Image editor: ruler (pixel scale) and grid lines
+- Semantic comparison: heading-based section LCS matching with diff display (toggle)
+- Context menu: cut/copy/paste/paste-as-markdown/paste-as-code-block (with shortcut display)
+- Box drawing table (Unicode) auto-conversion to Markdown table on paste
+- Keyboard shortcuts: Alt+Arrow (block move), Shift+Alt+Arrow (block duplicate), Ctrl+Enter/Shift+Enter (empty line), Ctrl+L (line select), Ctrl+D (word select), Tab/Shift+Tab (heading level)
+- React Error Boundary (role="alert", reload button)
+
+### Changed
+- EditorMainContent split into EditorContentArea / EditorMergeContent / EditorSideToolbar
+- Context values memoized with useMemo, section number logic extracted to hook
+- isEditable access unified (useCurrentEditor hook)
+- Compare mode left block elements: toolbar hidden in review mode, label-only on selection in edit mode
+
+### Fixed
+- Semantic diff line number calculation (padding line exclusion)
+- Image annotation disappearance on source mode switch (Markdown tail block save)
+- Base64 image annotation save crash (indexOf-based search)
+
+### Security
+- CSP base-uri directive added (javascript: scheme injection prevention)
+- Webview message runtime type guard (TypeScript type assertion → typeof check)
+
+## [0.5.2] - 2026-03-17
+
+### Added
+- Fullscreen table comparison: cell-level diff highlight in left panel
+- Compare mode left (source) block elements: edit icons hidden
+
+### Changed
+- Panel header heights unified (outline, comment, explorer)
+- Hardcoded values consolidated to constants (PANEL_HEADER_MIN_HEIGHT, etc.)
+
+### Fixed
+- Fullscreen table comparison left/right determination by editor instance comparison
+
+## [0.5.1] - 2026-03-15
+
+### Added
+- Section number insert/delete (outline panel icon, H1-H5, direct source write)
+- Hard break auto-append for consecutive text lines
+- Excel/Google Sheets table paste support (cell line breaks → `<br>`)
+
+### Changed
+- Section number auto-display removed, replaced with explicit insert/delete operations
+- Text formatting keyboard shortcuts disabled (use bubble menu instead)
+
+### Fixed
+- TipTap normalization file write-back suppressed on initial load
+- Table cell hard break `\\` output breaking table rows (→ `<br>`)
+- Excel paste inserted as image instead of table (text/html priority)
+- Table outer background color mismatch
+
+### Removed
+- Details/Summary (collapsible block)
+- Inline math ($...$)
+
+### Security
+- fetchFromCdn SSRF mitigation (URL reconstruction)
+
+## [0.5.0] - 2026-03-15
+
+### Added
+- Unified fullscreen block edit dialog for all block types (code/Mermaid/PlantUML/math/HTML/table/image)
+- Mermaid/PlantUML: Code / Config tab for separated configuration editing
+- Live preview in all block edit dialogs (syntax highlight / SVG / image / KaTeX / DOMPurify)
+- Zoom and pan in all block edit dialogs (buttons / wheel / drag)
+- Sample insertion panel (Mermaid 23 / PlantUML 12 / Math 7 / HTML 6 / Code 24 languages)
+- Line numbers and Tab indent in all block edit dialogs
+- Diagram/math/HTML inline preview resize grip
+- Table edit dialog: side-by-side comparison mode
+- HTML block edit dialog: code diff in comparison mode
+- Double-click to open block edit dialog for diagrams/math/HTML
+- Block-specific icons in edit dialog header
+
+### Changed
+- "Fullscreen view" renamed to "block edit dialog"
+- Inline toolbar icon changed from fullscreen to edit
+- Table operation icons moved from inline to block edit dialog
+- Code copy button moved to block edit dialog code toolbar
+- Close button position unified to left of label
+- Syntax highlight colors unified to GitHub style
+- Merge operations restricted to right-to-left only
+- Common components extracted: EditDialogHeader, EditDialogWrapper, ZoomToolbar, SamplePanel, DraggableSplitLayout, ZoomablePreview, BlockInlineToolbar, ResizeGrip, useBlockResize, useBlockNodeState
+- Magic numbers and style patterns consolidated to constants (dimensions.ts, uiPatterns.ts)
+
+### Fixed
+- Print: page 2+ clipping and PlantUML code collapse
+- Status bar fixed to bottom with position:fixed
+- Frontmatter show/hide editor height recalculation
+- Code block preview highlightedHtml DOMPurify sanitization
+
 ## [0.4.0] - 2026-03-11
 
 ### Added
-
-- Auto-detection mode for section numbers (auto-numbering when less than 50% of headings have manual numbers)
-- Auto-detect diagram type and set aria-label on diagrams (Mermaid/PlantUML) (WCAG SC 2.5.7)
-- Alt+Arrow keyboard shortcut for reordering outline headings (WCAG SC 2.5.7)
-- +/- prefix in diff view for non-color-dependent information (WCAG SC 1.4.1)
-- aria-invalid and error display on dialog input fields (WCAG SC 3.3.1)
-- Unit tests for sanitizeMarkdown (50 tests)
-- BoundedMap utility (size-limited Map with FIFO eviction)
-- ESLint rules (type assertion restriction, non-null assertion warning, console restriction, import sorting)
+- Outline panel collapse/expand toggle
+- Outline section number auto-display
+- sanitizeMarkdown unit tests (50 tests)
+- BoundedMap utility (FIFO eviction Map with size limit)
 
 ### Changed
-
-- Unified background color for source mode and fullscreen dialogs with code blocks
-- Split EditorToolbar from 588 to 393 lines (extracted ToolbarFileActions, ToolbarMobileMenu)
-- Split MergeEditorPanel and InlineMergeView to under 500 lines (extracted mergeTiptapStyles, LinePreviewPanel)
-- Consolidated EditorToolbar props into 4 objects (48 to 17 props)
-- Extracted common function from 3 duplicated source-to-WYSIWYG sync logic
-- Consolidated editor.storage casts into type-safe helpers (getEditorStorage/getMarkdownStorage)
-- Reduced MarkdownEditorPage to 361 lines (869 to 579 to 361 lines)
-- Changed default font size to 16px
-- Improved light mode readability
-- Removed line-height UI setting; now theme-linked (light 1.6 / dark 1.8)
-- Improved contrast ratio of readonly checkbox and tooltip (WCAG SC 1.4.3)
-- Pinned dependency versions to exact in package.json
-- Internationalized aria-label attributes (previously English-only)
-- Added dark mode support to global-error.tsx
+- Panel background colors unified across OutlinePanel, CommentPanel, LinePreviewPanel
+- EditorToolbar split (588→393 lines, ToolbarFileActions and ToolbarMobileMenu extracted)
+- MergeEditorPanel and InlineMergeView split to under 500 lines
+- EditorToolbar props consolidated (48→17 props)
+- Source→WYSIWYG sync logic: 3 duplicates extracted to common function
 
 ### Fixed
-
-- Added AbortController timeout to external requests
-- Prevented unbounded memory growth of svgCache/urlCache with BoundedMap
-- Added error logging to empty catch blocks (SlashCommandMenu, useDiagramCapture)
-- Added cancellation to useLayoutEditor useEffect
-- Removed 21 unused variables and imports
-- Fixed editor bottom being cut off when frontmatter is displayed
-- Fixed font size setting not reflecting in real-time
-- Removed unnecessary `as any` cast in useSourceMode
+- svgCache / urlCache unbounded growth prevention
+- Frontmatter display editor height cutoff
 
 ### Security
-
-- Fixed Symlink Path Traversal vulnerability in tar package
-- Added origin validation to PlantUML URL construction (SSRF prevention)
-- Replaced regex-based HTML tag removal with DOMParser.textContent
-- Replaced regex in commentHelpers with indexOf-based approach (ReDoS prevention)
-- Added origin validation to fetchFromCdn URL construction (SSRF prevention)
+- PlantUML URL origin validation (SSRF prevention)
+- HTML tag removal changed from regex to DOMParser.textContent
+- commentHelpers regex replaced with indexOf (ReDoS prevention)
+- fetchFromCdn URL origin validation (SSRF prevention)
 
 ## [0.3.0] - 2026-03-10
 
 ### Added
-
-- YAML frontmatter recognition, preservation, and editing support
+- YAML frontmatter recognition, preservation, and editing (code-block-style display in WYSIWYG)
 - Browser spell check setting in settings panel
-- Confirmation dialog for frontmatter deletion
-- Line-level merge in fullscreen code comparison
-- Left/right code comparison in fullscreen view during compare mode
-- Synced block expand/collapse between left and right editors in compare mode
-- Enabled cursor display and text selection in readonly/review mode
+- Frontmatter delete confirmation dialog
+
+## [0.2.8] - 2026-03-09
+
+### Added
+- Fullscreen code comparison: line-level merge (Mermaid/PlantUML/code blocks/Math)
+- Compare mode: code block fullscreen shows side-by-side comparison
+- Compare mode: left editor block expand/collapse synced to right editor
+- Readonly/review mode: cursor display and text selection enabled
 
 ### Fixed
+- Template insertion: consecutive empty lines compressed
+- Compare mode switch: NodeViews (diagrams, images, tables) disappearing
 
-- Fixed consecutive blank lines being collapsed when inserting templates in edit mode
-- Fixed NodeViews (diagrams, images, tables) disappearing when toggling compare mode
+## [0.1.0] - 2026-03-06
 
-[Unreleased]: https://github.com/anytime-trial/anytime-markdown/compare/v0.4.0...HEAD
-[0.4.0]: https://github.com/anytime-trial/anytime-markdown/compare/v0.3.0...v0.4.0
-[0.3.0]: https://github.com/anytime-trial/anytime-markdown/releases/tag/v0.3.0
+### Added
+- View mode (readonly browsing + outline improvements)
+- `#L` line number navigation
+
+### Fixed
+- ZWNJ tight-transition marker spacing
+- Consecutive paragraph line round-trip merge prevention
+- Heading-list and block-list spacing preservation
+
+## [0.0.11] - 2026-03-04
+
+### Added
+- Inline comment (range selection + point comment, resolve/reopen/delete)
+- Callout extension ([!NOTE], [!TIP], [!IMPORTANT], [!WARNING], [!CAUTION])
+- Footnote reference extension ([^id] syntax)
+- Section auto-numbering extension
+- Code block syntax highlighting (lowlight)
+- Slash command block insertion
+
+## [0.0.9] - 2026-03-03
+
+### Added
+- KaTeX math rendering (inline and block)
+- Math sample popover for LaTeX template insertion
+- Math and date slash commands
+- TOC auto-generation from headings
+- Encoding conversion menu
+- Line ending conversion menu
+
+## [0.0.7] - 2026-03-01
+
+### Added
+- Slash command menu for block insertion
+- PDF export (@media print styles)
+- Mermaid/PlantUML diagram resize handles
+- Diagram code default collapse display
+- Code block copy button
+- HTML sample popover and toolbar insert button
+
+## [0.0.1] - 2026-02-26
+
+### Added
+- WYSIWYG Markdown editor (Tiptap-based)
+- Source mode toggle
+- Compare (merge) mode: side-by-side diff, line-level merge, block-level diff highlight
+- Text formatting: Bold, Italic, Underline, Strikethrough, Highlight
+- Headings: H1-H5
+- Lists: bullet, numbered, task
+- Block elements: blockquote, code block (syntax highlight), horizontal rule
+- Table: insert, add/remove rows/columns
+- Image: relative path resolution, drag-and-drop, clipboard paste
+- Link dialog: insert/edit/delete (Ctrl+K)
+- Mermaid / PlantUML diagrams: live preview code blocks
+- Search and replace (Ctrl+F / Ctrl+H): case sensitive, word match, regex
+- Outline panel: heading drag-and-drop reorder, collapse
+- Template insertion
+- Bubble menu: floating format menu on text selection
+- Status bar: line number, character count, line count
+- Keyboard shortcuts
+- Large file (100KB+) debounce optimization

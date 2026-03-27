@@ -2,16 +2,30 @@ export type NodeType = 'rect' | 'ellipse' | 'sticky' | 'text' | 'diamond' | 'par
 export type EdgeType = 'line' | 'arrow' | 'connector';
 export type ToolType = 'select' | 'rect' | 'ellipse' | 'sticky' | 'text' | 'diamond' | 'parallelogram' | 'cylinder' | 'doc' | 'frame' | 'line' | 'arrow' | 'connector' | 'pan';
 
+export type TextAlign = 'left' | 'center' | 'right';
+export type VerticalAlign = 'top' | 'middle' | 'bottom';
+
 export interface NodeStyle {
   fill: string;
   stroke: string;
   strokeWidth: number;
   fontSize: number;
   fontFamily: string;
+  fontColor?: string;
+  fontStyle?: number;  // bitmask: 1=bold, 2=italic, 4=underline
+  align?: TextAlign;
+  verticalAlign?: VerticalAlign;
+  opacity?: number;  // 0-100
+  dashed?: boolean;
   borderRadius?: number;
   shadow?: boolean;
   gradientTo?: string;
   gradientDirection?: 'vertical' | 'horizontal' | 'diagonal';
+  spacing?: number;
+  spacingTop?: number;
+  spacingRight?: number;
+  spacingBottom?: number;
+  spacingLeft?: number;
 }
 
 export type EndpointShape = 'none' | 'arrow' | 'circle' | 'diamond' | 'bar';
@@ -23,6 +37,8 @@ export interface EdgeStyle {
   startShape?: EndpointShape;
   endShape?: EndpointShape;
   routing?: RoutingMode;
+  opacity?: number;  // 0-100
+  dashed?: boolean;
 }
 
 export interface GraphNode {

@@ -46,18 +46,25 @@ const webviewConfig = {
   },
   resolve: {
     extensions: ['.tsx', '.ts', '.js', '.json'],
+    alias: {
+      'next-intl': path.resolve(__dirname, 'src/webview/shims/next-intl.ts'),
+      'next-intl/server': path.resolve(__dirname, 'src/webview/shims/next-intl.ts'),
+      [path.resolve(__dirname, '../web-app/src/app/providers')]: path.resolve(__dirname, 'src/webview/shims/providers.ts'),
+      [path.resolve(__dirname, '../web-app/src/app/graph/hooks/useAutoSave')]: path.resolve(__dirname, 'src/webview/shims/useAutoSave.ts'),
+    },
   },
   module: {
     rules: [
       {
         test: /\.tsx?$/,
-        exclude: /node_modules[\\/](?!@anytime-markdown)/,
+        exclude: /node_modules[\\/](?!@anytime-markdown[\\/]graph-core)/,
         use: [
           {
             loader: 'ts-loader',
             options: {
               configFile: 'tsconfig.webview.json',
               allowTsInNodeModules: true,
+              transpileOnly: true,
             },
           },
         ],

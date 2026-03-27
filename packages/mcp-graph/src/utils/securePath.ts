@@ -10,7 +10,7 @@ export function resolveSecurePath(rootDir: string, userPath: string): string {
 }
 
 export function validateGraphExtension(filePath: string): void {
-  if (!filePath.endsWith('.graph.json')) {
-    throw new Error('File type not allowed. Only .graph.json files are supported.');
+  if (!filePath.endsWith('.graph')) {
+    throw new Error('File type not allowed. Only .graph files are supported.');
   }
 }

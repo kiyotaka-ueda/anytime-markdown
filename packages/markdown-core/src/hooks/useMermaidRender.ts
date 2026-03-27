@@ -3,6 +3,13 @@ import { useEffect, useRef, useState } from "react";
 
 import { BoundedMap } from "../utils/BoundedMap";
 
+/** CSS変数からエディタのフォントを読み取り、手書き風プリセットかを判定 */
+function isHandwrittenPreset(): boolean {
+  if (typeof document === "undefined") return false;
+  const font = document.documentElement.style.getPropertyValue("--editor-content-font-family");
+  return font.includes("Klee One");
+}
+
 /** Lazy-load mermaid (~1.5 MB) only when needed */
 let mermaidInstance: typeof mermaidAPI | null = null;
 async function getMermaid() {
@@ -53,7 +60,7 @@ export function detectMermaidType(code: string): string {
  */
 const svgCache = new BoundedMap<string, string>(64);
 function cacheKey(code: string, isDark: boolean): string {
-  return `${code}\0${isDark}`;
+  return `${code}\0${isDark}\0${isHandwrittenPreset()}`;
 }
 
 /**
@@ -88,9 +95,12 @@ function requestMermaidRender(code: string, isDark: boolean, callback: (svg: str
     try {
       const mermaid = await getMermaid();
       await enqueueRender(async () => {
+        const handDrawn = isHandwrittenPreset();
         mermaid.initialize({
           startOnLoad: false,
           suppressErrorRendering: true,
+          look: handDrawn ? "handDrawn" : "classic",
+          ...(handDrawn ? { fontFamily: '"Caveat", "Klee One", cursive', handDrawnSeed: 42 } : {}),
           theme: isDark ? "dark" : "base",
           themeVariables: isDark ? undefined : {
             primaryColor: "#F5F5F0",

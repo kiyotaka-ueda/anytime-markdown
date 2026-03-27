@@ -25,6 +25,15 @@ function nodeStyle(node: GraphNode): string {
     case 'text':
       parts.push('text;strokeColor=none;fillColor=none');
       return parts.join(';');
+    case 'doc':
+      parts.push('shape=document;size=0.15');
+      break;
+    case 'frame':
+      parts.push('swimlane;startSize=20');
+      break;
+    case 'image':
+      parts.push('shape=image;imageAlign=center;imageVerticalAlign=middle');
+      break;
     default:
       parts.push('rounded=0');
   }
@@ -34,7 +43,21 @@ function nodeStyle(node: GraphNode): string {
   parts.push(`strokeWidth=${node.style.strokeWidth}`);
   parts.push(`fontSize=${node.style.fontSize}`);
   parts.push(`fontFamily=${node.style.fontFamily}`);
-  parts.push('fontColor=#FFFFFF');
+
+  const fontColor = node.style.fontColor ? toHexColor(node.style.fontColor).replace('#', '') : 'FFFFFF';
+  parts.push(`fontColor=#${fontColor}`);
+  if (node.style.fontStyle) parts.push(`fontStyle=${node.style.fontStyle}`);
+  if (node.style.align && node.style.align !== 'center') parts.push(`align=${node.style.align}`);
+  if (node.style.verticalAlign && node.style.verticalAlign !== 'middle') parts.push(`verticalAlign=${node.style.verticalAlign}`);
+  if (node.style.opacity !== undefined && node.style.opacity !== 100) parts.push(`opacity=${node.style.opacity}`);
+  if (node.style.dashed) parts.push('dashed=1');
+  if (node.style.borderRadius && node.type !== 'ellipse') parts.push('rounded=1');
+  if (node.style.spacing !== undefined) parts.push(`spacing=${node.style.spacing}`);
+  if (node.style.spacingTop !== undefined) parts.push(`spacingTop=${node.style.spacingTop}`);
+  if (node.style.spacingRight !== undefined) parts.push(`spacingRight=${node.style.spacingRight}`);
+  if (node.style.spacingBottom !== undefined) parts.push(`spacingBottom=${node.style.spacingBottom}`);
+  if (node.style.spacingLeft !== undefined) parts.push(`spacingLeft=${node.style.spacingLeft}`);
+
   parts.push('whiteSpace=wrap');
   parts.push('html=1');
 
@@ -72,6 +95,9 @@ function edgeStyle(edge: GraphEdge): string {
   else if (startShape === 'diamond') parts.push('startArrow=diamond;startFill=1');
   else if (startShape === 'bar') parts.push('startArrow=block;startFill=0');
 
+  if (edge.style.opacity !== undefined && edge.style.opacity !== 100) parts.push(`opacity=${edge.style.opacity}`);
+  if (edge.style.dashed) parts.push('dashed=1');
+
   parts.push('html=1');
   return parts.join(';');
 }
@@ -86,11 +112,16 @@ export function exportToDrawio(doc: GraphDocument): string {
   lines.push('<mxCell id="0"/>');
   lines.push('<mxCell id="1" parent="0"/>');
 
-  for (const node of doc.nodes) {
+  // Sort nodes by zIndex for correct layer ordering
+  const sortedNodes = [...doc.nodes].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
+
+  for (const node of sortedNodes) {
     const style = nodeStyle(node);
     const label = escapeXml(node.text);
     const urlAttr = node.url ? ` link="${escapeXml(node.url)}"` : '';
-    lines.push(`<mxCell id="${escapeXml(node.id)}" value="${label}" style="${style}" vertex="1" parent="1"${urlAttr}>`);
+    const connectable = node.locked ? ' connectable="0"' : '';
+    const parent = node.groupId ? escapeXml(node.groupId) : '1';
+    lines.push(`<mxCell id="${escapeXml(node.id)}" value="${label}" style="${style}" vertex="1" parent="${parent}"${urlAttr}${connectable}>`);
     lines.push(`<mxGeometry x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" as="geometry"/>`);
     lines.push('</mxCell>');
   }

@@ -4,7 +4,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import {
   AppBar, Toolbar, ToggleButton, ToggleButtonGroup,
   IconButton, Tooltip, Divider, Box, Menu, MenuItem,
-  ListItemIcon, ListItemText, Popover,
+  ListItemIcon, ListItemText, Popover, Typography,
 } from '@mui/material';
 import { ArrowDropDown as ArrowDropDownIcon } from '@mui/icons-material';
 import {
@@ -40,7 +40,11 @@ import {
   // DiamondOutlined replaced by custom SVG diamond icon below
   // ParallelogramIcon, CylinderIcon replaced by custom SVG icons below
   Settings as SettingsIcon,
+  AccountTree as AccountTreeIcon,
+  Layers as LayersIcon,
+  UnfoldMore as SpreadIcon,
 } from '@mui/icons-material';
+import { CircularProgress } from '@mui/material';
 import { useTranslations } from 'next-intl';
 import { ToolType } from '../types';
 import { SaveStatus } from '../hooks/useAutoSave';
@@ -76,12 +80,22 @@ interface ToolBarProps {
   scale: number;
   saveStatus: SaveStatus;
   onToggleSettings?: () => void;
+  layoutRunning?: boolean;
+  collisionEnabled?: boolean;
+  onAutoLayout?: () => void;
+  onToggleCollision?: (enabled: boolean) => void;
+  layoutAlgorithm?: 'eades' | 'fruchterman-reingold' | 'eades-vpsc' | 'fruchterman-reingold-vpsc';
+  onChangeAlgorithm?: (algorithm: 'eades' | 'fruchterman-reingold' | 'eades-vpsc' | 'fruchterman-reingold-vpsc') => void;
+  onSpreadConnected?: () => void;
 }
 
 export function GraphToolBar({
   tool, onToolChange, onUndo, onRedo, canUndo, canRedo,
   showGrid, onToggleGrid, onZoomIn, onZoomOut, onFitContent,
   onClearAll, onExportSvg, onExportDrawio, onImportDrawio, onAlign, onSetScale, selectionCount, hasSelection, scale, saveStatus, onToggleSettings,
+  layoutRunning, collisionEnabled, onAutoLayout, onToggleCollision,
+  layoutAlgorithm = 'eades', onChangeAlgorithm,
+  onSpreadConnected,
 }: ToolBarProps) {
   const t = useTranslations('Graph');
   const { themeMode } = useThemeMode();
@@ -283,6 +297,56 @@ export function GraphToolBar({
           <MenuItem onClick={() => { onAlign('distributeH'); setAlignAnchor(null); }} disabled={selectionCount < 3}><ListItemIcon><ViewColumnIcon fontSize="small" /></ListItemIcon><ListItemText>{t('distributeH')}</ListItemText></MenuItem>
           <MenuItem onClick={() => { onAlign('distributeV'); setAlignAnchor(null); }} disabled={selectionCount < 3}><ListItemIcon><TableRowsIcon fontSize="small" /></ListItemIcon><ListItemText>{t('distributeV')}</ListItemText></MenuItem>
         </Menu>
+
+        <Tooltip title={`${t('autoLayout')} (${
+          { 'eades': 'Eades', 'fruchterman-reingold': 'FR', 'eades-vpsc': 'Eades+VPSC', 'fruchterman-reingold-vpsc': 'FR+VPSC' }[layoutAlgorithm]
+        })`}>
+          <span>
+            <IconButton
+              onClick={onAutoLayout}
+              disabled={layoutRunning}
+              size="small"
+            >
+              {layoutRunning ? <CircularProgress size={18} /> : <AccountTreeIcon fontSize="small" />}
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title={t('switchAlgorithm')}>
+          <IconButton
+            onClick={() => {
+              const cycle: Array<'eades' | 'fruchterman-reingold' | 'eades-vpsc' | 'fruchterman-reingold-vpsc'> = ['eades', 'fruchterman-reingold', 'eades-vpsc', 'fruchterman-reingold-vpsc'];
+              const idx = cycle.indexOf(layoutAlgorithm);
+              onChangeAlgorithm?.(cycle[(idx + 1) % cycle.length]);
+            }}
+            size="small"
+            disabled={layoutRunning}
+          >
+            <Typography variant="caption" sx={{ fontSize: 10, fontWeight: 'bold', lineHeight: 1 }}>
+              {{ 'eades': 'EA', 'fruchterman-reingold': 'FR', 'eades-vpsc': 'EA+V', 'fruchterman-reingold-vpsc': 'FR+V' }[layoutAlgorithm]}
+            </Typography>
+          </IconButton>
+        </Tooltip>
+        <Tooltip title={t('collisionDetection')}>
+          <IconButton
+            onClick={() => onToggleCollision?.(!collisionEnabled)}
+            size="small"
+            sx={{
+              color: collisionEnabled ? '#90caf9' : 'inherit',
+              backgroundColor: collisionEnabled ? 'rgba(144,202,249,0.16)' : 'transparent',
+              borderRadius: 1,
+            }}
+          >
+            <LayersIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title={t('spreadConnected')}>
+          <IconButton
+            onClick={onSpreadConnected}
+            size="small"
+          >
+            <SpreadIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
 
         <Box sx={{ flex: 1 }} />
 

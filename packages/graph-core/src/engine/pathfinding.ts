@@ -76,8 +76,14 @@ export function computeAvoidancePath(
   worldPath[0] = fromPt;
   worldPath[worldPath.length - 1] = toPt;
 
-  // 冗長な中間点を除去（同じ方向のセグメントを統合）
-  return simplifyPath(worldPath);
+  // 冗長な中間点を除去（同じ方向のセグメントを統合 + 階段パターンをL字に変換）
+  const simplified = collapseStaircase(simplifyPath(worldPath), obstacles);
+
+  // 始点/終点に辺と垂直なマージンセグメントを挿入
+  // これにより、コネクタはノード辺に対して必ず垂直に接続する
+  ensurePerpendicularEntry(simplified, fromPt, fromSide, toPt, toSide, gridSize);
+
+  return simplified;
 }
 
 /** 障害物なしの直交パス */
@@ -214,6 +220,57 @@ function astar(
   return null; // パスが見つからない
 }
 
+/**
+ * 始点/終点の最初/最後のセグメントが辺と垂直になるよう補正する。
+ *
+ * 隣接点の座標を揃えつつ、その先の点との間で斜め線が発生する場合は
+ * コーナー点を挿入して直交性を維持する。
+ */
+function ensurePerpendicularEntry(
+  path: Point[], fromPt: Point, fromSide: Side, toPt: Point, toSide: Side, _margin: number,
+): void {
+  if (path.length < 3) return;
+
+  const isFromHorizontal = fromSide === 'right' || fromSide === 'left';
+
+  // 始点側
+  if (isFromHorizontal ? path[1].y !== fromPt.y : path[1].x !== fromPt.x) {
+    const oldP1 = path[1];
+    if (isFromHorizontal) {
+      // path[1] の y を揃えて水平にする
+      path[1] = { x: oldP1.x, y: fromPt.y };
+      // path[1]→path[2] が斜めになったらコーナーを挿入
+      if (path.length > 2 && path[2].x !== path[1].x && path[2].y !== path[1].y) {
+        path.splice(2, 0, { x: path[1].x, y: path[2].y });
+      }
+    } else {
+      // path[1] の x を揃えて垂直にする
+      path[1] = { x: fromPt.x, y: oldP1.y };
+      if (path.length > 2 && path[2].x !== path[1].x && path[2].y !== path[1].y) {
+        path.splice(2, 0, { x: path[2].x, y: path[1].y });
+      }
+    }
+  }
+
+  // 終点側
+  const last = path.length - 1;
+  const isToHorizontal = toSide === 'right' || toSide === 'left';
+  if (isToHorizontal ? path[last - 1].y !== toPt.y : path[last - 1].x !== toPt.x) {
+    const oldPrev = path[last - 1];
+    if (isToHorizontal) {
+      path[last - 1] = { x: oldPrev.x, y: toPt.y };
+      if (last - 2 >= 0 && path[last - 2].x !== path[last - 1].x && path[last - 2].y !== path[last - 1].y) {
+        path.splice(last - 1, 0, { x: path[last - 1].x, y: path[last - 2].y });
+      }
+    } else {
+      path[last - 1] = { x: toPt.x, y: oldPrev.y };
+      if (last - 2 >= 0 && path[last - 2].x !== path[last - 1].x && path[last - 2].y !== path[last - 1].y) {
+        path.splice(last - 1, 0, { x: path[last - 2].x, y: path[last - 1].y });
+      }
+    }
+  }
+}
+
 /** 同方向の連続セグメントを統合して冗長なウェイポイントを除去 */
 function simplifyPath(path: Point[]): Point[] {
   if (path.length <= 2) return path;
@@ -231,5 +288,97 @@ function simplifyPath(path: Point[]): Point[] {
     }
   }
   result.push(path[path.length - 1]);
+  return result;
+}
+
+/** 線分が矩形と交差するか判定 */
+function segmentIntersectsRect(p1: Point, p2: Point, rect: Rect, padding: number = 2): boolean {
+  const rMinX = rect.x - padding;
+  const rMinY = rect.y - padding;
+  const rMaxX = rect.x + rect.width + padding;
+  const rMaxY = rect.y + rect.height + padding;
+
+  // 水平線分
+  if (p1.y === p2.y) {
+    const y = p1.y;
+    if (y < rMinY || y > rMaxY) return false;
+    const minX = Math.min(p1.x, p2.x);
+    const maxX = Math.max(p1.x, p2.x);
+    return maxX > rMinX && minX < rMaxX;
+  }
+  // 垂直線分
+  if (p1.x === p2.x) {
+    const x = p1.x;
+    if (x < rMinX || x > rMaxX) return false;
+    const minY = Math.min(p1.y, p2.y);
+    const maxY = Math.max(p1.y, p2.y);
+    return maxY > rMinY && minY < rMaxY;
+  }
+  return false;
+}
+
+/** L字パスが障害物と交差しないか確認 */
+function lPathClear(start: Point, bend: Point, end: Point, obstacles: Rect[]): boolean {
+  for (const o of obstacles) {
+    if (segmentIntersectsRect(start, bend, o) || segmentIntersectsRect(bend, end, o)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * 階段パターン（水平→垂直→水平→垂直...）をL字パスに統合。
+ * A* は直交移動のみのため、斜め方向の目的地へは階段状のパスを生成する。
+ * この関数は連続する階段セグメントを検出し、障害物に衝突しない場合
+ * 始点と終点を結ぶL字（1回折れ）に置換する。
+ */
+function collapseStaircase(path: Point[], obstacles: Rect[]): Point[] {
+  if (path.length <= 3) return path;
+
+  const result: Point[] = [path[0]];
+  let i = 0;
+
+  while (i < path.length - 1) {
+    // i から始まる階段パターンの末端を探す
+    let j = i + 2;
+    while (j < path.length) {
+      const segStart = path[j - 1];
+      const segEnd = path[j];
+      // 直交セグメント（水平 or 垂直）でなければ階段終了
+      if (segStart.x !== segEnd.x && segStart.y !== segEnd.y) break;
+      j++;
+    }
+    // j-1 が階段の末端（i から j-1 までが階段候補）
+    const stairLen = j - 1 - i;
+
+    if (stairLen >= 3) {
+      // 階段パターン検出: L字に統合を試みる
+      const start = path[i];
+      const end = path[j - 1];
+
+      // L字の候補は2つ: 水平→垂直 or 垂直→水平
+      const bend1: Point = { x: end.x, y: start.y };
+      const bend2: Point = { x: start.x, y: end.y };
+
+      if (lPathClear(start, bend1, end, obstacles)) {
+        result.push(bend1);
+        result.push(end);
+        i = j - 1;
+      } else if (lPathClear(start, bend2, end, obstacles)) {
+        result.push(bend2);
+        result.push(end);
+        i = j - 1;
+      } else {
+        // L字が障害物に衝突 → 元のパスを保持
+        i++;
+        result.push(path[i]);
+      }
+    } else {
+      i++;
+      result.push(path[i]);
+    }
+  }
+
   return result;
 }

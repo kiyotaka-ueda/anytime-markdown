@@ -2,7 +2,7 @@
   "name": "anytime-graph",
   "displayName": "Anytime Graph",
   "description": "Graph whiteboard editor for VS Code",
-  "version": "0.8.2",
+  "version": "0.0.1",
   "license": "MIT",
   "publisher": "anytime-trial",
   "repository": {
@@ -12,6 +12,7 @@
   "engines": {
     "vscode": "^1.109.0"
   },
+  "icon": "images/camel_graph.png",
   "categories": [
     "Visualization"
   ],
@@ -24,13 +25,22 @@
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "anytimeGraph",
+          "title": "Anytime Graph",
+          "icon": "images/graph-activitybar.svg"
+        }
+      ]
+    },
     "customEditors": [
       {
         "viewType": "anytimeGraph",
         "displayName": "Graph Editor",
         "selector": [
           {
-            "filenamePattern": "*.graph.json"
+            "filenamePattern": "*.graph"
           }
         ],
         "priority": "default"
@@ -61,6 +71,10 @@
   },
   "dependencies": {
     "@anytime-markdown/graph-core": "*",
+    "@emotion/react": "11.14.0",
+    "@emotion/styled": "11.14.0",
+    "@mui/icons-material": "7.3.7",
+    "@mui/material": "7.3.7",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   }

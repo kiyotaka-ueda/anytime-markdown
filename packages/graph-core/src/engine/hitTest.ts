@@ -93,6 +93,20 @@ export function hitTestNode(node: GraphNode, wx: number, wy: number): boolean {
       { x, y: y + h },
     ]);
   }
+  if (node.type === 'cylinder') {
+    const { x, y, width: w, height: h } = node;
+    const ellipseH = Math.min(h * 0.15, 15);
+    // 上部楕円
+    if (wy < y + ellipseH) {
+      return pointInEllipse(wx, wy, x + w / 2, y + ellipseH, w / 2, ellipseH);
+    }
+    // 下部楕円
+    if (wy > y + h - ellipseH) {
+      return pointInEllipse(wx, wy, x + w / 2, y + h - ellipseH, w / 2, ellipseH);
+    }
+    // 胴体（矩形）
+    return wx >= x && wx <= x + w;
+  }
   return pointInRect(wx, wy, node.x, node.y, node.width, node.height);
 }
 
