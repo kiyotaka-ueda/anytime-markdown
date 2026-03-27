@@ -10,6 +10,7 @@ import {
 import { physics } from '@anytime-markdown/graph-core/engine';
 import { exportToSvg, exportToDrawio, importFromDrawio, createDocument } from '@anytime-markdown/graph-core';
 import { GraphToolBar } from '../../../web-app/src/app/graph/components/ToolBar';
+import { PropertyPanel } from '../../../web-app/src/app/graph/components/PropertyPanel';
 import type { SaveStatus } from '../../../web-app/src/app/graph/hooks/useAutoSave';
 import { useThemeMode } from './shims/providers';
 import { useGraphState } from './hooks/useGraphState';
@@ -191,7 +192,28 @@ export function App() {
     input.click();
   }, [wrappedDispatch]);
 
+  const handleLayerAction = useCallback((action: 'up' | 'down' | 'top' | 'bottom') => {
+    if (state.selection.nodeIds.length !== 1) return;
+    const nodeId = state.selection.nodeIds[0];
+    const node = state.document.nodes.find(n => n.id === nodeId);
+    if (!node) return;
+    const currentZ = node.zIndex ?? 0;
+    const allZ = state.document.nodes.filter(n => n.id !== nodeId).map(n => n.zIndex ?? 0);
+    const maxZ = allZ.length > 0 ? Math.max(...allZ) : 0;
+    const minZ = allZ.length > 0 ? Math.min(...allZ) : 0;
+    let newZ = currentZ;
+    if (action === 'up') newZ = currentZ + 1;
+    else if (action === 'down') newZ = currentZ - 1;
+    else if (action === 'top') newZ = maxZ + 1;
+    else if (action === 'bottom') newZ = minZ - 1;
+    wrappedDispatch({ type: 'UPDATE_NODE', id: nodeId, changes: { zIndex: newZ } });
+  }, [state.selection.nodeIds, state.document.nodes, wrappedDispatch]);
+
   const saveStatus: SaveStatus = 'saved';
+  const selectedNode = state.selection.nodeIds.length === 1
+    ? state.document.nodes.find(n => n.id === state.selection.nodeIds[0]) ?? null : null;
+  const selectedEdge = state.selection.edgeIds.length === 1
+    ? state.document.edges.find(e => e.id === state.selection.edgeIds[0]) ?? null : null;
   const editingNode = editingNodeId ? state.document.nodes.find(n => n.id === editingNodeId) : null;
 
   return (
@@ -252,6 +274,16 @@ export function App() {
                 setEditingNodeId(null);
               }}
               onCancel={() => setEditingNodeId(null)}
+            />
+          )}
+          {(selectedNode || selectedEdge) && (
+            <PropertyPanel
+              selectedNode={selectedNode}
+              selectedEdge={selectedEdge}
+              onUpdateNode={(id, changes) => wrappedDispatch({ type: 'UPDATE_NODE', id, changes })}
+              onUpdateEdge={(id, changes) => wrappedDispatch({ type: 'UPDATE_EDGE', id, changes })}
+              onLayerAction={handleLayerAction}
+              onClose={() => wrappedDispatch({ type: 'SET_SELECTION', selection: { nodeIds: [], edgeIds: [] } })}
             />
           )}
         </div>

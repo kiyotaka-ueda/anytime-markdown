@@ -18,6 +18,7 @@
     "../graph-core/src/**/*",
     "../web-app/src/app/graph/components/ToolBar.tsx",
     "../web-app/src/app/graph/components/ShapeIcons.tsx",
+    "../web-app/src/app/graph/components/PropertyPanel.tsx",
     "../web-app/src/app/graph/types.ts"
   ],
   "exclude": [
