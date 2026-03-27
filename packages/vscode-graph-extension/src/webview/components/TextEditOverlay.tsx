@@ -1,59 +1,88 @@
 import { useEffect, useRef } from 'react';
 import type { GraphNode, Viewport } from '@anytime-markdown/graph-core';
 import { worldToScreen } from '@anytime-markdown/graph-core/engine';
+import { getCanvasColors } from '@anytime-markdown/graph-core';
+import { useThemeMode } from '../shims/providers';
 
 interface TextEditOverlayProps {
-  node: GraphNode;
+  node: GraphNode | null;
   viewport: Viewport;
-  onCommit: (text: string) => void;
+  onCommit: (id: string, text: string) => void;
   onCancel: () => void;
   appendMode?: boolean;
 }
 
 export function TextEditOverlay({ node, viewport, onCommit, onCancel, appendMode }: TextEditOverlayProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const { themeMode } = useThemeMode();
+  const isDark = themeMode === 'dark';
+  const colors = getCanvasColors(isDark);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if (inputRef.current) {
+    if (node && textareaRef.current) {
       if (appendMode) {
-        inputRef.current.focus();
-        const len = inputRef.current.value.length;
-        inputRef.current.setSelectionRange(len, len);
+        textareaRef.current.value = node.text ?? '';
+        textareaRef.current.focus();
+        const len = textareaRef.current.value.length;
+        textareaRef.current.setSelectionRange(len, len);
       } else {
-        inputRef.current.focus();
-        inputRef.current.select();
+        textareaRef.current.value = node.text ?? '';
+        textareaRef.current.focus();
+        textareaRef.current.select();
       }
     }
-  }, [appendMode]);
+  }, [node, appendMode]);
 
-  const pos = worldToScreen(viewport, node.x, node.y);
+  if (!node) return null;
+
+  const screen = worldToScreen(viewport, node.x, node.y);
+  const w = node.width * viewport.scale;
+  const h = node.height * viewport.scale;
+  const fontSize = node.style.fontSize * viewport.scale;
+
+  const handleBlur = () => {
+    if (textareaRef.current) {
+      onCommit(node.id, textareaRef.current.value);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      onCancel();
+      return;
+    }
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleBlur();
+    }
+    e.stopPropagation();
+  };
 
   return (
-    <input
-      ref={inputRef}
-      defaultValue={node.text}
+    <textarea
+      ref={textareaRef}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
       style={{
         position: 'absolute',
-        left: pos.x,
-        top: pos.y,
-        width: node.width * viewport.scale,
-        height: node.height * viewport.scale,
-        fontSize: node.style.fontSize * viewport.scale,
+        left: screen.x,
+        top: screen.y,
+        width: w,
+        height: h,
+        fontSize,
         fontFamily: node.style.fontFamily,
         textAlign: 'center',
-        border: '2px solid var(--vscode-focusBorder)',
-        background: 'var(--vscode-input-background)',
-        color: 'var(--vscode-input-foreground)',
+        border: `2px solid ${colors.accentColor}`,
+        borderRadius: 2,
         outline: 'none',
+        resize: 'none',
+        padding: '4px 8px',
         boxSizing: 'border-box',
-        padding: '2px 4px',
+        background: 'transparent',
+        color: colors.textPrimary,
+        zIndex: 30,
+        overflow: 'hidden',
       }}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') onCommit(e.currentTarget.value);
-        if (e.key === 'Escape') onCancel();
-        e.stopPropagation();
-      }}
-      onBlur={(e) => onCommit(e.currentTarget.value)}
     />
   );
 }

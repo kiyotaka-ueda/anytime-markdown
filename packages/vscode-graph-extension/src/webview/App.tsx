@@ -1,17 +1,22 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import type { ToolType, GraphDocument } from '@anytime-markdown/graph-core';
+import { Typography, Box, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
+import type { ToolType, GraphDocument, Viewport } from '@anytime-markdown/graph-core';
+import { getCanvasColors, createDocument, createNode } from '@anytime-markdown/graph-core';
 import {
-  zoom as zoomViewport, fitToContent,
+  zoom as zoomViewport, fitToContent, screenToWorld,
   alignLeft, alignRight, alignTop, alignBottom,
   alignCenterH, alignCenterV, distributeH, distributeV,
+  interpolateViewport, physics,
 } from '@anytime-markdown/graph-core/engine';
-import { physics } from '@anytime-markdown/graph-core/engine';
-import { exportToSvg, exportToDrawio, importFromDrawio, createDocument } from '@anytime-markdown/graph-core';
+import { pan as panViewport } from '@anytime-markdown/graph-core/engine';
+import type { ViewportAnimation } from '@anytime-markdown/graph-core/engine';
+import { exportToSvg, exportToDrawio, importFromDrawio } from '@anytime-markdown/graph-core';
 import { GraphToolBar } from '../../../web-app/src/app/graph/components/ToolBar';
 import { PropertyPanel } from '../../../web-app/src/app/graph/components/PropertyPanel';
 import { ShapeHoverBar } from '../../../web-app/src/app/graph/components/ShapeHoverBar';
+import { DocEditorModal } from '../../../web-app/src/app/graph/components/DocEditorModal';
 import type { SaveStatus } from '../../../web-app/src/app/graph/hooks/useAutoSave';
 import { useThemeMode } from './shims/providers';
 import { useGraphState } from './hooks/useGraphState';
@@ -19,13 +24,19 @@ import { useCanvasInteraction } from './hooks/useCanvasInteraction';
 import { useVSCodeMessaging } from './hooks/useVSCodeMessaging';
 import { GraphCanvas } from './components/GraphCanvas';
 import { TextEditOverlay } from './components/TextEditOverlay';
+import { useTranslations } from 'next-intl';
 
 export function App() {
+  const t = useTranslations('Graph');
   const { state, dispatch } = useGraphState();
   const [tool, setTool] = useState<ToolType>('select');
   const [showGrid, setShowGrid] = useState(true);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [textEditAppendMode, setTextEditAppendMode] = useState(false);
+  const [docEditNodeId, setDocEditNodeId] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [liveMessage, setLiveMessage] = useState('');
+  const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; title: string; message: string; onConfirm: () => void }>({ open: false, title: '', message: '', onConfirm: () => {} });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [layoutRunning, setLayoutRunning] = useState(false);
   const [layoutAlgorithm, setLayoutAlgorithm] = useState<'eades' | 'fruchterman-reingold' | 'eades-vpsc' | 'fruchterman-reingold-vpsc'>('eades');
@@ -40,6 +51,7 @@ export function App() {
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { themeMode } = useThemeMode();
+  const isDark = themeMode === 'dark';
   const theme = useMemo(() => createTheme({ palette: { mode: themeMode } }), [themeMode]);
 
   const { saveDocument } = useVSCodeMessaging({
@@ -63,40 +75,176 @@ export function App() {
     }
   }, [dispatch, scheduleAutoSave]);
 
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dispatch({ type: 'SET_SELECTION', selection: { nodeIds: [], edgeIds: [] } });
+    setEditingNodeId(null);
+    setDocEditNodeId(null);
+  }, [dispatch]);
+
+  const handleTextEdit = useCallback((nodeId: string) => {
+    const node = state.document.nodes.find(n => n.id === nodeId);
+    if (node?.type === 'doc') {
+      setDocEditNodeId(nodeId);
+    } else {
+      setTextEditAppendMode(false);
+      setEditingNodeId(nodeId);
+    }
+  }, [state.document.nodes]);
+
   const {
     handleMouseDown, handleMouseMove, handleMouseUp,
-    handleWheel, handleDoubleClick, previewRef,
+    handleWheel, handleDoubleClick, previewRef, dragRef,
+    hoverNodeIdRef, mouseWorldRef, velocityRef,
   } = useCanvasInteraction({
     canvasRef, tool,
     nodes: state.document.nodes, edges: state.document.edges,
     viewport: state.document.viewport, selection: state.selection,
-    dispatch: wrappedDispatch, onTextEdit: setEditingNodeId, onToolChange: setTool, showGrid,
-    isDark: themeMode === 'dark', collisionEnabled, physicsRef,
+    dispatch: wrappedDispatch, onTextEdit: handleTextEdit, onToolChange: setTool, showGrid,
+    isDark, collisionEnabled, physicsRef,
   });
 
+  // Keyboard: arrow keys, tool shortcuts, printable key edit
+  const selectionRef = useRef(state.selection);
+  selectionRef.current = state.selection;
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.getAttribute('contenteditable') === 'true') return;
+      if (editingNodeId) return;
+
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        const ids = selectionRef.current.nodeIds;
+        if (ids.length === 0) return;
+        const step = e.shiftKey ? 10 : 1;
+        const dx = e.key === 'ArrowRight' ? step : e.key === 'ArrowLeft' ? -step : 0;
+        const dy = e.key === 'ArrowDown' ? step : e.key === 'ArrowUp' ? -step : 0;
+        if (dx !== 0 || dy !== 0) {
+          wrappedDispatch({ type: 'MOVE_NODES', ids, dx, dy });
+          e.preventDefault();
+        }
+        return;
+      }
+
+      const ids = selectionRef.current.nodeIds;
+      if (ids.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) {
+        const node = state.document.nodes.find(n => n.id === ids[0]);
+        if (node && node.type !== 'image' && node.type !== 'doc' && !node.locked) {
+          e.preventDefault();
+          setTextEditAppendMode(true);
+          handleTextEdit(ids[0]);
+          return;
+        }
+      }
+
+      const map: Record<string, ToolType> = {
+        v: 'select', r: 'rect', o: 'ellipse', s: 'sticky',
+        t: 'text', d: 'diamond', p: 'parallelogram', y: 'cylinder',
+        m: 'doc', f: 'frame',
+        l: 'line', a: 'arrow', c: 'connector',
+      };
+      if (map[e.key] && !e.ctrlKey && !e.metaKey) {
+        setTool(map[e.key]);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [editingNodeId, wrappedDispatch, state.document.nodes, handleTextEdit]);
+
+  // Accessibility: node count change notification
+  const prevNodeCountRef = useRef(state.document.nodes.length);
+  useEffect(() => {
+    const currentCount = state.document.nodes.length;
+    const prevCount = prevNodeCountRef.current;
+    if (currentCount > prevCount) setLiveMessage(t('nodeAdded'));
+    else if (currentCount < prevCount) setLiveMessage(t('nodeDeleted'));
+    prevNodeCountRef.current = currentCount;
+  }, [state.document.nodes.length, t]);
+
+  // Accessibility: selection notification
+  useEffect(() => {
+    const { nodeIds, edgeIds } = state.selection;
+    if (nodeIds.length > 0 || edgeIds.length > 0) {
+      setLiveMessage(`${nodeIds.length} ${t('nodesSelected')}, ${edgeIds.length} ${t('edgesSelected')}`);
+    } else {
+      setLiveMessage('');
+    }
+  }, [state.selection, t]);
+
+  // Viewport animation
+  const viewportAnimRef = useRef<ViewportAnimation | null>(null);
+
+  const startViewportAnimation = useCallback((to: Viewport) => {
+    viewportAnimRef.current = {
+      from: { ...state.document.viewport },
+      to,
+      startTime: performance.now(),
+      duration: 200,
+    };
+  }, [state.document.viewport]);
+
   const handleZoomIn = useCallback(() => {
-    const vp = state.document.viewport;
-    dispatch({ type: 'SET_VIEWPORT', viewport: zoomViewport(vp, window.innerWidth / 2, window.innerHeight / 2, -1) });
-  }, [state.document.viewport, dispatch]);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const target = zoomViewport(state.document.viewport, rect.width / 2, rect.height / 2, -300);
+    startViewportAnimation(target);
+  }, [state.document.viewport, startViewportAnimation]);
 
   const handleZoomOut = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const target = zoomViewport(state.document.viewport, rect.width / 2, rect.height / 2, 300);
+    startViewportAnimation(target);
+  }, [state.document.viewport, startViewportAnimation]);
+
+  const handleSetScale = useCallback((newScale: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
     const vp = state.document.viewport;
-    dispatch({ type: 'SET_VIEWPORT', viewport: zoomViewport(vp, window.innerWidth / 2, window.innerHeight / 2, 1) });
-  }, [state.document.viewport, dispatch]);
+    const worldCenterX = (cx - vp.offsetX) / vp.scale;
+    const worldCenterY = (cy - vp.offsetY) / vp.scale;
+    const target: Viewport = {
+      offsetX: cx - worldCenterX * newScale,
+      offsetY: cy - worldCenterY * newScale,
+      scale: newScale,
+    };
+    startViewportAnimation(target);
+  }, [state.document.viewport, startViewportAnimation]);
 
   const handleFitToContent = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
     const nodes = state.document.nodes;
     if (nodes.length === 0) return;
+    const rect = canvas.getBoundingClientRect();
     const minX = Math.min(...nodes.map(n => n.x));
     const minY = Math.min(...nodes.map(n => n.y));
     const maxX = Math.max(...nodes.map(n => n.x + n.width));
     const maxY = Math.max(...nodes.map(n => n.y + n.height));
-    dispatch({ type: 'SET_VIEWPORT', viewport: fitToContent(window.innerWidth, window.innerHeight - 40, { minX, minY, maxX, maxY }) });
-  }, [state.document.nodes, dispatch]);
+    const target = fitToContent(rect.width, rect.height, { minX, minY, maxX, maxY });
+    startViewportAnimation(target);
+  }, [state.document.nodes, startViewportAnimation]);
 
-  const handleSetScale = useCallback((scale: number) => {
-    dispatch({ type: 'SET_VIEWPORT', viewport: { ...state.document.viewport, scale } });
+  const handleViewportUpdate = useCallback((vp: Viewport) => {
+    dispatch({ type: 'SET_VIEWPORT', viewport: vp });
+  }, [dispatch]);
+
+  const handlePanInertia = useCallback((dx: number, dy: number) => {
+    dispatch({ type: 'SET_VIEWPORT', viewport: panViewport(state.document.viewport, dx, dy) });
   }, [state.document.viewport, dispatch]);
+
+  const handleDropImage = useCallback((dataUrl: string, sx: number, sy: number, w: number, h: number) => {
+    const world = screenToWorld(state.document.viewport, sx, sy);
+    const node = createNode('image', world.x - w / 2, world.y - h / 2, {
+      width: w, height: h, imageData: dataUrl,
+    }, isDark);
+    wrappedDispatch({ type: 'ADD_NODE', node });
+  }, [state.document.viewport, wrappedDispatch, isDark]);
 
   const handleAlign = useCallback((type: string) => {
     const selectedNodes = state.document.nodes.filter(n => state.selection.nodeIds.includes(n.id));
@@ -152,10 +300,13 @@ export function App() {
   }, [wrappedDispatch]);
 
   const handleClearAll = useCallback(() => {
-    if (window.confirm('Clear all nodes and edges?')) {
-      wrappedDispatch({ type: 'SET_DOCUMENT', doc: createDocument('Untitled') });
-    }
-  }, [wrappedDispatch]);
+    setConfirmDialog({
+      open: true,
+      title: t('clearAll'),
+      message: t('clearAllConfirm'),
+      onConfirm: () => wrappedDispatch({ type: 'SET_DOCUMENT', doc: createDocument('Untitled') }),
+    });
+  }, [wrappedDispatch, t]);
 
   const handleExportSvg = useCallback(() => {
     const svg = exportToSvg(state.document);
@@ -189,35 +340,20 @@ export function App() {
       const reader = new FileReader();
       reader.onload = () => {
         const xml = reader.result as string;
-        if (window.confirm('Import will replace current graph. Continue?')) {
-          const doc = importFromDrawio(xml);
-          wrappedDispatch({ type: 'SET_DOCUMENT', doc });
-        }
+        setConfirmDialog({
+          open: true,
+          title: t('import'),
+          message: t('importConfirm'),
+          onConfirm: () => {
+            const doc = importFromDrawio(xml);
+            wrappedDispatch({ type: 'SET_DOCUMENT', doc });
+          },
+        });
       };
       reader.readAsText(file);
     };
     input.click();
-  }, [wrappedDispatch]);
-
-  // Printable key → append text edit on selected node
-  const selectionRef = useRef(state.selection);
-  selectionRef.current = state.selection;
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (editingNodeId) return;
-      const ids = selectionRef.current.nodeIds;
-      if (ids.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) {
-        const node = state.document.nodes.find(n => n.id === ids[0]);
-        if (node && node.type !== 'image' && node.type !== 'doc' && !node.locked) {
-          e.preventDefault();
-          setTextEditAppendMode(true);
-          setEditingNodeId(ids[0]);
-        }
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [editingNodeId, state.document.nodes]);
+  }, [wrappedDispatch, t]);
 
   const handleLayerAction = useCallback((action: 'up' | 'down' | 'top' | 'bottom') => {
     if (state.selection.nodeIds.length !== 1) return;
@@ -236,12 +372,18 @@ export function App() {
     wrappedDispatch({ type: 'UPDATE_NODE', id: nodeId, changes: { zIndex: newZ } });
   }, [state.selection.nodeIds, state.document.nodes, wrappedDispatch]);
 
+  const handleTextCommit = useCallback((id: string, text: string) => {
+    wrappedDispatch({ type: 'UPDATE_NODE', id, changes: { text } });
+    setEditingNodeId(null);
+    setTextEditAppendMode(false);
+  }, [wrappedDispatch]);
+
   const saveStatus: SaveStatus = 'saved';
   const selectedNode = state.selection.nodeIds.length === 1
     ? state.document.nodes.find(n => n.id === state.selection.nodeIds[0]) ?? null : null;
   const selectedEdge = state.selection.edgeIds.length === 1
     ? state.document.edges.find(e => e.id === state.selection.edgeIds[0]) ?? null : null;
-  const editingNode = editingNodeId ? state.document.nodes.find(n => n.id === editingNodeId) : null;
+  const colors = getCanvasColors(isDark);
 
   return (
     <ThemeProvider theme={theme}>
@@ -250,8 +392,8 @@ export function App() {
         <GraphToolBar
           tool={tool}
           onToolChange={setTool}
-          onUndo={() => wrappedDispatch({ type: 'UNDO' })}
-          onRedo={() => wrappedDispatch({ type: 'REDO' })}
+          onUndo={() => { wrappedDispatch({ type: 'UNDO' }); setLiveMessage(t('undone')); }}
+          onRedo={() => { wrappedDispatch({ type: 'REDO' }); setLiveMessage(t('redone')); }}
           canUndo={state.historyIndex > 0}
           canRedo={state.historyIndex < state.history.length - 1}
           showGrid={showGrid}
@@ -266,7 +408,7 @@ export function App() {
           onAlign={handleAlign}
           onSetScale={handleSetScale}
           selectionCount={state.selection.nodeIds.length}
-          hasSelection={state.selection.nodeIds.length > 0}
+          hasSelection={state.selection.nodeIds.length > 0 || state.selection.edgeIds.length > 0}
           scale={state.document.viewport.scale}
           saveStatus={saveStatus}
           layoutRunning={layoutRunning}
@@ -284,34 +426,51 @@ export function App() {
             viewport={state.document.viewport}
             selection={state.selection}
             showGrid={showGrid}
-            previewRef={previewRef}
             canvasRef={canvasRef}
-            onMouseDown={handleMouseDown}
+            onMouseDown={(e) => { setIsDragging(true); handleMouseDown(e); }}
             onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
+            onMouseUp={(e) => { setIsDragging(false); handleMouseUp(e); }}
             onWheel={handleWheel}
             onDoubleClick={handleDoubleClick}
+            onContextMenu={handleContextMenu}
+            previewRef={previewRef}
+            hoverNodeIdRef={hoverNodeIdRef}
+            mouseWorldRef={mouseWorldRef}
+            onDropImage={handleDropImage}
+            viewportAnimRef={viewportAnimRef}
+            onViewportUpdate={handleViewportUpdate}
+            velocityRef={velocityRef}
+            onPanInertia={handlePanInertia}
+            draggingNodeIds={isDragging && dragRef.current.type === 'move' ? state.selection.nodeIds : undefined}
+            ariaLabel={t('graphCanvas')}
+            isDark={isDark}
+            layoutRunning={layoutRunning}
           />
-          {selectedNode && !editingNodeId && (
+          {state.document.nodes.length === 0 && (
+            <div style={{
+              position: 'absolute', top: '50%', left: '50%',
+              transform: 'translate(-50%, -50%)',
+              color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.35)',
+              textAlign: 'center', pointerEvents: 'none', zIndex: 10,
+            }}>
+              <Typography variant="h6" sx={{ mb: 1, fontWeight: 300 }}>{t('emptyCanvasTitle')}</Typography>
+              <Typography variant="body2">{t('emptyCanvasHint')}</Typography>
+            </div>
+          )}
+          {selectedNode && !editingNodeId && !docEditNodeId && !isDragging && (
             <ShapeHoverBar
               node={selectedNode}
               viewport={state.document.viewport}
               onChangeType={(id, type) => wrappedDispatch({ type: 'UPDATE_NODE', id, changes: { type } })}
             />
           )}
-          {editingNode && (
-            <TextEditOverlay
-              node={editingNode}
-              viewport={state.document.viewport}
-              appendMode={textEditAppendMode}
-              onCommit={(text) => {
-                wrappedDispatch({ type: 'UPDATE_NODE', id: editingNode.id, changes: { text } });
-                setEditingNodeId(null);
-                setTextEditAppendMode(false);
-              }}
-              onCancel={() => { setEditingNodeId(null); setTextEditAppendMode(false); }}
-            />
-          )}
+          <TextEditOverlay
+            node={editingNodeId ? state.document.nodes.find(n => n.id === editingNodeId) ?? null : null}
+            viewport={state.document.viewport}
+            onCommit={handleTextCommit}
+            onCancel={() => { setEditingNodeId(null); setTextEditAppendMode(false); }}
+            appendMode={textEditAppendMode}
+          />
           {(selectedNode || selectedEdge) && (
             <PropertyPanel
               selectedNode={selectedNode}
@@ -322,8 +481,46 @@ export function App() {
               onClose={() => wrappedDispatch({ type: 'SET_SELECTION', selection: { nodeIds: [], edgeIds: [] } })}
             />
           )}
+          <div
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap' }}
+          >
+            {liveMessage}
+          </div>
         </div>
       </div>
+      <DocEditorModal
+        open={docEditNodeId !== null}
+        title={state.document.nodes.find(n => n.id === docEditNodeId)?.text ?? ''}
+        content={state.document.nodes.find(n => n.id === docEditNodeId)?.docContent ?? ''}
+        onSave={(content) => {
+          if (docEditNodeId) {
+            wrappedDispatch({ type: 'UPDATE_NODE', id: docEditNodeId, changes: { docContent: content } });
+          }
+        }}
+        onClose={() => setDocEditNodeId(null)}
+      />
+      <Dialog open={confirmDialog.open} onClose={() => setConfirmDialog({ open: false, title: '', message: '', onConfirm: () => {} })}>
+        <DialogTitle>{confirmDialog.title}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>{confirmDialog.message}</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDialog({ open: false, title: '', message: '', onConfirm: () => {} })}>{t('cancel')}</Button>
+          <Button
+            onClick={() => {
+              confirmDialog.onConfirm();
+              setConfirmDialog({ open: false, title: '', message: '', onConfirm: () => {} });
+            }}
+            color="error"
+            autoFocus
+          >
+            {t('confirm')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </ThemeProvider>
   );
 }
