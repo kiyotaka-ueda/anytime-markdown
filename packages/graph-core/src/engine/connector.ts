@@ -56,6 +56,90 @@ function diamondIntersection(
   return { x: cx + dx * scale, y: cy + dy * scale };
 }
 
+function parallelogramIntersection(
+  node: GraphNode,
+  targetX: number,
+  targetY: number,
+): { x: number; y: number } {
+  const cx = node.x + node.width / 2;
+  const cy = node.y + node.height / 2;
+  const dx = targetX - cx;
+  const dy = targetY - cy;
+  if (dx === 0 && dy === 0) return { x: cx, y: cy };
+
+  const hw = node.width / 2;
+  const hh = node.height / 2;
+  const offset = node.width * 0.2;
+
+  // Parallelogram vertices (relative to center)
+  const verts = [
+    { x: -hw + offset, y: -hh },  // top-left
+    { x: hw, y: -hh },             // top-right
+    { x: hw - offset, y: hh },     // bottom-right
+    { x: -hw, y: hh },             // bottom-left
+  ];
+
+  // Ray-polygon intersection: find closest edge intersection
+  let bestT = Infinity;
+  for (let i = 0; i < verts.length; i++) {
+    const v1 = verts[i];
+    const v2 = verts[(i + 1) % verts.length];
+    const ex = v2.x - v1.x;
+    const ey = v2.y - v1.y;
+    const denom = dx * ey - dy * ex;
+    if (Math.abs(denom) < 1e-10) continue;
+    const t = ((v1.x - 0) * ey - (v1.y - 0) * ex) / -denom;
+    const u = ((0 - v1.x) * dy - (0 - v1.y) * dx) / denom;
+    if (t > 0 && u >= 0 && u <= 1 && t < bestT) {
+      bestT = t;
+    }
+  }
+  if (bestT === Infinity) return rectIntersection(node, targetX, targetY);
+  return { x: cx + dx * bestT, y: cy + dy * bestT };
+}
+
+function cylinderIntersection(
+  node: GraphNode,
+  targetX: number,
+  targetY: number,
+): { x: number; y: number } {
+  const cx = node.x + node.width / 2;
+  const cy = node.y + node.height / 2;
+  const dx = targetX - cx;
+  const dy = targetY - cy;
+  if (dx === 0 && dy === 0) return { x: cx, y: cy };
+
+  const hw = node.width / 2;
+  const hh = node.height / 2;
+  const ellipseH = Math.min(node.height * 0.15, 15);
+
+  // Check intersection with top ellipse
+  const topCy = node.y + ellipseH;
+  const topDy = targetY - topCy;
+  if (dy < 0) {
+    const angle = Math.atan2(topDy, dx);
+    const ix = cx + hw * Math.cos(angle);
+    const iy = topCy + ellipseH * Math.sin(angle);
+    if (iy <= topCy) return { x: ix, y: iy };
+  }
+
+  // Check intersection with bottom ellipse
+  const botCy = node.y + node.height - ellipseH;
+  const botDy = targetY - botCy;
+  if (dy > 0) {
+    const angle = Math.atan2(botDy, dx);
+    const ix = cx + hw * Math.cos(angle);
+    const iy = botCy + ellipseH * Math.sin(angle);
+    if (iy >= botCy) return { x: ix, y: iy };
+  }
+
+  // Body sides (left/right)
+  const scaleX = hw / Math.abs(dx || 1);
+  const scaleY = hh / Math.abs(dy || 1);
+  const scale = Math.min(scaleX, scaleY);
+  return { x: cx + dx * scale, y: cy + dy * scale };
+}
+
 export function nodeIntersection(
   node: GraphNode,
   targetX: number,
@@ -63,7 +147,8 @@ export function nodeIntersection(
 ): { x: number; y: number } {
   if (node.type === 'ellipse') return ellipseIntersection(node, targetX, targetY);
   if (node.type === 'diamond') return diamondIntersection(node, targetX, targetY);
-  // parallelogram and cylinder use rectIntersection (default)
+  if (node.type === 'parallelogram') return parallelogramIntersection(node, targetX, targetY);
+  if (node.type === 'cylinder') return cylinderIntersection(node, targetX, targetY);
   return rectIntersection(node, targetX, targetY);
 }
 

@@ -375,6 +375,63 @@ describe('exportToDrawio', () => {
     expect(z1Pos).toBeLessThan(z2Pos);
   });
 
+  it('should export doc node with document shape', () => {
+    const doc = createDocument('Test');
+    const node = createNode('doc', 0, 0, { id: 'doc1', text: 'Document' });
+    doc.nodes = [node];
+    const xml = exportToDrawio(doc);
+    expect(xml).toContain('shape=document');
+  });
+
+  it('should export frame node with swimlane style', () => {
+    const doc = createDocument('Test');
+    const node = createNode('frame', 0, 0, { id: 'fr1', text: 'Frame' });
+    doc.nodes = [node];
+    const xml = exportToDrawio(doc);
+    expect(xml).toContain('swimlane');
+    expect(xml).toContain('startSize=20');
+  });
+
+  it('should export image node with image shape', () => {
+    const doc = createDocument('Test');
+    const node = createNode('image', 0, 0, { id: 'img1', text: 'Image' });
+    doc.nodes = [node];
+    const xml = exportToDrawio(doc);
+    expect(xml).toContain('shape=image');
+  });
+
+  it('should round-trip doc node type', () => {
+    const doc = createDocument('RoundTrip');
+    const node = createNode('doc', 10, 20, { id: 'rtd1', text: 'Doc Test', width: 200, height: 120 });
+    doc.nodes = [node];
+    const xml = exportToDrawio(doc);
+    const imported = importFromDrawio(xml);
+    expect(imported.nodes[0].type).toBe('doc');
+    expect(imported.nodes[0].text).toBe('Doc Test');
+  });
+
+  it('should round-trip frame node type', () => {
+    const doc = createDocument('RoundTrip');
+    const frame = createNode('frame', 0, 0, { id: 'rtf1', text: 'Group', width: 400, height: 300 });
+    const child = createNode('rect', 10, 30, { id: 'rtc1', text: 'Child', groupId: 'rtf1' });
+    doc.nodes = [frame, child];
+    const xml = exportToDrawio(doc);
+    const imported = importFromDrawio(xml);
+    const importedFrame = imported.nodes.find(n => n.id === 'rtf1');
+    const importedChild = imported.nodes.find(n => n.id === 'rtc1');
+    expect(importedFrame?.type).toBe('frame');
+    expect(importedChild?.groupId).toBe('rtf1');
+  });
+
+  it('should round-trip image node type', () => {
+    const doc = createDocument('RoundTrip');
+    const node = createNode('image', 0, 0, { id: 'rti1', text: 'Photo', width: 200, height: 150 });
+    doc.nodes = [node];
+    const xml = exportToDrawio(doc);
+    const imported = importFromDrawio(xml);
+    expect(imported.nodes[0].type).toBe('image');
+  });
+
   it('should export edge with dashed and opacity', () => {
     const doc = createDocument('Test');
     const edge = createEdge('arrow', { x: 0, y: 0 }, { x: 100, y: 100 }, { id: 'ed1' });

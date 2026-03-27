@@ -25,6 +25,15 @@ function nodeStyle(node: GraphNode): string {
     case 'text':
       parts.push('text;strokeColor=none;fillColor=none');
       return parts.join(';');
+    case 'doc':
+      parts.push('shape=document;size=0.15');
+      break;
+    case 'frame':
+      parts.push('swimlane;startSize=20');
+      break;
+    case 'image':
+      parts.push('shape=image;imageAlign=center;imageVerticalAlign=middle');
+      break;
     default:
       parts.push('rounded=0');
   }

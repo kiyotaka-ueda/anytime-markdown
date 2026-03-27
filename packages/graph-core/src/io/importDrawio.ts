@@ -19,6 +19,9 @@ function resolveNodeType(style: Record<string, string>): NodeType {
   if (style['shape'] === 'parallelogram') return 'parallelogram';
   if (style['shape']?.startsWith('cylinder')) return 'cylinder';
   if (style['shape'] === 'note') return 'sticky';
+  if (style['shape'] === 'document') return 'doc';
+  if (style['shape'] === 'image') return 'image';
+  if (style['swimlane']) return 'frame';
   if (style['text'] && style['strokeColor'] === 'none' && style['fillColor'] === 'none') return 'text';
   return 'rect';
 }
