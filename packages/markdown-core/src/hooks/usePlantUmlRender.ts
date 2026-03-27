@@ -4,13 +4,20 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { BoundedMap } from "../utils/BoundedMap";
 import { buildPlantUmlUrl, PLANTUML_CONSENT_KEY, PLANTUML_DARK_SKINPARAMS, PLANTUML_LIGHT_SKINPARAMS } from "../utils/plantumlHelpers";
 
+/** CSS変数からエディタのフォントを読み取り、手書き風プリセットかを判定 */
+function isHandwrittenPreset(): boolean {
+  if (typeof document === "undefined") return false;
+  const font = document.documentElement.style.getPropertyValue("--editor-content-font-family");
+  return font.includes("Klee One");
+}
+
 /**
  * モジュールレベルの URL キャッシュ。
  * コンポーネントがアンマウント→再マウントを繰り返しても即座に復元。
  */
 const urlCache = new BoundedMap<string, string>(128);
 function cacheKey(code: string, isDark: boolean): string {
-  return `${code}\0${isDark}`;
+  return `${code}\0${isDark}\0${isHandwrittenPreset()}`;
 }
 
 /** Build the PlantUML source with appropriate skin params applied */
@@ -19,14 +26,15 @@ function buildPlantUmlSource(code: string, isDark: boolean): string {
   const diagramType = startMatch ? startMatch[1] : null;
   const needsSkinParam = diagramType === "uml" || diagramType === null;
   const skinParams = isDark ? PLANTUML_DARK_SKINPARAMS : PLANTUML_LIGHT_SKINPARAMS;
+  const handwritten = isHandwrittenPreset() ? "!pragma handwritten true" : "";
 
   if (diagramType && needsSkinParam) {
-    return code.replace(/@startuml/, `@startuml\n${skinParams}`);
+    return code.replace(/@startuml/, `@startuml\n${skinParams}\n${handwritten}`);
   }
   if (diagramType) {
-    return code;
+    return handwritten ? code.replace(/@start\w+/, `$&\n${handwritten}`) : code;
   }
-  return `@startuml\n${skinParams}\n${code}\n@enduml`;
+  return `@startuml\n${skinParams}\n${handwritten}\n${code}\n@enduml`;
 }
 
 interface UsePlantUmlRenderParams {
