@@ -143,6 +143,38 @@
           "minimum": 0,
           "maximum": 10000,
           "description": "%configuration.editorMaxWidth.description%"
+        },
+        "anytimeMarkdown.language": {
+          "type": "string",
+          "default": "auto",
+          "enum": ["auto", "en", "ja"],
+          "enumDescriptions": [
+            "%configuration.language.auto%",
+            "English",
+            "Japanese"
+          ],
+          "description": "%configuration.language.description%"
+        },
+        "anytimeMarkdown.themeMode": {
+          "type": "string",
+          "default": "auto",
+          "enum": ["auto", "light", "dark"],
+          "enumDescriptions": [
+            "%configuration.themeMode.auto%",
+            "%configuration.themeMode.light%",
+            "%configuration.themeMode.dark%"
+          ],
+          "description": "%configuration.themeMode.description%"
+        },
+        "anytimeMarkdown.themePreset": {
+          "type": "string",
+          "default": "handwritten",
+          "enum": ["handwritten", "professional"],
+          "enumDescriptions": [
+            "%configuration.themePreset.handwritten%",
+            "%configuration.themePreset.professional%"
+          ],
+          "description": "%configuration.themePreset.description%"
         }
       }
     },

@@ -110,8 +110,29 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
     const isLargeFile = () => document.getText().length > 100 * 1024;
 
-    // テーマはエディタ設定でのみ変更（VS Code テーマ同期を無効化）
-    const sendTheme = () => {};
+    const resolveThemeMode = (): 'light' | 'dark' => {
+      const config = vscode.workspace.getConfiguration('anytimeMarkdown');
+      const mode = config.get<string>('themeMode', 'auto');
+      if (mode === 'light' || mode === 'dark') { return mode; }
+      return vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Light
+        || vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.HighContrastLight
+        ? 'light' : 'dark';
+    };
+
+    const resolveLanguage = (): 'en' | 'ja' => {
+      const config = vscode.workspace.getConfiguration('anytimeMarkdown');
+      const lang = config.get<string>('language', 'auto');
+      if (lang === 'en' || lang === 'ja') { return lang; }
+      return (vscode.env.language || '').startsWith('ja') ? 'ja' : 'en';
+    };
+
+    const sendTheme = () => {
+      if (disposed) { return; }
+      webviewPanel.webview.postMessage({
+        type: 'setTheme',
+        themeMode: resolveThemeMode(),
+      });
+    };
 
     const sendSettings = () => {
       if (disposed) { return; }
@@ -121,6 +142,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         settings: {
           fontSize: config.get<number>('fontSize', 0),
           editorMaxWidth: config.get<number>('editorMaxWidth', 0),
+          language: resolveLanguage(),
+          themeMode: resolveThemeMode(),
+          themePreset: config.get<string>('themePreset', 'handwritten'),
         },
       });
     };
@@ -193,7 +217,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     const fileWatcher = vscode.workspace.createFileSystemWatcher(
       new vscode.RelativePattern(vscode.Uri.file(path.dirname(document.uri.fsPath)), path.basename(document.uri.fsPath))
     );
-    fileWatcher.onDidChange(async () => {
+    const checkDiskContent = async () => {
       if (disposed) { return; }
       // 自身の保存直後（2秒以内）は無視
       if (Date.now() - lastApplyTime < 2000) { return; }
@@ -205,7 +229,30 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       } catch {
         // ファイル読み取り失敗時は無視
       }
-    });
+    };
+    fileWatcher.onDidChange(checkDiskContent);
+    // アトミック書き込み（一時ファイル→リネーム）対応
+    fileWatcher.onDidCreate(checkDiskContent);
+
+    // フォールバック: FileSystemWatcher がイベントを取りこぼす環境（WSL2 等）向け
+    // mtime ベースのポーリングで外部変更を検知
+    let lastMtime = 0;
+    const pollInterval = setInterval(async () => {
+      if (disposed) { return; }
+      if (Date.now() - lastApplyTime < 2000) { return; }
+      try {
+        const stat = await vscode.workspace.fs.stat(document.uri);
+        if (lastMtime === 0) {
+          lastMtime = stat.mtime;
+          return;
+        }
+        if (stat.mtime === lastMtime) { return; }
+        lastMtime = stat.mtime;
+        await checkDiskContent();
+      } catch {
+        // stat 失敗時は無視
+      }
+    }, 3000);
 
     const configChangeSubscription = vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration('anytimeMarkdown')) {
@@ -512,6 +559,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       configChangeSubscription.dispose();
       themeChangeSubscription.dispose();
       fileWatcher.dispose();
+      clearInterval(pollInterval);
       if (debounceTimer) { clearTimeout(debounceTimer); }
     });
   }
@@ -535,7 +583,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     const nonce = randomBytes(16).toString('hex');
 
     return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${(vscode.env.language || '').startsWith('ja') ? 'ja' : 'en'}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">

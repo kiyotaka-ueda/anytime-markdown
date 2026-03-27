@@ -644,8 +644,8 @@
   "VsCode": {
     "metaTitle": "Visual Studio Code™ 拡張機能 - Anytime Markdown",
     "metaDescription": "Visual Studio Code で Markdown をリッチに編集。WYSIWYG、差分ハイライト、画像アノテーション、Git連携を統合。",
-    "heroTitle1": "コードも仕様書も、",
-    "heroTitle2": "AI と協力して",
+    "heroTitle1": "コードも仕様書も",
+    "heroTitle2": "AIと一緒に",
     "heroDescription": "AI Agent が生成した Markdown を WYSIWYG でプレビューし、変更箇所をハイライトで即確認。\nAgent Note と Git 連携で、AI Agent との共同作業をスムーズに。",
     "installButton": "拡張機能を入手",
     "installCaption": "Visual Studio Code Marketplace",
