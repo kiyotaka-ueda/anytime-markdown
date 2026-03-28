@@ -17,7 +17,6 @@ export class ClaudeStatusWatcher implements vscode.Disposable {
   private readonly callbacks: StatusChangeCallback[] = [];
   private readonly statusFilePath: string;
   private fsWatcher: fs.FSWatcher | null = null;
-  private lastTimestamp = 0;
 
   constructor() {
     this.statusFilePath = getStatusFilePath();
@@ -59,12 +58,6 @@ export class ClaudeStatusWatcher implements vscode.Disposable {
       if (!this.isValidStatus(parsed)) {
         return;
       }
-
-      // タイムスタンプが同一なら重複イベント（fs.watch + fs.watchFile の両方が発火）
-      if (parsed.timestamp === this.lastTimestamp) {
-        return;
-      }
-      this.lastTimestamp = parsed.timestamp;
 
       const isStale = Date.now() - parsed.timestamp > STALE_THRESHOLD_MS;
       const editing = isStale ? false : parsed.editing;
