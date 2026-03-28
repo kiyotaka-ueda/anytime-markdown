@@ -15,6 +15,10 @@ export function activate(context: vscode.ExtensionContext) {
 		new LinkValidationProvider(),
 	);
 
+	// コンテキストの初期値を設定（editor/title メニュー表示に必要）
+	vscode.commands.executeCommand('setContext', 'anytimeMarkdown.autoReload', true);
+	vscode.commands.executeCommand('setContext', 'anytimeMarkdown.editorMode', 'wysiwyg');
+
 	// ステータスバーアイテム（右側、テキストエディタと同等の位置）
 	const cursorStatusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
 	const charCountItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
@@ -151,6 +155,30 @@ export function activate(context: vscode.ExtensionContext) {
 				p.postMessageToActivePanel({ type: 'pasteMarkdown', text });
 			}
 		}
+	);
+
+	// 自動再読込トグル（VS Code ツールバー）
+	const toggleAutoReloadOff = vscode.commands.registerCommand(
+		'anytime-markdown.toggleAutoReloadOff',
+		() => { MarkdownEditorProvider.getInstance()?.toggleAutoReload(); }
+	);
+	const toggleAutoReloadOn = vscode.commands.registerCommand(
+		'anytime-markdown.toggleAutoReloadOn',
+		() => { MarkdownEditorProvider.getInstance()?.toggleAutoReload(); }
+	);
+
+	// エディタモード切替（VS Code ツールバー）
+	const switchToReview = vscode.commands.registerCommand(
+		'anytime-markdown.switchToReview',
+		() => { MarkdownEditorProvider.getInstance()?.switchMode('review'); }
+	);
+	const switchToWysiwyg = vscode.commands.registerCommand(
+		'anytime-markdown.switchToWysiwyg',
+		() => { MarkdownEditorProvider.getInstance()?.switchMode('wysiwyg'); }
+	);
+	const switchToSource = vscode.commands.registerCommand(
+		'anytime-markdown.switchToSource',
+		() => { MarkdownEditorProvider.getInstance()?.switchMode('source'); }
 	);
 
 	// Agent Note ビュー（空のツリーで Welcome Content を表示）
@@ -341,6 +369,8 @@ export function activate(context: vscode.ExtensionContext) {
 		openEditorWithFile, compareCmd, openCompareMode,
 		insertSectionNumbers, removeSectionNumbers,
 		pasteAsMarkdown,
+		toggleAutoReloadOff, toggleAutoReloadOn,
+		switchToReview, switchToWysiwyg, switchToSource,
 		openContext, copyContextPath, clearContext,
 		aiLogTreeView, aiLogRefresh, openAiLog,
 		aiMemoryTreeView, aiMemoryRefresh, openAiMemory,

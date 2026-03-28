@@ -62,6 +62,23 @@
         "contents": "%viewsWelcome.aiNote%"
       }
     ],
+    "submenus": [
+      {
+        "id": "anytime-markdown.modeMenu.review",
+        "label": "%submenu.editorMode%",
+        "icon": "$(eye)"
+      },
+      {
+        "id": "anytime-markdown.modeMenu.wysiwyg",
+        "label": "%submenu.editorMode%",
+        "icon": "$(edit)"
+      },
+      {
+        "id": "anytime-markdown.modeMenu.source",
+        "label": "%submenu.editorMode%",
+        "icon": "$(code)"
+      }
+    ],
     "commands": [
       {
         "command": "anytime-markdown.openEditorWithFile",
@@ -110,6 +127,36 @@
         "command": "anytime-markdown.aiMemoryRefresh",
         "title": "%command.aiMemoryRefresh%",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "anytime-markdown.toggleAutoReloadOff",
+        "title": "%command.autoReloadDisable%",
+        "icon": "$(sync)",
+        "enablement": "activeCustomEditorId == anytimeMarkdown"
+      },
+      {
+        "command": "anytime-markdown.toggleAutoReloadOn",
+        "title": "%command.autoReloadEnable%",
+        "icon": "$(sync-ignored)",
+        "enablement": "activeCustomEditorId == anytimeMarkdown"
+      },
+      {
+        "command": "anytime-markdown.switchToReview",
+        "title": "%command.switchToReview%",
+        "icon": "$(eye)",
+        "enablement": "activeCustomEditorId == anytimeMarkdown"
+      },
+      {
+        "command": "anytime-markdown.switchToWysiwyg",
+        "title": "%command.switchToWysiwyg%",
+        "icon": "$(edit)",
+        "enablement": "activeCustomEditorId == anytimeMarkdown"
+      },
+      {
+        "command": "anytime-markdown.switchToSource",
+        "title": "%command.switchToSource%",
+        "icon": "$(code)",
+        "enablement": "activeCustomEditorId == anytimeMarkdown"
       }
     ],
     "customEditors": [
@@ -211,6 +258,75 @@
           "command": "anytime-markdown.compareWithMarkdownEditor",
           "when": "resourceLangId == markdown",
           "group": "navigation@2"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "anytime-markdown.toggleAutoReloadOff",
+          "when": "activeCustomEditorId == anytimeMarkdown && anytimeMarkdown.autoReload != false",
+          "group": "navigation@1"
+        },
+        {
+          "command": "anytime-markdown.toggleAutoReloadOn",
+          "when": "activeCustomEditorId == anytimeMarkdown && anytimeMarkdown.autoReload == false",
+          "group": "navigation@1"
+        },
+        {
+          "submenu": "anytime-markdown.modeMenu.review",
+          "when": "activeCustomEditorId == anytimeMarkdown && anytimeMarkdown.editorMode == review",
+          "group": "navigation@2"
+        },
+        {
+          "submenu": "anytime-markdown.modeMenu.wysiwyg",
+          "when": "activeCustomEditorId == anytimeMarkdown && anytimeMarkdown.editorMode != review && anytimeMarkdown.editorMode != source",
+          "group": "navigation@2"
+        },
+        {
+          "submenu": "anytime-markdown.modeMenu.source",
+          "when": "activeCustomEditorId == anytimeMarkdown && anytimeMarkdown.editorMode == source",
+          "group": "navigation@2"
+        }
+      ],
+      "anytime-markdown.modeMenu.review": [
+        {
+          "command": "anytime-markdown.switchToReview",
+          "group": "1_mode@1"
+        },
+        {
+          "command": "anytime-markdown.switchToWysiwyg",
+          "group": "1_mode@2"
+        },
+        {
+          "command": "anytime-markdown.switchToSource",
+          "group": "1_mode@3"
+        }
+      ],
+      "anytime-markdown.modeMenu.wysiwyg": [
+        {
+          "command": "anytime-markdown.switchToReview",
+          "group": "1_mode@1"
+        },
+        {
+          "command": "anytime-markdown.switchToWysiwyg",
+          "group": "1_mode@2"
+        },
+        {
+          "command": "anytime-markdown.switchToSource",
+          "group": "1_mode@3"
+        }
+      ],
+      "anytime-markdown.modeMenu.source": [
+        {
+          "command": "anytime-markdown.switchToReview",
+          "group": "1_mode@1"
+        },
+        {
+          "command": "anytime-markdown.switchToWysiwyg",
+          "group": "1_mode@2"
+        },
+        {
+          "command": "anytime-markdown.switchToSource",
+          "group": "1_mode@3"
         }
       ],
       "editor/title/context": [

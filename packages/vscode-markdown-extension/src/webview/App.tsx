@@ -354,6 +354,12 @@ export function App() {
             setClaudeEditing(message.readonly);
           }
           return;
+        case 'setAutoReload':
+          if (typeof message.enabled === 'boolean') setAutoReload(message.enabled);
+          return;
+        case 'setMode':
+          if (typeof message.mode === 'string') dispatchCustomEvent('vscode-set-mode', message.mode);
+          return;
         case 'setContent':
           if (typeof message.content === 'string') handleSetContent(message, msgState);
           return;
@@ -401,12 +407,9 @@ export function App() {
 
   const [claudeEditing, setClaudeEditing] = useState(false);
   const [autoReload, setAutoReload] = useState(true);
-  const handleToggleAutoReload = useCallback(() => {
-    setAutoReload((prev) => {
-      const next = !prev;
-      vscode.postMessage({ type: 'setAutoReload', enabled: next });
-      return next;
-    });
+
+  const handleModeChange = useCallback((mode: string) => {
+    vscode.postMessage({ type: 'modeChanged', mode });
   }, []);
 
   // スクロール同期: スクロール位置を extension host に送信
@@ -469,7 +472,7 @@ export function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <ConfirmProvider>
-        <MarkdownEditorPage key={editorKey} hideFileOps hideUndoRedo hideSettings hideVersionInfo hideTemplates hideFoldAll hideStatusBar sideToolbar hideCompareToggle hideGraph readOnly={claudeEditing} externalCompareContent={compareContent} onCompareModeChange={handleCompareModeChange} onHeadingsChange={handleHeadingsChange} onCommentsChange={handleCommentsChange} onStatusChange={handleStatusChange} autoReload={autoReload} onToggleAutoReload={handleToggleAutoReload} themeMode={themeMode} presetName={presetName} />
+        <MarkdownEditorPage key={editorKey} hideToolbar hideStatusBar readOnly={claudeEditing} externalCompareContent={compareContent} onCompareModeChange={handleCompareModeChange} onHeadingsChange={handleHeadingsChange} onCommentsChange={handleCommentsChange} onStatusChange={handleStatusChange} autoReload={autoReload} onModeChange={handleModeChange} themeMode={themeMode} presetName={presetName} />
       </ConfirmProvider>
     </ThemeProvider>
   );

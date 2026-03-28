@@ -15,6 +15,11 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   public compareModeActive = false;
   public pendingCompareContent: string | null = null;
   public skipDiffDetection = false;
+  /** アクティブパネルの autoReload 状態 */
+  private autoReloadEnabled = true;
+  private autoReloadSetter: ((enabled: boolean) => void) | null = null;
+  /** アクティブパネルの editorMode 状態 */
+  private editorMode: string = 'wysiwyg';
   private readonly panels = new Map<string, vscode.WebviewPanel>();
   /** diff ビュー検出用: 最後にパネルが開かれた時刻 */
   private lastPanelOpenTime = 0;
@@ -27,6 +32,23 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
   public postMessageToActivePanel(message: unknown): void {
     this.activePanel?.webview.postMessage(message);
+  }
+
+  /** エディタモードを切り替え、webview に通知する */
+  public switchMode(mode: string): void {
+    this.editorMode = mode;
+    this.postMessageToActivePanel({ type: 'setMode', mode });
+    vscode.commands.executeCommand('setContext', 'anytimeMarkdown.editorMode', mode);
+  }
+
+  /** autoReload の状態を切り替え、webview に通知する */
+  public toggleAutoReload(): boolean {
+    const next = !this.autoReloadEnabled;
+    this.autoReloadEnabled = next;
+    this.autoReloadSetter?.(next);
+    this.postMessageToActivePanel({ type: 'setAutoReload', enabled: next });
+    vscode.commands.executeCommand('setContext', 'anytimeMarkdown.autoReload', next);
+    return next;
   }
 
   public waitForReady(uri: vscode.Uri): Promise<void> {
@@ -112,6 +134,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     this.activePanel = webviewPanel;
     this.activeDocumentUri = document.uri;
     this.panels.set(document.uri.toString(), webviewPanel);
+    vscode.commands.executeCommand('setContext', 'anytimeMarkdown.autoReload', this.autoReloadEnabled);
+    vscode.commands.executeCommand('setContext', 'anytimeMarkdown.editorMode', this.editorMode);
 
     // diff ビュー検出: 1秒以内に2つ目のパネルが開かれた場合
     // skipDiffDetection が true の場合は拡張機能からの意図的なオープンなのでスキップ
@@ -210,7 +234,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
     // 外部変更検知（Claude Code、git 操作、他のエディタなど）
     let notificationVisible = false;
-    let autoReload = true;
+    let autoReload = this.autoReloadEnabled;
+    this.autoReloadSetter = (enabled: boolean) => { autoReload = enabled; };
     const showExternalChangeNotification = (content: string) => {
       if (disposed) { return; }
       // 自動再読み込みモード: 通知なしで即座にコンテンツを更新
@@ -552,7 +577,17 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         case 'saveClipboardImage': handleSaveClipboardImage(message); break;
         case 'overwriteImage': handleOverwriteImage(message); break;
         case 'openLink': await handleOpenLink(message); break;
-        case 'setAutoReload': autoReload = !!message.enabled; break;
+        case 'setAutoReload':
+          autoReload = !!message.enabled;
+          this.autoReloadEnabled = autoReload;
+          vscode.commands.executeCommand('setContext', 'anytimeMarkdown.autoReload', autoReload);
+          break;
+        case 'modeChanged':
+          if (typeof message.mode === 'string') {
+            this.editorMode = message.mode;
+            vscode.commands.executeCommand('setContext', 'anytimeMarkdown.editorMode', message.mode);
+          }
+          break;
         case 'save': await handleSave(); break;
       }
     });
@@ -572,6 +607,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         this.compareFileUri = null;
         this.activeDocumentUri = null;
         this.compareModeActive = false;
+        this.autoReloadSetter = null;
         vscode.commands.executeCommand('setContext', 'anytimeMarkdown.compareModeActive', false);
       }
       docChangeSubscription.dispose();
