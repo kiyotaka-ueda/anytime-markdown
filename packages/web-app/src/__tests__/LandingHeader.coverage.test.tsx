@@ -16,6 +16,14 @@ jest.mock("../app/LocaleProvider", () => ({
 
 import LandingHeader from "../app/components/LandingHeader";
 
+beforeAll(() => {
+  process.env.NEXT_PUBLIC_SHOW_GRAPH = "1";
+});
+
+afterAll(() => {
+  delete process.env.NEXT_PUBLIC_SHOW_GRAPH;
+});
+
 describe("LandingHeader mobile drawer", () => {
   it("opens drawer when menu button clicked", () => {
     render(<LandingHeader />);

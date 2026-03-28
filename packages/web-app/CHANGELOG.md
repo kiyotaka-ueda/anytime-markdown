@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-03-28
+
+### Added
+- Report blog page: S3 Markdown fetch/display with list and detail pages
+- `MarkdownViewer` component with frontmatter parsing and breadcrumbs
+- Report link always shown in navigation; Graph/Report nav links toggle via env vars
+- Refactored S3 client initialization to use `cms-core`
+
+### Fixed
+- SSR hydration mismatch in theme provider
+- SonarCloud issues in multiple components (GraphCanvas, PropertyPanel, ToolBar, graphStorage, etc.)
+
+### Security
+- handlebars updated to 4.7.9 (CVE-2026-33916)
+
 ## [0.8.3] - 2026-03-27
 
 ### Fixed

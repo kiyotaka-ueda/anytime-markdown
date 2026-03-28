@@ -248,7 +248,7 @@ describe("GraphEditor", () => {
 
   it("handles context menu (right-click)", () => {
     render(<GraphEditor />);
-    const canvas = screen.getByRole("application");
+    const canvas = screen.getByLabelText(/graphCanvas/);
     fireEvent.contextMenu(canvas);
     expect(mockDispatch).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -472,7 +472,7 @@ describe("GraphEditor", () => {
 
   it("handles mousedown/mouseup on canvas delegates to handlers", () => {
     render(<GraphEditor />);
-    const canvas = screen.getByRole("application");
+    const canvas = screen.getByLabelText(/graphCanvas/);
     fireEvent.mouseDown(canvas);
     fireEvent.mouseUp(canvas);
     expect(mockHandleMouseDown).toHaveBeenCalled();
@@ -605,21 +605,21 @@ describe("GraphEditor", () => {
 
   it("handles mousemove on canvas", () => {
     render(<GraphEditor />);
-    const canvas = screen.getByRole("application");
+    const canvas = screen.getByLabelText(/graphCanvas/);
     fireEvent.mouseMove(canvas);
     expect(mockHandleMouseMove).toHaveBeenCalled();
   });
 
   it("handles wheel on canvas", () => {
     render(<GraphEditor />);
-    const canvas = screen.getByRole("application");
+    const canvas = screen.getByLabelText(/graphCanvas/);
     fireEvent.wheel(canvas);
     expect(mockHandleWheel).toHaveBeenCalled();
   });
 
   it("handles double click on canvas", () => {
     render(<GraphEditor />);
-    const canvas = screen.getByRole("application");
+    const canvas = screen.getByLabelText(/graphCanvas/);
     fireEvent.doubleClick(canvas);
     expect(mockHandleDoubleClick).toHaveBeenCalled();
   });
