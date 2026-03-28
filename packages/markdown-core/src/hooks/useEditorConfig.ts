@@ -239,6 +239,12 @@ export function requestExternalImageDownloads(
   }
 }
 
+/**
+ * コピー時にクリップボード HTML 内の blob: URL を data: URL に置換する。
+ * blob: URL はブラウザコンテキスト固有のため、別環境（VS Code 等）では解決できない。
+ * Clipboard API の write で HTML を上書きすることで、貼り付け先で base64 として利用可能にする。
+ */
+
 /** Try to import a markdown file from a drop event, with optional File System Access API handle */
 function tryImportDroppedMdFile(
   mdFile: File,
