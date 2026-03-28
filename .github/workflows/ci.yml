@@ -192,6 +192,57 @@ jobs:
         env:
           AUTH_SECRET: test-secret-for-ci
 
+  check-netlify:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Wait for Netlify deploy and check status
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: poetic-syrniki-373949
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          echo "Checking Netlify deploy for commit: $COMMIT_SHA"
+          for i in $(seq 1 30); do
+            DEPLOY=$(curl -sf -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \
+              "https://api.netlify.com/api/v1/sites/$NETLIFY_SITE_ID/deploys?per_page=10" \
+              | jq -r "[.[] | select(.commit_ref == \"$COMMIT_SHA\")] | first // empty")
+
+            if [ -z "$DEPLOY" ]; then
+              echo "Deploy not found yet... (attempt $i/30)"
+              sleep 30
+              continue
+            fi
+
+            STATE=$(echo "$DEPLOY" | jq -r '.state')
+            echo "Deploy state: $STATE"
+
+            case "$STATE" in
+              ready)
+                echo "Netlify deploy succeeded"
+                echo "$DEPLOY" | jq '{state, deploy_ssl_url, deploy_time, created_at}'
+                exit 0
+                ;;
+              error)
+                echo "::error::Netlify deploy failed"
+                echo "$DEPLOY" | jq '{state, error_message, deploy_ssl_url, created_at}'
+                DEPLOY_ID=$(echo "$DEPLOY" | jq -r '.id')
+                echo "--- Deploy details ---"
+                curl -sf -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \
+                  "https://api.netlify.com/api/v1/deploys/$DEPLOY_ID" \
+                  | jq '{state, error_message, summary, deploy_time, context, branch}'
+                exit 1
+                ;;
+              *)
+                echo "Deploy in progress ($STATE)... (attempt $i/30)"
+                sleep 30
+                ;;
+            esac
+          done
+          echo "::warning::Timed out waiting for Netlify deploy (15 min)"
+          exit 1
+
   publish-markdown:
     if: github.ref == 'refs/heads/master'
     needs: ci
