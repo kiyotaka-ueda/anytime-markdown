@@ -557,6 +557,22 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         t={t}
       />
 
+      {readOnly && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '6px 16px',
+          backgroundColor: isDark ? 'rgba(255,180,0,0.12)' : 'rgba(255,160,0,0.10)',
+          borderBottom: `1px solid ${isDark ? 'rgba(255,180,0,0.25)' : 'rgba(255,160,0,0.20)'}`,
+          fontSize: 13,
+          color: isDark ? 'rgba(255,220,150,0.9)' : 'rgba(140,90,0,0.9)',
+        }}>
+          <span style={{ fontSize: 16 }}>&#9998;</span>
+          <span>{locale === 'ja' ? 'Claude Code が編集中です' : 'Claude Code is editing'}</span>
+        </div>
+      )}
+
       {readonlyMode && (
         <ReadonlyToolbar
           outlineOpen={outlineOpen}
