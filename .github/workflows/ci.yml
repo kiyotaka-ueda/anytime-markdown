@@ -55,37 +55,37 @@ jobs:
         run: npm run lint
 
       - name: Run markdown-core tests with coverage
-        if: (github.event_name == 'pull_request' && github.base_ref == 'master') || github.ref == 'refs/heads/develop'
+        if: github.event_name == 'pull_request' && github.base_ref == 'master'
         run: npx jest --coverage --coverageReporters=lcov
         working-directory: packages/markdown-core
 
       - name: Run mcp-markdown tests
-        if: (github.event_name == 'pull_request' && github.base_ref == 'master') || github.ref == 'refs/heads/develop'
+        if: github.event_name == 'pull_request' && github.base_ref == 'master'
         run: npx jest --maxWorkers=1
         working-directory: packages/mcp-markdown
 
       - name: Run graph-core tests with coverage
-        if: (github.event_name == 'pull_request' && github.base_ref == 'master') || github.ref == 'refs/heads/develop'
+        if: github.event_name == 'pull_request' && github.base_ref == 'master'
         run: npx jest --maxWorkers=1 --coverage --coverageReporters=lcov
         working-directory: packages/graph-core
 
       - name: Run mcp-graph tests
-        if: (github.event_name == 'pull_request' && github.base_ref == 'master') || github.ref == 'refs/heads/develop'
+        if: github.event_name == 'pull_request' && github.base_ref == 'master'
         run: npx jest --maxWorkers=1
         working-directory: packages/mcp-graph
 
       - name: Run cms-core tests with coverage
-        if: (github.event_name == 'pull_request' && github.base_ref == 'master') || github.ref == 'refs/heads/develop'
+        if: github.event_name == 'pull_request' && github.base_ref == 'master'
         run: npx jest --maxWorkers=1 --coverage --coverageReporters=lcov
         working-directory: packages/cms-core
 
       - name: Run mcp-cms tests
-        if: (github.event_name == 'pull_request' && github.base_ref == 'master') || github.ref == 'refs/heads/develop'
+        if: github.event_name == 'pull_request' && github.base_ref == 'master'
         run: npx jest --passWithNoTests --maxWorkers=1
         working-directory: packages/mcp-cms
 
       - name: Run web-app tests with coverage
-        if: (github.event_name == 'pull_request' && github.base_ref == 'master') || github.ref == 'refs/heads/develop'
+        if: github.event_name == 'pull_request' && github.base_ref == 'master'
         run: npx jest --coverage --coverageReporters=lcov
         working-directory: packages/web-app
 
