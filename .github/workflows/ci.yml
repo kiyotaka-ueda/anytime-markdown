@@ -193,7 +193,7 @@ jobs:
           AUTH_SECRET: test-secret-for-ci
 
   check-netlify:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.base_ref == 'master'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
