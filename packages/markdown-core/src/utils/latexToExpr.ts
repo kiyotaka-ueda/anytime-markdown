@@ -157,7 +157,7 @@ export function extractVariables(node: MathNode): string[] {
   }
 
   walk(node);
-  return Array.from(vars).sort();
+  return Array.from(vars).sort((a, b) => a.localeCompare(b));
 }
 
 /**
@@ -314,7 +314,7 @@ function parseCasesGraph(
         allVarSet.add(v);
       }
     }
-    const allVars = Array.from(allVarSet).sort();
+    const allVars = Array.from(allVarSet).sort((a, b) => a.localeCompare(b));
     const variables = allVars.filter((v) => KNOWN_VARIABLES.has(v));
     const parameters = allVars.filter((v) => !KNOWN_VARIABLES.has(v));
 
@@ -342,7 +342,7 @@ function parseCasesGraph(
         allVarSet.add(v);
       }
     }
-    const allVars = Array.from(allVarSet).sort();
+    const allVars = Array.from(allVarSet).sort((a, b) => a.localeCompare(b));
     const variables = allVars.filter((v) => KNOWN_VARIABLES.has(v));
     const parameters = allVars.filter((v) => !KNOWN_VARIABLES.has(v));
 
@@ -406,7 +406,7 @@ export function parseLatexToGraph(latex: string): GraphExpr {
     const lhsNode = parse(lhsMathjs);
     const lhsVars = extractVariables(lhsNode);
 
-    const allVars = Array.from(new Set([...lhsVars, ...rhsVars])).sort();
+    const allVars = Array.from(new Set([...lhsVars, ...rhsVars])).sort((a, b) => a.localeCompare(b));
 
     // y = f(x) → explicit2d
     if (lhsMathjs.trim() === "y") {
