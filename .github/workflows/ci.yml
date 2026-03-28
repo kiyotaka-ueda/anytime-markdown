@@ -74,6 +74,16 @@ jobs:
         run: npx jest --maxWorkers=1
         working-directory: packages/mcp-graph
 
+      - name: Run cms-core tests with coverage
+        if: (github.event_name == 'pull_request' && github.base_ref == 'master') || github.ref == 'refs/heads/develop'
+        run: npx jest --maxWorkers=1 --coverage --coverageReporters=lcov
+        working-directory: packages/cms-core
+
+      - name: Run mcp-cms tests
+        if: (github.event_name == 'pull_request' && github.base_ref == 'master') || github.ref == 'refs/heads/develop'
+        run: npx jest --passWithNoTests --maxWorkers=1
+        working-directory: packages/mcp-cms
+
       - name: Run web-app tests with coverage
         if: (github.event_name == 'pull_request' && github.base_ref == 'master') || github.ref == 'refs/heads/develop'
         run: npx jest --coverage --coverageReporters=lcov
