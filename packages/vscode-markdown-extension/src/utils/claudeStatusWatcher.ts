@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { getStatusFilePath } from './claudeHookSetup';
 
 interface ClaudeStatus {
@@ -15,8 +16,8 @@ const STALE_THRESHOLD_MS = 30_000;
 export class ClaudeStatusWatcher implements vscode.Disposable {
   private readonly callbacks: StatusChangeCallback[] = [];
   private readonly statusFilePath: string;
-  private lastEditing: boolean | null = null;
-  private lastFile = '';
+  private fsWatcher: fs.FSWatcher | null = null;
+  private lastTimestamp = 0;
 
   constructor() {
     this.statusFilePath = getStatusFilePath();
@@ -28,7 +29,24 @@ export class ClaudeStatusWatcher implements vscode.Disposable {
   }
 
   private startWatching(): void {
-    // fs.watchFile: ファイル単位の stat ポーリング（WSL2/Docker でも確実に動作）
+    const dir = path.dirname(this.statusFilePath);
+    const fileName = path.basename(this.statusFilePath);
+
+    // fs.watch: イベント駆動（PreToolUse の即時検知に必要）
+    try {
+      this.fsWatcher = fs.watch(dir, (_, changedFile) => {
+        if (changedFile === fileName) {
+          this.handleChange();
+        }
+      });
+      this.fsWatcher.on('error', () => {
+        // エラー時は無視（fs.watchFile にフォールバック）
+      });
+    } catch {
+      // fs.watch が利用できない場合は無視
+    }
+
+    // fs.watchFile: stat ポーリング（fs.watch がイベントを取りこぼす環境向けフォールバック）
     fs.watchFile(this.statusFilePath, { interval: 1000 }, () => {
       this.handleChange();
     });
@@ -41,15 +59,15 @@ export class ClaudeStatusWatcher implements vscode.Disposable {
       if (!this.isValidStatus(parsed)) {
         return;
       }
-      const isStale = Date.now() - parsed.timestamp > STALE_THRESHOLD_MS;
-      const editing = isStale ? false : parsed.editing;
 
-      // 状態が変化した場合のみコールバックを発火
-      if (editing === this.lastEditing && parsed.file === this.lastFile) {
+      // タイムスタンプが同一なら重複イベント（fs.watch + fs.watchFile の両方が発火）
+      if (parsed.timestamp === this.lastTimestamp) {
         return;
       }
-      this.lastEditing = editing;
-      this.lastFile = parsed.file;
+      this.lastTimestamp = parsed.timestamp;
+
+      const isStale = Date.now() - parsed.timestamp > STALE_THRESHOLD_MS;
+      const editing = isStale ? false : parsed.editing;
 
       for (const cb of this.callbacks) {
         cb(editing, parsed.file);
@@ -72,6 +90,7 @@ export class ClaudeStatusWatcher implements vscode.Disposable {
   }
 
   dispose(): void {
+    this.fsWatcher?.close();
     fs.unwatchFile(this.statusFilePath);
   }
 }
