@@ -73,22 +73,29 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   }
 
   /** Claude Code 編集通知に基づくロック/リロード処理 */
-  public handleClaudeStatus(editing: boolean, filePath: string): void {
-    for (const [key, panel] of this.panels) {
-      const uri = vscode.Uri.parse(key);
-      if (uri.fsPath !== filePath) continue;
+  private readonly claudeUnlockTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-      if (editing) {
-        panel.webview.postMessage({ type: 'setReadonly', readonly: true });
-      } else {
-        try {
-          const content = fs.readFileSync(filePath, 'utf-8');
-          panel.webview.postMessage({ type: 'setReadonly', readonly: false });
-          panel.webview.postMessage({ type: 'setContent', content });
-        } catch {
-          panel.webview.postMessage({ type: 'setReadonly', readonly: false });
-        }
+  public handleClaudeStatus(editing: boolean, filePath: string): void {
+    if (editing) {
+      const existing = this.claudeUnlockTimers.get(filePath);
+      if (existing) {
+        clearTimeout(existing);
+        this.claudeUnlockTimers.delete(filePath);
       }
+      if (this.activeDocumentUri?.fsPath === filePath) {
+        this.postMessageToActivePanel({ type: 'setTheme', claudeLocked: true });
+      }
+    } else {
+      const existing = this.claudeUnlockTimers.get(filePath);
+      if (existing) {
+        clearTimeout(existing);
+      }
+      this.claudeUnlockTimers.set(filePath, setTimeout(() => {
+        this.claudeUnlockTimers.delete(filePath);
+        if (this.activeDocumentUri?.fsPath === filePath) {
+          this.postMessageToActivePanel({ type: 'setTheme', claudeLocked: false });
+        }
+      }, 3000));
     }
   }
 

@@ -285,6 +285,10 @@ export function App() {
           if (message.themeMode === 'light' || message.themeMode === 'dark') {
             msgState.setThemeMode(message.themeMode);
           }
+          if (typeof message.claudeLocked === 'boolean') {
+            isClaudeEditing = message.claudeLocked;
+            setClaudeEditing(message.claudeLocked);
+          }
           return;
         case 'setSettings':
           if (message.settings) {
@@ -348,10 +352,10 @@ export function App() {
         case 'pasteCodeBlock':
           if (typeof message.text === 'string') dispatchCustomEvent('vscode-paste-codeblock', message.text);
           return;
-        case 'setReadonly':
-          if (typeof message.readonly === 'boolean') {
-            isClaudeEditing = message.readonly;
-            setClaudeEditing(message.readonly);
+        case 'claudeLock':
+          if (typeof message.locked === 'boolean') {
+            isClaudeEditing = message.locked;
+            setClaudeEditing(message.locked);
           }
           return;
         case 'setAutoReload':
