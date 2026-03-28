@@ -353,10 +353,6 @@ export function App() {
           if (typeof message.text === 'string') dispatchCustomEvent('vscode-paste-codeblock', message.text);
           return;
         case 'claudeLock':
-          if (typeof message.locked === 'boolean') {
-            isClaudeEditing = message.locked;
-            setClaudeEditing(message.locked);
-          }
           return;
         case 'setAutoReload':
           if (typeof message.enabled === 'boolean') setAutoReload(message.enabled);
