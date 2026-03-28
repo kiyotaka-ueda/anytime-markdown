@@ -11,17 +11,19 @@ interface ClaudeStatus {
 type StatusChangeCallback = (editing: boolean, filePath: string) => void;
 
 const STALE_THRESHOLD_MS = 30_000;
-const POLL_INTERVAL_MS = 500;
+const POLL_INTERVAL_MS = 3000;
 
 export class ClaudeStatusWatcher implements vscode.Disposable {
   private readonly callbacks: StatusChangeCallback[] = [];
   private readonly statusFilePath: string;
+  private fsWatcher: fs.FSWatcher | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private lastEditing: boolean | null = null;
   private lastTimestamp = 0;
 
   constructor() {
     this.statusFilePath = getStatusFilePath();
+    this.ensureFileAndWatch();
     this.startPolling();
   }
 
@@ -29,17 +31,43 @@ export class ClaudeStatusWatcher implements vscode.Disposable {
     this.callbacks.push(callback);
   }
 
+  /** ステータスファイルが存在しなければ作成し、ファイル単位で fs.watch する */
+  private ensureFileAndWatch(): void {
+    if (!fs.existsSync(this.statusFilePath)) {
+      fs.writeFileSync(this.statusFilePath, '{}');
+    }
+    this.attachFileWatch();
+  }
+
+  private attachFileWatch(): void {
+    this.fsWatcher?.close();
+    try {
+      // ファイル単位の fs.watch（ディレクトリ監視ではないため VS Code と競合しない）
+      this.fsWatcher = fs.watch(this.statusFilePath, () => {
+        this.handleChange();
+      });
+      this.fsWatcher.on('error', () => {
+        // エラー時はポーリングにフォールバック
+        this.fsWatcher?.close();
+        this.fsWatcher = null;
+      });
+    } catch {
+      // fs.watch 失敗時は無視（ポーリングで対応）
+    }
+  }
+
+  /** フォールバック: fs.watch がイベントを取りこぼす環境向け */
   private startPolling(): void {
     this.pollTimer = setInterval(() => {
-      this.checkStatus();
+      this.handleChange();
     }, POLL_INTERVAL_MS);
   }
 
-  private checkStatus(): void {
+  private handleChange(): void {
     const status = this.readStatus();
     if (!status) return;
 
-    // タイムスタンプが変わっていない場合はスキップ（ファイル未更新）
+    // タイムスタンプが変わっていなければスキップ
     if (status.timestamp === this.lastTimestamp) return;
     this.lastTimestamp = status.timestamp;
 
@@ -81,6 +109,7 @@ export class ClaudeStatusWatcher implements vscode.Disposable {
   }
 
   dispose(): void {
+    this.fsWatcher?.close();
     if (this.pollTimer) {
       clearInterval(this.pollTimer);
     }
