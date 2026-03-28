@@ -29,19 +29,7 @@ Anytime Markdown なら、WYSIWYG エディタで Markdown をリッチに表示
 
 ## 2. はじめかた
 
-`.md` / `.markdown` ファイルを開くと自動的に Anytime Markdown で表示されます。
-
-**エクスプローラから開く場合:**
-
-1. VS Code のサイドバーで **エクスプローラ** を開く
-2. `.md` ファイルをクリックすると Anytime Markdown で表示される
-3. 右クリック → **「Open with Anytime」** でも開ける
-
-**VS Code 標準エディタで開きたい場合:**
-
-右クリック → **「Open With...」** → **「Text Editor」** を選択。
-
-VS Code 1.109.0 以上が必要です。
+エクスプローラや右クリックメニューから `.md` / `.markdown` ファイルを開くと、自動的に Anytime Markdown で表示されます。
 
 
 ## 3. Agent Note — AI にビジュアル情報を共有
