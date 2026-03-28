@@ -201,13 +201,14 @@ jobs:
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: poetic-syrniki-373949
+          BRANCH: ${{ github.head_ref }}
           COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          echo "Checking Netlify deploy for commit: $COMMIT_SHA"
+          echo "Checking Netlify deploy for branch: $BRANCH (commit: $COMMIT_SHA)"
           for i in $(seq 1 30); do
             DEPLOY=$(curl -sf -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \
               "https://api.netlify.com/api/v1/sites/$NETLIFY_SITE_ID/deploys?per_page=10" \
-              | jq -r "[.[] | select(.commit_ref == \"$COMMIT_SHA\")] | first // empty")
+              | jq -r "[.[] | select(.context == \"deploy-preview\" and .branch == \"$BRANCH\")] | first // empty")
 
             if [ -z "$DEPLOY" ]; then
               echo "Deploy not found yet... (attempt $i/30)"
@@ -216,18 +217,18 @@ jobs:
             fi
 
             STATE=$(echo "$DEPLOY" | jq -r '.state')
-            echo "Deploy state: $STATE"
+            DEPLOY_ID=$(echo "$DEPLOY" | jq -r '.id')
+            echo "Deploy state: $STATE (id: $DEPLOY_ID)"
 
             case "$STATE" in
               ready)
                 echo "Netlify deploy succeeded"
-                echo "$DEPLOY" | jq '{state, deploy_ssl_url, deploy_time, created_at}'
+                echo "$DEPLOY" | jq '{state, deploy_ssl_url, deploy_time, created_at, commit_ref}'
                 exit 0
                 ;;
               error)
                 echo "::error::Netlify deploy failed"
-                echo "$DEPLOY" | jq '{state, error_message, deploy_ssl_url, created_at}'
-                DEPLOY_ID=$(echo "$DEPLOY" | jq -r '.id')
+                echo "$DEPLOY" | jq '{state, error_message, deploy_ssl_url, created_at, commit_ref}'
                 echo "--- Deploy details ---"
                 curl -sf -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \
                   "https://api.netlify.com/api/v1/deploys/$DEPLOY_ID" \
