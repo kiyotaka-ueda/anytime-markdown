@@ -342,7 +342,13 @@ export function TableNodeView({ editor, node, getPos }: Readonly<NodeViewProps>)
           />
         ) : editOpen ? (
           <>
-            <SpreadsheetGrid editor={editor} isDark={isDark} t={t} />
+            <SpreadsheetGrid
+              editor={editor}
+              isDark={isDark}
+              t={t}
+              gridRows={editor.extensionManager.extensions.find((e) => e.name === "table")?.options?.gridRows}
+              gridCols={editor.extensionManager.extensions.find((e) => e.name === "table")?.options?.gridCols}
+            />
             {/* ProseMirror table hidden but kept in DOM for sync */}
             <Box sx={{ display: "none" }}>
               <NodeViewContent<"table"> as="table" />

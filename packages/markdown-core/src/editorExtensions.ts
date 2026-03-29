@@ -110,7 +110,7 @@ const ListTextCleanup = Extension.create({
 });
 
 /** 共通 Extension（メインエディタ / 比較エディタで共有） */
-export function getBaseExtensions(options?: { disableComments?: boolean; disableCheckboxToggle?: boolean }): Extensions {
+export function getBaseExtensions(options?: { disableComments?: boolean; disableCheckboxToggle?: boolean; gridRows?: number; gridCols?: number }): Extensions {
   const extensions: Extensions = [
     StarterKit.configure({
       heading: { levels: [1, 2, 3, 4, 5] },
@@ -290,7 +290,7 @@ export function getBaseExtensions(options?: { disableComments?: boolean; disable
       tableCell: false,
       tableHeader: false,
     }),
-    CustomTable.configure({ resizable: false }),
+    CustomTable.configure({ resizable: false, gridRows: options?.gridRows, gridCols: options?.gridCols }),
     CustomTableCell,
     CustomTableHeader,
     Markdown.configure({
