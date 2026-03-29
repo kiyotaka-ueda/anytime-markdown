@@ -418,10 +418,14 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
         if (node.type.name === "table") { tableNode = node; return false; }
       });
       if (!tableNode) return;
-      const { data, range, alignments: aligns } = extractTableData(tableNode);
+      const { data, range, alignments: pmAligns } = extractTableData(tableNode);
       initGrid(data);
       setDataRange(range);
-      setAlignments(aligns);
+      // ProseMirror の配置情報を GRID_ROWS × GRID_COLS に拡張
+      const fullAligns: CellAlign[][] = Array.from({ length: GRID_ROWS }, (_, r) =>
+        Array.from({ length: GRID_COLS }, (_, c) => pmAligns[r]?.[c] ?? null),
+      );
+      setAlignments(fullAligns);
     };
     editor.on("update", handler);
     return () => { editor.off("update", handler); };

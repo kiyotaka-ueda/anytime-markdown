@@ -52,11 +52,19 @@ export function useSpreadsheetState({
   const [selection, setSelection] = useState<SpreadsheetSelection | null>(
     null,
   );
-  const [alignments, setAlignments] = useState<CellAlign[][]>(
-    () => initialAlignments ?? Array.from({ length: GRID_ROWS }, () =>
-      Array.from({ length: GRID_COLS }, () => null),
-    ),
-  );
+  const [alignments, setAlignments] = useState<CellAlign[][]>(() => {
+    const a = Array.from({ length: GRID_ROWS }, () =>
+      Array.from<CellAlign>({ length: GRID_COLS }).fill(null),
+    );
+    if (initialAlignments) {
+      for (let r = 0; r < initialAlignments.length && r < GRID_ROWS; r++) {
+        for (let c = 0; c < initialAlignments[r].length && c < GRID_COLS; c++) {
+          a[r][c] = initialAlignments[r][c];
+        }
+      }
+    }
+    return a;
+  });
 
   const setCellAlign = useCallback((row: number, col: number, align: CellAlign) => {
     setAlignments((prev) => {
