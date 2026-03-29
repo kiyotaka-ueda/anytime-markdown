@@ -320,16 +320,7 @@ export function TableNodeView({ editor, node, getPos }: Readonly<NodeViewProps>)
         tabIndex={editOpen ? -1 : undefined}
         sx={buildPaperSx(editOpen, isEditable, isDark, showToolbar)}
       >
-        {editOpen && (
-          <Box contentEditable={false}>
-            <EditDialogHeader
-              label={t("tableLabel")}
-              onClose={() => setEditOpen(false)}
-              icon={<TableChartIcon sx={{ fontSize: 18 }} />}
-              t={t}
-            />
-          </Box>
-        )}
+        {editOpen && <TableEditHeader editor={editor} isDark={isDark} isEditable={isEditable} setEditOpen={setEditOpen} t={t} />}
 
         {showInlineToolbar && (
           <BlockInlineToolbar
