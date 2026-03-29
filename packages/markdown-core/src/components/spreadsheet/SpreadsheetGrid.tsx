@@ -81,7 +81,27 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     initialData: initialTableData.data,
   });
 
-  const { syncCellToProseMirror, rebuildTable } = useSpreadsheetSync({ editor });
+  const { syncCellToProseMirror: rawSyncCell, rebuildTable: rawRebuildTable } = useSpreadsheetSync({ editor });
+  /** スプレッドシート自身が ProseMirror を更新中かを示すフラグ */
+  const selfUpdateRef = useRef(false);
+
+  const syncCellToProseMirror = useCallback(
+    (row: number, col: number, value: string) => {
+      selfUpdateRef.current = true;
+      rawSyncCell(row, col, value);
+      selfUpdateRef.current = false;
+    },
+    [rawSyncCell],
+  );
+
+  const rebuildTable = useCallback(
+    (g: string[][], range: DataRange) => {
+      selfUpdateRef.current = true;
+      rawRebuildTable(g, range);
+      selfUpdateRef.current = false;
+    },
+    [rawRebuildTable],
+  );
 
   const handleDataRangeChange = useCallback(
     (newRange: DataRange) => {
@@ -372,6 +392,25 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   useEffect(() => {
     drawGrid();
   }, [drawGrid]);
+
+  // ProseMirror のドキュメント変更（Undo/Redo 含む）を監視してグリッドを再同期
+  // 自分自身が ProseMirror を更新した場合はスキップ
+  useEffect(() => {
+    const handler = () => {
+      if (selfUpdateRef.current) return;
+      let tableNode: PMNode | null = null;
+      editor.state.doc.descendants((node) => {
+        if (tableNode) return false;
+        if (node.type.name === "table") { tableNode = node; return false; }
+      });
+      if (!tableNode) return;
+      const { data, range } = extractTableData(tableNode);
+      initGrid(data);
+      setDataRange(range);
+    };
+    editor.on("update", handler);
+    return () => { editor.off("update", handler); };
+  }, [editor, initGrid, setDataRange]);
 
   // Scroll-driven redraw
   useEffect(() => {
