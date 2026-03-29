@@ -307,6 +307,26 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     return undefined;
   };
 
+  const getDataRangeBorderLeft = (
+    row: number,
+    col: number,
+  ): string | undefined => {
+    if (col === 0 && row < dataRange.rows) {
+      return `2px solid ${primaryColor}`;
+    }
+    return undefined;
+  };
+
+  const getDataRangeBorderTop = (
+    row: number,
+    col: number,
+  ): string | undefined => {
+    if (row === 0 && col < dataRange.cols) {
+      return `2px solid ${primaryColor}`;
+    }
+    return undefined;
+  };
+
   // --- Column headers ---
   const columnHeaders = Array.from({ length: GRID_COLS }, (_, col) => {
     const inDataTop = col < dataRange.cols;
@@ -409,8 +429,10 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
             editing.row === row &&
             editing.col === col;
           const inRange = isInDataRange(row, col, dataRange);
-          const borderRight = getDataRangeBorderRight(row, col);
-          const borderBottom = getDataRangeBorderBottom(row, col);
+          const drRight = getDataRangeBorderRight(row, col);
+          const drBottom = getDataRangeBorderBottom(row, col);
+          const drLeft = getDataRangeBorderLeft(row, col);
+          const drTop = getDataRangeBorderTop(row, col);
           const rowSelected = isRowSelected(row);
           const colSelected = isColSelected(col);
 
@@ -421,8 +443,11 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
               sx={{
                 padding: 0,
                 position: "relative",
-                borderRight: borderRight ?? undefined,
-                borderBottom: borderBottom ?? undefined,
+                minWidth: 80,
+                borderRight: drRight ?? "none",
+                borderBottom: drBottom ?? "none",
+                borderLeft: drLeft ?? "none",
+                borderTop: drTop ?? "none",
                 background:
                   rowSelected || colSelected ? selectedBg : undefined,
               }}

@@ -31,9 +31,6 @@ const SpreadsheetCell: React.FC<Readonly<SpreadsheetCellProps>> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const [editValue, setEditValue] = useState(value);
 
-  const borderColor = isDark
-    ? "rgba(255,255,255,0.12)"
-    : "rgba(0,0,0,0.12)";
   const selectedOutline = isDark ? "#5b9bd5" : "#1976d2";
 
   // Sync editValue when entering edit mode
@@ -123,39 +120,27 @@ const SpreadsheetCell: React.FC<Readonly<SpreadsheetCellProps>> = ({
     }
   }, [isEditing, editValue, onCommit]);
 
-  const rangeBackground = isInRange
-    ? isDark
-      ? "rgba(91,155,213,0.15)"
-      : "rgba(25,118,210,0.08)"
-    : undefined;
-
   return (
     <Box
-      component="td"
       tabIndex={isSelected ? 0 : -1}
       onClick={onSelect}
       onDoubleClick={onDoubleClick}
       onKeyDown={handleKeyDown}
       sx={{
+        width: "100%",
         height: 28,
-        minWidth: 80,
-        maxWidth: 200,
         padding: "0 6px",
-        borderRight: "none",
-        borderBottom: "none",
         cursor: "cell",
         userSelect: isEditing ? "auto" : "none",
         outline: isSelected
           ? `2px solid ${selectedOutline}`
           : "none",
         outlineOffset: -2,
-        position: "relative",
         overflow: "hidden",
         textOverflow: "ellipsis",
         whiteSpace: "nowrap",
         fontSize: 13,
         lineHeight: "28px",
-        background: rangeBackground,
         boxSizing: "border-box",
       }}
     >
