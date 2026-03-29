@@ -141,8 +141,8 @@ const SpreadsheetCell: React.FC<Readonly<SpreadsheetCellProps>> = ({
         minWidth: 80,
         maxWidth: 200,
         padding: "0 6px",
-        borderRight: `1px solid ${borderColor}`,
-        borderBottom: `1px solid ${borderColor}`,
+        borderRight: "none",
+        borderBottom: "none",
         cursor: "cell",
         userSelect: isEditing ? "auto" : "none",
         outline: isSelected

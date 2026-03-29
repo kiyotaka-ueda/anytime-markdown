@@ -336,16 +336,14 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
           textAlign: "center",
           lineHeight: "28px",
           background: isSelected ? selectedBg : headerBg,
-          borderRight: `1px solid ${borderColor}`,
+          borderRight: "none",
           borderBottom: inDataTop
             ? `2px solid ${primaryColor}`
             : `1px solid ${borderColor}`,
-          borderTop: inDataTop
-            ? `2px solid ${primaryColor}`
-            : `1px solid ${borderColor}`,
+          borderTop: "none",
           borderLeft: isColDropTarget
             ? `3px solid ${primaryColor}`
-            : undefined,
+            : "none",
           cursor: "grab",
           userSelect: "none",
           boxSizing: "border-box",
@@ -391,13 +389,11 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
             borderRight: inDataLeft
               ? `2px solid ${primaryColor}`
               : `1px solid ${borderColor}`,
-            borderBottom: `1px solid ${borderColor}`,
-            borderLeft: inDataLeft
-              ? `2px solid ${primaryColor}`
-              : `1px solid ${borderColor}`,
+            borderBottom: "none",
+            borderLeft: "none",
             borderTop: isRowDropTarget
               ? `3px solid ${primaryColor}`
-              : undefined,
+              : "none",
             cursor: "grab",
             userSelect: "none",
             boxSizing: "border-box",
@@ -489,6 +485,8 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
                 background: headerBg,
                 borderRight: `1px solid ${borderColor}`,
                 borderBottom: `1px solid ${borderColor}`,
+                borderLeft: "none",
+                borderTop: "none",
                 boxSizing: "border-box",
               }}
             />
