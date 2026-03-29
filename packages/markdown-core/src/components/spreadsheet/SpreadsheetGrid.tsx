@@ -1,8 +1,12 @@
-import { Box } from "@mui/material";
+import FormatAlignCenterIcon from "@mui/icons-material/FormatAlignCenter";
+import FormatAlignLeftIcon from "@mui/icons-material/FormatAlignLeft";
+import FormatAlignRightIcon from "@mui/icons-material/FormatAlignRight";
+import { Box, ToggleButton, ToggleButtonGroup, Tooltip } from "@mui/material";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { Editor } from "@tiptap/react";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CellEditState, ContextMenuState, DataRange } from "./spreadsheetTypes";
+import { getDivider } from "../../constants/colors";
+import type { CellAlign, CellEditState, ContextMenuState, DataRange } from "./spreadsheetTypes";
 import { SpreadsheetContextMenu } from "./SpreadsheetContextMenu";
 import { useSpreadsheetState } from "./useSpreadsheetState";
 import { useSpreadsheetSync, extractTableData } from "./useSpreadsheetSync";
@@ -56,18 +60,21 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
       if (tableNode) return false;
       if (node.type.name === "table") { tableNode = node; return false; }
     });
-    if (!tableNode) return { rows: 1, cols: 1, data: [] as string[][] };
-    const { data, range } = extractTableData(tableNode);
-    return { rows: range.rows, cols: range.cols, data };
+    if (!tableNode) return { rows: 1, cols: 1, data: [] as string[][], alignments: [] as (import("./spreadsheetTypes").CellAlign)[] };
+    const { data, range, alignments } = extractTableData(tableNode);
+    return { rows: range.rows, cols: range.cols, data, alignments };
   }, []);
 
   const {
     grid,
+    alignments,
     dataRange,
     selection,
     setCellValue,
     setDataRange,
     setSelection,
+    setColumnAlign,
+    setAlignments,
     initGrid,
     insertRow,
     deleteRow,
@@ -79,6 +86,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     initialRows: initialTableData.rows,
     initialCols: initialTableData.cols,
     initialData: initialTableData.data,
+    initialAlignments: initialTableData.alignments,
   });
 
   const { syncCellToProseMirror: rawSyncCell, rebuildTable: rawRebuildTable } = useSpreadsheetSync({ editor });
@@ -94,11 +102,11 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   );
 
   const rebuildTable = useCallback(
-    (g: string[][], range: DataRange) => {
+    (g: string[][], range: DataRange, aligns?: import("./spreadsheetTypes").CellAlign[]) => {
       skipSyncCountRef.current++;
-      rawRebuildTable(g, range);
+      rawRebuildTable(g, range, aligns ?? alignments);
     },
-    [rawRebuildTable],
+    [rawRebuildTable, alignments],
   );
 
   const handleDataRangeChange = useCallback(
@@ -273,29 +281,34 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     ctx.fillStyle = textColor;
     ctx.font = "13px -apple-system, BlinkMacSystemFont, sans-serif";
     ctx.textBaseline = "middle";
-    ctx.textAlign = "left";
 
     for (let r = startRow; r < endRow; r++) {
       for (let c = startCol; c < endCol; c++) {
         const value = grid[r][c];
         if (!value) continue;
-        // Skip the cell being edited
         if (editing && editing.row === r && editing.col === c) continue;
 
-        const x = ROW_NUM_WIDTH + c * COL_WIDTH + 6;
-        const y = HEADER_HEIGHT + r * ROW_HEIGHT + ROW_HEIGHT / 2;
+        const cellLeft = ROW_NUM_WIDTH + c * COL_WIDTH;
+        const cellY = HEADER_HEIGHT + r * ROW_HEIGHT + ROW_HEIGHT / 2;
+        const colAlign = alignments[c];
 
-        // Clip text to cell bounds
+        let textX: number;
+        if (colAlign === "center") {
+          ctx.textAlign = "center";
+          textX = cellLeft + COL_WIDTH / 2;
+        } else if (colAlign === "right") {
+          ctx.textAlign = "right";
+          textX = cellLeft + COL_WIDTH - 6;
+        } else {
+          ctx.textAlign = "left";
+          textX = cellLeft + 6;
+        }
+
         ctx.save();
         ctx.beginPath();
-        ctx.rect(
-          ROW_NUM_WIDTH + c * COL_WIDTH,
-          HEADER_HEIGHT + r * ROW_HEIGHT,
-          COL_WIDTH,
-          ROW_HEIGHT,
-        );
+        ctx.rect(cellLeft, HEADER_HEIGHT + r * ROW_HEIGHT, COL_WIDTH, ROW_HEIGHT);
         ctx.clip();
-        ctx.fillText(value, x, y);
+        ctx.fillText(value, textX, cellY);
         ctx.restore();
       }
     }
@@ -379,7 +392,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
 
     ctx.restore();
   }, [
-    bgColor, borderColor, dataRange, editing, grid, headerBg, headerTextColor,
+    alignments, bgColor, borderColor, dataRange, editing, grid, headerBg, headerTextColor,
     previewRange, primaryColor, reorderDrag, selectedBg, selection, textColor, totalHeight, totalWidth,
   ]);
 
@@ -405,13 +418,14 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
         if (node.type.name === "table") { tableNode = node; return false; }
       });
       if (!tableNode) return;
-      const { data, range } = extractTableData(tableNode);
+      const { data, range, alignments: aligns } = extractTableData(tableNode);
       initGrid(data);
       setDataRange(range);
+      setAlignments(aligns);
     };
     editor.on("update", handler);
     return () => { editor.off("update", handler); };
-  }, [editor, initGrid, setDataRange]);
+  }, [editor, initGrid, setDataRange, setAlignments]);
 
   // Scroll-driven redraw
   useEffect(() => {
@@ -963,21 +977,73 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   } : { display: "none" };
 
   /* ---------------------------------------------------------------- */
+  /*  Alignment handler                                                */
+  /* ---------------------------------------------------------------- */
+
+  const handleAlignChange = useCallback(
+    (_e: React.MouseEvent, val: string | null) => {
+      if (!val || !selection) return;
+      const align = val as CellAlign;
+
+      if (selection.type === "col") {
+        const minC = Math.min(selection.start, selection.end);
+        const maxC = Math.max(selection.start, selection.end);
+        for (let c = minC; c <= maxC; c++) {
+          setColumnAlign(c, align);
+        }
+      } else if (selection.type === "cell") {
+        setColumnAlign(selection.col, align);
+      }
+      // 配置変更を ProseMirror に反映
+      const newAligns = [...alignments];
+      if (selection.type === "col") {
+        const minC = Math.min(selection.start, selection.end);
+        const maxC = Math.max(selection.start, selection.end);
+        for (let c = minC; c <= maxC; c++) {
+          newAligns[c] = align;
+        }
+      } else if (selection.type === "cell") {
+        newAligns[selection.col] = align;
+      }
+      rebuildTable(grid, dataRange, newAligns);
+    },
+    [selection, setColumnAlign, alignments, rebuildTable, grid, dataRange],
+  );
+
+  const iconSx = { fontSize: 16 };
+
+  /* ---------------------------------------------------------------- */
   /*  Render                                                           */
   /* ---------------------------------------------------------------- */
 
   return (
-    <Box
-      ref={containerRef}
-      onContextMenu={(e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); }}
-      sx={{
-        overflow: "auto",
-        flex: 1,
-        position: "relative",
-        fontSize: 13,
-        lineHeight: "24px",
-      }}
-    >
+    <Box sx={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
+      {/* Alignment toolbar */}
+      <Box sx={{ display: "flex", alignItems: "center", borderBottom: 1, borderColor: getDivider(isDark), px: 1, py: 0.25, gap: 0.5, flexShrink: 0 }}>
+        <ToggleButtonGroup exclusive size="small" sx={{ height: 24 }} onChange={handleAlignChange}>
+          <ToggleButton value="left" aria-label={t("alignLeft")} sx={{ px: 0.5, py: 0.125 }}>
+            <Tooltip title={t("alignLeft")} placement="top"><FormatAlignLeftIcon sx={iconSx} /></Tooltip>
+          </ToggleButton>
+          <ToggleButton value="center" aria-label={t("alignCenter")} sx={{ px: 0.5, py: 0.125 }}>
+            <Tooltip title={t("alignCenter")} placement="top"><FormatAlignCenterIcon sx={iconSx} /></Tooltip>
+          </ToggleButton>
+          <ToggleButton value="right" aria-label={t("alignRight")} sx={{ px: 0.5, py: 0.125 }}>
+            <Tooltip title={t("alignRight")} placement="top"><FormatAlignRightIcon sx={iconSx} /></Tooltip>
+          </ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
+
+      <Box
+        ref={containerRef}
+        onContextMenu={(e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); }}
+        sx={{
+          overflow: "auto",
+          flex: 1,
+          position: "relative",
+          fontSize: 13,
+          lineHeight: "24px",
+        }}
+      >
       <canvas
         ref={canvasRef}
         tabIndex={0}
@@ -1019,6 +1085,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
           t={t}
         />
       )}
+    </Box>
     </Box>
   );
 };

@@ -233,36 +233,6 @@ function buildTableBodySx(collapsed: boolean, editOpen: boolean, isDark: boolean
   };
 }
 
-/** 全画面スプレッドシート用の配置のみツールバー */
-function SpreadsheetAlignmentToolbar({ editor, isDark, t }: Readonly<{ editor: Editor; isDark: boolean; t: (key: string) => string }>) {
-  return (
-    <Box sx={{ display: "flex", alignItems: "center", borderBottom: 1, borderColor: getDivider(isDark), px: 1, py: 0.25, gap: 0.5 }}>
-      <ToggleButtonGroup
-        exclusive
-        size="small"
-        sx={{ height: 24 }}
-        onChange={(_e, val) => { if (val) editor.chain().focus().setCellAttribute("textAlign", val).run(); }}
-      >
-        <ToggleButton value="left" aria-label={t("alignLeft")} sx={{ px: 0.5, py: 0.125 }}>
-          <Tooltip title={t("alignLeft")} placement="top">
-            <FormatAlignLeftIcon sx={iconSx} />
-          </Tooltip>
-        </ToggleButton>
-        <ToggleButton value="center" aria-label={t("alignCenter")} sx={{ px: 0.5, py: 0.125 }}>
-          <Tooltip title={t("alignCenter")} placement="top">
-            <FormatAlignCenterIcon sx={iconSx} />
-          </Tooltip>
-        </ToggleButton>
-        <ToggleButton value="right" aria-label={t("alignRight")} sx={{ px: 0.5, py: 0.125 }}>
-          <Tooltip title={t("alignRight")} placement="top">
-            <FormatAlignRightIcon sx={iconSx} />
-          </Tooltip>
-        </ToggleButton>
-      </ToggleButtonGroup>
-    </Box>
-  );
-}
-
 /** 編集ヘッダーツールバー */
 function TableEditHeader({ editor, isDark, isEditable, isSpreadsheet, setEditOpen, t }: Readonly<{
   editor: Editor; isDark: boolean; isEditable: boolean; isSpreadsheet: boolean;
@@ -276,10 +246,7 @@ function TableEditHeader({ editor, isDark, isEditable, isSpreadsheet, setEditOpe
         icon={<TableChartIcon sx={{ fontSize: 18 }} />}
         t={t}
       />
-      {isEditable && (isSpreadsheet
-        ? <SpreadsheetAlignmentToolbar editor={editor} isDark={isDark} t={t} />
-        : <TableOperationsToolbar editor={editor} isDark={isDark} t={t} />
-      )}
+      {isEditable && !isSpreadsheet && <TableOperationsToolbar editor={editor} isDark={isDark} t={t} />}
     </Box>
   );
 }

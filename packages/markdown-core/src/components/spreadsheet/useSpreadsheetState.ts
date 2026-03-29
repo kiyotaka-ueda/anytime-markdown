@@ -1,20 +1,24 @@
 import { useState, useCallback } from "react";
-import type { SpreadsheetSelection, DataRange } from "./spreadsheetTypes";
+import type { CellAlign, SpreadsheetSelection, DataRange } from "./spreadsheetTypes";
 import { GRID_ROWS, GRID_COLS, createEmptyGrid } from "./spreadsheetUtils";
 
 interface UseSpreadsheetStateParams {
   readonly initialRows: number;
   readonly initialCols: number;
   readonly initialData?: string[][];
+  readonly initialAlignments?: CellAlign[];
 }
 
 interface UseSpreadsheetStateReturn {
   readonly grid: string[][];
+  readonly alignments: CellAlign[];
   readonly dataRange: DataRange;
   readonly selection: SpreadsheetSelection | null;
   readonly setCellValue: (row: number, col: number, value: string) => void;
   readonly setDataRange: (range: DataRange) => void;
   readonly setSelection: (sel: SpreadsheetSelection | null) => void;
+  readonly setColumnAlign: (col: number, align: CellAlign) => void;
+  readonly setAlignments: (aligns: CellAlign[]) => void;
   readonly initGrid: (data: string[][]) => void;
   readonly insertRow: (atIndex: number) => void;
   readonly deleteRow: (atIndex: number) => void;
@@ -28,6 +32,7 @@ export function useSpreadsheetState({
   initialRows,
   initialCols,
   initialData,
+  initialAlignments,
 }: UseSpreadsheetStateParams): UseSpreadsheetStateReturn {
   const [grid, setGrid] = useState<string[][]>(() => {
     const g = createEmptyGrid();
@@ -47,6 +52,17 @@ export function useSpreadsheetState({
   const [selection, setSelection] = useState<SpreadsheetSelection | null>(
     null,
   );
+  const [alignments, setAlignments] = useState<CellAlign[]>(
+    () => initialAlignments ?? Array.from({ length: GRID_COLS }, () => null),
+  );
+
+  const setColumnAlign = useCallback((col: number, align: CellAlign) => {
+    setAlignments((prev) => {
+      const next = [...prev];
+      next[col] = align;
+      return next;
+    });
+  }, []);
 
   const setCellValue = useCallback(
     (row: number, col: number, value: string) => {
@@ -130,11 +146,14 @@ export function useSpreadsheetState({
 
   return {
     grid,
+    alignments,
     dataRange,
     selection,
     setCellValue,
     setDataRange,
     setSelection,
+    setColumnAlign,
+    setAlignments,
     initGrid,
     insertRow,
     deleteRow,

@@ -24,6 +24,9 @@ export interface CellEditState {
   readonly value: string;
 }
 
+/** セルの配置 */
+export type CellAlign = "left" | "center" | "right" | null;
+
 /** コンテキストメニューの状態 */
 export interface ContextMenuState {
   readonly anchorX: number;

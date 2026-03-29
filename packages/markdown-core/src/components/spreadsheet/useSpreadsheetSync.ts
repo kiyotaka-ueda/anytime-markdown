@@ -1,27 +1,36 @@
 import { useCallback } from "react";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { Editor } from "@tiptap/react";
-import type { DataRange } from "./spreadsheetTypes";
+import type { CellAlign, DataRange } from "./spreadsheetTypes";
 
 /**
- * ProseMirror テーブルノードからセルデータを抽出する純粋関数。
- * 行 -> セルを走査し、2D 配列とデータ範囲を返す。
+ * ProseMirror テーブルノードからセルデータと配置情報を抽出する純粋関数。
  */
 export function extractTableData(tableNode: PMNode): {
   data: string[][];
   range: DataRange;
+  alignments: CellAlign[];
 } {
   const data: string[][] = [];
+  const alignments: CellAlign[] = [];
+  let firstRow = true;
   tableNode.forEach((rowNode) => {
     const row: string[] = [];
     rowNode.forEach((cellNode) => {
       row.push(cellNode.textContent);
+      if (firstRow) {
+        const align = cellNode.attrs.textAlign as string | null;
+        alignments.push(
+          align === "center" || align === "right" || align === "left" ? align : null,
+        );
+      }
     });
     data.push(row);
+    firstRow = false;
   });
   const rows = data.length;
   const cols = rows > 0 ? data[0].length : 0;
-  return { data, range: { rows, cols } };
+  return { data, range: { rows, cols }, alignments };
 }
 
 interface UseSpreadsheetSyncOptions {
@@ -86,7 +95,7 @@ export function useSpreadsheetSync({
    * 範囲変更時（リサイズ、行/列の追加削除）に呼び出す。
    */
   const rebuildTable = useCallback(
-    (grid: string[][], newRange: DataRange) => {
+    (grid: string[][], newRange: DataRange, colAlignments?: CellAlign[]) => {
       if (!editor) return;
 
       let tablePos = -1;
@@ -119,7 +128,8 @@ export function useSpreadsheetSync({
             text ? schema.text(text) : null,
           );
           const type = r === 0 ? headerType : cellType;
-          cells.push(type.create(null, paragraph));
+          const align = colAlignments?.[c] ?? null;
+          cells.push(type.create(align ? { textAlign: align } : null, paragraph));
         }
         rows.push(rowType.create(null, cells));
       }
