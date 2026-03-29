@@ -268,7 +268,10 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
         }
       }
     }
-    const startRow = Math.max(0, Math.floor((scrollTop - HEADER_HEIGHT) / rowHeight));
+    // 固定1行目が表示される場合は row 0 を通常描画からスキップ
+    const isStickyFirstRow = scrollTop > 0 && dataRange.rows > 0;
+    const rawStartRow = Math.max(0, Math.floor((scrollTop - HEADER_HEIGHT) / rowHeight));
+    const startRow = isStickyFirstRow ? Math.max(1, rawStartRow) : rawStartRow;
     const endRow = Math.min(GRID_ROWS, Math.ceil((scrollTop + viewHeight - HEADER_HEIGHT) / rowHeight));
 
     // Clip to visible area for performance
@@ -387,9 +390,8 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     }
 
     // 6.5. Sticky first data row (row 0) — テーブルのヘッダー行を固定表示
-    const firstRowY = HEADER_HEIGHT; // row 0 の通常位置
     const stickyRowY = scrollTop + HEADER_HEIGHT; // 固定表示位置
-    if (stickyRowY > firstRowY && dataRange.rows > 0) {
+    if (isStickyFirstRow) {
       // 1行目がスクロールで隠れている場合、固定位置に再描画
       // 背景を描画
       ctx.fillStyle = headerBg;
