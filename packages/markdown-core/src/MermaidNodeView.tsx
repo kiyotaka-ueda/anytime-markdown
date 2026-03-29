@@ -108,7 +108,8 @@ export function CodeBlockNodeView({ editor, node, updateAttributes, getPos }: Re
     }).run();
     originalCodeRef.current = fsCode;
     setFsDirty(false);
-  }, [editor, getPos, node.content.size, fsCode]);
+    setEditOpen(false);
+  }, [editor, getPos, node.content.size, fsCode, setEditOpen]);
 
   /** 閉じるときの確認 */
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false);

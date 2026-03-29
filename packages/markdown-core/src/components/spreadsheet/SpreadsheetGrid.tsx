@@ -63,6 +63,8 @@ interface SpreadsheetGridProps {
   readonly gridCols?: number;
   /** 未適用の変更有無が変化したときのコールバック */
   readonly onDirtyChange?: (dirty: boolean) => void;
+  /** 適用後に全画面を閉じるコールバック */
+  readonly onClose?: () => void;
 }
 
 /* ------------------------------------------------------------------ */
@@ -76,6 +78,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   gridRows: GRID_ROWS = DEFAULT_GRID_ROWS,
   gridCols: GRID_COLS = DEFAULT_GRID_COLS,
   onDirtyChange,
+  onClose,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1497,7 +1500,8 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     dirtyRef.current = false;
     setDirty(false);
     onDirtyChange?.(false);
-  }, [rebuildTable, grid, dataRange, alignments, onDirtyChange]);
+    onClose?.();
+  }, [rebuildTable, grid, dataRange, alignments, onDirtyChange, onClose]);
 
   const iconSx = { fontSize: 16 };
 
