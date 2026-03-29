@@ -82,23 +82,21 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   });
 
   const { syncCellToProseMirror: rawSyncCell, rebuildTable: rawRebuildTable } = useSpreadsheetSync({ editor });
-  /** スプレッドシート自身が ProseMirror を更新中かを示すフラグ */
-  const selfUpdateRef = useRef(false);
+  /** スプレッドシート自身が ProseMirror を更新した回数（update イベントでデクリメント） */
+  const skipSyncCountRef = useRef(0);
 
   const syncCellToProseMirror = useCallback(
     (row: number, col: number, value: string) => {
-      selfUpdateRef.current = true;
+      skipSyncCountRef.current++;
       rawSyncCell(row, col, value);
-      selfUpdateRef.current = false;
     },
     [rawSyncCell],
   );
 
   const rebuildTable = useCallback(
     (g: string[][], range: DataRange) => {
-      selfUpdateRef.current = true;
+      skipSyncCountRef.current++;
       rawRebuildTable(g, range);
-      selfUpdateRef.current = false;
     },
     [rawRebuildTable],
   );
@@ -394,10 +392,13 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   }, [drawGrid]);
 
   // ProseMirror のドキュメント変更（Undo/Redo 含む）を監視してグリッドを再同期
-  // 自分自身が ProseMirror を更新した場合はスキップ
+  // 自分自身が ProseMirror を更新した場合はスキップ（カウンターで判定）
   useEffect(() => {
     const handler = () => {
-      if (selfUpdateRef.current) return;
+      if (skipSyncCountRef.current > 0) {
+        skipSyncCountRef.current--;
+        return;
+      }
       let tableNode: PMNode | null = null;
       editor.state.doc.descendants((node) => {
         if (tableNode) return false;
@@ -838,6 +839,22 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
 
     const { key, shiftKey, ctrlKey, metaKey, altKey } = e;
 
+    // Undo/Redo を editor に転送
+    if ((ctrlKey || metaKey) && key === "z") {
+      e.preventDefault();
+      if (shiftKey) {
+        editor.chain().redo().run();
+      } else {
+        editor.chain().undo().run();
+      }
+      return;
+    }
+    if ((ctrlKey || metaKey) && key === "y") {
+      e.preventDefault();
+      editor.chain().redo().run();
+      return;
+    }
+
     if (
       key === "ArrowUp" ||
       key === "ArrowDown" ||
@@ -877,7 +894,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
       }
     }
   }, [
-    editing, selection, handleKeyNavigation, startEditing,
+    editing, editor, selection, handleKeyNavigation, startEditing,
     startEditingWithChar, setCellValue, dataRange, syncCellToProseMirror,
   ]);
 
