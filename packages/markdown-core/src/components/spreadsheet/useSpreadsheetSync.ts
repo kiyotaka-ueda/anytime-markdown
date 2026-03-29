@@ -81,15 +81,56 @@ export function useSpreadsheetSync({
     [editor],
   );
 
-  const addRowToProseMirror = useCallback(() => {
-    if (!editor) return;
-    editor.chain().focus().addRowAfter().run();
-  }, [editor]);
+  /**
+   * グリッドデータと新しいデータ範囲から ProseMirror テーブルを丸ごと再構築する。
+   * 範囲変更時（リサイズ、行/列の追加削除）に呼び出す。
+   */
+  const rebuildTable = useCallback(
+    (grid: string[][], newRange: DataRange) => {
+      if (!editor) return;
 
-  const addColToProseMirror = useCallback(() => {
-    if (!editor) return;
-    editor.chain().focus().addColumnAfter().run();
-  }, [editor]);
+      let tablePos = -1;
+      let foundTable: PMNode | null = null;
+      editor.state.doc.descendants((node, pos) => {
+        if (foundTable) return false;
+        if (node.type.name === "table") {
+          foundTable = node;
+          tablePos = pos;
+          return false;
+        }
+      });
+      if (!foundTable || tablePos < 0) return;
+      const tableNode: PMNode = foundTable;
 
-  return { syncCellToProseMirror, addRowToProseMirror, addColToProseMirror };
+      const { schema } = editor.state;
+      const tableType = schema.nodes.table;
+      const rowType = schema.nodes.tableRow;
+      const cellType = schema.nodes.tableCell;
+      const headerType = schema.nodes.tableHeader;
+      const paragraphType = schema.nodes.paragraph;
+
+      const rows: PMNode[] = [];
+      for (let r = 0; r < newRange.rows; r++) {
+        const cells: PMNode[] = [];
+        for (let c = 0; c < newRange.cols; c++) {
+          const text = grid[r]?.[c] ?? "";
+          const paragraph = paragraphType.create(
+            null,
+            text ? schema.text(text) : null,
+          );
+          const type = r === 0 ? headerType : cellType;
+          cells.push(type.create(null, paragraph));
+        }
+        rows.push(rowType.create(null, cells));
+      }
+
+      const newTable = tableType.create(tableNode.attrs, rows);
+      const { tr } = editor.state;
+      tr.replaceWith(tablePos, tablePos + tableNode.nodeSize, newTable);
+      editor.view.dispatch(tr);
+    },
+    [editor],
+  );
+
+  return { syncCellToProseMirror, rebuildTable };
 }

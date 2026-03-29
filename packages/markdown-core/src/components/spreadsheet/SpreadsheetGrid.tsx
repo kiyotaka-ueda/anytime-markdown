@@ -2,7 +2,7 @@ import { Box } from "@mui/material";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { Editor } from "@tiptap/react";
 import React, { useCallback, useMemo, useRef, useState } from "react";
-import type { CellEditState, ContextMenuState } from "./spreadsheetTypes";
+import type { CellEditState, ContextMenuState, DataRange } from "./spreadsheetTypes";
 import SpreadsheetCell from "./SpreadsheetCell";
 import { SpreadsheetContextMenu } from "./SpreadsheetContextMenu";
 import { SpreadsheetDataRange } from "./SpreadsheetDataRange";
@@ -61,7 +61,16 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     initialData: initialTableData.data,
   });
 
-  const { syncCellToProseMirror } = useSpreadsheetSync({ editor });
+  const { syncCellToProseMirror, rebuildTable } = useSpreadsheetSync({ editor });
+
+  /** データ範囲変更時に ProseMirror テーブルも再構築する */
+  const handleDataRangeChange = useCallback(
+    (newRange: DataRange) => {
+      setDataRange(newRange);
+      rebuildTable(grid, newRange);
+    },
+    [setDataRange, rebuildTable, grid],
+  );
 
   const [editing, setEditing] = useState<CellEditState | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(
@@ -534,7 +543,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
 
       <SpreadsheetDataRange
         dataRange={dataRange}
-        onResize={setDataRange}
+        onResize={handleDataRangeChange}
         containerRef={containerRef}
         isDark={isDark}
       />
