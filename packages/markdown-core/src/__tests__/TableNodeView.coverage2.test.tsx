@@ -148,6 +148,11 @@ function createMockEditor(overrides?: Record<string, any>) {
     state: { selection: { from: 0, to: 0 } },
     isActive: () => false,
     storage: { searchReplace: true },
+    extensionManager: {
+      extensions: [
+        { name: "table", options: { gridRows: 51, gridCols: 15 } },
+      ],
+    },
     ...overrides,
   };
 }
