@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback } from "react";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { Editor } from "@tiptap/react";
 import type { DataRange } from "./spreadsheetTypes";
@@ -26,8 +26,6 @@ export function extractTableData(tableNode: PMNode): {
 
 interface UseSpreadsheetSyncOptions {
   readonly editor: Editor | null;
-  readonly initGrid: (data: string[][]) => void;
-  readonly setDataRange: (range: DataRange) => void;
 }
 
 /**
@@ -37,24 +35,7 @@ interface UseSpreadsheetSyncOptions {
  */
 export function useSpreadsheetSync({
   editor,
-  initGrid,
-  setDataRange,
 }: UseSpreadsheetSyncOptions) {
-  useEffect(() => {
-    if (!editor) return;
-    let tableNode: PMNode | null = null;
-    editor.state.doc.descendants((node) => {
-      if (tableNode) return false;
-      if (node.type.name === "table") {
-        tableNode = node;
-        return false;
-      }
-    });
-    if (!tableNode) return;
-    const { data, range } = extractTableData(tableNode);
-    initGrid(data);
-    setDataRange(range);
-  }, [editor, initGrid, setDataRange]);
 
   const syncCellToProseMirror = useCallback(
     (row: number, col: number, value: string) => {

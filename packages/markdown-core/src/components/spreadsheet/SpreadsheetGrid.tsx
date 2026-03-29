@@ -1,7 +1,7 @@
 import { Box } from "@mui/material";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { Editor } from "@tiptap/react";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import type { CellEditState, ContextMenuState } from "./spreadsheetTypes";
 import SpreadsheetCell from "./SpreadsheetCell";
 import { SpreadsheetContextMenu } from "./SpreadsheetContextMenu";
@@ -27,8 +27,9 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // テーブルデータを同期的に取得して初期値にする
-  const initialTableData = useRef(() => {
+  // テーブルデータを同期的に取得して初期値にする（初回のみ実行）
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const initialTableData = useMemo(() => {
     let tableNode: PMNode | null = null;
     editor.state.doc.descendants((node) => {
       if (tableNode) return false;
@@ -37,7 +38,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     if (!tableNode) return { rows: 1, cols: 1, data: [] as string[][] };
     const { data, range } = extractTableData(tableNode);
     return { rows: range.rows, cols: range.cols, data };
-  }).current();
+  }, []);
 
   const {
     grid,
@@ -59,11 +60,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     initialData: initialTableData.data,
   });
 
-  const { syncCellToProseMirror } = useSpreadsheetSync({
-    editor,
-    initGrid,
-    setDataRange,
-  });
+  const { syncCellToProseMirror } = useSpreadsheetSync({ editor });
 
   const [editing, setEditing] = useState<CellEditState | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(
@@ -458,8 +455,8 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
                 padding: 0,
                 position: "relative",
                 minWidth: 80,
-                borderRight: drRight ?? "none",
-                borderBottom: drBottom ?? "none",
+                borderRight: drRight ?? `1px solid ${borderColor}`,
+                borderBottom: drBottom ?? `1px solid ${borderColor}`,
                 borderLeft: drLeft ?? "none",
                 borderTop: drTop ?? "none",
                 background:
