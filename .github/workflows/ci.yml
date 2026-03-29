@@ -84,6 +84,11 @@ jobs:
         run: npx jest --passWithNoTests --maxWorkers=1
         working-directory: packages/mcp-cms
 
+      - name: Run mcp-cms-remote tests
+        if: github.event_name == 'pull_request' && github.base_ref == 'master'
+        run: npx jest --maxWorkers=1
+        working-directory: packages/mcp-cms-remote
+
       - name: Run web-app tests with coverage
         if: github.event_name == 'pull_request' && github.base_ref == 'master'
         run: npx jest --coverage --coverageReporters=lcov
