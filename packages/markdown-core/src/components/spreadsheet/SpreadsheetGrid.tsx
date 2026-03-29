@@ -285,10 +285,17 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     ctx.fillStyle = bgColor;
     ctx.fillRect(scrollLeft, scrollTop, viewWidth, viewHeight);
 
-    // 2. Header backgrounds (drawn later on top, after cells)
-
     // Active data range for preview or actual
     const activeRange = previewRange ?? dataRange;
+
+    // セル描画領域をヘッダー・固定行の下に制限
+    const cellAreaTop = isStickyFirstRow
+      ? scrollTop + HEADER_HEIGHT + rowHeight  // 列ヘッダー + 固定1行目の下
+      : scrollTop + HEADER_HEIGHT;             // 列ヘッダーの下
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(scrollLeft, cellAreaTop, viewWidth, scrollTop + viewHeight - cellAreaTop);
+    ctx.clip();
 
     // 3. Row/Column selection highlight
     if (selection) {
@@ -388,6 +395,10 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
         ctx.restore();
       }
     }
+
+    // セル描画クリップを解除
+    ctx.restore();
+    ctx.save(); // 外側の save/restore 用に再度 save
 
     // 6.5. Sticky first data row (row 0) — テーブルのヘッダー行を固定表示
     const stickyRowY = scrollTop + HEADER_HEIGHT; // 固定表示位置
