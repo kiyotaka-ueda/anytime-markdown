@@ -445,7 +445,11 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
         </td>
         {/* Data cells */}
         {Array.from({ length: GRID_COLS }, (_, col) => {
-          const isSelected = isCellSelected(row, col);
+          // セル単体選択のみ outline 表示（行/列選択は背景色のみ）
+          const cellOnlySelected =
+            selection?.type === "cell" &&
+            selection.row === row &&
+            selection.col === col;
           const isEditing =
             editing !== null &&
             editing.row === row &&
@@ -475,7 +479,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
             >
               <SpreadsheetCell
                 value={grid[row][col]}
-                isSelected={isSelected}
+                isSelected={cellOnlySelected}
                 isEditing={isEditing}
                 isInRange={inRange}
                 onSelect={() => handleCellSelect(row, col)}
