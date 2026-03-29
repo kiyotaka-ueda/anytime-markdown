@@ -282,16 +282,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     ctx.fillStyle = bgColor;
     ctx.fillRect(scrollLeft, scrollTop, viewWidth, viewHeight);
 
-    // 2. Header backgrounds
-    ctx.fillStyle = headerBg;
-    // Column header row (top)
-    if (scrollTop < HEADER_HEIGHT) {
-      ctx.fillRect(scrollLeft, scrollTop, viewWidth, HEADER_HEIGHT - scrollTop);
-    }
-    // Row number column (left)
-    if (scrollLeft < ROW_NUM_WIDTH) {
-      ctx.fillRect(scrollLeft, scrollTop, ROW_NUM_WIDTH - scrollLeft, viewHeight);
-    }
+    // 2. Header backgrounds (drawn later on top, after cells)
 
     // Active data range for preview or actual
     const activeRange = previewRange ?? dataRange;
@@ -395,7 +386,50 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
       }
     }
 
-    // 7. Column headers
+    // 7. Row number column (sticky left) — 背景でセルを上書き
+    ctx.fillStyle = headerBg;
+    ctx.fillRect(scrollLeft, scrollTop, ROW_NUM_WIDTH, viewHeight);
+    // 行番号の区切り線
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(scrollLeft + ROW_NUM_WIDTH, scrollTop);
+    ctx.lineTo(scrollLeft + ROW_NUM_WIDTH, scrollTop + viewHeight);
+    ctx.stroke();
+
+    ctx.fillStyle = headerTextColor;
+    ctx.font = "600 12px -apple-system, BlinkMacSystemFont, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    for (let r = startRow; r < endRow; r++) {
+      const x = scrollLeft + ROW_NUM_WIDTH / 2;
+      const y = HEADER_HEIGHT + r * rowHeight + rowHeight / 2;
+
+      if (selection?.type === "row" &&
+          r >= Math.min(selection.start, selection.end) &&
+          r <= Math.max(selection.start, selection.end)) {
+        ctx.save();
+        ctx.fillStyle = selectedBg;
+        ctx.fillRect(scrollLeft, HEADER_HEIGHT + r * rowHeight, ROW_NUM_WIDTH, rowHeight);
+        ctx.restore();
+        ctx.fillStyle = headerTextColor;
+      }
+
+      ctx.fillText(String(r + 1), x, y);
+    }
+
+    // 8. Column header row (sticky top) — 背景でセルを上書き
+    ctx.fillStyle = headerBg;
+    ctx.fillRect(scrollLeft, scrollTop, viewWidth, HEADER_HEIGHT);
+    // ヘッダーの区切り線
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(scrollLeft, scrollTop + HEADER_HEIGHT);
+    ctx.lineTo(scrollLeft + viewWidth, scrollTop + HEADER_HEIGHT);
+    ctx.stroke();
+
     ctx.fillStyle = headerTextColor;
     ctx.font = "600 12px -apple-system, BlinkMacSystemFont, sans-serif";
     ctx.textAlign = "center";
@@ -405,15 +439,14 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
       const cw = getColWidth(c);
       const cx = getColX(c);
       const x = cx + cw / 2;
-      const y = HEADER_HEIGHT / 2;
+      const y = scrollTop + HEADER_HEIGHT / 2;
 
-      // Header background for selected column
       if (selection?.type === "col" &&
           c >= Math.min(selection.start, selection.end) &&
           c <= Math.max(selection.start, selection.end)) {
         ctx.save();
         ctx.fillStyle = selectedBg;
-        ctx.fillRect(cx, 0, cw, HEADER_HEIGHT);
+        ctx.fillRect(cx, scrollTop, cw, HEADER_HEIGHT);
         ctx.restore();
         ctx.fillStyle = headerTextColor;
       }
@@ -421,28 +454,19 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
       ctx.fillText(columnLabel(c), x, y);
     }
 
-    // 8. Row numbers
-    ctx.textAlign = "center";
+    // 9. Top-left corner (sticky both) — 背景で上書き
+    ctx.fillStyle = headerBg;
+    ctx.fillRect(scrollLeft, scrollTop, ROW_NUM_WIDTH, HEADER_HEIGHT);
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(scrollLeft + ROW_NUM_WIDTH, scrollTop);
+    ctx.lineTo(scrollLeft + ROW_NUM_WIDTH, scrollTop + HEADER_HEIGHT);
+    ctx.moveTo(scrollLeft, scrollTop + HEADER_HEIGHT);
+    ctx.lineTo(scrollLeft + ROW_NUM_WIDTH, scrollTop + HEADER_HEIGHT);
+    ctx.stroke();
 
-    for (let r = startRow; r < endRow; r++) {
-      const x = ROW_NUM_WIDTH / 2;
-      const y = HEADER_HEIGHT + r * rowHeight + rowHeight / 2;
-
-      // Row number background for selected row
-      if (selection?.type === "row" &&
-          r >= Math.min(selection.start, selection.end) &&
-          r <= Math.max(selection.start, selection.end)) {
-        ctx.save();
-        ctx.fillStyle = selectedBg;
-        ctx.fillRect(0, HEADER_HEIGHT + r * rowHeight, ROW_NUM_WIDTH, rowHeight);
-        ctx.restore();
-        ctx.fillStyle = headerTextColor;
-      }
-
-      ctx.fillText(String(r + 1), x, y);
-    }
-
-    // 9. Cell selection outline (only for cell selection)
+    // 10. Cell selection outline (only for cell selection)
     if (selection?.type === "cell") {
       const selCw = getColWidth(selection.col);
       const cellX = getColX(selection.col);
@@ -452,13 +476,13 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
       ctx.strokeRect(cellX + 1, cellY + 1, selCw - 2, rowHeight - 2);
     }
 
-    // 10. Resize handle (corner indicator)
+    // 11. Resize handle (corner indicator)
     const handleX = drRight - 5;
     const handleY = drBottom - 5;
     ctx.fillStyle = primaryColor;
     ctx.fillRect(handleX, handleY, 10, 10);
 
-    // 11. Reorder drag indicator
+    // 12. Reorder drag indicator
     if (reorderDrag && reorderDrag.targetIndex !== null) {
       ctx.strokeStyle = primaryColor;
       ctx.lineWidth = 3;
