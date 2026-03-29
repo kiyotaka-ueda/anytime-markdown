@@ -52,6 +52,11 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(
     null,
   );
+  const [dragState, setDragState] = useState<{
+    type: "row" | "col";
+    sourceIndex: number;
+    targetIndex: number | null;
+  } | null>(null);
 
   // --- Theme colors ---
   const primaryColor = isDark ? "#5b9bd5" : "#1976d2";
@@ -234,6 +239,53 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     setContextMenu(null);
   }, []);
 
+  // --- Drag-and-drop handlers ---
+  const handleDragStart = useCallback(
+    (type: "row" | "col", index: number, e: React.DragEvent) => {
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", String(index));
+      setDragState({ type, sourceIndex: index, targetIndex: null });
+    },
+    [],
+  );
+
+  const handleDragOver = useCallback(
+    (type: "row" | "col", index: number, e: React.DragEvent) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      setDragState((prev) =>
+        prev?.type === type ? { ...prev, targetIndex: index } : prev,
+      );
+    },
+    [],
+  );
+
+  const handleDragEnd = useCallback(() => {
+    setDragState(null);
+  }, []);
+
+  const handleDrop = useCallback(
+    (type: "row" | "col", targetIndex: number, e: React.DragEvent) => {
+      e.preventDefault();
+      const sourceIndex = Number.parseInt(
+        e.dataTransfer.getData("text/plain"),
+        10,
+      );
+      if (Number.isNaN(sourceIndex) || sourceIndex === targetIndex) {
+        setDragState(null);
+        return;
+      }
+
+      if (type === "row") {
+        swapRows(sourceIndex, targetIndex);
+      } else {
+        swapCols(sourceIndex, targetIndex);
+      }
+      setDragState(null);
+    },
+    [swapRows, swapCols],
+  );
+
   // --- Data range border helpers ---
   const getDataRangeBorderRight = (
     row: number,
@@ -259,12 +311,19 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   const columnHeaders = Array.from({ length: GRID_COLS }, (_, col) => {
     const inDataTop = col < dataRange.cols;
     const isSelected = isColSelected(col);
+    const isColDropTarget =
+      dragState?.type === "col" && dragState.targetIndex === col;
     return (
       <Box
         component="th"
         key={col}
+        draggable
         onClick={() => handleColSelect(col)}
         onContextMenu={(e: React.MouseEvent) => handleColContextMenu(e, col)}
+        onDragStart={(e: React.DragEvent) => handleDragStart("col", col, e)}
+        onDragOver={(e: React.DragEvent) => handleDragOver("col", col, e)}
+        onDrop={(e: React.DragEvent) => handleDrop("col", col, e)}
+        onDragEnd={handleDragEnd}
         sx={{
           position: "sticky",
           top: 0,
@@ -284,7 +343,10 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
           borderTop: inDataTop
             ? `2px solid ${primaryColor}`
             : `1px solid ${borderColor}`,
-          cursor: "pointer",
+          borderLeft: isColDropTarget
+            ? `3px solid ${primaryColor}`
+            : undefined,
+          cursor: "grab",
           userSelect: "none",
           boxSizing: "border-box",
         }}
@@ -298,15 +360,22 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   const rows = Array.from({ length: GRID_ROWS }, (_, row) => {
     const inDataLeft = row < dataRange.rows;
     const isRowSel = isRowSelected(row);
+    const isRowDropTarget =
+      dragState?.type === "row" && dragState.targetIndex === row;
     return (
       <Box component="tr" key={row}>
         {/* Row number cell */}
         <Box
           component="td"
+          draggable
           onClick={() => handleRowSelect(row)}
           onContextMenu={(e: React.MouseEvent) =>
             handleRowContextMenu(e, row)
           }
+          onDragStart={(e: React.DragEvent) => handleDragStart("row", row, e)}
+          onDragOver={(e: React.DragEvent) => handleDragOver("row", row, e)}
+          onDrop={(e: React.DragEvent) => handleDrop("row", row, e)}
+          onDragEnd={handleDragEnd}
           sx={{
             position: "sticky",
             left: 0,
@@ -326,7 +395,10 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
             borderLeft: inDataLeft
               ? `2px solid ${primaryColor}`
               : `1px solid ${borderColor}`,
-            cursor: "pointer",
+            borderTop: isRowDropTarget
+              ? `3px solid ${primaryColor}`
+              : undefined,
+            cursor: "grab",
             userSelect: "none",
             boxSizing: "border-box",
           }}
