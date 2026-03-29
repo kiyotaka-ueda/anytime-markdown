@@ -386,6 +386,55 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
       }
     }
 
+    // 6.5. Sticky first data row (row 0) — テーブルのヘッダー行を固定表示
+    const firstRowY = HEADER_HEIGHT; // row 0 の通常位置
+    const stickyRowY = scrollTop + HEADER_HEIGHT; // 固定表示位置
+    if (stickyRowY > firstRowY && dataRange.rows > 0) {
+      // 1行目がスクロールで隠れている場合、固定位置に再描画
+      // 背景を描画
+      ctx.fillStyle = headerBg;
+      ctx.fillRect(ROW_NUM_WIDTH, stickyRowY, totalWidth - ROW_NUM_WIDTH, rowHeight);
+      // 下辺の区切り線
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(ROW_NUM_WIDTH, stickyRowY + rowHeight);
+      ctx.lineTo(totalWidth, stickyRowY + rowHeight);
+      ctx.stroke();
+
+      // 1行目のテキストを再描画
+      ctx.fillStyle = textColor;
+      ctx.font = "600 13px -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.textBaseline = "middle";
+      for (let c = startCol; c < endCol; c++) {
+        const value = grid[0][c];
+        if (!value) continue;
+        const cw = getColWidth(c);
+        const cellLeft = getColX(c);
+        const cellY = stickyRowY + rowHeight / 2;
+        const colAlign = alignments[0]?.[c] ?? null;
+
+        let textX: number;
+        if (colAlign === "center") {
+          ctx.textAlign = "center";
+          textX = cellLeft + cw / 2;
+        } else if (colAlign === "right") {
+          ctx.textAlign = "right";
+          textX = cellLeft + cw - 6;
+        } else {
+          ctx.textAlign = "left";
+          textX = cellLeft + 6;
+        }
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(cellLeft, stickyRowY, cw, rowHeight);
+        ctx.clip();
+        ctx.fillText(value, textX, cellY);
+        ctx.restore();
+      }
+    }
+
     // 7. Row number column (sticky left) — 背景でセルを上書き
     ctx.fillStyle = headerBg;
     ctx.fillRect(scrollLeft, scrollTop, ROW_NUM_WIDTH, viewHeight);
