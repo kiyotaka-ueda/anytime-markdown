@@ -37,10 +37,10 @@ const richGithubLink = (chunks: ReactNode) => (
 );
 
 const BENEFITS = [
-  { key: 'benefit1', icon: <CodeIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
-  { key: 'benefit2', icon: <AutoFixHighIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
-  { key: 'benefit3', icon: <ImageIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
-  { key: 'benefit4', icon: <SourceIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
+  { key: 'benefit1', icon: <AutoFixHighIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
+  { key: 'benefit2', icon: <CodeIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
+  { key: 'benefit3', icon: <SourceIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
+  { key: 'benefit4', icon: <ImageIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
   { key: 'benefit5', icon: <SchemaIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
 ] as const;
 

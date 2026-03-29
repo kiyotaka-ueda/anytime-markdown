@@ -6,6 +6,16 @@
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-03-29
+
+### 追加
+- Cloudflare Pages ビルドサポート（ビルド時 ESLint スキップ）
+
+### 変更
+- CI: ジョブタイムアウトを 30 分から 45 分に延長
+- CI: daily-build.yml の actions/setup-node を v5 → v6 に統一
+- CI: develop push の tsc/ESLint を復元
+
 ## [0.8.5] - 2026-03-28
 
 ### 変更

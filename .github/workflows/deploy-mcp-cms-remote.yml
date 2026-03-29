@@ -1,0 +1,66 @@
+name: Deploy mcp-cms-remote
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'packages/mcp-cms-remote/**'
+      - 'packages/cms-core/**'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'packages/mcp-cms-remote/**'
+      - 'packages/cms-core/**'
+
+concurrency:
+  group: deploy-mcp-cms-remote-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: '.node-version'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npx jest --maxWorkers=1
+        working-directory: packages/mcp-cms-remote
+
+      - name: Bundle check (dry-run)
+        run: npx wrangler deploy --dry-run --outdir=dist 2>&1 | tee bundle-output.txt
+        working-directory: packages/mcp-cms-remote
+
+      - name: Show bundle size
+        run: grep -E 'Total Upload' bundle-output.txt || true
+        working-directory: packages/mcp-cms-remote
+
+  deploy:
+    if: github.ref == 'refs/heads/master'
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: '.node-version'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy to Cloudflare Workers
+        run: npx wrangler deploy
+        working-directory: packages/mcp-cms-remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

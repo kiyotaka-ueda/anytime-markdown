@@ -16,6 +16,7 @@ import { useTranslations } from "next-intl";
 import { useMemo } from "react";
 
 import { BlockInlineToolbar } from "./components/codeblock/BlockInlineToolbar";
+import { SpreadsheetGrid } from "./components/spreadsheet/SpreadsheetGrid";
 import { DeleteBlockDialog } from "./components/codeblock/DeleteBlockDialog";
 import { EditDialogHeader } from "./components/EditDialogHeader";
 import { SearchReplaceBar } from "./components/SearchReplaceBar";
@@ -233,8 +234,8 @@ function buildTableBodySx(collapsed: boolean, editOpen: boolean, isDark: boolean
 }
 
 /** 編集ヘッダーツールバー */
-function TableEditHeader({ editor, isDark, isEditable, setEditOpen, t }: Readonly<{
-  editor: Editor; isDark: boolean; isEditable: boolean;
+function TableEditHeader({ editor, isDark, isEditable, isSpreadsheet, setEditOpen, t }: Readonly<{
+  editor: Editor; isDark: boolean; isEditable: boolean; isSpreadsheet: boolean;
   setEditOpen: (v: boolean) => void; t: (key: string) => string;
 }>) {
   return (
@@ -245,7 +246,7 @@ function TableEditHeader({ editor, isDark, isEditable, setEditOpen, t }: Readonl
         icon={<TableChartIcon sx={{ fontSize: 18 }} />}
         t={t}
       />
-      {isEditable && <TableOperationsToolbar editor={editor} isDark={isDark} t={t} />}
+      {isEditable && !isSpreadsheet && <TableOperationsToolbar editor={editor} isDark={isDark} t={t} />}
     </Box>
   );
 }
@@ -319,7 +320,7 @@ export function TableNodeView({ editor, node, getPos }: Readonly<NodeViewProps>)
         tabIndex={editOpen ? -1 : undefined}
         sx={buildPaperSx(editOpen, isEditable, isDark, showToolbar)}
       >
-        {editOpen && <TableEditHeader editor={editor} isDark={isDark} isEditable={isEditable} setEditOpen={setEditOpen} t={t} />}
+        {editOpen && <TableEditHeader editor={editor} isDark={isDark} isEditable={isEditable} isSpreadsheet={!showCompare} setEditOpen={setEditOpen} t={t} />}
 
         {showInlineToolbar && (
           <BlockInlineToolbar
@@ -339,6 +340,14 @@ export function TableNodeView({ editor, node, getPos }: Readonly<NodeViewProps>)
             isDark={isDark}
             t={t}
           />
+        ) : editOpen ? (
+          <>
+            <SpreadsheetGrid editor={editor} isDark={isDark} t={t} />
+            {/* ProseMirror table hidden but kept in DOM for sync */}
+            <Box sx={{ display: "none" }}>
+              <NodeViewContent<"table"> as="table" />
+            </Box>
+          </>
         ) : (
           <Box
             sx={buildTableBodySx(collapsed, editOpen, isDark, tableSx)}

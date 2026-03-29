@@ -9,7 +9,7 @@ AI assistants write specs, designs, and notes in Markdown, but reviewing plain t
 Anytime Markdown gives you a WYSIWYG editor with rich rendering, plus **collaborative editing with AI** to prevent file conflicts.
 
 
-![](images/paste-20260328-141304.png)
+![](images/markdown-editor-screen.png)
 
 ## 1. What You Can Do
 

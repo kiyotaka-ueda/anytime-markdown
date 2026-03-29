@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-03-29
+
+### Added
+- `mcp-cms-remote` package: Cloudflare Workers entry point with API key auth and Streamable HTTP
+- Remote MCP server definition with content-based tool interfaces
+- Unit tests for remote MCP server
+
 ## [0.0.1] - 2026-03-27
 
 Initial release.

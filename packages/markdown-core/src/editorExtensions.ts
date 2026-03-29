@@ -273,7 +273,7 @@ export function getBaseExtensions(options?: { disableComments?: boolean; disable
       },
     }),
     AdmonitionBlockquote,
-    CodeBlockWithMermaid.configure({ lowlight }),
+    CodeBlockWithMermaid.configure({ lowlight, defaultLanguage: "plaintext" }),
     Highlight.configure({ multicolor: false }),
     Underline,
     LinkExtension.configure({ openOnClick: false, validate: () => true, isAllowedUri: () => true }),

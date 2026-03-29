@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.0.2] - 2026-03-29
+
+### Changed
+- Updated Marketplace images
+
+### Graph Core (graph-core)
+- Fixed SonarCloud minor and major issues
+
 ## [0.0.1] - 2026-03-27
 
 Initial release. Graph editor extracted from Anytime Markdown extension.

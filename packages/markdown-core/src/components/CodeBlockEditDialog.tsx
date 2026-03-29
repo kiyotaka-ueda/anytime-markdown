@@ -180,9 +180,10 @@ export function CodeBlockEditDialog({
   const highlightedHtml = useMemo(() => {
     if (!fsCode) return "";
     try {
-      const tree = lowlight.listLanguages().includes(language)
-        ? lowlight.highlight(language, fsCode)
-        : lowlight.highlightAuto(fsCode);
+      if (!lowlight.listLanguages().includes(language) || language === "plaintext") {
+        return fsCode.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+      }
+      const tree = lowlight.highlight(language, fsCode);
       return hastToHtml(tree.children);
     } catch {
       return fsCode.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");

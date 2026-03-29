@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.0.2] - 2026-03-29
+
+### Changed
+- Updated extension icon image
+
 ## [0.0.1] - 2026-03-27
 
 Initial release. Git treeview features extracted from Anytime Markdown extension.

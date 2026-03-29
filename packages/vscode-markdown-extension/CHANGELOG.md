@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-03-29
+
+### Added
+- Git treeview features extracted into new Anytime Git extension
+
+### Changed
+- VS Code extension page copy and icon order improvements
+- Updated images and embed templates
+
+### Editor Core (markdown-core)
+- Spreadsheet mode: full-screen Canvas-based table editing with cell size settings, per-cell alignment, Undo/Redo, multi-selection, drag reorder, and context menu
+- Table cell mode: keyboard navigation with clipboard handlers
+- Math graph visualization with JSXGraph/Plotly
+- Handwritten theme preset
+- Physics engine for force layout
+
 ## [0.8.5] - 2026-03-28
 
 ### Added

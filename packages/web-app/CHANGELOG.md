@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-03-29
+
+### Added
+- Cloudflare Pages build support with ESLint skip during builds
+
+### Changed
+- CI: job timeout increased from 30 to 45 minutes
+- CI: daily-build.yml actions/setup-node v5 → v6
+- CI: develop push tsc/ESLint restored after temporary removal
+
 ## [0.8.5] - 2026-03-28
 
 ### Changed
