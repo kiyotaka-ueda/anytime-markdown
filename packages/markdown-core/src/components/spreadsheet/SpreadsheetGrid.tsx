@@ -538,6 +538,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   const handleCanvasContextMenu = useCallback((e: React.MouseEvent) => {
     // スプレッドシート上では常にデフォルトのコンテキストメニューを抑止
     e.preventDefault();
+    e.stopPropagation();
 
     // Row context menu
     const row = getRowNum(e);
@@ -912,6 +913,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   return (
     <Box
       ref={containerRef}
+      onContextMenu={(e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); }}
       sx={{
         overflow: "auto",
         flex: 1,
