@@ -55,36 +55,33 @@ export const SpreadsheetContextMenu = React.memo(
 
     const handleInsertRowAbove = useCallback(() => {
       const inData = target.index < dataRange.rows;
+      onInsertRow(target.index);
       if (inData) {
         editor.chain().addRowBefore().run();
         setDataRange({ ...dataRange, rows: dataRange.rows + 1 });
-      } else {
-        onInsertRow(target.index);
       }
       onClose();
     }, [target, dataRange, editor, onInsertRow, setDataRange, onClose]);
 
     const handleInsertRowBelow = useCallback(() => {
       const inData = target.index < dataRange.rows;
+      onInsertRow(target.index + 1);
       if (inData) {
         editor.chain().addRowAfter().run();
         setDataRange({ ...dataRange, rows: dataRange.rows + 1 });
-      } else {
-        onInsertRow(target.index + 1);
       }
       onClose();
     }, [target, dataRange, editor, onInsertRow, setDataRange, onClose]);
 
     const handleDeleteRow = useCallback(() => {
       const inData = target.index < dataRange.rows;
+      onDeleteRow(target.index);
       if (inData) {
         editor.chain().deleteRow().run();
         setDataRange({
           ...dataRange,
           rows: Math.max(1, dataRange.rows - 1),
         });
-      } else {
-        onDeleteRow(target.index);
       }
       onClose();
     }, [target, dataRange, editor, onDeleteRow, setDataRange, onClose]);
@@ -111,36 +108,33 @@ export const SpreadsheetContextMenu = React.memo(
 
     const handleInsertColLeft = useCallback(() => {
       const inData = target.index < dataRange.cols;
+      onInsertCol(target.index);
       if (inData) {
         editor.chain().addColumnBefore().run();
         setDataRange({ ...dataRange, cols: dataRange.cols + 1 });
-      } else {
-        onInsertCol(target.index);
       }
       onClose();
     }, [target, dataRange, editor, onInsertCol, setDataRange, onClose]);
 
     const handleInsertColRight = useCallback(() => {
       const inData = target.index < dataRange.cols;
+      onInsertCol(target.index + 1);
       if (inData) {
         editor.chain().addColumnAfter().run();
         setDataRange({ ...dataRange, cols: dataRange.cols + 1 });
-      } else {
-        onInsertCol(target.index + 1);
       }
       onClose();
     }, [target, dataRange, editor, onInsertCol, setDataRange, onClose]);
 
     const handleDeleteCol = useCallback(() => {
       const inData = target.index < dataRange.cols;
+      onDeleteCol(target.index);
       if (inData) {
         editor.chain().deleteColumn().run();
         setDataRange({
           ...dataRange,
           cols: Math.max(1, dataRange.cols - 1),
         });
-      } else {
-        onDeleteCol(target.index);
       }
       onClose();
     }, [target, dataRange, editor, onDeleteCol, setDataRange, onClose]);
