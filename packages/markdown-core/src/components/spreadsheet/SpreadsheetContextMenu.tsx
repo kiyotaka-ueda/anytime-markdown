@@ -56,7 +56,7 @@ export const SpreadsheetContextMenu = React.memo(
     const handleInsertRowAbove = useCallback(() => {
       const inData = target.index < dataRange.rows;
       if (inData) {
-        editor.chain().focus().addRowBefore().run();
+        editor.chain().addRowBefore().run();
         setDataRange({ ...dataRange, rows: dataRange.rows + 1 });
       } else {
         onInsertRow(target.index);
@@ -67,7 +67,7 @@ export const SpreadsheetContextMenu = React.memo(
     const handleInsertRowBelow = useCallback(() => {
       const inData = target.index < dataRange.rows;
       if (inData) {
-        editor.chain().focus().addRowAfter().run();
+        editor.chain().addRowAfter().run();
         setDataRange({ ...dataRange, rows: dataRange.rows + 1 });
       } else {
         onInsertRow(target.index + 1);
@@ -78,7 +78,7 @@ export const SpreadsheetContextMenu = React.memo(
     const handleDeleteRow = useCallback(() => {
       const inData = target.index < dataRange.rows;
       if (inData) {
-        editor.chain().focus().deleteRow().run();
+        editor.chain().deleteRow().run();
         setDataRange({
           ...dataRange,
           rows: Math.max(1, dataRange.rows - 1),
@@ -112,7 +112,7 @@ export const SpreadsheetContextMenu = React.memo(
     const handleInsertColLeft = useCallback(() => {
       const inData = target.index < dataRange.cols;
       if (inData) {
-        editor.chain().focus().addColumnBefore().run();
+        editor.chain().addColumnBefore().run();
         setDataRange({ ...dataRange, cols: dataRange.cols + 1 });
       } else {
         onInsertCol(target.index);
@@ -123,7 +123,7 @@ export const SpreadsheetContextMenu = React.memo(
     const handleInsertColRight = useCallback(() => {
       const inData = target.index < dataRange.cols;
       if (inData) {
-        editor.chain().focus().addColumnAfter().run();
+        editor.chain().addColumnAfter().run();
         setDataRange({ ...dataRange, cols: dataRange.cols + 1 });
       } else {
         onInsertCol(target.index + 1);
@@ -134,7 +134,7 @@ export const SpreadsheetContextMenu = React.memo(
     const handleDeleteCol = useCallback(() => {
       const inData = target.index < dataRange.cols;
       if (inData) {
-        editor.chain().focus().deleteColumn().run();
+        editor.chain().deleteColumn().run();
         setDataRange({
           ...dataRange,
           cols: Math.max(1, dataRange.cols - 1),
