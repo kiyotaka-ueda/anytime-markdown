@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-03-29
+
+### Added
+- CI pipeline integration for cms-core and mcp-cms unit tests
+- Deploy workflow for mcp-cms-remote
+
 ## [0.0.1] - 2026-03-27
 
 Initial release.

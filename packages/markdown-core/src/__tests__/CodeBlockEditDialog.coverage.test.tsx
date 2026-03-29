@@ -278,14 +278,15 @@ describe("CodeBlockEditDialog - readOnly", () => {
 });
 
 describe("CodeBlockEditDialog - syntax highlight", () => {
-  it("未知の言語は highlightAuto を使用する", () => {
+  it("未知の言語はプレーンテキストとしてエスケープする", () => {
     mockListLanguages.mockReturnValue([]); // no known languages
     render(
       <ThemeProvider theme={theme}>
         <CodeBlockEditDialog {...baseProps} language="unknown-lang" />
       </ThemeProvider>,
     );
-    expect(mockHighlightAuto).toHaveBeenCalled();
+    // highlightAuto is no longer used; unknown languages are HTML-escaped plaintext
+    expect(mockHighlightAuto).not.toHaveBeenCalled();
   });
 
   it("既知の言語は highlight を使用する", () => {

@@ -110,6 +110,10 @@ jest.mock("../utils/tableHelpers", () => ({
   moveTableColumn: (...args: any[]) => mockMoveTableColumn(...args),
 }));
 
+jest.mock("../components/spreadsheet/SpreadsheetGrid", () => ({
+  SpreadsheetGrid: () => <div data-testid="spreadsheet-grid" />,
+}));
+
 import { TableNodeView } from "../TableNodeView";
 
 const theme = createTheme();
@@ -226,65 +230,86 @@ describe("TableNodeView - coverage2", () => {
   });
 
   // --- Lines 71-165: TableOperationsToolbar button operations ---
+  // TableOperationsToolbar is only rendered in compare mode (isSpreadsheet=false).
+  // In non-compare editOpen mode, SpreadsheetGrid replaces it.
   describe("TableOperationsToolbar operations", () => {
+    const compareOptions = {
+      editOpen: true,
+      isEditable: true,
+      mergeEditors: {
+        rightEditor: { view: { dom: { dataset: {} } } },
+        leftEditor: { view: { dom: { dataset: {} } } },
+      },
+      nodeCells: [["A", "B"], ["C", "D"]],
+    };
+
     it("clicks addColumn button", () => {
-      const { editor } = renderTable({ editOpen: true, isEditable: true });
+      mockFindCounterpartTableHtml.mockReturnValue("<table><tr><td>A</td><td>B</td></tr></table>");
+      const { editor } = renderTable(compareOptions);
       const btns = screen.getAllByLabelText("addColumn");
       fireEvent.click(btns[0]);
       expect(editor.chain).toHaveBeenCalled();
     });
 
     it("clicks removeColumn button", () => {
-      const { editor } = renderTable({ editOpen: true, isEditable: true });
+      mockFindCounterpartTableHtml.mockReturnValue("<table><tr><td>A</td><td>B</td></tr></table>");
+      const { editor } = renderTable(compareOptions);
       const btns = screen.getAllByLabelText("removeColumn");
       fireEvent.click(btns[0]);
       expect(editor.chain).toHaveBeenCalled();
     });
 
     it("clicks addRow button", () => {
-      const { editor } = renderTable({ editOpen: true, isEditable: true });
+      mockFindCounterpartTableHtml.mockReturnValue("<table><tr><td>A</td><td>B</td></tr></table>");
+      const { editor } = renderTable(compareOptions);
       const btns = screen.getAllByLabelText("addRow");
       fireEvent.click(btns[0]);
       expect(editor.chain).toHaveBeenCalled();
     });
 
     it("clicks removeRow button", () => {
-      const { editor } = renderTable({ editOpen: true, isEditable: true });
+      mockFindCounterpartTableHtml.mockReturnValue("<table><tr><td>A</td><td>B</td></tr></table>");
+      const { editor } = renderTable(compareOptions);
       const btns = screen.getAllByLabelText("removeRow");
       fireEvent.click(btns[0]);
       expect(editor.chain).toHaveBeenCalled();
     });
 
     it("clicks moveRowUp button", () => {
-      renderTable({ editOpen: true, isEditable: true });
+      mockFindCounterpartTableHtml.mockReturnValue("<table><tr><td>A</td><td>B</td></tr></table>");
+      renderTable(compareOptions);
       const btns = screen.getAllByLabelText("moveRowUp");
       fireEvent.click(btns[0]);
       expect(mockMoveTableRow).toHaveBeenCalledWith(expect.anything(), "up");
     });
 
     it("clicks moveRowDown button", () => {
-      renderTable({ editOpen: true, isEditable: true });
+      mockFindCounterpartTableHtml.mockReturnValue("<table><tr><td>A</td><td>B</td></tr></table>");
+      renderTable(compareOptions);
       const btns = screen.getAllByLabelText("moveRowDown");
       fireEvent.click(btns[0]);
       expect(mockMoveTableRow).toHaveBeenCalledWith(expect.anything(), "down");
     });
 
     it("clicks moveColLeft button", () => {
-      renderTable({ editOpen: true, isEditable: true });
+      mockFindCounterpartTableHtml.mockReturnValue("<table><tr><td>A</td><td>B</td></tr></table>");
+      renderTable(compareOptions);
       const btns = screen.getAllByLabelText("moveColLeft");
       fireEvent.click(btns[0]);
       expect(mockMoveTableColumn).toHaveBeenCalledWith(expect.anything(), "left");
     });
 
     it("clicks moveColRight button", () => {
-      renderTable({ editOpen: true, isEditable: true });
+      mockFindCounterpartTableHtml.mockReturnValue("<table><tr><td>A</td><td>B</td></tr></table>");
+      renderTable(compareOptions);
       const btns = screen.getAllByLabelText("moveColRight");
       fireEvent.click(btns[0]);
       expect(mockMoveTableColumn).toHaveBeenCalledWith(expect.anything(), "right");
     });
 
     it("clicks alignment buttons", () => {
-      const { editor } = renderTable({ editOpen: true, isEditable: true });
+      mockFindCounterpartTableHtml.mockReturnValue("<table><tr><td>A</td><td>B</td></tr></table>");
+      const { editor } = renderTable(compareOptions);
       const leftBtns = screen.getAllByLabelText("alignLeft");
       const centerBtns = screen.getAllByLabelText("alignCenter");
       const rightBtns = screen.getAllByLabelText("alignRight");

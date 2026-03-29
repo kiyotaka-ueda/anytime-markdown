@@ -6,6 +6,14 @@
 
 ## [Unreleased]
 
+## [0.0.2] - 2026-03-29
+
+### 変更
+- Marketplace 画像を更新
+
+### Graph Core (graph-core)
+- SonarCloud の軽微・重要な指摘を修正
+
 ## [0.0.1] - 2026-03-27
 
 初回リリース。グラフエディタを Anytime Markdown 拡張機能から分離。

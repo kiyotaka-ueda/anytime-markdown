@@ -89,6 +89,10 @@ jest.mock("../utils/tableHelpers", () => ({
   moveTableColumn: jest.fn(),
 }));
 
+jest.mock("../components/spreadsheet/SpreadsheetGrid", () => ({
+  SpreadsheetGrid: () => <div data-testid="spreadsheet-grid" />,
+}));
+
 import { TableNodeView } from "../TableNodeView";
 
 const theme = createTheme();

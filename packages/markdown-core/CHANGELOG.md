@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-03-29
+
+### Added
+- Spreadsheet mode: full-screen table editing with Canvas-based grid rendering
+- Spreadsheet: cell size settings dialog with fixed/auto modes
+- Spreadsheet: per-cell alignment with toolbar integration
+- Spreadsheet: Undo/Redo by syncing ProseMirror changes to grid
+- Spreadsheet: multi-row and multi-column selection
+- Spreadsheet: drag reorder for rows and columns
+- Spreadsheet: draggable data range borders for resizing
+- Spreadsheet: context menu for row/column operations
+- Table cell mode: keyboard navigation and editing modes with clipboard handlers
+- Math graph visualization: LaTeX to expression converter, JSXGraph/Plotly rendering
+- Physics engine: force layout, collision detection, Fruchterman-Reingold algorithm
+- Handwritten theme preset with hand-drawn heading, admonition, and diagram styles
+
+### Changed
+- Spreadsheet: rewritten grid rendering from DOM to Canvas for performance
+- Default theme preset changed to Handwritten
+- Embed template files updated
+
+### Fixed
+- Spreadsheet: Undo/Redo forwarding (Ctrl+Z/Y) and sync timing
+- Spreadsheet: context menu suppression on canvas right-click
+- Spreadsheet: data range initialization and cell grid lines
+- Table: TextSelection into selected cell on navigation mode
+- Mermaid SVG rendering improvements
+- Auto-highlight disabled for code blocks without language specification
+- SonarCloud minor issues resolved
+
 ## [0.8.5] - 2026-03-28
 
 ### Added
