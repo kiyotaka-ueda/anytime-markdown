@@ -279,7 +279,7 @@ export default function VsCodeBody() {
       <Box sx={{
         py: { xs: 4, md: 6 },
         px: 0,
-        '& .ProseMirror': { pl: { xs: 2, md: 5 }, pr: { xs: 1, md: 2 } },
+        '& #main-content': { px: { xs: 0, md: 3 } },
       }}>
         <Container maxWidth="lg" disableGutters>
           <MarkdownViewer

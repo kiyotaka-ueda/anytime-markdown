@@ -37,9 +37,11 @@ interface MarkdownViewerProps {
   contentApiPath?: string;
   /** フロントマターブロックの表示（デフォルト: false） */
   showFrontmatter?: boolean;
+  /** エディタ下部の追加オフセット（px） */
+  bottomOffset?: number;
 }
 
-export default function MarkdownViewer({ docKey, docKeyByLocale, minHeight = '60vh', editorHeight, noScroll, contentApiPath = '/api/docs/content', showFrontmatter }: Readonly<MarkdownViewerProps>) {
+export default function MarkdownViewer({ docKey, docKeyByLocale, minHeight = '60vh', editorHeight, noScroll, contentApiPath = '/api/docs/content', showFrontmatter, bottomOffset }: Readonly<MarkdownViewerProps>) {
   const t = useTranslations('Landing');
   const { themeMode, setThemeMode } = useThemeMode();
   const { presetName, setPresetName } = usePreset();
@@ -122,6 +124,7 @@ export default function MarkdownViewer({ docKey, docKeyByLocale, minHeight = '60
         onPresetChange={setPresetName}
         onLocaleChange={setLocale}
         showFrontmatter={showFrontmatter}
+        bottomOffset={bottomOffset}
       />
     </Box>
   );

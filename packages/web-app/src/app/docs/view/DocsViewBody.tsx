@@ -135,7 +135,7 @@ export default function DocsViewBody({ docTitle }: Readonly<{ docTitle?: string 
           </Typography>
         </Breadcrumbs>
       </Box>
-      <Box sx={{ flex: 1, overflow: 'hidden' }}>
+      <Box sx={{ flex: 1, overflow: 'hidden', '& #main-content': { px: { xs: 0, md: 3 } } }}>
         <MarkdownViewer docKey={resolved} docKeyByLocale={localeMap} minHeight="calc(100vh - 64px - 41px)" />
       </Box>
     </Box>

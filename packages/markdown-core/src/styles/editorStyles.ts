@@ -50,7 +50,7 @@ export function getEditorPaperSx(
       },
       py: 2,
       pr: 2,
-      pl: 5,
+      pl: 2,
       outline: "none",
       fontFamily: "var(--editor-content-font-family, sans-serif)",
       fontSize: `${settings.fontSize}px`,
