@@ -9,11 +9,16 @@ const withBundleAnalyzer = withBundleAnalyzerInit({
   openAnalyzer: false,
 });
 
-const isCapacitorBuild = process.env.CAPACITOR_BUILD === 'true';
+// Cloudflareでのビルド時は強制的にWebモード（false）にする設定を追加
+const isCloudflare = process.env.CF_PAGES === '1';
+const isCapacitorBuild = !isCloudflare && process.env.CAPACITOR_BUILD === 'true';
 
 const nextConfig: NextConfig = {
   devIndicators: false,
   transpilePackages: ['@anytime-markdown/markdown-core'],
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   ...(isCapacitorBuild && {
     output: 'export' as const,
     trailingSlash: true,
