@@ -6,19 +6,19 @@ interface UseSpreadsheetStateParams {
   readonly initialRows: number;
   readonly initialCols: number;
   readonly initialData?: string[][];
-  readonly initialAlignments?: CellAlign[];
+  readonly initialAlignments?: CellAlign[][];
 }
 
 interface UseSpreadsheetStateReturn {
   readonly grid: string[][];
-  readonly alignments: CellAlign[];
+  readonly alignments: CellAlign[][];
   readonly dataRange: DataRange;
   readonly selection: SpreadsheetSelection | null;
   readonly setCellValue: (row: number, col: number, value: string) => void;
   readonly setDataRange: (range: DataRange) => void;
   readonly setSelection: (sel: SpreadsheetSelection | null) => void;
-  readonly setColumnAlign: (col: number, align: CellAlign) => void;
-  readonly setAlignments: (aligns: CellAlign[]) => void;
+  readonly setCellAlign: (row: number, col: number, align: CellAlign) => void;
+  readonly setAlignments: (aligns: CellAlign[][]) => void;
   readonly initGrid: (data: string[][]) => void;
   readonly insertRow: (atIndex: number) => void;
   readonly deleteRow: (atIndex: number) => void;
@@ -52,14 +52,16 @@ export function useSpreadsheetState({
   const [selection, setSelection] = useState<SpreadsheetSelection | null>(
     null,
   );
-  const [alignments, setAlignments] = useState<CellAlign[]>(
-    () => initialAlignments ?? Array.from({ length: GRID_COLS }, () => null),
+  const [alignments, setAlignments] = useState<CellAlign[][]>(
+    () => initialAlignments ?? Array.from({ length: GRID_ROWS }, () =>
+      Array.from({ length: GRID_COLS }, () => null),
+    ),
   );
 
-  const setColumnAlign = useCallback((col: number, align: CellAlign) => {
+  const setCellAlign = useCallback((row: number, col: number, align: CellAlign) => {
     setAlignments((prev) => {
-      const next = [...prev];
-      next[col] = align;
+      const next = prev.map((r) => [...r]);
+      next[row][col] = align;
       return next;
     });
   }, []);
@@ -152,7 +154,7 @@ export function useSpreadsheetState({
     setCellValue,
     setDataRange,
     setSelection,
-    setColumnAlign,
+    setCellAlign,
     setAlignments,
     initGrid,
     insertRow,

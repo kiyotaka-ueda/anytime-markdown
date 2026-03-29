@@ -9,24 +9,22 @@ import type { CellAlign, DataRange } from "./spreadsheetTypes";
 export function extractTableData(tableNode: PMNode): {
   data: string[][];
   range: DataRange;
-  alignments: CellAlign[];
+  alignments: CellAlign[][];
 } {
   const data: string[][] = [];
-  const alignments: CellAlign[] = [];
-  let firstRow = true;
+  const alignments: CellAlign[][] = [];
   tableNode.forEach((rowNode) => {
     const row: string[] = [];
+    const rowAligns: CellAlign[] = [];
     rowNode.forEach((cellNode) => {
       row.push(cellNode.textContent);
-      if (firstRow) {
-        const align = cellNode.attrs.textAlign as string | null;
-        alignments.push(
-          align === "center" || align === "right" || align === "left" ? align : null,
-        );
-      }
+      const align = cellNode.attrs.textAlign as string | null;
+      rowAligns.push(
+        align === "center" || align === "right" || align === "left" ? align : null,
+      );
     });
     data.push(row);
-    firstRow = false;
+    alignments.push(rowAligns);
   });
   const rows = data.length;
   const cols = rows > 0 ? data[0].length : 0;
@@ -95,7 +93,7 @@ export function useSpreadsheetSync({
    * 範囲変更時（リサイズ、行/列の追加削除）に呼び出す。
    */
   const rebuildTable = useCallback(
-    (grid: string[][], newRange: DataRange, colAlignments?: CellAlign[]) => {
+    (grid: string[][], newRange: DataRange, cellAlignments?: CellAlign[][]) => {
       if (!editor) return;
 
       let tablePos = -1;
@@ -128,7 +126,7 @@ export function useSpreadsheetSync({
             text ? schema.text(text) : null,
           );
           const type = r === 0 ? headerType : cellType;
-          const align = colAlignments?.[c] ?? null;
+          const align = cellAlignments?.[r]?.[c] ?? null;
           cells.push(type.create(align ? { textAlign: align } : null, paragraph));
         }
         rows.push(rowType.create(null, cells));

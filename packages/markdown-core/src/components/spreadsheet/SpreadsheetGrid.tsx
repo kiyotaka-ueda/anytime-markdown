@@ -60,7 +60,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
       if (tableNode) return false;
       if (node.type.name === "table") { tableNode = node; return false; }
     });
-    if (!tableNode) return { rows: 1, cols: 1, data: [] as string[][], alignments: [] as (import("./spreadsheetTypes").CellAlign)[] };
+    if (!tableNode) return { rows: 1, cols: 1, data: [] as string[][], alignments: [] as (import("./spreadsheetTypes").CellAlign)[][] };
     const { data, range, alignments } = extractTableData(tableNode);
     return { rows: range.rows, cols: range.cols, data, alignments };
   }, []);
@@ -73,7 +73,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     setCellValue,
     setDataRange,
     setSelection,
-    setColumnAlign,
+    setCellAlign,
     setAlignments,
     initGrid,
     insertRow,
@@ -102,7 +102,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   );
 
   const rebuildTable = useCallback(
-    (g: string[][], range: DataRange, aligns?: import("./spreadsheetTypes").CellAlign[]) => {
+    (g: string[][], range: DataRange, aligns?: import("./spreadsheetTypes").CellAlign[][]) => {
       skipSyncCountRef.current++;
       rawRebuildTable(g, range, aligns ?? alignments);
     },
@@ -290,7 +290,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
 
         const cellLeft = ROW_NUM_WIDTH + c * COL_WIDTH;
         const cellY = HEADER_HEIGHT + r * ROW_HEIGHT + ROW_HEIGHT / 2;
-        const colAlign = alignments[c];
+        const colAlign = alignments[r]?.[c] ?? null;
 
         let textX: number;
         if (colAlign === "center") {
@@ -985,29 +985,34 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
       if (!val || !selection) return;
       const align = val as CellAlign;
 
-      if (selection.type === "col") {
+      const newAligns = alignments.map((r) => [...r]);
+
+      if (selection.type === "cell") {
+        newAligns[selection.row][selection.col] = align;
+        setCellAlign(selection.row, selection.col, align);
+      } else if (selection.type === "col") {
         const minC = Math.min(selection.start, selection.end);
         const maxC = Math.max(selection.start, selection.end);
-        for (let c = minC; c <= maxC; c++) {
-          setColumnAlign(c, align);
+        for (let r = 0; r < GRID_ROWS; r++) {
+          for (let c = minC; c <= maxC; c++) {
+            newAligns[r][c] = align;
+          }
         }
-      } else if (selection.type === "cell") {
-        setColumnAlign(selection.col, align);
-      }
-      // 配置変更を ProseMirror に反映
-      const newAligns = [...alignments];
-      if (selection.type === "col") {
-        const minC = Math.min(selection.start, selection.end);
-        const maxC = Math.max(selection.start, selection.end);
-        for (let c = minC; c <= maxC; c++) {
-          newAligns[c] = align;
+        setAlignments(newAligns);
+      } else if (selection.type === "row") {
+        const minR = Math.min(selection.start, selection.end);
+        const maxR = Math.max(selection.start, selection.end);
+        for (let r = minR; r <= maxR; r++) {
+          for (let c = 0; c < GRID_COLS; c++) {
+            newAligns[r][c] = align;
+          }
         }
-      } else if (selection.type === "cell") {
-        newAligns[selection.col] = align;
+        setAlignments(newAligns);
       }
+
       rebuildTable(grid, dataRange, newAligns);
     },
-    [selection, setColumnAlign, alignments, rebuildTable, grid, dataRange],
+    [selection, setCellAlign, setAlignments, alignments, rebuildTable, grid, dataRange],
   );
 
   const iconSx = { fontSize: 16 };
