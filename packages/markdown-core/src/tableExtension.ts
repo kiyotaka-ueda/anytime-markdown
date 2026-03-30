@@ -6,8 +6,24 @@ import { tableCellModePlugin } from "./plugins/tableCellMode/tableCellModePlugin
 import { TableNodeView } from "./TableNodeView";
 import type { MdSerializerState } from "./types";
 
-export const CustomTable = Table.extend({
+export interface CustomTableOptions {
+  resizable?: boolean;
+  /** スプレッドシートのグリッド行数 */
+  gridRows?: number;
+  /** スプレッドシートのグリッド列数 */
+  gridCols?: number;
+}
+
+export const CustomTable = Table.extend<CustomTableOptions>({
   draggable: true,
+
+  addOptions() {
+    return {
+      ...this.parent?.(),
+      gridRows: undefined,
+      gridCols: undefined,
+    };
+  },
 
   addAttributes() {
     return {

@@ -1,12 +1,14 @@
 import { useState, useCallback } from "react";
 import type { CellAlign, SpreadsheetSelection, DataRange } from "./spreadsheetTypes";
-import { GRID_ROWS, GRID_COLS, createEmptyGrid } from "./spreadsheetUtils";
+import { DEFAULT_GRID_ROWS, DEFAULT_GRID_COLS, createEmptyGrid } from "./spreadsheetUtils";
 
 interface UseSpreadsheetStateParams {
   readonly initialRows: number;
   readonly initialCols: number;
   readonly initialData?: string[][];
   readonly initialAlignments?: CellAlign[][];
+  readonly gridRows?: number;
+  readonly gridCols?: number;
 }
 
 interface UseSpreadsheetStateReturn {
@@ -33,9 +35,11 @@ export function useSpreadsheetState({
   initialCols,
   initialData,
   initialAlignments,
+  gridRows: GRID_ROWS = DEFAULT_GRID_ROWS,
+  gridCols: GRID_COLS = DEFAULT_GRID_COLS,
 }: UseSpreadsheetStateParams): UseSpreadsheetStateReturn {
   const [grid, setGrid] = useState<string[][]>(() => {
-    const g = createEmptyGrid();
+    const g = createEmptyGrid(GRID_ROWS, GRID_COLS);
     if (initialData) {
       for (let r = 0; r < initialData.length && r < GRID_ROWS; r++) {
         for (let c = 0; c < initialData[r].length && c < GRID_COLS; c++) {
@@ -87,7 +91,7 @@ export function useSpreadsheetState({
 
   const initGrid = useCallback((data: string[][]) => {
     setGrid(() => {
-      const next = createEmptyGrid();
+      const next = createEmptyGrid(GRID_ROWS, GRID_COLS);
       for (let r = 0; r < data.length && r < GRID_ROWS; r++) {
         for (let c = 0; c < data[r].length && c < GRID_COLS; c++) {
           next[r][c] = data[r][c];
@@ -95,7 +99,7 @@ export function useSpreadsheetState({
       }
       return next;
     });
-  }, []);
+  }, [GRID_ROWS, GRID_COLS]);
 
   const insertRow = useCallback((atIndex: number) => {
     setGrid((prev) => {
@@ -104,7 +108,7 @@ export function useSpreadsheetState({
       next.splice(atIndex, 0, emptyRow);
       return next.slice(0, GRID_ROWS);
     });
-  }, []);
+  }, [GRID_ROWS, GRID_COLS]);
 
   const deleteRow = useCallback((atIndex: number) => {
     setGrid((prev) => {
@@ -113,7 +117,7 @@ export function useSpreadsheetState({
       next.push(Array.from({ length: GRID_COLS }, () => ""));
       return next;
     });
-  }, []);
+  }, [GRID_COLS]);
 
   const insertCol = useCallback((atIndex: number) => {
     setGrid((prev) =>
@@ -123,7 +127,7 @@ export function useSpreadsheetState({
         return next.slice(0, GRID_COLS);
       }),
     );
-  }, []);
+  }, [GRID_COLS]);
 
   const deleteCol = useCallback((atIndex: number) => {
     setGrid((prev) =>

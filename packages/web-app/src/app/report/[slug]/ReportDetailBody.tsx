@@ -1,9 +1,7 @@
 'use client';
 
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import { Alert, Box, Breadcrumbs, Chip, Container, Divider, Link as MuiLink, Typography } from '@mui/material';
+import { Alert, Box, Breadcrumbs, Chip, Container, Link as MuiLink, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import NextLink from 'next/link';
 import { useTranslations } from 'next-intl';
@@ -19,7 +17,7 @@ interface ReportDetailBodyProps {
   next: ReportMeta | null;
 }
 
-export default function ReportDetailBody({ report, prev, next }: Readonly<ReportDetailBodyProps>) {
+export default function ReportDetailBody({ report }: Readonly<ReportDetailBodyProps>) {
   const t = useTranslations('Landing');
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -124,82 +122,12 @@ export default function ReportDetailBody({ report, prev, next }: Readonly<Report
       </Container>
 
       {/* Article Body */}
-      <Container maxWidth="md" sx={{ flex: 1, px: { xs: 2, md: 3 }, pb: 4 }}>
+      <Container maxWidth="md" sx={{ flex: 1, px: { xs: 0, md: 3 }, '& #main-content': { px: { xs: 0, md: 3 } } }}>
         <MarkdownViewer
           docKey={meta.key}
           contentApiPath="/api/reports/content"
           noScroll
         />
-      </Container>
-
-      {/* Prev/Next Navigation */}
-      <Container maxWidth="md" sx={{ px: { xs: 2, md: 3 }, pb: 6 }}>
-        <Divider sx={{ mb: 4 }} />
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            gap: 2,
-            flexDirection: { xs: 'column', sm: 'row' },
-          }}
-        >
-          {prev ? (
-            <Box
-              component={NextLink}
-              href={`/report/${prev.slug}`}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                textDecoration: 'none',
-                color: '#90CAF9',
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                p: 1.5,
-                borderRadius: '8px',
-                transition: 'background-color 0.15s',
-                '&:hover': { bgcolor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' },
-                flex: 1,
-              }}
-            >
-              <ArrowBackIcon sx={{ fontSize: 18 }} />
-              <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {prev.title}
-              </Box>
-            </Box>
-          ) : (
-            <Box sx={{ flex: 1 }} />
-          )}
-          {next ? (
-            <Box
-              component={NextLink}
-              href={`/report/${next.slug}`}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                textDecoration: 'none',
-                color: '#90CAF9',
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                p: 1.5,
-                borderRadius: '8px',
-                transition: 'background-color 0.15s',
-                '&:hover': { bgcolor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' },
-                flex: 1,
-                justifyContent: 'flex-end',
-                textAlign: 'right',
-              }}
-            >
-              <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {next.title}
-              </Box>
-              <ArrowForwardIcon sx={{ fontSize: 18 }} />
-            </Box>
-          ) : (
-            <Box sx={{ flex: 1 }} />
-          )}
-        </Box>
       </Container>
 
       <SiteFooter />

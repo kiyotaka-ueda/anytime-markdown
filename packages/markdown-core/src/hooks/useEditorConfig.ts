@@ -48,6 +48,10 @@ interface UseEditorConfigParams {
   saveContent: (md: string) => void;
   refs: EditorConfigRefs;
   setHeadingMenu: (menu: HeadingMenuArg) => void;
+  /** スプレッドシートのグリッド行数 */
+  gridRows?: number;
+  /** スプレッドシートのグリッド列数 */
+  gridCols?: number;
 }
 
 /** レビューモード時のチェックボックス操作を ProseMirror ドキュメントに反映 */
@@ -280,6 +284,8 @@ export function useEditorConfig({
     slashCommandCallback: slashCommandCallbackRef,
   },
   setHeadingMenu,
+  gridRows,
+  gridCols,
 }: UseEditorConfigParams) {
   // Clean up debounce timer on unmount
   // headingsDebounceRef は安定な ref オブジェクトのため依存配列から除外
@@ -292,7 +298,7 @@ export function useEditorConfig({
 
   return {
     extensions: [
-      ...getBaseExtensions(),
+      ...getBaseExtensions({ gridRows, gridCols }),
       CustomHardBreak,
       DeleteLineExtension,
       SearchReplaceExtension,

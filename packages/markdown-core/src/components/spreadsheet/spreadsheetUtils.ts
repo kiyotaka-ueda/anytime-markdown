@@ -1,8 +1,8 @@
-/** グリッドの固定行数 */
-export const GRID_ROWS = 100;
+/** グリッドのデフォルト行数 */
+export const DEFAULT_GRID_ROWS = 51;
 
-/** グリッドの固定列数 */
-export const GRID_COLS = 20;
+/** グリッドのデフォルト列数 */
+export const DEFAULT_GRID_COLS = 15;
 
 /** 列インデックスをアルファベットラベルに変換（0=A, 1=B, ...） */
 export function columnLabel(index: number): string {
@@ -10,9 +10,9 @@ export function columnLabel(index: number): string {
 }
 
 /** 空のグリッドを生成 */
-export function createEmptyGrid(): string[][] {
-  return Array.from({ length: GRID_ROWS }, () =>
-    Array.from({ length: GRID_COLS }, () => ""),
+export function createEmptyGrid(rows = DEFAULT_GRID_ROWS, cols = DEFAULT_GRID_COLS): string[][] {
+  return Array.from({ length: rows }, () =>
+    Array.from({ length: cols }, () => ""),
   );
 }
 

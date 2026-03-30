@@ -1,6 +1,9 @@
 import FormatAlignCenterIcon from "@mui/icons-material/FormatAlignCenter";
 import FormatAlignLeftIcon from "@mui/icons-material/FormatAlignLeft";
 import FormatAlignRightIcon from "@mui/icons-material/FormatAlignRight";
+import CheckIcon from "@mui/icons-material/Check";
+import FilterListIcon from "@mui/icons-material/FilterList";
+import FilterListOffIcon from "@mui/icons-material/FilterListOff";
 import SettingsIcon from "@mui/icons-material/Settings";
 import {
   Box, Button, Dialog, DialogActions, DialogContent, DialogTitle,
@@ -11,14 +14,14 @@ import type { Node as PMNode } from "@tiptap/pm/model";
 import type { Editor } from "@tiptap/react";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getDivider } from "../../constants/colors";
-import type { CellAlign, CellEditState, ContextMenuState, DataRange } from "./spreadsheetTypes";
+import type { CellAlign, CellEditState, ColumnFilterState, ContextMenuState, DataRange } from "./spreadsheetTypes";
 import { SpreadsheetContextMenu } from "./SpreadsheetContextMenu";
 import { useSpreadsheetState } from "./useSpreadsheetState";
 import { useSpreadsheetSync, extractTableData } from "./useSpreadsheetSync";
 import {
   columnLabel,
-  GRID_COLS,
-  GRID_ROWS,
+  DEFAULT_GRID_COLS,
+  DEFAULT_GRID_ROWS,
   isInDataRange,
 } from "./spreadsheetUtils";
 
@@ -30,6 +33,7 @@ const DEFAULT_COL_WIDTH = 100;
 const DEFAULT_ROW_HEIGHT = 28;
 const ROW_NUM_WIDTH = 40;
 const HEADER_HEIGHT = 28;
+const FILTER_ROW_HEIGHT = 28;
 const RESIZE_HANDLE_THRESHOLD = 4;
 const MIN_RESIZE_ROWS = 2;
 const MIN_RESIZE_COLS = 1;
@@ -53,6 +57,14 @@ interface SpreadsheetGridProps {
   readonly editor: Editor;
   readonly isDark: boolean;
   readonly t: (key: string) => string;
+  /** グリッドの行数（デフォルト: 51） */
+  readonly gridRows?: number;
+  /** グリッドの列数（デフォルト: 15） */
+  readonly gridCols?: number;
+  /** 未適用の変更有無が変化したときのコールバック */
+  readonly onDirtyChange?: (dirty: boolean) => void;
+  /** 適用後に全画面を閉じるコールバック */
+  readonly onClose?: () => void;
 }
 
 /* ------------------------------------------------------------------ */
@@ -63,6 +75,10 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   editor,
   isDark,
   t,
+  gridRows: GRID_ROWS = DEFAULT_GRID_ROWS,
+  gridCols: GRID_COLS = DEFAULT_GRID_COLS,
+  onDirtyChange,
+  onClose,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -103,6 +119,8 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     initialCols: initialTableData.cols,
     initialData: initialTableData.data,
     initialAlignments: initialTableData.alignments,
+    gridRows: GRID_ROWS,
+    gridCols: GRID_COLS,
   });
 
   const { syncCellToProseMirror: rawSyncCell, rebuildTable: rawRebuildTable } = useSpreadsheetSync({ editor });
@@ -128,9 +146,8 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   const handleDataRangeChange = useCallback(
     (newRange: DataRange) => {
       setDataRange(newRange);
-      rebuildTable(grid, newRange);
     },
-    [setDataRange, rebuildTable, grid],
+    [setDataRange],
   );
 
   /* Cell size settings */
@@ -210,6 +227,85 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   const headerTextColor = isDark ? "#cccccc" : "#333333";
 
   /* ---------------------------------------------------------------- */
+  /*  Column filter state                                              */
+  /* ---------------------------------------------------------------- */
+
+  const [filters, setFilters] = useState<Map<number, ColumnFilterState>>(new Map());
+  const [filterRowVisible, setFilterRowVisible] = useState(false);
+
+  const hasActiveFilters = filters.size > 0;
+
+  /** フィルタ行の高さ（非表示時は0） */
+  const filterOffset = filterRowVisible ? FILTER_ROW_HEIGHT : 0;
+  /** 列ヘッダー + フィルタ行の合計高さ（セル描画の開始Y位置） */
+  const topOffset = HEADER_HEIGHT + filterOffset;
+
+  /** 各列のユニーク値（フィルタ行のプルダウン用） */
+  const columnUniqueValues = useMemo(() => {
+    const map = new Map<number, string[]>();
+    for (let c = 0; c < dataRange.cols; c++) {
+      const vals = new Set<string>();
+      for (let r = 1; r < dataRange.rows; r++) {
+        vals.add(grid[r][c]);
+      }
+      map.set(c, Array.from(vals).sort());
+    }
+    return map;
+  }, [grid, dataRange.rows, dataRange.cols]);
+
+  /** フィルタに基づいて非表示にする行を計算 */
+  const hiddenRows = useMemo<ReadonlySet<number>>(() => {
+    if (filters.size === 0) return new Set();
+    const hidden = new Set<number>();
+    // 行0（ヘッダー）は常に表示
+    for (let r = 1; r < GRID_ROWS; r++) {
+      for (const [colIdx, filter] of filters) {
+        if (!filter.selectedValues.has(grid[r][colIdx])) {
+          hidden.add(r);
+          break;
+        }
+      }
+    }
+    return hidden;
+  }, [filters, grid]);
+
+  /** 表示される行インデックスの配列 */
+  const visibleRows = useMemo<readonly number[]>(() => {
+    if (hiddenRows.size === 0) {
+      return Array.from({ length: GRID_ROWS }, (_, i) => i);
+    }
+    const rows: number[] = [];
+    for (let r = 0; r < GRID_ROWS; r++) {
+      if (!hiddenRows.has(r)) rows.push(r);
+    }
+    return rows;
+  }, [hiddenRows]);
+
+  /** gridRowIndex → visibleRows内の表示位置インデックス */
+  const gridRowToVisualIndex = useCallback((gridRow: number): number => {
+    if (hiddenRows.size === 0) return gridRow;
+    // binary search
+    let lo = 0;
+    let hi = visibleRows.length - 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >>> 1;
+      if (visibleRows[mid] === gridRow) return mid;
+      if (visibleRows[mid] < gridRow) lo = mid + 1;
+      else hi = mid - 1;
+    }
+    return -1;
+  }, [hiddenRows, visibleRows]);
+
+  /** dataRange内の最後の可視行のvisibleRows内インデックス */
+  const visibleDataRowCount = useMemo(() => {
+    let count = 0;
+    for (let r = 0; r < dataRange.rows; r++) {
+      if (!hiddenRows.has(r)) count++;
+    }
+    return count;
+  }, [dataRange.rows, hiddenRows]);
+
+  /* ---------------------------------------------------------------- */
   /*  Canvas total size                                                */
   /* ---------------------------------------------------------------- */
 
@@ -218,7 +314,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     for (let c = 0; c < GRID_COLS; c++) w += getColWidth(c);
     return w;
   }, [getColWidth]);
-  const totalHeight = HEADER_HEIGHT + GRID_ROWS * rowHeight;
+  const totalHeight = topOffset + visibleRows.length * rowHeight;
 
   /* ---------------------------------------------------------------- */
   /*  drawGrid                                                         */
@@ -268,11 +364,11 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
         }
       }
     }
-    // 固定1行目が表示される場合は row 0 を通常描画からスキップ
+    // visibleRows 内のインデックス (vi) をベースに描画
     const isStickyFirstRow = scrollTop > 0 && dataRange.rows > 0;
-    const rawStartRow = Math.max(0, Math.floor((scrollTop - HEADER_HEIGHT) / rowHeight));
-    const startRow = isStickyFirstRow ? Math.max(1, rawStartRow) : rawStartRow;
-    const endRow = Math.min(GRID_ROWS, Math.ceil((scrollTop + viewHeight - HEADER_HEIGHT) / rowHeight));
+    const rawStartVi = Math.max(0, Math.floor((scrollTop - topOffset) / rowHeight));
+    const startVi = isStickyFirstRow ? Math.max(1, rawStartVi) : rawStartVi;
+    const endVi = Math.min(visibleRows.length, Math.ceil((scrollTop + viewHeight - topOffset) / rowHeight));
 
     // Clip to visible area for performance
     ctx.save();
@@ -290,8 +386,8 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
 
     // セル描画領域をヘッダー・固定行の下に制限
     const cellAreaTop = isStickyFirstRow
-      ? scrollTop + HEADER_HEIGHT + rowHeight  // 列ヘッダー + 固定1行目の下
-      : scrollTop + HEADER_HEIGHT;             // 列ヘッダーの下
+      ? scrollTop + topOffset + rowHeight  // 列ヘッダー + フィルタ行 + 固定1行目の下
+      : scrollTop + topOffset;             // 列ヘッダー + フィルタ行の下
     ctx.save();
     ctx.beginPath();
     ctx.rect(scrollLeft, cellAreaTop, viewWidth, scrollTop + viewHeight - cellAreaTop);
@@ -303,16 +399,31 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
       if (selection.type === "row") {
         const minR = Math.min(selection.start, selection.end);
         const maxR = Math.max(selection.start, selection.end);
-        const y = HEADER_HEIGHT + minR * rowHeight;
-        const h = (maxR - minR + 1) * rowHeight;
-        ctx.fillRect(ROW_NUM_WIDTH, y, totalWidth - ROW_NUM_WIDTH, h);
+        for (let r = minR; r <= maxR; r++) {
+          const vi = gridRowToVisualIndex(r);
+          if (vi < 0) continue;
+          ctx.fillRect(ROW_NUM_WIDTH, topOffset + vi * rowHeight, totalWidth - ROW_NUM_WIDTH, rowHeight);
+        }
       } else if (selection.type === "col") {
         const minC = Math.min(selection.start, selection.end);
         const maxC = Math.max(selection.start, selection.end);
         const x = getColX(minC);
         let w = 0;
         for (let c = minC; c <= maxC; c++) w += getColWidth(c);
-        ctx.fillRect(x, HEADER_HEIGHT, w, totalHeight - HEADER_HEIGHT);
+        ctx.fillRect(x, topOffset, w, totalHeight - topOffset);
+      } else if (selection.type === "range") {
+        const minR = Math.min(selection.startRow, selection.endRow);
+        const maxR = Math.max(selection.startRow, selection.endRow);
+        const minC = Math.min(selection.startCol, selection.endCol);
+        const maxC = Math.max(selection.startCol, selection.endCol);
+        for (let r = minR; r <= maxR; r++) {
+          const vi = gridRowToVisualIndex(r);
+          if (vi < 0) continue;
+          const ry = topOffset + vi * rowHeight;
+          for (let c = minC; c <= maxC; c++) {
+            ctx.fillRect(getColX(c), ry, getColWidth(c), rowHeight);
+          }
+        }
       }
     }
 
@@ -334,8 +445,8 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     }
 
     // Horizontal lines
-    for (let r = startRow; r <= endRow; r++) {
-      const y = HEADER_HEIGHT + r * rowHeight;
+    for (let vi = startVi; vi <= endVi; vi++) {
+      const y = topOffset + vi * rowHeight;
       ctx.moveTo(scrollLeft, y);
       ctx.lineTo(Math.min(scrollLeft + viewWidth, totalWidth), y);
     }
@@ -348,10 +459,14 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     ctx.stroke();
 
     // 5. Data range border (thick)
+    // visibleDataRowCount を使って非表示行を除外した位置にボーダーを描画
+    const activeVisibleRows = hiddenRows.size === 0
+      ? activeRange.rows
+      : (() => { let c = 0; for (let r = 0; r < activeRange.rows; r++) { if (!hiddenRows.has(r)) c++; } return c; })();
     const drRight = getColX(activeRange.cols);
-    const drBottom = HEADER_HEIGHT + activeRange.rows * rowHeight;
+    const drBottom = topOffset + activeVisibleRows * rowHeight;
     const drLeft = ROW_NUM_WIDTH;
-    const drTop = HEADER_HEIGHT;
+    const drTop = topOffset + rowHeight; // ヘッダー行(H)の下から
 
     ctx.strokeStyle = primaryColor;
     ctx.lineWidth = 3;
@@ -359,12 +474,22 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     ctx.rect(drLeft, drTop, drRight - drLeft, drBottom - drTop);
     ctx.stroke();
 
+    // 5.5. Header row (row 0) background — データ行と区別する背景色
+    {
+      const headerRowVi = gridRowToVisualIndex(0);
+      if (headerRowVi >= 0) {
+        ctx.fillStyle = headerBg;
+        ctx.fillRect(ROW_NUM_WIDTH, topOffset + headerRowVi * rowHeight, totalWidth - ROW_NUM_WIDTH, rowHeight);
+      }
+    }
+
     // 6. Cell text
     ctx.fillStyle = textColor;
     ctx.font = "13px -apple-system, BlinkMacSystemFont, sans-serif";
     ctx.textBaseline = "middle";
 
-    for (let r = startRow; r < endRow; r++) {
+    for (let vi = startVi; vi < endVi; vi++) {
+      const r = visibleRows[vi];
       for (let c = startCol; c < endCol; c++) {
         const value = grid[r][c];
         if (!value) continue;
@@ -372,7 +497,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
 
         const cw = getColWidth(c);
         const cellLeft = getColX(c);
-        const cellY = HEADER_HEIGHT + r * rowHeight + rowHeight / 2;
+        const cellY = topOffset + vi * rowHeight + rowHeight / 2;
         const colAlign = alignments[r]?.[c] ?? null;
 
         let textX: number;
@@ -389,9 +514,15 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
 
         ctx.save();
         ctx.beginPath();
-        ctx.rect(cellLeft, HEADER_HEIGHT + r * rowHeight, cw, rowHeight);
+        ctx.rect(cellLeft, topOffset + vi * rowHeight, cw, rowHeight);
         ctx.clip();
+        if (r === 0) {
+          ctx.font = "600 13px -apple-system, BlinkMacSystemFont, sans-serif";
+        }
         ctx.fillText(value, textX, cellY);
+        if (r === 0) {
+          ctx.font = "13px -apple-system, BlinkMacSystemFont, sans-serif";
+        }
         ctx.restore();
       }
     }
@@ -401,7 +532,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     ctx.save(); // 外側の save/restore 用に再度 save
 
     // 6.5. Sticky first data row (row 0) — テーブルのヘッダー行を固定表示
-    const stickyRowY = scrollTop + HEADER_HEIGHT; // 固定表示位置
+    const stickyRowY = scrollTop + topOffset; // 固定表示位置
     if (isStickyFirstRow) {
       // 1行目がスクロールで隠れている場合、固定位置に再描画
       // 背景を描画
@@ -422,7 +553,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
       ctx.font = "600 12px -apple-system, BlinkMacSystemFont, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText("1", scrollLeft + ROW_NUM_WIDTH / 2, stickyRowY + rowHeight / 2);
+      ctx.fillText("H", scrollLeft + ROW_NUM_WIDTH / 2, stickyRowY + rowHeight / 2);
       // 区切り線
       ctx.strokeStyle = borderColor;
       ctx.lineWidth = 0.5;
@@ -486,21 +617,22 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
-    for (let r = startRow; r < endRow; r++) {
+    for (let vi = startVi; vi < endVi; vi++) {
+      const r = visibleRows[vi];
       const x = scrollLeft + ROW_NUM_WIDTH / 2;
-      const y = HEADER_HEIGHT + r * rowHeight + rowHeight / 2;
+      const y = topOffset + vi * rowHeight + rowHeight / 2;
 
       if (selection?.type === "row" &&
           r >= Math.min(selection.start, selection.end) &&
           r <= Math.max(selection.start, selection.end)) {
         ctx.save();
         ctx.fillStyle = selectedBg;
-        ctx.fillRect(scrollLeft, HEADER_HEIGHT + r * rowHeight, ROW_NUM_WIDTH, rowHeight);
+        ctx.fillRect(scrollLeft, topOffset + vi * rowHeight, ROW_NUM_WIDTH, rowHeight);
         ctx.restore();
         ctx.fillStyle = headerTextColor;
       }
 
-      ctx.fillText(String(r + 1), x, y);
+      ctx.fillText(r === 0 ? "H" : String(r), x, y);
     }
     ctx.restore();
 
@@ -551,14 +683,34 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     ctx.lineTo(scrollLeft + ROW_NUM_WIDTH, scrollTop + HEADER_HEIGHT);
     ctx.stroke();
 
-    // 10. Cell selection outline (only for cell selection)
+    // 10. Cell / Range selection outline
     if (selection?.type === "cell") {
-      const selCw = getColWidth(selection.col);
-      const cellX = getColX(selection.col);
-      const cellY = HEADER_HEIGHT + selection.row * rowHeight;
-      ctx.strokeStyle = primaryColor;
-      ctx.lineWidth = 2;
-      ctx.strokeRect(cellX + 1, cellY + 1, selCw - 2, rowHeight - 2);
+      const selVi = gridRowToVisualIndex(selection.row);
+      if (selVi >= 0) {
+        const selCw = getColWidth(selection.col);
+        const cellX = getColX(selection.col);
+        const cellY = topOffset + selVi * rowHeight;
+        ctx.strokeStyle = primaryColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(cellX + 1, cellY + 1, selCw - 2, rowHeight - 2);
+      }
+    } else if (selection?.type === "range") {
+      const minR = Math.min(selection.startRow, selection.endRow);
+      const maxR = Math.max(selection.startRow, selection.endRow);
+      const minC = Math.min(selection.startCol, selection.endCol);
+      const maxC = Math.max(selection.startCol, selection.endCol);
+      const topVi = gridRowToVisualIndex(minR);
+      const bottomVi = gridRowToVisualIndex(maxR);
+      if (topVi >= 0 && bottomVi >= 0) {
+        const rx = getColX(minC);
+        const ry = topOffset + topVi * rowHeight;
+        let rw = 0;
+        for (let c = minC; c <= maxC; c++) rw += getColWidth(c);
+        const rh = (bottomVi - topVi + 1) * rowHeight;
+        ctx.strokeStyle = primaryColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(rx + 1, ry + 1, rw - 2, rh - 2);
+      }
     }
 
     // 11. Resize handle (corner indicator)
@@ -573,12 +725,13 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
       ctx.lineWidth = 3;
       ctx.beginPath();
       if (reorderDrag.type === "row") {
-        const indicatorY = HEADER_HEIGHT + reorderDrag.targetIndex * rowHeight;
+        const reorderVi = gridRowToVisualIndex(reorderDrag.targetIndex);
+        const indicatorY = topOffset + (reorderVi >= 0 ? reorderVi : reorderDrag.targetIndex) * rowHeight;
         ctx.moveTo(ROW_NUM_WIDTH, indicatorY);
         ctx.lineTo(totalWidth, indicatorY);
       } else {
         const indicatorX = getColX(reorderDrag.targetIndex);
-        ctx.moveTo(indicatorX, HEADER_HEIGHT);
+        ctx.moveTo(indicatorX, topOffset);
         ctx.lineTo(indicatorX, totalHeight);
       }
       ctx.stroke();
@@ -586,8 +739,9 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
 
     ctx.restore();
   }, [
-    alignments, bgColor, borderColor, dataRange, editing, getColWidth, getColX, grid, headerBg, headerTextColor,
-    previewRange, primaryColor, reorderDrag, rowHeight, selectedBg, selection, textColor, totalHeight, totalWidth,
+    alignments, bgColor, borderColor, dataRange, editing, getColWidth, getColX, grid, gridRowToVisualIndex,
+    headerBg, headerTextColor, hiddenRows, previewRange, primaryColor, reorderDrag, rowHeight, selectedBg,
+    selection, textColor, topOffset, totalHeight, totalWidth, visibleRows,
   ]);
 
   /* ---------------------------------------------------------------- */
@@ -659,12 +813,12 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     const coords = getCanvasCoords(e);
     if (!coords) return null;
     const { x, y } = coords;
-    if (y < HEADER_HEIGHT || x < ROW_NUM_WIDTH) return null;
+    if (y < topOffset || x < ROW_NUM_WIDTH) return null;
     const col = getColAtX(x);
-    const row = Math.floor((y - HEADER_HEIGHT) / rowHeight);
-    if (row < 0 || row >= GRID_ROWS || col < 0 || col >= GRID_COLS) return null;
-    return { row, col };
-  }, [getCanvasCoords, getColAtX, rowHeight]);
+    const vi = Math.floor((y - topOffset) / rowHeight);
+    if (vi < 0 || vi >= visibleRows.length || col < 0 || col >= GRID_COLS) return null;
+    return { row: visibleRows[vi], col };
+  }, [getCanvasCoords, getColAtX, rowHeight, topOffset, visibleRows]);
 
   const getHeaderCol = useCallback((e: React.MouseEvent): number | null => {
     const coords = getCanvasCoords(e);
@@ -679,10 +833,11 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     const coords = getCanvasCoords(e);
     if (!coords) return null;
     const { x, y } = coords;
-    if (x >= ROW_NUM_WIDTH || y < HEADER_HEIGHT) return null;
-    const row = Math.floor((y - HEADER_HEIGHT) / rowHeight);
-    return row >= 0 && row < GRID_ROWS ? row : null;
-  }, [getCanvasCoords, rowHeight]);
+    if (x >= ROW_NUM_WIDTH || y < topOffset) return null;
+    const vi = Math.floor((y - topOffset) / rowHeight);
+    if (vi < 0 || vi >= visibleRows.length) return null;
+    return visibleRows[vi];
+  }, [getCanvasCoords, rowHeight, topOffset, visibleRows]);
 
   /* ---------------------------------------------------------------- */
   /*  Resize edge detection                                            */
@@ -694,9 +849,9 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   }, [dataRange.cols, getColX]);
 
   const isNearBottomEdge = useCallback((y: number): boolean => {
-    const edgeY = HEADER_HEIGHT + dataRange.rows * rowHeight;
+    const edgeY = topOffset + visibleDataRowCount * rowHeight;
     return Math.abs(y - edgeY) < RESIZE_HANDLE_THRESHOLD;
-  }, [dataRange.rows, rowHeight]);
+  }, [topOffset, visibleDataRowCount, rowHeight]);
 
   /* ---------------------------------------------------------------- */
   /*  Editing helpers                                                  */
@@ -710,21 +865,15 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
 
   const startEditingWithChar = useCallback((row: number, col: number, char: string) => {
     setCellValue(row, col, char);
-    if (isInDataRange(row, col, dataRange)) {
-      syncCellToProseMirror(row, col, char);
-    }
     setEditing({ row, col, value: char });
     setEditValue(char);
-  }, [setCellValue, dataRange, syncCellToProseMirror]);
+  }, [setCellValue]);
 
   const commitEditing = useCallback((value: string) => {
     if (!editing) return;
     setCellValue(editing.row, editing.col, value);
-    if (isInDataRange(editing.row, editing.col, dataRange)) {
-      syncCellToProseMirror(editing.row, editing.col, value);
-    }
     setEditing(null);
-  }, [editing, setCellValue, dataRange, syncCellToProseMirror]);
+  }, [editing, setCellValue]);
 
   const cancelEditing = useCallback(() => {
     setEditing(null);
@@ -775,6 +924,19 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     // Check cell
     const cell = getGridCoords(e);
     if (cell) {
+      if (e.shiftKey && selection) {
+        // Shift+クリックで範囲選択
+        const anchor = selection.type === "cell"
+          ? { row: selection.row, col: selection.col }
+          : selection.type === "range"
+          ? { row: selection.startRow, col: selection.startCol }
+          : null;
+        if (anchor) {
+          setSelection({ type: "range", startRow: anchor.row, startCol: anchor.col, endRow: cell.row, endCol: cell.col });
+          setEditing(null);
+          return;
+        }
+      }
       setSelection({ type: "cell", row: cell.row, col: cell.col });
       setEditing(null);
     }
@@ -811,8 +973,20 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
         anchorY: e.clientY,
         target: { type: "col", index: col },
       });
+      return;
     }
-  }, [getRowNum, getHeaderCol]);
+
+    // Cell context menu
+    const cell = getGridCoords(e);
+    if (cell !== null) {
+      setSelection({ type: "cell", row: cell.row, col: cell.col });
+      setContextMenu({
+        anchorX: e.clientX,
+        anchorY: e.clientY,
+        target: { type: "cell", row: cell.row, col: cell.col },
+      });
+    }
+  }, [getRowNum, getHeaderCol, getGridCoords, setSelection]);
 
   const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
     const coords = getCanvasCoords(e);
@@ -825,7 +999,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
 
     let edge: "right" | "bottom" | "corner" | null = null;
     if (nearRight && nearBottom) edge = "corner";
-    else if (nearRight && y >= HEADER_HEIGHT && y <= HEADER_HEIGHT + dataRange.rows * rowHeight) edge = "right";
+    else if (nearRight && y >= topOffset && y <= topOffset + visibleDataRowCount * rowHeight) edge = "right";
     else if (nearBottom && x >= ROW_NUM_WIDTH && x <= getColX(dataRange.cols)) edge = "bottom";
 
     if (edge) {
@@ -841,7 +1015,8 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
         const my = ev.clientY - rect.top;
 
         const newCol = getColAtX(mx);
-        const newRow = Math.floor((my - HEADER_HEIGHT) / rowHeight);
+        const vi = Math.floor((my - topOffset) / rowHeight);
+        const newRow = vi >= 0 && vi < visibleRows.length ? visibleRows[vi] : vi;
 
         const newRows = edge === "right"
           ? dataRange.rows
@@ -875,8 +1050,9 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     // 行番号エリア: mousedown → mousemove で 5px 以上動いたらドラッグ開始
     const DRAG_THRESHOLD = 5;
 
-    if (x < ROW_NUM_WIDTH && y >= HEADER_HEIGHT) {
-      const srcRow = Math.floor((y - HEADER_HEIGHT) / rowHeight);
+    if (x < ROW_NUM_WIDTH && y >= topOffset) {
+      const srcVi = Math.floor((y - topOffset) / rowHeight);
+      const srcRow = srcVi >= 0 && srcVi < visibleRows.length ? visibleRows[srcVi] : -1;
       if (srcRow >= 0 && srcRow < GRID_ROWS) {
         const startY = e.clientY;
         let dragStarted = false;
@@ -891,7 +1067,8 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
             if (!canvas) return;
             const rect = canvas.getBoundingClientRect();
             const my = ev.clientY - rect.top;
-            const targetRow = Math.max(0, Math.min(GRID_ROWS, Math.floor((my - HEADER_HEIGHT) / rowHeight)));
+            const targetVi = Math.max(0, Math.min(visibleRows.length, Math.floor((my - topOffset) / rowHeight)));
+            const targetRow = targetVi < visibleRows.length ? visibleRows[targetVi] : GRID_ROWS;
             setReorderDrag((prev) => prev ? { ...prev, targetIndex: targetRow } : null);
           }
         };
@@ -906,9 +1083,6 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
               const to = drag.targetIndex > from ? drag.targetIndex - 1 : drag.targetIndex;
               if (from !== to) {
                 swapRows(from, to);
-                if (from < dataRange.rows && to < dataRange.rows) {
-                  rebuildTable(grid, dataRange);
-                }
                 setSelection({ type: "row", start: to, end: to });
               }
             }
@@ -925,7 +1099,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     }
 
     // 列ヘッダーエリア: 同様にドラッグ閾値付き
-    if (y < HEADER_HEIGHT && x >= ROW_NUM_WIDTH) {
+    if (y < topOffset && x >= ROW_NUM_WIDTH) {
       const srcCol = getColAtX(x);
       if (srcCol >= 0 && srcCol < GRID_COLS) {
         const startX = e.clientX;
@@ -956,9 +1130,6 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
               const to = drag.targetIndex > from ? drag.targetIndex - 1 : drag.targetIndex;
               if (from !== to) {
                 swapCols(from, to);
-                if (from < dataRange.cols && to < dataRange.cols) {
-                  rebuildTable(grid, dataRange);
-                }
                 setSelection({ type: "col", start: to, end: to });
               }
             }
@@ -972,9 +1143,48 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
         return;
       }
     }
+
+    // --- Cell range drag selection ---
+    if (y >= topOffset && x >= ROW_NUM_WIDTH) {
+      const vi = Math.floor((y - topOffset) / rowHeight);
+      const startRow = vi >= 0 && vi < visibleRows.length ? visibleRows[vi] : -1;
+      const startCol = getColAtX(x);
+      if (startRow >= 0 && startCol >= 0) {
+        let dragStarted = false;
+        const DRAG_THRESHOLD = 3;
+
+        const onMouseMove = (ev: MouseEvent) => {
+          const canvas = canvasRef.current;
+          if (!canvas) return;
+          const rect = canvas.getBoundingClientRect();
+          const mx = ev.clientX - rect.left;
+          const my = ev.clientY - rect.top;
+          if (!dragStarted && (Math.abs(mx - x) >= DRAG_THRESHOLD || Math.abs(my - y) >= DRAG_THRESHOLD)) {
+            dragStarted = true;
+          }
+          if (dragStarted) {
+            const endVi = Math.max(0, Math.min(visibleRows.length - 1, Math.floor((my - topOffset) / rowHeight)));
+            const endRow = visibleRows[endVi];
+            const endCol = Math.max(0, Math.min(GRID_COLS - 1, getColAtX(mx)));
+            setSelection({ type: "range", startRow, startCol, endRow, endCol });
+          }
+        };
+
+        const onMouseUp = () => {
+          document.removeEventListener("mousemove", onMouseMove);
+          document.removeEventListener("mouseup", onMouseUp);
+          if (dragStarted) {
+            suppressClickRef.current = true;
+          }
+        };
+
+        document.addEventListener("mousemove", onMouseMove);
+        document.addEventListener("mouseup", onMouseUp);
+      }
+    }
   }, [
-    getCanvasCoords, getColAtX, getColX, isNearRightEdge, isNearBottomEdge, dataRange, rowHeight,
-    handleDataRangeChange, setSelection, swapRows, swapCols, rebuildTable, grid,
+    getCanvasCoords, getColAtX, getColX, isNearRightEdge, isNearBottomEdge, dataRange, rowHeight, topOffset,
+    handleDataRangeChange, setSelection, swapRows, swapCols, rebuildTable, grid, visibleRows, visibleDataRowCount,
   ]);
 
   const handleCanvasMouseMove = useCallback((e: React.MouseEvent) => {
@@ -989,13 +1199,13 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
 
     if (nearRight && nearBottom) {
       canvas.style.cursor = "nwse-resize";
-    } else if (nearRight && y >= HEADER_HEIGHT && y <= HEADER_HEIGHT + dataRange.rows * rowHeight) {
+    } else if (nearRight && y >= topOffset && y <= topOffset + dataRange.rows * rowHeight) {
       canvas.style.cursor = "col-resize";
     } else if (nearBottom && x >= ROW_NUM_WIDTH && x <= getColX(dataRange.cols)) {
       canvas.style.cursor = "row-resize";
-    } else if (y < HEADER_HEIGHT && x >= ROW_NUM_WIDTH) {
+    } else if (y < topOffset && x >= ROW_NUM_WIDTH) {
       canvas.style.cursor = "grab";
-    } else if (x < ROW_NUM_WIDTH && y >= HEADER_HEIGHT) {
+    } else if (x < ROW_NUM_WIDTH && y >= topOffset) {
       canvas.style.cursor = "grab";
     } else {
       canvas.style.cursor = "cell";
@@ -1011,8 +1221,10 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
       if (!selection) return;
 
       let row = selection.type === "cell" ? selection.row
+        : selection.type === "range" ? selection.startRow
         : selection.type === "row" ? selection.start : 0;
       let col = selection.type === "cell" ? selection.col
+        : selection.type === "range" ? selection.startCol
         : selection.type === "col" ? selection.start : 0;
 
       switch (key) {
@@ -1067,6 +1279,50 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
       return;
     }
 
+    // Clipboard: Copy / Cut / Paste (cell and range)
+    if ((ctrlKey || metaKey) && selection && (selection.type === "cell" || selection.type === "range")) {
+      const anchor = selection.type === "cell"
+        ? { minR: selection.row, minC: selection.col, maxR: selection.row, maxC: selection.col }
+        : { minR: Math.min(selection.startRow, selection.endRow), minC: Math.min(selection.startCol, selection.endCol),
+            maxR: Math.max(selection.startRow, selection.endRow), maxC: Math.max(selection.startCol, selection.endCol) };
+
+      if (key === "c" || key === "x") {
+        e.preventDefault();
+        const lines: string[] = [];
+        for (let r = anchor.minR; r <= anchor.maxR; r++) {
+          const cells: string[] = [];
+          for (let c = anchor.minC; c <= anchor.maxC; c++) cells.push(grid[r][c]);
+          lines.push(cells.join("\t"));
+        }
+        navigator.clipboard.writeText(lines.join("\n")).catch(() => {/* ignore */});
+        if (key === "x") {
+          for (let r = anchor.minR; r <= anchor.maxR; r++) {
+            for (let c = anchor.minC; c <= anchor.maxC; c++) {
+              setCellValue(r, c, "");
+            }
+          }
+        }
+        return;
+      }
+      if (key === "v") {
+        e.preventDefault();
+        navigator.clipboard.readText().then((text) => {
+          if (!text) return;
+          const lines = text.split("\n").map((line) => line.split("\t"));
+          for (let r = 0; r < lines.length; r++) {
+            for (let c = 0; c < lines[r].length; c++) {
+              const targetRow = anchor.minR + r;
+              const targetCol = anchor.minC + c;
+              if (targetRow < grid.length && targetCol < grid[0].length) {
+                setCellValue(targetRow, targetCol, lines[r][c]);
+              }
+            }
+          }
+        }).catch(() => {/* ignore */});
+        return;
+      }
+    }
+
     if (
       key === "ArrowUp" ||
       key === "ArrowDown" ||
@@ -1091,8 +1347,15 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
       e.preventDefault();
       if (selection?.type === "cell") {
         setCellValue(selection.row, selection.col, "");
-        if (isInDataRange(selection.row, selection.col, dataRange)) {
-          syncCellToProseMirror(selection.row, selection.col, "");
+      } else if (selection?.type === "range") {
+        const minR = Math.min(selection.startRow, selection.endRow);
+        const maxR = Math.max(selection.startRow, selection.endRow);
+        const minC = Math.min(selection.startCol, selection.endCol);
+        const maxC = Math.max(selection.startCol, selection.endCol);
+        for (let r = minR; r <= maxR; r++) {
+          for (let c = minC; c <= maxC; c++) {
+            setCellValue(r, c, "");
+          }
         }
       }
       return;
@@ -1106,8 +1369,8 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
       }
     }
   }, [
-    editing, editor, selection, handleKeyNavigation, startEditing,
-    startEditingWithChar, setCellValue, dataRange, syncCellToProseMirror,
+    editing, editor, grid, selection, handleKeyNavigation, startEditing,
+    startEditingWithChar, setCellValue, dataRange,
   ]);
 
   /* ---------------------------------------------------------------- */
@@ -1160,7 +1423,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   const inputStyle: React.CSSProperties = editing ? {
     position: "absolute",
     left: getColX(editing.col),
-    top: HEADER_HEIGHT + editing.row * rowHeight,
+    top: topOffset + gridRowToVisualIndex(editing.row) * rowHeight,
     width: getColWidth(editing.col),
     height: rowHeight,
     border: `2px solid ${primaryColor}`,
@@ -1208,10 +1471,37 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
         setAlignments(newAligns);
       }
 
-      rebuildTable(grid, dataRange, newAligns);
     },
-    [selection, setCellAlign, setAlignments, alignments, rebuildTable, grid, dataRange],
+    [selection, setCellAlign, setAlignments, alignments],
   );
+
+  /** 未適用の変更追跡 */
+  const [dirty, setDirty] = useState(false);
+  const dirtyRef = useRef(false);
+
+  // grid/alignments/dataRange の変更を検知して dirty フラグを立てる
+  // 初回レンダリングをスキップするため ref で管理
+  const initializedRef = useRef(false);
+  useEffect(() => {
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      return;
+    }
+    if (!dirtyRef.current) {
+      dirtyRef.current = true;
+      setDirty(true);
+      onDirtyChange?.(true);
+    }
+  }, [grid, alignments, dataRange, onDirtyChange]);
+
+  /** 適用ボタン: グリッド全体を ProseMirror に一括反映 */
+  const handleApply = useCallback(() => {
+    rebuildTable(grid, dataRange, alignments);
+    dirtyRef.current = false;
+    setDirty(false);
+    onDirtyChange?.(false);
+    onClose?.();
+  }, [rebuildTable, grid, dataRange, alignments, onDirtyChange, onClose]);
 
   const iconSx = { fontSize: 16 };
 
@@ -1234,10 +1524,39 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
             <Tooltip title={t("alignRight")} placement="top"><FormatAlignRightIcon sx={iconSx} /></Tooltip>
           </ToggleButton>
         </ToggleButtonGroup>
+        <Tooltip title={t("spreadsheetFilter")} placement="top">
+          <IconButton
+            size="small"
+            onClick={() => setFilterRowVisible((prev) => !prev)}
+            sx={{ ml: 0.5, color: (filterRowVisible || hasActiveFilters) ? "primary.main" : undefined }}
+          >
+            <FilterListIcon sx={{ fontSize: 16 }} />
+          </IconButton>
+        </Tooltip>
+        {hasActiveFilters && (
+          <Tooltip title={t("spreadsheetFilterClear")} placement="top">
+            <IconButton size="small" onClick={() => { setFilters(new Map()); setFilterRowVisible(false); }} sx={{ ml: 0.25 }}>
+              <FilterListOffIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          </Tooltip>
+        )}
         <Tooltip title={t("spreadsheetCellSettings")} placement="top">
           <IconButton size="small" onClick={() => { setSettingsDraft(settings); setSettingsOpen(true); }} sx={{ ml: 0.5 }}>
             <SettingsIcon sx={{ fontSize: 16 }} />
           </IconButton>
+        </Tooltip>
+        <Box sx={{ flex: 1 }} />
+        <Tooltip title={t("spreadsheetApply")} placement="top">
+          <Button
+            size="small"
+            variant={dirty ? "contained" : "outlined"}
+            color={dirty ? "primary" : "inherit"}
+            startIcon={<CheckIcon sx={{ fontSize: 14 }} />}
+            onClick={handleApply}
+            sx={{ textTransform: "none", fontSize: 12, height: 24, px: 1.5 }}
+          >
+            {t("spreadsheetApply")}
+          </Button>
         </Tooltip>
       </Box>
 
@@ -1321,6 +1640,66 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
         style={{ display: "block", outline: "none" }}
       />
 
+      {/* Filter row — 列ヘッダーの直下に固定表示 */}
+      {filterRowVisible && (
+        <Box
+          style={{
+            position: "absolute",
+            top: HEADER_HEIGHT,
+            left: 0,
+            display: "flex",
+            height: FILTER_ROW_HEIGHT,
+            zIndex: 2,
+            pointerEvents: "auto",
+            width: totalWidth,
+          }}
+        >
+          <Box sx={{ minWidth: ROW_NUM_WIDTH, flexShrink: 0, background: bgColor }} />
+          {Array.from({ length: dataRange.cols }, (_, c) => {
+            const uniqueVals = columnUniqueValues.get(c) ?? [];
+            const currentFilter = filters.get(c);
+            const selectedValue = currentFilter?.selectedValues
+              ? (currentFilter.selectedValues.size === 1 ? Array.from(currentFilter.selectedValues)[0] : "__all__")
+              : "__all__";
+            return (
+              <Box key={c} sx={{ minWidth: getColWidth(c), maxWidth: getColWidth(c), flexShrink: 0, px: 0.25, background: bgColor }}>
+                <select
+                  value={selectedValue}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setFilters((prev) => {
+                      const next = new Map(prev);
+                      if (val === "__all__") {
+                        next.delete(c);
+                      } else {
+                        next.set(c, { colIndex: c, selectedValues: new Set([val]) });
+                      }
+                      return next;
+                    });
+                  }}
+                  style={{
+                    width: "100%",
+                    height: 24,
+                    fontSize: 11,
+                    border: `1px solid ${borderColor}`,
+                    borderRadius: 2,
+                    background: bgColor,
+                    color: textColor,
+                    outline: "none",
+                    padding: "0 2px",
+                  }}
+                >
+                  <option value="__all__">{t("spreadsheetFilterSelectAll")}</option>
+                  {uniqueVals.map((v) => (
+                    <option key={v} value={v}>{v || "(empty)"}</option>
+                  ))}
+                </select>
+              </Box>
+            );
+          })}
+        </Box>
+      )}
+
       <input
         ref={inputRef}
         type="text"
@@ -1345,7 +1724,8 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
           onSwapRows={swapRows}
           onSwapCols={swapCols}
           setDataRange={setDataRange}
-          syncCellToProseMirror={syncCellToProseMirror}
+          setCellValue={setCellValue}
+          onOpenFilter={() => setFilterRowVisible(true)}
           isDark={isDark}
           t={t}
         />

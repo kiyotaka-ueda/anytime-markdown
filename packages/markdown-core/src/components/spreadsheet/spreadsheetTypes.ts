@@ -27,11 +27,20 @@ export interface CellEditState {
 /** セルの配置 */
 export type CellAlign = "left" | "center" | "right" | null;
 
+/** 列フィルタの状態 */
+export interface ColumnFilterState {
+  /** フィルタ対象の列インデックス */
+  readonly colIndex: number;
+  /** 表示する値の集合（チェックされた値） */
+  readonly selectedValues: ReadonlySet<string>;
+}
+
 /** コンテキストメニューの状態 */
 export interface ContextMenuState {
   readonly anchorX: number;
   readonly anchorY: number;
   readonly target:
     | { readonly type: "row"; readonly index: number }
-    | { readonly type: "col"; readonly index: number };
+    | { readonly type: "col"; readonly index: number }
+    | { readonly type: "cell"; readonly row: number; readonly col: number };
 }

@@ -2,8 +2,8 @@ import {
   columnLabel,
   createEmptyGrid,
   isInDataRange,
-  GRID_ROWS,
-  GRID_COLS,
+  DEFAULT_GRID_ROWS,
+  DEFAULT_GRID_COLS,
 } from "../../components/spreadsheet/spreadsheetUtils";
 
 describe("spreadsheetUtils", () => {
@@ -15,12 +15,12 @@ describe("spreadsheetUtils", () => {
   });
 
   describe("createEmptyGrid", () => {
-    test("100×20 の空グリッドを生成", () => {
+    test("51×15 の空グリッドを生成", () => {
       const grid = createEmptyGrid();
-      expect(grid.length).toBe(GRID_ROWS);
-      expect(grid[0].length).toBe(GRID_COLS);
+      expect(grid.length).toBe(DEFAULT_GRID_ROWS);
+      expect(grid[0].length).toBe(DEFAULT_GRID_COLS);
       expect(grid[0][0]).toBe("");
-      expect(grid[99][19]).toBe("");
+      expect(grid[DEFAULT_GRID_ROWS - 1][DEFAULT_GRID_COLS - 1]).toBe("");
     });
 
     test("各行が独立した配列", () => {

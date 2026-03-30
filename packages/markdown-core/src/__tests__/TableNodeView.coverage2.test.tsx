@@ -145,9 +145,14 @@ function createMockEditor(overrides?: Record<string, any>) {
     _deleteRow: deleteRow,
     _setCellAttribute: setCellAttribute,
     view: { dom: { dataset: {} } },
-    state: { selection: { from: 0, to: 0 } },
+    state: { selection: { from: 0, to: 0 }, doc: { descendants: jest.fn() } },
     isActive: () => false,
     storage: { searchReplace: true },
+    extensionManager: {
+      extensions: [
+        { name: "table", options: { gridRows: 51, gridCols: 15 } },
+      ],
+    },
     ...overrides,
   };
 }

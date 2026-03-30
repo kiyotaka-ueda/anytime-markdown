@@ -1,8 +1,8 @@
 import { renderHook, act } from "@testing-library/react";
 import { useSpreadsheetState } from "../../components/spreadsheet/useSpreadsheetState";
 import {
-  GRID_ROWS,
-  GRID_COLS,
+  DEFAULT_GRID_ROWS,
+  DEFAULT_GRID_COLS,
 } from "../../components/spreadsheet/spreadsheetUtils";
 
 describe("useSpreadsheetState", () => {
@@ -16,11 +16,11 @@ describe("useSpreadsheetState", () => {
   }
 
   describe("initial state", () => {
-    it("should create an empty grid of GRID_ROWS × GRID_COLS", () => {
+    it("should create an empty grid of DEFAULT_GRID_ROWS × DEFAULT_GRID_COLS", () => {
       const { result } = setup();
-      expect(result.current.grid).toHaveLength(GRID_ROWS);
+      expect(result.current.grid).toHaveLength(DEFAULT_GRID_ROWS);
       for (const row of result.current.grid) {
-        expect(row).toHaveLength(GRID_COLS);
+        expect(row).toHaveLength(DEFAULT_GRID_COLS);
         expect(row.every((cell) => cell === "")).toBe(true);
       }
     });
@@ -133,14 +133,14 @@ describe("useSpreadsheetState", () => {
       expect(result.current.grid[1][0]).toBe("");
     });
 
-    it("should maintain GRID_ROWS × GRID_COLS dimensions", () => {
+    it("should maintain DEFAULT_GRID_ROWS × DEFAULT_GRID_COLS dimensions", () => {
       const { result } = setup();
       act(() => {
         result.current.initGrid([["a", "b"]]);
       });
-      expect(result.current.grid).toHaveLength(GRID_ROWS);
+      expect(result.current.grid).toHaveLength(DEFAULT_GRID_ROWS);
       for (const row of result.current.grid) {
-        expect(row).toHaveLength(GRID_COLS);
+        expect(row).toHaveLength(DEFAULT_GRID_COLS);
       }
     });
   });
@@ -160,24 +160,24 @@ describe("useSpreadsheetState", () => {
       expect(result.current.grid[2][0]).toBe("row1");
     });
 
-    it("should maintain GRID_ROWS length", () => {
+    it("should maintain DEFAULT_GRID_ROWS length", () => {
       const { result } = setup();
       act(() => {
         result.current.insertRow(0);
       });
-      expect(result.current.grid).toHaveLength(GRID_ROWS);
+      expect(result.current.grid).toHaveLength(DEFAULT_GRID_ROWS);
     });
 
     it("should shift rows down and drop last row", () => {
       const { result } = setup();
       act(() => {
-        result.current.setCellValue(GRID_ROWS - 1, 0, "lastRow");
+        result.current.setCellValue(DEFAULT_GRID_ROWS - 1, 0, "lastRow");
       });
       act(() => {
         result.current.insertRow(0);
       });
       // Last row data is dropped
-      expect(result.current.grid[GRID_ROWS - 1][0]).toBe("");
+      expect(result.current.grid[DEFAULT_GRID_ROWS - 1][0]).toBe("");
     });
   });
 
@@ -201,9 +201,9 @@ describe("useSpreadsheetState", () => {
       act(() => {
         result.current.deleteRow(0);
       });
-      expect(result.current.grid).toHaveLength(GRID_ROWS);
+      expect(result.current.grid).toHaveLength(DEFAULT_GRID_ROWS);
       expect(
-        result.current.grid[GRID_ROWS - 1].every((c) => c === ""),
+        result.current.grid[DEFAULT_GRID_ROWS - 1].every((c) => c === ""),
       ).toBe(true);
     });
   });
@@ -223,13 +223,13 @@ describe("useSpreadsheetState", () => {
       expect(result.current.grid[0][2]).toBe("c1");
     });
 
-    it("should maintain GRID_COLS length", () => {
+    it("should maintain DEFAULT_GRID_COLS length", () => {
       const { result } = setup();
       act(() => {
         result.current.insertCol(0);
       });
       for (const row of result.current.grid) {
-        expect(row).toHaveLength(GRID_COLS);
+        expect(row).toHaveLength(DEFAULT_GRID_COLS);
       }
     });
   });
@@ -255,8 +255,8 @@ describe("useSpreadsheetState", () => {
         result.current.deleteCol(0);
       });
       for (const row of result.current.grid) {
-        expect(row).toHaveLength(GRID_COLS);
-        expect(row[GRID_COLS - 1]).toBe("");
+        expect(row).toHaveLength(DEFAULT_GRID_COLS);
+        expect(row[DEFAULT_GRID_COLS - 1]).toBe("");
       }
     });
   });

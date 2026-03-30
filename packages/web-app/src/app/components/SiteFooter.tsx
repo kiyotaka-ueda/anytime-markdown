@@ -41,14 +41,6 @@ export default function SiteFooter() {
         >
           {t('footerGithub')}
         </MuiLink>
-        <MuiLink
-          component={NextLink}
-          href="/docs"
-          underline="hover"
-          sx={{ color: 'text.secondary', fontSize: '0.85rem' }}
-        >
-          {t('sitesPage')}
-        </MuiLink>
         {process.env.NEXT_PUBLIC_ENABLE_DOCS_EDIT === 'true' && (
           <MuiLink
             component={NextLink}

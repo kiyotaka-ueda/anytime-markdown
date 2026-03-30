@@ -21,8 +21,15 @@ describe("SiteFooter", () => {
   it("renders navigation links", () => {
     render(<SiteFooter />);
     expect(screen.getByText("footerGithub")).toBeTruthy();
-    expect(screen.getByText("sitesPage")).toBeTruthy();
     expect(screen.getByText("footerPrivacy")).toBeTruthy();
     expect(screen.getByText("footerRights")).toBeTruthy();
+  });
+
+  it("renders docsEditPage link when NEXT_PUBLIC_ENABLE_DOCS_EDIT is true", () => {
+    const original = process.env.NEXT_PUBLIC_ENABLE_DOCS_EDIT;
+    process.env.NEXT_PUBLIC_ENABLE_DOCS_EDIT = "true";
+    render(<SiteFooter />);
+    expect(screen.getByText("docsEditPage")).toBeTruthy();
+    process.env.NEXT_PUBLIC_ENABLE_DOCS_EDIT = original;
   });
 });

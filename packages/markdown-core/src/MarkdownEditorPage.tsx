@@ -174,6 +174,12 @@ interface MarkdownEditorPageProps {
   onContentChange?: (content: string) => void;
   /** フロントマターブロックの表示（デフォルト: false） */
   showFrontmatter?: boolean;
+  /** エディタ下部の追加オフセット（px） — useEditorHeight の bottomOffset に加算 */
+  bottomOffset?: number;
+  /** スプレッドシートのグリッド行数 */
+  gridRows?: number;
+  /** スプレッドシートのグリッド列数 */
+  gridCols?: number;
 }
 
 /** Apply external compare content and open merge mode if needed (extracted to reduce component complexity). */
@@ -195,7 +201,7 @@ function applyExternalCompareContent(
   }
 }
 
-export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideVersionInfo, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, presetName, onPresetChange, onLocaleChange, fileSystemProvider, externalContent, externalFileName, externalFilePath: _externalFilePath, onExternalSave, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, autoReload, onModeChange, defaultSourceMode, showReadonlyMode, externalCompareContent, explorerOpen, onToggleExplorer, sideToolbar, hideCompareToggle, hideGraph, explorerSlot, noScroll, defaultOutlineOpen, fixedEditorHeight, defaultFontSize, initialFontSize, defaultBlockAlign, onContentChange, showFrontmatter }: MarkdownEditorPageProps = {}) {
+export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideVersionInfo, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, presetName, onPresetChange, onLocaleChange, fileSystemProvider, externalContent, externalFileName, externalFilePath: _externalFilePath, onExternalSave, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, autoReload, onModeChange, defaultSourceMode, showReadonlyMode, externalCompareContent, explorerOpen, onToggleExplorer, sideToolbar, hideCompareToggle, hideGraph, explorerSlot, noScroll, defaultOutlineOpen, fixedEditorHeight, defaultFontSize, initialFontSize, defaultBlockAlign, onContentChange, showFrontmatter, bottomOffset: extraBottomOffset, gridRows, gridCols }: MarkdownEditorPageProps = {}) {
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
   const muiTheme = useTheme();
@@ -266,6 +272,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
       onFileDragOver: onFileDragOverRef, slashCommandCallback: slashCommandCallbackRef,
     },
     setHeadingMenu,
+    gridRows,
+    gridCols,
   });
   const editor = useEditor(editorConfig, [processedInitialContent]);
   editorRef.current = editor;
@@ -467,7 +475,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
   }, []);
 
   const statusBarHeight = hideStatusBar ? 0 : STATUSBAR_HEIGHT;
-  const { editorContainerRef, editorHeight: autoEditorHeight } = useEditorHeight(isMobile, isMd, statusBarHeight);
+  const { editorContainerRef, editorHeight: autoEditorHeight } = useEditorHeight(isMobile, isMd, statusBarHeight + (extraBottomOffset ?? 0));
   const editorHeight = fixedEditorHeight ?? autoEditorHeight;
 
   const handleInsertTemplate = useCallback((template: MarkdownTemplate) => {
@@ -534,8 +542,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         explorerOpen={explorerOpen}
         inlineMergeOpen={inlineMergeOpen}
         hide={{
-          outline: hideOutline || (sideToolbar && !readonlyMode), comments: hideComments || sideToolbar,
-          explorer: sideToolbar, compareToggle: hideCompareToggle,
+          outline: hideOutline || (sideToolbar && !readonlyMode && isMd), comments: hideComments || (sideToolbar && isMd),
+          explorer: sideToolbar && isMd, compareToggle: hideCompareToggle,
           templates: hideTemplates, foldAll: hideFoldAll,
           fileOps: hideFileOps, undoRedo: hideUndoRedo,
           versionInfo: hideVersionInfo,
@@ -635,6 +643,10 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         hideSettings={hideSettings} hideVersionInfo={hideVersionInfo}
         hideTemplates={hideTemplates} inlineMergeOpen={inlineMergeOpen}
         appendToSource={appendToSource}
+        outlineOpen={outlineOpen} commentOpen={commentOpen}
+        onToggleOutline={handleToggleOutline}
+        onToggleComments={() => setCommentOpen((prev) => !prev)}
+        onOpenSettings={hideSettings ? undefined : () => setSettingsOpen(true)}
         pdfExporting={pdfExporting} notification={notification} setNotification={setNotification} t={t}
       />
     </Box>

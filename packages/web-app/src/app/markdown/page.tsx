@@ -84,6 +84,8 @@ export default function Page() {
           sideToolbar
           explorerSlot={explorerSlotNode}
           onContentChange={handleContentChange}
+          gridRows={process.env.NEXT_PUBLIC_GRID_ROWS ? Number(process.env.NEXT_PUBLIC_GRID_ROWS) : undefined}
+          gridCols={process.env.NEXT_PUBLIC_GRID_COLS ? Number(process.env.NEXT_PUBLIC_GRID_COLS) : undefined}
         />
       </Box>
       <Snackbar
