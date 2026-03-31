@@ -6,7 +6,7 @@ import { useCallback, useState } from "react";
 import { MERMAID_RENDER_TIMEOUT, PRINT_DELAY } from "../constants/timing";
 import { buildPlantUmlUrl } from "../utils/plantumlHelpers";
 
-import type { NotificationKey } from "./useEditorFileOps";
+import type { NotificationKey } from "./useNotification";
 
 interface MermaidReplacement {
   innerDiv: HTMLElement;

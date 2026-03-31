@@ -1,18 +1,21 @@
 import type { Editor } from "@tiptap/react";
 import { useTranslations } from "next-intl";
 import type { Dispatch, SetStateAction } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
 
 import useConfirm from "@/hooks/useConfirm";
 
-import { NOTIFICATION_DURATION } from "../constants/timing";
 import { type EncodingLabel,getMarkdownFromEditor } from "../types";
 import type { FileHandle } from "../types/fileSystem";
 import { applyMarkdownToEditor } from "../utils/editorContentLoader";
 import { readFileAsText } from "../utils/fileReading";
 import { prependFrontmatter } from "../utils/frontmatterHelpers";
 
+import { useNotification } from "./useNotification";
 import { usePdfExport } from "./usePdfExport";
+
+// Re-export for backwards compatibility
+export type { NotificationKey } from "./useNotification";
 
 interface UseEditorFileOpsParams {
   editor: Editor | null;
@@ -34,8 +37,6 @@ interface UseEditorFileOpsParams {
   onExternalSave?: (content: string) => void;
 }
 
-export type NotificationKey = "copiedToClipboard" | "fileSaved" | "pdfExportError" | "encodingError" | "saveError" | null;
-
 export function useEditorFileOps({
   editor,
   sourceMode,
@@ -55,8 +56,7 @@ export function useEditorFileOps({
   onFrontmatterChange,
   onExternalSave,
 }: UseEditorFileOpsParams) {
-  const [notification, setNotification] = useState<NotificationKey>(null);
-  const notificationTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const { notification, setNotification, showNotification } = useNotification();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const confirm = useConfirm();
   const t = useTranslations("MarkdownEditor");
@@ -67,15 +67,6 @@ export function useEditorFileOps({
     const md = sourceMode ? sourceText : editorMd;
     return sourceMode ? md : prependFrontmatter(md, frontmatterRef.current);
   }, [sourceMode, sourceText, editor, frontmatterRef]);
-
-  // アンマウント時にタイマーをクリア
-  useEffect(() => () => clearTimeout(notificationTimerRef.current), []);
-
-  const showNotification = useCallback((key: NotificationKey) => {
-    clearTimeout(notificationTimerRef.current);
-    setNotification(key);
-    notificationTimerRef.current = setTimeout(() => setNotification(null), NOTIFICATION_DURATION);
-  }, []);
 
   const handleClear = useCallback(async () => {
     try {
