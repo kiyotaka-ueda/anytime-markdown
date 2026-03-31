@@ -4,6 +4,7 @@ import type React from "react";
 import { useCallback } from "react";
 
 import { FILE_DROP_OVERLAY_COLOR } from "../constants/colors";
+import { useEditorMode } from "../contexts/EditorModeContext";
 import { COMMENT_PANEL_WIDTH } from "../constants/dimensions";
 import type { TextareaSearchState } from "../hooks/useTextareaSearch";
 import { getMarkdownFromEditor, type HeadingItem } from "../types";
@@ -61,12 +62,8 @@ export interface OutlineProps {
 }
 
 interface EditorMainContentProps {
-  inlineMergeOpen: boolean;
   InlineMergeView: InlineMergeViewComponent;
   editor: Editor | null;
-  sourceMode: boolean;
-  readonlyMode: boolean;
-  reviewMode: boolean;
   editorHeight: number;
   editorContainerRef: React.RefObject<HTMLDivElement | null>;
   editorWrapperRef: React.RefObject<HTMLDivElement | null>;
@@ -91,26 +88,16 @@ interface EditorMainContentProps {
   onFileDrop?: (file: File, nativeHandle?: FileSystemFileHandle) => void;
   fileDragOver?: boolean;
   onFileDragOverChange?: (over: boolean) => void;
-  sideToolbar?: boolean;
   onToggleOutline?: () => void;
-  explorerOpen?: boolean;
   onToggleExplorer?: () => void;
   onOpenSettings?: () => void;
   explorerSlot?: React.ReactNode;
-  noScroll?: boolean;
   t: (key: string) => string;
-  onSwitchToReview?: () => void;
-  onSwitchToWysiwyg?: () => void;
-  onSwitchToSource?: () => void;
 }
 
 export function EditorMainContent({
-  inlineMergeOpen,
   InlineMergeView,
   editor,
-  sourceMode,
-  readonlyMode,
-  reviewMode,
   editorHeight,
   editorContainerRef,
   editorWrapperRef,
@@ -135,18 +122,17 @@ export function EditorMainContent({
   onFileDrop,
   fileDragOver,
   onFileDragOverChange,
-  sideToolbar,
   onToggleOutline,
-  explorerOpen,
   onToggleExplorer,
   onOpenSettings,
   explorerSlot,
-  noScroll,
   t,
-  onSwitchToReview,
-  onSwitchToWysiwyg,
-  onSwitchToSource,
 }: Readonly<EditorMainContentProps>) {
+  const {
+    sourceMode, readonlyMode, reviewMode, inlineMergeOpen,
+    sideToolbar, explorerOpen, noScroll,
+    onSwitchToReview, onSwitchToWysiwyg, onSwitchToSource,
+  } = useEditorMode();
   const isNarrow = useMediaQuery("(max-width:900px)");
 
   // --- ドラッグ＆ドロップ ---

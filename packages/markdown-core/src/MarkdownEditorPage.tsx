@@ -619,8 +619,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
       )}
 
       <EditorMainContent
-        inlineMergeOpen={inlineMergeOpen} InlineMergeView={InlineMergeView}
-        editor={editor} sourceMode={sourceMode} readonlyMode={readonlyMode} reviewMode={reviewMode}
+        InlineMergeView={InlineMergeView}
+        editor={editor}
         editorHeight={editorHeight} editorContainerRef={editorContainerRef}
         editorWrapperRef={editorWrapperRef} editorMountCallback={editorMountCallback}
         sourceText={sourceText} handleSourceChange={handleSourceChange}
@@ -633,16 +633,10 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         setCompareFileContent={setCompareFileContent} setRightFileOps={setRightFileOps} t={t}
         onFileDrop={handleFileSelected}
         fileDragOver={fileDragOver} onFileDragOverChange={setFileDragOver}
-        sideToolbar={sideToolbar && !readonlyMode}
         onToggleOutline={handleToggleOutline}
-        explorerOpen={explorerOpen}
         onToggleExplorer={onToggleExplorer}
         onOpenSettings={hideSettings ? undefined : () => setSettingsOpen(true)}
         explorerSlot={explorerSlot}
-        noScroll={noScroll}
-        onSwitchToReview={handleSwitchToReview}
-        onSwitchToWysiwyg={handleSwitchToWysiwyg}
-        onSwitchToSource={handleSwitchToSource}
       />
 
       <EditorFooterOverlays
