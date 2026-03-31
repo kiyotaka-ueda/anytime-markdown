@@ -17,7 +17,7 @@ import { CONTEXT_MENU_FONT_SIZE, SHORTCUT_HINT_FONT_SIZE } from "../constants/di
 import { findBlockNode, getCopiedBlockNode, performBlockCopy } from "../utils/blockClipboard";
 import { boxTableToMarkdown, containsBoxTable } from "../utils/boxTableToMarkdown";
 import { copyTextToClipboard, readTextFromClipboard } from "../utils/clipboardHelpers";
-import { requestExternalImageDownloads, saveClipboardImageViaVscode } from "../hooks/useEditorConfig";
+import { requestExternalImageDownloads, saveClipboardImageViaVscode } from "../utils/editorImageHandlers";
 
 interface EditorContextMenuProps {
   editor: Editor | null;
