@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { TextareaSearchState } from "../hooks/useTextareaSearch";
 import { getEditorPaperSx } from "../styles/editorStyles";
+import { useEditorMode } from "../contexts/EditorModeContext";
 import { useEditorSettingsContext } from "../useEditorSettings";
 import { EditorContextMenu } from "./EditorContextMenu";
 import { FrontmatterBlock } from "./FrontmatterBlock";
@@ -15,9 +16,6 @@ import { SourceSearchBar } from "./SourceSearchBar";
 
 interface EditorContentAreaProps {
   editor: Editor | null;
-  sourceMode: boolean;
-  readonlyMode: boolean;
-  reviewMode: boolean;
   editorHeight: number;
   editorWrapperRef: React.RefObject<HTMLDivElement | null>;
   editorMountCallback: (node: HTMLDivElement | null) => void;
@@ -29,18 +27,11 @@ interface EditorContentAreaProps {
   sourceSearch: TextareaSearchState;
   frontmatterText: string | null;
   handleFrontmatterChange: (value: string | null) => void;
-  noScroll?: boolean;
   t: (key: string) => string;
-  onSwitchToReview?: () => void;
-  onSwitchToWysiwyg?: () => void;
-  onSwitchToSource?: () => void;
 }
 
 export function EditorContentArea({
   editor,
-  sourceMode,
-  readonlyMode,
-  reviewMode,
   editorHeight,
   editorWrapperRef,
   editorMountCallback,
@@ -52,12 +43,12 @@ export function EditorContentArea({
   sourceSearch,
   frontmatterText,
   handleFrontmatterChange,
-  noScroll,
   t,
-  onSwitchToReview,
-  onSwitchToWysiwyg,
-  onSwitchToSource,
 }: Readonly<EditorContentAreaProps>) {
+  const {
+    sourceMode, readonlyMode, reviewMode, noScroll,
+    onSwitchToReview, onSwitchToWysiwyg, onSwitchToSource,
+  } = useEditorMode();
   const theme = useTheme();
   const settings = useEditorSettingsContext();
 

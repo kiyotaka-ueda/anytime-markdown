@@ -280,9 +280,6 @@ export function EditorMainContent({
 
       <EditorContentArea
         editor={editor}
-        sourceMode={sourceMode}
-        readonlyMode={readonlyMode}
-        reviewMode={reviewMode}
         editorHeight={editorHeight}
         editorWrapperRef={editorWrapperRef}
         editorMountCallback={editorMountCallback}
@@ -294,11 +291,7 @@ export function EditorMainContent({
         sourceSearch={sourceSearch}
         frontmatterText={frontmatterText}
         handleFrontmatterChange={handleFrontmatterChange}
-        noScroll={noScroll}
         t={t}
-        onSwitchToReview={onSwitchToReview}
-        onSwitchToWysiwyg={onSwitchToWysiwyg}
-        onSwitchToSource={onSwitchToSource}
       />
 
       {isNarrow ? (
