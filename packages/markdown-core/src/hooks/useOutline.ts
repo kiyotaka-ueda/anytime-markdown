@@ -111,8 +111,22 @@ export function useOutline({ editor, sourceMode, defaultOutlineOpen }: UseOutlin
   }, [headings]);
 
   const unfoldAll = useCallback(() => {
-    setFoldedIndices(new Set());
-  }, []);
+    setFoldedIndices((prev) => {
+      if (prev.size === 0) return prev;
+      // 折りたたまれている見出しのうち最小レベルを求める
+      const foldedHeadings = headings.filter(
+        (h) => h.kind === "heading" && prev.has(h.headingIndex ?? -1),
+      );
+      if (foldedHeadings.length === 0) return new Set();
+      const minLevel = Math.min(...foldedHeadings.map((h) => h.level));
+      // そのレベルの見出しだけ展開し、それ以外は折りたたみ維持
+      const next = new Set(prev);
+      for (const h of foldedHeadings) {
+        if (h.level === minLevel) next.delete(h.headingIndex ?? -1);
+      }
+      return next;
+    });
+  }, [headings]);
 
   // Decoration ベースで折りたたみを適用
   useEffect(() => {
