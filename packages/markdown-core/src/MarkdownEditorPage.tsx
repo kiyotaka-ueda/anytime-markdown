@@ -551,16 +551,12 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         }}
         fileInputRef={fileInputRef}
         handleFileSelected={handleFileSelected} setTemplateAnchorEl={setTemplateAnchorEl} setHelpAnchorEl={setHelpAnchorEl}
-        sourceMode={sourceMode} readonlyMode={readonlyMode} reviewMode={reviewMode}
         outlineOpen={outlineOpen}
         modeHandlers={{
-          onSwitchToSource: handleSwitchToSource, onSwitchToWysiwyg: handleSwitchToWysiwyg,
-          onSwitchToReview: handleSwitchToReview, onSwitchToReadonly: handleSwitchToReadonly,
+          onSwitchToReadonly: handleSwitchToReadonly,
           onToggleOutline: handleToggleOutline, onMerge: handleMerge,
           onToggleExplorer,
         }}
-        explorerOpen={explorerOpen}
-        inlineMergeOpen={inlineMergeOpen}
         hide={{
           outline: hideOutline || (sideToolbar && !readonlyMode && isMd), comments: hideComments || (sideToolbar && isMd),
           explorer: sideToolbar && isMd, compareToggle: hideCompareToggle,
@@ -641,7 +637,6 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
 
       <EditorFooterOverlays
         editor={editor} editorPortalTarget={editorPortalTarget}
-        sourceMode={sourceMode} readonlyMode={readonlyMode} reviewMode={reviewMode}
         handleLink={handleLink} executeInReviewMode={executeInReviewMode}
         slashCommandCallbackRef={slashCommandCallbackRef}
         sourceText={sourceText} fileName={fileName ?? externalFileName ?? null} isDirty={isDirty}
@@ -655,7 +650,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         onInsertTemplate={handleInsertTemplate} headingMenu={headingMenu} setHeadingMenu={setHeadingMenu}
         setSettingsOpen={setSettingsOpen} setVersionDialogOpen={setVersionDialogOpen}
         hideSettings={hideSettings} hideVersionInfo={hideVersionInfo}
-        hideTemplates={hideTemplates} inlineMergeOpen={inlineMergeOpen}
+        hideTemplates={hideTemplates}
         appendToSource={appendToSource}
         outlineOpen={outlineOpen} commentOpen={commentOpen}
         onToggleOutline={handleToggleOutline}
