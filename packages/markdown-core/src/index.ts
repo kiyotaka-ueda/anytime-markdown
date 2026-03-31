@@ -149,6 +149,10 @@ export { moveTableColumn,moveTableRow } from './utils/tableHelpers';
 export { default as MarkdownIcon } from './icons/MarkdownIcon';
 export { default as MermaidIcon } from './icons/MermaidIcon';
 
+// Contexts
+export { EditorModeContext, useEditorMode } from './contexts/EditorModeContext';
+export type { EditorModeContextValue, EditorModeState } from './contexts/EditorModeContext';
+
 // Providers
 export { ConfirmContext,ConfirmProvider } from './providers/ConfirmProvider';
 export type { DialogOptions } from './providers/types';
