@@ -12,6 +12,7 @@ import { listNodes } from './tools/listNodes';
 import { exportSvg } from './tools/exportSvg';
 import { exportDrawio } from './tools/exportDrawio';
 import { importDrawio } from './tools/importDrawio';
+import { batchImport } from './tools/batchImport';
 
 export interface McpGraphOptions {
   rootDir: string;
@@ -187,6 +188,32 @@ export function createMcpServer(options: McpGraphOptions): McpServer {
     },
     async ({ path, drawioContent }) => {
       const doc = await importDrawio({ path, drawioContent }, rootDir);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(doc, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    'batch_import',
+    'Create a graph from structured batch data (nodes + edges)',
+    {
+      path: z.string().describe('Relative path for the output .graph file'),
+      name: z.string().optional().describe('Name of the graph document'),
+      nodes: z.array(z.object({
+        id: z.string().describe('User-supplied node ID (mapped to internal UUID)'),
+        text: z.string().describe('Node label text'),
+        metadata: z.record(z.union([z.string(), z.number()])).optional()
+          .describe('Key-value metadata for data-driven styling'),
+        url: z.string().optional().describe('URL associated with the node'),
+      })).describe('Array of nodes to create'),
+      edges: z.array(z.object({
+        fromId: z.string().describe('Source node ID (user-supplied)'),
+        toId: z.string().describe('Target node ID (user-supplied)'),
+        weight: z.number().min(0).max(1).optional().describe('Edge weight (0-1)'),
+        label: z.string().optional().describe('Edge label'),
+      })).describe('Array of edges to create'),
+    },
+    async ({ path, name, nodes, edges }) => {
+      const doc = await batchImport({ path, name, nodes, edges }, rootDir);
       return { content: [{ type: 'text' as const, text: JSON.stringify(doc, null, 2) }] };
     },
   );
