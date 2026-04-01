@@ -1,7 +1,7 @@
 /**
  * 特許情報自動収集の設定ファイル。
  * 非機密の設定値をここで定義する。
- * 機密情報（APIキー、AWS認証情報）は環境変数で管理する。
+ * 機密情報（Consumer Key / Secret、AWS認証情報）は環境変数で管理する。
  *
  * 環境変数 PATENT_CRON_ENABLED で cronEnabled を上書き可能。
  */
@@ -12,8 +12,10 @@ export const patentConfig = {
   fetchCount: 20,
   /** 対象期間（日数） */
   lookbackDays: 30,
-  /** PatentsView API ベース URL */
-  baseUrl: 'https://search.patentsview.org/api/v1',
+  /** EPO OPS API ベース URL */
+  baseUrl: 'https://ops.epo.org/3.2/rest-services',
+  /** EPO OPS OAuth2 トークンエンドポイント */
+  tokenUrl: 'https://ops.epo.org/3.2/auth/accesstoken',
   /** S3 キーのプレフィックス */
   s3Prefix: 'patents/',
   /** Cron 実行の有効/無効（環境変数 PATENT_CRON_ENABLED で上書き可能） */

@@ -29,9 +29,10 @@ interface Env {
   S3_DOCS_BUCKET: string;
   S3_DOCS_PREFIX?: string;
   S3_REPORTS_PREFIX?: string;
-  // Patent collector
+  // Patent collector (EPO OPS)
   PATENT_S3_BUCKET?: string;
-  PATENTSVIEW_API_KEY: string;
+  EPO_CONSUMER_KEY: string;
+  EPO_CONSUMER_SECRET: string;
   PATENT_CRON_ENABLED?: string;
 }
 
