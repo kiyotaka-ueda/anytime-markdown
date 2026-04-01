@@ -5,13 +5,24 @@ import { z } from 'zod';
 import {
   type CmsConfig,
   deleteDoc,
+  getPatentFile,
   listDocs,
+  listPatentFiles,
   listReportKeys,
   uploadDoc,
   uploadReport,
 } from '@anytime-markdown/cms-core';
 
-export function createRemoteMcpServer(client: S3Client, config: CmsConfig): McpServer {
+interface PatentsConfig {
+  bucket: string;
+  patentsPrefix: string;
+}
+
+export function createRemoteMcpServer(
+  client: S3Client,
+  config: CmsConfig,
+  patentsConfig?: PatentsConfig,
+): McpServer {
   const server = new McpServer({
     name: 'anytime-markdown-cms-remote',
     version: '0.0.1',
@@ -75,6 +86,55 @@ export function createRemoteMcpServer(client: S3Client, config: CmsConfig): McpS
       return { content: [{ type: 'text' as const, text: JSON.stringify({ deleted: true, key }) }] };
     },
   );
+
+  if (patentsConfig) {
+    server.tool(
+      'list_patents',
+      'List saved patent data files by date',
+      {},
+      async () => {
+        const entries = await listPatentFiles(client, patentsConfig);
+        return { content: [{ type: 'text' as const, text: JSON.stringify(entries, null, 2) }] };
+      },
+    );
+
+    server.tool(
+      'get_patent_index',
+      'Get TSV index of patents for a specific date (low token cost)',
+      { date: z.string().describe('Date in YYYY-MM-DD format') },
+      async ({ date }) => {
+        const key = `${patentsConfig.patentsPrefix}${date}.tsv`;
+        const content = await getPatentFile(key, client, patentsConfig);
+        return { content: [{ type: 'text' as const, text: content }] };
+      },
+    );
+
+    server.tool(
+      'get_patent_detail',
+      'Get patent details from JSONL data, optionally filtered by patent ID or keyword',
+      {
+        date: z.string().describe('Date in YYYY-MM-DD format'),
+        patentId: z.string().optional().describe('Filter by patent ID (exact match)'),
+        keyword: z.string().optional().describe('Filter by keyword in title/abstract (case-insensitive)'),
+      },
+      async ({ date, patentId, keyword }) => {
+        const key = `${patentsConfig.patentsPrefix}${date}.jsonl`;
+        const content = await getPatentFile(key, client, patentsConfig);
+        let lines = content.split('\n').filter(Boolean);
+
+        if (patentId) {
+          lines = lines.filter((line) => line.includes(`"${patentId}"`));
+        }
+        if (keyword) {
+          const lower = keyword.toLowerCase();
+          lines = lines.filter((line) => line.toLowerCase().includes(lower));
+        }
+
+        const result = lines.map((line) => JSON.parse(line));
+        return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+      },
+    );
+  }
 
   return server;
 }
