@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-04-01
+
+### Fixed
+
+- Fix landing page crash (Something went wrong) caused by Turbopack dynamic import failure in i18n request config
+- Fix React 19 hydration mismatch in LocaleProvider where server/client locale diverged
+
 ## [0.9.2] - 2026-04-01
 
 ### Changed

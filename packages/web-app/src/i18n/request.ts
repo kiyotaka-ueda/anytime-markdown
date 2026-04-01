@@ -1,9 +1,13 @@
+import enMessages from '@anytime-markdown/markdown-core/src/i18n/en.json';
+import jaMessages from '@anytime-markdown/markdown-core/src/i18n/ja.json';
 import { cookies } from 'next/headers';
 import { getRequestConfig } from 'next-intl/server';
 
 const supportedLocales = ['ja', 'en'] as const;
 type Locale = (typeof supportedLocales)[number];
 const defaultLocale: Locale = 'ja';
+
+const messagesByLocale: Record<Locale, typeof jaMessages> = { ja: jaMessages, en: enMessages };
 
 export default getRequestConfig(async () => {
   let locale: Locale = defaultLocale;
@@ -18,10 +22,8 @@ export default getRequestConfig(async () => {
     // Static export (CAPACITOR_BUILD) does not support cookies() — use default locale
   }
 
-  const messages = (await import(`@anytime-markdown/markdown-core/src/i18n/${locale}.json`)).default;
-
   return {
     locale,
-    messages,
+    messages: messagesByLocale[locale],
   };
 });
