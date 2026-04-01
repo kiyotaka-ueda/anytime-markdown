@@ -18,6 +18,7 @@ import { toReqRes, toFetchResponse } from 'fetch-to-node';
 
 import { createCmsConfig, createS3Client } from '@anytime-markdown/cms-core';
 import { createRemoteMcpServer } from './server.js';
+import { paperConfig } from './paperConfig.js';
 
 interface Env {
   MCP_API_KEY: string;
@@ -27,6 +28,8 @@ interface Env {
   S3_DOCS_BUCKET: string;
   S3_DOCS_PREFIX?: string;
   S3_REPORTS_PREFIX?: string;
+  // Paper ranking
+  PAPER_S3_BUCKET?: string;
 }
 
 const app = new Hono<{ Bindings: Env }>();
@@ -56,7 +59,11 @@ app.use('/mcp', async (c, next) => {
 app.post('/mcp', async (c) => {
   const config = createCmsConfig(c.env as unknown as Record<string, string | undefined>);
   const s3Client = createS3Client(config);
-  const server = createRemoteMcpServer(s3Client, config);
+  const rankingsConfig = {
+    bucket: c.env.PAPER_S3_BUCKET ?? c.env.S3_DOCS_BUCKET,
+    patentsPrefix: paperConfig.rankingS3Prefix,
+  };
+  const server = createRemoteMcpServer(s3Client, config, rankingsConfig);
 
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
 
