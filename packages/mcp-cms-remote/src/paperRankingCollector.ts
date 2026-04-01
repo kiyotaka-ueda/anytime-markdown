@@ -113,6 +113,25 @@ export function parseOpenAlexResponse(
   });
 }
 
+const RANKING_TSV_HEADER = 'rank\tcited_by_count\tarxiv_id\tpublication_date\tsubfield\tauthors\ttitle\tpdf_url';
+
+/**
+ * RankedPaper[] を TSV 形式に変換する。
+ */
+export function formatRankingToTsv(papers: readonly RankedPaper[]): string {
+  if (papers.length === 0) {
+    return RANKING_TSV_HEADER;
+  }
+
+  const rows = papers.map((p, i) => {
+    const authors = p.authors.join('; ').replaceAll('\t', ' ');
+    const title = p.title.replaceAll('\t', ' ').replaceAll('\n', ' ');
+    return `${i + 1}\t${p.cited_by_count}\t${p.arxiv_id}\t${p.publication_date}\t${p.subfield}\t${authors}\t${title}\t${p.pdf_url}`;
+  });
+
+  return [RANKING_TSV_HEADER, ...rows].join('\n');
+}
+
 /**
  * RankedPaper[] を JSONL 形式に変換する。
  */
@@ -186,8 +205,8 @@ export async function collectPaperRanking(
 
   console.log(`Fetched ${papers.length} ranked papers from OpenAlex`);
 
+  const tsv = formatRankingToTsv(papers);
   const jsonl = formatRankingToJsonl(papers);
-  const fileName = `monthly-${today}.jsonl`;
 
   const cmsConfig = createCmsConfig({
     S3_DOCS_BUCKET: env.PAPER_S3_BUCKET ?? env.S3_DOCS_BUCKET,
@@ -201,7 +220,8 @@ export async function collectPaperRanking(
     patentsPrefix: paperConfig.rankingS3Prefix,
   };
 
-  await uploadPatentFile({ fileName, content: jsonl }, s3Client, rankingsConfig);
+  await uploadPatentFile({ fileName: `monthly-${today}.tsv`, content: tsv }, s3Client, rankingsConfig);
+  await uploadPatentFile({ fileName: `monthly-${today}.jsonl`, content: jsonl }, s3Client, rankingsConfig);
 
-  console.log(`Uploaded monthly ranking file: ${fileName}`);
+  console.log(`Uploaded monthly ranking files for ${today}`);
 }

@@ -1,6 +1,7 @@
 import {
   buildOpenAlexUrl,
   parseOpenAlexResponse,
+  formatRankingToTsv,
   formatRankingToJsonl,
 } from '../paperRankingCollector';
 
@@ -150,5 +151,24 @@ describe('formatRankingToJsonl', () => {
 
   it('returns empty string for empty array', () => {
     expect(formatRankingToJsonl([])).toBe('');
+  });
+});
+
+describe('formatRankingToTsv', () => {
+  it('converts ranked papers to TSV with rank column', () => {
+    const papers = parseOpenAlexResponse(sampleOpenAlexResults);
+    const tsv = formatRankingToTsv(papers);
+    const lines = tsv.split('\n');
+
+    expect(lines[0]).toBe('rank\tcited_by_count\tarxiv_id\tpublication_date\tsubfield\tauthors\ttitle\tpdf_url');
+    expect(lines[1]).toContain('1\t84\t2602.04567v1');
+    expect(lines[1]).toContain('Xin Zhang; Chen Liu');
+    expect(lines[2]).toContain('2\t31\t2601.12345v1');
+    expect(lines).toHaveLength(3);
+  });
+
+  it('returns header only for empty array', () => {
+    const tsv = formatRankingToTsv([]);
+    expect(tsv).toBe('rank\tcited_by_count\tarxiv_id\tpublication_date\tsubfield\tauthors\ttitle\tpdf_url');
   });
 });
