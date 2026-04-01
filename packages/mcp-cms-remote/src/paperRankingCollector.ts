@@ -66,18 +66,41 @@ function computeFromDate(today: string, months: number): string {
 }
 
 /**
+ * 当月の初日を返す（先月末の翌日）。
+ * 例: 2026-04-15 → 2026-04-01
+ */
+function getFirstDayOfMonth(today: string): string {
+  return `${today.slice(0, 7)}-01`;
+}
+
+/**
+ * 先月末の日付を返す。
+ * 例: 2026-04-15 → 2026-03-31
+ */
+function getLastDayOfPreviousMonth(today: string): string {
+  const date = new Date(getFirstDayOfMonth(today));
+  date.setDate(date.getDate() - 1);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * OpenAlex API の URL を構築する。
+ * 対象期間: 当月を除く過去 N ヶ月（例: 4月実行 → 1月1日〜3月31日）
  */
 export function buildOpenAlexUrl(
   months: number,
   fetchCount: number,
   today: string,
 ): string {
-  const fromDate = computeFromDate(today, months);
+  const toDate = getLastDayOfPreviousMonth(today);
+  const fromDate = computeFromDate(getFirstDayOfMonth(today), months);
   const { openAlexBaseUrl, openAlexArxivSourceId } = paperConfig;
   const filter = [
     `from_publication_date:${fromDate}`,
-    `to_publication_date:${today}`,
+    `to_publication_date:${toDate}`,
     `locations.source.id:${openAlexArxivSourceId}`,
   ].join(',');
 
