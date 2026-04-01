@@ -3,7 +3,7 @@
 import enMessages from '@anytime-markdown/markdown-core/src/i18n/en.json';
 import jaMessages from '@anytime-markdown/markdown-core/src/i18n/ja.json';
 import { NextIntlClientProvider } from 'next-intl';
-import { createContext, useCallback, useContext, useMemo,useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo,useState } from 'react';
 
 type Locale = 'ja' | 'en';
 
@@ -22,16 +22,8 @@ export function useLocaleSwitch() {
   return ctx;
 }
 
-function getInitialLocale(serverLocale: string): Locale {
-  if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem('NEXT_LOCALE');
-    if (stored === 'ja' || stored === 'en') return stored;
-    // 初回アクセス時: ブラウザ/OS の言語設定を参照
-    const browserLang = navigator.language.split('-')[0];
-    if (browserLang === 'ja' || browserLang === 'en') return browserLang;
-  }
-  if (serverLocale === 'ja' || serverLocale === 'en') return serverLocale;
-  return 'ja';
+function toLocale(value: string | null | undefined): Locale | null {
+  return value === 'ja' || value === 'en' ? value : null;
 }
 
 interface LocaleProviderProps {
@@ -40,7 +32,22 @@ interface LocaleProviderProps {
 }
 
 export function LocaleProvider({ serverLocale, children }: Readonly<LocaleProviderProps>) {
-  const [locale, setLocaleState] = useState<Locale>(() => getInitialLocale(serverLocale));
+  // ハイドレーションミスマッチ防止: 初回レンダリングは必ず serverLocale を使用
+  const [locale, setLocaleState] = useState<Locale>(() => toLocale(serverLocale) ?? 'ja');
+
+  // ハイドレーション後にクライアント側の優先ロケールを反映
+  useEffect(() => {
+    const stored = toLocale(localStorage.getItem('NEXT_LOCALE'));
+    if (stored) {
+      if (stored !== locale) setLocaleState(stored);
+      return;
+    }
+    const browserLang = toLocale(navigator.language.split('-')[0]);
+    if (browserLang && browserLang !== locale) {
+      setLocaleState(browserLang);
+      document.cookie = `NEXT_LOCALE=${browserLang};path=/;max-age=31536000;SameSite=Lax`;
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setLocale = useCallback((newLocale: string) => {
     if (newLocale !== 'ja' && newLocale !== 'en') return;
