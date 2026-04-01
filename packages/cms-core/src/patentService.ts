@@ -81,6 +81,7 @@ export async function listPatentFiles(
     if (ext !== '.tsv' && ext !== '.jsonl') continue;
 
     const date = name.slice(0, name.lastIndexOf('.'));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
     const entry = dateMap.get(date) ?? { tsvSize: 0, jsonlSize: 0 };
 
     if (ext === '.tsv') {
