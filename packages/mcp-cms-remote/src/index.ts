@@ -18,8 +18,8 @@ import { toReqRes, toFetchResponse } from 'fetch-to-node';
 
 import { createCmsConfig, createS3Client } from '@anytime-markdown/cms-core';
 import { createRemoteMcpServer } from './server.js';
-import { collectPatents } from './patentCollector.js';
-import { patentConfig } from './patentConfig.js';
+import { collectPapers } from './paperCollector.js';
+import { paperConfig } from './paperConfig.js';
 
 interface Env {
   MCP_API_KEY: string;
@@ -29,11 +29,9 @@ interface Env {
   S3_DOCS_BUCKET: string;
   S3_DOCS_PREFIX?: string;
   S3_REPORTS_PREFIX?: string;
-  // Patent collector (EPO OPS)
-  PATENT_S3_BUCKET?: string;
-  EPO_CONSUMER_KEY: string;
-  EPO_CONSUMER_SECRET: string;
-  PATENT_CRON_ENABLED?: string;
+  // Paper collector (arXiv)
+  PAPER_S3_BUCKET?: string;
+  PAPER_CRON_ENABLED?: string;
 }
 
 const app = new Hono<{ Bindings: Env }>();
@@ -63,11 +61,11 @@ app.use('/mcp', async (c, next) => {
 app.post('/mcp', async (c) => {
   const config = createCmsConfig(c.env as unknown as Record<string, string | undefined>);
   const s3Client = createS3Client(config);
-  const patentsConfig = {
-    bucket: c.env.PATENT_S3_BUCKET ?? c.env.S3_DOCS_BUCKET,
-    patentsPrefix: patentConfig.s3Prefix,
+  const papersConfig = {
+    bucket: c.env.PAPER_S3_BUCKET ?? c.env.S3_DOCS_BUCKET,
+    patentsPrefix: paperConfig.s3Prefix,
   };
-  const server = createRemoteMcpServer(s3Client, config, patentsConfig);
+  const server = createRemoteMcpServer(s3Client, config, papersConfig);
 
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
 
@@ -98,7 +96,7 @@ export default {
     ctx: ExecutionContext,
   ): Promise<void> {
     ctx.waitUntil(
-      collectPatents(env as unknown as Parameters<typeof collectPatents>[0]),
+      collectPapers(env as unknown as Parameters<typeof collectPapers>[0]),
     );
   },
 };

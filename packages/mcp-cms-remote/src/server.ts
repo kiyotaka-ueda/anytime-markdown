@@ -13,7 +13,7 @@ import {
   uploadReport,
 } from '@anytime-markdown/cms-core';
 
-interface PatentsConfig {
+interface PapersConfig {
   bucket: string;
   patentsPrefix: string;
 }
@@ -53,20 +53,20 @@ const deleteDocParams: Record<string, z.ZodType> = {
   key: z.string().describe('S3 key of the document to delete (e.g. "docs/file.md")'),
 };
 
-const patentIndexParams: Record<string, z.ZodType> = {
+const paperIndexParams: Record<string, z.ZodType> = {
   date: z.string().describe('Date in YYYY-MM-DD format'),
 };
 
-const patentDetailParams: Record<string, z.ZodType> = {
+const paperDetailParams: Record<string, z.ZodType> = {
   date: z.string().describe('Date in YYYY-MM-DD format'),
-  patentId: z.string().optional().describe('Filter by patent ID (exact match)'),
+  paperId: z.string().optional().describe('Filter by arXiv ID (exact match)'),
   keyword: z.string().optional().describe('Filter by keyword in title/abstract (case-insensitive)'),
 };
 
 export function createRemoteMcpServer(
   client: S3Client,
   config: CmsConfig,
-  patentsConfig?: PatentsConfig,
+  papersConfig?: PapersConfig,
 ): McpServer {
   const server = new McpServer({
     name: 'anytime-markdown-cms-remote',
@@ -111,32 +111,32 @@ export function createRemoteMcpServer(
       return { content: [{ type: 'text', text: JSON.stringify({ deleted: true, key }) }] };
     });
 
-  if (patentsConfig) {
-    registerTool(server, 'list_patents', 'List saved patent data files by date',
+  if (papersConfig) {
+    registerTool(server, 'list_papers', 'List saved paper data files by date',
       {}, async () => {
-        const entries = await listPatentFiles(client, patentsConfig);
+        const entries = await listPatentFiles(client, papersConfig);
         return { content: [{ type: 'text', text: JSON.stringify(entries, null, 2) }] };
       });
 
-    registerTool(server, 'get_patent_index', 'Get TSV index of patents for a specific date (low token cost)',
-      patentIndexParams, async (args) => {
+    registerTool(server, 'get_paper_index', 'Get TSV index of papers for a specific date (low token cost)',
+      paperIndexParams, async (args) => {
         const date = args.date as string;
-        const key = `${patentsConfig.patentsPrefix}${date}.tsv`;
-        const content = await getPatentFile(key, client, patentsConfig);
+        const key = `${papersConfig.patentsPrefix}${date}.tsv`;
+        const content = await getPatentFile(key, client, papersConfig);
         return { content: [{ type: 'text', text: content }] };
       });
 
-    registerTool(server, 'get_patent_detail', 'Get patent details from JSONL data, optionally filtered by patent ID or keyword',
-      patentDetailParams, async (args) => {
+    registerTool(server, 'get_paper_detail', 'Get paper details from JSONL data, optionally filtered by arXiv ID or keyword',
+      paperDetailParams, async (args) => {
         const date = args.date as string;
-        const patentId = args.patentId as string | undefined;
+        const paperId = args.paperId as string | undefined;
         const keyword = args.keyword as string | undefined;
-        const key = `${patentsConfig.patentsPrefix}${date}.jsonl`;
-        const content = await getPatentFile(key, client, patentsConfig);
+        const key = `${papersConfig.patentsPrefix}${date}.jsonl`;
+        const content = await getPatentFile(key, client, papersConfig);
         let lines = content.split('\n').filter(Boolean);
 
-        if (patentId) {
-          lines = lines.filter((line) => line.includes(`"${patentId}"`));
+        if (paperId) {
+          lines = lines.filter((line) => line.includes(`"${paperId}"`));
         }
         if (keyword) {
           const lower = keyword.toLowerCase();
