@@ -26,7 +26,7 @@ export interface PaperCollectorEnv {
   ANYTIME_AWS_REGION?: string;
 }
 
-const TSV_HEADER = 'arxiv_id\tpublished\tcategories\ttitle';
+const TSV_HEADER = 'arxiv_id\tpublished\tcategories\tauthors\ttitle\tpdf_url';
 
 function computeSinceDate(today: string, lookbackDays: number): string {
   const date = new Date(today);
@@ -58,8 +58,9 @@ export function formatToTsv(papers: readonly Paper[]): string {
 
   const rows = papers.map((p) => {
     const cats = p.categories.join(',');
+    const authors = p.authors.join('; ').replaceAll('\t', ' ');
     const title = p.title.replaceAll('\t', ' ').replaceAll('\n', ' ');
-    return `${p.arxiv_id}\t${p.published}\t${cats}\t${title}`;
+    return `${p.arxiv_id}\t${p.published}\t${cats}\t${authors}\t${title}\t${p.pdf_url}`;
   });
 
   return [TSV_HEADER, ...rows].join('\n');
