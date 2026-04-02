@@ -50,11 +50,15 @@ export const CytoscapeCanvas = forwardRef<CytoscapeCanvasRef, CytoscapeCanvasPro
       onCyReady?.(cy);
 
       return () => {
+        cyRef.current = null;
         runningLayout.stop();
         cy.stop();
         cy.elements().stop();
-        cy.destroy();
-        cyRef.current = null;
+        // Delay destroy so pending rAF callbacks from the layout
+        // can complete while the renderer is still valid.
+        requestAnimationFrame(() => {
+          cy.destroy();
+        });
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
