@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import type { ElementDefinition } from 'cytoscape';
+import type { ElementDefinition, StylesheetJsonBlock } from 'cytoscape';
 import Box from '@mui/material/Box';
 import Breadcrumbs from '@mui/material/Breadcrumbs';
 import FormControl from '@mui/material/FormControl';
@@ -22,6 +22,7 @@ const LAYOUT_OPTIONS = ['cose', 'breadthfirst', 'circle', 'concentric', 'grid'] 
 
 export function ViewerBody() {
   const [elements, setElements] = useState<ElementDefinition[] | null>(null);
+  const [stylesheet, setStylesheet] = useState<StylesheetJsonBlock[] | null>(null);
   const [layoutName, setLayoutName] = useState('cose');
   const [dataKey, setDataKey] = useState(0);
   const cyRef = useRef<CytoscapeCanvasRef>(null);
@@ -29,6 +30,10 @@ export function ViewerBody() {
   const handleDataChange = useCallback((newElements: ElementDefinition[]) => {
     setElements(newElements);
     setDataKey((prev) => prev + 1);
+  }, []);
+
+  const handleStylesheetChange = useCallback((newStylesheet: StylesheetJsonBlock[]) => {
+    setStylesheet(newStylesheet);
   }, []);
 
   const handleLayoutChange = useCallback((name: string) => {
@@ -61,7 +66,7 @@ export function ViewerBody() {
         }}
       >
         <Box sx={{ flex: 1 }}>
-          <DataInput onDataChange={handleDataChange} />
+          <DataInput onDataChange={handleDataChange} onStylesheetChange={handleStylesheetChange} />
         </Box>
         <FormControl sx={{ minWidth: 180 }}>
           <InputLabel id="layout-select-label">Layout</InputLabel>
@@ -96,7 +101,7 @@ export function ViewerBody() {
             key={dataKey}
             ref={cyRef}
             elements={elements}
-            stylesheet={defaultStylesheetJsonBlock}
+            stylesheet={stylesheet ?? defaultStylesheetJsonBlock}
             layout={{ name: layoutName } as import('cytoscape').LayoutOptions}
             sx={{ width: '100%', height: '100%', minHeight: 500 }}
           />
