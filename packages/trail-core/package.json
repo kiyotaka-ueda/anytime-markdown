@@ -15,6 +15,7 @@
     "trail-core": "./bin/trail.js"
   },
   "scripts": {
+    "build": "esbuild src/cli.ts --bundle --platform=node --target=node18 --outfile=dist/cli.js --external:typescript",
     "test": "jest --maxWorkers=1"
   },
   "peerDependencies": {
@@ -24,6 +25,7 @@
     "@types/jest": "30.0.0",
     "jest": "30.2.0",
     "ts-jest": "29.4.6",
+    "esbuild": "0.25.4",
     "ts-node": "10.9.2",
     "typescript": "5.8.3"
   }
