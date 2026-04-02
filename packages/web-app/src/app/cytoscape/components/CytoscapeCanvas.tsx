@@ -4,6 +4,7 @@ import { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import cytoscape, {
   type Core,
   type ElementDefinition,
+  type Layouts,
   type StylesheetJsonBlock,
   type LayoutOptions,
 } from 'cytoscape';
@@ -34,17 +35,22 @@ export const CytoscapeCanvas = forwardRef<CytoscapeCanvasRef, CytoscapeCanvasPro
     useEffect(() => {
       if (!containerRef.current) return;
 
+      const layoutOpts = layout ?? { name: 'cose' };
+
       const cy = cytoscape({
         container: containerRef.current,
         elements,
         style: stylesheet,
-        layout: layout ?? { name: 'cose' },
+        layout: { name: 'preset' },
       });
+
+      const runningLayout: Layouts = cy.layout(layoutOpts).run();
 
       cyRef.current = cy;
       onCyReady?.(cy);
 
       return () => {
+        runningLayout.stop();
         cy.stop();
         cy.elements().stop();
         cy.destroy();
