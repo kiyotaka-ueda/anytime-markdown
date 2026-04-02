@@ -113,23 +113,22 @@ export function buildOpenAlexUrl(
 export function parseOpenAlexResponse(
   results: readonly OpenAlexWork[],
 ): RankedPaper[] {
-  return results.map((work) => {
+  return results.flatMap((work) => {
     const landingUrl = work.primary_location?.landing_page_url ?? '';
-    const arxivId = landingUrl.startsWith(ARXIV_ABS_PREFIX)
-      ? landingUrl.slice(ARXIV_ABS_PREFIX.length)
-      : landingUrl;
+    if (!landingUrl.startsWith(ARXIV_ABS_PREFIX)) {
+      return [];
+    }
+
+    const arxivId = landingUrl.slice(ARXIV_ABS_PREFIX.length);
 
     const authors = work.authorships
       .slice(0, MAX_AUTHORS)
       .map((a) => a.author.display_name);
 
     const subfield = work.primary_topic?.subfield?.display_name ?? '';
+    const pdfUrl = `${ARXIV_PDF_PREFIX}${arxivId}`;
 
-    const pdfUrl = arxivId
-      ? `${ARXIV_PDF_PREFIX}${arxivId}`
-      : '';
-
-    return {
+    return [{
       arxiv_id: arxivId,
       title: work.title,
       cited_by_count: work.cited_by_count,
@@ -137,7 +136,7 @@ export function parseOpenAlexResponse(
       authors,
       subfield,
       pdf_url: pdfUrl,
-    };
+    }];
   });
 }
 
@@ -167,13 +166,15 @@ export async function fetchRankingFromOpenAlex(
   fetchCount: number,
   today: string,
 ): Promise<RankedPaper[]> {
-  const url = buildOpenAlexUrl(months, fetchCount, today);
+  // arXiv 以外の論文を除外するため、多めに取得してフィルタ後に切り詰める
+  const overFetchCount = fetchCount * 3;
+  const url = buildOpenAlexUrl(months, overFetchCount, today);
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`OpenAlex API error: ${response.status} ${response.statusText}`);
   }
   const data = await response.json() as { results: OpenAlexWork[] };
-  return parseOpenAlexResponse(data.results);
+  return parseOpenAlexResponse(data.results).slice(0, fetchCount);
 }
 
 /**
