@@ -21,7 +21,8 @@
     "packages/vscode-git-extension",
     "packages/vscode-extension-pack",
     "packages/web-app",
-    "packages/mobile-app"
+    "packages/mobile-app",
+    "packages/trail-core"
   ],
   "overrides": {
     "serialize-javascript": "7.0.5",
