@@ -14,3 +14,4 @@ export {
   type TrailStyleEntry,
 } from './transform/trailStylesheet';
 export { toGraphDocument } from './transform/toGraphDocument';
+export { customTrail, type CustomTrailOptions } from './trail/customTrail';
