@@ -234,6 +234,11 @@ export function DiagramBlock(props: DiagramBlockProps) {
     overflow: "hidden", bgcolor: editorBg, position: "relative",
     width: displayWidth || "fit-content", maxWidth: "100%",
     cursor: "pointer",
+    "@media (max-width: 899px)": {
+      overflowX: "auto",
+      "& > div": { minWidth: "max-content" },
+      "& svg": { maxWidth: "none !important" },
+    },
   };
 
   const handleDoubleClickFullscreen = useCallback(() => {
