@@ -523,9 +523,9 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
 
   const isRestrictedMode = readonlyMode || reviewMode;
   const outlineProps = {
-    isMd, outlineOpen, handleToggleOutline, outlineWidth, setOutlineWidth, editorHeight,
+    isMd, readonlyMode, outlineOpen, handleToggleOutline, outlineWidth, setOutlineWidth, editorHeight,
     headings, foldedIndices, hiddenByFold, foldAll, unfoldAll, toggleFold,
-    handleOutlineClick: isMd ? handleOutlineClick : (pos: number) => { handleOutlineClick(pos); handleToggleOutline(); },
+    handleOutlineClick,
     handleOutlineResizeStart,
     onHeadingDragEnd: isRestrictedMode ? undefined : handleHeadingDragEnd,
     onOutlineDelete: isRestrictedMode ? undefined : handleOutlineDelete,

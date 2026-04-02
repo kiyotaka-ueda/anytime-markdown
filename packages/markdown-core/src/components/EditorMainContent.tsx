@@ -41,6 +41,7 @@ type InlineMergeViewComponent = React.ComponentType<{
 
 export interface OutlineProps {
   isMd: boolean;
+  readonlyMode?: boolean;
   outlineOpen: boolean;
   handleToggleOutline: () => void;
   outlineWidth: number;
