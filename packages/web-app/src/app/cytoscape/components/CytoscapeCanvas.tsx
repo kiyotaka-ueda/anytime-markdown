@@ -44,21 +44,21 @@ export const CytoscapeCanvas = forwardRef<CytoscapeCanvasRef, CytoscapeCanvasPro
         layout: { name: 'preset' },
       });
 
-      const runningLayout: Layouts = cy.layout(layoutOpts).run();
-
       cyRef.current = cy;
       onCyReady?.(cy);
 
+      // Defer layout start so React Strict Mode's immediate cleanup
+      // can cancel it via clearTimeout before the layout begins.
+      let runningLayout: Layouts | null = null;
+      const layoutTimer = setTimeout(() => {
+        runningLayout = cy.layout(layoutOpts).run();
+      }, 0);
+
       return () => {
+        clearTimeout(layoutTimer);
+        runningLayout?.stop();
         cyRef.current = null;
-        runningLayout.stop();
-        cy.stop();
-        cy.elements().stop();
-        // Delay destroy so pending rAF callbacks from the layout
-        // can complete while the renderer is still valid.
-        requestAnimationFrame(() => {
-          cy.destroy();
-        });
+        cy.destroy();
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
