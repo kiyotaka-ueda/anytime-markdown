@@ -1,4 +1,5 @@
-import type { Metadata } from 'next';
+'use client';
+
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardActionArea from '@mui/material/CardActionArea';
@@ -8,12 +9,6 @@ import Link from 'next/link';
 import ScienceIcon from '@mui/icons-material/Science';
 import EditIcon from '@mui/icons-material/Edit';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-
-export const metadata: Metadata = {
-  title: 'Cytoscape.js - Anytime Markdown',
-  description: 'Graph visualization with Cytoscape.js - Demo, Editor, and Viewer',
-  alternates: { canonical: '/cytoscape' },
-};
 
 const pages = [
   {
