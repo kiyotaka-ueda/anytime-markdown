@@ -23,6 +23,8 @@ export class EdgeExtractor {
     for (const sourceFile of this.analyzer.getSourceFiles()) {
       this.extractImportEdges(sourceFile, checker, edges);
       this.extractCallEdges(sourceFile, checker, edges);
+      this.extractHeritageEdges(sourceFile, checker, edges);
+      this.extractOverrideEdges(sourceFile, checker, edges);
     }
 
     return this.deduplicateEdges(edges);
@@ -38,7 +40,8 @@ export class EdgeExtractor {
     if (
       (ts.isClassDeclaration(node) ||
         ts.isFunctionDeclaration(node) ||
-        ts.isMethodDeclaration(node)) &&
+        ts.isMethodDeclaration(node) ||
+        ts.isInterfaceDeclaration(node)) &&
       node.name &&
       ts.isIdentifier(node.name)
     ) {
@@ -57,7 +60,11 @@ export class EdgeExtractor {
   }
 
   private findTrailNodeForDeclaration(
-    node: ts.ClassDeclaration | ts.FunctionDeclaration | ts.MethodDeclaration,
+    node:
+      | ts.ClassDeclaration
+      | ts.FunctionDeclaration
+      | ts.MethodDeclaration
+      | ts.InterfaceDeclaration,
   ): TrailNode | undefined {
     if (!node.name || !ts.isIdentifier(node.name)) {
       return undefined;
@@ -185,6 +192,130 @@ export class EdgeExtractor {
       current = current.parent;
     }
     return undefined;
+  }
+
+  private extractHeritageEdges(
+    sourceFile: ts.SourceFile,
+    checker: ts.TypeChecker,
+    edges: TrailEdge[],
+  ): void {
+    this.visitForHeritageEdges(sourceFile, checker, edges);
+  }
+
+  private visitForHeritageEdges(
+    node: ts.Node,
+    checker: ts.TypeChecker,
+    edges: TrailEdge[],
+  ): void {
+    if (ts.isClassDeclaration(node) && node.heritageClauses) {
+      const sourceTrailNode = node.name
+        ? this.findTrailNodeForDeclaration(node)
+        : undefined;
+      if (sourceTrailNode) {
+        for (const clause of node.heritageClauses) {
+          const edgeType: TrailEdge['type'] =
+            clause.token === ts.SyntaxKind.ExtendsKeyword
+              ? 'inheritance'
+              : 'implementation';
+
+          for (const heritageType of clause.types) {
+            let symbol = checker.getSymbolAtLocation(heritageType.expression);
+            if (!symbol) {
+              continue;
+            }
+            if (symbol.flags & ts.SymbolFlags.Alias) {
+              symbol = checker.getAliasedSymbol(symbol);
+            }
+            const targetNodeId = this.symbolToNodeId.get(symbol);
+            if (targetNodeId) {
+              edges.push({
+                source: sourceTrailNode.id,
+                target: targetNodeId,
+                type: edgeType,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    ts.forEachChild(node, (child) => {
+      this.visitForHeritageEdges(child, checker, edges);
+    });
+  }
+
+  private extractOverrideEdges(
+    sourceFile: ts.SourceFile,
+    checker: ts.TypeChecker,
+    edges: TrailEdge[],
+  ): void {
+    this.visitForOverrideEdges(sourceFile, checker, edges);
+  }
+
+  private visitForOverrideEdges(
+    node: ts.Node,
+    checker: ts.TypeChecker,
+    edges: TrailEdge[],
+  ): void {
+    if (
+      ts.isMethodDeclaration(node) &&
+      node.modifiers?.some(
+        (m) => m.kind === ts.SyntaxKind.OverrideKeyword,
+      ) &&
+      node.name &&
+      ts.isIdentifier(node.name)
+    ) {
+      const sourceTrailNode = this.findTrailNodeForDeclaration(node);
+      if (sourceTrailNode) {
+        const parent = node.parent;
+        if (ts.isClassDeclaration(parent) && parent.heritageClauses) {
+          const extendsClause = parent.heritageClauses.find(
+            (c) => c.token === ts.SyntaxKind.ExtendsKeyword,
+          );
+          if (extendsClause && extendsClause.types.length > 0) {
+            const baseType = extendsClause.types[0];
+            let baseSymbol = checker.getSymbolAtLocation(
+              baseType.expression,
+            );
+            if (baseSymbol) {
+              if (baseSymbol.flags & ts.SymbolFlags.Alias) {
+                baseSymbol = checker.getAliasedSymbol(baseSymbol);
+              }
+              const methodName = node.name.text;
+              const baseDecls = baseSymbol.getDeclarations();
+              if (baseDecls) {
+                for (const decl of baseDecls) {
+                  if (ts.isClassDeclaration(decl)) {
+                    for (const member of decl.members) {
+                      if (
+                        ts.isMethodDeclaration(member) &&
+                        member.name &&
+                        ts.isIdentifier(member.name) &&
+                        member.name.text === methodName
+                      ) {
+                        const targetTrailNode =
+                          this.findTrailNodeForDeclaration(member);
+                        if (targetTrailNode) {
+                          edges.push({
+                            source: sourceTrailNode.id,
+                            target: targetTrailNode.id,
+                            type: 'override',
+                          });
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    ts.forEachChild(node, (child) => {
+      this.visitForOverrideEdges(child, checker, edges);
+    });
   }
 
   private deduplicateEdges(edges: TrailEdge[]): TrailEdge[] {

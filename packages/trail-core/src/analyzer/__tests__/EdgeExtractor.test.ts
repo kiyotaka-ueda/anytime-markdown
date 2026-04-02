@@ -37,4 +37,34 @@ describe('EdgeExtractor', () => {
     );
     expect(runCallsGreet).toBeDefined();
   });
+
+  it('should extract inheritance edges', () => {
+    const inheritanceEdges = edges.filter(e => e.type === 'inheritance');
+    expect(inheritanceEdges.length).toBeGreaterThanOrEqual(1);
+
+    const appExtendsBase = inheritanceEdges.find(
+      e => e.source.includes('App') && e.target.includes('BaseApp'),
+    );
+    expect(appExtendsBase).toBeDefined();
+  });
+
+  it('should extract implementation edges', () => {
+    const implEdges = edges.filter(e => e.type === 'implementation');
+    expect(implEdges.length).toBeGreaterThanOrEqual(1);
+
+    const appImplRunnable = implEdges.find(
+      e => e.source.includes('App') && e.target.includes('Runnable'),
+    );
+    expect(appImplRunnable).toBeDefined();
+  });
+
+  it('should extract override edges', () => {
+    const overrideEdges = edges.filter(e => e.type === 'override');
+    expect(overrideEdges.length).toBeGreaterThanOrEqual(1);
+
+    const logOverride = overrideEdges.find(
+      e => e.source.includes('App') && e.source.includes('log'),
+    );
+    expect(logOverride).toBeDefined();
+  });
 });
