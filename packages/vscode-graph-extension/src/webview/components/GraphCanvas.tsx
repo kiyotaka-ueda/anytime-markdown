@@ -4,7 +4,7 @@ import { getCanvasColors } from '@anytime-markdown/graph-core';
 import {
   render, drawEdgePreview, drawShapePreview, drawSelectionRect,
   drawSnapHighlight, drawSmartGuides, resolveConnectorEndpoints,
-  computeOrthogonalPath, computeBezierPath, computeAvoidancePath,
+  computeOrthogonalPath, computeBezierPath, computeVisibilityPath,
   bestSides, getConnectionPoints,
   interpolateViewport,
 } from '@anytime-markdown/graph-core/engine';
@@ -100,27 +100,17 @@ export function GraphCanvas({
             return { ...e, from: { ...e.from, ...pts.from }, to: { ...e.to, ...pts.to } };
           }
 
+          // Visibility-graph based orthogonal routing
           const obstacles = nodes
             .filter(n => n.id !== fromNode.id && n.id !== toNode.id)
             .map(n => ({ x: n.x, y: n.y, width: n.width, height: n.height }));
-
-          if (obstacles.length > 0) {
-            const sides = bestSides(fromNode, toNode);
-            const fromPts = getConnectionPoints(fromNode);
-            const toPts = getConnectionPoints(toNode);
-            const fromPt = fromPts.find(p => p.side === sides.fromSide) ?? fromPts[0];
-            const toPt = toPts.find(p => p.side === sides.toSide) ?? toPts[0];
-            const waypoints = computeAvoidancePath(fromPt, sides.fromSide, toPt, sides.toSide, obstacles);
-            return {
-              ...e,
-              from: { ...e.from, ...waypoints[0] },
-              to: { ...e.to, ...waypoints[waypoints.length - 1] },
-              waypoints,
-            };
-          }
-
-          const waypoints = computeOrthogonalPath(fromNode, toNode, 20, e.manualMidpoint);
-          return { ...e, from: { ...e.from, ...waypoints[0] }, to: { ...e.to, ...waypoints[waypoints.length - 1] }, waypoints };
+          const sides = bestSides(fromNode, toNode);
+          const fromPts = getConnectionPoints(fromNode);
+          const toPts = getConnectionPoints(toNode);
+          const fromPt = fromPts.find(p => p.side === sides.fromSide) ?? fromPts[0];
+          const toPt = toPts.find(p => p.side === sides.toSide) ?? toPts[0];
+          const waypoints = computeVisibilityPath(fromPt, sides.fromSide, toPt, sides.toSide, obstacles);
+          return { ...e, from: { ...e.from, ...waypoints[0] }, to: { ...e.to, ...waypoints.at(-1)! }, waypoints };
         }
         const pts = resolveConnectorEndpoints(e, nodes);
         return { ...e, from: { ...e.from, ...pts.from }, to: { ...e.to, ...pts.to } };

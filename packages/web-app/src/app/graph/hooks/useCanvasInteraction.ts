@@ -7,7 +7,8 @@ import { hitTest, hitTestEdge } from '../engine/hitTest';
 import type { ResizeHandle } from '../engine/hitTest';
 import { snapToGrid } from '../engine/gridSnap';
 import { computeSmartGuides, GuideLine } from '../engine/smartGuide';
-import { computeOrthogonalPath, resolveConnectorEndpoints, nearestBorderPoint } from '../engine/connector';
+import { computeOrthogonalPath, resolveConnectorEndpoints, nearestBorderPoint, bestSides, getConnectionPoints } from '../engine/connector';
+import { computeVisibilityPath } from '@anytime-markdown/graph-core/engine';
 import { physics } from '@anytime-markdown/graph-core/engine';
 
 /** edges に waypoints を付与して hitTest で使えるようにする */
@@ -27,7 +28,21 @@ function resolveEdgesWithWaypoints(edges: GraphEdge[], nodes: GraphNode[]): (Gra
           const pts = resolveConnectorEndpoints(e, nodes);
           return { ...e, waypoints: [pts.from, ...e.manualWaypoints, pts.to] };
         }
-        const waypoints = computeOrthogonalPath(fromNode, toNode, 20, e.manualMidpoint);
+        // manualMidpoint backward compat
+        if (e.manualMidpoint !== undefined) {
+          const waypoints = computeOrthogonalPath(fromNode, toNode, 20, e.manualMidpoint);
+          return { ...e, waypoints };
+        }
+        // Visibility-graph based orthogonal routing
+        const obstacles = nodes
+          .filter(n => n.id !== fromNode.id && n.id !== toNode.id)
+          .map(n => ({ x: n.x, y: n.y, width: n.width, height: n.height }));
+        const sides = bestSides(fromNode, toNode);
+        const fromPts = getConnectionPoints(fromNode);
+        const toPts = getConnectionPoints(toNode);
+        const fromPt = fromPts.find(p => p.side === sides.fromSide) ?? fromPts[0];
+        const toPt = toPts.find(p => p.side === sides.toSide) ?? toPts[0];
+        const waypoints = computeVisibilityPath(fromPt, sides.fromSide, toPt, sides.toSide, obstacles);
         return { ...e, waypoints };
       }
     }

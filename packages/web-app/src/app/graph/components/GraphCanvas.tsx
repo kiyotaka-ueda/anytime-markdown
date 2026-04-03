@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect, useCallback, useMemo } from 'react';
 import { GraphNode, GraphEdge, Viewport, SelectionState } from '../types';
-import { render, drawSelectionRect, drawEdgePreview, drawShapePreview, drawSnapHighlight, drawSmartGuides, interpolateViewport, computeAvoidancePath } from '@anytime-markdown/graph-core/engine';
+import { render, drawSelectionRect, drawEdgePreview, drawShapePreview, drawSnapHighlight, drawSmartGuides, interpolateViewport, computeVisibilityPath } from '@anytime-markdown/graph-core/engine';
 import type { ViewportAnimation } from '@anytime-markdown/graph-core/engine';
 import { getCanvasColors } from '@anytime-markdown/graph-core';
 import { resolveConnectorEndpoints, computeOrthogonalPath, computeBezierPath, bestSides, getConnectionPoints } from '../engine/connector';
@@ -117,28 +117,22 @@ export function GraphCanvas({
             return { ...e, from: { ...e.from, ...pts.from }, to: { ...e.to, ...pts.to }, waypoints };
           }
 
-          // orthogonal with obstacle avoidance
+          // manualMidpoint backward compat
+          if (e.manualMidpoint !== undefined) {
+            const waypoints = computeOrthogonalPath(fromNode, toNode, 20, e.manualMidpoint);
+            return { ...e, from: { ...e.from, ...waypoints[0] }, to: { ...e.to, ...waypoints.at(-1)! }, waypoints };
+          }
+
+          // Visibility-graph based orthogonal routing
           const obstacles = nodes
             .filter(n => n.id !== fromNode.id && n.id !== toNode.id)
             .map(n => ({ x: n.x, y: n.y, width: n.width, height: n.height }));
-
-          if (obstacles.length > 0) {
-            const sides = bestSides(fromNode, toNode);
-            const fromPts = getConnectionPoints(fromNode);
-            const toPts = getConnectionPoints(toNode);
-            const fromPt = fromPts.find(p => p.side === sides.fromSide) ?? fromPts[0];
-            const toPt = toPts.find(p => p.side === sides.toSide) ?? toPts[0];
-            const waypoints = computeAvoidancePath(fromPt, sides.fromSide, toPt, sides.toSide, obstacles);
-            return {
-              ...e,
-              from: { ...e.from, ...waypoints[0] },
-              to: { ...e.to, ...waypoints.at(-1)! },
-              waypoints,
-            };
-          }
-
-          // No obstacles → standard orthogonal
-          const waypoints = computeOrthogonalPath(fromNode, toNode, 20, e.manualMidpoint);
+          const sides = bestSides(fromNode, toNode);
+          const fromPts = getConnectionPoints(fromNode);
+          const toPts = getConnectionPoints(toNode);
+          const fromPt = fromPts.find(p => p.side === sides.fromSide) ?? fromPts[0];
+          const toPt = toPts.find(p => p.side === sides.toSide) ?? toPts[0];
+          const waypoints = computeVisibilityPath(fromPt, sides.fromSide, toPt, sides.toSide, obstacles);
           return { ...e, from: { ...e.from, ...waypoints[0] }, to: { ...e.to, ...waypoints.at(-1)! }, waypoints };
         }
         const pts = resolveConnectorEndpoints(e, nodes);
