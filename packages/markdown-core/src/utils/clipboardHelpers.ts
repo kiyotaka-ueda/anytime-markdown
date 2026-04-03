@@ -35,6 +35,7 @@ export async function saveBlob(blob: Blob, suggestedName: string): Promise<void>
       const ext = /\.(\w+)$/.exec(suggestedName)?.[1]?.toLowerCase() ?? "png";
       const allTypes = [
         { ext: "gif", type: { description: "GIF Image", accept: { "image/gif": [".gif"] } } },
+        { ext: "mmd", type: { description: "Mermaid Source", accept: { "text/plain": [".mmd"] } } },
         { ext: "png", type: { description: "PNG Image", accept: { "image/png": [".png"] } } },
         { ext: "svg", type: { description: "SVG Image", accept: { "image/svg+xml": [".svg"] } } },
       ];

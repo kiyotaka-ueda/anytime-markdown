@@ -152,6 +152,8 @@
     "diagramGeneric": "Diagram",
     "plantUmlDiagram": "PlantUML diagram",
     "capture": "Export as image",
+    "exportPng": "Export as PNG",
+    "exportMmd": "Export as Mermaid source (.mmd)",
     "screenCapture": "Screen Capture",
     "screenCaptureShoot": "Capture",
     "screenCaptureSelect": "Select a screen to capture",

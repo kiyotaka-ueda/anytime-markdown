@@ -194,7 +194,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
   } = usePlantUmlRender({ code, isPlantUml, isDark });
   const error = isMermaid ? mermaidError : plantUmlError;
 
-  const handleCapture = useDiagramCapture({ isMermaid, isPlantUml, svg, plantUmlUrl, code, isDark });
+  const { handleCapture, handleExportMmd } = useDiagramCapture({ isMermaid, isPlantUml, svg, plantUmlUrl, code, isDark });
 
   const displaySvg = useMemo(() => {
     if (!svg) return svg;
@@ -221,6 +221,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
       onEdit={canInteract && hasDiagramOutput ? () => { fsZP.reset(); setEditOpen(true); } : undefined}
       onDelete={isEditable && canInteract ? () => setDeleteDialogOpen(true) : undefined}
       onExport={hasDiagramOutput ? handleCapture : undefined}
+      onExportMmd={hasDiagramOutput ? handleExportMmd : undefined}
       labelOnly={props.isCompareLeftEditable}
       labelDivider
       t={t}
@@ -260,7 +261,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
     open: editOpen, onClose: handleCloseDialog, label, code, fsCode,
     onFsCodeChange, onFsTextChange: _handleFsTextChange, fsTextareaRef, fsSearch, fsZP,
     readOnly: !isEditable, isCompareMode, compareCode, onMergeApply: handleMergeApply,
-    thisCode, onExport: handleCapture,
+    thisCode, onExport: handleCapture, onExportMmd: handleExportMmd,
     onApply: props.onFsApply, dirty: props.fsDirty,
     toolbarExtra: <CopyCodeButton handleCopyCode={handleCopyCode} t={t} />, t,
   };
