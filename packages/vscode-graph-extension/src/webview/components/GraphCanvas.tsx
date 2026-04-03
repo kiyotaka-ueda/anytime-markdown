@@ -11,15 +11,15 @@ import {
 import type { ViewportAnimation } from '@anytime-markdown/graph-core/engine';
 import type { DragPreview } from '../hooks/useCanvasInteraction';
 
-function reflectControlPoint(
-  anchor: { x: number; y: number },
+function deflectControlPoint(
   cp: { x: number; y: number },
   side: string,
+  amount: number,
 ): { x: number; y: number } {
   if (side === 'left' || side === 'right') {
-    return { x: cp.x, y: anchor.y - (cp.y - anchor.y) };
+    return { x: cp.x, y: cp.y + amount };
   }
-  return { x: anchor.x - (cp.x - anchor.x), y: cp.y };
+  return { x: cp.x + amount, y: cp.y };
 }
 
 function offsetAlongSide(
@@ -133,12 +133,9 @@ export function GraphCanvas({
             if (pairTotal > 1) {
               bezierPath[0] = fromPt;
               bezierPath[3] = toPt;
-              if (parallelIndex % 2 === 1) {
-                const cp1 = bezierPath[1];
-                const cp2 = bezierPath[2];
-                bezierPath[1] = reflectControlPoint(fromPt, cp1, sides.fromSide);
-                bezierPath[2] = reflectControlPoint(toPt, cp2, sides.toSide);
-              }
+              const deflection = (parallelIndex - (pairTotal - 1) / 2) * 60;
+              bezierPath[1] = deflectControlPoint(bezierPath[1], sides.fromSide, deflection);
+              bezierPath[2] = deflectControlPoint(bezierPath[2], sides.toSide, deflection);
             }
             return {
               ...e,

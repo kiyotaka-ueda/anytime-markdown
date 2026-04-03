@@ -8,18 +8,17 @@ import { getCanvasColors } from '@anytime-markdown/graph-core';
 import { resolveConnectorEndpoints, computeOrthogonalPath, computeBezierPath, bestSides, getConnectionPoints } from '../engine/connector';
 import type { DragPreview } from '../hooks/useCanvasInteraction';
 
-/** 制御点を接続辺の垂直方向に反転する */
-function reflectControlPoint(
-  anchor: { x: number; y: number },
+/** 制御点を接続辺に垂直な方向にオフセットする（カーブ方向の変更） */
+function deflectControlPoint(
   cp: { x: number; y: number },
   side: string,
+  amount: number,
 ): { x: number; y: number } {
+  // 辺に垂直な方向にオフセット
   if (side === 'left' || side === 'right') {
-    // 水平辺: y を反転
-    return { x: cp.x, y: anchor.y - (cp.y - anchor.y) };
+    return { x: cp.x, y: cp.y + amount };
   }
-  // 垂直辺: x を反転
-  return { x: anchor.x - (cp.x - anchor.x), y: cp.y };
+  return { x: cp.x + amount, y: cp.y };
 }
 
 /** 接続ポイントを辺に沿った方向にオフセットする */
@@ -148,13 +147,10 @@ export function GraphCanvas({
             if (pairTotal > 1) {
               bezierPath[0] = fromPt;
               bezierPath[3] = toPt;
-              // 奇数インデックスのエッジは制御点を反転（逆方向にカーブ）
-              if (parallelIndex % 2 === 1) {
-                const cp1 = bezierPath[1];
-                const cp2 = bezierPath[2];
-                bezierPath[1] = reflectControlPoint(fromPt, cp1, sides.fromSide);
-                bezierPath[2] = reflectControlPoint(toPt, cp2, sides.toSide);
-              }
+              // 中心から左右対称にカーブ方向をずらす
+              const deflection = (parallelIndex - (pairTotal - 1) / 2) * 60;
+              bezierPath[1] = deflectControlPoint(bezierPath[1], sides.fromSide, deflection);
+              bezierPath[2] = deflectControlPoint(bezierPath[2], sides.toSide, deflection);
             }
             return {
               ...e,
