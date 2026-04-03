@@ -3,20 +3,27 @@ import fs from 'node:fs';
 import { analyze } from './analyze';
 import { toCytoscape } from './transform/toCytoscape';
 import { getTrailStylesheet } from './transform/trailStylesheet';
+import { toMermaid } from './transform/toMermaid';
 
 interface CliArgs {
   tsconfigPath: string;
   output: string;
   exclude: string[];
   includeTests: boolean;
+  format: 'cytoscape' | 'mermaid';
+  granularity: 'module' | 'symbol';
+  direction: 'TD' | 'LR';
 }
 
 function parseArgs(argv: string[]): CliArgs {
   const args = argv.slice(2);
   let tsconfigPath = './tsconfig.json';
-  let output = './trail.json';
+  let output = '';
   const exclude: string[] = [];
   let includeTests = false;
+  let format: 'cytoscape' | 'mermaid' = 'cytoscape';
+  let granularity: 'module' | 'symbol' = 'module';
+  let direction: 'TD' | 'LR' = 'TD';
 
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
@@ -32,6 +39,15 @@ function parseArgs(argv: string[]): CliArgs {
       case '--include-tests':
         includeTests = true;
         break;
+      case '--format':
+        format = args[++i] as 'cytoscape' | 'mermaid';
+        break;
+      case '--granularity':
+        granularity = args[++i] as 'module' | 'symbol';
+        break;
+      case '--direction':
+        direction = args[++i] as 'TD' | 'LR';
+        break;
       case 'analyze':
         break;
       default:
@@ -40,7 +56,11 @@ function parseArgs(argv: string[]): CliArgs {
     }
   }
 
-  return { tsconfigPath, output, exclude, includeTests };
+  if (!output) {
+    output = format === 'mermaid' ? './trail.md' : './trail.json';
+  }
+
+  return { tsconfigPath, output, exclude, includeTests, format, granularity, direction };
 }
 
 function main(): void {
@@ -60,17 +80,20 @@ function main(): void {
     includeTests: args.includeTests,
   });
 
-  const elements = toCytoscape(graph);
-  const stylesheet = getTrailStylesheet();
-
-  const result = {
-    elements,
-    stylesheet,
-    metadata: graph.metadata,
-  };
-
   const outputPath = path.resolve(args.output);
-  fs.writeFileSync(outputPath, JSON.stringify(result, null, 2), 'utf-8');
+
+  if (args.format === 'mermaid') {
+    const mermaid = toMermaid(graph, {
+      granularity: args.granularity,
+      direction: args.direction,
+    });
+    fs.writeFileSync(outputPath, mermaid, 'utf-8');
+  } else {
+    const elements = toCytoscape(graph);
+    const stylesheet = getTrailStylesheet();
+    const result = { elements, stylesheet, metadata: graph.metadata };
+    fs.writeFileSync(outputPath, JSON.stringify(result, null, 2), 'utf-8');
+  }
 
   console.log(
     `Done: ${graph.metadata.fileCount} files, ` +

@@ -14,4 +14,5 @@ export {
   type TrailStyleEntry,
 } from './transform/trailStylesheet';
 export { toGraphDocument } from './transform/toGraphDocument';
+export { toMermaid, type MermaidOptions } from './transform/toMermaid';
 export { customTrail, type CustomTrailOptions } from './trail/customTrail';
