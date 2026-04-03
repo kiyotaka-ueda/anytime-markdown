@@ -8,6 +8,18 @@ import { getCanvasColors } from '@anytime-markdown/graph-core';
 import { resolveConnectorEndpoints, computeOrthogonalPath, computeBezierPath, bestSides, getConnectionPoints } from '../engine/connector';
 import type { DragPreview } from '../hooks/useCanvasInteraction';
 
+/** 接続ポイントを辺に沿った方向にオフセットする */
+function offsetAlongSide(
+  pt: { side: string; x: number; y: number },
+  side: string,
+  offset: number,
+): { side: string; x: number; y: number } {
+  if (side === 'left' || side === 'right') {
+    return { ...pt, y: pt.y + offset };
+  }
+  return { ...pt, x: pt.x + offset };
+}
+
 interface GraphCanvasProps {
   nodes: readonly GraphNode[];
   edges: readonly GraphEdge[];
@@ -133,9 +145,14 @@ export function GraphCanvas({
           const sides = bestSides(fromNode, toNode);
           const fromPts = getConnectionPoints(fromNode);
           const toPts = getConnectionPoints(toNode);
-          const fromPt = fromPts.find(p => p.side === sides.fromSide) ?? fromPts[0];
-          const toPt = toPts.find(p => p.side === sides.toSide) ?? toPts[0];
-          const waypoints = computeVisibilityPath(fromPt, sides.fromSide, toPt, sides.toSide, [], parallelIndex);
+          let fromPt = fromPts.find(p => p.side === sides.fromSide) ?? fromPts[0];
+          let toPt = toPts.find(p => p.side === sides.toSide) ?? toPts[0];
+          if (parallelIndex > 0) {
+            const offset = parallelIndex * 15;
+            fromPt = offsetAlongSide(fromPt, sides.fromSide, offset);
+            toPt = offsetAlongSide(toPt, sides.toSide, offset);
+          }
+          const waypoints = computeVisibilityPath(fromPt, sides.fromSide, toPt, sides.toSide, []);
           return { ...e, from: { ...e.from, ...waypoints[0] }, to: { ...e.to, ...waypoints.at(-1)! }, waypoints };
         }
         const pts = resolveConnectorEndpoints(e, nodes);
