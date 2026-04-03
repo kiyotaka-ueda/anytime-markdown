@@ -81,6 +81,8 @@ export interface GraphEdge {
   label?: string;
   /** 手動調整した中間セグメントの位置（直角コネクタ用） */
   manualMidpoint?: number;
+  /** ユーザーが手動設定したウェイポイント。設定時は自動直交パスを上書きする */
+  manualWaypoints?: { x: number; y: number }[];
   /** 直角コネクタの中間ウェイポイント（resolveEdgeConnections で計算） */
   waypoints?: { x: number; y: number }[];
   /** Bezier パスの制御点列（resolveEdgeConnections で計算） */

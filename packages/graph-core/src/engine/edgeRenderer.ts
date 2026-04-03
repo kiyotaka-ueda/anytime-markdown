@@ -84,6 +84,18 @@ export function drawEdge(
     }
   }
 
+  // 選択時: manualWaypoints のハンドルを描画
+  if (selected && edge.manualWaypoints) {
+    const wpSize = 4;
+    for (const wp of edge.manualWaypoints) {
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = c.canvasSelection;
+      ctx.lineWidth = 1.5;
+      ctx.fillRect(wp.x - wpSize, wp.y - wpSize, wpSize * 2, wpSize * 2);
+      ctx.strokeRect(wp.x - wpSize, wp.y - wpSize, wpSize * 2, wpSize * 2);
+    }
+  }
+
   ctx.restore();
 }
 

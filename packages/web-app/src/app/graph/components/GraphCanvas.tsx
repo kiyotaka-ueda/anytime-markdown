@@ -105,6 +105,13 @@ export function GraphCanvas({
             };
           }
 
+          // Manual waypoints: user-defined path overrides auto-routing
+          if (e.manualWaypoints?.length) {
+            const pts = resolveConnectorEndpoints(e, nodes);
+            const waypoints = [pts.from, ...e.manualWaypoints, pts.to];
+            return { ...e, from: { ...e.from, ...pts.from }, to: { ...e.to, ...pts.to }, waypoints };
+          }
+
           // orthogonal with obstacle avoidance
           const obstacles = nodes
             .filter(n => n.id !== fromNode.id && n.id !== toNode.id)

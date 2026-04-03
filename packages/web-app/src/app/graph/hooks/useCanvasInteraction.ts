@@ -3,11 +3,11 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { ToolType, GraphNode, GraphEdge, Viewport, SelectionState, createNode, createEdge } from '../types';
 import { screenToWorld, pan as panViewport, zoom as zoomViewport } from '../engine/viewport';
-import { hitTest } from '../engine/hitTest';
+import { hitTest, hitTestEdge } from '../engine/hitTest';
 import type { ResizeHandle } from '../engine/hitTest';
 import { snapToGrid } from '../engine/gridSnap';
 import { computeSmartGuides, GuideLine } from '../engine/smartGuide';
-import { computeOrthogonalPath } from '../engine/connector';
+import { computeOrthogonalPath, resolveConnectorEndpoints } from '../engine/connector';
 import { physics } from '@anytime-markdown/graph-core/engine';
 
 /** edges に waypoints を付与して hitTest で使えるようにする */
@@ -17,6 +17,11 @@ function resolveEdgesWithWaypoints(edges: GraphEdge[], nodes: GraphNode[]): (Gra
       const fromNode = nodes.find(n => n.id === e.from.nodeId);
       const toNode = nodes.find(n => n.id === e.to.nodeId);
       if (fromNode && toNode) {
+        // manualWaypoints がある場合はそのパスを使用
+        if (e.manualWaypoints?.length) {
+          const pts = resolveConnectorEndpoints(e, nodes);
+          return { ...e, waypoints: [pts.from, ...e.manualWaypoints, pts.to] };
+        }
         const waypoints = computeOrthogonalPath(fromNode, toNode, 20, e.manualMidpoint);
         return { ...e, waypoints };
       }
@@ -26,7 +31,7 @@ function resolveEdgesWithWaypoints(edges: GraphEdge[], nodes: GraphNode[]): (Gra
 }
 
 interface DragState {
-  type: 'none' | 'pan' | 'move' | 'resize' | 'create-shape' | 'select-rect' | 'create-edge' | 'move-edge-segment';
+  type: 'none' | 'pan' | 'move' | 'resize' | 'create-shape' | 'select-rect' | 'create-edge' | 'move-edge-segment' | 'move-waypoint';
   startWorldX: number;
   startWorldY: number;
   startScreenX: number;
@@ -35,9 +40,12 @@ interface DragState {
   nodeId?: string;
   edgeId?: string;
   segmentDirection?: 'horizontal' | 'vertical';
+  segmentIndex?: number;
   endpointEnd?: 'from' | 'to';
   fromConnectionPoint?: boolean;
   initialMidpoint?: number;
+  initialWaypoints?: { x: number; y: number }[];
+  waypointIndex?: number;
   initialNodes?: Map<string, { x: number; y: number; width: number; height: number }>;
 }
 
@@ -213,6 +221,19 @@ export function useCanvasInteraction({
         return;
       }
 
+      if (hit.type === 'waypoint-handle' && hit.id && hit.waypointIndex !== undefined) {
+        const edge = edges.find(ed => ed.id === hit.id);
+        dispatch({ type: 'SET_SELECTION', selection: { nodeIds: [], edgeIds: [hit.id] } });
+        dispatch({ type: 'SNAPSHOT' });
+        dragRef.current = {
+          type: 'move-waypoint', startWorldX: world.x, startWorldY: world.y,
+          startScreenX: sx, startScreenY: sy,
+          edgeId: hit.id, waypointIndex: hit.waypointIndex,
+          initialWaypoints: edge?.manualWaypoints ? [...edge.manualWaypoints.map(w => ({ ...w }))] : [],
+        };
+        return;
+      }
+
       if (hit.type === 'edge-segment' && hit.id && hit.segmentDirection) {
         const edge = edges.find(ed => ed.id === hit.id);
         dispatch({ type: 'SET_SELECTION', selection: { nodeIds: [], edgeIds: [hit.id] } });
@@ -221,13 +242,23 @@ export function useCanvasInteraction({
           type: 'move-edge-segment', startWorldX: world.x, startWorldY: world.y,
           startScreenX: sx, startScreenY: sy,
           edgeId: hit.id, segmentDirection: hit.segmentDirection,
+          segmentIndex: hit.segmentIndex,
           initialMidpoint: edge?.manualMidpoint,
+          initialWaypoints: edge?.manualWaypoints ? [...edge.manualWaypoints.map(w => ({ ...w }))] : undefined,
         };
         return;
       }
 
       if (hit.type === 'edge' && hit.id) {
-        dispatch({ type: 'SET_SELECTION', selection: { nodeIds: [], edgeIds: [hit.id] } });
+        // 既に選択中のエッジと重なる場合、次のエッジにサイクル
+        let targetId = hit.id;
+        if (selection.edgeIds.includes(hit.id)) {
+          const overlapping = resolved.filter(
+            ed => ed.id !== hit.id && hitTestEdge(ed, world.x, world.y, viewport.scale),
+          );
+          if (overlapping.length > 0) targetId = overlapping[0].id;
+        }
+        dispatch({ type: 'SET_SELECTION', selection: { nodeIds: [], edgeIds: [targetId] } });
         return;
       }
 
@@ -433,8 +464,37 @@ export function useCanvasInteraction({
       return;
     }
 
+    if (drag.type === 'move-waypoint' && drag.edgeId && drag.waypointIndex !== undefined && drag.initialWaypoints) {
+      const world = screenToWorld(viewport, sx, sy);
+      const newWaypoints = drag.initialWaypoints.map(w => ({ ...w }));
+      newWaypoints[drag.waypointIndex] = { x: world.x, y: world.y };
+      dispatch({ type: 'UPDATE_EDGE', id: drag.edgeId, changes: { manualWaypoints: newWaypoints } });
+      return;
+    }
+
     if (drag.type === 'move-edge-segment' && drag.edgeId) {
       const world = screenToWorld(viewport, sx, sy);
+      // manualWaypoints がある場合: 該当セグメント端点を平行移動
+      if (drag.initialWaypoints?.length && drag.segmentIndex !== undefined) {
+        const newWaypoints = drag.initialWaypoints.map(w => ({ ...w }));
+        const delta = drag.segmentDirection === 'horizontal'
+          ? world.y - drag.startWorldY
+          : world.x - drag.startWorldX;
+        // segmentIndex は waypoints（fromPt + manualWaypoints + toPt）内のインデックス
+        // manualWaypoints のインデックスは segmentIndex - 1 と segmentIndex
+        const mwpIdx1 = drag.segmentIndex - 1;
+        const mwpIdx2 = drag.segmentIndex;
+        if (drag.segmentDirection === 'horizontal') {
+          if (mwpIdx1 >= 0 && mwpIdx1 < newWaypoints.length) newWaypoints[mwpIdx1].y += delta;
+          if (mwpIdx2 >= 0 && mwpIdx2 < newWaypoints.length) newWaypoints[mwpIdx2].y += delta;
+        } else {
+          if (mwpIdx1 >= 0 && mwpIdx1 < newWaypoints.length) newWaypoints[mwpIdx1].x += delta;
+          if (mwpIdx2 >= 0 && mwpIdx2 < newWaypoints.length) newWaypoints[mwpIdx2].x += delta;
+        }
+        dispatch({ type: 'UPDATE_EDGE', id: drag.edgeId, changes: { manualWaypoints: newWaypoints } });
+        return;
+      }
+      // 従来の manualMidpoint ドラッグ
       const newMidpoint = drag.segmentDirection === 'vertical' ? world.x : world.y;
       dispatch({ type: 'UPDATE_EDGE', id: drag.edgeId, changes: { manualMidpoint: newMidpoint } });
       return;
@@ -615,11 +675,61 @@ export function useCanvasInteraction({
 
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     const world = getWorldPos(e as unknown as MouseEvent);
-    const hit = hitTest({ nodes, edges, wx: world.x, wy: world.y, scale: viewport.scale, selectedNodeIds: selection.nodeIds });
+    const hit = hitTest({ nodes, edges, wx: world.x, wy: world.y, scale: viewport.scale, selectedNodeIds: selection.nodeIds, selectedEdgeIds: selection.edgeIds });
     if (hit.type === 'node' && hit.id) {
       onTextEdit(hit.id);
+      return;
     }
-  }, [getWorldPos, nodes, edges, viewport, selection, onTextEdit]);
+    // ウェイポイントハンドルをダブルクリック → 削除
+    if (hit.type === 'waypoint-handle' && hit.id && hit.waypointIndex !== undefined) {
+      const edge = edges.find(ed => ed.id === hit.id);
+      if (edge?.manualWaypoints) {
+        dispatch({ type: 'SNAPSHOT' });
+        const newWaypoints = edge.manualWaypoints.filter((_, i) => i !== hit.waypointIndex);
+        dispatch({ type: 'UPDATE_EDGE', id: hit.id, changes: { manualWaypoints: newWaypoints.length > 0 ? newWaypoints : undefined } });
+      }
+      return;
+    }
+    // エッジ上をダブルクリック → ウェイポイント追加
+    if (hit.type === 'edge' && hit.id) {
+      const edge = edges.find(ed => ed.id === hit.id);
+      if (edge && (edge.type === 'connector' || edge.type === 'arrow')) {
+        dispatch({ type: 'SNAPSHOT' });
+        const existing = edge.manualWaypoints ?? [];
+        // ウェイポイント配列内の適切な位置に挿入（パスに沿った順序を維持）
+        const wp = { x: world.x, y: world.y };
+        if (existing.length === 0 || !edge.waypoints?.length) {
+          dispatch({ type: 'UPDATE_EDGE', id: hit.id, changes: { manualWaypoints: [...existing, wp] } });
+        } else {
+          // waypoints パス上で最も近いセグメントの後に挿入
+          let bestIdx = existing.length;
+          let bestDist = Infinity;
+          const fullPath = edge.waypoints;
+          for (let i = 0; i < fullPath.length - 1; i++) {
+            const p1 = fullPath[i];
+            const p2 = fullPath[i + 1];
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const len2 = dx * dx + dy * dy;
+            const t = len2 > 0 ? Math.max(0, Math.min(1, ((world.x - p1.x) * dx + (world.y - p1.y) * dy) / len2)) : 0;
+            const px = p1.x + t * dx;
+            const py = p1.y + t * dy;
+            const d = Math.hypot(world.x - px, world.y - py);
+            if (d < bestDist) {
+              bestDist = d;
+              // i は fullPath のインデックス。manualWaypoints のインデックスは i - 1（fromPt を除く）
+              bestIdx = Math.max(0, Math.min(existing.length, i));
+            }
+          }
+          const newWaypoints = [...existing];
+          newWaypoints.splice(bestIdx, 0, wp);
+          dispatch({ type: 'UPDATE_EDGE', id: hit.id, changes: { manualWaypoints: newWaypoints } });
+        }
+        dispatch({ type: 'SET_SELECTION', selection: { nodeIds: [], edgeIds: [hit.id] } });
+      }
+      return;
+    }
+  }, [getWorldPos, nodes, edges, viewport, selection, onTextEdit, dispatch]);
 
   const copySelected = useCallback(() => {
     if (selection.nodeIds.length === 0) return;
