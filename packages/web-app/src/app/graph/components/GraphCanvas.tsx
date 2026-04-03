@@ -88,6 +88,9 @@ export function GraphCanvas({
       });
     }
 
+    // 同一ノードペア間のエッジ数をカウント（パス重複回避用）
+    const pairCount = new Map<string, number>();
+
     return edges.map(e => {
       if (e.type === 'connector' && e.from.nodeId && e.to.nodeId) {
         const fromNode = nodes.find(n => n.id === e.from.nodeId);
@@ -124,12 +127,15 @@ export function GraphCanvas({
           }
 
           // Orthogonal routing
+          const pairKey = [e.from.nodeId, e.to.nodeId].sort().join(':');
+          const parallelIndex = pairCount.get(pairKey) ?? 0;
+          pairCount.set(pairKey, parallelIndex + 1);
           const sides = bestSides(fromNode, toNode);
           const fromPts = getConnectionPoints(fromNode);
           const toPts = getConnectionPoints(toNode);
           const fromPt = fromPts.find(p => p.side === sides.fromSide) ?? fromPts[0];
           const toPt = toPts.find(p => p.side === sides.toSide) ?? toPts[0];
-          const waypoints = computeVisibilityPath(fromPt, sides.fromSide, toPt, sides.toSide, []);
+          const waypoints = computeVisibilityPath(fromPt, sides.fromSide, toPt, sides.toSide, [], parallelIndex);
           return { ...e, from: { ...e.from, ...waypoints[0] }, to: { ...e.to, ...waypoints.at(-1)! }, waypoints };
         }
         const pts = resolveConnectorEndpoints(e, nodes);

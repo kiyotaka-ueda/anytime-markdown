@@ -443,31 +443,36 @@ function ensurePerpendicularEntry(
 /** 接続ポイントが重なる場合のオフセット量 */
 const OVERLAP_OFFSET = 30;
 
+/** 同一ノードペア間の複数エッジのオフセット間隔 */
+const PARALLEL_OFFSET = 15;
+
 /** 障害物なしの直交パス */
 function computeDirectPath(
   fromPt: Point,
   fromSide: Side,
   toPt: Point,
   toSide: Side,
+  parallelIndex: number = 0,
 ): Point[] {
   // 始点と終点が重なっている場合、接続辺の方向にオフセットして迂回パスを生成
   if (fromPt.x === toPt.x && fromPt.y === toPt.y) {
     return computeOverlapPath(fromPt, fromSide, toPt, toSide);
   }
 
+  const offset = parallelIndex * PARALLEL_OFFSET;
   const isHorizontalStart = fromSide === 'left' || fromSide === 'right';
   const isHorizontalEnd = toSide === 'left' || toSide === 'right';
 
   if (isHorizontalStart && isHorizontalEnd) {
     const midX = (fromPt.x + toPt.x) / 2;
-    return [fromPt, { x: midX, y: fromPt.y }, { x: midX, y: toPt.y }, toPt];
+    return [fromPt, { x: midX, y: fromPt.y + offset }, { x: midX, y: toPt.y + offset }, toPt];
   } else if (!isHorizontalStart && !isHorizontalEnd) {
     const midY = (fromPt.y + toPt.y) / 2;
-    return [fromPt, { x: fromPt.x, y: midY }, { x: toPt.x, y: midY }, toPt];
+    return [fromPt, { x: fromPt.x + offset, y: midY }, { x: toPt.x + offset, y: midY }, toPt];
   } else if (isHorizontalStart) {
-    return [fromPt, { x: toPt.x, y: fromPt.y }, toPt];
+    return [fromPt, { x: toPt.x + offset, y: fromPt.y }, toPt];
   } else {
-    return [fromPt, { x: fromPt.x, y: toPt.y }, toPt];
+    return [fromPt, { x: fromPt.x + offset, y: toPt.y }, toPt];
   }
 }
 
@@ -526,6 +531,7 @@ export function computeVisibilityPath(
   toPt: Point,
   toSide: Side,
   _obstacles: readonly Rect[] = [],
+  parallelIndex: number = 0,
 ): Point[] {
-  return computeDirectPath(fromPt, fromSide, toPt, toSide);
+  return computeDirectPath(fromPt, fromSide, toPt, toSide, parallelIndex);
 }
