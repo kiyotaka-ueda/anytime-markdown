@@ -227,6 +227,113 @@ export function dijkstraWithBendPenalty(
   return null;
 }
 
+/**
+ * 垂直セグメントの移動可能な x 範囲を障害物で制約する。
+ * セグメントの y 範囲と重なる障害物のみ考慮する。
+ */
+function constrainVerticalRange(
+  lowerBound: number,
+  upperBound: number,
+  segMinY: number,
+  segMaxY: number,
+  segCurrentX: number,
+  obstacles: readonly Rect[],
+): { lower: number; upper: number } {
+  let lower = lowerBound;
+  let upper = upperBound;
+  for (const obs of obstacles) {
+    const obsMinY = obs.y;
+    const obsMaxY = obs.y + obs.height;
+    if (obsMaxY <= segMinY || obsMinY >= segMaxY) continue;
+
+    const obsRight = obs.x + obs.width;
+    if (obsRight <= segCurrentX && obsRight > lower) {
+      lower = obsRight;
+    }
+    if (obs.x >= segCurrentX && obs.x < upper) {
+      upper = obs.x;
+    }
+  }
+  return { lower, upper };
+}
+
+/**
+ * 水平セグメントの移動可能な y 範囲を障害物で制約する。
+ * セグメントの x 範囲と重なる障害物のみ考慮する。
+ */
+function constrainHorizontalRange(
+  lowerBound: number,
+  upperBound: number,
+  segMinX: number,
+  segMaxX: number,
+  segCurrentY: number,
+  obstacles: readonly Rect[],
+): { lower: number; upper: number } {
+  let lower = lowerBound;
+  let upper = upperBound;
+  for (const obs of obstacles) {
+    const obsMinX = obs.x;
+    const obsMaxX = obs.x + obs.width;
+    if (obsMaxX <= segMinX || obsMinX >= segMaxX) continue;
+
+    const obsBottom = obs.y + obs.height;
+    if (obsBottom <= segCurrentY && obsBottom > lower) {
+      lower = obsBottom;
+    }
+    if (obs.y >= segCurrentY && obs.y < upper) {
+      upper = obs.y;
+    }
+  }
+  return { lower, upper };
+}
+
+/**
+ * パスの中間セグメントを利用可能スペースの中央に寄せる（nudging）。
+ * 入力パスは変更せず、新しいパスを返す。
+ */
+export function nudgePath(
+  path: readonly Point[],
+  obstacles: readonly Rect[],
+): Point[] {
+  const result = path.map((p) => ({ x: p.x, y: p.y }));
+  if (result.length < 4) return result;
+
+  for (let i = 1; i < result.length - 2; i++) {
+    const p = result[i];
+    const q = result[i + 1];
+    const prev = result[i - 1];
+    const next = result[i + 2];
+
+    if (p.x === q.x) {
+      // Vertical segment: can move in x
+      const lowerBound = Math.min(prev.x, next.x);
+      const upperBound = Math.max(prev.x, next.x);
+      const segMinY = Math.min(p.y, q.y);
+      const segMaxY = Math.max(p.y, q.y);
+      const { lower, upper } = constrainVerticalRange(
+        lowerBound, upperBound, segMinY, segMaxY, p.x, obstacles,
+      );
+      const center = Math.round((lower + upper) / 2);
+      result[i] = { x: center, y: p.y };
+      result[i + 1] = { x: center, y: q.y };
+    } else if (p.y === q.y) {
+      // Horizontal segment: can move in y
+      const lowerBound = Math.min(prev.y, next.y);
+      const upperBound = Math.max(prev.y, next.y);
+      const segMinX = Math.min(p.x, q.x);
+      const segMaxX = Math.max(p.x, q.x);
+      const { lower, upper } = constrainHorizontalRange(
+        lowerBound, upperBound, segMinX, segMaxX, p.y, obstacles,
+      );
+      const center = Math.round((lower + upper) / 2);
+      result[i] = { x: p.x, y: center };
+      result[i + 1] = { x: q.x, y: center };
+    }
+  }
+
+  return result;
+}
+
 /** 全ノードペアの可視性を判定し、可視エッジのリストを返す */
 export function buildVisibilityGraph(
   nodes: readonly VNode[],

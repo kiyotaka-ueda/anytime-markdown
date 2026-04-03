@@ -3,6 +3,7 @@ import {
   buildVisibilityGraph,
   dijkstraWithBendPenalty,
   isVisible,
+  nudgePath,
 } from '../../engine/visibilityGraph';
 import type { VNode, VEdge } from '../../engine/visibilityGraph';
 
@@ -124,5 +125,62 @@ describe('dijkstraWithBendPenalty', () => {
     ];
     const path = dijkstraWithBendPenalty(nodes, [], 0, 1, 'h', 50);
     expect(path).toBeNull();
+  });
+});
+
+describe('nudgePath', () => {
+  it('should center a vertical segment between obstacles', () => {
+    // A(0,0)->（100,0)->(100,200)->(200,200)
+    // Vertical segment x=100 is between left constraint x=50 and right constraint x=150
+    const path = [
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+      { x: 100, y: 200 },
+      { x: 200, y: 200 },
+    ];
+    const obstacles = [
+      { x: 30, y: 50, width: 20, height: 100 }, // right edge at x=50
+      { x: 150, y: 50, width: 20, height: 100 }, // left edge at x=150
+    ];
+    const result = nudgePath(path, obstacles);
+    // Center: (50 + 150) / 2 = 100 -> no change
+    expect(result[1].x).toBe(100);
+    expect(result[2].x).toBe(100);
+  });
+
+  it('should shift a vertical segment to center of available space', () => {
+    // A(0,0)->(20,0)->(20,200)->(300,200)
+    // Vertical segment x=20 is near left edge. Should center between endpoints.
+    const path = [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      { x: 20, y: 200 },
+      { x: 300, y: 200 },
+    ];
+    const obstacles: { x: number; y: number; width: number; height: number }[] = [];
+    const result = nudgePath(path, obstacles);
+    // No obstacles: range [0, 300], center = 150
+    expect(result[1].x).toBe(150);
+    expect(result[2].x).toBe(150);
+  });
+
+  it('should not mutate the input path', () => {
+    const path = [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      { x: 20, y: 200 },
+      { x: 300, y: 200 },
+    ];
+    nudgePath(path, []);
+    expect(path[1].x).toBe(20);
+  });
+
+  it('should return the path unchanged for fewer than 4 points', () => {
+    const path = [
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+    ];
+    const result = nudgePath(path, []);
+    expect(result).toEqual(path);
   });
 });
