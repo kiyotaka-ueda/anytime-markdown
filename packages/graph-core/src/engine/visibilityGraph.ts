@@ -90,6 +90,143 @@ export function isVisible(
   return true;
 }
 
+type Direction = 'h' | 'v' | 'init';
+
+interface HeapEntry {
+  readonly cost: number;
+  readonly nodeId: number;
+  readonly dir: Direction;
+}
+
+class MinHeap {
+  private readonly data: HeapEntry[] = [];
+
+  get size(): number {
+    return this.data.length;
+  }
+
+  push(entry: HeapEntry): void {
+    this.data.push(entry);
+    this.bubbleUp(this.data.length - 1);
+  }
+
+  pop(): HeapEntry | undefined {
+    if (this.data.length === 0) return undefined;
+    const top = this.data[0];
+    const last = this.data.pop()!;
+    if (this.data.length > 0) {
+      this.data[0] = last;
+      this.sinkDown(0);
+    }
+    return top;
+  }
+
+  private bubbleUp(i: number): void {
+    while (i > 0) {
+      const parent = (i - 1) >> 1;
+      if (this.data[parent].cost <= this.data[i].cost) break;
+      [this.data[parent], this.data[i]] = [this.data[i], this.data[parent]];
+      i = parent;
+    }
+  }
+
+  private sinkDown(i: number): void {
+    const n = this.data.length;
+    while (true) {
+      let smallest = i;
+      const left = 2 * i + 1;
+      const right = 2 * i + 2;
+      if (left < n && this.data[left].cost < this.data[smallest].cost) {
+        smallest = left;
+      }
+      if (right < n && this.data[right].cost < this.data[smallest].cost) {
+        smallest = right;
+      }
+      if (smallest === i) break;
+      [this.data[smallest], this.data[i]] = [this.data[i], this.data[smallest]];
+      i = smallest;
+    }
+  }
+}
+
+function buildAdjacencyList(
+  edges: readonly VEdge[],
+): Map<number, Array<{ to: number; distance: number; horizontal: boolean }>> {
+  const adj = new Map<number, Array<{ to: number; distance: number; horizontal: boolean }>>();
+  for (const e of edges) {
+    if (!adj.has(e.from)) adj.set(e.from, []);
+    if (!adj.has(e.to)) adj.set(e.to, []);
+    adj.get(e.from)!.push({ to: e.to, distance: e.distance, horizontal: e.horizontal });
+    adj.get(e.to)!.push({ to: e.from, distance: e.distance, horizontal: e.horizontal });
+  }
+  return adj;
+}
+
+function reconstructPath(
+  prev: Map<string, { nodeId: number; dir: Direction } | null>,
+  endId: number,
+  endDir: Direction,
+): number[] {
+  const path: number[] = [];
+  let current: { nodeId: number; dir: Direction } | null = { nodeId: endId, dir: endDir };
+  while (current) {
+    path.push(current.nodeId);
+    const key = `${current.nodeId},${current.dir}`;
+    current = prev.get(key) ?? null;
+  }
+  path.reverse();
+  return path;
+}
+
+/**
+ * 折れペナルティ付き Dijkstra。
+ * エッジの方向が変わるたびに bendPenalty をコストに加算する。
+ */
+export function dijkstraWithBendPenalty(
+  _nodes: readonly VNode[],
+  edges: readonly VEdge[],
+  startId: number,
+  endId: number,
+  startDir: Direction,
+  bendPenalty: number,
+): number[] | null {
+  const adj = buildAdjacencyList(edges);
+  const dist = new Map<string, number>();
+  const prev = new Map<string, { nodeId: number; dir: Direction } | null>();
+  const heap = new MinHeap();
+
+  const startKey = `${startId},${startDir}`;
+  dist.set(startKey, 0);
+  prev.set(startKey, null);
+  heap.push({ cost: 0, nodeId: startId, dir: startDir });
+
+  while (heap.size > 0) {
+    const { cost, nodeId, dir } = heap.pop()!;
+    const key = `${nodeId},${dir}`;
+
+    if (cost > (dist.get(key) ?? Infinity)) continue;
+    if (nodeId === endId) return reconstructPath(prev, endId, dir);
+
+    const neighbors = adj.get(nodeId);
+    if (!neighbors) continue;
+
+    for (const neighbor of neighbors) {
+      const edgeDir: Direction = neighbor.horizontal ? 'h' : 'v';
+      const bend = dir !== 'init' && dir !== edgeDir ? bendPenalty : 0;
+      const newCost = cost + neighbor.distance + bend;
+      const neighborKey = `${neighbor.to},${edgeDir}`;
+
+      if (newCost < (dist.get(neighborKey) ?? Infinity)) {
+        dist.set(neighborKey, newCost);
+        prev.set(neighborKey, { nodeId, dir });
+        heap.push({ cost: newCost, nodeId: neighbor.to, dir: edgeDir });
+      }
+    }
+  }
+
+  return null;
+}
+
 /** 全ノードペアの可視性を判定し、可視エッジのリストを返す */
 export function buildVisibilityGraph(
   nodes: readonly VNode[],
