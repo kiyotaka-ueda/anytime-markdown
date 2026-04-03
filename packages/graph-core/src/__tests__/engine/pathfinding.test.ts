@@ -59,4 +59,39 @@ describe('computeVisibilityPath', () => {
     expect(path.at(-1)).toEqual({ x: 300, y: 100 });
     expect(path.length).toBe(3);
   });
+
+  it('should produce a detour path when start and end overlap', () => {
+    const path = computeVisibilityPath(
+      { x: 100, y: 100 }, 'right',
+      { x: 100, y: 100 }, 'left',
+      [],
+    );
+    expect(path.length).toBeGreaterThanOrEqual(4);
+    expect(path[0]).toEqual({ x: 100, y: 100 });
+    expect(path.at(-1)).toEqual({ x: 100, y: 100 });
+    // All segments must be orthogonal
+    for (let i = 0; i < path.length - 1; i++) {
+      const curr = path[i];
+      const next = path[i + 1];
+      expect(curr.x === next.x || curr.y === next.y).toBe(true);
+    }
+    // Path must extend away from the point (not zero-length)
+    const maxX = Math.max(...path.map(p => p.x));
+    const minX = Math.min(...path.map(p => p.x));
+    expect(maxX - minX).toBeGreaterThan(0);
+  });
+
+  it('should produce a detour path when start and end overlap with vertical sides', () => {
+    const path = computeVisibilityPath(
+      { x: 100, y: 100 }, 'bottom',
+      { x: 100, y: 100 }, 'top',
+      [],
+    );
+    expect(path.length).toBeGreaterThanOrEqual(4);
+    expect(path[0]).toEqual({ x: 100, y: 100 });
+    expect(path.at(-1)).toEqual({ x: 100, y: 100 });
+    const maxY = Math.max(...path.map(p => p.y));
+    const minY = Math.min(...path.map(p => p.y));
+    expect(maxY - minY).toBeGreaterThan(0);
+  });
 });
