@@ -476,12 +476,11 @@ export function computeVisibilityPath(
   margin: number = 20,
   bendPenalty: number = 50,
 ): Point[] {
-  // Phase 0: Filter obstacles to those near the path bounding box
-  const pathMargin = margin * 3;
-  const pathMinX = Math.min(fromPt.x, toPt.x) - pathMargin;
-  const pathMinY = Math.min(fromPt.y, toPt.y) - pathMargin;
-  const pathMaxX = Math.max(fromPt.x, toPt.x) + pathMargin;
-  const pathMaxY = Math.max(fromPt.y, toPt.y) + pathMargin;
+  // Phase 0: Filter obstacles to those overlapping the path bounding box (+ margin)
+  const pathMinX = Math.min(fromPt.x, toPt.x) - margin;
+  const pathMinY = Math.min(fromPt.y, toPt.y) - margin;
+  const pathMaxX = Math.max(fromPt.x, toPt.x) + margin;
+  const pathMaxY = Math.max(fromPt.y, toPt.y) + margin;
   const nearObstacles = obstacles.filter((o) =>
     o.x + o.width > pathMinX && o.x < pathMaxX &&
     o.y + o.height > pathMinY && o.y < pathMaxY,
