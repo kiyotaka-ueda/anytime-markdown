@@ -1,6 +1,6 @@
 # Change Log
 
-All notable changes to the "Anytime Git" extension will be documented in this file.
+All notable changes to the "Anytime Trail" extension will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 

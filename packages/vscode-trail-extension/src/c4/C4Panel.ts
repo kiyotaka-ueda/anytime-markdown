@@ -18,7 +18,7 @@ function extractBoundaries(input: string): BoundaryInfo[] {
 }
 
 export class C4Panel {
-  public static readonly viewType = 'anytimeGit.c4View';
+  public static readonly viewType = 'anytimeTrail.c4View';
   private static currentPanel: C4Panel | undefined;
   private lastModel: C4Model | undefined;
   private lastBoundaries: readonly BoundaryInfo[] | undefined;

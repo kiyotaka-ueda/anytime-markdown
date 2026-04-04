@@ -1,6 +1,6 @@
-# Anytime Git
+# Anytime Trail
 
-![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/anytime-trial.anytime-git?label=VS%20Marketplace&logo=visual-studio-code)
+![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/anytime-trial.anytime-trail?label=VS%20Marketplace&logo=visual-studio-code)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=anytime-trial_anytime-markdown)
 [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=bugs)](https://sonarcloud.io/summary/new_code?id=anytime-trial_anytime-markdown)
@@ -24,7 +24,7 @@ Git リポジトリの管理、変更のステージ・コミット、コミッ�
 ## 使い方
 
 1. 拡張機能をインストール
-2. アクティビティバーの **Anytime Git** アイコンをクリック
+2. アクティビティバーの **Anytime Trail** アイコンをクリック
 3. **リポジトリ**ビューからフォルダーを開くか、リポジトリをクローン
 
 ## ライセンス

@@ -1,6 +1,6 @@
 # 変更履歴
 
-"Anytime Git" 拡張機能の主な変更をこのファイルに記録します。
+"Anytime Trail" 拡張機能の主な変更をこのファイルに記録します。
 
 形式は [Keep a Changelog](https://keepachangelog.com/) に基づいています。
 

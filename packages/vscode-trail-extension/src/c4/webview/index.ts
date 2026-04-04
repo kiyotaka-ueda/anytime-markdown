@@ -3,7 +3,7 @@ import { engine, layoutWithSubgroups } from '@anytime-markdown/graph-core';
 import { c4ToGraphDocument } from '@anytime-markdown/c4kernel';
 import type { C4Model, BoundaryInfo } from '@anytime-markdown/c4kernel';
 
-const { render, pan, zoom, fitToContent } = engine;
+const { render, pan, zoom, fitToContent, resolveConnectorEndpoints } = engine;
 
 declare function acquireVsCodeApi(): {
   postMessage(message: unknown): void;
@@ -44,11 +44,11 @@ function resolveEdges(doc: GraphDocument): GraphEdge[] {
       const fromNode = doc.nodes.find(n => n.id === e.from.nodeId);
       const toNode = doc.nodes.find(n => n.id === e.to.nodeId);
       if (fromNode && toNode) {
+        const pts = resolveConnectorEndpoints(e, doc.nodes);
         return {
           ...e,
-          type: 'line' as const,
-          from: { ...e.from, x: fromNode.x + fromNode.width / 2, y: fromNode.y + fromNode.height / 2 },
-          to: { ...e.to, x: toNode.x + toNode.width / 2, y: toNode.y + toNode.height / 2 },
+          from: { ...e.from, x: pts.from.x, y: pts.from.y },
+          to: { ...e.to, x: pts.to.x, y: pts.to.y },
         };
       }
     }

@@ -43,7 +43,7 @@ async function openWithVsCodeDiff(
 	originalContent: string,
 	diffLabel: string,
 ): Promise<void> {
-	const originalUri = vscode.Uri.parse(`anytime-git-original:${encodeURIComponent(filePath)}?ts=${Date.now()}`);
+	const originalUri = vscode.Uri.parse(`anytime-trail-original:${encodeURIComponent(filePath)}?ts=${Date.now()}`);
 	gitContentProvider.setContent(originalUri.toString(), originalContent);
 	await vscode.commands.executeCommand('vscode.diff', originalUri, currentUri, diffLabel);
 }
@@ -52,7 +52,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// Git 元コンテンツプロバイダー（diff 表示用）
 	const gitContentProvider = new GitOriginalContentProvider();
 	context.subscriptions.push(
-		vscode.workspace.registerTextDocumentContentProvider('anytime-git-original', gitContentProvider),
+		vscode.workspace.registerTextDocumentContentProvider('anytime-trail-original', gitContentProvider),
 	);
 
 	// Git 関連パネル（ワークスペースが開かれている場合のみ初期化）
@@ -67,7 +67,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	if (hasWorkspace) {
 		changesProvider = new ChangesProvider();
-		changesTreeView = vscode.window.createTreeView('anytimeGit.changes', {
+		changesTreeView = vscode.window.createTreeView('anytimeTrail.changes', {
 			treeDataProvider: changesProvider,
 		});
 
@@ -88,12 +88,12 @@ export function activate(context: vscode.ExtensionContext) {
 		}, 2000);
 
 		timelineProvider = new TimelineProvider();
-		timelineTreeView = vscode.window.createTreeView('anytimeGit.timeline', {
+		timelineTreeView = vscode.window.createTreeView('anytimeTrail.timeline', {
 			treeDataProvider: timelineProvider,
 		});
 
 		graphProvider = new GraphProvider(context);
-		graphTreeView = vscode.window.createTreeView('anytimeGit.graph', {
+		graphTreeView = vscode.window.createTreeView('anytimeTrail.graph', {
 			treeDataProvider: graphProvider,
 		});
 	}
@@ -109,7 +109,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// マークダウン管理パネル
 	const specDocsProvider = new SpecDocsProvider(context);
 	const specDocsDragAndDrop = new SpecDocsDragAndDrop(specDocsProvider);
-	const specDocsTreeView = vscode.window.createTreeView('anytimeGit.specDocs', {
+	const specDocsTreeView = vscode.window.createTreeView('anytimeTrail.specDocs', {
 		treeDataProvider: specDocsProvider,
 		dragAndDropController: specDocsDragAndDrop,
 	});
@@ -153,7 +153,7 @@ export function activate(context: vscode.ExtensionContext) {
 	let lastSpecClickUri: string | null = null;
 	let lastSpecClickTime = 0;
 	const specDocsOpenFile = vscode.commands.registerCommand(
-		'anytime-git.specDocsOpenFile',
+		'anytime-trail.specDocsOpenFile',
 		async (uri: vscode.Uri) => {
 			const now = Date.now();
 			const isDoubleClick = lastSpecClickUri === uri.toString() && (now - lastSpecClickTime) < 500;
@@ -187,27 +187,27 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	const specDocsOpenFolder = vscode.commands.registerCommand(
-		'anytime-git.specDocsOpenFolder', () => specDocsProvider.openFolder()
+		'anytime-trail.specDocsOpenFolder', () => specDocsProvider.openFolder()
 	);
 	const specDocsCloneRepo = vscode.commands.registerCommand(
-		'anytime-git.specDocsCloneRepo', () => specDocsProvider.cloneRepository()
+		'anytime-trail.specDocsCloneRepo', () => specDocsProvider.cloneRepository()
 	);
 	const specDocsClose = vscode.commands.registerCommand(
-		'anytime-git.specDocsClose', () => specDocsProvider.closeFolder()
+		'anytime-trail.specDocsClose', () => specDocsProvider.closeFolder()
 	);
 	const specDocsRefresh = vscode.commands.registerCommand(
-		'anytime-git.specDocsRefresh', () => specDocsProvider.refresh()
+		'anytime-trail.specDocsRefresh', () => specDocsProvider.refresh()
 	);
 	const switchBranch = vscode.commands.registerCommand(
-		'anytime-git.switchBranch', (item?: SpecDocsRootItem) => {
+		'anytime-trail.switchBranch', (item?: SpecDocsRootItem) => {
 			specDocsProvider.switchBranch(item?.rootPath);
 		}
 	);
 	const graphRefresh = vscode.commands.registerCommand(
-		'anytime-git.graphRefresh', () => graphProvider?.refresh()
+		'anytime-trail.graphRefresh', () => graphProvider?.refresh()
 	);
 	const toggleMdOnly = vscode.commands.registerCommand(
-		'anytime-git.toggleMdOnly', () => {
+		'anytime-trail.toggleMdOnly', () => {
 			specDocsProvider.toggleMdOnly();
 			changesProvider?.refresh();
 		}
@@ -216,75 +216,75 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// ファイル/フォルダ操作
 	const specDocsCreateFile = vscode.commands.registerCommand(
-		'anytime-git.specDocsCreateFile', (item?: SpecDocsRootItem | SpecDocsItem) => specDocsProvider.createFile(item)
+		'anytime-trail.specDocsCreateFile', (item?: SpecDocsRootItem | SpecDocsItem) => specDocsProvider.createFile(item)
 	);
 	const specDocsCreateFolder = vscode.commands.registerCommand(
-		'anytime-git.specDocsCreateFolder', (item?: SpecDocsRootItem | SpecDocsItem) => specDocsProvider.createFolder(item)
+		'anytime-trail.specDocsCreateFolder', (item?: SpecDocsRootItem | SpecDocsItem) => specDocsProvider.createFolder(item)
 	);
 	const specDocsDelete = vscode.commands.registerCommand(
-		'anytime-git.specDocsDelete', (item: SpecDocsItem) => specDocsProvider.deleteItem(item)
+		'anytime-trail.specDocsDelete', (item: SpecDocsItem) => specDocsProvider.deleteItem(item)
 	);
 	const specDocsRename = vscode.commands.registerCommand(
-		'anytime-git.specDocsRename', (item: SpecDocsItem) => specDocsProvider.renameItem(item)
+		'anytime-trail.specDocsRename', (item: SpecDocsItem) => specDocsProvider.renameItem(item)
 	);
 	const specDocsRemoveRoot = vscode.commands.registerCommand(
-		'anytime-git.specDocsRemoveRoot', (item: SpecDocsRootItem) => specDocsProvider.removeRoot(item.rootPath)
+		'anytime-trail.specDocsRemoveRoot', (item: SpecDocsRootItem) => specDocsProvider.removeRoot(item.rootPath)
 	);
 	const specDocsCopyPath = vscode.commands.registerCommand(
-		'anytime-git.specDocsCopyPath', (item: SpecDocsItem) => {
+		'anytime-trail.specDocsCopyPath', (item: SpecDocsItem) => {
 			if (item?.resourceUri) {
 				vscode.env.clipboard.writeText(item.resourceUri.fsPath);
 			}
 		}
 	);
 	const specDocsCopyFileName = vscode.commands.registerCommand(
-		'anytime-git.specDocsCopyFileName', (item: SpecDocsItem) => {
+		'anytime-trail.specDocsCopyFileName', (item: SpecDocsItem) => {
 			if (item?.resourceUri) {
 				vscode.env.clipboard.writeText(path.basename(item.resourceUri.fsPath));
 			}
 		}
 	);
 	const specDocsImportFiles = vscode.commands.registerCommand(
-		'anytime-git.specDocsImportFiles', (item?: SpecDocsRootItem | SpecDocsItem) => specDocsProvider.importFiles(item)
+		'anytime-trail.specDocsImportFiles', (item?: SpecDocsRootItem | SpecDocsItem) => specDocsProvider.importFiles(item)
 	);
 	const specDocsCut = vscode.commands.registerCommand(
-		'anytime-git.specDocsCut', (item: SpecDocsItem) => specDocsProvider.cut(item)
+		'anytime-trail.specDocsCut', (item: SpecDocsItem) => specDocsProvider.cut(item)
 	);
 	const specDocsCopy = vscode.commands.registerCommand(
-		'anytime-git.specDocsCopy', (item: SpecDocsItem) => specDocsProvider.copy(item)
+		'anytime-trail.specDocsCopy', (item: SpecDocsItem) => specDocsProvider.copy(item)
 	);
 	const specDocsPaste = vscode.commands.registerCommand(
-		'anytime-git.specDocsPaste', (item?: SpecDocsRootItem | SpecDocsItem) => specDocsProvider.paste(item)
+		'anytime-trail.specDocsPaste', (item?: SpecDocsRootItem | SpecDocsItem) => specDocsProvider.paste(item)
 	);
 
 	// Git 変更コマンド
 	const changesRefresh = vscode.commands.registerCommand(
-		'anytime-git.changesRefresh', () => changesProvider?.refresh()
+		'anytime-trail.changesRefresh', () => changesProvider?.refresh()
 	);
 	const stageFile = vscode.commands.registerCommand(
-		'anytime-git.stageFile', (item: ChangesFileItem) => changesProvider?.stageFile(item)
+		'anytime-trail.stageFile', (item: ChangesFileItem) => changesProvider?.stageFile(item)
 	);
 	const unstageFile = vscode.commands.registerCommand(
-		'anytime-git.unstageFile', (item: ChangesFileItem) => changesProvider?.unstageFile(item)
+		'anytime-trail.unstageFile', (item: ChangesFileItem) => changesProvider?.unstageFile(item)
 	);
 	const stageAll = vscode.commands.registerCommand(
-		'anytime-git.stageAll', (gitRoot?: string) => changesProvider?.stageAll(gitRoot)
+		'anytime-trail.stageAll', (gitRoot?: string) => changesProvider?.stageAll(gitRoot)
 	);
 	const unstageAll = vscode.commands.registerCommand(
-		'anytime-git.unstageAll', (gitRoot?: string) => changesProvider?.unstageAll(gitRoot)
+		'anytime-trail.unstageAll', (gitRoot?: string) => changesProvider?.unstageAll(gitRoot)
 	);
 	const discardAll = vscode.commands.registerCommand(
-		'anytime-git.discardAll', (gitRoot?: string) => changesProvider?.discardAll(gitRoot)
+		'anytime-trail.discardAll', (gitRoot?: string) => changesProvider?.discardAll(gitRoot)
 	);
 	const discardChanges = vscode.commands.registerCommand(
-		'anytime-git.discardChanges', (item: ChangesFileItem) => changesProvider?.discardChanges(item)
+		'anytime-trail.discardChanges', (item: ChangesFileItem) => changesProvider?.discardChanges(item)
 	);
 
 	// 変更: シングルクリックでプレビュー、ダブルクリックで固定タブ
 	let lastChangesClickUri: string | null = null;
 	let lastChangesClickTime = 0;
 	const changesOpenFile = vscode.commands.registerCommand(
-		'anytime-git.changesOpenFile',
+		'anytime-trail.changesOpenFile',
 		async (gitRoot: string, filePath: string, group: 'staged' | 'changes', currentUri: vscode.Uri, isMd: boolean, diffLabel: string) => {
 			const now = Date.now();
 			const uriStr = currentUri.toString();
@@ -321,18 +321,18 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	const commitChanges = vscode.commands.registerCommand(
-		'anytime-git.commitChanges', () => changesProvider?.commit()
+		'anytime-trail.commitChanges', () => changesProvider?.commit()
 	);
 	const syncChanges = vscode.commands.registerCommand(
-		'anytime-git.syncChanges', (gitRoot?: string) => changesProvider?.sync(gitRoot)
+		'anytime-trail.syncChanges', (gitRoot?: string) => changesProvider?.sync(gitRoot)
 	);
 	const pushChanges = vscode.commands.registerCommand(
-		'anytime-git.pushChanges', () => changesProvider?.push()
+		'anytime-trail.pushChanges', () => changesProvider?.push()
 	);
 
 	// Timeline: コミットとの比較
 	const compareWithCommit = vscode.commands.registerCommand(
-		'anytime-git.compareWithCommit',
+		'anytime-trail.compareWithCommit',
 		async (item: TimelineItem) => {
 			const content = await timelineProvider?.getCommitContent(item);
 			if (content == null) {
@@ -356,13 +356,13 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	// C4 Model コマンド
-	const c4Import = vscode.commands.registerCommand('anytime-git.c4Import', () =>
+	const c4Import = vscode.commands.registerCommand('anytime-trail.c4Import', () =>
 		C4Panel.importMermaid(context.extensionUri),
 	);
-	const c4Analyze = vscode.commands.registerCommand('anytime-git.c4Analyze', () =>
+	const c4Analyze = vscode.commands.registerCommand('anytime-trail.c4Analyze', () =>
 		C4Panel.analyzeWorkspace(context.extensionUri),
 	);
-	const c4Export = vscode.commands.registerCommand('anytime-git.c4Export', () =>
+	const c4Export = vscode.commands.registerCommand('anytime-trail.c4Export', () =>
 		C4Panel.exportData(),
 	);
 

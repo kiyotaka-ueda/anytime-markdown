@@ -1,6 +1,6 @@
-# Anytime Git
+# Anytime Trail
 
-![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/anytime-trial.anytime-git?label=VS%20Marketplace&logo=visual-studio-code)
+![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/anytime-trial.anytime-trail?label=VS%20Marketplace&logo=visual-studio-code)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=anytime-trial_anytime-markdown)
 [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=bugs)](https://sonarcloud.io/summary/new_code?id=anytime-trial_anytime-markdown)
@@ -24,7 +24,7 @@ When [Anytime Markdown](https://marketplace.visualstudio.com/items?itemName=anyt
 ## Getting Started
 
 1. Install the extension
-2. Click the **Anytime Git** icon in the Activity Bar
+2. Click the **Anytime Trail** icon in the Activity Bar
 3. Open a folder or clone a repository from the **Repository** view
 
 ## License

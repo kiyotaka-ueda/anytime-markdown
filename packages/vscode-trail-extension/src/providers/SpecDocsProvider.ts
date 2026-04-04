@@ -4,9 +4,9 @@ import * as fs from 'node:fs';
 
 import { showError } from '../utils/errorHelpers';
 
-const STORAGE_KEY = 'anytimeGit.specDocsRoot';
-const STORAGE_KEY_MULTI = 'anytimeGit.specDocsRoots';
-const MD_ONLY_KEY = 'anytimeGit.mdOnly';
+const STORAGE_KEY = 'anytimeTrail.specDocsRoot';
+const STORAGE_KEY_MULTI = 'anytimeTrail.specDocsRoots';
+const MD_ONLY_KEY = 'anytimeTrail.mdOnly';
 
 function isMarkdownFile(name: string): boolean {
 	const lower = name.toLowerCase();
@@ -62,7 +62,7 @@ export class SpecDocsItem extends vscode.TreeItem {
 			this.iconPath = vscode.ThemeIcon.File;
 			if (isMarkdownFile(label)) {
 				this.command = {
-					command: 'anytime-git.specDocsOpenFile',
+					command: 'anytime-trail.specDocsOpenFile',
 					title: 'Open',
 					arguments: [resourceUri],
 				};
@@ -232,9 +232,9 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsNode> {
 			void this.context.globalState.update(STORAGE_KEY, undefined);
 		}
 		if (this.rootPaths.length > 0) {
-			void vscode.commands.executeCommand('setContext', 'anytimeGit.specDocsHasRoot', true);
+			void vscode.commands.executeCommand('setContext', 'anytimeTrail.specDocsHasRoot', true);
 		}
-		void vscode.commands.executeCommand('setContext', 'anytimeGit.mdOnly', this._mdOnly);
+		void vscode.commands.executeCommand('setContext', 'anytimeTrail.mdOnly', this._mdOnly);
 	}
 
 	get mdOnly(): boolean { return this._mdOnly; }
@@ -242,7 +242,7 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsNode> {
 
 	private saveRootPaths(): void {
 		this.context.globalState.update(STORAGE_KEY_MULTI, this.rootPaths.length > 0 ? this.rootPaths : undefined);
-		vscode.commands.executeCommand('setContext', 'anytimeGit.specDocsHasRoot', this.rootPaths.length > 0);
+		vscode.commands.executeCommand('setContext', 'anytimeTrail.specDocsHasRoot', this.rootPaths.length > 0);
 	}
 
 	/** 指定ルートパスのリポジトリ名とブランチ名を返す */
@@ -589,7 +589,7 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsNode> {
 	toggleMdOnly(): void {
 		this._mdOnly = !this._mdOnly;
 		this.context.globalState.update(MD_ONLY_KEY, this._mdOnly);
-		vscode.commands.executeCommand('setContext', 'anytimeGit.mdOnly', this._mdOnly);
+		vscode.commands.executeCommand('setContext', 'anytimeTrail.mdOnly', this._mdOnly);
 		this._onDidChangeTreeData.fire(undefined);
 	}
 
