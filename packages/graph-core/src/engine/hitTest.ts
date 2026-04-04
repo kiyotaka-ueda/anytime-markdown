@@ -9,7 +9,7 @@ export type ConnectionSide = 'top' | 'right' | 'bottom' | 'left';
 export type EdgeEndpointEnd = 'from' | 'to';
 
 export interface HitResult {
-  type: 'node' | 'edge' | 'resize-handle' | 'connection-point' | 'edge-segment' | 'edge-endpoint' | 'waypoint-handle' | 'none';
+  type: 'node' | 'edge' | 'resize-handle' | 'connection-point' | 'edge-segment' | 'edge-endpoint' | 'waypoint-handle' | 'frame-collapse' | 'none';
   id?: string;
   handle?: ResizeHandle;
   connectionSide?: ConnectionSide;
@@ -24,6 +24,19 @@ export interface HitResult {
   endpointEnd?: EdgeEndpointEnd;
   /** ヒットした manualWaypoints のインデックス */
   waypointIndex?: number;
+}
+
+/** 折りたたみアイコンのサイズ（px） */
+export const FRAME_COLLAPSE_ICON_SIZE = 16;
+
+/** フレームのタイトルバー右端の折りたたみアイコン領域にヒットするか判定 */
+export function hitTestFrameCollapse(node: GraphNode, wx: number, wy: number): boolean {
+  if (node.type !== 'frame') return false;
+  const titleH = 28;
+  const iconSize = FRAME_COLLAPSE_ICON_SIZE;
+  const iconX = node.x + node.width - 12 - iconSize;
+  const iconY = node.y + (titleH - iconSize) / 2;
+  return wx >= iconX && wx <= iconX + iconSize && wy >= iconY && wy <= iconY + iconSize;
 }
 
 function pointInRect(px: number, py: number, x: number, y: number, w: number, h: number): boolean {
@@ -246,6 +259,13 @@ export function hitTest(ctx: HitTestContext): HitResult {
     if (node) {
       const handle = hitTestResizeHandles(node, wx, wy, scale);
       if (handle) return { type: 'resize-handle', id: node.id, handle };
+    }
+  }
+
+  // --- 3.5. フレーム折りたたみアイコン ---
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    if (hitTestFrameCollapse(nodes[i], wx, wy)) {
+      return { type: 'frame-collapse', id: nodes[i].id };
     }
   }
 

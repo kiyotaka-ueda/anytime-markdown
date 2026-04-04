@@ -107,6 +107,15 @@ export function useCanvasInteraction({
       const resolved = resolveEdgesWithWaypoints(edges, nodes);
       const hit = hitTest({ nodes, edges: resolved, wx: world.x, wy: world.y, scale: viewport.scale, selectedNodeIds: selection.nodeIds, hoverNodeId: hoverNodeIdRef.current, selectedEdgeIds: selection.edgeIds });
 
+      // フレーム折りたたみアイコン
+      if (hit.type === 'frame-collapse' && hit.id) {
+        const frameNode = nodes.find(n => n.id === hit.id);
+        if (frameNode) {
+          dispatch({ type: 'UPDATE_NODE', id: hit.id, changes: { collapsed: !(frameNode.collapsed ?? false) } });
+        }
+        return;
+      }
+
       if (hit.type === 'edge-endpoint' && hit.id && hit.endpointEnd) {
         const edge = edges.find(ed => ed.id === hit.id);
         if (edge) {
@@ -278,7 +287,9 @@ export function useCanvasInteraction({
         n: 'ns-resize', s: 'ns-resize',
         e: 'ew-resize', w: 'ew-resize',
       };
-      if (fullHit.type === 'resize-handle' && fullHit.handle) {
+      if (fullHit.type === 'frame-collapse') {
+        cursorRef.current = 'pointer';
+      } else if (fullHit.type === 'resize-handle' && fullHit.handle) {
         cursorRef.current = RESIZE_CURSORS[fullHit.handle] ?? 'default';
       } else if (fullHit.type === 'edge-endpoint') {
         cursorRef.current = 'crosshair';

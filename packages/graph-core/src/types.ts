@@ -55,6 +55,8 @@ export interface GraphNode {
   labelColor?: string;
   docContent?: string;
   locked?: boolean;
+  /** フレーム折りたたみ状態 */
+  collapsed?: boolean;
   zIndex?: number;
   /** 画像ノード用: data URL */
   imageData?: string;
