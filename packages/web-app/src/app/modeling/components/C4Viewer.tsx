@@ -216,13 +216,6 @@ export function C4Viewer() {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)', bgcolor: BG_PRIMARY }}>
       {c4Toolbar}
-      {showTree && elementTree.length > 0 && (
-        <C4ElementTree
-          tree={elementTree}
-          dispatch={dispatch}
-          onClose={() => setShowTree(false)}
-        />
-      )}
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Left: C4 Model */}
         <Box sx={{ flex: 1, position: 'relative', borderRight: `1px solid ${BORDER_COLOR}` }}>
@@ -233,8 +226,8 @@ export function C4Viewer() {
             canvasRef={canvasRef}
           />
         </Box>
-        {/* Right: DSM */}
-        <Box sx={{ flex: 1, position: 'relative' }}>
+        {/* Center: DSM */}
+        <Box sx={{ flex: 1, position: 'relative', borderRight: showTree && elementTree.length > 0 ? `1px solid ${BORDER_COLOR}` : 'none' }}>
           {c4Model ? (
             <DsmCanvas
               model={c4Model}
@@ -250,6 +243,14 @@ export function C4Viewer() {
             </Box>
           )}
         </Box>
+        {/* Right: Element Tree */}
+        {showTree && elementTree.length > 0 && (
+          <C4ElementTree
+            tree={elementTree}
+            dispatch={dispatch}
+            onClose={() => setShowTree(false)}
+          />
+        )}
       </Box>
     </Box>
   );
