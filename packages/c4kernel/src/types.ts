@@ -36,3 +36,9 @@ export interface C4Model {
   readonly elements: readonly C4Element[];
   readonly relationships: readonly C4Relationship[];
 }
+
+/** 境界情報（パーサーから受け取る） */
+export interface BoundaryInfo {
+  readonly id: string;
+  readonly name: string;
+}

@@ -1,14 +1,8 @@
-import type { C4Model, C4Element, C4ElementType } from '../types';
+import type { C4Model, C4Element, C4ElementType, BoundaryInfo } from '../types';
 import type {
   NodeType, NodeStyle, EdgeStyle,
   GraphNode, GraphEdge, GraphDocument,
 } from '@anytime-markdown/graph-core';
-
-/** 境界情報（パーサーから受け取る） */
-export interface BoundaryInfo {
-  id: string;
-  name: string;
-}
 
 // --- Node mapping ---
 

@@ -35,5 +35,7 @@
   "command.commitChanges": "コミット",
   "command.pushChanges": "プッシュ",
   "command.syncChanges": "変更を同期",
-  "command.compareWithCommit": "このコミットと比較"
+  "command.compareWithCommit": "このコミットと比較",
+  "command.c4Import": "C4: Mermaid C4 をインポート",
+  "command.c4Analyze": "C4: ワークスペースを解析"
 }

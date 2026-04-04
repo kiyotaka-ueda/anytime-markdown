@@ -4,6 +4,7 @@ import { TimelineProvider, TimelineItem } from './providers/TimelineProvider';
 import { GraphProvider } from './providers/GraphProvider';
 import { ChangesProvider, ChangesFileItem } from './providers/ChangesProvider';
 import { SpecDocsProvider, SpecDocsItem, SpecDocsRootItem, SpecDocsDragAndDrop } from './providers/SpecDocsProvider';
+import { C4Panel } from './c4/C4Panel';
 
 /** git の元コンテンツを提供する TextDocumentContentProvider */
 class GitOriginalContentProvider implements vscode.TextDocumentContentProvider {
@@ -354,6 +355,14 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	);
 
+	// C4 Model コマンド
+	const c4Import = vscode.commands.registerCommand('anytime-git.c4Import', () =>
+		C4Panel.importMermaid(context.extensionUri),
+	);
+	const c4Analyze = vscode.commands.registerCommand('anytime-git.c4Analyze', () =>
+		C4Panel.analyzeWorkspace(context.extensionUri),
+	);
+
 	// ファイル保存時にリフレッシュ
 	context.subscriptions.push(
 		vscode.workspace.onDidSaveTextDocument(() => changesProvider?.refresh()),
@@ -365,6 +374,7 @@ export function activate(context: vscode.ExtensionContext) {
 		...(graphTreeView ? [graphTreeView] : []), graphRefresh,
 		changesRefresh, stageFile, unstageFile, stageAll, unstageAll, discardAll, discardChanges, commitChanges, pushChanges, syncChanges, changesOpenFile,
 		compareWithCommit,
+		c4Import, c4Analyze,
 	);
 }
 

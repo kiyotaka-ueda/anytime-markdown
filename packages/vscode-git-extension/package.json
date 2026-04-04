@@ -26,7 +26,9 @@
     "onView:anytimeGit.specDocs",
     "onView:anytimeGit.changes",
     "onView:anytimeGit.graph",
-    "onView:anytimeGit.timeline"
+    "onView:anytimeGit.timeline",
+    "onCommand:anytime-git.c4Import",
+    "onCommand:anytime-git.c4Analyze"
   ],
   "icon": "images/camel_git.png",
   "main": "./dist/extension.js",
@@ -223,6 +225,16 @@
       {
         "command": "anytime-git.compareWithCommit",
         "title": "%command.compareWithCommit%"
+      },
+      {
+        "command": "anytime-git.c4Import",
+        "title": "%command.c4Import%",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "anytime-git.c4Analyze",
+        "title": "%command.c4Analyze%",
+        "icon": "$(graph)"
       }
     ],
     "submenus": [
@@ -436,6 +448,11 @@
     "compile": "webpack",
     "watch": "webpack --watch",
     "package": "webpack --mode production --devtool hidden-source-map"
+  },
+  "dependencies": {
+    "@anytime-markdown/c4kernel": "*",
+    "@anytime-markdown/graph-core": "*",
+    "@anytime-markdown/trail-core": "*"
   },
   "devDependencies": {
     "@types/node": "22.x",

@@ -4,9 +4,9 @@ export type {
   C4Element,
   C4Relationship,
   C4Model,
+  BoundaryInfo,
 } from './types';
 
 export { parseMermaidC4 } from './parser/mermaidC4';
 export { c4ToGraphDocument } from './transform/toGraphDocument';
-export type { BoundaryInfo } from './transform/toGraphDocument';
 export { trailToC4 } from './mapper/trailToC4';

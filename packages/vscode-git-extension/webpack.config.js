@@ -3,6 +3,7 @@
 'use strict';
 
 const path = require('path');
+const webpack = require('webpack');
 
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
 
@@ -18,6 +19,8 @@ const extensionConfig = {
   },
   externals: {
     vscode: 'commonjs vscode',
+    // typescript は実行時に node_modules から読み込む（バンドルに含めると巨大になる）
+    typescript: 'commonjs typescript',
   },
   resolve: {
     extensions: ['.ts', '.js'],
@@ -26,12 +29,57 @@ const extensionConfig = {
     rules: [
       {
         test: /\.ts$/,
-        exclude: /node_modules/,
-        use: [{ loader: 'ts-loader' }],
+        exclude: /node_modules[\\/](?!@anytime-markdown[\\/](?:trail-core|c4kernel))/,
+        use: [{
+          loader: 'ts-loader',
+          options: {
+            allowTsInNodeModules: true,
+            transpileOnly: true,
+          },
+        }],
       },
     ],
   },
   devtool: 'nosources-source-map',
 };
 
-module.exports = [extensionConfig];
+/** @type WebpackConfig */
+const webviewConfig = {
+  target: 'web',
+  mode: 'none',
+  entry: './src/c4/webview/index.ts',
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: 'c4webview.js',
+  },
+  resolve: {
+    extensions: ['.ts', '.js'],
+  },
+  module: {
+    rules: [
+      {
+        test: /\.ts$/,
+        exclude: /node_modules[\\/](?!@anytime-markdown[\\/](?:graph-core|c4kernel))/,
+        use: [{
+          loader: 'ts-loader',
+          options: {
+            configFile: 'tsconfig.webview.json',
+            allowTsInNodeModules: true,
+            transpileOnly: true,
+          },
+        }],
+      },
+    ],
+  },
+  plugins: [
+    new webpack.DefinePlugin({
+      'process.env.NODE_ENV': JSON.stringify('production'),
+    }),
+    new webpack.optimize.LimitChunkCountPlugin({
+      maxChunks: 1,
+    }),
+  ],
+  devtool: 'nosources-source-map',
+};
+
+module.exports = [extensionConfig, webviewConfig];
