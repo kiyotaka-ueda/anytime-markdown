@@ -213,55 +213,28 @@ export function C4Viewer() {
     </Toolbar>
   );
 
-  const panelHeaderSx = {
-    px: 1.5,
-    py: 0.5,
-    bgcolor: BG_SECONDARY,
-    borderBottom: `1px solid ${BORDER_COLOR}`,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 1,
-    minHeight: 32,
-  } as const;
-
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)', bgcolor: BG_PRIMARY }}>
       {c4Toolbar}
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Left: C4 Model */}
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', borderRight: `1px solid ${BORDER_COLOR}` }}>
-          <Box sx={panelHeaderSx}>
-            <Typography variant="caption" sx={{ color: ACCENT_BLUE, fontWeight: 600, fontSize: '0.75rem' }}>
-              C4 Model
-            </Typography>
-          </Box>
-          <Box sx={{ flex: 1, position: 'relative' }}>
-            <GraphCanvas
-              document={state.document}
-              viewport={state.document.viewport}
+        <Box sx={{ flex: 1, position: 'relative', borderRight: `1px solid ${BORDER_COLOR}` }}>
+          <GraphCanvas
+            document={state.document}
+            viewport={state.document.viewport}
+            dispatch={dispatch}
+            canvasRef={canvasRef}
+          />
+          {showTree && elementTree.length > 0 && (
+            <C4ElementTree
+              tree={elementTree}
               dispatch={dispatch}
-              canvasRef={canvasRef}
+              onClose={() => setShowTree(false)}
             />
-            {showTree && elementTree.length > 0 && (
-              <C4ElementTree
-                tree={elementTree}
-                dispatch={dispatch}
-                onClose={() => setShowTree(false)}
-              />
-            )}
-          </Box>
+          )}
         </Box>
         {/* Right: DSM */}
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <Box sx={{ ...panelHeaderSx, gap: 1 }}>
-            <Typography variant="caption" sx={{ color: ACCENT_BLUE, fontWeight: 600, fontSize: '0.75rem' }}>
-              DSM
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.6875rem' }}>
-              {dsmLevel === 'package' ? 'Package (L2)' : 'Component (L3+)'}
-            </Typography>
-          </Box>
-          <Box sx={{ flex: 1, position: 'relative' }}>
+        <Box sx={{ flex: 1, position: 'relative' }}>
             {c4Model ? (
               <DsmCanvas
                 model={c4Model}
@@ -276,7 +249,6 @@ export function C4Viewer() {
                 </Typography>
               </Box>
             )}
-          </Box>
         </Box>
       </Box>
     </Box>
