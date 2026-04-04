@@ -8,8 +8,7 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import FitScreenIcon from '@mui/icons-material/FitScreen';
-import { parseMermaidC4, c4ToGraphDocument } from '@anytime-markdown/c4-kernel';
-import type { BoundaryInfo } from '@anytime-markdown/c4-kernel';
+import { parseMermaidC4, extractBoundaries, c4ToGraphDocument } from '@anytime-markdown/c4-kernel';
 import { engine, state as graphState, layoutWithSubgroups } from '@anytime-markdown/graph-core';
 import type { GraphNode } from '@anytime-markdown/graph-core';
 import { GraphCanvas } from './GraphCanvas';
@@ -17,18 +16,6 @@ import { GraphCanvas } from './GraphCanvas';
 const { graphReducer, createInitialState } = graphState;
 const { fitToContent } = engine;
 
-/** パーサー結果から境界情報を抽出する */
-function extractBoundaries(input: string): BoundaryInfo[] {
-  const boundaries: BoundaryInfo[] = [];
-  const lines = input.split('\n').map(l => l.trim());
-  for (const line of lines) {
-    const match = /^(\w+_?Boundary)\s*\(\s*([^,]+),\s*"([^"]+)"\s*\)/.exec(line);
-    if (match) {
-      boundaries.push({ id: match[2].trim(), name: match[3] });
-    }
-  }
-  return boundaries;
-}
 
 /** ノード群のバウンディングボックスを計算 */
 function computeBounds(nodes: readonly GraphNode[]) {

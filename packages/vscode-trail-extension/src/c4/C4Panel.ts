@@ -1,21 +1,8 @@
 import * as vscode from 'vscode';
-import { parseMermaidC4 } from '@anytime-markdown/c4-kernel/src/parser/mermaidC4';
+import { parseMermaidC4, extractBoundaries } from '@anytime-markdown/c4-kernel/src/parser/mermaidC4';
 import type { C4Model, BoundaryInfo } from '@anytime-markdown/c4-kernel/src/types';
 import { analyze, trailToC4, toMermaid } from '@anytime-markdown/trail-core';
 import type { TrailGraph } from '@anytime-markdown/trail-core';
-
-/** Mermaid C4 テキストから境界情報を抽出する */
-function extractBoundaries(input: string): BoundaryInfo[] {
-  const boundaries: BoundaryInfo[] = [];
-  const lines = input.split('\n').map(l => l.trim());
-  for (const line of lines) {
-    const match = /^(\w+_?Boundary)\s*\(\s*([^,]+),\s*"([^"]+)"\s*\)/.exec(line);
-    if (match) {
-      boundaries.push({ id: match[2].trim(), name: match[3] });
-    }
-  }
-  return boundaries;
-}
 
 export class C4Panel {
   public static readonly viewType = 'anytimeTrail.c4View';
