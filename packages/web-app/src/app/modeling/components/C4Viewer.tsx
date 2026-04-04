@@ -225,31 +225,32 @@ export function C4Viewer() {
             dispatch={dispatch}
             canvasRef={canvasRef}
           />
-          {showTree && elementTree.length > 0 && (
-            <C4ElementTree
-              tree={elementTree}
-              dispatch={dispatch}
-              onClose={() => setShowTree(false)}
+        </Box>
+        {/* Center: DSM */}
+        <Box sx={{ flex: 1, position: 'relative', borderRight: showTree && elementTree.length > 0 ? `1px solid ${BORDER_COLOR}` : 'none' }}>
+          {c4Model ? (
+            <DsmCanvas
+              model={c4Model}
+              boundaries={boundaryInfos}
+              level={dsmLevel}
+              clustered={dsmClustered}
             />
+          ) : (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.3)' }}>
+                Import a C4 model to view DSM
+              </Typography>
+            </Box>
           )}
         </Box>
-        {/* Right: DSM */}
-        <Box sx={{ flex: 1, position: 'relative' }}>
-            {c4Model ? (
-              <DsmCanvas
-                model={c4Model}
-                boundaries={boundaryInfos}
-                level={dsmLevel}
-                clustered={dsmClustered}
-              />
-            ) : (
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.3)' }}>
-                  Import a C4 model to view DSM
-                </Typography>
-              </Box>
-            )}
-        </Box>
+        {/* Right: Element Tree */}
+        {showTree && elementTree.length > 0 && (
+          <C4ElementTree
+            tree={elementTree}
+            dispatch={dispatch}
+            onClose={() => setShowTree(false)}
+          />
+        )}
       </Box>
     </Box>
   );
