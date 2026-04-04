@@ -50,6 +50,8 @@ export function C4Viewer() {
   const [c4Model, setC4Model] = useState<C4Model | null>(null);
   const [boundaryInfos, setBoundaryInfos] = useState<readonly BoundaryInfo[]>([]);
   const [showTree, setShowTree] = useState(true);
+  const [showC4, setShowC4] = useState(true);
+  const [showDsm, setShowDsm] = useState(true);
   const [dsmLevel, setDsmLevel] = useState<'component' | 'package'>('component');
   const [dsmClustered, setDsmClustered] = useState(false);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
@@ -229,6 +231,26 @@ export function C4Viewer() {
       <Box sx={{ flex: 1 }} />
       <Button
         size="small"
+        onClick={() => setShowC4(prev => !prev)}
+        sx={{
+          ...toolbarButtonSx,
+          ...(showC4 && { bgcolor: 'rgba(144,202,249,0.12)' }),
+        }}
+      >
+        C4
+      </Button>
+      <Button
+        size="small"
+        onClick={() => setShowDsm(prev => !prev)}
+        sx={{
+          ...toolbarButtonSx,
+          ...(showDsm && { bgcolor: 'rgba(144,202,249,0.12)' }),
+        }}
+      >
+        DSM
+      </Button>
+      <Button
+        size="small"
         startIcon={<AccountTreeIcon sx={{ fontSize: 18 }} />}
         onClick={() => setShowTree(prev => !prev)}
         sx={{
@@ -246,32 +268,37 @@ export function C4Viewer() {
       {c4Toolbar}
       <Box ref={containerRef} sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Left: C4 Model */}
-        <Box sx={{ flex: splitRatio, position: 'relative', minWidth: 100 }}>
-          <GraphCanvas
-            document={state.document}
-            viewport={state.document.viewport}
-            dispatch={dispatch}
-            canvasRef={canvasRef}
-            selectedNodeId={
-              selectedElementId
-                ? (state.document.nodes.find(n => n.metadata?.c4Id === selectedElementId)?.id ?? null)
-                : null
-            }
-          />
-        </Box>
+        {showC4 && (
+          <Box sx={{ flex: splitRatio, position: 'relative', minWidth: 100 }}>
+            <GraphCanvas
+              document={state.document}
+              viewport={state.document.viewport}
+              dispatch={dispatch}
+              canvasRef={canvasRef}
+              selectedNodeId={
+                selectedElementId
+                  ? (state.document.nodes.find(n => n.metadata?.c4Id === selectedElementId)?.id ?? null)
+                  : null
+              }
+            />
+          </Box>
+        )}
         {/* Resize grip */}
-        <Box
-          onMouseDown={handleSplitDrag}
-          sx={{
-            width: 5,
-            cursor: 'col-resize',
-            bgcolor: 'transparent',
-            borderLeft: `1px solid ${BORDER_COLOR}`,
-            '&:hover': { bgcolor: 'rgba(144,202,249,0.2)' },
-            flexShrink: 0,
-          }}
-        />
+        {showC4 && showDsm && (
+          <Box
+            onMouseDown={handleSplitDrag}
+            sx={{
+              width: 5,
+              cursor: 'col-resize',
+              bgcolor: 'transparent',
+              borderLeft: `1px solid ${BORDER_COLOR}`,
+              '&:hover': { bgcolor: 'rgba(144,202,249,0.2)' },
+              flexShrink: 0,
+            }}
+          />
+        )}
         {/* Center: DSM */}
+        {showDsm && (
         <Box sx={{ flex: 1 - splitRatio, position: 'relative', minWidth: 100, borderRight: showTree && elementTree.length > 0 ? `1px solid ${BORDER_COLOR}` : 'none' }}>
           {c4Model ? (
             <DsmCanvas
@@ -289,6 +316,7 @@ export function C4Viewer() {
             </Box>
           )}
         </Box>
+        )}
         {/* Right: Element Tree */}
         {showTree && elementTree.length > 0 && (
           <C4ElementTree
