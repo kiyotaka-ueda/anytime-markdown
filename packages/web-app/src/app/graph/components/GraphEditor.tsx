@@ -19,7 +19,7 @@ import { SettingsPanel } from './SettingsPanel';
 import { ViewportAnimation, clearImageCache, physics } from '@anytime-markdown/graph-core/engine';
 import { alignLeft, alignRight, alignTop, alignBottom, alignCenterH, alignCenterV, distributeH, distributeV } from '../engine/alignment';
 import { loadDocument, getLastDocumentId } from '../store/graphStorage';
-import { exportToSvg, exportToDrawio, importFromDrawio, importFromMermaid } from '@anytime-markdown/graph-core';
+import { exportToSvg, exportToDrawio, importFromDrawio, importFromMermaid, layoutWithSubgroups } from '@anytime-markdown/graph-core';
 import { useThemeMode } from '../../providers';
 import { useDataMapping } from '../hooks/useDataMapping';
 import { DetailPanel } from './DetailPanel';
@@ -479,25 +479,7 @@ export function GraphEditor() {
           const { doc, direction } = importFromMermaid(text);
           if (!doc.nodes || !doc.edges) return;
 
-          // Apply hierarchical layout using parsed direction
-          const bodies = new Map(doc.nodes.map(n => [n.id, physics.createBody(n)]));
-          physics.computeHierarchicalLayout(bodies, doc.edges, direction, 180, 60);
-          const nodeMap = new Map<string, { x: number; y: number; width: number; height: number }>();
-          for (const node of doc.nodes) {
-            const body = bodies.get(node.id);
-            if (body) {
-              node.x = body.x;
-              node.y = body.y;
-            }
-            nodeMap.set(node.id, { x: node.x, y: node.y, width: node.width, height: node.height });
-          }
-          // Update edge endpoint coordinates to match repositioned nodes
-          for (const edge of doc.edges) {
-            const fn = edge.from.nodeId ? nodeMap.get(edge.from.nodeId) : undefined;
-            const tn = edge.to.nodeId ? nodeMap.get(edge.to.nodeId) : undefined;
-            if (fn) { edge.from.x = fn.x + fn.width / 2; edge.from.y = fn.y + fn.height / 2; }
-            if (tn) { edge.to.x = tn.x + tn.width / 2; edge.to.y = tn.y + tn.height / 2; }
-          }
+          layoutWithSubgroups(doc, direction, 180, 60);
 
           setConfirmDialog({
             open: true,

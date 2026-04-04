@@ -12,7 +12,7 @@ import {
 } from '@anytime-markdown/graph-core/engine';
 import { pan as panViewport } from '@anytime-markdown/graph-core/engine';
 import type { ViewportAnimation } from '@anytime-markdown/graph-core/engine';
-import { exportToSvg, exportToDrawio, importFromDrawio, importFromMermaid } from '@anytime-markdown/graph-core';
+import { exportToSvg, exportToDrawio, importFromDrawio, importFromMermaid, layoutWithSubgroups } from '@anytime-markdown/graph-core';
 import { GraphToolBar } from '../../../web-app/src/app/graph/components/ToolBar';
 import { PropertyPanel } from '../../../web-app/src/app/graph/components/PropertyPanel';
 import { ShapeHoverBar } from '../../../web-app/src/app/graph/components/ShapeHoverBar';
@@ -469,25 +469,7 @@ export function App() {
           const { doc, direction } = importFromMermaid(text);
           if (!doc.nodes || !doc.edges) return;
 
-          // Apply hierarchical layout using parsed direction
-          const bodies = new Map(doc.nodes.map(n => [n.id, physics.createBody(n)]));
-          physics.computeHierarchicalLayout(bodies, doc.edges, direction, 180, 60);
-          const nodeMap = new Map<string, { x: number; y: number; width: number; height: number }>();
-          for (const node of doc.nodes) {
-            const body = bodies.get(node.id);
-            if (body) {
-              node.x = body.x;
-              node.y = body.y;
-            }
-            nodeMap.set(node.id, { x: node.x, y: node.y, width: node.width, height: node.height });
-          }
-          // Update edge endpoint coordinates to match repositioned nodes
-          for (const edge of doc.edges) {
-            const fn = edge.from.nodeId ? nodeMap.get(edge.from.nodeId) : undefined;
-            const tn = edge.to.nodeId ? nodeMap.get(edge.to.nodeId) : undefined;
-            if (fn) { edge.from.x = fn.x + fn.width / 2; edge.from.y = fn.y + fn.height / 2; }
-            if (tn) { edge.to.x = tn.x + tn.width / 2; edge.to.y = tn.y + tn.height / 2; }
-          }
+          layoutWithSubgroups(doc, direction, 180, 60);
 
           setConfirmDialog({
             open: true,

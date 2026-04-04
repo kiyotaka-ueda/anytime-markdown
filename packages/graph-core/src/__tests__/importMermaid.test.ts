@@ -1,4 +1,4 @@
-import { importFromMermaid } from '../io/importMermaid';
+import { importFromMermaid, layoutWithSubgroups } from '../io/importMermaid';
 
 describe('importFromMermaid', () => {
   describe('basic node shapes', () => {
@@ -150,6 +150,79 @@ describe('importFromMermaid', () => {
       const frame = doc.nodes.find(n => n.type === 'frame');
       expect(frame).toBeDefined();
       expect(frame!.text).toBe('My Group');
+    });
+  });
+
+  describe('layoutWithSubgroups', () => {
+    it('should layout children inside frame and size frame to fit', () => {
+      const { doc, direction } = importFromMermaid(
+        'flowchart TD\n  subgraph G1 [Group]\n    A[Node A] --> B[Node B]\n  end',
+      );
+      layoutWithSubgroups(doc, direction, 180, 60);
+
+      const frame = doc.nodes.find(n => n.type === 'frame')!;
+      const childA = doc.nodes.find(n => n.text === 'Node A')!;
+      const childB = doc.nodes.find(n => n.text === 'Node B')!;
+
+      // Children should be inside the frame bounds
+      expect(childA.x).toBeGreaterThanOrEqual(frame.x);
+      expect(childA.y).toBeGreaterThanOrEqual(frame.y);
+      expect(childA.x + childA.width).toBeLessThanOrEqual(frame.x + frame.width);
+      expect(childB.x).toBeGreaterThanOrEqual(frame.x);
+      expect(childB.y).toBeGreaterThanOrEqual(frame.y);
+      expect(childB.x + childB.width).toBeLessThanOrEqual(frame.x + frame.width);
+    });
+
+    it('should not overlap frames with two subgroups', () => {
+      const { doc, direction } = importFromMermaid(
+        'flowchart TD\n  subgraph G1 [Group1]\n    A[Node A]\n  end\n  subgraph G2 [Group2]\n    B[Node B]\n  end',
+      );
+      layoutWithSubgroups(doc, direction, 180, 60);
+
+      const f1 = doc.nodes.find(n => n.text === 'Group1')!;
+      const f2 = doc.nodes.find(n => n.text === 'Group2')!;
+
+      const overlapX = Math.min(f1.x + f1.width, f2.x + f2.width) - Math.max(f1.x, f2.x);
+      const overlapY = Math.min(f1.y + f1.height, f2.y + f2.height) - Math.max(f1.y, f2.y);
+      expect(overlapX > 0 && overlapY > 0).toBe(false);
+    });
+
+    it('should layout orphan nodes alongside frames', () => {
+      const { doc, direction } = importFromMermaid(
+        'flowchart TD\n  subgraph G1 [Group1]\n    A[Node A]\n  end\n  B[Orphan] --> A',
+      );
+      layoutWithSubgroups(doc, direction, 180, 60);
+
+      const frame = doc.nodes.find(n => n.text === 'Group1')!;
+      const orphan = doc.nodes.find(n => n.text === 'Orphan')!;
+
+      const overlapX = Math.min(frame.x + frame.width, orphan.x + orphan.width) - Math.max(frame.x, orphan.x);
+      const overlapY = Math.min(frame.y + frame.height, orphan.y + orphan.height) - Math.max(frame.y, orphan.y);
+      expect(overlapX > 0 && overlapY > 0).toBe(false);
+    });
+
+    it('should handle doc with no frames (no-op on frames)', () => {
+      const { doc, direction } = importFromMermaid(
+        'flowchart TD\n  A[Node A] --> B[Node B]',
+      );
+      layoutWithSubgroups(doc, direction, 180, 60);
+
+      const nodeA = doc.nodes.find(n => n.text === 'Node A')!;
+      const nodeB = doc.nodes.find(n => n.text === 'Node B')!;
+      expect(nodeA.x).toBeDefined();
+      expect(nodeB.x).toBeDefined();
+    });
+
+    it('should handle frame with no children', () => {
+      const { doc, direction } = importFromMermaid(
+        'flowchart TD\n  subgraph G1 [Empty]\n  end\n  A[Node]',
+      );
+      layoutWithSubgroups(doc, direction, 180, 60);
+
+      const frame = doc.nodes.find(n => n.text === 'Empty')!;
+      const nodeA = doc.nodes.find(n => n.text === 'Node')!;
+      expect(frame).toBeDefined();
+      expect(nodeA).toBeDefined();
     });
   });
 

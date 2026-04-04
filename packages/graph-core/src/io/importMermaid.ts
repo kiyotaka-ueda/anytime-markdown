@@ -1,4 +1,6 @@
-import { createNode, createEdge, createDocument, type GraphDocument, type NodeType } from '../types';
+import { createNode, createEdge, createDocument, type GraphDocument, type GraphNode, type GraphEdge, type NodeType } from '../types';
+import { createBody } from '../engine/physics/PhysicsBody';
+import { computeHierarchicalLayout } from '../engine/physics/hierarchical';
 
 type Direction = 'TD' | 'TB' | 'LR' | 'RL' | 'BT';
 
@@ -349,4 +351,146 @@ export function importFromMermaid(mmdString: string): MermaidImportResult {
   const normalizedDirection: 'TB' | 'LR' = (direction === 'LR' || direction === 'RL') ? 'LR' : 'TB';
 
   return { doc, direction: normalizedDirection };
+}
+
+const FRAME_PADDING = 40;
+const FRAME_TITLE_HEIGHT = 28;
+
+/**
+ * Bottom-up layout for subgroups (ELK SEPARATE_CHILDREN style).
+ * 1. Layout children inside each frame independently
+ * 2. Determine frame sizes from children bounding boxes
+ * 3. Layout frames (as fixed-size nodes) + orphan nodes in parent graph
+ * 4. Translate children to absolute coordinates inside their frame
+ */
+export function layoutWithSubgroups(
+  doc: GraphDocument,
+  direction: 'TB' | 'LR',
+  levelGap: number,
+  nodeSpacing: number,
+): void {
+  const frames = doc.nodes.filter(n => n.type === 'frame');
+  const frameIds = new Set(frames.map(n => n.id));
+
+  // Classify nodes
+  const childrenOf = new Map<string, GraphNode[]>();
+  const orphanNodes: GraphNode[] = [];
+  for (const node of doc.nodes) {
+    if (node.type === 'frame') continue;
+    if (node.groupId && frameIds.has(node.groupId)) {
+      const list = childrenOf.get(node.groupId) ?? [];
+      list.push(node);
+      childrenOf.set(node.groupId, list);
+    } else {
+      orphanNodes.push(node);
+    }
+  }
+
+  // Classify edges
+  const nodeToFrame = new Map<string, string>();
+  for (const [frameId, children] of childrenOf) {
+    for (const child of children) {
+      nodeToFrame.set(child.id, frameId);
+    }
+  }
+  const intraEdgesOf = new Map<string, GraphEdge[]>();
+  const interEdges: GraphEdge[] = [];
+  for (const edge of doc.edges) {
+    const fromFrame = edge.from.nodeId ? nodeToFrame.get(edge.from.nodeId) : undefined;
+    const toFrame = edge.to.nodeId ? nodeToFrame.get(edge.to.nodeId) : undefined;
+    if (fromFrame && toFrame && fromFrame === toFrame) {
+      const list = intraEdgesOf.get(fromFrame) ?? [];
+      list.push(edge);
+      intraEdgesOf.set(fromFrame, list);
+    } else {
+      interEdges.push(edge);
+    }
+  }
+
+  // Step 1 & 2: Layout children inside each frame, determine frame size
+  const childOrigins = new Map<string, { x: number; y: number }>();
+  for (const frame of frames) {
+    const children = childrenOf.get(frame.id);
+    if (!children || children.length === 0) continue;
+
+    const bodies = new Map(children.map(n => [n.id, createBody(n)]));
+    const edges = intraEdgesOf.get(frame.id) ?? [];
+    computeHierarchicalLayout(bodies, edges, direction, levelGap, nodeSpacing);
+
+    // Apply layout results to children
+    for (const child of children) {
+      const body = bodies.get(child.id);
+      if (body) {
+        child.x = body.x;
+        child.y = body.y;
+      }
+    }
+
+    // Compute bounding box of children
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const c of children) {
+      minX = Math.min(minX, c.x);
+      minY = Math.min(minY, c.y);
+      maxX = Math.max(maxX, c.x + c.width);
+      maxY = Math.max(maxY, c.y + c.height);
+    }
+
+    // Save origin for later absolute positioning
+    childOrigins.set(frame.id, { x: minX, y: minY });
+
+    // Set frame size
+    frame.width = maxX - minX + FRAME_PADDING * 2;
+    frame.height = maxY - minY + FRAME_PADDING * 2 + FRAME_TITLE_HEIGHT;
+  }
+
+  // Step 3: Parent layout — frames (fixed size) + orphan nodes
+  const parentNodes = [...frames, ...orphanNodes];
+  if (parentNodes.length === 0) return;
+
+  const parentBodies = new Map(parentNodes.map(n => [n.id, createBody(n)]));
+  // Remap inter-edges that reference child nodes to their parent frame
+  const remappedEdges: GraphEdge[] = interEdges.map(edge => {
+    const fromFrame = edge.from.nodeId ? nodeToFrame.get(edge.from.nodeId) : undefined;
+    const toFrame = edge.to.nodeId ? nodeToFrame.get(edge.to.nodeId) : undefined;
+    const newFrom = fromFrame
+      ? { ...edge.from, nodeId: fromFrame }
+      : edge.from;
+    const newTo = toFrame
+      ? { ...edge.to, nodeId: toFrame }
+      : edge.to;
+    return { ...edge, from: newFrom, to: newTo };
+  });
+  computeHierarchicalLayout(parentBodies, remappedEdges, direction, levelGap, nodeSpacing);
+
+  // Apply parent layout positions
+  for (const node of parentNodes) {
+    const body = parentBodies.get(node.id);
+    if (body) {
+      node.x = body.x;
+      node.y = body.y;
+    }
+  }
+
+  // Step 4: Translate children to absolute coordinates inside frame
+  for (const frame of frames) {
+    const children = childrenOf.get(frame.id);
+    const origin = childOrigins.get(frame.id);
+    if (!children || !origin) continue;
+
+    const dx = frame.x + FRAME_PADDING - origin.x;
+    const dy = frame.y + FRAME_PADDING + FRAME_TITLE_HEIGHT - origin.y;
+    for (const child of children) {
+      child.x += dx;
+      child.y += dy;
+    }
+  }
+
+  // Update edge endpoints
+  const nodeMap = new Map(doc.nodes.map(n => [n.id, n]));
+  for (const edge of doc.edges) {
+    const fn = edge.from.nodeId ? nodeMap.get(edge.from.nodeId) : undefined;
+    const tn = edge.to.nodeId ? nodeMap.get(edge.to.nodeId) : undefined;
+    if (fn) { edge.from.x = fn.x + fn.width / 2; edge.from.y = fn.y + fn.height / 2; }
+    if (tn) { edge.to.x = tn.x + tn.width / 2; edge.to.y = tn.y + tn.height / 2; }
+  }
 }
