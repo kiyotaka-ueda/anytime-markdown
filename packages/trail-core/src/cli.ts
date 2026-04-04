@@ -84,10 +84,7 @@ function main(): void {
   const outputPath = path.resolve(args.output);
 
   if (args.format === 'mermaid') {
-    const mermaid = toMermaid(graph, {
-      granularity: args.granularity,
-      direction: args.direction,
-    });
+    const mermaid = toMermaid(graph);
     fs.writeFileSync(outputPath, mermaid, 'utf-8');
   } else {
     const elements = toCytoscape(graph);

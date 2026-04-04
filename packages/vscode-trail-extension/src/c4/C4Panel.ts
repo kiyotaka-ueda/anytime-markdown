@@ -98,10 +98,7 @@ export class C4Panel {
     });
     if (!uri) return;
 
-    const mermaid = toMermaid(panel.lastTrailGraph, {
-      granularity: 'module',
-      direction: 'TD',
-    });
+    const mermaid = toMermaid(panel.lastTrailGraph);
     const content = Buffer.from(mermaid, 'utf-8');
     await vscode.workspace.fs.writeFile(uri, content);
     vscode.window.showInformationMessage(`Exported to ${vscode.workspace.asRelativePath(uri)}`);
