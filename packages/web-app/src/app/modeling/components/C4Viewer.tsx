@@ -248,7 +248,6 @@ export function C4Viewer() {
           <C4ElementTree
             tree={elementTree}
             dispatch={dispatch}
-            onClose={() => setShowTree(false)}
           />
         )}
       </Box>

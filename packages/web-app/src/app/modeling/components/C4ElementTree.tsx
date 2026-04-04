@@ -6,7 +6,6 @@ import { state as graphState } from '@anytime-markdown/graph-core';
 type Action = graphState.Action;
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import CloseIcon from '@mui/icons-material/Close';
 import CodeIcon from '@mui/icons-material/Code';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExtensionIcon from '@mui/icons-material/Extension';
@@ -15,13 +14,10 @@ import PersonIcon from '@mui/icons-material/Person';
 import StorageIcon from '@mui/icons-material/Storage';
 import Box from '@mui/material/Box';
 import Collapse from '@mui/material/Collapse';
-import Divider from '@mui/material/Divider';
-import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import Typography from '@mui/material/Typography';
 import type { Dispatch, FC } from 'react';
 import { memo, useCallback, useState } from 'react';
 
@@ -127,10 +123,9 @@ TreeNodeItem.displayName = 'TreeNodeItem';
 interface C4ElementTreeProps {
   readonly tree: readonly C4TreeNode[];
   readonly dispatch: Dispatch<Action>;
-  readonly onClose: () => void;
 }
 
-export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onClose }) => {
+export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch }) => {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => {
     // デフォルトでルートレベルを展開
     return new Set(tree.map(n => n.id));
@@ -164,15 +159,6 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onC
         overflowY: 'auto',
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', p: 1.5, gap: 1 }}>
-        <Typography variant="subtitle2" sx={{ flex: 1, fontWeight: 600, color: ACCENT_BLUE }}>
-          Elements
-        </Typography>
-        <IconButton size="small" onClick={onClose} sx={{ color: 'rgba(255,255,255,0.5)' }}>
-          <CloseIcon fontSize="small" />
-        </IconButton>
-      </Box>
-      <Divider sx={{ borderColor: BORDER_COLOR }} />
       <List dense disablePadding sx={{ flex: 1, overflowY: 'auto' }}>
         {tree.map(node => (
           <TreeNodeItem
