@@ -64,6 +64,56 @@ describe('c4ToGraphDocument', () => {
     expect(child!.groupId).toBe(frame!.id);
   });
 
+  it('should create frame for container elements', () => {
+    const model: C4Model = {
+      level: 'component',
+      elements: [
+        { id: 'pkg_app', type: 'container', name: 'app' },
+        { id: 'f1', type: 'code', name: 'index.ts', boundaryId: 'pkg_app' },
+      ],
+      relationships: [],
+    };
+    const doc = c4ToGraphDocument(model);
+    const frame = doc.nodes.find(n => n.type === 'frame' && n.text === 'app');
+    expect(frame).toBeDefined();
+    const child = doc.nodes.find(n => n.text === 'index.ts');
+    expect(child!.groupId).toBe(frame!.id);
+  });
+
+  it('should create nested frames for container > component hierarchy', () => {
+    const model: C4Model = {
+      level: 'code',
+      elements: [
+        { id: 'pkg_core', type: 'container', name: 'core' },
+        { id: 'pkg_core/analyzer', type: 'component', name: 'analyzer', boundaryId: 'pkg_core' },
+        { id: 'f1', type: 'code', name: 'Parser.ts', boundaryId: 'pkg_core/analyzer' },
+      ],
+      relationships: [],
+    };
+    const doc = c4ToGraphDocument(model);
+    const containerFrame = doc.nodes.find(n => n.type === 'frame' && n.text === 'core');
+    const componentFrame = doc.nodes.find(n => n.type === 'frame' && n.text === 'analyzer');
+    const codeNode = doc.nodes.find(n => n.text === 'Parser.ts');
+    expect(containerFrame).toBeDefined();
+    expect(componentFrame).toBeDefined();
+    expect(componentFrame!.groupId).toBe(containerFrame!.id);
+    expect(codeNode!.groupId).toBe(componentFrame!.id);
+  });
+
+  it('should resolve edges between boundary and non-boundary elements', () => {
+    const model: C4Model = {
+      level: 'component',
+      elements: [
+        { id: 'pkg_a', type: 'container', name: 'A' },
+        { id: 'pkg_b', type: 'container', name: 'B' },
+      ],
+      relationships: [{ from: 'pkg_a', to: 'pkg_b', label: 'imports' }],
+    };
+    const doc = c4ToGraphDocument(model);
+    expect(doc.edges).toHaveLength(1);
+    expect(doc.edges[0].label).toBe('imports');
+  });
+
   it('should create connector edges for relationships', () => {
     const model: C4Model = {
       level: 'context',

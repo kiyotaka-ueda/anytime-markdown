@@ -13,6 +13,7 @@ export {
   getTrailStylesheet,
   type TrailStyleEntry,
 } from './transform/trailStylesheet';
-export { toGraphDocument } from './transform/toGraphDocument';
 export { toMermaid, type MermaidOptions } from './transform/toMermaid';
+export { trailToC4 } from './transform/toC4';
+export type { C4Model, C4Element, C4Relationship } from './model/c4Types';
 export { customTrail, type CustomTrailOptions } from './trail/customTrail';

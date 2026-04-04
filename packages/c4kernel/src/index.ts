@@ -9,4 +9,3 @@ export type {
 
 export { parseMermaidC4 } from './parser/mermaidC4';
 export { c4ToGraphDocument } from './transform/toGraphDocument';
-export { trailToC4 } from './mapper/trailToC4';

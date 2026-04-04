@@ -1,9 +1,7 @@
 import * as vscode from 'vscode';
 import { parseMermaidC4 } from '@anytime-markdown/c4kernel/src/parser/mermaidC4';
-import { trailToC4 } from '@anytime-markdown/c4kernel/src/mapper/trailToC4';
 import type { C4Model, BoundaryInfo } from '@anytime-markdown/c4kernel/src/types';
-import { analyze } from '@anytime-markdown/trail-core';
-import { toMermaid } from '@anytime-markdown/trail-core';
+import { analyze, trailToC4, toMermaid } from '@anytime-markdown/trail-core';
 import type { TrailGraph } from '@anytime-markdown/trail-core';
 
 /** Mermaid C4 テキストから境界情報を抽出する */

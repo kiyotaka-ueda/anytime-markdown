@@ -49,6 +49,7 @@ function parseArgs(argv: string[]): CliArgs {
         direction = args[++i] as 'TD' | 'LR';
         break;
       case 'analyze':
+      case 'mda':
         break;
       default:
         console.error(`Unknown argument: ${args[i]}`);
@@ -72,7 +73,7 @@ function main(): void {
     process.exit(1);
   }
 
-  console.log(`Analyzing: ${absoluteTsconfig}`);
+  console.log(`Module Dependency Analysis: ${absoluteTsconfig}`);
 
   const graph = analyze({
     tsconfigPath: absoluteTsconfig,
