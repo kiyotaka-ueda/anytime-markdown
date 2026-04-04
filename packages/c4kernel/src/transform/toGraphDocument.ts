@@ -52,7 +52,7 @@ const DEFAULT_EDGE_STYLE: Readonly<EdgeStyle> = {
   endShape: 'arrow',
 };
 
-/** container / component を frame（境界）として扱うべき型 */
+/** frame（境界）として扱う型 */
 const BOUNDARY_TYPES: ReadonlySet<C4ElementType> = new Set(['container', 'component']);
 
 let idCounter = 0;
@@ -103,7 +103,7 @@ export function c4ToGraphDocument(
     }
   }
 
-  // --- Phase 2: container / component 要素をフレームとして生成 ---
+  // --- Phase 2: container 要素をフレームとして生成 ---
   for (const elem of model.elements) {
     if (!BOUNDARY_TYPES.has(elem.type)) continue;
     if (boundaryIdMap.has(elem.id)) continue; // BoundaryInfo で既に生成済み

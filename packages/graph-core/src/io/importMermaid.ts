@@ -357,11 +357,17 @@ const FRAME_PADDING = 40;
 const FRAME_TITLE_HEIGHT = 28;
 
 /**
- * Bottom-up layout for subgroups (ELK SEPARATE_CHILDREN style).
- * 1. Layout children inside each frame independently
- * 2. Determine frame sizes from children bounding boxes
- * 3. Layout frames (as fixed-size nodes) + orphan nodes in parent graph
- * 4. Translate children to absolute coordinates inside their frame
+ * Bottom-up recursive layout for nested subgroups.
+ *
+ * Supports arbitrary nesting depth (L1 System > L2 Container > L3 Component > L4 Code).
+ *
+ * Algorithm:
+ * 1. Build frame tree (parent → children, including child frames)
+ * 2. Topological sort: process leaf frames first, then parents (bottom-up)
+ * 3. For each frame, layout its direct children (nodes + already-sized child frames)
+ * 4. Set frame size from children bounding box
+ * 5. Layout root-level nodes (top-level frames + orphans)
+ * 6. Translate children to absolute coordinates (top-down)
  */
 export function layoutWithSubgroups(
   doc: GraphDocument,
@@ -369,35 +375,58 @@ export function layoutWithSubgroups(
   levelGap: number,
   nodeSpacing: number,
 ): void {
-  const frames = doc.nodes.filter(n => n.type === 'frame');
-  const frameIds = new Set(frames.map(n => n.id));
+  const frameMap = new Map(doc.nodes.filter(n => n.type === 'frame').map(n => [n.id, n]));
 
-  // Classify nodes
+  // --- Build parent → direct children map (includes both frames and non-frames) ---
   const childrenOf = new Map<string, GraphNode[]>();
   const orphanNodes: GraphNode[] = [];
+
   for (const node of doc.nodes) {
-    if (node.type === 'frame') continue;
-    if (node.groupId && frameIds.has(node.groupId)) {
+    if (node.groupId && frameMap.has(node.groupId)) {
       const list = childrenOf.get(node.groupId) ?? [];
       list.push(node);
       childrenOf.set(node.groupId, list);
-    } else {
-      orphanNodes.push(node);
+    } else if (node.type !== 'frame' || !node.groupId) {
+      // Root-level frame (no parent) or non-frame without groupId
+      if (node.type !== 'frame') {
+        orphanNodes.push(node);
+      }
     }
   }
 
-  // Classify edges
-  const nodeToFrame = new Map<string, string>();
+  // --- Resolve deepest frame for each non-frame node ---
+  const nodeToDeepestFrame = new Map<string, string>();
   for (const [frameId, children] of childrenOf) {
     for (const child of children) {
-      nodeToFrame.set(child.id, frameId);
+      if (child.type !== 'frame') {
+        nodeToDeepestFrame.set(child.id, frameId);
+      }
     }
   }
+
+  // Resolve the top-level ancestor frame for edge remapping
+  function resolveRootFrame(nodeId: string): string | undefined {
+    let frameId = nodeToDeepestFrame.get(nodeId);
+    if (!frameId) {
+      // nodeId might be a frame itself
+      if (frameMap.has(nodeId)) frameId = nodeId;
+      else return undefined;
+    }
+    let current = frameId;
+    while (true) {
+      const frame = frameMap.get(current);
+      if (!frame?.groupId || !frameMap.has(frame.groupId)) return current;
+      current = frame.groupId;
+    }
+  }
+
+  // --- Classify edges by frame scope ---
   const intraEdgesOf = new Map<string, GraphEdge[]>();
   const interEdges: GraphEdge[] = [];
+
   for (const edge of doc.edges) {
-    const fromFrame = edge.from.nodeId ? nodeToFrame.get(edge.from.nodeId) : undefined;
-    const toFrame = edge.to.nodeId ? nodeToFrame.get(edge.to.nodeId) : undefined;
+    const fromFrame = edge.from.nodeId ? nodeToDeepestFrame.get(edge.from.nodeId) : undefined;
+    const toFrame = edge.to.nodeId ? nodeToDeepestFrame.get(edge.to.nodeId) : undefined;
     if (fromFrame && toFrame && fromFrame === toFrame) {
       const list = intraEdgesOf.get(fromFrame) ?? [];
       list.push(edge);
@@ -407,9 +436,28 @@ export function layoutWithSubgroups(
     }
   }
 
-  // Step 1 & 2: Layout children inside each frame, determine frame size
+  // --- Topological sort: leaf frames first (bottom-up) ---
+  const frameOrder: GraphNode[] = [];
+  const visited = new Set<string>();
+
+  function visitFrame(frame: GraphNode): void {
+    if (visited.has(frame.id)) return;
+    visited.add(frame.id);
+    const children = childrenOf.get(frame.id) ?? [];
+    for (const child of children) {
+      if (child.type === 'frame') visitFrame(child);
+    }
+    frameOrder.push(frame);
+  }
+
+  for (const frame of frameMap.values()) {
+    visitFrame(frame);
+  }
+
+  // --- Bottom-up: layout each frame's children, set frame size ---
   const childOrigins = new Map<string, { x: number; y: number }>();
-  for (const frame of frames) {
+
+  for (const frame of frameOrder) {
     const children = childrenOf.get(frame.id);
     if (!children || children.length === 0) continue;
 
@@ -417,7 +465,6 @@ export function layoutWithSubgroups(
     const edges = intraEdgesOf.get(frame.id) ?? [];
     computeHierarchicalLayout(bodies, edges, direction, levelGap, nodeSpacing);
 
-    // Apply layout results to children
     for (const child of children) {
       const body = bodies.get(child.id);
       if (body) {
@@ -426,7 +473,6 @@ export function layoutWithSubgroups(
       }
     }
 
-    // Compute bounding box of children
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const c of children) {
       minX = Math.min(minX, c.x);
@@ -435,44 +481,42 @@ export function layoutWithSubgroups(
       maxY = Math.max(maxY, c.y + c.height);
     }
 
-    // Save origin for later absolute positioning
     childOrigins.set(frame.id, { x: minX, y: minY });
-
-    // Set frame size
     frame.width = maxX - minX + FRAME_PADDING * 2;
     frame.height = maxY - minY + FRAME_PADDING * 2 + FRAME_TITLE_HEIGHT;
   }
 
-  // Step 3: Parent layout — frames (fixed size) + orphan nodes
-  const parentNodes = [...frames, ...orphanNodes];
-  if (parentNodes.length === 0) return;
+  // --- Root layout: top-level frames + orphan nodes ---
+  const rootFrames = [...frameMap.values()].filter(
+    f => !f.groupId || !frameMap.has(f.groupId),
+  );
+  const rootNodes = [...rootFrames, ...orphanNodes];
+  if (rootNodes.length === 0) return;
 
-  const parentBodies = new Map(parentNodes.map(n => [n.id, createBody(n)]));
-  // Remap inter-edges that reference child nodes to their parent frame
+  const rootBodies = new Map(rootNodes.map(n => [n.id, createBody(n)]));
   const remappedEdges: GraphEdge[] = interEdges.map(edge => {
-    const fromFrame = edge.from.nodeId ? nodeToFrame.get(edge.from.nodeId) : undefined;
-    const toFrame = edge.to.nodeId ? nodeToFrame.get(edge.to.nodeId) : undefined;
-    const newFrom = fromFrame
-      ? { ...edge.from, nodeId: fromFrame }
-      : edge.from;
-    const newTo = toFrame
-      ? { ...edge.to, nodeId: toFrame }
-      : edge.to;
-    return { ...edge, from: newFrom, to: newTo };
+    const fromRoot = edge.from.nodeId ? resolveRootFrame(edge.from.nodeId) : undefined;
+    const toRoot = edge.to.nodeId ? resolveRootFrame(edge.to.nodeId) : undefined;
+    return {
+      ...edge,
+      from: fromRoot ? { ...edge.from, nodeId: fromRoot } : edge.from,
+      to: toRoot ? { ...edge.to, nodeId: toRoot } : edge.to,
+    };
   });
-  computeHierarchicalLayout(parentBodies, remappedEdges, direction, levelGap, nodeSpacing);
+  computeHierarchicalLayout(rootBodies, remappedEdges, direction, levelGap, nodeSpacing);
 
-  // Apply parent layout positions
-  for (const node of parentNodes) {
-    const body = parentBodies.get(node.id);
+  for (const node of rootNodes) {
+    const body = rootBodies.get(node.id);
     if (body) {
       node.x = body.x;
       node.y = body.y;
     }
   }
 
-  // Step 4: Translate children to absolute coordinates inside frame
-  for (const frame of frames) {
+  // --- Top-down: translate children to absolute coordinates ---
+  // Process in reverse order (parents before children)
+  for (let i = frameOrder.length - 1; i >= 0; i--) {
+    const frame = frameOrder[i];
     const children = childrenOf.get(frame.id);
     const origin = childOrigins.get(frame.id);
     if (!children || !origin) continue;
@@ -485,7 +529,7 @@ export function layoutWithSubgroups(
     }
   }
 
-  // Update edge endpoints
+  // --- Update edge endpoints ---
   const nodeMap = new Map(doc.nodes.map(n => [n.id, n]));
   for (const edge of doc.edges) {
     const fn = edge.from.nodeId ? nodeMap.get(edge.from.nodeId) : undefined;
