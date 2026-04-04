@@ -188,6 +188,16 @@ export function C4Viewer() {
       >
         Fit
       </Button>
+      <Button
+        size="small"
+        onClick={() => setDsmClustered(prev => !prev)}
+        sx={{
+          ...toolbarButtonSx,
+          ...(dsmClustered && { bgcolor: 'rgba(144,202,249,0.12)' }),
+        }}
+      >
+        Cluster
+      </Button>
       <Box sx={{ flex: 1 }} />
       <Button
         size="small"
@@ -250,18 +260,6 @@ export function C4Viewer() {
             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.6875rem' }}>
               {dsmLevel === 'package' ? 'Package (L2)' : 'Component (L3+)'}
             </Typography>
-            <Button
-              size="small"
-              onClick={() => setDsmClustered(prev => !prev)}
-              sx={{
-                ...toolbarButtonSx,
-                fontSize: '0.6875rem',
-                py: 0,
-                ...(dsmClustered && { bgcolor: 'rgba(144,202,249,0.12)' }),
-              }}
-            >
-              Cluster
-            </Button>
           </Box>
           <Box sx={{ flex: 1, position: 'relative' }}>
             {c4Model ? (
