@@ -5,3 +5,5 @@ export type {
   C4Relationship,
   C4Model,
 } from './types';
+
+export { parseMermaidC4 } from './parser/mermaidC4';
