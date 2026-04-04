@@ -208,6 +208,12 @@ export class C4Panel {
     }
   }
 
+  /** DSMタブを直接開く */
+  public static showDsm(extensionUri: vscode.Uri): void {
+    const panel = C4Panel.getOrCreatePanel(extensionUri, 'DSM');
+    panel.panel.webview.postMessage({ type: 'switchTab', tab: 'dsm' });
+  }
+
   /** ワークスペースの TypeScript を trail-core で解析して C4 表示 */
   public static async analyzeWorkspace(extensionUri: vscode.Uri): Promise<void> {
     const excludePatterns: readonly string[] = vscode.workspace.getConfiguration('anytimeTrail.c4').get<string[]>('analyzeExcludePatterns', ['.worktrees', '.vscode-test', '__tests__']);
