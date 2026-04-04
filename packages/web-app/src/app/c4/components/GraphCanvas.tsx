@@ -92,17 +92,21 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef }: Readonl
     isPanningRef.current = false;
   }, []);
 
-  // Zoom
-  const handleWheel = useCallback((e: React.WheelEvent) => {
+  // Zoom (non-passive listener to allow preventDefault)
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    e.preventDefault();
-    const rect = canvas.getBoundingClientRect();
-    const cx = e.clientX - rect.left;
-    const cy = e.clientY - rect.top;
-    const factor = e.deltaY > 0 ? 0.9 : 1.1;
-    const newViewport = zoom(viewport, cx, cy, factor);
-    dispatch({ type: 'SET_VIEWPORT', viewport: newViewport });
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+      const factor = e.deltaY > 0 ? 0.9 : 1.1;
+      const newViewport = zoom(viewport, cx, cy, factor);
+      dispatch({ type: 'SET_VIEWPORT', viewport: newViewport });
+    };
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', onWheel);
   }, [viewport, dispatch, canvasRef]);
 
   return (
@@ -113,7 +117,6 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef }: Readonl
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
-      onWheel={handleWheel}
     />
   );
 }
