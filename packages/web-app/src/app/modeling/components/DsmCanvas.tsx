@@ -210,8 +210,11 @@ export function DsmCanvas({ model, boundaries, level, clustered }: Readonly<DsmC
       ctx!.fillStyle = '#0D1117';
       ctx!.fillRect(0, HEADER_HEIGHT, HEADER_WIDTH, h - HEADER_HEIGHT);
 
+      const fontSize = Math.max(6, Math.min(14, 10 * s));
+      const labelFont = `${fontSize}px sans-serif`;
+
       ctx!.fillStyle = TEXT_COLOR;
-      ctx!.font = '10px sans-serif';
+      ctx!.font = labelFont;
       ctx!.textBaseline = 'middle';
       ctx!.textAlign = 'right';
       for (let i = 0; i < n; i++) {
@@ -232,7 +235,7 @@ export function DsmCanvas({ model, boundaries, level, clustered }: Readonly<DsmC
       ctx!.fillRect(HEADER_WIDTH, 0, w - HEADER_WIDTH, HEADER_HEIGHT);
 
       ctx!.fillStyle = TEXT_COLOR;
-      ctx!.font = '10px sans-serif';
+      ctx!.font = labelFont;
       ctx!.textBaseline = 'middle';
       for (let i = 0; i < n; i++) {
         const name = truncate(matrix.nodes[i].name, 14);
