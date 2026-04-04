@@ -2,11 +2,13 @@ import path from 'node:path';
 import { ProjectAnalyzer } from '../ProjectAnalyzer';
 import { SymbolExtractor } from '../SymbolExtractor';
 import { EdgeExtractor } from '../EdgeExtractor';
+import type { EdgeExtractorResult } from '../EdgeExtractor';
 
 const FIXTURES = path.resolve(__dirname, 'fixtures');
 
 describe('EdgeExtractor', () => {
   let edges: ReturnType<EdgeExtractor['extract']>;
+  let edgeExtractor: EdgeExtractor;
 
   beforeAll(() => {
     const analyzer = new ProjectAnalyzer(
@@ -14,7 +16,7 @@ describe('EdgeExtractor', () => {
     );
     const symbolExtractor = new SymbolExtractor(analyzer);
     const nodes = symbolExtractor.extract();
-    const edgeExtractor = new EdgeExtractor(analyzer, nodes);
+    edgeExtractor = new EdgeExtractor(analyzer, nodes);
     edges = edgeExtractor.extract();
   });
 
@@ -66,5 +68,16 @@ describe('EdgeExtractor', () => {
       e => e.source.includes('App') && e.source.includes('log'),
     );
     expect(logOverride).toBeDefined();
+  });
+
+  it('extractWithDiagnostics returns diagnostics array', () => {
+    const result: EdgeExtractorResult = edgeExtractor.extractWithDiagnostics();
+    expect(result.edges).toBeDefined();
+    expect(result.diagnostics).toBeInstanceOf(Array);
+  });
+
+  it('extractWithDiagnostics returns same edges as extract', () => {
+    const result = edgeExtractor.extractWithDiagnostics();
+    expect(result.edges).toEqual(edges);
   });
 });
