@@ -87,8 +87,11 @@ export class C4Panel {
         },
       );
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      vscode.window.showErrorMessage(`C4 analysis failed: ${msg}`);
+      const msg = e instanceof Error ? `${e.message}\n${e.stack ?? ''}` : String(e);
+      const channel = vscode.window.createOutputChannel('C4 Model');
+      channel.appendLine(msg);
+      channel.show();
+      vscode.window.showErrorMessage(`C4 analysis failed: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
