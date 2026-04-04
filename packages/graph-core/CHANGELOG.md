@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Mermaid diagram import with mermaidParser for flowchart/sequence/class/state diagrams
+- Hierarchical physics layout engine for layered graph visualization
+- Orthogonal edge routing with visibility graph algorithm
+- Frame collapse support for expandable/collapsible node groups
+- Waypoint support for manual edge path adjustment
+
+### Changed
+
+- Split shapes.ts into shapeRenderers and textRendering modules
+- Extract orthogonalRouter from visibilityGraph for separation of concerns
+- Replace pathfinding module with visibilityGraph-based orthogonal routing
+- Improve hitTest accuracy for edge and node selection
+
 ## [0.0.3] - 2026-04-01
 
 ### Added

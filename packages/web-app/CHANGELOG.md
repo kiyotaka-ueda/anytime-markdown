@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- Modeling page with C4 architecture diagram viewer and graph visualization
+- C4Viewer component for rendering C4 models via graph-core
+
+### Changed
+
+- Rename /trail route to /modeling
+
 ## [0.9.3] - 2026-04-01
 
 ### Fixed

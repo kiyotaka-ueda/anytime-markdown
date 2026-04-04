@@ -6,6 +6,21 @@
 
 ## [Unreleased]
 
+### 追加
+
+- Mermaid 図インポート（flowchart/sequence/class/state 対応の mermaidParser）
+- 階層型物理レイアウトエンジン
+- 可視グラフアルゴリズムによる直交エッジルーティング
+- フレームの折りたたみ/展開サポート
+- エッジパスの手動調整用ウェイポイント
+
+### 変更
+
+- shapes.ts を shapeRenderers と textRendering モジュールに分割
+- visibilityGraph から orthogonalRouter を分離
+- pathfinding モジュールを visibilityGraph ベースの直交ルーティングに置き換え
+- エッジ・ノード選択時の hitTest 精度を改善
+
 ## [0.0.3] - 2026-04-01
 
 ### 追加

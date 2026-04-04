@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- C4 architecture diagram viewer panel with Mermaid C4 parsing and graph-core rendering
+- Spec Docs provider improvements for documentation browsing
+
 ## [0.0.3] - 2026-04-01
 
 ### Fixed

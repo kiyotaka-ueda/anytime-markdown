@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-04-01
+
+### Added
+
+- Horizontal scroll for Mermaid diagrams on narrow screens
+- Word-break setting in editor settings
+
+### Fixed
+
+- Close outline panel on heading click in readonly mode and fix panel width
+
 ## [0.9.2] - 2026-04-01
 
 ### Added

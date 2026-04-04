@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+
+- Improve GraphCanvas rendering with updated shape and edge renderers
+- Update canvas interaction handling for orthogonal routing support
+
+### Graph Core (graph-core)
+
+- Mermaid diagram import support
+- Hierarchical layout engine and orthogonal edge routing
+- Split shapes into shapeRenderers and textRendering modules
+- Frame collapse and waypoint support
+
 ## [0.0.3] - 2026-04-01
 
 ### Added

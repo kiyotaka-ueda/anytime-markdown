@@ -6,6 +6,18 @@
 
 ## [Unreleased]
 
+### 変更
+
+- シェイプ・エッジレンダラ更新による GraphCanvas 描画の改善
+- 直交ルーティング対応のキャンバスインタラクション更新
+
+### Graph Core (graph-core)
+
+- Mermaid 図インポート対応
+- 階層型レイアウトエンジンと直交エッジルーティング
+- shapes を shapeRenderers と textRendering に分割
+- フレーム折りたたみとウェイポイント対応
+
 ## [0.0.3] - 2026-04-01
 
 ### 追加

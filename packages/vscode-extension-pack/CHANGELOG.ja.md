@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### 変更
+
+- 同梱拡張機能の Anytime Git を Anytime Trail に置き換え
+
 ## [0.0.3] - 2026-04-01
 
 ### 変更
