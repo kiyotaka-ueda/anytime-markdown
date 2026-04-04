@@ -15,6 +15,7 @@ const vscode = acquireVsCodeApi();
 
 // --- State ---
 
+let fullDocument: GraphDocument | null = null;
 let document: GraphDocument | null = null;
 let viewport: Viewport = { offsetX: 0, offsetY: 0, scale: 1 };
 let currentLevel = 4;
@@ -133,21 +134,93 @@ globalThis.document.getElementById('btn-fit')!.addEventListener('click', fitCont
 
 // --- Level toggle ---
 
-function setLevel(level: number) {
-  if (!document) return;
-  currentLevel = level;
-  const frames = document.nodes.filter(n => n.type === 'frame');
-  for (const frame of frames) {
-    let depth = 1;
-    let parentId = frame.groupId;
-    while (parentId) {
-      depth++;
-      const parent = document.nodes.find(n => n.id === parentId);
-      parentId = parent?.groupId;
-    }
-    frame.collapsed = depth >= level;
+/** ノードのフレーム深さを計算（ルートフレーム=1, 子フレーム=2, ...） */
+function getFrameDepth(node: GraphNode, allNodes: readonly GraphNode[]): number {
+  let depth = 1;
+  let parentId = node.groupId;
+  while (parentId) {
+    depth++;
+    const parent = allNodes.find(n => n.id === parentId);
+    parentId = parent?.groupId;
   }
+  return depth;
+}
+
+/**
+ * C4 レベルとフレーム深さの対応:
+ *   L2 = depth 1 (Container)
+ *   L3 = depth 2 (Component)
+ *   L4 = 非フレームノード (Code)
+ *
+ * レベル選択時の動作:
+ *   L4: 全ノード表示（フレーム入れ子のまま）
+ *   L3: L4 ノードを非表示、L3 フレームを矩形ノードに変換
+ *   L2: L3/L4 を非表示、L2 フレームを矩形ノードに変換
+ */
+function cloneDoc(doc: GraphDocument): GraphDocument {
+  return {
+    ...doc,
+    nodes: doc.nodes.map(n => ({ ...n, style: { ...n.style } })),
+    edges: doc.edges.map(e => ({ ...e, from: { ...e.from }, to: { ...e.to } })),
+  };
+}
+
+function buildLevelView(full: GraphDocument, level: number): GraphDocument {
+  if (level >= 4) return cloneDoc(full);
+
+  // 表示対象のフレーム最大深さ: L3→depth2, L2→depth1
+  const maxFrameDepth = level - 1;
+
+  const visibleNodes: GraphNode[] = [];
+  const visibleNodeIds = new Set<string>();
+  // 最下層フレームを矩形に変換するための ID セット
+  const convertToRect = new Set<string>();
+
+  for (const node of full.nodes) {
+    if (node.type === 'frame') {
+      const depth = getFrameDepth(node, full.nodes);
+      if (depth > maxFrameDepth) continue;
+      if (depth === maxFrameDepth) {
+        // 最下層フレーム → 矩形ノードに変換（デフォルトサイズ）
+        convertToRect.add(node.id);
+        visibleNodes.push({
+          ...node,
+          type: 'rect',
+          width: 160,
+          height: 60,
+        });
+      } else {
+        visibleNodes.push(node);
+      }
+      visibleNodeIds.add(node.id);
+    } else {
+      // 非フレームノード: level=4 でのみ表示
+      // ここには到達しない（level < 4 なので全て除外）
+    }
+  }
+
+  // エッジ: 両端が表示対象の場合のみ保持
+  const visibleEdges = full.edges.filter(e => {
+    const fromId = e.from.nodeId;
+    const toId = e.to.nodeId;
+    return fromId && toId && visibleNodeIds.has(fromId) && visibleNodeIds.has(toId);
+  });
+
+  return {
+    ...full,
+    nodes: visibleNodes,
+    edges: visibleEdges,
+  };
+}
+
+function setLevel(level: number) {
+  if (!fullDocument) return;
+  currentLevel = level;
+  const view = buildLevelView(fullDocument, level);
+  layoutWithSubgroups(view, 'TB', 180, 60);
+  document = view;
   updateLevelButtons();
+  requestAnimationFrame(() => fitContent());
 }
 
 function updateLevelButtons() {
@@ -173,9 +246,10 @@ globalThis.addEventListener('message', (event: MessageEvent) => {
     const boundaries = (msg.boundaries ?? []) as BoundaryInfo[];
     const doc = c4ToGraphDocument(model, boundaries);
     layoutWithSubgroups(doc, 'TB', 180, 60);
-    document = doc;
-    infoEl.textContent = `${doc.nodes.length} nodes | ${doc.edges.length} edges`;
+    fullDocument = doc;
     currentLevel = 4;
+    document = buildLevelView(fullDocument, currentLevel);
+    infoEl.textContent = `${doc.nodes.length} nodes | ${doc.edges.length} edges`;
     updateLevelButtons();
     // Auto-fit after layout
     requestAnimationFrame(() => fitContent());

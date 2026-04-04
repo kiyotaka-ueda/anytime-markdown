@@ -23,6 +23,7 @@
     "graph"
   ],
   "activationEvents": [
+    "workspaceContains:**/.git/HEAD",
     "onView:anytimeTrail.specDocs",
     "onView:anytimeTrail.changes",
     "onView:anytimeTrail.graph",

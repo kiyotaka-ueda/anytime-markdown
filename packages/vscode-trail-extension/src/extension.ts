@@ -366,6 +366,29 @@ export function activate(context: vscode.ExtensionContext) {
 		C4Panel.exportData(),
 	);
 
+	// Git リポジトリが開かれている場合、自動的にフォルダを開く
+	if (hasWorkspace) {
+		const autoOpenGitRoots = async () => {
+			try {
+				const { execFileSync } = await import('node:child_process');
+				for (const folder of vscode.workspace.workspaceFolders!) {
+					try {
+						execFileSync('git', ['rev-parse', '--git-dir'], {
+							cwd: folder.uri.fsPath,
+							encoding: 'utf-8',
+						});
+						specDocsProvider.addRoot(folder.uri.fsPath);
+					} catch {
+						// git リポジトリでないフォルダはスキップ
+					}
+				}
+			} catch {
+				// ignore
+			}
+		};
+		setTimeout(autoOpenGitRoots, 1000);
+	}
+
 	// ファイル保存時にリフレッシュ
 	context.subscriptions.push(
 		vscode.workspace.onDidSaveTextDocument(() => changesProvider?.refresh()),
