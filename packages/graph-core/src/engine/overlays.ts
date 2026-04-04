@@ -10,6 +10,7 @@ import {
   SMART_GUIDE_EXTENSION,
 } from './constants';
 import { getConnectionPoints } from './connector';
+import { drawCircle, drawHandle } from './drawHelpers';
 
 export function drawResizeHandles(
   ctx: CanvasRenderingContext2D,
@@ -20,7 +21,6 @@ export function drawResizeHandles(
   colors = colors ?? getCanvasColors(true);
   const { x, y, width, height } = node;
   const handleSize = HANDLE_SIZE / scale;
-  const half = handleSize / 2;
 
   const handles = [
     { hx: x, hy: y },                              // top-left
@@ -34,13 +34,10 @@ export function drawResizeHandles(
   ];
 
   ctx.save();
-  ctx.fillStyle = colors.handleFill;
-  ctx.strokeStyle = colors.canvasSelection;
   ctx.lineWidth = 1.5 / scale;
 
   handles.forEach(({ hx, hy }) => {
-    ctx.fillRect(hx - half, hy - half, handleSize, handleSize);
-    ctx.strokeRect(hx - half, hy - half, handleSize, handleSize);
+    drawHandle(ctx, hx, hy, handleSize, colors!.handleFill, colors!.canvasSelection);
   });
 
   ctx.restore();
@@ -77,19 +74,15 @@ export function drawBoundingBox(
 
   // 8点ハンドル
   const hs = HANDLE_SIZE / scale;
-  const half = hs / 2;
   const handles = [
     { hx: bx, hy: by }, { hx: bx + bw / 2, hy: by }, { hx: bx + bw, hy: by },
     { hx: bx + bw, hy: by + bh / 2 },
     { hx: bx + bw, hy: by + bh }, { hx: bx + bw / 2, hy: by + bh }, { hx: bx, hy: by + bh },
     { hx: bx, hy: by + bh / 2 },
   ];
-  ctx.fillStyle = colors.handleFill;
-  ctx.strokeStyle = colors.canvasSelection;
   ctx.lineWidth = 1.5 / scale;
   for (const { hx, hy } of handles) {
-    ctx.fillRect(hx - half, hy - half, hs, hs);
-    ctx.strokeRect(hx - half, hy - half, hs, hs);
+    drawHandle(ctx, hx, hy, hs, colors.handleFill, colors.canvasSelection);
   }
   ctx.restore();
 }
@@ -109,16 +102,8 @@ export function drawEdgeEndpointHandles(
 
   ctx.save();
   for (const pt of pts) {
-    // 外円
-    ctx.beginPath();
-    ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
-    ctx.fillStyle = colors.canvasSelection;
-    ctx.fill();
-    // 内円
-    ctx.beginPath();
-    ctx.arc(pt.x, pt.y, r * EDGE_ENDPOINT_INNER_RATIO, 0, Math.PI * 2);
-    ctx.fillStyle = colors.canvasBg;
-    ctx.fill();
+    drawCircle(ctx, pt.x, pt.y, r, colors.canvasSelection);           // 外円
+    drawCircle(ctx, pt.x, pt.y, r * EDGE_ENDPOINT_INNER_RATIO, colors.canvasBg); // 内円
   }
   ctx.restore();
 }
@@ -150,16 +135,8 @@ export function drawConnectionPoints(
 
   ctx.save();
   for (const { x: px, y: py } of visiblePoints) {
-    // 外円
-    ctx.beginPath();
-    ctx.arc(px, py, r, 0, Math.PI * 2);
-    ctx.fillStyle = colors.canvasSelection;
-    ctx.fill();
-    // 内円
-    ctx.beginPath();
-    ctx.arc(px, py, r * CONNECTION_POINT_INNER_RATIO, 0, Math.PI * 2);
-    ctx.fillStyle = colors.canvasBg;
-    ctx.fill();
+    drawCircle(ctx, px, py, r, colors.canvasSelection);           // 外円
+    drawCircle(ctx, px, py, r * CONNECTION_POINT_INNER_RATIO, colors.canvasBg); // 内円
   }
   ctx.restore();
 }
@@ -188,7 +165,6 @@ export function drawSnapHighlight(
   }
 
   // 接続点インジケータ（ノードの4辺中央に丸を表示）
-  ctx.fillStyle = colors.canvasSnap;
   const points = [
     { px: x + width / 2, py: y },             // top
     { px: x + width, py: y + height / 2 },    // right
@@ -196,16 +172,8 @@ export function drawSnapHighlight(
     { px: x, py: y + height / 2 },             // left
   ];
   for (const { px, py } of points) {
-    ctx.beginPath();
-    ctx.arc(px, py, SNAP_INDICATOR_RADIUS, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  // 内円
-  ctx.fillStyle = colors.canvasSnapInner;
-  for (const { px, py } of points) {
-    ctx.beginPath();
-    ctx.arc(px, py, SNAP_INDICATOR_RADIUS - 2, 0, Math.PI * 2);
-    ctx.fill();
+    drawCircle(ctx, px, py, SNAP_INDICATOR_RADIUS, colors.canvasSnap);           // 外円
+    drawCircle(ctx, px, py, SNAP_INDICATOR_RADIUS - 2, colors.canvasSnapInner);  // 内円
   }
 
   ctx.restore();
