@@ -1,16 +1,17 @@
 'use client';
 
-import { useReducer, useRef, useCallback, useState } from 'react';
+import { buildLevelView,c4ToGraphDocument, extractBoundaries, parseMermaidC4 } from '@anytime-markdown/c4-kernel';
+import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
+import { engine, layoutWithSubgroups,state as graphState } from '@anytime-markdown/graph-core';
+import FitScreenIcon from '@mui/icons-material/FitScreen';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import ButtonGroup from '@mui/material/ButtonGroup';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
-import UploadFileIcon from '@mui/icons-material/UploadFile';
-import FitScreenIcon from '@mui/icons-material/FitScreen';
-import { parseMermaidC4, extractBoundaries, c4ToGraphDocument, buildLevelView } from '@anytime-markdown/c4-kernel';
-import { engine, state as graphState, layoutWithSubgroups } from '@anytime-markdown/graph-core';
-import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+
 import { GraphCanvas } from './GraphCanvas';
 
 const { graphReducer, createInitialState } = graphState;
@@ -35,6 +36,28 @@ export function C4Viewer() {
   const [currentLevel, setCurrentLevel] = useState<number>(4);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  const loadMermaidText = useCallback((text: string) => {
+    try {
+      const boundaries = extractBoundaries(text);
+      const model = parseMermaidC4(text);
+      const doc = c4ToGraphDocument(model, boundaries);
+      layoutWithSubgroups(doc, 'TB', 180, 60);
+      setFullDoc(doc);
+      setCurrentLevel(4);
+      dispatch({ type: 'SET_DOCUMENT', doc });
+    } catch {
+      // invalid C4 mermaid
+    }
+  }, []);
+
+  // 初期表示: public/anytime-markdown-c4.mmd を読み込む
+  useEffect(() => {
+    fetch('/anytime-markdown-c4.mmd')
+      .then(res => { if (res.ok) return res.text(); })
+      .then(text => { if (text) loadMermaidText(text); })
+      .catch(() => { /* ファイルが存在しない場合は無視 */ });
+  }, [loadMermaidText]);
+
   const handleImportMermaid = useCallback(() => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -45,22 +68,12 @@ export function C4Viewer() {
       const reader = new FileReader();
       reader.onload = () => {
         const text = reader.result as string;
-        try {
-          const boundaries = extractBoundaries(text);
-          const model = parseMermaidC4(text);
-          const doc = c4ToGraphDocument(model, boundaries);
-          layoutWithSubgroups(doc, 'TB', 180, 60);
-          setFullDoc(doc);
-          setCurrentLevel(4);
-          dispatch({ type: 'SET_DOCUMENT', doc });
-        } catch {
-          // invalid C4 mermaid
-        }
+        loadMermaidText(text);
       };
       reader.readAsText(file);
     };
     input.click();
-  }, []);
+  }, [loadMermaidText]);
 
   const handleSetLevel = useCallback((level: number) => {
     if (!fullDoc) return;
