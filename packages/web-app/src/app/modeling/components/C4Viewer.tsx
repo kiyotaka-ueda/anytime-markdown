@@ -252,7 +252,11 @@ export function C4Viewer() {
             viewport={state.document.viewport}
             dispatch={dispatch}
             canvasRef={canvasRef}
-            selectedNodeId={selectedElementId}
+            selectedNodeId={
+              selectedElementId
+                ? state.document.nodes.find(n => n.metadata?.c4Id === selectedElementId)?.id ?? null
+                : null
+            }
           />
         </Box>
         {/* Resize grip */}
