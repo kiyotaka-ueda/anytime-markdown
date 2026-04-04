@@ -102,6 +102,32 @@ export function DsmCanvas({ model, boundaries, level, clustered, focusedNodeId }
     setTooltip(null);
   }, [model, boundaries, level, clustered]);
 
+  // Scroll to focused node
+  useEffect(() => {
+    const matrix = matrixRef.current;
+    const canvas = canvasRef.current;
+    if (!focusedNodeId || !matrix || !canvas) return;
+    const idx = matrix.nodes.findIndex(nd => nd.id === focusedNodeId || nd.name === focusedNodeId);
+    if (idx < 0) return;
+
+    const vp = viewportRef.current;
+    const s = vp.scale;
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+
+    // Target: center the focused row's cell area in the visible region
+    const cellCenterX = HEADER_WIDTH + (idx + 0.5) * CELL_SIZE;
+    const cellCenterY = HEADER_HEIGHT + (idx + 0.5) * CELL_SIZE;
+    const visibleCenterX = HEADER_WIDTH + (w - HEADER_WIDTH) / 2;
+    const visibleCenterY = HEADER_HEIGHT + (h - HEADER_HEIGHT) / 2;
+
+    viewportRef.current = clampViewport({
+      scale: s,
+      offsetX: visibleCenterX - cellCenterX * s,
+      offsetY: visibleCenterY - cellCenterY * s,
+    });
+  }, [focusedNodeId]);
+
   // Render loop
   useEffect(() => {
     const canvas = canvasRef.current;
