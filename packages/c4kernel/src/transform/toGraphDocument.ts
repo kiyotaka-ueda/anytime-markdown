@@ -1,62 +1,8 @@
 import type { C4Model, C4Element, C4ElementType } from '../types';
-
-// graph-core 互換の型をローカルに定義（trail-core と同じ方式）
-type NodeType = 'rect' | 'ellipse' | 'sticky' | 'text' | 'diamond' | 'parallelogram' | 'cylinder' | 'doc' | 'frame' | 'image';
-type EdgeType = 'line' | 'connector';
-
-interface NodeStyle {
-  fill: string;
-  stroke: string;
-  strokeWidth: number;
-  fontSize: number;
-  fontFamily: string;
-  dashed?: boolean;
-}
-
-interface EdgeStyle {
-  stroke: string;
-  strokeWidth: number;
-  startShape?: string;
-  endShape?: string;
-}
-
-interface EdgeEndpoint {
-  nodeId?: string;
-  x: number;
-  y: number;
-}
-
-interface GraphNode {
-  id: string;
-  type: NodeType;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  text: string;
-  style: NodeStyle;
-  groupId?: string;
-  metadata?: Record<string, string | number>;
-}
-
-interface GraphEdge {
-  id: string;
-  type: EdgeType;
-  from: EdgeEndpoint;
-  to: EdgeEndpoint;
-  style: EdgeStyle;
-  label?: string;
-}
-
-interface GraphDocument {
-  id: string;
-  name: string;
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-  viewport: { offsetX: number; offsetY: number; scale: number };
-  createdAt: number;
-  updatedAt: number;
-}
+import type {
+  NodeType, NodeStyle, EdgeStyle,
+  GraphNode, GraphEdge, GraphDocument,
+} from '@anytime-markdown/graph-core';
 
 /** 境界情報（パーサーから受け取る） */
 export interface BoundaryInfo {
