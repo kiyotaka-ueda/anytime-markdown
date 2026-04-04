@@ -219,6 +219,7 @@ function setLevel(level: number) {
   layoutWithSubgroups(view, 'TB', 180, 60);
   document = view;
   updateLevelButtons();
+  vscode.postMessage({ type: 'setLevel', level });
   requestAnimationFrame(() => fitContent());
 }
 

@@ -29,6 +29,10 @@ export class C4Panel {
     });
 
     this.panel.webview.onDidReceiveMessage(async (msg) => {
+      if (msg.type === 'setLevel' && typeof msg.level === 'number') {
+        C4Panel.treeProvider?.setLevel(msg.level);
+        return;
+      }
       if (msg.type === 'openFile' && typeof msg.relativePath === 'string' && this.lastProjectRoot) {
         const path = await import('node:path');
         const absolutePath = path.join(this.lastProjectRoot, msg.relativePath);
