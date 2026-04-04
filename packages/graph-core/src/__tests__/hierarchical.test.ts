@@ -107,7 +107,8 @@ describe('computeHierarchicalLayout', () => {
       computeHierarchicalLayout(bodies, edges, 'TB', levelGap, 60);
 
       const diff = bodies.get('B')!.y - bodies.get('A')!.y;
-      expect(diff).toBe(levelGap);
+      // Gap between layers = node height (100) + levelGap
+      expect(diff).toBe(bodies.get('A')!.height + levelGap);
     });
 
     it('should respect nodeSpacing within a layer', () => {

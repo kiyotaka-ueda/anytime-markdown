@@ -242,6 +242,8 @@ function minimizeCrossings(
 /**
  * Assign x/y coordinates to each body based on layer ordering.
  * Centers each layer horizontally (or vertically for LR).
+ * Layer spacing adapts to the tallest (TB) / widest (LR) node in each layer
+ * so that large nodes (e.g. frame groups) never overlap the next layer.
  */
 function assignCoordinates(
   bodies: Map<string, PhysicsBody>,
@@ -254,7 +256,6 @@ function assignCoordinates(
   let maxLayerWidth = 0;
   for (const layer of layerOrder) {
     if (layer.length === 0) continue;
-    // Layer width = sum of node widths + spacing between nodes
     let width = 0;
     for (const id of layer) {
       const body = bodies.get(id)!;
@@ -264,7 +265,21 @@ function assignCoordinates(
     maxLayerWidth = Math.max(maxLayerWidth, width);
   }
 
+  // Precompute the max "depth" (height for TB, width for LR) per layer
+  const layerDepths: number[] = [];
+  for (const layer of layerOrder) {
+    let maxDepth = 0;
+    for (const id of layer) {
+      const body = bodies.get(id)!;
+      maxDepth = Math.max(maxDepth, direction === 'TB' ? body.height : body.width);
+    }
+    layerDepths.push(maxDepth);
+  }
+
   const startOffset = 100; // margin from canvas origin
+
+  // Accumulate layer positions based on actual node depths
+  let depthCursor = startOffset;
 
   for (let layerIdx = 0; layerIdx < layerOrder.length; layerIdx++) {
     const layer = layerOrder[layerIdx];
@@ -288,13 +303,16 @@ function assignCoordinates(
 
       if (direction === 'TB') {
         body.x = cursor;
-        body.y = startOffset + layerIdx * levelGap;
+        body.y = depthCursor;
         cursor += body.width + nodeSpacing;
       } else {
-        body.x = startOffset + layerIdx * levelGap;
+        body.x = depthCursor;
         body.y = cursor;
         cursor += body.height + nodeSpacing;
       }
     }
+
+    // Advance depth cursor by this layer's max depth + gap
+    depthCursor += layerDepths[layerIdx] + levelGap;
   }
 }
