@@ -101,6 +101,12 @@ export function C4Viewer() {
     const view = buildLevelView(fullDoc, level);
     layoutWithSubgroups(view, 'TB', 180, 60);
     dispatch({ type: 'SET_DOCUMENT', doc: view });
+    // L2=Package, L3+=Component
+    if (level <= 2) {
+      setDsmLevel('package');
+    } else {
+      setDsmLevel('component');
+    }
   }, [fullDoc]);
 
   const handleFit = useCallback(() => {
@@ -241,17 +247,9 @@ export function C4Viewer() {
             <Typography variant="caption" sx={{ color: ACCENT_BLUE, fontWeight: 600, fontSize: '0.75rem' }}>
               DSM
             </Typography>
-            <ButtonGroup size="small" sx={{ ml: 1 }}>
-              {(['component', 'package'] as const).map(lv => (
-                <Button
-                  key={lv}
-                  onClick={() => setDsmLevel(lv)}
-                  sx={dsmLevel === lv ? levelButtonActiveSx : { ...levelButtonSx, minWidth: 28, fontSize: '0.6875rem', py: 0 }}
-                >
-                  {lv === 'component' ? 'Component' : 'Package'}
-                </Button>
-              ))}
-            </ButtonGroup>
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.6875rem' }}>
+              {dsmLevel === 'package' ? 'Package (L2)' : 'Component (L3+)'}
+            </Typography>
             <Button
               size="small"
               onClick={() => setDsmClustered(prev => !prev)}
