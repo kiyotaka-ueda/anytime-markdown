@@ -1,4 +1,4 @@
-import type { C4Model, C4Element, C4Relationship, C4Level } from '../types';
+import type { C4Model, C4Element, C4Relationship, C4Level, BoundaryInfo } from '../types';
 
 /** Mermaid C4図種別 → C4Level マッピング */
 const DIAGRAM_LEVEL: Readonly<Record<string, C4Level>> = {
@@ -26,6 +26,7 @@ const ELEMENT_DEFS: Readonly<Record<string, ElementDef>> = {
   ContainerDb_Ext:  { type: 'containerDb', hasTech: true,  external: true },
   Component:        { type: 'component',   hasTech: true,  external: false },
   Component_Ext:    { type: 'component',   hasTech: true,  external: true },
+  Code:             { type: 'code',        hasTech: false, external: false },
 };
 
 /** 引数文字列をパースして配列にする（カンマ区切り、クォート内のカンマは無視） */
@@ -45,6 +46,19 @@ function parseArgs(argsStr: string): string[] {
   }
   args.push(current.trim());
   return args.map(a => a.replace(/^["']|["']$/g, '').trim());
+}
+
+/** Mermaid C4 テキストから境界情報を抽出する */
+export function extractBoundaries(input: string): BoundaryInfo[] {
+  const boundaries: BoundaryInfo[] = [];
+  const lines = input.split('\n').map(l => l.trim());
+  for (const line of lines) {
+    const match = /^(\w+_?Boundary)\s*\(\s*([^,]+),\s*"([^"]+)"\s*\)/.exec(line);
+    if (match) {
+      boundaries.push({ id: match[2].trim(), name: match[3] });
+    }
+  }
+  return boundaries;
 }
 
 /** Mermaid C4記法を解析して C4Model を返す */
