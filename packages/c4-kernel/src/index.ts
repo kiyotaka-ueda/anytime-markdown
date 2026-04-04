@@ -9,3 +9,4 @@ export type {
 
 export { parseMermaidC4 } from './parser/mermaidC4';
 export { c4ToGraphDocument } from './transform/toGraphDocument';
+export { c4ToMermaid } from './serializer/c4ToMermaid';
