@@ -105,8 +105,7 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef }: Readonl
       const rect = canvas.getBoundingClientRect();
       const cx = e.clientX - rect.left;
       const cy = e.clientY - rect.top;
-      const factor = e.deltaY > 0 ? 0.9 : 1.1;
-      const newViewport = zoom(viewportRef.current, cx, cy, factor);
+      const newViewport = zoom(viewportRef.current, cx, cy, e.deltaY);
       dispatchRef.current({ type: 'SET_VIEWPORT', viewport: newViewport });
     };
     canvas.addEventListener('wheel', onWheel, { passive: false });

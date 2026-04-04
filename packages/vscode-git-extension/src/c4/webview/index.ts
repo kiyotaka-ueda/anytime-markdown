@@ -111,8 +111,7 @@ canvas.addEventListener('wheel', (e) => {
   const rect = canvas.getBoundingClientRect();
   const cx = e.clientX - rect.left;
   const cy = e.clientY - rect.top;
-  const factor = e.deltaY > 0 ? 0.9 : 1.1;
-  viewport = zoom(viewport, cx, cy, factor);
+  viewport = zoom(viewport, cx, cy, e.deltaY);
 }, { passive: false });
 
 // --- Fit ---
