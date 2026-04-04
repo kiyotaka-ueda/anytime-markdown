@@ -3,6 +3,8 @@ import { parseMermaidC4 } from '@anytime-markdown/c4kernel/src/parser/mermaidC4'
 import { trailToC4 } from '@anytime-markdown/c4kernel/src/mapper/trailToC4';
 import type { C4Model, BoundaryInfo } from '@anytime-markdown/c4kernel/src/types';
 import { analyze } from '@anytime-markdown/trail-core';
+import { toMermaid } from '@anytime-markdown/trail-core';
+import type { TrailGraph } from '@anytime-markdown/trail-core';
 
 /** Mermaid C4 テキストから境界情報を抽出する */
 function extractBoundaries(input: string): BoundaryInfo[] {
@@ -22,6 +24,7 @@ export class C4Panel {
   private static currentPanel: C4Panel | undefined;
   private lastModel: C4Model | undefined;
   private lastBoundaries: readonly BoundaryInfo[] | undefined;
+  private lastTrailGraph: TrailGraph | undefined;
 
   private constructor(
     private readonly panel: vscode.WebviewPanel,
@@ -32,14 +35,34 @@ export class C4Panel {
     });
   }
 
-  /** 現在の C4Model を JSON ファイルにエクスポート */
-  public static async exportJson(): Promise<void> {
+  /** 解析データをエクスポート（形式選択） */
+  public static async exportData(): Promise<void> {
     const panel = C4Panel.currentPanel;
     if (!panel?.lastModel) {
       vscode.window.showWarningMessage('No C4 model to export. Run Import or Analyze first.');
       return;
     }
 
+    const formats = [
+      { label: 'JSON (C4 Model)', format: 'json' },
+      { label: 'Mermaid (Module Dependencies)', format: 'mermaid' },
+    ];
+    // Mermaid は trail-core 解析結果がある場合のみ
+    const available = panel.lastTrailGraph ? formats : [formats[0]];
+
+    const picked = available.length === 1
+      ? available[0]
+      : await vscode.window.showQuickPick(available, { placeHolder: 'Select export format' });
+    if (!picked) return;
+
+    if (picked.format === 'mermaid') {
+      await C4Panel.exportMermaid(panel);
+    } else {
+      await C4Panel.exportJson(panel);
+    }
+  }
+
+  private static async exportJson(panel: C4Panel): Promise<void> {
     const uri = await vscode.window.showSaveDialog({
       filters: { 'JSON': ['json'] },
       defaultUri: vscode.Uri.file('c4-model.json'),
@@ -53,7 +76,26 @@ export class C4Panel {
     };
     const content = Buffer.from(JSON.stringify(data, null, 2), 'utf-8');
     await vscode.workspace.fs.writeFile(uri, content);
-    vscode.window.showInformationMessage(`C4 model exported to ${vscode.workspace.asRelativePath(uri)}`);
+    vscode.window.showInformationMessage(`Exported to ${vscode.workspace.asRelativePath(uri)}`);
+  }
+
+  private static async exportMermaid(panel: C4Panel): Promise<void> {
+    if (!panel.lastTrailGraph) return;
+
+    const uri = await vscode.window.showSaveDialog({
+      filters: { 'Markdown': ['md'], 'Mermaid': ['mmd'] },
+      defaultUri: vscode.Uri.file('deps.md'),
+      title: 'Export Mermaid Dependencies',
+    });
+    if (!uri) return;
+
+    const mermaid = toMermaid(panel.lastTrailGraph, {
+      granularity: 'module',
+      direction: 'TD',
+    });
+    const content = Buffer.from(mermaid, 'utf-8');
+    await vscode.workspace.fs.writeFile(uri, content);
+    vscode.window.showInformationMessage(`Exported to ${vscode.workspace.asRelativePath(uri)}`);
   }
 
   /** Mermaid C4 ファイルをインポートして表示 */
@@ -74,6 +116,7 @@ export class C4Panel {
       const model = parseMermaidC4(text);
 
       const panel = C4Panel.getOrCreatePanel(extensionUri, `C4: ${model.title ?? 'Diagram'}`);
+      panel.lastTrailGraph = undefined;
       panel.postModel(model, boundaries);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -112,6 +155,7 @@ export class C4Panel {
           const model = trailToC4(graph);
 
           const panel = C4Panel.getOrCreatePanel(extensionUri, 'C4: Project Analysis');
+          panel.lastTrailGraph = graph;
           panel.postModel(model);
         },
       );

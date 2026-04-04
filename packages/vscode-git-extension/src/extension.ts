@@ -363,7 +363,7 @@ export function activate(context: vscode.ExtensionContext) {
 		C4Panel.analyzeWorkspace(context.extensionUri),
 	);
 	const c4Export = vscode.commands.registerCommand('anytime-git.c4Export', () =>
-		C4Panel.exportJson(),
+		C4Panel.exportData(),
 	);
 
 	// ファイル保存時にリフレッシュ
