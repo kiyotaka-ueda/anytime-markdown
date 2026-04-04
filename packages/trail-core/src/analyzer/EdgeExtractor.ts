@@ -3,6 +3,11 @@ import path from 'node:path';
 import type { TrailEdge, TrailNode } from '../model/types';
 import type { ProjectAnalyzer } from './ProjectAnalyzer';
 
+export interface EdgeExtractorResult {
+  readonly edges: TrailEdge[];
+  readonly diagnostics: readonly string[];
+}
+
 export class EdgeExtractor {
   private readonly analyzer: ProjectAnalyzer;
   private readonly nodes: readonly TrailNode[];
@@ -15,23 +20,34 @@ export class EdgeExtractor {
   }
 
   extract(): TrailEdge[] {
-    const checker = this.analyzer.getTypeChecker();
-    const edges: TrailEdge[] = [];
-
-    this.buildSymbolMap(checker);
-
-    for (const sourceFile of this.analyzer.getSourceFiles()) {
-      this.extractImportEdges(sourceFile, checker, edges);
-      this.extractCallEdges(sourceFile, checker, edges);
-      this.extractHeritageEdges(sourceFile, checker, edges);
-      this.extractOverrideEdges(sourceFile, checker, edges);
-    }
-
-    return this.deduplicateEdges(edges);
+    return this.extractWithDiagnostics().edges;
   }
 
-  private buildSymbolMap(checker: ts.TypeChecker): void {
-    for (const sourceFile of this.analyzer.getSourceFiles()) {
+  extractWithDiagnostics(): EdgeExtractorResult {
+    const checker = this.analyzer.getTypeChecker();
+    const edges: TrailEdge[] = [];
+    const diagnostics: string[] = [];
+    const sourceFiles = this.analyzer
+      .getSourceFiles()
+      .filter((sf) => !sf.isDeclarationFile);
+
+    this.buildSymbolMap(checker, sourceFiles);
+
+    for (const sourceFile of sourceFiles) {
+      this.extractImportEdges(sourceFile, checker, edges, diagnostics);
+      this.extractCallEdges(sourceFile, checker, edges, diagnostics);
+      this.extractHeritageEdges(sourceFile, checker, edges, diagnostics);
+      this.extractOverrideEdges(sourceFile, checker, edges, diagnostics);
+    }
+
+    return { edges: this.deduplicateEdges(edges), diagnostics };
+  }
+
+  private buildSymbolMap(
+    checker: ts.TypeChecker,
+    sourceFiles: readonly ts.SourceFile[],
+  ): void {
+    for (const sourceFile of sourceFiles) {
       this.visitForSymbolMap(sourceFile, checker);
     }
   }
@@ -86,6 +102,7 @@ export class EdgeExtractor {
     sourceFile: ts.SourceFile,
     checker: ts.TypeChecker,
     edges: TrailEdge[],
+    diagnostics: string[],
   ): void {
     const root = this.analyzer.getProjectRoot();
     const sourceRelative = path.relative(root, sourceFile.fileName);
@@ -96,13 +113,21 @@ export class EdgeExtractor {
         return;
       }
 
+      const moduleSpecifierText = (node.moduleSpecifier as ts.StringLiteral)
+        .text;
       const moduleSymbol = checker.getSymbolAtLocation(node.moduleSpecifier);
       if (!moduleSymbol) {
+        diagnostics.push(
+          `Import source file not found: ${moduleSpecifierText} (in ${sourceRelative})`,
+        );
         return;
       }
 
       const declarations = moduleSymbol.getDeclarations();
       if (!declarations || declarations.length === 0) {
+        diagnostics.push(
+          `Import has no declarations: ${moduleSpecifierText} (in ${sourceRelative})`,
+        );
         return;
       }
 
@@ -124,21 +149,23 @@ export class EdgeExtractor {
     sourceFile: ts.SourceFile,
     checker: ts.TypeChecker,
     edges: TrailEdge[],
+    diagnostics: string[],
   ): void {
-    this.visitForCallEdges(sourceFile, checker, edges);
+    this.visitForCallEdges(sourceFile, checker, edges, diagnostics);
   }
 
   private visitForCallEdges(
     node: ts.Node,
     checker: ts.TypeChecker,
     edges: TrailEdge[],
+    diagnostics: string[],
   ): void {
     if (ts.isCallExpression(node)) {
-      this.processCallExpression(node, checker, edges);
+      this.processCallExpression(node, checker, edges, diagnostics);
     }
 
     ts.forEachChild(node, (child) => {
-      this.visitForCallEdges(child, checker, edges);
+      this.visitForCallEdges(child, checker, edges, diagnostics);
     });
   }
 
@@ -146,9 +173,14 @@ export class EdgeExtractor {
     node: ts.CallExpression,
     checker: ts.TypeChecker,
     edges: TrailEdge[],
+    diagnostics: string[],
   ): void {
+    const expressionText = node.expression.getText();
     let callSymbol = checker.getSymbolAtLocation(node.expression);
     if (!callSymbol) {
+      diagnostics.push(
+        `Call target symbol not resolved for: ${expressionText}()`,
+      );
       return;
     }
 
@@ -198,14 +230,16 @@ export class EdgeExtractor {
     sourceFile: ts.SourceFile,
     checker: ts.TypeChecker,
     edges: TrailEdge[],
+    diagnostics: string[],
   ): void {
-    this.visitForHeritageEdges(sourceFile, checker, edges);
+    this.visitForHeritageEdges(sourceFile, checker, edges, diagnostics);
   }
 
   private visitForHeritageEdges(
     node: ts.Node,
     checker: ts.TypeChecker,
     edges: TrailEdge[],
+    diagnostics: string[],
   ): void {
     if (ts.isClassDeclaration(node) && node.heritageClauses) {
       const sourceTrailNode = node.name
@@ -221,6 +255,9 @@ export class EdgeExtractor {
           for (const heritageType of clause.types) {
             let symbol = checker.getSymbolAtLocation(heritageType.expression);
             if (!symbol) {
+              diagnostics.push(
+                `Heritage symbol not resolved for: ${heritageType.expression.getText()} (in class ${sourceTrailNode.label})`,
+              );
               continue;
             }
             if (symbol.flags & ts.SymbolFlags.Alias) {
@@ -240,7 +277,7 @@ export class EdgeExtractor {
     }
 
     ts.forEachChild(node, (child) => {
-      this.visitForHeritageEdges(child, checker, edges);
+      this.visitForHeritageEdges(child, checker, edges, diagnostics);
     });
   }
 
@@ -248,14 +285,16 @@ export class EdgeExtractor {
     sourceFile: ts.SourceFile,
     checker: ts.TypeChecker,
     edges: TrailEdge[],
+    diagnostics: string[],
   ): void {
-    this.visitForOverrideEdges(sourceFile, checker, edges);
+    this.visitForOverrideEdges(sourceFile, checker, edges, diagnostics);
   }
 
   private visitForOverrideEdges(
     node: ts.Node,
     checker: ts.TypeChecker,
     edges: TrailEdge[],
+    diagnostics: string[],
   ): void {
     if (
       ts.isMethodDeclaration(node) &&
@@ -314,7 +353,7 @@ export class EdgeExtractor {
     }
 
     ts.forEachChild(node, (child) => {
-      this.visitForOverrideEdges(child, checker, edges);
+      this.visitForOverrideEdges(child, checker, edges, diagnostics);
     });
   }
 
