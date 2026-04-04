@@ -12,11 +12,12 @@ interface C4GraphCanvasProps {
   readonly viewport: Viewport;
   readonly dispatch: React.Dispatch<Action>;
   readonly canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  readonly selectedNodeId?: string | null;
 }
 
 const EMPTY_SELECTION: SelectionState = { nodeIds: [], edgeIds: [] };
 
-export function GraphCanvas({ document, viewport, dispatch, canvasRef }: Readonly<C4GraphCanvasProps>) {
+export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedNodeId }: Readonly<C4GraphCanvasProps>) {
   const rafRef = useRef<number>(0);
   const isPanningRef = useRef(false);
   const lastPanRef = useRef({ x: 0, y: 0 });
@@ -67,7 +68,7 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef }: Readonl
         nodes: document.nodes,
         edges: resolvedEdges,
         viewport: viewportRef.current,
-        selection: EMPTY_SELECTION,
+        selection: selectedNodeId ? { nodeIds: [selectedNodeId], edgeIds: [] } : EMPTY_SELECTION,
         showGrid: false,
         isDark: true,
       });
@@ -76,7 +77,7 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef }: Readonl
     }
     rafRef.current = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [document.nodes, resolvedEdges, canvasRef]);
+  }, [document.nodes, resolvedEdges, canvasRef, selectedNodeId]);
 
   // Pan
   const handleMouseDown = useCallback((e: React.MouseEvent) => {

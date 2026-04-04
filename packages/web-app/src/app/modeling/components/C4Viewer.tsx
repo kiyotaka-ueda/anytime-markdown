@@ -252,6 +252,7 @@ export function C4Viewer() {
             viewport={state.document.viewport}
             dispatch={dispatch}
             canvasRef={canvasRef}
+            selectedNodeId={selectedElementId}
           />
         </Box>
         {/* Resize grip */}
