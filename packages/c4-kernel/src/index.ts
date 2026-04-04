@@ -27,3 +27,4 @@ export type {
 } from './dsm/types';
 
 export { buildC4Matrix } from './dsm/buildC4Matrix';
+export { buildSourceMatrix } from './dsm/buildSourceMatrix';
