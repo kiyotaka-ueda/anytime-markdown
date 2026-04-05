@@ -207,7 +207,26 @@ export function StandaloneC4Viewer() {
           </Box>
         )}
         {showC4 && showDsm && (
-          <Box onMouseDown={handleSplitDrag} sx={{ width: 5, cursor: 'col-resize', bgcolor: 'transparent', borderLeft: `1px solid ${BORDER_COLOR}`, '&:hover': { bgcolor: 'rgba(144,202,249,0.2)' }, flexShrink: 0 }} />
+          <Box
+            role="separator"
+            aria-orientation="vertical"
+            aria-valuenow={Math.round(splitRatio * 100)}
+            aria-valuemin={20}
+            aria-valuemax={80}
+            aria-label="Resize C4 graph and DSM matrix"
+            tabIndex={0}
+            onMouseDown={handleSplitDrag}
+            onKeyDown={(e: React.KeyboardEvent) => {
+              if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                setSplitRatio(prev => Math.max(0.2, prev - 0.05));
+              } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                setSplitRatio(prev => Math.min(0.8, prev + 0.05));
+              }
+            }}
+            sx={{ width: 5, cursor: 'col-resize', bgcolor: 'transparent', borderLeft: `1px solid ${BORDER_COLOR}`, '&:hover': { bgcolor: 'rgba(144,202,249,0.2)' }, '&:focus-visible': { outline: '2px solid #4FC3F7' }, flexShrink: 0 }}
+          />
         )}
         {showDsm && (
           <Box sx={{ flex: showC4 ? 1 - splitRatio : 1, position: 'relative', minWidth: 100, borderRight: showTree && elementTree.length > 0 ? `1px solid ${BORDER_COLOR}` : 'none' }}>
