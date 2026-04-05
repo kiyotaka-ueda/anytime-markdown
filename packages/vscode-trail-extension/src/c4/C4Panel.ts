@@ -8,7 +8,7 @@ import {
   buildSourceMatrix,
   clusterMatrix,
 } from '@anytime-markdown/c4-kernel';
-import type { C4Model, BoundaryInfo, DsmMapping, DsmMatrix } from '@anytime-markdown/c4-kernel';
+import type { C4Element, C4Model, C4Relationship, BoundaryInfo, DsmMapping, DsmMatrix } from '@anytime-markdown/c4-kernel';
 import { analyze, trailToC4, toMermaid } from '@anytime-markdown/trail-core';
 import type { TrailGraph } from '@anytime-markdown/trail-core';
 import type { C4DataProvider, C4DataServer } from '../server/C4DataServer';
@@ -94,6 +94,83 @@ export class C4Panel implements C4DataProvider {
   public handleRefresh(): void {
     this.inferMapping();
     this.buildDsm();
+  }
+
+  // -------------------------------------------------------------------------
+  //  Editing handlers (manual L1 elements)
+  // -------------------------------------------------------------------------
+
+  private nextManualId(): string {
+    return `manual_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  public handleAddElement(element: { type: 'person' | 'system'; name: string; description?: string; external?: boolean }): void {
+    if (!this.lastModel) return;
+    const newElement: C4Element = {
+      id: this.nextManualId(),
+      type: element.type,
+      name: element.name,
+      ...(element.description ? { description: element.description } : {}),
+      ...(element.external !== undefined ? { external: element.external } : {}),
+      manual: true,
+    };
+    const model: C4Model = {
+      ...this.lastModel,
+      elements: [...this.lastModel.elements, newElement],
+    };
+    this.setModel(model, this.lastBoundaries);
+  }
+
+  public handleUpdateElement(id: string, changes: { name?: string; description?: string; external?: boolean }): void {
+    if (!this.lastModel) return;
+    const elem = this.lastModel.elements.find(e => e.id === id);
+    if (!elem?.manual) return; // 手動要素のみ編集可能
+    const model: C4Model = {
+      ...this.lastModel,
+      elements: this.lastModel.elements.map(e =>
+        e.id === id ? { ...e, ...changes } : e,
+      ),
+    };
+    this.setModel(model, this.lastBoundaries);
+  }
+
+  public handleRemoveElement(id: string): void {
+    if (!this.lastModel) return;
+    const elem = this.lastModel.elements.find(e => e.id === id);
+    if (!elem?.manual) return; // 手動要素のみ削除可能
+    const model: C4Model = {
+      ...this.lastModel,
+      elements: this.lastModel.elements.filter(e => e.id !== id),
+      relationships: this.lastModel.relationships.filter(r => r.from !== id && r.to !== id),
+    };
+    this.setModel(model, this.lastBoundaries);
+  }
+
+  public handleAddRelationship(from: string, to: string, label?: string, technology?: string): void {
+    if (!this.lastModel) return;
+    const newRel: C4Relationship = {
+      from,
+      to,
+      ...(label ? { label } : {}),
+      ...(technology ? { technology } : {}),
+      manual: true,
+    };
+    const model: C4Model = {
+      ...this.lastModel,
+      relationships: [...this.lastModel.relationships, newRel],
+    };
+    this.setModel(model, this.lastBoundaries);
+  }
+
+  public handleRemoveRelationship(from: string, to: string): void {
+    if (!this.lastModel) return;
+    const model: C4Model = {
+      ...this.lastModel,
+      relationships: this.lastModel.relationships.filter(
+        r => !(r.from === from && r.to === to && r.manual),
+      ),
+    };
+    this.setModel(model, this.lastBoundaries);
   }
 
   // -------------------------------------------------------------------------
@@ -243,9 +320,20 @@ export class C4Panel implements C4DataProvider {
 
           progress.report({ message: 'Building C4 model...' });
           server?.notifyProgress('Building C4 model...', 80);
-          const model = trailToC4(graph);
+          const analyzed = trailToC4(graph);
 
+          // 既存の手動要素を保持してマージ
           const panel = C4Panel.getInstance();
+          const manualElements = panel.lastModel?.elements.filter(e => e.manual) ?? [];
+          const manualRels = panel.lastModel?.relationships.filter(r => r.manual) ?? [];
+          const model: C4Model = manualElements.length > 0 || manualRels.length > 0
+            ? {
+              ...analyzed,
+              elements: [...analyzed.elements, ...manualElements],
+              relationships: [...analyzed.relationships, ...manualRels],
+            }
+            : analyzed;
+
           panel.lastTrailGraph = graph;
           panel.lastProjectRoot = graph.metadata.projectRoot;
           panel.setModel(model);
