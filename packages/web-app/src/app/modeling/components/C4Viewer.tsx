@@ -128,6 +128,34 @@ export function C4Viewer() {
     return filterTreeByLevel(fullTree, currentLevel);
   }, [c4Model, boundaryInfos, currentLevel]);
 
+  // DSM用: 選択要素がパッケージの場合、その配下のコンポーネントのみに絞ったモデルを生成
+  const dsmModel = useMemo(() => {
+    if (!c4Model) return null;
+    if (dsmLevel !== 'component' || !selectedElementId) return c4Model;
+
+    // 選択要素がパッケージ（boundary/container/containerDb）か判定
+    const selectedElement = c4Model.elements.find(e => e.id === selectedElementId);
+    const isBoundary = boundaryInfos.some(b => b.id === selectedElementId);
+    const isContainer = selectedElement && (selectedElement.type === 'container' || selectedElement.type === 'containerDb');
+
+    if (!isBoundary && !isContainer) return c4Model;
+
+    // 選択パッケージ配下の要素のみに絞る
+    const childElements = c4Model.elements.filter(e => e.boundaryId === selectedElementId);
+    if (childElements.length === 0) return c4Model;
+
+    const childIds = new Set(childElements.map(e => e.id));
+    const filteredRelationships = c4Model.relationships.filter(
+      r => childIds.has(r.from) || childIds.has(r.to),
+    );
+
+    return {
+      ...c4Model,
+      elements: childElements,
+      relationships: filteredRelationships,
+    };
+  }, [c4Model, boundaryInfos, dsmLevel, selectedElementId]);
+
   const handleSplitDrag = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     const container = containerRef.current;
@@ -300,9 +328,9 @@ export function C4Viewer() {
         {/* Center: DSM */}
         {showDsm && (
         <Box sx={{ flex: showC4 ? 1 - splitRatio : 1, position: 'relative', minWidth: 100, borderRight: showTree && elementTree.length > 0 ? `1px solid ${BORDER_COLOR}` : 'none' }}>
-          {c4Model ? (
+          {dsmModel ? (
             <DsmCanvas
-              model={c4Model}
+              model={dsmModel}
               boundaries={boundaryInfos}
               level={dsmLevel}
               clustered={dsmClustered}
