@@ -180,7 +180,16 @@ export function activate(context: vscode.ExtensionContext) {
 		gitContentProvider,
 	});
 
-	registerC4Commands(context);
+	registerC4Commands(context, {
+		getDataServer: () => dataServer,
+		startServer: async () => {
+			const config = vscode.workspace.getConfiguration('anytimeTrail.server');
+			const port = config.get<number>('port', 19840);
+			startDataServer(port);
+			// サーバー起動を少し待つ
+			await new Promise((resolve) => setTimeout(resolve, 1000));
+		},
+	});
 
 	// C4 Elements パネル（ツリーは空、ナビゲーションボタンのみ）
 	const c4ElementsTreeView = vscode.window.createTreeView('anytimeTrail.c4Elements', {
