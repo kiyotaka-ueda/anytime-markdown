@@ -7,7 +7,6 @@ import { SpecDocsProvider, SpecDocsItem, SpecDocsRootItem, SpecDocsDragAndDrop }
 import { C4Panel } from './c4/C4Panel';
 import { C4ElementsProvider } from './providers/C4ElementsProvider';
 import { C4DataServer } from './server/C4DataServer';
-import type { C4DataProvider } from './server/C4DataServer';
 
 /** git の元コンテンツを提供する TextDocumentContentProvider */
 class GitOriginalContentProvider implements vscode.TextDocumentContentProvider {
@@ -60,9 +59,8 @@ async function openWithVsCodeDiff(
 const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
 
 function startDataServer(port: number): void {
-	// TODO: Task 6 will wire getProvider to return C4Panel as C4DataProvider.
-	// Until then the callback returns undefined so the server starts but has no data source.
-	dataServer = new C4DataServer(() => undefined as C4DataProvider | undefined);
+	dataServer = new C4DataServer(() => C4Panel.getDataProvider());
+	C4Panel.setDataServer(dataServer);
 	dataServer.start(port).then(() => {
 		statusBarItem.text = `$(radio-tower) C4 Server: :${port}`;
 		statusBarItem.tooltip = `C4 Data Server running on port ${port}`;
