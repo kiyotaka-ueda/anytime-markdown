@@ -41,9 +41,13 @@ export class C4Panel implements C4DataProvider {
     return C4Panel.getInstance();
   }
 
-  /** サーバーが稼働中ならブラウザでスタンドアロンビューアを開く */
+  private static viewerOpened = false;
+
+  /** サーバーが稼働中かつ未オープンならブラウザでスタンドアロンビューアを開く */
   private static openViewer(): void {
     if (!C4Panel.dataServer?.isRunning) return;
+    if (C4Panel.viewerOpened) return;
+    C4Panel.viewerOpened = true;
     const port = vscode.workspace.getConfiguration('anytimeTrail.server').get<number>('port', 19840);
     vscode.env.openExternal(vscode.Uri.parse(`http://localhost:${port}`));
   }
