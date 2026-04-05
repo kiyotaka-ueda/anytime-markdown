@@ -25,13 +25,18 @@ function cloneDoc(doc: GraphDocument): GraphDocument {
  *
  * - L4: 全ノード表示
  * - L3: L4 ノードを非表示、L3 フレームを矩形ノードに変換
- * - L2: L3/L4 を非表示、L2 フレームを矩形ノードに変換
- * - L1: L2 フレームのみ矩形表示
+ * - L2: L3/L4 を非表示、L2 フレームを矩形ノードに変換、L1 フレームを保持
+ * - L1: L1 フレームのみ矩形表示
  */
 export function buildLevelView(doc: GraphDocument, level: number): GraphDocument {
   if (level >= 4) return cloneDoc(doc);
 
-  const maxFrameDepth = level - 1;
+  // system フレーム（depth=1）がある場合、表示可能な深さを +1 する
+  const hasSystemFrame = doc.nodes.some(
+    n => n.type === 'frame' && n.metadata?.c4Type === 'system',
+  );
+  const maxFrameDepth = hasSystemFrame ? level : level - 1;
+
   const visibleNodes: GraphNode[] = [];
   const visibleNodeIds = new Set<string>();
 
