@@ -164,6 +164,7 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
       onFocus={() => setIsFocused(true)}
       onBlur={() => setIsFocused(false)}
       onKeyDown={canvas.handleKeyDown}
+      onKeyUp={canvas.handleKeyUp}
       onMouseDown={canvas.handleMouseDown}
       onMouseMove={canvas.handleMouseMove}
       onMouseUp={canvas.handleMouseUp}

@@ -34,6 +34,20 @@ export interface UseCanvasBaseOptions {
   readonly onNodeDoubleClick?: (node: GraphNode | null) => void;
   /** フレームノードをヒットテスト対象から除外するか（デフォルト true） */
   readonly skipFrames?: boolean;
+
+  // --- Editor key bindings (optional) ---
+  /** 現在の選択状態を取得する */
+  readonly getSelection?: () => SelectionState;
+  /** dispatch 関数（DELETE_SELECTED, UNDO, REDO 等のアクション発行用） */
+  readonly dispatch?: (action: { type: string; [key: string]: unknown }) => void;
+  /** Space キーによるパンモード切替を有効にするか（デフォルト false） */
+  readonly enableSpacePan?: boolean;
+  /** コピー実行時のコールバック */
+  readonly onCopy?: () => void;
+  /** ペースト実行時のコールバック */
+  readonly onPaste?: () => void;
+  /** Delete キー押下時のコールバック（未指定の場合 dispatch DELETE_SELECTED） */
+  readonly onDelete?: () => void;
 }
 
 export interface UseCanvasBaseReturn {
@@ -47,6 +61,8 @@ export interface UseCanvasBaseReturn {
   readonly handleDoubleClick: (e: React.MouseEvent) => void;
   /** canvas の onKeyDown に渡す */
   readonly handleKeyDown: (e: React.KeyboardEvent) => void;
+  /** canvas の onKeyUp に渡す（Space パンモード解除用） */
+  readonly handleKeyUp: (e: React.KeyboardEvent) => void;
   /** canvas の onContextMenu に渡す（右クリックメニュー抑止） */
   readonly handleContextMenu: (e: React.MouseEvent) => void;
   /** 現在のドラッグモード */
@@ -84,6 +100,12 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
     onNodeClick,
     onNodeDoubleClick,
     skipFrames = true,
+    getSelection,
+    dispatch: editorDispatch,
+    enableSpacePan = false,
+    onCopy,
+    onPaste,
+    onDelete,
   } = options;
 
   // --- Refs ---
@@ -96,6 +118,7 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
   }>({ mode: 'none', startScreenX: 0, startScreenY: 0, startWorldX: 0, startWorldY: 0 });
 
   const selectRectRef = useRef<SelectRect | null>(null);
+  const spaceRef = useRef(false);
 
   // --- Helpers ---
 
@@ -124,8 +147,8 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
     const vp = getViewport();
     const world = screenToWorld(vp, sx, sy);
 
-    // Middle/right button → pan
-    if (e.button === 1 || e.button === 2) {
+    // Middle/right button or Space held → pan
+    if (e.button === 1 || e.button === 2 || (enableSpacePan && spaceRef.current)) {
       dragRef.current = { mode: 'pan', startScreenX: sx, startScreenY: sy, startWorldX: world.x, startWorldY: world.y };
       return;
     }
@@ -204,6 +227,69 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
 
   // --- Keyboard ---
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    // Space → pan mode
+    if (enableSpacePan && e.code === 'Space' && !e.repeat) {
+      spaceRef.current = true;
+      if (canvasRef.current) canvasRef.current.style.cursor = 'grab';
+      return;
+    }
+
+    // Escape → clear selection
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setSelection(EMPTY_SELECTION);
+      return;
+    }
+
+    // Delete / Backspace → delete selected
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      const sel = getSelection?.();
+      if (sel && (sel.nodeIds.length > 0 || sel.edgeIds.length > 0)) {
+        e.preventDefault();
+        if (onDelete) {
+          onDelete();
+        } else {
+          editorDispatch?.({ type: 'DELETE_SELECTED' });
+        }
+        return;
+      }
+    }
+
+    // Ctrl/Cmd shortcuts
+    if (e.ctrlKey || e.metaKey) {
+      switch (e.key) {
+        case 'z':
+          e.preventDefault();
+          editorDispatch?.({ type: e.shiftKey ? 'REDO' : 'UNDO' });
+          return;
+        case 'y':
+          e.preventDefault();
+          editorDispatch?.({ type: 'REDO' });
+          return;
+        case 'a':
+          e.preventDefault();
+          setSelection({ nodeIds: getNodes().map(n => n.id), edgeIds: [] });
+          return;
+        case 'c':
+          e.preventDefault();
+          onCopy?.();
+          return;
+        case 'v':
+          e.preventDefault();
+          onPaste?.();
+          return;
+        case 'g':
+          e.preventDefault();
+          if (e.shiftKey) {
+            editorDispatch?.({ type: 'UNGROUP_SELECTED' });
+          } else {
+            editorDispatch?.({ type: 'GROUP_SELECTED', groupId: crypto.randomUUID() });
+          }
+          return;
+      }
+    }
+
+    // Viewport navigation
     const vp = getViewport();
     switch (e.key) {
       case 'ArrowUp':
@@ -232,7 +318,15 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
         setViewport({ ...vp, scale: vp.scale * 0.9 });
         break;
     }
-  }, [getViewport, setViewport]);
+  }, [getViewport, setViewport, setSelection, getNodes, getSelection, editorDispatch, enableSpacePan, canvasRef, onCopy, onPaste, onDelete]);
+
+  // --- Key up (Space release) ---
+  const handleKeyUp = useCallback((e: React.KeyboardEvent) => {
+    if (enableSpacePan && e.code === 'Space') {
+      spaceRef.current = false;
+      if (canvasRef.current) canvasRef.current.style.cursor = 'default';
+    }
+  }, [enableSpacePan, canvasRef]);
 
   // --- Context menu ---
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
@@ -275,6 +369,7 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
     handleMouseUp,
     handleDoubleClick,
     handleKeyDown,
+    handleKeyUp,
     handleContextMenu,
     getDragMode: () => dragRef.current.mode,
     getSelectRect: () => selectRectRef.current,
