@@ -60,7 +60,7 @@ const standaloneConfig = {
     rules: [
       {
         test: /\.tsx?$/,
-        exclude: /node_modules[\\/](?!@anytime-markdown[\\/](?:graph-core|c4-kernel))/,
+        exclude: /node_modules[\\/](?!@anytime-markdown[\\/](?:graph-core|c4-kernel|c4-viewer))/,
         use: [{
           loader: 'ts-loader',
           options: {

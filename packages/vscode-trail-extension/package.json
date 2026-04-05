@@ -532,6 +532,7 @@
   },
   "dependencies": {
     "@anytime-markdown/c4-kernel": "*",
+    "@anytime-markdown/c4-viewer": "*",
     "@anytime-markdown/graph-core": "*",
     "@anytime-markdown/trail-core": "*",
     "typescript": "5.9.3",

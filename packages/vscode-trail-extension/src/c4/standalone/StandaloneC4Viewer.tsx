@@ -15,7 +15,7 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
-import { C4ElementTree, DsmCanvas, GraphCanvas, useC4DataSource } from '@anytime-markdown/graph-core/c4';
+import { C4ElementTree, DsmCanvas, GraphCanvas, useC4DataSource } from '@anytime-markdown/c4-viewer';
 import { AddElementDialog, AddRelationshipDialog } from './C4EditDialogs';
 import type { ElementFormData, RelationshipFormData } from './C4EditDialogs';
 

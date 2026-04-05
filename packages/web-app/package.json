@@ -16,6 +16,7 @@
   "dependencies": {
     "@anytime-markdown/cms-core": "*",
     "@anytime-markdown/c4-kernel": "*",
+    "@anytime-markdown/c4-viewer": "*",
     "@anytime-markdown/graph-core": "*",
     "@anytime-markdown/markdown-core": "*",
     "@auth/core": "0.41.1",
