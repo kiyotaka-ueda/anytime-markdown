@@ -1,50 +1,115 @@
 # Anytime Trail
 
-![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/anytime-trial.anytime-trail?label=VS%20Marketplace&logo=visual-studio-code)
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
-![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=alert_status)
-![Bugs](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=bugs)
-![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=code_smells)
-![Coverage](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=coverage)
-![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=duplicated_lines_density)
+![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/anytime-trial.anytime-trail?label=VS%20Marketplace&logo=visual-studio-code)![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=alert_status)![Bugs](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=bugs)![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=code_smells)![Coverage](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=coverage)![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=duplicated_lines_density)
 
-**VS Code 用 Git リポジトリ管理、C4 アーキテクチャ図、プロジェクト可視化**
+**コードを書きながら、アーキテクチャを見る。**
 
-Git リポジトリの管理、コミット履歴の可視化、TypeScript コードベースからのインタラクティブな C4 アーキテクチャ図の生成を、サイドバーパネルから操作できます。
+TypeScript プロジェクトを解析して C4 アーキテクチャ図と DSM（依存構造マトリクス）を自動生成。\
+ブラウザのライブビューアで、コードの変更がリアルタイムに構造図へ反映されます。
 
-## 機能
 
-### C4 アーキテクチャ図
+## 30秒で始める
 
-C4 モデルは、ソフトウェアアーキテクチャを4つの抽象度で段階的に表現するフレームワークである。
+```
+1. settings.json に追加:  "anytimeTrail.server.enabled": true
+2. VS Code をリロード
+3. コマンドパレット → "Anytime Trail: Analyze C4"
+4. ブラウザが開き、あなたのプロジェクトの構造が見える
+```
 
-| レベル | 名称 | 対象 | 表示内容 |
-| --- | --- | --- | --- |
-| C1 | System Context | システム全体 | 外部ユーザー・外部システムとの関係を俯瞰する |
-| C2 | Container | アプリケーション / サービス | システム内部のコンテナ（Web アプリ、API、DB 等）の構成を表示する |
-| C3 | Component | モジュール / クラス群 | コンテナ内部のコンポーネント（モジュール・パッケージ）の依存関係を表示する |
-| C4 | Code | ファイル / クラス / 関数 | コンポーネント内部のソースコード要素を全て表示する |
+以降は VS Code で作業するたびに、ビューアがリアルタイムで追従します。
 
-- **解析** — `tsconfig.json` をスキャンして TypeScript プロジェクトから C4 モデルを自動生成
-- **レベル切替** — アーキテクチャレベル（L1: システムコンテキスト、L2: コンテナ、L3: コンポーネント、L4: コード）を切り替えて詳細度を制御
-- **インタラクティブキャンバス** — パン、ズーム、ノードクリックでソースファイルを開く、接続ノードのハイライト
-- **Git 連携** — グラフビューでコミットを選択すると、C4 図上で変更ファイルをハイライト
 
-### Git 管理
+## C4 アーキテクチャ図 & DSM
 
-- **リポジトリ** — フォルダーを開く / リポジトリをクローン。ドラッグ&ドロップ対応のファイルツリー。ブランチ切替、Markdown フィルター
-- **変更** — ステージ / 未ステージの変更を表示。ステージ、アンステージ、破棄、コミット、プッシュをインライン操作。バッジに変更数を表示
-- **グラフ** — ASCII アートのコミットグラフ。ローカル / リモートの区別、ブランチ・タグの装飾表示
-- **タイムライン** — ファイルごとのコミット履歴。任意のコミットと作業コピーを比較
+1コマンドで、TypeScript プロジェクト全体の構造を4段階の詳細度で可視化します。
 
-[Anytime Markdown](https://marketplace.visualstudio.com/items?itemName=anytime-trial.anytime-markdown) がインストールされている場合、Markdown の差分はリッチな比較モードで表示されます。未インストール時は VS Code 標準の diff エディタを使用します。
+| レベル | 見えるもの |
+| --- | --- |
+| L1 System Context | システム全体と外部との関係 |
+| L2 Container | アプリ・API・DB などの構成要素 |
+| L3 Component | パッケージ・モジュール間の依存 |
+| L4 Code | ファイル単位のすべての依存関係 |
 
-## 使い方
+![C4 Mermaid ダイアグラムの例](images/c4-mermaid.png)
 
-1. 拡張機能をインストール
-2. アクティビティバーの **Anytime Trail** アイコンをクリック
-3. **リポジトリ**ビューからフォルダーを開くか、リポジトリをクローン
-4. コマンドパレットから **Anytime Trail: Analyze C4** を実行して、TypeScript プロジェクトの C4 図を生成
+**ライブビューア** (`http://localhost:19840`)
+
+- C4 グラフ、DSM マトリクス、要素ツリーの3ペイン構成
+- L1 〜 L4 のレベル切替でドリルダウン
+- DSM のクラスタリングで関連モジュールをグルーピング
+- 循環依存を赤枠でハイライト
+- VS Code での再解析・インポートが即座に反映（WebSocket 接続）
+
+**インポート / エクスポート**
+
+- Mermaid C4 形式（`.mmd`）のインポートに対応
+- JSON / Mermaid 形式でエクスポート可能
+
+
+## Git 管理
+
+サイドバーから Git リポジトリの日常操作をワンストップで。
+
+- **リポジトリ** — フォルダーを開く / クローン / ブランチ切替。\
+  ドラッグ&ドロップ対応のファイルツリー
+- **変更** — ステージ / アンステージ / 破棄 / コミット / プッシュをインライン操作。\
+  サイドバーバッジで変更数を常時表示
+- **グラフ** — ASCII コミットグラフでブランチの流れを一覧
+- **タイムライン** — ファイルごとのコミット履歴と差分比較
+
+> [Anytime Markdown](https://marketplace.visualstudio.com/items?itemName=anytime-trial.anytime-markdown) と組み合わせると、Markdown の差分をリッチな比較モードで表示できます。
+
+
+## セットアップ
+
+
+### 1. C4 データサーバーを有効化
+
+VS Code の `settings.json` に以下を追加:
+
+```json
+{
+  "anytimeTrail.server.enabled": true
+}
+```
+
+### 2. VS Code をリロード
+
+`Ctrl+Shift+P` → `Developer: Reload Window`\
+ステータスバー右側に `C4 Server: :19840` が表示されればOK。
+
+### 3. 解析を実行
+
+`Ctrl+Shift+P` → `Anytime Trail: Analyze C4`
+
+ブラウザが自動的に開き、プロジェクトの構造図が表示されます。\
+2回目以降は既に開いているブラウザにリアルタイム反映されるため、新しいタブは開きません。
+
+> Mermaid C4 ファイルをインポートする場合は `Anytime Trail: Import C4` を使用します。
+
+
+## ビューアの操作
+
+| 操作 | 説明 |
+| --- | --- |
+| L1 〜 L4 | 表示する C4 レベルの切替 |
+| Fit | グラフを画面にフィット |
+| Cluster | DSM を依存関係でグルーピング |
+| C4 / DSM / Tree | 各パネルの表示切替 |
+| ドラッグ | パン（視点移動） |
+| ホイール | ズーム |
+
+
+## 設定一覧
+
+| 設定キー | デフォルト | 説明 |
+| --- | --- | --- |
+| `anytimeTrail.server.enabled` | `false` | C4 データサーバーの有効 / 無効 |
+| `anytimeTrail.server.port` | `19840` | データサーバーのポート番号 |
+| `anytimeTrail.c4.modelPath` | `.vscode/c4-model.json` | C4 モデルの保存先 |
+| `anytimeTrail.c4.analyzeExcludePatterns` | `[".worktrees", ...]` | 解析から除外するパターン |
+
 
 ## ライセンス
 
