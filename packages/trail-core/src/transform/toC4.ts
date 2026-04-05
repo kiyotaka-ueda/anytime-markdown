@@ -46,6 +46,16 @@ function extractComponentName(filePath: string): string | undefined {
   return undefined;
 }
 
+/**
+ * 複数パッケージを含むモノレポ解析か判定する。
+ * packages/ プレフィックスを持つファイルが存在すれば true。
+ */
+function isMonorepoAnalysis(graph: TrailGraph): boolean {
+  return graph.nodes.some(
+    (n) => n.type === 'file' && /^packages\/[^/]+\//.test(n.filePath),
+  );
+}
+
 /** trail-core の解析結果を C4Model に変換する（L2〜L4） */
 export function trailToC4(graph: TrailGraph): C4Model {
   const elements: C4Element[] = [];
@@ -72,12 +82,25 @@ export function trailToC4(graph: TrailGraph): C4Model {
     }
   }
 
+  // --- Phase 1.5: L2 System Boundary（モノレポの場合） ---
+  const monorepo = isMonorepoAnalysis(graph);
+  const systemBoundaryId = monorepo ? `sys_${path.basename(projectRoot)}` : undefined;
+
+  if (monorepo && systemBoundaryId) {
+    elements.push({
+      id: systemBoundaryId,
+      type: 'system',
+      name: path.basename(projectRoot),
+    });
+  }
+
   // --- Phase 2: L2 Container 要素 ---
   for (const pkgName of packageSet) {
     elements.push({
       id: `pkg_${pkgName}`,
       type: 'container',
       name: pkgName,
+      boundaryId: systemBoundaryId,
     });
   }
 

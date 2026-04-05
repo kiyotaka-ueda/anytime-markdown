@@ -29,7 +29,15 @@ export interface DsmDiffUpdatedMessage {
 
 export type DsmUpdatedMessage = DsmMatrixUpdatedMessage | DsmDiffUpdatedMessage;
 
-export type ServerMessage = ModelUpdatedMessage | DsmUpdatedMessage;
+export interface AnalysisProgressMessage {
+  readonly type: 'analysis-progress';
+  /** 現在のフェーズ名（空文字で完了/非表示） */
+  readonly phase: string;
+  /** 0〜100 の進捗率（不明な場合は -1） */
+  readonly percent: number;
+}
+
+export type ServerMessage = ModelUpdatedMessage | DsmUpdatedMessage | AnalysisProgressMessage;
 
 // ---------------------------------------------------------------------------
 //  Client → Server messages

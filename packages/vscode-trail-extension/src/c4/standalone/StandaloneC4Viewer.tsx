@@ -6,6 +6,7 @@ import FitScreenIcon from '@mui/icons-material/FitScreen';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import ButtonGroup from '@mui/material/ButtonGroup';
+import LinearProgress from '@mui/material/LinearProgress';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
@@ -51,6 +52,7 @@ export function StandaloneC4Viewer() {
 
   const c4Model = dataSource.c4Model;
   const boundaryInfos = dataSource.boundaries;
+  const analysisProgress = dataSource.analysisProgress;
 
   // dataSource のモデル更新をグラフに反映
   useEffect(() => {
@@ -196,6 +198,54 @@ export function StandaloneC4Viewer() {
         <Button size="small" onClick={() => { if (showDsm && !showC4) return; setShowDsm(prev => !prev); }} aria-pressed={showDsm} aria-label="Toggle DSM matrix" sx={{ ...toolbarButtonSx, ...(showDsm && { bgcolor: 'rgba(144,202,249,0.12)' }) }}>DSM</Button>
         <Button size="small" startIcon={<AccountTreeIcon sx={{ fontSize: 18 }} />} onClick={() => setShowTree(prev => !prev)} aria-pressed={showTree} aria-label="Toggle element tree" sx={{ ...toolbarButtonSx, ...(showTree && { bgcolor: 'rgba(144,202,249,0.12)' }) }}>Tree</Button>
       </Toolbar>
+      {analysisProgress && (
+        <Box
+          role="dialog"
+          aria-label="Analysis in progress"
+          aria-live="polite"
+          sx={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1300,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            bgcolor: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(4px)',
+          }}
+        >
+          <Box sx={{
+            bgcolor: BG_SECONDARY,
+            border: `1px solid ${BORDER_COLOR}`,
+            borderRadius: 2,
+            px: 4,
+            py: 3,
+            minWidth: 360,
+            maxWidth: 480,
+            textAlign: 'center',
+          }}>
+            <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 600, mb: 1 }}>
+              Analyzing Workspace
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 2 }}>
+              {analysisProgress.phase}
+            </Typography>
+            <LinearProgress
+              variant={analysisProgress.percent >= 0 ? 'determinate' : 'indeterminate'}
+              value={analysisProgress.percent >= 0 ? analysisProgress.percent : undefined}
+              sx={{
+                height: 6,
+                borderRadius: 3,
+                bgcolor: 'rgba(255,255,255,0.08)',
+                '& .MuiLinearProgress-bar': { bgcolor: ACCENT_BLUE, borderRadius: 3 },
+              }}
+            />
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', mt: 1, display: 'block' }}>
+              {analysisProgress.percent >= 0 ? `${analysisProgress.percent}%` : ''}
+            </Typography>
+          </Box>
+        </Box>
+      )}
       <Box ref={containerRef} sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {showC4 && (
           <Box sx={{ flex: showDsm ? splitRatio : 1, position: 'relative', minWidth: 100 }}>

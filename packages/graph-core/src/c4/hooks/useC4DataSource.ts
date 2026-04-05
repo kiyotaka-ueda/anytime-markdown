@@ -16,6 +16,13 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
+export interface AnalysisProgress {
+  /** 現在のフェーズ名（空文字で非表示） */
+  phase: string;
+  /** 0〜100 の進捗率（-1 で不定） */
+  percent: number;
+}
+
 interface C4DataSourceResult {
   c4Model: C4Model | null;
   boundaries: readonly BoundaryInfo[];
@@ -23,6 +30,7 @@ interface C4DataSourceResult {
   dsmDiff: DsmDiff | null;
   dsmCycles: readonly CyclicPair[];
   connected: boolean;
+  analysisProgress: AnalysisProgress | null;
   sendCommand: (cmd: string, payload?: unknown) => void;
 }
 
@@ -52,7 +60,13 @@ interface WsDsmDiffMessage {
   cycles: CyclicPair[];
 }
 
-type WsMessage = WsModelMessage | WsDsmMatrixMessage | WsDsmDiffMessage;
+interface WsAnalysisProgressMessage {
+  type: 'analysis-progress';
+  phase: string;
+  percent: number;
+}
+
+type WsMessage = WsModelMessage | WsDsmMatrixMessage | WsDsmDiffMessage | WsAnalysisProgressMessage;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -92,6 +106,12 @@ function isWsDsmDiffMessage(v: unknown): v is WsDsmDiffMessage {
   if (typeof v !== 'object' || v === null) return false;
   const obj = v as Record<string, unknown>;
   return obj.type === 'dsm-updated' && 'diff' in obj;
+}
+
+function isWsAnalysisProgressMessage(v: unknown): v is WsAnalysisProgressMessage {
+  if (typeof v !== 'object' || v === null) return false;
+  const obj = v as Record<string, unknown>;
+  return obj.type === 'analysis-progress' && typeof obj.phase === 'string';
 }
 
 // ---------------------------------------------------------------------------
@@ -191,6 +211,7 @@ export function useC4DataSource(serverUrl?: string): C4DataSourceResult {
   const [dsmDiff, setDsmDiff] = useState<DsmDiff | null>(null);
   const [dsmCycles, setDsmCycles] = useState<readonly CyclicPair[]>([]);
   const [connected, setConnected] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null);
 
   // Refs
   const wsRef = useRef<WebSocket | null>(null);
@@ -212,9 +233,12 @@ export function useC4DataSource(serverUrl?: string): C4DataSourceResult {
   const handleWsMessage = useCallback((event: MessageEvent) => {
     try {
       const parsed: unknown = JSON.parse(String(event.data));
-      if (isWsModelMessage(parsed)) {
+      if (isWsAnalysisProgressMessage(parsed)) {
+        setAnalysisProgress(parsed.phase ? { phase: parsed.phase, percent: parsed.percent } : null);
+      } else if (isWsModelMessage(parsed)) {
         setRemoteModel(parsed.model);
         setRemoteBoundaries(parsed.boundaries);
+        setAnalysisProgress(null);
       } else if (isWsDsmMatrixMessage(parsed)) {
         setDsmMatrix(parsed.matrix);
       } else if (isWsDsmDiffMessage(parsed)) {
@@ -296,6 +320,7 @@ export function useC4DataSource(serverUrl?: string): C4DataSourceResult {
     dsmDiff,
     dsmCycles,
     connected,
+    analysisProgress,
     sendCommand,
   };
 }

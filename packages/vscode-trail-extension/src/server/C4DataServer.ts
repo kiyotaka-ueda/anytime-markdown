@@ -155,6 +155,16 @@ export class C4DataServer {
     }
   }
 
+  /** 解析進捗をビューアに配信する */
+  notifyProgress(phase: string, percent: number): void {
+    if (this.clients.size === 0) return;
+    const message: ServerMessage = { type: 'analysis-progress', phase, percent };
+    const payload = JSON.stringify(message);
+    for (const ws of this.clients) {
+      ws.send(payload);
+    }
+  }
+
   // -------------------------------------------------------------------------
   //  HTTP handler
   // -------------------------------------------------------------------------

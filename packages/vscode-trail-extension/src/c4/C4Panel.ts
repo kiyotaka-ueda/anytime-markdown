@@ -193,15 +193,33 @@ export class C4Panel implements C4DataProvider {
 
     try {
       await vscode.window.withProgress(
-        { location: vscode.ProgressLocation.Notification, title: 'Analyzing TypeScript for C4...' },
-        async () => {
-          const graph = analyze({ tsconfigPath });
+        { location: vscode.ProgressLocation.Notification, title: 'C4 Analysis', cancellable: false },
+        async (progress) => {
+          const server = C4Panel.dataServer;
+          const phases = ['Loading project...', 'Extracting symbols...', 'Extracting dependencies...', 'Filtering results...', 'Building C4 model...'];
+          const phasePercent = (phase: string): number => {
+            const idx = phases.indexOf(phase);
+            return idx >= 0 ? Math.round((idx / phases.length) * 100) : -1;
+          };
+
+          server?.notifyProgress('Loading project...', 0);
+          const graph = analyze({
+            tsconfigPath,
+            onProgress: (phase) => {
+              progress.report({ message: phase });
+              server?.notifyProgress(phase, phasePercent(phase));
+            },
+          });
+
+          progress.report({ message: 'Building C4 model...' });
+          server?.notifyProgress('Building C4 model...', 80);
           const model = trailToC4(graph);
 
           const panel = C4Panel.getInstance();
           panel.lastTrailGraph = graph;
           panel.lastProjectRoot = graph.metadata.projectRoot;
           panel.setModel(model);
+          server?.notifyProgress('', 100);
         },
       );
       C4Panel.openViewer();
