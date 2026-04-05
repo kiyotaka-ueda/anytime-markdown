@@ -86,6 +86,27 @@ describe('buildLevelView', () => {
     expect(view.nodes).toHaveLength(3);
   });
 
+  it('should show person and external system nodes at L1', () => {
+    const sysFrame: GraphNode = {
+      ...makeFrame('sys'), metadata: { c4Type: 'system' },
+    };
+    const person: GraphNode = {
+      ...makeRect('user'), type: 'ellipse', metadata: { c4Type: 'person' },
+    };
+    const extSys: GraphNode = {
+      ...makeRect('ext'), metadata: { c4Type: 'system' },
+    };
+    const doc = makeDoc([sysFrame, person, extSys, makeFrame('pkg1', 'sys')]);
+    const view = buildLevelView(doc, 1);
+    // person と external system が表示される
+    expect(view.nodes.find(n => n.id === 'user')).toBeDefined();
+    expect(view.nodes.find(n => n.id === 'ext')).toBeDefined();
+    // system frame は rect に変換される（L1 では maxFrameDepth=1）
+    expect(view.nodes.find(n => n.id === 'sys')?.type).toBe('rect');
+    // container フレームは非表示
+    expect(view.nodes.find(n => n.id === 'pkg1')).toBeUndefined();
+  });
+
   it('should not mutate original document', () => {
     const doc = makeDoc([makeFrame('l2'), makeFrame('l3', 'l2')]);
     buildLevelView(doc, 3);

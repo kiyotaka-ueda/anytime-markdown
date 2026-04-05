@@ -1,4 +1,12 @@
 import type { GraphDocument, GraphNode, GraphEdge } from '@anytime-markdown/graph-core';
+import type { C4ElementType } from '../types';
+
+/** レベルごとに非フレームノードとして表示する c4Type */
+const VISIBLE_C4_TYPES: Readonly<Record<number, ReadonlySet<C4ElementType>>> = {
+  1: new Set<C4ElementType>(['person', 'system']),
+  2: new Set<C4ElementType>(['person', 'system']),
+  3: new Set<C4ElementType>(['person', 'system']),
+};
 
 /** ノードのフレーム深さを計算（ルートフレーム=1, 子フレーム=2, ...） */
 export function getFrameDepth(node: GraphNode, allNodes: readonly GraphNode[]): number {
@@ -56,8 +64,15 @@ export function buildLevelView(doc: GraphDocument, level: number): GraphDocument
         visibleNodes.push({ ...node, style: { ...node.style } });
       }
       visibleNodeIds.add(node.id);
+    } else {
+      // 非フレームノード: c4Type がレベルの表示対象なら含める（person, 外部 system 等）
+      const c4Type = node.metadata?.c4Type as C4ElementType | undefined;
+      const visibleTypes = VISIBLE_C4_TYPES[level];
+      if (c4Type && visibleTypes?.has(c4Type)) {
+        visibleNodes.push({ ...node, style: { ...node.style } });
+        visibleNodeIds.add(node.id);
+      }
     }
-    // 非フレームノード: level < 4 では全て除外
   }
 
   const visibleEdges: GraphEdge[] = doc.edges
