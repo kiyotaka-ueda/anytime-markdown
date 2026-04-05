@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { TrailLogger } from '../utils/TrailLogger';
 
 const GIT_LOG_LIMIT = 100;
 const GIT_LOG_MAX_BUFFER = 1024 * 1024;
@@ -74,7 +75,7 @@ function collectLocalOnlyHashes(gitRoot: string): Set<string> {
 			const trimmed = h.trim();
 			if (trimmed) { hashes.add(trimmed); }
 		}
-	} catch { /* リモートなしの場合は全てローカル扱い */ }
+	} catch { /* リモートなしの場合は全てローカル扱い — 正常系 */ }
 	return hashes;
 }
 
@@ -137,7 +138,7 @@ export class GraphProvider implements vscode.TreeDataProvider<GraphItem> {
 		if (rootPath) {
 			try {
 				this.gitRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd: rootPath, encoding: 'utf-8' }).trim();
-			} catch { /* ignore */ }
+			} catch (err) { TrailLogger.warn(`Not a git repo: ${rootPath}`); }
 		}
 		this.items = [];
 		this._onDidChangeTreeData.fire();

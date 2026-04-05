@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { TrailLogger } from '../utils/TrailLogger';
 
 const REFRESH_DEBOUNCE_MS = 500;
 
@@ -212,7 +213,7 @@ export class ChangesProvider implements vscode.TreeDataProvider<ChangesTreeItem>
 					watcher.onDidDelete(debouncedRefresh);
 					this.watchers.push(watcher);
 				}
-			} catch { /* not a git repo */ }
+			} catch (err) { TrailLogger.warn(`Not a git repo: ${rootPath}`); }
 		}
 
 		this.primaryGitRoot = this.gitRootEntries[0]?.gitRoot ?? null;
@@ -337,11 +338,11 @@ export class ChangesProvider implements vscode.TreeDataProvider<ChangesTreeItem>
 		try {
 			const aheadOut = execFileSync('git', ['rev-list', '@{u}..HEAD', '--count'], { cwd: gitRoot, encoding: 'utf-8' }).trim();
 			ahead = Number.parseInt(aheadOut, 10) || 0;
-		} catch { /* no upstream or error */ }
+		} catch { /* no upstream */ }
 		try {
 			const behindOut = execFileSync('git', ['rev-list', 'HEAD..@{u}', '--count'], { cwd: gitRoot, encoding: 'utf-8' }).trim();
 			behind = Number.parseInt(behindOut, 10) || 0;
-		} catch { /* no upstream or error */ }
+		} catch { /* no upstream */ }
 		return { ahead, behind };
 	}
 
@@ -351,7 +352,7 @@ export class ChangesProvider implements vscode.TreeDataProvider<ChangesTreeItem>
 		let branchName = '';
 		try {
 			branchName = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: gitRoot, encoding: 'utf-8' }).trim();
-		} catch { /* ignore */ }
+		} catch (err) { TrailLogger.warn(`Failed to get branch name for ${gitRoot}`); }
 		return { repoName, branchName };
 	}
 

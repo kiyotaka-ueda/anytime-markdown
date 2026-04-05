@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 
 import { showError } from '../utils/errorHelpers';
+import { TrailLogger } from '../utils/TrailLogger';
 
 const STORAGE_KEY = 'anytimeTrail.specDocsRoot';
 const STORAGE_KEY_MULTI = 'anytimeTrail.specDocsRoots';
@@ -335,7 +336,7 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsNode> {
 		try {
 			const entries = fs.readdirSync(dirPath, { withFileTypes: true });
 			return entries.some(entry => this.isMarkdownEntry(entry, dirPath));
-		} catch { /* ignore */ }
+		} catch (err) { TrailLogger.error('Failed to read directory', err); }
 		return false;
 	}
 

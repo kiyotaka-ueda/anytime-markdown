@@ -12,6 +12,7 @@ import type { C4Model, BoundaryInfo, DsmMapping, DsmMatrix } from '@anytime-mark
 import { analyze, trailToC4, toMermaid } from '@anytime-markdown/trail-core';
 import type { TrailGraph } from '@anytime-markdown/trail-core';
 import type { C4DataProvider, C4DataServer } from '../server/C4DataServer';
+import { TrailLogger } from '../utils/TrailLogger';
 
 /**
  * C4モデルのデータ管理を担当するシングルトン。
@@ -115,8 +116,8 @@ export class C4Panel implements C4DataProvider {
       }
       const data = { model, boundaries };
       fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
-    } catch {
-      // 保存失敗は無視（権限エラー等）
+    } catch (err) {
+      TrailLogger.error('Failed to save C4 model', err);
     }
   }
 
@@ -129,8 +130,8 @@ export class C4Panel implements C4DataProvider {
       if (data?.model?.elements && Array.isArray(data.model.elements)) {
         return { model: data.model, boundaries: data.boundaries ?? [] };
       }
-    } catch {
-      // パースエラーは無視
+    } catch (err) {
+      TrailLogger.warn('Failed to parse saved C4 model');
     }
     return null;
   }
@@ -338,8 +339,8 @@ export class C4Panel implements C4DataProvider {
         this.lastSourceMatrix = buildSourceMatrix(this.lastTrailGraph, this.dsmLevel);
       }
       C4Panel.dataServer?.notify('dsm-updated');
-    } catch {
-      // DSM build failure is non-critical
+    } catch (err) {
+      TrailLogger.warn('DSM build failed');
     }
   }
 }

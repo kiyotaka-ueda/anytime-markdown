@@ -9,6 +9,7 @@ import { C4DataServer } from './server/C4DataServer';
 import { registerSpecDocsCommands } from './commands/specDocsCommands';
 import { registerChangesCommands, GitOriginalContentProvider } from './commands/changesCommands';
 import { registerC4Commands } from './commands/c4Commands';
+import { TrailLogger } from './utils/TrailLogger';
 
 let dataServer: C4DataServer | undefined;
 let extensionDistPath = '';
@@ -226,11 +227,11 @@ export function activate(context: vscode.ExtensionContext) {
 						});
 						specDocsProvider.addRoot(folder.uri.fsPath);
 					} catch {
-						// git リポジトリでないフォルダはスキップ
+						// git リポジトリでないフォルダはスキップ — 正常系
 					}
 				}
-			} catch {
-				// ignore
+			} catch (err) {
+				TrailLogger.error('Failed to auto-open git roots', err);
 			}
 		};
 		setTimeout(autoOpenGitRoots, 1000);
@@ -248,6 +249,7 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 }
 
-export function deactivate() {
-	dataServer?.stop().catch(() => {});
+export function deactivate(): void {
+	dataServer?.stop().catch((err) => TrailLogger.error('Failed to stop data server', err));
+	TrailLogger.dispose();
 }
