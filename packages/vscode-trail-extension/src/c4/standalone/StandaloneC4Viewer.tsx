@@ -303,7 +303,15 @@ export function StandaloneC4Viewer() {
         {showC4 && (
           <Box sx={{ flex: showDsm ? splitRatio : 1, position: 'relative', minWidth: 100 }}>
             <GraphCanvas document={state.document} viewport={state.document.viewport} dispatch={dispatch} canvasRef={canvasRef}
-              selectedNodeId={selectedElementId ? (state.document.nodes.find(n => n.metadata?.c4Id === selectedElementId)?.id ?? null) : null} />
+              selectedNodeId={selectedElementId ? (state.document.nodes.find(n => n.metadata?.c4Id === selectedElementId)?.id ?? null) : null}
+              onNodeSelect={setSelectedElementId}
+              onNodeDoubleClick={(nodeId) => {
+                if (!c4Model) return;
+                const elem = c4Model.elements.find(e => e.id === nodeId);
+                if (elem?.manual && (elem.type === 'person' || elem.type === 'system')) {
+                  setEditElement({ id: elem.id, type: elem.type, name: elem.name, description: elem.description ?? '', external: elem.external ?? false });
+                }
+              }} />
           </Box>
         )}
         {showC4 && showDsm && (
