@@ -219,7 +219,8 @@ export function C4Viewer() {
       return true;
     });
 
-    if (filteredElements.length === 0) return c4Model;
+    // チェックボックスフィルタが無効な場合のみフォールバック
+    if (filteredElements.length === 0 && !excludedDescendantIds) return c4Model;
 
     const filteredIds = new Set(filteredElements.map(e => e.id));
     const filteredRelationships = c4Model.relationships.filter(
