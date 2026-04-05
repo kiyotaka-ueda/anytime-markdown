@@ -45,6 +45,19 @@ function isPackageType(type: C4TreeNode['type']): boolean {
   return type === 'container' || type === 'containerDb';
 }
 
+/** ツリーからパッケージ型ノードのIDを再帰的に収集 */
+function collectPackageIds(nodes: readonly C4TreeNode[]): Set<string> {
+  const ids = new Set<string>();
+  function walk(list: readonly C4TreeNode[]): void {
+    for (const n of list) {
+      if (isPackageType(n.type)) ids.add(n.id);
+      if (n.children.length > 0) walk(n.children);
+    }
+  }
+  walk(nodes);
+  return ids;
+}
+
 interface TreeNodeItemProps {
   readonly node: C4TreeNode;
   readonly depth: number;
@@ -168,7 +181,7 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
     return ids;
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [checkedIds, setCheckedIds] = useState<ReadonlySet<string>>(new Set());
+  const [checkedIds, setCheckedIds] = useState<ReadonlySet<string>>(() => collectPackageIds(tree));
 
   const handleToggle = useCallback((id: string) => {
     setExpanded(prev => {

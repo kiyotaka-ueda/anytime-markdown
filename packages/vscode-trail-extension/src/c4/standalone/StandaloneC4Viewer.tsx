@@ -53,6 +53,7 @@ export function StandaloneC4Viewer() {
   const [dsmLevel, setDsmLevel] = useState<'component' | 'package'>('component');
   const [dsmClustered, setDsmClustered] = useState(false);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [checkedPackageIds, setCheckedPackageIds] = useState<ReadonlySet<string> | null>(null);
   const [centerOnSelect, setCenterOnSelect] = useState(false);
   const [splitRatio, setSplitRatio] = useState(0.5);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -137,9 +138,31 @@ export function StandaloneC4Viewer() {
     return filterTreeByLevel(fullTree, currentLevel);
   }, [c4Model, boundaryInfos, currentLevel]);
 
+  // チェックOFFパッケージ配下の要素IDを収集
+  const excludedDescendantIds = useMemo(() => {
+    if (!c4Model || !checkedPackageIds) return null;
+    const excluded = new Set<string>();
+    for (const elem of c4Model.elements) {
+      if ((elem.type === 'container' || elem.type === 'containerDb') && !checkedPackageIds.has(elem.id)) {
+        const descendants = collectDescendantIds(c4Model.elements, elem.id);
+        for (const id of descendants) excluded.add(id);
+        excluded.add(elem.id);
+      }
+    }
+    return excluded.size > 0 ? excluded : null;
+  }, [c4Model, checkedPackageIds]);
+
   const dsmModel = useMemo(() => {
     if (!c4Model) return null;
-    if (dsmLevel === 'package') return c4Model;
+    if (dsmLevel === 'package') {
+      if (!excludedDescendantIds) return c4Model;
+      const filteredElements = c4Model.elements.filter(e => !excludedDescendantIds.has(e.id));
+      const filteredIds = new Set(filteredElements.map(e => e.id));
+      const filteredRelationships = c4Model.relationships.filter(
+        r => filteredIds.has(r.from) || filteredIds.has(r.to),
+      );
+      return { ...c4Model, elements: filteredElements, relationships: filteredRelationships };
+    }
     const targetType = currentLevel >= 4 ? 'code' : 'component';
 
     let scopeIds: Set<string> | null = null;
@@ -157,6 +180,7 @@ export function StandaloneC4Viewer() {
     const filteredElements = c4Model.elements.filter(e => {
       if (e.type !== targetType) return false;
       if (scopeIds && !scopeIds.has(e.id)) return false;
+      if (excludedDescendantIds?.has(e.id)) return false;
       return true;
     });
 
@@ -168,7 +192,7 @@ export function StandaloneC4Viewer() {
     );
 
     return { ...c4Model, elements: filteredElements, relationships: filteredRelationships };
-  }, [c4Model, boundaryInfos, dsmLevel, currentLevel, selectedElementId]);
+  }, [c4Model, boundaryInfos, dsmLevel, currentLevel, selectedElementId, excludedDescendantIds]);
 
   const handleSplitDrag = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -354,7 +378,7 @@ export function StandaloneC4Viewer() {
           </Box>
         )}
         {showTree && elementTree.length > 0 && (
-          <C4ElementTree tree={elementTree} dispatch={dispatch} onSelect={(id) => { setCenterOnSelect(true); setSelectedElementId(id); }} />
+          <C4ElementTree tree={elementTree} dispatch={dispatch} onSelect={(id) => { setCenterOnSelect(true); setSelectedElementId(id); }} onCheckedChange={setCheckedPackageIds} />
         )}
       </Box>
       {/* --- Edit Dialogs --- */}

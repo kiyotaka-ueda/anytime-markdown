@@ -56,6 +56,7 @@ export function C4Viewer() {
   const [dsmLevel, setDsmLevel] = useState<'component' | 'package'>('component');
   const [dsmClustered, setDsmClustered] = useState(false);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [checkedPackageIds, setCheckedPackageIds] = useState<ReadonlySet<string> | null>(null);
   const [splitRatio, setSplitRatio] = useState(0.5);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -166,12 +167,34 @@ export function C4Viewer() {
     return filterTreeByLevel(fullTree, currentLevel);
   }, [c4Model, boundaryInfos, currentLevel]);
 
+  // チェックOFFパッケージ配下の要素IDを収集
+  const excludedDescendantIds = useMemo(() => {
+    if (!c4Model || !checkedPackageIds) return null;
+    const excluded = new Set<string>();
+    for (const elem of c4Model.elements) {
+      if ((elem.type === 'container' || elem.type === 'containerDb') && !checkedPackageIds.has(elem.id)) {
+        const descendants = collectDescendantIds(c4Model.elements, elem.id);
+        for (const id of descendants) excluded.add(id);
+        excluded.add(elem.id);
+      }
+    }
+    return excluded.size > 0 ? excluded : null;
+  }, [c4Model, checkedPackageIds]);
+
   // DSM用: C4レベルに応じた要素タイプでフィルタし、パッケージ選択時は配下のみ表示
   const dsmModel = useMemo(() => {
     if (!c4Model) return null;
 
     // L2=package はbuildC4Matrixがboundary単位で処理するのでフィルタ不要
-    if (dsmLevel === 'package') return c4Model;
+    if (dsmLevel === 'package') {
+      if (!excludedDescendantIds) return c4Model;
+      const filteredElements = c4Model.elements.filter(e => !excludedDescendantIds.has(e.id));
+      const filteredIds = new Set(filteredElements.map(e => e.id));
+      const filteredRelationships = c4Model.relationships.filter(
+        r => filteredIds.has(r.from) || filteredIds.has(r.to),
+      );
+      return { ...c4Model, elements: filteredElements, relationships: filteredRelationships };
+    }
 
     // L3=component のみ、L4=code のみ
     const targetType = currentLevel >= 4 ? 'code' : 'component';
@@ -192,6 +215,7 @@ export function C4Viewer() {
     const filteredElements = c4Model.elements.filter(e => {
       if (e.type !== targetType) return false;
       if (scopeIds && !scopeIds.has(e.id)) return false;
+      if (excludedDescendantIds?.has(e.id)) return false;
       return true;
     });
 
@@ -207,7 +231,7 @@ export function C4Viewer() {
       elements: filteredElements,
       relationships: filteredRelationships,
     };
-  }, [c4Model, boundaryInfos, dsmLevel, currentLevel, selectedElementId]);
+  }, [c4Model, boundaryInfos, dsmLevel, currentLevel, selectedElementId, excludedDescendantIds]);
 
   const handleSplitDrag = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -446,6 +470,7 @@ export function C4Viewer() {
             tree={elementTree}
             dispatch={dispatch}
             onSelect={setSelectedElementId}
+            onCheckedChange={setCheckedPackageIds}
           />
         )}
       </Box>
