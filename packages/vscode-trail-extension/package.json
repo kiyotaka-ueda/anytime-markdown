@@ -512,6 +512,16 @@
           "type": "string",
           "default": ".vscode/c4-model.json",
           "markdownDescription": "%config.c4ModelPath%"
+        },
+        "anytimeTrail.server.enabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Enable the C4 data server for external web app access"
+        },
+        "anytimeTrail.server.port": {
+          "type": "number",
+          "default": 19840,
+          "markdownDescription": "Port number for the C4 data server"
         }
       }
     }
