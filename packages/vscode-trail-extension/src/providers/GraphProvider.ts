@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { TrailLogger } from '../utils/TrailLogger';
 
 const GIT_LOG_LIMIT = 100;
 const GIT_LOG_MAX_BUFFER = 1024 * 1024;
@@ -43,6 +44,8 @@ export class GraphItem extends vscode.TreeItem {
 
 		this.iconPath = resolveIcon(hash, refs, isLocal);
 
+		const statusText = isLocal ? ' (local)' : ' (remote)';
+
 		if (!hash) {
 			// グラフのみの行（マージライン等）
 			this.label = graph;
@@ -51,11 +54,11 @@ export class GraphItem extends vscode.TreeItem {
 		} else if (refs) {
 			this.label = `${graph} ${message}`;
 			this.description = `[${refs}]  ${date}  ${author}`;
-			this.tooltip = `${hash.substring(0, 7)}  ${message}\n${refs}\n${author}  ${date}`;
+			this.tooltip = `${hash.substring(0, 7)}  ${message}${statusText}\n${refs}\n${author}  ${date}`;
 		} else {
 			this.label = `${graph} ${message}`;
 			this.description = `${date}  ${author}`;
-			this.tooltip = `${hash.substring(0, 7)}  ${message}\n${author}  ${date}`;
+			this.tooltip = `${hash.substring(0, 7)}  ${message}${statusText}\n${author}  ${date}`;
 		}
 	}
 }
@@ -72,7 +75,7 @@ function collectLocalOnlyHashes(gitRoot: string): Set<string> {
 			const trimmed = h.trim();
 			if (trimmed) { hashes.add(trimmed); }
 		}
-	} catch { /* リモートなしの場合は全てローカル扱い */ }
+	} catch { /* リモートなしの場合は全てローカル扱い — 正常系 */ }
 	return hashes;
 }
 
@@ -135,7 +138,7 @@ export class GraphProvider implements vscode.TreeDataProvider<GraphItem> {
 		if (rootPath) {
 			try {
 				this.gitRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd: rootPath, encoding: 'utf-8' }).trim();
-			} catch { /* ignore */ }
+			} catch (err) { TrailLogger.warn(`Not a git repo: ${rootPath}`); }
 		}
 		this.items = [];
 		this._onDidChangeTreeData.fire();

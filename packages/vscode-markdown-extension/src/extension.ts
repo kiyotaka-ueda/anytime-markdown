@@ -3,7 +3,6 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { MarkdownEditorProvider } from './providers/MarkdownEditorProvider';
 import { LinkValidationProvider } from './providers/LinkValidationProvider';
-import { AiLogProvider, AiLogItem } from './providers/AiLogProvider';
 import { AiMemoryProvider, AiMemoryItem } from './providers/AiMemoryProvider';
 import { setupClaudeHooks } from './utils/claudeHookSetup';
 import { ClaudeStatusWatcher } from './utils/claudeStatusWatcher';
@@ -181,11 +180,6 @@ export function activate(context: vscode.ExtensionContext) {
 		() => { MarkdownEditorProvider.getInstance()?.switchMode('source'); }
 	);
 
-	// Agent Note ビュー（空のツリーで Welcome Content を表示）
-	vscode.window.createTreeView('anytimeMarkdown.aiNote', {
-		treeDataProvider: { getTreeItem: (e: never) => e, getChildren: () => [] },
-	});
-
 	// Claude Code 連携（~/.claude/ が存在する場合のみ有効）
 	const homeDir = process.env.HOME || process.env.USERPROFILE || '';
 	const claudeDir = homeDir ? path.join(homeDir, '.claude') : '';
@@ -195,37 +189,6 @@ export function activate(context: vscode.ExtensionContext) {
 	const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
 	const projectDirName = workspaceRoot.replace(/\//g, '-') || '-';
 	const projectSessionsDir = sessionsDir ? path.join(sessionsDir, projectDirName) : '';
-
-	const aiLogProvider = new AiLogProvider(projectSessionsDir);
-	const aiLogTreeView = vscode.window.createTreeView('anytimeMarkdown.aiLog', {
-		treeDataProvider: aiLogProvider,
-	});
-
-	const aiLogRefresh = vscode.commands.registerCommand(
-		'anytime-markdown.aiLogRefresh', () => aiLogProvider.refresh()
-	);
-
-	const openAiLog = vscode.commands.registerCommand(
-		'anytime-markdown.openAiLog',
-		async (item: AiLogItem) => {
-			const dir = context.globalStorageUri.fsPath;
-			if (!fs.existsSync(dir)) {
-				fs.mkdirSync(dir, { recursive: true });
-			}
-			const outPath = path.join(dir, `ai-log-${item.sessionId}.md`);
-
-			await vscode.window.withProgress(
-				{ location: vscode.ProgressLocation.Notification, title: 'Converting AI Log...' },
-				async () => {
-					const md = await AiLogProvider.convertToMarkdown(item.filePath);
-					fs.writeFileSync(outPath, md, 'utf-8');
-				}
-			);
-
-			const uri = vscode.Uri.file(outPath);
-			await vscode.commands.executeCommand('vscode.openWith', uri, MarkdownEditorProvider.viewType);
-		}
-	);
 
 	// AI Memory ビュー
 	const memoryDir = path.join(projectSessionsDir, 'memory');
@@ -243,103 +206,6 @@ export function activate(context: vscode.ExtensionContext) {
 		async (item: AiMemoryItem) => {
 			const uri = vscode.Uri.file(item.filePath);
 			await vscode.commands.executeCommand('vscode.openWith', uri, MarkdownEditorProvider.viewType);
-		}
-	);
-
-	// Agent Note ファイルを開く
-	const openContext = vscode.commands.registerCommand(
-		'anytime-markdown.openContext',
-		async () => {
-			const dir = context.globalStorageUri.fsPath;
-			const filePath = path.join(dir, 'anytime-context.md');
-			if (!fs.existsSync(dir)) {
-				fs.mkdirSync(dir, { recursive: true });
-			}
-			try {
-				fs.writeFileSync(filePath, '# Anytime Context\n\n', { encoding: 'utf-8', flag: 'wx' });
-			} catch {
-				// EEXIST: ファイル既存は正常
-			}
-
-			// ~/.claude/skills/anytime-note/SKILL.md を自動生成（未作成の場合のみ）
-			if (hasClaudeDir) {
-				const skillDir = path.join(claudeDir, 'skills', 'anytime-note');
-				const skillPath = path.join(skillDir, 'SKILL.md');
-				try {
-					fs.mkdirSync(skillDir, { recursive: true });
-					const imagesDir = path.join(dir, 'images');
-					const skillContent = [
-						'---',
-						'name: anytime-note',
-						'description: Agent Note（anytime-context.md）を読んで指示を実行する。「/anytime-note 対応内容」の形式で使用。ノートに書かれたコンテキスト（画像・テキスト・メモ）を参照し、指示された作業を行う。',
-						'user_invocable: true',
-						'argument: task',
-						'---',
-						'',
-						'# Agent Note 連携',
-						'',
-						'## 手順',
-						'',
-						'1. Agent Note ファイルを読み込む',
-						`   - パス: \`${filePath}\``,
-						`   - 画像フォルダ: \`${imagesDir}\``,
-						'   - 画像（`images/` 内の png 等）が参照されている場合は Read ツールで画像も読み込む',
-						'',
-						'2. ノート内容を確認し、ユーザーに概要を報告する',
-						'   - テキスト・画像の有無を簡潔に伝える',
-						'',
-						'3. 引数（`task`）で指定された作業を、ノートの内容をコンテキストとして実行する',
-						'   - 引数が空の場合はノート内容を要約し、何をすべきか提案する',
-						'   - 引数がある場合はノートを踏まえて作業を実行する',
-						'',
-						'## 注意事項',
-						'',
-						'- ノートの内容を変更・削除しない（読み取り専用）',
-						'- 作業結果はノートではなく、通常のコードベースやドキュメントに出力する',
-						'',
-					].join('\n');
-					// wx: 排他作成（既存ファイルがあれば EEXIST で失敗）
-					fs.writeFileSync(skillPath, skillContent, { encoding: 'utf-8', flag: 'wx' });
-				} catch {
-					// EEXIST: ファイル既存は正常
-				}
-			}
-
-			const uri = vscode.Uri.file(filePath);
-			await vscode.commands.executeCommand('vscode.openWith', uri, MarkdownEditorProvider.viewType);
-		}
-	);
-
-	// AI Note ファイルパスをクリップボードにコピー
-	const copyContextPath = vscode.commands.registerCommand(
-		'anytime-markdown.copyContextPath',
-		async () => {
-			const filePath = path.join(context.globalStorageUri.fsPath, 'anytime-context.md');
-			await vscode.env.clipboard.writeText(filePath);
-			vscode.window.showInformationMessage(`Copied: ${filePath}`);
-		}
-	);
-
-	// Agent Note ストレージをクリア
-	const clearContext = vscode.commands.registerCommand(
-		'anytime-markdown.clearContext',
-		async () => {
-			const answer = await vscode.window.showWarningMessage(
-				'Agent Note のファイルをすべて削除しますか？',
-				{ modal: true },
-				'Delete'
-			);
-			if (answer !== 'Delete') { return; }
-			const dir = context.globalStorageUri.fsPath;
-			const aiNotePath = path.join(dir, 'anytime-context.md');
-			const imagesDir = path.join(dir, 'images');
-			if (fs.existsSync(aiNotePath)) {
-				fs.rmSync(aiNotePath);
-			}
-			if (fs.existsSync(imagesDir)) {
-				fs.rmSync(imagesDir, { recursive: true, force: true });
-			}
-			vscode.window.showInformationMessage('Agent Note をクリアしました。');
 		}
 	);
 
@@ -363,8 +229,6 @@ export function activate(context: vscode.ExtensionContext) {
 		pasteAsMarkdown,
 		toggleAutoReloadOff, toggleAutoReloadOn,
 		switchToReview, switchToWysiwyg, switchToSource,
-		openContext, copyContextPath, clearContext,
-		aiLogTreeView, aiLogRefresh, openAiLog,
 		aiMemoryTreeView, aiMemoryRefresh, openAiMemory,
 		...claudeSubscriptions,
 	);

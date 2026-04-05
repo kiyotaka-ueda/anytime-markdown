@@ -1,9 +1,18 @@
 {
 	"files": [],
 	"references": [
+		{ "path": "packages/graph-core" },
+		{ "path": "packages/c4-kernel" },
+		{ "path": "packages/trail-core" },
 		{ "path": "packages/markdown-core" },
+		{ "path": "packages/cms-core" },
+		{ "path": "packages/web-app" },
 		{ "path": "packages/mcp-markdown" },
 		{ "path": "packages/mcp-graph" },
-		{ "path": "packages/vscode-markdown-extension" }
+		{ "path": "packages/mcp-cms" },
+		{ "path": "packages/mcp-cms-remote" },
+		{ "path": "packages/vscode-markdown-extension" },
+		{ "path": "packages/vscode-graph-extension" },
+		{ "path": "packages/vscode-trail-extension" }
 	]
 }

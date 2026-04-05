@@ -12,6 +12,7 @@ import ViewStreamIcon from "@mui/icons-material/ViewStream";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import {
   Box,
+  Divider,
   IconButton,
   Paper,
   ToggleButton,
@@ -23,8 +24,8 @@ import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
 import React, { useCallback, useRef, useState } from "react";
 
-import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, DEFAULT_LIGHT_TEXT, getActionHover, getActionSelected, getBgPaper, getTextPrimary, getTextSecondary } from "../constants/colors";
-import { TOOLBAR_FONT_SIZE } from "../constants/dimensions";
+import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, DEFAULT_LIGHT_TEXT, getActionHover, getActionSelected, getBgPaper, getDivider, getTextPrimary, getTextSecondary } from "../constants/colors";
+import { SIDE_TOOLBAR_WIDTH, TOOLBAR_FONT_SIZE } from "../constants/dimensions";
 import { modKey } from "../constants/shortcuts";
 import { Z_TOOLBAR } from "../constants/zIndex";
 import AppIcon from "../icons/AppIcon";
@@ -120,6 +121,7 @@ interface EditorToolbarProps {
   onOpenSettings?: () => void;
   onOpenVersionDialog?: () => void;
   onAnnounce?: (message: string) => void;
+  onHomeClick?: () => void;
   t: TranslationFn;
 }
 
@@ -165,6 +167,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
   onOpenSettings,
   onOpenVersionDialog,
   onAnnounce: _onAnnounce,
+  onHomeClick,
   t,
 }: EditorToolbarProps) {
   const {
@@ -241,7 +244,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
         flexWrap: "wrap",
         gap: 0.5,
         py: 0.5,
-        pr: 0.5,
+        pr: 0,
         pl: "2px",
         minHeight: 44,
         maxHeight: 44,
@@ -255,6 +258,23 @@ export const EditorToolbar = React.memo(function EditorToolbar({
         color: isDark ? undefined : DEFAULT_LIGHT_TEXT,
       }}
     >
+      {/* Home logo */}
+      {onHomeClick && (
+        <>
+          <Tooltip title={t("home")}>
+            <IconButton
+              size="small"
+              onClick={onHomeClick}
+              aria-label={t("home")}
+              sx={{ p: 0.25 }}
+            >
+              <AppIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
+        </>
+      )}
+
       {/* File actions */}
       {!hideFileOps && (
         <ToolbarFileActions
@@ -383,14 +403,14 @@ export const EditorToolbar = React.memo(function EditorToolbar({
       {/* More menu */}
       {!hideMoreMenu && (
         <>
-          <Box sx={{ display: { xs: "none", md: "contents" } }}>
+          <Box sx={{ display: { xs: "none", md: "flex" }, width: SIDE_TOOLBAR_WIDTH, justifyContent: "center", alignItems: "center", flexShrink: 0, ml: "auto", borderLeft: 1, borderColor: getDivider(isDark) }}>
             <Tooltip title={t("more")}>
               <IconButton aria-label={t("more")}
                 size="small"
                 onClick={(e) => onSetHelpAnchor(e.currentTarget)}
-                sx={{ mr: 0, p: 0 }}
+                sx={{ p: 0 }}
               >
-                <AppIcon fontSize="small" />
+                <MenuIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           </Box>

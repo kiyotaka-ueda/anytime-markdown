@@ -2,7 +2,7 @@
   "name": "anytime-markdown",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "license": "MIT",
   "publisher": "anytime-trial",
   "repository": {
@@ -40,28 +40,13 @@
     "views": {
       "anytimeMarkdown": [
         {
-          "id": "anytimeMarkdown.aiNote",
-          "name": "Agent Note",
-          "initialSize": 1
-        },
-        {
-          "id": "anytimeMarkdown.aiLog",
-          "name": "Agent Log",
-          "initialSize": 2
-        },
-        {
           "id": "anytimeMarkdown.aiMemory",
           "name": "Agent Memory",
           "initialSize": 2
         }
       ]
     },
-    "viewsWelcome": [
-      {
-        "view": "anytimeMarkdown.aiNote",
-        "contents": "%viewsWelcome.aiNote%"
-      }
-    ],
+    "viewsWelcome": [],
     "submenus": [
       {
         "id": "anytime-markdown.modeMenu.review",
@@ -102,26 +87,6 @@
       {
         "command": "anytime-markdown.pasteAsMarkdown",
         "title": "%command.pasteAsMarkdown%"
-      },
-      {
-        "command": "anytime-markdown.openContext",
-        "title": "%command.openContext%",
-        "icon": "$(note)"
-      },
-      {
-        "command": "anytime-markdown.copyContextPath",
-        "title": "%command.copyContextPath%",
-        "icon": "$(clippy)"
-      },
-      {
-        "command": "anytime-markdown.clearContext",
-        "title": "%command.clearContext%",
-        "icon": "$(trash)"
-      },
-      {
-        "command": "anytime-markdown.aiLogRefresh",
-        "title": "%command.aiLogRefresh%",
-        "icon": "$(refresh)"
       },
       {
         "command": "anytime-markdown.aiMemoryRefresh",
@@ -239,23 +204,8 @@
     "menus": {
       "view/title": [
         {
-          "command": "anytime-markdown.clearContext",
-          "when": "view == anytimeMarkdown.aiNote",
-          "group": "navigation@2"
-        },
-        {
-          "command": "anytime-markdown.aiLogRefresh",
-          "when": "view == anytimeMarkdown.aiLog",
-          "group": "navigation@1"
-        },
-        {
           "command": "anytime-markdown.aiMemoryRefresh",
           "when": "view == anytimeMarkdown.aiMemory",
-          "group": "navigation@1"
-        },
-        {
-          "command": "anytime-markdown.copyContextPath",
-          "when": "view == anytimeMarkdown.aiNote",
           "group": "navigation@1"
         }
       ],

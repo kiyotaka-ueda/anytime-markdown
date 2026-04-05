@@ -14,6 +14,17 @@ const NODE_COLORS: Record<string, { bg: string; border: string }> = {
   namespace: { bg: '#44475a', border: '#6272a4' },
 };
 
+const NODE_SHAPES: Record<string, string> = {
+  file:      'rectangle',
+  class:     'round-rectangle',
+  interface: 'diamond',
+  function:  'ellipse',
+  variable:  'barrel',
+  type:      'hexagon',
+  enum:      'pentagon',
+  namespace: 'cut-rectangle',
+};
+
 const EDGE_COLORS: Record<string, { color: string; style: string; width: number }> = {
   import:         { color: '#6272a4', style: 'solid',  width: 2 },
   call:           { color: '#f1fa8c', style: 'solid',  width: 2 },
@@ -57,12 +68,14 @@ export function getTrailStylesheet(): TrailStyleEntry[] {
   ];
 
   for (const [type, colors] of Object.entries(NODE_COLORS)) {
+    const shape = NODE_SHAPES[type];
     styles.push({
       selector: `node[type="${type}"]`,
       style: {
         'background-color': colors.bg,
         'border-color': colors.border,
         'border-width': 2,
+        ...(shape ? { shape } : {}),
       },
     });
   }

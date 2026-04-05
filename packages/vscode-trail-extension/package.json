@@ -2,7 +2,7 @@
   "name": "anytime-trail",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "MIT",
   "publisher": "anytime-trial",
   "repository": {
@@ -30,7 +30,9 @@
     "onView:anytimeTrail.timeline",
     "onCommand:anytime-trail.c4Import",
     "onCommand:anytime-trail.c4Analyze",
-    "onCommand:anytime-trail.c4Export"
+    "onCommand:anytime-trail.c4Export",
+    "onCommand:anytime-trail.dsmAnalyze",
+    "onView:anytimeTrail.c4Elements"
   ],
   "icon": "images/camel_git.png",
   "main": "./dist/extension.js",
@@ -46,6 +48,10 @@
     },
     "views": {
       "anytimeTrail": [
+        {
+          "id": "anytimeTrail.c4Elements",
+          "name": "%view.c4Elements%"
+        },
         {
           "id": "anytimeTrail.specDocs",
           "name": "%view.specDocs%"
@@ -81,6 +87,10 @@
       {
         "view": "anytimeTrail.graph",
         "contents": "No items."
+      },
+      {
+        "view": "anytimeTrail.c4Elements",
+        "contents": "%viewsWelcome.c4Elements%"
       }
     ],
     "commands": [
@@ -242,6 +252,11 @@
         "command": "anytime-trail.c4Export",
         "title": "%command.c4Export%",
         "icon": "$(export)"
+      },
+      {
+        "command": "anytime-trail.dsmAnalyze",
+        "title": "%command.dsmAnalyze%",
+        "icon": "$(graph)"
       }
     ],
     "submenus": [
@@ -307,6 +322,21 @@
           "submenu": "anytimeTrail.changesMore",
           "when": "view == anytimeTrail.changes",
           "group": "navigation@2"
+        },
+        {
+          "command": "anytime-trail.c4Import",
+          "when": "view == anytimeTrail.c4Elements",
+          "group": "navigation@1"
+        },
+        {
+          "command": "anytime-trail.c4Analyze",
+          "when": "view == anytimeTrail.c4Elements",
+          "group": "navigation@2"
+        },
+        {
+          "command": "anytime-trail.c4Export",
+          "when": "view == anytimeTrail.c4Elements",
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
@@ -441,7 +471,39 @@
         "mac": "cmd+v",
         "when": "focusedView == anytimeTrail.specDocs"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Anytime Trail",
+      "properties": {
+        "anytimeTrail.c4.analyzeExcludePatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            ".worktrees",
+            ".vscode-test",
+            "__tests__"
+          ],
+          "markdownDescription": "%config.c4AnalyzeExcludePatterns%"
+        },
+        "anytimeTrail.c4.modelPath": {
+          "type": "string",
+          "default": ".vscode/c4-model.json",
+          "markdownDescription": "%config.c4ModelPath%"
+        },
+        "anytimeTrail.server.enabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Enable the C4 data server for external web app access"
+        },
+        "anytimeTrail.server.port": {
+          "type": "number",
+          "default": 19840,
+          "markdownDescription": "Port number for the C4 data server"
+        }
+      }
+    }
   },
   "capabilities": {
     "untrustedWorkspaces": {
@@ -454,17 +516,31 @@
     "vscode:prepublish": "npm run package",
     "compile": "webpack",
     "watch": "webpack --watch",
-    "package": "webpack --mode production --devtool hidden-source-map"
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "test": "jest --maxWorkers=1"
   },
   "dependencies": {
     "@anytime-markdown/c4-kernel": "*",
     "@anytime-markdown/graph-core": "*",
     "@anytime-markdown/trail-core": "*",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "ws": "8.18.2"
   },
   "devDependencies": {
+    "@emotion/react": "11.14.0",
+    "@emotion/styled": "11.14.0",
+    "@mui/icons-material": "7.3.8",
+    "@mui/material": "7.3.8",
+    "@types/jest": "29.5.14",
     "@types/node": "22.x",
+    "@types/react": "19.1.6",
+    "@types/react-dom": "19.1.6",
     "@types/vscode": "1.109.0",
+    "@types/ws": "8.18.1",
+    "jest": "29.7.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "ts-jest": "29.3.4",
     "ts-loader": "9.5.4",
     "webpack": "5.104.1",
     "webpack-cli": "6.0.1"

@@ -47,7 +47,7 @@ export function importFromMermaid(mmdString: string): MermaidImportResult {
 
     // Handle subgraph
     const subgraphMatch = /^subgraph\s+(\w+)\s*\[(.+?)\]\s*$/.exec(line)
-      ?? /^subgraph\s+(.+?)\s*$/.exec(line);
+      ?? /^subgraph\s+(\S+(?:\s+\S+)*)\s*$/.exec(line);
     if (subgraphMatch) {
       const id = subgraphMatch[2] ? subgraphMatch[1] : subgraphMatch[1].replaceAll(/\s+/g, '_');
       const title = subgraphMatch[2] ?? subgraphMatch[1];
