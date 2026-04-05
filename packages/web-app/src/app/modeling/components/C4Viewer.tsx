@@ -128,7 +128,7 @@ export function C4Viewer() {
     return filterTreeByLevel(fullTree, currentLevel);
   }, [c4Model, boundaryInfos, currentLevel]);
 
-  // DSM用: 選択要素がパッケージの場合、その配下のコンポーネントのみに絞ったモデルを生成
+  // DSM用: 選択要素がパッケージの場合、その配下の要素のみに絞ったモデルを生成
   const dsmModel = useMemo(() => {
     if (!c4Model) return null;
     if (dsmLevel !== 'component' || !selectedElementId) return c4Model;
@@ -137,16 +137,28 @@ export function C4Viewer() {
     const selectedElement = c4Model.elements.find(e => e.id === selectedElementId);
     const isBoundary = boundaryInfos.some(b => b.id === selectedElementId);
     const isContainer = selectedElement && (selectedElement.type === 'container' || selectedElement.type === 'containerDb');
+    const isComponent = selectedElement && selectedElement.type === 'component';
 
-    if (!isBoundary && !isContainer) return c4Model;
+    // パッケージまたはコンポーネント（L4で子要素を持つ場合）でなければフィルタしない
+    if (!isBoundary && !isContainer && !isComponent) return c4Model;
 
-    // 選択パッケージ配下の要素のみに絞る
-    const childElements = c4Model.elements.filter(e => e.boundaryId === selectedElementId);
-    if (childElements.length === 0) return c4Model;
+    // 再帰的に配下の全子孫要素を収集
+    const descendantIds = new Set<string>();
+    function collectDescendants(parentId: string): void {
+      for (const el of c4Model!.elements) {
+        if (el.boundaryId === parentId && !descendantIds.has(el.id)) {
+          descendantIds.add(el.id);
+          collectDescendants(el.id);
+        }
+      }
+    }
+    collectDescendants(selectedElementId);
 
-    const childIds = new Set(childElements.map(e => e.id));
+    if (descendantIds.size === 0) return c4Model;
+
+    const childElements = c4Model.elements.filter(e => descendantIds.has(e.id));
     const filteredRelationships = c4Model.relationships.filter(
-      r => childIds.has(r.from) || childIds.has(r.to),
+      r => descendantIds.has(r.from) || descendantIds.has(r.to),
     );
 
     return {
