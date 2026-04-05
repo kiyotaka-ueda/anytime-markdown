@@ -174,7 +174,7 @@ export function StandaloneC4Viewer() {
       <Toolbar variant="dense" sx={{ gap: 1, bgcolor: BG_SECONDARY, borderBottom: `1px solid ${BORDER_COLOR}`, minHeight: 44, px: { xs: 2, md: 3 } }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mr: 1 }}>
           <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: dataSource.connected ? '#4caf50' : 'rgba(255,255,255,0.3)' }} />
-          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.7rem' }}>
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.7rem' }}>
             {dataSource.connected ? 'Connected' : 'Disconnected'}
           </Typography>
         </Box>
@@ -208,7 +208,7 @@ export function StandaloneC4Viewer() {
               <DsmCanvas model={dsmModel} fullModel={c4Model ?? undefined} boundaries={boundaryInfos} level={dsmLevel} clustered={dsmClustered} focusedNodeId={selectedElementId} />
             ) : (
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.3)' }}>Waiting for C4 model...</Typography>
+                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)' }}>Waiting for C4 model...</Typography>
               </Box>
             )}
           </Box>

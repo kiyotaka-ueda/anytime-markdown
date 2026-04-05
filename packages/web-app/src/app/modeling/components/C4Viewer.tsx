@@ -355,7 +355,7 @@ export function C4Viewer() {
             />
           ) : (
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.3)' }}>
+              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)' }}>
                 Import a C4 model to view DSM
               </Typography>
             </Box>
