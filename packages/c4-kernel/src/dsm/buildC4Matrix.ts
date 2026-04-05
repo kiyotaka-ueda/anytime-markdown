@@ -22,7 +22,9 @@ export function buildC4Matrix(
 }
 
 function buildComponentMatrix(model: C4Model): DsmMatrix {
-  const componentElements = model.elements.filter(e => COMPONENT_TYPES.has(e.type));
+  const componentElements = model.elements
+    .filter(e => COMPONENT_TYPES.has(e.type))
+    .sort((a, b) => (a.boundaryId ?? '').localeCompare(b.boundaryId ?? ''));
   const nodes: DsmNode[] = componentElements.map(e => ({
     id: e.id,
     name: e.name,
