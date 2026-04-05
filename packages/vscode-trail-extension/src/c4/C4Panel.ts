@@ -52,7 +52,7 @@ export class C4Panel implements C4DataProvider {
    * サーバーが稼働中ならブラウザでスタンドアロンビューアを開く。
    * force=true の場合は viewerOpened ガードを無視して必ず開く。
    */
-  private static openViewer(force = false): void {
+  public static openViewer(force = false): void {
     if (!C4Panel.dataServer?.isRunning) return;
     if (!force && C4Panel.viewerOpened) return;
     C4Panel.viewerOpened = true;
@@ -137,6 +137,15 @@ export class C4Panel implements C4DataProvider {
       TrailLogger.warn('Failed to parse saved C4 model');
     }
     return null;
+  }
+
+  /** 保存済みモデルを復元して配信する。サーバー起動後に呼ぶ。 */
+  public static restoreSavedModel(): boolean {
+    const saved = C4Panel.loadSavedModel();
+    if (!saved) return false;
+    const panel = C4Panel.getInstance();
+    panel.setModel(saved.model, saved.boundaries);
+    return true;
   }
 
   // -------------------------------------------------------------------------

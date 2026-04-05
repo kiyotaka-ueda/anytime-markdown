@@ -31,6 +31,7 @@
     "onCommand:anytime-trail.c4Import",
     "onCommand:anytime-trail.c4Analyze",
     "onCommand:anytime-trail.c4Export",
+    "onCommand:anytime-trail.c4View",
     "onCommand:anytime-trail.dsmAnalyze",
     "onView:anytimeTrail.c4Elements"
   ],
@@ -254,6 +255,11 @@
         "icon": "$(export)"
       },
       {
+        "command": "anytime-trail.c4View",
+        "title": "%command.c4View%",
+        "icon": "$(open-preview)"
+      },
+      {
         "command": "anytime-trail.dsmAnalyze",
         "title": "%command.dsmAnalyze%",
         "icon": "$(graph)"
@@ -337,6 +343,11 @@
           "command": "anytime-trail.c4Export",
           "when": "view == anytimeTrail.c4Elements",
           "group": "navigation@3"
+        },
+        {
+          "command": "anytime-trail.c4View",
+          "when": "view == anytimeTrail.c4Elements",
+          "group": "navigation@4"
         }
       ],
       "view/item/context": [
