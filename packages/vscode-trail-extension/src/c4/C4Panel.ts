@@ -7,7 +7,6 @@ import { buildC4Matrix, buildSourceMatrix, diffMatrix, detectCycles, clusterMatr
 import type { DsmMapping, DsmMatrix } from '@anytime-markdown/c4-kernel';
 import { analyze, trailToC4, toMermaid } from '@anytime-markdown/trail-core';
 import type { TrailGraph } from '@anytime-markdown/trail-core';
-import type { C4ElementsProvider } from '../providers/C4ElementsProvider';
 import type { C4DataProvider, C4DataServer } from '../server/C4DataServer';
 
 /**
@@ -16,7 +15,6 @@ import type { C4DataProvider, C4DataServer } from '../server/C4DataServer';
  */
 export class C4Panel implements C4DataProvider {
   private static instance: C4Panel | undefined;
-  private static treeProvider: C4ElementsProvider | undefined;
   private static dataServer: C4DataServer | undefined;
 
   private lastModel: C4Model | undefined;
@@ -37,10 +35,6 @@ export class C4Panel implements C4DataProvider {
 
   public static setDataServer(server: C4DataServer): void {
     C4Panel.dataServer = server;
-  }
-
-  public static setTreeProvider(provider: C4ElementsProvider): void {
-    C4Panel.treeProvider = provider;
   }
 
   public static getDataProvider(): C4DataProvider | undefined {
@@ -269,7 +263,6 @@ export class C4Panel implements C4DataProvider {
   private setModel(model: C4Model, boundaries?: readonly BoundaryInfo[]): void {
     this.lastModel = model;
     this.lastBoundaries = boundaries;
-    C4Panel.treeProvider?.setModel(model, boundaries ?? []);
     C4Panel.saveModel(model, boundaries ?? []);
     this.inferMapping();
     this.buildDsm();

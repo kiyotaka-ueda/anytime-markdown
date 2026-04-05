@@ -5,7 +5,6 @@ import { GraphProvider, GraphItem } from './providers/GraphProvider';
 import { ChangesProvider, ChangesFileItem } from './providers/ChangesProvider';
 import { SpecDocsProvider, SpecDocsItem, SpecDocsRootItem, SpecDocsDragAndDrop } from './providers/SpecDocsProvider';
 import { C4Panel } from './c4/C4Panel';
-import { C4ElementsProvider } from './providers/C4ElementsProvider';
 import { C4DataServer } from './server/C4DataServer';
 
 /** git の元コンテンツを提供する TextDocumentContentProvider */
@@ -420,35 +419,6 @@ export function activate(context: vscode.ExtensionContext) {
 		C4Panel.analyzeWorkspace();
 	});
 
-	// C4 Elements ツリービュー
-	const c4ElementsProvider = new C4ElementsProvider();
-	C4Panel.setTreeProvider(c4ElementsProvider);
-	const c4ElementsTreeView = vscode.window.createTreeView('anytimeTrail.c4Elements', {
-		treeDataProvider: c4ElementsProvider,
-	});
-
-	// 保存済みC4モデルを自動読み込み
-	const savedModel = C4Panel.loadSavedModel();
-	if (savedModel) {
-		c4ElementsProvider.setModel(savedModel.model, savedModel.boundaries);
-	}
-
-	const c4ElementsRefresh = vscode.commands.registerCommand('anytime-trail.c4ElementsRefresh', () =>
-		c4ElementsProvider.refresh(),
-	);
-	const c4SetLevel = vscode.commands.registerCommand('anytime-trail.c4SetLevel', async () => {
-		const current = c4ElementsProvider.getLevel();
-		const items = [1, 2, 3, 4].map(l => ({
-			label: `L${l}`,
-			description: l === current ? '(current)' : undefined,
-			level: l,
-		}));
-		const picked = await vscode.window.showQuickPick(items, { placeHolder: 'Select C4 detail level' });
-		if (picked) {
-			c4ElementsProvider.setLevel(picked.level);
-		}
-	});
-
 	// C4 Data Server
 	const serverConfig = vscode.workspace.getConfiguration('anytimeTrail.server');
 	if (serverConfig.get<boolean>('enabled', false)) {
@@ -500,7 +470,6 @@ export function activate(context: vscode.ExtensionContext) {
 		compareWithCommit,
 		c4Import, c4Analyze, c4Export,
 		dsmAnalyze,
-		c4ElementsTreeView, c4ElementsRefresh, c4SetLevel,
 		statusBarItem,
 	);
 }

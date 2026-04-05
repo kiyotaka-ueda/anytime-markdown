@@ -31,7 +31,6 @@
     "onCommand:anytime-trail.c4Import",
     "onCommand:anytime-trail.c4Analyze",
     "onCommand:anytime-trail.c4Export",
-    "onCommand:anytime-trail.dsmShow",
     "onCommand:anytime-trail.dsmAnalyze",
     "onView:anytimeTrail.c4Elements"
   ],
@@ -255,21 +254,6 @@
         "icon": "$(export)"
       },
       {
-        "command": "anytime-trail.c4ElementsRefresh",
-        "title": "%command.c4ElementsRefresh%",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "anytime-trail.c4SetLevel",
-        "title": "%command.c4SetLevel%",
-        "icon": "$(filter)"
-      },
-      {
-        "command": "anytime-trail.dsmShow",
-        "title": "%command.dsmShow%",
-        "icon": "$(table)"
-      },
-      {
         "command": "anytime-trail.dsmAnalyze",
         "title": "%command.dsmAnalyze%",
         "icon": "$(graph)"
@@ -340,24 +324,19 @@
           "group": "navigation@2"
         },
         {
-          "command": "anytime-trail.c4Analyze",
+          "command": "anytime-trail.c4Import",
           "when": "view == anytimeTrail.c4Elements",
           "group": "navigation@1"
         },
         {
-          "command": "anytime-trail.c4SetLevel",
+          "command": "anytime-trail.c4Analyze",
           "when": "view == anytimeTrail.c4Elements",
           "group": "navigation@2"
         },
         {
-          "command": "anytime-trail.c4ElementsRefresh",
+          "command": "anytime-trail.c4Export",
           "when": "view == anytimeTrail.c4Elements",
           "group": "navigation@3"
-        },
-        {
-          "command": "anytime-trail.dsmShow",
-          "when": "view == anytimeTrail.c4Elements",
-          "group": "navigation@4"
         }
       ],
       "view/item/context": [
