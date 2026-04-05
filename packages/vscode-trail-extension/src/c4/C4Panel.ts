@@ -139,12 +139,42 @@ export class C4Panel implements C4DataProvider {
   public handleRemoveElement(id: string): void {
     if (!this.lastModel) return;
     const elem = this.lastModel.elements.find(e => e.id === id);
-    if (!elem?.manual) return; // 手動要素のみ削除可能
+    if (!elem?.manual && !elem?.deleted) return; // 手動要素 or 削除フラグ付き要素のみ削除可能
     const model: C4Model = {
       ...this.lastModel,
       elements: this.lastModel.elements.filter(e => e.id !== id),
       relationships: this.lastModel.relationships.filter(r => r.from !== id && r.to !== id),
     };
+    // FeatureMatrix からも関連マッピングを除去
+    if (this.lastFeatureMatrix) {
+      this.lastFeatureMatrix = {
+        ...this.lastFeatureMatrix,
+        mappings: this.lastFeatureMatrix.mappings.filter(m => m.elementId !== id),
+      };
+    }
+    this.setModel(model, this.lastBoundaries);
+  }
+
+  public handlePurgeDeletedElements(): void {
+    if (!this.lastModel) return;
+    const deletedIds = new Set(
+      this.lastModel.elements.filter(e => e.deleted).map(e => e.id),
+    );
+    if (deletedIds.size === 0) return;
+    const model: C4Model = {
+      ...this.lastModel,
+      elements: this.lastModel.elements.filter(e => !e.deleted),
+      relationships: this.lastModel.relationships.filter(
+        r => !deletedIds.has(r.from) && !deletedIds.has(r.to),
+      ),
+    };
+    // FeatureMatrix からも関連マッピングを除去
+    if (this.lastFeatureMatrix) {
+      this.lastFeatureMatrix = {
+        ...this.lastFeatureMatrix,
+        mappings: this.lastFeatureMatrix.mappings.filter(m => !deletedIds.has(m.elementId)),
+      };
+    }
     this.setModel(model, this.lastBoundaries);
   }
 
