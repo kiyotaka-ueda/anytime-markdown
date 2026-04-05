@@ -1,5 +1,8 @@
-import type { C4Model, BoundaryInfo } from '../types';
+import type { C4Model, C4ElementType, BoundaryInfo } from '../types';
 import type { DsmMatrix, DsmNode } from './types';
+
+/** componentレベルDSMに含める要素タイプ（境界として機能する container/containerDb は除外） */
+const COMPONENT_TYPES: ReadonlySet<C4ElementType> = new Set(['person', 'system', 'component', 'code']);
 
 /**
  * C4モデルからDSM隣接行列を生成する。
@@ -19,7 +22,8 @@ export function buildC4Matrix(
 }
 
 function buildComponentMatrix(model: C4Model): DsmMatrix {
-  const nodes: DsmNode[] = model.elements.map(e => ({
+  const componentElements = model.elements.filter(e => COMPONENT_TYPES.has(e.type));
+  const nodes: DsmNode[] = componentElements.map(e => ({
     id: e.id,
     name: e.name,
     path: e.id,
