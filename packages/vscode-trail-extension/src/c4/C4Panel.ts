@@ -41,6 +41,13 @@ export class C4Panel implements C4DataProvider {
     return C4Panel.getInstance();
   }
 
+  /** サーバーが稼働中ならブラウザでスタンドアロンビューアを開く */
+  private static openViewer(): void {
+    if (!C4Panel.dataServer?.isRunning) return;
+    const port = vscode.workspace.getConfiguration('anytimeTrail.server').get<number>('port', 19840);
+    vscode.env.openExternal(vscode.Uri.parse(`http://localhost:${port}`));
+  }
+
   private static getInstance(): C4Panel {
     C4Panel.instance ??= new C4Panel();
     return C4Panel.instance;
@@ -144,6 +151,7 @@ export class C4Panel implements C4DataProvider {
       const panel = C4Panel.getInstance();
       panel.lastTrailGraph = undefined;
       panel.setModel(model, boundaries);
+      C4Panel.openViewer();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       vscode.window.showErrorMessage(`Failed to parse Mermaid C4: ${msg}`);
@@ -187,6 +195,7 @@ export class C4Panel implements C4DataProvider {
           panel.setModel(model);
         },
       );
+      C4Panel.openViewer();
     } catch (e) {
       const msg = e instanceof Error ? `${e.message}\n${e.stack ?? ''}` : String(e);
       const channel = vscode.window.createOutputChannel('C4 Model');
