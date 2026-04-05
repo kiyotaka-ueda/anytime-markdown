@@ -11,6 +11,8 @@ interface DsmCanvasProps {
   readonly focusedNodeId?: string | null;
   /** 選択スコープに含まれるノードID。太枠で囲む */
   readonly scopeIds?: ReadonlySet<string> | null;
+  /** 削除フラグ付き要素のIDセット */
+  readonly deletedIds?: ReadonlySet<string>;
 }
 
 // --- Constants ---
@@ -28,6 +30,8 @@ const HOVER_COLOR = 'rgba(255,255,255,0.08)';
 const FOCUS_COLOR = 'rgba(144,202,249,0.15)';
 const CYCLE_BORDER_COLOR = '#F44336';
 const DEPENDENCY_COLOR = ACCENT_BLUE;
+const DELETED_ALPHA = 0.3;
+const DELETED_TEXT_ALPHA = 0.4;
 
 // --- Helpers ---
 
@@ -71,7 +75,7 @@ const GROUP_LINE_COLOR = '#888888';
 const SCOPE_BORDER_COLOR = '#FFB74D';
 const SCOPE_BORDER_WIDTH = 3;
 
-export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focusedNodeId, scopeIds }: Readonly<DsmCanvasProps>) {
+export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focusedNodeId, scopeIds, deletedIds }: Readonly<DsmCanvasProps>) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
   const viewportRef = useRef({ offsetX: 0, offsetY: 0, scale: 1 });
@@ -217,15 +221,29 @@ export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focu
         ctx!.stroke();
       }
 
+      // Deleted indices
+      const deletedIndices = new Set<number>();
+      if (deletedIds) {
+        for (let i = 0; i < n; i++) {
+          if (deletedIds.has(matrix.nodes[i].id)) {
+            deletedIndices.add(i);
+          }
+        }
+      }
+
       // Cells
       for (let i = 0; i < n; i++) {
         for (let j = 0; j < n; j++) {
           const x = HEADER_WIDTH + j * CELL_SIZE;
           const y = HEADER_HEIGHT + i * CELL_SIZE;
+          const isDeletedCell = deletedIndices.has(i) || deletedIndices.has(j);
+
+          if (isDeletedCell) ctx!.globalAlpha = DELETED_ALPHA;
 
           if (i === j) {
             ctx!.fillStyle = DIAGONAL_COLOR;
             ctx!.fillRect(x, y, CELL_SIZE, CELL_SIZE);
+            if (isDeletedCell) ctx!.globalAlpha = 1;
             continue;
           }
 
@@ -242,6 +260,8 @@ export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focu
             ctx!.strokeRect(x + 1, y + 1, CELL_SIZE - 2, CELL_SIZE - 2);
             ctx!.lineWidth = 0.5;
           }
+
+          if (isDeletedCell) ctx!.globalAlpha = 1;
         }
       }
 
@@ -345,14 +365,30 @@ export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focu
       for (let i = 0; i < n; i++) {
         const name = truncate(matrix.nodes[i].name, 14);
         const rowY = (HEADER_HEIGHT + i * CELL_SIZE + CELL_SIZE / 2) * s + vp.offsetY;
+        const isDeleted = deletedIds?.has(matrix.nodes[i].id);
+
+        if (isDeleted) ctx!.globalAlpha = DELETED_TEXT_ALPHA;
         ctx!.fillStyle = i === focusIdx ? ACCENT_BLUE : TEXT_COLOR;
         if (i === focusIdx) {
           ctx!.font = `bold ${fontSize}px sans-serif`;
         }
         ctx!.fillText(name, HEADER_WIDTH - 4, rowY);
+
+        // 打ち消し線
+        if (isDeleted) {
+          const textWidth = ctx!.measureText(name).width;
+          ctx!.strokeStyle = ctx!.fillStyle;
+          ctx!.lineWidth = 1;
+          ctx!.beginPath();
+          ctx!.moveTo(HEADER_WIDTH - 4 - textWidth, rowY);
+          ctx!.lineTo(HEADER_WIDTH - 4, rowY);
+          ctx!.stroke();
+        }
+
         if (i === focusIdx) {
           ctx!.font = labelFont;
         }
+        if (isDeleted) ctx!.globalAlpha = 1;
       }
       ctx!.restore();
 
@@ -372,12 +408,29 @@ export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focu
       for (let i = 0; i < n; i++) {
         const name = truncate(matrix.nodes[i].name, 14);
         const colX = (HEADER_WIDTH + i * CELL_SIZE + CELL_SIZE / 2) * s + vp.offsetX;
+        const isDeleted = deletedIds?.has(matrix.nodes[i].id);
+
+        if (isDeleted) ctx!.globalAlpha = DELETED_TEXT_ALPHA;
+
         ctx!.save();
         ctx!.translate(colX, HEADER_HEIGHT - 4);
         ctx!.rotate(-Math.PI / 4);
         ctx!.textAlign = 'left';
         ctx!.fillText(name, 0, 0);
+
+        // 打ち消し線
+        if (isDeleted) {
+          const textWidth = ctx!.measureText(name).width;
+          ctx!.strokeStyle = TEXT_COLOR;
+          ctx!.lineWidth = 1;
+          ctx!.beginPath();
+          ctx!.moveTo(0, 0);
+          ctx!.lineTo(textWidth, 0);
+          ctx!.stroke();
+        }
+
         ctx!.restore();
+        if (isDeleted) ctx!.globalAlpha = 1;
       }
       ctx!.restore();
 
@@ -389,7 +442,7 @@ export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focu
 
     rafRef.current = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [model, boundaries, level, clustered, focusedNodeId, scopeIds]);
+  }, [model, boundaries, level, clustered, focusedNodeId, scopeIds, deletedIds]);
 
   // Mouse move (hover + pan)
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
