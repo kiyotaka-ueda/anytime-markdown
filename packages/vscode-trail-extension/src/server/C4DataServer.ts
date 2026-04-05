@@ -15,6 +15,7 @@ import type {
   DsmDiff,
   DsmMapping,
   DsmMatrix,
+  FeatureMatrix,
 } from '@anytime-markdown/c4-kernel';
 import { WebSocketServer, type WebSocket } from 'ws';
 
@@ -27,6 +28,7 @@ import type { ClientMessage, ServerMessage } from './types';
 export interface C4DataProvider {
   readonly model: C4Model | undefined;
   readonly boundaries: readonly BoundaryInfo[] | undefined;
+  readonly featureMatrix: FeatureMatrix | undefined;
   readonly c4Matrix: DsmMatrix | undefined;
   readonly sourceMatrix: DsmMatrix | undefined;
   readonly currentDsmLevel: 'component' | 'package';
@@ -226,9 +228,14 @@ export class C4DataServer {
       return;
     }
     const boundaries = provider?.boundaries ?? [];
+    const featureMatrix = provider?.featureMatrix;
 
+    const payload: Record<string, unknown> = { model, boundaries };
+    if (featureMatrix) {
+      payload.featureMatrix = featureMatrix;
+    }
     res.writeHead(200, JSON_HEADERS);
-    res.end(JSON.stringify({ model, boundaries }));
+    res.end(JSON.stringify(payload));
   }
 
   private handleDsmEndpoint(res: http.ServerResponse): void {
@@ -394,8 +401,9 @@ export class C4DataServer {
     const model = provider.model;
     if (!model) return undefined;
     const boundaries = provider.boundaries ?? [];
+    const featureMatrix = provider.featureMatrix;
 
-    return { type: 'model-updated', model, boundaries };
+    return { type: 'model-updated', model, boundaries, featureMatrix };
   }
 
   private buildDsmMessage(

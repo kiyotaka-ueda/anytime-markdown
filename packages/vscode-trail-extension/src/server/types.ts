@@ -4,6 +4,7 @@ import type {
   CyclicPair,
   DsmDiff,
   DsmMatrix,
+  FeatureMatrix,
 } from '@anytime-markdown/c4-kernel';
 
 // ---------------------------------------------------------------------------
@@ -14,6 +15,7 @@ export interface ModelUpdatedMessage {
   readonly type: 'model-updated';
   readonly model: C4Model;
   readonly boundaries: readonly BoundaryInfo[];
+  readonly featureMatrix?: FeatureMatrix;
 }
 
 export interface DsmMatrixUpdatedMessage {

@@ -8,7 +8,7 @@ import {
   buildSourceMatrix,
   clusterMatrix,
 } from '@anytime-markdown/c4-kernel';
-import type { C4Element, C4Model, C4Relationship, BoundaryInfo, DsmMapping, DsmMatrix } from '@anytime-markdown/c4-kernel';
+import type { C4Element, C4Model, C4Relationship, BoundaryInfo, DsmMapping, DsmMatrix, FeatureMatrix } from '@anytime-markdown/c4-kernel';
 import { analyze, trailToC4, toMermaid } from '@anytime-markdown/trail-core';
 import type { TrailGraph } from '@anytime-markdown/trail-core';
 import type { C4DataProvider, C4DataServer } from '../server/C4DataServer';
@@ -24,6 +24,7 @@ export class C4Panel implements C4DataProvider {
 
   private lastModel: C4Model | undefined;
   private lastBoundaries: readonly BoundaryInfo[] | undefined;
+  private lastFeatureMatrix: FeatureMatrix | undefined;
   private lastTrailGraph: TrailGraph | undefined;
   private lastProjectRoot: string | undefined;
   private lastDsmMapping: readonly DsmMapping[] = [];
@@ -71,6 +72,7 @@ export class C4Panel implements C4DataProvider {
 
   public get model(): C4Model | undefined { return this.lastModel; }
   public get boundaries(): readonly BoundaryInfo[] | undefined { return this.lastBoundaries; }
+  public get featureMatrix(): FeatureMatrix | undefined { return this.lastFeatureMatrix; }
   public get c4Matrix(): DsmMatrix | undefined { return this.lastC4Matrix; }
   public get sourceMatrix(): DsmMatrix | undefined { return this.lastSourceMatrix; }
   public get currentDsmLevel(): 'component' | 'package' { return this.dsmLevel; }
@@ -186,7 +188,7 @@ export class C4Panel implements C4DataProvider {
     return path.join(root, configured);
   }
 
-  private static saveModel(model: C4Model, boundaries: readonly BoundaryInfo[]): void {
+  private static saveModel(model: C4Model, boundaries: readonly BoundaryInfo[], featureMatrix?: FeatureMatrix): void {
     const filePath = C4Panel.resolveModelPath();
     if (!filePath) return;
     try {
@@ -194,21 +196,28 @@ export class C4Panel implements C4DataProvider {
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
-      const data = { model, boundaries };
+      const data: Record<string, unknown> = { model, boundaries };
+      if (featureMatrix) {
+        data.featureMatrix = featureMatrix;
+      }
       fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
     } catch (err) {
       TrailLogger.error('Failed to save C4 model', err);
     }
   }
 
-  public static loadSavedModel(): { model: C4Model; boundaries: BoundaryInfo[] } | null {
+  public static loadSavedModel(): { model: C4Model; boundaries: BoundaryInfo[]; featureMatrix?: FeatureMatrix } | null {
     const filePath = C4Panel.resolveModelPath();
     if (!filePath || !fs.existsSync(filePath)) return null;
     try {
       const raw = fs.readFileSync(filePath, 'utf-8');
       const data = JSON.parse(raw);
       if (data?.model?.elements && Array.isArray(data.model.elements)) {
-        return { model: data.model, boundaries: data.boundaries ?? [] };
+        return {
+          model: data.model,
+          boundaries: data.boundaries ?? [],
+          ...(data.featureMatrix ? { featureMatrix: data.featureMatrix } : {}),
+        };
       }
     } catch (err) {
       TrailLogger.warn('Failed to parse saved C4 model');
@@ -221,6 +230,7 @@ export class C4Panel implements C4DataProvider {
     const saved = C4Panel.loadSavedModel();
     if (!saved) return false;
     const panel = C4Panel.getInstance();
+    panel.lastFeatureMatrix = saved.featureMatrix;
     panel.setModel(saved.model, saved.boundaries);
     return true;
   }
@@ -417,7 +427,7 @@ export class C4Panel implements C4DataProvider {
     if (this.lastModel === model && this.lastBoundaries === boundaries) return;
     this.lastModel = model;
     this.lastBoundaries = boundaries;
-    C4Panel.saveModel(model, boundaries ?? []);
+    C4Panel.saveModel(model, boundaries ?? [], this.lastFeatureMatrix);
     this.inferMapping();
     this.buildDsm();
     C4Panel.dataServer?.notify('model-updated');

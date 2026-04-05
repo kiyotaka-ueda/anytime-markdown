@@ -6,6 +6,11 @@ export type {
   C4Model,
   BoundaryInfo,
   C4TreeNode,
+  FeatureCategory,
+  Feature,
+  FeatureRole,
+  FeatureMapping,
+  FeatureMatrix,
 } from './types';
 
 export { parseMermaidC4, extractBoundaries } from './parser/mermaidC4';

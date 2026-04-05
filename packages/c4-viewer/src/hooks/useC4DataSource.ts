@@ -6,6 +6,7 @@ import type {
   CyclicPair,
   DsmDiff,
   DsmMatrix,
+  FeatureMatrix,
 } from '@anytime-markdown/c4-kernel';
 import {
   extractBoundaries,
@@ -26,6 +27,7 @@ export interface AnalysisProgress {
 interface C4DataSourceResult {
   c4Model: C4Model | null;
   boundaries: readonly BoundaryInfo[];
+  featureMatrix: FeatureMatrix | null;
   dsmMatrix: DsmMatrix | null;
   dsmDiff: DsmDiff | null;
   dsmCycles: readonly CyclicPair[];
@@ -37,6 +39,7 @@ interface C4DataSourceResult {
 interface ModelPayload {
   model: C4Model;
   boundaries: BoundaryInfo[];
+  featureMatrix?: FeatureMatrix;
 }
 
 interface DsmMatrixPayload {
@@ -47,6 +50,7 @@ interface WsModelMessage {
   type: 'model-updated';
   model: C4Model;
   boundaries: BoundaryInfo[];
+  featureMatrix?: FeatureMatrix;
 }
 
 interface WsDsmMatrixMessage {
@@ -159,6 +163,7 @@ function useRemoteInitialFetch(
   setC4Model: (m: C4Model) => void,
   setBoundaries: (b: readonly BoundaryInfo[]) => void,
   setDsmMatrix: (m: DsmMatrix | null) => void,
+  setFeatureMatrix: (m: FeatureMatrix | null) => void,
 ): void {
   useEffect(() => {
     if (!serverUrl) return;
@@ -178,6 +183,7 @@ function useRemoteInitialFetch(
         if (!cancelled && isModelPayload(json)) {
           setC4Model(json.model);
           setBoundaries(json.boundaries);
+          setFeatureMatrix(json.featureMatrix ?? null);
         }
       }
 
@@ -192,7 +198,7 @@ function useRemoteInitialFetch(
 
     void fetchInitial();
     return () => { cancelled = true; };
-  }, [serverUrl, setC4Model, setBoundaries, setDsmMatrix]);
+  }, [serverUrl, setC4Model, setBoundaries, setDsmMatrix, setFeatureMatrix]);
 }
 
 // ---------------------------------------------------------------------------
@@ -207,6 +213,7 @@ export function useC4DataSource(serverUrl?: string): C4DataSourceResult {
   const [remoteBoundaries, setRemoteBoundaries] = useState<
     readonly BoundaryInfo[]
   >([]);
+  const [featureMatrix, setFeatureMatrix] = useState<FeatureMatrix | null>(null);
   const [dsmMatrix, setDsmMatrix] = useState<DsmMatrix | null>(null);
   const [dsmDiff, setDsmDiff] = useState<DsmDiff | null>(null);
   const [dsmCycles, setDsmCycles] = useState<readonly CyclicPair[]>([]);
@@ -227,6 +234,7 @@ export function useC4DataSource(serverUrl?: string): C4DataSourceResult {
     setRemoteModel,
     setRemoteBoundaries,
     setDsmMatrix,
+    setFeatureMatrix,
   );
 
   // WebSocket message handler
@@ -238,6 +246,7 @@ export function useC4DataSource(serverUrl?: string): C4DataSourceResult {
       } else if (isWsModelMessage(parsed)) {
         setRemoteModel(parsed.model);
         setRemoteBoundaries(parsed.boundaries);
+        setFeatureMatrix(parsed.featureMatrix ?? null);
         setAnalysisProgress(null);
       } else if (isWsDsmMatrixMessage(parsed)) {
         setDsmMatrix(parsed.matrix);
@@ -316,6 +325,7 @@ export function useC4DataSource(serverUrl?: string): C4DataSourceResult {
   return {
     c4Model: isRemote ? remoteModel : local.c4Model,
     boundaries: isRemote ? remoteBoundaries : local.boundaries,
+    featureMatrix,
     dsmMatrix,
     dsmDiff,
     dsmCycles,

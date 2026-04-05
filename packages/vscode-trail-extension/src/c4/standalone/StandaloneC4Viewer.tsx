@@ -15,7 +15,7 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
-import { C4ElementTree, DsmCanvas, GraphCanvas, useC4DataSource } from '@anytime-markdown/c4-viewer';
+import { C4ElementTree, DsmCanvas, FcMapCanvas, GraphCanvas, useC4DataSource } from '@anytime-markdown/c4-viewer';
 import { AddElementDialog, AddRelationshipDialog } from './C4EditDialogs';
 import type { ElementFormData, RelationshipFormData } from './C4EditDialogs';
 
@@ -49,6 +49,7 @@ export function StandaloneC4Viewer() {
   const [showTree, setShowTree] = useState(true);
   const [showC4, setShowC4] = useState(true);
   const [showDsm, setShowDsm] = useState(true);
+  const [matrixView, setMatrixView] = useState<'dsm' | 'fcmap'>('dsm');
   const [dsmLevel, setDsmLevel] = useState<'component' | 'package'>('component');
   const [dsmClustered, setDsmClustered] = useState(false);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
@@ -240,7 +241,8 @@ export function StandaloneC4Viewer() {
         <Button size="small" onClick={() => setDsmClustered(prev => !prev)} sx={{ ...toolbarButtonSx, ...(dsmClustered && { bgcolor: 'rgba(144,202,249,0.12)' }) }}>Cluster</Button>
         <Box sx={{ flex: 1 }} />
         <Button size="small" onClick={() => { if (showC4 && !showDsm) return; setShowC4(prev => !prev); }} aria-pressed={showC4} aria-label="Toggle C4 graph" sx={{ ...toolbarButtonSx, ...(showC4 && { bgcolor: 'rgba(144,202,249,0.12)' }) }}>C4</Button>
-        <Button size="small" onClick={() => { if (showDsm && !showC4) return; setShowDsm(prev => !prev); }} aria-pressed={showDsm} aria-label="Toggle DSM matrix" sx={{ ...toolbarButtonSx, ...(showDsm && { bgcolor: 'rgba(144,202,249,0.12)' }) }}>DSM</Button>
+        <Button size="small" onClick={() => { if (showDsm && !showC4) return; setShowDsm(prev => !prev); if (!showDsm) setMatrixView('dsm'); }} aria-pressed={showDsm && matrixView === 'dsm'} aria-label="Toggle DSM matrix" sx={{ ...toolbarButtonSx, ...(showDsm && matrixView === 'dsm' && { bgcolor: 'rgba(144,202,249,0.12)' }) }}>DSM</Button>
+        <Button size="small" onClick={() => { setShowDsm(true); setMatrixView('fcmap'); }} aria-pressed={showDsm && matrixView === 'fcmap'} aria-label="Toggle F-C Map" disabled={!dataSource.featureMatrix} sx={{ ...toolbarButtonSx, ...(showDsm && matrixView === 'fcmap' && { bgcolor: 'rgba(144,202,249,0.12)' }) }}>F-C Map</Button>
         <Button size="small" startIcon={<AccountTreeIcon sx={{ fontSize: 18 }} />} onClick={() => setShowTree(prev => !prev)} aria-pressed={showTree} aria-label="Toggle element tree" sx={{ ...toolbarButtonSx, ...(showTree && { bgcolor: 'rgba(144,202,249,0.12)' }) }}>Tree</Button>
       </Toolbar>
       {currentLevel === 1 && (
@@ -340,7 +342,9 @@ export function StandaloneC4Viewer() {
         )}
         {showDsm && (
           <Box sx={{ flex: showC4 ? 1 - splitRatio : 1, position: 'relative', minWidth: 100, borderRight: showTree && elementTree.length > 0 ? `1px solid ${BORDER_COLOR}` : 'none' }}>
-            {dsmModel ? (
+            {matrixView === 'fcmap' && dataSource.featureMatrix && c4Model ? (
+              <FcMapCanvas featureMatrix={dataSource.featureMatrix} model={c4Model} />
+            ) : dsmModel ? (
               <DsmCanvas model={dsmModel} fullModel={c4Model ?? undefined} boundaries={boundaryInfos} level={dsmLevel} clustered={dsmClustered} focusedNodeId={selectedElementId} />
             ) : (
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>

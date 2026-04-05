@@ -47,6 +47,41 @@ export interface BoundaryInfo {
   readonly name: string;
 }
 
+// ---------------------------------------------------------------------------
+//  Feature Matrix
+// ---------------------------------------------------------------------------
+
+/** 機能カテゴリ */
+export interface FeatureCategory {
+  readonly id: string;
+  readonly name: string;
+}
+
+/** 機能領域 */
+export interface Feature {
+  readonly id: string;
+  readonly name: string;
+  readonly categoryId: string;
+}
+
+/** 機能と要素の対応（P=主担当, S=補助, D=依存先） */
+export type FeatureRole = 'primary' | 'secondary' | 'dependency';
+
+/** 機能と C4 要素のマッピング */
+export interface FeatureMapping {
+  readonly featureId: string;
+  /** C4 要素の ID（container or component） */
+  readonly elementId: string;
+  readonly role: FeatureRole;
+}
+
+/** 機能・構成マトリックス */
+export interface FeatureMatrix {
+  readonly categories: readonly FeatureCategory[];
+  readonly features: readonly Feature[];
+  readonly mappings: readonly FeatureMapping[];
+}
+
 /** ツリー表示用のノード */
 export interface C4TreeNode {
   readonly id: string;
