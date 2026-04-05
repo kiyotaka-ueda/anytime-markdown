@@ -28,6 +28,7 @@ function isMarkdownFile(filePath: string): boolean {
 }
 
 let dataServer: C4DataServer | undefined;
+let extensionDistPath = '';
 
 /** Anytime Markdown の比較モードでファイルを開く（利用可能な場合） */
 async function openWithMarkdownCompare(uri: vscode.Uri, originalContent: string): Promise<boolean> {
@@ -59,7 +60,7 @@ async function openWithVsCodeDiff(
 const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
 
 function startDataServer(port: number): void {
-	dataServer = new C4DataServer(() => C4Panel.getDataProvider());
+	dataServer = new C4DataServer(() => C4Panel.getDataProvider(), extensionDistPath);
 	C4Panel.setDataServer(dataServer);
 	dataServer.start(port).then(() => {
 		statusBarItem.text = `$(radio-tower) C4 Server: :${port}`;
@@ -93,6 +94,8 @@ function handleServerConfigChange(): void {
 }
 
 export function activate(context: vscode.ExtensionContext) {
+	extensionDistPath = path.join(context.extensionUri.fsPath, 'dist');
+
 	// Git 元コンテンツプロバイダー（diff 表示用）
 	const gitContentProvider = new GitOriginalContentProvider();
 	context.subscriptions.push(
