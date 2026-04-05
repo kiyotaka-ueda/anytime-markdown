@@ -20,7 +20,7 @@ import ListItemText from '@mui/material/ListItemText';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import type { Dispatch, FC } from 'react';
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 /** デザインシステム: チャコール */
 const BG_SECONDARY = '#121212';
@@ -214,19 +214,21 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
       } else {
         next.add(id);
       }
-      onCheckedChange?.(next);
       return next;
     });
-  }, [onCheckedChange]);
+  }, []);
 
   const allPackageIds = useMemo(() => collectPackageIds(tree), [tree]);
   const allChecked = allPackageIds.size > 0 && allPackageIds.size === [...allPackageIds].filter(id => checkedIds.has(id)).length;
 
   const handleCheckAll = useCallback(() => {
-    const next = allChecked ? new Set<string>() : new Set(allPackageIds);
-    setCheckedIds(next);
-    onCheckedChange?.(next);
-  }, [allChecked, allPackageIds, onCheckedChange]);
+    setCheckedIds(allChecked ? new Set<string>() : new Set(allPackageIds));
+  }, [allChecked, allPackageIds]);
+
+  // checkedIds の変更を親に通知（useEffect で render 後に実行）
+  useEffect(() => {
+    onCheckedChange?.(checkedIds);
+  }, [checkedIds, onCheckedChange]);
 
   return (
     <Box
