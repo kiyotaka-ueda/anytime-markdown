@@ -138,6 +138,24 @@ export function StandaloneC4Viewer() {
     return filterTreeByLevel(fullTree, currentLevel);
   }, [c4Model, boundaryInfos, currentLevel]);
 
+  // 削除フラグ付き要素のIDセット（DSM表示用）
+  const deletedIds = useMemo(() => {
+    if (!c4Model) return undefined;
+    const ids = new Set<string>();
+    for (const el of c4Model.elements) {
+      if (el.deleted) ids.add(el.id);
+    }
+    return ids.size > 0 ? ids : undefined;
+  }, [c4Model]);
+
+  const handleRemoveElement = useCallback((id: string) => {
+    dataSource.sendCommand('remove-element', { id });
+  }, [dataSource]);
+
+  const handlePurgeDeleted = useCallback(() => {
+    dataSource.sendCommand('purge-deleted-elements');
+  }, [dataSource]);
+
   // チェックOFFパッケージ配下の要素IDを収集
   const excludedDescendantIds = useMemo(() => {
     if (!c4Model || !checkedPackageIds) return null;
@@ -370,7 +388,7 @@ export function StandaloneC4Viewer() {
             {matrixView === 'fcmap' && dataSource.featureMatrix && c4Model ? (
               <FcMapCanvas featureMatrix={dataSource.featureMatrix} model={c4Model} excludedElementIds={excludedDescendantIds} />
             ) : dsmModel ? (
-              <DsmCanvas model={dsmModel} fullModel={c4Model ?? undefined} boundaries={boundaryInfos} level={dsmLevel} clustered={dsmClustered} focusedNodeId={selectedElementId} scopeIds={selectedScopeIds} />
+              <DsmCanvas model={dsmModel} fullModel={c4Model ?? undefined} boundaries={boundaryInfos} level={dsmLevel} clustered={dsmClustered} focusedNodeId={selectedElementId} scopeIds={selectedScopeIds} deletedIds={deletedIds} />
             ) : (
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
                 <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)' }}>Waiting for C4 model...</Typography>
@@ -379,7 +397,7 @@ export function StandaloneC4Viewer() {
           </Box>
         )}
         {showTree && elementTree.length > 0 && (
-          <C4ElementTree tree={elementTree} dispatch={dispatch} onSelect={(id) => { setCenterOnSelect(true); setSelectedElementId(id); }} onCheckedChange={setCheckedPackageIds} />
+          <C4ElementTree tree={elementTree} dispatch={dispatch} onSelect={(id) => { setCenterOnSelect(true); setSelectedElementId(id); }} onCheckedChange={setCheckedPackageIds} onRemoveElement={handleRemoveElement} onPurgeDeleted={handlePurgeDeleted} />
         )}
       </Box>
       {/* --- Edit Dialogs --- */}
