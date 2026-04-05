@@ -419,6 +419,11 @@ export function activate(context: vscode.ExtensionContext) {
 		C4Panel.analyzeWorkspace();
 	});
 
+	// C4 Elements パネル（ツリーは空、ナビゲーションボタンのみ）
+	const c4ElementsTreeView = vscode.window.createTreeView('anytimeTrail.c4Elements', {
+		treeDataProvider: { getTreeItem: () => { throw new Error(); }, getChildren: () => [] },
+	});
+
 	// C4 Data Server
 	const serverConfig = vscode.workspace.getConfiguration('anytimeTrail.server');
 	if (serverConfig.get<boolean>('enabled', false)) {
@@ -470,6 +475,7 @@ export function activate(context: vscode.ExtensionContext) {
 		compareWithCommit,
 		c4Import, c4Analyze, c4Export,
 		dsmAnalyze,
+		c4ElementsTreeView,
 		statusBarItem,
 	);
 }
