@@ -3,7 +3,7 @@
 import type { GraphDocument, SelectionState,Viewport } from '@anytime-markdown/graph-core';
 import { engine } from '@anytime-markdown/graph-core';
 import type { Action } from '@anytime-markdown/graph-core/state';
-import { useCallback,useEffect, useRef } from 'react';
+import { useCallback,useEffect, useRef, useState } from 'react';
 
 const { render, pan, zoom } = engine;
 
@@ -16,6 +16,7 @@ interface C4GraphCanvasProps {
 }
 
 const EMPTY_SELECTION: SelectionState = { nodeIds: [], edgeIds: [] };
+const PAN_STEP = 20;
 
 export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedNodeId }: Readonly<C4GraphCanvasProps>) {
   const rafRef = useRef<number>(0);
@@ -23,6 +24,7 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
   const lastPanRef = useRef({ x: 0, y: 0 });
   const viewportRef = useRef(viewport);
   const dispatchRef = useRef(dispatch);
+  const [isFocused, setIsFocused] = useState(false);
   viewportRef.current = viewport;
   dispatchRef.current = dispatch;
 
@@ -124,6 +126,48 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
     isPanningRef.current = false;
   }, []);
 
+  // Keyboard navigation
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    const vp = viewportRef.current;
+    switch (e.key) {
+      case 'ArrowUp': {
+        e.preventDefault();
+        const newViewport = pan(vp, 0, PAN_STEP);
+        dispatchRef.current({ type: 'SET_VIEWPORT', viewport: newViewport });
+        break;
+      }
+      case 'ArrowDown': {
+        e.preventDefault();
+        const newViewport = pan(vp, 0, -PAN_STEP);
+        dispatchRef.current({ type: 'SET_VIEWPORT', viewport: newViewport });
+        break;
+      }
+      case 'ArrowLeft': {
+        e.preventDefault();
+        const newViewport = pan(vp, PAN_STEP, 0);
+        dispatchRef.current({ type: 'SET_VIEWPORT', viewport: newViewport });
+        break;
+      }
+      case 'ArrowRight': {
+        e.preventDefault();
+        const newViewport = pan(vp, -PAN_STEP, 0);
+        dispatchRef.current({ type: 'SET_VIEWPORT', viewport: newViewport });
+        break;
+      }
+      case '+':
+      case '=': {
+        e.preventDefault();
+        dispatchRef.current({ type: 'SET_VIEWPORT', viewport: { ...vp, scale: vp.scale * 1.1 } });
+        break;
+      }
+      case '-': {
+        e.preventDefault();
+        dispatchRef.current({ type: 'SET_VIEWPORT', viewport: { ...vp, scale: vp.scale * 0.9 } });
+        break;
+      }
+    }
+  }, []);
+
   // Zoom (non-passive listener, registered once)
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -143,7 +187,21 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
   return (
     <canvas
       ref={canvasRef}
-      style={{ width: '100%', height: '100%', display: 'block', cursor: 'grab' }}
+      tabIndex={0}
+      role="img"
+      aria-roledescription="architecture diagram"
+      aria-label={`C4 architecture graph with ${document.nodes.length} nodes`}
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'block',
+        cursor: 'grab',
+        outline: 'none',
+        boxShadow: isFocused ? 'inset 0 0 0 2px #4FC3F7' : 'none',
+      }}
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => setIsFocused(false)}
+      onKeyDown={handleKeyDown}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
