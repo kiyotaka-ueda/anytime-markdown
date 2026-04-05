@@ -35,6 +35,7 @@ const C4_COLORS: Readonly<Record<C4ElementType, { fill: string; stroke: string }
 const EXTERNAL_COLOR = { fill: '#999999', stroke: '#8a8a8a' };
 
 const FRAME_COLORS: Readonly<Record<string, { fill: string; stroke: string }>> = {
+  system:    { fill: 'rgba(17,104,189,0.06)', stroke: '#1168bd' },
   container: { fill: 'rgba(67,141,213,0.08)', stroke: '#438dd5' },
   component: { fill: 'rgba(133,187,240,0.08)', stroke: '#85bbf0' },
 };
@@ -53,7 +54,7 @@ const DEFAULT_EDGE_STYLE: Readonly<EdgeStyle> = {
 };
 
 /** frame（境界）として扱う型 */
-const BOUNDARY_TYPES: ReadonlySet<C4ElementType> = new Set(['container', 'component']);
+const BOUNDARY_TYPES: ReadonlySet<C4ElementType> = new Set(['system', 'container', 'component']);
 
 let idCounter = 0;
 function nextId(): string {
@@ -104,9 +105,9 @@ export function c4ToGraphDocument(
     }
   }
 
-  // --- Phase 2: container 要素をフレームとして生成 ---
+  // --- Phase 2: 境界要素をフレームとして生成 ---
   for (const elem of model.elements) {
-    if (!BOUNDARY_TYPES.has(elem.type)) continue;
+    if (!BOUNDARY_TYPES.has(elem.type) || elem.external) continue;
     if (boundaryIdMap.has(elem.id)) {
       // Phase 1 で作成済み → groupId のみ更新
       if (elem.boundaryId && boundaryIdMap.has(elem.boundaryId)) {
@@ -143,7 +144,7 @@ export function c4ToGraphDocument(
   // --- Phase 3: その他の要素をノードとして生成 ---
   const elemIdMap = new Map<string, string>(); // c4ElementId → graphNodeId
   for (const elem of model.elements) {
-    if (BOUNDARY_TYPES.has(elem.type)) continue; // フレームとして既に生成済み
+    if (BOUNDARY_TYPES.has(elem.type) && !elem.external) continue; // フレームとして既に生成済み
 
     const mapping = NODE_MAP[elem.type];
     const colors = elem.external ? EXTERNAL_COLOR : C4_COLORS[elem.type];
