@@ -43,6 +43,8 @@ export class GraphItem extends vscode.TreeItem {
 
 		this.iconPath = resolveIcon(hash, refs, isLocal);
 
+		const statusText = isLocal ? ' (local)' : ' (remote)';
+
 		if (!hash) {
 			// グラフのみの行（マージライン等）
 			this.label = graph;
@@ -51,11 +53,11 @@ export class GraphItem extends vscode.TreeItem {
 		} else if (refs) {
 			this.label = `${graph} ${message}`;
 			this.description = `[${refs}]  ${date}  ${author}`;
-			this.tooltip = `${hash.substring(0, 7)}  ${message}\n${refs}\n${author}  ${date}`;
+			this.tooltip = `${hash.substring(0, 7)}  ${message}${statusText}\n${refs}\n${author}  ${date}`;
 		} else {
 			this.label = `${graph} ${message}`;
 			this.description = `${date}  ${author}`;
-			this.tooltip = `${hash.substring(0, 7)}  ${message}\n${author}  ${date}`;
+			this.tooltip = `${hash.substring(0, 7)}  ${message}${statusText}\n${author}  ${date}`;
 		}
 	}
 }
