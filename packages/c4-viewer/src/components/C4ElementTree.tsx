@@ -4,6 +4,8 @@ import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import DeleteIcon from '@mui/icons-material/Delete';
+import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import CodeIcon from '@mui/icons-material/Code';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExtensionIcon from '@mui/icons-material/Extension';
@@ -85,14 +87,16 @@ interface TreeNodeItemProps {
   readonly onToggle: (id: string) => void;
   readonly checkedIds: ReadonlySet<string>;
   readonly onCheck: (id: string) => void;
+  readonly onRemove?: (id: string) => void;
 }
 
-const TreeNodeItem: FC<TreeNodeItemProps> = memo(({ node, depth, selectedId, onSelect, expanded, onToggle, checkedIds, onCheck }) => {
+const TreeNodeItem: FC<TreeNodeItemProps> = memo(({ node, depth, selectedId, onSelect, expanded, onToggle, checkedIds, onCheck, onRemove }) => {
   const hasChildren = node.children.length > 0;
   const isOpen = expanded.has(node.id);
   const isSelected = node.id === selectedId;
   const isCheckable = isCheckableType(node.type);
   const isChecked = checkedIds.has(node.id);
+  const isDeleted = node.deleted === true;
 
   // 配下のチェック対象が一部だけONの場合 indeterminate
   const isIndeterminate = isChecked && hasChildren && (() => {
@@ -119,6 +123,11 @@ const TreeNodeItem: FC<TreeNodeItemProps> = memo(({ node, depth, selectedId, onS
     onCheck(node.id);
   }, [node.id, onCheck]);
 
+  const handleRemoveClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onRemove?.(node.id);
+  }, [node.id, onRemove]);
+
   return (
     <>
       <ListItemButton
@@ -128,6 +137,7 @@ const TreeNodeItem: FC<TreeNodeItemProps> = memo(({ node, depth, selectedId, onS
           py: 0.25,
           pl: 1 + depth * (INDENT_PX / 8),
           minHeight: 28,
+          ...(isDeleted ? { opacity: 0.5 } : {}),
         }}
       >
         {hasChildren ? (
@@ -162,8 +172,20 @@ const TreeNodeItem: FC<TreeNodeItemProps> = memo(({ node, depth, selectedId, onS
             noWrap: true,
             fontSize: '0.8rem',
             color: node.external ? 'text.secondary' : undefined,
+            sx: isDeleted ? { textDecoration: 'line-through' } : undefined,
           }}
         />
+        {isDeleted && onRemove && (
+          <Tooltip title="Remove deleted element" placement="right">
+            <IconButton
+              size="small"
+              onClick={handleRemoveClick}
+              sx={{ p: 0.25, color: 'text.secondary', '&:hover': { color: 'error.main' } }}
+            >
+              <DeleteIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+          </Tooltip>
+        )}
       </ListItemButton>
       {hasChildren && (
         <Collapse in={isOpen} timeout="auto" unmountOnExit>
@@ -179,6 +201,7 @@ const TreeNodeItem: FC<TreeNodeItemProps> = memo(({ node, depth, selectedId, onS
                 onToggle={onToggle}
                 checkedIds={checkedIds}
                 onCheck={onCheck}
+                onRemove={onRemove}
               />
             ))}
           </List>
@@ -194,9 +217,11 @@ interface C4ElementTreeProps {
   readonly dispatch: Dispatch<Action>;
   readonly onSelect?: (id: string) => void;
   readonly onCheckedChange?: (checkedIds: ReadonlySet<string>) => void;
+  readonly onRemoveElement?: (id: string) => void;
+  readonly onPurgeDeleted?: () => void;
 }
 
-export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onSelect, onCheckedChange }) => {
+export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onSelect, onCheckedChange, onRemoveElement, onPurgeDeleted }) => {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => {
     // デフォルトでルートレベルと system ノードの直下を展開
     const ids = new Set<string>();
@@ -282,6 +307,17 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
     });
   }, [nodeById, parentOf]);
 
+  const hasDeletedElements = useMemo(() => {
+    function hasDeleted(nodes: readonly C4TreeNode[]): boolean {
+      for (const n of nodes) {
+        if (n.deleted) return true;
+        if (n.children.length > 0 && hasDeleted(n.children)) return true;
+      }
+      return false;
+    }
+    return hasDeleted(tree);
+  }, [tree]);
+
   const allPackageIds = useMemo(() => collectCheckableIds(tree), [tree]);
   const allChecked = allPackageIds.size > 0 && allPackageIds.size === [...allPackageIds].filter(id => checkedIds.has(id)).length;
 
@@ -316,6 +352,18 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
         <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.7rem', flex: 1 }}>
           Elements
         </Typography>
+        {hasDeletedElements && onPurgeDeleted && (
+          <Tooltip title="Remove all deleted elements" placement="left">
+            <IconButton
+              size="small"
+              onClick={onPurgeDeleted}
+              aria-label="Remove all deleted elements"
+              sx={{ color: 'text.secondary', p: 0.25, '&:hover': { color: 'error.main' } }}
+            >
+              <DeleteSweepIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+        )}
         <Tooltip title={allChecked ? 'Uncheck all' : 'Check all'} placement="left">
           <IconButton
             size="small"
@@ -341,6 +389,7 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
             onToggle={handleToggle}
             checkedIds={checkedIds}
             onCheck={handleCheck}
+            onRemove={onRemoveElement}
           />
         ))}
       </List>
