@@ -698,7 +698,7 @@
     "md1Title": "Diff highlighting and section locking",
     "md1Body": "AI-edited sections are color-highlighted for instant diff comparison. Lock finalized sections to prevent AI from re-editing them.",
     "md2Title": "Give AI visual instructions",
-    "md2Body": "Paste screenshots and annotations into Agent Note to share visual context with your AI assistant.",
+    "md2Body": "Paste screenshots and annotations into Agent Note to share visual context with your AI assistant. With skills, you can issue work instructions referencing the note in a single command.",
     "md3Title": "Preview docs and diagrams in VS Code",
     "md3Body": "Instantly preview AI-generated Markdown in WYSIWYG. Mermaid, PlantUML, and math (KaTeX) render directly in the editor — no context switching needed.",
     "trailSectionTitle": "Anytime Trail",
