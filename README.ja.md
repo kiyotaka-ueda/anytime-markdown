@@ -3,55 +3,121 @@
 ![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=alert_status)
 ![Coverage](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=coverage)
 ![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=sqale_rating)
-![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=security_rating)Tiptap ベースのリッチマークダウンエディタ。\
-Web アプリ、VS Code 拡張機能、Android アプリの3つのプラットフォームで動作する。１１
+![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=security_rating)
+
+**書く、描く、見通す。Markdown から始まるソフトウェア開発ツール。**
 
 
-## 主な機能
+## 特徴的な機能
 
-- リッチテキスト編集（見出し、リスト、テーブル、リンク、画像）
+
+### C4 アーキテクチャ図 & DSM ライブビューア
+
+TypeScript プロジェクトを1コマンドで解析し、C4 アーキテクチャ図と DSM（依存構造マトリクス）を自動生成する。\
+ブラウザのライブビューアで構造を確認しながらコーディングできる。
+
+- L1（システムコンテキスト）〜 L4（コード）の4段階でドリルダウン
+- DSM クラスタリングで関連モジュールをグルーピング
+- 循環依存を赤枠でハイライト
+- VS Code での再解析が WebSocket 経由でリアルタイムに反映
+
+> 詳細: [Anytime Trail README](packages/vscode-trail-extension/README.ja.md)
+
+
+### グラフエディタ
+
+ノード・エッジを自由に配置するダイアグラムエディタ。\
+VS Code 拡張機能で `.graph` ファイルとして保存・編集できる。
+
+- 直交・ベジェ・直線のルーティング切替
+- フレームノードによるグルーピング
+- SVG / draw.io エクスポート
+- 物理レイアウト（力学モデル）
+
+> 詳細: [Graph Core](packages/graph-core/)、[VS Code Graph Extension](packages/vscode-graph-extension/)
+
+
+### リッチマークダウンエディタ
+
+Tiptap / ProseMirror ベースの WYSIWYG マークダウンエディタ。\
+Web、VS Code、Android の3つのプラットフォームで同じ編集体験を提供する。
+
 - Mermaid / PlantUML ダイアグラム描画
-- マークダウンソースモード切替
-- 検索・置換
 - diff 比較・マージビュー
-- アウトラインパネル
-- インラインコメント
-- 脚注
 - PDF エクスポート
 - テンプレート挿入（スラッシュコマンド）
+- 検索・置換、アウトライン、脚注、インラインコメント
 - セクション自動番号
 - 日本語 / 英語 対応
+
+
+### Git リポジトリ管理
+
+サイドバーから Git の日常操作をワンストップで行う。
+
+- ファイルツリー（ドラッグ&ドロップ対応）
+- ステージ / コミット / プッシュのインライン操作
+- ASCII コミットグラフ
+- ファイル単位のタイムライン・差分比較
+
+
+### MCP サーバー
+
+AI エージェントがプロジェクトの資産に直接アクセスするための MCP（Model Context Protocol）サーバー群。
+
+| サーバー | 機能 |
+| --- | --- |
+| `mcp-markdown` | Markdown の読み書き・セクション操作・差分計算 |
+| `mcp-graph` | グラフドキュメントの CRUD・SVG / draw.io エクスポート |
+| `mcp-cms` | S3 上のドキュメント・レポートの管理 |
+| `mcp-c4` | C4 モデル・DSM の操作 |
 
 
 ## プロジェクト構成
 
 ```mermaid
 flowchart TD
-    %% ノード定義
-    subgraph mono ["anytime-markdown (npm workspaces monorepo)"]
-        EC["markdown-core<br/>共有エディタライブラリ"]
-        WA["web-app<br/>Next.js Web アプリ"]
-        VE["vscode-markdown-extension<br/>VS Code 拡張機能"]
-        MA["mobile-app<br/>Capacitor Android アプリ"]
+    subgraph core ["共有ライブラリ"]
+        MC["markdown-core<br/>(エディタエンジン)"]
+        GC["graph-core<br/>(グラフエンジン)"]
+        TC["trail-core<br/>(TypeScript 解析)"]
+        C4["c4-kernel<br/>(C4 モデル・DSM)"]
+        CC["cms-core<br/>(S3 クライアント)"]
     end
 
-    subgraph deps ["主要な外部依存"]
-        Tiptap["Tiptap / ProseMirror"]
-        React["React 19 + MUI 7"]
-        Next["Next.js 15"]
-        VSCodeAPI["VS Code Extension API"]
+    subgraph app ["アプリケーション"]
+        WA["web-app<br/>(Next.js)"]
+        MA["mobile-app<br/>(Capacitor Android)"]
     end
 
-    %% 接続定義
-    WA -->|"workspace 依存"| EC
-    VE -->|"workspace 依存"| EC
-    MA -->|"静的ビルド参照"| WA
+    subgraph ext ["VS Code 拡張機能"]
+        VME["vscode-markdown-extension"]
+        VGE["vscode-graph-extension"]
+        VTE["vscode-trail-extension"]
+        VEP["vscode-extension-pack"]
+    end
 
-    EC --> Tiptap
-    EC --> React
-    WA --> Next
-    VE --> VSCodeAPI
-    MA --> Capacitor["Capacitor 7"]
+    subgraph mcp ["MCP サーバー"]
+        MM["mcp-markdown"]
+        MG["mcp-graph"]
+        MCM["mcp-cms"]
+        MC4["mcp-c4"]
+    end
+
+    WA --> MC
+    WA --> GC
+    WA --> C4
+    WA --> CC
+    VME --> MC
+    VGE --> GC
+    VTE --> TC
+    VTE --> C4
+    VTE --> GC
+    MA --> WA
+    MM --> MC
+    MG --> GC
+    MCM --> CC
+    MC4 --> C4
 ```
 
 
@@ -79,7 +145,8 @@ flowchart TD
 
 #### GitHub Personal Access Token の設定
 
-GitHub MCP サーバーや `gh` CLI で使用する。未設定でも開発は可能だが、PR 作成等の GitHub 操作が制限される。
+GitHub MCP サーバーや `gh` CLI で使用する。\
+未設定でも開発は可能だが、PR 作成等の GitHub 操作が制限される。
 
 1. https://github.com/settings/tokens にアクセス
 2. 「Generate new token (classic)」をクリック
