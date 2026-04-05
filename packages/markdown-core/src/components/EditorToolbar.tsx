@@ -25,7 +25,7 @@ import { useEditorState } from "@tiptap/react";
 import React, { useCallback, useRef, useState } from "react";
 
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, DEFAULT_LIGHT_TEXT, getActionHover, getActionSelected, getBgPaper, getTextPrimary, getTextSecondary } from "../constants/colors";
-import { TOOLBAR_FONT_SIZE } from "../constants/dimensions";
+import { SIDE_TOOLBAR_WIDTH, TOOLBAR_FONT_SIZE } from "../constants/dimensions";
 import { modKey } from "../constants/shortcuts";
 import { Z_TOOLBAR } from "../constants/zIndex";
 import AppIcon from "../icons/AppIcon";
@@ -244,7 +244,7 @@ export const EditorToolbar = React.memo(function EditorToolbar({
         flexWrap: "wrap",
         gap: 0.5,
         py: 0.5,
-        pr: 0.5,
+        pr: 0,
         pl: "2px",
         minHeight: 44,
         maxHeight: 44,
@@ -403,12 +403,12 @@ export const EditorToolbar = React.memo(function EditorToolbar({
       {/* More menu */}
       {!hideMoreMenu && (
         <>
-          <Box sx={{ display: { xs: "none", md: "contents" } }}>
+          <Box sx={{ display: { xs: "none", md: "flex" }, width: SIDE_TOOLBAR_WIDTH, justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
             <Tooltip title={t("more")}>
               <IconButton aria-label={t("more")}
                 size="small"
                 onClick={(e) => onSetHelpAnchor(e.currentTarget)}
-                sx={{ mr: 0, p: 0 }}
+                sx={{ p: 0 }}
               >
                 <MenuIcon fontSize="small" />
               </IconButton>
