@@ -48,10 +48,13 @@ export class C4Panel implements C4DataProvider {
 
   private static viewerOpened = false;
 
-  /** サーバーが稼働中かつ未オープンならブラウザでスタンドアロンビューアを開く */
-  private static openViewer(): void {
+  /**
+   * サーバーが稼働中ならブラウザでスタンドアロンビューアを開く。
+   * force=true の場合は viewerOpened ガードを無視して必ず開く。
+   */
+  private static openViewer(force = false): void {
     if (!C4Panel.dataServer?.isRunning) return;
-    if (C4Panel.viewerOpened) return;
+    if (!force && C4Panel.viewerOpened) return;
     C4Panel.viewerOpened = true;
     const port = vscode.workspace.getConfiguration('anytimeTrail.server').get<number>('port', 19840);
     vscode.env.openExternal(vscode.Uri.parse(`http://localhost:${port}`));
@@ -191,7 +194,7 @@ export class C4Panel implements C4DataProvider {
       tsconfigPath = picked.uri.fsPath;
     }
 
-    C4Panel.openViewer();
+    C4Panel.openViewer(true);
 
     try {
       await vscode.window.withProgress(
