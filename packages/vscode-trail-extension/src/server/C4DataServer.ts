@@ -202,12 +202,12 @@ export class C4DataServer {
   private handleModelEndpoint(res: http.ServerResponse): void {
     const provider = this.getProvider();
     const model = provider?.model;
-    const boundaries = provider?.boundaries;
-    if (!model || !boundaries) {
+    if (!model) {
       res.writeHead(204, CORS_HEADERS);
       res.end();
       return;
     }
+    const boundaries = provider?.boundaries ?? [];
 
     res.writeHead(200, JSON_HEADERS);
     res.end(JSON.stringify({ model, boundaries }));
@@ -355,8 +355,8 @@ export class C4DataServer {
     provider: C4DataProvider,
   ): ServerMessage | undefined {
     const model = provider.model;
-    const boundaries = provider.boundaries;
-    if (!model || !boundaries) return undefined;
+    if (!model) return undefined;
+    const boundaries = provider.boundaries ?? [];
 
     return { type: 'model-updated', model, boundaries };
   }
