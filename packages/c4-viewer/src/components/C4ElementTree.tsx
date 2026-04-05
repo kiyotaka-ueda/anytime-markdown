@@ -63,6 +63,19 @@ function collectCheckableIds(nodes: readonly C4TreeNode[]): Set<string> {
   return ids;
 }
 
+/** 指定ノードの配下にあるチェック対象IDを収集 */
+function collectDescendantCheckableIds(node: C4TreeNode): Set<string> {
+  const ids = new Set<string>();
+  function walk(list: readonly C4TreeNode[]): void {
+    for (const n of list) {
+      if (isCheckableType(n.type)) ids.add(n.id);
+      if (n.children.length > 0) walk(n.children);
+    }
+  }
+  walk(node.children);
+  return ids;
+}
+
 interface TreeNodeItemProps {
   readonly node: C4TreeNode;
   readonly depth: number;
@@ -206,17 +219,43 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
     onSelect?.(id);
   }, [dispatch, onSelect]);
 
+  // ツリーノードをIDで引けるマップ
+  const nodeById = useMemo(() => {
+    const map = new Map<string, C4TreeNode>();
+    function walk(list: readonly C4TreeNode[]): void {
+      for (const n of list) {
+        map.set(n.id, n);
+        if (n.children.length > 0) walk(n.children);
+      }
+    }
+    walk(tree);
+    return map;
+  }, [tree]);
+
   const handleCheck = useCallback((id: string) => {
     setCheckedIds(prev => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
+      const turning = !next.has(id);
+      if (turning) {
         next.add(id);
+      } else {
+        next.delete(id);
+      }
+      // 子のチェック対象を連動
+      const node = nodeById.get(id);
+      if (node) {
+        const childIds = collectDescendantCheckableIds(node);
+        for (const cid of childIds) {
+          if (turning) {
+            next.add(cid);
+          } else {
+            next.delete(cid);
+          }
+        }
       }
       return next;
     });
-  }, []);
+  }, [nodeById]);
 
   const allPackageIds = useMemo(() => collectCheckableIds(tree), [tree]);
   const allChecked = allPackageIds.size > 0 && allPackageIds.size === [...allPackageIds].filter(id => checkedIds.has(id)).length;
