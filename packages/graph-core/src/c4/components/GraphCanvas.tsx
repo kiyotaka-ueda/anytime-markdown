@@ -3,7 +3,7 @@ import { render } from '../../engine/index';
 import type { Action } from '../../state/index';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useCanvasBase } from '../hooks/useCanvasBase';
+import { useCanvasBase } from '../../hooks/useCanvasBase';
 
 interface C4GraphCanvasProps {
   readonly document: GraphDocument;

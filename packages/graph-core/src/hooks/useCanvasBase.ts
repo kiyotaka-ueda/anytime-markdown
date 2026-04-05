@@ -6,8 +6,8 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import {
   pan, zoom, screenToWorld, hitTestNode, drawSelectionRect,
-} from '../../engine/index';
-import type { GraphNode, Viewport, SelectionState } from '../../types';
+} from '../engine/index';
+import type { GraphNode, Viewport, SelectionState } from '../types';
 
 // ---------------------------------------------------------------------------
 //  Types
