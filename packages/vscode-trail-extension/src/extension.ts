@@ -12,6 +12,7 @@ import { registerSpecDocsCommands } from './commands/specDocsCommands';
 import { registerChangesCommands, GitOriginalContentProvider } from './commands/changesCommands';
 import { registerC4Commands } from './commands/c4Commands';
 import { TrailLogger } from './utils/TrailLogger';
+import { C4TreeProvider } from './providers/C4TreeProvider';
 
 let dataServer: C4DataServer | undefined;
 let extensionDistPath = '';
@@ -253,9 +254,10 @@ export function activate(context: vscode.ExtensionContext) {
 		},
 	});
 
-	// C4 Elements パネル（ツリーは空、ナビゲーションボタンのみ）
+	// C4 Elements パネル
+	const c4TreeProvider = new C4TreeProvider();
 	const c4ElementsTreeView = vscode.window.createTreeView('anytimeTrail.c4Elements', {
-		treeDataProvider: { getTreeItem: () => { throw new Error(); }, getChildren: () => [] },
+		treeDataProvider: c4TreeProvider,
 	});
 
 	// C4 Data Server
