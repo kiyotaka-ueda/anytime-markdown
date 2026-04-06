@@ -109,13 +109,13 @@ export function C4Viewer() {
     }
   }, [dispatch]);
 
-  // 初期表示: public/anytime-markdown-c4.mmd を読み込む
+  // 初期表示: public/c4-model.json を読み込む
   useEffect(() => {
-    fetch('/anytime-markdown-c4.mmd')
+    fetch('/c4-model.json')
       .then(res => { if (res.ok) return res.text(); })
-      .then(text => { if (text) loadMermaidText(text); })
+      .then(json => { if (json) loadGraphJson(json); })
       .catch(() => { /* ファイルが存在しない場合は無視 */ });
-  }, [loadMermaidText]);
+  }, [loadGraphJson]);
 
   const handleImport = useCallback(() => {
     const input = document.createElement('input');
@@ -446,7 +446,7 @@ export function C4Viewer() {
         {showDsm && (
         <Box sx={{ flex: showC4 ? 1 - splitRatio : 1, position: 'relative', minWidth: 100, borderRight: showTree && elementTree.length > 0 ? `1px solid ${BORDER_COLOR}` : 'none' }}>
           {matrixView === 'fcmap' && featureMatrix && c4Model ? (
-            <FcMapCanvas featureMatrix={featureMatrix} model={c4Model} excludedElementIds={excludedDescendantIds} />
+            <FcMapCanvas featureMatrix={featureMatrix} model={c4Model} excludedElementIds={excludedDescendantIds} level={currentLevel} />
           ) : dsmModel ? (
             <DsmCanvas
               model={dsmModel}

@@ -6,6 +6,8 @@ interface FcMapCanvasProps {
   readonly model: C4Model;
   /** チェックOFFで除外する要素ID */
   readonly excludedElementIds?: ReadonlySet<string> | null;
+  /** C4 レベル (2=container のみ, 3=component のみ, 4=すべて) */
+  readonly level?: number;
 }
 
 // --- Constants ---
@@ -55,11 +57,21 @@ function clampViewport(vp: { offsetX: number; offsetY: number; scale: number }):
 }
 
 /** Build the grid data from FeatureMatrix + C4Model */
-function buildGrid(fm: FeatureMatrix, model: C4Model, excluded?: ReadonlySet<string> | null) {
+function buildGrid(fm: FeatureMatrix, model: C4Model, excluded?: ReadonlySet<string> | null, level?: number) {
   // Columns: unique elementIds referenced by mappings, resolved to names
   const elementMap = new Map(model.elements.map(e => [e.id, e.name]));
+  const typeMap = new Map(model.elements.map(e => [e.id, e.type]));
+
+  // レベルに応じた要素タイプフィルタ
+  const allowedTypes: ReadonlySet<string> | null =
+    level === 2 ? new Set(['container', 'containerDb']) :
+    level === 3 ? new Set(['component']) :
+    level === 4 ? new Set(['code']) :
+    null; // undefined → すべて表示
+
   const colIds = [...new Set(fm.mappings.map(m => m.elementId))]
-    .filter(id => !excluded?.has(id));
+    .filter(id => !excluded?.has(id))
+    .filter(id => !allowedTypes || allowedTypes.has(typeMap.get(id) ?? ''));
   const columns = colIds.map(id => ({ id, name: elementMap.get(id) ?? id }));
 
   // Rows: features grouped by category
@@ -90,7 +102,7 @@ function buildGrid(fm: FeatureMatrix, model: C4Model, excluded?: ReadonlySet<str
 
 // --- Component ---
 
-export function FcMapCanvas({ featureMatrix, model, excludedElementIds }: Readonly<FcMapCanvasProps>) {
+export function FcMapCanvas({ featureMatrix, model, excludedElementIds, level }: Readonly<FcMapCanvasProps>) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
   const viewportRef = useRef({ offsetX: 0, offsetY: 0, scale: 1 });
@@ -103,11 +115,11 @@ export function FcMapCanvas({ featureMatrix, model, excludedElementIds }: Readon
 
   // Build grid when data changes
   useEffect(() => {
-    gridRef.current = buildGrid(featureMatrix, model, excludedElementIds);
+    gridRef.current = buildGrid(featureMatrix, model, excludedElementIds, level);
     viewportRef.current = { offsetX: 0, offsetY: 0, scale: 1 };
     hoveredRef.current = null;
     setTooltip(null);
-  }, [featureMatrix, model, excludedElementIds]);
+  }, [featureMatrix, model, excludedElementIds, level]);
 
   // Render loop
   useEffect(() => {
@@ -323,7 +335,7 @@ export function FcMapCanvas({ featureMatrix, model, excludedElementIds }: Readon
 
     rafRef.current = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [featureMatrix, model, excludedElementIds]);
+  }, [featureMatrix, model, excludedElementIds, level]);
 
   // Hit test for cell hover
   const hitTestCell = useCallback((mouseX: number, mouseY: number): { row: number; col: number } | null => {
