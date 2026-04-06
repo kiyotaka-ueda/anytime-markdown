@@ -15,9 +15,8 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
-import { C4ElementTree, DsmCanvas, FcMapCanvas, GraphCanvas, useC4DataSource } from '@anytime-markdown/c4-viewer';
-import { AddElementDialog, AddRelationshipDialog } from './C4EditDialogs';
-import type { ElementFormData, RelationshipFormData } from './C4EditDialogs';
+import { AddElementDialog, AddRelationshipDialog, C4ElementTree, DsmCanvas, FcMapCanvas, GraphCanvas, useC4DataSource } from '@anytime-markdown/c4-viewer';
+import type { ElementFormData, RelationshipFormData } from '@anytime-markdown/c4-viewer';
 
 const { graphReducer, createInitialState } = graphState;
 const { fitToContent } = engine;
@@ -102,13 +101,22 @@ export function StandaloneC4Viewer() {
   // 簡易版: selectedElementId が存在すれば from として扱い、ダイアログで to をドロップダウンから選ぶ
 
   // dataSource のモデル更新をグラフに反映
+  const currentLevelRef = useRef(currentLevel);
+  currentLevelRef.current = currentLevel;
   useEffect(() => {
     if (!c4Model) return;
     const doc = c4ToGraphDocument(c4Model, boundaryInfos);
     layoutWithSubgroups(doc, 'TB', 180, 60);
     setFullDoc(doc);
-    setCurrentLevel(4);
-    dispatch({ type: 'SET_DOCUMENT', doc });
+    // モデル更新時は現在のレベルを維持し、レベルビューを再適用
+    const level = currentLevelRef.current;
+    if (level < 4) {
+      const view = buildLevelView(doc, level);
+      layoutWithSubgroups(view, 'TB', 180, 60);
+      dispatch({ type: 'SET_DOCUMENT', doc: view });
+    } else {
+      dispatch({ type: 'SET_DOCUMENT', doc });
+    }
   }, [c4Model, boundaryInfos]);
 
   const handleSetLevel = useCallback((level: number) => {

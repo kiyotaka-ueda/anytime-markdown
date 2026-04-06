@@ -5,3 +5,5 @@ export { FcMapCanvas } from './components/FcMapCanvas';
 export { C4ElementTree } from './components/C4ElementTree';
 export { useC4DataSource } from './hooks/useC4DataSource';
 export type { AnalysisProgress } from './hooks/useC4DataSource';
+export { AddElementDialog, AddRelationshipDialog } from './components/C4EditDialogs';
+export type { ElementFormData, RelationshipFormData, ElementOption } from './components/C4EditDialogs';

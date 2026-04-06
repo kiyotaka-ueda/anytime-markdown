@@ -5,7 +5,11 @@ import type { BoundaryInfo, C4Model, FeatureMatrix } from '@anytime-markdown/c4-
 import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 import { engine, layoutWithSubgroups, state as graphState } from '@anytime-markdown/graph-core';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
 import FitScreenIcon from '@mui/icons-material/FitScreen';
+import LinkIcon from '@mui/icons-material/Link';
+import PersonIcon from '@mui/icons-material/Person';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -14,7 +18,8 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
-import { C4ElementTree, DsmCanvas, FcMapCanvas, GraphCanvas } from '@anytime-markdown/c4-viewer';
+import { AddElementDialog, AddRelationshipDialog, C4ElementTree, DsmCanvas, FcMapCanvas, GraphCanvas } from '@anytime-markdown/c4-viewer';
+import type { ElementFormData, RelationshipFormData } from '@anytime-markdown/c4-viewer';
 
 const { graphReducer, createInitialState } = graphState;
 const { fitToContent } = engine;
@@ -30,6 +35,11 @@ function computeBounds(nodes: readonly GraphNode[]) {
     if (n.y + n.height > maxY) maxY = n.y + n.height;
   }
   return { minX, minY, maxX, maxY };
+}
+
+let nextManualId = 1;
+function generateManualId(type: string): string {
+  return `manual-${type}-${Date.now()}-${nextManualId++}`;
 }
 
 /** デザインシステム: ミッドナイトネイビー背景 */
@@ -57,9 +67,104 @@ export function C4Viewer() {
   const [dsmClustered, setDsmClustered] = useState(false);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [checkedPackageIds, setCheckedPackageIds] = useState<ReadonlySet<string> | null>(null);
+  const [centerOnSelect, setCenterOnSelect] = useState(false);
   const [splitRatio, setSplitRatio] = useState(0.5);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // --- Editing state ---
+  const [addElementType, setAddElementType] = useState<'person' | 'system' | null>(null);
+  const [editElement, setEditElement] = useState<{ id: string; type: 'person' | 'system'; name: string; description: string; external: boolean } | null>(null);
+  const [addRelOpen, setAddRelOpen] = useState(false);
+
+  const handleAddElement = useCallback((data: ElementFormData) => {
+    if (!c4Model) return;
+    const newElement = {
+      id: generateManualId(data.type),
+      type: data.type as 'person' | 'system',
+      name: data.name,
+      description: data.description || undefined,
+      external: data.external,
+      manual: true,
+    };
+    setC4Model({
+      ...c4Model,
+      elements: [...c4Model.elements, newElement],
+    });
+  }, [c4Model]);
+
+  const handleUpdateElement = useCallback((data: ElementFormData) => {
+    if (!editElement || !c4Model) return;
+    setC4Model({
+      ...c4Model,
+      elements: c4Model.elements.map(e =>
+        e.id === editElement.id
+          ? { ...e, name: data.name, description: data.description || undefined, external: data.external }
+          : e,
+      ),
+    });
+    setEditElement(null);
+  }, [editElement, c4Model]);
+
+  const handleAddRelationship = useCallback((data: RelationshipFormData) => {
+    if (!c4Model) return;
+    setC4Model({
+      ...c4Model,
+      relationships: [...c4Model.relationships, {
+        from: data.from,
+        to: data.to,
+        label: data.label || undefined,
+        technology: data.technology || undefined,
+        manual: true,
+      }],
+    });
+  }, [c4Model]);
+
+  const handleDeleteSelected = useCallback(() => {
+    if (!selectedElementId || !c4Model) return;
+    const elem = c4Model.elements.find(e => e.id === selectedElementId);
+    if (elem?.manual) {
+      setC4Model({
+        ...c4Model,
+        elements: c4Model.elements.filter(e => e.id !== selectedElementId),
+        relationships: c4Model.relationships.filter(r => r.from !== selectedElementId && r.to !== selectedElementId),
+      });
+      setSelectedElementId(null);
+    }
+  }, [selectedElementId, c4Model]);
+
+  const selectedIsManual = useMemo(() => {
+    if (!selectedElementId || !c4Model) return false;
+    return c4Model.elements.find(e => e.id === selectedElementId)?.manual === true;
+  }, [selectedElementId, c4Model]);
+
+  const handleRemoveElement = useCallback((id: string) => {
+    if (!c4Model) return;
+    const elem = c4Model.elements.find(e => e.id === id);
+    if (elem?.manual) {
+      setC4Model({
+        ...c4Model,
+        elements: c4Model.elements.filter(e => e.id !== id),
+        relationships: c4Model.relationships.filter(r => r.from !== id && r.to !== id),
+      });
+    } else {
+      // 非手動要素は削除フラグを付ける
+      setC4Model({
+        ...c4Model,
+        elements: c4Model.elements.map(e => e.id === id ? { ...e, deleted: true } : e),
+      });
+    }
+  }, [c4Model]);
+
+  const handlePurgeDeleted = useCallback(() => {
+    if (!c4Model) return;
+    const deletedIdSet = new Set(c4Model.elements.filter(e => e.deleted).map(e => e.id));
+    setC4Model({
+      ...c4Model,
+      elements: c4Model.elements.filter(e => !e.deleted),
+      relationships: c4Model.relationships.filter(r => !deletedIdSet.has(r.from) && !deletedIdSet.has(r.to)),
+    });
+  }, [c4Model]);
 
   const loadMermaidText = useCallback((text: string) => {
     try {
@@ -117,6 +222,30 @@ export function C4Viewer() {
       .catch(() => { /* ファイルが存在しない場合は無視 */ });
   }, [loadGraphJson]);
 
+  // c4Model のローカル編集をグラフに反映（レベル維持）
+  const currentLevelRef = useRef(currentLevel);
+  currentLevelRef.current = currentLevel;
+  const isInitialLoadRef = useRef(true);
+  useEffect(() => {
+    if (!c4Model) return;
+    // 初回ロード時は loadMermaidText/loadGraphJson が直接 dispatch するのでスキップ
+    if (isInitialLoadRef.current) {
+      isInitialLoadRef.current = false;
+      return;
+    }
+    const doc = c4ToGraphDocument(c4Model, boundaryInfos);
+    layoutWithSubgroups(doc, 'TB', 180, 60);
+    setFullDoc(doc);
+    const level = currentLevelRef.current;
+    if (level < 4) {
+      const view = buildLevelView(doc, level);
+      layoutWithSubgroups(view, 'TB', 180, 60);
+      dispatch({ type: 'SET_DOCUMENT', doc: view });
+    } else {
+      dispatch({ type: 'SET_DOCUMENT', doc });
+    }
+  }, [c4Model, boundaryInfos]);
+
   const handleImport = useCallback(() => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -129,8 +258,10 @@ export function C4Viewer() {
         const text = reader.result as string;
         const ext = file.name.split('.').pop()?.toLowerCase();
         if (ext === 'graph' || ext === 'json') {
+          isInitialLoadRef.current = true;
           loadGraphJson(text);
         } else {
+          isInitialLoadRef.current = true;
           loadMermaidText(text);
         }
       };
@@ -166,6 +297,16 @@ export function C4Viewer() {
     const fullTree = buildElementTree(c4Model, boundaryInfos);
     return filterTreeByLevel(fullTree, currentLevel);
   }, [c4Model, boundaryInfos, currentLevel]);
+
+  // 削除フラグ付き要素のIDセット（DSM表示用）
+  const deletedIds = useMemo(() => {
+    if (!c4Model) return undefined;
+    const ids = new Set<string>();
+    for (const el of c4Model.elements) {
+      if (el.deleted) ids.add(el.id);
+    }
+    return ids.size > 0 ? ids : undefined;
+  }, [c4Model]);
 
   // チェックOFFパッケージ配下の要素IDを収集
   const excludedDescendantIds = useMemo(() => {
@@ -260,22 +401,14 @@ export function C4Viewer() {
   }, [showTree, elementTree.length]);
 
   const toolbarButtonSx = {
-    textTransform: 'none',
-    color: ACCENT_BLUE,
-    borderColor: BORDER_COLOR,
-    fontWeight: 600,
-    fontSize: '0.875rem',
-    borderRadius: '8px',
+    textTransform: 'none', color: ACCENT_BLUE, borderColor: BORDER_COLOR,
+    fontWeight: 600, fontSize: '0.875rem', borderRadius: '8px',
     '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
   } as const;
 
   const levelButtonSx = {
-    textTransform: 'none',
-    fontWeight: 600,
-    fontSize: '0.75rem',
-    minWidth: 36,
-    borderColor: BORDER_COLOR,
-    color: 'rgba(255,255,255,0.70)',
+    textTransform: 'none', fontWeight: 600, fontSize: '0.75rem', minWidth: 36,
+    borderColor: BORDER_COLOR, color: 'rgba(255,255,255,0.70)',
     '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
   } as const;
 
@@ -286,114 +419,54 @@ export function C4Viewer() {
     borderColor: `${ACCENT_BLUE} !important`,
   } as const;
 
-  const c4Toolbar = (
-    <Toolbar
-      variant="dense"
-      sx={{
-        gap: 1,
-        bgcolor: BG_SECONDARY,
-        borderBottom: `1px solid ${BORDER_COLOR}`,
-        minHeight: 44,
-        px: { xs: 2, md: 3 },
-      }}
-    >
-      <Button
-        size="small"
-        startIcon={<UploadFileIcon sx={{ fontSize: 18 }} />}
-        onClick={handleImport}
-        sx={toolbarButtonSx}
-      >
-        Import
-      </Button>
-      <ButtonGroup size="small" sx={{ ml: 1 }}>
-        {([1, 2, 3, 4] as const).map(level => (
-          <Button
-            key={level}
-            onClick={() => handleSetLevel(level)}
-            aria-pressed={currentLevel === level}
-            aria-label={`Level ${level}: ${({ 1: 'Context', 2: 'Container', 3: 'Component', 4: 'Code' } as const)[level]}`}
-            title={({ 1: 'Context', 2: 'Container', 3: 'Component', 4: 'Code' } as const)[level]}
-            sx={currentLevel === level ? levelButtonActiveSx : levelButtonSx}
-          >
-            L{level}
-          </Button>
-        ))}
-      </ButtonGroup>
-      <Button
-        size="small"
-        startIcon={<FitScreenIcon sx={{ fontSize: 18 }} />}
-        onClick={handleFit}
-        sx={toolbarButtonSx}
-      >
-        Fit
-      </Button>
-      <Button
-        size="small"
-        onClick={() => setDsmClustered(prev => !prev)}
-        sx={{
-          ...toolbarButtonSx,
-          ...(dsmClustered && { bgcolor: 'rgba(144,202,249,0.12)' }),
-        }}
-      >
-        Cluster
-      </Button>
-      <Box sx={{ flex: 1 }} />
-      <Button
-        size="small"
-        onClick={() => { if (showC4 && !showDsm) return; setShowC4(prev => !prev); }}
-        aria-pressed={showC4}
-        aria-label="Toggle C4 graph"
-        sx={{
-          ...toolbarButtonSx,
-          ...(showC4 && { bgcolor: 'rgba(144,202,249,0.12)' }),
-        }}
-      >
-        C4
-      </Button>
-      <Button
-        size="small"
-        onClick={() => { if (showDsm && !showC4) return; setShowDsm(prev => !prev); if (!showDsm) setMatrixView('dsm'); }}
-        aria-pressed={showDsm && matrixView === 'dsm'}
-        aria-label="Toggle DSM matrix"
-        sx={{
-          ...toolbarButtonSx,
-          ...(showDsm && matrixView === 'dsm' && { bgcolor: 'rgba(144,202,249,0.12)' }),
-        }}
-      >
-        DSM
-      </Button>
-      <Button
-        size="small"
-        onClick={() => { setShowDsm(true); setMatrixView('fcmap'); }}
-        aria-pressed={showDsm && matrixView === 'fcmap'}
-        aria-label="Toggle F-C Map"
-        disabled={!featureMatrix}
-        sx={{
-          ...toolbarButtonSx,
-          ...(showDsm && matrixView === 'fcmap' && { bgcolor: 'rgba(144,202,249,0.12)' }),
-        }}
-      >
-        F-C Map
-      </Button>
-      <Button
-        size="small"
-        startIcon={<AccountTreeIcon sx={{ fontSize: 18 }} />}
-        onClick={() => setShowTree(prev => !prev)}
-        aria-pressed={showTree}
-        aria-label="Toggle element tree"
-        sx={{
-          ...toolbarButtonSx,
-          ...(showTree && { bgcolor: 'rgba(144,202,249,0.12)' }),
-        }}
-      >
-        Tree
-      </Button>
-    </Toolbar>
-  );
-
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)', bgcolor: BG_PRIMARY }}>
-      {c4Toolbar}
+      <Toolbar variant="dense" sx={{ gap: 1, bgcolor: BG_SECONDARY, borderBottom: `1px solid ${BORDER_COLOR}`, minHeight: 44, px: { xs: 2, md: 3 } }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mr: 1 }} aria-live="polite" aria-atomic="true">
+          <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.3)' }} aria-hidden="true" />
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.7rem' }}>
+            Disconnected
+          </Typography>
+        </Box>
+        <Button
+          size="small"
+          startIcon={<UploadFileIcon sx={{ fontSize: 18 }} />}
+          onClick={handleImport}
+          sx={toolbarButtonSx}
+        >
+          Import
+        </Button>
+        <ButtonGroup size="small" sx={{ ml: 1 }}>
+          {([1, 2, 3, 4] as const).map(level => (
+            <Button
+              key={level}
+              onClick={() => handleSetLevel(level)}
+              aria-pressed={currentLevel === level}
+              aria-label={`Level ${level}: ${({ 1: 'Context', 2: 'Container', 3: 'Component', 4: 'Code' } as const)[level]}`}
+              title={({ 1: 'Context', 2: 'Container', 3: 'Component', 4: 'Code' } as const)[level]}
+              sx={currentLevel === level ? levelButtonActiveSx : levelButtonSx}
+            >
+              L{level}
+            </Button>
+          ))}
+        </ButtonGroup>
+        <Button size="small" startIcon={<FitScreenIcon sx={{ fontSize: 18 }} />} onClick={handleFit} sx={toolbarButtonSx}>Fit</Button>
+        <Button size="small" onClick={() => setDsmClustered(prev => !prev)} sx={{ ...toolbarButtonSx, ...(dsmClustered && { bgcolor: 'rgba(144,202,249,0.12)' }) }}>Cluster</Button>
+        <Box sx={{ flex: 1 }} />
+        <Button size="small" onClick={() => { if (showC4 && !showDsm) return; setShowC4(prev => !prev); }} aria-pressed={showC4} aria-label="Toggle C4 graph" sx={{ ...toolbarButtonSx, ...(showC4 && { bgcolor: 'rgba(144,202,249,0.12)' }) }}>C4</Button>
+        <Button size="small" onClick={() => { if (showDsm && !showC4) return; setShowDsm(prev => !prev); if (!showDsm) setMatrixView('dsm'); }} aria-pressed={showDsm && matrixView === 'dsm'} aria-label="Toggle DSM matrix" sx={{ ...toolbarButtonSx, ...(showDsm && matrixView === 'dsm' && { bgcolor: 'rgba(144,202,249,0.12)' }) }}>DSM</Button>
+        <Button size="small" onClick={() => { setShowDsm(true); setMatrixView('fcmap'); }} aria-pressed={showDsm && matrixView === 'fcmap'} aria-label="Toggle F-C Map" disabled={!featureMatrix} sx={{ ...toolbarButtonSx, ...(showDsm && matrixView === 'fcmap' && { bgcolor: 'rgba(144,202,249,0.12)' }) }}>F-C Map</Button>
+        <Button size="small" startIcon={<AccountTreeIcon sx={{ fontSize: 18 }} />} onClick={() => setShowTree(prev => !prev)} aria-pressed={showTree} aria-label="Toggle element tree" sx={{ ...toolbarButtonSx, ...(showTree && { bgcolor: 'rgba(144,202,249,0.12)' }) }}>Tree</Button>
+      </Toolbar>
+      {currentLevel === 1 && (
+        <Toolbar variant="dense" sx={{ gap: 1, bgcolor: BG_SECONDARY, borderBottom: `1px solid ${BORDER_COLOR}`, minHeight: 36, px: { xs: 2, md: 3 } }}>
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', mr: 1, fontSize: '0.7rem' }}>Edit</Typography>
+          <Button size="small" startIcon={<PersonIcon sx={{ fontSize: 16 }} />} onClick={() => setAddElementType('person')} sx={toolbarButtonSx} aria-label="Add Person">Person</Button>
+          <Button size="small" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={() => setAddElementType('system')} sx={toolbarButtonSx} aria-label="Add System">System</Button>
+          <Button size="small" startIcon={<LinkIcon sx={{ fontSize: 16 }} />} onClick={() => setAddRelOpen(true)} disabled={!selectedElementId} sx={toolbarButtonSx} aria-label="Add Relationship">Rel</Button>
+          <Button size="small" startIcon={<DeleteIcon sx={{ fontSize: 16 }} />} onClick={handleDeleteSelected} disabled={!selectedIsManual} sx={{ ...toolbarButtonSx, ...(selectedIsManual && { color: '#ef5350' }) }} aria-label="Delete selected">Del</Button>
+        </Toolbar>
+      )}
       <Box ref={containerRef} sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Left: C4 Model */}
         {showC4 && (
@@ -403,11 +476,16 @@ export function C4Viewer() {
               viewport={state.document.viewport}
               dispatch={dispatch}
               canvasRef={canvasRef}
-              selectedNodeId={
-                selectedElementId
-                  ? (state.document.nodes.find(n => n.metadata?.c4Id === selectedElementId)?.id ?? null)
-                  : null
-              }
+              selectedNodeId={selectedElementId ? (state.document.nodes.find(n => n.metadata?.c4Id === selectedElementId)?.id ?? null) : null}
+              centerOnSelect={centerOnSelect}
+              onNodeSelect={(id) => { setCenterOnSelect(false); setSelectedElementId(id); }}
+              onNodeDoubleClick={(nodeId) => {
+                if (!c4Model) return;
+                const elem = c4Model.elements.find(e => e.id === nodeId);
+                if (elem?.manual && (elem.type === 'person' || elem.type === 'system')) {
+                  setEditElement({ id: elem.id, type: elem.type, name: elem.name, description: elem.description ?? '', external: elem.external ?? false });
+                }
+              }}
             />
           </Box>
         )}
@@ -431,51 +509,70 @@ export function C4Viewer() {
                 setSplitRatio(prev => Math.min(0.8, prev + 0.05));
               }
             }}
-            sx={{
-              width: 5,
-              cursor: 'col-resize',
-              bgcolor: 'transparent',
-              borderLeft: `1px solid ${BORDER_COLOR}`,
-              '&:hover': { bgcolor: 'rgba(144,202,249,0.2)' },
-              '&:focus-visible': { outline: '2px solid #4FC3F7' },
-              flexShrink: 0,
-            }}
+            sx={{ width: 5, cursor: 'col-resize', bgcolor: 'transparent', borderLeft: `1px solid ${BORDER_COLOR}`, '&:hover': { bgcolor: 'rgba(144,202,249,0.2)' }, '&:focus-visible': { outline: '2px solid #4FC3F7' }, flexShrink: 0 }}
           />
         )}
         {/* Center: DSM */}
         {showDsm && (
-        <Box sx={{ flex: showC4 ? 1 - splitRatio : 1, position: 'relative', minWidth: 100, borderRight: showTree && elementTree.length > 0 ? `1px solid ${BORDER_COLOR}` : 'none' }}>
-          {matrixView === 'fcmap' && featureMatrix && c4Model ? (
-            <FcMapCanvas featureMatrix={featureMatrix} model={c4Model} excludedElementIds={excludedDescendantIds} level={currentLevel} />
-          ) : dsmModel ? (
-            <DsmCanvas
-              model={dsmModel}
-              fullModel={c4Model ?? undefined}
-              boundaries={boundaryInfos}
-              level={dsmLevel}
-              clustered={dsmClustered}
-              focusedNodeId={selectedElementId}
-              scopeIds={selectedScopeIds}
-            />
-          ) : (
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)' }}>
-                Import a C4 model to view DSM
-              </Typography>
-            </Box>
-          )}
-        </Box>
+          <Box sx={{ flex: showC4 ? 1 - splitRatio : 1, position: 'relative', minWidth: 100, borderRight: showTree && elementTree.length > 0 ? `1px solid ${BORDER_COLOR}` : 'none' }}>
+            {matrixView === 'fcmap' && featureMatrix && c4Model ? (
+              <FcMapCanvas featureMatrix={featureMatrix} model={c4Model} excludedElementIds={excludedDescendantIds} level={currentLevel} />
+            ) : dsmModel ? (
+              <DsmCanvas
+                model={dsmModel}
+                fullModel={c4Model ?? undefined}
+                boundaries={boundaryInfos}
+                level={dsmLevel}
+                clustered={dsmClustered}
+                focusedNodeId={selectedElementId}
+                scopeIds={selectedScopeIds}
+                deletedIds={deletedIds}
+              />
+            ) : (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)' }}>
+                  Import a C4 model to view DSM
+                </Typography>
+              </Box>
+            )}
+          </Box>
         )}
         {/* Right: Element Tree */}
         {showTree && elementTree.length > 0 && (
           <C4ElementTree
             tree={elementTree}
             dispatch={dispatch}
-            onSelect={setSelectedElementId}
+            onSelect={(id) => { setCenterOnSelect(true); setSelectedElementId(id); }}
             onCheckedChange={setCheckedPackageIds}
+            onRemoveElement={handleRemoveElement}
+            onPurgeDeleted={handlePurgeDeleted}
           />
         )}
       </Box>
+      {/* --- Edit Dialogs --- */}
+      <AddElementDialog
+        open={addElementType !== null && !editElement}
+        elementType={addElementType ?? 'person'}
+        onSubmit={handleAddElement}
+        onClose={() => setAddElementType(null)}
+      />
+      <AddElementDialog
+        open={editElement !== null}
+        elementType={editElement?.type ?? 'person'}
+        initial={editElement ?? undefined}
+        onSubmit={handleUpdateElement}
+        onClose={() => setEditElement(null)}
+      />
+      {selectedElementId && (
+        <AddRelationshipDialog
+          open={addRelOpen}
+          from={selectedElementId}
+          fromName={c4Model?.elements.find(e => e.id === selectedElementId)?.name ?? selectedElementId}
+          candidates={c4Model?.elements.filter(e => e.id !== selectedElementId && (e.type === 'person' || e.type === 'system' || e.type === 'container')).map(e => ({ id: e.id, name: e.name })) ?? []}
+          onSubmit={handleAddRelationship}
+          onClose={() => setAddRelOpen(false)}
+        />
+      )}
     </Box>
   );
 }
