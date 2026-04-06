@@ -11,6 +11,7 @@ import {
 import type {
   BoundaryInfo,
   C4Model,
+  CoverageMatrix,
   CyclicPair,
   DocLink,
   DsmDiff,
@@ -35,6 +36,7 @@ export interface C4DataProvider {
   readonly currentDsmLevel: 'component' | 'package';
   readonly currentDsmMode: 'c4' | 'diff';
   readonly dsmMappings: readonly DsmMapping[];
+  readonly coverageMatrix: CoverageMatrix | undefined;
   handleSetDsmLevel(level: 'component' | 'package'): void;
   handleSetDsmMode(mode: 'c4' | 'diff'): void;
   handleCluster(enabled: boolean): void;
@@ -78,6 +80,9 @@ export class C4DataServer {
   private cachedHtml: string | undefined;
   private docLinks: readonly DocLink[] = [];
   private docsPath: string | undefined;
+
+  /** ドキュメントリンククリック時のコールバック */
+  onOpenDocLink: ((docPath: string) => void) | undefined;
 
   constructor(
     private readonly getProvider: () => C4DataProvider | undefined,
@@ -151,7 +156,7 @@ export class C4DataServer {
     });
   }
 
-  notify(type: 'model-updated' | 'dsm-updated'): void {
+  notify(type: 'model-updated' | 'dsm-updated' | 'coverage-updated'): void {
     if (this.clients.size === 0) return;
 
     const provider = this.getProvider();
@@ -237,6 +242,9 @@ export class C4DataServer {
         res.writeHead(200, JSON_HEADERS);
         res.end(JSON.stringify({ docLinks: this.docLinks }));
         break;
+      case '/api/c4/coverage':
+        this.handleCoverageEndpoint(res);
+        break;
       case '/':
         this.cachedHtml ??= buildStandaloneHtml();
         res.writeHead(200, { 'Content-Type': 'text/html' });
@@ -321,6 +329,13 @@ export class C4DataServer {
 
     res.writeHead(200, JSON_HEADERS);
     res.end(JSON.stringify({ tree }));
+  }
+
+  private handleCoverageEndpoint(res: http.ServerResponse): void {
+    const provider = this.getProvider();
+    const coverageMatrix = provider?.coverageMatrix;
+    res.writeHead(200, JSON_HEADERS);
+    res.end(JSON.stringify({ coverageMatrix: coverageMatrix ?? null }));
   }
 
   private handleStaticJs(res: http.ServerResponse, filename: string): void {
@@ -415,6 +430,9 @@ export class C4DataServer {
       case 'purge-deleted-elements':
         provider.handlePurgeDeletedElements();
         break;
+      case 'open-doc-link':
+        this.onOpenDocLink?.(message.path);
+        break;
       case 'add-relationship':
         provider.handleAddRelationship(message.from, message.to, message.label, message.technology);
         break;
@@ -429,11 +447,16 @@ export class C4DataServer {
   // -------------------------------------------------------------------------
 
   private buildNotifyMessage(
-    type: 'model-updated' | 'dsm-updated',
+    type: 'model-updated' | 'dsm-updated' | 'coverage-updated',
     provider: C4DataProvider,
   ): ServerMessage | undefined {
     if (type === 'model-updated') {
       return this.buildModelMessage(provider);
+    }
+    if (type === 'coverage-updated') {
+      const coverageMatrix = provider.coverageMatrix;
+      if (!coverageMatrix) return undefined;
+      return { type: 'coverage-updated', coverageMatrix };
     }
     return this.buildDsmMessage(provider);
   }
@@ -486,6 +509,7 @@ export function isClientMessage(data: unknown): data is ClientMessage {
     'set-level', 'set-dsm-mode', 'cluster', 'refresh',
     'add-element', 'update-element', 'remove-element',
     'add-relationship', 'remove-relationship', 'purge-deleted-elements',
+    'open-doc-link',
   ];
   return typeof msg.type === 'string' && validTypes.includes(msg.type);
 }

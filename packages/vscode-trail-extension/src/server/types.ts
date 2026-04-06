@@ -1,6 +1,7 @@
 import type {
   BoundaryInfo,
   C4Model,
+  CoverageMatrix,
   CyclicPair,
   DocLink,
   DsmDiff,
@@ -45,7 +46,12 @@ export interface DocLinksUpdatedMessage {
   readonly docLinks: readonly DocLink[];
 }
 
-export type ServerMessage = ModelUpdatedMessage | DsmUpdatedMessage | AnalysisProgressMessage | DocLinksUpdatedMessage;
+export interface CoverageUpdatedMessage {
+  readonly type: 'coverage-updated';
+  readonly coverageMatrix: CoverageMatrix;
+}
+
+export type ServerMessage = ModelUpdatedMessage | DsmUpdatedMessage | AnalysisProgressMessage | DocLinksUpdatedMessage | CoverageUpdatedMessage;
 
 // ---------------------------------------------------------------------------
 //  Client → Server messages
@@ -117,6 +123,11 @@ export interface PurgeDeletedElementsCommand {
   readonly type: 'purge-deleted-elements';
 }
 
+export interface OpenDocLinkCommand {
+  readonly type: 'open-doc-link';
+  readonly path: string;
+}
+
 export type ClientMessage =
   | SetLevelCommand
   | SetDsmModeCommand
@@ -127,4 +138,5 @@ export type ClientMessage =
   | RemoveElementCommand
   | AddRelationshipCommand
   | RemoveRelationshipCommand
-  | PurgeDeletedElementsCommand;
+  | PurgeDeletedElementsCommand
+  | OpenDocLinkCommand;
