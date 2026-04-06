@@ -291,6 +291,9 @@ export class C4Panel implements C4DataProvider {
     if (!saved) return false;
     const panel = C4Panel.getInstance();
     panel.lastFeatureMatrix = saved.featureMatrix;
+    if (!panel.lastProjectRoot) {
+      panel.lastProjectRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    }
     panel.setModel(saved.model, saved.boundaries);
     return true;
   }
