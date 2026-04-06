@@ -68,7 +68,7 @@ export function requestExternalImageDownloads(
     const src = img.getAttribute("src");
     if (!src) continue;
     // 外部 URL または base64 data URL を対象
-    if (/^https?:\/\//.test(src) || /^data:image\//.test(src)) {
+    if (src.startsWith("http://") || src.startsWith("https://") || src.startsWith("data:image/")) {
       vscodeApi.postMessage({ type: "downloadImage", url: src });
     }
   }
