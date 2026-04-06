@@ -7,12 +7,17 @@ import {
   buildC4Matrix,
   buildSourceMatrix,
   clusterMatrix,
+  parseCoverage,
+  aggregateCoverage,
+  computeCoverageDiff,
 } from '@anytime-markdown/c4-kernel';
-import type { C4Element, C4Model, C4Relationship, BoundaryInfo, DsmMapping, DsmMatrix, FeatureMatrix } from '@anytime-markdown/c4-kernel';
+import type { C4Element, C4Model, C4Relationship, BoundaryInfo, CoverageDiffMatrix, CoverageMatrix, DsmMapping, DsmMatrix, FeatureMatrix } from '@anytime-markdown/c4-kernel';
 import { analyze, trailToC4, toMermaid } from '@anytime-markdown/trail-core';
 import type { TrailGraph } from '@anytime-markdown/trail-core';
 import type { C4DataProvider, C4DataServer } from '../server/C4DataServer';
 import { TrailLogger } from '../utils/TrailLogger';
+import { CoverageHistory } from './coverageHistory';
+import { CoverageWatcher } from './coverageWatcher';
 
 /**
  * C4モデルのデータ管理を担当するシングルトン。
@@ -33,6 +38,10 @@ export class C4Panel implements C4DataProvider {
   private lastSourceMatrix: DsmMatrix | undefined;
   private dsmLevel: 'component' | 'package' = 'component';
   private dsmMode: 'c4' | 'diff' = 'c4';
+  private lastCoverageMatrix: CoverageMatrix | undefined;
+  private lastCoverageDiff: CoverageDiffMatrix | undefined;
+  private coverageHistory: CoverageHistory | undefined;
+  private coverageWatcher: CoverageWatcher | undefined;
 
   private constructor() {}
 
@@ -79,6 +88,8 @@ export class C4Panel implements C4DataProvider {
   public get currentDsmLevel(): 'component' | 'package' { return this.dsmLevel; }
   public get currentDsmMode(): 'c4' | 'diff' { return this.dsmMode; }
   public get dsmMappings(): readonly DsmMapping[] { return this.lastDsmMapping; }
+  public get coverageMatrix(): CoverageMatrix | undefined { return this.lastCoverageMatrix; }
+  public get coverageDiff(): CoverageDiffMatrix | undefined { return this.lastCoverageDiff; }
 
   public handleSetDsmLevel(level: 'component' | 'package'): void {
     this.dsmLevel = level;
@@ -479,6 +490,74 @@ export class C4Panel implements C4DataProvider {
     const content = Buffer.from(mermaid, 'utf-8');
     await vscode.workspace.fs.writeFile(uri, content);
     vscode.window.showInformationMessage(`Exported to ${vscode.workspace.asRelativePath(uri)}`);
+  }
+
+  // -------------------------------------------------------------------------
+  //  Coverage
+  // -------------------------------------------------------------------------
+
+  public loadCoverage(coveragePath: string): void {
+    if (!this.lastModel || !this.lastProjectRoot) {
+      TrailLogger.warn('loadCoverage: model or projectRoot not available');
+      return;
+    }
+
+    try {
+      const raw = JSON.parse(fs.readFileSync(coveragePath, 'utf-8'));
+      const files = parseCoverage(raw);
+      const matrix = aggregateCoverage(files, this.lastModel, this.lastProjectRoot);
+      this.lastCoverageMatrix = matrix;
+
+      this.ensureHistory();
+      const previous = this.coverageHistory!.loadLatest();
+      this.coverageHistory!.save(matrix);
+
+      if (previous) {
+        this.lastCoverageDiff = computeCoverageDiff(previous, matrix);
+      } else {
+        this.lastCoverageDiff = undefined;
+      }
+
+      C4Panel.dataServer?.notify('coverage-updated');
+      C4Panel.dataServer?.notify('coverage-diff-updated');
+      TrailLogger.info(`Coverage loaded: ${matrix.entries.length} entries`);
+    } catch (err) {
+      TrailLogger.warn(`Failed to load coverage: ${(err as Error).message}`);
+    }
+  }
+
+  public startCoverageWatch(coveragePath: string): void {
+    this.coverageWatcher?.stop();
+    this.coverageWatcher = new CoverageWatcher(
+      (filePath) => this.loadCoverage(filePath),
+      TrailLogger,
+    );
+    this.coverageWatcher.start(coveragePath);
+  }
+
+  public stopCoverageWatch(): void {
+    this.coverageWatcher?.stop();
+    this.coverageWatcher = undefined;
+  }
+
+  private ensureHistory(): void {
+    if (this.coverageHistory) return;
+    if (!this.lastProjectRoot) return;
+    const historyDir = path.join(this.lastProjectRoot, '.anytime-trail', 'coverage-history');
+    const limit = vscode.workspace.getConfiguration('anytimeTrail.coverage').get<number>('historyLimit', 50);
+    this.coverageHistory = new CoverageHistory(historyDir, limit);
+  }
+
+  public static loadCoverageData(coveragePath: string): void {
+    C4Panel.getInstance().loadCoverage(coveragePath);
+  }
+
+  public static startCoverageWatch(coveragePath: string): void {
+    C4Panel.getInstance().startCoverageWatch(coveragePath);
+  }
+
+  public static stopCoverageWatch(): void {
+    C4Panel.getInstance().stopCoverageWatch();
   }
 
   // -------------------------------------------------------------------------

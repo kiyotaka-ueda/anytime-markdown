@@ -11,6 +11,7 @@ import {
 import type {
   BoundaryInfo,
   C4Model,
+  CoverageDiffMatrix,
   CoverageMatrix,
   CyclicPair,
   DocLink,
@@ -37,6 +38,7 @@ export interface C4DataProvider {
   readonly currentDsmMode: 'c4' | 'diff';
   readonly dsmMappings: readonly DsmMapping[];
   readonly coverageMatrix: CoverageMatrix | undefined;
+  readonly coverageDiff: CoverageDiffMatrix | undefined;
   handleSetDsmLevel(level: 'component' | 'package'): void;
   handleSetDsmMode(mode: 'c4' | 'diff'): void;
   handleCluster(enabled: boolean): void;
@@ -160,7 +162,7 @@ export class C4DataServer {
     });
   }
 
-  notify(type: 'model-updated' | 'dsm-updated' | 'coverage-updated'): void {
+  notify(type: 'model-updated' | 'dsm-updated' | 'coverage-updated' | 'coverage-diff-updated'): void {
     if (this.clients.size === 0) return;
 
     const provider = this.getProvider();
@@ -351,8 +353,9 @@ export class C4DataServer {
   private handleCoverageEndpoint(res: http.ServerResponse): void {
     const provider = this.getProvider();
     const coverageMatrix = provider?.coverageMatrix;
+    const coverageDiff = provider?.coverageDiff;
     res.writeHead(200, JSON_HEADERS);
-    res.end(JSON.stringify({ coverageMatrix: coverageMatrix ?? null }));
+    res.end(JSON.stringify({ coverageMatrix: coverageMatrix ?? null, coverageDiff: coverageDiff ?? null }));
   }
 
   private handleStaticJs(res: http.ServerResponse, filename: string): void {
@@ -464,7 +467,7 @@ export class C4DataServer {
   // -------------------------------------------------------------------------
 
   private buildNotifyMessage(
-    type: 'model-updated' | 'dsm-updated' | 'coverage-updated',
+    type: 'model-updated' | 'dsm-updated' | 'coverage-updated' | 'coverage-diff-updated',
     provider: C4DataProvider,
   ): ServerMessage | undefined {
     if (type === 'model-updated') {
@@ -474,6 +477,11 @@ export class C4DataServer {
       const coverageMatrix = provider.coverageMatrix;
       if (!coverageMatrix) return undefined;
       return { type: 'coverage-updated', coverageMatrix };
+    }
+    if (type === 'coverage-diff-updated') {
+      const coverageDiff = provider.coverageDiff;
+      if (!coverageDiff) return undefined;
+      return { type: 'coverage-diff-updated', coverageDiff };
     }
     return this.buildDsmMessage(provider);
   }

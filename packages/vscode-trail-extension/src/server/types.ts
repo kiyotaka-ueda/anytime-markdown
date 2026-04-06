@@ -1,6 +1,7 @@
 import type {
   BoundaryInfo,
   C4Model,
+  CoverageDiffMatrix,
   CoverageMatrix,
   CyclicPair,
   DocLink,
@@ -51,7 +52,12 @@ export interface CoverageUpdatedMessage {
   readonly coverageMatrix: CoverageMatrix;
 }
 
-export type ServerMessage = ModelUpdatedMessage | DsmUpdatedMessage | AnalysisProgressMessage | DocLinksUpdatedMessage | CoverageUpdatedMessage;
+export interface CoverageDiffUpdatedMessage {
+  readonly type: 'coverage-diff-updated';
+  readonly coverageDiff: CoverageDiffMatrix;
+}
+
+export type ServerMessage = ModelUpdatedMessage | DsmUpdatedMessage | AnalysisProgressMessage | DocLinksUpdatedMessage | CoverageUpdatedMessage | CoverageDiffUpdatedMessage;
 
 // ---------------------------------------------------------------------------
 //  Client → Server messages
