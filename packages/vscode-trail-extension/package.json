@@ -463,6 +463,11 @@
           "group": "inline@1"
         },
         {
+          "command": "anytime-trail.c4View",
+          "when": "view == anytimeTrail.c4Elements && viewItem == c4Root",
+          "group": "0_view@1"
+        },
+        {
           "command": "anytime-trail.c4Analyze",
           "when": "view == anytimeTrail.c4Elements && viewItem == c4Root",
           "group": "1_c4@1"
