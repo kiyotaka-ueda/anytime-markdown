@@ -1,5 +1,5 @@
 import type { GraphDocument, SelectionState, Viewport } from '@anytime-markdown/graph-core';
-import { render } from '@anytime-markdown/graph-core/engine';
+import { render, nodeIntersection } from '@anytime-markdown/graph-core/engine';
 import type { Action } from '@anytime-markdown/graph-core/state';
 import { useCanvasBase } from '@anytime-markdown/graph-core';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -91,11 +91,15 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
       const fromNode = document.nodes.find(n => n.id === e.from.nodeId);
       const toNode = document.nodes.find(n => n.id === e.to.nodeId);
       if (fromNode && toNode) {
+        const fromCenter = { x: fromNode.x + fromNode.width / 2, y: fromNode.y + fromNode.height / 2 };
+        const toCenter = { x: toNode.x + toNode.width / 2, y: toNode.y + toNode.height / 2 };
+        const fromPt = nodeIntersection(fromNode, toCenter.x, toCenter.y);
+        const toPt = nodeIntersection(toNode, fromCenter.x, fromCenter.y);
         return {
           ...e,
           type: 'line' as const,
-          from: { ...e.from, x: fromNode.x + fromNode.width / 2, y: fromNode.y + fromNode.height / 2 },
-          to: { ...e.to, x: toNode.x + toNode.width / 2, y: toNode.y + toNode.height / 2 },
+          from: { ...e.from, x: fromPt.x, y: fromPt.y },
+          to: { ...e.to, x: toPt.x, y: toPt.y },
         };
       }
     }

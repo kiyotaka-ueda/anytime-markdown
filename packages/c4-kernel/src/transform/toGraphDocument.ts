@@ -124,6 +124,7 @@ export function c4ToGraphDocument(
     boundaryIdMap.set(elem.id, frameId);
     const colors = FRAME_COLORS[elem.type] ?? { fill: 'transparent', stroke: '#444444' };
 
+    const nodeColors = C4_COLORS[elem.type] ?? EXTERNAL_COLOR;
     const node: GraphNode = {
       id: frameId,
       type: 'frame',
@@ -133,7 +134,7 @@ export function c4ToGraphDocument(
       height: 300,
       text: buildNodeText(elem),
       style: { ...DEFAULT_STYLE, fill: colors.fill, stroke: colors.stroke },
-      metadata: { c4Id: elem.id, c4Type: elem.type },
+      metadata: { c4Id: elem.id, c4Type: elem.type, c4NodeFill: nodeColors.fill, c4NodeStroke: nodeColors.stroke },
       ...(elem.boundaryId && boundaryIdMap.has(elem.boundaryId)
         ? { groupId: boundaryIdMap.get(elem.boundaryId) }
         : {}),

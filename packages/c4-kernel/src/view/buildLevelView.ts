@@ -53,9 +53,15 @@ export function buildLevelView(doc: GraphDocument, level: number): GraphDocument
       const depth = getFrameDepth(node, doc.nodes);
       if (depth > maxFrameDepth) continue;
       if (depth === maxFrameDepth) {
+        const c4NodeFill = node.metadata?.c4NodeFill as string | undefined;
+        const c4NodeStroke = node.metadata?.c4NodeStroke as string | undefined;
         visibleNodes.push({
           ...node,
-          style: { ...node.style },
+          style: {
+            ...node.style,
+            ...(c4NodeFill ? { fill: c4NodeFill } : {}),
+            ...(c4NodeStroke ? { stroke: c4NodeStroke } : {}),
+          },
           type: 'rect',
           width: 160,
           height: 60,
