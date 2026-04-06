@@ -29,9 +29,12 @@ export function aggregateCoverage(
 
   const entryMap = new Map<string, CoverageEntry>();
   for (const fc of files) {
-    const relPath = fc.filePath.startsWith(projectRoot)
+    let relPath = fc.filePath.startsWith(projectRoot)
       ? fc.filePath.slice(projectRoot.length)
       : fc.filePath;
+    if (relPath.startsWith('/') || relPath.startsWith('\\')) {
+      relPath = relPath.slice(1);
+    }
     const elementId = relPathToId.get(relPath);
     if (!elementId) continue;
     entryMap.set(elementId, {
