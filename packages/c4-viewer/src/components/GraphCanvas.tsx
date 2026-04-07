@@ -15,6 +15,7 @@ interface C4GraphCanvasProps {
   readonly coverageDiffMap?: ReadonlyMap<string, number> | null;
   readonly onNodeSelect?: (nodeId: string | null) => void;
   readonly onNodeDoubleClick?: (nodeId: string) => void;
+  readonly isDark?: boolean;
 }
 
 const EMPTY_SELECTION: SelectionState = { nodeIds: [], edgeIds: [] };
@@ -25,7 +26,7 @@ function coverageColor(pct: number): string {
   return '#c62828';
 }
 
-export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedNodeId, centerOnSelect, coverageMap, coverageDiffMap, onNodeSelect, onNodeDoubleClick }: Readonly<C4GraphCanvasProps>) {
+export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedNodeId, centerOnSelect, coverageMap, coverageDiffMap, onNodeSelect, onNodeDoubleClick, isDark }: Readonly<C4GraphCanvasProps>) {
   const rafRef = useRef<number>(0);
   const viewportRef = useRef(viewport);
   const dispatchRef = useRef(dispatch);
@@ -159,7 +160,7 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
         viewport: viewportRef.current,
         selection: sel.length > 0 ? { nodeIds: sel, edgeIds: [] } : EMPTY_SELECTION,
         showGrid: false,
-        isDark: true,
+        isDark: isDark ?? true,
       });
 
       // Selection rectangle overlay

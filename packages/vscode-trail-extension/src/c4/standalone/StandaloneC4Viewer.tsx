@@ -16,7 +16,7 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
-import { AddElementDialog, AddRelationshipDialog, C4ElementTree, CoverageCanvas, DsmCanvas, FcMapCanvas, GraphCanvas, useC4DataSource } from '@anytime-markdown/c4-viewer';
+import { AddElementDialog, AddRelationshipDialog, C4ElementTree, CoverageCanvas, DsmCanvas, FcMapCanvas, getC4Colors, GraphCanvas, useC4DataSource } from '@anytime-markdown/c4-viewer';
 import type { ElementFormData, RelationshipFormData } from '@anytime-markdown/c4-viewer';
 
 const { graphReducer, createInitialState } = graphState;
@@ -34,12 +34,8 @@ function computeBounds(nodes: readonly GraphNode[]) {
   return { minX, minY, maxX, maxY };
 }
 
-const BG_PRIMARY = '#0D1117';
-const BG_SECONDARY = '#121212';
-const ACCENT_BLUE = '#90CAF9';
-const BORDER_COLOR = 'rgba(255,255,255,0.12)';
-
-export function StandaloneC4Viewer() {
+export function StandaloneC4Viewer({ isDark = true }: Readonly<{ isDark?: boolean }>) {
+  const colors = useMemo(() => getC4Colors(isDark), [isDark]);
   const serverUrl = globalThis.location.origin;
   const dataSource = useC4DataSource(serverUrl);
 
@@ -273,37 +269,37 @@ export function StandaloneC4Viewer() {
   }, [showTree, elementTree.length]);
 
   const toolbarButtonSx = {
-    textTransform: 'none', color: ACCENT_BLUE, borderColor: BORDER_COLOR,
+    textTransform: 'none', color: colors.accent, borderColor: colors.border,
     fontWeight: 600, fontSize: '0.875rem', borderRadius: '8px',
     transition: '250ms cubic-bezier(0.4, 0, 0.2, 1)',
-    '&:hover': { bgcolor: 'rgba(255,255,255,0.16)' },
-    '&:focus-visible': { outline: '2px solid #90CAF9', outlineOffset: '2px' },
-    '&:disabled': { color: 'rgba(255,255,255,0.45)' },
+    '&:hover': { bgcolor: colors.hover },
+    '&:focus-visible': { outline: `2px solid ${colors.accent}`, outlineOffset: '2px' },
+    '&:disabled': { color: colors.textMuted },
   } as const;
 
-  const toolbarButtonActiveBg = 'rgba(144,202,249,0.08)';
+  const toolbarButtonActiveBg = colors.focus;
 
   const levelButtonSx = {
     textTransform: 'none', fontWeight: 600, fontSize: '0.75rem', minWidth: 36,
-    borderColor: BORDER_COLOR, color: 'rgba(255,255,255,0.70)',
+    borderColor: colors.border, color: colors.textSecondary,
     transition: '250ms cubic-bezier(0.4, 0, 0.2, 1)',
-    '&:hover': { bgcolor: 'rgba(255,255,255,0.16)' },
-    '&:focus-visible': { outline: '2px solid #90CAF9', outlineOffset: '2px' },
+    '&:hover': { bgcolor: colors.hover },
+    '&:focus-visible': { outline: `2px solid ${colors.accent}`, outlineOffset: '2px' },
   } as const;
 
   const levelButtonActiveSx = {
     ...levelButtonSx,
-    bgcolor: `${ACCENT_BLUE} !important`,
-    color: `${BG_PRIMARY} !important`,
-    borderColor: `${ACCENT_BLUE} !important`,
+    bgcolor: `${colors.accent} !important`,
+    color: `${colors.bg} !important`,
+    borderColor: `${colors.accent} !important`,
   } as const;
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', bgcolor: BG_PRIMARY }}>
-      <Toolbar variant="dense" sx={{ gap: 1, bgcolor: 'rgba(18,18,18,0.85)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${BORDER_COLOR}`, minHeight: 44, px: { xs: 2, md: 3 }, zIndex: 1100 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', bgcolor: colors.bg }}>
+      <Toolbar variant="dense" sx={{ gap: 1, bgcolor: isDark ? 'rgba(18,18,18,0.85)' : 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${colors.border}`, minHeight: 44, px: { xs: 2, md: 3 }, zIndex: 1100 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mr: 1 }} aria-live="polite" aria-atomic="true">
-          <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: dataSource.connected ? '#66BB6A' : 'rgba(255,255,255,0.3)' }} aria-hidden="true" />
-          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.7rem' }}>
+          <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: dataSource.connected ? '#66BB6A' : colors.textMuted }} aria-hidden="true" />
+          <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.7rem' }}>
             {dataSource.connected ? 'Connected' : 'Disconnected'}
           </Typography>
         </Box>
@@ -327,8 +323,8 @@ export function StandaloneC4Viewer() {
         <Button size="small" startIcon={<AccountTreeIcon sx={{ fontSize: 18 }} />} onClick={() => setShowTree(prev => !prev)} aria-pressed={showTree} aria-label="Toggle element tree" sx={{ ...toolbarButtonSx, ...(showTree && { bgcolor: toolbarButtonActiveBg }) }}>Tree</Button>
       </Toolbar>
       {currentLevel === 1 && (
-        <Toolbar variant="dense" sx={{ gap: 1, bgcolor: BG_SECONDARY, borderBottom: `1px solid ${BORDER_COLOR}`, minHeight: 36, px: { xs: 2, md: 3 } }}>
-          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', mr: 1, fontSize: '0.7rem' }}>Edit</Typography>
+        <Toolbar variant="dense" sx={{ gap: 1, bgcolor: colors.bgSecondary, borderBottom: `1px solid ${colors.border}`, minHeight: 36, px: { xs: 2, md: 3 } }}>
+          <Typography variant="caption" sx={{ color: colors.textMuted, mr: 1, fontSize: '0.7rem' }}>Edit</Typography>
           <Button size="small" startIcon={<PersonIcon sx={{ fontSize: 16 }} />} onClick={() => setAddElementType('person')} sx={toolbarButtonSx} aria-label="Add Person">Person</Button>
           <Button size="small" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={() => setAddElementType('system')} sx={toolbarButtonSx} aria-label="Add System">System</Button>
           <Button size="small" startIcon={<LinkIcon sx={{ fontSize: 16 }} />} onClick={() => setAddRelOpen(true)} disabled={!selectedElementId} sx={toolbarButtonSx} aria-label="Add Relationship">Rel</Button>
@@ -352,8 +348,8 @@ export function StandaloneC4Viewer() {
           }}
         >
           <Box sx={{
-            bgcolor: BG_SECONDARY,
-            border: `1px solid ${BORDER_COLOR}`,
+            bgcolor: colors.bgSecondary,
+            border: `1px solid ${colors.border}`,
             borderRadius: 2,
             px: 4,
             py: 3,
@@ -361,10 +357,10 @@ export function StandaloneC4Viewer() {
             maxWidth: 480,
             textAlign: 'center',
           }}>
-            <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 600, mb: 1 }}>
+            <Typography variant="subtitle1" sx={{ color: colors.text, fontWeight: 600, mb: 1 }}>
               Analyzing Workspace
             </Typography>
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 2 }}>
+            <Typography variant="body2" sx={{ color: colors.textSecondary, mb: 2 }}>
               {analysisProgress.phase}
             </Typography>
             <LinearProgress
@@ -373,11 +369,11 @@ export function StandaloneC4Viewer() {
               sx={{
                 height: 6,
                 borderRadius: 3,
-                bgcolor: 'rgba(255,255,255,0.08)',
-                '& .MuiLinearProgress-bar': { bgcolor: ACCENT_BLUE, borderRadius: 3 },
+                bgcolor: colors.hover,
+                '& .MuiLinearProgress-bar': { bgcolor: colors.accent, borderRadius: 3 },
               }}
             />
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', mt: 1, display: 'block' }}>
+            <Typography variant="caption" sx={{ color: colors.textMuted, mt: 1, display: 'block' }}>
               {analysisProgress.percent >= 0 ? `${analysisProgress.percent}%` : ''}
             </Typography>
           </Box>
@@ -386,7 +382,7 @@ export function StandaloneC4Viewer() {
       <Box ref={containerRef} sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {showC4 && (
           <Box sx={{ flex: showDsm ? splitRatio : 1, display: 'flex', flexDirection: 'column', minWidth: 100 }}>
-            <Toolbar variant="dense" sx={{ gap: 0.5, bgcolor: BG_SECONDARY, borderBottom: `1px solid ${BORDER_COLOR}`, minHeight: 36, px: 1, flexShrink: 0 }}>
+            <Toolbar variant="dense" sx={{ gap: 0.5, bgcolor: colors.bgSecondary, borderBottom: `1px solid ${colors.border}`, minHeight: 36, px: 1, flexShrink: 0 }}>
               <Button size="small" startIcon={<FitScreenIcon sx={{ fontSize: 16 }} />} onClick={handleFit} sx={{ ...toolbarButtonSx, fontSize: '0.75rem' }}>Fit</Button>
             </Toolbar>
             <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
@@ -395,6 +391,7 @@ export function StandaloneC4Viewer() {
               centerOnSelect={centerOnSelect}
               coverageMap={coverageMap}
               coverageDiffMap={coverageDiffMap}
+              isDark={isDark}
               onNodeSelect={(id) => { setCenterOnSelect(false); setSelectedElementId(id); }}
               onNodeDoubleClick={(nodeId) => {
                 if (!c4Model) return;
@@ -425,12 +422,12 @@ export function StandaloneC4Viewer() {
                 setSplitRatio(prev => Math.min(0.8, prev + 0.05));
               }
             }}
-            sx={{ width: 5, cursor: 'col-resize', bgcolor: 'transparent', borderLeft: `1px solid ${BORDER_COLOR}`, '&:hover': { bgcolor: 'rgba(144,202,249,0.2)' }, '&:focus-visible': { outline: '2px solid #90CAF9', outlineOffset: '2px' }, flexShrink: 0 }}
+            sx={{ width: 5, cursor: 'col-resize', bgcolor: 'transparent', borderLeft: `1px solid ${colors.border}`, '&:hover': { bgcolor: colors.focus }, '&:focus-visible': { outline: `2px solid ${colors.accent}`, outlineOffset: '2px' }, flexShrink: 0 }}
           />
         )}
         {showDsm && (
-          <Box sx={{ flex: showC4 ? 1 - splitRatio : 1, display: 'flex', flexDirection: 'column', minWidth: 100, borderRight: showTree && elementTree.length > 0 ? `1px solid ${BORDER_COLOR}` : 'none' }}>
-            <Toolbar variant="dense" sx={{ gap: 0.5, bgcolor: BG_SECONDARY, borderBottom: `1px solid ${BORDER_COLOR}`, minHeight: 36, px: 1, flexShrink: 0 }}>
+          <Box sx={{ flex: showC4 ? 1 - splitRatio : 1, display: 'flex', flexDirection: 'column', minWidth: 100, borderRight: showTree && elementTree.length > 0 ? `1px solid ${colors.border}` : 'none' }}>
+            <Toolbar variant="dense" sx={{ gap: 0.5, bgcolor: colors.bgSecondary, borderBottom: `1px solid ${colors.border}`, minHeight: 36, px: 1, flexShrink: 0 }}>
               <Button size="small" onClick={() => { setMatrixView('dsm'); }} aria-pressed={matrixView === 'dsm'} aria-label="Show DSM matrix" sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(matrixView === 'dsm' && { bgcolor: toolbarButtonActiveBg }) }}>DSM</Button>
               <Button size="small" onClick={() => { setMatrixView('fcmap'); }} aria-pressed={matrixView === 'fcmap'} aria-label="Show F-C Map" disabled={!dataSource.featureMatrix} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(matrixView === 'fcmap' && { bgcolor: toolbarButtonActiveBg }) }}>F-C Map</Button>
               <Button size="small" onClick={() => { const next = matrixView !== 'coverage'; setShowCoverage(next); setMatrixView(next ? 'coverage' : 'dsm'); }} aria-pressed={matrixView === 'coverage'} aria-label="Show coverage" disabled={!dataSource.coverageMatrix} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(matrixView === 'coverage' && { bgcolor: toolbarButtonActiveBg }) }}>Cov</Button>
@@ -438,21 +435,21 @@ export function StandaloneC4Viewer() {
             </Toolbar>
             <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
             {matrixView === 'coverage' && dataSource.coverageMatrix && c4Model ? (
-              <CoverageCanvas coverageMatrix={dataSource.coverageMatrix} coverageDiff={dataSource.coverageDiff} model={c4Model} level={currentLevel} />
+              <CoverageCanvas coverageMatrix={dataSource.coverageMatrix} coverageDiff={dataSource.coverageDiff} model={c4Model} level={currentLevel} isDark={isDark} />
             ) : matrixView === 'fcmap' && dataSource.featureMatrix && c4Model ? (
-              <FcMapCanvas featureMatrix={dataSource.featureMatrix} model={c4Model} excludedElementIds={excludedDescendantIds} level={currentLevel} />
+              <FcMapCanvas featureMatrix={dataSource.featureMatrix} model={c4Model} excludedElementIds={excludedDescendantIds} level={currentLevel} isDark={isDark} />
             ) : dsmModel ? (
-              <DsmCanvas model={dsmModel} fullModel={c4Model ?? undefined} boundaries={boundaryInfos} level={dsmLevel} clustered={dsmClustered} focusedNodeId={selectedElementId} scopeIds={selectedScopeIds} deletedIds={deletedIds} />
+              <DsmCanvas model={dsmModel} fullModel={c4Model ?? undefined} boundaries={boundaryInfos} level={dsmLevel} clustered={dsmClustered} focusedNodeId={selectedElementId} scopeIds={selectedScopeIds} deletedIds={deletedIds} isDark={isDark} />
             ) : (
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)' }}>Waiting for C4 model...</Typography>
+                <Typography variant="body2" sx={{ color: colors.textSecondary }}>Waiting for C4 model...</Typography>
               </Box>
             )}
             </Box>
           </Box>
         )}
         {showTree && elementTree.length > 0 && (
-          <C4ElementTree tree={elementTree} dispatch={dispatch} onSelect={(id) => { setCenterOnSelect(true); setSelectedElementId(id); }} onCheckedChange={setCheckedPackageIds} onRemoveElement={handleRemoveElement} onPurgeDeleted={handlePurgeDeleted} docLinks={dataSource.docLinks} onDocLinkClick={handleDocLinkClick} />
+          <C4ElementTree tree={elementTree} dispatch={dispatch} onSelect={(id) => { setCenterOnSelect(true); setSelectedElementId(id); }} onCheckedChange={setCheckedPackageIds} onRemoveElement={handleRemoveElement} onPurgeDeleted={handlePurgeDeleted} docLinks={dataSource.docLinks} onDocLinkClick={handleDocLinkClick} isDark={isDark} />
         )}
       </Box>
       {/* --- Edit Dialogs --- */}

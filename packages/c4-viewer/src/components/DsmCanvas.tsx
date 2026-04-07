@@ -1,6 +1,7 @@
 import type { BoundaryInfo, C4Model, DsmMatrix } from '@anytime-markdown/c4-kernel';
 import { buildC4Matrix, clusterMatrix, detectCycles } from '@anytime-markdown/c4-kernel';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getC4Colors } from '../c4Theme';
 
 interface DsmCanvasProps {
   readonly model: C4Model;
@@ -13,6 +14,7 @@ interface DsmCanvasProps {
   readonly scopeIds?: ReadonlySet<string> | null;
   /** 削除フラグ付き要素のIDセット */
   readonly deletedIds?: ReadonlySet<string>;
+  readonly isDark?: boolean;
 }
 
 // --- Constants ---
@@ -22,15 +24,6 @@ const HEADER_WIDTH = 120;
 const HEADER_HEIGHT = 120;
 
 const PAN_STEP = 20;
-const ACCENT_BLUE = '#90CAF9';
-const DIAGONAL_COLOR = '#333333';
-const GRID_COLOR = '#3c3c3c';
-const TEXT_COLOR = '#cccccc';
-const HOVER_COLOR = 'rgba(255,255,255,0.08)';
-const FOCUS_COLOR = 'rgba(144,202,249,0.15)';
-const CYCLE_BORDER_COLOR = '#F44336';
-const DEPENDENCY_COLOR = ACCENT_BLUE;
-const DELETED_ALPHA = 0.3;
 const DELETED_TEXT_ALPHA = 0.4;
 
 // --- Helpers ---
@@ -70,12 +63,10 @@ function clampViewport(vp: { offsetX: number; offsetY: number; scale: number }):
 
 // --- Component ---
 
-const GROUP_LINE_COLOR = '#888888';
-
-const SCOPE_BORDER_COLOR = '#FFB74D';
 const SCOPE_BORDER_WIDTH = 3;
 
-export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focusedNodeId, scopeIds, deletedIds }: Readonly<DsmCanvasProps>) {
+export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focusedNodeId, scopeIds, deletedIds, isDark }: Readonly<DsmCanvasProps>) {
+  const colors = useMemo(() => getC4Colors(isDark ?? true), [isDark]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
   const viewportRef = useRef({ offsetX: 0, offsetY: 0, scale: 1 });
@@ -188,7 +179,7 @@ export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focu
       ctx!.clearRect(0, 0, w, h);
 
       if (n === 0) {
-        ctx!.fillStyle = TEXT_COLOR;
+        ctx!.fillStyle = colors.text;
         ctx!.font = '14px sans-serif';
         ctx!.fillText('No data. Import a C4 model first.', 20, 40);
         rafRef.current = requestAnimationFrame(draw);
@@ -206,7 +197,7 @@ export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focu
       ctx!.scale(s, s);
 
       // Grid lines
-      ctx!.strokeStyle = GRID_COLOR;
+      ctx!.strokeStyle = colors.grid;
       ctx!.lineWidth = 0.5;
       for (let i = 0; i <= n; i++) {
         const x = HEADER_WIDTH + i * CELL_SIZE;
@@ -238,24 +229,24 @@ export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focu
           const y = HEADER_HEIGHT + i * CELL_SIZE;
           const isDeletedCell = deletedIndices.has(i) || deletedIndices.has(j);
 
-          if (isDeletedCell) ctx!.globalAlpha = DELETED_ALPHA;
+          if (isDeletedCell) ctx!.globalAlpha = colors.deletedAlpha;
 
           if (i === j) {
-            ctx!.fillStyle = DIAGONAL_COLOR;
+            ctx!.fillStyle = colors.diagonal;
             ctx!.fillRect(x, y, CELL_SIZE, CELL_SIZE);
             if (isDeletedCell) ctx!.globalAlpha = 1;
             continue;
           }
 
           if (matrix.adjacency[i][j] === 1) {
-            ctx!.fillStyle = DEPENDENCY_COLOR;
+            ctx!.fillStyle = colors.dependency;
             ctx!.fillRect(x + 1, y + 1, CELL_SIZE - 2, CELL_SIZE - 2);
           }
 
           // Cyclic border
           const key = `${matrix.nodes[i].id}:${matrix.nodes[j].id}`;
           if (cyclicSet.has(key) && matrix.adjacency[i][j] === 1) {
-            ctx!.strokeStyle = CYCLE_BORDER_COLOR;
+            ctx!.strokeStyle = colors.cycleBorder;
             ctx!.lineWidth = 2;
             ctx!.strokeRect(x + 1, y + 1, CELL_SIZE - 2, CELL_SIZE - 2);
             ctx!.lineWidth = 0.5;
@@ -268,7 +259,7 @@ export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focu
       // Group border lines (e.g. component boundaries at L4)
       const groupBorders = groupBordersRef.current;
       if (groupBorders.length > 0) {
-        ctx!.strokeStyle = GROUP_LINE_COLOR;
+        ctx!.strokeStyle = colors.groupLine;
         ctx!.lineWidth = 2;
         for (const bi of groupBorders) {
           const gx = HEADER_WIDTH + bi * CELL_SIZE;
@@ -291,7 +282,7 @@ export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focu
       if (focusedNodeId) {
         const focusIdx = matrix.nodes.findIndex(nd => nd.id === focusedNodeId || nd.name === focusedNodeId);
         if (focusIdx >= 0) {
-          ctx!.fillStyle = FOCUS_COLOR;
+          ctx!.fillStyle = colors.focus;
           ctx!.fillRect(HEADER_WIDTH, HEADER_HEIGHT + focusIdx * CELL_SIZE, n * CELL_SIZE, CELL_SIZE);
           ctx!.fillRect(HEADER_WIDTH + focusIdx * CELL_SIZE, HEADER_HEIGHT, CELL_SIZE, n * CELL_SIZE);
         }
@@ -322,7 +313,7 @@ export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focu
           }
           ranges.push({ start: rangeStart, end: rangeEnd });
 
-          ctx!.strokeStyle = SCOPE_BORDER_COLOR;
+          ctx!.strokeStyle = colors.scopeBorder;
           ctx!.lineWidth = SCOPE_BORDER_WIDTH;
           for (const range of ranges) {
             const sx = HEADER_WIDTH + range.start * CELL_SIZE;
@@ -337,7 +328,7 @@ export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focu
 
       // Hover highlight (within cell area)
       if (hovered) {
-        ctx!.fillStyle = HOVER_COLOR;
+        ctx!.fillStyle = colors.hover;
         ctx!.fillRect(HEADER_WIDTH, HEADER_HEIGHT + hovered.row * CELL_SIZE, n * CELL_SIZE, CELL_SIZE);
         ctx!.fillRect(HEADER_WIDTH + hovered.col * CELL_SIZE, HEADER_HEIGHT, CELL_SIZE, n * CELL_SIZE);
       }
@@ -351,7 +342,7 @@ export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focu
       ctx!.clip();
 
       // Background to cover scrolled cells
-      ctx!.fillStyle = '#0D1117';
+      ctx!.fillStyle = colors.bg;
       ctx!.fillRect(0, HEADER_HEIGHT, HEADER_WIDTH, h - HEADER_HEIGHT);
 
       const fontSize = Math.max(6, Math.min(14, 10 * s));
@@ -368,7 +359,7 @@ export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focu
         const isDeleted = deletedIds?.has(matrix.nodes[i].id);
 
         if (isDeleted) ctx!.globalAlpha = DELETED_TEXT_ALPHA;
-        ctx!.fillStyle = i === focusIdx ? ACCENT_BLUE : TEXT_COLOR;
+        ctx!.fillStyle = i === focusIdx ? colors.accent : colors.text;
         if (i === focusIdx) {
           ctx!.font = `bold ${fontSize}px sans-serif`;
         }
@@ -399,10 +390,10 @@ export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focu
       ctx!.clip();
 
       // Background to cover scrolled cells
-      ctx!.fillStyle = '#0D1117';
+      ctx!.fillStyle = colors.bg;
       ctx!.fillRect(HEADER_WIDTH, 0, w - HEADER_WIDTH, HEADER_HEIGHT);
 
-      ctx!.fillStyle = TEXT_COLOR;
+      ctx!.fillStyle = colors.text;
       ctx!.font = labelFont;
       ctx!.textBaseline = 'middle';
       for (let i = 0; i < n; i++) {
@@ -421,7 +412,7 @@ export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focu
         // 打ち消し線
         if (isDeleted) {
           const textWidth = ctx!.measureText(name).width;
-          ctx!.strokeStyle = TEXT_COLOR;
+          ctx!.strokeStyle = colors.text;
           ctx!.lineWidth = 1;
           ctx!.beginPath();
           ctx!.moveTo(0, 0);
@@ -435,14 +426,14 @@ export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focu
       ctx!.restore();
 
       // --- Corner background (top-left, covers overlap) ---
-      ctx!.fillStyle = '#0D1117';
+      ctx!.fillStyle = colors.bg;
       ctx!.fillRect(0, 0, HEADER_WIDTH, HEADER_HEIGHT);
       rafRef.current = requestAnimationFrame(draw);
     }
 
     rafRef.current = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [model, boundaries, level, clustered, focusedNodeId, scopeIds, deletedIds]);
+  }, [model, boundaries, level, clustered, focusedNodeId, scopeIds, deletedIds, colors]);
 
   // Mouse move (hover + pan)
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
@@ -568,7 +559,7 @@ export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focu
           display: 'block',
           cursor: 'grab',
           outline: 'none',
-          boxShadow: isFocused ? 'inset 0 0 0 2px #4FC3F7' : 'none',
+          boxShadow: isFocused ? `inset 0 0 0 2px ${colors.focusRing}` : 'none',
         }}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
@@ -584,14 +575,14 @@ export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focu
             position: 'fixed',
             left: tooltip.x + 12,
             top: tooltip.y + 12,
-            background: '#252526',
-            color: '#cccccc',
+            background: colors.tooltipBg,
+            color: colors.text,
             padding: '4px 8px',
             borderRadius: 4,
             fontSize: 11,
             pointerEvents: 'none',
             zIndex: 100,
-            border: '1px solid #555',
+            border: `1px solid ${colors.tooltipBorder}`,
           }}
         >
           {tooltip.text}

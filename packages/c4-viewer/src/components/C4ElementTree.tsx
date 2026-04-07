@@ -27,12 +27,7 @@ import Typography from '@mui/material/Typography';
 import type { Dispatch, FC } from 'react';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
-/** デザインシステム: チャコール */
-const BG_SECONDARY = '#121212';
-/** デザインシステム: ボーダー */
-const BORDER_COLOR = 'rgba(255,255,255,0.12)';
-/** デザインシステム: アイスブルー */
-const ACCENT_BLUE = '#90CAF9';
+import { getC4Colors } from '../c4Theme';
 
 const INDENT_PX = 20;
 
@@ -235,12 +230,14 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 interface DocLinksSectionProps {
+  readonly isDark?: boolean;
   readonly docLinks: readonly DocLink[];
   readonly selectedId: string | null;
   readonly onDocLinkClick?: (doc: DocLink) => void;
 }
 
-const DocLinksSection: FC<DocLinksSectionProps> = memo(({ docLinks, selectedId, onDocLinkClick }) => {
+const DocLinksSection: FC<DocLinksSectionProps> = memo(({ docLinks, selectedId, onDocLinkClick, isDark }) => {
+  const colors = useMemo(() => getC4Colors(isDark ?? true), [isDark]);
   const matched = useMemo(() => {
     if (!selectedId || docLinks.length === 0) return [];
     return docLinks.filter(d => matchesScope(d.c4Scope, selectedId));
@@ -248,27 +245,27 @@ const DocLinksSection: FC<DocLinksSectionProps> = memo(({ docLinks, selectedId, 
 
   return (
     <>
-      <Divider sx={{ borderColor: BORDER_COLOR }} />
+      <Divider sx={{ borderColor: colors.border }} />
       <Box sx={{
         px: 1,
         py: 0.25,
-        borderBottom: `1px solid ${BORDER_COLOR}`,
+        borderBottom: `1px solid ${colors.border}`,
         minHeight: 32,
         display: 'flex',
         alignItems: 'center',
         flexShrink: 0,
       }}>
-        <DescriptionIcon sx={{ fontSize: 14, mr: 0.5, color: 'rgba(255,255,255,0.5)' }} />
-        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.7rem' }}>
+        <DescriptionIcon sx={{ fontSize: 14, mr: 0.5, color: colors.textSecondary }} />
+        <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.7rem' }}>
           Documents
         </Typography>
       </Box>
       {!selectedId ? (
-        <Typography variant="caption" sx={{ px: 1.5, py: 1, color: 'rgba(255,255,255,0.3)', fontSize: '0.7rem' }}>
+        <Typography variant="caption" sx={{ px: 1.5, py: 1, color: colors.textMuted, fontSize: '0.7rem' }}>
           Select an element
         </Typography>
       ) : matched.length === 0 ? (
-        <Typography variant="caption" sx={{ px: 1.5, py: 1, color: 'rgba(255,255,255,0.3)', fontSize: '0.7rem' }}>
+        <Typography variant="caption" sx={{ px: 1.5, py: 1, color: colors.textMuted, fontSize: '0.7rem' }}>
           No linked documents
         </Typography>
       ) : (
@@ -319,9 +316,11 @@ interface C4ElementTreeProps {
   readonly onPurgeDeleted?: () => void;
   readonly docLinks?: readonly DocLink[];
   readonly onDocLinkClick?: (doc: DocLink) => void;
+  readonly isDark?: boolean;
 }
 
-export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onSelect, onCheckedChange, onRemoveElement, onPurgeDeleted, docLinks, onDocLinkClick }) => {
+export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onSelect, onCheckedChange, onRemoveElement, onPurgeDeleted, docLinks, onDocLinkClick, isDark }) => {
+  const colors = useMemo(() => getC4Colors(isDark ?? true), [isDark]);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => {
     // デフォルトでルートレベルと system ノードの直下を展開
     const ids = new Set<string>();
@@ -434,7 +433,7 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
     <Box
       sx={{
         width: 260,
-        bgcolor: BG_SECONDARY,
+        bgcolor: colors.bgSecondary,
         display: 'flex',
         flexDirection: 'column',
         overflowY: 'auto',
@@ -445,11 +444,11 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
         alignItems: 'center',
         px: 1,
         py: 0.25,
-        borderBottom: `1px solid ${BORDER_COLOR}`,
+        borderBottom: `1px solid ${colors.border}`,
         minHeight: 32,
         flexShrink: 0,
       }}>
-        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.7rem', flex: 1 }}>
+        <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.7rem', flex: 1 }}>
           Elements
         </Typography>
         {hasDeletedElements && onPurgeDeleted && (
@@ -469,7 +468,7 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
             size="small"
             onClick={handleCheckAll}
             aria-label={allChecked ? 'Uncheck all packages' : 'Check all packages'}
-            sx={{ color: ACCENT_BLUE, p: 0.25 }}
+            sx={{ color: colors.accent, p: 0.25 }}
           >
             {allChecked
               ? <CheckBoxIcon sx={{ fontSize: 18 }} />
@@ -498,6 +497,7 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
           docLinks={docLinks}
           selectedId={selectedId}
           onDocLinkClick={onDocLinkClick}
+          isDark={isDark}
         />
       )}
     </Box>

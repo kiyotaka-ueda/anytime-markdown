@@ -1,4 +1,6 @@
 // C4 viewer — React UI components for C4 model visualization
+export { getC4Colors } from './c4Theme';
+export type { C4ThemeColors } from './c4Theme';
 export { GraphCanvas } from './components/GraphCanvas';
 export { DsmCanvas } from './components/DsmCanvas';
 export { FcMapCanvas } from './components/FcMapCanvas';

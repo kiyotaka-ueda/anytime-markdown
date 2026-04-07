@@ -1,5 +1,6 @@
 import type { C4Model, FeatureMatrix } from '@anytime-markdown/c4-kernel';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getC4Colors } from '../c4Theme';
 
 interface FcMapCanvasProps {
   readonly featureMatrix: FeatureMatrix;
@@ -8,6 +9,8 @@ interface FcMapCanvasProps {
   readonly excludedElementIds?: ReadonlySet<string> | null;
   /** C4 レベル (2=container のみ, 3=component のみ, 4=すべて) */
   readonly level?: number;
+  /** ダークテーマかどうか（デフォルト: true） */
+  readonly isDark?: boolean;
 }
 
 // --- Constants ---
@@ -18,21 +21,7 @@ const ROW_HEADER_W = 180;
 const COL_HEADER_H = 120;
 const PAN_STEP = 20;
 
-const BG_COLOR = '#0D1117';
-const GRID_COLOR = '#3c3c3c';
-const TEXT_COLOR = '#cccccc';
-const HOVER_COLOR = 'rgba(255,255,255,0.08)';
-const GROUP_LINE_COLOR = '#888888';
-
-const PRIMARY_COLOR = '#90CAF9';
 const SECONDARY_COLOR = '#66BB6A';
-const DEPENDENCY_COLOR = 'rgba(255,255,255,0.20)';
-
-const ROLE_COLORS: Record<string, string> = {
-  primary: PRIMARY_COLOR,
-  secondary: SECONDARY_COLOR,
-  dependency: DEPENDENCY_COLOR,
-};
 
 const ROLE_LABELS: Record<string, string> = {
   primary: 'P',
@@ -102,7 +91,15 @@ function buildGrid(fm: FeatureMatrix, model: C4Model, excluded?: ReadonlySet<str
 
 // --- Component ---
 
-export function FcMapCanvas({ featureMatrix, model, excludedElementIds, level }: Readonly<FcMapCanvasProps>) {
+export function FcMapCanvas({ featureMatrix, model, excludedElementIds, level, isDark }: Readonly<FcMapCanvasProps>) {
+  const colors = useMemo(() => getC4Colors(isDark ?? true), [isDark]);
+  const dependencyColor = (isDark ?? true) ? 'rgba(255,255,255,0.20)' : 'rgba(0,0,0,0.10)';
+  const roleColors: Record<string, string> = useMemo(() => ({
+    primary: colors.accent,
+    secondary: SECONDARY_COLOR,
+    dependency: dependencyColor,
+  }), [colors.accent, dependencyColor]);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
   const viewportRef = useRef({ offsetX: 0, offsetY: 0, scale: 1 });
@@ -153,7 +150,7 @@ export function FcMapCanvas({ featureMatrix, model, excludedElementIds, level }:
       ctx!.clearRect(0, 0, w, h);
 
       if (nRows === 0 || nCols === 0) {
-        ctx!.fillStyle = TEXT_COLOR;
+        ctx!.fillStyle = colors.text;
         ctx!.font = '14px sans-serif';
         ctx!.fillText('No F-C Map data available.', 20, 40);
         rafRef.current = requestAnimationFrame(draw);
@@ -169,7 +166,7 @@ export function FcMapCanvas({ featureMatrix, model, excludedElementIds, level }:
       ctx!.scale(s, s);
 
       // Grid lines
-      ctx!.strokeStyle = GRID_COLOR;
+      ctx!.strokeStyle = colors.grid;
       ctx!.lineWidth = 0.5;
       for (let c = 0; c <= nCols; c++) {
         const x = ROW_HEADER_W + c * CELL_W;
@@ -201,19 +198,19 @@ export function FcMapCanvas({ featureMatrix, model, excludedElementIds, level }:
           const x = ROW_HEADER_W + c * CELL_W;
           const y = COL_HEADER_H + r * CELL_H;
 
-          ctx!.fillStyle = ROLE_COLORS[role] ?? DEPENDENCY_COLOR;
+          ctx!.fillStyle = roleColors[role] ?? dependencyColor;
           ctx!.fillRect(x + 1, y + 1, CELL_W - 2, CELL_H - 2);
 
           // Label (P/S/D)
           const label = ROLE_LABELS[role] ?? '';
-          ctx!.fillStyle = role === 'dependency' ? 'rgba(255,255,255,0.6)' : BG_COLOR;
+          ctx!.fillStyle = role === 'dependency' ? colors.textSecondary : colors.bg;
           ctx!.fillText(label, x + CELL_W / 2, y + CELL_H / 2);
         }
       }
 
       // Category group borders
       if (groupBorders.length > 0) {
-        ctx!.strokeStyle = GROUP_LINE_COLOR;
+        ctx!.strokeStyle = colors.groupLine;
         ctx!.lineWidth = 2;
         for (const bi of groupBorders) {
           const gy = COL_HEADER_H + bi * CELL_H;
@@ -227,7 +224,7 @@ export function FcMapCanvas({ featureMatrix, model, excludedElementIds, level }:
 
       // Hover highlight
       if (hovered && hovered.row < nRows && hovered.col < nCols) {
-        ctx!.fillStyle = HOVER_COLOR;
+        ctx!.fillStyle = colors.hover;
         ctx!.fillRect(ROW_HEADER_W, COL_HEADER_H + hovered.row * CELL_H, nCols * CELL_W, CELL_H);
         ctx!.fillRect(ROW_HEADER_W + hovered.col * CELL_W, COL_HEADER_H, CELL_W, nRows * CELL_H);
       }
@@ -240,14 +237,14 @@ export function FcMapCanvas({ featureMatrix, model, excludedElementIds, level }:
       ctx!.rect(0, COL_HEADER_H, ROW_HEADER_W, h - COL_HEADER_H);
       ctx!.clip();
 
-      ctx!.fillStyle = BG_COLOR;
+      ctx!.fillStyle = colors.bg;
       ctx!.fillRect(0, COL_HEADER_H, ROW_HEADER_W, h - COL_HEADER_H);
 
       const fontSize = Math.max(6, Math.min(12, 10 * s));
       ctx!.font = `${fontSize}px sans-serif`;
       ctx!.textBaseline = 'middle';
       ctx!.textAlign = 'right';
-      ctx!.fillStyle = TEXT_COLOR;
+      ctx!.fillStyle = colors.text;
 
       for (let r = 0; r < nRows; r++) {
         const name = truncate(rows[r].name, 22);
@@ -265,7 +262,7 @@ export function FcMapCanvas({ featureMatrix, model, excludedElementIds, level }:
 
         ctx!.save();
         ctx!.font = catFont;
-        ctx!.fillStyle = 'rgba(255,255,255,0.35)';
+        ctx!.fillStyle = colors.textMuted;
         ctx!.textAlign = 'center';
         ctx!.translate(10, midY);
         ctx!.rotate(-Math.PI / 2);
@@ -283,10 +280,10 @@ export function FcMapCanvas({ featureMatrix, model, excludedElementIds, level }:
       ctx!.rect(ROW_HEADER_W, 0, w - ROW_HEADER_W, COL_HEADER_H);
       ctx!.clip();
 
-      ctx!.fillStyle = BG_COLOR;
+      ctx!.fillStyle = colors.bg;
       ctx!.fillRect(ROW_HEADER_W, 0, w - ROW_HEADER_W, COL_HEADER_H);
 
-      ctx!.fillStyle = TEXT_COLOR;
+      ctx!.fillStyle = colors.text;
       ctx!.font = `${fontSize}px sans-serif`;
       ctx!.textBaseline = 'middle';
 
@@ -304,7 +301,7 @@ export function FcMapCanvas({ featureMatrix, model, excludedElementIds, level }:
       ctx!.restore();
 
       // --- Corner background ---
-      ctx!.fillStyle = BG_COLOR;
+      ctx!.fillStyle = colors.bg;
       ctx!.fillRect(0, 0, ROW_HEADER_W, COL_HEADER_H);
 
       // Legend in corner
@@ -312,22 +309,22 @@ export function FcMapCanvas({ featureMatrix, model, excludedElementIds, level }:
       ctx!.textAlign = 'left';
       ctx!.textBaseline = 'middle';
       const legendItems = [
-        { label: 'P Primary', color: PRIMARY_COLOR },
+        { label: 'P Primary', color: colors.accent },
         { label: 'S Secondary', color: SECONDARY_COLOR },
-        { label: 'D Dependency', color: DEPENDENCY_COLOR },
+        { label: 'D Dependency', color: dependencyColor },
       ];
       for (let i = 0; i < legendItems.length; i++) {
         const ly = 20 + i * 18;
         ctx!.fillStyle = legendItems[i].color;
         ctx!.fillRect(8, ly - 5, 10, 10);
-        ctx!.fillStyle = TEXT_COLOR;
+        ctx!.fillStyle = colors.text;
         ctx!.font = '10px sans-serif';
         ctx!.fillText(legendItems[i].label, 22, ly);
       }
 
       // Title
       ctx!.font = 'bold 12px sans-serif';
-      ctx!.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx!.fillStyle = colors.textSecondary;
       ctx!.fillText('F-C Map', 8, COL_HEADER_H - 10);
 
       rafRef.current = requestAnimationFrame(draw);
@@ -335,7 +332,7 @@ export function FcMapCanvas({ featureMatrix, model, excludedElementIds, level }:
 
     rafRef.current = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [featureMatrix, model, excludedElementIds, level]);
+  }, [featureMatrix, model, excludedElementIds, level, colors, roleColors, dependencyColor]);
 
   // Hit test for cell hover
   const hitTestCell = useCallback((mouseX: number, mouseY: number): { row: number; col: number } | null => {
@@ -448,7 +445,7 @@ export function FcMapCanvas({ featureMatrix, model, excludedElementIds, level }:
           display: 'block',
           cursor: 'grab',
           outline: 'none',
-          boxShadow: isFocused ? 'inset 0 0 0 2px #4FC3F7' : 'none',
+          boxShadow: isFocused ? `inset 0 0 0 2px ${colors.focusRing}` : 'none',
         }}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
@@ -464,14 +461,14 @@ export function FcMapCanvas({ featureMatrix, model, excludedElementIds, level }:
             position: 'fixed',
             left: tooltip.x + 12,
             top: tooltip.y + 12,
-            background: '#252526',
-            color: '#cccccc',
+            background: colors.tooltipBg,
+            color: colors.text,
             padding: '4px 8px',
             borderRadius: 4,
             fontSize: 11,
             pointerEvents: 'none',
             zIndex: 100,
-            border: '1px solid #555',
+            border: `1px solid ${colors.tooltipBorder}`,
           }}
         >
           {tooltip.text}

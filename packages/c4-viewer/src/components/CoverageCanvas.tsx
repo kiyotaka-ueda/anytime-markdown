@@ -1,11 +1,13 @@
 import type { C4Model, C4Element, CoverageDiffMatrix, CoverageMatrix, CoverageEntry } from '@anytime-markdown/c4-kernel';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getC4Colors } from '../c4Theme';
 
 interface CoverageCanvasProps {
   readonly coverageMatrix: CoverageMatrix;
   readonly coverageDiff?: CoverageDiffMatrix | null;
   readonly model: C4Model;
   readonly level?: number; // 2=container, 3=component, 4=code
+  readonly isDark?: boolean;
 }
 
 // --- Constants ---
@@ -15,11 +17,6 @@ const CELL_H = 28;
 const ROW_HEADER_W = 180;
 const COL_HEADER_H = 40;
 const PAN_STEP = 20;
-
-const BG_COLOR = '#0D1117';
-const GRID_COLOR = '#3c3c3c';
-const TEXT_COLOR = '#cccccc';
-const HOVER_COLOR = 'rgba(255,255,255,0.08)';
 
 const METRIC_COLUMNS = ['Lines', 'Branches', 'Functions'] as const;
 
@@ -113,7 +110,10 @@ export function CoverageCanvas({
   coverageDiff,
   model,
   level,
+  isDark,
 }: Readonly<CoverageCanvasProps>): React.JSX.Element {
+  const colors = useMemo(() => getC4Colors(isDark ?? true), [isDark]);
+
   const diffMap = useMemo(() => {
     if (!coverageDiff) return null;
     return new Map(coverageDiff.entries.map(e => [e.elementId, e]));
@@ -169,7 +169,7 @@ export function CoverageCanvas({
       ctx!.clearRect(0, 0, w, h);
 
       if (nRows === 0) {
-        ctx!.fillStyle = TEXT_COLOR;
+        ctx!.fillStyle = colors.text;
         ctx!.font = '14px sans-serif';
         ctx!.fillText('No coverage data available.', 20, 40);
         rafRef.current = requestAnimationFrame(draw);
@@ -185,7 +185,7 @@ export function CoverageCanvas({
       ctx!.scale(s, s);
 
       // Grid lines
-      ctx!.strokeStyle = GRID_COLOR;
+      ctx!.strokeStyle = colors.grid;
       ctx!.lineWidth = 0.5;
       for (let c = 0; c <= nCols; c++) {
         const x = ROW_HEADER_W + c * CELL_W;
@@ -246,7 +246,7 @@ export function CoverageCanvas({
           }
 
           // Draw base label
-          ctx!.fillStyle = hasCoverage ? textColorForBg(pct) : 'rgba(255,255,255,0.5)';
+          ctx!.fillStyle = hasCoverage ? textColorForBg(pct) : colors.textSecondary;
           if (deltaLabel) {
             // Shift base label left to make room for delta
             ctx!.fillText(baseLabel, x + CELL_W / 2 - 8, y + CELL_H / 2);
@@ -264,7 +264,7 @@ export function CoverageCanvas({
 
       // Hover highlight
       if (hovered && hovered.row < nRows && hovered.col < nCols) {
-        ctx!.fillStyle = HOVER_COLOR;
+        ctx!.fillStyle = colors.hover;
         ctx!.fillRect(ROW_HEADER_W, COL_HEADER_H + hovered.row * CELL_H, nCols * CELL_W, CELL_H);
         ctx!.fillRect(ROW_HEADER_W + hovered.col * CELL_W, COL_HEADER_H, CELL_W, nRows * CELL_H);
       }
@@ -277,14 +277,14 @@ export function CoverageCanvas({
       ctx!.rect(0, COL_HEADER_H, ROW_HEADER_W, h - COL_HEADER_H);
       ctx!.clip();
 
-      ctx!.fillStyle = BG_COLOR;
+      ctx!.fillStyle = colors.bg;
       ctx!.fillRect(0, COL_HEADER_H, ROW_HEADER_W, h - COL_HEADER_H);
 
       const fontSize = Math.max(6, Math.min(12, 10 * s));
       ctx!.font = `${fontSize}px sans-serif`;
       ctx!.textBaseline = 'middle';
       ctx!.textAlign = 'right';
-      ctx!.fillStyle = TEXT_COLOR;
+      ctx!.fillStyle = colors.text;
 
       for (let r = 0; r < nRows; r++) {
         const name = truncate(rows[r].name, 22);
@@ -300,10 +300,10 @@ export function CoverageCanvas({
       ctx!.rect(ROW_HEADER_W, 0, w - ROW_HEADER_W, COL_HEADER_H);
       ctx!.clip();
 
-      ctx!.fillStyle = BG_COLOR;
+      ctx!.fillStyle = colors.bg;
       ctx!.fillRect(ROW_HEADER_W, 0, w - ROW_HEADER_W, COL_HEADER_H);
 
-      ctx!.fillStyle = TEXT_COLOR;
+      ctx!.fillStyle = colors.text;
       ctx!.font = `bold ${fontSize}px sans-serif`;
       ctx!.textBaseline = 'bottom';
       ctx!.textAlign = 'center';
@@ -316,7 +316,7 @@ export function CoverageCanvas({
       ctx!.restore();
 
       // --- Corner background ---
-      ctx!.fillStyle = BG_COLOR;
+      ctx!.fillStyle = colors.bg;
       ctx!.fillRect(0, 0, ROW_HEADER_W, COL_HEADER_H);
 
       // Legend in corner
@@ -332,14 +332,14 @@ export function CoverageCanvas({
         const lx = 8 + i * 60;
         ctx!.fillStyle = legendItems[i].color;
         ctx!.fillRect(lx, 10, 10, 10);
-        ctx!.fillStyle = TEXT_COLOR;
+        ctx!.fillStyle = colors.text;
         ctx!.font = '9px sans-serif';
         ctx!.fillText(legendItems[i].label, lx + 13, 15);
       }
 
       // Title
       ctx!.font = 'bold 11px sans-serif';
-      ctx!.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx!.fillStyle = colors.textSecondary;
       ctx!.fillText('Coverage', 8, COL_HEADER_H - 8);
 
       rafRef.current = requestAnimationFrame(draw);
@@ -347,7 +347,7 @@ export function CoverageCanvas({
 
     rafRef.current = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [coverageMatrix, model, level]);
+  }, [coverageMatrix, model, level, colors]);
 
   // Hit test for cell hover
   const hitTestCell = useCallback(
@@ -486,7 +486,7 @@ export function CoverageCanvas({
           display: 'block',
           cursor: 'grab',
           outline: 'none',
-          boxShadow: isFocused ? 'inset 0 0 0 2px #4FC3F7' : 'none',
+          boxShadow: isFocused ? `inset 0 0 0 2px ${colors.focusRing}` : 'none',
         }}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
@@ -502,14 +502,14 @@ export function CoverageCanvas({
             position: 'fixed',
             left: tooltip.x + 12,
             top: tooltip.y + 12,
-            background: '#252526',
-            color: '#cccccc',
+            background: colors.tooltipBg,
+            color: colors.text,
             padding: '4px 8px',
             borderRadius: 4,
             fontSize: 11,
             pointerEvents: 'none',
             zIndex: 100,
-            border: '1px solid #555',
+            border: `1px solid ${colors.tooltipBorder}`,
           }}
         >
           {tooltip.text}
