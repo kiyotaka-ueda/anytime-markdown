@@ -32,3 +32,6 @@ test-results/
 # Worktrees
 .worktrees/
 HANDOFF.md
+
+# Anytime Trail
+.anytime-trail/
