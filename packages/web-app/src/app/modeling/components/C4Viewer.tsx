@@ -1,7 +1,7 @@
 'use client';
 
 import { buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, extractBoundaries, filterTreeByLevel, parseMermaidC4 } from '@anytime-markdown/c4-kernel';
-import type { BoundaryInfo, C4Model, DocLink, FeatureMatrix } from '@anytime-markdown/c4-kernel';
+import type { BoundaryInfo, C4Model, CoverageDiffMatrix, CoverageMatrix, DocLink, FeatureMatrix } from '@anytime-markdown/c4-kernel';
 import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 import { engine, layoutWithSubgroups, state as graphState } from '@anytime-markdown/graph-core';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
@@ -18,7 +18,7 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
-import { AddElementDialog, AddRelationshipDialog, C4ElementTree, DsmCanvas, FcMapCanvas, GraphCanvas } from '@anytime-markdown/c4-viewer';
+import { AddElementDialog, AddRelationshipDialog, C4ElementTree, CoverageCanvas, DsmCanvas, FcMapCanvas, GraphCanvas } from '@anytime-markdown/c4-viewer';
 import type { ElementFormData, RelationshipFormData } from '@anytime-markdown/c4-viewer';
 
 const { graphReducer, createInitialState } = graphState;
@@ -59,10 +59,13 @@ export function C4Viewer() {
   const [boundaryInfos, setBoundaryInfos] = useState<readonly BoundaryInfo[]>([]);
 
   const [featureMatrix, setFeatureMatrix] = useState<FeatureMatrix | null>(null);
+  const [coverageMatrix, setCoverageMatrix] = useState<CoverageMatrix | null>(null);
+  const [coverageDiff, setCoverageDiff] = useState<CoverageDiffMatrix | null>(null);
   const [showTree, setShowTree] = useState(true);
   const [showC4, setShowC4] = useState(true);
   const [showDsm, setShowDsm] = useState(true);
-  const [matrixView, setMatrixView] = useState<'dsm' | 'fcmap'>('dsm');
+  const [showCoverage, setShowCoverage] = useState(false);
+  const [matrixView, setMatrixView] = useState<'dsm' | 'fcmap' | 'coverage'>('dsm');
   const [dsmLevel, setDsmLevel] = useState<'component' | 'package'>('component');
   const [dsmClustered, setDsmClustered] = useState(false);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
@@ -198,6 +201,12 @@ export function C4Viewer() {
         if (data.featureMatrix && typeof data.featureMatrix === 'object') {
           setFeatureMatrix(data.featureMatrix as FeatureMatrix);
         }
+        if (data.coverageMatrix && typeof data.coverageMatrix === 'object') {
+          setCoverageMatrix(data.coverageMatrix as CoverageMatrix);
+        }
+        if (data.coverageDiff && typeof data.coverageDiff === 'object') {
+          setCoverageDiff(data.coverageDiff as CoverageDiffMatrix);
+        }
         const doc = c4ToGraphDocument(model, boundaries);
         layoutWithSubgroups(doc, 'TB', 180, 60);
         setFullDoc(doc);
@@ -326,6 +335,26 @@ export function C4Viewer() {
     }
     return ids.size > 0 ? ids : undefined;
   }, [c4Model]);
+
+  // カバレッジヒートマップ用マップ (c4Id → lines.pct)
+  const coverageMap = useMemo(() => {
+    if (!showCoverage || !coverageMatrix) return null;
+    const map = new Map<string, number>();
+    for (const entry of coverageMatrix.entries) {
+      map.set(entry.elementId, entry.lines.pct);
+    }
+    return map;
+  }, [showCoverage, coverageMatrix]);
+
+  // カバレッジ差分ヒートマップ用マップ (c4Id → lines.pctDelta)
+  const coverageDiffMap = useMemo(() => {
+    if (!showCoverage || !coverageDiff) return null;
+    const map = new Map<string, number>();
+    for (const entry of coverageDiff.entries) {
+      map.set(entry.elementId, entry.lines.pctDelta);
+    }
+    return map;
+  }, [showCoverage, coverageDiff]);
 
   // チェックOFFパッケージ配下の要素IDを収集
   const excludedDescendantIds = useMemo(() => {
@@ -469,12 +498,9 @@ export function C4Viewer() {
             </Button>
           ))}
         </ButtonGroup>
-        <Button size="small" startIcon={<FitScreenIcon sx={{ fontSize: 18 }} />} onClick={handleFit} sx={toolbarButtonSx}>Fit</Button>
-        <Button size="small" onClick={() => setDsmClustered(prev => !prev)} sx={{ ...toolbarButtonSx, ...(dsmClustered && { bgcolor: 'rgba(144,202,249,0.12)' }) }}>Cluster</Button>
         <Box sx={{ flex: 1 }} />
-        <Button size="small" onClick={() => { if (showC4 && !showDsm) return; setShowC4(prev => !prev); }} aria-pressed={showC4} aria-label="Toggle C4 graph" sx={{ ...toolbarButtonSx, ...(showC4 && { bgcolor: 'rgba(144,202,249,0.12)' }) }}>C4</Button>
-        <Button size="small" onClick={() => { if (showDsm && !showC4) return; setShowDsm(prev => !prev); if (!showDsm) setMatrixView('dsm'); }} aria-pressed={showDsm && matrixView === 'dsm'} aria-label="Toggle DSM matrix" sx={{ ...toolbarButtonSx, ...(showDsm && matrixView === 'dsm' && { bgcolor: 'rgba(144,202,249,0.12)' }) }}>DSM</Button>
-        <Button size="small" onClick={() => { setShowDsm(true); setMatrixView('fcmap'); }} aria-pressed={showDsm && matrixView === 'fcmap'} aria-label="Toggle F-C Map" disabled={!featureMatrix} sx={{ ...toolbarButtonSx, ...(showDsm && matrixView === 'fcmap' && { bgcolor: 'rgba(144,202,249,0.12)' }) }}>F-C Map</Button>
+        <Button size="small" onClick={() => setShowDsm(prev => !prev)} aria-pressed={!showDsm} aria-label="Toggle matrix panel" sx={{ ...toolbarButtonSx, ...(!showDsm && { bgcolor: 'rgba(144,202,249,0.12)' }) }}>C4</Button>
+        <Button size="small" onClick={() => setShowC4(prev => !prev)} aria-pressed={!showC4} aria-label="Toggle C4 graph" sx={{ ...toolbarButtonSx, ...(!showC4 && { bgcolor: 'rgba(144,202,249,0.12)' }) }}>Matrix</Button>
         <Button size="small" startIcon={<AccountTreeIcon sx={{ fontSize: 18 }} />} onClick={() => setShowTree(prev => !prev)} aria-pressed={showTree} aria-label="Toggle element tree" sx={{ ...toolbarButtonSx, ...(showTree && { bgcolor: 'rgba(144,202,249,0.12)' }) }}>Tree</Button>
       </Toolbar>
       {currentLevel === 1 && (
@@ -489,7 +515,11 @@ export function C4Viewer() {
       <Box ref={containerRef} sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Left: C4 Model */}
         {showC4 && (
-          <Box sx={{ flex: showDsm ? splitRatio : 1, position: 'relative', minWidth: 100 }}>
+          <Box sx={{ flex: showDsm ? splitRatio : 1, display: 'flex', flexDirection: 'column', minWidth: 100 }}>
+            <Toolbar variant="dense" sx={{ gap: 0.5, bgcolor: BG_SECONDARY, borderBottom: `1px solid ${BORDER_COLOR}`, minHeight: 36, px: 1, flexShrink: 0 }}>
+              <Button size="small" startIcon={<FitScreenIcon sx={{ fontSize: 16 }} />} onClick={handleFit} sx={{ ...toolbarButtonSx, fontSize: '0.75rem' }}>Fit</Button>
+            </Toolbar>
+            <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
             <GraphCanvas
               document={state.document}
               viewport={state.document.viewport}
@@ -497,6 +527,8 @@ export function C4Viewer() {
               canvasRef={canvasRef}
               selectedNodeId={selectedElementId ? (state.document.nodes.find(n => n.metadata?.c4Id === selectedElementId)?.id ?? null) : null}
               centerOnSelect={centerOnSelect}
+              coverageMap={coverageMap}
+              coverageDiffMap={coverageDiffMap}
               onNodeSelect={(id) => { setCenterOnSelect(false); setSelectedElementId(id); }}
               onNodeDoubleClick={(nodeId) => {
                 if (!c4Model) return;
@@ -506,6 +538,7 @@ export function C4Viewer() {
                 }
               }}
             />
+            </Box>
           </Box>
         )}
         {/* Resize grip */}
@@ -531,10 +564,19 @@ export function C4Viewer() {
             sx={{ width: 5, cursor: 'col-resize', bgcolor: 'transparent', borderLeft: `1px solid ${BORDER_COLOR}`, '&:hover': { bgcolor: 'rgba(144,202,249,0.2)' }, '&:focus-visible': { outline: '2px solid #4FC3F7' }, flexShrink: 0 }}
           />
         )}
-        {/* Center: DSM */}
+        {/* Center: Matrix panel (DSM / F-C Map / Coverage) */}
         {showDsm && (
-          <Box sx={{ flex: showC4 ? 1 - splitRatio : 1, position: 'relative', minWidth: 100, borderRight: showTree && elementTree.length > 0 ? `1px solid ${BORDER_COLOR}` : 'none' }}>
-            {matrixView === 'fcmap' && featureMatrix && c4Model ? (
+          <Box sx={{ flex: showC4 ? 1 - splitRatio : 1, display: 'flex', flexDirection: 'column', minWidth: 100, borderRight: showTree && elementTree.length > 0 ? `1px solid ${BORDER_COLOR}` : 'none' }}>
+            <Toolbar variant="dense" sx={{ gap: 0.5, bgcolor: BG_SECONDARY, borderBottom: `1px solid ${BORDER_COLOR}`, minHeight: 36, px: 1, flexShrink: 0 }}>
+              <Button size="small" onClick={() => { setMatrixView('dsm'); }} aria-pressed={matrixView === 'dsm'} aria-label="Show DSM matrix" sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(matrixView === 'dsm' && { bgcolor: 'rgba(144,202,249,0.12)' }) }}>DSM</Button>
+              <Button size="small" onClick={() => { setMatrixView('fcmap'); }} aria-pressed={matrixView === 'fcmap'} aria-label="Show F-C Map" disabled={!featureMatrix} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(matrixView === 'fcmap' && { bgcolor: 'rgba(144,202,249,0.12)' }) }}>F-C Map</Button>
+              <Button size="small" onClick={() => { const next = matrixView !== 'coverage'; setShowCoverage(next); setMatrixView(next ? 'coverage' : 'dsm'); }} aria-pressed={matrixView === 'coverage'} aria-label="Show coverage" disabled={!coverageMatrix} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(matrixView === 'coverage' && { bgcolor: 'rgba(144,202,249,0.12)' }) }}>Cov</Button>
+              <Button size="small" onClick={() => setDsmClustered(prev => !prev)} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(dsmClustered && { bgcolor: 'rgba(144,202,249,0.12)' }) }}>Cluster</Button>
+            </Toolbar>
+            <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+            {matrixView === 'coverage' && coverageMatrix && c4Model ? (
+              <CoverageCanvas coverageMatrix={coverageMatrix} coverageDiff={coverageDiff} model={c4Model} level={currentLevel} />
+            ) : matrixView === 'fcmap' && featureMatrix && c4Model ? (
               <FcMapCanvas featureMatrix={featureMatrix} model={c4Model} excludedElementIds={excludedDescendantIds} level={currentLevel} />
             ) : dsmModel ? (
               <DsmCanvas
@@ -554,6 +596,7 @@ export function C4Viewer() {
                 </Typography>
               </Box>
             )}
+            </Box>
           </Box>
         )}
         {/* Right: Element Tree */}
