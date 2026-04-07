@@ -356,8 +356,8 @@ export function C4ViewerCore({
           ))}
         </ButtonGroup>
         <Box sx={{ flex: 1 }} />
-        <Button size="small" onClick={() => setShowDsm(prev => !prev)} aria-pressed={!showDsm} aria-label="Toggle matrix panel" sx={{ ...toolbarButtonSx, ...(!showDsm && { bgcolor: toolbarButtonActiveBg }) }}>C4</Button>
-        <Button size="small" onClick={() => setShowC4(prev => !prev)} aria-pressed={!showC4} aria-label="Toggle C4 graph" sx={{ ...toolbarButtonSx, ...(!showC4 && { bgcolor: toolbarButtonActiveBg }) }}>Matrix</Button>
+        <Button size="small" onClick={() => { if (showC4 && !showDsm) { setShowDsm(true); } else { setShowC4(true); setShowDsm(false); } }} aria-pressed={showC4 && !showDsm} aria-label="Toggle C4 graph" sx={{ ...toolbarButtonSx, ...(showC4 && !showDsm && { bgcolor: toolbarButtonActiveBg }) }}>C4</Button>
+        <Button size="small" onClick={() => { if (!showC4 && showDsm) { setShowC4(true); } else { setShowC4(false); setShowDsm(true); } }} aria-pressed={!showC4 && showDsm} aria-label="Toggle matrix panel" sx={{ ...toolbarButtonSx, ...(!showC4 && showDsm && { bgcolor: toolbarButtonActiveBg }) }}>Matrix</Button>
         <Button size="small" startIcon={<AccountTreeIcon sx={{ fontSize: 18 }} />} onClick={() => setShowTree(prev => !prev)} aria-pressed={showTree} aria-label="Toggle element tree" sx={{ ...toolbarButtonSx, ...(showTree && { bgcolor: toolbarButtonActiveBg }) }}>Tree</Button>
       </Toolbar>
       {currentLevel === 1 && (
