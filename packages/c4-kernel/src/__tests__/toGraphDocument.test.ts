@@ -11,7 +11,7 @@ describe('c4ToGraphDocument', () => {
     const doc = c4ToGraphDocument(model);
     const node = doc.nodes.find(n => n.text.includes('User'));
     expect(node).toBeDefined();
-    expect(node!.type).toBe('ellipse');
+    expect(node!.type).toBe('person');
   });
 
   it('should convert system to frame', () => {
