@@ -74,10 +74,23 @@ interface GitHubBlobResponse {
   encoding?: string;
 }
 
+/** "https://github.com/owner/repo" または "owner/repo" から "owner/repo" を抽出 */
+function extractOwnerRepo(value: string): string | null {
+  const urlMatch = /github\.com\/([^/]+\/[^/]+)\/?$/.exec(value);
+  if (urlMatch) return urlMatch[1];
+  if (/^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/.test(value)) return value;
+  return null;
+}
+
 let cachedIndex: { docs: DocLink[]; expiresAt: number } | null = null;
 
 export async function GET(): Promise<NextResponse> {
-  const repo = process.env.DOCS_GITHUB_REPO;
+  const repoRaw = process.env.DOCS_GITHUB_REPO;
+  if (!repoRaw) {
+    return NextResponse.json({ docs: [] });
+  }
+
+  const repo = extractOwnerRepo(repoRaw);
   if (!repo) {
     return NextResponse.json({ docs: [] });
   }

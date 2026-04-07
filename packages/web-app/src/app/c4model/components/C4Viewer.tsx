@@ -65,10 +65,10 @@ export function C4Viewer() {
   }, []);
 
   useEffect(() => {
-    fetch('/c4-model.json')
-      .then(res => { if (res.ok) return res.text(); })
-      .then(json => { if (json) loadGraphJson(json); })
-      .catch(() => { /* ファイルが存在しない場合は無視 */ });
+    fetch('/api/c4model')
+      .then(res => { if (res.ok) return res.json(); })
+      .then((data: unknown) => { if (data) loadGraphJson(JSON.stringify(data)); })
+      .catch(() => { /* c4-model.json が取得できない場合は無視 */ });
   }, [loadGraphJson]);
 
   useEffect(() => {
