@@ -11,6 +11,7 @@ import {
 } from '@anytime-markdown/graph-core/engine';
 import type { ResizeHandle, GuideLine } from '@anytime-markdown/graph-core/engine';
 import { createEdge,createNode, GraphEdge, GraphNode, SelectionState, ToolType, Viewport } from '../types';
+import type { NodeType } from '../types';
 import type { Action } from './useGraphState';
 
 /** edges に waypoints を付与して hitTest で使えるようにする */
@@ -651,7 +652,7 @@ export function useCanvasInteraction({
         } else if (drag.fromConnectionPoint) {
           // 接続ポイント起点 + 空白にドロップ → 子ノード自動作成 + コネクタ接続
           const parentNode = drag.nodeId ? nodes.find(n => n.id === drag.nodeId) : undefined;
-          const inferChildType = (type: string | undefined): string => {
+          const inferChildType = (type: string | undefined): NodeType => {
             if (type === 'sticky') return 'sticky';
             if (type === 'ellipse') return 'ellipse';
             return 'rect';

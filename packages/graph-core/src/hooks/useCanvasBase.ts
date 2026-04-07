@@ -79,11 +79,6 @@ export interface UseCanvasBaseReturn {
 
 const PAN_STEP = 20;
 
-const SELECT_RECT_COLORS = {
-  selectionRect: 'rgba(144, 202, 249, 0.15)',
-  selectionRectStroke: 'rgba(144, 202, 249, 0.6)',
-};
-
 const EMPTY_SELECTION: SelectionState = { nodeIds: [], edgeIds: [] };
 
 // ---------------------------------------------------------------------------
@@ -360,7 +355,7 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
     const y = Math.min(r.y1, r.y2);
     const w = Math.abs(r.x2 - r.x1);
     const h = Math.abs(r.y2 - r.y1);
-    drawSelectionRect(ctx, x, y, w, h, SELECT_RECT_COLORS);
+    drawSelectionRect(ctx, x, y, w, h);
     ctx.restore();
   }, []);
 
