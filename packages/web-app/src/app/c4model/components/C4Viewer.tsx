@@ -150,9 +150,10 @@ export function C4Viewer() {
 
   const handleDocLinkClick = useCallback((doc: DocLink) => {
     const repo = process.env.NEXT_PUBLIC_DOCS_GITHUB_REPO;
-    if (repo) {
-      globalThis.open(`https://github.com/${repo}/blob/main/${doc.path}`, '_blank');
-    }
+    if (!repo) return;
+    // フルURL形式 (https://github.com/owner/repo) とowner/repo形式の両方に対応
+    const base = repo.startsWith('http') ? repo : `https://github.com/${repo}`;
+    globalThis.open(`${base}/blob/main/${doc.path}`, '_blank');
   }, []);
 
   const handleImport = useCallback(() => {
