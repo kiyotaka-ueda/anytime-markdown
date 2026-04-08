@@ -289,21 +289,30 @@ export async function activate(context: vscode.ExtensionContext) {
 		startDataServer(serverConfig.get<number>('port', 19840));
 	}
 
-	// Trail Database + Data Server
+	// Trail Database + Data Server (non-blocking initialization)
 	trailDb = new TrailDatabase(extensionDistPath);
-	try {
-		await trailDb.init();
-		await trailDb.importAll();
-	} catch (err) {
-		TrailLogger.error('Failed to initialize trail database', err);
-	}
-
 	trailDataServer = new TrailDataServer(extensionDistPath, trailDb);
 	TrailPanel.setDataServer(trailDataServer);
 	const trailPort = vscode.workspace.getConfiguration('anytimeTrail.trailServer').get<number>('port', 19841);
-	trailDataServer.start(trailPort).catch((err: Error) => {
-		vscode.window.showErrorMessage(`Trail Data Server: ${err.message}`);
-	});
+
+	// Initialize DB and start server in background — do not block activate
+	void (async () => {
+		try {
+			TrailLogger.info(`Trail DB: initializing with distPath=${extensionDistPath}`);
+			await trailDb!.init();
+			TrailLogger.info('Trail DB: initialized, starting import...');
+			const result = await trailDb!.importAll();
+			TrailLogger.info(`Trail DB: import complete - imported=${result.imported}, skipped=${result.skipped}`);
+		} catch (err) {
+			TrailLogger.error('Failed to initialize trail database', err);
+		}
+		try {
+			await trailDataServer!.start(trailPort);
+			TrailLogger.info(`Trail Data Server started on port ${trailPort}`);
+		} catch (err) {
+			TrailLogger.error('Trail Data Server failed to start', err);
+		}
+	})();
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('anytime-trail.openTrailViewer', () => {

@@ -252,11 +252,13 @@ export class TrailDatabase {
   constructor(private readonly wasmPath?: string) {}
 
   async init(): Promise<void> {
-    const SQL = await initSqlJs({
-      locateFile: this.wasmPath
-        ? (file: string) => path.join(this.wasmPath as string, file)
-        : undefined,
-    });
+    const wasmLocate = this.wasmPath
+      ? (file: string) => path.join(this.wasmPath as string, file)
+      : undefined;
+    console.log('[TrailDatabase] init: wasmPath =', this.wasmPath);
+    console.log('[TrailDatabase] init: DB_DIR =', DB_DIR, 'DB_PATH =', DB_PATH);
+    const SQL = await initSqlJs({ locateFile: wasmLocate });
+    console.log('[TrailDatabase] sql.js initialized');
 
     if (!fs.existsSync(DB_DIR)) {
       fs.mkdirSync(DB_DIR, { recursive: true });
