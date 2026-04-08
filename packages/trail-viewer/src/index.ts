@@ -17,3 +17,6 @@ export { aggregateUsage } from './parser/aggregateUsage';
 
 export { TrailViewerCore } from './components/TrailViewerCore';
 export type { TrailViewerCoreProps } from './components/TrailViewerCore';
+
+export { useTrailDataSource } from './hooks/useTrailDataSource';
+export type { TrailDataSourceResult } from './hooks/useTrailDataSource';
