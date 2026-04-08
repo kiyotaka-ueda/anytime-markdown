@@ -271,7 +271,27 @@ export class TrailDataServer {
         return;
       }
 
-      const messages: MessageRow[] = this.trailDb.getMessages(sessionId);
+      const rawMessages: MessageRow[] = this.trailDb.getMessages(sessionId);
+      const messages = rawMessages.map((m) => ({
+        uuid: m.uuid,
+        parentUuid: m.parent_uuid,
+        type: m.type,
+        subtype: m.subtype,
+        textContent: m.text_content,
+        userContent: m.user_content,
+        toolCalls: m.tool_calls ? JSON.parse(m.tool_calls as string) : undefined,
+        model: m.model,
+        usage: (m.input_tokens || m.output_tokens || m.cache_read_tokens)
+          ? {
+            inputTokens: m.input_tokens,
+            outputTokens: m.output_tokens,
+            cacheReadTokens: m.cache_read_tokens,
+            cacheCreationTokens: m.cache_creation_tokens,
+          }
+          : undefined,
+        timestamp: m.timestamp,
+        isSidechain: m.is_sidechain === 1,
+      }));
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({ session, messages }));
     } catch {
