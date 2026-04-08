@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import Collapse from '@mui/material/Collapse';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import Avatar from '@mui/material/Avatar';
 import BuildIcon from '@mui/icons-material/Build';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import PersonIcon from '@mui/icons-material/Person';
@@ -22,19 +23,17 @@ const LINE_HEIGHT_PX = 20;
 const COLLAPSED_LINES = 3;
 const COLLAPSED_MAX_HEIGHT = LINE_HEIGHT_PX * COLLAPSED_LINES;
 
-function getMessageIcon(type: TrailMessage['type'], hasToolCalls: boolean) {
-  if (type === 'user') return <PersonIcon fontSize="small" />;
-  if (type === 'system') return <SettingsIcon fontSize="small" />;
-  if (hasToolCalls) return <BuildIcon fontSize="small" />;
-  return <SmartToyIcon fontSize="small" />;
-}
-
-function getBackgroundColor(
-  type: TrailMessage['type'],
-): string {
-  if (type === 'user') return 'primary.50';
-  if (type === 'system') return 'action.hover';
-  return 'transparent';
+function getAvatarProps(type: TrailMessage['type'], hasToolCalls: boolean) {
+  if (type === 'user') {
+    return { icon: <PersonIcon />, bgcolor: '#4caf50' };
+  }
+  if (type === 'system') {
+    return { icon: <SettingsIcon />, bgcolor: '#9e9e9e' };
+  }
+  if (hasToolCalls) {
+    return { icon: <BuildIcon />, bgcolor: '#ff9800' };
+  }
+  return { icon: <SmartToyIcon />, bgcolor: '#2196f3' };
 }
 
 function formatTimestamp(timestamp: string): string {
@@ -63,45 +62,95 @@ export function MessageNode({
   const hasToolCalls = (message.toolCalls?.length ?? 0) > 0;
   const hasTextContent = Boolean(message.textContent ?? message.userContent);
   const textContent = message.userContent ?? message.textContent ?? '';
+  const isUser = message.type === 'user';
+  const isSystem = message.type === 'system';
 
   const needsCollapse = textContent.split('\n').length > COLLAPSED_LINES
     || textContent.length > 200;
 
+  const avatar = getAvatarProps(message.type, hasToolCalls);
+
+  if (isSystem) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 0.5, pl: depth * 2 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: 'text.disabled',
+            bgcolor: 'action.hover',
+            px: 1.5,
+            py: 0.25,
+            borderRadius: 2,
+            fontSize: '0.7rem',
+          }}
+        >
+          {message.subtype ?? 'system'} &middot; {formatTimestamp(message.timestamp)}
+        </Typography>
+      </Box>
+    );
+  }
+
   return (
     <Box
       sx={{
-        pl: depth * 2,
-        borderLeft: message.isSidechain
-          ? '2px dashed'
-          : 'none',
+        display: 'flex',
+        flexDirection: isUser ? 'row-reverse' : 'row',
+        alignItems: 'flex-end',
+        gap: 1,
+        py: 0.5,
+        px: 1,
+        pl: depth * 2 + 1,
+        borderLeft: message.isSidechain ? '2px dashed' : 'none',
         borderColor: 'divider',
       }}
     >
-      <Box
+      {/* Avatar */}
+      <Avatar
         sx={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: 1,
-          py: 0.5,
-          px: 1,
-          bgcolor: getBackgroundColor(message.type),
-          borderRadius: 1,
-          color: message.type === 'system'
-            ? 'text.secondary'
-            : 'text.primary',
+          width: 32,
+          height: 32,
+          bgcolor: avatar.bgcolor,
+          flexShrink: 0,
+          mb: 0.5,
         }}
       >
-        <Box sx={{ mt: 0.5, flexShrink: 0 }}>
-          {getMessageIcon(message.type, hasToolCalls)}
-        </Box>
+        {avatar.icon}
+      </Avatar>
 
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          {message.type === 'system' && message.subtype && (
-            <Typography variant="caption" color="text.secondary">
-              {message.subtype}
-            </Typography>
-          )}
+      {/* Bubble */}
+      <Box
+        sx={{
+          maxWidth: '75%',
+          minWidth: 60,
+        }}
+      >
+        {/* Timestamp */}
+        <Typography
+          variant="caption"
+          sx={{
+            display: 'block',
+            color: 'text.disabled',
+            textAlign: isUser ? 'right' : 'left',
+            fontSize: '0.65rem',
+            mb: 0.25,
+          }}
+        >
+          {formatTimestamp(message.timestamp)}
+        </Typography>
 
+        {/* Message bubble */}
+        <Box
+          sx={{
+            bgcolor: isUser ? 'primary.main' : 'grey.100',
+            color: isUser ? 'primary.contrastText' : 'text.primary',
+            px: 1.5,
+            py: 1,
+            borderRadius: 2,
+            borderTopRightRadius: isUser ? 0 : undefined,
+            borderTopLeftRadius: isUser ? undefined : 0,
+            '.MuiTypography-root': isUser ? { color: 'inherit' } : undefined,
+          }}
+        >
           {hasTextContent && (
             <Box>
               <Box
@@ -114,7 +163,7 @@ export function MessageNode({
               >
                 <Typography
                   variant="body2"
-                  sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                  sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '0.85rem' }}
                 >
                   {textContent}
                 </Typography>
@@ -126,6 +175,7 @@ export function MessageNode({
                   sx={{
                     transform: expanded ? 'rotate(180deg)' : 'none',
                     transition: 'transform 0.2s',
+                    color: isUser ? 'primary.contrastText' : 'text.secondary',
                   }}
                   aria-label={expanded ? 'Collapse' : 'Expand'}
                 >
@@ -136,17 +186,9 @@ export function MessageNode({
           )}
 
           {hasToolCalls && message.toolCalls?.map((tc) => (
-            <ToolCallEntry key={tc.id} toolCall={tc} />
+            <ToolCallEntry key={tc.id} toolCall={tc} isUserSide={isUser} />
           ))}
         </Box>
-
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ flexShrink: 0, mt: 0.5 }}
-        >
-          {formatTimestamp(message.timestamp)}
-        </Typography>
       </Box>
     </Box>
   );
@@ -154,7 +196,8 @@ export function MessageNode({
 
 function ToolCallEntry({
   toolCall,
-}: Readonly<{ toolCall: TrailToolCall }>) {
+  isUserSide,
+}: Readonly<{ toolCall: TrailToolCall; isUserSide: boolean }>) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -172,12 +215,13 @@ function ToolCallEntry({
           sx={{
             transform: expanded ? 'rotate(180deg)' : 'none',
             transition: 'transform 0.2s',
+            color: isUserSide ? 'primary.contrastText' : 'text.secondary',
           }}
           aria-label={expanded ? 'Collapse tool detail' : 'Expand tool detail'}
         >
           <ExpandMoreIcon fontSize="small" />
         </IconButton>
-        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
           {getToolCallSummary(toolCall)}
         </Typography>
       </Box>
