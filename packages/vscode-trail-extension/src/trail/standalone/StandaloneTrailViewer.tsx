@@ -22,6 +22,7 @@ export function StandaloneTrailViewer({ isDark = true }: Readonly<{ isDark?: boo
     <TrailViewerCore
       isDark={isDark}
       sessions={dataSource.sessions}
+      allSessions={dataSource.allSessions}
       selectedSessionId={selectedSessionId}
       messages={dataSource.messages}
       filter={filter}

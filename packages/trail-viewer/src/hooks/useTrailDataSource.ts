@@ -8,6 +8,7 @@ import type { TrailFilter, TrailMessage, TrailSession } from '../parser/types';
 
 export interface TrailDataSourceResult {
   readonly sessions: readonly TrailSession[];
+  readonly allSessions: readonly TrailSession[];
   readonly messages: readonly TrailMessage[];
   readonly connected: boolean;
   readonly loading: boolean;
@@ -56,6 +57,7 @@ export function useTrailDataSource(serverUrl?: string): TrailDataSourceResult {
 
   // State
   const [sessions, setSessions] = useState<readonly TrailSession[]>([]);
+  const [allSessions, setAllSessions] = useState<readonly TrailSession[]>([]);
   const [messages, setMessages] = useState<readonly TrailMessage[]>([]);
   const [connected, setConnected] = useState(!isRemote);
   const [loading, setLoading] = useState(false);
@@ -72,7 +74,7 @@ export function useTrailDataSource(serverUrl?: string): TrailDataSourceResult {
   // --- Fetch sessions ---
 
   const fetchSessions = useCallback(
-    async (queryString = ''): Promise<void> => {
+    async (queryString = '', isInitial = false): Promise<void> => {
       setLoading(true);
       setError(null);
       try {
@@ -82,10 +84,15 @@ export function useTrailDataSource(serverUrl?: string): TrailDataSourceResult {
           return;
         }
         const data: unknown = await res.json();
+        let parsed: readonly TrailSession[] = [];
         if (Array.isArray(data)) {
-          setSessions(data as readonly TrailSession[]);
+          parsed = data as readonly TrailSession[];
         } else if (data && typeof data === 'object' && 'sessions' in data) {
-          setSessions((data as { sessions: readonly TrailSession[] }).sessions);
+          parsed = (data as { sessions: readonly TrailSession[] }).sessions;
+        }
+        setSessions(parsed);
+        if (isInitial) {
+          setAllSessions(parsed);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch sessions');
@@ -138,7 +145,7 @@ export function useTrailDataSource(serverUrl?: string): TrailDataSourceResult {
   // --- Initial fetch ---
 
   useEffect(() => {
-    void fetchSessions();
+    void fetchSessions('', true);
   }, [fetchSessions]);
 
   // --- WebSocket (remote mode only) ---
@@ -201,6 +208,7 @@ export function useTrailDataSource(serverUrl?: string): TrailDataSourceResult {
 
   return {
     sessions,
+    allSessions,
     messages,
     connected,
     loading,

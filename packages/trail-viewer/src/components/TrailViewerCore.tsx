@@ -20,6 +20,7 @@ import { TraceTree } from './TraceTree';
 export interface TrailViewerCoreProps {
   readonly isDark?: boolean;
   readonly sessions: readonly TrailSession[];
+  readonly allSessions?: readonly TrailSession[];
   readonly selectedSessionId?: string;
   readonly messages: readonly TrailMessage[];
   readonly filter: TrailFilter;
@@ -34,6 +35,7 @@ const SESSION_LIST_WIDTH = 300;
 export function TrailViewerCore({
   isDark,
   sessions,
+  allSessions,
   selectedSessionId,
   messages,
   filter,
@@ -72,7 +74,7 @@ export function TrailViewerCore({
           {/* FilterBar */}
           <FilterBar
             filter={filter}
-            sessions={sessions}
+            sessions={allSessions ?? sessions}
             onChange={onFilterChange}
           />
 
