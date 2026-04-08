@@ -175,6 +175,11 @@ export class TrailDataServer {
       return;
     }
 
+    if (pathname === '/api/trail/prompts' && method === 'GET') {
+      this.handleGetPrompts(res);
+      return;
+    }
+
     const sessionMatch = /^\/api\/trail\/sessions\/([^/]+)$/.exec(pathname);
     if (sessionMatch && method === 'GET') {
       this.handleGetSession(res, decodeURIComponent(sessionMatch[1]));
@@ -345,6 +350,25 @@ export class TrailDataServer {
   //  API: POST /api/trail/refresh
   // -------------------------------------------------------------------------
 
+  // -------------------------------------------------------------------------
+  //  API: GET /api/trail/prompts
+  // -------------------------------------------------------------------------
+
+  private handleGetPrompts(res: http.ServerResponse): void {
+    try {
+      const prompts = scanPromptFiles();
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({ prompts }));
+    } catch {
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'Failed to read prompts' }));
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  //  API: POST /api/trail/refresh
+  // -------------------------------------------------------------------------
+
   private handleRefresh(res: http.ServerResponse): void {
     this.trailDb
       .importAll()
@@ -358,6 +382,96 @@ export class TrailDataServer {
         res.end(JSON.stringify({ error: 'Refresh failed' }));
       });
   }
+}
+
+// ---------------------------------------------------------------------------
+//  Prompt file scanner
+// ---------------------------------------------------------------------------
+
+interface PromptEntry {
+  id: string;
+  name: string;
+  content: string;
+  version: number;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+function scanPromptFiles(): PromptEntry[] {
+  const claudeDir = path.join(os.homedir(), '.claude');
+  const prompts: PromptEntry[] = [];
+  let version = 1;
+
+  // Helper to add a prompt entry
+  function addFile(filePath: string, tags: string[]): void {
+    try {
+      const stat = fs.statSync(filePath);
+      if (!stat.isFile()) return;
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const name = path.basename(filePath, '.md');
+      const relPath = path.relative(claudeDir, filePath);
+      const id = relPath.replaceAll(/[/\\. ]+/g, '-').toLowerCase();
+      prompts.push({
+        id,
+        name,
+        content,
+        version: version++,
+        tags,
+        createdAt: stat.birthtime.toISOString(),
+        updatedAt: stat.mtime.toISOString(),
+      });
+    } catch {
+      // skip
+    }
+  }
+
+  // 1. Global CLAUDE.md
+  addFile(path.join(claudeDir, 'CLAUDE.md'), ['main']);
+
+  // 2. Rules
+  const rulesDir = path.join(claudeDir, 'rules');
+  try {
+    for (const f of fs.readdirSync(rulesDir)) {
+      if (f.endsWith('.md')) {
+        addFile(path.join(rulesDir, f), ['rule']);
+      }
+    }
+  } catch {
+    // rules dir may not exist
+  }
+
+  // 3. Project CLAUDE.md files
+  const projectsDir = path.join(claudeDir, 'projects');
+  try {
+    for (const proj of fs.readdirSync(projectsDir)) {
+      const projClaudeMd = path.join(projectsDir, proj, 'CLAUDE.md');
+      if (fs.existsSync(projClaudeMd)) {
+        addFile(projClaudeMd, ['project', proj]);
+      }
+    }
+  } catch {
+    // projects dir may not exist
+  }
+
+  // 4. Memory
+  const memoryDir = path.join(claudeDir, 'projects');
+  try {
+    for (const proj of fs.readdirSync(memoryDir)) {
+      const memDir = path.join(memoryDir, proj, 'memory');
+      if (fs.existsSync(memDir) && fs.statSync(memDir).isDirectory()) {
+        for (const f of fs.readdirSync(memDir)) {
+          if (f.endsWith('.md')) {
+            addFile(path.join(memDir, f), ['memory', proj]);
+          }
+        }
+      }
+    }
+  } catch {
+    // skip
+  }
+
+  return prompts;
 }
 
 // ---------------------------------------------------------------------------

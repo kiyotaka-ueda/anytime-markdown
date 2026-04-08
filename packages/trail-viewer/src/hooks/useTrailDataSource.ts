@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import type { TrailFilter, TrailMessage, TrailSession } from '../parser/types';
+import type { TrailFilter, TrailMessage, TrailPromptEntry, TrailSession } from '../parser/types';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -10,6 +10,7 @@ export interface TrailDataSourceResult {
   readonly sessions: readonly TrailSession[];
   readonly allSessions: readonly TrailSession[];
   readonly messages: readonly TrailMessage[];
+  readonly prompts: readonly TrailPromptEntry[];
   readonly connected: boolean;
   readonly loading: boolean;
   readonly error: string | null;
@@ -59,6 +60,7 @@ export function useTrailDataSource(serverUrl?: string): TrailDataSourceResult {
   const [sessions, setSessions] = useState<readonly TrailSession[]>([]);
   const [allSessions, setAllSessions] = useState<readonly TrailSession[]>([]);
   const [messages, setMessages] = useState<readonly TrailMessage[]>([]);
+  const [prompts, setPrompts] = useState<readonly TrailPromptEntry[]>([]);
   const [connected, setConnected] = useState(!isRemote);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -146,7 +148,21 @@ export function useTrailDataSource(serverUrl?: string): TrailDataSourceResult {
 
   useEffect(() => {
     void fetchSessions('', true);
-  }, [fetchSessions]);
+    // Fetch prompts
+    void (async () => {
+      try {
+        const res = await fetch(`${baseUrl}/api/trail/prompts`);
+        if (res.ok) {
+          const data: unknown = await res.json();
+          if (data && typeof data === 'object' && 'prompts' in data) {
+            setPrompts((data as { prompts: readonly TrailPromptEntry[] }).prompts);
+          }
+        }
+      } catch {
+        // prompts endpoint may not exist
+      }
+    })();
+  }, [fetchSessions, baseUrl]);
 
   // --- WebSocket (remote mode only) ---
 
@@ -210,6 +226,7 @@ export function useTrailDataSource(serverUrl?: string): TrailDataSourceResult {
     sessions,
     allSessions,
     messages,
+    prompts,
     connected,
     loading,
     error,

@@ -28,6 +28,7 @@ export function StandaloneTrailViewer({ isDark = true }: Readonly<{ isDark?: boo
       filter={filter}
       onSelectSession={handleSelectSession}
       onFilterChange={handleFilterChange}
+      prompts={dataSource.prompts}
     />
   );
 }
