@@ -84,6 +84,8 @@ export function useTrailDataSource(serverUrl?: string): TrailDataSourceResult {
         const data: unknown = await res.json();
         if (Array.isArray(data)) {
           setSessions(data as readonly TrailSession[]);
+        } else if (data && typeof data === 'object' && 'sessions' in data) {
+          setSessions((data as { sessions: readonly TrailSession[] }).sessions);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch sessions');
@@ -108,7 +110,9 @@ export function useTrailDataSource(serverUrl?: string): TrailDataSourceResult {
             return;
           }
           const data: unknown = await res.json();
-          if (Array.isArray(data)) {
+          if (data && typeof data === 'object' && 'messages' in data) {
+            setMessages((data as { messages: readonly TrailMessage[] }).messages);
+          } else if (Array.isArray(data)) {
             setMessages(data as readonly TrailMessage[]);
           }
         })
