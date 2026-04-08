@@ -20,6 +20,7 @@ const extensionConfig = {
   },
   externals: {
     vscode: 'commonjs vscode',
+    'sql.js': 'commonjs sql.js',
     // ws のオプショナルなネイティブ依存を除外（バンドルなしで動作する）
     bufferutil: 'commonjs bufferutil',
     'utf-8-validate': 'commonjs utf-8-validate',
