@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { TrailFilter, TrailMessage, TrailPromptEntry, TrailSession } from '../parser/types';
+import type { AnalyticsData } from '../components/AnalyticsPanel';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -11,6 +12,7 @@ export interface TrailDataSourceResult {
   readonly allSessions: readonly TrailSession[];
   readonly messages: readonly TrailMessage[];
   readonly prompts: readonly TrailPromptEntry[];
+  readonly analytics: AnalyticsData | null;
   readonly connected: boolean;
   readonly loading: boolean;
   readonly error: string | null;
@@ -61,6 +63,7 @@ export function useTrailDataSource(serverUrl?: string): TrailDataSourceResult {
   const [allSessions, setAllSessions] = useState<readonly TrailSession[]>([]);
   const [messages, setMessages] = useState<readonly TrailMessage[]>([]);
   const [prompts, setPrompts] = useState<readonly TrailPromptEntry[]>([]);
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [connected, setConnected] = useState(!isRemote);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -162,6 +165,20 @@ export function useTrailDataSource(serverUrl?: string): TrailDataSourceResult {
         // prompts endpoint may not exist
       }
     })();
+    // Fetch analytics
+    void (async () => {
+      try {
+        const res = await fetch(`${baseUrl}/api/trail/analytics`);
+        if (res.ok) {
+          const data: unknown = await res.json();
+          if (data && typeof data === 'object' && 'totals' in data) {
+            setAnalytics(data as AnalyticsData);
+          }
+        }
+      } catch {
+        // analytics endpoint may not exist
+      }
+    })();
   }, [fetchSessions, baseUrl]);
 
   // --- WebSocket (remote mode only) ---
@@ -227,6 +244,7 @@ export function useTrailDataSource(serverUrl?: string): TrailDataSourceResult {
     allSessions,
     messages,
     prompts,
+    analytics,
     connected,
     loading,
     error,

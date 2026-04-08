@@ -11,6 +11,8 @@ import type {
   TrailSession,
 } from '../parser/types';
 import { buildMessageTree } from '../parser/buildMessageTree';
+import { AnalyticsPanel } from './AnalyticsPanel';
+import type { AnalyticsData } from './AnalyticsPanel';
 import { FilterBar } from './FilterBar';
 import { PromptManager } from './PromptManager';
 import { SessionList } from './SessionList';
@@ -28,6 +30,7 @@ export interface TrailViewerCoreProps {
   readonly onFilterChange: (filter: TrailFilter) => void;
   readonly containerHeight?: string;
   readonly prompts?: readonly TrailPromptEntry[];
+  readonly analytics?: AnalyticsData | null;
 }
 
 const SESSION_LIST_WIDTH = 300;
@@ -43,6 +46,7 @@ export function TrailViewerCore({
   onFilterChange,
   containerHeight = 'calc(100vh - 64px)',
   prompts = [],
+  analytics = null,
 }: Readonly<TrailViewerCoreProps>) {
   const [activeTab, setActiveTab] = useState(0);
   const selectedSession = sessions.find((s) => s.id === selectedSessionId);
@@ -65,6 +69,7 @@ export function TrailViewerCore({
         >
           <Tab label="Traces" />
           <Tab label="Prompts" />
+          <Tab label="Analytics" />
         </Tabs>
       </Box>
 
@@ -121,6 +126,9 @@ export function TrailViewerCore({
 
       {/* Tab 1: Prompts */}
       {activeTab === 1 && <PromptManager prompts={prompts} isDark={isDark} />}
+
+      {/* Tab 2: Analytics */}
+      {activeTab === 2 && <AnalyticsPanel analytics={analytics} isDark={isDark} />}
     </Box>
   );
 }

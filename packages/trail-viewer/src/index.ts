@@ -28,6 +28,9 @@ export type { TrailViewerCoreProps } from './components/TrailViewerCore';
 export { PromptManager } from './components/PromptManager';
 export type { PromptManagerProps } from './components/PromptManager';
 
+export { AnalyticsPanel } from './components/AnalyticsPanel';
+export type { AnalyticsData, AnalyticsPanelProps } from './components/AnalyticsPanel';
+
 export { createEvaluation, isValidEvaluation } from './parser/evaluationStore';
 export { EvaluationPanel } from './components/EvaluationPanel';
 

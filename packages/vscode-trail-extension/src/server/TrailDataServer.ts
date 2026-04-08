@@ -5,7 +5,7 @@ import path from 'node:path';
 
 import { WebSocketServer, type WebSocket } from 'ws';
 
-import type { TrailDatabase, SessionRow, MessageRow } from '../trail/TrailDatabase';
+import type { TrailDatabase, SessionRow, MessageRow, AnalyticsData } from '../trail/TrailDatabase';
 
 // ---------------------------------------------------------------------------
 //  Constants
@@ -178,6 +178,11 @@ export class TrailDataServer {
 
     if (pathname === '/api/trail/prompts' && method === 'GET') {
       this.handleGetPrompts(res);
+      return;
+    }
+
+    if (pathname === '/api/trail/analytics' && method === 'GET') {
+      this.handleGetAnalytics(res);
       return;
     }
 
@@ -363,6 +368,21 @@ export class TrailDataServer {
     } catch {
       res.writeHead(500, JSON_HEADERS);
       res.end(JSON.stringify({ error: 'Failed to read prompts' }));
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  //  API: GET /api/trail/analytics
+  // -------------------------------------------------------------------------
+
+  private handleGetAnalytics(res: http.ServerResponse): void {
+    try {
+      const analytics: AnalyticsData = this.trailDb.getAnalytics();
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify(analytics));
+    } catch {
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'Failed to get analytics' }));
     }
   }
 

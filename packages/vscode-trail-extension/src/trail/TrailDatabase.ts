@@ -89,6 +89,38 @@ interface DbStats {
   readonly sessionsByModel: readonly { model: string; count: number }[];
 }
 
+export interface AnalyticsData {
+  readonly totals: {
+    readonly sessions: number;
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+    readonly cacheReadTokens: number;
+    readonly cacheCreationTokens: number;
+    readonly estimatedCostUsd: number;
+  };
+  readonly toolUsage: readonly { name: string; count: number }[];
+  readonly modelBreakdown: readonly {
+    readonly model: string;
+    readonly sessions: number;
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+    readonly cacheReadTokens: number;
+    readonly estimatedCostUsd: number;
+  }[];
+  readonly dailyActivity: readonly {
+    readonly date: string;
+    readonly sessions: number;
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+  }[];
+  readonly branchBreakdown: readonly {
+    readonly branch: string;
+    readonly sessions: number;
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+  }[];
+}
+
 interface RawLine {
   uuid?: string;
   parentUuid?: string | null;
@@ -654,6 +686,169 @@ export class TrailDatabase {
       sessionsByModel,
     };
   }
+
+  getAnalytics(): AnalyticsData {
+    const db = this.ensureDb();
+
+    // Token totals
+    const totals = db.exec(
+      `SELECT COALESCE(SUM(input_tokens),0),
+        COALESCE(SUM(output_tokens),0),
+        COALESCE(SUM(cache_read_tokens),0),
+        COALESCE(SUM(cache_creation_tokens),0),
+        COUNT(*)
+      FROM sessions`,
+    );
+    const tr = totals[0]?.values[0] ?? [0, 0, 0, 0, 0];
+    const totalInput = Number(tr[0]);
+    const totalOutput = Number(tr[1]);
+    const totalCacheRead = Number(tr[2]);
+    const totalCacheCreation = Number(tr[3]);
+    const totalSessions = Number(tr[4]);
+
+    // Tool usage TOP 15
+    const toolsSql = `SELECT jt.value AS name, COUNT(*) AS cnt
+      FROM messages, json_each(
+        (SELECT group_concat(json_extract(je.value, '$.name'))
+         FROM json_each(tool_calls) AS je)
+      ) AS jt
+      WHERE tool_calls IS NOT NULL
+      GROUP BY jt.value
+      ORDER BY cnt DESC
+      LIMIT 15`;
+
+    let toolUsage: { name: string; count: number }[] = [];
+    try {
+      const toolResult = db.exec(toolsSql);
+      if (toolResult[0]) {
+        toolUsage = toolResult[0].values.map((r) => ({
+          name: String(r[0]),
+          count: Number(r[1]),
+        }));
+      }
+    } catch {
+      // json functions may not be available
+    }
+
+    // Model breakdown with tokens
+    const modelResult = db.exec(
+      `SELECT model, COUNT(*),
+        COALESCE(SUM(input_tokens),0),
+        COALESCE(SUM(output_tokens),0),
+        COALESCE(SUM(cache_read_tokens),0)
+      FROM sessions WHERE model != ''
+      GROUP BY model ORDER BY COUNT(*) DESC`,
+    );
+    const modelBreakdown = (modelResult[0]?.values ?? []).map((r) => {
+      const model = String(r[0]);
+      const inp = Number(r[2]);
+      const out = Number(r[3]);
+      const cacheRead = Number(r[4]);
+      return {
+        model,
+        sessions: Number(r[1]),
+        inputTokens: inp,
+        outputTokens: out,
+        cacheReadTokens: cacheRead,
+        estimatedCostUsd: estimateCost(model, inp, out, cacheRead),
+      };
+    });
+
+    // Daily activity (last 30 days)
+    const dailyResult = db.exec(
+      `SELECT DATE(start_time) as d, COUNT(*),
+        COALESCE(SUM(input_tokens),0),
+        COALESCE(SUM(output_tokens),0)
+      FROM sessions
+      WHERE start_time >= DATE('now', '-30 days')
+      GROUP BY d ORDER BY d`,
+    );
+    const dailyActivity = (dailyResult[0]?.values ?? []).map((r) => ({
+      date: String(r[0]),
+      sessions: Number(r[1]),
+      inputTokens: Number(r[2]),
+      outputTokens: Number(r[3]),
+    }));
+
+    // Branch breakdown
+    const branchResult = db.exec(
+      `SELECT git_branch, COUNT(*),
+        COALESCE(SUM(input_tokens),0),
+        COALESCE(SUM(output_tokens),0)
+      FROM sessions WHERE git_branch != ''
+      GROUP BY git_branch ORDER BY COUNT(*) DESC LIMIT 10`,
+    );
+    const branchBreakdown = (branchResult[0]?.values ?? []).map((r) => ({
+      branch: String(r[0]),
+      sessions: Number(r[1]),
+      inputTokens: Number(r[2]),
+      outputTokens: Number(r[3]),
+    }));
+
+    // Estimate total cost
+    const totalEstimatedCost = modelBreakdown.reduce(
+      (sum, m) => sum + m.estimatedCostUsd, 0,
+    );
+
+    return {
+      totals: {
+        sessions: totalSessions,
+        inputTokens: totalInput,
+        outputTokens: totalOutput,
+        cacheReadTokens: totalCacheRead,
+        cacheCreationTokens: totalCacheCreation,
+        estimatedCostUsd: totalEstimatedCost,
+      },
+      toolUsage,
+      modelBreakdown,
+      dailyActivity,
+      branchBreakdown,
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  Cost estimation
+// ---------------------------------------------------------------------------
+
+interface ModelRates {
+  readonly input: number;
+  readonly output: number;
+  readonly cacheRead: number;
+}
+
+/** Per-1M-token rates in USD. */
+const MODEL_RATES: Record<string, ModelRates> = {
+  'claude-opus-4-6': { input: 15, output: 75, cacheRead: 1.5 },
+  'claude-sonnet-4-6': { input: 3, output: 15, cacheRead: 0.3 },
+  'claude-haiku-4-5': { input: 0.8, output: 4, cacheRead: 0.08 },
+};
+
+const DEFAULT_RATES: ModelRates = { input: 3, output: 15, cacheRead: 0.3 };
+
+function getModelRates(model: string): ModelRates {
+  for (const [key, rates] of Object.entries(MODEL_RATES)) {
+    if (model.includes(key)) return rates;
+  }
+  // Fallback heuristics
+  if (model.includes('opus')) return MODEL_RATES['claude-opus-4-6'];
+  if (model.includes('haiku')) return MODEL_RATES['claude-haiku-4-5'];
+  return DEFAULT_RATES;
+}
+
+function estimateCost(
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+  cacheReadTokens: number,
+): number {
+  const rates = getModelRates(model);
+  return (
+    (inputTokens * rates.input +
+      outputTokens * rates.output +
+      cacheReadTokens * rates.cacheRead) /
+    1_000_000
+  );
 }
 
 // ---------------------------------------------------------------------------
