@@ -57,24 +57,12 @@ export class DashboardProvider implements vscode.TreeDataProvider<DashboardTreeI
       description: this.sessionCount > 0 ? `${this.sessionCount} sessions` : '',
     }));
 
-    // Import button
-    items.push(new DashboardTreeItem({
-      label: this.importing ? '$(loading~spin) Importing...' : '$(database) Import JSONL Logs',
-      command: this.importing ? undefined : {
-        command: 'anytime-trail.importTrailData',
-        title: 'Import JSONL Logs',
-      },
-      contextValue: 'importButton',
-    }));
-
-    // Open Viewer button
-    items.push(new DashboardTreeItem({
-      label: '$(browser) Open Trail Viewer',
-      command: {
-        command: 'anytime-trail.openTrailViewer',
-        title: 'Open Trail Viewer',
-      },
-    }));
+    // Import status (shown during import)
+    if (this.importing) {
+      items.push(new DashboardTreeItem({
+        label: '$(loading~spin) Importing...',
+      }));
+    }
 
     return items;
   }
