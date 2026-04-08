@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
@@ -5,7 +6,11 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
+import { BarChart } from '@mui/x-charts/BarChart';
+import type { TrailSession } from '../parser/types';
 
 // ---------------------------------------------------------------------------
 //  Types
@@ -34,6 +39,8 @@ export interface AnalyticsData {
     readonly sessions: number;
     readonly inputTokens: number;
     readonly outputTokens: number;
+    readonly cacheReadTokens: number;
+    readonly cacheCreationTokens: number;
   }[];
   readonly branchBreakdown: readonly {
     readonly branch: string;
@@ -46,6 +53,8 @@ export interface AnalyticsData {
 export interface AnalyticsPanelProps {
   readonly analytics: AnalyticsData | null;
   readonly isDark?: boolean;
+  readonly sessions?: readonly TrailSession[];
+  readonly onSelectSession?: (id: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -68,7 +77,21 @@ function fmtTokens(n: number): string {
 }
 
 const BAR_COLOR_PRIMARY = '#1976d2';
-const BAR_COLOR_SECONDARY = '#66bb6a';
+const BAR_COLOR_INPUT = '#42a5f5';
+const BAR_COLOR_OUTPUT = '#ef5350';
+const BAR_COLOR_CACHE_READ = '#66bb6a';
+const BAR_COLOR_CACHE_WRITE = '#ffa726';
+
+/** Estimated cost rates per 1M tokens (USD). Uses Sonnet as default. */
+const COST_PER_M: Readonly<Record<string, number>> = {
+  inputTokens: 3,
+  outputTokens: 15,
+  cacheReadTokens: 0.3,
+  cacheCreationTokens: 3.75,
+};
+
+type DailyViewMode = 'tokens' | 'cost';
+type PeriodDays = 7 | 30 | 90;
 
 // ---------------------------------------------------------------------------
 //  Sub-components
@@ -137,43 +160,172 @@ function ToolUsageChart({ items }: Readonly<{ items: AnalyticsData['toolUsage'] 
   );
 }
 
-function DailyActivityChart({ items }: Readonly<{ items: AnalyticsData['dailyActivity'] }>) {
+function toUsd(tokens: number, key: string): number {
+  return (tokens * (COST_PER_M[key] ?? 3)) / 1_000_000;
+}
+
+function DailySessionList({
+  date,
+  sessions,
+  onSelectSession,
+  onClose,
+}: Readonly<{
+  date: string;
+  sessions: readonly TrailSession[];
+  onSelectSession?: (id: string) => void;
+  onClose: () => void;
+}>) {
+  const daySessions = sessions.filter((s) => s.startTime.startsWith(date));
+
+  return (
+    <Paper variant="outlined" sx={{ mt: 1, p: 1.5 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+        <Typography variant="subtitle2">
+          {date} — {daySessions.length} session{daySessions.length !== 1 ? 's' : ''}
+        </Typography>
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+          onClick={onClose}
+        >
+          Close
+        </Typography>
+      </Box>
+      {daySessions.length === 0 ? (
+        <Typography variant="body2" color="text.secondary">No sessions found.</Typography>
+      ) : (
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Time</TableCell>
+              <TableCell>Model</TableCell>
+              <TableCell align="right">Input</TableCell>
+              <TableCell align="right">Output</TableCell>
+              <TableCell align="right">Cache Read</TableCell>
+              <TableCell align="right">Messages</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {daySessions.map((s) => (
+              <TableRow
+                key={s.id}
+                hover
+                sx={{ cursor: onSelectSession ? 'pointer' : 'default' }}
+                onClick={() => onSelectSession?.(s.id)}
+              >
+                <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                  {s.startTime.slice(11, 16)}–{s.endTime.slice(11, 16)}
+                </TableCell>
+                <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                  {s.model}
+                </TableCell>
+                <TableCell align="right">{fmtTokens(s.usage.inputTokens)}</TableCell>
+                <TableCell align="right">{fmtTokens(s.usage.outputTokens)}</TableCell>
+                <TableCell align="right">{fmtTokens(s.usage.cacheReadTokens)}</TableCell>
+                <TableCell align="right">{fmtNum(s.messageCount)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </Paper>
+  );
+}
+
+function DailyActivityChart({
+  items,
+  sessions,
+  onSelectSession,
+}: Readonly<{
+  items: AnalyticsData['dailyActivity'];
+  sessions: readonly TrailSession[];
+  onSelectSession?: (id: string) => void;
+}>) {
+  const [mode, setMode] = useState<DailyViewMode>('tokens');
+  const [period, setPeriod] = useState<PeriodDays>(30);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
   if (items.length === 0) return null;
-  const maxTokens = Math.max(...items.map((d) => d.inputTokens + d.outputTokens), 1);
+
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - period);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  const filtered = items.filter((d) => d.date >= cutoffStr);
+
+  const isTokens = mode === 'tokens';
+
+  const dataset = filtered.map((d) => ({
+    date: d.date.slice(5),
+    fullDate: d.date,
+    inputTokens: isTokens ? d.inputTokens : toUsd(d.inputTokens, 'inputTokens'),
+    outputTokens: isTokens ? d.outputTokens : toUsd(d.outputTokens, 'outputTokens'),
+    cacheReadTokens: isTokens ? d.cacheReadTokens : toUsd(d.cacheReadTokens, 'cacheReadTokens'),
+    cacheCreationTokens: isTokens ? d.cacheCreationTokens : toUsd(d.cacheCreationTokens, 'cacheCreationTokens'),
+  }));
+
+  const yFormatter = isTokens ? fmtTokens : fmtUsd;
+
+  const handleBarClick = (_event: unknown, params: { dataIndex?: number } | null) => {
+    const idx = params?.dataIndex;
+    if (idx == null || idx < 0 || idx >= dataset.length) return;
+    const fullDate = dataset[idx].fullDate;
+    setSelectedDate((prev) => (prev === fullDate ? null : fullDate));
+  };
 
   return (
     <Box>
-      <Typography variant="subtitle1" sx={{ mb: 1 }}>
-        Daily Activity (Last 30 Days)
-      </Typography>
-      <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: 120 }}>
-        {items.map((day) => {
-          const total = day.inputTokens + day.outputTokens;
-          const pct = (total / maxTokens) * 100;
-          return (
-            <Box
-              key={day.date}
-              title={`${day.date}\n${fmtNum(day.sessions)} sessions\n${fmtTokens(total)} tokens`}
-              sx={{
-                flex: 1,
-                minWidth: 4,
-                height: `${Math.max(pct, 2)}%`,
-                bgcolor: BAR_COLOR_SECONDARY,
-                borderRadius: '2px 2px 0 0',
-                cursor: 'default',
-              }}
-            />
-          );
-        })}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="subtitle1">
+            {isTokens ? 'Token Usage' : 'Estimated Cost'}
+          </Typography>
+          <ToggleButtonGroup
+            value={period}
+            exclusive
+            onChange={(_e, v: PeriodDays | null) => { if (v) { setPeriod(v); setSelectedDate(null); } }}
+            size="small"
+          >
+            <ToggleButton value={7}>7d</ToggleButton>
+            <ToggleButton value={30}>30d</ToggleButton>
+            <ToggleButton value={90}>90d</ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+        <ToggleButtonGroup
+          value={mode}
+          exclusive
+          onChange={(_e, v: DailyViewMode | null) => { if (v) setMode(v); }}
+          size="small"
+        >
+          <ToggleButton value="tokens">Tokens</ToggleButton>
+          <ToggleButton value="cost">Cost</ToggleButton>
+        </ToggleButtonGroup>
       </Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
-        <Typography variant="caption" color="text.secondary">
-          {items.at(0)?.date ?? ''}
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          {items.at(-1)?.date ?? ''}
-        </Typography>
-      </Box>
+      <BarChart
+        dataset={dataset}
+        xAxis={[{ scaleType: 'band', dataKey: 'date' }]}
+        yAxis={[{ valueFormatter: yFormatter }]}
+        series={[
+          { dataKey: 'inputTokens', label: 'Input', stack: 'a', color: BAR_COLOR_INPUT },
+          { dataKey: 'outputTokens', label: 'Output', stack: 'a', color: BAR_COLOR_OUTPUT },
+          { dataKey: 'cacheReadTokens', label: 'Cache Read', stack: 'a', color: BAR_COLOR_CACHE_READ },
+          { dataKey: 'cacheCreationTokens', label: 'Cache Write', stack: 'a', color: BAR_COLOR_CACHE_WRITE },
+        ]}
+        height={240}
+        margin={{ left: 60, right: 16, top: 16, bottom: 24 }}
+        slotProps={{
+          legend: { direction: 'horizontal', position: { vertical: 'top', horizontal: 'end' } },
+        }}
+        onItemClick={handleBarClick}
+      />
+      {selectedDate && (
+        <DailySessionList
+          date={selectedDate}
+          sessions={sessions}
+          onSelectSession={onSelectSession}
+          onClose={() => setSelectedDate(null)}
+        />
+      )}
     </Box>
   );
 }
@@ -252,7 +404,7 @@ function BranchTable({ items }: Readonly<{ items: AnalyticsData['branchBreakdown
 //  Main component
 // ---------------------------------------------------------------------------
 
-export function AnalyticsPanel({ analytics, isDark: _isDark }: Readonly<AnalyticsPanelProps>) {
+export function AnalyticsPanel({ analytics, isDark: _isDark, sessions = [], onSelectSession }: Readonly<AnalyticsPanelProps>) {
   if (!analytics) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
@@ -267,7 +419,7 @@ export function AnalyticsPanel({ analytics, isDark: _isDark }: Readonly<Analytic
     <Box sx={{ overflow: 'auto', flex: 1, p: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
       <OverviewCards totals={analytics.totals} />
       <ToolUsageChart items={analytics.toolUsage} />
-      <DailyActivityChart items={analytics.dailyActivity} />
+      <DailyActivityChart items={analytics.dailyActivity} sessions={sessions} onSelectSession={onSelectSession} />
       <ModelTable items={analytics.modelBreakdown} />
       <BranchTable items={analytics.branchBreakdown} />
     </Box>

@@ -754,13 +754,15 @@ export class TrailDatabase {
       };
     });
 
-    // Daily activity (last 30 days)
+    // Daily activity (last 90 days — frontend filters to 7/30/90)
     const dailyResult = db.exec(
       `SELECT DATE(start_time) as d, COUNT(*),
         COALESCE(SUM(input_tokens),0),
-        COALESCE(SUM(output_tokens),0)
+        COALESCE(SUM(output_tokens),0),
+        COALESCE(SUM(cache_read_tokens),0),
+        COALESCE(SUM(cache_creation_tokens),0)
       FROM sessions
-      WHERE start_time >= DATE('now', '-30 days')
+      WHERE start_time >= DATE('now', '-90 days')
       GROUP BY d ORDER BY d`,
     );
     const dailyActivity = (dailyResult[0]?.values ?? []).map((r) => ({
@@ -768,6 +770,8 @@ export class TrailDatabase {
       sessions: Number(r[1]),
       inputTokens: Number(r[2]),
       outputTokens: Number(r[3]),
+      cacheReadTokens: Number(r[4]),
+      cacheCreationTokens: Number(r[5]),
     }));
 
     // Branch breakdown

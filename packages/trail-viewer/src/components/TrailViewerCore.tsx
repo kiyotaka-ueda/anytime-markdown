@@ -128,7 +128,14 @@ export function TrailViewerCore({
       {activeTab === 1 && <PromptManager prompts={prompts} isDark={isDark} />}
 
       {/* Tab 2: Analytics */}
-      {activeTab === 2 && <AnalyticsPanel analytics={analytics} isDark={isDark} />}
+      {activeTab === 2 && (
+        <AnalyticsPanel
+          analytics={analytics}
+          isDark={isDark}
+          sessions={allSessions ?? sessions}
+          onSelectSession={onSelectSession}
+        />
+      )}
     </Box>
   );
 }
