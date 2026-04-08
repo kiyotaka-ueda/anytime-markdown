@@ -4,8 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
 
-import type { TrailSession } from '@anytime-markdown/trail-viewer';
-import { parseSession } from '@anytime-markdown/trail-viewer';
+import type { TrailSession } from '@anytime-markdown/trail-viewer/parser';
+import { parseSession } from '@anytime-markdown/trail-viewer/parser';
 import { WebSocketServer, type WebSocket } from 'ws';
 
 // ---------------------------------------------------------------------------
