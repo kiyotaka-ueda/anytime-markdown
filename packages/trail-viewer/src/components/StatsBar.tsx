@@ -45,7 +45,7 @@ export function StatsBar({ session, messages }: Readonly<StatsBarProps>) {
     );
   }
 
-  const { usage } = session;
+  const usage = session.usage ?? { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 };
 
   return (
     <Box
