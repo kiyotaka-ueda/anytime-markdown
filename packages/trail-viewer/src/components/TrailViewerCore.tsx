@@ -101,7 +101,7 @@ export function TrailViewerCore({
               }}
             >
               {selectedSessionId && messages.length > 0 ? (
-                <TraceTree nodes={buildMessageTree(messages)} />
+                <TraceTree nodes={buildMessageTree(messages)} session={selectedSession} />
               ) : (
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
                   <Typography variant="body2" color="text.secondary">
