@@ -16,6 +16,7 @@ import { registerChangesCommands, GitOriginalContentProvider } from './commands/
 import { registerC4Commands } from './commands/c4Commands';
 import { TrailLogger } from './utils/TrailLogger';
 import { C4TreeProvider } from './providers/C4TreeProvider';
+import { DashboardProvider } from './trail/DashboardProvider';
 
 let dataServer: C4DataServer | undefined;
 let trailDataServer: TrailDataServer | undefined;
@@ -295,16 +296,22 @@ export async function activate(context: vscode.ExtensionContext) {
 	TrailPanel.setDataServer(trailDataServer);
 	const trailPort = vscode.workspace.getConfiguration('anytimeTrail.trailServer').get<number>('port', 19841);
 
+	// Dashboard panel
+	const dashboardProvider = new DashboardProvider(trailDb);
+	const dashboardTreeView = vscode.window.createTreeView('anytimeTrail.dashboard', {
+		treeDataProvider: dashboardProvider,
+	});
+
 	// Initialize DB and start server in background — do not block activate
 	void (async () => {
 		try {
 			TrailLogger.info(`Trail DB: initializing with distPath=${extensionDistPath}`);
 			await trailDb!.init();
-			TrailLogger.info('Trail DB: initialized, starting import...');
-			const result = await trailDb!.importAll();
-			TrailLogger.info(`Trail DB: import complete - imported=${result.imported}, skipped=${result.skipped}`);
+			dashboardProvider.updateStatus('Ready');
+			TrailLogger.info('Trail DB: initialized');
 		} catch (err) {
 			TrailLogger.error('Failed to initialize trail database', err);
+			dashboardProvider.updateStatus('Error');
 		}
 		try {
 			await trailDataServer!.start(trailPort);
@@ -317,6 +324,31 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('anytime-trail.openTrailViewer', () => {
 			TrailPanel.openViewer(true);
+		}),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('anytime-trail.importTrailData', async () => {
+			if (!trailDb) return;
+			dashboardProvider.setImporting(true);
+			try {
+				const result = await trailDb.importAll();
+				TrailLogger.info(`Trail DB: import complete - imported=${result.imported}, skipped=${result.skipped}`);
+				const stats = trailDb.getStats();
+				dashboardProvider.updateStatus('Ready', stats.totalSessions);
+				dashboardProvider.setImporting(false);
+
+				// Notify WebSocket clients
+				trailDataServer?.notifySessionsUpdated();
+
+				vscode.window.showInformationMessage(
+					`Trail: imported ${result.imported} sessions (${result.skipped} skipped)`,
+				);
+			} catch (err) {
+				dashboardProvider.setImporting(false);
+				dashboardProvider.updateStatus('Import failed');
+				TrailLogger.error('Trail import failed', err);
+			}
 		}),
 	);
 
@@ -375,6 +407,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		...(timelineTreeView ? [timelineTreeView] : []),
 		...(graphTreeView ? [graphTreeView] : []), graphRefresh,
 		c4ElementsTreeView,
+		dashboardTreeView,
 		statusBarItem,
 	);
 

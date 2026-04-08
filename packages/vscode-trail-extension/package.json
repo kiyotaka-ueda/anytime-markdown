@@ -33,6 +33,7 @@
     "onCommand:anytime-trail.c4Export",
     "onCommand:anytime-trail.c4View",
     "onCommand:anytime-trail.dsmAnalyze",
+    "onView:anytimeTrail.dashboard",
     "onView:anytimeTrail.c4Elements"
   ],
   "icon": "images/camel_git.png",
@@ -49,6 +50,10 @@
     },
     "views": {
       "anytimeTrail": [
+        {
+          "id": "anytimeTrail.dashboard",
+          "name": "Dashboard"
+        },
         {
           "id": "anytimeTrail.c4Elements",
           "name": "%view.c4Elements%"
@@ -284,6 +289,12 @@
         "command": "anytime-trail.openTrailViewer",
         "title": "Open Trail Viewer",
         "category": "Anytime Trail"
+      },
+      {
+        "command": "anytime-trail.importTrailData",
+        "title": "Import JSONL Logs",
+        "category": "Anytime Trail",
+        "icon": "$(database)"
       }
     ],
     "submenus": [
@@ -349,6 +360,11 @@
           "submenu": "anytimeTrail.changesMore",
           "when": "view == anytimeTrail.changes",
           "group": "navigation@2"
+        },
+        {
+          "command": "anytime-trail.importTrailData",
+          "when": "view == anytimeTrail.dashboard",
+          "group": "navigation"
         },
         {
           "command": "anytime-trail.c4View",
