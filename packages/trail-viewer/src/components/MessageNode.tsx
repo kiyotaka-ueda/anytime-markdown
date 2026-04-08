@@ -72,7 +72,7 @@ export function MessageNode({
 
   if (isSystem) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 0.5, pl: depth * 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 0.5 }}>
         <Typography
           variant="caption"
           sx={{
@@ -99,7 +99,7 @@ export function MessageNode({
         gap: 1,
         py: 0.5,
         px: 1,
-        pl: depth * 2 + 1,
+        pl: 1,
         borderLeft: message.isSidechain ? '2px dashed' : 'none',
         borderColor: 'divider',
       }}
