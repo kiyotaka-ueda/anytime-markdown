@@ -32,6 +32,8 @@ interface SessionSummary {
   readonly slug: string;
   readonly project: string;
   readonly gitBranch: string;
+  readonly startTime: string;
+  readonly endTime: string;
   readonly version: string;
   readonly model: string;
   readonly messageCount: number;
@@ -431,6 +433,7 @@ async function extractMetadata(
   let gitBranch = '';
   let slug = '';
   let model = '';
+  let startTime = '';
 
   for (const line of lines) {
     try {
@@ -446,6 +449,9 @@ async function extractMetadata(
       }
       if (typeof raw.slug === 'string' && !slug) {
         slug = raw.slug;
+      }
+      if (typeof raw.timestamp === 'string' && !startTime) {
+        startTime = raw.timestamp;
       }
       if (!model && raw.message && typeof raw.message === 'object') {
         const msg = raw.message as Record<string, unknown>;
@@ -463,11 +469,16 @@ async function extractMetadata(
   // Count total lines for messageCount estimate
   const totalLines = await countLines(filePath);
 
+  // Approximate endTime from mtime
+  const endTime = startTime ? new Date(mtimeMs).toISOString() : '';
+
   return {
     id: sessionId,
     slug,
     project: projectName,
     gitBranch,
+    startTime,
+    endTime,
     version,
     model,
     messageCount: totalLines,

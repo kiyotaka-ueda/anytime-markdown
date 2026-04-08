@@ -14,7 +14,11 @@ function formatNumber(n: number): string {
 }
 
 function formatDuration(startTime: string, endTime: string): string {
-  const ms = new Date(endTime).getTime() - new Date(startTime).getTime();
+  if (!startTime || !endTime) return '-';
+  const start = new Date(startTime).getTime();
+  const end = new Date(endTime).getTime();
+  if (Number.isNaN(start) || Number.isNaN(end)) return '-';
+  const ms = end - start;
   if (ms <= 0) return '0s';
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);

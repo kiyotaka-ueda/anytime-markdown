@@ -20,7 +20,10 @@ function formatSessionLabel(session: TrailSession): string {
 }
 
 function formatSessionDate(startTime: string): string {
-  return format(new Date(startTime), 'yyyy/MM/dd HH:mm');
+  if (!startTime) return '';
+  const date = new Date(startTime);
+  if (Number.isNaN(date.getTime())) return '';
+  return format(date, 'yyyy/MM/dd HH:mm');
 }
 
 export function SessionList({ sessions, selectedId, onSelect }: Readonly<SessionListProps>) {
