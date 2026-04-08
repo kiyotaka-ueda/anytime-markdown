@@ -10,6 +10,7 @@ import { C4Panel } from './c4/C4Panel';
 import { C4DataServer } from './server/C4DataServer';
 import { TrailPanel } from './trail/TrailPanel';
 import { TrailDataServer } from './server/TrailDataServer';
+import { TrailDatabase } from './trail/TrailDatabase';
 import { registerSpecDocsCommands } from './commands/specDocsCommands';
 import { registerChangesCommands, GitOriginalContentProvider } from './commands/changesCommands';
 import { registerC4Commands } from './commands/c4Commands';
@@ -18,6 +19,7 @@ import { C4TreeProvider } from './providers/C4TreeProvider';
 
 let dataServer: C4DataServer | undefined;
 let trailDataServer: TrailDataServer | undefined;
+let trailDb: TrailDatabase | undefined;
 let extensionDistPath = '';
 
 // ---------------------------------------------------------------------------
@@ -103,7 +105,7 @@ function handleServerConfigChange(): void {
 	}
 }
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
 	extensionDistPath = path.join(context.extensionUri.fsPath, 'dist');
 
 	// Git 元コンテンツプロバイダー（diff 表示用）
@@ -287,8 +289,16 @@ export function activate(context: vscode.ExtensionContext) {
 		startDataServer(serverConfig.get<number>('port', 19840));
 	}
 
-	// Trail Data Server
-	trailDataServer = new TrailDataServer(extensionDistPath);
+	// Trail Database + Data Server
+	trailDb = new TrailDatabase(extensionDistPath);
+	try {
+		await trailDb.init();
+		await trailDb.importAll();
+	} catch (err) {
+		TrailLogger.error('Failed to initialize trail database', err);
+	}
+
+	trailDataServer = new TrailDataServer(extensionDistPath, trailDb);
 	TrailPanel.setDataServer(trailDataServer);
 	const trailPort = vscode.workspace.getConfiguration('anytimeTrail.trailServer').get<number>('port', 19841);
 	trailDataServer.start(trailPort).catch((err: Error) => {
@@ -304,6 +314,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push({
 		dispose: () => {
 			trailDataServer?.stop().catch(() => {});
+			trailDb?.close();
 		},
 	});
 
@@ -389,5 +400,6 @@ function installClaudeSkills(context: vscode.ExtensionContext): void {
 export function deactivate(): void {
 	dataServer?.stop().catch((err) => TrailLogger.error('Failed to stop data server', err));
 	trailDataServer?.stop().catch((err) => TrailLogger.error('Failed to stop trail data server', err));
+	trailDb?.close();
 	TrailLogger.dispose();
 }
