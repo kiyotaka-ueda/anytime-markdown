@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { NextResponse } from 'next/server';
 
-import { parseSession } from '@anytime-markdown/trail-viewer';
+import { parseSession } from '@anytime-markdown/trail-viewer/parser';
 
 // ---------------------------------------------------------------------------
 // Helpers
