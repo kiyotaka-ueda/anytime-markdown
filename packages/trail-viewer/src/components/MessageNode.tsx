@@ -129,20 +129,6 @@ export function MessageNode({
           minWidth: 60,
         }}
       >
-        {/* Timestamp */}
-        <Typography
-          variant="caption"
-          sx={{
-            display: 'block',
-            color: 'text.disabled',
-            textAlign: isUser ? 'right' : 'left',
-            fontSize: '0.65rem',
-            mb: 0.25,
-          }}
-        >
-          {formatTimestamp(message.timestamp)}
-        </Typography>
-
         {/* Message bubble */}
         <Box
           sx={{
