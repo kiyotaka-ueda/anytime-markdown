@@ -432,6 +432,8 @@ function DailySessionList({
               <TableCell align="right">Init Context</TableCell>
               <TableCell align="right">Peak Context</TableCell>
               <TableCell align="right">Messages</TableCell>
+              <TableCell align="right">Tokens/Step</TableCell>
+              <TableCell align="right">Cost/Step</TableCell>
               <TableCell align="right">Commits</TableCell>
               <TableCell align="right">+/-</TableCell>
             </TableRow>
@@ -457,6 +459,22 @@ function DailySessionList({
                 <TableCell align="right">{fmtTokens(s.initialContextTokens ?? 0)}</TableCell>
                 <TableCell align="right">{fmtTokens(s.peakContextTokens ?? 0)}</TableCell>
                 <TableCell align="right">{fmtNum(s.messageCount)}</TableCell>
+                <TableCell align="right">
+                  {s.messageCount > 0
+                    ? fmtTokens(Math.round((s.usage.inputTokens + s.usage.outputTokens) / s.messageCount))
+                    : '\u2014'}
+                </TableCell>
+                <TableCell align="right">
+                  {s.messageCount > 0
+                    ? fmtUsd(
+                        (toUsd(s.usage.inputTokens, 'inputTokens')
+                          + toUsd(s.usage.outputTokens, 'outputTokens')
+                          + toUsd(s.usage.cacheReadTokens, 'cacheReadTokens')
+                          + toUsd(s.usage.cacheCreationTokens, 'cacheCreationTokens'))
+                        / s.messageCount,
+                      )
+                    : '\u2014'}
+                </TableCell>
                 <TableCell align="right">
                   {s.commitStats ? fmtNum(s.commitStats.commits) : '\u2014'}
                 </TableCell>
