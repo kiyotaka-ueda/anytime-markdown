@@ -278,8 +278,9 @@ const INSERT_MESSAGE = `INSERT OR REPLACE INTO messages
    user_content, tool_calls, tool_use_result, model, request_id,
    stop_reason, input_tokens, output_tokens, cache_read_tokens,
    cache_creation_tokens, service_tier, speed, timestamp,
-   is_sidechain, is_meta, cwd, git_branch)
-  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+   is_sidechain, is_meta, cwd, git_branch,
+   rule_recommended_model, feature_recommended_model, cost_category)
+  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 
 
 // ---------------------------------------------------------------------------
@@ -305,6 +306,98 @@ function extractToolCalls(
     .filter((b) => b.type === 'tool_use')
     .map((b) => ({ id: b.id ?? '', name: b.name ?? '', input: b.input ?? {} }));
   return calls.length > 0 ? JSON.stringify(calls) : null;
+}
+
+// ---------------------------------------------------------------------------
+//  Cost classification helpers (inlined from trail-viewer/engine)
+// ---------------------------------------------------------------------------
+
+const SEARCH_TOOLS = new Set(['Grep', 'Glob', 'Read', 'WebSearch', 'WebFetch']);
+const EDIT_TOOLS = new Set(['Edit', 'Write', 'NotebookEdit']);
+
+interface CostRuleEntry {
+  pattern: string;
+  model: string;
+  label: string;
+}
+
+let costRulesCache: { rules: CostRuleEntry[]; default: string } | null = null;
+
+function loadCostRules(): { rules: CostRuleEntry[]; default: string } {
+  if (costRulesCache) return costRulesCache;
+  try {
+    const rulesPath = path.join(os.homedir(), '.claude', 'trail', 'costRules.json');
+    if (fs.existsSync(rulesPath)) {
+      costRulesCache = JSON.parse(fs.readFileSync(rulesPath, 'utf-8'));
+      return costRulesCache!;
+    }
+  } catch { /* ignore */ }
+  // Default rules
+  costRulesCache = {
+    rules: [
+      { pattern: '^(ok|yes|はい|続けて|1|2|3|a|b|c|d)$', model: 'haiku', label: '確認・承認' },
+      { pattern: 'コミットして|コミットのみ', model: 'haiku', label: 'Git操作' },
+      { pattern: 'バグ|エラー|原因|デバッグ|表示されない|動かない|壊れ|崩れ|不具合', model: 'opus', label: 'デバッグ' },
+      { pattern: 'レビュー|品質|sonar|lint|脆弱性|セキュリティ', model: 'opus', label: 'レビュー・品質' },
+      { pattern: '設計|アーキテクチャ|リファクタ', model: 'opus', label: '設計・リファクタ' },
+      { pattern: '色|幅|余白|アイコン|フォント|サイズ|配置|レイアウト|ホバー|ツールバー|パネル|ダーク|スクロール', model: 'sonnet', label: 'UI調整' },
+      { pattern: '追加して|作成して|実装して|削除して|変更して|更新して|非表示にして', model: 'sonnet', label: '機能変更' },
+      { pattern: 'おしえて|教えて|ですか|でしょうか|どう|なぜ|確認して|調べて', model: 'sonnet', label: '質問・調査' },
+      { pattern: 'ドキュメント|設計書|マニュアル|レポート|記事', model: 'sonnet', label: 'ドキュメント' },
+      { pattern: 'リリース|デプロイ|publish', model: 'sonnet', label: 'リリース' },
+    ],
+    default: 'sonnet',
+  };
+  return costRulesCache;
+}
+
+function classifyMessageByRules(userContent: string): { model: string; label?: string } {
+  const config = loadCostRules();
+  const text = userContent.trim();
+  for (const rule of config.rules) {
+    if (new RegExp(rule.pattern, 'i').test(text)) {
+      return { model: rule.model, label: rule.label };
+    }
+  }
+  return { model: config.default };
+}
+
+function extractToolCallNames(toolCallsJson: string | null): string[] {
+  if (!toolCallsJson) return [];
+  try {
+    const calls = JSON.parse(toolCallsJson) as Array<{ name?: string }>;
+    return calls.map(c => c.name ?? '').filter(Boolean);
+  } catch { return []; }
+}
+
+function countUniqueFiles(toolCallsJson: string | null): number {
+  if (!toolCallsJson) return 0;
+  try {
+    const calls = JSON.parse(toolCallsJson) as Array<{ input?: string }>;
+    const files = new Set<string>();
+    for (const call of calls) {
+      if (!call.input) continue;
+      try {
+        const input = JSON.parse(call.input);
+        if (input.file_path) files.add(input.file_path);
+        if (input.path) files.add(input.path);
+      } catch { /* input may not be JSON */ }
+    }
+    return files.size;
+  } catch { return 0; }
+}
+
+function classifyMessageByFeatures(
+  outputTokens: number,
+  toolCallNames: string[],
+  uniqueFileCount: number,
+): string {
+  if (outputTokens < 500 && toolCallNames.length === 0) return 'haiku';
+  if (toolCallNames.length > 0 && toolCallNames.every(n => SEARCH_TOOLS.has(n))) return 'sonnet';
+  if (toolCallNames.some(n => EDIT_TOOLS.has(n)) && uniqueFileCount >= 3) return 'opus';
+  const uniqueToolTypes = new Set(toolCallNames).size;
+  if (outputTokens > 3000 && uniqueToolTypes >= 3) return 'opus';
+  return 'sonnet';
 }
 
 // ---------------------------------------------------------------------------
@@ -361,6 +454,15 @@ export class TrailDatabase {
     } catch {
       // Column already exists — ignore
     }
+    try {
+      db.run('ALTER TABLE messages ADD COLUMN rule_recommended_model TEXT');
+    } catch { /* Column already exists */ }
+    try {
+      db.run('ALTER TABLE messages ADD COLUMN feature_recommended_model TEXT');
+    } catch { /* Column already exists */ }
+    try {
+      db.run('ALTER TABLE messages ADD COLUMN cost_category TEXT');
+    } catch { /* Column already exists */ }
   }
 
   save(): void {
@@ -629,6 +731,26 @@ export class TrailDatabase {
             : JSON.stringify(raw.toolUseResult))
           : null;
 
+        // --- Cost classification ---
+        let ruleRecommendedModel: string | null = null;
+        let featureRecommendedModel: string | null = null;
+        let costCategory: string | null = null;
+
+        // Rule-based: classify user messages
+        if (raw.type === 'user' && userContent) {
+          const ruleResult = classifyMessageByRules(userContent);
+          ruleRecommendedModel = ruleResult.model;
+          costCategory = ruleResult.label ?? null;
+        }
+
+        // Feature-based: classify assistant messages
+        if (raw.type === 'assistant') {
+          const outputTokens = raw.message?.usage?.output_tokens ?? 0;
+          const toolCallNames = extractToolCallNames(toolCalls);
+          const uniqueFileCount = countUniqueFiles(toolCalls);
+          featureRecommendedModel = classifyMessageByFeatures(outputTokens, toolCallNames, uniqueFileCount);
+        }
+
         msgStmt.run([
           raw.uuid ?? '',
           sessionId,
@@ -653,6 +775,9 @@ export class TrailDatabase {
           raw.isMeta ? 1 : 0,
           raw.cwd ?? null,
           raw.gitBranch ?? null,
+          ruleRecommendedModel,
+          featureRecommendedModel,
+          costCategory,
         ]);
       }
       msgStmt.free();
@@ -1329,6 +1454,53 @@ export class TrailDatabase {
       dailyActivity,
       branchBreakdown,
     };
+  }
+
+  public reclassifyAllMessages(): void {
+    const db = this.ensureDb();
+    costRulesCache = null; // Force reload of rules
+
+    const results = db.exec(
+      'SELECT uuid, type, user_content, tool_calls, output_tokens FROM messages',
+    );
+    if (results.length === 0) return;
+
+    db.run('BEGIN TRANSACTION');
+    try {
+      const stmt = db.prepare(
+        'UPDATE messages SET rule_recommended_model = ?, feature_recommended_model = ?, cost_category = ? WHERE uuid = ?',
+      );
+
+      const rows = results[0].values;
+      for (const row of rows) {
+        const [uuid, type, userContentVal, toolCallsVal, outputTokensVal] = row as [string, string, string | null, string | null, number];
+
+        let ruleModel: string | null = null;
+        let featureModel: string | null = null;
+        let category: string | null = null;
+
+        if (type === 'user' && userContentVal) {
+          const result = classifyMessageByRules(userContentVal);
+          ruleModel = result.model;
+          category = result.label ?? null;
+        }
+
+        if (type === 'assistant') {
+          const toolNames = extractToolCallNames(toolCallsVal);
+          const fileCount = countUniqueFiles(toolCallsVal);
+          featureModel = classifyMessageByFeatures(outputTokensVal ?? 0, toolNames, fileCount);
+        }
+
+        stmt.run([ruleModel, featureModel, category, uuid]);
+      }
+
+      stmt.free();
+      db.run('COMMIT');
+      this.save();
+    } catch (err) {
+      db.run('ROLLBACK');
+      throw err;
+    }
   }
 }
 
