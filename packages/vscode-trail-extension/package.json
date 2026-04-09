@@ -296,6 +296,12 @@
         "title": "Import JSONL Logs",
         "category": "Anytime Trail",
         "icon": "$(database)"
+      },
+      {
+        "command": "anytime-trail.syncToRemote",
+        "title": "Sync to Remote DB",
+        "category": "Anytime Trail",
+        "icon": "$(cloud-upload)"
       }
     ],
     "submenus": [
@@ -602,6 +608,27 @@
           "minimum": 1,
           "maximum": 500,
           "markdownDescription": "Maximum number of coverage history snapshots to keep."
+        },
+        "anytimeTrail.remote.provider": {
+          "type": "string",
+          "enum": ["none", "supabase", "postgres"],
+          "default": "none",
+          "markdownDescription": "Remote database provider for Trail data sync. `none` disables sync."
+        },
+        "anytimeTrail.remote.supabaseUrl": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Supabase project URL (e.g. `https://xxx.supabase.co`)"
+        },
+        "anytimeTrail.remote.supabaseAnonKey": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Supabase anon key for Trail data sync"
+        },
+        "anytimeTrail.remote.postgresUrl": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "PostgreSQL connection string (e.g. `postgres://user:pass@host:5432/db`)"
         }
       }
     }
