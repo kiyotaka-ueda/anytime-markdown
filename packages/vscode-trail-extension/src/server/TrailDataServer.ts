@@ -186,6 +186,12 @@ export class TrailDataServer {
       return;
     }
 
+    const commitsMatch = /^\/api\/trail\/sessions\/([^/]+)\/commits$/.exec(pathname);
+    if (commitsMatch && method === 'GET') {
+      this.handleGetSessionCommits(res, decodeURIComponent(commitsMatch[1]));
+      return;
+    }
+
     const sessionMatch = /^\/api\/trail\/sessions\/([^/]+)$/.exec(pathname);
     if (sessionMatch && method === 'GET') {
       this.handleGetSession(res, decodeURIComponent(sessionMatch[1]));
@@ -259,8 +265,10 @@ export class TrailDataServer {
       const rawSessions = this.trailDb.getSessions(filters);
       const sessionIds = rawSessions.map((s) => s.id);
       const contextStats = this.trailDb.getSessionContextStats(sessionIds);
+      const commitStats = this.trailDb.getSessionCommitStats(sessionIds);
       const sessions = rawSessions.map((s) => {
         const stats = contextStats.get(s.id);
+        const cStats = commitStats.get(s.id);
         return {
           id: s.id,
           slug: s.slug,
@@ -279,6 +287,10 @@ export class TrailDataServer {
             cacheReadTokens: s.cache_read_tokens,
             cacheCreationTokens: s.cache_creation_tokens,
           },
+          commitStats: cStats
+            ? { commits: cStats.commits, linesAdded: cStats.linesAdded,
+                linesDeleted: cStats.linesDeleted, filesChanged: cStats.filesChanged }
+            : undefined,
         };
       });
       res.writeHead(200, JSON_HEADERS);
@@ -332,6 +344,31 @@ export class TrailDataServer {
     } catch {
       res.writeHead(500, JSON_HEADERS);
       res.end(JSON.stringify({ error: 'Failed to read session' }));
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  //  API: GET /api/trail/sessions/:id/commits
+  // -------------------------------------------------------------------------
+
+  private handleGetSessionCommits(res: http.ServerResponse, sessionId: string): void {
+    try {
+      const commits = this.trailDb.getSessionCommits(sessionId);
+      const mapped = commits.map((c) => ({
+        commitHash: c.commit_hash,
+        commitMessage: c.commit_message,
+        author: c.author,
+        committedAt: c.committed_at,
+        isAiAssisted: c.is_ai_assisted === 1,
+        filesChanged: c.files_changed,
+        linesAdded: c.lines_added,
+        linesDeleted: c.lines_deleted,
+      }));
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({ commits: mapped }));
+    } catch {
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'Failed to get commits' }));
     }
   }
 

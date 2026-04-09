@@ -113,6 +113,9 @@ export interface AnalyticsData {
     readonly cacheReadTokens: number;
     readonly cacheCreationTokens: number;
     readonly estimatedCostUsd: number;
+    readonly totalCommits: number;
+    readonly totalLinesAdded: number;
+    readonly totalLinesDeleted: number;
   };
   readonly toolUsage: readonly { name: string; count: number }[];
   readonly modelBreakdown: readonly {
@@ -1084,6 +1087,18 @@ export class TrailDatabase {
       outputTokens: Number(r[3]),
     }));
 
+    // Commit totals
+    const commitTotals = db.exec(
+      `SELECT COUNT(*) AS total_commits,
+        COALESCE(SUM(lines_added), 0) AS total_lines_added,
+        COALESCE(SUM(lines_deleted), 0) AS total_lines_deleted
+      FROM session_commits`,
+    );
+    const cr = commitTotals[0]?.values[0] ?? [0, 0, 0];
+    const totalCommits = Number(cr[0]);
+    const totalLinesAdded = Number(cr[1]);
+    const totalLinesDeleted = Number(cr[2]);
+
     // Estimate total cost
     const totalEstimatedCost = modelBreakdown.reduce(
       (sum, m) => sum + m.estimatedCostUsd, 0,
@@ -1097,6 +1112,9 @@ export class TrailDatabase {
         cacheReadTokens: totalCacheRead,
         cacheCreationTokens: totalCacheCreation,
         estimatedCostUsd: totalEstimatedCost,
+        totalCommits,
+        totalLinesAdded,
+        totalLinesDeleted,
       },
       toolUsage,
       modelBreakdown,
