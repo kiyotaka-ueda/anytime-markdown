@@ -37,4 +37,4 @@ export { createEvaluation, isValidEvaluation } from './parser/evaluationStore';
 export { EvaluationPanel } from './components/EvaluationPanel';
 
 export { useTrailDataSource } from './hooks/useTrailDataSource';
-export type { TrailDataSourceResult } from './hooks/useTrailDataSource';
+export type { TrailDataSourceResult, SupabaseConfig } from './hooks/useTrailDataSource';
