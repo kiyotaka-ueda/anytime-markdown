@@ -116,6 +116,9 @@ export interface AnalyticsData {
     readonly totalCommits: number;
     readonly totalLinesAdded: number;
     readonly totalLinesDeleted: number;
+    readonly totalFilesChanged: number;
+    readonly totalAiAssistedCommits: number;
+    readonly totalSessionDurationMs: number;
   };
   readonly toolUsage: readonly { name: string; count: number }[];
   readonly modelBreakdown: readonly {
@@ -1098,6 +1101,28 @@ export class TrailDatabase {
     const totalLinesAdded = Number(cr[1]);
     const totalLinesDeleted = Number(cr[2]);
 
+    // AI-assisted commits + files changed
+    const aiCommitResult = db.exec(
+      `SELECT COALESCE(SUM(CASE WHEN is_ai_assisted = 1 THEN 1 ELSE 0 END), 0),
+              COALESCE(SUM(files_changed), 0)
+       FROM session_commits`,
+    );
+    const acr = aiCommitResult[0]?.values[0] ?? [0, 0];
+    const totalAiAssistedCommits = Number(acr[0]);
+    const totalFilesChanged = Number(acr[1]);
+
+    // Total session duration
+    const durationResult = db.exec(
+      `SELECT COALESCE(SUM(
+        (julianday(end_time) - julianday(start_time)) * 86400000
+      ), 0)
+       FROM sessions
+       WHERE start_time != '' AND end_time != ''`,
+    );
+    const totalSessionDurationMs = Number(
+      durationResult[0]?.values[0]?.[0] ?? 0,
+    );
+
     // Estimate total cost
     const totalEstimatedCost = modelBreakdown.reduce(
       (sum, m) => sum + m.estimatedCostUsd, 0,
@@ -1114,6 +1139,9 @@ export class TrailDatabase {
         totalCommits,
         totalLinesAdded,
         totalLinesDeleted,
+        totalFilesChanged,
+        totalAiAssistedCommits,
+        totalSessionDurationMs,
       },
       toolUsage,
       modelBreakdown,
