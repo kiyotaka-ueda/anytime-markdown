@@ -28,6 +28,9 @@ export interface AnalyticsData {
     readonly totalCommits: number;
     readonly totalLinesAdded: number;
     readonly totalLinesDeleted: number;
+    readonly totalFilesChanged: number;
+    readonly totalAiAssistedCommits: number;
+    readonly totalSessionDurationMs: number;
   };
   readonly toolUsage: readonly { name: string; count: number }[];
   readonly modelBreakdown: readonly {
@@ -103,12 +106,23 @@ type PeriodDays = 7 | 30 | 90;
 //  Sub-components
 // ---------------------------------------------------------------------------
 
-function OverviewCards({ totals }: Readonly<{ totals: AnalyticsData['totals'] }>) {
+function OverviewCards({
+  totals,
+  sessions = [],
+}: Readonly<{
+  totals: AnalyticsData['totals'];
+  sessions?: readonly TrailSession[];
+}>) {
+  const totalInput = totals.inputTokens + totals.cacheReadTokens;
+  const cacheHitRate = totalInput > 0
+    ? fmtPercent(totals.cacheReadTokens / totalInput)
+    : '\u2014';
+
   const cards = [
     { label: 'Total Sessions', value: fmtNum(totals.sessions) },
     { label: 'Total Tokens', value: fmtTokens(totals.inputTokens + totals.outputTokens) },
     { label: 'Estimated Cost', value: fmtUsd(totals.estimatedCostUsd) },
-    { label: 'Cache Read Tokens', value: fmtTokens(totals.cacheReadTokens) },
+    { label: 'Cache Hit Rate', value: cacheHitRate },
   ];
 
   const totalTokens = totals.inputTokens + totals.outputTokens;
@@ -121,6 +135,33 @@ function OverviewCards({ totals }: Readonly<{ totals: AnalyticsData['totals'] }>
         : '\u2014' },
     { label: 'Cost/Line', value: hasLines
         ? fmtUsd(totals.estimatedCostUsd / totals.totalLinesAdded)
+        : '\u2014' },
+  ];
+
+  const totalDurationHours = totals.totalSessionDurationMs / 3_600_000;
+
+  const sessionsWithContext = sessions.filter(
+    (s) => s.messageCount > 0 && (s.peakContextTokens ?? 0) > 0,
+  );
+  const avgContextGrowth = sessionsWithContext.length > 0
+    ? sessionsWithContext.reduce(
+        (sum, s) => sum + ((s.peakContextTokens ?? 0) - (s.initialContextTokens ?? 0)) / s.messageCount,
+        0,
+      ) / sessionsWithContext.length
+    : 0;
+
+  const efficiencyCards = [
+    { label: 'AI Commit %', value: totals.totalCommits > 0
+        ? fmtPercent(totals.totalAiAssistedCommits / totals.totalCommits)
+        : '\u2014' },
+    { label: 'Avg Lines/Hour', value: totalDurationHours > 0 && totals.totalLinesAdded > 0
+        ? fmtNum(Math.round(totals.totalLinesAdded / totalDurationHours))
+        : '\u2014' },
+    { label: 'Avg Cost/Hour', value: totalDurationHours > 0
+        ? fmtUsd(totals.estimatedCostUsd / totalDurationHours)
+        : '\u2014' },
+    { label: 'Avg Context Growth', value: avgContextGrowth > 0
+        ? `${fmtTokens(Math.round(avgContextGrowth))}/step`
         : '\u2014' },
   ];
 
@@ -145,6 +186,24 @@ function OverviewCards({ totals }: Readonly<{ totals: AnalyticsData['totals'] }>
       {totals.totalCommits > 0 && (
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
           {commitCards.map((c) => (
+            <Paper
+              key={c.label}
+              variant="outlined"
+              sx={{ flex: '1 1 140px', p: 2, minWidth: 140, textAlign: 'center' }}
+            >
+              <Typography variant="caption" color="text.secondary">
+                {c.label}
+              </Typography>
+              <Typography variant="h5" sx={{ mt: 0.5 }}>
+                {c.value}
+              </Typography>
+            </Paper>
+          ))}
+        </Box>
+      )}
+      {totals.totalCommits > 0 && (
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          {efficiencyCards.map((c) => (
             <Paper
               key={c.label}
               variant="outlined"
@@ -201,6 +260,25 @@ function ToolUsageChart({ items }: Readonly<{ items: AnalyticsData['toolUsage'] 
 
 function toUsd(tokens: number, key: string): number {
   return (tokens * (COST_PER_M[key] ?? 3)) / 1_000_000;
+}
+
+function fmtDuration(ms: number): string {
+  const totalMin = Math.round(ms / 60_000);
+  if (totalMin < 60) return `${totalMin}m`;
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return m > 0 ? `${h}h${m}m` : `${h}h`;
+}
+
+function fmtPercent(ratio: number): string {
+  return `${(ratio * 100).toFixed(0)}%`;
+}
+
+function sessionCost(s: TrailSession): number {
+  return toUsd(s.usage.inputTokens, 'inputTokens')
+    + toUsd(s.usage.outputTokens, 'outputTokens')
+    + toUsd(s.usage.cacheReadTokens, 'cacheReadTokens')
+    + toUsd(s.usage.cacheCreationTokens, 'cacheCreationTokens');
 }
 
 function SessionCacheTimeline({
@@ -365,6 +443,51 @@ function SessionCommitList({
   );
 }
 
+function SessionMetricsPanel({ session }: Readonly<{ session: TrailSession }>) {
+  const s = session;
+  const totalTokens = s.usage.inputTokens + s.usage.outputTokens;
+  const cost = sessionCost(s);
+  const durationMs = new Date(s.endTime).getTime() - new Date(s.startTime).getTime();
+  const durationHours = durationMs / 3_600_000;
+  const cacheInput = s.usage.inputTokens + s.usage.cacheReadTokens;
+  const cacheHitRate = cacheInput > 0 ? s.usage.cacheReadTokens / cacheInput : 0;
+  const outputRatio = cacheInput > 0 ? s.usage.outputTokens / cacheInput : 0;
+  const contextGrowth = s.messageCount > 0
+    ? ((s.peakContextTokens ?? 0) - (s.initialContextTokens ?? 0)) / s.messageCount
+    : 0;
+  const linesAdded = s.commitStats?.linesAdded ?? 0;
+  const linesDeleted = s.commitStats?.linesDeleted ?? 0;
+
+  const metrics = [
+    { label: 'Tokens/Step', value: s.messageCount > 0 ? fmtTokens(Math.round(totalTokens / s.messageCount)) : '\u2014' },
+    { label: 'Cost/Step', value: s.messageCount > 0 ? fmtUsd(cost / s.messageCount) : '\u2014' },
+    { label: 'Lines/Hour', value: durationHours > 0 && linesAdded > 0 ? fmtNum(Math.round(linesAdded / durationHours)) : '\u2014' },
+    { label: 'Cost/Hour', value: durationHours > 0 ? fmtUsd(cost / durationHours) : '\u2014' },
+    { label: 'Cost/Commit', value: (s.commitStats?.commits ?? 0) > 0 ? fmtUsd(cost / s.commitStats!.commits) : '\u2014' },
+    { label: 'Cache Hit', value: cacheInput > 0 ? fmtPercent(cacheHitRate) : '\u2014' },
+    { label: 'Output Ratio', value: cacheInput > 0 ? fmtPercent(outputRatio) : '\u2014' },
+    { label: 'Context Growth', value: s.messageCount > 0 ? `${fmtTokens(Math.round(contextGrowth))}/step` : '\u2014' },
+    { label: 'Net Lines', value: linesAdded > 0 || linesDeleted > 0 ? `+${fmtNum(linesAdded)} / -${fmtNum(linesDeleted)}` : '\u2014' },
+    { label: 'Files', value: (s.commitStats?.filesChanged ?? 0) > 0 ? fmtNum(s.commitStats!.filesChanged) : '\u2014' },
+    { label: 'Duration', value: durationMs > 0 ? fmtDuration(durationMs) : '\u2014' },
+    { label: 'Avg Interval', value: s.messageCount > 1 ? fmtDuration(durationMs / (s.messageCount - 1)) : '\u2014' },
+  ];
+
+  return (
+    <Paper variant="outlined" sx={{ mt: 1, p: 1.5 }}>
+      <Typography variant="subtitle2" sx={{ mb: 1 }}>Session Metrics</Typography>
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
+        {metrics.map((m) => (
+          <Box key={m.label} sx={{ textAlign: 'center', p: 0.5 }}>
+            <Typography variant="caption" color="text.secondary">{m.label}</Typography>
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>{m.value}</Typography>
+          </Box>
+        ))}
+      </Box>
+    </Paper>
+  );
+}
+
 function DailySessionList({
   date,
   sessions,
@@ -426,16 +549,10 @@ function DailySessionList({
             <TableRow>
               <TableCell>Time</TableCell>
               <TableCell>Model</TableCell>
-              <TableCell align="right">Input</TableCell>
-              <TableCell align="right">Output</TableCell>
-              <TableCell align="right">Cache Read</TableCell>
-              <TableCell align="right">Init Context</TableCell>
-              <TableCell align="right">Peak Context</TableCell>
+              <TableCell align="right">Tokens</TableCell>
+              <TableCell align="right">Cost</TableCell>
               <TableCell align="right">Messages</TableCell>
-              <TableCell align="right">Tokens/Step</TableCell>
-              <TableCell align="right">Cost/Step</TableCell>
-              <TableCell align="right">Commits</TableCell>
-              <TableCell align="right">+/-</TableCell>
+              <TableCell align="right">Commits(+/-)</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -453,34 +570,21 @@ function DailySessionList({
                 <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
                   {s.model}
                 </TableCell>
-                <TableCell align="right">{fmtTokens(s.usage.inputTokens)}</TableCell>
-                <TableCell align="right">{fmtTokens(s.usage.outputTokens)}</TableCell>
-                <TableCell align="right">{fmtTokens(s.usage.cacheReadTokens)}</TableCell>
-                <TableCell align="right">{fmtTokens(s.initialContextTokens ?? 0)}</TableCell>
-                <TableCell align="right">{fmtTokens(s.peakContextTokens ?? 0)}</TableCell>
+                <TableCell align="right">
+                  {fmtTokens(s.usage.inputTokens + s.usage.outputTokens)}
+                </TableCell>
+                <TableCell align="right">
+                  {fmtUsd(
+                    toUsd(s.usage.inputTokens, 'inputTokens')
+                    + toUsd(s.usage.outputTokens, 'outputTokens')
+                    + toUsd(s.usage.cacheReadTokens, 'cacheReadTokens')
+                    + toUsd(s.usage.cacheCreationTokens, 'cacheCreationTokens')
+                  )}
+                </TableCell>
                 <TableCell align="right">{fmtNum(s.messageCount)}</TableCell>
-                <TableCell align="right">
-                  {s.messageCount > 0
-                    ? fmtTokens(Math.round((s.usage.inputTokens + s.usage.outputTokens) / s.messageCount))
-                    : '\u2014'}
-                </TableCell>
-                <TableCell align="right">
-                  {s.messageCount > 0
-                    ? fmtUsd(
-                        (toUsd(s.usage.inputTokens, 'inputTokens')
-                          + toUsd(s.usage.outputTokens, 'outputTokens')
-                          + toUsd(s.usage.cacheReadTokens, 'cacheReadTokens')
-                          + toUsd(s.usage.cacheCreationTokens, 'cacheCreationTokens'))
-                        / s.messageCount,
-                      )
-                    : '\u2014'}
-                </TableCell>
-                <TableCell align="right">
-                  {s.commitStats ? fmtNum(s.commitStats.commits) : '\u2014'}
-                </TableCell>
                 <TableCell align="right" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
                   {s.commitStats
-                    ? `+${fmtNum(s.commitStats.linesAdded)} / -${fmtNum(s.commitStats.linesDeleted)}`
+                    ? `${s.commitStats.commits} (+${fmtNum(s.commitStats.linesAdded)}/-${fmtNum(s.commitStats.linesDeleted)})`
                     : '\u2014'}
                 </TableCell>
               </TableRow>
@@ -490,6 +594,11 @@ function DailySessionList({
       )}
       {timelineLoading && (
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>Loading timeline...</Typography>
+      )}
+      {timelineSessionId && daySessions.find((s) => s.id === timelineSessionId) && (
+        <SessionMetricsPanel
+          session={daySessions.find((s) => s.id === timelineSessionId)!}
+        />
       )}
       {timelineSessionId && timelineMessages.length > 0 && (
         <SessionCacheTimeline
@@ -699,7 +808,7 @@ export function AnalyticsPanel({ analytics, isDark: _isDark, sessions = [], onSe
 
   return (
     <Box sx={{ overflow: 'auto', flex: 1, p: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <OverviewCards totals={analytics.totals} />
+      <OverviewCards totals={analytics.totals} sessions={sessions} />
       <ToolUsageChart items={analytics.toolUsage} />
       <DailyActivityChart items={analytics.dailyActivity} sessions={sessions} onSelectSession={onSelectSession} fetchSessionMessages={fetchSessionMessages} fetchSessionCommits={fetchSessionCommits} />
       <ModelTable items={analytics.modelBreakdown} />
