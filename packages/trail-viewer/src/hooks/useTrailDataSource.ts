@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import type { TrailFilter, TrailMessage, TrailPromptEntry, TrailSession } from '../parser/types';
+import type { TrailFilter, TrailMessage, TrailPromptEntry, TrailSession, TrailSessionCommit } from '../parser/types';
 import type { AnalyticsData } from '../components/AnalyticsPanel';
 
 // ---------------------------------------------------------------------------
@@ -19,6 +19,7 @@ export interface TrailDataSourceResult {
   readonly loadSession: (id: string) => void;
   readonly searchSessions: (filter: TrailFilter) => void;
   readonly fetchSessionMessages: (id: string) => Promise<readonly TrailMessage[]>;
+  readonly fetchSessionCommits: (id: string) => Promise<readonly TrailSessionCommit[]>;
 }
 
 interface WsMessage {
@@ -155,6 +156,22 @@ export function useTrailDataSource(serverUrl?: string): TrailDataSourceResult {
     [baseUrl],
   );
 
+  // --- Fetch session commits (standalone, does not update shared state) ---
+
+  const fetchSessionCommits = useCallback(
+    async (id: string): Promise<readonly TrailSessionCommit[]> => {
+      try {
+        const res = await fetch(`${baseUrl}/api/trail/sessions/${encodeURIComponent(id)}/commits`);
+        if (!res.ok) return [];
+        const data = (await res.json()) as { commits: readonly TrailSessionCommit[] };
+        return data.commits ?? [];
+      } catch {
+        return [];
+      }
+    },
+    [baseUrl],
+  );
+
   // --- Search sessions ---
 
   const searchSessions = useCallback(
@@ -268,5 +285,6 @@ export function useTrailDataSource(serverUrl?: string): TrailDataSourceResult {
     loadSession,
     searchSessions,
     fetchSessionMessages,
+    fetchSessionCommits,
   };
 }
