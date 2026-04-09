@@ -110,22 +110,55 @@ function OverviewCards({ totals }: Readonly<{ totals: AnalyticsData['totals'] }>
     { label: 'Cache Read Tokens', value: fmtTokens(totals.cacheReadTokens) },
   ];
 
+  const totalTokens = totals.inputTokens + totals.outputTokens;
+  const hasLines = totals.totalLinesAdded > 0;
+  const commitCards = [
+    { label: 'Total Commits', value: fmtNum(totals.totalCommits) },
+    { label: 'Lines Added', value: fmtNum(totals.totalLinesAdded) },
+    { label: 'Tokens/Line', value: hasLines
+        ? fmtTokens(Math.round(totalTokens / totals.totalLinesAdded))
+        : '\u2014' },
+    { label: 'Cost/Line', value: hasLines
+        ? fmtUsd(totals.estimatedCostUsd / totals.totalLinesAdded)
+        : '\u2014' },
+  ];
+
   return (
-    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-      {cards.map((c) => (
-        <Paper
-          key={c.label}
-          variant="outlined"
-          sx={{ flex: '1 1 140px', p: 2, minWidth: 140, textAlign: 'center' }}
-        >
-          <Typography variant="caption" color="text.secondary">
-            {c.label}
-          </Typography>
-          <Typography variant="h5" sx={{ mt: 0.5 }}>
-            {c.value}
-          </Typography>
-        </Paper>
-      ))}
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+        {cards.map((c) => (
+          <Paper
+            key={c.label}
+            variant="outlined"
+            sx={{ flex: '1 1 140px', p: 2, minWidth: 140, textAlign: 'center' }}
+          >
+            <Typography variant="caption" color="text.secondary">
+              {c.label}
+            </Typography>
+            <Typography variant="h5" sx={{ mt: 0.5 }}>
+              {c.value}
+            </Typography>
+          </Paper>
+        ))}
+      </Box>
+      {totals.totalCommits > 0 && (
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          {commitCards.map((c) => (
+            <Paper
+              key={c.label}
+              variant="outlined"
+              sx={{ flex: '1 1 140px', p: 2, minWidth: 140, textAlign: 'center' }}
+            >
+              <Typography variant="caption" color="text.secondary">
+                {c.label}
+              </Typography>
+              <Typography variant="h5" sx={{ mt: 0.5 }}>
+                {c.value}
+              </Typography>
+            </Paper>
+          ))}
+        </Box>
+      )}
     </Box>
   );
 }
@@ -293,6 +326,8 @@ function DailySessionList({
               <TableCell align="right">Init Context</TableCell>
               <TableCell align="right">Peak Context</TableCell>
               <TableCell align="right">Messages</TableCell>
+              <TableCell align="right">Commits</TableCell>
+              <TableCell align="right">+/-</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -316,6 +351,14 @@ function DailySessionList({
                 <TableCell align="right">{fmtTokens(s.initialContextTokens ?? 0)}</TableCell>
                 <TableCell align="right">{fmtTokens(s.peakContextTokens ?? 0)}</TableCell>
                 <TableCell align="right">{fmtNum(s.messageCount)}</TableCell>
+                <TableCell align="right">
+                  {s.commitStats ? fmtNum(s.commitStats.commits) : '\u2014'}
+                </TableCell>
+                <TableCell align="right" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                  {s.commitStats
+                    ? `+${fmtNum(s.commitStats.linesAdded)} / -${fmtNum(s.commitStats.linesDeleted)}`
+                    : '\u2014'}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
