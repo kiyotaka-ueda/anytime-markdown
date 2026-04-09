@@ -28,6 +28,9 @@ export interface AnalyticsData {
     readonly totalCommits: number;
     readonly totalLinesAdded: number;
     readonly totalLinesDeleted: number;
+    readonly totalFilesChanged: number;
+    readonly totalAiAssistedCommits: number;
+    readonly totalSessionDurationMs: number;
   };
   readonly toolUsage: readonly { name: string; count: number }[];
   readonly modelBreakdown: readonly {
