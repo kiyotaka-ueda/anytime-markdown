@@ -14,6 +14,7 @@ import Typography from '@mui/material/Typography';
 import { BarChart } from '@mui/x-charts/BarChart';
 import { LineChart } from '@mui/x-charts/LineChart';
 import type { ToolMetrics, TrailMessage, TrailSession, TrailSessionCommit, TrailTokenUsage } from '../parser/types';
+import { useTrailTheme } from './TrailThemeContext';
 
 // ---------------------------------------------------------------------------
 //  Types
@@ -67,7 +68,6 @@ export interface AnalyticsData {
 
 export interface AnalyticsPanelProps {
   readonly analytics: AnalyticsData | null;
-  readonly isDark?: boolean;
   readonly sessions?: readonly TrailSession[];
   readonly onSelectSession?: (id: string) => void;
   readonly fetchSessionMessages?: (id: string) => Promise<readonly TrailMessage[]>;
@@ -94,11 +94,6 @@ function fmtTokens(n: number): string {
   return String(n);
 }
 
-const BAR_COLOR_PRIMARY = '#1976d2';
-const BAR_COLOR_INPUT = '#42a5f5';
-const BAR_COLOR_OUTPUT = '#ef5350';
-const BAR_COLOR_CACHE_READ = '#66bb6a';
-const BAR_COLOR_CACHE_WRITE = '#ffa726';
 
 /** Estimated cost rates per 1M tokens (USD). Uses Sonnet as default. */
 const COST_PER_M: Readonly<Record<string, number>> = {
@@ -122,6 +117,7 @@ function OverviewCards({
   totals: AnalyticsData['totals'];
   sessions?: readonly TrailSession[];
 }>) {
+  const { colors, cardSx } = useTrailTheme();
   const totalInput = totals.inputTokens + totals.cacheReadTokens;
   const cacheHitRate = totalInput > 0
     ? fmtPercent(totals.cacheReadTokens / totalInput)
@@ -187,13 +183,13 @@ function OverviewCards({
         : '\u2014' },
   ];
 
-  const cardStyle = { flex: '1 1 140px', p: 2, minWidth: 140, textAlign: 'center' } as const;
+  const cardStyle = { ...cardSx, flex: '1 1 140px', p: 2, minWidth: 140, textAlign: 'center' } as const;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
         {cards.map((c) => (
-          <Paper key={c.label} variant="outlined" sx={cardStyle}>
+          <Paper key={c.label} elevation={0} sx={cardStyle}>
             <Typography variant="caption" color="text.secondary">
               {c.label}
             </Typography>
@@ -206,7 +202,7 @@ function OverviewCards({
       {totals.totalCommits > 0 && (
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
           {commitCards.map((c) => (
-            <Paper key={c.label} variant="outlined" sx={cardStyle}>
+            <Paper key={c.label} elevation={0} sx={cardStyle}>
               <Typography variant="caption" color="text.secondary">
                 {c.label}
               </Typography>
@@ -220,7 +216,7 @@ function OverviewCards({
       {totals.totalCommits > 0 && (
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
           {efficiencyCards.map((c) => (
-            <Paper key={c.label} variant="outlined" sx={cardStyle}>
+            <Paper key={c.label} elevation={0} sx={cardStyle}>
               <Typography variant="caption" color="text.secondary">
                 {c.label}
               </Typography>
@@ -234,7 +230,7 @@ function OverviewCards({
       {hasToolMetrics && (
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
           {toolMetricsCards.map((c) => (
-            <Paper key={c.label} variant="outlined" sx={cardStyle}>
+            <Paper key={c.label} elevation={0} sx={cardStyle}>
               <Typography variant="caption" color="text.secondary">
                 {c.label}
               </Typography>
@@ -250,6 +246,7 @@ function OverviewCards({
 }
 
 function ToolUsageChart({ items }: Readonly<{ items: AnalyticsData['toolUsage'] }>) {
+  const { colors, chartColors, radius } = useTrailTheme();
   if (items.length === 0) return null;
   const maxCount = items[0].count;
 
@@ -271,8 +268,8 @@ function ToolUsageChart({ items }: Readonly<{ items: AnalyticsData['toolUsage'] 
               height: 18,
               width: `${(item.count / maxCount) * 100}%`,
               minWidth: 4,
-              bgcolor: BAR_COLOR_PRIMARY,
-              borderRadius: 0.5,
+              bgcolor: chartColors.primary,
+              borderRadius: radius.sm,
             }}
           />
           <Typography variant="caption" sx={{ pl: 1, whiteSpace: 'nowrap' }}>
@@ -314,10 +311,11 @@ function SessionCacheTimeline({
   messages: readonly TrailMessage[];
   onClose: () => void;
 }>) {
+  const { colors, chartColors, cardSx } = useTrailTheme();
   const assistantMsgs = messages.filter((m) => m.type === 'assistant' && m.usage);
   if (assistantMsgs.length === 0) {
     return (
-      <Paper variant="outlined" sx={{ mt: 1, p: 1.5 }}>
+      <Paper elevation={0} sx={{ ...cardSx, mt: 1, p: 1.5 }}>
         <Typography variant="body2" color="text.secondary">No token usage data in this session.</Typography>
       </Paper>
     );
@@ -332,7 +330,7 @@ function SessionCacheTimeline({
   }));
 
   return (
-    <Paper variant="outlined" sx={{ mt: 1, p: 1.5 }}>
+    <Paper elevation={0} sx={{ ...cardSx, mt: 1, p: 1.5 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
         <Typography variant="subtitle2">
           Session Cache Timeline ({assistantMsgs.length} turns)
@@ -340,7 +338,7 @@ function SessionCacheTimeline({
         <Typography
           variant="caption"
           color="text.secondary"
-          sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+          sx={{ cursor: 'pointer', color: colors.textSecondary, '&:hover': { textDecoration: 'underline' } }}
           onClick={onClose}
         >
           Close
@@ -351,10 +349,10 @@ function SessionCacheTimeline({
         xAxis={[{ dataKey: 'turn', label: 'Turn', scaleType: 'point' }]}
         yAxis={[{ valueFormatter: fmtTokens }]}
         series={[
-          { dataKey: 'inputTokens', label: 'Input', color: BAR_COLOR_INPUT, showMark: false },
-          { dataKey: 'outputTokens', label: 'Output', color: BAR_COLOR_OUTPUT, showMark: false },
-          { dataKey: 'cacheReadTokens', label: 'Cache Read', color: BAR_COLOR_CACHE_READ, showMark: false },
-          { dataKey: 'cacheCreationTokens', label: 'Cache Write', color: BAR_COLOR_CACHE_WRITE, showMark: false },
+          { dataKey: 'inputTokens', label: 'Input', color: chartColors.input, showMark: false },
+          { dataKey: 'outputTokens', label: 'Output', color: chartColors.output, showMark: false },
+          { dataKey: 'cacheReadTokens', label: 'Cache Read', color: chartColors.cacheRead, showMark: false },
+          { dataKey: 'cacheCreationTokens', label: 'Cache Write', color: chartColors.cacheWrite, showMark: false },
         ]}
         height={200}
         margin={{ left: 60, right: 16, top: 16, bottom: 32 }}
@@ -377,6 +375,7 @@ function SessionCommitList({
   fetchSessionCommits: (id: string) => Promise<readonly TrailSessionCommit[]>;
   onClose: () => void;
 }>) {
+  const { colors, cardSx } = useTrailTheme();
   const [commits, setCommits] = useState<readonly TrailSessionCommit[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -401,14 +400,14 @@ function SessionCommitList({
 
   if (loading) {
     return (
-      <Paper variant="outlined" sx={{ mt: 1, p: 1.5 }}>
+      <Paper elevation={0} sx={{ ...cardSx, mt: 1, p: 1.5 }}>
         <Typography variant="body2" color="text.secondary">Loading commits...</Typography>
       </Paper>
     );
   }
 
   return (
-    <Paper variant="outlined" sx={{ mt: 1, p: 1.5 }}>
+    <Paper elevation={0} sx={{ ...cardSx, mt: 1, p: 1.5 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
         <Typography variant="subtitle2">
           Related Commits ({commits.length})
@@ -429,7 +428,7 @@ function SessionCommitList({
         <>
           <Table size="small">
             <TableHead>
-              <TableRow>
+              <TableRow sx={{ '& .MuiTableCell-head': { color: colors.textSecondary, borderColor: colors.border } }}>
                 <TableCell>Hash</TableCell>
                 <TableCell>Message</TableCell>
                 <TableCell align="right">Files</TableCell>
@@ -438,7 +437,7 @@ function SessionCommitList({
             </TableHead>
             <TableBody>
               {commits.map((c) => (
-                <TableRow key={c.commitHash}>
+                <TableRow key={c.commitHash} sx={{ '& .MuiTableCell-root': { borderColor: colors.border } }}>
                   <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
                     {c.commitHash.slice(0, 8)}
                     {c.isAiAssisted && (
@@ -473,6 +472,7 @@ function SessionMetricsPanel({ session, toolMetrics }: Readonly<{
   session: TrailSession;
   toolMetrics?: ToolMetrics | null;
 }>) {
+  const { colors, cardSx } = useTrailTheme();
   const s = session;
   const totalTokens = s.usage.inputTokens + s.usage.outputTokens;
   const cost = sessionCost(s);
@@ -513,7 +513,7 @@ function SessionMetricsPanel({ session, toolMetrics }: Readonly<{
   ];
 
   return (
-    <Paper variant="outlined" sx={{ mt: 1, p: 1.5 }}>
+    <Paper elevation={0} sx={{ ...cardSx, mt: 1, p: 1.5 }}>
       <Typography variant="subtitle2" sx={{ mb: 1 }}>Session Metrics</Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 1 }}>
         {metrics.map((m) => (
@@ -544,6 +544,7 @@ function DailySessionList({
   fetchSessionToolMetrics?: (id: string) => Promise<ToolMetrics | null>;
   onClose: () => void;
 }>) {
+  const { colors, cardSx } = useTrailTheme();
   const [timelineSessionId, setTimelineSessionId] = useState<string | null>(null);
   const [timelineMessages, setTimelineMessages] = useState<readonly TrailMessage[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
@@ -574,7 +575,7 @@ function DailySessionList({
   };
 
   return (
-    <Paper variant="outlined" sx={{ mt: 1, p: 1.5 }}>
+    <Paper elevation={0} sx={{ ...cardSx, mt: 1, p: 1.5 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
         <Typography variant="subtitle2">
           {date} — {daySessions.length} session{daySessions.length !== 1 ? 's' : ''}
@@ -582,7 +583,7 @@ function DailySessionList({
         <Typography
           variant="caption"
           color="text.secondary"
-          sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+          sx={{ cursor: 'pointer', color: colors.textSecondary, '&:hover': { textDecoration: 'underline' } }}
           onClick={onClose}
         >
           Close
@@ -593,7 +594,7 @@ function DailySessionList({
       ) : (
         <Table size="small">
           <TableHead>
-            <TableRow>
+            <TableRow sx={{ '& .MuiTableCell-head': { color: colors.textSecondary, borderColor: colors.border } }}>
               <TableCell>Time</TableCell>
               <TableCell>Model</TableCell>
               <TableCell align="right">Tokens</TableCell>
@@ -608,7 +609,7 @@ function DailySessionList({
                 key={s.id}
                 hover
                 selected={timelineSessionId === s.id}
-                sx={{ cursor: 'pointer' }}
+                sx={{ cursor: 'pointer', '& .MuiTableCell-root': { borderColor: colors.border } }}
                 onClick={() => handleSessionClick(s.id)}
               >
                 <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
@@ -696,6 +697,7 @@ function DailyActivityChart({
   fetchSessionCommits?: (id: string) => Promise<readonly TrailSessionCommit[]>;
   fetchSessionToolMetrics?: (id: string) => Promise<ToolMetrics | null>;
 }>) {
+  const { colors, chartColors } = useTrailTheme();
   const [mode, setMode] = useState<DailyViewMode>('tokens');
   const [period, setPeriod] = useState<PeriodDays>(30);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -740,9 +742,9 @@ function DailyActivityChart({
             onChange={(_e, v: PeriodDays | null) => { if (v) { setPeriod(v); setSelectedDate(null); } }}
             size="small"
           >
-            <ToggleButton value={7}>7d</ToggleButton>
-            <ToggleButton value={30}>30d</ToggleButton>
-            <ToggleButton value={90}>90d</ToggleButton>
+            <ToggleButton value={7} sx={{ color: colors.textSecondary, borderColor: colors.border, '&.Mui-selected': { color: colors.iceBlue, bgcolor: colors.iceBlueBg, borderColor: colors.iceBlue }, '&:hover': { bgcolor: colors.hoverBg } }}>7d</ToggleButton>
+            <ToggleButton value={30} sx={{ color: colors.textSecondary, borderColor: colors.border, '&.Mui-selected': { color: colors.iceBlue, bgcolor: colors.iceBlueBg, borderColor: colors.iceBlue }, '&:hover': { bgcolor: colors.hoverBg } }}>30d</ToggleButton>
+            <ToggleButton value={90} sx={{ color: colors.textSecondary, borderColor: colors.border, '&.Mui-selected': { color: colors.iceBlue, bgcolor: colors.iceBlueBg, borderColor: colors.iceBlue }, '&:hover': { bgcolor: colors.hoverBg } }}>90d</ToggleButton>
           </ToggleButtonGroup>
         </Box>
         <ToggleButtonGroup
@@ -751,8 +753,8 @@ function DailyActivityChart({
           onChange={(_e, v: DailyViewMode | null) => { if (v) setMode(v); }}
           size="small"
         >
-          <ToggleButton value="tokens">Tokens</ToggleButton>
-          <ToggleButton value="cost">Cost</ToggleButton>
+          <ToggleButton value="tokens" sx={{ color: colors.textSecondary, borderColor: colors.border, '&.Mui-selected': { color: colors.iceBlue, bgcolor: colors.iceBlueBg, borderColor: colors.iceBlue }, '&:hover': { bgcolor: colors.hoverBg } }}>Tokens</ToggleButton>
+          <ToggleButton value="cost" sx={{ color: colors.textSecondary, borderColor: colors.border, '&.Mui-selected': { color: colors.iceBlue, bgcolor: colors.iceBlueBg, borderColor: colors.iceBlue }, '&:hover': { bgcolor: colors.hoverBg } }}>Cost</ToggleButton>
         </ToggleButtonGroup>
       </Box>
       <BarChart
@@ -760,10 +762,10 @@ function DailyActivityChart({
         xAxis={[{ scaleType: 'band', dataKey: 'date' }]}
         yAxis={[{ valueFormatter: yFormatter }]}
         series={[
-          { dataKey: 'inputTokens', label: 'Input', stack: 'a', color: BAR_COLOR_INPUT },
-          { dataKey: 'outputTokens', label: 'Output', stack: 'a', color: BAR_COLOR_OUTPUT },
-          { dataKey: 'cacheReadTokens', label: 'Cache Read', stack: 'a', color: BAR_COLOR_CACHE_READ },
-          { dataKey: 'cacheCreationTokens', label: 'Cache Write', stack: 'a', color: BAR_COLOR_CACHE_WRITE },
+          { dataKey: 'inputTokens', label: 'Input', stack: 'a', color: chartColors.input },
+          { dataKey: 'outputTokens', label: 'Output', stack: 'a', color: chartColors.output },
+          { dataKey: 'cacheReadTokens', label: 'Cache Read', stack: 'a', color: chartColors.cacheRead },
+          { dataKey: 'cacheCreationTokens', label: 'Cache Write', stack: 'a', color: chartColors.cacheWrite },
         ]}
         height={240}
         margin={{ left: 60, right: 16, top: 16, bottom: 24 }}
@@ -788,6 +790,7 @@ function DailyActivityChart({
 }
 
 function ModelTable({ items }: Readonly<{ items: AnalyticsData['modelBreakdown'] }>) {
+  const { colors } = useTrailTheme();
   if (items.length === 0) return null;
 
   return (
@@ -797,7 +800,7 @@ function ModelTable({ items }: Readonly<{ items: AnalyticsData['modelBreakdown']
       </Typography>
       <Table size="small">
         <TableHead>
-          <TableRow>
+          <TableRow sx={{ '& .MuiTableCell-head': { color: colors.textSecondary, borderColor: colors.border } }}>
             <TableCell>Model</TableCell>
             <TableCell align="right">Sessions</TableCell>
             <TableCell align="right">Input Tokens</TableCell>
@@ -807,7 +810,7 @@ function ModelTable({ items }: Readonly<{ items: AnalyticsData['modelBreakdown']
         </TableHead>
         <TableBody>
           {items.map((m) => (
-            <TableRow key={m.model}>
+            <TableRow key={m.model} sx={{ '& .MuiTableCell-root': { borderColor: colors.border } }}>
               <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
                 {m.model}
               </TableCell>
@@ -824,6 +827,7 @@ function ModelTable({ items }: Readonly<{ items: AnalyticsData['modelBreakdown']
 }
 
 function BranchTable({ items }: Readonly<{ items: AnalyticsData['branchBreakdown'] }>) {
+  const { colors } = useTrailTheme();
   if (items.length === 0) return null;
 
   return (
@@ -833,7 +837,7 @@ function BranchTable({ items }: Readonly<{ items: AnalyticsData['branchBreakdown
       </Typography>
       <Table size="small">
         <TableHead>
-          <TableRow>
+          <TableRow sx={{ '& .MuiTableCell-head': { color: colors.textSecondary, borderColor: colors.border } }}>
             <TableCell>Branch</TableCell>
             <TableCell align="right">Sessions</TableCell>
             <TableCell align="right">Input Tokens</TableCell>
@@ -842,7 +846,7 @@ function BranchTable({ items }: Readonly<{ items: AnalyticsData['branchBreakdown
         </TableHead>
         <TableBody>
           {items.map((b) => (
-            <TableRow key={b.branch}>
+            <TableRow key={b.branch} sx={{ '& .MuiTableCell-root': { borderColor: colors.border } }}>
               <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
                 {b.branch}
               </TableCell>
@@ -861,7 +865,8 @@ function BranchTable({ items }: Readonly<{ items: AnalyticsData['branchBreakdown
 //  Main component
 // ---------------------------------------------------------------------------
 
-export function AnalyticsPanel({ analytics, isDark: _isDark, sessions = [], onSelectSession, fetchSessionMessages, fetchSessionCommits, fetchSessionToolMetrics }: Readonly<AnalyticsPanelProps>) {
+export function AnalyticsPanel({ analytics, sessions = [], onSelectSession, fetchSessionMessages, fetchSessionCommits, fetchSessionToolMetrics }: Readonly<AnalyticsPanelProps>) {
+  const { colors } = useTrailTheme();
   if (!analytics) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
