@@ -2,7 +2,7 @@
   "name": "anytime-trail",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "license": "MIT",
   "publisher": "anytime-trial",
   "repository": {
@@ -611,7 +611,11 @@
         },
         "anytimeTrail.remote.provider": {
           "type": "string",
-          "enum": ["none", "supabase", "postgres"],
+          "enum": [
+            "none",
+            "supabase",
+            "postgres"
+          ],
           "default": "none",
           "markdownDescription": "Remote database provider for Trail data sync. `none` disables sync."
         },
