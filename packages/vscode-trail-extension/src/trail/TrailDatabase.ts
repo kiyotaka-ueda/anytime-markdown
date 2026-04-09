@@ -1,4 +1,5 @@
 import type { Database } from 'sql.js';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -40,6 +41,7 @@ export interface SessionRow {
   readonly imported_at: string;
   readonly peak_context_tokens?: number;
   readonly initial_context_tokens?: number;
+  readonly commits_resolved_at?: string;
 }
 
 export interface MessageRow {
@@ -66,6 +68,18 @@ export interface MessageRow {
   readonly is_meta: number;
   readonly cwd: string | null;
   readonly git_branch: string | null;
+}
+
+export interface SessionCommitRow {
+  readonly session_id: string;
+  readonly commit_hash: string;
+  readonly commit_message: string;
+  readonly author: string;
+  readonly committed_at: string;
+  readonly is_ai_assisted: number;
+  readonly files_changed: number;
+  readonly lines_added: number;
+  readonly lines_deleted: number;
 }
 
 interface SessionFilters {
@@ -99,6 +113,9 @@ export interface AnalyticsData {
     readonly cacheReadTokens: number;
     readonly cacheCreationTokens: number;
     readonly estimatedCostUsd: number;
+    readonly totalCommits: number;
+    readonly totalLinesAdded: number;
+    readonly totalLinesDeleted: number;
   };
   readonly toolUsage: readonly { name: string; count: number }[];
   readonly modelBreakdown: readonly {
@@ -220,10 +237,24 @@ const CREATE_MESSAGES = `CREATE TABLE IF NOT EXISTS messages (
   git_branch TEXT
 )`;
 
+const CREATE_SESSION_COMMITS = `CREATE TABLE IF NOT EXISTS session_commits (
+  session_id TEXT NOT NULL REFERENCES sessions(id),
+  commit_hash TEXT NOT NULL,
+  commit_message TEXT NOT NULL DEFAULT '',
+  author TEXT NOT NULL DEFAULT '',
+  committed_at TEXT NOT NULL DEFAULT '',
+  is_ai_assisted INTEGER NOT NULL DEFAULT 0,
+  files_changed INTEGER NOT NULL DEFAULT 0,
+  lines_added INTEGER NOT NULL DEFAULT 0,
+  lines_deleted INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (session_id, commit_hash)
+)`;
+
 const CREATE_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id)',
   'CREATE INDEX IF NOT EXISTS idx_messages_type ON messages(type)',
   'CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp)',
+  'CREATE INDEX IF NOT EXISTS idx_session_commits_session ON session_commits(session_id)',
 ];
 
 const INSERT_SESSION = `INSERT OR REPLACE INTO sessions
@@ -310,8 +341,16 @@ export class TrailDatabase {
     const db = this.ensureDb();
     db.run(CREATE_SESSIONS);
     db.run(CREATE_MESSAGES);
+    db.run(CREATE_SESSION_COMMITS);
     for (const sql of CREATE_INDEXES) {
       db.run(sql);
+    }
+
+    // Add columns for existing DBs (may already exist)
+    try {
+      db.run('ALTER TABLE sessions ADD COLUMN commits_resolved_at TEXT');
+    } catch {
+      // Column already exists — ignore
     }
   }
 
@@ -337,6 +376,151 @@ export class TrailDatabase {
     const exists = stmt.step();
     stmt.free();
     return exists;
+  }
+
+  isCommitsResolved(sessionId: string): boolean {
+    const db = this.ensureDb();
+    const stmt = db.prepare(
+      'SELECT 1 FROM sessions WHERE id = ? AND commits_resolved_at IS NOT NULL LIMIT 1',
+    );
+    stmt.bind([sessionId]);
+    const exists = stmt.step();
+    stmt.free();
+    return exists;
+  }
+
+  private getSessionTimeRange(sessionId: string): {
+    startTime: string; endTime: string; gitBranch: string;
+  } | null {
+    const db = this.ensureDb();
+    const stmt = db.prepare(
+      'SELECT start_time, end_time, git_branch FROM sessions WHERE id = ? LIMIT 1',
+    );
+    stmt.bind([sessionId]);
+    if (!stmt.step()) {
+      stmt.free();
+      return null;
+    }
+    const row = stmt.getAsObject() as {
+      start_time: string; end_time: string; git_branch: string;
+    };
+    stmt.free();
+    return {
+      startTime: row.start_time,
+      endTime: row.end_time,
+      gitBranch: row.git_branch,
+    };
+  }
+
+  resolveCommits(sessionId: string, gitRoot: string): number {
+    const db = this.ensureDb();
+    const range = this.getSessionTimeRange(sessionId);
+    if (!range) return 0;
+
+    const { startTime, endTime, gitBranch } = range;
+
+    // Add 5 minutes buffer to endTime for commits made right after session
+    const endDate = new Date(endTime);
+    endDate.setMinutes(endDate.getMinutes() + 5);
+    const bufferedEnd = endDate.toISOString();
+
+    const execOpts = { encoding: 'utf-8' as const, timeout: 10_000 };
+    const logFormat = '%H%x00%s%x00%an%x00%aI%x00%b%x1e';
+
+    let logOutput = '';
+    const useBranch = gitBranch && gitBranch.trim() !== '';
+    try {
+      // Try branch-specific log first (or --all if no branch)
+      logOutput = execFileSync('git', [
+        'log', useBranch ? gitBranch : '--all',
+        `--after=${startTime}`,
+        `--before=${bufferedEnd}`,
+        `--format=${logFormat}`,
+        '--no-merges',
+      ], { ...execOpts, cwd: gitRoot });
+    } catch {
+      // Fallback to --all if branch not found
+      try {
+        logOutput = execFileSync('git', [
+          'log', '--all',
+          `--after=${startTime}`,
+          `--before=${bufferedEnd}`,
+          `--format=${logFormat}`,
+          '--no-merges',
+        ], { ...execOpts, cwd: gitRoot });
+      } catch {
+        // On any git error, mark as resolved and return 0
+        db.run(
+          "UPDATE sessions SET commits_resolved_at = datetime('now') WHERE id = ?",
+          [sessionId],
+        );
+        return 0;
+      }
+    }
+
+    const commits = logOutput
+      .split('\x1e')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+
+    let count = 0;
+    const insertStmt = db.prepare(
+      `INSERT OR IGNORE INTO session_commits
+        (session_id, commit_hash, commit_message, author, committed_at,
+         is_ai_assisted, files_changed, lines_added, lines_deleted)
+        VALUES (?,?,?,?,?,?,?,?,?)`,
+    );
+
+    for (const entry of commits) {
+      const parts = entry.split('\x00');
+      if (parts.length < 4) continue;
+
+      const hash = parts[0];
+      const subject = parts[1];
+      const author = parts[2];
+      const committedAt = parts[3];
+      const body = parts[4] ?? '';
+
+      // Check for AI co-authoring
+      const isAiAssisted = /Co-Authored-By:.*Claude/i.test(body) ? 1 : 0;
+
+      // Get file stats via numstat
+      let filesChanged = 0;
+      let linesAdded = 0;
+      let linesDeleted = 0;
+      try {
+        const numstat = execFileSync('git', [
+          'diff', '--numstat', `${hash}^..${hash}`,
+        ], { ...execOpts, cwd: gitRoot });
+
+        for (const line of numstat.split('\n')) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          const [added, deleted] = trimmed.split('\t');
+          filesChanged++;
+          // Binary files show as "-"
+          if (added !== '-') linesAdded += Number.parseInt(added, 10) || 0;
+          if (deleted !== '-') linesDeleted += Number.parseInt(deleted, 10) || 0;
+        }
+      } catch {
+        // Initial commit or other error — skip numstat
+      }
+
+      insertStmt.run([
+        sessionId, hash, subject, author, committedAt,
+        isAiAssisted, filesChanged, linesAdded, linesDeleted,
+      ]);
+      count++;
+    }
+
+    insertStmt.free();
+
+    db.run(
+      "UPDATE sessions SET commits_resolved_at = datetime('now') WHERE id = ?",
+      [sessionId],
+    );
+
+    return count;
   }
 
   importSession(filePath: string, projectName: string): void {
@@ -473,16 +657,18 @@ export class TrailDatabase {
 
   async importAll(
     onProgress?: (message: string, increment?: number) => void,
-  ): Promise<{ imported: number; skipped: number }> {
+    gitRoot?: string,
+  ): Promise<{ imported: number; skipped: number; commitsResolved: number }> {
     const projectsDir = path.join(os.homedir(), '.claude', 'projects');
     let imported = 0;
     let skipped = 0;
+    let commitsResolved = 0;
 
     let projectDirs: string[];
     try {
       projectDirs = fs.readdirSync(projectsDir);
     } catch {
-      return { imported, skipped };
+      return { imported, skipped, commitsResolved };
     }
 
     const allFiles: { filePath: string; projectName: string }[] = [];
@@ -529,6 +715,13 @@ export class TrailDatabase {
         if (!sid) continue;
 
         if (this.isImported(sid)) {
+          if (gitRoot && !this.isCommitsResolved(sid)) {
+            try {
+              commitsResolved += this.resolveCommits(sid, gitRoot);
+            } catch {
+              // skip
+            }
+          }
           skipped++;
           continue;
         }
@@ -536,13 +729,20 @@ export class TrailDatabase {
         try {
           this.importSession(filePath, projectName);
           imported++;
+          if (gitRoot) {
+            try {
+              commitsResolved += this.resolveCommits(sid, gitRoot);
+            } catch {
+              // skip
+            }
+          }
         } catch {
           // Skip files that fail to import
         }
       }
 
     this.save();
-    return { imported, skipped };
+    return { imported, skipped, commitsResolved };
   }
 
   // -------------------------------------------------------------------------
@@ -625,6 +825,57 @@ export class TrailDatabase {
     }
 
     return result;
+  }
+
+  getSessionCommitStats(
+    sessionIds: readonly string[],
+  ): Map<string, { commits: number; linesAdded: number; linesDeleted: number; filesChanged: number }> {
+    if (sessionIds.length === 0) return new Map();
+    const db = this.ensureDb();
+    const result = new Map<string, {
+      commits: number; linesAdded: number; linesDeleted: number; filesChanged: number;
+    }>();
+    const placeholders = sessionIds.map(() => '?').join(',');
+
+    try {
+      const rows = db.exec(
+        `SELECT session_id,
+          COUNT(*) AS commits,
+          COALESCE(SUM(lines_added), 0) AS lines_added,
+          COALESCE(SUM(lines_deleted), 0) AS lines_deleted,
+          COALESCE(SUM(files_changed), 0) AS files_changed
+        FROM session_commits
+        WHERE session_id IN (${placeholders})
+        GROUP BY session_id`,
+        sessionIds as string[],
+      );
+      for (const row of rows[0]?.values ?? []) {
+        result.set(String(row[0]), {
+          commits: Number(row[1]),
+          linesAdded: Number(row[2]),
+          linesDeleted: Number(row[3]),
+          filesChanged: Number(row[4]),
+        });
+      }
+    } catch {
+      // Graceful fallback
+    }
+
+    return result;
+  }
+
+  getSessionCommits(sessionId: string): SessionCommitRow[] {
+    const db = this.ensureDb();
+    const stmt = db.prepare(
+      'SELECT * FROM session_commits WHERE session_id = ? ORDER BY committed_at ASC',
+    );
+    stmt.bind([sessionId]);
+    const rows: SessionCommitRow[] = [];
+    while (stmt.step()) {
+      rows.push(stmt.getAsObject() as unknown as SessionCommitRow);
+    }
+    stmt.free();
+    return rows;
   }
 
   getMessages(sessionId: string): MessageRow[] {
@@ -835,6 +1086,18 @@ export class TrailDatabase {
       outputTokens: Number(r[3]),
     }));
 
+    // Commit totals
+    const commitTotals = db.exec(
+      `SELECT COUNT(*) AS total_commits,
+        COALESCE(SUM(lines_added), 0) AS total_lines_added,
+        COALESCE(SUM(lines_deleted), 0) AS total_lines_deleted
+      FROM session_commits`,
+    );
+    const cr = commitTotals[0]?.values[0] ?? [0, 0, 0];
+    const totalCommits = Number(cr[0]);
+    const totalLinesAdded = Number(cr[1]);
+    const totalLinesDeleted = Number(cr[2]);
+
     // Estimate total cost
     const totalEstimatedCost = modelBreakdown.reduce(
       (sum, m) => sum + m.estimatedCostUsd, 0,
@@ -848,6 +1111,9 @@ export class TrailDatabase {
         cacheReadTokens: totalCacheRead,
         cacheCreationTokens: totalCacheCreation,
         estimatedCostUsd: totalEstimatedCost,
+        totalCommits,
+        totalLinesAdded,
+        totalLinesDeleted,
       },
       toolUsage,
       modelBreakdown,

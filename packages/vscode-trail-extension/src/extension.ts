@@ -292,7 +292,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Trail Database + Data Server (non-blocking initialization)
 	trailDb = new TrailDatabase(extensionDistPath);
-	trailDataServer = new TrailDataServer(extensionDistPath, trailDb);
+	const gitRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+	trailDataServer = new TrailDataServer(extensionDistPath, trailDb, gitRoot);
 	TrailPanel.setDataServer(trailDataServer);
 	const trailPort = vscode.workspace.getConfiguration('anytimeTrail.trailServer').get<number>('port', 19841);
 
@@ -339,9 +340,10 @@ export async function activate(context: vscode.ExtensionContext) {
 						cancellable: false,
 					},
 					async (progress) => {
+						const gitRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 						return trailDb!.importAll((message, increment) => {
 							progress.report({ message, increment });
-						});
+						}, gitRoot);
 					},
 				);
 				TrailLogger.info(`Trail DB: import complete - imported=${result.imported}, skipped=${result.skipped}`);
@@ -352,7 +354,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				trailDataServer?.notifySessionsUpdated();
 
 				vscode.window.showInformationMessage(
-					`Trail: imported ${result.imported} sessions (${result.skipped} skipped)`,
+					`Trail: imported ${result.imported} sessions, ${result.commitsResolved} commits linked (${result.skipped} skipped)`,
 				);
 			} catch (err) {
 				dashboardProvider.setImporting(false);

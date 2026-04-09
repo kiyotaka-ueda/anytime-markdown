@@ -33,6 +33,7 @@ export interface TrailViewerCoreProps {
   readonly prompts?: readonly TrailPromptEntry[];
   readonly analytics?: AnalyticsData | null;
   readonly fetchSessionMessages?: AnalyticsPanelProps['fetchSessionMessages'];
+  readonly fetchSessionCommits?: AnalyticsPanelProps['fetchSessionCommits'];
 }
 
 const SESSION_LIST_WIDTH = 300;
@@ -50,6 +51,7 @@ export function TrailViewerCore({
   prompts = [],
   analytics = null,
   fetchSessionMessages,
+  fetchSessionCommits,
 }: Readonly<TrailViewerCoreProps>) {
   const [activeTab, setActiveTab] = useState(0);
   const selectedSession = sessions.find((s) => s.id === selectedSessionId);
@@ -84,6 +86,7 @@ export function TrailViewerCore({
           sessions={allSessions ?? sessions}
           onSelectSession={onSelectSession}
           fetchSessionMessages={fetchSessionMessages}
+          fetchSessionCommits={fetchSessionCommits}
         />
       )}
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
@@ -11,7 +11,7 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 import { BarChart } from '@mui/x-charts/BarChart';
 import { LineChart } from '@mui/x-charts/LineChart';
-import type { TrailMessage, TrailSession } from '../parser/types';
+import type { TrailMessage, TrailSession, TrailSessionCommit, TrailTokenUsage } from '../parser/types';
 
 // ---------------------------------------------------------------------------
 //  Types
@@ -25,6 +25,9 @@ export interface AnalyticsData {
     readonly cacheReadTokens: number;
     readonly cacheCreationTokens: number;
     readonly estimatedCostUsd: number;
+    readonly totalCommits: number;
+    readonly totalLinesAdded: number;
+    readonly totalLinesDeleted: number;
   };
   readonly toolUsage: readonly { name: string; count: number }[];
   readonly modelBreakdown: readonly {
@@ -57,6 +60,7 @@ export interface AnalyticsPanelProps {
   readonly sessions?: readonly TrailSession[];
   readonly onSelectSession?: (id: string) => void;
   readonly fetchSessionMessages?: (id: string) => Promise<readonly TrailMessage[]>;
+  readonly fetchSessionCommits?: (id: string) => Promise<readonly TrailSessionCommit[]>;
 }
 
 // ---------------------------------------------------------------------------
@@ -107,22 +111,55 @@ function OverviewCards({ totals }: Readonly<{ totals: AnalyticsData['totals'] }>
     { label: 'Cache Read Tokens', value: fmtTokens(totals.cacheReadTokens) },
   ];
 
+  const totalTokens = totals.inputTokens + totals.outputTokens;
+  const hasLines = totals.totalLinesAdded > 0;
+  const commitCards = [
+    { label: 'Total Commits', value: fmtNum(totals.totalCommits) },
+    { label: 'Lines Added', value: fmtNum(totals.totalLinesAdded) },
+    { label: 'Tokens/Line', value: hasLines
+        ? fmtTokens(Math.round(totalTokens / totals.totalLinesAdded))
+        : '\u2014' },
+    { label: 'Cost/Line', value: hasLines
+        ? fmtUsd(totals.estimatedCostUsd / totals.totalLinesAdded)
+        : '\u2014' },
+  ];
+
   return (
-    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-      {cards.map((c) => (
-        <Paper
-          key={c.label}
-          variant="outlined"
-          sx={{ flex: '1 1 140px', p: 2, minWidth: 140, textAlign: 'center' }}
-        >
-          <Typography variant="caption" color="text.secondary">
-            {c.label}
-          </Typography>
-          <Typography variant="h5" sx={{ mt: 0.5 }}>
-            {c.value}
-          </Typography>
-        </Paper>
-      ))}
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+        {cards.map((c) => (
+          <Paper
+            key={c.label}
+            variant="outlined"
+            sx={{ flex: '1 1 140px', p: 2, minWidth: 140, textAlign: 'center' }}
+          >
+            <Typography variant="caption" color="text.secondary">
+              {c.label}
+            </Typography>
+            <Typography variant="h5" sx={{ mt: 0.5 }}>
+              {c.value}
+            </Typography>
+          </Paper>
+        ))}
+      </Box>
+      {totals.totalCommits > 0 && (
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          {commitCards.map((c) => (
+            <Paper
+              key={c.label}
+              variant="outlined"
+              sx={{ flex: '1 1 140px', p: 2, minWidth: 140, textAlign: 'center' }}
+            >
+              <Typography variant="caption" color="text.secondary">
+                {c.label}
+              </Typography>
+              <Typography variant="h5" sx={{ mt: 0.5 }}>
+                {c.value}
+              </Typography>
+            </Paper>
+          ))}
+        </Box>
+      )}
     </Box>
   );
 }
@@ -225,17 +262,122 @@ function SessionCacheTimeline({
   );
 }
 
+function SessionCommitList({
+  sessionId,
+  usage,
+  fetchSessionCommits,
+  onClose,
+}: Readonly<{
+  sessionId: string;
+  usage: TrailTokenUsage;
+  fetchSessionCommits: (id: string) => Promise<readonly TrailSessionCommit[]>;
+  onClose: () => void;
+}>) {
+  const [commits, setCommits] = useState<readonly TrailSessionCommit[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const result = await fetchSessionCommits(sessionId);
+        if (!cancelled) setCommits(result);
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [sessionId, fetchSessionCommits]);
+
+  const totalAdded = commits.reduce((sum, c) => sum + c.linesAdded, 0);
+  const totalTokens = usage.inputTokens + usage.outputTokens;
+  const tokensPerLine = totalAdded > 0 ? Math.round(totalTokens / totalAdded) : 0;
+
+  if (loading) {
+    return (
+      <Paper variant="outlined" sx={{ mt: 1, p: 1.5 }}>
+        <Typography variant="body2" color="text.secondary">Loading commits...</Typography>
+      </Paper>
+    );
+  }
+
+  return (
+    <Paper variant="outlined" sx={{ mt: 1, p: 1.5 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+        <Typography variant="subtitle2">
+          Related Commits ({commits.length})
+        </Typography>
+        <Typography
+          variant="caption" color="text.secondary"
+          sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+          onClick={onClose}
+        >
+          Close
+        </Typography>
+      </Box>
+      {commits.length === 0 ? (
+        <Typography variant="body2" color="text.secondary">
+          No commits found in this session&apos;s time range
+        </Typography>
+      ) : (
+        <>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Hash</TableCell>
+                <TableCell>Message</TableCell>
+                <TableCell align="right">Files</TableCell>
+                <TableCell align="right">+/-</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {commits.map((c) => (
+                <TableRow key={c.commitHash}>
+                  <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                    {c.commitHash.slice(0, 8)}
+                    {c.isAiAssisted && (
+                      <Typography component="span" variant="caption" sx={{ ml: 0.5, color: 'info.main' }}>
+                        AI
+                      </Typography>
+                    )}
+                  </TableCell>
+                  <TableCell sx={{ fontSize: '0.8rem', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {c.commitMessage}
+                  </TableCell>
+                  <TableCell align="right">{c.filesChanged}</TableCell>
+                  <TableCell align="right" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                    +{fmtNum(c.linesAdded)} / -{fmtNum(c.linesDeleted)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          {totalAdded > 0 && (
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              Tokens/Line: {fmtTokens(tokensPerLine)}
+            </Typography>
+          )}
+        </>
+      )}
+    </Paper>
+  );
+}
+
 function DailySessionList({
   date,
   sessions,
   onSelectSession,
   fetchSessionMessages,
+  fetchSessionCommits,
   onClose,
 }: Readonly<{
   date: string;
   sessions: readonly TrailSession[];
   onSelectSession?: (id: string) => void;
   fetchSessionMessages?: (id: string) => Promise<readonly TrailMessage[]>;
+  fetchSessionCommits?: (id: string) => Promise<readonly TrailSessionCommit[]>;
   onClose: () => void;
 }>) {
   const [timelineSessionId, setTimelineSessionId] = useState<string | null>(null);
@@ -290,6 +432,8 @@ function DailySessionList({
               <TableCell align="right">Init Context</TableCell>
               <TableCell align="right">Peak Context</TableCell>
               <TableCell align="right">Messages</TableCell>
+              <TableCell align="right">Commits</TableCell>
+              <TableCell align="right">+/-</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -313,6 +457,14 @@ function DailySessionList({
                 <TableCell align="right">{fmtTokens(s.initialContextTokens ?? 0)}</TableCell>
                 <TableCell align="right">{fmtTokens(s.peakContextTokens ?? 0)}</TableCell>
                 <TableCell align="right">{fmtNum(s.messageCount)}</TableCell>
+                <TableCell align="right">
+                  {s.commitStats ? fmtNum(s.commitStats.commits) : '\u2014'}
+                </TableCell>
+                <TableCell align="right" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                  {s.commitStats
+                    ? `+${fmtNum(s.commitStats.linesAdded)} / -${fmtNum(s.commitStats.linesDeleted)}`
+                    : '\u2014'}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -327,6 +479,14 @@ function DailySessionList({
           onClose={() => { setTimelineSessionId(null); setTimelineMessages([]); }}
         />
       )}
+      {timelineSessionId && fetchSessionCommits && (
+        <SessionCommitList
+          sessionId={timelineSessionId}
+          usage={daySessions.find((s) => s.id === timelineSessionId)?.usage ?? { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 }}
+          fetchSessionCommits={fetchSessionCommits}
+          onClose={() => { setTimelineSessionId(null); setTimelineMessages([]); }}
+        />
+      )}
     </Paper>
   );
 }
@@ -336,11 +496,13 @@ function DailyActivityChart({
   sessions,
   onSelectSession,
   fetchSessionMessages,
+  fetchSessionCommits,
 }: Readonly<{
   items: AnalyticsData['dailyActivity'];
   sessions: readonly TrailSession[];
   onSelectSession?: (id: string) => void;
   fetchSessionMessages?: (id: string) => Promise<readonly TrailMessage[]>;
+  fetchSessionCommits?: (id: string) => Promise<readonly TrailSessionCommit[]>;
 }>) {
   const [mode, setMode] = useState<DailyViewMode>('tokens');
   const [period, setPeriod] = useState<PeriodDays>(30);
@@ -424,6 +586,7 @@ function DailyActivityChart({
           sessions={sessions}
           onSelectSession={onSelectSession}
           fetchSessionMessages={fetchSessionMessages}
+          fetchSessionCommits={fetchSessionCommits}
           onClose={() => setSelectedDate(null)}
         />
       )}
@@ -505,7 +668,7 @@ function BranchTable({ items }: Readonly<{ items: AnalyticsData['branchBreakdown
 //  Main component
 // ---------------------------------------------------------------------------
 
-export function AnalyticsPanel({ analytics, isDark: _isDark, sessions = [], onSelectSession, fetchSessionMessages }: Readonly<AnalyticsPanelProps>) {
+export function AnalyticsPanel({ analytics, isDark: _isDark, sessions = [], onSelectSession, fetchSessionMessages, fetchSessionCommits }: Readonly<AnalyticsPanelProps>) {
   if (!analytics) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
@@ -520,7 +683,7 @@ export function AnalyticsPanel({ analytics, isDark: _isDark, sessions = [], onSe
     <Box sx={{ overflow: 'auto', flex: 1, p: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
       <OverviewCards totals={analytics.totals} />
       <ToolUsageChart items={analytics.toolUsage} />
-      <DailyActivityChart items={analytics.dailyActivity} sessions={sessions} onSelectSession={onSelectSession} fetchSessionMessages={fetchSessionMessages} />
+      <DailyActivityChart items={analytics.dailyActivity} sessions={sessions} onSelectSession={onSelectSession} fetchSessionMessages={fetchSessionMessages} fetchSessionCommits={fetchSessionCommits} />
       <ModelTable items={analytics.modelBreakdown} />
       <BranchTable items={analytics.branchBreakdown} />
     </Box>
