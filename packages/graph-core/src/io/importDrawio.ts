@@ -176,8 +176,7 @@ export function importFromDrawio(xmlString: string): GraphDocument {
 
       const isOrthogonal = style['edgeStyle'] === 'orthogonalEdgeStyle';
       const isCurved = style['curved'] === '1';
-      const nonOrthogonalType: EdgeType = 'line';
-      const edgeType: EdgeType = isOrthogonal ? 'connector' : nonOrthogonalType;
+      const edgeType: EdgeType = isOrthogonal ? 'connector' : 'line';
       const routing = isCurved ? 'bezier' as const : undefined;
 
       const edgeStroke = colorFromHex(style['strokeColor'], DEFAULT_EDGE_STYLE.stroke);

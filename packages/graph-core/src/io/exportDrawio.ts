@@ -3,8 +3,8 @@ import { escapeXml, toHexColor } from './utils';
 
 function nodeStyle(node: GraphNode): string {
   const parts: string[] = [];
-  const fill = toHexColor(node.style.fill).replace('#', '');
-  const stroke = toHexColor(node.style.stroke).replace('#', '');
+  const fill = toHexColor(node.style.fill).replaceAll('#', '');
+  const stroke = toHexColor(node.style.stroke).replaceAll('#', '');
 
   switch (node.type) {
     case 'ellipse':
@@ -46,7 +46,7 @@ function nodeStyle(node: GraphNode): string {
     `fontFamily=${node.style.fontFamily}`,
   );
 
-  const fontColor = node.style.fontColor ? toHexColor(node.style.fontColor).replace('#', '') : 'FFFFFF';
+  const fontColor = node.style.fontColor ? toHexColor(node.style.fontColor).replaceAll('#', '') : 'FFFFFF';
   parts.push(`fontColor=#${fontColor}`);
   if (node.style.fontStyle) parts.push(`fontStyle=${node.style.fontStyle}`);
   if (node.style.align && node.style.align !== 'center') parts.push(`align=${node.style.align}`);
@@ -67,7 +67,7 @@ function nodeStyle(node: GraphNode): string {
 
 function edgeStyle(edge: GraphEdge): string {
   const parts: string[] = [];
-  const stroke = toHexColor(edge.style.stroke).replace('#', '');
+  const stroke = toHexColor(edge.style.stroke).replaceAll('#', '');
 
   if (edge.type === 'connector') {
     const routing = edge.style.routing ?? 'orthogonal';

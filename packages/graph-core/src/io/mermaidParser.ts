@@ -41,10 +41,10 @@ export function parseNodeDef(token: string): ParsedNode | null {
     { regex: /^(\w+)\(\[(.+?)\]\)$/, type: 'ellipse' },           // ([stadium])
     { regex: /^(\w+)\(\((.+?)\)\)$/, type: 'ellipse' },           // ((circle))
     { regex: /^(\w+)\[\((.+?)\)\]$/, type: 'cylinder' },          // [(cylinder)]
-    { regex: /^(\w+)\{\{(.+?)\}\}$/, type: 'diamond' },           // {{hexagon}}
+    { regex: /^(\w+)\{\{(.+?)\}\}$/, type: 'diamond' },
     { regex: /^(\w+)\[(.+?)\]$/, type: 'rect' },                  // [rect]
     { regex: /^(\w+)\((.+?)\)$/, type: 'rect', borderRadius: 10 }, // (round)
-    { regex: /^(\w+)\{(.+?)\}$/, type: 'diamond' },               // {diamond}
+    { regex: /^(\w+)\{(.+?)\}$/, type: 'diamond' },
     { regex: /^(\w+)>(.+?)\]$/, type: 'parallelogram' },          // >asymmetric]
   ];
 
