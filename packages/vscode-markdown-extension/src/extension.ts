@@ -7,12 +7,19 @@ import { AiNoteProvider, AiNoteItem } from './providers/AiNoteProvider';
 import { setupClaudeHooks } from './utils/claudeHookSetup';
 import { ClaudeStatusWatcher } from './utils/claudeStatusWatcher';
 
-/** ノートファイルをカスタムエディタで開く（破損キャッシュ回避のため showTextDocument 後に openWith） */
+/** ノートファイルをカスタムエディタで開く（既存の破損タブを先に閉じてから openWith） */
 async function openNoteFile(filePath: string): Promise<void> {
 	const uri = vscode.Uri.file(filePath);
+	// 同じ URI の既存タブをすべて閉じる（破損キャッシュを持つタブを除去）
+	for (const group of vscode.window.tabGroups.all) {
+		for (const tab of group.tabs) {
+			const input = tab.input as { uri?: vscode.Uri } | undefined;
+			if (input?.uri?.fsPath === uri.fsPath) {
+				await vscode.window.tabGroups.close(tab, true);
+			}
+		}
+	}
 	try {
-		const doc = await vscode.workspace.openTextDocument(uri);
-		await vscode.window.showTextDocument(doc, { preview: false, viewColumn: vscode.ViewColumn.Active });
 		await vscode.commands.executeCommand('vscode.openWith', uri, MarkdownEditorProvider.viewType);
 	} catch {
 		vscode.window.showErrorMessage(`ノートファイルを開けませんでした: ${filePath}`);
