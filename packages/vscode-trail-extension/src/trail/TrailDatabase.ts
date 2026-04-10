@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { toUTC } from './dateUtils';
 
 declare const __non_webpack_require__: (id: string) => unknown;
 
@@ -477,6 +478,79 @@ export class TrailDatabase {
     try {
       db.run('ALTER TABLE messages ADD COLUMN cost_category TEXT');
     } catch { /* Column already exists */ }
+
+    this.migrateTimestampsToUTC(db);
+  }
+
+  /**
+   * 既存データの日時カラムをUTC ISO 8601に一括変換する。
+   * 一度実行済みなら _migrations テーブルのフラグで二重実行を防止する。
+   */
+  private migrateTimestampsToUTC(db: Database): void {
+    db.run('CREATE TABLE IF NOT EXISTS _migrations (key TEXT PRIMARY KEY)');
+
+    const done = db.exec(
+      "SELECT 1 FROM _migrations WHERE key = 'timestamps_to_utc'",
+    );
+    if (done[0]?.values?.length) return;
+
+    db.run('BEGIN TRANSACTION');
+    try {
+      // sessions: start_time, end_time, imported_at, commits_resolved_at
+      const sessions = db.exec(
+        'SELECT id, start_time, end_time, imported_at, commits_resolved_at FROM sessions',
+      );
+      if (sessions[0]?.values) {
+        const stmt = db.prepare(
+          'UPDATE sessions SET start_time = ?, end_time = ?, imported_at = ?, commits_resolved_at = ? WHERE id = ?',
+        );
+        for (const row of sessions[0].values) {
+          stmt.run([
+            toUTC(String(row[1] ?? '')),
+            toUTC(String(row[2] ?? '')),
+            toUTC(String(row[3] ?? '')),
+            row[4] ? toUTC(String(row[4])) : null,
+            String(row[0]),
+          ]);
+        }
+        stmt.free();
+      }
+
+      // messages: timestamp
+      const messages = db.exec('SELECT uuid, timestamp FROM messages');
+      if (messages[0]?.values) {
+        const stmt = db.prepare(
+          'UPDATE messages SET timestamp = ? WHERE uuid = ?',
+        );
+        for (const row of messages[0].values) {
+          stmt.run([toUTC(String(row[1] ?? '')), String(row[0])]);
+        }
+        stmt.free();
+      }
+
+      // session_commits: committed_at
+      const commits = db.exec(
+        'SELECT session_id, commit_hash, committed_at FROM session_commits',
+      );
+      if (commits[0]?.values) {
+        const stmt = db.prepare(
+          'UPDATE session_commits SET committed_at = ? WHERE session_id = ? AND commit_hash = ?',
+        );
+        for (const row of commits[0].values) {
+          stmt.run([
+            toUTC(String(row[2] ?? '')),
+            String(row[0]),
+            String(row[1]),
+          ]);
+        }
+        stmt.free();
+      }
+
+      db.run("INSERT INTO _migrations (key) VALUES ('timestamps_to_utc')");
+      db.run('COMMIT');
+    } catch {
+      db.run('ROLLBACK');
+    }
   }
 
   save(): void {
@@ -616,7 +690,7 @@ export class TrailDatabase {
       const hash = parts[0];
       const subject = parts[1];
       const author = parts[2];
-      const committedAt = parts[3];
+      const committedAt = toUTC(parts[3]);
       const body = parts[4] ?? '';
 
       // Check for AI co-authoring
@@ -710,8 +784,8 @@ export class TrailDatabase {
       if (!entrypoint && raw.entrypoint) entrypoint = raw.entrypoint;
       if (!permissionMode && raw.permissionMode) permissionMode = raw.permissionMode;
       if (!model && raw.message?.model) model = raw.message.model;
-      if (!startTime && raw.timestamp) startTime = raw.timestamp;
-      if (raw.timestamp) endTime = raw.timestamp;
+      if (!startTime && raw.timestamp) startTime = toUTC(raw.timestamp);
+      if (raw.timestamp) endTime = toUTC(raw.timestamp);
 
       const usage = raw.message?.usage;
       if (usage) {
@@ -799,7 +873,7 @@ export class TrailDatabase {
           raw.message?.usage?.cache_creation_input_tokens ?? 0,
           raw.message?.usage?.service_tier ?? null,
           raw.message?.usage?.speed ?? null,
-          raw.timestamp ?? '',
+          toUTC(raw.timestamp ?? ''),
           raw.isSidechain ? 1 : 0,
           raw.isMeta ? 1 : 0,
           raw.cwd ?? null,
