@@ -721,7 +721,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     ctx.fillRect(handleX, handleY, 10, 10);
 
     // 12. Reorder drag indicator
-    if (reorderDrag && reorderDrag.targetIndex !== null) {
+    if (reorderDrag?.targetIndex != null) {
       ctx.strokeStyle = primaryColor;
       ctx.lineWidth = 3;
       ctx.beginPath();
@@ -1079,7 +1079,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
           document.removeEventListener("mouseup", onMouseUp);
           if (dragStarted) {
             const drag = reorderDragRef.current;
-            if (drag && drag.targetIndex !== null && drag.targetIndex !== drag.sourceIndex) {
+            if (drag?.targetIndex != null && drag.targetIndex !== drag.sourceIndex) {
               const from = drag.sourceIndex;
               const to = drag.targetIndex > from ? drag.targetIndex - 1 : drag.targetIndex;
               if (from !== to) {
@@ -1126,7 +1126,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
           document.removeEventListener("mouseup", onMouseUp);
           if (dragStarted) {
             const drag = reorderDragRef.current;
-            if (drag && drag.targetIndex !== null && drag.targetIndex !== drag.sourceIndex) {
+            if (drag?.targetIndex != null && drag.targetIndex !== drag.sourceIndex) {
               const from = drag.sourceIndex;
               const to = drag.targetIndex > from ? drag.targetIndex - 1 : drag.targetIndex;
               if (from !== to) {
