@@ -554,6 +554,13 @@ export class TrailDatabase {
     }
   }
 
+  /** SQLiteのDATE()に渡すローカルTZオフセット文字列を返す */
+  private getLocalTzOffset(): string {
+    const offsetMin = -new Date().getTimezoneOffset();
+    const sign = offsetMin >= 0 ? '+' : '-';
+    return `${sign}${Math.abs(offsetMin)} minutes`;
+  }
+
   save(): void {
     const db = this.ensureDb();
     const data = db.export();
@@ -1511,8 +1518,9 @@ export class TrailDatabase {
     });
 
     // Daily activity (last 90 days — frontend filters to 7/30/90)
+    const tzOffset = this.getLocalTzOffset();
     const dailyResult = db.exec(
-      `SELECT DATE(start_time) as d, COUNT(*),
+      `SELECT DATE(start_time, '${tzOffset}') as d, COUNT(*),
         COALESCE(SUM(input_tokens),0),
         COALESCE(SUM(output_tokens),0),
         COALESCE(SUM(cache_read_tokens),0),
@@ -1715,8 +1723,9 @@ export class TrailDatabase {
     }
 
     // 4. Daily breakdown (last 90 days)
+    const tzOffset = this.getLocalTzOffset();
     const dailyResult = db.exec(
-      `SELECT DATE(m.timestamp) AS d,
+      `SELECT DATE(m.timestamp, '${tzOffset}') AS d,
               SUM(m.input_tokens) AS inp, SUM(m.output_tokens) AS outp,
               SUM(m.cache_read_tokens) AS cr, COALESCE(m.model,'') AS mdl
        FROM messages m
@@ -1740,7 +1749,7 @@ export class TrailDatabase {
 
     // Refine daily with per-message classification
     const dailyDetailResult = db.exec(
-      `SELECT DATE(a.timestamp) AS d,
+      `SELECT DATE(a.timestamp, '${tzOffset}') AS d,
               COALESCE(u.rule_recommended_model, 'sonnet') AS rule_rec,
               COALESCE(a.feature_recommended_model, 'sonnet') AS feat_rec,
               a.input_tokens, a.output_tokens, a.cache_read_tokens

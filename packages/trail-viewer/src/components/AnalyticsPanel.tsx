@@ -13,7 +13,7 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { BarChart } from '@mui/x-charts/BarChart';
 import { LineChart } from '@mui/x-charts/LineChart';
-import { formatLocalTime } from '@anytime-markdown/trail-core/formatDate';
+import { formatLocalTime, toLocalDateKey } from '@anytime-markdown/trail-core/formatDate';
 import type { CostOptimizationData, ToolMetrics, TrailMessage, TrailSession, TrailSessionCommit, TrailTokenUsage } from '../parser/types';
 import { CostOptimizationSection } from './CostOptimizationSection';
 import { useTrailTheme } from './TrailThemeContext';
@@ -711,7 +711,7 @@ function DailyActivityChart({
 
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - period);
-  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  const cutoffStr = toLocalDateKey(cutoff.toISOString());
   const filtered = items.filter((d) => d.date >= cutoffStr);
 
   const isTokens = mode === 'tokens';
