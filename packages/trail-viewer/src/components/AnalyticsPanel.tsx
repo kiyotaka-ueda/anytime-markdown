@@ -726,8 +726,8 @@ function DailyActivityChart({
 
   const yFormatter = isTokens ? fmtTokens : fmtUsd;
 
-  const handleBarClick = (_event: unknown, params: { dataIndex?: number } | null) => {
-    const idx = params?.dataIndex;
+  const handleAxisClick = (_event: MouseEvent, data: { dataIndex: number } | null) => {
+    const idx = data?.dataIndex;
     if (idx == null || idx < 0 || idx >= dataset.length) return;
     const fullDate = dataset[idx].fullDate;
     setSelectedDate((prev) => (prev === fullDate ? null : fullDate));
@@ -776,7 +776,7 @@ function DailyActivityChart({
         slotProps={{
           legend: { direction: 'horizontal', position: { vertical: 'top', horizontal: 'end' } },
         }}
-        onItemClick={handleBarClick}
+        onAxisClick={handleAxisClick}
       />
       {selectedDate && (
         <DailySessionList

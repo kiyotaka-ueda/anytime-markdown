@@ -503,6 +503,19 @@ export class TrailDatabase {
     return exists;
   }
 
+  getImportedFileSize(sessionId: string): number {
+    const db = this.ensureDb();
+    const stmt = db.prepare('SELECT file_size FROM sessions WHERE id = ? LIMIT 1');
+    stmt.bind([sessionId]);
+    if (stmt.step()) {
+      const row = stmt.getAsObject() as unknown as { file_size: number };
+      stmt.free();
+      return row.file_size;
+    }
+    stmt.free();
+    return 0;
+  }
+
   isCommitsResolved(sessionId: string): boolean {
     const db = this.ensureDb();
     const stmt = db.prepare(
@@ -648,7 +661,7 @@ export class TrailDatabase {
     return count;
   }
 
-  importSession(filePath: string, projectName: string): void {
+  importSession(filePath: string, projectName: string, isSubagent = false): void {
     const db = this.ensureDb();
     const content = fs.readFileSync(filePath, 'utf-8');
     const lines = content.split('\n').filter((l) => l.trim() !== '');
@@ -719,13 +732,15 @@ export class TrailDatabase {
 
     db.run('BEGIN TRANSACTION');
     try {
-      // Insert session
-      db.run(INSERT_SESSION, [
-        sessionId, slug, projectName, gitBranch, cwd, model, version,
-        entrypoint, permissionMode, startTime, endTime, messageCount,
-        totalInput, totalOutput, totalCacheRead, totalCacheCreation,
-        filePath, fileSize, importedAt,
-      ]);
+      // Insert/update session metadata only for main session files
+      if (!isSubagent) {
+        db.run(INSERT_SESSION, [
+          sessionId, slug, projectName, gitBranch, cwd, model, version,
+          entrypoint, permissionMode, startTime, endTime, messageCount,
+          totalInput, totalOutput, totalCacheRead, totalCacheCreation,
+          filePath, fileSize, importedAt,
+        ]);
+      }
 
       // Insert messages
       const msgStmt = db.prepare(INSERT_MESSAGE);
@@ -840,29 +855,68 @@ export class TrailDatabase {
       const increment = totalFiles > 0 ? 100 / totalFiles : 0;
       onProgress?.(`(${i + 1}/${totalFiles}) Importing...`, increment);
 
-      // Extract sessionId from first few lines
+      // Extract sessionId — try filename first, then parse file content
         let sid = '';
-        try {
-          const head = fs.readFileSync(filePath, 'utf-8').slice(0, 8192);
-          const headLines = head.split('\n').filter((l) => l.trim() !== '');
-          for (const line of headLines.slice(0, 10)) {
-            try {
-              const obj = JSON.parse(line) as { sessionId?: string };
-              if (obj.sessionId) {
-                sid = obj.sessionId;
-                break;
+        const basename = path.basename(filePath, '.jsonl');
+        const UUID_RE = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/;
+        if (UUID_RE.test(basename)) {
+          sid = basename;
+        } else {
+          try {
+            const head = fs.readFileSync(filePath, 'utf-8').slice(0, 65536);
+            const headLines = head.split('\n').filter((l) => l.trim() !== '');
+            for (const line of headLines.slice(0, 20)) {
+              try {
+                const obj = JSON.parse(line) as { sessionId?: string };
+                if (obj.sessionId) {
+                  sid = obj.sessionId;
+                  break;
+                }
+              } catch {
+                // skip
               }
-            } catch {
-              // skip
             }
+          } catch {
+            continue;
           }
-        } catch {
-          continue;
         }
 
         if (!sid) continue;
 
+        // Subagent files share the parent sessionId — import messages only
+        const isSubagent = path.basename(filePath).startsWith('agent-')
+          || filePath.includes(`${path.sep}subagents${path.sep}`);
+
         if (this.isImported(sid)) {
+          // Re-import if the main file has grown (new messages appended)
+          if (!isSubagent) {
+            let currentFileSize = 0;
+            try {
+              currentFileSize = fs.statSync(filePath).size;
+            } catch {
+              // skip
+            }
+            const importedSize = this.getImportedFileSize(sid);
+            if (currentFileSize > importedSize) {
+              try {
+                this.importSession(filePath, projectName);
+                imported++;
+              } catch {
+                // skip
+              }
+            } else {
+              skipped++;
+            }
+          }
+          // Always import subagent messages (messages use INSERT OR REPLACE)
+          if (isSubagent) {
+            try {
+              this.importSession(filePath, projectName, true);
+              imported++;
+            } catch {
+              // skip
+            }
+          }
           if (gitRoot && !this.isCommitsResolved(sid)) {
             try {
               commitsResolved += this.resolveCommits(sid, gitRoot);
@@ -870,12 +924,11 @@ export class TrailDatabase {
               // skip
             }
           }
-          skipped++;
           continue;
         }
 
         try {
-          this.importSession(filePath, projectName);
+          this.importSession(filePath, projectName, isSubagent);
           imported++;
           if (gitRoot) {
             try {

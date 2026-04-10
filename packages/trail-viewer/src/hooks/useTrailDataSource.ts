@@ -276,6 +276,38 @@ export function useTrailDataSource(
     [fetchSessions],
   );
 
+  // --- Fetch analytics ---
+
+  const refreshAnalytics = useCallback(
+    async (): Promise<void> => {
+      try {
+        if (supabaseReader) {
+          const analyticsData = await supabaseReader.getAnalytics();
+          if (analyticsData) setAnalytics(analyticsData);
+        } else {
+          const res = await fetch(`${baseUrl}/api/trail/analytics`);
+          if (res.ok) {
+            const data: unknown = await res.json();
+            if (data && typeof data === 'object' && 'totals' in data) {
+              setAnalytics(data as AnalyticsData);
+            }
+          }
+        }
+      } catch {
+        // analytics endpoint may not exist
+      }
+      if (!supabaseReader) {
+        try {
+          const data = await fetchCostOptimization();
+          if (data) setCostOptimization(data);
+        } catch {
+          // cost-optimization endpoint may not exist
+        }
+      }
+    },
+    [baseUrl, supabaseReader, fetchCostOptimization],
+  );
+
   // --- Initial fetch ---
 
   useEffect(() => {
@@ -296,37 +328,8 @@ export function useTrailDataSource(
         }
       })();
     }
-    // Fetch analytics
-    void (async () => {
-      try {
-        if (supabaseReader) {
-          const analyticsData = await supabaseReader.getAnalytics();
-          if (analyticsData) setAnalytics(analyticsData);
-        } else {
-          const res = await fetch(`${baseUrl}/api/trail/analytics`);
-          if (res.ok) {
-            const data: unknown = await res.json();
-            if (data && typeof data === 'object' && 'totals' in data) {
-              setAnalytics(data as AnalyticsData);
-            }
-          }
-        }
-      } catch {
-        // analytics endpoint may not exist
-      }
-    })();
-    // Fetch cost optimization
-    if (!supabaseReader) {
-      void (async () => {
-        try {
-          const data = await fetchCostOptimization();
-          if (data) setCostOptimization(data);
-        } catch {
-          // cost-optimization endpoint may not exist
-        }
-      })();
-    }
-  }, [fetchSessions, baseUrl, supabaseReader, fetchCostOptimization]);
+    void refreshAnalytics();
+  }, [fetchSessions, baseUrl, supabaseReader, refreshAnalytics]);
 
   // --- WebSocket (remote mode only) ---
 
@@ -347,7 +350,8 @@ export function useTrailDataSource(
         try {
           const parsed: unknown = JSON.parse(String(event.data));
           if (isWsMessage(parsed) && parsed.type === 'sessions-updated') {
-            void fetchSessions();
+            void fetchSessions(undefined, true);
+            void refreshAnalytics();
           }
         } catch {
           // Malformed message — ignore
