@@ -52,6 +52,10 @@
         {
           "id": "anytimeTrail.c4Elements",
           "name": "%view.c4Elements%"
+        },
+        {
+          "id": "anytimeTrail.aiMemory",
+          "name": "Memory"
         }
       ]
     },
@@ -130,6 +134,11 @@
         "command": "anytime-trail.reconnectSupabase",
         "title": "再接続",
         "category": "Anytime Trail"
+      },
+      {
+        "command": "anytime-trail.aiMemoryRefresh",
+        "title": "%command.aiMemoryRefresh%",
+        "icon": "$(refresh)"
       }
     ],
     "menus": {
@@ -143,6 +152,11 @@
           "command": "anytime-trail.c4View",
           "when": "view == anytimeTrail.c4Elements",
           "group": "navigation@1"
+        },
+        {
+          "command": "anytime-trail.aiMemoryRefresh",
+          "when": "view == anytimeTrail.aiMemory",
+          "group": "navigation"
         }
       ],
       "view/item/context": [
