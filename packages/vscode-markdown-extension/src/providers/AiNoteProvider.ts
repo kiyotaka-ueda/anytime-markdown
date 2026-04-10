@@ -2,6 +2,21 @@ import * as vscode from 'vscode';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
+/** ファイルの YAML フロントマターから title を取得する */
+function readFrontmatterTitle(filePath: string): string | undefined {
+	try {
+		const content = fs.readFileSync(filePath, { encoding: 'utf-8' });
+		if (!content.startsWith('---')) { return undefined; }
+		const end = content.indexOf('\n---', 3);
+		if (end === -1) { return undefined; }
+		const frontmatter = content.slice(3, end);
+		const match = /^title:\s*["']?(.+?)["']?\s*$/m.exec(frontmatter);
+		return match?.[1];
+	} catch {
+		return undefined;
+	}
+}
+
 /** ノートページの TreeItem */
 export class AiNoteItem extends vscode.TreeItem {
 	constructor(
@@ -52,7 +67,8 @@ export class AiNoteProvider implements vscode.TreeDataProvider<AiNoteItem> {
 		return files.map(fileName => {
 			const filePath = path.join(this.storageDir, fileName);
 			const num = fileName.replace('anytime-note-', '').replace('.md', '');
-			const label = `ページ${num}`;
+			const title = readFrontmatterTitle(filePath);
+			const label = title ? `ページ${num} - ${title}` : `ページ${num}`;
 			return new AiNoteItem(filePath, fileName, label);
 		});
 	}
