@@ -3,7 +3,6 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { MarkdownEditorProvider } from './providers/MarkdownEditorProvider';
 import { LinkValidationProvider } from './providers/LinkValidationProvider';
-import { AiMemoryProvider, AiMemoryItem } from './providers/AiMemoryProvider';
 import { setupClaudeHooks } from './utils/claudeHookSetup';
 import { ClaudeStatusWatcher } from './utils/claudeStatusWatcher';
 
@@ -195,25 +194,6 @@ export function activate(context: vscode.ExtensionContext) {
 	const projectDirName = workspaceRoot.replace(/\//g, '-') || '-';
 	const projectSessionsDir = sessionsDir ? path.join(sessionsDir, projectDirName) : '';
 
-	// AI Memory ビュー
-	const memoryDir = path.join(projectSessionsDir, 'memory');
-	const aiMemoryProvider = new AiMemoryProvider(memoryDir);
-	const aiMemoryTreeView = vscode.window.createTreeView('anytimeMarkdown.aiMemory', {
-		treeDataProvider: aiMemoryProvider,
-	});
-
-	const aiMemoryRefresh = vscode.commands.registerCommand(
-		'anytime-markdown.aiMemoryRefresh', () => aiMemoryProvider.refresh()
-	);
-
-	const openAiMemory = vscode.commands.registerCommand(
-		'anytime-markdown.openAiMemory',
-		async (item: AiMemoryItem) => {
-			const uri = vscode.Uri.file(item.filePath);
-			await vscode.commands.executeCommand('vscode.openWith', uri, MarkdownEditorProvider.viewType);
-		}
-	);
-
 	// Agent Note ファイルを開く
 	const openContext = vscode.commands.registerCommand(
 		'anytime-markdown.openContext',
@@ -332,8 +312,7 @@ export function activate(context: vscode.ExtensionContext) {
 		toggleAutoReloadOff, toggleAutoReloadOn,
 		switchToReview, switchToWysiwyg, switchToSource,
 		openContext, copyContextPath, clearContext,
-		aiMemoryTreeView, aiMemoryRefresh, openAiMemory,
-		...claudeSubscriptions,
+	...claudeSubscriptions,
 	);
 }
 

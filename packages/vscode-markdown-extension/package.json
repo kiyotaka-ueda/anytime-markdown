@@ -43,11 +43,6 @@
           "id": "anytimeMarkdown.aiNote",
           "name": "Note",
           "initialSize": 1
-        },
-        {
-          "id": "anytimeMarkdown.aiMemory",
-          "name": "Memory",
-          "initialSize": 2
         }
       ]
     },
@@ -112,11 +107,6 @@
         "command": "anytime-markdown.clearContext",
         "title": "%command.clearContext%",
         "icon": "$(trash)"
-      },
-      {
-        "command": "anytime-markdown.aiMemoryRefresh",
-        "title": "%command.aiMemoryRefresh%",
-        "icon": "$(refresh)"
       },
       {
         "command": "anytime-markdown.toggleAutoReloadOff",
@@ -236,11 +226,6 @@
         {
           "command": "anytime-markdown.copyContextPath",
           "when": "view == anytimeMarkdown.aiNote",
-          "group": "navigation@1"
-        },
-        {
-          "command": "anytime-markdown.aiMemoryRefresh",
-          "when": "view == anytimeMarkdown.aiMemory",
           "group": "navigation@1"
         }
       ],
