@@ -306,15 +306,19 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Supabase 同期
 	context.subscriptions.push(
 		vscode.commands.registerCommand('anytime-trail.syncToSupabase', async () => {
-			if (!supabaseStore) {
+			if (!supabaseStore || !trailDb) {
 				vscode.window.showErrorMessage('Supabase が設定されていません');
 				return;
 			}
 			dashboardProvider.setImporting(true);
 			dashboardProvider.updateSupabaseStatus('Syncing...');
 			try {
-				// TODO: SQLite → Supabase 同期処理（既存の importAll 相当を呼び出す）
-				dashboardProvider.updateSupabaseStatus('Connected');
+				const syncService = new SyncService(trailDb, supabaseStore);
+				const result = await syncService.syncWithOpenStore();
+				dashboardProvider.updateSupabaseStatus('Connected', new Date().toISOString());
+				vscode.window.showInformationMessage(
+					`Supabase sync complete: ${result.synced} synced, ${result.skipped} up-to-date, ${result.errors} errors`,
+				);
 			} catch (e) {
 				dashboardProvider.updateSupabaseStatus('Sync failed');
 				vscode.window.showErrorMessage(`同期エラー: ${e}`);
