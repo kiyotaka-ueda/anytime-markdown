@@ -109,6 +109,20 @@
         "icon": "$(trash)"
       },
       {
+        "command": "anytime-markdown.addNotePage",
+        "title": "%command.addNotePage%",
+        "icon": "$(add)"
+      },
+      {
+        "command": "anytime-markdown.deleteNotePage",
+        "title": "%command.deleteNotePage%",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "anytime-markdown.openNotePage",
+        "title": "%command.openNotePage%"
+      },
+      {
         "command": "anytime-markdown.toggleAutoReloadOff",
         "title": "%command.autoReloadDisable%",
         "icon": "$(sync)",
@@ -219,6 +233,11 @@
     "menus": {
       "view/title": [
         {
+          "command": "anytime-markdown.addNotePage",
+          "when": "view == anytimeMarkdown.aiNote",
+          "group": "navigation@1"
+        },
+        {
           "command": "anytime-markdown.clearContext",
           "when": "view == anytimeMarkdown.aiNote",
           "group": "navigation@2"
@@ -226,7 +245,14 @@
         {
           "command": "anytime-markdown.copyContextPath",
           "when": "view == anytimeMarkdown.aiNote",
-          "group": "navigation@1"
+          "group": "navigation@3"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "anytime-markdown.deleteNotePage",
+          "when": "view == anytimeMarkdown.aiNote && viewItem == noteItem",
+          "group": "inline"
         }
       ],
       "explorer/context": [

@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { MarkdownEditorProvider } from './providers/MarkdownEditorProvider';
 import { LinkValidationProvider } from './providers/LinkValidationProvider';
+import { AiNoteProvider, AiNoteItem } from './providers/AiNoteProvider';
 import { setupClaudeHooks } from './utils/claudeHookSetup';
 import { ClaudeStatusWatcher } from './utils/claudeStatusWatcher';
 
@@ -179,9 +180,11 @@ export function activate(context: vscode.ExtensionContext) {
 		() => { MarkdownEditorProvider.getInstance()?.switchMode('source'); }
 	);
 
-	// Agent Note ビュー（空のツリーで Welcome Content を表示）
-	vscode.window.createTreeView('anytimeMarkdown.aiNote', {
-		treeDataProvider: { getTreeItem: (e: never) => e, getChildren: () => [] },
+	// Agent Note ビュー
+	const noteStorageDir = context.globalStorageUri.fsPath;
+	const aiNoteProvider = new AiNoteProvider(noteStorageDir);
+	const aiNoteTreeView = vscode.window.createTreeView('anytimeMarkdown.aiNote', {
+		treeDataProvider: aiNoteProvider,
 	});
 
 	// Claude Code 連携（~/.claude/ が存在する場合のみ有効）
@@ -194,7 +197,7 @@ export function activate(context: vscode.ExtensionContext) {
 	const projectDirName = workspaceRoot.replace(/\//g, '-') || '-';
 	const projectSessionsDir = sessionsDir ? path.join(sessionsDir, projectDirName) : '';
 
-	// Agent Note ファイルを開く
+	// Agent Note ファイルを開く（デフォルトページ）
 	const openContext = vscode.commands.registerCommand(
 		'anytime-markdown.openContext',
 		async () => {
@@ -208,6 +211,7 @@ export function activate(context: vscode.ExtensionContext) {
 			} catch {
 				// EEXIST: ファイル既存は正常
 			}
+			aiNoteProvider.refresh();
 
 			// ~/.claude/skills/anytime-note/SKILL.md を自動生成（未作成の場合のみ）
 			if (hasClaudeDir) {
@@ -268,26 +272,84 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	);
 
-	// Agent Note ストレージをクリア
+	// Agent Note ストレージをクリア（全ページ削除）
 	const clearContext = vscode.commands.registerCommand(
 		'anytime-markdown.clearContext',
 		async () => {
 			const answer = await vscode.window.showWarningMessage(
-				'Agent Note のファイルをすべて削除しますか？',
+				'すべてのノートページと画像を削除しますか？',
 				{ modal: true },
 				'Delete'
 			);
 			if (answer !== 'Delete') { return; }
 			const dir = context.globalStorageUri.fsPath;
-			const aiNotePath = path.join(dir, 'anytime-context.md');
-			const imagesDir = path.join(dir, 'images');
-			if (fs.existsSync(aiNotePath)) {
-				fs.rmSync(aiNotePath);
+			if (fs.existsSync(dir)) {
+				for (const f of fs.readdirSync(dir)) {
+					if (f.endsWith('.md')) {
+						fs.rmSync(path.join(dir, f));
+					}
+				}
+				const imagesDir = path.join(dir, 'images');
+				if (fs.existsSync(imagesDir)) {
+					fs.rmSync(imagesDir, { recursive: true, force: true });
+				}
 			}
-			if (fs.existsSync(imagesDir)) {
-				fs.rmSync(imagesDir, { recursive: true, force: true });
+			aiNoteProvider.refresh();
+			vscode.window.showInformationMessage('ノートをクリアしました。');
+		}
+	);
+
+	// ノートページを新規追加
+	const addNotePage = vscode.commands.registerCommand(
+		'anytime-markdown.addNotePage',
+		async () => {
+			const dir = context.globalStorageUri.fsPath;
+			const name = await vscode.window.showInputBox({
+				prompt: 'ページ名を入力してください（ファイル名に使用）',
+				placeHolder: 'page-name',
+				validateInput: (v) => {
+					if (!v.trim()) { return '名前を入力してください。'; }
+					if (/[/\\:*?"<>|]/.test(v)) { return '使用できない文字が含まれています。'; }
+					const filePath = path.join(dir, `${v.trim()}.md`);
+					if (fs.existsSync(filePath)) { return `${v.trim()}.md はすでに存在します。`; }
+					return undefined;
+				},
+			});
+			if (!name) { return; }
+			const filePath = path.join(dir, `${name.trim()}.md`);
+			if (!fs.existsSync(dir)) {
+				fs.mkdirSync(dir, { recursive: true });
 			}
-			vscode.window.showInformationMessage('Agent Note をクリアしました。');
+			fs.writeFileSync(filePath, `# ${name.trim()}\n\n`, { encoding: 'utf-8' });
+			aiNoteProvider.refresh();
+			const uri = vscode.Uri.file(filePath);
+			await vscode.commands.executeCommand('vscode.openWith', uri, MarkdownEditorProvider.viewType);
+		}
+	);
+
+	// ノートページをコンテキストメニューから削除
+	const deleteNotePage = vscode.commands.registerCommand(
+		'anytime-markdown.deleteNotePage',
+		async (item: AiNoteItem) => {
+			const answer = await vscode.window.showWarningMessage(
+				`"${item.label as string}" を削除しますか？`,
+				{ modal: true },
+				'Delete'
+			);
+			if (answer !== 'Delete') { return; }
+			if (fs.existsSync(item.filePath)) {
+				fs.rmSync(item.filePath);
+			}
+			aiNoteProvider.refresh();
+		}
+	);
+
+	// ノートページを開く（ツリーアイテムクリック）
+	const openNotePage = vscode.commands.registerCommand(
+		'anytime-markdown.openNotePage',
+		async (filePath: string) => {
+			const uri = vscode.Uri.file(filePath);
+			await vscode.commands.executeCommand('vscode.openWith', uri, MarkdownEditorProvider.viewType);
 		}
 	);
 
@@ -312,7 +374,9 @@ export function activate(context: vscode.ExtensionContext) {
 		toggleAutoReloadOff, toggleAutoReloadOn,
 		switchToReview, switchToWysiwyg, switchToSource,
 		openContext, copyContextPath, clearContext,
-	...claudeSubscriptions,
+		addNotePage, deleteNotePage, openNotePage,
+		aiNoteTreeView,
+		...claudeSubscriptions,
 	);
 }
 
