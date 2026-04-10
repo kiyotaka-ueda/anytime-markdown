@@ -212,6 +212,51 @@ export function activate(context: vscode.ExtensionContext) {
 				// EEXIST: ファイル既存は正常
 			}
 			aiNoteProvider.refresh();
+
+			// ~/.claude/skills/anytime-note/SKILL.md を自動生成（未作成の場合のみ）
+			if (hasClaudeDir) {
+				const skillDir = path.join(claudeDir, 'skills', 'anytime-note');
+				const skillPath = path.join(skillDir, 'SKILL.md');
+				try {
+					fs.mkdirSync(skillDir, { recursive: true });
+					const imagesDir = path.join(dir, 'images');
+					const skillContent = [
+						'---',
+						'name: anytime-note',
+						'description: Agent Note（anytime-note-1.md）を読んで指示を実行する。「/anytime-note 対応内容」の形式で使用。ノートに書かれたコンテキスト（画像・テキスト・メモ）を参照し、指示された作業を行う。',
+						'user_invocable: true',
+						'argument: task',
+						'---',
+						'',
+						'# Agent Note 連携',
+						'',
+						'## 手順',
+						'',
+						'1. Agent Note ファイルを読み込む',
+						`   - パス: \`${filePath}\``,
+						`   - 画像フォルダ: \`${imagesDir}\``,
+						'   - 画像（`images/` 内の png 等）が参照されている場合は Read ツールで画像も読み込む',
+						'',
+						'2. ノート内容を確認し、ユーザーに概要を報告する',
+						'   - テキスト・画像の有無を簡潔に伝える',
+						'',
+						'3. 引数（`task`）で指定された作業を、ノートの内容をコンテキストとして実行する',
+						'   - 引数が空の場合はノート内容を要約し、何をすべきか提案する',
+						'   - 引数がある場合はノートを踏まえて作業を実行する',
+						'',
+						'## 注意事項',
+						'',
+						'- ノートの内容を変更・削除しない（読み取り専用）',
+						'- 作業結果はノートではなく、通常のコードベースやドキュメントに出力する',
+						'',
+					].join('\n');
+					// wx: 排他作成（既存ファイルがあれば EEXIST で失敗）
+					fs.writeFileSync(skillPath, skillContent, { encoding: 'utf-8', flag: 'wx' });
+				} catch {
+					// EEXIST: ファイル既存は正常
+				}
+			}
+
 			const uri = vscode.Uri.file(filePath);
 			await vscode.commands.executeCommand('vscode.openWith', uri, MarkdownEditorProvider.viewType);
 		}
