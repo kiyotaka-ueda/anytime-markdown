@@ -554,7 +554,7 @@ function DailySessionList({
   const [timelineMessages, setTimelineMessages] = useState<readonly TrailMessage[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [sessionToolMetrics, setSessionToolMetrics] = useState<ToolMetrics | null>(null);
-  const daySessions = sessions.filter((s) => s.startTime.startsWith(date));
+  const daySessions = sessions.filter((s) => toLocalDateKey(s.startTime) === date);
 
   const handleSessionClick = (id: string) => {
     if (timelineSessionId === id) {
