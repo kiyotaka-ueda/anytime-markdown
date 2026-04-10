@@ -11,6 +11,7 @@ import { registerC4Commands } from './commands/c4Commands';
 import { TrailLogger } from './utils/TrailLogger';
 import { C4TreeProvider } from './providers/C4TreeProvider';
 import { DashboardProvider } from './trail/DashboardProvider';
+import { AiMemoryProvider, AiMemoryItem } from './providers/AiMemoryProvider';
 import type { IRemoteTrailStore } from './trail/IRemoteTrailStore';
 import { SupabaseTrailStore } from './trail/SupabaseTrailStore';
 import { PostgresTrailStore } from './trail/PostgresTrailStore';
@@ -368,10 +369,40 @@ export async function activate(context: vscode.ExtensionContext) {
 		}),
 	);
 
+	// AI Memory ビュー
+	const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+	const claudeDir = homeDir ? path.join(homeDir, '.claude') : '';
+	const sessionsDir = claudeDir ? path.join(claudeDir, 'projects') : '';
+	const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
+	const projectDirName = workspaceRoot.replaceAll('/', '-') || '-';
+	const memoryDir = sessionsDir
+		? path.join(sessionsDir, projectDirName, 'memory')
+		: '';
+
+	const aiMemoryProvider = new AiMemoryProvider(memoryDir);
+	const aiMemoryTreeView = vscode.window.createTreeView('anytimeTrail.aiMemory', {
+		treeDataProvider: aiMemoryProvider,
+	});
+
+	const aiMemoryRefresh = vscode.commands.registerCommand(
+		'anytime-trail.aiMemoryRefresh', () => aiMemoryProvider.refresh(),
+	);
+
+	const openAiMemory = vscode.commands.registerCommand(
+		'anytime-trail.openAiMemory',
+		async (item: AiMemoryItem) => {
+			const uri = vscode.Uri.file(item.filePath);
+			await vscode.commands.executeCommand('vscode.openWith', uri, 'anytimeMarkdown');
+		},
+	);
+
 	context.subscriptions.push(
 		c4ElementsTreeView,
 		dashboardTreeView,
 		statusBarItem,
+		aiMemoryTreeView,
+		aiMemoryRefresh,
+		openAiMemory,
 	);
 
 	// Claude Code スキルの自動配置
