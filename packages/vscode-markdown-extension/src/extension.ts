@@ -7,6 +7,18 @@ import { AiNoteProvider, AiNoteItem } from './providers/AiNoteProvider';
 import { setupClaudeHooks } from './utils/claudeHookSetup';
 import { ClaudeStatusWatcher } from './utils/claudeStatusWatcher';
 
+/** ノートファイルをカスタムエディタで開く（破損キャッシュ回避のため showTextDocument 後に openWith） */
+async function openNoteFile(filePath: string): Promise<void> {
+	const uri = vscode.Uri.file(filePath);
+	try {
+		const doc = await vscode.workspace.openTextDocument(uri);
+		await vscode.window.showTextDocument(doc, { preview: false, viewColumn: vscode.ViewColumn.Active });
+		await vscode.commands.executeCommand('vscode.openWith', uri, MarkdownEditorProvider.viewType);
+	} catch {
+		vscode.window.showErrorMessage(`ノートファイルを開けませんでした: ${filePath}`);
+	}
+}
+
 export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		MarkdownEditorProvider.register(context),
@@ -326,8 +338,7 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 			}
 
-			const uri = vscode.Uri.file(filePath);
-			await vscode.commands.executeCommand('vscode.openWith', uri, MarkdownEditorProvider.viewType);
+			await openNoteFile(filePath);
 		}
 	);
 
@@ -340,8 +351,7 @@ export function activate(context: vscode.ExtensionContext) {
 				vscode.window.showWarningMessage('スキルファイルが見つかりません。先にノートを作成してください。');
 				return;
 			}
-			const uri = vscode.Uri.file(skillPath);
-			await vscode.commands.executeCommand('vscode.openWith', uri, MarkdownEditorProvider.viewType);
+			await openNoteFile(skillPath);
 		}
 	);
 
@@ -401,8 +411,7 @@ export function activate(context: vscode.ExtensionContext) {
 			const filePath = path.join(dir, fileName);
 			fs.writeFileSync(filePath, '', { encoding: 'utf-8' });
 			aiNoteProvider.refresh();
-			const uri = vscode.Uri.file(filePath);
-			await vscode.commands.executeCommand('vscode.openWith', uri, MarkdownEditorProvider.viewType);
+			await openNoteFile(filePath);
 		}
 	);
 
@@ -427,8 +436,7 @@ export function activate(context: vscode.ExtensionContext) {
 	const openNotePage = vscode.commands.registerCommand(
 		'anytime-markdown.openNotePage',
 		async (filePath: string) => {
-			const uri = vscode.Uri.file(filePath);
-			await vscode.commands.executeCommand('vscode.openWith', uri, MarkdownEditorProvider.viewType);
+			await openNoteFile(filePath);
 		}
 	);
 
