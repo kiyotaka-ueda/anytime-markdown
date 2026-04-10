@@ -548,7 +548,8 @@ export class TrailDatabase {
 
       db.run("INSERT INTO _migrations (key) VALUES ('timestamps_to_utc')");
       db.run('COMMIT');
-    } catch {
+    } catch (e) {
+      console.error('[TrailDatabase] migrateTimestampsToUTC failed:', e);
       db.run('ROLLBACK');
     }
   }
