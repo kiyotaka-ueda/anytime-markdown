@@ -952,7 +952,7 @@ export class TrailDatabase {
     return count;
   }
 
-  importSession(filePath: string, projectName: string, isSubagent = false): void {
+  importSession(filePath: string, projectName: string, isSubagent = false, externalTransaction = false): void {
     const db = this.ensureDb();
     const content = fs.readFileSync(filePath, 'utf-8');
     const lines = content.split('\n').filter((l) => l.trim() !== '');
@@ -1002,7 +1002,7 @@ export class TrailDatabase {
     const fileSize = fs.statSync(filePath).size;
     const importedAt = new Date().toISOString();
 
-    db.run('BEGIN TRANSACTION');
+    if (!externalTransaction) db.run('BEGIN TRANSACTION');
     try {
       // Insert/update session metadata only for main session files
       if (!isSubagent) {
@@ -1122,9 +1122,9 @@ export class TrailDatabase {
       }
       scStmt.free();
 
-      db.run('COMMIT');
+      if (!externalTransaction) db.run('COMMIT');
     } catch (err) {
-      db.run('ROLLBACK');
+      if (!externalTransaction) db.run('ROLLBACK');
       throw err;
     }
   }
@@ -1166,7 +1166,8 @@ export class TrailDatabase {
     const importedSessions = this.getImportedSessionMap();
     const UUID_RE = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/;
 
-    let sinceLastYield = 0;
+    const BATCH_SIZE = 10;
+    const pendingImports: Array<{ filePath: string; projectName: string; isSubagent: boolean; sid: string; index: number }> = [];
     for (let i = 0; i < allFiles.length; i++) {
       const { filePath, projectName } = allFiles[i];
       const increment = totalFiles > 0 ? 100 / totalFiles : 0;
@@ -1231,27 +1232,35 @@ export class TrailDatabase {
         }
       }
 
-      try {
-        // Yield before heavy import to prevent Extension Host timeout
-        sinceLastYield++;
-        if (sinceLastYield >= 10) {
-          await new Promise<void>((resolve) => setTimeout(resolve, 0));
-          sinceLastYield = 0;
-        }
-        onProgress?.(`(${i + 1}/${totalFiles}) ${path.basename(filePath)}`, increment);
-        this.importSession(filePath, projectName, isSubagent);
-        imported++;
-          if (gitRoot) {
+      // Collect files to import into batches of 10
+      pendingImports.push({ filePath, projectName, isSubagent, sid, index: i });
+
+      if (pendingImports.length >= BATCH_SIZE || i === allFiles.length - 1) {
+        // Yield before batch to prevent Extension Host timeout
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+        const db = this.ensureDb();
+        db.run('BEGIN TRANSACTION');
+        try {
+          for (const item of pendingImports) {
+            onProgress?.(`(${item.index + 1}/${totalFiles}) ${path.basename(item.filePath)}`, increment);
             try {
-              commitsResolved += this.resolveCommits(sid, gitRoot);
-            } catch {
-              // skip
-            }
+              this.importSession(item.filePath, item.projectName, item.isSubagent, true);
+              imported++;
+              if (gitRoot) {
+                try {
+                  commitsResolved += this.resolveCommits(item.sid, gitRoot);
+                } catch { /* skip */ }
+              }
+            } catch { /* skip individual file errors */ }
           }
+          db.run('COMMIT');
         } catch {
-          // Skip files that fail to import
+          try { db.run('ROLLBACK'); } catch { /* ignore */ }
         }
+        pendingImports.length = 0;
       }
+    }
 
     // Resolve tasks (PRs) from merge commits
     let tasksResolved = 0;
