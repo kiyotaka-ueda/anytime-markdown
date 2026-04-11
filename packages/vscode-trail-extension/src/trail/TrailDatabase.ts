@@ -1821,21 +1821,23 @@ export class TrailDatabase {
   getAnalytics(): AnalyticsData {
     const db = this.ensureDb();
 
-    // Token totals
+    // Token totals from session_costs
     const totals = db.exec(
       `SELECT COALESCE(SUM(input_tokens),0),
         COALESCE(SUM(output_tokens),0),
         COALESCE(SUM(cache_read_tokens),0),
         COALESCE(SUM(cache_creation_tokens),0),
-        COUNT(*)
-      FROM sessions`,
+        COALESCE(SUM(estimated_cost_usd),0),
+        (SELECT COUNT(*) FROM sessions)
+      FROM session_costs`,
     );
-    const tr = totals[0]?.values[0] ?? [0, 0, 0, 0, 0];
+    const tr = totals[0]?.values[0] ?? [0, 0, 0, 0, 0, 0];
     const totalInput = Number(tr[0]);
     const totalOutput = Number(tr[1]);
     const totalCacheRead = Number(tr[2]);
     const totalCacheCreation = Number(tr[3]);
-    const totalSessions = Number(tr[4]);
+    const totalEstimatedCost = Number(tr[4]);
+    const totalSessions = Number(tr[5]);
 
     // Tool usage TOP 15
     const toolsSql = `SELECT jt.value AS name, COUNT(*) AS cnt
@@ -1861,58 +1863,51 @@ export class TrailDatabase {
       // json functions may not be available
     }
 
-    // Model breakdown with tokens
+    // Model breakdown from session_costs
     const modelResult = db.exec(
-      `SELECT model, COUNT(*),
-        COALESCE(SUM(input_tokens),0),
-        COALESCE(SUM(output_tokens),0),
-        COALESCE(SUM(cache_read_tokens),0)
-      FROM sessions WHERE model != ''
-      GROUP BY model ORDER BY COUNT(*) DESC`,
+      `SELECT model, COUNT(DISTINCT session_id),
+        SUM(input_tokens), SUM(output_tokens),
+        SUM(cache_read_tokens), SUM(estimated_cost_usd)
+       FROM session_costs WHERE model != ''
+       GROUP BY model ORDER BY SUM(estimated_cost_usd) DESC`,
     );
-    const modelBreakdown = (modelResult[0]?.values ?? []).map((r) => {
-      const model = String(r[0]);
-      const inp = Number(r[2]);
-      const out = Number(r[3]);
-      const cacheRead = Number(r[4]);
-      return {
-        model,
-        sessions: Number(r[1]),
-        inputTokens: inp,
-        outputTokens: out,
-        cacheReadTokens: cacheRead,
-        estimatedCostUsd: estimateCost(model, inp, out, cacheRead, 0),
-      };
-    });
-
-    // Daily activity (last 90 days — frontend filters to 7/30/90)
-    const tzOffset = this.getLocalTzOffset();
-    const dailyResult = db.exec(
-      `SELECT DATE(start_time, '${tzOffset}') as d, COUNT(*),
-        COALESCE(SUM(input_tokens),0),
-        COALESCE(SUM(output_tokens),0),
-        COALESCE(SUM(cache_read_tokens),0),
-        COALESCE(SUM(cache_creation_tokens),0)
-      FROM sessions
-      WHERE start_time >= DATE('now', '${tzOffset}', '-90 days')
-      GROUP BY d ORDER BY d`,
-    );
-    const dailyActivity = (dailyResult[0]?.values ?? []).map((r) => ({
-      date: String(r[0]),
+    const modelBreakdown = (modelResult[0]?.values ?? []).map((r) => ({
+      model: String(r[0]),
       sessions: Number(r[1]),
       inputTokens: Number(r[2]),
       outputTokens: Number(r[3]),
       cacheReadTokens: Number(r[4]),
-      cacheCreationTokens: Number(r[5]),
+      estimatedCostUsd: Number(r[5]),
     }));
 
-    // Branch breakdown
+    // Daily activity from daily_costs (last 90 days — frontend filters to 7/30/90)
+    const tzOffset = this.getLocalTzOffset();
+    const dailyResult = db.exec(
+      `SELECT date,
+        SUM(input_tokens), SUM(output_tokens),
+        SUM(cache_read_tokens), SUM(cache_creation_tokens),
+        SUM(estimated_cost_usd),
+        0 AS sessions
+       FROM daily_costs
+       WHERE cost_type = 'actual' AND date >= DATE('now', '${tzOffset}', '-90 days')
+       GROUP BY date ORDER BY date`,
+    );
+    const dailyActivity = (dailyResult[0]?.values ?? []).map((r) => ({
+      date: String(r[0]),
+      sessions: Number(r[6]),
+      inputTokens: Number(r[1]),
+      outputTokens: Number(r[2]),
+      cacheReadTokens: Number(r[3]),
+      cacheCreationTokens: Number(r[4]),
+      estimatedCostUsd: Number(r[5]),
+    }));
+
+    // Branch breakdown from messages
     const branchResult = db.exec(
-      `SELECT git_branch, COUNT(*),
-        COALESCE(SUM(input_tokens),0),
-        COALESCE(SUM(output_tokens),0)
-      FROM sessions WHERE git_branch != ''
-      GROUP BY git_branch ORDER BY COUNT(*) DESC LIMIT 10`,
+      `SELECT git_branch, COUNT(DISTINCT session_id),
+        SUM(input_tokens), SUM(output_tokens)
+       FROM messages WHERE git_branch != '' AND type = 'assistant'
+       GROUP BY git_branch ORDER BY COUNT(DISTINCT session_id) DESC LIMIT 10`,
     );
     const branchBreakdown = (branchResult[0]?.values ?? []).map((r) => ({
       branch: String(r[0]),
@@ -1953,11 +1948,6 @@ export class TrailDatabase {
     );
     const totalSessionDurationMs = Number(
       durationResult[0]?.values[0]?.[0] ?? 0,
-    );
-
-    // Estimate total cost
-    const totalEstimatedCost = modelBreakdown.reduce(
-      (sum, m) => sum + m.estimatedCostUsd, 0,
     );
 
     // Tool-call-based metrics (Retry Rate, Build/Test Fail Rate)
