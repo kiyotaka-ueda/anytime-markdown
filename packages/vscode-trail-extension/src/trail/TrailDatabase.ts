@@ -2025,122 +2025,77 @@ export class TrailDatabase {
 
   getCostOptimization(): CostOptimizationData {
     const db = this.ensureDb();
+    const tzOffset = this.getLocalTzOffset();
 
-    // Helper: compute cost for a model + tokens
-    const cost = (model: string, input: number, output: number, cacheRead: number, cacheCreation: number): number =>
-      estimateCost(model, input, output, cacheRead, cacheCreation);
-
-    // 1. Actual cost by model (from messages)
+    // 1. Actual cost by model from session_costs
     const actualResult = db.exec(
-      `SELECT COALESCE(model,''), SUM(input_tokens), SUM(output_tokens), SUM(cache_read_tokens), SUM(cache_creation_tokens)
-       FROM messages WHERE type = 'assistant' AND model IS NOT NULL
-       GROUP BY model`,
+      `SELECT model, SUM(estimated_cost_usd)
+       FROM session_costs GROUP BY model`,
     );
     const actualByModel: Record<string, number> = {};
     let actualTotal = 0;
     for (const row of actualResult[0]?.values ?? []) {
       const m = String(row[0]);
-      const c = cost(m, Number(row[1]), Number(row[2]), Number(row[3]), Number(row[4]));
+      const c = Number(row[1]);
       actualByModel[m] = (actualByModel[m] ?? 0) + c;
       actualTotal += c;
     }
 
-    // 2. Rule-based estimate: re-price assistant messages using the rule_recommended_model
-    //    from their preceding user message (joined via parent_uuid or session ordering)
+    // 2. Rule-based estimate from daily_costs
     const ruleResult = db.exec(
-      `SELECT COALESCE(u.rule_recommended_model, 'sonnet') AS rec_model,
-              SUM(a.input_tokens), SUM(a.output_tokens), SUM(a.cache_read_tokens), SUM(a.cache_creation_tokens)
-       FROM messages a
-       JOIN messages u ON a.parent_uuid = u.uuid
-       WHERE a.type = 'assistant' AND u.type = 'user'
-       GROUP BY rec_model`,
+      `SELECT model, SUM(estimated_cost_usd)
+       FROM daily_costs WHERE cost_type = 'rule'
+       GROUP BY model`,
     );
     const ruleByModel: Record<string, number> = {};
     let ruleTotal = 0;
     for (const row of ruleResult[0]?.values ?? []) {
       const m = String(row[0]);
-      const c = cost(m, Number(row[1]), Number(row[2]), Number(row[3]), Number(row[4]));
+      const c = Number(row[1]);
       ruleByModel[m] = (ruleByModel[m] ?? 0) + c;
       ruleTotal += c;
     }
 
-    // 3. Feature-based estimate: use feature_recommended_model from assistant messages
+    // 3. Feature-based estimate from daily_costs
     const featureResult = db.exec(
-      `SELECT COALESCE(feature_recommended_model, 'sonnet') AS rec_model,
-              SUM(input_tokens), SUM(output_tokens), SUM(cache_read_tokens), SUM(cache_creation_tokens)
-       FROM messages WHERE type = 'assistant'
-       GROUP BY rec_model`,
+      `SELECT model, SUM(estimated_cost_usd)
+       FROM daily_costs WHERE cost_type = 'feature'
+       GROUP BY model`,
     );
     const featureByModel: Record<string, number> = {};
     let featureTotal = 0;
     for (const row of featureResult[0]?.values ?? []) {
       const m = String(row[0]);
-      const c = cost(m, Number(row[1]), Number(row[2]), Number(row[3]), Number(row[4]));
+      const c = Number(row[1]);
       featureByModel[m] = (featureByModel[m] ?? 0) + c;
       featureTotal += c;
     }
 
-    // 4. Daily breakdown (last 90 days)
-    const tzOffset = this.getLocalTzOffset();
+    // 4. Daily breakdown from daily_costs (last 90 days)
     const dailyResult = db.exec(
-      `SELECT DATE(m.timestamp, '${tzOffset}') AS d,
-              SUM(m.input_tokens) AS inp, SUM(m.output_tokens) AS outp,
-              SUM(m.cache_read_tokens) AS cr, SUM(m.cache_creation_tokens) AS cc,
-              COALESCE(m.model,'') AS mdl
-       FROM messages m
-       WHERE m.type = 'assistant' AND m.timestamp >= DATE('now', '${tzOffset}', '-90 days')
-       GROUP BY d, mdl ORDER BY d`,
+      `SELECT date, cost_type, SUM(estimated_cost_usd)
+       FROM daily_costs
+       WHERE date >= DATE('now', '${tzOffset}', '-90 days')
+       GROUP BY date, cost_type ORDER BY date`,
     );
     const dailyMap = new Map<string, { actual: number; rule: number; feature: number }>();
     for (const row of dailyResult[0]?.values ?? []) {
       const d = String(row[0]);
-      const inp = Number(row[1]);
-      const outp = Number(row[2]);
-      const cr = Number(row[3]);
-      const cc = Number(row[4]);
-      const mdl = String(row[5]);
+      const ct = String(row[1]);
+      const c = Number(row[2]);
       const entry = dailyMap.get(d) ?? { actual: 0, rule: 0, feature: 0 };
-      entry.actual += cost(mdl, inp, outp, cr, cc);
-      // For daily, use sonnet as default estimate (detailed per-message would be too slow)
-      entry.rule += cost('sonnet', inp, outp, cr, cc);
-      entry.feature += cost('sonnet', inp, outp, cr, cc);
+      if (ct === 'actual') entry.actual += c;
+      else if (ct === 'rule') entry.rule += c;
+      else if (ct === 'feature') entry.feature += c;
       dailyMap.set(d, entry);
     }
-
-    // Refine daily with per-message classification
-    const dailyDetailResult = db.exec(
-      `SELECT DATE(a.timestamp, '${tzOffset}') AS d,
-              COALESCE(u.rule_recommended_model, 'sonnet') AS rule_rec,
-              COALESCE(a.feature_recommended_model, 'sonnet') AS feat_rec,
-              a.input_tokens, a.output_tokens, a.cache_read_tokens, a.cache_creation_tokens
-       FROM messages a
-       LEFT JOIN messages u ON a.parent_uuid = u.uuid AND u.type = 'user'
-       WHERE a.type = 'assistant' AND a.timestamp >= DATE('now', '${tzOffset}', '-90 days')`,
-    );
-    const dailyRefined = new Map<string, { actual: number; rule: number; feature: number }>();
-    for (const row of dailyDetailResult[0]?.values ?? []) {
-      const d = String(row[0]);
-      const ruleRec = String(row[1]);
-      const featRec = String(row[2]);
-      const inp = Number(row[3]);
-      const outp = Number(row[4]);
-      const cr = Number(row[5]);
-      const cc = Number(row[6]);
-      const entry = dailyRefined.get(d) ?? { actual: 0, rule: 0, feature: 0 };
-      entry.rule += cost(ruleRec, inp, outp, cr, cc);
-      entry.feature += cost(featRec, inp, outp, cr, cc);
-      dailyRefined.set(d, entry);
-    }
-
-    // Merge actual costs from dailyMap with refined rule/feature costs
     const daily: Array<{ date: string; actualCost: number; ruleCost: number; featureCost: number }> = [];
     for (const [d, entry] of dailyMap) {
-      const refined = dailyRefined.get(d);
       daily.push({
         date: d,
         actualCost: entry.actual,
-        ruleCost: refined?.rule ?? entry.rule,
-        featureCost: refined?.feature ?? entry.feature,
+        ruleCost: entry.rule,
+        featureCost: entry.feature,
       });
     }
 
