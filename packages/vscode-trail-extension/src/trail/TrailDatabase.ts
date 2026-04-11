@@ -1164,6 +1164,10 @@ export class TrailDatabase {
     onProgress?.(`Found ${totalFiles} JSONL files`, 0);
 
     for (let i = 0; i < allFiles.length; i++) {
+      // Yield to event loop every 10 files to prevent Extension Host timeout
+      if (i > 0 && i % 10 === 0) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      }
       const { filePath, projectName } = allFiles[i];
       const increment = totalFiles > 0 ? 100 / totalFiles : 0;
       onProgress?.(`(${i + 1}/${totalFiles}) ${path.basename(filePath)}`, increment);
