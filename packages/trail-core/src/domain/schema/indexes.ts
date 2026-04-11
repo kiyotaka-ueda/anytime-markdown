@@ -18,3 +18,7 @@ export const CREATE_TASK_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_task_c4_task ON task_c4_elements(task_id)',
   'CREATE INDEX IF NOT EXISTS idx_task_features_task ON task_features(task_id)',
 ];
+
+export const CREATE_RELEASE_INDEXES = [
+  'CREATE INDEX IF NOT EXISTS idx_releases_released_at ON releases(released_at)',
+];

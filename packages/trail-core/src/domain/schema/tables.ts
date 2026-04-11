@@ -161,3 +161,22 @@ export const CREATE_TASK_FEATURES = `CREATE TABLE IF NOT EXISTS task_features (
   role TEXT NOT NULL DEFAULT '',
   PRIMARY KEY (task_id, feature_id)
 )`;
+
+export const CREATE_RELEASES = `CREATE TABLE IF NOT EXISTS releases (
+  tag TEXT PRIMARY KEY,
+  released_at TEXT NOT NULL DEFAULT '',
+  prev_tag TEXT,
+  package_tags TEXT NOT NULL DEFAULT '[]',
+  commit_count INTEGER NOT NULL DEFAULT 0,
+  files_changed INTEGER NOT NULL DEFAULT 0,
+  lines_added INTEGER NOT NULL DEFAULT 0,
+  lines_deleted INTEGER NOT NULL DEFAULT 0,
+  feat_count INTEGER NOT NULL DEFAULT 0,
+  fix_count INTEGER NOT NULL DEFAULT 0,
+  refactor_count INTEGER NOT NULL DEFAULT 0,
+  test_count INTEGER NOT NULL DEFAULT 0,
+  other_count INTEGER NOT NULL DEFAULT 0,
+  affected_packages TEXT NOT NULL DEFAULT '[]',
+  duration_days REAL NOT NULL DEFAULT 0,
+  resolved_at TEXT
+)`;
