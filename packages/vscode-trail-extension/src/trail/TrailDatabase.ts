@@ -1169,7 +1169,7 @@ export class TrailDatabase {
     const UUID_RE = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/;
 
     const BATCH_MESSAGE_LIMIT = 10_000;
-    const BATCH_FILE_LIMIT = 80;
+    const BATCH_FILE_LIMIT = 50;
     let batchMessageCount = 0;
     let batchFileCount = 0;
     let inTransaction = false;
