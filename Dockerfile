@@ -19,7 +19,7 @@ FROM base AS local
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git openssh-client sudo tmux && \
+    git openssh-client sudo tmux sqlite3 && \
     echo "node ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
     rm -rf /var/lib/apt/lists/* && \
     curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
