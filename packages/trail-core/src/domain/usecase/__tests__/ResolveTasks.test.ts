@@ -9,6 +9,13 @@ function createMockGit(overrides: Partial<IGitService> = {}): IGitService {
     getMergeCommits: jest.fn<readonly MergeCommitEntry[], []>(() => []),
     getCommitsInRange: jest.fn<readonly string[], [string, string]>(() => []),
     getAggregateFileStats: jest.fn<readonly FileStatEntry[], [readonly string[]]>(() => []),
+    getVersionTags: jest.fn<readonly string[], []>(() => []),
+    getTagCommitHash: jest.fn<string, [string]>(() => ''),
+    getTagsAtCommit: jest.fn<readonly string[], [string]>(() => []),
+    getTagDate: jest.fn<string, [string]>(() => ''),
+    getCommitSubjects: jest.fn<readonly string[], [string, string]>(() => []),
+    getDiffStats: jest.fn<{ filesChanged: number; linesAdded: number; linesDeleted: number }, [string, string]>(() => ({ filesChanged: 0, linesAdded: 0, linesDeleted: 0 })),
+    getChangedPackages: jest.fn<readonly string[], [string, string]>(() => []),
     ...overrides,
   };
 }
