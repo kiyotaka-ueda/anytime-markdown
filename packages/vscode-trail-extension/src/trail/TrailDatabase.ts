@@ -160,20 +160,14 @@ export interface AnalyticsData {
 
 export interface CostOptimizationData {
   readonly actual: { readonly totalCost: number; readonly byModel: Readonly<Record<string, number>> };
-  readonly ruleEstimate: { readonly totalCost: number; readonly byModel: Readonly<Record<string, number>> };
-  readonly featureEstimate: { readonly totalCost: number; readonly byModel: Readonly<Record<string, number>> };
   readonly skillEstimate: { readonly totalCost: number; readonly byModel: Readonly<Record<string, number>> };
   readonly daily: readonly {
     readonly date: string;
     readonly actualCost: number;
-    readonly ruleCost: number;
-    readonly featureCost: number;
     readonly skillCost: number;
   }[];
   readonly modelDistribution: {
     readonly actual: Readonly<Record<string, number>>;
-    readonly ruleRecommended: Readonly<Record<string, number>>;
-    readonly featureRecommended: Readonly<Record<string, number>>;
     readonly skillRecommended: Readonly<Record<string, number>>;
   };
 }
@@ -423,10 +417,9 @@ const INSERT_MESSAGE = `INSERT OR REPLACE INTO messages
    stop_reason, input_tokens, output_tokens, cache_read_tokens,
    cache_creation_tokens, service_tier, speed, timestamp,
    is_sidechain, is_meta, cwd, git_branch,
-   rule_recommended_model, feature_recommended_model, cost_category,
    duration_ms, tool_result_size, agent_description, agent_model,
    permission_mode, skill, agent_id, system_command)
-  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 
 
 // ---------------------------------------------------------------------------
@@ -498,93 +491,8 @@ function estimateTokenCount(text: string | null): number | null {
 }
 
 // ---------------------------------------------------------------------------
-//  Cost classification helpers (inlined from trail-viewer/engine)
+//  Cost classification helpers
 // ---------------------------------------------------------------------------
-
-const SEARCH_TOOLS = new Set(['Grep', 'Glob', 'Read', 'WebSearch', 'WebFetch']);
-const EDIT_TOOLS = new Set(['Edit', 'Write', 'NotebookEdit']);
-
-interface CostRuleEntry {
-  pattern: string;
-  model: string;
-  label: string;
-}
-
-let costRulesCache: { rules: CostRuleEntry[]; default: string } | null = null;
-
-function loadCostRules(): { rules: CostRuleEntry[]; default: string } {
-  if (costRulesCache) return costRulesCache;
-  try {
-    const rulesPath = path.join(os.homedir(), '.claude', 'trail', 'costRules.json');
-    if (fs.existsSync(rulesPath)) {
-      costRulesCache = JSON.parse(fs.readFileSync(rulesPath, 'utf-8'));
-      return costRulesCache!;
-    }
-  } catch { /* ignore */ }
-  // Default rules
-  costRulesCache = {
-    rules: [
-      { pattern: '^(ok|yes|はい|続けて|1|2|3|a|b|c|d)$', model: 'haiku', label: '確認・承認' },
-      { pattern: 'コミットして|コミットのみ', model: 'haiku', label: 'Git操作' },
-      { pattern: 'バグ|エラー|原因|デバッグ|表示されない|動かない|壊れ|崩れ|不具合', model: 'opus', label: 'デバッグ' },
-      { pattern: 'レビュー|品質|sonar|lint|脆弱性|セキュリティ', model: 'opus', label: 'レビュー・品質' },
-      { pattern: '設計|アーキテクチャ|リファクタ', model: 'opus', label: '設計・リファクタ' },
-      { pattern: '色|幅|余白|アイコン|フォント|サイズ|配置|レイアウト|ホバー|ツールバー|パネル|ダーク|スクロール', model: 'sonnet', label: 'UI調整' },
-      { pattern: '追加して|作成して|実装して|削除して|変更して|更新して|非表示にして', model: 'sonnet', label: '機能変更' },
-      { pattern: 'おしえて|教えて|ですか|でしょうか|どう|なぜ|確認して|調べて', model: 'sonnet', label: '質問・調査' },
-      { pattern: 'ドキュメント|設計書|マニュアル|レポート|記事', model: 'sonnet', label: 'ドキュメント' },
-      { pattern: 'リリース|デプロイ|publish', model: 'sonnet', label: 'リリース' },
-    ],
-    default: 'sonnet',
-  };
-  return costRulesCache;
-}
-
-function classifyMessageByRules(userContent: string): { model: string; label?: string } {
-  const config = loadCostRules();
-  const text = userContent.trim();
-  for (const rule of config.rules) {
-    if (new RegExp(rule.pattern, 'i').test(text)) {
-      return { model: rule.model, label: rule.label };
-    }
-  }
-  return { model: config.default };
-}
-
-function extractToolCallNames(toolCallsJson: string | null): string[] {
-  if (!toolCallsJson) return [];
-  try {
-    const calls = JSON.parse(toolCallsJson) as Array<{ name?: string }>;
-    return calls.map(c => c.name ?? '').filter(Boolean);
-  } catch { return []; }
-}
-
-function countUniqueFiles(toolCallsJson: string | null): number {
-  if (!toolCallsJson) return 0;
-  try {
-    const calls = JSON.parse(toolCallsJson) as Array<{ input?: Record<string, unknown> }>;
-    const files = new Set<string>();
-    for (const call of calls) {
-      if (!call.input || typeof call.input !== 'object') continue;
-      if (typeof call.input.file_path === 'string') files.add(call.input.file_path);
-      if (typeof call.input.path === 'string') files.add(call.input.path);
-    }
-    return files.size;
-  } catch { return 0; }
-}
-
-function classifyMessageByFeatures(
-  outputTokens: number,
-  toolCallNames: string[],
-  uniqueFileCount: number,
-): string {
-  if (outputTokens < 500 && toolCallNames.length === 0) return 'haiku';
-  if (toolCallNames.length > 0 && toolCallNames.every(n => SEARCH_TOOLS.has(n))) return 'sonnet';
-  if (toolCallNames.some(n => EDIT_TOOLS.has(n)) && uniqueFileCount >= 3) return 'opus';
-  const uniqueToolTypes = new Set(toolCallNames).size;
-  if (outputTokens > 3000 && uniqueToolTypes >= 3) return 'opus';
-  return 'sonnet';
-}
 
 // ---------------------------------------------------------------------------
 //  TrailDatabase
@@ -821,41 +729,6 @@ export class TrailDatabase {
       stmt.run([d, m, 'actual', inp, outp, cr, cc, estimateCost(m, inp, outp, cr, cc)]);
     }
 
-    // rule
-    const rule = db.exec(
-      `SELECT DATE(a.timestamp, '${tzOffset}'),
-        COALESCE(u.rule_recommended_model, 'sonnet'),
-        SUM(a.input_tokens), SUM(a.output_tokens),
-        SUM(a.cache_read_tokens), SUM(a.cache_creation_tokens)
-       FROM messages a
-       LEFT JOIN messages u ON a.parent_uuid = u.uuid AND u.type = 'user'
-       WHERE a.type = 'assistant'
-       GROUP BY DATE(a.timestamp, '${tzOffset}'), COALESCE(u.rule_recommended_model, 'sonnet')`,
-    );
-    for (const row of rule[0]?.values ?? []) {
-      const d = String(row[0]); const m = String(row[1]);
-      const inp = Number(row[2]); const outp = Number(row[3]);
-      const cr = Number(row[4]); const cc = Number(row[5]);
-      stmt.run([d, m, 'rule', inp, outp, cr, cc, estimateCost(m, inp, outp, cr, cc)]);
-    }
-
-    // feature
-    const feature = db.exec(
-      `SELECT DATE(a.timestamp, '${tzOffset}'),
-        COALESCE(a.feature_recommended_model, 'sonnet'),
-        SUM(a.input_tokens), SUM(a.output_tokens),
-        SUM(a.cache_read_tokens), SUM(a.cache_creation_tokens)
-       FROM messages a
-       WHERE a.type = 'assistant'
-       GROUP BY DATE(a.timestamp, '${tzOffset}'), COALESCE(a.feature_recommended_model, 'sonnet')`,
-    );
-    for (const row of feature[0]?.values ?? []) {
-      const d = String(row[0]); const m = String(row[1]);
-      const inp = Number(row[2]); const outp = Number(row[3]);
-      const cr = Number(row[4]); const cc = Number(row[5]);
-      stmt.run([d, m, 'feature', inp, outp, cr, cc, estimateCost(m, inp, outp, cr, cc)]);
-    }
-
     // Auto-register new skills that are not yet in skill_models
     db.run(
       `INSERT OR IGNORE INTO skill_models (skill, recommended_model)
@@ -865,19 +738,17 @@ export class TrailDatabase {
          AND m.skill NOT IN (SELECT skill FROM skill_models)`,
     );
 
-    // skill (uses skill_models_resolved view for model resolution,
-    //        falls back to rule_recommended_model for skill=NULL messages)
+    // skill (uses skill_models_resolved view, defaults to 'sonnet' for unmatched)
     const skill = db.exec(
       `SELECT DATE(a.timestamp, '${tzOffset}'),
-        COALESCE(sm.recommended_model, u.rule_recommended_model, 'sonnet'),
+        COALESCE(sm.recommended_model, 'sonnet'),
         SUM(a.input_tokens), SUM(a.output_tokens),
         SUM(a.cache_read_tokens), SUM(a.cache_creation_tokens)
        FROM messages a
-       LEFT JOIN messages u ON a.parent_uuid = u.uuid AND u.type = 'user'
        LEFT JOIN skill_models_resolved sm ON a.skill = sm.skill
        WHERE a.type = 'assistant'
        GROUP BY DATE(a.timestamp, '${tzOffset}'),
-         COALESCE(sm.recommended_model, u.rule_recommended_model, 'sonnet')`,
+         COALESCE(sm.recommended_model, 'sonnet')`,
     );
     for (const row of skill[0]?.values ?? []) {
       const d = String(row[0]); const m = String(row[1]);
@@ -1169,27 +1040,7 @@ export class TrailDatabase {
             : JSON.stringify(raw.toolUseResult))
           : null;
 
-        // --- Cost classification ---
-        let ruleRecommendedModel: string | null = null;
-        let featureRecommendedModel: string | null = null;
-        let costCategory: string | null = null;
-
-        // Rule-based: classify user messages
-        if (raw.type === 'user' && userContent) {
-          const ruleResult = classifyMessageByRules(userContent);
-          ruleRecommendedModel = ruleResult.model;
-          costCategory = ruleResult.label ?? null;
-        }
-
-        // Feature-based: classify assistant messages
-        if (raw.type === 'assistant') {
-          const outputTokens = raw.message?.usage?.output_tokens ?? 0;
-          const toolCallNames = extractToolCallNames(toolCalls);
-          const uniqueFileCount = countUniqueFiles(toolCalls);
-          featureRecommendedModel = classifyMessageByFeatures(outputTokens, toolCallNames, uniqueFileCount);
-        }
-
-        // --- New analytics fields ---
+        // --- Analytics fields ---
         const durationMs = raw.durationMs ?? null;
         const toolResultSize = estimateTokenCount(toolUseResult);
         const agentInfo = extractAgentInfo(toolCalls);
@@ -1226,9 +1077,6 @@ export class TrailDatabase {
           raw.isMeta ? 1 : 0,
           raw.cwd ?? null,
           raw.gitBranch ?? null,
-          ruleRecommendedModel,
-          featureRecommendedModel,
-          costCategory,
           durationMs,
           toolResultSize,
           agentInfo.description,
@@ -2107,53 +1955,6 @@ export class TrailDatabase {
     };
   }
 
-  public reclassifyAllMessages(): void {
-    const db = this.ensureDb();
-    costRulesCache = null; // Force reload of rules
-
-    const results = db.exec(
-      'SELECT uuid, type, user_content, tool_calls, output_tokens FROM messages',
-    );
-    if (results.length === 0) return;
-
-    db.run('BEGIN TRANSACTION');
-    try {
-      const stmt = db.prepare(
-        'UPDATE messages SET rule_recommended_model = ?, feature_recommended_model = ?, cost_category = ? WHERE uuid = ?',
-      );
-
-      const rows = results[0].values;
-      for (const row of rows) {
-        const [uuid, type, userContentVal, toolCallsVal, outputTokensVal] = row as [string, string, string | null, string | null, number];
-
-        let ruleModel: string | null = null;
-        let featureModel: string | null = null;
-        let category: string | null = null;
-
-        if (type === 'user' && userContentVal) {
-          const result = classifyMessageByRules(userContentVal);
-          ruleModel = result.model;
-          category = result.label ?? null;
-        }
-
-        if (type === 'assistant') {
-          const toolNames = extractToolCallNames(toolCallsVal);
-          const fileCount = countUniqueFiles(toolCallsVal);
-          featureModel = classifyMessageByFeatures(outputTokensVal ?? 0, toolNames, fileCount);
-        }
-
-        stmt.run([ruleModel, featureModel, category, uuid]);
-      }
-
-      stmt.free();
-      db.run('COMMIT');
-      this.save();
-    } catch (err) {
-      db.run('ROLLBACK');
-      throw err;
-    }
-  }
-
   getCostOptimization(): CostOptimizationData {
     const db = this.ensureDb();
     const tzOffset = this.getLocalTzOffset();
@@ -2172,37 +1973,7 @@ export class TrailDatabase {
       actualTotal += c;
     }
 
-    // 2. Rule-based estimate from daily_costs
-    const ruleResult = db.exec(
-      `SELECT model, SUM(estimated_cost_usd)
-       FROM daily_costs WHERE cost_type = 'rule'
-       GROUP BY model`,
-    );
-    const ruleByModel: Record<string, number> = {};
-    let ruleTotal = 0;
-    for (const row of ruleResult[0]?.values ?? []) {
-      const m = String(row[0]);
-      const c = Number(row[1]);
-      ruleByModel[m] = (ruleByModel[m] ?? 0) + c;
-      ruleTotal += c;
-    }
-
-    // 3. Feature-based estimate from daily_costs
-    const featureResult = db.exec(
-      `SELECT model, SUM(estimated_cost_usd)
-       FROM daily_costs WHERE cost_type = 'feature'
-       GROUP BY model`,
-    );
-    const featureByModel: Record<string, number> = {};
-    let featureTotal = 0;
-    for (const row of featureResult[0]?.values ?? []) {
-      const m = String(row[0]);
-      const c = Number(row[1]);
-      featureByModel[m] = (featureByModel[m] ?? 0) + c;
-      featureTotal += c;
-    }
-
-    // 3b. Skill-based estimate from daily_costs
+    // 2. Skill-based estimate from daily_costs
     const skillResult = db.exec(
       `SELECT model, SUM(estimated_cost_usd)
        FROM daily_costs WHERE cost_type = 'skill'
@@ -2224,25 +1995,21 @@ export class TrailDatabase {
        WHERE date >= DATE('now', '${tzOffset}', '-90 days')
        GROUP BY date, cost_type ORDER BY date`,
     );
-    const dailyMap = new Map<string, { actual: number; rule: number; feature: number; skill: number }>();
+    const dailyMap = new Map<string, { actual: number; skill: number }>();
     for (const row of dailyResult[0]?.values ?? []) {
       const d = String(row[0]);
       const ct = String(row[1]);
       const c = Number(row[2]);
-      const entry = dailyMap.get(d) ?? { actual: 0, rule: 0, feature: 0, skill: 0 };
+      const entry = dailyMap.get(d) ?? { actual: 0, skill: 0 };
       if (ct === 'actual') entry.actual += c;
-      else if (ct === 'rule') entry.rule += c;
-      else if (ct === 'feature') entry.feature += c;
       else if (ct === 'skill') entry.skill += c;
       dailyMap.set(d, entry);
     }
-    const daily: Array<{ date: string; actualCost: number; ruleCost: number; featureCost: number; skillCost: number }> = [];
+    const daily: Array<{ date: string; actualCost: number; skillCost: number }> = [];
     for (const [d, entry] of dailyMap) {
       daily.push({
         date: d,
         actualCost: entry.actual,
-        ruleCost: entry.rule,
-        featureCost: entry.feature,
         skillCost: entry.skill,
       });
     }
@@ -2256,34 +2023,12 @@ export class TrailDatabase {
       actualDist[String(row[0])] = Number(row[1]);
     }
 
-    const distRule = db.exec(
-      `SELECT COALESCE(u.rule_recommended_model,'sonnet'), COUNT(*)
-       FROM messages a JOIN messages u ON a.parent_uuid = u.uuid
-       WHERE a.type = 'assistant' AND u.type = 'user'
-       GROUP BY u.rule_recommended_model`,
-    );
-    const ruleDist: Record<string, number> = {};
-    for (const row of distRule[0]?.values ?? []) {
-      ruleDist[String(row[0])] = Number(row[1]);
-    }
-
-    const distFeature = db.exec(
-      `SELECT COALESCE(feature_recommended_model,'sonnet'), COUNT(*)
-       FROM messages WHERE type = 'assistant'
-       GROUP BY feature_recommended_model`,
-    );
-    const featureDist: Record<string, number> = {};
-    for (const row of distFeature[0]?.values ?? []) {
-      featureDist[String(row[0])] = Number(row[1]);
-    }
-
     const distSkill = db.exec(
-      `SELECT COALESCE(sm.recommended_model, u.rule_recommended_model, 'sonnet'), COUNT(*)
+      `SELECT COALESCE(sm.recommended_model, 'sonnet'), COUNT(*)
        FROM messages a
-       LEFT JOIN messages u ON a.parent_uuid = u.uuid AND u.type = 'user'
        LEFT JOIN skill_models_resolved sm ON a.skill = sm.skill
        WHERE a.type = 'assistant'
-       GROUP BY COALESCE(sm.recommended_model, u.rule_recommended_model, 'sonnet')`,
+       GROUP BY COALESCE(sm.recommended_model, 'sonnet')`,
     );
     const skillDist: Record<string, number> = {};
     for (const row of distSkill[0]?.values ?? []) {
@@ -2292,14 +2037,10 @@ export class TrailDatabase {
 
     return {
       actual: { totalCost: actualTotal, byModel: actualByModel },
-      ruleEstimate: { totalCost: ruleTotal, byModel: ruleByModel },
-      featureEstimate: { totalCost: featureTotal, byModel: featureByModel },
       skillEstimate: { totalCost: skillTotal, byModel: skillByModel },
       daily,
       modelDistribution: {
         actual: actualDist,
-        ruleRecommended: ruleDist,
-        featureRecommended: featureDist,
         skillRecommended: skillDist,
       },
     };

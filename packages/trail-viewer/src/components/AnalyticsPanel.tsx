@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
-import CircularProgress from '@mui/material/CircularProgress';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -73,8 +71,6 @@ export interface AnalyticsPanelProps {
   readonly fetchSessionCommits?: (id: string) => Promise<readonly TrailSessionCommit[]>;
   readonly fetchSessionToolMetrics?: (id: string) => Promise<ToolMetrics | null>;
   readonly costOptimization?: CostOptimizationData | null;
-  readonly onReclassify?: () => void;
-  readonly reclassifying?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -714,8 +710,6 @@ function DailyActivityChart({
   fetchSessionCommits,
   fetchSessionToolMetrics,
   costOptimization,
-  onReclassify,
-  reclassifying,
 }: Readonly<{
   items: AnalyticsData['dailyActivity'];
   sessions: readonly TrailSession[];
@@ -724,8 +718,6 @@ function DailyActivityChart({
   fetchSessionCommits?: (id: string) => Promise<readonly TrailSessionCommit[]>;
   fetchSessionToolMetrics?: (id: string) => Promise<ToolMetrics | null>;
   costOptimization?: CostOptimizationData | null;
-  onReclassify?: () => void;
-  reclassifying?: boolean;
 }>) {
   const { colors, chartColors } = useTrailTheme();
   const [mode, setMode] = useState<DailyViewMode>('tokens');
@@ -833,19 +825,6 @@ function DailyActivityChart({
           onClose={() => setSelectedDate(null)}
         />
       )}
-      {!isTokens && onReclassify && (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={onReclassify}
-            disabled={reclassifying}
-            startIcon={reclassifying ? <CircularProgress size={14} /> : undefined}
-          >
-            {reclassifying ? 'Reclassifying...' : 'Reclassify'}
-          </Button>
-        </Box>
-      )}
     </Box>
   );
 }
@@ -892,7 +871,7 @@ function ModelTable({ items }: Readonly<{ items: AnalyticsData['modelBreakdown']
 //  Main component
 // ---------------------------------------------------------------------------
 
-export function AnalyticsPanel({ analytics, sessions = [], onSelectSession, fetchSessionMessages, fetchSessionCommits, fetchSessionToolMetrics, costOptimization, onReclassify, reclassifying }: Readonly<AnalyticsPanelProps>) {
+export function AnalyticsPanel({ analytics, sessions = [], onSelectSession, fetchSessionMessages, fetchSessionCommits, fetchSessionToolMetrics, costOptimization }: Readonly<AnalyticsPanelProps>) {
   const { colors } = useTrailTheme();
   if (!analytics) {
     return (
@@ -908,7 +887,7 @@ export function AnalyticsPanel({ analytics, sessions = [], onSelectSession, fetc
     <Box sx={{ overflow: 'auto', flex: 1, p: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
       <OverviewCards totals={analytics.totals} sessions={sessions} />
       <ToolUsageChart items={analytics.toolUsage} />
-      <DailyActivityChart items={analytics.dailyActivity} sessions={sessions} onSelectSession={onSelectSession} fetchSessionMessages={fetchSessionMessages} fetchSessionCommits={fetchSessionCommits} fetchSessionToolMetrics={fetchSessionToolMetrics} costOptimization={costOptimization} onReclassify={onReclassify} reclassifying={reclassifying} />
+      <DailyActivityChart items={analytics.dailyActivity} sessions={sessions} onSelectSession={onSelectSession} fetchSessionMessages={fetchSessionMessages} fetchSessionCommits={fetchSessionCommits} fetchSessionToolMetrics={fetchSessionToolMetrics} costOptimization={costOptimization} />
       <ModelTable items={analytics.modelBreakdown} />
     </Box>
   );

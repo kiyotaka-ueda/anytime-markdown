@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
 import Paper from '@mui/material/Paper';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
@@ -12,8 +10,6 @@ import type { CostOptimizationData } from '../parser/types';
 
 interface CostOptimizationSectionProps {
   readonly data: CostOptimizationData | null;
-  readonly onReclassify?: () => void;
-  readonly reclassifying?: boolean;
 }
 
 type PeriodMode = 'day' | 'week' | 'month';
@@ -74,7 +70,7 @@ function distToSlices(dist: Readonly<Record<string, number>>): Array<{ id: numbe
     });
 }
 
-export function CostOptimizationSection({ data, onReclassify, reclassifying }: Readonly<CostOptimizationSectionProps>) {
+export function CostOptimizationSection({ data }: Readonly<CostOptimizationSectionProps>) {
   const [periodMode, setPeriodMode] = useState<PeriodMode>('day');
   const chartData = useMemo(
     () => (data ? aggregateByPeriod(data.daily, periodMode) : []),
@@ -93,21 +89,10 @@ export function CostOptimizationSection({ data, onReclassify, reclassifying }: R
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+      <Box sx={{ mb: 1 }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
           Cost Optimization
         </Typography>
-        {onReclassify && (
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={onReclassify}
-            disabled={reclassifying}
-            startIcon={reclassifying ? <CircularProgress size={14} /> : undefined}
-          >
-            {reclassifying ? 'Reclassifying...' : 'Reclassify'}
-          </Button>
-        )}
       </Box>
 
       {/* Summary Cards */}

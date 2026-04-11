@@ -139,14 +139,6 @@ export interface CostOptimizationData {
     readonly totalCost: number;
     readonly byModel: Readonly<Record<string, number>>;
   };
-  readonly ruleEstimate: {
-    readonly totalCost: number;
-    readonly byModel: Readonly<Record<string, number>>;
-  };
-  readonly featureEstimate: {
-    readonly totalCost: number;
-    readonly byModel: Readonly<Record<string, number>>;
-  };
   readonly skillEstimate: {
     readonly totalCost: number;
     readonly byModel: Readonly<Record<string, number>>;
@@ -154,8 +146,6 @@ export interface CostOptimizationData {
   readonly daily: readonly CostDailyEntry[];
   readonly modelDistribution: {
     readonly actual: Readonly<Record<string, number>>;
-    readonly ruleRecommended: Readonly<Record<string, number>>;
-    readonly featureRecommended: Readonly<Record<string, number>>;
     readonly skillRecommended: Readonly<Record<string, number>>;
   };
 }
@@ -163,8 +153,6 @@ export interface CostOptimizationData {
 export interface CostDailyEntry {
   readonly date: string;
   readonly actualCost: number;
-  readonly ruleCost: number;
-  readonly featureCost: number;
   readonly skillCost: number;
 }
 

@@ -24,7 +24,6 @@ export interface TrailDataSourceResult {
   readonly fetchSessionToolMetrics: (id: string) => Promise<ToolMetrics | null>;
   readonly costOptimization: CostOptimizationData | null;
   readonly fetchCostOptimization: () => Promise<CostOptimizationData | null>;
-  readonly reclassify: () => Promise<boolean>;
 }
 
 interface WsMessage {
@@ -247,26 +246,6 @@ export function useTrailDataSource(
     [baseUrl],
   );
 
-  // --- Reclassify all messages ---
-
-  const reclassify = useCallback(
-    async (): Promise<boolean> => {
-      try {
-        const res = await fetch(`${baseUrl}/api/trail/reclassify`, { method: 'POST' });
-        if (res.ok) {
-          // Refresh cost optimization data after reclassification
-          const updated = await fetchCostOptimization();
-          if (updated) setCostOptimization(updated);
-          return true;
-        }
-        return false;
-      } catch {
-        return false;
-      }
-    },
-    [baseUrl, fetchCostOptimization],
-  );
-
   // --- Search sessions ---
 
   const searchSessions = useCallback(
@@ -406,6 +385,5 @@ export function useTrailDataSource(
     fetchSessionToolMetrics,
     costOptimization,
     fetchCostOptimization,
-    reclassify,
   };
 }

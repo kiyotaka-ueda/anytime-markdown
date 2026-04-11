@@ -39,8 +39,6 @@ export interface TrailViewerCoreProps {
   readonly fetchSessionCommits?: AnalyticsPanelProps['fetchSessionCommits'];
   readonly fetchSessionToolMetrics?: AnalyticsPanelProps['fetchSessionToolMetrics'];
   readonly costOptimization?: CostOptimizationData | null;
-  readonly onReclassify?: () => void;
-  readonly reclassifying?: boolean;
 }
 
 const SESSION_LIST_WIDTH = 300;
@@ -61,8 +59,6 @@ export function TrailViewerCore({
   fetchSessionCommits,
   fetchSessionToolMetrics,
   costOptimization = null,
-  onReclassify,
-  reclassifying,
 }: Readonly<TrailViewerCoreProps>) {
   const tokens = getTokens(isDark ?? true);
   const { colors } = tokens;
@@ -109,8 +105,6 @@ export function TrailViewerCore({
           fetchSessionCommits={fetchSessionCommits}
           fetchSessionToolMetrics={fetchSessionToolMetrics}
           costOptimization={costOptimization}
-          onReclassify={onReclassify}
-          reclassifying={reclassifying}
         />
       )}
 

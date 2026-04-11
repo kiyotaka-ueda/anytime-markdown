@@ -192,10 +192,6 @@ export class TrailDataServer {
       return;
     }
 
-    if (pathname === '/api/trail/reclassify' && method === 'POST') {
-      this.handleReclassify(res);
-      return;
-    }
 
     const commitsMatch = /^\/api\/trail\/sessions\/([^/]+)\/commits$/.exec(pathname);
     if (commitsMatch && method === 'GET') {
@@ -514,21 +510,6 @@ export class TrailDataServer {
     } catch {
       res.writeHead(500, JSON_HEADERS);
       res.end(JSON.stringify({ error: 'Failed to get cost optimization data' }));
-    }
-  }
-
-  // -------------------------------------------------------------------------
-  //  API: POST /api/trail/reclassify
-  // -------------------------------------------------------------------------
-
-  private handleReclassify(res: http.ServerResponse): void {
-    try {
-      this.trailDb.reclassifyAllMessages();
-      res.writeHead(200, JSON_HEADERS);
-      res.end(JSON.stringify({ success: true }));
-    } catch {
-      res.writeHead(500, JSON_HEADERS);
-      res.end(JSON.stringify({ error: 'Failed to reclassify messages' }));
     }
   }
 
