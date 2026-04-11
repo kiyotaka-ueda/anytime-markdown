@@ -233,22 +233,39 @@ const CREATE_SESSIONS = `CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
   slug TEXT NOT NULL DEFAULT '',
   project TEXT NOT NULL DEFAULT '',
-  git_branch TEXT NOT NULL DEFAULT '',
-  cwd TEXT NOT NULL DEFAULT '',
-  model TEXT NOT NULL DEFAULT '',
   version TEXT NOT NULL DEFAULT '',
   entrypoint TEXT NOT NULL DEFAULT '',
-  permission_mode TEXT NOT NULL DEFAULT '',
+  model TEXT NOT NULL DEFAULT '',
   start_time TEXT NOT NULL DEFAULT '',
   end_time TEXT NOT NULL DEFAULT '',
   message_count INTEGER NOT NULL DEFAULT 0,
+  file_path TEXT NOT NULL DEFAULT '',
+  file_size INTEGER NOT NULL DEFAULT 0,
+  imported_at TEXT NOT NULL DEFAULT '',
+  commits_resolved_at TEXT
+)`;
+
+const CREATE_SESSION_COSTS = `CREATE TABLE IF NOT EXISTS session_costs (
+  session_id TEXT NOT NULL REFERENCES sessions(id),
+  model TEXT NOT NULL,
   input_tokens INTEGER NOT NULL DEFAULT 0,
   output_tokens INTEGER NOT NULL DEFAULT 0,
   cache_read_tokens INTEGER NOT NULL DEFAULT 0,
   cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
-  file_path TEXT NOT NULL DEFAULT '',
-  file_size INTEGER NOT NULL DEFAULT 0,
-  imported_at TEXT NOT NULL DEFAULT ''
+  estimated_cost_usd REAL NOT NULL DEFAULT 0,
+  PRIMARY KEY (session_id, model)
+)`;
+
+const CREATE_DAILY_COSTS = `CREATE TABLE IF NOT EXISTS daily_costs (
+  date TEXT NOT NULL,
+  model TEXT NOT NULL,
+  cost_type TEXT NOT NULL DEFAULT 'actual',
+  input_tokens INTEGER NOT NULL DEFAULT 0,
+  output_tokens INTEGER NOT NULL DEFAULT 0,
+  cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+  cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+  estimated_cost_usd REAL NOT NULL DEFAULT 0,
+  PRIMARY KEY (date, model, cost_type)
 )`;
 
 const CREATE_MESSAGES = `CREATE TABLE IF NOT EXISTS messages (
@@ -275,6 +292,10 @@ const CREATE_MESSAGES = `CREATE TABLE IF NOT EXISTS messages (
   is_meta INTEGER NOT NULL DEFAULT 0,
   cwd TEXT,
   git_branch TEXT,
+  permission_mode TEXT,
+  skill TEXT,
+  agent_id TEXT,
+  system_command TEXT,
   duration_ms INTEGER,
   tool_result_size INTEGER,
   agent_description TEXT,
@@ -306,14 +327,26 @@ const CREATE_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_messages_type ON messages(type)',
   'CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp)',
   'CREATE INDEX IF NOT EXISTS idx_session_commits_session ON session_commits(session_id)',
+  'CREATE INDEX IF NOT EXISTS idx_session_costs_session ON session_costs(session_id)',
+  'CREATE INDEX IF NOT EXISTS idx_daily_costs_date ON daily_costs(date)',
+  'CREATE INDEX IF NOT EXISTS idx_daily_costs_type ON daily_costs(cost_type)',
 ];
 
 const INSERT_SESSION = `INSERT OR REPLACE INTO sessions
-  (id, slug, project, git_branch, cwd, model, version, entrypoint,
-   permission_mode, start_time, end_time, message_count,
-   input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens,
+  (id, slug, project, version, entrypoint, model,
+   start_time, end_time, message_count,
    file_path, file_size, imported_at)
-  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+  VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`;
+
+const INSERT_SESSION_COST = `INSERT OR REPLACE INTO session_costs
+  (session_id, model, input_tokens, output_tokens,
+   cache_read_tokens, cache_creation_tokens, estimated_cost_usd)
+  VALUES (?,?,?,?,?,?,?)`;
+
+const INSERT_DAILY_COST = `INSERT OR REPLACE INTO daily_costs
+  (date, model, cost_type, input_tokens, output_tokens,
+   cache_read_tokens, cache_creation_tokens, estimated_cost_usd)
+  VALUES (?,?,?,?,?,?,?,?)`;
 
 const INSERT_MESSAGE = `INSERT OR REPLACE INTO messages
   (uuid, session_id, parent_uuid, type, subtype, text_content,
@@ -322,8 +355,9 @@ const INSERT_MESSAGE = `INSERT OR REPLACE INTO messages
    cache_creation_tokens, service_tier, speed, timestamp,
    is_sidechain, is_meta, cwd, git_branch,
    rule_recommended_model, feature_recommended_model, cost_category,
-   duration_ms, tool_result_size, agent_description, agent_model)
-  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+   duration_ms, tool_result_size, agent_description, agent_model,
+   permission_mode, skill, agent_id, system_command)
+  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 
 
 // ---------------------------------------------------------------------------
@@ -512,6 +546,8 @@ export class TrailDatabase {
   private createTables(): void {
     const db = this.ensureDb();
     db.run(CREATE_SESSIONS);
+    db.run(CREATE_SESSION_COSTS);
+    db.run(CREATE_DAILY_COSTS);
     db.run(CREATE_MESSAGES);
     db.run(CREATE_SESSION_COMMITS);
     db.run(CREATE_TASKS);
@@ -542,27 +578,22 @@ export class TrailDatabase {
     for (const sql of taskAlters) {
       try { db.run(sql); } catch { /* Column already exists */ }
     }
-    try {
-      db.run('ALTER TABLE messages ADD COLUMN rule_recommended_model TEXT');
-    } catch { /* Column already exists */ }
-    try {
-      db.run('ALTER TABLE messages ADD COLUMN feature_recommended_model TEXT');
-    } catch { /* Column already exists */ }
-    try {
-      db.run('ALTER TABLE messages ADD COLUMN cost_category TEXT');
-    } catch { /* Column already exists */ }
-    try {
-      db.run('ALTER TABLE messages ADD COLUMN duration_ms INTEGER');
-    } catch { /* Column already exists */ }
-    try {
-      db.run('ALTER TABLE messages ADD COLUMN tool_result_size INTEGER');
-    } catch { /* Column already exists */ }
-    try {
-      db.run('ALTER TABLE messages ADD COLUMN agent_description TEXT');
-    } catch { /* Column already exists */ }
-    try {
-      db.run('ALTER TABLE messages ADD COLUMN agent_model TEXT');
-    } catch { /* Column already exists */ }
+    const messageAlters = [
+      'ALTER TABLE messages ADD COLUMN rule_recommended_model TEXT',
+      'ALTER TABLE messages ADD COLUMN feature_recommended_model TEXT',
+      'ALTER TABLE messages ADD COLUMN cost_category TEXT',
+      'ALTER TABLE messages ADD COLUMN duration_ms INTEGER',
+      'ALTER TABLE messages ADD COLUMN tool_result_size INTEGER',
+      'ALTER TABLE messages ADD COLUMN agent_description TEXT',
+      'ALTER TABLE messages ADD COLUMN agent_model TEXT',
+      'ALTER TABLE messages ADD COLUMN permission_mode TEXT',
+      'ALTER TABLE messages ADD COLUMN skill TEXT',
+      'ALTER TABLE messages ADD COLUMN agent_id TEXT',
+      'ALTER TABLE messages ADD COLUMN system_command TEXT',
+    ];
+    for (const sql of messageAlters) {
+      try { db.run(sql); } catch { /* Column already exists */ }
+    }
 
     this.migrateTimestampsToUTC(db);
   }
