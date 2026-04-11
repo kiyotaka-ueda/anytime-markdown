@@ -190,6 +190,7 @@ interface RawLine {
   toolUseResult?: unknown;
   sourceToolAssistantUUID?: string;
   sourceToolUseID?: string;
+  durationMs?: number;
   message?: {
     role?: string;
     model?: string;
@@ -263,7 +264,11 @@ const CREATE_MESSAGES = `CREATE TABLE IF NOT EXISTS messages (
   is_sidechain INTEGER NOT NULL DEFAULT 0,
   is_meta INTEGER NOT NULL DEFAULT 0,
   cwd TEXT,
-  git_branch TEXT
+  git_branch TEXT,
+  duration_ms INTEGER,
+  tool_result_size INTEGER,
+  agent_description TEXT,
+  agent_model TEXT
 )`;
 
 const CREATE_SESSION_COMMITS = `CREATE TABLE IF NOT EXISTS session_commits (
@@ -299,8 +304,9 @@ const INSERT_MESSAGE = `INSERT OR REPLACE INTO messages
    stop_reason, input_tokens, output_tokens, cache_read_tokens,
    cache_creation_tokens, service_tier, speed, timestamp,
    is_sidechain, is_meta, cwd, git_branch,
-   rule_recommended_model, feature_recommended_model, cost_category)
-  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+   rule_recommended_model, feature_recommended_model, cost_category,
+   duration_ms, tool_result_size, agent_description, agent_model)
+  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 
 
 // ---------------------------------------------------------------------------
@@ -326,6 +332,36 @@ function extractToolCalls(
     .filter((b) => b.type === 'tool_use')
     .map((b) => ({ id: b.id ?? '', name: b.name ?? '', input: b.input ?? {} }));
   return calls.length > 0 ? JSON.stringify(calls) : null;
+}
+
+/**
+ * Extract Agent tool call description and model from tool_calls JSON.
+ * Returns the first Agent call found (most messages have at most one).
+ */
+function extractAgentInfo(
+  toolCallsJson: string | null,
+): { description: string | null; model: string | null } {
+  if (!toolCallsJson) return { description: null, model: null };
+  try {
+    const calls = JSON.parse(toolCallsJson) as { name?: string; input?: Record<string, unknown> }[];
+    const agentCall = calls.find((c) => c.name === 'Agent');
+    if (!agentCall?.input) return { description: null, model: null };
+    return {
+      description: (agentCall.input.description as string) ?? null,
+      model: (agentCall.input.model as string) ?? null,
+    };
+  } catch {
+    return { description: null, model: null };
+  }
+}
+
+/**
+ * Estimate token count from a string.
+ * Uses a rough heuristic of 1 token per 4 characters.
+ */
+function estimateTokenCount(text: string | null): number | null {
+  if (!text) return null;
+  return Math.ceil(text.length / 4);
 }
 
 // ---------------------------------------------------------------------------
@@ -479,6 +515,18 @@ export class TrailDatabase {
     } catch { /* Column already exists */ }
     try {
       db.run('ALTER TABLE messages ADD COLUMN cost_category TEXT');
+    } catch { /* Column already exists */ }
+    try {
+      db.run('ALTER TABLE messages ADD COLUMN duration_ms INTEGER');
+    } catch { /* Column already exists */ }
+    try {
+      db.run('ALTER TABLE messages ADD COLUMN tool_result_size INTEGER');
+    } catch { /* Column already exists */ }
+    try {
+      db.run('ALTER TABLE messages ADD COLUMN agent_description TEXT');
+    } catch { /* Column already exists */ }
+    try {
+      db.run('ALTER TABLE messages ADD COLUMN agent_model TEXT');
     } catch { /* Column already exists */ }
 
     this.migrateTimestampsToUTC(db);
@@ -784,7 +832,6 @@ export class TrailDatabase {
     for (const raw of parsed) {
       if (!raw.type || SKIP_TYPES.has(raw.type)) continue;
       if (raw.isMeta === true) continue;
-      if (raw.type === 'system' && raw.subtype === 'turn_duration') continue;
 
       if (!sessionId && raw.sessionId) sessionId = raw.sessionId;
       if (!slug && raw.slug) slug = raw.slug;
@@ -864,6 +911,11 @@ export class TrailDatabase {
           featureRecommendedModel = classifyMessageByFeatures(outputTokens, toolCallNames, uniqueFileCount);
         }
 
+        // --- New analytics fields ---
+        const durationMs = raw.durationMs ?? null;
+        const toolResultSize = estimateTokenCount(toolUseResult);
+        const agentInfo = extractAgentInfo(toolCalls);
+
         msgStmt.run([
           raw.uuid ?? '',
           sessionId,
@@ -891,6 +943,10 @@ export class TrailDatabase {
           ruleRecommendedModel,
           featureRecommendedModel,
           costCategory,
+          durationMs,
+          toolResultSize,
+          agentInfo.description,
+          agentInfo.model,
         ]);
       }
       msgStmt.free();
