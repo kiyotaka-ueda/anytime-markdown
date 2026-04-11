@@ -1184,8 +1184,13 @@ export class TrailDatabase {
       if (UUID_RE.test(basename)) {
         sid = basename;
       } else if (isSubagent) {
-        // Subagent files: extract parent sessionId from directory name
-        const parentDir = path.basename(path.dirname(filePath));
+        // Subagent files: extract parent sessionId from ancestor directory
+        // e.g. .../UUID/subagents/agent-xxx.jsonl → parent of parent
+        //   or .../UUID/agent-xxx.jsonl → parent
+        let parentDir = path.basename(path.dirname(filePath));
+        if (!UUID_RE.test(parentDir)) {
+          parentDir = path.basename(path.dirname(path.dirname(filePath)));
+        }
         if (UUID_RE.test(parentDir)) {
           sid = parentDir;
         }
