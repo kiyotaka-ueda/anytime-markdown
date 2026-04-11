@@ -1,9 +1,10 @@
 import { useState } from 'react';
+import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
+import ButtonBase from '@mui/material/ButtonBase';
 import Collapse from '@mui/material/Collapse';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
-import Avatar from '@mui/material/Avatar';
 import BuildIcon from '@mui/icons-material/Build';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import PersonIcon from '@mui/icons-material/Person';
@@ -118,6 +119,13 @@ export function MessageNode({
           flexShrink: 0,
           mb: 0.5,
         }}
+        aria-label={
+          message.type === 'user'
+            ? t('message.type.user')
+            : message.type === 'assistant'
+              ? t('message.type.assistant')
+              : t('message.type.system')
+        }
       >
         {avatar.icon}
       </Avatar>
@@ -197,29 +205,36 @@ function ToolCallEntry({
 
   return (
     <Box sx={{ my: 0.5 }}>
-      <Box
+      <ButtonBase
+        onClick={() => setExpanded((prev) => !prev)}
+        aria-expanded={expanded}
+        aria-label={
+          expanded
+            ? t('message.collapseDetail')
+            : `${t('message.expandDetail')}: ${getToolCallSummary(toolCall)}`
+        }
         sx={{
           display: 'flex',
           alignItems: 'center',
-          cursor: 'pointer',
+          width: '100%',
+          textAlign: 'left',
+          borderRadius: '4px',
+          '&:focus-visible': { outline: `2px solid ${colors.iceBlue}` },
         }}
-        onClick={() => setExpanded((prev) => !prev)}
       >
-        <IconButton
-          size="small"
+        <ExpandMoreIcon
+          fontSize="small"
           sx={{
             transform: expanded ? 'rotate(180deg)' : 'none',
             transition: 'transform 0.2s',
             color: colors.textSecondary,
+            flexShrink: 0,
           }}
-          aria-label={expanded ? t('message.collapseDetail') : t('message.expandDetail')}
-        >
-          <ExpandMoreIcon fontSize="small" />
-        </IconButton>
-        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
+        />
+        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', ml: 0.5 }}>
           {getToolCallSummary(toolCall)}
         </Typography>
-      </Box>
+      </ButtonBase>
       <Collapse in={expanded}>
         <ToolCallDetail toolCall={toolCall} />
       </Collapse>

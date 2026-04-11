@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
@@ -74,7 +74,7 @@ function TrailViewerCoreInner({
   costOptimization = null,
 }: Readonly<TrailViewerCoreProps>) {
   const { t } = useTrailI18n();
-  const tokens = getTokens(isDark ?? true);
+  const tokens = useMemo(() => getTokens(isDark ?? true), [isDark]);
   const { colors } = tokens;
   const [activeTab, setActiveTab] = useState(0);
   const selectedSession = sessions.find((s) => s.id === selectedSessionId);
@@ -88,8 +88,30 @@ function TrailViewerCoreInner({
         overflow: 'hidden',
         bgcolor: colors.midnightNavy,
         color: colors.textPrimary,
+        position: 'relative',
       }}
     >
+      {/* aria-live region for screen reader announcements */}
+      <Box
+        aria-live="polite"
+        aria-atomic="true"
+        sx={{
+          position: 'absolute',
+          width: '1px',
+          height: '1px',
+          padding: 0,
+          margin: '-1px',
+          overflow: 'hidden',
+          clip: 'rect(0, 0, 0, 0)',
+          whiteSpace: 'nowrap',
+          border: 0,
+        }}
+      >
+        {selectedSessionId && messages.length > 0
+          ? `${messages.length} ${t('stats.messages')} ${t('viewer.loaded')}`
+          : ''}
+      </Box>
+
       {/* Top: Tabs */}
       <Box sx={{ borderBottom: 1, borderColor: colors.border }}>
         <Tabs
@@ -102,14 +124,19 @@ function TrailViewerCoreInner({
             '& .MuiTabs-indicator': { backgroundColor: colors.iceBlue },
           }}
         >
-          <Tab label={t('viewer.analytics')} />
-          <Tab label={t('viewer.traces')} />
-          <Tab label={t('viewer.prompts')} />
+          <Tab id="trail-tab-0" aria-controls="trail-panel-0" label={t('viewer.analytics')} />
+          <Tab id="trail-tab-1" aria-controls="trail-panel-1" label={t('viewer.traces')} />
+          <Tab id="trail-tab-2" aria-controls="trail-panel-2" label={t('viewer.prompts')} />
         </Tabs>
       </Box>
 
       {/* Tab 0: Analytics */}
-      {activeTab === 0 && (
+      <Box
+        role="tabpanel"
+        id="trail-panel-0"
+        aria-labelledby="trail-tab-0"
+        sx={{ display: activeTab !== 0 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
+      >
         <AnalyticsPanel
           analytics={analytics}
           sessions={allSessions ?? sessions}
@@ -119,61 +146,66 @@ function TrailViewerCoreInner({
           fetchSessionToolMetrics={fetchSessionToolMetrics}
           costOptimization={costOptimization}
         />
-      )}
+      </Box>
 
       {/* Tab 1: Traces */}
-      {activeTab === 1 && (
-        <>
-          {/* FilterBar */}
-          <FilterBar
-            filter={filter}
-            sessions={allSessions ?? sessions}
-            onChange={onFilterChange}
-          />
+      <Box
+        role="tabpanel"
+        id="trail-panel-1"
+        aria-labelledby="trail-tab-1"
+        sx={{ display: activeTab !== 1 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
+      >
+        {/* FilterBar */}
+        <FilterBar
+          filter={filter}
+          sessions={allSessions ?? sessions}
+          onChange={onFilterChange}
+        />
 
-          {/* SessionList + Content area */}
-          <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-            <Box
-              sx={{
-                width: SESSION_LIST_WIDTH,
-                minWidth: SESSION_LIST_WIDTH,
-                borderRight: 1,
-                borderColor: colors.border,
-                overflowY: 'auto',
-              }}
-            >
-              <SessionList
-                sessions={sessions}
-                selectedId={selectedSessionId}
-                onSelect={onSelectSession}
-              />
-            </Box>
-
-            <Box
-              sx={{
-                flex: 1,
-                overflow: 'auto',
-              }}
-            >
-              {selectedSessionId && messages.length > 0 ? (
-                <TraceTree nodes={buildMessageTree(messages)} session={selectedSession} />
-              ) : (
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                  <Typography variant="body2" sx={{ color: colors.textSecondary }}>
-                    {selectedSessionId ? t('viewer.loading') : t('viewer.selectSession')}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
+        {/* SessionList + Content area */}
+        <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+          <Box
+            sx={{
+              width: SESSION_LIST_WIDTH,
+              minWidth: SESSION_LIST_WIDTH,
+              borderRight: 1,
+              borderColor: colors.border,
+              overflowY: 'auto',
+            }}
+          >
+            <SessionList
+              sessions={sessions}
+              selectedId={selectedSessionId}
+              onSelect={onSelectSession}
+            />
           </Box>
 
-          {/* StatsBar */}
-          <StatsBar session={selectedSession} messages={messages} />
-        </>
-      )}
+          <Box sx={{ flex: 1, overflow: 'auto' }}>
+            {selectedSessionId && messages.length > 0 ? (
+              <TraceTree nodes={buildMessageTree(messages)} session={selectedSession} />
+            ) : (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                <Typography variant="body2" sx={{ color: colors.textSecondary }}>
+                  {selectedSessionId ? t('viewer.loading') : t('viewer.selectSession')}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        </Box>
+
+        {/* StatsBar */}
+        <StatsBar session={selectedSession} messages={messages} />
+      </Box>
 
       {/* Tab 2: Prompts */}
-      {activeTab === 2 && <PromptManager prompts={prompts} />}
+      <Box
+        role="tabpanel"
+        id="trail-panel-2"
+        aria-labelledby="trail-tab-2"
+        sx={{ display: activeTab !== 2 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
+      >
+        <PromptManager prompts={prompts} />
+      </Box>
     </Box>
   );
 }

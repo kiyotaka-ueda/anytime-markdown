@@ -1,6 +1,9 @@
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import CachedIcon from '@mui/icons-material/Cached';
 
 import type { TrailMessage, TrailSession } from '../parser/types';
 import { useTrailI18n } from '../i18n';
@@ -12,7 +15,7 @@ interface StatsBarProps {
 }
 
 function formatNumber(n: number): string {
-  return n.toLocaleString('en-US');
+  return n.toLocaleString();
 }
 
 function formatDuration(startTime: string, endTime: string): string {
@@ -67,18 +70,21 @@ export function StatsBar({ session, messages }: Readonly<StatsBarProps>) {
       }}
     >
       <Chip
+        icon={<ArrowDownwardIcon fontSize="small" />}
         label={`${t('stats.input')} ${formatNumber(usage.inputTokens)}`}
         size="small"
         variant="outlined"
         sx={{ borderColor: colors.iceBlue, color: colors.iceBlue }}
       />
       <Chip
+        icon={<ArrowUpwardIcon fontSize="small" />}
         label={`${t('stats.output')} ${formatNumber(usage.outputTokens)}`}
         size="small"
         variant="outlined"
         sx={{ borderColor: colors.error, color: colors.error }}
       />
       <Chip
+        icon={<CachedIcon fontSize="small" />}
         label={`${t('stats.cacheRead')} ${formatNumber(usage.cacheReadTokens)}`}
         size="small"
         variant="outlined"

@@ -654,6 +654,7 @@ function DailySessionList({
                     }>
                       <Chip
                         label={s.interruption.reason === 'max_tokens' ? t('sessionList.maxChip') : t('sessionList.nrChip')}
+                        aria-label={s.interruption.reason === 'max_tokens' ? t('sessionList.interruptedMaxTokens') : t('sessionList.interruptedNoResponse')}
                         size="small"
                         color="warning"
                         variant="outlined"

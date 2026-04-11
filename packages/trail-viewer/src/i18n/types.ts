@@ -7,12 +7,14 @@ export interface TrailI18n {
   'viewer.prompts': string;
   'viewer.loading': string;
   'viewer.selectSession': string;
+  'viewer.loaded': string;
   // filter
   'filter.searchPlaceholder': string;
   'filter.branch': string;
   'filter.allBranches': string;
   'filter.model': string;
   'filter.allModels': string;
+  'filter.searchLabel': string;
   // sessionList
   'sessionList.noSessions': string;
   'sessionList.messages': string;
@@ -48,6 +50,11 @@ export interface TrailI18n {
   'message.expandDetail': string;
   'message.input': string;
   'message.result': string;
+  'message.inputCode': string;
+  'message.resultCode': string;
+  'message.type.user': string;
+  'message.type.assistant': string;
+  'message.type.system': string;
   // analytics
   'analytics.totalSessions': string;
   'analytics.totalTokens': string;

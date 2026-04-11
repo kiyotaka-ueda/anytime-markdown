@@ -69,11 +69,12 @@ export function FilterBar({ filter, sessions, onChange }: Readonly<FilterBarProp
         borderColor: colors.border,
         bgcolor: colors.midnightNavy,
         flexWrap: 'wrap',
-        minHeight: 48,
+        minHeight: 56,
       }}
     >
       <TextField
         size="small"
+        label={t('filter.searchLabel')}
         placeholder={t('filter.searchPlaceholder')}
         value={filter.searchText ?? ''}
         onChange={handleSearchChange}

@@ -2,11 +2,14 @@
 
 import { useCallback, useState } from 'react';
 
+import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
 import { TrailViewerCore, useTrailDataSource } from '@anytime-markdown/trail-viewer';
 import type { TrailFilter, SupabaseConfig } from '@anytime-markdown/trail-viewer';
 
 import { useThemeMode } from '../../providers';
 import { useLocaleSwitch } from '../../LocaleProvider';
+import { TrailErrorBoundary } from './TrailErrorBoundary';
 
 const EMPTY_FILTER: TrailFilter = {};
 
@@ -44,22 +47,40 @@ export function TrailViewer() {
     [dataSource],
   );
 
+  if (dataSource.loading && dataSource.sessions.length === 0) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: 'calc(100vh - 64px)',
+          bgcolor: isDark ? '#0D1117' : '#FAFAFA',
+        }}
+      >
+        <CircularProgress sx={{ color: isDark ? '#90CAF9' : '#1976D2' }} />
+      </Box>
+    );
+  }
+
   return (
-    <TrailViewerCore
-      locale={locale}
-      isDark={isDark}
-      sessions={dataSource.sessions}
-      allSessions={dataSource.allSessions}
-      selectedSessionId={selectedSessionId}
-      messages={dataSource.messages}
-      filter={filter}
-      onSelectSession={handleSelectSession}
-      onFilterChange={handleFilterChange}
-      analytics={dataSource.analytics}
-      costOptimization={dataSource.costOptimization}
-      fetchSessionMessages={dataSource.fetchSessionMessages}
-      fetchSessionCommits={dataSource.fetchSessionCommits}
-      fetchSessionToolMetrics={dataSource.fetchSessionToolMetrics}
-    />
+    <TrailErrorBoundary>
+      <TrailViewerCore
+        locale={locale}
+        isDark={isDark}
+        sessions={dataSource.sessions}
+        allSessions={dataSource.allSessions}
+        selectedSessionId={selectedSessionId}
+        messages={dataSource.messages}
+        filter={filter}
+        onSelectSession={handleSelectSession}
+        onFilterChange={handleFilterChange}
+        analytics={dataSource.analytics}
+        costOptimization={dataSource.costOptimization}
+        fetchSessionMessages={dataSource.fetchSessionMessages}
+        fetchSessionCommits={dataSource.fetchSessionCommits}
+        fetchSessionToolMetrics={dataSource.fetchSessionToolMetrics}
+      />
+    </TrailErrorBoundary>
   );
 }

@@ -44,6 +44,8 @@ export function ToolCallDetail({
         </Typography>
         <Box
           component="pre"
+          tabIndex={0}
+          aria-label={t('message.inputCode')}
           sx={{
             m: 0,
             p: 1,
@@ -52,6 +54,7 @@ export function ToolCallDetail({
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
             ...codeSx,
+            '&:focus-visible': { outline: `2px solid ${colors.iceBlue}` },
           }}
         >
           {formatJson(toolCall.input)}
@@ -68,6 +71,8 @@ export function ToolCallDetail({
           </Typography>
           <Box
             component="pre"
+            tabIndex={0}
+            aria-label={t('message.resultCode')}
             sx={{
               m: 0,
               p: 1,
@@ -76,6 +81,7 @@ export function ToolCallDetail({
               whiteSpace: 'pre-wrap',
               wordBreak: 'break-word',
               ...codeSx,
+              '&:focus-visible': { outline: `2px solid ${colors.iceBlue}` },
             }}
           >
             {toolCall.result}
