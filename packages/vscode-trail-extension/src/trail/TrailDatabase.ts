@@ -20,11 +20,15 @@ import {
   CREATE_TASK_C4_ELEMENTS,
   CREATE_TASK_FEATURES,
   CREATE_TASK_INDEXES,
+  CREATE_RELEASES,
+  CREATE_RELEASE_INDEXES,
   DEFAULT_SKILL_MODELS,
   extractSkillName,
+  buildReleaseFromGitData,
 } from '@anytime-markdown/trail-core';
 import { resolveTasks as resolveTasksImpl } from './TaskResolver';
-import type { TaskRow, TaskFileRow, TaskC4ElementRow, TaskFeatureRow } from '@anytime-markdown/trail-core';
+import { ExecFileGitService } from './ExecFileGitService';
+import type { TaskRow, TaskFileRow, TaskC4ElementRow, TaskFeatureRow, ReleaseRow } from '@anytime-markdown/trail-core';
 export type { TaskRow, TaskFileRow, TaskC4ElementRow, TaskFeatureRow } from '@anytime-markdown/trail-core';
 
 declare const __non_webpack_require__: (id: string) => unknown;
@@ -383,10 +387,11 @@ export class TrailDatabase {
     db.run(CREATE_TASK_FILES);
     db.run(CREATE_TASK_C4_ELEMENTS);
     db.run(CREATE_TASK_FEATURES);
+    db.run(CREATE_RELEASES);
     db.run(CREATE_C4_MODELS);
     db.run(CREATE_SKILL_MODELS_TABLE);
     db.run(CREATE_SKILL_MODELS_RESOLVED_VIEW);
-    for (const sql of [...CREATE_INDEXES, ...CREATE_TASK_INDEXES]) {
+    for (const sql of [...CREATE_INDEXES, ...CREATE_TASK_INDEXES, ...CREATE_RELEASE_INDEXES]) {
       db.run(sql);
     }
 
@@ -1962,6 +1967,93 @@ export class TrailDatabase {
         skillRecommended: skillDist,
       },
     };
+  }
+
+  // -------------------------------------------------------------------------
+  //  Releases
+  // -------------------------------------------------------------------------
+
+  resolveReleases(gitRoot: string): number {
+    const db = this.ensureDb();
+    const git = new ExecFileGitService(gitRoot);
+    const tags = git.getVersionTags();
+    let count = 0;
+
+    for (let i = 0; i < tags.length; i++) {
+      const tag = tags[i];
+      const existing = db.exec(`SELECT tag FROM releases WHERE tag = '${tag.replaceAll("'", "''")}'`);
+      if (existing[0]?.values?.length) continue;
+
+      const prevTag = i + 1 < tags.length ? tags[i + 1] : null;
+      const commitHash = git.getTagCommitHash(tag);
+      const allTagsAtCommit = git.getTagsAtCommit(commitHash);
+      const packageTags = allTagsAtCommit.filter((t) => t !== tag && !t.startsWith('v'));
+      const releasedAt = git.getTagDate(tag);
+      const prevReleasedAt = prevTag ? git.getTagDate(prevTag) : null;
+
+      const commitSubjects = prevTag ? git.getCommitSubjects(prevTag, tag) : [];
+      const stats = prevTag
+        ? git.getDiffStats(prevTag, tag)
+        : { filesChanged: 0, linesAdded: 0, linesDeleted: 0 };
+      const packages = prevTag ? git.getChangedPackages(prevTag, tag) : [];
+
+      const release = buildReleaseFromGitData({
+        tag,
+        prevTag,
+        releasedAt,
+        prevReleasedAt,
+        packageTags,
+        commitSubjects,
+        filesChanged: stats.filesChanged,
+        linesAdded: stats.linesAdded,
+        linesDeleted: stats.linesDeleted,
+        affectedPackages: packages,
+      });
+
+      db.run(
+        `INSERT OR REPLACE INTO releases (
+          tag, released_at, prev_tag, package_tags,
+          commit_count, files_changed, lines_added, lines_deleted,
+          feat_count, fix_count, refactor_count, test_count, other_count,
+          affected_packages, duration_days
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          release.tag,
+          release.releasedAt,
+          release.prevTag,
+          JSON.stringify(release.packageTags),
+          release.commitCount,
+          release.filesChanged,
+          release.linesAdded,
+          release.linesDeleted,
+          release.featCount,
+          release.fixCount,
+          release.refactorCount,
+          release.testCount,
+          release.otherCount,
+          JSON.stringify(release.affectedPackages),
+          release.durationDays,
+        ],
+      );
+      count++;
+    }
+
+    if (count > 0) this.save();
+    return count;
+  }
+
+  getReleases(): ReleaseRow[] {
+    const db = this.ensureDb();
+    const result = db.exec('SELECT * FROM releases ORDER BY released_at DESC');
+    if (!result[0]) return [];
+    const cols = result[0].columns;
+    return result[0].values.map((row) => {
+      const obj: Record<string, unknown> = {};
+      for (let i = 0; i < cols.length; i++) {
+        obj[cols[i]] = row[i];
+      }
+      return obj as unknown as ReleaseRow;
+    });
   }
 }
 
