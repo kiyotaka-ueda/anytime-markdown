@@ -329,6 +329,7 @@ const CREATE_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id)',
   'CREATE INDEX IF NOT EXISTS idx_messages_type ON messages(type)',
   'CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp)',
+  'CREATE INDEX IF NOT EXISTS idx_messages_parent_uuid ON messages(parent_uuid)',
   'CREATE INDEX IF NOT EXISTS idx_session_commits_session ON session_commits(session_id)',
   'CREATE INDEX IF NOT EXISTS idx_session_costs_session ON session_costs(session_id)',
   'CREATE INDEX IF NOT EXISTS idx_daily_costs_date ON daily_costs(date)',
@@ -346,10 +347,16 @@ const INSERT_SESSION_COST = `INSERT OR REPLACE INTO session_costs
    cache_read_tokens, cache_creation_tokens, estimated_cost_usd)
   VALUES (?,?,?,?,?,?,?)`;
 
-const INSERT_DAILY_COST = `INSERT OR REPLACE INTO daily_costs
+const UPSERT_DAILY_COST = `INSERT INTO daily_costs
   (date, model, cost_type, input_tokens, output_tokens,
    cache_read_tokens, cache_creation_tokens, estimated_cost_usd)
-  VALUES (?,?,?,?,?,?,?,?)`;
+  VALUES (?,?,?,?,?,?,?,?)
+  ON CONFLICT(date, model, cost_type) DO UPDATE SET
+    input_tokens = input_tokens + excluded.input_tokens,
+    output_tokens = output_tokens + excluded.output_tokens,
+    cache_read_tokens = cache_read_tokens + excluded.cache_read_tokens,
+    cache_creation_tokens = cache_creation_tokens + excluded.cache_creation_tokens,
+    estimated_cost_usd = estimated_cost_usd + excluded.estimated_cost_usd`;
 
 const INSERT_MESSAGE = `INSERT OR REPLACE INTO messages
   (uuid, session_id, parent_uuid, type, subtype, text_content,
@@ -1057,7 +1064,7 @@ export class TrailDatabase {
          GROUP BY DATE(timestamp, '${tzOffset}'), model`,
         [sessionId],
       );
-      const dcStmt = db.prepare(INSERT_DAILY_COST);
+      const dcStmt = db.prepare(UPSERT_DAILY_COST);
       for (const row of dcActualResult[0]?.values ?? []) {
         const d = String(row[0]);
         const m = String(row[1]);
@@ -1124,6 +1131,10 @@ export class TrailDatabase {
     gitRoot?: string,
     c4ModelPath?: string,
   ): Promise<{ imported: number; skipped: number; commitsResolved: number; tasksResolved: number }> {
+    // Clear daily_costs before full re-import to avoid double-counting from additive UPSERT
+    const db = this.ensureDb();
+    db.run('DELETE FROM daily_costs');
+
     const projectsDir = path.join(os.homedir(), '.claude', 'projects');
     let imported = 0;
     let skipped = 0;
