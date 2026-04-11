@@ -14,5 +14,7 @@
   "config.c4ModelPath": "File path to save/load C4 model data. Relative paths are resolved from the workspace root. Default: `.vscode/c4-model.json`.",
   "command.dsmShow": "Trail: Show DSM",
   "command.dsmAnalyze": "Trail: Analyze Dependencies",
-  "command.aiMemoryRefresh": "Refresh Memory"
+  "command.aiMemoryRefresh": "Refresh Memory",
+  "command.openTrailViewer": "Open Trail Viewer",
+  "view.dashboard": "Dashboard"
 }

@@ -47,7 +47,7 @@
       "anytimeTrail": [
         {
           "id": "anytimeTrail.dashboard",
-          "name": "Dashboard"
+          "name": "%view.dashboard%"
         },
         {
           "id": "anytimeTrail.c4Elements",
@@ -109,9 +109,9 @@
       },
       {
         "command": "anytime-trail.openTrailViewer",
-        "title": "Open Trail Viewer",
+        "title": "%command.openTrailViewer%",
         "category": "Anytime Trail",
-        "icon": "$(browser)"
+        "icon": "$(history)"
       },
       {
         "command": "anytime-trail.importTrailData",

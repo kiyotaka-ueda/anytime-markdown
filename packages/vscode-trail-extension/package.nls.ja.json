@@ -14,5 +14,7 @@
   "config.c4ModelPath": "C4 モデルデータの保存/読み込みファイルパス。相対パスはワークスペースルートから解決されます。デフォルト: `.vscode/c4-model.json`。",
   "command.dsmShow": "Trail: DSMを表示",
   "command.dsmAnalyze": "Trail: 依存関係を解析",
-  "command.aiMemoryRefresh": "Memory を更新"
+  "command.aiMemoryRefresh": "Memory を更新",
+  "command.openTrailViewer": "Trail ビューアを開く",
+  "view.dashboard": "ダッシュボード"
 }
