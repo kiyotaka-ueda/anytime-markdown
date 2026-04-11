@@ -1166,7 +1166,7 @@ export class TrailDatabase {
     for (let i = 0; i < allFiles.length; i++) {
       const { filePath, projectName } = allFiles[i];
       const increment = totalFiles > 0 ? 100 / totalFiles : 0;
-      onProgress?.(`(${i + 1}/${totalFiles}) Importing...`, increment);
+      onProgress?.(`(${i + 1}/${totalFiles}) ${path.basename(filePath)}`, increment);
 
       // Extract sessionId — try filename first, then parse file content
         let sid = '';
