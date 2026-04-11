@@ -295,6 +295,7 @@ export class TrailDataServer {
       const contextStats = this.trailDb.getSessionContextStats(sessionIds);
       const commitStats = this.trailDb.getSessionCommitStats(sessionIds);
       const interruptions = this.trailDb.getSessionInterruptions(sessionIds);
+      const branchMap = this.trailDb.getSessionBranches(sessionIds);
       const sessions = rawSessions.map((s) => {
         const stats = contextStats.get(s.id);
         const cStats = commitStats.get(s.id);
@@ -303,7 +304,7 @@ export class TrailDataServer {
           id: s.id,
           slug: s.slug,
           project: s.project,
-          gitBranch: s.git_branch,
+          gitBranch: branchMap.get(s.id) ?? '',
           model: s.model,
           version: s.version,
           startTime: s.start_time,
@@ -313,11 +314,12 @@ export class TrailDataServer {
           initialContextTokens: stats?.initial ?? 0,
           interruption: intr ?? undefined,
           usage: {
-            inputTokens: s.input_tokens,
-            outputTokens: s.output_tokens,
-            cacheReadTokens: s.cache_read_tokens,
-            cacheCreationTokens: s.cache_creation_tokens,
+            inputTokens: s.input_tokens ?? 0,
+            outputTokens: s.output_tokens ?? 0,
+            cacheReadTokens: s.cache_read_tokens ?? 0,
+            cacheCreationTokens: s.cache_creation_tokens ?? 0,
           },
+          estimatedCostUsd: s.estimated_cost_usd ?? 0,
           commitStats: cStats
             ? { commits: cStats.commits, linesAdded: cStats.linesAdded,
                 linesDeleted: cStats.linesDeleted, filesChanged: cStats.filesChanged }

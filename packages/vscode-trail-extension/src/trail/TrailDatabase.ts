@@ -152,6 +152,9 @@ export interface AnalyticsData {
     readonly sessions: number;
     readonly inputTokens: number;
     readonly outputTokens: number;
+    readonly cacheReadTokens: number;
+    readonly cacheCreationTokens: number;
+    readonly estimatedCostUsd: number;
   }[];
   readonly branchBreakdown: readonly {
     readonly branch: string;
