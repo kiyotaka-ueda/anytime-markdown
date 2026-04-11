@@ -952,7 +952,8 @@ export class TrailDatabase {
     return count;
   }
 
-  importSession(filePath: string, projectName: string, isSubagent = false, externalTransaction = false): void {
+  /** @returns number of messages imported */
+  importSession(filePath: string, projectName: string, isSubagent = false, externalTransaction = false): number {
     const db = this.ensureDb();
     const content = fs.readFileSync(filePath, 'utf-8');
     const lines = content.split('\n').filter((l) => l.trim() !== '');
@@ -966,7 +967,7 @@ export class TrailDatabase {
       }
     }
 
-    if (parsed.length === 0) return;
+    if (parsed.length === 0) return 0;
 
     // Extract session metadata
     let sessionId = '';
@@ -997,7 +998,7 @@ export class TrailDatabase {
       messageCount++;
     }
 
-    if (!sessionId) return;
+    if (!sessionId) return 0;
 
     const fileSize = fs.statSync(filePath).size;
     const importedAt = new Date().toISOString();
@@ -1123,6 +1124,7 @@ export class TrailDatabase {
       scStmt.free();
 
       if (!externalTransaction) db.run('COMMIT');
+      return messageCount;
     } catch (err) {
       if (!externalTransaction) db.run('ROLLBACK');
       throw err;
@@ -1166,8 +1168,9 @@ export class TrailDatabase {
     const importedSessions = this.getImportedSessionMap();
     const UUID_RE = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/;
 
-    const BATCH_SIZE = 10;
-    const pendingImports: Array<{ filePath: string; projectName: string; isSubagent: boolean; sid: string; index: number }> = [];
+    const BATCH_MESSAGE_LIMIT = 10_000;
+    let batchMessageCount = 0;
+    let inTransaction = false;
     for (let i = 0; i < allFiles.length; i++) {
       const { filePath, projectName } = allFiles[i];
       const increment = totalFiles > 0 ? 100 / totalFiles : 0;
@@ -1232,33 +1235,34 @@ export class TrailDatabase {
         }
       }
 
-      // Collect files to import into batches of 10
-      pendingImports.push({ filePath, projectName, isSubagent, sid, index: i });
-
-      if (pendingImports.length >= BATCH_SIZE || i === allFiles.length - 1) {
-        // Yield before batch to prevent Extension Host timeout
-        await new Promise<void>((resolve) => setTimeout(resolve, 0));
-
-        const db = this.ensureDb();
+      // Start transaction if not already in one
+      const db = this.ensureDb();
+      if (!inTransaction) {
         db.run('BEGIN TRANSACTION');
-        try {
-          for (const item of pendingImports) {
-            onProgress?.(`(${item.index + 1}/${totalFiles}) ${path.basename(item.filePath)}`, increment);
-            try {
-              this.importSession(item.filePath, item.projectName, item.isSubagent, true);
-              imported++;
-              if (gitRoot) {
-                try {
-                  commitsResolved += this.resolveCommits(item.sid, gitRoot);
-                } catch { /* skip */ }
-              }
-            } catch { /* skip individual file errors */ }
-          }
-          db.run('COMMIT');
-        } catch {
-          try { db.run('ROLLBACK'); } catch { /* ignore */ }
+        inTransaction = true;
+        batchMessageCount = 0;
+      }
+
+      onProgress?.(`(${i + 1}/${totalFiles}) ${path.basename(filePath)}`, increment);
+      try {
+        const msgCount = this.importSession(filePath, projectName, isSubagent, true);
+        imported++;
+        batchMessageCount += msgCount;
+        if (gitRoot) {
+          try {
+            commitsResolved += this.resolveCommits(sid, gitRoot);
+          } catch { /* skip */ }
         }
-        pendingImports.length = 0;
+      } catch { /* skip individual file errors */ }
+
+      // Commit when message count exceeds limit or at end of loop
+      if (batchMessageCount >= BATCH_MESSAGE_LIMIT || i === allFiles.length - 1) {
+        if (inTransaction) {
+          try { db.run('COMMIT'); } catch { try { db.run('ROLLBACK'); } catch { /* ignore */ } }
+          inTransaction = false;
+        }
+        // Yield to event loop to prevent Extension Host timeout
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
       }
     }
 
