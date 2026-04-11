@@ -59,6 +59,7 @@ export interface AnalyticsData {
     readonly outputTokens: number;
     readonly cacheReadTokens: number;
     readonly cacheCreationTokens: number;
+    readonly estimatedCostUsd: number;
   }[];
   readonly branchBreakdown: readonly {
     readonly branch: string;
@@ -100,13 +101,7 @@ function fmtTokens(n: number): string {
 }
 
 
-/** Estimated cost rates per 1M tokens (USD). Uses Sonnet as default. */
-const COST_PER_M: Readonly<Record<string, number>> = {
-  inputTokens: 3,
-  outputTokens: 15,
-  cacheReadTokens: 0.3,
-  cacheCreationTokens: 3.75,
-};
+// Cost rates removed — backend now provides pre-calculated estimatedCostUsd
 
 type DailyViewMode = 'tokens' | 'cost';
 type PeriodDays = 7 | 30 | 90;
@@ -286,10 +281,6 @@ function ToolUsageChart({ items }: Readonly<{ items: AnalyticsData['toolUsage'] 
   );
 }
 
-function toUsd(tokens: number, key: string): number {
-  return (tokens * (COST_PER_M[key] ?? 3)) / 1_000_000;
-}
-
 function fmtDuration(ms: number): string {
   const totalMin = Math.round(ms / 60_000);
   if (totalMin < 60) return `${totalMin}m`;
@@ -303,10 +294,7 @@ function fmtPercent(ratio: number): string {
 }
 
 function sessionCost(s: TrailSession): number {
-  return toUsd(s.usage.inputTokens, 'inputTokens')
-    + toUsd(s.usage.outputTokens, 'outputTokens')
-    + toUsd(s.usage.cacheReadTokens, 'cacheReadTokens')
-    + toUsd(s.usage.cacheCreationTokens, 'cacheCreationTokens');
+  return s.estimatedCostUsd ?? 0;
 }
 
 function SessionCacheTimeline({
@@ -642,12 +630,7 @@ function DailySessionList({
                   {fmtTokens(s.usage.inputTokens + s.usage.outputTokens)}
                 </TableCell>
                 <TableCell align="right">
-                  {fmtUsd(
-                    toUsd(s.usage.inputTokens, 'inputTokens')
-                    + toUsd(s.usage.outputTokens, 'outputTokens')
-                    + toUsd(s.usage.cacheReadTokens, 'cacheReadTokens')
-                    + toUsd(s.usage.cacheCreationTokens, 'cacheCreationTokens')
-                  )}
+                  {fmtUsd(sessionCost(s))}
                 </TableCell>
                 <TableCell align="right">{fmtNum(s.messageCount)}</TableCell>
                 <TableCell align="right" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
@@ -719,10 +702,11 @@ function DailyActivityChart({
   const dataset = filtered.map((d) => ({
     date: d.date.slice(5),
     fullDate: d.date,
-    inputTokens: isTokens ? d.inputTokens : toUsd(d.inputTokens, 'inputTokens'),
-    outputTokens: isTokens ? d.outputTokens : toUsd(d.outputTokens, 'outputTokens'),
-    cacheReadTokens: isTokens ? d.cacheReadTokens : toUsd(d.cacheReadTokens, 'cacheReadTokens'),
-    cacheCreationTokens: isTokens ? d.cacheCreationTokens : toUsd(d.cacheCreationTokens, 'cacheCreationTokens'),
+    inputTokens: isTokens ? d.inputTokens : 0,
+    outputTokens: isTokens ? d.outputTokens : 0,
+    cacheReadTokens: isTokens ? d.cacheReadTokens : 0,
+    cacheCreationTokens: isTokens ? d.cacheCreationTokens : 0,
+    estimatedCostUsd: isTokens ? 0 : d.estimatedCostUsd,
   }));
 
   const yFormatter = isTokens ? fmtTokens : fmtUsd;
@@ -766,11 +750,13 @@ function DailyActivityChart({
         dataset={dataset}
         xAxis={[{ scaleType: 'band', dataKey: 'date' }]}
         yAxis={[{ valueFormatter: yFormatter }]}
-        series={[
+        series={isTokens ? [
           { dataKey: 'inputTokens', label: 'Input', stack: 'a', color: chartColors.input },
           { dataKey: 'outputTokens', label: 'Output', stack: 'a', color: chartColors.output },
           { dataKey: 'cacheReadTokens', label: 'Cache Read', stack: 'a', color: chartColors.cacheRead },
           { dataKey: 'cacheCreationTokens', label: 'Cache Write', stack: 'a', color: chartColors.cacheWrite },
+        ] : [
+          { dataKey: 'estimatedCostUsd', label: 'Cost (USD)', color: chartColors.input },
         ]}
         height={240}
         margin={{ left: 60, right: 16, top: 16, bottom: 24 }}

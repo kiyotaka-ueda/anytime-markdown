@@ -94,6 +94,7 @@ export interface TrailSession {
     readonly contextTokens: number;
   };
   readonly usage: TrailTokenUsage;
+  readonly estimatedCostUsd?: number;
 }
 
 export interface TrailSessionCommit {
