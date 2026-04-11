@@ -221,7 +221,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('anytime-trail.importTrailData', async () => {
-			if (!trailDb) return;
+			if (!trailDb) {
+				TrailLogger.error('Trail import skipped: trailDb is null (not initialized)');
+				return;
+			}
+			TrailLogger.info('Trail DB: import started');
 			dashboardProvider.setImporting(true);
 			try {
 				const result = await vscode.window.withProgress(
