@@ -77,6 +77,7 @@ export function TrailViewer() {
         onFilterChange={handleFilterChange}
         analytics={dataSource.analytics}
         costOptimization={dataSource.costOptimization}
+        releases={dataSource.releases}
         fetchSessionMessages={dataSource.fetchSessionMessages}
         fetchSessionCommits={dataSource.fetchSessionCommits}
         fetchSessionToolMetrics={dataSource.fetchSessionToolMetrics}
