@@ -8,7 +8,7 @@ import type {
   DsmDiff,
   DsmMatrix,
   FeatureMatrix,
-} from '@anytime-markdown/c4-kernel';
+} from '@anytime-markdown/trail-core/c4';
 
 // ---------------------------------------------------------------------------
 //  Server → Client messages

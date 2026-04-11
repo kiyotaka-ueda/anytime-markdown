@@ -1,8 +1,8 @@
-// Mock dependencies that C4DataServer imports but we don't need for type guard tests
-jest.mock('@anytime-markdown/c4-kernel', () => ({}));
+// Mock dependencies that TrailDataServer imports but we don't need for type guard tests
+jest.mock('@anytime-markdown/trail-core/c4', () => ({}));
 jest.mock('ws', () => ({ WebSocketServer: jest.fn() }));
 
-import { isClientMessage } from '../C4DataServer';
+import { isClientMessage } from '../TrailDataServer';
 
 describe('isClientMessage', () => {
   describe('valid messages', () => {

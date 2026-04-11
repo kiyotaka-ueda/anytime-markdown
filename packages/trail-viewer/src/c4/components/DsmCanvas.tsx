@@ -1,5 +1,5 @@
-import type { BoundaryInfo, C4Model, DsmMatrix } from '@anytime-markdown/c4-kernel';
-import { buildC4Matrix, clusterMatrix, detectCycles } from '@anytime-markdown/c4-kernel';
+import type { BoundaryInfo, C4Model, DsmMatrix } from '@anytime-markdown/trail-core/c4';
+import { buildC4Matrix, clusterMatrix, detectCycles } from '@anytime-markdown/trail-core/c4';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getC4Colors } from '../c4Theme';
 

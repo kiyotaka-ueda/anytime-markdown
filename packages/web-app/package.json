@@ -15,7 +15,6 @@
     "analyze": "ANALYZE=true next build"
   },
   "dependencies": {
-    "@anytime-markdown/c4-kernel": "*",
     "@anytime-markdown/cms-core": "*",
     "@anytime-markdown/graph-core": "*",
     "@anytime-markdown/markdown-core": "*",

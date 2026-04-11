@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { TrailViewerCore, useTrailDataSource, useC4DataSource } from '@anytime-markdown/trail-viewer';
 import type { TrailFilter, ElementFormData, RelationshipFormData } from '@anytime-markdown/trail-viewer';
-import type { DocLink } from '@anytime-markdown/c4-kernel';
+import type { DocLink } from '@anytime-markdown/trail-core/c4';
 
 export function StandaloneTrailViewer({ isDark = true }: Readonly<{ isDark?: boolean }>) {
   const serverUrl = globalThis.location.origin;

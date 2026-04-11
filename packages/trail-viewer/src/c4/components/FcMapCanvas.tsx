@@ -1,4 +1,4 @@
-import type { C4Model, FeatureMatrix } from '@anytime-markdown/c4-kernel';
+import type { C4Model, FeatureMatrix } from '@anytime-markdown/trail-core/c4';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getC4Colors } from '../c4Theme';
 

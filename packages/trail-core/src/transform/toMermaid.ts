@@ -1,4 +1,4 @@
-import { c4ToMermaid } from '@anytime-markdown/c4-kernel';
+import { c4ToMermaid } from '../c4';
 import type { TrailGraph } from '../model/types';
 import { trailToC4 } from './toC4';
 

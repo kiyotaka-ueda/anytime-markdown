@@ -8,7 +8,7 @@ import {
   detectCycles,
   diffMatrix,
   filterTreeByLevel,
-} from '@anytime-markdown/c4-kernel';
+} from '@anytime-markdown/trail-core/c4';
 import type {
   BoundaryInfo,
   C4Model,
@@ -20,7 +20,7 @@ import type {
   DsmMapping,
   DsmMatrix,
   FeatureMatrix,
-} from '@anytime-markdown/c4-kernel';
+} from '@anytime-markdown/trail-core/c4';
 import { WebSocketServer, type WebSocket } from 'ws';
 
 import type { ClientMessage, ServerMessage } from './types';

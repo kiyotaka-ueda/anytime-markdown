@@ -1,10 +1,10 @@
 'use client';
 
-import { extractBoundaries, parseMermaidC4 } from '@anytime-markdown/c4-kernel';
-import type { BoundaryInfo, C4Model, CoverageDiffMatrix, CoverageMatrix, DocLink, FeatureMatrix } from '@anytime-markdown/c4-kernel';
+import { extractBoundaries, parseMermaidC4 } from '@anytime-markdown/trail-core/c4';
+import type { BoundaryInfo, C4Model, CoverageDiffMatrix, CoverageMatrix, DocLink, FeatureMatrix } from '@anytime-markdown/trail-core/c4';
 import type { GraphDocument } from '@anytime-markdown/graph-core';
 import { layoutWithSubgroups } from '@anytime-markdown/graph-core';
-import { c4ToGraphDocument } from '@anytime-markdown/c4-kernel';
+import { c4ToGraphDocument } from '@anytime-markdown/trail-core/c4';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { C4ViewerCore } from '@anytime-markdown/trail-viewer';

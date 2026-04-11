@@ -25,7 +25,6 @@
     "packages/web-app",
     "packages/mobile-app",
     "packages/trail-core",
-    "packages/c4-kernel",
     "packages/trail-viewer"
   ],
   "overrides": {

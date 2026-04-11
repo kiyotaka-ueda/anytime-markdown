@@ -1,4 +1,4 @@
-import type { C4TreeNode, DocLink } from '@anytime-markdown/c4-kernel';
+import type { C4TreeNode, DocLink } from '@anytime-markdown/trail-core/c4';
 import type { Action } from '@anytime-markdown/graph-core/state';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';

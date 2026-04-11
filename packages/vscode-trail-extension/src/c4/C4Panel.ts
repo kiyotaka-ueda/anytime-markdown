@@ -10,8 +10,8 @@ import {
   parseCoverage,
   aggregateCoverage,
   computeCoverageDiff,
-} from '@anytime-markdown/c4-kernel';
-import type { C4Element, C4Model, C4Relationship, BoundaryInfo, CoverageDiffMatrix, CoverageMatrix, DsmMapping, DsmMatrix, FeatureMatrix } from '@anytime-markdown/c4-kernel';
+} from '@anytime-markdown/trail-core/c4';
+import type { C4Element, C4Model, C4Relationship, BoundaryInfo, CoverageDiffMatrix, CoverageMatrix, DsmMapping, DsmMatrix, FeatureMatrix } from '@anytime-markdown/trail-core/c4';
 import { analyze, trailToC4, toMermaid } from '@anytime-markdown/trail-core';
 import type { TrailGraph } from '@anytime-markdown/trail-core';
 import type { C4DataProvider } from '../server/TrailDataServer';

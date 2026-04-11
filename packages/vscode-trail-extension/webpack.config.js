@@ -31,7 +31,7 @@ const extensionConfig = {
     rules: [
       {
         test: /\.ts$/,
-        exclude: /node_modules[\\/](?!@anytime-markdown[\\/](?:trail-core|c4-kernel))/,
+        exclude: /node_modules[\\/](?!@anytime-markdown[\\/]trail-core)/,
         use: [{
           loader: 'ts-loader',
           options: {
@@ -69,7 +69,7 @@ const trailStandaloneConfig = {
     rules: [
       {
         test: /\.tsx?$/,
-        exclude: /node_modules[\\/](?!@anytime-markdown[\\/](?:graph-core|c4-kernel|trail-viewer))/,
+        exclude: /node_modules[\\/](?!@anytime-markdown[\\/](?:graph-core|trail-core|trail-viewer))/,
         use: [{
           loader: 'ts-loader',
           options: {
