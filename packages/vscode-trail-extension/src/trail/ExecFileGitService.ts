@@ -68,6 +68,96 @@ export class ExecFileGitService implements IGitService {
     }
   }
 
+  getVersionTags(): readonly string[] {
+    try {
+      const output = execFileSync('git', [
+        'tag', '-l', 'v*', '--sort=-version:refname',
+      ], { encoding: 'utf-8', timeout: 10_000, cwd: this.gitRoot });
+      return output.split('\n').map((s) => s.trim()).filter((s) => s.length > 0);
+    } catch {
+      return [];
+    }
+  }
+
+  getTagCommitHash(tag: string): string {
+    try {
+      const output = execFileSync('git', [
+        'rev-list', '-1', tag,
+      ], { encoding: 'utf-8', timeout: 10_000, cwd: this.gitRoot });
+      return output.trim();
+    } catch {
+      return '';
+    }
+  }
+
+  getTagsAtCommit(commitHash: string): readonly string[] {
+    try {
+      const output = execFileSync('git', [
+        'tag', '--points-at', commitHash,
+      ], { encoding: 'utf-8', timeout: 10_000, cwd: this.gitRoot });
+      return output.split('\n').map((s) => s.trim()).filter((s) => s.length > 0);
+    } catch {
+      return [];
+    }
+  }
+
+  getTagDate(tag: string): string {
+    try {
+      const output = execFileSync('git', [
+        'log', '-1', '--format=%aI', tag,
+      ], { encoding: 'utf-8', timeout: 10_000, cwd: this.gitRoot });
+      return toUTC(output.trim());
+    } catch {
+      return '';
+    }
+  }
+
+  getCommitSubjects(fromTag: string, toTag: string): readonly string[] {
+    try {
+      const output = execFileSync('git', [
+        'log', '--format=%s', `${fromTag}..${toTag}`,
+      ], { encoding: 'utf-8', timeout: 10_000, cwd: this.gitRoot });
+      return output.split('\n').map((s) => s.trim()).filter((s) => s.length > 0);
+    } catch {
+      return [];
+    }
+  }
+
+  getDiffStats(fromTag: string, toTag: string): { filesChanged: number; linesAdded: number; linesDeleted: number } {
+    try {
+      const output = execFileSync('git', [
+        'diff', '--shortstat', fromTag, toTag,
+      ], { encoding: 'utf-8', timeout: 10_000, cwd: this.gitRoot });
+      // Example: " 10 files changed, 500 insertions(+), 200 deletions(-)"
+      const filesMatch = /(\d+) file/.exec(output);
+      const addedMatch = /(\d+) insertion/.exec(output);
+      const deletedMatch = /(\d+) deletion/.exec(output);
+      return {
+        filesChanged: filesMatch ? Number.parseInt(filesMatch[1], 10) : 0,
+        linesAdded: addedMatch ? Number.parseInt(addedMatch[1], 10) : 0,
+        linesDeleted: deletedMatch ? Number.parseInt(deletedMatch[1], 10) : 0,
+      };
+    } catch {
+      return { filesChanged: 0, linesAdded: 0, linesDeleted: 0 };
+    }
+  }
+
+  getChangedPackages(fromTag: string, toTag: string): readonly string[] {
+    try {
+      const output = execFileSync('git', [
+        'diff', '--name-only', fromTag, toTag,
+      ], { encoding: 'utf-8', timeout: 10_000, cwd: this.gitRoot });
+      const packages = new Set<string>();
+      for (const line of output.split('\n')) {
+        const match = /^packages\/([^/]+)\//.exec(line.trim());
+        if (match) packages.add(match[1]);
+      }
+      return [...packages];
+    } catch {
+      return [];
+    }
+  }
+
   getAggregateFileStats(commitHashes: readonly string[]): readonly FileStatEntry[] {
     const execOpts = { encoding: 'utf-8' as const, timeout: 10_000 };
     const fileMap = new Map<string, { added: number; deleted: number; changeType: string }>();
