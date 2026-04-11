@@ -111,7 +111,7 @@
         "command": "anytime-trail.openTrailViewer",
         "title": "%command.openTrailViewer%",
         "category": "Anytime Trail",
-        "icon": "$(history)"
+        "icon": "$(graph-line)"
       },
       {
         "command": "anytime-trail.importTrailData",
