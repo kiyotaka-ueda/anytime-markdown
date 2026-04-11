@@ -65,15 +65,7 @@ function collectCheckableIds(nodes: readonly C4TreeNode[]): Set<string> {
 
 /** 指定ノードの配下にあるチェック対象IDを収集 */
 function collectDescendantCheckableIds(node: C4TreeNode): Set<string> {
-  const ids = new Set<string>();
-  function walk(list: readonly C4TreeNode[]): void {
-    for (const n of list) {
-      if (isCheckableType(n.type)) ids.add(n.id);
-      if (n.children.length > 0) walk(n.children);
-    }
-  }
-  walk(node.children);
-  return ids;
+  return collectCheckableIds(node.children);
 }
 
 interface TreeNodeItemProps {

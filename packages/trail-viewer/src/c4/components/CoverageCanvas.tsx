@@ -25,24 +25,10 @@ const COLOR_MID = '#f9a825';
 const COLOR_LOW = '#c62828';
 const COLOR_NONE = '#616161';
 
-// --- Helpers ---
+import { truncate, clampViewport as clampViewportBase } from '../canvasHelpers';
 
-function truncate(text: string, maxLen: number): string {
-  return text.length > maxLen ? text.slice(0, maxLen - 1) + '\u2026' : text;
-}
-
-function clampViewport(vp: { offsetX: number; offsetY: number; scale: number }): {
-  offsetX: number;
-  offsetY: number;
-  scale: number;
-} {
-  const maxOffsetX = ROW_HEADER_W * (1 - vp.scale);
-  const maxOffsetY = COL_HEADER_H * (1 - vp.scale);
-  return {
-    scale: vp.scale,
-    offsetX: Math.min(vp.offsetX, maxOffsetX),
-    offsetY: Math.min(vp.offsetY, maxOffsetY),
-  };
+function clampCoverageViewport(vp: { offsetX: number; offsetY: number; scale: number }) {
+  return clampViewportBase(vp, ROW_HEADER_W, COL_HEADER_H);
 }
 
 function heatColor(pct: number): string {
@@ -374,7 +360,7 @@ export function CoverageCanvas({
         const dx = e.clientX - lastPanRef.current.x;
         const dy = e.clientY - lastPanRef.current.y;
         lastPanRef.current = { x: e.clientX, y: e.clientY };
-        viewportRef.current = clampViewport({
+        viewportRef.current = clampCoverageViewport({
           ...viewportRef.current,
           offsetX: viewportRef.current.offsetX + dx,
           offsetY: viewportRef.current.offsetY + dy,
@@ -420,12 +406,12 @@ export function CoverageCanvas({
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     const vp = viewportRef.current;
     switch (e.key) {
-      case 'ArrowUp': { e.preventDefault(); viewportRef.current = clampViewport({ ...vp, offsetY: vp.offsetY + PAN_STEP }); break; }
-      case 'ArrowDown': { e.preventDefault(); viewportRef.current = clampViewport({ ...vp, offsetY: vp.offsetY - PAN_STEP }); break; }
-      case 'ArrowLeft': { e.preventDefault(); viewportRef.current = clampViewport({ ...vp, offsetX: vp.offsetX + PAN_STEP }); break; }
-      case 'ArrowRight': { e.preventDefault(); viewportRef.current = clampViewport({ ...vp, offsetX: vp.offsetX - PAN_STEP }); break; }
-      case '+': case '=': { e.preventDefault(); viewportRef.current = clampViewport({ ...vp, scale: vp.scale * 1.1 }); break; }
-      case '-': { e.preventDefault(); viewportRef.current = clampViewport({ ...vp, scale: vp.scale * 0.9 }); break; }
+      case 'ArrowUp': { e.preventDefault(); viewportRef.current = clampCoverageViewport({ ...vp, offsetY: vp.offsetY + PAN_STEP }); break; }
+      case 'ArrowDown': { e.preventDefault(); viewportRef.current = clampCoverageViewport({ ...vp, offsetY: vp.offsetY - PAN_STEP }); break; }
+      case 'ArrowLeft': { e.preventDefault(); viewportRef.current = clampCoverageViewport({ ...vp, offsetX: vp.offsetX + PAN_STEP }); break; }
+      case 'ArrowRight': { e.preventDefault(); viewportRef.current = clampCoverageViewport({ ...vp, offsetX: vp.offsetX - PAN_STEP }); break; }
+      case '+': case '=': { e.preventDefault(); viewportRef.current = clampCoverageViewport({ ...vp, scale: vp.scale * 1.1 }); break; }
+      case '-': { e.preventDefault(); viewportRef.current = clampCoverageViewport({ ...vp, scale: vp.scale * 0.9 }); break; }
     }
   }, []);
 
@@ -442,7 +428,7 @@ export function CoverageCanvas({
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
         const vp = viewportRef.current;
-        viewportRef.current = clampViewport({
+        viewportRef.current = clampCoverageViewport({
           scale: vp.scale * factor,
           offsetX: mx - (mx - vp.offsetX) * factor,
           offsetY: my - (my - vp.offsetY) * factor,
@@ -451,7 +437,7 @@ export function CoverageCanvas({
         // ホイール: 上下スクロール
         e.preventDefault();
         const vp = viewportRef.current;
-        viewportRef.current = clampViewport({
+        viewportRef.current = clampCoverageViewport({
           ...vp,
           offsetY: vp.offsetY - e.deltaY,
         });

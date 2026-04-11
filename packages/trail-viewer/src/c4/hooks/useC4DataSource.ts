@@ -326,7 +326,10 @@ export function useC4DataSource(serverUrl?: string): C4DataSourceResult {
   useEffect(() => {
     if (!serverUrl) return;
 
+    let mounted = true;
+
     function connect(): void {
+      if (!mounted) return;
       const host = new URL(serverUrl as string).host;
       const ws = new WebSocket(`ws://${host}`);
       wsRef.current = ws;
@@ -350,7 +353,7 @@ export function useC4DataSource(serverUrl?: string): C4DataSourceResult {
     }
 
     function scheduleReconnect(): void {
-      if (retryCountRef.current >= MAX_RETRIES) return;
+      if (!mounted || retryCountRef.current >= MAX_RETRIES) return;
       retryCountRef.current += 1;
       retryTimerRef.current = setTimeout(connect, RECONNECT_DELAY_MS);
     }
@@ -358,6 +361,7 @@ export function useC4DataSource(serverUrl?: string): C4DataSourceResult {
     connect();
 
     return () => {
+      mounted = false;
       if (retryTimerRef.current !== null) {
         clearTimeout(retryTimerRef.current);
         retryTimerRef.current = null;

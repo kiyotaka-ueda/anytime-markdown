@@ -133,14 +133,6 @@ export function C4ViewerCore({
     return c4Model.elements.find(e => e.id === selectedElementId)?.manual === true;
   }, [selectedElementId, c4Model]);
 
-  const handleRemoveElement = useCallback((id: string) => {
-    onRemoveElement?.(id);
-  }, [onRemoveElement]);
-
-  const handlePurgeDeleted = useCallback(() => {
-    onPurgeDeleted?.();
-  }, [onPurgeDeleted]);
-
   // c4Model changes -> rebuild graph document (maintain current level)
   const currentLevelRef = useRef(currentLevel);
   currentLevelRef.current = currentLevel;
@@ -317,10 +309,6 @@ export function C4ViewerCore({
     color: isDark ? `${colors.bg} !important` : '#fff !important',
     borderColor: `${colors.accent} !important`,
   } as const;
-
-  const handleDocLinkClickInternal = useCallback((doc: DocLink) => {
-    onDocLinkClick?.(doc);
-  }, [onDocLinkClick]);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: containerHeight, bgcolor: colors.bg }}>
@@ -509,10 +497,10 @@ export function C4ViewerCore({
             dispatch={dispatch}
             onSelect={(id) => { setCenterOnSelect(true); setSelectedElementId(id); }}
             onCheckedChange={setCheckedPackageIds}
-            onRemoveElement={handleRemoveElement}
-            onPurgeDeleted={handlePurgeDeleted}
+            onRemoveElement={onRemoveElement}
+            onPurgeDeleted={onPurgeDeleted}
             docLinks={docLinks}
-            onDocLinkClick={handleDocLinkClickInternal}
+            onDocLinkClick={onDocLinkClick}
             isDark={isDark}
           />
         )}

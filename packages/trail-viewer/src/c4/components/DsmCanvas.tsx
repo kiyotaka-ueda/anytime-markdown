@@ -26,11 +26,7 @@ const HEADER_HEIGHT = 120;
 const PAN_STEP = 20;
 const DELETED_TEXT_ALPHA = 0.4;
 
-// --- Helpers ---
-
-function truncate(text: string, maxLen: number): string {
-  return text.length > maxLen ? text.slice(0, maxLen - 1) + '\u2026' : text;
-}
+import { truncate, clampViewport } from '../canvasHelpers';
 
 /** 削除済みノードのインデックスセットを構築する */
 function buildDeletedIndices(
@@ -352,16 +348,8 @@ function hitTestCell(
 }
 
 /** ビューポートを制限し、セル左上角がヘッダー領域を超えないようにする */
-function clampViewport(vp: { offsetX: number; offsetY: number; scale: number }): { offsetX: number; offsetY: number; scale: number } {
-  // セル領域の左上角のスクリーン座標: HEADER_WIDTH * scale + offsetX
-  // これが HEADER_WIDTH 以下にならないようにする（= 隙間ができない）
-  const maxOffsetX = HEADER_WIDTH * (1 - vp.scale);
-  const maxOffsetY = HEADER_HEIGHT * (1 - vp.scale);
-  return {
-    scale: vp.scale,
-    offsetX: Math.min(vp.offsetX, maxOffsetX),
-    offsetY: Math.min(vp.offsetY, maxOffsetY),
-  };
+function clampDsmViewport(vp: { offsetX: number; offsetY: number; scale: number }) {
+  return clampViewport(vp, HEADER_WIDTH, HEADER_HEIGHT);
 }
 
 // --- Component ---
@@ -445,7 +433,7 @@ export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focu
     const visibleCenterX = HEADER_WIDTH + (w - HEADER_WIDTH) / 2;
     const visibleCenterY = HEADER_HEIGHT + (h - HEADER_HEIGHT) / 2;
 
-    viewportRef.current = clampViewport({
+    viewportRef.current = clampDsmViewport({
       scale: s,
       offsetX: visibleCenterX - cellCenterX * s,
       offsetY: visibleCenterY - cellCenterY * s,
@@ -533,7 +521,7 @@ export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focu
       const dx = e.clientX - lastPanRef.current.x;
       const dy = e.clientY - lastPanRef.current.y;
       lastPanRef.current = { x: e.clientX, y: e.clientY };
-      viewportRef.current = clampViewport({
+      viewportRef.current = clampDsmViewport({
         ...viewportRef.current,
         offsetX: viewportRef.current.offsetX + dx,
         offsetY: viewportRef.current.offsetY + dy,
@@ -575,33 +563,33 @@ export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focu
     switch (e.key) {
       case 'ArrowUp': {
         e.preventDefault();
-        viewportRef.current = clampViewport({ ...vp, offsetY: vp.offsetY + PAN_STEP });
+        viewportRef.current = clampDsmViewport({ ...vp, offsetY: vp.offsetY + PAN_STEP });
         break;
       }
       case 'ArrowDown': {
         e.preventDefault();
-        viewportRef.current = clampViewport({ ...vp, offsetY: vp.offsetY - PAN_STEP });
+        viewportRef.current = clampDsmViewport({ ...vp, offsetY: vp.offsetY - PAN_STEP });
         break;
       }
       case 'ArrowLeft': {
         e.preventDefault();
-        viewportRef.current = clampViewport({ ...vp, offsetX: vp.offsetX + PAN_STEP });
+        viewportRef.current = clampDsmViewport({ ...vp, offsetX: vp.offsetX + PAN_STEP });
         break;
       }
       case 'ArrowRight': {
         e.preventDefault();
-        viewportRef.current = clampViewport({ ...vp, offsetX: vp.offsetX - PAN_STEP });
+        viewportRef.current = clampDsmViewport({ ...vp, offsetX: vp.offsetX - PAN_STEP });
         break;
       }
       case '+':
       case '=': {
         e.preventDefault();
-        viewportRef.current = clampViewport({ ...vp, scale: vp.scale * 1.1 });
+        viewportRef.current = clampDsmViewport({ ...vp, scale: vp.scale * 1.1 });
         break;
       }
       case '-': {
         e.preventDefault();
-        viewportRef.current = clampViewport({ ...vp, scale: vp.scale * 0.9 });
+        viewportRef.current = clampDsmViewport({ ...vp, scale: vp.scale * 0.9 });
         break;
       }
     }
@@ -619,7 +607,7 @@ export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focu
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
         const vp = viewportRef.current;
-        viewportRef.current = clampViewport({
+        viewportRef.current = clampDsmViewport({
           scale: vp.scale * factor,
           offsetX: mx - (mx - vp.offsetX) * factor,
           offsetY: my - (my - vp.offsetY) * factor,
@@ -627,7 +615,7 @@ export function DsmCanvas({ model, fullModel, boundaries, level, clustered, focu
       } else {
         e.preventDefault();
         const vp = viewportRef.current;
-        viewportRef.current = clampViewport({
+        viewportRef.current = clampDsmViewport({
           ...vp,
           offsetY: vp.offsetY - e.deltaY,
         });
