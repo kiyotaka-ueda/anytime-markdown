@@ -1180,15 +1180,15 @@ export class TrailDatabase {
       try { entries = fs.readdirSync(projectPath); } catch { continue; }
 
       for (const entry of entries) {
-        const sessionPath = path.join(projectPath, entry);
-        if (!UUID_RE.test(entry)) continue;
-        try { if (!fs.statSync(sessionPath).isDirectory()) continue; } catch { continue; }
+        // Main session file: UUID.jsonl at project directory level
+        if (!entry.endsWith('.jsonl')) continue;
+        const sid = entry.slice(0, -6); // remove .jsonl
+        if (!UUID_RE.test(sid)) continue;
 
-        const mainFile = path.join(sessionPath, `${entry}.jsonl`);
-        const hasMain = fs.existsSync(mainFile);
-        if (!hasMain) continue;
+        const mainFile = path.join(projectPath, entry);
 
-        const subagentDir = path.join(sessionPath, 'subagents');
+        // Subagent files: UUID/subagents/*.jsonl
+        const subagentDir = path.join(projectPath, sid, 'subagents');
         const subagentFiles: string[] = [];
         try {
           for (const sf of fs.readdirSync(subagentDir)) {
@@ -1198,7 +1198,7 @@ export class TrailDatabase {
           }
         } catch { /* no subagents dir */ }
 
-        sessionDirs.push({ sid: entry, mainFile, subagentFiles, projectName });
+        sessionDirs.push({ sid, mainFile, subagentFiles, projectName });
       }
     }
 
