@@ -200,6 +200,7 @@ interface RawLine {
   toolUseResult?: unknown;
   sourceToolAssistantUUID?: string;
   sourceToolUseID?: string;
+  agentId?: string;
   durationMs?: number;
   message?: {
     role?: string;
@@ -404,6 +405,19 @@ function extractAgentInfo(
   } catch {
     return { description: null, model: null };
   }
+}
+
+function extractSkillName(toolCallsJson: string | null): string | null {
+  if (!toolCallsJson) return null;
+  try {
+    const calls = JSON.parse(toolCallsJson) as Array<{ name?: string; input?: Record<string, unknown> }>;
+    for (const call of calls) {
+      if (call.name === 'Skill' && typeof call.input?.skill === 'string') {
+        return call.input.skill;
+      }
+    }
+  } catch { /* ignore */ }
+  return null;
 }
 
 /**
@@ -879,17 +893,10 @@ export class TrailDatabase {
     let sessionId = '';
     let slug = '';
     let version = '';
-    let gitBranch = '';
-    let cwd = '';
     let model = '';
     let entrypoint = '';
-    let permissionMode = '';
     let startTime = '';
     let endTime = '';
-    let totalInput = 0;
-    let totalOutput = 0;
-    let totalCacheRead = 0;
-    let totalCacheCreation = 0;
     let messageCount = 0;
 
     // Collect messages to insert
@@ -902,21 +909,10 @@ export class TrailDatabase {
       if (!sessionId && raw.sessionId) sessionId = raw.sessionId;
       if (!slug && raw.slug) slug = raw.slug;
       if (!version && raw.version) version = raw.version;
-      if (!gitBranch && raw.gitBranch) gitBranch = raw.gitBranch;
-      if (!cwd && raw.cwd) cwd = raw.cwd;
       if (!entrypoint && raw.entrypoint) entrypoint = raw.entrypoint;
-      if (!permissionMode && raw.permissionMode) permissionMode = raw.permissionMode;
       if (!model && raw.message?.model) model = raw.message.model;
       if (!startTime && raw.timestamp) startTime = toUTC(raw.timestamp);
       if (raw.timestamp) endTime = toUTC(raw.timestamp);
-
-      const usage = raw.message?.usage;
-      if (usage) {
-        totalInput += usage.input_tokens ?? 0;
-        totalOutput += usage.output_tokens ?? 0;
-        totalCacheRead += usage.cache_read_input_tokens ?? 0;
-        totalCacheCreation += usage.cache_creation_input_tokens ?? 0;
-      }
 
       messagesToInsert.push(raw);
       messageCount++;
@@ -932,9 +928,8 @@ export class TrailDatabase {
       // Insert/update session metadata only for main session files
       if (!isSubagent) {
         db.run(INSERT_SESSION, [
-          sessionId, slug, projectName, gitBranch, cwd, model, version,
-          entrypoint, permissionMode, startTime, endTime, messageCount,
-          totalInput, totalOutput, totalCacheRead, totalCacheCreation,
+          sessionId, slug, projectName, version,
+          entrypoint, model, startTime, endTime, messageCount,
           filePath, fileSize, importedAt,
         ]);
       }
@@ -982,6 +977,14 @@ export class TrailDatabase {
         const toolResultSize = estimateTokenCount(toolUseResult);
         const agentInfo = extractAgentInfo(toolCalls);
 
+        // --- New metadata fields ---
+        const permMode = raw.permissionMode ?? null;
+        const skill = extractSkillName(toolCalls);
+        const agentId = raw.agentId ?? null;
+        const systemCommand = raw.subtype === 'compact_boundary' ? '/compact'
+          : raw.subtype === 'local_command' ? '/clear'
+          : null;
+
         msgStmt.run([
           raw.uuid ?? '',
           sessionId,
@@ -1013,9 +1016,99 @@ export class TrailDatabase {
           toolResultSize,
           agentInfo.description,
           agentInfo.model,
+          permMode,
+          skill,
+          agentId,
+          systemCommand,
         ]);
       }
       msgStmt.free();
+
+      // --- Populate session_costs (session × model) ---
+      const scResult = db.exec(
+        `SELECT COALESCE(model,''), SUM(input_tokens), SUM(output_tokens),
+          SUM(cache_read_tokens), SUM(cache_creation_tokens)
+         FROM messages WHERE session_id = ? AND type = 'assistant'
+         GROUP BY model`,
+        [sessionId],
+      );
+      const scStmt = db.prepare(INSERT_SESSION_COST);
+      for (const row of scResult[0]?.values ?? []) {
+        const m = String(row[0]);
+        const inp = Number(row[1]);
+        const outp = Number(row[2]);
+        const cr = Number(row[3]);
+        const cc = Number(row[4]);
+        scStmt.run([sessionId, m, inp, outp, cr, cc, estimateCost(m, inp, outp, cr, cc)]);
+      }
+      scStmt.free();
+
+      // --- Populate daily_costs (date × model) ---
+      const tzOffset = this.getLocalTzOffset();
+
+      // actual costs
+      const dcActualResult = db.exec(
+        `SELECT DATE(timestamp, '${tzOffset}'), COALESCE(model,''),
+          SUM(input_tokens), SUM(output_tokens),
+          SUM(cache_read_tokens), SUM(cache_creation_tokens)
+         FROM messages WHERE session_id = ? AND type = 'assistant'
+         GROUP BY DATE(timestamp, '${tzOffset}'), model`,
+        [sessionId],
+      );
+      const dcStmt = db.prepare(INSERT_DAILY_COST);
+      for (const row of dcActualResult[0]?.values ?? []) {
+        const d = String(row[0]);
+        const m = String(row[1]);
+        const inp = Number(row[2]);
+        const outp = Number(row[3]);
+        const cr = Number(row[4]);
+        const cc = Number(row[5]);
+        dcStmt.run([d, m, 'actual', inp, outp, cr, cc, estimateCost(m, inp, outp, cr, cc)]);
+      }
+
+      // rule-based estimated costs
+      const dcRuleResult = db.exec(
+        `SELECT DATE(a.timestamp, '${tzOffset}'),
+          COALESCE(u.rule_recommended_model, 'sonnet'),
+          SUM(a.input_tokens), SUM(a.output_tokens),
+          SUM(a.cache_read_tokens), SUM(a.cache_creation_tokens)
+         FROM messages a
+         LEFT JOIN messages u ON a.parent_uuid = u.uuid AND u.type = 'user'
+         WHERE a.session_id = ? AND a.type = 'assistant'
+         GROUP BY DATE(a.timestamp, '${tzOffset}'), COALESCE(u.rule_recommended_model, 'sonnet')`,
+        [sessionId],
+      );
+      for (const row of dcRuleResult[0]?.values ?? []) {
+        const d = String(row[0]);
+        const m = String(row[1]);
+        const inp = Number(row[2]);
+        const outp = Number(row[3]);
+        const cr = Number(row[4]);
+        const cc = Number(row[5]);
+        dcStmt.run([d, m, 'rule', inp, outp, cr, cc, estimateCost(m, inp, outp, cr, cc)]);
+      }
+
+      // feature-based estimated costs
+      const dcFeatureResult = db.exec(
+        `SELECT DATE(a.timestamp, '${tzOffset}'),
+          COALESCE(a.feature_recommended_model, 'sonnet'),
+          SUM(a.input_tokens), SUM(a.output_tokens),
+          SUM(a.cache_read_tokens), SUM(a.cache_creation_tokens)
+         FROM messages a
+         WHERE a.session_id = ? AND a.type = 'assistant'
+         GROUP BY DATE(a.timestamp, '${tzOffset}'), COALESCE(a.feature_recommended_model, 'sonnet')`,
+        [sessionId],
+      );
+      for (const row of dcFeatureResult[0]?.values ?? []) {
+        const d = String(row[0]);
+        const m = String(row[1]);
+        const inp = Number(row[2]);
+        const outp = Number(row[3]);
+        const cr = Number(row[4]);
+        const cc = Number(row[5]);
+        dcStmt.run([d, m, 'feature', inp, outp, cr, cc, estimateCost(m, inp, outp, cr, cc)]);
+      }
+      dcStmt.free();
 
       db.run('COMMIT');
     } catch (err) {
