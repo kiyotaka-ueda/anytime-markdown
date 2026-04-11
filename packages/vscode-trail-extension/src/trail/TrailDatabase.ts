@@ -715,6 +715,20 @@ export class TrailDatabase {
   //  Import
   // -------------------------------------------------------------------------
 
+  /** Load all imported sessions into memory for fast lookup during importAll. */
+  private getImportedSessionMap(): Map<string, { fileSize: number; commitsResolved: boolean }> {
+    const db = this.ensureDb();
+    const result = db.exec('SELECT id, file_size, commits_resolved_at FROM sessions');
+    const map = new Map<string, { fileSize: number; commitsResolved: boolean }>();
+    for (const row of result[0]?.values ?? []) {
+      map.set(String(row[0]), {
+        fileSize: Number(row[1]),
+        commitsResolved: row[2] != null,
+      });
+    }
+    return map;
+  }
+
   isImported(sessionId: string): boolean {
     const db = this.ensureDb();
     const stmt = db.prepare('SELECT 1 FROM sessions WHERE id = ? LIMIT 1');
@@ -1163,6 +1177,10 @@ export class TrailDatabase {
     const totalFiles = allFiles.length;
     onProgress?.(`Found ${totalFiles} JSONL files`, 0);
 
+    // Pre-load imported sessions into memory for fast lookup
+    const importedSessions = this.getImportedSessionMap();
+    const UUID_RE = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/;
+
     for (let i = 0; i < allFiles.length; i++) {
       // Yield to event loop every 10 files to prevent Extension Host timeout
       if (i > 0 && i % 10 === 0) {
@@ -1172,81 +1190,69 @@ export class TrailDatabase {
       const increment = totalFiles > 0 ? 100 / totalFiles : 0;
       onProgress?.(`(${i + 1}/${totalFiles}) ${path.basename(filePath)}`, increment);
 
+      const isSubagent = path.basename(filePath).startsWith('agent-')
+        || filePath.includes(`${path.sep}subagents${path.sep}`);
+
       // Extract sessionId — try filename first, then parse file content
-        let sid = '';
-        const basename = path.basename(filePath, '.jsonl');
-        const UUID_RE = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/;
-        if (UUID_RE.test(basename)) {
-          sid = basename;
-        } else {
-          try {
-            const head = fs.readFileSync(filePath, 'utf-8').slice(0, 65536);
-            const headLines = head.split('\n').filter((l) => l.trim() !== '');
-            for (const line of headLines.slice(0, 20)) {
-              try {
-                const obj = JSON.parse(line) as { sessionId?: string };
-                if (obj.sessionId) {
-                  sid = obj.sessionId;
-                  break;
-                }
-              } catch {
-                // skip
-              }
-            }
-          } catch {
-            continue;
-          }
+      let sid = '';
+      const basename = path.basename(filePath, '.jsonl');
+      if (UUID_RE.test(basename)) {
+        sid = basename;
+      } else if (isSubagent) {
+        // Subagent files: extract parent sessionId from directory name
+        const parentDir = path.basename(path.dirname(filePath));
+        if (UUID_RE.test(parentDir)) {
+          sid = parentDir;
         }
-
-        if (!sid) continue;
-
-        // Subagent files share the parent sessionId — import messages only
-        const isSubagent = path.basename(filePath).startsWith('agent-')
-          || filePath.includes(`${path.sep}subagents${path.sep}`);
-
-        if (this.isImported(sid)) {
-          // Re-import if the main file has grown (new messages appended)
-          if (!isSubagent) {
-            let currentFileSize = 0;
+      }
+      // Fallback: read file head only if filename/dirname didn't work
+      if (!sid) {
+        try {
+          const fd = fs.openSync(filePath, 'r');
+          const buf = Buffer.alloc(4096);
+          const bytesRead = fs.readSync(fd, buf, 0, 4096, 0);
+          fs.closeSync(fd);
+          const head = buf.toString('utf-8', 0, bytesRead);
+          for (const line of head.split('\n').slice(0, 5)) {
+            if (!line.trim()) continue;
             try {
-              currentFileSize = fs.statSync(filePath).size;
-            } catch {
-              // skip
-            }
-            const importedSize = this.getImportedFileSize(sid);
-            if (currentFileSize > importedSize) {
-              try {
-                this.importSession(filePath, projectName);
-                imported++;
-              } catch {
-                // skip
-              }
-            } else {
-              skipped++;
-            }
+              const obj = JSON.parse(line) as { sessionId?: string };
+              if (obj.sessionId) { sid = obj.sessionId; break; }
+            } catch { /* skip */ }
           }
-          // Always import subagent messages (messages use INSERT OR REPLACE)
-          if (isSubagent) {
-            try {
-              this.importSession(filePath, projectName, true);
-              imported++;
-            } catch {
-              // skip
-            }
-          }
-          if (gitRoot && !this.isCommitsResolved(sid)) {
+        } catch {
+          continue;
+        }
+      }
+
+      if (!sid) continue;
+
+      // Fast skip: check in-memory map instead of per-file SQL query
+      const existing = importedSessions.get(sid);
+      if (existing) {
+        let currentFileSize = 0;
+        try {
+          currentFileSize = fs.statSync(filePath).size;
+        } catch {
+          skipped++;
+          continue;
+        }
+        // Skip if file hasn't grown since last import
+        if (currentFileSize <= existing.fileSize) {
+          skipped++;
+          // Check commits only if not yet resolved
+          if (gitRoot && !existing.commitsResolved) {
             try {
               commitsResolved += this.resolveCommits(sid, gitRoot);
-            } catch {
-              // skip
-            }
+            } catch { /* skip */ }
           }
           continue;
         }
+      }
 
-        try {
-          this.importSession(filePath, projectName, isSubagent);
-          imported++;
+      try {
+        this.importSession(filePath, projectName, isSubagent);
+        imported++;
           if (gitRoot) {
             try {
               commitsResolved += this.resolveCommits(sid, gitRoot);
