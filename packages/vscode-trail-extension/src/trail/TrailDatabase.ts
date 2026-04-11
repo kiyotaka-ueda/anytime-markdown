@@ -754,7 +754,7 @@ export class TrailDatabase {
   } | null {
     const db = this.ensureDb();
     const stmt = db.prepare(
-      'SELECT start_time, end_time, git_branch FROM sessions WHERE id = ? LIMIT 1',
+      'SELECT start_time, end_time FROM sessions WHERE id = ? LIMIT 1',
     );
     stmt.bind([sessionId]);
     if (!stmt.step()) {
@@ -762,13 +762,26 @@ export class TrailDatabase {
       return null;
     }
     const row = stmt.getAsObject() as {
-      start_time: string; end_time: string; git_branch: string;
+      start_time: string; end_time: string;
     };
     stmt.free();
+
+    // git_branch is stored in messages table, not sessions
+    let gitBranch = '';
+    try {
+      const branchResult = db.exec(
+        `SELECT git_branch FROM messages
+         WHERE session_id = ? AND git_branch IS NOT NULL AND git_branch != ''
+         LIMIT 1`,
+        [sessionId],
+      );
+      gitBranch = String(branchResult[0]?.values[0]?.[0] ?? '');
+    } catch { /* no branch info available */ }
+
     return {
       startTime: row.start_time,
       endTime: row.end_time,
-      gitBranch: row.git_branch,
+      gitBranch,
     };
   }
 
