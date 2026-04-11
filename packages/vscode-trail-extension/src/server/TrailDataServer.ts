@@ -90,6 +90,8 @@ export class TrailDataServer {
   private docLinks: readonly DocLink[] = [];
   private docsPath: string | undefined;
   onOpenDocLink: ((docPath: string) => void) | undefined;
+  /** Cached tree result keyed by model reference + level */
+  private treeCache: { model: C4Model; level: number; json: string } | undefined;
 
   constructor(
     private readonly distPath: string,
@@ -186,6 +188,7 @@ export class TrailDataServer {
   }
 
   notify(type: 'model-updated' | 'dsm-updated' | 'coverage-updated' | 'coverage-diff-updated'): void {
+    if (type === 'model-updated') this.treeCache = undefined;
     if (this.clients.size === 0) return;
 
     const provider = this.getC4Provider?.();
@@ -621,14 +624,23 @@ export class TrailDataServer {
       return;
     }
 
-    const boundaries = provider?.boundaries ?? [];
-
     const level = DSM_LEVEL_MAP[provider?.currentDsmLevel ?? 'component'] ?? 3;
+
+    if (this.treeCache?.model === model && this.treeCache.level === level) {
+      res.writeHead(200, JSON_HEADERS);
+      res.end(this.treeCache.json);
+      return;
+    }
+
+    const boundaries = provider?.boundaries ?? [];
     const fullTree = buildElementTree(model, boundaries);
     const tree = filterTreeByLevel(fullTree, level);
+    const json = JSON.stringify({ tree });
+
+    this.treeCache = { model, level, json };
 
     res.writeHead(200, JSON_HEADERS);
-    res.end(JSON.stringify({ tree }));
+    res.end(json);
   }
 
   private handleC4CoverageEndpoint(res: http.ServerResponse): void {
