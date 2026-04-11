@@ -10,7 +10,14 @@
     "./analyzer": "./src/analyzer/index.ts",
     "./transform": "./src/transform/index.ts",
     "./model": "./src/model/index.ts",
-    "./formatDate": "./src/formatDate.ts"
+    "./formatDate": "./src/formatDate.ts",
+    "./domain": "./src/domain/index.ts",
+    "./domain/model": "./src/domain/model/index.ts",
+    "./domain/port": "./src/domain/port/index.ts",
+    "./domain/usecase": "./src/domain/usecase/index.ts",
+    "./domain/engine": "./src/domain/engine/index.ts",
+    "./domain/schema": "./src/domain/schema/index.ts",
+    "./domain/reader": "./src/domain/reader/index.ts"
   },
   "bin": {
     "trail-core": "./bin/trail.js"
