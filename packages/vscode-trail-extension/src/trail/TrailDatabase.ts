@@ -318,6 +318,13 @@ const CREATE_SESSION_COMMITS = `CREATE TABLE IF NOT EXISTS session_commits (
   PRIMARY KEY (session_id, commit_hash)
 )`;
 
+const CREATE_IMPORTED_FILES = `CREATE TABLE IF NOT EXISTS imported_files (
+  file_path TEXT PRIMARY KEY,
+  file_size INTEGER NOT NULL DEFAULT 0,
+  session_id TEXT NOT NULL DEFAULT '',
+  imported_at TEXT NOT NULL DEFAULT ''
+)`;
+
 const CREATE_C4_MODELS = `CREATE TABLE IF NOT EXISTS c4_models (
   id TEXT PRIMARY KEY DEFAULT 'current',
   model_json TEXT NOT NULL,
@@ -788,15 +795,6 @@ export class TrailDatabase {
   }
 
   /** Get set of session IDs that exist in DB. */
-  private getImportedSessionIds(): Set<string> {
-    const db = this.ensureDb();
-    const result = db.exec('SELECT id FROM sessions');
-    const set = new Set<string>();
-    for (const row of result[0]?.values ?? []) {
-      set.add(String(row[0]));
-    }
-    return set;
-  }
 
   isImported(sessionId: string): boolean {
     const db = this.ensureDb();
@@ -1161,140 +1159,120 @@ export class TrailDatabase {
       return { imported, skipped, commitsResolved, tasksResolved: 0 };
     }
 
-    const allFiles: { filePath: string; projectName: string }[] = [];
+    // Pre-load imported file paths + sizes for fast skip
+    const importedFiles = this.getImportedFileMap();
+    const UUID_RE = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/;
+
+    // Collect files per session directory (main + subagents grouped)
+    type SessionDir = { sid: string; mainFile: string; subagentFiles: string[]; projectName: string };
+    const sessionDirs: SessionDir[] = [];
+
     for (const projectName of projectDirs) {
       const projectPath = path.join(projectsDir, projectName);
       try {
-        const stat = fs.statSync(projectPath);
-        if (!stat.isDirectory()) continue;
-      } catch {
-        continue;
+        if (!fs.statSync(projectPath).isDirectory()) continue;
+      } catch { continue; }
+
+      let entries: string[];
+      try { entries = fs.readdirSync(projectPath); } catch { continue; }
+
+      for (const entry of entries) {
+        const sessionPath = path.join(projectPath, entry);
+        if (!UUID_RE.test(entry)) continue;
+        try { if (!fs.statSync(sessionPath).isDirectory()) continue; } catch { continue; }
+
+        const mainFile = path.join(sessionPath, `${entry}.jsonl`);
+        const hasMain = fs.existsSync(mainFile);
+        if (!hasMain) continue;
+
+        const subagentDir = path.join(sessionPath, 'subagents');
+        const subagentFiles: string[] = [];
+        try {
+          for (const sf of fs.readdirSync(subagentDir)) {
+            if (sf.endsWith('.jsonl')) {
+              subagentFiles.push(path.join(subagentDir, sf));
+            }
+          }
+        } catch { /* no subagents dir */ }
+
+        sessionDirs.push({ sid: entry, mainFile, subagentFiles, projectName });
       }
-      const jsonlFiles = findJsonlFiles(projectPath);
-      allFiles.push(...jsonlFiles.map((f) => ({ filePath: f, projectName })));
     }
 
-    const totalFiles = allFiles.length;
-    onProgress?.(`Found ${totalFiles} JSONL files`, 0);
-
-    // Pre-load imported data into memory for fast lookup
-    const importedFiles = this.getImportedFileMap();
-    const importedSessionIds = this.getImportedSessionIds();
-    const UUID_RE = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/;
+    const totalSessions = sessionDirs.length;
+    const totalFiles = sessionDirs.reduce((s, d) => s + 1 + d.subagentFiles.length, 0);
+    onProgress?.(`Found ${totalSessions} sessions (${totalFiles} files)`, 0);
 
     const BATCH_MESSAGE_LIMIT = 10_000;
     const BATCH_FILE_LIMIT = 50;
     let batchMessageCount = 0;
     let batchFileCount = 0;
     let inTransaction = false;
-    for (let i = 0; i < allFiles.length; i++) {
-      const { filePath, projectName } = allFiles[i];
-      const increment = totalFiles > 0 ? 100 / totalFiles : 0;
+    let processedFiles = 0;
 
-      const isSubagent = path.basename(filePath).startsWith('agent-')
-        || filePath.includes(`${path.sep}subagents${path.sep}`);
-
-      // Extract sessionId — try filename first, then parse file content
-      let sid = '';
-      const basename = path.basename(filePath, '.jsonl');
-      if (UUID_RE.test(basename)) {
-        sid = basename;
-      } else if (isSubagent) {
-        // Subagent files: extract parent sessionId from ancestor directory
-        // e.g. .../UUID/subagents/agent-xxx.jsonl → parent of parent
-        //   or .../UUID/agent-xxx.jsonl → parent
-        let parentDir = path.basename(path.dirname(filePath));
-        if (!UUID_RE.test(parentDir)) {
-          parentDir = path.basename(path.dirname(path.dirname(filePath)));
-        }
-        if (UUID_RE.test(parentDir)) {
-          sid = parentDir;
+    for (const dir of sessionDirs) {
+      // Skip entire session (main + all subagents) if main file size unchanged
+      const existing = importedFiles.get(dir.mainFile);
+      if (existing) {
+        let currentFileSize = 0;
+        try { currentFileSize = fs.statSync(dir.mainFile).size; } catch { skipped++; continue; }
+        if (currentFileSize <= existing.fileSize) {
+          skipped += 1 + dir.subagentFiles.length;
+          processedFiles += 1 + dir.subagentFiles.length;
+          if (gitRoot && !existing.commitsResolved) {
+            try { commitsResolved += this.resolveCommits(dir.sid, gitRoot); } catch { /* skip */ }
+          }
+          continue;
         }
       }
-      // Fallback: read file head only if filename/dirname didn't work
-      if (!sid) {
+
+      // Collect all files for this session (main + subagents)
+      const filesToImport = [
+        { filePath: dir.mainFile, isSubagent: false },
+        ...dir.subagentFiles.map((f) => ({ filePath: f, isSubagent: true })),
+      ];
+
+      for (const file of filesToImport) {
+        // Start transaction if not already in one
+        const db = this.ensureDb();
+        if (!inTransaction) {
+          db.run('BEGIN TRANSACTION');
+          inTransaction = true;
+          batchMessageCount = 0;
+          batchFileCount = 0;
+        }
+
         try {
-          const fd = fs.openSync(filePath, 'r');
-          const buf = Buffer.alloc(4096);
-          const bytesRead = fs.readSync(fd, buf, 0, 4096, 0);
-          fs.closeSync(fd);
-          const head = buf.toString('utf-8', 0, bytesRead);
-          for (const line of head.split('\n').slice(0, 5)) {
-            if (!line.trim()) continue;
-            try {
-              const obj = JSON.parse(line) as { sessionId?: string };
-              if (obj.sessionId) { sid = obj.sessionId; break; }
-            } catch { /* skip */ }
+          const msgCount = this.importSession(file.filePath, dir.projectName, file.isSubagent, true);
+          imported++;
+          batchMessageCount += msgCount;
+          batchFileCount++;
+        } catch { /* skip individual file errors */ }
+        processedFiles++;
+
+        // Commit when message count or file count exceeds limit
+        if (batchMessageCount >= BATCH_MESSAGE_LIMIT || batchFileCount >= BATCH_FILE_LIMIT) {
+          if (inTransaction) {
+            try { db.run('COMMIT'); } catch { try { db.run('ROLLBACK'); } catch { /* ignore */ } }
+            inTransaction = false;
           }
-        } catch {
-          skipped++;
-          continue;
+          onProgress?.(`${batchMessageCount} messages (${processedFiles}/${totalFiles}, skipped ${skipped})`, 0);
+          await new Promise<void>((resolve) => setTimeout(resolve, 0));
         }
       }
 
-      if (!sid) { skipped++; continue; }
-
-      // Fast skip: different logic for main sessions vs subagents
-      if (isSubagent) {
-        // Subagent: skip if parent session already imported (messages use INSERT OR REPLACE)
-        if (importedSessionIds.has(sid)) {
-          skipped++;
-          continue;
-        }
-      } else {
-        // Main session: skip if same file imported and size unchanged
-        const existing = importedFiles.get(filePath);
-        if (existing) {
-          let currentFileSize = 0;
-          try {
-            currentFileSize = fs.statSync(filePath).size;
-          } catch {
-            skipped++;
-            continue;
-          }
-          if (currentFileSize <= existing.fileSize) {
-            skipped++;
-            if (gitRoot && !existing.commitsResolved) {
-              try {
-                commitsResolved += this.resolveCommits(sid, gitRoot);
-              } catch { /* skip */ }
-            }
-            continue;
-          }
-        }
+      // Resolve commits after all files for this session
+      if (gitRoot) {
+        try { commitsResolved += this.resolveCommits(dir.sid, gitRoot); } catch { /* skip */ }
       }
+    }
 
-      // Start transaction if not already in one
+    // Commit remaining batch
+    if (inTransaction) {
       const db = this.ensureDb();
-      if (!inTransaction) {
-        db.run('BEGIN TRANSACTION');
-        inTransaction = true;
-        batchMessageCount = 0;
-        batchFileCount = 0;
-      }
-
-      try {
-        const msgCount = this.importSession(filePath, projectName, isSubagent, true);
-        imported++;
-        batchMessageCount += msgCount;
-        batchFileCount++;
-        if (gitRoot) {
-          try {
-            commitsResolved += this.resolveCommits(sid, gitRoot);
-          } catch { /* skip */ }
-        }
-      } catch { /* skip individual file errors */ }
-
-      // Commit when message count exceeds limit or at end of loop
-      if (batchMessageCount >= BATCH_MESSAGE_LIMIT || batchFileCount >= BATCH_FILE_LIMIT || i === allFiles.length - 1) {
-        if (inTransaction) {
-          try { db.run('COMMIT'); } catch { try { db.run('ROLLBACK'); } catch { /* ignore */ } }
-          inTransaction = false;
-        }
-        onProgress?.(`${batchMessageCount} messages (${imported + skipped}/${totalFiles}, skipped ${skipped})`, increment);
-        // Yield to event loop to prevent Extension Host timeout
-        await new Promise<void>((resolve) => setTimeout(resolve, 0));
-      }
+      try { db.run('COMMIT'); } catch { try { db.run('ROLLBACK'); } catch { /* ignore */ } }
+      inTransaction = false;
+      onProgress?.(`${batchMessageCount} messages (${processedFiles}/${totalFiles}, skipped ${skipped})`, 0);
     }
 
     // Resolve tasks (PRs) from merge commits
