@@ -743,10 +743,10 @@ function DailyActivityChart({
 
   // Build cost optimization lookup by date
   const costByDate = useMemo(() => {
-    const map = new Map<string, { actual: number; rule: number; feature: number; skill: number }>();
+    const map = new Map<string, { actual: number; skill: number }>();
     if (!costOptimization) return map;
     for (const d of costOptimization.daily) {
-      map.set(d.date, { actual: d.actualCost, rule: d.ruleCost, feature: d.featureCost, skill: d.skillCost });
+      map.set(d.date, { actual: d.actualCost, skill: d.skillCost });
     }
     return map;
   }, [costOptimization]);
@@ -761,8 +761,6 @@ function DailyActivityChart({
       cacheReadTokens: isTokens ? d.cacheReadTokens : 0,
       cacheCreationTokens: isTokens ? d.cacheCreationTokens : 0,
       actualCost: isTokens ? 0 : (costEntry?.actual ?? d.estimatedCostUsd),
-      ruleCost: isTokens ? 0 : (costEntry?.rule ?? 0),
-      featureCost: isTokens ? 0 : (costEntry?.feature ?? 0),
       skillCost: isTokens ? 0 : (costEntry?.skill ?? 0),
     };
   });
@@ -814,10 +812,8 @@ function DailyActivityChart({
           { dataKey: 'cacheReadTokens', label: 'Cache Read', stack: 'a', color: chartColors.cacheRead },
           { dataKey: 'cacheCreationTokens', label: 'Cache Write', stack: 'a', color: chartColors.cacheWrite },
         ] : [
-          { dataKey: 'actualCost', label: 'Actual', color: '#1976d2' },
-          { dataKey: 'skillCost', label: 'Skill', color: '#8b5cf6' },
-          { dataKey: 'ruleCost', label: 'Rule', color: '#2e7d32' },
-          { dataKey: 'featureCost', label: 'Feature', color: '#ed6c02' },
+          { dataKey: 'actualCost', label: 'Current', color: '#1976d2' },
+          { dataKey: 'skillCost', label: 'Optimized', color: '#8b5cf6' },
         ]}
         height={240}
         margin={{ left: 60, right: 16, top: 16, bottom: 24 }}

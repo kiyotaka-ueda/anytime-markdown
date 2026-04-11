@@ -20,8 +20,6 @@ type PeriodMode = 'day' | 'week' | 'month';
 
 const COLORS = {
   actual: '#1976d2',
-  rule: '#2e7d32',
-  feature: '#ed6c02',
   skill: '#8b5cf6',
 } as const;
 
@@ -38,12 +36,12 @@ function fmtUsd(n: number): string {
 function aggregateByPeriod(
   daily: readonly CostOptimizationData['daily'][number][],
   mode: PeriodMode,
-): Array<{ label: string; actualCost: number; ruleCost: number; featureCost: number; skillCost: number }> {
+): Array<{ label: string; actualCost: number; skillCost: number }> {
   if (mode === 'day') {
-    return daily.map((d) => ({ label: d.date.slice(5), ...d }));
+    return daily.map((d) => ({ label: d.date.slice(5), actualCost: d.actualCost, skillCost: d.skillCost }));
   }
 
-  const grouped = new Map<string, { actualCost: number; ruleCost: number; featureCost: number; skillCost: number }>();
+  const grouped = new Map<string, { actualCost: number; skillCost: number }>();
   for (const d of daily) {
     // T12:00:00 を付けてローカルTZでも日付がずれないようにする
     const dt = new Date(`${d.date}T12:00:00`);
@@ -58,10 +56,8 @@ function aggregateByPeriod(
     } else {
       key = d.date.slice(0, 7);
     }
-    const entry = grouped.get(key) ?? { actualCost: 0, ruleCost: 0, featureCost: 0, skillCost: 0 };
+    const entry = grouped.get(key) ?? { actualCost: 0, skillCost: 0 };
     entry.actualCost += d.actualCost;
-    entry.ruleCost += d.ruleCost;
-    entry.featureCost += d.featureCost;
     entry.skillCost += d.skillCost;
     grouped.set(key, entry);
   }
@@ -80,8 +76,6 @@ function distToSlices(dist: Readonly<Record<string, number>>): Array<{ id: numbe
 
 export function CostOptimizationSection({ data, onReclassify, reclassifying }: Readonly<CostOptimizationSectionProps>) {
   const [periodMode, setPeriodMode] = useState<PeriodMode>('day');
-  const [distMode, setDistMode] = useState<'rule' | 'feature' | 'skill'>('skill');
-
   const chartData = useMemo(
     () => (data ? aggregateByPeriod(data.daily, periodMode) : []),
     [data, periodMode],
@@ -89,19 +83,13 @@ export function CostOptimizationSection({ data, onReclassify, reclassifying }: R
 
   if (!data) return null;
 
-  const { actual, ruleEstimate, featureEstimate, skillEstimate, modelDistribution } = data;
-  const bestEstimate = Math.min(ruleEstimate.totalCost, featureEstimate.totalCost, skillEstimate.totalCost);
+  const { actual, skillEstimate, modelDistribution } = data;
   const savingsRate = actual.totalCost > 0
-    ? ((actual.totalCost - bestEstimate) / actual.totalCost) * 100
+    ? ((actual.totalCost - skillEstimate.totalCost) / actual.totalCost) * 100
     : 0;
 
   const actualSlices = distToSlices(modelDistribution.actual);
-  const recommendedDist = distMode === 'rule'
-    ? modelDistribution.ruleRecommended
-    : distMode === 'feature'
-      ? modelDistribution.featureRecommended
-      : modelDistribution.skillRecommended;
-  const recommendedSlices = distToSlices(recommendedDist);
+  const recommendedSlices = distToSlices(modelDistribution.skillRecommended);
 
   return (
     <Box>
@@ -125,32 +113,20 @@ export function CostOptimizationSection({ data, onReclassify, reclassifying }: R
       {/* Summary Cards */}
       <Box sx={{ display: 'flex', gap: 1.5, mb: 2, flexWrap: 'wrap' }}>
         <Paper variant="outlined" sx={{ p: 1.5, flex: 1, minWidth: 140 }}>
-          <Typography variant="caption" color="text.secondary">Actual Cost</Typography>
+          <Typography variant="caption" color="text.secondary">Current</Typography>
           <Typography variant="h6" sx={{ color: COLORS.actual, fontWeight: 700 }}>
             {fmtUsd(actual.totalCost)}
           </Typography>
         </Paper>
         <Paper variant="outlined" sx={{ p: 1.5, flex: 1, minWidth: 140 }}>
-          <Typography variant="caption" color="text.secondary">Rule Estimate</Typography>
-          <Typography variant="h6" sx={{ color: COLORS.rule, fontWeight: 700 }}>
-            {fmtUsd(ruleEstimate.totalCost)}
-          </Typography>
-        </Paper>
-        <Paper variant="outlined" sx={{ p: 1.5, flex: 1, minWidth: 140 }}>
-          <Typography variant="caption" color="text.secondary">Feature Estimate</Typography>
-          <Typography variant="h6" sx={{ color: COLORS.feature, fontWeight: 700 }}>
-            {fmtUsd(featureEstimate.totalCost)}
-          </Typography>
-        </Paper>
-        <Paper variant="outlined" sx={{ p: 1.5, flex: 1, minWidth: 140 }}>
-          <Typography variant="caption" color="text.secondary">Skill Estimate</Typography>
+          <Typography variant="caption" color="text.secondary">Optimized</Typography>
           <Typography variant="h6" sx={{ color: COLORS.skill, fontWeight: 700 }}>
             {fmtUsd(skillEstimate.totalCost)}
           </Typography>
         </Paper>
         <Paper variant="outlined" sx={{ p: 1.5, flex: 1, minWidth: 140 }}>
           <Typography variant="caption" color="text.secondary">Potential Savings</Typography>
-          <Typography variant="h6" sx={{ color: savingsRate > 0 ? COLORS.rule : 'text.primary', fontWeight: 700 }}>
+          <Typography variant="h6" sx={{ color: savingsRate > 0 ? COLORS.skill : 'text.primary', fontWeight: 700 }}>
             {savingsRate.toFixed(1)}%
           </Typography>
         </Paper>
@@ -176,10 +152,8 @@ export function CostOptimizationSection({ data, onReclassify, reclassifying }: R
             height={250}
             xAxis={[{ data: chartData.map((d) => d.label), scaleType: 'band' }]}
             series={[
-              { data: chartData.map((d) => d.actualCost), label: 'Actual', color: COLORS.actual },
-              { data: chartData.map((d) => d.skillCost), label: 'Skill', color: COLORS.skill },
-              { data: chartData.map((d) => d.ruleCost), label: 'Rule', color: COLORS.rule },
-              { data: chartData.map((d) => d.featureCost), label: 'Feature', color: COLORS.feature },
+              { data: chartData.map((d) => d.actualCost), label: 'Current', color: COLORS.actual },
+              { data: chartData.map((d) => d.skillCost), label: 'Optimized', color: COLORS.skill },
             ]}
           />
         ) : (
@@ -191,22 +165,10 @@ export function CostOptimizationSection({ data, onReclassify, reclassifying }: R
 
       {/* Model Distribution */}
       <Paper variant="outlined" sx={{ p: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Model Distribution</Typography>
-          <ToggleButtonGroup
-            size="small"
-            value={distMode}
-            exclusive
-            onChange={(_, v: 'rule' | 'feature' | 'skill' | null) => { if (v) setDistMode(v); }}
-          >
-            <ToggleButton value="skill">Skill</ToggleButton>
-            <ToggleButton value="rule">Rule</ToggleButton>
-            <ToggleButton value="feature">Feature</ToggleButton>
-          </ToggleButtonGroup>
-        </Box>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Model Distribution</Typography>
         <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="caption" color="text.secondary">Actual</Typography>
+            <Typography variant="caption" color="text.secondary">Current</Typography>
             {actualSlices.length > 0 ? (
               <PieChart width={200} height={200} series={[{ data: actualSlices, innerRadius: 30 }]} />
             ) : (
@@ -214,7 +176,7 @@ export function CostOptimizationSection({ data, onReclassify, reclassifying }: R
             )}
           </Box>
           <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="caption" color="text.secondary">Recommended</Typography>
+            <Typography variant="caption" color="text.secondary">Optimized</Typography>
             {recommendedSlices.length > 0 ? (
               <PieChart width={200} height={200} series={[{ data: recommendedSlices, innerRadius: 30 }]} />
             ) : (

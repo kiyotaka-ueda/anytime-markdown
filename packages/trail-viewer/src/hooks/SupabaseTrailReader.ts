@@ -317,10 +317,7 @@ export class SupabaseTrailReader implements ITrailReader {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, v]) => ({ date, ...v }));
 
-    // Branch breakdown (empty — git_branch removed from sessions, would need messages query)
-    const branchBreakdown: { branch: string; sessions: number; inputTokens: number; outputTokens: number }[] = [];
-
-    return { totals, toolUsage: [], modelBreakdown, dailyActivity, branchBreakdown };
+    return { totals, toolUsage: [], modelBreakdown, dailyActivity };
   }
 
   async getSessionToolMetrics(sessionId: string): Promise<ToolMetrics | null> {
