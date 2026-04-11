@@ -13,6 +13,7 @@ import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
+import type { SxProps, Theme } from '@mui/material/styles';
 import { BarChart } from '@mui/x-charts/BarChart';
 import { LineChart } from '@mui/x-charts/LineChart';
 import { formatLocalTime, toLocalDateKey } from '@anytime-markdown/trail-core/formatDate';
@@ -121,7 +122,7 @@ function CyclingCard({
   items: readonly MetricItem[];
   index: number;
   onCycle: () => void;
-  cardStyle: object;
+  cardStyle: SxProps<Theme>;
 }>) {
   const current = items[index];
   return (
@@ -145,9 +146,9 @@ function CyclingCard({
         {current.label}
       </Typography>
       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5, mt: 1 }}>
-        {items.map((_, i) => (
+        {items.map((item, i) => (
           <Box
-            key={i}
+            key={item.label}
             sx={{
               width: 6,
               height: 6,
