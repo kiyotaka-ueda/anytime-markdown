@@ -15,8 +15,11 @@ export const TrailLogger = {
     getChannel().appendLine(`[WARN] ${msg}`);
   },
   error(msg: string, err?: unknown): void {
-    const detail = err instanceof Error ? `: ${err.message}` : '';
+    const detail = err instanceof Error ? `: ${err.message}` : err ? `: ${String(err)}` : '';
     getChannel().appendLine(`[ERROR] ${msg}${detail}`);
+    if (err instanceof Error && err.stack) {
+      getChannel().appendLine(err.stack);
+    }
   },
   dispose(): void {
     channel?.dispose();

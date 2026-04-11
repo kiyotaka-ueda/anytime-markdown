@@ -204,14 +204,18 @@ export async function activate(context: vscode.ExtensionContext) {
 		} catch (err) {
 			TrailLogger.error('Failed to initialize trail database', err);
 			dashboardProvider.updateSqliteStatus('Error');
+			return; // DB 初期化失敗時はサーバー起動もスキップ
 		}
 		try {
+			TrailLogger.info(`Trail Data Server: starting on port ${trailPort}...`);
 			await trailDataServer!.start(trailPort);
 			TrailLogger.info(`Trail Data Server started on port ${trailPort}`);
 		} catch (err) {
 			TrailLogger.error('Trail Data Server failed to start', err);
 		}
-	})();
+	})().catch((err) => {
+		TrailLogger.error('Unexpected error during initialization', err);
+	});
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('anytime-trail.openTrailViewer', () => {
