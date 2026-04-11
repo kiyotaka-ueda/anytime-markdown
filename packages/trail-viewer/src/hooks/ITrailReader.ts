@@ -13,6 +13,7 @@ export interface ITrailReader {
   getMessages(sessionId: string): Promise<readonly TrailMessage[]>;
   getSessionCommits(sessionId: string): Promise<readonly TrailSessionCommit[]>;
   getTasks(): Promise<readonly TrailTask[]>;
+  getC4Model(): Promise<Record<string, unknown> | null>;
   getAnalytics(): Promise<AnalyticsData | null>;
   getSessionToolMetrics(sessionId: string): Promise<ToolMetrics | null>;
   searchMessages(query: string): Promise<readonly { sessionId: string; uuid: string; snippet: string }[]>;

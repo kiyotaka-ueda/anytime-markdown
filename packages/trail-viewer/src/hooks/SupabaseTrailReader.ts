@@ -217,6 +217,20 @@ export class SupabaseTrailReader implements ITrailReader {
     }));
   }
 
+  async getC4Model(): Promise<Record<string, unknown> | null> {
+    const { data, error } = await this.client
+      .from('trail_c4_models')
+      .select('model_json')
+      .eq('id', 'current')
+      .single();
+    if (error || !data) return null;
+    try {
+      return JSON.parse(data.model_json) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }
+
   async getAnalytics(): Promise<AnalyticsData | null> {
     const { data: sessions, error } = await this.client
       .from('trail_sessions')

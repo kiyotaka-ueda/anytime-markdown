@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 /**
  * GET /api/c4model
  *
- * GitHub API でドキュメントリポジトリから c4model/c4-model.json を取得して返す。
+ * C4モデルデータを返す。データソースの優先順位:
+ *   1. Supabase (C4_SOURCE=supabase かつ SUPABASE_URL/SUPABASE_ANON_KEY 設定時)
+ *   2. GitHub API (DOCS_GITHUB_REPO 設定時)
  *
  * 環境変数:
- *   DOCS_GITHUB_REPO  — "owner/repo" 形式または "https://github.com/owner/repo" 形式
- *   DOCS_GITHUB_TOKEN — PAT（private repo 用、省略可）
+ *   C4_SOURCE          — "supabase" | "github" (デフォルト: "github")
+ *   SUPABASE_URL       — Supabase プロジェクト URL
+ *   SUPABASE_ANON_KEY  — Supabase anon key
+ *   DOCS_GITHUB_REPO   — "owner/repo" 形式または "https://github.com/owner/repo" 形式
+ *   DOCS_GITHUB_TOKEN  — PAT（private repo 用、省略可）
  */
 
 const CACHE_MAX_AGE = 300; // 5 min
@@ -31,6 +37,31 @@ interface GitHubBlobResponse {
 let cachedData: { json: unknown; expiresAt: number } | null = null;
 
 export async function GET(): Promise<NextResponse> {
+  // Try Supabase first if configured
+  const c4Source = process.env.C4_SOURCE ?? "github";
+  if (c4Source === "supabase") {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_ANON_KEY;
+    if (supabaseUrl && supabaseKey) {
+      try {
+        const client = createClient(supabaseUrl, supabaseKey);
+        const { data, error } = await client
+          .from("trail_c4_models")
+          .select("model_json")
+          .eq("id", "current")
+          .single();
+        if (!error && data?.model_json) {
+          const parsed = JSON.parse(data.model_json) as unknown;
+          return NextResponse.json(parsed, {
+            headers: { "Cache-Control": `public, max-age=${CACHE_MAX_AGE}` },
+          });
+        }
+      } catch {
+        // Fall through to GitHub
+      }
+    }
+  }
+
   const repoRaw = process.env.DOCS_GITHUB_REPO;
   if (!repoRaw) {
     return NextResponse.json(

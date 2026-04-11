@@ -294,6 +294,13 @@ const CREATE_SESSION_COMMITS = `CREATE TABLE IF NOT EXISTS session_commits (
   PRIMARY KEY (session_id, commit_hash)
 )`;
 
+const CREATE_C4_MODELS = `CREATE TABLE IF NOT EXISTS c4_models (
+  id TEXT PRIMARY KEY DEFAULT 'current',
+  model_json TEXT NOT NULL,
+  revision TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL DEFAULT ''
+)`;
+
 const CREATE_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id)',
   'CREATE INDEX IF NOT EXISTS idx_messages_type ON messages(type)',
@@ -511,6 +518,7 @@ export class TrailDatabase {
     db.run(CREATE_TASK_FILES);
     db.run(CREATE_TASK_C4_ELEMENTS);
     db.run(CREATE_TASK_FEATURES);
+    db.run(CREATE_C4_MODELS);
     for (const sql of [...CREATE_INDEXES, ...CREATE_TASK_INDEXES]) {
       db.run(sql);
     }
@@ -1135,6 +1143,32 @@ export class TrailDatabase {
       this.save();
     }
     return count;
+  }
+
+  // -------------------------------------------------------------------------
+  //  C4 model storage
+  // -------------------------------------------------------------------------
+
+  saveC4Model(json: string, revision = ''): void {
+    const db = this.ensureDb();
+    db.run(
+      `INSERT OR REPLACE INTO c4_models (id, model_json, revision, updated_at)
+       VALUES ('current', ?, ?, datetime('now'))`,
+      [json, revision],
+    );
+    this.save();
+  }
+
+  getC4Model(): { modelJson: string; revision: string; updatedAt: string } | null {
+    const db = this.ensureDb();
+    const result = db.exec("SELECT model_json, revision, updated_at FROM c4_models WHERE id = 'current'");
+    if (!result[0]?.values?.[0]) return null;
+    const [modelJson, revision, updatedAt] = result[0].values[0];
+    return {
+      modelJson: modelJson as string,
+      revision: revision as string,
+      updatedAt: updatedAt as string,
+    };
   }
 
   // -------------------------------------------------------------------------

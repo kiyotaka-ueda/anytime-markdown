@@ -215,6 +215,11 @@ export class TrailDataServer {
       return;
     }
 
+    if (pathname === '/api/c4model' && method === 'GET') {
+      this.handleGetC4Model(res);
+      return;
+    }
+
     res.writeHead(404);
     res.end();
   }
@@ -413,6 +418,27 @@ export class TrailDataServer {
     } catch {
       res.writeHead(500, JSON_HEADERS);
       res.end(JSON.stringify({ error: 'Failed to get tool metrics' }));
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  //  API: GET /api/c4model
+  // -------------------------------------------------------------------------
+
+  private handleGetC4Model(res: http.ServerResponse): void {
+    try {
+      const record = this.trailDb.getC4Model();
+      if (!record) {
+        res.writeHead(404, JSON_HEADERS);
+        res.end(JSON.stringify({ error: 'No C4 model in database' }));
+        return;
+      }
+      // Return the raw JSON string directly (already valid JSON)
+      res.writeHead(200, JSON_HEADERS);
+      res.end(record.modelJson);
+    } catch {
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'Failed to get C4 model' }));
     }
   }
 

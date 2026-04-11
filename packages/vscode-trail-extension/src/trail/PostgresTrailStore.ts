@@ -236,6 +236,18 @@ export class PostgresTrailStore implements IRemoteTrailStore {
     }
   }
 
+  async upsertC4Model(json: string, revision: string): Promise<void> {
+    const pool = this.ensurePool();
+    await pool.query(
+      `INSERT INTO trail_c4_models (id, model_json, revision, updated_at, synced_at)
+      VALUES ('current', $1, $2, $3, NOW())
+      ON CONFLICT (id) DO UPDATE SET
+        model_json = EXCLUDED.model_json, revision = EXCLUDED.revision,
+        updated_at = EXCLUDED.updated_at, synced_at = NOW()`,
+      [json, revision, new Date().toISOString()],
+    );
+  }
+
   private ensurePool(): Pool {
     if (!this.pool) throw new Error('PostgresTrailStore not connected');
     return this.pool;

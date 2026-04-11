@@ -164,6 +164,19 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
     if (error) throw new Error(`Supabase upsert task features failed: ${error.message}`);
   }
 
+  async upsertC4Model(json: string, revision: string): Promise<void> {
+    const { error } = await this.ensureClient()
+      .from('trail_c4_models')
+      .upsert({
+        id: 'current',
+        model_json: json,
+        revision,
+        updated_at: new Date().toISOString(),
+        synced_at: new Date().toISOString(),
+      }, { onConflict: 'id' });
+    if (error) throw new Error(`Supabase upsert C4 model failed: ${error.message}`);
+  }
+
   private ensureClient(): SupabaseClient {
     if (!this.client) throw new Error('SupabaseTrailStore not connected');
     return this.client;

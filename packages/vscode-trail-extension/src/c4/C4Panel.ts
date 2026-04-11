@@ -18,6 +18,7 @@ import type { C4DataProvider, C4DataServer } from '../server/C4DataServer';
 import { TrailLogger } from '../utils/TrailLogger';
 import { CoverageHistory } from './coverageHistory';
 import { CoverageWatcher } from './coverageWatcher';
+import type { TrailDatabase } from '../trail/TrailDatabase';
 
 /**
  * C4モデルのデータ管理を担当するシングルトン。
@@ -26,6 +27,7 @@ import { CoverageWatcher } from './coverageWatcher';
 export class C4Panel implements C4DataProvider {
   private static instance: C4Panel | undefined;
   private static dataServer: C4DataServer | undefined;
+  private static trailDb: TrailDatabase | undefined;
 
   private lastModel: C4Model | undefined;
   private lastBoundaries: readonly BoundaryInfo[] | undefined;
@@ -51,6 +53,10 @@ export class C4Panel implements C4DataProvider {
 
   public static setDataServer(server: C4DataServer): void {
     C4Panel.dataServer = server;
+  }
+
+  public static setTrailDatabase(db: TrailDatabase): void {
+    C4Panel.trailDb = db;
   }
 
   public static getDataProvider(): C4DataProvider | undefined {
@@ -260,7 +266,18 @@ export class C4Panel implements C4DataProvider {
         }
         data.featureMatrix = fmData;
       }
-      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+      const jsonStr = JSON.stringify(data, null, 2);
+      fs.writeFileSync(filePath, jsonStr, 'utf-8');
+
+      // Also save to trail DB
+      if (C4Panel.trailDb) {
+        try {
+          const rev = (featureMatrix as Record<string, unknown> | undefined)?.revision as string ?? '';
+          C4Panel.trailDb.saveC4Model(jsonStr, rev);
+        } catch {
+          // DB save failure should not block file save
+        }
+      }
     } catch (err) {
       TrailLogger.error('Failed to save C4 model', err);
     }

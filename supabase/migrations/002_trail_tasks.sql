@@ -58,3 +58,12 @@ CREATE TABLE IF NOT EXISTS trail_task_features (
 );
 
 CREATE INDEX IF NOT EXISTS idx_trail_task_features_task ON trail_task_features(task_id);
+
+-- C4 model JSON storage
+CREATE TABLE IF NOT EXISTS trail_c4_models (
+  id TEXT PRIMARY KEY DEFAULT 'current',
+  model_json TEXT NOT NULL,
+  revision TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL DEFAULT '',
+  synced_at TIMESTAMPTZ DEFAULT NOW()
+);

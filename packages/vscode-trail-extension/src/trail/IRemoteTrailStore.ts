@@ -13,4 +13,5 @@ export interface IRemoteTrailStore {
   upsertTaskFiles(rows: readonly TaskFileRow[]): Promise<void>;
   upsertTaskC4Elements(rows: readonly TaskC4ElementRow[]): Promise<void>;
   upsertTaskFeatures(rows: readonly TaskFeatureRow[]): Promise<void>;
+  upsertC4Model(json: string, revision: string): Promise<void>;
 }
