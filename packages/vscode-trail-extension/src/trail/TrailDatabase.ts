@@ -34,25 +34,24 @@ export interface SessionRow {
   readonly id: string;
   readonly slug: string;
   readonly project: string;
-  readonly git_branch: string;
-  readonly cwd: string;
-  readonly model: string;
   readonly version: string;
   readonly entrypoint: string;
-  readonly permission_mode: string;
+  readonly model: string;
   readonly start_time: string;
   readonly end_time: string;
   readonly message_count: number;
-  readonly input_tokens: number;
-  readonly output_tokens: number;
-  readonly cache_read_tokens: number;
-  readonly cache_creation_tokens: number;
   readonly file_path: string;
   readonly file_size: number;
   readonly imported_at: string;
+  readonly commits_resolved_at?: string;
+  // Aggregated from session_costs via JOIN
+  readonly estimated_cost_usd?: number;
+  readonly input_tokens?: number;
+  readonly output_tokens?: number;
+  readonly cache_read_tokens?: number;
+  readonly cache_creation_tokens?: number;
   readonly peak_context_tokens?: number;
   readonly initial_context_tokens?: number;
-  readonly commits_resolved_at?: string;
 }
 
 export interface MessageRow {
@@ -1371,7 +1370,7 @@ export class TrailDatabase {
     const params: string[] = [];
 
     if (filters?.branch) {
-      conditions.push('s.git_branch = ?');
+      conditions.push('s.id IN (SELECT DISTINCT session_id FROM messages WHERE git_branch = ?)');
       params.push(filters.branch);
     }
     if (filters?.model) {
@@ -1394,7 +1393,17 @@ export class TrailDatabase {
     const where = conditions.length > 0
       ? `WHERE ${conditions.join(' AND ')}`
       : '';
-    const sql = `SELECT s.* FROM sessions s ${where} ORDER BY s.start_time DESC`;
+    const sql = `SELECT s.*,
+      COALESCE(SUM(sc.input_tokens), 0) AS input_tokens,
+      COALESCE(SUM(sc.output_tokens), 0) AS output_tokens,
+      COALESCE(SUM(sc.cache_read_tokens), 0) AS cache_read_tokens,
+      COALESCE(SUM(sc.cache_creation_tokens), 0) AS cache_creation_tokens,
+      COALESCE(SUM(sc.estimated_cost_usd), 0) AS estimated_cost_usd
+      FROM sessions s
+      LEFT JOIN session_costs sc ON s.id = sc.session_id
+      ${where}
+      GROUP BY s.id
+      ORDER BY s.start_time DESC`;
 
     const stmt = db.prepare(sql);
     if (params.length > 0) stmt.bind(params);
@@ -1405,6 +1414,24 @@ export class TrailDatabase {
     }
     stmt.free();
     return rows;
+  }
+
+  getSessionBranches(sessionIds: readonly string[]): Map<string, string> {
+    const result = new Map<string, string>();
+    if (sessionIds.length === 0) return result;
+    const db = this.ensureDb();
+    const placeholders = sessionIds.map(() => '?').join(',');
+    const rows = db.exec(
+      `SELECT session_id, git_branch FROM messages
+       WHERE session_id IN (${placeholders}) AND git_branch IS NOT NULL AND git_branch != ''
+       GROUP BY session_id
+       ORDER BY MIN(rowid)`,
+      sessionIds as string[],
+    );
+    for (const row of rows[0]?.values ?? []) {
+      result.set(String(row[0]), String(row[1]));
+    }
+    return result;
   }
 
   getSessionContextStats(sessionIds: readonly string[]): Map<string, { peak: number; initial: number }> {
