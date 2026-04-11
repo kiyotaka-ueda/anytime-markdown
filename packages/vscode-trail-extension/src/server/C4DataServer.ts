@@ -23,6 +23,7 @@ import type {
 import { WebSocketServer, type WebSocket } from 'ws';
 
 import type { ClientMessage, ServerMessage } from './types';
+import type { TrailDatabase } from '../trail/TrailDatabase';
 
 // ---------------------------------------------------------------------------
 //  Provider interface — decouples C4DataServer from C4Panel
@@ -90,10 +91,16 @@ export class C4DataServer {
   /** ドキュメントリンククリック時のコールバック */
   onOpenDocLink: ((docPath: string) => void) | undefined;
 
+  private trailDb: TrailDatabase | undefined;
+
   constructor(
     private readonly getProvider: () => C4DataProvider | undefined,
     private readonly distPath: string,
   ) {}
+
+  setTrailDatabase(db: TrailDatabase): void {
+    this.trailDb = db;
+  }
 
   // -------------------------------------------------------------------------
   //  Public API
@@ -282,6 +289,17 @@ export class C4DataServer {
   }
 
   private handleModelEndpoint(res: http.ServerResponse): void {
+    // DB から読み取り（第一優先）
+    if (this.trailDb) {
+      const record = this.trailDb.getC4Model();
+      if (record) {
+        res.writeHead(200, JSON_HEADERS);
+        res.end(record.modelJson);
+        return;
+      }
+    }
+
+    // フォールバック: C4Panel のメモリ上データ
     const provider = this.getProvider();
     const model = provider?.model;
     if (!model) {

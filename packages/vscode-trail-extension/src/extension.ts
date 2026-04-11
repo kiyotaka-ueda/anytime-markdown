@@ -169,6 +169,9 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Trail Database + Data Server (non-blocking initialization)
 	trailDb = new TrailDatabase(extensionDistPath);
 	C4Panel.setTrailDatabase(trailDb);
+	if (dataServer) {
+		dataServer.setTrailDatabase(trailDb);
+	}
 	const gitRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 	trailDataServer = new TrailDataServer(extensionDistPath, trailDb, gitRoot);
 	TrailPanel.setDataServer(trailDataServer);
