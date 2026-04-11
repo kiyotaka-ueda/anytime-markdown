@@ -1170,6 +1170,7 @@ export class TrailDatabase {
 
     const BATCH_MESSAGE_LIMIT = 10_000;
     let batchMessageCount = 0;
+    let totalMessageCount = 0;
     let inTransaction = false;
     for (let i = 0; i < allFiles.length; i++) {
       const { filePath, projectName } = allFiles[i];
@@ -1243,11 +1244,11 @@ export class TrailDatabase {
         batchMessageCount = 0;
       }
 
-      onProgress?.(`(${i + 1}/${totalFiles}) ${path.basename(filePath)}`, increment);
       try {
         const msgCount = this.importSession(filePath, projectName, isSubagent, true);
         imported++;
         batchMessageCount += msgCount;
+        totalMessageCount += msgCount;
         if (gitRoot) {
           try {
             commitsResolved += this.resolveCommits(sid, gitRoot);
@@ -1261,6 +1262,7 @@ export class TrailDatabase {
           try { db.run('COMMIT'); } catch { try { db.run('ROLLBACK'); } catch { /* ignore */ } }
           inTransaction = false;
         }
+        onProgress?.(`${totalMessageCount} messages (${imported}/${totalFiles - skipped})`, increment);
         // Yield to event loop to prevent Extension Host timeout
         await new Promise<void>((resolve) => setTimeout(resolve, 0));
       }
