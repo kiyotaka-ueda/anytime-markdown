@@ -135,7 +135,7 @@ function CyclingCard({
       }}
       onClick={onCycle}
     >
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, textAlign: 'left' }}>
         {groupName}
       </Typography>
       <Typography variant="h5" sx={{ mt: 0.5 }}>
