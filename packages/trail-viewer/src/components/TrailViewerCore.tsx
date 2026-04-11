@@ -22,9 +22,12 @@ import { StatsBar } from './StatsBar';
 import { TraceTree } from './TraceTree';
 import { TrailThemeProvider } from './TrailThemeContext';
 import { getTokens } from './designTokens';
+import { TrailLocaleProvider } from '../i18n';
+import type { TrailLocale } from '../i18n';
 
 export interface TrailViewerCoreProps {
   readonly isDark?: boolean;
+  readonly locale?: TrailLocale;
   readonly sessions: readonly TrailSession[];
   readonly allSessions?: readonly TrailSession[];
   readonly selectedSessionId?: string;
@@ -45,6 +48,7 @@ const SESSION_LIST_WIDTH = 300;
 
 export function TrailViewerCore({
   isDark,
+  locale,
   sessions,
   allSessions,
   selectedSessionId,
@@ -65,7 +69,17 @@ export function TrailViewerCore({
   const [activeTab, setActiveTab] = useState(0);
   const selectedSession = sessions.find((s) => s.id === selectedSessionId);
 
+  const isJa = locale === 'ja';
+  const tabLabels = {
+    analytics: isJa ? '分析' : 'Analytics',
+    traces: isJa ? 'トレース' : 'Traces',
+    prompts: isJa ? 'プロンプト' : 'Prompts',
+  };
+  const selectSessionLabel = isJa ? 'セッションを選択' : 'Select a session';
+  const loadingLabel = isJa ? '読み込み中...' : 'Loading...';
+
   return (
+    <TrailLocaleProvider locale={locale}>
     <TrailThemeProvider isDark={isDark ?? true}>
     <Box
       sx={{
@@ -89,9 +103,9 @@ export function TrailViewerCore({
             '& .MuiTabs-indicator': { backgroundColor: colors.iceBlue },
           }}
         >
-          <Tab label="Analytics" />
-          <Tab label="Traces" />
-          <Tab label="Prompts" />
+          <Tab label={tabLabels.analytics} />
+          <Tab label={tabLabels.traces} />
+          <Tab label={tabLabels.prompts} />
         </Tabs>
       </Box>
 
@@ -147,7 +161,7 @@ export function TrailViewerCore({
               ) : (
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
                   <Typography variant="body2" sx={{ color: colors.textSecondary }}>
-                    {selectedSessionId ? 'Loading...' : 'Select a session'}
+                    {selectedSessionId ? loadingLabel : selectSessionLabel}
                   </Typography>
                 </Box>
               )}
@@ -163,5 +177,6 @@ export function TrailViewerCore({
       {activeTab === 2 && <PromptManager prompts={prompts} />}
     </Box>
     </TrailThemeProvider>
+    </TrailLocaleProvider>
   );
 }

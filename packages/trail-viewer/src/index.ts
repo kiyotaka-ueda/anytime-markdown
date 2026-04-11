@@ -38,3 +38,5 @@ export { EvaluationPanel } from './components/EvaluationPanel';
 
 export { useTrailDataSource } from './hooks/useTrailDataSource';
 export type { TrailDataSourceResult, SupabaseConfig } from './hooks/useTrailDataSource';
+
+export type { TrailLocale } from './i18n/types';
