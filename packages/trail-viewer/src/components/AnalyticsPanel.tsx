@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import CircularProgress from '@mui/material/CircularProgress';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -15,7 +17,6 @@ import { BarChart } from '@mui/x-charts/BarChart';
 import { LineChart } from '@mui/x-charts/LineChart';
 import { formatLocalTime, toLocalDateKey } from '@anytime-markdown/trail-core/formatDate';
 import type { CostOptimizationData, ToolMetrics, TrailMessage, TrailSession, TrailSessionCommit, TrailTokenUsage } from '../parser/types';
-import { CostOptimizationSection } from './CostOptimizationSection';
 import { useTrailTheme } from './TrailThemeContext';
 
 // ---------------------------------------------------------------------------
@@ -677,6 +678,9 @@ function DailyActivityChart({
   fetchSessionMessages,
   fetchSessionCommits,
   fetchSessionToolMetrics,
+  costOptimization,
+  onReclassify,
+  reclassifying,
 }: Readonly<{
   items: AnalyticsData['dailyActivity'];
   sessions: readonly TrailSession[];
@@ -684,6 +688,9 @@ function DailyActivityChart({
   fetchSessionMessages?: (id: string) => Promise<readonly TrailMessage[]>;
   fetchSessionCommits?: (id: string) => Promise<readonly TrailSessionCommit[]>;
   fetchSessionToolMetrics?: (id: string) => Promise<ToolMetrics | null>;
+  costOptimization?: CostOptimizationData | null;
+  onReclassify?: () => void;
+  reclassifying?: boolean;
 }>) {
   const { colors, chartColors } = useTrailTheme();
   const [mode, setMode] = useState<DailyViewMode>('tokens');
@@ -699,15 +706,30 @@ function DailyActivityChart({
 
   const isTokens = mode === 'tokens';
 
-  const dataset = filtered.map((d) => ({
-    date: d.date.slice(5),
-    fullDate: d.date,
-    inputTokens: isTokens ? d.inputTokens : 0,
-    outputTokens: isTokens ? d.outputTokens : 0,
-    cacheReadTokens: isTokens ? d.cacheReadTokens : 0,
-    cacheCreationTokens: isTokens ? d.cacheCreationTokens : 0,
-    estimatedCostUsd: isTokens ? 0 : d.estimatedCostUsd,
-  }));
+  // Build cost optimization lookup by date
+  const costByDate = useMemo(() => {
+    const map = new Map<string, { actual: number; rule: number; feature: number }>();
+    if (!costOptimization) return map;
+    for (const d of costOptimization.daily) {
+      map.set(d.date, { actual: d.actualCost, rule: d.ruleCost, feature: d.featureCost });
+    }
+    return map;
+  }, [costOptimization]);
+
+  const dataset = filtered.map((d) => {
+    const costEntry = costByDate.get(d.date);
+    return {
+      date: d.date.slice(5),
+      fullDate: d.date,
+      inputTokens: isTokens ? d.inputTokens : 0,
+      outputTokens: isTokens ? d.outputTokens : 0,
+      cacheReadTokens: isTokens ? d.cacheReadTokens : 0,
+      cacheCreationTokens: isTokens ? d.cacheCreationTokens : 0,
+      actualCost: isTokens ? 0 : (costEntry?.actual ?? d.estimatedCostUsd),
+      ruleCost: isTokens ? 0 : (costEntry?.rule ?? 0),
+      featureCost: isTokens ? 0 : (costEntry?.feature ?? 0),
+    };
+  });
 
   const yFormatter = isTokens ? fmtTokens : fmtUsd;
 
@@ -756,7 +778,9 @@ function DailyActivityChart({
           { dataKey: 'cacheReadTokens', label: 'Cache Read', stack: 'a', color: chartColors.cacheRead },
           { dataKey: 'cacheCreationTokens', label: 'Cache Write', stack: 'a', color: chartColors.cacheWrite },
         ] : [
-          { dataKey: 'estimatedCostUsd', label: 'Cost (USD)', color: chartColors.input },
+          { dataKey: 'actualCost', label: 'Actual', color: '#1976d2' },
+          { dataKey: 'ruleCost', label: 'Rule', color: '#2e7d32' },
+          { dataKey: 'featureCost', label: 'Feature', color: '#ed6c02' },
         ]}
         height={240}
         margin={{ left: 60, right: 16, top: 16, bottom: 24 }}
@@ -775,6 +799,19 @@ function DailyActivityChart({
           fetchSessionToolMetrics={fetchSessionToolMetrics}
           onClose={() => setSelectedDate(null)}
         />
+      )}
+      {!isTokens && onReclassify && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={onReclassify}
+            disabled={reclassifying}
+            startIcon={reclassifying ? <CircularProgress size={14} /> : undefined}
+          >
+            {reclassifying ? 'Reclassifying...' : 'Reclassify'}
+          </Button>
+        </Box>
       )}
     </Box>
   );
@@ -872,10 +909,9 @@ export function AnalyticsPanel({ analytics, sessions = [], onSelectSession, fetc
     <Box sx={{ overflow: 'auto', flex: 1, p: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
       <OverviewCards totals={analytics.totals} sessions={sessions} />
       <ToolUsageChart items={analytics.toolUsage} />
-      <DailyActivityChart items={analytics.dailyActivity} sessions={sessions} onSelectSession={onSelectSession} fetchSessionMessages={fetchSessionMessages} fetchSessionCommits={fetchSessionCommits} fetchSessionToolMetrics={fetchSessionToolMetrics} />
+      <DailyActivityChart items={analytics.dailyActivity} sessions={sessions} onSelectSession={onSelectSession} fetchSessionMessages={fetchSessionMessages} fetchSessionCommits={fetchSessionCommits} fetchSessionToolMetrics={fetchSessionToolMetrics} costOptimization={costOptimization} onReclassify={onReclassify} reclassifying={reclassifying} />
       <ModelTable items={analytics.modelBreakdown} />
       <BranchTable items={analytics.branchBreakdown} />
-      <CostOptimizationSection data={costOptimization ?? null} onReclassify={onReclassify} reclassifying={reclassifying} />
     </Box>
   );
 }
