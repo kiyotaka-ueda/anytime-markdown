@@ -135,6 +135,90 @@ function isWsCoverageDiffMessage(v: unknown): v is WsCoverageDiffMessage {
 }
 
 // ---------------------------------------------------------------------------
+// HTTP payload type guards
+// ---------------------------------------------------------------------------
+
+interface ModelPayload {
+  model: C4Model;
+  boundaries: BoundaryInfo[];
+  featureMatrix?: FeatureMatrix;
+}
+
+interface DsmMatrixPayload {
+  matrix: DsmMatrix;
+}
+
+function isModelPayload(v: unknown): v is ModelPayload {
+  if (typeof v !== 'object' || v === null) return false;
+  const obj = v as Record<string, unknown>;
+  return 'model' in obj && 'boundaries' in obj;
+}
+
+function isDsmMatrixPayload(v: unknown): v is DsmMatrixPayload {
+  if (typeof v !== 'object' || v === null) return false;
+  return 'matrix' in v;
+}
+
+// ---------------------------------------------------------------------------
+// Remote-mode initial fetch (DB-stored model)
+// ---------------------------------------------------------------------------
+
+function useRemoteInitialFetch(
+  serverUrl: string | undefined,
+  setC4Model: (m: C4Model) => void,
+  setBoundaries: (b: readonly BoundaryInfo[]) => void,
+  setDsmMatrix: (m: DsmMatrix | null) => void,
+  setFeatureMatrix: (m: FeatureMatrix | null) => void,
+  setCoverageMatrix: (m: CoverageMatrix | null) => void,
+  setCoverageDiff: (m: CoverageDiffMatrix | null) => void,
+): void {
+  useEffect(() => {
+    if (!serverUrl) return;
+
+    let cancelled = false;
+
+    async function fetchInitial(): Promise<void> {
+      const [modelRes, dsmRes, covRes] = await Promise.all([
+        fetch(`${serverUrl}/api/c4/model`).catch(() => null),
+        fetch(`${serverUrl}/api/c4/dsm`).catch(() => null),
+        fetch(`${serverUrl}/api/c4/coverage`).catch(() => null),
+      ]);
+
+      if (cancelled) return;
+
+      if (modelRes?.status === 200) {
+        const json: unknown = await modelRes.json();
+        if (!cancelled && isModelPayload(json)) {
+          setC4Model(json.model);
+          setBoundaries(json.boundaries);
+          setFeatureMatrix(json.featureMatrix ?? null);
+        }
+      }
+
+      if (dsmRes?.status === 200) {
+        const json: unknown = await dsmRes.json();
+        if (!cancelled && isDsmMatrixPayload(json)) {
+          setDsmMatrix(json.matrix);
+        }
+      }
+
+      if (covRes?.status === 200) {
+        const json = await covRes.json() as { coverageMatrix: CoverageMatrix | null; coverageDiff: CoverageDiffMatrix | null };
+        if (!cancelled && json.coverageMatrix) {
+          setCoverageMatrix(json.coverageMatrix);
+        }
+        if (!cancelled && json.coverageDiff) {
+          setCoverageDiff(json.coverageDiff);
+        }
+      }
+    }
+
+    void fetchInitial();
+    return () => { cancelled = true; };
+  }, [serverUrl, setC4Model, setBoundaries, setDsmMatrix, setFeatureMatrix, setCoverageMatrix, setCoverageDiff]);
+}
+
+// ---------------------------------------------------------------------------
 // Local-mode loader
 // ---------------------------------------------------------------------------
 
@@ -199,6 +283,17 @@ export function useC4DataSource(serverUrl?: string): C4DataSourceResult {
 
   // Local mode
   const local = useLocalMode(!isRemote);
+
+  // Remote initial fetch — loads DB-stored model before WS pushes provider state
+  useRemoteInitialFetch(
+    serverUrl,
+    setRemoteModel,
+    setRemoteBoundaries,
+    setDsmMatrix,
+    setFeatureMatrix,
+    setCoverageMatrix,
+    setCoverageDiff,
+  );
 
   // WebSocket message handler
   const handleWsMessage = useCallback((event: MessageEvent) => {
