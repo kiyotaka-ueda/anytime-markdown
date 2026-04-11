@@ -240,6 +240,7 @@ export async function activate(context: vscode.ExtensionContext) {
 						const resolvedC4Path = c4ModelPath && gitRoot ? require('node:path').resolve(gitRoot, c4ModelPath) : undefined;
 						return trailDb!.importAll((message, increment) => {
 							progress.report({ message, increment });
+							TrailLogger.info(`Trail import: ${message}`);
 						}, gitRoot, resolvedC4Path);
 					},
 				);
