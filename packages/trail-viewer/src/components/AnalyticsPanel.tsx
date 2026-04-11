@@ -710,6 +710,40 @@ function DailySessionList({
   );
 }
 
+type ChartEntry = {
+  date: string; fullDate: string;
+  inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number;
+  actualCost: number; skillCost: number;
+};
+
+function toFridayWeekKey(dateStr: string): string {
+  const d = new Date(`${dateStr}T00:00:00`);
+  const dow = d.getDay(); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
+  const daysSinceFri = (dow + 2) % 7; // Fri→0, Sat→1, Sun→2, Mon→3, Tue→4, Wed→5, Thu→6
+  const friday = new Date(d);
+  friday.setDate(d.getDate() - daysSinceFri);
+  const y = friday.getFullYear();
+  const m = String(friday.getMonth() + 1).padStart(2, '0');
+  const day = String(friday.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function groupByWeek(entries: readonly ChartEntry[]): ChartEntry[] {
+  const map = new Map<string, ChartEntry>();
+  for (const d of entries) {
+    const key = toFridayWeekKey(d.fullDate);
+    const e = map.get(key) ?? { date: key.slice(5), fullDate: key, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, actualCost: 0, skillCost: 0 };
+    e.inputTokens += d.inputTokens;
+    e.outputTokens += d.outputTokens;
+    e.cacheReadTokens += d.cacheReadTokens;
+    e.cacheCreationTokens += d.cacheCreationTokens;
+    e.actualCost += d.actualCost;
+    e.skillCost += d.skillCost;
+    map.set(key, e);
+  }
+  return [...map.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v);
+}
+
 function DailyActivityChart({
   items,
   sessions,
@@ -751,7 +785,7 @@ function DailyActivityChart({
     return map;
   }, [costOptimization]);
 
-  const dataset = filtered.map((d) => {
+  const dailyDataset: ChartEntry[] = filtered.map((d) => {
     const costEntry = costByDate.get(d.date);
     return {
       date: d.date.slice(5),
@@ -764,6 +798,8 @@ function DailyActivityChart({
       skillCost: isTokens ? 0 : (costEntry?.skill ?? 0),
     };
   });
+
+  const dataset = period === 90 ? groupByWeek(dailyDataset) : dailyDataset;
 
   const yFormatter = isTokens ? fmtTokens : fmtUsd;
 
@@ -820,9 +856,9 @@ function DailyActivityChart({
         slotProps={{
           legend: { direction: 'horizontal', position: { vertical: 'top', horizontal: 'end' } },
         }}
-        onAxisClick={handleAxisClick}
+        onAxisClick={period === 90 ? undefined : handleAxisClick}
       />
-      {selectedDate && (
+      {selectedDate && period !== 90 && (
         <DailySessionList
           date={selectedDate}
           sessions={sessions}
