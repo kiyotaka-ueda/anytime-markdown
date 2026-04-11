@@ -17,6 +17,7 @@ import { AnalyticsPanel } from './AnalyticsPanel';
 import type { AnalyticsData } from './AnalyticsPanel';
 import { FilterBar } from './FilterBar';
 import { PromptManager } from './PromptManager';
+import { ReleasesPanel } from './ReleasesPanel';
 import { SessionList } from './SessionList';
 import { StatsBar } from './StatsBar';
 import { TraceTree } from './TraceTree';
@@ -24,6 +25,7 @@ import { TrailThemeProvider } from './TrailThemeContext';
 import { getTokens } from './designTokens';
 import { TrailLocaleProvider, useTrailI18n } from '../i18n';
 import type { TrailLocale } from '../i18n';
+import type { TrailRelease } from '@anytime-markdown/trail-core/domain';
 
 export interface TrailViewerCoreProps {
   readonly isDark?: boolean;
@@ -42,6 +44,7 @@ export interface TrailViewerCoreProps {
   readonly fetchSessionCommits?: AnalyticsPanelProps['fetchSessionCommits'];
   readonly fetchSessionToolMetrics?: AnalyticsPanelProps['fetchSessionToolMetrics'];
   readonly costOptimization?: CostOptimizationData | null;
+  readonly releases?: readonly TrailRelease[];
 }
 
 const SESSION_LIST_WIDTH = 300;
@@ -72,6 +75,7 @@ function TrailViewerCoreInner({
   fetchSessionCommits,
   fetchSessionToolMetrics,
   costOptimization = null,
+  releases = [],
 }: Readonly<TrailViewerCoreProps>) {
   const { t } = useTrailI18n();
   const tokens = useMemo(() => getTokens(isDark ?? true), [isDark]);
@@ -127,6 +131,7 @@ function TrailViewerCoreInner({
           <Tab id="trail-tab-0" aria-controls="trail-panel-0" label={t('viewer.analytics')} />
           <Tab id="trail-tab-1" aria-controls="trail-panel-1" label={t('viewer.traces')} />
           <Tab id="trail-tab-2" aria-controls="trail-panel-2" label={t('viewer.prompts')} />
+          <Tab id="trail-tab-3" aria-controls="trail-panel-3" label={t('releases.title')} />
         </Tabs>
       </Box>
 
@@ -205,6 +210,16 @@ function TrailViewerCoreInner({
         sx={{ display: activeTab !== 2 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
       >
         <PromptManager prompts={prompts} />
+      </Box>
+
+      {/* Tab 3: Releases */}
+      <Box
+        role="tabpanel"
+        id="trail-panel-3"
+        aria-labelledby="trail-tab-3"
+        sx={{ display: activeTab !== 3 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'auto' }}
+      >
+        <ReleasesPanel releases={releases ?? []} />
       </Box>
     </Box>
   );
