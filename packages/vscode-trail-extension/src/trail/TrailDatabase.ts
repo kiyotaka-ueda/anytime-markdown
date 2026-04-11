@@ -87,6 +87,8 @@ interface SessionFilters {
   readonly branch?: string;
   readonly model?: string;
   readonly project?: string;
+  readonly from?: string;
+  readonly to?: string;
 }
 
 interface SearchResult {
@@ -1048,6 +1050,14 @@ export class TrailDatabase {
     if (filters?.project) {
       conditions.push('s.project = ?');
       params.push(filters.project);
+    }
+    if (filters?.from) {
+      conditions.push('s.start_time >= ?');
+      params.push(filters.from);
+    }
+    if (filters?.to) {
+      conditions.push('s.start_time <= ?');
+      params.push(filters.to);
     }
 
     const where = conditions.length > 0

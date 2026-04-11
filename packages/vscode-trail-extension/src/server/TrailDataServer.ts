@@ -269,15 +269,21 @@ export class TrailDataServer {
         branch?: string;
         model?: string;
         project?: string;
+        from?: string;
+        to?: string;
       } = {};
 
       const branch = params.get('branch');
       const model = params.get('model');
       const project = params.get('project');
+      const from = params.get('from');
+      const to = params.get('to');
 
       if (branch) filters.branch = branch;
       if (model) filters.model = model;
       if (project) filters.project = project;
+      if (from) filters.from = from;
+      if (to) filters.to = to;
 
       const rawSessions = this.trailDb.getSessions(filters);
       const sessionIds = rawSessions.map((s) => s.id);
