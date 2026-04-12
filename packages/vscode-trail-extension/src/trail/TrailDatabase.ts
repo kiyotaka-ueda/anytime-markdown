@@ -1270,32 +1270,6 @@ export class TrailDatabase {
     return count;
   }
 
-  // -------------------------------------------------------------------------
-  //  C4 model storage
-  // -------------------------------------------------------------------------
-
-  saveC4Model(json: string, revision = ''): void {
-    const db = this.ensureDb();
-    db.run(
-      `INSERT OR REPLACE INTO c4_models (id, model_json, revision, updated_at)
-       VALUES ('current', ?, ?, datetime('now'))`,
-      [json, revision],
-    );
-    this.save();
-  }
-
-  getC4Model(): { modelJson: string; revision: string; updatedAt: string } | null {
-    const db = this.ensureDb();
-    const result = db.exec("SELECT model_json, revision, updated_at FROM c4_models WHERE id = 'current'");
-    if (!result[0]?.values?.[0]) return null;
-    const [modelJson, revision, updatedAt] = result[0].values[0];
-    return {
-      modelJson: modelJson as string,
-      revision: revision as string,
-      updatedAt: updatedAt as string,
-    };
-  }
-
   saveTrailGraph(graph: TrailGraph, tsconfigPath: string, id = 'current'): void {
     const db = this.ensureDb();
     db.run(
@@ -1322,6 +1296,23 @@ export class TrailDatabase {
     const json = result[0]?.values?.[0]?.[0];
     if (typeof json !== 'string') return null;
     return JSON.parse(json) as TrailGraph;
+  }
+
+  /**
+   * trail_graphs テーブルに存在する ID の一覧を返す。
+   * 'current' を先頭に、残りは released_at の降順（releases テーブルと結合）。
+   */
+  getTrailGraphIds(): string[] {
+    const db = this.ensureDb();
+    const result = db.exec(`
+      SELECT tg.id
+      FROM trail_graphs tg
+      LEFT JOIN releases r ON tg.id = r.tag
+      ORDER BY
+        CASE WHEN tg.id = 'current' THEN 0 ELSE 1 END,
+        r.released_at DESC
+    `);
+    return (result[0]?.values?.map((r) => r[0] as string) ?? []);
   }
 
   // -------------------------------------------------------------------------
