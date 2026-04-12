@@ -3,6 +3,7 @@ import type { SessionRow, MessageRow, SessionCommitRow, ReleaseFileRow, ReleaseF
 export interface IRemoteTrailStore {
   connect(): Promise<void>;
   close(): Promise<void>;
+  clearAll(): Promise<void>;
   getExistingSessionIds(): Promise<readonly string[]>;
   getExistingSyncedAt(): Promise<ReadonlyMap<string, string>>;
   upsertSessions(rows: readonly SessionRow[]): Promise<void>;

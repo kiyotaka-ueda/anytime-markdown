@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { SessionRow, MessageRow, SessionCommitRow, ReleaseFileRow, ReleaseFeatureRow, ReleaseRow } from './TrailDatabase';
 import type { IRemoteTrailStore } from './IRemoteTrailStore';
+import { TrailLogger } from '../utils/TrailLogger';
 
 export class SupabaseTrailStore implements IRemoteTrailStore {
   private client: SupabaseClient | null = null;
@@ -16,6 +17,40 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
 
   async close(): Promise<void> {
     this.client = null;
+  }
+
+  async clearAll(): Promise<void> {
+    // Supabase の statement timeout を避けるため、全テーブルをページング削除する。
+    // 先に子テーブル(messages)を消してから親(sessions)を消すことで、
+    // sessions 削除時の CASCADE 負荷を最小化する。
+    await this.deleteAllPaged('trail_messages', 'uuid');
+    await this.deleteAllPaged('trail_sessions', 'id');
+    await this.deleteAllPaged('trail_releases', 'tag');
+    await this.deleteAllPaged('trail_daily_costs', 'date');
+    await this.deleteAllPaged('trail_c4_models', 'id');
+  }
+
+  private async deleteAllPaged(table: string, pk: string, pageSize = 500): Promise<void> {
+    const client = this.ensureClient();
+    let deleted = 0;
+    TrailLogger.info(`Clearing ${table}...`);
+    try {
+      while (true) {
+        const { data, error } = await client.from(table).select(pk).limit(pageSize);
+        if (error) throw new Error(`select ${table} failed: ${error.message}`);
+        if (!data || data.length === 0) break;
+        const ids = (data as Array<Record<string, unknown>>).map((r) => r[pk] as string);
+        const { error: delError } = await client.from(table).delete().in(pk, ids);
+        if (delError) throw new Error(`delete ${table} failed: ${delError.message}`);
+        deleted += ids.length;
+        TrailLogger.info(`  ${table}: deleted ${deleted} rows`);
+        if (data.length < pageSize) break;
+      }
+      TrailLogger.info(`Cleared ${table} (${deleted} rows)`);
+    } catch (e) {
+      TrailLogger.error(`Failed to clear ${table} (deleted ${deleted} rows before failure)`, e);
+      throw e;
+    }
   }
 
   async getExistingSessionIds(): Promise<readonly string[]> {

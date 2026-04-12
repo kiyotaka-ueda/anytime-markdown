@@ -18,6 +18,15 @@ export class PostgresTrailStore implements IRemoteTrailStore {
     }
   }
 
+  async clearAll(): Promise<void> {
+    const pool = this.ensurePool();
+    // CASCADE により messages / session_commits / session_costs / release_files / release_features も消える
+    await pool.query('DELETE FROM trail_sessions');
+    await pool.query('DELETE FROM trail_releases');
+    await pool.query('DELETE FROM trail_daily_costs');
+    await pool.query('DELETE FROM trail_c4_models');
+  }
+
   async getExistingSessionIds(): Promise<readonly string[]> {
     const { rows } = await this.ensurePool().query('SELECT id FROM trail_sessions');
     return rows.map((r: { id: string }) => r.id);
