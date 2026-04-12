@@ -174,11 +174,12 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('anytime-trail.importTrailData', async () => {
+			const repoName = vscode.workspace.workspaceFolders?.[0]?.name ?? '(no workspace)';
 			if (!trailDb) {
-				TrailLogger.error('Trail import skipped: trailDb is null (not initialized)');
+				TrailLogger.error(`Trail import [${repoName}] skipped: trailDb is null (not initialized)`);
 				return;
 			}
-			TrailLogger.info('Trail DB: import started');
+			TrailLogger.info(`Trail DB [${repoName}]: import started`);
 			dashboardProvider.setImporting(true);
 			try {
 				const result = await vscode.window.withProgress(
@@ -193,11 +194,11 @@ export async function activate(context: vscode.ExtensionContext) {
 						const resolvedC4Path = c4ModelPath && gitRoot ? require('node:path').resolve(gitRoot, c4ModelPath) : undefined;
 						return trailDb!.importAll((message, increment) => {
 							progress.report({ message, increment });
-							TrailLogger.info(`Trail import: ${message}`);
+							TrailLogger.info(`Trail import [${repoName}]: ${message}`);
 						}, gitRoot, resolvedC4Path);
 					},
 				);
-				TrailLogger.info(`Trail DB: import complete - imported=${result.imported}, skipped=${result.skipped}, commits=${result.commitsResolved}, releases=${result.releasesResolved}, analyzed=${result.releasesAnalyzed}`);
+				TrailLogger.info(`Trail DB [${repoName}]: import complete - imported=${result.imported}, skipped=${result.skipped}, commits=${result.commitsResolved}, releases=${result.releasesResolved}, analyzed=${result.releasesAnalyzed}`);
 				dashboardProvider.updateSqliteStatus('Ready', trailDb.getLastImportedAt());
 				dashboardProvider.setImporting(false);
 
@@ -209,7 +210,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			} catch (err) {
 				dashboardProvider.setImporting(false);
 				dashboardProvider.updateSqliteStatus('Import failed');
-				TrailLogger.error('Trail import failed', err);
+				TrailLogger.error(`Trail import [${repoName}] failed`, err);
 			}
 		}),
 	);

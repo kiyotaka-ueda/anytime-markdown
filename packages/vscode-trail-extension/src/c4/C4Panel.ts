@@ -340,6 +340,8 @@ export class C4Panel implements C4DataProvider {
 
   /** ワークスペースの TypeScript を trail-core で解析 */
   public static async analyzeWorkspace(): Promise<void> {
+    const repoName = vscode.workspace.workspaceFolders?.[0]?.name ?? '(no workspace)';
+    TrailLogger.info(`C4 analysis [${repoName}]: searching tsconfig.json in workspace`);
     const excludePatterns: readonly string[] = vscode.workspace.getConfiguration('anytimeTrail.c4').get<string[]>('analyzeExcludePatterns', ['.worktrees', '.vscode-test', '__tests__', 'fixtures']);
     const allTsconfigFiles = await vscode.workspace.findFiles('**/tsconfig.json', '**/node_modules/**');
     const tsconfigFiles = allTsconfigFiles
@@ -353,6 +355,7 @@ export class C4Panel implements C4DataProvider {
         return aDepth !== bDepth ? aDepth - bDepth : aRel.localeCompare(bRel);
       });
     if (tsconfigFiles.length === 0) {
+      TrailLogger.warn(`C4 analysis [${repoName}]: no tsconfig.json found in workspace`);
       vscode.window.showWarningMessage('No tsconfig.json found in workspace.');
       return;
     }
@@ -374,10 +377,15 @@ export class C4Panel implements C4DataProvider {
         placeHolder: 'Select tsconfig.json to analyze',
         matchOnDescription: true,
       });
-      if (!picked) return;
+      if (!picked) {
+        TrailLogger.info(`C4 analysis [${repoName}]: cancelled at tsconfig selection`);
+        return;
+      }
       tsconfigPath = picked.uri.fsPath;
     }
 
+    TrailLogger.info(`C4 analysis [${repoName}]: starting for ${tsconfigPath}`);
+    const startedAt = Date.now();
     C4Panel.openViewer(true);
 
     try {
@@ -395,13 +403,19 @@ export class C4Panel implements C4DataProvider {
           const graph = analyze({
             tsconfigPath,
             onProgress: (phase) => {
+              TrailLogger.info(`C4 analysis [${repoName}]: ${phase}`);
               progress.report({ message: phase });
               server?.notifyProgress(phase, phasePercent(phase));
             },
           });
 
+          TrailLogger.info(
+            `C4 analysis [${repoName}]: analyzed ${graph.metadata.fileCount} files, ${graph.nodes.length} nodes, ${graph.edges.length} edges`,
+          );
+
           // TrailGraph を DB に保存
           C4Panel.trailDb?.saveTrailGraph(graph, tsconfigPath);
+          TrailLogger.info(`C4 analysis [${repoName}]: TrailGraph saved to DB`);
 
           // TODO: C4モデル変換・マージは一旦コメントアウト
           // progress.report({ message: 'Building C4 model...' });
@@ -442,11 +456,9 @@ export class C4Panel implements C4DataProvider {
           server?.notifyProgress('', 100);
         },
       );
+      TrailLogger.info(`C4 analysis [${repoName}]: completed in ${Date.now() - startedAt}ms`);
     } catch (e) {
-      const msg = e instanceof Error ? `${e.message}\n${e.stack ?? ''}` : String(e);
-      const channel = vscode.window.createOutputChannel('C4 Model');
-      channel.appendLine(msg);
-      channel.show();
+      TrailLogger.error(`C4 analysis [${repoName}] failed`, e);
       vscode.window.showErrorMessage(`C4 analysis failed: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
