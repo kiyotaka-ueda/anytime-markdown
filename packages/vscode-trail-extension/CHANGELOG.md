@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-04-12
+
+### Added
+
+- `analyzeReleases`: git worktree-based release file and feature analysis
+- `release_files` and `release_features` sync replacing task sync
+- `/api/trail/releases` endpoint
+- `resolveReleases` for release tag resolution
+- `saveTrailGraph` / `getTrailGraph` DB methods
+- `getTrailGraphIds` for trail graph ID listing
+- `releasesAnalyzed` count in import result message
+
+### Changed
+
+- Removed C4 model sync from `SyncService`; C4 data now served from DB via `trail-viewer`
+- Replaced `saveC4Model` call in `C4Panel` with `getTrailGraphIds`
+
+### Fixed
+
+- Cleanup stale worktree before `git worktree add` in `analyzeReleases`
+- `releasesAnalyzed` added to early return path in `importAll`
+
+### Trail Core (trail-core)
+
+- Domain layer (model, schema, engine, port, reader, usecase) added
+- `releases`, `release_files`, `release_features`, `trail_graphs`, `release_coverage` tables added
+- `session_costs`/`daily_costs` tables added; import performance improved with batch processing
+
 ## [0.5.1] - 2026-04-11
 
 ### Added

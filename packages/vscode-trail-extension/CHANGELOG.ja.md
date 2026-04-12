@@ -6,6 +6,34 @@
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-04-12
+
+### 追加
+
+- `analyzeReleases`: git worktree ベースのリリースファイル・フィーチャー分析
+- タスク同期を `release_files`/`release_features` 同期に置き換え
+- `/api/trail/releases` エンドポイント追加
+- リリースタグ解決のための `resolveReleases` 追加
+- `saveTrailGraph` / `getTrailGraph` DB メソッド追加
+- トレイルグラフ ID 一覧取得の `getTrailGraphIds` 追加
+- インポート結果メッセージに `releasesAnalyzed` カウントを追加
+
+### 変更
+
+- `SyncService` から C4 モデル同期を削除（C4 データは `trail-viewer` が DB 経由で配信）
+- `C4Panel` の `saveC4Model` 呼び出しを `getTrailGraphIds` に変更
+
+### 修正
+
+- `analyzeReleases` 実行前に古い worktree をクリーンアップするよう修正
+- `importAll` の早期リターンに `releasesAnalyzed` を追加
+
+### Trail Core (trail-core)
+
+- ドメイン層（model, schema, engine, port, reader, usecase）を追加
+- `releases`・`release_files`・`release_features`・`trail_graphs`・`release_coverage` テーブルを追加
+- `session_costs`/`daily_costs` テーブルを追加し、バッチ処理によりインポート性能を改善
+
 ## [0.5.1] - 2026-04-11
 
 ### 追加

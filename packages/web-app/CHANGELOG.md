@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.12.3] - 2026-04-12
+
+### Added
+
+- C4 tab in trail viewer page using `/api/c4model` endpoint
+- Japanese translations for header nav items
+- Releases data passed to `TrailViewerCore`
+
+### Changed
+
+- Removed C4 Model nav link; renamed Trail to Analytics in header navigation
+
 ## [0.12.2] - 2026-04-11
 
 ### Changed

@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-04-12
+
+### Added
+
+- Domain layer (model, schema, engine, port, reader, usecase) for trail-core
+- `releases` table schema and `TrailRelease` domain model with release resolver engine
+- `release_files` and `release_features` tables (replacing task domain)
+- `trail_graphs` schema for graph data storage
+- `release_coverage` table and `ReleaseCoverageRow` type
+- `session_costs` and `daily_costs` tables for cost tracking
+- `repo_name` column to `trail_sessions` and `trail_releases`
+- `cacheCreation` to MODEL_RATES and cost estimation
+- `getFileStatsByRange` to `IGitService`
+- `getReleases` to `ITrailReader`
+- `skill_models` table for skill-based cost classification
+- Unit tests for domain engine, usecase, and release resolver
+- Merged `c4-kernel` package into `trail-core`
+
+### Changed
+
+- Restructured sessions/messages tables; added `session_costs`/`daily_costs` population in `importAll`
+- Import performance: batching by message count (20,000), in-memory session map, reduced I/O
+- `daily_costs` and `session_costs` rebuild moved to post-processing in `importAll`
+- Progress logging at DB commit boundary with processed/total/skipped counts
+- Cost classification simplified to Current/Optimized (removed Rule/Feature)
+
+### Fixed
+
+- Yield event loop during import to prevent Extension Host timeout
+- Session boundary transaction commit
+- Backfill `repo_name` and `release_files` for existing records
+- Separate skip logic for main sessions and subagents
+- `sessionId` extraction from grandparent directory for subagents
+
 ## [0.5.1] - 2026-04-11
 
 ### Added

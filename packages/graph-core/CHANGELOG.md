@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-04-12
+
+### Changed
+
+- Added `json-summary` to jest `coverageReporters` for E2E coverage integration
+
 ## [0.1.2] - 2026-04-11
 
 ### Added

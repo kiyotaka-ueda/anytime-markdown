@@ -54,7 +54,7 @@ describe('parseArgs', () => {
   it('should error on invalid --format value', () => {
     expect(() => parseArgs(['node', 'trail', '--format', 'xml'])).toThrow('process.exit called');
     expect(exitSpy).toHaveBeenCalledWith(1);
-    expect(stderrSpy).toHaveBeenCalledWith('Invalid format: xml. Valid: cytoscape, mermaid');
+    expect(stderrSpy).toHaveBeenCalledWith('Invalid format: xml. Valid: cytoscape, mermaid, c4');
   });
 
   it('should error on unknown argument with available options', () => {

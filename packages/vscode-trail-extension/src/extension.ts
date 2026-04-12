@@ -3,7 +3,6 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import { C4Panel } from './c4/C4Panel';
-import { C4DataServer } from './server/C4DataServer';
 import { TrailPanel } from './trail/TrailPanel';
 import { TrailDataServer } from './server/TrailDataServer';
 import { TrailDatabase } from './trail/TrailDatabase';
@@ -17,7 +16,6 @@ import { SupabaseTrailStore } from './trail/SupabaseTrailStore';
 import { PostgresTrailStore } from './trail/PostgresTrailStore';
 import { SyncService } from './trail/SyncService';
 
-let dataServer: C4DataServer | undefined;
 let trailDataServer: TrailDataServer | undefined;
 let trailDb: TrailDatabase | undefined;
 let extensionDistPath = '';
@@ -26,46 +24,9 @@ let extensionDistPath = '';
 //  C4 Data Server helpers
 // ---------------------------------------------------------------------------
 
-const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-
-function startDataServer(port: number): void {
-	const server = new C4DataServer(() => C4Panel.getDataProvider(), extensionDistPath);
-	dataServer = server;
-	C4Panel.setDataServer(server);
-	server.start(port).then(() => {
-		statusBarItem.text = `$(radio-tower) C4 Server: :${port}`;
-		statusBarItem.tooltip = `C4 Data Server running on port ${port}`;
-		statusBarItem.show();
-		const restored = C4Panel.restoreSavedModel();
-		void vscode.commands.executeCommand('setContext', 'anytimeTrail.c4ModelLoaded', restored);
-		// ドキュメントパス設定を読み取りスキャンを開始
-		applyDocsPathConfig();
-		// カバレッジウォッチ設定を適用
-		applyCoverageConfig();
-		// ドキュメントリンククリック時にVS Codeでファイルを開く
-		server.onOpenDocLink = (docPath) => {
-			const docsDir = vscode.workspace.getConfiguration('anytimeTrail').get<string>('docsPath', '');
-			if (!docsDir) return;
-			const uri = vscode.Uri.file(path.join(docsDir, docPath));
-			vscode.commands.executeCommand('vscode.openWith', uri, 'anytimeMarkdown').then(
-				undefined,
-				() => {
-					// anytimeMarkdown エディタが利用不可の場合は通常のテキストエディタで開く
-					vscode.workspace.openTextDocument(uri).then(
-						(doc) => vscode.window.showTextDocument(doc),
-						() => vscode.window.showWarningMessage(`File not found: ${uri.fsPath}`),
-					);
-				},
-			);
-		};
-	}).catch((err: Error) => {
-		vscode.window.showErrorMessage(`C4 Data Server: ${err.message}`);
-	});
-}
-
 function applyDocsPathConfig(): void {
 	const docsPath = vscode.workspace.getConfiguration('anytimeTrail').get<string>('docsPath', '');
-	dataServer?.setDocsPath(docsPath || undefined);
+	trailDataServer?.setDocsPath(docsPath || undefined);
 }
 
 function applyCoverageConfig(): void {
@@ -83,26 +44,27 @@ function applyCoverageConfig(): void {
 	}
 }
 
-function stopDataServer(): void {
-	dataServer?.stop().catch(() => {});
-	dataServer = undefined;
-	statusBarItem.hide();
-}
-
-function handleServerConfigChange(): void {
-	const config = vscode.workspace.getConfiguration('anytimeTrail.server');
-	const enabled = config.get<boolean>('enabled', false);
-	const port = config.get<number>('port', 19840);
-
-	if (enabled && !dataServer?.isRunning) {
-		startDataServer(port);
-	} else if (!enabled && dataServer?.isRunning) {
-		stopDataServer();
-	} else if (enabled && dataServer?.isRunning) {
-		// Port may have changed — restart
-		stopDataServer();
-		startDataServer(port);
-	}
+function setupC4OnServer(server: TrailDataServer): void {
+	server.setC4Provider(() => C4Panel.getDataProvider());
+	C4Panel.setDataServer(server);
+	const restored = C4Panel.restoreSavedModel();
+	void vscode.commands.executeCommand('setContext', 'anytimeTrail.c4ModelLoaded', restored);
+	applyDocsPathConfig();
+	applyCoverageConfig();
+	server.onOpenDocLink = (docPath) => {
+		const docsDir = vscode.workspace.getConfiguration('anytimeTrail').get<string>('docsPath', '');
+		if (!docsDir) return;
+		const uri = vscode.Uri.file(path.join(docsDir, docPath));
+		vscode.commands.executeCommand('vscode.openWith', uri, 'anytimeMarkdown').then(
+			undefined,
+			() => {
+				vscode.workspace.openTextDocument(uri).then(
+					(doc) => vscode.window.showTextDocument(doc),
+					() => vscode.window.showWarningMessage(`File not found: ${uri.fsPath}`),
+				);
+			},
+		);
+	};
 }
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -144,12 +106,9 @@ export async function activate(context: vscode.ExtensionContext) {
 	);
 
 	registerC4Commands(context, {
-		getDataServer: () => dataServer,
+		getDataServer: () => trailDataServer,
 		startServer: async () => {
-			const config = vscode.workspace.getConfiguration('anytimeTrail.server');
-			const port = config.get<number>('port', 19840);
-			startDataServer(port);
-			// サーバー起動を少し待つ
+			// TrailDataServer は非同期で起動済みのため待機のみ
 			await new Promise((resolve) => setTimeout(resolve, 1000));
 		},
 	});
@@ -160,17 +119,13 @@ export async function activate(context: vscode.ExtensionContext) {
 		treeDataProvider: c4TreeProvider,
 	});
 
-	// C4 Data Server
-	const serverConfig = vscode.workspace.getConfiguration('anytimeTrail.server');
-	if (serverConfig.get<boolean>('enabled', false)) {
-		startDataServer(serverConfig.get<number>('port', 19840));
-	}
-
 	// Trail Database + Data Server (non-blocking initialization)
 	trailDb = new TrailDatabase(extensionDistPath);
+	C4Panel.setTrailDatabase(trailDb);
 	const gitRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 	trailDataServer = new TrailDataServer(extensionDistPath, trailDb, gitRoot);
 	TrailPanel.setDataServer(trailDataServer);
+	setupC4OnServer(trailDataServer);
 	const trailPort = vscode.workspace.getConfiguration('anytimeTrail.trailServer').get<number>('port', 19841);
 
 	// Supabase store（設定が揃っている場合のみ初期化）
@@ -200,14 +155,18 @@ export async function activate(context: vscode.ExtensionContext) {
 		} catch (err) {
 			TrailLogger.error('Failed to initialize trail database', err);
 			dashboardProvider.updateSqliteStatus('Error');
+			return; // DB 初期化失敗時はサーバー起動もスキップ
 		}
 		try {
+			TrailLogger.info(`Trail Data Server: starting on port ${trailPort}...`);
 			await trailDataServer!.start(trailPort);
 			TrailLogger.info(`Trail Data Server started on port ${trailPort}`);
 		} catch (err) {
 			TrailLogger.error('Trail Data Server failed to start', err);
 		}
-	})();
+	})().catch((err) => {
+		TrailLogger.error('Unexpected error during initialization', err);
+	});
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('anytime-trail.openTrailViewer', () => {
@@ -217,7 +176,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('anytime-trail.importTrailData', async () => {
-			if (!trailDb) return;
+			if (!trailDb) {
+				TrailLogger.error('Trail import skipped: trailDb is null (not initialized)');
+				return;
+			}
+			TrailLogger.info('Trail DB: import started');
 			dashboardProvider.setImporting(true);
 			try {
 				const result = await vscode.window.withProgress(
@@ -228,19 +191,22 @@ export async function activate(context: vscode.ExtensionContext) {
 					},
 					async (progress) => {
 						const gitRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+						const c4ModelPath = vscode.workspace.getConfiguration('anytimeTrail.c4').get<string>('modelPath', '');
+						const resolvedC4Path = c4ModelPath && gitRoot ? require('node:path').resolve(gitRoot, c4ModelPath) : undefined;
 						return trailDb!.importAll((message, increment) => {
 							progress.report({ message, increment });
-						}, gitRoot);
+							TrailLogger.info(`Trail import: ${message}`);
+						}, gitRoot, resolvedC4Path);
 					},
 				);
-				TrailLogger.info(`Trail DB: import complete - imported=${result.imported}, skipped=${result.skipped}`);
+				TrailLogger.info(`Trail DB: import complete - imported=${result.imported}, skipped=${result.skipped}, commits=${result.commitsResolved}, releases=${result.releasesResolved}, analyzed=${result.releasesAnalyzed}`);
 				dashboardProvider.updateSqliteStatus('Ready', trailDb.getLastImportedAt());
 				dashboardProvider.setImporting(false);
 
 				trailDataServer?.notifySessionsUpdated();
 
 				vscode.window.showInformationMessage(
-					`Trail: imported ${result.imported} sessions, ${result.commitsResolved} commits linked (${result.skipped} skipped)`,
+					`Trail: imported ${result.imported} sessions, ${result.commitsResolved} commits linked, ${result.releasesResolved} releases resolved, ${result.releasesAnalyzed} releases analyzed, ${result.coverageImported} coverage entries (${result.skipped} skipped)`,
 				);
 			} catch (err) {
 				dashboardProvider.setImporting(false);
@@ -314,10 +280,22 @@ export async function activate(context: vscode.ExtensionContext) {
 			dashboardProvider.updateSupabaseStatus('Syncing...');
 			try {
 				const syncService = new SyncService(trailDb, supabaseStore);
-				const result = await syncService.syncWithOpenStore();
-				dashboardProvider.updateSupabaseStatus('Connected', new Date().toISOString());
-				vscode.window.showInformationMessage(
-					`Supabase sync complete: ${result.synced} synced, ${result.skipped} up-to-date, ${result.errors} errors`,
+				await vscode.window.withProgress(
+					{
+						location: vscode.ProgressLocation.Notification,
+						title: 'Trail: Syncing to Supabase',
+						cancellable: false,
+					},
+					async (progress) => {
+						const result = await syncService.syncWithOpenStore(({ message, increment }) => {
+							progress.report({ message, increment });
+							TrailLogger.info(`Trail Supabase sync: ${message}`);
+						});
+						dashboardProvider.updateSupabaseStatus('Connected', new Date().toISOString());
+						vscode.window.showInformationMessage(
+							`Supabase sync complete: ${result.synced} synced, ${result.skipped} up-to-date, ${result.errors} errors`,
+						);
+					},
 				);
 			} catch (e) {
 				dashboardProvider.updateSupabaseStatus('Sync failed');
@@ -361,9 +339,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Watch for configuration changes
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration((e) => {
-			if (e.affectsConfiguration('anytimeTrail.server')) {
-				handleServerConfigChange();
-			}
 			if (e.affectsConfiguration('anytimeTrail.docsPath')) {
 				applyDocsPathConfig();
 			}
@@ -403,7 +378,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		c4ElementsTreeView,
 		dashboardTreeView,
-		statusBarItem,
 		aiMemoryTreeView,
 		aiMemoryRefresh,
 		openAiMemory,
@@ -438,7 +412,6 @@ function installClaudeSkills(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void {
-	dataServer?.stop().catch((err) => TrailLogger.error('Failed to stop data server', err));
 	trailDataServer?.stop().catch((err) => TrailLogger.error('Failed to stop trail data server', err));
 	trailDb?.close();
 	TrailLogger.dispose();

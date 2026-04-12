@@ -1,8 +1,12 @@
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import CachedIcon from '@mui/icons-material/Cached';
 
 import type { TrailMessage, TrailSession } from '../parser/types';
+import { useTrailI18n } from '../i18n';
 import { useTrailTheme } from './TrailThemeContext';
 
 interface StatsBarProps {
@@ -11,7 +15,7 @@ interface StatsBarProps {
 }
 
 function formatNumber(n: number): string {
-  return n.toLocaleString('en-US');
+  return n.toLocaleString();
 }
 
 function formatDuration(startTime: string, endTime: string): string {
@@ -29,6 +33,7 @@ function formatDuration(startTime: string, endTime: string): string {
 }
 
 export function StatsBar({ session, messages }: Readonly<StatsBarProps>) {
+  const { t } = useTrailI18n();
   const { colors } = useTrailTheme();
   if (!session) {
     return (
@@ -42,7 +47,7 @@ export function StatsBar({ session, messages }: Readonly<StatsBarProps>) {
         }}
       >
         <Typography variant="body2" sx={{ color: colors.textSecondary }}>
-          No session selected
+          {t('stats.noSessionSelected')}
         </Typography>
       </Box>
     );
@@ -65,31 +70,34 @@ export function StatsBar({ session, messages }: Readonly<StatsBarProps>) {
       }}
     >
       <Chip
-        label={`Input: ${formatNumber(usage.inputTokens)}`}
+        icon={<ArrowDownwardIcon fontSize="small" />}
+        label={`${t('stats.input')} ${formatNumber(usage.inputTokens)}`}
         size="small"
         variant="outlined"
         sx={{ borderColor: colors.iceBlue, color: colors.iceBlue }}
       />
       <Chip
-        label={`Output: ${formatNumber(usage.outputTokens)}`}
+        icon={<ArrowUpwardIcon fontSize="small" />}
+        label={`${t('stats.output')} ${formatNumber(usage.outputTokens)}`}
         size="small"
         variant="outlined"
         sx={{ borderColor: colors.error, color: colors.error }}
       />
       <Chip
-        label={`Cache read: ${formatNumber(usage.cacheReadTokens)}`}
+        icon={<CachedIcon fontSize="small" />}
+        label={`${t('stats.cacheRead')} ${formatNumber(usage.cacheReadTokens)}`}
         size="small"
         variant="outlined"
         sx={{ borderColor: colors.success, color: colors.success }}
       />
       <Chip
-        label={`Duration: ${formatDuration(session.startTime, session.endTime)}`}
+        label={`${t('stats.duration')} ${formatDuration(session.startTime, session.endTime)}`}
         size="small"
         variant="outlined"
         sx={{ borderColor: colors.textSecondary, color: colors.textSecondary }}
       />
       <Chip
-        label={`${messages.length} messages`}
+        label={`${messages.length} ${t('stats.messages')}`}
         size="small"
         variant="outlined"
         sx={{ borderColor: colors.textSecondary, color: colors.textSecondary }}

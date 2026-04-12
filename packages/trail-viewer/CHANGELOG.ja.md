@@ -6,6 +6,46 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-12
+
+### 追加
+
+- `c4-viewer` パッケージと `C4DataServer` を `trail-viewer` にマージ
+- `TrailViewerCore` に Releases タブを追加
+- `ReleasesPanel` コンポーネントとリリースデータ取得を追加
+- ja/en 翻訳マップによる i18n 基盤を追加
+- `NEXT_PUBLIC_SHOW_LIMITED` 環境変数（アナリティクス・トレース表示制限）を追加
+- `NEXT_PUBLIC_SHOW_90D_PERIOD` 環境変数（90D 期間セレクタ非表示）を追加
+- リリースパネル（160px）を `TrailPanel` → `C4ViewerCore` 経由で接続
+- `useC4DataSource` に `releases`・`selectedRelease` を追加
+- `AnalyticsPanel` のスクロール可能エリアとスクロールバートークンを追加
+- セッションリストの高さを固定（選択時 726px、未選択時 maxHeight）
+- `SessionCommitList` を右カラム下部に移動
+- セッションリストの Commits 列に追加/削除行数を表示
+- セッションリストに全 4 トークン種別と init→peak コンテキストトークンを表示
+
+### 変更
+
+- サイドバイサイドレイアウトのブレークポイントを `md` から `lg`（1200px）に変更
+- 右カラムを 600px に拡大
+- `SessionCommitList` は 5 行を超えるとスクロール
+- 期間別コストを `DailyActivityChart` の Cost モードに統合
+- コストグラフを Current/Optimized に簡略化
+- `SessionCacheTimeline`・`SessionCommitList`・`DailySessionList` の閉じるボタンを削除
+- `SHOW_LIMITED` を `SHOW_UNLIMITED`（論理反転）にリネーム
+- `SupabaseTrailReader` を `release_files`/`release_features` に対応
+- C4 データの HTTP/WS 二重取得を廃止し、HTTP 初期取得を復元
+
+### 修正
+
+- コミットが見つからない場合の `SessionCommitList` 高さ
+- `CyclingCard` のキーと配置
+- `SupabaseTrailReader` に `getCostOptimization` を追加
+
+### アクセシビリティ
+
+- WCAG 2.2 AA クイックウィンと短期修正を適用
+
 ## [0.2.1] - 2026-04-11
 
 ### 追加

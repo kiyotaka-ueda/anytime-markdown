@@ -1,6 +1,6 @@
 {
   "name": "@anytime-markdown/trail-viewer",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "license": "MIT",
   "private": true,
   "main": "src/index.ts",
@@ -14,6 +14,7 @@
     "@mui/x-charts": "9.0.1"
   },
   "peerDependencies": {
+    "@anytime-markdown/graph-core": "*",
     "@mui/icons-material": ">=7",
     "@mui/material": ">=7",
     "react": ">=19",

@@ -1,9 +1,37 @@
-import type { Database } from 'sql.js';
+import type { Database, Statement as SqlJsStatement } from 'sql.js';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { toUTC } from './dateUtils';
+import {
+  CREATE_SESSIONS,
+  CREATE_SESSION_COSTS,
+  CREATE_DAILY_COSTS,
+  CREATE_MESSAGES,
+  CREATE_SESSION_COMMITS,
+  CREATE_IMPORTED_FILES,
+  CREATE_C4_MODELS,
+  CREATE_TRAIL_GRAPHS,
+  CREATE_SKILL_MODELS as CREATE_SKILL_MODELS_TABLE,
+  CREATE_SKILL_MODELS_RESOLVED_VIEW,
+  CREATE_INDEXES,
+  CREATE_RELEASES,
+  CREATE_RELEASE_FILES,
+  CREATE_RELEASE_FEATURES,
+  CREATE_RELEASE_COVERAGE,
+  CREATE_RELEASE_INDEXES,
+  DEFAULT_SKILL_MODELS,
+  extractSkillName,
+  buildReleaseFromGitData,
+  mapFilesToC4Elements,
+  mapC4ToFeatures,
+  analyze,
+} from '@anytime-markdown/trail-core';
+import type { TrailGraph } from '@anytime-markdown/trail-core';
+import { ExecFileGitService } from './ExecFileGitService';
+import type { ReleaseFileRow, ReleaseFeatureRow, ReleaseCoverageRow, ReleaseRow } from '@anytime-markdown/trail-core';
+export type { ReleaseFileRow, ReleaseFeatureRow, ReleaseCoverageRow, ReleaseRow } from '@anytime-markdown/trail-core';
 
 declare const __non_webpack_require__: (id: string) => unknown;
 
@@ -20,29 +48,36 @@ const SKIP_TYPES = new Set([
 //  Type definitions
 // ---------------------------------------------------------------------------
 
+interface CoverageSummaryEntry {
+  lines: { total: number; covered: number; skipped: number; pct: number };
+  statements: { total: number; covered: number; skipped: number; pct: number };
+  functions: { total: number; covered: number; skipped: number; pct: number };
+  branches: { total: number; covered: number; skipped: number; pct: number };
+}
+
 export interface SessionRow {
   readonly id: string;
   readonly slug: string;
   readonly project: string;
-  readonly git_branch: string;
-  readonly cwd: string;
-  readonly model: string;
+  readonly repo_name: string;
   readonly version: string;
   readonly entrypoint: string;
-  readonly permission_mode: string;
+  readonly model: string;
   readonly start_time: string;
   readonly end_time: string;
   readonly message_count: number;
-  readonly input_tokens: number;
-  readonly output_tokens: number;
-  readonly cache_read_tokens: number;
-  readonly cache_creation_tokens: number;
   readonly file_path: string;
   readonly file_size: number;
   readonly imported_at: string;
+  readonly commits_resolved_at?: string;
+  // Aggregated from session_costs via JOIN
+  readonly estimated_cost_usd?: number;
+  readonly input_tokens?: number;
+  readonly output_tokens?: number;
+  readonly cache_read_tokens?: number;
+  readonly cache_creation_tokens?: number;
   readonly peak_context_tokens?: number;
   readonly initial_context_tokens?: number;
-  readonly commits_resolved_at?: string;
 }
 
 export interface MessageRow {
@@ -143,29 +178,23 @@ export interface AnalyticsData {
     readonly sessions: number;
     readonly inputTokens: number;
     readonly outputTokens: number;
-  }[];
-  readonly branchBreakdown: readonly {
-    readonly branch: string;
-    readonly sessions: number;
-    readonly inputTokens: number;
-    readonly outputTokens: number;
+    readonly cacheReadTokens: number;
+    readonly cacheCreationTokens: number;
+    readonly estimatedCostUsd: number;
   }[];
 }
 
 export interface CostOptimizationData {
   readonly actual: { readonly totalCost: number; readonly byModel: Readonly<Record<string, number>> };
-  readonly ruleEstimate: { readonly totalCost: number; readonly byModel: Readonly<Record<string, number>> };
-  readonly featureEstimate: { readonly totalCost: number; readonly byModel: Readonly<Record<string, number>> };
+  readonly skillEstimate: { readonly totalCost: number; readonly byModel: Readonly<Record<string, number>> };
   readonly daily: readonly {
     readonly date: string;
     readonly actualCost: number;
-    readonly ruleCost: number;
-    readonly featureCost: number;
+    readonly skillCost: number;
   }[];
   readonly modelDistribution: {
     readonly actual: Readonly<Record<string, number>>;
-    readonly ruleRecommended: Readonly<Record<string, number>>;
-    readonly featureRecommended: Readonly<Record<string, number>>;
+    readonly skillRecommended: Readonly<Record<string, number>>;
   };
 }
 
@@ -190,6 +219,8 @@ interface RawLine {
   toolUseResult?: unknown;
   sourceToolAssistantUUID?: string;
   sourceToolUseID?: string;
+  agentId?: string;
+  durationMs?: number;
   message?: {
     role?: string;
     model?: string;
@@ -218,80 +249,31 @@ interface RawContentBlock {
 //  SQL statements
 // ---------------------------------------------------------------------------
 
-const CREATE_SESSIONS = `CREATE TABLE IF NOT EXISTS sessions (
-  id TEXT PRIMARY KEY,
-  slug TEXT NOT NULL DEFAULT '',
-  project TEXT NOT NULL DEFAULT '',
-  git_branch TEXT NOT NULL DEFAULT '',
-  cwd TEXT NOT NULL DEFAULT '',
-  model TEXT NOT NULL DEFAULT '',
-  version TEXT NOT NULL DEFAULT '',
-  entrypoint TEXT NOT NULL DEFAULT '',
-  permission_mode TEXT NOT NULL DEFAULT '',
-  start_time TEXT NOT NULL DEFAULT '',
-  end_time TEXT NOT NULL DEFAULT '',
-  message_count INTEGER NOT NULL DEFAULT 0,
-  input_tokens INTEGER NOT NULL DEFAULT 0,
-  output_tokens INTEGER NOT NULL DEFAULT 0,
-  cache_read_tokens INTEGER NOT NULL DEFAULT 0,
-  cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
-  file_path TEXT NOT NULL DEFAULT '',
-  file_size INTEGER NOT NULL DEFAULT 0,
-  imported_at TEXT NOT NULL DEFAULT ''
-)`;
+// Schema constants imported from trail-core (see import at top of file)
 
-const CREATE_MESSAGES = `CREATE TABLE IF NOT EXISTS messages (
-  uuid TEXT PRIMARY KEY,
-  session_id TEXT NOT NULL REFERENCES sessions(id),
-  parent_uuid TEXT,
-  type TEXT NOT NULL,
-  subtype TEXT,
-  text_content TEXT,
-  user_content TEXT,
-  tool_calls TEXT,
-  tool_use_result TEXT,
-  model TEXT,
-  request_id TEXT,
-  stop_reason TEXT,
-  input_tokens INTEGER NOT NULL DEFAULT 0,
-  output_tokens INTEGER NOT NULL DEFAULT 0,
-  cache_read_tokens INTEGER NOT NULL DEFAULT 0,
-  cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
-  service_tier TEXT,
-  speed TEXT,
-  timestamp TEXT NOT NULL DEFAULT '',
-  is_sidechain INTEGER NOT NULL DEFAULT 0,
-  is_meta INTEGER NOT NULL DEFAULT 0,
-  cwd TEXT,
-  git_branch TEXT
-)`;
 
-const CREATE_SESSION_COMMITS = `CREATE TABLE IF NOT EXISTS session_commits (
-  session_id TEXT NOT NULL REFERENCES sessions(id),
-  commit_hash TEXT NOT NULL,
-  commit_message TEXT NOT NULL DEFAULT '',
-  author TEXT NOT NULL DEFAULT '',
-  committed_at TEXT NOT NULL DEFAULT '',
-  is_ai_assisted INTEGER NOT NULL DEFAULT 0,
-  files_changed INTEGER NOT NULL DEFAULT 0,
-  lines_added INTEGER NOT NULL DEFAULT 0,
-  lines_deleted INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY (session_id, commit_hash)
-)`;
 
-const CREATE_INDEXES = [
-  'CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id)',
-  'CREATE INDEX IF NOT EXISTS idx_messages_type ON messages(type)',
-  'CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp)',
-  'CREATE INDEX IF NOT EXISTS idx_session_commits_session ON session_commits(session_id)',
-];
+
+
+
+
+
+
+// DEFAULT_SKILL_MODELS imported from trail-core (see import at top of file)
+
+// CREATE_INDEXES imported from trail-core (see import at top of file)
 
 const INSERT_SESSION = `INSERT OR REPLACE INTO sessions
-  (id, slug, project, git_branch, cwd, model, version, entrypoint,
-   permission_mode, start_time, end_time, message_count,
-   input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens,
+  (id, slug, project, repo_name, version, entrypoint, model,
+   start_time, end_time, message_count,
    file_path, file_size, imported_at)
-  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+
+const INSERT_SESSION_COST = `INSERT OR REPLACE INTO session_costs
+  (session_id, model, input_tokens, output_tokens,
+   cache_read_tokens, cache_creation_tokens, estimated_cost_usd)
+  VALUES (?,?,?,?,?,?,?)`;
+
 
 const INSERT_MESSAGE = `INSERT OR REPLACE INTO messages
   (uuid, session_id, parent_uuid, type, subtype, text_content,
@@ -299,8 +281,9 @@ const INSERT_MESSAGE = `INSERT OR REPLACE INTO messages
    stop_reason, input_tokens, output_tokens, cache_read_tokens,
    cache_creation_tokens, service_tier, speed, timestamp,
    is_sidechain, is_meta, cwd, git_branch,
-   rule_recommended_model, feature_recommended_model, cost_category)
-  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+   duration_ms, tool_result_size, agent_description, agent_model,
+   permission_mode, skill, agent_id, system_command)
+  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 
 
 // ---------------------------------------------------------------------------
@@ -328,94 +311,41 @@ function extractToolCalls(
   return calls.length > 0 ? JSON.stringify(calls) : null;
 }
 
-// ---------------------------------------------------------------------------
-//  Cost classification helpers (inlined from trail-viewer/engine)
-// ---------------------------------------------------------------------------
-
-const SEARCH_TOOLS = new Set(['Grep', 'Glob', 'Read', 'WebSearch', 'WebFetch']);
-const EDIT_TOOLS = new Set(['Edit', 'Write', 'NotebookEdit']);
-
-interface CostRuleEntry {
-  pattern: string;
-  model: string;
-  label: string;
-}
-
-let costRulesCache: { rules: CostRuleEntry[]; default: string } | null = null;
-
-function loadCostRules(): { rules: CostRuleEntry[]; default: string } {
-  if (costRulesCache) return costRulesCache;
+/**
+ * Extract Agent tool call description and model from tool_calls JSON.
+ * Returns the first Agent call found (most messages have at most one).
+ */
+function extractAgentInfo(
+  toolCallsJson: string | null,
+): { description: string | null; model: string | null } {
+  if (!toolCallsJson) return { description: null, model: null };
   try {
-    const rulesPath = path.join(os.homedir(), '.claude', 'trail', 'costRules.json');
-    if (fs.existsSync(rulesPath)) {
-      costRulesCache = JSON.parse(fs.readFileSync(rulesPath, 'utf-8'));
-      return costRulesCache!;
-    }
-  } catch { /* ignore */ }
-  // Default rules
-  costRulesCache = {
-    rules: [
-      { pattern: '^(ok|yes|はい|続けて|1|2|3|a|b|c|d)$', model: 'haiku', label: '確認・承認' },
-      { pattern: 'コミットして|コミットのみ', model: 'haiku', label: 'Git操作' },
-      { pattern: 'バグ|エラー|原因|デバッグ|表示されない|動かない|壊れ|崩れ|不具合', model: 'opus', label: 'デバッグ' },
-      { pattern: 'レビュー|品質|sonar|lint|脆弱性|セキュリティ', model: 'opus', label: 'レビュー・品質' },
-      { pattern: '設計|アーキテクチャ|リファクタ', model: 'opus', label: '設計・リファクタ' },
-      { pattern: '色|幅|余白|アイコン|フォント|サイズ|配置|レイアウト|ホバー|ツールバー|パネル|ダーク|スクロール', model: 'sonnet', label: 'UI調整' },
-      { pattern: '追加して|作成して|実装して|削除して|変更して|更新して|非表示にして', model: 'sonnet', label: '機能変更' },
-      { pattern: 'おしえて|教えて|ですか|でしょうか|どう|なぜ|確認して|調べて', model: 'sonnet', label: '質問・調査' },
-      { pattern: 'ドキュメント|設計書|マニュアル|レポート|記事', model: 'sonnet', label: 'ドキュメント' },
-      { pattern: 'リリース|デプロイ|publish', model: 'sonnet', label: 'リリース' },
-    ],
-    default: 'sonnet',
-  };
-  return costRulesCache;
-}
-
-function classifyMessageByRules(userContent: string): { model: string; label?: string } {
-  const config = loadCostRules();
-  const text = userContent.trim();
-  for (const rule of config.rules) {
-    if (new RegExp(rule.pattern, 'i').test(text)) {
-      return { model: rule.model, label: rule.label };
-    }
+    const calls = JSON.parse(toolCallsJson) as { name?: string; input?: Record<string, unknown> }[];
+    const agentCall = calls.find((c) => c.name === 'Agent');
+    if (!agentCall?.input) return { description: null, model: null };
+    return {
+      description: (agentCall.input.description as string) ?? null,
+      model: (agentCall.input.model as string) ?? null,
+    };
+  } catch {
+    return { description: null, model: null };
   }
-  return { model: config.default };
 }
 
-function extractToolCallNames(toolCallsJson: string | null): string[] {
-  if (!toolCallsJson) return [];
-  try {
-    const calls = JSON.parse(toolCallsJson) as Array<{ name?: string }>;
-    return calls.map(c => c.name ?? '').filter(Boolean);
-  } catch { return []; }
+// extractSkillName imported from trail-core (see import at top of file)
+
+/**
+ * Estimate token count from a string.
+ * Uses a rough heuristic of 1 token per 4 characters.
+ */
+function estimateTokenCount(text: string | null): number | null {
+  if (!text) return null;
+  return Math.ceil(text.length / 4);
 }
 
-function countUniqueFiles(toolCallsJson: string | null): number {
-  if (!toolCallsJson) return 0;
-  try {
-    const calls = JSON.parse(toolCallsJson) as Array<{ input?: Record<string, unknown> }>;
-    const files = new Set<string>();
-    for (const call of calls) {
-      if (!call.input || typeof call.input !== 'object') continue;
-      if (typeof call.input.file_path === 'string') files.add(call.input.file_path);
-      if (typeof call.input.path === 'string') files.add(call.input.path);
-    }
-    return files.size;
-  } catch { return 0; }
-}
-
-function classifyMessageByFeatures(
-  outputTokens: number,
-  toolCallNames: string[],
-  uniqueFileCount: number,
-): string {
-  if (outputTokens < 500 && toolCallNames.length === 0) return 'haiku';
-  if (toolCallNames.length > 0 && toolCallNames.every(n => SEARCH_TOOLS.has(n))) return 'sonnet';
-  if (toolCallNames.some(n => EDIT_TOOLS.has(n)) && uniqueFileCount >= 3) return 'opus';
-  const uniqueToolTypes = new Set(toolCallNames).size;
-  if (outputTokens > 3000 && uniqueToolTypes >= 3) return 'opus';
-  return 'sonnet';
-}
+// ---------------------------------------------------------------------------
+//  Cost classification helpers
+// ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 //  TrailDatabase
@@ -459,9 +389,19 @@ export class TrailDatabase {
   private createTables(): void {
     const db = this.ensureDb();
     db.run(CREATE_SESSIONS);
+    db.run(CREATE_SESSION_COSTS);
+    db.run(CREATE_DAILY_COSTS);
     db.run(CREATE_MESSAGES);
     db.run(CREATE_SESSION_COMMITS);
-    for (const sql of CREATE_INDEXES) {
+    db.run(CREATE_RELEASES);
+    db.run(CREATE_RELEASE_FILES);
+    db.run(CREATE_RELEASE_FEATURES);
+    db.run(CREATE_RELEASE_COVERAGE);
+    db.run(CREATE_C4_MODELS);
+    db.run(CREATE_TRAIL_GRAPHS);
+    db.run(CREATE_SKILL_MODELS_TABLE);
+    db.run(CREATE_SKILL_MODELS_RESOLVED_VIEW);
+    for (const sql of [...CREATE_INDEXES, ...CREATE_RELEASE_INDEXES]) {
       db.run(sql);
     }
 
@@ -471,15 +411,32 @@ export class TrailDatabase {
     } catch {
       // Column already exists — ignore
     }
-    try {
-      db.run('ALTER TABLE messages ADD COLUMN rule_recommended_model TEXT');
-    } catch { /* Column already exists */ }
-    try {
-      db.run('ALTER TABLE messages ADD COLUMN feature_recommended_model TEXT');
-    } catch { /* Column already exists */ }
-    try {
-      db.run('ALTER TABLE messages ADD COLUMN cost_category TEXT');
-    } catch { /* Column already exists */ }
+    const messageAlters = [
+      'ALTER TABLE messages ADD COLUMN rule_recommended_model TEXT',
+      'ALTER TABLE messages ADD COLUMN feature_recommended_model TEXT',
+      'ALTER TABLE messages ADD COLUMN cost_category TEXT',
+      'ALTER TABLE messages ADD COLUMN duration_ms INTEGER',
+      'ALTER TABLE messages ADD COLUMN tool_result_size INTEGER',
+      'ALTER TABLE messages ADD COLUMN agent_description TEXT',
+      'ALTER TABLE messages ADD COLUMN agent_model TEXT',
+      'ALTER TABLE messages ADD COLUMN permission_mode TEXT',
+      'ALTER TABLE messages ADD COLUMN skill TEXT',
+      'ALTER TABLE messages ADD COLUMN agent_id TEXT',
+      'ALTER TABLE messages ADD COLUMN system_command TEXT',
+    ];
+    for (const sql of messageAlters) {
+      try { db.run(sql); } catch { /* Column already exists */ }
+    }
+
+    // Seed skill_models with defaults if empty
+    const smCount = db.exec('SELECT COUNT(*) FROM skill_models');
+    if (Number(smCount[0]?.values[0]?.[0]) === 0) {
+      const smStmt = db.prepare('INSERT OR IGNORE INTO skill_models (skill, canonical_skill, recommended_model) VALUES (?, ?, ?)');
+      for (const [skill, canonical, model] of DEFAULT_SKILL_MODELS) {
+        smStmt.run([skill, canonical, model]);
+      }
+      smStmt.free();
+    }
 
     this.migrateTimestampsToUTC(db);
   }
@@ -563,6 +520,166 @@ export class TrailDatabase {
     return `${sign}${Math.abs(offsetMin)} minutes`;
   }
 
+  getSessionCosts(sessionId: string): readonly {
+    model: string;
+    input_tokens: number;
+    output_tokens: number;
+    cache_read_tokens: number;
+    cache_creation_tokens: number;
+    estimated_cost_usd: number;
+  }[] {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT model, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, estimated_cost_usd
+       FROM session_costs WHERE session_id = ?`,
+      [sessionId],
+    );
+    if (!result[0]) return [];
+    return result[0].values.map((r) => ({
+      model: r[0] as string,
+      input_tokens: r[1] as number,
+      output_tokens: r[2] as number,
+      cache_read_tokens: r[3] as number,
+      cache_creation_tokens: r[4] as number,
+      estimated_cost_usd: r[5] as number,
+    }));
+  }
+
+  getAllSessionCosts(): readonly {
+    session_id: string;
+    model: string;
+    input_tokens: number;
+    output_tokens: number;
+    cache_read_tokens: number;
+    cache_creation_tokens: number;
+    estimated_cost_usd: number;
+  }[] {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT session_id, model, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, estimated_cost_usd
+       FROM session_costs`,
+    );
+    if (!result[0]) return [];
+    return result[0].values.map((r) => ({
+      session_id: r[0] as string,
+      model: r[1] as string,
+      input_tokens: r[2] as number,
+      output_tokens: r[3] as number,
+      cache_read_tokens: r[4] as number,
+      cache_creation_tokens: r[5] as number,
+      estimated_cost_usd: r[6] as number,
+    }));
+  }
+
+  getAllDailyCosts(): readonly {
+    date: string;
+    model: string;
+    cost_type: string;
+    input_tokens: number;
+    output_tokens: number;
+    cache_read_tokens: number;
+    cache_creation_tokens: number;
+    estimated_cost_usd: number;
+  }[] {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT date, model, cost_type, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, estimated_cost_usd
+       FROM daily_costs`,
+    );
+    if (!result[0]) return [];
+    return result[0].values.map((r) => ({
+      date: r[0] as string,
+      model: r[1] as string,
+      cost_type: r[2] as string,
+      input_tokens: r[3] as number,
+      output_tokens: r[4] as number,
+      cache_read_tokens: r[5] as number,
+      cache_creation_tokens: r[6] as number,
+      estimated_cost_usd: r[7] as number,
+    }));
+  }
+
+  /** Delete and rebuild session_costs from all messages. */
+  private rebuildSessionCosts(): void {
+    const db = this.ensureDb();
+    db.run('DELETE FROM session_costs');
+
+    const result = db.exec(
+      `SELECT session_id, COALESCE(model,''),
+        SUM(input_tokens), SUM(output_tokens),
+        SUM(cache_read_tokens), SUM(cache_creation_tokens)
+       FROM messages WHERE type = 'assistant'
+       GROUP BY session_id, model`,
+    );
+    const stmt = db.prepare(INSERT_SESSION_COST);
+    for (const row of result[0]?.values ?? []) {
+      const sid = String(row[0]); const m = String(row[1]);
+      const inp = Number(row[2]); const outp = Number(row[3]);
+      const cr = Number(row[4]); const cc = Number(row[5]);
+      stmt.run([sid, m, inp, outp, cr, cc, estimateCost(m, inp, outp, cr, cc)]);
+    }
+    stmt.free();
+  }
+
+  /** Delete and rebuild daily_costs from all messages in a single pass. */
+  private rebuildDailyCosts(): void {
+    const db = this.ensureDb();
+    const tzOffset = this.getLocalTzOffset();
+
+    db.run('DELETE FROM daily_costs');
+
+    const INSERT_DC = `INSERT INTO daily_costs
+      (date, model, cost_type, input_tokens, output_tokens,
+       cache_read_tokens, cache_creation_tokens, estimated_cost_usd)
+      VALUES (?,?,?,?,?,?,?,?)`;
+    const stmt = db.prepare(INSERT_DC);
+
+    // actual
+    const actual = db.exec(
+      `SELECT DATE(timestamp, '${tzOffset}'), COALESCE(model,''),
+        SUM(input_tokens), SUM(output_tokens),
+        SUM(cache_read_tokens), SUM(cache_creation_tokens)
+       FROM messages WHERE type = 'assistant'
+       GROUP BY DATE(timestamp, '${tzOffset}'), model`,
+    );
+    for (const row of actual[0]?.values ?? []) {
+      const d = String(row[0]); const m = String(row[1]);
+      const inp = Number(row[2]); const outp = Number(row[3]);
+      const cr = Number(row[4]); const cc = Number(row[5]);
+      stmt.run([d, m, 'actual', inp, outp, cr, cc, estimateCost(m, inp, outp, cr, cc)]);
+    }
+
+    // Auto-register new skills that are not yet in skill_models
+    db.run(
+      `INSERT OR IGNORE INTO skill_models (skill, recommended_model)
+       SELECT DISTINCT m.skill, 'sonnet'
+       FROM messages m
+       WHERE m.skill IS NOT NULL
+         AND m.skill NOT IN (SELECT skill FROM skill_models)`,
+    );
+
+    // skill (uses skill_models_resolved view, defaults to 'sonnet' for unmatched)
+    const skill = db.exec(
+      `SELECT DATE(a.timestamp, '${tzOffset}'),
+        COALESCE(sm.recommended_model, 'sonnet'),
+        SUM(a.input_tokens), SUM(a.output_tokens),
+        SUM(a.cache_read_tokens), SUM(a.cache_creation_tokens)
+       FROM messages a
+       LEFT JOIN skill_models_resolved sm ON a.skill = sm.skill
+       WHERE a.type = 'assistant'
+       GROUP BY DATE(a.timestamp, '${tzOffset}'),
+         COALESCE(sm.recommended_model, 'sonnet')`,
+    );
+    for (const row of skill[0]?.values ?? []) {
+      const d = String(row[0]); const m = String(row[1]);
+      const inp = Number(row[2]); const outp = Number(row[3]);
+      const cr = Number(row[4]); const cc = Number(row[5]);
+      stmt.run([d, m, 'skill', inp, outp, cr, cc, estimateCost(m, inp, outp, cr, cc)]);
+    }
+
+    stmt.free();
+  }
+
   save(): void {
     const db = this.ensureDb();
     const data = db.export();
@@ -577,6 +694,24 @@ export class TrailDatabase {
   // -------------------------------------------------------------------------
   //  Import
   // -------------------------------------------------------------------------
+
+  /** Load all imported sessions into memory for fast lookup during importAll. */
+  /** Load imported sessions keyed by file_path for accurate skip detection. */
+  private getImportedFileMap(): Map<string, { sessionId: string; fileSize: number; commitsResolved: boolean }> {
+    const db = this.ensureDb();
+    const result = db.exec('SELECT id, file_path, file_size, commits_resolved_at FROM sessions');
+    const map = new Map<string, { sessionId: string; fileSize: number; commitsResolved: boolean }>();
+    for (const row of result[0]?.values ?? []) {
+      map.set(String(row[1]), {
+        sessionId: String(row[0]),
+        fileSize: Number(row[2]),
+        commitsResolved: row[3] != null,
+      });
+    }
+    return map;
+  }
+
+  /** Get set of session IDs that exist in DB. */
 
   isImported(sessionId: string): boolean {
     const db = this.ensureDb();
@@ -616,7 +751,7 @@ export class TrailDatabase {
   } | null {
     const db = this.ensureDb();
     const stmt = db.prepare(
-      'SELECT start_time, end_time, git_branch FROM sessions WHERE id = ? LIMIT 1',
+      'SELECT start_time, end_time FROM sessions WHERE id = ? LIMIT 1',
     );
     stmt.bind([sessionId]);
     if (!stmt.step()) {
@@ -624,14 +759,33 @@ export class TrailDatabase {
       return null;
     }
     const row = stmt.getAsObject() as {
-      start_time: string; end_time: string; git_branch: string;
+      start_time: string; end_time: string;
     };
     stmt.free();
+
+    // git_branch is stored in messages table, not sessions
+    let gitBranch = '';
+    try {
+      const branchResult = db.exec(
+        `SELECT git_branch FROM messages
+         WHERE session_id = ? AND git_branch IS NOT NULL AND git_branch != ''
+         LIMIT 1`,
+        [sessionId],
+      );
+      gitBranch = String(branchResult[0]?.values[0]?.[0] ?? '');
+    } catch { /* no branch info available */ }
+
     return {
       startTime: row.start_time,
       endTime: row.end_time,
-      gitBranch: row.git_branch,
+      gitBranch,
     };
+  }
+
+  /** Session-Id トレーラーから UUID を抽出。なければ null */
+  parseSessionIdFromBody(body: string): string | null {
+    const match = /^Session-Id:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\s*$/im.exec(body);
+    return match ? match[1] : null;
   }
 
   resolveCommits(sessionId: string, gitRoot: string): number {
@@ -649,10 +803,34 @@ export class TrailDatabase {
     const execOpts = { encoding: 'utf-8' as const, timeout: 10_000 };
     const logFormat = '%H%x00%s%x00%an%x00%aI%x00%b%x1e';
 
+    const insertStmt = db.prepare(
+      `INSERT OR IGNORE INTO session_commits
+        (session_id, commit_hash, commit_message, author, committed_at,
+         is_ai_assisted, files_changed, lines_added, lines_deleted)
+        VALUES (?,?,?,?,?,?,?,?,?)`,
+    );
+
+    let count = 0;
+
+    // Phase A: Session-Id trailer exact match
+    try {
+      const grepPattern = `^Session-Id: ${sessionId}$`;
+      const phaseAOutput = execFileSync('git', [
+        'log', '--all',
+        '--extended-regexp', `--grep=${grepPattern}`,
+        `--format=${logFormat}`,
+        '--no-merges',
+      ], { ...execOpts, cwd: gitRoot });
+
+      count += this.processCommitEntries(phaseAOutput, sessionId, insertStmt, execOpts, gitRoot);
+    } catch {
+      // git grep may fail if no commits match — not an error
+    }
+
+    // Phase B: Time-range fallback (existing behavior + Session-Id filter)
     let logOutput = '';
     const useBranch = gitBranch && gitBranch.trim() !== '';
     try {
-      // Try branch-specific log first (or --all if no branch)
       logOutput = execFileSync('git', [
         'log', useBranch ? gitBranch : '--all',
         `--after=${startTime}`,
@@ -661,7 +839,6 @@ export class TrailDatabase {
         '--no-merges',
       ], { ...execOpts, cwd: gitRoot });
     } catch {
-      // Fallback to --all if branch not found
       try {
         logOutput = execFileSync('git', [
           'log', '--all',
@@ -671,28 +848,44 @@ export class TrailDatabase {
           '--no-merges',
         ], { ...execOpts, cwd: gitRoot });
       } catch {
-        // On any git error, mark as resolved and return 0
+        // On any git error, mark as resolved and return Phase A count
+        insertStmt.free();
         db.run(
           "UPDATE sessions SET commits_resolved_at = datetime('now') WHERE id = ?",
           [sessionId],
         );
-        return 0;
+        return count;
       }
     }
 
+    count += this.processCommitEntries(logOutput, sessionId, insertStmt, execOpts, gitRoot, true);
+
+    insertStmt.free();
+
+    db.run(
+      "UPDATE sessions SET commits_resolved_at = datetime('now') WHERE id = ?",
+      [sessionId],
+    );
+
+    return count;
+  }
+
+  /** Parse git log output and insert commits into session_commits table.
+   *  @param filterBySessionId If true, skip commits whose Session-Id trailer belongs to another session */
+  private processCommitEntries(
+    logOutput: string,
+    sessionId: string,
+    insertStmt: SqlJsStatement,
+    execOpts: { encoding: 'utf-8'; timeout: number },
+    gitRoot: string,
+    filterBySessionId = false,
+  ): number {
     const commits = logOutput
       .split('\x1e')
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
 
     let count = 0;
-    const insertStmt = db.prepare(
-      `INSERT OR IGNORE INTO session_commits
-        (session_id, commit_hash, commit_message, author, committed_at,
-         is_ai_assisted, files_changed, lines_added, lines_deleted)
-        VALUES (?,?,?,?,?,?,?,?,?)`,
-    );
-
     for (const entry of commits) {
       const parts = entry.split('\x00');
       if (parts.length < 4) continue;
@@ -703,10 +896,14 @@ export class TrailDatabase {
       const committedAt = toUTC(parts[3]);
       const body = parts[4] ?? '';
 
-      // Check for AI co-authoring
+      // Phase B filter: skip commits that belong to a different session
+      if (filterBySessionId) {
+        const trailerSessionId = this.parseSessionIdFromBody(body);
+        if (trailerSessionId && trailerSessionId !== sessionId) continue;
+      }
+
       const isAiAssisted = /Co-Authored-By:.*Claude/i.test(body) ? 1 : 0;
 
-      // Get file stats via numstat
       let filesChanged = 0;
       let linesAdded = 0;
       let linesDeleted = 0;
@@ -720,7 +917,6 @@ export class TrailDatabase {
           if (!trimmed) continue;
           const [added, deleted] = trimmed.split('\t');
           filesChanged++;
-          // Binary files show as "-"
           if (added !== '-') linesAdded += Number.parseInt(added, 10) || 0;
           if (deleted !== '-') linesDeleted += Number.parseInt(deleted, 10) || 0;
         }
@@ -735,17 +931,11 @@ export class TrailDatabase {
       count++;
     }
 
-    insertStmt.free();
-
-    db.run(
-      "UPDATE sessions SET commits_resolved_at = datetime('now') WHERE id = ?",
-      [sessionId],
-    );
-
     return count;
   }
 
-  importSession(filePath: string, projectName: string, isSubagent = false): void {
+  /** @returns number of messages imported */
+  importSession(filePath: string, projectName: string, isSubagent = false, externalTransaction = false, repoName = ''): number {
     const db = this.ensureDb();
     const content = fs.readFileSync(filePath, 'utf-8');
     const lines = content.split('\n').filter((l) => l.trim() !== '');
@@ -759,23 +949,16 @@ export class TrailDatabase {
       }
     }
 
-    if (parsed.length === 0) return;
+    if (parsed.length === 0) return 0;
 
     // Extract session metadata
     let sessionId = '';
     let slug = '';
     let version = '';
-    let gitBranch = '';
-    let cwd = '';
     let model = '';
     let entrypoint = '';
-    let permissionMode = '';
     let startTime = '';
     let endTime = '';
-    let totalInput = 0;
-    let totalOutput = 0;
-    let totalCacheRead = 0;
-    let totalCacheCreation = 0;
     let messageCount = 0;
 
     // Collect messages to insert
@@ -784,44 +967,31 @@ export class TrailDatabase {
     for (const raw of parsed) {
       if (!raw.type || SKIP_TYPES.has(raw.type)) continue;
       if (raw.isMeta === true) continue;
-      if (raw.type === 'system' && raw.subtype === 'turn_duration') continue;
 
       if (!sessionId && raw.sessionId) sessionId = raw.sessionId;
       if (!slug && raw.slug) slug = raw.slug;
       if (!version && raw.version) version = raw.version;
-      if (!gitBranch && raw.gitBranch) gitBranch = raw.gitBranch;
-      if (!cwd && raw.cwd) cwd = raw.cwd;
       if (!entrypoint && raw.entrypoint) entrypoint = raw.entrypoint;
-      if (!permissionMode && raw.permissionMode) permissionMode = raw.permissionMode;
       if (!model && raw.message?.model) model = raw.message.model;
       if (!startTime && raw.timestamp) startTime = toUTC(raw.timestamp);
       if (raw.timestamp) endTime = toUTC(raw.timestamp);
-
-      const usage = raw.message?.usage;
-      if (usage) {
-        totalInput += usage.input_tokens ?? 0;
-        totalOutput += usage.output_tokens ?? 0;
-        totalCacheRead += usage.cache_read_input_tokens ?? 0;
-        totalCacheCreation += usage.cache_creation_input_tokens ?? 0;
-      }
 
       messagesToInsert.push(raw);
       messageCount++;
     }
 
-    if (!sessionId) return;
+    if (!sessionId) return 0;
 
     const fileSize = fs.statSync(filePath).size;
     const importedAt = new Date().toISOString();
 
-    db.run('BEGIN TRANSACTION');
+    if (!externalTransaction) db.run('BEGIN TRANSACTION');
     try {
       // Insert/update session metadata only for main session files
       if (!isSubagent) {
         db.run(INSERT_SESSION, [
-          sessionId, slug, projectName, gitBranch, cwd, model, version,
-          entrypoint, permissionMode, startTime, endTime, messageCount,
-          totalInput, totalOutput, totalCacheRead, totalCacheCreation,
+          sessionId, slug, projectName, repoName, version,
+          entrypoint, model, startTime, endTime, messageCount,
           filePath, fileSize, importedAt,
         ]);
       }
@@ -844,25 +1014,18 @@ export class TrailDatabase {
             : JSON.stringify(raw.toolUseResult))
           : null;
 
-        // --- Cost classification ---
-        let ruleRecommendedModel: string | null = null;
-        let featureRecommendedModel: string | null = null;
-        let costCategory: string | null = null;
+        // --- Analytics fields ---
+        const durationMs = raw.durationMs ?? null;
+        const toolResultSize = estimateTokenCount(toolUseResult);
+        const agentInfo = extractAgentInfo(toolCalls);
 
-        // Rule-based: classify user messages
-        if (raw.type === 'user' && userContent) {
-          const ruleResult = classifyMessageByRules(userContent);
-          ruleRecommendedModel = ruleResult.model;
-          costCategory = ruleResult.label ?? null;
-        }
-
-        // Feature-based: classify assistant messages
-        if (raw.type === 'assistant') {
-          const outputTokens = raw.message?.usage?.output_tokens ?? 0;
-          const toolCallNames = extractToolCallNames(toolCalls);
-          const uniqueFileCount = countUniqueFiles(toolCalls);
-          featureRecommendedModel = classifyMessageByFeatures(outputTokens, toolCallNames, uniqueFileCount);
-        }
+        // --- New metadata fields ---
+        const permMode = raw.permissionMode ?? null;
+        const skill = extractSkillName(toolCalls);
+        const agentId = raw.agentId ?? null;
+        const systemCommand = raw.subtype === 'compact_boundary' ? '/compact'
+          : raw.subtype === 'local_command' ? '/clear'
+          : null;
 
         msgStmt.run([
           raw.uuid ?? '',
@@ -888,16 +1051,22 @@ export class TrailDatabase {
           raw.isMeta ? 1 : 0,
           raw.cwd ?? null,
           raw.gitBranch ?? null,
-          ruleRecommendedModel,
-          featureRecommendedModel,
-          costCategory,
+          durationMs,
+          toolResultSize,
+          agentInfo.description,
+          agentInfo.model,
+          permMode,
+          skill,
+          agentId,
+          systemCommand,
         ]);
       }
       msgStmt.free();
 
-      db.run('COMMIT');
+      if (!externalTransaction) db.run('COMMIT');
+      return messageCount;
     } catch (err) {
-      db.run('ROLLBACK');
+      if (!externalTransaction) db.run('ROLLBACK');
       throw err;
     }
   }
@@ -905,129 +1074,240 @@ export class TrailDatabase {
   async importAll(
     onProgress?: (message: string, increment?: number) => void,
     gitRoot?: string,
-  ): Promise<{ imported: number; skipped: number; commitsResolved: number }> {
+    c4ModelPath?: string,
+  ): Promise<{ imported: number; skipped: number; commitsResolved: number; releasesResolved: number; releasesAnalyzed: number; coverageImported: number }> {
     const projectsDir = path.join(os.homedir(), '.claude', 'projects');
+    const repoName = gitRoot ? path.basename(gitRoot) : '';
     let imported = 0;
     let skipped = 0;
     let commitsResolved = 0;
+
 
     let projectDirs: string[];
     try {
       projectDirs = fs.readdirSync(projectsDir);
     } catch {
-      return { imported, skipped, commitsResolved };
+      return { imported, skipped, commitsResolved, releasesResolved: 0, releasesAnalyzed: 0, coverageImported: 0 };
     }
 
-    const allFiles: { filePath: string; projectName: string }[] = [];
+    // Pre-load imported file paths + sizes for fast skip
+    const importedFiles = this.getImportedFileMap();
+    const UUID_RE = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/;
+
+    // Collect files per session directory (main + subagents grouped)
+    type SessionDir = { sid: string; mainFile: string; subagentFiles: string[]; projectName: string };
+    const sessionDirs: SessionDir[] = [];
+
     for (const projectName of projectDirs) {
       const projectPath = path.join(projectsDir, projectName);
       try {
-        const stat = fs.statSync(projectPath);
-        if (!stat.isDirectory()) continue;
-      } catch {
-        continue;
+        if (!fs.statSync(projectPath).isDirectory()) continue;
+      } catch { continue; }
+
+      let entries: string[];
+      try { entries = fs.readdirSync(projectPath); } catch { continue; }
+
+      for (const entry of entries) {
+        // Main session file: UUID.jsonl at project directory level
+        if (!entry.endsWith('.jsonl')) continue;
+        const sid = entry.slice(0, -6); // remove .jsonl
+        if (!UUID_RE.test(sid)) continue;
+
+        const mainFile = path.join(projectPath, entry);
+
+        // Subagent files: UUID/subagents/*.jsonl
+        const subagentDir = path.join(projectPath, sid, 'subagents');
+        const subagentFiles: string[] = [];
+        try {
+          for (const sf of fs.readdirSync(subagentDir)) {
+            if (sf.endsWith('.jsonl')) {
+              subagentFiles.push(path.join(subagentDir, sf));
+            }
+          }
+        } catch { /* no subagents dir */ }
+
+        sessionDirs.push({ sid, mainFile, subagentFiles, projectName });
       }
-      const jsonlFiles = findJsonlFiles(projectPath);
-      allFiles.push(...jsonlFiles.map((f) => ({ filePath: f, projectName })));
     }
 
-    const totalFiles = allFiles.length;
-    onProgress?.(`Found ${totalFiles} JSONL files`, 0);
+    const totalSessions = sessionDirs.length;
+    const totalFiles = sessionDirs.reduce((s, d) => s + 1 + d.subagentFiles.length, 0);
+    onProgress?.(`Found ${totalSessions} sessions (${totalFiles} files)`, 0);
 
-    for (let i = 0; i < allFiles.length; i++) {
-      const { filePath, projectName } = allFiles[i];
-      const increment = totalFiles > 0 ? 100 / totalFiles : 0;
-      onProgress?.(`(${i + 1}/${totalFiles}) Importing...`, increment);
+    const BATCH_MESSAGE_LIMIT = 20_000;
+    const BATCH_FILE_LIMIT = 100;
+    let batchMessageCount = 0;
+    let batchFileCount = 0;
+    let inTransaction = false;
+    let processedFiles = 0;
 
-      // Extract sessionId — try filename first, then parse file content
-        let sid = '';
-        const basename = path.basename(filePath, '.jsonl');
-        const UUID_RE = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/;
-        if (UUID_RE.test(basename)) {
-          sid = basename;
-        } else {
-          try {
-            const head = fs.readFileSync(filePath, 'utf-8').slice(0, 65536);
-            const headLines = head.split('\n').filter((l) => l.trim() !== '');
-            for (const line of headLines.slice(0, 20)) {
-              try {
-                const obj = JSON.parse(line) as { sessionId?: string };
-                if (obj.sessionId) {
-                  sid = obj.sessionId;
-                  break;
-                }
-              } catch {
-                // skip
-              }
-            }
-          } catch {
-            continue;
-          }
-        }
-
-        if (!sid) continue;
-
-        // Subagent files share the parent sessionId — import messages only
-        const isSubagent = path.basename(filePath).startsWith('agent-')
-          || filePath.includes(`${path.sep}subagents${path.sep}`);
-
-        if (this.isImported(sid)) {
-          // Re-import if the main file has grown (new messages appended)
-          if (!isSubagent) {
-            let currentFileSize = 0;
-            try {
-              currentFileSize = fs.statSync(filePath).size;
-            } catch {
-              // skip
-            }
-            const importedSize = this.getImportedFileSize(sid);
-            if (currentFileSize > importedSize) {
-              try {
-                this.importSession(filePath, projectName);
-                imported++;
-              } catch {
-                // skip
-              }
-            } else {
-              skipped++;
-            }
-          }
-          // Always import subagent messages (messages use INSERT OR REPLACE)
-          if (isSubagent) {
-            try {
-              this.importSession(filePath, projectName, true);
-              imported++;
-            } catch {
-              // skip
-            }
-          }
-          if (gitRoot && !this.isCommitsResolved(sid)) {
-            try {
-              commitsResolved += this.resolveCommits(sid, gitRoot);
-            } catch {
-              // skip
-            }
+    for (const dir of sessionDirs) {
+      // Skip entire session (main + all subagents) if main file size unchanged
+      const existing = importedFiles.get(dir.mainFile);
+      if (existing) {
+        let currentFileSize = 0;
+        try { currentFileSize = fs.statSync(dir.mainFile).size; } catch { skipped++; continue; }
+        if (currentFileSize <= existing.fileSize) {
+          skipped += 1 + dir.subagentFiles.length;
+          processedFiles += 1 + dir.subagentFiles.length;
+          if (gitRoot && !existing.commitsResolved) {
+            try { commitsResolved += this.resolveCommits(dir.sid, gitRoot); } catch { /* skip */ }
           }
           continue;
         }
-
-        try {
-          this.importSession(filePath, projectName, isSubagent);
-          imported++;
-          if (gitRoot) {
-            try {
-              commitsResolved += this.resolveCommits(sid, gitRoot);
-            } catch {
-              // skip
-            }
-          }
-        } catch {
-          // Skip files that fail to import
-        }
       }
 
+      // Import all files for this session (main + subagents) in one batch
+      const db = this.ensureDb();
+      if (!inTransaction) {
+        db.run('BEGIN TRANSACTION');
+        inTransaction = true;
+        batchMessageCount = 0;
+        batchFileCount = 0;
+      }
+
+      const filesToImport = [
+        { filePath: dir.mainFile, isSubagent: false },
+        ...dir.subagentFiles.map((f) => ({ filePath: f, isSubagent: true })),
+      ];
+
+      for (const file of filesToImport) {
+        try {
+          const msgCount = this.importSession(file.filePath, dir.projectName, file.isSubagent, true, repoName);
+          imported++;
+          batchMessageCount += msgCount;
+          batchFileCount++;
+        } catch { /* skip individual file errors */ }
+        processedFiles++;
+      }
+
+      // Resolve commits after all files for this session
+      if (gitRoot) {
+        try { commitsResolved += this.resolveCommits(dir.sid, gitRoot); } catch { /* skip */ }
+      }
+
+      // Commit at session boundary when limits exceeded
+      if (batchMessageCount >= BATCH_MESSAGE_LIMIT || batchFileCount >= BATCH_FILE_LIMIT) {
+        if (inTransaction) {
+          try { db.run('COMMIT'); } catch { try { db.run('ROLLBACK'); } catch { /* ignore */ } }
+          inTransaction = false;
+        }
+        onProgress?.(`${batchMessageCount} messages (${processedFiles}/${totalFiles}, skipped ${skipped})`, 0);
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      }
+    }
+
+    // Commit remaining batch
+    if (inTransaction) {
+      const db = this.ensureDb();
+      try { db.run('COMMIT'); } catch { try { db.run('ROLLBACK'); } catch { /* ignore */ } }
+      inTransaction = false;
+      onProgress?.(`${batchMessageCount} messages (${processedFiles}/${totalFiles}, skipped ${skipped})`, 0);
+    }
+
+    // Resolve releases from version tags
+    let releasesResolved = 0;
+    if (gitRoot) {
+      try {
+        onProgress?.('Resolving releases from version tags...', 0);
+        releasesResolved = this.resolveReleases(gitRoot, c4ModelPath);
+        onProgress?.(`Releases resolved: ${releasesResolved}`, 0);
+      } catch {
+        // Skip release resolution errors
+      }
+    }
+
+    // C4 モデルを c4_models テーブルに保存
+    if (c4ModelPath) {
+      try {
+        const raw = fs.readFileSync(c4ModelPath, 'utf-8');
+        const parsed: unknown = JSON.parse(raw);
+        if (typeof parsed === 'object' && parsed !== null) {
+          const revision = fs.statSync(c4ModelPath).mtimeMs.toString();
+          this.saveC4Model(raw, revision);
+        }
+      } catch { /* ファイル読み込み失敗は無視 */ }
+    }
+
+    // Analyze source code for each release
+    let releasesAnalyzed = 0;
+    if (gitRoot) {
+      try {
+        onProgress?.('Analyzing releases...', 0);
+        releasesAnalyzed = this.analyzeReleases(gitRoot, (msg) => onProgress?.(msg, 0));
+        onProgress?.(`Releases analyzed: ${releasesAnalyzed}`, 0);
+      } catch {
+        // Skip analysis errors
+      }
+    }
+
+    // Import coverage data from packages/*/coverage/coverage-summary.json
+    let coverageImported = 0;
+    if (gitRoot) {
+      try {
+        onProgress?.('Importing coverage data...', 0);
+        coverageImported = this.importCoverage(gitRoot);
+        onProgress?.(`Coverage imported: ${coverageImported} entries`, 0);
+      } catch {
+        // Skip coverage import errors
+      }
+    }
+
+    // Rebuild session_costs and daily_costs from all messages
+    onProgress?.('Rebuilding session costs...', 0);
+    this.rebuildSessionCosts();
+    onProgress?.('Session costs rebuilt', 0);
+    onProgress?.('Rebuilding daily costs...', 0);
+    this.rebuildDailyCosts();
+    onProgress?.('Daily costs rebuilt', 0);
+
     this.save();
-    return { imported, skipped, commitsResolved };
+    return { imported, skipped, commitsResolved, releasesResolved, releasesAnalyzed, coverageImported };
+  }
+
+  saveTrailGraph(graph: TrailGraph, tsconfigPath: string, id = 'current'): void {
+    const db = this.ensureDb();
+    db.run(
+      `INSERT OR REPLACE INTO trail_graphs
+         (id, graph_json, tsconfig_path, project_root, analyzed_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+      [
+        id,
+        JSON.stringify(graph),
+        tsconfigPath,
+        graph.metadata.projectRoot,
+        graph.metadata.analyzedAt,
+      ],
+    );
+    this.save();
+  }
+
+  getTrailGraph(id = 'current'): TrailGraph | null {
+    const db = this.ensureDb();
+    const result = db.exec(
+      'SELECT graph_json FROM trail_graphs WHERE id = ?',
+      [id],
+    );
+    const json = result[0]?.values?.[0]?.[0];
+    if (typeof json !== 'string') return null;
+    return JSON.parse(json) as TrailGraph;
+  }
+
+  /**
+   * trail_graphs テーブルに存在する ID の一覧を返す。
+   * 'current' を先頭に、残りは released_at の降順（releases テーブルと結合）。
+   */
+  getTrailGraphIds(): string[] {
+    const db = this.ensureDb();
+    const result = db.exec(`
+      SELECT tg.id
+      FROM trail_graphs tg
+      LEFT JOIN releases r ON tg.id = r.tag
+      ORDER BY
+        CASE WHEN tg.id = 'current' THEN 0 ELSE 1 END,
+        r.released_at DESC
+    `);
+    return (result[0]?.values?.map((r) => r[0] as string) ?? []);
   }
 
   // -------------------------------------------------------------------------
@@ -1040,7 +1320,7 @@ export class TrailDatabase {
     const params: string[] = [];
 
     if (filters?.branch) {
-      conditions.push('s.git_branch = ?');
+      conditions.push('s.id IN (SELECT DISTINCT session_id FROM messages WHERE git_branch = ?)');
       params.push(filters.branch);
     }
     if (filters?.model) {
@@ -1063,7 +1343,17 @@ export class TrailDatabase {
     const where = conditions.length > 0
       ? `WHERE ${conditions.join(' AND ')}`
       : '';
-    const sql = `SELECT s.* FROM sessions s ${where} ORDER BY s.start_time DESC`;
+    const sql = `SELECT s.*,
+      COALESCE(SUM(sc.input_tokens), 0) AS input_tokens,
+      COALESCE(SUM(sc.output_tokens), 0) AS output_tokens,
+      COALESCE(SUM(sc.cache_read_tokens), 0) AS cache_read_tokens,
+      COALESCE(SUM(sc.cache_creation_tokens), 0) AS cache_creation_tokens,
+      COALESCE(SUM(sc.estimated_cost_usd), 0) AS estimated_cost_usd
+      FROM sessions s
+      LEFT JOIN session_costs sc ON s.id = sc.session_id
+      ${where}
+      GROUP BY s.id
+      ORDER BY s.start_time DESC`;
 
     const stmt = db.prepare(sql);
     if (params.length > 0) stmt.bind(params);
@@ -1074,6 +1364,24 @@ export class TrailDatabase {
     }
     stmt.free();
     return rows;
+  }
+
+  getSessionBranches(sessionIds: readonly string[]): Map<string, string> {
+    const result = new Map<string, string>();
+    if (sessionIds.length === 0) return result;
+    const db = this.ensureDb();
+    const placeholders = sessionIds.map(() => '?').join(',');
+    const rows = db.exec(
+      `SELECT session_id, git_branch FROM messages
+       WHERE session_id IN (${placeholders}) AND git_branch IS NOT NULL AND git_branch != ''
+       GROUP BY session_id
+       ORDER BY MIN(rowid)`,
+      sessionIds as string[],
+    );
+    for (const row of rows[0]?.values ?? []) {
+      result.set(String(row[0]), String(row[1]));
+    }
+    return result;
   }
 
   getSessionContextStats(sessionIds: readonly string[]): Map<string, { peak: number; initial: number }> {
@@ -1463,21 +1771,23 @@ export class TrailDatabase {
   getAnalytics(): AnalyticsData {
     const db = this.ensureDb();
 
-    // Token totals
+    // Token totals from session_costs
     const totals = db.exec(
       `SELECT COALESCE(SUM(input_tokens),0),
         COALESCE(SUM(output_tokens),0),
         COALESCE(SUM(cache_read_tokens),0),
         COALESCE(SUM(cache_creation_tokens),0),
-        COUNT(*)
-      FROM sessions`,
+        COALESCE(SUM(estimated_cost_usd),0),
+        (SELECT COUNT(*) FROM sessions)
+      FROM session_costs`,
     );
-    const tr = totals[0]?.values[0] ?? [0, 0, 0, 0, 0];
+    const tr = totals[0]?.values[0] ?? [0, 0, 0, 0, 0, 0];
     const totalInput = Number(tr[0]);
     const totalOutput = Number(tr[1]);
     const totalCacheRead = Number(tr[2]);
     const totalCacheCreation = Number(tr[3]);
-    const totalSessions = Number(tr[4]);
+    const totalEstimatedCost = Number(tr[4]);
+    const totalSessions = Number(tr[5]);
 
     // Tool usage TOP 15
     const toolsSql = `SELECT jt.value AS name, COUNT(*) AS cnt
@@ -1503,64 +1813,43 @@ export class TrailDatabase {
       // json functions may not be available
     }
 
-    // Model breakdown with tokens
+    // Model breakdown from session_costs
     const modelResult = db.exec(
-      `SELECT model, COUNT(*),
-        COALESCE(SUM(input_tokens),0),
-        COALESCE(SUM(output_tokens),0),
-        COALESCE(SUM(cache_read_tokens),0)
-      FROM sessions WHERE model != ''
-      GROUP BY model ORDER BY COUNT(*) DESC`,
+      `SELECT model, COUNT(DISTINCT session_id),
+        SUM(input_tokens), SUM(output_tokens),
+        SUM(cache_read_tokens), SUM(estimated_cost_usd)
+       FROM session_costs WHERE model != ''
+       GROUP BY model ORDER BY SUM(estimated_cost_usd) DESC`,
     );
-    const modelBreakdown = (modelResult[0]?.values ?? []).map((r) => {
-      const model = String(r[0]);
-      const inp = Number(r[2]);
-      const out = Number(r[3]);
-      const cacheRead = Number(r[4]);
-      return {
-        model,
-        sessions: Number(r[1]),
-        inputTokens: inp,
-        outputTokens: out,
-        cacheReadTokens: cacheRead,
-        estimatedCostUsd: estimateCost(model, inp, out, cacheRead),
-      };
-    });
-
-    // Daily activity (last 90 days — frontend filters to 7/30/90)
-    const tzOffset = this.getLocalTzOffset();
-    const dailyResult = db.exec(
-      `SELECT DATE(start_time, '${tzOffset}') as d, COUNT(*),
-        COALESCE(SUM(input_tokens),0),
-        COALESCE(SUM(output_tokens),0),
-        COALESCE(SUM(cache_read_tokens),0),
-        COALESCE(SUM(cache_creation_tokens),0)
-      FROM sessions
-      WHERE start_time >= DATE('now', '${tzOffset}', '-90 days')
-      GROUP BY d ORDER BY d`,
-    );
-    const dailyActivity = (dailyResult[0]?.values ?? []).map((r) => ({
-      date: String(r[0]),
+    const modelBreakdown = (modelResult[0]?.values ?? []).map((r) => ({
+      model: String(r[0]),
       sessions: Number(r[1]),
       inputTokens: Number(r[2]),
       outputTokens: Number(r[3]),
       cacheReadTokens: Number(r[4]),
-      cacheCreationTokens: Number(r[5]),
+      estimatedCostUsd: Number(r[5]),
     }));
 
-    // Branch breakdown
-    const branchResult = db.exec(
-      `SELECT git_branch, COUNT(*),
-        COALESCE(SUM(input_tokens),0),
-        COALESCE(SUM(output_tokens),0)
-      FROM sessions WHERE git_branch != ''
-      GROUP BY git_branch ORDER BY COUNT(*) DESC LIMIT 10`,
+    // Daily activity from daily_costs (last 90 days — frontend filters to 7/30/90)
+    const tzOffset = this.getLocalTzOffset();
+    const dailyResult = db.exec(
+      `SELECT date,
+        SUM(input_tokens), SUM(output_tokens),
+        SUM(cache_read_tokens), SUM(cache_creation_tokens),
+        SUM(estimated_cost_usd),
+        0 AS sessions
+       FROM daily_costs
+       WHERE cost_type = 'actual' AND date >= DATE('now', '${tzOffset}', '-90 days')
+       GROUP BY date ORDER BY date`,
     );
-    const branchBreakdown = (branchResult[0]?.values ?? []).map((r) => ({
-      branch: String(r[0]),
-      sessions: Number(r[1]),
-      inputTokens: Number(r[2]),
-      outputTokens: Number(r[3]),
+    const dailyActivity = (dailyResult[0]?.values ?? []).map((r) => ({
+      date: String(r[0]),
+      sessions: Number(r[6]),
+      inputTokens: Number(r[1]),
+      outputTokens: Number(r[2]),
+      cacheReadTokens: Number(r[3]),
+      cacheCreationTokens: Number(r[4]),
+      estimatedCostUsd: Number(r[5]),
     }));
 
     // Commit totals
@@ -1597,11 +1886,6 @@ export class TrailDatabase {
       durationResult[0]?.values[0]?.[0] ?? 0,
     );
 
-    // Estimate total cost
-    const totalEstimatedCost = modelBreakdown.reduce(
-      (sum, m) => sum + m.estimatedCostUsd, 0,
-    );
-
     // Tool-call-based metrics (Retry Rate, Build/Test Fail Rate)
     const toolMetrics = this.computeToolMetrics();
 
@@ -1624,172 +1908,65 @@ export class TrailDatabase {
       toolUsage,
       modelBreakdown,
       dailyActivity,
-      branchBreakdown,
     };
-  }
-
-  public reclassifyAllMessages(): void {
-    const db = this.ensureDb();
-    costRulesCache = null; // Force reload of rules
-
-    const results = db.exec(
-      'SELECT uuid, type, user_content, tool_calls, output_tokens FROM messages',
-    );
-    if (results.length === 0) return;
-
-    db.run('BEGIN TRANSACTION');
-    try {
-      const stmt = db.prepare(
-        'UPDATE messages SET rule_recommended_model = ?, feature_recommended_model = ?, cost_category = ? WHERE uuid = ?',
-      );
-
-      const rows = results[0].values;
-      for (const row of rows) {
-        const [uuid, type, userContentVal, toolCallsVal, outputTokensVal] = row as [string, string, string | null, string | null, number];
-
-        let ruleModel: string | null = null;
-        let featureModel: string | null = null;
-        let category: string | null = null;
-
-        if (type === 'user' && userContentVal) {
-          const result = classifyMessageByRules(userContentVal);
-          ruleModel = result.model;
-          category = result.label ?? null;
-        }
-
-        if (type === 'assistant') {
-          const toolNames = extractToolCallNames(toolCallsVal);
-          const fileCount = countUniqueFiles(toolCallsVal);
-          featureModel = classifyMessageByFeatures(outputTokensVal ?? 0, toolNames, fileCount);
-        }
-
-        stmt.run([ruleModel, featureModel, category, uuid]);
-      }
-
-      stmt.free();
-      db.run('COMMIT');
-      this.save();
-    } catch (err) {
-      db.run('ROLLBACK');
-      throw err;
-    }
   }
 
   getCostOptimization(): CostOptimizationData {
     const db = this.ensureDb();
+    const tzOffset = this.getLocalTzOffset();
 
-    // Helper: compute cost for a model + tokens
-    const cost = (model: string, input: number, output: number, cacheRead: number): number =>
-      estimateCost(model, input, output, cacheRead);
-
-    // 1. Actual cost by model (from messages)
+    // 1. Actual cost by model from session_costs
     const actualResult = db.exec(
-      `SELECT COALESCE(model,''), SUM(input_tokens), SUM(output_tokens), SUM(cache_read_tokens)
-       FROM messages WHERE type = 'assistant' AND model IS NOT NULL
-       GROUP BY model`,
+      `SELECT model, SUM(estimated_cost_usd)
+       FROM session_costs GROUP BY model`,
     );
     const actualByModel: Record<string, number> = {};
     let actualTotal = 0;
     for (const row of actualResult[0]?.values ?? []) {
       const m = String(row[0]);
-      const c = cost(m, Number(row[1]), Number(row[2]), Number(row[3]));
+      const c = Number(row[1]);
       actualByModel[m] = (actualByModel[m] ?? 0) + c;
       actualTotal += c;
     }
 
-    // 2. Rule-based estimate: re-price assistant messages using the rule_recommended_model
-    //    from their preceding user message (joined via parent_uuid or session ordering)
-    const ruleResult = db.exec(
-      `SELECT COALESCE(u.rule_recommended_model, 'sonnet') AS rec_model,
-              SUM(a.input_tokens), SUM(a.output_tokens), SUM(a.cache_read_tokens)
-       FROM messages a
-       JOIN messages u ON a.parent_uuid = u.uuid
-       WHERE a.type = 'assistant' AND u.type = 'user'
-       GROUP BY rec_model`,
+    // 2. Skill-based estimate from daily_costs
+    const skillResult = db.exec(
+      `SELECT model, SUM(estimated_cost_usd)
+       FROM daily_costs WHERE cost_type = 'skill'
+       GROUP BY model`,
     );
-    const ruleByModel: Record<string, number> = {};
-    let ruleTotal = 0;
-    for (const row of ruleResult[0]?.values ?? []) {
+    const skillByModel: Record<string, number> = {};
+    let skillTotal = 0;
+    for (const row of skillResult[0]?.values ?? []) {
       const m = String(row[0]);
-      const c = cost(m, Number(row[1]), Number(row[2]), Number(row[3]));
-      ruleByModel[m] = (ruleByModel[m] ?? 0) + c;
-      ruleTotal += c;
+      const c = Number(row[1]);
+      skillByModel[m] = (skillByModel[m] ?? 0) + c;
+      skillTotal += c;
     }
 
-    // 3. Feature-based estimate: use feature_recommended_model from assistant messages
-    const featureResult = db.exec(
-      `SELECT COALESCE(feature_recommended_model, 'sonnet') AS rec_model,
-              SUM(input_tokens), SUM(output_tokens), SUM(cache_read_tokens)
-       FROM messages WHERE type = 'assistant'
-       GROUP BY rec_model`,
-    );
-    const featureByModel: Record<string, number> = {};
-    let featureTotal = 0;
-    for (const row of featureResult[0]?.values ?? []) {
-      const m = String(row[0]);
-      const c = cost(m, Number(row[1]), Number(row[2]), Number(row[3]));
-      featureByModel[m] = (featureByModel[m] ?? 0) + c;
-      featureTotal += c;
-    }
-
-    // 4. Daily breakdown (last 90 days)
-    const tzOffset = this.getLocalTzOffset();
+    // 4. Daily breakdown from daily_costs (last 90 days)
     const dailyResult = db.exec(
-      `SELECT DATE(m.timestamp, '${tzOffset}') AS d,
-              SUM(m.input_tokens) AS inp, SUM(m.output_tokens) AS outp,
-              SUM(m.cache_read_tokens) AS cr, COALESCE(m.model,'') AS mdl
-       FROM messages m
-       WHERE m.type = 'assistant' AND m.timestamp >= DATE('now', '${tzOffset}', '-90 days')
-       GROUP BY d, mdl ORDER BY d`,
+      `SELECT date, cost_type, SUM(estimated_cost_usd)
+       FROM daily_costs
+       WHERE date >= DATE('now', '${tzOffset}', '-90 days')
+       GROUP BY date, cost_type ORDER BY date`,
     );
-    const dailyMap = new Map<string, { actual: number; rule: number; feature: number }>();
+    const dailyMap = new Map<string, { actual: number; skill: number }>();
     for (const row of dailyResult[0]?.values ?? []) {
       const d = String(row[0]);
-      const inp = Number(row[1]);
-      const outp = Number(row[2]);
-      const cr = Number(row[3]);
-      const mdl = String(row[4]);
-      const entry = dailyMap.get(d) ?? { actual: 0, rule: 0, feature: 0 };
-      entry.actual += cost(mdl, inp, outp, cr);
-      // For daily, use sonnet as default estimate (detailed per-message would be too slow)
-      entry.rule += cost('sonnet', inp, outp, cr);
-      entry.feature += cost('sonnet', inp, outp, cr);
+      const ct = String(row[1]);
+      const c = Number(row[2]);
+      const entry = dailyMap.get(d) ?? { actual: 0, skill: 0 };
+      if (ct === 'actual') entry.actual += c;
+      else if (ct === 'skill') entry.skill += c;
       dailyMap.set(d, entry);
     }
-
-    // Refine daily with per-message classification
-    const dailyDetailResult = db.exec(
-      `SELECT DATE(a.timestamp, '${tzOffset}') AS d,
-              COALESCE(u.rule_recommended_model, 'sonnet') AS rule_rec,
-              COALESCE(a.feature_recommended_model, 'sonnet') AS feat_rec,
-              a.input_tokens, a.output_tokens, a.cache_read_tokens
-       FROM messages a
-       LEFT JOIN messages u ON a.parent_uuid = u.uuid AND u.type = 'user'
-       WHERE a.type = 'assistant' AND a.timestamp >= DATE('now', '${tzOffset}', '-90 days')`,
-    );
-    const dailyRefined = new Map<string, { actual: number; rule: number; feature: number }>();
-    for (const row of dailyDetailResult[0]?.values ?? []) {
-      const d = String(row[0]);
-      const ruleRec = String(row[1]);
-      const featRec = String(row[2]);
-      const inp = Number(row[3]);
-      const outp = Number(row[4]);
-      const cr = Number(row[5]);
-      const entry = dailyRefined.get(d) ?? { actual: 0, rule: 0, feature: 0 };
-      entry.rule += cost(ruleRec, inp, outp, cr);
-      entry.feature += cost(featRec, inp, outp, cr);
-      dailyRefined.set(d, entry);
-    }
-
-    // Merge actual costs from dailyMap with refined rule/feature costs
-    const daily: Array<{ date: string; actualCost: number; ruleCost: number; featureCost: number }> = [];
+    const daily: Array<{ date: string; actualCost: number; skillCost: number }> = [];
     for (const [d, entry] of dailyMap) {
-      const refined = dailyRefined.get(d);
       daily.push({
         date: d,
         actualCost: entry.actual,
-        ruleCost: refined?.rule ?? entry.rule,
-        featureCost: refined?.feature ?? entry.feature,
+        skillCost: entry.skill,
       });
     }
 
@@ -1802,38 +1979,412 @@ export class TrailDatabase {
       actualDist[String(row[0])] = Number(row[1]);
     }
 
-    const distRule = db.exec(
-      `SELECT COALESCE(u.rule_recommended_model,'sonnet'), COUNT(*)
-       FROM messages a JOIN messages u ON a.parent_uuid = u.uuid
-       WHERE a.type = 'assistant' AND u.type = 'user'
-       GROUP BY u.rule_recommended_model`,
+    const distSkill = db.exec(
+      `SELECT COALESCE(sm.recommended_model, 'sonnet'), COUNT(*)
+       FROM messages a
+       LEFT JOIN skill_models_resolved sm ON a.skill = sm.skill
+       WHERE a.type = 'assistant'
+       GROUP BY COALESCE(sm.recommended_model, 'sonnet')`,
     );
-    const ruleDist: Record<string, number> = {};
-    for (const row of distRule[0]?.values ?? []) {
-      ruleDist[String(row[0])] = Number(row[1]);
-    }
-
-    const distFeature = db.exec(
-      `SELECT COALESCE(feature_recommended_model,'sonnet'), COUNT(*)
-       FROM messages WHERE type = 'assistant'
-       GROUP BY feature_recommended_model`,
-    );
-    const featureDist: Record<string, number> = {};
-    for (const row of distFeature[0]?.values ?? []) {
-      featureDist[String(row[0])] = Number(row[1]);
+    const skillDist: Record<string, number> = {};
+    for (const row of distSkill[0]?.values ?? []) {
+      skillDist[String(row[0])] = Number(row[1]);
     }
 
     return {
       actual: { totalCost: actualTotal, byModel: actualByModel },
-      ruleEstimate: { totalCost: ruleTotal, byModel: ruleByModel },
-      featureEstimate: { totalCost: featureTotal, byModel: featureByModel },
+      skillEstimate: { totalCost: skillTotal, byModel: skillByModel },
       daily,
       modelDistribution: {
         actual: actualDist,
-        ruleRecommended: ruleDist,
-        featureRecommended: featureDist,
+        skillRecommended: skillDist,
       },
     };
+  }
+
+  importCoverage(gitRoot: string): number {
+    const db = this.ensureDb();
+
+    // 最新リリースタグを取得
+    const latestResult = db.exec(
+      "SELECT tag FROM releases ORDER BY released_at DESC LIMIT 1",
+    );
+    const latestTag = latestResult[0]?.values?.[0]?.[0] as string | undefined;
+    if (!latestTag) return 0;
+
+    const packagesDir = path.join(gitRoot, 'packages');
+    let count = 0;
+
+    let packageDirs: string[];
+    try {
+      packageDirs = fs.readdirSync(packagesDir);
+    } catch {
+      return 0;
+    }
+
+    for (const pkgDir of packageDirs) {
+      const summaryPath = path.join(packagesDir, pkgDir, 'coverage', 'coverage-summary.json');
+      let summary: Record<string, CoverageSummaryEntry>;
+      try {
+        summary = JSON.parse(fs.readFileSync(summaryPath, 'utf-8')) as Record<string, CoverageSummaryEntry>;
+      } catch {
+        continue;
+      }
+
+      for (const [key, entry] of Object.entries(summary)) {
+        if (!entry?.lines || !entry?.statements || !entry?.functions || !entry?.branches) {
+          continue;
+        }
+        const filePath = key === 'total' ? '__total__' : key;
+        try {
+          db.run(
+            `INSERT OR IGNORE INTO release_coverage (
+              release_tag, package, file_path,
+              lines_total, lines_covered, lines_pct,
+              statements_total, statements_covered, statements_pct,
+              functions_total, functions_covered, functions_pct,
+              branches_total, branches_covered, branches_pct
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              latestTag, pkgDir, filePath,
+              entry.lines.total, entry.lines.covered, entry.lines.pct,
+              entry.statements.total, entry.statements.covered, entry.statements.pct,
+              entry.functions.total, entry.functions.covered, entry.functions.pct,
+              entry.branches.total, entry.branches.covered, entry.branches.pct,
+            ],
+          );
+          count++;
+        } catch { /* ignore */ }
+      }
+    }
+
+    return count;
+  }
+
+  // -------------------------------------------------------------------------
+  //  Releases
+  // -------------------------------------------------------------------------
+
+  resolveReleases(gitRoot: string, c4ModelPath?: string): number {
+    const db = this.ensureDb();
+    const git = new ExecFileGitService(gitRoot);
+    const tags = git.getVersionTags();
+    let count = 0;
+
+    for (let i = 0; i < tags.length; i++) {
+      const tag = tags[i];
+      const existing = db.exec(`SELECT tag FROM releases WHERE tag = '${tag.replaceAll("'", "''")}'`);
+      if (existing[0]?.values?.length) {
+        // Release exists — backfill release_files if missing
+        const prevTag = i + 1 < tags.length ? tags[i + 1] : null;
+        if (prevTag) {
+          const filesExist = db.exec(
+            `SELECT COUNT(*) FROM release_files WHERE release_tag = '${tag.replaceAll("'", "''")}'`,
+          );
+          if (!((filesExist[0]?.values?.[0]?.[0] as number) > 0)) {
+            const fileStats = git.getFileStatsByRange(prevTag, tag);
+            for (const f of fileStats) {
+              try {
+                db.run(
+                  `INSERT OR IGNORE INTO release_files (release_tag, file_path, lines_added, lines_deleted, change_type)
+                   VALUES (?, ?, ?, ?, ?)`,
+                  [tag, f.filePath, f.linesAdded, f.linesDeleted, f.changeType],
+                );
+              } catch { /* ignore */ }
+            }
+            if (fileStats.length > 0) count++;
+          }
+        }
+        continue;
+      }
+
+      const prevTag = i + 1 < tags.length ? tags[i + 1] : null;
+      const commitHash = git.getTagCommitHash(tag);
+      const allTagsAtCommit = git.getTagsAtCommit(commitHash);
+      const packageTags = allTagsAtCommit.filter((t) => t !== tag && !t.startsWith('v'));
+      const releasedAt = git.getTagDate(tag);
+      const prevReleasedAt = prevTag ? git.getTagDate(prevTag) : null;
+
+      const commitSubjects = prevTag ? git.getCommitSubjects(prevTag, tag) : [];
+      const stats = prevTag
+        ? git.getDiffStats(prevTag, tag)
+        : { filesChanged: 0, linesAdded: 0, linesDeleted: 0 };
+      const packages = prevTag ? git.getChangedPackages(prevTag, tag) : [];
+
+      const release = buildReleaseFromGitData({
+        tag,
+        prevTag,
+        releasedAt,
+        prevReleasedAt,
+        packageTags,
+        commitSubjects,
+        filesChanged: stats.filesChanged,
+        linesAdded: stats.linesAdded,
+        linesDeleted: stats.linesDeleted,
+        affectedPackages: packages,
+      });
+
+      db.run(
+        `INSERT OR REPLACE INTO releases (
+          tag, released_at, prev_tag, repo_name, package_tags,
+          commit_count, files_changed, lines_added, lines_deleted,
+          feat_count, fix_count, refactor_count, test_count, other_count,
+          affected_packages, duration_days
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          release.tag,
+          release.releasedAt,
+          release.prevTag,
+          path.basename(gitRoot),
+          JSON.stringify(release.packageTags),
+          release.commitCount,
+          release.filesChanged,
+          release.linesAdded,
+          release.linesDeleted,
+          release.featCount,
+          release.fixCount,
+          release.refactorCount,
+          release.testCount,
+          release.otherCount,
+          JSON.stringify(release.affectedPackages),
+          release.durationDays,
+        ],
+      );
+
+      // Save release files
+      if (prevTag) {
+        const fileStats = git.getFileStatsByRange(prevTag, tag);
+        for (const f of fileStats) {
+          try {
+            db.run(
+              `INSERT OR IGNORE INTO release_files (release_tag, file_path, lines_added, lines_deleted, change_type)
+               VALUES (?, ?, ?, ?, ?)`,
+              [tag, f.filePath, f.linesAdded, f.linesDeleted, f.changeType],
+            );
+          } catch { /* ignore */ }
+        }
+
+        // Save release features (if featureMatrix available)
+        if (c4ModelPath) {
+          try {
+            const raw = fs.readFileSync(c4ModelPath, 'utf-8');
+            const model = JSON.parse(raw) as { featureMatrix?: { features: unknown[]; mappings: unknown[]; elements?: unknown[] } };
+            if (model.featureMatrix) {
+              const { features, mappings, elements = [] } = model.featureMatrix;
+              const changedFilePaths = fileStats.map((f) => f.filePath);
+              const c4Mappings = mapFilesToC4Elements(changedFilePaths, elements as Parameters<typeof mapFilesToC4Elements>[1]);
+              const elementIds = c4Mappings.map((m) => m.elementId);
+              const featureMappings = mapC4ToFeatures(
+                elementIds,
+                features as Parameters<typeof mapC4ToFeatures>[1],
+                mappings as Parameters<typeof mapC4ToFeatures>[2],
+              );
+              for (const fm of featureMappings) {
+                try {
+                  db.run(
+                    `INSERT OR IGNORE INTO release_features (release_tag, feature_id, feature_name, role)
+                     VALUES (?, ?, ?, ?)`,
+                    [tag, fm.featureId, fm.featureName, fm.role],
+                  );
+                } catch { /* ignore */ }
+              }
+            }
+          } catch { /* featureMatrix not available */ }
+        }
+      }
+
+      count++;
+    }
+
+    if (count > 0) this.save();
+    return count;
+  }
+
+  /**
+   * releases テーブルの各リリースタグのソースコードを git worktree でチェックアウトして解析し、
+   * trail_graphs テーブルにタグ ID で保存する。
+   * 既に trail_graphs に同タグが存在する場合はスキップ。
+   */
+  analyzeReleases(
+    gitRoot: string,
+    onProgress?: (message: string) => void,
+  ): number {
+    const db = this.ensureDb();
+    const releases = this.getReleases();
+    if (releases.length === 0) return 0;
+
+    // 解析済みタグを取得
+    const existingResult = db.exec('SELECT id FROM trail_graphs');
+    const existingIds = new Set<string>(
+      existingResult[0]?.values?.map((r) => r[0] as string) ?? [],
+    );
+
+    const git = new ExecFileGitService(gitRoot);
+    const tsconfigPath = path.join(gitRoot, 'tsconfig.json');
+    let count = 0;
+
+    for (const release of releases) {
+      const tag = release.tag;
+      if (existingIds.has(tag)) continue;
+
+      const tmpDir = path.join(os.tmpdir(), `trail-release-${tag.replaceAll('/', '-')}`);
+      try {
+        onProgress?.(`Analyzing release ${tag}...`);
+
+        // 残存 worktree を事前クリーンアップ
+        if (fs.existsSync(tmpDir)) {
+          try {
+            execFileSync('git', ['worktree', 'remove', tmpDir, '--force'], {
+              cwd: gitRoot,
+              stdio: 'pipe',
+            });
+          } catch {
+            try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
+          }
+        }
+
+        // 一時 worktree を作成
+        const commitHash = git.getTagCommitHash(tag);
+        execFileSync('git', ['worktree', 'add', '--detach', tmpDir, commitHash], {
+          cwd: gitRoot,
+          stdio: 'pipe',
+        });
+
+        // worktree 内に tsconfig.json がなければスキップ
+        const worktreeTsconfig = path.join(tmpDir, 'tsconfig.json');
+        if (!fs.existsSync(worktreeTsconfig)) {
+          onProgress?.(`Skipping ${tag}: tsconfig.json not found`);
+          continue;
+        }
+
+        // node_modules をシンボリックリンク（型解決のため）
+        const worktreeNodeModules = path.join(tmpDir, 'node_modules');
+        if (!fs.existsSync(worktreeNodeModules)) {
+          fs.symlinkSync(
+            path.join(gitRoot, 'node_modules'),
+            worktreeNodeModules,
+            'dir',
+          );
+        }
+
+        // 解析実行
+        const graph = analyze({
+          tsconfigPath: worktreeTsconfig,
+          exclude: ['.worktrees', '.vscode-test', '__tests__', 'fixtures'],
+        });
+
+        // 保存（tsconfigPath は canonical パスを記録）
+        this.saveTrailGraph(graph, tsconfigPath, tag);
+        existingIds.add(tag);
+        count++;
+        onProgress?.(`Release ${tag} analyzed: ${graph.nodes.length} nodes, ${graph.edges.length} edges`);
+      } catch (e) {
+        onProgress?.(`Skipping ${tag}: ${e instanceof Error ? e.message : String(e)}`);
+      } finally {
+        // worktree を必ず削除
+        try {
+          execFileSync('git', ['worktree', 'remove', tmpDir, '--force'], {
+            cwd: gitRoot,
+            stdio: 'pipe',
+          });
+        } catch {
+          try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
+        }
+      }
+    }
+
+    return count;
+  }
+
+  getReleases(): ReleaseRow[] {
+    const db = this.ensureDb();
+    const result = db.exec('SELECT * FROM releases ORDER BY released_at DESC');
+    if (!result[0]) return [];
+    const cols = result[0].columns;
+    return result[0].values.map((row) => {
+      const obj: Record<string, unknown> = {};
+      for (let i = 0; i < cols.length; i++) {
+        obj[cols[i]] = row[i];
+      }
+      return obj as unknown as ReleaseRow;
+    });
+  }
+
+  getReleaseFiles(releaseTag: string): ReleaseFileRow[] {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT * FROM release_files WHERE release_tag = '${releaseTag.replaceAll("'", "''")}'`,
+    );
+    if (!result[0]?.values) return [];
+    const cols = result[0].columns;
+    return result[0].values.map((row) => {
+      const obj: Record<string, unknown> = {};
+      cols.forEach((col, i) => { obj[col] = row[i]; });
+      return obj as unknown as ReleaseFileRow;
+    });
+  }
+
+  getReleaseFeatures(releaseTag: string): ReleaseFeatureRow[] {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT * FROM release_features WHERE release_tag = '${releaseTag.replaceAll("'", "''")}'`,
+    );
+    if (!result[0]?.values) return [];
+    const cols = result[0].columns;
+    return result[0].values.map((row) => {
+      const obj: Record<string, unknown> = {};
+      cols.forEach((col, i) => { obj[col] = row[i]; });
+      return obj as unknown as ReleaseFeatureRow;
+    });
+  }
+
+  getCoverageByTag(releaseTag: string): ReleaseCoverageRow[] {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT * FROM release_coverage WHERE release_tag = '${releaseTag.replaceAll("'", "''")}'`,
+    );
+    if (!result[0]?.values) return [];
+    const cols = result[0].columns;
+    return result[0].values.map((row) =>
+      Object.fromEntries(cols.map((col, i) => [col, row[i]])) as unknown as ReleaseCoverageRow,
+    );
+  }
+
+  getCoverageSummary(releaseTag: string): ReleaseCoverageRow[] {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT * FROM release_coverage WHERE release_tag = '${releaseTag.replaceAll("'", "''")}'
+       AND file_path = '__total__'`,
+    );
+    if (!result[0]?.values) return [];
+    const cols = result[0].columns;
+    return result[0].values.map((row) =>
+      Object.fromEntries(cols.map((col, i) => [col, row[i]])) as unknown as ReleaseCoverageRow,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  //  C4 Model
+  // ---------------------------------------------------------------------------
+
+  private saveC4Model(json: string, revision: string): void {
+    const db = this.ensureDb();
+    db.run(
+      `INSERT OR REPLACE INTO c4_models (id, model_json, revision, updated_at)
+       VALUES ('current', ?, ?, ?)`,
+      [json, revision, new Date().toISOString()],
+    );
+    this.save();
+  }
+
+  getC4Model(): { json: string; revision: string } | null {
+    const db = this.ensureDb();
+    const res = db.exec(
+      "SELECT model_json, revision FROM c4_models WHERE id = 'current'",
+    );
+    if (!res.length || !res[0].values.length) return null;
+    const [json, revision] = res[0].values[0] as [string, string];
+    return { json, revision };
   }
 }
 
@@ -1841,20 +2392,21 @@ export class TrailDatabase {
 //  Cost estimation
 // ---------------------------------------------------------------------------
 
-interface ModelRates {
+export interface ModelRates {
   readonly input: number;
   readonly output: number;
   readonly cacheRead: number;
+  readonly cacheCreation: number;
 }
 
 /** Per-1M-token rates in USD. */
 const MODEL_RATES: Record<string, ModelRates> = {
-  'claude-opus-4-6': { input: 15, output: 75, cacheRead: 1.5 },
-  'claude-sonnet-4-6': { input: 3, output: 15, cacheRead: 0.3 },
-  'claude-haiku-4-5': { input: 0.8, output: 4, cacheRead: 0.08 },
+  'claude-opus-4-6': { input: 15, output: 75, cacheRead: 1.5, cacheCreation: 18.75 },
+  'claude-sonnet-4-6': { input: 3, output: 15, cacheRead: 0.3, cacheCreation: 3.75 },
+  'claude-haiku-4-5': { input: 0.8, output: 4, cacheRead: 0.08, cacheCreation: 1.0 },
 };
 
-const DEFAULT_RATES: ModelRates = { input: 3, output: 15, cacheRead: 0.3 };
+const DEFAULT_RATES: ModelRates = { input: 3, output: 15, cacheRead: 0.3, cacheCreation: 3.75 };
 
 function getModelRates(model: string): ModelRates {
   for (const [key, rates] of Object.entries(MODEL_RATES)) {
@@ -1866,17 +2418,19 @@ function getModelRates(model: string): ModelRates {
   return DEFAULT_RATES;
 }
 
-function estimateCost(
+export function estimateCost(
   model: string,
   inputTokens: number,
   outputTokens: number,
   cacheReadTokens: number,
+  cacheCreationTokens: number,
 ): number {
   const rates = getModelRates(model);
   return (
     (inputTokens * rates.input +
       outputTokens * rates.output +
-      cacheReadTokens * rates.cacheRead) /
+      cacheReadTokens * rates.cacheRead +
+      cacheCreationTokens * rates.cacheCreation) /
     1_000_000
   );
 }

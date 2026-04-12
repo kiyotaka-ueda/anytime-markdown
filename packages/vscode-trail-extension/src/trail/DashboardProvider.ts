@@ -15,6 +15,7 @@ class DbRootTreeItem extends vscode.TreeItem {
   constructor(item: DbRootItem) {
     super(item.label, vscode.TreeItemCollapsibleState.Collapsed);
     this.contextValue = item.contextValue;
+    this.iconPath = new vscode.ThemeIcon('database');
     if (item.status !== undefined) {
       this.description = item.status;
     }

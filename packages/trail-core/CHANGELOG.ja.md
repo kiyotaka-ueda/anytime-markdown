@@ -6,6 +6,40 @@
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-04-12
+
+### 追加
+
+- trail-core のドメイン層（model, schema, engine, port, reader, usecase）を追加
+- `releases` テーブルスキーマと `TrailRelease` ドメインモデル・リリースリゾルバーエンジンを追加
+- `release_files`・`release_features` テーブルを追加（タスクドメインを廃止）
+- `trail_graphs` スキーマを追加
+- `release_coverage` テーブルと `ReleaseCoverageRow` 型を追加
+- `session_costs`・`daily_costs` テーブルを追加
+- `trail_sessions`・`trail_releases` に `repo_name` 列を追加
+- コスト計算に `cacheCreation` 対応を追加
+- `IGitService` に `getFileStatsByRange` を追加
+- `ITrailReader` に `getReleases` を追加
+- スキルベースのコスト分類用 `skill_models` テーブルを追加
+- ドメインエンジン・ユースケース・リリースリゾルバーのユニットテストを追加
+- `c4-kernel` パッケージを `trail-core` にマージ
+
+### 変更
+
+- sessions/messages テーブル構造を刷新し、`importAll` で `session_costs`/`daily_costs` を生成
+- インポート性能改善（メッセージ数バッチ処理 20,000 件、インメモリセッションマップ、I/O削減）
+- `daily_costs`・`session_costs` の再構築を `importAll` のポスト処理に移動
+- DB コミット境界での進捗ログ（処理数/合計/スキップ数）
+- コスト分類を Current/Optimized に簡略化（Rule/Feature を廃止）
+
+### 修正
+
+- Extension Host タイムアウト防止のためイベントループへの yield 処理
+- セッション境界でのトランザクションコミット
+- 既存レコードへの `repo_name`・`release_files` バックフィル
+- メインセッションとサブエージェントのスキップロジックを分離
+- サブエージェントの grandparent ディレクトリからの `sessionId` 抽出
+
 ## [0.5.1] - 2026-04-11
 
 ### 追加

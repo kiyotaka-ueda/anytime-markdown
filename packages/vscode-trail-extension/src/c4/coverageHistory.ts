@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { CoverageMatrix } from '@anytime-markdown/c4-kernel';
+import type { CoverageMatrix } from '@anytime-markdown/trail-core/c4';
 
 export class CoverageHistory {
   constructor(

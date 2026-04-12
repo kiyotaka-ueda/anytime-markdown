@@ -10,22 +10,25 @@ import {
   parseCoverage,
   aggregateCoverage,
   computeCoverageDiff,
-} from '@anytime-markdown/c4-kernel';
-import type { C4Element, C4Model, C4Relationship, BoundaryInfo, CoverageDiffMatrix, CoverageMatrix, DsmMapping, DsmMatrix, FeatureMatrix } from '@anytime-markdown/c4-kernel';
-import { analyze, trailToC4, toMermaid } from '@anytime-markdown/trail-core';
+} from '@anytime-markdown/trail-core/c4';
+import type { C4Element, C4Model, C4Relationship, BoundaryInfo, CoverageDiffMatrix, CoverageMatrix, DsmMapping, DsmMatrix, FeatureMatrix } from '@anytime-markdown/trail-core/c4';
+import { analyze, toMermaid } from '@anytime-markdown/trail-core';
 import type { TrailGraph } from '@anytime-markdown/trail-core';
-import type { C4DataProvider, C4DataServer } from '../server/C4DataServer';
+import type { C4DataProvider } from '../server/TrailDataServer';
+import type { TrailDataServer } from '../server/TrailDataServer';
 import { TrailLogger } from '../utils/TrailLogger';
 import { CoverageHistory } from './coverageHistory';
 import { CoverageWatcher } from './coverageWatcher';
+import type { TrailDatabase } from '../trail/TrailDatabase';
 
 /**
  * C4モデルのデータ管理を担当するシングルトン。
- * Webview は持たず、C4DataServer 経由でスタンドアロンビューアにデータを配信する。
+ * Webview は持たず、TrailDataServer 経由でスタンドアロンビューアにデータを配信する。
  */
 export class C4Panel implements C4DataProvider {
   private static instance: C4Panel | undefined;
-  private static dataServer: C4DataServer | undefined;
+  private static dataServer: TrailDataServer | undefined;
+  private static trailDb: TrailDatabase | undefined;
 
   private lastModel: C4Model | undefined;
   private lastBoundaries: readonly BoundaryInfo[] | undefined;
@@ -49,8 +52,12 @@ export class C4Panel implements C4DataProvider {
   //  Static setup
   // -------------------------------------------------------------------------
 
-  public static setDataServer(server: C4DataServer): void {
+  public static setDataServer(server: TrailDataServer): void {
     C4Panel.dataServer = server;
+  }
+
+  public static setTrailDatabase(db: TrailDatabase): void {
+    C4Panel.trailDb = db;
   }
 
   public static getDataProvider(): C4DataProvider | undefined {
@@ -67,7 +74,7 @@ export class C4Panel implements C4DataProvider {
     if (!C4Panel.dataServer?.isRunning) return;
     if (!force && C4Panel.viewerOpened) return;
     C4Panel.viewerOpened = true;
-    const port = vscode.workspace.getConfiguration('anytimeTrail.server').get<number>('port', 19840);
+    const port = vscode.workspace.getConfiguration('anytimeTrail.trailServer').get<number>('port', 19841);
     vscode.env.openExternal(vscode.Uri.parse(`http://localhost:${port}`));
   }
 
@@ -260,7 +267,9 @@ export class C4Panel implements C4DataProvider {
         }
         data.featureMatrix = fmData;
       }
-      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+      const jsonStr = JSON.stringify(data, null, 2);
+      fs.writeFileSync(filePath, jsonStr, 'utf-8');
+
     } catch (err) {
       TrailLogger.error('Failed to save C4 model', err);
     }
@@ -376,7 +385,7 @@ export class C4Panel implements C4DataProvider {
         { location: vscode.ProgressLocation.Notification, title: 'C4 Analysis', cancellable: false },
         async (progress) => {
           const server = C4Panel.dataServer;
-          const phases = ['Loading project...', 'Extracting symbols...', 'Extracting dependencies...', 'Filtering results...', 'Building C4 model...'];
+          const phases = ['Loading project...', 'Extracting symbols...', 'Extracting dependencies...', 'Filtering results...'];
           const phasePercent = (phase: string): number => {
             const idx = phases.indexOf(phase);
             return idx >= 0 ? Math.round((idx / phases.length) * 100) : -1;
@@ -391,39 +400,45 @@ export class C4Panel implements C4DataProvider {
             },
           });
 
-          progress.report({ message: 'Building C4 model...' });
-          server?.notifyProgress('Building C4 model...', 80);
-          const analyzed = trailToC4(graph);
+          // TrailGraph を DB に保存
+          C4Panel.trailDb?.saveTrailGraph(graph, tsconfigPath);
 
-          // 既存の手動要素を保持し、消失した解析要素に削除フラグを付与してマージ
+          // TODO: C4モデル変換・マージは一旦コメントアウト
+          // progress.report({ message: 'Building C4 model...' });
+          // server?.notifyProgress('Building C4 model...', 80);
+          // const analyzed = trailToC4(graph);
+          //
+          // // 既存の手動要素を保持し、消失した解析要素に削除フラグを付与してマージ
+          // const panel = C4Panel.getInstance();
+          // const prevElements = panel.lastModel?.elements ?? [];
+          // const prevRels = panel.lastModel?.relationships ?? [];
+          //
+          // const analyzedIdSet = new Set(analyzed.elements.map(e => e.id));
+          //
+          // // 手動要素: そのまま保持
+          // const manualElements = prevElements.filter(e => e.manual);
+          // // 解析由来の前回要素: 新結果に不在なら deleted フラグ付与
+          // const deletedElements = prevElements
+          //   .filter(e => !e.manual && !e.deleted && !analyzedIdSet.has(e.id))
+          //   .map(e => ({ ...e, deleted: true }));
+          // // 前回すでに deleted だった要素: そのまま保持（新結果に復活していなければ）
+          // const prevDeletedElements = prevElements
+          //   .filter(e => e.deleted && !analyzedIdSet.has(e.id));
+          //
+          // const manualRels = prevRels.filter(r => r.manual);
+          //
+          // const model: C4Model = {
+          //   ...analyzed,
+          //   elements: [...analyzed.elements, ...manualElements, ...deletedElements, ...prevDeletedElements],
+          //   relationships: [...analyzed.relationships, ...manualRels],
+          // };
+          //
+          // panel.setModel(model);
+
           const panel = C4Panel.getInstance();
-          const prevElements = panel.lastModel?.elements ?? [];
-          const prevRels = panel.lastModel?.relationships ?? [];
-
-          const analyzedIdSet = new Set(analyzed.elements.map(e => e.id));
-
-          // 手動要素: そのまま保持
-          const manualElements = prevElements.filter(e => e.manual);
-          // 解析由来の前回要素: 新結果に不在なら deleted フラグ付与
-          const deletedElements = prevElements
-            .filter(e => !e.manual && !e.deleted && !analyzedIdSet.has(e.id))
-            .map(e => ({ ...e, deleted: true }));
-          // 前回すでに deleted だった要素: そのまま保持（新結果に復活していなければ）
-          const prevDeletedElements = prevElements
-            .filter(e => e.deleted && !analyzedIdSet.has(e.id));
-
-          const manualRels = prevRels.filter(r => r.manual);
-
-          const model: C4Model = {
-            ...analyzed,
-            elements: [...analyzed.elements, ...manualElements, ...deletedElements, ...prevDeletedElements],
-            relationships: [...analyzed.relationships, ...manualRels],
-          };
-
           panel.lastTrailGraph = graph;
           panel.lastProjectRoot = graph.metadata.projectRoot;
           panel.lastTsconfigPath = tsconfigPath;
-          panel.setModel(model);
           server?.notifyProgress('', 100);
         },
       );

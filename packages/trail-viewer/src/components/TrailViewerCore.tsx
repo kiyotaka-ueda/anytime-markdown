@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
@@ -17,14 +17,25 @@ import { AnalyticsPanel } from './AnalyticsPanel';
 import type { AnalyticsData } from './AnalyticsPanel';
 import { FilterBar } from './FilterBar';
 import { PromptManager } from './PromptManager';
+import { ReleasesPanel } from './ReleasesPanel';
 import { SessionList } from './SessionList';
 import { StatsBar } from './StatsBar';
 import { TraceTree } from './TraceTree';
 import { TrailThemeProvider } from './TrailThemeContext';
 import { getTokens } from './designTokens';
+import { TrailLocaleProvider, useTrailI18n } from '../i18n';
+import type { TrailLocale } from '../i18n';
+import type { TrailRelease } from '@anytime-markdown/trail-core/domain';
+
+import { C4ViewerCore } from '../c4/components/C4ViewerCore';
+import type { C4ViewerCoreProps } from '../c4/components/C4ViewerCore';
+
+/** C4-related props forwarded to the embedded C4ViewerCore. */
+type C4Props = Omit<C4ViewerCoreProps, 'isDark' | 'containerHeight'>;
 
 export interface TrailViewerCoreProps {
   readonly isDark?: boolean;
+  readonly locale?: TrailLocale;
   readonly sessions: readonly TrailSession[];
   readonly allSessions?: readonly TrailSession[];
   readonly selectedSessionId?: string;
@@ -39,13 +50,24 @@ export interface TrailViewerCoreProps {
   readonly fetchSessionCommits?: AnalyticsPanelProps['fetchSessionCommits'];
   readonly fetchSessionToolMetrics?: AnalyticsPanelProps['fetchSessionToolMetrics'];
   readonly costOptimization?: CostOptimizationData | null;
-  readonly onReclassify?: () => void;
-  readonly reclassifying?: boolean;
+  readonly releases?: readonly TrailRelease[];
+  /** C4 viewer props. When provided, the C4 tab is shown. */
+  readonly c4?: C4Props;
 }
 
 const SESSION_LIST_WIDTH = 300;
 
-export function TrailViewerCore({
+export function TrailViewerCore(props: Readonly<TrailViewerCoreProps>) {
+  return (
+    <TrailLocaleProvider locale={props.locale}>
+      <TrailThemeProvider isDark={props.isDark ?? true}>
+        <TrailViewerCoreInner {...props} />
+      </TrailThemeProvider>
+    </TrailLocaleProvider>
+  );
+}
+
+function TrailViewerCoreInner({
   isDark,
   sessions,
   allSessions,
@@ -61,16 +83,24 @@ export function TrailViewerCore({
   fetchSessionCommits,
   fetchSessionToolMetrics,
   costOptimization = null,
-  onReclassify,
-  reclassifying,
+  releases = [],
+  c4,
 }: Readonly<TrailViewerCoreProps>) {
-  const tokens = getTokens(isDark ?? true);
+  const { t } = useTrailI18n();
+  const tokens = useMemo(() => getTokens(isDark ?? true), [isDark]);
   const { colors } = tokens;
   const [activeTab, setActiveTab] = useState(0);
-  const selectedSession = sessions.find((s) => s.id === selectedSessionId);
+
+  const visibleSessions = useMemo(() => {
+    if (process.env.NEXT_PUBLIC_SHOW_UNLIMITED === '1') return sessions;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 7);
+    return sessions.filter((s) => new Date(s.startTime) >= cutoff);
+  }, [sessions]);
+
+  const selectedSession = visibleSessions.find((s) => s.id === selectedSessionId);
 
   return (
-    <TrailThemeProvider isDark={isDark ?? true}>
     <Box
       sx={{
         display: 'flex',
@@ -79,8 +109,30 @@ export function TrailViewerCore({
         overflow: 'hidden',
         bgcolor: colors.midnightNavy,
         color: colors.textPrimary,
+        position: 'relative',
       }}
     >
+      {/* aria-live region for screen reader announcements */}
+      <Box
+        aria-live="polite"
+        aria-atomic="true"
+        sx={{
+          position: 'absolute',
+          width: '1px',
+          height: '1px',
+          padding: 0,
+          margin: '-1px',
+          overflow: 'hidden',
+          clip: 'rect(0, 0, 0, 0)',
+          whiteSpace: 'nowrap',
+          border: 0,
+        }}
+      >
+        {selectedSessionId && messages.length > 0
+          ? `${messages.length} ${t('stats.messages')} ${t('viewer.loaded')}`
+          : ''}
+      </Box>
+
       {/* Top: Tabs */}
       <Box sx={{ borderBottom: 1, borderColor: colors.border }}>
         <Tabs
@@ -93,14 +145,21 @@ export function TrailViewerCore({
             '& .MuiTabs-indicator': { backgroundColor: colors.iceBlue },
           }}
         >
-          <Tab label="Analytics" />
-          <Tab label="Traces" />
-          <Tab label="Prompts" />
+          <Tab id="trail-tab-0" aria-controls="trail-panel-0" label={t('viewer.analytics')} />
+          <Tab id="trail-tab-1" aria-controls="trail-panel-1" label={t('viewer.traces')} />
+          <Tab id="trail-tab-2" aria-controls="trail-panel-2" label={t('viewer.prompts')} />
+          <Tab id="trail-tab-3" aria-controls="trail-panel-3" label={t('releases.title')} />
+          {c4 && <Tab id="trail-tab-4" aria-controls="trail-panel-4" label={t('viewer.c4')} />}
         </Tabs>
       </Box>
 
       {/* Tab 0: Analytics */}
-      {activeTab === 0 && (
+      <Box
+        role="tabpanel"
+        id="trail-panel-0"
+        aria-labelledby="trail-tab-0"
+        sx={{ display: activeTab !== 0 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
+      >
         <AnalyticsPanel
           analytics={analytics}
           sessions={allSessions ?? sessions}
@@ -109,65 +168,89 @@ export function TrailViewerCore({
           fetchSessionCommits={fetchSessionCommits}
           fetchSessionToolMetrics={fetchSessionToolMetrics}
           costOptimization={costOptimization}
-          onReclassify={onReclassify}
-          reclassifying={reclassifying}
         />
-      )}
+      </Box>
 
       {/* Tab 1: Traces */}
-      {activeTab === 1 && (
-        <>
-          {/* FilterBar */}
-          <FilterBar
-            filter={filter}
-            sessions={allSessions ?? sessions}
-            onChange={onFilterChange}
-          />
+      <Box
+        role="tabpanel"
+        id="trail-panel-1"
+        aria-labelledby="trail-tab-1"
+        sx={{ display: activeTab !== 1 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
+      >
+        {/* FilterBar */}
+        <FilterBar
+          filter={filter}
+          sessions={allSessions ?? sessions}
+          onChange={onFilterChange}
+        />
 
-          {/* SessionList + Content area */}
-          <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-            <Box
-              sx={{
-                width: SESSION_LIST_WIDTH,
-                minWidth: SESSION_LIST_WIDTH,
-                borderRight: 1,
-                borderColor: colors.border,
-                overflowY: 'auto',
-              }}
-            >
-              <SessionList
-                sessions={sessions}
-                selectedId={selectedSessionId}
-                onSelect={onSelectSession}
-              />
-            </Box>
-
-            <Box
-              sx={{
-                flex: 1,
-                overflow: 'auto',
-              }}
-            >
-              {selectedSessionId && messages.length > 0 ? (
-                <TraceTree nodes={buildMessageTree(messages)} session={selectedSession} />
-              ) : (
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                  <Typography variant="body2" sx={{ color: colors.textSecondary }}>
-                    {selectedSessionId ? 'Loading...' : 'Select a session'}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
+        {/* SessionList + Content area */}
+        <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+          <Box
+            sx={{
+              width: SESSION_LIST_WIDTH,
+              minWidth: SESSION_LIST_WIDTH,
+              borderRight: 1,
+              borderColor: colors.border,
+              overflowY: 'auto',
+            }}
+          >
+            <SessionList
+              sessions={visibleSessions}
+              selectedId={selectedSessionId}
+              onSelect={onSelectSession}
+            />
           </Box>
 
-          {/* StatsBar */}
-          <StatsBar session={selectedSession} messages={messages} />
-        </>
-      )}
+          <Box sx={{ flex: 1, overflow: 'auto' }}>
+            {selectedSessionId && messages.length > 0 ? (
+              <TraceTree nodes={buildMessageTree(messages)} session={selectedSession} />
+            ) : (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                <Typography variant="body2" sx={{ color: colors.textSecondary }}>
+                  {selectedSessionId ? t('viewer.loading') : t('viewer.selectSession')}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        </Box>
+
+        {/* StatsBar */}
+        <StatsBar session={selectedSession} messages={messages} />
+      </Box>
 
       {/* Tab 2: Prompts */}
-      {activeTab === 2 && <PromptManager prompts={prompts} />}
+      <Box
+        role="tabpanel"
+        id="trail-panel-2"
+        aria-labelledby="trail-tab-2"
+        sx={{ display: activeTab !== 2 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
+      >
+        <PromptManager prompts={prompts} />
+      </Box>
+
+      {/* Tab 3: Releases */}
+      <Box
+        role="tabpanel"
+        id="trail-panel-3"
+        aria-labelledby="trail-tab-3"
+        sx={{ display: activeTab !== 3 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'auto' }}
+      >
+        <ReleasesPanel releases={releases ?? []} />
+      </Box>
+
+      {/* Tab 4: C4 */}
+      {c4 && (
+        <Box
+          role="tabpanel"
+          id="trail-panel-4"
+          aria-labelledby="trail-tab-4"
+          sx={{ display: activeTab !== 4 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
+        >
+          <C4ViewerCore isDark={isDark} containerHeight="100%" {...c4} />
+        </Box>
+      )}
     </Box>
-    </TrailThemeProvider>
   );
 }

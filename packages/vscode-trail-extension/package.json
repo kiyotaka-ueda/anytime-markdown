@@ -2,7 +2,7 @@
   "name": "anytime-trail",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "license": "MIT",
   "publisher": "anytime-trial",
   "repository": {
@@ -47,7 +47,7 @@
       "anytimeTrail": [
         {
           "id": "anytimeTrail.dashboard",
-          "name": "Dashboard"
+          "name": "%view.dashboard%"
         },
         {
           "id": "anytimeTrail.c4Elements",
@@ -109,9 +109,9 @@
       },
       {
         "command": "anytime-trail.openTrailViewer",
-        "title": "Open Trail Viewer",
+        "title": "%command.openTrailViewer%",
         "category": "Anytime Trail",
-        "icon": "$(browser)"
+        "icon": "$(graph-line)"
       },
       {
         "command": "anytime-trail.importTrailData",
@@ -149,9 +149,19 @@
           "group": "navigation@1"
         },
         {
-          "command": "anytime-trail.c4View",
+          "command": "anytime-trail.c4Analyze",
           "when": "view == anytimeTrail.c4Elements",
           "group": "navigation@1"
+        },
+        {
+          "command": "anytime-trail.c4Export",
+          "when": "view == anytimeTrail.c4Elements",
+          "group": "navigation@2"
+        },
+        {
+          "command": "anytime-trail.c4Import",
+          "when": "view == anytimeTrail.c4Elements",
+          "group": "navigation@3"
         },
         {
           "command": "anytime-trail.aiMemoryRefresh",
@@ -160,26 +170,6 @@
         }
       ],
       "view/item/context": [
-        {
-          "command": "anytime-trail.c4View",
-          "when": "view == anytimeTrail.c4Elements && viewItem == c4Root",
-          "group": "0_view@1"
-        },
-        {
-          "command": "anytime-trail.c4Analyze",
-          "when": "view == anytimeTrail.c4Elements && viewItem == c4Root",
-          "group": "1_c4@1"
-        },
-        {
-          "command": "anytime-trail.c4Export",
-          "when": "view == anytimeTrail.c4Elements && viewItem == c4Root",
-          "group": "1_c4@2"
-        },
-        {
-          "command": "anytime-trail.c4Import",
-          "when": "view == anytimeTrail.c4Elements && viewItem == c4Root",
-          "group": "1_c4@3"
-        },
         {
           "command": "anytime-trail.runE2eTest",
           "when": "view == anytimeTrail.c4Elements && viewItem == c4Level.c1",
@@ -231,16 +221,6 @@
           "type": "string",
           "default": "",
           "markdownDescription": "Absolute path to the documentation directory for C4 document links. When set, Markdown files with `c4Scope` frontmatter are indexed and shown in the C4 viewer."
-        },
-        "anytimeTrail.server.enabled": {
-          "type": "boolean",
-          "default": false,
-          "markdownDescription": "Enable the C4 data server for external web app access"
-        },
-        "anytimeTrail.server.port": {
-          "type": "number",
-          "default": 19840,
-          "markdownDescription": "Port number for the C4 data server"
         },
         "anytimeTrail.coverage.path": {
           "type": "string",
@@ -313,8 +293,6 @@
     "test": "jest --maxWorkers=1"
   },
   "dependencies": {
-    "@anytime-markdown/c4-kernel": "*",
-    "@anytime-markdown/c4-viewer": "*",
     "@anytime-markdown/graph-core": "*",
     "@anytime-markdown/trail-core": "*",
     "@supabase/supabase-js": "2.103.0",

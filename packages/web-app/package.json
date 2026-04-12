@@ -1,6 +1,6 @@
 {
   "name": "@anytime-markdown/web-app",
-  "version": "0.12.2",
+  "version": "0.12.3",
   "license": "MIT",
   "private": true,
   "scripts": {
@@ -15,8 +15,6 @@
     "analyze": "ANALYZE=true next build"
   },
   "dependencies": {
-    "@anytime-markdown/c4-kernel": "*",
-    "@anytime-markdown/c4-viewer": "*",
     "@anytime-markdown/cms-core": "*",
     "@anytime-markdown/graph-core": "*",
     "@anytime-markdown/markdown-core": "*",

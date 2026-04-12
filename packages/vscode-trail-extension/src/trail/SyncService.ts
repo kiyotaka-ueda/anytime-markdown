@@ -51,34 +51,81 @@ export class SyncService {
       return remoteImportedAt === undefined || s.imported_at > remoteImportedAt;
     });
 
-    if (toSync.length === 0) {
-      return { synced: 0, skipped: localSessions.length, errors: 0 };
-    }
-
-    const increment = 100 / toSync.length;
     let synced = 0;
     let errors = 0;
 
-    for (const session of toSync) {
-      try {
-        onProgress?.({
-          message: `Syncing ${session.slug || session.id.slice(0, 8)}...`,
-          increment,
-        });
-        await this.store.upsertSessions([session]);
+    if (toSync.length > 0) {
+      const increment = 100 / toSync.length;
 
-        const messages = this.trailDb.getMessages(session.id);
-        await this.store.upsertMessages(messages);
+      for (const session of toSync) {
+        try {
+          onProgress?.({
+            message: `Syncing ${session.slug || session.id.slice(0, 8)}...`,
+            increment,
+          });
+          await this.store.upsertSessions([session]);
 
-        const commits = this.trailDb.getSessionCommits(session.id);
-        await this.store.upsertCommits(commits);
+          const messages = this.trailDb.getMessages(session.id);
+          await this.store.upsertMessages(messages);
 
-        synced++;
-      } catch (e) {
-        const id = session.slug || session.id.slice(0, 8);
-        TrailLogger.error(`Failed to sync session ${id}`, e);
-        errors++;
+          const commits = this.trailDb.getSessionCommits(session.id);
+          await this.store.upsertCommits(commits);
+
+          synced++;
+        } catch (e) {
+          const id = session.slug || session.id.slice(0, 8);
+          TrailLogger.error(`Failed to sync session ${id}`, e);
+          errors++;
+        }
       }
+    }
+
+    // Sync session_costs 全件上書き — セッション更新の有無によらず常に実行
+    try {
+      onProgress?.({ message: 'Syncing session costs...' });
+      const allSessionCosts = this.trailDb.getAllSessionCosts();
+      await this.store.upsertAllSessionCosts(allSessionCosts);
+    } catch (e) {
+      TrailLogger.error('Failed to sync session costs', e);
+      errors++;
+    }
+
+    // Sync daily_costs 全件上書き — セッション更新の有無によらず常に実行
+    try {
+      onProgress?.({ message: 'Syncing daily costs...' });
+      const dailyCosts = this.trailDb.getAllDailyCosts();
+      await this.store.upsertDailyCosts(dailyCosts);
+    } catch (e) {
+      TrailLogger.error('Failed to sync daily costs', e);
+      errors++;
+    }
+
+    // Sync releases, release files and features
+    try {
+      onProgress?.({ message: 'Syncing releases...' });
+      const releases = this.trailDb.getReleases();
+      if (releases.length > 0) await this.store.upsertReleases(releases);
+      for (const release of releases) {
+        const files = this.trailDb.getReleaseFiles(release.tag);
+        if (files.length > 0) await this.store.upsertReleaseFiles(files);
+        const features = this.trailDb.getReleaseFeatures(release.tag);
+        if (features.length > 0) await this.store.upsertReleaseFeatures(features);
+      }
+    } catch (e) {
+      TrailLogger.error('Failed to sync releases', e);
+      errors++;
+    }
+
+    // Sync C4 model
+    try {
+      const c4 = this.trailDb.getC4Model();
+      if (c4) {
+        onProgress?.({ message: 'Syncing C4 model...' });
+        await this.store.upsertC4Model(c4.json, c4.revision);
+      }
+    } catch (e) {
+      TrailLogger.error('Failed to sync C4 model', e);
+      errors++;
     }
 
     return {

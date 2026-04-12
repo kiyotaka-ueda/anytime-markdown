@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-04-11
+
+### Added
+
+- README, CHANGELOG, and LICENSE files
+- Moved git history from Trail extension to this package
+
 ## [0.1.0] - 2026-04-11
 
 ### Added
