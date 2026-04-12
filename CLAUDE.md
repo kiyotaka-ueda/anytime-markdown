@@ -6,11 +6,12 @@
 
 ## Supabase
 
-### スキーマ変更
+### Supabase スキーマ変更
 
-- **マイグレーションファイルを新規追加しない**。`supabase/migrations/001_schema.sql` を直接編集する。
+- **Supabase のマイグレーションファイルを新規追加しない**。`supabase/migrations/001_schema.sql` を直接編集する。
 - 理由: 本プロジェクトでは Supabase のテーブルを毎回すべて削除してから再作成する運用のため、連番マイグレーションの履歴管理は不要。
-- 新規テーブル・カラム追加時は `001_schema.sql` の適切な位置に追記する。関連テーブルはコメントで役割を明記する。
+- Supabase の新規テーブル・カラム追加時は `001_schema.sql` の適切な位置に追記する。関連テーブルはコメントで役割を明記する。
+- 本ルールは Supabase のみに適用される。ローカル SQLite（拡張機能の `trail.db`）のスキーマ変更では、既存データを保持するため `ALTER TABLE` やマイグレーション関数（例: `migrateCurrentGraphsSchema`）を使う。
 
 ### 同期方式
 
