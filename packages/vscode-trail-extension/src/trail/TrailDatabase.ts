@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { toUTC } from './dateUtils';
+import { toUTC, getSqliteTzOffset } from './dateUtils';
 import {
   CREATE_SESSIONS,
   CREATE_SESSION_COSTS,
@@ -513,11 +513,13 @@ export class TrailDatabase {
     }
   }
 
-  /** SQLiteのDATE()に渡すローカルTZオフセット文字列を返す */
+  /**
+   * SQLite の DATE() に渡すローカル TZ オフセット文字列を返す。
+   * WSL 上の Node プロセスが UTC で動作し、ユーザーの期待する JST と一致しない
+   * 問題を避けるため、IANA タイムゾーンベースで計算する（dateUtils に委譲）。
+   */
   private getLocalTzOffset(): string {
-    const offsetMin = -new Date().getTimezoneOffset();
-    const sign = offsetMin >= 0 ? '+' : '-';
-    return `${sign}${Math.abs(offsetMin)} minutes`;
+    return getSqliteTzOffset();
   }
 
   getSessionCosts(sessionId: string): readonly {
