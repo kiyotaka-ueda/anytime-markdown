@@ -118,7 +118,7 @@ export class SyncService {
       errors++;
     }
 
-    // Sync C4 model
+    // Sync C4 model (legacy single-model endpoint)
     try {
       const c4 = this.trailDb.getC4Model();
       if (c4) {
@@ -130,7 +130,21 @@ export class SyncService {
       errors++;
     }
 
-    // Sync historical C4 models per release (trail_graphs → trail_c4_models)
+    // Sync current C4 models per repository (wash-away: delete all → upsert all)
+    try {
+      const currents = this.trailDb.listCurrentGraphs();
+      onProgress?.({ message: `Syncing ${currents.length} current C4 models (wash-away)...` });
+      await this.store.clearCurrentC4Models();
+      for (const row of currents) {
+        const model = trailToC4(row.graph);
+        await this.store.upsertCurrentC4Model(row.repoName, JSON.stringify(model), row.commitId, '');
+      }
+    } catch (e) {
+      TrailLogger.error('Failed to sync current C4 models', e);
+      errors++;
+    }
+
+    // Sync historical C4 models per release (release_graphs → trail_c4_models)
     try {
       const graphIds = this.trailDb.getTrailGraphIds();
       const releaseIds = graphIds.filter((id) => id !== 'current');

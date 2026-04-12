@@ -1470,6 +1470,30 @@ export class TrailDatabase {
     };
   }
 
+  /**
+   * 全 current_graphs 行を返す（洗い替え同期用）。
+   */
+  listCurrentGraphs(): Array<{ repoName: string; commitId: string; graph: TrailGraph }> {
+    const db = this.ensureDb();
+    const result = db.exec(
+      'SELECT repo_name, commit_id, graph_json FROM current_graphs',
+    );
+    const rows = result[0]?.values ?? [];
+    const out: Array<{ repoName: string; commitId: string; graph: TrailGraph }> = [];
+    for (const row of rows) {
+      const repoName = String(row[0] ?? '');
+      const commitId = String(row[1] ?? '');
+      const json = row[2];
+      if (typeof json !== 'string') continue;
+      try {
+        out.push({ repoName, commitId, graph: JSON.parse(json) as TrailGraph });
+      } catch (e) {
+        TrailLogger.warn(`listCurrentGraphs: failed to parse graph_json for repo=${repoName}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    return out;
+  }
+
   /** current_graphs の commit_id を取得する内部ヘルパ */
   private getCurrentGraphCommit(repoName: string): { commitId: string } | null {
     const db = this.ensureDb();

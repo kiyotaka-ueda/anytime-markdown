@@ -254,6 +254,17 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
   }
 
   /**
+   * trail_current_c4_models を全削除する（洗い替え同期の前処理）。
+   */
+  async clearCurrentC4Models(): Promise<void> {
+    const { error } = await this.ensureClient()
+      .from('trail_current_c4_models')
+      .delete()
+      .neq('repo_name', '');
+    if (error) throw new Error(`Supabase clear current C4 models failed: ${error.message}`);
+  }
+
+  /**
    * リポジトリ単位の current C4 モデルを trail_current_c4_models に保存する。
    * 拡張機能のローカル current_graphs と対応する。
    */

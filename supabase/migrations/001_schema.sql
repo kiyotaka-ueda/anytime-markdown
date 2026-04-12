@@ -81,12 +81,23 @@ CREATE TABLE IF NOT EXISTS trail_daily_costs (
     PRIMARY KEY (date, model, cost_type)
 );
 
+-- リリース版 C4 モデル（id=release tag）
 CREATE TABLE IF NOT EXISTS trail_c4_models (
     id TEXT PRIMARY KEY DEFAULT 'current',
     model_json TEXT NOT NULL,
     revision TEXT NOT NULL DEFAULT '',
     updated_at TEXT NOT NULL DEFAULT '',
     synced_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- リポジトリ別 current C4 モデル（拡張機能の current_graphs と対応）
+CREATE TABLE IF NOT EXISTS trail_current_c4_models (
+    repo_name  TEXT PRIMARY KEY,
+    commit_id  TEXT NOT NULL DEFAULT '',
+    model_json TEXT NOT NULL,
+    revision   TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL DEFAULT '',
+    synced_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS trail_releases (
