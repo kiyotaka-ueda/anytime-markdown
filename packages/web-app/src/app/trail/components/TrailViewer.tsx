@@ -15,7 +15,7 @@ import { TrailErrorBoundary } from './TrailErrorBoundary';
 
 interface C4Payload {
   model: C4Model;
-  boundaries: BoundaryInfo[];
+  boundaries: readonly BoundaryInfo[];
   featureMatrix?: FeatureMatrix;
 }
 
