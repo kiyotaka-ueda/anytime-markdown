@@ -19,6 +19,7 @@ export type { SpecDocsNode } from './specdocs/types';
 const STORAGE_KEY = 'anytimeGit.specDocsRoot';
 const STORAGE_KEY_MULTI = 'anytimeGit.specDocsRoots';
 const MD_ONLY_KEY = 'anytimeGit.mdOnly';
+const REFRESH_DEBOUNCE_MS = 300;
 
 export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsNode>, SpecDocsFileOpsHost, SpecDocsGitOpsHost {
 	private readonly _onDidChangeTreeData = new vscode.EventEmitter<SpecDocsNode | undefined>();
@@ -27,6 +28,8 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsNode>, 
 	private rootPaths: string[] = [];
 	private _mdOnly: boolean;
 	private clipboard: Clipboard | null = null;
+	private watchers: Map<string, vscode.FileSystemWatcher> = new Map();
+	private refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
 	readonly context: vscode.ExtensionContext;
 
@@ -43,7 +46,38 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsNode>, 
 			}
 		}
 		this._mdOnly = ctx.globalState.get<boolean>(MD_ONLY_KEY, true);
+		for (const rootPath of this.rootPaths) {
+			this.setupWatcher(rootPath);
+		}
 		this.initAsync();
+	}
+
+	private setupWatcher(rootPath: string): void {
+		if (this.watchers.has(rootPath)) return;
+		const pattern = new vscode.RelativePattern(rootPath, '**/*');
+		const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+		const debouncedRefresh = () => {
+			if (this.refreshTimer) clearTimeout(this.refreshTimer);
+			this.refreshTimer = setTimeout(() => this._onDidChangeTreeData.fire(undefined), REFRESH_DEBOUNCE_MS);
+		};
+		watcher.onDidCreate(debouncedRefresh);
+		watcher.onDidDelete(debouncedRefresh);
+		this.watchers.set(rootPath, watcher);
+	}
+
+	private disposeWatcher(rootPath: string): void {
+		const watcher = this.watchers.get(rootPath);
+		if (watcher) {
+			watcher.dispose();
+			this.watchers.delete(rootPath);
+		}
+	}
+
+	dispose(): void {
+		for (const watcher of this.watchers.values()) {
+			watcher.dispose();
+		}
+		this.watchers.clear();
 	}
 
 	/** コンストラクタから呼び出す非同期初期化（Thenable を返す操作を分離） */
@@ -200,6 +234,7 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsNode>, 
 			return;
 		}
 		this.rootPaths.push(dirPath);
+		this.setupWatcher(dirPath);
 		this.saveRootPaths();
 		this._onDidChangeTreeData.fire(undefined);
 	}
@@ -208,6 +243,7 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsNode>, 
 		const idx = this.rootPaths.indexOf(rootPath);
 		if (idx === -1) return;
 		this.rootPaths.splice(idx, 1);
+		this.disposeWatcher(rootPath);
 		this.saveRootPaths();
 		this._onDidChangeTreeData.fire(undefined);
 	}
