@@ -30,7 +30,7 @@ describe("LandingHeader mobile drawer", () => {
     const menuButton = screen.getByLabelText("ariaMenu");
     fireEvent.click(menuButton);
     // Drawer should open with navigation items
-    expect(screen.getAllByText("Graph").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("graphPage").length).toBeGreaterThanOrEqual(1);
   });
 
   it("closes drawer when navigation item clicked", () => {
@@ -38,7 +38,7 @@ describe("LandingHeader mobile drawer", () => {
     const menuButton = screen.getByLabelText("ariaMenu");
     fireEvent.click(menuButton);
     // Click a nav item in the drawer
-    const graphLinks = screen.getAllByText("Graph");
+    const graphLinks = screen.getAllByText("graphPage");
     // Click the one inside the drawer (second occurrence)
     if (graphLinks.length > 1) {
       fireEvent.click(graphLinks[graphLinks.length - 1]);
@@ -47,7 +47,7 @@ describe("LandingHeader mobile drawer", () => {
 
   it("renders Graph link in desktop nav", () => {
     render(<LandingHeader />);
-    expect(screen.getAllByText("Graph").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("graphPage").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders mobile language toggle in drawer", () => {

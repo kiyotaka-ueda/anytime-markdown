@@ -6,7 +6,7 @@ const fs = require('fs');
 // Use bundled dist if available, otherwise fall back to ts-node for development
 const distPath = path.resolve(__dirname, '../dist/cli.js');
 if (fs.existsSync(distPath)) {
-  require(distPath);
+  require(distPath).main();
 } else {
   // Development fallback: use ts-node
   require('ts-node').register({
@@ -17,5 +17,5 @@ if (fs.existsSync(distPath)) {
       esModuleInterop: true,
     },
   });
-  require('../src/cli.ts');
+  require('../src/cli.ts').main();
 }

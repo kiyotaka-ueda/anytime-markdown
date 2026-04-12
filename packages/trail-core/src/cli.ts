@@ -126,5 +126,4 @@ function main(): void {
 }
 
 /* istanbul ignore next -- CLI entry point */
-// bin/trail.js から require されるため require.main チェックを省略
-main();
+export { main };

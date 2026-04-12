@@ -6,6 +6,12 @@
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-04-12
+
+### 変更
+
+- E2E カバレッジ連携のため jest `coverageReporters` に `json-summary` を追加
+
 ## [0.1.1] - 2026-04-04
 
 ### 追加

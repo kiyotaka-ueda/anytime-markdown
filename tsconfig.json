@@ -2,7 +2,6 @@
 	"files": [],
 	"references": [
 		{ "path": "packages/graph-core" },
-		{ "path": "packages/c4-kernel" },
 		{ "path": "packages/trail-core" },
 		{ "path": "packages/markdown-core" },
 		{ "path": "packages/cms-core" },
