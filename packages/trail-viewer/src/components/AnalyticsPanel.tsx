@@ -623,8 +623,9 @@ function DailySessionList({
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', lg: 'row' } }}>
-        {/* Left: session table — height stretches to match right column, scrolls if needed */}
-        <Box sx={{ flex: 1, minWidth: 0, overflowY: 'auto', ...scrollbarSx }}>
+        {/* Left: position:relative so absolute child fills the flex-item height determined by right column */}
+        <Box sx={{ flex: 1, minWidth: 0, position: { lg: 'relative' } }}>
+          <Box sx={{ position: { lg: 'absolute' }, top: { lg: 0 }, bottom: { lg: 0 }, left: { lg: 0 }, right: { lg: 0 }, overflowY: 'auto', ...scrollbarSx }}>
           {daySessions.length === 0 ? (
             <Typography variant="body2" color="text.secondary">{t('sessionList.noSessionsFound')}</Typography>
           ) : (
@@ -695,6 +696,7 @@ function DailySessionList({
               </TableBody>
             </Table>
           )}
+          </Box>
         </Box>
 
         {/* Right: cards + timeline — visible when a session is selected */}
