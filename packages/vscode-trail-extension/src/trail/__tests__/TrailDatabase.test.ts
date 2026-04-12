@@ -106,6 +106,47 @@ describe('INSERT_MESSAGE statement', () => {
   });
 });
 
+describe('TrailDatabase.getImportedFileMap', () => {
+  it('flags hasMessages=false for sessions with message_count>0 but no messages rows', async () => {
+    const initSqlJs = sqlAsmActual as typeof import('sql.js').default;
+    const SQL = await initSqlJs();
+    const inMemoryDb = new SQL.Database();
+
+    const db = new TrailDatabase('/tmp');
+    (db as unknown as Record<string, unknown>).db = inMemoryDb;
+    (db as unknown as Record<string, () => void>).createTables();
+
+    // Broken session: row inserted but messages silently dropped by a prior bug.
+    inMemoryDb.run(
+      `INSERT INTO sessions (id, slug, project, version, entrypoint, model,
+         start_time, end_time, message_count, file_path, file_size, imported_at)
+       VALUES ('broken-sid','','','','','','','',10,'/tmp/broken.jsonl',123,'')`,
+    );
+    // Healthy session with matching messages.
+    inMemoryDb.run(
+      `INSERT INTO sessions (id, slug, project, version, entrypoint, model,
+         start_time, end_time, message_count, file_path, file_size, imported_at)
+       VALUES ('ok-sid','','','','','','','',1,'/tmp/ok.jsonl',456,'')`,
+    );
+    inMemoryDb.run(
+      `INSERT INTO messages (uuid, session_id, type, timestamp)
+       VALUES ('u1','ok-sid','assistant','2026-04-12T00:00:00Z')`,
+    );
+    // Empty-log session (message_count=0) is considered healthy — nothing to reimport.
+    inMemoryDb.run(
+      `INSERT INTO sessions (id, slug, project, version, entrypoint, model,
+         start_time, end_time, message_count, file_path, file_size, imported_at)
+       VALUES ('empty-sid','','','','','','','',0,'/tmp/empty.jsonl',789,'')`,
+    );
+
+    const map = (db as unknown as Record<string, () => Map<string, { hasMessages: boolean }>>).getImportedFileMap();
+    expect(map.get('/tmp/broken.jsonl')?.hasMessages).toBe(false);
+    expect(map.get('/tmp/ok.jsonl')?.hasMessages).toBe(true);
+    expect(map.get('/tmp/empty.jsonl')?.hasMessages).toBe(true);
+    db.close();
+  });
+});
+
 describe('TrailDatabase.getLastImportedAt', () => {
   it('セッションがない場合はnullを返す', async () => {
     // DB_PATH はハードコードされているため、init() をモックして空のインメモリDBを使用する

@@ -699,16 +699,25 @@ export class TrailDatabase {
   // -------------------------------------------------------------------------
 
   /** Load all imported sessions into memory for fast lookup during importAll. */
-  /** Load imported sessions keyed by file_path for accurate skip detection. */
-  private getImportedFileMap(): Map<string, { sessionId: string; fileSize: number; commitsResolved: boolean }> {
+  /** Load imported sessions keyed by file_path for accurate skip detection.
+   *  `hasMessages` is false when `sessions` row exists but no `messages` rows are present
+   *  (happens after a silent message-insert failure). Callers should re-import such sessions. */
+  private getImportedFileMap(): Map<string, { sessionId: string; fileSize: number; commitsResolved: boolean; hasMessages: boolean }> {
     const db = this.ensureDb();
-    const result = db.exec('SELECT id, file_path, file_size, commits_resolved_at FROM sessions');
-    const map = new Map<string, { sessionId: string; fileSize: number; commitsResolved: boolean }>();
+    const result = db.exec(
+      `SELECT s.id, s.file_path, s.file_size, s.commits_resolved_at,
+        CASE WHEN s.message_count = 0 THEN 1
+             WHEN EXISTS (SELECT 1 FROM messages m WHERE m.session_id = s.id) THEN 1
+             ELSE 0 END AS has_messages
+       FROM sessions s`,
+    );
+    const map = new Map<string, { sessionId: string; fileSize: number; commitsResolved: boolean; hasMessages: boolean }>();
     for (const row of result[0]?.values ?? []) {
       map.set(String(row[1]), {
         sessionId: String(row[0]),
         fileSize: Number(row[2]),
         commitsResolved: row[3] != null,
+        hasMessages: Number(row[4]) === 1,
       });
     }
     return map;
@@ -1146,8 +1155,10 @@ export class TrailDatabase {
 
     for (const dir of sessionDirs) {
       // Skip entire session (main + all subagents) if main file size unchanged
+      // and the existing row actually has messages. A session row with zero messages
+      // is a leftover from a previously-failed import and must be re-processed.
       const existing = importedFiles.get(dir.mainFile);
-      if (existing) {
+      if (existing && existing.hasMessages) {
         let currentFileSize = 0;
         try { currentFileSize = fs.statSync(dir.mainFile).size; } catch (e) { TrailLogger.error(`statSync failed: ${dir.mainFile}`, e); skipped++; continue; }
         if (currentFileSize <= existing.fileSize) {
