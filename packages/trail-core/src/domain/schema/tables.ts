@@ -100,6 +100,15 @@ export const CREATE_C4_MODELS = `CREATE TABLE IF NOT EXISTS c4_models (
   updated_at TEXT NOT NULL DEFAULT ''
 )`;
 
+export const CREATE_TRAIL_GRAPHS = `CREATE TABLE IF NOT EXISTS trail_graphs (
+  id            TEXT PRIMARY KEY,
+  graph_json    TEXT NOT NULL,
+  tsconfig_path TEXT NOT NULL,
+  project_root  TEXT NOT NULL,
+  analyzed_at   TEXT NOT NULL,
+  updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+)`;
+
 export const CREATE_SKILL_MODELS = `CREATE TABLE IF NOT EXISTS skill_models (
   skill TEXT PRIMARY KEY,
   canonical_skill TEXT,
