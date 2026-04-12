@@ -1092,7 +1092,7 @@ export class TrailDatabase {
     try {
       projectDirs = fs.readdirSync(projectsDir);
     } catch {
-      return { imported, skipped, commitsResolved, tasksResolved: 0, releasesResolved: 0 };
+      return { imported, skipped, commitsResolved, tasksResolved: 0, releasesResolved: 0, releasesAnalyzed: 0 };
     }
 
     // Pre-load imported file paths + sizes for fast skip
