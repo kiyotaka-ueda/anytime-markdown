@@ -442,7 +442,7 @@ function SessionCommitList({
         </Typography>
       ) : (
         <>
-          <Box sx={{ maxHeight: 198, overflowY: 'auto', ...scrollbarSx }}>
+          <Box sx={{ height: 198, overflowY: 'auto', ...scrollbarSx }}>
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow sx={{ '& .MuiTableCell-head': { color: colors.textSecondary, borderColor: colors.border, bgcolor: colors.midnightNavy } }}>
