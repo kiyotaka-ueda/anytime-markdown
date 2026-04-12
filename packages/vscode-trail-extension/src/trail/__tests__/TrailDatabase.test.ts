@@ -2,7 +2,7 @@
 const sqlAsmActual = require('/anytime-markdown/node_modules/sql.js/dist/sql-asm.js'); // eslint-disable-line @typescript-eslint/no-require-imports
 (global as Record<string, unknown>).__non_webpack_require__ = (_path: string) => sqlAsmActual;
 
-import { TrailDatabase, estimateCost } from '../TrailDatabase';
+import { TrailDatabase, estimateCost, INSERT_MESSAGE } from '../TrailDatabase';
 
 describe('estimateCost', () => {
   it('should calculate sonnet cost with all 4 token types', () => {
@@ -85,6 +85,24 @@ describe('TrailDatabase.parseSessionIdFromBody', () => {
 
   it('空文字列は null を返す', () => {
     expect(parse('')).toBeNull();
+  });
+});
+
+describe('INSERT_MESSAGE statement', () => {
+  it('has matching column count and placeholder count', async () => {
+    const initSqlJs = sqlAsmActual as typeof import('sql.js').default;
+    const SQL = await initSqlJs();
+    const inMemoryDb = new SQL.Database();
+
+    const db = new TrailDatabase('/tmp');
+    (db as unknown as Record<string, unknown>).db = inMemoryDb;
+    (db as unknown as Record<string, () => void>).createTables();
+
+    // If the column list and placeholder count disagree, prepare() throws.
+    // This guards against "N values for M columns" regressions.
+    const stmt = inMemoryDb.prepare(INSERT_MESSAGE);
+    stmt.free();
+    db.close();
   });
 });
 

@@ -30,6 +30,7 @@ import {
 } from '@anytime-markdown/trail-core';
 import type { TrailGraph } from '@anytime-markdown/trail-core';
 import { ExecFileGitService } from './ExecFileGitService';
+import { TrailLogger } from '../utils/TrailLogger';
 import type { ReleaseFileRow, ReleaseFeatureRow, ReleaseCoverageRow, ReleaseRow } from '@anytime-markdown/trail-core';
 export type { ReleaseFileRow, ReleaseFeatureRow, ReleaseCoverageRow, ReleaseRow } from '@anytime-markdown/trail-core';
 
@@ -275,7 +276,7 @@ const INSERT_SESSION_COST = `INSERT OR REPLACE INTO session_costs
   VALUES (?,?,?,?,?,?,?)`;
 
 
-const INSERT_MESSAGE = `INSERT OR REPLACE INTO messages
+export const INSERT_MESSAGE = `INSERT OR REPLACE INTO messages
   (uuid, session_id, parent_uuid, type, subtype, text_content,
    user_content, tool_calls, tool_use_result, model, request_id,
    stop_reason, input_tokens, output_tokens, cache_read_tokens,
@@ -283,7 +284,7 @@ const INSERT_MESSAGE = `INSERT OR REPLACE INTO messages
    is_sidechain, is_meta, cwd, git_branch,
    duration_ms, tool_result_size, agent_description, agent_model,
    permission_mode, skill, agent_id, system_command)
-  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 
 
 // ---------------------------------------------------------------------------
@@ -1148,12 +1149,12 @@ export class TrailDatabase {
       const existing = importedFiles.get(dir.mainFile);
       if (existing) {
         let currentFileSize = 0;
-        try { currentFileSize = fs.statSync(dir.mainFile).size; } catch { skipped++; continue; }
+        try { currentFileSize = fs.statSync(dir.mainFile).size; } catch (e) { TrailLogger.error(`statSync failed: ${dir.mainFile}`, e); skipped++; continue; }
         if (currentFileSize <= existing.fileSize) {
           skipped += 1 + dir.subagentFiles.length;
           processedFiles += 1 + dir.subagentFiles.length;
           if (gitRoot && !existing.commitsResolved) {
-            try { commitsResolved += this.resolveCommits(dir.sid, gitRoot); } catch { /* skip */ }
+            try { commitsResolved += this.resolveCommits(dir.sid, gitRoot); } catch (e) { TrailLogger.error(`resolveCommits failed (skipped session): ${dir.sid}`, e); }
           }
           continue;
         }
@@ -1179,19 +1180,21 @@ export class TrailDatabase {
           imported++;
           batchMessageCount += msgCount;
           batchFileCount++;
-        } catch { /* skip individual file errors */ }
+        } catch (e) {
+          TrailLogger.error(`importSession failed: ${file.filePath}`, e);
+        }
         processedFiles++;
       }
 
       // Resolve commits after all files for this session
       if (gitRoot) {
-        try { commitsResolved += this.resolveCommits(dir.sid, gitRoot); } catch { /* skip */ }
+        try { commitsResolved += this.resolveCommits(dir.sid, gitRoot); } catch (e) { TrailLogger.error(`resolveCommits failed: ${dir.sid}`, e); }
       }
 
       // Commit at session boundary when limits exceeded
       if (batchMessageCount >= BATCH_MESSAGE_LIMIT || batchFileCount >= BATCH_FILE_LIMIT) {
         if (inTransaction) {
-          try { db.run('COMMIT'); } catch { try { db.run('ROLLBACK'); } catch { /* ignore */ } }
+          try { db.run('COMMIT'); } catch (e) { TrailLogger.error('COMMIT failed, rolling back', e); try { db.run('ROLLBACK'); } catch (re) { TrailLogger.error('ROLLBACK also failed', re); } }
           inTransaction = false;
         }
         onProgress?.(`${batchMessageCount} messages (${processedFiles}/${totalFiles}, skipped ${skipped})`, 0);
@@ -1202,7 +1205,7 @@ export class TrailDatabase {
     // Commit remaining batch
     if (inTransaction) {
       const db = this.ensureDb();
-      try { db.run('COMMIT'); } catch { try { db.run('ROLLBACK'); } catch { /* ignore */ } }
+      try { db.run('COMMIT'); } catch (e) { TrailLogger.error('COMMIT failed, rolling back', e); try { db.run('ROLLBACK'); } catch (re) { TrailLogger.error('ROLLBACK also failed', re); } }
       inTransaction = false;
       onProgress?.(`${batchMessageCount} messages (${processedFiles}/${totalFiles}, skipped ${skipped})`, 0);
     }
