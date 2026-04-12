@@ -1074,7 +1074,7 @@ export class TrailDatabase {
     onProgress?: (message: string, increment?: number) => void,
     gitRoot?: string,
     c4ModelPath?: string,
-  ): Promise<{ imported: number; skipped: number; commitsResolved: number; releasesResolved: number; releasesAnalyzed: number }> {
+  ): Promise<{ imported: number; skipped: number; commitsResolved: number; releasesResolved: number; releasesAnalyzed: number; coverageImported: number }> {
     const projectsDir = path.join(os.homedir(), '.claude', 'projects');
     let imported = 0;
     let skipped = 0;
@@ -1084,7 +1084,7 @@ export class TrailDatabase {
     try {
       projectDirs = fs.readdirSync(projectsDir);
     } catch {
-      return { imported, skipped, commitsResolved, releasesResolved: 0, releasesAnalyzed: 0 };
+      return { imported, skipped, commitsResolved, releasesResolved: 0, releasesAnalyzed: 0, coverageImported: 0 };
     }
 
     // Pre-load imported file paths + sizes for fast skip
@@ -1226,6 +1226,18 @@ export class TrailDatabase {
       }
     }
 
+    // Import coverage data from packages/*/coverage/coverage-summary.json
+    let coverageImported = 0;
+    if (gitRoot) {
+      try {
+        onProgress?.('Importing coverage data...', 0);
+        coverageImported = this.importCoverage(gitRoot);
+        onProgress?.(`Coverage imported: ${coverageImported} entries`, 0);
+      } catch {
+        // Skip coverage import errors
+      }
+    }
+
     // Rebuild session_costs and daily_costs from all messages
     onProgress?.('Rebuilding session costs...', 0);
     this.rebuildSessionCosts();
@@ -1235,7 +1247,7 @@ export class TrailDatabase {
     onProgress?.('Daily costs rebuilt', 0);
 
     this.save();
-    return { imported, skipped, commitsResolved, releasesResolved, releasesAnalyzed };
+    return { imported, skipped, commitsResolved, releasesResolved, releasesAnalyzed, coverageImported };
   }
 
   saveTrailGraph(graph: TrailGraph, tsconfigPath: string, id = 'current'): void {
@@ -2313,6 +2325,31 @@ export class TrailDatabase {
       cols.forEach((col, i) => { obj[col] = row[i]; });
       return obj as unknown as ReleaseFeatureRow;
     });
+  }
+
+  getCoverageByTag(releaseTag: string): ReleaseCoverageRow[] {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT * FROM release_coverage WHERE release_tag = '${releaseTag.replaceAll("'", "''")}'`,
+    );
+    if (!result[0]) return [];
+    const cols = result[0].columns;
+    return result[0].values.map((row) =>
+      Object.fromEntries(cols.map((col, i) => [col, row[i]])) as unknown as ReleaseCoverageRow,
+    );
+  }
+
+  getCoverageSummary(releaseTag: string): ReleaseCoverageRow[] {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT * FROM release_coverage WHERE release_tag = '${releaseTag.replaceAll("'", "''")}'
+       AND file_path = '__total__'`,
+    );
+    if (!result[0]) return [];
+    const cols = result[0].columns;
+    return result[0].values.map((row) =>
+      Object.fromEntries(cols.map((col, i) => [col, row[i]])) as unknown as ReleaseCoverageRow,
+    );
   }
 }
 

@@ -206,7 +206,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				trailDataServer?.notifySessionsUpdated();
 
 				vscode.window.showInformationMessage(
-					`Trail: imported ${result.imported} sessions, ${result.commitsResolved} commits linked, ${result.releasesResolved} releases resolved, ${result.releasesAnalyzed} releases analyzed (${result.skipped} skipped)`,
+					`Trail: imported ${result.imported} sessions, ${result.commitsResolved} commits linked, ${result.releasesResolved} releases resolved, ${result.releasesAnalyzed} releases analyzed, ${result.coverageImported} coverage entries (${result.skipped} skipped)`,
 				);
 			} catch (err) {
 				dashboardProvider.setImporting(false);
