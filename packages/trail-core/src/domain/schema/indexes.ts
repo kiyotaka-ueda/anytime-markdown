@@ -11,14 +11,8 @@ export const CREATE_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_daily_costs_type ON daily_costs(cost_type)',
 ];
 
-export const CREATE_TASK_INDEXES = [
-  'CREATE INDEX IF NOT EXISTS idx_tasks_merged_at ON tasks(merged_at)',
-  'CREATE INDEX IF NOT EXISTS idx_tasks_branch ON tasks(branch_name)',
-  'CREATE INDEX IF NOT EXISTS idx_task_files_task ON task_files(task_id)',
-  'CREATE INDEX IF NOT EXISTS idx_task_c4_task ON task_c4_elements(task_id)',
-  'CREATE INDEX IF NOT EXISTS idx_task_features_task ON task_features(task_id)',
-];
-
 export const CREATE_RELEASE_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_releases_released_at ON releases(released_at)',
+  'CREATE INDEX IF NOT EXISTS idx_release_files_tag ON release_files(release_tag)',
+  'CREATE INDEX IF NOT EXISTS idx_release_features_tag ON release_features(release_tag)',
 ];

@@ -124,53 +124,6 @@ SELECT
   ) AS recommended_model
 FROM skill_models s`;
 
-export const CREATE_TASKS = `CREATE TABLE IF NOT EXISTS tasks (
-  id TEXT PRIMARY KEY,
-  merge_commit_hash TEXT NOT NULL,
-  branch_name TEXT,
-  pr_number INTEGER,
-  title TEXT NOT NULL DEFAULT '',
-  merged_at TEXT NOT NULL DEFAULT '',
-  base_branch TEXT NOT NULL DEFAULT '',
-  commit_count INTEGER NOT NULL DEFAULT 0,
-  files_changed INTEGER NOT NULL DEFAULT 0,
-  lines_added INTEGER NOT NULL DEFAULT 0,
-  lines_deleted INTEGER NOT NULL DEFAULT 0,
-  session_count INTEGER NOT NULL DEFAULT 0,
-  total_input_tokens INTEGER NOT NULL DEFAULT 0,
-  total_output_tokens INTEGER NOT NULL DEFAULT 0,
-  total_cache_read_tokens INTEGER NOT NULL DEFAULT 0,
-  total_duration_ms INTEGER NOT NULL DEFAULT 0,
-  resolved_at TEXT,
-  UNIQUE(merge_commit_hash)
-)`;
-
-export const CREATE_TASK_FILES = `CREATE TABLE IF NOT EXISTS task_files (
-  task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-  file_path TEXT NOT NULL,
-  lines_added INTEGER NOT NULL DEFAULT 0,
-  lines_deleted INTEGER NOT NULL DEFAULT 0,
-  change_type TEXT NOT NULL DEFAULT 'modified',
-  PRIMARY KEY (task_id, file_path)
-)`;
-
-export const CREATE_TASK_C4_ELEMENTS = `CREATE TABLE IF NOT EXISTS task_c4_elements (
-  task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-  element_id TEXT NOT NULL,
-  element_type TEXT NOT NULL,
-  element_name TEXT NOT NULL DEFAULT '',
-  match_type TEXT NOT NULL,
-  PRIMARY KEY (task_id, element_id)
-)`;
-
-export const CREATE_TASK_FEATURES = `CREATE TABLE IF NOT EXISTS task_features (
-  task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-  feature_id TEXT NOT NULL,
-  feature_name TEXT NOT NULL DEFAULT '',
-  role TEXT NOT NULL DEFAULT '',
-  PRIMARY KEY (task_id, feature_id)
-)`;
-
 export const CREATE_RELEASES = `CREATE TABLE IF NOT EXISTS releases (
   tag TEXT PRIMARY KEY,
   released_at TEXT NOT NULL DEFAULT '',
@@ -188,4 +141,21 @@ export const CREATE_RELEASES = `CREATE TABLE IF NOT EXISTS releases (
   affected_packages TEXT NOT NULL DEFAULT '[]',
   duration_days REAL NOT NULL DEFAULT 0,
   resolved_at TEXT
+)`;
+
+export const CREATE_RELEASE_FILES = `CREATE TABLE IF NOT EXISTS release_files (
+  release_tag TEXT NOT NULL REFERENCES releases(tag) ON DELETE CASCADE,
+  file_path TEXT NOT NULL,
+  lines_added INTEGER NOT NULL DEFAULT 0,
+  lines_deleted INTEGER NOT NULL DEFAULT 0,
+  change_type TEXT NOT NULL DEFAULT 'modified',
+  PRIMARY KEY (release_tag, file_path)
+)`;
+
+export const CREATE_RELEASE_FEATURES = `CREATE TABLE IF NOT EXISTS release_features (
+  release_tag TEXT NOT NULL REFERENCES releases(tag) ON DELETE CASCADE,
+  feature_id TEXT NOT NULL,
+  feature_name TEXT NOT NULL DEFAULT '',
+  role TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (release_tag, feature_id)
 )`;
