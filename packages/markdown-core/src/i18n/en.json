@@ -650,6 +650,7 @@
     "ariaMenu": "Menu",
     "ariaSkipToContent": "Skip to content",
     "trailPage": "C4Model",
+    "graphPage": "Graph",
     "trailViewerPage": "Analytics",
     "reportPage": "Report",
     "reportLoadError": "Failed to load article",

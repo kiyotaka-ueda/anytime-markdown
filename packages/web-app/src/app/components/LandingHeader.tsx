@@ -52,7 +52,7 @@ export default function LandingHeader() {
               href="/graph"
               sx={{ textTransform: 'none', color: 'text.secondary', fontWeight: 600, fontSize: '0.85rem', display: { xs: 'none', sm: 'inline-flex' } }}
             >
-              Graph
+              {t('graphPage')}
             </Button>
           )}
           <Button
@@ -127,7 +127,7 @@ export default function LandingHeader() {
           <List>
             {showGraph && (
               <ListItemButton component={NextLink} href="/graph" onClick={() => setDrawerOpen(false)}>
-                <ListItemText primary="Graph" />
+                <ListItemText primary={t('graphPage')} />
               </ListItemButton>
             )}
             <ListItemButton component={NextLink} href="/docs" onClick={() => setDrawerOpen(false)}>
