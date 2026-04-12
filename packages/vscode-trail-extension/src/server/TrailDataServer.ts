@@ -331,7 +331,8 @@ export class TrailDataServer {
 
     if (pathname === '/api/c4/model' && method === 'GET') {
       const releaseId = parsed.searchParams.get('release') ?? 'current';
-      this.handleC4ModelEndpoint(res, releaseId);
+      const repo = parsed.searchParams.get('repo') ?? undefined;
+      this.handleC4ModelEndpoint(res, releaseId, repo);
       return;
     }
     if (pathname === '/api/c4/dsm' && method === 'GET') {
@@ -563,9 +564,10 @@ export class TrailDataServer {
   //  API: C4 endpoints
   // -------------------------------------------------------------------------
 
-  private handleC4ModelEndpoint(res: http.ServerResponse, releaseId: string): void {
+  private handleC4ModelEndpoint(res: http.ServerResponse, releaseId: string, repo?: string): void {
     // current_graphs / release_graphs から TrailGraph を取得して trailToC4() で変換
-    const repoName = this.gitRoot ? path.basename(this.gitRoot) : undefined;
+    // releaseId='current' 時は repo クエリ、未指定ならワークスペースの gitRoot basename を使用
+    const repoName = repo ?? (this.gitRoot ? path.basename(this.gitRoot) : undefined);
     const graph = this.trailDb.getTrailGraph(releaseId, repoName);
     if (graph) {
       const model = trailToC4(graph);
@@ -603,8 +605,7 @@ export class TrailDataServer {
 
   private handleC4ReleasesEndpoint(res: http.ServerResponse): void {
     try {
-      const repoName = this.gitRoot ? path.basename(this.gitRoot) : undefined;
-      const entries = this.trailDb.getTrailGraphEntries(repoName);
+      const entries = this.trailDb.getTrailGraphEntries();
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify(entries));
     } catch {

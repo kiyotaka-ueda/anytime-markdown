@@ -1446,30 +1446,14 @@ export class TrailDatabase {
 
   /**
    * current_graphs と release_graphs に存在する ID の一覧を返す。
-   * repoName 指定時はそのリポジトリの current（'current'）+ 全リリースを、
-   * 未指定時は全リポジトリの current（各 repo_name）+ 全リリースを返す。
+   * current 行は一律 'current' として返し、複数リポジトリがある場合は重複する。
    * current を先頭に、残りは released_at の降順。
    */
-  getTrailGraphIds(repoName?: string): string[] {
+  getTrailGraphIds(): string[] {
     const db = this.ensureDb();
-    const result = repoName
-      ? db.exec(
-          `
+    const result = db.exec(`
       SELECT id FROM (
         SELECT 'current' AS id, 0 AS sort_order, '' AS released_at
-          FROM current_graphs WHERE repo_name = ?
-        UNION ALL
-        SELECT rg.tag AS id, 1 AS sort_order, COALESCE(r.released_at, '') AS released_at
-          FROM release_graphs rg
-          LEFT JOIN releases r ON rg.tag = r.tag
-      )
-      ORDER BY sort_order, released_at DESC
-    `,
-          [repoName],
-        )
-      : db.exec(`
-      SELECT id FROM (
-        SELECT repo_name AS id, 0 AS sort_order, '' AS released_at
           FROM current_graphs
         UNION ALL
         SELECT rg.tag AS id, 1 AS sort_order, COALESCE(r.released_at, '') AS released_at
@@ -1482,30 +1466,15 @@ export class TrailDatabase {
   }
 
   /**
-   * current_graphs と release_graphs の ID と repo_name のペア一覧を返す。
-   * repoName 指定時はそのリポジトリの current のみ、未指定時は全 current を返す。
+   * current_graphs と release_graphs の { tag, repoName } ペア一覧を返す。
+   * current 行は tag='current'、repoName=<repo_name> として全リポジトリ分を返す。
    * current を先頭に、残りは released_at の降順。
    */
-  getTrailGraphEntries(repoName?: string): Array<{ tag: string; repoName: string | null }> {
+  getTrailGraphEntries(): Array<{ tag: string; repoName: string | null }> {
     const db = this.ensureDb();
-    const result = repoName
-      ? db.exec(
-          `
+    const result = db.exec(`
       SELECT tag, repo_name FROM (
         SELECT 'current' AS tag, repo_name AS repo_name, 0 AS sort_order, '' AS released_at
-          FROM current_graphs WHERE repo_name = ?
-        UNION ALL
-        SELECT rg.tag AS tag, r.repo_name AS repo_name, 1 AS sort_order, COALESCE(r.released_at, '') AS released_at
-          FROM release_graphs rg
-          LEFT JOIN releases r ON rg.tag = r.tag
-      )
-      ORDER BY sort_order, released_at DESC
-    `,
-          [repoName],
-        )
-      : db.exec(`
-      SELECT tag, repo_name FROM (
-        SELECT repo_name AS tag, repo_name AS repo_name, 0 AS sort_order, '' AS released_at
           FROM current_graphs
         UNION ALL
         SELECT rg.tag AS tag, r.repo_name AS repo_name, 1 AS sort_order, COALESCE(r.released_at, '') AS released_at

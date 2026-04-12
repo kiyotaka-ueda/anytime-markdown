@@ -58,6 +58,8 @@ export function StandaloneTrailViewer({ isDark = true }: Readonly<{ isDark?: boo
     releases: c4DataSource.releases,
     selectedRelease: c4DataSource.selectedRelease,
     onReleaseSelect: c4DataSource.setSelectedRelease,
+    selectedRepo: c4DataSource.selectedRepo,
+    onRepoSelect: c4DataSource.setSelectedRepo,
     onAddElement: handleAddElement,
     onUpdateElement: handleUpdateElement,
     onAddRelationship: handleAddRelationship,
@@ -68,6 +70,7 @@ export function StandaloneTrailViewer({ isDark = true }: Readonly<{ isDark?: boo
        c4DataSource.coverageMatrix, c4DataSource.coverageDiff, c4DataSource.docLinks,
        c4DataSource.connected, c4DataSource.analysisProgress,
        c4DataSource.releases, c4DataSource.selectedRelease, c4DataSource.setSelectedRelease,
+       c4DataSource.selectedRepo, c4DataSource.setSelectedRepo,
        handleAddElement, handleUpdateElement, handleAddRelationship,
        handleRemoveElement, handlePurgeDeleted, handleDocLinkClick]);
 

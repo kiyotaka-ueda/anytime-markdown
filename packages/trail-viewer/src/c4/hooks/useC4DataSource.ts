@@ -44,6 +44,8 @@ interface C4DataSourceResult {
   releases: readonly C4ReleaseEntry[];
   selectedRelease: string;
   setSelectedRelease: (release: string) => void;
+  selectedRepo: string;
+  setSelectedRepo: (repo: string) => void;
 }
 
 interface WsModelMessage {
@@ -170,6 +172,7 @@ function isDsmMatrixPayload(v: unknown): v is DsmMatrixPayload {
 function useRemoteInitialFetch(
   serverUrl: string | undefined,
   selectedRelease: string,
+  selectedRepo: string,
   setC4Model: (m: C4Model) => void,
   setBoundaries: (b: readonly BoundaryInfo[]) => void,
   setDsmMatrix: (m: DsmMatrix | null) => void,
@@ -184,7 +187,8 @@ function useRemoteInitialFetch(
     let cancelled = false;
 
     async function fetchInitial(): Promise<void> {
-      const modelUrl = `${serverUrl}/api/c4/model?release=${encodeURIComponent(selectedRelease)}`;
+      const repoQuery = selectedRepo ? `&repo=${encodeURIComponent(selectedRepo)}` : '';
+      const modelUrl = `${serverUrl}/api/c4/model?release=${encodeURIComponent(selectedRelease)}${repoQuery}`;
       const [modelRes, dsmRes, covRes, releasesRes] = await Promise.all([
         fetch(modelUrl).catch(() => null),
         fetch(`${serverUrl}/api/c4/dsm`).catch(() => null),
@@ -243,7 +247,7 @@ function useRemoteInitialFetch(
 
     void fetchInitial();
     return () => { cancelled = true; };
-  }, [serverUrl, selectedRelease, setC4Model, setBoundaries, setDsmMatrix, setFeatureMatrix, setCoverageMatrix, setCoverageDiff, setReleases]);
+  }, [serverUrl, selectedRelease, selectedRepo, setC4Model, setBoundaries, setDsmMatrix, setFeatureMatrix, setCoverageMatrix, setCoverageDiff, setReleases]);
 }
 
 // ---------------------------------------------------------------------------
@@ -305,6 +309,7 @@ export function useC4DataSource(serverUrl?: string): C4DataSourceResult {
   const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null);
   const [releases, setReleases] = useState<readonly C4ReleaseEntry[]>([]);
   const [selectedRelease, setSelectedRelease] = useState<string>('current');
+  const [selectedRepo, setSelectedRepo] = useState<string>('');
 
   // Refs
   const wsRef = useRef<WebSocket | null>(null);
@@ -318,6 +323,7 @@ export function useC4DataSource(serverUrl?: string): C4DataSourceResult {
   useRemoteInitialFetch(
     serverUrl,
     selectedRelease,
+    selectedRepo,
     setRemoteModel,
     setRemoteBoundaries,
     setDsmMatrix,
@@ -438,5 +444,7 @@ export function useC4DataSource(serverUrl?: string): C4DataSourceResult {
     releases,
     selectedRelease,
     setSelectedRelease,
+    selectedRepo,
+    setSelectedRepo,
   };
 }

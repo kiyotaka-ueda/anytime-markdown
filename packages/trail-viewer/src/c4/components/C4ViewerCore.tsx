@@ -72,6 +72,8 @@ export interface C4ViewerCoreProps {
   readonly releases?: readonly C4ReleaseEntry[];
   readonly selectedRelease?: string;
   readonly onReleaseSelect?: (release: string) => void;
+  readonly selectedRepo?: string;
+  readonly onRepoSelect?: (repo: string) => void;
 }
 
 export function C4ViewerCore({
@@ -95,16 +97,19 @@ export function C4ViewerCore({
   releases = [],
   selectedRelease = CURRENT_RELEASE_TAG,
   onReleaseSelect,
+  selectedRepo: selectedRepoProp,
+  onRepoSelect,
 }: Readonly<C4ViewerCoreProps>) {
   const { t } = useTrailI18n();
   const colors = useMemo(() => getC4Colors(isDark), [isDark]);
 
+  // リリース entry と current entry 両方からリポジトリを収集する
   const repoOptions = useMemo(() => {
     const seen = new Set<string>();
     const order: string[] = [];
     for (const r of releases) {
-      if (r.tag === CURRENT_RELEASE_TAG) continue;
-      const key = r.repoName ?? UNKNOWN_REPO_KEY;
+      const key = r.repoName ?? (r.tag === CURRENT_RELEASE_TAG ? '' : UNKNOWN_REPO_KEY);
+      if (!key) continue;
       if (!seen.has(key)) {
         seen.add(key);
         order.push(key);
@@ -113,24 +118,33 @@ export function C4ViewerCore({
     return order;
   }, [releases]);
 
-  const [selectedRepo, setSelectedRepo] = useState<string>(() => repoOptions[0] ?? '');
+  const [selectedRepoInternal, setSelectedRepoInternal] = useState<string>(() => repoOptions[0] ?? '');
+  const selectedRepo = selectedRepoProp ?? selectedRepoInternal;
 
   useEffect(() => {
     if (repoOptions.length === 0) {
-      if (selectedRepo !== '') setSelectedRepo('');
+      if (selectedRepo !== '') {
+        setSelectedRepoInternal('');
+        onRepoSelect?.('');
+      }
       return;
     }
     if (!repoOptions.includes(selectedRepo)) {
-      setSelectedRepo(repoOptions[0]);
+      const next = repoOptions[0];
+      setSelectedRepoInternal(next);
+      onRepoSelect?.(next);
     }
-  }, [repoOptions, selectedRepo]);
+  }, [repoOptions, selectedRepo, onRepoSelect]);
 
   const visibleReleases = useMemo(() => {
     if (releases.length === 0) return [];
     const out: C4ReleaseEntry[] = [];
     for (const r of releases) {
       if (r.tag === CURRENT_RELEASE_TAG) {
-        out.push(r);
+        // current entry は選択中の repo と一致するときだけ表示する（複数リポジトリ対応）
+        if ((r.repoName ?? '') === selectedRepo) {
+          out.push(r);
+        }
         continue;
       }
       if (selectedRepo === '') continue;
@@ -142,8 +156,10 @@ export function C4ViewerCore({
   }, [releases, selectedRepo]);
 
   const handleRepoChange = useCallback((event: SelectChangeEvent<string>): void => {
-    setSelectedRepo(event.target.value);
-  }, []);
+    const next = event.target.value;
+    setSelectedRepoInternal(next);
+    onRepoSelect?.(next);
+  }, [onRepoSelect]);
 
   const [state, dispatch] = useReducer(graphReducer, createInitialState());
   const [fullDoc, setFullDoc] = useState<GraphDocument | null>(null);
