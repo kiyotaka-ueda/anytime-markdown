@@ -56,8 +56,4 @@ export type {
   CostDailyEntry,
   TrailPromptEntry,
   TrailEvaluation,
-  TrailTask,
-  TrailTaskFile,
-  TrailTaskC4Element,
-  TrailTaskFeature,
 } from '@anytime-markdown/trail-core/domain';
