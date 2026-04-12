@@ -5,10 +5,10 @@ import type { BoundaryInfo, C4Model, C4ReleaseEntry, CoverageDiffMatrix, Coverag
 import type { GraphDocument } from '@anytime-markdown/graph-core';
 import { layoutWithSubgroups } from '@anytime-markdown/graph-core';
 import { c4ToGraphDocument } from '@anytime-markdown/trail-core/c4';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { C4ViewerCore, SupabaseTrailReader } from '@anytime-markdown/trail-viewer';
-import type { ElementFormData, RelationshipFormData, SupabaseConfig } from '@anytime-markdown/trail-viewer';
+import { C4ViewerCore } from '@anytime-markdown/trail-viewer';
+import type { ElementFormData, RelationshipFormData } from '@anytime-markdown/trail-viewer';
 import { useThemeMode } from '../../providers';
 
 const CURRENT_RELEASE_TAG = 'current';
@@ -30,39 +30,39 @@ export function C4Viewer() {
   const [docLinks, setDocLinks] = useState<readonly DocLink[]>([]);
   const [releases, setReleases] = useState<readonly C4ReleaseEntry[]>([]);
   const [selectedRelease, setSelectedRelease] = useState<string>(CURRENT_RELEASE_TAG);
+  const [selectedRepo, setSelectedRepo] = useState<string>('');
 
-  const supabaseConfig: SupabaseConfig | undefined = useMemo(() => {
-    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      return {
-        url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-        anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      };
-    }
-    return undefined;
-  }, []);
-
+  // /api/c4/releases から current + releases エントリ一覧を取得する
   useEffect(() => {
-    if (!supabaseConfig) {
-      setReleases([{ tag: CURRENT_RELEASE_TAG, repoName: null }]);
-      return;
-    }
     let cancelled = false;
-    const reader = new SupabaseTrailReader(supabaseConfig.url, supabaseConfig.anonKey);
-    reader.getReleases()
-      .then((trailReleases) => {
+    fetch('/api/c4/releases')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: unknown) => {
         if (cancelled) return;
-        const entries: C4ReleaseEntry[] = [
-          { tag: CURRENT_RELEASE_TAG, repoName: null },
-          ...trailReleases.map((r) => ({ tag: r.tag, repoName: r.repoName })),
-        ];
-        setReleases(entries);
+        if (Array.isArray(data) && data.length > 0) {
+          const entries: C4ReleaseEntry[] = data
+            .map((item) => {
+              if (item && typeof item === 'object' && 'tag' in item) {
+                const obj = item as { tag: unknown; repoName?: unknown };
+                return {
+                  tag: String(obj.tag),
+                  repoName: typeof obj.repoName === 'string' ? obj.repoName : null,
+                };
+              }
+              return null;
+            })
+            .filter((e): e is C4ReleaseEntry => e !== null);
+          setReleases(entries);
+        } else {
+          setReleases([{ tag: CURRENT_RELEASE_TAG, repoName: null }]);
+        }
       })
       .catch(() => {
         if (cancelled) return;
         setReleases([{ tag: CURRENT_RELEASE_TAG, repoName: null }]);
       });
     return () => { cancelled = true; };
-  }, [supabaseConfig]);
+  }, []);
 
   // --- Data loading ---
 
@@ -103,7 +103,8 @@ export function C4Viewer() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/c4model?release=${encodeURIComponent(selectedRelease)}`)
+    const repoQuery = selectedRepo ? `&repo=${encodeURIComponent(selectedRepo)}` : '';
+    fetch(`/api/c4model?release=${encodeURIComponent(selectedRelease)}${repoQuery}`)
       .then(res => { if (res.ok) return res.json(); })
       .then((data: unknown) => {
         if (cancelled || !data) return;
@@ -111,7 +112,7 @@ export function C4Viewer() {
       })
       .catch(() => { /* c4-model.json が取得できない場合は無視 */ });
     return () => { cancelled = true; };
-  }, [loadGraphJson, selectedRelease]);
+  }, [loadGraphJson, selectedRelease, selectedRepo]);
 
   useEffect(() => {
     fetch('/api/docs-index')
@@ -236,6 +237,8 @@ export function C4Viewer() {
       releases={releases}
       selectedRelease={selectedRelease}
       onReleaseSelect={setSelectedRelease}
+      selectedRepo={selectedRepo}
+      onRepoSelect={setSelectedRepo}
     />
   );
 }

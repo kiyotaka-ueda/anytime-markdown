@@ -1,13 +1,17 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+
+import { fetchC4Model } from "@anytime-markdown/trail-core/c4";
+import { SupabaseC4ModelStore } from "@anytime-markdown/trail-viewer/supabase";
 
 /**
- * GET /api/c4model
+ * GET /api/c4model?release=...&repo=...
  *
  * C4モデルデータを返す。データソースの優先順位:
  *   1. Supabase (C4_SOURCE=supabase かつ SUPABASE_URL/SUPABASE_ANON_KEY 設定時)
- *   2. GitHub API (DOCS_GITHUB_REPO 設定時)
+ *      - trail-core の fetchC4Model + SupabaseC4ModelStore 経由で取得する
+ *      - release='current' の場合、repo クエリで該当リポジトリの current を返す
+ *   2. GitHub API (DOCS_GITHUB_REPO 設定時) — release='current' のみ対応
  *
  * 環境変数:
  *   C4_SOURCE          — "supabase" | "github" (デフォルト: "github")
@@ -20,12 +24,9 @@ import { createClient } from "@supabase/supabase-js";
 const CACHE_MAX_AGE = 300; // 5 min
 const FILE_PATH = "c4model/c4-model.json";
 
-/** "https://github.com/owner/repo" または "owner/repo" から "owner/repo" を抽出 */
 function extractOwnerRepo(value: string): string | null {
-  // フルURL形式: https://github.com/owner/repo
   const urlMatch = /github\.com\/([^/]+\/[^/]+)\/?$/.exec(value);
   if (urlMatch) return urlMatch[1];
-  // owner/repo 形式
   if (/^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/.test(value)) return value;
   return null;
 }
@@ -35,10 +36,11 @@ interface GitHubBlobResponse {
   encoding?: string;
 }
 
-const cachedDataByRelease = new Map<string, { json: unknown; expiresAt: number }>();
+const cachedDataByKey = new Map<string, { json: unknown; expiresAt: number }>();
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const release = request.nextUrl.searchParams.get("release") ?? "current";
+  const repo = request.nextUrl.searchParams.get("repo") ?? undefined;
 
   // Try Supabase first if configured
   const c4Source = process.env.C4_SOURCE ?? "github";
@@ -47,15 +49,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const supabaseKey = process.env.SUPABASE_ANON_KEY;
     if (supabaseUrl && supabaseKey) {
       try {
-        const client = createClient(supabaseUrl, supabaseKey);
-        const { data, error } = await client
-          .from("trail_c4_models")
-          .select("model_json")
-          .eq("id", release)
-          .single();
-        if (!error && data?.model_json) {
-          const parsed = JSON.parse(data.model_json) as unknown;
-          return NextResponse.json(parsed, {
+        const store = new SupabaseC4ModelStore(supabaseUrl, supabaseKey);
+        const payload = await fetchC4Model(store, release, repo);
+        if (payload) {
+          return NextResponse.json(payload, {
             headers: { "Cache-Control": `public, max-age=${CACHE_MAX_AGE}` },
           });
         }
@@ -87,16 +84,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const repo = extractOwnerRepo(repoRaw);
-  if (!repo) {
+  const repoSlug = extractOwnerRepo(repoRaw);
+  if (!repoSlug) {
     return NextResponse.json(
       { error: "DOCS_GITHUB_REPO is invalid" },
       { status: 500 },
     );
   }
 
-  // in-memory cache (per release)
-  const cached = cachedDataByRelease.get(release);
+  const cacheKey = `${release}:${repo ?? ""}`;
+  const cached = cachedDataByKey.get(cacheKey);
   if (cached && Date.now() < cached.expiresAt) {
     return NextResponse.json(cached.json, {
       headers: { "Cache-Control": `public, max-age=${CACHE_MAX_AGE}` },
@@ -113,7 +110,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   const res = await fetch(
-    `https://api.github.com/repos/${encodeURI(repo)}/contents/${encodeURI(FILE_PATH)}?ref=main`,
+    `https://api.github.com/repos/${encodeURI(repoSlug)}/contents/${encodeURI(FILE_PATH)}?ref=main`,
     { headers, next: { revalidate: CACHE_MAX_AGE } },
   );
 
@@ -143,7 +140,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  cachedDataByRelease.set(release, { json: parsed, expiresAt: Date.now() + CACHE_MAX_AGE * 1000 });
+  cachedDataByKey.set(cacheKey, { json: parsed, expiresAt: Date.now() + CACHE_MAX_AGE * 1000 });
 
   return NextResponse.json(parsed, {
     headers: { "Cache-Control": `public, max-age=${CACHE_MAX_AGE}` },

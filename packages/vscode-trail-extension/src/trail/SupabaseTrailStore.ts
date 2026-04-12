@@ -253,6 +253,24 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
     if (error) throw new Error(`Supabase upsert C4 model failed: ${error.message}`);
   }
 
+  /**
+   * リポジトリ単位の current C4 モデルを trail_current_c4_models に保存する。
+   * 拡張機能のローカル current_graphs と対応する。
+   */
+  async upsertCurrentC4Model(repoName: string, json: string, commitId: string, revision: string): Promise<void> {
+    const { error } = await this.ensureClient()
+      .from('trail_current_c4_models')
+      .upsert({
+        repo_name: repoName,
+        commit_id: commitId,
+        model_json: json,
+        revision,
+        updated_at: new Date().toISOString(),
+        synced_at: new Date().toISOString(),
+      }, { onConflict: 'repo_name' });
+    if (error) throw new Error(`Supabase upsert current C4 model failed: ${error.message}`);
+  }
+
   private ensureClient(): SupabaseClient {
     if (!this.client) throw new Error('SupabaseTrailStore not connected');
     return this.client;
