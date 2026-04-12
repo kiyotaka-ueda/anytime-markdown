@@ -440,37 +440,39 @@ function SessionCommitList({
         </Typography>
       ) : (
         <>
-          <Table size="small">
-            <TableHead>
-              <TableRow sx={{ '& .MuiTableCell-head': { color: colors.textSecondary, borderColor: colors.border } }}>
-                <TableCell>{t('analytics.commitHash')}</TableCell>
-                <TableCell>{t('analytics.commitMessage')}</TableCell>
-                <TableCell align="right">{t('analytics.commitFiles')}</TableCell>
-                <TableCell align="right">{t('analytics.commitDiff')}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {commits.map((c) => (
-                <TableRow key={c.commitHash} sx={{ '& .MuiTableCell-root': { borderColor: colors.border } }}>
-                  <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                    {c.commitHash.slice(0, 8)}
-                    {c.isAiAssisted && (
-                      <Typography component="span" variant="caption" sx={{ ml: 0.5, color: 'info.main' }}>
-                        {t('analytics.commitAI')}
-                      </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell sx={{ fontSize: '0.8rem', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {c.commitMessage}
-                  </TableCell>
-                  <TableCell align="right">{c.filesChanged}</TableCell>
-                  <TableCell align="right" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
-                    +{fmtNum(c.linesAdded)} / -{fmtNum(c.linesDeleted)}
-                  </TableCell>
+          <Box sx={{ maxHeight: 198, overflowY: 'auto' }}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow sx={{ '& .MuiTableCell-head': { color: colors.textSecondary, borderColor: colors.border, bgcolor: colors.midnightNavy } }}>
+                  <TableCell>{t('analytics.commitHash')}</TableCell>
+                  <TableCell>{t('analytics.commitMessage')}</TableCell>
+                  <TableCell align="right">{t('analytics.commitFiles')}</TableCell>
+                  <TableCell align="right">{t('analytics.commitDiff')}</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHead>
+              <TableBody>
+                {commits.map((c) => (
+                  <TableRow key={c.commitHash} sx={{ '& .MuiTableCell-root': { borderColor: colors.border } }}>
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                      {c.commitHash.slice(0, 8)}
+                      {c.isAiAssisted && (
+                        <Typography component="span" variant="caption" sx={{ ml: 0.5, color: 'info.main' }}>
+                          {t('analytics.commitAI')}
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {c.commitMessage}
+                    </TableCell>
+                    <TableCell align="right">{c.filesChanged}</TableCell>
+                    <TableCell align="right" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                      +{fmtNum(c.linesAdded)} / -{fmtNum(c.linesDeleted)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Box>
           {totalAdded > 0 && (
             <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
               {t('analytics.tokensPerLineLabel')} {fmtTokens(tokensPerLine)}
