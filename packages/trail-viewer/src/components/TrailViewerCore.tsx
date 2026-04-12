@@ -92,7 +92,7 @@ function TrailViewerCoreInner({
   const [activeTab, setActiveTab] = useState(0);
 
   const visibleSessions = useMemo(() => {
-    if (process.env.NEXT_PUBLIC_SHOW_LIMITED !== '1') return sessions;
+    if (process.env.NEXT_PUBLIC_SHOW_UNLIMITED === '1') return sessions;
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 7);
     return sessions.filter((s) => new Date(s.startTime) >= cutoff);
