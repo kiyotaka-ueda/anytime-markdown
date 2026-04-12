@@ -590,6 +590,8 @@ export class TrailDatabase {
       TrailLogger.info(
         `migrateTrailGraphsTable: migrated trail_graphs → current_graphs/release_graphs (current=${currentRow ? 1 : 0}, releases=${(othersRes[0]?.values?.length ?? 0) - orphans.length})`,
       );
+      // sql.js はインメモリなので、マイグレーション結果をディスクに即時永続化する
+      this.save();
     } catch (e) {
       TrailLogger.error('migrateTrailGraphsTable failed', e);
     }
