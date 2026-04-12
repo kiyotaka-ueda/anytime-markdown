@@ -334,10 +334,8 @@ function sessionCost(s: TrailSession): number {
 
 function SessionCacheTimeline({
   messages,
-  onClose,
 }: Readonly<{
   messages: readonly TrailMessage[];
-  onClose: () => void;
 }>) {
   const { colors, chartColors, cardSx } = useTrailTheme();
   const { t } = useTrailI18n();
@@ -363,17 +361,9 @@ function SessionCacheTimeline({
 
   return (
     <Paper elevation={0} sx={{ ...cardSx, mt: 1, p: 1.5 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+      <Box sx={{ mb: 1 }}>
         <Typography variant="subtitle2">
           {t('analytics.sessionCacheTimelineTitle')} ({assistantMsgs.length} {t('analytics.turns')})
-        </Typography>
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ cursor: 'pointer', color: colors.textSecondary, '&:hover': { textDecoration: 'underline' } }}
-          onClick={onClose}
-        >
-          {t('analytics.close')}
         </Typography>
       </Box>
       <LineChart
@@ -400,12 +390,10 @@ function SessionCommitList({
   sessionId,
   usage,
   fetchSessionCommits,
-  onClose,
 }: Readonly<{
   sessionId: string;
   usage: TrailTokenUsage;
   fetchSessionCommits: (id: string) => Promise<readonly TrailSessionCommit[]>;
-  onClose: () => void;
 }>) {
   const { colors, cardSx } = useTrailTheme();
   const { t } = useTrailI18n();
@@ -441,16 +429,9 @@ function SessionCommitList({
 
   return (
     <Paper elevation={0} sx={{ ...cardSx, mt: 1, p: 1.5 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+      <Box sx={{ mb: 1 }}>
         <Typography variant="subtitle2">
           {t('analytics.relatedCommits')} ({commits.length})
-        </Typography>
-        <Typography
-          variant="caption" color="text.secondary"
-          sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
-          onClick={onClose}
-        >
-          {t('analytics.close')}
         </Typography>
       </Box>
       {commits.length === 0 ? (
@@ -724,7 +705,6 @@ function DailySessionList({
             ) : timelineMessages.length > 0 && (
               <SessionCacheTimeline
                 messages={timelineMessages}
-                onClose={() => { setTimelineSessionId(null); setTimelineMessages([]); }}
               />
             )}
           </Box>
@@ -735,7 +715,6 @@ function DailySessionList({
           sessionId={timelineSessionId}
           usage={daySessions.find((s) => s.id === timelineSessionId)?.usage ?? { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 }}
           fetchSessionCommits={fetchSessionCommits}
-          onClose={() => { setTimelineSessionId(null); setTimelineMessages([]); }}
         />
       )}
     </Paper>
