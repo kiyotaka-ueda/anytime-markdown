@@ -695,7 +695,7 @@ function DailySessionList({
 
         {/* Right: cards + timeline — visible when a session is selected */}
         {timelineSessionId && daySessions.find((s) => s.id === timelineSessionId) && (
-          <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 1, width: { md: 560 } }}>
+          <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 1, width: { md: 600 } }}>
             <SessionMetricsPanel
               session={daySessions.find((s) => s.id === timelineSessionId)!}
               toolMetrics={sessionToolMetrics}
