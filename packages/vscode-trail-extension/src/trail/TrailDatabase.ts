@@ -12,6 +12,7 @@ import {
   CREATE_SESSION_COMMITS,
   CREATE_IMPORTED_FILES,
   CREATE_C4_MODELS,
+  CREATE_TRAIL_GRAPHS,
   CREATE_SKILL_MODELS as CREATE_SKILL_MODELS_TABLE,
   CREATE_SKILL_MODELS_RESOLVED_VIEW,
   CREATE_INDEXES,
@@ -26,6 +27,7 @@ import {
   extractSkillName,
   buildReleaseFromGitData,
 } from '@anytime-markdown/trail-core';
+import type { TrailGraph } from '@anytime-markdown/trail-core';
 import { resolveTasks as resolveTasksImpl } from './TaskResolver';
 import { ExecFileGitService } from './ExecFileGitService';
 import type { TaskRow, TaskFileRow, TaskC4ElementRow, TaskFeatureRow, ReleaseRow } from '@anytime-markdown/trail-core';
@@ -389,6 +391,7 @@ export class TrailDatabase {
     db.run(CREATE_TASK_FEATURES);
     db.run(CREATE_RELEASES);
     db.run(CREATE_C4_MODELS);
+    db.run(CREATE_TRAIL_GRAPHS);
     db.run(CREATE_SKILL_MODELS_TABLE);
     db.run(CREATE_SKILL_MODELS_RESOLVED_VIEW);
     for (const sql of [...CREATE_INDEXES, ...CREATE_TASK_INDEXES, ...CREATE_RELEASE_INDEXES]) {
@@ -1273,6 +1276,34 @@ export class TrailDatabase {
       revision: revision as string,
       updatedAt: updatedAt as string,
     };
+  }
+
+  saveTrailGraph(graph: TrailGraph, tsconfigPath: string, id = 'current'): void {
+    const db = this.ensureDb();
+    db.run(
+      `INSERT OR REPLACE INTO trail_graphs
+         (id, graph_json, tsconfig_path, project_root, analyzed_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+      [
+        id,
+        JSON.stringify(graph),
+        tsconfigPath,
+        graph.metadata.projectRoot,
+        graph.metadata.analyzedAt,
+      ],
+    );
+    this.save();
+  }
+
+  getTrailGraph(id = 'current'): TrailGraph | null {
+    const db = this.ensureDb();
+    const result = db.exec(
+      'SELECT graph_json FROM trail_graphs WHERE id = ?',
+      [id],
+    );
+    const json = result[0]?.values?.[0]?.[0];
+    if (typeof json !== 'string') return null;
+    return JSON.parse(json) as TrailGraph;
   }
 
   // -------------------------------------------------------------------------
