@@ -340,13 +340,7 @@ function SessionCacheTimeline({
   const { colors, chartColors, cardSx } = useTrailTheme();
   const { t } = useTrailI18n();
   const assistantMsgs = messages.filter((m) => m.type === 'assistant' && m.usage);
-  if (assistantMsgs.length === 0) {
-    return (
-      <Paper elevation={0} sx={{ ...cardSx, mt: 1, p: 1.5 }}>
-        <Typography variant="body2" color="text.secondary">{t('analytics.noTokenData')}</Typography>
-      </Paper>
-    );
-  }
+  const hasData = assistantMsgs.length > 0;
 
   const dataset = assistantMsgs.map((m, i) => ({
     turn: i + 1,
@@ -363,25 +357,33 @@ function SessionCacheTimeline({
     <Paper elevation={0} sx={{ ...cardSx, mt: 1, p: 1.5 }}>
       <Box sx={{ mb: 1 }}>
         <Typography variant="subtitle2">
-          {t('analytics.sessionCacheTimelineTitle')} ({assistantMsgs.length} {t('analytics.turns')})
+          {t('analytics.sessionCacheTimelineTitle')} {hasData && `(${assistantMsgs.length} ${t('analytics.turns')})`}
         </Typography>
       </Box>
-      <LineChart
-        dataset={dataset}
-        xAxis={[{ dataKey: 'turn', scaleType: 'point', tickInterval: (value: number) => value % tickStep === 0 }]}
-        yAxis={[{ valueFormatter: fmtTokens }]}
-        series={[
-          { dataKey: 'inputTokens', label: t('analytics.chartInput'), color: chartColors.input, showMark: false },
-          { dataKey: 'outputTokens', label: t('analytics.chartOutput'), color: chartColors.output, showMark: false },
-          { dataKey: 'cacheReadTokens', label: t('analytics.chartCacheRead'), color: chartColors.cacheRead, showMark: false },
-          { dataKey: 'cacheCreationTokens', label: t('analytics.chartCacheWrite'), color: chartColors.cacheWrite, showMark: false },
-        ]}
-        height={200}
-        margin={{ left: 0, right: 16, top: 16, bottom: 0 }}
-        slotProps={{
-          legend: { direction: 'horizontal', position: { vertical: 'top', horizontal: 'end' } },
-        }}
-      />
+      {hasData ? (
+        <LineChart
+          dataset={dataset}
+          xAxis={[{ dataKey: 'turn', scaleType: 'point', tickInterval: (value: number) => value % tickStep === 0 }]}
+          yAxis={[{ valueFormatter: fmtTokens }]}
+          series={[
+            { dataKey: 'inputTokens', label: t('analytics.chartInput'), color: chartColors.input, showMark: false },
+            { dataKey: 'outputTokens', label: t('analytics.chartOutput'), color: chartColors.output, showMark: false },
+            { dataKey: 'cacheReadTokens', label: t('analytics.chartCacheRead'), color: chartColors.cacheRead, showMark: false },
+            { dataKey: 'cacheCreationTokens', label: t('analytics.chartCacheWrite'), color: chartColors.cacheWrite, showMark: false },
+          ]}
+          height={200}
+          margin={{ left: 0, right: 16, top: 16, bottom: 0 }}
+          slotProps={{
+            legend: { direction: 'horizontal', position: { vertical: 'top', horizontal: 'end' } },
+          }}
+        />
+      ) : (
+        <Box sx={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px dashed ${colors.border}`, borderRadius: 1 }}>
+          <Typography variant="body2" sx={{ color: colors.textSecondary }}>
+            {t('analytics.noTokenData')}
+          </Typography>
+        </Box>
+      )}
     </Paper>
   );
 }
@@ -704,7 +706,7 @@ function DailySessionList({
               <Paper elevation={0} sx={{ ...cardSx, mt: 1, p: 1.5, height: 270, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Typography variant="body2" color="text.secondary">{t('sessionList.loadingTimeline')}</Typography>
               </Paper>
-            ) : timelineMessages.length > 0 && (
+            ) : (
               <SessionCacheTimeline
                 messages={timelineMessages}
               />
