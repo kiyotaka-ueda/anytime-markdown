@@ -138,11 +138,20 @@ export function C4ViewerCore({
 
   const visibleReleases = useMemo(() => {
     if (releases.length === 0) return [];
+    // current エントリに repoName が付いている行が1件でもあれば「複数リポジトリ対応モード」として扱う
+    const hasRepoTaggedCurrent = releases.some(
+      (r) => r.tag === CURRENT_RELEASE_TAG && r.repoName != null && r.repoName !== '',
+    );
     const out: C4ReleaseEntry[] = [];
     for (const r of releases) {
       if (r.tag === CURRENT_RELEASE_TAG) {
-        // current entry は選択中の repo と一致するときだけ表示する（複数リポジトリ対応）
-        if ((r.repoName ?? '') === selectedRepo) {
+        if (hasRepoTaggedCurrent) {
+          // 複数リポジトリ対応: 選択中の repo と一致する current のみ表示
+          if ((r.repoName ?? '') === selectedRepo) {
+            out.push(r);
+          }
+        } else {
+          // レガシー互換: repoName を持たない current は常に表示
           out.push(r);
         }
         continue;
