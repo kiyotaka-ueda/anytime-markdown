@@ -1217,6 +1217,16 @@ export class TrailDatabase {
       }
     }
 
+    // C4 モデルを c4_models テーブルに保存
+    if (c4ModelPath) {
+      try {
+        const raw = fs.readFileSync(c4ModelPath, 'utf-8');
+        JSON.parse(raw); // バリデーション（パース失敗は catch で無視）
+        const revision = fs.statSync(c4ModelPath).mtimeMs.toString();
+        this.saveC4Model(raw, revision);
+      } catch { /* ファイル読み込み失敗は無視 */ }
+    }
+
     // Analyze source code for each release
     let releasesAnalyzed = 0;
     if (gitRoot) {
@@ -2349,6 +2359,30 @@ export class TrailDatabase {
     return result[0].values.map((row) =>
       Object.fromEntries(cols.map((col, i) => [col, row[i]])) as unknown as ReleaseCoverageRow,
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  //  C4 Model
+  // ---------------------------------------------------------------------------
+
+  saveC4Model(json: string, revision: string): void {
+    const db = this.ensureDb();
+    db.run(
+      `INSERT OR REPLACE INTO c4_models (id, model_json, revision, updated_at)
+       VALUES ('current', ?, ?, ?)`,
+      [json, revision, new Date().toISOString()],
+    );
+    this.save();
+  }
+
+  getC4Model(): { json: string; revision: string } | null {
+    const db = this.ensureDb();
+    const res = db.exec(
+      "SELECT model_json, revision FROM c4_models WHERE id = 'current'",
+    );
+    if (!res.length || !res[0].values.length) return null;
+    const [json, revision] = res[0].values[0] as [string, string];
+    return { json, revision };
   }
 }
 
