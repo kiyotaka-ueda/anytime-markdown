@@ -394,7 +394,7 @@ export class C4Panel implements C4DataProvider {
         { location: vscode.ProgressLocation.Notification, title: 'C4 Analysis', cancellable: false },
         async (progress) => {
           const server = C4Panel.dataServer;
-          const phases = ['Loading project...', 'Extracting symbols...', 'Extracting dependencies...', 'Filtering results...', 'Building C4 model...'];
+          const phases = ['Loading project...', 'Extracting symbols...', 'Extracting dependencies...', 'Filtering results...'];
           const phasePercent = (phase: string): number => {
             const idx = phases.indexOf(phase);
             return idx >= 0 ? Math.round((idx / phases.length) * 100) : -1;
@@ -409,39 +409,45 @@ export class C4Panel implements C4DataProvider {
             },
           });
 
-          progress.report({ message: 'Building C4 model...' });
-          server?.notifyProgress('Building C4 model...', 80);
-          const analyzed = trailToC4(graph);
+          // TrailGraph を DB に保存
+          C4Panel.trailDb?.saveTrailGraph(graph, tsconfigPath);
 
-          // 既存の手動要素を保持し、消失した解析要素に削除フラグを付与してマージ
+          // TODO: C4モデル変換・マージは一旦コメントアウト
+          // progress.report({ message: 'Building C4 model...' });
+          // server?.notifyProgress('Building C4 model...', 80);
+          // const analyzed = trailToC4(graph);
+          //
+          // // 既存の手動要素を保持し、消失した解析要素に削除フラグを付与してマージ
+          // const panel = C4Panel.getInstance();
+          // const prevElements = panel.lastModel?.elements ?? [];
+          // const prevRels = panel.lastModel?.relationships ?? [];
+          //
+          // const analyzedIdSet = new Set(analyzed.elements.map(e => e.id));
+          //
+          // // 手動要素: そのまま保持
+          // const manualElements = prevElements.filter(e => e.manual);
+          // // 解析由来の前回要素: 新結果に不在なら deleted フラグ付与
+          // const deletedElements = prevElements
+          //   .filter(e => !e.manual && !e.deleted && !analyzedIdSet.has(e.id))
+          //   .map(e => ({ ...e, deleted: true }));
+          // // 前回すでに deleted だった要素: そのまま保持（新結果に復活していなければ）
+          // const prevDeletedElements = prevElements
+          //   .filter(e => e.deleted && !analyzedIdSet.has(e.id));
+          //
+          // const manualRels = prevRels.filter(r => r.manual);
+          //
+          // const model: C4Model = {
+          //   ...analyzed,
+          //   elements: [...analyzed.elements, ...manualElements, ...deletedElements, ...prevDeletedElements],
+          //   relationships: [...analyzed.relationships, ...manualRels],
+          // };
+          //
+          // panel.setModel(model);
+
           const panel = C4Panel.getInstance();
-          const prevElements = panel.lastModel?.elements ?? [];
-          const prevRels = panel.lastModel?.relationships ?? [];
-
-          const analyzedIdSet = new Set(analyzed.elements.map(e => e.id));
-
-          // 手動要素: そのまま保持
-          const manualElements = prevElements.filter(e => e.manual);
-          // 解析由来の前回要素: 新結果に不在なら deleted フラグ付与
-          const deletedElements = prevElements
-            .filter(e => !e.manual && !e.deleted && !analyzedIdSet.has(e.id))
-            .map(e => ({ ...e, deleted: true }));
-          // 前回すでに deleted だった要素: そのまま保持（新結果に復活していなければ）
-          const prevDeletedElements = prevElements
-            .filter(e => e.deleted && !analyzedIdSet.has(e.id));
-
-          const manualRels = prevRels.filter(r => r.manual);
-
-          const model: C4Model = {
-            ...analyzed,
-            elements: [...analyzed.elements, ...manualElements, ...deletedElements, ...prevDeletedElements],
-            relationships: [...analyzed.relationships, ...manualRels],
-          };
-
           panel.lastTrailGraph = graph;
           panel.lastProjectRoot = graph.metadata.projectRoot;
           panel.lastTsconfigPath = tsconfigPath;
-          panel.setModel(model);
           server?.notifyProgress('', 100);
         },
       );
