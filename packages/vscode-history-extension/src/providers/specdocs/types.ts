@@ -77,8 +77,8 @@ export class SpecDocsItem extends vscode.TreeItem {
 export type SpecDocsNode = SpecDocsRootItem | SpecDocsItem;
 
 export class SpecDocsDragAndDrop implements vscode.TreeDragAndDropController<SpecDocsNode> {
-	readonly dropMimeTypes = ['application/vnd.code.tree.anytimegit.specdocs', 'text/uri-list'];
-	readonly dragMimeTypes = ['application/vnd.code.tree.anytimegit.specdocs'];
+	readonly dropMimeTypes = ['application/vnd.code.tree.anytimehistory.specdocs', 'text/uri-list'];
+	readonly dragMimeTypes = ['application/vnd.code.tree.anytimehistory.specdocs'];
 
 	constructor(private readonly provider: { roots: string[]; refresh(): void }) {}
 
@@ -87,7 +87,7 @@ export class SpecDocsDragAndDrop implements vscode.TreeDragAndDropController<Spe
 		const items = source.filter((s): s is SpecDocsItem => s instanceof SpecDocsItem);
 		if (items.length === 0) return;
 		dataTransfer.set(
-			'application/vnd.code.tree.anytimegit.specdocs',
+			'application/vnd.code.tree.anytimehistory.specdocs',
 			new vscode.DataTransferItem(items.map(s => s.resourceUri.fsPath)),
 		);
 	}
@@ -102,7 +102,7 @@ export class SpecDocsDragAndDrop implements vscode.TreeDragAndDropController<Spe
 
 	async handleDrop(target: SpecDocsNode | undefined, dataTransfer: vscode.DataTransfer): Promise<void> {
 		// 内部ドラッグ（移動）— 外部ドロップより先に判定する
-		const raw = dataTransfer.get('application/vnd.code.tree.anytimegit.specdocs');
+		const raw = dataTransfer.get('application/vnd.code.tree.anytimehistory.specdocs');
 		if (raw) {
 			const sourcePaths: string[] = raw.value;
 			if (sourcePaths && sourcePaths.length > 0) {
