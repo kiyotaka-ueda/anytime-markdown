@@ -1,5 +1,20 @@
 -- supabase/migrations/001_schema.sql
 -- Trail viewer tables (consolidated schema)
+--
+-- 本プロジェクトでは Supabase のテーブルを毎回すべて削除してから再作成する運用のため、
+-- 先頭で全テーブルを DROP し、その後に CREATE TABLE を実行する。
+-- FK 依存順序に注意し、子テーブル → 親テーブルの順で DROP する。
+
+DROP TABLE IF EXISTS trail_release_features CASCADE;
+DROP TABLE IF EXISTS trail_release_files CASCADE;
+DROP TABLE IF EXISTS trail_releases CASCADE;
+DROP TABLE IF EXISTS trail_current_c4_models CASCADE;
+DROP TABLE IF EXISTS trail_c4_models CASCADE;
+DROP TABLE IF EXISTS trail_daily_costs CASCADE;
+DROP TABLE IF EXISTS trail_session_costs CASCADE;
+DROP TABLE IF EXISTS trail_session_commits CASCADE;
+DROP TABLE IF EXISTS trail_messages CASCADE;
+DROP TABLE IF EXISTS trail_sessions CASCADE;
 
 CREATE TABLE IF NOT EXISTS trail_sessions (
     id TEXT PRIMARY KEY,
