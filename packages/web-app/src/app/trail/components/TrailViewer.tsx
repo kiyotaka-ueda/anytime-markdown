@@ -71,7 +71,7 @@ export function TrailViewer() {
     let cancelled = false;
     async function fetchC4(): Promise<void> {
       try {
-        const res = await fetch('/api/c4model');
+        const res = await fetch(`/api/c4model?release=${encodeURIComponent(selectedRelease)}`);
         if (!res.ok) return;
         const data = (await res.json()) as C4Payload;
         if (!cancelled && data?.model?.elements) {
@@ -81,7 +81,7 @@ export function TrailViewer() {
     }
     void fetchC4();
     return () => { cancelled = true; };
-  }, []);
+  }, [selectedRelease]);
 
   if (dataSource.loading && dataSource.sessions.length === 0) {
     return (

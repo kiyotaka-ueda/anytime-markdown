@@ -102,11 +102,16 @@ export function C4Viewer() {
   }, []);
 
   useEffect(() => {
-    fetch('/api/c4model')
+    let cancelled = false;
+    fetch(`/api/c4model?release=${encodeURIComponent(selectedRelease)}`)
       .then(res => { if (res.ok) return res.json(); })
-      .then((data: unknown) => { if (data) loadGraphJson(JSON.stringify(data)); })
+      .then((data: unknown) => {
+        if (cancelled || !data) return;
+        loadGraphJson(JSON.stringify(data));
+      })
       .catch(() => { /* c4-model.json が取得できない場合は無視 */ });
-  }, [loadGraphJson]);
+    return () => { cancelled = true; };
+  }, [loadGraphJson, selectedRelease]);
 
   useEffect(() => {
     fetch('/api/docs-index')
