@@ -539,7 +539,7 @@ function SessionMetricsPanel({ session, toolMetrics }: Readonly<{
   ];
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 1 }}>
+    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', lg: 'row' }, gap: 1 }}>
       <CyclingCard
         groupName={t('analytics.groupUsage')}
         items={usageCards}
@@ -618,7 +618,7 @@ function DailySessionList({
           {date} — {daySessions.length} {daySessions.length !== 1 ? t('sessionList.sessions') : t('sessionList.session')}
         </Typography>
       </Box>
-      <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', md: 'row' } }}>
+      <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', lg: 'row' } }}>
         {/* Left: session table — height stretches to match right column, scrolls if needed */}
         <Box sx={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
           {daySessions.length === 0 ? (
@@ -695,7 +695,7 @@ function DailySessionList({
 
         {/* Right: cards + timeline — visible when a session is selected */}
         {timelineSessionId && daySessions.find((s) => s.id === timelineSessionId) && (
-          <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 1, width: { md: 600 } }}>
+          <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 1, width: { lg: 600 } }}>
             <SessionMetricsPanel
               session={daySessions.find((s) => s.id === timelineSessionId)!}
               toolMetrics={sessionToolMetrics}
