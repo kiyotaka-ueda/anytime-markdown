@@ -2186,6 +2186,18 @@ export class TrailDatabase {
       try {
         onProgress?.(`Analyzing release ${tag}...`);
 
+        // 残存 worktree を事前クリーンアップ
+        if (fs.existsSync(tmpDir)) {
+          try {
+            execFileSync('git', ['worktree', 'remove', tmpDir, '--force'], {
+              cwd: gitRoot,
+              stdio: 'pipe',
+            });
+          } catch {
+            try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
+          }
+        }
+
         // 一時 worktree を作成
         const commitHash = git.getTagCommitHash(tag);
         execFileSync('git', ['worktree', 'add', '--detach', tmpDir, commitHash], {
