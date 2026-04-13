@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { C4ViewerCore, useC4DataSource } from '@anytime-markdown/trail-viewer';
 import type { DocLink } from '@anytime-markdown/trail-core/c4';
@@ -18,6 +18,19 @@ export function C4Viewer() {
   const isDark = themeMode === 'dark';
 
   const c4 = useC4DataSource('');
+
+  // 診断: releases state の中身を開発者コンソールに出す
+  useEffect(() => {
+    if (c4.releases.length > 0) {
+      // eslint-disable-next-line no-console
+      console.info(
+        '[C4Viewer] releases loaded:',
+        c4.releases.length,
+        'repos:',
+        [...new Set(c4.releases.map((r) => r.repoName ?? '(null)'))],
+      );
+    }
+  }, [c4.releases]);
 
   const handleDocLinkClick = useCallback((doc: DocLink) => {
     globalThis.open(`/docs/view?ghPath=${encodeURIComponent(doc.path)}`, '_blank');

@@ -29,9 +29,13 @@ export async function GET(): Promise<NextResponse> {
     const store = new SupabaseC4ModelStore(env.url, env.anonKey);
     const entries = await fetchC4ModelEntries(store);
     console.info(`[/api/c4/releases] returned ${entries.length} entries`);
-    return NextResponse.json(entries);
+    return NextResponse.json(entries, {
+      headers: { 'Cache-Control': 'no-store, must-revalidate' },
+    });
   } catch (e) {
     console.error('[/api/c4/releases] error', e);
-    return NextResponse.json([]);
+    return NextResponse.json([], {
+      headers: { 'Cache-Control': 'no-store, must-revalidate' },
+    });
   }
 }
