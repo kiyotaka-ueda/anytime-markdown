@@ -46,6 +46,10 @@
     "views": {
       "anytimeTrail": [
         {
+          "id": "anytimeTrail.dashboard",
+          "name": "%view.dashboard%"
+        },
+        {
           "id": "anytimeTrail.database",
           "name": "%view.database%"
         },
@@ -60,6 +64,10 @@
       ]
     },
     "viewsWelcome": [
+      {
+        "view": "anytimeTrail.dashboard",
+        "contents": "[$(graph-line) Trail Viewerを開く](command:anytime-trail.openTrailViewer)"
+      },
       {
         "view": "anytimeTrail.c4Elements",
         "contents": "%viewsWelcome.c4Elements%",
