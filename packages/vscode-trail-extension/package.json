@@ -119,7 +119,7 @@
         "command": "anytime-trail.importTrailData",
         "title": "Refresh Trail Data",
         "category": "Anytime Trail",
-        "icon": "$(database)"
+        "icon": "$(refresh)"
       },
       {
         "command": "anytime-trail.syncToRemote",
