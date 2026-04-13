@@ -1,5 +1,5 @@
 import { buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, filterTreeByLevel } from '@anytime-markdown/trail-core/c4';
-import type { BoundaryInfo, C4Model, C4ReleaseEntry, CoverageDiffMatrix, CoverageMatrix, DocLink, FeatureMatrix } from '@anytime-markdown/trail-core/c4';
+import type { BoundaryInfo, C4Model, C4ReleaseEntry, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix } from '@anytime-markdown/trail-core/c4';
 import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 import { engine, layoutWithSubgroups, state as graphState } from '@anytime-markdown/graph-core';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
@@ -56,6 +56,7 @@ export interface C4ViewerCoreProps {
   readonly c4Model: C4Model | null;
   readonly boundaries: readonly BoundaryInfo[];
   readonly featureMatrix: FeatureMatrix | null;
+  readonly dsmMatrix: DsmMatrix | null;
   readonly coverageMatrix: CoverageMatrix | null;
   readonly coverageDiff: CoverageDiffMatrix | null;
   readonly docLinks?: readonly DocLink[];
@@ -72,6 +73,8 @@ export interface C4ViewerCoreProps {
   readonly releases?: readonly C4ReleaseEntry[];
   readonly selectedRelease?: string;
   readonly onReleaseSelect?: (release: string) => void;
+  readonly selectedRepo?: string;
+  readonly onRepoSelect?: (repo: string) => void;
 }
 
 export function C4ViewerCore({
@@ -79,6 +82,7 @@ export function C4ViewerCore({
   c4Model,
   boundaries: boundaryInfos,
   featureMatrix,
+  dsmMatrix,
   coverageMatrix,
   coverageDiff,
   docLinks,
@@ -95,16 +99,19 @@ export function C4ViewerCore({
   releases = [],
   selectedRelease = CURRENT_RELEASE_TAG,
   onReleaseSelect,
+  selectedRepo: selectedRepoProp,
+  onRepoSelect,
 }: Readonly<C4ViewerCoreProps>) {
   const { t } = useTrailI18n();
   const colors = useMemo(() => getC4Colors(isDark), [isDark]);
 
+  // リリース entry と current entry 両方からリポジトリを収集する
   const repoOptions = useMemo(() => {
     const seen = new Set<string>();
     const order: string[] = [];
     for (const r of releases) {
-      if (r.tag === CURRENT_RELEASE_TAG) continue;
-      const key = r.repoName ?? UNKNOWN_REPO_KEY;
+      const key = r.repoName ?? (r.tag === CURRENT_RELEASE_TAG ? '' : UNKNOWN_REPO_KEY);
+      if (!key) continue;
       if (!seen.has(key)) {
         seen.add(key);
         order.push(key);
@@ -113,24 +120,42 @@ export function C4ViewerCore({
     return order;
   }, [releases]);
 
-  const [selectedRepo, setSelectedRepo] = useState<string>(() => repoOptions[0] ?? '');
+  const [selectedRepoInternal, setSelectedRepoInternal] = useState<string>(() => repoOptions[0] ?? '');
+  const selectedRepo = selectedRepoProp ?? selectedRepoInternal;
 
   useEffect(() => {
     if (repoOptions.length === 0) {
-      if (selectedRepo !== '') setSelectedRepo('');
+      if (selectedRepo !== '') {
+        setSelectedRepoInternal('');
+        onRepoSelect?.('');
+      }
       return;
     }
     if (!repoOptions.includes(selectedRepo)) {
-      setSelectedRepo(repoOptions[0]);
+      const next = repoOptions[0];
+      setSelectedRepoInternal(next);
+      onRepoSelect?.(next);
     }
-  }, [repoOptions, selectedRepo]);
+  }, [repoOptions, selectedRepo, onRepoSelect]);
 
   const visibleReleases = useMemo(() => {
     if (releases.length === 0) return [];
+    // current エントリに repoName が付いている行が1件でもあれば「複数リポジトリ対応モード」として扱う
+    const hasRepoTaggedCurrent = releases.some(
+      (r) => r.tag === CURRENT_RELEASE_TAG && r.repoName != null && r.repoName !== '',
+    );
     const out: C4ReleaseEntry[] = [];
     for (const r of releases) {
       if (r.tag === CURRENT_RELEASE_TAG) {
-        out.push(r);
+        if (hasRepoTaggedCurrent) {
+          // 複数リポジトリ対応: 選択中の repo と一致する current のみ表示
+          if ((r.repoName ?? '') === selectedRepo) {
+            out.push(r);
+          }
+        } else {
+          // レガシー互換: repoName を持たない current は常に表示
+          out.push(r);
+        }
         continue;
       }
       if (selectedRepo === '') continue;
@@ -142,8 +167,10 @@ export function C4ViewerCore({
   }, [releases, selectedRepo]);
 
   const handleRepoChange = useCallback((event: SelectChangeEvent<string>): void => {
-    setSelectedRepo(event.target.value);
-  }, []);
+    const next = event.target.value;
+    setSelectedRepoInternal(next);
+    onRepoSelect?.(next);
+  }, [onRepoSelect]);
 
   const [state, dispatch] = useReducer(graphReducer, createInitialState());
   const [fullDoc, setFullDoc] = useState<GraphDocument | null>(null);
@@ -284,31 +311,6 @@ export function C4ViewerCore({
     }
     return excluded.size > 0 ? excluded : null;
   }, [c4Model, checkedPackageIds]);
-
-  const dsmModel = useMemo(() => {
-    if (!c4Model) return null;
-    if (dsmLevel === 'package') {
-      if (!excludedDescendantIds) return c4Model;
-      const filteredElements = c4Model.elements.filter(e => !excludedDescendantIds.has(e.id));
-      const filteredIds = new Set(filteredElements.map(e => e.id));
-      const filteredRelationships = c4Model.relationships.filter(
-        r => filteredIds.has(r.from) || filteredIds.has(r.to),
-      );
-      return { ...c4Model, elements: filteredElements, relationships: filteredRelationships };
-    }
-    const targetType = currentLevel >= 4 ? 'code' : 'component';
-    const filteredElements = c4Model.elements.filter(e => {
-      if (e.type !== targetType) return false;
-      if (excludedDescendantIds?.has(e.id)) return false;
-      return true;
-    });
-    if (filteredElements.length === 0 && !excludedDescendantIds) return c4Model;
-    const filteredIds = new Set(filteredElements.map(e => e.id));
-    const filteredRelationships = c4Model.relationships.filter(
-      r => filteredIds.has(r.from) || filteredIds.has(r.to),
-    );
-    return { ...c4Model, elements: filteredElements, relationships: filteredRelationships };
-  }, [c4Model, dsmLevel, currentLevel, excludedDescendantIds]);
 
   const selectedScopeIds = useMemo(() => {
     if (!c4Model || !selectedElementId) return null;
@@ -605,12 +607,10 @@ export function C4ViewerCore({
                 <CoverageCanvas coverageMatrix={coverageMatrix} coverageDiff={coverageDiff} model={c4Model} level={currentLevel} isDark={isDark} />
               ) : matrixView === 'fcmap' && featureMatrix && c4Model ? (
                 <FcMapCanvas featureMatrix={featureMatrix} model={c4Model} excludedElementIds={excludedDescendantIds} level={currentLevel} isDark={isDark} />
-              ) : dsmModel ? (
+              ) : dsmMatrix ? (
                 <DsmCanvas
-                  model={dsmModel}
+                  matrix={dsmMatrix}
                   fullModel={c4Model ?? undefined}
-                  boundaries={boundaryInfos}
-                  level={dsmLevel}
                   clustered={dsmClustered}
                   focusedNodeId={selectedElementId}
                   scopeIds={selectedScopeIds}

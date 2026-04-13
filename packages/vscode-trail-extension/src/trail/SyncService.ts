@@ -1,7 +1,6 @@
 import type { TrailDatabase } from './TrailDatabase';
 import type { IRemoteTrailStore } from './IRemoteTrailStore';
 import { TrailLogger } from '../utils/TrailLogger';
-import { trailToC4 } from '@anytime-markdown/trail-core';
 
 export interface SyncProgress {
   message: string;
@@ -41,24 +40,21 @@ export class SyncService {
   private async doSync(
     onProgress?: (progress: SyncProgress) => void,
   ): Promise<SyncResult> {
+    onProgress?.({ message: 'Clearing remote tables...' });
+    await this.store.clearAll();
+
     onProgress?.({ message: 'Fetching local sessions...' });
     const localSessions = this.trailDb.getSessions();
 
-    onProgress?.({ message: 'Fetching remote state...' });
-    const remoteSyncedAt = await this.store.getExistingSyncedAt();
-
-    const toSync = localSessions.filter((s) => {
-      const remoteImportedAt = remoteSyncedAt.get(s.id);
-      return remoteImportedAt === undefined || s.imported_at > remoteImportedAt;
-    });
+    const messageCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
     let synced = 0;
     let errors = 0;
 
-    if (toSync.length > 0) {
-      const increment = 100 / toSync.length;
+    if (localSessions.length > 0) {
+      const increment = 100 / localSessions.length;
 
-      for (const session of toSync) {
+      for (const session of localSessions) {
         try {
           onProgress?.({
             message: `Syncing ${session.slug || session.id.slice(0, 8)}...`,
@@ -66,8 +62,12 @@ export class SyncService {
           });
           await this.store.upsertSessions([session]);
 
-          const messages = this.trailDb.getMessages(session.id);
-          await this.store.upsertMessages(messages);
+          const messages = this.trailDb
+            .getMessages(session.id)
+            .filter((m) => m.timestamp >= messageCutoff);
+          if (messages.length > 0) {
+            await this.store.upsertMessages(messages);
+          }
 
           const commits = this.trailDb.getSessionCommits(session.id);
           await this.store.upsertCommits(commits);
@@ -117,39 +117,38 @@ export class SyncService {
       errors++;
     }
 
-    // Sync C4 model
+    // Sync current TrailGraphs per repository (wash-away: delete all → upsert all)
     try {
-      const c4 = this.trailDb.getC4Model();
-      if (c4) {
-        onProgress?.({ message: 'Syncing C4 model...' });
-        await this.store.upsertC4Model(c4.json, c4.revision);
+      const currents = this.trailDb.listCurrentGraphs();
+      onProgress?.({ message: `Syncing ${currents.length} current TrailGraphs (wash-away)...` });
+      await this.store.clearCurrentGraphs();
+      for (const row of currents) {
+        await this.store.upsertCurrentGraph(row.repoName, JSON.stringify(row.graph), row.commitId);
       }
     } catch (e) {
-      TrailLogger.error('Failed to sync C4 model', e);
+      TrailLogger.error('Failed to sync current TrailGraphs', e);
       errors++;
     }
 
-    // Sync historical C4 models per release (trail_graphs → trail_c4_models)
+    // Sync historical TrailGraphs per release (wash-away)
     try {
       const graphIds = this.trailDb.getTrailGraphIds();
       const releaseIds = graphIds.filter((id) => id !== 'current');
-      if (releaseIds.length > 0) {
-        onProgress?.({ message: `Syncing ${releaseIds.length} historical C4 models...` });
-        for (const id of releaseIds) {
-          const graph = this.trailDb.getTrailGraph(id);
-          if (!graph) continue;
-          const model = trailToC4(graph);
-          await this.store.upsertC4ModelById(id, JSON.stringify(model), '');
-        }
+      onProgress?.({ message: `Syncing ${releaseIds.length} release TrailGraphs (wash-away)...` });
+      await this.store.clearReleaseGraphs();
+      for (const id of releaseIds) {
+        const graph = this.trailDb.getTrailGraph(id);
+        if (!graph) continue;
+        await this.store.upsertReleaseGraph(id, JSON.stringify(graph));
       }
     } catch (e) {
-      TrailLogger.error('Failed to sync historical C4 models', e);
+      TrailLogger.error('Failed to sync release TrailGraphs', e);
       errors++;
     }
 
     return {
       synced,
-      skipped: localSessions.length - toSync.length,
+      skipped: 0,
       errors,
     };
   }

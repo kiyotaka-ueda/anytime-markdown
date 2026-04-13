@@ -3,11 +3,11 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 
-import { trailToC4 } from '@anytime-markdown/trail-core';
 import {
   buildElementTree,
-  detectCycles,
-  diffMatrix,
+  buildSourceMatrix,
+  fetchC4Model,
+  fetchC4ModelEntries,
   filterTreeByLevel,
 } from '@anytime-markdown/trail-core/c4';
 import type {
@@ -15,10 +15,7 @@ import type {
   C4Model,
   CoverageDiffMatrix,
   CoverageMatrix,
-  CyclicPair,
   DocLink,
-  DsmDiff,
-  DsmMapping,
   DsmMatrix,
   FeatureMatrix,
 } from '@anytime-markdown/trail-core/c4';
@@ -26,6 +23,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 
 import type { ClientMessage, ServerMessage } from './types';
 import type { TrailDatabase, SessionRow, MessageRow, AnalyticsData, CostOptimizationData } from '../trail/TrailDatabase';
+import { TrailLogger } from '../utils/TrailLogger';
 
 // ---------------------------------------------------------------------------
 //  Constants
@@ -56,15 +54,11 @@ export interface C4DataProvider {
   readonly model: C4Model | undefined;
   readonly boundaries: readonly BoundaryInfo[] | undefined;
   readonly featureMatrix: FeatureMatrix | undefined;
-  readonly c4Matrix: DsmMatrix | undefined;
   readonly sourceMatrix: DsmMatrix | undefined;
   readonly currentDsmLevel: 'component' | 'package';
-  readonly currentDsmMode: 'c4' | 'diff';
-  readonly dsmMappings: readonly DsmMapping[];
   readonly coverageMatrix: CoverageMatrix | undefined;
   readonly coverageDiff: CoverageDiffMatrix | undefined;
   handleSetDsmLevel(level: 'component' | 'package'): void;
-  handleSetDsmMode(mode: 'c4' | 'diff'): void;
   handleCluster(enabled: boolean): void;
   handleRefresh(): void;
   handleAddElement(element: { type: 'person' | 'system'; name: string; description?: string; external?: boolean }): void;
@@ -325,21 +319,20 @@ export class TrailDataServer {
     }
 
     if (pathname === '/api/c4/releases' && method === 'GET') {
-      this.handleC4ReleasesEndpoint(res);
+      void this.handleC4ReleasesEndpoint(res);
       return;
     }
 
     if (pathname === '/api/c4/model' && method === 'GET') {
       const releaseId = parsed.searchParams.get('release') ?? 'current';
-      this.handleC4ModelEndpoint(res, releaseId);
+      const repo = parsed.searchParams.get('repo') ?? undefined;
+      void this.handleC4ModelEndpoint(res, releaseId, repo);
       return;
     }
     if (pathname === '/api/c4/dsm' && method === 'GET') {
-      this.handleC4DsmEndpoint(res);
-      return;
-    }
-    if (pathname === '/api/c4/diff' && method === 'GET') {
-      this.handleC4DiffEndpoint(res);
+      const releaseId = parsed.searchParams.get('release') ?? 'current';
+      const repo = parsed.searchParams.get('repo') ?? undefined;
+      this.handleC4DsmEndpoint(res, releaseId, repo);
       return;
     }
     if (pathname === '/api/c4/tree' && method === 'GET') {
@@ -563,17 +556,13 @@ export class TrailDataServer {
   //  API: C4 endpoints
   // -------------------------------------------------------------------------
 
-  private handleC4ModelEndpoint(res: http.ServerResponse, releaseId: string): void {
-    // trail_graphs から TrailGraph を取得して trailToC4() で変換
-    const graph = this.trailDb.getTrailGraph(releaseId);
-    if (graph) {
-      const model = trailToC4(graph);
-      const provider = this.getC4Provider?.();
-      const featureMatrix = provider?.featureMatrix;
-      const payload: Record<string, unknown> = { model, boundaries: [] };
-      if (featureMatrix) {
-        payload.featureMatrix = featureMatrix;
-      }
+  private async handleC4ModelEndpoint(res: http.ServerResponse, releaseId: string, repo?: string): Promise<void> {
+    // trail-core の fetchC4Model 経由でストアから取得（pure 関数 + IC4ModelStore アダプタ）
+    const repoName = repo ?? (this.gitRoot ? path.basename(this.gitRoot) : undefined);
+    const provider = this.getC4Provider?.();
+    const store = this.trailDb.asC4ModelStore();
+    const payload = await fetchC4Model(store, releaseId, repoName, provider?.featureMatrix);
+    if (payload) {
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify(payload));
       return;
@@ -581,17 +570,16 @@ export class TrailDataServer {
 
     // フォールバック: C4Panel のメモリ上データ（releaseId === 'current' の場合のみ）
     if (releaseId === 'current') {
-      const provider = this.getC4Provider?.();
       const model = provider?.model;
       if (model) {
         const boundaries = provider?.boundaries ?? [];
         const featureMatrix = provider?.featureMatrix;
-        const payload: Record<string, unknown> = { model, boundaries };
+        const fallback: Record<string, unknown> = { model, boundaries };
         if (featureMatrix) {
-          payload.featureMatrix = featureMatrix;
+          fallback.featureMatrix = featureMatrix;
         }
         res.writeHead(200, JSON_HEADERS);
-        res.end(JSON.stringify(payload));
+        res.end(JSON.stringify(fallback));
         return;
       }
     }
@@ -600,9 +588,10 @@ export class TrailDataServer {
     res.end();
   }
 
-  private handleC4ReleasesEndpoint(res: http.ServerResponse): void {
+  private async handleC4ReleasesEndpoint(res: http.ServerResponse): Promise<void> {
     try {
-      const entries = this.trailDb.getTrailGraphEntries();
+      const store = this.trailDb.asC4ModelStore();
+      const entries = await fetchC4ModelEntries(store);
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify(entries));
     } catch {
@@ -611,34 +600,34 @@ export class TrailDataServer {
     }
   }
 
-  private handleC4DsmEndpoint(res: http.ServerResponse): void {
-    const provider = this.getC4Provider?.();
-    const matrix = provider?.currentDsmMode === 'c4'
-      ? provider?.c4Matrix
-      : provider?.sourceMatrix;
+  private handleC4DsmEndpoint(res: http.ServerResponse, releaseId: string, repo?: string): void {
+    try {
+      // current: 解析直後のメモリを優先し、なければ SQLite の current_graphs
+      // release: SQLite の release_graphs から取得
+      let matrix: DsmMatrix | undefined;
+      if (releaseId === 'current') {
+        matrix = this.getC4Provider?.()?.sourceMatrix;
+        if (!matrix) {
+          const graph = this.trailDb.getCurrentGraph(repo);
+          if (graph) matrix = buildSourceMatrix(graph, 'component');
+        }
+      } else {
+        const graph = this.trailDb.getReleaseGraph(releaseId);
+        if (graph) matrix = buildSourceMatrix(graph, 'component');
+      }
 
-    if (!matrix) {
-      res.writeHead(204);
-      res.end();
-      return;
+      if (!matrix) {
+        res.writeHead(204);
+        res.end();
+        return;
+      }
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({ matrix }));
+    } catch (e) {
+      TrailLogger.error('Failed to build DSM', e);
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'Failed to build DSM' }));
     }
-
-    res.writeHead(200, JSON_HEADERS);
-    res.end(JSON.stringify({ matrix }));
-  }
-
-  private handleC4DiffEndpoint(res: http.ServerResponse): void {
-    const provider = this.getC4Provider?.();
-    const result = computeDiff(provider);
-
-    if (!result) {
-      res.writeHead(204);
-      res.end();
-      return;
-    }
-
-    res.writeHead(200, JSON_HEADERS);
-    res.end(JSON.stringify(result));
   }
 
   private handleC4TreeEndpoint(res: http.ServerResponse): void {
@@ -849,9 +838,6 @@ export class TrailDataServer {
       case 'set-level':
         provider.handleSetDsmLevel(message.level);
         break;
-      case 'set-dsm-mode':
-        provider.handleSetDsmMode(message.mode);
-        break;
       case 'cluster':
         provider.handleCluster(message.enabled);
         break;
@@ -929,26 +915,9 @@ export class TrailDataServer {
   private buildDsmMessage(
     provider: C4DataProvider,
   ): ServerMessage | undefined {
-    if (provider.currentDsmMode === 'diff') {
-      return this.buildDsmDiffMessage(provider);
-    }
-    return this.buildDsmMatrixMessage(provider);
-  }
-
-  private buildDsmMatrixMessage(
-    provider: C4DataProvider,
-  ): ServerMessage | undefined {
-    const matrix = provider.c4Matrix;
+    const matrix = provider.sourceMatrix;
     if (!matrix) return undefined;
     return { type: 'dsm-updated', matrix };
-  }
-
-  private buildDsmDiffMessage(
-    provider: C4DataProvider,
-  ): ServerMessage | undefined {
-    const result = computeDiff(provider);
-    if (!result) return undefined;
-    return { type: 'dsm-updated', diff: result.diff, cycles: result.cycles };
   }
 }
 
@@ -960,48 +929,12 @@ export function isClientMessage(data: unknown): data is ClientMessage {
   if (typeof data !== 'object' || data === null) return false;
   const msg = data as Record<string, unknown>;
   const validTypes = [
-    'set-level', 'set-dsm-mode', 'cluster', 'refresh',
+    'set-level', 'cluster', 'refresh',
     'add-element', 'update-element', 'remove-element',
     'add-relationship', 'remove-relationship', 'purge-deleted-elements',
     'open-doc-link',
   ];
   return typeof msg.type === 'string' && validTypes.includes(msg.type);
-}
-
-// ---------------------------------------------------------------------------
-//  Helper: compute diff + cycles from provider
-// ---------------------------------------------------------------------------
-
-function computeDiff(
-  provider: C4DataProvider | undefined,
-): { diff: DsmDiff; cycles: readonly CyclicPair[] } | undefined {
-  const c4Matrix = provider?.c4Matrix;
-  const sourceMatrix = provider?.sourceMatrix;
-  if (!c4Matrix || !sourceMatrix) return undefined;
-
-  const mappings = provider?.dsmMappings ?? [];
-  const diff = diffMatrix(c4Matrix, sourceMatrix, mappings);
-  const cycles = computeCyclicPairs(c4Matrix);
-  return { diff, cycles };
-}
-
-// ---------------------------------------------------------------------------
-//  Helper: compute cyclic pairs from a DSM matrix
-// ---------------------------------------------------------------------------
-
-function computeCyclicPairs(matrix: DsmMatrix): readonly CyclicPair[] {
-  const nodeIds = matrix.nodes.map(n => n.id);
-  const sccs = detectCycles(matrix.adjacency, nodeIds);
-
-  return sccs.flatMap(scc => {
-    const pairs: CyclicPair[] = [];
-    for (let i = 0; i < scc.length; i++) {
-      for (let j = i + 1; j < scc.length; j++) {
-        pairs.push({ nodeA: scc[i], nodeB: scc[j] });
-      }
-    }
-    return pairs;
-  });
 }
 
 // ---------------------------------------------------------------------------

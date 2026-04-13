@@ -2,12 +2,10 @@
   "displayName": "Anytime Trail",
   "description": "VS Code 用 C4 アーキテクチャ解析、Trail セッション追跡、ダッシュボード",
   "viewsContainer.title": "Anytime Trail",
-  "command.c4Import": "C4: Mermaid C4 をインポート",
-  "command.c4Analyze": "C4: ワークスペースを解析",
-  "command.c4Export": "C4: JSON エクスポート",
-  "command.c4View": "C4: ビューアを開く",
+"command.c4Analyze": "C4: コードを解析",
+"command.c4View": "C4: ビューアを開く",
   "view.c4Elements": "C4 モデル",
-  "viewsWelcome.c4Elements": "C4 モデルが読み込まれていません。\n[$(graph) ワークスペースを解析](command:anytime-trail.c4Analyze)",
+  "viewsWelcome.c4Elements": "C4 モデルが読み込まれていません。\n[$(symbol-class) コードを解析](command:anytime-trail.c4Analyze)",
   "command.c4ElementsRefresh": "C4 モデルを更新",
   "command.c4SetLevel": "C4 詳細レベルを設定",
   "config.c4AnalyzeExcludePatterns": "C4 ワークスペース解析で `tsconfig.json` を検索する際に除外するディレクトリ名。これらの文字列を含むパスがフィルタリングされます。",
@@ -16,5 +14,7 @@
   "command.dsmAnalyze": "Trail: 依存関係を解析",
   "command.aiMemoryRefresh": "Memory を更新",
   "command.openTrailViewer": "Trail ビューアを開く",
-  "view.dashboard": "ダッシュボード"
+  "view.dashboard": "ダッシュボード",
+  "viewsWelcome.dashboard": "[$(graph-line) Trail Viewerを開く](command:anytime-trail.openTrailViewer)",
+  "view.database": "データベース"
 }

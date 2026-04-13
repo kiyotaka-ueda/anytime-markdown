@@ -2,7 +2,7 @@
   "name": "anytime-trail",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "license": "MIT",
   "publisher": "anytime-trial",
   "repository": {
@@ -23,12 +23,10 @@
     "analysis"
   ],
   "activationEvents": [
-    "onCommand:anytime-trail.c4Import",
-    "onCommand:anytime-trail.c4Analyze",
-    "onCommand:anytime-trail.c4Export",
-    "onCommand:anytime-trail.c4View",
+"onCommand:anytime-trail.c4Analyze",
+"onCommand:anytime-trail.c4View",
     "onCommand:anytime-trail.dsmAnalyze",
-    "onView:anytimeTrail.dashboard",
+    "onView:anytimeTrail.database",
     "onView:anytimeTrail.c4Elements"
   ],
   "icon": "images/camel_trail.png",
@@ -50,6 +48,10 @@
           "name": "%view.dashboard%"
         },
         {
+          "id": "anytimeTrail.database",
+          "name": "%view.database%"
+        },
+        {
           "id": "anytimeTrail.c4Elements",
           "name": "%view.c4Elements%"
         },
@@ -61,28 +63,22 @@
     },
     "viewsWelcome": [
       {
+        "view": "anytimeTrail.dashboard",
+        "contents": "%viewsWelcome.dashboard%"
+      },
+      {
         "view": "anytimeTrail.c4Elements",
         "contents": "%viewsWelcome.c4Elements%",
         "when": "!anytimeTrail.c4ModelLoaded"
       }
     ],
     "commands": [
-      {
-        "command": "anytime-trail.c4Import",
-        "title": "%command.c4Import%",
-        "icon": "$(file-code)"
-      },
-      {
+{
         "command": "anytime-trail.c4Analyze",
         "title": "%command.c4Analyze%",
-        "icon": "$(graph)"
+        "icon": "$(symbol-class)"
       },
-      {
-        "command": "anytime-trail.c4Export",
-        "title": "%command.c4Export%",
-        "icon": "$(export)"
-      },
-      {
+{
         "command": "anytime-trail.c4View",
         "title": "%command.c4View%",
         "icon": "$(open-preview)"
@@ -115,9 +111,9 @@
       },
       {
         "command": "anytime-trail.importTrailData",
-        "title": "Import JSONL Logs",
+        "title": "Refresh Trail Data",
         "category": "Anytime Trail",
-        "icon": "$(database)"
+        "icon": "$(refresh)"
       },
       {
         "command": "anytime-trail.syncToRemote",
@@ -144,26 +140,11 @@
     "menus": {
       "view/title": [
         {
-          "command": "anytime-trail.openTrailViewer",
-          "when": "view == anytimeTrail.dashboard",
-          "group": "navigation@1"
-        },
-        {
           "command": "anytime-trail.c4Analyze",
           "when": "view == anytimeTrail.c4Elements",
           "group": "navigation@1"
         },
-        {
-          "command": "anytime-trail.c4Export",
-          "when": "view == anytimeTrail.c4Elements",
-          "group": "navigation@2"
-        },
-        {
-          "command": "anytime-trail.c4Import",
-          "when": "view == anytimeTrail.c4Elements",
-          "group": "navigation@3"
-        },
-        {
+{
           "command": "anytime-trail.aiMemoryRefresh",
           "when": "view == anytimeTrail.aiMemory",
           "group": "navigation"
@@ -182,17 +163,17 @@
         },
         {
           "command": "anytime-trail.importTrailData",
-          "when": "view == anytimeTrail.dashboard && viewItem == sqliteDb",
+          "when": "view == anytimeTrail.database && viewItem == sqliteDb",
           "group": "inline"
         },
         {
           "command": "anytime-trail.syncToSupabase",
-          "when": "view == anytimeTrail.dashboard && viewItem == supabaseDb",
+          "when": "view == anytimeTrail.database && viewItem == supabaseDb",
           "group": "inline"
         },
         {
           "command": "anytime-trail.reconnectSupabase",
-          "when": "view == anytimeTrail.dashboard && viewItem == supabaseDb",
+          "when": "view == anytimeTrail.database && viewItem == supabaseDb",
           "group": "inline"
         }
       ]
@@ -286,7 +267,6 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
-    "vscode:uninstall": "node ./dist/uninstall.js",
     "compile": "webpack",
     "watch": "webpack --watch",
     "package": "webpack --mode production --devtool hidden-source-map",

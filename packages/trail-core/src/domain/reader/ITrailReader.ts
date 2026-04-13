@@ -8,6 +8,7 @@ import type {
   TrailRelease,
   ToolMetrics,
   AnalyticsData,
+  CostOptimizationData,
 } from '../model';
 
 export interface ITrailReader {
@@ -17,6 +18,7 @@ export interface ITrailReader {
   getReleases(): Promise<readonly TrailRelease[]>;
   getC4Model(): Promise<Record<string, unknown> | null>;
   getAnalytics(): Promise<AnalyticsData | null>;
+  getCostOptimization(): Promise<CostOptimizationData | null>;
   getSessionToolMetrics(sessionId: string): Promise<ToolMetrics | null>;
   searchMessages(query: string): Promise<readonly { sessionId: string; uuid: string; snippet: string }[]>;
 }

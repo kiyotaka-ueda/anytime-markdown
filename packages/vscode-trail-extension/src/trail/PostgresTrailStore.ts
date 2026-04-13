@@ -18,6 +18,16 @@ export class PostgresTrailStore implements IRemoteTrailStore {
     }
   }
 
+  async clearAll(): Promise<void> {
+    const pool = this.ensurePool();
+    // CASCADE により messages / session_commits / session_costs / release_files / release_features も消える
+    await pool.query('DELETE FROM trail_sessions');
+    await pool.query('DELETE FROM trail_releases');
+    await pool.query('DELETE FROM trail_daily_costs');
+    await pool.query('DELETE FROM trail_release_graphs');
+    await pool.query('DELETE FROM trail_current_graphs');
+  }
+
   async getExistingSessionIds(): Promise<readonly string[]> {
     const { rows } = await this.ensurePool().query('SELECT id FROM trail_sessions');
     return rows.map((r: { id: string }) => r.id);
@@ -286,19 +296,37 @@ export class PostgresTrailStore implements IRemoteTrailStore {
     }
   }
 
-  async upsertC4Model(json: string, revision: string): Promise<void> {
-    await this.upsertC4ModelById('current', json, revision);
+  async clearCurrentGraphs(): Promise<void> {
+    const pool = this.ensurePool();
+    await pool.query('DELETE FROM trail_current_graphs');
   }
 
-  async upsertC4ModelById(id: string, json: string, revision: string): Promise<void> {
+  async clearReleaseGraphs(): Promise<void> {
+    const pool = this.ensurePool();
+    await pool.query('DELETE FROM trail_release_graphs');
+  }
+
+  async upsertCurrentGraph(repoName: string, graphJson: string, commitId: string): Promise<void> {
     const pool = this.ensurePool();
     await pool.query(
-      `INSERT INTO trail_c4_models (id, model_json, revision, updated_at, synced_at)
+      `INSERT INTO trail_current_graphs (repo_name, commit_id, graph_json, updated_at, synced_at)
       VALUES ($1, $2, $3, $4, NOW())
-      ON CONFLICT (id) DO UPDATE SET
-        model_json = EXCLUDED.model_json, revision = EXCLUDED.revision,
+      ON CONFLICT (repo_name) DO UPDATE SET
+        commit_id = EXCLUDED.commit_id, graph_json = EXCLUDED.graph_json,
         updated_at = EXCLUDED.updated_at, synced_at = NOW()`,
-      [id, json, revision, new Date().toISOString()],
+      [repoName, commitId, graphJson, new Date().toISOString()],
+    );
+  }
+
+  async upsertReleaseGraph(tag: string, graphJson: string): Promise<void> {
+    const pool = this.ensurePool();
+    await pool.query(
+      `INSERT INTO trail_release_graphs (tag, graph_json, updated_at, synced_at)
+      VALUES ($1, $2, $3, NOW())
+      ON CONFLICT (tag) DO UPDATE SET
+        graph_json = EXCLUDED.graph_json,
+        updated_at = EXCLUDED.updated_at, synced_at = NOW()`,
+      [tag, graphJson, new Date().toISOString()],
     );
   }
 

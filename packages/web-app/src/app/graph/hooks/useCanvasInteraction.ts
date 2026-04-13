@@ -117,7 +117,6 @@ function handleSelectHit(
   viewport: Viewport,
   dispatch: React.Dispatch<Action>,
   physicsRef: React.RefObject<physics.PhysicsEngine | null> | undefined,
-  hoverNodeIdRef: React.RefObject<string | undefined>,
 ): DragState | null {
   if (hit.type === 'frame-collapse' && hit.id) {
     return handleFrameCollapseHit(hit, nodes, dispatch);
@@ -715,7 +714,7 @@ export function useCanvasInteraction({
     if (tool === 'select') {
       const resolved = resolveEdgesWithWaypoints(edges, nodes);
       const hit = hitTest({ nodes, edges: resolved, wx: world.x, wy: world.y, scale: viewport.scale, selectedNodeIds: selection.nodeIds, hoverNodeId: hoverNodeIdRef.current, selectedEdgeIds: selection.edgeIds });
-      const result = handleSelectHit(hit, nodes, edges, selection, world, sx, sy, e, viewport, dispatch, physicsRef, hoverNodeIdRef);
+      const result = handleSelectHit(hit, nodes, edges, selection, world, sx, sy, e, viewport, dispatch, physicsRef);
       if (result) dragRef.current = result;
       return;
     }

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
+import IconButton from '@mui/material/IconButton';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -68,6 +70,7 @@ export interface AnalyticsPanelProps {
   readonly analytics: AnalyticsData | null;
   readonly sessions?: readonly TrailSession[];
   readonly onSelectSession?: (id: string) => void;
+  readonly onJumpToTrace?: (session: TrailSession) => void;
   readonly fetchSessionMessages?: (id: string) => Promise<readonly TrailMessage[]>;
   readonly fetchSessionCommits?: (id: string) => Promise<readonly TrailSessionCommit[]>;
   readonly fetchSessionToolMetrics?: (id: string) => Promise<ToolMetrics | null>;
@@ -324,6 +327,17 @@ function fmtDuration(ms: number): string {
   return m > 0 ? `${h}h${m}m` : `${h}h`;
 }
 
+function fmtDurationShort(ms: number): string {
+  if (ms < 1_000) return `${Math.round(ms)}ms`;
+  const s = ms / 1_000;
+  if (s < 60) return `${s.toFixed(0)}s`;
+  const min = s / 60;
+  if (min < 60) return `${min.toFixed(1)}m`;
+  const h = Math.floor(min / 60);
+  const m = Math.round(min % 60);
+  return m > 0 ? `${h}h${m}m` : `${h}h`;
+}
+
 function fmtPercent(ratio: number): string {
   return `${(ratio * 100).toFixed(0)}%`;
 }
@@ -342,13 +356,30 @@ function SessionCacheTimeline({
   const assistantMsgs = messages.filter((m) => m.type === 'assistant' && m.usage);
   const hasData = assistantMsgs.length > 0;
 
-  const dataset = assistantMsgs.map((m, i) => ({
-    turn: i + 1,
-    inputTokens: m.usage?.inputTokens ?? 0,
-    outputTokens: m.usage?.outputTokens ?? 0,
-    cacheReadTokens: m.usage?.cacheReadTokens ?? 0,
-    cacheCreationTokens: m.usage?.cacheCreationTokens ?? 0,
-  }));
+  const byUuid = useMemo(() => {
+    const map = new Map<string, TrailMessage>();
+    for (const m of messages) map.set(m.uuid, m);
+    return map;
+  }, [messages]);
+
+  const dataset = useMemo(() => {
+    let cumulativeMs = 0;
+    return assistantMsgs.map((m, i) => {
+      const parent = m.parentUuid ? byUuid.get(m.parentUuid) : undefined;
+      if (parent?.timestamp && m.timestamp) {
+        const delta = new Date(m.timestamp).getTime() - new Date(parent.timestamp).getTime();
+        if (delta > 0) cumulativeMs += delta;
+      }
+      return {
+        turn: i + 1,
+        inputTokens: m.usage?.inputTokens ?? 0,
+        outputTokens: m.usage?.outputTokens ?? 0,
+        cacheReadTokens: m.usage?.cacheReadTokens ?? 0,
+        cacheCreationTokens: m.usage?.cacheCreationTokens ?? 0,
+        cumulativeMs,
+      };
+    });
+  }, [assistantMsgs, byUuid]);
 
   const totalTurns = dataset.length;
   const tickStep = totalTurns <= 100 ? 10 : totalTurns <= 500 ? 50 : 100;
@@ -364,12 +395,23 @@ function SessionCacheTimeline({
         <LineChart
           dataset={dataset}
           xAxis={[{ dataKey: 'turn', scaleType: 'point', tickInterval: (value: number) => value % tickStep === 0 }]}
-          yAxis={[{ valueFormatter: fmtTokens }]}
+          yAxis={[
+            { id: 'tokens', valueFormatter: fmtTokens },
+            { id: 'time', position: 'right', valueFormatter: fmtDurationShort },
+          ]}
           series={[
-            { dataKey: 'inputTokens', label: t('analytics.chartInput'), color: chartColors.input, showMark: false },
-            { dataKey: 'outputTokens', label: t('analytics.chartOutput'), color: chartColors.output, showMark: false },
-            { dataKey: 'cacheReadTokens', label: t('analytics.chartCacheRead'), color: chartColors.cacheRead, showMark: false },
-            { dataKey: 'cacheCreationTokens', label: t('analytics.chartCacheWrite'), color: chartColors.cacheWrite, showMark: false },
+            { dataKey: 'inputTokens', label: t('analytics.chartInput'), color: chartColors.input, showMark: false, yAxisId: 'tokens' },
+            { dataKey: 'outputTokens', label: t('analytics.chartOutput'), color: chartColors.output, showMark: false, yAxisId: 'tokens' },
+            { dataKey: 'cacheReadTokens', label: t('analytics.chartCacheRead'), color: chartColors.cacheRead, showMark: false, yAxisId: 'tokens' },
+            { dataKey: 'cacheCreationTokens', label: t('analytics.chartCacheWrite'), color: chartColors.cacheWrite, showMark: false, yAxisId: 'tokens' },
+            {
+              dataKey: 'cumulativeMs',
+              label: t('analytics.chartCumulativeInferenceTime'),
+              color: chartColors.cumulativeTime,
+              showMark: false,
+              yAxisId: 'time',
+              valueFormatter: (v) => (v == null ? '' : fmtDurationShort(v)),
+            },
           ]}
           height={200}
           margin={{ left: 0, right: 16, top: 16, bottom: 0 }}
@@ -573,6 +615,7 @@ function DailySessionList({
   date,
   sessions,
   onSelectSession,
+  onJumpToTrace,
   fetchSessionMessages,
   fetchSessionCommits,
   fetchSessionToolMetrics,
@@ -580,6 +623,7 @@ function DailySessionList({
   date: string;
   sessions: readonly TrailSession[];
   onSelectSession?: (id: string) => void;
+  onJumpToTrace?: (session: TrailSession) => void;
   fetchSessionMessages?: (id: string) => Promise<readonly TrailMessage[]>;
   fetchSessionCommits?: (id: string) => Promise<readonly TrailSessionCommit[]>;
   fetchSessionToolMetrics?: (id: string) => Promise<ToolMetrics | null>;
@@ -637,6 +681,7 @@ function DailySessionList({
                   <TableCell align="right">{t('sessionList.costHeader')}</TableCell>
                   <TableCell align="right">{t('sessionList.messagesHeader')}</TableCell>
                   <TableCell align="right">{t('sessionList.commitsHeader')}</TableCell>
+                  <TableCell align="right" sx={{ width: 36 }} />
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -689,6 +734,23 @@ function DailySessionList({
                       {s.commitStats
                         ? `${s.commitStats.commits} (+${fmtNum(s.commitStats.linesAdded)}/-${fmtNum(s.commitStats.linesDeleted)})`
                         : '\u2014'}
+                    </TableCell>
+                    <TableCell align="right" sx={{ p: 0.5 }}>
+                      {onJumpToTrace && (
+                        <Tooltip title={t('analytics.openInTraces')}>
+                          <IconButton
+                            size="small"
+                            aria-label={t('analytics.openInTraces')}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onJumpToTrace(s);
+                            }}
+                            sx={{ color: colors.textSecondary, '&:hover': { color: colors.iceBlue } }}
+                          >
+                            <OpenInNewIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -765,6 +827,7 @@ function DailyActivityChart({
   items,
   sessions,
   onSelectSession,
+  onJumpToTrace,
   fetchSessionMessages,
   fetchSessionCommits,
   fetchSessionToolMetrics,
@@ -773,6 +836,7 @@ function DailyActivityChart({
   items: AnalyticsData['dailyActivity'];
   sessions: readonly TrailSession[];
   onSelectSession?: (id: string) => void;
+  onJumpToTrace?: (session: TrailSession) => void;
   fetchSessionMessages?: (id: string) => Promise<readonly TrailMessage[]>;
   fetchSessionCommits?: (id: string) => Promise<readonly TrailSessionCommit[]>;
   fetchSessionToolMetrics?: (id: string) => Promise<ToolMetrics | null>;
@@ -883,6 +947,7 @@ function DailyActivityChart({
           date={selectedDate}
           sessions={sessions}
           onSelectSession={onSelectSession}
+          onJumpToTrace={onJumpToTrace}
           fetchSessionMessages={fetchSessionMessages}
           fetchSessionCommits={fetchSessionCommits}
           fetchSessionToolMetrics={fetchSessionToolMetrics}
@@ -935,7 +1000,7 @@ function ModelTable({ items }: Readonly<{ items: AnalyticsData['modelBreakdown']
 //  Main component
 // ---------------------------------------------------------------------------
 
-export function AnalyticsPanel({ analytics, sessions = [], onSelectSession, fetchSessionMessages, fetchSessionCommits, fetchSessionToolMetrics, costOptimization }: Readonly<AnalyticsPanelProps>) {
+export function AnalyticsPanel({ analytics, sessions = [], onSelectSession, onJumpToTrace, fetchSessionMessages, fetchSessionCommits, fetchSessionToolMetrics, costOptimization }: Readonly<AnalyticsPanelProps>) {
   const { colors } = useTrailTheme();
   const { t } = useTrailI18n();
   if (!analytics) {
@@ -952,7 +1017,7 @@ export function AnalyticsPanel({ analytics, sessions = [], onSelectSession, fetc
     <Box sx={{ overflow: 'auto', flex: 1, p: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
       <OverviewCards totals={analytics.totals} sessions={sessions} />
       <ToolUsageChart items={analytics.toolUsage} />
-      <DailyActivityChart items={analytics.dailyActivity} sessions={sessions} onSelectSession={onSelectSession} fetchSessionMessages={fetchSessionMessages} fetchSessionCommits={fetchSessionCommits} fetchSessionToolMetrics={fetchSessionToolMetrics} costOptimization={costOptimization} />
+      <DailyActivityChart items={analytics.dailyActivity} sessions={sessions} onSelectSession={onSelectSession} onJumpToTrace={onJumpToTrace} fetchSessionMessages={fetchSessionMessages} fetchSessionCommits={fetchSessionCommits} fetchSessionToolMetrics={fetchSessionToolMetrics} costOptimization={costOptimization} />
       <ModelTable items={analytics.modelBreakdown} />
     </Box>
   );

@@ -27,6 +27,9 @@ export {
 export { TrailViewerCore } from './components/TrailViewerCore';
 export type { TrailViewerCoreProps } from './components/TrailViewerCore';
 
+export { TrailViewerApp } from './components/TrailViewerApp';
+export type { TrailViewerAppProps } from './components/TrailViewerApp';
+
 export { PromptManager } from './components/PromptManager';
 export type { PromptManagerProps } from './components/PromptManager';
 
@@ -40,8 +43,9 @@ export { createEvaluation, isValidEvaluation } from './parser/evaluationStore';
 export { EvaluationPanel } from './components/EvaluationPanel';
 
 export { useTrailDataSource } from './hooks/useTrailDataSource';
-export type { TrailDataSourceResult, SupabaseConfig } from './hooks/useTrailDataSource';
+export type { TrailDataSourceResult } from './hooks/useTrailDataSource';
 export { SupabaseTrailReader } from './hooks/SupabaseTrailReader';
+// SupabaseC4ModelStore は server-safe 用に '@anytime-markdown/trail-viewer/supabase' から import する
 
 export type { TrailLocale } from './i18n/types';
 

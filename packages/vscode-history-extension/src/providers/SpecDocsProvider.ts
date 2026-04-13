@@ -16,9 +16,9 @@ import type { SpecDocsGitOpsHost } from './specdocs/SpecDocsGitOps';
 export { SpecDocsRootItem, SpecDocsItem, SpecDocsDragAndDrop } from './specdocs/types';
 export type { SpecDocsNode } from './specdocs/types';
 
-const STORAGE_KEY = 'anytimeGit.specDocsRoot';
-const STORAGE_KEY_MULTI = 'anytimeGit.specDocsRoots';
-const MD_ONLY_KEY = 'anytimeGit.mdOnly';
+const STORAGE_KEY = 'anytimeHistory.specDocsRoot';
+const STORAGE_KEY_MULTI = 'anytimeHistory.specDocsRoots';
+const MD_ONLY_KEY = 'anytimeHistory.mdOnly';
 const REFRESH_DEBOUNCE_MS = 300;
 
 export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsNode>, SpecDocsFileOpsHost, SpecDocsGitOpsHost {
@@ -91,9 +91,9 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsNode>, 
 			void this.context.globalState.update(STORAGE_KEY, undefined);
 		}
 		if (this.rootPaths.length > 0) {
-			void vscode.commands.executeCommand('setContext', 'anytimeGit.specDocsHasRoot', true);
+			void vscode.commands.executeCommand('setContext', 'anytimeHistory.specDocsHasRoot', true);
 		}
-		void vscode.commands.executeCommand('setContext', 'anytimeGit.mdOnly', this._mdOnly);
+		void vscode.commands.executeCommand('setContext', 'anytimeHistory.mdOnly', this._mdOnly);
 	}
 
 	get mdOnly(): boolean { return this._mdOnly; }
@@ -101,7 +101,7 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsNode>, 
 
 	private saveRootPaths(): void {
 		this.context.globalState.update(STORAGE_KEY_MULTI, this.rootPaths.length > 0 ? this.rootPaths : undefined);
-		vscode.commands.executeCommand('setContext', 'anytimeGit.specDocsHasRoot', this.rootPaths.length > 0);
+		vscode.commands.executeCommand('setContext', 'anytimeHistory.specDocsHasRoot', this.rootPaths.length > 0);
 	}
 
 	/** 指定ルートパスのリポジトリ名とブランチ名を返す */
@@ -267,7 +267,7 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsNode>, 
 	toggleMdOnly(): void {
 		this._mdOnly = !this._mdOnly;
 		this.context.globalState.update(MD_ONLY_KEY, this._mdOnly);
-		vscode.commands.executeCommand('setContext', 'anytimeGit.mdOnly', this._mdOnly);
+		vscode.commands.executeCommand('setContext', 'anytimeHistory.mdOnly', this._mdOnly);
 		this._onDidChangeTreeData.fire(undefined);
 	}
 

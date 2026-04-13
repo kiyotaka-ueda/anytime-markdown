@@ -34,16 +34,10 @@ export type {
   DsmNode,
   DsmEdge,
   ImportDetail,
-  DsmDiff,
-  DsmDiffCell,
-  DsmCellState,
   CyclicPair,
-  DsmMapping,
 } from './dsm/types';
 
-export { buildC4Matrix } from './dsm/buildC4Matrix';
 export { buildSourceMatrix } from './dsm/buildSourceMatrix';
-export { diffMatrix } from './dsm/diffMatrix';
 export { detectCycles } from './dsm/detectCycles';
 export { clusterMatrix } from './dsm/cluster';
 
@@ -51,3 +45,6 @@ export { parseCoverage } from './coverage/parseCoverage';
 export type { FileCoverage } from './coverage/parseCoverage';
 export { aggregateCoverage } from './coverage/aggregateCoverage';
 export { computeCoverageDiff } from './coverage/computeCoverageDiff';
+
+export { fetchC4Model, fetchC4ModelEntries } from './c4ModelService';
+export type { C4ModelPayload } from './c4ModelService';

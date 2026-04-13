@@ -2,7 +2,7 @@
 const sqlAsmActual = require('/anytime-markdown/node_modules/sql.js/dist/sql-asm.js'); // eslint-disable-line @typescript-eslint/no-require-imports
 (global as Record<string, unknown>).__non_webpack_require__ = (_path: string) => sqlAsmActual;
 
-import { TrailDatabase, estimateCost } from '../TrailDatabase';
+import { TrailDatabase, estimateCost, INSERT_MESSAGE } from '../TrailDatabase';
 
 describe('estimateCost', () => {
   it('should calculate sonnet cost with all 4 token types', () => {
@@ -85,6 +85,65 @@ describe('TrailDatabase.parseSessionIdFromBody', () => {
 
   it('空文字列は null を返す', () => {
     expect(parse('')).toBeNull();
+  });
+});
+
+describe('INSERT_MESSAGE statement', () => {
+  it('has matching column count and placeholder count', async () => {
+    const initSqlJs = sqlAsmActual as typeof import('sql.js').default;
+    const SQL = await initSqlJs();
+    const inMemoryDb = new SQL.Database();
+
+    const db = new TrailDatabase('/tmp');
+    (db as unknown as Record<string, unknown>).db = inMemoryDb;
+    (db as unknown as Record<string, () => void>).createTables();
+
+    // If the column list and placeholder count disagree, prepare() throws.
+    // This guards against "N values for M columns" regressions.
+    const stmt = inMemoryDb.prepare(INSERT_MESSAGE);
+    stmt.free();
+    db.close();
+  });
+});
+
+describe('TrailDatabase.getImportedFileMap', () => {
+  it('flags hasMessages=false for sessions with message_count>0 but no messages rows', async () => {
+    const initSqlJs = sqlAsmActual as typeof import('sql.js').default;
+    const SQL = await initSqlJs();
+    const inMemoryDb = new SQL.Database();
+
+    const db = new TrailDatabase('/tmp');
+    (db as unknown as Record<string, unknown>).db = inMemoryDb;
+    (db as unknown as Record<string, () => void>).createTables();
+
+    // Broken session: row inserted but messages silently dropped by a prior bug.
+    inMemoryDb.run(
+      `INSERT INTO sessions (id, slug, project, version, entrypoint, model,
+         start_time, end_time, message_count, file_path, file_size, imported_at)
+       VALUES ('broken-sid','','','','','','','',10,'/tmp/broken.jsonl',123,'')`,
+    );
+    // Healthy session with matching messages.
+    inMemoryDb.run(
+      `INSERT INTO sessions (id, slug, project, version, entrypoint, model,
+         start_time, end_time, message_count, file_path, file_size, imported_at)
+       VALUES ('ok-sid','','','','','','','',1,'/tmp/ok.jsonl',456,'')`,
+    );
+    inMemoryDb.run(
+      `INSERT INTO messages (uuid, session_id, type, timestamp)
+       VALUES ('u1','ok-sid','assistant','2026-04-12T00:00:00Z')`,
+    );
+    // Empty-log session (message_count=0) is considered healthy — nothing to reimport.
+    inMemoryDb.run(
+      `INSERT INTO sessions (id, slug, project, version, entrypoint, model,
+         start_time, end_time, message_count, file_path, file_size, imported_at)
+       VALUES ('empty-sid','','','','','','','',0,'/tmp/empty.jsonl',789,'')`,
+    );
+
+    const map = (db as unknown as Record<string, () => Map<string, { hasMessages: boolean }>>).getImportedFileMap();
+    expect(map.get('/tmp/broken.jsonl')?.hasMessages).toBe(false);
+    expect(map.get('/tmp/ok.jsonl')?.hasMessages).toBe(true);
+    expect(map.get('/tmp/empty.jsonl')?.hasMessages).toBe(true);
+    db.close();
   });
 });
 

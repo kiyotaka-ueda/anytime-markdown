@@ -26,20 +26,12 @@ export function registerC4Commands(
 	context: vscode.ExtensionContext,
 	deps: C4CommandsDeps,
 ): void {
-	const c4Import = vscode.commands.registerCommand('anytime-trail.c4Import', () =>
-		C4Panel.importMermaid(),
-	);
-
-	const c4Analyze = vscode.commands.registerCommand('anytime-trail.c4Analyze', async () => {
+const c4Analyze = vscode.commands.registerCommand('anytime-trail.c4Analyze', async () => {
 		if (!await ensureServerRunning(deps)) return;
 		await C4Panel.analyzeWorkspace();
 	});
 
-	const c4Export = vscode.commands.registerCommand('anytime-trail.c4Export', () =>
-		C4Panel.exportData(),
-	);
-
-	const dsmAnalyze = vscode.commands.registerCommand('anytime-trail.dsmAnalyze', async () => {
+const dsmAnalyze = vscode.commands.registerCommand('anytime-trail.dsmAnalyze', async () => {
 		if (!await ensureServerRunning(deps)) return;
 		await C4Panel.analyzeWorkspace();
 	});
@@ -50,5 +42,5 @@ export function registerC4Commands(
 		C4Panel.openViewer(true);
 	});
 
-	context.subscriptions.push(c4Import, c4Analyze, c4Export, dsmAnalyze, c4View);
+	context.subscriptions.push(c4Analyze, dsmAnalyze, c4View);
 }

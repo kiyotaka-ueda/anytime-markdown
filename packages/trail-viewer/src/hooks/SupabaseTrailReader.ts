@@ -8,9 +8,8 @@ import type {
   TrailSessionCommit,
   TrailToolCall,
 } from '../parser/types';
-import type { AnalyticsData } from '../components/AnalyticsPanel';
-import type { ITrailReader } from './ITrailReader';
-import type { TrailRelease } from '@anytime-markdown/trail-core/domain';
+// AnalyticsData は trail-core の共通型を使用（React 依存を避け、server-safe にする）
+import type { AnalyticsData, ITrailReader, TrailRelease } from '@anytime-markdown/trail-core/domain';
 
 // ---------------------------------------------------------------------------
 // Row shapes returned by Supabase (snake_case DB columns)

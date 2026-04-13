@@ -1,7 +1,5 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
-import * as fs from 'node:fs';
-import * as os from 'node:os';
 import { C4Panel } from './c4/C4Panel';
 import { TrailPanel } from './trail/TrailPanel';
 import { TrailDataServer } from './server/TrailDataServer';
@@ -9,7 +7,7 @@ import { TrailDatabase } from './trail/TrailDatabase';
 import { registerC4Commands } from './commands/c4Commands';
 import { TrailLogger } from './utils/TrailLogger';
 import { C4TreeProvider } from './providers/C4TreeProvider';
-import { DashboardProvider } from './trail/DashboardProvider';
+import { DatabaseProvider } from './trail/DatabaseProvider';
 import { AiMemoryProvider, AiMemoryItem } from './providers/AiMemoryProvider';
 import type { IRemoteTrailStore } from './trail/IRemoteTrailStore';
 import { SupabaseTrailStore } from './trail/SupabaseTrailStore';
@@ -139,10 +137,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	}
 
-	// Dashboard panel
-	const dashboardProvider = new DashboardProvider(trailDb, supabaseStore);
-	const dashboardTreeView = vscode.window.createTreeView('anytimeTrail.dashboard', {
-		treeDataProvider: dashboardProvider,
+	// Database panel
+	const databaseProvider = new DatabaseProvider(trailDb, supabaseStore);
+	const databaseTreeView = vscode.window.createTreeView('anytimeTrail.database', {
+		treeDataProvider: databaseProvider,
 	});
 
 	// Initialize DB and start server in background — do not block activate
@@ -150,11 +148,11 @@ export async function activate(context: vscode.ExtensionContext) {
 		try {
 			TrailLogger.info(`Trail DB: initializing with distPath=${extensionDistPath}`);
 			await trailDb!.init();
-			dashboardProvider.updateSqliteStatus('Ready', trailDb!.getLastImportedAt());
+			databaseProvider.updateSqliteStatus('Ready', trailDb!.getLastImportedAt());
 			TrailLogger.info('Trail DB: initialized');
 		} catch (err) {
 			TrailLogger.error('Failed to initialize trail database', err);
-			dashboardProvider.updateSqliteStatus('Error');
+			databaseProvider.updateSqliteStatus('Error');
 			return; // DB 初期化失敗時はサーバー起動もスキップ
 		}
 		try {
@@ -176,17 +174,18 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('anytime-trail.importTrailData', async () => {
+			const repoName = vscode.workspace.workspaceFolders?.[0]?.name ?? '(no workspace)';
 			if (!trailDb) {
-				TrailLogger.error('Trail import skipped: trailDb is null (not initialized)');
+				TrailLogger.error(`Trail import [${repoName}] skipped: trailDb is null (not initialized)`);
 				return;
 			}
-			TrailLogger.info('Trail DB: import started');
-			dashboardProvider.setImporting(true);
+			TrailLogger.info(`Trail DB [${repoName}]: import started`);
+			databaseProvider.setImporting(true);
 			try {
 				const result = await vscode.window.withProgress(
 					{
 						location: vscode.ProgressLocation.Notification,
-						title: 'Trail: Importing JSONL logs',
+						title: 'Trail: Refreshing Trail Data',
 						cancellable: false,
 					},
 					async (progress) => {
@@ -195,13 +194,13 @@ export async function activate(context: vscode.ExtensionContext) {
 						const resolvedC4Path = c4ModelPath && gitRoot ? require('node:path').resolve(gitRoot, c4ModelPath) : undefined;
 						return trailDb!.importAll((message, increment) => {
 							progress.report({ message, increment });
-							TrailLogger.info(`Trail import: ${message}`);
+							TrailLogger.info(`Trail import [${repoName}]: ${message}`);
 						}, gitRoot, resolvedC4Path);
 					},
 				);
-				TrailLogger.info(`Trail DB: import complete - imported=${result.imported}, skipped=${result.skipped}, commits=${result.commitsResolved}, releases=${result.releasesResolved}, analyzed=${result.releasesAnalyzed}`);
-				dashboardProvider.updateSqliteStatus('Ready', trailDb.getLastImportedAt());
-				dashboardProvider.setImporting(false);
+				TrailLogger.info(`Trail DB [${repoName}]: import complete - imported=${result.imported}, skipped=${result.skipped}, commits=${result.commitsResolved}, releases=${result.releasesResolved}, analyzed=${result.releasesAnalyzed}`);
+				databaseProvider.updateSqliteStatus('Ready', trailDb.getLastImportedAt());
+				databaseProvider.setImporting(false);
 
 				trailDataServer?.notifySessionsUpdated();
 
@@ -209,9 +208,9 @@ export async function activate(context: vscode.ExtensionContext) {
 					`Trail: imported ${result.imported} sessions, ${result.commitsResolved} commits linked, ${result.releasesResolved} releases resolved, ${result.releasesAnalyzed} releases analyzed, ${result.coverageImported} coverage entries (${result.skipped} skipped)`,
 				);
 			} catch (err) {
-				dashboardProvider.setImporting(false);
-				dashboardProvider.updateSqliteStatus('Import failed');
-				TrailLogger.error('Trail import failed', err);
+				databaseProvider.setImporting(false);
+				databaseProvider.updateSqliteStatus('Import failed');
+				TrailLogger.error(`Trail import [${repoName}] failed`, err);
 			}
 		}),
 	);
@@ -276,8 +275,8 @@ export async function activate(context: vscode.ExtensionContext) {
 				vscode.window.showErrorMessage('Supabase が設定されていません');
 				return;
 			}
-			dashboardProvider.setImporting(true);
-			dashboardProvider.updateSupabaseStatus('Syncing...');
+			databaseProvider.setImporting(true);
+			databaseProvider.updateSupabaseStatus('Syncing...');
 			try {
 				const syncService = new SyncService(trailDb, supabaseStore);
 				await vscode.window.withProgress(
@@ -291,17 +290,17 @@ export async function activate(context: vscode.ExtensionContext) {
 							progress.report({ message, increment });
 							TrailLogger.info(`Trail Supabase sync: ${message}`);
 						});
-						dashboardProvider.updateSupabaseStatus('Connected', new Date().toISOString());
+						databaseProvider.updateSupabaseStatus('Connected', new Date().toISOString());
 						vscode.window.showInformationMessage(
 							`Supabase sync complete: ${result.synced} synced, ${result.skipped} up-to-date, ${result.errors} errors`,
 						);
 					},
 				);
 			} catch (e) {
-				dashboardProvider.updateSupabaseStatus('Sync failed');
+				databaseProvider.updateSupabaseStatus('Sync failed');
 				vscode.window.showErrorMessage(`同期エラー: ${e}`);
 			} finally {
-				dashboardProvider.setImporting(false);
+				databaseProvider.setImporting(false);
 			}
 		}),
 	);
@@ -313,7 +312,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				vscode.window.showErrorMessage('Supabase が設定されていません');
 				return;
 			}
-			dashboardProvider.updateSupabaseStatus('Connecting...');
+			databaseProvider.updateSupabaseStatus('Connecting...');
 			try {
 				await supabaseStore.close();
 				await supabaseStore.connect();
@@ -321,9 +320,9 @@ export async function activate(context: vscode.ExtensionContext) {
 				const lastSync = syncedAt.size > 0
 					? [...syncedAt.values()].reduce((a, b) => (a > b ? a : b))
 					: null;
-				dashboardProvider.updateSupabaseStatus('Connected', lastSync);
+				databaseProvider.updateSupabaseStatus('Connected', lastSync);
 			} catch (e) {
-				dashboardProvider.updateSupabaseStatus('Connection failed');
+				databaseProvider.updateSupabaseStatus('Connection failed');
 				vscode.window.showErrorMessage(`再接続エラー: ${e}`);
 			}
 		}),
@@ -377,38 +376,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		c4ElementsTreeView,
-		dashboardTreeView,
+		databaseTreeView,
 		aiMemoryTreeView,
 		aiMemoryRefresh,
 		openAiMemory,
 	);
-
-	// Claude Code スキルの自動配置
-	installClaudeSkills(context);
-}
-
-/** 拡張機能同梱の Claude Code スキルを ~/.claude/skills/ にコピーする */
-function installClaudeSkills(context: vscode.ExtensionContext): void {
-	const skillsSource = path.join(context.extensionUri.fsPath, 'skills');
-	if (!fs.existsSync(skillsSource)) return;
-
-	const claudeSkillsDir = path.join(os.homedir(), '.claude', 'skills');
-
-	for (const skillName of fs.readdirSync(skillsSource)) {
-		const srcDir = path.join(skillsSource, skillName);
-		if (!fs.statSync(srcDir).isDirectory()) continue;
-
-		const destDir = path.join(claudeSkillsDir, skillName);
-		if (!fs.existsSync(destDir)) {
-			fs.mkdirSync(destDir, { recursive: true });
-		}
-
-		const srcFile = path.join(srcDir, 'SKILL.md');
-		const destFile = path.join(destDir, 'SKILL.md');
-		if (fs.existsSync(srcFile)) {
-			fs.copyFileSync(srcFile, destFile);
-		}
-	}
 }
 
 export function deactivate(): void {

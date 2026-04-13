@@ -6,15 +6,9 @@ import type {
   C4ReleaseEntry,
   CoverageDiffMatrix,
   CoverageMatrix,
-  CyclicPair,
   DocLink,
-  DsmDiff,
   DsmMatrix,
   FeatureMatrix,
-} from '@anytime-markdown/trail-core/c4';
-import {
-  extractBoundaries,
-  parseMermaidC4,
 } from '@anytime-markdown/trail-core/c4';
 
 // ---------------------------------------------------------------------------
@@ -36,14 +30,14 @@ interface C4DataSourceResult {
   coverageDiff: CoverageDiffMatrix | null;
   docLinks: readonly DocLink[];
   dsmMatrix: DsmMatrix | null;
-  dsmDiff: DsmDiff | null;
-  dsmCycles: readonly CyclicPair[];
   connected: boolean;
   analysisProgress: AnalysisProgress | null;
   sendCommand: (cmd: string, payload?: unknown) => void;
   releases: readonly C4ReleaseEntry[];
   selectedRelease: string;
   setSelectedRelease: (release: string) => void;
+  selectedRepo: string;
+  setSelectedRepo: (repo: string) => void;
 }
 
 interface WsModelMessage {
@@ -56,12 +50,6 @@ interface WsModelMessage {
 interface WsDsmMatrixMessage {
   type: 'dsm-updated';
   matrix: DsmMatrix;
-}
-
-interface WsDsmDiffMessage {
-  type: 'dsm-updated';
-  diff: DsmDiff;
-  cycles: CyclicPair[];
 }
 
 interface WsAnalysisProgressMessage {
@@ -92,6 +80,26 @@ interface WsCoverageDiffMessage {
 const MAX_RETRIES = 5;
 const RECONNECT_DELAY_MS = 3_000;
 
+// Build the WebSocket URL from the data source URL.
+//   - ''                     → same-origin (ws(s)://window.location.host)
+//   - 'http://host:port'     → ws://host:port
+//   - 'https://host:port'    → wss://host:port
+// Returns null when neither an absolute URL nor a browser window is available.
+function buildWsUrl(serverUrl: string): string | null {
+  if (serverUrl === '') {
+    if (typeof window === 'undefined') return null;
+    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${proto}//${window.location.host}`;
+  }
+  try {
+    const url = new URL(serverUrl);
+    const proto = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${proto}//${url.host}`;
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Helpers (type guards)
 // ---------------------------------------------------------------------------
@@ -106,12 +114,6 @@ function isWsDsmMatrixMessage(v: unknown): v is WsDsmMatrixMessage {
   if (typeof v !== 'object' || v === null) return false;
   const obj = v as Record<string, unknown>;
   return obj.type === 'dsm-updated' && 'matrix' in obj;
-}
-
-function isWsDsmDiffMessage(v: unknown): v is WsDsmDiffMessage {
-  if (typeof v !== 'object' || v === null) return false;
-  const obj = v as Record<string, unknown>;
-  return obj.type === 'dsm-updated' && 'diff' in obj;
 }
 
 function isWsAnalysisProgressMessage(v: unknown): v is WsAnalysisProgressMessage {
@@ -163,6 +165,15 @@ function isDsmMatrixPayload(v: unknown): v is DsmMatrixPayload {
   return 'matrix' in v;
 }
 
+async function readJson(res: Response | null): Promise<unknown> {
+  if (res?.status !== 200) return null;
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Remote-mode initial fetch (DB-stored model)
 // ---------------------------------------------------------------------------
@@ -170,7 +181,8 @@ function isDsmMatrixPayload(v: unknown): v is DsmMatrixPayload {
 function useRemoteInitialFetch(
   serverUrl: string | undefined,
   selectedRelease: string,
-  setC4Model: (m: C4Model) => void,
+  selectedRepo: string,
+  setC4Model: (m: C4Model | null) => void,
   setBoundaries: (b: readonly BoundaryInfo[]) => void,
   setDsmMatrix: (m: DsmMatrix | null) => void,
   setFeatureMatrix: (m: FeatureMatrix | null) => void,
@@ -179,45 +191,54 @@ function useRemoteInitialFetch(
   setReleases: (entries: readonly C4ReleaseEntry[]) => void,
 ): void {
   useEffect(() => {
-    if (!serverUrl) return;
+    // serverUrl === undefined → local mode (fetch しない)
+    // serverUrl === '' → same-origin 相対パス（Next.js 同居モード）
+    // それ以外 → 絶対 URL（拡張機能モード）
+    if (serverUrl === undefined) return;
 
     let cancelled = false;
 
     async function fetchInitial(): Promise<void> {
-      const modelUrl = `${serverUrl}/api/c4/model?release=${encodeURIComponent(selectedRelease)}`;
+      const repoQuery = selectedRepo ? `&repo=${encodeURIComponent(selectedRepo)}` : '';
+      const modelUrl = `${serverUrl}/api/c4/model?release=${encodeURIComponent(selectedRelease)}${repoQuery}`;
+      const dsmUrl = `${serverUrl}/api/c4/dsm?release=${encodeURIComponent(selectedRelease)}${repoQuery}`;
       const [modelRes, dsmRes, covRes, releasesRes] = await Promise.all([
         fetch(modelUrl).catch(() => null),
-        fetch(`${serverUrl}/api/c4/dsm`).catch(() => null),
+        fetch(dsmUrl).catch(() => null),
         fetch(`${serverUrl}/api/c4/coverage`).catch(() => null),
         fetch(`${serverUrl}/api/c4/releases`).catch(() => null),
       ]);
 
+      const [modelJson, dsmJson, covJson] = await Promise.all([
+        readJson(modelRes),
+        readJson(dsmRes),
+        readJson(covRes),
+      ]);
       if (cancelled) return;
 
-      if (modelRes?.status === 200) {
-        const json: unknown = await modelRes.json();
-        if (!cancelled && isModelPayload(json)) {
-          setC4Model(json.model);
-          setBoundaries(json.boundaries);
-          setFeatureMatrix(json.featureMatrix ?? null);
-        }
+      if (isModelPayload(modelJson)) {
+        setC4Model(modelJson.model);
+        setBoundaries(modelJson.boundaries);
+        setFeatureMatrix(modelJson.featureMatrix ?? null);
+      } else {
+        setC4Model(null);
+        setBoundaries([]);
+        setFeatureMatrix(null);
       }
 
-      if (dsmRes?.status === 200) {
-        const json: unknown = await dsmRes.json();
-        if (!cancelled && isDsmMatrixPayload(json)) {
-          setDsmMatrix(json.matrix);
-        }
+      if (isDsmMatrixPayload(dsmJson)) {
+        setDsmMatrix(dsmJson.matrix);
+      } else {
+        setDsmMatrix(null);
       }
 
-      if (covRes?.status === 200) {
-        const json = await covRes.json() as { coverageMatrix: CoverageMatrix | null; coverageDiff: CoverageDiffMatrix | null };
-        if (!cancelled && json.coverageMatrix) {
-          setCoverageMatrix(json.coverageMatrix);
-        }
-        if (!cancelled && json.coverageDiff) {
-          setCoverageDiff(json.coverageDiff);
-        }
+      if (covJson && typeof covJson === 'object') {
+        const cov = covJson as { coverageMatrix?: CoverageMatrix | null; coverageDiff?: CoverageDiffMatrix | null };
+        setCoverageMatrix(cov.coverageMatrix ?? null);
+        setCoverageDiff(cov.coverageDiff ?? null);
+      } else {
+        setCoverageMatrix(null);
+        setCoverageDiff(null);
       }
 
       if (releasesRes?.status === 200) {
@@ -243,52 +264,14 @@ function useRemoteInitialFetch(
 
     void fetchInitial();
     return () => { cancelled = true; };
-  }, [serverUrl, selectedRelease, setC4Model, setBoundaries, setDsmMatrix, setFeatureMatrix, setCoverageMatrix, setCoverageDiff, setReleases]);
-}
-
-// ---------------------------------------------------------------------------
-// Local-mode loader
-// ---------------------------------------------------------------------------
-
-function useLocalMode(enabled: boolean): Pick<
-  C4DataSourceResult,
-  'c4Model' | 'boundaries'
-> {
-  const [c4Model, setC4Model] = useState<C4Model | null>(null);
-  const [boundaries, setBoundaries] = useState<readonly BoundaryInfo[]>([]);
-
-  useEffect(() => {
-    if (!enabled) return;
-
-    let cancelled = false;
-
-    async function load(): Promise<void> {
-      try {
-        const res = await fetch('/anytime-markdown-c4.mmd');
-        if (!res.ok) return;
-        const text = await res.text();
-        if (cancelled) return;
-        setC4Model(parseMermaidC4(text));
-        setBoundaries(extractBoundaries(text));
-      } catch {
-        // Static file unavailable — keep null state
-      }
-    }
-
-    void load();
-    return () => { cancelled = true; };
-  }, [enabled]);
-
-  return { c4Model, boundaries };
+  }, [serverUrl, selectedRelease, selectedRepo, setC4Model, setBoundaries, setDsmMatrix, setFeatureMatrix, setCoverageMatrix, setCoverageDiff, setReleases]);
 }
 
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
 
-export function useC4DataSource(serverUrl?: string): C4DataSourceResult {
-  const isRemote = serverUrl !== undefined;
-
+export function useC4DataSource(serverUrl: string): C4DataSourceResult {
   // State
   const [remoteModel, setRemoteModel] = useState<C4Model | null>(null);
   const [remoteBoundaries, setRemoteBoundaries] = useState<
@@ -298,26 +281,23 @@ export function useC4DataSource(serverUrl?: string): C4DataSourceResult {
   const [coverageMatrix, setCoverageMatrix] = useState<CoverageMatrix | null>(null);
   const [coverageDiff, setCoverageDiff] = useState<CoverageDiffMatrix | null>(null);
   const [dsmMatrix, setDsmMatrix] = useState<DsmMatrix | null>(null);
-  const [dsmDiff, setDsmDiff] = useState<DsmDiff | null>(null);
-  const [dsmCycles, setDsmCycles] = useState<readonly CyclicPair[]>([]);
   const [docLinks, setDocLinks] = useState<readonly DocLink[]>([]);
   const [connected, setConnected] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null);
   const [releases, setReleases] = useState<readonly C4ReleaseEntry[]>([]);
   const [selectedRelease, setSelectedRelease] = useState<string>('current');
+  const [selectedRepo, setSelectedRepo] = useState<string>('');
 
   // Refs
   const wsRef = useRef<WebSocket | null>(null);
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Local mode
-  const local = useLocalMode(!isRemote);
-
   // Remote initial fetch — loads DB-stored model before WS pushes provider state
   useRemoteInitialFetch(
     serverUrl,
     selectedRelease,
+    selectedRepo,
     setRemoteModel,
     setRemoteBoundaries,
     setDsmMatrix,
@@ -340,9 +320,6 @@ export function useC4DataSource(serverUrl?: string): C4DataSourceResult {
         setAnalysisProgress(null);
       } else if (isWsDsmMatrixMessage(parsed)) {
         setDsmMatrix(parsed.matrix);
-      } else if (isWsDsmDiffMessage(parsed)) {
-        setDsmDiff(parsed.diff);
-        setDsmCycles(parsed.cycles);
       } else if (isWsDocLinksMessage(parsed)) {
         setDocLinks(parsed.docLinks);
       } else if (isWsCoverageMessage(parsed)) {
@@ -357,14 +334,14 @@ export function useC4DataSource(serverUrl?: string): C4DataSourceResult {
 
   // WebSocket connect / reconnect
   useEffect(() => {
-    if (!serverUrl) return;
 
     let mounted = true;
 
     function connect(): void {
       if (!mounted) return;
-      const host = new URL(serverUrl as string).host;
-      const ws = new WebSocket(`ws://${host}`);
+      const wsUrl = buildWsUrl(serverUrl);
+      if (wsUrl === null) return;
+      const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.addEventListener('open', () => {
@@ -423,20 +400,20 @@ export function useC4DataSource(serverUrl?: string): C4DataSourceResult {
   );
 
   return {
-    c4Model: isRemote ? remoteModel : local.c4Model,
-    boundaries: isRemote ? remoteBoundaries : local.boundaries,
+    c4Model: remoteModel,
+    boundaries: remoteBoundaries,
     featureMatrix,
     coverageMatrix,
     coverageDiff,
     docLinks,
     dsmMatrix,
-    dsmDiff,
-    dsmCycles,
     connected,
     analysisProgress,
     sendCommand,
     releases,
     selectedRelease,
     setSelectedRelease,
+    selectedRepo,
+    setSelectedRepo,
   };
 }

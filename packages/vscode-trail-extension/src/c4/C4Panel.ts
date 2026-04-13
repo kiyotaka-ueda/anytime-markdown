@@ -4,14 +4,13 @@ import * as path from 'node:path';
 import {
   parseMermaidC4,
   extractBoundaries,
-  buildC4Matrix,
   buildSourceMatrix,
   clusterMatrix,
   parseCoverage,
   aggregateCoverage,
   computeCoverageDiff,
 } from '@anytime-markdown/trail-core/c4';
-import type { C4Element, C4Model, C4Relationship, BoundaryInfo, CoverageDiffMatrix, CoverageMatrix, DsmMapping, DsmMatrix, FeatureMatrix } from '@anytime-markdown/trail-core/c4';
+import type { C4Element, C4Model, C4Relationship, BoundaryInfo, CoverageDiffMatrix, CoverageMatrix, DsmMatrix, FeatureMatrix } from '@anytime-markdown/trail-core/c4';
 import { analyze, toMermaid } from '@anytime-markdown/trail-core';
 import type { TrailGraph } from '@anytime-markdown/trail-core';
 import type { C4DataProvider } from '../server/TrailDataServer';
@@ -20,6 +19,7 @@ import { TrailLogger } from '../utils/TrailLogger';
 import { CoverageHistory } from './coverageHistory';
 import { CoverageWatcher } from './coverageWatcher';
 import type { TrailDatabase } from '../trail/TrailDatabase';
+import { ExecFileGitService } from '../trail/ExecFileGitService';
 
 /**
  * C4モデルのデータ管理を担当するシングルトン。
@@ -36,11 +36,8 @@ export class C4Panel implements C4DataProvider {
   private lastTrailGraph: TrailGraph | undefined;
   private lastProjectRoot: string | undefined;
   private lastTsconfigPath: string | undefined;
-  private lastDsmMapping: readonly DsmMapping[] = [];
-  private lastC4Matrix: DsmMatrix | undefined;
   private lastSourceMatrix: DsmMatrix | undefined;
   private dsmLevel: 'component' | 'package' = 'component';
-  private dsmMode: 'c4' | 'diff' = 'c4';
   private lastCoverageMatrix: CoverageMatrix | undefined;
   private lastCoverageDiff: CoverageDiffMatrix | undefined;
   private coverageHistory: CoverageHistory | undefined;
@@ -90,11 +87,8 @@ export class C4Panel implements C4DataProvider {
   public get model(): C4Model | undefined { return this.lastModel; }
   public get boundaries(): readonly BoundaryInfo[] | undefined { return this.lastBoundaries; }
   public get featureMatrix(): FeatureMatrix | undefined { return this.lastFeatureMatrix; }
-  public get c4Matrix(): DsmMatrix | undefined { return this.lastC4Matrix; }
   public get sourceMatrix(): DsmMatrix | undefined { return this.lastSourceMatrix; }
   public get currentDsmLevel(): 'component' | 'package' { return this.dsmLevel; }
-  public get currentDsmMode(): 'c4' | 'diff' { return this.dsmMode; }
-  public get dsmMappings(): readonly DsmMapping[] { return this.lastDsmMapping; }
   public get coverageMatrix(): CoverageMatrix | undefined { return this.lastCoverageMatrix; }
   public get coverageDiff(): CoverageDiffMatrix | undefined { return this.lastCoverageDiff; }
 
@@ -103,17 +97,11 @@ export class C4Panel implements C4DataProvider {
     this.buildDsm();
   }
 
-  public handleSetDsmMode(mode: 'c4' | 'diff'): void {
-    this.dsmMode = mode;
-    this.buildDsm();
-  }
-
   public handleCluster(enabled: boolean): void {
     this.buildDsm(enabled);
   }
 
   public handleRefresh(): void {
-    this.inferMapping();
     this.buildDsm();
   }
 
@@ -340,6 +328,8 @@ export class C4Panel implements C4DataProvider {
 
   /** ワークスペースの TypeScript を trail-core で解析 */
   public static async analyzeWorkspace(): Promise<void> {
+    const repoName = vscode.workspace.workspaceFolders?.[0]?.name ?? '(no workspace)';
+    TrailLogger.info(`C4 analysis [${repoName}]: searching tsconfig.json in workspace`);
     const excludePatterns: readonly string[] = vscode.workspace.getConfiguration('anytimeTrail.c4').get<string[]>('analyzeExcludePatterns', ['.worktrees', '.vscode-test', '__tests__', 'fixtures']);
     const allTsconfigFiles = await vscode.workspace.findFiles('**/tsconfig.json', '**/node_modules/**');
     const tsconfigFiles = allTsconfigFiles
@@ -353,6 +343,7 @@ export class C4Panel implements C4DataProvider {
         return aDepth !== bDepth ? aDepth - bDepth : aRel.localeCompare(bRel);
       });
     if (tsconfigFiles.length === 0) {
+      TrailLogger.warn(`C4 analysis [${repoName}]: no tsconfig.json found in workspace`);
       vscode.window.showWarningMessage('No tsconfig.json found in workspace.');
       return;
     }
@@ -374,10 +365,15 @@ export class C4Panel implements C4DataProvider {
         placeHolder: 'Select tsconfig.json to analyze',
         matchOnDescription: true,
       });
-      if (!picked) return;
+      if (!picked) {
+        TrailLogger.info(`C4 analysis [${repoName}]: cancelled at tsconfig selection`);
+        return;
+      }
       tsconfigPath = picked.uri.fsPath;
     }
 
+    TrailLogger.info(`C4 analysis [${repoName}]: starting for ${tsconfigPath}`);
+    const startedAt = Date.now();
     C4Panel.openViewer(true);
 
     try {
@@ -395,13 +391,23 @@ export class C4Panel implements C4DataProvider {
           const graph = analyze({
             tsconfigPath,
             onProgress: (phase) => {
+              TrailLogger.info(`C4 analysis [${repoName}]: ${phase}`);
               progress.report({ message: phase });
               server?.notifyProgress(phase, phasePercent(phase));
             },
           });
 
-          // TrailGraph を DB に保存
-          C4Panel.trailDb?.saveTrailGraph(graph, tsconfigPath);
+          TrailLogger.info(
+            `C4 analysis [${repoName}]: analyzed ${graph.metadata.fileCount} files, ${graph.nodes.length} nodes, ${graph.edges.length} edges`,
+          );
+
+          // TrailGraph を current_graphs テーブルに保存（HEAD コミット ID 付き、repo_name をキーに）
+          // releases.repo_name と整合させるため path.basename(gitRoot) を使用する
+          const gitRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
+          const dbRepoName = gitRoot ? path.basename(gitRoot) : repoName;
+          const commitId = gitRoot ? new ExecFileGitService(gitRoot).getHeadCommit() : '';
+          C4Panel.trailDb?.saveCurrentGraph(graph, tsconfigPath, commitId, dbRepoName);
+          TrailLogger.info(`C4 analysis [${repoName}]: TrailGraph saved to current_graphs (repo=${dbRepoName}, commit=${commitId || 'unknown'})`);
 
           // TODO: C4モデル変換・マージは一旦コメントアウト
           // progress.report({ message: 'Building C4 model...' });
@@ -439,14 +445,13 @@ export class C4Panel implements C4DataProvider {
           panel.lastTrailGraph = graph;
           panel.lastProjectRoot = graph.metadata.projectRoot;
           panel.lastTsconfigPath = tsconfigPath;
+          panel.buildDsm();
           server?.notifyProgress('', 100);
         },
       );
+      TrailLogger.info(`C4 analysis [${repoName}]: completed in ${Date.now() - startedAt}ms`);
     } catch (e) {
-      const msg = e instanceof Error ? `${e.message}\n${e.stack ?? ''}` : String(e);
-      const channel = vscode.window.createOutputChannel('C4 Model');
-      channel.appendLine(msg);
-      channel.show();
+      TrailLogger.error(`C4 analysis [${repoName}] failed`, e);
       vscode.window.showErrorMessage(`C4 analysis failed: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
@@ -588,62 +593,21 @@ export class C4Panel implements C4DataProvider {
     this.lastModel = model;
     this.lastBoundaries = boundaries;
     C4Panel.saveModel(model, boundaries ?? [], this.lastFeatureMatrix);
-    this.inferMapping();
     this.buildDsm();
     void vscode.commands.executeCommand('setContext', 'anytimeTrail.c4ModelLoaded', true);
     C4Panel.dataServer?.notify('model-updated');
   }
 
-  /** C4要素名とソースファイル名のマッチングで自動マッピングを推定 */
-  private inferMapping(): void {
-    if (!this.lastModel || !this.lastTrailGraph) {
-      this.lastDsmMapping = [];
-      return;
-    }
-
-    const fileNodes = this.lastTrailGraph.nodes.filter((n: { type: string }) => n.type === 'file');
-    const mapping: DsmMapping[] = [];
-
-    for (const element of this.lastModel.elements) {
-      const elementName = element.name.toLowerCase().replaceAll(/[^a-z0-9]/g, '');
-      let bestMatch: { id: string; score: number } | null = null;
-
-      for (const file of fileNodes) {
-        const fileName = path.basename(file.filePath, path.extname(file.filePath))
-          .toLowerCase().replaceAll(/[^a-z0-9]/g, '');
-        if (fileName === elementName) {
-          bestMatch = { id: file.id, score: 2 };
-          break;
-        }
-        if (fileName.includes(elementName) || elementName.includes(fileName)) {
-          if (!bestMatch || bestMatch.score < 1) {
-            bestMatch = { id: file.id, score: 1 };
-          }
-        }
-      }
-
-      if (bestMatch) {
-        mapping.push({ c4ElementId: element.id, sourcePath: bestMatch.id });
-      }
-    }
-
-    this.lastDsmMapping = mapping;
-  }
-
   /** DSM データをビルドしてデータサーバーに通知 */
-  private buildDsm(cluster = false): void {
-    if (!this.lastModel) return;
+  public buildDsm(cluster = false): void {
+    if (!this.lastTrailGraph) return;
 
     try {
-      let c4Matrix = buildC4Matrix(this.lastModel, this.dsmLevel, this.lastBoundaries ?? undefined);
+      let matrix = buildSourceMatrix(this.lastTrailGraph, this.dsmLevel);
       if (cluster) {
-        c4Matrix = clusterMatrix(c4Matrix);
+        matrix = clusterMatrix(matrix);
       }
-      this.lastC4Matrix = c4Matrix;
-
-      if (this.dsmMode === 'diff' && this.lastTrailGraph) {
-        this.lastSourceMatrix = buildSourceMatrix(this.lastTrailGraph, this.dsmLevel);
-      }
+      this.lastSourceMatrix = matrix;
       C4Panel.dataServer?.notify('dsm-updated');
     } catch (err) {
       TrailLogger.warn('DSM build failed');
