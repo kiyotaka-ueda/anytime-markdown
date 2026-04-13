@@ -94,9 +94,11 @@ function aggregateDsmByC4Ancestors(
       const el = elementById.get(ancestor);
       if (el) groupNameById.set(ancestor, el.name);
     } else {
-      nodeToGroup.set(node.id, node.id);
-      groupSet.add(node.id);
-      groupNameById.set(node.id, node.name);
+      // C4 階層に祖先が見つからない場合はディレクトリ単位でフォールバック集約
+      const pkg = dirnameOf(node.path);
+      nodeToGroup.set(node.id, pkg);
+      groupSet.add(pkg);
+      groupNameById.set(pkg, pkg);
     }
   }
 
