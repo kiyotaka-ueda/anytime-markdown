@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import { TrailViewerCore, useTrailDataSource } from '@anytime-markdown/trail-viewer';
-import type { TrailFilter, SupabaseConfig } from '@anytime-markdown/trail-viewer';
+import type { TrailFilter } from '@anytime-markdown/trail-viewer';
 
 import { useThemeMode } from '../../providers';
 import { useLocaleSwitch } from '../../LocaleProvider';
@@ -23,20 +23,19 @@ interface C4Payload {
 
 const EMPTY_FILTER: TrailFilter = {};
 
+/**
+ * web アプリの Trail ビュワー。
+ *
+ * 拡張機能と同様に useTrailDataSource('') を使用し、同居する Next.js API route
+ * (/api/trail/...) から HTTP 経由でデータを取得する。Supabase 直接接続は廃止し、
+ * 全ルートがサーバ側 SupabaseTrailReader を経由する単一経路に統一した。
+ */
 export function TrailViewer() {
   const { themeMode } = useThemeMode();
   const isDark = themeMode === 'dark';
   const { locale } = useLocaleSwitch();
 
-  const supabaseConfig: SupabaseConfig | undefined =
-    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-      ? {
-          url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-          anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-        }
-      : undefined;
-
-  const dataSource = useTrailDataSource(undefined, supabaseConfig);
+  const dataSource = useTrailDataSource('');
 
   const [filter, setFilter] = useState<TrailFilter>(EMPTY_FILTER);
   const [selectedSessionId, setSelectedSessionId] = useState<string | undefined>();
@@ -71,7 +70,7 @@ export function TrailViewer() {
     let cancelled = false;
     async function fetchC4(): Promise<void> {
       try {
-        const res = await fetch(`/api/c4model?release=${encodeURIComponent(selectedRelease)}`);
+        const res = await fetch(`/api/c4/model?release=${encodeURIComponent(selectedRelease)}`);
         if (!res.ok) return;
         const data = (await res.json()) as C4Payload;
         if (!cancelled && data?.model?.elements) {
