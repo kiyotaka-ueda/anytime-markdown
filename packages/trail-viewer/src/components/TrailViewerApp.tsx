@@ -136,6 +136,7 @@ export function TrailViewerApp({
     onRemoveElement,
     onPurgeDeleted,
     onDocLinkClick,
+    serverUrl,
   };
 
   return (

@@ -29,10 +29,12 @@ const UNKNOWN_REPO_KEY = '__unknown__';
 const CURRENT_RELEASE_TAG = 'current';
 import { AddElementDialog, AddRelationshipDialog } from './C4EditDialogs';
 import type { ElementFormData, RelationshipFormData } from './C4EditDialogs';
+import type { ExportedSymbol, FlowGraph } from '@anytime-markdown/trail-core/analyzer';
 import { C4ElementTree } from './C4ElementTree';
 import { CoverageCanvas } from './CoverageCanvas';
 import { DsmCanvas } from './DsmCanvas';
 import { FcMapCanvas } from './FcMapCanvas';
+import { FlowchartCanvas } from './FlowchartCanvas';
 import { GraphCanvas } from './GraphCanvas';
 
 const { graphReducer, createInitialState } = graphState;
@@ -75,6 +77,7 @@ export interface C4ViewerCoreProps {
   readonly onReleaseSelect?: (release: string) => void;
   readonly selectedRepo?: string;
   readonly onRepoSelect?: (repo: string) => void;
+  readonly serverUrl?: string;
 }
 
 export function C4ViewerCore({
@@ -101,6 +104,7 @@ export function C4ViewerCore({
   onReleaseSelect,
   selectedRepo: selectedRepoProp,
   onRepoSelect,
+  serverUrl = '',
 }: Readonly<C4ViewerCoreProps>) {
   const { t } = useTrailI18n();
   const colors = useMemo(() => getC4Colors(isDark), [isDark]);
@@ -186,6 +190,15 @@ export function C4ViewerCore({
   const [checkedPackageIds, setCheckedPackageIds] = useState<ReadonlySet<string> | null>(null);
   const [centerOnSelect, setCenterOnSelect] = useState(false);
   const [splitRatio, setSplitRatio] = useState(0.5);
+
+  // --- Flow mode state ---
+  const [exports, setExports] = useState<readonly ExportedSymbol[]>([]);
+  const [selectedExport, setSelectedExport] = useState<ExportedSymbol | null>(null);
+  const [flowType, setFlowType] = useState<'control' | 'call'>('control');
+  const [flowGraph, setFlowGraph] = useState<FlowGraph | null>(null);
+  const [flowError, setFlowError] = useState<string | null>(null);
+  const [showFlow, setShowFlow] = useState(false);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -193,6 +206,46 @@ export function C4ViewerCore({
   const [addElementType, setAddElementType] = useState<'person' | 'system' | null>(null);
   const [editElement, setEditElement] = useState<{ id: string; type: 'person' | 'system'; name: string; description: string; external: boolean } | null>(null);
   const [addRelOpen, setAddRelOpen] = useState(false);
+
+  const handleElementSelect = useCallback(async (id: string) => {
+    setCenterOnSelect(true);
+    setSelectedElementId(id);
+    setSelectedExport(null);
+    setFlowGraph(null);
+    setShowFlow(false);
+
+    const el = c4Model?.elements.find(e => e.id === id);
+    if (el?.type !== 'component') { setExports([]); return; }
+
+    try {
+      const repoQuery = selectedRepo ? `&repo=${encodeURIComponent(selectedRepo)}` : '';
+      const url = `${serverUrl}/api/c4/exports?componentId=${encodeURIComponent(id)}${repoQuery}`;
+      const res = await fetch(url);
+      if (!res.ok) { setExports([]); return; }
+      const data = await res.json() as { symbols: ExportedSymbol[] };
+      setExports(data.symbols ?? []);
+    } catch {
+      setExports([]);
+    }
+  }, [c4Model, serverUrl, selectedRepo]);
+
+  const handleExportSelect = useCallback(async (symbol: ExportedSymbol) => {
+    setSelectedExport(symbol);
+    setFlowError(null);
+    setFlowGraph(null);
+    setShowFlow(true);
+
+    try {
+      const repoQuery = selectedRepo ? `&repo=${encodeURIComponent(selectedRepo)}` : '';
+      const url = `${serverUrl}/api/c4/flowchart?componentId=${encodeURIComponent(selectedElementId ?? '')}&symbolId=${encodeURIComponent(symbol.id)}&type=${flowType}${repoQuery}`;
+      const res = await fetch(url);
+      if (!res.ok) { setFlowError('Failed to load flowchart'); return; }
+      const data = await res.json() as { graph: FlowGraph };
+      setFlowGraph(data.graph ?? null);
+    } catch {
+      setFlowError('Failed to load flowchart');
+    }
+  }, [serverUrl, selectedElementId, flowType, selectedRepo]);
 
   const handleAddElement = useCallback((data: ElementFormData) => {
     onAddElement?.(data);
@@ -424,6 +477,31 @@ export function C4ViewerCore({
         <Button size="small" onClick={() => { if (showC4 && !showDsm) { setShowDsm(true); } else { setShowC4(true); setShowDsm(false); } }} aria-pressed={showC4 && !showDsm} aria-label="Toggle C4 graph" sx={{ ...toolbarButtonSx, ...(showC4 && !showDsm && { bgcolor: toolbarButtonActiveBg }) }}>C4</Button>
         <Button size="small" onClick={() => { if (!showC4 && showDsm) { setShowC4(true); } else { setShowC4(false); setShowDsm(true); } }} aria-pressed={!showC4 && showDsm} aria-label="Toggle matrix panel" sx={{ ...toolbarButtonSx, ...(!showC4 && showDsm && { bgcolor: toolbarButtonActiveBg }) }}>Matrix</Button>
         <Button size="small" startIcon={<AccountTreeIcon sx={{ fontSize: 18 }} />} onClick={() => setShowTree(prev => !prev)} aria-pressed={showTree} aria-label="Toggle element tree" sx={{ ...toolbarButtonSx, ...(showTree && { bgcolor: toolbarButtonActiveBg }) }}>Tree</Button>
+        {selectedExport && (
+          <>
+            <Button
+              size="small"
+              onClick={() => setShowFlow(prev => !prev)}
+              aria-pressed={showFlow}
+              sx={{ ...toolbarButtonSx, ...(showFlow && { bgcolor: toolbarButtonActiveBg }) }}
+            >
+              Flow: {selectedExport.name}
+            </Button>
+            {showFlow && (
+              <ButtonGroup size="small">
+                {(['control', 'call'] as const).map(t => (
+                  <Button
+                    key={t}
+                    onClick={() => { setFlowType(t); }}
+                    sx={{ ...toolbarButtonSx, fontSize: '0.7rem', ...(flowType === t && { bgcolor: toolbarButtonActiveBg }) }}
+                  >
+                    {t}
+                  </Button>
+                ))}
+              </ButtonGroup>
+            )}
+          </>
+        )}
       </Toolbar>
       {currentLevel === 1 && (
         <Toolbar variant="dense" sx={{ gap: 1, bgcolor: colors.bgSecondary, borderBottom: `1px solid ${colors.border}`, minHeight: 36, px: { xs: 2, md: 3 } }}>
@@ -607,6 +685,15 @@ export function C4ViewerCore({
             sx={{ width: 5, cursor: 'col-resize', bgcolor: 'transparent', borderLeft: `1px solid ${colors.border}`, '&:hover': { bgcolor: colors.focus }, '&:focus-visible': { outline: `2px solid ${colors.accent}`, outlineOffset: '2px' }, flexShrink: 0 }}
           />
         )}
+        {showFlow && (
+          <Box sx={{ flex: showC4 ? 1 - splitRatio : 1, display: 'flex', flexDirection: 'column', minWidth: 100 }}>
+            <FlowchartCanvas
+              graph={flowGraph ?? { nodes: [], edges: [] }}
+              isDark={isDark}
+              errorMessage={flowError}
+            />
+          </Box>
+        )}
         {showDsm && (
           <Box sx={{ flex: showC4 ? 1 - splitRatio : 1, display: 'flex', flexDirection: 'column', minWidth: 100, borderRight: showTree && elementTree.length > 0 ? `1px solid ${colors.border}` : 'none' }}>
             <Toolbar variant="dense" sx={{ gap: 0.5, bgcolor: colors.bgSecondary, borderBottom: `1px solid ${colors.border}`, minHeight: 36, px: 1, flexShrink: 0 }}>
@@ -644,13 +731,16 @@ export function C4ViewerCore({
           <C4ElementTree
             tree={elementTree}
             dispatch={dispatch}
-            onSelect={(id) => { setCenterOnSelect(true); setSelectedElementId(id); }}
+            onSelect={handleElementSelect}
             onCheckedChange={setCheckedPackageIds}
             onRemoveElement={onRemoveElement}
             onPurgeDeleted={onPurgeDeleted}
             docLinks={docLinks}
             onDocLinkClick={onDocLinkClick}
             isDark={isDark}
+            exports={exports}
+            selectedExportId={selectedExport?.id ?? null}
+            onExportSelect={handleExportSelect}
           />
         )}
       </Box>
