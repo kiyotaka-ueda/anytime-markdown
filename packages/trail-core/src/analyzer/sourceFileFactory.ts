@@ -13,3 +13,21 @@ import ts from 'typescript';
 export function createSourceFile(fileName: string, content: string): ts.SourceFile {
   return ts.createSourceFile(fileName, content, ts.ScriptTarget.Latest, true);
 }
+
+/**
+ * SourceFile から指定名の FunctionDeclaration を検索する。
+ * @param sf 対象 SourceFile
+ * @param funcName 関数名
+ */
+export function findFunctionNode(
+  sf: ts.SourceFile,
+  funcName: string,
+): ts.FunctionDeclaration | undefined {
+  let result: ts.FunctionDeclaration | undefined;
+  ts.forEachChild(sf, node => {
+    if (ts.isFunctionDeclaration(node) && node.name?.text === funcName) {
+      result = node;
+    }
+  });
+  return result;
+}
