@@ -55,14 +55,16 @@ export function aggregateDsmToPackageLevel(matrix: DsmMatrix): DsmMatrix {
 }
 
 /**
- * DsmMatrix のノードを name 昇順に並び替え、隣接行列も対応させる。
+ * DsmMatrix のノードを path 昇順に並び替え、隣接行列も対応させる。
+ * path でソートすることで、同一ディレクトリのノードが隣接しつつ
+ * グループ（親）自体も昇順に並ぶ。
  */
 export function sortDsmMatrixByName(matrix: DsmMatrix): DsmMatrix {
   const n = matrix.nodes.length;
   if (n === 0) return matrix;
 
   const order = Array.from({ length: n }, (_, i) => i)
-    .sort((a, b) => matrix.nodes[a].name.localeCompare(matrix.nodes[b].name));
+    .sort((a, b) => matrix.nodes[a].path.localeCompare(matrix.nodes[b].path));
 
   const nodes = order.map(i => matrix.nodes[i]);
 
