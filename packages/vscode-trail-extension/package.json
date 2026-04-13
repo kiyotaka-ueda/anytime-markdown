@@ -23,8 +23,7 @@
     "analysis"
   ],
   "activationEvents": [
-    "onCommand:anytime-trail.c4Import",
-    "onCommand:anytime-trail.c4Analyze",
+"onCommand:anytime-trail.c4Analyze",
     "onCommand:anytime-trail.c4Export",
     "onCommand:anytime-trail.c4View",
     "onCommand:anytime-trail.dsmAnalyze",
@@ -75,12 +74,7 @@
       }
     ],
     "commands": [
-      {
-        "command": "anytime-trail.c4Import",
-        "title": "%command.c4Import%",
-        "icon": "$(file-code)"
-      },
-      {
+{
         "command": "anytime-trail.c4Analyze",
         "title": "%command.c4Analyze%",
         "icon": "$(graph)"
@@ -160,11 +154,6 @@
           "command": "anytime-trail.c4Export",
           "when": "view == anytimeTrail.c4Elements",
           "group": "navigation@2"
-        },
-        {
-          "command": "anytime-trail.c4Import",
-          "when": "view == anytimeTrail.c4Elements",
-          "group": "navigation@3"
         },
         {
           "command": "anytime-trail.aiMemoryRefresh",
