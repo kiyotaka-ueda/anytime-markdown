@@ -12,10 +12,6 @@ import type {
   DsmMatrix,
   FeatureMatrix,
 } from '@anytime-markdown/trail-core/c4';
-import {
-  extractBoundaries,
-  parseMermaidC4,
-} from '@anytime-markdown/trail-core/c4';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -254,48 +250,10 @@ function useRemoteInitialFetch(
 }
 
 // ---------------------------------------------------------------------------
-// Local-mode loader
-// ---------------------------------------------------------------------------
-
-function useLocalMode(enabled: boolean): Pick<
-  C4DataSourceResult,
-  'c4Model' | 'boundaries'
-> {
-  const [c4Model, setC4Model] = useState<C4Model | null>(null);
-  const [boundaries, setBoundaries] = useState<readonly BoundaryInfo[]>([]);
-
-  useEffect(() => {
-    if (!enabled) return;
-
-    let cancelled = false;
-
-    async function load(): Promise<void> {
-      try {
-        const res = await fetch('/anytime-markdown-c4.mmd');
-        if (!res.ok) return;
-        const text = await res.text();
-        if (cancelled) return;
-        setC4Model(parseMermaidC4(text));
-        setBoundaries(extractBoundaries(text));
-      } catch {
-        // Static file unavailable — keep null state
-      }
-    }
-
-    void load();
-    return () => { cancelled = true; };
-  }, [enabled]);
-
-  return { c4Model, boundaries };
-}
-
-// ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
 
-export function useC4DataSource(serverUrl?: string): C4DataSourceResult {
-  const isRemote = serverUrl !== undefined;
-
+export function useC4DataSource(serverUrl: string): C4DataSourceResult {
   // State
   const [remoteModel, setRemoteModel] = useState<C4Model | null>(null);
   const [remoteBoundaries, setRemoteBoundaries] = useState<
@@ -318,9 +276,6 @@ export function useC4DataSource(serverUrl?: string): C4DataSourceResult {
   const wsRef = useRef<WebSocket | null>(null);
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Local mode
-  const local = useLocalMode(!isRemote);
 
   // Remote initial fetch — loads DB-stored model before WS pushes provider state
   useRemoteInitialFetch(
@@ -366,7 +321,6 @@ export function useC4DataSource(serverUrl?: string): C4DataSourceResult {
 
   // WebSocket connect / reconnect
   useEffect(() => {
-    if (!serverUrl) return;
 
     let mounted = true;
 
@@ -432,8 +386,8 @@ export function useC4DataSource(serverUrl?: string): C4DataSourceResult {
   );
 
   return {
-    c4Model: isRemote ? remoteModel : local.c4Model,
-    boundaries: isRemote ? remoteBoundaries : local.boundaries,
+    c4Model: remoteModel,
+    boundaries: remoteBoundaries,
     featureMatrix,
     coverageMatrix,
     coverageDiff,
