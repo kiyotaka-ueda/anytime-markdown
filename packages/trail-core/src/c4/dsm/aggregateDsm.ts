@@ -150,6 +150,14 @@ export function aggregateDsmToC4ContainerLevel(
   return aggregateDsmByC4Ancestors(matrix, elements, new Set<C4ElementType>(['container', 'containerDb']));
 }
 
+/** L1 用: C4 system 単位で集約 */
+export function aggregateDsmToC4SystemLevel(
+  matrix: DsmMatrix,
+  elements: readonly C4Element[],
+): DsmMatrix {
+  return aggregateDsmByC4Ancestors(matrix, elements, new Set<C4ElementType>(['system']));
+}
+
 /**
  * DsmMatrix のノードを path 昇順に並び替え、隣接行列も対応させる。
  * path でソートすることで、同一ディレクトリのノードが隣接しつつ

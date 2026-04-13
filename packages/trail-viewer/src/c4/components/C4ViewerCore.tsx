@@ -1,4 +1,4 @@
-import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToPackageLevel, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, filterTreeByLevel, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
+import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, filterTreeByLevel, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
 import type { BoundaryInfo, C4Model, C4ReleaseEntry, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix } from '@anytime-markdown/trail-core/c4';
 import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 import { engine, layoutWithSubgroups, state as graphState } from '@anytime-markdown/graph-core';
@@ -301,8 +301,8 @@ export function C4ViewerCore({
   const filteredDsmMatrix = useMemo(() => {
     if (!dsmMatrix) return null;
     let m = dsmMatrix;
-    if (currentLevel === 1) {
-      m = aggregateDsmToPackageLevel(dsmMatrix);
+    if (currentLevel === 1 && c4Model) {
+      m = aggregateDsmToC4SystemLevel(dsmMatrix, c4Model.elements);
     } else if (currentLevel === 2 && c4Model) {
       m = aggregateDsmToC4ContainerLevel(dsmMatrix, c4Model.elements);
     } else if (currentLevel === 3 && c4Model) {
