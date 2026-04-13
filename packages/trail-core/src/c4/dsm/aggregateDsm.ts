@@ -53,3 +53,36 @@ export function aggregateDsmToPackageLevel(matrix: DsmMatrix): DsmMatrix {
 
   return { nodes, edges: [], adjacency };
 }
+
+/**
+ * DsmMatrix のノードを name 昇順に並び替え、隣接行列も対応させる。
+ */
+export function sortDsmMatrixByName(matrix: DsmMatrix): DsmMatrix {
+  const n = matrix.nodes.length;
+  if (n === 0) return matrix;
+
+  const order = Array.from({ length: n }, (_, i) => i)
+    .sort((a, b) => matrix.nodes[a].name.localeCompare(matrix.nodes[b].name));
+
+  const nodes = order.map(i => matrix.nodes[i]);
+
+  const posOf = new Array<number>(n);
+  for (let pos = 0; pos < n; pos++) {
+    posOf[order[pos]] = pos;
+  }
+
+  const adjacency: number[][] = Array.from({ length: n }, () =>
+    Array.from({ length: n }, () => 0),
+  );
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      if (matrix.adjacency[i][j] === 1) {
+        adjacency[posOf[i]][posOf[j]] = 1;
+      }
+    }
+  }
+
+  const edges = matrix.edges.map(e => ({ ...e }));
+
+  return { nodes, edges, adjacency };
+}
