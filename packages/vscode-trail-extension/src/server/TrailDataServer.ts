@@ -23,6 +23,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 
 import type { ClientMessage, ServerMessage } from './types';
 import type { TrailDatabase, SessionRow, MessageRow, AnalyticsData, CostOptimizationData } from '../trail/TrailDatabase';
+import { TrailLogger } from '../utils/TrailLogger';
 
 // ---------------------------------------------------------------------------
 //  Constants
@@ -600,10 +601,21 @@ export class TrailDataServer {
   }
 
   private handleC4DsmEndpoint(res: http.ServerResponse, releaseId: string, repo?: string): void {
-    // current: メモリ上のプロバイダ（C4Panel）から取得
-    if (releaseId === 'current') {
-      const provider = this.getC4Provider?.();
-      const matrix = provider?.sourceMatrix;
+    try {
+      // current: 解析直後のメモリを優先し、なければ SQLite の current_graphs
+      // release: SQLite の release_graphs から取得
+      let matrix: DsmMatrix | undefined;
+      if (releaseId === 'current') {
+        matrix = this.getC4Provider?.()?.sourceMatrix;
+        if (!matrix) {
+          const graph = this.trailDb.getCurrentGraph(repo);
+          if (graph) matrix = buildSourceMatrix(graph, 'component');
+        }
+      } else {
+        const graph = this.trailDb.getReleaseGraph(releaseId);
+        if (graph) matrix = buildSourceMatrix(graph, 'component');
+      }
+
       if (!matrix) {
         res.writeHead(204);
         res.end();
@@ -611,23 +623,10 @@ export class TrailDataServer {
       }
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({ matrix }));
-      return;
-    }
-
-    // release: SQLite の release_graphs から取得して計算
-    try {
-      const graph = this.trailDb.getReleaseGraph(releaseId);
-      if (!graph) {
-        res.writeHead(204);
-        res.end();
-        return;
-      }
-      const matrix = buildSourceMatrix(graph, 'component');
-      res.writeHead(200, JSON_HEADERS);
-      res.end(JSON.stringify({ matrix }));
     } catch (e) {
+      TrailLogger.error('Failed to build DSM', e);
       res.writeHead(500, JSON_HEADERS);
-      res.end(JSON.stringify({ error: 'Failed to build DSM for release' }));
+      res.end(JSON.stringify({ error: 'Failed to build DSM' }));
     }
   }
 
