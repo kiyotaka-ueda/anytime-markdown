@@ -1,4 +1,4 @@
-import type { C4Element } from '../types';
+import type { C4Element, C4ElementType } from '../types';
 import type { DsmMatrix, DsmNode } from './types';
 
 /** ブラウザ対応の dirname（node:path 不使用） */
@@ -56,43 +56,44 @@ export function aggregateDsmToPackageLevel(matrix: DsmMatrix): DsmMatrix {
 }
 
 /**
- * component レベルの DsmMatrix を C4 component 単位に集約する。
- * code 要素の boundaryId（親 component の ID）でグループ化し、
- * component 間の依存関係を隣接行列で表現する。
- * C4 component に対応しないノードは個別ノードとして残す。
+ * DSM ノード（ファイル）を C4 要素階層で辿り、targetTypes のいずれかに
+ * 該当する祖先要素でグループ化して集約する汎用関数。
+ * 対応する祖先が見つからないノードは個別ノードとして残す。
  */
-export function aggregateDsmToC4ComponentLevel(
+function aggregateDsmByC4Ancestors(
   matrix: DsmMatrix,
   elements: readonly C4Element[],
+  targetTypes: ReadonlySet<C4ElementType>,
 ): DsmMatrix {
   if (matrix.nodes.length === 0) return matrix;
 
-  // code 要素の ID → 親 component ID のマップを構築
-  const fileToComponent = new Map<string, string>();
-  const componentNameById = new Map<string, string>();
+  const elementById = new Map<string, C4Element>();
   for (const el of elements) {
-    if (el.type === 'code' && el.boundaryId) {
-      fileToComponent.set(el.id, el.boundaryId);
-    }
-    if (el.type === 'component') {
-      componentNameById.set(el.id, el.name);
-    }
+    elementById.set(el.id, el);
   }
 
-  // DSM ノードを component にマップ（対応なしは自身のIDを使用）
+  function findAncestor(id: string): string | null {
+    let current = elementById.get(id);
+    while (current) {
+      if (targetTypes.has(current.type)) return current.id;
+      if (!current.boundaryId) return null;
+      current = elementById.get(current.boundaryId);
+    }
+    return null;
+  }
+
   const nodeToGroup = new Map<string, string>();
   const groupSet = new Set<string>();
   const groupNameById = new Map<string, string>();
 
   for (const node of matrix.nodes) {
-    const compId = fileToComponent.get(node.id);
-    if (compId) {
-      nodeToGroup.set(node.id, compId);
-      groupSet.add(compId);
-      const name = componentNameById.get(compId);
-      if (name) groupNameById.set(compId, name);
+    const ancestor = findAncestor(node.id);
+    if (ancestor) {
+      nodeToGroup.set(node.id, ancestor);
+      groupSet.add(ancestor);
+      const el = elementById.get(ancestor);
+      if (el) groupNameById.set(ancestor, el.name);
     } else {
-      // C4 component に紐づかないファイルは個別ノードとして残す
       nodeToGroup.set(node.id, node.id);
       groupSet.add(node.id);
       groupNameById.set(node.id, node.name);
@@ -131,6 +132,22 @@ export function aggregateDsmToC4ComponentLevel(
   }
 
   return { nodes, edges: [], adjacency };
+}
+
+/** L3 用: C4 component 単位で集約 */
+export function aggregateDsmToC4ComponentLevel(
+  matrix: DsmMatrix,
+  elements: readonly C4Element[],
+): DsmMatrix {
+  return aggregateDsmByC4Ancestors(matrix, elements, new Set<C4ElementType>(['component']));
+}
+
+/** L2 用: C4 container / containerDb 単位で集約 */
+export function aggregateDsmToC4ContainerLevel(
+  matrix: DsmMatrix,
+  elements: readonly C4Element[],
+): DsmMatrix {
+  return aggregateDsmByC4Ancestors(matrix, elements, new Set<C4ElementType>(['container', 'containerDb']));
 }
 
 /**
