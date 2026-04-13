@@ -27,7 +27,7 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
     await this.deleteAllPaged('trail_sessions', 'id');
     await this.deleteAllPaged('trail_releases', 'tag');
     await this.deleteAllPaged('trail_daily_costs', 'date');
-    await this.deleteAllPaged('trail_c4_models', 'id');
+    await this.deleteAllPaged('trail_release_graphs', 'tag');
   }
 
   private async deleteAllPaged(table: string, pk: string, pageSize = 500): Promise<void> {
@@ -236,50 +236,58 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
     if (error) throw new Error(`Supabase upsert release_features failed: ${error.message}`);
   }
 
-  async upsertC4Model(json: string, revision: string): Promise<void> {
-    await this.upsertC4ModelById('current', json, revision);
-  }
-
-  async upsertC4ModelById(id: string, json: string, revision: string): Promise<void> {
-    const { error } = await this.ensureClient()
-      .from('trail_c4_models')
-      .upsert({
-        id,
-        model_json: json,
-        revision,
-        updated_at: new Date().toISOString(),
-        synced_at: new Date().toISOString(),
-      }, { onConflict: 'id' });
-    if (error) throw new Error(`Supabase upsert C4 model failed: ${error.message}`);
-  }
-
   /**
-   * trail_current_c4_models を全削除する（洗い替え同期の前処理）。
+   * trail_current_graphs を全削除する（洗い替え同期の前処理）。
    */
-  async clearCurrentC4Models(): Promise<void> {
+  async clearCurrentGraphs(): Promise<void> {
     const { error } = await this.ensureClient()
-      .from('trail_current_c4_models')
+      .from('trail_current_graphs')
       .delete()
       .neq('repo_name', '');
-    if (error) throw new Error(`Supabase clear current C4 models failed: ${error.message}`);
+    if (error) throw new Error(`Supabase clear current graphs failed: ${error.message}`);
   }
 
   /**
-   * リポジトリ単位の current C4 モデルを trail_current_c4_models に保存する。
+   * trail_release_graphs を全削除する（洗い替え同期の前処理）。
+   */
+  async clearReleaseGraphs(): Promise<void> {
+    const { error } = await this.ensureClient()
+      .from('trail_release_graphs')
+      .delete()
+      .neq('tag', '');
+    if (error) throw new Error(`Supabase clear release graphs failed: ${error.message}`);
+  }
+
+  /**
+   * リポジトリ単位の current TrailGraph を trail_current_graphs に保存する。
    * 拡張機能のローカル current_graphs と対応する。
    */
-  async upsertCurrentC4Model(repoName: string, json: string, commitId: string, revision: string): Promise<void> {
+  async upsertCurrentGraph(repoName: string, graphJson: string, commitId: string): Promise<void> {
     const { error } = await this.ensureClient()
-      .from('trail_current_c4_models')
+      .from('trail_current_graphs')
       .upsert({
         repo_name: repoName,
         commit_id: commitId,
-        model_json: json,
-        revision,
+        graph_json: graphJson,
         updated_at: new Date().toISOString(),
         synced_at: new Date().toISOString(),
       }, { onConflict: 'repo_name' });
-    if (error) throw new Error(`Supabase upsert current C4 model failed: ${error.message}`);
+    if (error) throw new Error(`Supabase upsert current graph failed: ${error.message}`);
+  }
+
+  /**
+   * リリース別の TrailGraph を trail_release_graphs に保存する。
+   */
+  async upsertReleaseGraph(tag: string, graphJson: string): Promise<void> {
+    const { error } = await this.ensureClient()
+      .from('trail_release_graphs')
+      .upsert({
+        tag,
+        graph_json: graphJson,
+        updated_at: new Date().toISOString(),
+        synced_at: new Date().toISOString(),
+      }, { onConflict: 'tag' });
+    if (error) throw new Error(`Supabase upsert release graph failed: ${error.message}`);
   }
 
   private ensureClient(): SupabaseClient {

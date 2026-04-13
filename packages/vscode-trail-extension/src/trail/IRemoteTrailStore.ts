@@ -39,8 +39,8 @@ export interface IRemoteTrailStore {
     cache_creation_tokens: number;
     estimated_cost_usd: number;
   }[]): Promise<void>;
-  upsertC4Model(json: string, revision: string): Promise<void>;
-  upsertC4ModelById(id: string, json: string, revision: string): Promise<void>;
-  clearCurrentC4Models(): Promise<void>;
-  upsertCurrentC4Model(repoName: string, json: string, commitId: string, revision: string): Promise<void>;
+  clearCurrentGraphs(): Promise<void>;
+  clearReleaseGraphs(): Promise<void>;
+  upsertCurrentGraph(repoName: string, graphJson: string, commitId: string): Promise<void>;
+  upsertReleaseGraph(tag: string, graphJson: string): Promise<void>;
 }

@@ -8,6 +8,9 @@
 DROP TABLE IF EXISTS trail_release_features CASCADE;
 DROP TABLE IF EXISTS trail_release_files CASCADE;
 DROP TABLE IF EXISTS trail_releases CASCADE;
+DROP TABLE IF EXISTS trail_current_graphs CASCADE;
+DROP TABLE IF EXISTS trail_release_graphs CASCADE;
+-- Legacy tables (to be removed after migration)
 DROP TABLE IF EXISTS trail_current_c4_models CASCADE;
 DROP TABLE IF EXISTS trail_c4_models CASCADE;
 DROP TABLE IF EXISTS trail_daily_costs CASCADE;
@@ -96,21 +99,20 @@ CREATE TABLE IF NOT EXISTS trail_daily_costs (
     PRIMARY KEY (date, model, cost_type)
 );
 
--- リリース版 C4 モデル（id=release tag）
-CREATE TABLE IF NOT EXISTS trail_c4_models (
-    id TEXT PRIMARY KEY DEFAULT 'current',
-    model_json TEXT NOT NULL,
-    revision TEXT NOT NULL DEFAULT '',
+-- リリース版 TrailGraph（id=release tag）。
+-- 取得時に trailToC4() で C4Model へ、buildSourceMatrix() で DSM へ変換する。
+CREATE TABLE IF NOT EXISTS trail_release_graphs (
+    tag        TEXT PRIMARY KEY,
+    graph_json TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT '',
-    synced_at TIMESTAMPTZ DEFAULT NOW()
+    synced_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
--- リポジトリ別 current C4 モデル（拡張機能の current_graphs と対応）
-CREATE TABLE IF NOT EXISTS trail_current_c4_models (
+-- リポジトリ別 current TrailGraph（拡張機能の current_graphs と対応）
+CREATE TABLE IF NOT EXISTS trail_current_graphs (
     repo_name  TEXT PRIMARY KEY,
     commit_id  TEXT NOT NULL DEFAULT '',
-    model_json TEXT NOT NULL,
-    revision   TEXT NOT NULL DEFAULT '',
+    graph_json TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT '',
     synced_at  TIMESTAMPTZ DEFAULT NOW()
 );

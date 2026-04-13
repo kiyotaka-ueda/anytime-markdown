@@ -1,26 +1,28 @@
 // supabase/SupabaseC4ModelStore.ts — Supabase backed IC4ModelStore
 //
-// web アプリの Next.js API route、および拡張機能以外のサーバ側処理から利用する。
-// trail_current_c4_models（リポジトリ別 current）と trail_c4_models（リリース）の
-// 2 テーブルを統合して IC4ModelStore を提供する。
+// web アプリの Next.js API route から利用する。
+// trail_current_graphs（リポジトリ別 current）と trail_release_graphs（リリース）の
+// 2 テーブルから TrailGraph を取得し、trailToC4() で C4Model に変換して返す。
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { C4Model } from '@anytime-markdown/trail-core/c4';
+import { trailToC4 } from '@anytime-markdown/trail-core';
+import type { TrailGraph } from '@anytime-markdown/trail-core';
 import type {
   C4ModelEntry,
   C4ModelResult,
   IC4ModelStore,
 } from '@anytime-markdown/trail-core/domain';
 
-interface CurrentC4Row {
+interface CurrentGraphRow {
   readonly repo_name: string;
   readonly commit_id: string;
-  readonly model_json: string;
+  readonly graph_json: string;
 }
 
-interface ReleaseC4Row {
-  readonly id: string;
-  readonly model_json: string;
+interface ReleaseGraphRow {
+  readonly tag: string;
+  readonly graph_json: string;
 }
 
 interface TrailReleaseRow {
@@ -37,34 +39,46 @@ export class SupabaseC4ModelStore implements IC4ModelStore {
   }
 
   async getCurrentC4Model(repoName: string): Promise<C4ModelResult | null> {
-    const { data, error } = await this.client
-      .from('trail_current_c4_models')
-      .select('repo_name, commit_id, model_json')
-      .eq('repo_name', repoName)
-      .maybeSingle<CurrentC4Row>();
-    if (error || !data) return null;
-    const model = SupabaseC4ModelStore.parseModel(data.model_json);
-    if (!model) return null;
-    return { model, commitId: data.commit_id };
+    const result = await this.getCurrentGraph(repoName);
+    if (!result) return null;
+    return { model: trailToC4(result.graph), commitId: result.commitId };
   }
 
   async getReleaseC4Model(tag: string): Promise<C4ModelResult | null> {
+    const graph = await this.getReleaseGraph(tag);
+    if (!graph) return null;
+    return { model: trailToC4(graph) };
+  }
+
+  /** 生の TrailGraph を取得する（DSM 計算用）。 */
+  async getCurrentGraph(repoName: string): Promise<{ graph: TrailGraph; commitId: string } | null> {
     const { data, error } = await this.client
-      .from('trail_c4_models')
-      .select('id, model_json')
-      .eq('id', tag)
-      .maybeSingle<ReleaseC4Row>();
+      .from('trail_current_graphs')
+      .select('repo_name, commit_id, graph_json')
+      .eq('repo_name', repoName)
+      .maybeSingle<CurrentGraphRow>();
     if (error || !data) return null;
-    const model = SupabaseC4ModelStore.parseModel(data.model_json);
-    if (!model) return null;
-    return { model };
+    const graph = SupabaseC4ModelStore.parseGraph(data.graph_json);
+    if (!graph) return null;
+    return { graph, commitId: data.commit_id };
+  }
+
+  /** リリース別の生の TrailGraph を取得する（DSM 計算用）。 */
+  async getReleaseGraph(tag: string): Promise<TrailGraph | null> {
+    const { data, error } = await this.client
+      .from('trail_release_graphs')
+      .select('tag, graph_json')
+      .eq('tag', tag)
+      .maybeSingle<ReleaseGraphRow>();
+    if (error || !data) return null;
+    return SupabaseC4ModelStore.parseGraph(data.graph_json);
   }
 
   async getC4ModelEntries(): Promise<readonly C4ModelEntry[]> {
     // 2 テーブルへの SELECT を並列実行する
     const [currentRes, releaseRes] = await Promise.all([
       this.client
-        .from('trail_current_c4_models')
+        .from('trail_current_graphs')
         .select('repo_name')
         .returns<{ repo_name: string }[]>(),
       this.client
@@ -74,7 +88,7 @@ export class SupabaseC4ModelStore implements IC4ModelStore {
         .returns<TrailReleaseRow[]>(),
     ]);
     if (currentRes.error) {
-      console.error('[SupabaseC4ModelStore] trail_current_c4_models select failed:', currentRes.error.message);
+      console.error('[SupabaseC4ModelStore] trail_current_graphs select failed:', currentRes.error.message);
     }
     if (releaseRes.error) {
       console.error('[SupabaseC4ModelStore] trail_releases select failed:', releaseRes.error.message);
@@ -90,11 +104,11 @@ export class SupabaseC4ModelStore implements IC4ModelStore {
     return entries;
   }
 
-  private static parseModel(json: string): C4Model | null {
+  private static parseGraph(json: string): TrailGraph | null {
     try {
       const parsed: unknown = JSON.parse(json);
       if (parsed && typeof parsed === 'object') {
-        return parsed as C4Model;
+        return parsed as TrailGraph;
       }
       return null;
     } catch {

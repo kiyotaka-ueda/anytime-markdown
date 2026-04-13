@@ -1,7 +1,6 @@
 import type { TrailDatabase } from './TrailDatabase';
 import type { IRemoteTrailStore } from './IRemoteTrailStore';
 import { TrailLogger } from '../utils/TrailLogger';
-import { trailToC4 } from '@anytime-markdown/trail-core';
 
 export interface SyncProgress {
   message: string;
@@ -118,47 +117,32 @@ export class SyncService {
       errors++;
     }
 
-    // Sync C4 model (legacy single-model endpoint)
-    try {
-      const c4 = this.trailDb.getC4Model();
-      if (c4) {
-        onProgress?.({ message: 'Syncing C4 model...' });
-        await this.store.upsertC4Model(c4.json, c4.revision);
-      }
-    } catch (e) {
-      TrailLogger.error('Failed to sync C4 model', e);
-      errors++;
-    }
-
-    // Sync current C4 models per repository (wash-away: delete all → upsert all)
+    // Sync current TrailGraphs per repository (wash-away: delete all → upsert all)
     try {
       const currents = this.trailDb.listCurrentGraphs();
-      onProgress?.({ message: `Syncing ${currents.length} current C4 models (wash-away)...` });
-      await this.store.clearCurrentC4Models();
+      onProgress?.({ message: `Syncing ${currents.length} current TrailGraphs (wash-away)...` });
+      await this.store.clearCurrentGraphs();
       for (const row of currents) {
-        const model = trailToC4(row.graph);
-        await this.store.upsertCurrentC4Model(row.repoName, JSON.stringify(model), row.commitId, '');
+        await this.store.upsertCurrentGraph(row.repoName, JSON.stringify(row.graph), row.commitId);
       }
     } catch (e) {
-      TrailLogger.error('Failed to sync current C4 models', e);
+      TrailLogger.error('Failed to sync current TrailGraphs', e);
       errors++;
     }
 
-    // Sync historical C4 models per release (release_graphs → trail_c4_models)
+    // Sync historical TrailGraphs per release (wash-away)
     try {
       const graphIds = this.trailDb.getTrailGraphIds();
       const releaseIds = graphIds.filter((id) => id !== 'current');
-      if (releaseIds.length > 0) {
-        onProgress?.({ message: `Syncing ${releaseIds.length} historical C4 models...` });
-        for (const id of releaseIds) {
-          const graph = this.trailDb.getTrailGraph(id);
-          if (!graph) continue;
-          const model = trailToC4(graph);
-          await this.store.upsertC4ModelById(id, JSON.stringify(model), '');
-        }
+      onProgress?.({ message: `Syncing ${releaseIds.length} release TrailGraphs (wash-away)...` });
+      await this.store.clearReleaseGraphs();
+      for (const id of releaseIds) {
+        const graph = this.trailDb.getTrailGraph(id);
+        if (!graph) continue;
+        await this.store.upsertReleaseGraph(id, JSON.stringify(graph));
       }
     } catch (e) {
-      TrailLogger.error('Failed to sync historical C4 models', e);
+      TrailLogger.error('Failed to sync release TrailGraphs', e);
       errors++;
     }
 
