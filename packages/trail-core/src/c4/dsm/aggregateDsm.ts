@@ -1,10 +1,10 @@
 import type { C4Element, C4ElementType } from '../types';
 import type { DsmMatrix, DsmNode } from './types';
 
-/** ブラウザ対応の dirname（node:path 不使用） */
+/** ブラウザ対応の dirname（node:path 不使用）。ルート直下は '(root)' を返す。 */
 function dirnameOf(p: string): string {
   const idx = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'));
-  return idx < 0 ? '.' : p.slice(0, idx);
+  return idx < 0 ? '(root)' : p.slice(0, idx);
 }
 
 /**
