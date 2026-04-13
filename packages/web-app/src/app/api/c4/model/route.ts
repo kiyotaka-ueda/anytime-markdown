@@ -16,7 +16,7 @@ export const revalidate = 0;
  * 拡張機能の TrailDataServer の /api/c4/model と互換のエンドポイント。
  * 返却形状: { model, boundaries, featureMatrix?, commitId? } | 204 No Content
  *
- * Supabase 専用（GitHub フォールバックは従来の /api/c4model を利用する）。
+ * Supabase 専用エンドポイント。
  */
 
 const CACHE_MAX_AGE = 300;
