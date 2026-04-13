@@ -152,11 +152,6 @@
     "menus": {
       "view/title": [
         {
-          "command": "anytime-trail.openTrailViewer",
-          "when": "view == anytimeTrail.database",
-          "group": "navigation@1"
-        },
-        {
           "command": "anytime-trail.c4Analyze",
           "when": "view == anytimeTrail.c4Elements",
           "group": "navigation@1"
