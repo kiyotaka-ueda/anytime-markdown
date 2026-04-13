@@ -28,7 +28,7 @@
     "onCommand:anytime-trail.c4Export",
     "onCommand:anytime-trail.c4View",
     "onCommand:anytime-trail.dsmAnalyze",
-    "onView:anytimeTrail.dashboard",
+    "onView:anytimeTrail.database",
     "onView:anytimeTrail.c4Elements"
   ],
   "icon": "images/camel_trail.png",
@@ -46,8 +46,8 @@
     "views": {
       "anytimeTrail": [
         {
-          "id": "anytimeTrail.dashboard",
-          "name": "%view.dashboard%"
+          "id": "anytimeTrail.database",
+          "name": "%view.database%"
         },
         {
           "id": "anytimeTrail.c4Elements",
@@ -145,7 +145,7 @@
       "view/title": [
         {
           "command": "anytime-trail.openTrailViewer",
-          "when": "view == anytimeTrail.dashboard",
+          "when": "view == anytimeTrail.database",
           "group": "navigation@1"
         },
         {
@@ -182,17 +182,17 @@
         },
         {
           "command": "anytime-trail.importTrailData",
-          "when": "view == anytimeTrail.dashboard && viewItem == sqliteDb",
+          "when": "view == anytimeTrail.database && viewItem == sqliteDb",
           "group": "inline"
         },
         {
           "command": "anytime-trail.syncToSupabase",
-          "when": "view == anytimeTrail.dashboard && viewItem == supabaseDb",
+          "when": "view == anytimeTrail.database && viewItem == supabaseDb",
           "group": "inline"
         },
         {
           "command": "anytime-trail.reconnectSupabase",
-          "when": "view == anytimeTrail.dashboard && viewItem == supabaseDb",
+          "when": "view == anytimeTrail.database && viewItem == supabaseDb",
           "group": "inline"
         }
       ]

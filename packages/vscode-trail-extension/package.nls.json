@@ -16,5 +16,5 @@
   "command.dsmAnalyze": "Trail: Analyze Dependencies",
   "command.aiMemoryRefresh": "Refresh Memory",
   "command.openTrailViewer": "Open Trail Viewer",
-  "view.dashboard": "Dashboard"
+  "view.database": "Database"
 }

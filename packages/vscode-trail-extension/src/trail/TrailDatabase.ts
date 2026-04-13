@@ -63,6 +63,9 @@ export interface SessionRow {
   readonly slug: string;
   readonly project: string;
   readonly repo_name: string;
+  readonly git_branch?: string | null;
+  readonly cwd?: string | null;
+  readonly permission_mode?: string | null;
   readonly version: string;
   readonly entrypoint: string;
   readonly model: string;

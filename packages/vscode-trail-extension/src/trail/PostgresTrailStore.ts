@@ -311,6 +311,14 @@ export class PostgresTrailStore implements IRemoteTrailStore {
     );
   }
 
+  async clearCurrentC4Models(): Promise<void> {
+    // Not implemented for PostgreSQL
+  }
+
+  async upsertCurrentC4Model(_repoName: string, _json: string, _commitId: string, _revision: string): Promise<void> {
+    // Not implemented for PostgreSQL
+  }
+
   private ensurePool(): Pool {
     if (!this.pool) throw new Error('PostgresTrailStore not connected');
     return this.pool;

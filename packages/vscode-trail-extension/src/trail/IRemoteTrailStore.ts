@@ -41,4 +41,6 @@ export interface IRemoteTrailStore {
   }[]): Promise<void>;
   upsertC4Model(json: string, revision: string): Promise<void>;
   upsertC4ModelById(id: string, json: string, revision: string): Promise<void>;
+  clearCurrentC4Models(): Promise<void>;
+  upsertCurrentC4Model(repoName: string, json: string, commitId: string, revision: string): Promise<void>;
 }

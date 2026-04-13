@@ -16,5 +16,5 @@
   "command.dsmAnalyze": "Trail: 依存関係を解析",
   "command.aiMemoryRefresh": "Memory を更新",
   "command.openTrailViewer": "Trail ビューアを開く",
-  "view.dashboard": "ダッシュボード"
+  "view.database": "データベース"
 }

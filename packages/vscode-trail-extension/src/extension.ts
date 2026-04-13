@@ -7,7 +7,7 @@ import { TrailDatabase } from './trail/TrailDatabase';
 import { registerC4Commands } from './commands/c4Commands';
 import { TrailLogger } from './utils/TrailLogger';
 import { C4TreeProvider } from './providers/C4TreeProvider';
-import { DashboardProvider } from './trail/DashboardProvider';
+import { DatabaseProvider } from './trail/DatabaseProvider';
 import { AiMemoryProvider, AiMemoryItem } from './providers/AiMemoryProvider';
 import type { IRemoteTrailStore } from './trail/IRemoteTrailStore';
 import { SupabaseTrailStore } from './trail/SupabaseTrailStore';
@@ -137,10 +137,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	}
 
-	// Dashboard panel
-	const dashboardProvider = new DashboardProvider(trailDb, supabaseStore);
-	const dashboardTreeView = vscode.window.createTreeView('anytimeTrail.dashboard', {
-		treeDataProvider: dashboardProvider,
+	// Database panel
+	const databaseProvider = new DatabaseProvider(trailDb, supabaseStore);
+	const databaseTreeView = vscode.window.createTreeView('anytimeTrail.database', {
+		treeDataProvider: databaseProvider,
 	});
 
 	// Initialize DB and start server in background — do not block activate
@@ -148,11 +148,11 @@ export async function activate(context: vscode.ExtensionContext) {
 		try {
 			TrailLogger.info(`Trail DB: initializing with distPath=${extensionDistPath}`);
 			await trailDb!.init();
-			dashboardProvider.updateSqliteStatus('Ready', trailDb!.getLastImportedAt());
+			databaseProvider.updateSqliteStatus('Ready', trailDb!.getLastImportedAt());
 			TrailLogger.info('Trail DB: initialized');
 		} catch (err) {
 			TrailLogger.error('Failed to initialize trail database', err);
-			dashboardProvider.updateSqliteStatus('Error');
+			databaseProvider.updateSqliteStatus('Error');
 			return; // DB 初期化失敗時はサーバー起動もスキップ
 		}
 		try {
@@ -180,7 +180,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				return;
 			}
 			TrailLogger.info(`Trail DB [${repoName}]: import started`);
-			dashboardProvider.setImporting(true);
+			databaseProvider.setImporting(true);
 			try {
 				const result = await vscode.window.withProgress(
 					{
@@ -199,8 +199,8 @@ export async function activate(context: vscode.ExtensionContext) {
 					},
 				);
 				TrailLogger.info(`Trail DB [${repoName}]: import complete - imported=${result.imported}, skipped=${result.skipped}, commits=${result.commitsResolved}, releases=${result.releasesResolved}, analyzed=${result.releasesAnalyzed}`);
-				dashboardProvider.updateSqliteStatus('Ready', trailDb.getLastImportedAt());
-				dashboardProvider.setImporting(false);
+				databaseProvider.updateSqliteStatus('Ready', trailDb.getLastImportedAt());
+				databaseProvider.setImporting(false);
 
 				trailDataServer?.notifySessionsUpdated();
 
@@ -208,8 +208,8 @@ export async function activate(context: vscode.ExtensionContext) {
 					`Trail: imported ${result.imported} sessions, ${result.commitsResolved} commits linked, ${result.releasesResolved} releases resolved, ${result.releasesAnalyzed} releases analyzed, ${result.coverageImported} coverage entries (${result.skipped} skipped)`,
 				);
 			} catch (err) {
-				dashboardProvider.setImporting(false);
-				dashboardProvider.updateSqliteStatus('Import failed');
+				databaseProvider.setImporting(false);
+				databaseProvider.updateSqliteStatus('Import failed');
 				TrailLogger.error(`Trail import [${repoName}] failed`, err);
 			}
 		}),
@@ -275,8 +275,8 @@ export async function activate(context: vscode.ExtensionContext) {
 				vscode.window.showErrorMessage('Supabase が設定されていません');
 				return;
 			}
-			dashboardProvider.setImporting(true);
-			dashboardProvider.updateSupabaseStatus('Syncing...');
+			databaseProvider.setImporting(true);
+			databaseProvider.updateSupabaseStatus('Syncing...');
 			try {
 				const syncService = new SyncService(trailDb, supabaseStore);
 				await vscode.window.withProgress(
@@ -290,17 +290,17 @@ export async function activate(context: vscode.ExtensionContext) {
 							progress.report({ message, increment });
 							TrailLogger.info(`Trail Supabase sync: ${message}`);
 						});
-						dashboardProvider.updateSupabaseStatus('Connected', new Date().toISOString());
+						databaseProvider.updateSupabaseStatus('Connected', new Date().toISOString());
 						vscode.window.showInformationMessage(
 							`Supabase sync complete: ${result.synced} synced, ${result.skipped} up-to-date, ${result.errors} errors`,
 						);
 					},
 				);
 			} catch (e) {
-				dashboardProvider.updateSupabaseStatus('Sync failed');
+				databaseProvider.updateSupabaseStatus('Sync failed');
 				vscode.window.showErrorMessage(`同期エラー: ${e}`);
 			} finally {
-				dashboardProvider.setImporting(false);
+				databaseProvider.setImporting(false);
 			}
 		}),
 	);
@@ -312,7 +312,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				vscode.window.showErrorMessage('Supabase が設定されていません');
 				return;
 			}
-			dashboardProvider.updateSupabaseStatus('Connecting...');
+			databaseProvider.updateSupabaseStatus('Connecting...');
 			try {
 				await supabaseStore.close();
 				await supabaseStore.connect();
@@ -320,9 +320,9 @@ export async function activate(context: vscode.ExtensionContext) {
 				const lastSync = syncedAt.size > 0
 					? [...syncedAt.values()].reduce((a, b) => (a > b ? a : b))
 					: null;
-				dashboardProvider.updateSupabaseStatus('Connected', lastSync);
+				databaseProvider.updateSupabaseStatus('Connected', lastSync);
 			} catch (e) {
-				dashboardProvider.updateSupabaseStatus('Connection failed');
+				databaseProvider.updateSupabaseStatus('Connection failed');
 				vscode.window.showErrorMessage(`再接続エラー: ${e}`);
 			}
 		}),
@@ -376,7 +376,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		c4ElementsTreeView,
-		dashboardTreeView,
+		databaseTreeView,
 		aiMemoryTreeView,
 		aiMemoryRefresh,
 		openAiMemory,

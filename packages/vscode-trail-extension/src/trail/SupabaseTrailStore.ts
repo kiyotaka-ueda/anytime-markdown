@@ -39,7 +39,7 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
         const { data, error } = await client.from(table).select(pk).limit(pageSize);
         if (error) throw new Error(`select ${table} failed: ${error.message}`);
         if (!data || data.length === 0) break;
-        const ids = (data as Array<Record<string, unknown>>).map((r) => r[pk] as string);
+        const ids = (data as unknown as Array<Record<string, unknown>>).map((r) => r[pk] as string);
         const { error: delError } = await client.from(table).delete().in(pk, ids);
         if (delError) throw new Error(`delete ${table} failed: ${delError.message}`);
         deleted += ids.length;

@@ -40,7 +40,7 @@ class ImportingTreeItem extends vscode.TreeItem {
 
 type AnyTreeItem = DbRootTreeItem | DbDetailTreeItem | ImportingTreeItem;
 
-export class DashboardProvider implements vscode.TreeDataProvider<AnyTreeItem> {
+export class DatabaseProvider implements vscode.TreeDataProvider<AnyTreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<AnyTreeItem | undefined | null | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
