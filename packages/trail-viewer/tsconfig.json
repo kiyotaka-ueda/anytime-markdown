@@ -7,7 +7,11 @@
     "noEmit": true,
     "isolatedModules": true,
     "declaration": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "paths": {
+      "@anytime-markdown/trail-core": ["../trail-core/src/index.ts"],
+      "@anytime-markdown/trail-core/*": ["../trail-core/src/*/index.ts", "../trail-core/src/*.ts"]
+    }
   },
   "include": ["src/**/*"]
 }

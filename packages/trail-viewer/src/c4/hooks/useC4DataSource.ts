@@ -30,6 +30,7 @@ interface C4DataSourceResult {
   coverageMatrix: CoverageMatrix | null;
   coverageDiff: CoverageDiffMatrix | null;
   complexityMatrix: ComplexityMatrix | null;
+  importanceMatrix: Record<string, number> | null;
   docLinks: readonly DocLink[];
   dsmMatrix: DsmMatrix | null;
   connected: boolean;
@@ -151,6 +152,17 @@ function isWsComplexityMessage(v: unknown): v is WsComplexityMessage {
   if (typeof v !== 'object' || v === null) return false;
   const obj = v as Record<string, unknown>;
   return obj.type === 'complexity-updated' && 'complexityMatrix' in obj;
+}
+
+interface WsImportanceMessage {
+  type: 'importance-updated';
+  importanceMatrix: Record<string, number>;
+}
+
+function isWsImportanceMessage(v: unknown): v is WsImportanceMessage {
+  if (typeof v !== 'object' || v === null) return false;
+  const obj = v as Record<string, unknown>;
+  return obj.type === 'importance-updated' && 'importanceMatrix' in obj;
 }
 
 // ---------------------------------------------------------------------------
@@ -294,6 +306,7 @@ export function useC4DataSource(serverUrl: string): C4DataSourceResult {
   const [coverageMatrix, setCoverageMatrix] = useState<CoverageMatrix | null>(null);
   const [coverageDiff, setCoverageDiff] = useState<CoverageDiffMatrix | null>(null);
   const [complexityMatrix, setComplexityMatrix] = useState<ComplexityMatrix | null>(null);
+  const [importanceMatrix, setImportanceMatrix] = useState<Record<string, number> | null>(null);
   const [dsmMatrix, setDsmMatrix] = useState<DsmMatrix | null>(null);
   const [docLinks, setDocLinks] = useState<readonly DocLink[]>([]);
   const [connected, setConnected] = useState(false);
@@ -342,6 +355,8 @@ export function useC4DataSource(serverUrl: string): C4DataSourceResult {
         setCoverageDiff(parsed.coverageDiff);
       } else if (isWsComplexityMessage(parsed)) {
         setComplexityMatrix(parsed.complexityMatrix);
+      } else if (isWsImportanceMessage(parsed)) {
+        setImportanceMatrix(parsed.importanceMatrix);
       }
     } catch {
       // Malformed message — ignore
@@ -422,6 +437,7 @@ export function useC4DataSource(serverUrl: string): C4DataSourceResult {
     coverageMatrix,
     coverageDiff,
     complexityMatrix,
+    importanceMatrix,
     docLinks,
     dsmMatrix,
     connected,

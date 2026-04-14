@@ -59,6 +59,14 @@ export function OverlayLegend({ overlay, isDark, dsmMax }: Readonly<OverlayLegen
         <Swatch color="#2e7d32" label="low" />
       </>
     );
+  } else if (overlay === 'importance') {
+    items = (
+      <>
+        <Swatch color="#c62828" label="≥ 70" />
+        <Swatch color="#f9a825" label="40–69" />
+        <Swatch color="#2e7d32" label="< 40" />
+      </>
+    );
   }
 
   return (

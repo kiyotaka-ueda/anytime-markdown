@@ -164,4 +164,6 @@ export const en: TrailI18n = {
   'c4.overlay.dsmCyclic': 'Cyclic deps',
   'c4.overlay.complexityMost': 'Complexity (most freq.)',
   'c4.overlay.complexityHighest': 'Complexity (highest)',
+  'c4.overlay.groupImportance': 'Importance',
+  'c4.overlay.importance': 'Importance score',
 };

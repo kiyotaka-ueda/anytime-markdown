@@ -66,6 +66,7 @@ export interface C4ViewerCoreProps {
   readonly coverageMatrix: CoverageMatrix | null;
   readonly coverageDiff: CoverageDiffMatrix | null;
   readonly complexityMatrix?: ComplexityMatrix | null;
+  readonly importanceMatrix?: Record<string, number> | null;
   readonly docLinks?: readonly DocLink[];
   readonly connected?: boolean;
   readonly analysisProgress?: { phase: string; percent: number } | null;
@@ -94,6 +95,7 @@ export function C4ViewerCore({
   coverageMatrix,
   coverageDiff,
   complexityMatrix,
+  importanceMatrix,
   docLinks,
   connected,
   analysisProgress,
@@ -454,8 +456,8 @@ export function C4ViewerCore({
   }, [dsmMatrix, currentLevel, c4Model, checkedPackageIds]);
 
   const overlayMap = useMemo(
-    () => computeColorMap(metricOverlay, coverageMatrix, filteredDsmMatrix, complexityMatrix ?? null),
-    [metricOverlay, coverageMatrix, filteredDsmMatrix, complexityMatrix],
+    () => computeColorMap(metricOverlay, coverageMatrix, filteredDsmMatrix, complexityMatrix ?? null, importanceMatrix ?? null),
+    [metricOverlay, coverageMatrix, filteredDsmMatrix, complexityMatrix, importanceMatrix],
   );
 
   const dsmMax = useMemo(() => {
@@ -647,6 +649,10 @@ export function C4ViewerCore({
             </ListSubheader>
             <MenuItem value="complexity-most" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.complexityMost')}</MenuItem>
             <MenuItem value="complexity-highest" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.complexityHighest')}</MenuItem>
+            <ListSubheader sx={{ fontSize: '0.7rem', lineHeight: '2' }}>
+              {t('c4.overlay.groupImportance')}
+            </ListSubheader>
+            <MenuItem value="importance" disabled={!importanceMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.importance')}</MenuItem>
           </Select>
         </Box>
         <Button size="small" onClick={() => { if (showC4 && !showDsm) { setShowDsm(true); } else { setShowC4(true); setShowDsm(false); } }} aria-pressed={showC4 && !showDsm} aria-label="Toggle C4 graph" sx={{ ...toolbarButtonSx, ...(showC4 && !showDsm && { bgcolor: toolbarButtonActiveBg }) }}>C4</Button>

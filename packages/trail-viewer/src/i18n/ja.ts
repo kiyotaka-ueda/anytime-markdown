@@ -164,4 +164,6 @@ export const ja: TrailI18n = {
   'c4.overlay.dsmCyclic': '循環依存',
   'c4.overlay.complexityMost': '複雑度（最多）',
   'c4.overlay.complexityHighest': '複雑度（最高）',
+  'c4.overlay.groupImportance': '重要度',
+  'c4.overlay.importance': '重要度スコア',
 };

@@ -123,6 +123,7 @@ export function TrailViewerApp({
     coverageMatrix: c4.coverageMatrix,
     coverageDiff: c4.coverageDiff,
     complexityMatrix: c4.complexityMatrix,
+    importanceMatrix: c4.importanceMatrix,
     docLinks: c4.docLinks,
     connected: c4.connected,
     analysisProgress: c4.analysisProgress,

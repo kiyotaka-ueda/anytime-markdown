@@ -177,4 +177,6 @@ export interface TrailI18n {
   'c4.overlay.dsmCyclic': string;
   'c4.overlay.complexityMost': string;
   'c4.overlay.complexityHighest': string;
+  'c4.overlay.groupImportance': string;
+  'c4.overlay.importance': string;
 }
