@@ -1,6 +1,7 @@
 import { detectCycles } from '../dsm/detectCycles';
 import type { DsmMatrix } from '../dsm/types';
 import type { CoverageMatrix, ComplexityMatrix, MetricOverlay, ComplexityClass } from '../types';
+import type { ImportanceMatrix } from '../../importance/types';
 
 // ─── Color constants ──────────────────────────────────────────────────────────
 
@@ -11,6 +12,11 @@ const COLOR_NO_DATA  = '#616161';   // データなし
 
 const COLOR_CYCLIC    = '#c62828';
 const COLOR_NO_CYCLIC = '#2e7d32';
+
+// 重要度ヒートマップ用（高スコア=重要=赤、低スコア=問題なし=緑）
+const COLOR_IMPORTANCE_HIGH = '#c62828';
+const COLOR_IMPORTANCE_MID  = '#f9a825';
+const COLOR_IMPORTANCE_LOW  = '#2e7d32';
 
 const COMPLEXITY_COLORS: Record<ComplexityClass, string> = {
   'low-complexity':  '#2e7d32',
@@ -29,9 +35,9 @@ function coverageHeatColor(pct: number): string {
 
 /** 0〜100 のスコアで 緑(low)→黄(mid)→赤(high) を返す */
 function importanceHeatColor(score: number): string {
-  if (score >= 70) return COLOR_LOW_PCT;   // 赤
-  if (score >= 40) return COLOR_MID_PCT;   // 黄
-  return COLOR_HIGH_PCT;                   // 緑
+  if (score >= 70) return COLOR_IMPORTANCE_HIGH;   // 赤
+  if (score >= 40) return COLOR_IMPORTANCE_MID;    // 黄
+  return COLOR_IMPORTANCE_LOW;                     // 緑
 }
 
 /** 0〜1 の t で青(min)→赤(max) を線形補間する */
@@ -50,7 +56,7 @@ export function computeColorMap(
   coverageMatrix: CoverageMatrix | null,
   dsmMatrix: DsmMatrix | null,
   complexityMatrix: ComplexityMatrix | null,
-  importanceMatrix: Record<string, number> | null = null,
+  importanceMatrix: ImportanceMatrix | null = null,
 ): Map<string, string> {
   if (overlay === 'none') return new Map();
 

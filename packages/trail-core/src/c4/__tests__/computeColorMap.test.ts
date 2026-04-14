@@ -119,6 +119,26 @@ describe('computeColorMap — importance', () => {
     const m = computeColorMap('importance', null, null, null, null);
     expect(m.size).toBe(0);
   });
+
+  it('score = 70 は赤（境界値）', () => {
+    const m = computeColorMap('importance', null, null, null, { 'pkg_x': 70 });
+    expect(m.get('pkg_x')).toBe('#c62828');
+  });
+
+  it('score = 69 は黄（境界値）', () => {
+    const m = computeColorMap('importance', null, null, null, { 'pkg_x': 69 });
+    expect(m.get('pkg_x')).toBe('#f9a825');
+  });
+
+  it('score = 40 は黄（境界値）', () => {
+    const m = computeColorMap('importance', null, null, null, { 'pkg_x': 40 });
+    expect(m.get('pkg_x')).toBe('#f9a825');
+  });
+
+  it('score = 39 は緑（境界値）', () => {
+    const m = computeColorMap('importance', null, null, null, { 'pkg_x': 39 });
+    expect(m.get('pkg_x')).toBe('#2e7d32');
+  });
 });
 
 describe('computeColorMap — complexity-highest', () => {
