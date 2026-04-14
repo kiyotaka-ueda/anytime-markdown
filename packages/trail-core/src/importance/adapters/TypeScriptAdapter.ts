@@ -37,6 +37,23 @@ export class TypeScriptAdapter implements ILanguageAdapter {
     this.program.getTypeChecker();
   }
 
+  static fromTsConfig(tsconfigPath: string): TypeScriptAdapter {
+    const absolutePath = path.resolve(tsconfigPath);
+    const configFile = ts.readConfigFile(absolutePath, ts.sys.readFile);
+    if (configFile.error) {
+      throw new Error(
+        `Failed to read tsconfig: ${ts.flattenDiagnosticMessageText(configFile.error.messageText, '\n')}`,
+      );
+    }
+    const configDir = path.dirname(absolutePath);
+    const parsed = ts.parseJsonConfigFileContent(configFile.config, ts.sys, configDir);
+    return new TypeScriptAdapter(parsed.fileNames);
+  }
+
+  getProgram(): ts.Program {
+    return this.program;
+  }
+
   extractFunctions(filePaths: string[]): FunctionInfo[] {
     const results: FunctionInfo[] = [];
     const absolutePaths = new Set(filePaths.map(p => path.resolve(p)));

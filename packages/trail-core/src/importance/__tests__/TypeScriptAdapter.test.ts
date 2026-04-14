@@ -61,3 +61,19 @@ describe('TypeScriptAdapter', () => {
     expect(sideEffectMetrics.sideEffectScore).toBeGreaterThan(pureMetrics.sideEffectScore);
   });
 });
+
+describe('TypeScriptAdapter.fromTsConfig', () => {
+  it('creates adapter from tsconfig path', () => {
+    const tsconfigPath = path.resolve(__dirname, '../../../tsconfig.json');
+    const adapter = TypeScriptAdapter.fromTsConfig(tsconfigPath);
+    expect(adapter.language).toBe('typescript');
+  });
+
+  it('extracts functions from files in tsconfig', () => {
+    const tsconfigPath = path.resolve(__dirname, '../../../tsconfig.json');
+    const adapter = TypeScriptAdapter.fromTsConfig(tsconfigPath);
+    const fixtureFile = path.join(FIXTURE_DIR, 'mutations.ts');
+    const functions = adapter.extractFunctions([fixtureFile]);
+    expect(functions.length).toBeGreaterThan(0);
+  });
+});
