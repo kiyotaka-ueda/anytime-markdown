@@ -572,6 +572,7 @@ export function C4ViewerCore({
             </Button>
           ))}
         </ButtonGroup>
+        <Button size="small" startIcon={<FitScreenIcon sx={{ fontSize: 16 }} />} onClick={handleFit} sx={{ ...toolbarButtonSx, ml: 0.5 }} aria-label="Fit">Fit</Button>
         <Box sx={{ flex: 1 }} />
         <Button size="small" onClick={() => { if (showC4 && !showDsm) { setShowDsm(true); } else { setShowC4(true); setShowDsm(false); } }} aria-pressed={showC4 && !showDsm} aria-label="Toggle C4 graph" sx={{ ...toolbarButtonSx, ...(showC4 && !showDsm && { bgcolor: toolbarButtonActiveBg }) }}>C4</Button>
         <Button size="small" onClick={() => { if (!showC4 && showDsm) { setShowC4(true); } else { setShowC4(false); setShowDsm(true); } }} aria-pressed={!showC4 && showDsm} aria-label="Toggle matrix panel" sx={{ ...toolbarButtonSx, ...(!showC4 && showDsm && { bgcolor: toolbarButtonActiveBg }) }}>Matrix</Button>
@@ -663,9 +664,6 @@ export function C4ViewerCore({
         {/* 既存コンテンツ (C4Graph / Separator / DSM / Tree) */}
         {showC4 && (
           <Box sx={{ flex: showDsm ? splitRatio : 1, display: 'flex', flexDirection: 'column', minWidth: 100 }}>
-            <Toolbar variant="dense" sx={{ gap: 0.5, bgcolor: colors.bgSecondary, borderBottom: `1px solid ${colors.border}`, minHeight: 36, px: 1, flexShrink: 0 }}>
-              <Button size="small" startIcon={<FitScreenIcon sx={{ fontSize: 16 }} />} onClick={handleFit} sx={{ ...toolbarButtonSx, fontSize: '0.75rem' }}>Fit</Button>
-            </Toolbar>
             <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
               <GraphCanvas
                 isDark={isDark}
