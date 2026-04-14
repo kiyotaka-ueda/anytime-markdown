@@ -499,7 +499,9 @@ export function C4ViewerCore({
 
   // コンテキストメニュー表示時の情報計算
   // boundaryId で親子関係が表現されているため、children ではなく boundaryId で子の有無を判定する
+  // 現在のドリルルートへの再ドリルは防ぐ
   const canDrillDown = contextMenu !== null &&
+    drillStack.at(-1)?.id !== contextMenu.c4Id &&
     (c4Model?.elements.some(e => e.boundaryId === contextMenu.c4Id) ?? false);
   const canDrillUp = drillStack.length > 0;
   const showContextMenu = contextMenu !== null && (canDrillDown || canDrillUp);

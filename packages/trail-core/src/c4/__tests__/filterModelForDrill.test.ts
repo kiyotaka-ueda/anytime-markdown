@@ -18,7 +18,7 @@ function makeModel(
 }
 
 describe('filterModelForDrill', () => {
-  it('rootId の直接子要素（boundaryId === rootId）が elements になる', () => {
+  it('root と直接子要素（boundaryId === rootId）が elements になる', () => {
     const child1 = makeElement('c1', 'container', 'sys');
     const child2 = makeElement('c2', 'container', 'sys');
     const root = makeElement('sys', 'system');
@@ -26,17 +26,19 @@ describe('filterModelForDrill', () => {
 
     const result = filterModelForDrill(model, 'sys');
 
-    expect(result.elements).toEqual([child1, child2]);
+    // root が先頭、続いて直接子要素
+    expect(result.elements[0]).toEqual(root);
+    expect(result.elements.slice(1)).toEqual([child1, child2]);
   });
 
-  it('root 自身は elements に含まれない', () => {
+  it('root 自身が elements の先頭に含まれる', () => {
     const child = makeElement('c1', 'container', 'sys');
     const root = makeElement('sys', 'system');
     const model = makeModel([root, child]);
 
     const result = filterModelForDrill(model, 'sys');
 
-    expect(result.elements.find(e => e.id === 'sys')).toBeUndefined();
+    expect(result.elements[0]).toEqual(root);
   });
 
   it('子要素間のリレーションシップのみ残す', () => {
@@ -58,13 +60,13 @@ describe('filterModelForDrill', () => {
     expect(result.relationships[0]).toMatchObject({ from: 'c1', to: 'c2' });
   });
 
-  it('直接子要素が存在しない場合は elements が空配列になる', () => {
+  it('直接子要素が存在しない場合は root のみ elements に含まれる', () => {
     const root = makeElement('sys', 'system');
     const model = makeModel([root]);
 
     const result = filterModelForDrill(model, 'sys');
 
-    expect(result.elements).toEqual([]);
+    expect(result.elements).toEqual([root]);
   });
 
   it('孫要素（子の子）も含む全子孫のリレーションシップを残す', () => {

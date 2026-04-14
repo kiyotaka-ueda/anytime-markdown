@@ -1,12 +1,14 @@
 import type { C4Model } from '../types';
 
 /**
- * rootId 要素の直接子要素（boundaryId === rootId）のみを表示する
+ * rootId 要素とその直接子要素（boundaryId === rootId）を表示する
  * フィルタリングされた C4Model を返す。
- * root 自身は elements に含めず、直接子要素を新たなトップレベル要素とする。
+ * root 自身を先頭に含めることで、c4ToGraphDocument がルートフレームを生成し
+ * 子要素がその中にグルーピングされる。
  * relationships は root の全子孫間のものだけに絞る。
  */
 export function filterModelForDrill(model: C4Model, rootId: string): C4Model {
+  const root = model.elements.find(e => e.id === rootId);
   const directChildren = model.elements.filter(e => e.boundaryId === rootId);
   const visibleIds = collectAllDescendantIds(model.elements, rootId);
 
@@ -16,7 +18,7 @@ export function filterModelForDrill(model: C4Model, rootId: string): C4Model {
 
   return {
     ...model,
-    elements: directChildren,
+    elements: root ? [root, ...directChildren] : directChildren,
     relationships: filteredRelationships,
   };
 }
