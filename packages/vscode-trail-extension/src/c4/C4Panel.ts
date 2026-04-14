@@ -683,12 +683,13 @@ export class C4Panel implements C4DataProvider {
 
   /** tsconfig から ImportanceMatrix を計算してデータサーバーに通知 */
   public buildImportanceMatrix(tsconfigPath: string): void {
-    if (!this.lastModel) {
-      TrailLogger.warn('buildImportanceMatrix: lastModel is not set, skipping');
+    const elements = this.lastModel?.elements ?? C4Panel.loadSavedModel()?.model.elements;
+    if (!elements || elements.length === 0) {
+      TrailLogger.warn('buildImportanceMatrix: no C4 elements available, skipping');
       return;
     }
     try {
-      this.lastImportanceMatrix = computeImportanceMatrix(tsconfigPath, this.lastModel.elements);
+      this.lastImportanceMatrix = computeImportanceMatrix(tsconfigPath, elements);
       C4Panel.dataServer?.notify('importance-updated');
     } catch (err) {
       TrailLogger.warn(`Failed to compute importance: ${(err as Error).message}`);
