@@ -1,3 +1,4 @@
+import path from 'node:path';
 import type { ImportanceMatrix } from '../../importance/types';
 import type { C4Element } from '../../domain/engine/c4Mapper';
 import { TypeScriptAdapter } from '../../importance/adapters/TypeScriptAdapter';
@@ -15,6 +16,7 @@ export function computeImportanceMatrix(
 ): ImportanceMatrix {
   if (c4Elements.length === 0) return {};
 
+  const tsconfigDir = path.resolve(path.dirname(tsconfigPath));
   const adapter = TypeScriptAdapter.fromTsConfig(tsconfigPath);
 
   // 全ソースファイルを取得（宣言ファイル・node_modules を除外）
@@ -24,15 +26,24 @@ export function computeImportanceMatrix(
     .filter((sf) => !sf.isDeclarationFile && !sf.fileName.includes('node_modules'))
     .map((sf) => sf.fileName);
 
+  // 絶対パス → tsconfig ディレクトリ基準の相対パス のマッピングを事前構築
+  const absToRel = new Map<string, string>();
+  for (const absPath of allSourceFiles) {
+    absToRel.set(path.resolve(absPath), path.relative(tsconfigDir, absPath));
+  }
+
   const analyzer = new ImportanceAnalyzer(adapter);
   const scored = analyzer.analyze(allSourceFiles);
 
   // 関数スコアをファイルパスごとに集約（ファイル単位の max）
+  // fn.filePath は process.cwd() 基準の相対パスなので絶対パスに変換してから正規化する
   const fileScores = new Map<string, number>();
   for (const fn of scored) {
-    const current = fileScores.get(fn.filePath) ?? 0;
+    const absPath = path.resolve(fn.filePath);
+    const relPath = absToRel.get(absPath) ?? path.relative(tsconfigDir, absPath);
+    const current = fileScores.get(relPath) ?? 0;
     if (fn.importanceScore > current) {
-      fileScores.set(fn.filePath, fn.importanceScore);
+      fileScores.set(relPath, fn.importanceScore);
     }
   }
 

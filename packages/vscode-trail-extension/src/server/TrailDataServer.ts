@@ -189,6 +189,8 @@ export class TrailDataServer {
     this.getC4Provider = getProvider;
   }
 
+  get clientCount(): number { return this.clients.size; }
+
   notify(type: 'model-updated' | 'dsm-updated' | 'coverage-updated' | 'coverage-diff-updated' | 'complexity-updated' | 'importance-updated'): void {
     if (type === 'model-updated') this.treeCache = undefined;
     if (this.clients.size === 0) return;
