@@ -14,7 +14,7 @@ function makeModel(
   elements: C4Element[],
   relationships: C4Model['relationships'] = [],
 ): C4Model {
-  return { elements, relationships };
+  return { level: 'context', elements, relationships };
 }
 
 describe('filterModelForDrill', () => {

@@ -485,6 +485,16 @@ export function C4ViewerCore({
     borderColor: `${colors.accent} !important`,
   } as const;
 
+  // コンテキストメニュー表示時の情報計算
+  const contextMenuTarget = contextMenu
+    ? findC4Element(c4Model?.elements ?? [], contextMenu.c4Id)
+    : null;
+  const canDrillDown = Boolean(contextMenuTarget?.children?.length);
+  const canDrillUp =
+    drillStack.length > 0 &&
+    drillStack.at(-1)?.id === contextMenu?.c4Id;
+  const showContextMenu = contextMenu !== null && (canDrillDown || canDrillUp);
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: containerHeight, bgcolor: colors.bg }}>
       <Toolbar variant="dense" sx={{ gap: 1, bgcolor: isDark ? 'rgba(18,18,18,0.85)' : 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${colors.border}`, minHeight: 44, px: { xs: 2, md: 3 }, zIndex: 1100 }}>
@@ -704,7 +714,72 @@ export function C4ViewerCore({
                     setEditElement({ id: elem.id, type: elem.type, name: elem.name, description: elem.description ?? '', external: elem.external ?? false });
                   }
                 }}
+                onNodeContextMenu={handleNodeContextMenu}
               />
+              {showContextMenu && contextMenu && (
+                <>
+                  {/* オーバーレイ: メニュー外クリックで閉じる */}
+                  <div
+                    style={{ position: 'fixed', inset: 0, zIndex: 1000 }}
+                    onMouseDown={handleCloseContextMenu}
+                  />
+                  {/* コンテキストメニュー本体 */}
+                  <div
+                    style={{
+                      position: 'fixed',
+                      top: contextMenu.y,
+                      left: contextMenu.x,
+                      zIndex: 1001,
+                      background: isDark ? '#2d2d2d' : '#ffffff',
+                      border: `1px solid ${isDark ? '#555' : '#ccc'}`,
+                      borderRadius: 4,
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                      minWidth: 140,
+                      padding: '4px 0',
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    {canDrillDown && (
+                      <button
+                        type="button"
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '6px 16px',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: 14,
+                          color: isDark ? '#e0e0e0' : '#333',
+                        }}
+                        onClick={() => handleDrillDown(contextMenu.c4Id)}
+                      >
+                        {t('c4.drillDown')}
+                      </button>
+                    )}
+                    {canDrillUp && (
+                      <button
+                        type="button"
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '6px 16px',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: 14,
+                          color: isDark ? '#e0e0e0' : '#333',
+                        }}
+                        onClick={handleDrillUp}
+                      >
+                        {t('c4.drillUp')}
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
             </Box>
           </Box>
         )}
