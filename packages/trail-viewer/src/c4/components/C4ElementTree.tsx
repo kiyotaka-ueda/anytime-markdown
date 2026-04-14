@@ -48,7 +48,7 @@ function TypeIcon({ type }: Readonly<{ type: C4TreeNode['type'] }>) {
 
 /** チェックボックス表示対象かどうか */
 function isCheckableType(type: C4TreeNode['type']): boolean {
-  return type === 'container' || type === 'containerDb' || type === 'component';
+  return type === 'system' || type === 'container' || type === 'containerDb' || type === 'component';
 }
 
 /** ツリーからチェック対象ノードのIDを再帰的に収集 */
