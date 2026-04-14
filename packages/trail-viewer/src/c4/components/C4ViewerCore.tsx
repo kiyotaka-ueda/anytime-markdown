@@ -363,6 +363,7 @@ export function C4ViewerCore({
   const handleSetLevel = useCallback((level: number) => {
     if (!fullDoc) return;
     setCurrentLevel(level);
+    setDrillStack([]);
     const view = buildLevelView(fullDoc, level);
     layoutWithSubgroups(view, 'TB', 180, 60);
     dispatch({ type: 'SET_DOCUMENT', doc: view });
