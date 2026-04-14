@@ -188,7 +188,7 @@ export function C4ViewerCore({
   const [dsmLevel, setDsmLevel] = useState<'component' | 'package'>('component');
   const [dsmClustered, setDsmClustered] = useState(false);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
-  const [drillStack, setDrillStack] = useState<readonly { readonly element: C4Element; readonly prevLevel: number }[]>([]);
+  const [drillStack, setDrillStack] = useState<readonly { readonly element: C4Element; readonly prevLevel: number; readonly prevCheckedIds: ReadonlySet<string> | null }[]>([]);
   const [contextMenu, setContextMenu] = useState<{
     readonly x: number;
     readonly y: number;
@@ -358,7 +358,7 @@ export function C4ViewerCore({
         // ドリル前のレベルを保存し、子要素が表示される最低レベルへ自動調整
         const prevLevel = currentLevel;
         const minLevel = drillTargetLevel(element.type);
-        setDrillStack((prev) => [...prev, { element, prevLevel }]);
+        setDrillStack((prev) => [...prev, { element, prevLevel, prevCheckedIds: checkedPackageIds }]);
         if (currentLevel < minLevel) {
           setCurrentLevel(minLevel);
         }
@@ -385,16 +385,18 @@ export function C4ViewerCore({
       }
       setContextMenu(null);
     },
-    [c4Model, currentLevel, drillTargetLevel],
+    [c4Model, currentLevel, drillTargetLevel, checkedPackageIds],
   );
 
   /** ドリルアップ: 前の表示に戻る */
   const handleDrillUp = useCallback(() => {
-    const prevLevel = drillStack.at(-1)?.prevLevel;
+    const entry = drillStack.at(-1);
+    const prevLevel = entry?.prevLevel;
+    const prevCheckedIds = entry?.prevCheckedIds ?? null;
     setDrillStack((prev) => prev.slice(0, -1));
     if (prevLevel !== undefined) setCurrentLevel(prevLevel);
     setCheckedPackageIds(null);
-    setCheckResetIds(null);
+    setCheckResetIds(prevCheckedIds);
     setCheckResetExpanded(null);
     setCheckResetKey(prev => prev + 1);
     setContextMenu(null);
