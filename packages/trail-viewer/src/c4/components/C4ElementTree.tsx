@@ -307,9 +307,11 @@ interface C4ElementTreeProps {
   readonly resetKey?: number;
   /** resetKey 変化時にリセットするID集合。null/undefined なら全チェック状態にリセット */
   readonly resetIds?: ReadonlySet<string> | null;
+  /** resetKey 変化時に展開するID集合。null/undefined なら展開状態を変更しない */
+  readonly resetExpanded?: ReadonlySet<string> | null;
 }
 
-export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onSelect, onCheckedChange, onRemoveElement, onPurgeDeleted, docLinks, onDocLinkClick, exports, onExportSelect, selectedExportId, isDark, resetKey, resetIds }) => {
+export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onSelect, onCheckedChange, onRemoveElement, onPurgeDeleted, docLinks, onDocLinkClick, exports, onExportSelect, selectedExportId, isDark, resetKey, resetIds, resetExpanded }) => {
   const colors = useMemo(() => getC4Colors(isDark ?? true), [isDark]);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => {
     // デフォルトでルートレベルと system ノードの直下を展開
@@ -412,13 +414,9 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
   useEffect(() => {
     if (resetKey === undefined) return;
     setCheckedIds(resetIds != null ? new Set(resetIds) : collectCheckableIds(tree));
-    if (resetIds != null) {
-      // ドリル時: resetIds に含まれるノードをすべて展開する
-      setExpanded(prev => {
-        const next = new Set(prev);
-        for (const id of resetIds) next.add(id);
-        return next;
-      });
+    if (resetExpanded != null) {
+      // ドリル時: 指定されたIDのみを展開状態にする
+      setExpanded(new Set(resetExpanded));
     }
   // resetIds は resetKey と同時に更新されるため resetKey の変化だけを監視する
   // eslint-disable-next-line react-hooks/exhaustive-deps

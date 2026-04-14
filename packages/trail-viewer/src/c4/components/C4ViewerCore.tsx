@@ -370,8 +370,17 @@ export function C4ViewerCore({
           const el = c4Model.elements.find(e => e.id === id);
           if (el && CHECKABLE.has(el.type)) inScope.add(id);
         }
+        // ドリル対象とその祖先のIDを展開対象とする（ルート→ドリル対象のパスのみ展開）
+        const expandIds = new Set<string>([element.id]);
+        let parentId = element.boundaryId;
+        while (parentId) {
+          expandIds.add(parentId);
+          const parent = c4Model.elements.find(e => e.id === parentId);
+          parentId = parent?.boundaryId;
+        }
         setCheckedPackageIds(null);
         setCheckResetIds(inScope);
+        setCheckResetExpanded(expandIds);
         setCheckResetKey(prev => prev + 1);
       }
       setContextMenu(null);
@@ -386,6 +395,7 @@ export function C4ViewerCore({
     if (prevLevel !== undefined) setCurrentLevel(prevLevel);
     setCheckedPackageIds(null);
     setCheckResetIds(null);
+    setCheckResetExpanded(null);
     setCheckResetKey(prev => prev + 1);
     setContextMenu(null);
   }, [drillStack]);
@@ -395,6 +405,7 @@ export function C4ViewerCore({
     setDrillStack([]);
     setCheckedPackageIds(null);
     setCheckResetIds(null);
+    setCheckResetExpanded(null);
     setCheckResetKey(prev => prev + 1);
     if (level <= 2) {
       setDsmLevel('package');
@@ -419,6 +430,7 @@ export function C4ViewerCore({
 
   const [checkResetKey, setCheckResetKey] = useState(0);
   const [checkResetIds, setCheckResetIds] = useState<ReadonlySet<string> | null>(null);
+  const [checkResetExpanded, setCheckResetExpanded] = useState<ReadonlySet<string> | null>(null);
 
   const deletedIds = useMemo(() => {
     if (!c4Model) return undefined;
@@ -702,6 +714,7 @@ export function C4ViewerCore({
             onCheckedChange={setCheckedPackageIds}
             resetKey={checkResetKey}
             resetIds={checkResetIds}
+            resetExpanded={checkResetExpanded}
             onRemoveElement={onRemoveElement}
             onPurgeDeleted={onPurgeDeleted}
             docLinks={docLinks}
