@@ -10,39 +10,47 @@ const V_GAP = 50;
 
 interface Pos { x: number; y: number }
 
-/** 簡易トポロジカルレイアウト（TB方向） */
+/** トポロジカルソート + 最長パス + barycenter レイアウト（TB方向） */
 function layoutNodes(graph: FlowGraph): Map<string, Pos> {
   const pos = new Map<string, Pos>();
   if (graph.nodes.length === 0) return pos;
 
-  // 各ノードの深さを BFS で計算
+  // --- 1. トポロジカルソートで最長パス深さを計算（辺が常に下向きになる）---
+  const inDeg = new Map<string, number>();
+  for (const n of graph.nodes) inDeg.set(n.id, 0);
+  for (const e of graph.edges) inDeg.set(e.to, (inDeg.get(e.to) ?? 0) + 1);
+
   const depth = new Map<string, number>();
-  const startNode = graph.nodes.find(n => n.kind === 'start') ?? graph.nodes[0];
-  const endNode = graph.nodes.find(n => n.kind === 'end');
-  depth.set(startNode.id, 0);
-  const queue = [startNode.id];
-  while (queue.length > 0) {
-    const cur = queue.shift()!;
-    const d = depth.get(cur) ?? 0;
+  for (const n of graph.nodes) depth.set(n.id, 0);
+
+  // Kahn's algorithm: in-degree が 0 のノードからトポロジカル順に処理
+  const remaining = new Map(inDeg);
+  const topoQueue: string[] = [];
+  for (const [id, d] of remaining) {
+    if (d === 0) topoQueue.push(id);
+  }
+
+  while (topoQueue.length > 0) {
+    const cur = topoQueue.shift()!;
+    const curD = depth.get(cur) ?? 0;
     for (const e of graph.edges) {
-      if (e.from === cur && !depth.has(e.to)) {
-        depth.set(e.to, d + 1);
-        queue.push(e.to);
-      }
+      if (e.from !== cur) continue;
+      // 最長パス: 子ノードの深さを更新
+      const newD = curD + 1;
+      if (newD > (depth.get(e.to) ?? 0)) depth.set(e.to, newD);
+      const deg = (remaining.get(e.to) ?? 1) - 1;
+      remaining.set(e.to, deg);
+      if (deg === 0) topoQueue.push(e.to);
     }
   }
-  // 残り（到達不能）は最大深さ+1
-  let maxD = Math.max(0, ...[...depth.values()]);
+
+  // サイクル等で未解決のノードは最大深さ+1
+  const maxD = Math.max(0, ...[...depth.values()]);
   for (const n of graph.nodes) {
     if (!depth.has(n.id)) depth.set(n.id, maxD + 1);
   }
-  // end ノードは常に最下段に配置
-  if (endNode) {
-    maxD = Math.max(maxD, ...[...depth.values()]);
-    depth.set(endNode.id, maxD + 1);
-  }
 
-  // 深さでグループ化
+  // --- 2. 深さでグループ化 ---
   const byDepth = new Map<number, string[]>();
   for (const [id, d] of depth) {
     const arr = byDepth.get(d) ?? [];
@@ -50,8 +58,7 @@ function layoutNodes(graph: FlowGraph): Map<string, Pos> {
     byDepth.set(d, arr);
   }
 
-  // barycenter ヒューリスティック: 各レベルをトップダウンに処理し、
-  // 親ノードの平均 x 座標でソートして線の交差を削減する
+  // --- 3. barycenter ヒューリスティック: 親の平均 x でソートして交差削減 ---
   const xPos = new Map<string, number>();
   const maxDepthVal = Math.max(0, ...[...depth.values()]);
 
@@ -60,12 +67,10 @@ function layoutNodes(graph: FlowGraph): Map<string, Pos> {
     if (ids.length === 0) continue;
 
     if (d === 0) {
-      // 最上段: 単純に均等配置
       ids.forEach((id, i) => {
         xPos.set(id, (NODE_W + H_GAP) * (i - (ids.length - 1) / 2));
       });
     } else {
-      // 親ノードの平均 x を重心として計算
       const withBC = ids.map(id => {
         const parentXs = graph.edges
           .filter(e => e.to === id)
@@ -75,11 +80,9 @@ function layoutNodes(graph: FlowGraph): Map<string, Pos> {
           : 0;
         return { id, bc };
       });
-      // 重心でソートして横順序を決定
       withBC.sort((a, b) => a.bc - b.bc);
-      const total = withBC.length;
       withBC.forEach(({ id }, i) => {
-        xPos.set(id, (NODE_W + H_GAP) * (i - (total - 1) / 2));
+        xPos.set(id, (NODE_W + H_GAP) * (i - (withBC.length - 1) / 2));
       });
     }
   }
