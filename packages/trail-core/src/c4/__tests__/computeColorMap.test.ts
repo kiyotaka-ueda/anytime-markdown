@@ -1,4 +1,5 @@
-import type { CoverageMatrix, DsmMatrix, ComplexityMatrix } from '../types';
+import type { CoverageMatrix, ComplexityMatrix } from '../types';
+import type { DsmMatrix } from '../dsm/types';
 import { computeColorMap } from '../metrics/computeColorMap';
 
 // ─── Coverage ────────────────────────────────────────────────────────────────
