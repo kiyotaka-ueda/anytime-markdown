@@ -978,10 +978,11 @@ export class TrailDataServer {
       const { model, graph } = resolved;
 
       const { projectRoot } = graph.metadata;
-      const codeElements = model.elements.filter(el => el.type === 'code' && el.boundaryId === componentId);
-      TrailLogger.info(`[/api/c4/exports] componentId=${componentId}, codeElements=${codeElements.length}, totalElements=${model.elements.length}`);
-
-      const codeElementIds = new Set(codeElements.map(el => el.id));
+      const codeElementIds = new Set(
+        model.elements
+          .filter(el => el.type === 'code' && el.boundaryId === componentId)
+          .map(el => el.id),
+      );
 
       const sourceFiles = [];
       for (const node of graph.nodes) {
@@ -995,7 +996,6 @@ export class TrailDataServer {
         }
       }
 
-      TrailLogger.info(`[/api/c4/exports] sourceFiles=${sourceFiles.length}`);
       const symbols = ExportExtractor.extract(sourceFiles, componentId);
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({ symbols }));
