@@ -518,12 +518,6 @@ export function C4ViewerCore({
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: containerHeight, bgcolor: colors.bg }}>
       <Toolbar variant="dense" sx={{ gap: 1, bgcolor: isDark ? 'rgba(18,18,18,0.85)' : 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${colors.border}`, minHeight: 44, px: { xs: 2, md: 3 }, zIndex: 1100 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mr: 1 }} aria-live="polite" aria-atomic="true">
-          <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: connected ? '#66BB6A' : colors.textMuted }} aria-hidden="true" />
-          <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.7rem' }}>
-            {connected ? 'Connected' : 'Disconnected'}
-          </Typography>
-        </Box>
         {onImport && (
           <Button
             size="small"
