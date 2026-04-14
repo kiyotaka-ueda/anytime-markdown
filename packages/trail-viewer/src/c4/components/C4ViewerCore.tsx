@@ -192,6 +192,7 @@ export function C4ViewerCore({
     readonly x: number;
     readonly y: number;
     readonly c4Id: string;
+    readonly nodeType: string;
   } | null>(null);
   const [checkedPackageIds, setCheckedPackageIds] = useState<ReadonlySet<string> | null>(null);
   const [centerOnSelect, setCenterOnSelect] = useState(false);
@@ -312,8 +313,8 @@ export function C4ViewerCore({
 
   /** 右クリックメニューを表示する */
   const handleNodeContextMenu = useCallback(
-    (c4Id: string, x: number, y: number) => {
-      setContextMenu({ x, y, c4Id });
+    (c4Id: string, x: number, y: number, nodeType: string) => {
+      setContextMenu({ x, y, c4Id, nodeType });
     },
     [],
   );
@@ -504,9 +505,12 @@ export function C4ViewerCore({
   // boundaryId で親子関係が表現されているため、children ではなく boundaryId で子の有無を判定する
   // 現在のドリルルートへの再ドリルは防ぐ
   const canDrillDown = contextMenu !== null &&
+    contextMenu.nodeType !== 'frame' &&
     drillStack.at(-1)?.element.id !== contextMenu.c4Id &&
     (c4Model?.elements.some(e => e.boundaryId === contextMenu.c4Id) ?? false);
-  const canDrillUp = drillStack.length > 0;
+  const canDrillUp = contextMenu !== null &&
+    contextMenu.nodeType === 'frame' &&
+    drillStack.length > 0;
   const showContextMenu = contextMenu !== null && (canDrillDown || canDrillUp);
 
   return (

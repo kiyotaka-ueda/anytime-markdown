@@ -15,7 +15,7 @@ interface C4GraphCanvasProps {
   readonly coverageDiffMap?: ReadonlyMap<string, number> | null;
   readonly onNodeSelect?: (nodeId: string | null) => void;
   readonly onNodeDoubleClick?: (nodeId: string) => void;
-  readonly onNodeContextMenu?: (c4Id: string, x: number, y: number) => void;
+  readonly onNodeContextMenu?: (c4Id: string, x: number, y: number, nodeType: string) => void;
   readonly isDark?: boolean;
 }
 
@@ -71,7 +71,7 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
     },
     onNodeContextMenu: (node, x, y) => {
       const c4Id = node.metadata?.c4Id as string | undefined;
-      if (c4Id) onNodeContextMenu?.(c4Id, x, y);
+      if (c4Id) onNodeContextMenu?.(c4Id, x, y, node.type);
     },
   });
 
