@@ -61,6 +61,7 @@ export interface C4DataProvider {
   readonly coverageMatrix: CoverageMatrix | undefined;
   readonly coverageDiff: CoverageDiffMatrix | undefined;
   readonly complexityMatrix: ComplexityMatrix | undefined;
+  readonly importanceMatrix: Record<string, number> | undefined;
   readonly trailGraph: TrailGraph | undefined;
   handleSetDsmLevel(level: 'component' | 'package'): void;
   handleCluster(enabled: boolean): void;
@@ -186,7 +187,7 @@ export class TrailDataServer {
     this.getC4Provider = getProvider;
   }
 
-  notify(type: 'model-updated' | 'dsm-updated' | 'coverage-updated' | 'coverage-diff-updated' | 'complexity-updated'): void {
+  notify(type: 'model-updated' | 'dsm-updated' | 'coverage-updated' | 'coverage-diff-updated' | 'complexity-updated' | 'importance-updated'): void {
     if (type === 'model-updated') this.treeCache = undefined;
     if (this.clients.size === 0) return;
 
@@ -900,7 +901,7 @@ export class TrailDataServer {
   // -------------------------------------------------------------------------
 
   private buildNotifyMessage(
-    type: 'model-updated' | 'dsm-updated' | 'coverage-updated' | 'coverage-diff-updated' | 'complexity-updated',
+    type: 'model-updated' | 'dsm-updated' | 'coverage-updated' | 'coverage-diff-updated' | 'complexity-updated' | 'importance-updated',
     provider: C4DataProvider,
   ): ServerMessage | undefined {
     if (type === 'model-updated') {
@@ -920,6 +921,11 @@ export class TrailDataServer {
       const complexityMatrix = provider.complexityMatrix;
       if (!complexityMatrix) return undefined;
       return { type: 'complexity-updated', complexityMatrix };
+    }
+    if (type === 'importance-updated') {
+      const importanceMatrix = provider.importanceMatrix;
+      if (!importanceMatrix) return undefined;
+      return { type: 'importance-updated', importanceMatrix };
     }
     return this.buildDsmMessage(provider);
   }

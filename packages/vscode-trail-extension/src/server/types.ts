@@ -53,7 +53,12 @@ export interface ComplexityUpdatedMessage {
   readonly complexityMatrix: ComplexityMatrix;
 }
 
-export type ServerMessage = ModelUpdatedMessage | DsmUpdatedMessage | AnalysisProgressMessage | DocLinksUpdatedMessage | CoverageUpdatedMessage | CoverageDiffUpdatedMessage | ComplexityUpdatedMessage;
+export interface ImportanceUpdatedMessage {
+  readonly type: 'importance-updated';
+  readonly importanceMatrix: Record<string, number>;
+}
+
+export type ServerMessage = ModelUpdatedMessage | DsmUpdatedMessage | AnalysisProgressMessage | DocLinksUpdatedMessage | CoverageUpdatedMessage | CoverageDiffUpdatedMessage | ComplexityUpdatedMessage | ImportanceUpdatedMessage;
 
 // ---------------------------------------------------------------------------
 //  Client → Server messages

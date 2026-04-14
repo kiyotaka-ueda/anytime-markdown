@@ -10,6 +10,7 @@ import {
   aggregateCoverage,
   computeCoverageDiff,
   computeComplexityMatrix,
+  computeImportanceMatrix,
 } from '@anytime-markdown/trail-core/c4';
 import type { C4Element, C4Model, C4Relationship, BoundaryInfo, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DsmMatrix, FeatureMatrix, MessageInput } from '@anytime-markdown/trail-core/c4';
 import { analyze, toMermaid } from '@anytime-markdown/trail-core';
@@ -42,6 +43,7 @@ export class C4Panel implements C4DataProvider {
   private lastCoverageMatrix: CoverageMatrix | undefined;
   private lastCoverageDiff: CoverageDiffMatrix | undefined;
   private lastComplexityMatrix: ComplexityMatrix | undefined;
+  private lastImportanceMatrix: Record<string, number> | undefined;
   private coverageHistory: CoverageHistory | undefined;
   private coverageWatcher: CoverageWatcher | undefined;
 
@@ -94,6 +96,7 @@ export class C4Panel implements C4DataProvider {
   public get coverageMatrix(): CoverageMatrix | undefined { return this.lastCoverageMatrix; }
   public get coverageDiff(): CoverageDiffMatrix | undefined { return this.lastCoverageDiff; }
   public get complexityMatrix(): ComplexityMatrix | undefined { return this.lastComplexityMatrix; }
+  public get importanceMatrix(): Record<string, number> | undefined { return this.lastImportanceMatrix; }
   public get trailGraph(): TrailGraph | undefined { return this.lastTrailGraph; }
 
   public handleSetDsmLevel(level: 'component' | 'package'): void {
@@ -450,6 +453,7 @@ export class C4Panel implements C4DataProvider {
           panel.lastProjectRoot = graph.metadata.projectRoot;
           panel.lastTsconfigPath = tsconfigPath;
           panel.buildDsm();
+          panel.buildImportanceMatrix(tsconfigPath);
           server?.notifyProgress('', 100);
         },
       );
@@ -647,6 +651,17 @@ export class C4Panel implements C4DataProvider {
       C4Panel.dataServer?.notify('dsm-updated');
     } catch (err) {
       TrailLogger.warn('DSM build failed');
+    }
+  }
+
+  /** tsconfig から ImportanceMatrix を計算してデータサーバーに通知 */
+  public buildImportanceMatrix(tsconfigPath: string): void {
+    if (!this.lastModel) return;
+    try {
+      this.lastImportanceMatrix = computeImportanceMatrix(tsconfigPath, this.lastModel.elements);
+      C4Panel.dataServer?.notify('importance-updated');
+    } catch (err) {
+      TrailLogger.warn(`Failed to compute importance: ${(err as Error).message}`);
     }
   }
 }
