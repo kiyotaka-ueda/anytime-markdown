@@ -69,6 +69,12 @@ describe('TypeScriptAdapter.fromTsConfig', () => {
     expect(adapter.language).toBe('typescript');
   });
 
+  it('throws on non-existent tsconfig', () => {
+    expect(() =>
+      TypeScriptAdapter.fromTsConfig('/path/to/nonexistent/tsconfig.json')
+    ).toThrow('Failed to read tsconfig');
+  });
+
   it('extracts functions from files in tsconfig', () => {
     const tsconfigPath = path.resolve(__dirname, '../../../tsconfig.json');
     const adapter = TypeScriptAdapter.fromTsConfig(tsconfigPath);

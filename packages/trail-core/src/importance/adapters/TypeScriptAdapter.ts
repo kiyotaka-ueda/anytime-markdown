@@ -47,6 +47,15 @@ export class TypeScriptAdapter implements ILanguageAdapter {
     }
     const configDir = path.dirname(absolutePath);
     const parsed = ts.parseJsonConfigFileContent(configFile.config, ts.sys, configDir);
+    if (parsed.errors.length > 0) {
+      const message = parsed.errors
+        .map(e => ts.flattenDiagnosticMessageText(e.messageText, '\n'))
+        .join('\n');
+      throw new Error(`Failed to parse tsconfig: ${message}`);
+    }
+    if (parsed.fileNames.length === 0) {
+      throw new Error(`No files matched in tsconfig: ${absolutePath}`);
+    }
     return new TypeScriptAdapter(parsed.fileNames);
   }
 
