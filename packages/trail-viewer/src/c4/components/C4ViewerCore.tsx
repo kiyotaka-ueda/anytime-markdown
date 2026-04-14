@@ -323,6 +323,13 @@ export function C4ViewerCore({
     setContextMenu(null);
   }, []);
 
+  /** ドリルダウン時に子要素が見えるよう最低限必要なレベルを返す */
+  const drillTargetLevel = useCallback((type: string): number => {
+    if (type === 'system') return 2;
+    if (type === 'container') return 3;
+    return 4;
+  }, []);
+
   /** ドリルダウン: 選択要素の子要素のみ表示する */
   const handleDrillDown = useCallback(
     (c4Id: string) => {
@@ -330,10 +337,15 @@ export function C4ViewerCore({
       const element = c4Model.elements.find(e => e.id === c4Id);
       if (element) {
         setDrillStack((prev) => [...prev, element]);
+        // 子要素が表示されるよう必要なら自動でレベルを上げる
+        const minLevel = drillTargetLevel(element.type);
+        if (currentLevel < minLevel) {
+          setCurrentLevel(minLevel);
+        }
       }
       setContextMenu(null);
     },
-    [c4Model],
+    [c4Model, currentLevel, drillTargetLevel],
   );
 
   /** ドリルアップ: 前の表示に戻る */
