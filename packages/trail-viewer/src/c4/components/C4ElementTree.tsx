@@ -453,6 +453,20 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
         minHeight: 32,
         flexShrink: 0,
       }}>
+        {/* L1アイコンと縦位置を揃えるため chevron 幅（20px）分スペースを確保 */}
+        <Box sx={{ width: 20, flexShrink: 0 }} />
+        <Tooltip title={allChecked ? 'Uncheck all' : 'Check all'} placement="right">
+          <IconButton
+            size="small"
+            onClick={handleCheckAll}
+            aria-label={allChecked ? 'Uncheck all packages' : 'Check all packages'}
+            sx={{ color: colors.accent, p: 0.25, mr: 0.5 }}
+          >
+            {allChecked
+              ? <CheckBoxIcon sx={{ fontSize: 18 }} />
+              : <CheckBoxOutlineBlankIcon sx={{ fontSize: 18 }} />}
+          </IconButton>
+        </Tooltip>
         <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.7rem', flex: 1 }}>
           Elements
         </Typography>
@@ -468,18 +482,6 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
             </IconButton>
           </Tooltip>
         )}
-        <Tooltip title={allChecked ? 'Uncheck all' : 'Check all'} placement="left">
-          <IconButton
-            size="small"
-            onClick={handleCheckAll}
-            aria-label={allChecked ? 'Uncheck all packages' : 'Check all packages'}
-            sx={{ color: colors.accent, p: 0.25 }}
-          >
-            {allChecked
-              ? <CheckBoxIcon sx={{ fontSize: 18 }} />
-              : <CheckBoxOutlineBlankIcon sx={{ fontSize: 18 }} />}
-          </IconButton>
-        </Tooltip>
       </Box>
       <List dense disablePadding sx={{ flex: 1, overflowY: 'auto' }}>
         {tree.map(node => (
