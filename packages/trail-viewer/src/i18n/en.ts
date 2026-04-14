@@ -149,4 +149,6 @@ export const en: TrailI18n = {
   'c4.releaseRepository': 'Repository',
   'c4.unknownRepo': '(unknown)',
   'c4.currentRelease': 'Current',
+  'c4.drillDown': 'Drill Down',
+  'c4.drillUp': 'Drill Up',
 };

@@ -149,4 +149,6 @@ export const ja: TrailI18n = {
   'c4.releaseRepository': 'リポジトリ',
   'c4.unknownRepo': '(未設定)',
   'c4.currentRelease': '現在',
+  'c4.drillDown': 'ドリルダウン',
+  'c4.drillUp': 'ドリルアップ',
 };

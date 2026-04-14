@@ -162,4 +162,6 @@ export interface TrailI18n {
   'c4.releaseRepository': string;
   'c4.unknownRepo': string;
   'c4.currentRelease': string;
+  'c4.drillDown': string;
+  'c4.drillUp': string;
 }
