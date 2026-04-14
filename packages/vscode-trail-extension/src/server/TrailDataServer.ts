@@ -186,7 +186,7 @@ export class TrailDataServer {
     this.getC4Provider = getProvider;
   }
 
-  notify(type: 'model-updated' | 'dsm-updated' | 'coverage-updated' | 'coverage-diff-updated'): void {
+  notify(type: 'model-updated' | 'dsm-updated' | 'coverage-updated' | 'coverage-diff-updated' | 'complexity-updated'): void {
     if (type === 'model-updated') this.treeCache = undefined;
     if (this.clients.size === 0) return;
 
@@ -900,7 +900,7 @@ export class TrailDataServer {
   // -------------------------------------------------------------------------
 
   private buildNotifyMessage(
-    type: 'model-updated' | 'dsm-updated' | 'coverage-updated' | 'coverage-diff-updated',
+    type: 'model-updated' | 'dsm-updated' | 'coverage-updated' | 'coverage-diff-updated' | 'complexity-updated',
     provider: C4DataProvider,
   ): ServerMessage | undefined {
     if (type === 'model-updated') {
@@ -915,6 +915,11 @@ export class TrailDataServer {
       const coverageDiff = provider.coverageDiff;
       if (!coverageDiff) return undefined;
       return { type: 'coverage-diff-updated', coverageDiff };
+    }
+    if (type === 'complexity-updated') {
+      const complexityMatrix = provider.complexityMatrix;
+      if (!complexityMatrix) return undefined;
+      return { type: 'complexity-updated', complexityMatrix };
     }
     return this.buildDsmMessage(provider);
   }
