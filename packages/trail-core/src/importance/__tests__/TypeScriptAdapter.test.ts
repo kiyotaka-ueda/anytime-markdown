@@ -62,6 +62,39 @@ describe('TypeScriptAdapter', () => {
   });
 });
 
+describe('TypeScriptAdapter.computeFanInMap', () => {
+  it('counts calls to pureAdd from caller fixture', () => {
+    const mutationsFile = path.join(FIXTURE_DIR, 'mutations.ts');
+    const callerFile = path.join(FIXTURE_DIR, 'caller.ts');
+    const adapter = new TypeScriptAdapter([mutationsFile, callerFile]);
+
+    const fanInMap = adapter.computeFanInMap();
+
+    // pureAdd is called 3 times in caller.ts (callerA: 2 + callerB: 1)
+    const functions = adapter.extractFunctions([mutationsFile]);
+    const pureAdd = functions.find(f => f.name === 'pureAdd')!;
+    expect(pureAdd).toBeDefined();
+    expect(fanInMap.get(pureAdd.id)).toBe(3);
+  });
+
+  it('pureAdd scores higher than callerA when fanIn is counted', () => {
+    const mutationsFile = path.join(FIXTURE_DIR, 'mutations.ts');
+    const callerFile = path.join(FIXTURE_DIR, 'caller.ts');
+    const adapter = new TypeScriptAdapter([mutationsFile, callerFile]);
+    const { ImportanceAnalyzer } = require('../ImportanceAnalyzer');
+    const analyzer = new ImportanceAnalyzer(adapter);
+
+    const results = analyzer.analyze([mutationsFile, callerFile]);
+    const pureAdd = results.find((f: { name: string }) => f.name === 'pureAdd')!;
+    const callerA = results.find((f: { name: string }) => f.name === 'callerA')!;
+
+    // pureAdd は3回呼ばれるため fanIn が最大 → callerA (fanIn=0) より高スコア
+    expect(pureAdd.metrics.fanIn).toBe(3);
+    expect(callerA.metrics.fanIn).toBe(0);
+    expect(pureAdd.importanceScore).toBeGreaterThan(callerA.importanceScore);
+  });
+});
+
 describe('TypeScriptAdapter.fromTsConfig', () => {
   it('creates adapter from tsconfig path', () => {
     const tsconfigPath = path.resolve(__dirname, '../../../tsconfig.json');

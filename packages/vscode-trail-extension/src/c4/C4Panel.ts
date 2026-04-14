@@ -612,10 +612,7 @@ export class C4Panel implements C4DataProvider {
       return;
     }
     try {
-      TrailLogger.info(`buildImportanceMatrix: computing for ${elements.length} elements`);
       this.lastImportanceMatrix = computeImportanceMatrix(tsconfigPath, elements);
-      const scored = Object.keys(this.lastImportanceMatrix).length;
-      TrailLogger.info(`buildImportanceMatrix: done, ${scored} elements scored, clients=${C4Panel.dataServer?.clientCount ?? 0}`);
       C4Panel.dataServer?.notify('importance-updated');
     } catch (err) {
       TrailLogger.warn(`Failed to compute importance: ${(err as Error).message}`);
