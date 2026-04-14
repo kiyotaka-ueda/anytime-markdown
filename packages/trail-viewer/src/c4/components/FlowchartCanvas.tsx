@@ -18,6 +18,7 @@ function layoutNodes(graph: FlowGraph): Map<string, Pos> {
   // 各ノードの深さを BFS で計算
   const depth = new Map<string, number>();
   const startNode = graph.nodes.find(n => n.kind === 'start') ?? graph.nodes[0];
+  const endNode = graph.nodes.find(n => n.kind === 'end');
   depth.set(startNode.id, 0);
   const queue = [startNode.id];
   while (queue.length > 0) {
@@ -31,9 +32,14 @@ function layoutNodes(graph: FlowGraph): Map<string, Pos> {
     }
   }
   // 残り（到達不能）は最大深さ+1
-  const maxD = Math.max(0, ...[...depth.values()]);
+  let maxD = Math.max(0, ...[...depth.values()]);
   for (const n of graph.nodes) {
     if (!depth.has(n.id)) depth.set(n.id, maxD + 1);
+  }
+  // end ノードは常に最下段に配置
+  if (endNode) {
+    maxD = Math.max(maxD, ...[...depth.values()]);
+    depth.set(endNode.id, maxD + 1);
   }
 
   // 同じ深さのノードを横に並べる
