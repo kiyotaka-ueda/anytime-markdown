@@ -294,7 +294,7 @@ export function C4ViewerCore({
     // ドリル状態に応じてモデルをフィルタリング
     const currentDrillRoot = drillStack.at(-1) ?? null;
     const filteredModel = currentDrillRoot
-      ? filterModelForDrill(c4Model, currentDrillRoot)
+      ? filterModelForDrill(c4Model, currentDrillRoot.id)
       : c4Model;
 
     const doc = c4ToGraphDocument(filteredModel, boundaryInfos);
@@ -327,8 +327,8 @@ export function C4ViewerCore({
   const handleDrillDown = useCallback(
     (c4Id: string) => {
       if (!c4Model) return;
-      const element = findC4Element(c4Model.elements, c4Id);
-      if (element?.children?.length) {
+      const element = c4Model.elements.find(e => e.id === c4Id);
+      if (element) {
         setDrillStack((prev) => [...prev, element]);
       }
       setContextMenu(null);
@@ -486,13 +486,10 @@ export function C4ViewerCore({
   } as const;
 
   // コンテキストメニュー表示時の情報計算
-  const contextMenuTarget = contextMenu
-    ? findC4Element(c4Model?.elements ?? [], contextMenu.c4Id)
-    : null;
-  const canDrillDown = Boolean(contextMenuTarget?.children?.length);
-  const canDrillUp =
-    drillStack.length > 0 &&
-    drillStack.at(-1)?.id === contextMenu?.c4Id;
+  // boundaryId で親子関係が表現されているため、children ではなく boundaryId で子の有無を判定する
+  const canDrillDown = contextMenu !== null &&
+    (c4Model?.elements.some(e => e.boundaryId === contextMenu.c4Id) ?? false);
+  const canDrillUp = drillStack.length > 0;
   const showContextMenu = contextMenu !== null && (canDrillDown || canDrillUp);
 
   return (
@@ -891,16 +888,3 @@ export function C4ViewerCore({
   );
 }
 
-/** C4Element の配列を再帰的に検索して id が一致する要素を返す */
-function findC4Element(
-  elements: readonly C4Element[],
-  id: string,
-): C4Element | undefined {
-  for (const el of elements) {
-    if (el.id === id) return el;
-    if (el.children) {
-      const found = findC4Element(el.children, id);
-      if (found) return found;
-    }
-  }
-}
