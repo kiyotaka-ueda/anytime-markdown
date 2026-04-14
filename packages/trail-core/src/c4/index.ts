@@ -25,6 +25,7 @@ export { parseMermaidC4, extractBoundaries } from './parser/mermaidC4';
 export { c4ToGraphDocument } from './transform/toGraphDocument';
 export { c4ToMermaid } from './serializer/c4ToMermaid';
 export { buildLevelView, getFrameDepth } from './view/buildLevelView';
+export { filterModelForDrill } from './view/filterModelForDrill';
 export { buildElementTree, filterTreeByLevel } from './view/buildElementTree';
 export { collectDescendantIds } from './view/collectDescendants';
 export { enrichFeatureMatrixWithComponents } from './featureMatrix';
