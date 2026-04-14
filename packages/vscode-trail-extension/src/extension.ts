@@ -190,12 +190,10 @@ export async function activate(context: vscode.ExtensionContext) {
 					},
 					async (progress) => {
 						const gitRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-						const c4ModelPath = vscode.workspace.getConfiguration('anytimeTrail.c4').get<string>('modelPath', '');
-						const resolvedC4Path = c4ModelPath && gitRoot ? require('node:path').resolve(gitRoot, c4ModelPath) : undefined;
 						return trailDb!.importAll((message, increment) => {
 							progress.report({ message, increment });
 							TrailLogger.info(`Trail import [${repoName}]: ${message}`);
-						}, gitRoot, resolvedC4Path);
+						}, gitRoot);
 					},
 				);
 				TrailLogger.info(`Trail DB [${repoName}]: import complete - imported=${result.imported}, skipped=${result.skipped}, commits=${result.commitsResolved}, releases=${result.releasesResolved}, analyzed=${result.releasesAnalyzed}`);

@@ -25,8 +25,6 @@ import {
   DEFAULT_SKILL_MODELS,
   extractSkillName,
   buildReleaseFromGitData,
-  mapFilesToC4Elements,
-  mapC4ToFeatures,
   analyze,
   trailToC4,
 } from '@anytime-markdown/trail-core';
@@ -1203,7 +1201,6 @@ export class TrailDatabase {
   async importAll(
     onProgress?: (message: string, increment?: number) => void,
     gitRoot?: string,
-    c4ModelPath?: string,
   ): Promise<{ imported: number; skipped: number; commitsResolved: number; releasesResolved: number; releasesAnalyzed: number; coverageImported: number }> {
     const projectsDir = path.join(os.homedir(), '.claude', 'projects');
     const repoName = gitRoot ? path.basename(gitRoot) : '';
@@ -1343,23 +1340,11 @@ export class TrailDatabase {
     if (gitRoot) {
       try {
         onProgress?.('Resolving releases from version tags...', 0);
-        releasesResolved = this.resolveReleases(gitRoot, c4ModelPath);
+        releasesResolved = this.resolveReleases(gitRoot);
         onProgress?.(`Releases resolved: ${releasesResolved}`, 0);
       } catch {
         // Skip release resolution errors
       }
-    }
-
-    // C4 モデルを c4_models テーブルに保存
-    if (c4ModelPath) {
-      try {
-        const raw = fs.readFileSync(c4ModelPath, 'utf-8');
-        const parsed: unknown = JSON.parse(raw);
-        if (typeof parsed === 'object' && parsed !== null) {
-          const revision = fs.statSync(c4ModelPath).mtimeMs.toString();
-          this.saveC4Model(raw, revision);
-        }
-      } catch { /* ファイル読み込み失敗は無視 */ }
     }
 
     // Analyze source code for each release
@@ -2327,7 +2312,7 @@ export class TrailDatabase {
   //  Releases
   // -------------------------------------------------------------------------
 
-  resolveReleases(gitRoot: string, c4ModelPath?: string): number {
+  resolveReleases(gitRoot: string): number {
     const db = this.ensureDb();
     const git = new ExecFileGitService(gitRoot);
     const tags = git.getVersionTags();
@@ -2427,33 +2412,6 @@ export class TrailDatabase {
           } catch { /* ignore */ }
         }
 
-        // Save release features (if featureMatrix available)
-        if (c4ModelPath) {
-          try {
-            const raw = fs.readFileSync(c4ModelPath, 'utf-8');
-            const model = JSON.parse(raw) as { featureMatrix?: { features: unknown[]; mappings: unknown[]; elements?: unknown[] } };
-            if (model.featureMatrix) {
-              const { features, mappings, elements = [] } = model.featureMatrix;
-              const changedFilePaths = fileStats.map((f) => f.filePath);
-              const c4Mappings = mapFilesToC4Elements(changedFilePaths, elements as Parameters<typeof mapFilesToC4Elements>[1]);
-              const elementIds = c4Mappings.map((m) => m.elementId);
-              const featureMappings = mapC4ToFeatures(
-                elementIds,
-                features as Parameters<typeof mapC4ToFeatures>[1],
-                mappings as Parameters<typeof mapC4ToFeatures>[2],
-              );
-              for (const fm of featureMappings) {
-                try {
-                  db.run(
-                    `INSERT OR IGNORE INTO release_features (release_tag, feature_id, feature_name, role)
-                     VALUES (?, ?, ?, ?)`,
-                    [tag, fm.featureId, fm.featureName, fm.role],
-                  );
-                } catch { /* ignore */ }
-              }
-            }
-          } catch { /* featureMatrix not available */ }
-        }
       }
 
       count++;

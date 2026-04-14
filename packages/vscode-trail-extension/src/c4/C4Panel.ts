@@ -233,87 +233,9 @@ export class C4Panel implements C4DataProvider {
     C4Panel.dataServer?.notifyClaudeActivity([], []);
   }
 
-  // -------------------------------------------------------------------------
-  //  Model persistence
-  // -------------------------------------------------------------------------
-
-  private static resolveModelPath(): string | null {
-    const configured = vscode.workspace.getConfiguration('anytimeTrail.c4').get<string>('modelPath', '.vscode/c4-model.json');
-    if (!configured) return null;
-    if (path.isAbsolute(configured)) return configured;
-    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (!root) return null;
-    return path.join(root, configured);
-  }
-
-  private static saveModel(model: C4Model, boundaries: readonly BoundaryInfo[], featureMatrix?: FeatureMatrix): void {
-    const filePath = C4Panel.resolveModelPath();
-    if (!filePath) return;
-    try {
-      const dir = path.dirname(filePath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      const data: Record<string, unknown> = { model, boundaries };
-      if (featureMatrix) {
-        // featureMatrix にプロジェクトメタデータを付与
-        const panel = C4Panel.instance;
-        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-        const fmData: Record<string, unknown> = { ...featureMatrix };
-        if (workspaceRoot) {
-          const pkgPath = path.join(workspaceRoot, 'package.json');
-          if (fs.existsSync(pkgPath)) {
-            try {
-              const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
-              fmData.project = pkg.name ?? path.basename(workspaceRoot);
-            } catch {
-              fmData.project = path.basename(workspaceRoot);
-            }
-          }
-        }
-        if (panel?.lastTsconfigPath && workspaceRoot) {
-          fmData.tsconfig = path.relative(workspaceRoot, panel.lastTsconfigPath);
-        }
-        data.featureMatrix = fmData;
-      }
-      const jsonStr = JSON.stringify(data, null, 2);
-      fs.writeFileSync(filePath, jsonStr, 'utf-8');
-
-    } catch (err) {
-      TrailLogger.error('Failed to save C4 model', err);
-    }
-  }
-
-  public static loadSavedModel(): { model: C4Model; boundaries: BoundaryInfo[]; featureMatrix?: FeatureMatrix } | null {
-    const filePath = C4Panel.resolveModelPath();
-    if (!filePath || !fs.existsSync(filePath)) return null;
-    try {
-      const raw = fs.readFileSync(filePath, 'utf-8');
-      const data = JSON.parse(raw);
-      if (data?.model?.elements && Array.isArray(data.model.elements)) {
-        return {
-          model: data.model,
-          boundaries: data.boundaries ?? [],
-          ...(data.featureMatrix ? { featureMatrix: data.featureMatrix } : {}),
-        };
-      }
-    } catch (err) {
-      TrailLogger.warn('Failed to parse saved C4 model');
-    }
-    return null;
-  }
-
-  /** 保存済みモデルを復元して配信する。サーバー起動後に呼ぶ。 */
+  /** 保存済みモデルを復元して配信する。サーバー起動後に呼ぶ。C4 モデルは DB から読み込まれるため常に false を返す。 */
   public static restoreSavedModel(): boolean {
-    const saved = C4Panel.loadSavedModel();
-    if (!saved) return false;
-    const panel = C4Panel.getInstance();
-    panel.lastFeatureMatrix = saved.featureMatrix;
-    if (!panel.lastProjectRoot) {
-      panel.lastProjectRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    }
-    panel.setModel(saved.model, saved.boundaries);
-    return true;
+    return false;
   }
 
   // -------------------------------------------------------------------------
@@ -614,7 +536,6 @@ export class C4Panel implements C4DataProvider {
     if (this.lastModel === model && this.lastBoundaries === boundaries) return;
     this.lastModel = model;
     this.lastBoundaries = boundaries;
-    C4Panel.saveModel(model, boundaries ?? [], this.lastFeatureMatrix);
     this.buildDsm();
     void vscode.commands.executeCommand('setContext', 'anytimeTrail.c4ModelLoaded', true);
     C4Panel.dataServer?.notify('model-updated');
@@ -685,8 +606,7 @@ export class C4Panel implements C4DataProvider {
   public buildImportanceMatrix(tsconfigPath: string): void {
     const elements =
       this.lastModel?.elements ??
-      (this.lastTrailGraph ? trailToC4(this.lastTrailGraph).elements : undefined) ??
-      C4Panel.loadSavedModel()?.model.elements;
+      (this.lastTrailGraph ? trailToC4(this.lastTrailGraph).elements : undefined);
     if (!elements || elements.length === 0) {
       TrailLogger.warn('buildImportanceMatrix: no C4 elements available, skipping');
       return;
