@@ -32,6 +32,8 @@ export interface UseCanvasBaseOptions {
   readonly onNodeClick?: (node: GraphNode | null) => void;
   /** ダブルクリック時のコールバック */
   readonly onNodeDoubleClick?: (node: GraphNode | null) => void;
+  /** 右クリック時のコールバック */
+  readonly onNodeContextMenu?: (node: GraphNode, screenX: number, screenY: number) => void;
   /** フレームノードをヒットテスト対象から除外するか（デフォルト true） */
   readonly skipFrames?: boolean;
 
@@ -94,6 +96,7 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
     setSelection,
     onNodeClick,
     onNodeDoubleClick,
+    onNodeContextMenu,
     skipFrames = true,
     getSelection,
     dispatch: editorDispatch,
@@ -326,7 +329,13 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
   // --- Context menu ---
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-  }, []);
+    if (!onNodeContextMenu) return;
+    const { sx, sy } = screenPos(e);
+    const node = nodeAtScreen(sx, sy);
+    if (node) {
+      onNodeContextMenu(node, e.clientX, e.clientY);
+    }
+  }, [onNodeContextMenu, screenPos, nodeAtScreen]);
 
   // --- Wheel zoom (non-passive) ---
   useEffect(() => {
