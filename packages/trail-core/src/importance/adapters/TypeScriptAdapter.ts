@@ -39,6 +39,17 @@ export class TypeScriptAdapter implements ILanguageAdapter {
 
   static fromTsConfig(tsconfigPath: string): TypeScriptAdapter {
     const absolutePath = path.resolve(tsconfigPath);
+    const allFiles = TypeScriptAdapter.collectFilesFromTsConfig(absolutePath, new Set());
+    if (allFiles.length === 0) {
+      throw new Error(`No files matched in tsconfig: ${absolutePath}`);
+    }
+    return new TypeScriptAdapter(allFiles);
+  }
+
+  private static collectFilesFromTsConfig(absolutePath: string, visited: Set<string>): string[] {
+    if (visited.has(absolutePath)) return [];
+    visited.add(absolutePath);
+
     const configFile = ts.readConfigFile(absolutePath, ts.sys.readFile);
     if (configFile.error) {
       throw new Error(
@@ -53,10 +64,29 @@ export class TypeScriptAdapter implements ILanguageAdapter {
         .join('\n');
       throw new Error(`Failed to parse tsconfig: ${message}`);
     }
-    if (parsed.fileNames.length === 0) {
-      throw new Error(`No files matched in tsconfig: ${absolutePath}`);
+
+    if (parsed.fileNames.length > 0) {
+      return parsed.fileNames;
     }
-    return new TypeScriptAdapter(parsed.fileNames);
+
+    // fileNames が空の場合は project references から再帰収集
+    const refs = configFile.config?.references as Array<{ path: string }> | undefined;
+    if (!refs || refs.length === 0) return [];
+
+    const allFiles: string[] = [];
+    for (const ref of refs) {
+      const refResolved = path.resolve(configDir, ref.path);
+      const refTsconfig = path.extname(refResolved)
+        ? refResolved
+        : path.join(refResolved, 'tsconfig.json');
+      try {
+        const files = TypeScriptAdapter.collectFilesFromTsConfig(refTsconfig, visited);
+        allFiles.push(...files);
+      } catch {
+        // 読み込めない参照はスキップ
+      }
+    }
+    return allFiles;
   }
 
   getProgram(): ts.Program {
