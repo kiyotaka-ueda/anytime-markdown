@@ -78,6 +78,22 @@ export class C4Panel implements C4DataProvider {
   public get importanceMatrix(): ImportanceMatrix | undefined { return this.lastImportanceMatrix; }
   public get trailGraph(): TrailGraph | undefined { return this.lastTrailGraph; }
 
+  /** anytimeTrail.coverage.path を絶対パスに解決して返す。未設定なら undefined */
+  public get coveragePath(): string | undefined {
+    const raw = vscode.workspace.getConfiguration('anytimeTrail.coverage').get<string>('path', '');
+    if (!raw) return undefined;
+    if (path.isAbsolute(raw)) return raw;
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) return undefined;
+    return path.join(workspaceRoot, raw);
+  }
+
+  /** 解析済み TrailGraph の projectRoot。未解析時はワークスペースルートにフォールバック */
+  public get projectRoot(): string | undefined {
+    return this.lastTrailGraph?.metadata.projectRoot
+      ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  }
+
   public handleSetDsmLevel(level: 'component' | 'package'): void {
     this.dsmLevel = level;
     this.buildDsm();

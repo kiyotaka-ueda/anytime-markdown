@@ -518,9 +518,20 @@ export function C4ViewerCore({
     return { ...complexityMatrix, entries };
   }, [complexityMatrix, c4Model, currentLevel]);
 
+  // currentLevel に合わせて coverage エントリを対象タイプに絞る（boundary 除外）
+  const levelFilteredCoverageMatrix = useMemo(() => {
+    if (!coverageMatrix || !c4Model) return coverageMatrix ?? null;
+    const targetType = currentLevel === 2 ? 'container'
+      : currentLevel === 3 ? 'component'
+      : 'code';
+    const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
+    const entries = coverageMatrix.entries.filter((e) => typeById.get(e.elementId) === targetType);
+    return { ...coverageMatrix, entries };
+  }, [coverageMatrix, c4Model, currentLevel]);
+
   const overlayMap = useMemo(
-    () => computeColorMap(metricOverlay, coverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix),
-    [metricOverlay, coverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix],
+    () => computeColorMap(metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix),
+    [metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix],
   );
 
   const claudeActivityMap = useMemo(() => {

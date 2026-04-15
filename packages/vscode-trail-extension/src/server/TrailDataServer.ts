@@ -4,12 +4,14 @@ import os from 'node:os';
 import path from 'node:path';
 
 import {
+  aggregateCoverage,
   buildElementTree,
   buildSourceMatrix,
   computeComplexityMatrix,
   fetchC4Model,
   fetchC4ModelEntries,
   filterTreeByLevel,
+  parseCoverage,
 } from '@anytime-markdown/trail-core/c4';
 import type { MessageInput } from '@anytime-markdown/trail-core/c4';
 import type {
@@ -56,6 +58,8 @@ export interface C4DataProvider {
   readonly currentDsmLevel: 'component' | 'package';
   readonly importanceMatrix: ImportanceMatrix | undefined;
   readonly trailGraph: TrailGraph | undefined;
+  readonly coveragePath: string | undefined;
+  readonly projectRoot: string | undefined;
   handleSetDsmLevel(level: 'component' | 'package'): void;
   handleCluster(enabled: boolean): void;
   handleRefresh(): void;
@@ -336,7 +340,7 @@ export class TrailDataServer {
       return;
     }
     if (pathname === '/api/c4/coverage' && method === 'GET') {
-      this.handleC4CoverageEndpoint(res);
+      void this.handleC4CoverageEndpoint(res);
       return;
     }
     if (pathname === '/api/c4/complexity' && method === 'GET') {
@@ -646,9 +650,52 @@ export class TrailDataServer {
     res.end(JSON.stringify({ tree }));
   }
 
-  private handleC4CoverageEndpoint(res: http.ServerResponse): void {
-    res.writeHead(200, JSON_HEADERS);
-    res.end(JSON.stringify({ coverageMatrix: null, coverageDiff: null }));
+  private async handleC4CoverageEndpoint(res: http.ServerResponse): Promise<void> {
+    try {
+      const provider = this.getC4Provider?.();
+      const coveragePath = provider?.coveragePath;
+      const projectRoot = provider?.projectRoot ?? this.gitRoot;
+
+      if (!coveragePath) {
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({ coverageMatrix: null, coverageDiff: null }));
+        return;
+      }
+
+      if (!projectRoot) {
+        TrailLogger.warn('[/api/c4/coverage] projectRoot not available (run C4 Analyze first)');
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({ coverageMatrix: null, coverageDiff: null }));
+        return;
+      }
+
+      if (!fs.existsSync(coveragePath)) {
+        TrailLogger.warn(`[/api/c4/coverage] file not found: ${coveragePath}`);
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({ coverageMatrix: null, coverageDiff: null }));
+        return;
+      }
+
+      const raw = JSON.parse(await fs.promises.readFile(coveragePath, 'utf-8')) as Record<string, unknown>;
+      const files = parseCoverage(raw as Parameters<typeof parseCoverage>[0]);
+
+      const repoName = this.gitRoot ? path.basename(this.gitRoot) : undefined;
+      const store = this.trailDb.asC4ModelStore();
+      const payload = await fetchC4Model(store, 'current', repoName, provider?.featureMatrix);
+      if (!payload) {
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({ coverageMatrix: null, coverageDiff: null }));
+        return;
+      }
+
+      const coverageMatrix = aggregateCoverage(files, payload.model, projectRoot);
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({ coverageMatrix, coverageDiff: null }));
+    } catch (e) {
+      TrailLogger.error('[/api/c4/coverage] failed', e);
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({ coverageMatrix: null, coverageDiff: null }));
+    }
   }
 
   private async handleC4ComplexityEndpoint(res: http.ServerResponse, releaseId: string, repo?: string): Promise<void> {
