@@ -394,12 +394,14 @@ export function C4ViewerCore({
     setContextMenu(null);
   }, []);
 
-  /** pkg_ 要素のパスをクリップボードにコピーする */
+  /** 要素のパスをクリップボードにコピーする */
   const handleCopyPath = useCallback(() => {
     if (!contextMenu) return;
     const id = contextMenu.c4Id;
     let path: string;
     if (id.startsWith('pkg_')) {
+      // pkg_web-app → packages/web-app
+      // pkg_web-app/engine → packages/web-app/src/engine
       const inner = id.slice(4);
       const slash = inner.indexOf('/');
       if (slash === -1) {
@@ -407,6 +409,11 @@ export function C4ViewerCore({
       } else {
         path = `packages/${inner.slice(0, slash)}/src/${inner.slice(slash + 1)}`;
       }
+    } else if (id.startsWith('file::')) {
+      // file::packages/web-app/src/index.ts → packages/web-app/src/index.ts
+      const withoutPrefix = id.slice(6);
+      const colonIdx = withoutPrefix.indexOf('::');
+      path = colonIdx === -1 ? withoutPrefix : withoutPrefix.slice(0, colonIdx);
     } else {
       path = id;
     }
@@ -690,7 +697,8 @@ export function C4ViewerCore({
     drillStack.length > 0;
   const canShowOnlyFrame = contextMenu !== null &&
     contextMenu.nodeType === 'frame';
-  const canCopyPath = contextMenu !== null && contextMenu.c4Id.startsWith('pkg_');
+  const canCopyPath = contextMenu !== null &&
+    (contextMenu.c4Id.startsWith('pkg_') || contextMenu.c4Id.startsWith('file::'));
   const showContextMenu = contextMenu !== null && (canDrillDown || canDrillUp || canShowOnlyFrame || canCopyPath);
 
   return (
