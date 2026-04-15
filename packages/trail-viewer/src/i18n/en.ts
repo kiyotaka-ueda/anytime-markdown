@@ -169,4 +169,5 @@ export const en: TrailI18n = {
   'c4.claudeActivity.reset': 'Clear edit history',
   'c4.showOnlyThisFrame': 'Show Only This Frame',
   'c4.clearFrameFilter': 'Clear Frame Filter',
+  'c4.frameFilter.reset': 'Reset',
 };

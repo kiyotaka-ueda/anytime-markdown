@@ -4,6 +4,7 @@ import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 import { engine, layoutWithSubgroups, state as graphState } from '@anytime-markdown/graph-core';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import FitScreenIcon from '@mui/icons-material/FitScreen';
 import LinkIcon from '@mui/icons-material/Link';
 import PersonIcon from '@mui/icons-material/Person';
@@ -678,6 +679,23 @@ export function C4ViewerCore({
           ))}
         </ButtonGroup>
         <Button size="small" startIcon={<FitScreenIcon sx={{ fontSize: 16 }} />} onClick={handleFit} sx={{ ...toolbarButtonSx, ml: 0.5 }} aria-label="Fit">Fit</Button>
+        {soloFrameId !== null && (
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<FilterAltOffIcon sx={{ fontSize: 16 }} />}
+            onClick={handleClearFrameFilter}
+            sx={{
+              ...toolbarButtonSx,
+              ml: 0.5,
+              borderColor: colors.accent,
+              color: colors.accent,
+              '&:hover': { bgcolor: `${colors.accent}22` },
+            }}
+          >
+            {t('c4.frameFilter.reset')}
+          </Button>
+        )}
         <Box sx={{ flex: 1 }} />
         {/* 指標オーバーレイ ドロップダウン */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 1 }}>
@@ -741,22 +759,6 @@ export function C4ViewerCore({
               </ButtonGroup>
             )}
           </>
-        )}
-        {soloFrameId !== null && (
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={handleClearFrameFilter}
-            sx={{
-              ...toolbarButtonSx,
-              ml: 0.5,
-              borderColor: colors.accent,
-              color: colors.accent,
-              '&:hover': { bgcolor: `${colors.accent}22` },
-            }}
-          >
-            {t('c4.clearFrameFilter')}
-          </Button>
         )}
         {claudeActivity && (claudeActivity.activeElementIds.length > 0 || claudeActivity.touchedElementIds.length > 0) && (
           <Button
