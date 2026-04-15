@@ -81,6 +81,7 @@ export class TrailDataServer {
   private getC4Provider: (() => C4DataProvider | undefined) | undefined;
   private docLinks: readonly DocLink[] = [];
   private docsPath: string | undefined;
+  private lastClaudeActivity: { activeElementIds: readonly string[]; touchedElementIds: readonly string[] } | undefined;
   onOpenDocLink: ((docPath: string) => void) | undefined;
 
   constructor(
@@ -887,6 +888,15 @@ export class TrailDataServer {
     if (importanceMsg) {
       ws.send(JSON.stringify(importanceMsg));
     }
+
+    if (this.lastClaudeActivity) {
+      const activityMsg: ServerMessage = {
+        type: 'claude-activity-updated',
+        activeElementIds: this.lastClaudeActivity.activeElementIds,
+        touchedElementIds: this.lastClaudeActivity.touchedElementIds,
+      };
+      ws.send(JSON.stringify(activityMsg));
+    }
   }
 
   private handleWsMessage(data: unknown): void {
@@ -928,6 +938,7 @@ export class TrailDataServer {
   }
 
   notifyClaudeActivity(activeElementIds: readonly string[], touchedElementIds: readonly string[]): void {
+    this.lastClaudeActivity = { activeElementIds, touchedElementIds };
     if (this.clients.size === 0) return;
     const message: ServerMessage = {
       type: 'claude-activity-updated',

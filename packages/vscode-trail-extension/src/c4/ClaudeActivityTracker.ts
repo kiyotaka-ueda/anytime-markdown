@@ -1,5 +1,6 @@
 import type { C4Element, C4Model } from '@anytime-markdown/trail-core/c4';
 import type { StatusChangeCallback } from '@anytime-markdown/vscode-common';
+import { TrailLogger } from '../utils/TrailLogger';
 
 export interface ClaudeActivityState {
   readonly activeElementIds: readonly string[];
@@ -34,8 +35,12 @@ export class ClaudeActivityTracker {
     }
 
     const ids = this.resolveElementIds(filePath);
-    if (ids.length === 0) return;
+    if (ids.length === 0) {
+      TrailLogger.info(`ClaudeActivityTracker: no C4 element for ${filePath} (root=${this.workspaceRoot}, indexed=${this.fileIndex.size})`);
+      return;
+    }
 
+    TrailLogger.info(`ClaudeActivityTracker: active elements for ${filePath}: ${ids.join(', ')}`);
     this.activeElementIds = ids;
     for (const id of ids) {
       this.touchedElementIds.add(id);
