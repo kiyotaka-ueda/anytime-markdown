@@ -180,4 +180,6 @@ export interface TrailI18n {
   'c4.overlay.groupImportance': string;
   'c4.overlay.importance': string;
   'c4.claudeActivity.reset': string;
+  'c4.showOnlyThisFrame': string;
+  'c4.clearFrameFilter': string;
 }
