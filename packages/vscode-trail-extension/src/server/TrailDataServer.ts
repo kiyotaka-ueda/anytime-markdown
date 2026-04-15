@@ -357,6 +357,10 @@ export class TrailDataServer {
       this.handleC4CoverageEndpoint(res);
       return;
     }
+    if (pathname === '/api/c4/complexity' && method === 'GET') {
+      this.handleC4ComplexityEndpoint(res);
+      return;
+    }
 
     if (pathname === '/api/c4/exports' && method === 'GET') {
       const componentId = parsed.searchParams.get('componentId') ?? '';
@@ -688,6 +692,13 @@ export class TrailDataServer {
     const coverageDiff = provider?.coverageDiff;
     res.writeHead(200, JSON_HEADERS);
     res.end(JSON.stringify({ coverageMatrix: coverageMatrix ?? null, coverageDiff: coverageDiff ?? null }));
+  }
+
+  private handleC4ComplexityEndpoint(res: http.ServerResponse): void {
+    const provider = this.getC4Provider?.();
+    const complexityMatrix = provider?.complexityMatrix ?? null;
+    res.writeHead(200, JSON_HEADERS);
+    res.end(JSON.stringify({ complexityMatrix }));
   }
 
   // -------------------------------------------------------------------------
