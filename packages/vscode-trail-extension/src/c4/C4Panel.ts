@@ -236,7 +236,7 @@ export class C4Panel implements C4DataProvider {
   /** Claude Code のファイル編集監視を起動し、C4 要素への紐付けを更新する */
   private startClaudeActivityTracking(projectRoot: string): void {
     if (!this.claudeWatcher) {
-      this.claudeWatcher = new ClaudeStatusWatcher();
+      this.claudeWatcher = new ClaudeStatusWatcher(projectRoot);
       this.claudeTracker = new ClaudeActivityTracker();
       this.claudeTracker.onChange((state) => {
         C4Panel.dataServer?.notifyClaudeActivity(state.activeElementIds, state.touchedElementIds);

@@ -2,9 +2,13 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 
-const STATUS_FILE = path.join(os.homedir(), '.vscode', 'claude-code-status.json');
 const CLAUDE_DIR = path.join(os.homedir(), '.claude');
 const SETTINGS_PATH = path.join(CLAUDE_DIR, 'settings.json');
+
+function buildStatusFilePath(workspaceRoot?: string): string {
+  const base = workspaceRoot ?? os.homedir();
+  return path.join(base, '.vscode', 'claude-code-status.json');
+}
 
 interface HookHandler {
   type: 'command';
@@ -24,17 +28,17 @@ interface ClaudeSettings {
   [key: string]: unknown;
 }
 
-export function getStatusFilePath(): string {
-  return STATUS_FILE;
+export function getStatusFilePath(workspaceRoot?: string): string {
+  return buildStatusFilePath(workspaceRoot);
 }
 
-function hasStatusFileHook(matchers: HookMatcher[]): boolean {
+function hasStatusFileHook(matchers: HookMatcher[], statusFile: string): boolean {
   return matchers.some((m) =>
-    m.hooks?.some((h) => h.command?.includes(STATUS_FILE))
+    m.hooks?.some((h) => h.command?.includes(statusFile))
   );
 }
 
-export function setupClaudeHooks(): boolean {
+export function setupClaudeHooks(workspaceRoot?: string): boolean {
   if (!fs.existsSync(CLAUDE_DIR)) {
     return false;
   }
@@ -55,15 +59,16 @@ export function setupClaudeHooks(): boolean {
   settings.hooks.PreToolUse ??= [];
   settings.hooks.PostToolUse ??= [];
 
-  const hasPreHook = hasStatusFileHook(settings.hooks.PreToolUse);
-  const hasPostHook = hasStatusFileHook(settings.hooks.PostToolUse);
+  const statusFile = buildStatusFilePath(workspaceRoot);
+  const hasPreHook = hasStatusFileHook(settings.hooks.PreToolUse, statusFile);
+  const hasPostHook = hasStatusFileHook(settings.hooks.PostToolUse, statusFile);
 
   if (hasPreHook && hasPostHook) {
     return true;
   }
 
-  const preCommand = `FP=$(jq -r '.tool_input.file_path // empty'); [ -n "$FP" ] && echo "{\\"editing\\":true,\\"file\\":\\"$FP\\",\\"timestamp\\":$(date +%s%3N)}" > ${STATUS_FILE}`;
-  const postCommand = `FP=$(jq -r '.tool_input.file_path // empty'); [ -n "$FP" ] && echo "{\\"editing\\":false,\\"file\\":\\"$FP\\",\\"timestamp\\":$(date +%s%3N)}" > ${STATUS_FILE}`;
+  const preCommand = `FP=$(jq -r '.tool_input.file_path // empty'); [ -n "$FP" ] && echo "{\\"editing\\":true,\\"file\\":\\"$FP\\",\\"timestamp\\":$(date +%s%3N)}" > ${statusFile}`;
+  const postCommand = `FP=$(jq -r '.tool_input.file_path // empty'); [ -n "$FP" ] && echo "{\\"editing\\":false,\\"file\\":\\"$FP\\",\\"timestamp\\":$(date +%s%3N)}" > ${statusFile}`;
 
   if (!hasPreHook) {
     settings.hooks.PreToolUse.push({
