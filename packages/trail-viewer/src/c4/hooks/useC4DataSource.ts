@@ -213,6 +213,15 @@ function isDsmMatrixPayload(v: unknown): v is DsmMatrixPayload {
   return 'matrix' in v;
 }
 
+interface ComplexityPayload {
+  complexityMatrix: ComplexityMatrix;
+}
+
+function isComplexityPayload(v: unknown): v is ComplexityPayload {
+  if (typeof v !== 'object' || v === null) return false;
+  return 'complexityMatrix' in v;
+}
+
 async function readJson(res: Response | null): Promise<unknown> {
   if (res?.status !== 200) return null;
   try {
@@ -236,6 +245,7 @@ function useRemoteInitialFetch(
   setFeatureMatrix: (m: FeatureMatrix | null) => void,
   setCoverageMatrix: (m: CoverageMatrix | null) => void,
   setCoverageDiff: (m: CoverageDiffMatrix | null) => void,
+  setComplexityMatrix: (m: ComplexityMatrix | null) => void,
   setReleases: (entries: readonly C4ReleaseEntry[]) => void,
 ): void {
   useEffect(() => {
@@ -250,17 +260,20 @@ function useRemoteInitialFetch(
       const repoQuery = selectedRepo ? `&repo=${encodeURIComponent(selectedRepo)}` : '';
       const modelUrl = `${serverUrl}/api/c4/model?release=${encodeURIComponent(selectedRelease)}${repoQuery}`;
       const dsmUrl = `${serverUrl}/api/c4/dsm?release=${encodeURIComponent(selectedRelease)}${repoQuery}`;
-      const [modelRes, dsmRes, covRes, releasesRes] = await Promise.all([
+      const complexityUrl = `${serverUrl}/api/c4/complexity?release=${encodeURIComponent(selectedRelease)}${repoQuery}`;
+      const [modelRes, dsmRes, covRes, complexityRes, releasesRes] = await Promise.all([
         fetch(modelUrl).catch(() => null),
         fetch(dsmUrl).catch(() => null),
         fetch(`${serverUrl}/api/c4/coverage`).catch(() => null),
+        fetch(complexityUrl).catch(() => null),
         fetch(`${serverUrl}/api/c4/releases`).catch(() => null),
       ]);
 
-      const [modelJson, dsmJson, covJson] = await Promise.all([
+      const [modelJson, dsmJson, covJson, complexityJson] = await Promise.all([
         readJson(modelRes),
         readJson(dsmRes),
         readJson(covRes),
+        readJson(complexityRes),
       ]);
       if (cancelled) return;
 
@@ -289,6 +302,8 @@ function useRemoteInitialFetch(
         setCoverageDiff(null);
       }
 
+      setComplexityMatrix(isComplexityPayload(complexityJson) ? complexityJson.complexityMatrix : null);
+
       if (releasesRes?.status === 200) {
         const json: unknown = await releasesRes.json();
         if (!cancelled && Array.isArray(json)) {
@@ -312,7 +327,7 @@ function useRemoteInitialFetch(
 
     void fetchInitial();
     return () => { cancelled = true; };
-  }, [serverUrl, selectedRelease, selectedRepo, setC4Model, setBoundaries, setDsmMatrix, setFeatureMatrix, setCoverageMatrix, setCoverageDiff, setReleases]);
+  }, [serverUrl, selectedRelease, selectedRepo, setC4Model, setBoundaries, setDsmMatrix, setFeatureMatrix, setCoverageMatrix, setCoverageDiff, setComplexityMatrix, setReleases]);
 }
 
 // ---------------------------------------------------------------------------
@@ -355,6 +370,7 @@ export function useC4DataSource(serverUrl: string): C4DataSourceResult {
     setFeatureMatrix,
     setCoverageMatrix,
     setCoverageDiff,
+    setComplexityMatrix,
     setReleases,
   );
 
