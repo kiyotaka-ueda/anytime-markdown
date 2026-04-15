@@ -742,6 +742,22 @@ export function C4ViewerCore({
             )}
           </>
         )}
+        {soloFrameId !== null && (
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={handleClearFrameFilter}
+            sx={{
+              ...toolbarButtonSx,
+              ml: 0.5,
+              borderColor: colors.accent,
+              color: colors.accent,
+              '&:hover': { bgcolor: `${colors.accent}22` },
+            }}
+          >
+            {t('c4.clearFrameFilter')}
+          </Button>
+        )}
         {claudeActivity && (claudeActivity.activeElementIds.length > 0 || claudeActivity.touchedElementIds.length > 0) && (
           <Button
             size="small"
