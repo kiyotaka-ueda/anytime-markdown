@@ -213,6 +213,7 @@ export function C4ViewerCore({
     readonly nodeType: string;
   } | null>(null);
   const [checkedPackageIds, setCheckedPackageIds] = useState<ReadonlySet<string> | null>(null);
+  const [soloFrameId, setSoloFrameId] = useState<string | null>(null);
   const [centerOnSelect, setCenterOnSelect] = useState(false);
   const [splitRatio, setSplitRatio] = useState(0.5);
 
@@ -329,6 +330,21 @@ export function C4ViewerCore({
       }
     }
 
+    // soloFrameId フィルタ: フレームとその全子孫のみ表示
+    if (soloFrameId) {
+      const keepIds = new Set<string>([soloFrameId]);
+      for (const id of collectDescendantIds(filteredModel.elements, soloFrameId)) {
+        keepIds.add(id);
+      }
+      filteredModel = {
+        ...filteredModel,
+        elements: filteredModel.elements.filter(e => keepIds.has(e.id)),
+        relationships: filteredModel.relationships.filter(
+          r => keepIds.has(r.from) && keepIds.has(r.to),
+        ),
+      };
+    }
+
     const doc = c4ToGraphDocument(filteredModel, boundaryInfos);
     layoutWithSubgroups(doc, 'TB', 180, 60);
     setFullDoc(doc);
@@ -339,7 +355,7 @@ export function C4ViewerCore({
     } else {
       dispatch({ type: 'SET_DOCUMENT', doc });
     }
-  }, [c4Model, boundaryInfos, drillStack, currentLevel, checkedPackageIds]);
+  }, [c4Model, boundaryInfos, drillStack, currentLevel, checkedPackageIds, soloFrameId]);
 
   /** 右クリックメニューを表示する */
   const handleNodeContextMenu = useCallback(
