@@ -538,8 +538,18 @@ export function C4ViewerCore({
     if (!claudeActivity) return null;
     const { activeElementIds, touchedElementIds } = claudeActivity;
     if (activeElementIds.length === 0 && touchedElementIds.length === 0) return null;
+    if (c4Model) {
+      const targetType = currentLevel === 2 ? 'container'
+        : currentLevel === 3 ? 'component'
+        : 'code';
+      const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
+      const filteredActive = activeElementIds.filter((id) => typeById.get(id) === targetType);
+      const filteredTouched = touchedElementIds.filter((id) => typeById.get(id) === targetType);
+      if (filteredActive.length === 0 && filteredTouched.length === 0) return null;
+      return computeClaudeActivityColorMap(filteredActive, filteredTouched, isDark);
+    }
     return computeClaudeActivityColorMap(activeElementIds, touchedElementIds, isDark);
-  }, [claudeActivity, isDark]);
+  }, [claudeActivity, c4Model, currentLevel, isDark]);
 
   const dsmMax = useMemo(() => {
     if ((metricOverlay !== 'dsm-out' && metricOverlay !== 'dsm-in') || !filteredDsmMatrix) return undefined;
