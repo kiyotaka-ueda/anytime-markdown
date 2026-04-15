@@ -466,8 +466,16 @@ export function C4ViewerCore({
     if (!canvas) return;
     const bounds = computeBounds(state.document.nodes);
     const viewport = fitToContent(canvas.clientWidth, canvas.clientHeight, bounds);
+    // eslint-disable-next-line no-console
+    console.log('[C4ViewerCore] handleFit dispatch SET_VIEWPORT:', viewport);
     dispatch({ type: 'SET_VIEWPORT', viewport });
   }, [state.document.nodes]);
+
+  // viewport の変化を追跡
+  useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log('[C4ViewerCore] state.document.viewport changed:', state.document.viewport);
+  }, [state.document.viewport]);
 
 
   const elementTree = useMemo(() => {
