@@ -63,6 +63,7 @@ export interface C4DataProvider {
   readonly coverageDiff: CoverageDiffMatrix | undefined;
   readonly complexityMatrix: ComplexityMatrix | undefined;
   readonly importanceMatrix: ImportanceMatrix | undefined;
+  getOrComputeComplexityMatrix(): ComplexityMatrix | null;
   readonly trailGraph: TrailGraph | undefined;
   handleSetDsmLevel(level: 'component' | 'package'): void;
   handleCluster(enabled: boolean): void;
@@ -696,7 +697,7 @@ export class TrailDataServer {
 
   private handleC4ComplexityEndpoint(res: http.ServerResponse): void {
     const provider = this.getC4Provider?.();
-    const complexityMatrix = provider?.complexityMatrix ?? null;
+    const complexityMatrix = provider?.getOrComputeComplexityMatrix() ?? null;
     res.writeHead(200, JSON_HEADERS);
     res.end(JSON.stringify({ complexityMatrix }));
   }

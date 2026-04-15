@@ -105,6 +105,13 @@ export class C4Panel implements C4DataProvider {
   public get coverageMatrix(): CoverageMatrix | undefined { return this.lastCoverageMatrix; }
   public get coverageDiff(): CoverageDiffMatrix | undefined { return this.lastCoverageDiff; }
   public get complexityMatrix(): ComplexityMatrix | undefined { return this.lastComplexityMatrix; }
+
+  public getOrComputeComplexityMatrix(): ComplexityMatrix | null {
+    if (!this.lastComplexityMatrix) {
+      this.computeAndCacheComplexity();
+    }
+    return this.lastComplexityMatrix ?? null;
+  }
   public get importanceMatrix(): ImportanceMatrix | undefined { return this.lastImportanceMatrix; }
   public get trailGraph(): TrailGraph | undefined { return this.lastTrailGraph; }
 
