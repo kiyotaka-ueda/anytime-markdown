@@ -94,6 +94,19 @@ export function TrailViewerApp({
     [editable, sendCommand],
   );
 
+  // onDocLinkClick が未指定の場合、WebSocket 経由でサーバーにファイルを開かせる
+  // （VS Code 拡張モード: server が 'open-doc-link' を受け取り vscode.openTextDocument を呼ぶ）
+  const handleDocLinkClick = useCallback(
+    (doc: DocLink) => {
+      if (onDocLinkClick) {
+        onDocLinkClick(doc);
+      } else {
+        sendCommand('open-doc-link', { path: doc.path });
+      }
+    },
+    [onDocLinkClick, sendCommand],
+  );
+
   const [filter, setFilter] = useState<TrailFilter>(EMPTY_FILTER);
   const [selectedSessionId, setSelectedSessionId] = useState<string | undefined>();
 
@@ -137,7 +150,7 @@ export function TrailViewerApp({
     onAddRelationship,
     onRemoveElement,
     onPurgeDeleted,
-    onDocLinkClick,
+    onDocLinkClick: handleDocLinkClick,
     serverUrl,
     claudeActivity: c4.claudeActivity,
     onResetClaudeActivity: () => sendCommand('reset-claude-activity'),
