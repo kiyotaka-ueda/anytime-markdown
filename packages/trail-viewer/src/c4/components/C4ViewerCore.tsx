@@ -228,6 +228,7 @@ export function C4ViewerCore({
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const pendingFitRef = useRef(false);
 
   // --- Editing state ---
   const [addElementType, setAddElementType] = useState<'person' | 'system' | null>(null);
@@ -434,6 +435,7 @@ export function C4ViewerCore({
   }, [drillStack]);
 
   const handleSetLevel = useCallback((level: number) => {
+    pendingFitRef.current = true;
     setCurrentLevel(level);
     setDrillStack([]);
     setCheckedPackageIds(null);
@@ -446,6 +448,17 @@ export function C4ViewerCore({
   }, []);
 
   const handleFit = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const bounds = computeBounds(state.document.nodes);
+    const viewport = fitToContent(canvas.clientWidth, canvas.clientHeight, bounds);
+    dispatch({ type: 'SET_VIEWPORT', viewport });
+  }, [state.document.nodes]);
+
+  // L1/L2/L3/L4 切り替え後にドキュメントが確定したら Fit を実行する
+  useEffect(() => {
+    if (!pendingFitRef.current) return;
+    pendingFitRef.current = false;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const bounds = computeBounds(state.document.nodes);
