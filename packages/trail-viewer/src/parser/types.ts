@@ -40,6 +40,49 @@ export interface RawUsage {
   readonly cache_creation_input_tokens?: number;
 }
 
+// --- Analytics types ---
+
+export interface AnalyticsData {
+  readonly totals: {
+    readonly sessions: number;
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+    readonly cacheReadTokens: number;
+    readonly cacheCreationTokens: number;
+    readonly estimatedCostUsd: number;
+    readonly totalCommits: number;
+    readonly totalLinesAdded: number;
+    readonly totalLinesDeleted: number;
+    readonly totalFilesChanged: number;
+    readonly totalAiAssistedCommits: number;
+    readonly totalSessionDurationMs: number;
+    readonly totalRetries: number;
+    readonly totalEdits: number;
+    readonly totalBuildRuns: number;
+    readonly totalBuildFails: number;
+    readonly totalTestRuns: number;
+    readonly totalTestFails: number;
+  };
+  readonly toolUsage: readonly { name: string; count: number }[];
+  readonly modelBreakdown: readonly {
+    readonly model: string;
+    readonly sessions: number;
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+    readonly cacheReadTokens: number;
+    readonly estimatedCostUsd: number;
+  }[];
+  readonly dailyActivity: readonly {
+    readonly date: string;
+    readonly sessions: number;
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+    readonly cacheReadTokens: number;
+    readonly cacheCreationTokens: number;
+    readonly estimatedCostUsd: number;
+  }[];
+}
+
 // --- Domain types (re-exported from trail-core) ---
 
 /** @deprecated Import from '@anytime-markdown/trail-core/domain' directly */

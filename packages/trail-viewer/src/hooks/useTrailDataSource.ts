@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import type { CostOptimizationData, ToolMetrics, TrailFilter, TrailMessage, TrailPromptEntry, TrailSession, TrailSessionCommit } from '../parser/types';
-import type { AnalyticsData } from '../components/AnalyticsPanel';
+import type { AnalyticsData, CostOptimizationData, ToolMetrics, TrailFilter, TrailMessage, TrailPromptEntry, TrailSession, TrailSessionCommit } from '../parser/types';
 import type { TrailRelease } from '@anytime-markdown/trail-core/domain';
 
 // ---------------------------------------------------------------------------

@@ -17,54 +17,9 @@ import type { SxProps, Theme } from '@mui/material/styles';
 import { BarChart } from '@mui/x-charts/BarChart';
 import { LineChart } from '@mui/x-charts/LineChart';
 import { formatLocalTime, toLocalDateKey } from '@anytime-markdown/trail-core/formatDate';
-import type { CostOptimizationData, ToolMetrics, TrailMessage, TrailSession, TrailSessionCommit, TrailTokenUsage } from '../parser/types';
+import type { AnalyticsData, CostOptimizationData, ToolMetrics, TrailMessage, TrailSession, TrailSessionCommit, TrailTokenUsage } from '../parser/types';
 import { useTrailTheme } from './TrailThemeContext';
 import { useTrailI18n } from '../i18n';
-
-// ---------------------------------------------------------------------------
-//  Types
-// ---------------------------------------------------------------------------
-
-export interface AnalyticsData {
-  readonly totals: {
-    readonly sessions: number;
-    readonly inputTokens: number;
-    readonly outputTokens: number;
-    readonly cacheReadTokens: number;
-    readonly cacheCreationTokens: number;
-    readonly estimatedCostUsd: number;
-    readonly totalCommits: number;
-    readonly totalLinesAdded: number;
-    readonly totalLinesDeleted: number;
-    readonly totalFilesChanged: number;
-    readonly totalAiAssistedCommits: number;
-    readonly totalSessionDurationMs: number;
-    readonly totalRetries: number;
-    readonly totalEdits: number;
-    readonly totalBuildRuns: number;
-    readonly totalBuildFails: number;
-    readonly totalTestRuns: number;
-    readonly totalTestFails: number;
-  };
-  readonly toolUsage: readonly { name: string; count: number }[];
-  readonly modelBreakdown: readonly {
-    readonly model: string;
-    readonly sessions: number;
-    readonly inputTokens: number;
-    readonly outputTokens: number;
-    readonly cacheReadTokens: number;
-    readonly estimatedCostUsd: number;
-  }[];
-  readonly dailyActivity: readonly {
-    readonly date: string;
-    readonly sessions: number;
-    readonly inputTokens: number;
-    readonly outputTokens: number;
-    readonly cacheReadTokens: number;
-    readonly cacheCreationTokens: number;
-    readonly estimatedCostUsd: number;
-  }[];
-}
 
 export interface AnalyticsPanelProps {
   readonly analytics: AnalyticsData | null;

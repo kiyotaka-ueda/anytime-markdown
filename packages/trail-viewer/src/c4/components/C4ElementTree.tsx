@@ -27,7 +27,7 @@ import type { Dispatch, FC } from 'react';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { DOC_TYPE_COLORS, getC4Colors } from '../c4Theme';
-import { getTokens } from '../../components/designTokens';
+import { getTokens } from '../../theme/designTokens';
 
 const INDENT_PX = 20;
 
