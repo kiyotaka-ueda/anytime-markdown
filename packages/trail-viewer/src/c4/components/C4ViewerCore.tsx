@@ -229,6 +229,7 @@ export function C4ViewerCore({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const pendingFitRef = useRef(false);
+  const pendingFitClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // --- Editing state ---
   const [addElementType, setAddElementType] = useState<'person' | 'system' | null>(null);
@@ -350,27 +351,30 @@ export function C4ViewerCore({
     const doc = c4ToGraphDocument(filteredModel, boundaryInfos);
     layoutWithSubgroups(doc, 'TB', 180, 60);
     setFullDoc(doc);
-    const viewDoc = currentLevel < 4
+    let viewDoc = currentLevel < 4
       ? (() => { const v = buildLevelView(doc, currentLevel); layoutWithSubgroups(v, 'TB', 180, 60); return v; })()
       : doc;
-    dispatch({ type: 'SET_DOCUMENT', doc: viewDoc });
 
-    // L1/L2/L3/L4 切り替え時に Fit を実行する
+    // L1/L2/L3/L4 切り替え時に Fit を実行する。
+    // viewport を doc に埋め込んで SET_DOCUMENT で確実に適用する（別途 SET_VIEWPORT を
+    // 発行すると後続の SET_DOCUMENT で上書きされるため）。
+    // エフェクトが同一バッチ内で複数回実行される場合にも対応するため、
+    // setTimeout(fn, 0) で現在のレンダーバッチ完了後に pendingFitRef をクリアする。
     if (pendingFitRef.current) {
-      pendingFitRef.current = false;
       const canvas = canvasRef.current;
-      const cw = canvas?.clientWidth ?? -1;
-      const ch = canvas?.clientHeight ?? -1;
-      // eslint-disable-next-line no-console
-      console.log('[C4ViewerCore] pendingFit: canvas=', !!canvas, 'clientWidth=', cw, 'clientHeight=', ch, 'nodes=', viewDoc.nodes.length);
-      if (canvas && cw > 0 && ch > 0) {
+      if (canvas && canvas.clientWidth > 0 && canvas.clientHeight > 0) {
         const bounds = computeBounds(viewDoc.nodes);
-        const viewport = fitToContent(cw, ch, bounds);
-        // eslint-disable-next-line no-console
-        console.log('[C4ViewerCore] fit viewport=', viewport, 'bounds=', bounds);
-        dispatch({ type: 'SET_VIEWPORT', viewport });
+        const viewport = fitToContent(canvas.clientWidth, canvas.clientHeight, bounds);
+        viewDoc = { ...viewDoc, viewport };
       }
+      clearTimeout(pendingFitClearTimerRef.current ?? undefined);
+      pendingFitClearTimerRef.current = setTimeout(() => {
+        pendingFitRef.current = false;
+        pendingFitClearTimerRef.current = null;
+      }, 0);
     }
+
+    dispatch({ type: 'SET_DOCUMENT', doc: viewDoc });
   }, [c4Model, boundaryInfos, drillStack, currentLevel, checkedPackageIds, soloFrameId]);
 
   /** 右クリックメニューを表示する */
@@ -466,16 +470,8 @@ export function C4ViewerCore({
     if (!canvas) return;
     const bounds = computeBounds(state.document.nodes);
     const viewport = fitToContent(canvas.clientWidth, canvas.clientHeight, bounds);
-    // eslint-disable-next-line no-console
-    console.log('[C4ViewerCore] handleFit dispatch SET_VIEWPORT:', viewport);
     dispatch({ type: 'SET_VIEWPORT', viewport });
   }, [state.document.nodes]);
-
-  // viewport の変化を追跡
-  useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log('[C4ViewerCore] state.document.viewport changed:', state.document.viewport);
-  }, [state.document.viewport]);
 
 
   const elementTree = useMemo(() => {
