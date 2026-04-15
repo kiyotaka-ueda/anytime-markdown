@@ -370,6 +370,18 @@ export function C4ViewerCore({
     setContextMenu(null);
   }, []);
 
+  /** フレームのみ表示 */
+  const handleShowOnlyFrame = useCallback((c4Id: string) => {
+    setSoloFrameId(c4Id);
+    setContextMenu(null);
+  }, []);
+
+  /** フレームフィルタを解除する */
+  const handleClearFrameFilter = useCallback(() => {
+    setSoloFrameId(null);
+    setContextMenu(null);
+  }, []);
+
   /** ドリルダウン時に子要素が見えるよう最低限必要なレベルを返す */
   const drillTargetLevel = useCallback((type: string): number => {
     if (type === 'system') return 2;
@@ -404,6 +416,7 @@ export function C4ViewerCore({
         setCheckedPackageIds(null);
         setCheckReset(prev => ({ key: prev.key + 1, ids: inScope, expanded: expandIds }));
       }
+      setSoloFrameId(null);
       setContextMenu(null);
     },
     [c4Model, currentLevel, drillTargetLevel, checkedPackageIds],
@@ -415,6 +428,7 @@ export function C4ViewerCore({
     setDrillStack((prev) => prev.slice(0, -1));
     setCheckedPackageIds(null);
     setCheckReset(prev => ({ key: prev.key + 1, ids: entry?.prevCheckedIds ?? null, expanded: null }));
+    setSoloFrameId(null);
     setContextMenu(null);
   }, [drillStack]);
 
