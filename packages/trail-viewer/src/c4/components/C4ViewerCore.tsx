@@ -785,6 +785,9 @@ export function C4ViewerCore({
             );
           })}
         </ButtonGroup>
+        {showDsm && matrixView === 'dsm' && (
+          <Button size="small" onClick={() => setDsmClustered(prev => !prev)} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(dsmClustered && { bgcolor: toolbarButtonActiveBg }) }}>Cluster</Button>
+        )}
         {selectedExport && (
           <>
             <Button
@@ -1048,9 +1051,6 @@ export function C4ViewerCore({
         )}
         {showDsm && (
           <Box sx={{ flex: showC4 ? 1 - splitRatio : 1, display: 'flex', flexDirection: 'column', minWidth: 100 }}>
-            <Toolbar variant="dense" sx={{ gap: 0.5, bgcolor: colors.bgSecondary, borderBottom: `1px solid ${colors.border}`, minHeight: 36, px: 1, flexShrink: 0 }}>
-              <Button size="small" onClick={() => setDsmClustered(prev => !prev)} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(dsmClustered && { bgcolor: toolbarButtonActiveBg }) }}>Cluster</Button>
-            </Toolbar>
             <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
               {matrixView === 'coverage' && coverageMatrix && c4Model ? (
                 <CoverageCanvas coverageMatrix={coverageMatrix} coverageDiff={coverageDiff} model={c4Model} level={currentLevel} isDark={isDark} />
