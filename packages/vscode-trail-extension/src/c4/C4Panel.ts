@@ -67,10 +67,13 @@ export class C4Panel implements C4DataProvider {
 
   /**
    * サーバーが稼働中ならブラウザでスタンドアロンビューアを開く。
-   * force=true の場合は viewerOpened ガードを無視して必ず開く。
+   * WebSocket クライアントが接続中の場合はビューアが既に表示されているため開かない。
+   * force=true の場合は viewerOpened ガードを無視する（ただし接続中チェックは常に有効）。
    */
   public static openViewer(force = false): void {
     if (!C4Panel.dataServer?.isRunning) return;
+    // WebSocket 接続中のクライアントがいれば既に表示済み → 新規ウィンドウを開かない
+    if ((C4Panel.dataServer.clientCount ?? 0) > 0) return;
     if (!force && C4Panel.viewerOpened) return;
     C4Panel.viewerOpened = true;
     const port = vscode.workspace.getConfiguration('anytimeTrail.trailServer').get<number>('port', 19841);
