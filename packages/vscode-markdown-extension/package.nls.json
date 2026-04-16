@@ -33,5 +33,6 @@
   "configuration.themeMode.dark": "Dark",
   "configuration.themePreset.description": "Theme style preset for the editor.",
   "configuration.themePreset.handwritten": "Handwritten — rounded, playful style",
-  "configuration.themePreset.professional": "Professional — clean, formal style"
+  "configuration.themePreset.professional": "Professional — clean, formal style",
+  "configuration.storagePath.description": "Directory where intermediate files (claude-code-status.json) are stored. Absolute path or relative to workspace root. Defaults to .vscode/ when empty."
 }

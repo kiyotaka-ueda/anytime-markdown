@@ -447,10 +447,15 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	// Claude Code 編集通知: ステータスファイル監視 + エディタロック
-	const claudeEnabled = setupClaudeHooks();
+	const storagePathSetting = vscode.workspace.getConfiguration('anytimeMarkdown').get<string>('storagePath', '') || '.vscode';
+	const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+	const statusDir = path.isAbsolute(storagePathSetting)
+		? storagePathSetting
+		: wsRoot ? path.join(wsRoot, storagePathSetting) : storagePathSetting;
+	const claudeEnabled = setupClaudeHooks(wsRoot, statusDir);
 	const claudeSubscriptions: vscode.Disposable[] = [];
 	if (claudeEnabled) {
-		const watcher = new ClaudeStatusWatcher();
+		const watcher = new ClaudeStatusWatcher(wsRoot, statusDir);
 		watcher.onStatusChange((editing, filePath) => {
 			const p = MarkdownEditorProvider.getInstance();
 			if (!p) return;

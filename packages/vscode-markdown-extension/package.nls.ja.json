@@ -33,5 +33,6 @@
   "configuration.themeMode.dark": "ダーク",
   "configuration.themePreset.description": "エディタのテーマスタイル。",
   "configuration.themePreset.handwritten": "手書き風 — 丸みのあるポップなスタイル",
-  "configuration.themePreset.professional": "プロフェッショナル — すっきりしたフォーマルなスタイル"
+  "configuration.themePreset.professional": "プロフェッショナル — すっきりしたフォーマルなスタイル",
+  "configuration.storagePath.description": "中間ファイル（claude-code-status.json）の保存ディレクトリ。絶対パスまたはワークスペースルートからの相対パス。空の場合は .vscode/ を使用します。"
 }

@@ -232,6 +232,11 @@
             "%configuration.themePreset.professional%"
           ],
           "description": "%configuration.themePreset.description%"
+        },
+        "anytimeMarkdown.storagePath": {
+          "type": "string",
+          "default": "",
+          "description": "%configuration.storagePath.description%"
         }
       }
     },
