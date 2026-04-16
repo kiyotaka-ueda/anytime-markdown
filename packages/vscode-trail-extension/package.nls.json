@@ -9,6 +9,7 @@
   "command.c4ElementsRefresh": "Refresh C4 Model",
   "command.c4SetLevel": "Set C4 Detail Level",
   "config.c4AnalyzeExcludePatterns": "Directory names to exclude when searching for `tsconfig.json` during C4 workspace analysis. Paths containing any of these strings will be filtered out.",
+  "config.storagePath": "Directory (relative to workspace root) where Trail intermediate files are stored: `trail.db` and `claude-code-status.json`. Defaults to `.vscode/` when empty.",
   "command.dsmShow": "Trail: Show DSM",
   "command.dsmAnalyze": "Trail: Analyze Dependencies",
   "command.aiMemoryRefresh": "Refresh Memory",

@@ -36,8 +36,7 @@ export type { ReleaseFileRow, ReleaseFeatureRow, ReleaseCoverageRow, ReleaseRow 
 
 declare const __non_webpack_require__: (id: string) => unknown;
 
-const DB_DIR = path.join(os.homedir(), '.claude', 'trail');
-const DB_PATH = path.join(DB_DIR, 'trail.db');
+const DEFAULT_DB_DIR = path.join(os.homedir(), '.claude', 'trail');
 
 const SKIP_TYPES = new Set([
   'file-history-snapshot',
@@ -357,8 +356,13 @@ function estimateTokenCount(text: string | null): number | null {
 
 export class TrailDatabase {
   private db: Database | null = null;
+  private readonly dbDir: string;
+  private readonly dbPath: string;
 
-  constructor(private readonly distPath: string) {}
+  constructor(private readonly distPath: string, storageDir?: string) {
+    this.dbDir = storageDir ?? DEFAULT_DB_DIR;
+    this.dbPath = path.join(this.dbDir, 'trail.db');
+  }
 
   async init(): Promise<void> {
     // Load sql-asm.js from dist/ directory using __non_webpack_require__
@@ -367,14 +371,14 @@ export class TrailDatabase {
     // eslint-disable-next-line @typescript-eslint/no-require-imports, no-undef
     const initSqlJs = __non_webpack_require__(sqlAsmPath) as typeof import('sql.js').default;
     const SQL = await initSqlJs();
-    console.log('[TrailDatabase] sql.js initialized, DB_PATH =', DB_PATH);
+    console.log('[TrailDatabase] sql.js initialized, DB_PATH =', this.dbPath);
 
-    if (!fs.existsSync(DB_DIR)) {
-      fs.mkdirSync(DB_DIR, { recursive: true });
+    if (!fs.existsSync(this.dbDir)) {
+      fs.mkdirSync(this.dbDir, { recursive: true });
     }
 
-    if (fs.existsSync(DB_PATH)) {
-      const buffer = fs.readFileSync(DB_PATH);
+    if (fs.existsSync(this.dbPath)) {
+      const buffer = fs.readFileSync(this.dbPath);
       this.db = new SQL.Database(buffer);
     } else {
       this.db = new SQL.Database();
@@ -801,7 +805,7 @@ export class TrailDatabase {
   save(): void {
     const db = this.ensureDb();
     const data = db.export();
-    fs.writeFileSync(DB_PATH, Buffer.from(data));
+    fs.writeFileSync(this.dbPath, Buffer.from(data));
   }
 
   close(): void {

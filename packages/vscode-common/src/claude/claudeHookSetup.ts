@@ -5,9 +5,10 @@ import * as os from 'node:os';
 const CLAUDE_DIR = path.join(os.homedir(), '.claude');
 const SETTINGS_PATH = path.join(CLAUDE_DIR, 'settings.json');
 
-function buildStatusFilePath(workspaceRoot?: string): string {
+function buildStatusFilePath(workspaceRoot?: string, statusDir?: string): string {
   const base = workspaceRoot ?? os.homedir();
-  return path.join(base, '.vscode', 'claude-code-status.json');
+  const dir = statusDir ?? '.vscode';
+  return path.join(base, dir, 'claude-code-status.json');
 }
 
 interface HookHandler {
@@ -28,8 +29,8 @@ interface ClaudeSettings {
   [key: string]: unknown;
 }
 
-export function getStatusFilePath(workspaceRoot?: string): string {
-  return buildStatusFilePath(workspaceRoot);
+export function getStatusFilePath(workspaceRoot?: string, statusDir?: string): string {
+  return buildStatusFilePath(workspaceRoot, statusDir);
 }
 
 function hasStatusFileHook(matchers: HookMatcher[], statusFile: string): boolean {
@@ -38,7 +39,7 @@ function hasStatusFileHook(matchers: HookMatcher[], statusFile: string): boolean
   );
 }
 
-export function setupClaudeHooks(workspaceRoot?: string): boolean {
+export function setupClaudeHooks(workspaceRoot?: string, statusDir?: string): boolean {
   if (!fs.existsSync(CLAUDE_DIR)) {
     return false;
   }
@@ -59,7 +60,7 @@ export function setupClaudeHooks(workspaceRoot?: string): boolean {
   settings.hooks.PreToolUse ??= [];
   settings.hooks.PostToolUse ??= [];
 
-  const statusFile = buildStatusFilePath(workspaceRoot);
+  const statusFile = buildStatusFilePath(workspaceRoot, statusDir);
   const hasPreHook = hasStatusFileHook(settings.hooks.PreToolUse, statusFile);
   const hasPostHook = hasStatusFileHook(settings.hooks.PostToolUse, statusFile);
 

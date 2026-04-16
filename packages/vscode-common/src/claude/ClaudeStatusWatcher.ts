@@ -13,8 +13,8 @@ export class ClaudeStatusWatcher implements Disposable {
   private lastEditing: boolean | null = null;
   private lastTimestamp = 0;
 
-  constructor(workspaceRoot?: string) {
-    this.statusFilePath = getStatusFilePath(workspaceRoot);
+  constructor(workspaceRoot?: string, statusDir?: string) {
+    this.statusFilePath = getStatusFilePath(workspaceRoot, statusDir);
     this.ensureFileAndWatch();
     this.startPolling();
   }
