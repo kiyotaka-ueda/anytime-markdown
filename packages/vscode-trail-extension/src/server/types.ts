@@ -35,6 +35,7 @@ export interface ClaudeActivityUpdatedMessage {
   readonly type: 'claude-activity-updated';
   readonly activeElementIds: readonly string[];
   readonly touchedElementIds: readonly string[];
+  readonly plannedElementIds: readonly string[];
 }
 
 export type ServerMessage = DsmUpdatedMessage | AnalysisProgressMessage | DocLinksUpdatedMessage | ImportanceUpdatedMessage | ClaudeActivityUpdatedMessage;

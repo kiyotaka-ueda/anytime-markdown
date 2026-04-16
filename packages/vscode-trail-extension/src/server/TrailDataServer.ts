@@ -81,7 +81,7 @@ export class TrailDataServer {
   private getC4Provider: (() => C4DataProvider | undefined) | undefined;
   private docLinks: readonly DocLink[] = [];
   private docsPath: string | undefined;
-  private lastClaudeActivity: { activeElementIds: readonly string[]; touchedElementIds: readonly string[] } | undefined;
+  private lastClaudeActivity: { activeElementIds: readonly string[]; touchedElementIds: readonly string[]; plannedElementIds: readonly string[] } | undefined;
   onOpenDocLink: ((docPath: string) => void) | undefined;
 
   constructor(
@@ -923,6 +923,7 @@ export class TrailDataServer {
         type: 'claude-activity-updated',
         activeElementIds: this.lastClaudeActivity.activeElementIds,
         touchedElementIds: this.lastClaudeActivity.touchedElementIds,
+        plannedElementIds: this.lastClaudeActivity.plannedElementIds,
       };
       ws.send(JSON.stringify(activityMsg));
     }
@@ -966,13 +967,18 @@ export class TrailDataServer {
     }
   }
 
-  notifyClaudeActivity(activeElementIds: readonly string[], touchedElementIds: readonly string[]): void {
-    this.lastClaudeActivity = { activeElementIds, touchedElementIds };
+  notifyClaudeActivity(
+    activeElementIds: readonly string[],
+    touchedElementIds: readonly string[],
+    plannedElementIds: readonly string[],
+  ): void {
+    this.lastClaudeActivity = { activeElementIds, touchedElementIds, plannedElementIds };
     if (this.clients.size === 0) return;
     const message: ServerMessage = {
       type: 'claude-activity-updated',
       activeElementIds,
       touchedElementIds,
+      plannedElementIds,
     };
     const payload = JSON.stringify(message);
     for (const ws of this.clients) {
