@@ -1,4 +1,4 @@
-import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, detectCycles, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
+import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
 import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, ImportanceMatrix, MetricOverlay } from '@anytime-markdown/trail-core/c4';
 import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 import { engine, layoutWithSubgroups, state as graphState } from '@anytime-markdown/graph-core';
@@ -532,28 +532,30 @@ export function C4ViewerCore({
     }
     m = sortDsmMatrixByName(m);
     if (checkedPackageIds) {
-      m = filterDsmMatrix(m, checkedPackageIds);
+      if (currentLevel === 4 && c4Model) {
+        // L4 では DSM ノードがファイル（code 要素）のため、
+        // checkedPackageIds に含まれるコンテナ/コンポーネント ID を
+        // その配下のファイル ID へ展開してからフィルタリングする。
+        const elementById = new Map(c4Model.elements.map(e => [e.id, e]));
+        const fileIdsToKeep = new Set<string>();
+        for (const node of m.nodes) {
+          let current = elementById.get(node.id);
+          while (current) {
+            if (checkedPackageIds.has(current.id)) {
+              fileIdsToKeep.add(node.id);
+              break;
+            }
+            if (!current.boundaryId) break;
+            current = elementById.get(current.boundaryId);
+          }
+        }
+        m = filterDsmMatrix(m, fileIdsToKeep);
+      } else {
+        m = filterDsmMatrix(m, checkedPackageIds);
+      }
     }
     return m;
   }, [dsmMatrix, currentLevel, c4Model, checkedPackageIds]);
-
-  /**
-   * L4 の dsm-cyclic オーバーレイ用：コンポーネントレベルで SCC を検出し
-   * サイクルに属するコンポーネント ID のセットを返す。
-   * L4 では file ノードが表示されるため、親コンポーネントが SCC に属するかで
-   * ファイルを赤くハイライトする。
-   */
-  const cyclicComponentIds = useMemo((): ReadonlySet<string> | null => {
-    if (!dsmMatrix || !c4Model) return null;
-    const compDsm = aggregateDsmToC4ComponentLevel(dsmMatrix, c4Model.elements);
-    if (compDsm.nodes.length === 0) return null;
-    const sccs = detectCycles(compDsm.adjacency, compDsm.nodes.map(n => n.id));
-    const cyclic = new Set<string>();
-    for (const scc of sccs) {
-      for (const id of scc) cyclic.add(id);
-    }
-    return cyclic.size > 0 ? cyclic : null;
-  }, [dsmMatrix, c4Model]);
 
   // currentLevel に合わせて importance スコアを対象タイプに絞る
   // L2(1): container のみ、L3(2): component のみ、L4(3): code のみ
@@ -593,27 +595,10 @@ export function C4ViewerCore({
     return { ...coverageMatrix, entries };
   }, [coverageMatrix, c4Model, currentLevel]);
 
-  const overlayMap = useMemo(() => {
-    const map = computeColorMap(metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix);
-
-    // L4 + dsm-cyclic: コンポーネントレベルのサイクルをファイルノードに伝播する。
-    // 親コンポーネントが SCC に属するファイルを赤くハイライトする。
-    if (currentLevel === 4 && metricOverlay === 'dsm-cyclic' && cyclicComponentIds && c4Model && filteredDsmMatrix) {
-      const elementById = new Map(c4Model.elements.map(e => [e.id, e]));
-      for (const node of filteredDsmMatrix.nodes) {
-        const parentEl = elementById.get(node.id);
-        const parentComponentId = parentEl?.boundaryId;
-        if (parentComponentId) {
-          const parentComponent = elementById.get(parentComponentId);
-          if (parentComponent?.type === 'component' && cyclicComponentIds.has(parentComponentId)) {
-            map.set(node.id, '#c62828');
-          }
-        }
-      }
-    }
-
-    return map;
-  }, [metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, currentLevel, cyclicComponentIds, c4Model]);
+  const overlayMap = useMemo(
+    () => computeColorMap(metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix),
+    [metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix],
+  );
 
   const claudeActivityMap = useMemo(() => {
     if (!claudeActivity) return null;
