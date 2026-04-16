@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import { MarkdownEditorProvider } from './providers/MarkdownEditorProvider';
 import { LinkValidationProvider } from './providers/LinkValidationProvider';
 import { AiNoteProvider, AiNoteItem } from './providers/AiNoteProvider';
-import { setupClaudeHooks, ClaudeStatusWatcher } from '@anytime-markdown/vscode-common';
+import { ClaudeStatusWatcher } from '@anytime-markdown/vscode-common';
 
 /** ノートファイルをカスタムエディタで開く（既存の破損タブを先に閉じてから openWith） */
 async function openNoteFile(filePath: string): Promise<void> {
@@ -447,14 +447,14 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	// Claude Code 編集通知: ステータスファイル監視 + エディタロック
+	// フック登録は trail 拡張で一元管理する。markdown 拡張はステータスファイルの読み取りのみ。
 	const storagePathSetting = vscode.workspace.getConfiguration('anytimeMarkdown.claudeStatus').get<string>('directory', '') || '.vscode';
 	const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 	const statusDir = path.isAbsolute(storagePathSetting)
 		? storagePathSetting
 		: wsRoot ? path.join(wsRoot, storagePathSetting) : storagePathSetting;
-	const claudeEnabled = setupClaudeHooks(wsRoot, statusDir);
 	const claudeSubscriptions: vscode.Disposable[] = [];
-	if (claudeEnabled) {
+	{
 		const watcher = new ClaudeStatusWatcher(wsRoot, statusDir);
 		watcher.onStatusChange((editing, filePath) => {
 			const p = MarkdownEditorProvider.getInstance();

@@ -562,7 +562,8 @@ export function C4ViewerCore({
   const levelFilteredImportanceMatrix = useMemo(() => {
     if (!importanceMatrix || !c4Model) return importanceMatrix ?? null;
     // L1=Context(system), L2=Container(container), L3=Component(component), L4=Code(code)
-    const targetType = currentLevel === 2 ? 'container'
+    const targetType = currentLevel === 1 ? 'system'
+      : currentLevel === 2 ? 'container'
       : currentLevel === 3 ? 'component'
       : 'code';
     const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
@@ -576,7 +577,8 @@ export function C4ViewerCore({
   // currentLevel に合わせて complexity エントリを対象タイプに絞る（boundary 除外）
   const levelFilteredComplexityMatrix = useMemo(() => {
     if (!complexityMatrix || !c4Model) return complexityMatrix ?? null;
-    const targetType = currentLevel === 2 ? 'container'
+    const targetType = currentLevel === 1 ? 'system'
+      : currentLevel === 2 ? 'container'
       : currentLevel === 3 ? 'component'
       : 'code';
     const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
@@ -605,7 +607,8 @@ export function C4ViewerCore({
     const { activeElementIds, touchedElementIds } = claudeActivity;
     if (activeElementIds.length === 0 && touchedElementIds.length === 0) return null;
     if (c4Model) {
-      const targetType = currentLevel === 2 ? 'container'
+      const targetType = currentLevel === 1 ? 'system'
+        : currentLevel === 2 ? 'container'
         : currentLevel === 3 ? 'component'
         : 'code';
       const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
