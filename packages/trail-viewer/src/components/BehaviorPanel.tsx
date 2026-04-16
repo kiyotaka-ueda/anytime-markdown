@@ -16,6 +16,11 @@ import type {
 import { useTrailI18n } from '../i18n';
 import { useTrailTheme } from './TrailThemeContext';
 
+const PALETTE = [
+  '#1976d2', '#8b5cf6', '#00897b', '#e65100', '#c62828',
+  '#6d4c41', '#37474f', '#f9a825', '#558b2f', '#ad1457',
+] as const;
+
 export interface BehaviorPanelProps {
   readonly fetchBehaviorData: (
     period: BehaviorPeriodMode,
@@ -96,7 +101,7 @@ function AvgToolsSection({ data }: Readonly<{ data: BehaviorData }>) {
 // ─── Section: ④ Subagent Rate ─────────────────────────────────────────────────
 
 function SubagentSection({ data }: Readonly<{ data: BehaviorData }>) {
-  const { cardSx, chartColors } = useTrailTheme();
+  const { cardSx } = useTrailTheme();
   const { t } = useTrailI18n();
   const rows = data.subagentRate;
   const byTypeMap: Readonly<Record<string, number[]>> = {};
@@ -109,7 +114,7 @@ function SubagentSection({ data }: Readonly<{ data: BehaviorData }>) {
   const series = Object.entries(byTypeMap).map(([label, vals], i) => ({
     data: vals,
     label,
-    color: chartColors[i % chartColors.length],
+    color: PALETTE[i % PALETTE.length],
     stack: 'a',
   }));
   return (
@@ -132,7 +137,7 @@ function SubagentSection({ data }: Readonly<{ data: BehaviorData }>) {
 // ─── Section: ⑤ Error Patterns ───────────────────────────────────────────────
 
 function ErrorPatternsSection({ data }: Readonly<{ data: BehaviorData }>) {
-  const { cardSx, chartColors } = useTrailTheme();
+  const { cardSx } = useTrailTheme();
   const { t } = useTrailI18n();
   const rows = data.errorRate;
   const toolMap: Readonly<Record<string, number[]>> = {};
@@ -145,7 +150,7 @@ function ErrorPatternsSection({ data }: Readonly<{ data: BehaviorData }>) {
   const series = Object.entries(toolMap).map(([label, vals], i) => ({
     data: vals,
     label,
-    color: chartColors[i % chartColors.length],
+    color: PALETTE[i % PALETTE.length],
   }));
   return (
     <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
