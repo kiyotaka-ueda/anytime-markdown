@@ -65,6 +65,22 @@ export class ClaudeStatusWatcher implements Disposable {
     return this.readStatus()?.plannedEdits ?? [];
   }
 
+  /** ステータスファイルの sessionEdits と plannedEdits をクリアする */
+  clearEdits(): void {
+    try {
+      const raw = fs.readFileSync(this.statusFilePath, 'utf-8');
+      const parsed: unknown = JSON.parse(raw);
+      if (typeof parsed === 'object' && parsed !== null) {
+        const record = parsed as Record<string, unknown>;
+        record.sessionEdits = [];
+        record.plannedEdits = [];
+        fs.writeFileSync(this.statusFilePath, JSON.stringify(record));
+      }
+    } catch {
+      // ファイル未存在・パース失敗時は無視
+    }
+  }
+
   private handleChange(): void {
     const status = this.readStatus();
     if (!status) return;

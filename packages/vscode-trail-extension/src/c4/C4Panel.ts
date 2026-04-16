@@ -156,6 +156,7 @@ export class C4Panel implements C4DataProvider {
 
   public handleResetClaudeActivity(): void {
     this.claudeTracker?.resetTouched();
+    this.claudeWatcher?.clearEdits();
     C4Panel.dataServer?.notifyClaudeActivity([], [], []);
   }
 
