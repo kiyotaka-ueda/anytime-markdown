@@ -2321,12 +2321,19 @@ export class TrailDatabase {
       count: Number(r['count'] ?? 0),
     }));
 
-    // ① toolSequences: top-10 tool name per turn grouped by period
+    // ① toolSequences: 2グラム（連続ツールペア）Top10
+    // 同一ターン内で call_index が隣接する行を自己結合して bigram を生成する
     const seqResult = db.exec(
-      `SELECT ${periodExpr} AS period, tool_name AS sequence, COUNT(*) AS count
-       FROM message_tool_calls
-       WHERE timestamp >= datetime('now', '-${rangeDays} days')
-       GROUP BY period, tool_name
+      `SELECT ${periodExpr.replace(/\btimestamp\b/g, 'a.timestamp')} AS period,
+              a.tool_name || '→' || b.tool_name AS sequence,
+              COUNT(*) AS count
+       FROM message_tool_calls a
+       JOIN message_tool_calls b
+         ON a.session_id = b.session_id
+        AND a.turn_index  = b.turn_index
+        AND b.call_index  = a.call_index + 1
+       WHERE a.timestamp >= datetime('now', '-${rangeDays} days')
+       GROUP BY period, sequence
        ORDER BY count DESC
        LIMIT 10`,
     );

@@ -544,15 +544,31 @@ export class SupabaseTrailReader implements ITrailReader {
         return { period: period ?? '', skill: skill ?? '', count: e.count, costUsd: 0 };
       });
 
-      // ① toolSequences (simplified: top tools)
-      const toolCount = new Map<string, { count: number; period: string }>();
+      // ① toolSequences: 2グラム（連続ツールペア）Top10
+      // 同一ターン内で call_index が隣接する行からビグラムを生成する
+      const bigramCount = new Map<string, { count: number; period: string }>();
+      // ターン単位にグループ化して call_index 順にソート
+      const turnGroups = new Map<string, Row[]>();
       for (const r of rows) {
-        const k = `${periodKey(r)}::${r.tool_name}`;
-        const e = toolCount.get(k) ?? { count: 0, period: periodKey(r) };
-        e.count++;
-        toolCount.set(k, e);
+        const key = `${r.session_id}:${r.turn_index}`;
+        const grp = turnGroups.get(key) ?? [];
+        grp.push(r);
+        turnGroups.set(key, grp);
       }
-      const toolSequences = [...toolCount.entries()]
+      for (const grp of turnGroups.values()) {
+        grp.sort((a, b) => a.call_index - b.call_index);
+        for (let i = 0; i < grp.length - 1; i++) {
+          const a = grp[i];
+          const b = grp[i + 1];
+          const p = periodKey(a);
+          const seq = `${a.tool_name}→${b.tool_name}`;
+          const k = `${p}::${seq}`;
+          const e = bigramCount.get(k) ?? { count: 0, period: p };
+          e.count++;
+          bigramCount.set(k, e);
+        }
+      }
+      const toolSequences = [...bigramCount.entries()]
         .sort(([, a], [, b]) => b.count - a.count)
         .slice(0, 10)
         .map(([k, e]) => ({ period: e.period, sequence: k.split('::')[1] ?? '', count: e.count }));
