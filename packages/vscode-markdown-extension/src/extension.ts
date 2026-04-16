@@ -447,7 +447,7 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	// Claude Code 編集通知: ステータスファイル監視 + エディタロック
-	const storagePathSetting = vscode.workspace.getConfiguration('anytimeMarkdown').get<string>('storagePath', '') || '.vscode';
+	const storagePathSetting = vscode.workspace.getConfiguration('anytimeMarkdown.claudeStatus').get<string>('directory', '') || '.vscode';
 	const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 	const statusDir = path.isAbsolute(storagePathSetting)
 		? storagePathSetting

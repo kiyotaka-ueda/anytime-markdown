@@ -52,11 +52,11 @@ export async function activate(context: vscode.ExtensionContext) {
 	extensionDistPath = path.join(context.extensionUri.fsPath, 'dist');
 
 	// Claude Code hook を ~/.claude/settings.json に自動登録
-	const storagePathSetting = vscode.workspace.getConfiguration('anytimeTrail').get<string>('storagePath', '') || '.vscode';
+	const claudeStatusDirSetting = vscode.workspace.getConfiguration('anytimeTrail.claudeStatus').get<string>('directory', '') || '.vscode';
 	{
 		const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 		if (wsRoot) {
-			const registered = setupClaudeHooks(wsRoot, storagePathSetting);
+			const registered = setupClaudeHooks(wsRoot, claudeStatusDirSetting);
 			TrailLogger.info(`Claude hooks setup: ${registered ? 'registered' : 'skipped (already registered or .claude not found)'}`);
 		}
 	}
@@ -95,10 +95,11 @@ export async function activate(context: vscode.ExtensionContext) {
 	});
 
 	// Trail Database + Data Server (non-blocking initialization)
+	const dbStoragePathSetting = vscode.workspace.getConfiguration('anytimeTrail.database').get<string>('storagePath', '');
 	const wsRootForDb = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-	const dbStorageDir = path.isAbsolute(storagePathSetting)
-		? storagePathSetting
-		: wsRootForDb ? path.join(wsRootForDb, storagePathSetting) : undefined;
+	const dbStorageDir = dbStoragePathSetting
+		? (path.isAbsolute(dbStoragePathSetting) ? dbStoragePathSetting : wsRootForDb ? path.join(wsRootForDb, dbStoragePathSetting) : undefined)
+		: undefined;
 	trailDb = new TrailDatabase(extensionDistPath, dbStorageDir);
 	C4Panel.setTrailDatabase(trailDb);
 	const gitRoot = wsRootForDb;

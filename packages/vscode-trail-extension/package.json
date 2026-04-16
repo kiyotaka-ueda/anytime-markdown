@@ -250,10 +250,15 @@
           "default": "",
           "markdownDescription": "PostgreSQL connection string (e.g. `postgres://user:pass@host:5432/db`)"
         },
-        "anytimeTrail.storagePath": {
+        "anytimeTrail.database.storagePath": {
           "type": "string",
           "default": "",
-          "markdownDescription": "%config.storagePath%"
+          "markdownDescription": "%config.database.storagePath%"
+        },
+        "anytimeTrail.claudeStatus.directory": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%config.claudeStatus.directory%"
         }
       }
     }

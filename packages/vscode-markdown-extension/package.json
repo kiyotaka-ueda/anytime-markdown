@@ -233,10 +233,10 @@
           ],
           "description": "%configuration.themePreset.description%"
         },
-        "anytimeMarkdown.storagePath": {
+        "anytimeMarkdown.claudeStatus.directory": {
           "type": "string",
           "default": "",
-          "description": "%configuration.storagePath.description%"
+          "description": "%configuration.claudeStatus.directory.description%"
         }
       }
     },

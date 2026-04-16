@@ -242,7 +242,7 @@ export class C4Panel implements C4DataProvider {
       // フックは VS Code ワークスペースルートの storagePath/ に書き込むため、
       // tsconfig の projectRoot ではなくワークスペースルートを使用する。
       const watchRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? projectRoot;
-      const statusDir = vscode.workspace.getConfiguration('anytimeTrail').get<string>('storagePath', '') || '.vscode';
+      const statusDir = vscode.workspace.getConfiguration('anytimeTrail.claudeStatus').get<string>('directory', '') || '.vscode';
       this.claudeWatcher = new ClaudeStatusWatcher(watchRoot, statusDir);
       this.claudeTracker = new ClaudeActivityTracker();
       this.claudeTracker.onChange((state) => {
