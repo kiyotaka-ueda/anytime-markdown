@@ -19,6 +19,8 @@ export interface ClaudeStatus {
   readonly sessionId?: string;
   /** セッション内で編集したファイルの累積履歴 */
   readonly sessionEdits?: readonly SessionEdit[];
+  /** プランファイルから抽出した計画対象ファイルの絶対パス配列 */
+  readonly plannedEdits?: readonly string[];
 }
 
 export type StatusChangeCallback = (editing: boolean, filePath: string) => void;
