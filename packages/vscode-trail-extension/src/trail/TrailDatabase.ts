@@ -728,6 +728,31 @@ export class TrailDatabase {
     }));
   }
 
+  getAllMessageToolCalls(): readonly {
+    id: number;
+    session_id: string;
+    message_uuid: string;
+    turn_index: number;
+    call_index: number;
+    tool_name: string;
+    file_path: string | null;
+    command: string | null;
+    skill_name: string | null;
+    model: string | null;
+    is_sidechain: number;
+    turn_exec_ms: number | null;
+    has_thinking: number;
+    is_error: number;
+    error_type: string | null;
+    timestamp: string;
+  }[] {
+    const db = this.ensureDb();
+    const result = db.exec('SELECT * FROM message_tool_calls ORDER BY id ASC');
+    if (!result[0]) return [];
+    const { columns, values } = result[0];
+    return values.map(row => Object.fromEntries(columns.map((c, i) => [c, row[i]]))) as ReturnType<TrailDatabase['getAllMessageToolCalls']>;
+  }
+
   /** Delete and rebuild session_costs from all messages. */
   private rebuildSessionCosts(): void {
     const db = this.ensureDb();
