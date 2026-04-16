@@ -2239,7 +2239,7 @@ export class TrailDatabase {
 
     // ③ avgToolsPerTurn
     const avgResult = db.exec(
-      `SELECT ${periodExpr} AS period, AVG(tools_per_turn) AS avg
+      `SELECT period, AVG(tools_per_turn) AS avg
        FROM (
          SELECT ${periodExpr} AS period, session_id, turn_index, COUNT(*) AS tools_per_turn
          FROM message_tool_calls
@@ -2306,7 +2306,7 @@ export class TrailDatabase {
 
     // ② repeatOps: turns where 3+ consecutive same-tool calls
     const repeatResult = db.exec(
-      `SELECT ${periodExpr} AS period, COUNT(*) AS count
+      `SELECT period, COUNT(*) AS count
        FROM (
          SELECT ${periodExpr} AS period, session_id, turn_index
          FROM message_tool_calls
