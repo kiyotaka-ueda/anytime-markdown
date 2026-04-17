@@ -568,10 +568,22 @@ export class SupabaseTrailReader implements ITrailReader {
           bigramCount.set(k, e);
         }
       }
+      // 全期間合計で上位5シーケンスを特定し、それらの全期間データを返す
+      const seqTotals = new Map<string, number>();
+      for (const [k, e] of bigramCount) {
+        const seq = k.split('::')[1] ?? '';
+        seqTotals.set(seq, (seqTotals.get(seq) ?? 0) + e.count);
+      }
+      const topSeqs = new Set(
+        [...seqTotals.entries()]
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 5)
+          .map(([seq]) => seq),
+      );
       const toolSequences = [...bigramCount.entries()]
-        .sort(([, a], [, b]) => b.count - a.count)
-        .slice(0, 10)
-        .map(([k, e]) => ({ period: e.period, sequence: k.split('::')[1] ?? '', count: e.count }));
+        .filter(([k]) => topSeqs.has(k.split('::')[1] ?? ''))
+        .map(([k, e]) => ({ period: e.period, sequence: k.split('::')[1] ?? '', count: e.count }))
+        .sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
 
       // ② repeatOps: 同一ターン内に 3 回以上のツール呼び出しがあるターン数
       const turnCallCount = new Map<string, { period: string; count: number }>();

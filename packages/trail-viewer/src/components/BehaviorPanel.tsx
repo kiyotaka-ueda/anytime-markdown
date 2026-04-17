@@ -33,21 +33,65 @@ export interface BehaviorPanelProps {
 function ToolSequencesSection({ data }: Readonly<{ data: BehaviorData }>) {
   const { cardSx } = useTrailTheme();
   const { t } = useTrailI18n();
-  const rows = data.toolSequences.slice(0, 10);
-  return (
-    <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
-      <Typography variant="subtitle2" gutterBottom>{t('behavior.sections.toolSequences')}</Typography>
-      {rows.length === 0 ? (
+  const rows = data.toolSequences;
+  if (rows.length === 0) {
+    return (
+      <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+        <Typography variant="subtitle2" gutterBottom>{t('behavior.sections.toolSequences')}</Typography>
         <Typography variant="body2" color="text.secondary">—</Typography>
-      ) : (
+      </Paper>
+    );
+  }
+
+  // 複数期間があればスタック棒グラフ（横軸=期間）、単一期間ならランキング棒グラフ
+  const periods = [...new Set(rows.map(r => r.period))].sort();
+  const sequences = [...new Set(rows.map(r => r.sequence))];
+  const hasMultiplePeriods = periods.length > 1;
+
+  if (hasMultiplePeriods) {
+    // 期間×シーケンスのマトリクスを構築
+    const countMap = new Map<string, number>();
+    for (const r of rows) {
+      countMap.set(`${r.period}::${r.sequence}`, r.count);
+    }
+    const dataset = periods.map(p => {
+      const entry: Record<string, string | number> = { period: p.slice(5) };
+      for (const seq of sequences) {
+        entry[seq] = countMap.get(`${p}::${seq}`) ?? 0;
+      }
+      return entry;
+    });
+    return (
+      <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+        <Typography variant="subtitle2" gutterBottom>{t('behavior.sections.toolSequences')}</Typography>
         <BarChart
-          dataset={rows.map(r => ({ sequence: r.sequence.slice(0, 30), count: r.count }))}
-          xAxis={[{ scaleType: 'band', dataKey: 'sequence' }]}
-          series={[{ dataKey: 'count', label: 'count' }]}
+          dataset={dataset}
+          xAxis={[{ scaleType: 'band', dataKey: 'period' }]}
+          series={sequences.map((seq, i) => ({
+            dataKey: seq,
+            label: seq,
+            stack: 'total',
+            color: PALETTE[i % PALETTE.length],
+          }))}
           height={220}
           margin={{ left: 8, right: 8, top: 8, bottom: 60 }}
         />
-      )}
+      </Paper>
+    );
+  }
+
+  // 単一期間: ランキング表示
+  const ranked = [...rows].sort((a, b) => b.count - a.count).slice(0, 10);
+  return (
+    <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+      <Typography variant="subtitle2" gutterBottom>{t('behavior.sections.toolSequences')}</Typography>
+      <BarChart
+        dataset={ranked.map(r => ({ sequence: r.sequence.slice(0, 30), count: r.count }))}
+        xAxis={[{ scaleType: 'band', dataKey: 'sequence' }]}
+        series={[{ dataKey: 'count', label: 'count' }]}
+        height={220}
+        margin={{ left: 8, right: 8, top: 8, bottom: 60 }}
+      />
     </Paper>
   );
 }
