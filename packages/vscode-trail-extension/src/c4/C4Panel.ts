@@ -157,6 +157,7 @@ export class C4Panel implements C4DataProvider {
   public handleResetClaudeActivity(): void {
     this.claudeTracker?.resetTouched();
     this.claudeWatcher?.clearEdits();
+    C4Panel.dataServer?.notifyMultiAgentActivity([]);
     C4Panel.dataServer?.notifyClaudeActivity([], [], []);
   }
 
@@ -277,13 +278,19 @@ export class C4Panel implements C4DataProvider {
       this.claudeWatcher = new ClaudeStatusWatcher(watchRoot, statusDir);
       this.claudeTracker = new ClaudeActivityTracker();
       this.claudeTracker.onChange((state) => {
+        C4Panel.dataServer?.notifyMultiAgentActivity(state.agents);
         C4Panel.dataServer?.notifyClaudeActivity(
-          state.activeElementIds,
-          state.touchedElementIds,
-          state.plannedElementIds,
+          state.merged.activeElementIds,
+          state.merged.touchedElementIds,
+          state.merged.plannedElementIds,
         );
       });
       this.claudeWatcher.onStatusChange(this.claudeTracker.onFileEditing);
+      this.claudeWatcher.onMultiStatusChange((agents) => {
+        if (this.claudeTracker) {
+          this.claudeTracker.updateAgents(agents);
+        }
+      });
     }
     // 解析結果から C4 モデルを構築してインデックスを更新
     if (this.lastTrailGraph && this.claudeTracker) {
@@ -291,18 +298,23 @@ export class C4Panel implements C4DataProvider {
       this.claudeTracker.setModel(model, projectRoot);
       TrailLogger.info(`ClaudeActivityTracker: model updated (${model.elements.length} elements, root=${projectRoot})`);
 
-      // セッション履歴から touchedElementIds を復元
-      const sessionEdits = this.claudeWatcher!.getSessionEdits();
-      if (sessionEdits.length > 0) {
-        this.claudeTracker.restoreSessionEdits(sessionEdits);
-        TrailLogger.info(`ClaudeActivityTracker: restored ${sessionEdits.length} session edits`);
-      }
-
-      // plannedEdits から plannedElementIds を復元
-      const plannedEdits = this.claudeWatcher!.getPlannedEdits();
-      if (plannedEdits.length > 0) {
-        this.claudeTracker.setPlannedEdits(plannedEdits);
-        TrailLogger.info(`ClaudeActivityTracker: restored ${plannedEdits.length} planned edits`);
+      // 全エージェントの状態を復元
+      const agents = this.claudeWatcher!.getAgents();
+      if (agents.size > 0) {
+        this.claudeTracker.updateAgents(agents);
+        TrailLogger.info(`ClaudeActivityTracker: restored ${agents.size} agent(s)`);
+      } else {
+        // 旧形式の単一ファイルからの復元（後方互換）
+        const sessionEdits = this.claudeWatcher!.getSessionEdits();
+        if (sessionEdits.length > 0) {
+          this.claudeTracker.restoreSessionEdits(sessionEdits);
+          TrailLogger.info(`ClaudeActivityTracker: restored ${sessionEdits.length} session edits (legacy)`);
+        }
+        const plannedEdits = this.claudeWatcher!.getPlannedEdits();
+        if (plannedEdits.length > 0) {
+          this.claudeTracker.setPlannedEdits(plannedEdits);
+          TrailLogger.info(`ClaudeActivityTracker: restored ${plannedEdits.length} planned edits (legacy)`);
+        }
       }
     }
   }

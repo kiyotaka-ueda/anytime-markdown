@@ -1,6 +1,16 @@
 import type { C4Element, C4Model } from '@anytime-markdown/trail-core/c4';
-import type { StatusChangeCallback, SessionEdit } from '@anytime-markdown/vscode-common';
+import type { StatusChangeCallback, SessionEdit, AgentInfo } from '@anytime-markdown/vscode-common';
 import { TrailLogger } from '../utils/TrailLogger';
+
+export interface AgentActivityEntry {
+  readonly sessionId: string;
+  readonly label: string;
+  readonly branch: string;
+  readonly currentFile: string;
+  readonly activeElementIds: readonly string[];
+  readonly touchedElementIds: readonly string[];
+  readonly plannedElementIds: readonly string[];
+}
 
 export interface ClaudeActivityState {
   readonly activeElementIds: readonly string[];
@@ -8,88 +18,232 @@ export interface ClaudeActivityState {
   readonly plannedElementIds: readonly string[];
 }
 
-type ActivityChangeCallback = (state: ClaudeActivityState) => void;
+export interface MultiAgentActivityState {
+  /** 既存互換: 全エージェントの union */
+  readonly merged: ClaudeActivityState;
+  /** エージェント別の詳細 */
+  readonly agents: readonly AgentActivityEntry[];
+}
+
+type ActivityChangeCallback = (state: MultiAgentActivityState) => void;
+
+interface PerAgentState {
+  activeElementIds: string[];
+  touchedElementIds: Set<string>;
+  plannedElementIds: Set<string>;
+  branch: string;
+  currentFile: string;
+}
 
 export class ClaudeActivityTracker {
-  /** file::relPath → elementId（code 要素） */
   private fileIndex = new Map<string, string>();
-  /** elementId → parentId（boundaryId チェーン） */
   private parentIndex = new Map<string, string>();
-
-  private activeElementIds: string[] = [];
-  private touchedElementIds = new Set<string>();
-  private plannedElementIds = new Set<string>();
+  private agentStates = new Map<string, PerAgentState>();
+  private agentOrder: string[] = [];
   private workspaceRoot = '';
   private readonly changeCallbacks: ActivityChangeCallback[] = [];
 
-  /** C4モデルが更新されたときに呼び出す */
   setModel(model: C4Model, workspaceRoot: string): void {
     this.workspaceRoot = workspaceRoot.endsWith('/') ? workspaceRoot : `${workspaceRoot}/`;
     this.buildIndexes(model.elements);
   }
 
-  /** ClaudeStatusWatcher.onStatusChange に渡すコールバック */
+  /** マルチエージェントの状態を一括更新する */
+  updateAgents(agents: ReadonlyMap<string, AgentInfo>): void {
+    // 消えたエージェントを除去
+    for (const sid of [...this.agentStates.keys()]) {
+      if (!agents.has(sid)) {
+        this.agentStates.delete(sid);
+        this.agentOrder = this.agentOrder.filter((id) => id !== sid);
+      }
+    }
+
+    for (const [sid, info] of agents) {
+      let state = this.agentStates.get(sid);
+      if (!state) {
+        state = {
+          activeElementIds: [],
+          touchedElementIds: new Set(),
+          plannedElementIds: new Set(),
+          branch: '',
+          currentFile: '',
+        };
+        this.agentStates.set(sid, state);
+        this.agentOrder.push(sid);
+      }
+
+      state.branch = info.branch;
+      state.currentFile = info.file;
+
+      // active
+      if (info.editing) {
+        const ids = this.resolveElementIds(info.file);
+        state.activeElementIds = ids;
+        for (const id of ids) {
+          state.touchedElementIds.add(id);
+        }
+      } else {
+        state.activeElementIds = [];
+      }
+
+      // touched (restore from sessionEdits)
+      for (const edit of info.sessionEdits) {
+        const ids = this.resolveElementIds(edit.file);
+        for (const id of ids) {
+          state.touchedElementIds.add(id);
+        }
+      }
+
+      // planned
+      state.plannedElementIds.clear();
+      for (const filePath of info.plannedEdits) {
+        const ids = this.resolveElementIds(filePath);
+        for (const id of ids) {
+          state.plannedElementIds.add(id);
+        }
+      }
+    }
+
+    this.notifyChange();
+  }
+
+  /** 単一エージェントの editing コールバック（互換用） */
   readonly onFileEditing: StatusChangeCallback = (editing: boolean, filePath: string): void => {
+    // マルチエージェントモードでは updateAgents が状態管理する
+    if (this.agentStates.size > 0) return;
+
+    const defaultSid = '__single__';
+    let state = this.agentStates.get(defaultSid);
+    if (!state) {
+      state = {
+        activeElementIds: [],
+        touchedElementIds: new Set(),
+        plannedElementIds: new Set(),
+        branch: '',
+        currentFile: '',
+      };
+      this.agentStates.set(defaultSid, state);
+      this.agentOrder = [defaultSid];
+    }
+
     if (!editing) {
-      this.activeElementIds = [];
+      state.activeElementIds = [];
       this.notifyChange();
       return;
     }
 
     const ids = this.resolveElementIds(filePath);
-    if (ids.length === 0) {
-      TrailLogger.info(`ClaudeActivityTracker: no C4 element for ${filePath} (root=${this.workspaceRoot}, indexed=${this.fileIndex.size})`);
-      return;
-    }
+    if (ids.length === 0) return;
 
-    TrailLogger.info(`ClaudeActivityTracker: active elements for ${filePath}: ${ids.join(', ')}`);
-    this.activeElementIds = ids;
+    state.activeElementIds = ids;
+    state.currentFile = filePath;
     for (const id of ids) {
-      this.touchedElementIds.add(id);
+      state.touchedElementIds.add(id);
     }
     this.notifyChange();
   };
 
-  /** plannedEdits の絶対パス配列から plannedElementIds を解決してセットする */
-  setPlannedEdits(absolutePaths: readonly string[]): void {
-    this.plannedElementIds.clear();
-    for (const filePath of absolutePaths) {
-      const ids = this.resolveElementIds(filePath);
-      for (const id of ids) {
-        this.plannedElementIds.add(id);
-      }
-    }
-    this.notifyChange();
-  }
-
-  /** セッション履歴から touchedElementIds を復元する */
   restoreSessionEdits(edits: readonly SessionEdit[]): void {
+    const defaultSid = '__single__';
+    let state = this.agentStates.get(defaultSid);
+    if (!state) {
+      state = {
+        activeElementIds: [],
+        touchedElementIds: new Set(),
+        plannedElementIds: new Set(),
+        branch: '',
+        currentFile: '',
+      };
+      this.agentStates.set(defaultSid, state);
+      this.agentOrder = [defaultSid];
+    }
     for (const edit of edits) {
       const ids = this.resolveElementIds(edit.file);
       for (const id of ids) {
-        this.touchedElementIds.add(id);
+        state.touchedElementIds.add(id);
       }
     }
-    if (this.touchedElementIds.size > 0) {
+    if (state.touchedElementIds.size > 0) {
       this.notifyChange();
     }
   }
 
-  resetTouched(): void {
-    this.activeElementIds = [];
-    this.touchedElementIds.clear();
-    this.plannedElementIds.clear();
+  setPlannedEdits(absolutePaths: readonly string[]): void {
+    const defaultSid = '__single__';
+    let state = this.agentStates.get(defaultSid);
+    if (!state) {
+      state = {
+        activeElementIds: [],
+        touchedElementIds: new Set(),
+        plannedElementIds: new Set(),
+        branch: '',
+        currentFile: '',
+      };
+      this.agentStates.set(defaultSid, state);
+      this.agentOrder = [defaultSid];
+    }
+    state.plannedElementIds.clear();
+    for (const filePath of absolutePaths) {
+      const ids = this.resolveElementIds(filePath);
+      for (const id of ids) {
+        state.plannedElementIds.add(id);
+      }
+    }
     this.notifyChange();
   }
 
-  getState(): ClaudeActivityState {
-    const planned = [...this.plannedElementIds]
-      .filter((id) => !this.touchedElementIds.has(id));
+  resetTouched(): void {
+    this.agentStates.clear();
+    this.agentOrder = [];
+    this.notifyChange();
+  }
+
+  getMultiAgentState(): MultiAgentActivityState {
+    const allActive = new Set<string>();
+    const allTouched = new Set<string>();
+    const allPlanned = new Set<string>();
+    const agents: AgentActivityEntry[] = [];
+
+    for (const sid of this.agentOrder) {
+      const state = this.agentStates.get(sid);
+      if (!state) continue;
+
+      const idx = agents.length;
+      const planned = [...state.plannedElementIds]
+        .filter((id) => !state.touchedElementIds.has(id));
+
+      agents.push({
+        sessionId: sid,
+        label: `Agent ${idx + 1}`,
+        branch: state.branch,
+        currentFile: state.currentFile,
+        activeElementIds: [...state.activeElementIds],
+        touchedElementIds: [...state.touchedElementIds],
+        plannedElementIds: planned,
+      });
+
+      for (const id of state.activeElementIds) allActive.add(id);
+      for (const id of state.touchedElementIds) allTouched.add(id);
+      for (const id of planned) allPlanned.add(id);
+    }
+
+    // planned から touched/active を除外（merged レベル）
+    for (const id of allTouched) allPlanned.delete(id);
+    for (const id of allActive) allPlanned.delete(id);
+
     return {
-      activeElementIds: [...this.activeElementIds],
-      touchedElementIds: [...this.touchedElementIds],
-      plannedElementIds: planned,
+      merged: {
+        activeElementIds: [...allActive],
+        touchedElementIds: [...allTouched],
+        plannedElementIds: [...allPlanned],
+      },
+      agents,
     };
+  }
+
+  /** 後方互換: 旧 getState() と同じ形式 */
+  getState(): ClaudeActivityState {
+    return this.getMultiAgentState().merged;
   }
 
   onChange(cb: ActivityChangeCallback): void {
@@ -126,7 +280,6 @@ export class ClaudeActivityTracker {
 
   private resolveElementIds(absolutePath: string): string[] {
     if (!absolutePath.startsWith(this.workspaceRoot)) return [];
-
     const relPath = absolutePath.slice(this.workspaceRoot.length);
     const fileKey = `file::${relPath}`;
     if (!this.fileIndex.has(fileKey)) return [];
@@ -142,7 +295,7 @@ export class ClaudeActivityTracker {
   }
 
   private notifyChange(): void {
-    const state = this.getState();
+    const state = this.getMultiAgentState();
     for (const cb of this.changeCallbacks) {
       cb(state);
     }
