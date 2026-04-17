@@ -1,4 +1,4 @@
-import { computeClaudeActivityColorMap } from '../claudeActivityColorMap';
+import { computeClaudeActivityColorMap, computeMultiAgentColorMap } from '../claudeActivityColorMap';
 
 describe('computeClaudeActivityColorMap', () => {
   it('active要素はオレンジ色を返す', () => {
@@ -49,5 +49,39 @@ describe('computeClaudeActivityColorMap', () => {
   it('全配列が空のとき空マップを返す（3引数版）', () => {
     const map = computeClaudeActivityColorMap([], [], [], true);
     expect(map.size).toBe(0);
+  });
+});
+
+describe('computeMultiAgentColorMap', () => {
+  it('2エージェントの active 要素に異なる色を割り当てる', () => {
+    const map = computeMultiAgentColorMap([
+      { sessionId: 'a', activeElementIds: ['el_a'], touchedElementIds: [], plannedElementIds: [] },
+      { sessionId: 'b', activeElementIds: ['el_b'], touchedElementIds: [], plannedElementIds: [] },
+    ], true);
+    expect(map.get('el_a')).toBeDefined();
+    expect(map.get('el_b')).toBeDefined();
+    expect(map.get('el_a')).not.toBe(map.get('el_b'));
+  });
+
+  it('同一要素を複数エージェントが触れた場合、後のエージェントが優先', () => {
+    const map = computeMultiAgentColorMap([
+      { sessionId: 'a', activeElementIds: ['el_x'], touchedElementIds: [], plannedElementIds: [] },
+      { sessionId: 'b', activeElementIds: ['el_x'], touchedElementIds: [], plannedElementIds: [] },
+    ], true);
+    expect(map.get('el_x')).toBeDefined();
+  });
+
+  it('空の agents 配列で空マップを返す', () => {
+    const map = computeMultiAgentColorMap([], true);
+    expect(map.size).toBe(0);
+  });
+
+  it('touched は active より薄い色（同一エージェント内）', () => {
+    const map = computeMultiAgentColorMap([
+      { sessionId: 'a', activeElementIds: ['el_a'], touchedElementIds: ['el_b'], plannedElementIds: [] },
+    ], true);
+    const activeColor = map.get('el_a')!;
+    const touchedColor = map.get('el_b')!;
+    expect(activeColor).not.toBe(touchedColor);
   });
 });
