@@ -227,15 +227,19 @@ function AvgToolsSection({ data }: Readonly<{ data: BehaviorData }>) {
   const { cardSx } = useTrailTheme();
   const { t } = useTrailI18n();
   const rows = data.avgToolsPerTurn;
+  const allPeriods = [...new Set(rows.map(r => r.period))].sort();
+  const avgByPeriod = new Map(rows.map(r => [r.period, r.avg]));
+  const labels = allPeriods.map(p => p.length > 5 ? p.slice(5) : p);
+  const filledData = allPeriods.map(p => Math.round((avgByPeriod.get(p) ?? 0) * 100) / 100);
   return (
     <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
       <Typography variant="subtitle2" gutterBottom>{t('behavior.sections.avgTools')}</Typography>
-      {rows.length === 0 ? (
+      {allPeriods.length === 0 ? (
         <Typography variant="body2" color="text.secondary">—</Typography>
       ) : (
         <LineChart
-          xAxis={[{ scaleType: 'band', data: rows.map(r => r.period) }]}
-          series={[{ data: rows.map(r => Math.round(r.avg * 100) / 100), label: 'avg' }]}
+          xAxis={[{ scaleType: 'band', data: labels }]}
+          series={[{ data: filledData, label: 'avg' }]}
           height={200}
           margin={{ left: 40, right: 8, top: 8, bottom: 40 }}
         />
@@ -250,28 +254,46 @@ function SubagentSection({ data }: Readonly<{ data: BehaviorData }>) {
   const { cardSx } = useTrailTheme();
   const { t } = useTrailI18n();
   const rows = data.subagentRate;
-  const byTypeMap: Readonly<Record<string, number[]>> = {};
-  for (const r of rows) {
-    for (const [type, cnt] of Object.entries(r.byType)) {
-      if (!byTypeMap[type]) Object.assign(byTypeMap, { [type]: [] });
-      byTypeMap[type].push(cnt);
-    }
+  const allPeriods = [...new Set([
+    ...rows.map(r => r.period),
+    ...data.avgToolsPerTurn.map(a => a.period),
+  ])].sort();
+  const labels = allPeriods.map(p => p.length > 5 ? p.slice(5) : p);
+
+  // byType を全期間で 0 埋め
+  const rowByPeriod = new Map(rows.map(r => [r.period, r]));
+  const allTypes = [...new Set(rows.flatMap(r => Object.keys(r.byType)))];
+
+  if (allTypes.length > 0) {
+    const series = allTypes.map((type, i) => ({
+      data: allPeriods.map(p => rowByPeriod.get(p)?.byType[type] ?? 0),
+      label: type,
+      color: PALETTE[i % PALETTE.length],
+      stack: 'a',
+    }));
+    return (
+      <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+        <Typography variant="subtitle2" gutterBottom>{t('behavior.sections.subagent')}</Typography>
+        <BarChart
+          xAxis={[{ scaleType: 'band', data: labels }]}
+          series={series}
+          height={200}
+          margin={{ left: 40, right: 8, top: 8, bottom: 40 }}
+        />
+      </Paper>
+    );
   }
-  const series = Object.entries(byTypeMap).map(([label, vals], i) => ({
-    data: vals,
-    label,
-    color: PALETTE[i % PALETTE.length],
-    stack: 'a',
-  }));
+
+  const filledData = allPeriods.map(p => rowByPeriod.get(p)?.rate ?? 0);
   return (
     <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
       <Typography variant="subtitle2" gutterBottom>{t('behavior.sections.subagent')}</Typography>
-      {rows.length === 0 ? (
+      {allPeriods.length === 0 ? (
         <Typography variant="body2" color="text.secondary">—</Typography>
       ) : (
         <BarChart
-          xAxis={[{ scaleType: 'band', data: rows.map(r => r.period) }]}
-          series={series.length > 0 ? series : [{ data: rows.map(r => r.rate), label: 'rate' }]}
+          xAxis={[{ scaleType: 'band', data: labels }]}
+          series={[{ data: filledData, label: 'rate' }]}
           height={200}
           margin={{ left: 40, right: 8, top: 8, bottom: 40 }}
         />
