@@ -44,9 +44,13 @@ function ToolSequencesSection({ data }: Readonly<{ data: BehaviorData }>) {
   }
 
   // 複数期間があればスタック棒グラフ（横軸=期間）、単一期間ならランキング棒グラフ
-  const periods = [...new Set(rows.map(r => r.period))].sort();
+  // avgToolsPerTurn から全期間を取得し、ビグラムがない日も 0 埋めする
+  const allPeriods = [...new Set([
+    ...rows.map(r => r.period),
+    ...data.avgToolsPerTurn.map(a => a.period),
+  ])].sort();
   const sequences = [...new Set(rows.map(r => r.sequence))];
-  const hasMultiplePeriods = periods.length > 1;
+  const hasMultiplePeriods = allPeriods.length > 1;
 
   if (hasMultiplePeriods) {
     // 期間×シーケンスのマトリクスを構築
@@ -54,7 +58,7 @@ function ToolSequencesSection({ data }: Readonly<{ data: BehaviorData }>) {
     for (const r of rows) {
       countMap.set(`${r.period}::${r.sequence}`, r.count);
     }
-    const dataset = periods.map(p => {
+    const dataset = allPeriods.map(p => {
       const entry: Record<string, string | number> = { period: p.slice(5) };
       for (const seq of sequences) {
         entry[seq] = countMap.get(`${p}::${seq}`) ?? 0;
