@@ -452,13 +452,35 @@ export class SupabaseTrailReader implements ITrailReader {
       const cutoff = new Date(Date.now() - rangeDays * 86_400_000).toISOString();
       const { data, error } = await this.client
         .from('trail_message_tool_calls')
-        .select('session_id, turn_index, call_index, tool_name, file_path, skill_name, is_error, is_sidechain, timestamp')
+        .select('session_id, message_uuid, turn_index, call_index, tool_name, file_path, skill_name, is_error, is_sidechain, timestamp')
         .gte('timestamp', cutoff)
         .limit(100_000);
       if (error || !data) return null;
 
-      type Row = { session_id: string; turn_index: number; call_index: number; tool_name: string; file_path: string | null; skill_name: string | null; is_error: number; is_sidechain: number; timestamp: string };
+      type Row = { session_id: string; message_uuid: string; turn_index: number; call_index: number; tool_name: string; file_path: string | null; skill_name: string | null; is_error: number; is_sidechain: number; timestamp: string };
       const rows = data as Row[];
+
+      // メッセージごとのトークン数を取得（ツール呼び出し按分用）
+      const msgUuids = [...new Set(rows.map(r => r.message_uuid))];
+      const msgTokenMap = new Map<string, number>();
+      const msgToolCountMap = new Map<string, number>();
+      // message_uuid ごとのツール呼び出し数をカウント
+      for (const r of rows) {
+        msgToolCountMap.set(r.message_uuid, (msgToolCountMap.get(r.message_uuid) ?? 0) + 1);
+      }
+      // メッセージのトークン数をバッチ取得（1000件ずつ）
+      for (let i = 0; i < msgUuids.length; i += 1000) {
+        const batch = msgUuids.slice(i, i + 1000);
+        const { data: msgData } = await this.client
+          .from('trail_messages')
+          .select('uuid, input_tokens, output_tokens')
+          .in('uuid', batch);
+        if (msgData) {
+          for (const m of msgData as { uuid: string; input_tokens: number; output_tokens: number }[]) {
+            msgTokenMap.set(m.uuid, (m.input_tokens ?? 0) + (m.output_tokens ?? 0));
+          }
+        }
+      }
 
       // IANA タイムゾーンから UTC オフセット（分）を取得する。
       // getTimezoneOffset() は WSL 環境で常に 0 を返すため使用禁止。
@@ -592,16 +614,22 @@ export class SupabaseTrailReader implements ITrailReader {
         const parts = name.split('__');
         return parts.length >= 3 ? `${parts[0]}__${parts[1]}` : name;
       };
-      const toolCountMap = new Map<string, number>();
+      const toolCountMap = new Map<string, { count: number; tokens: number }>();
       for (const r of rows) {
         const p = periodKey(r);
         const k = `${p}::${normalizeTool(r.tool_name)}`;
-        toolCountMap.set(k, (toolCountMap.get(k) ?? 0) + 1);
+        const e = toolCountMap.get(k) ?? { count: 0, tokens: 0 };
+        e.count++;
+        // メッセージのトークンをそのメッセージ内のツール呼び出し数で按分
+        const msgTokens = msgTokenMap.get(r.message_uuid) ?? 0;
+        const msgTools = msgToolCountMap.get(r.message_uuid) ?? 1;
+        e.tokens += Math.round(msgTokens / msgTools);
+        toolCountMap.set(k, e);
       }
       const toolCounts = [...toolCountMap.entries()]
-        .map(([k, cnt]) => {
+        .map(([k, e]) => {
           const [p, tool] = k.split('::');
-          return { period: p, tool: tool ?? '', count: cnt };
+          return { period: p, tool: tool ?? '', count: e.count, tokens: e.tokens };
         })
         .sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
 

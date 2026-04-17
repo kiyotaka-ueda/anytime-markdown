@@ -104,9 +104,12 @@ function ToolSequencesSection({ data }: Readonly<{ data: BehaviorData }>) {
 
 // ─── Section: ①-b Tool Counts ─────────────────────────────────────────────────
 
+type ToolCountMetric = 'count' | 'tokens';
+
 function ToolCountsSection({ data }: Readonly<{ data: BehaviorData }>) {
   const { cardSx } = useTrailTheme();
   const { t } = useTrailI18n();
+  const [metric, setMetric] = useState<ToolCountMetric>('count');
   const rows = data.toolCounts ?? [];
   if (rows.length === 0) {
     return (
@@ -117,6 +120,7 @@ function ToolCountsSection({ data }: Readonly<{ data: BehaviorData }>) {
     );
   }
 
+  const valueKey = metric;
   const allPeriods = [...new Set([
     ...rows.map(r => r.period),
     ...data.avgToolsPerTurn.map(a => a.period),
@@ -124,21 +128,32 @@ function ToolCountsSection({ data }: Readonly<{ data: BehaviorData }>) {
   const tools = [...new Set(rows.map(r => r.tool))];
   const hasMultiplePeriods = allPeriods.length > 1;
 
+  const header = (
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+      <Typography variant="subtitle2">{t('behavior.sections.toolCounts')}</Typography>
+      <ToggleButtonGroup size="small" exclusive value={metric} onChange={(_, v: ToolCountMetric | null) => { if (v) setMetric(v); }}>
+        <ToggleButton value="count">{t('behavior.toolCounts.count')}</ToggleButton>
+        <ToggleButton value="tokens">{t('behavior.toolCounts.tokens')}</ToggleButton>
+      </ToggleButtonGroup>
+    </Box>
+  );
+
   if (hasMultiplePeriods) {
-    const countMap = new Map<string, number>();
+    const valMap = new Map<string, number>();
     for (const r of rows) {
-      countMap.set(`${r.period}::${r.tool}`, r.count);
+      const v = valueKey === 'tokens' ? (r.tokens ?? 0) : r.count;
+      valMap.set(`${r.period}::${r.tool}`, (valMap.get(`${r.period}::${r.tool}`) ?? 0) + v);
     }
     const dataset = allPeriods.map(p => {
       const entry: Record<string, string | number> = { period: p.slice(5) };
       for (let ti = 0; ti < tools.length; ti++) {
-        entry[`t${ti}`] = countMap.get(`${p}::${tools[ti]}`) ?? 0;
+        entry[`t${ti}`] = valMap.get(`${p}::${tools[ti]}`) ?? 0;
       }
       return entry;
     });
     return (
       <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
-        <Typography variant="subtitle2" gutterBottom>{t('behavior.sections.toolCounts')}</Typography>
+        {header}
         <BarChart
           dataset={dataset}
           xAxis={[{ scaleType: 'band', dataKey: 'period' }]}
@@ -155,14 +170,18 @@ function ToolCountsSection({ data }: Readonly<{ data: BehaviorData }>) {
     );
   }
 
-  const ranked = [...rows].sort((a, b) => b.count - a.count).slice(0, 10);
+  const ranked = [...rows].sort((a, b) => {
+    const va = valueKey === 'tokens' ? (a.tokens ?? 0) : a.count;
+    const vb = valueKey === 'tokens' ? (b.tokens ?? 0) : b.count;
+    return vb - va;
+  }).slice(0, 10);
   return (
     <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
-      <Typography variant="subtitle2" gutterBottom>{t('behavior.sections.toolCounts')}</Typography>
+      {header}
       <BarChart
-        dataset={ranked.map(r => ({ tool: r.tool, count: r.count }))}
+        dataset={ranked.map(r => ({ tool: r.tool, value: valueKey === 'tokens' ? (r.tokens ?? 0) : r.count }))}
         xAxis={[{ scaleType: 'band', dataKey: 'tool' }]}
-        series={[{ dataKey: 'count', label: 'count' }]}
+        series={[{ dataKey: 'value', label: metric === 'tokens' ? 'tokens' : 'count' }]}
         height={220}
         margin={{ left: 8, right: 8, top: 8, bottom: 60 }}
       />

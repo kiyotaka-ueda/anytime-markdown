@@ -206,7 +206,7 @@ export interface CostOptimizationData {
 
 interface BehaviorData {
   readonly toolSequences: readonly { period: string; sequence: string; count: number }[];
-  readonly toolCounts: readonly { period: string; tool: string; count: number }[];
+  readonly toolCounts: readonly { period: string; tool: string; count: number; tokens: number }[];
   readonly repeatOps: readonly { period: string; count: number }[];
   readonly avgToolsPerTurn: readonly { period: string; avg: number }[];
   readonly subagentRate: readonly { period: string; rate: number; byType: Readonly<Record<string, number>> }[];
@@ -2354,18 +2354,27 @@ export class TrailDatabase {
       count: Number(r['count'] ?? 0),
     }));
 
-    // ①-b toolCounts: 全ツール利用回数
+    // ①-b toolCounts: 全ツール利用回数 + トークン按分
     // MCP ツール名を正規化: mcp__github__xxx → mcp__github
+    // メッセージのトークン数をそのメッセージ内のツール呼び出し数で按分
     const tcResult = db.exec(
-      `SELECT ${periodExpr} AS period,
+      `WITH tool_with_tokens AS (
+         SELECT tc.session_id, tc.message_uuid, tc.tool_name, tc.timestamp,
+                COALESCE(m.input_tokens, 0) + COALESCE(m.output_tokens, 0) AS msg_tokens,
+                COUNT(*) OVER (PARTITION BY tc.message_uuid) AS tools_in_msg
+         FROM message_tool_calls tc
+         LEFT JOIN messages m ON m.uuid = tc.message_uuid
+         WHERE tc.timestamp >= datetime('now', '-${rangeDays} days')
+       )
+       SELECT ${periodExpr} AS period,
               CASE
                 WHEN tool_name LIKE 'mcp\\_\\_%\\_\\_%' ESCAPE '\\'
                 THEN SUBSTR(tool_name, 1, INSTR(SUBSTR(tool_name, 6), '__') + 4)
                 ELSE tool_name
               END AS tool,
-              COUNT(*) AS count
-       FROM message_tool_calls
-       WHERE timestamp >= datetime('now', '-${rangeDays} days')
+              COUNT(*) AS count,
+              CAST(SUM(ROUND(1.0 * msg_tokens / tools_in_msg)) AS INTEGER) AS tokens
+       FROM tool_with_tokens
        GROUP BY period, tool
        ORDER BY period, count DESC`,
     );
@@ -2373,6 +2382,7 @@ export class TrailDatabase {
       period: String(r['period'] ?? ''),
       tool: String(r['tool'] ?? ''),
       count: Number(r['count'] ?? 0),
+      tokens: Number(r['tokens'] ?? 0),
     }));
 
     return {

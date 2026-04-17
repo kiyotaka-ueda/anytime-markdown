@@ -93,6 +93,8 @@ export interface BehaviorToolCount {
   readonly period: string;
   readonly tool: string;
   readonly count: number;
+  /** メッセージのトークン数をツール呼び出し数で按分した推定値 */
+  readonly tokens: number;
 }
 
 export interface BehaviorPeriodCount {
