@@ -193,6 +193,7 @@ export interface TrailI18n {
   'behavior.period.session': string;
   'behavior.range.days': string;
   'behavior.sections.toolSequences': string;
+  'behavior.sections.toolCounts': string;
   'behavior.sections.repeatOps': string;
   'behavior.sections.avgTools': string;
   'behavior.sections.subagent': string;

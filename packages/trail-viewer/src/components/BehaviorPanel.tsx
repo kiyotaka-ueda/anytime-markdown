@@ -100,6 +100,74 @@ function ToolSequencesSection({ data }: Readonly<{ data: BehaviorData }>) {
   );
 }
 
+// ─── Section: ①-b Tool Counts ─────────────────────────────────────────────────
+
+function ToolCountsSection({ data }: Readonly<{ data: BehaviorData }>) {
+  const { cardSx } = useTrailTheme();
+  const { t } = useTrailI18n();
+  const rows = data.toolCounts;
+  if (rows.length === 0) {
+    return (
+      <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+        <Typography variant="subtitle2" gutterBottom>{t('behavior.sections.toolCounts')}</Typography>
+        <Typography variant="body2" color="text.secondary">—</Typography>
+      </Paper>
+    );
+  }
+
+  const allPeriods = [...new Set([
+    ...rows.map(r => r.period),
+    ...data.avgToolsPerTurn.map(a => a.period),
+  ])].sort();
+  const tools = [...new Set(rows.map(r => r.tool))];
+  const hasMultiplePeriods = allPeriods.length > 1;
+
+  if (hasMultiplePeriods) {
+    const countMap = new Map<string, number>();
+    for (const r of rows) {
+      countMap.set(`${r.period}::${r.tool}`, r.count);
+    }
+    const dataset = allPeriods.map(p => {
+      const entry: Record<string, string | number> = { period: p.slice(5) };
+      for (const tool of tools) {
+        entry[tool] = countMap.get(`${p}::${tool}`) ?? 0;
+      }
+      return entry;
+    });
+    return (
+      <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+        <Typography variant="subtitle2" gutterBottom>{t('behavior.sections.toolCounts')}</Typography>
+        <BarChart
+          dataset={dataset}
+          xAxis={[{ scaleType: 'band', dataKey: 'period' }]}
+          series={tools.map((tool, i) => ({
+            dataKey: tool,
+            label: tool,
+            stack: 'total',
+            color: PALETTE[i % PALETTE.length],
+          }))}
+          height={220}
+          margin={{ left: 8, right: 8, top: 8, bottom: 60 }}
+        />
+      </Paper>
+    );
+  }
+
+  const ranked = [...rows].sort((a, b) => b.count - a.count).slice(0, 10);
+  return (
+    <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+      <Typography variant="subtitle2" gutterBottom>{t('behavior.sections.toolCounts')}</Typography>
+      <BarChart
+        dataset={ranked.map(r => ({ tool: r.tool, count: r.count }))}
+        xAxis={[{ scaleType: 'band', dataKey: 'tool' }]}
+        series={[{ dataKey: 'count', label: 'count' }]}
+        height={220}
+        margin={{ left: 8, right: 8, top: 8, bottom: 60 }}
+      />
+    </Paper>
+  );
+}
+
 // ─── Section: ② Repeated Ops ─────────────────────────────────────────────────
 
 function RepeatOpsSection({ data }: Readonly<{ data: BehaviorData }>) {
@@ -347,7 +415,10 @@ export function BehaviorPanel({ fetchBehaviorData }: Readonly<BehaviorPanelProps
       )}
       {!loading && data && (
         <>
-          <ToolSequencesSection data={data} />
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+            <ToolSequencesSection data={data} />
+            <ToolCountsSection data={data} />
+          </Box>
           <RepeatOpsSection data={data} />
           <AvgToolsSection data={data} />
           <SubagentSection data={data} />
