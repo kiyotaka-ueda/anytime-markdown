@@ -206,6 +206,7 @@ export interface CostOptimizationData {
 
 interface BehaviorData {
   readonly toolSequences: readonly { period: string; sequence: string; count: number }[];
+  readonly toolCounts: readonly { period: string; tool: string; count: number }[];
   readonly repeatOps: readonly { period: string; count: number }[];
   readonly avgToolsPerTurn: readonly { period: string; avg: number }[];
   readonly subagentRate: readonly { period: string; rate: number; byType: Readonly<Record<string, number>> }[];
@@ -2321,25 +2322,31 @@ export class TrailDatabase {
       count: Number(r['count'] ?? 0),
     }));
 
-    // ① toolSequences: 2グラム（連続ツールペア）Top10
+    // ① toolSequences: 2グラム（連続ツールペア）Top5（全期間展開）
     // セッション内の全ツール呼び出しを時系列順に並べ、隣接ペアを集計する
+    // 全期間合計で上位5シーケンスを特定し、それらの全期間データを返す
     const seqResult = db.exec(
       `WITH numbered AS (
          SELECT session_id, tool_name, timestamp,
                 ROW_NUMBER() OVER (PARTITION BY session_id ORDER BY turn_index, call_index) AS rn
          FROM message_tool_calls
          WHERE timestamp >= datetime('now', '-${rangeDays} days')
+       ),
+       bigrams AS (
+         SELECT ${periodExpr.replace(/\btimestamp\b/g, 'a.timestamp')} AS period,
+                a.tool_name || '→' || b.tool_name AS sequence,
+                COUNT(*) AS count
+         FROM numbered a
+         JOIN numbered b
+           ON a.session_id = b.session_id
+          AND b.rn = a.rn + 1
+         GROUP BY period, sequence
+       ),
+       top5 AS (
+         SELECT sequence FROM bigrams GROUP BY sequence ORDER BY SUM(count) DESC LIMIT 5
        )
-       SELECT ${periodExpr.replace(/\btimestamp\b/g, 'a.timestamp')} AS period,
-              a.tool_name || '→' || b.tool_name AS sequence,
-              COUNT(*) AS count
-       FROM numbered a
-       JOIN numbered b
-         ON a.session_id = b.session_id
-        AND b.rn = a.rn + 1
-       GROUP BY period, sequence
-       ORDER BY count DESC
-       LIMIT 10`,
+       SELECT period, sequence, count FROM bigrams WHERE sequence IN (SELECT sequence FROM top5)
+       ORDER BY period, count DESC`,
     );
     const toolSequences = toRows(seqResult).map(r => ({
       period: String(r['period'] ?? ''),
@@ -2347,8 +2354,29 @@ export class TrailDatabase {
       count: Number(r['count'] ?? 0),
     }));
 
+    // ①-b toolCounts: 単独ツール利用回数（Top5、全期間展開）
+    const tcResult = db.exec(
+      `WITH counts AS (
+         SELECT ${periodExpr} AS period, tool_name AS tool, COUNT(*) AS count
+         FROM message_tool_calls
+         WHERE timestamp >= datetime('now', '-${rangeDays} days')
+         GROUP BY period, tool
+       ),
+       top5 AS (
+         SELECT tool FROM counts GROUP BY tool ORDER BY SUM(count) DESC LIMIT 5
+       )
+       SELECT period, tool, count FROM counts WHERE tool IN (SELECT tool FROM top5)
+       ORDER BY period, count DESC`,
+    );
+    const toolCounts = toRows(tcResult).map(r => ({
+      period: String(r['period'] ?? ''),
+      tool: String(r['tool'] ?? ''),
+      count: Number(r['count'] ?? 0),
+    }));
+
     return {
       toolSequences,
+      toolCounts,
       repeatOps,
       avgToolsPerTurn,
       subagentRate,
