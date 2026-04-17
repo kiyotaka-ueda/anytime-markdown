@@ -21,6 +21,20 @@ export interface ClaudeStatus {
   readonly sessionEdits?: readonly SessionEdit[];
   /** プランファイルから抽出した計画対象ファイルの絶対パス配列 */
   readonly plannedEdits?: readonly string[];
+  /** 現在の git ブランチ名 */
+  readonly branch?: string;
+}
+
+/** マルチエージェント監視で使用するエージェント情報 */
+export interface AgentInfo {
+  readonly sessionId: string;
+  readonly editing: boolean;
+  readonly file: string;
+  readonly timestamp: string;
+  readonly branch: string;
+  readonly sessionEdits: readonly SessionEdit[];
+  readonly plannedEdits: readonly string[];
 }
 
 export type StatusChangeCallback = (editing: boolean, filePath: string) => void;
+export type MultiStatusChangeCallback = (agents: ReadonlyMap<string, AgentInfo>) => void;
