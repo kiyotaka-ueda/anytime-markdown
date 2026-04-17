@@ -81,6 +81,11 @@ export interface SkillUsageEntry {
   readonly durationMs: number;
 }
 
+export interface ErrorEntry {
+  readonly tool: string;
+  readonly count: number;
+}
+
 export interface ToolMetrics {
   readonly totalRetries: number;
   readonly totalEdits: number;
@@ -92,6 +97,8 @@ export interface ToolMetrics {
   readonly toolUsage?: readonly ToolUsageEntry[];
   /** セッション内のスキル別利用統計 */
   readonly skillUsage?: readonly SkillUsageEntry[];
+  /** セッション内のツール別エラー回数 */
+  readonly errorsByTool?: readonly ErrorEntry[];
 }
 
 export interface TrailTreeNode {

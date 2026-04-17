@@ -324,9 +324,9 @@ export class SupabaseTrailReader implements ITrailReader {
     };
     const { data: tcData } = await this.client
       .from('trail_message_tool_calls')
-      .select('message_uuid, turn_index, tool_name, skill_name, turn_exec_ms')
+      .select('message_uuid, turn_index, tool_name, skill_name, is_error, turn_exec_ms')
       .eq('session_id', sessionId);
-    const tcRows = (tcData ?? []) as { message_uuid: string; turn_index: number; tool_name: string; skill_name: string | null; turn_exec_ms: number | null }[];
+    const tcRows = (tcData ?? []) as { message_uuid: string; turn_index: number; tool_name: string; skill_name: string | null; is_error: number; turn_exec_ms: number | null }[];
 
     // メッセージのトークン数を取得
     const msgUuids = [...new Set(tcRows.map(r => r.message_uuid))];
@@ -389,7 +389,18 @@ export class SupabaseTrailReader implements ITrailReader {
       .sort(([, a], [, b]) => b.count - a.count)
       .map(([skill, e]) => ({ skill, ...e }));
 
-    return { totalRetries, totalEdits, totalBuildRuns, totalBuildFails, totalTestRuns, totalTestFails, toolUsage, skillUsage };
+    // ツール別エラー回数（MCP 正規化）
+    const errorAgg = new Map<string, number>();
+    for (const r of tcRows) {
+      if (!r.is_error) continue;
+      const tool = normalizeTool(r.tool_name);
+      errorAgg.set(tool, (errorAgg.get(tool) ?? 0) + 1);
+    }
+    const errorsByTool = [...errorAgg.entries()]
+      .sort(([, a], [, b]) => b - a)
+      .map(([tool, count]) => ({ tool, count }));
+
+    return { totalRetries, totalEdits, totalBuildRuns, totalBuildFails, totalTestRuns, totalTestFails, toolUsage, skillUsage, errorsByTool };
   }
 
   async searchMessages(query: string): Promise<readonly { sessionId: string; uuid: string; snippet: string }[]> {

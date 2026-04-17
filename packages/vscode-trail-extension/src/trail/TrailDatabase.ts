@@ -2173,12 +2173,38 @@ export class TrailDatabase {
         }
       }
 
+      // ツール別エラー回数（MCP 正規化）
+      let errorsByTool: { tool: string; count: number }[] | undefined;
+      if (sessionId) {
+        const erResult = db.exec(
+          `SELECT CASE
+                    WHEN tool_name LIKE 'mcp\\_\\_%\\_\\_%' ESCAPE '\\'
+                    THEN SUBSTR(tool_name, 1, INSTR(SUBSTR(tool_name, 6), '__') + 4)
+                    ELSE tool_name
+                  END AS tool,
+                  COUNT(*) AS count
+           FROM message_tool_calls
+           WHERE session_id = ? AND is_error = 1
+           GROUP BY tool
+           ORDER BY count DESC`,
+          [sessionId],
+        );
+        if (erResult[0]) {
+          const cols = erResult[0].columns;
+          errorsByTool = erResult[0].values.map(row => {
+            const r = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
+            return { tool: String(r['tool'] ?? ''), count: Number(r['count'] ?? 0) };
+          });
+        }
+      }
+
       return {
         totalRetries, totalEdits,
         totalBuildRuns, totalBuildFails,
         totalTestRuns, totalTestFails,
         toolUsage,
         skillUsage,
+        errorsByTool,
       };
     } catch {
       return zero;

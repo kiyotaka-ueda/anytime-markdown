@@ -667,6 +667,38 @@ function SessionSkillUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
   );
 }
 
+function SessionErrorChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics | null }>) {
+  const { cardSx } = useTrailTheme();
+  const { t } = useTrailI18n();
+  const errors = toolMetrics?.errorsByTool;
+  if (!errors || errors.length === 0) return null;
+
+  const sorted = [...errors].sort((a, b) => b.count - a.count);
+  const entry: Record<string, string | number> = { metric: 'errors' };
+  for (let i = 0; i < sorted.length; i++) {
+    entry[`e${i}`] = sorted[i].count;
+  }
+
+  return (
+    <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+      <Typography variant="subtitle2" sx={{ mb: 1 }}>{t('behavior.sections.errors')}</Typography>
+      <BarChart
+        dataset={[entry]}
+        layout="horizontal"
+        yAxis={[{ scaleType: 'band', dataKey: 'metric' }]}
+        series={sorted.map((e, i) => ({
+          dataKey: `e${i}`,
+          label: e.tool,
+          stack: 'total',
+          color: TOOL_COLORS[i % TOOL_COLORS.length],
+        }))}
+        height={100}
+        margin={{ left: 60, right: 16, top: 8, bottom: 24 }}
+      />
+    </Paper>
+  );
+}
+
 function DailySessionList({
   date,
   sessions,
@@ -824,6 +856,7 @@ function DailySessionList({
             />
             <SessionToolUsageChart toolMetrics={sessionToolMetrics} />
             <SessionSkillUsageChart toolMetrics={sessionToolMetrics} />
+            <SessionErrorChart toolMetrics={sessionToolMetrics} />
             {timelineLoading ? (
               <Paper elevation={0} sx={{ ...cardSx, mt: 1, p: 1.5, height: 270, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Typography variant="body2" color="text.secondary">{t('sessionList.loadingTimeline')}</Typography>
