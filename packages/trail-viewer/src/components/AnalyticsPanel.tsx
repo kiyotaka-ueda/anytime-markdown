@@ -1118,7 +1118,7 @@ function ModelTable({ items }: Readonly<{ items: AnalyticsData['modelBreakdown']
 
 // ─── Behavior charts in Analytics ───────────────────────────────────────────
 
-type BehaviorMetric = 'count' | 'tokens' | 'duration';
+type BehaviorMetric = 'count' | 'tokens';
 
 function BehaviorChartsSection({ fetchBehaviorData, periodDays }: Readonly<{
   fetchBehaviorData: (period: BehaviorPeriodMode, rangeDays: BehaviorRangeDays) => Promise<BehaviorData>;
@@ -1167,10 +1167,8 @@ function BehaviorChartsSection({ fetchBehaviorData, periodDays }: Readonly<{
   const toolDataset = useMemo(() => {
     if (!axisInfo) return [];
     const { toolRows, allPeriods, labels, tools } = axisInfo;
-    const getValue = (r: { count: number; tokens?: number; durationMs?: number }): number =>
-      metric === 'tokens' ? (r.tokens ?? 0)
-      : metric === 'duration' ? Math.round((r.durationMs ?? 0) / 1000)
-      : r.count;
+    const getValue = (r: { count: number; tokens?: number }): number =>
+      metric === 'tokens' ? (r.tokens ?? 0) : r.count;
     const valMap = new Map<string, number>();
     for (const r of toolRows) {
       const key = `${r.period}::${r.tool}`;
@@ -1224,7 +1222,6 @@ function BehaviorChartsSection({ fetchBehaviorData, periodDays }: Readonly<{
         <ToggleButtonGroup size="small" exclusive value={metric} onChange={(_, v: BehaviorMetric | null) => { if (v) setMetric(v); }}>
           <ToggleButton value="count">{t('behavior.toolCounts.count')}</ToggleButton>
           <ToggleButton value="tokens">{t('behavior.toolCounts.tokens')}</ToggleButton>
-          <ToggleButton value="duration">{t('behavior.toolCounts.duration')}</ToggleButton>
         </ToggleButtonGroup>
       </Box>
       {toolRows.length > 0 && (
