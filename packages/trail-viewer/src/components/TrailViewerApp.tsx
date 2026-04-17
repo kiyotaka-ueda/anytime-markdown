@@ -153,6 +153,7 @@ export function TrailViewerApp({
     onDocLinkClick: handleDocLinkClick,
     serverUrl,
     claudeActivity: c4.claudeActivity,
+    multiAgentActivity: c4.multiAgentActivity,
     onResetClaudeActivity: () => sendCommand('reset-claude-activity'),
   };
 

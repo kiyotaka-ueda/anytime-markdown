@@ -37,6 +37,7 @@ interface C4DataSourceResult {
   connected: boolean;
   analysisProgress: AnalysisProgress | null;
   claudeActivity: ClaudeActivityState | null;
+  multiAgentActivity: MultiAgentActivityState | null;
   sendCommand: (cmd: string, payload?: unknown) => void;
   releases: readonly C4ReleaseEntry[];
   selectedRelease: string;
@@ -173,6 +174,20 @@ export interface ClaudeActivityState {
   readonly plannedElementIds: readonly string[];
 }
 
+export interface AgentActivityEntry {
+  readonly sessionId: string;
+  readonly label: string;
+  readonly branch: string;
+  readonly currentFile: string;
+  readonly activeElementIds: readonly string[];
+  readonly touchedElementIds: readonly string[];
+  readonly plannedElementIds: readonly string[];
+}
+
+export interface MultiAgentActivityState {
+  readonly agents: readonly AgentActivityEntry[];
+}
+
 interface WsClaudeActivityMessage {
   type: 'claude-activity-updated';
   activeElementIds: string[];
@@ -189,6 +204,17 @@ function isWsClaudeActivityMessage(v: unknown): v is WsClaudeActivityMessage {
     Array.isArray(obj.touchedElementIds) &&
     Array.isArray(obj.plannedElementIds)
   );
+}
+
+interface WsMultiAgentMessage {
+  type: 'multi-agent-activity-updated';
+  agents: AgentActivityEntry[];
+}
+
+function isWsMultiAgentMessage(v: unknown): v is WsMultiAgentMessage {
+  if (typeof v !== 'object' || v === null) return false;
+  const obj = v as Record<string, unknown>;
+  return obj.type === 'multi-agent-activity-updated' && Array.isArray(obj.agents);
 }
 
 // ---------------------------------------------------------------------------
@@ -360,6 +386,7 @@ export function useC4DataSource(serverUrl: string): C4DataSourceResult {
   const [connected, setConnected] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null);
   const [claudeActivity, setClaudeActivity] = useState<ClaudeActivityState | null>(null);
+  const [multiAgentActivity, setMultiAgentActivity] = useState<MultiAgentActivityState | null>(null);
   const [releases, setReleases] = useState<readonly C4ReleaseEntry[]>([]);
   const [selectedRelease, setSelectedRelease] = useState<string>('current');
   const [selectedRepo, setSelectedRepo] = useState<string>('');
@@ -414,6 +441,8 @@ export function useC4DataSource(serverUrl: string): C4DataSourceResult {
           touchedElementIds: parsed.touchedElementIds,
           plannedElementIds: parsed.plannedElementIds,
         });
+      } else if (isWsMultiAgentMessage(parsed)) {
+        setMultiAgentActivity({ agents: parsed.agents });
       }
     } catch {
       // Malformed message — ignore
@@ -500,6 +529,7 @@ export function useC4DataSource(serverUrl: string): C4DataSourceResult {
     connected,
     analysisProgress,
     claudeActivity,
+    multiAgentActivity,
     sendCommand,
     releases,
     selectedRelease,

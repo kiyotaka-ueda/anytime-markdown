@@ -41,7 +41,7 @@ import { FcMapCanvas } from './FcMapCanvas';
 import { FlowchartCanvas } from './FlowchartCanvas';
 import { GraphCanvas } from './GraphCanvas';
 import { OverlayLegend } from './OverlayLegend';
-import { computeClaudeActivityColorMap } from '../claudeActivityColorMap';
+import { computeClaudeActivityColorMap, computeMultiAgentColorMap } from '../claudeActivityColorMap';
 
 const { graphReducer, createInitialState } = graphState;
 const { fitToContent } = engine;
@@ -87,6 +87,7 @@ export interface C4ViewerCoreProps {
   readonly onRepoSelect?: (repo: string) => void;
   readonly serverUrl?: string;
   readonly claudeActivity?: import('../hooks/useC4DataSource').ClaudeActivityState | null;
+  readonly multiAgentActivity?: import('../hooks/useC4DataSource').MultiAgentActivityState | null;
   readonly onResetClaudeActivity?: () => void;
 }
 
@@ -118,6 +119,7 @@ export function C4ViewerCore({
   onRepoSelect,
   serverUrl = '',
   claudeActivity,
+  multiAgentActivity,
   onResetClaudeActivity,
 }: Readonly<C4ViewerCoreProps>) {
   const { t } = useTrailI18n();
@@ -603,6 +605,28 @@ export function C4ViewerCore({
   );
 
   const claudeActivityMap = useMemo(() => {
+    // マルチエージェントモード
+    if (multiAgentActivity && multiAgentActivity.agents.length > 0) {
+      const agentsForLevel = multiAgentActivity.agents.map((agent) => {
+        if (!c4Model) return agent;
+        const targetType = currentLevel === 1 ? 'system'
+          : currentLevel === 2 ? 'container'
+          : currentLevel === 3 ? 'component'
+          : 'code';
+        const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
+        return {
+          ...agent,
+          activeElementIds: agent.activeElementIds.filter((id) => typeById.get(id) === targetType),
+          touchedElementIds: agent.touchedElementIds.filter((id) => typeById.get(id) === targetType),
+          plannedElementIds: agent.plannedElementIds.filter((id) => typeById.get(id) === targetType),
+        };
+      });
+      const hasAny = agentsForLevel.some((a) =>
+        a.activeElementIds.length > 0 || a.touchedElementIds.length > 0 || a.plannedElementIds.length > 0);
+      if (!hasAny) return null;
+      return computeMultiAgentColorMap(agentsForLevel, isDark);
+    }
+    // 単一エージェントモード（後方互換）
     if (!claudeActivity) return null;
     const { activeElementIds, touchedElementIds, plannedElementIds } = claudeActivity;
     if (activeElementIds.length === 0 && touchedElementIds.length === 0 && plannedElementIds.length === 0) return null;
@@ -619,7 +643,7 @@ export function C4ViewerCore({
       return computeClaudeActivityColorMap(filteredActive, filteredTouched, filteredPlanned, isDark);
     }
     return computeClaudeActivityColorMap(activeElementIds, touchedElementIds, plannedElementIds, isDark);
-  }, [claudeActivity, c4Model, currentLevel, isDark]);
+  }, [multiAgentActivity, claudeActivity, c4Model, currentLevel, isDark]);
 
   const dsmMax = useMemo(() => {
     if ((metricOverlay !== 'dsm-out' && metricOverlay !== 'dsm-in') || !filteredDsmMatrix) return undefined;
@@ -895,11 +919,16 @@ export function C4ViewerCore({
             )}
           </>
         )}
-        {claudeActivity && (
+        {multiAgentActivity && multiAgentActivity.agents.length > 1 && (
+          <Typography variant="caption" sx={{ ml: 1, opacity: 0.7 }}>
+            {multiAgentActivity.agents.length} {t('c4.multiAgent.badge')}
+          </Typography>
+        )}
+        {((claudeActivity && (
           claudeActivity.activeElementIds.length > 0 ||
           claudeActivity.touchedElementIds.length > 0 ||
           claudeActivity.plannedElementIds.length > 0
-        ) && (
+        )) || (multiAgentActivity && multiAgentActivity.agents.length > 0)) && (
           <Button
             size="small"
             variant="outlined"
