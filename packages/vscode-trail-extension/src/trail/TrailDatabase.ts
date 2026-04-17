@@ -473,6 +473,23 @@ export class TrailDatabase {
     }
 
     this.migrateTimestampsToUTC(db);
+    this.migrateToolUseResult(db);
+  }
+
+  /**
+   * tool_use_result の保存形式修正に伴い、既存データを再インポートする。
+   * message_tool_calls を全削除し、sessions の file_size を 0 にリセットして
+   * 次回 importAll で全セッションが再インポート＋再解析されるようにする。
+   */
+  private migrateToolUseResult(db: Database): void {
+    db.run('CREATE TABLE IF NOT EXISTS _migrations (key TEXT PRIMARY KEY)');
+    const done = db.exec("SELECT 1 FROM _migrations WHERE key = 'tool_use_result_fix'");
+    if (done[0]?.values?.length) return;
+
+    TrailLogger.info('[Migration] tool_use_result_fix: clearing message_tool_calls and resetting file sizes for full re-import');
+    db.run('DELETE FROM message_tool_calls');
+    db.run('UPDATE sessions SET file_size = 0');
+    db.run("INSERT INTO _migrations (key) VALUES ('tool_use_result_fix')");
   }
 
   /**
