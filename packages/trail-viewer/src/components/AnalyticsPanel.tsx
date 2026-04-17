@@ -583,7 +583,7 @@ function SessionModelUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
   const usage = toolMetrics?.modelUsage;
   if (!usage || usage.length === 0) {
     return (
-      <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+      <Paper elevation={0} sx={{ ...cardSx, pt: 2, pr: 2, pb: 0, pl: 2 }}>
         <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{t('behavior.sections.models')}</Typography>
         <Typography variant="body2" color="text.secondary">0</Typography>
       </Paper>
@@ -603,8 +603,8 @@ function SessionModelUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
   }
 
   return (
-    <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+    <Paper elevation={0} sx={{ ...cardSx, pt: 2, pr: 2, pb: 0, pl: 0 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, px: 2 }}>
         <Typography variant="subtitle2">{t('behavior.sections.models')}</Typography>
         <ToggleButtonGroup size="small" exclusive value={metric} onChange={(_, v: SessionToolMetric | null) => { if (v) setMetric(v); }}>
           <ToggleButton value="count">{t('behavior.toolCounts.count')}</ToggleButton>
@@ -615,7 +615,7 @@ function SessionModelUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
       <BarChart
         dataset={[entry]}
         layout="horizontal"
-        yAxis={[{ scaleType: 'band', dataKey: 'metric' }]}
+        yAxis={[{ scaleType: 'band', dataKey: 'metric', categoryGapRatio: 0.6 }]}
         series={sorted.map((e, i) => ({
           dataKey: `m${i}`,
           label: e.model,
@@ -623,7 +623,7 @@ function SessionModelUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
           color: TOOL_COLORS[i % TOOL_COLORS.length],
         }))}
         height={100}
-        margin={{ left: 60, right: 16, top: 8, bottom: 24 }}
+        margin={{ left: 16, right: 16, top: 8, bottom: 16 }}
       />
     </Paper>
   );
@@ -636,7 +636,7 @@ function SessionToolUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetr
   const usage = toolMetrics?.toolUsage;
   if (!usage || usage.length === 0) {
     return (
-      <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+      <Paper elevation={0} sx={{ ...cardSx, pt: 2, pr: 2, pb: 0, pl: 2 }}>
         <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{t('analytics.toolUsageTitle')}</Typography>
         <Typography variant="body2" color="text.secondary">0</Typography>
       </Paper>
@@ -657,8 +657,8 @@ function SessionToolUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetr
   }
 
   return (
-    <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+    <Paper elevation={0} sx={{ ...cardSx, pt: 2, pr: 2, pb: 0, pl: 0 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, px: 2 }}>
         <Typography variant="subtitle2">{t('analytics.toolUsageTitle')}</Typography>
         <ToggleButtonGroup size="small" exclusive value={metric} onChange={(_, v: SessionToolMetric | null) => { if (v) setMetric(v); }}>
           <ToggleButton value="count">{t('behavior.toolCounts.count')}</ToggleButton>
@@ -669,7 +669,7 @@ function SessionToolUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetr
       <BarChart
         dataset={[entry]}
         layout="horizontal"
-        yAxis={[{ scaleType: 'band', dataKey: 'metric' }]}
+        yAxis={[{ scaleType: 'band', dataKey: 'metric', categoryGapRatio: 0.6 }]}
         series={sorted.map((e, i) => ({
           dataKey: `t${i}`,
           label: e.tool,
@@ -677,7 +677,7 @@ function SessionToolUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetr
           color: TOOL_COLORS[i % TOOL_COLORS.length],
         }))}
         height={100}
-        margin={{ left: 60, right: 16, top: 8, bottom: 24 }}
+        margin={{ left: 16, right: 16, top: 8, bottom: 16 }}
       />
     </Paper>
   );
@@ -690,7 +690,7 @@ function SessionSkillUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
   const usage = toolMetrics?.skillUsage;
   if (!usage || usage.length === 0) {
     return (
-      <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+      <Paper elevation={0} sx={{ ...cardSx, pt: 2, pr: 2, pb: 0, pl: 2 }}>
         <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{t('behavior.sections.skills')}</Typography>
         <Typography variant="body2" color="text.secondary">0</Typography>
       </Paper>
@@ -710,8 +710,8 @@ function SessionSkillUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
   }
 
   return (
-    <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+    <Paper elevation={0} sx={{ ...cardSx, pt: 2, pr: 2, pb: 0, pl: 0 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, px: 2 }}>
         <Typography variant="subtitle2">{t('behavior.sections.skills')}</Typography>
         <ToggleButtonGroup size="small" exclusive value={metric} onChange={(_, v: SessionToolMetric | null) => { if (v) setMetric(v); }}>
           <ToggleButton value="count">{t('behavior.toolCounts.count')}</ToggleButton>
@@ -722,7 +722,8 @@ function SessionSkillUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
       <BarChart
         dataset={[entry]}
         layout="horizontal"
-        yAxis={[{ scaleType: 'band', dataKey: 'metric' }]}
+        yAxis={[{ scaleType: 'band', dataKey: 'metric', categoryGapRatio: 0.6 }]}
+        xAxis={[{ tickMinStep: 1 }]}
         series={sorted.map((e, i) => ({
           dataKey: `s${i}`,
           label: e.skill,
@@ -730,7 +731,7 @@ function SessionSkillUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
           color: TOOL_COLORS[i % TOOL_COLORS.length],
         }))}
         height={100}
-        margin={{ left: 60, right: 16, top: 8, bottom: 24 }}
+        margin={{ left: 16, right: 16, top: 8, bottom: 16 }}
       />
     </Paper>
   );
@@ -742,7 +743,7 @@ function SessionErrorChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics 
   const errors = toolMetrics?.errorsByTool;
   if (!errors || errors.length === 0) {
     return (
-      <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+      <Paper elevation={0} sx={{ ...cardSx, pt: 2, pr: 2, pb: 0, pl: 2 }}>
         <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{t('behavior.sections.errors')}</Typography>
         <Typography variant="body2" color="text.secondary">0</Typography>
       </Paper>
@@ -756,12 +757,13 @@ function SessionErrorChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics 
   }
 
   return (
-    <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
-      <Typography variant="subtitle2" sx={{ mb: 1 }}>{t('behavior.sections.errors')}</Typography>
+    <Paper elevation={0} sx={{ ...cardSx, pt: 2, pr: 2, pb: 0, pl: 0 }}>
+      <Typography variant="subtitle2" sx={{ mb: 1, px: 2 }}>{t('behavior.sections.errors')}</Typography>
       <BarChart
         dataset={[entry]}
         layout="horizontal"
-        yAxis={[{ scaleType: 'band', dataKey: 'metric' }]}
+        yAxis={[{ scaleType: 'band', dataKey: 'metric', categoryGapRatio: 0.6 }]}
+        xAxis={[{ tickMinStep: 1 }]}
         series={sorted.map((e, i) => ({
           dataKey: `e${i}`,
           label: e.tool,
@@ -769,7 +771,7 @@ function SessionErrorChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics 
           color: TOOL_COLORS[i % TOOL_COLORS.length],
         }))}
         height={100}
-        margin={{ left: 60, right: 16, top: 8, bottom: 24 }}
+        margin={{ left: 16, right: 16, top: 8, bottom: 16 }}
       />
     </Paper>
   );
