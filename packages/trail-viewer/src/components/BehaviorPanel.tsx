@@ -196,15 +196,23 @@ function RepeatOpsSection({ data }: Readonly<{ data: BehaviorData }>) {
   const { cardSx } = useTrailTheme();
   const { t } = useTrailI18n();
   const rows = data.repeatOps;
+  // avgToolsPerTurn の全期間で 0 埋め（Tool Usage と横軸を合わせる）
+  const allPeriods = [...new Set([
+    ...rows.map(r => r.period),
+    ...data.avgToolsPerTurn.map(a => a.period),
+  ])].sort();
+  const countByPeriod = new Map(rows.map(r => [r.period, r.count]));
+  const filledData = allPeriods.map(p => countByPeriod.get(p) ?? 0);
+  const labels = allPeriods.map(p => p.length > 5 ? p.slice(5) : p);
   return (
     <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
       <Typography variant="subtitle2" gutterBottom>{t('behavior.sections.repeatOps')}</Typography>
-      {rows.length === 0 ? (
+      {allPeriods.length === 0 ? (
         <Typography variant="body2" color="text.secondary">—</Typography>
       ) : (
         <LineChart
-          xAxis={[{ scaleType: 'band', data: rows.map(r => r.period) }]}
-          series={[{ data: rows.map(r => r.count), label: 'count' }]}
+          xAxis={[{ scaleType: 'band', data: labels }]}
+          series={[{ data: filledData, label: 'count' }]}
           height={200}
           margin={{ left: 40, right: 8, top: 8, bottom: 40 }}
         />
