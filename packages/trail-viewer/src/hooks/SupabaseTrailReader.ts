@@ -324,9 +324,9 @@ export class SupabaseTrailReader implements ITrailReader {
     };
     const { data: tcData } = await this.client
       .from('trail_message_tool_calls')
-      .select('message_uuid, turn_index, tool_name, turn_exec_ms')
+      .select('message_uuid, turn_index, tool_name, skill_name, turn_exec_ms')
       .eq('session_id', sessionId);
-    const tcRows = (tcData ?? []) as { message_uuid: string; turn_index: number; tool_name: string; turn_exec_ms: number | null }[];
+    const tcRows = (tcData ?? []) as { message_uuid: string; turn_index: number; tool_name: string; skill_name: string | null; turn_exec_ms: number | null }[];
 
     // メッセージのトークン数を取得
     const msgUuids = [...new Set(tcRows.map(r => r.message_uuid))];
@@ -370,7 +370,26 @@ export class SupabaseTrailReader implements ITrailReader {
       .sort(([, a], [, b]) => b.count - a.count)
       .map(([tool, e]) => ({ tool, ...e }));
 
-    return { totalRetries, totalEdits, totalBuildRuns, totalBuildFails, totalTestRuns, totalTestFails, toolUsage };
+    // スキル別利用統計
+    const skillAgg = new Map<string, { count: number; tokens: number; durationMs: number }>();
+    for (const r of tcRows) {
+      if (!r.skill_name) continue;
+      const skill = r.skill_name;
+      const e = skillAgg.get(skill) ?? { count: 0, tokens: 0, durationMs: 0 };
+      e.count++;
+      const mTokens = msgTokenMap.get(r.message_uuid) ?? 0;
+      const mTools = msgToolCount.get(r.message_uuid) ?? 1;
+      e.tokens += Math.round(mTokens / mTools);
+      const tk = `${sessionId}:${r.turn_index}`;
+      const tTools = turnToolCount.get(tk) ?? 1;
+      e.durationMs += Math.round((r.turn_exec_ms ?? 0) / tTools);
+      skillAgg.set(skill, e);
+    }
+    const skillUsage = [...skillAgg.entries()]
+      .sort(([, a], [, b]) => b.count - a.count)
+      .map(([skill, e]) => ({ skill, ...e }));
+
+    return { totalRetries, totalEdits, totalBuildRuns, totalBuildFails, totalTestRuns, totalTestFails, toolUsage, skillUsage };
   }
 
   async searchMessages(query: string): Promise<readonly { sessionId: string; uuid: string; snippet: string }[]> {

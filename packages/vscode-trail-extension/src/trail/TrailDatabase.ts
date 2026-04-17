@@ -2136,11 +2136,49 @@ export class TrailDatabase {
         }
       }
 
+      // スキル別利用統計
+      let skillUsage: { skill: string; count: number; tokens: number; durationMs: number }[] | undefined;
+      if (sessionId) {
+        const skResult = db.exec(
+          `WITH skill_with_metrics AS (
+             SELECT tc.message_uuid, tc.turn_index, tc.skill_name,
+                    COALESCE(m.input_tokens, 0) + COALESCE(m.output_tokens, 0) AS msg_tokens,
+                    COUNT(*) OVER (PARTITION BY tc.message_uuid) AS tools_in_msg,
+                    COALESCE(tc.turn_exec_ms, 0) AS turn_exec_ms,
+                    COUNT(*) OVER (PARTITION BY tc.session_id, tc.turn_index) AS tools_in_turn
+             FROM message_tool_calls tc
+             LEFT JOIN messages m ON m.uuid = tc.message_uuid
+             WHERE tc.session_id = ? AND tc.skill_name IS NOT NULL
+           )
+           SELECT skill_name AS skill,
+                  COUNT(*) AS count,
+                  CAST(SUM(ROUND(1.0 * msg_tokens / tools_in_msg)) AS INTEGER) AS tokens,
+                  CAST(SUM(ROUND(1.0 * turn_exec_ms / tools_in_turn)) AS INTEGER) AS duration_ms
+           FROM skill_with_metrics
+           GROUP BY skill
+           ORDER BY count DESC`,
+          [sessionId],
+        );
+        if (skResult[0]) {
+          const cols = skResult[0].columns;
+          skillUsage = skResult[0].values.map(row => {
+            const r = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
+            return {
+              skill: String(r['skill'] ?? ''),
+              count: Number(r['count'] ?? 0),
+              tokens: Number(r['tokens'] ?? 0),
+              durationMs: Number(r['duration_ms'] ?? 0),
+            };
+          });
+        }
+      }
+
       return {
         totalRetries, totalEdits,
         totalBuildRuns, totalBuildFails,
         totalTestRuns, totalTestFails,
         toolUsage,
+        skillUsage,
       };
     } catch {
       return zero;
