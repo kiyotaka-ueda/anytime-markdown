@@ -184,8 +184,16 @@ export interface AgentActivityEntry {
   readonly plannedElementIds: readonly string[];
 }
 
+export interface FileConflict {
+  readonly file: string;
+  readonly elementIds: readonly string[];
+  readonly agentSessionIds: readonly string[];
+  readonly isActiveConflict: boolean;
+}
+
 export interface MultiAgentActivityState {
   readonly agents: readonly AgentActivityEntry[];
+  readonly conflicts: readonly FileConflict[];
 }
 
 interface WsClaudeActivityMessage {
@@ -442,7 +450,10 @@ export function useC4DataSource(serverUrl: string): C4DataSourceResult {
           plannedElementIds: parsed.plannedElementIds,
         });
       } else if (isWsMultiAgentMessage(parsed)) {
-        setMultiAgentActivity({ agents: parsed.agents });
+        setMultiAgentActivity({
+          agents: parsed.agents,
+          conflicts: Array.isArray(parsed.conflicts) ? parsed.conflicts : [],
+        });
       }
     } catch {
       // Malformed message — ignore
