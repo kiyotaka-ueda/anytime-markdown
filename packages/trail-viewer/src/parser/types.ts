@@ -115,8 +115,8 @@ export interface BehaviorData {
   readonly skillStats: readonly BehaviorSkill[];
 }
 
-export type BehaviorPeriodMode = 'day' | 'week' | 'session';
-export type BehaviorRangeDays = 30 | 90 | 180;
+export type BehaviorPeriodMode = 'day' | 'week';
+export type BehaviorRangeDays = 30 | 90;
 
 // --- Domain types (re-exported from trail-core) ---
 

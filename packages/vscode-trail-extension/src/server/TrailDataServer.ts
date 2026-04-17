@@ -831,9 +831,9 @@ export class TrailDataServer {
   // -------------------------------------------------------------------------
 
   private handleGetBehavior(res: http.ServerResponse, params: URLSearchParams): void {
-    const period = (params.get('period') ?? 'day') as 'day' | 'week' | 'session';
+    const period = (params.get('period') ?? 'day') as 'day' | 'week';
     const rangeDaysRaw = Number.parseInt(params.get('rangeDays') ?? '30', 10);
-    const rangeDays = ([30, 90, 180].includes(rangeDaysRaw) ? rangeDaysRaw : 30) as 30 | 90 | 180;
+    const rangeDays = ([30, 90].includes(rangeDaysRaw) ? rangeDaysRaw : 30) as 30 | 90;
     try {
       const data = this.trailDb.getBehaviorData(period, rangeDays);
       res.writeHead(200, JSON_HEADERS);

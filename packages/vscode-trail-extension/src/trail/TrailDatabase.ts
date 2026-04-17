@@ -2354,7 +2354,7 @@ export class TrailDatabase {
     };
   }
 
-  getBehaviorData(period: 'day' | 'week' | 'session', rangeDays: 30 | 90 | 180): BehaviorData {
+  getBehaviorData(period: 'day' | 'week', rangeDays: 30 | 90): BehaviorData {
     const db = this.ensureDb();
     const tzOffset = this.getLocalTzOffset();
     const periodExpr =

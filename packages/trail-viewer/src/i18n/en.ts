@@ -176,7 +176,7 @@ export const en: TrailI18n = {
   'behavior.title': 'Behavior',
   'behavior.period.day': 'Day',
   'behavior.period.week': 'Week',
-  'behavior.period.session': 'Session',
+
   'behavior.range.days': 'days',
 
   'behavior.sections.toolCounts': 'Tool Usage',

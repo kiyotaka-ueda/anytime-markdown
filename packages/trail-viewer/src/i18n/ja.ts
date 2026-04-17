@@ -176,7 +176,7 @@ export const ja: TrailI18n = {
   'behavior.title': '行動分析',
   'behavior.period.day': '日',
   'behavior.period.week': '週',
-  'behavior.period.session': 'セッション',
+
   'behavior.range.days': '日間',
 
   'behavior.sections.toolCounts': 'ツール利用',

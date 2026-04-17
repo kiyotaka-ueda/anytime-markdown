@@ -229,7 +229,7 @@ function SkillSection({ data }: Readonly<{ data: BehaviorData }>) {
 
 // ─── Main: BehaviorPanel ──────────────────────────────────────────────────────
 
-const RANGE_OPTIONS: readonly BehaviorRangeDays[] = [30, 90, 180];
+const RANGE_OPTIONS: readonly BehaviorRangeDays[] = [30, 90];
 
 export function BehaviorPanel({ fetchBehaviorData }: Readonly<BehaviorPanelProps>) {
   const { t } = useTrailI18n();
@@ -262,7 +262,6 @@ export function BehaviorPanel({ fetchBehaviorData }: Readonly<BehaviorPanelProps
         >
           <ToggleButton value="day">{t('behavior.period.day')}</ToggleButton>
           <ToggleButton value="week">{t('behavior.period.week')}</ToggleButton>
-          <ToggleButton value="session">{t('behavior.period.session')}</ToggleButton>
         </ToggleButtonGroup>
         <ToggleButtonGroup
           size="small"
