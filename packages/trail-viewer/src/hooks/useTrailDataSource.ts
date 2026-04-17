@@ -231,7 +231,7 @@ export function useTrailDataSource(serverUrl: string): TrailDataSourceResult {
   const fetchBehaviorData = useCallback(
     async (period: BehaviorPeriodMode, rangeDays: BehaviorRangeDays): Promise<BehaviorData> => {
       const empty: BehaviorData = {
-        toolSequences: [], toolCounts: [], subagentRate: [],
+        toolSequences: [], toolCounts: [],
         errorRate: [], skillStats: [], cacheEfficiency: [], corrections: [],
       };
       try {

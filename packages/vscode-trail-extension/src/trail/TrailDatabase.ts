@@ -207,7 +207,6 @@ export interface CostOptimizationData {
 interface BehaviorData {
   readonly toolSequences: readonly { period: string; sequence: string; count: number }[];
   readonly toolCounts: readonly { period: string; tool: string; count: number; tokens: number; durationMs: number }[];
-  readonly subagentRate: readonly { period: string; rate: number; byType: Readonly<Record<string, number>> }[];
   readonly errorRate: readonly { period: string; rate: number; byTool: Readonly<Record<string, number>> }[];
   readonly skillStats: readonly { period: string; skill: string; count: number; costUsd: number }[];
   readonly cacheEfficiency: readonly { period: string; hitRate: number; isAnomaly: boolean }[];
@@ -2236,22 +2235,6 @@ export class TrailDatabase {
       return values.map(row => Object.fromEntries(columns.map((c, i) => [c, row[i]])));
     };
 
-    // ④ subagentRate
-    const subResult = db.exec(
-      `SELECT ${periodExpr} AS period,
-              CAST(SUM(CASE WHEN tool_name = 'Agent' THEN 1 ELSE 0 END) AS REAL) / COUNT(*) AS rate,
-              SUM(CASE WHEN tool_name = 'Agent' THEN 1 ELSE 0 END) AS agent_count,
-              COUNT(*) AS total
-       FROM message_tool_calls
-       WHERE timestamp >= datetime('now', '-${rangeDays} days')
-       GROUP BY period ORDER BY period`,
-    );
-    const subagentRate = toRows(subResult).map(r => ({
-      period: String(r['period'] ?? ''),
-      rate: Number(r['rate'] ?? 0),
-      byType: { Agent: Number(r['agent_count'] ?? 0) },
-    }));
-
     // ⑤ errorRate
     const errResult = db.exec(
       `SELECT ${periodExpr} AS period,
@@ -2357,7 +2340,6 @@ export class TrailDatabase {
     return {
       toolSequences,
       toolCounts,
-      subagentRate,
       errorRate,
       skillStats,
       cacheEfficiency: [], // future: requires session_costs join

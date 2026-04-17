@@ -513,19 +513,6 @@ export class SupabaseTrailReader implements ITrailReader {
         return `${wy}-${wm}-${wd}`;
       };
 
-      // ④ subagentRate
-      const agentByPeriod = new Map<string, { agent: number; total: number }>();
-      for (const r of rows) {
-        const p = periodKey(r);
-        const e = agentByPeriod.get(p) ?? { agent: 0, total: 0 };
-        e.total++;
-        if (r.tool_name === 'Agent') e.agent++;
-        agentByPeriod.set(p, e);
-      }
-      const subagentRate = [...agentByPeriod.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([p, e]) => ({
-        period: p, rate: e.total > 0 ? e.agent / e.total : 0, byType: { Agent: e.agent },
-      }));
-
       // ⑤ errorRate
       const errByPeriod = new Map<string, { err: number; total: number; byTool: Record<string, number> }>();
       for (const r of rows) {
@@ -630,7 +617,7 @@ export class SupabaseTrailReader implements ITrailReader {
         })
         .sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
 
-      return { toolSequences, toolCounts, subagentRate, errorRate, skillStats, cacheEfficiency: [], corrections: [] };
+      return { toolSequences, toolCounts, errorRate, skillStats, cacheEfficiency: [], corrections: [] };
     } catch {
       return null;
     }

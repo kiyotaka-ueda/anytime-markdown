@@ -193,60 +193,6 @@ function ToolCountsSection({ data }: Readonly<{ data: BehaviorData }>) {
 // ─── Section: ② Repeated Ops ─────────────────────────────────────────────────
 
 
-// ─── Section: ④ Subagent Rate ─────────────────────────────────────────────────
-
-function SubagentSection({ data }: Readonly<{ data: BehaviorData }>) {
-  const { cardSx } = useTrailTheme();
-  const { t } = useTrailI18n();
-  const rows = data.subagentRate;
-  const allPeriods = [...new Set([
-    ...rows.map(r => r.period),
-    ...(data.toolCounts ?? []).map(a => a.period),
-  ])].sort();
-  const labels = allPeriods.map(p => p.length > 5 ? p.slice(5) : p);
-
-  // byType を全期間で 0 埋め
-  const rowByPeriod = new Map(rows.map(r => [r.period, r]));
-  const allTypes = [...new Set(rows.flatMap(r => Object.keys(r.byType)))];
-
-  if (allTypes.length > 0) {
-    const series = allTypes.map((type, i) => ({
-      data: allPeriods.map(p => rowByPeriod.get(p)?.byType[type] ?? 0),
-      label: type,
-      color: PALETTE[i % PALETTE.length],
-      stack: 'a',
-    }));
-    return (
-      <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
-        <Typography variant="subtitle2" gutterBottom>{t('behavior.sections.subagent')}</Typography>
-        <BarChart
-          xAxis={[{ scaleType: 'band', data: labels }]}
-          series={series}
-          height={200}
-          margin={{ left: 40, right: 8, top: 8, bottom: 40 }}
-        />
-      </Paper>
-    );
-  }
-
-  const filledData = allPeriods.map(p => rowByPeriod.get(p)?.rate ?? 0);
-  return (
-    <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
-      <Typography variant="subtitle2" gutterBottom>{t('behavior.sections.subagent')}</Typography>
-      {allPeriods.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">—</Typography>
-      ) : (
-        <BarChart
-          xAxis={[{ scaleType: 'band', data: labels }]}
-          series={[{ data: filledData, label: 'rate' }]}
-          height={200}
-          margin={{ left: 40, right: 8, top: 8, bottom: 40 }}
-        />
-      )}
-    </Paper>
-  );
-}
-
 // ─── Section: ⑤ Error Patterns ───────────────────────────────────────────────
 
 function ErrorPatternsSection({ data }: Readonly<{ data: BehaviorData }>) {
@@ -416,7 +362,6 @@ export function BehaviorPanel({ fetchBehaviorData }: Readonly<BehaviorPanelProps
             <ToolSequencesSection data={data} />
             <ToolCountsSection data={data} />
           </Box>
-          <SubagentSection data={data} />
           <ErrorPatternsSection data={data} />
           <SkillSection data={data} />
           <CacheSection data={data} />

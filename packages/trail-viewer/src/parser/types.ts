@@ -101,12 +101,6 @@ export interface BehaviorToolCount {
 
 
 
-export interface BehaviorSubagent {
-  readonly period: string;
-  readonly rate: number;
-  readonly byType: Readonly<Record<string, number>>;
-}
-
 export interface BehaviorError {
   readonly period: string;
   readonly rate: number;
@@ -135,7 +129,6 @@ export interface BehaviorCorrection {
 export interface BehaviorData {
   readonly toolSequences: readonly BehaviorToolSequence[];
   readonly toolCounts: readonly BehaviorToolCount[];
-  readonly subagentRate: readonly BehaviorSubagent[];
   readonly errorRate: readonly BehaviorError[];
   readonly skillStats: readonly BehaviorSkill[];
   readonly cacheEfficiency: readonly BehaviorCacheSession[];
