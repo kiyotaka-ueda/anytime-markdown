@@ -195,11 +195,11 @@ function ToolCountsSection({ data }: Readonly<{ data: BehaviorData }>) {
 function RepeatOpsSection({ data }: Readonly<{ data: BehaviorData }>) {
   const { cardSx } = useTrailTheme();
   const { t } = useTrailI18n();
-  const rows = data.repeatOps;
+  const rows = data.repeatOps ?? [];
   // avgToolsPerTurn の全期間で 0 埋め（Tool Usage と横軸を合わせる）
   const allPeriods = [...new Set([
     ...rows.map(r => r.period),
-    ...data.avgToolsPerTurn.map(a => a.period),
+    ...(data.avgToolsPerTurn ?? []).map(a => a.period),
   ])].sort();
   const countByPeriod = new Map(rows.map(r => [r.period, r.count]));
   const filledData = allPeriods.map(p => countByPeriod.get(p) ?? 0);
@@ -210,7 +210,7 @@ function RepeatOpsSection({ data }: Readonly<{ data: BehaviorData }>) {
       {allPeriods.length === 0 ? (
         <Typography variant="body2" color="text.secondary">—</Typography>
       ) : (
-        <LineChart
+        <BarChart
           xAxis={[{ scaleType: 'band', data: labels }]}
           series={[{ data: filledData, label: 'count' }]}
           height={200}
