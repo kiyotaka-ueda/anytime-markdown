@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
@@ -1118,11 +1118,6 @@ function ModelTable({ items }: Readonly<{ items: AnalyticsData['modelBreakdown']
 
 // ─── Behavior charts in Analytics ───────────────────────────────────────────
 
-const BEHAVIOR_PALETTE = [
-  '#1976d2', '#8b5cf6', '#00897b', '#e65100', '#c62828',
-  '#6d4c41', '#37474f', '#f9a825', '#558b2f', '#ad1457',
-] as const;
-
 type BehaviorMetric = 'count' | 'tokens' | 'duration';
 
 function BehaviorChartsSection({ fetchBehaviorData, periodDays }: Readonly<{
@@ -1138,84 +1133,100 @@ function BehaviorChartsSection({ fetchBehaviorData, periodDays }: Readonly<{
   const rangeDays: BehaviorRangeDays = periodDays >= 90 ? 90 : 30;
   const period: BehaviorPeriodMode = periodDays >= 90 ? 'week' : 'day';
 
-  const load = useCallback(async () => {
-    const result = await fetchBehaviorData(period, rangeDays);
-    setData(result);
+  useEffect(() => {
+    let mounted = true;
+    void (async () => {
+      const result = await fetchBehaviorData(period, rangeDays);
+      if (mounted) setData(result);
+    })();
+    return () => { mounted = false; };
   }, [fetchBehaviorData, period, rangeDays]);
 
-  useEffect(() => { void load(); }, [load]);
+  const axisInfo = useMemo(() => {
+    if (!data) return null;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - periodDays);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    const toolRows = (data.toolCounts ?? []).filter(r => r.period >= cutoffStr);
+    const errorRows = (data.errorRate ?? []).filter(r => r.period >= cutoffStr);
+    const skillRows = (data.skillStats ?? []).filter(r => r.period >= cutoffStr);
+    const allPeriods = [...new Set(toolRows.map(r => r.period))].sort();
+    const labels = allPeriods.map(p => p.length > 5 ? p.slice(5) : p);
+    return {
+      toolRows,
+      errorRows,
+      skillRows,
+      allPeriods,
+      labels,
+      tools: [...new Set(toolRows.map(r => r.tool))],
+      errTools: [...new Set(errorRows.flatMap(r => Object.keys(r.byTool)))],
+      skills: [...new Set(skillRows.map(r => r.skill))],
+    };
+  }, [data, periodDays]);
 
-  if (!data) return null;
-
-  const getValue = (r: { count: number; tokens?: number; durationMs?: number }): number =>
-    metric === 'tokens' ? (r.tokens ?? 0)
-    : metric === 'duration' ? Math.round((r.durationMs ?? 0) / 1000)
-    : r.count;
-
-  // periodDays に合わせて表示期間をフィルタ
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - periodDays);
-  const cutoffStr = cutoff.toISOString().slice(0, 10);
-
-  const toolRows = (data.toolCounts ?? []).filter(r => r.period >= cutoffStr);
-  const allPeriods = [...new Set(toolRows.map(r => r.period))].sort();
-  const labels = allPeriods.map(p => p.length > 5 ? p.slice(5) : p);
-  const tools = [...new Set(toolRows.map(r => r.tool))];
-
-  // Tool Usage dataset
-  const toolValMap = new Map<string, number>();
-  for (const r of toolRows) {
-    const v = getValue(r);
-    toolValMap.set(`${r.period}::${r.tool}`, (toolValMap.get(`${r.period}::${r.tool}`) ?? 0) + v);
-  }
-  const toolDataset = allPeriods.map(p => {
-    const entry: Record<string, string | number> = { period: labels[allPeriods.indexOf(p)] };
-    for (let i = 0; i < tools.length; i++) {
-      entry[`t${i}`] = toolValMap.get(`${p}::${tools[i]}`) ?? 0;
+  const toolDataset = useMemo(() => {
+    if (!axisInfo) return [];
+    const { toolRows, allPeriods, labels, tools } = axisInfo;
+    const getValue = (r: { count: number; tokens?: number; durationMs?: number }): number =>
+      metric === 'tokens' ? (r.tokens ?? 0)
+      : metric === 'duration' ? Math.round((r.durationMs ?? 0) / 1000)
+      : r.count;
+    const valMap = new Map<string, number>();
+    for (const r of toolRows) {
+      const key = `${r.period}::${r.tool}`;
+      valMap.set(key, (valMap.get(key) ?? 0) + getValue(r));
     }
-    return entry;
-  });
+    return allPeriods.map((p, pi) => {
+      const entry: Record<string, string | number> = { period: labels[pi] };
+      for (let i = 0; i < tools.length; i++) {
+        entry[`t${i}`] = valMap.get(`${p}::${tools[i]}`) ?? 0;
+      }
+      return entry;
+    });
+  }, [axisInfo, metric]);
 
-  // Error Patterns
-  const errorRows = (data.errorRate ?? []).filter(r => r.period >= cutoffStr);
-  const errByPeriod = new Map(errorRows.map(r => [r.period, r]));
-  const errTools = [...new Set(errorRows.flatMap(r => Object.keys(r.byTool)))];
-  const errDataset = allPeriods.map(p => {
-    const entry: Record<string, string | number> = { period: labels[allPeriods.indexOf(p)] };
-    for (let i = 0; i < errTools.length; i++) {
-      entry[`e${i}`] = errByPeriod.get(p)?.byTool[errTools[i]] ?? 0;
+  const errDataset = useMemo(() => {
+    if (!axisInfo) return [];
+    const { errorRows, allPeriods, labels, errTools } = axisInfo;
+    const byPeriod = new Map(errorRows.map(r => [r.period, r]));
+    return allPeriods.map((p, pi) => {
+      const entry: Record<string, string | number> = { period: labels[pi] };
+      for (let i = 0; i < errTools.length; i++) {
+        entry[`e${i}`] = byPeriod.get(p)?.byTool[errTools[i]] ?? 0;
+      }
+      return entry;
+    });
+  }, [axisInfo]);
+
+  const skillDataset = useMemo(() => {
+    if (!axisInfo) return [];
+    const { skillRows, allPeriods, labels, skills } = axisInfo;
+    const countMap = new Map<string, number>();
+    for (const r of skillRows) {
+      const key = `${r.period}::${r.skill}`;
+      countMap.set(key, (countMap.get(key) ?? 0) + r.count);
     }
-    return entry;
-  });
+    return allPeriods.map((p, pi) => {
+      const entry: Record<string, string | number> = { period: labels[pi] };
+      for (let i = 0; i < skills.length; i++) {
+        entry[`s${i}`] = countMap.get(`${p}::${skills[i]}`) ?? 0;
+      }
+      return entry;
+    });
+  }, [axisInfo]);
 
-  // Skill Analysis
-  const skillRows = (data.skillStats ?? []).filter(r => r.period >= cutoffStr);
-  const skills = [...new Set(skillRows.map(r => r.skill))];
-  const skillCountMap = new Map<string, number>();
-  for (const r of skillRows) {
-    skillCountMap.set(`${r.period}::${r.skill}`, (skillCountMap.get(`${r.period}::${r.skill}`) ?? 0) + r.count);
-  }
-  const skillDataset = allPeriods.map(p => {
-    const entry: Record<string, string | number> = { period: labels[allPeriods.indexOf(p)] };
-    for (let i = 0; i < skills.length; i++) {
-      entry[`s${i}`] = skillCountMap.get(`${p}::${skills[i]}`) ?? 0;
-    }
-    return entry;
-  });
-
-  const controls = (
-    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-      <ToggleButtonGroup size="small" exclusive value={metric} onChange={(_, v: BehaviorMetric | null) => { if (v) setMetric(v); }}>
-        <ToggleButton value="count">{t('behavior.toolCounts.count')}</ToggleButton>
-        <ToggleButton value="tokens">{t('behavior.toolCounts.tokens')}</ToggleButton>
-        <ToggleButton value="duration">{t('behavior.toolCounts.duration')}</ToggleButton>
-      </ToggleButtonGroup>
-    </Box>
-  );
+  if (!axisInfo) return null;
+  const { toolRows, errTools, tools, skills } = axisInfo;
 
   return (
     <>
-      {controls}
+      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+        <ToggleButtonGroup size="small" exclusive value={metric} onChange={(_, v: BehaviorMetric | null) => { if (v) setMetric(v); }}>
+          <ToggleButton value="count">{t('behavior.toolCounts.count')}</ToggleButton>
+          <ToggleButton value="tokens">{t('behavior.toolCounts.tokens')}</ToggleButton>
+          <ToggleButton value="duration">{t('behavior.toolCounts.duration')}</ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
       {toolRows.length > 0 && (
         <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
           <Typography variant="subtitle2" gutterBottom>{t('behavior.sections.toolCounts')}</Typography>
@@ -1226,7 +1237,7 @@ function BehaviorChartsSection({ fetchBehaviorData, periodDays }: Readonly<{
               dataKey: `t${i}`,
               label: tool,
               stack: 'total',
-              color: BEHAVIOR_PALETTE[i % BEHAVIOR_PALETTE.length],
+              color: TOOL_COLORS[i % TOOL_COLORS.length],
             }))}
             height={220}
             margin={{ left: 8, right: 8, top: 8, bottom: 60 }}
@@ -1245,7 +1256,7 @@ function BehaviorChartsSection({ fetchBehaviorData, periodDays }: Readonly<{
               dataKey: `e${i}`,
               label: tool,
               stack: 'total',
-              color: BEHAVIOR_PALETTE[i % BEHAVIOR_PALETTE.length],
+              color: TOOL_COLORS[i % TOOL_COLORS.length],
             }))}
             height={200}
             margin={{ left: 40, right: 8, top: 8, bottom: 40 }}
@@ -1262,7 +1273,7 @@ function BehaviorChartsSection({ fetchBehaviorData, periodDays }: Readonly<{
               dataKey: `s${i}`,
               label: skill,
               stack: 'total',
-              color: BEHAVIOR_PALETTE[i % BEHAVIOR_PALETTE.length],
+              color: TOOL_COLORS[i % TOOL_COLORS.length],
             }))}
             height={200}
             margin={{ left: 40, right: 8, top: 8, bottom: 40 }}

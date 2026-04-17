@@ -182,7 +182,6 @@ function TrailViewerCoreInner({
         </Tabs>
       </Box>
 
-      {/* Tab 0: Analytics */}
       <Box
         role="tabpanel"
         id="trail-panel-0"
@@ -202,7 +201,6 @@ function TrailViewerCoreInner({
         />
       </Box>
 
-      {/* Tab 1: Traces */}
       <Box
         role="tabpanel"
         id="trail-panel-1"
@@ -251,7 +249,6 @@ function TrailViewerCoreInner({
         <StatsBar session={selectedSession} messages={messages} />
       </Box>
 
-      {/* Tab 2: Prompts */}
       <Box
         role="tabpanel"
         id="trail-panel-2"
@@ -261,7 +258,6 @@ function TrailViewerCoreInner({
         <PromptManager prompts={prompts} />
       </Box>
 
-      {/* Tab 3: Releases */}
       <Box
         role="tabpanel"
         id="trail-panel-3"
@@ -271,7 +267,6 @@ function TrailViewerCoreInner({
         <ReleasesPanel releases={releases ?? []} />
       </Box>
 
-      {/* Tab 4: C4 */}
       {c4 && (
         <Box
           role="tabpanel"

@@ -187,11 +187,6 @@ export interface TrailI18n {
   'c4.copyPath': string;
   'c4.frameFilter.reset': string;
   // behavior
-  'behavior.period.day': string;
-  'behavior.period.week': string;
-
-  'behavior.range.days': string;
-
   'behavior.sections.toolCounts': string;
   'behavior.toolCounts.count': string;
   'behavior.toolCounts.tokens': string;
