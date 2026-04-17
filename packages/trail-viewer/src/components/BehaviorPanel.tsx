@@ -131,8 +131,8 @@ function ToolCountsSection({ data }: Readonly<{ data: BehaviorData }>) {
     }
     const dataset = allPeriods.map(p => {
       const entry: Record<string, string | number> = { period: p.slice(5) };
-      for (const tool of tools) {
-        entry[tool] = countMap.get(`${p}::${tool}`) ?? 0;
+      for (let ti = 0; ti < tools.length; ti++) {
+        entry[`t${ti}`] = countMap.get(`${p}::${tools[ti]}`) ?? 0;
       }
       return entry;
     });
@@ -143,7 +143,7 @@ function ToolCountsSection({ data }: Readonly<{ data: BehaviorData }>) {
           dataset={dataset}
           xAxis={[{ scaleType: 'band', dataKey: 'period' }]}
           series={tools.map((tool, i) => ({
-            dataKey: tool,
+            dataKey: `t${i}`,
             label: tool,
             stack: 'total',
             color: PALETTE[i % PALETTE.length],
