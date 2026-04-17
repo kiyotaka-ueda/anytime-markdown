@@ -540,48 +540,7 @@ export class SupabaseTrailReader implements ITrailReader {
         return { period: period ?? '', skill: skill ?? '', count: e.count, costUsd: 0 };
       });
 
-      // ① toolSequences: 2グラム（連続ツールペア）Top10
-      // 同一ターン内で call_index が隣接する行からビグラムを生成する
-      const bigramCount = new Map<string, { count: number; period: string }>();
-      // ターン単位にグループ化して call_index 順にソート
-      const turnGroups = new Map<string, Row[]>();
-      for (const r of rows) {
-        const key = `${r.session_id}:${r.turn_index}`;
-        const grp = turnGroups.get(key) ?? [];
-        grp.push(r);
-        turnGroups.set(key, grp);
-      }
-      for (const grp of turnGroups.values()) {
-        grp.sort((a, b) => a.call_index - b.call_index);
-        for (let i = 0; i < grp.length - 1; i++) {
-          const a = grp[i];
-          const b = grp[i + 1];
-          const p = periodKey(a);
-          const seq = `${a.tool_name}→${b.tool_name}`;
-          const k = `${p}::${seq}`;
-          const e = bigramCount.get(k) ?? { count: 0, period: p };
-          e.count++;
-          bigramCount.set(k, e);
-        }
-      }
-      // 全期間合計で上位5シーケンスを特定し、それらの全期間データを返す
-      const seqTotals = new Map<string, number>();
-      for (const [k, e] of bigramCount) {
-        const seq = k.split('::')[1] ?? '';
-        seqTotals.set(seq, (seqTotals.get(seq) ?? 0) + e.count);
-      }
-      const topSeqs = new Set(
-        [...seqTotals.entries()]
-          .sort(([, a], [, b]) => b - a)
-          .slice(0, 5)
-          .map(([seq]) => seq),
-      );
-      const toolSequences = [...bigramCount.entries()]
-        .filter(([k]) => topSeqs.has(k.split('::')[1] ?? ''))
-        .map(([k, e]) => ({ period: e.period, sequence: k.split('::')[1] ?? '', count: e.count }))
-        .sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
-
-      // ①-b toolCounts: 全ツール利用回数
+      // ① toolCounts: 全ツール利用回数
       // MCP ツール名を正規化: mcp__github__xxx → mcp__github
       const normalizeTool = (name: string): string => {
         if (!name.startsWith('mcp__')) return name;
@@ -617,7 +576,7 @@ export class SupabaseTrailReader implements ITrailReader {
         })
         .sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
 
-      return { toolSequences, toolCounts, errorRate, skillStats };
+      return { toolCounts, errorRate, skillStats };
     } catch {
       return null;
     }

@@ -178,8 +178,8 @@ export const ja: TrailI18n = {
   'behavior.period.week': '週',
   'behavior.period.session': 'セッション',
   'behavior.range.days': '日間',
-  'behavior.toolActivity.sequences': 'シーケンス',
-  'behavior.toolActivity.usage': 'ツール利用',
+
+  'behavior.sections.toolCounts': 'ツール利用',
   'behavior.toolCounts.count': '回数',
   'behavior.toolCounts.tokens': 'トークン',
   'behavior.toolCounts.duration': '時間',

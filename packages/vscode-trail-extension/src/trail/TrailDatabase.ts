@@ -205,7 +205,6 @@ export interface CostOptimizationData {
 }
 
 interface BehaviorData {
-  readonly toolSequences: readonly { period: string; sequence: string; count: number }[];
   readonly toolCounts: readonly { period: string; tool: string; count: number; tokens: number; durationMs: number }[];
   readonly errorRate: readonly { period: string; rate: number; byTool: Readonly<Record<string, number>> }[];
   readonly skillStats: readonly { period: string; skill: string; count: number; costUsd: number }[];
@@ -2302,39 +2301,7 @@ export class TrailDatabase {
       costUsd: 0, // cost join not yet implemented
     }));
 
-    // ① toolSequences: 2グラム（連続ツールペア）Top5（全期間展開）
-    // セッション内の全ツール呼び出しを時系列順に並べ、隣接ペアを集計する
-    // 全期間合計で上位5シーケンスを特定し、それらの全期間データを返す
-    const seqResult = db.exec(
-      `WITH numbered AS (
-         SELECT session_id, tool_name, timestamp,
-                ROW_NUMBER() OVER (PARTITION BY session_id ORDER BY turn_index, call_index) AS rn
-         FROM message_tool_calls
-         WHERE timestamp >= datetime('now', '-${rangeDays} days')
-       ),
-       bigrams AS (
-         SELECT ${periodExpr.replace(/\btimestamp\b/g, 'a.timestamp')} AS period,
-                a.tool_name || '→' || b.tool_name AS sequence,
-                COUNT(*) AS count
-         FROM numbered a
-         JOIN numbered b
-           ON a.session_id = b.session_id
-          AND b.rn = a.rn + 1
-         GROUP BY period, sequence
-       ),
-       top5 AS (
-         SELECT sequence FROM bigrams GROUP BY sequence ORDER BY SUM(count) DESC LIMIT 5
-       )
-       SELECT period, sequence, count FROM bigrams WHERE sequence IN (SELECT sequence FROM top5)
-       ORDER BY period, count DESC`,
-    );
-    const toolSequences = toRows(seqResult).map(r => ({
-      period: String(r['period'] ?? ''),
-      sequence: String(r['sequence'] ?? ''),
-      count: Number(r['count'] ?? 0),
-    }));
-
-    // ①-b toolCounts: 全ツール利用回数 + トークン按分 + 処理時間按分
+    // ① toolCounts: 全ツール利用回数 + トークン按分 + 処理時間按分
     // MCP ツール名を正規化: mcp__github__xxx → mcp__github
     // メッセージのトークン数・ターンの実行時間をそれぞれツール呼び出し数で按分
     const tcResult = db.exec(
@@ -2370,7 +2337,6 @@ export class TrailDatabase {
     }));
 
     return {
-      toolSequences,
       toolCounts,
       errorRate,
       skillStats,

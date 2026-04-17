@@ -83,12 +83,6 @@ export interface AnalyticsData {
   }[];
 }
 
-export interface BehaviorToolSequence {
-  readonly period: string;
-  readonly sequence: string;
-  readonly count: number;
-}
-
 export interface BehaviorToolCount {
   readonly period: string;
   readonly tool: string;
@@ -116,7 +110,6 @@ export interface BehaviorSkill {
 
 
 export interface BehaviorData {
-  readonly toolSequences: readonly BehaviorToolSequence[];
   readonly toolCounts: readonly BehaviorToolCount[];
   readonly errorRate: readonly BehaviorError[];
   readonly skillStats: readonly BehaviorSkill[];

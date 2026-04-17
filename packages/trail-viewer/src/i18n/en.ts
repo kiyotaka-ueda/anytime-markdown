@@ -178,8 +178,8 @@ export const en: TrailI18n = {
   'behavior.period.week': 'Week',
   'behavior.period.session': 'Session',
   'behavior.range.days': 'days',
-  'behavior.toolActivity.sequences': 'Sequences',
-  'behavior.toolActivity.usage': 'Usage',
+
+  'behavior.sections.toolCounts': 'Tool Usage',
   'behavior.toolCounts.count': 'Count',
   'behavior.toolCounts.tokens': 'Tokens',
   'behavior.toolCounts.duration': 'Duration',

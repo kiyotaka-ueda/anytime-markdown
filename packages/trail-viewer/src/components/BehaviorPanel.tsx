@@ -28,116 +28,50 @@ export interface BehaviorPanelProps {
   ) => Promise<BehaviorData>;
 }
 
-// ─── Section: ① Tool Activity (Sequences + Usage combined) ──────────────────
+// ─── Section: ① Tool Counts ─────────────────────────────────────────────────
 
-type ToolViewMode = 'sequences' | 'usage';
 type ToolCountMetric = 'count' | 'tokens' | 'duration';
 
-function ToolActivitySection({ data }: Readonly<{ data: BehaviorData }>) {
+function ToolCountsSection({ data }: Readonly<{ data: BehaviorData }>) {
   const { cardSx } = useTrailTheme();
   const { t } = useTrailI18n();
-  const [viewMode, setViewMode] = useState<ToolViewMode>('usage');
   const [metric, setMetric] = useState<ToolCountMetric>('count');
-
-  const seqRows = data.toolSequences ?? [];
-  const countRows = data.toolCounts ?? [];
-
-  const allPeriods = [...new Set([
-    ...seqRows.map(r => r.period),
-    ...countRows.map(r => r.period),
-  ])].sort();
-  const labels = allPeriods.map(p => p.length > 5 ? p.slice(5) : p);
-  const hasMultiplePeriods = allPeriods.length > 1;
-
-  // ヘッダー: ビューモード切替 + メトリック切替（usage 時のみ）
-  const header = (
-    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, flexWrap: 'wrap', gap: 1 }}>
-      <ToggleButtonGroup size="small" exclusive value={viewMode} onChange={(_, v: ToolViewMode | null) => { if (v) setViewMode(v); }}>
-        <ToggleButton value="sequences">{t('behavior.toolActivity.sequences')}</ToggleButton>
-        <ToggleButton value="usage">{t('behavior.toolActivity.usage')}</ToggleButton>
-      </ToggleButtonGroup>
-      {viewMode === 'usage' && (
-        <ToggleButtonGroup size="small" exclusive value={metric} onChange={(_, v: ToolCountMetric | null) => { if (v) setMetric(v); }}>
-          <ToggleButton value="count">{t('behavior.toolCounts.count')}</ToggleButton>
-          <ToggleButton value="tokens">{t('behavior.toolCounts.tokens')}</ToggleButton>
-          <ToggleButton value="duration">{t('behavior.toolCounts.duration')}</ToggleButton>
-        </ToggleButtonGroup>
-      )}
-    </Box>
-  );
-
-  if (allPeriods.length === 0 && seqRows.length === 0 && countRows.length === 0) {
+  const rows = data.toolCounts ?? [];
+  if (rows.length === 0) {
     return (
       <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
-        {header}
+        <Typography variant="subtitle2" gutterBottom>{t('behavior.sections.toolCounts')}</Typography>
         <Typography variant="body2" color="text.secondary">—</Typography>
       </Paper>
     );
   }
 
-  // ── Sequences view ──
-  if (viewMode === 'sequences') {
-    const sequences = [...new Set(seqRows.map(r => r.sequence))];
-    if (hasMultiplePeriods) {
-      const countMap = new Map<string, number>();
-      for (const r of seqRows) {
-        countMap.set(`${r.period}::${r.sequence}`, r.count);
-      }
-      const dataset = allPeriods.map(p => {
-        const entry: Record<string, string | number> = { period: p.slice(5) };
-        for (let si = 0; si < sequences.length; si++) {
-          entry[`seq${si}`] = countMap.get(`${p}::${sequences[si]}`) ?? 0;
-        }
-        return entry;
-      });
-      return (
-        <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
-          {header}
-          <BarChart
-            dataset={dataset}
-            xAxis={[{ scaleType: 'band', dataKey: 'period' }]}
-            series={sequences.map((seq, i) => ({
-              dataKey: `seq${i}`,
-              label: seq,
-              stack: 'total',
-              color: PALETTE[i % PALETTE.length],
-            }))}
-            height={280}
-            margin={{ left: 8, right: 8, top: 8, bottom: 60 }}
-          />
-        </Paper>
-      );
-    }
-    // 単一期間: ランキング
-    const ranked = [...seqRows].sort((a, b) => b.count - a.count).slice(0, 10);
-    return (
-      <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
-        {header}
-        {ranked.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">—</Typography>
-        ) : (
-          <BarChart
-            dataset={ranked.map(r => ({ sequence: r.sequence.slice(0, 30), count: r.count }))}
-            xAxis={[{ scaleType: 'band', dataKey: 'sequence' }]}
-            series={[{ dataKey: 'count', label: 'count' }]}
-            height={280}
-            margin={{ left: 8, right: 8, top: 8, bottom: 60 }}
-          />
-        )}
-      </Paper>
-    );
-  }
-
-  // ── Usage view ──
   const getValue = (r: { count: number; tokens?: number; durationMs?: number }): number =>
     metric === 'tokens' ? (r.tokens ?? 0)
     : metric === 'duration' ? Math.round((r.durationMs ?? 0) / 1000)
     : r.count;
-  const tools = [...new Set(countRows.map(r => r.tool))];
+  const seriesLabel = metric === 'tokens' ? 'tokens' : metric === 'duration' ? 'sec' : 'count';
+  const allPeriods = [...new Set([
+    ...rows.map(r => r.period),
+    ...(data.toolCounts ?? []).map(a => a.period),
+  ])].sort();
+  const tools = [...new Set(rows.map(r => r.tool))];
+  const hasMultiplePeriods = allPeriods.length > 1;
+
+  const header = (
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+      <Typography variant="subtitle2">{t('behavior.sections.toolCounts')}</Typography>
+      <ToggleButtonGroup size="small" exclusive value={metric} onChange={(_, v: ToolCountMetric | null) => { if (v) setMetric(v); }}>
+        <ToggleButton value="count">{t('behavior.toolCounts.count')}</ToggleButton>
+        <ToggleButton value="tokens">{t('behavior.toolCounts.tokens')}</ToggleButton>
+        <ToggleButton value="duration">{t('behavior.toolCounts.duration')}</ToggleButton>
+      </ToggleButtonGroup>
+    </Box>
+  );
 
   if (hasMultiplePeriods) {
     const valMap = new Map<string, number>();
-    for (const r of countRows) {
+    for (const r of rows) {
       const v = getValue(r);
       valMap.set(`${r.period}::${r.tool}`, (valMap.get(`${r.period}::${r.tool}`) ?? 0) + v);
     }
@@ -160,34 +94,29 @@ function ToolActivitySection({ data }: Readonly<{ data: BehaviorData }>) {
             stack: 'total',
             color: PALETTE[i % PALETTE.length],
           }))}
-          height={280}
+          height={220}
           margin={{ left: 8, right: 8, top: 8, bottom: 60 }}
         />
       </Paper>
     );
   }
 
-  const seriesLabel = metric === 'tokens' ? 'tokens' : metric === 'duration' ? 'sec' : 'count';
-  const ranked = [...countRows].sort((a, b) => getValue(b) - getValue(a)).slice(0, 10);
+  const ranked = [...rows].sort((a, b) => getValue(b) - getValue(a)).slice(0, 10);
   return (
     <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
       {header}
-      {ranked.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">—</Typography>
-      ) : (
-        <BarChart
-          dataset={ranked.map(r => ({ tool: r.tool, value: getValue(r) }))}
-          xAxis={[{ scaleType: 'band', dataKey: 'tool' }]}
-          series={[{ dataKey: 'value', label: seriesLabel }]}
-          height={280}
-          margin={{ left: 8, right: 8, top: 8, bottom: 60 }}
-        />
-      )}
+      <BarChart
+        dataset={ranked.map(r => ({ tool: r.tool, value: getValue(r) }))}
+        xAxis={[{ scaleType: 'band', dataKey: 'tool' }]}
+        series={[{ dataKey: 'value', label: seriesLabel }]}
+        height={220}
+        margin={{ left: 8, right: 8, top: 8, bottom: 60 }}
+      />
     </Paper>
   );
 }
 
-// ─── Section: ⑤ Error Patterns
+// ─── Section: ② Repeated Ops ─────────────────────────────────────────────────
 
 
 // ─── Section: ⑤ Error Patterns ───────────────────────────────────────────────
@@ -355,7 +284,7 @@ export function BehaviorPanel({ fetchBehaviorData }: Readonly<BehaviorPanelProps
       )}
       {!loading && data && (
         <>
-          <ToolActivitySection data={data} />
+          <ToolCountsSection data={data} />
           <ErrorPatternsSection data={data} />
           <SkillSection data={data} />
         </>

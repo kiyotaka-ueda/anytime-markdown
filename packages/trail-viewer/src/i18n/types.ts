@@ -192,8 +192,8 @@ export interface TrailI18n {
   'behavior.period.week': string;
   'behavior.period.session': string;
   'behavior.range.days': string;
-  'behavior.toolActivity.sequences': string;
-  'behavior.toolActivity.usage': string;
+
+  'behavior.sections.toolCounts': string;
   'behavior.toolCounts.count': string;
   'behavior.toolCounts.tokens': string;
   'behavior.toolCounts.duration': string;
