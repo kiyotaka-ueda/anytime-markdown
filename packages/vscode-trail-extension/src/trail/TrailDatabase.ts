@@ -1186,11 +1186,24 @@ export class TrailDatabase {
         const toolCalls = raw.type === 'assistant'
           ? extractToolCalls(raw.message?.content)
           : null;
-        const toolUseResult = raw.toolUseResult != null
-          ? (typeof raw.toolUseResult === 'string'
+        // tool_use_result: ユーザーメッセージの content から tool_result ブロックを抽出する。
+        // raw.toolUseResult はエラーテキストのみの場合があり、buildErrorMap が期待する
+        // [{type:"tool_result", is_error:true, tool_use_id:"..."}] 形式ではないため、
+        // message.content 配列から tool_result ブロックを直接取得する。
+        let toolUseResult: string | null = null;
+        if (raw.type === 'user' && Array.isArray(raw.message?.content)) {
+          const toolResults = (raw.message.content as unknown[]).filter(
+            (b) => typeof b === 'object' && b !== null && (b as Record<string, unknown>).type === 'tool_result',
+          );
+          if (toolResults.length > 0) {
+            toolUseResult = JSON.stringify(toolResults);
+          }
+        }
+        if (!toolUseResult && raw.toolUseResult != null) {
+          toolUseResult = typeof raw.toolUseResult === 'string'
             ? raw.toolUseResult
-            : JSON.stringify(raw.toolUseResult))
-          : null;
+            : JSON.stringify(raw.toolUseResult);
+        }
 
         // --- Analytics fields ---
         const durationMs = raw.durationMs ?? null;
