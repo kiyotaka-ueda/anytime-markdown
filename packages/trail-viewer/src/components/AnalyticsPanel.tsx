@@ -939,31 +939,18 @@ function groupByWeek(entries: readonly ChartEntry[]): ChartEntry[] {
 
 function DailyActivityChart({
   items,
-  sessions,
   period,
   mode,
-  onSelectSession,
-  onJumpToTrace,
-  fetchSessionMessages,
-  fetchSessionCommits,
-  fetchSessionToolMetrics,
+  onDateClick,
   costOptimization,
 }: Readonly<{
   items: AnalyticsData['dailyActivity'];
-  sessions: readonly TrailSession[];
   period: PeriodDays;
   mode: DailyViewMode;
-  onSelectSession?: (id: string) => void;
-  onJumpToTrace?: (session: TrailSession) => void;
-  fetchSessionMessages?: (id: string) => Promise<readonly TrailMessage[]>;
-  fetchSessionCommits?: (id: string) => Promise<readonly TrailSessionCommit[]>;
-  fetchSessionToolMetrics?: (id: string) => Promise<ToolMetrics | null>;
+  onDateClick?: (fullDate: string) => void;
   costOptimization?: CostOptimizationData | null;
 }>) {
   const { chartColors } = useTrailTheme();
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-
-  useEffect(() => { setSelectedDate(null); }, [period]);
 
   const costByDate = useMemo(() => {
     const map = new Map<string, { actual: number; skill: number }>();
@@ -1005,44 +992,30 @@ function DailyActivityChart({
   const handleAxisClick = (_event: MouseEvent, data: { dataIndex: number } | null) => {
     const idx = data?.dataIndex;
     if (idx == null || idx < 0 || idx >= dataset.length) return;
-    const fullDate = dataset[idx].fullDate;
-    setSelectedDate((prev) => (prev === fullDate ? null : fullDate));
+    onDateClick?.(dataset[idx].fullDate);
   };
 
   return (
-    <Box>
-      <BarChart
-        dataset={dataset}
-        xAxis={[{ scaleType: 'band', dataKey: 'date' }]}
-        yAxis={[{ valueFormatter: yFormatter }]}
-        series={isTokens ? [
-          { dataKey: 'inputTokens', label: 'Input', stack: 'a', color: chartColors.input, valueFormatter: seriesFormatter },
-          { dataKey: 'outputTokens', label: 'Output', stack: 'a', color: chartColors.output, valueFormatter: seriesFormatter },
-          { dataKey: 'cacheReadTokens', label: 'Cache Read', stack: 'a', color: chartColors.cacheRead, valueFormatter: seriesFormatter },
-          { dataKey: 'cacheCreationTokens', label: 'Cache Write', stack: 'a', color: chartColors.cacheWrite, valueFormatter: seriesFormatter },
-        ] : [
-          { dataKey: 'actualCost', label: 'Current', color: '#1976d2', valueFormatter: seriesFormatter },
-          { dataKey: 'skillCost', label: 'Optimized', color: '#8b5cf6', valueFormatter: seriesFormatter },
-        ]}
-        height={240}
-        margin={{ left: 60, right: 16, top: 16, bottom: 24 }}
-        slotProps={{
-          legend: { direction: 'horizontal', position: { vertical: 'top', horizontal: 'end' } },
-        }}
-        onAxisClick={period === 90 ? undefined : handleAxisClick}
-      />
-      {selectedDate && period !== 90 && (
-        <DailySessionList
-          date={selectedDate}
-          sessions={sessions}
-          onSelectSession={onSelectSession}
-          onJumpToTrace={onJumpToTrace}
-          fetchSessionMessages={fetchSessionMessages}
-          fetchSessionCommits={fetchSessionCommits}
-          fetchSessionToolMetrics={fetchSessionToolMetrics}
-        />
-      )}
-    </Box>
+    <BarChart
+      dataset={dataset}
+      xAxis={[{ scaleType: 'band', dataKey: 'date' }]}
+      yAxis={[{ valueFormatter: yFormatter }]}
+      series={isTokens ? [
+        { dataKey: 'inputTokens', label: 'Input', stack: 'a', color: chartColors.input, valueFormatter: seriesFormatter },
+        { dataKey: 'outputTokens', label: 'Output', stack: 'a', color: chartColors.output, valueFormatter: seriesFormatter },
+        { dataKey: 'cacheReadTokens', label: 'Cache Read', stack: 'a', color: chartColors.cacheRead, valueFormatter: seriesFormatter },
+        { dataKey: 'cacheCreationTokens', label: 'Cache Write', stack: 'a', color: chartColors.cacheWrite, valueFormatter: seriesFormatter },
+      ] : [
+        { dataKey: 'actualCost', label: 'Current', color: '#1976d2', valueFormatter: seriesFormatter },
+        { dataKey: 'skillCost', label: 'Optimized', color: '#8b5cf6', valueFormatter: seriesFormatter },
+      ]}
+      height={240}
+      margin={{ left: 60, right: 16, top: 16, bottom: 24 }}
+      slotProps={{
+        legend: { direction: 'horizontal', position: { vertical: 'top', horizontal: 'end' } },
+      }}
+      onAxisClick={period === 90 ? undefined : handleAxisClick}
+    />
   );
 }
 
@@ -1094,12 +1067,13 @@ function ModelTable({ items }: Readonly<{ items: AnalyticsData['modelBreakdown']
 type BehaviorMetric = 'count' | 'tokens';
 type BehaviorChartKind = 'tools' | 'errors' | 'skills' | 'models';
 
-function BehaviorChartsSection({ data, periodDays, activeChart, toolMetric, modelMetric }: Readonly<{
+function BehaviorChartsSection({ data, periodDays, activeChart, toolMetric, modelMetric, onDateClick }: Readonly<{
   data: BehaviorData | null;
   periodDays: PeriodDays;
   activeChart: BehaviorChartKind;
   toolMetric: BehaviorMetric;
   modelMetric: BehaviorMetric;
+  onDateClick?: (fullDate: string) => void;
 }>) {
   const { cardSx } = useTrailTheme();
 
@@ -1201,8 +1175,17 @@ function BehaviorChartsSection({ data, periodDays, activeChart, toolMetric, mode
   }, [axisInfo, modelMetric]);
 
   if (!axisInfo) return null;
-  const { toolRows, errTools, tools, skills, models } = axisInfo;
+  const { toolRows, errTools, tools, skills, models, allPeriods, modelPeriods } = axisInfo;
   const hideZero = (v: number | null) => (v == null || v === 0 ? null : String(v));
+  const canDrill = periodDays < 90 && !!onDateClick;
+  const makeAxisClick = (periods: readonly string[]) =>
+    canDrill
+      ? (_e: MouseEvent, d: { dataIndex: number } | null) => {
+          const idx = d?.dataIndex;
+          if (idx == null || idx < 0 || idx >= periods.length) return;
+          onDateClick?.(periods[idx]);
+        }
+      : undefined;
 
   if (activeChart === 'tools') {
     if (toolRows.length === 0) {
@@ -1222,6 +1205,7 @@ function BehaviorChartsSection({ data, periodDays, activeChart, toolMetric, mode
           }))}
           height={240}
           margin={{ left: 8, right: 8, top: 8, bottom: 60 }}
+          onAxisClick={makeAxisClick(allPeriods)}
         />
       </Paper>
     );
@@ -1245,6 +1229,7 @@ function BehaviorChartsSection({ data, periodDays, activeChart, toolMetric, mode
             }))}
             height={240}
             margin={{ left: 40, right: 8, top: 8, bottom: 40 }}
+            onAxisClick={makeAxisClick(allPeriods)}
           />
         )}
       </Paper>
@@ -1269,6 +1254,7 @@ function BehaviorChartsSection({ data, periodDays, activeChart, toolMetric, mode
           }))}
           height={240}
           margin={{ left: 40, right: 8, top: 8, bottom: 40 }}
+          onAxisClick={makeAxisClick(allPeriods)}
         />
       </Paper>
     );
@@ -1292,6 +1278,7 @@ function BehaviorChartsSection({ data, periodDays, activeChart, toolMetric, mode
         }))}
         height={240}
         margin={{ left: 40, right: 8, top: 8, bottom: 40 }}
+        onAxisClick={makeAxisClick(modelPeriods)}
       />
     </Paper>
   );
@@ -1332,6 +1319,11 @@ function CombinedChartsSection({
   const [modelMetric, setModelMetric] = useState<BehaviorMetric>('count');
   const [behaviorData, setBehaviorData] = useState<BehaviorData | null>(null);
   const [behaviorLoading, setBehaviorLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  useEffect(() => { setSelectedDate(null); }, [period]);
+  const handleDateClick = (fullDate: string) => {
+    setSelectedDate((prev) => (prev === fullDate ? null : fullDate));
+  };
 
   // Prefetch behavior data so switching to Tool/Error/Skill does not block on fetch.
   useEffect(() => {
@@ -1423,14 +1415,9 @@ function CombinedChartsSection({
       {metric === 'tokens' ? (
         <DailyActivityChart
           items={dailyActivity}
-          sessions={sessions}
           period={period}
           mode={tokenMode}
-          onSelectSession={onSelectSession}
-          onJumpToTrace={onJumpToTrace}
-          fetchSessionMessages={fetchSessionMessages}
-          fetchSessionCommits={fetchSessionCommits}
-          fetchSessionToolMetrics={fetchSessionToolMetrics}
+          onDateClick={handleDateClick}
           costOptimization={costOptimization}
         />
       ) : fetchBehaviorData ? (
@@ -1445,9 +1432,21 @@ function CombinedChartsSection({
             activeChart={metric}
             toolMetric={toolMetric}
             modelMetric={modelMetric}
+            onDateClick={handleDateClick}
           />
         )
       ) : null}
+      {selectedDate && period !== 90 && (
+        <DailySessionList
+          date={selectedDate}
+          sessions={sessions}
+          onSelectSession={onSelectSession}
+          onJumpToTrace={onJumpToTrace}
+          fetchSessionMessages={fetchSessionMessages}
+          fetchSessionCommits={fetchSessionCommits}
+          fetchSessionToolMetrics={fetchSessionToolMetrics}
+        />
+      )}
     </Box>
   );
 }
