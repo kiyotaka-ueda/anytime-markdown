@@ -208,6 +208,7 @@ interface BehaviorData {
   readonly toolCounts: readonly { period: string; tool: string; count: number; tokens: number; durationMs: number }[];
   readonly errorRate: readonly { period: string; rate: number; byTool: Readonly<Record<string, number>> }[];
   readonly skillStats: readonly { period: string; skill: string; count: number; costUsd: number }[];
+  readonly modelStats: readonly { period: string; model: string; count: number; tokens: number }[];
 }
 
 interface RawLine {
@@ -2442,10 +2443,28 @@ export class TrailDatabase {
       durationMs: Number(r['duration_ms'] ?? 0),
     }));
 
+    // ⑦ modelStats: assistant メッセージを (period, model) で集計
+    const modelResult = db.exec(
+      `SELECT ${periodExpr} AS period, model,
+              COUNT(*) AS count,
+              CAST(SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS INTEGER) AS tokens
+       FROM messages
+       WHERE timestamp >= datetime('now', '-${rangeDays} days')
+         AND type = 'assistant' AND model IS NOT NULL
+       GROUP BY period, model ORDER BY period, count DESC`,
+    );
+    const modelStats = toRows(modelResult).map(r => ({
+      period: String(r['period'] ?? ''),
+      model: String(r['model'] ?? ''),
+      count: Number(r['count'] ?? 0),
+      tokens: Number(r['tokens'] ?? 0),
+    }));
+
     return {
       toolCounts,
       errorRate,
       skillStats,
+      modelStats,
     };
   }
 

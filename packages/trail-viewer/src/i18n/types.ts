@@ -195,6 +195,7 @@ export interface TrailI18n {
 
   'behavior.sections.errors': string;
   'behavior.sections.skills': string;
+  'behavior.sections.models': string;
 
 
 }

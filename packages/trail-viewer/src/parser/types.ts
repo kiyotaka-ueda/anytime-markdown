@@ -108,11 +108,19 @@ export interface BehaviorSkill {
   readonly costUsd: number;
 }
 
+export interface BehaviorModel {
+  readonly period: string;
+  readonly model: string;
+  readonly count: number;
+  readonly tokens: number;
+}
+
 
 export interface BehaviorData {
   readonly toolCounts: readonly BehaviorToolCount[];
   readonly errorRate: readonly BehaviorError[];
   readonly skillStats: readonly BehaviorSkill[];
+  readonly modelStats: readonly BehaviorModel[];
 }
 
 export type BehaviorPeriodMode = 'day' | 'week';

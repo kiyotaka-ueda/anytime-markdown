@@ -578,9 +578,8 @@ export class SupabaseTrailReader implements ITrailReader {
       };
 
       // period key function
-      const periodKey = (r: Row): string => {
-        if (period === 'session') return r.session_id;
-        const utc = new Date(r.timestamp);
+      const periodKeyFromTs = (ts: string): string => {
+        const utc = new Date(ts);
         const offsetMs = getIanaOffsetMs('Asia/Tokyo', utc);
         const local = new Date(utc.getTime() + offsetMs);
         const y = local.getUTCFullYear();
@@ -595,6 +594,10 @@ export class SupabaseTrailReader implements ITrailReader {
         const wm = String(monday.getUTCMonth() + 1).padStart(2, '0');
         const wd = String(monday.getUTCDate()).padStart(2, '0');
         return `${wy}-${wm}-${wd}`;
+      };
+      const periodKey = (r: Row): string => {
+        if (period === 'session') return r.session_id;
+        return periodKeyFromTs(r.timestamp);
       };
 
       // ⑤ errorRate
@@ -660,7 +663,36 @@ export class SupabaseTrailReader implements ITrailReader {
         })
         .sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
 
-      return { toolCounts, errorRate, skillStats };
+      // ⑦ modelStats: assistant メッセージを (period, model) で集計
+      const modelStats = await (async () => {
+        const { data: msgData } = await this.client
+          .from('trail_messages')
+          .select('timestamp, model, input_tokens, output_tokens, type')
+          .eq('type', 'assistant')
+          .not('model', 'is', null)
+          .gte('timestamp', cutoff)
+          .limit(200_000);
+        if (!msgData) return [];
+        type Msg = { timestamp: string; model: string | null; input_tokens: number | null; output_tokens: number | null };
+        const map = new Map<string, { count: number; tokens: number }>();
+        for (const m of msgData as Msg[]) {
+          if (!m.model) continue;
+          const p = periodKeyFromTs(m.timestamp);
+          const k = `${p}::${m.model}`;
+          const e = map.get(k) ?? { count: 0, tokens: 0 };
+          e.count++;
+          e.tokens += (m.input_tokens ?? 0) + (m.output_tokens ?? 0);
+          map.set(k, e);
+        }
+        return [...map.entries()]
+          .map(([k, e]) => {
+            const [p, model] = k.split('::');
+            return { period: p ?? '', model: model ?? '', count: e.count, tokens: e.tokens };
+          })
+          .sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
+      })();
+
+      return { toolCounts, errorRate, skillStats, modelStats };
     } catch {
       return null;
     }

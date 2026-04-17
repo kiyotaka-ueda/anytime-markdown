@@ -1092,13 +1092,14 @@ function ModelTable({ items }: Readonly<{ items: AnalyticsData['modelBreakdown']
 // ─── Behavior charts in Analytics ───────────────────────────────────────────
 
 type BehaviorMetric = 'count' | 'tokens';
-type BehaviorChartKind = 'tools' | 'errors' | 'skills';
+type BehaviorChartKind = 'tools' | 'errors' | 'skills' | 'models';
 
-function BehaviorChartsSection({ data, periodDays, activeChart, toolMetric }: Readonly<{
+function BehaviorChartsSection({ data, periodDays, activeChart, toolMetric, modelMetric }: Readonly<{
   data: BehaviorData | null;
   periodDays: PeriodDays;
   activeChart: BehaviorChartKind;
   toolMetric: BehaviorMetric;
+  modelMetric: BehaviorMetric;
 }>) {
   const { cardSx } = useTrailTheme();
 
@@ -1110,17 +1111,24 @@ function BehaviorChartsSection({ data, periodDays, activeChart, toolMetric }: Re
     const toolRows = (data.toolCounts ?? []).filter(r => r.period >= cutoffStr);
     const errorRows = (data.errorRate ?? []).filter(r => r.period >= cutoffStr);
     const skillRows = (data.skillStats ?? []).filter(r => r.period >= cutoffStr);
+    const modelRows = (data.modelStats ?? []).filter(r => r.period >= cutoffStr);
     const allPeriods = [...new Set(toolRows.map(r => r.period))].sort();
     const labels = allPeriods.map(p => p.length > 5 ? p.slice(5) : p);
+    const modelPeriods = [...new Set(modelRows.map(r => r.period))].sort();
+    const modelLabels = modelPeriods.map(p => p.length > 5 ? p.slice(5) : p);
     return {
       toolRows,
       errorRows,
       skillRows,
+      modelRows,
       allPeriods,
       labels,
+      modelPeriods,
+      modelLabels,
       tools: [...new Set(toolRows.map(r => r.tool))],
       errTools: [...new Set(errorRows.flatMap(r => Object.keys(r.byTool)))],
       skills: [...new Set(skillRows.map(r => r.skill))],
+      models: [...new Set(modelRows.map(r => r.model))],
     };
   }, [data, periodDays]);
 
@@ -1173,8 +1181,27 @@ function BehaviorChartsSection({ data, periodDays, activeChart, toolMetric }: Re
     });
   }, [axisInfo]);
 
+  const modelDataset = useMemo(() => {
+    if (!axisInfo) return [];
+    const { modelRows, modelPeriods, modelLabels, models } = axisInfo;
+    const getValue = (r: { count: number; tokens: number }): number =>
+      modelMetric === 'tokens' ? r.tokens : r.count;
+    const valMap = new Map<string, number>();
+    for (const r of modelRows) {
+      const key = `${r.period}::${r.model}`;
+      valMap.set(key, (valMap.get(key) ?? 0) + getValue(r));
+    }
+    return modelPeriods.map((p, pi) => {
+      const entry: Record<string, string | number> = { period: modelLabels[pi] };
+      for (let i = 0; i < models.length; i++) {
+        entry[`m${i}`] = valMap.get(`${p}::${models[i]}`) ?? 0;
+      }
+      return entry;
+    });
+  }, [axisInfo, modelMetric]);
+
   if (!axisInfo) return null;
-  const { toolRows, errTools, tools, skills } = axisInfo;
+  const { toolRows, errTools, tools, skills, models } = axisInfo;
   const hideZero = (v: number | null) => (v == null || v === 0 ? null : String(v));
 
   if (activeChart === 'tools') {
@@ -1224,18 +1251,41 @@ function BehaviorChartsSection({ data, periodDays, activeChart, toolMetric }: Re
     );
   }
 
-  // activeChart === 'skills'
-  if (skills.length === 0) {
+  if (activeChart === 'skills') {
+    if (skills.length === 0) {
+      return <Typography variant="body2" color="text.secondary">0</Typography>;
+    }
+    return (
+      <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+        <BarChart
+          dataset={skillDataset}
+          xAxis={[{ scaleType: 'band', dataKey: 'period' }]}
+          series={skills.map((skill, i) => ({
+            dataKey: `s${i}`,
+            label: skill,
+            stack: 'total',
+            color: TOOL_COLORS[i % TOOL_COLORS.length],
+            valueFormatter: hideZero,
+          }))}
+          height={240}
+          margin={{ left: 40, right: 8, top: 8, bottom: 40 }}
+        />
+      </Paper>
+    );
+  }
+
+  // activeChart === 'models'
+  if (models.length === 0) {
     return <Typography variant="body2" color="text.secondary">0</Typography>;
   }
   return (
     <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
       <BarChart
-        dataset={skillDataset}
+        dataset={modelDataset}
         xAxis={[{ scaleType: 'band', dataKey: 'period' }]}
-        series={skills.map((skill, i) => ({
-          dataKey: `s${i}`,
-          label: skill,
+        series={models.map((model, i) => ({
+          dataKey: `m${i}`,
+          label: model,
           stack: 'total',
           color: TOOL_COLORS[i % TOOL_COLORS.length],
           valueFormatter: hideZero,
@@ -1247,7 +1297,7 @@ function BehaviorChartsSection({ data, periodDays, activeChart, toolMetric }: Re
   );
 }
 
-type CombinedMetric = 'tokens' | 'tools' | 'errors' | 'skills';
+type CombinedMetric = 'tokens' | 'tools' | 'errors' | 'skills' | 'models';
 
 function CombinedChartsSection({
   dailyActivity,
@@ -1279,6 +1329,7 @@ function CombinedChartsSection({
   const [metric, setMetric] = useState<CombinedMetric>('tokens');
   const [tokenMode, setTokenMode] = useState<DailyViewMode>('tokens');
   const [toolMetric, setToolMetric] = useState<BehaviorMetric>('count');
+  const [modelMetric, setModelMetric] = useState<BehaviorMetric>('count');
   const [behaviorData, setBehaviorData] = useState<BehaviorData | null>(null);
   const [behaviorLoading, setBehaviorLoading] = useState(false);
 
@@ -1320,6 +1371,7 @@ function CombinedChartsSection({
             <ToggleButton value="tools" sx={toggleSx}>{t('behavior.sections.toolCounts')}</ToggleButton>
             <ToggleButton value="errors" sx={toggleSx}>{t('behavior.sections.errors')}</ToggleButton>
             <ToggleButton value="skills" sx={toggleSx}>{t('behavior.sections.skills')}</ToggleButton>
+            <ToggleButton value="models" sx={toggleSx}>{t('behavior.sections.models')}</ToggleButton>
           </ToggleButtonGroup>
           <ToggleButtonGroup
             value={period}
@@ -1356,6 +1408,17 @@ function CombinedChartsSection({
             <ToggleButton value="tokens" sx={toggleSx}>{t('behavior.toolCounts.tokens')}</ToggleButton>
           </ToggleButtonGroup>
         )}
+        {metric === 'models' && (
+          <ToggleButtonGroup
+            value={modelMetric}
+            exclusive
+            onChange={(_e, v: BehaviorMetric | null) => { if (v) setModelMetric(v); }}
+            size="small"
+          >
+            <ToggleButton value="count" sx={toggleSx}>{t('behavior.toolCounts.count')}</ToggleButton>
+            <ToggleButton value="tokens" sx={toggleSx}>{t('behavior.toolCounts.tokens')}</ToggleButton>
+          </ToggleButtonGroup>
+        )}
       </Box>
       {metric === 'tokens' ? (
         <DailyActivityChart
@@ -1381,6 +1444,7 @@ function CombinedChartsSection({
             periodDays={period}
             activeChart={metric}
             toolMetric={toolMetric}
+            modelMetric={modelMetric}
           />
         )
       ) : null}
