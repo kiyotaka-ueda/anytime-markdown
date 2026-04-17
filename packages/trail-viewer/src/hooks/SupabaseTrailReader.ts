@@ -643,22 +643,7 @@ export class SupabaseTrailReader implements ITrailReader {
         })
         .sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
 
-      // ② repeatOps: 同一ターン内に 3 回以上のツール呼び出しがあるターン数
-      const turnCallCount = new Map<string, { period: string; count: number }>();
-      for (const r of rows) {
-        const p = periodKey(r);
-        const key = `${p}:${r.session_id}:${r.turn_index}`;
-        const e = turnCallCount.get(key) ?? { period: p, count: 0 };
-        e.count++;
-        turnCallCount.set(key, e);
-      }
-      const repeatByPeriod = new Map<string, number>();
-      for (const { period, count } of turnCallCount.values()) {
-        if (count >= 3) repeatByPeriod.set(period, (repeatByPeriod.get(period) ?? 0) + 1);
-      }
-      const repeatOps = [...repeatByPeriod.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([period, count]) => ({ period, count }));
-
-      return { toolSequences, toolCounts, repeatOps, avgToolsPerTurn, subagentRate, errorRate, skillStats, cacheEfficiency: [], corrections: [] };
+      return { toolSequences, toolCounts, avgToolsPerTurn, subagentRate, errorRate, skillStats, cacheEfficiency: [], corrections: [] };
     } catch {
       return null;
     }

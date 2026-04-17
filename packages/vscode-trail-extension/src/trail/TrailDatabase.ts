@@ -207,7 +207,6 @@ export interface CostOptimizationData {
 interface BehaviorData {
   readonly toolSequences: readonly { period: string; sequence: string; count: number }[];
   readonly toolCounts: readonly { period: string; tool: string; count: number; tokens: number; durationMs: number }[];
-  readonly repeatOps: readonly { period: string; count: number }[];
   readonly avgToolsPerTurn: readonly { period: string; avg: number }[];
   readonly subagentRate: readonly { period: string; rate: number; byType: Readonly<Record<string, number>> }[];
   readonly errorRate: readonly { period: string; rate: number; byTool: Readonly<Record<string, number>> }[];
@@ -2305,23 +2304,6 @@ export class TrailDatabase {
       costUsd: 0, // cost join not yet implemented
     }));
 
-    // ② repeatOps: turns where 3+ consecutive same-tool calls
-    const repeatResult = db.exec(
-      `SELECT period, COUNT(*) AS count
-       FROM (
-         SELECT ${periodExpr} AS period, session_id, turn_index
-         FROM message_tool_calls
-         WHERE timestamp >= datetime('now', '-${rangeDays} days')
-         GROUP BY period, session_id, turn_index
-         HAVING COUNT(*) >= 3
-       )
-       GROUP BY period ORDER BY period`,
-    );
-    const repeatOps = toRows(repeatResult).map(r => ({
-      period: String(r['period'] ?? ''),
-      count: Number(r['count'] ?? 0),
-    }));
-
     // ① toolSequences: 2グラム（連続ツールペア）Top5（全期間展開）
     // セッション内の全ツール呼び出しを時系列順に並べ、隣接ペアを集計する
     // 全期間合計で上位5シーケンスを特定し、それらの全期間データを返す
@@ -2392,7 +2374,6 @@ export class TrailDatabase {
     return {
       toolSequences,
       toolCounts,
-      repeatOps,
       avgToolsPerTurn,
       subagentRate,
       errorRate,

@@ -99,10 +99,6 @@ export interface BehaviorToolCount {
   readonly durationMs: number;
 }
 
-export interface BehaviorPeriodCount {
-  readonly period: string;
-  readonly count: number;
-}
 
 export interface BehaviorAvg {
   readonly period: string;
@@ -143,7 +139,6 @@ export interface BehaviorCorrection {
 export interface BehaviorData {
   readonly toolSequences: readonly BehaviorToolSequence[];
   readonly toolCounts: readonly BehaviorToolCount[];
-  readonly repeatOps: readonly BehaviorPeriodCount[];
   readonly avgToolsPerTurn: readonly BehaviorAvg[];
   readonly subagentRate: readonly BehaviorSubagent[];
   readonly errorRate: readonly BehaviorError[];
