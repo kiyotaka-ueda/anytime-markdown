@@ -560,38 +560,38 @@ export class SupabaseTrailReader implements ITrailReader {
 
   async getBehaviorData(period: BehaviorPeriodMode, rangeDays: BehaviorRangeDays): Promise<BehaviorData | null> {
     try {
-      // Aggregate from trail_message_tool_calls in Supabase
       const cutoff = new Date(Date.now() - rangeDays * 86_400_000).toISOString();
-      const { data, error } = await this.client
-        .from('trail_message_tool_calls')
-        .select('session_id, message_uuid, turn_index, call_index, tool_name, file_path, skill_name, is_error, is_sidechain, turn_exec_ms, timestamp')
-        .gte('timestamp', cutoff)
-        .limit(100_000);
-      if (error || !data) return null;
 
-      type Row = { session_id: string; message_uuid: string; turn_index: number; call_index: number; tool_name: string; file_path: string | null; skill_name: string | null; is_error: number; is_sidechain: number; turn_exec_ms: number | null; timestamp: string };
-      const rows = data as Row[];
+      // tool_calls と assistant メッセージを並列 fetch。
+      // assistant メッセージは msgTokenMap と modelStats の両方に使い回す。
+      const [tcResult, msgResult] = await Promise.all([
+        this.client
+          .from('trail_message_tool_calls')
+          .select('session_id, message_uuid, turn_index, tool_name, skill_name, is_error, turn_exec_ms, timestamp')
+          .gte('timestamp', cutoff)
+          .limit(100_000),
+        this.client
+          .from('trail_messages')
+          .select('uuid, timestamp, model, input_tokens, output_tokens')
+          .eq('type', 'assistant')
+          .gte('timestamp', cutoff)
+          .limit(200_000),
+      ]);
+      if (tcResult.error || !tcResult.data) return null;
 
-      // メッセージごとのトークン数を取得（ツール呼び出し按分用）
-      const msgUuids = [...new Set(rows.map(r => r.message_uuid))];
+      type Row = { session_id: string; message_uuid: string; turn_index: number; tool_name: string; skill_name: string | null; is_error: number; turn_exec_ms: number | null; timestamp: string };
+      const rows = tcResult.data as Row[];
+      type MsgRow = { uuid: string; timestamp: string; model: string | null; input_tokens: number | null; output_tokens: number | null };
+      const msgs = (msgResult.data ?? []) as MsgRow[];
+
+      // assistant メッセージから msgTokenMap を構築（バッチ fetch の置き換え）
       const msgTokenMap = new Map<string, number>();
+      for (const m of msgs) {
+        msgTokenMap.set(m.uuid, (m.input_tokens ?? 0) + (m.output_tokens ?? 0));
+      }
       const msgToolCountMap = new Map<string, number>();
-      // message_uuid ごとのツール呼び出し数をカウント
       for (const r of rows) {
         msgToolCountMap.set(r.message_uuid, (msgToolCountMap.get(r.message_uuid) ?? 0) + 1);
-      }
-      // メッセージのトークン数をバッチ取得（1000件ずつ）
-      for (let i = 0; i < msgUuids.length; i += 1000) {
-        const batch = msgUuids.slice(i, i + 1000);
-        const { data: msgData } = await this.client
-          .from('trail_messages')
-          .select('uuid, input_tokens, output_tokens')
-          .in('uuid', batch);
-        if (msgData) {
-          for (const m of msgData as { uuid: string; input_tokens: number; output_tokens: number }[]) {
-            msgTokenMap.set(m.uuid, (m.input_tokens ?? 0) + (m.output_tokens ?? 0));
-          }
-        }
       }
 
       // IANA タイムゾーンから UTC オフセット（分）を取得する。
@@ -691,34 +691,23 @@ export class SupabaseTrailReader implements ITrailReader {
         })
         .sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
 
-      // ⑦ modelStats: assistant メッセージを (period, model) で集計
-      const modelStats = await (async () => {
-        const { data: msgData } = await this.client
-          .from('trail_messages')
-          .select('timestamp, model, input_tokens, output_tokens, type')
-          .eq('type', 'assistant')
-          .not('model', 'is', null)
-          .gte('timestamp', cutoff)
-          .limit(200_000);
-        if (!msgData) return [];
-        type Msg = { timestamp: string; model: string | null; input_tokens: number | null; output_tokens: number | null };
-        const map = new Map<string, { count: number; tokens: number }>();
-        for (const m of msgData as Msg[]) {
-          if (!m.model) continue;
-          const p = periodKeyFromTs(m.timestamp);
-          const k = `${p}::${m.model}`;
-          const e = map.get(k) ?? { count: 0, tokens: 0 };
-          e.count++;
-          e.tokens += (m.input_tokens ?? 0) + (m.output_tokens ?? 0);
-          map.set(k, e);
-        }
-        return [...map.entries()]
-          .map(([k, e]) => {
-            const [p, model] = k.split('::');
-            return { period: p ?? '', model: model ?? '', count: e.count, tokens: e.tokens };
-          })
-          .sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
-      })();
+      // ⑦ modelStats: 並列 fetch 済みの assistant メッセージから集計
+      const modelMap = new Map<string, { count: number; tokens: number }>();
+      for (const m of msgs) {
+        if (!m.model) continue;
+        const p = periodKeyFromTs(m.timestamp);
+        const k = `${p}::${m.model}`;
+        const e = modelMap.get(k) ?? { count: 0, tokens: 0 };
+        e.count++;
+        e.tokens += (m.input_tokens ?? 0) + (m.output_tokens ?? 0);
+        modelMap.set(k, e);
+      }
+      const modelStats = [...modelMap.entries()]
+        .map(([k, e]) => {
+          const [p, model] = k.split('::');
+          return { period: p ?? '', model: model ?? '', count: e.count, tokens: e.tokens };
+        })
+        .sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
 
       return { toolCounts, errorRate, skillStats, modelStats };
     } catch {
