@@ -104,7 +104,7 @@ export const en: TrailI18n = {
   'analytics.chartCacheWrite': 'Cache Write',
   'analytics.chartCumulativeInferenceTime': 'Cum. Inference',
   'analytics.openInTraces': 'Open in Traces',
-  'chart.tokenUsage': 'Token Usage',
+  'chart.tokenUsage': 'Token',
   'chart.estimatedCost': 'Estimated Cost',
   'chart.tokens': 'Tokens',
   'chart.cost': 'Cost',
@@ -173,14 +173,14 @@ export const en: TrailI18n = {
   'c4.clearFrameFilter': 'Clear Frame Filter',
   'c4.copyPath': 'Copy Path',
   'c4.frameFilter.reset': 'Reset',
-  'behavior.sections.toolCounts': 'Tool Usage',
+  'behavior.sections.toolCounts': 'Tool',
   'behavior.toolCounts.count': 'Count',
   'behavior.toolCounts.tokens': 'Tokens',
   'behavior.toolCounts.duration': 'Duration',
 
 
-  'behavior.sections.errors': 'Error Patterns',
-  'behavior.sections.skills': 'Skill Analysis',
+  'behavior.sections.errors': 'Error',
+  'behavior.sections.skills': 'Skill',
   'behavior.sections.models': 'Model',
 
 

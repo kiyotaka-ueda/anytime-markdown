@@ -104,7 +104,7 @@ export const ja: TrailI18n = {
   'analytics.chartCacheWrite': 'キャッシュ書込',
   'analytics.chartCumulativeInferenceTime': '累積推論時間',
   'analytics.openInTraces': 'トレースタブで開く',
-  'chart.tokenUsage': 'トークン使用量',
+  'chart.tokenUsage': 'トークン',
   'chart.estimatedCost': '推定コスト',
   'chart.tokens': 'トークン',
   'chart.cost': 'コスト',
@@ -173,14 +173,14 @@ export const ja: TrailI18n = {
   'c4.clearFrameFilter': 'フィルタ解除',
   'c4.copyPath': 'パスをコピー',
   'c4.frameFilter.reset': 'Reset',
-  'behavior.sections.toolCounts': 'ツール利用',
+  'behavior.sections.toolCounts': 'ツール',
   'behavior.toolCounts.count': '回数',
   'behavior.toolCounts.tokens': 'トークン',
   'behavior.toolCounts.duration': '時間',
 
 
-  'behavior.sections.errors': 'エラーパターン',
-  'behavior.sections.skills': 'スキル実施内容分析',
+  'behavior.sections.errors': 'エラー',
+  'behavior.sections.skills': 'スキル',
   'behavior.sections.models': 'モデル',
 
 

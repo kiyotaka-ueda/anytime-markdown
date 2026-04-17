@@ -933,8 +933,8 @@ function DailySessionList({
               toolMetrics={sessionToolMetrics}
             />
             <SessionModelUsageChart toolMetrics={sessionToolMetrics} />
-            <SessionToolUsageChart toolMetrics={sessionToolMetrics} />
             <SessionSkillUsageChart toolMetrics={sessionToolMetrics} />
+            <SessionToolUsageChart toolMetrics={sessionToolMetrics} />
             <SessionErrorChart toolMetrics={sessionToolMetrics} />
             {timelineLoading ? (
               <Paper elevation={0} sx={{ ...cardSx, mt: 1, p: 1.5, height: 270, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1416,10 +1416,10 @@ function CombinedChartsSection({
             size="small"
           >
             <ToggleButton value="tokens" sx={toggleSx}>{t('chart.tokenUsage')}</ToggleButton>
+            <ToggleButton value="models" sx={toggleSx}>{t('behavior.sections.models')}</ToggleButton>
+            <ToggleButton value="skills" sx={toggleSx}>{t('behavior.sections.skills')}</ToggleButton>
             <ToggleButton value="tools" sx={toggleSx}>{t('behavior.sections.toolCounts')}</ToggleButton>
             <ToggleButton value="errors" sx={toggleSx}>{t('behavior.sections.errors')}</ToggleButton>
-            <ToggleButton value="skills" sx={toggleSx}>{t('behavior.sections.skills')}</ToggleButton>
-            <ToggleButton value="models" sx={toggleSx}>{t('behavior.sections.models')}</ToggleButton>
           </ToggleButtonGroup>
           <ToggleButtonGroup
             value={period}
