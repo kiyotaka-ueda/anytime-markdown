@@ -201,6 +201,7 @@ function TrailViewerCoreInner({
           fetchSessionCommits={fetchSessionCommits}
           fetchSessionToolMetrics={fetchSessionToolMetrics}
           costOptimization={costOptimization}
+          fetchBehaviorData={fetchBehaviorData}
         />
       </Box>
 

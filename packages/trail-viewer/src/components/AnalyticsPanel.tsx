@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
@@ -17,7 +17,7 @@ import type { SxProps, Theme } from '@mui/material/styles';
 import { BarChart } from '@mui/x-charts/BarChart';
 import { LineChart } from '@mui/x-charts/LineChart';
 import { formatLocalTime, toLocalDateKey } from '@anytime-markdown/trail-core/formatDate';
-import type { AnalyticsData, CostOptimizationData, ToolMetrics, TrailMessage, TrailSession, TrailSessionCommit, TrailTokenUsage } from '../parser/types';
+import type { AnalyticsData, BehaviorData, BehaviorPeriodMode, BehaviorRangeDays, CostOptimizationData, ToolMetrics, TrailMessage, TrailSession, TrailSessionCommit, TrailTokenUsage } from '../parser/types';
 import { useTrailTheme } from './TrailThemeContext';
 import { useTrailI18n } from '../i18n';
 
@@ -30,6 +30,7 @@ export interface AnalyticsPanelProps {
   readonly fetchSessionCommits?: (id: string) => Promise<readonly TrailSessionCommit[]>;
   readonly fetchSessionToolMetrics?: (id: string) => Promise<ToolMetrics | null>;
   readonly costOptimization?: CostOptimizationData | null;
+  readonly fetchBehaviorData?: (period: BehaviorPeriodMode, rangeDays: BehaviorRangeDays) => Promise<BehaviorData>;
 }
 
 // ---------------------------------------------------------------------------
@@ -1112,7 +1113,159 @@ function ModelTable({ items }: Readonly<{ items: AnalyticsData['modelBreakdown']
 //  Main component
 // ---------------------------------------------------------------------------
 
-export function AnalyticsPanel({ analytics, sessions = [], onSelectSession, onJumpToTrace, fetchSessionMessages, fetchSessionCommits, fetchSessionToolMetrics, costOptimization }: Readonly<AnalyticsPanelProps>) {
+// ─── Behavior charts in Analytics ───────────────────────────────────────────
+
+const BEHAVIOR_PALETTE = [
+  '#1976d2', '#8b5cf6', '#00897b', '#e65100', '#c62828',
+  '#6d4c41', '#37474f', '#f9a825', '#558b2f', '#ad1457',
+] as const;
+
+type BehaviorMetric = 'count' | 'tokens' | 'duration';
+
+function BehaviorChartsSection({ fetchBehaviorData }: Readonly<{
+  fetchBehaviorData: (period: BehaviorPeriodMode, rangeDays: BehaviorRangeDays) => Promise<BehaviorData>;
+}>) {
+  const { cardSx } = useTrailTheme();
+  const { t } = useTrailI18n();
+  const [rangeDays, setRangeDays] = useState<BehaviorRangeDays>(30);
+  const [metric, setMetric] = useState<BehaviorMetric>('count');
+  const [data, setData] = useState<BehaviorData | null>(null);
+
+  const load = useCallback(async () => {
+    const result = await fetchBehaviorData('day', rangeDays);
+    setData(result);
+  }, [fetchBehaviorData, rangeDays]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  if (!data) return null;
+
+  const getValue = (r: { count: number; tokens?: number; durationMs?: number }): number =>
+    metric === 'tokens' ? (r.tokens ?? 0)
+    : metric === 'duration' ? Math.round((r.durationMs ?? 0) / 1000)
+    : r.count;
+
+  const toolRows = data.toolCounts ?? [];
+  const allPeriods = [...new Set(toolRows.map(r => r.period))].sort();
+  const labels = allPeriods.map(p => p.length > 5 ? p.slice(5) : p);
+  const tools = [...new Set(toolRows.map(r => r.tool))];
+
+  // Tool Usage dataset
+  const toolValMap = new Map<string, number>();
+  for (const r of toolRows) {
+    const v = getValue(r);
+    toolValMap.set(`${r.period}::${r.tool}`, (toolValMap.get(`${r.period}::${r.tool}`) ?? 0) + v);
+  }
+  const toolDataset = allPeriods.map(p => {
+    const entry: Record<string, string | number> = { period: labels[allPeriods.indexOf(p)] };
+    for (let i = 0; i < tools.length; i++) {
+      entry[`t${i}`] = toolValMap.get(`${p}::${tools[i]}`) ?? 0;
+    }
+    return entry;
+  });
+
+  // Error Patterns
+  const errorRows = data.errorRate ?? [];
+  const errByPeriod = new Map(errorRows.map(r => [r.period, r]));
+  const errTools = [...new Set(errorRows.flatMap(r => Object.keys(r.byTool)))];
+  const errDataset = allPeriods.map(p => {
+    const entry: Record<string, string | number> = { period: labels[allPeriods.indexOf(p)] };
+    for (let i = 0; i < errTools.length; i++) {
+      entry[`e${i}`] = errByPeriod.get(p)?.byTool[errTools[i]] ?? 0;
+    }
+    return entry;
+  });
+
+  // Skill Analysis
+  const skillRows = data.skillStats ?? [];
+  const skills = [...new Set(skillRows.map(r => r.skill))];
+  const skillCountMap = new Map<string, number>();
+  for (const r of skillRows) {
+    skillCountMap.set(`${r.period}::${r.skill}`, (skillCountMap.get(`${r.period}::${r.skill}`) ?? 0) + r.count);
+  }
+  const skillDataset = allPeriods.map(p => {
+    const entry: Record<string, string | number> = { period: labels[allPeriods.indexOf(p)] };
+    for (let i = 0; i < skills.length; i++) {
+      entry[`s${i}`] = skillCountMap.get(`${p}::${skills[i]}`) ?? 0;
+    }
+    return entry;
+  });
+
+  const controls = (
+    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+      <ToggleButtonGroup size="small" exclusive value={rangeDays} onChange={(_, v: BehaviorRangeDays | null) => { if (v) setRangeDays(v); }}>
+        <ToggleButton value={30}>30{t('behavior.range.days')}</ToggleButton>
+        <ToggleButton value={90}>90{t('behavior.range.days')}</ToggleButton>
+      </ToggleButtonGroup>
+      <ToggleButtonGroup size="small" exclusive value={metric} onChange={(_, v: BehaviorMetric | null) => { if (v) setMetric(v); }}>
+        <ToggleButton value="count">{t('behavior.toolCounts.count')}</ToggleButton>
+        <ToggleButton value="tokens">{t('behavior.toolCounts.tokens')}</ToggleButton>
+        <ToggleButton value="duration">{t('behavior.toolCounts.duration')}</ToggleButton>
+      </ToggleButtonGroup>
+    </Box>
+  );
+
+  return (
+    <>
+      {controls}
+      {toolRows.length > 0 && (
+        <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+          <Typography variant="subtitle2" gutterBottom>{t('behavior.sections.toolCounts')}</Typography>
+          <BarChart
+            dataset={toolDataset}
+            xAxis={[{ scaleType: 'band', dataKey: 'period' }]}
+            series={tools.map((tool, i) => ({
+              dataKey: `t${i}`,
+              label: tool,
+              stack: 'total',
+              color: BEHAVIOR_PALETTE[i % BEHAVIOR_PALETTE.length],
+            }))}
+            height={220}
+            margin={{ left: 8, right: 8, top: 8, bottom: 60 }}
+          />
+        </Paper>
+      )}
+      <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+        <Typography variant="subtitle2" gutterBottom>{t('behavior.sections.errors')}</Typography>
+        {errTools.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">0</Typography>
+        ) : (
+          <BarChart
+            dataset={errDataset}
+            xAxis={[{ scaleType: 'band', dataKey: 'period' }]}
+            series={errTools.map((tool, i) => ({
+              dataKey: `e${i}`,
+              label: tool,
+              stack: 'total',
+              color: BEHAVIOR_PALETTE[i % BEHAVIOR_PALETTE.length],
+            }))}
+            height={200}
+            margin={{ left: 40, right: 8, top: 8, bottom: 40 }}
+          />
+        )}
+      </Paper>
+      {skills.length > 0 && (
+        <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+          <Typography variant="subtitle2" gutterBottom>{t('behavior.sections.skills')}</Typography>
+          <BarChart
+            dataset={skillDataset}
+            xAxis={[{ scaleType: 'band', dataKey: 'period' }]}
+            series={skills.map((skill, i) => ({
+              dataKey: `s${i}`,
+              label: skill,
+              stack: 'total',
+              color: BEHAVIOR_PALETTE[i % BEHAVIOR_PALETTE.length],
+            }))}
+            height={200}
+            margin={{ left: 40, right: 8, top: 8, bottom: 40 }}
+          />
+        </Paper>
+      )}
+    </>
+  );
+}
+
+export function AnalyticsPanel({ analytics, sessions = [], onSelectSession, onJumpToTrace, fetchSessionMessages, fetchSessionCommits, fetchSessionToolMetrics, costOptimization, fetchBehaviorData }: Readonly<AnalyticsPanelProps>) {
   const { colors } = useTrailTheme();
   const { t } = useTrailI18n();
   if (!analytics) {
@@ -1131,6 +1284,7 @@ export function AnalyticsPanel({ analytics, sessions = [], onSelectSession, onJu
       <ToolUsageChart items={analytics.toolUsage} />
       <DailyActivityChart items={analytics.dailyActivity} sessions={sessions} onSelectSession={onSelectSession} onJumpToTrace={onJumpToTrace} fetchSessionMessages={fetchSessionMessages} fetchSessionCommits={fetchSessionCommits} fetchSessionToolMetrics={fetchSessionToolMetrics} costOptimization={costOptimization} />
       <ModelTable items={analytics.modelBreakdown} />
+      {fetchBehaviorData && <BehaviorChartsSection fetchBehaviorData={fetchBehaviorData} />}
     </Box>
   );
 }
