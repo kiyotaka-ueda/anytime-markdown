@@ -1000,6 +1000,7 @@ function DailyActivityChart({
 
   const isTokens = mode === 'tokens';
   const yFormatter = isTokens ? fmtTokens : fmtUsd;
+  const seriesFormatter = (v: number | null) => (v == null || v === 0 ? null : yFormatter(v));
 
   const handleAxisClick = (_event: MouseEvent, data: { dataIndex: number } | null) => {
     const idx = data?.dataIndex;
@@ -1015,13 +1016,13 @@ function DailyActivityChart({
         xAxis={[{ scaleType: 'band', dataKey: 'date' }]}
         yAxis={[{ valueFormatter: yFormatter }]}
         series={isTokens ? [
-          { dataKey: 'inputTokens', label: 'Input', stack: 'a', color: chartColors.input },
-          { dataKey: 'outputTokens', label: 'Output', stack: 'a', color: chartColors.output },
-          { dataKey: 'cacheReadTokens', label: 'Cache Read', stack: 'a', color: chartColors.cacheRead },
-          { dataKey: 'cacheCreationTokens', label: 'Cache Write', stack: 'a', color: chartColors.cacheWrite },
+          { dataKey: 'inputTokens', label: 'Input', stack: 'a', color: chartColors.input, valueFormatter: seriesFormatter },
+          { dataKey: 'outputTokens', label: 'Output', stack: 'a', color: chartColors.output, valueFormatter: seriesFormatter },
+          { dataKey: 'cacheReadTokens', label: 'Cache Read', stack: 'a', color: chartColors.cacheRead, valueFormatter: seriesFormatter },
+          { dataKey: 'cacheCreationTokens', label: 'Cache Write', stack: 'a', color: chartColors.cacheWrite, valueFormatter: seriesFormatter },
         ] : [
-          { dataKey: 'actualCost', label: 'Current', color: '#1976d2' },
-          { dataKey: 'skillCost', label: 'Optimized', color: '#8b5cf6' },
+          { dataKey: 'actualCost', label: 'Current', color: '#1976d2', valueFormatter: seriesFormatter },
+          { dataKey: 'skillCost', label: 'Optimized', color: '#8b5cf6', valueFormatter: seriesFormatter },
         ]}
         height={240}
         margin={{ left: 60, right: 16, top: 16, bottom: 24 }}
@@ -1174,6 +1175,7 @@ function BehaviorChartsSection({ data, periodDays, activeChart, toolMetric }: Re
 
   if (!axisInfo) return null;
   const { toolRows, errTools, tools, skills } = axisInfo;
+  const hideZero = (v: number | null) => (v == null || v === 0 ? null : String(v));
 
   if (activeChart === 'tools') {
     if (toolRows.length === 0) {
@@ -1189,6 +1191,7 @@ function BehaviorChartsSection({ data, periodDays, activeChart, toolMetric }: Re
             label: tool,
             stack: 'total',
             color: TOOL_COLORS[i % TOOL_COLORS.length],
+            valueFormatter: hideZero,
           }))}
           height={240}
           margin={{ left: 8, right: 8, top: 8, bottom: 60 }}
@@ -1211,6 +1214,7 @@ function BehaviorChartsSection({ data, periodDays, activeChart, toolMetric }: Re
               label: tool,
               stack: 'total',
               color: TOOL_COLORS[i % TOOL_COLORS.length],
+              valueFormatter: hideZero,
             }))}
             height={240}
             margin={{ left: 40, right: 8, top: 8, bottom: 40 }}
@@ -1234,6 +1238,7 @@ function BehaviorChartsSection({ data, periodDays, activeChart, toolMetric }: Re
           label: skill,
           stack: 'total',
           color: TOOL_COLORS[i % TOOL_COLORS.length],
+          valueFormatter: hideZero,
         }))}
         height={240}
         margin={{ left: 40, right: 8, top: 8, bottom: 40 }}
