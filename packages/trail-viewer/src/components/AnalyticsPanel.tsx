@@ -569,16 +569,10 @@ function SessionMetricsPanel({ session, toolMetrics }: Readonly<{
   );
 }
 
-const TOOL_COLORS = [
-  '#1976d2', '#8b5cf6', '#00897b', '#e65100', '#c62828',
-  '#6d4c41', '#37474f', '#f9a825', '#558b2f', '#ad1457',
-  '#0097a7', '#5c6bc0', '#ef6c00', '#2e7d32', '#8e24aa',
-] as const;
-
 type SessionToolMetric = 'count' | 'tokens' | 'duration';
 
 function SessionModelUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics | null }>) {
-  const { cardSx } = useTrailTheme();
+  const { cardSx, toolPalette } = useTrailTheme();
   const { t } = useTrailI18n();
   const [metric, setMetric] = useState<SessionToolMetric>('count');
   const usage = toolMetrics?.modelUsage;
@@ -621,7 +615,7 @@ function SessionModelUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
           dataKey: `m${i}`,
           label: e.model,
           stack: 'total',
-          color: TOOL_COLORS[i % TOOL_COLORS.length],
+          color: toolPalette[i % toolPalette.length],
         }))}
         height={70}
         margin={{ left: 0, right: 16, top: 4, bottom: 16 }}
@@ -632,7 +626,7 @@ function SessionModelUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
 }
 
 function SessionToolUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics | null }>) {
-  const { cardSx } = useTrailTheme();
+  const { cardSx, toolPalette } = useTrailTheme();
   const { t } = useTrailI18n();
   const [metric, setMetric] = useState<SessionToolMetric>('count');
   const usage = toolMetrics?.toolUsage;
@@ -676,7 +670,7 @@ function SessionToolUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetr
           dataKey: `t${i}`,
           label: e.tool,
           stack: 'total',
-          color: TOOL_COLORS[i % TOOL_COLORS.length],
+          color: toolPalette[i % toolPalette.length],
         }))}
         height={70}
         margin={{ left: 0, right: 16, top: 4, bottom: 16 }}
@@ -687,7 +681,7 @@ function SessionToolUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetr
 }
 
 function SessionSkillUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics | null }>) {
-  const { cardSx } = useTrailTheme();
+  const { cardSx, toolPalette } = useTrailTheme();
   const { t } = useTrailI18n();
   const [metric, setMetric] = useState<SessionToolMetric>('count');
   const usage = toolMetrics?.skillUsage;
@@ -731,7 +725,7 @@ function SessionSkillUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
           dataKey: `s${i}`,
           label: e.skill,
           stack: 'total',
-          color: TOOL_COLORS[i % TOOL_COLORS.length],
+          color: toolPalette[i % toolPalette.length],
         }))}
         height={70}
         margin={{ left: 0, right: 16, top: 4, bottom: 16 }}
@@ -742,7 +736,7 @@ function SessionSkillUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
 }
 
 function SessionErrorChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics | null }>) {
-  const { cardSx } = useTrailTheme();
+  const { cardSx, toolPalette } = useTrailTheme();
   const { t } = useTrailI18n();
   const errors = toolMetrics?.errorsByTool;
   if (!errors || errors.length === 0) {
@@ -772,7 +766,7 @@ function SessionErrorChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics 
           dataKey: `e${i}`,
           label: e.tool,
           stack: 'total',
-          color: TOOL_COLORS[i % TOOL_COLORS.length],
+          color: toolPalette[i % toolPalette.length],
         }))}
         height={70}
         margin={{ left: 0, right: 16, top: 4, bottom: 16 }}
@@ -1171,8 +1165,8 @@ function DailyActivityChart({
         { dataKey: 'cacheReadTokens', label: 'Cache Read', stack: 'a', color: chartColors.cacheRead, valueFormatter: seriesFormatter },
         { dataKey: 'cacheCreationTokens', label: 'Cache Write', stack: 'a', color: chartColors.cacheWrite, valueFormatter: seriesFormatter },
       ] : [
-        { dataKey: 'actualCost', label: 'Current', color: '#1976d2', valueFormatter: seriesFormatter },
-        { dataKey: 'skillCost', label: 'Optimized', color: '#8b5cf6', valueFormatter: seriesFormatter },
+        { dataKey: 'actualCost', label: 'Current', color: chartColors.primary, valueFormatter: seriesFormatter },
+        { dataKey: 'skillCost', label: 'Optimized', color: chartColors.skill, valueFormatter: seriesFormatter },
       ]}
       height={240}
       margin={{ left: 60, right: 16, top: 16, bottom: 24 }}
@@ -1224,7 +1218,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
   modelMetric: ChartMetric;
   onDateClick?: (fullDate: string) => void;
 }>) {
-  const { cardSx } = useTrailTheme();
+  const { cardSx, toolPalette } = useTrailTheme();
 
   const axisInfo = useMemo(() => {
     if (!data) return null;
@@ -1378,7 +1372,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
             dataKey: `t${i}`,
             label: tool,
             stack: 'total',
-            color: TOOL_COLORS[i % TOOL_COLORS.length],
+            color: toolPalette[i % toolPalette.length],
             valueFormatter: hideZero,
           }))}
           height={240}
@@ -1403,7 +1397,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
               dataKey: `e${i}`,
               label: tool,
               stack: 'total',
-              color: TOOL_COLORS[i % TOOL_COLORS.length],
+              color: toolPalette[i % toolPalette.length],
               valueFormatter: hideZero,
             }))}
             height={240}
@@ -1429,7 +1423,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
             dataKey: `s${i}`,
             label: skill,
             stack: 'total',
-            color: TOOL_COLORS[i % TOOL_COLORS.length],
+            color: toolPalette[i % toolPalette.length],
             valueFormatter: hideZero,
           }))}
           height={240}
@@ -1454,7 +1448,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
           dataKey: `m${i}`,
           label: model,
           stack: 'total',
-          color: TOOL_COLORS[i % TOOL_COLORS.length],
+          color: toolPalette[i % toolPalette.length],
           valueFormatter: hideZero,
         }))}
         height={240}
