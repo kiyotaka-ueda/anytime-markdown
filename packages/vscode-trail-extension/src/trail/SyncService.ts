@@ -91,13 +91,13 @@ export class SyncService {
       errors++;
     }
 
-    // Sync daily_costs 全件上書き — セッション更新の有無によらず常に実行
+    // Sync daily_counts 全件上書き — セッション更新の有無によらず常に実行
     try {
-      onProgress?.({ message: 'Syncing daily costs...' });
-      const dailyCosts = this.trailDb.getAllDailyCosts();
-      await this.store.upsertDailyCosts(dailyCosts);
+      onProgress?.({ message: 'Syncing daily counts...' });
+      const dailyCounts = this.trailDb.getAllDailyCounts();
+      await this.store.upsertDailyCounts(dailyCounts);
     } catch (e) {
-      TrailLogger.error('Failed to sync daily costs', e);
+      TrailLogger.error('Failed to sync daily counts', e);
       errors++;
     }
 
