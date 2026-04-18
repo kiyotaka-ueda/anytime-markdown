@@ -40,6 +40,84 @@ export interface RawUsage {
   readonly cache_creation_input_tokens?: number;
 }
 
+// --- Analytics types ---
+
+export interface AnalyticsData {
+  readonly totals: {
+    readonly sessions: number;
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+    readonly cacheReadTokens: number;
+    readonly cacheCreationTokens: number;
+    readonly estimatedCostUsd: number;
+    readonly totalCommits: number;
+    readonly totalLinesAdded: number;
+    readonly totalLinesDeleted: number;
+    readonly totalFilesChanged: number;
+    readonly totalAiAssistedCommits: number;
+    readonly totalSessionDurationMs: number;
+    readonly totalRetries: number;
+    readonly totalEdits: number;
+    readonly totalBuildRuns: number;
+    readonly totalBuildFails: number;
+    readonly totalTestRuns: number;
+    readonly totalTestFails: number;
+  };
+  readonly toolUsage: readonly { name: string; count: number }[];
+  readonly dailyActivity: readonly {
+    readonly date: string;
+    readonly sessions: number;
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+    readonly cacheReadTokens: number;
+    readonly cacheCreationTokens: number;
+    readonly estimatedCostUsd: number;
+  }[];
+}
+
+export interface CombinedToolCount {
+  readonly period: string;
+  readonly tool: string;
+  readonly count: number;
+  /** メッセージのトークン数をツール呼び出し数で按分した推定値 */
+  readonly tokens: number;
+  /** ターンの実行時間（ms）をツール呼び出し数で按分した推定値 */
+  readonly durationMs: number;
+}
+
+
+
+export interface CombinedError {
+  readonly period: string;
+  readonly rate: number;
+  readonly byTool: Readonly<Record<string, number>>;
+}
+
+export interface CombinedSkill {
+  readonly period: string;
+  readonly skill: string;
+  readonly count: number;
+  readonly costUsd: number;
+}
+
+export interface CombinedModel {
+  readonly period: string;
+  readonly model: string;
+  readonly count: number;
+  readonly tokens: number;
+}
+
+
+export interface CombinedData {
+  readonly toolCounts: readonly CombinedToolCount[];
+  readonly errorRate: readonly CombinedError[];
+  readonly skillStats: readonly CombinedSkill[];
+  readonly modelStats: readonly CombinedModel[];
+}
+
+export type CombinedPeriodMode = 'day' | 'week';
+export type CombinedRangeDays = 30 | 90;
+
 // --- Domain types (re-exported from trail-core) ---
 
 /** @deprecated Import from '@anytime-markdown/trail-core/domain' directly */

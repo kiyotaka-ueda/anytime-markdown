@@ -5,6 +5,7 @@
 -- 先頭で全テーブルを DROP し、その後に CREATE TABLE を実行する。
 -- FK 依存順序に注意し、子テーブル → 親テーブルの順で DROP する。
 
+DROP TABLE IF EXISTS trail_message_tool_calls CASCADE;
 DROP TABLE IF EXISTS trail_release_features CASCADE;
 DROP TABLE IF EXISTS trail_release_files CASCADE;
 DROP TABLE IF EXISTS trail_releases CASCADE;
@@ -13,7 +14,7 @@ DROP TABLE IF EXISTS trail_release_graphs CASCADE;
 -- Legacy tables (to be removed after migration)
 DROP TABLE IF EXISTS trail_current_c4_models CASCADE;
 DROP TABLE IF EXISTS trail_c4_models CASCADE;
-DROP TABLE IF EXISTS trail_daily_costs CASCADE;
+DROP TABLE IF EXISTS trail_daily_counts CASCADE;
 DROP TABLE IF EXISTS trail_session_costs CASCADE;
 DROP TABLE IF EXISTS trail_session_commits CASCADE;
 DROP TABLE IF EXISTS trail_messages CASCADE;
@@ -87,16 +88,19 @@ CREATE TABLE IF NOT EXISTS trail_session_costs (
     PRIMARY KEY (session_id, model)
 );
 
-CREATE TABLE IF NOT EXISTS trail_daily_costs (
-    date TEXT NOT NULL,
-    model TEXT NOT NULL,
-    cost_type TEXT NOT NULL DEFAULT 'actual',
-    input_tokens INTEGER NOT NULL DEFAULT 0,
-    output_tokens INTEGER NOT NULL DEFAULT 0,
-    cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+CREATE TABLE IF NOT EXISTS trail_daily_counts (
+    date                TEXT NOT NULL,
+    kind                TEXT NOT NULL,
+    key                 TEXT NOT NULL,
+    count               INTEGER NOT NULL DEFAULT 0,
+    tokens              INTEGER NOT NULL DEFAULT 0,
+    input_tokens        INTEGER NOT NULL DEFAULT 0,
+    output_tokens       INTEGER NOT NULL DEFAULT 0,
+    cache_read_tokens   INTEGER NOT NULL DEFAULT 0,
     cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
-    estimated_cost_usd REAL NOT NULL DEFAULT 0,
-    PRIMARY KEY (date, model, cost_type)
+    duration_ms         INTEGER NOT NULL DEFAULT 0,
+    estimated_cost_usd  REAL NOT NULL DEFAULT 0,
+    PRIMARY KEY (date, kind, key)
 );
 
 -- リリース版 TrailGraph（id=release tag）。
@@ -155,15 +159,37 @@ CREATE TABLE IF NOT EXISTS trail_release_features (
     PRIMARY KEY (release_tag, feature_id)
 );
 
+CREATE TABLE IF NOT EXISTS trail_message_tool_calls (
+    id           BIGSERIAL PRIMARY KEY,
+    session_id   TEXT NOT NULL REFERENCES trail_sessions(id) ON DELETE CASCADE,
+    message_uuid TEXT NOT NULL REFERENCES trail_messages(uuid) ON DELETE CASCADE,
+    turn_index   INTEGER NOT NULL,
+    call_index   INTEGER NOT NULL,
+    tool_name    TEXT NOT NULL,
+    file_path    TEXT,
+    command      TEXT,
+    skill_name   TEXT,
+    model        TEXT,
+    is_sidechain INTEGER NOT NULL DEFAULT 0,
+    turn_exec_ms INTEGER,
+    has_thinking INTEGER NOT NULL DEFAULT 0,
+    is_error     INTEGER NOT NULL DEFAULT 0,
+    error_type   TEXT,
+    timestamp    TEXT NOT NULL,
+    UNIQUE (session_id, message_uuid, call_index)
+);
+
 -- インデックス
 CREATE INDEX IF NOT EXISTS idx_trail_messages_session ON trail_messages(session_id);
 CREATE INDEX IF NOT EXISTS idx_trail_messages_type ON trail_messages(type);
 CREATE INDEX IF NOT EXISTS idx_trail_messages_timestamp ON trail_messages(timestamp);
 CREATE INDEX IF NOT EXISTS idx_trail_sessions_start ON trail_sessions(start_time);
 CREATE INDEX IF NOT EXISTS idx_trail_session_costs_session ON trail_session_costs(session_id);
-CREATE INDEX IF NOT EXISTS idx_trail_daily_costs_date ON trail_daily_costs(date);
-CREATE INDEX IF NOT EXISTS idx_trail_daily_costs_type ON trail_daily_costs(cost_type);
+CREATE INDEX IF NOT EXISTS idx_trail_daily_counts_date ON trail_daily_counts(date);
+CREATE INDEX IF NOT EXISTS idx_trail_daily_counts_kind ON trail_daily_counts(kind);
 CREATE INDEX IF NOT EXISTS idx_trail_session_commits_session ON trail_session_commits(session_id);
 CREATE INDEX IF NOT EXISTS idx_trail_releases_released_at ON trail_releases(released_at);
 CREATE INDEX IF NOT EXISTS idx_trail_release_files_tag ON trail_release_files(release_tag);
 CREATE INDEX IF NOT EXISTS idx_trail_release_features_tag ON trail_release_features(release_tag);
+CREATE INDEX IF NOT EXISTS idx_trail_mtc_session ON trail_message_tool_calls(session_id);
+CREATE INDEX IF NOT EXISTS idx_trail_mtc_timestamp ON trail_message_tool_calls(timestamp);

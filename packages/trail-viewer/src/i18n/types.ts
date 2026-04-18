@@ -105,7 +105,6 @@ export interface TrailI18n {
   'analytics.testFail': string;
   'analytics.metricInterrupted': string;
   'analytics.loadingAnalytics': string;
-  'analytics.modelBreakdown': string;
   'analytics.turn': string;
   'analytics.chartInput': string;
   'analytics.chartOutput': string;
@@ -162,4 +161,40 @@ export interface TrailI18n {
   'c4.releaseRepository': string;
   'c4.unknownRepo': string;
   'c4.currentRelease': string;
+  'c4.drillDown': string;
+  'c4.drillUp': string;
+  'c4.overlay.label': string;
+  'c4.overlay.none': string;
+  'c4.overlay.groupCoverage': string;
+  'c4.overlay.groupDsm': string;
+  'c4.overlay.groupComplexity': string;
+  'c4.overlay.coverageLines': string;
+  'c4.overlay.coverageBranches': string;
+  'c4.overlay.coverageFunctions': string;
+  'c4.overlay.dsmOut': string;
+  'c4.overlay.dsmIn': string;
+  'c4.overlay.dsmCyclic': string;
+  'c4.overlay.complexityMost': string;
+  'c4.overlay.complexityHighest': string;
+  'c4.overlay.groupImportance': string;
+  'c4.overlay.importance': string;
+  'c4.claudeActivity.reset': string;
+  'c4.multiAgent.badge': string;
+  'c4.multiAgent.conflicts': string;
+  'c4.showOnlyThisFrame': string;
+  'c4.clearFrameFilter': string;
+  'c4.copyPath': string;
+  'c4.frameFilter.reset': string;
+  // combined (analytics)
+  'analytics.combined.tool': string;
+  'analytics.combined.count': string;
+  'analytics.combined.tokens': string;
+  'analytics.combined.duration': string;
+
+
+  'analytics.combined.error': string;
+  'analytics.combined.skill': string;
+  'analytics.combined.model': string;
+
+
 }

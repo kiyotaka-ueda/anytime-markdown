@@ -2,8 +2,8 @@ import { GraphNode, GraphEdge, Viewport, SelectionState } from '../types';
 import { CanvasColors, getCanvasColors, FONT_FAMILY } from '../theme';
 import { FONT_SIZE_TOOLTIP, URL_TRUNCATE_LENGTH } from './constants';
 import { getVisibleBounds, isNodeVisible, isEdgeVisible } from './culling';
-import { drawNode, drawRoundedRect } from './shapes';
-import { drawLockIndicator } from './shapeRenderers';
+import { drawRoundedRect } from './shapes';
+import { drawNode, drawLockIndicator } from './shapeRenderers';
 import { drawEdge } from './edgeRenderer';
 import { drawResizeHandles, drawBoundingBox, drawConnectionPoints, drawEdgeEndpointHandles } from './overlays';
 

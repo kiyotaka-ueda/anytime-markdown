@@ -60,7 +60,7 @@ export function TraceTree({
   session,
   showSystem: showSystemProp = false,
 }: Readonly<TraceTreeProps>) {
-  const { colors } = useTrailTheme();
+  const { colors, scrollbarSx } = useTrailTheme();
   const { t } = useTrailI18n();
   const [showSystem, setShowSystem] = useState(showSystemProp);
 
@@ -109,6 +109,7 @@ export function TraceTree({
           overflow: 'auto',
           px: 1,
           py: 1,
+          ...scrollbarSx,
         }}
       >
         {nodes.length === 0 ? (

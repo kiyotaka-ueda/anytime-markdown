@@ -1,5 +1,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type {
+  CombinedData,
+  CombinedPeriodMode,
+  CombinedRangeDays,
   CostOptimizationData,
   ToolMetrics,
   TrailFilter,
@@ -157,9 +160,9 @@ export class SupabaseTrailReader implements ITrailReader {
     const allCosts = (costData ?? []) as readonly SessionCostDbRow[];
 
     const { data: dailyCostData } = await this.client
-      .from('trail_daily_costs')
-      .select('*')
-      .eq('cost_type', 'actual')
+      .from('trail_daily_counts')
+      .select('date,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens,estimated_cost_usd')
+      .eq('kind', 'cost_actual')
       .order('date');
 
     const { data: commits } = await this.client
@@ -193,27 +196,7 @@ export class SupabaseTrailReader implements ITrailReader {
       totalTestFails: 0,
     };
 
-    // Model breakdown from session_costs
-    const modelMap = new Map<string, { sessions: Set<string>; inputTokens: number; outputTokens: number; cacheReadTokens: number; estimatedCostUsd: number }>();
-    for (const c of allCosts) {
-      const entry = modelMap.get(c.model) ?? { sessions: new Set<string>(), inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, estimatedCostUsd: 0 };
-      entry.sessions.add(c.session_id);
-      entry.inputTokens += c.input_tokens;
-      entry.outputTokens += c.output_tokens;
-      entry.cacheReadTokens += c.cache_read_tokens;
-      entry.estimatedCostUsd += c.estimated_cost_usd;
-      modelMap.set(c.model, entry);
-    }
-    const modelBreakdown = [...modelMap.entries()].map(([model, v]) => ({
-      model,
-      sessions: v.sessions.size,
-      inputTokens: v.inputTokens,
-      outputTokens: v.outputTokens,
-      cacheReadTokens: v.cacheReadTokens,
-      estimatedCostUsd: v.estimatedCostUsd,
-    }));
-
-    // Daily activity from daily_costs
+    // Daily activity from trail_daily_counts (kind='cost_actual')
     type DailyEntry = { sessions: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number; estimatedCostUsd: number };
     const dailyMap = new Map<string, DailyEntry>();
     for (const r of (dailyCostData ?? []) as readonly { date: string; input_tokens: number; output_tokens: number; cache_read_tokens: number; cache_creation_tokens: number; estimated_cost_usd: number }[]) {
@@ -229,18 +212,18 @@ export class SupabaseTrailReader implements ITrailReader {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, v]) => ({ date, ...v }));
 
-    return { totals, toolUsage: [], modelBreakdown, dailyActivity };
+    return { totals, toolUsage: [], dailyActivity };
   }
 
   async getCostOptimization(): Promise<CostOptimizationData | null> {
     const { data, error } = await this.client
-      .from('trail_daily_costs')
-      .select('*')
-      .in('cost_type', ['actual', 'skill'])
+      .from('trail_daily_counts')
+      .select('date,kind,key,estimated_cost_usd')
+      .in('kind', ['cost_actual', 'cost_skill'])
       .order('date');
     if (error || !data) return null;
 
-    const rows = data as readonly { date: string; model: string; cost_type: string; estimated_cost_usd: number }[];
+    const rows = data as readonly { date: string; kind: string; key: string; estimated_cost_usd: number }[];
 
     const actualByModel: Record<string, number> = {};
     const skillByModel: Record<string, number> = {};
@@ -248,11 +231,11 @@ export class SupabaseTrailReader implements ITrailReader {
 
     for (const r of rows) {
       const entry = dailyMap.get(r.date) ?? { actualCost: 0, skillCost: 0 };
-      if (r.cost_type === 'actual') {
-        actualByModel[r.model] = (actualByModel[r.model] ?? 0) + r.estimated_cost_usd;
+      if (r.kind === 'cost_actual') {
+        actualByModel[r.key] = (actualByModel[r.key] ?? 0) + r.estimated_cost_usd;
         entry.actualCost += r.estimated_cost_usd;
-      } else if (r.cost_type === 'skill') {
-        skillByModel[r.model] = (skillByModel[r.model] ?? 0) + r.estimated_cost_usd;
+      } else if (r.kind === 'cost_skill') {
+        skillByModel[r.key] = (skillByModel[r.key] ?? 0) + r.estimated_cost_usd;
         entry.skillCost += r.estimated_cost_usd;
       }
       dailyMap.set(r.date, entry);
@@ -313,7 +296,163 @@ export class SupabaseTrailReader implements ITrailReader {
       }
     }
 
-    return { totalRetries, totalEdits, totalBuildRuns, totalBuildFails, totalTestRuns, totalTestFails };
+    // ツール別利用統計を message_tool_calls + messages から集計
+    const normalizeTool = (name: string): string => {
+      if (!name.startsWith('mcp__')) return name;
+      const parts = name.split('__');
+      return parts.length >= 3 ? `${parts[0]}__${parts[1]}` : name;
+    };
+    const { data: tcData } = await this.client
+      .from('trail_message_tool_calls')
+      .select('message_uuid, turn_index, tool_name, skill_name, is_error, turn_exec_ms, model')
+      .eq('session_id', sessionId);
+    const tcRows = (tcData ?? []) as { message_uuid: string; turn_index: number; tool_name: string; skill_name: string | null; is_error: number; turn_exec_ms: number | null; model: string | null }[];
+
+    // メッセージのトークン数を取得
+    const msgUuids = [...new Set(tcRows.map(r => r.message_uuid))];
+    const msgTokenMap = new Map<string, number>();
+    const msgToolCount = new Map<string, number>();
+    for (const r of tcRows) {
+      msgToolCount.set(r.message_uuid, (msgToolCount.get(r.message_uuid) ?? 0) + 1);
+    }
+    for (let i = 0; i < msgUuids.length; i += 1000) {
+      const batch = msgUuids.slice(i, i + 1000);
+      const { data: msgData } = await this.client
+        .from('trail_messages')
+        .select('uuid, input_tokens, output_tokens')
+        .in('uuid', batch);
+      if (msgData) {
+        for (const m of msgData as { uuid: string; input_tokens: number; output_tokens: number }[]) {
+          msgTokenMap.set(m.uuid, (m.input_tokens ?? 0) + (m.output_tokens ?? 0));
+        }
+      }
+    }
+    // ターン内ツール数
+    const turnToolCount = new Map<string, number>();
+    for (const r of tcRows) {
+      const tk = `${sessionId}:${r.turn_index}`;
+      turnToolCount.set(tk, (turnToolCount.get(tk) ?? 0) + 1);
+    }
+    const toolAgg = new Map<string, { count: number; tokens: number; durationMs: number }>();
+    for (const r of tcRows) {
+      const tool = normalizeTool(r.tool_name);
+      const e = toolAgg.get(tool) ?? { count: 0, tokens: 0, durationMs: 0 };
+      e.count++;
+      const mTokens = msgTokenMap.get(r.message_uuid) ?? 0;
+      const mTools = msgToolCount.get(r.message_uuid) ?? 1;
+      e.tokens += Math.round(mTokens / mTools);
+      const tk = `${sessionId}:${r.turn_index}`;
+      const tTools = turnToolCount.get(tk) ?? 1;
+      e.durationMs += Math.round((r.turn_exec_ms ?? 0) / tTools);
+      toolAgg.set(tool, e);
+    }
+    const toolUsage = [...toolAgg.entries()]
+      .sort(([, a], [, b]) => b.count - a.count)
+      .map(([tool, e]) => ({ tool, ...e }));
+
+    // スキル別利用統計
+    const skillAgg = new Map<string, { count: number; tokens: number; durationMs: number }>();
+    for (const r of tcRows) {
+      if (!r.skill_name) continue;
+      const skill = r.skill_name;
+      const e = skillAgg.get(skill) ?? { count: 0, tokens: 0, durationMs: 0 };
+      e.count++;
+      const mTokens = msgTokenMap.get(r.message_uuid) ?? 0;
+      const mTools = msgToolCount.get(r.message_uuid) ?? 1;
+      e.tokens += Math.round(mTokens / mTools);
+      const tk = `${sessionId}:${r.turn_index}`;
+      const tTools = turnToolCount.get(tk) ?? 1;
+      e.durationMs += Math.round((r.turn_exec_ms ?? 0) / tTools);
+      skillAgg.set(skill, e);
+    }
+    const skillUsage = [...skillAgg.entries()]
+      .sort(([, a], [, b]) => b.count - a.count)
+      .map(([skill, e]) => ({ skill, ...e }));
+
+    // ツール別エラー回数（MCP 正規化）
+    const errorAgg = new Map<string, number>();
+    for (const r of tcRows) {
+      if (!r.is_error) continue;
+      const tool = normalizeTool(r.tool_name);
+      errorAgg.set(tool, (errorAgg.get(tool) ?? 0) + 1);
+    }
+    const errorsByTool = [...errorAgg.entries()]
+      .sort(([, a], [, b]) => b - a)
+      .map(([tool, count]) => ({ tool, count }));
+
+    // モデル別利用統計: count/tokens は assistant メッセージから、durationMs は turn_exec_ms をターン単位で集計
+    const { data: modelMsgData } = await this.client
+      .from('trail_messages')
+      .select('uuid, model, input_tokens, output_tokens')
+      .eq('session_id', sessionId)
+      .eq('type', 'assistant')
+      .not('model', 'is', null);
+    const modelAgg = new Map<string, { count: number; tokens: number; durationMs: number }>();
+    for (const m of (modelMsgData ?? []) as { uuid: string; model: string | null; input_tokens: number | null; output_tokens: number | null }[]) {
+      if (!m.model) continue;
+      const e = modelAgg.get(m.model) ?? { count: 0, tokens: 0, durationMs: 0 };
+      e.count++;
+      e.tokens += (m.input_tokens ?? 0) + (m.output_tokens ?? 0);
+      modelAgg.set(m.model, e);
+    }
+    // turn_exec_ms はターン内全行で同一値。turn_index 単位で一度だけ加算する。
+    const turnSeen = new Set<number>();
+    for (const r of tcRows) {
+      if (turnSeen.has(r.turn_index)) continue;
+      turnSeen.add(r.turn_index);
+      if (!r.model) continue;
+      const e = modelAgg.get(r.model);
+      if (e) e.durationMs += r.turn_exec_ms ?? 0;
+    }
+    const modelUsage = [...modelAgg.entries()]
+      .sort(([, a], [, b]) => b.count - a.count)
+      .map(([model, e]) => ({ model, ...e }));
+
+    return { totalRetries, totalEdits, totalBuildRuns, totalBuildFails, totalTestRuns, totalTestFails, toolUsage, skillUsage, errorsByTool, modelUsage };
+  }
+
+  async getDayToolMetrics(date: string): Promise<ToolMetrics | null> {
+    const { data, error } = await this.client
+      .from('trail_daily_counts')
+      .select('kind,key,count,tokens,duration_ms')
+      .eq('date', date)
+      .in('kind', ['tool', 'skill', 'error', 'model']);
+    if (error || !data) return null;
+
+    type Row = { kind: string; key: string; count: number; tokens: number; duration_ms: number };
+    const rows = data as Row[];
+
+    const toolMap = new Map<string, { count: number; tokens: number; durationMs: number }>();
+    const skillMap = new Map<string, { count: number; tokens: number; durationMs: number }>();
+    const errMap = new Map<string, number>();
+    const modelMap = new Map<string, { count: number; tokens: number; durationMs: number }>();
+
+    for (const r of rows) {
+      if (r.kind === 'tool') {
+        const e = toolMap.get(r.key) ?? { count: 0, tokens: 0, durationMs: 0 };
+        e.count += r.count; e.tokens += r.tokens; e.durationMs += r.duration_ms;
+        toolMap.set(r.key, e);
+      } else if (r.kind === 'skill') {
+        const e = skillMap.get(r.key) ?? { count: 0, tokens: 0, durationMs: 0 };
+        e.count += r.count; e.tokens += r.tokens; e.durationMs += r.duration_ms;
+        skillMap.set(r.key, e);
+      } else if (r.kind === 'error') {
+        errMap.set(r.key, (errMap.get(r.key) ?? 0) + r.count);
+      } else if (r.kind === 'model') {
+        const e = modelMap.get(r.key) ?? { count: 0, tokens: 0, durationMs: 0 };
+        e.count += r.count; e.tokens += r.tokens; e.durationMs += r.duration_ms;
+        modelMap.set(r.key, e);
+      }
+    }
+
+    return {
+      totalRetries: 0, totalEdits: 0, totalBuildRuns: 0, totalBuildFails: 0,
+      totalTestRuns: 0, totalTestFails: 0,
+      toolUsage: [...toolMap.entries()].map(([tool, e]) => ({ tool, ...e })).sort((a, b) => b.count - a.count),
+      skillUsage: [...skillMap.entries()].map(([skill, e]) => ({ skill, ...e })).sort((a, b) => b.count - a.count),
+      errorsByTool: [...errMap.entries()].map(([tool, count]) => ({ tool, count })).sort((a, b) => b.count - a.count),
+      modelUsage: [...modelMap.entries()].map(([model, e]) => ({ model, ...e })).sort((a, b) => b.count - a.count),
+    };
   }
 
   async searchMessages(query: string): Promise<readonly { sessionId: string; uuid: string; snippet: string }[]> {
@@ -441,5 +580,100 @@ export class SupabaseTrailReader implements ITrailReader {
       affectedPackages: JSON.parse(r.affected_packages) as string[],
       durationDays: r.duration_days,
     }));
+  }
+
+  async getCombinedData(period: CombinedPeriodMode, rangeDays: CombinedRangeDays): Promise<CombinedData | null> {
+    try {
+      // daily_counts の date は JST (YYYY-MM-DD)。
+      // cutoff も JST 日付文字列で比較する。
+      const getIanaOffsetMs = (timeZone: string, at: Date): number => {
+        const parts = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'longOffset' }).formatToParts(at);
+        const label = parts.find(p => p.type === 'timeZoneName')?.value ?? 'GMT+00:00';
+        const match = /^GMT([+-])(\d{1,2}):(\d{2})$/.exec(label);
+        if (!match) return 0;
+        const sign = match[1] === '+' ? 1 : -1;
+        return sign * (Number(match[2]) * 60 + Number(match[3])) * 60_000;
+      };
+      const cutoffMs = Date.now() - rangeDays * 86_400_000;
+      const cutoffLocal = new Date(cutoffMs + getIanaOffsetMs('Asia/Tokyo', new Date(cutoffMs)));
+      const cutoffDate = `${cutoffLocal.getUTCFullYear()}-${String(cutoffLocal.getUTCMonth() + 1).padStart(2, '0')}-${String(cutoffLocal.getUTCDate()).padStart(2, '0')}`;
+
+      const { data, error } = await this.client
+        .from('trail_daily_counts')
+        .select('date,kind,key,count,tokens,duration_ms')
+        .in('kind', ['tool', 'skill', 'error', 'model'])
+        .gte('date', cutoffDate);
+      if (error || !data) return null;
+
+      type DcRow = { date: string; kind: string; key: string; count: number; tokens: number; duration_ms: number };
+      const rows = data as DcRow[];
+
+      const getMonday = (dateStr: string): string => {
+        const [y, m, d] = dateStr.split('-').map(Number);
+        const dt = new Date(Date.UTC(y!, m! - 1, d!));
+        const diffToMonday = (dt.getUTCDay() + 6) % 7;
+        const monday = new Date(dt.getTime() - diffToMonday * 86_400_000);
+        return `${monday.getUTCFullYear()}-${String(monday.getUTCMonth() + 1).padStart(2, '0')}-${String(monday.getUTCDate()).padStart(2, '0')}`;
+      };
+      const periodKey = (dateStr: string): string =>
+        period === 'week' ? getMonday(dateStr) : dateStr;
+
+      const toolMap = new Map<string, { count: number; tokens: number; durationMs: number }>();
+      const errMap = new Map<string, { err: number; total: number; byTool: Record<string, number> }>();
+      const skillMap = new Map<string, number>();
+      const modelMap = new Map<string, { count: number; tokens: number }>();
+
+      for (const r of rows) {
+        const p = periodKey(r.date);
+        if (r.kind === 'tool') {
+          const k = `${p}::${r.key}`;
+          const e = toolMap.get(k) ?? { count: 0, tokens: 0, durationMs: 0 };
+          e.count += r.count; e.tokens += r.tokens; e.durationMs += r.duration_ms;
+          toolMap.set(k, e);
+          const ef = errMap.get(p) ?? { err: 0, total: 0, byTool: {} };
+          ef.total += r.count;
+          errMap.set(p, ef);
+        } else if (r.kind === 'error') {
+          const ef = errMap.get(p) ?? { err: 0, total: 0, byTool: {} };
+          ef.err += r.count;
+          ef.byTool[r.key] = (ef.byTool[r.key] ?? 0) + r.count;
+          errMap.set(p, ef);
+        } else if (r.kind === 'skill') {
+          const k = `${p}::${r.key}`;
+          skillMap.set(k, (skillMap.get(k) ?? 0) + r.count);
+        } else if (r.kind === 'model') {
+          const k = `${p}::${r.key}`;
+          const e = modelMap.get(k) ?? { count: 0, tokens: 0 };
+          e.count += r.count; e.tokens += r.tokens;
+          modelMap.set(k, e);
+        }
+      }
+
+      const splitKey = (k: string): [string, string] => {
+        const sep = k.indexOf('::');
+        return [k.slice(0, sep), k.slice(sep + 2)];
+      };
+
+      const toolCounts = [...toolMap.entries()]
+        .map(([k, e]) => { const [p, tool] = splitKey(k); return { period: p, tool, ...e }; })
+        .sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
+
+      const errorRate = [...errMap.entries()]
+        .filter(([, e]) => e.total > 0)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([p, e]) => ({ period: p, rate: e.err / e.total, byTool: e.byTool }));
+
+      const skillStats = [...skillMap.entries()]
+        .map(([k, count]) => { const [p, skill] = splitKey(k); return { period: p, skill, count, costUsd: 0 }; })
+        .sort((a, b) => a.period.localeCompare(b.period));
+
+      const modelStats = [...modelMap.entries()]
+        .map(([k, e]) => { const [p, model] = splitKey(k); return { period: p, model, ...e }; })
+        .sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
+
+      return { toolCounts, errorRate, skillStats, modelStats };
+    } catch {
+      return null;
+    }
   }
 }

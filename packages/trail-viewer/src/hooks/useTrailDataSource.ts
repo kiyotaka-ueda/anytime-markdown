@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import type { CostOptimizationData, ToolMetrics, TrailFilter, TrailMessage, TrailPromptEntry, TrailSession, TrailSessionCommit } from '../parser/types';
-import type { AnalyticsData } from '../components/AnalyticsPanel';
+import type { AnalyticsData, CombinedData, CombinedPeriodMode, CombinedRangeDays, CostOptimizationData, ToolMetrics, TrailFilter, TrailMessage, TrailPromptEntry, TrailSession, TrailSessionCommit } from '../parser/types';
 import type { TrailRelease } from '@anytime-markdown/trail-core/domain';
 
 // ---------------------------------------------------------------------------
@@ -22,10 +21,12 @@ export interface TrailDataSourceResult {
   readonly fetchSessionMessages: (id: string) => Promise<readonly TrailMessage[]>;
   readonly fetchSessionCommits: (id: string) => Promise<readonly TrailSessionCommit[]>;
   readonly fetchSessionToolMetrics: (id: string) => Promise<ToolMetrics | null>;
+  readonly fetchDayToolMetrics: (date: string) => Promise<ToolMetrics | null>;
   readonly costOptimization: CostOptimizationData | null;
   readonly fetchCostOptimization: () => Promise<CostOptimizationData | null>;
   readonly releases: readonly TrailRelease[];
   readonly fetchReleases: () => Promise<readonly TrailRelease[]>;
+  readonly fetchCombinedData: (period: CombinedPeriodMode, rangeDays: CombinedRangeDays) => Promise<CombinedData>;
 }
 
 interface WsMessage {
@@ -196,6 +197,21 @@ export function useTrailDataSource(serverUrl: string): TrailDataSourceResult {
     [baseUrl],
   );
 
+  // --- Fetch day tool metrics ---
+
+  const fetchDayToolMetrics = useCallback(
+    async (date: string): Promise<ToolMetrics | null> => {
+      try {
+        const res = await fetch(`${baseUrl}/api/trail/days/${encodeURIComponent(date)}/tool-metrics`);
+        if (!res.ok) return null;
+        return (await res.json()) as ToolMetrics;
+      } catch {
+        return null;
+      }
+    },
+    [baseUrl],
+  );
+
   // --- Fetch cost optimization data ---
 
   const fetchCostOptimization = useCallback(
@@ -223,6 +239,23 @@ export function useTrailDataSource(serverUrl: string): TrailDataSourceResult {
         return data;
       } catch {
         return [];
+      }
+    },
+    [baseUrl],
+  );
+
+  const fetchCombinedData = useCallback(
+    async (period: CombinedPeriodMode, rangeDays: CombinedRangeDays): Promise<CombinedData> => {
+      const empty: CombinedData = {
+        toolCounts: [],
+        errorRate: [], skillStats: [], modelStats: [],
+      };
+      try {
+        const res = await fetch(`${baseUrl}/api/trail/combined?period=${period}&rangeDays=${rangeDays}`);
+        if (!res.ok) return empty;
+        return (await res.json()) as CombinedData;
+      } catch {
+        return empty;
       }
     },
     [baseUrl],
@@ -357,9 +390,11 @@ export function useTrailDataSource(serverUrl: string): TrailDataSourceResult {
     fetchSessionMessages,
     fetchSessionCommits,
     fetchSessionToolMetrics,
+    fetchDayToolMetrics,
     costOptimization,
     fetchCostOptimization,
     releases,
     fetchReleases,
+    fetchCombinedData,
   };
 }

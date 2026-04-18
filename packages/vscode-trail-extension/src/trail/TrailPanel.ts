@@ -18,10 +18,12 @@ export class TrailPanel {
 
   /**
    * サーバーが稼働中ならブラウザでスタンドアロンビューアを開く。
-   * force=true の場合は viewerOpened ガードを無視して必ず開く。
+   * WebSocket クライアントが接続中の場合はビューアが既に表示されているため開かない。
+   * force=true の場合は viewerOpened ガードを無視する（ただし接続中チェックは常に有効）。
    */
   public static openViewer(force = false): void {
     if (!TrailPanel.dataServer?.isRunning) return;
+    if ((TrailPanel.dataServer.clientCount ?? 0) > 0) return;
     if (!force && TrailPanel.viewerOpened) return;
     TrailPanel.viewerOpened = true;
     const port = vscode.workspace.getConfiguration('anytimeTrail.trailServer').get<number>('port', 19841);

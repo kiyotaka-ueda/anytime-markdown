@@ -91,20 +91,33 @@ export class SyncService {
       errors++;
     }
 
-    // Sync daily_costs 全件上書き — セッション更新の有無によらず常に実行
+    // Sync daily_counts 全件上書き — セッション更新の有無によらず常に実行
     try {
-      onProgress?.({ message: 'Syncing daily costs...' });
-      const dailyCosts = this.trailDb.getAllDailyCosts();
-      await this.store.upsertDailyCosts(dailyCosts);
+      onProgress?.({ message: 'Syncing daily counts...' });
+      const dailyCounts = this.trailDb.getAllDailyCounts();
+      await this.store.upsertDailyCounts(dailyCounts);
     } catch (e) {
-      TrailLogger.error('Failed to sync daily costs', e);
+      TrailLogger.error('Failed to sync daily counts', e);
+      errors++;
+    }
+
+    // Sync message_tool_calls（洗い替え: clear → upsert）
+    try {
+      onProgress?.({ message: 'Syncing message tool calls...' });
+      await this.store.clearMessageToolCalls();
+      const toolCallRows = this.trailDb.getAllMessageToolCalls(messageCutoff);
+      if (toolCallRows.length > 0) {
+        await this.store.upsertMessageToolCalls(toolCallRows);
+      }
+    } catch (e) {
+      TrailLogger.error('Failed to sync message_tool_calls', e);
       errors++;
     }
 
     // Sync releases, release files and features
     try {
       onProgress?.({ message: 'Syncing releases...' });
-      const releases = this.trailDb.getReleases();
+      const releases = this.trailDb.getReleases().filter((r) => r.repo_name === 'anytime-markdown');
       if (releases.length > 0) await this.store.upsertReleases(releases);
       for (const release of releases) {
         const files = this.trailDb.getReleaseFiles(release.tag);
@@ -119,7 +132,7 @@ export class SyncService {
 
     // Sync current TrailGraphs per repository (wash-away: delete all → upsert all)
     try {
-      const currents = this.trailDb.listCurrentGraphs();
+      const currents = this.trailDb.listCurrentGraphs().filter((row) => row.repoName === 'anytime-markdown');
       onProgress?.({ message: `Syncing ${currents.length} current TrailGraphs (wash-away)...` });
       await this.store.clearCurrentGraphs();
       for (const row of currents) {

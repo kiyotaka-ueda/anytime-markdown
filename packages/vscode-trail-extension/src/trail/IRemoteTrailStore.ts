@@ -29,18 +29,40 @@ export interface IRemoteTrailStore {
     cache_creation_tokens: number;
     estimated_cost_usd: number;
   }[]): Promise<void>;
-  upsertDailyCosts(rows: readonly {
+  upsertDailyCounts(rows: readonly {
     date: string;
-    model: string;
-    cost_type: string;
+    kind: string;
+    key: string;
+    count: number;
+    tokens: number;
     input_tokens: number;
     output_tokens: number;
     cache_read_tokens: number;
     cache_creation_tokens: number;
+    duration_ms: number;
     estimated_cost_usd: number;
   }[]): Promise<void>;
   clearCurrentGraphs(): Promise<void>;
   clearReleaseGraphs(): Promise<void>;
   upsertCurrentGraph(repoName: string, graphJson: string, commitId: string): Promise<void>;
   upsertReleaseGraph(tag: string, graphJson: string): Promise<void>;
+  clearMessageToolCalls(): Promise<void>;
+  upsertMessageToolCalls(rows: readonly {
+    id: number;
+    session_id: string;
+    message_uuid: string;
+    turn_index: number;
+    call_index: number;
+    tool_name: string;
+    file_path: string | null;
+    command: string | null;
+    skill_name: string | null;
+    model: string | null;
+    is_sidechain: number;
+    turn_exec_ms: number | null;
+    has_thinking: number;
+    is_error: number;
+    error_type: string | null;
+    timestamp: string;
+  }[]): Promise<void>;
 }

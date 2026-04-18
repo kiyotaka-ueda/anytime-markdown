@@ -117,6 +117,11 @@ jobs:
           path: packages/web-app/bundle-report.md
           retention-days: 7
 
+      - name: Build vscode-common
+        if: (github.event_name == 'pull_request' && github.base_ref == 'master') || github.ref == 'refs/heads/master'
+        run: npm run build
+        working-directory: packages/vscode-common
+
       - name: Build markdown extension
         if: (github.event_name == 'pull_request' && github.base_ref == 'master') || github.ref == 'refs/heads/master'
         run: npm run package

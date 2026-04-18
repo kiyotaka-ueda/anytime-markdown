@@ -143,7 +143,7 @@ export function MessageNode({
             bgcolor: isUser ? colors.iceBlueSubtle : colors.charcoal,
             color: colors.textPrimary,
             border: isUser
-              ? `1px solid rgba(144,202,249,0.3)`
+              ? `1px solid ${colors.iceBlueBorder}`
               : `1px solid ${colors.border}`,
             px: 1.5,
             py: 1,
@@ -219,7 +219,7 @@ function ToolCallEntry({
           width: '100%',
           textAlign: 'left',
           borderRadius: '4px',
-          '&:focus-visible': { outline: `2px solid ${colors.iceBlue}` },
+          '&:focus-visible': { outline: `3px solid ${colors.iceBlue}`, outlineOffset: '2px' },
         }}
       >
         <ExpandMoreIcon

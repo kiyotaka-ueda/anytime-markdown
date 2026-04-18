@@ -1,10 +1,10 @@
-import { buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, filterTreeByLevel } from '@anytime-markdown/trail-core/c4';
-import type { BoundaryInfo, C4Model, C4ReleaseEntry, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix } from '@anytime-markdown/trail-core/c4';
+import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
+import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, ImportanceMatrix, MetricOverlay } from '@anytime-markdown/trail-core/c4';
 import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 import { engine, layoutWithSubgroups, state as graphState } from '@anytime-markdown/graph-core';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import FitScreenIcon from '@mui/icons-material/FitScreen';
 import LinkIcon from '@mui/icons-material/Link';
 import PersonIcon from '@mui/icons-material/Person';
@@ -12,9 +12,8 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import ButtonGroup from '@mui/material/ButtonGroup';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
 import LinearProgress from '@mui/material/LinearProgress';
+import ListSubheader from '@mui/material/ListSubheader';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import type { SelectChangeEvent } from '@mui/material/Select';
@@ -27,13 +26,22 @@ import { getC4Colors } from '../c4Theme';
 
 const UNKNOWN_REPO_KEY = '__unknown__';
 const CURRENT_RELEASE_TAG = 'current';
+
+/** チェックボックス非表示フィルタ対象の型（system は常時表示のため除外） */
+const FILTER_CHECKABLE_TYPES = new Set(['container', 'containerDb', 'component'] as const);
+/** ドリルダウン時のスコープに含まれる型 */
+const DRILL_SCOPE_TYPES = new Set(['system', 'container', 'containerDb', 'component'] as const);
 import { AddElementDialog, AddRelationshipDialog } from './C4EditDialogs';
 import type { ElementFormData, RelationshipFormData } from './C4EditDialogs';
+import type { ExportedSymbol, FlowGraph } from '@anytime-markdown/trail-core/analyzer';
 import { C4ElementTree } from './C4ElementTree';
 import { CoverageCanvas } from './CoverageCanvas';
 import { DsmCanvas } from './DsmCanvas';
 import { FcMapCanvas } from './FcMapCanvas';
+import { FlowchartCanvas } from './FlowchartCanvas';
 import { GraphCanvas } from './GraphCanvas';
+import { OverlayLegend } from './OverlayLegend';
+import { computeClaudeActivityColorMap, computeMultiAgentColorMap, computeConflictBorderMap } from '../claudeActivityColorMap';
 
 const { graphReducer, createInitialState } = graphState;
 const { fitToContent } = engine;
@@ -59,6 +67,8 @@ export interface C4ViewerCoreProps {
   readonly dsmMatrix: DsmMatrix | null;
   readonly coverageMatrix: CoverageMatrix | null;
   readonly coverageDiff: CoverageDiffMatrix | null;
+  readonly complexityMatrix?: ComplexityMatrix | null;
+  readonly importanceMatrix?: ImportanceMatrix | null;
   readonly docLinks?: readonly DocLink[];
   readonly connected?: boolean;
   readonly analysisProgress?: { phase: string; percent: number } | null;
@@ -75,6 +85,10 @@ export interface C4ViewerCoreProps {
   readonly onReleaseSelect?: (release: string) => void;
   readonly selectedRepo?: string;
   readonly onRepoSelect?: (repo: string) => void;
+  readonly serverUrl?: string;
+  readonly claudeActivity?: import('../hooks/useC4DataSource').ClaudeActivityState | null;
+  readonly multiAgentActivity?: import('../hooks/useC4DataSource').MultiAgentActivityState | null;
+  readonly onResetClaudeActivity?: () => void;
 }
 
 export function C4ViewerCore({
@@ -85,6 +99,8 @@ export function C4ViewerCore({
   dsmMatrix,
   coverageMatrix,
   coverageDiff,
+  complexityMatrix,
+  importanceMatrix,
   docLinks,
   connected,
   analysisProgress,
@@ -101,6 +117,10 @@ export function C4ViewerCore({
   onReleaseSelect,
   selectedRepo: selectedRepoProp,
   onRepoSelect,
+  serverUrl = '',
+  claudeActivity,
+  multiAgentActivity,
+  onResetClaudeActivity,
 }: Readonly<C4ViewerCoreProps>) {
   const { t } = useTrailI18n();
   const colors = useMemo(() => getC4Colors(isDark), [isDark]);
@@ -172,27 +192,93 @@ export function C4ViewerCore({
     onRepoSelect?.(next);
   }, [onRepoSelect]);
 
+  const handleReleaseChange = useCallback((event: SelectChangeEvent<string>): void => {
+    onReleaseSelect?.(event.target.value);
+  }, [onReleaseSelect]);
+
   const [state, dispatch] = useReducer(graphReducer, createInitialState());
   const [fullDoc, setFullDoc] = useState<GraphDocument | null>(null);
-  const [currentLevel, setCurrentLevel] = useState<number>(4);
-  const [showTree, setShowTree] = useState(true);
+  const [currentLevel, setCurrentLevel] = useState<number>(1);
+
   const [showC4, setShowC4] = useState(true);
-  const [showDsm, setShowDsm] = useState(true);
+  const [showDsm, setShowDsm] = useState(false);
   const [showCoverage, setShowCoverage] = useState(false);
   const [matrixView, setMatrixView] = useState<'dsm' | 'fcmap' | 'coverage'>('dsm');
+  const [metricOverlay, setMetricOverlay] = useState<MetricOverlay>('none');
   const [dsmLevel, setDsmLevel] = useState<'component' | 'package'>('component');
   const [dsmClustered, setDsmClustered] = useState(false);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [drillStack, setDrillStack] = useState<readonly { readonly element: C4Element; readonly prevLevel: number; readonly prevCheckedIds: ReadonlySet<string> | null }[]>([]);
+  const [contextMenu, setContextMenu] = useState<{
+    readonly x: number;
+    readonly y: number;
+    readonly c4Id: string;
+    readonly nodeType: string;
+  } | null>(null);
   const [checkedPackageIds, setCheckedPackageIds] = useState<ReadonlySet<string> | null>(null);
+  const [soloFrameId, setSoloFrameId] = useState<string | null>(null);
   const [centerOnSelect, setCenterOnSelect] = useState(false);
   const [splitRatio, setSplitRatio] = useState(0.5);
+
+  // --- Flow mode state ---
+  const [exports, setExports] = useState<readonly ExportedSymbol[]>([]);
+  const [selectedExport, setSelectedExport] = useState<ExportedSymbol | null>(null);
+  const [flowType, setFlowType] = useState<'control' | 'call'>('control');
+  const [flowGraph, setFlowGraph] = useState<FlowGraph | null>(null);
+  const [flowError, setFlowError] = useState<string | null>(null);
+  const [showFlow, setShowFlow] = useState(false);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  // L1/L2/L3/L4 切り替え後に Fit を適用する残り回数。
+  // 0 = Fit 不要。正値の間は SET_DOCUMENT に fit viewport を埋め込む。
+  // setTimeout は React スケジューラと競合するため使わず、カウントダウン方式にする。
+  const pendingFitCountRef = useRef(0);
 
   // --- Editing state ---
   const [addElementType, setAddElementType] = useState<'person' | 'system' | null>(null);
   const [editElement, setEditElement] = useState<{ id: string; type: 'person' | 'system'; name: string; description: string; external: boolean } | null>(null);
   const [addRelOpen, setAddRelOpen] = useState(false);
+
+  const handleElementSelect = useCallback(async (id: string) => {
+    setCenterOnSelect(true);
+    setSelectedElementId(id);
+    setSelectedExport(null);
+    setFlowGraph(null);
+    setShowFlow(false);
+
+    const el = c4Model?.elements.find(e => e.id === id);
+    if (el?.type !== 'component') { setExports([]); return; }
+
+    try {
+      const repoQuery = selectedRepo ? `&repo=${encodeURIComponent(selectedRepo)}` : '';
+      const url = `${serverUrl}/api/c4/exports?componentId=${encodeURIComponent(id)}${repoQuery}`;
+      const res = await fetch(url);
+      if (!res.ok) { setExports([]); return; }
+      const data = await res.json() as { symbols: ExportedSymbol[] };
+      setExports(data.symbols ?? []);
+    } catch {
+      setExports([]);
+    }
+  }, [c4Model, serverUrl, selectedRepo]);
+
+  const handleExportSelect = useCallback(async (symbol: ExportedSymbol) => {
+    setSelectedExport(symbol);
+    setFlowError(null);
+    setFlowGraph(null);
+    setShowFlow(true);
+
+    try {
+      const repoQuery = selectedRepo ? `&repo=${encodeURIComponent(selectedRepo)}` : '';
+      const url = `${serverUrl}/api/c4/flowchart?componentId=${encodeURIComponent(selectedElementId ?? '')}&symbolId=${encodeURIComponent(symbol.id)}&type=${flowType}${repoQuery}`;
+      const res = await fetch(url);
+      if (!res.ok) { setFlowError('Failed to load flowchart'); return; }
+      const data = await res.json() as { graph: FlowGraph };
+      setFlowGraph(data.graph ?? null);
+    } catch {
+      setFlowError('Failed to load flowchart');
+    }
+  }, [serverUrl, selectedElementId, flowType, selectedRepo]);
 
   const handleAddElement = useCallback((data: ElementFormData) => {
     onAddElement?.(data);
@@ -222,40 +308,189 @@ export function C4ViewerCore({
     return c4Model.elements.find(e => e.id === selectedElementId)?.manual === true;
   }, [selectedElementId, c4Model]);
 
-  // c4Model changes -> rebuild graph document (maintain current level)
-  const currentLevelRef = useRef(currentLevel);
-  currentLevelRef.current = currentLevel;
-  const isInitialLoadRef = useRef(true);
   useEffect(() => {
     if (!c4Model) return;
-    if (isInitialLoadRef.current) {
-      isInitialLoadRef.current = false;
+
+    const currentDrillRoot = drillStack.at(-1)?.element ?? null;
+    let filteredModel = currentDrillRoot
+      ? filterModelForDrill(c4Model, currentDrillRoot.id)
+      : c4Model;
+
+    if (checkedPackageIds) {
+      const excluded = new Set<string>();
+      for (const elem of filteredModel.elements) {
+        if (FILTER_CHECKABLE_TYPES.has(elem.type as 'container') && !checkedPackageIds.has(elem.id)) {
+          excluded.add(elem.id);
+          for (const id of collectDescendantIds(filteredModel.elements, elem.id)) {
+            excluded.add(id);
+          }
+        }
+      }
+      if (excluded.size > 0) {
+        filteredModel = {
+          ...filteredModel,
+          elements: filteredModel.elements.filter(e => !excluded.has(e.id)),
+          relationships: filteredModel.relationships.filter(
+            r => !excluded.has(r.from) && !excluded.has(r.to),
+          ),
+        };
+      }
     }
-    const doc = c4ToGraphDocument(c4Model, boundaryInfos);
+
+    // soloFrameId フィルタ: フレームとその全子孫のみ表示
+    if (soloFrameId) {
+      const keepIds = new Set<string>([soloFrameId]);
+      for (const id of collectDescendantIds(filteredModel.elements, soloFrameId)) {
+        keepIds.add(id);
+      }
+      filteredModel = {
+        ...filteredModel,
+        elements: filteredModel.elements.filter(e => keepIds.has(e.id)),
+        relationships: filteredModel.relationships.filter(
+          r => keepIds.has(r.from) && keepIds.has(r.to),
+        ),
+      };
+    }
+
+    const doc = c4ToGraphDocument(filteredModel, boundaryInfos);
     layoutWithSubgroups(doc, 'TB', 180, 60);
     setFullDoc(doc);
-    const level = currentLevelRef.current;
-    if (level < 4) {
-      const view = buildLevelView(doc, level);
-      layoutWithSubgroups(view, 'TB', 180, 60);
-      dispatch({ type: 'SET_DOCUMENT', doc: view });
-    } else {
-      dispatch({ type: 'SET_DOCUMENT', doc });
+    let viewDoc = currentLevel < 4
+      ? (() => { const v = buildLevelView(doc, currentLevel); layoutWithSubgroups(v, 'TB', 180, 60); return v; })()
+      : doc;
+
+    // L1/L2/L3/L4 切り替え時に Fit を実行する。
+    // viewport を doc に埋め込んで SET_DOCUMENT で確実に適用する（別途 SET_VIEWPORT を
+    // 発行すると後続の SET_DOCUMENT で上書きされるため）。
+    // setFullDoc() によるstate更新がエフェクトを再実行させるため、
+    // カウントダウン方式で複数回の実行に対応する（setTimeout は React スケジューラと競合する）。
+    if (pendingFitCountRef.current > 0) {
+      pendingFitCountRef.current--;
+      const canvas = canvasRef.current;
+      if (canvas && canvas.clientWidth > 0 && canvas.clientHeight > 0) {
+        const bounds = computeBounds(viewDoc.nodes);
+        const viewport = fitToContent(canvas.clientWidth, canvas.clientHeight, bounds);
+        viewDoc = { ...viewDoc, viewport };
+      }
     }
-  }, [c4Model, boundaryInfos]);
+
+    dispatch({ type: 'SET_DOCUMENT', doc: viewDoc });
+  }, [c4Model, boundaryInfos, drillStack, currentLevel, checkedPackageIds, soloFrameId]);
+
+  /** 右クリックメニューを表示する */
+  const handleNodeContextMenu = useCallback(
+    (c4Id: string, x: number, y: number, nodeType: string) => {
+      setContextMenu({ x, y, c4Id, nodeType });
+    },
+    [],
+  );
+
+  /** コンテキストメニューを閉じる */
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
+  /** フレームのみ表示 */
+  const handleShowOnlyFrame = useCallback((c4Id: string) => {
+    setSoloFrameId(c4Id);
+    setContextMenu(null);
+  }, []);
+
+  /** 要素のパスをクリップボードにコピーする */
+  const handleCopyPath = useCallback(() => {
+    if (!contextMenu) return;
+    const id = contextMenu.c4Id;
+    let path: string;
+    if (id.startsWith('pkg_')) {
+      // pkg_web-app → packages/web-app
+      // pkg_web-app/engine → packages/web-app/src/engine
+      const inner = id.slice(4);
+      const slash = inner.indexOf('/');
+      if (slash === -1) {
+        path = `packages/${inner}`;
+      } else {
+        path = `packages/${inner.slice(0, slash)}/src/${inner.slice(slash + 1)}`;
+      }
+    } else if (id.startsWith('file::')) {
+      // file::packages/web-app/src/index.ts → packages/web-app/src/index.ts
+      const withoutPrefix = id.slice(6);
+      const colonIdx = withoutPrefix.indexOf('::');
+      path = colonIdx === -1 ? withoutPrefix : withoutPrefix.slice(0, colonIdx);
+    } else {
+      path = id;
+    }
+    navigator.clipboard.writeText(path).catch(() => {});
+    setContextMenu(null);
+  }, [contextMenu]);
+
+  /** フレームフィルタを解除する */
+  const handleClearFrameFilter = useCallback(() => {
+    setSoloFrameId(null);
+    setContextMenu(null);
+  }, []);
+
+  /** ドリルダウン時に子要素が見えるよう最低限必要なレベルを返す */
+  const drillTargetLevel = useCallback((type: string): number => {
+    if (type === 'system') return 2;
+    if (type === 'container') return 3;
+    return 4;
+  }, []);
+
+  const handleDrillDown = useCallback(
+    (c4Id: string) => {
+      if (!c4Model) return;
+      const element = c4Model.elements.find(e => e.id === c4Id);
+      if (element) {
+        const prevLevel = currentLevel;
+        const minLevel = drillTargetLevel(element.type);
+        setDrillStack((prev) => [...prev, { element, prevLevel, prevCheckedIds: checkedPackageIds }]);
+        if (currentLevel < minLevel) {
+          setCurrentLevel(minLevel);
+        }
+        const elementById = new Map(c4Model.elements.map(e => [e.id, e]));
+        const inScope = new Set<string>();
+        if (DRILL_SCOPE_TYPES.has(element.type as 'system')) inScope.add(element.id);
+        for (const id of collectDescendantIds(c4Model.elements, element.id)) {
+          const el = elementById.get(id);
+          if (el && DRILL_SCOPE_TYPES.has(el.type as 'system')) inScope.add(id);
+        }
+        const expandIds = new Set<string>([element.id]);
+        let parentId = element.boundaryId;
+        while (parentId) {
+          expandIds.add(parentId);
+          parentId = elementById.get(parentId)?.boundaryId;
+        }
+        setCheckedPackageIds(null);
+        setCheckReset(prev => ({ key: prev.key + 1, ids: inScope, expanded: expandIds }));
+      }
+      setSoloFrameId(null);
+      setContextMenu(null);
+    },
+    [c4Model, currentLevel, drillTargetLevel, checkedPackageIds],
+  );
+
+  const handleDrillUp = useCallback(() => {
+    const entry = drillStack.at(-1);
+    if (entry?.prevLevel !== undefined) setCurrentLevel(entry.prevLevel);
+    setDrillStack((prev) => prev.slice(0, -1));
+    setCheckedPackageIds(null);
+    setCheckReset(prev => ({ key: prev.key + 1, ids: entry?.prevCheckedIds ?? null, expanded: null }));
+    setSoloFrameId(null);
+    setContextMenu(null);
+  }, [drillStack]);
 
   const handleSetLevel = useCallback((level: number) => {
-    if (!fullDoc) return;
+    pendingFitCountRef.current = 5;
     setCurrentLevel(level);
-    const view = buildLevelView(fullDoc, level);
-    layoutWithSubgroups(view, 'TB', 180, 60);
-    dispatch({ type: 'SET_DOCUMENT', doc: view });
+    setDrillStack([]);
+    setCheckedPackageIds(null);
+    setCheckReset(prev => ({ key: prev.key + 1, ids: null, expanded: null }));
     if (level <= 2) {
       setDsmLevel('package');
     } else {
       setDsmLevel('component');
     }
-  }, [fullDoc]);
+  }, []);
 
   const handleFit = useCallback(() => {
     const canvas = canvasRef.current;
@@ -265,11 +500,18 @@ export function C4ViewerCore({
     dispatch({ type: 'SET_VIEWPORT', viewport });
   }, [state.document.nodes]);
 
+
   const elementTree = useMemo(() => {
     if (!c4Model) return [];
     const fullTree = buildElementTree(c4Model, boundaryInfos);
     return filterTreeByLevel(fullTree, currentLevel);
   }, [c4Model, boundaryInfos, currentLevel]);
+
+  const [checkReset, setCheckReset] = useState<{
+    readonly key: number;
+    readonly ids: ReadonlySet<string> | null;
+    readonly expanded: ReadonlySet<string> | null;
+  }>({ key: 0, ids: null, expanded: null });
 
   const deletedIds = useMemo(() => {
     if (!c4Model) return undefined;
@@ -280,29 +522,173 @@ export function C4ViewerCore({
     return ids.size > 0 ? ids : undefined;
   }, [c4Model]);
 
-  const coverageMap = useMemo(() => {
-    if (!showCoverage || !coverageMatrix) return null;
-    const map = new Map<string, number>();
-    for (const entry of coverageMatrix.entries) {
-      map.set(entry.elementId, entry.lines.pct);
+  const filteredDsmMatrix = useMemo(() => {
+    if (!dsmMatrix) return null;
+    let m = dsmMatrix;
+    if (currentLevel === 1 && c4Model) {
+      m = aggregateDsmToC4SystemLevel(dsmMatrix, c4Model.elements);
+    } else if (currentLevel === 2 && c4Model) {
+      m = aggregateDsmToC4ContainerLevel(dsmMatrix, c4Model.elements);
+    } else if (currentLevel === 3 && c4Model) {
+      m = aggregateDsmToC4ComponentLevel(dsmMatrix, c4Model.elements);
     }
-    return map;
-  }, [showCoverage, coverageMatrix]);
+    m = sortDsmMatrixByName(m);
+    if (checkedPackageIds) {
+      if (currentLevel === 4 && c4Model) {
+        // L4 では DSM ノードがファイル（code 要素）のため、
+        // checkedPackageIds に含まれるコンテナ/コンポーネント ID を
+        // その配下のファイル ID へ展開してからフィルタリングする。
+        const elementById = new Map(c4Model.elements.map(e => [e.id, e]));
+        const fileIdsToKeep = new Set<string>();
+        for (const node of m.nodes) {
+          let current = elementById.get(node.id);
+          while (current) {
+            if (checkedPackageIds.has(current.id)) {
+              fileIdsToKeep.add(node.id);
+              break;
+            }
+            if (!current.boundaryId) break;
+            current = elementById.get(current.boundaryId);
+          }
+        }
+        m = filterDsmMatrix(m, fileIdsToKeep);
+      } else {
+        m = filterDsmMatrix(m, checkedPackageIds);
+      }
+    }
+    return m;
+  }, [dsmMatrix, currentLevel, c4Model, checkedPackageIds]);
 
-  const coverageDiffMap = useMemo(() => {
-    if (!showCoverage || !coverageDiff) return null;
-    const map = new Map<string, number>();
-    for (const entry of coverageDiff.entries) {
-      map.set(entry.elementId, entry.lines.pctDelta);
+  // currentLevel に合わせて importance スコアを対象タイプに絞る
+  // L2(1): container のみ、L3(2): component のみ、L4(3): code のみ
+  const levelFilteredImportanceMatrix = useMemo(() => {
+    if (!importanceMatrix || !c4Model) return importanceMatrix ?? null;
+    // L1=Context(system), L2=Container(container), L3=Component(component), L4=Code(code)
+    const targetType = currentLevel === 1 ? 'system'
+      : currentLevel === 2 ? 'container'
+      : currentLevel === 3 ? 'component'
+      : 'code';
+    const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
+    const filtered: ImportanceMatrix = {};
+    for (const [id, score] of Object.entries(importanceMatrix)) {
+      if (typeById.get(id) === targetType) filtered[id] = score;
     }
-    return map;
-  }, [showCoverage, coverageDiff]);
+    return filtered;
+  }, [importanceMatrix, c4Model, currentLevel]);
+
+  // currentLevel に合わせて complexity エントリを対象タイプに絞る（boundary 除外）
+  const levelFilteredComplexityMatrix = useMemo(() => {
+    if (!complexityMatrix || !c4Model) return complexityMatrix ?? null;
+    const targetType = currentLevel === 1 ? 'system'
+      : currentLevel === 2 ? 'container'
+      : currentLevel === 3 ? 'component'
+      : 'code';
+    const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
+    const entries = complexityMatrix.entries.filter((e) => typeById.get(e.elementId) === targetType);
+    return { ...complexityMatrix, entries };
+  }, [complexityMatrix, c4Model, currentLevel]);
+
+  // currentLevel に合わせて coverage エントリを対象タイプに絞る（boundary 除外）
+  const levelFilteredCoverageMatrix = useMemo(() => {
+    if (!coverageMatrix || !c4Model) return coverageMatrix ?? null;
+    const targetType = currentLevel === 2 ? 'container'
+      : currentLevel === 3 ? 'component'
+      : 'code';
+    const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
+    const entries = coverageMatrix.entries.filter((e) => typeById.get(e.elementId) === targetType);
+    return { ...coverageMatrix, entries };
+  }, [coverageMatrix, c4Model, currentLevel]);
+
+  const overlayMap = useMemo(
+    () => computeColorMap(metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix),
+    [metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix],
+  );
+
+  const claudeActivityMap = useMemo(() => {
+    // マルチエージェントモード
+    if (multiAgentActivity && multiAgentActivity.agents.length > 0) {
+      const agentsForLevel = multiAgentActivity.agents.map((agent) => {
+        if (!c4Model) return agent;
+        const targetType = currentLevel === 1 ? 'system'
+          : currentLevel === 2 ? 'container'
+          : currentLevel === 3 ? 'component'
+          : 'code';
+        const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
+        return {
+          ...agent,
+          activeElementIds: agent.activeElementIds.filter((id) => typeById.get(id) === targetType),
+          touchedElementIds: agent.touchedElementIds.filter((id) => typeById.get(id) === targetType),
+          plannedElementIds: agent.plannedElementIds.filter((id) => typeById.get(id) === targetType),
+        };
+      });
+      const hasAny = agentsForLevel.some((a) =>
+        a.activeElementIds.length > 0 || a.touchedElementIds.length > 0 || a.plannedElementIds.length > 0);
+      if (!hasAny) return null;
+      return computeMultiAgentColorMap(agentsForLevel, isDark);
+    }
+    // 単一エージェントモード（後方互換）
+    if (!claudeActivity) return null;
+    const { activeElementIds, touchedElementIds, plannedElementIds } = claudeActivity;
+    if (activeElementIds.length === 0 && touchedElementIds.length === 0 && plannedElementIds.length === 0) return null;
+    if (c4Model) {
+      const targetType = currentLevel === 1 ? 'system'
+        : currentLevel === 2 ? 'container'
+        : currentLevel === 3 ? 'component'
+        : 'code';
+      const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
+      const filteredActive = activeElementIds.filter((id) => typeById.get(id) === targetType);
+      const filteredTouched = touchedElementIds.filter((id) => typeById.get(id) === targetType);
+      const filteredPlanned = plannedElementIds.filter((id) => typeById.get(id) === targetType);
+      if (filteredActive.length === 0 && filteredTouched.length === 0 && filteredPlanned.length === 0) return null;
+      return computeClaudeActivityColorMap(filteredActive, filteredTouched, filteredPlanned, isDark);
+    }
+    return computeClaudeActivityColorMap(activeElementIds, touchedElementIds, plannedElementIds, isDark);
+  }, [multiAgentActivity, claudeActivity, c4Model, currentLevel, isDark]);
+
+  const conflictBorderMap = useMemo(() => {
+    if (!multiAgentActivity?.conflicts?.length) return null;
+    if (!c4Model) return computeConflictBorderMap(multiAgentActivity.conflicts);
+    const targetType = currentLevel === 1 ? 'system'
+      : currentLevel === 2 ? 'container'
+      : currentLevel === 3 ? 'component'
+      : 'code';
+    const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
+    const filtered = multiAgentActivity.conflicts.map((c) => ({
+      ...c,
+      elementIds: c.elementIds.filter((id) => typeById.get(id) === targetType),
+    })).filter((c) => c.elementIds.length > 0);
+    if (filtered.length === 0) return null;
+    return computeConflictBorderMap(filtered);
+  }, [multiAgentActivity, c4Model, currentLevel]);
+
+  const claudeActivityMapWithConflicts = useMemo(() => {
+    if (!claudeActivityMap && !conflictBorderMap) return null;
+    const map = new Map(claudeActivityMap ?? []);
+    if (conflictBorderMap) {
+      for (const [id, color] of conflictBorderMap) {
+        map.set(id, color);
+      }
+    }
+    return map.size > 0 ? map : null;
+  }, [claudeActivityMap, conflictBorderMap]);
+
+  const dsmMax = useMemo(() => {
+    if ((metricOverlay !== 'dsm-out' && metricOverlay !== 'dsm-in') || !filteredDsmMatrix) return undefined;
+    let max = 0;
+    for (let i = 0; i < filteredDsmMatrix.nodes.length; i++) {
+      const count = metricOverlay === 'dsm-out'
+        ? filteredDsmMatrix.adjacency[i].reduce((s: number, v: number) => s + (v > 0 ? 1 : 0), 0)
+        : filteredDsmMatrix.adjacency.reduce((s: number, row: readonly number[]) => s + (row[i] > 0 ? 1 : 0), 0);
+      if (count > max) max = count;
+    }
+    return max;
+  }, [metricOverlay, filteredDsmMatrix]);
 
   const excludedDescendantIds = useMemo(() => {
     if (!c4Model || !checkedPackageIds) return null;
     const excluded = new Set<string>();
     for (const elem of c4Model.elements) {
-      const isCheckable = elem.type === 'container' || elem.type === 'containerDb' || elem.type === 'component';
+      const isCheckable = FILTER_CHECKABLE_TYPES.has(elem.type as 'container');
       if (isCheckable && !checkedPackageIds.has(elem.id)) {
         const descendants = collectDescendantIds(c4Model.elements, elem.id);
         for (const id of descendants) excluded.add(id);
@@ -330,7 +716,7 @@ export function C4ViewerCore({
     if (!container) return;
     const onMove = (ev: MouseEvent) => {
       const rect = container.getBoundingClientRect();
-      const treeWidth = showTree && elementTree.length > 0 ? 260 : 0;
+      const treeWidth = elementTree.length > 0 ? 260 : 0;
       const available = rect.width - treeWidth;
       if (available <= 0) return;
       const ratio = Math.min(0.8, Math.max(0.2, (ev.clientX - rect.left) / available));
@@ -346,7 +732,7 @@ export function C4ViewerCore({
     globalThis.addEventListener('mouseup', onUp);
     globalThis.document.body.style.cursor = 'col-resize';
     globalThis.document.body.style.userSelect = 'none';
-  }, [showTree, elementTree.length]);
+  }, [elementTree.length]);
 
   const toolbarButtonSx = {
     textTransform: 'none', color: colors.accent, borderColor: colors.border,
@@ -374,15 +760,25 @@ export function C4ViewerCore({
     borderColor: `${colors.accent} !important`,
   } as const;
 
+  // コンテキストメニュー表示時の情報計算
+  // boundaryId で親子関係が表現されているため、children ではなく boundaryId で子の有無を判定する
+  // 現在のドリルルートへの再ドリルは防ぐ
+  const canDrillDown = contextMenu !== null &&
+    contextMenu.nodeType !== 'frame' &&
+    drillStack.at(-1)?.element.id !== contextMenu.c4Id &&
+    (c4Model?.elements.some(e => e.boundaryId === contextMenu.c4Id) ?? false);
+  const canDrillUp = contextMenu !== null &&
+    contextMenu.nodeType === 'frame' &&
+    drillStack.length > 0;
+  const canShowOnlyFrame = contextMenu !== null &&
+    contextMenu.nodeType === 'frame';
+  const canCopyPath = contextMenu !== null &&
+    (contextMenu.c4Id.startsWith('pkg_') || contextMenu.c4Id.startsWith('file::'));
+  const showContextMenu = contextMenu !== null && (canDrillDown || canDrillUp || canShowOnlyFrame || canCopyPath);
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: containerHeight, bgcolor: colors.bg }}>
       <Toolbar variant="dense" sx={{ gap: 1, bgcolor: isDark ? 'rgba(18,18,18,0.85)' : 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${colors.border}`, minHeight: 44, px: { xs: 2, md: 3 }, zIndex: 1100 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mr: 1 }} aria-live="polite" aria-atomic="true">
-          <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: connected ? '#66BB6A' : colors.textMuted }} aria-hidden="true" />
-          <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.7rem' }}>
-            {connected ? 'Connected' : 'Disconnected'}
-          </Typography>
-        </Box>
         {onImport && (
           <Button
             size="small"
@@ -392,6 +788,36 @@ export function C4ViewerCore({
           >
             Import
           </Button>
+        )}
+        {repoOptions.length > 0 && (
+          <Select
+            size="small"
+            value={selectedRepo}
+            onChange={handleRepoChange}
+            sx={{ fontSize: '0.75rem', height: 28, minWidth: 100, mr: 0.5, '& .MuiSelect-select': { py: '2px' } }}
+            aria-label={t('c4.releaseRepository')}
+          >
+            {repoOptions.map((key) => (
+              <MenuItem key={key} value={key} sx={{ fontSize: '0.75rem' }}>
+                {key === UNKNOWN_REPO_KEY ? t('c4.unknownRepo') : key}
+              </MenuItem>
+            ))}
+          </Select>
+        )}
+        {visibleReleases.length > 0 && (
+          <Select
+            size="small"
+            value={selectedRelease}
+            onChange={handleReleaseChange}
+            sx={{ fontSize: '0.75rem', height: 28, minWidth: 120, mr: 0.5, '& .MuiSelect-select': { py: '2px' } }}
+            aria-label={t('c4.releases')}
+          >
+            {visibleReleases.map((entry) => (
+              <MenuItem key={entry.tag} value={entry.tag} sx={{ fontSize: '0.75rem' }}>
+                {entry.tag === CURRENT_RELEASE_TAG ? t('c4.currentRelease') : entry.tag}
+              </MenuItem>
+            ))}
+          </Select>
         )}
         <ButtonGroup size="small" sx={{ ml: 1 }}>
           {([1, 2, 3, 4] as const).map(level => (
@@ -407,10 +833,144 @@ export function C4ViewerCore({
             </Button>
           ))}
         </ButtonGroup>
+        <Button size="small" startIcon={<FitScreenIcon sx={{ fontSize: 16 }} />} onClick={handleFit} sx={{ ...toolbarButtonSx, ml: 0.5 }} aria-label="Fit">Fit</Button>
+        {soloFrameId !== null && (
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<FilterAltOffIcon sx={{ fontSize: 16 }} />}
+            onClick={handleClearFrameFilter}
+            sx={{
+              ...toolbarButtonSx,
+              ml: 0.5,
+              borderColor: colors.accent,
+              color: colors.accent,
+              '&:hover': { bgcolor: `${colors.accent}22` },
+            }}
+          >
+            {t('c4.frameFilter.reset')}
+          </Button>
+        )}
         <Box sx={{ flex: 1 }} />
+        {/* 指標オーバーレイ ドロップダウン */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 1 }}>
+          <Typography variant="caption" sx={{ fontSize: '0.7rem', color: colors.textMuted, whiteSpace: 'nowrap' }}>
+            {t('c4.overlay.label')}:
+          </Typography>
+          <Select
+            size="small"
+            value={metricOverlay}
+            onChange={(e) => { setMetricOverlay(e.target.value as MetricOverlay); }}
+            sx={{ fontSize: '0.75rem', height: 24, '.MuiSelect-select': { py: 0, px: 1 } }}
+            aria-label={t('c4.overlay.label')}
+          >
+            <MenuItem value="none" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.none')}</MenuItem>
+            <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
+              {t('c4.overlay.groupCoverage')}
+            </ListSubheader>
+            <MenuItem value="coverage-lines" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageLines')}</MenuItem>
+            <MenuItem value="coverage-branches" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageBranches')}</MenuItem>
+            <MenuItem value="coverage-functions" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageFunctions')}</MenuItem>
+            <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
+              {t('c4.overlay.groupDsm')}
+            </ListSubheader>
+            <MenuItem value="dsm-out" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmOut')}</MenuItem>
+            <MenuItem value="dsm-in" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmIn')}</MenuItem>
+            <MenuItem value="dsm-cyclic" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmCyclic')}</MenuItem>
+            <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
+              {t('c4.overlay.groupComplexity')}
+            </ListSubheader>
+            <MenuItem value="complexity-most" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.complexityMost')}</MenuItem>
+            <MenuItem value="complexity-highest" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.complexityHighest')}</MenuItem>
+            <ListSubheader sx={{ fontSize: '0.7rem', lineHeight: '2' }}>
+              {t('c4.overlay.groupImportance')}
+            </ListSubheader>
+            <MenuItem value="importance" disabled={!importanceMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.importance')}</MenuItem>
+          </Select>
+        </Box>
         <Button size="small" onClick={() => { if (showC4 && !showDsm) { setShowDsm(true); } else { setShowC4(true); setShowDsm(false); } }} aria-pressed={showC4 && !showDsm} aria-label="Toggle C4 graph" sx={{ ...toolbarButtonSx, ...(showC4 && !showDsm && { bgcolor: toolbarButtonActiveBg }) }}>C4</Button>
-        <Button size="small" onClick={() => { if (!showC4 && showDsm) { setShowC4(true); } else { setShowC4(false); setShowDsm(true); } }} aria-pressed={!showC4 && showDsm} aria-label="Toggle matrix panel" sx={{ ...toolbarButtonSx, ...(!showC4 && showDsm && { bgcolor: toolbarButtonActiveBg }) }}>Matrix</Button>
-        <Button size="small" startIcon={<AccountTreeIcon sx={{ fontSize: 18 }} />} onClick={() => setShowTree(prev => !prev)} aria-pressed={showTree} aria-label="Toggle element tree" sx={{ ...toolbarButtonSx, ...(showTree && { bgcolor: toolbarButtonActiveBg }) }}>Tree</Button>
+        <ButtonGroup size="small">
+          {(['dsm', 'fcmap', 'coverage'] as const).map((view) => {
+            const label = view === 'dsm' ? 'DSM' : view === 'fcmap' ? 'F-cMap' : 'Cov';
+            const isActive = showDsm && matrixView === view;
+            const isDisabled = (view === 'fcmap' && !featureMatrix) || (view === 'coverage' && !coverageMatrix);
+            return (
+              <Button
+                key={view}
+                size="small"
+                disabled={isDisabled}
+                aria-pressed={isActive}
+                aria-label={`Show ${label} matrix`}
+                onClick={() => {
+                  if (isActive) {
+                    setShowC4(true);
+                    setShowDsm(false);
+                  } else {
+                    setShowC4(false);
+                    setShowDsm(true);
+                    setMatrixView(view);
+                  }
+                }}
+                sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(isActive && { bgcolor: toolbarButtonActiveBg }) }}
+              >
+                {label}
+              </Button>
+            );
+          })}
+        </ButtonGroup>
+        {showDsm && matrixView === 'dsm' && (
+          <Button size="small" onClick={() => setDsmClustered(prev => !prev)} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(dsmClustered && { bgcolor: toolbarButtonActiveBg }) }}>Cluster</Button>
+        )}
+        {selectedExport && (
+          <>
+            <Button
+              size="small"
+              onClick={() => setShowFlow(prev => !prev)}
+              aria-pressed={showFlow}
+              sx={{ ...toolbarButtonSx, ...(showFlow && { bgcolor: toolbarButtonActiveBg }) }}
+            >
+              Flow: {selectedExport.name}
+            </Button>
+            {showFlow && (
+              <ButtonGroup size="small">
+                {(['control', 'call'] as const).map(t => (
+                  <Button
+                    key={t}
+                    onClick={() => { setFlowType(t); }}
+                    sx={{ ...toolbarButtonSx, fontSize: '0.7rem', ...(flowType === t && { bgcolor: toolbarButtonActiveBg }) }}
+                  >
+                    {t}
+                  </Button>
+                ))}
+              </ButtonGroup>
+            )}
+          </>
+        )}
+        {multiAgentActivity && multiAgentActivity.agents.length > 1 && (
+          <Typography variant="caption" sx={{ ml: 1, opacity: 0.7 }}>
+            {multiAgentActivity.agents.length} {t('c4.multiAgent.badge')}
+          </Typography>
+        )}
+        {multiAgentActivity?.conflicts && multiAgentActivity.conflicts.length > 0 && (
+          <Typography variant="caption" sx={{ ml: 0.5, color: 'error.main', fontWeight: 'bold' }}>
+            {multiAgentActivity.conflicts.length} {t('c4.multiAgent.conflicts')}
+          </Typography>
+        )}
+        {((claudeActivity && (
+          claudeActivity.activeElementIds.length > 0 ||
+          claudeActivity.touchedElementIds.length > 0 ||
+          claudeActivity.plannedElementIds.length > 0
+        )) || (multiAgentActivity && multiAgentActivity.agents.length > 0)) && (
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={onResetClaudeActivity}
+            title={t('c4.claudeActivity.reset')}
+            sx={{ ...toolbarButtonSx, ml: 0.5 }}
+          >
+            {t('c4.claudeActivity.reset')}
+          </Button>
+        )}
       </Toolbar>
       {currentLevel === 1 && (
         <Toolbar variant="dense" sx={{ gap: 1, bgcolor: colors.bgSecondary, borderBottom: `1px solid ${colors.border}`, minHeight: 36, px: { xs: 2, md: 3 } }}>
@@ -470,85 +1030,27 @@ export function C4ViewerCore({
         </Box>
       )}
       <Box ref={containerRef} sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* リリースパネル */}
-        {releases.length > 0 && (
-          <Box
-            sx={{
-              width: 200,
-              flexShrink: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              borderRight: `1px solid ${colors.border}`,
-              bgcolor: colors.bgSecondary,
-              overflow: 'hidden',
-            }}
-          >
-            <Typography
-              variant="caption"
-              sx={{ px: 1, py: 0.5, color: colors.textMuted, fontWeight: 600, borderBottom: `1px solid ${colors.border}`, flexShrink: 0 }}
-            >
-              {t('c4.releases')}
-            </Typography>
-            {repoOptions.length > 0 && (
-              <Box sx={{ px: 1, py: 1, borderBottom: `1px solid ${colors.border}`, flexShrink: 0 }}>
-                <FormControl size="small" fullWidth>
-                  <InputLabel id="c4-release-repo-select-label">{t('c4.releaseRepository')}</InputLabel>
-                  <Select
-                    labelId="c4-release-repo-select-label"
-                    value={selectedRepo}
-                    label={t('c4.releaseRepository')}
-                    onChange={handleRepoChange}
-                  >
-                    {repoOptions.map((key) => (
-                      <MenuItem key={key} value={key}>
-                        {key === UNKNOWN_REPO_KEY ? t('c4.unknownRepo') : key}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
-            )}
-            <Box sx={{ flex: 1, overflowY: 'auto' }}>
-              {visibleReleases.map((entry) => {
-                const id = entry.tag;
-                return (
-                  <Box
-                    key={id}
-                    role="button"
-                    tabIndex={0}
-                    aria-pressed={id === selectedRelease}
-                    onClick={() => onReleaseSelect?.(id)}
-                    onKeyDown={(e: React.KeyboardEvent) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        onReleaseSelect?.(id);
-                      }
-                    }}
-                    sx={{
-                      px: 1,
-                      py: 0.5,
-                      cursor: 'pointer',
-                      fontSize: '0.75rem',
-                      color: id === selectedRelease ? colors.accent : colors.text,
-                      bgcolor: id === selectedRelease ? colors.focus : 'transparent',
-                      borderLeft: id === selectedRelease ? `2px solid ${colors.accent}` : '2px solid transparent',
-                      '&:hover': { bgcolor: colors.focus },
-                      wordBreak: 'break-all',
-                    }}
-                  >
-                    {id === CURRENT_RELEASE_TAG ? t('c4.currentRelease') : id}
-                  </Box>
-                );
-              })}
-            </Box>
-          </Box>
+        {/* 要素ツリーパネル（左側固定表示） */}
+        {elementTree.length > 0 && (
+          <C4ElementTree
+            tree={elementTree}
+            dispatch={dispatch}
+            onSelect={handleElementSelect}
+            onCheckedChange={setCheckedPackageIds}
+            checkReset={checkReset}
+            onRemoveElement={onRemoveElement}
+            onPurgeDeleted={onPurgeDeleted}
+            docLinks={docLinks}
+            onDocLinkClick={onDocLinkClick}
+            isDark={isDark}
+            exports={exports}
+            selectedExportId={selectedExport?.id ?? null}
+            onExportSelect={handleExportSelect}
+          />
         )}
-        {/* 既存コンテンツ (C4Graph / Separator / DSM / Tree) */}
+        {/* 既存コンテンツ (C4Graph / Separator / DSM) */}
         {showC4 && (
           <Box sx={{ flex: showDsm ? splitRatio : 1, display: 'flex', flexDirection: 'column', minWidth: 100 }}>
-            <Toolbar variant="dense" sx={{ gap: 0.5, bgcolor: colors.bgSecondary, borderBottom: `1px solid ${colors.border}`, minHeight: 36, px: 1, flexShrink: 0 }}>
-              <Button size="small" startIcon={<FitScreenIcon sx={{ fontSize: 16 }} />} onClick={handleFit} sx={{ ...toolbarButtonSx, fontSize: '0.75rem' }}>Fit</Button>
-            </Toolbar>
             <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
               <GraphCanvas
                 isDark={isDark}
@@ -558,8 +1060,8 @@ export function C4ViewerCore({
                 canvasRef={canvasRef}
                 selectedNodeId={selectedElementId ? (state.document.nodes.find(n => n.metadata?.c4Id === selectedElementId)?.id ?? null) : null}
                 centerOnSelect={centerOnSelect}
-                coverageMap={coverageMap}
-                coverageDiffMap={coverageDiffMap}
+                overlayMap={overlayMap.size > 0 ? overlayMap : null}
+                claudeActivityMap={claudeActivityMapWithConflicts}
                 onNodeSelect={(id) => { setCenterOnSelect(false); setSelectedElementId(id); }}
                 onNodeDoubleClick={(nodeId) => {
                   if (!c4Model) return;
@@ -568,7 +1070,117 @@ export function C4ViewerCore({
                     setEditElement({ id: elem.id, type: elem.type, name: elem.name, description: elem.description ?? '', external: elem.external ?? false });
                   }
                 }}
+                onNodeContextMenu={handleNodeContextMenu}
               />
+              <OverlayLegend overlay={metricOverlay} isDark={isDark} dsmMax={dsmMax} />
+              {showContextMenu && contextMenu && (
+                <>
+                  {/* オーバーレイ: メニュー外クリックで閉じる */}
+                  <div
+                    style={{ position: 'fixed', inset: 0, zIndex: 1000 }}
+                    onMouseDown={handleCloseContextMenu}
+                  />
+                  {/* コンテキストメニュー本体 */}
+                  <div
+                    style={{
+                      position: 'fixed',
+                      top: contextMenu.y,
+                      left: contextMenu.x,
+                      zIndex: 1001,
+                      background: isDark ? '#2d2d2d' : '#ffffff',
+                      border: `1px solid ${isDark ? '#555' : '#ccc'}`,
+                      borderRadius: 4,
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                      minWidth: 140,
+                      padding: '4px 0',
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    {canDrillDown && (
+                      <button
+                        type="button"
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '6px 16px',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: 14,
+                          color: isDark ? '#e0e0e0' : '#333',
+                        }}
+                        onClick={() => handleDrillDown(contextMenu.c4Id)}
+                      >
+                        {t('c4.drillDown')}
+                      </button>
+                    )}
+                    {canDrillUp && (
+                      <button
+                        type="button"
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '6px 16px',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: 14,
+                          color: isDark ? '#e0e0e0' : '#333',
+                        }}
+                        onClick={handleDrillUp}
+                      >
+                        {t('c4.drillUp')}
+                      </button>
+                    )}
+                    {canShowOnlyFrame && (
+                      <button
+                        type="button"
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '6px 16px',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: 14,
+                          color: isDark ? '#e0e0e0' : '#333',
+                        }}
+                        onClick={() =>
+                          soloFrameId === contextMenu.c4Id
+                            ? handleClearFrameFilter()
+                            : handleShowOnlyFrame(contextMenu.c4Id)
+                        }
+                      >
+                        {soloFrameId === contextMenu.c4Id
+                          ? t('c4.clearFrameFilter')
+                          : t('c4.showOnlyThisFrame')}
+                      </button>
+                    )}
+                    {canCopyPath && (
+                      <button
+                        type="button"
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '6px 16px',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: 14,
+                          color: isDark ? '#e0e0e0' : '#333',
+                        }}
+                        onClick={handleCopyPath}
+                      >
+                        {t('c4.copyPath')}
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
             </Box>
           </Box>
         )}
@@ -594,22 +1206,25 @@ export function C4ViewerCore({
             sx={{ width: 5, cursor: 'col-resize', bgcolor: 'transparent', borderLeft: `1px solid ${colors.border}`, '&:hover': { bgcolor: colors.focus }, '&:focus-visible': { outline: `2px solid ${colors.accent}`, outlineOffset: '2px' }, flexShrink: 0 }}
           />
         )}
+        {showFlow && (
+          <Box sx={{ flex: showC4 ? 1 - splitRatio : 1, display: 'flex', flexDirection: 'column', minWidth: 100 }}>
+            <FlowchartCanvas
+              graph={flowGraph ?? { nodes: [], edges: [] }}
+              isDark={isDark}
+              errorMessage={flowError}
+            />
+          </Box>
+        )}
         {showDsm && (
-          <Box sx={{ flex: showC4 ? 1 - splitRatio : 1, display: 'flex', flexDirection: 'column', minWidth: 100, borderRight: showTree && elementTree.length > 0 ? `1px solid ${colors.border}` : 'none' }}>
-            <Toolbar variant="dense" sx={{ gap: 0.5, bgcolor: colors.bgSecondary, borderBottom: `1px solid ${colors.border}`, minHeight: 36, px: 1, flexShrink: 0 }}>
-              <Button size="small" onClick={() => { setMatrixView('dsm'); }} aria-pressed={matrixView === 'dsm'} aria-label="Show DSM matrix" sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(matrixView === 'dsm' && { bgcolor: toolbarButtonActiveBg }) }}>DSM</Button>
-              <Button size="small" onClick={() => { setMatrixView('fcmap'); }} aria-pressed={matrixView === 'fcmap'} aria-label="Show F-C Map" disabled={!featureMatrix} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(matrixView === 'fcmap' && { bgcolor: toolbarButtonActiveBg }) }}>F-C Map</Button>
-              <Button size="small" onClick={() => { const next = matrixView !== 'coverage'; setShowCoverage(next); setMatrixView(next ? 'coverage' : 'dsm'); }} aria-pressed={matrixView === 'coverage'} aria-label="Show coverage" disabled={!coverageMatrix} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(matrixView === 'coverage' && { bgcolor: toolbarButtonActiveBg }) }}>Cov</Button>
-              <Button size="small" onClick={() => setDsmClustered(prev => !prev)} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(dsmClustered && { bgcolor: toolbarButtonActiveBg }) }}>Cluster</Button>
-            </Toolbar>
+          <Box sx={{ flex: showC4 ? 1 - splitRatio : 1, display: 'flex', flexDirection: 'column', minWidth: 100 }}>
             <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
               {matrixView === 'coverage' && coverageMatrix && c4Model ? (
                 <CoverageCanvas coverageMatrix={coverageMatrix} coverageDiff={coverageDiff} model={c4Model} level={currentLevel} isDark={isDark} />
               ) : matrixView === 'fcmap' && featureMatrix && c4Model ? (
                 <FcMapCanvas featureMatrix={featureMatrix} model={c4Model} excludedElementIds={excludedDescendantIds} level={currentLevel} isDark={isDark} />
-              ) : dsmMatrix ? (
+              ) : filteredDsmMatrix ? (
                 <DsmCanvas
-                  matrix={dsmMatrix}
+                  matrix={filteredDsmMatrix}
                   fullModel={c4Model ?? undefined}
                   clustered={dsmClustered}
                   focusedNodeId={selectedElementId}
@@ -626,19 +1241,6 @@ export function C4ViewerCore({
               )}
             </Box>
           </Box>
-        )}
-        {showTree && elementTree.length > 0 && (
-          <C4ElementTree
-            tree={elementTree}
-            dispatch={dispatch}
-            onSelect={(id) => { setCenterOnSelect(true); setSelectedElementId(id); }}
-            onCheckedChange={setCheckedPackageIds}
-            onRemoveElement={onRemoveElement}
-            onPurgeDeleted={onPurgeDeleted}
-            docLinks={docLinks}
-            onDocLinkClick={onDocLinkClick}
-            isDark={isDark}
-          />
         )}
       </Box>
       <AddElementDialog
@@ -667,3 +1269,4 @@ export function C4ViewerCore({
     </Box>
   );
 }
+

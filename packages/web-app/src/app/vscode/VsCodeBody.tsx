@@ -6,6 +6,8 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import CodeIcon from '@mui/icons-material/Code';
 import ImageIcon from '@mui/icons-material/Image';
 import SyncIcon from '@mui/icons-material/Sync';
+import TimelineIcon from '@mui/icons-material/Timeline';
+import ViewCompactIcon from '@mui/icons-material/ViewCompact';
 import {
   Box,
   Button,
@@ -14,7 +16,6 @@ import {
   Typography,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import NextLink from 'next/link';
 import { useTranslations } from 'next-intl';
 import { type ReactNode, useEffect, useState } from 'react';
 
@@ -40,14 +41,16 @@ const richGithubLink = (chunks: ReactNode) => (
 );
 
 const MD_BENEFITS = [
-  { key: 'md1', icon: <AutoFixHighIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
-  { key: 'md2', icon: <ImageIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
   { key: 'md3', icon: <CodeIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
+  { key: 'md1', icon: <AutoFixHighIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
+  { key: 'md2', icon: <ViewCompactIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
 ] as const;
 
 const TRAIL_BENEFITS = [
   { key: 'trail1', icon: <AccountTreeIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
   { key: 'trail2', icon: <SyncIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
+  { key: 'trail3', icon: <TimelineIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
+  { key: 'trail4', icon: <ImageIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
 ] as const;
 
 function MarketplaceButton({ href, label, caption, isDark, variant }: Readonly<{ href: string; label: string; caption: string; isDark: boolean; variant: 'contained' | 'outlined' }>) {
@@ -226,35 +229,6 @@ export default function VsCodeBody() {
           <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'center', gap: 3, flexWrap: 'wrap' }}>
             <MarketplaceButton href={MARKDOWN_MARKETPLACE_URL} label={t('installButton')} caption={t('installCaption')} isDark={isDark} variant="contained" />
             <MarketplaceButton href={TRAIL_MARKETPLACE_URL} label={t('trailInstallButton')} caption={t('trailInstallCaption')} isDark={isDark} variant="contained" />
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-              <Button
-                component={NextLink}
-                href="/markdown"
-                variant="outlined"
-                size="large"
-                sx={{
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  fontSize: { xs: '1rem', md: '1.15rem' },
-                  borderRadius: 3,
-                  px: { xs: 4, md: 6 },
-                  py: { xs: 1.2, md: 1.8 },
-                  width: { xs: '100%', sm: 'auto' },
-                  minWidth: { sm: 240 },
-                  borderColor: ACCENT_COLOR,
-                  color: ACCENT_COLOR,
-                  '&:hover': {
-                    borderColor: '#d4920e',
-                    bgcolor: isDark ? 'rgba(232,160,18,0.08)' : 'rgba(232,160,18,0.04)',
-                  },
-                }}
-              >
-                {tLanding('openEditor')}
-              </Button>
-              <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
-                {t('editorCaption')}
-              </Typography>
-            </Box>
           </Box>
 
           <Typography
@@ -273,21 +247,64 @@ export default function VsCodeBody() {
         </Container>
       </Box>
 
-      {/* ---- Product 1: Anytime Markdown ---- */}
+      {/* ---- Product 1: Anytime Trail ---- */}
       <Box sx={{ py: { xs: 8, md: 12 }, px: { xs: 0, md: 3 } }}>
         <Container maxWidth="lg" disableGutters sx={{ px: { xs: 2, md: 3 } }}>
-          <Typography
-            variant="h4"
-            component="h2"
-            sx={{
-              fontWeight: 700,
-              textAlign: 'center',
-              mb: { xs: 6, md: 8 },
-              color: 'text.primary',
-            }}
-          >
-            {t('markdownSectionTitle')}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, mb: { xs: 6, md: 8 } }}>
+            <Box
+              component="img"
+              src="/images/camel_trail.png"
+              alt="Anytime Trail icon"
+              sx={{ width: 48, height: 48, borderRadius: 2 }}
+            />
+            <Typography
+              variant="h4"
+              component="h2"
+              sx={{ fontWeight: 700, color: 'text.primary' }}
+            >
+              {t('trailSectionTitle')}
+            </Typography>
+          </Box>
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 6, md: 8 } }}>
+            {TRAIL_BENEFITS.map(({ key, icon }) => (
+              <BenefitItem key={key} icon={icon} title={t(`${key}Title`)} body={t(`${key}Body`)} isDark={isDark} />
+            ))}
+          </Box>
+
+          <Box sx={{ mt: { xs: 4, md: 6 }, textAlign: 'center' }}>
+            <Box
+              component="img"
+              src="/images/c4-mermaid.png"
+              alt={t('trail1Title')}
+              sx={{
+                maxWidth: '100%',
+                height: 'auto',
+                borderRadius: 2,
+              }}
+            />
+          </Box>
+        </Container>
+      </Box>
+
+      {/* ---- Product 2: Anytime Markdown ---- */}
+      <Box sx={{ py: { xs: 8, md: 12 }, px: { xs: 0, md: 3 } }}>
+        <Container maxWidth="lg" disableGutters sx={{ px: { xs: 2, md: 3 } }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, mb: { xs: 6, md: 8 } }}>
+            <Box
+              component="img"
+              src="/images/camel_markdown.png"
+              alt="Anytime Markdown icon"
+              sx={{ width: 48, height: 48, borderRadius: 2 }}
+            />
+            <Typography
+              variant="h4"
+              component="h2"
+              sx={{ fontWeight: 700, color: 'text.primary' }}
+            >
+              {t('markdownSectionTitle')}
+            </Typography>
+          </Box>
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 6, md: 8 } }}>
             {MD_BENEFITS.map(({ key, icon }) => (
@@ -313,78 +330,12 @@ export default function VsCodeBody() {
         </Container>
       </Box>
 
-      {/* ---- Product 2: Anytime Trail ---- */}
-      <Box sx={{ py: { xs: 8, md: 12 }, px: { xs: 0, md: 3 } }}>
-        <Container maxWidth="lg" disableGutters sx={{ px: { xs: 2, md: 3 } }}>
-          <Typography
-            variant="h4"
-            component="h2"
-            sx={{
-              fontWeight: 700,
-              textAlign: 'center',
-              mb: { xs: 6, md: 8 },
-              color: 'text.primary',
-            }}
-          >
-            {t('trailSectionTitle')}
-          </Typography>
-
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 6, md: 8 } }}>
-            {TRAIL_BENEFITS.map(({ key, icon }) => (
-              <BenefitItem key={key} icon={icon} title={t(`${key}Title`)} body={t(`${key}Body`)} isDark={isDark} />
-            ))}
-          </Box>
-
-          <Box sx={{ mt: { xs: 4, md: 6 }, textAlign: 'center' }}>
-            <Box
-              component="img"
-              src="/images/c4-mermaid.png"
-              alt={t('trail1Title')}
-              sx={{
-                maxWidth: '100%',
-                height: 'auto',
-                borderRadius: 2,
-              }}
-            />
-          </Box>
-        </Container>
-      </Box>
-
       {/* ---- CTA ---- */}
       <Box sx={{ py: { xs: 8, md: 10 }, px: { xs: 0, md: 3 }, textAlign: 'center' }}>
         <Container maxWidth="md" disableGutters sx={{ px: { xs: 2, md: 3 } }}>
           <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'center', gap: 3, flexWrap: 'wrap' }}>
             <MarketplaceButton href={MARKDOWN_MARKETPLACE_URL} label={t('installButton')} caption={t('installCaption')} isDark={isDark} variant="contained" />
             <MarketplaceButton href={TRAIL_MARKETPLACE_URL} label={t('trailInstallButton')} caption={t('trailInstallCaption')} isDark={isDark} variant="contained" />
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-              <Button
-                component={NextLink}
-                href="/markdown"
-                variant="outlined"
-                size="large"
-                sx={{
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  fontSize: { xs: '1rem', md: '1.15rem' },
-                  borderRadius: 3,
-                  px: { xs: 4, md: 6 },
-                  py: { xs: 1.2, md: 1.8 },
-                  width: { xs: '100%', sm: 'auto' },
-                  minWidth: { sm: 240 },
-                  borderColor: ACCENT_COLOR,
-                  color: ACCENT_COLOR,
-                  '&:hover': {
-                    borderColor: '#d4920e',
-                    bgcolor: isDark ? 'rgba(232,160,18,0.08)' : 'rgba(232,160,18,0.04)',
-                  },
-                }}
-              >
-                {tLanding('openEditor')}
-              </Button>
-              <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
-                {t('editorCaption')}
-              </Typography>
-            </Box>
           </Box>
         </Container>
       </Box>

@@ -94,6 +94,19 @@ export function TrailViewerApp({
     [editable, sendCommand],
   );
 
+  // onDocLinkClick が未指定の場合、WebSocket 経由でサーバーにファイルを開かせる
+  // （VS Code 拡張モード: server が 'open-doc-link' を受け取り vscode.openTextDocument を呼ぶ）
+  const handleDocLinkClick = useCallback(
+    (doc: DocLink) => {
+      if (onDocLinkClick) {
+        onDocLinkClick(doc);
+      } else {
+        sendCommand('open-doc-link', { path: doc.path });
+      }
+    },
+    [onDocLinkClick, sendCommand],
+  );
+
   const [filter, setFilter] = useState<TrailFilter>(EMPTY_FILTER);
   const [selectedSessionId, setSelectedSessionId] = useState<string | undefined>();
 
@@ -122,6 +135,8 @@ export function TrailViewerApp({
     dsmMatrix: c4.dsmMatrix,
     coverageMatrix: c4.coverageMatrix,
     coverageDiff: c4.coverageDiff,
+    complexityMatrix: c4.complexityMatrix,
+    importanceMatrix: c4.importanceMatrix,
     docLinks: c4.docLinks,
     connected: c4.connected,
     analysisProgress: c4.analysisProgress,
@@ -135,7 +150,11 @@ export function TrailViewerApp({
     onAddRelationship,
     onRemoveElement,
     onPurgeDeleted,
-    onDocLinkClick,
+    onDocLinkClick: handleDocLinkClick,
+    serverUrl,
+    claudeActivity: c4.claudeActivity,
+    multiAgentActivity: c4.multiAgentActivity,
+    onResetClaudeActivity: () => sendCommand('reset-claude-activity'),
   };
 
   return (
@@ -155,8 +174,10 @@ export function TrailViewerApp({
       fetchSessionMessages={dataSource.fetchSessionMessages}
       fetchSessionCommits={dataSource.fetchSessionCommits}
       fetchSessionToolMetrics={dataSource.fetchSessionToolMetrics}
+      fetchDayToolMetrics={dataSource.fetchDayToolMetrics}
       costOptimization={dataSource.costOptimization}
       releases={dataSource.releases}
+      fetchCombinedData={dataSource.fetchCombinedData}
       c4={c4Props}
     />
   );

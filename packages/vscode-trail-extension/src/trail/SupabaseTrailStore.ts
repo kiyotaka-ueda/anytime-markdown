@@ -26,7 +26,7 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
     await this.deleteAllPaged('trail_messages', 'uuid');
     await this.deleteAllPaged('trail_sessions', 'id');
     await this.deleteAllPaged('trail_releases', 'tag');
-    await this.deleteAllPaged('trail_daily_costs', 'date');
+    await this.ensureClient().from('trail_daily_counts').delete().gte('date', '0000-01-01');
     await this.deleteAllPaged('trail_release_graphs', 'tag');
   }
 
@@ -134,21 +134,27 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
     }
   }
 
-  async upsertDailyCosts(rows: readonly {
+  async upsertDailyCounts(rows: readonly {
     date: string;
-    model: string;
-    cost_type: string;
+    kind: string;
+    key: string;
+    count: number;
+    tokens: number;
     input_tokens: number;
     output_tokens: number;
     cache_read_tokens: number;
     cache_creation_tokens: number;
+    duration_ms: number;
     estimated_cost_usd: number;
   }[]): Promise<void> {
     if (rows.length === 0) return;
-    const { error } = await this.ensureClient()
-      .from('trail_daily_costs')
-      .upsert(rows, { onConflict: 'date,model,cost_type' });
-    if (error) throw new Error(`Supabase upsert trail_daily_costs failed: ${error.message}`);
+    const CHUNK = 500;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const { error } = await this.ensureClient()
+        .from('trail_daily_counts')
+        .upsert(rows.slice(i, i + CHUNK), { onConflict: 'date,kind,key' });
+      if (error) throw new Error(`Supabase upsert trail_daily_counts failed: ${error.message}`);
+    }
   }
 
   async upsertMessages(rows: readonly MessageRow[]): Promise<void> {
@@ -288,6 +294,38 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
         synced_at: new Date().toISOString(),
       }, { onConflict: 'tag' });
     if (error) throw new Error(`Supabase upsert release graph failed: ${error.message}`);
+  }
+
+  async clearMessageToolCalls(): Promise<void> {
+    await this.deleteAllPaged('trail_message_tool_calls', 'id');
+  }
+
+  async upsertMessageToolCalls(rows: readonly {
+    id: number;
+    session_id: string;
+    message_uuid: string;
+    turn_index: number;
+    call_index: number;
+    tool_name: string;
+    file_path: string | null;
+    command: string | null;
+    skill_name: string | null;
+    model: string | null;
+    is_sidechain: number;
+    turn_exec_ms: number | null;
+    has_thinking: number;
+    is_error: number;
+    error_type: string | null;
+    timestamp: string;
+  }[]): Promise<void> {
+    if (rows.length === 0) return;
+    const CHUNK = 500;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const { error } = await this.ensureClient()
+        .from('trail_message_tool_calls')
+        .upsert(rows.slice(i, i + CHUNK), { onConflict: 'session_id,message_uuid,call_index' });
+      if (error) throw new Error(`Supabase upsert trail_message_tool_calls failed: ${error.message}`);
+    }
   }
 
   private ensureClient(): SupabaseClient {

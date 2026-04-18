@@ -1,8 +1,7 @@
 import type { C4TreeNode, DocLink } from '@anytime-markdown/trail-core/c4';
+import type { ExportedSymbol } from '@anytime-markdown/trail-core/analyzer';
 import type { Action } from '@anytime-markdown/graph-core/state';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
-import CheckBoxIcon from '@mui/icons-material/CheckBox';
-import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
@@ -28,6 +27,7 @@ import type { Dispatch, FC } from 'react';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { DOC_TYPE_COLORS, getC4Colors } from '../c4Theme';
+import { getTokens } from '../../theme/designTokens';
 
 const INDENT_PX = 20;
 
@@ -47,7 +47,7 @@ function TypeIcon({ type }: Readonly<{ type: C4TreeNode['type'] }>) {
 
 /** チェックボックス表示対象かどうか */
 function isCheckableType(type: C4TreeNode['type']): boolean {
-  return type === 'container' || type === 'containerDb' || type === 'component';
+  return type === 'system' || type === 'container' || type === 'containerDb' || type === 'component';
 }
 
 /** ツリーからチェック対象ノードのIDを再帰的に収集 */
@@ -220,6 +220,7 @@ interface DocLinksSectionProps {
 
 const DocLinksSection: FC<DocLinksSectionProps> = memo(({ docLinks, selectedId, onDocLinkClick, isDark }) => {
   const colors = useMemo(() => getC4Colors(isDark ?? true), [isDark]);
+  const { scrollbarSx } = useMemo(() => getTokens(isDark ?? true), [isDark]);
   const matched = useMemo(() => {
     if (!selectedId || docLinks.length === 0) return [];
     return docLinks.filter(d => matchesScope(d.c4Scope, selectedId));
@@ -251,7 +252,7 @@ const DocLinksSection: FC<DocLinksSectionProps> = memo(({ docLinks, selectedId, 
           No linked documents
         </Typography>
       ) : (
-        <List dense disablePadding sx={{ overflowY: 'auto' }}>
+        <List dense disablePadding sx={{ overflowY: 'auto', ...scrollbarSx }}>
           {matched.map(doc => (
             <ListItemButton
               key={doc.path}
@@ -287,6 +288,8 @@ const DocLinksSection: FC<DocLinksSectionProps> = memo(({ docLinks, selectedId, 
 });
 DocLinksSection.displayName = 'DocLinksSection';
 
+const EXPORT_KIND_ICONS: Record<ExportedSymbol['kind'], string> = { function: 'ƒ', class: '◆', method: '→', variable: '≡' };
+
 // ---------------------------------------------------------------------------
 
 interface C4ElementTreeProps {
@@ -298,11 +301,17 @@ interface C4ElementTreeProps {
   readonly onPurgeDeleted?: () => void;
   readonly docLinks?: readonly DocLink[];
   readonly onDocLinkClick?: (doc: DocLink) => void;
+  readonly exports?: readonly ExportedSymbol[];
+  readonly onExportSelect?: (symbol: ExportedSymbol) => void;
+  readonly selectedExportId?: string | null;
   readonly isDark?: boolean;
+  /** レベル/ドリル変更時に渡すリセット指示。key が変化したらチェック・展開状態をリセットする */
+  readonly checkReset?: { readonly key: number; readonly ids: ReadonlySet<string> | null; readonly expanded: ReadonlySet<string> | null };
 }
 
-export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onSelect, onCheckedChange, onRemoveElement, onPurgeDeleted, docLinks, onDocLinkClick, isDark }) => {
+export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onSelect, onCheckedChange, onRemoveElement, onPurgeDeleted, docLinks, onDocLinkClick, exports, onExportSelect, selectedExportId, isDark, checkReset }) => {
   const colors = useMemo(() => getC4Colors(isDark ?? true), [isDark]);
+  const { scrollbarSx } = useMemo(() => getTokens(isDark ?? true), [isDark]);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => {
     // デフォルトでルートレベルと system ノードの直下を展開
     const ids = new Set<string>();
@@ -399,12 +408,14 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
     return hasDeleted(tree);
   }, [tree]);
 
-  const allPackageIds = useMemo(() => collectCheckableIds(tree), [tree]);
-  const allChecked = allPackageIds.size > 0 && allPackageIds.size === [...allPackageIds].filter(id => checkedIds.has(id)).length;
 
-  const handleCheckAll = useCallback(() => {
-    setCheckedIds(allChecked ? new Set<string>() : new Set(allPackageIds));
-  }, [allChecked, allPackageIds]);
+  useEffect(() => {
+    if (!checkReset) return;
+    setCheckedIds(checkReset.ids != null ? new Set(checkReset.ids) : collectCheckableIds(tree));
+    if (checkReset.expanded != null) {
+      setExpanded(new Set(checkReset.expanded));
+    }
+  }, [checkReset]);
 
   // checkedIds の変更を親に通知（useEffect で render 後に実行）
   useEffect(() => {
@@ -419,21 +430,11 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
         display: 'flex',
         flexDirection: 'column',
         overflowY: 'auto',
+        ...scrollbarSx,
       }}
     >
-      <Box sx={{
-        display: 'flex',
-        alignItems: 'center',
-        px: 1,
-        py: 0.25,
-        borderBottom: `1px solid ${colors.border}`,
-        minHeight: 32,
-        flexShrink: 0,
-      }}>
-        <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.7rem', flex: 1 }}>
-          Elements
-        </Typography>
-        {hasDeletedElements && onPurgeDeleted && (
+      {hasDeletedElements && onPurgeDeleted && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', px: 0.5, py: 0.25, borderBottom: `1px solid ${colors.border}`, flexShrink: 0 }}>
           <Tooltip title="Remove all deleted elements" placement="left">
             <IconButton
               size="small"
@@ -444,21 +445,9 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
               <DeleteSweepIcon sx={{ fontSize: 18 }} />
             </IconButton>
           </Tooltip>
-        )}
-        <Tooltip title={allChecked ? 'Uncheck all' : 'Check all'} placement="left">
-          <IconButton
-            size="small"
-            onClick={handleCheckAll}
-            aria-label={allChecked ? 'Uncheck all packages' : 'Check all packages'}
-            sx={{ color: colors.accent, p: 0.25 }}
-          >
-            {allChecked
-              ? <CheckBoxIcon sx={{ fontSize: 18 }} />
-              : <CheckBoxOutlineBlankIcon sx={{ fontSize: 18 }} />}
-          </IconButton>
-        </Tooltip>
-      </Box>
-      <List dense disablePadding sx={{ flex: 1, overflowY: 'auto' }}>
+        </Box>
+      )}
+      <List dense disablePadding sx={{ flex: 1, overflowY: 'auto', ...scrollbarSx }}>
         {tree.map(node => (
           <TreeNodeItem
             key={node.id}
@@ -482,6 +471,15 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
           isDark={isDark}
         />
       )}
+      {exports && exports.length > 0 && <><Divider sx={{ borderColor: colors.border }} />
+        <Box sx={{ px: 1, py: 0.25, borderBottom: `1px solid ${colors.border}`, minHeight: 32, display: 'flex', alignItems: 'center', flexShrink: 0 }}><Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.7rem' }}>Exports</Typography></Box>
+        <List dense disablePadding sx={{ overflowY: 'auto', ...scrollbarSx }}>{exports.map(sym => (
+          <ListItemButton key={sym.id} selected={sym.id === selectedExportId} onClick={() => onExportSelect?.(sym)} sx={{ py: 0.25, pl: 1.5, minHeight: 28 }}>
+            <Typography variant="caption" sx={{ mr: 0.75, color: colors.accent, fontFamily: 'monospace', fontSize: '0.75rem', minWidth: 14 }}>{EXPORT_KIND_ICONS[sym.kind]}</Typography>
+            <ListItemText primary={sym.name} primaryTypographyProps={{ variant: 'body2', noWrap: true, fontSize: '0.75rem' }} />
+          </ListItemButton>
+        ))}</List>
+      </>}
     </Box>
   );
 });

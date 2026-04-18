@@ -7,7 +7,7 @@ import { toUTC, getSqliteTzOffset } from './dateUtils';
 import {
   CREATE_SESSIONS,
   CREATE_SESSION_COSTS,
-  CREATE_DAILY_COSTS,
+  CREATE_DAILY_COUNTS,
   CREATE_MESSAGES,
   CREATE_SESSION_COMMITS,
   CREATE_IMPORTED_FILES,
@@ -22,24 +22,24 @@ import {
   CREATE_RELEASE_FEATURES,
   CREATE_RELEASE_COVERAGE,
   CREATE_RELEASE_INDEXES,
+  CREATE_MESSAGE_TOOL_CALLS,
+  CREATE_MESSAGE_TOOL_CALLS_INDEXES,
   DEFAULT_SKILL_MODELS,
   extractSkillName,
   buildReleaseFromGitData,
-  mapFilesToC4Elements,
-  mapC4ToFeatures,
   analyze,
   trailToC4,
 } from '@anytime-markdown/trail-core';
 import type { TrailGraph, IC4ModelStore, C4ModelEntry, C4ModelResult } from '@anytime-markdown/trail-core';
 import { ExecFileGitService } from './ExecFileGitService';
 import { TrailLogger } from '../utils/TrailLogger';
+import { ClaudeCodeBehaviorAnalyzer } from './ClaudeCodeBehaviorAnalyzer';
 import type { ReleaseFileRow, ReleaseFeatureRow, ReleaseCoverageRow, ReleaseRow } from '@anytime-markdown/trail-core';
 export type { ReleaseFileRow, ReleaseFeatureRow, ReleaseCoverageRow, ReleaseRow } from '@anytime-markdown/trail-core';
 
 declare const __non_webpack_require__: (id: string) => unknown;
 
-const DB_DIR = path.join(os.homedir(), '.claude', 'trail');
-const DB_PATH = path.join(DB_DIR, 'trail.db');
+const DEFAULT_DB_DIR = path.join(os.homedir(), '.claude', 'trail');
 
 const SKIP_TYPES = new Set([
   'file-history-snapshot',
@@ -84,6 +84,8 @@ export interface SessionRow {
   readonly cache_creation_tokens?: number;
   readonly peak_context_tokens?: number;
   readonly initial_context_tokens?: number;
+  readonly interruption_reason?: string | null;
+  readonly interruption_context_tokens?: number;
 }
 
 export interface MessageRow {
@@ -171,14 +173,6 @@ export interface AnalyticsData {
     readonly totalTestFails: number;
   };
   readonly toolUsage: readonly { name: string; count: number }[];
-  readonly modelBreakdown: readonly {
-    readonly model: string;
-    readonly sessions: number;
-    readonly inputTokens: number;
-    readonly outputTokens: number;
-    readonly cacheReadTokens: number;
-    readonly estimatedCostUsd: number;
-  }[];
   readonly dailyActivity: readonly {
     readonly date: string;
     readonly sessions: number;
@@ -202,6 +196,13 @@ export interface CostOptimizationData {
     readonly actual: Readonly<Record<string, number>>;
     readonly skillRecommended: Readonly<Record<string, number>>;
   };
+}
+
+interface CombinedData {
+  readonly toolCounts: readonly { period: string; tool: string; count: number; tokens: number; durationMs: number }[];
+  readonly errorRate: readonly { period: string; rate: number; byTool: Readonly<Record<string, number>> }[];
+  readonly skillStats: readonly { period: string; skill: string; count: number; costUsd: number }[];
+  readonly modelStats: readonly { period: string; model: string; count: number; tokens: number }[];
 }
 
 interface RawLine {
@@ -359,8 +360,13 @@ function estimateTokenCount(text: string | null): number | null {
 
 export class TrailDatabase {
   private db: Database | null = null;
+  private readonly dbDir: string;
+  private readonly dbPath: string;
 
-  constructor(private readonly distPath: string) {}
+  constructor(private readonly distPath: string, storageDir?: string) {
+    this.dbDir = storageDir ?? DEFAULT_DB_DIR;
+    this.dbPath = path.join(this.dbDir, 'trail.db');
+  }
 
   async init(): Promise<void> {
     // Load sql-asm.js from dist/ directory using __non_webpack_require__
@@ -369,14 +375,14 @@ export class TrailDatabase {
     // eslint-disable-next-line @typescript-eslint/no-require-imports, no-undef
     const initSqlJs = __non_webpack_require__(sqlAsmPath) as typeof import('sql.js').default;
     const SQL = await initSqlJs();
-    console.log('[TrailDatabase] sql.js initialized, DB_PATH =', DB_PATH);
+    console.log('[TrailDatabase] sql.js initialized, DB_PATH =', this.dbPath);
 
-    if (!fs.existsSync(DB_DIR)) {
-      fs.mkdirSync(DB_DIR, { recursive: true });
+    if (!fs.existsSync(this.dbDir)) {
+      fs.mkdirSync(this.dbDir, { recursive: true });
     }
 
-    if (fs.existsSync(DB_PATH)) {
-      const buffer = fs.readFileSync(DB_PATH);
+    if (fs.existsSync(this.dbPath)) {
+      const buffer = fs.readFileSync(this.dbPath);
       this.db = new SQL.Database(buffer);
     } else {
       this.db = new SQL.Database();
@@ -397,7 +403,7 @@ export class TrailDatabase {
     db.run('PRAGMA foreign_keys = ON');
     db.run(CREATE_SESSIONS);
     db.run(CREATE_SESSION_COSTS);
-    db.run(CREATE_DAILY_COSTS);
+    db.run(CREATE_DAILY_COUNTS);
     db.run(CREATE_MESSAGES);
     db.run(CREATE_SESSION_COMMITS);
     db.run(CREATE_RELEASES);
@@ -414,12 +420,28 @@ export class TrailDatabase {
     for (const sql of [...CREATE_INDEXES, ...CREATE_RELEASE_INDEXES]) {
       db.run(sql);
     }
+    db.run(CREATE_MESSAGE_TOOL_CALLS);
+    for (const sql of CREATE_MESSAGE_TOOL_CALLS_INDEXES) {
+      db.run(sql);
+    }
+    // 既存 DB 向け: UNIQUE 制約をインデックスとして追加（新規 DB は CREATE TABLE の UNIQUE 制約で対応済み）
+    try {
+      db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_mtc_unique ON message_tool_calls(message_uuid, call_index)');
+    } catch {
+      // Already exists — ignore
+    }
 
     // Add columns for existing DBs (may already exist)
-    try {
-      db.run('ALTER TABLE sessions ADD COLUMN commits_resolved_at TEXT');
-    } catch {
-      // Column already exists — ignore
+    const sessionAlters = [
+      'ALTER TABLE sessions ADD COLUMN commits_resolved_at TEXT',
+      'ALTER TABLE sessions ADD COLUMN peak_context_tokens INTEGER',
+      'ALTER TABLE sessions ADD COLUMN initial_context_tokens INTEGER',
+      'ALTER TABLE sessions ADD COLUMN git_branch TEXT',
+      'ALTER TABLE sessions ADD COLUMN interruption_reason TEXT',
+      'ALTER TABLE sessions ADD COLUMN interruption_context_tokens INTEGER',
+    ];
+    for (const sql of sessionAlters) {
+      try { db.run(sql); } catch { /* Column already exists */ }
     }
     const messageAlters = [
       'ALTER TABLE messages ADD COLUMN rule_recommended_model TEXT',
@@ -449,6 +471,23 @@ export class TrailDatabase {
     }
 
     this.migrateTimestampsToUTC(db);
+    this.migrateToolUseResult(db);
+  }
+
+  /**
+   * tool_use_result の保存形式修正に伴い、既存データを再インポートする。
+   * message_tool_calls を全削除し、sessions の file_size を 0 にリセットして
+   * 次回 importAll で全セッションが再インポート＋再解析されるようにする。
+   */
+  private migrateToolUseResult(db: Database): void {
+    db.run('CREATE TABLE IF NOT EXISTS _migrations (key TEXT PRIMARY KEY)');
+    const done = db.exec("SELECT 1 FROM _migrations WHERE key = 'tool_use_result_fix'");
+    if (done[0]?.values?.length) return;
+
+    TrailLogger.info('[Migration] tool_use_result_fix: clearing message_tool_calls and resetting file sizes for full re-import');
+    db.run('DELETE FROM message_tool_calls');
+    db.run('UPDATE sessions SET file_size = 0');
+    db.run("INSERT INTO _migrations (key) VALUES ('tool_use_result_fix')");
   }
 
   /**
@@ -622,6 +661,24 @@ export class TrailDatabase {
     return getSqliteTzOffset();
   }
 
+  /** 全セッションの全アシスタントメッセージ（tool_calls あり）を取得する */
+  getAllAssistantMessages(): Pick<MessageRow, 'tool_calls' | 'output_tokens'>[] {
+    try {
+      const db = this.ensureDb();
+      const result = db.exec(
+        `SELECT tool_calls, output_tokens FROM messages WHERE type = 'assistant' AND tool_calls IS NOT NULL`,
+      );
+      if (!result[0]) return [];
+      return result[0].values.map(row => ({
+        tool_calls: row[0] != null ? String(row[0]) : null,
+        output_tokens: Number(row[1]),
+      }));
+    } catch (err) {
+      TrailLogger.warn(`getAllAssistantMessages failed: ${(err as Error).message}`);
+      return [];
+    }
+  }
+
   getSessionCosts(sessionId: string): readonly {
     model: string;
     input_tokens: number;
@@ -673,32 +730,53 @@ export class TrailDatabase {
     }));
   }
 
-  getAllDailyCosts(): readonly {
+  getAllDailyCounts(): readonly {
     date: string;
-    model: string;
-    cost_type: string;
+    kind: string;
+    key: string;
+    count: number;
+    tokens: number;
     input_tokens: number;
     output_tokens: number;
     cache_read_tokens: number;
     cache_creation_tokens: number;
+    duration_ms: number;
     estimated_cost_usd: number;
   }[] {
     const db = this.ensureDb();
-    const result = db.exec(
-      `SELECT date, model, cost_type, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, estimated_cost_usd
-       FROM daily_costs`,
-    );
+    const result = db.exec('SELECT * FROM daily_counts ORDER BY date, kind, key');
     if (!result[0]) return [];
-    return result[0].values.map((r) => ({
-      date: r[0] as string,
-      model: r[1] as string,
-      cost_type: r[2] as string,
-      input_tokens: r[3] as number,
-      output_tokens: r[4] as number,
-      cache_read_tokens: r[5] as number,
-      cache_creation_tokens: r[6] as number,
-      estimated_cost_usd: r[7] as number,
-    }));
+    const { columns, values } = result[0];
+    return values.map(row =>
+      Object.fromEntries(columns.map((c, i) => [c, row[i]]))
+    ) as unknown as ReturnType<TrailDatabase['getAllDailyCounts']>;
+  }
+
+  getAllMessageToolCalls(cutoff?: string): readonly {
+    id: number;
+    session_id: string;
+    message_uuid: string;
+    turn_index: number;
+    call_index: number;
+    tool_name: string;
+    file_path: string | null;
+    command: string | null;
+    skill_name: string | null;
+    model: string | null;
+    is_sidechain: number;
+    turn_exec_ms: number | null;
+    has_thinking: number;
+    is_error: number;
+    error_type: string | null;
+    timestamp: string;
+  }[] {
+    const db = this.ensureDb();
+    const result = cutoff
+      ? db.exec('SELECT * FROM message_tool_calls WHERE timestamp >= ? ORDER BY id ASC', [cutoff])
+      : db.exec('SELECT * FROM message_tool_calls ORDER BY id ASC');
+    if (!result[0]) return [];
+    const { columns, values } = result[0];
+    return values.map(row => Object.fromEntries(columns.map((c, i) => [c, row[i]]))) as unknown as ReturnType<TrailDatabase['getAllMessageToolCalls']>;
   }
 
   /** Delete and rebuild session_costs from all messages. */
@@ -723,20 +801,75 @@ export class TrailDatabase {
     stmt.free();
   }
 
-  /** Delete and rebuild daily_costs from all messages in a single pass. */
-  private rebuildDailyCosts(): void {
+  /**
+   * Populate per-session pre-aggregated stat columns (peak_context_tokens,
+   * initial_context_tokens, git_branch, interruption_reason, interruption_context_tokens)
+   * in a single pass. Avoids expensive per-read GROUP BY scans over messages.
+   */
+  private rebuildSessionStats(): void {
+    const db = this.ensureDb();
+
+    // Peak context + initial context (cache_creation_tokens of first assistant message)
+    db.run(
+      `UPDATE sessions SET
+         peak_context_tokens = (
+           SELECT MAX(COALESCE(m.input_tokens, 0) + COALESCE(m.cache_read_tokens, 0) + COALESCE(m.cache_creation_tokens, 0))
+           FROM messages m WHERE m.session_id = sessions.id
+         ),
+         initial_context_tokens = (
+           SELECT COALESCE(m.cache_creation_tokens, 0)
+           FROM messages m
+           WHERE m.session_id = sessions.id AND m.type = 'assistant'
+           ORDER BY m.timestamp ASC LIMIT 1
+         ),
+         git_branch = (
+           SELECT m.git_branch FROM messages m
+           WHERE m.session_id = sessions.id AND m.git_branch IS NOT NULL AND m.git_branch != ''
+           ORDER BY m.rowid ASC LIMIT 1
+         )`,
+    );
+
+    // Interruption detection:
+    //   1) last assistant has stop_reason='max_tokens' → max_tokens
+    //   2) last non-meta message is 'user' (no assistant response follows) → no_response
+    db.run(
+      `UPDATE sessions SET
+         interruption_reason = CASE
+           WHEN (SELECT m.stop_reason FROM messages m
+                 WHERE m.session_id = sessions.id AND m.type = 'assistant' AND m.is_meta = 0
+                 ORDER BY m.timestamp DESC LIMIT 1) = 'max_tokens' THEN 'max_tokens'
+           WHEN (SELECT m.type FROM messages m
+                 WHERE m.session_id = sessions.id AND m.is_meta = 0 AND m.type IN ('user','assistant')
+                 ORDER BY m.timestamp DESC LIMIT 1) = 'user' THEN 'no_response'
+           ELSE NULL
+         END,
+         interruption_context_tokens = COALESCE(
+           (SELECT COALESCE(m.input_tokens, 0) + COALESCE(m.cache_read_tokens, 0) + COALESCE(m.cache_creation_tokens, 0)
+            FROM messages m
+            WHERE m.session_id = sessions.id AND m.type = 'assistant' AND m.is_meta = 0
+            ORDER BY m.timestamp DESC LIMIT 1),
+           0
+         )`,
+    );
+  }
+
+  /**
+   * Delete and rebuild daily_counts for all 6 kinds in a single pass.
+   * kinds: cost_actual / cost_skill / tool / skill / error / model
+   */
+  private rebuildDailyCounts(): void {
     const db = this.ensureDb();
     const tzOffset = this.getLocalTzOffset();
 
-    db.run('DELETE FROM daily_costs');
+    db.run('DELETE FROM daily_counts');
 
-    const INSERT_DC = `INSERT INTO daily_costs
-      (date, model, cost_type, input_tokens, output_tokens,
-       cache_read_tokens, cache_creation_tokens, estimated_cost_usd)
-      VALUES (?,?,?,?,?,?,?,?)`;
+    const INSERT_DC = `INSERT INTO daily_counts
+      (date, kind, key, count, tokens, input_tokens, output_tokens,
+       cache_read_tokens, cache_creation_tokens, duration_ms, estimated_cost_usd)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)`;
     const stmt = db.prepare(INSERT_DC);
 
-    // actual
+    // ── kind='cost_actual' : assistant メッセージ日次トークン・コスト ──
     const actual = db.exec(
       `SELECT DATE(timestamp, '${tzOffset}'), COALESCE(model,''),
         SUM(input_tokens), SUM(output_tokens),
@@ -748,7 +881,7 @@ export class TrailDatabase {
       const d = String(row[0]); const m = String(row[1]);
       const inp = Number(row[2]); const outp = Number(row[3]);
       const cr = Number(row[4]); const cc = Number(row[5]);
-      stmt.run([d, m, 'actual', inp, outp, cr, cc, estimateCost(m, inp, outp, cr, cc)]);
+      stmt.run([d, 'cost_actual', m, 0, 0, inp, outp, cr, cc, 0, estimateCost(m, inp, outp, cr, cc)]);
     }
 
     // Auto-register new skills that are not yet in skill_models
@@ -760,10 +893,11 @@ export class TrailDatabase {
          AND m.skill NOT IN (SELECT skill FROM skill_models)`,
     );
 
-    // skill (uses skill_models_resolved view, defaults to 'sonnet' for unmatched)
+    // ── kind='cost_skill' : スキル推奨モデルでの仮想コスト ──
     const skill = db.exec(
       `SELECT DATE(a.timestamp, '${tzOffset}'),
         COALESCE(sm.recommended_model, 'sonnet'),
+        COUNT(*) AS msg_count,
         SUM(a.input_tokens), SUM(a.output_tokens),
         SUM(a.cache_read_tokens), SUM(a.cache_creation_tokens)
        FROM messages a
@@ -774,9 +908,78 @@ export class TrailDatabase {
     );
     for (const row of skill[0]?.values ?? []) {
       const d = String(row[0]); const m = String(row[1]);
-      const inp = Number(row[2]); const outp = Number(row[3]);
-      const cr = Number(row[4]); const cc = Number(row[5]);
-      stmt.run([d, m, 'skill', inp, outp, cr, cc, estimateCost(m, inp, outp, cr, cc)]);
+      const cnt = Number(row[2]);
+      const inp = Number(row[3]); const outp = Number(row[4]);
+      const cr = Number(row[5]); const cc = Number(row[6]);
+      stmt.run([d, 'cost_skill', m, cnt, 0, inp, outp, cr, cc, 0, estimateCost(m, inp, outp, cr, cc)]);
+    }
+
+    // ── kind='tool' : メッセージトークン/ターン時間按分のツール別日次集計 ──
+    const tools = db.exec(
+      `WITH tool_with_metrics AS (
+         SELECT tc.session_id, tc.message_uuid, tc.turn_index, tc.tool_name, tc.timestamp,
+                COALESCE(m.input_tokens, 0) + COALESCE(m.output_tokens, 0) AS msg_tokens,
+                COUNT(*) OVER (PARTITION BY tc.message_uuid) AS tools_in_msg,
+                COALESCE(tc.turn_exec_ms, 0) AS turn_exec_ms,
+                COUNT(*) OVER (PARTITION BY tc.session_id, tc.turn_index) AS tools_in_turn
+         FROM message_tool_calls tc
+         LEFT JOIN messages m ON m.uuid = tc.message_uuid
+       )
+       SELECT DATE(timestamp, '${tzOffset}') AS d,
+              CASE
+                WHEN tool_name LIKE 'mcp\\_\\_%\\_\\_%' ESCAPE '\\'
+                THEN SUBSTR(tool_name, 1, INSTR(SUBSTR(tool_name, 6), '__') + 4)
+                ELSE tool_name
+              END AS tool,
+              COUNT(*) AS count,
+              CAST(SUM(ROUND(1.0 * msg_tokens / tools_in_msg)) AS INTEGER) AS tokens,
+              CAST(SUM(ROUND(1.0 * turn_exec_ms / tools_in_turn)) AS INTEGER) AS duration_ms
+       FROM tool_with_metrics
+       GROUP BY d, tool`,
+    );
+    for (const row of tools[0]?.values ?? []) {
+      stmt.run([String(row[0]), 'tool', String(row[1] ?? ''), Number(row[2] ?? 0), Number(row[3] ?? 0), 0, 0, 0, 0, Number(row[4] ?? 0), 0]);
+    }
+
+    // ── kind='skill' : スキル別日次集計 ──
+    const skillCounts = db.exec(
+      `SELECT DATE(timestamp, '${tzOffset}') AS d, skill_name, COUNT(*) AS count
+       FROM message_tool_calls
+       WHERE skill_name IS NOT NULL
+       GROUP BY d, skill_name`,
+    );
+    for (const row of skillCounts[0]?.values ?? []) {
+      stmt.run([String(row[0]), 'skill', String(row[1] ?? ''), Number(row[2] ?? 0), 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    // ── kind='error' : ツール別エラー日次集計 ──
+    const errors = db.exec(
+      `SELECT DATE(timestamp, '${tzOffset}') AS d,
+              CASE
+                WHEN tool_name LIKE 'mcp\\_\\_%\\_\\_%' ESCAPE '\\'
+                THEN SUBSTR(tool_name, 1, INSTR(SUBSTR(tool_name, 6), '__') + 4)
+                ELSE tool_name
+              END AS tool,
+              SUM(is_error) AS err_count
+       FROM message_tool_calls
+       GROUP BY d, tool
+       HAVING err_count > 0`,
+    );
+    for (const row of errors[0]?.values ?? []) {
+      stmt.run([String(row[0]), 'error', String(row[1] ?? ''), Number(row[2] ?? 0), 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    // ── kind='model' : assistant メッセージ数のモデル別日次集計 ──
+    const modelCounts = db.exec(
+      `SELECT DATE(timestamp, '${tzOffset}') AS d, model,
+              COUNT(*) AS count,
+              CAST(SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS INTEGER) AS tokens
+       FROM messages
+       WHERE type = 'assistant' AND model IS NOT NULL
+       GROUP BY d, model`,
+    );
+    for (const row of modelCounts[0]?.values ?? []) {
+      stmt.run([String(row[0]), 'model', String(row[1] ?? ''), Number(row[2] ?? 0), Number(row[3] ?? 0), 0, 0, 0, 0, 0, 0]);
     }
 
     stmt.free();
@@ -785,7 +988,7 @@ export class TrailDatabase {
   save(): void {
     const db = this.ensureDb();
     const data = db.export();
-    fs.writeFileSync(DB_PATH, Buffer.from(data));
+    fs.writeFileSync(this.dbPath, Buffer.from(data));
   }
 
   close(): void {
@@ -1119,11 +1322,24 @@ export class TrailDatabase {
         const toolCalls = raw.type === 'assistant'
           ? extractToolCalls(raw.message?.content)
           : null;
-        const toolUseResult = raw.toolUseResult != null
-          ? (typeof raw.toolUseResult === 'string'
+        // tool_use_result: ユーザーメッセージの content から tool_result ブロックを抽出する。
+        // raw.toolUseResult はエラーテキストのみの場合があり、buildErrorMap が期待する
+        // [{type:"tool_result", is_error:true, tool_use_id:"..."}] 形式ではないため、
+        // message.content 配列から tool_result ブロックを直接取得する。
+        let toolUseResult: string | null = null;
+        if (raw.type === 'user' && Array.isArray(raw.message?.content)) {
+          const toolResults = (raw.message.content as unknown[]).filter(
+            (b) => typeof b === 'object' && b !== null && (b as Record<string, unknown>).type === 'tool_result',
+          );
+          if (toolResults.length > 0) {
+            toolUseResult = JSON.stringify(toolResults);
+          }
+        }
+        if (!toolUseResult && raw.toolUseResult != null) {
+          toolUseResult = typeof raw.toolUseResult === 'string'
             ? raw.toolUseResult
-            : JSON.stringify(raw.toolUseResult))
-          : null;
+            : JSON.stringify(raw.toolUseResult);
+        }
 
         // --- Analytics fields ---
         const durationMs = raw.durationMs ?? null;
@@ -1185,7 +1401,6 @@ export class TrailDatabase {
   async importAll(
     onProgress?: (message: string, increment?: number) => void,
     gitRoot?: string,
-    c4ModelPath?: string,
   ): Promise<{ imported: number; skipped: number; commitsResolved: number; releasesResolved: number; releasesAnalyzed: number; coverageImported: number }> {
     const projectsDir = path.join(os.homedir(), '.claude', 'projects');
     const repoName = gitRoot ? path.basename(gitRoot) : '';
@@ -1325,23 +1540,11 @@ export class TrailDatabase {
     if (gitRoot) {
       try {
         onProgress?.('Resolving releases from version tags...', 0);
-        releasesResolved = this.resolveReleases(gitRoot, c4ModelPath);
+        releasesResolved = this.resolveReleases(gitRoot);
         onProgress?.(`Releases resolved: ${releasesResolved}`, 0);
       } catch {
         // Skip release resolution errors
       }
-    }
-
-    // C4 モデルを c4_models テーブルに保存
-    if (c4ModelPath) {
-      try {
-        const raw = fs.readFileSync(c4ModelPath, 'utf-8');
-        const parsed: unknown = JSON.parse(raw);
-        if (typeof parsed === 'object' && parsed !== null) {
-          const revision = fs.statSync(c4ModelPath).mtimeMs.toString();
-          this.saveC4Model(raw, revision);
-        }
-      } catch { /* ファイル読み込み失敗は無視 */ }
     }
 
     // Analyze source code for each release
@@ -1368,13 +1571,32 @@ export class TrailDatabase {
       }
     }
 
-    // Rebuild session_costs and daily_costs from all messages
+    // Rebuild session_costs and daily_counts from all messages / tool_calls
     onProgress?.('Rebuilding session costs...', 0);
     this.rebuildSessionCosts();
     onProgress?.('Session costs rebuilt', 0);
-    onProgress?.('Rebuilding daily costs...', 0);
-    this.rebuildDailyCosts();
-    onProgress?.('Daily costs rebuilt', 0);
+
+    // Analyze Claude Code behavior for all sessions (INSERT OR IGNORE ensures idempotency)
+    const db = this.ensureDb();
+    const analyzer = new ClaudeCodeBehaviorAnalyzer();
+    onProgress?.('Analyzing Claude Code behavior...', 0);
+    for (const dir of sessionDirs) {
+      try {
+        analyzer.analyze(dir.sid, db);
+      } catch (e) {
+        TrailLogger.error(`ClaudeCodeBehaviorAnalyzer failed for session ${dir.sid}`, e);
+      }
+    }
+
+    // Rebuild daily_counts (6 kinds) after message_tool_calls is populated
+    onProgress?.('Rebuilding daily counts...', 0);
+    this.rebuildDailyCounts();
+    onProgress?.('Daily counts rebuilt', 0);
+
+    // Pre-aggregate per-session stats used by /api/trail/sessions
+    onProgress?.('Rebuilding session stats...', 0);
+    this.rebuildSessionStats();
+    onProgress?.('Session stats rebuilt', 0);
 
     this.save();
     return { imported, skipped, commitsResolved, releasesResolved, releasesAnalyzed, coverageImported };
@@ -1910,6 +2132,10 @@ export class TrailDatabase {
     totalBuildFails: number;
     totalTestRuns: number;
     totalTestFails: number;
+    toolUsage?: { tool: string; count: number; tokens: number; durationMs: number }[];
+    skillUsage?: { skill: string; count: number; tokens: number; durationMs: number }[];
+    errorsByTool?: { tool: string; count: number }[];
+    modelUsage?: { model: string; count: number; tokens: number; durationMs: number }[];
   } {
     const zero = {
       totalRetries: 0, totalEdits: 0,
@@ -1919,18 +2145,61 @@ export class TrailDatabase {
     try {
       const db = this.ensureDb();
 
-      // Fetch assistant messages with tool_calls, joined with their
-      // child tool-result messages to get tool_use_result.
-      const whereClause = sessionId
-        ? 'WHERE m1.session_id = ? AND m1.tool_calls IS NOT NULL'
-        : 'WHERE m1.tool_calls IS NOT NULL';
-      const sql = `SELECT m1.session_id, m1.tool_calls, m2.tool_use_result
-        FROM messages m1
-        LEFT JOIN messages m2
-          ON m2.parent_uuid = m1.uuid AND m2.tool_use_result IS NOT NULL
-        ${whereClause}`;
-      const params = sessionId ? [sessionId] : [];
-      const result = db.exec(sql, params);
+      // Global metrics: use pre-computed message_tool_calls instead of parsing message JSON
+      if (!sessionId) {
+        const editRes = db.exec(
+          `SELECT COUNT(*) FROM message_tool_calls WHERE tool_name IN ('Edit', 'Write')`,
+        );
+        const totalEdits = Number(editRes[0]?.values[0]?.[0] ?? 0);
+
+        const retryRes = db.exec(
+          `SELECT COALESCE(SUM(edit_count - 1), 0)
+           FROM (
+             SELECT COUNT(*) AS edit_count
+             FROM message_tool_calls
+             WHERE tool_name IN ('Edit', 'Write') AND file_path IS NOT NULL AND file_path != ''
+             GROUP BY session_id, file_path
+             HAVING COUNT(*) > 1
+           )`,
+        );
+        const totalRetries = Number(retryRes[0]?.values[0]?.[0] ?? 0);
+
+        const buildRes = db.exec(
+          `SELECT COUNT(*), COALESCE(SUM(is_error), 0)
+           FROM message_tool_calls
+           WHERE tool_name = 'Bash' AND (
+             command LIKE '%npm run build%' OR command LIKE '%npx tsc%' OR
+             command LIKE '% tsc %' OR command LIKE '% tsc' OR command LIKE 'tsc %' OR
+             command LIKE '%webpack%' OR command LIKE '%vite build%' OR
+             command LIKE '%esbuild%' OR command LIKE '%rollup%'
+           )`,
+        );
+        const totalBuildRuns = Number(buildRes[0]?.values[0]?.[0] ?? 0);
+        const totalBuildFails = Number(buildRes[0]?.values[0]?.[1] ?? 0);
+
+        const testRes = db.exec(
+          `SELECT COUNT(*), COALESCE(SUM(is_error), 0)
+           FROM message_tool_calls
+           WHERE tool_name = 'Bash' AND (
+             command LIKE '%jest%' OR command LIKE '%vitest%' OR
+             command LIKE '%npm run test%' OR command LIKE '%npm test%'
+           )`,
+        );
+        const totalTestRuns = Number(testRes[0]?.values[0]?.[0] ?? 0);
+        const totalTestFails = Number(testRes[0]?.values[0]?.[1] ?? 0);
+
+        return { totalRetries, totalEdits, totalBuildRuns, totalBuildFails, totalTestRuns, totalTestFails };
+      }
+
+      // Session-specific path: fetch messages with tool_calls for per-session detail
+      const result = db.exec(
+        `SELECT m1.session_id, m1.tool_calls, m2.tool_use_result
+         FROM messages m1
+         LEFT JOIN messages m2
+           ON m2.parent_uuid = m1.uuid AND m2.tool_use_result IS NOT NULL
+         WHERE m1.session_id = ? AND m1.tool_calls IS NOT NULL`,
+        [sessionId],
+      );
       if (!result[0]) return zero;
 
       const BUILD_RE = /\b(npm run build|npx tsc|tsc\b|webpack|vite build|esbuild|rollup)\b/;
@@ -2002,10 +2271,162 @@ export class TrailDatabase {
         }
       }
 
+      // セッション指定時のみツール別利用統計を集計
+      let toolUsage: { tool: string; count: number; tokens: number; durationMs: number }[] | undefined;
+      if (sessionId) {
+        const tuResult = db.exec(
+          `WITH tool_with_metrics AS (
+             SELECT tc.message_uuid, tc.turn_index, tc.tool_name,
+                    COALESCE(m.input_tokens, 0) + COALESCE(m.output_tokens, 0) AS msg_tokens,
+                    COUNT(*) OVER (PARTITION BY tc.message_uuid) AS tools_in_msg,
+                    COALESCE(tc.turn_exec_ms, 0) AS turn_exec_ms,
+                    COUNT(*) OVER (PARTITION BY tc.session_id, tc.turn_index) AS tools_in_turn
+             FROM message_tool_calls tc
+             LEFT JOIN messages m ON m.uuid = tc.message_uuid
+             WHERE tc.session_id = ?
+           )
+           SELECT CASE
+                    WHEN tool_name LIKE 'mcp\\_\\_%\\_\\_%' ESCAPE '\\'
+                    THEN SUBSTR(tool_name, 1, INSTR(SUBSTR(tool_name, 6), '__') + 4)
+                    ELSE tool_name
+                  END AS tool,
+                  COUNT(*) AS count,
+                  CAST(SUM(ROUND(1.0 * msg_tokens / tools_in_msg)) AS INTEGER) AS tokens,
+                  CAST(SUM(ROUND(1.0 * turn_exec_ms / tools_in_turn)) AS INTEGER) AS duration_ms
+           FROM tool_with_metrics
+           GROUP BY tool
+           ORDER BY count DESC`,
+          [sessionId],
+        );
+        if (tuResult[0]) {
+          const cols = tuResult[0].columns;
+          toolUsage = tuResult[0].values.map(row => {
+            const r = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
+            return {
+              tool: String(r['tool'] ?? ''),
+              count: Number(r['count'] ?? 0),
+              tokens: Number(r['tokens'] ?? 0),
+              durationMs: Number(r['duration_ms'] ?? 0),
+            };
+          });
+        }
+      }
+
+      // スキル別利用統計
+      let skillUsage: { skill: string; count: number; tokens: number; durationMs: number }[] | undefined;
+      if (sessionId) {
+        const skResult = db.exec(
+          `WITH skill_with_metrics AS (
+             SELECT tc.message_uuid, tc.turn_index, tc.skill_name,
+                    COALESCE(m.input_tokens, 0) + COALESCE(m.output_tokens, 0) AS msg_tokens,
+                    COUNT(*) OVER (PARTITION BY tc.message_uuid) AS tools_in_msg,
+                    COALESCE(tc.turn_exec_ms, 0) AS turn_exec_ms,
+                    COUNT(*) OVER (PARTITION BY tc.session_id, tc.turn_index) AS tools_in_turn
+             FROM message_tool_calls tc
+             LEFT JOIN messages m ON m.uuid = tc.message_uuid
+             WHERE tc.session_id = ? AND tc.skill_name IS NOT NULL
+           )
+           SELECT skill_name AS skill,
+                  COUNT(*) AS count,
+                  CAST(SUM(ROUND(1.0 * msg_tokens / tools_in_msg)) AS INTEGER) AS tokens,
+                  CAST(SUM(ROUND(1.0 * turn_exec_ms / tools_in_turn)) AS INTEGER) AS duration_ms
+           FROM skill_with_metrics
+           GROUP BY skill
+           ORDER BY count DESC`,
+          [sessionId],
+        );
+        if (skResult[0]) {
+          const cols = skResult[0].columns;
+          skillUsage = skResult[0].values.map(row => {
+            const r = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
+            return {
+              skill: String(r['skill'] ?? ''),
+              count: Number(r['count'] ?? 0),
+              tokens: Number(r['tokens'] ?? 0),
+              durationMs: Number(r['duration_ms'] ?? 0),
+            };
+          });
+        }
+      }
+
+      // モデル別利用統計: count/tokens は assistant メッセージから、durationMs は distinct turn_exec_ms から集計
+      let modelUsage: { model: string; count: number; tokens: number; durationMs: number }[] | undefined;
+      if (sessionId) {
+        const mdResult = db.exec(
+          `SELECT model,
+                  COUNT(*) AS count,
+                  CAST(SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS INTEGER) AS tokens
+           FROM messages
+           WHERE session_id = ? AND type = 'assistant' AND model IS NOT NULL
+           GROUP BY model ORDER BY count DESC`,
+          [sessionId],
+        );
+        const durResult = db.exec(
+          `WITH turn_dur AS (
+             SELECT DISTINCT session_id, turn_index, model, turn_exec_ms
+             FROM message_tool_calls
+             WHERE session_id = ? AND model IS NOT NULL
+           )
+           SELECT model, CAST(SUM(COALESCE(turn_exec_ms, 0)) AS INTEGER) AS duration_ms
+           FROM turn_dur GROUP BY model`,
+          [sessionId],
+        );
+        const durMap = new Map<string, number>();
+        if (durResult[0]) {
+          const cols = durResult[0].columns;
+          for (const row of durResult[0].values) {
+            const r = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
+            durMap.set(String(r['model'] ?? ''), Number(r['duration_ms'] ?? 0));
+          }
+        }
+        if (mdResult[0]) {
+          const cols = mdResult[0].columns;
+          modelUsage = mdResult[0].values.map(row => {
+            const r = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
+            const model = String(r['model'] ?? '');
+            return {
+              model,
+              count: Number(r['count'] ?? 0),
+              tokens: Number(r['tokens'] ?? 0),
+              durationMs: durMap.get(model) ?? 0,
+            };
+          });
+        }
+      }
+
+      // ツール別エラー回数（MCP 正規化）
+      let errorsByTool: { tool: string; count: number }[] | undefined;
+      if (sessionId) {
+        const erResult = db.exec(
+          `SELECT CASE
+                    WHEN tool_name LIKE 'mcp\\_\\_%\\_\\_%' ESCAPE '\\'
+                    THEN SUBSTR(tool_name, 1, INSTR(SUBSTR(tool_name, 6), '__') + 4)
+                    ELSE tool_name
+                  END AS tool,
+                  COUNT(*) AS count
+           FROM message_tool_calls
+           WHERE session_id = ? AND is_error = 1
+           GROUP BY tool
+           ORDER BY count DESC`,
+          [sessionId],
+        );
+        if (erResult[0]) {
+          const cols = erResult[0].columns;
+          errorsByTool = erResult[0].values.map(row => {
+            const r = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
+            return { tool: String(r['tool'] ?? ''), count: Number(r['count'] ?? 0) };
+          });
+        }
+      }
+
       return {
         totalRetries, totalEdits,
         totalBuildRuns, totalBuildFails,
         totalTestRuns, totalTestFails,
+        toolUsage,
+        skillUsage,
+        errorsByTool,
+        modelUsage,
       };
     } catch {
       return zero;
@@ -2057,24 +2478,7 @@ export class TrailDatabase {
       // json functions may not be available
     }
 
-    // Model breakdown from session_costs
-    const modelResult = db.exec(
-      `SELECT model, COUNT(DISTINCT session_id),
-        SUM(input_tokens), SUM(output_tokens),
-        SUM(cache_read_tokens), SUM(estimated_cost_usd)
-       FROM session_costs WHERE model != ''
-       GROUP BY model ORDER BY SUM(estimated_cost_usd) DESC`,
-    );
-    const modelBreakdown = (modelResult[0]?.values ?? []).map((r) => ({
-      model: String(r[0]),
-      sessions: Number(r[1]),
-      inputTokens: Number(r[2]),
-      outputTokens: Number(r[3]),
-      cacheReadTokens: Number(r[4]),
-      estimatedCostUsd: Number(r[5]),
-    }));
-
-    // Daily activity from daily_costs (last 90 days — frontend filters to 7/30/90)
+    // Daily activity from daily_counts (kind='cost_actual', last 90 days — frontend filters to 7/30/90)
     const tzOffset = this.getLocalTzOffset();
     const dailyResult = db.exec(
       `SELECT date,
@@ -2082,8 +2486,8 @@ export class TrailDatabase {
         SUM(cache_read_tokens), SUM(cache_creation_tokens),
         SUM(estimated_cost_usd),
         0 AS sessions
-       FROM daily_costs
-       WHERE cost_type = 'actual' AND date >= DATE('now', '${tzOffset}', '-90 days')
+       FROM daily_counts
+       WHERE kind = 'cost_actual' AND date >= DATE('now', '${tzOffset}', '-90 days')
        GROUP BY date ORDER BY date`,
     );
     const dailyActivity = (dailyResult[0]?.values ?? []).map((r) => ({
@@ -2150,8 +2554,93 @@ export class TrailDatabase {
         ...toolMetrics,
       },
       toolUsage,
-      modelBreakdown,
       dailyActivity,
+    };
+  }
+
+  getCombinedData(period: 'day' | 'week', rangeDays: 30 | 90): CombinedData {
+    const db = this.ensureDb();
+    // daily_counts.date は YYYY-MM-DD（タイムゾーン適用済み）。
+    // week 集計時は strftime('%Y-W%W', date) で週キー化。
+    const periodExpr = period === 'week' ? `strftime('%Y-W%W', date)` : 'date';
+    const cutoff = `DATE('now', '-${rangeDays} days')`;
+
+    const toRows = (result: ReturnType<typeof db.exec>): Record<string, unknown>[] => {
+      if (!result[0]) return [];
+      const { columns, values } = result[0];
+      return values.map(row => Object.fromEntries(columns.map((c, i) => [c, row[i]])));
+    };
+
+    const toolResult = db.exec(
+      `SELECT ${periodExpr} AS period, key AS tool,
+              SUM(count) AS count,
+              SUM(tokens) AS tokens,
+              SUM(duration_ms) AS duration_ms
+       FROM daily_counts
+       WHERE kind = 'tool' AND date >= ${cutoff}
+       GROUP BY period, key`,
+    );
+    const toolCounts = toRows(toolResult).map(r => ({
+      period: String(r['period'] ?? ''),
+      tool: String(r['tool'] ?? ''),
+      count: Number(r['count'] ?? 0),
+      tokens: Number(r['tokens'] ?? 0),
+      durationMs: Number(r['duration_ms'] ?? 0),
+    }));
+
+    const errResult = db.exec(
+      `SELECT ${periodExpr} AS period, key AS tool, SUM(count) AS err_count
+       FROM daily_counts
+       WHERE kind = 'error' AND date >= ${cutoff}
+       GROUP BY period, key`,
+    );
+    const errByPeriod = new Map<string, { byTool: Record<string, number> }>();
+    for (const r of toRows(errResult)) {
+      const p = String(r['period'] ?? '');
+      const tool = String(r['tool'] ?? '');
+      const errCount = Number(r['err_count'] ?? 0);
+      if (errCount === 0) continue;
+      const e = errByPeriod.get(p) ?? { byTool: {} };
+      e.byTool[tool] = (e.byTool[tool] ?? 0) + errCount;
+      errByPeriod.set(p, e);
+    }
+    const errorRate = [...errByPeriod.entries()].map(([p, v]) => ({
+      period: p, rate: 0, byTool: v.byTool,
+    }));
+
+    const skillResult = db.exec(
+      `SELECT ${periodExpr} AS period, key AS skill, SUM(count) AS count
+       FROM daily_counts
+       WHERE kind = 'skill' AND date >= ${cutoff}
+       GROUP BY period, key`,
+    );
+    const skillStats = toRows(skillResult).map(r => ({
+      period: String(r['period'] ?? ''),
+      skill: String(r['skill'] ?? ''),
+      count: Number(r['count'] ?? 0),
+      costUsd: 0,
+    }));
+
+    const modelResult = db.exec(
+      `SELECT ${periodExpr} AS period, key AS model,
+              SUM(count) AS count,
+              SUM(tokens) AS tokens
+       FROM daily_counts
+       WHERE kind = 'model' AND date >= ${cutoff}
+       GROUP BY period, key`,
+    );
+    const modelStats = toRows(modelResult).map(r => ({
+      period: String(r['period'] ?? ''),
+      model: String(r['model'] ?? ''),
+      count: Number(r['count'] ?? 0),
+      tokens: Number(r['tokens'] ?? 0),
+    }));
+
+    return {
+      toolCounts,
+      errorRate,
+      skillStats,
+      modelStats,
     };
   }
 
@@ -2173,11 +2662,11 @@ export class TrailDatabase {
       actualTotal += c;
     }
 
-    // 2. Skill-based estimate from daily_costs
+    // 2. Skill-based estimate from daily_counts (kind='cost_skill')
     const skillResult = db.exec(
-      `SELECT model, SUM(estimated_cost_usd)
-       FROM daily_costs WHERE cost_type = 'skill'
-       GROUP BY model`,
+      `SELECT key AS model, SUM(estimated_cost_usd)
+       FROM daily_counts WHERE kind = 'cost_skill'
+       GROUP BY key`,
     );
     const skillByModel: Record<string, number> = {};
     let skillTotal = 0;
@@ -2188,12 +2677,13 @@ export class TrailDatabase {
       skillTotal += c;
     }
 
-    // 4. Daily breakdown from daily_costs (last 90 days)
+    // 4. Daily breakdown from daily_counts (last 90 days, kind IN cost_actual/cost_skill)
     const dailyResult = db.exec(
-      `SELECT date, cost_type, SUM(estimated_cost_usd)
-       FROM daily_costs
-       WHERE date >= DATE('now', '${tzOffset}', '-90 days')
-       GROUP BY date, cost_type ORDER BY date`,
+      `SELECT date, SUBSTR(kind, 6) AS cost_type, SUM(estimated_cost_usd)
+       FROM daily_counts
+       WHERE kind IN ('cost_actual', 'cost_skill')
+         AND date >= DATE('now', '${tzOffset}', '-90 days')
+       GROUP BY date, kind ORDER BY date`,
     );
     const dailyMap = new Map<string, { actual: number; skill: number }>();
     for (const row of dailyResult[0]?.values ?? []) {
@@ -2214,9 +2704,9 @@ export class TrailDatabase {
       });
     }
 
-    // 5. Model distribution (message count)
+    // 5. Model distribution (message count) — from daily_counts to avoid full messages scan
     const distActual = db.exec(
-      `SELECT COALESCE(model,'unknown'), COUNT(*) FROM messages WHERE type = 'assistant' GROUP BY model`,
+      `SELECT key, SUM(count) FROM daily_counts WHERE kind = 'model' GROUP BY key`,
     );
     const actualDist: Record<string, number> = {};
     for (const row of distActual[0]?.values ?? []) {
@@ -2224,11 +2714,7 @@ export class TrailDatabase {
     }
 
     const distSkill = db.exec(
-      `SELECT COALESCE(sm.recommended_model, 'sonnet'), COUNT(*)
-       FROM messages a
-       LEFT JOIN skill_models_resolved sm ON a.skill = sm.skill
-       WHERE a.type = 'assistant'
-       GROUP BY COALESCE(sm.recommended_model, 'sonnet')`,
+      `SELECT key, SUM(count) FROM daily_counts WHERE kind = 'cost_skill' GROUP BY key`,
     );
     const skillDist: Record<string, number> = {};
     for (const row of distSkill[0]?.values ?? []) {
@@ -2309,7 +2795,7 @@ export class TrailDatabase {
   //  Releases
   // -------------------------------------------------------------------------
 
-  resolveReleases(gitRoot: string, c4ModelPath?: string): number {
+  resolveReleases(gitRoot: string): number {
     const db = this.ensureDb();
     const git = new ExecFileGitService(gitRoot);
     const tags = git.getVersionTags();
@@ -2409,33 +2895,6 @@ export class TrailDatabase {
           } catch { /* ignore */ }
         }
 
-        // Save release features (if featureMatrix available)
-        if (c4ModelPath) {
-          try {
-            const raw = fs.readFileSync(c4ModelPath, 'utf-8');
-            const model = JSON.parse(raw) as { featureMatrix?: { features: unknown[]; mappings: unknown[]; elements?: unknown[] } };
-            if (model.featureMatrix) {
-              const { features, mappings, elements = [] } = model.featureMatrix;
-              const changedFilePaths = fileStats.map((f) => f.filePath);
-              const c4Mappings = mapFilesToC4Elements(changedFilePaths, elements as Parameters<typeof mapFilesToC4Elements>[1]);
-              const elementIds = c4Mappings.map((m) => m.elementId);
-              const featureMappings = mapC4ToFeatures(
-                elementIds,
-                features as Parameters<typeof mapC4ToFeatures>[1],
-                mappings as Parameters<typeof mapC4ToFeatures>[2],
-              );
-              for (const fm of featureMappings) {
-                try {
-                  db.run(
-                    `INSERT OR IGNORE INTO release_features (release_tag, feature_id, feature_name, role)
-                     VALUES (?, ?, ?, ?)`,
-                    [tag, fm.featureId, fm.featureName, fm.role],
-                  );
-                } catch { /* ignore */ }
-              }
-            }
-          } catch { /* featureMatrix not available */ }
-        }
       }
 
       count++;

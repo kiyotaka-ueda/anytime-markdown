@@ -7,6 +7,7 @@ ToggleButton,
 ToggleButtonGroup, Toolbar, Typography, } from '@mui/material';
 import NextLink from 'next/link';
 import { useTranslations } from 'next-intl';
+import Image from 'next/image';
 import { useState } from 'react';
 
 import { useLocaleSwitch } from '../LocaleProvider';
@@ -40,27 +41,22 @@ export default function LandingHeader() {
             letterSpacing: '-0.02em',
             color: 'text.primary',
             textDecoration: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
           }}
         >
+          <Image src="/camel_face.png" alt="Anytime Markdown icon" width={28} height={28} style={{ borderRadius: 4 }} />
           Anytime Markdown
         </Typography>
 
         <Box component="nav" aria-label={t('ariaMainNavigation')} sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
-          {showGraph && (
-            <Button
-              component={NextLink}
-              href="/graph"
-              sx={{ textTransform: 'none', color: 'text.secondary', fontWeight: 600, fontSize: '0.85rem', display: { xs: 'none', sm: 'inline-flex' } }}
-            >
-              {t('graphPage')}
-            </Button>
-          )}
           <Button
             component={NextLink}
-            href="/docs"
+            href="/markdown"
             sx={{ textTransform: 'none', color: 'text.secondary', fontWeight: 600, fontSize: '0.85rem', display: { xs: 'none', sm: 'inline-flex' } }}
           >
-            {t('sitesPage')}
+            {t('openEditor')}
           </Button>
           <Button
             component={NextLink}
@@ -76,6 +72,22 @@ export default function LandingHeader() {
           >
             {t('reportPage')}
           </Button>
+          <Button
+            component={NextLink}
+            href="/docs"
+            sx={{ textTransform: 'none', color: 'text.secondary', fontWeight: 600, fontSize: '0.85rem', display: { xs: 'none', sm: 'inline-flex' } }}
+          >
+            {t('sitesPage')}
+          </Button>
+          {showGraph && (
+            <Button
+              component={NextLink}
+              href="/graph"
+              sx={{ textTransform: 'none', color: 'text.secondary', fontWeight: 600, fontSize: '0.85rem', display: { xs: 'none', sm: 'inline-flex' } }}
+            >
+              {t('graphPage')}
+            </Button>
+          )}
 
           <ToggleButtonGroup
             value={locale}
@@ -125,13 +137,8 @@ export default function LandingHeader() {
       >
         <Box sx={{ width: 220, pt: 2 }} component="nav" aria-label={t('ariaMobileNavigation')}>
           <List>
-            {showGraph && (
-              <ListItemButton component={NextLink} href="/graph" onClick={() => setDrawerOpen(false)}>
-                <ListItemText primary={t('graphPage')} />
-              </ListItemButton>
-            )}
-            <ListItemButton component={NextLink} href="/docs" onClick={() => setDrawerOpen(false)}>
-              <ListItemText primary={t('sitesPage')} />
+            <ListItemButton component={NextLink} href="/markdown" onClick={() => setDrawerOpen(false)}>
+              <ListItemText primary={t('openEditor')} />
             </ListItemButton>
             <ListItemButton component={NextLink} href="/trail" onClick={() => setDrawerOpen(false)}>
               <ListItemText primary={t('trailViewerPage')} />
@@ -139,6 +146,14 @@ export default function LandingHeader() {
             <ListItemButton component={NextLink} href="/report" onClick={() => setDrawerOpen(false)}>
               <ListItemText primary={t('reportPage')} />
             </ListItemButton>
+            <ListItemButton component={NextLink} href="/docs" onClick={() => setDrawerOpen(false)}>
+              <ListItemText primary={t('sitesPage')} />
+            </ListItemButton>
+            {showGraph && (
+              <ListItemButton component={NextLink} href="/graph" onClick={() => setDrawerOpen(false)}>
+                <ListItemText primary={t('graphPage')} />
+              </ListItemButton>
+            )}
           </List>
           <Box sx={{ px: 2, pt: 1 }}>
             <ToggleButtonGroup

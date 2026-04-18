@@ -23,7 +23,7 @@ export class PostgresTrailStore implements IRemoteTrailStore {
     // CASCADE により messages / session_commits / session_costs / release_files / release_features も消える
     await pool.query('DELETE FROM trail_sessions');
     await pool.query('DELETE FROM trail_releases');
-    await pool.query('DELETE FROM trail_daily_costs');
+    await pool.query('DELETE FROM trail_daily_counts');
     await pool.query('DELETE FROM trail_release_graphs');
     await pool.query('DELETE FROM trail_current_graphs');
   }
@@ -271,27 +271,37 @@ export class PostgresTrailStore implements IRemoteTrailStore {
     }
   }
 
-  async upsertDailyCosts(rows: readonly {
+  async upsertDailyCounts(rows: readonly {
     date: string;
-    model: string;
-    cost_type: string;
+    kind: string;
+    key: string;
+    count: number;
+    tokens: number;
     input_tokens: number;
     output_tokens: number;
     cache_read_tokens: number;
     cache_creation_tokens: number;
+    duration_ms: number;
     estimated_cost_usd: number;
   }[]): Promise<void> {
     if (rows.length === 0) return;
     const pool = this.ensurePool();
     for (const r of rows) {
       await pool.query(
-        `INSERT INTO daily_costs (date, model, cost_type, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, estimated_cost_usd)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-         ON CONFLICT (date, model, cost_type) DO UPDATE SET
+        `INSERT INTO trail_daily_counts
+           (date, kind, key, count, tokens, input_tokens, output_tokens,
+            cache_read_tokens, cache_creation_tokens, duration_ms, estimated_cost_usd)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+         ON CONFLICT (date, kind, key) DO UPDATE SET
+           count=EXCLUDED.count, tokens=EXCLUDED.tokens,
            input_tokens=EXCLUDED.input_tokens, output_tokens=EXCLUDED.output_tokens,
-           cache_read_tokens=EXCLUDED.cache_read_tokens, cache_creation_tokens=EXCLUDED.cache_creation_tokens,
+           cache_read_tokens=EXCLUDED.cache_read_tokens,
+           cache_creation_tokens=EXCLUDED.cache_creation_tokens,
+           duration_ms=EXCLUDED.duration_ms,
            estimated_cost_usd=EXCLUDED.estimated_cost_usd`,
-        [r.date, r.model, r.cost_type, r.input_tokens, r.output_tokens, r.cache_read_tokens, r.cache_creation_tokens, r.estimated_cost_usd],
+        [r.date, r.kind, r.key, r.count, r.tokens,
+         r.input_tokens, r.output_tokens, r.cache_read_tokens,
+         r.cache_creation_tokens, r.duration_ms, r.estimated_cost_usd],
       );
     }
   }
@@ -328,6 +338,67 @@ export class PostgresTrailStore implements IRemoteTrailStore {
         updated_at = EXCLUDED.updated_at, synced_at = NOW()`,
       [tag, graphJson, new Date().toISOString()],
     );
+  }
+
+  async clearMessageToolCalls(): Promise<void> {
+    await this.ensurePool().query('DELETE FROM trail_message_tool_calls');
+  }
+
+  async upsertMessageToolCalls(rows: readonly {
+    id: number;
+    session_id: string;
+    message_uuid: string;
+    turn_index: number;
+    call_index: number;
+    tool_name: string;
+    file_path: string | null;
+    command: string | null;
+    skill_name: string | null;
+    model: string | null;
+    is_sidechain: number;
+    turn_exec_ms: number | null;
+    has_thinking: number;
+    is_error: number;
+    error_type: string | null;
+    timestamp: string;
+  }[]): Promise<void> {
+    if (rows.length === 0) return;
+    const pool = this.ensurePool();
+    const CHUNK = 500;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK);
+      const values: unknown[] = [];
+      const placeholders = chunk.map((r, j) => {
+        const base = j * 16;
+        values.push(
+          r.id, r.session_id, r.message_uuid, r.turn_index, r.call_index,
+          r.tool_name, r.file_path, r.command, r.skill_name, r.model,
+          r.is_sidechain, r.turn_exec_ms, r.has_thinking, r.is_error, r.error_type, r.timestamp,
+        );
+        return `($${base + 1},$${base + 2},$${base + 3},$${base + 4},$${base + 5},$${base + 6},$${base + 7},$${base + 8},$${base + 9},$${base + 10},$${base + 11},$${base + 12},$${base + 13},$${base + 14},$${base + 15},$${base + 16})`;
+      });
+      await pool.query(
+        `INSERT INTO trail_message_tool_calls
+          (id, session_id, message_uuid, turn_index, call_index, tool_name,
+           file_path, command, skill_name, model, is_sidechain, turn_exec_ms,
+           has_thinking, is_error, error_type, timestamp)
+         VALUES ${placeholders.join(',')}
+         ON CONFLICT (session_id, message_uuid, call_index) DO UPDATE SET
+           turn_index = EXCLUDED.turn_index,
+           tool_name = EXCLUDED.tool_name,
+           file_path = EXCLUDED.file_path,
+           command = EXCLUDED.command,
+           skill_name = EXCLUDED.skill_name,
+           model = EXCLUDED.model,
+           is_sidechain = EXCLUDED.is_sidechain,
+           turn_exec_ms = EXCLUDED.turn_exec_ms,
+           has_thinking = EXCLUDED.has_thinking,
+           is_error = EXCLUDED.is_error,
+           error_type = EXCLUDED.error_type,
+           timestamp = EXCLUDED.timestamp`,
+        values,
+      );
+    }
   }
 
   private ensurePool(): Pool {

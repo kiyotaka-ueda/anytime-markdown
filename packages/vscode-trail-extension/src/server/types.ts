@@ -1,23 +1,12 @@
 import type {
-  BoundaryInfo,
-  C4Model,
-  CoverageDiffMatrix,
-  CoverageMatrix,
   DocLink,
   DsmMatrix,
-  FeatureMatrix,
+  ImportanceMatrix,
 } from '@anytime-markdown/trail-core/c4';
 
 // ---------------------------------------------------------------------------
 //  Server → Client messages
 // ---------------------------------------------------------------------------
-
-export interface ModelUpdatedMessage {
-  readonly type: 'model-updated';
-  readonly model: C4Model;
-  readonly boundaries: readonly BoundaryInfo[];
-  readonly featureMatrix?: FeatureMatrix;
-}
 
 export interface DsmUpdatedMessage {
   readonly type: 'dsm-updated';
@@ -37,17 +26,46 @@ export interface DocLinksUpdatedMessage {
   readonly docLinks: readonly DocLink[];
 }
 
-export interface CoverageUpdatedMessage {
-  readonly type: 'coverage-updated';
-  readonly coverageMatrix: CoverageMatrix;
+export interface ImportanceUpdatedMessage {
+  readonly type: 'importance-updated';
+  readonly importanceMatrix: ImportanceMatrix;
 }
 
-export interface CoverageDiffUpdatedMessage {
-  readonly type: 'coverage-diff-updated';
-  readonly coverageDiff: CoverageDiffMatrix;
+export interface ClaudeActivityUpdatedMessage {
+  readonly type: 'claude-activity-updated';
+  readonly activeElementIds: readonly string[];
+  readonly touchedElementIds: readonly string[];
+  readonly plannedElementIds: readonly string[];
 }
 
-export type ServerMessage = ModelUpdatedMessage | DsmUpdatedMessage | AnalysisProgressMessage | DocLinksUpdatedMessage | CoverageUpdatedMessage | CoverageDiffUpdatedMessage;
+export interface AgentActivityEntry {
+  readonly sessionId: string;
+  readonly label: string;
+  readonly branch: string;
+  readonly currentFile: string;
+  readonly activeElementIds: readonly string[];
+  readonly touchedElementIds: readonly string[];
+  readonly plannedElementIds: readonly string[];
+}
+
+export interface FileConflict {
+  /** 衝突ファイルの絶対パス */
+  readonly file: string;
+  /** 対応する C4 要素 ID */
+  readonly elementIds: readonly string[];
+  /** 関与するエージェントのセッション ID */
+  readonly agentSessionIds: readonly string[];
+  /** true: 同時 editing、false: sessionEdits の重複のみ */
+  readonly isActiveConflict: boolean;
+}
+
+export interface MultiAgentActivityMessage {
+  readonly type: 'multi-agent-activity-updated';
+  readonly agents: readonly AgentActivityEntry[];
+  readonly conflicts: readonly FileConflict[];
+}
+
+export type ServerMessage = DsmUpdatedMessage | AnalysisProgressMessage | DocLinksUpdatedMessage | ImportanceUpdatedMessage | ClaudeActivityUpdatedMessage | MultiAgentActivityMessage;
 
 // ---------------------------------------------------------------------------
 //  Client → Server messages
@@ -67,66 +85,18 @@ export interface RefreshCommand {
   readonly type: 'refresh';
 }
 
-// ---------------------------------------------------------------------------
-//  Client → Server: editing commands
-// ---------------------------------------------------------------------------
-
-export interface AddElementCommand {
-  readonly type: 'add-element';
-  readonly element: {
-    readonly type: 'person' | 'system';
-    readonly name: string;
-    readonly description?: string;
-    readonly external?: boolean;
-  };
-}
-
-export interface UpdateElementCommand {
-  readonly type: 'update-element';
-  readonly id: string;
-  readonly changes: {
-    readonly name?: string;
-    readonly description?: string;
-    readonly external?: boolean;
-  };
-}
-
-export interface RemoveElementCommand {
-  readonly type: 'remove-element';
-  readonly id: string;
-}
-
-export interface AddRelationshipCommand {
-  readonly type: 'add-relationship';
-  readonly from: string;
-  readonly to: string;
-  readonly label?: string;
-  readonly technology?: string;
-}
-
-export interface RemoveRelationshipCommand {
-  readonly type: 'remove-relationship';
-  readonly from: string;
-  readonly to: string;
-}
-
-export interface PurgeDeletedElementsCommand {
-  readonly type: 'purge-deleted-elements';
-}
-
 export interface OpenDocLinkCommand {
   readonly type: 'open-doc-link';
   readonly path: string;
+}
+
+export interface ResetClaudeActivityCommand {
+  readonly type: 'reset-claude-activity';
 }
 
 export type ClientMessage =
   | SetLevelCommand
   | ClusterCommand
   | RefreshCommand
-  | AddElementCommand
-  | UpdateElementCommand
-  | RemoveElementCommand
-  | AddRelationshipCommand
-  | RemoveRelationshipCommand
-  | PurgeDeletedElementsCommand
-  | OpenDocLinkCommand;
+  | OpenDocLinkCommand
+  | ResetClaudeActivityCommand;

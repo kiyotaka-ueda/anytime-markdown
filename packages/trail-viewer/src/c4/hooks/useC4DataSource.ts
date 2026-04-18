@@ -4,11 +4,13 @@ import type {
   BoundaryInfo,
   C4Model,
   C4ReleaseEntry,
+  ComplexityMatrix,
   CoverageDiffMatrix,
   CoverageMatrix,
   DocLink,
   DsmMatrix,
   FeatureMatrix,
+  ImportanceMatrix,
 } from '@anytime-markdown/trail-core/c4';
 
 // ---------------------------------------------------------------------------
@@ -28,10 +30,14 @@ interface C4DataSourceResult {
   featureMatrix: FeatureMatrix | null;
   coverageMatrix: CoverageMatrix | null;
   coverageDiff: CoverageDiffMatrix | null;
+  complexityMatrix: ComplexityMatrix | null;
+  importanceMatrix: ImportanceMatrix | null;
   docLinks: readonly DocLink[];
   dsmMatrix: DsmMatrix | null;
   connected: boolean;
   analysisProgress: AnalysisProgress | null;
+  claudeActivity: ClaudeActivityState | null;
+  multiAgentActivity: MultiAgentActivityState | null;
   sendCommand: (cmd: string, payload?: unknown) => void;
   releases: readonly C4ReleaseEntry[];
   selectedRelease: string;
@@ -71,6 +77,11 @@ interface WsCoverageMessage {
 interface WsCoverageDiffMessage {
   type: 'coverage-diff-updated';
   coverageDiff: CoverageDiffMatrix;
+}
+
+interface WsComplexityMessage {
+  type: 'complexity-updated';
+  complexityMatrix: ComplexityMatrix;
 }
 
 // ---------------------------------------------------------------------------
@@ -140,6 +151,81 @@ function isWsCoverageDiffMessage(v: unknown): v is WsCoverageDiffMessage {
   return obj.type === 'coverage-diff-updated' && 'coverageDiff' in obj;
 }
 
+function isWsComplexityMessage(v: unknown): v is WsComplexityMessage {
+  if (typeof v !== 'object' || v === null) return false;
+  const obj = v as Record<string, unknown>;
+  return obj.type === 'complexity-updated' && 'complexityMatrix' in obj;
+}
+
+interface WsImportanceMessage {
+  type: 'importance-updated';
+  importanceMatrix: ImportanceMatrix;
+}
+
+function isWsImportanceMessage(v: unknown): v is WsImportanceMessage {
+  if (typeof v !== 'object' || v === null) return false;
+  const obj = v as Record<string, unknown>;
+  return obj.type === 'importance-updated' && 'importanceMatrix' in obj;
+}
+
+export interface ClaudeActivityState {
+  readonly activeElementIds: readonly string[];
+  readonly touchedElementIds: readonly string[];
+  readonly plannedElementIds: readonly string[];
+}
+
+export interface AgentActivityEntry {
+  readonly sessionId: string;
+  readonly label: string;
+  readonly branch: string;
+  readonly currentFile: string;
+  readonly activeElementIds: readonly string[];
+  readonly touchedElementIds: readonly string[];
+  readonly plannedElementIds: readonly string[];
+}
+
+export interface FileConflict {
+  readonly file: string;
+  readonly elementIds: readonly string[];
+  readonly agentSessionIds: readonly string[];
+  readonly isActiveConflict: boolean;
+}
+
+export interface MultiAgentActivityState {
+  readonly agents: readonly AgentActivityEntry[];
+  readonly conflicts: readonly FileConflict[];
+}
+
+interface WsClaudeActivityMessage {
+  type: 'claude-activity-updated';
+  activeElementIds: string[];
+  touchedElementIds: string[];
+  plannedElementIds: string[];
+}
+
+function isWsClaudeActivityMessage(v: unknown): v is WsClaudeActivityMessage {
+  if (typeof v !== 'object' || v === null) return false;
+  const obj = v as Record<string, unknown>;
+  return (
+    obj.type === 'claude-activity-updated' &&
+    Array.isArray(obj.activeElementIds) &&
+    Array.isArray(obj.touchedElementIds) &&
+    Array.isArray(obj.plannedElementIds)
+  );
+}
+
+interface WsMultiAgentMessage {
+  type: 'multi-agent-activity-updated';
+  agents: AgentActivityEntry[];
+  conflicts?: FileConflict[];
+}
+
+function isWsMultiAgentMessage(v: unknown): v is WsMultiAgentMessage {
+  if (typeof v !== 'object' || v === null) return false;
+  const obj = v as Record<string, unknown>;
+  return obj.type === 'multi-agent-activity-updated' && Array.isArray(obj.agents);
+}
+
 // ---------------------------------------------------------------------------
 // HTTP payload type guards
 // ---------------------------------------------------------------------------
@@ -165,6 +251,15 @@ function isDsmMatrixPayload(v: unknown): v is DsmMatrixPayload {
   return 'matrix' in v;
 }
 
+interface ComplexityPayload {
+  complexityMatrix: ComplexityMatrix;
+}
+
+function isComplexityPayload(v: unknown): v is ComplexityPayload {
+  if (typeof v !== 'object' || v === null) return false;
+  return 'complexityMatrix' in v;
+}
+
 async function readJson(res: Response | null): Promise<unknown> {
   if (res?.status !== 200) return null;
   try {
@@ -188,7 +283,9 @@ function useRemoteInitialFetch(
   setFeatureMatrix: (m: FeatureMatrix | null) => void,
   setCoverageMatrix: (m: CoverageMatrix | null) => void,
   setCoverageDiff: (m: CoverageDiffMatrix | null) => void,
+  setComplexityMatrix: (m: ComplexityMatrix | null) => void,
   setReleases: (entries: readonly C4ReleaseEntry[]) => void,
+  setDocLinks: (docs: readonly DocLink[]) => void,
 ): void {
   useEffect(() => {
     // serverUrl === undefined → local mode (fetch しない)
@@ -202,17 +299,22 @@ function useRemoteInitialFetch(
       const repoQuery = selectedRepo ? `&repo=${encodeURIComponent(selectedRepo)}` : '';
       const modelUrl = `${serverUrl}/api/c4/model?release=${encodeURIComponent(selectedRelease)}${repoQuery}`;
       const dsmUrl = `${serverUrl}/api/c4/dsm?release=${encodeURIComponent(selectedRelease)}${repoQuery}`;
-      const [modelRes, dsmRes, covRes, releasesRes] = await Promise.all([
+      const complexityUrl = `${serverUrl}/api/c4/complexity?release=${encodeURIComponent(selectedRelease)}${repoQuery}`;
+      const [modelRes, dsmRes, covRes, complexityRes, releasesRes, docsRes] = await Promise.all([
         fetch(modelUrl).catch(() => null),
         fetch(dsmUrl).catch(() => null),
         fetch(`${serverUrl}/api/c4/coverage`).catch(() => null),
+        fetch(complexityUrl).catch(() => null),
         fetch(`${serverUrl}/api/c4/releases`).catch(() => null),
+        fetch(`${serverUrl}/api/docs-index`).catch(() => null),
       ]);
 
-      const [modelJson, dsmJson, covJson] = await Promise.all([
+      const [modelJson, dsmJson, covJson, complexityJson, docsJson] = await Promise.all([
         readJson(modelRes),
         readJson(dsmRes),
         readJson(covRes),
+        readJson(complexityRes),
+        readJson(docsRes),
       ]);
       if (cancelled) return;
 
@@ -241,6 +343,12 @@ function useRemoteInitialFetch(
         setCoverageDiff(null);
       }
 
+      setComplexityMatrix(isComplexityPayload(complexityJson) ? complexityJson.complexityMatrix : null);
+
+      if (docsJson && typeof docsJson === 'object' && 'docs' in docsJson && Array.isArray((docsJson as { docs: unknown }).docs)) {
+        setDocLinks((docsJson as { docs: DocLink[] }).docs);
+      }
+
       if (releasesRes?.status === 200) {
         const json: unknown = await releasesRes.json();
         if (!cancelled && Array.isArray(json)) {
@@ -264,7 +372,7 @@ function useRemoteInitialFetch(
 
     void fetchInitial();
     return () => { cancelled = true; };
-  }, [serverUrl, selectedRelease, selectedRepo, setC4Model, setBoundaries, setDsmMatrix, setFeatureMatrix, setCoverageMatrix, setCoverageDiff, setReleases]);
+  }, [serverUrl, selectedRelease, selectedRepo, setC4Model, setBoundaries, setDsmMatrix, setFeatureMatrix, setCoverageMatrix, setCoverageDiff, setComplexityMatrix, setReleases, setDocLinks]);
 }
 
 // ---------------------------------------------------------------------------
@@ -280,10 +388,14 @@ export function useC4DataSource(serverUrl: string): C4DataSourceResult {
   const [featureMatrix, setFeatureMatrix] = useState<FeatureMatrix | null>(null);
   const [coverageMatrix, setCoverageMatrix] = useState<CoverageMatrix | null>(null);
   const [coverageDiff, setCoverageDiff] = useState<CoverageDiffMatrix | null>(null);
+  const [complexityMatrix, setComplexityMatrix] = useState<ComplexityMatrix | null>(null);
+  const [importanceMatrix, setImportanceMatrix] = useState<ImportanceMatrix | null>(null);
   const [dsmMatrix, setDsmMatrix] = useState<DsmMatrix | null>(null);
   const [docLinks, setDocLinks] = useState<readonly DocLink[]>([]);
   const [connected, setConnected] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null);
+  const [claudeActivity, setClaudeActivity] = useState<ClaudeActivityState | null>(null);
+  const [multiAgentActivity, setMultiAgentActivity] = useState<MultiAgentActivityState | null>(null);
   const [releases, setReleases] = useState<readonly C4ReleaseEntry[]>([]);
   const [selectedRelease, setSelectedRelease] = useState<string>('current');
   const [selectedRepo, setSelectedRepo] = useState<string>('');
@@ -304,7 +416,9 @@ export function useC4DataSource(serverUrl: string): C4DataSourceResult {
     setFeatureMatrix,
     setCoverageMatrix,
     setCoverageDiff,
+    setComplexityMatrix,
     setReleases,
+    setDocLinks,
   );
 
   // WebSocket message handler
@@ -326,6 +440,21 @@ export function useC4DataSource(serverUrl: string): C4DataSourceResult {
         setCoverageMatrix(parsed.coverageMatrix);
       } else if (isWsCoverageDiffMessage(parsed)) {
         setCoverageDiff(parsed.coverageDiff);
+      } else if (isWsComplexityMessage(parsed)) {
+        setComplexityMatrix(parsed.complexityMatrix);
+      } else if (isWsImportanceMessage(parsed)) {
+        setImportanceMatrix(parsed.importanceMatrix);
+      } else if (isWsClaudeActivityMessage(parsed)) {
+        setClaudeActivity({
+          activeElementIds: parsed.activeElementIds,
+          touchedElementIds: parsed.touchedElementIds,
+          plannedElementIds: parsed.plannedElementIds,
+        });
+      } else if (isWsMultiAgentMessage(parsed)) {
+        setMultiAgentActivity({
+          agents: parsed.agents,
+          conflicts: Array.isArray(parsed.conflicts) ? parsed.conflicts : [],
+        });
       }
     } catch {
       // Malformed message — ignore
@@ -405,10 +534,14 @@ export function useC4DataSource(serverUrl: string): C4DataSourceResult {
     featureMatrix,
     coverageMatrix,
     coverageDiff,
+    complexityMatrix,
+    importanceMatrix,
     docLinks,
     dsmMatrix,
     connected,
     analysisProgress,
+    claudeActivity,
+    multiAgentActivity,
     sendCommand,
     releases,
     selectedRelease,

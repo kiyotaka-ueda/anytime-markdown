@@ -1,9 +1,10 @@
 import { GraphNode, NodeType } from '../types';
 import { CanvasColors, getCanvasColors, FONT_FAMILY } from '../theme';
 import {
-  SHADOW_DEFAULT, SHADOW_STICKY,
-  FONT_SIZE_PREVIEW,
+  SHADOW_DEFAULT, SHADOW_DRAGGING, SHADOW_STICKY,
+  FONT_SIZE_PREVIEW, FONT_SIZE_LINK_ICON,
   DASH_DEFAULT, DASH_FRAME, STROKE_WIDTH_SELECTED,
+  NODE_TEXT_PADDING, TEXT_LINE_HEIGHT_RATIO,
   TEXT_PREVIEW_MAX_CHARS, TEXT_PREVIEW_MAX_LINES, TEXT_LINE_MAX_CHARS,
   BORDER_RADIUS_STICKY, BORDER_RADIUS_DOC, BORDER_RADIUS_FRAME, BORDER_RADIUS_IMAGE,
   FRAME_TITLE_HEIGHT, FRAME_COLLAPSE_ICON_SIZE, FRAME_TITLE_TEXT_LEFT, FRAME_ICON_RIGHT_MARGIN, FRAME_TITLE_TEXT_RIGHT_MARGIN,
@@ -11,17 +12,26 @@ import {
   DOC_TITLE_X, DOC_TITLE_Y, DOC_TITLE_RIGHT_MARGIN,
   DOC_PREVIEW_X, DOC_PREVIEW_Y, DOC_PREVIEW_LINE_HEIGHT, DOC_PREVIEW_RIGHT_MARGIN,
   EDGE_ENDPOINT_INNER_RATIO,
+  LINK_ICON_OFFSET,
   LOCK_ICON_SIZE, LOCK_ICON_OFFSET,
 } from './constants';
 import {
   getCurrentColors, setCurrentColors,
   applyShadow, clearShadow, effectiveBorderRadius,
+  makeFill,
   drawRoundedRect,
   drawCylinderBody, drawCylinderTop,
   drawDiamond, drawParallelogram,
   getOrLoadImage,
 } from './shapes';
-import type { ShapePathFn } from './shapes';
+import { wrapText } from './textRendering';
+
+/** 標準シェイプのパス描画関数の型 */
+export type ShapePathFn = (
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number,
+  node: GraphNode,
+) => void;
 
 /** 選択状態に応じた stroke スタイルを設定 */
 export function setupStroke(ctx: CanvasRenderingContext2D, style: GraphNode['style'], selected: boolean): void {
@@ -339,6 +349,101 @@ function drawDocIcon(ctx: CanvasRenderingContext2D, cx: number, cy: number, size
   ctx.lineTo(cx + s * 0.35 - fold, cy - s * 0.45 + fold);
   ctx.lineTo(cx + s * 0.35, cy - s * 0.45 + fold);
   ctx.stroke();
+  ctx.restore();
+}
+
+function renderStandardShape(
+  ctx: CanvasRenderingContext2D,
+  node: GraphNode,
+  selected: boolean,
+  fill: string | CanvasGradient,
+  pathFn: ShapePathFn,
+): void {
+  const { x, y, width, height, style } = node;
+  applyShadow(ctx, style);
+  ctx.fillStyle = fill;
+  pathFn(ctx, x, y, width, height, node);
+  ctx.fill();
+  clearShadow(ctx);
+  setupStroke(ctx, style, selected);
+  pathFn(ctx, x, y, width, height, node);
+  ctx.stroke();
+}
+
+// ---------------------------------------------------------------------------
+// Main entry point
+// ---------------------------------------------------------------------------
+
+export function drawNode(
+  ctx: CanvasRenderingContext2D,
+  node: GraphNode,
+  selected: boolean,
+  isDragging: boolean = false,
+  colors?: CanvasColors,
+): void {
+  setCurrentColors(colors ?? getCanvasColors(true));
+  ctx.save();
+
+  // ドラッグ中の浮き上がりエフェクト
+  if (isDragging) {
+    ctx.shadowColor = SHADOW_DRAGGING.color;
+    ctx.shadowBlur = SHADOW_DRAGGING.blur;
+    ctx.shadowOffsetX = SHADOW_DRAGGING.offsetX;
+    ctx.shadowOffsetY = SHADOW_DRAGGING.offsetY;
+  }
+
+  const { x, y, width, height, type, style, text } = node;
+  const fill = makeFill(ctx, style, x, y, width, height);
+
+  // 1. 特殊レンダラーを検索
+  const specialRenderer = specialShapes[type];
+  if (specialRenderer) {
+    specialRenderer(ctx, node, selected, isDragging, fill);
+  } else {
+    // 2. 標準シェイプレジストリを検索
+    const pathFn = standardShapePaths[type];
+    if (pathFn) {
+      renderStandardShape(ctx, node, selected, fill, pathFn);
+    }
+  }
+
+  // 共通テキスト描画（特殊タイプは個別にテキストを処理済み）
+  if (text && !skipTextTypes.has(type)) {
+    const currentColors = getCurrentColors();
+    ctx.fillStyle = currentColors.textPrimary;
+    ctx.font = `${style.fontSize}px ${style.fontFamily}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const padding = NODE_TEXT_PADDING;
+    const maxWidth = width - padding * 2;
+    const wrappedLines = wrapText(ctx, text, maxWidth);
+    const lineHeight = style.fontSize * TEXT_LINE_HEIGHT_RATIO;
+    const maxLines = Math.max(1, Math.floor((height - padding * 2) / lineHeight));
+    const visibleLines = wrappedLines.slice(0, maxLines);
+    if (wrappedLines.length > maxLines && visibleLines.length > 0) {
+      visibleLines[visibleLines.length - 1] += '\u2026';
+    }
+    const totalHeight = visibleLines.length * lineHeight;
+    const startY = y + height / 2 - totalHeight / 2 + lineHeight / 2;
+
+    visibleLines.forEach((line, i) => {
+      ctx.fillText(line, x + width / 2, startY + i * lineHeight, maxWidth);
+    });
+  }
+
+  // リンクアイコン（URL設定済みノード）
+  if (node.url) {
+    const currentColors = getCurrentColors();
+    ctx.save();
+    ctx.font = `${FONT_SIZE_LINK_ICON}px ${FONT_FAMILY}`;
+    ctx.fillStyle = currentColors.accentColor;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+    ctx.fillText('\u{1F517}', x + width - LINK_ICON_OFFSET, y + LINK_ICON_OFFSET);
+    ctx.restore();
+  }
+
   ctx.restore();
 }
 

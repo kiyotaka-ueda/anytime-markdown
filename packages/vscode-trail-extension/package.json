@@ -2,7 +2,7 @@
   "name": "anytime-trail",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "license": "MIT",
   "publisher": "anytime-trial",
   "repository": {
@@ -44,6 +44,10 @@
     "views": {
       "anytimeTrail": [
         {
+          "id": "anytimeTrail.aiNote",
+          "name": "%view.aiNote%"
+        },
+        {
           "id": "anytimeTrail.dashboard",
           "name": "%view.dashboard%"
         },
@@ -63,6 +67,10 @@
     },
     "viewsWelcome": [
       {
+        "view": "anytimeTrail.aiNote",
+        "contents": "%viewsWelcome.aiNote%"
+      },
+      {
         "view": "anytimeTrail.dashboard",
         "contents": "%viewsWelcome.dashboard%"
       },
@@ -73,6 +81,40 @@
       }
     ],
     "commands": [
+      {
+        "command": "anytime-trail.openContext",
+        "title": "%command.openContext%",
+        "icon": "$(note)"
+      },
+      {
+        "command": "anytime-trail.openNoteSkill",
+        "title": "%command.openNoteSkill%",
+        "icon": "$(book)"
+      },
+      {
+        "command": "anytime-trail.addNotePage",
+        "title": "%command.addNotePage%",
+        "icon": "$(add)"
+      },
+      {
+        "command": "anytime-trail.deleteNotePage",
+        "title": "%command.deleteNotePage%",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "anytime-trail.openNotePage",
+        "title": "%command.openNotePage%"
+      },
+      {
+        "command": "anytime-trail.clearContext",
+        "title": "%command.clearContext%",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "anytime-trail.copyContextPath",
+        "title": "%command.copyContextPath%",
+        "icon": "$(clippy)"
+      },
 {
         "command": "anytime-trail.c4Analyze",
         "title": "%command.c4Analyze%",
@@ -140,6 +182,26 @@
     "menus": {
       "view/title": [
         {
+          "command": "anytime-trail.openNoteSkill",
+          "when": "view == anytimeTrail.aiNote",
+          "group": "navigation@1"
+        },
+        {
+          "command": "anytime-trail.addNotePage",
+          "when": "view == anytimeTrail.aiNote",
+          "group": "navigation@2"
+        },
+        {
+          "command": "anytime-trail.clearContext",
+          "when": "view == anytimeTrail.aiNote",
+          "group": "navigation@3"
+        },
+        {
+          "command": "anytime-trail.copyContextPath",
+          "when": "view == anytimeTrail.aiNote",
+          "group": "navigation@3"
+        },
+        {
           "command": "anytime-trail.c4Analyze",
           "when": "view == anytimeTrail.c4Elements",
           "group": "navigation@1"
@@ -151,6 +213,11 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "anytime-trail.deleteNotePage",
+          "when": "view == anytimeTrail.aiNote && viewItem == noteItem",
+          "group": "inline"
+        },
         {
           "command": "anytime-trail.runE2eTest",
           "when": "view == anytimeTrail.c4Elements && viewItem == c4Level.c1",
@@ -192,11 +259,6 @@
             "__tests__"
           ],
           "markdownDescription": "%config.c4AnalyzeExcludePatterns%"
-        },
-        "anytimeTrail.c4.modelPath": {
-          "type": "string",
-          "default": ".vscode/c4-model.json",
-          "markdownDescription": "%config.c4ModelPath%"
         },
         "anytimeTrail.docsPath": {
           "type": "string",
@@ -254,6 +316,16 @@
           "type": "string",
           "default": "",
           "markdownDescription": "PostgreSQL connection string (e.g. `postgres://user:pass@host:5432/db`)"
+        },
+        "anytimeTrail.database.storagePath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%config.database.storagePath%"
+        },
+        "anytimeTrail.claudeStatus.directory": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%config.claudeStatus.directory%"
         }
       }
     }
@@ -275,6 +347,7 @@
   "dependencies": {
     "@anytime-markdown/graph-core": "*",
     "@anytime-markdown/trail-core": "*",
+    "@anytime-markdown/vscode-common": "*",
     "@supabase/supabase-js": "2.103.0",
     "pg": "8.20.0",
     "sql.js": "1.12.0",

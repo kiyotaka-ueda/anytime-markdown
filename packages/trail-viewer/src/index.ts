@@ -34,7 +34,8 @@ export { PromptManager } from './components/PromptManager';
 export type { PromptManagerProps } from './components/PromptManager';
 
 export { AnalyticsPanel } from './components/AnalyticsPanel';
-export type { AnalyticsData, AnalyticsPanelProps } from './components/AnalyticsPanel';
+export type { AnalyticsPanelProps } from './components/AnalyticsPanel';
+export type { AnalyticsData } from './parser/types';
 
 export { ReleasesPanel } from './components/ReleasesPanel';
 export type { ReleasesPanelProps } from './components/ReleasesPanel';

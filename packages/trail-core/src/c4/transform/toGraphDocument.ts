@@ -49,7 +49,7 @@ const DEFAULT_STYLE: Readonly<Omit<NodeStyle, 'fill' | 'stroke'>> = {
 const DEFAULT_EDGE_STYLE: Readonly<EdgeStyle> = {
   stroke: '#707070',
   strokeWidth: 1,
-  startShape: 'none',
+  startShape: 'circle',
   endShape: 'arrow',
 };
 

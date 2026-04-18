@@ -11,22 +11,17 @@ interface C4GraphCanvasProps {
   readonly canvasRef: React.RefObject<HTMLCanvasElement | null>;
   readonly selectedNodeId?: string | null;
   readonly centerOnSelect?: boolean;
-  readonly coverageMap?: ReadonlyMap<string, number> | null;
-  readonly coverageDiffMap?: ReadonlyMap<string, number> | null;
+  readonly overlayMap?: ReadonlyMap<string, string> | null;
+  readonly claudeActivityMap?: ReadonlyMap<string, string> | null;
   readonly onNodeSelect?: (nodeId: string | null) => void;
   readonly onNodeDoubleClick?: (nodeId: string) => void;
+  readonly onNodeContextMenu?: (c4Id: string, x: number, y: number, nodeType: string) => void;
   readonly isDark?: boolean;
 }
 
 const EMPTY_SELECTION: SelectionState = { nodeIds: [], edgeIds: [] };
 
-function coverageColor(pct: number): string {
-  if (pct >= 80) return '#2e7d32';
-  if (pct >= 50) return '#f9a825';
-  return '#c62828';
-}
-
-export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedNodeId, centerOnSelect, coverageMap, coverageDiffMap, onNodeSelect, onNodeDoubleClick, isDark }: Readonly<C4GraphCanvasProps>) {
+export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedNodeId, centerOnSelect, overlayMap, claudeActivityMap, onNodeSelect, onNodeDoubleClick, onNodeContextMenu, isDark }: Readonly<C4GraphCanvasProps>) {
   const rafRef = useRef<number>(0);
   const viewportRef = useRef(viewport);
   const dispatchRef = useRef(dispatch);
@@ -47,6 +42,7 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
     canvasRef,
     getViewport: () => viewportRef.current,
     getNodes: () => nodesRef.current,
+    skipFrames: false,
     setViewport: (vp) => dispatchRef.current({ type: 'SET_VIEWPORT', viewport: vp }),
     setSelection: (sel) => {
       selectionRef.current = sel.nodeIds;
@@ -67,6 +63,10 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
         const c4Id = node.metadata?.c4Id as string | undefined;
         onNodeDoubleClick?.(c4Id ?? node.id);
       }
+    },
+    onNodeContextMenu: (node, x, y) => {
+      const c4Id = node.metadata?.c4Id as string | undefined;
+      if (c4Id) onNodeContextMenu?.(c4Id, x, y, node.type);
     },
   });
 
@@ -115,25 +115,29 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
     return e;
   });
 
-  // Coverage heatmap: replace node fill colors
+  // Metric overlay: replace node fill colors
   const styledNodes = useMemo(() => {
-    if (!coverageMap) return document.nodes;
+    if (!overlayMap) return document.nodes;
     return document.nodes.map(n => {
       const c4Id = n.metadata?.c4Id as string | undefined;
       if (!c4Id) return n;
-      const pct = coverageMap.get(c4Id);
-      const fill = pct !== undefined ? coverageColor(pct) : '#616161';
-      let suffix = pct !== undefined ? ` (${pct}%` : '';
-      if (suffix && coverageDiffMap) {
-        const d = coverageDiffMap.get(c4Id);
-        if (d !== undefined && d !== 0) {
-          suffix += d > 0 ? ` +${Math.round(d)}` : ` ${Math.round(d)}`;
-        }
-      }
-      if (suffix) suffix += ')';
-      return { ...n, style: { ...n.style, fill }, text: `${n.text}${suffix}` };
+      const fill = overlayMap.get(c4Id);
+      if (!fill) return n;
+      return { ...n, style: { ...n.style, fill } };
     });
-  }, [document.nodes, coverageMap, coverageDiffMap]);
+  }, [document.nodes, overlayMap]);
+
+  // Claude activity overlay: metric overlay とは独立した常時表示レイヤー
+  const activityStyledNodes = useMemo(() => {
+    if (!claudeActivityMap) return styledNodes;
+    return styledNodes.map(n => {
+      const c4Id = n.metadata?.c4Id as string | undefined;
+      if (!c4Id) return n;
+      const fill = claudeActivityMap.get(c4Id);
+      if (!fill) return n;
+      return { ...n, style: { ...n.style, fill } };
+    });
+  }, [styledNodes, claudeActivityMap]);
 
   // Render loop
   useEffect(() => {
@@ -155,7 +159,7 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
         ctx: ctx!,
         width: w,
         height: h,
-        nodes: styledNodes,
+        nodes: activityStyledNodes,
         edges: resolvedEdges,
         viewport: viewportRef.current,
         selection: sel.length > 0 ? { nodeIds: sel, edgeIds: [] } : EMPTY_SELECTION,
@@ -170,7 +174,7 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
     }
     rafRef.current = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [styledNodes, resolvedEdges, canvasRef, canvas]);
+  }, [activityStyledNodes, resolvedEdges, canvasRef, canvas]);
 
   const getCursor = useCallback(() => {
     const mode = canvas.getDragMode();

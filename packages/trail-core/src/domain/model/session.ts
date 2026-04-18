@@ -67,6 +67,32 @@ export interface TrailSessionCommit {
   readonly linesDeleted: number;
 }
 
+export interface ToolUsageEntry {
+  readonly tool: string;
+  readonly count: number;
+  readonly tokens: number;
+  readonly durationMs: number;
+}
+
+export interface SkillUsageEntry {
+  readonly skill: string;
+  readonly count: number;
+  readonly tokens: number;
+  readonly durationMs: number;
+}
+
+export interface ErrorEntry {
+  readonly tool: string;
+  readonly count: number;
+}
+
+export interface ModelUsageEntry {
+  readonly model: string;
+  readonly count: number;
+  readonly tokens: number;
+  readonly durationMs: number;
+}
+
 export interface ToolMetrics {
   readonly totalRetries: number;
   readonly totalEdits: number;
@@ -74,6 +100,14 @@ export interface ToolMetrics {
   readonly totalBuildFails: number;
   readonly totalTestRuns: number;
   readonly totalTestFails: number;
+  /** セッション内のツール別利用統計 */
+  readonly toolUsage?: readonly ToolUsageEntry[];
+  /** セッション内のスキル別利用統計 */
+  readonly skillUsage?: readonly SkillUsageEntry[];
+  /** セッション内のツール別エラー回数 */
+  readonly errorsByTool?: readonly ErrorEntry[];
+  /** セッション内のモデル別利用統計 */
+  readonly modelUsage?: readonly ModelUsageEntry[];
 }
 
 export interface TrailTreeNode {

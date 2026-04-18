@@ -3,6 +3,7 @@
 	"references": [
 		{ "path": "packages/graph-core" },
 		{ "path": "packages/trail-core" },
+		{ "path": "packages/trail-viewer" },
 		{ "path": "packages/markdown-core" },
 		{ "path": "packages/cms-core" },
 		{ "path": "packages/web-app" },
@@ -10,8 +11,10 @@
 		{ "path": "packages/mcp-graph" },
 		{ "path": "packages/mcp-cms" },
 		{ "path": "packages/mcp-cms-remote" },
+		{ "path": "packages/vscode-common" },
 		{ "path": "packages/vscode-markdown-extension" },
 		{ "path": "packages/vscode-graph-extension" },
-		{ "path": "packages/vscode-trail-extension" }
+		{ "path": "packages/vscode-trail-extension" },
+		{ "path": "packages/vscode-history-extension" }
 	]
 }

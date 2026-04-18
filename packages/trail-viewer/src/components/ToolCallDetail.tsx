@@ -20,7 +20,7 @@ function formatJson(value: Record<string, unknown> | string): string {
 export function ToolCallDetail({
   toolCall,
 }: Readonly<ToolCallDetailProps>) {
-  const { cardSx, codeSx, colors } = useTrailTheme();
+  const { cardSx, codeSx, colors, scrollbarSx } = useTrailTheme();
   const { t } = useTrailI18n();
   return (
     <Paper
@@ -52,6 +52,7 @@ export function ToolCallDetail({
             maxHeight: 300,
             overflow: 'auto',
             whiteSpace: 'pre-wrap',
+            ...scrollbarSx,
             wordBreak: 'break-word',
             ...codeSx,
             '&:focus-visible': { outline: `2px solid ${colors.iceBlue}` },

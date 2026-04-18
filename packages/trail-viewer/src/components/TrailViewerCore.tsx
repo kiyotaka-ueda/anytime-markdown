@@ -12,9 +12,9 @@ import type {
 } from '../parser/types';
 import type { CostOptimizationData } from '../parser/types';
 import type { AnalyticsPanelProps } from './AnalyticsPanel';
+import type { AnalyticsData } from '../parser/types';
 import { buildMessageTree } from '../parser/buildMessageTree';
 import { AnalyticsPanel } from './AnalyticsPanel';
-import type { AnalyticsData } from './AnalyticsPanel';
 import { FilterBar } from './FilterBar';
 import { PromptManager } from './PromptManager';
 import { ReleasesPanel } from './ReleasesPanel';
@@ -49,8 +49,10 @@ export interface TrailViewerCoreProps {
   readonly fetchSessionMessages?: AnalyticsPanelProps['fetchSessionMessages'];
   readonly fetchSessionCommits?: AnalyticsPanelProps['fetchSessionCommits'];
   readonly fetchSessionToolMetrics?: AnalyticsPanelProps['fetchSessionToolMetrics'];
+  readonly fetchDayToolMetrics?: AnalyticsPanelProps['fetchDayToolMetrics'];
   readonly costOptimization?: CostOptimizationData | null;
   readonly releases?: readonly TrailRelease[];
+  readonly fetchCombinedData?: AnalyticsPanelProps['fetchCombinedData'];
   /** C4 viewer props. When provided, the C4 tab is shown. */
   readonly c4?: C4Props;
 }
@@ -82,13 +84,15 @@ function TrailViewerCoreInner({
   fetchSessionMessages,
   fetchSessionCommits,
   fetchSessionToolMetrics,
+  fetchDayToolMetrics,
   costOptimization = null,
   releases = [],
+  fetchCombinedData,
   c4,
 }: Readonly<TrailViewerCoreProps>) {
   const { t } = useTrailI18n();
   const tokens = useMemo(() => getTokens(isDark ?? true), [isDark]);
-  const { colors } = tokens;
+  const { colors, scrollbarSx } = tokens;
   const [activeTab, setActiveTab] = useState(0);
 
   const visibleSessions = useMemo(() => {
@@ -180,7 +184,6 @@ function TrailViewerCoreInner({
         </Tabs>
       </Box>
 
-      {/* Tab 0: Analytics */}
       <Box
         role="tabpanel"
         id="trail-panel-0"
@@ -195,11 +198,12 @@ function TrailViewerCoreInner({
           fetchSessionMessages={fetchSessionMessages}
           fetchSessionCommits={fetchSessionCommits}
           fetchSessionToolMetrics={fetchSessionToolMetrics}
+          fetchDayToolMetrics={fetchDayToolMetrics}
           costOptimization={costOptimization}
+          fetchCombinedData={fetchCombinedData}
         />
       </Box>
 
-      {/* Tab 1: Traces */}
       <Box
         role="tabpanel"
         id="trail-panel-1"
@@ -222,6 +226,7 @@ function TrailViewerCoreInner({
               borderRight: 1,
               borderColor: colors.border,
               overflowY: 'auto',
+              ...scrollbarSx,
             }}
           >
             <SessionList
@@ -231,7 +236,7 @@ function TrailViewerCoreInner({
             />
           </Box>
 
-          <Box sx={{ flex: 1, overflow: 'auto' }}>
+          <Box sx={{ flex: 1, overflow: 'auto', ...scrollbarSx }}>
             {selectedSessionId && messages.length > 0 ? (
               <TraceTree nodes={buildMessageTree(messages)} session={selectedSession} />
             ) : (
@@ -248,7 +253,6 @@ function TrailViewerCoreInner({
         <StatsBar session={selectedSession} messages={messages} />
       </Box>
 
-      {/* Tab 2: Prompts */}
       <Box
         role="tabpanel"
         id="trail-panel-2"
@@ -258,17 +262,15 @@ function TrailViewerCoreInner({
         <PromptManager prompts={prompts} />
       </Box>
 
-      {/* Tab 3: Releases */}
       <Box
         role="tabpanel"
         id="trail-panel-3"
         aria-labelledby="trail-tab-3"
-        sx={{ display: activeTab !== 3 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'auto' }}
+        sx={{ display: activeTab !== 3 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'auto', ...scrollbarSx }}
       >
         <ReleasesPanel releases={releases ?? []} />
       </Box>
 
-      {/* Tab 4: C4 */}
       {c4 && (
         <Box
           role="tabpanel"
