@@ -1071,43 +1071,6 @@ function DailyActivityChart({
   );
 }
 
-function ModelTable({ items }: Readonly<{ items: AnalyticsData['modelBreakdown'] }>) {
-  const { colors } = useTrailTheme();
-  const { t } = useTrailI18n();
-  if (items.length === 0) return null;
-
-  return (
-    <Box>
-      <Typography variant="subtitle1" sx={{ mb: 1 }}>
-        {t('analytics.modelBreakdown')}
-      </Typography>
-      <Table size="small">
-        <TableHead>
-          <TableRow sx={{ '& .MuiTableCell-head': { color: colors.textSecondary, borderColor: colors.border } }}>
-            <TableCell>Model</TableCell>
-            <TableCell align="right">Sessions</TableCell>
-            <TableCell align="right">Input Tokens</TableCell>
-            <TableCell align="right">Output Tokens</TableCell>
-            <TableCell align="right">Est. Cost</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {items.map((m) => (
-            <TableRow key={m.model} sx={{ '& .MuiTableCell-root': { borderColor: colors.border } }}>
-              <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                {m.model}
-              </TableCell>
-              <TableCell align="right">{fmtNum(m.sessions)}</TableCell>
-              <TableCell align="right">{fmtTokens(m.inputTokens)}</TableCell>
-              <TableCell align="right">{fmtTokens(m.outputTokens)}</TableCell>
-              <TableCell align="right">{fmtUsd(m.estimatedCostUsd)}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </Box>
-  );
-}
 
 
 // ---------------------------------------------------------------------------
@@ -1584,7 +1547,6 @@ export function AnalyticsPanel({ analytics, sessions = [], onSelectSession, onJu
         costOptimization={costOptimization}
         fetchBehaviorData={fetchBehaviorData}
       />
-      <ModelTable items={analytics.modelBreakdown} />
     </Box>
   );
 }

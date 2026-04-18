@@ -96,7 +96,6 @@ export const ja: TrailI18n = {
   'analytics.testFail': 'テスト失敗',
   'analytics.metricInterrupted': '中断',
   'analytics.loadingAnalytics': '分析データを読み込み中...',
-  'analytics.modelBreakdown': 'モデル内訳',
   'analytics.turn': 'ターン',
   'analytics.chartInput': '入力',
   'analytics.chartOutput': '出力',

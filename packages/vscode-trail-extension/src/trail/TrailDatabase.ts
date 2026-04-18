@@ -173,14 +173,6 @@ export interface AnalyticsData {
     readonly totalTestFails: number;
   };
   readonly toolUsage: readonly { name: string; count: number }[];
-  readonly modelBreakdown: readonly {
-    readonly model: string;
-    readonly sessions: number;
-    readonly inputTokens: number;
-    readonly outputTokens: number;
-    readonly cacheReadTokens: number;
-    readonly estimatedCostUsd: number;
-  }[];
   readonly dailyActivity: readonly {
     readonly date: string;
     readonly sessions: number;
@@ -2487,23 +2479,6 @@ export class TrailDatabase {
       // json functions may not be available
     }
 
-    // Model breakdown from session_costs
-    const modelResult = db.exec(
-      `SELECT model, COUNT(DISTINCT session_id),
-        SUM(input_tokens), SUM(output_tokens),
-        SUM(cache_read_tokens), SUM(estimated_cost_usd)
-       FROM session_costs WHERE model != ''
-       GROUP BY model ORDER BY SUM(estimated_cost_usd) DESC`,
-    );
-    const modelBreakdown = (modelResult[0]?.values ?? []).map((r) => ({
-      model: String(r[0]),
-      sessions: Number(r[1]),
-      inputTokens: Number(r[2]),
-      outputTokens: Number(r[3]),
-      cacheReadTokens: Number(r[4]),
-      estimatedCostUsd: Number(r[5]),
-    }));
-
     // Daily activity from daily_counts (kind='cost_actual', last 90 days — frontend filters to 7/30/90)
     const tzOffset = this.getLocalTzOffset();
     const dailyResult = db.exec(
@@ -2580,7 +2555,6 @@ export class TrailDatabase {
         ...toolMetrics,
       },
       toolUsage,
-      modelBreakdown,
       dailyActivity,
     };
   }

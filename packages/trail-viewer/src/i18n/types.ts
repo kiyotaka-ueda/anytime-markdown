@@ -105,7 +105,6 @@ export interface TrailI18n {
   'analytics.testFail': string;
   'analytics.metricInterrupted': string;
   'analytics.loadingAnalytics': string;
-  'analytics.modelBreakdown': string;
   'analytics.turn': string;
   'analytics.chartInput': string;
   'analytics.chartOutput': string;

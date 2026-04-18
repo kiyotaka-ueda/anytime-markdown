@@ -96,7 +96,6 @@ export const en: TrailI18n = {
   'analytics.testFail': 'Test Fail',
   'analytics.metricInterrupted': 'Interrupted',
   'analytics.loadingAnalytics': 'Loading analytics...',
-  'analytics.modelBreakdown': 'Model Breakdown',
   'analytics.turn': 'Turn',
   'analytics.chartInput': 'Input',
   'analytics.chartOutput': 'Output',

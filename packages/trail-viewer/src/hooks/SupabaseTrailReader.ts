@@ -196,27 +196,7 @@ export class SupabaseTrailReader implements ITrailReader {
       totalTestFails: 0,
     };
 
-    // Model breakdown from session_costs
-    const modelMap = new Map<string, { sessions: Set<string>; inputTokens: number; outputTokens: number; cacheReadTokens: number; estimatedCostUsd: number }>();
-    for (const c of allCosts) {
-      const entry = modelMap.get(c.model) ?? { sessions: new Set<string>(), inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, estimatedCostUsd: 0 };
-      entry.sessions.add(c.session_id);
-      entry.inputTokens += c.input_tokens;
-      entry.outputTokens += c.output_tokens;
-      entry.cacheReadTokens += c.cache_read_tokens;
-      entry.estimatedCostUsd += c.estimated_cost_usd;
-      modelMap.set(c.model, entry);
-    }
-    const modelBreakdown = [...modelMap.entries()].map(([model, v]) => ({
-      model,
-      sessions: v.sessions.size,
-      inputTokens: v.inputTokens,
-      outputTokens: v.outputTokens,
-      cacheReadTokens: v.cacheReadTokens,
-      estimatedCostUsd: v.estimatedCostUsd,
-    }));
-
-    // Daily activity from daily_costs
+    // Daily activity from trail_daily_counts (kind='cost_actual')
     type DailyEntry = { sessions: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number; estimatedCostUsd: number };
     const dailyMap = new Map<string, DailyEntry>();
     for (const r of (dailyCostData ?? []) as readonly { date: string; input_tokens: number; output_tokens: number; cache_read_tokens: number; cache_creation_tokens: number; estimated_cost_usd: number }[]) {
@@ -232,7 +212,7 @@ export class SupabaseTrailReader implements ITrailReader {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, v]) => ({ date, ...v }));
 
-    return { totals, toolUsage: [], modelBreakdown, dailyActivity };
+    return { totals, toolUsage: [], dailyActivity };
   }
 
   async getCostOptimization(): Promise<CostOptimizationData | null> {
