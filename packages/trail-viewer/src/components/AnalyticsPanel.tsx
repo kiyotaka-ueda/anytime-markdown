@@ -374,7 +374,7 @@ function SessionCacheTimeline({
           height={200}
           margin={{ left: 0, right: 16, top: 16, bottom: 0 }}
           slotProps={{
-            legend: { direction: 'horizontal', position: { vertical: 'top', horizontal: 'end' } },
+            legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } },
           }}
         />
       ) : (
@@ -1177,7 +1177,7 @@ function DailyActivityChart({
       height={240}
       margin={{ left: 60, right: 16, top: 16, bottom: 24 }}
       slotProps={{
-        legend: { direction: 'horizontal', position: { vertical: 'top', horizontal: 'end' } },
+        legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } },
       }}
       onAxisClick={period === 90 ? undefined : handleAxisClick}
     />
@@ -1383,6 +1383,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
           }))}
           height={240}
           margin={{ left: 8, right: 8, top: 8, bottom: 60 }}
+          slotProps={{ legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } } }}
           onAxisClick={makeAxisClick(allPeriods)}
         />
       </Paper>
@@ -1407,6 +1408,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
             }))}
             height={240}
             margin={{ left: 40, right: 8, top: 8, bottom: 40 }}
+            slotProps={{ legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } } }}
             onAxisClick={makeAxisClick(allPeriods)}
           />
         )}
@@ -1432,6 +1434,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
           }))}
           height={240}
           margin={{ left: 40, right: 8, top: 8, bottom: 40 }}
+          slotProps={{ legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } } }}
           onAxisClick={makeAxisClick(allPeriods)}
         />
       </Paper>
@@ -1456,6 +1459,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
         }))}
         height={240}
         margin={{ left: 40, right: 8, top: 8, bottom: 40 }}
+        slotProps={{ legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } } }}
         onAxisClick={makeAxisClick(modelPeriods)}
       />
     </Paper>
