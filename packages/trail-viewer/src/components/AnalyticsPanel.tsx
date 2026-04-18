@@ -48,6 +48,11 @@ function fmtUsd(n: number): string {
   return `$${n.toFixed(2)}`;
 }
 
+function fmtUsdShort(n: number): string {
+  if (n >= 1_000) return `$${parseFloat((n / 1_000).toFixed(1))}K`;
+  return `$${n.toFixed(2)}`;
+}
+
 function fmtTokens(n: number): string {
   if (n >= 1_000_000_000) return `${parseFloat((n / 1_000_000_000).toFixed(1))}B`;
   if (n >= 1_000_000) return `${parseFloat((n / 1_000_000).toFixed(1))}M`;
@@ -373,7 +378,7 @@ function SessionCacheTimeline({
             },
           ]}
           height={200}
-          margin={{ left: 0, right: 16, top: 16, bottom: 0 }}
+          margin={{ left: 20, right: 16, top: 16, bottom: 0 }}
           slotProps={{
             legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } },
           }}
@@ -619,7 +624,7 @@ function SessionModelUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
           color: toolPalette[i % toolPalette.length],
         }))}
         height={70}
-        margin={{ left: 0, right: 16, top: 4, bottom: 16 }}
+        margin={{ left: 20, right: 16, top: 4, bottom: 16 }}
         slots={{ legend: () => null }}
       />
     </Paper>
@@ -674,7 +679,7 @@ function SessionToolUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetr
           color: toolPalette[i % toolPalette.length],
         }))}
         height={70}
-        margin={{ left: 0, right: 16, top: 4, bottom: 16 }}
+        margin={{ left: 20, right: 16, top: 4, bottom: 16 }}
         slots={{ legend: () => null }}
       />
     </Paper>
@@ -729,7 +734,7 @@ function SessionSkillUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
           color: toolPalette[i % toolPalette.length],
         }))}
         height={70}
-        margin={{ left: 0, right: 16, top: 4, bottom: 16 }}
+        margin={{ left: 20, right: 16, top: 4, bottom: 16 }}
         slots={{ legend: () => null }}
       />
     </Paper>
@@ -770,7 +775,7 @@ function SessionErrorChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics 
           color: toolPalette[i % toolPalette.length],
         }))}
         height={70}
-        margin={{ left: 0, right: 16, top: 4, bottom: 16 }}
+        margin={{ left: 20, right: 16, top: 4, bottom: 16 }}
         slots={{ legend: () => null }}
       />
     </Paper>
@@ -1180,7 +1185,7 @@ function DailyActivityChart({
   if (items.length === 0) return null;
 
   const isTokens = mode === 'tokens';
-  const yFormatter = isTokens ? fmtTokens : fmtUsd;
+  const yFormatter = isTokens ? fmtTokens : fmtUsdShort;
   const seriesFormatter = (v: number | null) => (v == null || v === 0 ? null : yFormatter(v));
 
   const handleAxisClick = (_event: MouseEvent, data: { dataIndex: number } | null) => {
@@ -1204,7 +1209,7 @@ function DailyActivityChart({
         { dataKey: 'skillCost', label: 'Optimized', color: chartColors.skill, valueFormatter: seriesFormatter },
       ]}
       height={240}
-      margin={{ left: 60, right: 16, top: 16, bottom: 24 }}
+      margin={{ left: 20, right: 16, top: 16, bottom: 24 }}
       slotProps={{
         legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } },
       }}
@@ -1403,6 +1408,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
         <BarChart
           dataset={toolDataset}
           xAxis={[{ scaleType: 'band', dataKey: 'period' }]}
+          yAxis={[{ valueFormatter: fmtTokens }]}
           series={tools.map((tool, i) => ({
             dataKey: `t${i}`,
             label: tool,
@@ -1411,7 +1417,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
             valueFormatter: hideZero,
           }))}
           height={240}
-          margin={{ left: 8, right: 8, top: 8, bottom: 60 }}
+          margin={{ left: 20, right: 8, top: 8, bottom: 60 }}
           slotProps={{ legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } } }}
           onAxisClick={makeAxisClick(allPeriods)}
         />
@@ -1428,6 +1434,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
           <BarChart
             dataset={errDataset}
             xAxis={[{ scaleType: 'band', dataKey: 'period' }]}
+            yAxis={[{ valueFormatter: fmtTokens }]}
             series={errTools.map((tool, i) => ({
               dataKey: `e${i}`,
               label: tool,
@@ -1436,7 +1443,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
               valueFormatter: hideZero,
             }))}
             height={240}
-            margin={{ left: 40, right: 8, top: 8, bottom: 40 }}
+            margin={{ left: 20, right: 8, top: 8, bottom: 40 }}
             slotProps={{ legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } } }}
             onAxisClick={makeAxisClick(allPeriods)}
           />
@@ -1454,6 +1461,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
         <BarChart
           dataset={skillDataset}
           xAxis={[{ scaleType: 'band', dataKey: 'period' }]}
+          yAxis={[{ valueFormatter: fmtNum }]}
           series={skills.map((skill, i) => ({
             dataKey: `s${i}`,
             label: skill,
@@ -1462,7 +1470,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
             valueFormatter: hideZero,
           }))}
           height={240}
-          margin={{ left: 40, right: 8, top: 8, bottom: 40 }}
+          margin={{ left: 20, right: 8, top: 8, bottom: 40 }}
           slotProps={{ legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } } }}
           onAxisClick={makeAxisClick(allPeriods)}
         />
@@ -1479,6 +1487,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
       <BarChart
         dataset={modelDataset}
         xAxis={[{ scaleType: 'band', dataKey: 'period' }]}
+        yAxis={[{ valueFormatter: fmtTokens }]}
         series={models.map((model, i) => ({
           dataKey: `m${i}`,
           label: model,
@@ -1487,7 +1496,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
           valueFormatter: hideZero,
         }))}
         height={240}
-        margin={{ left: 40, right: 8, top: 8, bottom: 40 }}
+        margin={{ left: 20, right: 8, top: 8, bottom: 40 }}
         slotProps={{ legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } } }}
         onAxisClick={makeAxisClick(modelPeriods)}
       />
