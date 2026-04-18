@@ -738,35 +738,26 @@ export class TrailDatabase {
     }));
   }
 
-  getAllDailyCosts(): readonly {
+  getAllDailyCounts(): readonly {
     date: string;
-    model: string;
-    cost_type: string;
+    kind: string;
+    key: string;
+    count: number;
+    tokens: number;
     input_tokens: number;
     output_tokens: number;
     cache_read_tokens: number;
     cache_creation_tokens: number;
+    duration_ms: number;
     estimated_cost_usd: number;
   }[] {
     const db = this.ensureDb();
-    // daily_counts の cost_actual / cost_skill 行を従来の daily_costs シェイプに変換して返す
-    const result = db.exec(
-      `SELECT date, SUBSTR(kind, 6) AS cost_type, key AS model,
-              input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, estimated_cost_usd
-       FROM daily_counts
-       WHERE kind IN ('cost_actual', 'cost_skill')`,
-    );
+    const result = db.exec('SELECT * FROM daily_counts ORDER BY date, kind, key');
     if (!result[0]) return [];
-    return result[0].values.map((r) => ({
-      date: r[0] as string,
-      cost_type: r[1] as string,
-      model: r[2] as string,
-      input_tokens: r[3] as number,
-      output_tokens: r[4] as number,
-      cache_read_tokens: r[5] as number,
-      cache_creation_tokens: r[6] as number,
-      estimated_cost_usd: r[7] as number,
-    }));
+    const { columns, values } = result[0];
+    return values.map(row =>
+      Object.fromEntries(columns.map((c, i) => [c, row[i]]))
+    ) as unknown as ReturnType<TrailDatabase['getAllDailyCounts']>;
   }
 
   getAllMessageToolCalls(): readonly {
