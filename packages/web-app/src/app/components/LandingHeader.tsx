@@ -48,6 +48,13 @@ export default function LandingHeader() {
         <Box component="nav" aria-label={t('ariaMainNavigation')} sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
           <Button
             component={NextLink}
+            href="/markdown"
+            sx={{ textTransform: 'none', color: 'text.secondary', fontWeight: 600, fontSize: '0.85rem', display: { xs: 'none', sm: 'inline-flex' } }}
+          >
+            {t('openEditor')}
+          </Button>
+          <Button
+            component={NextLink}
             href="/trail"
             sx={{ textTransform: 'none', color: 'text.secondary', fontWeight: 600, fontSize: '0.85rem', display: { xs: 'none', sm: 'inline-flex' } }}
           >
@@ -125,6 +132,9 @@ export default function LandingHeader() {
       >
         <Box sx={{ width: 220, pt: 2 }} component="nav" aria-label={t('ariaMobileNavigation')}>
           <List>
+            <ListItemButton component={NextLink} href="/markdown" onClick={() => setDrawerOpen(false)}>
+              <ListItemText primary={t('openEditor')} />
+            </ListItemButton>
             <ListItemButton component={NextLink} href="/trail" onClick={() => setDrawerOpen(false)}>
               <ListItemText primary={t('trailViewerPage')} />
             </ListItemButton>

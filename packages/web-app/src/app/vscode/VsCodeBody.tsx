@@ -15,7 +15,6 @@ import {
   Typography,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import NextLink from 'next/link';
 import { useTranslations } from 'next-intl';
 import { type ReactNode, useEffect, useState } from 'react';
 
@@ -228,35 +227,6 @@ export default function VsCodeBody() {
           <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'center', gap: 3, flexWrap: 'wrap' }}>
             <MarketplaceButton href={MARKDOWN_MARKETPLACE_URL} label={t('installButton')} caption={t('installCaption')} isDark={isDark} variant="contained" />
             <MarketplaceButton href={TRAIL_MARKETPLACE_URL} label={t('trailInstallButton')} caption={t('trailInstallCaption')} isDark={isDark} variant="contained" />
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-              <Button
-                component={NextLink}
-                href="/markdown"
-                variant="outlined"
-                size="large"
-                sx={{
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  fontSize: { xs: '1rem', md: '1.15rem' },
-                  borderRadius: 3,
-                  px: { xs: 4, md: 6 },
-                  py: { xs: 1.2, md: 1.8 },
-                  width: { xs: '100%', sm: 'auto' },
-                  minWidth: { sm: 240 },
-                  borderColor: ACCENT_COLOR,
-                  color: ACCENT_COLOR,
-                  '&:hover': {
-                    borderColor: '#d4920e',
-                    bgcolor: isDark ? 'rgba(232,160,18,0.08)' : 'rgba(232,160,18,0.04)',
-                  },
-                }}
-              >
-                {tLanding('openEditor')}
-              </Button>
-              <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
-                {t('editorCaption')}
-              </Typography>
-            </Box>
           </Box>
 
           <Typography
@@ -364,35 +334,6 @@ export default function VsCodeBody() {
           <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'center', gap: 3, flexWrap: 'wrap' }}>
             <MarketplaceButton href={MARKDOWN_MARKETPLACE_URL} label={t('installButton')} caption={t('installCaption')} isDark={isDark} variant="contained" />
             <MarketplaceButton href={TRAIL_MARKETPLACE_URL} label={t('trailInstallButton')} caption={t('trailInstallCaption')} isDark={isDark} variant="contained" />
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-              <Button
-                component={NextLink}
-                href="/markdown"
-                variant="outlined"
-                size="large"
-                sx={{
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  fontSize: { xs: '1rem', md: '1.15rem' },
-                  borderRadius: 3,
-                  px: { xs: 4, md: 6 },
-                  py: { xs: 1.2, md: 1.8 },
-                  width: { xs: '100%', sm: 'auto' },
-                  minWidth: { sm: 240 },
-                  borderColor: ACCENT_COLOR,
-                  color: ACCENT_COLOR,
-                  '&:hover': {
-                    borderColor: '#d4920e',
-                    bgcolor: isDark ? 'rgba(232,160,18,0.08)' : 'rgba(232,160,18,0.04)',
-                  },
-                }}
-              >
-                {tLanding('openEditor')}
-              </Button>
-              <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
-                {t('editorCaption')}
-              </Typography>
-            </Box>
           </Box>
         </Container>
       </Box>
