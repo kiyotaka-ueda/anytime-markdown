@@ -143,7 +143,7 @@ export const ja: TrailI18n = {
   'releases.noReleases': 'リリースデータがありません',
   'releases.repository': 'リポジトリ',
   'releases.unknownRepo': '(未設定)',
-  'viewer.c4': 'C4モデル',
+  'viewer.c4': 'モデル',
   'c4.releases': 'リリース',
   'c4.releaseRepository': 'リポジトリ',
   'c4.unknownRepo': '(未設定)',
