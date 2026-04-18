@@ -117,7 +117,7 @@ export class SyncService {
     // Sync releases, release files and features
     try {
       onProgress?.({ message: 'Syncing releases...' });
-      const releases = this.trailDb.getReleases();
+      const releases = this.trailDb.getReleases().filter((r) => r.repo_name === 'anytime-markdown');
       if (releases.length > 0) await this.store.upsertReleases(releases);
       for (const release of releases) {
         const files = this.trailDb.getReleaseFiles(release.tag);
