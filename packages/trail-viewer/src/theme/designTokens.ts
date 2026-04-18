@@ -1,7 +1,7 @@
 /**
  * Design tokens from Anytime Trial design system.
  * Supports dark / light mode via `getTokens(isDark)`.
- * @see /Shared/prompt/design/anytime-trial.md
+ * @see /Shared/anytime-markdown-docs/spec/12.design/design.md
  */
 
 // ---------------------------------------------------------------------------
@@ -72,12 +72,12 @@ const darkAvatarColors = {
 const lightColors: ThemeColors = {
   iceBlue: '#1976D2',
   amberGold: '#E8A012',
-  midnightNavy: '#FAFAFA',
+  midnightNavy: '#E8E6E1',
   charcoal: '#FFFFFF',
 
   textPrimary: 'rgba(0,0,0,0.87)',
   textSecondary: 'rgba(0,0,0,0.60)',
-  textDisabled: 'rgba(0,0,0,0.38)',
+  textDisabled: 'rgba(0,0,0,0.45)',
   textOnLight: 'rgba(0,0,0,0.87)',
 
   border: 'rgba(0,0,0,0.12)',
@@ -86,14 +86,14 @@ const lightColors: ThemeColors = {
   iceBlueBg: 'rgba(25,118,210,0.08)',
   iceBlueSubtle: 'rgba(25,118,210,0.12)',
 
-  success: '#66BB6A',
-  successBg: 'rgba(102,187,106,0.12)',
-  error: '#EF5350',
-  errorBg: 'rgba(239,83,80,0.12)',
-  warning: '#FFA726',
-  warningBg: 'rgba(255,167,38,0.12)',
-  info: '#42A5F5',
-  infoBg: 'rgba(66,165,245,0.12)',
+  success: '#388E3C',
+  successBg: 'rgba(56,142,60,0.12)',
+  error: '#D32F2F',
+  errorBg: 'rgba(211,47,47,0.12)',
+  warning: '#F57C00',
+  warningBg: 'rgba(245,124,0,0.12)',
+  info: '#01579B',
+  infoBg: 'rgba(1,87,155,0.12)',
 } as const;
 
 const lightChartColors: ThemeChartColors = {
@@ -201,15 +201,15 @@ export function getTokens(isDark: boolean): TrailThemeTokens {
     },
     scrollbarSx: {
       scrollbarWidth: 'thin',
-      scrollbarColor: isDark ? 'rgba(255,255,255,0.45) transparent' : 'rgba(0,0,0,0.4) transparent',
+      scrollbarColor: `${c.textDisabled} transparent`,
       '&::-webkit-scrollbar': { width: 6 },
       '&::-webkit-scrollbar-track': { background: 'transparent' },
       '&::-webkit-scrollbar-thumb': {
-        background: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.4)',
+        background: c.textDisabled,
         borderRadius: 3,
       },
       '&::-webkit-scrollbar-thumb:hover': {
-        background: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.55)',
+        background: c.textSecondary,
       },
     },
   };
