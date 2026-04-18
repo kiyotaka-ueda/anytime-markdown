@@ -41,17 +41,18 @@ interface CommitBreakdownBarProps {
 }
 
 function CommitBreakdownBar({ release }: Readonly<CommitBreakdownBarProps>): React.ReactElement {
+  const { commitColors } = useTrailTheme();
   const total = release.commitCount;
   if (total === 0) {
     return <Typography variant="caption" color="text.secondary">—</Typography>;
   }
 
   const segments: Array<{ label: string; count: number; color: string }> = [
-    { label: 'feat', count: release.featCount, color: '#4caf50' },
-    { label: 'fix', count: release.fixCount, color: '#f44336' },
-    { label: 'refactor', count: release.refactorCount, color: '#2196f3' },
-    { label: 'test', count: release.testCount, color: '#ff9800' },
-    { label: 'other', count: release.otherCount, color: '#9e9e9e' },
+    { label: 'feat', count: release.featCount, color: commitColors.feat },
+    { label: 'fix', count: release.fixCount, color: commitColors.fix },
+    { label: 'refactor', count: release.refactorCount, color: commitColors.refactor },
+    { label: 'test', count: release.testCount, color: commitColors.test },
+    { label: 'other', count: release.otherCount, color: commitColors.other },
   ];
 
   const tooltipText = segments
