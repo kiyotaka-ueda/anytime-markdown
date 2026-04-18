@@ -281,26 +281,50 @@ export default function VsCodeBody() {
                   body={t(`${key}Body`)}
                   isDark={isDark}
                 />
-                {key === 'trail3' && (
-                  <Box sx={{ mt: 4 }}>
-                    <TrailViewerEmbed containerHeight="600px" />
+                {key === 'trail4' && (
+                  <Box
+                    sx={{
+                      mt: 4,
+                      borderRadius: 3,
+                      overflow: 'hidden',
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      boxShadow: isDark
+                        ? '0 8px 40px rgba(0,0,0,0.5)'
+                        : '0 8px 40px rgba(0,0,0,0.12)',
+                    }}
+                  >
+                    {/* タイトルバー */}
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        px: 2,
+                        py: 1.2,
+                        bgcolor: 'background.paper',
+                        borderBottom: '1px solid',
+                        borderColor: 'divider',
+                      }}
+                    >
+                      {(['#FF5F57', '#FFBD2E', '#28C840'] as const).map((color) => (
+                        <Box
+                          key={color}
+                          sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: color, flexShrink: 0 }}
+                        />
+                      ))}
+                      <Typography
+                        variant="caption"
+                        sx={{ ml: 1, color: 'text.secondary', fontFamily: 'monospace' }}
+                      >
+                        anytime-trail — trail viewer
+                      </Typography>
+                    </Box>
+                    <TrailViewerEmbed containerHeight="550px" />
                   </Box>
                 )}
               </Fragment>
             ))}
-          </Box>
-
-          <Box sx={{ mt: { xs: 4, md: 6 }, textAlign: 'center' }}>
-            <Box
-              component="img"
-              src="/images/c4-mermaid.png"
-              alt={t('trail1Title')}
-              sx={{
-                maxWidth: '100%',
-                height: 'auto',
-                borderRadius: 2,
-              }}
-            />
           </Box>
         </Container>
       </Box>
