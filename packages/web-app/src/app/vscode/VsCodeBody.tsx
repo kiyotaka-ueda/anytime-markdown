@@ -6,6 +6,7 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import CodeIcon from '@mui/icons-material/Code';
 import ImageIcon from '@mui/icons-material/Image';
 import SyncIcon from '@mui/icons-material/Sync';
+import TimelineIcon from '@mui/icons-material/Timeline';
 import {
   Box,
   Button,
@@ -48,6 +49,7 @@ const MD_BENEFITS = [
 const TRAIL_BENEFITS = [
   { key: 'trail1', icon: <AccountTreeIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
   { key: 'trail2', icon: <SyncIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
+  { key: 'trail3', icon: <TimelineIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
 ] as const;
 
 function MarketplaceButton({ href, label, caption, isDark, variant }: Readonly<{ href: string; label: string; caption: string; isDark: boolean; variant: 'contained' | 'outlined' }>) {
