@@ -29,14 +29,17 @@ export interface IRemoteTrailStore {
     cache_creation_tokens: number;
     estimated_cost_usd: number;
   }[]): Promise<void>;
-  upsertDailyCosts(rows: readonly {
+  upsertDailyCounts(rows: readonly {
     date: string;
-    model: string;
-    cost_type: string;
+    kind: string;
+    key: string;
+    count: number;
+    tokens: number;
     input_tokens: number;
     output_tokens: number;
     cache_read_tokens: number;
     cache_creation_tokens: number;
+    duration_ms: number;
     estimated_cost_usd: number;
   }[]): Promise<void>;
   clearCurrentGraphs(): Promise<void>;
