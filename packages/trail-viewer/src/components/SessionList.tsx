@@ -1,10 +1,13 @@
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
+import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import { useCallback } from 'react';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import { useCallback, useState } from 'react';
 
 import { formatLocalDateTime } from '@anytime-markdown/trail-core/formatDate';
 import type { TrailSession } from '../parser/types';
@@ -35,6 +38,19 @@ export function SessionList({ sessions, selectedId, onSelect }: Readonly<Session
     [onSelect],
   );
 
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopyId = useCallback(
+    (id: string) => (e: React.MouseEvent) => {
+      e.stopPropagation();
+      void navigator.clipboard.writeText(id).then(() => {
+        setCopiedId(id);
+        setTimeout(() => setCopiedId(null), 2000);
+      });
+    },
+    [],
+  );
+
   if (sessions.length === 0) {
     return (
       <Box sx={{ p: 2 }}>
@@ -54,15 +70,37 @@ export function SessionList({ sessions, selectedId, onSelect }: Readonly<Session
           onClick={handleSelect(session.id)}
           sx={{
             alignItems: 'flex-start',
+            pr: 1,
             '&.Mui-selected': { bgcolor: colors.iceBlueBg },
             '&.Mui-selected:hover': { bgcolor: colors.iceBlueSubtle },
             '&:hover': { bgcolor: colors.hoverBg },
           }}
         >
           <ListItemText
-            primary={formatSessionLabel(session)}
+            primary={
+              <Box component="span" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography component="span" variant="body2" sx={{ fontWeight: session.id === selectedId ? 600 : 400 }}>
+                  {formatSessionLabel(session)}
+                </Typography>
+                <Tooltip title={copiedId === session.id ? t('sessionList.copied') : t('sessionList.copyId')}>
+                  <IconButton
+                    size="small"
+                    onClick={handleCopyId(session.id)}
+                    sx={{ p: 0.5, color: colors.textSecondary, '&:hover': { color: colors.iceBlue } }}
+                    aria-label={t('sessionList.copyId')}
+                  >
+                    <ContentCopyIcon sx={{ fontSize: 14 }} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            }
             secondary={
               <Box component="span" sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                {session.slug && (
+                  <Typography variant="caption" component="span" sx={{ color: colors.textSecondary, fontFamily: 'monospace' }}>
+                    {session.id.slice(0, 8)}
+                  </Typography>
+                )}
                 <Typography variant="caption" component="span" color="text.secondary">
                   {session.gitBranch} &middot; {formatSessionDate(session.startTime)}
                 </Typography>
