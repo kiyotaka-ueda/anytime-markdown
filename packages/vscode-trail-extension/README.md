@@ -9,7 +9,18 @@ Visualize Claude Code session logs to analyze your AI-assisted work history.\
 Share screenshots and visual context with Claude Code via the built-in Note panel.
 
 
-## Anytime Note — Share Screenshots with AI
+## Sidebar Panels
+
+| Panel | Description |
+| --- | --- |
+| **Note** | Multi-page agent notes — share screenshots and tables with Claude Code |
+| **Dashboard** | Entry point for the Trail Viewer web UI |
+| **Database** | SQLite and remote DB connection status and import controls |
+| **C4 Model** | C4 architecture tree (L1–L4) with test and coverage actions |
+| **Memory** | Claude Code memory files for the current project |
+
+
+## Note — Share Screenshots with AI
 
 The **Note** panel (top of the sidebar) lets you manage multi-page notes and share visual context with Claude Code.
 
@@ -29,6 +40,9 @@ The **Note** panel (top of the sidebar) lets you manage multi-page notes and sha
 | `+` | Add a new note page |
 | book | Open the `/anytime-note` skill file |
 | trash | Clear all note pages and images |
+
+> Note files are saved in this extension's VS Code global storage.\
+> The skill file is generated at `~/.claude/skills/anytime-note/SKILL.md`.
 
 
 ## C4 Architecture Diagrams & DSM
@@ -54,6 +68,7 @@ One command visualizes your entire TypeScript project structure at four levels o
 - **F-C Map**: Feature-Component matrix view (toggle inside the DSM pane)
 - **Deleted elements**: Elements removed by re-analysis are flagged as deleted and shown with strikethrough
 - **Document links**: Markdown files with `c4Scope` frontmatter are indexed and linked to C4 elements in the viewer
+- **Claude activity overlay**: Files currently being edited by Claude Code are highlighted on the C4 graph
 
 **Import / Export**
 
@@ -68,58 +83,59 @@ Opens a browser viewer at `http://localhost:19841` to analyze Claude Code sessio
 **Import**
 
 JSONL logs written by Claude Code to `~/.claude/` are imported into a local SQLite database.\
-Run the import manually from the **Dashboard** panel in the sidebar.
+Run the import manually via the inline button on the SQLite row in the **Database** panel.
 
 **Viewer features**
 
 - Session list with filtering by branch, model, and date
-- Analytics tab: cost estimation, tool usage stats, and commit statistics
+- Analytics tab: cost estimation by model and date, tool usage stats, commit statistics
 - Prompts tab: Claude Code skills and `settings.json` content
 
 **Remote sync**
 
-Sync the local SQLite data to Supabase or PostgreSQL.
+Sync the local SQLite data to Supabase or PostgreSQL for multi-developer or cloud backup use.
 
 
 ## AI Memory
 
-The **Memory** panel in the sidebar lists Claude Code memory files for the current project.\
+The **Memory** panel lists Claude Code memory files for the current project.\
 Click any entry to open and edit it in Anytime Markdown.
 
 > Reads from `~/.claude/projects/<project>/memory/`.\
 > Hidden when Claude Code is not installed.
 
-> **Note storage:** Note files are saved in this extension's VS Code global storage (separate from Anytime Markdown's storage). The skill file is generated at `~/.claude/skills/anytime-note/SKILL.md`.
-
 
 ## Coverage Integration
 
-Set `anytimeTrail.coverage.path` to point to a `coverage-final.json` file to automatically detect changes and push coverage data into the C4 viewer.
+Set `anytimeTrail.coverage.path` to point to a `coverage-final.json` file.\
+Coverage data is automatically detected on file change and pushed into the C4 viewer.
 
-- Coverage snapshots are saved per change (configurable limit via `coverage.historyLimit`)
-- Run coverage tests directly from the L4 node in the C4 tree
-
-
-## Setup
+- Coverage snapshots are stored per change (configurable limit via `coverage.historyLimit`)
+- Run coverage tests directly from the L4 node in the C4 tree via the right-click menu
 
 
-### 1. Enable the C4 data server
+## Getting Started
 
-### 2. Run analysis
+### 1. Run C4 analysis
 
-`Ctrl+Shift+P` → `Anytime Trail: Analyze C4`
+`Ctrl+Shift+P` → `C4: Analyze Code`
 
 A browser tab opens automatically showing your project's architecture.\
 Subsequent analyses update the existing tab in real time — no new tabs are opened.
 
 > To import a Mermaid C4 file instead, use `Anytime Trail: Import C4`.
 
-### 3. Open the Trail Viewer
+### 2. Open the Trail Viewer
 
-Click the Trail icon in the **Dashboard** sidebar panel, or run the `Anytime Trail: Open Trail Viewer` command.\
+Click **Open Trail Viewer** in the **Dashboard** sidebar panel, or run `Anytime Trail: Open Trail Viewer`.\
 The browser opens at `http://localhost:19841`.
 
-To import JSONL logs, click the inline button on the SQLite row in the Dashboard panel.
+To import JSONL session logs, click the inline button on the SQLite row in the **Database** panel.
+
+### 3. Claude Code hooks (auto-setup)
+
+When the extension activates, it automatically registers Claude Code hooks in `~/.claude/settings.json`.\
+This enables real-time file-editing status tracking without any manual configuration.
 
 
 ## Configuration
@@ -127,17 +143,18 @@ To import JSONL logs, click the inline button on the SQLite row in the Dashboard
 | Key | Default | Description |
 | --- | --- | --- |
 | `anytimeTrail.trailServer.port` | `19841` | Server port number |
-| `anytimeTrail.c4.modelPath` | `.vscode/c4-model.json` | Path to save the C4 model |
-| `anytimeTrail.c4.analyzeExcludePatterns` | `[".worktrees", ...]` | Directory patterns to exclude from analysis |
+| `anytimeTrail.c4.analyzeExcludePatterns` | `[".worktrees", ...]` | Directory patterns to exclude from C4 analysis |
 | `anytimeTrail.docsPath` | `""` | Absolute path to the documentation directory for C4 document links |
 | `anytimeTrail.coverage.path` | `""` | Path to `coverage-final.json` (relative to workspace root) |
 | `anytimeTrail.coverage.historyLimit` | `50` | Maximum number of coverage history snapshots to keep |
-| `anytimeTrail.test.e2eCommand` | `cd packages/web-app && npm run e2e` | Command to run E2E tests |
-| `anytimeTrail.test.coverageCommand` | `npx jest --coverage --maxWorkers=1` | Command to run tests with coverage |
+| `anytimeTrail.test.e2eCommand` | `cd packages/web-app && npm run e2e` | Command to run E2E tests (executed in terminal) |
+| `anytimeTrail.test.coverageCommand` | `npx jest --coverage --maxWorkers=1` | Command to run tests with coverage (executed in terminal) |
+| `anytimeTrail.database.storagePath` | `""` | Directory for `trail.db`. Absolute or relative to workspace root. Defaults to `.vscode/` |
+| `anytimeTrail.claudeStatus.directory` | `""` | Directory for `claude-code-status.json`. Defaults to `.vscode/` |
 | `anytimeTrail.remote.provider` | `none` | Remote DB provider (`none` / `supabase` / `postgres`) |
-| `anytimeTrail.remote.supabaseUrl` | `""` | Supabase project URL |
+| `anytimeTrail.remote.supabaseUrl` | `""` | Supabase project URL (e.g. `https://xxx.supabase.co`) |
 | `anytimeTrail.remote.supabaseAnonKey` | `""` | Supabase anon key |
-| `anytimeTrail.remote.postgresUrl` | `""` | PostgreSQL connection string |
+| `anytimeTrail.remote.postgresUrl` | `""` | PostgreSQL connection string (e.g. `postgres://user:pass@host:5432/db`) |
 
 
 ## License
