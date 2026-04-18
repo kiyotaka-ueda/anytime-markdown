@@ -9,13 +9,13 @@ import {
   DialogTitle,
   TextField,
 } from '@mui/material';
-import { generatePlaylistName } from '../../../lib/spotify';
 
 interface CreatePlaylistDialogProps {
   open: boolean;
   onClose: () => void;
   onConfirm: (name: string) => void;
   loading: boolean;
+  defaultName: string;
 }
 
 export function CreatePlaylistDialog({
@@ -23,12 +23,13 @@ export function CreatePlaylistDialog({
   onClose,
   onConfirm,
   loading,
+  defaultName,
 }: Readonly<CreatePlaylistDialogProps>) {
   const [name, setName] = useState('');
 
   useEffect(() => {
-    if (open) setName(generatePlaylistName());
-  }, [open]);
+    if (open) setName(defaultName);
+  }, [open, defaultName]);
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
