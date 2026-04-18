@@ -9,17 +9,6 @@ Visualize Claude Code session logs to analyze your AI-assisted work history.\
 Share screenshots and visual context with Claude Code via the built-in Note panel.
 
 
-## Sidebar Panels
-
-| Panel | Description |
-| --- | --- |
-| **Note** | Multi-page agent notes — share screenshots and tables with Claude Code |
-| **Dashboard** | Entry point for the Trail Viewer web UI |
-| **Database** | SQLite and remote DB connection status and import controls |
-| **C4 Model** | C4 architecture tree (L1–L4) with test and coverage actions |
-| **Memory** | Claude Code memory files for the current project |
-
-
 ## Note — Share Screenshots with AI
 
 The **Note** panel (top of the sidebar) lets you manage multi-page notes and share visual context with Claude Code.
