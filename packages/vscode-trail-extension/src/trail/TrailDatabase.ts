@@ -771,10 +771,9 @@ export class TrailDatabase {
     timestamp: string;
   }[] {
     const db = this.ensureDb();
-    const sql = cutoff
-      ? `SELECT * FROM message_tool_calls WHERE timestamp >= '${cutoff}' ORDER BY id ASC`
-      : 'SELECT * FROM message_tool_calls ORDER BY id ASC';
-    const result = db.exec(sql);
+    const result = cutoff
+      ? db.exec('SELECT * FROM message_tool_calls WHERE timestamp >= ? ORDER BY id ASC', [cutoff])
+      : db.exec('SELECT * FROM message_tool_calls ORDER BY id ASC');
     if (!result[0]) return [];
     const { columns, values } = result[0];
     return values.map(row => Object.fromEntries(columns.map((c, i) => [c, row[i]]))) as unknown as ReturnType<TrailDatabase['getAllMessageToolCalls']>;
