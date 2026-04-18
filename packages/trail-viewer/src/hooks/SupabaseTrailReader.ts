@@ -623,9 +623,13 @@ export class SupabaseTrailReader implements ITrailReader {
         const wd = String(monday.getUTCDate()).padStart(2, '0');
         return `${wy}-${wm}-${wd}`;
       };
-      const periodKey = (r: Row): string => {
-        if (period === 'session') return r.session_id;
-        return periodKeyFromTs(r.timestamp);
+      const periodKey = (r: Row): string => periodKeyFromTs(r.timestamp);
+
+      // MCP ツール名を正規化: mcp__github__xxx → mcp__github
+      const normalizeTool = (name: string): string => {
+        if (!name.startsWith('mcp__')) return name;
+        const parts = name.split('__');
+        return parts.length >= 3 ? `${parts[0]}__${parts[1]}` : name;
       };
 
       // ⑤ errorRate
@@ -656,12 +660,6 @@ export class SupabaseTrailReader implements ITrailReader {
       });
 
       // ① toolCounts: 全ツール利用回数
-      // MCP ツール名を正規化: mcp__github__xxx → mcp__github
-      const normalizeTool = (name: string): string => {
-        if (!name.startsWith('mcp__')) return name;
-        const parts = name.split('__');
-        return parts.length >= 3 ? `${parts[0]}__${parts[1]}` : name;
-      };
       // ターン内のツール呼び出し数（turn_exec_ms 按分用）
       const turnToolCount = new Map<string, number>();
       for (const r of rows) {
