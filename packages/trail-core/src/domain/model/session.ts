@@ -28,6 +28,8 @@ export interface TrailMessage {
   readonly stopReason?: string | null;
   readonly userContent?: string;
   readonly triggerCommitHashes?: readonly string[];
+  readonly agentId?: string;
+  readonly agentDescription?: string;
 }
 
 export type MessageCommitMatchConfidence = 'realtime' | 'high' | 'medium' | 'low';

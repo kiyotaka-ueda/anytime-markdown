@@ -116,6 +116,8 @@ export interface MessageRow {
   readonly is_meta: number;
   readonly cwd: string | null;
   readonly git_branch: string | null;
+  readonly agent_id?: string | null;
+  readonly agent_description?: string | null;
 }
 
 export interface SessionCommitRow {

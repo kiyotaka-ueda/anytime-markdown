@@ -561,6 +561,8 @@ export class TrailDataServer {
         timestamp: m.timestamp,
         isSidechain: m.is_sidechain === 1,
         triggerCommitHashes: commitsByMessageUuid.get(m.uuid),
+        agentId: m.agent_id,
+        agentDescription: m.agent_description,
       }));
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({ session, messages }));

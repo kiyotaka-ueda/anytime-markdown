@@ -140,4 +140,6 @@ export type {
 
 export type TrailMessage = _TrailMessage & {
   readonly triggerCommitHashes?: readonly string[];
+  readonly agentId?: string;
+  readonly agentDescription?: string;
 };
