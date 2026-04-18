@@ -777,6 +777,89 @@ function SessionErrorChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics 
   );
 }
 
+function mergeToolMetrics(metrics: readonly (ToolMetrics | null)[]): ToolMetrics | null {
+  const valid = metrics.filter((m): m is ToolMetrics => m !== null);
+  if (valid.length === 0) return null;
+
+  function mergeUsage<T extends { count: number; tokens: number; durationMs: number }>(
+    arrays: readonly (readonly T[] | undefined)[],
+    getKey: (e: T) => string,
+    makeEntry: (key: string, acc: { count: number; tokens: number; durationMs: number }) => T,
+  ): T[] {
+    const map = new Map<string, { count: number; tokens: number; durationMs: number }>();
+    for (const arr of arrays) {
+      for (const e of arr ?? []) {
+        const k = getKey(e);
+        const acc = map.get(k) ?? { count: 0, tokens: 0, durationMs: 0 };
+        acc.count += e.count;
+        acc.tokens += e.tokens;
+        acc.durationMs += e.durationMs;
+        map.set(k, acc);
+      }
+    }
+    return [...map.entries()].map(([k, acc]) => makeEntry(k, acc));
+  }
+
+  const errMap = new Map<string, number>();
+  for (const m of valid) {
+    for (const e of m.errorsByTool ?? []) {
+      errMap.set(e.tool, (errMap.get(e.tool) ?? 0) + e.count);
+    }
+  }
+
+  return {
+    totalRetries: valid.reduce((s, m) => s + m.totalRetries, 0),
+    totalEdits: valid.reduce((s, m) => s + m.totalEdits, 0),
+    totalBuildRuns: valid.reduce((s, m) => s + m.totalBuildRuns, 0),
+    totalBuildFails: valid.reduce((s, m) => s + m.totalBuildFails, 0),
+    totalTestRuns: valid.reduce((s, m) => s + m.totalTestRuns, 0),
+    totalTestFails: valid.reduce((s, m) => s + m.totalTestFails, 0),
+    toolUsage: mergeUsage(valid.map((m) => m.toolUsage), (e) => e.tool, (tool, acc) => ({ tool, ...acc })),
+    skillUsage: mergeUsage(valid.map((m) => m.skillUsage), (e) => e.skill, (skill, acc) => ({ skill, ...acc })),
+    errorsByTool: [...errMap.entries()].map(([tool, count]) => ({ tool, count })),
+    modelUsage: mergeUsage(valid.map((m) => m.modelUsage), (e) => e.model, (model, acc) => ({ model, ...acc })),
+  };
+}
+
+function buildDaySession(date: string, daySessions: readonly TrailSession[]): TrailSession {
+  if (daySessions.length === 0) {
+    return {
+      id: `day-${date}`, slug: date, project: '', gitBranch: '',
+      startTime: `${date}T00:00:00.000Z`, endTime: `${date}T23:59:59.999Z`,
+      version: '', model: '', messageCount: 0,
+      usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 },
+    };
+  }
+  const sorted = [...daySessions].sort((a, b) => a.startTime.localeCompare(b.startTime));
+  const usage = daySessions.reduce<TrailTokenUsage>((acc, s) => ({
+    inputTokens: acc.inputTokens + s.usage.inputTokens,
+    outputTokens: acc.outputTokens + s.usage.outputTokens,
+    cacheReadTokens: acc.cacheReadTokens + s.usage.cacheReadTokens,
+    cacheCreationTokens: acc.cacheCreationTokens + s.usage.cacheCreationTokens,
+  }), { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 });
+  const commitStats = daySessions.reduce<{ commits: number; linesAdded: number; linesDeleted: number; filesChanged: number } | undefined>((acc, s) => {
+    if (!s.commitStats) return acc;
+    const base = acc ?? { commits: 0, linesAdded: 0, linesDeleted: 0, filesChanged: 0 };
+    return {
+      commits: base.commits + s.commitStats.commits,
+      linesAdded: base.linesAdded + s.commitStats.linesAdded,
+      linesDeleted: base.linesDeleted + s.commitStats.linesDeleted,
+      filesChanged: base.filesChanged + s.commitStats.filesChanged,
+    };
+  }, undefined);
+  const peakContextTokens = daySessions.reduce((max, s) => Math.max(max, s.peakContextTokens ?? 0), 0);
+  return {
+    id: `day-${date}`, slug: date, project: sorted[0].project, gitBranch: '',
+    startTime: sorted[0].startTime, endTime: sorted.at(-1)!.endTime,
+    version: '', model: '',
+    messageCount: daySessions.reduce((acc, s) => acc + s.messageCount, 0),
+    peakContextTokens: peakContextTokens > 0 ? peakContextTokens : undefined,
+    usage,
+    commitStats,
+    estimatedCostUsd: daySessions.reduce((acc, s) => acc + (s.estimatedCostUsd ?? 0), 0),
+  };
+}
+
 function DailySessionList({
   date,
   sessions,
@@ -800,7 +883,21 @@ function DailySessionList({
   const [timelineMessages, setTimelineMessages] = useState<readonly TrailMessage[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [sessionToolMetrics, setSessionToolMetrics] = useState<ToolMetrics | null>(null);
+  const [dayAggToolMetrics, setDayAggToolMetrics] = useState<ToolMetrics | null>(null);
   const daySessions = sessions.filter((s) => toLocalDateKey(s.startTime) === date);
+
+  useEffect(() => {
+    if (!fetchSessionToolMetrics || daySessions.length === 0) {
+      setDayAggToolMetrics(null);
+      return;
+    }
+    let cancelled = false;
+    void Promise.all(daySessions.map((s) => fetchSessionToolMetrics(s.id))).then((results) => {
+      if (!cancelled) setDayAggToolMetrics(mergeToolMetrics(results));
+    });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, sessions, fetchSessionToolMetrics]);
 
   const handleSessionClick = (id: string) => {
     if (timelineSessionId === id) {
@@ -834,7 +931,7 @@ function DailySessionList({
       </Box>
       <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', lg: 'row' } }}>
         {/* Left: fixed height matches right column when session selected */}
-        <Box sx={{ flex: 1, minWidth: 0, overflowY: 'auto', ...scrollbarSx, ...(timelineSessionId && daySessions.find((s) => s.id === timelineSessionId) ? { height: { lg: 726 } } : { maxHeight: { lg: 726 } }) }}>
+        <Box sx={{ flex: 1, minWidth: 0, overflowY: 'auto', ...scrollbarSx, ...(daySessions.length > 0 ? { height: { lg: 726 } } : { maxHeight: { lg: 726 } }) }}>
           {daySessions.length === 0 ? (
             <Typography variant="body2" color="text.secondary">{t('sessionList.noSessionsFound')}</Typography>
           ) : (
@@ -921,35 +1018,45 @@ function DailySessionList({
           )}
         </Box>
 
-        {/* Right: cards + timeline — visible when a session is selected */}
-        {timelineSessionId && daySessions.find((s) => s.id === timelineSessionId) && (
-          <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 1, width: { lg: 600 } }}>
-            <SessionMetricsPanel
-              session={daySessions.find((s) => s.id === timelineSessionId)!}
-              toolMetrics={sessionToolMetrics}
-            />
-            <SessionModelUsageChart toolMetrics={sessionToolMetrics} />
-            <SessionSkillUsageChart toolMetrics={sessionToolMetrics} />
-            <SessionToolUsageChart toolMetrics={sessionToolMetrics} />
-            <SessionErrorChart toolMetrics={sessionToolMetrics} />
-            {timelineLoading ? (
-              <Paper elevation={0} sx={{ ...cardSx, mt: 1, p: 1.5, height: 270, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Typography variant="body2" color="text.secondary">{t('sessionList.loadingTimeline')}</Typography>
-              </Paper>
-            ) : (
-              <SessionCacheTimeline
-                messages={timelineMessages}
-              />
-            )}
-            {fetchSessionCommits && (
-              <SessionCommitList
-                sessionId={timelineSessionId}
-                usage={daySessions.find((s) => s.id === timelineSessionId)?.usage ?? { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 }}
-                fetchSessionCommits={fetchSessionCommits}
-              />
-            )}
-          </Box>
-        )}
+        {/* Right: cards + timeline — day aggregate by default, session detail when selected */}
+        {daySessions.length > 0 && (() => {
+          const selectedSession = timelineSessionId ? daySessions.find((s) => s.id === timelineSessionId) : undefined;
+          if (selectedSession) {
+            return (
+              <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 1, width: { lg: 600 } }}>
+                <SessionMetricsPanel session={selectedSession} toolMetrics={sessionToolMetrics} />
+                <SessionModelUsageChart toolMetrics={sessionToolMetrics} />
+                <SessionSkillUsageChart toolMetrics={sessionToolMetrics} />
+                <SessionToolUsageChart toolMetrics={sessionToolMetrics} />
+                <SessionErrorChart toolMetrics={sessionToolMetrics} />
+                {timelineLoading ? (
+                  <Paper elevation={0} sx={{ ...cardSx, mt: 1, p: 1.5, height: 270, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">{t('sessionList.loadingTimeline')}</Typography>
+                  </Paper>
+                ) : (
+                  <SessionCacheTimeline messages={timelineMessages} />
+                )}
+                {fetchSessionCommits && (
+                  <SessionCommitList
+                    sessionId={timelineSessionId!}
+                    usage={selectedSession.usage}
+                    fetchSessionCommits={fetchSessionCommits}
+                  />
+                )}
+              </Box>
+            );
+          }
+          return (
+            <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 1, width: { lg: 600 } }}>
+              <SessionMetricsPanel session={buildDaySession(date, daySessions)} toolMetrics={dayAggToolMetrics} />
+              <SessionModelUsageChart toolMetrics={dayAggToolMetrics} />
+              <SessionSkillUsageChart toolMetrics={dayAggToolMetrics} />
+              <SessionToolUsageChart toolMetrics={dayAggToolMetrics} />
+              <SessionErrorChart toolMetrics={dayAggToolMetrics} />
+              <SessionCacheTimeline messages={[]} />
+            </Box>
+          );
+        })()}
       </Box>
     </Paper>
   );
