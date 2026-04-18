@@ -318,18 +318,21 @@ export default function VsCodeBody() {
       {/* ---- Product 2: Anytime Markdown ---- */}
       <Box sx={{ py: { xs: 8, md: 12 }, px: { xs: 0, md: 3 } }}>
         <Container maxWidth="lg" disableGutters sx={{ px: { xs: 2, md: 3 } }}>
-          <Typography
-            variant="h4"
-            component="h2"
-            sx={{
-              fontWeight: 700,
-              textAlign: 'center',
-              mb: { xs: 6, md: 8 },
-              color: 'text.primary',
-            }}
-          >
-            {t('markdownSectionTitle')}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, mb: { xs: 6, md: 8 } }}>
+            <Box
+              component="img"
+              src="/images/camel_markdown.png"
+              alt="Anytime Markdown icon"
+              sx={{ width: 48, height: 48, borderRadius: 2 }}
+            />
+            <Typography
+              variant="h4"
+              component="h2"
+              sx={{ fontWeight: 700, color: 'text.primary' }}
+            >
+              {t('markdownSectionTitle')}
+            </Typography>
+          </Box>
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 6, md: 8 } }}>
             {MD_BENEFITS.map(({ key, icon }) => (
