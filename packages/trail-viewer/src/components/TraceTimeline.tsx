@@ -167,15 +167,20 @@ export function TraceTimeline({
   const { rangeStart, rangeEnd } = useMemo(() => {
     const sStart = session?.startTime ? Date.parse(session.startTime) : NaN;
     const sEnd = session?.endTime ? Date.parse(session.endTime) : NaN;
-    if (Number.isFinite(sStart) && Number.isFinite(sEnd) && sEnd > sStart) {
-      return { rangeStart: sStart, rangeEnd: sEnd };
-    }
-    if (timelineMessages.length === 0) {
-      return { rangeStart: 0, rangeEnd: 0 };
-    }
-    const first = Date.parse(timelineMessages[0].timestamp);
-    const last = Date.parse(timelineMessages[timelineMessages.length - 1].timestamp);
-    return { rangeStart: first, rangeEnd: Math.max(last, first + 1) };
+    const msgFirst = timelineMessages.length > 0 ? Date.parse(timelineMessages[0].timestamp) : NaN;
+    const msgLast = timelineMessages.length > 0 ? Date.parse(timelineMessages[timelineMessages.length - 1].timestamp) : NaN;
+
+    const candidates: number[] = [];
+    if (Number.isFinite(sStart)) candidates.push(sStart);
+    if (Number.isFinite(msgFirst)) candidates.push(msgFirst);
+    if (Number.isFinite(sEnd)) candidates.push(sEnd);
+    if (Number.isFinite(msgLast)) candidates.push(msgLast);
+
+    if (candidates.length === 0) return { rangeStart: 0, rangeEnd: 0 };
+
+    const start = Math.min(...candidates);
+    const end = Math.max(...candidates);
+    return { rangeStart: start, rangeEnd: end > start ? end : start + 1 };
   }, [session, timelineMessages]);
 
   const duration = Math.max(rangeEnd - rangeStart, 1);
@@ -312,7 +317,7 @@ export function TraceTimeline({
             ) : (
               timelineMessages.map((msg) => {
                 const msgMs = Date.parse(msg.timestamp);
-                const leftPct = rangeStart > 0 ? ((msgMs - rangeStart) / duration) * 100 : 0;
+                const leftPct = ((msgMs - rangeStart) / duration) * 100;
                 const { topPct, heightPct } = getLanePosition(msg);
                 const barColor = msg.laneKind === 'subagent' && msg.agentId
                   ? getAgentColor(msg.agentId)
