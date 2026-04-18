@@ -1053,7 +1053,6 @@ function DailySessionList({
               <SessionSkillUsageChart toolMetrics={dayAggToolMetrics} />
               <SessionToolUsageChart toolMetrics={dayAggToolMetrics} />
               <SessionErrorChart toolMetrics={dayAggToolMetrics} />
-              <SessionCacheTimeline messages={[]} />
             </Box>
           );
         })()}
