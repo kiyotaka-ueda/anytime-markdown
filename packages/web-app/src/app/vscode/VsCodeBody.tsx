@@ -278,18 +278,21 @@ export default function VsCodeBody() {
       {/* ---- Product 1: Anytime Trail ---- */}
       <Box sx={{ py: { xs: 8, md: 12 }, px: { xs: 0, md: 3 } }}>
         <Container maxWidth="lg" disableGutters sx={{ px: { xs: 2, md: 3 } }}>
-          <Typography
-            variant="h4"
-            component="h2"
-            sx={{
-              fontWeight: 700,
-              textAlign: 'center',
-              mb: { xs: 6, md: 8 },
-              color: 'text.primary',
-            }}
-          >
-            {t('trailSectionTitle')}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, mb: { xs: 6, md: 8 } }}>
+            <Box
+              component="img"
+              src="/images/camel_trail.png"
+              alt="Anytime Trail icon"
+              sx={{ width: 48, height: 48, borderRadius: 2 }}
+            />
+            <Typography
+              variant="h4"
+              component="h2"
+              sx={{ fontWeight: 700, color: 'text.primary' }}
+            >
+              {t('trailSectionTitle')}
+            </Typography>
+          </Box>
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 6, md: 8 } }}>
             {TRAIL_BENEFITS.map(({ key, icon }) => (
