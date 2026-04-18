@@ -41,7 +41,6 @@ const richGithubLink = (chunks: ReactNode) => (
 
 const MD_BENEFITS = [
   { key: 'md1', icon: <AutoFixHighIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
-  { key: 'md2', icon: <ImageIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
   { key: 'md3', icon: <CodeIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
 ] as const;
 
@@ -49,6 +48,7 @@ const TRAIL_BENEFITS = [
   { key: 'trail1', icon: <AccountTreeIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
   { key: 'trail2', icon: <SyncIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
   { key: 'trail3', icon: <TimelineIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
+  { key: 'trail4', icon: <ImageIcon aria-hidden="true" sx={{ fontSize: 40 }} /> },
 ] as const;
 
 function MarketplaceButton({ href, label, caption, isDark, variant }: Readonly<{ href: string; label: string; caption: string; isDark: boolean; variant: 'contained' | 'outlined' }>) {
