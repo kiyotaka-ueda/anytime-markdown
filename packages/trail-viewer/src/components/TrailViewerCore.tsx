@@ -23,6 +23,7 @@ import { ReleasesPanel } from './ReleasesPanel';
 import { SessionList } from './SessionList';
 import { StatsBar } from './StatsBar';
 import { TraceTree } from './TraceTree';
+import { TraceTimeline } from './TraceTimeline';
 import { TrailThemeProvider } from './TrailThemeContext';
 import { getTokens } from './designTokens';
 import { TrailLocaleProvider, useTrailI18n } from '../i18n';
@@ -272,9 +273,18 @@ function TrailViewerCoreInner({
             />
           </Box>
 
-          <Box sx={{ flex: 1, overflow: 'auto', ...scrollbarSx }}>
+          <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             {selectedSessionId && messages.length > 0 ? (
-              <TraceTree nodes={buildMessageTree(messages)} session={selectedSession} />
+              <>
+                <TraceTimeline
+                  nodes={buildMessageTree(messages)}
+                  session={selectedSession}
+                  onSelectMessage={() => { /* scroll handled inside component */ }}
+                />
+                <Box sx={{ flex: 1, overflow: 'auto', ...scrollbarSx }}>
+                  <TraceTree nodes={buildMessageTree(messages)} session={selectedSession} />
+                </Box>
+              </>
             ) : (
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
                 <Typography variant="body2" sx={{ color: colors.textSecondary }}>
