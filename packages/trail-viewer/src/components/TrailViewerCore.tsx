@@ -192,24 +192,16 @@ function TrailViewerCoreInner({
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', px: 2, flexShrink: 0 }}>
             {tokenBudgets.map((tb, idx) => (
               <Box key={tb.sessionId} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                {idx > 0 && <Box sx={{ width: 1, height: 24, bgcolor: colors.border, flexShrink: 0 }} />}
-                <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.65rem', minWidth: 56, fontFamily: 'monospace' }}>
-                  {tb.sessionId.slice(0, 8)}
-                </Typography>
-                <TokenBudgetIndicator
-                  label={t('tokenBudget.session')}
-                  current={tb.sessionTokens}
-                  limit={tb.sessionLimitTokens}
-                  threshold={tb.alertThresholdPct}
+                {idx > 0 && <Box sx={{ width: 1, height: 48, bgcolor: colors.border, flexShrink: 0 }} />}
+                <SessionBudgetBadge
+                  tokenBudget={tb}
+                  sessionLabel={t('tokenBudget.session')}
+                  turnsLabel={t('tokenBudget.turns')}
                   colors={colors}
                 />
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 32 }}>
-                  <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.65rem' }}>{t('tokenBudget.turns')}</Typography>
-                  <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.7rem' }}>{tb.turnCount}</Typography>
-                </Box>
               </Box>
             ))}
-            <Box sx={{ width: 1, height: 24, bgcolor: colors.border, flexShrink: 0 }} />
+            <Box sx={{ width: 1, height: 48, bgcolor: colors.border, flexShrink: 0 }} />
             <TokenBudgetIndicator
               label={t('tokenBudget.daily')}
               current={tokenBudgets[0].dailyTokens}
@@ -327,6 +319,43 @@ function TrailViewerCoreInner({
           <C4ViewerCore isDark={isDark} containerHeight="100%" {...c4} />
         </Box>
       )}
+    </Box>
+  );
+}
+
+interface SessionBudgetBadgeProps {
+  readonly tokenBudget: import('../hooks/useTrailDataSource').TokenBudgetStatus;
+  readonly sessionLabel: string;
+  readonly turnsLabel: string;
+  readonly colors: ReturnType<typeof getTokens>['colors'];
+}
+
+function SessionBudgetBadge({ tokenBudget, sessionLabel, turnsLabel, colors }: Readonly<SessionBudgetBadgeProps>) {
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.25 }}>
+      <Typography
+        variant="caption"
+        sx={{ color: colors.textSecondary, fontSize: '0.65rem', fontFamily: 'monospace', lineHeight: 1.2 }}
+      >
+        {tokenBudget.sessionId.slice(0, 8)}
+      </Typography>
+      <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+        <TokenBudgetIndicator
+          label={sessionLabel}
+          current={tokenBudget.sessionTokens}
+          limit={tokenBudget.sessionLimitTokens}
+          threshold={tokenBudget.alertThresholdPct}
+          colors={colors}
+        />
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 32 }}>
+          <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.65rem' }}>
+            {turnsLabel}
+          </Typography>
+          <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.7rem' }}>
+            {tokenBudget.turnCount}
+          </Typography>
+        </Box>
+      </Box>
     </Box>
   );
 }
