@@ -709,7 +709,7 @@
     "trail2Title": "Real-time Visualization",
     "trail2Body": "Re-analysis in VS Code is instantly reflected in the live viewer. Drill down across 4 levels (L1–L4) and spot circular dependencies highlighted in red.",
     "trail3Title": "Traceability",
-    "trail3Body": "Import Claude Code session logs into a local SQLite database. Review cost estimates by model, tool usage statistics, and commit history — every AI work session recorded as a travel diary you can revisit anytime.",
+    "trail3Body": "Accumulate Claude Code session logs in a local SQLite database to trace what each AI did, when, and how. Centrally manage costs by model, tool usage, and commit history — full traceability of every AI action.",
     "featuresTitle": "Key Features",
     "feature1Title": "WYSIWYG Editor",
     "feature1Body": "Visually edit Markdown with real-time preview",
