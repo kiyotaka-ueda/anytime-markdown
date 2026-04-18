@@ -46,22 +46,6 @@ export default function LandingHeader() {
         </Typography>
 
         <Box component="nav" aria-label={t('ariaMainNavigation')} sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
-          {showGraph && (
-            <Button
-              component={NextLink}
-              href="/graph"
-              sx={{ textTransform: 'none', color: 'text.secondary', fontWeight: 600, fontSize: '0.85rem', display: { xs: 'none', sm: 'inline-flex' } }}
-            >
-              {t('graphPage')}
-            </Button>
-          )}
-          <Button
-            component={NextLink}
-            href="/docs"
-            sx={{ textTransform: 'none', color: 'text.secondary', fontWeight: 600, fontSize: '0.85rem', display: { xs: 'none', sm: 'inline-flex' } }}
-          >
-            {t('sitesPage')}
-          </Button>
           <Button
             component={NextLink}
             href="/trail"
@@ -76,6 +60,22 @@ export default function LandingHeader() {
           >
             {t('reportPage')}
           </Button>
+          <Button
+            component={NextLink}
+            href="/docs"
+            sx={{ textTransform: 'none', color: 'text.secondary', fontWeight: 600, fontSize: '0.85rem', display: { xs: 'none', sm: 'inline-flex' } }}
+          >
+            {t('sitesPage')}
+          </Button>
+          {showGraph && (
+            <Button
+              component={NextLink}
+              href="/graph"
+              sx={{ textTransform: 'none', color: 'text.secondary', fontWeight: 600, fontSize: '0.85rem', display: { xs: 'none', sm: 'inline-flex' } }}
+            >
+              {t('graphPage')}
+            </Button>
+          )}
 
           <ToggleButtonGroup
             value={locale}
@@ -125,20 +125,20 @@ export default function LandingHeader() {
       >
         <Box sx={{ width: 220, pt: 2 }} component="nav" aria-label={t('ariaMobileNavigation')}>
           <List>
-            {showGraph && (
-              <ListItemButton component={NextLink} href="/graph" onClick={() => setDrawerOpen(false)}>
-                <ListItemText primary={t('graphPage')} />
-              </ListItemButton>
-            )}
-            <ListItemButton component={NextLink} href="/docs" onClick={() => setDrawerOpen(false)}>
-              <ListItemText primary={t('sitesPage')} />
-            </ListItemButton>
             <ListItemButton component={NextLink} href="/trail" onClick={() => setDrawerOpen(false)}>
               <ListItemText primary={t('trailViewerPage')} />
             </ListItemButton>
             <ListItemButton component={NextLink} href="/report" onClick={() => setDrawerOpen(false)}>
               <ListItemText primary={t('reportPage')} />
             </ListItemButton>
+            <ListItemButton component={NextLink} href="/docs" onClick={() => setDrawerOpen(false)}>
+              <ListItemText primary={t('sitesPage')} />
+            </ListItemButton>
+            {showGraph && (
+              <ListItemButton component={NextLink} href="/graph" onClick={() => setDrawerOpen(false)}>
+                <ListItemText primary={t('graphPage')} />
+              </ListItemButton>
+            )}
           </List>
           <Box sx={{ px: 2, pt: 1 }}>
             <ToggleButtonGroup
