@@ -842,7 +842,6 @@ function DailySessionList({
               <TableHead>
                 <TableRow sx={{ '& .MuiTableCell-head': { color: colors.textSecondary, borderColor: colors.border, bgcolor: colors.midnightNavy } }}>
                   <TableCell>{t('sessionList.timeHeader')}</TableCell>
-                  <TableCell>{t('sessionList.modelHeader')}</TableCell>
                   <TableCell align="right">{t('sessionList.tokensHeader')}</TableCell>
                   <TableCell align="right">{t('sessionList.costHeader')}</TableCell>
                   <TableCell align="right">{t('sessionList.messagesHeader')}</TableCell>
@@ -877,9 +876,6 @@ function DailySessionList({
                           />
                         </Tooltip>
                       )}
-                    </TableCell>
-                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                      {s.model}
                     </TableCell>
                     <TableCell align="right">
                       {fmtTokens(s.usage.inputTokens + s.usage.outputTokens + s.usage.cacheReadTokens + s.usage.cacheCreationTokens)}
