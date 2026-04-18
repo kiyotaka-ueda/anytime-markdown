@@ -132,7 +132,7 @@ export class SyncService {
 
     // Sync current TrailGraphs per repository (wash-away: delete all → upsert all)
     try {
-      const currents = this.trailDb.listCurrentGraphs();
+      const currents = this.trailDb.listCurrentGraphs().filter((row) => row.repoName === 'anytime-markdown');
       onProgress?.({ message: `Syncing ${currents.length} current TrailGraphs (wash-away)...` });
       await this.store.clearCurrentGraphs();
       for (const row of currents) {
