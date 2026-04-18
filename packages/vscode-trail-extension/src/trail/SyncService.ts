@@ -105,7 +105,7 @@ export class SyncService {
     try {
       onProgress?.({ message: 'Syncing message tool calls...' });
       await this.store.clearMessageToolCalls();
-      const toolCallRows = this.trailDb.getAllMessageToolCalls();
+      const toolCallRows = this.trailDb.getAllMessageToolCalls(messageCutoff);
       if (toolCallRows.length > 0) {
         await this.store.upsertMessageToolCalls(toolCallRows);
       }
