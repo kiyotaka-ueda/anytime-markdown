@@ -19,7 +19,7 @@ const PROMPT_LIST_WIDTH = 320;
 export function PromptManager({
   prompts,
 }: Readonly<PromptManagerProps>) {
-  const { colors, codeSx } = useTrailTheme();
+  const { colors, codeSx, scrollbarSx } = useTrailTheme();
   const { t } = useTrailI18n();
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
   const selected = prompts.find((p) => p.id === selectedId);
@@ -34,6 +34,7 @@ export function PromptManager({
           borderRight: 1,
           borderColor: colors.border,
           overflowY: 'auto',
+          ...scrollbarSx,
         }}
       >
         <List dense disablePadding>
@@ -74,7 +75,7 @@ export function PromptManager({
       </Box>
 
       {/* Right: Content preview */}
-      <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+      <Box sx={{ flex: 1, overflow: 'auto', p: 2, ...scrollbarSx }}>
         {selected ? (
           <Paper
             elevation={0}

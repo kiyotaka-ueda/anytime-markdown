@@ -16,6 +16,7 @@ import Typography from '@mui/material/Typography';
 import { formatLocalDate } from '@anytime-markdown/trail-core/formatDate';
 import type { TrailRelease } from '@anytime-markdown/trail-core/domain';
 import { useTrailI18n } from '../i18n';
+import { useTrailTheme } from './TrailThemeContext';
 
 const UNKNOWN_REPO_KEY = '__unknown__';
 
@@ -80,6 +81,7 @@ function CommitBreakdownBar({ release }: Readonly<CommitBreakdownBarProps>): Rea
 
 export function ReleasesPanel({ releases }: Readonly<ReleasesPanelProps>): React.ReactElement {
   const { t } = useTrailI18n();
+  const { scrollbarSx } = useTrailTheme();
 
   const repoOptions = useMemo(() => {
     const seen = new Set<string>();
@@ -142,7 +144,7 @@ export function ReleasesPanel({ releases }: Readonly<ReleasesPanelProps>): React
           </Select>
         </FormControl>
       </Box>
-      <Box sx={{ overflow: 'auto', flex: 1 }}>
+      <Box sx={{ overflow: 'auto', flex: 1, ...scrollbarSx }}>
       <Table size="small" stickyHeader>
         <TableHead>
           <TableRow>
