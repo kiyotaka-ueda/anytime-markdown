@@ -689,7 +689,7 @@
     "metaDescription": "Rich Markdown editing in Visual Studio Code. WYSIWYG, diff highlighting, image annotation, and Git integration.",
     "heroTitle1": "Code and docs,",
     "heroTitle2": "made visible.",
-    "heroDescription": "AI agents are a caravan crossing the harsh terrain of development. Two VS Code extensions to guide them safely.\nWYSIWYG Markdown editing with diff review, and real-time architecture monitoring that keeps every agent on track.",
+    "heroDescription": "AI agents are a caravan crossing the harsh terrain of development.\nTwo VS Code extensions to guide and watch over their journey — WYSIWYG Markdown editing with diff review, and real-time TypeScript architecture visualization.",
     "installButton": "Get Markdown Extension",
     "installCaption": "Visual Studio Code Marketplace",
     "trailInstallButton": "Get Trail Extension",
