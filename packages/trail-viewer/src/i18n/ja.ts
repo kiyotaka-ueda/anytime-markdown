@@ -2,7 +2,7 @@ import type { TrailI18n } from './types';
 
 export const ja: TrailI18n = {
   'viewer.analytics': '分析',
-  'viewer.traces': 'トレース',
+  'viewer.traces': 'セッション',
   'viewer.prompts': 'プロンプト',
   'viewer.loading': '読み込み中...',
   'viewer.selectSession': 'セッションを選択してください',
