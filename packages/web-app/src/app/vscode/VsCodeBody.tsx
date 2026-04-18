@@ -16,10 +16,16 @@ import {
   Typography,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
-import { type ReactNode, useEffect, useState } from 'react';
+import { Fragment, type ReactNode, useEffect, useState } from 'react';
 
 import LandingHeader from '../components/LandingHeader';
+
+const TrailViewerEmbed = dynamic(
+  () => import('../trail/components/TrailViewer').then((m) => ({ default: m.TrailViewer })),
+  { ssr: false },
+);
 import MarkdownViewer from '../components/MarkdownViewer';
 import SiteFooter from '../components/SiteFooter';
 
@@ -268,7 +274,19 @@ export default function VsCodeBody() {
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 6, md: 8 } }}>
             {TRAIL_BENEFITS.map(({ key, icon }) => (
-              <BenefitItem key={key} icon={icon} title={t(`${key}Title`)} body={t(`${key}Body`)} isDark={isDark} />
+              <Fragment key={key}>
+                <BenefitItem
+                  icon={icon}
+                  title={t(`${key}Title`)}
+                  body={t(`${key}Body`)}
+                  isDark={isDark}
+                />
+                {key === 'trail3' && (
+                  <Box sx={{ mt: 4 }}>
+                    <TrailViewerEmbed containerHeight="600px" />
+                  </Box>
+                )}
+              </Fragment>
             ))}
           </Box>
 
