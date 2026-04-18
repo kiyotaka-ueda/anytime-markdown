@@ -71,8 +71,7 @@ Opens a browser viewer at `http://localhost:19841` to analyze Claude Code sessio
 
 **Import**
 
-JSONL logs written by Claude Code to `~/.claude/` are imported into a local SQLite database.\
-Run the import manually via the inline button on the SQLite row in the **Database** panel.
+JSONL logs written by Claude Code to `~/.claude/` are imported into a local SQLite database.
 
 **Viewer features**
 
@@ -118,8 +117,6 @@ Subsequent analyses update the existing tab in real time — no new tabs are ope
 
 Click **Open Trail Viewer** in the **Dashboard** sidebar panel, or run `Anytime Trail: Open Trail Viewer`.\
 The browser opens at `http://localhost:19841`.
-
-To import JSONL session logs, click the inline button on the SQLite row in the **Database** panel.
 
 ### 3. Claude Code hooks (auto-setup)
 
