@@ -2,11 +2,11 @@
 
 import { COMMENT_PANEL_WIDTH } from '@anytime-markdown/markdown-core';
 import { Alert, Box, CircularProgress, Snackbar } from '@mui/material';
-import LandingHeader from '../components/LandingHeader';
 import dynamic from 'next/dynamic';
 import { useSession } from 'next-auth/react';
 import { useTranslations } from 'next-intl';
 
+import LandingHeader from '../components/LandingHeader';
 import { useLocaleSwitch } from '../LocaleProvider';
 import { usePreset, useThemeMode } from '../providers';
 import { useEditorPage } from './useEditorPage';

@@ -15,21 +15,21 @@ import {
   Link as MuiLink,
   Typography,
 } from '@mui/material';
-import NextLink from 'next/link';
 import { useTheme } from '@mui/material/styles';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
+import NextLink from 'next/link';
 import { useTranslations } from 'next-intl';
 import { Fragment, type ReactNode } from 'react';
 
 import LandingHeader from '../components/LandingHeader';
+import MarkdownViewer from '../components/MarkdownViewer';
+import SiteFooter from '../components/SiteFooter';
 
 const TrailViewerEmbed = dynamic(
   () => import('../trail/components/TrailViewer').then((m) => ({ default: m.TrailViewer })),
   { ssr: false },
 );
-import MarkdownViewer from '../components/MarkdownViewer';
-import SiteFooter from '../components/SiteFooter';
 
 const MARKDOWN_MARKETPLACE_URL =
   'https://marketplace.visualstudio.com/items?itemName=anytime-trial.anytime-markdown';
