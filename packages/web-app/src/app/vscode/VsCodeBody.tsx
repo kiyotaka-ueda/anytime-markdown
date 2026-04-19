@@ -176,19 +176,19 @@ export default function VsCodeBody() {
           textAlign: { xs: 'center', md: 'left' },
           px: { xs: 0, md: 3 },
           py: { xs: 10, md: 0 },
-          ...(isDark && {
-            backgroundImage: 'url(/images/camel_background_dark.png)',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-          }),
+          backgroundImage: isDark
+            ? 'url(/images/camel_background_dark.png)'
+            : 'url(/images/camel_background_light.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
           '&::before': {
             content: '""',
             position: 'absolute',
             inset: 0,
             background: isDark
               ? 'radial-gradient(ellipse 80% 60% at 50% 30%, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.65) 100%)'
-              : 'radial-gradient(ellipse 80% 60% at 50% 30%, rgba(232,160,18,0.06) 0%, transparent 70%)',
+              : 'radial-gradient(ellipse 80% 60% at 50% 30%, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.6) 100%)',
             pointerEvents: 'none',
           },
         }}
