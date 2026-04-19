@@ -330,56 +330,53 @@ interface SessionBudgetBadgeProps {
   readonly colors: ReturnType<typeof getTokens>['colors'];
 }
 
+const BADGE_COL_WIDTH = 72;
+const BADGE_COL_GAP = 8;
+const BADGE_TOTAL_WIDTH = BADGE_COL_WIDTH * 2 + BADGE_COL_GAP;
+
 function SessionBudgetBadge({ tokenBudget, sessionLabel, turnsLabel, colors }: Readonly<SessionBudgetBadgeProps>) {
   return (
-    <Box
-      sx={{
-        display: 'grid',
-        gridTemplateColumns: '72px 72px',
-        columnGap: '8px',
-        rowGap: '2px',
-        alignItems: 'start',
-      }}
-    >
+    <Box sx={{ width: BADGE_TOTAL_WIDTH }}>
       <Typography
         variant="caption"
+        component="div"
         sx={{
-          gridColumn: '1 / span 2',
-          gridRow: 1,
           textAlign: 'center',
           color: colors.textSecondary,
           fontSize: '0.65rem',
           fontFamily: 'monospace',
           lineHeight: 1.2,
+          mb: '2px',
         }}
       >
         {tokenBudget.sessionId.slice(0, 8)}
       </Typography>
-      <Box sx={{ gridColumn: 1, gridRow: 2, justifySelf: 'center' }}>
-        <TokenBudgetIndicator
-          label={sessionLabel}
-          current={tokenBudget.sessionTokens}
-          limit={tokenBudget.sessionLimitTokens}
-          threshold={tokenBudget.alertThresholdPct}
-          colors={colors}
-        />
-      </Box>
-      <Box
-        sx={{
-          gridColumn: 2,
-          gridRow: 2,
-          justifySelf: 'center',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
-      >
-        <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.65rem' }}>
-          {turnsLabel}
-        </Typography>
-        <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.7rem' }}>
-          {tokenBudget.turnCount}
-        </Typography>
+      <Box sx={{ display: 'flex' }}>
+        <Box sx={{ width: BADGE_COL_WIDTH, display: 'flex', justifyContent: 'center' }}>
+          <TokenBudgetIndicator
+            label={sessionLabel}
+            current={tokenBudget.sessionTokens}
+            limit={tokenBudget.sessionLimitTokens}
+            threshold={tokenBudget.alertThresholdPct}
+            colors={colors}
+          />
+        </Box>
+        <Box sx={{ width: BADGE_COL_GAP, flexShrink: 0 }} />
+        <Box
+          sx={{
+            width: BADGE_COL_WIDTH,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+          }}
+        >
+          <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.65rem' }}>
+            {turnsLabel}
+          </Typography>
+          <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.7rem' }}>
+            {tokenBudget.turnCount}
+          </Typography>
+        </Box>
       </Box>
     </Box>
   );
