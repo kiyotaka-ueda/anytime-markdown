@@ -32,6 +32,7 @@ import type { TrailRelease } from '@anytime-markdown/trail-core/domain';
 
 import { C4ViewerCore } from '../c4/components/C4ViewerCore';
 import type { C4ViewerCoreProps } from '../c4/components/C4ViewerCore';
+import { MetricsPanel } from './MetricsPanel';
 
 /** C4-related props forwarded to the embedded C4ViewerCore. */
 type C4Props = Omit<C4ViewerCoreProps, 'isDark' | 'containerHeight'>;
@@ -56,6 +57,7 @@ export interface TrailViewerCoreProps {
   readonly costOptimization?: CostOptimizationData | null;
   readonly releases?: readonly TrailRelease[];
   readonly fetchCombinedData?: AnalyticsPanelProps['fetchCombinedData'];
+  readonly fetchQualityMetrics?: import('./MetricsPanel').MetricsPanelProps['fetchQualityMetrics'];
   readonly tokenBudgets?: readonly import('../hooks/useTrailDataSource').TokenBudgetStatus[];
   /** C4 viewer props. When provided, the C4 tab is shown. */
   readonly c4?: C4Props;
@@ -92,6 +94,7 @@ function TrailViewerCoreInner({
   costOptimization = null,
   releases = [],
   fetchCombinedData,
+  fetchQualityMetrics,
   tokenBudgets = [],
   c4,
 }: Readonly<TrailViewerCoreProps>) {
@@ -188,7 +191,8 @@ function TrailViewerCoreInner({
           <Tab id="trail-tab-1" aria-controls="trail-panel-1" label={t('viewer.traces')} />
           <Tab id="trail-tab-2" aria-controls="trail-panel-2" label={t('viewer.prompts')} />
           <Tab id="trail-tab-3" aria-controls="trail-panel-3" label={t('releases.title')} />
-          {c4 && <Tab id="trail-tab-4" aria-controls="trail-panel-4" label={t('viewer.c4')} />}
+          <Tab id="trail-tab-4" aria-controls="trail-panel-4" label={t('metrics.title')} />
+          {c4 && <Tab id="trail-tab-5" aria-controls="trail-panel-5" label={t('viewer.c4')} />}
         </Tabs>
         {tokenBudgets.length > 0 && (
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', px: 2, flexShrink: 0 }}>
@@ -309,12 +313,21 @@ function TrailViewerCoreInner({
         <ReleasesPanel releases={releases ?? []} />
       </Box>
 
+      <Box
+        role="tabpanel"
+        id="trail-panel-4"
+        aria-labelledby="trail-tab-4"
+        sx={{ display: activeTab !== 4 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
+      >
+        <MetricsPanel fetchQualityMetrics={fetchQualityMetrics} />
+      </Box>
+
       {c4 && (
         <Box
           role="tabpanel"
-          id="trail-panel-4"
-          aria-labelledby="trail-tab-4"
-          sx={{ display: activeTab !== 4 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
+          id="trail-panel-5"
+          aria-labelledby="trail-tab-5"
+          sx={{ display: activeTab !== 5 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
         >
           <C4ViewerCore isDark={isDark} containerHeight="100%" {...c4} />
         </Box>
