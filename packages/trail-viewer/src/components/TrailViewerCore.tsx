@@ -341,6 +341,7 @@ function SessionBudgetBadge({ tokenBudget, sessionLabel, turnsLabel, colors }: R
         variant="caption"
         component="div"
         sx={{
+          width: '100%',
           textAlign: 'center',
           color: colors.textSecondary,
           fontSize: '0.65rem',
