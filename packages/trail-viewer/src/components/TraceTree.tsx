@@ -84,7 +84,6 @@ export function TraceTree({
       >
         {session && (
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 0.5, flexWrap: 'wrap' }}>
-            <Chip label={session.model || 'unknown'} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem', borderColor: colors.iceBlue, color: colors.iceBlue }} />
             <Chip label={session.gitBranch || '-'} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem', borderColor: colors.iceBlue, color: colors.iceBlue }} />
           </Box>
         )}
