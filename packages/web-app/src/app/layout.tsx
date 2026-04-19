@@ -11,7 +11,7 @@ import { Providers } from './providers';
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.anytime-trial.com'),
   title: 'Anytime Markdown',
-  description: 'Spec-Driven Development (SDD) Markdown editor with AI diff highlighting, image annotation, and image prompt support. WYSIWYG editing, Mermaid/PlantUML diagrams, Git integration. Visual Studio Code extension available.',
+  description: 'Spec-Driven Development (SDD) Markdown editor with AI diff highlighting, image annotation, and image prompt support. WYSIWYG editing, Mermaid/PlantUML diagrams, Git integration. Visual Studio Code extension available. ハーネスエンジニアリング',
   manifest: '/manifest.json',
   icons: [
     { rel: 'icon', url: '/favicon.ico', sizes: '32x32' },

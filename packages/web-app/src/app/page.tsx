@@ -5,7 +5,7 @@ import VsCodeBody from './vscode/VsCodeBody';
 export const metadata: Metadata = {
   title: 'Anytime Markdown - SDD × AI Markdown Editor',
   description:
-    'Spec-Driven Development (SDD) Markdown editor for AI collaboration. AI diff highlighting, image annotation, image prompt. Visual Studio Code extension available.',
+    'Spec-Driven Development (SDD) Markdown editor for AI collaboration. AI diff highlighting, image annotation, image prompt. Visual Studio Code extension available. ハーネスエンジニアリング',
   alternates: {
     canonical: '/',
   },
