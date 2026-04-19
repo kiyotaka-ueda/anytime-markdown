@@ -4,16 +4,13 @@ import Divider from '@mui/material/Divider';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 
-import Chip from '@mui/material/Chip';
-
-import type { TrailSession, TrailTreeNode } from '../parser/types';
+import type { TrailTreeNode } from '../parser/types';
 import { useTrailI18n } from '../i18n';
 import { useTrailTheme } from './TrailThemeContext';
 import { MessageNode } from './MessageNode';
 
 interface TraceTreeProps {
   readonly nodes: readonly TrailTreeNode[];
-  readonly session?: TrailSession;
   readonly showSystem?: boolean;
 }
 
@@ -56,7 +53,6 @@ function ConversationTurn({
 
 export function TraceTree({
   nodes,
-  session,
   showSystem: showSystemProp = false,
 }: Readonly<TraceTreeProps>) {
   const { colors, scrollbarSx } = useTrailTheme();
@@ -82,11 +78,6 @@ export function TraceTree({
           flexShrink: 0,
         }}
       >
-        {session && (
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 0.5, flexWrap: 'wrap' }}>
-            <Chip label={session.gitBranch || '-'} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem', borderColor: colors.iceBlue, color: colors.iceBlue }} />
-          </Box>
-        )}
         <FormControlLabel
           control={
             <Switch

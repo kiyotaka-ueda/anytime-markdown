@@ -275,7 +275,7 @@ function TrailViewerCoreInner({
             />
             {selectedSessionId && messages.length > 0 ? (
               <Box sx={{ flex: 1, overflow: 'auto', ...scrollbarSx }}>
-                <TraceTree nodes={buildMessageTree(messages)} session={selectedSession} />
+                <TraceTree nodes={buildMessageTree(messages)} />
               </Box>
             ) : (
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
