@@ -62,9 +62,27 @@ function getTurnColor(
   return toolColors.plain;
 }
 
-function scrollToMessage(uuid: string): void {
-  const el = document.querySelector(`[data-message-uuid="${uuid}"]`);
-  el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+function scrollToMessage(uuids: readonly string[], highlightColor: string): void {
+  let el: HTMLElement | null = null;
+  for (const uuid of uuids) {
+    el = document.querySelector(`[data-message-uuid="${uuid}"]`) as HTMLElement | null;
+    if (el) break;
+  }
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Temporary highlight so the user sees where the scroll landed
+  const prevOutline = el.style.outline;
+  const prevOutlineOffset = el.style.outlineOffset;
+  const prevTransition = el.style.transition;
+  el.style.transition = 'outline-color 0.2s ease';
+  el.style.outline = `2px solid ${highlightColor}`;
+  el.style.outlineOffset = '4px';
+  window.setTimeout(() => {
+    if (!el) return;
+    el.style.outline = prevOutline;
+    el.style.outlineOffset = prevOutlineOffset;
+    el.style.transition = prevTransition;
+  }, 1500);
 }
 
 function formatTimeLabel(ms: number, includeDate: boolean): string {
@@ -236,10 +254,11 @@ export function TraceTimeline({
   const duration = Math.max(rangeEnd - rangeStart, 1);
   const includeDate = duration > 24 * 60 * 60 * 1000;
 
-  const handleBarClick = useCallback((uuid: string) => {
-    onSelectMessage(uuid);
-    scrollToMessage(uuid);
-  }, [onSelectMessage]);
+  const handleBarClick = useCallback((uuids: readonly string[]) => {
+    const primary = uuids[0];
+    if (primary) onSelectMessage(primary);
+    scrollToMessage(uuids, colors.iceBlue);
+  }, [onSelectMessage, colors.iceBlue]);
 
   const plotLeft = LANE_LABEL_WIDTH;
   const plotRight = 36;
@@ -264,8 +283,7 @@ export function TraceTimeline({
       toolNames: readonly string[];
       startMs: number;
       endMs: number;
-      firstUuid: string;
-      userUuid?: string;
+      scrollCandidates: readonly string[];
       hasCommit: boolean;
     }> = [];
     for (let i = 0; i < turns.length; i++) {
@@ -278,6 +296,11 @@ export function TraceTimeline({
       const endMs = nextUserMs !== undefined ? Math.max(lastAiMs, nextUserMs - 1) : lastAiMs;
       const allToolNames = turn.aiMsgs.flatMap((m) => m.toolNames);
       const hasCommit = turn.aiMsgs.some((m) => m.hasCommit);
+      // Try every ai message in the turn in order, then fall back to the user
+      // message that started the turn, so scrollIntoView hits the first DOM
+      // node that actually rendered.
+      const scrollCandidates: string[] = turn.aiMsgs.map((m) => m.uuid);
+      if (turn.userMsg) scrollCandidates.push(turn.userMsg.uuid);
       bars.push({
         key: turn.aiMsgs[0].uuid,
         leftPct: toPct(startMs),
@@ -286,8 +309,7 @@ export function TraceTimeline({
         toolNames: allToolNames,
         startMs,
         endMs,
-        firstUuid: turn.aiMsgs[0].uuid,
-        userUuid: turn.userMsg?.uuid,
+        scrollCandidates,
         hasCommit,
       });
     }
@@ -462,13 +484,13 @@ export function TraceTimeline({
               .filter((m) => m.laneKind === 'user')
               .map((msg) => {
                 const leftPct = toPct(msg.ms);
-                const topPct = LANE_INDEX.user * laneHeightPct + laneHeightPct * 0.2;
-                const heightPct = laneHeightPct * 0.6;
+                const topPct = LANE_INDEX.user * laneHeightPct + laneHeightPct * 0.35;
+                const heightPct = laneHeightPct * 0.3;
                 return (
                   <Tooltip key={msg.uuid} title={`[user] ${msg.timestamp}`} placement="top">
                     <Box
                       component="button"
-                      onClick={() => handleBarClick(msg.uuid)}
+                      onClick={() => handleBarClick([msg.uuid])}
                       aria-label={`user message at ${msg.timestamp}`}
                       sx={{
                         position: 'absolute',
@@ -492,8 +514,8 @@ export function TraceTimeline({
 
             {/* AI turn bars (one per turn, spanning the turn duration) */}
             {aiTurnBars.map((bar) => {
-              const topPct = LANE_INDEX.assistant * laneHeightPct + laneHeightPct * 0.2;
-              const heightPct = laneHeightPct * 0.6;
+              const topPct = LANE_INDEX.assistant * laneHeightPct + laneHeightPct * 0.35;
+              const heightPct = laneHeightPct * 0.3;
               const toolSuffix = bar.toolNames.length > 0 ? ` · ${Array.from(new Set(bar.toolNames)).join(', ')}` : '';
               const durMs = bar.endMs - bar.startMs;
               const tooltipLabel = `[AI turn] ${formatTimeLabel(bar.startMs, includeDate)} - ${formatTimeLabel(bar.endMs, includeDate)} (${Math.round(durMs / 1000)}s)${toolSuffix}`;
@@ -501,7 +523,7 @@ export function TraceTimeline({
                 <Tooltip key={bar.key} title={tooltipLabel} placement="top">
                   <Box
                     component="button"
-                    onClick={() => handleBarClick(bar.firstUuid)}
+                    onClick={() => handleBarClick(bar.scrollCandidates)}
                     aria-label={`AI turn ${bar.startMs}`}
                     sx={{
                       position: 'absolute',
@@ -547,15 +569,15 @@ export function TraceTimeline({
                 const laneBasePct = LANE_INDEX.subagent * laneHeightPct;
                 const trackIndex = msg.agentId ? subagentIndex.get(msg.agentId) ?? 0 : 0;
                 const trackHeightPct = laneHeightPct / subTrackCount;
-                const topPct = laneBasePct + trackIndex * trackHeightPct + trackHeightPct * 0.15;
-                const heightPct = trackHeightPct * 0.7;
+                const topPct = laneBasePct + trackIndex * trackHeightPct + trackHeightPct * 0.35;
+                const heightPct = trackHeightPct * 0.3;
                 const color = msg.agentId ? getAgentColor(msg.agentId) : toolColors.plain;
                 const tooltipLabel = `[subagent] ${msg.timestamp}${msg.agentId ? ` · ${msg.agentId.slice(0, 8)}` : ''}${msg.agentDescription ? ` (${msg.agentDescription})` : ''}`;
                 return (
                   <Tooltip key={msg.uuid} title={tooltipLabel} placement="top">
                     <Box
                       component="button"
-                      onClick={() => handleBarClick(msg.uuid)}
+                      onClick={() => handleBarClick([msg.uuid])}
                       aria-label={`subagent message at ${msg.timestamp}`}
                       sx={{
                         position: 'absolute',
@@ -582,13 +604,13 @@ export function TraceTimeline({
               .filter((m) => m.laneKind === 'system')
               .map((msg) => {
                 const leftPct = toPct(msg.ms);
-                const topPct = LANE_INDEX.system * laneHeightPct + laneHeightPct * 0.2;
-                const heightPct = laneHeightPct * 0.6;
+                const topPct = LANE_INDEX.system * laneHeightPct + laneHeightPct * 0.35;
+                const heightPct = laneHeightPct * 0.3;
                 return (
                   <Tooltip key={msg.uuid} title={`[system] ${msg.timestamp}`} placement="top">
                     <Box
                       component="button"
-                      onClick={() => handleBarClick(msg.uuid)}
+                      onClick={() => handleBarClick([msg.uuid])}
                       aria-label={`system message at ${msg.timestamp}`}
                       sx={{
                         position: 'absolute',
