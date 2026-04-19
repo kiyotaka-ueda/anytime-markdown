@@ -987,14 +987,15 @@ export class TrailDataServer {
       for (const line of lines) {
         if (!line.trim()) continue;
         try {
-          const entry = JSON.parse(line) as { type?: string; message?: { usage?: { input_tokens?: number } } };
+          const entry = JSON.parse(line) as { type?: string; message?: { usage?: { input_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number } } };
           if (entry.type === 'user') {
             turnCount++;
             messageCount++;
           } else if (entry.type === 'assistant') {
             messageCount++;
-            if (entry.message?.usage?.input_tokens !== undefined) {
-              contextTokens = entry.message.usage.input_tokens;
+            const u = entry.message?.usage;
+            if (u !== undefined) {
+              contextTokens = (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0);
             }
           }
         } catch { /* skip malformed line */ }
