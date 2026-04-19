@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import dynamic from 'next/dynamic';
+import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { Fragment, type ReactNode } from 'react';
 
@@ -176,16 +177,12 @@ export default function VsCodeBody() {
           textAlign: { xs: 'center', md: 'left' },
           px: { xs: 0, md: 3 },
           py: { xs: 10, md: 0 },
-          backgroundImage: isDark
-            ? 'url(/images/camel_background_dark.png)'
-            : 'url(/images/camel_background_light.png)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
+          overflow: 'hidden',
           '&::before': {
             content: '""',
             position: 'absolute',
             inset: 0,
+            zIndex: 1,
             background: isDark
               ? 'radial-gradient(ellipse 80% 60% at 50% 30%, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.65) 100%)'
               : 'radial-gradient(ellipse 80% 60% at 50% 30%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.85) 100%)',
@@ -193,7 +190,15 @@ export default function VsCodeBody() {
           },
         }}
       >
-        <Container maxWidth="md" disableGutters sx={{ position: 'relative', zIndex: 1, px: { xs: 2, md: 3 } }}>
+        <Image
+          src={isDark ? '/images/camel_background_dark.webp' : '/images/camel_background_light.webp'}
+          alt=""
+          fill
+          priority
+          sizes="(max-width: 600px) 720px, 1536px"
+          style={{ objectFit: 'cover', objectPosition: 'center' }}
+        />
+        <Container maxWidth="md" disableGutters sx={{ position: 'relative', zIndex: 2, px: { xs: 2, md: 3 } }}>
           <Typography
             component="h1"
             sx={{
