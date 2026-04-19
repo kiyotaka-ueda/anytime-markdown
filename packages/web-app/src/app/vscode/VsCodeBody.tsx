@@ -387,7 +387,7 @@ export default function VsCodeBody() {
                       }}
                     >
                       {t('trailViewerLinkLabel')} →
-                      <Box component="span" sx={{ fontSize: '0.68rem', fontWeight: 400, color: 'text.disabled', lineHeight: 1 }}>
+                      <Box component="span" sx={{ fontSize: '0.68rem', fontWeight: 400, color: ACCENT_COLOR, opacity: 0.7, lineHeight: 1 }}>
                         {t('trailViewerLinkDescription')}
                       </Box>
                     </Button>
