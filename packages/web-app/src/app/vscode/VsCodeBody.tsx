@@ -365,7 +365,7 @@ export default function VsCodeBody() {
                     </Box>
                     <TrailViewerEmbed containerHeight="clamp(320px, 40vh, 550px)" />
                   </Box>
-                  <Box sx={{ mt: 3, display: 'flex', justifyContent: { xs: 'flex-start', sm: 'flex-end' } }}>
+                  <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
                     <Button
                       component={NextLink}
                       href="/trail"
