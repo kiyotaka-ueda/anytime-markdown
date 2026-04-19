@@ -434,7 +434,7 @@ export default function VsCodeBody() {
       </Box>
 
       {/* ---- Markdown Preview ---- */}
-      <Box sx={{ py: { xs: 8, md: 12 }, px: { xs: 2, md: 3 } }}>
+      <Box sx={{ pt: { xs: 2, md: 3 }, pb: { xs: 8, md: 12 }, px: { xs: 2, md: 3 } }}>
         <Container maxWidth="lg" disableGutters>
           <Box
             sx={{
