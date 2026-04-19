@@ -119,7 +119,7 @@ function BenefitItem({ icon, title, body, isDark }: Readonly<{ icon: ReactNode; 
       sx={{
         display: 'flex',
         flexDirection: { xs: 'column', md: 'row' },
-        alignItems: 'center',
+        alignItems: { xs: 'flex-start', md: 'center' },
         gap: { xs: 3, md: 6 },
       }}
     >
@@ -138,7 +138,7 @@ function BenefitItem({ icon, title, body, isDark }: Readonly<{ icon: ReactNode; 
       >
         {icon}
       </Box>
-      <Box sx={{ flex: 1, textAlign: { xs: 'center', md: 'left' } }}>
+      <Box sx={{ flex: 1, textAlign: 'left' }}>
         <Typography variant="h5" sx={{ fontWeight: 700, mb: 1, color: 'text.primary' }}>
           {title}
         </Typography>
@@ -193,8 +193,6 @@ export default function VsCodeBody() {
             sx={{
               m: 0,
               mb: 3,
-              pl: '1em',
-              pr: '1em',
               fontFamily: 'Georgia, "Times New Roman", serif',
               fontWeight: 700,
               fontSize: { xs: '2.2rem', md: '3.8rem' },
@@ -258,8 +256,9 @@ export default function VsCodeBody() {
               mb: { xs: 4, md: 5 },
               color: 'text.primary',
               textAlign: 'center',
-              fontSize: { xs: '1.6rem', md: '2.125rem' },
-              lineHeight: 1.3,
+              fontSize: { xs: '1.75rem', md: '2.5rem' },
+              lineHeight: 1.2,
+              letterSpacing: '-0.02em',
             }}
           >
             {t('whyCamelTitle')}
@@ -291,7 +290,13 @@ export default function VsCodeBody() {
             <Typography
               variant="h4"
               component="h2"
-              sx={{ fontWeight: 700, color: 'text.primary' }}
+              sx={{
+                fontWeight: 700,
+                color: 'text.primary',
+                fontSize: { xs: '1.75rem', md: '2.5rem' },
+                lineHeight: 1.2,
+                letterSpacing: '-0.02em',
+              }}
             >
               {t('trailSectionTitle')}
             </Typography>
@@ -345,7 +350,7 @@ export default function VsCodeBody() {
                         anytime-trail — trail viewer
                       </Typography>
                     </Box>
-                    <TrailViewerEmbed containerHeight="550px" />
+                    <TrailViewerEmbed containerHeight="clamp(320px, 40vh, 550px)" />
                   </Box>
                 )}
               </Fragment>
@@ -367,7 +372,13 @@ export default function VsCodeBody() {
             <Typography
               variant="h4"
               component="h2"
-              sx={{ fontWeight: 700, color: 'text.primary' }}
+              sx={{
+                fontWeight: 700,
+                color: 'text.primary',
+                fontSize: { xs: '1.75rem', md: '2.5rem' },
+                lineHeight: 1.2,
+                letterSpacing: '-0.02em',
+              }}
             >
               {t('markdownSectionTitle')}
             </Typography>
@@ -382,7 +393,7 @@ export default function VsCodeBody() {
       </Box>
 
       {/* ---- Markdown Preview ---- */}
-      <Box sx={{ py: { xs: 4, md: 6 }, px: { xs: 2, md: 3 } }}>
+      <Box sx={{ py: { xs: 8, md: 12 }, px: { xs: 2, md: 3 } }}>
         <Container maxWidth="lg" disableGutters>
           <Box
             sx={{
