@@ -291,7 +291,7 @@ export default function VsCodeBody() {
 
       {/* ---- Product 1: Anytime Trail ---- */}
       <Box sx={{ py: { xs: 8, md: 12 }, px: { xs: 0, md: 3 } }}>
-        <Container maxWidth="lg" disableGutters sx={{ px: { xs: 2, md: 3 } }}>
+        <Container maxWidth="md" disableGutters sx={{ px: { xs: 2, md: 3 } }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, mb: { xs: 6, md: 8 } }}>
             <Box
               component="img"
@@ -402,7 +402,7 @@ export default function VsCodeBody() {
 
       {/* ---- Product 2: Anytime Markdown ---- */}
       <Box sx={{ py: { xs: 8, md: 12 }, px: { xs: 0, md: 3 } }}>
-        <Container maxWidth="lg" disableGutters sx={{ px: { xs: 2, md: 3 } }}>
+        <Container maxWidth="md" disableGutters sx={{ px: { xs: 2, md: 3 } }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, mb: { xs: 6, md: 8 } }}>
             <Box
               component="img"
@@ -435,7 +435,7 @@ export default function VsCodeBody() {
 
       {/* ---- Markdown Preview ---- */}
       <Box sx={{ pt: { xs: 2, md: 3 }, pb: { xs: 8, md: 12 }, px: { xs: 2, md: 3 } }}>
-        <Container maxWidth="lg" disableGutters>
+        <Container maxWidth="md" disableGutters>
           <Box
             sx={{
               borderRadius: 3,
