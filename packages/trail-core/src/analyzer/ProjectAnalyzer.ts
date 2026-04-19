@@ -61,6 +61,8 @@ export class ProjectAnalyzer {
     }
 
     // このtsconfig自体のファイルを解析
+    // include パターンに *.ts のみ指定されている場合、.tsx/.mts も自動追加する
+    this.normalizeIncludePatterns(rawConfig);
     const parsed = ts.parseJsonConfigFileContent(
       rawConfig,
       ts.sys,
@@ -75,6 +77,20 @@ export class ProjectAnalyzer {
     if (visited.size === 1 || Object.keys(outOptions).length === 0) {
       Object.assign(outOptions, parsed.options);
     }
+  }
+
+  private normalizeIncludePatterns(rawConfig: Record<string, unknown>): void {
+    const include = rawConfig['include'];
+    if (!Array.isArray(include)) return;
+
+    const extended: string[] = [];
+    for (const pattern of include) {
+      extended.push(pattern);
+      if (typeof pattern === 'string' && /\*\.m?ts$/.test(pattern)) {
+        extended.push(`${pattern}x`);
+      }
+    }
+    rawConfig['include'] = [...new Set(extended)];
   }
 
   getProgram(): ts.Program {
