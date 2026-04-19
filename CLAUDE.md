@@ -1,6 +1,6 @@
 # anytime-markdown プロジェクト固有ルール
 
-更新日: 2026-04-18
+更新日: 2026-04-20
 
 `~/.claude/CLAUDE.md` のグローバル規約に加え、本リポジトリ固有の運用ルールをここに記載する。
 
@@ -35,6 +35,54 @@ UI / 画面コンポーネントの実装・修正時は、以下の仕様書を
 ### 指示の受け取り方
 
 - 「X に機能を追加して」という指示を受けた際、その X が複数パッケージに存在する可能性がある場合は、実装前に「どのパッケージに追加するか」「共通化されているか」を確認する。指示をそのまま片側へのみ適用しない。
+
+## C4 コード解析（trail-core）
+
+### ProjectAnalyzer のファイルスコープ
+
+`ProjectAnalyzer` は `tsconfig.json` の `include`/`exclude` を C4 解析スコープとして使用する。\
+`tsc` のような import 追跡ではなく、`parseJsonConfigFileContent()` が返すファイル一覧を起点とするため、**import チェーンに乗らないファイル（webpack エントリーポイント等）は `include` に含まれなければ解析されない**。
+
+### C2 エッジが生成されない場合の確認手順
+
+C2（コンテナ間）のエッジが C4 ビューに表示されない場合、以下の順に確認する。
+
+1. **ファイルが解析対象か確認する**
+
+   ```bash
+   sqlite3 ~/.claude/trail/trail.db \
+     "SELECT graph_json FROM current_graphs WHERE repo_name='<repo>';" \
+     | node -e "
+       const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+       console.log(d.nodes.filter(n => n.id.includes('<package>')).length);
+     "
+   ```
+
+   ノード数がゼロなら、そのパッケージのファイルが解析されていない。
+
+2. **tsconfig の `include` を確認する**
+
+   `include: ["src/**/*.ts"]` のように拡張子を明示したパターンは `.tsx` を取りこぼす。\
+   `ProjectAnalyzer` は `*.ts` パターンを自動的に `*.tsx` へ拡張するが、`exclude` で除外されている場合はその限りでない。
+
+3. **webpack エントリーポイントかどうか確認する**
+
+   TypeScript の import チェーンに乗らずに webpack から直接参照されるファイルは、`include` に明示されなければ解析対象にならない。\
+   この場合は対象パッケージの `tsconfig.json` の `include` を `src/**/*` に修正する。
+
+### tsconfig.json の `include` 記述方針
+
+解析対象パッケージの `tsconfig.json` は `include: ["src/**/*"]` を標準とする。\
+拡張子を絞る場合（例: `*.ts` のみ）は C4 解析から除外される `.tsx` ファイルが生じないか確認する。
+
+- **OK**: `["src/**/*"]` — `.ts`・`.tsx` を含む全ソースファイルが対象
+- **要注意**: `["src/**/*.ts"]` — `.tsx` が除外される（`ProjectAnalyzer` が自動補完するが、意図的な除外と区別できない）
+
+### L2（コンテナ間）エッジの生成メカニズム
+
+`trailToC4()` が L3 の file-to-file エッジをパッケージ名で集約し、L2 エッジを自動生成する。\
+L2 エッジが欠落している場合、原因は必ず L3 エッジの欠落（＝ファイルが解析対象外）にある。\
+**L2 エッジを直接操作・手動追加しない**。L3 が正しく解析されれば L2 は自動導出される。
 
 ## Supabase
 
