@@ -15,6 +15,7 @@ import {
   Link as MuiLink,
   Typography,
 } from '@mui/material';
+import NextLink from 'next/link';
 import { useTheme } from '@mui/material/styles';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
@@ -323,6 +324,7 @@ export default function VsCodeBody() {
                   isDark={isDark}
                 />
                 {key === 'trail4' && (
+                  <>
                   <Box
                     sx={{
                       mt: 4,
@@ -363,6 +365,33 @@ export default function VsCodeBody() {
                     </Box>
                     <TrailViewerEmbed containerHeight="clamp(320px, 40vh, 550px)" />
                   </Box>
+                  <Box sx={{ mt: 3, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'flex-start', sm: 'center' }, gap: 3 }}>
+                    <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.7, flex: 1 }}>
+                      {t('trailViewerLinkDescription')}
+                    </Typography>
+                    <Button
+                      component={NextLink}
+                      href="/trail"
+                      variant="outlined"
+                      size="medium"
+                      sx={{
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        borderRadius: 2,
+                        borderColor: ACCENT_COLOR,
+                        color: ACCENT_COLOR,
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                        '&:hover': {
+                          borderColor: '#d4920e',
+                          bgcolor: isDark ? 'rgba(232,160,18,0.08)' : 'rgba(232,160,18,0.04)',
+                        },
+                      }}
+                    >
+                      {t('trailViewerLinkLabel')} →
+                    </Button>
+                  </Box>
+                  </>
                 )}
               </Fragment>
             ))}
