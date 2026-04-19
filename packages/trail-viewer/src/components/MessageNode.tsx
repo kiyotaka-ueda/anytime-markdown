@@ -80,7 +80,7 @@ export function MessageNode({
 
   if (isSystem) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 0.5 }}>
+      <Box data-message-uuid={message.uuid} sx={{ display: 'flex', justifyContent: 'center', py: 0.5 }}>
         <Typography
           variant="caption"
           sx={{

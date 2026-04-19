@@ -62,15 +62,16 @@ function getTurnColor(
   return toolColors.plain;
 }
 
-function scrollToMessage(uuids: readonly string[], highlightColor: string): void {
-  let el: HTMLElement | null = null;
+function findMessageEl(uuids: readonly string[]): HTMLElement | null {
   for (const uuid of uuids) {
-    el = document.querySelector(`[data-message-uuid="${uuid}"]`) as HTMLElement | null;
-    if (el) break;
+    const el = document.querySelector(`[data-message-uuid="${uuid}"]`) as HTMLElement | null;
+    if (el) return el;
   }
-  if (!el) return;
+  return null;
+}
+
+function applyScrollHighlight(el: HTMLElement, highlightColor: string): void {
   el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  // Temporary highlight so the user sees where the scroll landed
   const prevOutline = el.style.outline;
   const prevOutlineOffset = el.style.outlineOffset;
   const prevTransition = el.style.transition;
@@ -78,11 +79,25 @@ function scrollToMessage(uuids: readonly string[], highlightColor: string): void
   el.style.outline = `2px solid ${highlightColor}`;
   el.style.outlineOffset = '4px';
   window.setTimeout(() => {
-    if (!el) return;
     el.style.outline = prevOutline;
     el.style.outlineOffset = prevOutlineOffset;
     el.style.transition = prevTransition;
   }, 1500);
+}
+
+function scrollToMessage(uuids: readonly string[], highlightColor: string): void {
+  const el = findMessageEl(uuids);
+  if (el) {
+    applyScrollHighlight(el, highlightColor);
+    return;
+  }
+  // Target not in DOM. Could be a hidden system message — ask TraceTree to
+  // enable showSystem and retry after React has rendered the new state.
+  window.dispatchEvent(new CustomEvent('trail:show-system'));
+  window.setTimeout(() => {
+    const retried = findMessageEl(uuids);
+    if (retried) applyScrollHighlight(retried, highlightColor);
+  }, 80);
 }
 
 function formatTimeLabel(ms: number, includeDate: boolean): string {

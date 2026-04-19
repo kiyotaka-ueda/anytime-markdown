@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Box from '@mui/material/Box';
 import Divider from '@mui/material/Divider';
 import FormControlLabel from '@mui/material/FormControlLabel';
@@ -63,6 +63,14 @@ export function TraceTree({
   const { colors, scrollbarSx } = useTrailTheme();
   const { t } = useTrailI18n();
   const [showSystem, setShowSystem] = useState(showSystemProp);
+
+  // Allow outside components (e.g. TraceTimeline) to request that system
+  // messages be made visible, so that scrollToMessage can land on them.
+  useEffect(() => {
+    const handler = (): void => setShowSystem(true);
+    window.addEventListener('trail:show-system', handler);
+    return () => window.removeEventListener('trail:show-system', handler);
+  }, []);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
