@@ -1,11 +1,23 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { AnalyticsData, CombinedData, CombinedPeriodMode, CombinedRangeDays, CostOptimizationData, ToolMetrics, TrailFilter, TrailMessage, TrailPromptEntry, TrailSession, TrailSessionCommit } from '../parser/types';
 import type { TrailRelease } from '@anytime-markdown/trail-core/domain';
+import type { DateRange, QualityMetrics } from '@anytime-markdown/trail-core/domain/metrics';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+export interface TokenBudgetStatus {
+  readonly sessionId: string;
+  readonly sessionTokens: number;
+  readonly dailyTokens: number;
+  readonly dailyLimitTokens: number | null;
+  readonly sessionLimitTokens: number | null;
+  readonly alertThresholdPct: number;
+  readonly turnCount: number;
+  readonly messageCount: number;
+}
 
 export interface TrailDataSourceResult {
   readonly sessions: readonly TrailSession[];
@@ -27,6 +39,8 @@ export interface TrailDataSourceResult {
   readonly releases: readonly TrailRelease[];
   readonly fetchReleases: () => Promise<readonly TrailRelease[]>;
   readonly fetchCombinedData: (period: CombinedPeriodMode, rangeDays: CombinedRangeDays) => Promise<CombinedData>;
+  readonly fetchQualityMetrics: (range: DateRange) => Promise<QualityMetrics | null>;
+  readonly tokenBudgets: readonly TokenBudgetStatus[];
 }
 
 interface WsMessage {
@@ -73,6 +87,7 @@ export function useTrailDataSource(serverUrl: string): TrailDataSourceResult {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [costOptimization, setCostOptimization] = useState<CostOptimizationData | null>(null);
   const [releases, setReleases] = useState<readonly TrailRelease[]>([]);
+  const [tokenBudgetMap, setTokenBudgetMap] = useState<ReadonlyMap<string, TokenBudgetStatus>>(new Map());
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -261,6 +276,27 @@ export function useTrailDataSource(serverUrl: string): TrailDataSourceResult {
     [baseUrl],
   );
 
+  // --- Fetch quality metrics ---
+
+  const fetchQualityMetrics = useCallback(
+    async (range: DateRange): Promise<QualityMetrics | null> => {
+      const url = `${baseUrl}/api/trail/quality-metrics?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) {
+          const body = await res.text().catch(() => '');
+          console.error(`[fetchQualityMetrics] HTTP ${res.status}: ${body}`);
+          return null;
+        }
+        return (await res.json()) as QualityMetrics;
+      } catch (err) {
+        console.error('[fetchQualityMetrics] request failed', err);
+        return null;
+      }
+    },
+    [baseUrl],
+  );
+
   // --- Search sessions ---
 
   const searchSessions = useCallback(
@@ -339,6 +375,14 @@ export function useTrailDataSource(serverUrl: string): TrailDataSourceResult {
             void fetchSessions(undefined, true);
             void refreshAnalytics();
           }
+          if (isWsMessage(parsed) && parsed.type === 'token-budget-updated') {
+            const status = parsed as unknown as TokenBudgetStatus;
+            setTokenBudgetMap(prev => {
+              const next = new Map(prev);
+              next.set(status.sessionId, status);
+              return next;
+            });
+          }
         } catch {
           // Malformed message — ignore
         }
@@ -376,6 +420,8 @@ export function useTrailDataSource(serverUrl: string): TrailDataSourceResult {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverUrl]);
 
+  const tokenBudgets = useMemo(() => Array.from(tokenBudgetMap.values()), [tokenBudgetMap]);
+
   return {
     sessions,
     allSessions,
@@ -396,5 +442,7 @@ export function useTrailDataSource(serverUrl: string): TrailDataSourceResult {
     releases,
     fetchReleases,
     fetchCombinedData,
+    fetchQualityMetrics,
+    tokenBudgets,
   };
 }

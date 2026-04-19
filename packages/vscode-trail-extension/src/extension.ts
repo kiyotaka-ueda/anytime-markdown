@@ -55,10 +55,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Claude Code hook を ~/.claude/settings.json に自動登録
 	const claudeStatusDirSetting = vscode.workspace.getConfiguration('anytimeTrail.claudeStatus').get<string>('directory', '') || '.vscode';
+	const trailPortForHooks = vscode.workspace.getConfiguration('anytimeTrail.trailServer').get<number>('port', 19841);
 	{
 		const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 		if (wsRoot) {
-			const registered = setupClaudeHooks(wsRoot, claudeStatusDirSetting);
+			const registered = setupClaudeHooks(wsRoot, claudeStatusDirSetting, trailPortForHooks);
 			TrailLogger.info(`Claude hooks setup: ${registered ? 'registered' : 'skipped (already registered or .claude not found)'}`);
 		}
 	}
@@ -403,6 +404,30 @@ export async function activate(context: vscode.ExtensionContext) {
 			TrailLogger.info(`Trail Data Server: starting on port ${trailPort}...`);
 			await trailDataServer!.start(trailPort);
 			TrailLogger.info(`Trail Data Server started on port ${trailPort}`);
+
+			// トークン予算設定を反映
+			const budgetConfig = vscode.workspace.getConfiguration('anytimeTrail.budget');
+			trailDataServer!.setTokenBudgetConfig({
+				dailyLimitTokens: budgetConfig.get<number | null>('dailyLimitTokens', null),
+				sessionLimitTokens: budgetConfig.get<number | null>('sessionLimitTokens', null),
+				alertThresholdPct: budgetConfig.get<number>('alertThresholdPct', 80),
+			});
+
+			// 閾値超過時の VS Code 通知
+			trailDataServer!.onTokenBudgetExceeded = (status) => {
+				const sessionLabel = status.sessionId.slice(0, 8);
+				const messages: string[] = [];
+				if (status.dailyLimitTokens !== null && status.dailyTokens >= status.dailyLimitTokens * status.alertThresholdPct / 100) {
+					messages.push(`[${sessionLabel}] 本日のトークン使用量が上限の ${status.alertThresholdPct}% を超えました（${status.dailyTokens.toLocaleString()} / ${status.dailyLimitTokens.toLocaleString()}）`);
+				}
+				if (status.sessionLimitTokens !== null && status.sessionTokens >= status.sessionLimitTokens * status.alertThresholdPct / 100) {
+					messages.push(`[${sessionLabel}] 現セッションのトークン使用量が上限の ${status.alertThresholdPct}% を超えました（${status.sessionTokens.toLocaleString()} / ${status.sessionLimitTokens.toLocaleString()}）`);
+				}
+				for (const msg of messages) {
+					void vscode.window.showWarningMessage(msg);
+					TrailLogger.warn(msg);
+				}
+			};
 		} catch (err) {
 			TrailLogger.error('Trail Data Server failed to start', err);
 		}
@@ -582,6 +607,14 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.workspace.onDidChangeConfiguration((e) => {
 			if (e.affectsConfiguration('anytimeTrail.docsPath')) {
 				applyDocsPathConfig();
+			}
+			if (e.affectsConfiguration('anytimeTrail.budget') && trailDataServer) {
+				const budgetConfig = vscode.workspace.getConfiguration('anytimeTrail.budget');
+				trailDataServer.setTokenBudgetConfig({
+					dailyLimitTokens: budgetConfig.get<number | null>('dailyLimitTokens', null),
+					sessionLimitTokens: budgetConfig.get<number | null>('sessionLimitTokens', null),
+					alertThresholdPct: budgetConfig.get<number>('alertThresholdPct', 80),
+				});
 			}
 		}),
 	);

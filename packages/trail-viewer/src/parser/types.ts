@@ -31,6 +31,7 @@ export interface RawContentBlock {
   readonly name?: string;
   readonly input?: Record<string, unknown>;
   readonly content?: string | readonly RawContentBlock[];
+  readonly is_error?: boolean;
 }
 
 export interface RawUsage {
@@ -120,11 +121,12 @@ export type CombinedRangeDays = 30 | 90;
 
 // --- Domain types (re-exported from trail-core) ---
 
+import type { TrailMessage as _TrailMessage } from '@anytime-markdown/trail-core/domain';
+
 /** @deprecated Import from '@anytime-markdown/trail-core/domain' directly */
 export type {
   TrailTokenUsage,
   TrailToolCall,
-  TrailMessage,
   TrailSession,
   TrailSessionCommit,
   ToolMetrics,
@@ -135,3 +137,9 @@ export type {
   TrailPromptEntry,
   TrailEvaluation,
 } from '@anytime-markdown/trail-core/domain';
+
+export type TrailMessage = _TrailMessage & {
+  readonly triggerCommitHashes?: readonly string[];
+  readonly agentId?: string;
+  readonly agentDescription?: string;
+};

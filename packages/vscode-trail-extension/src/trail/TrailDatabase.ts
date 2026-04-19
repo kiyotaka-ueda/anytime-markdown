@@ -24,13 +24,16 @@ import {
   CREATE_RELEASE_INDEXES,
   CREATE_MESSAGE_TOOL_CALLS,
   CREATE_MESSAGE_TOOL_CALLS_INDEXES,
+  CREATE_MESSAGE_COMMITS,
   DEFAULT_SKILL_MODELS,
   extractSkillName,
   buildReleaseFromGitData,
   analyze,
   trailToC4,
 } from '@anytime-markdown/trail-core';
-import type { TrailGraph, IC4ModelStore, C4ModelEntry, C4ModelResult } from '@anytime-markdown/trail-core';
+import type { TrailGraph, IC4ModelStore, C4ModelEntry, C4ModelResult, TrailMessageCommit, MessageCommitInput } from '@anytime-markdown/trail-core';
+import { matchCommitsToMessages } from '@anytime-markdown/trail-core';
+import { JsonlSessionReader } from './JsonlSessionReader';
 import { ExecFileGitService } from './ExecFileGitService';
 import { TrailLogger } from '../utils/TrailLogger';
 import { ClaudeCodeBehaviorAnalyzer } from './ClaudeCodeBehaviorAnalyzer';
@@ -86,6 +89,7 @@ export interface SessionRow {
   readonly initial_context_tokens?: number;
   readonly interruption_reason?: string | null;
   readonly interruption_context_tokens?: number;
+  readonly compact_count?: number;
 }
 
 export interface MessageRow {
@@ -112,6 +116,8 @@ export interface MessageRow {
   readonly is_meta: number;
   readonly cwd: string | null;
   readonly git_branch: string | null;
+  readonly agent_id?: string | null;
+  readonly agent_description?: string | null;
 }
 
 export interface SessionCommitRow {
@@ -417,6 +423,7 @@ export class TrailDatabase {
     this.migrateTrailGraphsTable(db);
     db.run(CREATE_SKILL_MODELS_TABLE);
     db.run(CREATE_SKILL_MODELS_RESOLVED_VIEW);
+    db.run(CREATE_MESSAGE_COMMITS);
     for (const sql of [...CREATE_INDEXES, ...CREATE_RELEASE_INDEXES]) {
       db.run(sql);
     }
@@ -431,6 +438,8 @@ export class TrailDatabase {
       // Already exists — ignore
     }
 
+    this.migrateMessageCommitsSchema(db);
+
     // Add columns for existing DBs (may already exist)
     const sessionAlters = [
       'ALTER TABLE sessions ADD COLUMN commits_resolved_at TEXT',
@@ -439,6 +448,8 @@ export class TrailDatabase {
       'ALTER TABLE sessions ADD COLUMN git_branch TEXT',
       'ALTER TABLE sessions ADD COLUMN interruption_reason TEXT',
       'ALTER TABLE sessions ADD COLUMN interruption_context_tokens INTEGER',
+      'ALTER TABLE sessions ADD COLUMN compact_count INTEGER',
+      'ALTER TABLE sessions ADD COLUMN message_commits_resolved_at TEXT',
     ];
     for (const sql of sessionAlters) {
       try { db.run(sql); } catch { /* Column already exists */ }
@@ -472,6 +483,11 @@ export class TrailDatabase {
 
     this.migrateTimestampsToUTC(db);
     this.migrateToolUseResult(db);
+  }
+
+  private migrateMessageCommitsSchema(db: Database): void {
+    db.run('CREATE INDEX IF NOT EXISTS idx_message_commits_session ON message_commits(session_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_message_commits_commit ON message_commits(commit_hash)');
   }
 
   /**
@@ -851,6 +867,19 @@ export class TrailDatabase {
            0
          )`,
     );
+
+    // 自動 /compact 検出: 連続 assistant ターンで cacheRead が 50K 以上から 70% 以上減少した回数。
+    // LAG ウィンドウ関数で前ターンの cache_read_tokens を取得して比較する。
+    db.run(
+      `UPDATE sessions SET compact_count = COALESCE((
+         SELECT COUNT(*) FROM (
+           SELECT cache_read_tokens,
+                  LAG(cache_read_tokens) OVER (ORDER BY timestamp ASC) AS prev_cr
+           FROM messages
+           WHERE session_id = sessions.id AND type = 'assistant' AND is_meta = 0
+         ) WHERE prev_cr >= 50000 AND cache_read_tokens <= prev_cr * 0.3
+       ), 0)`,
+    );
   }
 
   /**
@@ -983,6 +1012,30 @@ export class TrailDatabase {
     }
 
     stmt.free();
+  }
+
+  /** 当日（JST）の input + output トークン合計を返す。 */
+  getDailyTokensToday(): number {
+    const db = this.ensureDb();
+    const tzOffset = getSqliteTzOffset('Asia/Tokyo');
+    const result = db.exec(
+      `SELECT COALESCE(SUM(input_tokens + output_tokens), 0)
+       FROM session_costs sc
+       JOIN sessions s ON s.id = sc.session_id
+       WHERE DATE(s.start_time, '${tzOffset}') = DATE('now', '${tzOffset}')`,
+    );
+    return Number(result[0]?.values[0]?.[0] ?? 0);
+  }
+
+  /** 指定セッションの input + output トークン合計を返す。 */
+  getSessionTokens(sessionId: string): number {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT COALESCE(SUM(input_tokens + output_tokens), 0)
+       FROM session_costs WHERE session_id = ?`,
+      [sessionId],
+    );
+    return Number(result[0]?.values[0]?.[0] ?? 0);
   }
 
   save(): void {
@@ -1401,7 +1454,7 @@ export class TrailDatabase {
   async importAll(
     onProgress?: (message: string, increment?: number) => void,
     gitRoot?: string,
-  ): Promise<{ imported: number; skipped: number; commitsResolved: number; releasesResolved: number; releasesAnalyzed: number; coverageImported: number }> {
+  ): Promise<{ imported: number; skipped: number; commitsResolved: number; releasesResolved: number; releasesAnalyzed: number; coverageImported: number; messageCommitsBackfilled: number }> {
     const projectsDir = path.join(os.homedir(), '.claude', 'projects');
     const repoName = gitRoot ? path.basename(gitRoot) : '';
     let imported = 0;
@@ -1413,7 +1466,7 @@ export class TrailDatabase {
     try {
       projectDirs = fs.readdirSync(projectsDir);
     } catch {
-      return { imported, skipped, commitsResolved, releasesResolved: 0, releasesAnalyzed: 0, coverageImported: 0 };
+      return { imported, skipped, commitsResolved, releasesResolved: 0, releasesAnalyzed: 0, coverageImported: 0, messageCommitsBackfilled: 0 };
     }
 
     // Pre-load imported file paths + sizes for fast skip
@@ -1598,8 +1651,45 @@ export class TrailDatabase {
     this.rebuildSessionStats();
     onProgress?.('Session stats rebuilt', 0);
 
+    // Phase 2: backfill message_commits
+    onProgress?.('Backfilling message_commits...', 0);
+    const unresolvedSessions = this.getUnresolvedMessageCommitSessions();
+    let messageCommitsBackfilled = 0;
+    for (const { sessionId, filePath } of unresolvedSessions) {
+      try {
+        const messages = JsonlSessionReader.loadFromFile(filePath);
+        const rawCommits = this.getSessionCommits(sessionId);
+        const commits = rawCommits.map((c) => ({
+          commitHash: c.commit_hash,
+          commitMessage: c.commit_message,
+          author: c.author,
+          committedAt: c.committed_at,
+          isAiAssisted: c.is_ai_assisted === 1,
+          filesChanged: c.files_changed,
+          linesAdded: c.lines_added,
+          linesDeleted: c.lines_deleted,
+        }));
+        const matches = matchCommitsToMessages(messages, commits);
+        const now = new Date().toISOString();
+        for (const m of matches) {
+          this.insertMessageCommit({
+            messageUuid: m.messageUuid,
+            sessionId,
+            commitHash: m.commitHash,
+            detectedAt: now,
+            matchConfidence: m.matchConfidence,
+          });
+        }
+        this.markMessageCommitsResolved(sessionId, now);
+        messageCommitsBackfilled += matches.length;
+      } catch (e) {
+        TrailLogger.error(`Backfill failed for session ${sessionId}`, e);
+      }
+    }
+    onProgress?.(`Backfilled ${messageCommitsBackfilled} message_commits`, 0);
+
     this.save();
-    return { imported, skipped, commitsResolved, releasesResolved, releasesAnalyzed, coverageImported };
+    return { imported, skipped, commitsResolved, releasesResolved, releasesAnalyzed, coverageImported, messageCommitsBackfilled };
   }
 
   saveCurrentGraph(graph: TrailGraph, tsconfigPath: string, commitId: string, repoName: string): void {
@@ -1989,6 +2079,50 @@ export class TrailDatabase {
     return result;
   }
 
+  getSessionErrorCounts(sessionIds: readonly string[]): Map<string, number> {
+    if (sessionIds.length === 0) return new Map();
+    const db = this.ensureDb();
+    const result = new Map<string, number>();
+    const placeholders = sessionIds.map(() => '?').join(',');
+    try {
+      const rows = db.exec(
+        `SELECT session_id, COUNT(*) AS error_count
+         FROM message_tool_calls
+         WHERE is_error = 1 AND session_id IN (${placeholders})
+         GROUP BY session_id`,
+        sessionIds as string[],
+      );
+      for (const row of rows[0]?.values ?? []) {
+        result.set(String(row[0]), Number(row[1]));
+      }
+    } catch {
+      // Graceful fallback
+    }
+    return result;
+  }
+
+  getSessionSubAgentCounts(sessionIds: readonly string[]): Map<string, number> {
+    if (sessionIds.length === 0) return new Map();
+    const db = this.ensureDb();
+    const result = new Map<string, number>();
+    const placeholders = sessionIds.map(() => '?').join(',');
+    try {
+      const rows = db.exec(
+        `SELECT session_id, COUNT(*) AS sub_agent_count
+         FROM message_tool_calls
+         WHERE tool_name = 'Agent' AND session_id IN (${placeholders})
+         GROUP BY session_id`,
+        sessionIds as string[],
+      );
+      for (const row of rows[0]?.values ?? []) {
+        result.set(String(row[0]), Number(row[1]));
+      }
+    } catch {
+      // Graceful fallback
+    }
+    return result;
+  }
+
   getSessionCommits(sessionId: string): SessionCommitRow[] {
     const db = this.ensureDb();
     const stmt = db.prepare(
@@ -2001,6 +2135,72 @@ export class TrailDatabase {
     }
     stmt.free();
     return rows;
+  }
+
+  insertMessageCommit(input: MessageCommitInput): void {
+    const db = this.ensureDb();
+    const stmt = db.prepare(
+      `INSERT OR IGNORE INTO message_commits
+        (message_uuid, session_id, commit_hash, detected_at, match_confidence)
+        VALUES (?, ?, ?, ?, ?)`,
+    );
+    try {
+      stmt.run([input.messageUuid, input.sessionId, input.commitHash, input.detectedAt, input.matchConfidence]);
+    } finally {
+      stmt.free();
+    }
+  }
+
+  markMessageCommitsResolved(sessionId: string, resolvedAt: string): void {
+    const db = this.ensureDb();
+    const stmt = db.prepare('UPDATE sessions SET message_commits_resolved_at = ? WHERE id = ?');
+    try {
+      stmt.run([resolvedAt, sessionId]);
+    } finally {
+      stmt.free();
+    }
+  }
+
+  isMessageCommitsResolved(sessionId: string): boolean {
+    const db = this.ensureDb();
+    const result = db.exec('SELECT message_commits_resolved_at FROM sessions WHERE id = ?', [sessionId]);
+    const val = result[0]?.values[0]?.[0];
+    return typeof val === 'string' && val.length > 0;
+  }
+
+  getMessageCommitsBySession(sessionId: string): readonly TrailMessageCommit[] {
+    const db = this.ensureDb();
+    const stmt = db.prepare(
+      'SELECT * FROM message_commits WHERE session_id = ? ORDER BY detected_at ASC',
+    );
+    stmt.bind([sessionId]);
+    const rows: TrailMessageCommit[] = [];
+    while (stmt.step()) {
+      const r = stmt.getAsObject() as Record<string, unknown>;
+      rows.push({
+        messageUuid: r['message_uuid'] as string,
+        sessionId: r['session_id'] as string,
+        commitHash: r['commit_hash'] as string,
+        detectedAt: r['detected_at'] as string,
+        matchConfidence: r['match_confidence'] as TrailMessageCommit['matchConfidence'],
+      });
+    }
+    stmt.free();
+    return rows;
+  }
+
+  getUnresolvedMessageCommitSessions(): readonly { sessionId: string; filePath: string }[] {
+    const db = this.ensureDb();
+    const result = db.exec(`
+      SELECT DISTINCT s.id, s.file_path
+      FROM sessions s
+      INNER JOIN session_commits sc ON sc.session_id = s.id
+      WHERE s.message_commits_resolved_at IS NULL
+    `);
+    return (result[0]?.values ?? []).map((row) => ({
+      sessionId: row[0] as string,
+      filePath: row[1] as string,
+    }));
   }
 
   getMessages(sessionId: string): MessageRow[] {
@@ -3065,6 +3265,90 @@ export class TrailDatabase {
     return result[0].values.map((row) =>
       Object.fromEntries(cols.map((col, i) => [col, row[i]])) as unknown as ReleaseCoverageRow,
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  //  Quality Metrics
+  // ---------------------------------------------------------------------------
+
+  getQualityMetricsInputs(from: string, to: string, prevFrom: string, prevTo: string): {
+    releases: Array<{ id: string; tag_date: string; commit_hashes: string[]; fix_count: number }>;
+    messages: Array<{ uuid: string; created_at: string; role: string; type: string }>;
+    messageCommits: Array<{ message_uuid: string; detected_at: string; match_confidence: string }>;
+    commits: Array<{ hash: string; subject: string }>;
+    previousReleases: Array<{ id: string; tag_date: string; commit_hashes: string[]; fix_count: number }>;
+    previousMessages: Array<{ uuid: string; created_at: string; role: string; type: string }>;
+    previousMessageCommits: Array<{ message_uuid: string; detected_at: string; match_confidence: string }>;
+    previousCommits: Array<{ hash: string; subject: string }>;
+  } {
+    const db = this.ensureDb();
+
+    const queryReleases = (f: string, t: string) => {
+      const res = db.exec(
+        `SELECT tag, released_at, fix_count FROM releases WHERE released_at >= ? AND released_at <= ?`,
+        [f, t],
+      );
+      if (!res[0]) return [];
+      return res[0].values.map((row) => ({
+        id: row[0] as string,
+        tag_date: row[1] as string,
+        commit_hashes: [] as string[],
+        fix_count: (row[2] as number) ?? 0,
+      }));
+    };
+
+    const queryMessages = (f: string, t: string) => {
+      const res = db.exec(
+        `SELECT uuid, timestamp, type FROM messages WHERE timestamp >= ? AND timestamp <= ? AND type = 'user'`,
+        [f, t],
+      );
+      if (!res[0]) return [];
+      return res[0].values.map((row) => ({
+        uuid: row[0] as string,
+        created_at: row[1] as string,
+        role: row[2] as string,
+        type: 'text',
+      }));
+    };
+
+    const queryMessageCommits = (f: string, t: string) => {
+      const res = db.exec(
+        `SELECT mc.message_uuid, mc.detected_at, mc.match_confidence
+         FROM message_commits mc
+         INNER JOIN messages m ON mc.message_uuid = m.uuid
+         WHERE m.timestamp >= ? AND m.timestamp <= ?`,
+        [f, t],
+      );
+      if (!res[0]) return [];
+      return res[0].values.map((row) => ({
+        message_uuid: row[0] as string,
+        detected_at: row[1] as string,
+        match_confidence: row[2] as string,
+      }));
+    };
+
+    const queryCommits = (f: string, t: string) => {
+      const res = db.exec(
+        `SELECT commit_hash, commit_message FROM session_commits WHERE committed_at >= ? AND committed_at <= ?`,
+        [f, t],
+      );
+      if (!res[0]) return [];
+      return res[0].values.map((row) => ({
+        hash: row[0] as string,
+        subject: (row[1] as string ?? '').split('\n')[0],
+      }));
+    };
+
+    return {
+      releases: queryReleases(from, to),
+      messages: queryMessages(from, to),
+      messageCommits: queryMessageCommits(from, to),
+      commits: queryCommits(from, to),
+      previousReleases: queryReleases(prevFrom, prevTo),
+      previousMessages: queryMessages(prevFrom, prevTo),
+      previousMessageCommits: queryMessageCommits(prevFrom, prevTo),
+      previousCommits: queryCommits(prevFrom, prevTo),
+    };
   }
 
   // ---------------------------------------------------------------------------

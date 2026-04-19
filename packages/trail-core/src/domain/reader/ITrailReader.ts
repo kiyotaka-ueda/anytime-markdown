@@ -10,6 +10,7 @@ import type {
   AnalyticsData,
   CostOptimizationData,
 } from '../model';
+import type { DateRange, QualityMetrics } from '../metrics/types';
 
 export interface ITrailReader {
   getSessions(filters?: TrailFilter): Promise<readonly TrailSession[]>;
@@ -22,4 +23,5 @@ export interface ITrailReader {
   getSessionToolMetrics(sessionId: string): Promise<ToolMetrics | null>;
   getDayToolMetrics(date: string): Promise<ToolMetrics | null>;
   searchMessages(query: string): Promise<readonly { sessionId: string; uuid: string; snippet: string }[]>;
+  getQualityMetrics(range: DateRange): Promise<QualityMetrics>;
 }

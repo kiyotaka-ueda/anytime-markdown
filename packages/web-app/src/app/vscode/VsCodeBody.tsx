@@ -119,7 +119,7 @@ function BenefitItem({ icon, title, body, isDark }: Readonly<{ icon: ReactNode; 
       sx={{
         display: 'flex',
         flexDirection: { xs: 'column', md: 'row' },
-        alignItems: 'center',
+        alignItems: { xs: 'flex-start', md: 'center' },
         gap: { xs: 3, md: 6 },
       }}
     >
@@ -138,7 +138,7 @@ function BenefitItem({ icon, title, body, isDark }: Readonly<{ icon: ReactNode; 
       >
         {icon}
       </Box>
-      <Box sx={{ flex: 1, textAlign: { xs: 'center', md: 'left' } }}>
+      <Box sx={{ flex: 1, textAlign: 'left' }}>
         <Typography variant="h5" sx={{ fontWeight: 700, mb: 1, color: 'text.primary' }}>
           {title}
         </Typography>
@@ -176,13 +176,19 @@ export default function VsCodeBody() {
           textAlign: { xs: 'center', md: 'left' },
           px: { xs: 0, md: 3 },
           py: { xs: 10, md: 0 },
+          backgroundImage: isDark
+            ? 'url(/images/camel_background_dark.png)'
+            : 'url(/images/camel_background_light.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
           '&::before': {
             content: '""',
             position: 'absolute',
             inset: 0,
             background: isDark
-              ? 'radial-gradient(ellipse 80% 60% at 50% 30%, rgba(232,160,18,0.08) 0%, transparent 70%)'
-              : 'radial-gradient(ellipse 80% 60% at 50% 30%, rgba(232,160,18,0.06) 0%, transparent 70%)',
+              ? 'radial-gradient(ellipse 80% 60% at 50% 30%, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.65) 100%)'
+              : 'radial-gradient(ellipse 80% 60% at 50% 30%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.85) 100%)',
             pointerEvents: 'none',
           },
         }}
@@ -193,8 +199,6 @@ export default function VsCodeBody() {
             sx={{
               m: 0,
               mb: 3,
-              pl: '1em',
-              pr: '1em',
               fontFamily: 'Georgia, "Times New Roman", serif',
               fontWeight: 700,
               fontSize: { xs: '2.2rem', md: '3.8rem' },
@@ -247,6 +251,38 @@ export default function VsCodeBody() {
         </Container>
       </Box>
 
+      {/* ---- Why Camel ---- */}
+      <Box sx={{ py: { xs: 8, md: 12 }, px: { xs: 0, md: 3 } }}>
+        <Container maxWidth="md" disableGutters sx={{ px: { xs: 2, md: 3 } }}>
+          <Typography
+            variant="h4"
+            component="h2"
+            sx={{
+              fontWeight: 700,
+              mb: { xs: 4, md: 5 },
+              color: 'text.primary',
+              textAlign: 'center',
+              fontSize: { xs: '1.75rem', md: '2.5rem' },
+              lineHeight: 1.2,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            {t('whyCamelTitle')}
+          </Typography>
+          <Typography
+            variant="body1"
+            sx={{
+              color: 'text.secondary',
+              fontSize: { xs: '1rem', md: '1.1rem' },
+              lineHeight: 1.9,
+              whiteSpace: 'pre-line',
+            }}
+          >
+            {t('whyCamelBody')}
+          </Typography>
+        </Container>
+      </Box>
+
       {/* ---- Product 1: Anytime Trail ---- */}
       <Box sx={{ py: { xs: 8, md: 12 }, px: { xs: 0, md: 3 } }}>
         <Container maxWidth="lg" disableGutters sx={{ px: { xs: 2, md: 3 } }}>
@@ -260,7 +296,13 @@ export default function VsCodeBody() {
             <Typography
               variant="h4"
               component="h2"
-              sx={{ fontWeight: 700, color: 'text.primary' }}
+              sx={{
+                fontWeight: 700,
+                color: 'text.primary',
+                fontSize: { xs: '1.75rem', md: '2.5rem' },
+                lineHeight: 1.2,
+                letterSpacing: '-0.02em',
+              }}
             >
               {t('trailSectionTitle')}
             </Typography>
@@ -314,7 +356,7 @@ export default function VsCodeBody() {
                         anytime-trail — trail viewer
                       </Typography>
                     </Box>
-                    <TrailViewerEmbed containerHeight="550px" />
+                    <TrailViewerEmbed containerHeight="clamp(320px, 40vh, 550px)" />
                   </Box>
                 )}
               </Fragment>
@@ -336,7 +378,13 @@ export default function VsCodeBody() {
             <Typography
               variant="h4"
               component="h2"
-              sx={{ fontWeight: 700, color: 'text.primary' }}
+              sx={{
+                fontWeight: 700,
+                color: 'text.primary',
+                fontSize: { xs: '1.75rem', md: '2.5rem' },
+                lineHeight: 1.2,
+                letterSpacing: '-0.02em',
+              }}
             >
               {t('markdownSectionTitle')}
             </Typography>
@@ -351,7 +399,7 @@ export default function VsCodeBody() {
       </Box>
 
       {/* ---- Markdown Preview ---- */}
-      <Box sx={{ py: { xs: 4, md: 6 }, px: { xs: 2, md: 3 } }}>
+      <Box sx={{ py: { xs: 8, md: 12 }, px: { xs: 2, md: 3 } }}>
         <Container maxWidth="lg" disableGutters>
           <Box
             sx={{

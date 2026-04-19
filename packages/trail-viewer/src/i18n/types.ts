@@ -32,6 +32,10 @@ export interface TrailI18n {
   'sessionList.interruptedMaxTokens': string;
   'sessionList.interruptedNoResponse': string;
   'sessionList.contextLabel': string;
+  'sessionList.copyId': string;
+  'sessionList.copied': string;
+  'sessionList.errorsHeader': string;
+  'sessionList.subAgents': string;
   // stats
   'stats.noSessionSelected': string;
   'stats.input': string;
@@ -39,6 +43,11 @@ export interface TrailI18n {
   'stats.cacheRead': string;
   'stats.duration': string;
   'stats.messages': string;
+  // tokenBudget
+  'tokenBudget.session': string;
+  'tokenBudget.daily': string;
+  'tokenBudget.turns': string;
+  'tokenBudget.messages': string;
   // trace
   'trace.showSystemMessages': string;
   'trace.noMessages': string;
@@ -77,6 +86,7 @@ export interface TrailI18n {
   'analytics.toolUsageTitle': string;
   'analytics.sessionCacheTimelineTitle': string;
   'analytics.turns': string;
+  'analytics.compactLoopTooltip': string;
   'analytics.close': string;
   'analytics.noTokenData': string;
   'analytics.relatedCommits': string;
@@ -196,5 +206,30 @@ export interface TrailI18n {
   'analytics.combined.skill': string;
   'analytics.combined.model': string;
 
+  // metrics
+  'metrics.title': string;
+  'metrics.period.last7d': string;
+  'metrics.period.last30d': string;
+  'metrics.period.last90d': string;
+  'metrics.deploymentFrequency.name': string;
+  'metrics.deploymentFrequency.description': string;
+  'metrics.leadTimeForChanges.name': string;
+  'metrics.leadTimeForChanges.description': string;
+  'metrics.promptToCommitSuccessRate.name': string;
+  'metrics.promptToCommitSuccessRate.description': string;
+  'metrics.changeFailureRate.name': string;
+  'metrics.changeFailureRate.description': string;
+  'metrics.level.elite': string;
+  'metrics.level.high': string;
+  'metrics.level.medium': string;
+  'metrics.level.low': string;
+  'metrics.unmeasured.title': string;
+  'metrics.unmeasured.badge': string;
+  'metrics.thresholds.title': string;
+  'metrics.thresholds.openFile': string;
+  'metrics.empty': string;
+  'metrics.error': string;
+  'metrics.loading': string;
+  'metrics.noLevel': string;
 
 }

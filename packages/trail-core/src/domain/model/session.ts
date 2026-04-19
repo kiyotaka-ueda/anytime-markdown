@@ -27,6 +27,19 @@ export interface TrailMessage {
   readonly usage?: TrailTokenUsage;
   readonly stopReason?: string | null;
   readonly userContent?: string;
+  readonly triggerCommitHashes?: readonly string[];
+  readonly agentId?: string;
+  readonly agentDescription?: string;
+}
+
+export type MessageCommitMatchConfidence = 'realtime' | 'high' | 'medium' | 'low';
+
+export interface TrailMessageCommit {
+  readonly messageUuid: string;
+  readonly sessionId: string;
+  readonly commitHash: string;
+  readonly detectedAt: string;
+  readonly matchConfidence: MessageCommitMatchConfidence;
 }
 
 export interface TrailSession {
@@ -54,6 +67,10 @@ export interface TrailSession {
   };
   readonly usage: TrailTokenUsage;
   readonly estimatedCostUsd?: number;
+  readonly errorCount?: number;
+  readonly subAgentCount?: number;
+  /** 自動 /compact によりキャッシュが再構築された回数 (前ターン >= 50K かつ現ターン <= 前ターン × 0.3) */
+  readonly compactCount?: number;
 }
 
 export interface TrailSessionCommit {

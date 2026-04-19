@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
@@ -47,11 +48,30 @@ function fmtUsd(n: number): string {
   return `$${n.toFixed(2)}`;
 }
 
+function fmtUsdShort(n: number): string {
+  if (n >= 1_000) return `$${parseFloat((n / 1_000).toFixed(1))}K`;
+  return `$${n.toFixed(2)}`;
+}
+
 function fmtTokens(n: number): string {
   if (n >= 1_000_000_000) return `${parseFloat((n / 1_000_000_000).toFixed(1))}B`;
   if (n >= 1_000_000) return `${parseFloat((n / 1_000_000).toFixed(1))}M`;
   if (n >= 1_000) return `${parseFloat((n / 1_000).toFixed(1))}K`;
   return String(n);
+}
+
+// Return up to ~5 "nice" tick values covering [0, max]. Minimum step is 1 (no fractions).
+function niceTicks(max: number): number[] {
+  if (max <= 0) return [0];
+  const rough = max / 4;
+  const magnitude = 10 ** Math.floor(Math.log10(rough));
+  const normalized = rough / magnitude;
+  const rawStep = (normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10) * magnitude;
+  const step = Math.max(1, rawStep);
+  const values: number[] = [];
+  const end = Math.ceil(max / step) * step;
+  for (let v = 0; v <= end + step / 2; v += step) values.push(v);
+  return values;
 }
 
 
@@ -304,6 +324,20 @@ function sessionCost(s: TrailSession): number {
   return s.estimatedCostUsd ?? 0;
 }
 
+// 連続する assistant ターンで cacheRead が急落した回数をカウント。
+// auto /compact の特徴: 直前 50K 以上積まれていて、次ターンで 70% 以上減少。
+function countCompactDrops(msgs: readonly TrailMessage[]): number {
+  const MIN_BEFORE = 50_000;
+  const DROP_RATIO = 0.3; // 直前の 30% 以下 = 70% 以上減少
+  let count = 0;
+  for (let i = 1; i < msgs.length; i++) {
+    const prev = msgs[i - 1].usage?.cacheReadTokens ?? 0;
+    const cur = msgs[i].usage?.cacheReadTokens ?? 0;
+    if (prev >= MIN_BEFORE && cur <= prev * DROP_RATIO) count++;
+  }
+  return count;
+}
+
 function SessionCacheTimeline({
   messages,
 }: Readonly<{
@@ -313,6 +347,7 @@ function SessionCacheTimeline({
   const { t } = useTrailI18n();
   const assistantMsgs = messages.filter((m) => m.type === 'assistant' && m.usage);
   const hasData = assistantMsgs.length > 0;
+  const compactDrops = useMemo(() => countCompactDrops(assistantMsgs), [assistantMsgs]);
 
   const byUuid = useMemo(() => {
     const map = new Map<string, TrailMessage>();
@@ -340,14 +375,33 @@ function SessionCacheTimeline({
   }, [assistantMsgs, byUuid]);
 
   const totalTurns = dataset.length;
-  const tickStep = totalTurns <= 100 ? 10 : totalTurns <= 500 ? 50 : 100;
+  const tickStep = totalTurns <= 5 ? 1
+    : totalTurns <= 10 ? 2
+    : totalTurns <= 25 ? 5
+    : totalTurns <= 50 ? 10
+    : totalTurns <= 100 ? 20
+    : totalTurns <= 250 ? 50
+    : totalTurns <= 500 ? 100
+    : totalTurns <= 1000 ? 200
+    : 500;
 
   return (
     <Paper elevation={0} sx={{ ...cardSx, mt: 1, p: 1.5 }}>
-      <Box sx={{ mb: 1 }}>
+      <Box sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
         <Typography variant="subtitle2">
           {t('analytics.sessionCacheTimelineTitle')} {hasData && `(${assistantMsgs.length} ${t('analytics.turns')})`}
         </Typography>
+        {compactDrops >= 2 && (
+          <Tooltip title={t('analytics.compactLoopTooltip')}>
+            <Chip
+              label={`⚠ Compact ×${compactDrops}`}
+              size="small"
+              color="warning"
+              variant="outlined"
+              sx={{ height: 20, fontSize: '0.7rem' }}
+            />
+          </Tooltip>
+        )}
       </Box>
       {hasData ? (
         <LineChart
@@ -372,7 +426,7 @@ function SessionCacheTimeline({
             },
           ]}
           height={200}
-          margin={{ left: 0, right: 16, top: 16, bottom: 0 }}
+          margin={{ left: 16, right: 16, top: 16, bottom: 0 }}
           slotProps={{
             legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } },
           }}
@@ -593,9 +647,13 @@ function SessionModelUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
   const sorted = [...usage].sort((a, b) => getValue(b) - getValue(a));
 
   const entry: Record<string, string | number> = { metric: metric === 'tokens' ? 'tokens' : metric === 'duration' ? 'sec' : 'count' };
+  let total = 0;
   for (let i = 0; i < sorted.length; i++) {
-    entry[`m${i}`] = getValue(sorted[i]);
+    const v = getValue(sorted[i]);
+    entry[`m${i}`] = v;
+    total += v;
   }
+  const tickValues = niceTicks(total);
 
   return (
     <Paper elevation={0} sx={{ ...cardSx, pt: 2, pr: 2, pb: 0, pl: 0 }}>
@@ -611,6 +669,7 @@ function SessionModelUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
         dataset={[entry]}
         layout="horizontal"
         yAxis={[{ scaleType: 'band', dataKey: 'metric', categoryGapRatio: 0.25, tickLabelStyle: { display: 'none' } }]}
+        xAxis={[{ tickInterval: tickValues, valueFormatter: metric === 'duration' ? fmtDurationShort : fmtTokens }]}
         series={sorted.map((e, i) => ({
           dataKey: `m${i}`,
           label: e.model,
@@ -618,7 +677,7 @@ function SessionModelUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
           color: toolPalette[i % toolPalette.length],
         }))}
         height={70}
-        margin={{ left: 0, right: 16, top: 4, bottom: 16 }}
+        margin={{ left: 20, right: 16, top: 4, bottom: 16 }}
         slots={{ legend: () => null }}
       />
     </Paper>
@@ -648,9 +707,13 @@ function SessionToolUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetr
 
   // 1行の積算横棒: Y軸=メトリクス名、各ツールが色分けでスタック
   const entry: Record<string, string | number> = { metric: metric === 'tokens' ? 'tokens' : metric === 'duration' ? 'sec' : 'count' };
+  let total = 0;
   for (let i = 0; i < sorted.length; i++) {
-    entry[`t${i}`] = getValue(sorted[i]);
+    const v = getValue(sorted[i]);
+    entry[`t${i}`] = v;
+    total += v;
   }
+  const tickValues = niceTicks(total);
 
   return (
     <Paper elevation={0} sx={{ ...cardSx, pt: 2, pr: 2, pb: 0, pl: 0 }}>
@@ -666,6 +729,7 @@ function SessionToolUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetr
         dataset={[entry]}
         layout="horizontal"
         yAxis={[{ scaleType: 'band', dataKey: 'metric', categoryGapRatio: 0.25, tickLabelStyle: { display: 'none' } }]}
+        xAxis={[{ tickInterval: tickValues, valueFormatter: metric === 'duration' ? fmtDurationShort : fmtTokens }]}
         series={sorted.map((e, i) => ({
           dataKey: `t${i}`,
           label: e.tool,
@@ -673,7 +737,7 @@ function SessionToolUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetr
           color: toolPalette[i % toolPalette.length],
         }))}
         height={70}
-        margin={{ left: 0, right: 16, top: 4, bottom: 16 }}
+        margin={{ left: 20, right: 16, top: 4, bottom: 16 }}
         slots={{ legend: () => null }}
       />
     </Paper>
@@ -702,9 +766,13 @@ function SessionSkillUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
   const sorted = [...usage].sort((a, b) => getValue(b) - getValue(a));
 
   const entry: Record<string, string | number> = { metric: metric === 'tokens' ? 'tokens' : metric === 'duration' ? 'sec' : 'count' };
+  let total = 0;
   for (let i = 0; i < sorted.length; i++) {
-    entry[`s${i}`] = getValue(sorted[i]);
+    const v = getValue(sorted[i]);
+    entry[`s${i}`] = v;
+    total += v;
   }
+  const tickValues = niceTicks(total);
 
   return (
     <Paper elevation={0} sx={{ ...cardSx, pt: 2, pr: 2, pb: 0, pl: 0 }}>
@@ -720,7 +788,7 @@ function SessionSkillUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
         dataset={[entry]}
         layout="horizontal"
         yAxis={[{ scaleType: 'band', dataKey: 'metric', categoryGapRatio: 0.25, tickLabelStyle: { display: 'none' } }]}
-        xAxis={[{ tickMinStep: 1 }]}
+        xAxis={[{ tickInterval: tickValues, valueFormatter: metric === 'duration' ? fmtDurationShort : fmtTokens }]}
         series={sorted.map((e, i) => ({
           dataKey: `s${i}`,
           label: e.skill,
@@ -728,7 +796,7 @@ function SessionSkillUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
           color: toolPalette[i % toolPalette.length],
         }))}
         height={70}
-        margin={{ left: 0, right: 16, top: 4, bottom: 16 }}
+        margin={{ left: 20, right: 16, top: 4, bottom: 16 }}
         slots={{ legend: () => null }}
       />
     </Paper>
@@ -750,9 +818,12 @@ function SessionErrorChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics 
 
   const sorted = [...errors].sort((a, b) => b.count - a.count);
   const entry: Record<string, string | number> = { metric: 'errors' };
+  let total = 0;
   for (let i = 0; i < sorted.length; i++) {
     entry[`e${i}`] = sorted[i].count;
+    total += sorted[i].count;
   }
+  const tickValues = niceTicks(total);
 
   return (
     <Paper elevation={0} sx={{ ...cardSx, pt: 2, pr: 2, pb: 0, pl: 0 }}>
@@ -761,7 +832,7 @@ function SessionErrorChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics 
         dataset={[entry]}
         layout="horizontal"
         yAxis={[{ scaleType: 'band', dataKey: 'metric', categoryGapRatio: 0.25, tickLabelStyle: { display: 'none' } }]}
-        xAxis={[{ tickMinStep: 1 }]}
+        xAxis={[{ tickInterval: tickValues, valueFormatter: fmtTokens }]}
         series={sorted.map((e, i) => ({
           dataKey: `e${i}`,
           label: e.tool,
@@ -769,7 +840,7 @@ function SessionErrorChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics 
           color: toolPalette[i % toolPalette.length],
         }))}
         height={70}
-        margin={{ left: 0, right: 16, top: 4, bottom: 16 }}
+        margin={{ left: 20, right: 16, top: 4, bottom: 16 }}
         slots={{ legend: () => null }}
       />
     </Paper>
@@ -885,6 +956,18 @@ function DailySessionList({
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [sessionToolMetrics, setSessionToolMetrics] = useState<ToolMetrics | null>(null);
   const [dayAggToolMetrics, setDayAggToolMetrics] = useState<ToolMetrics | null>(null);
+  const [copiedSessionId, setCopiedSessionId] = useState(false);
+
+  const handleCopySessionId = useCallback(
+    (id: string) => (e: React.MouseEvent) => {
+      e.stopPropagation();
+      void navigator.clipboard.writeText(id).then(() => {
+        setCopiedSessionId(true);
+        setTimeout(() => setCopiedSessionId(false), 2000);
+      });
+    },
+    [],
+  );
   const daySessions = sessions.filter((s) => toLocalDateKey(s.startTime) === date);
 
   useEffect(() => {
@@ -942,6 +1025,8 @@ function DailySessionList({
                   <TableCell align="right">{t('sessionList.tokensHeader')}</TableCell>
                   <TableCell align="right">{t('sessionList.costHeader')}</TableCell>
                   <TableCell align="right">{t('sessionList.messagesHeader')}</TableCell>
+                  <TableCell align="right">{t('sessionList.errorsHeader')}</TableCell>
+                  <TableCell align="right">{t('sessionList.subAgents')}</TableCell>
                   <TableCell align="right">{t('sessionList.commitsHeader')}</TableCell>
                   <TableCell align="right" sx={{ width: 36 }} />
                 </TableRow>
@@ -976,6 +1061,17 @@ function DailySessionList({
                     </TableCell>
                     <TableCell align="right">
                       {fmtTokens(s.usage.inputTokens + s.usage.outputTokens + s.usage.cacheReadTokens + s.usage.cacheCreationTokens)}
+                      {s.compactCount != null && s.compactCount >= 2 && (
+                        <Tooltip title={t('analytics.compactLoopTooltip')}>
+                          <Chip
+                            label={`⚠ ×${s.compactCount}`}
+                            size="small"
+                            color="warning"
+                            variant="outlined"
+                            sx={{ ml: 0.5, height: 16, fontSize: '0.65rem' }}
+                          />
+                        </Tooltip>
+                      )}
                       {(s.initialContextTokens != null || s.peakContextTokens != null) && (
                         <Typography
                           component="div"
@@ -989,6 +1085,12 @@ function DailySessionList({
                       {fmtUsd(sessionCost(s))}
                     </TableCell>
                     <TableCell align="right">{fmtNum(s.messageCount)}</TableCell>
+                    <TableCell align="right">
+                      {s.errorCount != null && s.errorCount > 0 ? fmtNum(s.errorCount) : '\u2014'}
+                    </TableCell>
+                    <TableCell align="right">
+                      {s.subAgentCount != null && s.subAgentCount > 0 ? fmtNum(s.subAgentCount) : '\u2014'}
+                    </TableCell>
                     <TableCell align="right" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
                       {s.commitStats
                         ? `${s.commitStats.commits} (+${fmtNum(s.commitStats.linesAdded)}/-${fmtNum(s.commitStats.linesDeleted)})`
@@ -1024,6 +1126,28 @@ function DailySessionList({
           if (selectedSession) {
             return (
               <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 1, width: { lg: 600 } }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 0.5 }}>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {selectedSession.slug ?? selectedSession.id.slice(0, 8)}
+                    </Typography>
+                    {selectedSession.slug && (
+                      <Typography variant="caption" sx={{ color: colors.textSecondary, fontFamily: 'monospace', display: 'block' }}>
+                        {selectedSession.id}
+                      </Typography>
+                    )}
+                  </Box>
+                  <Tooltip title={copiedSessionId ? t('sessionList.copied') : t('sessionList.copyId')}>
+                    <IconButton
+                      size="small"
+                      onClick={handleCopySessionId(selectedSession.id)}
+                      sx={{ p: 0.5, color: colors.textSecondary, '&:hover': { color: colors.iceBlue } }}
+                      aria-label={t('sessionList.copyId')}
+                    >
+                      <ContentCopyIcon sx={{ fontSize: 14 }} />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
                 <SessionMetricsPanel session={selectedSession} toolMetrics={sessionToolMetrics} />
                 <SessionModelUsageChart toolMetrics={sessionToolMetrics} />
                 <SessionSkillUsageChart toolMetrics={sessionToolMetrics} />
@@ -1109,7 +1233,7 @@ function DailyActivityChart({
   onDateClick?: (fullDate: string) => void;
   costOptimization?: CostOptimizationData | null;
 }>) {
-  const { chartColors } = useTrailTheme();
+  const { chartColors, cardSx } = useTrailTheme();
 
   const costByDate = useMemo(() => {
     const map = new Map<string, { actual: number; skill: number }>();
@@ -1145,7 +1269,7 @@ function DailyActivityChart({
   if (items.length === 0) return null;
 
   const isTokens = mode === 'tokens';
-  const yFormatter = isTokens ? fmtTokens : fmtUsd;
+  const yFormatter = isTokens ? fmtTokens : fmtUsdShort;
   const seriesFormatter = (v: number | null) => (v == null || v === 0 ? null : yFormatter(v));
 
   const handleAxisClick = (_event: MouseEvent, data: { dataIndex: number } | null) => {
@@ -1155,26 +1279,28 @@ function DailyActivityChart({
   };
 
   return (
-    <BarChart
-      dataset={dataset}
-      xAxis={[{ scaleType: 'band', dataKey: 'date' }]}
-      yAxis={[{ valueFormatter: yFormatter }]}
-      series={isTokens ? [
-        { dataKey: 'inputTokens', label: 'Input', stack: 'a', color: chartColors.input, valueFormatter: seriesFormatter },
-        { dataKey: 'outputTokens', label: 'Output', stack: 'a', color: chartColors.output, valueFormatter: seriesFormatter },
-        { dataKey: 'cacheReadTokens', label: 'Cache Read', stack: 'a', color: chartColors.cacheRead, valueFormatter: seriesFormatter },
-        { dataKey: 'cacheCreationTokens', label: 'Cache Write', stack: 'a', color: chartColors.cacheWrite, valueFormatter: seriesFormatter },
-      ] : [
-        { dataKey: 'actualCost', label: 'Current', color: chartColors.primary, valueFormatter: seriesFormatter },
-        { dataKey: 'skillCost', label: 'Optimized', color: chartColors.skill, valueFormatter: seriesFormatter },
-      ]}
-      height={240}
-      margin={{ left: 60, right: 16, top: 16, bottom: 24 }}
-      slotProps={{
-        legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } },
-      }}
-      onAxisClick={period === 90 ? undefined : handleAxisClick}
-    />
+    <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+      <BarChart
+        dataset={dataset}
+        xAxis={[{ scaleType: 'band', dataKey: 'date' }]}
+        yAxis={[{ valueFormatter: yFormatter }]}
+        series={isTokens ? [
+          { dataKey: 'inputTokens', label: 'Input', stack: 'a', color: chartColors.input, valueFormatter: seriesFormatter },
+          { dataKey: 'outputTokens', label: 'Output', stack: 'a', color: chartColors.output, valueFormatter: seriesFormatter },
+          { dataKey: 'cacheReadTokens', label: 'Cache Read', stack: 'a', color: chartColors.cacheRead, valueFormatter: seriesFormatter },
+          { dataKey: 'cacheCreationTokens', label: 'Cache Write', stack: 'a', color: chartColors.cacheWrite, valueFormatter: seriesFormatter },
+        ] : [
+          { dataKey: 'actualCost', label: 'Current', color: chartColors.primary, valueFormatter: seriesFormatter },
+          { dataKey: 'skillCost', label: 'Optimized', color: chartColors.skill, valueFormatter: seriesFormatter },
+        ]}
+        height={240}
+        margin={{ left: 16, right: 8, top: 8, bottom: 40 }}
+        slotProps={{
+          legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } },
+        }}
+        onAxisClick={period === 90 ? undefined : handleAxisClick}
+      />
+    </Paper>
   );
 }
 
@@ -1368,6 +1494,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
         <BarChart
           dataset={toolDataset}
           xAxis={[{ scaleType: 'band', dataKey: 'period' }]}
+          yAxis={[{ valueFormatter: fmtTokens }]}
           series={tools.map((tool, i) => ({
             dataKey: `t${i}`,
             label: tool,
@@ -1376,7 +1503,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
             valueFormatter: hideZero,
           }))}
           height={240}
-          margin={{ left: 8, right: 8, top: 8, bottom: 60 }}
+          margin={{ left: 16, right: 8, top: 8, bottom: 60 }}
           slotProps={{ legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } } }}
           onAxisClick={makeAxisClick(allPeriods)}
         />
@@ -1393,6 +1520,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
           <BarChart
             dataset={errDataset}
             xAxis={[{ scaleType: 'band', dataKey: 'period' }]}
+            yAxis={[{ valueFormatter: fmtTokens }]}
             series={errTools.map((tool, i) => ({
               dataKey: `e${i}`,
               label: tool,
@@ -1401,7 +1529,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
               valueFormatter: hideZero,
             }))}
             height={240}
-            margin={{ left: 40, right: 8, top: 8, bottom: 40 }}
+            margin={{ left: 16, right: 8, top: 8, bottom: 40 }}
             slotProps={{ legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } } }}
             onAxisClick={makeAxisClick(allPeriods)}
           />
@@ -1419,6 +1547,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
         <BarChart
           dataset={skillDataset}
           xAxis={[{ scaleType: 'band', dataKey: 'period' }]}
+          yAxis={[{ valueFormatter: fmtNum }]}
           series={skills.map((skill, i) => ({
             dataKey: `s${i}`,
             label: skill,
@@ -1427,7 +1556,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
             valueFormatter: hideZero,
           }))}
           height={240}
-          margin={{ left: 40, right: 8, top: 8, bottom: 40 }}
+          margin={{ left: 16, right: 8, top: 8, bottom: 40 }}
           slotProps={{ legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } } }}
           onAxisClick={makeAxisClick(allPeriods)}
         />
@@ -1444,6 +1573,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
       <BarChart
         dataset={modelDataset}
         xAxis={[{ scaleType: 'band', dataKey: 'period' }]}
+        yAxis={[{ valueFormatter: fmtTokens }]}
         series={models.map((model, i) => ({
           dataKey: `m${i}`,
           label: model,
@@ -1452,7 +1582,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
           valueFormatter: hideZero,
         }))}
         height={240}
-        margin={{ left: 40, right: 8, top: 8, bottom: 40 }}
+        margin={{ left: 16, right: 8, top: 8, bottom: 40 }}
         slotProps={{ legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } } }}
         onAxisClick={makeAxisClick(modelPeriods)}
       />

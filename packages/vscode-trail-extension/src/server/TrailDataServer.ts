@@ -25,6 +25,8 @@ import { WebSocketServer, type WebSocket } from 'ws';
 
 import type { ClientMessage, ServerMessage } from './types';
 import type { TrailDatabase, SessionRow, MessageRow, AnalyticsData, CostOptimizationData } from '../trail/TrailDatabase';
+import { MetricsThresholdsLoader } from '../trail/MetricsThresholdsLoader';
+import { computeQualityMetrics } from '@anytime-markdown/trail-core/domain/metrics';
 import { TrailLogger } from '../utils/TrailLogger';
 
 // ---------------------------------------------------------------------------
@@ -84,6 +86,12 @@ export class TrailDataServer {
   private lastClaudeActivity: { activeElementIds: readonly string[]; touchedElementIds: readonly string[]; plannedElementIds: readonly string[] } | undefined;
   private lastMultiAgentActivity: { agents: readonly import('./types').AgentActivityEntry[]; conflicts: readonly import('./types').FileConflict[] } | undefined;
   onOpenDocLink: ((docPath: string) => void) | undefined;
+  onTokenBudgetExceeded: ((status: import('./types').TokenBudgetUpdatedMessage) => void) | undefined;
+  private tokenBudgetConfig: { dailyLimitTokens: number | null; sessionLimitTokens: number | null; alertThresholdPct: number } = {
+    dailyLimitTokens: null,
+    sessionLimitTokens: null,
+    alertThresholdPct: 80,
+  };
 
   constructor(
     private readonly distPath: string,
@@ -173,6 +181,10 @@ export class TrailDataServer {
     for (const ws of this.clients) {
       ws.send(payload);
     }
+  }
+
+  setTokenBudgetConfig(config: { dailyLimitTokens: number | null; sessionLimitTokens: number | null; alertThresholdPct: number }): void {
+    this.tokenBudgetConfig = config;
   }
 
   setC4Provider(getProvider: () => C4DataProvider | undefined): void {
@@ -277,6 +289,16 @@ export class TrailDataServer {
       return;
     }
 
+    if (pathname === '/api/trail/token-budget' && method === 'POST') {
+      this.handleTokenBudget(req, res);
+      return;
+    }
+
+    if (pathname === '/api/message-commits' && method === 'POST') {
+      this.handleInsertMessageCommit(req, res);
+      return;
+    }
+
     if (pathname === '/api/trail/prompts' && method === 'GET') {
       this.handleGetPrompts(res);
       return;
@@ -299,6 +321,11 @@ export class TrailDataServer {
 
     if (pathname === '/api/trail/combined' && method === 'GET') {
       this.handleGetCombined(res, parsed.searchParams);
+      return;
+    }
+
+    if (pathname === '/api/trail/quality-metrics' && method === 'GET') {
+      this.handleGetQualityMetrics(res, parsed.searchParams);
       return;
     }
 
@@ -450,8 +477,12 @@ export class TrailDataServer {
       const rawSessions = this.trailDb.getSessions(filters);
       const sessionIds = rawSessions.map((s) => s.id);
       const commitStats = this.trailDb.getSessionCommitStats(sessionIds);
+      const errorCounts = this.trailDb.getSessionErrorCounts(sessionIds);
+      const subAgentCounts = this.trailDb.getSessionSubAgentCounts(sessionIds);
       const sessions = rawSessions.map((s) => {
         const cStats = commitStats.get(s.id);
+        const errorCount = errorCounts.get(s.id);
+        const subAgentCount = subAgentCounts.get(s.id);
         const interruptionReason = (s.interruption_reason ?? null) as 'max_tokens' | 'no_response' | null;
         return {
           id: s.id,
@@ -479,6 +510,9 @@ export class TrailDataServer {
             ? { commits: cStats.commits, linesAdded: cStats.linesAdded,
                 linesDeleted: cStats.linesDeleted, filesChanged: cStats.filesChanged }
             : undefined,
+          errorCount: errorCount != null && errorCount > 0 ? errorCount : undefined,
+          subAgentCount: subAgentCount != null && subAgentCount > 0 ? subAgentCount : undefined,
+          compactCount: s.compact_count != null && s.compact_count > 0 ? s.compact_count : undefined,
         };
       });
       res.writeHead(200, JSON_HEADERS);
@@ -507,6 +541,13 @@ export class TrailDataServer {
       }
 
       const rawMessages: MessageRow[] = this.trailDb.getMessages(sessionId);
+      const messageCommits = this.trailDb.getMessageCommitsBySession(sessionId);
+      const commitsByMessageUuid = new Map<string, string[]>();
+      for (const mc of messageCommits) {
+        const arr = commitsByMessageUuid.get(mc.messageUuid) ?? [];
+        arr.push(mc.commitHash);
+        commitsByMessageUuid.set(mc.messageUuid, arr);
+      }
       const messages = rawMessages.map((m) => ({
         uuid: m.uuid,
         parentUuid: m.parent_uuid,
@@ -526,6 +567,9 @@ export class TrailDataServer {
           : undefined,
         timestamp: m.timestamp,
         isSidechain: m.is_sidechain === 1,
+        triggerCommitHashes: commitsByMessageUuid.get(m.uuid),
+        agentId: m.agent_id,
+        agentDescription: m.agent_description,
       }));
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({ session, messages }));
@@ -844,6 +888,42 @@ export class TrailDataServer {
   }
 
   // -------------------------------------------------------------------------
+  //  API: GET /api/trail/quality-metrics?from=ISO&to=ISO
+  // -------------------------------------------------------------------------
+
+  private handleGetQualityMetrics(res: http.ServerResponse, params: URLSearchParams): void {
+    const from = params.get('from');
+    const to = params.get('to');
+    if (!from || !to) {
+      res.writeHead(400, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'from and to are required' }));
+      return;
+    }
+    try {
+      const loader = new MetricsThresholdsLoader(this.gitRoot ?? process.cwd());
+      const thresholds = loader.load();
+
+      // Compute previous range (same duration before current range)
+      const fromMs = new Date(from).getTime();
+      const toMs = new Date(to).getTime();
+      const duration = toMs - fromMs;
+      const prevTo = new Date(fromMs - 1).toISOString();
+      const prevFrom = new Date(fromMs - 1 - duration).toISOString();
+
+      const raw = this.trailDb.getQualityMetricsInputs(from, to, prevFrom, prevTo);
+      const metrics = computeQualityMetrics(raw, { from, to }, thresholds);
+
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify(metrics));
+    } catch (e) {
+      TrailLogger.error('handleGetQualityMetrics failed', e);
+      const msg = e instanceof Error ? `${e.message}\n${e.stack ?? ''}` : String(e);
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'Failed to get quality metrics', detail: msg }));
+    }
+  }
+
+  // -------------------------------------------------------------------------
   //  API: GET /api/trail/releases
   // -------------------------------------------------------------------------
 
@@ -892,6 +972,148 @@ export class TrailDataServer {
         res.writeHead(500, JSON_HEADERS);
         res.end(JSON.stringify({ error: 'Refresh failed' }));
       });
+  }
+
+  // ---------------------------------------------------------------------------
+  //  JSONL real-time token helpers
+  // ---------------------------------------------------------------------------
+
+  private static parseJsonlSession(jsonlPath: string): { contextTokens: number; turnCount: number; messageCount: number } {
+    let contextTokens = 0;
+    let turnCount = 0;
+    let messageCount = 0;
+    try {
+      const lines = fs.readFileSync(jsonlPath, 'utf-8').split('\n');
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const entry = JSON.parse(line) as { type?: string; message?: { usage?: { input_tokens?: number } } };
+          if (entry.type === 'user') {
+            turnCount++;
+            messageCount++;
+          } else if (entry.type === 'assistant') {
+            messageCount++;
+            if (entry.message?.usage?.input_tokens !== undefined) {
+              contextTokens = entry.message.usage.input_tokens;
+            }
+          }
+        } catch { /* skip malformed line */ }
+      }
+    } catch { /* ignore */ }
+    return { contextTokens, turnCount, messageCount };
+  }
+
+  private static getSessionStatsFromJsonl(sessionId: string): { contextTokens: number; turnCount: number; messageCount: number } {
+    const projectsDir = path.join(os.homedir(), '.claude', 'projects');
+    try {
+      for (const dir of fs.readdirSync(projectsDir, { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name)) {
+        const p = path.join(projectsDir, dir, `${sessionId}.jsonl`);
+        if (fs.existsSync(p)) return TrailDataServer.parseJsonlSession(p);
+      }
+    } catch { /* ignore */ }
+    return { contextTokens: 0, turnCount: 0, messageCount: 0 };
+  }
+
+  private static getDailyTokensFromJsonl(): number {
+    const projectsDir = path.join(os.homedir(), '.claude', 'projects');
+    const nowJst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    const todayJst = nowJst.toISOString().slice(0, 10);
+    let total = 0;
+    try {
+      for (const dir of fs.readdirSync(projectsDir, { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name)) {
+        const dirPath = path.join(projectsDir, dir);
+        for (const file of fs.readdirSync(dirPath).filter(f => f.endsWith('.jsonl'))) {
+          const filePath = path.join(dirPath, file);
+          const mtimeJst = new Date(fs.statSync(filePath).mtimeMs + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+          if (mtimeJst === todayJst) {
+            total += TrailDataServer.parseJsonlSession(filePath).contextTokens;
+          }
+        }
+      }
+    } catch { /* ignore */ }
+    return total;
+  }
+
+  private handleTokenBudget(req: http.IncomingMessage, res: http.ServerResponse): void {
+    let body = '';
+    req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+    req.on('end', () => {
+      try {
+        const { sessionId } = JSON.parse(body) as { sessionId: string };
+        if (!sessionId) {
+          res.writeHead(400, JSON_HEADERS);
+          res.end(JSON.stringify({ error: 'sessionId required' }));
+          return;
+        }
+
+        const { contextTokens, turnCount, messageCount } = TrailDataServer.getSessionStatsFromJsonl(sessionId);
+        const dbDaily = this.trailDb.getDailyTokensToday();
+        const dailyTokens = dbDaily > 0 ? dbDaily : TrailDataServer.getDailyTokensFromJsonl();
+        const { dailyLimitTokens, sessionLimitTokens, alertThresholdPct } = this.tokenBudgetConfig;
+
+        const status: import('./types').TokenBudgetUpdatedMessage = {
+          type: 'token-budget-updated',
+          sessionId,
+          sessionTokens: contextTokens,
+          dailyTokens,
+          dailyLimitTokens,
+          sessionLimitTokens,
+          alertThresholdPct,
+          turnCount,
+          messageCount,
+        };
+
+        const payload = JSON.stringify(status);
+        for (const ws of this.clients) {
+          ws.send(payload);
+        }
+
+        const threshold = alertThresholdPct / 100;
+        const dailyExceeded = dailyLimitTokens !== null && dailyTokens >= dailyLimitTokens * threshold;
+        const sessionExceeded = sessionLimitTokens !== null && contextTokens >= sessionLimitTokens * threshold;
+        if (dailyExceeded || sessionExceeded) {
+          this.onTokenBudgetExceeded?.(status);
+        }
+
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({ ok: true }));
+      } catch {
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({ ok: true }));
+      }
+    });
+  }
+
+  private handleInsertMessageCommit(req: http.IncomingMessage, res: http.ServerResponse): void {
+    let body = '';
+    req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+    req.on('end', () => {
+      try {
+        const { messageUuid, sessionId, commitHash, matchConfidence } = JSON.parse(body) as {
+          messageUuid: string;
+          sessionId: string;
+          commitHash: string;
+          matchConfidence: string;
+        };
+        if (!messageUuid || !sessionId || !commitHash) {
+          res.writeHead(400, JSON_HEADERS);
+          res.end(JSON.stringify({ error: 'messageUuid, sessionId, commitHash required' }));
+          return;
+        }
+        this.trailDb.insertMessageCommit({
+          messageUuid,
+          sessionId,
+          commitHash,
+          detectedAt: new Date().toISOString(),
+          matchConfidence: (matchConfidence ?? 'realtime') as import('@anytime-markdown/trail-core').MessageCommitMatchConfidence,
+        });
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({ ok: true }));
+      } catch (e) {
+        res.writeHead(500, JSON_HEADERS);
+        res.end(JSON.stringify({ error: String(e) }));
+      }
+    });
   }
 
   // -------------------------------------------------------------------------

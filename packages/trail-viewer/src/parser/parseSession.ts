@@ -188,6 +188,26 @@ export function parseSession(
     interruption = { interrupted: true, reason: 'no_response', contextTokens: ctxTokens };
   }
 
+  let errorCount = 0;
+  let subAgentCount = 0;
+  for (const raw of parsedRaws) {
+    if (!Array.isArray(raw.message?.content)) continue;
+    for (const block of raw.message.content as readonly RawContentBlock[]) {
+      if (raw.type === 'user' && block.type === 'tool_result' && block.is_error === true) errorCount++;
+      if (raw.type === 'assistant' && block.type === 'tool_use' && block.name === 'Agent') subAgentCount++;
+    }
+  }
+
+  // 自動 /compact の検出: 連続する assistant ターンで cacheRead が
+  // 50K 以上積まれていた状態から 70% 以上減少したケースをカウント
+  let compactCount = 0;
+  const assistantWithUsage = messages.filter((m) => m.type === 'assistant' && m.usage);
+  for (let i = 1; i < assistantWithUsage.length; i++) {
+    const prev = assistantWithUsage[i - 1].usage?.cacheReadTokens ?? 0;
+    const cur = assistantWithUsage[i].usage?.cacheReadTokens ?? 0;
+    if (prev >= 50_000 && cur <= prev * 0.3) compactCount++;
+  }
+
   const session: TrailSession = {
     id: firstRaw?.sessionId ?? '',
     slug: firstRaw?.slug ?? firstAssistant?.slug ?? '',
@@ -202,6 +222,9 @@ export function parseSession(
     initialContextTokens,
     interruption,
     usage: aggregateUsage(messages),
+    errorCount: errorCount > 0 ? errorCount : undefined,
+    subAgentCount: subAgentCount > 0 ? subAgentCount : undefined,
+    compactCount: compactCount > 0 ? compactCount : undefined,
   };
 
   return { session, messages };
