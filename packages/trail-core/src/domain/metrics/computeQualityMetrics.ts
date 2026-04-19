@@ -9,11 +9,11 @@ import type { DateRange, QualityMetrics, UnmeasuredMetric } from './types';
 export type { DateRange };
 
 export interface QualityMetricsInputs {
-  releases: Array<{ id: string; tag_date: string; commit_hashes: string[] }>;
+  releases: Array<{ id: string; tag_date: string; commit_hashes: string[]; fix_count?: number }>;
   messages: Array<{ uuid: string; created_at: string; role: string; type: string }>;
   messageCommits: Array<{ message_uuid: string; detected_at: string; match_confidence: string }>;
   commits: Array<{ hash: string; subject: string }>;
-  previousReleases?: Array<{ id: string; tag_date: string; commit_hashes: string[] }>;
+  previousReleases?: Array<{ id: string; tag_date: string; commit_hashes: string[]; fix_count?: number }>;
   previousMessages?: Array<{ uuid: string; created_at: string; role: string; type: string }>;
   previousMessageCommits?: Array<{ message_uuid: string; detected_at: string; match_confidence: string }>;
   previousCommits?: Array<{ hash: string; subject: string }>;

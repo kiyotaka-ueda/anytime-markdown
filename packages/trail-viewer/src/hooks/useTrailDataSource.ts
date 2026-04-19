@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { AnalyticsData, CombinedData, CombinedPeriodMode, CombinedRangeDays, CostOptimizationData, ToolMetrics, TrailFilter, TrailMessage, TrailPromptEntry, TrailSession, TrailSessionCommit } from '../parser/types';
 import type { TrailRelease } from '@anytime-markdown/trail-core/domain';
+import type { DateRange, QualityMetrics } from '@anytime-markdown/trail-core/domain/metrics';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -38,6 +39,7 @@ export interface TrailDataSourceResult {
   readonly releases: readonly TrailRelease[];
   readonly fetchReleases: () => Promise<readonly TrailRelease[]>;
   readonly fetchCombinedData: (period: CombinedPeriodMode, rangeDays: CombinedRangeDays) => Promise<CombinedData>;
+  readonly fetchQualityMetrics: (range: DateRange) => Promise<QualityMetrics | null>;
   readonly tokenBudgets: readonly TokenBudgetStatus[];
 }
 
@@ -274,6 +276,23 @@ export function useTrailDataSource(serverUrl: string): TrailDataSourceResult {
     [baseUrl],
   );
 
+  // --- Fetch quality metrics ---
+
+  const fetchQualityMetrics = useCallback(
+    async (range: DateRange): Promise<QualityMetrics | null> => {
+      try {
+        const res = await fetch(
+          `${baseUrl}/api/trail/quality-metrics?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`,
+        );
+        if (!res.ok) return null;
+        return (await res.json()) as QualityMetrics;
+      } catch {
+        return null;
+      }
+    },
+    [baseUrl],
+  );
+
   // --- Search sessions ---
 
   const searchSessions = useCallback(
@@ -419,6 +438,7 @@ export function useTrailDataSource(serverUrl: string): TrailDataSourceResult {
     releases,
     fetchReleases,
     fetchCombinedData,
+    fetchQualityMetrics,
     tokenBudgets,
   };
 }

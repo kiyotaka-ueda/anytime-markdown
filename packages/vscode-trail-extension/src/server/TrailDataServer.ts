@@ -25,6 +25,8 @@ import { WebSocketServer, type WebSocket } from 'ws';
 
 import type { ClientMessage, ServerMessage } from './types';
 import type { TrailDatabase, SessionRow, MessageRow, AnalyticsData, CostOptimizationData } from '../trail/TrailDatabase';
+import { MetricsThresholdsLoader } from '../trail/MetricsThresholdsLoader';
+import { computeQualityMetrics } from '@anytime-markdown/trail-core/domain/metrics';
 import { TrailLogger } from '../utils/TrailLogger';
 
 // ---------------------------------------------------------------------------
@@ -319,6 +321,11 @@ export class TrailDataServer {
 
     if (pathname === '/api/trail/combined' && method === 'GET') {
       this.handleGetCombined(res, parsed.searchParams);
+      return;
+    }
+
+    if (pathname === '/api/trail/quality-metrics' && method === 'GET') {
+      this.handleGetQualityMetrics(res, parsed.searchParams);
       return;
     }
 
@@ -877,6 +884,41 @@ export class TrailDataServer {
       TrailLogger.error('handleGetCombined failed', e);
       res.writeHead(500, JSON_HEADERS);
       res.end(JSON.stringify({ error: 'Failed to get combined data' }));
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  //  API: GET /api/trail/quality-metrics?from=ISO&to=ISO
+  // -------------------------------------------------------------------------
+
+  private handleGetQualityMetrics(res: http.ServerResponse, params: URLSearchParams): void {
+    const from = params.get('from');
+    const to = params.get('to');
+    if (!from || !to) {
+      res.writeHead(400, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'from and to are required' }));
+      return;
+    }
+    try {
+      const loader = new MetricsThresholdsLoader(this.gitRoot ?? process.cwd());
+      const thresholds = loader.load();
+
+      // Compute previous range (same duration before current range)
+      const fromMs = new Date(from).getTime();
+      const toMs = new Date(to).getTime();
+      const duration = toMs - fromMs;
+      const prevTo = new Date(fromMs - 1).toISOString();
+      const prevFrom = new Date(fromMs - 1 - duration).toISOString();
+
+      const raw = this.trailDb.getQualityMetricsInputs(from, to, prevFrom, prevTo);
+      const metrics = computeQualityMetrics(raw, { from, to }, thresholds);
+
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify(metrics));
+    } catch (e) {
+      TrailLogger.error('handleGetQualityMetrics failed', e);
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'Failed to get quality metrics' }));
     }
   }
 

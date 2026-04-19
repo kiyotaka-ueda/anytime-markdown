@@ -3268,6 +3268,90 @@ export class TrailDatabase {
   }
 
   // ---------------------------------------------------------------------------
+  //  Quality Metrics
+  // ---------------------------------------------------------------------------
+
+  getQualityMetricsInputs(from: string, to: string, prevFrom: string, prevTo: string): {
+    releases: Array<{ id: string; tag_date: string; commit_hashes: string[]; fix_count: number }>;
+    messages: Array<{ uuid: string; created_at: string; role: string; type: string }>;
+    messageCommits: Array<{ message_uuid: string; detected_at: string; match_confidence: string }>;
+    commits: Array<{ hash: string; subject: string }>;
+    previousReleases: Array<{ id: string; tag_date: string; commit_hashes: string[]; fix_count: number }>;
+    previousMessages: Array<{ uuid: string; created_at: string; role: string; type: string }>;
+    previousMessageCommits: Array<{ message_uuid: string; detected_at: string; match_confidence: string }>;
+    previousCommits: Array<{ hash: string; subject: string }>;
+  } {
+    const db = this.ensureDb();
+
+    const queryReleases = (f: string, t: string) => {
+      const res = db.exec(
+        `SELECT tag, released_at, fix_count FROM releases WHERE released_at >= ? AND released_at <= ?`,
+        [f, t],
+      );
+      if (!res[0]) return [];
+      return res[0].values.map((row) => ({
+        id: row[0] as string,
+        tag_date: row[1] as string,
+        commit_hashes: [] as string[],
+        fix_count: (row[2] as number) ?? 0,
+      }));
+    };
+
+    const queryMessages = (f: string, t: string) => {
+      const res = db.exec(
+        `SELECT uuid, timestamp, type FROM messages WHERE timestamp >= ? AND timestamp <= ? AND type = 'user'`,
+        [f, t],
+      );
+      if (!res[0]) return [];
+      return res[0].values.map((row) => ({
+        uuid: row[0] as string,
+        created_at: row[1] as string,
+        role: row[2] as string,
+        type: 'text',
+      }));
+    };
+
+    const queryMessageCommits = (f: string, t: string) => {
+      const res = db.exec(
+        `SELECT mc.message_uuid, mc.detected_at, mc.match_confidence
+         FROM message_commits mc
+         INNER JOIN messages m ON mc.message_uuid = m.uuid
+         WHERE m.timestamp >= ? AND m.timestamp <= ?`,
+        [f, t],
+      );
+      if (!res[0]) return [];
+      return res[0].values.map((row) => ({
+        message_uuid: row[0] as string,
+        detected_at: row[1] as string,
+        match_confidence: row[2] as string,
+      }));
+    };
+
+    const queryCommits = (f: string, t: string) => {
+      const res = db.exec(
+        `SELECT commit_hash, commit_message FROM session_commits WHERE committed_at >= ? AND committed_at <= ?`,
+        [f, t],
+      );
+      if (!res[0]) return [];
+      return res[0].values.map((row) => ({
+        hash: row[0] as string,
+        subject: (row[1] as string ?? '').split('\n')[0],
+      }));
+    };
+
+    return {
+      releases: queryReleases(from, to),
+      messages: queryMessages(from, to),
+      messageCommits: queryMessageCommits(from, to),
+      commits: queryCommits(from, to),
+      previousReleases: queryReleases(prevFrom, prevTo),
+      previousMessages: queryMessages(prevFrom, prevTo),
+      previousMessageCommits: queryMessageCommits(prevFrom, prevTo),
+      previousCommits: queryCommits(prevFrom, prevTo),
+    };
+  }
+
+  // ---------------------------------------------------------------------------
   //  C4 Model
   // ---------------------------------------------------------------------------
 

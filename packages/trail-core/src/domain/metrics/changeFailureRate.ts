@@ -3,7 +3,8 @@ import type { ThresholdsConfig } from './thresholds';
 import type { DateRange, MetricValue } from './types';
 import { buildTimeSeries } from './timeSeriesUtils';
 
-type Release = { id: string; tag_date: string; commit_hashes: string[] };
+// fix_count: pre-computed from DB (optional shortcut; if provided and commit_hashes is empty, used directly)
+type Release = { id: string; tag_date: string; commit_hashes: string[]; fix_count?: number };
 type Commit = { hash: string; subject: string };
 
 type Inputs = {
@@ -39,10 +40,13 @@ function computeRate(inputs: Inputs, range: DateRange): {
 
   const failures: Array<{ date: string }> = [];
   for (const release of inRange) {
-    const hasFailure = release.commit_hashes.some((hash) => {
-      const subject = commitMap.get(hash);
-      return subject !== undefined && isFailureCommit(subject);
-    });
+    const hasFailure =
+      release.fix_count !== undefined && release.commit_hashes.length === 0
+        ? release.fix_count > 0
+        : release.commit_hashes.some((hash) => {
+            const subject = commitMap.get(hash);
+            return subject !== undefined && isFailureCommit(subject);
+          });
     if (hasFailure) {
       failures.push({ date: release.tag_date });
     }

@@ -13,6 +13,8 @@ import type {
 } from '../parser/types';
 // AnalyticsData は trail-core の共通型を使用（React 依存を避け、server-safe にする）
 import type { AnalyticsData, ITrailReader, TrailRelease } from '@anytime-markdown/trail-core/domain';
+import { computeQualityMetrics } from '@anytime-markdown/trail-core/domain/metrics';
+import type { DateRange, QualityMetrics } from '@anytime-markdown/trail-core/domain/metrics';
 
 // ---------------------------------------------------------------------------
 // Row shapes returned by Supabase (snake_case DB columns)
@@ -714,5 +716,14 @@ export class SupabaseTrailReader implements ITrailReader {
     } catch {
       return null;
     }
+  }
+
+  async getQualityMetrics(range: DateRange): Promise<QualityMetrics> {
+    // Supabase implementation: compute from trail_* tables (Phase 2+)
+    // For now, return empty metrics computed from empty inputs.
+    return computeQualityMetrics(
+      { releases: [], messages: [], messageCommits: [], commits: [] },
+      range,
+    );
   }
 }
