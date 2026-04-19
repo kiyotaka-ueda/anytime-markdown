@@ -7,6 +7,6 @@
     "lib": ["ES2023", "DOM"],
     "types": ["node", "jest"]
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*"],
   "exclude": ["src/c4/webview/**/*"]
 }
