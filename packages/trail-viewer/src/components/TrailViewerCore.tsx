@@ -336,7 +336,7 @@ const BADGE_TOTAL_WIDTH = BADGE_COL_WIDTH * 2 + BADGE_COL_GAP;
 
 function SessionBudgetBadge({ tokenBudget, sessionLabel, turnsLabel, colors }: Readonly<SessionBudgetBadgeProps>) {
   return (
-    <Box sx={{ width: BADGE_TOTAL_WIDTH }}>
+    <Box sx={{ width: BADGE_TOTAL_WIDTH, flexShrink: 0 }}>
       <Typography
         variant="caption"
         component="div"
