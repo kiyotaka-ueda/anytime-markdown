@@ -59,6 +59,8 @@ export { computeComplexityMatrix } from './metrics/computeComplexityMatrix';
 export { computeImportanceMatrix } from './metrics/computeImportanceMatrix';
 export type { ImportanceMatrix } from '../importance/types';
 
+export { mergeManualIntoC4Model } from './mergeManual';
+
 export type {
   ManualElement,
   ManualRelationship,
