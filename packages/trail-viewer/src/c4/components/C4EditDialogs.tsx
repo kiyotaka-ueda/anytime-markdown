@@ -148,7 +148,7 @@ const ELEMENT_TYPE_LABELS: Record<C4ElementKind, string> = {
 export const AddElementDialog = memo(({ open, elementType, initial, onSubmit, onClose, parentCandidates }: Readonly<AddElementDialogProps>) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [external, setExternal] = useState(elementType === 'system');
+  const [external, setExternal] = useState(false);
   const [parentId, setParentId] = useState<string>('');
   const [serviceType, setServiceType] = useState('');
 
@@ -156,7 +156,7 @@ export const AddElementDialog = memo(({ open, elementType, initial, onSubmit, on
     if (open) {
       setName(initial?.name ?? '');
       setDescription(initial?.description ?? '');
-      setExternal(initial?.external ?? elementType === 'system');
+      setExternal(initial?.external ?? false);
       setParentId(initial?.parentId ?? '');
       setServiceType(initial?.serviceType ?? '');
     }
