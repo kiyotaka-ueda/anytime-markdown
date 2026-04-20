@@ -58,3 +58,9 @@ export type { MessageInput } from './metrics/computeComplexityMatrix';
 export { computeComplexityMatrix } from './metrics/computeComplexityMatrix';
 export { computeImportanceMatrix } from './metrics/computeImportanceMatrix';
 export type { ImportanceMatrix } from '../importance/types';
+
+export type {
+  ManualElement,
+  ManualRelationship,
+  IManualElementProvider,
+} from './manualTypes';
