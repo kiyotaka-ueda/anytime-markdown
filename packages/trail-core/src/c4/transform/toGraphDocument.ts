@@ -115,9 +115,24 @@ export function c4ToGraphDocument(
       const existingFrameId = boundaryIdMap.get(elem.id)!;
       const frame = doc.nodes.find(n => n.id === existingFrameId);
       if (frame && !frame.metadata?.c4Type) {
-        const nodeColors = C4_COLORS[elem.type] ?? EXTERNAL_COLOR;
+        const serviceEntry = elem.serviceType ? findService(elem.serviceType) : undefined;
+        const nodeColors = serviceEntry
+          ? { fill: `${serviceEntry.brandColor}26`, stroke: serviceEntry.brandColor }
+          : C4_COLORS[elem.type] ?? EXTERNAL_COLOR;
         const colors = FRAME_COLORS[elem.type] ?? { fill: 'transparent', stroke: '#444444' };
-        frame.metadata = { ...frame.metadata, c4Type: elem.type, c4NodeFill: nodeColors.fill, c4NodeStroke: nodeColors.stroke };
+        frame.metadata = {
+          ...frame.metadata,
+          c4Type: elem.type,
+          c4NodeFill: nodeColors.fill,
+          c4NodeStroke: nodeColors.stroke,
+          ...(serviceEntry?.iconBody ? {
+            serviceIconBody: serviceEntry.iconBody,
+            serviceIconViewBox: serviceEntry.iconViewBox ?? '0 0 24 24',
+          } : serviceEntry?.iconPath ? {
+            serviceIconPath: serviceEntry.iconPath,
+            serviceColor: serviceEntry.brandColor,
+          } : {}),
+        };
         frame.style = { ...DEFAULT_STYLE, fill: colors.fill, stroke: colors.stroke };
         frame.text = buildNodeText(elem);
       }
@@ -126,8 +141,11 @@ export function c4ToGraphDocument(
 
     const frameId = nextId();
     boundaryIdMap.set(elem.id, frameId);
+    const serviceEntry = elem.serviceType ? findService(elem.serviceType) : undefined;
     const colors = FRAME_COLORS[elem.type] ?? { fill: 'transparent', stroke: '#444444' };
-    const nodeColors = C4_COLORS[elem.type] ?? EXTERNAL_COLOR;
+    const nodeColors = serviceEntry
+      ? { fill: `${serviceEntry.brandColor}26`, stroke: serviceEntry.brandColor }
+      : C4_COLORS[elem.type] ?? EXTERNAL_COLOR;
     const node: GraphNode = {
       id: frameId,
       type: 'frame',
@@ -137,7 +155,19 @@ export function c4ToGraphDocument(
       height: 300,
       text: buildNodeText(elem),
       style: { ...DEFAULT_STYLE, fill: colors.fill, stroke: colors.stroke },
-      metadata: { c4Id: elem.id, c4Type: elem.type, c4NodeFill: nodeColors.fill, c4NodeStroke: nodeColors.stroke },
+      metadata: {
+        c4Id: elem.id,
+        c4Type: elem.type,
+        c4NodeFill: nodeColors.fill,
+        c4NodeStroke: nodeColors.stroke,
+        ...(serviceEntry?.iconBody ? {
+          serviceIconBody: serviceEntry.iconBody,
+          serviceIconViewBox: serviceEntry.iconViewBox ?? '0 0 24 24',
+        } : serviceEntry?.iconPath ? {
+          serviceIconPath: serviceEntry.iconPath,
+          serviceColor: serviceEntry.brandColor,
+        } : {}),
+      },
     };
     doc.nodes.push(node);
   }
