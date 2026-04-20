@@ -1,5 +1,5 @@
 import type { C4TreeNode, DocLink } from '@anytime-markdown/trail-core/c4';
-import { findService } from '@anytime-markdown/trail-core';
+import { findService } from '@anytime-markdown/trail-core/c4';
 import type { ExportedSymbol } from '@anytime-markdown/trail-core/analyzer';
 import type { Action } from '@anytime-markdown/graph-core/state';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
