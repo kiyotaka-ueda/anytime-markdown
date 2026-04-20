@@ -308,6 +308,12 @@ export function C4ViewerCore({
     return c4Model.elements.find(e => e.id === selectedElementId)?.manual === true;
   }, [selectedElementId, c4Model]);
 
+  const selectedSystemId = useMemo(() => {
+    if (!selectedElementId || !c4Model) return null;
+    const elem = c4Model.elements.find(e => e.id === selectedElementId);
+    return elem?.type === 'system' ? elem.id : null;
+  }, [selectedElementId, c4Model]);
+
   useEffect(() => {
     if (!c4Model) return;
 
@@ -982,7 +988,7 @@ export function C4ViewerCore({
             </>
           )}
           {currentLevel === 2 && (
-            <Button size="small" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={() => setAddElementType('container')} sx={toolbarButtonSx} aria-label="Add Container">Container</Button>
+            <Button size="small" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={() => setAddElementType('container')} disabled={!selectedSystemId} sx={toolbarButtonSx} aria-label="Add Container">Container</Button>
           )}
           {currentLevel === 3 && (
             <Button size="small" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={() => setAddElementType('component')} sx={toolbarButtonSx} aria-label="Add Component">Component</Button>
@@ -1257,12 +1263,11 @@ export function C4ViewerCore({
       <AddElementDialog
         open={addElementType !== null && !editElement}
         elementType={addElementType ?? 'person'}
+        initial={addElementType === 'container' && selectedSystemId ? { parentId: selectedSystemId } : undefined}
         onSubmit={handleAddElement}
         onClose={() => setAddElementType(null)}
         parentCandidates={
-          addElementType === 'container'
-            ? (c4Model?.elements.filter(e => e.type === 'system').map(e => ({ id: e.id, name: e.name })) ?? [])
-            : addElementType === 'component'
+          addElementType === 'component'
             ? (c4Model?.elements.filter(e => e.type === 'container').map(e => ({ id: e.id, name: e.name })) ?? [])
             : undefined
         }
