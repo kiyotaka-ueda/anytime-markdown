@@ -66,6 +66,8 @@ export interface C4DataProvider {
   handleCluster(enabled: boolean): void;
   handleRefresh(): void;
   handleResetClaudeActivity(): void;
+  getManualElements(repoName: string): readonly import('@anytime-markdown/trail-core').ManualElement[];
+  getManualRelationships(repoName: string): readonly import('@anytime-markdown/trail-core').ManualRelationship[];
 }
 
 // ---------------------------------------------------------------------------
@@ -662,7 +664,11 @@ export class TrailDataServer {
     const repoName = repo ?? (this.gitRoot ? path.basename(this.gitRoot) : undefined);
     const provider = this.getC4Provider?.();
     const store = this.trailDb.asC4ModelStore();
-    const payload = await fetchC4Model(store, releaseId, repoName, provider?.featureMatrix);
+    const manualProvider = provider && repoName ? {
+      getElements: async (repo: string) => provider.getManualElements(repo),
+      getRelationships: async (repo: string) => provider.getManualRelationships(repo),
+    } : undefined;
+    const payload = await fetchC4Model(store, releaseId, repoName, provider?.featureMatrix, manualProvider);
     if (payload) {
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify(payload));
