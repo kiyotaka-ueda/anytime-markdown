@@ -163,6 +163,30 @@ jobs:
         run: npx jest --maxWorkers=1
         working-directory: packages/vscode-history-extension
 
+      # trail-extension のテストは保護領域（~/.claude, ~/.vscode-server）への
+      # 書き込みが禁止されているため、HOME を使い捨てディレクトリに差し替えて
+      # 万一 guard を通過しても本物のユーザーデータを汚染しない構成にする。
+      - name: Run trail extension tests (isolated HOME)
+        if: github.event_name == 'pull_request' && github.base_ref == 'master'
+        working-directory: packages/vscode-trail-extension
+        env:
+          # 一時 HOME を指定して、拡張機能の本番パスフォールバックが
+          # 仮にガードを貫通した場合でも RUNNER_TEMP 内で完結するようにする。
+          # ガード自体（assertNotProductionWriteDuringTests）はこのパスを
+          # 保護対象と判定するため書き込みは例外となる。
+          HOME: ${{ runner.temp }}/trail-test-home
+        run: |
+          mkdir -p "$HOME"
+          npx jest --maxWorkers=1
+          # ガード・ファクトリが機能していれば、このディレクトリに .claude
+          # / .vscode-server は作られないはず。作られていればテストが
+          # 保護領域に書き込んでいる証拠なので CI を落とす。
+          if [ -e "$HOME/.claude" ] || [ -e "$HOME/.vscode-server" ]; then
+            echo "::error::Protected-path side effect detected under isolated HOME"
+            find "$HOME" -maxdepth 3 -type f | head -20
+            exit 1
+          fi
+
       - name: Build history extension
         if: (github.event_name == 'pull_request' && github.base_ref == 'master') || github.ref == 'refs/heads/master'
         run: npm run package
