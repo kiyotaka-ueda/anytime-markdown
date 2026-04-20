@@ -16,7 +16,6 @@
       "env": {
         "DOTENV_CONFIG_PATH": "packages/web-app/.env.local"
       }
-    }
     },
     "mcp-trail": {
       "command": "npx",
