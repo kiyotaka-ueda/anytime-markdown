@@ -110,11 +110,18 @@ export function c4ToGraphDocument(
   for (const elem of model.elements) {
     if (!BOUNDARY_TYPES.has(elem.type) || elem.external) continue;
     if (boundaryIdMap.has(elem.id)) {
-      // Phase 1 で作成済み → groupId のみ更新
-      if (elem.boundaryId && boundaryIdMap.has(elem.boundaryId)) {
-        const existingFrameId = boundaryIdMap.get(elem.id)!;
-        const frame = doc.nodes.find(n => n.id === existingFrameId);
-        if (frame) {
+      // Phase 1 で作成済み → c4Type / 色 / groupId を補完する
+      const existingFrameId = boundaryIdMap.get(elem.id)!;
+      const frame = doc.nodes.find(n => n.id === existingFrameId);
+      if (frame) {
+        if (!frame.metadata?.c4Type) {
+          const nodeColors = C4_COLORS[elem.type] ?? EXTERNAL_COLOR;
+          const colors = FRAME_COLORS[elem.type] ?? { fill: 'transparent', stroke: '#444444' };
+          frame.metadata = { ...frame.metadata, c4Type: elem.type, c4NodeFill: nodeColors.fill, c4NodeStroke: nodeColors.stroke };
+          frame.style = { ...DEFAULT_STYLE, fill: colors.fill, stroke: colors.stroke };
+          frame.text = buildNodeText(elem);
+        }
+        if (elem.boundaryId && boundaryIdMap.has(elem.boundaryId)) {
           frame.groupId = boundaryIdMap.get(elem.boundaryId);
         }
       }
