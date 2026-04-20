@@ -1,4 +1,5 @@
 import type { C4Model, C4Element, C4ElementType, BoundaryInfo } from '../types';
+import { findService } from '../services/catalog';
 import type {
   NodeType, NodeStyle, EdgeStyle,
   GraphNode, GraphEdge, GraphDocument,
@@ -148,7 +149,10 @@ export function c4ToGraphDocument(
     if (BOUNDARY_TYPES.has(elem.type) && !elem.external) continue; // フレームとして既に生成済み
 
     const mapping = NODE_MAP[elem.type];
-    const colors = elem.external ? EXTERNAL_COLOR : C4_COLORS[elem.type];
+    const serviceEntry = elem.serviceType ? findService(elem.serviceType) : undefined;
+    const colors = serviceEntry
+      ? { fill: `${serviceEntry.brandColor}26`, stroke: serviceEntry.brandColor }
+      : elem.external ? EXTERNAL_COLOR : C4_COLORS[elem.type];
     const nodeId = nextId();
     elemIdMap.set(elem.id, nodeId);
 
@@ -166,7 +170,14 @@ export function c4ToGraphDocument(
         stroke: colors.stroke,
         ...(elem.external ? { dashed: true } : {}),
       },
-      metadata: { c4Id: elem.id, c4Type: elem.type },
+      metadata: {
+        c4Id: elem.id,
+        c4Type: elem.type,
+        ...(serviceEntry ? {
+          serviceIconPath: serviceEntry.iconPath,
+          serviceColor: serviceEntry.brandColor,
+        } : {}),
+      },
       ...(elem.boundaryId && boundaryIdMap.has(elem.boundaryId)
         ? { groupId: boundaryIdMap.get(elem.boundaryId) }
         : {}),

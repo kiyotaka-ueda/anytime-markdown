@@ -1488,11 +1488,12 @@ export class TrailDataServer {
     this.notify('model-updated');
   }
 
-  private isValidElementInput(body: unknown): body is { type: string; name: string; external: boolean; parentId: string | null; description?: string } {
+  private isValidElementInput(body: unknown): body is { type: string; name: string; external: boolean; parentId: string | null; description?: string; serviceType?: string } {
     if (typeof body !== 'object' || body === null) return false;
     const b = body as Record<string, unknown>;
     if (!['person', 'system', 'container', 'component'].includes(String(b.type))) return false;
     if (typeof b.name !== 'string' || b.name.length === 0) return false;
+    if (b.serviceType !== undefined && typeof b.serviceType !== 'string') return false;
     return true;
   }
 

@@ -1,5 +1,6 @@
 import { c4ToGraphDocument } from '../transform/toGraphDocument';
 import type { C4Model, BoundaryInfo } from '../types';
+import { findService } from '../services/catalog';
 
 describe('c4ToGraphDocument', () => {
   it('should convert person to ellipse node', () => {
@@ -157,5 +158,23 @@ describe('c4ToGraphDocument', () => {
     expect(innerFrame!.groupId).toBe(outerFrame!.id);
     // leafNode は innerFrame の子
     expect(leafNode!.groupId).toBe(innerFrame!.id);
+  });
+});
+
+describe('serviceType container', () => {
+  it('sets metadata.serviceIconPath and serviceColor for container with serviceType', () => {
+    const model: C4Model = {
+      level: 'component',
+      elements: [{
+        id: 'supa', type: 'container', name: 'Supabase',
+        external: true, serviceType: 'supabase',
+      }],
+      relationships: [],
+    };
+    const doc = c4ToGraphDocument(model);
+    const node = doc.nodes[0];
+    expect(node.metadata?.serviceIconPath).toBeTruthy();
+    expect(typeof node.metadata?.serviceIconPath).toBe('string');
+    expect(node.metadata?.serviceColor).toBe(findService('supabase')?.brandColor);
   });
 });
