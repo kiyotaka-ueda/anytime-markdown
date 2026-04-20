@@ -124,10 +124,18 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
     const vp = getViewport();
     const world = screenToWorld(vp, sx, sy);
     const nodes = getNodes();
+    // Non-frames render on top of frames (matching renderer z-order), so check non-frames first.
     for (let i = nodes.length - 1; i >= 0; i--) {
       const n = nodes[i];
-      if (skipFrames && n.type === 'frame') continue;
+      if (n.type === 'frame') continue;
       if (hitTestNode(n, world.x, world.y)) return n;
+    }
+    if (!skipFrames) {
+      for (let i = nodes.length - 1; i >= 0; i--) {
+        const n = nodes[i];
+        if (n.type !== 'frame') continue;
+        if (hitTestNode(n, world.x, world.y)) return n;
+      }
     }
     return undefined;
   }, [getViewport, getNodes, skipFrames]);
