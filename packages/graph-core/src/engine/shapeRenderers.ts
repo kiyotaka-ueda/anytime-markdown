@@ -326,7 +326,30 @@ const renderRect: SpecialShapeRenderer = (ctx, node, selected, _isDragging, fill
     setupStroke(ctx, style, selected);
     ctx.strokeRect(x, y, width, height);
   }
+
+  const iconPath = node.metadata?.serviceIconPath;
+  const iconColor = node.metadata?.serviceColor;
+  if (typeof iconPath === 'string' && typeof iconColor === 'string') {
+    drawServiceIcon(ctx, iconPath, iconColor, x + 6, y + 6, 14);
+  }
 };
+
+function drawServiceIcon(
+  ctx: CanvasRenderingContext2D,
+  svgPath: string,
+  color: string,
+  x: number,
+  y: number,
+  size: number,
+): void {
+  const scale = size / 24;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.fillStyle = color;
+  ctx.fill(new Path2D(svgPath));
+  ctx.restore();
+}
 
 /** パスベースのドキュメントアイコンを描画 */
 function drawDocIcon(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number): void {
