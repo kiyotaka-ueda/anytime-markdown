@@ -1,6 +1,7 @@
 'use client';
 
 import { getCanvasColors } from '@anytime-markdown/graph-core';
+import type { LayoutAlgorithm } from '@anytime-markdown/graph-core/engine';
 import {
   // DiamondOutlined replaced by custom SVG diamond icon below
   // ParallelogramIcon, CylinderIcon replaced by custom SVG icons below
@@ -49,7 +50,7 @@ import { useTranslations } from 'next-intl';
 import React, { useCallback,useRef, useState } from 'react';
 
 import { SaveStatus } from '../hooks/useAutoSave';
-import { ToolType } from '../types';
+import { type AlignType,ToolType } from '../types';
 import {
   CylinderShapeIcon as CylinderIcon,
   DiamondShapeIcon as DiamondIcon,
@@ -75,7 +76,7 @@ interface ToolBarProps {
   onImportDrawio: () => void;
   onImportGraph: () => void;
   onImportMermaid: () => void;
-  onAlign: (type: string) => void;
+  onAlign: (type: AlignType) => void;
   onSetScale: (scale: number) => void;
   selectionCount: number;
   hasSelection: boolean;
@@ -86,8 +87,8 @@ interface ToolBarProps {
   collisionEnabled?: boolean;
   onAutoLayout?: () => void;
   onToggleCollision?: (enabled: boolean) => void;
-  layoutAlgorithm?: 'eades' | 'fruchterman-reingold' | 'eades-vpsc' | 'fruchterman-reingold-vpsc' | 'hierarchical';
-  onChangeAlgorithm?: (algorithm: 'eades' | 'fruchterman-reingold' | 'eades-vpsc' | 'fruchterman-reingold-vpsc' | 'hierarchical') => void;
+  layoutAlgorithm?: LayoutAlgorithm;
+  onChangeAlgorithm?: (algorithm: LayoutAlgorithm) => void;
   onSpreadConnected?: () => void;
   showFilter?: boolean;
   onToggleFilter?: () => void;
@@ -326,7 +327,7 @@ export function GraphToolBar({
         <Tooltip title={t('switchAlgorithm')}>
           <IconButton
             onClick={() => {
-              const cycle: Array<'eades' | 'fruchterman-reingold' | 'eades-vpsc' | 'fruchterman-reingold-vpsc' | 'hierarchical'> = ['eades', 'fruchterman-reingold', 'eades-vpsc', 'fruchterman-reingold-vpsc', 'hierarchical'];
+              const cycle: LayoutAlgorithm[] = ['eades', 'fruchterman-reingold', 'eades-vpsc', 'fruchterman-reingold-vpsc', 'hierarchical'];
               const idx = cycle.indexOf(layoutAlgorithm);
               onChangeAlgorithm?.(cycle[(idx + 1) % cycle.length]);
             }}

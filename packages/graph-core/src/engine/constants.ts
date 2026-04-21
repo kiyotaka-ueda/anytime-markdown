@@ -87,6 +87,11 @@ export const FRAME_COLLAPSE_ICON_SIZE = 10;
 /** フレームのつかみ判定に使う枠線幅 (px) */
 export const FRAME_BORDER_WIDTH = 4;
 
+// ── Group ──
+
+/** グループ境界ボックスのパディング (px) */
+export const GROUP_PADDING = 16;
+
 /** フレームのタイトルテキスト左余白 (px) */
 export const FRAME_TITLE_TEXT_LEFT = 12;
 

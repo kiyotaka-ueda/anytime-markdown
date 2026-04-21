@@ -15,11 +15,16 @@ import { useTranslations } from 'next-intl';
 import React from 'react';
 
 export type ContextTarget = 'node' | 'edge' | 'canvas';
+export type ContextMenuAction =
+  | 'copy' | 'paste' | 'delete'
+  | 'bringToFront' | 'sendToBack'
+  | 'group' | 'ungroup'
+  | 'selectAll';
 
 interface ContextMenuProps {
   anchorPosition: { top: number; left: number } | null;
   targetType: ContextTarget;
-  onAction: (action: string) => void;
+  onAction: (action: ContextMenuAction) => void;
   onClose: () => void;
   hasClipboard: boolean;
 }
@@ -28,7 +33,7 @@ export function ContextMenu({ anchorPosition, targetType, onAction, onClose, has
   const t = useTranslations('Graph');
   if (!anchorPosition) return null;
 
-  const handleAction = (action: string) => {
+  const handleAction = (action: ContextMenuAction) => {
     onAction(action);
     onClose();
   };

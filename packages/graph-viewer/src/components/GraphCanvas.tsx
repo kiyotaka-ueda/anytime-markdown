@@ -213,24 +213,25 @@ function drawDragPreview(
   nodes: readonly GraphNode[],
   isDark: boolean,
 ): void {
+  const colors = getCanvasColors(isDark);
   ctx.save();
   ctx.translate(activeViewport.offsetX, activeViewport.offsetY);
   ctx.scale(activeViewport.scale, activeViewport.scale);
   if (preview.type === 'edge' && preview.edgeType) {
     if (preview.snapNodeId) {
       const snapNode = nodes.find(n => n.id === preview.snapNodeId);
-      if (snapNode) drawSnapHighlight(ctx, snapNode, getCanvasColors(isDark));
+      if (snapNode) drawSnapHighlight(ctx, snapNode, colors);
     }
     const isValidTarget = !!preview.snapNodeId;
-    drawEdgePreview(ctx, preview.fromX, preview.fromY, preview.toX, preview.toY, preview.edgeType, isValidTarget, getCanvasColors(isDark));
+    drawEdgePreview(ctx, preview.fromX, preview.fromY, preview.toX, preview.toY, preview.edgeType, isValidTarget, colors);
   } else if (preview.type === 'shape' && preview.shapeType) {
-    drawShapePreview(ctx, preview.fromX, preview.fromY, preview.toX, preview.toY, preview.shapeType, getCanvasColors(isDark));
+    drawShapePreview(ctx, preview.fromX, preview.fromY, preview.toX, preview.toY, preview.shapeType, colors);
   } else if (preview.type === 'select-rect') {
     const x = Math.min(preview.fromX, preview.toX);
     const y = Math.min(preview.fromY, preview.toY);
     const w = Math.abs(preview.toX - preview.fromX);
     const h = Math.abs(preview.toY - preview.fromY);
-    drawSelectionRect(ctx, x, y, w, h, getCanvasColors(isDark));
+    drawSelectionRect(ctx, x, y, w, h, colors);
   }
   ctx.restore();
 }
@@ -283,6 +284,16 @@ export function GraphCanvas({
 }: Readonly<GraphCanvasProps>) {
   const rafRef = useRef<number>(0);
   const prevHoverRef = useRef<string | undefined>(undefined);
+  const prefersReducedMotionRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    prefersReducedMotionRef.current = mq.matches;
+    const handler = (e: MediaQueryListEvent) => { prefersReducedMotionRef.current = e.matches; };
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   // コネクタパス計算をメモ化（edges/nodes変更時のみ再計算）
   const resolvedEdges = useMemo(() => {
@@ -291,7 +302,13 @@ export function GraphCanvas({
       return edges.map(e => resolveLayoutRunningEdge(e, nodes));
     }
 
-    // 同一ノードペア間のエッジ数をカウント（パス重複回避用）
+    // 同一ノードペア間のエッジ数を事前集計（パス重複回避用）。エッジごとの O(E) 走査を避ける。
+    const pairTotalMap = new Map<string, number>();
+    for (const e of edges) {
+      if (e.type !== 'connector' || !e.from.nodeId || !e.to.nodeId) continue;
+      const k = [e.from.nodeId, e.to.nodeId].sort((a, b) => (a ?? '').localeCompare(b ?? '')).join(':');
+      pairTotalMap.set(k, (pairTotalMap.get(k) ?? 0) + 1);
+    }
     const pairCount = new Map<string, number>();
 
     return edges.map(e => {
@@ -312,10 +329,7 @@ export function GraphCanvas({
       const pairKey = [e.from.nodeId, e.to.nodeId].sort((a, b) => (a ?? '').localeCompare(b ?? '')).join(':');
       const parallelIndex = pairCount.get(pairKey) ?? 0;
       pairCount.set(pairKey, parallelIndex + 1);
-      const pairTotal = edges.filter(e2 =>
-        e2.type === 'connector' && e2.from.nodeId && e2.to.nodeId &&
-        [e2.from.nodeId, e2.to.nodeId].sort((a, b) => (a ?? '').localeCompare(b ?? '')).join(':') === pairKey,
-      ).length;
+      const pairTotal = pairTotalMap.get(pairKey) ?? 0;
       const sides = bestSides(fromNode, toNode);
       const fromPts = getConnectionPoints(fromNode);
       const toPts = getConnectionPoints(toNode);
@@ -352,9 +366,7 @@ export function GraphCanvas({
     // 慣性スクロール（reduced-motion 時は即停止）
     if (velocityRef && onPanInertia) {
       const vel = velocityRef.current;
-      const prefersReducedMotion = typeof window !== 'undefined'
-        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      if (prefersReducedMotion) {
+      if (prefersReducedMotionRef.current) {
         vel.vx = 0;
         vel.vy = 0;
       } else if (Math.abs(vel.vx) > 0.5 || Math.abs(vel.vy) > 0.5) {

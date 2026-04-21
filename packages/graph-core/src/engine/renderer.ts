@@ -1,6 +1,7 @@
 import { GraphNode, GraphEdge, GraphGroup, Viewport, SelectionState } from '../types';
 import { CanvasColors, getCanvasColors, FONT_FAMILY } from '../theme';
-import { FONT_SIZE_TOOLTIP, URL_TRUNCATE_LENGTH } from './constants';
+import { FONT_SIZE_TOOLTIP, GROUP_PADDING, URL_TRUNCATE_LENGTH } from './constants';
+import { clusterByY } from './groupClustering';
 import { getVisibleBounds, isNodeVisible, isEdgeVisible } from './culling';
 import { drawRoundedRect } from './shapes';
 import { drawNode, drawLockIndicator } from './shapeRenderers';
@@ -234,8 +235,6 @@ export function drawGrid(
   ctx.restore();
 }
 
-const GROUP_PADDING = 16;
-
 export interface GroupBounds {
   x: number;
   y: number;
@@ -274,14 +273,7 @@ export function computeGroupBoundsClusters(
 ): GroupBounds[] {
   const members = memberIds.map(id => nodeMap.get(id)).filter((n): n is GraphNode => n !== undefined);
   if (members.length === 0) return [];
-  const rowThreshold = Math.max(...members.map(n => n.height)) * 1.5;
-  const sorted = [...members].sort((a, b) => a.y - b.y);
-  const clusters: GraphNode[][] = [];
-  for (const m of sorted) {
-    const last = clusters[clusters.length - 1];
-    if (last && Math.abs(m.y - last[0].y) < rowThreshold) last.push(m);
-    else clusters.push([m]);
-  }
+  const clusters = clusterByY(members);
   return clusters.map(cluster => {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const n of cluster) {

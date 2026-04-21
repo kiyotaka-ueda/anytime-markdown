@@ -8,3 +8,5 @@ type GraphEdge,
   type GraphNode, type HistoryEntry,
   type NodeStyle,   type NodeType,   type SelectionState, type ToolType,
   type Viewport, } from '@anytime-markdown/graph-core';
+
+export type AlignType = 'left' | 'right' | 'top' | 'bottom' | 'centerH' | 'centerV' | 'distributeH' | 'distributeV';

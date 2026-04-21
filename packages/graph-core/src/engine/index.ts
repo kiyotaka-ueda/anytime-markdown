@@ -1,5 +1,6 @@
 export { render, drawGrid } from './renderer';
 export type { RenderOptions } from './renderer';
+export { clusterByY } from './groupClustering';
 export {
   drawRoundedRect, clearImageCache,
   drawDiamond, drawParallelogram, drawCylinderBody, drawCylinderTop,
@@ -38,6 +39,7 @@ export type { ViewportAnimation } from './animation';
 export { getVisibleBounds, isNodeVisible, isEdgeVisible } from './culling';
 export type { VisibleBounds } from './culling';
 export * as physics from './physics/index';
+export type { LayoutAlgorithm } from './physics/types';
 export { linearScale, interpolateColor } from './dataMapping';
 export { findShortestPath } from './graphTraversal';
 export type { PathResult } from './graphTraversal';

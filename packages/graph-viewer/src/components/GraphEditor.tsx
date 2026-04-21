@@ -1,6 +1,7 @@
 'use client';
 
 import { exportToDrawio, exportToSvg, importFromDrawio, importFromMermaid, layoutWithSubgroups } from '@anytime-markdown/graph-core';
+import type { LayoutAlgorithm } from '@anytime-markdown/graph-core/engine';
 import { clearImageCache, physics,ViewportAnimation } from '@anytime-markdown/graph-core/engine';
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Typography } from '@mui/material';
 import { useTranslations } from 'next-intl';
@@ -18,7 +19,7 @@ import { useNodeFilter } from '../hooks/useNodeFilter';
 import { usePathHighlight } from '../hooks/usePathHighlight';
 import { useTouchInteraction } from '../hooks/useTouchInteraction';
 import { getLastDocumentId,loadDocument } from '../store/graphStorage';
-import { createDocument, createNode, type GraphDocument,ToolType, Viewport } from '../types';
+import { type AlignType,createDocument, createNode, type GraphDocument,ToolType, Viewport } from '../types';
 import type { DataMappingConfig } from '../types/dataMapping';
 import type { NodeFilterConfig } from '../types/nodeFilter';
 import { EMPTY_FILTER } from '../types/nodeFilter';
@@ -86,7 +87,7 @@ export function GraphEditor({
   const [isDragging, setIsDragging] = useState(false);
   const [layoutRunning, setLayoutRunning] = useState(false);
   const [collisionEnabled, setCollisionEnabled] = useState(false);
-  const [layoutAlgorithm, setLayoutAlgorithm] = useState<'eades' | 'fruchterman-reingold' | 'eades-vpsc' | 'fruchterman-reingold-vpsc' | 'hierarchical'>('eades');
+  const [layoutAlgorithm, setLayoutAlgorithm] = useState<LayoutAlgorithm>('eades');
   const [dataMappingConfig, _setDataMappingConfig] = useState<DataMappingConfig | undefined>(undefined);
   const [detailNodeId, setDetailNodeId] = useState<string | null>(null);
   const [filterConfig, setFilterConfig] = useState<NodeFilterConfig>(EMPTY_FILTER);
@@ -149,6 +150,9 @@ export function GraphEditor({
     message: string;
     onConfirm: () => void;
   }>({ open: false, title: '', message: '', onConfirm: () => {} });
+  const closeConfirmDialog = useCallback(() => {
+    setConfirmDialog({ open: false, title: '', message: '', onConfirm: () => {} });
+  }, []);
 
   useEffect(() => {
     const lastId = getLastDocumentId();
@@ -536,17 +540,15 @@ export function GraphEditor({
     input.click();
   }, [dispatch, t, setConfirmDialog]);
 
-  const handleAlign = useCallback((type: string) => {
+  const handleAlign = useCallback((type: AlignType) => {
     const selectedNodes = state.document.nodes.filter(n => state.selection.nodeIds.includes(n.id));
     if (selectedNodes.length < 2) return;
 
-    const fns: Record<string, (rects: typeof selectedNodes) => typeof selectedNodes> = {
+    const fns: Record<AlignType, (rects: typeof selectedNodes) => typeof selectedNodes> = {
       left: alignLeft, right: alignRight, top: alignTop, bottom: alignBottom,
       centerH: alignCenterH, centerV: alignCenterV, distributeH, distributeV,
     };
-    const fn = fns[type];
-    if (!fn) return;
-    const result = fn(selectedNodes);
+    const result = fns[type](selectedNodes);
     dispatch({
       type: 'ALIGN_NODES',
       updates: result.map(n => ({ id: n.id, x: n.x, y: n.y })),
@@ -569,6 +571,11 @@ export function GraphEditor({
   const selectedEdge = state.selection.edgeIds.length === 1
     ? state.document.edges.find(e => e.id === state.selection.edgeIds[0]) ?? null : null;
   const editingNode = editingNodeId ? state.document.nodes.find(n => n.id === editingNodeId) ?? null : null;
+
+  const handleNodeHover = useCallback((id: string | null) => {
+    setDetailNodeId(id);
+    setHoverTargetId(id);
+  }, [setHoverTargetId]);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
@@ -636,10 +643,7 @@ export function GraphEditor({
           ariaLabel={canvasAriaLabel}
           isDark={isDark}
           layoutRunning={layoutRunning}
-          onNodeHover={useCallback((id: string | null) => {
-            setDetailNodeId(id);
-            setHoverTargetId(id);
-          }, [setHoverTargetId])}
+          onNodeHover={handleNodeHover}
           highlightNodeIds={highlightNodeIds}
           highlightEdgeIds={highlightEdgeIds}
           originNodeId={originNodeId}
@@ -745,17 +749,17 @@ export function GraphEditor({
         onClose={() => setDocEditNodeId(null)}
         themeMode={themeMode}
       />
-      <Dialog open={confirmDialog.open} onClose={() => setConfirmDialog({ open: false, title: '', message: '', onConfirm: () => {} })}>
+      <Dialog open={confirmDialog.open} onClose={closeConfirmDialog}>
         <DialogTitle>{confirmDialog.title}</DialogTitle>
         <DialogContent>
           <DialogContentText>{confirmDialog.message}</DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmDialog({ open: false, title: '', message: '', onConfirm: () => {} })}>{t('cancel')}</Button>
+          <Button onClick={closeConfirmDialog}>{t('cancel')}</Button>
           <Button
             onClick={() => {
               confirmDialog.onConfirm();
-              setConfirmDialog({ open: false, title: '', message: '', onConfirm: () => {} });
+              closeConfirmDialog();
             }}
             color="error"
             autoFocus

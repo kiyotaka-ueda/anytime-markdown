@@ -1,5 +1,6 @@
 import { createNode, createEdge, createDocument, type GraphDocument, type GraphNode, type GraphEdge } from '../types';
 import { createBody } from '../engine/physics/PhysicsBody';
+import { clusterByY } from '../engine/groupClustering';
 import { computeHierarchicalLayout } from '../engine/physics/hierarchical';
 import { parseNodeDef, parseEdge, tokenizeLine } from './mermaidParser';
 import type { ParsedNode, ParsedEdge, SubgraphInfo } from './mermaidParser';
@@ -329,17 +330,7 @@ function packGroupMembers(doc: GraphDocument, nodeSpacing: number): void {
     if (members.length < 2) continue;
 
     // Y 方向にクラスタリング（同じ Y 行にあるメンバー同士を1クラスタとする）
-    const rowThreshold = Math.max(...members.map(n => n.height)) * 1.5;
-    const sorted = [...members].sort((a, b) => a.y - b.y);
-    const clusters: GraphNode[][] = [];
-    for (const m of sorted) {
-      const last = clusters[clusters.length - 1];
-      if (last && Math.abs(m.y - last[0].y) < rowThreshold) {
-        last.push(m);
-      } else {
-        clusters.push([m]);
-      }
-    }
+    const clusters = clusterByY(members);
 
     // 各クラスタ独立に横一列で pack
     for (const cluster of clusters) {
