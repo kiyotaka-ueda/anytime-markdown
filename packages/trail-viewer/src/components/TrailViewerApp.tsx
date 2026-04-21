@@ -142,6 +142,7 @@ export function TrailViewerApp({
     claudeActivity: c4.claudeActivity,
     multiAgentActivity: c4.multiAgentActivity,
     onResetClaudeActivity: () => sendCommand('reset-claude-activity'),
+    manualGroups: c4.manualGroups,
   };
 
   return (

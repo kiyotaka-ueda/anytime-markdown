@@ -64,6 +64,7 @@ export { mergeManualIntoC4Model } from './mergeManual';
 export type {
   ManualElement,
   ManualRelationship,
+  ManualGroup,
   IManualElementProvider,
 } from './manualTypes';
 

@@ -11,6 +11,7 @@ import type {
   DsmMatrix,
   FeatureMatrix,
   ImportanceMatrix,
+  ManualGroup,
 } from '@anytime-markdown/trail-core/c4';
 
 // ---------------------------------------------------------------------------
@@ -65,6 +66,10 @@ interface C4DataSourceResult {
   removeElement: (id: string) => Promise<void>;
   addRelationship: (data: AddRelationshipRequest) => Promise<void>;
   removeRelationship: (id: string) => Promise<void>;
+  manualGroups: readonly ManualGroup[];
+  addGroup: (memberIds: readonly string[], label?: string) => Promise<void>;
+  updateGroup: (id: string, changes: { memberIds?: readonly string[]; label?: string | null }) => Promise<void>;
+  removeGroup: (id: string) => Promise<void>;
 }
 
 interface WsModelMessage {
@@ -426,6 +431,7 @@ export function useC4DataSource(serverUrl: string): C4DataSourceResult {
   const [releases, setReleases] = useState<readonly C4ReleaseEntry[]>([]);
   const [selectedRelease, setSelectedRelease] = useState<string>('current');
   const [selectedRepo, setSelectedRepo] = useState<string>('');
+  const [manualGroups, setManualGroups] = useState<readonly ManualGroup[]>([]);
 
   // Refs
   const wsRef = useRef<WebSocket | null>(null);
@@ -473,6 +479,28 @@ export function useC4DataSource(serverUrl: string): C4DataSourceResult {
     refetchModelRef.current = refetchModel;
   }, [refetchModel]);
 
+  // Refetch manual groups from the server
+  const refetchManualGroups = useCallback(async (): Promise<void> => {
+    if (serverUrl === undefined || !selectedRepo) {
+      setManualGroups([]);
+      return;
+    }
+    try {
+      const url = `${serverUrl}/api/c4/manual-groups?repoName=${encodeURIComponent(selectedRepo)}`;
+      const res = await fetch(url).catch(() => null);
+      const json = await readJson(res);
+      if (Array.isArray(json)) {
+        setManualGroups(json as ManualGroup[]);
+      }
+    } catch {
+      // ignore transient fetch errors
+    }
+  }, [serverUrl, selectedRepo]);
+
+  useEffect(() => {
+    void refetchManualGroups();
+  }, [refetchManualGroups]);
+
   // Manual element CRUD
   const addElement = useCallback(async (data: AddElementRequest): Promise<void> => {
     if (!selectedRepo) return;
@@ -508,6 +536,30 @@ export function useC4DataSource(serverUrl: string): C4DataSourceResult {
     await fetch(url, { method: 'DELETE' });
     await refetchModel();
   }, [serverUrl, selectedRepo, refetchModel]);
+
+  const addGroup = useCallback(async (memberIds: readonly string[], label?: string): Promise<void> => {
+    if (!selectedRepo) return;
+    const url = `${serverUrl}/api/c4/manual-groups?repoName=${encodeURIComponent(selectedRepo)}`;
+    await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memberIds: [...memberIds], label }) });
+    await refetchManualGroups();
+  }, [serverUrl, selectedRepo, refetchManualGroups]);
+
+  const updateGroup = useCallback(async (id: string, changes: { memberIds?: readonly string[]; label?: string | null }): Promise<void> => {
+    if (!selectedRepo) return;
+    const url = `${serverUrl}/api/c4/manual-groups/${encodeURIComponent(id)}?repoName=${encodeURIComponent(selectedRepo)}`;
+    const body: Record<string, unknown> = {};
+    if (changes.memberIds !== undefined) body.memberIds = [...changes.memberIds];
+    if (changes.label !== undefined) body.label = changes.label;
+    await fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    await refetchManualGroups();
+  }, [serverUrl, selectedRepo, refetchManualGroups]);
+
+  const removeGroup = useCallback(async (id: string): Promise<void> => {
+    if (!selectedRepo) return;
+    const url = `${serverUrl}/api/c4/manual-groups/${encodeURIComponent(id)}?repoName=${encodeURIComponent(selectedRepo)}`;
+    await fetch(url, { method: 'DELETE' });
+    await refetchManualGroups();
+  }, [serverUrl, selectedRepo, refetchManualGroups]);
 
   // WebSocket message handler
   const handleWsMessage = useCallback((event: MessageEvent) => {
@@ -643,5 +695,9 @@ export function useC4DataSource(serverUrl: string): C4DataSourceResult {
     removeElement,
     addRelationship,
     removeRelationship,
+    manualGroups,
+    addGroup,
+    updateGroup,
+    removeGroup,
   };
 }

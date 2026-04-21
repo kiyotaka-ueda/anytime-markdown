@@ -1,5 +1,5 @@
 import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
-import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, ImportanceMatrix, MetricOverlay } from '@anytime-markdown/trail-core/c4';
+import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, ImportanceMatrix, ManualGroup, MetricOverlay } from '@anytime-markdown/trail-core/c4';
 import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 import { engine, layoutWithSubgroups, state as graphState } from '@anytime-markdown/graph-core';
 import AddIcon from '@mui/icons-material/Add';
@@ -89,6 +89,7 @@ export interface C4ViewerCoreProps {
   readonly claudeActivity?: import('../hooks/useC4DataSource').ClaudeActivityState | null;
   readonly multiAgentActivity?: import('../hooks/useC4DataSource').MultiAgentActivityState | null;
   readonly onResetClaudeActivity?: () => void;
+  readonly manualGroups?: readonly ManualGroup[];
 }
 
 export function C4ViewerCore({
@@ -121,6 +122,7 @@ export function C4ViewerCore({
   claudeActivity,
   multiAgentActivity,
   onResetClaudeActivity,
+  manualGroups,
 }: Readonly<C4ViewerCoreProps>) {
   const { t } = useTrailI18n();
   const colors = useMemo(() => getC4Colors(isDark), [isDark]);
@@ -358,7 +360,7 @@ export function C4ViewerCore({
       };
     }
 
-    const doc = c4ToGraphDocument(filteredModel, boundaryInfos);
+    const doc = c4ToGraphDocument(filteredModel, boundaryInfos, manualGroups);
     layoutWithSubgroups(doc, 'TB', 180, 60);
     setFullDoc(doc);
     let viewDoc = currentLevel < 4
@@ -381,7 +383,7 @@ export function C4ViewerCore({
     }
 
     dispatch({ type: 'SET_DOCUMENT', doc: viewDoc });
-  }, [c4Model, boundaryInfos, drillStack, currentLevel, checkedPackageIds, soloFrameId]);
+  }, [c4Model, boundaryInfos, drillStack, currentLevel, checkedPackageIds, soloFrameId, manualGroups]);
 
   /** 右クリックメニューを表示する */
   const handleNodeContextMenu = useCallback(
