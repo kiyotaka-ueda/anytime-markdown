@@ -427,6 +427,10 @@ export class TrailDataServer {
       this.handleDeleteManualElement(res, parsed, elemMatch[1]);
       return;
     }
+    if (method === 'GET' && pathname === '/api/c4/manual-relationships') {
+      this.handleListManualRelationships(res, parsed);
+      return;
+    }
     if (method === 'POST' && pathname === '/api/c4/manual-relationships') {
       void this.handleCreateManualRelationship(req, res, parsed);
       return;
@@ -1478,6 +1482,14 @@ export class TrailDataServer {
     res.writeHead(201, JSON_HEADERS);
     res.end(JSON.stringify({ relationship: rel }));
     this.notify('model-updated');
+  }
+
+  private handleListManualRelationships(res: http.ServerResponse, url: URL): void {
+    const repoName = url.searchParams.get('repoName');
+    if (!repoName) { res.writeHead(400); res.end('repoName required'); return; }
+    const relationships = this.trailDb.getManualRelationships(repoName);
+    res.writeHead(200, JSON_HEADERS);
+    res.end(JSON.stringify(relationships));
   }
 
   private handleDeleteManualRelationship(res: http.ServerResponse, url: URL, id: string): void {

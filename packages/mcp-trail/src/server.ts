@@ -6,6 +6,7 @@ import {
   addElement,
   updateElement,
   removeElement,
+  listRelationships,
   addRelationship,
   removeRelationship,
 } from './client.js';
@@ -119,6 +120,17 @@ export function createMcpServer(options: McpTrailOptions = {}): McpServer {
       const opts = resolveOptions({ serverUrl, repoName: repoName ?? options.repoName, ...options });
       await removeElement(opts.serverUrl, opts.repoName, id);
       return { content: [{ type: 'text' as const, text: `Removed element ${id}` }] };
+    },
+  );
+
+  server.tool(
+    'list_relationships',
+    'List all manual C4 relationships with their IDs. Useful for finding relationship IDs before removing them.',
+    { ...commonParams },
+    async ({ repoName, serverUrl }) => {
+      const opts = resolveOptions({ serverUrl, repoName: repoName ?? options.repoName, ...options });
+      const relationships = await listRelationships(opts.serverUrl, opts.repoName);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(relationships, null, 2) }] };
     },
   );
 

@@ -67,6 +67,13 @@ export async function removeElement(
   return request(serverUrl, `/api/c4/manual-elements/${encodeURIComponent(id)}?repoName=${encodeURIComponent(repoName)}`, 'DELETE');
 }
 
+export async function listRelationships(
+  serverUrl: string,
+  repoName: string,
+): Promise<unknown> {
+  return request(serverUrl, `/api/c4/manual-relationships?repoName=${encodeURIComponent(repoName)}`, 'GET');
+}
+
 export async function addRelationship(
   serverUrl: string,
   repoName: string,
