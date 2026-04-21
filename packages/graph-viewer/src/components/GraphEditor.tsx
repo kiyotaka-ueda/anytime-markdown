@@ -75,15 +75,14 @@ interface GraphEditorProps {
 
 function useDefaultIndexedDbAdapter(document: GraphDocument): PersistenceAdapter {
   const status = useAutoSave(document);
-  return {
-    loadInitial: async () => {
-      const lastId = getLastDocumentId();
-      if (!lastId) return null;
-      return (await loadDocument(lastId)) ?? null;
-    },
-    save: () => {},
-    status,
-  };
+  const loadInitial = useCallback(async () => {
+    const lastId = getLastDocumentId();
+    if (!lastId) return null;
+    return (await loadDocument(lastId)) ?? null;
+  }, []);
+  // useAutoSave が document 変更を監視して IndexedDB に直接保存するため、adapter.save は no-op
+  const save = useCallback(() => {}, []);
+  return { loadInitial, save, status };
 }
 
 export function GraphEditor({
@@ -180,7 +179,7 @@ export function GraphEditor({
       if (!cancelled && doc) dispatch({ type: 'SET_DOCUMENT', doc });
     });
     return () => { cancelled = true; };
-  }, [adapter, dispatch]);
+  }, [adapter.loadInitial, dispatch]);
 
   // ドキュメント切替時に画像キャッシュをクリア
   useEffect(() => {
@@ -189,7 +188,7 @@ export function GraphEditor({
 
   useEffect(() => {
     adapter.save(state.document);
-  }, [adapter, state.document]);
+  }, [adapter.save, state.document]);
 
   const canvasAriaLabel = `${t('graphCanvas')}: ${state.document.nodes.length} nodes, ${state.document.edges.length} edges`;
 

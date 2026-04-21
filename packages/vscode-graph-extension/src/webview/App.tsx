@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { GraphEditor } from '@anytime-markdown/graph-viewer';
@@ -9,6 +9,8 @@ export function App() {
   const { themeMode } = useThemeMode();
   const theme = useMemo(() => createTheme({ palette: { mode: themeMode } }), [themeMode]);
   const persistence = useMemo(() => createVSCodePersistenceAdapter(), []);
+
+  useEffect(() => () => persistence.dispose(), [persistence]);
 
   return (
     <ThemeProvider theme={theme}>
