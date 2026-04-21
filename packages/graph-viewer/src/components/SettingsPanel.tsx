@@ -6,19 +6,18 @@ import { Box, IconButton, ToggleButton, ToggleButtonGroup, Typography } from '@m
 import { useTranslations } from 'next-intl';
 import React from 'react';
 
-import { useLocaleSwitch } from '../../LocaleProvider';
-import { useThemeMode } from '../../providers';
-
 interface SettingsPanelProps {
   open: boolean;
   width: number;
   onClose: () => void;
+  themeMode?: 'light' | 'dark';
+  onThemeModeChange?: (mode: 'light' | 'dark') => void;
+  locale?: string;
+  onLocaleChange?: (locale: string) => void;
 }
 
-export function SettingsPanel({ open, width, onClose }: Readonly<SettingsPanelProps>) {
+export function SettingsPanel({ open, width, onClose, themeMode = 'dark', onThemeModeChange, locale = 'ja', onLocaleChange }: Readonly<SettingsPanelProps>) {
   const t = useTranslations('Graph');
-  const { themeMode, setThemeMode } = useThemeMode();
-  const { locale, setLocale } = useLocaleSwitch();
   const isDark = themeMode === 'dark';
   const colors = getCanvasColors(isDark);
 
@@ -71,7 +70,7 @@ export function SettingsPanel({ open, width, onClose }: Readonly<SettingsPanelPr
           <ToggleButtonGroup
             value={themeMode}
             exclusive
-            onChange={(_, v) => v && setThemeMode(v)}
+            onChange={(_, v) => v && onThemeModeChange?.(v)}
             size="small"
             fullWidth
             sx={toggleSx}
@@ -88,7 +87,7 @@ export function SettingsPanel({ open, width, onClose }: Readonly<SettingsPanelPr
           <ToggleButtonGroup
             value={locale}
             exclusive
-            onChange={(_, v) => v && setLocale(v)}
+            onChange={(_, v) => v && onLocaleChange?.(v)}
             size="small"
             fullWidth
             sx={toggleSx}

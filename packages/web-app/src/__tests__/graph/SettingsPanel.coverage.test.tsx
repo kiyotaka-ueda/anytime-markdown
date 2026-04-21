@@ -27,7 +27,7 @@ jest.mock("@anytime-markdown/graph-core", () => ({
   }),
 }));
 
-import { SettingsPanel } from "../../app/graph/components/SettingsPanel";
+import { SettingsPanel } from "@anytime-markdown/graph-viewer/src/components/SettingsPanel";
 
 describe("SettingsPanel", () => {
   afterEach(() => {

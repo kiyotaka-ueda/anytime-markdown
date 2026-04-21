@@ -45,15 +45,15 @@ const mockState = {
   historyIndex: 0,
 };
 
-jest.mock("../../app/graph/hooks/useGraphState", () => ({
+jest.mock("@anytime-markdown/graph-viewer/src/hooks/useGraphState", () => ({
   useGraphState: () => ({ state: mockState, dispatch: mockDispatch }),
 }));
 
-jest.mock("../../app/graph/hooks/useAutoSave", () => ({
+jest.mock("@anytime-markdown/graph-viewer/src/hooks/useAutoSave", () => ({
   useAutoSave: () => "saved",
 }));
 
-jest.mock("../../app/graph/hooks/useTouchInteraction", () => ({
+jest.mock("@anytime-markdown/graph-viewer/src/hooks/useTouchInteraction", () => ({
   useTouchInteraction: jest.fn(),
 }));
 
@@ -65,7 +65,7 @@ const mockHandleDoubleClick = jest.fn();
 const mockCopySelected = jest.fn();
 const mockPasteFromClipboard = jest.fn();
 
-jest.mock("../../app/graph/hooks/useCanvasInteraction", () => ({
+jest.mock("@anytime-markdown/graph-viewer/src/hooks/useCanvasInteraction", () => ({
   useCanvasInteraction: () => ({
     handleMouseDown: mockHandleMouseDown,
     handleMouseMove: mockHandleMouseMove,
@@ -83,7 +83,7 @@ jest.mock("../../app/graph/hooks/useCanvasInteraction", () => ({
   }),
 }));
 
-jest.mock("../../app/graph/store/graphStorage", () => ({
+jest.mock("@anytime-markdown/graph-viewer/src/store/graphStorage", () => ({
   loadDocument: jest.fn().mockResolvedValue(null),
   getLastDocumentId: jest.fn().mockReturnValue(null),
 }));
@@ -151,7 +151,7 @@ jest.mock("@anytime-markdown/graph-core/engine", () => ({
   getConnectionPoints: jest.fn().mockReturnValue([{ x: 0, y: 50, side: "left" }]),
 }));
 
-jest.mock("../../app/graph/types", () => ({
+jest.mock("@anytime-markdown/graph-viewer/src/types", () => ({
   createDocument: (name: string) => ({
     id: "new-doc",
     name,
@@ -200,7 +200,7 @@ HTMLCanvasElement.prototype.getContext = jest.fn().mockReturnValue({
 Object.defineProperty(HTMLCanvasElement.prototype, "width", { value: 800, writable: true });
 Object.defineProperty(HTMLCanvasElement.prototype, "height", { value: 600, writable: true });
 
-import { GraphEditor } from "../../app/graph/components/GraphEditor";
+import { GraphEditor } from "@anytime-markdown/graph-viewer/src/components/GraphEditor";
 
 describe("GraphEditor", () => {
   beforeEach(() => {

@@ -19,7 +19,6 @@ Typography, } from '@mui/material';
 import { useTranslations } from 'next-intl';
 import React from 'react';
 
-import { useThemeMode } from '../../providers';
 import { EndpointShape,GraphEdge, GraphNode } from '../types';
 
 const COLORS = [
@@ -34,13 +33,14 @@ function ColorPalette({
   selectedColor,
   onSelect,
   label,
+  themeMode = 'dark',
 }: Readonly<{
   colors: string[];
   selectedColor: string;
   onSelect: (color: string) => void;
   label: string;
+  themeMode?: 'light' | 'dark';
 }>) {
-  const { themeMode } = useThemeMode();
   const isDark = themeMode === 'dark';
   const themeColors = getCanvasColors(isDark);
   const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
@@ -99,11 +99,11 @@ interface PropertyPanelProps {
   onUpdateEdge: (id: string, changes: Partial<GraphEdge>) => void;
   onLayerAction?: (action: 'up' | 'down' | 'top' | 'bottom') => void;
   onClose: () => void;
+  themeMode?: 'light' | 'dark';
 }
 
-export function PropertyPanel({ selectedNode, selectedEdge, onUpdateNode, onUpdateEdge, onLayerAction, onClose }: Readonly<PropertyPanelProps>) {
+export function PropertyPanel({ selectedNode, selectedEdge, onUpdateNode, onUpdateEdge, onLayerAction, onClose, themeMode = 'dark' }: Readonly<PropertyPanelProps>) {
   const t = useTranslations('Graph');
-  const { themeMode } = useThemeMode();
   const isDark = themeMode === 'dark';
   const colors = getCanvasColors(isDark);
   if (!selectedNode && !selectedEdge) return null;
@@ -158,6 +158,7 @@ export function PropertyPanel({ selectedNode, selectedEdge, onUpdateNode, onUpda
             selectedColor={selectedNode.style.fill}
             onSelect={(c) => onUpdateNode(selectedNode.id, { style: { ...selectedNode.style, fill: c } })}
             label={t('fillColor')}
+            themeMode={themeMode}
           />
 
           <Typography variant="caption" sx={{ color: colors.textSecondary }}>{t('strokeColor')}</Typography>
@@ -166,6 +167,7 @@ export function PropertyPanel({ selectedNode, selectedEdge, onUpdateNode, onUpda
             selectedColor={selectedNode.style.stroke}
             onSelect={(c) => onUpdateNode(selectedNode.id, { style: { ...selectedNode.style, stroke: c } })}
             label={t('strokeColor')}
+            themeMode={themeMode}
           />
 
           <Typography variant="caption" sx={{ color: colors.textSecondary }}>{t('strokeWidth')}</Typography>

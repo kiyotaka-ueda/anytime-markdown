@@ -1,4 +1,4 @@
-import { createNode, createEdge, createDocument, DEFAULT_STICKY_STYLE, DEFAULT_NODE_STYLE } from '../../app/graph/types';
+import { createNode, createEdge, createDocument, DEFAULT_STICKY_STYLE, DEFAULT_NODE_STYLE } from '@anytime-markdown/graph-viewer/src/types';
 
 describe('createNode', () => {
   it('should create a rect node with default style', () => {

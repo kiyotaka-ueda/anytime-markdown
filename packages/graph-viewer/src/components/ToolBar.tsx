@@ -48,7 +48,6 @@ Toolbar, Tooltip, Typography,
 import { useTranslations } from 'next-intl';
 import React, { useCallback,useRef, useState } from 'react';
 
-import { useThemeMode } from '../../providers';
 import { SaveStatus } from '../hooks/useAutoSave';
 import { ToolType } from '../types';
 import {
@@ -93,6 +92,7 @@ interface ToolBarProps {
   showFilter?: boolean;
   onToggleFilter?: () => void;
   filterActive?: boolean;
+  themeMode?: 'light' | 'dark';
 }
 
 const SHAPE_TOOLS = ['rect', 'ellipse', 'diamond', 'parallelogram', 'cylinder'] as const;
@@ -105,9 +105,9 @@ export function GraphToolBar({
   layoutAlgorithm = 'eades', onChangeAlgorithm,
   onSpreadConnected,
   showFilter: _showFilter, onToggleFilter, filterActive,
+  themeMode = 'dark',
 }: Readonly<ToolBarProps>) {
   const t = useTranslations('Graph');
-  const { themeMode } = useThemeMode();
   const isDark = themeMode === 'dark';
   const colors = getCanvasColors(isDark);
   const [alignAnchor, setAlignAnchor] = React.useState<null | HTMLElement>(null);
