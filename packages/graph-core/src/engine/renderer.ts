@@ -264,6 +264,41 @@ export function computeGroupBounds(
   };
 }
 
+/**
+ * group メンバーを Y 方向にクラスタリングし、帯域ごとの bounds を返す。
+ * splitManualTopBottom 等で上下に分かれた場合、帯域ごとに独立した破線枠として描画できる。
+ */
+export function computeGroupBoundsClusters(
+  memberIds: readonly string[],
+  nodeMap: Map<string, GraphNode>,
+): GroupBounds[] {
+  const members = memberIds.map(id => nodeMap.get(id)).filter((n): n is GraphNode => n !== undefined);
+  if (members.length === 0) return [];
+  const rowThreshold = Math.max(...members.map(n => n.height)) * 1.5;
+  const sorted = [...members].sort((a, b) => a.y - b.y);
+  const clusters: GraphNode[][] = [];
+  for (const m of sorted) {
+    const last = clusters[clusters.length - 1];
+    if (last && Math.abs(m.y - last[0].y) < rowThreshold) last.push(m);
+    else clusters.push([m]);
+  }
+  return clusters.map(cluster => {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const n of cluster) {
+      minX = Math.min(minX, n.x);
+      minY = Math.min(minY, n.y);
+      maxX = Math.max(maxX, n.x + n.width);
+      maxY = Math.max(maxY, n.y + n.height);
+    }
+    return {
+      x: minX - GROUP_PADDING,
+      y: minY - GROUP_PADDING,
+      width: maxX - minX + GROUP_PADDING * 2,
+      height: maxY - minY + GROUP_PADDING * 2,
+    };
+  });
+}
+
 function drawGroups(
   ctx: CanvasRenderingContext2D,
   groups: readonly GraphGroup[],
@@ -277,17 +312,21 @@ function drawGroups(
   ctx.fillStyle = 'transparent';
 
   for (const g of groups) {
-    const bounds = computeGroupBounds(g.memberIds, nodeMap);
-    if (!bounds) continue;
-    ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
-    if (g.label) {
+    // Y 帯域ごとに独立した破線枠を描画
+    const clusters = computeGroupBoundsClusters(g.memberIds, nodeMap);
+    for (const bounds of clusters) {
+      ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+    }
+    // ラベルは最初（最上段）の帯域のみに表示
+    if (g.label && clusters.length > 0) {
+      const first = clusters[0];
       ctx.save();
       ctx.setLineDash([]);
       ctx.font = `10px ${FONT_FAMILY}`;
       ctx.fillStyle = colors.textSecondary;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
-      ctx.fillText(g.label, bounds.x + 4, bounds.y + 4);
+      ctx.fillText(g.label, first.x + 4, first.y + 4);
       ctx.restore();
     }
   }
