@@ -11,7 +11,7 @@ import {
   hitTestConnectionPoint,
   bestSides,
 } from '@anytime-markdown/graph-core/engine';
-import { GraphNode, GraphEdge, DEFAULT_NODE_STYLE, DEFAULT_EDGE_STYLE } from '../../../app/graph/types';
+import { GraphNode, GraphEdge, DEFAULT_NODE_STYLE, DEFAULT_EDGE_STYLE } from '@anytime-markdown/graph-viewer/src/types';
 
 const rectNode: GraphNode = {
   id: 'r1',

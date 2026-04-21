@@ -6,19 +6,17 @@ import { Box, IconButton, Typography } from '@mui/material';
 import { useTranslations } from 'next-intl';
 import React, { useEffect,useState } from 'react';
 
-import { useThemeMode } from '../../providers';
-
 interface DocEditorModalProps {
   open: boolean;
   title: string;
   content: string;
   onSave: (content: string) => void;
   onClose: () => void;
+  themeMode?: 'light' | 'dark';
 }
 
-export function DocEditorModal({ open, title, content, onSave, onClose }: Readonly<DocEditorModalProps>) {
+export function DocEditorModal({ open, title, content, onSave, onClose, themeMode = 'dark' }: Readonly<DocEditorModalProps>) {
   const t = useTranslations('Graph');
-  const { themeMode } = useThemeMode();
   const isDark = themeMode === 'dark';
   const colors = getCanvasColors(isDark);
   const [editorContent, setEditorContent] = useState(content);

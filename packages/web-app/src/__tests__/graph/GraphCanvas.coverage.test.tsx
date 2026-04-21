@@ -46,7 +46,7 @@ const mockCtx = {
 
 HTMLCanvasElement.prototype.getContext = jest.fn().mockReturnValue(mockCtx) as any;
 
-import { GraphCanvas } from "../../app/graph/components/GraphCanvas";
+import { GraphCanvas } from "@anytime-markdown/graph-viewer/src/components/GraphCanvas";
 
 const makeNode = (id: string, x = 100, y = 100) => ({
   id,

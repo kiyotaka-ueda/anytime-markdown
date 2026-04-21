@@ -9,7 +9,6 @@ import { Box, IconButton, Tooltip } from '@mui/material';
 import { useTranslations } from 'next-intl';
 import React from 'react';
 
-import { useThemeMode } from '../../providers';
 import { worldToScreen } from '@anytime-markdown/graph-core/engine';
 import { GraphNode, NodeType, Viewport } from '../types';
 import {
@@ -30,13 +29,13 @@ interface ShapeHoverBarProps {
   node: GraphNode;
   viewport: Viewport;
   onChangeType: (id: string, type: NodeType) => void;
+  themeMode?: 'light' | 'dark';
 }
 
 const SHAPE_TYPES = new Set(SHAPES.map(s => s.type));
 
-export function ShapeHoverBar({ node, viewport, onChangeType }: Readonly<ShapeHoverBarProps>) {
+export function ShapeHoverBar({ node, viewport, onChangeType, themeMode = 'dark' }: Readonly<ShapeHoverBarProps>) {
   const t = useTranslations('Graph');
-  const { themeMode } = useThemeMode();
   const isDark = themeMode === 'dark';
   const colors = getCanvasColors(isDark);
 

@@ -6,7 +6,6 @@ import { Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, D
 import { useTranslations } from 'next-intl';
 import React, { useCallback, useEffect, useMemo,useRef, useState } from 'react';
 
-import { useThemeMode } from '../../providers';
 import {
   alignBottom, alignCenterH, alignCenterV, alignLeft, alignRight, alignTop, distributeH, distributeV,
   fitToContent, pan as panViewport, screenToWorld, zoom as zoomViewport,
@@ -64,8 +63,19 @@ function computeLayerZIndex(
   return minZ - 1;
 }
 
-export function GraphEditor() {
-  const { themeMode } = useThemeMode();
+interface GraphEditorProps {
+  themeMode?: 'light' | 'dark';
+  onThemeModeChange?: (mode: 'light' | 'dark') => void;
+  locale?: string;
+  onLocaleChange?: (locale: string) => void;
+}
+
+export function GraphEditor({
+  themeMode = 'dark',
+  onThemeModeChange,
+  locale = 'ja',
+  onLocaleChange,
+}: Readonly<GraphEditorProps> = {}) {
   const isDark = themeMode === 'dark';
   const [tool, setTool] = useState<ToolType>('select');
   const [showGrid, setShowGrid] = useState(true);
@@ -597,6 +607,7 @@ export function GraphEditor() {
         showFilter={showFilter}
         onToggleFilter={() => setShowFilter(v => !v)}
         filterActive={filterConfig.rangeFilters.length > 0 || filterConfig.textFilters.length > 0}
+        themeMode={themeMode}
       />
       <Box sx={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden' }}>
       <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
@@ -653,6 +664,7 @@ export function GraphEditor() {
             node={selectedNode}
             viewport={state.document.viewport}
             onChangeType={(id, type) => dispatch({ type: 'UPDATE_NODE', id, changes: { type } })}
+            themeMode={themeMode}
           />
         )}
         <TextEditOverlay
@@ -661,6 +673,7 @@ export function GraphEditor() {
           onCommit={handleTextCommit}
           onCancel={() => setEditingNodeId(null)}
           appendMode={textEditAppendMode}
+          themeMode={themeMode}
         />
         {showProperty && (selectedNode || selectedEdge) && (
           <PropertyPanel
@@ -673,6 +686,7 @@ export function GraphEditor() {
               setShowProperty(false);
               canvasRef.current?.focus();
             }}
+            themeMode={themeMode}
           />
         )}
         {detailNodeId && !showProperty && (() => {
@@ -709,7 +723,15 @@ export function GraphEditor() {
           onClose={() => setShowFilter(false)}
         />
       )}
-      <SettingsPanel open={showSettings} width={260} onClose={() => setShowSettings(false)} />
+      <SettingsPanel
+        open={showSettings}
+        width={260}
+        onClose={() => setShowSettings(false)}
+        themeMode={themeMode}
+        onThemeModeChange={onThemeModeChange}
+        locale={locale}
+        onLocaleChange={onLocaleChange}
+      />
       </Box>
       <DocEditorModal
         open={docEditNodeId !== null}
@@ -721,6 +743,7 @@ export function GraphEditor() {
           }
         }}
         onClose={() => setDocEditNodeId(null)}
+        themeMode={themeMode}
       />
       <Dialog open={confirmDialog.open} onClose={() => setConfirmDialog({ open: false, title: '', message: '', onConfirm: () => {} })}>
         <DialogTitle>{confirmDialog.title}</DialogTitle>

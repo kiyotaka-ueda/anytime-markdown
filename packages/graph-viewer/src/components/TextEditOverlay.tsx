@@ -3,7 +3,6 @@
 import { getCanvasColors } from '@anytime-markdown/graph-core';
 import React, { useEffect, useRef } from 'react';
 
-import { useThemeMode } from '../../providers';
 import { worldToScreen } from '@anytime-markdown/graph-core/engine';
 import { GraphNode, Viewport } from '../types';
 
@@ -14,10 +13,10 @@ interface TextEditOverlayProps {
   onCancel: () => void;
   /** キー入力で編集開始した場合、既存テキストをクリアして入力開始 */
   appendMode?: boolean;
+  themeMode?: 'light' | 'dark';
 }
 
-export function TextEditOverlay({ node, viewport, onCommit, onCancel, appendMode }: Readonly<TextEditOverlayProps>) {
-  const { themeMode } = useThemeMode();
+export function TextEditOverlay({ node, viewport, onCommit, onCancel, appendMode, themeMode = 'dark' }: Readonly<TextEditOverlayProps>) {
   const isDark = themeMode === 'dark';
   const colors = getCanvasColors(isDark);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
