@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### 追加
+
+- 英語 UI 対応。webview が `vscode.env.language` に応じて日本語／英語を切り替えるようになった（日本語以外は英語）。`next-intl` shim を書き換え、`markdown-core/src/i18n/` の `ja.json` と `en.json` を共通利用する。手書きの `graph-messages-ja.json` は削除
+
 ### 変更
 
 - webview を `@anytime-markdown/graph-viewer` パッケージに統合。`PersistenceAdapter` ブリッジ経由で `GraphEditor` を呼び出す薄いラッパーに変更し、`GraphCanvas`・`TextEditOverlay` 等の重複実装を削除

@@ -1,6 +1,10 @@
 import * as vscode from 'vscode';
 import { randomBytes } from 'node:crypto';
 
+function resolveLocale(): 'ja' | 'en' {
+	return (vscode.env.language || '').startsWith('ja') ? 'ja' : 'en';
+}
+
 export class GraphEditorProvider implements vscode.CustomTextEditorProvider {
 	public static readonly viewType = 'anytimeGraph';
 
@@ -29,7 +33,8 @@ export class GraphEditorProvider implements vscode.CustomTextEditorProvider {
 			],
 		};
 
-		webviewPanel.webview.html = this.getHtmlForWebview(webviewPanel.webview);
+		const locale = resolveLocale();
+		webviewPanel.webview.html = this.getHtmlForWebview(webviewPanel.webview, locale);
 
 		// Send initial document content to webview
 		const sendDocument = () => {
@@ -60,6 +65,11 @@ export class GraphEditorProvider implements vscode.CustomTextEditorProvider {
 			webviewPanel.webview.postMessage({ type: 'theme', kind: isDark ? 'dark' : 'light' });
 		};
 
+		// Send locale info to webview shim
+		const sendLocale = () => {
+			webviewPanel.webview.postMessage({ type: 'locale', locale: resolveLocale() });
+		};
+
 		// Track edits originating from webview to avoid echo
 		let isWebviewEdit = false;
 
@@ -68,6 +78,7 @@ export class GraphEditorProvider implements vscode.CustomTextEditorProvider {
 			async (message) => {
 				switch (message.type) {
 					case 'ready':
+						sendLocale();
 						sendDocument();
 						sendTheme();
 						break;
@@ -107,14 +118,14 @@ export class GraphEditorProvider implements vscode.CustomTextEditorProvider {
 		});
 	}
 
-	private getHtmlForWebview(webview: vscode.Webview): string {
+	private getHtmlForWebview(webview: vscode.Webview, locale: 'ja' | 'en'): string {
 		const scriptUri = webview.asWebviewUri(
 			vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview.js'),
 		);
 		const nonce = randomBytes(16).toString('hex');
 
 		return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${locale}">
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
