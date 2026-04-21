@@ -247,7 +247,40 @@ export function layoutWithSubgroups(
   const childOrigins = layoutFrameChildren(frameOrder, childrenOf, intraEdgesOf, direction, levelGap, nodeSpacing);
   layoutRootNodes(doc, frameMap, orphanNodes, interEdges, nodeToDeepestFrame, direction, levelGap, nodeSpacing);
   translateChildrenToAbsolute(frameOrder, childrenOf, childOrigins);
+  packGroupMembers(doc, nodeSpacing);
   updateEdgeEndpoints(doc);
+}
+
+/**
+ * group メンバーを近接配置する。関連付けエッジによる分散を上書きし、
+ * メンバーをセントロイド付近に横一列で密集させる。
+ */
+function packGroupMembers(doc: GraphDocument, nodeSpacing: number): void {
+  const groups = doc.groups;
+  if (!groups || groups.length === 0) return;
+  const nodeMap = new Map(doc.nodes.map(n => [n.id, n]));
+
+  for (const group of groups) {
+    const members = group.memberIds
+      .map(id => nodeMap.get(id))
+      .filter((n): n is GraphNode => n !== undefined);
+    if (members.length < 2) continue;
+
+    // 現在位置のセントロイドを基準に、横一列に配置する
+    const centerX = members.reduce((s, n) => s + n.x + n.width / 2, 0) / members.length;
+    const centerY = members.reduce((s, n) => s + n.y + n.height / 2, 0) / members.length;
+
+    // 元の x 順を維持して安定化
+    members.sort((a, b) => a.x - b.x);
+
+    const totalWidth = members.reduce((s, n) => s + n.width, 0) + (members.length - 1) * nodeSpacing;
+    let currentX = centerX - totalWidth / 2;
+    for (const member of members) {
+      member.x = currentX;
+      member.y = centerY - member.height / 2;
+      currentX += member.width + nodeSpacing;
+    }
+  }
 }
 
 /** parent -> direct children マップとルートレベルの孤立ノードを構築する */
