@@ -162,12 +162,37 @@ describe('REMOVE_FROM_GROUP', () => {
 // UNDO/REDO with groups
 // ---------------------------------------------------------------------------
 
-describe('UNDO with groups', () => {
+describe('UNDO/REDO with groups', () => {
   it('undoes CREATE_GROUP', () => {
     const state = makeState();
     const withGroup = graphReducer(state, { type: 'CREATE_GROUP', memberIds: ['n1', 'n2'] });
     const undone = graphReducer(withGroup, { type: 'UNDO' });
     expect(undone.document.groups).toHaveLength(0);
+  });
+
+  it('redoes CREATE_GROUP', () => {
+    const state = makeState();
+    const withGroup = graphReducer(state, { type: 'CREATE_GROUP', memberIds: ['n1', 'n2'] });
+    const undone = graphReducer(withGroup, { type: 'UNDO' });
+    const redone = graphReducer(undone, { type: 'REDO' });
+    expect(redone.document.groups).toHaveLength(1);
+  });
+
+  it('UNDO restores nodes correctly after ADD_NODE', () => {
+    const state = createInitialState();
+    const n = createNode('rect', 0, 0, { id: 'nx' });
+    const after = graphReducer(state, { type: 'ADD_NODE', node: n });
+    const undone = graphReducer(after, { type: 'UNDO' });
+    expect(undone.document.nodes).toHaveLength(0);
+  });
+
+  it('REDO restores nodes correctly after ADD_NODE', () => {
+    const state = createInitialState();
+    const n = createNode('rect', 0, 0, { id: 'nx' });
+    const after = graphReducer(state, { type: 'ADD_NODE', node: n });
+    const undone = graphReducer(after, { type: 'UNDO' });
+    const redone = graphReducer(undone, { type: 'REDO' });
+    expect(redone.document.nodes).toHaveLength(1);
   });
 });
 

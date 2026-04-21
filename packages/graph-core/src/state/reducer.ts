@@ -41,17 +41,33 @@ export type Action =
 
 export const MAX_HISTORY = 50;
 
-function pushHistory(state: GraphState): GraphState {
+/**
+ * 不変条件: history[historyIndex] は常に「現在の確定済み状態」を保持する。
+ *
+ * 各 mutation アクションは withHistory(before, after) を呼び出し、
+ * after 状態を history[historyIndex+1] に保存して historyIndex を進める。
+ * UNDO/REDO は history[historyIndex ∓ 1] を復元するだけでよい。
+ */
+function withHistory(before: GraphState, after: GraphState): GraphState {
   const entry: HistoryEntry = {
-    nodes: structuredClone(state.document.nodes),
-    edges: structuredClone(state.document.edges),
-    groups: structuredClone(state.document.groups ?? []),
-    selection: { ...state.selection },
+    nodes: structuredClone(after.document.nodes),
+    edges: structuredClone(after.document.edges),
+    groups: structuredClone(after.document.groups ?? []),
+    selection: { ...after.selection },
   };
-  const history = state.history.slice(0, state.historyIndex + 1);
+  const history = before.history.slice(0, before.historyIndex + 1);
   history.push(entry);
   if (history.length > MAX_HISTORY) history.shift();
-  return { ...state, history, historyIndex: history.length - 1 };
+  return { ...after, history, historyIndex: history.length - 1 };
+}
+
+function makeInitialEntry(doc: GraphDocument): HistoryEntry {
+  return {
+    nodes: structuredClone(doc.nodes),
+    edges: structuredClone(doc.edges),
+    groups: structuredClone(doc.groups ?? []),
+    selection: { nodeIds: [], edgeIds: [] },
+  };
 }
 
 export function createInitialState(doc?: GraphDocument): GraphState {
@@ -59,7 +75,7 @@ export function createInitialState(doc?: GraphDocument): GraphState {
   return {
     document: d,
     selection: { nodeIds: [], edgeIds: [] },
-    history: [{ nodes: structuredClone(d.nodes), edges: structuredClone(d.edges), selection: { nodeIds: [], edgeIds: [] } }],
+    history: [makeInitialEntry(d)],
     historyIndex: 0,
   };
 }
@@ -70,48 +86,48 @@ export function graphReducer(state: GraphState, action: Action): GraphState {
       return {
         ...state,
         document: action.doc,
-        history: [{ nodes: structuredClone(action.doc.nodes), edges: structuredClone(action.doc.edges), selection: { nodeIds: [], edgeIds: [] } }],
+        history: [makeInitialEntry(action.doc)],
         historyIndex: 0,
         selection: { nodeIds: [], edgeIds: [] },
       };
 
-    case 'SNAPSHOT':
-      return pushHistory(state);
+    case 'SNAPSHOT': {
+      // ドラッグ完了時に呼ばれる。現在の状態（MOVE_NODES 適用済み）を history に確定する。
+      return withHistory(state, state);
+    }
 
     case 'ADD_NODE': {
-      const s = pushHistory(state);
-      return {
-        ...s,
-        document: { ...s.document, nodes: [...s.document.nodes, action.node] },
+      const after = {
+        ...state,
+        document: { ...state.document, nodes: [...state.document.nodes, action.node] },
         selection: { nodeIds: [action.node.id], edgeIds: [] },
       };
+      return withHistory(state, after);
     }
 
     case 'UPDATE_NODE': {
-      const s = pushHistory(state);
-      return {
-        ...s,
+      const after = {
+        ...state,
         document: {
-          ...s.document,
-          nodes: s.document.nodes.map(n => n.id === action.id ? { ...n, ...action.changes } : n),
+          ...state.document,
+          nodes: state.document.nodes.map(n => n.id === action.id ? { ...n, ...action.changes } : n),
         },
       };
+      return withHistory(state, after);
     }
 
     case 'DELETE_SELECTED': {
-      const s = pushHistory(state);
       const { nodeIds, edgeIds } = state.selection;
-      // Filter out locked nodes — they must not be deleted
       const deletableNodeIds = nodeIds.filter(id => {
         const node = state.document.nodes.find(n => n.id === id);
         return node && !node.locked;
       });
-      return {
-        ...s,
+      const after = {
+        ...state,
         document: {
-          ...s.document,
-          nodes: s.document.nodes.filter(n => !deletableNodeIds.includes(n.id)),
-          edges: s.document.edges.filter(e =>
+          ...state.document,
+          nodes: state.document.nodes.filter(n => !deletableNodeIds.includes(n.id)),
+          edges: state.document.edges.filter(e =>
             !edgeIds.includes(e.id) &&
             !deletableNodeIds.includes(e.from.nodeId ?? '') &&
             !deletableNodeIds.includes(e.to.nodeId ?? ''),
@@ -119,26 +135,27 @@ export function graphReducer(state: GraphState, action: Action): GraphState {
         },
         selection: { nodeIds: [], edgeIds: [] },
       };
+      return withHistory(state, after);
     }
 
     case 'ADD_EDGE': {
-      const s = pushHistory(state);
-      return {
-        ...s,
-        document: { ...s.document, edges: [...s.document.edges, action.edge] },
+      const after = {
+        ...state,
+        document: { ...state.document, edges: [...state.document.edges, action.edge] },
         selection: { nodeIds: [], edgeIds: [action.edge.id] },
       };
+      return withHistory(state, after);
     }
 
     case 'UPDATE_EDGE': {
-      const s = pushHistory(state);
-      return {
-        ...s,
+      const after = {
+        ...state,
         document: {
-          ...s.document,
-          edges: s.document.edges.map(e => e.id === action.id ? { ...e, ...action.changes } : e),
+          ...state.document,
+          edges: state.document.edges.map(e => e.id === action.id ? { ...e, ...action.changes } : e),
         },
       };
+      return withHistory(state, after);
     }
 
     case 'SET_SELECTION':
@@ -187,130 +204,127 @@ export function graphReducer(state: GraphState, action: Action): GraphState {
 
     case 'CREATE_GROUP': {
       if (action.memberIds.length < 2) return state;
-      const s = pushHistory(state);
       const newGroup: GraphGroup = {
         id: crypto.randomUUID(),
         memberIds: [...action.memberIds],
         label: action.label,
       };
-      return {
-        ...s,
+      const after = {
+        ...state,
         document: {
-          ...s.document,
-          groups: [...(s.document.groups ?? []), newGroup],
+          ...state.document,
+          groups: [...(state.document.groups ?? []), newGroup],
         },
       };
+      return withHistory(state, after);
     }
 
     case 'DELETE_GROUP': {
-      const s = pushHistory(state);
-      return {
-        ...s,
+      const after = {
+        ...state,
         document: {
-          ...s.document,
-          groups: (s.document.groups ?? []).filter(g => g.id !== action.id),
+          ...state.document,
+          groups: (state.document.groups ?? []).filter(g => g.id !== action.id),
         },
       };
+      return withHistory(state, after);
     }
 
     case 'UPDATE_GROUP_LABEL': {
-      const s = pushHistory(state);
-      return {
-        ...s,
+      const after = {
+        ...state,
         document: {
-          ...s.document,
-          groups: (s.document.groups ?? []).map(g =>
+          ...state.document,
+          groups: (state.document.groups ?? []).map(g =>
             g.id === action.id ? { ...g, label: action.label } : g,
           ),
         },
       };
+      return withHistory(state, after);
     }
 
     case 'ADD_TO_GROUP': {
-      const s = pushHistory(state);
-      return {
-        ...s,
+      const after = {
+        ...state,
         document: {
-          ...s.document,
-          groups: (s.document.groups ?? []).map(g =>
+          ...state.document,
+          groups: (state.document.groups ?? []).map(g =>
             g.id === action.groupId && !g.memberIds.includes(action.nodeId)
               ? { ...g, memberIds: [...g.memberIds, action.nodeId] }
               : g,
           ),
         },
       };
+      return withHistory(state, after);
     }
 
     case 'REMOVE_FROM_GROUP': {
-      const s = pushHistory(state);
-      const groups = (s.document.groups ?? []).reduce<GraphGroup[]>((acc, g) => {
+      const groups = (state.document.groups ?? []).reduce<GraphGroup[]>((acc, g) => {
         if (g.id !== action.groupId) { acc.push(g); return acc; }
         const memberIds = g.memberIds.filter(id => id !== action.nodeId);
         if (memberIds.length >= 2) acc.push({ ...g, memberIds });
         return acc;
       }, []);
-      return {
-        ...s,
-        document: { ...s.document, groups },
-      };
+      const after = { ...state, document: { ...state.document, groups } };
+      return withHistory(state, after);
     }
 
     case 'PASTE_NODES': {
-      const s = pushHistory(state);
-      return {
-        ...s,
+      const after = {
+        ...state,
         document: {
-          ...s.document,
-          nodes: [...s.document.nodes, ...action.nodes],
-          edges: [...s.document.edges, ...action.edges],
+          ...state.document,
+          nodes: [...state.document.nodes, ...action.nodes],
+          edges: [...state.document.edges, ...action.edges],
         },
         selection: { nodeIds: action.nodes.map(n => n.id), edgeIds: [] },
       };
+      return withHistory(state, after);
     }
 
     case 'ALIGN_NODES': {
-      const s = pushHistory(state);
-      return {
-        ...s,
+      const after = {
+        ...state,
         document: {
-          ...s.document,
-          nodes: s.document.nodes.map(n => {
+          ...state.document,
+          nodes: state.document.nodes.map(n => {
             const u = action.updates.find(u => u.id === n.id);
             if (!u) return n;
             return { ...n, ...(u.x === undefined ? {} : { x: u.x }), ...(u.y === undefined ? {} : { y: u.y }) };
           }),
         },
       };
+      return withHistory(state, after);
     }
 
     case 'BRING_TO_FRONT': {
-      const s = pushHistory(state);
       const targetSet = new Set(action.nodeIds);
-      const maxZ = s.document.nodes.reduce((m, n) => Math.max(m, n.zIndex ?? 0), 0);
-      return {
-        ...s,
+      const maxZ = state.document.nodes.reduce((m, n) => Math.max(m, n.zIndex ?? 0), 0);
+      const after = {
+        ...state,
         document: {
-          ...s.document,
-          nodes: s.document.nodes.map(n =>
+          ...state.document,
+          nodes: state.document.nodes.map(n =>
             targetSet.has(n.id) ? { ...n, zIndex: maxZ + 1 } : n,
           ),
         },
       };
+      return withHistory(state, after);
     }
 
     case 'SEND_TO_BACK': {
-      const s = pushHistory(state);
       const targetSet = new Set(action.nodeIds);
-      const minZ = s.document.nodes.reduce((m, n) => Math.min(m, n.zIndex ?? 0), 0);
-      return {
-        ...s,
+      const minZ = state.document.nodes.reduce((m, n) => Math.min(m, n.zIndex ?? 0), 0);
+      const after = {
+        ...state,
         document: {
-          ...s.document,
-          nodes: s.document.nodes.map(n =>
+          ...state.document,
+          nodes: state.document.nodes.map(n =>
             targetSet.has(n.id) ? { ...n, zIndex: minZ - 1 } : n,
           ),
         },
       };
+      return withHistory(state, after);
     }
 
     case 'SELECT_ALL':
