@@ -34,6 +34,8 @@ export type Action =
   | { type: 'ALIGN_NODES'; updates: Array<{ id: string; x?: number; y?: number }> }
   | { type: 'BRING_TO_FRONT'; nodeIds: string[] }
   | { type: 'SEND_TO_BACK'; nodeIds: string[] }
+  | { type: 'GROUP_SELECTED'; groupId?: string }
+  | { type: 'UNGROUP_SELECTED' }
   | { type: 'SELECT_ALL' }
   | { type: 'UNDO' }
   | { type: 'REDO' }
@@ -200,6 +202,37 @@ export function graphReducer(state: GraphState, action: Action): GraphState {
           }),
         },
       };
+    }
+
+    case 'GROUP_SELECTED': {
+      const memberIds = state.selection.nodeIds;
+      if (memberIds.length < 2) return state;
+      const newGroup: GraphGroup = {
+        id: action.groupId ?? crypto.randomUUID(),
+        memberIds: [...memberIds],
+      };
+      const after = {
+        ...state,
+        document: {
+          ...state.document,
+          groups: [...(state.document.groups ?? []), newGroup],
+        },
+      };
+      return withHistory(state, after);
+    }
+
+    case 'UNGROUP_SELECTED': {
+      const selectedIds = new Set(state.selection.nodeIds);
+      const after = {
+        ...state,
+        document: {
+          ...state.document,
+          groups: (state.document.groups ?? []).filter(
+            g => !g.memberIds.some(id => selectedIds.has(id)),
+          ),
+        },
+      };
+      return withHistory(state, after);
     }
 
     case 'CREATE_GROUP': {

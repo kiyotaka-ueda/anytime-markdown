@@ -31,8 +31,8 @@ describe('createNode', () => {
 
 describe('createEdge', () => {
   it('should create an edge with endpoints', () => {
-    const edge = createEdge('arrow', { x: 0, y: 0 }, { x: 100, y: 100 });
-    expect(edge.type).toBe('arrow');
+    const edge = createEdge('line', { x: 0, y: 0 }, { x: 100, y: 100 });
+    expect(edge.type).toBe('line');
     expect(edge.from.x).toBe(0);
     expect(edge.to.x).toBe(100);
     expect(edge.id).toBeDefined();
