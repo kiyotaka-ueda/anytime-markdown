@@ -252,8 +252,9 @@ export function layoutWithSubgroups(
 }
 
 /**
- * 兄弟ノード群のうち metadata.manual === 1 のノードを非manualノードの最下段より下にシフトする。
- * フレーム内ローカル座標で動作するため、呼び出し元でフレームサイズ計算前に実行する必要がある。
+ * 兄弟ノード群のうち metadata.manual === 1 のノードを非manualノードの最下段の直下に
+ * **同じ Y に揃えて横一列**で配置する。フレームサイズが manual 行の直下で切れるよう、
+ * フレーム内ローカル座標でフレームサイズ計算前に実行する必要がある。
  */
 function shiftManualToBottom(siblings: readonly GraphNode[], levelGap: number): void {
   const manuals = siblings.filter(n => n.metadata?.manual === 1);
@@ -261,11 +262,8 @@ function shiftManualToBottom(siblings: readonly GraphNode[], levelGap: number): 
   if (manuals.length === 0 || autos.length === 0) return;
 
   const maxAutoY = Math.max(...autos.map(n => n.y + n.height));
-  const minManualY = Math.min(...manuals.map(n => n.y));
-  const dy = maxAutoY + levelGap - minManualY;
-  if (dy > 0) {
-    for (const n of manuals) n.y += dy;
-  }
+  const targetY = maxAutoY + levelGap;
+  for (const n of manuals) n.y = targetY;
 }
 
 /**
