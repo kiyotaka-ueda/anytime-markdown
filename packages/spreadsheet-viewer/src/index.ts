@@ -7,4 +7,4 @@ export { enMessages as spreadsheetViewerEnMessages, jaMessages as spreadsheetVie
 export type { SpreadsheetViewerMessages } from "./i18n";
 
 export type { SheetAdapter, SheetSnapshot } from "@anytime-markdown/spreadsheet-core";
-export { createInMemorySheetAdapter, parseCsv, serializeCsv } from "@anytime-markdown/spreadsheet-core";
+export { createInMemorySheetAdapter, parseCsv, serializeCsv, parseMarkdownTable, serializeMarkdownTable } from "@anytime-markdown/spreadsheet-core";
