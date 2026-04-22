@@ -12,6 +12,7 @@
   },
   "workspaces": [
     "packages/markdown-core",
+    "packages/spreadsheet-core",
     "packages/graph-core",
     "packages/mcp-markdown",
     "packages/mcp-graph",
