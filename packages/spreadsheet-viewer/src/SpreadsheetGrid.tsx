@@ -78,8 +78,8 @@ interface SpreadsheetGridProps {
   readonly showApply?: boolean;
   /** データ範囲の青枠とリサイズハンドルを表示するか（デフォルト: true） */
   readonly showRange?: boolean;
-  /** ツールバー行（配置・フィルター・設定・適用ボタン）を表示するか（デフォルト: false） */
-  readonly showToolbar?: boolean;
+  /** 1行目をヘッダー行（H）として表示するか（デフォルト: false） */
+  readonly showHeaderRow?: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -150,7 +150,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   onRedo,
   showApply = false,
   showRange = false,
-  showToolbar = false,
+  showHeaderRow = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -416,7 +416,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
         }
       }
     }
-    const isStickyFirstRow = scrollTop > 0 && dataRange.rows > 0;
+    const isStickyFirstRow = showHeaderRow && scrollTop > 0 && dataRange.rows > 0;
     const rawStartVi = Math.max(0, Math.floor((scrollTop - topOffset) / rowHeight));
     const startVi = isStickyFirstRow ? Math.max(1, rawStartVi) : rawStartVi;
     const endVi = Math.min(visibleRows.length, Math.ceil((scrollTop + viewHeight - topOffset) / rowHeight));
@@ -513,7 +513,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     }
 
     {
-      const headerRowVi = gridRowToVisualIndex(0);
+      const headerRowVi = showHeaderRow ? gridRowToVisualIndex(0) : -1;
       if (headerRowVi >= 0) {
         ctx.fillStyle = headerBg;
         ctx.fillRect(ROW_NUM_WIDTH, topOffset + headerRowVi * rowHeight, totalWidth - ROW_NUM_WIDTH, rowHeight);
@@ -657,7 +657,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
         ctx.fillStyle = headerTextColor;
       }
 
-      ctx.fillText(r === 0 ? "H" : String(r), x, y);
+      ctx.fillText(showHeaderRow && r === 0 ? "H" : String(showHeaderRow ? r : r + 1), x, y);
     }
     ctx.restore();
 
@@ -762,7 +762,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   }, [
     alignments, bgColor, borderColor, dataRange, editing, getColWidth, getColX, grid, GRID_COLS, gridRowToVisualIndex,
     headerBg, headerTextColor, hiddenRows, previewRange, primaryColor, reorderDrag, rowHeight, selectedBg,
-    selection, showRange, textColor, topOffset, totalHeight, totalWidth, visibleRows,
+    selection, showHeaderRow, showRange, textColor, topOffset, totalHeight, totalWidth, visibleRows,
   ]);
 
   useEffect(() => {
@@ -1514,7 +1514,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
-      {showToolbar && <Box sx={{ display: "flex", alignItems: "center", borderBottom: 1, borderColor: getDivider(isDark), px: 1, py: 0.25, gap: 0.5, flexShrink: 0 }}>
+      <Box sx={{ display: "flex", alignItems: "center", borderBottom: 1, borderColor: getDivider(isDark), px: 1, py: 0.25, gap: 0.5, flexShrink: 0 }}>
         <ToggleButtonGroup exclusive size="small" sx={{ height: 24 }} onChange={handleAlignChange} disabled={readOnly}>
           <ToggleButton value="left" aria-label={t("alignLeft")} sx={{ px: 0.5, py: 0.125 }}>
             <Tooltip title={t("alignLeft")} placement="top"><FormatAlignLeftIcon sx={iconSx} /></Tooltip>
@@ -1563,7 +1563,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
             </Button>
           </Tooltip>
         )}
-      </Box>}
+      </Box>
 
       <Dialog open={settingsOpen} onClose={() => setSettingsOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>{t("spreadsheetCellSettings")}</DialogTitle>
