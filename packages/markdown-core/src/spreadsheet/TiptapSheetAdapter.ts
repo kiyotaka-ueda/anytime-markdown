@@ -41,10 +41,16 @@ export function createTiptapSheetAdapter(
   options?: { readOnly?: boolean },
 ): SheetAdapter {
   const readOnly = options?.readOnly ?? false;
-  let lastSignature = (() => {
-    const target = getTable();
-    return target ? target.node.toString() : "";
-  })();
+  let lastSignature: string | null = null;
+
+  const currentSignature = (): string => {
+    try {
+      const target = getTable();
+      return target ? target.node.toString() : "";
+    } catch {
+      return "";
+    }
+  };
 
   const rebuild = (next: SheetSnapshot): void => {
     if (readOnly) return;
@@ -90,9 +96,11 @@ export function createTiptapSheetAdapter(
       return extractSnapshot(target.node);
     },
     subscribe(listener) {
+      if (lastSignature === null) {
+        lastSignature = currentSignature();
+      }
       const cb = () => {
-        const target = getTable();
-        const sig = target ? target.node.toString() : "";
+        const sig = currentSignature();
         if (sig !== lastSignature) {
           lastSignature = sig;
           listener();

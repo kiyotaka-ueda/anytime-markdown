@@ -20,7 +20,7 @@ import { DeleteBlockDialog } from "./components/codeblock/DeleteBlockDialog";
 import { EditDialogHeader } from "./components/EditDialogHeader";
 import { SearchReplaceBar } from "./components/SearchReplaceBar";
 import { SpreadsheetGrid } from "@anytime-markdown/spreadsheet-viewer";
-import { createLegacyEditorAdapter } from "./spreadsheet/LegacyEditorAdapter";
+import { createTiptapSheetAdapter } from "./spreadsheet/TiptapSheetAdapter";
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG, getActionHover, getActionSelected, getBgPaper, getDivider, getErrorMain, getTextSecondary } from "./constants/colors";
 import { SMALL_CAPTION_FONT_SIZE } from "./constants/dimensions";
 import { Z_FULLSCREEN } from "./constants/zIndex";
@@ -299,7 +299,7 @@ function SpreadsheetEditContent({ editor, getPos, isDark, t, onDirtyChange, onCl
   const { gridRows, gridCols } = getTableGridOptions(editor);
   const adapter = useMemo(
     () =>
-      createLegacyEditorAdapter(
+      createTiptapSheetAdapter(
         editor,
         () => {
           if (typeof getPos !== "function") return null;
