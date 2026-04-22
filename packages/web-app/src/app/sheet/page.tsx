@@ -1,5 +1,6 @@
 'use client';
 
+import { Box } from '@mui/material';
 import dynamic from 'next/dynamic';
 
 import LandingHeader from '../components/LandingHeader';
@@ -13,9 +14,11 @@ const SpreadsheetEditor = dynamic(
 export default function SheetPage() {
   const { themeMode } = useThemeMode();
   return (
-    <>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       <LandingHeader />
-      <SpreadsheetEditor themeMode={themeMode} />
-    </>
+      <Box sx={{ flex: 1, minHeight: 0 }}>
+        <SpreadsheetEditor themeMode={themeMode} />
+      </Box>
+    </Box>
   );
 }

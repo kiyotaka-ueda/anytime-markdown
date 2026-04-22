@@ -272,13 +272,13 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   /*  Theme colors                                                     */
   /* ---------------------------------------------------------------- */
 
-  const primaryColor = isDark ? "#5b9bd5" : "#1976d2";
-  const headerBg = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)";
-  const selectedBg = isDark ? "rgba(91,155,213,0.15)" : "rgba(25,118,210,0.08)";
+  const primaryColor = isDark ? "#90CAF9" : "#1976D2";
+  const headerBg = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)";
+  const selectedBg = isDark ? "rgba(144,202,249,0.16)" : "rgba(25,118,210,0.08)";
   const borderColor = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)";
-  const bgColor = isDark ? "#1e1e1e" : "#ffffff";
-  const textColor = isDark ? "#d4d4d4" : "#212121";
-  const headerTextColor = isDark ? "#cccccc" : "#333333";
+  const bgColor = isDark ? "#121212" : "#FFFFFF";
+  const textColor = isDark ? "rgba(255,255,255,0.87)" : "rgba(0,0,0,0.87)";
+  const headerTextColor = isDark ? "rgba(255,255,255,0.60)" : "rgba(0,0,0,0.60)";
 
   /* ---------------------------------------------------------------- */
   /*  Column filter state                                              */
