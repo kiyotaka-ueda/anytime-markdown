@@ -74,6 +74,8 @@ interface SpreadsheetGridProps {
   readonly onUndo?: () => void;
   /** Redo コールバック（未指定時は無効） */
   readonly onRedo?: () => void;
+  /** 適用ボタンを表示するか（デフォルト: true） */
+  readonly showApply?: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -142,6 +144,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   onClose,
   onUndo,
   onRedo,
+  showApply = true,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1535,19 +1538,21 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
           </IconButton>
         </Tooltip>
         <Box sx={{ flex: 1 }} />
-        <Tooltip title={t("spreadsheetApply")} placement="top">
-          <Button
-            size="small"
-            variant={dirty ? "contained" : "outlined"}
-            color={dirty ? "primary" : "inherit"}
-            startIcon={<CheckIcon sx={{ fontSize: 14 }} />}
-            onClick={handleApply}
-            disabled={readOnly}
-            sx={{ textTransform: "none", fontSize: 12, height: 24, px: 1.5 }}
-          >
-            {t("spreadsheetApply")}
-          </Button>
-        </Tooltip>
+        {showApply && (
+          <Tooltip title={t("spreadsheetApply")} placement="top">
+            <Button
+              size="small"
+              variant={dirty ? "contained" : "outlined"}
+              color={dirty ? "primary" : "inherit"}
+              startIcon={<CheckIcon sx={{ fontSize: 14 }} />}
+              onClick={handleApply}
+              disabled={readOnly}
+              sx={{ textTransform: "none", fontSize: 12, height: 24, px: 1.5 }}
+            >
+              {t("spreadsheetApply")}
+            </Button>
+          </Tooltip>
+        )}
       </Box>
 
       <Dialog open={settingsOpen} onClose={() => setSettingsOpen(false)} maxWidth="xs" fullWidth>
