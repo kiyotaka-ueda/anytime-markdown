@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 
+import LandingHeader from '../components/LandingHeader';
 import { useThemeMode } from '../providers';
 
 const SpreadsheetEditor = dynamic(
@@ -11,5 +12,10 @@ const SpreadsheetEditor = dynamic(
 
 export default function SheetPage() {
   const { themeMode } = useThemeMode();
-  return <SpreadsheetEditor themeMode={themeMode} />;
+  return (
+    <>
+      <LandingHeader />
+      <SpreadsheetEditor themeMode={themeMode} />
+    </>
+  );
 }
