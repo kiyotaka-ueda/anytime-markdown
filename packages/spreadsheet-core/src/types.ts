@@ -51,3 +51,17 @@ export interface SheetSnapshot {
   readonly alignments: ReadonlyArray<ReadonlyArray<CellAlign>>;
   readonly range: DataRange;
 }
+
+/** 1シート分のデータ */
+export interface SheetData {
+  readonly name: string;
+  readonly cells: ReadonlyArray<ReadonlyArray<string>>;
+  readonly alignments: ReadonlyArray<ReadonlyArray<CellAlign>>;
+  readonly range: DataRange;
+}
+
+/** ワークブック全体の不変スナップショット */
+export interface WorkbookSnapshot {
+  readonly sheets: ReadonlyArray<SheetData>;
+  readonly activeSheet: number;
+}
