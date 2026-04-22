@@ -18,6 +18,10 @@ interface SpreadsheetEditorProps {
     readonly headerRight?: React.ReactNode;
     readonly showApply?: boolean;
     readonly showRange?: boolean;
+    readonly onDirtyChange?: (dirty: boolean) => void;
+    readonly onClose?: () => void;
+    readonly onUndo?: () => void;
+    readonly onRedo?: () => void;
 }
 
 type Format = "csv" | "tsv";
@@ -44,6 +48,10 @@ export const SpreadsheetEditor: React.FC<Readonly<SpreadsheetEditorProps>> = ({
     headerRight,
     showApply = false,
     showRange = false,
+    onDirtyChange,
+    onClose,
+    onUndo,
+    onRedo,
 }) => {
     const t = useTranslations("Spreadsheet");
     const fallbackAdapter = useMemo(() => createInMemorySheetAdapter(), []);
@@ -109,6 +117,10 @@ export const SpreadsheetEditor: React.FC<Readonly<SpreadsheetEditorProps>> = ({
                     gridCols={gridCols}
                     showApply={showApply}
                     showRange={showRange}
+                    onDirtyChange={onDirtyChange}
+                    onClose={onClose}
+                    onUndo={onUndo}
+                    onRedo={onRedo}
                 />
             </Box>
         </Box>

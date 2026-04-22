@@ -19,4 +19,10 @@ export interface SheetAdapter {
 
   /** 読み取り専用フラグ */
   readonly readOnly?: boolean;
+
+  /** 外部からスナップショットを注入する（初期データロード等） */
+  applySnapshot?(snapshot: SheetSnapshot): void;
+
+  /** 外部からテキスト（CSV/TSV）を注入する */
+  applyText?(text: string): void;
 }

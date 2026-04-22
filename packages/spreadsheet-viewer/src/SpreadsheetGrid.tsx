@@ -146,8 +146,8 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   onClose,
   onUndo,
   onRedo,
-  showApply = true,
-  showRange = true,
+  showApply = false,
+  showRange = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
