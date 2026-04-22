@@ -4,3 +4,4 @@ export * from "./utils/csv";
 export * from "./SheetAdapter";
 export * from "./InMemorySheetAdapter";
 export * from "./utils/markdown";
+export * from "./WorkbookAdapter";
