@@ -24,7 +24,7 @@ import {
   DEFAULT_GRID_COLS,
   DEFAULT_GRID_ROWS,
 } from "@anytime-markdown/spreadsheet-core";
-import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { SpreadsheetContextMenu } from "./SpreadsheetContextMenu";
 import { getDivider } from "./styles";
@@ -149,13 +149,6 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   const rafRef = useRef<number>(0);
 
   const readOnly = adapter.readOnly ?? false;
-
-  // adapter からのスナップショット購読（useSyncExternalStore 互換）
-  const snapshot = useSyncExternalStore(
-    adapter.subscribe,
-    adapter.getSnapshot,
-    adapter.getSnapshot,
-  );
 
   // 初期データ（マウント時一度だけ）
   const initialTableData = useMemo(() => {
@@ -782,11 +775,6 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     };
     return adapter.subscribe(handler);
   }, [adapter, initGrid, setDataRange, setAlignments, GRID_COLS, GRID_ROWS]);
-
-  // useSyncExternalStore で購読しているので snapshot が変わったら再描画
-  useEffect(() => {
-    void snapshot;
-  }, [snapshot]);
 
   useEffect(() => {
     const container = containerRef.current;

@@ -127,4 +127,41 @@ describe("TiptapSheetAdapter", () => {
     expect(rw.readOnly).toBe(false);
     editor.destroy();
   });
+
+  it("getSnapshot は変更がない限り同じ参照を返す（useSyncExternalStore 要件）", () => {
+    const editor = makeEditor();
+    const adapter = createTiptapSheetAdapter(editor, () => getTable(editor));
+    const a = adapter.getSnapshot();
+    const b = adapter.getSnapshot();
+    // Object.is で比較される useSyncExternalStore のため、同じ参照でなければ無限ループになる
+    expect(Object.is(a, b)).toBe(true);
+    editor.destroy();
+  });
+
+  it("setCell 後は新しい参照を返し、以降は再び安定する", () => {
+    const editor = makeEditor();
+    const adapter = createTiptapSheetAdapter(editor, () => getTable(editor));
+    const a = adapter.getSnapshot();
+    adapter.setCell(1, 0, "changed");
+    const b = adapter.getSnapshot();
+    const c = adapter.getSnapshot();
+    expect(Object.is(a, b)).toBe(false);
+    expect(Object.is(b, c)).toBe(true);
+    editor.destroy();
+  });
+
+  it("複数の subscribe listener が独立して通知される", () => {
+    const editor = makeEditor();
+    const adapter = createTiptapSheetAdapter(editor, () => getTable(editor));
+    const calls1: number[] = [];
+    const calls2: number[] = [];
+    const unsub1 = adapter.subscribe(() => { calls1.push(1); });
+    const unsub2 = adapter.subscribe(() => { calls2.push(1); });
+    adapter.setCell(0, 0, "x");
+    expect(calls1.length).toBeGreaterThanOrEqual(1);
+    expect(calls2.length).toBeGreaterThanOrEqual(1);
+    unsub1();
+    unsub2();
+    editor.destroy();
+  });
 });

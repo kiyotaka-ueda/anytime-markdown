@@ -6,6 +6,12 @@ import type {
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { Editor } from "@tiptap/react";
 
+const EMPTY_SNAPSHOT: SheetSnapshot = {
+  cells: [],
+  alignments: [],
+  range: { rows: 0, cols: 0 },
+};
+
 /** tiptap table ノードからスナップショットを抽出する純粋関数 */
 function extractSnapshot(tableNode: PMNode): SheetSnapshot {
   const cells: string[][] = [];
@@ -34,6 +40,10 @@ function extractSnapshot(tableNode: PMNode): SheetSnapshot {
  * getTable コールバックで追跡対象の table ノードと pos を返すことで、
  * 複数 table を含む文書でも個別 table に Adapter を割り当てられる。
  * subscribe は該当 table の変更だけを listener に通知する最適化を含む。
+ *
+ * useSyncExternalStore 要件: getSnapshot は table の内容が変わらない限り
+ * 同じ参照を返す必要がある。内部でシグネチャ（node.toString()）ベースで
+ * キャッシュする。
  */
 export function createTiptapSheetAdapter(
   editor: Editor,
@@ -41,7 +51,10 @@ export function createTiptapSheetAdapter(
   options?: { readOnly?: boolean },
 ): SheetAdapter {
   const readOnly = options?.readOnly ?? false;
-  let lastSignature: string | null = null;
+
+  /** useSyncExternalStore 用の参照安定キャッシュ */
+  let cachedSignature: string | null = null;
+  let cachedSnapshot: SheetSnapshot = EMPTY_SNAPSHOT;
 
   const currentSignature = (): string => {
     try {
@@ -50,6 +63,22 @@ export function createTiptapSheetAdapter(
     } catch {
       return "";
     }
+  };
+
+  const getSnapshot = (): SheetSnapshot => {
+    const sig = currentSignature();
+    if (cachedSignature === sig) {
+      return cachedSnapshot;
+    }
+    let target: { node: PMNode; pos: number } | null = null;
+    try {
+      target = getTable();
+    } catch {
+      target = null;
+    }
+    cachedSignature = sig;
+    cachedSnapshot = target ? extractSnapshot(target.node) : EMPTY_SNAPSHOT;
+    return cachedSnapshot;
   };
 
   const rebuild = (next: SheetSnapshot): void => {
@@ -88,17 +117,10 @@ export function createTiptapSheetAdapter(
   };
 
   return {
-    getSnapshot() {
-      const target = getTable();
-      if (!target) {
-        return { cells: [], alignments: [], range: { rows: 0, cols: 0 } };
-      }
-      return extractSnapshot(target.node);
-    },
+    getSnapshot,
     subscribe(listener) {
-      if (lastSignature === null) {
-        lastSignature = currentSignature();
-      }
+      // 各 subscriber が独立した lastSignature を持つ（listener 毎に判定）
+      let lastSignature = currentSignature();
       const cb = () => {
         const sig = currentSignature();
         if (sig !== lastSignature) {
