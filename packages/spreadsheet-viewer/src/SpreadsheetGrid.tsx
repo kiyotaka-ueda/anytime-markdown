@@ -1627,6 +1627,17 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
           position: "relative",
           fontSize: 13,
           lineHeight: "24px",
+          scrollbarWidth: "thin",
+          scrollbarColor: isDark ? "rgba(255,255,255,0.45) transparent" : "rgba(0,0,0,0.4) transparent",
+          "&::-webkit-scrollbar": { width: 6, height: 6 },
+          "&::-webkit-scrollbar-track": { background: "transparent" },
+          "&::-webkit-scrollbar-thumb": {
+            background: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.4)",
+            borderRadius: 3,
+          },
+          "&::-webkit-scrollbar-thumb:hover": {
+            background: isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.55)",
+          },
         }}
       >
       <canvas
