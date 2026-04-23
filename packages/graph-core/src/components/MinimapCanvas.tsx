@@ -19,6 +19,12 @@ export interface MinimapCanvasProps {
   readonly height?: number;
 }
 
+type DragState =
+  | { mode: 'select';   startX: number; startY: number; currentX: number; currentY: number }
+  | { mode: 'viewport'; startX: number; startY: number; currentX: number; currentY: number;
+      initialOffsetX: number; initialOffsetY: number }
+  | null;
+
 const PAD = 10;
 
 function computeBounds(nodes: readonly GraphNode[]) {
@@ -44,12 +50,9 @@ export function MinimapCanvas({
 }: MinimapCanvasProps) {
   const colors = getCanvasColors(isDark);
   const minimapRef = useRef<HTMLCanvasElement | null>(null);
+  const [drag, setDrag] = useState<DragState>(null);
 
-  // ドラッグ状態
-  const [drag, setDrag] = useState<{
-    startX: number; startY: number; currentX: number; currentY: number;
-  } | null>(null);
-  const isDragging = drag !== null
+  const hasMoved = drag !== null
     && (Math.abs(drag.currentX - drag.startX) > 3 || Math.abs(drag.currentY - drag.startY) > 3);
 
   // ワールド全体のバウンドからミニマップ変換係数を計算
@@ -68,6 +71,19 @@ export function MinimapCanvas({
     (mx: number, my: number) => ({ x: (mx - mmOffX) / mmScale, y: (my - mmOffY) / mmScale }),
     [mmScale, mmOffX, mmOffY],
   );
+
+  /** ミニマップ座標 (mx, my) が現在のビューポート矩形の内側かどうか */
+  const isInsideViewportRect = useCallback((mx: number, my: number) => {
+    const mainCanvas = mainCanvasRef.current;
+    if (!mainCanvas) return false;
+    const cw = mainCanvas.clientWidth;
+    const ch = mainCanvas.clientHeight;
+    const tl = screenToWorld(viewport, 0,  0);
+    const br = screenToWorld(viewport, cw, ch);
+    const p1 = toMinimap(tl.x, tl.y);
+    const p2 = toMinimap(br.x, br.y);
+    return mx >= p1.x && mx <= p2.x && my >= p1.y && my <= p2.y;
+  }, [mainCanvasRef, viewport, toMinimap]);
 
   // 描画
   useEffect(() => {
@@ -99,26 +115,34 @@ export function MinimapCanvas({
       ctx.strokeRect(x, y, w, h);
     }
 
-    // 現在のビューポート矩形
+    // 現在のビューポート矩形（ドラッグ中は移動後の位置を反映）
     const mainCanvas = mainCanvasRef.current;
     if (mainCanvas) {
       const cw = mainCanvas.clientWidth;
       const ch = mainCanvas.clientHeight;
-      const tl = screenToWorld(viewport, 0,  0);
-      const br = screenToWorld(viewport, cw, ch);
+      // ビューポートドラッグ中はプレビュー位置を使う
+      const vp = (drag?.mode === 'viewport' && hasMoved)
+        ? {
+            ...viewport,
+            offsetX: drag.initialOffsetX - ((drag.currentX - drag.startX) / mmScale) * viewport.scale,
+            offsetY: drag.initialOffsetY - ((drag.currentY - drag.startY) / mmScale) * viewport.scale,
+          }
+        : viewport;
+      const tl = screenToWorld(vp, 0,  0);
+      const br = screenToWorld(vp, cw, ch);
       const p1 = toMinimap(tl.x, tl.y);
       const p2 = toMinimap(br.x, br.y);
       const vw = p2.x - p1.x;
       const vh = p2.y - p1.y;
       ctx.fillStyle   = 'rgba(255,255,255,0.12)';
-      ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+      ctx.strokeStyle = drag?.mode === 'viewport' ? 'rgba(144,202,249,0.9)' : 'rgba(255,255,255,0.75)';
       ctx.lineWidth   = 1.5;
       ctx.fillRect(p1.x, p1.y, vw, vh);
       ctx.strokeRect(p1.x, p1.y, vw, vh);
     }
 
-    // ドラッグ選択矩形
-    if (isDragging && drag) {
+    // 選択モードのドラッグ矩形（点線）
+    if (drag?.mode === 'select' && hasMoved) {
       const sx = Math.min(drag.startX, drag.currentX);
       const sy = Math.min(drag.startY, drag.currentY);
       const sw = Math.abs(drag.currentX - drag.startX);
@@ -131,7 +155,7 @@ export function MinimapCanvas({
       ctx.strokeRect(sx, sy, sw, sh);
       ctx.setLineDash([]);
     }
-  }, [nodes, viewport, mainCanvasRef, isDark, width, height, bounds, toMinimap, mmScale, isDragging, drag]);
+  }, [nodes, viewport, mainCanvasRef, isDark, width, height, bounds, toMinimap, mmScale, hasMoved, drag]);
 
   const getRelativePos = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const rect = minimapRef.current?.getBoundingClientRect();
@@ -142,15 +166,38 @@ export function MinimapCanvas({
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const pos = getRelativePos(e);
     if (!pos) return;
-    setDrag({ startX: pos.x, startY: pos.y, currentX: pos.x, currentY: pos.y });
-  }, [getRelativePos]);
+    if (isInsideViewportRect(pos.x, pos.y)) {
+      // ビューポート矩形内: パンドラッグモード
+      setDrag({
+        mode: 'viewport',
+        startX: pos.x, startY: pos.y,
+        currentX: pos.x, currentY: pos.y,
+        initialOffsetX: viewport.offsetX,
+        initialOffsetY: viewport.offsetY,
+      });
+    } else {
+      // ビューポート矩形外: 選択ドラッグモード
+      setDrag({ mode: 'select', startX: pos.x, startY: pos.y, currentX: pos.x, currentY: pos.y });
+    }
+  }, [getRelativePos, isInsideViewportRect, viewport.offsetX, viewport.offsetY]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!drag) return;
     const pos = getRelativePos(e);
     if (!pos) return;
+
+    if (drag.mode === 'viewport') {
+      // リアルタイムでビューポートを更新
+      const dmx = pos.x - drag.startX;
+      const dmy = pos.y - drag.startY;
+      onViewportChange({
+        ...viewport,
+        offsetX: drag.initialOffsetX - (dmx / mmScale) * viewport.scale,
+        offsetY: drag.initialOffsetY - (dmy / mmScale) * viewport.scale,
+      });
+    }
     setDrag(prev => prev ? { ...prev, currentX: pos.x, currentY: pos.y } : null);
-  }, [drag, getRelativePos]);
+  }, [drag, getRelativePos, viewport, mmScale, onViewportChange]);
 
   const handleMouseUp = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const mainCanvas = mainCanvasRef.current;
@@ -158,7 +205,9 @@ export function MinimapCanvas({
     const cw = mainCanvas.clientWidth;
     const ch = mainCanvas.clientHeight;
 
-    if (isDragging) {
+    if (drag.mode === 'viewport') {
+      // mousemove で既に更新済み。何もしない
+    } else if (hasMoved) {
       // 選択範囲にフィット
       const tl = toWorld(Math.min(drag.startX, drag.currentX), Math.min(drag.startY, drag.currentY));
       const br = toWorld(Math.max(drag.startX, drag.currentX), Math.max(drag.startY, drag.currentY));
@@ -166,18 +215,30 @@ export function MinimapCanvas({
         onViewportChange(fitToContent(cw, ch, { minX: tl.x, minY: tl.y, maxX: br.x, maxY: br.y }, 20));
       }
     } else {
-      // クリック: その位置を中心にパン
+      // クリック（移動なし）: クリック位置を中心にパン
       const pos = getRelativePos(e);
-      if (!pos) { setDrag(null); return; }
-      const worldPos = toWorld(pos.x, pos.y);
-      onViewportChange({
-        ...viewport,
-        offsetX: cw / 2 - worldPos.x * viewport.scale,
-        offsetY: ch / 2 - worldPos.y * viewport.scale,
-      });
+      if (pos) {
+        const worldPos = toWorld(pos.x, pos.y);
+        onViewportChange({
+          ...viewport,
+          offsetX: cw / 2 - worldPos.x * viewport.scale,
+          offsetY: ch / 2 - worldPos.y * viewport.scale,
+        });
+      }
     }
     setDrag(null);
-  }, [drag, isDragging, toWorld, mainCanvasRef, viewport, onViewportChange, getRelativePos]);
+  }, [drag, hasMoved, toWorld, mainCanvasRef, viewport, onViewportChange, getRelativePos]);
+
+  // カーソル: ビューポート矩形上では move、それ以外は crosshair
+  const handleMouseMoveForCursor = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    handleMouseMove(e);
+    if (!drag) {
+      const pos = getRelativePos(e);
+      if (pos && minimapRef.current) {
+        minimapRef.current.style.cursor = isInsideViewportRect(pos.x, pos.y) ? 'move' : 'crosshair';
+      }
+    }
+  }, [drag, handleMouseMove, getRelativePos, isInsideViewportRect]);
 
   return (
     <canvas
@@ -196,10 +257,10 @@ export function MinimapCanvas({
         boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
       }}
       onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
+      onMouseMove={handleMouseMoveForCursor}
       onMouseUp={handleMouseUp}
       onMouseLeave={() => setDrag(null)}
-      aria-label="Minimap: click to pan, drag to zoom to selection"
+      aria-label="Minimap: click to pan, drag viewport rect to pan, drag outside to zoom to selection"
     />
   );
 }
