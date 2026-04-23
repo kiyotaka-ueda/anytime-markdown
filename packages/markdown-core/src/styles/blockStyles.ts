@@ -172,36 +172,31 @@ export function getBlockStyles(theme: Theme, settings: EditorSettings): SxProps<
       "0%, 100%": { opacity: 1 },
       "50%": { opacity: 0 },
     },
-    // imageRow の flex レイアウトは NodeViewContent (data-image-row-content) に適用する。
-    // 実際の DOM: [data-image-row-content] > (react-renderer | data-node-view-content-react) >
-    //              .image-node-wrapper > ... > img
-    // tiptap-react のラッパーは固定 class を持たないので、直下 * をフレックスアイテム化する。
-    "& [data-image-row-content]": {
-      display: "flex",
-      flexWrap: "wrap",
+    // imageRow: React NodeView を使わず renderHTML 直出力。
+    // DOM: [data-image-row] > .react-renderer.node-image+
+    // 直接ラップした grid が効くように !important を付与し、CSS 競合を排除。
+    "& [data-image-row]": {
+      display: "grid !important" as unknown as string,
+      gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
       gap: "8px",
-      alignItems: "flex-start",
+      alignItems: "start",
+      my: 1,
     },
-    "& [data-image-row-content] > *": {
-      // grid items の min-width: auto を打ち消して 1fr に正しく収まるようにする
+    "& [data-image-row] > *": {
       minWidth: "0 !important" as unknown as string,
       maxWidth: "100%",
       overflow: "hidden",
     },
-    "& [data-image-row-content] .image-node-wrapper": {
+    "& [data-image-row] .image-node-wrapper": {
+      marginTop: "0 !important",
+      marginBottom: "0 !important",
       minWidth: "0 !important" as unknown as string,
-      maxWidth: "100%",
     },
-    "& [data-image-row-content] img": {
+    "& [data-image-row] img": {
       maxWidth: "100%",
       height: "auto",
     },
-    // 内側画像の上下 margin を打ち消してフレックス gap に揃える
-    "& [data-image-row-content] .image-node-wrapper": {
-      marginTop: "0 !important",
-      marginBottom: "0 !important",
-    },
-    "& [data-image-row-content] .image-node-wrapper > .MuiBox-root": {
+    "& [data-image-row] .image-node-wrapper > .MuiBox-root": {
       marginTop: "0 !important",
       marginBottom: "0 !important",
     },

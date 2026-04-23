@@ -1,10 +1,8 @@
 import { mergeAttributes,Node } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
-import { ReactNodeViewRenderer } from "@tiptap/react";
 import type MarkdownIt from "markdown-it";
 
-import { ImageRowNodeView } from "./ImageRowNodeView";
 import type { MarkdownSerializerLike } from "./markdownItRules/imageSerializer";
 import { wrapImageRow } from "./markdownItRules/wrapImageRow";
 
@@ -22,13 +20,14 @@ export const ImageRow = Node.create({
   renderHTML({ HTMLAttributes }) {
     return [
       "div",
-      mergeAttributes(HTMLAttributes, { "data-image-row": "", class: "image-row" }),
+      mergeAttributes(HTMLAttributes, {
+        "data-image-row": "",
+        class: "image-row",
+        role: "group",
+        "aria-label": "画像行",
+      }),
       0,
     ];
-  },
-
-  addNodeView() {
-    return ReactNodeViewRenderer(ImageRowNodeView);
   },
 
   addProseMirrorPlugins() {
