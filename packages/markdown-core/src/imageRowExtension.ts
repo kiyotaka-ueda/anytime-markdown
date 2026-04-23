@@ -1,5 +1,6 @@
 import { mergeAttributes,Node } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import type MarkdownIt from "markdown-it";
 
@@ -28,6 +29,43 @@ export const ImageRow = Node.create({
 
   addNodeView() {
     return ReactNodeViewRenderer(ImageRowNodeView);
+  },
+
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey("imageRowAutoExpand"),
+        appendTransaction: (transactions, _oldState, newState) => {
+          if (!transactions.some((tr) => tr.docChanged)) return null;
+          const tr = newState.tr;
+          let modified = false;
+          const rows: Array<{ pos: number; size: number; children: ProseMirrorNode[] }> = [];
+          newState.doc.descendants((node, pos) => {
+            if (node.type.name === "imageRow") {
+              const children: ProseMirrorNode[] = [];
+              node.forEach((child) => {
+                // placeholder（src が空の image）は children としてカウントしない
+                if (child.type.name === "image" && child.attrs.src) {
+                  children.push(child);
+                }
+              });
+              rows.push({ pos, size: node.nodeSize, children });
+              return false;
+            }
+          });
+          rows.reverse().forEach(({ pos, size, children }) => {
+            if (children.length === 0) {
+              tr.delete(pos, pos + size);
+              modified = true;
+            } else if (children.length === 1) {
+              tr.replaceWith(pos, pos + size, children[0]);
+              modified = true;
+            }
+          });
+          return modified ? tr : null;
+        },
+      }),
+    ];
   },
 
   addStorage() {
