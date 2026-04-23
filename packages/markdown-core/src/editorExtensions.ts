@@ -134,6 +134,8 @@ export function getBaseExtensions(options?: { disableComments?: boolean; disable
       codeBlock: false,
       hardBreak: false,
       blockquote: false, // AdmonitionBlockquote で置換
+      link: false, // LinkExtension.configure() を個別追加するため無効化
+      underline: false, // Underline を個別追加するため無効化
       bold: { HTMLAttributes: {}, },
       italic: { HTMLAttributes: {}, },
       strike: { HTMLAttributes: {}, },
