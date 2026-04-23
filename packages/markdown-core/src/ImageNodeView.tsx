@@ -99,9 +99,9 @@ function handleCropComplete(
 
 // --- Extracted sub-component: Image toolbar extra info ---
 function ImageToolbarExtra({
-  alt, src, imgError, isCompareLeft, isEditable, collapsed, annotations, onAnnotationOpen, onEdit, onEditUrl, isDark, t,
+  alt, imgError, isCompareLeft, isEditable, collapsed, annotations, onAnnotationOpen, onEdit, onEditUrl, isDark, t,
 }: Readonly<{
-  alt: string; src: string; imgError: boolean;
+  alt: string; imgError: boolean;
   isCompareLeft: boolean; isEditable: boolean; collapsed: boolean;
   annotations: ImageAnnotation[]; onAnnotationOpen: () => void;
   onEdit?: () => void;
@@ -110,30 +110,23 @@ function ImageToolbarExtra({
   t: (key: string) => string;
 }>) {
   const iconSx = { fontSize: 16, color: getTextSecondary(isDark) };
-  let srcDisplay: string;
-  if (src?.startsWith("data:")) srcDisplay = "(base64)";
-  else if (src) srcDisplay = `(${src})`;
-  else srcDisplay = "";
   return (
     <>
-      <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
-      {alt ? (
-        <Typography variant="caption" sx={{ color: getTextSecondary(isDark), fontSize: HANDLEBAR_CAPTION_FONT_SIZE, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flexShrink: 1 }}>
-          {alt}
-        </Typography>
-      ) : (
-        <Tooltip title={t("imageNoAltWarning")} placement="top">
-          <WarningAmberIcon sx={{ fontSize: 14, color: getWarningMain(isDark) }} />
-        </Tooltip>
+      {!alt && (
+        <>
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
+          <Tooltip title={t("imageNoAltWarning")} placement="top">
+            <WarningAmberIcon sx={{ fontSize: 14, color: getWarningMain(isDark) }} />
+          </Tooltip>
+        </>
       )}
-      <Typography variant="caption" sx={{ color: getTextDisabled(isDark), fontSize: HANDLEBAR_CAPTION_FONT_SIZE, fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
-        {srcDisplay}
-      </Typography>
       {imgError && (
-        <Typography variant="caption" sx={{ color: getErrorMain(isDark), fontSize: HANDLEBAR_CAPTION_FONT_SIZE, fontWeight: 600, flexShrink: 0, display: "flex", alignItems: "center", gap: 0.25 }}>
-          <ErrorOutlineIcon sx={{ fontSize: 14 }} />
-          {t("imageNotFound")}
-        </Typography>
+        <>
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
+          <Tooltip title={t("imageNotFound")} placement="top">
+            <ErrorOutlineIcon sx={{ fontSize: 14, color: getErrorMain(isDark) }} />
+          </Tooltip>
+        </>
       )}
       {!isCompareLeft && isEditable && !collapsed && (
         <>
@@ -494,7 +487,6 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: Readon
             extra={
               <ImageToolbarExtra
                 alt={alt}
-                src={src}
                 imgError={imgError}
                 isCompareLeft={isCompareLeft}
                 isEditable={isEditable}
