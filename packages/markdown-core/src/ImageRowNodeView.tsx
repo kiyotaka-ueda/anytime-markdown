@@ -21,13 +21,15 @@ export function ImageRowNodeView({ node, selected }: Readonly<NodeViewProps>) {
         className="image-row-content"
         data-image-row-content=""
         style={{
+          // DEBUG: 子数に関わらず固定 3 列で grid 動作確認
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+          gridTemplateColumns: `repeat(${count}, 1fr)`,
           gap: 8,
           alignItems: "start",
           margin: "8px 0",
-          // DEBUG: 新コード適用確認用の赤枠（消してください）
           outline: "3px dashed red",
+          // 診断: 親幅の 100% を確保
+          width: "100%",
         }}
       />
     </NodeViewWrapper>
