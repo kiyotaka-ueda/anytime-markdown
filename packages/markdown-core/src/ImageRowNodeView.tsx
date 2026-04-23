@@ -6,7 +6,7 @@ import { NodeViewContent, NodeViewWrapper } from "@tiptap/react";
 import { useTranslations } from "next-intl";
 
 export function ImageRowNodeView({ node, selected }: Readonly<NodeViewProps>) {
-  const t = useTranslations();
+  const t = useTranslations("MarkdownEditor");
   const count = node.childCount;
   return (
     <NodeViewWrapper
