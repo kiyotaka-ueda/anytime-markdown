@@ -42,12 +42,20 @@ import { HeadingNumberExtension } from "./extensions/headingNumberExtension";
 import { CustomImage } from "./imageExtension";
 import { ImageRow } from "./imageRowExtension";
 import { imagePastePlugin } from "./plugins/imagePastePlugin";
+import { imageRowDropPlugin } from "./plugins/imageRowDropPlugin";
 import { CustomTable } from "./tableExtension";
 
 const ImagePasteExtension = Extension.create({
   name: "imagePasteExtension",
   addProseMirrorPlugins() {
     return [imagePastePlugin];
+  },
+});
+
+const ImageRowDropExtension = Extension.create({
+  name: "imageRowDropExtension",
+  addProseMirrorPlugins() {
+    return [imageRowDropPlugin];
   },
 });
 
@@ -289,6 +297,7 @@ export function getBaseExtensions(options?: { disableComments?: boolean; disable
     ImageRow,
     CustomImage.configure({ inline: false, allowBase64: true }),
     ImagePasteExtension,
+    ImageRowDropExtension,
     TaskList,
     TaskItem.configure({
       nested: true,
