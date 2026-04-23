@@ -41,7 +41,15 @@ import { HeadingFoldExtension } from "./extensions/headingFoldExtension";
 import { HeadingNumberExtension } from "./extensions/headingNumberExtension";
 import { CustomImage } from "./imageExtension";
 import { ImageRow } from "./imageRowExtension";
+import { imagePastePlugin } from "./plugins/imagePastePlugin";
 import { CustomTable } from "./tableExtension";
+
+const ImagePasteExtension = Extension.create({
+  name: "imagePasteExtension",
+  addProseMirrorPlugins() {
+    return [imagePastePlugin];
+  },
+});
 
 /**
  * tiptap-markdown の MarkdownTightLists は bulletList / orderedList のみ対象。
@@ -280,6 +288,7 @@ export function getBaseExtensions(options?: { disableComments?: boolean; disable
     LinkExtension.configure({ openOnClick: false, validate: () => true, isAllowedUri: () => true }),
     ImageRow,
     CustomImage.configure({ inline: false, allowBase64: true }),
+    ImagePasteExtension,
     TaskList,
     TaskItem.configure({
       nested: true,

@@ -5,6 +5,7 @@ import { Markdown } from "tiptap-markdown";
 import Image from "@tiptap/extension-image";
 import { ImageRow } from "../imageRowExtension";
 import { imageMarkdownSpec } from "../markdownItRules/imageSerializer";
+import { imagePastePlugin } from "../plugins/imagePastePlugin";
 import Link from "@tiptap/extension-link";
 import Highlight from "@tiptap/extension-highlight";
 import Underline from "@tiptap/extension-underline";
@@ -12,6 +13,11 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { Mark } from "@tiptap/pm/model";
+
+const ImagePasteTest = Extension.create({
+  name: "imagePasteTest",
+  addProseMirrorPlugins() { return [imagePastePlugin]; },
+});
 
 /** taskList にも tight 属性を追加（tiptap-markdown は bulletList/orderedList のみ対象のため） */
 const TaskListTight = Extension.create({
@@ -110,6 +116,7 @@ export function createTestEditor({
       TaskItem.configure({ nested: true }),
       TaskListTight,
       ListTextCleanup,
+      ImagePasteTest,
     );
   }
 
