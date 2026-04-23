@@ -174,12 +174,12 @@ export function getBlockStyles(theme: Theme, settings: EditorSettings): SxProps<
     },
     // imageRow: React NodeView を使わず renderHTML 直出力。
     // DOM: [data-image-row] > .react-renderer.node-image+
-    // 直接ラップした grid が効くように !important を付与し、CSS 競合を排除。
+    // 画像は横並びに詰め、空きがあるときは折り返し。flex を使う。
     "& [data-image-row]": {
-      display: "grid !important" as unknown as string,
-      gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+      display: "flex !important" as unknown as string,
+      flexWrap: "wrap",
       gap: "8px",
-      alignItems: "start",
+      alignItems: "flex-start",
       my: 1,
     },
     "& [data-image-row] > *": {
