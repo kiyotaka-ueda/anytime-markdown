@@ -11,7 +11,8 @@ interface MinimapState {
 const SCROLL_CONTAINER_ID = "md-editor-content";
 
 function getScrollContainer(): HTMLElement | null {
-  return document.getElementById(SCROLL_CONTAINER_ID);
+  const paper = document.getElementById(SCROLL_CONTAINER_ID);
+  return paper?.querySelector<HTMLElement>(".tiptap") ?? null;
 }
 
 function calcMarkerRatios(editor: Editor): number[] {
