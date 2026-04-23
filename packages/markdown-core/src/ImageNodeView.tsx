@@ -328,14 +328,33 @@ function computeImageInteractionFlags(collapsed: boolean, isCompareLeft: boolean
 }
 
 /** Build the wrapper Box sx style (extracted to reduce cognitive complexity). */
-function buildImageWrapperSx(showBorder: boolean, isDark: boolean) {
+export function buildImageWrapperSx(showBorder: boolean, isDark: boolean, insideImageRow: boolean) {
   const borderColor = showBorder ? getDivider(isDark) : "transparent";
-  const hiddenToolbarSx = showBorder ? {} : {
+  // imageRow 内では常に hover / selected 時のみツールバー表示
+  const hideToolbar = !showBorder || insideImageRow;
+  const hiddenToolbarSx = hideToolbar ? {
     "& > [data-block-toolbar]": {
       maxHeight: 0, opacity: 0, py: 0, overflow: "hidden",
+      transition: "opacity 120ms",
     },
-  };
+    "&:hover > [data-block-toolbar], &[data-selected='true'] > [data-block-toolbar]": {
+      maxHeight: "none", opacity: 1, py: undefined, overflow: "visible",
+    },
+  } : {};
   return { border: 1, borderRadius: 1, overflow: "hidden", my: 1, borderColor, ...hiddenToolbarSx };
+}
+
+/** Determine whether the image's parent node is imageRow. */
+function isInsideImageRow(editor: NodeViewProps["editor"], getPos: NodeViewProps["getPos"]): boolean {
+  if (typeof getPos !== "function") return false;
+  const pos = getPos();
+  if (pos == null) return false;
+  try {
+    const $pos = editor.state.doc.resolve(pos);
+    return $pos.parent?.type.name === "imageRow";
+  } catch {
+    return false;
+  }
 }
 
 /** Image content area: either error placeholder or resizable image (extracted to reduce cognitive complexity). */
@@ -431,8 +450,15 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: Readon
   const onScreenCaptureAction = hasScreenCapture ? () => setScreenCaptureOpen(true) : undefined;
   const onImageDoubleClick = isEditable ? undefined : () => setEditOpen(true);
 
+  const insideImageRow = isInsideImageRow(editor, getPos);
+
   return (
-    <NodeViewWrapper className="image-node-wrapper">
+    <NodeViewWrapper
+      className="image-node-wrapper"
+      data-image-block=""
+      data-inside-image-row={insideImageRow ? "true" : "false"}
+      data-selected={isSelected ? "true" : "false"}
+    >
       <ImageEditDialog
         editOpen={editOpen}
         setEditOpen={setEditOpen}
@@ -443,7 +469,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: Readon
         isDark={isDark}
         t={t}
       />
-      <Box sx={buildImageWrapperSx(showBorder, isDark)}>
+      <Box sx={buildImageWrapperSx(showBorder, isDark, insideImageRow)}>
         {showBlockToolbar && (
           <BlockInlineToolbar
             label={t("image")}

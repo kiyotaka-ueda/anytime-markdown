@@ -42,6 +42,7 @@ import { extractHeadings, getEditorStorage } from "../types";
 import { preprocessMarkdown } from "../utils/frontmatterHelpers";
 import { preserveBlankLines, sanitizeMarkdown } from "../utils/sanitizeMarkdown";
 import { generateTocMarkdown } from "../utils/tocHelpers";
+import { insertImagesFromFiles } from "./slashCommandImageInsert";
 
 /** blockquote を作成し admonitionType を設定する */
 function setAdmonition(editor: Editor, type: string): void {
@@ -338,16 +339,11 @@ export const slashCommandItems: SlashCommandItem[] = [
       const input = document.createElement("input");
       input.type = "file";
       input.accept = "image/*";
+      input.multiple = true;
       input.onchange = () => {
-        const file = input.files?.[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-          if (typeof reader.result === "string") {
-            editor.chain().focus().setImage({ src: reader.result, alt: file.name }).run();
-          }
-        };
-        reader.readAsDataURL(file);
+        const files = Array.from(input.files ?? []);
+        if (files.length === 0) return;
+        void insertImagesFromFiles(editor, files);
       };
       input.click();
     },

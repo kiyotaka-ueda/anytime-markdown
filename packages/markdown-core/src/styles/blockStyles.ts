@@ -172,5 +172,31 @@ export function getBlockStyles(theme: Theme, settings: EditorSettings): SxProps<
       "0%, 100%": { opacity: 1 },
       "50%": { opacity: 0 },
     },
+    "& .image-row, & [data-image-row]": {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: "8px",
+      alignItems: "flex-start",
+      my: 1,
+    },
+    "& .image-row > [data-image-block], & [data-image-row] > [data-image-block]": {
+      marginTop: "0 !important",
+      marginBottom: "0 !important",
+      minWidth: "120px",
+      maxWidth: "100%",
+      flex: "0 1 auto",
+    },
+    "& .image-row[data-selected='true'], & [data-image-row][data-selected='true']": {
+      outline: `2px solid ${getPrimaryMain(isDark)}`,
+      outlineOffset: "2px",
+      borderRadius: "4px",
+    },
+    "& .image-row-drop-cursor-vertical": {
+      position: "absolute",
+      width: "2px",
+      backgroundColor: getPrimaryMain(isDark),
+      pointerEvents: "none",
+      zIndex: 10,
+    },
   };
 }
