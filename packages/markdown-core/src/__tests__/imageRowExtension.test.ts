@@ -16,6 +16,20 @@ describe("imageRow schema", () => {
     expect(JSON.stringify(json)).toContain('"src":"b.png"');
   });
 
+  test("ImageRowNodeView renders flex container", () => {
+    const editor = createTestEditor({ withMarkdown: true });
+    editor.commands.insertContent({
+      type: "imageRow",
+      content: [
+        { type: "image", attrs: { src: "a.png", alt: "a" } },
+        { type: "image", attrs: { src: "b.png", alt: "b" } },
+      ],
+    });
+    const container = editor.view.dom.querySelector("[data-image-row]");
+    expect(container).not.toBeNull();
+    expect(container?.getAttribute("class")).toContain("image-row");
+  });
+
   test("imageRow rejects paragraph content", () => {
     const editor = createTestEditor({ withMarkdown: true });
     let threw = false;

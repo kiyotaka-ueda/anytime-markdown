@@ -1,4 +1,7 @@
 import { mergeAttributes,Node } from "@tiptap/core";
+import { ReactNodeViewRenderer } from "@tiptap/react";
+
+import { ImageRowNodeView } from "./ImageRowNodeView";
 
 export const ImageRow = Node.create({
   name: "imageRow",
@@ -17,5 +20,9 @@ export const ImageRow = Node.create({
       mergeAttributes(HTMLAttributes, { "data-image-row": "", class: "image-row" }),
       0,
     ];
+  },
+
+  addNodeView() {
+    return ReactNodeViewRenderer(ImageRowNodeView);
   },
 });
