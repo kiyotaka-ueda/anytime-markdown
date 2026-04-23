@@ -183,16 +183,16 @@ export function getBlockStyles(theme: Theme, settings: EditorSettings): SxProps<
       alignItems: "flex-start",
     },
     "& [data-image-row-content] > *": {
-      flex: "0 0 auto !important" as unknown as string,
-      width: "max-content !important" as unknown as string,
-      minWidth: "120px",
-      maxWidth: "100%",
+      minWidth: 0,
       // DEBUG: 診断用 — 黄色背景で CSS 適用を確認
       backgroundColor: "yellow !important" as unknown as string,
     },
     "& [data-image-row-content] .image-node-wrapper": {
-      width: "max-content !important" as unknown as string,
       maxWidth: "100%",
+    },
+    "& [data-image-row-content] img": {
+      maxWidth: "100%",
+      height: "auto",
     },
     // 内側画像の上下 margin を打ち消してフレックス gap に揃える
     "& [data-image-row-content] .image-node-wrapper": {

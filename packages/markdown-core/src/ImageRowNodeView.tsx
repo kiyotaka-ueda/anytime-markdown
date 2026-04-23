@@ -21,10 +21,10 @@ export function ImageRowNodeView({ node, selected }: Readonly<NodeViewProps>) {
         className="image-row-content"
         data-image-row-content=""
         style={{
-          display: "flex",
-          flexWrap: "wrap",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
           gap: 8,
-          alignItems: "flex-start",
+          alignItems: "start",
           margin: "8px 0",
           // DEBUG: 新コード適用確認用の赤枠（消してください）
           outline: "3px dashed red",
