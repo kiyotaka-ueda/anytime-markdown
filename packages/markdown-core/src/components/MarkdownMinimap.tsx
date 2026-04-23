@@ -25,7 +25,7 @@ export function MarkdownMinimap({
   const isDark = theme.palette.mode === "dark";
   const barRef = useRef<HTMLDivElement | null>(null);
 
-  const { markerRatios, viewportRatio, hasChanges, handleBarClick, goToNext, goToPrev } =
+  const { markerRatios, hasChanges, handleBarClick, goToNext, goToPrev } =
     useMarkdownMinimap(editor);
 
   const handleClick = useCallback(
@@ -40,7 +40,6 @@ export function MarkdownMinimap({
 
   const barBg = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
   const markerColor = isDark ? "rgba(63,185,80,0.7)" : "rgba(46,160,67,0.7)";
-  const viewportColor = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.10)";
 
   const barHeight = editorHeight - BTN_SIZE * 2;
   const markerMinHeight = Math.max(3, barHeight * 0.03);
@@ -85,18 +84,6 @@ export function MarkdownMinimap({
           overflow: "hidden",
         }}
       >
-        <Box
-          sx={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            top: `${viewportRatio.top * 100}%`,
-            height: `${viewportRatio.height * 100}%`,
-            bgcolor: viewportColor,
-            pointerEvents: "none",
-          }}
-        />
-
         {markerRatios.map((ratio, i) => (
           <Box
             // eslint-disable-next-line react/no-array-index-key

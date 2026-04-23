@@ -5,7 +5,6 @@ import { getChangedPositions } from "../extensions/changeGutterExtension";
 
 interface MinimapState {
   markerRatios: number[];
-  viewportRatio: { top: number; height: number };
 }
 
 const SCROLL_CONTAINER_ID = "md-editor-content";
@@ -41,28 +40,15 @@ function calcMarkerRatios(editor: Editor): number[] {
   });
 }
 
-function calcViewportRatio(container: HTMLElement): { top: number; height: number } {
-  const { scrollTop, scrollHeight, clientHeight } = container;
-  if (scrollHeight === 0) return { top: 0, height: 1 };
-  return {
-    top: scrollTop / scrollHeight,
-    height: clientHeight / scrollHeight,
-  };
-}
-
 export function useMarkdownMinimap(editor: Editor | null) {
   const [state, setState] = useState<MinimapState>({
     markerRatios: [],
-    viewportRatio: { top: 0, height: 1 },
   });
 
   const recalculate = useCallback(() => {
     if (!editor || editor.isDestroyed) return;
-    const container = getScrollContainer();
-    if (!container) return;
     setState({
       markerRatios: calcMarkerRatios(editor),
-      viewportRatio: calcViewportRatio(container),
     });
   }, [editor]);
 
@@ -108,7 +94,6 @@ export function useMarkdownMinimap(editor: Editor | null) {
 
   return {
     markerRatios: state.markerRatios,
-    viewportRatio: state.viewportRatio,
     hasChanges: state.markerRatios.length > 0,
     handleBarClick,
     goToNext,
