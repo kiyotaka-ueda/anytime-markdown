@@ -200,6 +200,11 @@ export function getBlockStyles(theme: Theme, settings: EditorSettings): SxProps<
       marginTop: "0 !important",
       marginBottom: "0 !important",
     },
+    // 単独画像ブロック（imageRow 外）は画像サイズに合わせて幅を縮める
+    "& .image-node-wrapper[data-inside-image-row='false']": {
+      width: "fit-content",
+      maxWidth: "100%",
+    },
     "& .image-row[data-selected='true'], & [data-image-row][data-selected='true']": {
       outline: `2px solid ${getPrimaryMain(isDark)}`,
       outlineOffset: "2px",
