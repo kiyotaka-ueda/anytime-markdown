@@ -17,7 +17,40 @@ type Inputs = {
   commits: Commit[];
 };
 
-// Detects fix/revert/hotfix by conventional commits prefix (same logic as changeFailureRate).
+// 「AI 生成コード」品質指標のため、ドキュメント・画像・ロックファイル等の非コードファイルは
+// 分母・分子判定から除外する。拡張子/ファイル名のブラックリスト方式。
+const NON_CODE_EXTENSIONS = new Set<string>([
+  'md', 'mdx', 'txt', 'rst', 'adoc', 'asciidoc',
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico', 'bmp', 'tiff',
+  'woff', 'woff2', 'ttf', 'otf', 'eot',
+  'mp4', 'mp3', 'wav', 'webm', 'mov',
+  'snap',
+]);
+
+const NON_CODE_FILENAMES = new Set<string>([
+  'package-lock.json',
+  'yarn.lock',
+  'pnpm-lock.yaml',
+  'npm-shrinkwrap.json',
+  'composer.lock',
+  'Gemfile.lock',
+  'Cargo.lock',
+  'poetry.lock',
+]);
+
+function isCodeFile(path: string): boolean {
+  const base = path.split('/').pop() ?? path;
+  if (NON_CODE_FILENAMES.has(base)) return false;
+  const dot = base.lastIndexOf('.');
+  if (dot === -1) return true;
+  const ext = base.slice(dot + 1).toLowerCase();
+  return !NON_CODE_EXTENSIONS.has(ext);
+}
+
+function filterCodeFiles(files: readonly string[]): string[] {
+  return files.filter(isCodeFile);
+}
+
 function isFailureCommit(subject: string): boolean {
   const lower = subject.toLowerCase();
   if (/^fix(\([^)]*\))?[!]?:\s/.test(lower)) return true;
@@ -26,9 +59,8 @@ function isFailureCommit(subject: string): boolean {
   return false;
 }
 
-// AI コミットと fix コミットが少なくとも 1 ファイルを共有しているかで failure 判定する。
-// どちらかの files が空（未バックフィル・未取得）の場合は overlap を判定できないため
-// 楽観的に success とみなす。
+// AI コミットと fix コミットが少なくとも 1 ファイル（コードに限る）を共有しているかで failure 判定する。
+// どちらかの files が空（未バックフィル・未取得）の場合は overlap を判定できないため楽観的に success。
 function hasFileOverlap(aiFiles: readonly string[], fixFiles: readonly string[]): boolean {
   if (aiFiles.length === 0 || fixFiles.length === 0) return false;
   const aiSet = new Set(aiFiles);
@@ -46,29 +78,34 @@ function computeRate(inputs: Inputs, range: DateRange): {
   const fromMs = new Date(range.from).getTime();
   const toMs = new Date(range.to).getTime();
 
-  const aiCommitsInRange = inputs.commits.filter((c) => {
-    if (!c.is_ai_assisted) return false;
-    if (isFailureCommit(c.subject)) return false;
-    const t = new Date(c.committed_at).getTime();
-    return t >= fromMs && t <= toMs;
-  });
+  const aiCommitsInRange = inputs.commits
+    .filter((c) => {
+      if (!c.is_ai_assisted) return false;
+      if (isFailureCommit(c.subject)) return false;
+      const t = new Date(c.committed_at).getTime();
+      if (t < fromMs || t > toMs) return false;
+      // files が空 (未バックフィル) は楽観的に残す。files が非空でコードを 1 件も含まなければ除外。
+      if (c.files.length > 0 && filterCodeFiles(c.files).length === 0) return false;
+      return true;
+    })
+    .map((c) => ({ commit: c, codeFiles: filterCodeFiles(c.files) }));
 
   const fixes = inputs.commits
     .filter((c) => isFailureCommit(c.subject))
     .map((c) => ({
       ms: new Date(c.committed_at).getTime(),
-      files: c.files,
+      codeFiles: filterCodeFiles(c.files),
     }))
     .filter((f) => !Number.isNaN(f.ms));
 
   const successes: Array<{ date: string }> = [];
-  for (const commit of aiCommitsInRange) {
+  for (const { commit, codeFiles } of aiCommitsInRange) {
     const commitMs = new Date(commit.committed_at).getTime();
     if (Number.isNaN(commitMs)) continue;
     const failed = fixes.some(
       (f) => f.ms > commitMs
         && f.ms - commitMs <= FIX_WINDOW_MS
-        && hasFileOverlap(commit.files, f.files),
+        && hasFileOverlap(codeFiles, f.codeFiles),
     );
     if (!failed) {
       successes.push({ date: commit.committed_at });
