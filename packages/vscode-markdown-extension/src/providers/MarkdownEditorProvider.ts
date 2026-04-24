@@ -808,7 +808,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview.js')
     );
     const logoUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.context.extensionUri, 'images', 'camel_markdown.png')
+      vscode.Uri.joinPath(this.context.extensionUri, 'images', 'anytime-markdown-128.png')
     );
     const nonce = randomBytes(16).toString('hex');
 
