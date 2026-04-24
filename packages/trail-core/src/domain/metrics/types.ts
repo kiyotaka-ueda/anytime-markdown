@@ -3,7 +3,7 @@ export type DoraLevel = 'elite' | 'high' | 'medium' | 'low';
 export type MetricId =
   | 'deploymentFrequency'
   | 'leadTimeForChanges'
-  | 'promptToCommitSuccessRate'
+  | 'aiFirstTrySuccessRate'
   | 'changeFailureRate';
 
 export interface MetricValue {
@@ -37,7 +37,7 @@ export interface QualityMetrics {
   metrics: {
     deploymentFrequency: MetricValue;
     leadTimeForChanges: MetricValue;
-    promptToCommitSuccessRate: MetricValue;
+    aiFirstTrySuccessRate: MetricValue;
     changeFailureRate: MetricValue;
   };
   unmeasured: UnmeasuredMetric[];

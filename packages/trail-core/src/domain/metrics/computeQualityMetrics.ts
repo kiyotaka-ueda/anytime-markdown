@@ -1,6 +1,6 @@
 import { computeDeploymentFrequency } from './deploymentFrequency';
 import { computeLeadTimeForChanges } from './leadTimeForChanges';
-import { computePromptToCommitSuccessRate } from './promptToCommitSuccessRate';
+import { computeAiFirstTrySuccessRate } from './aiFirstTrySuccessRate';
 import { computeChangeFailureRate } from './changeFailureRate';
 import { DEFAULT_THRESHOLDS } from './thresholds';
 import type { ThresholdsConfig } from './thresholds';
@@ -12,11 +12,11 @@ export interface QualityMetricsInputs {
   releases: Array<{ id: string; tag_date: string; commit_hashes: string[]; fix_count?: number }>;
   messages: Array<{ uuid: string; created_at: string; role: string; type: string }>;
   messageCommits: Array<{ message_uuid: string; detected_at: string; match_confidence: string }>;
-  commits: Array<{ hash: string; subject: string }>;
+  commits: Array<{ hash: string; subject: string; committed_at: string; is_ai_assisted: boolean }>;
   previousReleases?: Array<{ id: string; tag_date: string; commit_hashes: string[]; fix_count?: number }>;
   previousMessages?: Array<{ uuid: string; created_at: string; role: string; type: string }>;
   previousMessageCommits?: Array<{ message_uuid: string; detected_at: string; match_confidence: string }>;
-  previousCommits?: Array<{ hash: string; subject: string }>;
+  previousCommits?: Array<{ hash: string; subject: string; committed_at: string; is_ai_assisted: boolean }>;
 }
 
 const UNMEASURED: UnmeasuredMetric[] = [
@@ -80,15 +80,16 @@ export function computeQualityMetrics(
     thresholds,
   );
 
-  const successRatePrevInputs = hasPrevious
-    ? { messages: inputs.previousMessages ?? [], messageCommits: inputs.previousMessageCommits ?? [] }
+  const aiFirstTryPrevInputs = hasPrevious
+    ? { commits: inputs.previousCommits ?? [] }
     : undefined;
-  const promptToCommitSuccessRate = computePromptToCommitSuccessRate(
-    { messages: inputs.messages, messageCommits: inputs.messageCommits },
+  const aiFirstTrySuccessRate = computeAiFirstTrySuccessRate(
+    { commits: inputs.commits },
     range,
     previousRange,
     bucket,
-    successRatePrevInputs,
+    aiFirstTryPrevInputs,
+    thresholds,
   );
 
   const cfrPrevInputs = hasPrevious
@@ -110,7 +111,7 @@ export function computeQualityMetrics(
     metrics: {
       deploymentFrequency,
       leadTimeForChanges,
-      promptToCommitSuccessRate,
+      aiFirstTrySuccessRate,
       changeFailureRate,
     },
     unmeasured: UNMEASURED,

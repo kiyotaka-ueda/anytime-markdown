@@ -12,7 +12,7 @@ describe('computeQualityMetrics', () => {
     const result = computeQualityMetrics(emptyInputs(), range);
     expect(result.metrics.deploymentFrequency.sampleSize).toBe(0);
     expect(result.metrics.leadTimeForChanges.sampleSize).toBe(0);
-    expect(result.metrics.promptToCommitSuccessRate.sampleSize).toBe(0);
+    expect(result.metrics.aiFirstTrySuccessRate.sampleSize).toBe(0);
     expect(result.metrics.changeFailureRate.sampleSize).toBe(0);
   });
 

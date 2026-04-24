@@ -3581,11 +3581,11 @@ export class TrailDatabase {
     releases: Array<{ id: string; tag_date: string; commit_hashes: string[]; fix_count: number }>;
     messages: Array<{ uuid: string; created_at: string; role: string; type: string }>;
     messageCommits: Array<{ message_uuid: string; detected_at: string; match_confidence: string }>;
-    commits: Array<{ hash: string; subject: string }>;
+    commits: Array<{ hash: string; subject: string; committed_at: string; is_ai_assisted: boolean }>;
     previousReleases: Array<{ id: string; tag_date: string; commit_hashes: string[]; fix_count: number }>;
     previousMessages: Array<{ uuid: string; created_at: string; role: string; type: string }>;
     previousMessageCommits: Array<{ message_uuid: string; detected_at: string; match_confidence: string }>;
-    previousCommits: Array<{ hash: string; subject: string }>;
+    previousCommits: Array<{ hash: string; subject: string; committed_at: string; is_ai_assisted: boolean }>;
   } {
     const db = this.ensureDb();
 
@@ -3633,15 +3633,25 @@ export class TrailDatabase {
       }));
     };
 
+    // AI First-Try Success Rate は fix コミットを 168h 先まで見る必要があるため、
+    // commits の取得範囲を fix 検出ウィンドウぶん拡張する。
+    const FIX_WINDOW_MS = 168 * 60 * 60 * 1000;
+    const extendedTo = new Date(new Date(to).getTime() + FIX_WINDOW_MS).toISOString();
+    const extendedPrevTo = new Date(new Date(prevTo).getTime() + FIX_WINDOW_MS).toISOString();
+
     const queryCommits = (f: string, t: string) => {
       const res = db.exec(
-        `SELECT commit_hash, commit_message FROM session_commits WHERE committed_at >= ? AND committed_at <= ?`,
+        `SELECT commit_hash, commit_message, committed_at, is_ai_assisted
+         FROM session_commits
+         WHERE committed_at >= ? AND committed_at <= ?`,
         [f, t],
       );
       if (!res[0]) return [];
       return res[0].values.map((row) => ({
         hash: row[0] as string,
         subject: (row[1] as string ?? '').split('\n')[0],
+        committed_at: row[2] as string,
+        is_ai_assisted: (row[3] as number) === 1,
       }));
     };
 
@@ -3649,11 +3659,11 @@ export class TrailDatabase {
       releases: queryReleases(from, to),
       messages: queryMessages(from, to),
       messageCommits: queryMessageCommits(from, to),
-      commits: queryCommits(from, to),
+      commits: queryCommits(from, extendedTo),
       previousReleases: queryReleases(prevFrom, prevTo),
       previousMessages: queryMessages(prevFrom, prevTo),
       previousMessageCommits: queryMessageCommits(prevFrom, prevTo),
-      previousCommits: queryCommits(prevFrom, prevTo),
+      previousCommits: queryCommits(prevFrom, extendedPrevTo),
     };
   }
 

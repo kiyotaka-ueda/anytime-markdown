@@ -10,12 +10,14 @@ export interface ThresholdsConfig {
   deploymentFrequency: ThresholdLevels;
   leadTimeForChanges: ThresholdLevels;
   changeFailureRate: ThresholdLevels;
+  aiFirstTrySuccessRate: ThresholdLevels;
 }
 
 export const DEFAULT_THRESHOLDS: ThresholdsConfig = {
   deploymentFrequency: { elite: 1, high: 1 / 7, medium: 1 / 30 },
   leadTimeForChanges: { elite: 24, high: 168, medium: 720 },
   changeFailureRate: { elite: 15, high: 30, medium: 45 },
+  aiFirstTrySuccessRate: { elite: 90, high: 75, medium: 60 },
 };
 
 export function classifyDoraLevel(
@@ -23,8 +25,6 @@ export function classifyDoraLevel(
   value: number,
   thresholds: ThresholdsConfig = DEFAULT_THRESHOLDS,
 ): DoraLevel | undefined {
-  if (metricId === 'promptToCommitSuccessRate') return undefined;
-
   if (metricId === 'deploymentFrequency') {
     const t = thresholds.deploymentFrequency;
     if (value >= t.elite) return 'elite';
@@ -46,6 +46,14 @@ export function classifyDoraLevel(
     if (value <= t.elite) return 'elite';
     if (value <= t.high) return 'high';
     if (value <= t.medium) return 'medium';
+    return 'low';
+  }
+
+  if (metricId === 'aiFirstTrySuccessRate') {
+    const t = thresholds.aiFirstTrySuccessRate;
+    if (value >= t.elite) return 'elite';
+    if (value >= t.high) return 'high';
+    if (value >= t.medium) return 'medium';
     return 'low';
   }
 
@@ -78,5 +86,6 @@ export function mergeThresholds(
     deploymentFrequency: mergeLevel(user.deploymentFrequency, defaults.deploymentFrequency),
     leadTimeForChanges: mergeLevel(user.leadTimeForChanges, defaults.leadTimeForChanges),
     changeFailureRate: mergeLevel(user.changeFailureRate, defaults.changeFailureRate),
+    aiFirstTrySuccessRate: mergeLevel(user.aiFirstTrySuccessRate, defaults.aiFirstTrySuccessRate),
   };
 }

@@ -77,6 +77,12 @@ export function ThresholdsDialog({ open, onOpen, onClose, isVsCode = false }: Re
                 <TableCell>≤ {t2.changeFailureRate.high}%</TableCell>
                 <TableCell>≤ {t2.changeFailureRate.medium}%</TableCell>
               </TableRow>
+              <TableRow>
+                <TableCell>{t('metrics.aiFirstTrySuccessRate.name')}</TableCell>
+                <TableCell>≥ {t2.aiFirstTrySuccessRate.elite}%</TableCell>
+                <TableCell>≥ {t2.aiFirstTrySuccessRate.high}%</TableCell>
+                <TableCell>≥ {t2.aiFirstTrySuccessRate.medium}%</TableCell>
+              </TableRow>
             </TableBody>
           </Table>
           {isVsCode && (

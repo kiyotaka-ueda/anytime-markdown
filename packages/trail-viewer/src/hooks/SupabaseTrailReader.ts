@@ -772,11 +772,11 @@ export class SupabaseTrailReader implements ITrailReader {
         releases: curReleases.map((r) => ({ id: r.tag, tag_date: r.released_at, commit_hashes: [], fix_count: r.fix_count })),
         messages: curMessages.map((m) => ({ uuid: m.uuid, created_at: m.timestamp, role: m.type, type: 'text' })),
         messageCommits: [],
-        commits: curCommits.map((c) => ({ hash: c.commit_hash, subject: (c.commit_message ?? '').split('\n')[0] })),
+        commits: curCommits.map((c) => ({ hash: c.commit_hash, subject: (c.commit_message ?? '').split('\n')[0], committed_at: c.committed_at, is_ai_assisted: false })),
         previousReleases: prevReleases.map((r) => ({ id: r.tag, tag_date: r.released_at, commit_hashes: [], fix_count: r.fix_count })),
         previousMessages: prevMessages.map((m) => ({ uuid: m.uuid, created_at: m.timestamp, role: m.type, type: 'text' })),
         previousMessageCommits: [],
-        previousCommits: prevCommits.map((c) => ({ hash: c.commit_hash, subject: (c.commit_message ?? '').split('\n')[0] })),
+        previousCommits: prevCommits.map((c) => ({ hash: c.commit_hash, subject: (c.commit_message ?? '').split('\n')[0], committed_at: c.committed_at, is_ai_assisted: false })),
       },
       range,
     );

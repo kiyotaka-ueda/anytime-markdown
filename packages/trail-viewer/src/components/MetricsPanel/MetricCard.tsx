@@ -54,7 +54,7 @@ export interface MetricCardProps {
 const NAME_KEYS: Record<string, string> = {
   deploymentFrequency: 'metrics.deploymentFrequency.name',
   leadTimeForChanges: 'metrics.leadTimeForChanges.name',
-  promptToCommitSuccessRate: 'metrics.promptToCommitSuccessRate.name',
+  aiFirstTrySuccessRate: 'metrics.aiFirstTrySuccessRate.name',
   changeFailureRate: 'metrics.changeFailureRate.name',
 };
 

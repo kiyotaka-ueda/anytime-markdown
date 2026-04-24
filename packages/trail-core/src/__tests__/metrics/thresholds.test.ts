@@ -58,9 +58,21 @@ describe('classifyDoraLevel', () => {
     });
   });
 
-  describe('promptToCommitSuccessRate', () => {
-    it('returns undefined (no DORA level defined)', () => {
-      expect(classifyDoraLevel('promptToCommitSuccessRate', 80)).toBeUndefined();
+  describe('aiFirstTrySuccessRate', () => {
+    it('elite: >= 90', () => {
+      expect(classifyDoraLevel('aiFirstTrySuccessRate', 90)).toBe('elite');
+      expect(classifyDoraLevel('aiFirstTrySuccessRate', 100)).toBe('elite');
+    });
+    it('high: >= 75', () => {
+      expect(classifyDoraLevel('aiFirstTrySuccessRate', 75)).toBe('high');
+      expect(classifyDoraLevel('aiFirstTrySuccessRate', 89.99)).toBe('high');
+    });
+    it('medium: >= 60', () => {
+      expect(classifyDoraLevel('aiFirstTrySuccessRate', 60)).toBe('medium');
+      expect(classifyDoraLevel('aiFirstTrySuccessRate', 74.99)).toBe('medium');
+    });
+    it('low: < 60', () => {
+      expect(classifyDoraLevel('aiFirstTrySuccessRate', 59)).toBe('low');
     });
   });
 
@@ -70,6 +82,7 @@ describe('classifyDoraLevel', () => {
         deploymentFrequency: { elite: 2, high: 1, medium: 0.5 },
         leadTimeForChanges: { elite: 12, high: 72, medium: 360 },
         changeFailureRate: { elite: 10, high: 20, medium: 30 },
+        aiFirstTrySuccessRate: { elite: 95, high: 80, medium: 65 },
       };
       expect(classifyDoraLevel('deploymentFrequency', 1.5, custom)).toBe('high');
       expect(classifyDoraLevel('deploymentFrequency', 2, custom)).toBe('elite');

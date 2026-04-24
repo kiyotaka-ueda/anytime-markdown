@@ -216,8 +216,8 @@ export interface TrailI18n {
   'metrics.deploymentFrequency.description': string;
   'metrics.leadTimeForChanges.name': string;
   'metrics.leadTimeForChanges.description': string;
-  'metrics.promptToCommitSuccessRate.name': string;
-  'metrics.promptToCommitSuccessRate.description': string;
+  'metrics.aiFirstTrySuccessRate.name': string;
+  'metrics.aiFirstTrySuccessRate.description': string;
   'metrics.changeFailureRate.name': string;
   'metrics.changeFailureRate.description': string;
   'metrics.level.elite': string;
