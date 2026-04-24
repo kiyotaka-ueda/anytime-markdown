@@ -10,13 +10,57 @@ export type { DateRange };
 
 export interface QualityMetricsInputs {
   releases: Array<{ id: string; tag_date: string; commit_hashes: string[]; fix_count?: number }>;
-  messages: Array<{ uuid: string; created_at: string; role: string; type: string }>;
-  messageCommits: Array<{ message_uuid: string; detected_at: string; match_confidence: string }>;
-  commits: Array<{ hash: string; subject: string; committed_at: string; is_ai_assisted: boolean; files: string[] }>;
+  messages: Array<{
+    uuid: string;
+    created_at: string;
+    role: string;
+    type: string;
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_read_tokens?: number;
+    cache_creation_tokens?: number;
+  }>;
+  messageCommits: Array<{
+    message_uuid: string;
+    detected_at: string;
+    match_confidence: string;
+    commit_hash: string;
+  }>;
+  commits: Array<{
+    hash: string;
+    subject: string;
+    committed_at: string;
+    is_ai_assisted: boolean;
+    files: string[];
+    lines_added?: number;
+    lines_deleted?: number;
+  }>;
   previousReleases?: Array<{ id: string; tag_date: string; commit_hashes: string[]; fix_count?: number }>;
-  previousMessages?: Array<{ uuid: string; created_at: string; role: string; type: string }>;
-  previousMessageCommits?: Array<{ message_uuid: string; detected_at: string; match_confidence: string }>;
-  previousCommits?: Array<{ hash: string; subject: string; committed_at: string; is_ai_assisted: boolean; files: string[] }>;
+  previousMessages?: Array<{
+    uuid: string;
+    created_at: string;
+    role: string;
+    type: string;
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_read_tokens?: number;
+    cache_creation_tokens?: number;
+  }>;
+  previousMessageCommits?: Array<{
+    message_uuid: string;
+    detected_at: string;
+    match_confidence: string;
+    commit_hash: string;
+  }>;
+  previousCommits?: Array<{
+    hash: string;
+    subject: string;
+    committed_at: string;
+    is_ai_assisted: boolean;
+    files: string[];
+    lines_added?: number;
+    lines_deleted?: number;
+  }>;
 }
 
 const UNMEASURED: UnmeasuredMetric[] = [
