@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 
 import { useOembedData } from "../../hooks/useEmbedData";
 import type { EmbedProviders } from "../../types/embedProvider";
+import { sanitizeTweetHtml } from "../../utils/tweetSanitize";
 
 interface Props {
     url: string;
@@ -121,7 +122,7 @@ export function TwitterEmbedView({ url, variant, providers }: Props) {
         <Box
             ref={containerRef}
             sx={{ maxWidth: 720 }}
-            dangerouslySetInnerHTML={{ __html: data.html }}
+            dangerouslySetInnerHTML={{ __html: sanitizeTweetHtml(data.html) }}
         />
     );
 }

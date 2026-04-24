@@ -10,6 +10,7 @@
     "./extensions": "./src/exports/extensions.ts",
     "./constants": "./src/exports/constants.ts",
     "./types": "./src/exports/types.ts",
+    "./embed-utils": "./src/exports/embedUtils.ts",
     "./src/*": "./src/*"
   },
   "scripts": {
