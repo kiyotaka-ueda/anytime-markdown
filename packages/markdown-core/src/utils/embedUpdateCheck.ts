@@ -23,15 +23,13 @@ export async function checkEmbedUpdate(input: CheckInput): Promise<UpdateCheckRe
 
     if (!baseline.rssChecked) {
         const rssFeedUrl = ogpHtml ? discoverRssFeed(ogpHtml, url) : null;
-        let rssLatest: RssLatest | null = null;
-        if (rssFeedUrl) {
-            try {
-                rssLatest = await providers.fetchRss(rssFeedUrl);
-            } catch (e) {
-                logger?.("warn", `rss fetch failed: ${url} - ${(e as Error).message}`);
-            }
-        }
-        const ogpHash = await buildOgpFingerprint(ogpData);
+        const rssPromise: Promise<RssLatest | null> = rssFeedUrl
+            ? providers.fetchRss(rssFeedUrl).catch((e) => {
+                  logger?.("warn", `rss fetch failed: ${url} - ${(e as Error).message}`);
+                  return null;
+              })
+            : Promise.resolve(null);
+        const [rssLatest, ogpHash] = await Promise.all([rssPromise, buildOgpFingerprint(ogpData)]);
         const newBaseline: EmbedBaseline = {
             rssFeedUrl,
             rssChecked: true,

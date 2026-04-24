@@ -1,11 +1,12 @@
 "use client";
 
 import { Box } from "@mui/material";
-import { useCallback, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 
 import { useBlockResize } from "../../hooks/useBlockResize";
 import {
     buildEmbedInfoString,
+    DEFAULT_EMBED_BASELINE,
     parseEmbedInfoString,
     type EmbedBaseline,
     type EmbedVariant,
@@ -54,19 +55,20 @@ export function EmbedBlock(props: EmbedBlockProps) {
     const parsedInfo = parseEmbedInfoString(language) ?? {
         variant: "card" as const,
         width: null,
-        rssFeedUrl: null,
-        baselineRssGuid: null,
-        baselineOgpHash: null,
-        rssChecked: false,
+        ...DEFAULT_EMBED_BASELINE,
     };
     const variant: EmbedVariant = parsedInfo.variant;
     const storedWidth = parsedInfo.width;
-    const baseline: EmbedBaseline = {
-        rssFeedUrl: parsedInfo.rssFeedUrl,
-        baselineRssGuid: parsedInfo.baselineRssGuid,
-        baselineOgpHash: parsedInfo.baselineOgpHash,
-        rssChecked: parsedInfo.rssChecked,
-    };
+    // 参照を安定化することで useEmbedUpdateCheck の effect 再実行（RSS/OGP fetch の余分な発火）を防ぐ。
+    const baseline = useMemo<EmbedBaseline>(
+        () => ({
+            rssFeedUrl: parsedInfo.rssFeedUrl,
+            baselineRssGuid: parsedInfo.baselineRssGuid,
+            baselineOgpHash: parsedInfo.baselineOgpHash,
+            rssChecked: parsedInfo.rssChecked,
+        }),
+        [parsedInfo.rssFeedUrl, parsedInfo.baselineRssGuid, parsedInfo.baselineOgpHash, parsedInfo.rssChecked],
+    );
     const initialUrl = firstNonEmptyLine(code);
     const resizable = variant === "card";
 

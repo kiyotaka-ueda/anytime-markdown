@@ -1,5 +1,6 @@
 import { checkEmbedUpdate } from "../../utils/embedUpdateCheck";
 import type { OgpData, EmbedProviders } from "../../types/embedProvider";
+import { DEFAULT_EMBED_BASELINE } from "../../utils/embedInfoString";
 import type { RssLatest } from "../../utils/rssParser";
 
 const OGP: OgpData = {
@@ -30,7 +31,7 @@ describe("checkEmbedUpdate (initial)", () => {
             ogpData: OGP,
             ogpHtml: HTML_WITH_RSS,
             providers,
-            baseline: { rssFeedUrl: null, baselineRssGuid: null, baselineOgpHash: null, rssChecked: false },
+            baseline: DEFAULT_EMBED_BASELINE,
         });
         expect(result.kind).toBe("initial");
         if (result.kind === "initial") {
@@ -49,7 +50,7 @@ describe("checkEmbedUpdate (initial)", () => {
             ogpData: OGP,
             ogpHtml: "<html></html>",
             providers,
-            baseline: { rssFeedUrl: null, baselineRssGuid: null, baselineOgpHash: null, rssChecked: false },
+            baseline: DEFAULT_EMBED_BASELINE,
         });
         expect(result.kind).toBe("initial");
         if (result.kind === "initial") {
@@ -144,7 +145,7 @@ describe("checkEmbedUpdate (subsequent)", () => {
             ogpData: OGP,
             ogpHtml: "<html></html>",
             providers,
-            baseline: { rssFeedUrl: null, baselineRssGuid: null, baselineOgpHash: null, rssChecked: false },
+            baseline: DEFAULT_EMBED_BASELINE,
         });
         if (init.kind !== "initial") throw new Error("expected initial");
         const result = await checkEmbedUpdate({

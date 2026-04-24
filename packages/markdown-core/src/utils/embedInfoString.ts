@@ -7,6 +7,13 @@ export interface EmbedBaseline {
     rssChecked: boolean;
 }
 
+export const DEFAULT_EMBED_BASELINE: EmbedBaseline = Object.freeze({
+    rssFeedUrl: null,
+    baselineRssGuid: null,
+    baselineOgpHash: null,
+    rssChecked: false,
+}) as EmbedBaseline;
+
 export interface EmbedInfoString extends EmbedBaseline {
     variant: EmbedVariant;
     width: string | null;

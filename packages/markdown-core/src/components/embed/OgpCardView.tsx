@@ -1,10 +1,10 @@
 import LinkIcon from "@mui/icons-material/Link";
 import { Box, Skeleton, Stack, Typography, useTheme } from "@mui/material";
-import { useCallback, type CSSProperties } from "react";
+import { type CSSProperties } from "react";
 
 import { useEmbedUpdateCheck, useOgpData } from "../../hooks/useEmbedData";
 import type { EmbedProviders } from "../../types/embedProvider";
-import type { EmbedBaseline } from "../../utils/embedInfoString";
+import { DEFAULT_EMBED_BASELINE, type EmbedBaseline } from "../../utils/embedInfoString";
 import { markEmbedSeen } from "../../utils/embedSeenStore";
 import { EmbedUpdateBadge } from "../codeblock/EmbedUpdateBadge";
 
@@ -17,12 +17,7 @@ interface Props {
     onBaselineWrite?: (baseline: EmbedBaseline) => void;
 }
 
-const DEFAULT_BASELINE: EmbedBaseline = {
-    rssFeedUrl: null,
-    baselineRssGuid: null,
-    baselineOgpHash: null,
-    rssChecked: false,
-};
+const noopBaselineWrite = (_b: EmbedBaseline) => undefined;
 
 function getDomain(url: string): string {
     try {
@@ -36,17 +31,13 @@ export function OgpCardView({ url, variant, providers, widthOverride, baseline, 
     const { loading, data, error } = useOgpData(url, providers);
     const theme = useTheme();
 
-    const effectiveBaseline = baseline ?? DEFAULT_BASELINE;
-    const handleInitialBaseline = useCallback(
-        (b: EmbedBaseline) => onBaselineWrite?.(b),
-        [onBaselineWrite],
-    );
+    const effectiveBaseline = baseline ?? DEFAULT_EMBED_BASELINE;
     const updateCheck = useEmbedUpdateCheck({
         url,
         ogpData: variant === "card" ? data : null,
         providers,
         baseline: effectiveBaseline,
-        onInitialBaseline: handleInitialBaseline,
+        onInitialBaseline: onBaselineWrite ?? noopBaselineWrite,
     });
     const badgeVisible = variant === "card" && updateCheck.status === "unseen";
     const handleBadgeClick = () => {
