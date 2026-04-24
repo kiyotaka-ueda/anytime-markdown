@@ -551,7 +551,7 @@ export class TrailDatabase {
   private backfillCommitFiles(gitRoot: string, onProgress?: (msg: string) => void): void {
     const db = this.ensureDb();
     db.run('CREATE TABLE IF NOT EXISTS _migrations (key TEXT PRIMARY KEY)');
-    const done = db.exec("SELECT 1 FROM _migrations WHERE key = 'commit_files_backfill_v1'");
+    const done = db.exec("SELECT 1 FROM _migrations WHERE key = 'commit_files_backfill_v2'");
     if (done[0]?.values?.length) return;
 
     const commitRes = db.exec(
@@ -559,12 +559,12 @@ export class TrailDatabase {
     );
     const hashes = commitRes[0]?.values.map((row) => row[0] as string) ?? [];
     if (hashes.length === 0) {
-      db.run("INSERT OR IGNORE INTO _migrations (key) VALUES ('commit_files_backfill_v1')");
+      db.run("INSERT OR IGNORE INTO _migrations (key) VALUES ('commit_files_backfill_v2')");
       return;
     }
 
     onProgress?.(`Backfilling commit files for ${hashes.length} commits...`);
-    TrailLogger.info(`[Migration] commit_files_backfill_v1: backfilling file lists for ${hashes.length} commits`);
+    TrailLogger.info(`[Migration] commit_files_backfill_v2: backfilling file lists for ${hashes.length} commits`);
 
     const insertStmt = db.prepare('INSERT OR IGNORE INTO commit_files (commit_hash, file_path) VALUES (?, ?)');
     try {
@@ -573,7 +573,7 @@ export class TrailDatabase {
       for (const hash of hashes) {
         try {
           const out = execFileSync('git', [
-            'show', '--no-patch', '--format=', '--numstat', hash,
+            'show', '--format=', '--numstat', hash,
           ], { encoding: 'utf-8', timeout: 5_000, cwd: gitRoot });
           for (const line of out.split('\n')) {
             const trimmed = line.trim();
@@ -591,12 +591,12 @@ export class TrailDatabase {
           onProgress?.(`Backfilling commit files: ${processed}/${hashes.length}`);
         }
       }
-      TrailLogger.info(`[Migration] commit_files_backfill_v1: processed=${processed}, skipped=${skipped}`);
+      TrailLogger.info(`[Migration] commit_files_backfill_v2: processed=${processed}, skipped=${skipped}`);
     } finally {
       insertStmt.free();
     }
 
-    db.run("INSERT OR IGNORE INTO _migrations (key) VALUES ('commit_files_backfill_v1')");
+    db.run("INSERT OR IGNORE INTO _migrations (key) VALUES ('commit_files_backfill_v2')");
   }
 
   /**
