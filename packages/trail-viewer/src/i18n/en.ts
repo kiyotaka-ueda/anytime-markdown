@@ -189,6 +189,7 @@ export const en: TrailI18n = {
 
 
   'analytics.combined.error': 'Error',
+  'analytics.combined.commitPrefix': 'Commits',
   'analytics.combined.skill': 'Skill',
   'analytics.combined.model': 'Model',
 

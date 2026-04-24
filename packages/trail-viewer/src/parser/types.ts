@@ -109,11 +109,18 @@ export interface CombinedModel {
 }
 
 
+export interface CombinedCommitPrefix {
+  readonly period: string;
+  readonly prefix: string;
+  readonly count: number;
+}
+
 export interface CombinedData {
   readonly toolCounts: readonly CombinedToolCount[];
   readonly errorRate: readonly CombinedError[];
   readonly skillStats: readonly CombinedSkill[];
   readonly modelStats: readonly CombinedModel[];
+  readonly commitPrefixStats: readonly CombinedCommitPrefix[];
 }
 
 export type CombinedPeriodMode = 'day' | 'week';

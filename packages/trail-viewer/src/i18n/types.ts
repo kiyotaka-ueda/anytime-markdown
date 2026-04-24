@@ -204,6 +204,7 @@ export interface TrailI18n {
 
 
   'analytics.combined.error': string;
+  'analytics.combined.commitPrefix': string;
   'analytics.combined.skill': string;
   'analytics.combined.model': string;
 

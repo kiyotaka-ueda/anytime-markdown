@@ -1313,7 +1313,7 @@ function DailyActivityChart({
 // ─── Behavior charts in Analytics ───────────────────────────────────────────
 
 type ChartMetric = 'count' | 'tokens';
-type CombinedChartKind = 'tools' | 'errors' | 'skills' | 'models';
+type CombinedChartKind = 'tools' | 'errors' | 'skills' | 'models' | 'commits';
 
 // スタック棒グラフの系列数が多すぎると描画・凡例・ツールチップが重くなるため、
 // 上位 N 件以外を "Others" に集約する。
@@ -1355,10 +1355,13 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
     const errorRows = (data.errorRate ?? []).filter(r => r.period >= cutoffStr);
     const skillRows = (data.skillStats ?? []).filter(r => r.period >= cutoffStr);
     const modelRows = (data.modelStats ?? []).filter(r => r.period >= cutoffStr);
+    const commitRows = (data.commitPrefixStats ?? []).filter(r => r.period >= cutoffStr);
     const allPeriods = [...new Set(toolRows.map(r => r.period))].sort();
     const labels = allPeriods.map(p => p.length > 5 ? p.slice(5) : p);
     const modelPeriods = [...new Set(modelRows.map(r => r.period))].sort();
     const modelLabels = modelPeriods.map(p => p.length > 5 ? p.slice(5) : p);
+    const commitPeriods = [...new Set(commitRows.map(r => r.period))].sort();
+    const commitLabels = commitPeriods.map(p => p.length > 5 ? p.slice(5) : p);
 
     const toolTotals = new Map<string, number>();
     for (const r of toolRows) toolTotals.set(r.tool, (toolTotals.get(r.tool) ?? 0) + r.count);
@@ -1368,21 +1371,27 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
     for (const r of skillRows) skillTotals.set(r.skill, (skillTotals.get(r.skill) ?? 0) + r.count);
     const modelTotals = new Map<string, number>();
     for (const r of modelRows) modelTotals.set(r.model, (modelTotals.get(r.model) ?? 0) + r.count);
+    const commitTotals = new Map<string, number>();
+    for (const r of commitRows) commitTotals.set(r.prefix, (commitTotals.get(r.prefix) ?? 0) + r.count);
 
     const toolCap = capTopN(toolTotals);
     const errCap = capTopN(errToolTotals);
     const skillCap = capTopN(skillTotals);
     const modelCap = capTopN(modelTotals);
+    const commitCap = capTopN(commitTotals);
 
     return {
       toolRows,
       errorRows,
       skillRows,
       modelRows,
+      commitRows,
       allPeriods,
       labels,
       modelPeriods,
       modelLabels,
+      commitPeriods,
+      commitLabels,
       tools: toolCap.displayKeys,
       toolMap: toolCap.keyMap,
       errTools: errCap.displayKeys,
@@ -1391,6 +1400,8 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
       skillMap: skillCap.keyMap,
       models: modelCap.displayKeys,
       modelMap: modelCap.keyMap,
+      commitPrefixes: commitCap.displayKeys,
+      commitMap: commitCap.keyMap,
     };
   }, [data, periodDays]);
 
@@ -1452,6 +1463,24 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
     });
   }, [axisInfo]);
 
+  const commitDataset = useMemo(() => {
+    if (!axisInfo) return [];
+    const { commitRows, commitPeriods, commitLabels, commitPrefixes, commitMap } = axisInfo;
+    const countMap = new Map<string, number>();
+    for (const r of commitRows) {
+      const displayKey = commitMap.get(r.prefix) ?? r.prefix;
+      const key = `${r.period}::${displayKey}`;
+      countMap.set(key, (countMap.get(key) ?? 0) + r.count);
+    }
+    return commitPeriods.map((p, pi) => {
+      const entry: Record<string, string | number> = { period: commitLabels[pi] };
+      for (let i = 0; i < commitPrefixes.length; i++) {
+        entry[`c${i}`] = countMap.get(`${p}::${commitPrefixes[i]}`) ?? 0;
+      }
+      return entry;
+    });
+  }, [axisInfo]);
+
   const modelDataset = useMemo(() => {
     if (!axisInfo) return [];
     const { modelRows, modelPeriods, modelLabels, models, modelMap } = axisInfo;
@@ -1473,7 +1502,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
   }, [axisInfo, modelMetric]);
 
   if (!axisInfo) return null;
-  const { toolRows, errTools, tools, skills, models, allPeriods, modelPeriods } = axisInfo;
+  const { toolRows, errTools, tools, skills, models, commitPrefixes, allPeriods, modelPeriods, commitPeriods } = axisInfo;
   const hideZero = (v: number | null) => (v == null || v === 0 ? null : String(v));
   const canDrill = periodDays < 90 && !!onDateClick;
   const makeAxisClick = (periods: readonly string[]) =>
@@ -1564,6 +1593,32 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
     );
   }
 
+  if (activeChart === 'commits') {
+    if (commitPrefixes.length === 0) {
+      return <Typography variant="body2" color="text.secondary">0</Typography>;
+    }
+    return (
+      <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+        <BarChart
+          dataset={commitDataset}
+          xAxis={[{ scaleType: 'band', dataKey: 'period' }]}
+          yAxis={[{ valueFormatter: fmtNum }]}
+          series={commitPrefixes.map((prefix, i) => ({
+            dataKey: `c${i}`,
+            label: prefix,
+            stack: 'total',
+            color: toolPalette[i % toolPalette.length],
+            valueFormatter: hideZero,
+          }))}
+          height={240}
+          margin={{ left: 16, right: 8, top: 8, bottom: 40 }}
+          slotProps={{ legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } } }}
+          onAxisClick={makeAxisClick(commitPeriods)}
+        />
+      </Paper>
+    );
+  }
+
   // activeChart === 'models'
   if (models.length === 0) {
     return <Typography variant="body2" color="text.secondary">0</Typography>;
@@ -1590,7 +1645,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
   );
 }
 
-type CombinedMetric = 'tokens' | 'tools' | 'errors' | 'skills' | 'models';
+type CombinedMetric = 'tokens' | 'tools' | 'errors' | 'skills' | 'models' | 'commits';
 
 function CombinedChartsSection({
   dailyActivity,
@@ -1672,6 +1727,7 @@ function CombinedChartsSection({
             <ToggleButton value="skills" sx={toggleSx}>{t('analytics.combined.skill')}</ToggleButton>
             <ToggleButton value="tools" sx={toggleSx}>{t('analytics.combined.tool')}</ToggleButton>
             <ToggleButton value="errors" sx={toggleSx}>{t('analytics.combined.error')}</ToggleButton>
+            <ToggleButton value="commits" sx={toggleSx}>{t('analytics.combined.commitPrefix')}</ToggleButton>
           </ToggleButtonGroup>
           <ToggleButtonGroup
             value={period}

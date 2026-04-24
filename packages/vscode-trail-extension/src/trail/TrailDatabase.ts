@@ -222,6 +222,7 @@ interface CombinedData {
   readonly errorRate: readonly { period: string; rate: number; byTool: Readonly<Record<string, number>> }[];
   readonly skillStats: readonly { period: string; skill: string; count: number; costUsd: number }[];
   readonly modelStats: readonly { period: string; model: string; count: number; tokens: number }[];
+  readonly commitPrefixStats: readonly { period: string; prefix: string; count: number }[];
 }
 
 interface RawLine {
@@ -315,6 +316,12 @@ export const INSERT_MESSAGE = `INSERT OR REPLACE INTO messages
 // ---------------------------------------------------------------------------
 //  Helpers
 // ---------------------------------------------------------------------------
+
+/** Conventional Commits のプレフィクス（scope・! 許容）を抽出する。該当しなければ 'other'。 */
+function extractCommitPrefix(subject: string): string {
+  const match = /^([a-z]+)(?:\([^)]*\))?!?:\s/i.exec(subject);
+  return match ? match[1].toLowerCase() : 'other';
+}
 
 function extractTextContent(
   content: string | readonly RawContentBlock[] | undefined,
@@ -3153,6 +3160,10 @@ export class TrailDatabase {
     // week 集計時は strftime('%Y-W%W', date) で週キー化。
     const periodExpr = period === 'week' ? `strftime('%Y-W%W', date)` : 'date';
     const cutoff = `DATE('now', '-${rangeDays} days')`;
+    const tzOffset = this.getLocalTzOffset();
+    const commitPeriodExpr = period === 'week'
+      ? `strftime('%Y-W%W', committed_at, '${tzOffset}')`
+      : `DATE(committed_at, '${tzOffset}')`;
 
     const toRows = (result: ReturnType<typeof db.exec>): Record<string, unknown>[] => {
       if (!result[0]) return [];
@@ -3225,11 +3236,33 @@ export class TrailDatabase {
       tokens: Number(r['tokens'] ?? 0),
     }));
 
+    // Commit prefix stats: session_commits のコミットを Conventional Commits プレフィクスで集計。
+    // 手動コミットが複数セッションに重複登録されるため DISTINCT commit_hash で排除する。
+    const commitResult = db.exec(
+      `SELECT ${commitPeriodExpr} AS period, commit_hash, commit_message
+       FROM session_commits
+       WHERE committed_at >= DATETIME('now', '-${rangeDays} days')
+       GROUP BY commit_hash`,
+    );
+    const prefixMap = new Map<string, number>();
+    for (const r of toRows(commitResult)) {
+      const p = String(r['period'] ?? '');
+      const subject = String(r['commit_message'] ?? '').split('\n')[0];
+      const prefix = extractCommitPrefix(subject);
+      const k = `${p}::${prefix}`;
+      prefixMap.set(k, (prefixMap.get(k) ?? 0) + 1);
+    }
+    const commitPrefixStats = [...prefixMap.entries()].map(([k, count]) => {
+      const sep = k.indexOf('::');
+      return { period: k.slice(0, sep), prefix: k.slice(sep + 2), count };
+    });
+
     return {
       toolCounts,
       errorRate,
       skillStats,
       modelStats,
+      commitPrefixStats,
     };
   }
 

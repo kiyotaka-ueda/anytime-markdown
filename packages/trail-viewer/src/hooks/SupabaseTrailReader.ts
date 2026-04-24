@@ -712,7 +712,8 @@ export class SupabaseTrailReader implements ITrailReader {
         .map(([k, e]) => { const [p, model] = splitKey(k); return { period: p, model, ...e }; })
         .sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
 
-      return { toolCounts, errorRate, skillStats, modelStats };
+      // commitPrefixStats は session_commits ベースのため Supabase 側は未対応（空配列）。
+      return { toolCounts, errorRate, skillStats, modelStats, commitPrefixStats: [] };
     } catch {
       return null;
     }
