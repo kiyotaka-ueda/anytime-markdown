@@ -89,7 +89,7 @@ export function MetricsPanel({ fetchQualityMetrics, isVsCode = false }: Readonly
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
             {Object.values(metrics.metrics).map((m) => (
               <Box key={m.id} sx={{ flex: '1 1 calc(50% - 8px)', minWidth: 240 }}>
-                <MetricCard metric={m} />
+                <MetricCard metric={m} bucket={metrics.bucket} />
               </Box>
             ))}
           </Box>

@@ -48,6 +48,7 @@ function DeltaBadge({ deltaPct }: Readonly<{ deltaPct: number | null }>) {
 
 export interface MetricCardProps {
   readonly metric: MetricValue;
+  readonly bucket: 'day' | 'week';
 }
 
 const NAME_KEYS: Record<string, string> = {
@@ -64,7 +65,7 @@ const LEVEL_KEYS: Record<DoraLevel, string> = {
   low: 'metrics.level.low',
 };
 
-export function MetricCard({ metric }: Readonly<MetricCardProps>) {
+export function MetricCard({ metric, bucket }: Readonly<MetricCardProps>) {
   const { t } = useTrailI18n();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -116,7 +117,7 @@ export function MetricCard({ metric }: Readonly<MetricCardProps>) {
 
           {metric.timeSeries.length >= 2 && (
             <Box sx={{ mt: 1 }}>
-              <MetricSparkline timeSeries={metric.timeSeries} />
+              <MetricSparkline timeSeries={metric.timeSeries} bucket={bucket} />
             </Box>
           )}
         </>
