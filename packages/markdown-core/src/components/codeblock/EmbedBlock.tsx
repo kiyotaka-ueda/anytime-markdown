@@ -137,10 +137,10 @@ export function EmbedBlock(props: EmbedBlockProps) {
                     p: 1.5,
                     cursor: "pointer",
                     overflow: "hidden",
-                    display: "inline-block",
                     position: "relative",
-                    width: widthOverride ?? "fit-content",
-                    maxWidth: "100%",
+                    display: "block",
+                    width: widthOverride ?? "100%",
+                    maxWidth: widthOverride ?? 720,
                 }}
             >
                 <EmbedNodeView language={language} body={code} widthOverride={widthOverride} />
