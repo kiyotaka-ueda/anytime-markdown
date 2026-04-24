@@ -5,6 +5,7 @@ export interface OgpData {
     image: string | null;
     siteName: string | null;
     favicon: string | null;
+    rawHtml?: string | null;
 }
 
 export interface OembedData {
