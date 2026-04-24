@@ -1,5 +1,6 @@
 import { computeDeploymentFrequency } from './deploymentFrequency';
-import { computeLeadTimeForChanges } from './leadTimeForChanges';
+import { computeLeadTimePerLoc } from './leadTimePerLoc';
+import { computeTokensPerLoc } from './tokensPerLoc';
 import { computeAiFirstTrySuccessRate } from './aiFirstTrySuccessRate';
 import { computeChangeFailureRate } from './changeFailureRate';
 import { DEFAULT_THRESHOLDS } from './thresholds';
@@ -111,11 +112,24 @@ export function computeQualityMetrics(
   const leadTimeInputs = {
     messages: inputs.messages,
     messageCommits: inputs.messageCommits,
+    commits: inputs.commits,
   };
   const leadTimePrevInputs = hasPrevious
-    ? { messages: inputs.previousMessages ?? [], messageCommits: inputs.previousMessageCommits ?? [] }
+    ? {
+        messages: inputs.previousMessages ?? [],
+        messageCommits: inputs.previousMessageCommits ?? [],
+        commits: inputs.previousCommits ?? [],
+      }
     : undefined;
-  const leadTimeForChanges = computeLeadTimeForChanges(
+  const leadTimePerLoc = computeLeadTimePerLoc(
+    leadTimeInputs,
+    range,
+    previousRange,
+    bucket,
+    leadTimePrevInputs,
+    thresholds,
+  );
+  const tokensPerLoc = computeTokensPerLoc(
     leadTimeInputs,
     range,
     previousRange,
@@ -154,7 +168,8 @@ export function computeQualityMetrics(
     bucket,
     metrics: {
       deploymentFrequency,
-      leadTimeForChanges,
+      leadTimePerLoc,
+      tokensPerLoc,
       aiFirstTrySuccessRate,
       changeFailureRate,
     },
