@@ -14,7 +14,14 @@ export interface OembedData {
     authorName: string | null;
 }
 
+export interface RssLatestData {
+    guid: string;
+    pubDate: string;
+    title: string;
+}
+
 export interface EmbedProviders {
     fetchOgp: (url: string) => Promise<OgpData>;
     fetchOembed: (url: string) => Promise<OembedData>;
+    fetchRss: (feedUrl: string) => Promise<RssLatestData>;
 }
