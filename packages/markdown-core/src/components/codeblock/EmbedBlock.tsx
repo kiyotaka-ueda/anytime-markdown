@@ -1,9 +1,10 @@
 "use client";
 
 import { Box } from "@mui/material";
-import { useRef } from "react";
+import { useCallback, useRef } from "react";
 
-import { CodeBlockEditDialog } from "../CodeBlockEditDialog";
+import { parseEmbedInfoString, type EmbedVariant } from "../../utils/embedInfoString";
+import { EmbedEditDialog } from "../EmbedEditDialog";
 import { EmbedNodeView } from "../EmbedNodeView";
 import { BlockInlineToolbar } from "./BlockInlineToolbar";
 import { CodeBlockFrame } from "./CodeBlockFrame";
@@ -23,18 +24,52 @@ type EmbedBlockProps = Pick<
     handleFsTextChange: (newCode: string) => void;
 };
 
+function firstNonEmptyLine(text: string): string {
+    for (const rawLine of text.split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (line) return line;
+    }
+    return "";
+}
+
 export function EmbedBlock(props: EmbedBlockProps) {
     const {
+        editor, node, updateAttributes, getPos,
         codeCollapsed, isSelected,
         selectNode, code,
         handleDeleteBlock, deleteDialogOpen, setDeleteDialogOpen,
-        editOpen, setEditOpen, fsCode, onFsCodeChange, fsTextareaRef, fsSearch,
-        handleFsTextChange,
+        editOpen, setEditOpen,
         t, isDark,
     } = props;
 
     const containerRef = useRef<HTMLDivElement>(null);
-    const language = props.node.attrs.language as string;
+    const language = node.attrs.language as string;
+    const variant: EmbedVariant = parseEmbedInfoString(language)?.variant ?? "card";
+    const initialUrl = firstNonEmptyLine(code);
+
+    const handleApply = useCallback(
+        (url: string, nextVariant: EmbedVariant) => {
+            const nextLanguage = nextVariant === "compact" ? "embed compact" : "embed";
+            updateAttributes({ language: nextLanguage });
+            if (editor && typeof getPos === "function") {
+                const pos = getPos();
+                if (pos != null) {
+                    const from = pos + 1;
+                    const to = from + node.content.size;
+                    editor.chain().command(({ tr }) => {
+                        if (url) {
+                            tr.replaceWith(from, to, editor.schema.text(url));
+                        } else {
+                            tr.delete(from, to);
+                        }
+                        return true;
+                    }).run();
+                }
+            }
+            setEditOpen(false);
+        },
+        [editor, getPos, node.content.size, setEditOpen, updateAttributes],
+    );
 
     const toolbar = (
         <BlockInlineToolbar
@@ -63,22 +98,12 @@ export function EmbedBlock(props: EmbedBlockProps) {
             handleDeleteBlock={handleDeleteBlock}
             t={t}
             afterFrame={
-                <CodeBlockEditDialog
+                <EmbedEditDialog
                     open={editOpen}
-                    onClose={() => {
-                        fsSearch.reset();
-                        props.tryCloseEdit();
-                    }}
-                    onApply={props.onFsApply}
-                    dirty={props.fsDirty}
-                    label="Embed"
-                    language={language}
-                    fsCode={fsCode}
-                    onFsCodeChange={onFsCodeChange}
-                    onFsTextChange={handleFsTextChange}
-                    fsTextareaRef={fsTextareaRef}
-                    fsSearch={fsSearch}
-                    readOnly={!props.isEditable}
+                    initialUrl={initialUrl}
+                    initialVariant={variant}
+                    onClose={() => setEditOpen(false)}
+                    onApply={handleApply}
                     t={t}
                 />
             }
