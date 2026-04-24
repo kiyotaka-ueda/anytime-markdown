@@ -29,7 +29,7 @@
     "onView:anytimeTrail.database",
     "onView:anytimeTrail.c4Elements"
   ],
-  "icon": "images/camel_trail.png",
+  "icon": "images/anytime-control-256.png",
   "main": "./dist/extension.js",
   "contributes": {
     "viewsContainers": {
