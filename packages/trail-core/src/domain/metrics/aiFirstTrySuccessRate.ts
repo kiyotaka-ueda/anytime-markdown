@@ -78,10 +78,12 @@ function computeRate(inputs: Inputs, range: DateRange): {
   const fromMs = new Date(range.from).getTime();
   const toMs = new Date(range.to).getTime();
 
+  // 分母には fix/revert/hotfix も含める。要件定義「修正なしでマージされた AI 生成コードの割合」
+  // において fix コミット自体も AI 生成コードの 1 つであり、自身の後続に更なる修正が
+  // 入っていなければ「修正なしで済んだ」として成功扱いになる。
   const aiCommitsInRange = inputs.commits
     .filter((c) => {
       if (!c.is_ai_assisted) return false;
-      if (isFailureCommit(c.subject)) return false;
       const t = new Date(c.committed_at).getTime();
       if (t < fromMs || t > toMs) return false;
       // files が空 (未バックフィル) は楽観的に残す。files が非空でコードを 1 件も含まなければ除外。
