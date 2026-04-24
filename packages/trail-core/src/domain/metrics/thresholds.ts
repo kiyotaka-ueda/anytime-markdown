@@ -17,7 +17,7 @@ export const DEFAULT_THRESHOLDS: ThresholdsConfig = {
   deploymentFrequency: { elite: 1, high: 1 / 7, medium: 1 / 30 },
   leadTimeForChanges: { elite: 24, high: 168, medium: 720 },
   changeFailureRate: { elite: 15, high: 30, medium: 45 },
-  aiFirstTrySuccessRate: { elite: 90, high: 75, medium: 60 },
+  aiFirstTrySuccessRate: { elite: 80, high: 60, medium: 40 },
 };
 
 export function classifyDoraLevel(

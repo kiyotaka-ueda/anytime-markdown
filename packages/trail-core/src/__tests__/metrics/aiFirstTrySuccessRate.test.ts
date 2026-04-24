@@ -281,25 +281,38 @@ describe('computeAiFirstTrySuccessRate', () => {
   });
 
   it('DORA level classification', () => {
-    // With fix commits in the denominator, a scenario of N feats + K failing fixes
-    // yields (N) / (N + K) — feats fail but fixes themselves succeed.
-    function makeScenario(feats: number, overlappingFixes: number) {
+    // Thresholds: elite ≥ 80%, high ≥ 60%, medium ≥ 40%, low < 40%.
+    //
+    // Scenario generator:
+    //   `pureSuccess` commits: feat commits with no follow-up fix → success
+    //   `chain` groups: each group has feat + fix-that-fails-feat + fix-that-fails-the-fix
+    //                   contributing 2 failures + 1 success (3 commits, 33% success)
+    //
+    // Total rate = (pureSuccess + chain) / (pureSuccess + 3 × chain)
+    function makeScenario(pureSuccess: number, chain: number) {
       const commits = [];
-      for (let i = 0; i < feats; i++) {
-        commits.push(aiCommit(`a${i}`, `2026-04-${String(i + 1).padStart(2, '0')}T09:00:00.000Z`, `feat: ${i}`, [`src/f${i}.ts`]));
+      for (let i = 0; i < pureSuccess; i++) {
+        const day = String((i % 25) + 1).padStart(2, '0');
+        const minute = String((i * 3) % 60).padStart(2, '0');
+        commits.push(aiCommit(`s${i}`, `2026-04-${day}T09:${minute}:00.000Z`, `feat: s${i}`, [`src/s${i}.ts`]));
       }
-      for (let i = 0; i < overlappingFixes; i++) {
-        commits.push(aiCommit(`f${i}`, `2026-04-${String(i + 1).padStart(2, '0')}T10:00:00.000Z`, `fix: ${i}`, [`src/f${i}.ts`]));
+      for (let i = 0; i < chain; i++) {
+        const day = String((i % 20) + 1).padStart(2, '0');
+        commits.push(aiCommit(`c${i}a`, `2026-04-${day}T08:00:00.000Z`, `feat: c${i}`, [`src/c${i}.ts`]));
+        commits.push(aiCommit(`c${i}b`, `2026-04-${day}T09:00:00.000Z`, `fix: c${i}`, [`src/c${i}.ts`, `src/cc${i}.ts`]));
+        commits.push(aiCommit(`c${i}c`, `2026-04-${day}T10:00:00.000Z`, `fix: c${i}-again`, [`src/cc${i}.ts`]));
       }
       return commits;
     }
-    // (20, 1): 20 / 21 ≈ 95.2% → elite
-    expect(computeAiFirstTrySuccessRate({ commits: makeScenario(20, 1) }, range, prevRange, 'day').level).toBe('elite');
-    // (20, 6): 20 / 26 ≈ 76.9% → high
-    expect(computeAiFirstTrySuccessRate({ commits: makeScenario(20, 6) }, range, prevRange, 'day').level).toBe('high');
-    // (20, 13): 20 / 33 ≈ 60.6% → medium
-    expect(computeAiFirstTrySuccessRate({ commits: makeScenario(20, 13) }, range, prevRange, 'day').level).toBe('medium');
-    // (20, 20): 20 / 40 = 50% → low
-    expect(computeAiFirstTrySuccessRate({ commits: makeScenario(20, 20) }, range, prevRange, 'day').level).toBe('low');
+
+    // (10, 0): 10 / 10 = 100% → elite
+    expect(computeAiFirstTrySuccessRate({ commits: makeScenario(10, 0) }, range, prevRange, 'day').level).toBe('elite');
+    // (0, 5 chains): (0 + 5) / (0 + 15) = 33.3%... but we want high, adjust:
+    // (4, 2): (4 + 2) / (4 + 6) = 6 / 10 = 60% → high
+    expect(computeAiFirstTrySuccessRate({ commits: makeScenario(4, 2) }, range, prevRange, 'day').level).toBe('high');
+    // (2, 3): (2 + 3) / (2 + 9) = 5 / 11 ≈ 45.5% → medium
+    expect(computeAiFirstTrySuccessRate({ commits: makeScenario(2, 3) }, range, prevRange, 'day').level).toBe('medium');
+    // (0, 5): (0 + 5) / (0 + 15) = 33.3% → low
+    expect(computeAiFirstTrySuccessRate({ commits: makeScenario(0, 5) }, range, prevRange, 'day').level).toBe('low');
   });
 });

@@ -59,20 +59,20 @@ describe('classifyDoraLevel', () => {
   });
 
   describe('aiFirstTrySuccessRate', () => {
-    it('elite: >= 90', () => {
-      expect(classifyDoraLevel('aiFirstTrySuccessRate', 90)).toBe('elite');
+    it('elite: >= 80', () => {
+      expect(classifyDoraLevel('aiFirstTrySuccessRate', 80)).toBe('elite');
       expect(classifyDoraLevel('aiFirstTrySuccessRate', 100)).toBe('elite');
     });
-    it('high: >= 75', () => {
-      expect(classifyDoraLevel('aiFirstTrySuccessRate', 75)).toBe('high');
-      expect(classifyDoraLevel('aiFirstTrySuccessRate', 89.99)).toBe('high');
+    it('high: >= 60', () => {
+      expect(classifyDoraLevel('aiFirstTrySuccessRate', 60)).toBe('high');
+      expect(classifyDoraLevel('aiFirstTrySuccessRate', 79.99)).toBe('high');
     });
-    it('medium: >= 60', () => {
-      expect(classifyDoraLevel('aiFirstTrySuccessRate', 60)).toBe('medium');
-      expect(classifyDoraLevel('aiFirstTrySuccessRate', 74.99)).toBe('medium');
+    it('medium: >= 40', () => {
+      expect(classifyDoraLevel('aiFirstTrySuccessRate', 40)).toBe('medium');
+      expect(classifyDoraLevel('aiFirstTrySuccessRate', 59.99)).toBe('medium');
     });
-    it('low: < 60', () => {
-      expect(classifyDoraLevel('aiFirstTrySuccessRate', 59)).toBe('low');
+    it('low: < 40', () => {
+      expect(classifyDoraLevel('aiFirstTrySuccessRate', 39)).toBe('low');
     });
   });
 
