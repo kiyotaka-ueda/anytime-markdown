@@ -26,7 +26,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import type { ClientMessage, ServerMessage } from './types';
 import type { TrailDatabase, SessionRow, MessageRow, AnalyticsData, CostOptimizationData } from '../trail/TrailDatabase';
 import { MetricsThresholdsLoader } from '../trail/MetricsThresholdsLoader';
-import { computeDeploymentFrequency, computeQualityMetrics } from '@anytime-markdown/trail-core/domain/metrics';
+import { computeDeploymentFrequency, computeQualityMetrics, computeReleaseQualityTimeSeries } from '@anytime-markdown/trail-core/domain/metrics';
 import { TrailLogger } from '../utils/TrailLogger';
 
 // ---------------------------------------------------------------------------
@@ -341,6 +341,11 @@ export class TrailDataServer {
 
     if (pathname === '/api/trail/deployment-frequency' && method === 'GET') {
       this.handleGetDeploymentFrequency(res, parsed.searchParams);
+      return;
+    }
+
+    if (pathname === '/api/trail/deployment-frequency-quality' && method === 'GET') {
+      this.handleGetDeploymentFrequencyQuality(res, parsed.searchParams);
       return;
     }
 
@@ -983,6 +988,31 @@ export class TrailDataServer {
       const msg = e instanceof Error ? `${e.message}\n${e.stack ?? ''}` : String(e);
       res.writeHead(500, JSON_HEADERS);
       res.end(JSON.stringify({ error: 'Failed to get quality metrics', detail: msg }));
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  //  API: GET /api/trail/deployment-frequency-quality?from=ISO&to=ISO&bucket=day|week
+  // -------------------------------------------------------------------------
+
+  private handleGetDeploymentFrequencyQuality(res: http.ServerResponse, params: URLSearchParams): void {
+    const from = params.get('from');
+    const to = params.get('to');
+    const bucket = (params.get('bucket') === 'week' ? 'week' : 'day') as 'day' | 'week';
+    if (!from || !to) {
+      res.writeHead(400, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'from and to are required' }));
+      return;
+    }
+    try {
+      const inputs = this.trailDb.getReleaseQualityInputs(from, to);
+      const result = computeReleaseQualityTimeSeries(inputs, { from, to }, bucket);
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify(result));
+    } catch (e) {
+      TrailLogger.error('handleGetDeploymentFrequencyQuality failed', e);
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'Failed to get deployment frequency quality' }));
     }
   }
 
