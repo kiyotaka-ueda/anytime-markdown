@@ -729,8 +729,24 @@ export class SupabaseTrailReader implements ITrailReader {
     const prevFrom = new Date(fromMs - 1 - duration).toISOString();
 
     type ReleaseRow = { tag: string; released_at: string; fix_count: number };
-    type MessageRow = { uuid: string; timestamp: string; type: string };
-    type CommitRow = { commit_hash: string; commit_message: string; committed_at: string };
+    type MessageRow = {
+      uuid: string;
+      timestamp: string;
+      type: string;
+      session_id: string;
+      input_tokens: number;
+      output_tokens: number;
+      cache_read_tokens: number;
+      cache_creation_tokens: number;
+    };
+    type CommitRow = {
+      commit_hash: string;
+      commit_message: string;
+      committed_at: string;
+      session_id: string;
+      lines_added: number;
+      lines_deleted: number;
+    };
 
     const fetchReleases = async (f: string, t: string): Promise<ReleaseRow[]> => {
       const { data } = await this.client
@@ -743,45 +759,109 @@ export class SupabaseTrailReader implements ITrailReader {
     const fetchMessages = async (f: string, t: string): Promise<MessageRow[]> => {
       const { data } = await this.client
         .from('trail_messages')
-        .select('uuid, timestamp, type')
+        .select('uuid, timestamp, type, session_id, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens')
         .eq('type', 'user')
         .gte('timestamp', f)
         .lte('timestamp', t);
       return (data ?? []) as MessageRow[];
     };
+    const fetchAssistantMessages = async (f: string, t: string) => {
+      const { data } = await this.client
+        .from('trail_messages')
+        .select('session_id, timestamp, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens')
+        .eq('type', 'assistant')
+        .gte('timestamp', f)
+        .lte('timestamp', t);
+      return (data ?? []) as Array<{
+        session_id: string;
+        timestamp: string;
+        input_tokens: number;
+        output_tokens: number;
+        cache_read_tokens: number;
+        cache_creation_tokens: number;
+      }>;
+    };
     const fetchCommits = async (f: string, t: string): Promise<CommitRow[]> => {
       const { data } = await this.client
         .from('trail_session_commits')
-        .select('commit_hash, commit_message, committed_at')
+        .select('commit_hash, commit_message, committed_at, session_id, lines_added, lines_deleted')
         .gte('committed_at', f)
         .lte('committed_at', t);
       return (data ?? []) as CommitRow[];
     };
 
-    const [curReleases, curMessages, curCommits, prevReleases, prevMessages, prevCommits] = await Promise.all([
+    const aggregateTokensByUser = (
+      users: ReadonlyArray<MessageRow>,
+      assistants: ReadonlyArray<{ session_id: string; timestamp: string; input_tokens: number; output_tokens: number; cache_read_tokens: number; cache_creation_tokens: number }>,
+    ): Map<string, { input: number; output: number; cr: number; cc: number }> => {
+      const usersBySession = new Map<string, MessageRow[]>();
+      for (const u of users) {
+        const arr = usersBySession.get(u.session_id);
+        if (arr) arr.push(u);
+        else usersBySession.set(u.session_id, [u]);
+      }
+      for (const arr of usersBySession.values()) {
+        arr.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+      }
+      const tokensByUuid = new Map<string, { input: number; output: number; cr: number; cc: number }>();
+      for (const u of users) tokensByUuid.set(u.uuid, { input: 0, output: 0, cr: 0, cc: 0 });
+      for (const a of assistants) {
+        const sessionUsers = usersBySession.get(a.session_id);
+        if (!sessionUsers) continue;
+        let lo = 0;
+        let hi = sessionUsers.length - 1;
+        let idx = -1;
+        while (lo <= hi) {
+          const mid = (lo + hi) >>> 1;
+          if (sessionUsers[mid].timestamp <= a.timestamp) {
+            idx = mid;
+            lo = mid + 1;
+          } else {
+            hi = mid - 1;
+          }
+        }
+        if (idx === -1) continue;
+        const t = tokensByUuid.get(sessionUsers[idx].uuid);
+        if (!t) continue;
+        t.input += a.input_tokens ?? 0;
+        t.output += a.output_tokens ?? 0;
+        t.cr += a.cache_read_tokens ?? 0;
+        t.cc += a.cache_creation_tokens ?? 0;
+      }
+      return tokensByUuid;
+    };
+
+    const [curReleases, curMessages, curAssistants, curCommits, prevReleases, prevMessages, prevAssistants, prevCommits] = await Promise.all([
       fetchReleases(range.from, range.to),
       fetchMessages(range.from, range.to),
+      fetchAssistantMessages(range.from, range.to),
       fetchCommits(range.from, range.to),
       fetchReleases(prevFrom, prevTo),
       fetchMessages(prevFrom, prevTo),
+      fetchAssistantMessages(prevFrom, prevTo),
       fetchCommits(prevFrom, prevTo),
     ]);
 
-    // trail_message_commits は現状 Supabase 未同期のため空配列。
-    // Lead Time per LOC / Tokens per LOC は sampleSize=0 で「データなし」表示になる。
+    const curTokens = aggregateTokensByUser(curMessages, curAssistants);
+    const prevTokens = aggregateTokensByUser(prevMessages, prevAssistants);
+
     return computeQualityMetrics(
       {
         releases: curReleases.map((r) => ({ id: r.tag, tag_date: r.released_at, commit_hashes: [], fix_count: r.fix_count })),
-        messages: curMessages.map((m) => ({
-          uuid: m.uuid,
-          created_at: m.timestamp,
-          role: m.type,
-          type: 'text',
-          input_tokens: 0,
-          output_tokens: 0,
-          cache_read_tokens: 0,
-          cache_creation_tokens: 0,
-        })),
+        messages: curMessages.map((m) => {
+          const t = curTokens.get(m.uuid) ?? { input: 0, output: 0, cr: 0, cc: 0 };
+          return {
+            uuid: m.uuid,
+            created_at: m.timestamp,
+            role: m.type,
+            type: 'text',
+            session_id: m.session_id,
+            input_tokens: t.input,
+            output_tokens: t.output,
+            cache_read_tokens: t.cr,
+            cache_creation_tokens: t.cc,
+          };
+        }),
         messageCommits: [],
         commits: curCommits.map((c) => ({
           hash: c.commit_hash,
@@ -789,20 +869,25 @@ export class SupabaseTrailReader implements ITrailReader {
           committed_at: c.committed_at,
           is_ai_assisted: false,
           files: [],
-          lines_added: 0,
-          lines_deleted: 0,
+          session_id: c.session_id,
+          lines_added: c.lines_added ?? 0,
+          lines_deleted: c.lines_deleted ?? 0,
         })),
         previousReleases: prevReleases.map((r) => ({ id: r.tag, tag_date: r.released_at, commit_hashes: [], fix_count: r.fix_count })),
-        previousMessages: prevMessages.map((m) => ({
-          uuid: m.uuid,
-          created_at: m.timestamp,
-          role: m.type,
-          type: 'text',
-          input_tokens: 0,
-          output_tokens: 0,
-          cache_read_tokens: 0,
-          cache_creation_tokens: 0,
-        })),
+        previousMessages: prevMessages.map((m) => {
+          const t = prevTokens.get(m.uuid) ?? { input: 0, output: 0, cr: 0, cc: 0 };
+          return {
+            uuid: m.uuid,
+            created_at: m.timestamp,
+            role: m.type,
+            type: 'text',
+            session_id: m.session_id,
+            input_tokens: t.input,
+            output_tokens: t.output,
+            cache_read_tokens: t.cr,
+            cache_creation_tokens: t.cc,
+          };
+        }),
         previousMessageCommits: [],
         previousCommits: prevCommits.map((c) => ({
           hash: c.commit_hash,
@@ -810,8 +895,9 @@ export class SupabaseTrailReader implements ITrailReader {
           committed_at: c.committed_at,
           is_ai_assisted: false,
           files: [],
-          lines_added: 0,
-          lines_deleted: 0,
+          session_id: c.session_id,
+          lines_added: c.lines_added ?? 0,
+          lines_deleted: c.lines_deleted ?? 0,
         })),
       },
       range,

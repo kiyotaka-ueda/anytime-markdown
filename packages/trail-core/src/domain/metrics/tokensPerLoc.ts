@@ -1,25 +1,31 @@
 import { classifyDoraLevel, DEFAULT_THRESHOLDS } from './thresholds';
 import type { ThresholdsConfig } from './thresholds';
 import type { DateRange, MetricValue } from './types';
-import { buildRatioTimeSeries, VALID_MESSAGE_COMMIT_CONFIDENCES } from './timeSeriesUtils';
+import { buildRatioTimeSeries } from './timeSeriesUtils';
 
 type Inputs = {
   messages: Array<{
     uuid: string;
     created_at: string;
+    session_id?: string;
+    type?: string;
+    role?: string;
     input_tokens?: number;
     output_tokens?: number;
     cache_read_tokens?: number;
     cache_creation_tokens?: number;
   }>;
-  messageCommits: Array<{ message_uuid: string; commit_hash: string; match_confidence: string }>;
-  commits: Array<{ hash: string; committed_at: string; lines_added?: number; lines_deleted?: number }>;
+  commits: Array<{ hash: string; committed_at: string; session_id?: string; lines_added?: number; lines_deleted?: number }>;
 };
 
 interface CommitSample {
   date: string;
   tokens: number;
   churn: number;
+}
+
+function isUserMessage(m: Inputs['messages'][number]): boolean {
+  return m.role === 'user' || m.type === 'user';
 }
 
 function totalTokens(m: Inputs['messages'][number]): number {
@@ -30,41 +36,77 @@ function computeCommitSamples(inputs: Inputs, range: DateRange): CommitSample[] 
   const fromMs = new Date(range.from).getTime();
   const toMs = new Date(range.to).getTime();
 
-  const msgMap = new Map(
-    inputs.messages
-      .filter((m) => {
-        const t = new Date(m.created_at).getTime();
-        return t >= fromMs && t <= toMs;
-      })
-      .map((m) => [m.uuid, m] as const),
-  );
-
-  type CommitMeta = { committedAt: string; churn: number };
-  const commitMap = new Map<string, CommitMeta>(
-    inputs.commits.map((c) => [c.hash, {
-      committedAt: c.committed_at,
-      churn: (c.lines_added ?? 0) + (c.lines_deleted ?? 0),
-    }]),
-  );
-
-  const tokensByCommit = new Map<string, number>();
-
-  for (const mc of inputs.messageCommits) {
-    if (!VALID_MESSAGE_COMMIT_CONFIDENCES.has(mc.match_confidence)) continue;
-    const msg = msgMap.get(mc.message_uuid);
-    if (!msg) continue;
-
-    const tokens = totalTokens(msg);
-    tokensByCommit.set(mc.commit_hash, (tokensByCommit.get(mc.commit_hash) ?? 0) + tokens);
+  type UserEntry = { ts: string; tokens: number };
+  const userMsgsBySession = new Map<string, UserEntry[]>();
+  for (const m of inputs.messages) {
+    if (!m.session_id) continue;
+    if (!isUserMessage(m)) continue;
+    const arr = userMsgsBySession.get(m.session_id);
+    const entry: UserEntry = { ts: m.created_at, tokens: totalTokens(m) };
+    if (arr) arr.push(entry);
+    else userMsgsBySession.set(m.session_id, [entry]);
+  }
+  for (const arr of userMsgsBySession.values()) {
+    arr.sort((a, b) => a.ts.localeCompare(b.ts));
   }
 
-  const samples: CommitSample[] = [];
-  for (const [hash, tokens] of tokensByCommit) {
-    const meta = commitMap.get(hash);
-    if (!meta || meta.churn <= 0) continue;
-    samples.push({ date: meta.committedAt, tokens, churn: meta.churn });
+  type SessionCommit = { hash: string; committedAt: string; churn: number };
+  const commitsBySession = new Map<string, SessionCommit[]>();
+  for (const c of inputs.commits) {
+    if (!c.session_id) continue;
+    const churn = (c.lines_added ?? 0) + (c.lines_deleted ?? 0);
+    const entry: SessionCommit = { hash: c.hash, committedAt: c.committed_at, churn };
+    const arr = commitsBySession.get(c.session_id);
+    if (arr) arr.push(entry);
+    else commitsBySession.set(c.session_id, [entry]);
   }
-  return samples;
+  for (const arr of commitsBySession.values()) {
+    arr.sort((a, b) => a.committedAt.localeCompare(b.committedAt));
+  }
+
+  const bestByCommit = new Map<string, CommitSample>();
+
+  for (const [sessionId, commits] of commitsBySession) {
+    const userMsgs = userMsgsBySession.get(sessionId) ?? [];
+    let prevCommitTs: string | null = null;
+    let userIdx = 0;
+
+    for (const c of commits) {
+      if (c.churn <= 0) {
+        prevCommitTs = c.committedAt;
+        continue;
+      }
+      const commitMs = new Date(c.committedAt).getTime();
+      if (commitMs < fromMs || commitMs > toMs) {
+        prevCommitTs = c.committedAt;
+        continue;
+      }
+
+      // Sum tokens of user messages in (prevCommitTs, c.committedAt].
+      let tokens = 0;
+      let attributed = 0;
+      for (; userIdx < userMsgs.length; userIdx++) {
+        const u = userMsgs[userIdx];
+        if (prevCommitTs !== null && u.ts <= prevCommitTs) continue;
+        if (u.ts > c.committedAt) break;
+        tokens += u.tokens;
+        attributed += 1;
+      }
+
+      if (attributed > 0) {
+        const sample: CommitSample = { date: c.committedAt, tokens, churn: c.churn };
+        const existing = bestByCommit.get(c.hash);
+        // Keep the smallest tokens-per-LOC ratio (most accurate attribution).
+        if (!existing || sample.tokens / sample.churn < existing.tokens / existing.churn) {
+          bestByCommit.set(c.hash, sample);
+        }
+      }
+
+      prevCommitTs = c.committedAt;
+    }
+  }
+
+  return Array.from(bestByCommit.values());
 }
 
 function aggregate(samples: CommitSample[]): number {

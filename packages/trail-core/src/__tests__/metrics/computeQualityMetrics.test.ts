@@ -69,12 +69,11 @@ describe('computeQualityMetrics', () => {
     expect(result.metrics.deploymentFrequency.value).toBeGreaterThan(0);
   });
 
-  it('computes leadTimePerLoc from message commits and commits', () => {
+  it('computes leadTimePerLoc from messages and commits scoped by session', () => {
     const inputs: QualityMetricsInputs = {
       ...emptyInputs(),
-      messages: [{ uuid: 'm0', created_at: '2026-04-10T00:00:00.000Z', role: 'user', type: 'text' }],
-      messageCommits: [{ message_uuid: 'm0', commit_hash: 'abc123', detected_at: '2026-04-10T04:00:00.000Z', match_confidence: 'high' }],
-      commits: [{ hash: 'abc123', subject: 'feat', committed_at: '2026-04-10T04:00:00.000Z', is_ai_assisted: true, files: [], lines_added: 80, lines_deleted: 20 }],
+      messages: [{ uuid: 'm0', created_at: '2026-04-10T00:00:00.000Z', role: 'user', type: 'text', session_id: 's1' }],
+      commits: [{ hash: 'abc123', subject: 'feat', committed_at: '2026-04-10T04:00:00.000Z', is_ai_assisted: true, files: [], session_id: 's1', lines_added: 80, lines_deleted: 20 }],
     };
     const result = computeQualityMetrics(inputs, range);
     expect(result.metrics.leadTimePerLoc.sampleSize).toBe(1);

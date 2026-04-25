@@ -16,6 +16,7 @@ export interface QualityMetricsInputs {
     created_at: string;
     role: string;
     type: string;
+    session_id?: string;
     input_tokens?: number;
     output_tokens?: number;
     cache_read_tokens?: number;
@@ -33,6 +34,7 @@ export interface QualityMetricsInputs {
     committed_at: string;
     is_ai_assisted: boolean;
     files: string[];
+    session_id?: string;
     lines_added?: number;
     lines_deleted?: number;
   }>;
@@ -42,6 +44,7 @@ export interface QualityMetricsInputs {
     created_at: string;
     role: string;
     type: string;
+    session_id?: string;
     input_tokens?: number;
     output_tokens?: number;
     cache_read_tokens?: number;
@@ -59,6 +62,7 @@ export interface QualityMetricsInputs {
     committed_at: string;
     is_ai_assisted: boolean;
     files: string[];
+    session_id?: string;
     lines_added?: number;
     lines_deleted?: number;
   }>;
@@ -109,32 +113,30 @@ export function computeQualityMetrics(
     thresholds,
   );
 
-  const leadTimeInputs = {
+  const productivityInputs = {
     messages: inputs.messages,
-    messageCommits: inputs.messageCommits,
     commits: inputs.commits,
   };
-  const leadTimePrevInputs = hasPrevious
+  const productivityPrevInputs = hasPrevious
     ? {
         messages: inputs.previousMessages ?? [],
-        messageCommits: inputs.previousMessageCommits ?? [],
         commits: inputs.previousCommits ?? [],
       }
     : undefined;
   const leadTimePerLoc = computeLeadTimePerLoc(
-    leadTimeInputs,
+    productivityInputs,
     range,
     previousRange,
     bucket,
-    leadTimePrevInputs,
+    productivityPrevInputs,
     thresholds,
   );
   const tokensPerLoc = computeTokensPerLoc(
-    leadTimeInputs,
+    productivityInputs,
     range,
     previousRange,
     bucket,
-    leadTimePrevInputs,
+    productivityPrevInputs,
     thresholds,
   );
 
