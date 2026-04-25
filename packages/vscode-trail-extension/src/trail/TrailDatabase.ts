@@ -3733,6 +3733,61 @@ export class TrailDatabase {
     return res[0].values.map((row) => ({ commit_hash: row[0] as string, file_path: row[1] as string }));
   }
 
+  getReleaseQualityInputs(from: string, to: string): {
+    releases: Array<{ tag_date: string }>;
+    commits: Array<{ hash: string; subject: string; committed_at: string; files: string[] }>;
+  } {
+    const db = this.ensureDb();
+
+    const relRes = db.exec(
+      `SELECT released_at FROM releases WHERE released_at >= ? AND released_at <= ? ORDER BY released_at`,
+      [from, to],
+    );
+    const releases = (relRes[0]?.values ?? []).map((row) => ({ tag_date: row[0] as string }));
+    if (releases.length === 0) return { releases: [], commits: [] };
+
+    // コミット取得: range + 168h 拡張（post-deploy fix 検出ウィンドウ）
+    const FIX_WINDOW_MS = 168 * 60 * 60 * 1000;
+    const extTo = new Date(new Date(to).getTime() + FIX_WINDOW_MS).toISOString();
+
+    const comRes = db.exec(
+      `SELECT commit_hash, commit_message, committed_at
+       FROM session_commits
+       WHERE committed_at >= ? AND committed_at <= ?
+       GROUP BY commit_hash`,
+      [from, extTo],
+    );
+    const rows = (comRes[0]?.values ?? []).map((row) => ({
+      hash: row[0] as string,
+      subject: ((row[1] as string) ?? '').split('\n')[0],
+      committed_at: row[2] as string,
+      files: [] as string[],
+    }));
+
+    if (rows.length > 0) {
+      const placeholders = rows.map(() => '?').join(',');
+      const filesRes = db.exec(
+        `SELECT commit_hash, file_path FROM commit_files WHERE commit_hash IN (${placeholders})`,
+        rows.map((r) => r.hash),
+      );
+      if (filesRes[0]) {
+        const fileMap = new Map<string, string[]>();
+        for (const row of filesRes[0].values) {
+          const hash = row[0] as string;
+          const fp = row[1] as string;
+          const arr = fileMap.get(hash);
+          if (arr) arr.push(fp);
+          else fileMap.set(hash, [fp]);
+        }
+        for (const row of rows) {
+          row.files = fileMap.get(row.hash) ?? [];
+        }
+      }
+    }
+
+    return { releases, commits: rows };
+  }
+
   getReleasesInRange(from: string, to: string): Array<{ tag: string; released_at: string }> {
     const db = this.ensureDb();
     const res = db.exec(
