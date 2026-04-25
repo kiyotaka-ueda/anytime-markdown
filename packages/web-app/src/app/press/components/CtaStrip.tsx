@@ -12,19 +12,34 @@ export function CtaStrip() {
   );
 }
 
-export function CtaActions() {
+interface CtaActionsProps {
+  primaryHref: string;
+  secondaryHref: string;
+  primaryLabel?: string;
+  secondaryLabel?: string;
+}
+
+export function CtaActions({
+  primaryHref,
+  secondaryHref,
+  primaryLabel = 'Online Editor',
+  secondaryLabel = 'VS Code Extension',
+}: CtaActionsProps) {
   return (
     <div className={styles.ctaActions}>
-      <Link href="/markdown" className={`${styles.btn} ${styles.btnStamp}`}>
-        Online Editor <span className={styles.btnArrow}>→</span>
+      <Link
+        href={primaryHref}
+        className={`${styles.btn} ${styles.btnStamp}`}
+      >
+        {primaryLabel} <span className={styles.btnArrow}>→</span>
       </Link>
       <a
         className={styles.btn}
-        href="https://marketplace.visualstudio.com/items?itemName=anytime-trial.anytime-markdown"
+        href={secondaryHref}
         target="_blank"
         rel="noopener noreferrer"
       >
-        VS Code Extension <span className={styles.btnArrow}>→</span>
+        {secondaryLabel} <span className={styles.btnArrow}>→</span>
       </a>
     </div>
   );

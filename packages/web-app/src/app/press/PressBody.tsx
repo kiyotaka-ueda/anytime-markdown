@@ -43,6 +43,12 @@ export function PressBody() {
       <Dispatch />
       <BriefingPrimary
         embed={<TrailViewerEmbed containerHeight="clamp(300px, 42vh, 520px)" />}
+        embedActions={
+          <CtaActions
+            primaryHref="/trail"
+            secondaryHref="https://marketplace.visualstudio.com/items?itemName=anytime-trial.anytime-trail"
+          />
+        }
       />
       <BriefingSecondary
         embed={
@@ -55,7 +61,12 @@ export function PressBody() {
             />
           </div>
         }
-        embedActions={<CtaActions />}
+        embedActions={
+          <CtaActions
+            primaryHref="/markdown"
+            secondaryHref="https://marketplace.visualstudio.com/items?itemName=anytime-trial.anytime-markdown"
+          />
+        }
       />
       <PullQuote />
       <Ticker />
