@@ -535,3 +535,46 @@
     color: var(--ink-faded);
     letter-spacing: 0.1em;
 }
+
+/* ── Ticker 横流れ ──────────────────────────────────── */
+.ticker {
+    border-top: var(--rule-thin) solid var(--ink);
+    border-bottom: var(--rule-bold) solid var(--ink);
+    padding: 10px 0;
+    overflow: hidden;
+    font-family: var(--font-mono);
+    font-size: var(--fs-caption);
+    color: var(--ink-faded);
+    letter-spacing: 0.05em;
+    background: var(--paper);
+}
+
+.tickerTrack {
+    white-space: nowrap;
+    display: inline-block;
+    animation: tickerScroll 80s linear infinite;
+}
+
+.tickerItem {
+    padding: 0 28px;
+}
+
+.tickerSep {
+    padding: 0 28px;
+    color: var(--vermilion);
+}
+
+@keyframes tickerScroll {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(-50%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tickerTrack {
+        animation: none;
+    }
+}

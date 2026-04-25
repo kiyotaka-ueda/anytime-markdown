@@ -7,6 +7,7 @@ import { Dispatch } from './components/Dispatch';
 import { Headline } from './components/Headline';
 import { Masthead } from './components/Masthead';
 import { PullQuote } from './components/PullQuote';
+import { Ticker } from './components/Ticker';
 import { bodoni, jetbrains, shippori } from './fonts';
 import styles from './press.module.css';
 
@@ -21,6 +22,7 @@ export function PressBody() {
       <Dispatch />
       <Briefing />
       <PullQuote />
+      <Ticker />
     </div>
   );
 }
