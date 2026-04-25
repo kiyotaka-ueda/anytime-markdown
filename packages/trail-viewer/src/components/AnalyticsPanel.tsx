@@ -1655,17 +1655,10 @@ function DailySessionList({
                 <SessionToolUsageChart toolMetrics={sessionToolMetrics} />
                 <SessionErrorChart toolMetrics={sessionToolMetrics} />
                 {fetchSessionCommits && (
-                  <>
-                    <SessionCommitPrefixChart
-                      sessionId={timelineSessionId!}
-                      fetchSessionCommits={fetchSessionCommits}
-                    />
-                    <SessionCommitList
-                      sessionId={timelineSessionId!}
-                      usage={selectedSession.usage}
-                      fetchSessionCommits={fetchSessionCommits}
-                    />
-                  </>
+                  <SessionCommitPrefixChart
+                    sessionId={timelineSessionId!}
+                    fetchSessionCommits={fetchSessionCommits}
+                  />
                 )}
               </Box>
             );
