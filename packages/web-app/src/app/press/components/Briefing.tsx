@@ -22,6 +22,7 @@ interface BriefingWithEmbedProps {
   embed: ReactNode;
   embedTitle: string;
   embedActions?: ReactNode;
+  title: ReactNode;
 }
 
 interface BriefingEmbedProps {
@@ -109,6 +110,7 @@ function BriefingWithEmbed({
   embed,
   embedTitle,
   embedActions,
+  title,
 }: BriefingWithEmbedProps) {
   return (
     <section className={styles.briefingWithEmbed} id={id}>
@@ -140,9 +142,7 @@ function BriefingWithEmbed({
       </div>
       <div className={styles.briefingMain}>
         <header className={styles.briefingHeader}>
-          <span className={styles.briefingHeaderTitle}>
-            Field <em>Notes.</em>
-          </span>
+          <span className={styles.briefingHeaderTitle}>{title}</span>
           <small className={styles.briefingHeaderNo}>{no}</small>
         </header>
         <ul className={`${styles.briefingList} ${styles.briefingListInline}`}>
@@ -171,6 +171,11 @@ export function BriefingPrimary({ embed, embedActions }: BriefingEmbedProps) {
       items={PRIMARY_ITEMS}
       embed={embed}
       embedActions={embedActions}
+      title={
+        <>
+          Anytime <em>Trail.</em>
+        </>
+      }
     />
   );
 }
@@ -183,6 +188,11 @@ export function BriefingSecondary({ embed, embedActions }: BriefingEmbedProps) {
       items={SECONDARY_ITEMS}
       embed={embed}
       embedActions={embedActions}
+      title={
+        <>
+          Anytime <em>Markdown.</em>
+        </>
+      }
     />
   );
 }
