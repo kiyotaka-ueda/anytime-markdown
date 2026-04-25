@@ -621,7 +621,9 @@ function SessionCacheTimeline({
 
   const commitTurns = useMemo(
     () => assistantMsgs
-      .map((m, i) => (m.triggerCommitHashes && m.triggerCommitHashes.length > 0 ? i + 1 : null))
+      .map((m, i) => (
+        (m.triggerCommitHashes && m.triggerCommitHashes.length > 0) || m.hasCommit ? i + 1 : null
+      ))
       .filter((t): t is number => t !== null),
     [assistantMsgs],
   );

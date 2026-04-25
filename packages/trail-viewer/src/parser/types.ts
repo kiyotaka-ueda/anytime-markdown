@@ -159,4 +159,6 @@ export type TrailMessage = _TrailMessage & {
   readonly agentDescription?: string;
   /** True when the tool result response to this assistant turn contained at least one is_error block */
   readonly hasToolError?: boolean;
+  /** True when this assistant turn ran a git commit bash command */
+  readonly hasCommit?: boolean;
 };
