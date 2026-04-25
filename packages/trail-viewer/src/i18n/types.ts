@@ -219,10 +219,6 @@ export interface TrailI18n {
   'analytics.combined.model': string;
 
   // metrics
-  'metrics.title': string;
-  'metrics.period.last7d': string;
-  'metrics.period.last30d': string;
-  'metrics.period.last90d': string;
   'metrics.deploymentFrequency.name': string;
   'metrics.deploymentFrequency.description': string;
   'metrics.leadTimePerLoc.name': string;
@@ -233,18 +229,6 @@ export interface TrailI18n {
   'metrics.aiFirstTrySuccessRate.description': string;
   'metrics.changeFailureRate.name': string;
   'metrics.changeFailureRate.description': string;
-  'metrics.level.elite': string;
-  'metrics.level.high': string;
-  'metrics.level.medium': string;
-  'metrics.level.low': string;
-  'metrics.unmeasured.title': string;
-  'metrics.unmeasured.badge': string;
-  'metrics.thresholds.title': string;
-  'metrics.thresholds.openFile': string;
-  'metrics.thresholds.metricHeader': string;
   'metrics.empty': string;
-  'metrics.error': string;
-  'metrics.loading': string;
-  'metrics.noLevel': string;
 
 }
