@@ -2,6 +2,7 @@
     --font-display: var(--cp-font-display), 'Times New Roman', serif;
     --font-body: var(--cp-font-body), 'Times New Roman', serif;
     --font-mono: var(--cp-font-mono), ui-monospace, 'Courier New', monospace;
+    --font-brush: var(--cp-font-brush), cursive;
 
     --paper: #F2EDE2;
     --paper-fold: #E8E0CF;
@@ -249,8 +250,8 @@
 }
 
 .headlineTitle:lang(ja) {
-    font-family: var(--font-body);
-    font-weight: 800;
+    font-family: var(--font-brush);
+    font-weight: 400;
     letter-spacing: -0.01em;
     line-height: 1.1;
     margin-bottom: 64px;
@@ -258,7 +259,7 @@
 
 .headlineTitle:lang(ja) em {
     font-style: normal;
-    font-weight: 800;
+    font-weight: 400;
     color: var(--vermilion);
 }
 

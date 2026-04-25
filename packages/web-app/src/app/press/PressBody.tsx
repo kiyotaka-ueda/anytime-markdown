@@ -14,7 +14,7 @@ import { Masthead } from './components/Masthead';
 import { ProgressRule } from './components/ProgressRule';
 import { PullQuote } from './components/PullQuote';
 import { Ticker } from './components/Ticker';
-import { bodoni, jetbrains, shippori } from './fonts';
+import { bodoni, jetbrains, shippori, yujiBoku } from './fonts';
 import styles from './press.module.css';
 
 const TrailViewerEmbed = dynamic(
@@ -35,7 +35,7 @@ const MARKDOWN_PREVIEW_HEIGHT = 'clamp(300px, 42vh, 520px)';
 export function PressBody() {
   const { themeMode } = useThemeMode();
   const tCta = useTranslations('press.cta');
-  const fontClasses = `${bodoni.variable} ${shippori.variable} ${jetbrains.variable}`;
+  const fontClasses = `${bodoni.variable} ${shippori.variable} ${jetbrains.variable} ${yujiBoku.variable}`;
   return (
     <div className={`${styles.root} ${fontClasses}`} data-cp-mode={themeMode}>
       <ProgressRule />
