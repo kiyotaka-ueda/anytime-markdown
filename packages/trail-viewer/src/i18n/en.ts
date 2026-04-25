@@ -212,7 +212,7 @@ export const en: TrailI18n = {
   'metrics.aiFirstTrySuccessRate.name': 'AI First-Try Success Rate',
   'metrics.aiFirstTrySuccessRate.description': 'AI-generated commits not followed by a fix / revert / hotfix within 168 hours',
   'metrics.changeFailureRate.name': 'Change Failure Rate',
-  'metrics.changeFailureRate.description': 'Releases containing fix / revert / hotfix commits',
+  'metrics.changeFailureRate.description': 'Releases followed by a fix / revert / hotfix on the same files within 168 hours',
   'metrics.level.elite': 'Elite',
   'metrics.level.high': 'High',
   'metrics.level.medium': 'Medium',
