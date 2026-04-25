@@ -14,6 +14,7 @@ type Inputs = {
     output_tokens?: number;
     cache_read_tokens?: number;
     cache_creation_tokens?: number;
+    cost_usd?: number;
   }>;
   commits: Array<{ hash: string; committed_at: string; session_id?: string; lines_added?: number; lines_deleted?: number }>;
 };
@@ -21,6 +22,7 @@ type Inputs = {
 interface CommitSample {
   date: string;
   tokens: number;
+  cost: number;
   churn: number;
 }
 
@@ -36,13 +38,13 @@ function computeCommitSamples(inputs: Inputs, range: DateRange): CommitSample[] 
   const fromMs = new Date(range.from).getTime();
   const toMs = new Date(range.to).getTime();
 
-  type UserEntry = { ts: string; tokens: number };
+  type UserEntry = { ts: string; tokens: number; cost: number };
   const userMsgsBySession = new Map<string, UserEntry[]>();
   for (const m of inputs.messages) {
     if (!m.session_id) continue;
     if (!isUserMessage(m)) continue;
     const arr = userMsgsBySession.get(m.session_id);
-    const entry: UserEntry = { ts: m.created_at, tokens: totalTokens(m) };
+    const entry: UserEntry = { ts: m.created_at, tokens: totalTokens(m), cost: m.cost_usd ?? 0 };
     if (arr) arr.push(entry);
     else userMsgsBySession.set(m.session_id, [entry]);
   }
@@ -82,19 +84,21 @@ function computeCommitSamples(inputs: Inputs, range: DateRange): CommitSample[] 
         continue;
       }
 
-      // Sum tokens of user messages in (prevCommitTs, c.committedAt].
+      // Sum tokens and cost of user messages in (prevCommitTs, c.committedAt].
       let tokens = 0;
+      let cost = 0;
       let attributed = 0;
       for (; userIdx < userMsgs.length; userIdx++) {
         const u = userMsgs[userIdx];
         if (prevCommitTs !== null && u.ts <= prevCommitTs) continue;
         if (u.ts > c.committedAt) break;
         tokens += u.tokens;
+        cost += u.cost;
         attributed += 1;
       }
 
       if (attributed > 0) {
-        const sample: CommitSample = { date: c.committedAt, tokens, churn: c.churn };
+        const sample: CommitSample = { date: c.committedAt, tokens, cost, churn: c.churn };
         const existing = bestByCommit.get(c.hash);
         // Keep the smallest tokens-per-LOC ratio (most accurate attribution).
         if (!existing || sample.tokens / sample.churn < existing.tokens / existing.churn) {
@@ -155,4 +159,26 @@ export function computeTokensPerLoc(
     comparison,
     timeSeries,
   };
+}
+
+export function computeTokensAndCostPerLocTimeSeries(
+  inputs: Inputs,
+  range: DateRange,
+  bucket: 'day' | 'week',
+): {
+  tokens: Array<{ bucketStart: string; value: number }>;
+  cost: Array<{ bucketStart: string; value: number }>;
+} {
+  const samples = computeCommitSamples(inputs, range);
+  const tokens = buildRatioTimeSeries(
+    samples.map((s) => ({ date: s.date, numerator: s.tokens, denominator: s.churn })),
+    range,
+    bucket,
+  );
+  const cost = buildRatioTimeSeries(
+    samples.map((s) => ({ date: s.date, numerator: s.cost, denominator: s.churn })),
+    range,
+    bucket,
+  );
+  return { tokens, cost };
 }
