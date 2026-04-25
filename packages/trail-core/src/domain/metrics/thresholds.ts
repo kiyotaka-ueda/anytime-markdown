@@ -17,7 +17,7 @@ export interface ThresholdsConfig {
 export const DEFAULT_THRESHOLDS: ThresholdsConfig = {
   deploymentFrequency: { elite: 1, high: 1 / 7, medium: 1 / 30 },
   leadTimePerLoc: { elite: 1, high: 5, medium: 20 },        // min/LOC, smaller is better
-  tokensPerLoc: { elite: 2_000, high: 10_000, medium: 50_000 }, // tokens/LOC, smaller is better
+  tokensPerLoc: { elite: 5_000, high: 20_000, medium: 100_000 }, // tokens/LOC (4-type sum incl. cache_read), smaller is better
   changeFailureRate: { elite: 15, high: 30, medium: 45 },
   aiFirstTrySuccessRate: { elite: 80, high: 60, medium: 40 },
 };

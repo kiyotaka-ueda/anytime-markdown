@@ -41,20 +41,20 @@ describe('classifyDoraLevel', () => {
   });
 
   describe('tokensPerLoc', () => {
-    it('elite: < 2000', () => {
+    it('elite: < 5000', () => {
       expect(classifyDoraLevel('tokensPerLoc', 0)).toBe('elite');
-      expect(classifyDoraLevel('tokensPerLoc', 1999)).toBe('elite');
+      expect(classifyDoraLevel('tokensPerLoc', 4999)).toBe('elite');
     });
-    it('high: >= 2000 and < 10000', () => {
-      expect(classifyDoraLevel('tokensPerLoc', 2000)).toBe('high');
-      expect(classifyDoraLevel('tokensPerLoc', 9999)).toBe('high');
+    it('high: >= 5000 and < 20000', () => {
+      expect(classifyDoraLevel('tokensPerLoc', 5000)).toBe('high');
+      expect(classifyDoraLevel('tokensPerLoc', 19999)).toBe('high');
     });
-    it('medium: >= 10000 and < 50000', () => {
-      expect(classifyDoraLevel('tokensPerLoc', 10000)).toBe('medium');
-      expect(classifyDoraLevel('tokensPerLoc', 49999)).toBe('medium');
+    it('medium: >= 20000 and < 100000', () => {
+      expect(classifyDoraLevel('tokensPerLoc', 20000)).toBe('medium');
+      expect(classifyDoraLevel('tokensPerLoc', 99999)).toBe('medium');
     });
-    it('low: >= 50000', () => {
-      expect(classifyDoraLevel('tokensPerLoc', 50000)).toBe('low');
+    it('low: >= 100000', () => {
+      expect(classifyDoraLevel('tokensPerLoc', 100000)).toBe('low');
     });
   });
 
