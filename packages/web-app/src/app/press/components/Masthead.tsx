@@ -1,10 +1,13 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import { useLocaleSwitch } from '../../LocaleProvider';
 import { useThemeMode } from '../../providers';
 import styles from '../press.module.css';
 
 export function Masthead() {
+  const t = useTranslations('press.masthead');
   const { themeMode, setThemeMode } = useThemeMode();
   const { locale, setLocale } = useLocaleSwitch();
   const toggleMode = () => {
@@ -14,28 +17,26 @@ export function Masthead() {
     setLocale(locale === 'ja' ? 'en' : 'ja');
   };
   const nextLocaleLabel = locale === 'ja' ? 'EN' : 'JA';
-  const localeAria =
-    locale === 'ja' ? 'Switch to English' : '日本語に切り替え';
   return (
     <header className={styles.mast}>
       <div className={styles.mastEdition}>
-        <b>Vol. III · No. 142</b>
+        <b>{t('editionVolume')}</b>
         <br />
-        Edition of 25 Apr 2026 · 余白 · 朝刊
+        {t('editionDate')}
       </div>
       <div className={styles.mastTitle}>
-        Anytime <em>Markdown</em>
+        {t('titlePrefix')} <em>{t('titleEm')}</em>
       </div>
       <nav className={styles.mastNav}>
-        <a href="#dispatch">Dispatch</a>
-        <a href="#briefing">Briefing</a>
-        <a href="#archive">Archive</a>
-        <a href="#cta">Subscribe</a>
+        <a href="#dispatch">{t('navDispatch')}</a>
+        <a href="#briefing">{t('navBriefing')}</a>
+        <a href="#archive">{t('navArchive')}</a>
+        <a href="#cta">{t('navSubscribe')}</a>
         <button
           type="button"
           onClick={toggleLocale}
-          aria-label={localeAria}
-          title={localeAria}
+          aria-label={t('localeAria')}
+          title={t('localeAria')}
           className={styles.mastLocaleToggle}
         >
           {nextLocaleLabel}
@@ -43,8 +44,8 @@ export function Masthead() {
         <button
           type="button"
           onClick={toggleMode}
-          aria-label="Toggle theme mode"
-          title="Toggle mode"
+          aria-label={t('themeAria')}
+          title={t('themeTitle')}
           className={styles.mastModeToggle}
         >
           ◐

@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
 
 import styles from '../press.module.css';
@@ -7,12 +8,6 @@ interface BriefingItem {
   head: string;
   body: string;
   verdict: string;
-}
-
-interface BriefingProps {
-  no: string;
-  items: BriefingItem[];
-  id?: string;
 }
 
 interface BriefingWithEmbedProps {
@@ -30,78 +25,9 @@ interface BriefingEmbedProps {
   embedActions?: ReactNode;
 }
 
-const PRIMARY_ITEMS: BriefingItem[] = [
-  {
-    num: 'i',
-    head: '構造の可視化',
-    body: 'TypeScript プロジェクトを解析し、C4 アーキテクチャ図と DSM（依存構造マトリクス）を自動生成。L1〜L4 でドリルダウンし、循環依存は赤枠でひと目で把握。',
-    verdict: '— shipped',
-  },
-  {
-    num: 'ii',
-    head: '品質の可視化',
-    body: 'テストデータを C4 図に重ねて表示し、テスト不足モジュールを一目で特定できる。',
-    verdict: '— shipped',
-  },
-  {
-    num: 'iii',
-    head: '行動の可視化',
-    body: 'Claude Code の作業ログを自動収集し、モデル別コスト・ツール使用量・コミット履歴を一元管理。AI エージェントの編集箇所もグラフ上でリアルタイム追跡。',
-    verdict: '— shipped',
-  },
-  {
-    num: 'iv',
-    head: '画像で誘導',
-    body: 'Agent Note にスクリーンキャプチャやアノテーションを貼り、AI に視覚的コンテキストを共有。スキルからノートを参照した作業もワンコマンド。',
-    verdict: '— shipped',
-  },
-];
-
-const SECONDARY_ITEMS: BriefingItem[] = [
-  {
-    num: 'i',
-    head: 'VS Code で文書も図表もプレビュー',
-    body: 'AI が生成した Markdown を WYSIWYG で即確認。Mermaid・PlantUML・数式（KaTeX）もエディタ内で直接プレビューでき、コンテキストスイッチなしで完結。',
-    verdict: '— shipped',
-  },
-  {
-    num: 'ii',
-    head: 'AI の足跡をレビューし、確定箇所を守る',
-    body: 'AI が編集した箇所を色付きで表示し、セクション単位の差分比較で変更点を即把握。確定済みのセクションはロックして AI の再編集を防止。',
-    verdict: '— shipped',
-  },
-  {
-    num: 'iii',
-    head: '3 モードを瞬時に切替',
-    body: 'WYSIWYG・ソース・レビューの 3 モードをワンクリックで切替。レビューモードは読み取り専用で、AI 出力の集中レビューに最適。',
-    verdict: '— shipped',
-  },
-];
-
-export function Briefing({ no, items, id }: BriefingProps) {
-  return (
-    <section className={styles.briefing} id={id}>
-      <div className={styles.briefingLabel}>
-        Field
-        <br />
-        <em>Notes.</em>
-        <small>{no}</small>
-      </div>
-      <ul className={styles.briefingList}>
-        {items.map((item) => (
-          <li key={item.num}>
-            <span className={styles.briefingNum}>{item.num}</span>
-            <div className={styles.briefingHead}>
-              {item.head}
-              <p>{item.body}</p>
-            </div>
-            <span className={styles.briefingVerdict}>{item.verdict}</span>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
+const TRAIL_KEYS = ['trail1', 'trail2', 'trail3', 'trail4'] as const;
+const MARKDOWN_KEYS = ['md3', 'md1', 'md2'] as const;
+const ROMAN = ['i', 'ii', 'iii', 'iv'] as const;
 
 function BriefingWithEmbed({
   no,
@@ -163,17 +89,25 @@ function BriefingWithEmbed({
 }
 
 export function BriefingPrimary({ embed, embedActions }: BriefingEmbedProps) {
+  const t = useTranslations('VsCode');
+  const tBriefing = useTranslations('press.briefing');
+  const items: BriefingItem[] = TRAIL_KEYS.map((key, idx) => ({
+    num: ROMAN[idx],
+    head: t(`${key}Title`),
+    body: t(`${key}Body`),
+    verdict: tBriefing('shipped'),
+  }));
   return (
     <BriefingWithEmbed
       id="briefing"
-      no="BRIEFING ／ NO.003"
-      embedTitle="anytime-trail — trail viewer"
-      items={PRIMARY_ITEMS}
+      no={tBriefing('primaryNo')}
+      embedTitle={tBriefing('trailEmbedTitle')}
+      items={items}
       embed={embed}
       embedActions={embedActions}
       title={
         <>
-          Anytime <em>Trail.</em>
+          {tBriefing('trailHeader')} <em>{tBriefing('trailHeaderEm')}</em>
         </>
       }
     />
@@ -181,16 +115,25 @@ export function BriefingPrimary({ embed, embedActions }: BriefingEmbedProps) {
 }
 
 export function BriefingSecondary({ embed, embedActions }: BriefingEmbedProps) {
+  const t = useTranslations('VsCode');
+  const tBriefing = useTranslations('press.briefing');
+  const items: BriefingItem[] = MARKDOWN_KEYS.map((key, idx) => ({
+    num: ROMAN[idx],
+    head: t(`${key}Title`),
+    body: t(`${key}Body`),
+    verdict: tBriefing('shipped'),
+  }));
   return (
     <BriefingWithEmbed
-      no="BRIEFING ／ NO.004"
-      embedTitle="anytime-markdown — markdown editor"
-      items={SECONDARY_ITEMS}
+      no={tBriefing('secondaryNo')}
+      embedTitle={tBriefing('markdownEmbedTitle')}
+      items={items}
       embed={embed}
       embedActions={embedActions}
       title={
         <>
-          Anytime <em>Markdown.</em>
+          {tBriefing('markdownHeader')}{' '}
+          <em>{tBriefing('markdownHeaderEm')}</em>
         </>
       }
     />

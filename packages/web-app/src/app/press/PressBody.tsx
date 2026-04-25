@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
 
 import { useThemeMode } from '../providers';
@@ -33,6 +34,7 @@ const MARKDOWN_PREVIEW_HEIGHT = 'clamp(300px, 42vh, 520px)';
 
 export function PressBody() {
   const { themeMode } = useThemeMode();
+  const tCta = useTranslations('press.cta');
   const fontClasses = `${bodoni.variable} ${shippori.variable} ${jetbrains.variable}`;
   return (
     <div className={`${styles.root} ${fontClasses}`} data-cp-mode={themeMode}>
@@ -45,7 +47,8 @@ export function PressBody() {
         embed={<TrailViewerEmbed containerHeight="clamp(300px, 42vh, 520px)" />}
         embedActions={
           <CtaActions
-            primaryLabel="Open Viewer"
+            primaryLabel={tCta('openViewer')}
+            secondaryLabel={tCta('vsCode')}
             primaryHref="/trail"
             secondaryHref="https://marketplace.visualstudio.com/items?itemName=anytime-trial.anytime-trail"
           />
@@ -64,6 +67,8 @@ export function PressBody() {
         }
         embedActions={
           <CtaActions
+            primaryLabel={tCta('onlineEditor')}
+            secondaryLabel={tCta('vsCode')}
             primaryHref="/markdown"
             secondaryHref="https://marketplace.visualstudio.com/items?itemName=anytime-trial.anytime-markdown"
           />

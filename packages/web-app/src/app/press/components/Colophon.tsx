@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 
 import styles from '../press.module.css';
@@ -9,14 +10,15 @@ const GITHUB_LICENSE_URL =
   'https://github.com/anytime-trial/anytime-markdown/blob/master/LICENSE';
 
 export function Colophon() {
+  const t = useTranslations('press.colophon');
   return (
     <footer>
       <section className={styles.colophon} id="archive">
         <div>
-          <h4>The Press</h4>
+          <h4>{t('press')}</h4>
           <ul>
             <li>
-              <Link href="/privacy">Privacy policy</Link>
+              <Link href="/privacy">{t('privacyPolicy')}</Link>
             </li>
             <li>
               <a
@@ -24,16 +26,16 @@ export function Colophon() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                License · MIT
+                {t('license')}
               </a>
             </li>
           </ul>
         </div>
         <div>
-          <h4>Dispatch</h4>
+          <h4>{t('dispatch')}</h4>
           <ul>
             <li>
-              <Link href="/markdown">Online editor (browser)</Link>
+              <Link href="/markdown">{t('onlineEditor')}</Link>
             </li>
             <li>
               <a
@@ -41,11 +43,11 @@ export function Colophon() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Anytime Markdown · VS Code
+                {t('vsCodeMarkdown')}
               </a>
             </li>
             <li>
-              <Link href="/trail">Anytime Trail · architecture</Link>
+              <Link href="/trail">{t('trailArchitecture')}</Link>
             </li>
             <li>
               <a
@@ -53,16 +55,16 @@ export function Colophon() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                GitHub repository
+                {t('github')}
               </a>
             </li>
           </ul>
         </div>
       </section>
       <div className={styles.fold}>
-        <span>© 2026 Anytime Trail · 隊商出版部 · printed in browser</span>
-        <span className={styles.foldStamp}>approved · 検</span>
-        <span>set in Bodoni Moda · Shippori Mincho B1 · JetBrains Mono</span>
+        <span>{t('foldCopy')}</span>
+        <span className={styles.foldStamp}>{t('foldStamp')}</span>
+        <span>{t('foldSet')}</span>
       </div>
     </footer>
   );

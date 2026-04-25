@@ -1,19 +1,16 @@
+import { useTranslations } from 'next-intl';
+
 import styles from '../press.module.css';
 
-const ITEMS = [
-  'open source · MIT licensed',
-  'browser-only · zero servers',
-  'KaTeX · Mermaid · GFM',
-  'section-level diff',
-  'spec-driven workflow',
-  'EN ／ JA bilingual',
-];
+const KEYS = ['item1', 'item2', 'item3', 'item4', 'item5', 'item6'] as const;
 
 export function Ticker() {
+  const t = useTranslations('press.ticker');
+  const items = KEYS.map((key) => t(key));
   return (
     <div className={styles.ticker} aria-hidden="true">
       <div className={styles.tickerTrack}>
-        {[...ITEMS, ...ITEMS].map((item, idx) => (
+        {[...items, ...items].map((item, idx) => (
           <span key={`${item}-${idx}`}>
             <span className={styles.tickerItem}>{item}</span>
             <span className={styles.tickerSep}>✦</span>

@@ -1,3 +1,5 @@
+import { useTranslations } from 'next-intl';
+
 import styles from '../press.module.css';
 
 const CAMEL_PATH =
@@ -15,9 +17,10 @@ const CAMEL_TRANSFORMS = [
 const HOOFPRINTS = [60, 200, 320, 540, 700, 940, 1080, 1240, 1450, 1740, 1880, 2160];
 
 export function Caravan() {
+  const t = useTranslations('press.caravan');
   return (
     <div className={styles.caravan}>
-      <span className={styles.caravanTick}>— in transit · 砂漠を進む隊商 —</span>
+      <span className={styles.caravanTick}>{t('tick')}</span>
       <svg viewBox="0 0 2400 80" preserveAspectRatio="none" aria-hidden="true">
         <path
           d="M0,60 Q200,52 400,58 T800,54 T1200,60 T1600,52 T2000,58 T2400,56 L2400,80 L0,80 Z"
