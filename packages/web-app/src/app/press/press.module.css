@@ -595,6 +595,7 @@
     grid-template-columns: 1.4fr 1fr;
     gap: 48px;
     align-items: start;
+    scroll-margin-top: 120px;
 }
 
 @media (max-width: 880px) {
