@@ -542,8 +542,8 @@ function TurnLaneChart({
     return () => obs.disconnect();
   }, []);
 
-  const modelRuns = useMemo(() =>
-    mergeRuns(assistantMsgs.map((m) => m.model ?? '')),
+  const mainModelRuns = useMemo(() =>
+    mergeRuns(assistantMsgs.map((m) => m.agentId ? '' : (m.model ?? ''))),
     [assistantMsgs],
   );
 
@@ -566,6 +566,14 @@ function TurnLaneChart({
       runs: mergeRuns(assistantMsgs.map((m) =>
         m.agentId === id ? dominantTool(m.toolCalls) : '',
       )).filter((r) => r.value !== ''),
+    })),
+    [assistantMsgs, subAgents],
+  );
+
+  const subAgentModelRuns = useMemo(() =>
+    subAgents.map(({ id }) => ({
+      id,
+      runs: mergeRuns(assistantMsgs.map((m) => m.agentId === id ? (m.model ?? '') : '')),
     })),
     [assistantMsgs, subAgents],
   );
@@ -601,8 +609,8 @@ function TurnLaneChart({
   const LANE_GAP = 6;
   const AXIS_H = 16;
 
-  const modelY = 0;
-  const toolY = modelY + LANE_H + LANE_GAP;
+  const MODEL_LINE_H = 2;
+  const toolY = 0;
   const subAgentLaneY = (i: number) => toolY + LANE_H + LANE_GAP + i * (LANE_H + LANE_GAP);
   const lastLaneBottom = subAgents.length > 0
     ? subAgentLaneY(subAgents.length - 1) + LANE_H
@@ -620,13 +628,6 @@ function TurnLaneChart({
   return (
     <Box ref={containerRef} sx={{ mt: 0.5 }}>
       <svg width="100%" height={totalH} style={{ display: 'block', overflow: 'visible' }}>
-        {/* Model lane */}
-        <text x={LABEL_W - 4} y={modelY + LANE_H / 2 + 4} textAnchor="end" fontSize={9} fill={colors.textSecondary}>Model</text>
-        {modelRuns.map((run) => (
-          <rect key={`m${run.start}`} x={toX(run.start)} y={modelY}
-            width={Math.max((run.end - run.start + 1) * colW, 1)} height={LANE_H}
-            fill={laneModelColor(run.value)} />
-        ))}
         {/* Claude Code lane (main agent only) */}
         <text x={LABEL_W - 4} y={toolY + LANE_H / 2 + 4} textAnchor="end" fontSize={9} fill={colors.textSecondary}>Claude Code</text>
         {toolRuns.map((run) => (
@@ -634,19 +635,30 @@ function TurnLaneChart({
             width={Math.max((run.end - run.start + 1) * colW, 1)} height={LANE_H}
             fill={LANE_TOOL_COLORS[run.value as LaneTool]} />
         ))}
+        {mainModelRuns.filter((r) => r.value).map((run) => (
+          <rect key={`tm${run.start}`} x={toX(run.start)} y={toolY + LANE_H - MODEL_LINE_H}
+            width={Math.max((run.end - run.start + 1) * colW, 1)} height={MODEL_LINE_H}
+            fill={laneModelColor(run.value)} />
+        ))}
         {/* SubAgent lanes — one per unique sub-agent */}
         {subAgents.map(({ id }, i) => {
           const y = subAgentLaneY(i);
-          const runs = subAgentRuns[i]?.runs ?? [];
+          const toolRunsForAgent = subAgentRuns[i]?.runs ?? [];
+          const modelRunsForAgent = subAgentModelRuns[i]?.runs ?? [];
           return (
             <g key={id}>
               <text x={LABEL_W - 4} y={y + LANE_H / 2 + 4} textAnchor="end" fontSize={9} fill={colors.textSecondary}>
                 {`SubAgent ${i + 1}`}
               </text>
-              {runs.map((run) => (
+              {toolRunsForAgent.map((run) => (
                 <rect key={`sa${i}-${run.start}`} x={toX(run.start)} y={y}
                   width={Math.max((run.end - run.start + 1) * colW, 1)} height={LANE_H}
                   fill={LANE_TOOL_COLORS[run.value as LaneTool]} />
+              ))}
+              {modelRunsForAgent.filter((r) => r.value).map((run) => (
+                <rect key={`sam${i}-${run.start}`} x={toX(run.start)} y={y + LANE_H - MODEL_LINE_H}
+                  width={Math.max((run.end - run.start + 1) * colW, 1)} height={MODEL_LINE_H}
+                  fill={laneModelColor(run.value)} />
               ))}
             </g>
           );
