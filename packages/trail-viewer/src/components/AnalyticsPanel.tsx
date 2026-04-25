@@ -207,7 +207,6 @@ function OverviewCards({
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const [usageIdx, setUsageIdx] = useState(0);
-  const [qualityIdx, setQualityIdx] = useState(0);
   const [toolIdx, setToolIdx] = useState(0);
   const totalTokens = totals.inputTokens + totals.outputTokens;
 
@@ -217,33 +216,6 @@ function OverviewCards({
     { label: t('analytics.estimatedCost'), value: fmtUsd(totals.estimatedCostUsd) },
     { label: t('analytics.totalCommits'), value: fmtNum(totals.totalCommits) },
     { label: t('analytics.linesAdded'), value: fmtNum(totals.totalLinesAdded) },
-  ];
-
-  const totalDurationHours = totals.totalSessionDurationMs / 3_600_000;
-
-  const sessionsWithContext = sessions.filter(
-    (s) => s.messageCount > 0 && (s.peakContextTokens ?? 0) > 0,
-  );
-  const avgContextGrowth = sessionsWithContext.length > 0
-    ? sessionsWithContext.reduce(
-        (sum, s) => sum + ((s.peakContextTokens ?? 0) - (s.initialContextTokens ?? 0)) / s.messageCount,
-        0,
-      ) / sessionsWithContext.length
-    : 0;
-
-  const efficiencyCards = [
-    { label: t('analytics.aiCommitPercent'), value: totals.totalCommits > 0
-        ? fmtPercent(totals.totalAiAssistedCommits / totals.totalCommits)
-        : '\u2014' },
-    { label: t('analytics.avgLinesPerHour'), value: totalDurationHours > 0 && totals.totalLinesAdded > 0
-        ? fmtNum(Math.round(totals.totalLinesAdded / totalDurationHours))
-        : '\u2014' },
-    { label: t('analytics.avgCostPerHour'), value: totalDurationHours > 0
-        ? fmtUsd(totals.estimatedCostUsd / totalDurationHours)
-        : '\u2014' },
-    { label: t('analytics.avgContextGrowth'), value: avgContextGrowth > 0
-        ? `${fmtTokens(Math.round(avgContextGrowth))}/step`
-        : '\u2014' },
   ];
 
   const DORA_ID_KEYS: Record<string, string> = {
@@ -290,15 +262,6 @@ function OverviewCards({
         onCycle={() => setUsageIdx((i) => (i + 1) % cards.length)}
         cardStyle={cardStyle}
       />
-      {totals.totalCommits > 0 && (
-        <CyclingCard
-          groupName={t('analytics.groupQuality')}
-          items={efficiencyCards}
-          index={qualityIdx}
-          onCycle={() => setQualityIdx((i) => (i + 1) % efficiencyCards.length)}
-          cardStyle={cardStyle}
-        />
-      )}
       {doraCards.length > 0 && (
         <CyclingCard
           groupName={t('analytics.groupDora')}
