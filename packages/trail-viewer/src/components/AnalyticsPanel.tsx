@@ -45,7 +45,7 @@ export interface AnalyticsPanelProps {
   readonly fetchDayToolMetrics?: (date: string) => Promise<ToolMetrics | null>;
   readonly costOptimization?: CostOptimizationData | null;
   readonly fetchCombinedData?: (period: CombinedPeriodMode, rangeDays: CombinedRangeDays) => Promise<CombinedData>;
-  readonly fetchQualityMetrics?: (range: DateRange) => Promise<QualityMetrics>;
+  readonly fetchQualityMetrics?: (range: DateRange) => Promise<QualityMetrics | null>;
 }
 
 // ---------------------------------------------------------------------------
@@ -1899,7 +1899,7 @@ function CombinedChartsSection({
   fetchDayToolMetrics?: (date: string) => Promise<ToolMetrics | null>;
   costOptimization?: CostOptimizationData | null;
   fetchCombinedData?: (period: CombinedPeriodMode, rangeDays: CombinedRangeDays) => Promise<CombinedData>;
-  fetchQualityMetrics?: (range: DateRange) => Promise<QualityMetrics>;
+  fetchQualityMetrics?: (range: DateRange) => Promise<QualityMetrics | null>;
 }>) {
   const { colors } = useTrailTheme();
   const { t } = useTrailI18n();
@@ -1946,7 +1946,7 @@ function CombinedChartsSection({
     let mounted = true;
     void (async () => {
       const result = await fetchQualityMetrics({ from, to });
-      if (mounted) {
+      if (mounted && result) {
         setOverlay({
           bucket: result.bucket,
           tokens: result.metrics.tokensPerLoc.timeSeries,

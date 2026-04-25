@@ -231,6 +231,7 @@ function TrailViewerCoreInner({
           fetchDayToolMetrics={fetchDayToolMetrics}
           costOptimization={costOptimization}
           fetchCombinedData={fetchCombinedData}
+          fetchQualityMetrics={fetchQualityMetrics}
         />
       </Box>
 
