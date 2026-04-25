@@ -1,5 +1,5 @@
 import { computeDeploymentFrequency } from './deploymentFrequency';
-import { computeLeadTimePerLoc, computeLeadTimeMinTimeSeries } from './leadTimePerLoc';
+import { computeLeadTimePerLoc, computeLeadTimeMinTimeSeries, computeLeadTimeMinByPrefixTimeSeries } from './leadTimePerLoc';
 import { computeTokensPerLoc, computeTokensAndCostPerLocTimeSeries } from './tokensPerLoc';
 import { computeAiFirstTrySuccessRate } from './aiFirstTrySuccessRate';
 import { computeChangeFailureRate } from './changeFailureRate';
@@ -179,6 +179,12 @@ export function computeQualityMetrics(
     bucket,
   );
 
+  const leadTimeMinByPrefix = computeLeadTimeMinByPrefixTimeSeries(
+    productivityInputs,
+    range,
+    bucket,
+  );
+
   return {
     range,
     previousRange,
@@ -193,5 +199,6 @@ export function computeQualityMetrics(
     unmeasured: UNMEASURED,
     costPerLocTimeSeries,
     leadTimeMinTimeSeries,
+    leadTimeMinByPrefix,
   };
 }

@@ -66,4 +66,35 @@ describe('computeQualityMetrics', () => {
     // user message at 10:00, commit at 11:00 -> 60 minutes
     expect(total).toBe(60);
   });
+
+  it('leadTimeMinByPrefix groups lead-time minutes by Conventional Commits prefix', () => {
+    const inputs: QualityMetricsInputs = {
+      ...INPUTS_WITH_COSTS,
+      commits: [
+        { ...INPUTS_WITH_COSTS.commits[0], hash: 'h-feat', subject: 'feat: add A' },
+        {
+          ...INPUTS_WITH_COSTS.commits[0],
+          hash: 'h-fix',
+          subject: 'fix: B',
+          committed_at: '2026-04-20T11:30:00.000Z',
+        },
+      ],
+      messages: [
+        ...INPUTS_WITH_COSTS.messages,
+        {
+          uuid: 'u2',
+          created_at: '2026-04-20T11:15:00.000Z',
+          role: 'user',
+          type: 'user',
+          session_id: 's1',
+        },
+      ],
+    };
+    const result = computeQualityMetrics(inputs, RANGE);
+    expect(result.leadTimeMinByPrefix?.prefixes).toEqual(expect.arrayContaining(['feat', 'fix']));
+    const sumByPrefix = (p: string) =>
+      (result.leadTimeMinByPrefix?.series ?? []).reduce((s, row) => s + (row.byPrefix[p] ?? 0), 0);
+    expect(sumByPrefix('feat')).toBe(60); // 10:00 -> 11:00
+    expect(sumByPrefix('fix')).toBe(15);  // 11:15 -> 11:30
+  });
 });

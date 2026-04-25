@@ -1519,8 +1519,11 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
   modelMetric: ChartMetric;
   commitMetric: CommitMetric;
   leadTimeOverlay: {
-    leadTime: ReadonlyArray<{ bucketStart: string; value: number }>;
     leadTimePerLoc: ReadonlyArray<{ bucketStart: string; value: number }>;
+    byPrefix: {
+      prefixes: ReadonlyArray<string>;
+      series: ReadonlyArray<{ bucketStart: string; byPrefix: Readonly<Record<string, number>> }>;
+    };
   } | null;
   onDateClick?: (fullDate: string) => void;
 }>) {
@@ -1778,51 +1781,77 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
 
   if (activeChart === 'commits') {
     if (commitMetric === 'leadTime') {
-      const leadTimeRows = leadTimeOverlay?.leadTime ?? [];
-      const leadTimePerLocRows = leadTimeOverlay?.leadTimePerLoc ?? [];
-      if (leadTimeRows.length === 0 && leadTimePerLocRows.length === 0) {
+      const ratioRows = leadTimeOverlay?.leadTimePerLoc ?? [];
+      const byPrefixSeries = leadTimeOverlay?.byPrefix.series ?? [];
+      const allPrefixes = leadTimeOverlay?.byPrefix.prefixes ?? [];
+      if (byPrefixSeries.length === 0 && ratioRows.length === 0) {
         return <Typography variant="body2" color="text.secondary">0</Typography>;
       }
+
+      const ltTotals = new Map<string, number>();
+      for (const row of byPrefixSeries) {
+        for (const [p, v] of Object.entries(row.byPrefix)) {
+          ltTotals.set(p, (ltTotals.get(p) ?? 0) + v);
+        }
+      }
+      const ltCap = capTopN(ltTotals);
+      const ltPrefixes = ltCap.displayKeys;
+      const ltMap = ltCap.keyMap;
+
       const bucketKeys = [...new Set([
-        ...leadTimeRows.map((r) => r.bucketStart),
-        ...leadTimePerLocRows.map((r) => r.bucketStart),
+        ...byPrefixSeries.map((r) => r.bucketStart),
+        ...ratioRows.map((r) => r.bucketStart),
       ])].sort();
-      const ratioByBucket = new Map(leadTimePerLocRows.map((r) => [r.bucketStart, r.value]));
-      const minByBucket = new Map(leadTimeRows.map((r) => [r.bucketStart, r.value]));
+      const ratioByBucket = new Map(ratioRows.map((r) => [r.bucketStart, r.value]));
+      const prefixRowByBucket = new Map(byPrefixSeries.map((r) => [r.bucketStart, r.byPrefix]));
       const fullDates = bucketKeys.map((b) => b.slice(0, 10));
       const labels = bucketKeys.map((b) => b.slice(5, 10));
-      const ltDataset = bucketKeys.map((b, i) => ({
-        period: labels[i],
-        leadTime: minByBucket.get(b) ?? 0,
-        leadTimePerLoc: ratioByBucket.get(b) ?? null,
-      }));
+
+      const ltDataset = bucketKeys.map((b, i) => {
+        const byPrefix = prefixRowByBucket.get(b) ?? {};
+        const aggregated: Record<string, number> = {};
+        for (const p of ltPrefixes) aggregated[p] = 0;
+        for (const origPrefix of allPrefixes) {
+          const displayKey = ltMap.get(origPrefix) ?? origPrefix;
+          aggregated[displayKey] = (aggregated[displayKey] ?? 0) + (byPrefix[origPrefix] ?? 0);
+        }
+        const entry: Record<string, string | number | null> = { period: labels[i] };
+        for (let k = 0; k < ltPrefixes.length; k++) {
+          entry[`l${k}`] = aggregated[ltPrefixes[k]] ?? 0;
+        }
+        entry.leadTimePerLoc = ratioByBucket.get(b) ?? null;
+        return entry;
+      });
+
       const fmtMin = (v: number | null) => v == null ? '-' : `${Math.round(v).toLocaleString()} min`;
       const fmtRatio = (v: number | null) => v == null ? '-' : `${v.toFixed(2)} min/LOC`;
+
+      const barSeries = ltPrefixes.map((prefix, i) => ({
+        type: 'bar' as const,
+        dataKey: `l${i}`,
+        label: prefix,
+        stack: 'total',
+        color: toolPalette[i % toolPalette.length],
+        yAxisId: 'minAxis',
+        valueFormatter: (v: number | null) => v == null || v === 0 ? null : fmtMin(v),
+      }));
+      const lineSeries = [{
+        type: 'line' as const,
+        dataKey: 'leadTimePerLoc',
+        label: 'Lead Time / LOC (min/LOC)',
+        color: '#F06292',
+        yAxisId: 'ratioAxis',
+        showMark: true,
+        connectNulls: true,
+        valueFormatter: fmtRatio,
+      }];
+
       return (
         <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
           <ChartsDataProvider
             dataset={ltDataset}
-            series={[
-              {
-                type: 'bar' as const,
-                dataKey: 'leadTime',
-                label: 'Lead Time (min)',
-                color: toolPalette[0],
-                yAxisId: 'minAxis',
-                valueFormatter: fmtMin,
-              },
-              {
-                type: 'line' as const,
-                dataKey: 'leadTimePerLoc',
-                label: 'Lead Time / LOC (min/LOC)',
-                color: '#F06292',
-                yAxisId: 'ratioAxis',
-                showMark: true,
-                connectNulls: true,
-                valueFormatter: fmtRatio,
-              },
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ] as any}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            series={[...barSeries, ...lineSeries] as any}
             xAxis={[{ id: 'period', scaleType: 'band', dataKey: 'period' }]}
             yAxis={[
               { id: 'minAxis', valueFormatter: fmtTokens },
@@ -2001,6 +2030,10 @@ function CombinedChartsSection({
     cost: ReadonlyArray<{ bucketStart: string; value: number }>;
     leadTime: ReadonlyArray<{ bucketStart: string; value: number }>;
     leadTimePerLoc: ReadonlyArray<{ bucketStart: string; value: number }>;
+    leadTimeByPrefix: {
+      prefixes: ReadonlyArray<string>;
+      series: ReadonlyArray<{ bucketStart: string; byPrefix: Readonly<Record<string, number>> }>;
+    };
   } | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   useEffect(() => { setSelectedDate(null); }, [period]);
@@ -2040,6 +2073,7 @@ function CombinedChartsSection({
           cost: result.costPerLocTimeSeries ?? [],
           leadTime: result.leadTimeMinTimeSeries ?? [],
           leadTimePerLoc: result.metrics.leadTimePerLoc.timeSeries,
+          leadTimeByPrefix: result.leadTimeMinByPrefix ?? { prefixes: [], series: [] },
         });
       }
     })();
@@ -2151,7 +2185,7 @@ function CombinedChartsSection({
             toolMetric={toolMetric}
             modelMetric={modelMetric}
             commitMetric={commitMetric}
-            leadTimeOverlay={overlay ? { leadTime: overlay.leadTime, leadTimePerLoc: overlay.leadTimePerLoc } : null}
+            leadTimeOverlay={overlay ? { leadTimePerLoc: overlay.leadTimePerLoc, byPrefix: overlay.leadTimeByPrefix } : null}
             onDateClick={handleDateClick}
           />
         )
