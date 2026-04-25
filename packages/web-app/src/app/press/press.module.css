@@ -578,3 +578,101 @@
         animation: none;
     }
 }
+
+/* ── CTA ストリップ ────────────────────────────────── */
+.ctaStrip {
+    padding: 64px var(--gutter);
+    border-bottom: var(--rule-mast) solid var(--ink);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 48px;
+    align-items: center;
+}
+
+@media (max-width: 720px) {
+    .ctaStrip {
+        grid-template-columns: 1fr;
+    }
+}
+
+.ctaHeading {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 900;
+    font-size: clamp(32px, 5vw, 56px);
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+    margin: 0;
+    max-width: 18ch;
+}
+
+.ctaHeading em {
+    font-style: normal;
+    font-weight: 400;
+}
+
+.ctaActions {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.btn {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 16px 28px;
+    border: var(--rule-bold) solid var(--ink);
+    background: var(--paper);
+    color: var(--ink);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    text-decoration: none;
+}
+
+.btn:hover {
+    background: var(--ink);
+    color: var(--paper);
+}
+
+.btn:focus-visible {
+    outline: 2px solid var(--vermilion);
+    outline-offset: 2px;
+}
+
+.btnArrow {
+    font-family: var(--font-display);
+    font-style: italic;
+}
+
+.btnStamp {
+    position: relative;
+    border-color: var(--ink);
+    background: var(--paper);
+    padding-right: 60px;
+}
+
+.btnStamp::after {
+    content: 'OK';
+    position: absolute;
+    top: -12px;
+    right: -12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: var(--rule-thin) solid var(--vermilion);
+    color: var(--vermilion);
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 14px;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+    transform: rotate(-12deg);
+    background: var(--paper);
+    letter-spacing: 0;
+}

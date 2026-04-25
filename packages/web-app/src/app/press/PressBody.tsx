@@ -3,6 +3,7 @@
 import { useThemeMode } from '../providers';
 import { Briefing } from './components/Briefing';
 import { Caravan } from './components/Caravan';
+import { CtaStrip } from './components/CtaStrip';
 import { Dispatch } from './components/Dispatch';
 import { Headline } from './components/Headline';
 import { Masthead } from './components/Masthead';
@@ -23,6 +24,7 @@ export function PressBody() {
       <Briefing />
       <PullQuote />
       <Ticker />
+      <CtaStrip />
     </div>
   );
 }
