@@ -18,7 +18,6 @@ export function Headline() {
             ruby: (chunks) => <ruby>{chunks}</ruby>,
             rt: (chunks) => <rt>{chunks}</rt>,
           })}
-          <br />
           <em>
             {tHead.rich('title2', {
               ruby: (chunks) => <ruby>{chunks}</ruby>,
