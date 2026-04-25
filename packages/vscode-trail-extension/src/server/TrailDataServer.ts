@@ -362,6 +362,12 @@ export class TrailDataServer {
       return;
     }
 
+    const dayToolMetricsMatch = /^\/api\/trail\/days\/([^/]+)\/tool-metrics$/.exec(pathname);
+    if (dayToolMetricsMatch && method === 'GET') {
+      this.handleGetDayToolMetrics(res, decodeURIComponent(dayToolMetricsMatch[1]));
+      return;
+    }
+
     const sessionMatch = /^\/api\/trail\/sessions\/([^/]+)$/.exec(pathname);
     if (sessionMatch && method === 'GET') {
       this.handleGetSession(res, decodeURIComponent(sessionMatch[1]));
@@ -683,6 +689,29 @@ export class TrailDataServer {
     } catch {
       res.writeHead(500, JSON_HEADERS);
       res.end(JSON.stringify({ error: 'Failed to get tool metrics' }));
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  //  API: GET /api/trail/days/:date/tool-metrics
+  // -------------------------------------------------------------------------
+
+  private handleGetDayToolMetrics(
+    res: http.ServerResponse,
+    date: string,
+  ): void {
+    try {
+      const metrics = this.trailDb.getDayToolMetrics(date);
+      if (metrics === null) {
+        res.writeHead(500, JSON_HEADERS);
+        res.end(JSON.stringify({ error: 'Failed to get day tool metrics' }));
+        return;
+      }
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify(metrics));
+    } catch {
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'Failed to get day tool metrics' }));
     }
   }
 

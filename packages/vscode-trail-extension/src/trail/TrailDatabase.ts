@@ -3030,6 +3030,80 @@ export class TrailDatabase {
     }
   }
 
+  /**
+   * 指定日の tool/skill/error/model 利用統計を daily_counts から集計して返す。
+   * Activity タブで日付バーを選択した直後に表示する右側パネル用。
+   */
+  getDayToolMetrics(date: string): {
+    totalRetries: number;
+    totalEdits: number;
+    totalBuildRuns: number;
+    totalBuildFails: number;
+    totalTestRuns: number;
+    totalTestFails: number;
+    toolUsage: { tool: string; count: number; tokens: number; durationMs: number }[];
+    skillUsage: { skill: string; count: number; tokens: number; durationMs: number }[];
+    errorsByTool: { tool: string; count: number }[];
+    modelUsage: { model: string; count: number; tokens: number; durationMs: number }[];
+  } | null {
+    try {
+      const db = this.ensureDb();
+      const result = db.exec(
+        `SELECT kind, key, count, tokens, duration_ms
+         FROM daily_counts
+         WHERE date = ? AND kind IN ('tool', 'skill', 'error', 'model')`,
+        [date],
+      );
+      if (!result[0]) {
+        return {
+          totalRetries: 0, totalEdits: 0, totalBuildRuns: 0, totalBuildFails: 0,
+          totalTestRuns: 0, totalTestFails: 0,
+          toolUsage: [], skillUsage: [], errorsByTool: [], modelUsage: [],
+        };
+      }
+
+      const toolMap = new Map<string, { count: number; tokens: number; durationMs: number }>();
+      const skillMap = new Map<string, { count: number; tokens: number; durationMs: number }>();
+      const errMap = new Map<string, number>();
+      const modelMap = new Map<string, { count: number; tokens: number; durationMs: number }>();
+
+      for (const row of result[0].values) {
+        const kind = String(row[0] ?? '');
+        const key = String(row[1] ?? '');
+        const count = Number(row[2] ?? 0);
+        const tokens = Number(row[3] ?? 0);
+        const durationMs = Number(row[4] ?? 0);
+        if (kind === 'tool') {
+          const e = toolMap.get(key) ?? { count: 0, tokens: 0, durationMs: 0 };
+          e.count += count; e.tokens += tokens; e.durationMs += durationMs;
+          toolMap.set(key, e);
+        } else if (kind === 'skill') {
+          const e = skillMap.get(key) ?? { count: 0, tokens: 0, durationMs: 0 };
+          e.count += count; e.tokens += tokens; e.durationMs += durationMs;
+          skillMap.set(key, e);
+        } else if (kind === 'error') {
+          errMap.set(key, (errMap.get(key) ?? 0) + count);
+        } else if (kind === 'model') {
+          const e = modelMap.get(key) ?? { count: 0, tokens: 0, durationMs: 0 };
+          e.count += count; e.tokens += tokens; e.durationMs += durationMs;
+          modelMap.set(key, e);
+        }
+      }
+
+      return {
+        totalRetries: 0, totalEdits: 0, totalBuildRuns: 0, totalBuildFails: 0,
+        totalTestRuns: 0, totalTestFails: 0,
+        toolUsage: [...toolMap.entries()].map(([tool, e]) => ({ tool, ...e })).sort((a, b) => b.count - a.count),
+        skillUsage: [...skillMap.entries()].map(([skill, e]) => ({ skill, ...e })).sort((a, b) => b.count - a.count),
+        errorsByTool: [...errMap.entries()].map(([tool, count]) => ({ tool, count })).sort((a, b) => b.count - a.count),
+        modelUsage: [...modelMap.entries()].map(([model, e]) => ({ model, ...e })).sort((a, b) => b.count - a.count),
+      };
+    } catch (e) {
+      TrailLogger.error(`getDayToolMetrics failed for date=${date}`, e);
+      return null;
+    }
+  }
+
   getAnalytics(): AnalyticsData {
     const db = this.ensureDb();
 
