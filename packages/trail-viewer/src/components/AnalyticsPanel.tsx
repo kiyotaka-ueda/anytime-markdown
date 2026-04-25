@@ -444,14 +444,6 @@ function mergeRuns<T>(values: readonly T[]): Array<{ value: T; start: number; en
   return runs;
 }
 
-const AGENT_PALETTE = ['#E91E63', '#FF5722', '#009688', '#FF9800', '#3F51B5', '#795548'];
-
-function agentIdColor(agentId: string, palette: readonly string[]): string {
-  let hash = 0;
-  for (let i = 0; i < agentId.length; i++) hash = ((hash * 31) + agentId.charCodeAt(i)) >>> 0;
-  return palette[hash % palette.length];
-}
-
 function dominantTool(toolCalls: readonly TrailToolCall[] | undefined): LaneTool | '' {
   if (!toolCalls || toolCalls.length === 0) return '';
   for (const cat of LANE_TOOL_CATS) {
@@ -489,7 +481,7 @@ function TurnLaneChart({
   );
 
   const agentRuns = useMemo(() =>
-    mergeRuns(assistantMsgs.map((m) => m.agentId ?? '')).filter((r) => r.value !== ''),
+    mergeRuns(assistantMsgs.map((m) => m.agentId ? dominantTool(m.toolCalls) : '')).filter((r) => r.value !== ''),
     [assistantMsgs],
   );
 
@@ -563,7 +555,7 @@ function TurnLaneChart({
             {agentRuns.map((run) => (
               <rect key={`a${run.start}`} x={toX(run.start)} y={agentY}
                 width={Math.max((run.end - run.start + 1) * colW, 1)} height={LANE_H}
-                fill={agentIdColor(run.value, AGENT_PALETTE)} />
+                fill={LANE_TOOL_COLORS[run.value as LaneTool]} />
             ))}
           </>
         )}
