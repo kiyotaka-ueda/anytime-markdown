@@ -3721,6 +3721,18 @@ export class TrailDatabase {
     });
   }
 
+  getCommitFiles(commitHashes: string[]): Array<{ commit_hash: string; file_path: string }> {
+    if (commitHashes.length === 0) return [];
+    const db = this.ensureDb();
+    const placeholders = commitHashes.map(() => '?').join(',');
+    const res = db.exec(
+      `SELECT commit_hash, file_path FROM commit_files WHERE commit_hash IN (${placeholders})`,
+      commitHashes,
+    );
+    if (!res[0]) return [];
+    return res[0].values.map((row) => ({ commit_hash: row[0] as string, file_path: row[1] as string }));
+  }
+
   getReleasesInRange(from: string, to: string): Array<{ tag: string; released_at: string }> {
     const db = this.ensureDb();
     const res = db.exec(
