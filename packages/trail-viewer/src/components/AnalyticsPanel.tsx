@@ -37,6 +37,7 @@ import { ChartsLabelMark } from '@mui/x-charts/ChartsLabel';
 import { ChartsGrid } from '@mui/x-charts/ChartsGrid';
 import { ChartsLegend } from '@mui/x-charts/ChartsLegend';
 import { ChartsAxisHighlight } from '@mui/x-charts/ChartsAxisHighlight';
+import { ChartsReferenceLine } from '@mui/x-charts/ChartsReferenceLine';
 import { formatLocalTime, toLocalDateKey } from '@anytime-markdown/trail-core/formatDate';
 import { extractCommitPrefix } from '@anytime-markdown/trail-core/domain';
 import type { QualityMetrics, DateRange, ReleaseQualityBucket } from '@anytime-markdown/trail-core/domain/metrics';
@@ -588,6 +589,20 @@ function SessionCacheTimeline({
     });
   }, [assistantMsgs, byUuid]);
 
+  const commitTurns = useMemo(
+    () => assistantMsgs
+      .map((m, i) => (m.triggerCommitHashes && m.triggerCommitHashes.length > 0 ? i + 1 : null))
+      .filter((t): t is number => t !== null),
+    [assistantMsgs],
+  );
+
+  const errorTurns = useMemo(
+    () => assistantMsgs
+      .map((m, i) => (m.hasToolError ? i + 1 : null))
+      .filter((t): t is number => t !== null),
+    [assistantMsgs],
+  );
+
   const totalTurns = dataset.length;
   const tickStep = totalTurns <= 5 ? 1
     : totalTurns <= 10 ? 2
@@ -645,7 +660,38 @@ function SessionCacheTimeline({
             slotProps={{
               legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } },
             }}
-          />
+          >
+            {commitTurns.map((turn) => (
+              <ChartsReferenceLine
+                key={`commit-${turn}`}
+                x={turn}
+                lineStyle={{ stroke: '#4CAF50', strokeWidth: 1.5, strokeDasharray: '4 2' }}
+              />
+            ))}
+            {errorTurns.map((turn) => (
+              <ChartsReferenceLine
+                key={`error-${turn}`}
+                x={turn}
+                lineStyle={{ stroke: '#F44336', strokeWidth: 1.5, strokeDasharray: '4 2' }}
+              />
+            ))}
+          </LineChart>
+          {(commitTurns.length > 0 || errorTurns.length > 0) && (
+            <Box sx={{ display: 'flex', gap: 1.5, mt: 0.5, px: 1 }}>
+              {commitTurns.length > 0 && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Box sx={{ width: 16, height: 2, background: 'repeating-linear-gradient(to right, #4CAF50 0px, #4CAF50 4px, transparent 4px, transparent 6px)' }} />
+                  <Typography variant="caption" sx={{ color: '#4CAF50', fontSize: '0.65rem' }}>{t('analytics.relatedCommits')}</Typography>
+                </Box>
+              )}
+              {errorTurns.length > 0 && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Box sx={{ width: 16, height: 2, background: 'repeating-linear-gradient(to right, #F44336 0px, #F44336 4px, transparent 4px, transparent 6px)' }} />
+                  <Typography variant="caption" sx={{ color: '#F44336', fontSize: '0.65rem' }}>{t('analytics.metricErrors')}</Typography>
+                </Box>
+              )}
+            </Box>
+          )}
           <TurnLaneChart assistantMsgs={assistantMsgs} tickStep={tickStep} />
         </>
       ) : (
