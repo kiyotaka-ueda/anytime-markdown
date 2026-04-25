@@ -88,6 +88,21 @@ function fmtTokens(n: number): string {
 }
 
 // Return up to ~5 "nice" tick values covering [0, max]. Minimum step is 1 (no fractions).
+function PieCenterLabel({ value, color }: Readonly<{ value: number; color: string }>) {
+  const { width, height, left, top } = useDrawingArea();
+  return (
+    <text
+      x={left + width / 2}
+      y={top + height / 2}
+      textAnchor="middle"
+      dominantBaseline="central"
+      style={{ fontSize: '1.5rem', fontWeight: 600, fill: color, pointerEvents: 'none' }}
+    >
+      {value}
+    </text>
+  );
+}
+
 function niceTicks(max: number): number[] {
   if (max <= 0) return [0];
   const rough = max / 4;
@@ -938,7 +953,9 @@ function SessionCommitPrefixChart({
         height={130}
         margin={{ top: 8, right: 8, bottom: 8, left: 8 }}
         slots={{ legend: () => null }}
-      />
+      >
+        <PieCenterLabel value={commits.length} color={colors.textPrimary} />
+      </PieChart>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, px: 1.5, pb: 0.5 }}>
         {sorted.map(([prefix, count], i) => (
           <Chip
@@ -1349,7 +1366,9 @@ function SessionErrorChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics 
         height={130}
         margin={{ top: 8, right: 8, bottom: 8, left: 8 }}
         slots={{ legend: () => null }}
-      />
+      >
+        <PieCenterLabel value={sorted.reduce((s, e) => s + e.count, 0)} color={colors.textPrimary} />
+      </PieChart>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, px: 1.5, pb: 0.5 }}>
         {sorted.map((e, i) => (
           <Chip
