@@ -232,6 +232,7 @@ export interface TrailI18n {
   'metrics.unmeasured.badge': string;
   'metrics.thresholds.title': string;
   'metrics.thresholds.openFile': string;
+  'metrics.thresholds.metricHeader': string;
   'metrics.empty': string;
   'metrics.error': string;
   'metrics.loading': string;

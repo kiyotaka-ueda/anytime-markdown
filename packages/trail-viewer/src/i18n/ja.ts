@@ -216,6 +216,7 @@ export const ja: TrailI18n = {
   'metrics.unmeasured.badge': 'Phase',
   'metrics.thresholds.title': '閾値設定',
   'metrics.thresholds.openFile': 'ファイルを開く',
+  'metrics.thresholds.metricHeader': '指標',
   'metrics.empty': 'データなし',
   'metrics.error': 'データ取得に失敗しました',
   'metrics.loading': '読み込み中...',

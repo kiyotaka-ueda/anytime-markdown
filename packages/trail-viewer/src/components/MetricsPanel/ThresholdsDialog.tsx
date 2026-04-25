@@ -52,7 +52,7 @@ export function ThresholdsDialog({ open, onOpen, onClose, isVsCode = false }: Re
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>指標</TableCell>
+                <TableCell>{t('metrics.thresholds.metricHeader')}</TableCell>
                 <TableCell>Elite</TableCell>
                 <TableCell>High</TableCell>
                 <TableCell>Medium</TableCell>

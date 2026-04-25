@@ -216,6 +216,7 @@ export const en: TrailI18n = {
   'metrics.unmeasured.badge': 'Phase',
   'metrics.thresholds.title': 'Threshold Settings',
   'metrics.thresholds.openFile': 'Open file',
+  'metrics.thresholds.metricHeader': 'Metric',
   'metrics.empty': 'No data',
   'metrics.error': 'Failed to load metrics',
   'metrics.loading': 'Loading...',
