@@ -36,7 +36,7 @@ function computeCommitSamples(inputs: Inputs, range: DateRange): CommitSample[] 
   const byCommit = new Map<string, Aggregate>();
 
   for (const mc of inputs.messageCommits) {
-    if (!VALID_MESSAGE_COMMIT_CONFIDENCES.has(mc.match_confidence as 'realtime' | 'high' | 'medium')) continue;
+    if (!VALID_MESSAGE_COMMIT_CONFIDENCES.has(mc.match_confidence)) continue;
     const msgAt = msgMap.get(mc.message_uuid);
     if (!msgAt) continue;
 

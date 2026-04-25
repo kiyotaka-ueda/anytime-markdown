@@ -104,4 +104,4 @@ export function buildRatioTimeSeries(
     }));
 }
 
-export const VALID_MESSAGE_COMMIT_CONFIDENCES = new Set(['realtime', 'high', 'medium'] as const);
+export const VALID_MESSAGE_COMMIT_CONFIDENCES: ReadonlySet<string> = new Set(['realtime', 'high', 'medium']);
