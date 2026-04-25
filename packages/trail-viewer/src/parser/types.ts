@@ -163,4 +163,6 @@ export type TrailMessage = _TrailMessage & {
   readonly hasCommit?: boolean;
   /** Tool execution time in ms (nextUserMsg.timestamp - assistantMsg.timestamp) */
   readonly toolExecMs?: number;
+  /** Skill invoked for this turn (from messages.skill) */
+  readonly skill?: string;
 };

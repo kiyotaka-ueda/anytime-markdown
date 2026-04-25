@@ -674,6 +674,7 @@ export class TrailDataServer {
         agentId: m.agent_id,
         agentDescription: m.agent_description,
         toolExecMs: toolExecMsMap.get(m.uuid),
+        skill: m.skill ?? undefined,
       }));
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({ session, messages }));

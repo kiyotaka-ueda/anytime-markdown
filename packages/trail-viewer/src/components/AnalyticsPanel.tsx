@@ -519,6 +519,16 @@ function laneModelColor(model: string): string {
   return '#90A4AE';
 }
 
+const SKILL_COLOR_PALETTE = [
+  '#EC4899', '#14B8A6', '#F59E0B', '#8b5cf6', '#EF4444', '#10B981', '#3B82F6', '#F97316',
+];
+
+function laneSkillColor(skill: string): string {
+  let hash = 0;
+  for (let i = 0; i < skill.length; i++) hash = ((hash * 31) + skill.charCodeAt(i)) & 0xFFFFFF;
+  return SKILL_COLOR_PALETTE[Math.abs(hash) % SKILL_COLOR_PALETTE.length];
+}
+
 function mergeRuns<T>(values: readonly T[]): Array<{ value: T; start: number; end: number }> {
   const runs: Array<{ value: T; start: number; end: number }> = [];
   for (let i = 0; i < values.length; i++) {
@@ -594,6 +604,19 @@ function TurnLaneChart({
     [assistantMsgs, subAgents],
   );
 
+  const mainSkillRuns = useMemo(() =>
+    mergeRuns(assistantMsgs.map((m) => m.agentId ? '' : (m.skill ?? ''))).filter((r) => r.value !== ''),
+    [assistantMsgs],
+  );
+
+  const subAgentSkillRuns = useMemo(() =>
+    subAgents.map(({ id }) => ({
+      id,
+      runs: mergeRuns(assistantMsgs.map((m) => m.agentId === id ? (m.skill ?? '') : '')).filter((r) => r.value !== ''),
+    })),
+    [assistantMsgs, subAgents],
+  );
+
   const uniqueModels = useMemo(() => {
     const seen = new Set<string>();
     const result: string[] = [];
@@ -602,6 +625,12 @@ function TurnLaneChart({
       if (!seen.has(model)) { seen.add(model); result.push(model); }
     }
     return result;
+  }, [assistantMsgs]);
+
+  const uniqueSkills = useMemo(() => {
+    const seen = new Set<string>();
+    for (const m of assistantMsgs) { if (m.skill) seen.add(m.skill); }
+    return Array.from(seen);
   }, [assistantMsgs]);
 
   const usedToolCats = useMemo(() => {
@@ -626,6 +655,7 @@ function TurnLaneChart({
   const AXIS_H = 16;
 
   const MODEL_LINE_H = 2;
+  const SKILL_LINE_H = 2;
   const toolY = 0;
   const subAgentLaneY = (i: number) => toolY + LANE_H + LANE_GAP + i * (LANE_H + LANE_GAP);
   const lastLaneBottom = subAgents.length > 0
@@ -651,6 +681,11 @@ function TurnLaneChart({
             width={Math.max((run.end - run.start + 1) * colW, 1)} height={LANE_H}
             fill={LANE_TOOL_COLORS[run.value as LaneTool]} />
         ))}
+        {mainSkillRuns.map((run) => (
+          <rect key={`ts${run.start}`} x={toX(run.start)} y={toolY + LANE_H - MODEL_LINE_H - SKILL_LINE_H}
+            width={Math.max((run.end - run.start + 1) * colW, 1)} height={SKILL_LINE_H}
+            fill={laneSkillColor(run.value)} />
+        ))}
         {mainModelRuns.filter((r) => r.value).map((run) => (
           <rect key={`tm${run.start}`} x={toX(run.start)} y={toolY + LANE_H - MODEL_LINE_H}
             width={Math.max((run.end - run.start + 1) * colW, 1)} height={MODEL_LINE_H}
@@ -661,6 +696,7 @@ function TurnLaneChart({
           const y = subAgentLaneY(i);
           const toolRunsForAgent = subAgentRuns[i]?.runs ?? [];
           const modelRunsForAgent = subAgentModelRuns[i]?.runs ?? [];
+          const skillRunsForAgent = subAgentSkillRuns[i]?.runs ?? [];
           return (
             <g key={id}>
               <text x={LABEL_W - 4} y={y + LANE_H / 2 + 4} textAnchor="end" fontSize={9} fill={colors.textSecondary}>
@@ -670,6 +706,11 @@ function TurnLaneChart({
                 <rect key={`sa${i}-${run.start}`} x={toX(run.start)} y={y}
                   width={Math.max((run.end - run.start + 1) * colW, 1)} height={LANE_H}
                   fill={LANE_TOOL_COLORS[run.value as LaneTool]} />
+              ))}
+              {skillRunsForAgent.map((run) => (
+                <rect key={`sas${i}-${run.start}`} x={toX(run.start)} y={y + LANE_H - MODEL_LINE_H - SKILL_LINE_H}
+                  width={Math.max((run.end - run.start + 1) * colW, 1)} height={SKILL_LINE_H}
+                  fill={laneSkillColor(run.value)} />
               ))}
               {modelRunsForAgent.filter((r) => r.value).map((run) => (
                 <rect key={`sam${i}-${run.start}`} x={toX(run.start)} y={y + LANE_H - MODEL_LINE_H}
@@ -697,6 +738,12 @@ function TurnLaneChart({
           <Box key={model} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <Box sx={{ width: 10, height: 10, borderRadius: '2px', bgcolor: laneModelColor(model) }} />
             <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>{model || 'unknown'}</Typography>
+          </Box>
+        ))}
+        {uniqueSkills.map((skill) => (
+          <Box key={skill} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Box sx={{ width: 10, height: 3, borderRadius: '1px', bgcolor: laneSkillColor(skill) }} />
+            <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>{skill}</Typography>
           </Box>
         ))}
         {usedToolCats.map((cat) => (
