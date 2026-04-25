@@ -7,12 +7,25 @@ import spreadsheetJaMessages from '@anytime-markdown/spreadsheet-viewer/src/i18n
 import { cookies } from 'next/headers';
 import { getRequestConfig } from 'next-intl/server';
 
+import pressEnMessages from '../app/press/i18n/en.json';
+import pressJaMessages from '../app/press/i18n/ja.json';
+
 const supportedLocales = ['ja', 'en'] as const;
 type Locale = (typeof supportedLocales)[number];
 const defaultLocale: Locale = 'ja';
 
-const mergedJa = { ...jaMessages, ...graphJaMessages, ...spreadsheetJaMessages };
-const mergedEn = { ...enMessages, ...graphEnMessages, ...spreadsheetEnMessages };
+const mergedJa = {
+  ...jaMessages,
+  ...graphJaMessages,
+  ...spreadsheetJaMessages,
+  press: pressJaMessages,
+};
+const mergedEn = {
+  ...enMessages,
+  ...graphEnMessages,
+  ...spreadsheetEnMessages,
+  press: pressEnMessages,
+};
 const messagesByLocale: Record<Locale, typeof mergedJa> = { ja: mergedJa, en: mergedEn };
 
 export default getRequestConfig(async () => {

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-04-25
+
+### Changed
+
+- Refresh Anytime Trail LP benefit copy with visualization framing (structure / behavior / quality)
+
 ## [0.13.0] - 2026-04-24
 
 ### Added

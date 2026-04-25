@@ -2,26 +2,25 @@ import { classifyDoraLevel, DEFAULT_THRESHOLDS } from './thresholds';
 import type { ThresholdsConfig } from './thresholds';
 import type { DateRange, MetricValue } from './types';
 import { buildTimeSeries } from './timeSeriesUtils';
+import {
+  FIX_WINDOW_MS,
+  filterCodeFiles,
+  hasFileOverlap,
+  isFailureCommit,
+} from './failureCommit';
 
-// fix_count: pre-computed from DB (optional shortcut; if provided and commit_hashes is empty, used directly)
-type Release = { id: string; tag_date: string; commit_hashes: string[]; fix_count?: number };
-type Commit = { hash: string; subject: string };
+type Release = { id: string; tag_date: string; commit_hashes: string[] };
+type Commit = {
+  hash: string;
+  subject: string;
+  committed_at: string;
+  files: string[];
+};
 
 type Inputs = {
   releases: Release[];
   commits: Commit[];
 };
-
-// Detects fix/revert/hotfix by conventional commits prefix or keywords.
-// classifyCommitType only handles feat/fix/refactor/test (returns 'other' for revert/hotfix),
-// so we check directly here.
-function isFailureCommit(subject: string): boolean {
-  const lower = subject.toLowerCase();
-  if (/^fix(\([^)]*\))?[!]?:\s/.test(lower)) return true;
-  if (/^revert(\([^)]*\))?[!]?:\s/.test(lower)) return true;
-  if (/^hotfix(\([^)]*\))?[!]?:\s/.test(lower)) return true;
-  return false;
-}
 
 function computeRate(inputs: Inputs, range: DateRange): {
   value: number;
@@ -31,29 +30,48 @@ function computeRate(inputs: Inputs, range: DateRange): {
   const fromMs = new Date(range.from).getTime();
   const toMs = new Date(range.to).getTime();
 
-  const inRange = inputs.releases.filter((r) => {
+  const releasesInRange = inputs.releases.filter((r) => {
     const t = new Date(r.tag_date).getTime();
     return t >= fromMs && t <= toMs;
   });
 
-  const commitMap = new Map(inputs.commits.map((c) => [c.hash, c.subject]));
+  const commitMap = new Map(inputs.commits.map((c) => [c.hash, c]));
+  const fixCommits = inputs.commits
+    .filter((c) => isFailureCommit(c.subject))
+    .map((c) => ({
+      ms: new Date(c.committed_at).getTime(),
+      codeFiles: filterCodeFiles(c.files),
+    }))
+    .filter((f) => !Number.isNaN(f.ms) && f.codeFiles.length > 0);
 
   const failures: Array<{ date: string }> = [];
-  for (const release of inRange) {
-    const hasFailure =
-      release.fix_count !== undefined && release.commit_hashes.length === 0
-        ? release.fix_count > 0
-        : release.commit_hashes.some((hash) => {
-            const subject = commitMap.get(hash);
-            return subject !== undefined && isFailureCommit(subject);
-          });
-    if (hasFailure) {
-      failures.push({ date: release.tag_date });
+  let measurable = 0;
+
+  for (const release of releasesInRange) {
+    const releaseFiles = new Set<string>();
+    for (const hash of release.commit_hashes) {
+      const c = commitMap.get(hash);
+      if (!c) continue;
+      for (const f of filterCodeFiles(c.files)) {
+        releaseFiles.add(f);
+      }
     }
+    if (releaseFiles.size === 0) continue; // 判定不能 → sample から除外
+
+    measurable += 1;
+    const releaseMs = new Date(release.tag_date).getTime();
+    const releaseFileArr = [...releaseFiles];
+    const failed = fixCommits.some(
+      (f) =>
+        f.ms > releaseMs &&
+        f.ms - releaseMs <= FIX_WINDOW_MS &&
+        hasFileOverlap(releaseFileArr, f.codeFiles),
+    );
+    if (failed) failures.push({ date: release.tag_date });
   }
 
-  const value = inRange.length === 0 ? 0 : (failures.length / inRange.length) * 100;
-  return { value, sampleSize: inRange.length, failures };
+  const value = measurable === 0 ? 0 : (failures.length / measurable) * 100;
+  return { value, sampleSize: measurable, failures };
 }
 
 export function computeChangeFailureRate(
@@ -65,7 +83,9 @@ export function computeChangeFailureRate(
   thresholds: ThresholdsConfig = DEFAULT_THRESHOLDS,
 ): MetricValue {
   const { value, sampleSize, failures } = computeRate(inputs, range);
-  const level = classifyDoraLevel('changeFailureRate', value, thresholds);
+  const level = sampleSize > 0
+    ? classifyDoraLevel('changeFailureRate', value, thresholds)
+    : undefined;
 
   const timeSeries = buildTimeSeries(
     failures.map((f) => ({ date: f.date, value: 1 })),

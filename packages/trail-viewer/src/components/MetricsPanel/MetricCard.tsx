@@ -21,6 +21,16 @@ function formatValue(m: MetricValue): string {
       ? `${m.value.toFixed(1)}h`
       : `${(m.value / 24).toFixed(1)}d`;
   }
+  if (m.unit === 'minPerLoc') {
+    return m.value < 60
+      ? `${m.value.toFixed(2)} min/LOC`
+      : `${(m.value / 60).toFixed(1)} h/LOC`;
+  }
+  if (m.unit === 'tokensPerLoc') {
+    return m.value >= 1000
+      ? `${(m.value / 1000).toFixed(1)}k tok/LOC`
+      : `${m.value.toFixed(0)} tok/LOC`;
+  }
   return `${m.value.toFixed(1)}%`;
 }
 
@@ -34,26 +44,38 @@ function levelColor(level: DoraLevel, isDark: boolean) {
   }
 }
 
+function deltaArrow(deltaPct: number): string {
+  if (deltaPct > 0) return '↑';
+  if (deltaPct < 0) return '↓';
+  return '→';
+}
+
+function deltaColor(deltaPct: number): string {
+  if (deltaPct > 0) return 'success.main';
+  if (deltaPct < 0) return 'error.main';
+  return 'text.secondary';
+}
+
 function DeltaBadge({ deltaPct }: Readonly<{ deltaPct: number | null }>) {
   const { t } = useTrailI18n();
   if (deltaPct === null) return <Typography variant="caption" color="text.disabled">{t('metrics.noLevel')}</Typography>;
-  const arrow = deltaPct > 0 ? '↑' : deltaPct < 0 ? '↓' : '→';
-  const color = deltaPct > 0 ? 'success.main' : deltaPct < 0 ? 'error.main' : 'text.secondary';
   return (
-    <Typography variant="caption" sx={{ color }}>
-      {arrow} {Math.abs(deltaPct).toFixed(1)}%
+    <Typography variant="caption" sx={{ color: deltaColor(deltaPct) }}>
+      {deltaArrow(deltaPct)} {Math.abs(deltaPct).toFixed(1)}%
     </Typography>
   );
 }
 
 export interface MetricCardProps {
   readonly metric: MetricValue;
+  readonly bucket: 'day' | 'week';
 }
 
 const NAME_KEYS: Record<string, string> = {
   deploymentFrequency: 'metrics.deploymentFrequency.name',
-  leadTimeForChanges: 'metrics.leadTimeForChanges.name',
-  promptToCommitSuccessRate: 'metrics.promptToCommitSuccessRate.name',
+  leadTimePerLoc: 'metrics.leadTimePerLoc.name',
+  tokensPerLoc: 'metrics.tokensPerLoc.name',
+  aiFirstTrySuccessRate: 'metrics.aiFirstTrySuccessRate.name',
   changeFailureRate: 'metrics.changeFailureRate.name',
 };
 
@@ -64,7 +86,7 @@ const LEVEL_KEYS: Record<DoraLevel, string> = {
   low: 'metrics.level.low',
 };
 
-export function MetricCard({ metric }: Readonly<MetricCardProps>) {
+export function MetricCard({ metric, bucket }: Readonly<MetricCardProps>) {
   const { t } = useTrailI18n();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -116,7 +138,7 @@ export function MetricCard({ metric }: Readonly<MetricCardProps>) {
 
           {metric.timeSeries.length >= 2 && (
             <Box sx={{ mt: 1 }}>
-              <MetricSparkline timeSeries={metric.timeSeries} />
+              <MetricSparkline timeSeries={metric.timeSeries} bucket={bucket} />
             </Box>
           )}
         </>

@@ -1,0 +1,996 @@
+.root {
+    --font-display: var(--cp-font-display), 'Times New Roman', serif;
+    --font-body: var(--cp-font-body), 'Times New Roman', serif;
+    --font-mono: var(--cp-font-mono), ui-monospace, 'Courier New', monospace;
+    --font-brush: var(--cp-font-brush), cursive;
+
+    --paper: #F2EDE2;
+    --paper-fold: #E8E0CF;
+    --ink: #15110A;
+    --ink-faded: #4A3F2E;
+    --ink-light: #8A7C66;
+    --rule: #15110A;
+    --vermilion: #B8341E;
+    --vermilion-wash: rgba(184, 52, 30, 0.06);
+    --noise-opacity: 1;
+
+    --rule-hair: 0.5px;
+    --rule-thin: 1px;
+    --rule-bold: 2.5px;
+    --rule-mast: 5px;
+
+    --fs-mast: clamp(36px, 7vw, 108px);
+    --fs-deck: clamp(11px, 1.65vw, 22px);
+    --fs-lede: 20px;
+    --fs-body: 16px;
+    --fs-caption: 13px;
+    --fs-footnote: 11px;
+
+    --gutter: 24px;
+    --column-gap: 28px;
+
+    font-family: var(--font-body);
+    font-size: var(--fs-body);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    box-sizing: border-box;
+}
+
+.root *,
+.root *::before,
+.root *::after {
+    box-sizing: border-box;
+}
+
+.root a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.root[data-cp-mode='dark'] {
+    --paper: #0D1117;
+    --paper-fold: #161B27;
+    --ink: rgba(255,255,255,0.87);
+    --ink-faded: rgba(255,255,255,0.87);
+    --ink-light: #6B6051;
+    --rule: #EDE5D2;
+    --vermilion: #C84A33;
+    --vermilion-wash: rgba(200, 74, 51, 0.10);
+    --noise-opacity: 0.4;
+}
+
+.root::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: var(--noise-opacity);
+    background-image:
+        radial-gradient(circle at 20% 30%, currentColor 0.5px, transparent 1px),
+        radial-gradient(circle at 70% 60%, currentColor 0.5px, transparent 1px),
+        radial-gradient(circle at 40% 80%, currentColor 0.5px, transparent 1px);
+    background-size: 7px 7px, 11px 11px, 13px 13px;
+    color: rgba(21, 17, 10, 0.025);
+    mix-blend-mode: multiply;
+}
+
+.root[data-cp-mode='dark']::before {
+    color: rgba(255, 240, 210, 0.04);
+    mix-blend-mode: screen;
+}
+
+/* ── マストヘッド ───────────────────────────────────── */
+.mast {
+    border-top: var(--rule-mast) solid var(--ink);
+    border-bottom: var(--rule-bold) solid var(--ink);
+    padding: 14px var(--gutter) 12px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: end;
+    gap: 24px;
+    font-family: var(--font-display);
+    position: sticky;
+    top: 0;
+    background: var(--paper);
+    z-index: 50;
+}
+
+.mastEdition {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    letter-spacing: 0.02em;
+    color: var(--ink-faded);
+    text-align: left;
+    line-height: 1.5;
+}
+
+.mastEdition b {
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.mastTitle {
+    font-style: italic;
+    font-weight: 900;
+    font-size: clamp(24px, 4vw, 44px);
+    letter-spacing: -0.02em;
+    line-height: 1;
+    text-align: center;
+}
+
+.mastNav {
+    display: flex;
+    gap: 18px;
+    justify-content: flex-end;
+    align-items: center;
+    font-family: var(--font-body);
+    font-size: var(--fs-caption);
+    font-weight: 600;
+}
+
+.mastNav a {
+    border-bottom: 1.5px solid transparent;
+    padding-bottom: 2px;
+    transition: border-color 0.2s;
+}
+
+.mastNav a:hover {
+    border-color: var(--ink);
+}
+
+.mastNav a:focus-visible,
+.mastModeToggle:focus-visible,
+.mastLocaleToggle:focus-visible {
+    outline: 2px solid var(--vermilion);
+    outline-offset: 2px;
+}
+
+.mastModeToggle,
+.mastLocaleToggle {
+    background: transparent;
+    border: 0;
+    padding: 0 4px;
+    color: inherit;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: var(--fs-caption);
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    line-height: 1;
+}
+
+.mastLocaleToggle {
+    border-bottom: 1.5px solid transparent;
+    padding-bottom: 2px;
+    transition: border-color 0.2s;
+}
+
+.mastLocaleToggle:hover {
+    border-color: var(--ink);
+}
+
+.mastRules {
+    grid-column: 1 / -1;
+}
+
+.mastRulePair {
+    border-bottom: var(--rule-hair) solid var(--ink);
+    margin: 3px 0;
+}
+
+@media (max-width: 880px) {
+    .mast {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    .mastTitle {
+        text-align: left;
+    }
+    .mastNav {
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+}
+
+/* ── ヘッドライン段組み ────────────────────────────── */
+.headline {
+    padding: 36px var(--gutter) 28px;
+    border-bottom: var(--rule-bold) solid var(--ink);
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 48px;
+    align-items: end;
+}
+
+@media (max-width: 880px) {
+    .headline {
+        grid-template-columns: 1fr;
+        gap: 24px;
+    }
+}
+
+.headlineKicker {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    letter-spacing: 0.18em;
+    text-transform: lowercase;
+    color: var(--ink-faded);
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.headlineKicker::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--ink-faded);
+}
+
+.headlineTitle {
+    font-family: var(--font-display);
+    font-size: var(--fs-mast);
+    line-height: 0.88;
+    letter-spacing: -0.035em;
+    font-weight: 900;
+    margin: 0 0 18px;
+    text-align: left;
+    hyphens: none;
+}
+
+.headlineTitle em {
+    font-style: italic;
+    font-weight: 400;
+}
+
+.headlineTitle:lang(ja) {
+    font-family: var(--font-brush);
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+    margin-bottom: 64px;
+}
+
+.headlineTitle:lang(ja) em {
+    font-style: normal;
+    font-weight: 400;
+    color: var(--vermilion);
+}
+
+.headlineTitle ruby {
+    ruby-position: over;
+}
+
+.headlineTitle rt {
+    font-family: var(--font-mono);
+    font-size: 0.12em;
+    letter-spacing: 0.08em;
+    font-weight: 500;
+    color: var(--ink-faded);
+}
+
+.headlineTitle em rt {
+    color: var(--vermilion);
+}
+
+.headlineDeck {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 400;
+    font-size: var(--fs-deck);
+    line-height: 1.15;
+    margin: 0;
+    color: var(--ink-faded);
+    max-width: 50ch;
+    white-space: pre-line;
+}
+
+.headlineByline {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+    border-top: var(--rule-thin) solid var(--ink);
+    padding-top: 10px;
+    margin-top: 24px;
+}
+
+.headlineByline b {
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.headlineAside {
+    border-left: var(--rule-thin) solid var(--ink);
+    padding: 0 0 0 24px;
+    font-family: var(--font-body);
+    font-size: var(--fs-caption);
+    line-height: 1.9;
+    color: var(--ink-faded);
+}
+
+.vert {
+    writing-mode: vertical-rl;
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--ink);
+    height: 220px;
+    margin-bottom: 16px;
+    letter-spacing: 0.1em;
+}
+
+.headlineAside hr {
+    border: 0;
+    border-top: var(--rule-thin) solid var(--ink-light);
+    margin: 14px 0;
+}
+
+.headlineAsideEditor {
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 15px;
+}
+
+.headlineAsideMeta {
+    font-family: var(--font-mono);
+    color: var(--ink);
+    letter-spacing: 0;
+}
+
+.headlineAsideFooter {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+}
+
+.textVermilion {
+    color: var(--vermilion);
+}
+
+/* ── キャラバン進行帯 ───────────────────────────────── */
+.caravan {
+    border-bottom: var(--rule-bold) solid var(--ink);
+    overflow: hidden;
+    position: relative;
+    height: 88px;
+    background: var(--paper);
+}
+
+.caravan svg {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 200%;
+    height: 100%;
+    transform: translateY(-50%);
+    animation: caravanWalk 60s linear infinite;
+}
+
+.caravanTick {
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+    letter-spacing: 0.15em;
+    background: var(--paper);
+    padding: 0 12px;
+    z-index: 1;
+}
+
+@keyframes caravanWalk {
+    from {
+        transform: translate(0, -50%);
+    }
+    to {
+        transform: translate(-50%, -50%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .caravan svg {
+        animation: none;
+    }
+}
+
+/* ── 記事ボディ・3段組み ───────────────────────────── */
+.dispatch {
+    padding: 48px var(--gutter);
+    border-bottom: var(--rule-bold) solid var(--ink);
+}
+
+.dispatchHeader {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    border-bottom: var(--rule-thin) solid var(--ink);
+    padding-bottom: 8px;
+    margin-bottom: 24px;
+    font-family: var(--font-display);
+}
+
+.dispatchNum {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--vermilion);
+    font-weight: 600;
+    letter-spacing: 0.12em;
+}
+
+.dispatchSection {
+    font-style: italic;
+    font-weight: 700;
+    font-size: 28px;
+    margin: 0;
+}
+
+.dispatchSection em {
+    font-weight: 400;
+}
+
+.dispatchMeta {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+}
+
+.columns {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--column-gap);
+    font-family: var(--font-body);
+    line-height: 1.75;
+    text-align: justify;
+    hyphens: auto;
+}
+
+@media (max-width: 1100px) {
+    .columns {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .columns {
+        grid-template-columns: 1fr;
+    }
+}
+
+.column {
+    border-right: var(--rule-hair) solid var(--ink-light);
+    padding-right: calc(var(--column-gap) / 2);
+    min-width: 0;
+}
+
+.column:last-child {
+    border-right: 0;
+    padding-right: 0;
+}
+
+@media (max-width: 1100px) {
+    .column {
+        border-right: 0;
+        padding-right: 0;
+    }
+    .column:nth-child(odd) {
+        border-right: var(--rule-hair) solid var(--ink-light);
+        padding-right: calc(var(--column-gap) / 2);
+    }
+}
+
+@media (max-width: 600px) {
+    .column:nth-child(odd) {
+        border-right: 0;
+        padding-right: 0;
+    }
+}
+
+.column p {
+    margin: 0 0 1em;
+}
+
+.column h3 {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 700;
+    font-size: 17px;
+    margin: 0 0 0.4em;
+    border-top: var(--rule-thin) solid var(--ink);
+    padding-top: 6px;
+}
+
+.columnLead p:first-child::first-letter {
+    font-family: var(--font-display);
+    font-size: 5.2em;
+    font-weight: 900;
+    float: left;
+    line-height: 0.85;
+    margin: 0.06em 0.08em 0 0;
+    color: var(--ink);
+}
+
+.dispatchLink {
+    border-bottom: 1px solid currentColor;
+    color: var(--ink);
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.dispatchLink:hover {
+    color: var(--vermilion);
+    border-color: var(--vermilion);
+}
+
+.dispatchLink:focus-visible {
+    outline: 2px solid var(--vermilion);
+    outline-offset: 2px;
+}
+
+/* ── Briefing 罫線台帳 ───────────────────────────────── */
+.briefing {
+    padding: 36px var(--gutter);
+    border-bottom: var(--rule-bold) solid var(--ink);
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 48px;
+}
+
+@media (max-width: 880px) {
+    .briefing {
+        grid-template-columns: 1fr;
+        gap: 24px;
+    }
+}
+
+.briefingLabel {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 900;
+    font-size: 64px;
+    line-height: 0.85;
+    letter-spacing: -0.03em;
+}
+
+.briefingLabel small {
+    display: block;
+    font-style: normal;
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+    margin-top: 14px;
+    letter-spacing: 0.15em;
+    font-weight: 400;
+}
+
+.briefingList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border-top: var(--rule-bold) solid var(--ink);
+}
+
+.briefingList li {
+    display: grid;
+    grid-template-columns: 56px 1fr auto;
+    gap: 18px;
+    padding: 18px 0;
+    border-bottom: var(--rule-thin) solid var(--ink-light);
+    align-items: baseline;
+}
+
+.briefingList li:last-child {
+    border-bottom: var(--rule-bold) solid var(--ink);
+}
+
+.briefingNum {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--vermilion);
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    padding-top: 4px;
+}
+
+.briefingHead {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-style: italic;
+    font-size: 22px;
+}
+
+.briefingHead p {
+    font-family: var(--font-body);
+    font-style: normal;
+    font-weight: 400;
+    font-size: var(--fs-body);
+    margin: 4px 0 0;
+    color: var(--ink-faded);
+}
+
+.briefingVerdict {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+    text-align: right;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+/* ── Briefing (Trail Viewer 埋め込み版) ────────────── */
+.briefingWithEmbed {
+    padding: 36px var(--gutter);
+    border-bottom: var(--rule-bold) solid var(--ink);
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 48px;
+    align-items: start;
+    scroll-margin-top: 120px;
+}
+
+@media (max-width: 880px) {
+    .briefingWithEmbed {
+        grid-template-columns: 1fr;
+        gap: 24px;
+    }
+}
+
+.briefingEmbed {
+    border: var(--rule-thin) solid var(--ink);
+    background: var(--paper);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.trailFrameBar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: var(--paper-fold);
+    border-bottom: var(--rule-thin) solid var(--ink-light);
+}
+
+.trailFrameDot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: inline-block;
+}
+
+.trailFrameTitle {
+    margin-left: 8px;
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+    letter-spacing: 0.02em;
+}
+
+.trailFrameBody {
+    flex: 1;
+    min-height: 0;
+}
+
+.briefingMain {
+    display: flex;
+    flex-direction: column;
+}
+
+.briefingHeader {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    border-bottom: var(--rule-bold) solid var(--ink);
+    padding-bottom: 14px;
+    margin-bottom: 0;
+}
+
+.briefingHeaderTitle {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 900;
+    font-size: clamp(36px, 5vw, 56px);
+    line-height: 0.9;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+}
+
+.briefingHeaderTitle em {
+    font-style: italic;
+    font-weight: 900;
+}
+
+.briefingListInline {
+    border-top: 0;
+}
+
+.briefingLeftStack {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+.briefingEmbedActions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* ── PullQuote ─────────────────────────────────────── */
+.pullQuote {
+    padding: 56px var(--gutter);
+    border-bottom: var(--rule-bold) solid var(--ink);
+    display: grid;
+    grid-template-columns: 1fr;
+    max-width: 1100px;
+}
+
+.pullQuote q {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: clamp(32px, 5vw, 64px);
+    font-weight: 400;
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+    quotes: '“' '”';
+    display: block;
+    text-indent: -0.4em;
+}
+
+.pullQuote q::before {
+    color: var(--vermilion);
+}
+
+.pullQuoteAttr {
+    margin-top: 28px;
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+    letter-spacing: 0.1em;
+}
+
+/* ── Ticker 横流れ ──────────────────────────────────── */
+.ticker {
+    border-top: var(--rule-thin) solid var(--ink);
+    border-bottom: var(--rule-bold) solid var(--ink);
+    padding: 10px 0;
+    overflow: hidden;
+    font-family: var(--font-mono);
+    font-size: var(--fs-caption);
+    color: var(--ink-faded);
+    letter-spacing: 0.05em;
+    background: var(--paper);
+}
+
+.tickerTrack {
+    white-space: nowrap;
+    display: inline-block;
+    animation: tickerScroll 80s linear infinite;
+}
+
+.tickerItem {
+    padding: 0 28px;
+}
+
+.tickerSep {
+    padding: 0 28px;
+    color: var(--vermilion);
+}
+
+@keyframes tickerScroll {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(-50%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tickerTrack {
+        animation: none;
+    }
+}
+
+/* ── CTA ボタン群 ────────────────────────────────── */
+.ctaActions {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.btn {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 16px 28px;
+    border: var(--rule-bold) solid var(--ink);
+    background: var(--paper);
+    color: var(--ink);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    text-decoration: none;
+}
+
+.btn:hover {
+    background: var(--ink);
+    color: var(--paper);
+}
+
+.btn:focus-visible {
+    outline: 2px solid var(--vermilion);
+    outline-offset: 2px;
+}
+
+.btnArrow {
+    font-family: var(--font-display);
+    font-style: italic;
+}
+
+.btnStamp {
+    position: relative;
+    border-color: var(--ink);
+    background: var(--paper);
+    padding-right: 60px;
+}
+
+.btnStamp::after {
+    content: 'OK';
+    position: absolute;
+    top: -12px;
+    right: -12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: var(--rule-thin) solid var(--vermilion);
+    color: var(--vermilion);
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 14px;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+    transform: rotate(-12deg);
+    background: var(--paper);
+    letter-spacing: 0;
+}
+
+/* ── Colophon フッター ────────────────────────────── */
+.colophon {
+    padding: 40px var(--gutter);
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 32px;
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+    line-height: 1.8;
+}
+
+@media (max-width: 720px) {
+    .colophon {
+        grid-template-columns: 1fr;
+    }
+}
+
+.colophon h4 {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+    margin: 0 0 8px;
+    letter-spacing: 0;
+}
+
+.colophon ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.colophon li {
+    border-bottom: var(--rule-hair) dashed var(--ink-light);
+    padding: 4px 0;
+}
+
+.colophon a:hover {
+    color: var(--ink);
+}
+
+.colophon a:focus-visible {
+    outline: 2px solid var(--vermilion);
+    outline-offset: 2px;
+}
+
+.fold {
+    border-top: var(--rule-bold) solid var(--ink);
+    padding: 16px var(--gutter);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+    letter-spacing: 0.05em;
+    flex-wrap: wrap;
+}
+
+.foldLogo {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.foldLogoBadge circle {
+    fill: var(--ink);
+}
+
+.foldLogoHoof {
+    fill: var(--paper);
+}
+
+.foldLogoText {
+    display: inline-flex;
+    flex-direction: column;
+    line-height: 1;
+}
+
+.foldLogoTitle {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    line-height: 1.15;
+}
+
+.foldLogoSubtitle {
+    font-family: var(--font-mono);
+    font-size: 0.58rem;
+    letter-spacing: 0.22em;
+    color: var(--vermilion);
+    line-height: 1.2;
+}
+
+.foldStamp {
+    border: var(--rule-thin) solid var(--vermilion);
+    color: var(--vermilion);
+    padding: 3px 10px;
+    font-style: italic;
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: 0;
+    transform: rotate(-3deg);
+    font-size: 12px;
+}
+
+/* ── ProgressRule スクロール連動 ─────────────────────── */
+.progressRule {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 2px;
+    background: var(--vermilion);
+    z-index: 100;
+    width: 0;
+    transition: width 0.05s linear;
+}

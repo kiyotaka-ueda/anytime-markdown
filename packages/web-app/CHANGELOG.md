@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-04-25
+
+### Added
+
+- New landing page (Press) promoted to top route (`/`); redirect `/press` → `/`
+- Press page sections: Masthead, Headline, Dispatch, Briefing (Trail Viewer + Markdown Viewer embeds), PullQuote, Ticker, CtaStrip, Colophon
+- JA Headline title with ruby annotations via `next/font` Yuji Boku brush font
+- Locale toggle (EN / JA) in Masthead
+- Progress rule scroll-bound indicator
+- Dynamic web-app version display in Headline aside meta
+- Robots and sitemap entries for the press page
+- Font integration: Bodoni Moda, Shippori Mincho, Yuji Boku, JetBrains Mono
+
+### Changed
+
+- Promote `/press` as top page; top page now serves the full press layout
+- Refresh Anytime Trail LP benefits copy with visualization framing
+
 ## [0.17.0] - 2026-04-24
 
 ### Added

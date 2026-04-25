@@ -16,9 +16,29 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import type { SxProps, Theme } from '@mui/material/styles';
-import { BarChart } from '@mui/x-charts/BarChart';
-import { LineChart } from '@mui/x-charts/LineChart';
+import { BarChart, BarPlot } from '@mui/x-charts/BarChart';
+import { LineChart, LinePlot, MarkPlot } from '@mui/x-charts/LineChart';
+import { ChartsDataProvider } from '@mui/x-charts/ChartsDataProvider';
+import { ChartsSurface } from '@mui/x-charts/ChartsSurface';
+import { ChartsWrapper } from '@mui/x-charts/ChartsWrapper';
+import { ChartsXAxis } from '@mui/x-charts/ChartsXAxis';
+import { ChartsYAxis } from '@mui/x-charts/ChartsYAxis';
+import {
+  ChartsTooltip,
+  ChartsTooltipContainer,
+  ChartsTooltipPaper,
+  ChartsTooltipTable,
+  ChartsTooltipRow,
+  ChartsTooltipCell,
+  useAxesTooltip,
+} from '@mui/x-charts/ChartsTooltip';
+import { ChartsLabelMark } from '@mui/x-charts/ChartsLabel';
+import { ChartsGrid } from '@mui/x-charts/ChartsGrid';
+import { ChartsLegend } from '@mui/x-charts/ChartsLegend';
+import { ChartsAxisHighlight } from '@mui/x-charts/ChartsAxisHighlight';
 import { formatLocalTime, toLocalDateKey } from '@anytime-markdown/trail-core/formatDate';
+import { extractCommitPrefix } from '@anytime-markdown/trail-core/domain';
+import type { QualityMetrics, DateRange, ReleaseQualityBucket } from '@anytime-markdown/trail-core/domain/metrics';
 import type { AnalyticsData, CombinedData, CombinedPeriodMode, CombinedRangeDays, CostOptimizationData, ToolMetrics, TrailMessage, TrailSession, TrailSessionCommit, TrailTokenUsage } from '../parser/types';
 import { useTrailTheme } from './TrailThemeContext';
 import { useTrailI18n } from '../i18n';
@@ -34,6 +54,9 @@ export interface AnalyticsPanelProps {
   readonly fetchDayToolMetrics?: (date: string) => Promise<ToolMetrics | null>;
   readonly costOptimization?: CostOptimizationData | null;
   readonly fetchCombinedData?: (period: CombinedPeriodMode, rangeDays: CombinedRangeDays) => Promise<CombinedData>;
+  readonly fetchQualityMetrics?: (range: DateRange) => Promise<QualityMetrics | null>;
+  readonly fetchDeploymentFrequency?: (range: DateRange, bucket: 'day' | 'week') => Promise<ReadonlyArray<{ bucketStart: string; value: number }>>;
+  readonly fetchReleaseQuality?: (range: DateRange, bucket: 'day' | 'week') => Promise<ReadonlyArray<ReleaseQualityBucket>>;
 }
 
 // ---------------------------------------------------------------------------
@@ -438,6 +461,91 @@ function SessionCacheTimeline({
           </Typography>
         </Box>
       )}
+    </Paper>
+  );
+}
+
+function SessionCommitPrefixChart({
+  sessionId,
+  fetchSessionCommits,
+}: Readonly<{
+  sessionId: string;
+  fetchSessionCommits: (id: string) => Promise<readonly TrailSessionCommit[]>;
+}>) {
+  const { cardSx, toolPalette } = useTrailTheme();
+  const { t } = useTrailI18n();
+  const [commits, setCommits] = useState<readonly TrailSessionCommit[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    void (async () => {
+      try {
+        const result = await fetchSessionCommits(sessionId);
+        if (!cancelled) setCommits(result);
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [sessionId, fetchSessionCommits]);
+
+  if (loading || commits.length === 0) return null;
+
+  const prefixCounts = new Map<string, number>();
+  for (const c of commits) {
+    const subject = (c.commitMessage ?? '').split('\n')[0];
+    const prefix = extractCommitPrefix(subject);
+    prefixCounts.set(prefix, (prefixCounts.get(prefix) ?? 0) + 1);
+  }
+  const sorted = [...prefixCounts.entries()].sort(([, a], [, b]) => b - a);
+
+  const entry: Record<string, string | number> = { metric: 'count' };
+  let total = 0;
+  for (let i = 0; i < sorted.length; i++) {
+    entry[`p${i}`] = sorted[i][1];
+    total += sorted[i][1];
+  }
+  const tickValues = niceTicks(total);
+
+  return (
+    <Paper elevation={0} sx={{ ...cardSx, pt: 2, pr: 2, pb: 0, pl: 0 }}>
+      <Typography variant="subtitle2" sx={{ mb: 1, px: 2 }}>
+        {t('analytics.commitPrefixChartTitle')}
+      </Typography>
+      <BarChart
+        dataset={[entry]}
+        layout="horizontal"
+        yAxis={[{ scaleType: 'band', dataKey: 'metric', categoryGapRatio: 0.25, tickLabelStyle: { display: 'none' } }]}
+        xAxis={[{ tickInterval: tickValues, valueFormatter: fmtNum }]}
+        series={sorted.map(([prefix, count], i) => ({
+          dataKey: `p${i}`,
+          label: `${prefix} (${count})`,
+          stack: 'total',
+          color: toolPalette[i % toolPalette.length],
+        }))}
+        height={70}
+        margin={{ left: 20, right: 16, top: 4, bottom: 16 }}
+        slots={{ legend: () => null }}
+      />
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, px: 2, pb: 1.5 }}>
+        {sorted.map(([prefix, count], i) => (
+          <Chip
+            key={prefix}
+            size="small"
+            label={`${prefix} (${count})`}
+            sx={{
+              bgcolor: toolPalette[i % toolPalette.length],
+              color: '#fff',
+              fontSize: '0.7rem',
+              height: 20,
+            }}
+          />
+        ))}
+      </Box>
     </Paper>
   );
 }
@@ -1161,11 +1269,17 @@ function DailySessionList({
                   <SessionCacheTimeline messages={timelineMessages} />
                 )}
                 {fetchSessionCommits && (
-                  <SessionCommitList
-                    sessionId={timelineSessionId!}
-                    usage={selectedSession.usage}
-                    fetchSessionCommits={fetchSessionCommits}
-                  />
+                  <>
+                    <SessionCommitPrefixChart
+                      sessionId={timelineSessionId!}
+                      fetchSessionCommits={fetchSessionCommits}
+                    />
+                    <SessionCommitList
+                      sessionId={timelineSessionId!}
+                      usage={selectedSession.usage}
+                      fetchSessionCommits={fetchSessionCommits}
+                    />
+                  </>
                 )}
               </Box>
             );
@@ -1190,6 +1304,7 @@ type ChartEntry = {
   date: string; fullDate: string;
   inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number;
   actualCost: number; skillCost: number;
+  overlayValue: number | null;
 };
 
 function toFridayWeekKey(dateStr: string): string {
@@ -1205,19 +1320,26 @@ function toFridayWeekKey(dateStr: string): string {
 }
 
 function groupByWeek(entries: readonly ChartEntry[]): ChartEntry[] {
-  const map = new Map<string, ChartEntry>();
+  const map = new Map<string, ChartEntry & { _overlayCount: number }>();
   for (const d of entries) {
     const key = toFridayWeekKey(d.fullDate);
-    const e = map.get(key) ?? { date: key.slice(5), fullDate: key, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, actualCost: 0, skillCost: 0 };
+    const e = map.get(key) ?? { date: key.slice(5), fullDate: key, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, actualCost: 0, skillCost: 0, overlayValue: null, _overlayCount: 0 };
     e.inputTokens += d.inputTokens;
     e.outputTokens += d.outputTokens;
     e.cacheReadTokens += d.cacheReadTokens;
     e.cacheCreationTokens += d.cacheCreationTokens;
     e.actualCost += d.actualCost;
     e.skillCost += d.skillCost;
+    if (d.overlayValue != null) {
+      e.overlayValue = (e.overlayValue ?? 0) + d.overlayValue;
+      e._overlayCount += 1;
+    }
     map.set(key, e);
   }
-  return [...map.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v);
+  return [...map.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => {
+    const { _overlayCount, overlayValue, ...rest } = v;
+    return { ...rest, overlayValue: _overlayCount > 0 && overlayValue != null ? overlayValue / _overlayCount : null };
+  });
 }
 
 function DailyActivityChart({
@@ -1226,14 +1348,21 @@ function DailyActivityChart({
   mode,
   onDateClick,
   costOptimization,
+  overlay,
 }: Readonly<{
   items: AnalyticsData['dailyActivity'];
   period: PeriodDays;
   mode: DailyViewMode;
   onDateClick?: (fullDate: string) => void;
   costOptimization?: CostOptimizationData | null;
+  overlay?: {
+    bucket: 'day' | 'week';
+    tokens: ReadonlyArray<{ bucketStart: string; value: number }>;
+    cost: ReadonlyArray<{ bucketStart: string; value: number }>;
+  } | null;
 }>) {
   const { chartColors, cardSx } = useTrailTheme();
+  const { t } = useTrailI18n();
 
   const costByDate = useMemo(() => {
     const map = new Map<string, { actual: number; skill: number }>();
@@ -1244,6 +1373,20 @@ function DailyActivityChart({
     return map;
   }, [costOptimization]);
 
+  const overlayByDate = useMemo(() => {
+    if (!overlay) return new Map<string, number>();
+    const series = mode === 'tokens' ? overlay.tokens : overlay.cost;
+    const map = new Map<string, number>();
+    for (const b of series) {
+      const localDate = toLocalDateKey(b.bucketStart);
+      // trail-core buildRatioTimeSeries uses Sunday-anchored weeks; align to Friday
+      const key = overlay.bucket === 'week' ? toFridayWeekKey(localDate) : localDate;
+      map.set(key, b.value);
+    }
+    return map;
+  }, [overlay, mode]);
+
+  const overlayBucket = overlay?.bucket;
   const dataset = useMemo(() => {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - period);
@@ -1261,16 +1404,28 @@ function DailyActivityChart({
         cacheCreationTokens: isTokens ? d.cacheCreationTokens : 0,
         actualCost: isTokens ? 0 : (costEntry?.actual ?? d.estimatedCostUsd),
         skillCost: isTokens ? 0 : (costEntry?.skill ?? 0),
+        overlayValue: overlayByDate.get(overlayBucket === 'week' ? toFridayWeekKey(d.date) : d.date) ?? null,
       };
     });
     return period === 90 ? groupByWeek(dailyDataset) : dailyDataset;
-  }, [items, period, mode, costByDate]);
+  }, [items, period, mode, costByDate, overlayByDate, overlayBucket]);
 
   if (items.length === 0) return null;
 
   const isTokens = mode === 'tokens';
   const yFormatter = isTokens ? fmtTokens : fmtUsdShort;
   const seriesFormatter = (v: number | null) => (v == null || v === 0 ? null : yFormatter(v));
+  const hasOverlay = overlay != null;
+  const overlayLabel = isTokens ? t('chart.tokensPerLoc') : t('chart.costPerLoc');
+  const overlayFormatter = (v: number | null) => {
+    if (v == null) return null;
+    if (isTokens) return `${v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v.toFixed(0)} tok/LOC`;
+    return v >= 0.01 ? `$${v.toFixed(4)}/LOC` : `¢${(v * 100).toFixed(2)}/LOC`;
+  };
+  const rightAxisFormatter = (v: number) => {
+    if (isTokens) return v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v.toFixed(0);
+    return v >= 0.01 ? `$${v.toFixed(2)}` : `¢${(v * 100).toFixed(1)}`;
+  };
 
   const handleAxisClick = (_event: MouseEvent, data: { dataIndex: number } | null) => {
     const idx = data?.dataIndex;
@@ -1278,28 +1433,57 @@ function DailyActivityChart({
     onDateClick?.(dataset[idx].fullDate);
   };
 
+  const barSeries = isTokens ? [
+    { type: 'bar' as const, dataKey: 'inputTokens', label: 'Input', stack: 'a', color: chartColors.input, yAxisId: 'left', valueFormatter: seriesFormatter },
+    { type: 'bar' as const, dataKey: 'outputTokens', label: 'Output', stack: 'a', color: chartColors.output, yAxisId: 'left', valueFormatter: seriesFormatter },
+    { type: 'bar' as const, dataKey: 'cacheReadTokens', label: 'Cache Read', stack: 'a', color: chartColors.cacheRead, yAxisId: 'left', valueFormatter: seriesFormatter },
+    { type: 'bar' as const, dataKey: 'cacheCreationTokens', label: 'Cache Write', stack: 'a', color: chartColors.cacheWrite, yAxisId: 'left', valueFormatter: seriesFormatter },
+  ] : [
+    { type: 'bar' as const, dataKey: 'actualCost', label: 'Current', color: chartColors.primary, yAxisId: 'left', valueFormatter: seriesFormatter },
+    { type: 'bar' as const, dataKey: 'skillCost', label: 'Optimized', color: chartColors.skill, yAxisId: 'left', valueFormatter: seriesFormatter },
+  ];
+
+  const overlaySeries = hasOverlay ? [{
+    type: 'line' as const,
+    dataKey: 'overlayValue',
+    label: overlayLabel,
+    color: chartColors.overlayPerLoc,
+    yAxisId: 'right',
+    connectNulls: true,
+    showMark: true,
+    valueFormatter: overlayFormatter,
+  }] : [];
+
   return (
     <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
-      <BarChart
+      <ChartsDataProvider
         dataset={dataset}
-        xAxis={[{ scaleType: 'band', dataKey: 'date' }]}
-        yAxis={[{ valueFormatter: yFormatter }]}
-        series={isTokens ? [
-          { dataKey: 'inputTokens', label: 'Input', stack: 'a', color: chartColors.input, valueFormatter: seriesFormatter },
-          { dataKey: 'outputTokens', label: 'Output', stack: 'a', color: chartColors.output, valueFormatter: seriesFormatter },
-          { dataKey: 'cacheReadTokens', label: 'Cache Read', stack: 'a', color: chartColors.cacheRead, valueFormatter: seriesFormatter },
-          { dataKey: 'cacheCreationTokens', label: 'Cache Write', stack: 'a', color: chartColors.cacheWrite, valueFormatter: seriesFormatter },
-        ] : [
-          { dataKey: 'actualCost', label: 'Current', color: chartColors.primary, valueFormatter: seriesFormatter },
-          { dataKey: 'skillCost', label: 'Optimized', color: chartColors.skill, valueFormatter: seriesFormatter },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        series={[...barSeries, ...overlaySeries] as any}
+        xAxis={[{ id: 'date', scaleType: 'band', dataKey: 'date' }]}
+        yAxis={[
+          { id: 'left', valueFormatter: yFormatter },
+          { id: 'right', position: 'right', valueFormatter: rightAxisFormatter },
         ]}
         height={240}
-        margin={{ left: 16, right: 8, top: 8, bottom: 40 }}
-        slotProps={{
-          legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } },
-        }}
+        margin={{ left: 16, right: hasOverlay ? 56 : 8, top: 8, bottom: 40 }}
         onAxisClick={period === 90 ? undefined : handleAxisClick}
-      />
+      >
+        <ChartsWrapper legendDirection="horizontal" legendPosition={{ vertical: 'bottom', horizontal: 'center' }}>
+          <ChartsLegend />
+          <ChartsSurface>
+            <ChartsGrid horizontal />
+            <BarPlot />
+            {hasOverlay && <LinePlot />}
+            {hasOverlay && <MarkPlot />}
+            <ChartsAxisHighlight x="band" />
+            <ChartsXAxis axisId="date" />
+            <ChartsYAxis axisId="left" />
+            {hasOverlay && <ChartsYAxis axisId="right" />}
+          </ChartsSurface>
+          <ChartsTooltip />
+        </ChartsWrapper>
+      </ChartsDataProvider>
     </Paper>
   );
 }
@@ -1313,7 +1497,7 @@ function DailyActivityChart({
 // ─── Behavior charts in Analytics ───────────────────────────────────────────
 
 type ChartMetric = 'count' | 'tokens';
-type CombinedChartKind = 'tools' | 'errors' | 'skills' | 'models';
+type CombinedChartKind = 'tools' | 'errors' | 'skills' | 'models' | 'commits' | 'releases';
 
 // スタック棒グラフの系列数が多すぎると描画・凡例・ツールチップが重くなるため、
 // 上位 N 件以外を "Others" に集約する。
@@ -1336,12 +1520,67 @@ function capTopN(
   return { displayKeys: [...top, OTHERS_LABEL], keyMap };
 }
 
-function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, modelMetric, onDateClick }: Readonly<{
+type CommitMetric = 'count' | 'loc' | 'leadTime';
+
+function LeadTimeAxisTooltipContent({ unmappedByBucket, bucketKeys }: Readonly<{
+  unmappedByBucket: Map<string, number>;
+  bucketKeys: ReadonlyArray<string>;
+}>) {
+  const tooltipData = useAxesTooltip();
+  if (tooltipData === null) return null;
+  return (
+    <ChartsTooltipPaper>
+      {tooltipData.map(({ axisId, mainAxis, axisValue, axisFormattedValue, seriesItems, dataIndex }) => {
+        const bucketKey = bucketKeys[dataIndex] ?? '';
+        const unmapped = unmappedByBucket.get(bucketKey) ?? 0;
+        return (
+          <ChartsTooltipTable key={axisId}>
+            {axisValue != null && !mainAxis.hideTooltip && (
+              <Typography component="caption">{axisFormattedValue}</Typography>
+            )}
+            <tbody>
+              {seriesItems.map((item) => (
+                item.formattedValue == null || typeof item.formattedValue !== 'string' ? null : (
+                  <ChartsTooltipRow key={item.seriesId}>
+                    <ChartsTooltipCell component="th">
+                      <ChartsLabelMark
+                        type={item.markType}
+                        markShape={item.markShape}
+                        color={item.color}
+                      />
+                      {item.formattedLabel}
+                    </ChartsTooltipCell>
+                    <ChartsTooltipCell component="td">{item.formattedValue}</ChartsTooltipCell>
+                  </ChartsTooltipRow>
+                )
+              ))}
+              <ChartsTooltipRow>
+                <ChartsTooltipCell component="th" sx={{ opacity: 0.7 }}>未マップ</ChartsTooltipCell>
+                <ChartsTooltipCell component="td" sx={{ opacity: 0.7 }}>{unmapped} 件</ChartsTooltipCell>
+              </ChartsTooltipRow>
+            </tbody>
+          </ChartsTooltipTable>
+        );
+      })}
+    </ChartsTooltipPaper>
+  );
+}
+
+function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, modelMetric, commitMetric, leadTimeOverlay, onDateClick }: Readonly<{
   data: CombinedData | null;
   periodDays: PeriodDays;
   activeChart: CombinedChartKind;
   toolMetric: ChartMetric;
   modelMetric: ChartMetric;
+  commitMetric: CommitMetric;
+  leadTimeOverlay: {
+    leadTimePerLoc: ReadonlyArray<{ bucketStart: string; value: number }>;
+    unmapped: ReadonlyArray<{ bucketStart: string; value: number }>;
+    byPrefix: {
+      prefixes: ReadonlyArray<string>;
+      series: ReadonlyArray<{ bucketStart: string; byPrefix: Readonly<Record<string, number>> }>;
+    };
+  } | null;
   onDateClick?: (fullDate: string) => void;
 }>) {
   const { cardSx, toolPalette } = useTrailTheme();
@@ -1355,10 +1594,14 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
     const errorRows = (data.errorRate ?? []).filter(r => r.period >= cutoffStr);
     const skillRows = (data.skillStats ?? []).filter(r => r.period >= cutoffStr);
     const modelRows = (data.modelStats ?? []).filter(r => r.period >= cutoffStr);
+    const commitRows = (data.commitPrefixStats ?? []).filter(r => r.period >= cutoffStr);
+    const aiRateRows = (data.aiFirstTryRate ?? []).filter(r => r.period >= cutoffStr);
     const allPeriods = [...new Set(toolRows.map(r => r.period))].sort();
     const labels = allPeriods.map(p => p.length > 5 ? p.slice(5) : p);
     const modelPeriods = [...new Set(modelRows.map(r => r.period))].sort();
     const modelLabels = modelPeriods.map(p => p.length > 5 ? p.slice(5) : p);
+    const commitPeriods = [...new Set(commitRows.map(r => r.period))].sort();
+    const commitLabels = commitPeriods.map(p => p.length > 5 ? p.slice(5) : p);
 
     const toolTotals = new Map<string, number>();
     for (const r of toolRows) toolTotals.set(r.tool, (toolTotals.get(r.tool) ?? 0) + r.count);
@@ -1368,21 +1611,28 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
     for (const r of skillRows) skillTotals.set(r.skill, (skillTotals.get(r.skill) ?? 0) + r.count);
     const modelTotals = new Map<string, number>();
     for (const r of modelRows) modelTotals.set(r.model, (modelTotals.get(r.model) ?? 0) + r.count);
+    const commitTotals = new Map<string, number>();
+    for (const r of commitRows) commitTotals.set(r.prefix, (commitTotals.get(r.prefix) ?? 0) + r.count);
 
     const toolCap = capTopN(toolTotals);
     const errCap = capTopN(errToolTotals);
     const skillCap = capTopN(skillTotals);
     const modelCap = capTopN(modelTotals);
+    const commitCap = capTopN(commitTotals);
 
     return {
       toolRows,
       errorRows,
       skillRows,
       modelRows,
+      commitRows,
+      aiRateRows,
       allPeriods,
       labels,
       modelPeriods,
       modelLabels,
+      commitPeriods,
+      commitLabels,
       tools: toolCap.displayKeys,
       toolMap: toolCap.keyMap,
       errTools: errCap.displayKeys,
@@ -1391,6 +1641,8 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
       skillMap: skillCap.keyMap,
       models: modelCap.displayKeys,
       modelMap: modelCap.keyMap,
+      commitPrefixes: commitCap.displayKeys,
+      commitMap: commitCap.keyMap,
     };
   }, [data, periodDays]);
 
@@ -1452,6 +1704,25 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
     });
   }, [axisInfo]);
 
+  const commitDataset = useMemo(() => {
+    if (!axisInfo) return [];
+    const { commitRows, commitPeriods, commitLabels, commitPrefixes, commitMap } = axisInfo;
+    const valMap = new Map<string, number>();
+    for (const r of commitRows) {
+      const displayKey = commitMap.get(r.prefix) ?? r.prefix;
+      const key = `${r.period}::${displayKey}`;
+      const value = commitMetric === 'loc' ? (r.linesAdded ?? 0) : r.count;
+      valMap.set(key, (valMap.get(key) ?? 0) + value);
+    }
+    return commitPeriods.map((p, pi) => {
+      const entry: Record<string, string | number> = { period: commitLabels[pi] };
+      for (let i = 0; i < commitPrefixes.length; i++) {
+        entry[`c${i}`] = valMap.get(`${p}::${commitPrefixes[i]}`) ?? 0;
+      }
+      return entry;
+    });
+  }, [axisInfo, commitMetric]);
+
   const modelDataset = useMemo(() => {
     if (!axisInfo) return [];
     const { modelRows, modelPeriods, modelLabels, models, modelMap } = axisInfo;
@@ -1473,7 +1744,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
   }, [axisInfo, modelMetric]);
 
   if (!axisInfo) return null;
-  const { toolRows, errTools, tools, skills, models, allPeriods, modelPeriods } = axisInfo;
+  const { toolRows, errTools, tools, skills, models, commitPrefixes, aiRateRows, allPeriods, modelPeriods, commitPeriods, commitLabels } = axisInfo;
   const hideZero = (v: number | null) => (v == null || v === 0 ? null : String(v));
   const canDrill = periodDays < 90 && !!onDateClick;
   const makeAxisClick = (periods: readonly string[]) =>
@@ -1564,6 +1835,192 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
     );
   }
 
+  if (activeChart === 'commits') {
+    if (commitMetric === 'leadTime') {
+      const ratioRows = leadTimeOverlay?.leadTimePerLoc ?? [];
+      const byPrefixSeries = leadTimeOverlay?.byPrefix.series ?? [];
+      const allPrefixes = leadTimeOverlay?.byPrefix.prefixes ?? [];
+      if (byPrefixSeries.length === 0 && ratioRows.length === 0) {
+        return <Typography variant="body2" color="text.secondary">0</Typography>;
+      }
+
+      const ltTotals = new Map<string, number>();
+      for (const row of byPrefixSeries) {
+        for (const [p, v] of Object.entries(row.byPrefix)) {
+          ltTotals.set(p, (ltTotals.get(p) ?? 0) + v);
+        }
+      }
+      const ltCap = capTopN(ltTotals);
+      const ltPrefixes = ltCap.displayKeys;
+      const ltMap = ltCap.keyMap;
+
+      const unmappedRows = leadTimeOverlay?.unmapped ?? [];
+      const bucketKeys = [...new Set([
+        ...byPrefixSeries.map((r) => r.bucketStart),
+        ...ratioRows.map((r) => r.bucketStart),
+      ])].sort();
+      const ratioByBucket = new Map(ratioRows.map((r) => [r.bucketStart, r.value]));
+      const prefixRowByBucket = new Map(byPrefixSeries.map((r) => [r.bucketStart, r.byPrefix]));
+      const unmappedByBucket = new Map(unmappedRows.map((r) => [r.bucketStart, r.value]));
+      const fullDates = bucketKeys.map((b) => b.slice(0, 10));
+      const labels = bucketKeys.map((b) => b.slice(5, 10));
+
+      const ltDataset = bucketKeys.map((b, i) => {
+        const byPrefix = prefixRowByBucket.get(b) ?? {};
+        const aggregated: Record<string, number> = {};
+        for (const p of ltPrefixes) aggregated[p] = 0;
+        for (const origPrefix of allPrefixes) {
+          const displayKey = ltMap.get(origPrefix) ?? origPrefix;
+          aggregated[displayKey] = (aggregated[displayKey] ?? 0) + (byPrefix[origPrefix] ?? 0);
+        }
+        const entry: Record<string, string | number | null> = { period: labels[i] };
+        for (let k = 0; k < ltPrefixes.length; k++) {
+          entry[`l${k}`] = aggregated[ltPrefixes[k]] ?? 0;
+        }
+        entry.leadTimePerLoc = ratioByBucket.get(b) ?? null;
+        return entry;
+      });
+
+      const fmtMin = (v: number | null) => v == null ? '-' : `${Math.round(v).toLocaleString()} min`;
+      const fmtRatio = (v: number | null) => v == null ? '-' : `${v.toFixed(2)} min/LOC`;
+
+      const barSeries = ltPrefixes.map((prefix, i) => ({
+        type: 'bar' as const,
+        dataKey: `l${i}`,
+        label: prefix,
+        stack: 'total',
+        color: toolPalette[i % toolPalette.length],
+        yAxisId: 'minAxis',
+        valueFormatter: (v: number | null) => v == null || v === 0 ? null : fmtMin(v),
+      }));
+      const lineSeries = [{
+        type: 'line' as const,
+        dataKey: 'leadTimePerLoc',
+        label: 'Lead Time / LOC (min/LOC)',
+        color: '#F06292',
+        yAxisId: 'ratioAxis',
+        showMark: true,
+        connectNulls: true,
+        valueFormatter: fmtRatio,
+      }];
+
+      return (
+        <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+          <ChartsDataProvider
+            dataset={ltDataset}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            series={[...barSeries, ...lineSeries] as any}
+            xAxis={[{ id: 'period', scaleType: 'band', dataKey: 'period' }]}
+            yAxis={[
+              { id: 'minAxis', valueFormatter: fmtTokens },
+              { id: 'ratioAxis', position: 'right' as const, valueFormatter: (v: number) => v.toFixed(2) },
+            ]}
+            height={260}
+            margin={{ left: 16, right: 56, top: 8, bottom: 40 }}
+            onAxisClick={canDrill
+              ? (_e: MouseEvent, d: { dataIndex: number } | null) => {
+                  const idx = d?.dataIndex;
+                  if (idx == null || idx < 0 || idx >= fullDates.length) return;
+                  onDateClick?.(fullDates[idx]);
+                }
+              : undefined}
+          >
+            <ChartsWrapper legendDirection="horizontal" legendPosition={{ vertical: 'bottom', horizontal: 'center' }}>
+              <ChartsLegend />
+              <ChartsSurface>
+                <ChartsGrid horizontal />
+                <BarPlot />
+                <LinePlot />
+                <MarkPlot />
+                <ChartsAxisHighlight x="band" />
+                <ChartsXAxis axisId="period" />
+                <ChartsYAxis axisId="minAxis" />
+                <ChartsYAxis axisId="ratioAxis" />
+              </ChartsSurface>
+              <ChartsTooltipContainer trigger="axis">
+                <LeadTimeAxisTooltipContent
+                  unmappedByBucket={unmappedByBucket}
+                  bucketKeys={bucketKeys}
+                />
+              </ChartsTooltipContainer>
+            </ChartsWrapper>
+          </ChartsDataProvider>
+        </Paper>
+      );
+    }
+
+    if (commitPrefixes.length === 0) {
+      return <Typography variant="body2" color="text.secondary">0</Typography>;
+    }
+    const showRate = commitMetric === 'count';
+    const rateByPeriod = new Map<string, number | null>();
+    if (showRate) {
+      for (const r of aiRateRows) {
+        rateByPeriod.set(r.period, r.sampleSize > 0 ? r.rate : null);
+      }
+    }
+    const augmentedDataset = commitDataset.map((row, i) => ({
+      ...row,
+      rate: showRate ? (rateByPeriod.get(commitPeriods[i]) ?? null) : null,
+    }));
+
+    const barSeries = commitPrefixes.map((prefix, i) => ({
+      type: 'bar' as const,
+      dataKey: `c${i}`,
+      label: prefix,
+      stack: 'total',
+      color: toolPalette[i % toolPalette.length],
+      yAxisId: 'countAxis',
+    }));
+    const lineSeries = showRate ? [{
+      type: 'line' as const,
+      dataKey: 'rate',
+      label: 'AI 1 発成功率 (%)',
+      color: '#F06292',
+      yAxisId: 'rateAxis',
+      showMark: true,
+      connectNulls: true,
+      valueFormatter: (v: number | null) => v == null ? '-' : `${v.toFixed(1)}%`,
+    }] : [];
+
+    const yAxisConfig = showRate
+      ? [
+          { id: 'countAxis', valueFormatter: fmtTokens },
+          { id: 'rateAxis', min: 0, max: 100, position: 'right' as const, valueFormatter: (v: number) => `${v}%` },
+        ]
+      : [{ id: 'countAxis', valueFormatter: fmtTokens }];
+
+    return (
+      <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+        <ChartsDataProvider
+          dataset={augmentedDataset}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          series={[...barSeries, ...lineSeries] as any}
+          xAxis={[{ id: 'period', scaleType: 'band', dataKey: 'period' }]}
+          yAxis={yAxisConfig}
+          height={260}
+          margin={{ left: 16, right: showRate ? 48 : 8, top: 8, bottom: 40 }}
+          onAxisClick={makeAxisClick(commitPeriods)}
+        >
+          <ChartsWrapper legendDirection="horizontal" legendPosition={{ vertical: 'bottom', horizontal: 'center' }}>
+            <ChartsLegend />
+            <ChartsSurface>
+              <ChartsGrid horizontal />
+              <BarPlot />
+              {showRate && <LinePlot />}
+              {showRate && <MarkPlot />}
+              <ChartsAxisHighlight x="band" />
+              <ChartsXAxis axisId="period" />
+              <ChartsYAxis axisId="countAxis" />
+              {showRate && <ChartsYAxis axisId="rateAxis" />}
+            </ChartsSurface>
+            <ChartsTooltip />
+          </ChartsWrapper>
+        </ChartsDataProvider>
+      </Paper>
+    );
+  }
+
   // activeChart === 'models'
   if (models.length === 0) {
     return <Typography variant="body2" color="text.secondary">0</Typography>;
@@ -1590,7 +2047,44 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
   );
 }
 
-type CombinedMetric = 'tokens' | 'tools' | 'errors' | 'skills' | 'models';
+function ReleasesBarChart({ timeSeries }: Readonly<{
+  timeSeries: ReadonlyArray<ReleaseQualityBucket>;
+}>) {
+  const { cardSx } = useTrailTheme();
+  const { t } = useTrailI18n();
+
+  if (timeSeries.length === 0) {
+    return (
+      <Paper elevation={0} sx={{ ...cardSx, p: 2, minHeight: 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Typography variant="body2" color="text.secondary">{t('metrics.empty')}</Typography>
+      </Paper>
+    );
+  }
+
+  const fmt = new Intl.DateTimeFormat('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric' });
+  const dataset = timeSeries.map((d) => ({
+    label: fmt.format(new Date(d.bucketStart)),
+    succeeded: d.succeeded,
+    failed: d.failed,
+  }));
+
+  return (
+    <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+      <BarChart
+        dataset={dataset}
+        xAxis={[{ scaleType: 'band', dataKey: 'label' }]}
+        series={[
+          { dataKey: 'succeeded', label: t('analytics.combined.releaseSucceeded'), color: '#4CAF50', stack: 'releases' },
+          { dataKey: 'failed', label: t('analytics.combined.releaseFailed'), color: '#f44336', stack: 'releases' },
+        ]}
+        height={240}
+        margin={{ left: 16, right: 8, top: 8, bottom: 40 }}
+      />
+    </Paper>
+  );
+}
+
+type CombinedMetric = 'tokens' | 'tools' | 'errors' | 'skills' | 'models' | 'commits' | 'releases';
 
 function CombinedChartsSection({
   dailyActivity,
@@ -1605,6 +2099,8 @@ function CombinedChartsSection({
   fetchDayToolMetrics,
   costOptimization,
   fetchCombinedData,
+  fetchQualityMetrics,
+  fetchReleaseQuality,
 }: Readonly<{
   dailyActivity: AnalyticsData['dailyActivity'];
   sessions: readonly TrailSession[];
@@ -1618,6 +2114,8 @@ function CombinedChartsSection({
   fetchDayToolMetrics?: (date: string) => Promise<ToolMetrics | null>;
   costOptimization?: CostOptimizationData | null;
   fetchCombinedData?: (period: CombinedPeriodMode, rangeDays: CombinedRangeDays) => Promise<CombinedData>;
+  fetchQualityMetrics?: (range: DateRange) => Promise<QualityMetrics | null>;
+  fetchReleaseQuality?: (range: DateRange, bucket: 'day' | 'week') => Promise<ReadonlyArray<ReleaseQualityBucket>>;
 }>) {
   const { colors } = useTrailTheme();
   const { t } = useTrailI18n();
@@ -1625,8 +2123,25 @@ function CombinedChartsSection({
   const [tokenMode, setTokenMode] = useState<DailyViewMode>('tokens');
   const [toolMetric, setToolMetric] = useState<ChartMetric>('count');
   const [modelMetric, setModelMetric] = useState<ChartMetric>('count');
+  const [commitMetric, setCommitMetric] = useState<CommitMetric>('count');
   const [combinedData, setCombinedData] = useState<CombinedData | null>(null);
   const [combinedLoading, setCombinedLoading] = useState(false);
+  const [overlayLoading, setOverlayLoading] = useState(false);
+  const [releasesTimeSeries, setReleasesTimeSeries] = useState<ReadonlyArray<ReleaseQualityBucket>>([]);
+  const [releasesLoading, setReleasesLoading] = useState(false);
+  const [overlay, setOverlay] = useState<{
+    bucket: 'day' | 'week';
+    tokens: ReadonlyArray<{ bucketStart: string; value: number }>;
+    cost: ReadonlyArray<{ bucketStart: string; value: number }>;
+    leadTime: ReadonlyArray<{ bucketStart: string; value: number }>;
+    leadTimePerLoc: ReadonlyArray<{ bucketStart: string; value: number }>;
+    leadTimeUnmapped: ReadonlyArray<{ bucketStart: string; value: number }>;
+    leadTimeByPrefix: {
+      prefixes: ReadonlyArray<string>;
+      series: ReadonlyArray<{ bucketStart: string; byPrefix: Readonly<Record<string, number>> }>;
+    };
+    deploymentFrequency: ReadonlyArray<{ bucketStart: string; value: number }>;
+  } | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   useEffect(() => { setSelectedDate(null); }, [period]);
   const handleDateClick = (fullDate: string) => {
@@ -1650,6 +2165,53 @@ function CombinedChartsSection({
     return () => { mounted = false; };
   }, [fetchCombinedData, period]);
 
+  useEffect(() => {
+    if (!fetchQualityMetrics) return;
+    if (metric === 'releases') return; // Release chart uses fetchReleaseQuality; skip heavy quality metrics fetch
+    const now = new Date();
+    const to = now.toISOString();
+    const from = new Date(now.getTime() - period * 86_400_000).toISOString();
+    let mounted = true;
+    setOverlayLoading(true);
+    void (async () => {
+      const result = await fetchQualityMetrics({ from, to });
+      if (mounted) {
+        setOverlayLoading(false);
+      }
+      if (mounted && result) {
+        setOverlay({
+          bucket: result.bucket,
+          tokens: result.metrics.tokensPerLoc.timeSeries,
+          cost: result.costPerLocTimeSeries ?? [],
+          leadTime: result.leadTimeMinTimeSeries ?? [],
+          leadTimePerLoc: result.metrics.leadTimePerLoc.timeSeries,
+          leadTimeUnmapped: result.leadTimeUnmappedTimeSeries ?? [],
+          leadTimeByPrefix: result.leadTimeMinByPrefix ?? { prefixes: [], series: [] },
+          deploymentFrequency: result.metrics.deploymentFrequency.timeSeries,
+        });
+      }
+    })();
+    return () => { mounted = false; };
+  }, [fetchQualityMetrics, period, metric]);
+
+  useEffect(() => {
+    if (!fetchReleaseQuality) return;
+    const now = new Date();
+    const to = now.toISOString();
+    const from = new Date(now.getTime() - period * 86_400_000).toISOString();
+    const bucket: 'day' | 'week' = period >= 90 ? 'week' : 'day';
+    let mounted = true;
+    setReleasesLoading(true);
+    void (async () => {
+      const result = await fetchReleaseQuality({ from, to }, bucket);
+      if (mounted) {
+        setReleasesTimeSeries(result);
+        setReleasesLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [fetchReleaseQuality, period]);
+
   const toggleSx = {
     color: colors.textSecondary,
     borderColor: colors.border,
@@ -1672,6 +2234,8 @@ function CombinedChartsSection({
             <ToggleButton value="skills" sx={toggleSx}>{t('analytics.combined.skill')}</ToggleButton>
             <ToggleButton value="tools" sx={toggleSx}>{t('analytics.combined.tool')}</ToggleButton>
             <ToggleButton value="errors" sx={toggleSx}>{t('analytics.combined.error')}</ToggleButton>
+            <ToggleButton value="commits" sx={toggleSx}>{t('analytics.combined.commitPrefix')}</ToggleButton>
+            <ToggleButton value="releases" sx={toggleSx}>{t('analytics.combined.release')}</ToggleButton>
           </ToggleButtonGroup>
           <ToggleButtonGroup
             value={period}
@@ -1719,6 +2283,18 @@ function CombinedChartsSection({
             <ToggleButton value="tokens" sx={toggleSx}>{t('analytics.combined.tokens')}</ToggleButton>
           </ToggleButtonGroup>
         )}
+        {metric === 'commits' && (
+          <ToggleButtonGroup
+            value={commitMetric}
+            exclusive
+            onChange={(_e, v: CommitMetric | null) => { if (v) setCommitMetric(v); }}
+            size="small"
+          >
+            <ToggleButton value="count" sx={toggleSx}>{t('analytics.combined.commitCount')}</ToggleButton>
+            <ToggleButton value="loc" sx={toggleSx}>{t('analytics.combined.loc')}</ToggleButton>
+            <ToggleButton value="leadTime" sx={toggleSx}>{t('analytics.combined.leadTime')}</ToggleButton>
+          </ToggleButtonGroup>
+        )}
       </Box>
       {metric === 'tokens' ? (
         <DailyActivityChart
@@ -1727,7 +2303,16 @@ function CombinedChartsSection({
           mode={tokenMode}
           onDateClick={handleDateClick}
           costOptimization={costOptimization}
+          overlay={overlay}
         />
+      ) : metric === 'releases' ? (
+        releasesLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 240 }}>
+            <CircularProgress size={32} />
+          </Box>
+        ) : (
+          <ReleasesBarChart timeSeries={releasesTimeSeries} />
+        )
       ) : fetchCombinedData ? (
         combinedLoading && !combinedData ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 240 }}>
@@ -1740,6 +2325,8 @@ function CombinedChartsSection({
             activeChart={metric}
             toolMetric={toolMetric}
             modelMetric={modelMetric}
+            commitMetric={commitMetric}
+            leadTimeOverlay={overlay ? { leadTimePerLoc: overlay.leadTimePerLoc, unmapped: overlay.leadTimeUnmapped, byPrefix: overlay.leadTimeByPrefix } : null}
             onDateClick={handleDateClick}
           />
         )
@@ -1760,7 +2347,7 @@ function CombinedChartsSection({
   );
 }
 
-export function AnalyticsPanel({ analytics, sessions = [], onSelectSession, onJumpToTrace, fetchSessionMessages, fetchSessionCommits, fetchSessionToolMetrics, fetchDayToolMetrics, costOptimization, fetchCombinedData }: Readonly<AnalyticsPanelProps>) {
+export function AnalyticsPanel({ analytics, sessions = [], onSelectSession, onJumpToTrace, fetchSessionMessages, fetchSessionCommits, fetchSessionToolMetrics, fetchDayToolMetrics, costOptimization, fetchCombinedData, fetchQualityMetrics, fetchDeploymentFrequency, fetchReleaseQuality }: Readonly<AnalyticsPanelProps>) {
   const { t } = useTrailI18n();
   const { scrollbarSx } = useTrailTheme();
   const [period, setPeriod] = useState<PeriodDays>(30);
@@ -1792,6 +2379,8 @@ export function AnalyticsPanel({ analytics, sessions = [], onSelectSession, onJu
         fetchDayToolMetrics={fetchDayToolMetrics}
         costOptimization={costOptimization}
         fetchCombinedData={fetchCombinedData}
+        fetchQualityMetrics={fetchQualityMetrics}
+        fetchReleaseQuality={fetchReleaseQuality}
       />
     </Box>
   );

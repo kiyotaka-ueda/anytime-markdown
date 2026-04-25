@@ -3,8 +3,8 @@ import { useEffect, useState } from "react";
 import type { EmbedProviders, OembedData, OgpData } from "../types/embedProvider";
 import { EmbedCache } from "../utils/embedCache";
 import type { EmbedBaseline } from "../utils/embedInfoString";
-import { checkEmbedUpdate } from "../utils/embedUpdateCheck";
 import { isEmbedSeen } from "../utils/embedSeenStore";
+import { checkEmbedUpdate } from "../utils/embedUpdateCheck";
 
 const inflight = new Map<string, Promise<OgpData | OembedData>>();
 const cache = new EmbedCache();

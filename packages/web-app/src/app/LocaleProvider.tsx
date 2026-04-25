@@ -9,10 +9,23 @@ import spreadsheetJaMessages from '@anytime-markdown/spreadsheet-viewer/src/i18n
 import { NextIntlClientProvider } from 'next-intl';
 import { createContext, useCallback, useContext, useEffect, useMemo,useState } from 'react';
 
+import pressEnMessages from './press/i18n/en.json';
+import pressJaMessages from './press/i18n/ja.json';
+
 type Locale = 'ja' | 'en';
 
-const mergedJa = { ...jaMessages, ...graphJaMessages, ...spreadsheetJaMessages };
-const mergedEn = { ...enMessages, ...graphEnMessages, ...spreadsheetEnMessages };
+const mergedJa = {
+  ...jaMessages,
+  ...graphJaMessages,
+  ...spreadsheetJaMessages,
+  press: pressJaMessages,
+};
+const mergedEn = {
+  ...enMessages,
+  ...graphEnMessages,
+  ...spreadsheetEnMessages,
+  press: pressEnMessages,
+};
 const messages: Record<Locale, typeof mergedJa> = { ja: mergedJa, en: mergedEn };
 
 interface LocaleContextValue {

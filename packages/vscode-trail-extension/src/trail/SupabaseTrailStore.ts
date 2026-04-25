@@ -203,6 +203,15 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
     if (error) throw new Error(`Supabase upsert commits failed: ${error.message}`);
   }
 
+  async upsertCommitFiles(rows: readonly { commit_hash: string; file_path: string }[]): Promise<void> {
+    if (rows.length === 0) return;
+    // commit_files はコミットが不変なので IGNORE（既存行を上書きしない）
+    const { error } = await this.ensureClient()
+      .from('trail_commit_files')
+      .upsert(rows, { onConflict: 'commit_hash,file_path', ignoreDuplicates: true });
+    if (error) throw new Error(`Supabase upsert trail_commit_files failed: ${error.message}`);
+  }
+
   async upsertReleases(rows: readonly ReleaseRow[]): Promise<void> {
     if (rows.length === 0) return;
     const mapped = rows.map((r) => ({

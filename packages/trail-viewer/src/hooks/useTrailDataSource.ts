@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { AnalyticsData, CombinedData, CombinedPeriodMode, CombinedRangeDays, CostOptimizationData, ToolMetrics, TrailFilter, TrailMessage, TrailPromptEntry, TrailSession, TrailSessionCommit } from '../parser/types';
 import type { TrailRelease } from '@anytime-markdown/trail-core/domain';
-import type { DateRange, QualityMetrics } from '@anytime-markdown/trail-core/domain/metrics';
+import type { DateRange, QualityMetrics, ReleaseQualityBucket } from '@anytime-markdown/trail-core/domain/metrics';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -40,6 +40,8 @@ export interface TrailDataSourceResult {
   readonly fetchReleases: () => Promise<readonly TrailRelease[]>;
   readonly fetchCombinedData: (period: CombinedPeriodMode, rangeDays: CombinedRangeDays) => Promise<CombinedData>;
   readonly fetchQualityMetrics: (range: DateRange) => Promise<QualityMetrics | null>;
+  readonly fetchDeploymentFrequency: (range: DateRange, bucket: 'day' | 'week') => Promise<ReadonlyArray<{ bucketStart: string; value: number }>>;
+  readonly fetchReleaseQuality: (range: DateRange, bucket: 'day' | 'week') => Promise<ReadonlyArray<ReleaseQualityBucket>>;
   readonly tokenBudgets: readonly TokenBudgetStatus[];
 }
 
@@ -264,7 +266,7 @@ export function useTrailDataSource(serverUrl: string): TrailDataSourceResult {
     async (period: CombinedPeriodMode, rangeDays: CombinedRangeDays): Promise<CombinedData> => {
       const empty: CombinedData = {
         toolCounts: [],
-        errorRate: [], skillStats: [], modelStats: [],
+        errorRate: [], skillStats: [], modelStats: [], commitPrefixStats: [], aiFirstTryRate: [],
       };
       try {
         const res = await fetch(`${baseUrl}/api/trail/combined?period=${period}&rangeDays=${rangeDays}`);
@@ -293,6 +295,48 @@ export function useTrailDataSource(serverUrl: string): TrailDataSourceResult {
       } catch (err) {
         console.error('[fetchQualityMetrics] request failed', err);
         return null;
+      }
+    },
+    [baseUrl],
+  );
+
+  // --- Fetch deployment frequency (lightweight: releases only) ---
+
+  const fetchDeploymentFrequency = useCallback(
+    async (range: DateRange, bucket: 'day' | 'week'): Promise<ReadonlyArray<{ bucketStart: string; value: number }>> => {
+      const url = `${baseUrl}/api/trail/deployment-frequency?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}&bucket=${bucket}`;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) {
+          const body = await res.text().catch(() => '');
+          console.error(`[fetchDeploymentFrequency] HTTP ${res.status}: ${body}`);
+          return [];
+        }
+        return (await res.json()) as ReadonlyArray<{ bucketStart: string; value: number }>;
+      } catch (err) {
+        console.error('[fetchDeploymentFrequency] request failed', err);
+        return [];
+      }
+    },
+    [baseUrl],
+  );
+
+  // --- Fetch release quality (stacked: succeeded + failed) ---
+
+  const fetchReleaseQuality = useCallback(
+    async (range: DateRange, bucket: 'day' | 'week'): Promise<ReadonlyArray<ReleaseQualityBucket>> => {
+      const url = `${baseUrl}/api/trail/deployment-frequency-quality?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}&bucket=${bucket}`;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) {
+          const body = await res.text().catch(() => '');
+          console.error(`[fetchReleaseQuality] HTTP ${res.status}: ${body}`);
+          return [];
+        }
+        return (await res.json()) as ReadonlyArray<ReleaseQualityBucket>;
+      } catch (err) {
+        console.error('[fetchReleaseQuality] request failed', err);
+        return [];
       }
     },
     [baseUrl],
@@ -466,6 +510,8 @@ export function useTrailDataSource(serverUrl: string): TrailDataSourceResult {
     fetchReleases,
     fetchCombinedData,
     fetchQualityMetrics,
+    fetchDeploymentFrequency,
+    fetchReleaseQuality,
     tokenBudgets,
   };
 }

@@ -71,6 +71,10 @@ export class SyncService {
 
           const commits = this.trailDb.getSessionCommits(session.id);
           await this.store.upsertCommits(commits);
+          if (commits.length > 0) {
+            const commitFiles = this.trailDb.getCommitFiles(commits.map((c) => c.commit_hash));
+            if (commitFiles.length > 0) await this.store.upsertCommitFiles(commitFiles);
+          }
 
           synced++;
         } catch (e) {

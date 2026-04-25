@@ -25,6 +25,7 @@ import {
   CREATE_MESSAGE_TOOL_CALLS,
   CREATE_MESSAGE_TOOL_CALLS_INDEXES,
   CREATE_MESSAGE_COMMITS,
+  CREATE_COMMIT_FILES,
   CREATE_C4_MANUAL_ELEMENTS,
   CREATE_C4_MANUAL_RELATIONSHIPS,
   CREATE_C4_MANUAL_GROUPS,
@@ -33,6 +34,12 @@ import {
   buildReleaseFromGitData,
   analyze,
   trailToC4,
+  extractCommitPrefix,
+  isCodeFile,
+  isAiFirstTryFailureCommit,
+  AI_FIRST_TRY_FIX_WINDOW_MS,
+  calculateCost,
+  normalizeModelName,
 } from '@anytime-markdown/trail-core';
 import type { TrailGraph, IC4ModelStore, C4ModelEntry, C4ModelResult, TrailMessageCommit, MessageCommitInput, ManualElement, ManualRelationship, ManualGroup } from '@anytime-markdown/trail-core';
 import { matchCommitsToMessages } from '@anytime-markdown/trail-core';
@@ -221,6 +228,8 @@ interface CombinedData {
   readonly errorRate: readonly { period: string; rate: number; byTool: Readonly<Record<string, number>> }[];
   readonly skillStats: readonly { period: string; skill: string; count: number; costUsd: number }[];
   readonly modelStats: readonly { period: string; model: string; count: number; tokens: number }[];
+  readonly commitPrefixStats: readonly { period: string; prefix: string; count: number; linesAdded: number }[];
+  readonly aiFirstTryRate: readonly { period: string; rate: number; sampleSize: number }[];
 }
 
 interface RawLine {
@@ -470,6 +479,8 @@ export class TrailDatabase {
     db.run(CREATE_SKILL_MODELS_TABLE);
     db.run(CREATE_SKILL_MODELS_RESOLVED_VIEW);
     db.run(CREATE_MESSAGE_COMMITS);
+    db.run(CREATE_COMMIT_FILES);
+    db.run('CREATE INDEX IF NOT EXISTS idx_commit_files_hash ON commit_files(commit_hash)');
     for (const sql of [...CREATE_INDEXES, ...CREATE_RELEASE_INDEXES]) {
       db.run(sql);
     }
@@ -537,6 +548,81 @@ export class TrailDatabase {
 
     this.migrateTimestampsToUTC(db);
     this.migrateToolUseResult(db);
+    this.migrateMessageCommitsToUserUuid(db);
+  }
+
+  /**
+   * 既存 session_commits の各コミットに対して変更ファイルを commit_files にバックフィルする。
+   * ai-first-try-success-rate 指標がファイル overlap で failure 判定するために必要。
+   * importAll の先頭で gitRoot が確定している状態で呼ぶ。
+   */
+  private backfillCommitFiles(gitRoot: string, onProgress?: (msg: string) => void): void {
+    const db = this.ensureDb();
+    db.run('CREATE TABLE IF NOT EXISTS _migrations (key TEXT PRIMARY KEY)');
+    const done = db.exec("SELECT 1 FROM _migrations WHERE key = 'commit_files_backfill_v2'");
+    if (done[0]?.values?.length) return;
+
+    const commitRes = db.exec(
+      'SELECT DISTINCT commit_hash FROM session_commits WHERE NOT EXISTS (SELECT 1 FROM commit_files cf WHERE cf.commit_hash = session_commits.commit_hash)',
+    );
+    const hashes = commitRes[0]?.values.map((row) => row[0] as string) ?? [];
+    if (hashes.length === 0) {
+      db.run("INSERT OR IGNORE INTO _migrations (key) VALUES ('commit_files_backfill_v2')");
+      return;
+    }
+
+    onProgress?.(`Backfilling commit files for ${hashes.length} commits...`);
+    TrailLogger.info(`[Migration] commit_files_backfill_v2: backfilling file lists for ${hashes.length} commits`);
+
+    const insertStmt = db.prepare('INSERT OR IGNORE INTO commit_files (commit_hash, file_path) VALUES (?, ?)');
+    try {
+      let processed = 0;
+      let skipped = 0;
+      for (const hash of hashes) {
+        try {
+          const out = execFileSync('git', [
+            'show', '--format=', '--numstat', hash,
+          ], { encoding: 'utf-8', timeout: 5_000, cwd: gitRoot });
+          for (const line of out.split('\n')) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            const parts = trimmed.split('\t');
+            const filePath = parts[2];
+            if (filePath) insertStmt.run([hash, filePath]);
+          }
+          processed++;
+        } catch {
+          // Commit may have been garbage-collected or outside this repo — skip.
+          skipped++;
+        }
+        if (processed % 50 === 0) {
+          onProgress?.(`Backfilling commit files: ${processed}/${hashes.length}`);
+        }
+      }
+      TrailLogger.info(`[Migration] commit_files_backfill_v2: processed=${processed}, skipped=${skipped}`);
+    } finally {
+      insertStmt.free();
+    }
+
+    db.run("INSERT OR IGNORE INTO _migrations (key) VALUES ('commit_files_backfill_v2')");
+  }
+
+  /**
+   * 旧 matchCommitsToMessages は assistant メッセージ UUID を message_commits.message_uuid に
+   * 保存していたため、Lead Time / Commit Success Rate の計算（user UUID と突合）が常に空になる
+   * 不具合があった。既存データを破棄し、次回同期で user UUID ベースで再構築する。
+   */
+  private migrateMessageCommitsToUserUuid(db: Database): void {
+    db.run('CREATE TABLE IF NOT EXISTS _migrations (key TEXT PRIMARY KEY)');
+    const done = db.exec("SELECT 1 FROM _migrations WHERE key = 'message_commits_to_user_uuid'");
+    if (done[0]?.values?.length) return;
+
+    TrailLogger.info(
+      '[Migration] message_commits_to_user_uuid: clearing message_commits and resetting resolved timestamps for rebuild',
+    );
+    db.run('DELETE FROM message_commits');
+    db.run('UPDATE sessions SET message_commits_resolved_at = NULL');
+    db.run("INSERT INTO _migrations (key) VALUES ('message_commits_to_user_uuid')");
   }
 
   private migrateMessageCommitsSchema(db: Database): void {
@@ -1332,6 +1418,7 @@ export class TrailDatabase {
       let filesChanged = 0;
       let linesAdded = 0;
       let linesDeleted = 0;
+      const filePaths: string[] = [];
       try {
         const numstat = execFileSync('git', [
           'diff', '--numstat', `${hash}^..${hash}`,
@@ -1340,10 +1427,14 @@ export class TrailDatabase {
         for (const line of numstat.split('\n')) {
           const trimmed = line.trim();
           if (!trimmed) continue;
-          const [added, deleted] = trimmed.split('\t');
+          const parts = trimmed.split('\t');
+          const added = parts[0];
+          const deleted = parts[1];
+          const filePath = parts[2];
           filesChanged++;
           if (added !== '-') linesAdded += Number.parseInt(added, 10) || 0;
           if (deleted !== '-') linesDeleted += Number.parseInt(deleted, 10) || 0;
+          if (filePath) filePaths.push(filePath);
         }
       } catch {
         // Initial commit or other error — skip numstat
@@ -1353,6 +1444,20 @@ export class TrailDatabase {
         sessionId, hash, subject, author, committedAt,
         isAiAssisted, filesChanged, linesAdded, linesDeleted,
       ]);
+
+      if (filePaths.length > 0) {
+        const filesStmt = this.ensureDb().prepare(
+          'INSERT OR IGNORE INTO commit_files (commit_hash, file_path) VALUES (?, ?)',
+        );
+        try {
+          for (const fp of filePaths) {
+            filesStmt.run([hash, fp]);
+          }
+        } finally {
+          filesStmt.free();
+        }
+      }
+
       count++;
     }
 
@@ -1708,6 +1813,11 @@ export class TrailDatabase {
     onProgress?.('Rebuilding session stats...', 0);
     this.rebuildSessionStats();
     onProgress?.('Session stats rebuilt', 0);
+
+    // Phase 2a: backfill commit_files (one-time migration for existing commits)
+    if (gitRoot) {
+      this.backfillCommitFiles(gitRoot, (msg) => onProgress?.(msg, 0));
+    }
 
     // Phase 2: backfill message_commits
     onProgress?.('Backfilling message_commits...', 0);
@@ -3051,6 +3161,10 @@ export class TrailDatabase {
     // week 集計時は strftime('%Y-W%W', date) で週キー化。
     const periodExpr = period === 'week' ? `strftime('%Y-W%W', date)` : 'date';
     const cutoff = `DATE('now', '-${rangeDays} days')`;
+    const tzOffset = this.getLocalTzOffset();
+    const commitPeriodExpr = period === 'week'
+      ? `strftime('%Y-W%W', committed_at, '${tzOffset}')`
+      : `DATE(committed_at, '${tzOffset}')`;
 
     const toRows = (result: ReturnType<typeof db.exec>): Record<string, unknown>[] => {
       if (!result[0]) return [];
@@ -3123,11 +3237,117 @@ export class TrailDatabase {
       tokens: Number(r['tokens'] ?? 0),
     }));
 
+    // Commit stats: session_commits を取得し、AI 1 発成功率のファイル overlap 判定に必要な
+    // committed_at / is_ai_assisted / commit_files を一緒に取る。分母の fix 検出のために
+    // 期間末尾から 168h 先のコミットも取得する。手動コミットが複数セッションに重複登録される
+    // ため DISTINCT commit_hash で排除する。
+    const commitWindowSec = Math.round(AI_FIRST_TRY_FIX_WINDOW_MS / 1000);
+    const commitResult = db.exec(
+      `SELECT ${commitPeriodExpr} AS period, commit_hash, commit_message,
+              committed_at, is_ai_assisted, COALESCE(lines_added, 0) AS lines_added
+       FROM session_commits
+       WHERE committed_at >= DATETIME('now', '-${rangeDays} days')
+         AND committed_at <= DATETIME('now', '+${commitWindowSec} seconds')
+       GROUP BY commit_hash`,
+    );
+    type CommitRow = {
+      period: string;
+      hash: string;
+      subject: string;
+      committed_at: string;
+      is_ai_assisted: boolean;
+      linesAdded: number;
+      files: string[];
+    };
+    const commitRows: CommitRow[] = toRows(commitResult).map(r => ({
+      period: String(r['period'] ?? ''),
+      hash: String(r['commit_hash'] ?? ''),
+      subject: String(r['commit_message'] ?? '').split('\n')[0],
+      committed_at: String(r['committed_at'] ?? ''),
+      is_ai_assisted: Number(r['is_ai_assisted'] ?? 0) === 1,
+      linesAdded: Number(r['lines_added'] ?? 0),
+      files: [],
+    }));
+
+    // Batch-fetch commit_files for all commit hashes in the window
+    if (commitRows.length > 0) {
+      const hashPlaceholders = commitRows.map(() => '?').join(',');
+      const filesResult = db.exec(
+        `SELECT commit_hash, file_path FROM commit_files WHERE commit_hash IN (${hashPlaceholders})`,
+        commitRows.map(c => c.hash),
+      );
+      if (filesResult[0]) {
+        const byHash = new Map<string, string[]>();
+        for (const row of filesResult[0].values) {
+          const h = String(row[0] ?? '');
+          const p = String(row[1] ?? '');
+          const list = byHash.get(h);
+          if (list) list.push(p);
+          else byHash.set(h, [p]);
+        }
+        for (const c of commitRows) {
+          c.files = byHash.get(c.hash) ?? [];
+        }
+      }
+    }
+
+    // Commit prefix stats: 期間内 (未来拡張分は除外) のコミットだけを集計対象とする
+    const cutoffPeriodRes = db.exec(`SELECT ${commitPeriodExpr.replace('committed_at', `DATE('now')`)} AS period`);
+    const todayPeriod = String(cutoffPeriodRes[0]?.values?.[0]?.[0] ?? '');
+    const prefixMap = new Map<string, { count: number; linesAdded: number }>();
+    for (const c of commitRows) {
+      if (c.period > todayPeriod) continue;  // skip future-window rows
+      const prefix = extractCommitPrefix(c.subject);
+      const k = `${c.period}::${prefix}`;
+      const cur = prefixMap.get(k) ?? { count: 0, linesAdded: 0 };
+      cur.count += 1;
+      cur.linesAdded += c.linesAdded;
+      prefixMap.set(k, cur);
+    }
+    const commitPrefixStats = [...prefixMap.entries()].map(([k, v]) => {
+      const sep = k.indexOf('::');
+      return { period: k.slice(0, sep), prefix: k.slice(sep + 2), count: v.count, linesAdded: v.linesAdded };
+    });
+
+    // AI First-Try Success Rate per period
+    const fixes = commitRows
+      .filter(c => isAiFirstTryFailureCommit(c.subject))
+      .map(c => ({ ms: Date.parse(c.committed_at), codeFiles: c.files.filter(isCodeFile) }))
+      .filter(f => !Number.isNaN(f.ms));
+    const rateAgg = new Map<string, { total: number; success: number }>();
+    for (const c of commitRows) {
+      if (!c.is_ai_assisted) continue;
+      if (c.period > todayPeriod) continue;
+      const codeFiles = c.files.filter(isCodeFile);
+      if (c.files.length > 0 && codeFiles.length === 0) continue;
+      const commitMs = Date.parse(c.committed_at);
+      if (Number.isNaN(commitMs)) continue;
+      const aiSet = new Set(codeFiles);
+      const failed = fixes.some(f =>
+        f.ms > commitMs &&
+        f.ms - commitMs <= AI_FIRST_TRY_FIX_WINDOW_MS &&
+        (aiSet.size > 0 && f.codeFiles.length > 0 && f.codeFiles.some(fp => aiSet.has(fp))),
+      );
+      const e = rateAgg.get(c.period) ?? { total: 0, success: 0 };
+      e.total += 1;
+      if (!failed) e.success += 1;
+      rateAgg.set(c.period, e);
+    }
+    const aiFirstTryRate = [...rateAgg.entries()]
+      .map(([period, { total, success }]) => ({
+        period,
+        rate: total === 0 ? 0 : (success / total) * 100,
+        sampleSize: total,
+      }))
+      .sort((a, b) => a.period.localeCompare(b.period));
+
     return {
       toolCounts,
       errorRate,
       skillStats,
       modelStats,
+      commitPrefixStats,
+      aiFirstTryRate,
     };
   }
 
@@ -3501,6 +3721,83 @@ export class TrailDatabase {
     });
   }
 
+  getCommitFiles(commitHashes: string[]): Array<{ commit_hash: string; file_path: string }> {
+    if (commitHashes.length === 0) return [];
+    const db = this.ensureDb();
+    const placeholders = commitHashes.map(() => '?').join(',');
+    const res = db.exec(
+      `SELECT commit_hash, file_path FROM commit_files WHERE commit_hash IN (${placeholders})`,
+      commitHashes,
+    );
+    if (!res[0]) return [];
+    return res[0].values.map((row) => ({ commit_hash: row[0] as string, file_path: row[1] as string }));
+  }
+
+  getReleaseQualityInputs(from: string, to: string): {
+    releases: Array<{ tag_date: string }>;
+    commits: Array<{ hash: string; subject: string; committed_at: string; files: string[] }>;
+  } {
+    const db = this.ensureDb();
+
+    const relRes = db.exec(
+      `SELECT released_at FROM releases WHERE released_at >= ? AND released_at <= ? ORDER BY released_at`,
+      [from, to],
+    );
+    const releases = (relRes[0]?.values ?? []).map((row) => ({ tag_date: row[0] as string }));
+    if (releases.length === 0) return { releases: [], commits: [] };
+
+    // コミット取得: range + 168h 拡張（post-deploy fix 検出ウィンドウ）
+    const FIX_WINDOW_MS = 168 * 60 * 60 * 1000;
+    const extTo = new Date(new Date(to).getTime() + FIX_WINDOW_MS).toISOString();
+
+    const comRes = db.exec(
+      `SELECT commit_hash, commit_message, committed_at
+       FROM session_commits
+       WHERE committed_at >= ? AND committed_at <= ?
+       GROUP BY commit_hash`,
+      [from, extTo],
+    );
+    const rows = (comRes[0]?.values ?? []).map((row) => ({
+      hash: row[0] as string,
+      subject: ((row[1] as string) ?? '').split('\n')[0],
+      committed_at: row[2] as string,
+      files: [] as string[],
+    }));
+
+    if (rows.length > 0) {
+      const placeholders = rows.map(() => '?').join(',');
+      const filesRes = db.exec(
+        `SELECT commit_hash, file_path FROM commit_files WHERE commit_hash IN (${placeholders})`,
+        rows.map((r) => r.hash),
+      );
+      if (filesRes[0]) {
+        const fileMap = new Map<string, string[]>();
+        for (const row of filesRes[0].values) {
+          const hash = row[0] as string;
+          const fp = row[1] as string;
+          const arr = fileMap.get(hash);
+          if (arr) arr.push(fp);
+          else fileMap.set(hash, [fp]);
+        }
+        for (const row of rows) {
+          row.files = fileMap.get(row.hash) ?? [];
+        }
+      }
+    }
+
+    return { releases, commits: rows };
+  }
+
+  getReleasesInRange(from: string, to: string): Array<{ tag: string; released_at: string }> {
+    const db = this.ensureDb();
+    const res = db.exec(
+      `SELECT tag, released_at FROM releases WHERE released_at >= ? AND released_at <= ?`,
+      [from, to],
+    );
+    if (!res[0]) return [];
+    return res[0].values.map((row) => ({ tag: row[0] as string, released_at: row[1] as string }));
+  }
+
   getReleaseFiles(releaseTag: string): ReleaseFileRow[] {
     const db = this.ensureDb();
     const result = db.exec(
@@ -3560,13 +3857,13 @@ export class TrailDatabase {
 
   getQualityMetricsInputs(from: string, to: string, prevFrom: string, prevTo: string): {
     releases: Array<{ id: string; tag_date: string; commit_hashes: string[]; fix_count: number }>;
-    messages: Array<{ uuid: string; created_at: string; role: string; type: string }>;
-    messageCommits: Array<{ message_uuid: string; detected_at: string; match_confidence: string }>;
-    commits: Array<{ hash: string; subject: string }>;
+    messages: Array<{ uuid: string; created_at: string; role: string; type: string; session_id: string; input_tokens: number; output_tokens: number; cache_read_tokens: number; cache_creation_tokens: number; cost_usd: number }>;
+    messageCommits: Array<{ message_uuid: string; commit_hash: string; detected_at: string; match_confidence: string }>;
+    commits: Array<{ hash: string; subject: string; committed_at: string; is_ai_assisted: boolean; files: string[]; lines_added: number; lines_deleted: number; session_id: string }>;
     previousReleases: Array<{ id: string; tag_date: string; commit_hashes: string[]; fix_count: number }>;
-    previousMessages: Array<{ uuid: string; created_at: string; role: string; type: string }>;
-    previousMessageCommits: Array<{ message_uuid: string; detected_at: string; match_confidence: string }>;
-    previousCommits: Array<{ hash: string; subject: string }>;
+    previousMessages: Array<{ uuid: string; created_at: string; role: string; type: string; session_id: string; input_tokens: number; output_tokens: number; cache_read_tokens: number; cache_creation_tokens: number; cost_usd: number }>;
+    previousMessageCommits: Array<{ message_uuid: string; commit_hash: string; detected_at: string; match_confidence: string }>;
+    previousCommits: Array<{ hash: string; subject: string; committed_at: string; is_ai_assisted: boolean; files: string[]; lines_added: number; lines_deleted: number }>;
   } {
     const db = this.ensureDb();
 
@@ -3585,56 +3882,183 @@ export class TrailDatabase {
     };
 
     const queryMessages = (f: string, t: string) => {
-      const res = db.exec(
-        `SELECT uuid, timestamp, type FROM messages WHERE timestamp >= ? AND timestamp <= ? AND type = 'user'`,
+      // Two simple range scans + in-memory turn aggregation.
+      // The previous CTE+LEAD+LEFT JOIN+GROUP BY took >1min on sql.js (WASM SQLite).
+      const userRes = db.exec(
+        `SELECT uuid, session_id, timestamp, type
+         FROM messages
+         WHERE type = 'user' AND timestamp >= ? AND timestamp <= ?`,
         [f, t],
       );
-      if (!res[0]) return [];
-      return res[0].values.map((row) => ({
+      if (!userRes[0]) return [];
+
+      type UserRow = { uuid: string; session_id: string; timestamp: string; type: string };
+      const userMessages: UserRow[] = userRes[0].values.map((row) => ({
         uuid: row[0] as string,
-        created_at: row[1] as string,
-        role: row[2] as string,
-        type: 'text',
+        session_id: row[1] as string,
+        timestamp: row[2] as string,
+        type: row[3] as string,
       }));
+
+      const usersBySession = new Map<string, UserRow[]>();
+      for (const u of userMessages) {
+        const arr = usersBySession.get(u.session_id);
+        if (arr) arr.push(u);
+        else usersBySession.set(u.session_id, [u]);
+      }
+      for (const arr of usersBySession.values()) {
+        arr.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+      }
+
+      type Tokens = { input: number; output: number; cr: number; cc: number; cost: number };
+      const tokensByUserUuid = new Map<string, Tokens>();
+      for (const u of userMessages) {
+        tokensByUserUuid.set(u.uuid, { input: 0, output: 0, cr: 0, cc: 0, cost: 0 });
+      }
+
+      const asstRes = db.exec(
+        `SELECT session_id, timestamp, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, model
+         FROM messages
+         WHERE type = 'assistant' AND timestamp >= ? AND timestamp <= ?`,
+        [f, t],
+      );
+
+      if (asstRes[0]) {
+        for (const row of asstRes[0].values) {
+          const sessionId = row[0] as string;
+          const asstTs = row[1] as string;
+          const sessionUsers = usersBySession.get(sessionId);
+          if (!sessionUsers) continue;
+
+          // Binary search: find the latest user message with timestamp <= asstTs.
+          let lo = 0;
+          let hi = sessionUsers.length - 1;
+          let idx = -1;
+          while (lo <= hi) {
+            const mid = (lo + hi) >>> 1;
+            if (sessionUsers[mid].timestamp <= asstTs) {
+              idx = mid;
+              lo = mid + 1;
+            } else {
+              hi = mid - 1;
+            }
+          }
+          if (idx === -1) continue;
+
+          const tokens = tokensByUserUuid.get(sessionUsers[idx].uuid);
+          if (!tokens) continue;
+          const inputToks = (row[2] as number) ?? 0;
+          const outputToks = (row[3] as number) ?? 0;
+          const crToks = (row[4] as number) ?? 0;
+          const ccToks = (row[5] as number) ?? 0;
+          const model = (row[6] as string | null) ?? '';
+          tokens.input += inputToks;
+          tokens.output += outputToks;
+          tokens.cr += crToks;
+          tokens.cc += ccToks;
+          tokens.cost += calculateCost(normalizeModelName(model), {
+            inputTokens: inputToks,
+            outputTokens: outputToks,
+            cacheReadTokens: crToks,
+            cacheCreationTokens: ccToks,
+          });
+        }
+      }
+
+      return userMessages.map((u) => {
+        const tokens = tokensByUserUuid.get(u.uuid) ?? { input: 0, output: 0, cr: 0, cc: 0, cost: 0 };
+        return {
+          uuid: u.uuid,
+          created_at: u.timestamp,
+          role: u.type,
+          type: 'text',
+          session_id: u.session_id,
+          input_tokens: tokens.input,
+          output_tokens: tokens.output,
+          cache_read_tokens: tokens.cr,
+          cache_creation_tokens: tokens.cc,
+          cost_usd: tokens.cost,
+        };
+      });
     };
 
     const queryMessageCommits = (f: string, t: string) => {
       const res = db.exec(
-        `SELECT mc.message_uuid, mc.detected_at, mc.match_confidence
+        `SELECT mc.message_uuid, mc.commit_hash, mc.detected_at, mc.match_confidence
          FROM message_commits mc
          INNER JOIN messages m ON mc.message_uuid = m.uuid
-         WHERE m.timestamp >= ? AND m.timestamp <= ?`,
+         WHERE m.timestamp >= ? AND m.timestamp <= ?
+           AND mc.match_confidence IN ('realtime', 'high', 'medium')`,
         [f, t],
       );
       if (!res[0]) return [];
       return res[0].values.map((row) => ({
         message_uuid: row[0] as string,
-        detected_at: row[1] as string,
-        match_confidence: row[2] as string,
+        commit_hash: row[1] as string,
+        detected_at: row[2] as string,
+        match_confidence: row[3] as string,
       }));
     };
 
+    // AI First-Try Success Rate は fix コミットを 168h 先まで見る必要があるため、
+    // commits の取得範囲を fix 検出ウィンドウぶん拡張する。
+    const FIX_WINDOW_MS = 168 * 60 * 60 * 1000;
+    const extendedTo = new Date(new Date(to).getTime() + FIX_WINDOW_MS).toISOString();
+    const extendedPrevTo = new Date(new Date(prevTo).getTime() + FIX_WINDOW_MS).toISOString();
+
     const queryCommits = (f: string, t: string) => {
       const res = db.exec(
-        `SELECT commit_hash, commit_message FROM session_commits WHERE committed_at >= ? AND committed_at <= ?`,
+        `SELECT commit_hash, commit_message, committed_at, is_ai_assisted,
+                MAX(lines_added) as lines_added, MAX(lines_deleted) as lines_deleted,
+                MIN(session_id) as session_id
+         FROM session_commits
+         WHERE committed_at >= ? AND committed_at <= ?
+         GROUP BY commit_hash`,
         [f, t],
       );
       if (!res[0]) return [];
-      return res[0].values.map((row) => ({
+      const commits = res[0].values.map((row) => ({
         hash: row[0] as string,
         subject: (row[1] as string ?? '').split('\n')[0],
+        committed_at: row[2] as string,
+        is_ai_assisted: (row[3] as number) === 1,
+        files: [] as string[],
+        lines_added: (row[4] as number) ?? 0,
+        lines_deleted: (row[5] as number) ?? 0,
+        session_id: row[6] as string,
       }));
+      if (commits.length === 0) return commits;
+
+      const placeholders = commits.map(() => '?').join(',');
+      const filesRes = db.exec(
+        `SELECT commit_hash, file_path FROM commit_files WHERE commit_hash IN (${placeholders})`,
+        commits.map((c) => c.hash),
+      );
+      if (filesRes[0]) {
+        const byHash = new Map<string, string[]>();
+        for (const row of filesRes[0].values) {
+          const hash = row[0] as string;
+          const path = row[1] as string;
+          const list = byHash.get(hash);
+          if (list) list.push(path);
+          else byHash.set(hash, [path]);
+        }
+        for (const c of commits) {
+          c.files = byHash.get(c.hash) ?? [];
+        }
+      }
+      return commits;
     };
 
     return {
       releases: queryReleases(from, to),
       messages: queryMessages(from, to),
       messageCommits: queryMessageCommits(from, to),
-      commits: queryCommits(from, to),
+      commits: queryCommits(from, extendedTo),
       previousReleases: queryReleases(prevFrom, prevTo),
       previousMessages: queryMessages(prevFrom, prevTo),
       previousMessageCommits: queryMessageCommits(prevFrom, prevTo),
-      previousCommits: queryCommits(prevFrom, prevTo),
+      previousCommits: queryCommits(prevFrom, extendedPrevTo),
     };
   }
 

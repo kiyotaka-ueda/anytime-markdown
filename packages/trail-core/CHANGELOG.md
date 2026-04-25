@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-04-25
+
+### Added
+
+- `computeReleaseQualityTimeSeries` for stacked Release Quality chart
+- `leadTimePerLoc` metric (min/LOC) replacing `leadTimeForChanges`
+- `tokensPerLoc` metric (tokens/LOC) with `computeTokensAndCostPerLocTimeSeries`
+- `costPerLocTimeSeries` exposed on `QualityMetrics`
+- `linesAdded` field on `CombinedCommitPrefix`
+- DB indexes for productivity metrics queries
+
+### Changed
+
+- Rewrite Change Failure Rate to 168h time-window + file-overlap logic
+- Replace prompt-to-commit rate with AI first-try success rate
+- Require file overlap for AI first-try failure detection; exclude non-code files
+- Recalibrate thresholds to cache-read and commit-unit reality
+- Widen daily bucket threshold to 31 days
+- `VALID_MESSAGE_COMMIT_CONFIDENCES` widened to `ReadonlySet<string>`
+
+### Fixed
+
+- Resolve `message_commits` to user-ancestor UUID
+- Align timeSeries with sum-ratio aggregation
+- Use commit `committed_at` instead of `mc.detected_at` for productivity metrics
+- Redefine productivity metrics on session-scoped commit windows
+
 ## [0.9.1] - 2026-04-24
 
 ### Changed

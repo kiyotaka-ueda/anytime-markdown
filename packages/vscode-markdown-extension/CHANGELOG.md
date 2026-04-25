@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-04-25
+
+### Editor Core (markdown-core)
+
+- Refresh Anytime Trail LP benefit copy with visualization framing
+
 ## [0.13.0] - 2026-04-24
 
 ### Added

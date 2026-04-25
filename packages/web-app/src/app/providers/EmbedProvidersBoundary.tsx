@@ -7,7 +7,7 @@ import type {
   OgpData,
   RssLatestData,
 } from '@anytime-markdown/markdown-core/src/types/embedProvider';
-import { useMemo, type ReactNode } from 'react';
+import { type ReactNode,useMemo } from 'react';
 
 async function fetchOgp(url: string): Promise<OgpData> {
   const res = await fetch(`/api/ogp?url=${encodeURIComponent(url)}`);

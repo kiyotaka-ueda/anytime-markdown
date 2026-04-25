@@ -2,14 +2,15 @@ export type DoraLevel = 'elite' | 'high' | 'medium' | 'low';
 
 export type MetricId =
   | 'deploymentFrequency'
-  | 'leadTimeForChanges'
-  | 'promptToCommitSuccessRate'
+  | 'leadTimePerLoc'
+  | 'tokensPerLoc'
+  | 'aiFirstTrySuccessRate'
   | 'changeFailureRate';
 
 export interface MetricValue {
   id: MetricId;
   value: number;
-  unit: 'perDay' | 'hours' | 'percent';
+  unit: 'perDay' | 'hours' | 'percent' | 'minPerLoc' | 'tokensPerLoc';
   sampleSize: number;
   level?: DoraLevel;
   comparison?: {
@@ -36,9 +37,17 @@ export interface QualityMetrics {
   bucket: 'day' | 'week';
   metrics: {
     deploymentFrequency: MetricValue;
-    leadTimeForChanges: MetricValue;
-    promptToCommitSuccessRate: MetricValue;
+    leadTimePerLoc: MetricValue;
+    tokensPerLoc: MetricValue;
+    aiFirstTrySuccessRate: MetricValue;
     changeFailureRate: MetricValue;
   };
   unmeasured: UnmeasuredMetric[];
+  costPerLocTimeSeries?: ReadonlyArray<{ bucketStart: string; value: number }>;
+  leadTimeMinTimeSeries?: ReadonlyArray<{ bucketStart: string; value: number }>;
+  leadTimeUnmappedTimeSeries?: ReadonlyArray<{ bucketStart: string; value: number }>;
+  leadTimeMinByPrefix?: {
+    prefixes: ReadonlyArray<string>;
+    series: ReadonlyArray<{ bucketStart: string; byPrefix: Readonly<Record<string, number>> }>;
+  };
 }

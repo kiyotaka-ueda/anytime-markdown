@@ -8,11 +8,12 @@ function emptyInputs(): QualityMetricsInputs {
 }
 
 describe('computeQualityMetrics', () => {
-  it('empty inputs → all 4 metrics with sampleSize=0', () => {
+  it('empty inputs → all 5 metrics with sampleSize=0', () => {
     const result = computeQualityMetrics(emptyInputs(), range);
     expect(result.metrics.deploymentFrequency.sampleSize).toBe(0);
-    expect(result.metrics.leadTimeForChanges.sampleSize).toBe(0);
-    expect(result.metrics.promptToCommitSuccessRate.sampleSize).toBe(0);
+    expect(result.metrics.leadTimePerLoc.sampleSize).toBe(0);
+    expect(result.metrics.tokensPerLoc.sampleSize).toBe(0);
+    expect(result.metrics.aiFirstTrySuccessRate.sampleSize).toBe(0);
     expect(result.metrics.changeFailureRate.sampleSize).toBe(0);
   });
 
@@ -38,16 +39,17 @@ describe('computeQualityMetrics', () => {
     expect(prevTo - prevFrom).toBeCloseTo(duration, -3);
   });
 
-  it('bucket=day when range <= 14 days', () => {
-    const shortRange: DateRange = { from: '2026-04-01T00:00:00.000Z', to: '2026-04-14T23:59:59.999Z' };
-    const result = computeQualityMetrics(emptyInputs(), shortRange);
-    expect(result.bucket).toBe('day');
+  it('bucket=day when range <= 31 days (covers 7d/30d periods)', () => {
+    const sevenDays: DateRange = { from: '2026-04-01T00:00:00.000Z', to: '2026-04-08T00:00:00.000Z' };
+    expect(computeQualityMetrics(emptyInputs(), sevenDays).bucket).toBe('day');
+
+    const thirtyDays: DateRange = { from: '2026-03-01T00:00:00.000Z', to: '2026-03-31T00:00:00.000Z' };
+    expect(computeQualityMetrics(emptyInputs(), thirtyDays).bucket).toBe('day');
   });
 
-  it('bucket=week when range >= 15 days', () => {
-    const longRange: DateRange = { from: '2026-04-01T00:00:00.000Z', to: '2026-04-15T23:59:59.999Z' };
-    const result = computeQualityMetrics(emptyInputs(), longRange);
-    expect(result.bucket).toBe('week');
+  it('bucket=week when range > 31 days', () => {
+    const ninetyDays: DateRange = { from: '2026-01-01T00:00:00.000Z', to: '2026-04-01T00:00:00.000Z' };
+    expect(computeQualityMetrics(emptyInputs(), ninetyDays).bucket).toBe('week');
   });
 
   it('range is stored in result', () => {
@@ -68,15 +70,15 @@ describe('computeQualityMetrics', () => {
     expect(result.metrics.deploymentFrequency.value).toBeGreaterThan(0);
   });
 
-  it('computes lead time from message commits', () => {
+  it('computes leadTimePerLoc from messages and commits scoped by session', () => {
     const inputs: QualityMetricsInputs = {
       ...emptyInputs(),
-      messages: [{ uuid: 'm0', created_at: '2026-04-10T00:00:00.000Z', role: 'user', type: 'text' }],
-      messageCommits: [{ message_uuid: 'm0', detected_at: '2026-04-10T04:00:00.000Z', match_confidence: 'high' }],
+      messages: [{ uuid: 'm0', created_at: '2026-04-10T00:00:00.000Z', role: 'user', type: 'text', session_id: 's1' }],
+      commits: [{ hash: 'abc123', subject: 'feat', committed_at: '2026-04-10T04:00:00.000Z', is_ai_assisted: true, files: [], session_id: 's1', lines_added: 80, lines_deleted: 20 }],
     };
     const result = computeQualityMetrics(inputs, range);
-    expect(result.metrics.leadTimeForChanges.sampleSize).toBe(1);
-    expect(result.metrics.leadTimeForChanges.value).toBeCloseTo(4, 1);
+    expect(result.metrics.leadTimePerLoc.sampleSize).toBe(1);
+    expect(result.metrics.leadTimePerLoc.value).toBeGreaterThan(0);
   });
 
   it('includes comparison when previous data provided', () => {

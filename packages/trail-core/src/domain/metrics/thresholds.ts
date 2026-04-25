@@ -8,14 +8,18 @@ export interface ThresholdLevels {
 
 export interface ThresholdsConfig {
   deploymentFrequency: ThresholdLevels;
-  leadTimeForChanges: ThresholdLevels;
+  leadTimePerLoc: ThresholdLevels;
+  tokensPerLoc: ThresholdLevels;
   changeFailureRate: ThresholdLevels;
+  aiFirstTrySuccessRate: ThresholdLevels;
 }
 
 export const DEFAULT_THRESHOLDS: ThresholdsConfig = {
   deploymentFrequency: { elite: 1, high: 1 / 7, medium: 1 / 30 },
-  leadTimeForChanges: { elite: 24, high: 168, medium: 720 },
+  leadTimePerLoc: { elite: 1, high: 5, medium: 20 },        // min/LOC, smaller is better
+  tokensPerLoc: { elite: 5_000, high: 20_000, medium: 100_000 }, // tokens/LOC (4-type sum incl. cache_read), smaller is better
   changeFailureRate: { elite: 15, high: 30, medium: 45 },
+  aiFirstTrySuccessRate: { elite: 80, high: 60, medium: 40 },
 };
 
 export function classifyDoraLevel(
@@ -23,8 +27,6 @@ export function classifyDoraLevel(
   value: number,
   thresholds: ThresholdsConfig = DEFAULT_THRESHOLDS,
 ): DoraLevel | undefined {
-  if (metricId === 'promptToCommitSuccessRate') return undefined;
-
   if (metricId === 'deploymentFrequency') {
     const t = thresholds.deploymentFrequency;
     if (value >= t.elite) return 'elite';
@@ -33,8 +35,16 @@ export function classifyDoraLevel(
     return 'low';
   }
 
-  if (metricId === 'leadTimeForChanges') {
-    const t = thresholds.leadTimeForChanges;
+  if (metricId === 'leadTimePerLoc') {
+    const t = thresholds.leadTimePerLoc;
+    if (value < t.elite) return 'elite';
+    if (value < t.high) return 'high';
+    if (value < t.medium) return 'medium';
+    return 'low';
+  }
+
+  if (metricId === 'tokensPerLoc') {
+    const t = thresholds.tokensPerLoc;
     if (value < t.elite) return 'elite';
     if (value < t.high) return 'high';
     if (value < t.medium) return 'medium';
@@ -46,6 +56,14 @@ export function classifyDoraLevel(
     if (value <= t.elite) return 'elite';
     if (value <= t.high) return 'high';
     if (value <= t.medium) return 'medium';
+    return 'low';
+  }
+
+  if (metricId === 'aiFirstTrySuccessRate') {
+    const t = thresholds.aiFirstTrySuccessRate;
+    if (value >= t.elite) return 'elite';
+    if (value >= t.high) return 'high';
+    if (value >= t.medium) return 'medium';
     return 'low';
   }
 
@@ -76,7 +94,9 @@ export function mergeThresholds(
 
   return {
     deploymentFrequency: mergeLevel(user.deploymentFrequency, defaults.deploymentFrequency),
-    leadTimeForChanges: mergeLevel(user.leadTimeForChanges, defaults.leadTimeForChanges),
+    leadTimePerLoc: mergeLevel(user.leadTimePerLoc, defaults.leadTimePerLoc),
+    tokensPerLoc: mergeLevel(user.tokensPerLoc, defaults.tokensPerLoc),
     changeFailureRate: mergeLevel(user.changeFailureRate, defaults.changeFailureRate),
+    aiFirstTrySuccessRate: mergeLevel(user.aiFirstTrySuccessRate, defaults.aiFirstTrySuccessRate),
   };
 }

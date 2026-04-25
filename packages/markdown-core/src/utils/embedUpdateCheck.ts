@@ -1,8 +1,8 @@
-import type { OgpData, EmbedProviders } from "../types/embedProvider";
+import type { EmbedProviders,OgpData } from "../types/embedProvider";
 import type { EmbedBaseline } from "./embedInfoString";
+import { buildOgpFingerprint, buildRssFingerprint } from "./ogpFingerprint";
 import { discoverRssFeed } from "./rssDiscovery";
 import type { RssLatest } from "./rssParser";
-import { buildOgpFingerprint, buildRssFingerprint } from "./ogpFingerprint";
 
 export type UpdateCheckResult =
     | { kind: "initial"; baseline: EmbedBaseline; fingerprint: string }

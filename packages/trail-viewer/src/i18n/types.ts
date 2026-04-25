@@ -125,6 +125,8 @@ export interface TrailI18n {
   'chart.estimatedCost': string;
   'chart.tokens': string;
   'chart.cost': string;
+  'chart.tokensPerLoc': string;
+  'chart.costPerLoc': string;
   // cost optimization
   'cost.title': string;
   'cost.current': string;
@@ -204,6 +206,14 @@ export interface TrailI18n {
 
 
   'analytics.combined.error': string;
+  'analytics.combined.commitPrefix': string;
+  'analytics.combined.release': string;
+  'analytics.combined.releaseSucceeded': string;
+  'analytics.combined.releaseFailed': string;
+  'analytics.combined.commitCount': string;
+  'analytics.combined.loc': string;
+  'analytics.combined.leadTime': string;
+  'analytics.commitPrefixChartTitle': string;
   'analytics.combined.skill': string;
   'analytics.combined.model': string;
 
@@ -214,10 +224,12 @@ export interface TrailI18n {
   'metrics.period.last90d': string;
   'metrics.deploymentFrequency.name': string;
   'metrics.deploymentFrequency.description': string;
-  'metrics.leadTimeForChanges.name': string;
-  'metrics.leadTimeForChanges.description': string;
-  'metrics.promptToCommitSuccessRate.name': string;
-  'metrics.promptToCommitSuccessRate.description': string;
+  'metrics.leadTimePerLoc.name': string;
+  'metrics.leadTimePerLoc.description': string;
+  'metrics.tokensPerLoc.name': string;
+  'metrics.tokensPerLoc.description': string;
+  'metrics.aiFirstTrySuccessRate.name': string;
+  'metrics.aiFirstTrySuccessRate.description': string;
   'metrics.changeFailureRate.name': string;
   'metrics.changeFailureRate.description': string;
   'metrics.level.elite': string;
@@ -228,6 +240,7 @@ export interface TrailI18n {
   'metrics.unmeasured.badge': string;
   'metrics.thresholds.title': string;
   'metrics.thresholds.openFile': string;
+  'metrics.thresholds.metricHeader': string;
   'metrics.empty': string;
   'metrics.error': string;
   'metrics.loading': string;

@@ -1,0 +1,80 @@
+{
+  "masthead": {
+    "editionVolume": "Vol. III · No. 142",
+    "editionDate": "Edition of 25 Apr 2026 · Yohaku · Morning",
+    "title": "Anytime Trial",
+    "titleEm": "Trial",
+    "titlePrefix": "Anytime",
+    "navMarkdown": "Markdown",
+    "navTrail": "Trail",
+    "localeAria": "日本語に切り替え",
+    "themeAria": "Toggle theme mode",
+    "themeTitle": "Toggle mode"
+  },
+  "headline": {
+    "kicker": "This site is an experimental project",
+    "title1": "Code, docs, and AI ",
+    "title2": " - made visible.",
+    "description": "AI agents are a caravan crossing the harsh terrain of development.\nWYSIWYG Markdown editing with diff review and real-time TypeScript architecture visualization\n— two VS Code extensions that serve as your compass in the age of AI.",
+    "byline": "Filed by <b>Claude Code</b> - Kiyotaka Ueda - open access",
+    "asideVert": "A long-road companion across the dunes.",
+    "asideEditor": "From the editor's desk",
+    "asideBody": "Faster tools lead writers astray. <vermilion>Anytime Markdown</vermilion> walks at the writer's pace.",
+    "asideMeta1": "☞ Founded: 2026",
+    "asideMeta2Label": "☞ Edition: ",
+    "approvedStamp": "approved · check"
+  },
+  "caravan": {
+    "tick": "— in transit · caravan crossing the desert —"
+  },
+  "dispatch": {
+    "num": "№002 ／ DISPATCH",
+    "meta": "filed 04:12 JST",
+    "titlePrefix": "Why a Camel? — ",
+    "titleEm": "Companionship, not Control.",
+    "lead": "The horse gallops fast on paved roads but falters against the unknown or heavy context. The camel (AI agents) carries the entire codebase and thinks through sandstorms (errors) where faster tools falter — a long-distance runner. In the caravan, the camel is no beast of burden but a comrade who reads the leader's intent.",
+    "harnessHeading": "The harness dilemma.",
+    "harnessBody": "The prevailing approach tries to control AI with upfront constraints — whitelists, guardrails, sandboxes, tool restrictions. But <vermilion>the more you constrain it, the more its autonomy and judgment are lost</vermilion>.",
+    "caravanHeading": "Companionship through visibility.",
+    "caravanBody": "Anytime imposes no constraints. We make actions visible (<vermilion>Trail</vermilion>) and artifacts reviewable (<vermilion>Markdown</vermilion>), building trust through verification both before and after — a philosophy embodied in two extensions.",
+    "editorHeading": "Editor's note.",
+    "editorBody": "This site is an experimental project where design, implementation, and testing are all carried out by <vermilion>Claude Code</vermilion> (an AI coding assistant), with humans only providing instructions. We use Anytime Markdown itself to grasp specifications and verify test content during development. The source code is published on <github>GitHub</github>."
+  },
+  "briefing": {
+    "trailEmbedTitle": "anytime-trail — trail viewer",
+    "markdownEmbedTitle": "anytime-markdown — markdown editor",
+    "shipped": "— shipped",
+    "trailHeader": "Anytime",
+    "trailHeaderEm": "Trail.",
+    "markdownHeader": "Anytime",
+    "markdownHeaderEm": "Markdown."
+  },
+  "pullQuote": {
+    "text": "Faster tools lead writers astray. We carry words at the caravan's pace.",
+    "attr": "— editorial · prologue · vol.iii"
+  },
+  "ticker": {
+    "item1": "open source · MIT licensed",
+    "item2": "browser-only · zero servers",
+    "item3": "KaTeX · Mermaid · GFM",
+    "item4": "section-level diff",
+    "item5": "spec-driven workflow",
+    "item6": "EN ／ JA bilingual"
+  },
+  "cta": {
+    "openViewer": "Open Viewer",
+    "onlineEditor": "Online Editor",
+    "vsCode": "VS Code Extension"
+  },
+  "colophon": {
+    "press": "The Press",
+    "dispatch": "Dispatch",
+    "privacyPolicy": "Privacy policy",
+    "license": "License · MIT",
+    "edit": "Edit",
+    "onlineEditor": "Anytime Markdown",
+    "trailArchitecture": "Anytime Trail · architecture",
+    "github": "Github",
+    "foldCopy": "© 2026 Kiyotaka Ueda featuring Claude Code"
+  }
+}
