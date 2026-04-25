@@ -400,6 +400,19 @@ function laneModelColor(model: string): string {
   return '#90A4AE';
 }
 
+function mergeRuns<T>(values: readonly T[]): Array<{ value: T; start: number; end: number }> {
+  const runs: Array<{ value: T; start: number; end: number }> = [];
+  for (let i = 0; i < values.length; i++) {
+    const last = runs.at(-1);
+    if (last && last.value === values[i]) {
+      last.end = i;
+    } else {
+      runs.push({ value: values[i], start: i, end: i });
+    }
+  }
+  return runs;
+}
+
 function TurnLaneChart({
   assistantMsgs,
   tickStep,
@@ -418,12 +431,17 @@ function TurnLaneChart({
     return () => obs.disconnect();
   }, []);
 
-  const toolUsage = useMemo(() =>
+  const modelRuns = useMemo(() =>
+    mergeRuns(assistantMsgs.map((m) => m.model ?? '')),
+    [assistantMsgs],
+  );
+
+  const toolRuns = useMemo(() =>
     LANE_TOOL_CATS.map((cat) => ({
       cat,
-      turns: assistantMsgs.map((m) =>
-        (m.toolCalls ?? []).some((tc) => laneClassifyTool(tc.name) === cat),
-      ),
+      runs: mergeRuns(
+        assistantMsgs.map((m) => (m.toolCalls ?? []).some((tc) => laneClassifyTool(tc.name) === cat)),
+      ).filter((r) => r.value),
     })),
     [assistantMsgs],
   );
@@ -470,24 +488,36 @@ function TurnLaneChart({
         <text x={LABEL_W - 4} y={MODEL_H / 2 + 4} textAnchor="end" fontSize={9} fill={colors.textSecondary}>
           Model
         </text>
-        {/* Model strip */}
-        {assistantMsgs.map((m, i) => (
-          <rect key={`ml${i}`} x={toX(i)} y={0} width={Math.max(colW, 1)} height={MODEL_H} fill={laneModelColor(m.model ?? '')} />
+        {/* Model strip — merged runs */}
+        {modelRuns.map((run) => (
+          <rect
+            key={`ml${run.start}`}
+            x={toX(run.start)}
+            y={0}
+            width={Math.max((run.end - run.start + 1) * colW, 1)}
+            height={MODEL_H}
+            fill={laneModelColor(run.value)}
+          />
         ))}
         {/* Tool lane label */}
         <text x={LABEL_W - 4} y={toolY + toolSectionH / 2 + 4} textAnchor="end" fontSize={9} fill={colors.textSecondary}>
           Tools
         </text>
-        {/* Tool strips */}
-        {toolUsage.map(({ cat, turns }, row) => {
+        {/* Tool strips — merged runs */}
+        {toolRuns.map(({ cat, runs }, row) => {
           const y = toolY + row * (TOOL_ROW_H + TOOL_GAP);
           return (
             <g key={cat}>
-              {turns.map((used, i) =>
-                used
-                  ? <rect key={i} x={toX(i)} y={y} width={Math.max(colW, 1)} height={TOOL_ROW_H} fill={LANE_TOOL_COLORS[cat]} />
-                  : null,
-              )}
+              {runs.map((run) => (
+                <rect
+                  key={run.start}
+                  x={toX(run.start)}
+                  y={y}
+                  width={Math.max((run.end - run.start + 1) * colW, 1)}
+                  height={TOOL_ROW_H}
+                  fill={LANE_TOOL_COLORS[cat]}
+                />
+              ))}
             </g>
           );
         })}
