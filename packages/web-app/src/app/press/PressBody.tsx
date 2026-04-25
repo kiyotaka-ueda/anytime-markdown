@@ -56,9 +56,9 @@ export function PressBody() {
           </div>
         }
       />
+      <CtaStrip />
       <PullQuote />
       <Ticker />
-      <CtaStrip />
       <Colophon />
     </div>
   );
