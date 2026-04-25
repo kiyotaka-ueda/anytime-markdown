@@ -194,6 +194,7 @@ export const en: TrailI18n = {
   'analytics.combined.commitPrefix': 'Commits',
   'analytics.combined.commitCount': 'Commits',
   'analytics.combined.loc': 'LOC',
+  'analytics.combined.leadTime': 'Lead Time',
   'analytics.commitPrefixChartTitle': 'Commit types',
   'analytics.combined.skill': 'Skill',
   'analytics.combined.model': 'Model',

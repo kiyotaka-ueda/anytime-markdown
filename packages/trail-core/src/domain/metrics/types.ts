@@ -44,4 +44,10 @@ export interface QualityMetrics {
   };
   unmeasured: UnmeasuredMetric[];
   costPerLocTimeSeries?: ReadonlyArray<{ bucketStart: string; value: number }>;
+  leadTimeMinTimeSeries?: ReadonlyArray<{ bucketStart: string; value: number }>;
+  leadTimeUnmappedTimeSeries?: ReadonlyArray<{ bucketStart: string; value: number }>;
+  leadTimeMinByPrefix?: {
+    prefixes: ReadonlyArray<string>;
+    series: ReadonlyArray<{ bucketStart: string; byPrefix: Readonly<Record<string, number>> }>;
+  };
 }
