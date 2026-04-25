@@ -24,7 +24,7 @@ import type { TrailGraph } from '@anytime-markdown/trail-core';
 import { WebSocketServer, type WebSocket } from 'ws';
 
 import type { ClientMessage, ServerMessage } from './types';
-import type { TrailDatabase, SessionRow, MessageRow, AnalyticsData, CostOptimizationData } from '../trail/TrailDatabase';
+import type { TrailDatabase, SessionRow, MessageRow, SessionCommitRow, AnalyticsData, CostOptimizationData } from '../trail/TrailDatabase';
 import { MetricsThresholdsLoader } from '../trail/MetricsThresholdsLoader';
 import { computeDeploymentFrequency, computeQualityMetrics, computeReleaseQualityTimeSeries } from '@anytime-markdown/trail-core/domain/metrics';
 import { TrailLogger } from '../utils/TrailLogger';
@@ -625,6 +625,28 @@ export class TrailDataServer {
       for (const m of rawMessages) {
         const hashes = commitsByMessageUuid.get(m.uuid);
         if (hashes && m.parent_uuid) commitsByAssistantUuid.set(m.parent_uuid, hashes);
+      }
+      // Fallback: for sessions where message_commits is not yet backfilled,
+      // match git-commit assistant messages to session_commits by timestamp proximity.
+      if (commitsByAssistantUuid.size === 0) {
+        const sessionCommitsList = this.trailDb.getSessionCommits(sessionId);
+        if (sessionCommitsList.length > 0) {
+          for (const m of rawMessages) {
+            if (!gitCommitUuids.has(m.uuid) || !m.timestamp) continue;
+            const msgTime = new Date(m.timestamp).getTime();
+            let closest: SessionCommitRow | null = null;
+            let closestDiff = Infinity;
+            for (const sc of sessionCommitsList) {
+              if (!sc.committed_at) continue;
+              const diff = new Date(sc.committed_at).getTime() - msgTime;
+              if (diff >= 0 && diff < 300_000 && diff < closestDiff) {
+                closest = sc;
+                closestDiff = diff;
+              }
+            }
+            if (closest) commitsByAssistantUuid.set(m.uuid, [closest.commit_hash]);
+          }
+        }
       }
       const messages = rawMessages.map((m) => ({
         uuid: m.uuid,

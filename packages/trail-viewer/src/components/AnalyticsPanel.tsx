@@ -389,8 +389,8 @@ interface ErrorMarkerData {
 }
 
 function parseCommitSubject(cmd: string): string {
-  // heredoc: first line between EOF delimiters
-  const heredocMatch = /EOF\n([\s\S]+?)\n\s*EOF/.exec(cmd);
+  // heredoc: <<'EOF' ... EOF  (Claude Code standard format)
+  const heredocMatch = /<<'?EOF'?\n([\s\S]+?)\n\s*EOF/.exec(cmd);
   if (heredocMatch) return heredocMatch[1].trim().split('\n')[0].trim();
   // simple -m "..."
   const simpleMatch = /-m\s+"((?:[^"\\]|\\.)*)"/.exec(cmd);
