@@ -7,9 +7,9 @@ import { useBlockResize } from "../../hooks/useBlockResize";
 import {
     buildEmbedInfoString,
     DEFAULT_EMBED_BASELINE,
-    parseEmbedInfoString,
     type EmbedBaseline,
     type EmbedVariant,
+    parseEmbedInfoString,
 } from "../../utils/embedInfoString";
 import { EmbedEditDialog } from "../EmbedEditDialog";
 import { EmbedNodeView } from "../EmbedNodeView";

@@ -6,6 +6,37 @@
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-04-25
+
+### 追加
+
+- `PostgresTrailStore` に `upsertCommitFiles` を実装し、テスト用フェイクも追加
+- デプロイ頻度＋品質 API エンドポイント（`/api/deployment-frequency-quality`）を追加
+- コミットファイルを Supabase `trail_commit_files` テーブルに同期
+
+### 変更
+
+- ターンベースの帰属でアシスタントコストをユーザープロンプト単位に集約
+- Supabase に送信するメトリクス入力に tokens/LOC を追加
+
+### 修正
+
+- web-app リーダーの `leadTimeForChanges` を `leadTimePerLoc` / `tokensPerLoc` に置き換え
+- LEAD ベースのトークン集計を範囲内のアシスタントメッセージのみに制限
+
+### パフォーマンス
+
+- 重い CTE + LEAD 集計を 2 本のシンプルな範囲スキャンに置き換え
+- `match_confidence` フィルタを SQL 側に押し込む
+
+### Trail Core (trail-core)
+
+- Change Failure Rate を 168h タイムウィンドウ + ファイルオーバーラップ方式に刷新
+- `leadTimePerLoc`（min/LOC）と `tokensPerLoc`（tokens/LOC）指標を追加
+- スタック形式のリリース品質チャート用 `computeReleaseQualityTimeSeries` を追加
+- プロンプト→コミット成功率を AI ファーストトライ成功率に置き換え
+- 生産性指標クエリ用の DB インデックスを追加
+
 ## [0.9.1] - 2026-04-24
 
 ### 変更

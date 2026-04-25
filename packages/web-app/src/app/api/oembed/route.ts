@@ -1,7 +1,6 @@
-import { NextResponse } from "next/server";
-
 import type { OembedData } from "@anytime-markdown/markdown-core/src/types/embedProvider";
 import { sanitizeTweetHtml } from "@anytime-markdown/markdown-core/src/utils/tweetSanitize";
+import { NextResponse } from "next/server";
 
 const TIMEOUT_MS = 5000;
 const ALLOWED_TWITTER_HOSTS = new Set(["twitter.com", "x.com", "www.twitter.com", "www.x.com"]);

@@ -1,7 +1,7 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
+import { useTranslations } from 'next-intl';
 
 import { useThemeMode } from '../providers';
 import { BriefingPrimary, BriefingSecondary } from './components/Briefing';

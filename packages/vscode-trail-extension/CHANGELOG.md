@@ -6,6 +6,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-04-25
+
+### Added
+
+- `upsertCommitFiles` implementation in `PostgresTrailStore` and test fake
+- Deployment frequency + quality API endpoint (`/api/deployment-frequency-quality`)
+- Sync commit files to Supabase `trail_commit_files` table
+
+### Changed
+
+- Aggregate assistant cost per user turn with turn-based attribution
+- Include tokens/LOC in metrics inputs sent to Supabase
+
+### Fixed
+
+- Replace `leadTimeForChanges` with `leadTimePerLoc` / `tokensPerLoc` in web-app reader
+- Restrict LEAD-based token aggregation to assistant messages within range
+
+### Performance
+
+- Replace heavy CTE + LEAD aggregation with two simple range scans
+- Push `match_confidence` filter into SQL
+
+### Trail Core (trail-core)
+
+- Rewrite Change Failure Rate to 168h time-window + file-overlap logic
+- Add `leadTimePerLoc` (min/LOC) and `tokensPerLoc` (tokens/LOC) metrics
+- Add `computeReleaseQualityTimeSeries` for stacked Release Quality chart
+- Replace prompt-to-commit rate with AI first-try success rate
+- Add DB indexes for productivity metrics queries
+
 ## [0.9.1] - 2026-04-24
 
 ### Changed

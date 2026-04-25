@@ -6,6 +6,33 @@
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-04-25
+
+### 追加
+
+- スタック形式のリリース品質チャート用 `computeReleaseQualityTimeSeries` を追加
+- `leadTimeForChanges` に代わる `leadTimePerLoc` 指標（min/LOC）を追加
+- `tokensPerLoc` 指標（tokens/LOC）と `computeTokensAndCostPerLocTimeSeries` を追加
+- `QualityMetrics` に `costPerLocTimeSeries` を公開
+- `CombinedCommitPrefix` に `linesAdded` フィールドを追加
+- 生産性指標クエリ用の DB インデックスを追加
+
+### 変更
+
+- Change Failure Rate を 168h タイムウィンドウ + ファイルオーバーラップ方式に刷新
+- プロンプト→コミット成功率を AI ファーストトライ成功率に置き換え
+- AI ファーストトライ失敗検知にファイルオーバーラップを必須化、非コードファイルを除外
+- キャッシュリードとコミット単位の実態に合わせて閾値を再調整
+- 日次バケット閾値を 31 日に拡大
+- `VALID_MESSAGE_COMMIT_CONFIDENCES` を `ReadonlySet<string>` に拡張
+
+### 修正
+
+- `message_commits` をユーザー祖先 UUID に解決するよう修正
+- timeSeries を sum-ratio 集計に合わせて整合
+- 生産性指標の日時に `mc.detected_at` ではなく `committed_at` を使用
+- 生産性指標をセッションスコープのコミットウィンドウに再定義
+
 ## [0.9.1] - 2026-04-24
 
 ### 変更

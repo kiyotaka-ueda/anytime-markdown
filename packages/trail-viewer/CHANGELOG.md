@@ -6,6 +6,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-04-25
+
+### Added
+
+- Stacked Release Quality chart on Activity tab
+- Release toggle and Deployment Frequency bar chart on Activity tab
+- Lead Time bars stacked by commit prefix with toggle
+- Commits / LOC toggle on Activity commits chart
+- Per-session commit-prefix chart in drilldown panel
+- Commit-prefix stacked chart on Activity tab
+- Overlay Tokens/LOC or Cost/LOC line on `DailyActivityChart`
+- AI first-try success rate line overlay on commits chart
+- Show productivity thresholds dialog
+- Format `minPerLoc` and `tokensPerLoc` in `MetricCard`
+- Show unmapped commit count in Lead Time tooltip
+- Show dated x-axis on quality metric charts
+
+### Changed
+
+- Rename viewer tabs to "activity" and "messages"
+- Replace `leadTimeForChanges` with `leadTimePerLoc` / `tokensPerLoc` labels (i18n)
+- Adapt Supabase reader to new metric input shape
+- i18n: localize thresholds dialog metric column header
+- Refactor `DeltaBadge` nested ternaries to helper functions
+
+### Fixed
+
+- Show spinner while Release chart fetches quality metrics
+- Extract `Intl.DateTimeFormat` instance outside render loop
+- Wire `fetchQualityMetrics` to `AnalyticsPanel`
+
+### Performance
+
+- Skip quality metrics fetch while on Release chart
+- Add dedicated deployment-frequency endpoint for Release chart
+
 ## [0.7.0] - 2026-04-18
 
 ### Added

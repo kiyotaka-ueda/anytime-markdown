@@ -4,7 +4,7 @@ import { Box, Stack, Typography, useTheme } from "@mui/material";
 import { useOptionalEmbedProviders } from "../contexts/EmbedProvidersContext";
 import type { EmbedProviders } from "../types/embedProvider";
 import { classifyEmbedUrl } from "../utils/embedClassifier";
-import { parseEmbedInfoString, type EmbedBaseline } from "../utils/embedInfoString";
+import { type EmbedBaseline,parseEmbedInfoString } from "../utils/embedInfoString";
 import { DrawioEmbedView } from "./embed/DrawioEmbedView";
 import { FigmaEmbedView } from "./embed/FigmaEmbedView";
 import { OgpCardView } from "./embed/OgpCardView";

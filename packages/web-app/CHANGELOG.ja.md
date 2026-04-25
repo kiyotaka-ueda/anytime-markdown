@@ -6,6 +6,24 @@
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-04-25
+
+### 追加
+
+- ランディングページ（Press）をトップルート（`/`）に昇格し、`/press` → `/` にリダイレクト
+- Press ページ構成: Masthead、Headline、Dispatch、Briefing（Trail Viewer + Markdown Viewer 埋め込み）、PullQuote、Ticker、CtaStrip、Colophon
+- `next/font` 遊明朝風フォント（Yuji Boku）でルビ付きの日本語ヘッドラインタイトル
+- Masthead にロケールトグル（EN / JA）を追加
+- スクロール連動プログレスルールインジケーターを追加
+- Headline aside メタ情報に web-app バージョンを動的表示
+- Press ページ用の robots・sitemap エントリを追加
+- フォント統合: Bodoni Moda、Shippori Mincho、Yuji Boku、JetBrains Mono
+
+### 変更
+
+- `/press` をトップページに昇格し、全 Press レイアウトをトップで提供
+- Anytime Trail LP の利点テキストを「構造可視化 / 動作可視化 / 品質可視化」フレームで刷新
+
 ## [0.17.0] - 2026-04-24
 
 ### 追加

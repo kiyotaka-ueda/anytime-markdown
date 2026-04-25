@@ -1,7 +1,7 @@
+import type { ReleaseQualityBucket } from '@anytime-markdown/trail-core/domain/metrics';
 import { type NextRequest, NextResponse } from 'next/server';
 
 import { trailReaderRoute } from '../../../../lib/api-helpers';
-import type { ReleaseQualityBucket } from '@anytime-markdown/trail-core/domain/metrics';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

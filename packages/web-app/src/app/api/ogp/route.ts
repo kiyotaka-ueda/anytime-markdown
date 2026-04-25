@@ -1,7 +1,6 @@
-import { NextResponse } from "next/server";
-
 import { parseOgpHtml } from "@anytime-markdown/markdown-core/src/utils/ogpParser";
 import { assertSafeUrl } from "@anytime-markdown/markdown-core/src/utils/ssrfGuard";
+import { NextResponse } from "next/server";
 
 const TIMEOUT_MS = 5000;
 const MAX_BYTES = 2 * 1024 * 1024;
