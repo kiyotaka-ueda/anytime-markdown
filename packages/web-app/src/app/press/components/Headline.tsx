@@ -1,6 +1,9 @@
 import { useTranslations } from 'next-intl';
 
+import packageJson from '../../../../package.json';
 import styles from '../press.module.css';
+
+const APP_VERSION = `v${packageJson.version}`;
 
 export function Headline() {
   const t = useTranslations('VsCode');
@@ -37,7 +40,8 @@ export function Headline() {
         <div className={styles.headlineAsideMeta}>
           {tHead('asideMeta1')}
           <br />
-          {tHead('asideMeta2')}
+          {tHead('asideMeta2Label')}
+          {APP_VERSION}
         </div>
       </aside>
     </section>
