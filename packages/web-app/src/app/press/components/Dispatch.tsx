@@ -6,35 +6,31 @@ export function Dispatch() {
       <header className={styles.dispatchHeader}>
         <span className={styles.dispatchNum}>№002 ／ DISPATCH</span>
         <h2 className={styles.dispatchSection}>
-          Three modes, <em>one notebook.</em>
+          なぜ「ラクダ」なのか — <em>制御ではなく、伴走へ。</em>
         </h2>
         <span className={styles.dispatchMeta}>filed 04:12 JST</span>
       </header>
       <div className={styles.columns}>
         <p>
-          Anytime Markdown
-          は速くない。書き手の歩幅で動く。三つの編集モード — 原稿用紙のごとき
-          WYSIWYG、隊商の地図のような構造プレビュー、そして素朴な源文 —
-          はそれぞれが独立した部屋ではなく、同じ机の上で開かれた三冊のノートのように振る舞う。文字列ではなく、思考の体勢を切り替えるための装置である。
+          「馬」は整備された道を高速で駆けるが、未知や重いコンテキストに弱い。対して「ラクダ」（AIエージェント）は巨大な荷（コードベース）を背負い、砂嵐（エラー）の中でも自ら考え歩き続ける長距離ランナーだ。そしてキャラバンにおけるラクダは、隊商頭の意図を汲む同志である。
         </p>
-        <h3>The slow road, by design.</h3>
+        <h3>ハーネスのジレンマ。</h3>
         <p>
-          AI と向き合うとき、最も警戒すべきは「速さの快楽」である。Spec-Driven
-          Development
-          の哲学は、書く前に立ち止まることを要請する。本誌の編集機は、章立てを段差として可視化し、書き換えの差分を線単位ではなく節単位で示す。
-          <span className={styles.textVermilion}>差分は、出来事である。</span>
+          主流のアプローチは AI を「ハーネス（手綱）」で縛る ―
+          ホワイトリスト、ガードレール、ツール制限、サンドボックス。しかし
+          <span className={styles.textVermilion}>
+            縛るほどに自律性も判断力も失われる
+          </span>
+          。
         </p>
-        <h3>Browser-only, server-never.</h3>
+        <h3>見える化で築く、伴走。</h3>
         <p>
-          原稿はサーバに渡らない。ブラウザの内側、IndexedDB
-          の小さな抽斗に収まる。署名も追跡も不要。隊商が砂を踏み、足跡だけを残して去るように、本ツールはあなたのデータに足跡だけを残さない。
-        </p>
-        <h3>Long-form, KaTeX, Mermaid.</h3>
-        <p>
-          数式は KaTeX、図は Mermaid。Admonition、脚注、表、リスト — GitHub
-          Flavored Markdown
-          の全ての方言を解する。出力は紙に印刷できる PDF と、何処にも依存しない単一
-          HTML、二種類で十分とする。
+          Anytime は制約をかけない。行動を見える化（
+          <span className={styles.textVermilion}>Trail</span>
+          ）し、成果物をレビュー可能（
+          <span className={styles.textVermilion}>Markdown</span>
+          ）にすることで、事前事後の検証で信頼を築く ― この思想を、2
+          つの拡張で具現化した。
         </p>
       </div>
     </section>
