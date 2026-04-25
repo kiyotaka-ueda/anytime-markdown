@@ -13,6 +13,9 @@ export function Colophon() {
   const t = useTranslations('press.colophon');
   const tLanding = useTranslations('Landing');
   const showDocsEdit = process.env.NEXT_PUBLIC_ENABLE_DOCS_EDIT === 'true';
+  const showGraph = process.env.NEXT_PUBLIC_SHOW_GRAPH === '1';
+  const showSheet = process.env.NEXT_PUBLIC_SHOW_SHEET === '1';
+  const showPlaylist = process.env.NEXT_PUBLIC_SHOW_PLAYLIST === '1';
   return (
     <footer>
       <section className={styles.colophon} id="archive">
@@ -56,6 +59,27 @@ export function Colophon() {
             <li>
               <Link href="/trail">{t('trailArchitecture')}</Link>
             </li>
+            <li>
+              <Link href="/report">{tLanding('reportPage')}</Link>
+            </li>
+            <li>
+              <Link href="/docs">{tLanding('sitesPage')}</Link>
+            </li>
+            {showGraph ? (
+              <li>
+                <Link href="/graph">{tLanding('graphPage')}</Link>
+              </li>
+            ) : null}
+            {showSheet ? (
+              <li>
+                <Link href="/sheet">{tLanding('sheetPage')}</Link>
+              </li>
+            ) : null}
+            {showPlaylist ? (
+              <li>
+                <Link href="/playlist">{tLanding('playlistPage')}</Link>
+              </li>
+            ) : null}
             <li>
               <a
                 href={GITHUB_REPO_URL}
