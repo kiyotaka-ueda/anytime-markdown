@@ -880,7 +880,7 @@ function SessionCommitPrefixChart({
   sessionId: string;
   fetchSessionCommits: (id: string) => Promise<readonly TrailSessionCommit[]>;
 }>) {
-  const { cardSx, toolPalette } = useTrailTheme();
+  const { colors, cardSx, toolPalette } = useTrailTheme();
   const { t } = useTrailI18n();
   const [commits, setCommits] = useState<readonly TrailSessionCommit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -901,7 +901,18 @@ function SessionCommitPrefixChart({
     return () => { cancelled = true; };
   }, [sessionId, fetchSessionCommits]);
 
-  if (loading || commits.length === 0) return null;
+  if (loading) return null;
+
+  if (commits.length === 0) {
+    return (
+      <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
+        <Typography variant="subtitle2" sx={{ px: 1.5 }}>{t('analytics.commitPrefixChartTitle')}</Typography>
+        <Box sx={{ height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Typography variant="h5" sx={{ color: colors.textSecondary }}>0</Typography>
+        </Box>
+      </Paper>
+    );
+  }
 
   const prefixCounts = new Map<string, number>();
   for (const c of commits) {
@@ -1308,14 +1319,16 @@ function SessionSkillUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
 }
 
 function SessionErrorChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics | null }>) {
-  const { cardSx, toolPalette } = useTrailTheme();
+  const { colors, cardSx, toolPalette } = useTrailTheme();
   const { t } = useTrailI18n();
   const errors = toolMetrics?.errorsByTool;
   if (!errors || errors.length === 0) {
     return (
-      <Paper elevation={0} sx={{ ...cardSx, p: 1.5, flex: 1, minWidth: 0 }}>
-        <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{t('analytics.combined.error')}</Typography>
-        <Typography variant="body2" color="text.secondary">0</Typography>
+      <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
+        <Typography variant="subtitle2" sx={{ px: 1.5 }}>{t('analytics.combined.error')}</Typography>
+        <Box sx={{ height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Typography variant="h5" sx={{ color: colors.textSecondary }}>0</Typography>
+        </Box>
       </Paper>
     );
   }
