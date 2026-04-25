@@ -2,9 +2,20 @@ import { classifyDoraLevel, DEFAULT_THRESHOLDS } from './thresholds';
 import type { ThresholdsConfig } from './thresholds';
 import type { DateRange, MetricValue } from './types';
 import { buildTimeSeries } from './timeSeriesUtils';
+import {
+  FIX_WINDOW_MS,
+  filterCodeFiles,
+  hasFileOverlap,
+  isFailureCommit,
+  isCodeFile as _isCodeFile,
+} from './failureCommit';
 
-export const AI_FIRST_TRY_FIX_WINDOW_MS = 168 * 60 * 60 * 1000; // 7 days
-const FIX_WINDOW_MS = AI_FIRST_TRY_FIX_WINDOW_MS;
+export const AI_FIRST_TRY_FIX_WINDOW_MS = FIX_WINDOW_MS;
+export { _isCodeFile as isCodeFile };
+
+export function isAiFirstTryFailureCommit(subject: string): boolean {
+  return isFailureCommit(subject);
+}
 
 type Commit = {
   hash: string;
@@ -17,63 +28,6 @@ type Commit = {
 type Inputs = {
   commits: Commit[];
 };
-
-// 「AI 生成コード」品質指標のため、ドキュメント・画像・ロックファイル等の非コードファイルは
-// 分母・分子判定から除外する。拡張子/ファイル名のブラックリスト方式。
-const NON_CODE_EXTENSIONS = new Set<string>([
-  'md', 'mdx', 'txt', 'rst', 'adoc', 'asciidoc',
-  'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico', 'bmp', 'tiff',
-  'woff', 'woff2', 'ttf', 'otf', 'eot',
-  'mp4', 'mp3', 'wav', 'webm', 'mov',
-  'snap',
-]);
-
-const NON_CODE_FILENAMES = new Set<string>([
-  'package-lock.json',
-  'yarn.lock',
-  'pnpm-lock.yaml',
-  'npm-shrinkwrap.json',
-  'composer.lock',
-  'Gemfile.lock',
-  'Cargo.lock',
-  'poetry.lock',
-]);
-
-export function isCodeFile(path: string): boolean {
-  const base = path.split('/').pop() ?? path;
-  if (NON_CODE_FILENAMES.has(base)) return false;
-  const dot = base.lastIndexOf('.');
-  if (dot === -1) return true;
-  const ext = base.slice(dot + 1).toLowerCase();
-  return !NON_CODE_EXTENSIONS.has(ext);
-}
-
-function filterCodeFiles(files: readonly string[]): string[] {
-  return files.filter(isCodeFile);
-}
-
-export function isAiFirstTryFailureCommit(subject: string): boolean {
-  return isFailureCommit(subject);
-}
-
-function isFailureCommit(subject: string): boolean {
-  const lower = subject.toLowerCase();
-  if (/^fix(\([^)]*\))?[!]?:\s/.test(lower)) return true;
-  if (/^revert(\([^)]*\))?[!]?:\s/.test(lower)) return true;
-  if (/^hotfix(\([^)]*\))?[!]?:\s/.test(lower)) return true;
-  return false;
-}
-
-// AI コミットと fix コミットが少なくとも 1 ファイル（コードに限る）を共有しているかで failure 判定する。
-// どちらかの files が空（未バックフィル・未取得）の場合は overlap を判定できないため楽観的に success。
-function hasFileOverlap(aiFiles: readonly string[], fixFiles: readonly string[]): boolean {
-  if (aiFiles.length === 0 || fixFiles.length === 0) return false;
-  const aiSet = new Set(aiFiles);
-  for (const f of fixFiles) {
-    if (aiSet.has(f)) return true;
-  }
-  return false;
-}
 
 function computeRate(inputs: Inputs, range: DateRange): {
   value: number;

@@ -213,7 +213,7 @@ export const ja: TrailI18n = {
   'metrics.aiFirstTrySuccessRate.name': 'AI 1 発成功率',
   'metrics.aiFirstTrySuccessRate.description': 'AI 生成コミットのうち、168 時間以内に fix / revert / hotfix で後追い修正されなかった割合',
   'metrics.changeFailureRate.name': '変更失敗率',
-  'metrics.changeFailureRate.description': 'fix / revert / hotfix を含むリリースの割合',
+  'metrics.changeFailureRate.description': 'リリース後 168 時間以内に同一ファイルへ fix / revert / hotfix が入ったリリースの割合',
   'metrics.level.elite': 'Elite',
   'metrics.level.high': 'High',
   'metrics.level.medium': 'Medium',
