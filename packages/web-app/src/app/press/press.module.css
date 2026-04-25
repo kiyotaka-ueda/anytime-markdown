@@ -248,6 +248,19 @@
     font-weight: 400;
 }
 
+.headlineTitle:lang(ja) {
+    font-family: var(--font-body);
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+}
+
+.headlineTitle:lang(ja) em {
+    font-style: normal;
+    font-weight: 800;
+    color: var(--vermilion);
+}
+
 .headlineDeck {
     font-family: var(--font-display);
     font-style: italic;

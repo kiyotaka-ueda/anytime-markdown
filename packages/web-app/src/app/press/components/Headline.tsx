@@ -1,4 +1,4 @@
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 
 import packageJson from '../../../../package.json';
 import styles from '../press.module.css';
@@ -8,16 +8,19 @@ const APP_VERSION = `v${packageJson.version}`;
 export function Headline() {
   const tVsCode = useTranslations('VsCode');
   const tHead = useTranslations('press.headline');
+  const locale = useLocale();
   return (
     <section className={styles.headline}>
       <div>
         <div className={styles.headlineKicker}>{tHead('kicker')}</div>
-        <h1 className={styles.headlineTitle}>
+        <h1 className={styles.headlineTitle} lang={locale}>
           {tHead('title1')}
           <br />
           <em>{tHead('title2')}</em>
         </h1>
-        <p className={styles.headlineDeck}>{tVsCode('heroDescription')}</p>
+        <p className={styles.headlineDeck} lang={locale}>
+          {tVsCode('heroDescription')}
+        </p>
         <div className={styles.headlineByline}>
           {tHead.rich('byline', {
             b: (chunks) => <b>{chunks}</b>,
@@ -25,7 +28,9 @@ export function Headline() {
         </div>
       </div>
       <aside className={styles.headlineAside}>
-        <div className={styles.vert}>{tHead('asideVert')}</div>
+        <div className={styles.vert} lang={locale}>
+          {tHead('asideVert')}
+        </div>
         <hr />
         <div>
           <b className={styles.headlineAsideEditor}>{tHead('asideEditor')}</b>
