@@ -18,12 +18,15 @@ import Typography from '@mui/material/Typography';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { BarChart, BarPlot } from '@mui/x-charts/BarChart';
 import { LineChart, LinePlot, MarkPlot } from '@mui/x-charts/LineChart';
-import { ChartsContainer } from '@mui/x-charts/ChartsContainer';
+import { ChartsDataProvider } from '@mui/x-charts/ChartsDataProvider';
+import { ChartsSurface } from '@mui/x-charts/ChartsSurface';
+import { ChartsWrapper } from '@mui/x-charts/ChartsWrapper';
 import { ChartsXAxis } from '@mui/x-charts/ChartsXAxis';
 import { ChartsYAxis } from '@mui/x-charts/ChartsYAxis';
 import { ChartsTooltip } from '@mui/x-charts/ChartsTooltip';
 import { ChartsGrid } from '@mui/x-charts/ChartsGrid';
 import { ChartsLegend } from '@mui/x-charts/ChartsLegend';
+import { ChartsAxisHighlight } from '@mui/x-charts/ChartsAxisHighlight';
 import { formatLocalTime, toLocalDateKey } from '@anytime-markdown/trail-core/formatDate';
 import { extractCommitPrefix } from '@anytime-markdown/trail-core/domain';
 import type { QualityMetrics, DateRange } from '@anytime-markdown/trail-core/domain/metrics';
@@ -1441,7 +1444,7 @@ function DailyActivityChart({
 
   return (
     <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
-      <ChartsContainer
+      <ChartsDataProvider
         dataset={dataset}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         series={[...barSeries, ...overlaySeries] as any}
@@ -1454,16 +1457,21 @@ function DailyActivityChart({
         margin={{ left: 16, right: hasOverlay ? 56 : 8, top: 8, bottom: 40 }}
         onAxisClick={period === 90 ? undefined : handleAxisClick}
       >
-        <ChartsGrid horizontal />
-        <BarPlot />
-        {hasOverlay && <LinePlot />}
-        {hasOverlay && <MarkPlot />}
-        <ChartsXAxis axisId="date" />
-        <ChartsYAxis axisId="left" />
-        {hasOverlay && <ChartsYAxis axisId="right" />}
-        <ChartsLegend direction="horizontal" />
-        <ChartsTooltip />
-      </ChartsContainer>
+        <ChartsWrapper legendDirection="horizontal" legendPosition={{ vertical: 'bottom', horizontal: 'center' }}>
+          <ChartsLegend />
+          <ChartsSurface>
+            <ChartsGrid horizontal />
+            <BarPlot />
+            {hasOverlay && <LinePlot />}
+            {hasOverlay && <MarkPlot />}
+            <ChartsAxisHighlight x="band" />
+            <ChartsXAxis axisId="date" />
+            <ChartsYAxis axisId="left" />
+            {hasOverlay && <ChartsYAxis axisId="right" />}
+          </ChartsSurface>
+          <ChartsTooltip />
+        </ChartsWrapper>
+      </ChartsDataProvider>
     </Paper>
   );
 }
@@ -1797,29 +1805,34 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
 
     return (
       <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
-        <ChartsContainer
+        <ChartsDataProvider
           dataset={augmentedDataset}
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           series={[...barSeries, ...lineSeries] as any}
           xAxis={[{ id: 'period', scaleType: 'band', dataKey: 'period' }]}
           yAxis={[
-            { id: 'countAxis', valueFormatter: fmtNum },
+            { id: 'countAxis', valueFormatter: fmtTokens },
             { id: 'rateAxis', min: 0, max: 100, position: 'right', valueFormatter: (v: number) => `${v}%` },
           ]}
           height={260}
           margin={{ left: 16, right: 48, top: 8, bottom: 40 }}
           onAxisClick={makeAxisClick(commitPeriods)}
         >
-          <ChartsGrid horizontal />
-          <BarPlot />
-          <LinePlot />
-          <MarkPlot />
-          <ChartsXAxis axisId="period" />
-          <ChartsYAxis axisId="countAxis" />
-          <ChartsYAxis axisId="rateAxis" />
-          <ChartsLegend direction="horizontal" />
-          <ChartsTooltip />
-        </ChartsContainer>
+          <ChartsWrapper legendDirection="horizontal" legendPosition={{ vertical: 'bottom', horizontal: 'center' }}>
+            <ChartsLegend />
+            <ChartsSurface>
+              <ChartsGrid horizontal />
+              <BarPlot />
+              <LinePlot />
+              <MarkPlot />
+              <ChartsAxisHighlight x="band" />
+              <ChartsXAxis axisId="period" />
+              <ChartsYAxis axisId="countAxis" />
+              <ChartsYAxis axisId="rateAxis" />
+            </ChartsSurface>
+            <ChartsTooltip />
+          </ChartsWrapper>
+        </ChartsDataProvider>
       </Paper>
     );
   }
