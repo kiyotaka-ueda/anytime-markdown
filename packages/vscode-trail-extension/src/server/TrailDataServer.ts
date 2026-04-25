@@ -620,6 +620,12 @@ export class TrailDataServer {
         arr.push(mc.commitHash);
         commitsByMessageUuid.set(mc.messageUuid, arr);
       }
+      // message_commits stores user message UUIDs; map back to the parent assistant UUID
+      const commitsByAssistantUuid = new Map<string, string[]>();
+      for (const m of rawMessages) {
+        const hashes = commitsByMessageUuid.get(m.uuid);
+        if (hashes && m.parent_uuid) commitsByAssistantUuid.set(m.parent_uuid, hashes);
+      }
       const messages = rawMessages.map((m) => ({
         uuid: m.uuid,
         parentUuid: m.parent_uuid,
@@ -639,7 +645,7 @@ export class TrailDataServer {
           : undefined,
         timestamp: m.timestamp,
         isSidechain: m.is_sidechain === 1,
-        triggerCommitHashes: commitsByMessageUuid.get(m.uuid),
+        triggerCommitHashes: commitsByAssistantUuid.get(m.uuid) ?? commitsByMessageUuid.get(m.uuid),
         hasToolError: errorUuids.has(m.uuid) ? true : undefined,
         hasCommit: gitCommitUuids.has(m.uuid) ? true : undefined,
         agentId: m.agent_id,

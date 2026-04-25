@@ -379,7 +379,7 @@ interface CommitMarkerData {
   readonly turn: number;
   readonly agentLabel: string;
   readonly commitHash: string;
-  readonly commitMessage: string;
+  readonly commitPrefix: string;
 }
 
 interface ErrorMarkerData {
@@ -388,14 +388,19 @@ interface ErrorMarkerData {
   readonly toolName: string;
 }
 
-function parseCommitMessage(cmd: string): string {
-  // heredoc: between EOF delimiters
+function parseCommitSubject(cmd: string): string {
+  // heredoc: first line between EOF delimiters
   const heredocMatch = /EOF\n([\s\S]+?)\n\s*EOF/.exec(cmd);
-  if (heredocMatch) return heredocMatch[1].trim().split('\n')[0].trim().slice(0, 80);
+  if (heredocMatch) return heredocMatch[1].trim().split('\n')[0].trim();
   // simple -m "..."
   const simpleMatch = /-m\s+"((?:[^"\\]|\\.)*)"/.exec(cmd);
-  if (simpleMatch) return simpleMatch[1].replace(/\\n/g, ' ').split('\n')[0].trim().slice(0, 80);
+  if (simpleMatch) return simpleMatch[1].replace(/\\n/g, '\n').split('\n')[0].trim();
   return '';
+}
+
+function extractPrefixWithScope(subject: string): string {
+  const match = /^([a-z]+(?:\([^)]*\))?!?):/i.exec(subject);
+  return match ? match[1] : subject.slice(0, 40);
 }
 
 // ---------------------------------------------------------------------------
@@ -409,7 +414,7 @@ function CommitMarkers({ markers }: Readonly<{ markers: readonly CommitMarkerDat
   const SIZE = 6;
   return (
     <>
-      {markers.map(({ turn, agentLabel, commitHash, commitMessage }) => {
+      {markers.map(({ turn, agentLabel, commitHash, commitPrefix }) => {
         const cx = xScale(turn as never) as number | undefined;
         if (cx == null) return null;
         const points = `${cx - SIZE},${top - 2} ${cx + SIZE},${top - 2} ${cx},${top + SIZE * 1.2}`;
@@ -421,7 +426,7 @@ function CommitMarkers({ markers }: Readonly<{ markers: readonly CommitMarkerDat
               <Box sx={{ p: 0.25 }}>
                 <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block' }}>{agentLabel}</Typography>
                 {commitHash && <Typography variant="caption" sx={{ display: 'block' }}>ID: {commitHash}</Typography>}
-                {commitMessage && <Typography variant="caption" sx={{ display: 'block' }}>{commitMessage}</Typography>}
+                {commitPrefix && <Typography variant="caption" sx={{ display: 'block' }}>{commitPrefix}</Typography>}
               </Box>
             }
           >
@@ -728,8 +733,9 @@ function SessionCacheTimeline({
       const agentLabel = m.agentId ? `SubAgent ${agentIndexMap.get(m.agentId) ?? '?'}` : 'Claude Code';
       const commitHash = m.triggerCommitHashes?.[0]?.slice(0, 8) ?? '';
       const bashCmd = m.toolCalls?.find((tc) => tc.name === 'Bash')?.input?.command;
-      const commitMessage = typeof bashCmd === 'string' ? parseCommitMessage(bashCmd) : '';
-      return [{ turn: i + 1, agentLabel, commitHash, commitMessage }];
+      const subject = typeof bashCmd === 'string' ? parseCommitSubject(bashCmd) : '';
+      const commitPrefix = extractPrefixWithScope(subject);
+      return [{ turn: i + 1, agentLabel, commitHash, commitPrefix }];
     }),
     [assistantMsgs, agentIndexMap],
   );
