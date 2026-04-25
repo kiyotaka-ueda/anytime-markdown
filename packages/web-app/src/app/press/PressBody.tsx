@@ -24,6 +24,13 @@ const TrailViewerEmbed = dynamic(
   { ssr: false },
 );
 
+const MarkdownViewerEmbed = dynamic(
+  () => import('../components/MarkdownViewer'),
+  { ssr: false },
+);
+
+const MARKDOWN_PREVIEW_HEIGHT = 'clamp(300px, 42vh, 520px)';
+
 export function PressBody() {
   const { themeMode } = useThemeMode();
   const fontClasses = `${bodoni.variable} ${shippori.variable} ${jetbrains.variable}`;
@@ -37,7 +44,18 @@ export function PressBody() {
       <BriefingPrimary
         embed={<TrailViewerEmbed containerHeight="clamp(300px, 42vh, 520px)" />}
       />
-      <BriefingSecondary />
+      <BriefingSecondary
+        embed={
+          <div style={{ height: MARKDOWN_PREVIEW_HEIGHT, overflow: 'hidden' }}>
+            <MarkdownViewerEmbed
+              docKey="docs/markdownAll/markdownAll.ja.md"
+              docKeyByLocale={{ en: 'docs/markdownAll/markdownAll.en.md' }}
+              minHeight={MARKDOWN_PREVIEW_HEIGHT}
+              showFrontmatter
+            />
+          </div>
+        }
+      />
       <PullQuote />
       <Ticker />
       <CtaStrip />

@@ -15,7 +15,15 @@ interface BriefingProps {
   id?: string;
 }
 
-interface BriefingPrimaryProps {
+interface BriefingWithEmbedProps {
+  no: string;
+  id?: string;
+  items: BriefingItem[];
+  embed: ReactNode;
+  embedTitle: string;
+}
+
+interface BriefingEmbedProps {
   embed: ReactNode;
 }
 
@@ -48,34 +56,22 @@ const PRIMARY_ITEMS: BriefingItem[] = [
 
 const SECONDARY_ITEMS: BriefingItem[] = [
   {
-    num: 'vi',
-    head: 'KaTeX, first-class',
-    body: '数式は LaTeX 記法のまま組版される。等幅フォントで誤魔化さない、印刷品質の式。',
+    num: 'i',
+    head: 'VS Code で文書も図表もプレビュー',
+    body: 'AI が生成した Markdown を WYSIWYG で即確認。Mermaid・PlantUML・数式（KaTeX）もエディタ内で直接プレビューでき、コンテキストスイッチなしで完結。',
     verdict: '— shipped',
   },
   {
-    num: 'vii',
-    head: 'Mermaid for diagrams',
-    body: 'フロー図・状態遷移・C4 図はテキストで書き、git diff に乗せる。スクリーンショットは添付しない。',
+    num: 'ii',
+    head: 'AI の足跡をレビューし、確定箇所を守る',
+    body: 'AI が編集した箇所を色付きで表示し、セクション単位の差分比較で変更点を即把握。確定済みのセクションはロックして AI の再編集を防止。',
     verdict: '— shipped',
   },
   {
-    num: 'viii',
-    head: 'Inline AI margin notes',
-    body: 'AI の提案は本文を書き換えず、欄外に朱書きで残す。採否の決定は書き手の手元に。',
-    verdict: '— drafting',
-  },
-  {
-    num: 'ix',
-    head: 'Encrypted notebooks',
-    body: 'IndexedDB を AES-GCM で暗号化。鍵は手元の鍵、サーバには渡さない。',
-    verdict: '— v0.50',
-  },
-  {
-    num: 'x',
-    head: 'Mobile companion',
-    body: 'Capacitor で iOS / Android のスタンドアロン版。隊商と一緒に持ち歩ける編集机。',
-    verdict: '— in print',
+    num: 'iii',
+    head: '3 モードを瞬時に切替',
+    body: 'WYSIWYG・ソース・レビューの 3 モードをワンクリックで切替。レビューモードは読み取り専用で、AI 出力の集中レビューに最適。',
+    verdict: '— shipped',
   },
 ];
 
@@ -104,9 +100,15 @@ export function Briefing({ no, items, id }: BriefingProps) {
   );
 }
 
-export function BriefingPrimary({ embed }: BriefingPrimaryProps) {
+function BriefingWithEmbed({
+  no,
+  id,
+  items,
+  embed,
+  embedTitle,
+}: BriefingWithEmbedProps) {
   return (
-    <section className={styles.briefingWithEmbed} id="briefing">
+    <section className={styles.briefingWithEmbed} id={id}>
       <div className={styles.briefingEmbed}>
         <div className={styles.trailFrameBar}>
           <span
@@ -124,9 +126,7 @@ export function BriefingPrimary({ embed }: BriefingPrimaryProps) {
             style={{ background: '#28C840' }}
             aria-hidden="true"
           />
-          <span className={styles.trailFrameTitle}>
-            anytime-trail — trail viewer
-          </span>
+          <span className={styles.trailFrameTitle}>{embedTitle}</span>
         </div>
         <div className={styles.trailFrameBody}>{embed}</div>
       </div>
@@ -135,10 +135,10 @@ export function BriefingPrimary({ embed }: BriefingPrimaryProps) {
           <span className={styles.briefingHeaderTitle}>
             Field <em>Notes.</em>
           </span>
-          <small className={styles.briefingHeaderNo}>BRIEFING ／ NO.003</small>
+          <small className={styles.briefingHeaderNo}>{no}</small>
         </header>
         <ul className={`${styles.briefingList} ${styles.briefingListInline}`}>
-          {PRIMARY_ITEMS.map((item) => (
+          {items.map((item) => (
             <li key={item.num}>
               <span className={styles.briefingNum}>{item.num}</span>
               <div className={styles.briefingHead}>
@@ -154,6 +154,25 @@ export function BriefingPrimary({ embed }: BriefingPrimaryProps) {
   );
 }
 
-export function BriefingSecondary() {
-  return <Briefing no="BRIEFING ／ NO.004" items={SECONDARY_ITEMS} />;
+export function BriefingPrimary({ embed }: BriefingEmbedProps) {
+  return (
+    <BriefingWithEmbed
+      id="briefing"
+      no="BRIEFING ／ NO.003"
+      embedTitle="anytime-trail — trail viewer"
+      items={PRIMARY_ITEMS}
+      embed={embed}
+    />
+  );
+}
+
+export function BriefingSecondary({ embed }: BriefingEmbedProps) {
+  return (
+    <BriefingWithEmbed
+      no="BRIEFING ／ NO.004"
+      embedTitle="anytime-markdown — markdown editor"
+      items={SECONDARY_ITEMS}
+      embed={embed}
+    />
+  );
 }
