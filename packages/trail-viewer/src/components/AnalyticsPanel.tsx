@@ -372,28 +372,95 @@ function countCompactDrops(msgs: readonly TrailMessage[]): number {
 }
 
 // ---------------------------------------------------------------------------
-//  CommitMarkers — inverted-triangle markers rendered inside ChartsSurface
+//  Marker types & helpers
 // ---------------------------------------------------------------------------
 
-function CommitMarkers({ turns }: Readonly<{ turns: readonly number[] }>) {
+interface CommitMarkerData {
+  readonly turn: number;
+  readonly agentLabel: string;
+  readonly commitHash: string;
+  readonly commitMessage: string;
+}
+
+interface ErrorMarkerData {
+  readonly turn: number;
+  readonly agentLabel: string;
+  readonly toolName: string;
+}
+
+function parseCommitMessage(cmd: string): string {
+  // heredoc: between EOF delimiters
+  const heredocMatch = /EOF\n([\s\S]+?)\n\s*EOF/.exec(cmd);
+  if (heredocMatch) return heredocMatch[1].trim().split('\n')[0].trim().slice(0, 80);
+  // simple -m "..."
+  const simpleMatch = /-m\s+"((?:[^"\\]|\\.)*)"/.exec(cmd);
+  if (simpleMatch) return simpleMatch[1].replace(/\\n/g, ' ').split('\n')[0].trim().slice(0, 80);
+  return '';
+}
+
+// ---------------------------------------------------------------------------
+//  CommitMarkers / ErrorMarkers — inverted-triangle markers with tooltips
+// ---------------------------------------------------------------------------
+
+function CommitMarkers({ markers }: Readonly<{ markers: readonly CommitMarkerData[] }>) {
   const { top } = useDrawingArea();
   const xScale = useXScale();
-  if (turns.length === 0) return null;
+  if (markers.length === 0) return null;
   const SIZE = 6;
   return (
     <>
-      {turns.map((turn) => {
+      {markers.map(({ turn, agentLabel, commitHash, commitMessage }) => {
         const cx = xScale(turn as never) as number | undefined;
         if (cx == null) return null;
-        // Inverted triangle: apex points down, base at top of chart area
         const points = `${cx - SIZE},${top - 2} ${cx + SIZE},${top - 2} ${cx},${top + SIZE * 1.2}`;
         return (
-          <polygon
+          <Tooltip
             key={turn}
-            points={points}
-            fill="#4CAF50"
-            opacity={0.9}
-          />
+            placement="top"
+            title={
+              <Box sx={{ p: 0.25 }}>
+                <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block' }}>{agentLabel}</Typography>
+                {commitHash && <Typography variant="caption" sx={{ display: 'block' }}>ID: {commitHash}</Typography>}
+                {commitMessage && <Typography variant="caption" sx={{ display: 'block' }}>{commitMessage}</Typography>}
+              </Box>
+            }
+          >
+            <g style={{ cursor: 'pointer' }}>
+              <polygon points={points} fill="#4CAF50" opacity={0.9} />
+            </g>
+          </Tooltip>
+        );
+      })}
+    </>
+  );
+}
+
+function ErrorMarkers({ markers }: Readonly<{ markers: readonly ErrorMarkerData[] }>) {
+  const { top } = useDrawingArea();
+  const xScale = useXScale();
+  if (markers.length === 0) return null;
+  const SIZE = 4;
+  return (
+    <>
+      {markers.map(({ turn, agentLabel, toolName }) => {
+        const cx = xScale(turn as never) as number | undefined;
+        if (cx == null) return null;
+        const points = `${cx - SIZE},${top - 2} ${cx + SIZE},${top - 2} ${cx},${top + SIZE * 1.2}`;
+        return (
+          <Tooltip
+            key={turn}
+            placement="top"
+            title={
+              <Box sx={{ p: 0.25 }}>
+                <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block' }}>{agentLabel}</Typography>
+                {toolName && <Typography variant="caption" sx={{ display: 'block' }}>Tool: {toolName}</Typography>}
+              </Box>
+            }
+          >
+            <g style={{ cursor: 'pointer' }}>
+              <polygon points={points} fill="#F44336" opacity={0.9} />
+            </g>
+          </Tooltip>
         );
       })}
     </>
@@ -646,21 +713,39 @@ function SessionCacheTimeline({
     });
   }, [assistantMsgs, byUuid]);
 
-  const commitTurns = useMemo(
-    () => assistantMsgs
-      .map((m, i) => (
-        (m.triggerCommitHashes && m.triggerCommitHashes.length > 0) || m.hasCommit ? i + 1 : null
-      ))
-      .filter((t): t is number => t !== null),
-    [assistantMsgs],
+  const agentIndexMap = useMemo(() => {
+    const map = new Map<string, number>();
+    let idx = 0;
+    for (const m of assistantMsgs) {
+      if (m.agentId && !map.has(m.agentId)) map.set(m.agentId, ++idx);
+    }
+    return map;
+  }, [assistantMsgs]);
+
+  const commitMarkers = useMemo<readonly CommitMarkerData[]>(() =>
+    assistantMsgs.flatMap((m, i) => {
+      if (!((m.triggerCommitHashes && m.triggerCommitHashes.length > 0) || m.hasCommit)) return [];
+      const agentLabel = m.agentId ? `SubAgent ${agentIndexMap.get(m.agentId) ?? '?'}` : 'Claude Code';
+      const commitHash = m.triggerCommitHashes?.[0]?.slice(0, 8) ?? '';
+      const bashCmd = m.toolCalls?.find((tc) => tc.name === 'Bash')?.input?.command;
+      const commitMessage = typeof bashCmd === 'string' ? parseCommitMessage(bashCmd) : '';
+      return [{ turn: i + 1, agentLabel, commitHash, commitMessage }];
+    }),
+    [assistantMsgs, agentIndexMap],
   );
 
-  const errorTurns = useMemo(
-    () => assistantMsgs
-      .map((m, i) => (m.hasToolError ? i + 1 : null))
-      .filter((t): t is number => t !== null),
-    [assistantMsgs],
+  const errorMarkers = useMemo<readonly ErrorMarkerData[]>(() =>
+    assistantMsgs.flatMap((m, i) => {
+      if (!m.hasToolError) return [];
+      const agentLabel = m.agentId ? `SubAgent ${agentIndexMap.get(m.agentId) ?? '?'}` : 'Claude Code';
+      const toolName = dominantTool(m.toolCalls) || m.toolCalls?.[0]?.name || '';
+      return [{ turn: i + 1, agentLabel, toolName }];
+    }),
+    [assistantMsgs, agentIndexMap],
   );
+
+  const commitTurns = useMemo(() => commitMarkers.map((m) => m.turn), [commitMarkers]);
+  const errorTurns = useMemo(() => errorMarkers.map((m) => m.turn), [errorMarkers]);
 
   const totalTurns = dataset.length;
   const tickStep = totalTurns <= 5 ? 1
@@ -727,7 +812,7 @@ function SessionCacheTimeline({
                     lineStyle={{ stroke: '#4CAF50', strokeWidth: 1.5, strokeDasharray: '4 2' }}
                   />
                 ))}
-                <CommitMarkers turns={commitTurns} />
+                <CommitMarkers markers={commitMarkers} />
                 {errorTurns.map((turn) => (
                   <ChartsReferenceLine
                     key={`error-${turn}`}
@@ -735,6 +820,7 @@ function SessionCacheTimeline({
                     lineStyle={{ stroke: '#F44336', strokeWidth: 1.5, strokeDasharray: '4 2' }}
                   />
                 ))}
+                <ErrorMarkers markers={errorMarkers} />
               </ChartsSurface>
               <ChartsTooltip />
             </ChartsWrapper>
