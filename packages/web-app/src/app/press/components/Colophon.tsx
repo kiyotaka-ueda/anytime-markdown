@@ -11,6 +11,8 @@ const GITHUB_LICENSE_URL =
 
 export function Colophon() {
   const t = useTranslations('press.colophon');
+  const tLanding = useTranslations('Landing');
+  const showDocsEdit = process.env.NEXT_PUBLIC_ENABLE_DOCS_EDIT === 'true';
   return (
     <footer>
       <section className={styles.colophon} id="archive">
@@ -29,6 +31,11 @@ export function Colophon() {
                 {t('license')}
               </a>
             </li>
+            {showDocsEdit ? (
+              <li>
+                <Link href="/docs/edit">{tLanding('docsEditPage')}</Link>
+              </li>
+            ) : null}
           </ul>
         </div>
         <div>
