@@ -262,11 +262,11 @@ function OverviewCards({
         cardStyle={cardStyle}
       />
       {doraCards.map((card) => (
-        <Paper key={card.label} elevation={0} sx={cardStyle}>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, textAlign: 'left' }}>
+        <Paper key={card.label} elevation={0} sx={{ ...cardStyle, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
             {card.label}
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mt: 0.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
             <Typography variant="h5">{card.value}</Typography>
             {card.badge && (
               <Chip
