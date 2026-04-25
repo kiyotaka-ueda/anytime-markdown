@@ -1,7 +1,7 @@
 import { classifyDoraLevel, DEFAULT_THRESHOLDS } from './thresholds';
 import type { ThresholdsConfig } from './thresholds';
 import type { DateRange, MetricValue } from './types';
-import { buildRatioTimeSeries } from './timeSeriesUtils';
+import { buildRatioTimeSeries, buildTimeSeries } from './timeSeriesUtils';
 
 type Inputs = {
   messages: Array<{ uuid: string; created_at: string; session_id?: string; type?: string; role?: string }>;
@@ -142,4 +142,18 @@ export function computeLeadTimePerLoc(
     comparison,
     timeSeries,
   };
+}
+
+export function computeLeadTimeMinTimeSeries(
+  inputs: Inputs,
+  range: DateRange,
+  bucket: 'day' | 'week',
+): Array<{ bucketStart: string; value: number }> {
+  const samples = computeCommitSamples(inputs, range);
+  return buildTimeSeries(
+    samples.map((s) => ({ date: s.date, value: s.timeMin })),
+    range,
+    bucket,
+    'sum',
+  );
 }

@@ -209,6 +209,7 @@ export interface TrailI18n {
   'analytics.combined.commitPrefix': string;
   'analytics.combined.commitCount': string;
   'analytics.combined.loc': string;
+  'analytics.combined.leadTime': string;
   'analytics.commitPrefixChartTitle': string;
   'analytics.combined.skill': string;
   'analytics.combined.model': string;

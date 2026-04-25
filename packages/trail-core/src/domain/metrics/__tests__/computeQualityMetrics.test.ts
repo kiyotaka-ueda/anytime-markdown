@@ -51,4 +51,19 @@ describe('computeQualityMetrics', () => {
     const tokenStarts = result.metrics.tokensPerLoc.timeSeries.map((b) => b.bucketStart);
     expect(costStarts).toEqual(tokenStarts);
   });
+
+  it('includes leadTimeMinTimeSeries aligned with leadTimePerLoc timeSeries', () => {
+    const result = computeQualityMetrics(INPUTS_WITH_COSTS, RANGE);
+    expect(result.leadTimeMinTimeSeries).toBeDefined();
+    const leadStarts = result.leadTimeMinTimeSeries?.map((b) => b.bucketStart) ?? [];
+    const ratioStarts = result.metrics.leadTimePerLoc.timeSeries.map((b) => b.bucketStart);
+    expect(leadStarts).toEqual(ratioStarts);
+  });
+
+  it('leadTimeMinTimeSeries sums commit lead-time minutes per bucket', () => {
+    const result = computeQualityMetrics(INPUTS_WITH_COSTS, RANGE);
+    const total = (result.leadTimeMinTimeSeries ?? []).reduce((s, b) => s + b.value, 0);
+    // user message at 10:00, commit at 11:00 -> 60 minutes
+    expect(total).toBe(60);
+  });
 });

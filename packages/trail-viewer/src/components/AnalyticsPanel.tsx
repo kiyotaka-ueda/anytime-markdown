@@ -1509,15 +1509,19 @@ function capTopN(
   return { displayKeys: [...top, OTHERS_LABEL], keyMap };
 }
 
-type CommitMetric = 'count' | 'loc';
+type CommitMetric = 'count' | 'loc' | 'leadTime';
 
-function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, modelMetric, commitMetric, onDateClick }: Readonly<{
+function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, modelMetric, commitMetric, leadTimeOverlay, onDateClick }: Readonly<{
   data: CombinedData | null;
   periodDays: PeriodDays;
   activeChart: CombinedChartKind;
   toolMetric: ChartMetric;
   modelMetric: ChartMetric;
   commitMetric: CommitMetric;
+  leadTimeOverlay: {
+    leadTime: ReadonlyArray<{ bucketStart: string; value: number }>;
+    leadTimePerLoc: ReadonlyArray<{ bucketStart: string; value: number }>;
+  } | null;
   onDateClick?: (fullDate: string) => void;
 }>) {
   const { cardSx, toolPalette } = useTrailTheme();
@@ -1773,6 +1777,86 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
   }
 
   if (activeChart === 'commits') {
+    if (commitMetric === 'leadTime') {
+      const leadTimeRows = leadTimeOverlay?.leadTime ?? [];
+      const leadTimePerLocRows = leadTimeOverlay?.leadTimePerLoc ?? [];
+      if (leadTimeRows.length === 0 && leadTimePerLocRows.length === 0) {
+        return <Typography variant="body2" color="text.secondary">0</Typography>;
+      }
+      const bucketKeys = [...new Set([
+        ...leadTimeRows.map((r) => r.bucketStart),
+        ...leadTimePerLocRows.map((r) => r.bucketStart),
+      ])].sort();
+      const ratioByBucket = new Map(leadTimePerLocRows.map((r) => [r.bucketStart, r.value]));
+      const minByBucket = new Map(leadTimeRows.map((r) => [r.bucketStart, r.value]));
+      const fullDates = bucketKeys.map((b) => b.slice(0, 10));
+      const labels = bucketKeys.map((b) => b.slice(5, 10));
+      const ltDataset = bucketKeys.map((b, i) => ({
+        period: labels[i],
+        leadTime: minByBucket.get(b) ?? 0,
+        leadTimePerLoc: ratioByBucket.get(b) ?? null,
+      }));
+      const fmtMin = (v: number | null) => v == null ? '-' : `${Math.round(v).toLocaleString()} min`;
+      const fmtRatio = (v: number | null) => v == null ? '-' : `${v.toFixed(2)} min/LOC`;
+      return (
+        <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+          <ChartsDataProvider
+            dataset={ltDataset}
+            series={[
+              {
+                type: 'bar' as const,
+                dataKey: 'leadTime',
+                label: 'Lead Time (min)',
+                color: toolPalette[0],
+                yAxisId: 'minAxis',
+                valueFormatter: fmtMin,
+              },
+              {
+                type: 'line' as const,
+                dataKey: 'leadTimePerLoc',
+                label: 'Lead Time / LOC (min/LOC)',
+                color: '#F06292',
+                yAxisId: 'ratioAxis',
+                showMark: true,
+                connectNulls: true,
+                valueFormatter: fmtRatio,
+              },
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ] as any}
+            xAxis={[{ id: 'period', scaleType: 'band', dataKey: 'period' }]}
+            yAxis={[
+              { id: 'minAxis', valueFormatter: (v: number) => fmtMin(v) },
+              { id: 'ratioAxis', position: 'right' as const, valueFormatter: (v: number) => v.toFixed(2) },
+            ]}
+            height={260}
+            margin={{ left: 48, right: 56, top: 8, bottom: 40 }}
+            onAxisClick={canDrill
+              ? (_e: MouseEvent, d: { dataIndex: number } | null) => {
+                  const idx = d?.dataIndex;
+                  if (idx == null || idx < 0 || idx >= fullDates.length) return;
+                  onDateClick?.(fullDates[idx]);
+                }
+              : undefined}
+          >
+            <ChartsWrapper legendDirection="horizontal" legendPosition={{ vertical: 'bottom', horizontal: 'center' }}>
+              <ChartsLegend />
+              <ChartsSurface>
+                <ChartsGrid horizontal />
+                <BarPlot />
+                <LinePlot />
+                <MarkPlot />
+                <ChartsAxisHighlight x="band" />
+                <ChartsXAxis axisId="period" />
+                <ChartsYAxis axisId="minAxis" />
+                <ChartsYAxis axisId="ratioAxis" />
+              </ChartsSurface>
+              <ChartsTooltip />
+            </ChartsWrapper>
+          </ChartsDataProvider>
+        </Paper>
+      );
+    }
+
     if (commitPrefixes.length === 0) {
       return <Typography variant="body2" color="text.secondary">0</Typography>;
     }
@@ -1915,6 +1999,8 @@ function CombinedChartsSection({
     bucket: 'day' | 'week';
     tokens: ReadonlyArray<{ bucketStart: string; value: number }>;
     cost: ReadonlyArray<{ bucketStart: string; value: number }>;
+    leadTime: ReadonlyArray<{ bucketStart: string; value: number }>;
+    leadTimePerLoc: ReadonlyArray<{ bucketStart: string; value: number }>;
   } | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   useEffect(() => { setSelectedDate(null); }, [period]);
@@ -1952,6 +2038,8 @@ function CombinedChartsSection({
           bucket: result.bucket,
           tokens: result.metrics.tokensPerLoc.timeSeries,
           cost: result.costPerLocTimeSeries ?? [],
+          leadTime: result.leadTimeMinTimeSeries ?? [],
+          leadTimePerLoc: result.metrics.leadTimePerLoc.timeSeries,
         });
       }
     })();
@@ -2037,6 +2125,7 @@ function CombinedChartsSection({
           >
             <ToggleButton value="count" sx={toggleSx}>{t('analytics.combined.commitCount')}</ToggleButton>
             <ToggleButton value="loc" sx={toggleSx}>{t('analytics.combined.loc')}</ToggleButton>
+            <ToggleButton value="leadTime" sx={toggleSx}>{t('analytics.combined.leadTime')}</ToggleButton>
           </ToggleButtonGroup>
         )}
       </Box>
@@ -2062,6 +2151,7 @@ function CombinedChartsSection({
             toolMetric={toolMetric}
             modelMetric={modelMetric}
             commitMetric={commitMetric}
+            leadTimeOverlay={overlay ? { leadTime: overlay.leadTime, leadTimePerLoc: overlay.leadTimePerLoc } : null}
             onDateClick={handleDateClick}
           />
         )
