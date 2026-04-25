@@ -3839,7 +3839,8 @@ export class TrailDatabase {
         `SELECT mc.message_uuid, mc.commit_hash, mc.detected_at, mc.match_confidence
          FROM message_commits mc
          INNER JOIN messages m ON mc.message_uuid = m.uuid
-         WHERE m.timestamp >= ? AND m.timestamp <= ?`,
+         WHERE m.timestamp >= ? AND m.timestamp <= ?
+           AND mc.match_confidence IN ('realtime', 'high', 'medium')`,
         [f, t],
       );
       if (!res[0]) return [];
