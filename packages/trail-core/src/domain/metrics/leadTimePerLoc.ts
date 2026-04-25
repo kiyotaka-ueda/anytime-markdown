@@ -16,11 +16,16 @@ interface CommitSample {
   prefix: string;
 }
 
+interface CommitSamplesResult {
+  samples: CommitSample[];
+  unmappedDates: string[];
+}
+
 function isUserMessage(m: Inputs['messages'][number]): boolean {
   return m.role === 'user' || m.type === 'user';
 }
 
-function computeCommitSamples(inputs: Inputs, range: DateRange): CommitSample[] {
+function computeCommitSamples(inputs: Inputs, range: DateRange): CommitSamplesResult {
   const fromMs = new Date(range.from).getTime();
   const toMs = new Date(range.to).getTime();
 
@@ -96,7 +101,23 @@ function computeCommitSamples(inputs: Inputs, range: DateRange): CommitSample[] 
     }
   }
 
-  return Array.from(bestByCommit.values());
+  // Track all commits eligible for lead-time but not actually mapped to a prompt.
+  // "Eligible" = in range, churn > 0. Includes commits with no session_id.
+  const allEligibleByHash = new Map<string, string>();
+  for (const c of inputs.commits) {
+    const churn = (c.lines_added ?? 0) + (c.lines_deleted ?? 0);
+    if (churn <= 0) continue;
+    const ms = new Date(c.committed_at).getTime();
+    if (ms < fromMs || ms > toMs) continue;
+    allEligibleByHash.set(c.hash, c.committed_at);
+  }
+
+  const unmappedDates: string[] = [];
+  for (const [hash, date] of allEligibleByHash) {
+    if (!bestByCommit.has(hash)) unmappedDates.push(date);
+  }
+
+  return { samples: Array.from(bestByCommit.values()), unmappedDates };
 }
 
 function aggregate(samples: CommitSample[]): number {
@@ -114,7 +135,7 @@ export function computeLeadTimePerLoc(
   previousInputs?: Inputs,
   thresholds: ThresholdsConfig = DEFAULT_THRESHOLDS,
 ): MetricValue {
-  const samples = computeCommitSamples(inputs, range);
+  const { samples } = computeCommitSamples(inputs, range);
   const value = aggregate(samples);
 
   const level = classifyDoraLevel('leadTimePerLoc', value, thresholds);
@@ -127,7 +148,7 @@ export function computeLeadTimePerLoc(
 
   let comparison: MetricValue['comparison'] | undefined;
   if (previousInputs !== undefined) {
-    const prevSamples = computeCommitSamples(previousInputs, previousRange);
+    const { samples: prevSamples } = computeCommitSamples(previousInputs, previousRange);
     const previousValue = aggregate(prevSamples);
     const deltaPct =
       prevSamples.length === 0 || previousValue === 0
@@ -152,9 +173,23 @@ export function computeLeadTimeMinTimeSeries(
   range: DateRange,
   bucket: 'day' | 'week',
 ): Array<{ bucketStart: string; value: number }> {
-  const samples = computeCommitSamples(inputs, range);
+  const { samples } = computeCommitSamples(inputs, range);
   return buildTimeSeries(
     samples.map((s) => ({ date: s.date, value: s.timeMin })),
+    range,
+    bucket,
+    'sum',
+  );
+}
+
+export function computeLeadTimeUnmappedTimeSeries(
+  inputs: Inputs,
+  range: DateRange,
+  bucket: 'day' | 'week',
+): Array<{ bucketStart: string; value: number }> {
+  const { unmappedDates } = computeCommitSamples(inputs, range);
+  return buildTimeSeries(
+    unmappedDates.map((d) => ({ date: d, value: 1 })),
     range,
     bucket,
     'sum',
@@ -166,7 +201,7 @@ export function computeLeadTimeMinByPrefixTimeSeries(
   range: DateRange,
   bucket: 'day' | 'week',
 ): { prefixes: string[]; series: Array<{ bucketStart: string; byPrefix: Record<string, number> }> } {
-  const samples = computeCommitSamples(inputs, range);
+  const { samples } = computeCommitSamples(inputs, range);
   const prefixSet = new Set<string>();
   for (const s of samples) prefixSet.add(s.prefix);
   const prefixes = [...prefixSet].sort();

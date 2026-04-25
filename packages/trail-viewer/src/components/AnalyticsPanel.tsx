@@ -23,7 +23,16 @@ import { ChartsSurface } from '@mui/x-charts/ChartsSurface';
 import { ChartsWrapper } from '@mui/x-charts/ChartsWrapper';
 import { ChartsXAxis } from '@mui/x-charts/ChartsXAxis';
 import { ChartsYAxis } from '@mui/x-charts/ChartsYAxis';
-import { ChartsTooltip } from '@mui/x-charts/ChartsTooltip';
+import {
+  ChartsTooltip,
+  ChartsTooltipContainer,
+  ChartsTooltipPaper,
+  ChartsTooltipTable,
+  ChartsTooltipRow,
+  ChartsTooltipCell,
+  useAxesTooltip,
+} from '@mui/x-charts/ChartsTooltip';
+import { ChartsLabelMark } from '@mui/x-charts/ChartsLabel';
 import { ChartsGrid } from '@mui/x-charts/ChartsGrid';
 import { ChartsLegend } from '@mui/x-charts/ChartsLegend';
 import { ChartsAxisHighlight } from '@mui/x-charts/ChartsAxisHighlight';
@@ -1511,6 +1520,50 @@ function capTopN(
 
 type CommitMetric = 'count' | 'loc' | 'leadTime';
 
+function LeadTimeAxisTooltipContent({ unmappedByBucket, bucketKeys }: Readonly<{
+  unmappedByBucket: Map<string, number>;
+  bucketKeys: ReadonlyArray<string>;
+}>) {
+  const tooltipData = useAxesTooltip();
+  if (tooltipData === null) return null;
+  return (
+    <ChartsTooltipPaper>
+      {tooltipData.map(({ axisId, mainAxis, axisValue, axisFormattedValue, seriesItems, dataIndex }) => {
+        const bucketKey = bucketKeys[dataIndex] ?? '';
+        const unmapped = unmappedByBucket.get(bucketKey) ?? 0;
+        return (
+          <ChartsTooltipTable key={axisId}>
+            {axisValue != null && !mainAxis.hideTooltip && (
+              <Typography component="caption">{axisFormattedValue}</Typography>
+            )}
+            <tbody>
+              {seriesItems.map((item) => (
+                item.formattedValue == null || typeof item.formattedValue !== 'string' ? null : (
+                  <ChartsTooltipRow key={item.seriesId}>
+                    <ChartsTooltipCell component="th">
+                      <ChartsLabelMark
+                        type={item.markType}
+                        markShape={item.markShape}
+                        color={item.color}
+                      />
+                      {item.formattedLabel}
+                    </ChartsTooltipCell>
+                    <ChartsTooltipCell component="td">{item.formattedValue}</ChartsTooltipCell>
+                  </ChartsTooltipRow>
+                )
+              ))}
+              <ChartsTooltipRow>
+                <ChartsTooltipCell component="th" sx={{ opacity: 0.7 }}>未マップ</ChartsTooltipCell>
+                <ChartsTooltipCell component="td" sx={{ opacity: 0.7 }}>{unmapped} 件</ChartsTooltipCell>
+              </ChartsTooltipRow>
+            </tbody>
+          </ChartsTooltipTable>
+        );
+      })}
+    </ChartsTooltipPaper>
+  );
+}
+
 function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, modelMetric, commitMetric, leadTimeOverlay, onDateClick }: Readonly<{
   data: CombinedData | null;
   periodDays: PeriodDays;
@@ -1520,6 +1573,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
   commitMetric: CommitMetric;
   leadTimeOverlay: {
     leadTimePerLoc: ReadonlyArray<{ bucketStart: string; value: number }>;
+    unmapped: ReadonlyArray<{ bucketStart: string; value: number }>;
     byPrefix: {
       prefixes: ReadonlyArray<string>;
       series: ReadonlyArray<{ bucketStart: string; byPrefix: Readonly<Record<string, number>> }>;
@@ -1798,12 +1852,14 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
       const ltPrefixes = ltCap.displayKeys;
       const ltMap = ltCap.keyMap;
 
+      const unmappedRows = leadTimeOverlay?.unmapped ?? [];
       const bucketKeys = [...new Set([
         ...byPrefixSeries.map((r) => r.bucketStart),
         ...ratioRows.map((r) => r.bucketStart),
       ])].sort();
       const ratioByBucket = new Map(ratioRows.map((r) => [r.bucketStart, r.value]));
       const prefixRowByBucket = new Map(byPrefixSeries.map((r) => [r.bucketStart, r.byPrefix]));
+      const unmappedByBucket = new Map(unmappedRows.map((r) => [r.bucketStart, r.value]));
       const fullDates = bucketKeys.map((b) => b.slice(0, 10));
       const labels = bucketKeys.map((b) => b.slice(5, 10));
 
@@ -1879,7 +1935,12 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
                 <ChartsYAxis axisId="minAxis" />
                 <ChartsYAxis axisId="ratioAxis" />
               </ChartsSurface>
-              <ChartsTooltip />
+              <ChartsTooltipContainer trigger="axis">
+                <LeadTimeAxisTooltipContent
+                  unmappedByBucket={unmappedByBucket}
+                  bucketKeys={bucketKeys}
+                />
+              </ChartsTooltipContainer>
             </ChartsWrapper>
           </ChartsDataProvider>
         </Paper>
@@ -2030,6 +2091,7 @@ function CombinedChartsSection({
     cost: ReadonlyArray<{ bucketStart: string; value: number }>;
     leadTime: ReadonlyArray<{ bucketStart: string; value: number }>;
     leadTimePerLoc: ReadonlyArray<{ bucketStart: string; value: number }>;
+    leadTimeUnmapped: ReadonlyArray<{ bucketStart: string; value: number }>;
     leadTimeByPrefix: {
       prefixes: ReadonlyArray<string>;
       series: ReadonlyArray<{ bucketStart: string; byPrefix: Readonly<Record<string, number>> }>;
@@ -2073,6 +2135,7 @@ function CombinedChartsSection({
           cost: result.costPerLocTimeSeries ?? [],
           leadTime: result.leadTimeMinTimeSeries ?? [],
           leadTimePerLoc: result.metrics.leadTimePerLoc.timeSeries,
+          leadTimeUnmapped: result.leadTimeUnmappedTimeSeries ?? [],
           leadTimeByPrefix: result.leadTimeMinByPrefix ?? { prefixes: [], series: [] },
         });
       }
@@ -2185,7 +2248,7 @@ function CombinedChartsSection({
             toolMetric={toolMetric}
             modelMetric={modelMetric}
             commitMetric={commitMetric}
-            leadTimeOverlay={overlay ? { leadTimePerLoc: overlay.leadTimePerLoc, byPrefix: overlay.leadTimeByPrefix } : null}
+            leadTimeOverlay={overlay ? { leadTimePerLoc: overlay.leadTimePerLoc, unmapped: overlay.leadTimeUnmapped, byPrefix: overlay.leadTimeByPrefix } : null}
             onDateClick={handleDateClick}
           />
         )
