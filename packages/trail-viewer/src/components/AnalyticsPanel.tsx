@@ -2045,6 +2045,38 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
   );
 }
 
+function ReleasesBarChart({ timeSeries }: Readonly<{
+  timeSeries: ReadonlyArray<{ bucketStart: string; value: number }>;
+}>) {
+  const { cardSx } = useTrailTheme();
+  const { t } = useTrailI18n();
+
+  if (timeSeries.length === 0) {
+    return (
+      <Paper elevation={0} sx={{ ...cardSx, p: 2, minHeight: 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Typography variant="body2" color="text.secondary">{t('metrics.empty')}</Typography>
+      </Paper>
+    );
+  }
+
+  const dataset = timeSeries.map((d) => ({
+    label: new Intl.DateTimeFormat('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric' }).format(new Date(d.bucketStart)),
+    releases: d.value,
+  }));
+
+  return (
+    <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+      <BarChart
+        dataset={dataset}
+        xAxis={[{ scaleType: 'band', dataKey: 'label' }]}
+        series={[{ dataKey: 'releases', label: t('analytics.combined.release'), color: '#4CAF50' }]}
+        height={240}
+        margin={{ left: 16, right: 8, top: 8, bottom: 40 }}
+      />
+    </Paper>
+  );
+}
+
 type CombinedMetric = 'tokens' | 'tools' | 'errors' | 'skills' | 'models' | 'commits' | 'releases';
 
 function CombinedChartsSection({
@@ -2168,6 +2200,7 @@ function CombinedChartsSection({
             <ToggleButton value="tools" sx={toggleSx}>{t('analytics.combined.tool')}</ToggleButton>
             <ToggleButton value="errors" sx={toggleSx}>{t('analytics.combined.error')}</ToggleButton>
             <ToggleButton value="commits" sx={toggleSx}>{t('analytics.combined.commitPrefix')}</ToggleButton>
+            <ToggleButton value="releases" sx={toggleSx}>{t('analytics.combined.release')}</ToggleButton>
           </ToggleButtonGroup>
           <ToggleButtonGroup
             value={period}
@@ -2237,6 +2270,8 @@ function CombinedChartsSection({
           costOptimization={costOptimization}
           overlay={overlay}
         />
+      ) : metric === 'releases' ? (
+        <ReleasesBarChart timeSeries={overlay?.deploymentFrequency ?? []} />
       ) : fetchCombinedData ? (
         combinedLoading && !combinedData ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 240 }}>
