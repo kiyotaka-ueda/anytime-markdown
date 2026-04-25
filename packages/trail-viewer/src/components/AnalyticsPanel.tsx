@@ -654,8 +654,9 @@ function TurnLaneChart({
   const LANE_GAP = 6;
   const AXIS_H = 16;
 
-  const MODEL_LINE_H = 2;
-  const SKILL_LINE_H = 2;
+  const MODEL_LINE_H = 3;
+  const SKILL_LINE_H = 3;
+  const SKILL_MODEL_GAP = 2;
   const toolY = 0;
   const subAgentLaneY = (i: number) => toolY + LANE_H + LANE_GAP + i * (LANE_H + LANE_GAP);
   const lastLaneBottom = subAgents.length > 0
@@ -682,7 +683,7 @@ function TurnLaneChart({
             fill={LANE_TOOL_COLORS[run.value as LaneTool]} />
         ))}
         {mainSkillRuns.map((run) => (
-          <rect key={`ts${run.start}`} x={toX(run.start)} y={toolY + LANE_H - MODEL_LINE_H - SKILL_LINE_H}
+          <rect key={`ts${run.start}`} x={toX(run.start)} y={toolY + LANE_H - MODEL_LINE_H - SKILL_MODEL_GAP - SKILL_LINE_H}
             width={Math.max((run.end - run.start + 1) * colW, 1)} height={SKILL_LINE_H}
             fill={laneSkillColor(run.value)} />
         ))}
@@ -708,7 +709,7 @@ function TurnLaneChart({
                   fill={LANE_TOOL_COLORS[run.value as LaneTool]} />
               ))}
               {skillRunsForAgent.map((run) => (
-                <rect key={`sas${i}-${run.start}`} x={toX(run.start)} y={y + LANE_H - MODEL_LINE_H - SKILL_LINE_H}
+                <rect key={`sas${i}-${run.start}`} x={toX(run.start)} y={y + LANE_H - MODEL_LINE_H - SKILL_MODEL_GAP - SKILL_LINE_H}
                   width={Math.max((run.end - run.start + 1) * colW, 1)} height={SKILL_LINE_H}
                   fill={laneSkillColor(run.value)} />
               ))}
