@@ -2162,6 +2162,7 @@ function CombinedChartsSection({
 
   useEffect(() => {
     if (!fetchQualityMetrics) return;
+    if (metric === 'releases') return; // Release chart uses fetchDeploymentFrequency; skip heavy quality metrics fetch
     const now = new Date();
     const to = now.toISOString();
     const from = new Date(now.getTime() - period * 86_400_000).toISOString();
@@ -2186,7 +2187,7 @@ function CombinedChartsSection({
       }
     })();
     return () => { mounted = false; };
-  }, [fetchQualityMetrics, period]);
+  }, [fetchQualityMetrics, period, metric]);
 
   useEffect(() => {
     if (!fetchDeploymentFrequency) return;
