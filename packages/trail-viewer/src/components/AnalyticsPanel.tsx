@@ -1495,7 +1495,7 @@ function DailyActivityChart({
 // ─── Behavior charts in Analytics ───────────────────────────────────────────
 
 type ChartMetric = 'count' | 'tokens';
-type CombinedChartKind = 'tools' | 'errors' | 'skills' | 'models' | 'commits';
+type CombinedChartKind = 'tools' | 'errors' | 'skills' | 'models' | 'commits' | 'releases';
 
 // スタック棒グラフの系列数が多すぎると描画・凡例・ツールチップが重くなるため、
 // 上位 N 件以外を "Others" に集約する。
@@ -2045,7 +2045,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
   );
 }
 
-type CombinedMetric = 'tokens' | 'tools' | 'errors' | 'skills' | 'models' | 'commits';
+type CombinedMetric = 'tokens' | 'tools' | 'errors' | 'skills' | 'models' | 'commits' | 'releases';
 
 function CombinedChartsSection({
   dailyActivity,
@@ -2096,6 +2096,7 @@ function CombinedChartsSection({
       prefixes: ReadonlyArray<string>;
       series: ReadonlyArray<{ bucketStart: string; byPrefix: Readonly<Record<string, number>> }>;
     };
+    deploymentFrequency: ReadonlyArray<{ bucketStart: string; value: number }>;
   } | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   useEffect(() => { setSelectedDate(null); }, [period]);
@@ -2137,6 +2138,7 @@ function CombinedChartsSection({
           leadTimePerLoc: result.metrics.leadTimePerLoc.timeSeries,
           leadTimeUnmapped: result.leadTimeUnmappedTimeSeries ?? [],
           leadTimeByPrefix: result.leadTimeMinByPrefix ?? { prefixes: [], series: [] },
+          deploymentFrequency: result.metrics.deploymentFrequency.timeSeries,
         });
       }
     })();
