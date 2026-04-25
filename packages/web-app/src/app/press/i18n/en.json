@@ -18,7 +18,8 @@
     "asideEditor": "From the editor's desk",
     "asideBody": "Faster tools lead writers astray. <vermilion>Anytime Markdown</vermilion> walks at the writer's pace.",
     "asideMeta1": "☞ Founded: 2026",
-    "asideMeta2Label": "☞ Edition: "
+    "asideMeta2Label": "☞ Edition: ",
+    "approvedStamp": "approved · check"
   },
   "caravan": {
     "tick": "— in transit · caravan crossing the desert —"
@@ -71,7 +72,6 @@
     "onlineEditor": "Anytime Markdown",
     "trailArchitecture": "Anytime Trail · architecture",
     "github": "Github",
-    "foldCopy": "© 2026 Kiyotaka Ueda featuring Claude Code",
-    "foldStamp": "approved · check"
+    "foldCopy": "© 2026 Kiyotaka Ueda featuring Claude Code"
   }
 }

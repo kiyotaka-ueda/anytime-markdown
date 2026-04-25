@@ -83,7 +83,6 @@ export function Colophon() {
       </section>
       <div className={styles.fold}>
         <span>{t('foldCopy')}</span>
-        <span className={styles.foldStamp}>{t('foldStamp')}</span>
       </div>
     </footer>
   );

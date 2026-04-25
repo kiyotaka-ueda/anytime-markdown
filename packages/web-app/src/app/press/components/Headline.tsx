@@ -43,6 +43,9 @@ export function Headline() {
           {tHead('asideMeta2Label')}
           {APP_VERSION}
         </div>
+        <div className={styles.headlineAsideStampWrap}>
+          <span className={styles.foldStamp}>{tHead('approvedStamp')}</span>
+        </div>
       </aside>
     </section>
   );

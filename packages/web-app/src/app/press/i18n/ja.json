@@ -18,7 +18,8 @@
     "asideEditor": "From the editor's desk",
     "asideBody": "速い道具は迷子にさせる。<vermilion>Anytime Markdown</vermilion> は、書き手の歩幅で歩く。",
     "asideMeta1": "☞ 起稿: 2026",
-    "asideMeta2Label": "☞ 版数: "
+    "asideMeta2Label": "☞ 版数: ",
+    "approvedStamp": "approved · 検"
   },
   "caravan": {
     "tick": "— in transit · 砂漠を進む隊商 —"
@@ -71,7 +72,6 @@
     "onlineEditor": "Anytime Markdown",
     "trailArchitecture": "Anytime Trail · architecture",
     "github": "Github",
-    "foldCopy": "© 2026 Kiyotaka Ueda featuring Claude Code",
-    "foldStamp": "approved · 検"
+    "foldCopy": "© 2026 Kiyotaka Ueda featuring Claude Code"
   }
 }
