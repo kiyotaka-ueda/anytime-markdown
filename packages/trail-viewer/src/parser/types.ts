@@ -113,6 +113,7 @@ export interface CombinedCommitPrefix {
   readonly period: string;
   readonly prefix: string;
   readonly count: number;
+  readonly linesAdded: number;
 }
 
 export interface CombinedAiFirstTryRate {
