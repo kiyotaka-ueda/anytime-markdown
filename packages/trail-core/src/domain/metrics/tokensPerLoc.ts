@@ -12,8 +12,8 @@ type Inputs = {
     cache_read_tokens?: number;
     cache_creation_tokens?: number;
   }>;
-  messageCommits: Array<{ message_uuid: string; commit_hash: string; detected_at: string; match_confidence: string }>;
-  commits: Array<{ hash: string; lines_added?: number; lines_deleted?: number }>;
+  messageCommits: Array<{ message_uuid: string; commit_hash: string; match_confidence: string }>;
+  commits: Array<{ hash: string; committed_at: string; lines_added?: number; lines_deleted?: number }>;
 };
 
 interface CommitSample {
@@ -39,12 +39,15 @@ function computeCommitSamples(inputs: Inputs, range: DateRange): CommitSample[] 
       .map((m) => [m.uuid, m] as const),
   );
 
-  const churnMap = new Map(
-    inputs.commits.map((c) => [c.hash, (c.lines_added ?? 0) + (c.lines_deleted ?? 0)]),
+  type CommitMeta = { committedAt: string; churn: number };
+  const commitMap = new Map<string, CommitMeta>(
+    inputs.commits.map((c) => [c.hash, {
+      committedAt: c.committed_at,
+      churn: (c.lines_added ?? 0) + (c.lines_deleted ?? 0),
+    }]),
   );
 
-  type Aggregate = { detectedAt: string; tokens: number };
-  const byCommit = new Map<string, Aggregate>();
+  const tokensByCommit = new Map<string, number>();
 
   for (const mc of inputs.messageCommits) {
     if (!VALID_MESSAGE_COMMIT_CONFIDENCES.has(mc.match_confidence)) continue;
@@ -52,19 +55,14 @@ function computeCommitSamples(inputs: Inputs, range: DateRange): CommitSample[] 
     if (!msg) continue;
 
     const tokens = totalTokens(msg);
-    const existing = byCommit.get(mc.commit_hash);
-    if (!existing) {
-      byCommit.set(mc.commit_hash, { detectedAt: mc.detected_at, tokens });
-    } else {
-      existing.tokens += tokens;
-    }
+    tokensByCommit.set(mc.commit_hash, (tokensByCommit.get(mc.commit_hash) ?? 0) + tokens);
   }
 
   const samples: CommitSample[] = [];
-  for (const [hash, agg] of byCommit) {
-    const churn = churnMap.get(hash) ?? 0;
-    if (churn <= 0) continue;
-    samples.push({ date: agg.detectedAt, tokens: agg.tokens, churn });
+  for (const [hash, tokens] of tokensByCommit) {
+    const meta = commitMap.get(hash);
+    if (!meta || meta.churn <= 0) continue;
+    samples.push({ date: meta.committedAt, tokens, churn: meta.churn });
   }
   return samples;
 }

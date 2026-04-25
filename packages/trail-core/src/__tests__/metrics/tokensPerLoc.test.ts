@@ -31,8 +31,8 @@ describe('computeTokensPerLoc', () => {
   it('single commit single prompt → sum of 4 token types / churn', () => {
     const inputs = {
       messages: [makeMessage('m0', '2026-04-10T00:00:00.000Z', { in: 100, out: 200, cr: 300, cc: 400 })],
-      messageCommits: [{ message_uuid: 'm0', commit_hash: 'c1', detected_at: '2026-04-10T01:00:00.000Z', match_confidence: 'high' }],
-      commits: [{ hash: 'c1', lines_added: 60, lines_deleted: 40 }],
+      messageCommits: [{ message_uuid: 'm0', commit_hash: 'c1', match_confidence: 'high' }],
+      commits: [{ hash: 'c1', committed_at: '2026-04-10T01:00:00.000Z', lines_added: 60, lines_deleted: 40 }],
     };
     const result = computeTokensPerLoc(inputs, range, prevRange, 'day');
     expect(result.value).toBeCloseTo(10, 1);
@@ -46,10 +46,10 @@ describe('computeTokensPerLoc', () => {
         makeMessage('m1', '2026-04-10T10:15:00.000Z', { in: 100, out: 100 }),
       ],
       messageCommits: [
-        { message_uuid: 'm0', commit_hash: 'c1', detected_at: '2026-04-10T10:30:00.000Z', match_confidence: 'high' },
-        { message_uuid: 'm1', commit_hash: 'c1', detected_at: '2026-04-10T10:30:00.000Z', match_confidence: 'high' },
+        { message_uuid: 'm0', commit_hash: 'c1', match_confidence: 'high' },
+        { message_uuid: 'm1', commit_hash: 'c1', match_confidence: 'high' },
       ],
-      commits: [{ hash: 'c1', lines_added: 60, lines_deleted: 40 }],
+      commits: [{ hash: 'c1', committed_at: '2026-04-10T10:30:00.000Z', lines_added: 60, lines_deleted: 40 }],
     };
     const result = computeTokensPerLoc(inputs, range, prevRange, 'day');
     expect(result.value).toBeCloseTo(4, 1);
@@ -63,12 +63,12 @@ describe('computeTokensPerLoc', () => {
         makeMessage('m1', '2026-04-11T00:00:00.000Z', { in: 2000 }),
       ],
       messageCommits: [
-        { message_uuid: 'm0', commit_hash: 'c1', detected_at: '2026-04-10T01:00:00.000Z', match_confidence: 'high' },
-        { message_uuid: 'm1', commit_hash: 'c2', detected_at: '2026-04-11T02:00:00.000Z', match_confidence: 'high' },
+        { message_uuid: 'm0', commit_hash: 'c1', match_confidence: 'high' },
+        { message_uuid: 'm1', commit_hash: 'c2', match_confidence: 'high' },
       ],
       commits: [
-        { hash: 'c1', lines_added: 50, lines_deleted: 50 },
-        { hash: 'c2', lines_added: 100, lines_deleted: 0 },
+        { hash: 'c1', committed_at: '2026-04-10T01:00:00.000Z', lines_added: 50, lines_deleted: 50 },
+        { hash: 'c2', committed_at: '2026-04-11T02:00:00.000Z', lines_added: 100, lines_deleted: 0 },
       ],
     };
     const result = computeTokensPerLoc(inputs, range, prevRange, 'day');
@@ -83,12 +83,12 @@ describe('computeTokensPerLoc', () => {
         makeMessage('m1', '2026-04-11T00:00:00.000Z', { in: 1000 }),
       ],
       messageCommits: [
-        { message_uuid: 'm0', commit_hash: 'c1', detected_at: '2026-04-10T01:00:00.000Z', match_confidence: 'high' },
-        { message_uuid: 'm1', commit_hash: 'c2', detected_at: '2026-04-11T02:00:00.000Z', match_confidence: 'high' },
+        { message_uuid: 'm0', commit_hash: 'c1', match_confidence: 'high' },
+        { message_uuid: 'm1', commit_hash: 'c2', match_confidence: 'high' },
       ],
       commits: [
-        { hash: 'c1', lines_added: 0, lines_deleted: 0 },
-        { hash: 'c2', lines_added: 100, lines_deleted: 0 },
+        { hash: 'c1', committed_at: '2026-04-10T01:00:00.000Z', lines_added: 0, lines_deleted: 0 },
+        { hash: 'c2', committed_at: '2026-04-11T02:00:00.000Z', lines_added: 100, lines_deleted: 0 },
       ],
     };
     const result = computeTokensPerLoc(inputs, range, prevRange, 'day');
@@ -103,12 +103,12 @@ describe('computeTokensPerLoc', () => {
         makeMessage('m1', '2026-04-11T00:00:00.000Z', { in: 1000 }),
       ],
       messageCommits: [
-        { message_uuid: 'm0', commit_hash: 'c1', detected_at: '2026-04-10T01:00:00.000Z', match_confidence: 'low' },
-        { message_uuid: 'm1', commit_hash: 'c2', detected_at: '2026-04-11T02:00:00.000Z', match_confidence: 'high' },
+        { message_uuid: 'm0', commit_hash: 'c1', match_confidence: 'low' },
+        { message_uuid: 'm1', commit_hash: 'c2', match_confidence: 'high' },
       ],
       commits: [
-        { hash: 'c1', lines_added: 100, lines_deleted: 0 },
-        { hash: 'c2', lines_added: 100, lines_deleted: 0 },
+        { hash: 'c1', committed_at: '2026-04-10T01:00:00.000Z', lines_added: 100, lines_deleted: 0 },
+        { hash: 'c2', committed_at: '2026-04-11T02:00:00.000Z', lines_added: 100, lines_deleted: 0 },
       ],
     };
     const result = computeTokensPerLoc(inputs, range, prevRange, 'day');
@@ -119,13 +119,13 @@ describe('computeTokensPerLoc', () => {
   it('deltaPct calculated from previous period', () => {
     const current = {
       messages: [makeMessage('m0', '2026-04-10T00:00:00.000Z', { in: 1000 })],
-      messageCommits: [{ message_uuid: 'm0', commit_hash: 'c1', detected_at: '2026-04-10T01:00:00.000Z', match_confidence: 'high' }],
-      commits: [{ hash: 'c1', lines_added: 100, lines_deleted: 0 }],
+      messageCommits: [{ message_uuid: 'm0', commit_hash: 'c1', match_confidence: 'high' }],
+      commits: [{ hash: 'c1', committed_at: '2026-04-10T01:00:00.000Z', lines_added: 100, lines_deleted: 0 }],
     };
     const prev = {
       messages: [makeMessage('m0', '2026-03-10T00:00:00.000Z', { in: 2000 })],
-      messageCommits: [{ message_uuid: 'm0', commit_hash: 'c0', detected_at: '2026-03-10T01:00:00.000Z', match_confidence: 'high' }],
-      commits: [{ hash: 'c0', lines_added: 100, lines_deleted: 0 }],
+      messageCommits: [{ message_uuid: 'm0', commit_hash: 'c0', match_confidence: 'high' }],
+      commits: [{ hash: 'c0', committed_at: '2026-03-10T01:00:00.000Z', lines_added: 100, lines_deleted: 0 }],
     };
     const result = computeTokensPerLoc(current, range, prevRange, 'day', prev);
     expect(result.comparison).toBeDefined();

@@ -5,8 +5,8 @@ import { buildRatioTimeSeries, VALID_MESSAGE_COMMIT_CONFIDENCES } from './timeSe
 
 type Inputs = {
   messages: Array<{ uuid: string; created_at: string }>;
-  messageCommits: Array<{ message_uuid: string; commit_hash: string; detected_at: string; match_confidence: string }>;
-  commits: Array<{ hash: string; lines_added?: number; lines_deleted?: number }>;
+  messageCommits: Array<{ message_uuid: string; commit_hash: string; match_confidence: string }>;
+  commits: Array<{ hash: string; committed_at: string; lines_added?: number; lines_deleted?: number }>;
 };
 
 interface CommitSample {
@@ -28,33 +28,34 @@ function computeCommitSamples(inputs: Inputs, range: DateRange): CommitSample[] 
       .map((m) => [m.uuid, m.created_at]),
   );
 
-  const churnMap = new Map(
-    inputs.commits.map((c) => [c.hash, (c.lines_added ?? 0) + (c.lines_deleted ?? 0)]),
+  type CommitMeta = { committedAt: string; churn: number };
+  const commitMap = new Map<string, CommitMeta>(
+    inputs.commits.map((c) => [c.hash, {
+      committedAt: c.committed_at,
+      churn: (c.lines_added ?? 0) + (c.lines_deleted ?? 0),
+    }]),
   );
 
-  type Aggregate = { earliestMsgAt: string; detectedAt: string };
-  const byCommit = new Map<string, Aggregate>();
+  const earliestMsgByCommit = new Map<string, string>();
 
   for (const mc of inputs.messageCommits) {
     if (!VALID_MESSAGE_COMMIT_CONFIDENCES.has(mc.match_confidence)) continue;
     const msgAt = msgMap.get(mc.message_uuid);
     if (!msgAt) continue;
 
-    const existing = byCommit.get(mc.commit_hash);
-    if (!existing) {
-      byCommit.set(mc.commit_hash, { earliestMsgAt: msgAt, detectedAt: mc.detected_at });
-    } else if (msgAt < existing.earliestMsgAt) {
-      existing.earliestMsgAt = msgAt;
+    const existing = earliestMsgByCommit.get(mc.commit_hash);
+    if (!existing || msgAt < existing) {
+      earliestMsgByCommit.set(mc.commit_hash, msgAt);
     }
   }
 
   const samples: CommitSample[] = [];
-  for (const [hash, agg] of byCommit) {
-    const churn = churnMap.get(hash) ?? 0;
-    if (churn <= 0) continue;
-    const diffMs = new Date(agg.detectedAt).getTime() - new Date(agg.earliestMsgAt).getTime();
+  for (const [hash, earliestMsgAt] of earliestMsgByCommit) {
+    const meta = commitMap.get(hash);
+    if (!meta || meta.churn <= 0) continue;
+    const diffMs = new Date(meta.committedAt).getTime() - new Date(earliestMsgAt).getTime();
     const timeMin = Math.max(0, diffMs / 60_000);
-    samples.push({ date: agg.detectedAt, timeMin, churn });
+    samples.push({ date: meta.committedAt, timeMin, churn: meta.churn });
   }
   return samples;
 }
