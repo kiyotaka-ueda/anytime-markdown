@@ -1375,6 +1375,7 @@ function DailyActivityChart({
     return map;
   }, [overlay, mode]);
 
+  const overlayBucket = overlay?.bucket;
   const dataset = useMemo(() => {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - period);
@@ -1392,11 +1393,11 @@ function DailyActivityChart({
         cacheCreationTokens: isTokens ? d.cacheCreationTokens : 0,
         actualCost: isTokens ? 0 : (costEntry?.actual ?? d.estimatedCostUsd),
         skillCost: isTokens ? 0 : (costEntry?.skill ?? 0),
-        overlayValue: overlayByDate.get(period === 90 ? toFridayWeekKey(d.date) : d.date) ?? null,
+        overlayValue: overlayByDate.get(overlayBucket === 'week' ? toFridayWeekKey(d.date) : d.date) ?? null,
       };
     });
     return period === 90 ? groupByWeek(dailyDataset) : dailyDataset;
-  }, [items, period, mode, costByDate, overlayByDate]);
+  }, [items, period, mode, costByDate, overlayByDate, overlayBucket]);
 
   if (items.length === 0) return null;
 

@@ -39,16 +39,17 @@ describe('computeQualityMetrics', () => {
     expect(prevTo - prevFrom).toBeCloseTo(duration, -3);
   });
 
-  it('bucket=day when range <= 14 days', () => {
-    const shortRange: DateRange = { from: '2026-04-01T00:00:00.000Z', to: '2026-04-14T23:59:59.999Z' };
-    const result = computeQualityMetrics(emptyInputs(), shortRange);
-    expect(result.bucket).toBe('day');
+  it('bucket=day when range <= 31 days (covers 7d/30d periods)', () => {
+    const sevenDays: DateRange = { from: '2026-04-01T00:00:00.000Z', to: '2026-04-08T00:00:00.000Z' };
+    expect(computeQualityMetrics(emptyInputs(), sevenDays).bucket).toBe('day');
+
+    const thirtyDays: DateRange = { from: '2026-03-01T00:00:00.000Z', to: '2026-03-31T00:00:00.000Z' };
+    expect(computeQualityMetrics(emptyInputs(), thirtyDays).bucket).toBe('day');
   });
 
-  it('bucket=week when range >= 15 days', () => {
-    const longRange: DateRange = { from: '2026-04-01T00:00:00.000Z', to: '2026-04-15T23:59:59.999Z' };
-    const result = computeQualityMetrics(emptyInputs(), longRange);
-    expect(result.bucket).toBe('week');
+  it('bucket=week when range > 31 days', () => {
+    const ninetyDays: DateRange = { from: '2026-01-01T00:00:00.000Z', to: '2026-04-01T00:00:00.000Z' };
+    expect(computeQualityMetrics(emptyInputs(), ninetyDays).bucket).toBe('week');
   });
 
   it('range is stored in result', () => {

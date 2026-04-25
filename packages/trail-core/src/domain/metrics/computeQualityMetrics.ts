@@ -91,7 +91,8 @@ function selectBucket(range: DateRange): 'day' | 'week' {
   const fromMs = new Date(range.from).getTime();
   const toMs = new Date(range.to).getTime();
   const days = (toMs - fromMs) / 86_400_000;
-  return days <= 14 ? 'day' : 'week';
+  // 7d / 30d は日次、90d は週次に集計する
+  return days <= 31 ? 'day' : 'week';
 }
 
 export function computeQualityMetrics(
