@@ -32,6 +32,23 @@ export function Dispatch() {
           ）にすることで、事前事後の検証で信頼を築く ― この思想を、2
           つの拡張で具現化した。
         </p>
+        <h3>編集後記。</h3>
+        <p>
+          本サイトは、設計・実装・テストのすべてを{' '}
+          <span className={styles.textVermilion}>Claude Code</span>
+          （AI
+          コーディングアシスタント）が行い、人間は指示のみを担当する実験的なプロジェクトです。Anytime
+          Markdown 自体を仕様の把握やテスト内容の確認に活用しながら開発しています。ソースコードは{' '}
+          <a
+            href="https://github.com/anytime-trial/anytime-markdown"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.dispatchLink}
+          >
+            GitHub
+          </a>{' '}
+          で公開しています。
+        </p>
       </div>
     </section>
   );
