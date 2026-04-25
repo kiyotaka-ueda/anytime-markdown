@@ -2118,6 +2118,7 @@ function CombinedChartsSection({
   const [commitMetric, setCommitMetric] = useState<CommitMetric>('count');
   const [combinedData, setCombinedData] = useState<CombinedData | null>(null);
   const [combinedLoading, setCombinedLoading] = useState(false);
+  const [overlayLoading, setOverlayLoading] = useState(false);
   const [overlay, setOverlay] = useState<{
     bucket: 'day' | 'week';
     tokens: ReadonlyArray<{ bucketStart: string; value: number }>;
@@ -2160,8 +2161,12 @@ function CombinedChartsSection({
     const to = now.toISOString();
     const from = new Date(now.getTime() - period * 86_400_000).toISOString();
     let mounted = true;
+    setOverlayLoading(true);
     void (async () => {
       const result = await fetchQualityMetrics({ from, to });
+      if (mounted) {
+        setOverlayLoading(false);
+      }
       if (mounted && result) {
         setOverlay({
           bucket: result.bucket,
@@ -2272,7 +2277,13 @@ function CombinedChartsSection({
           overlay={overlay}
         />
       ) : metric === 'releases' ? (
-        <ReleasesBarChart timeSeries={overlay?.deploymentFrequency ?? []} />
+        overlayLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 240 }}>
+            <CircularProgress size={32} />
+          </Box>
+        ) : (
+          <ReleasesBarChart timeSeries={overlay?.deploymentFrequency ?? []} />
+        )
       ) : fetchCombinedData ? (
         combinedLoading && !combinedData ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 240 }}>
