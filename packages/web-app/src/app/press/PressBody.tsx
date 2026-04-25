@@ -6,7 +6,7 @@ import { useThemeMode } from '../providers';
 import { BriefingPrimary, BriefingSecondary } from './components/Briefing';
 import { Caravan } from './components/Caravan';
 import { Colophon } from './components/Colophon';
-import { CtaActions, CtaStrip } from './components/CtaStrip';
+import { CtaActions } from './components/CtaStrip';
 import { Dispatch } from './components/Dispatch';
 import { Headline } from './components/Headline';
 import { Masthead } from './components/Masthead';
@@ -45,6 +45,7 @@ export function PressBody() {
         embed={<TrailViewerEmbed containerHeight="clamp(300px, 42vh, 520px)" />}
         embedActions={
           <CtaActions
+            primaryLabel="Open Viewer"
             primaryHref="/trail"
             secondaryHref="https://marketplace.visualstudio.com/items?itemName=anytime-trial.anytime-trail"
           />
@@ -70,7 +71,6 @@ export function PressBody() {
       />
       <PullQuote />
       <Ticker />
-      <CtaStrip />
       <Colophon />
     </div>
   );

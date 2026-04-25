@@ -712,38 +712,7 @@
     }
 }
 
-/* ── CTA ストリップ ────────────────────────────────── */
-.ctaStrip {
-    padding: 64px var(--gutter);
-    border-bottom: var(--rule-mast) solid var(--ink);
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 48px;
-    align-items: center;
-}
-
-@media (max-width: 720px) {
-    .ctaStrip {
-        grid-template-columns: 1fr;
-    }
-}
-
-.ctaHeading {
-    font-family: var(--font-display);
-    font-style: italic;
-    font-weight: 900;
-    font-size: clamp(32px, 5vw, 56px);
-    line-height: 0.95;
-    letter-spacing: -0.03em;
-    margin: 0;
-    max-width: 18ch;
-}
-
-.ctaHeading em {
-    font-style: normal;
-    font-weight: 400;
-}
-
+/* ── CTA ボタン群 ────────────────────────────────── */
 .ctaActions {
     display: flex;
     gap: 16px;
