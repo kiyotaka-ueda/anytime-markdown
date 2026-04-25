@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import styles from '../press.module.css';
 
 interface BriefingItem {
@@ -11,6 +13,10 @@ interface BriefingProps {
   no: string;
   items: BriefingItem[];
   id?: string;
+}
+
+interface BriefingPrimaryProps {
+  embed: ReactNode;
 }
 
 const PRIMARY_ITEMS: BriefingItem[] = [
@@ -104,8 +110,54 @@ export function Briefing({ no, items, id }: BriefingProps) {
   );
 }
 
-export function BriefingPrimary() {
-  return <Briefing id="briefing" no="BRIEFING ／ NO.003" items={PRIMARY_ITEMS} />;
+export function BriefingPrimary({ embed }: BriefingPrimaryProps) {
+  return (
+    <section className={styles.briefingWithEmbed} id="briefing">
+      <div className={styles.briefingEmbed}>
+        <div className={styles.trailFrameBar}>
+          <span
+            className={styles.trailFrameDot}
+            style={{ background: '#FF5F57' }}
+            aria-hidden="true"
+          />
+          <span
+            className={styles.trailFrameDot}
+            style={{ background: '#FFBD2E' }}
+            aria-hidden="true"
+          />
+          <span
+            className={styles.trailFrameDot}
+            style={{ background: '#28C840' }}
+            aria-hidden="true"
+          />
+          <span className={styles.trailFrameTitle}>
+            anytime-trail — trail viewer
+          </span>
+        </div>
+        <div className={styles.trailFrameBody}>{embed}</div>
+      </div>
+      <div className={styles.briefingMain}>
+        <header className={styles.briefingHeader}>
+          <span className={styles.briefingHeaderTitle}>
+            Field <em>Notes.</em>
+          </span>
+          <small className={styles.briefingHeaderNo}>BRIEFING ／ NO.003</small>
+        </header>
+        <ul className={`${styles.briefingList} ${styles.briefingListInline}`}>
+          {PRIMARY_ITEMS.map((item) => (
+            <li key={item.num}>
+              <span className={styles.briefingNum}>{item.num}</span>
+              <div className={styles.briefingHead}>
+                {item.head}
+                <p>{item.body}</p>
+              </div>
+              <span className={styles.briefingVerdict}>{item.verdict}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
 }
 
 export function BriefingSecondary() {

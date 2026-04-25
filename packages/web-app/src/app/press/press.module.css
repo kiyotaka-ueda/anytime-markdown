@@ -525,6 +525,103 @@
     white-space: nowrap;
 }
 
+/* ── Briefing (Trail Viewer 埋め込み版) ────────────── */
+.briefingWithEmbed {
+    padding: 36px var(--gutter);
+    border-bottom: var(--rule-bold) solid var(--ink);
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 48px;
+    align-items: start;
+}
+
+@media (max-width: 880px) {
+    .briefingWithEmbed {
+        grid-template-columns: 1fr;
+        gap: 24px;
+    }
+}
+
+.briefingEmbed {
+    border: var(--rule-thin) solid var(--ink);
+    background: var(--paper);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.trailFrameBar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: var(--paper-fold);
+    border-bottom: var(--rule-thin) solid var(--ink-light);
+}
+
+.trailFrameDot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: inline-block;
+}
+
+.trailFrameTitle {
+    margin-left: 8px;
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+    letter-spacing: 0.02em;
+}
+
+.trailFrameBody {
+    flex: 1;
+    min-height: 0;
+}
+
+.briefingMain {
+    display: flex;
+    flex-direction: column;
+}
+
+.briefingHeader {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    border-bottom: var(--rule-bold) solid var(--ink);
+    padding-bottom: 14px;
+    margin-bottom: 0;
+}
+
+.briefingHeaderTitle {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 900;
+    font-size: clamp(36px, 5vw, 56px);
+    line-height: 0.9;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+}
+
+.briefingHeaderTitle em {
+    font-style: italic;
+    font-weight: 900;
+}
+
+.briefingHeaderNo {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+    letter-spacing: 0.15em;
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+.briefingListInline {
+    border-top: 0;
+}
+
 /* ── PullQuote ─────────────────────────────────────── */
 .pullQuote {
     padding: 56px var(--gutter);

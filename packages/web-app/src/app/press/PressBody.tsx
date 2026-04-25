@@ -1,5 +1,7 @@
 'use client';
 
+import dynamic from 'next/dynamic';
+
 import { useThemeMode } from '../providers';
 import { BriefingPrimary, BriefingSecondary } from './components/Briefing';
 import { Caravan } from './components/Caravan';
@@ -14,6 +16,14 @@ import { Ticker } from './components/Ticker';
 import { bodoni, jetbrains, shippori } from './fonts';
 import styles from './press.module.css';
 
+const TrailViewerEmbed = dynamic(
+  () =>
+    import('../trail/components/TrailViewer').then((m) => ({
+      default: m.TrailViewer,
+    })),
+  { ssr: false },
+);
+
 export function PressBody() {
   const { themeMode } = useThemeMode();
   const fontClasses = `${bodoni.variable} ${shippori.variable} ${jetbrains.variable}`;
@@ -24,7 +34,9 @@ export function PressBody() {
       <Headline />
       <Caravan />
       <Dispatch />
-      <BriefingPrimary />
+      <BriefingPrimary
+        embed={<TrailViewerEmbed containerHeight="clamp(300px, 42vh, 520px)" />}
+      />
       <BriefingSecondary />
       <PullQuote />
       <Ticker />
