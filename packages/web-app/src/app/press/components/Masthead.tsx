@@ -7,6 +7,19 @@ import { useThemeMode } from '../../providers';
 import styles from '../press.module.css';
 
 const WAFUU_TSUKIMEI = ['睦月', '如月', '弥生', '卯月', '皐月', '水無月', '文月', '葉月', '長月', '神無月', '霜月', '師走'] as const;
+const KANJI_DIGITS = ['〇', '一', '二', '三', '四', '五', '六', '七', '八', '九'] as const;
+
+function toKanjiDay(n: number): string {
+  const tens = Math.floor(n / 10);
+  const ones = n % 10;
+  if (n <= 9) return KANJI_DIGITS[n];
+  if (ones === 0) return `${tens === 1 ? '' : KANJI_DIGITS[tens]}十`;
+  return `${tens === 1 ? '' : KANJI_DIGITS[tens]}十${KANJI_DIGITS[ones]}`;
+}
+
+function toKanjiYear(n: number): string {
+  return String(n).split('').map((d) => KANJI_DIGITS[Number(d)]).join('');
+}
 
 function formatTodayEdition(locale: string): string {
   const today = new Date();
@@ -14,7 +27,7 @@ function formatTodayEdition(locale: string): string {
   const year = today.getFullYear();
   if (locale === 'ja') {
     const month = WAFUU_TSUKIMEI[today.getMonth()];
-    return `${day} ${month} ${year}`;
+    return `${toKanjiDay(day)} ${month} ${toKanjiYear(year)}`;
   }
   return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(today);
 }
