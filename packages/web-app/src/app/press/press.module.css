@@ -402,7 +402,7 @@
     width: 200%;
     height: 100%;
     transform: translateY(-50%);
-    animation: caravanWalk 90s linear infinite;
+    animation: caravanWalk 180s linear infinite;
 }
 
 .caravanTick {
@@ -434,7 +434,7 @@
     height: 100%;
     left: 0;
     top: 0;
-    animation: caravanCamelsWalk 50s linear infinite;
+    animation: caravanCamelsWalk 100s linear infinite;
 }
 
 @keyframes caravanCamelsWalk {
@@ -478,12 +478,12 @@
 
 .caravanSun1 {
     top: 25%;
-    animation: caravanSun1Walk 150s linear infinite;
+    animation: caravanSun1Walk 300s linear infinite;
 }
 
 .caravanSun2 {
     top: 27.5%;
-    animation: caravanSun2Walk 150s linear infinite;
+    animation: caravanSun2Walk 300s linear infinite;
 }
 
 /* cx=220 → 220/2400 * 200% = 18.33% of container */
