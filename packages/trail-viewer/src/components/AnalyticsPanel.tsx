@@ -662,7 +662,7 @@ function TurnLaneChart({
   if (N === 0) return null;
 
   const LABEL_W = 60;
-  const PAD_R = 40;
+  const PAD_R = 60;
   const plotW = Math.max(svgWidth - LABEL_W - PAD_R, 0);
   const colW = plotW / N;
 
