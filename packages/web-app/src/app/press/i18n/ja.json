@@ -53,6 +53,13 @@
     "text": "速い道具は、書き手を迷子にする。隊商の歩幅で、文字を運ぶ。",
     "attr": "— editorial · 巻頭言 · vol.iii"
   },
+  "news": {
+    "label": "DISPATCH · 速報",
+    "heading": "本日の重大ニュース",
+    "poweredBy": "via Hacker News",
+    "scoreLabel": "pts",
+    "commentsLabel": "comments"
+  },
   "ticker": {
     "item1": "open source · MIT licensed",
     "item2": "browser-only · zero servers",

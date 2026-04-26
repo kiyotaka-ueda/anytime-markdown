@@ -53,6 +53,13 @@
     "text": "Faster tools lead writers astray. We carry words at the caravan's pace.",
     "attr": "— editorial · prologue · vol.iii"
   },
+  "news": {
+    "label": "DISPATCH · BREAKING",
+    "heading": "Today's Top Stories",
+    "poweredBy": "via Hacker News",
+    "scoreLabel": "pts",
+    "commentsLabel": "comments"
+  },
   "ticker": {
     "item1": "open source · MIT licensed",
     "item2": "browser-only · zero servers",

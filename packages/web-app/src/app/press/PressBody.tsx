@@ -14,6 +14,7 @@ import { Masthead } from './components/Masthead';
 import { ProgressRule } from './components/ProgressRule';
 import { PullQuote } from './components/PullQuote';
 import { Ticker } from './components/Ticker';
+import { TodaysNews } from './components/TodaysNews';
 import { bodoni, jetbrains, shippori, yujiBoku } from './fonts';
 import styles from './press.module.css';
 
@@ -75,6 +76,7 @@ export function PressBody() {
         }
       />
       <PullQuote />
+      <TodaysNews />
       <Ticker />
       <Colophon />
     </div>
