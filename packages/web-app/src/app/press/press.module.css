@@ -383,6 +383,16 @@
     position: relative;
     height: 88px;
     background: var(--paper);
+    color: var(--rule);
+    --caravan-muted: var(--ink-light);
+}
+
+.root[data-cp-mode='dark'] .caravan {
+    --caravan-muted: rgba(237, 229, 210, 0.45);
+}
+
+.caravanMuted {
+    color: var(--caravan-muted);
 }
 
 .caravan > svg {
@@ -443,7 +453,7 @@
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background: #B8341E;
+    background: var(--vermilion);
     transform: translateY(-50%);
     z-index: 1;
 }

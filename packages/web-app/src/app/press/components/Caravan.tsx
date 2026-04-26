@@ -43,17 +43,18 @@ export function Caravan() {
         <path
           d="M0,60 Q200,52 400,58 T800,54 T1200,60 T1600,52 T2000,58 T2400,56 L2400,80 L0,80 Z"
           fill="none"
-          stroke="#15110A"
+          stroke="currentColor"
           strokeWidth="1"
         />
         <path
           d="M0,68 Q300,62 600,66 T1200,64 T1800,68 T2400,64"
           fill="none"
-          stroke="#8A7C66"
+          stroke="currentColor"
           strokeWidth="0.8"
           strokeDasharray="3 5"
+          className={styles.caravanMuted}
         />
-        <g fill="#8A7C66">
+        <g fill="currentColor" className={styles.caravanMuted}>
           {HOOFPRINTS.map((cx) => (
             <circle key={cx} cx={cx} cy="74" r="1.4" />
           ))}
@@ -66,7 +67,7 @@ export function Caravan() {
             className={styles.caravanCamelItem}
             style={{ left, bottom }}
           >
-            <svg viewBox="0 0 46 38" width="46" height="38" fill="#15110A">
+            <svg viewBox="0 0 46 38" width="46" height="38" fill="currentColor">
               <path d={CAMEL_PATH} />
             </svg>
           </span>
@@ -78,10 +79,10 @@ export function Caravan() {
             style={{ left, bottom }}
           >
             <svg viewBox="0 0 36 58" width="36" height="58" fill="none">
-              <ellipse cx="18" cy="54" rx="12" ry="3.5" fill="#8A7C66" opacity="0.5" />
-              <path d={PALM_TRUNK_PATH} fill="#15110A" />
+              <ellipse cx="18" cy="54" rx="12" ry="3.5" fill="currentColor" className={styles.caravanMuted} opacity="0.5" />
+              <path d={PALM_TRUNK_PATH} fill="currentColor" />
               {PALM_FROND_PATHS.map((d) => (
-                <path key={d} d={d} stroke="#15110A" strokeWidth="2.5" strokeLinecap="round" />
+                <path key={d} d={d} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
               ))}
             </svg>
           </span>
