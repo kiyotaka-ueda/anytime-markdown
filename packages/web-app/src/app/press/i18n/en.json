@@ -57,6 +57,11 @@
   "news": {
     "label": "DISPATCH · BREAKING",
     "heading": "Today's Top Stories",
+    "poweredBy": "via The Guardian"
+  },
+  "wsj": {
+    "label": "MARKETS · POLITICS",
+    "heading": "Wall Street Journal",
     "poweredBy": "via The Wall Street Journal"
   },
   "weather": {

@@ -16,6 +16,7 @@ import { PullQuote } from './components/PullQuote';
 import { Ticker } from './components/Ticker';
 import { SpotifyCharts } from './components/SpotifyCharts';
 import { TodaysNews } from './components/TodaysNews';
+import { WsjNews } from './components/WsjNews';
 import { WeatherForecast } from './components/WeatherForecast';
 import { GithubTrending } from './components/GithubTrending';
 import { PressDocsSection } from './components/PressDocsSection';
@@ -82,6 +83,7 @@ export function PressBody() {
       />
       <PullQuote />
       <TodaysNews />
+      <WsjNews />
       <PressReports />
       <GithubTrending />
       <SpotifyCharts />
