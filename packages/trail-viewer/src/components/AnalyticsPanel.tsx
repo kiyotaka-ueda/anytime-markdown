@@ -1353,65 +1353,6 @@ function SessionMetricsPanel({ session, toolMetrics }: Readonly<{
 
 type SessionToolMetric = 'count' | 'tokens' | 'duration';
 
-function SessionModelUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics | null }>) {
-  const { cardSx, toolPalette } = useTrailTheme();
-  const { t } = useTrailI18n();
-  const [metric, setMetric] = useState<SessionToolMetric>('count');
-  const usage = toolMetrics?.modelUsage;
-  if (!usage || usage.length === 0) {
-    return (
-      <Paper elevation={0} sx={{ ...cardSx, pt: 2, pr: 2, pb: 0, pl: 2 }}>
-        <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{t('analytics.combined.model')}</Typography>
-        <Typography variant="body2" color="text.secondary">0</Typography>
-      </Paper>
-    );
-  }
-
-  const getValue = (e: { count: number; tokens: number; durationMs: number }): number =>
-    metric === 'tokens' ? e.tokens
-    : metric === 'duration' ? Math.round(e.durationMs / 1000)
-    : e.count;
-
-  const sorted = [...usage].sort((a, b) => getValue(b) - getValue(a));
-
-  const entry: Record<string, string | number> = { metric: metric === 'tokens' ? 'tokens' : metric === 'duration' ? 'sec' : 'count' };
-  let total = 0;
-  for (let i = 0; i < sorted.length; i++) {
-    const v = getValue(sorted[i]);
-    entry[`m${i}`] = v;
-    total += v;
-  }
-  const tickValues = niceTicks(total);
-
-  return (
-    <Paper elevation={0} sx={{ ...cardSx, pt: 2, pr: 2, pb: 0, pl: 0 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, px: 2 }}>
-        <Typography variant="subtitle2">{t('analytics.combined.model')}</Typography>
-        <ToggleButtonGroup size="small" exclusive value={metric} onChange={(_, v: SessionToolMetric | null) => { if (v) setMetric(v); }}>
-          <ToggleButton value="count">{t('analytics.combined.count')}</ToggleButton>
-          <ToggleButton value="tokens">{t('analytics.combined.tokens')}</ToggleButton>
-          <ToggleButton value="duration">{t('analytics.combined.duration')}</ToggleButton>
-        </ToggleButtonGroup>
-      </Box>
-      <BarChart
-        dataset={[entry]}
-        layout="horizontal"
-        yAxis={[{ scaleType: 'band', dataKey: 'metric', categoryGapRatio: 0.25, tickLabelStyle: { display: 'none' } }]}
-        xAxis={[{ tickInterval: tickValues, valueFormatter: metric === 'duration' ? fmtDurationShort : fmtTokens }]}
-        series={sorted.map((e, i) => ({
-          dataKey: `m${i}`,
-          label: e.model,
-          stack: 'total',
-          color: toolPalette[i % toolPalette.length],
-        }))}
-        height={70}
-        margin={{ left: 20, right: 16, top: 4, bottom: 16 }}
-        slots={{ legend: () => null }}
-      />
-    </Paper>
-  );
-}
-
 function SessionToolUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics | null }>) {
   const { colors, cardSx, toolPalette } = useTrailTheme();
   const { t } = useTrailI18n();
@@ -1889,7 +1830,6 @@ function DailySessionList({
           return (
             <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 1, width: { lg: 600 } }}>
               <SessionMetricsPanel session={buildDaySession(date, daySessions)} toolMetrics={dayAggToolMetrics} />
-              <SessionModelUsageChart toolMetrics={dayAggToolMetrics} />
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <SessionSkillUsageChart toolMetrics={dayAggToolMetrics} />
                 <SessionToolUsageChart toolMetrics={dayAggToolMetrics} />
