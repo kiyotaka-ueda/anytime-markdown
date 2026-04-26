@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+
 import { useTranslations } from 'next-intl';
 
 import { useLocaleSwitch } from '../../LocaleProvider';
@@ -14,6 +16,18 @@ export function Masthead() {
   const t = useTranslations('press.masthead');
   const { themeMode, setThemeMode } = useThemeMode();
   const { locale, setLocale } = useLocaleSwitch();
+  const [pageCount, setPageCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch('/api/pageview')
+      .then((r) => r.json())
+      .then((data: { value: number | null }) => {
+        if (data.value !== null) setPageCount(data.value);
+      })
+      .catch((err: unknown) => {
+        console.error('[Masthead] pageview fetch failed:', err instanceof Error ? err.stack : String(err));
+      });
+  }, []);
   const toggleMode = () => {
     setThemeMode(themeMode === 'dark' ? 'light' : 'dark');
   };
@@ -24,7 +38,7 @@ export function Masthead() {
   return (
     <header className={styles.mast}>
       <div className={styles.mastEdition}>
-        <b>{t('editionVolume')}</b>
+        <b>{t('editionVolume')} {pageCount ?? '…'}</b>
         <br />
         Edition of {formatTodayEdition()} {t('editionDateSuffix')}
       </div>

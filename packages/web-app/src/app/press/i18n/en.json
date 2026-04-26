@@ -1,6 +1,6 @@
 {
   "masthead": {
-    "editionVolume": "Vol. III · No. 142",
+    "editionVolume": "Vol. III · No.",
     "editionDateSuffix": "· Yohaku · Morning",
     "title": "Anytime Trial",
     "titleEm": "Trial",
@@ -73,7 +73,7 @@
   },
   "ticker": {
     "item1": "open source · MIT licensed",
-    "item2": "browser-only · zero servers",
+    "item2": "Next.js · serverless",
     "item3": "KaTeX · Mermaid · GFM",
     "item4": "section-level diff",
     "item5": "spec-driven workflow",
