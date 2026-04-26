@@ -769,15 +769,18 @@ export class SupabaseTrailReader implements ITrailReader {
     };
     const fetchFilesByHashes = async (hashes: string[]): Promise<Map<string, string[]>> => {
       if (hashes.length === 0) return new Map();
-      const { data } = await this.client
-        .from('trail_commit_files')
-        .select('commit_hash, file_path')
-        .in('commit_hash', hashes);
+      const BATCH = 200;
       const map = new Map<string, string[]>();
-      for (const { commit_hash, file_path } of (data ?? []) as Array<{ commit_hash: string; file_path: string }>) {
-        const arr = map.get(commit_hash);
-        if (arr) arr.push(file_path);
-        else map.set(commit_hash, [file_path]);
+      for (let i = 0; i < hashes.length; i += BATCH) {
+        const { data } = await this.client
+          .from('trail_commit_files')
+          .select('commit_hash, file_path')
+          .in('commit_hash', hashes.slice(i, i + BATCH));
+        for (const { commit_hash, file_path } of (data ?? []) as Array<{ commit_hash: string; file_path: string }>) {
+          const arr = map.get(commit_hash);
+          if (arr) arr.push(file_path);
+          else map.set(commit_hash, [file_path]);
+        }
       }
       return map;
     };
@@ -851,7 +854,6 @@ export class SupabaseTrailReader implements ITrailReader {
       fetchFilesByHashes(curCommits.map((c) => c.commit_hash)),
       fetchFilesByHashes(prevCommits.map((c) => c.commit_hash)),
     ]);
-
     return computeQualityMetrics(
       {
         releases: curReleases.map((r) => ({ id: r.tag, tag_date: r.released_at, commit_hashes: [], fix_count: r.fix_count })),
