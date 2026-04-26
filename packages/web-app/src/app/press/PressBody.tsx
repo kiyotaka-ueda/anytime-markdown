@@ -16,6 +16,7 @@ import { PullQuote } from './components/PullQuote';
 import { Ticker } from './components/Ticker';
 import { SpotifyCharts } from './components/SpotifyCharts';
 import { TodaysNews } from './components/TodaysNews';
+import { WeatherForecast } from './components/WeatherForecast';
 import { bodoni, jetbrains, shippori, yujiBoku } from './fonts';
 import styles from './press.module.css';
 
@@ -79,6 +80,7 @@ export function PressBody() {
       <PullQuote />
       <TodaysNews />
       <SpotifyCharts />
+      <WeatherForecast />
       <Ticker />
       <Colophon />
     </div>

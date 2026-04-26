@@ -58,6 +58,11 @@
     "heading": "Today's Top Stories",
     "poweredBy": "via The Guardian"
   },
+  "weather": {
+    "label": "WEATHER · WORLD",
+    "heading": "Today's Weather",
+    "poweredBy": "Open-Meteo"
+  },
   "charts": {
     "label": "MUSIC · NEW RELEASES",
     "heading": "Charts",

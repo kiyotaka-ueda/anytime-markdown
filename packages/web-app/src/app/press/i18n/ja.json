@@ -58,6 +58,11 @@
     "heading": "本日の重大ニュース",
     "poweredBy": "via The Guardian"
   },
+  "weather": {
+    "label": "WEATHER · 気象",
+    "heading": "世界の天気",
+    "poweredBy": "Open-Meteo"
+  },
   "charts": {
     "label": "MUSIC · 新譜",
     "heading": "注目の新譜",
