@@ -21,8 +21,8 @@ const PALM_FROND_PATHS = [
 // left = translateX / 2400 * 100%
 // bottom = (80 - (translateY + 38)) / 80 * 88
 const CAMELS: ReadonlyArray<readonly [string, number]> = [
-  ['17.5%', 13],
-  ['67.5%', 13],
+  ['17.5%', 26],
+  ['67.5%', 26],
 ];
 
 // Oases at ~44% and 94% (offset by 50% for seamless loop)
@@ -96,7 +96,7 @@ export function Caravan() {
             <img
               src="/images/camel_transparent.png"
               alt=""
-              width={30}
+              width={39}
               height={30}
               className={styles.caravanCamelImg}
             />
