@@ -1697,3 +1697,183 @@
         animation: none;
     }
 }
+
+/* ── GitHub Trending ───────────────────────────────────────── */
+
+.ghTrending {
+    padding: 48px var(--gutter);
+    border-bottom: var(--rule-bold) solid var(--ink);
+}
+
+.ghTrendingHeader {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    border-bottom: var(--rule-thin) solid var(--ink);
+    padding-bottom: 10px;
+    margin-bottom: 0;
+}
+
+.ghTrendingLabel {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faded);
+    white-space: nowrap;
+}
+
+.ghTrendingHeading {
+    font-family: var(--font-display);
+    font-size: var(--fs-section);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0;
+    color: var(--ink);
+    flex: 1;
+}
+
+.ghTrendingMeta {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+    white-space: nowrap;
+}
+
+.ghTrendingList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.ghTrendingItem {
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    gap: 16px;
+    align-items: start;
+    padding: 16px 0;
+    border-bottom: var(--rule-thin) solid var(--ink-light);
+}
+
+.ghTrendingItem:last-child {
+    border-bottom: none;
+}
+
+.ghTrendingRank {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    font-weight: 700;
+    color: var(--ink-faded);
+    padding-top: 3px;
+    letter-spacing: 0.05em;
+}
+
+.ghTrendingBody {
+    min-width: 0;
+}
+
+.ghTrendingName {
+    font-family: var(--font-display);
+    font-size: clamp(14px, 1.6vw, 18px);
+    font-weight: 700;
+    margin: 0 0 4px;
+    line-height: 1.3;
+}
+
+.ghTrendingLink {
+    color: var(--ink);
+    text-decoration: none;
+}
+
+.ghTrendingLink:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.ghTrendingLink:focus-visible {
+    outline: 2px solid var(--vermilion);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+.ghTrendingOwner {
+    color: var(--ink-faded);
+    font-weight: 400;
+}
+
+.ghTrendingSep {
+    color: var(--ink-faded);
+    margin: 0 2px;
+    font-weight: 400;
+}
+
+.ghTrendingDesc {
+    font-family: var(--font-body);
+    font-size: var(--fs-caption);
+    color: var(--ink-faded);
+    margin: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.ghTrendingStats {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.ghTrendingLang {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+    background: var(--ink-light);
+    padding: 1px 6px;
+    border-radius: 2px;
+    opacity: 0.5;
+}
+
+.ghTrendingStars {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    font-weight: 700;
+    color: var(--vermilion);
+    white-space: nowrap;
+}
+
+.ghTrendingSkeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.ghTrendingSkeletonItem {
+    height: 52px;
+    border-radius: 2px;
+    background: var(--ink-light);
+    opacity: 0.12;
+    position: relative;
+    overflow: hidden;
+}
+
+.ghTrendingSkeletonItem::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.06) 50%,
+        transparent 100%
+    );
+    animation: newsfrontShimmer 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ghTrendingSkeletonItem::after {
+        animation: none;
+    }
+}

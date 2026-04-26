@@ -71,6 +71,11 @@
     "labelJp": "JAPAN",
     "labelGlobal": "GLOBAL"
   },
+  "githubTrending": {
+    "label": "GITHUB · トレンド",
+    "heading": "GitHub トレンド",
+    "poweredBy": "via GitHub"
+  },
   "pressReports": {
     "label": "REPORT · レポート",
     "heading": "最新レポート",
