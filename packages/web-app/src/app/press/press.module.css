@@ -446,6 +446,17 @@
     position: absolute;
 }
 
+.caravanCamelImg {
+    display: block;
+    transform: scaleX(-1);
+    mix-blend-mode: multiply;
+}
+
+.root[data-cp-mode='dark'] .caravanCamelImg {
+    mix-blend-mode: screen;
+    filter: invert(1) hue-rotate(180deg) brightness(0.85);
+}
+
 .caravanOasisItem {
     position: absolute;
     opacity: 0;

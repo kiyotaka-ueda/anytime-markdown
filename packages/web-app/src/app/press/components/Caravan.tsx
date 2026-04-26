@@ -8,9 +8,6 @@ import styles from '../press.module.css';
 const LOOP_MS = 60_000;       // one full caravan animation cycle
 const SHOW_MS = LOOP_MS * 2;  // visible for 2 loops (~2 min)
 
-const CAMEL_PATH =
-  'M0 28 L4 18 L8 14 L8 8 Q12 2 18 4 L20 8 L18 14 L24 16 L34 12 L38 18 L42 18 L42 22 L46 28 L42 32 L42 38 L40 38 L38 32 L20 32 L18 38 L16 38 L14 32 L4 32 Z';
-
 const PALM_TRUNK_PATH = 'M16 56 L20 56 L19 28 L17 28 Z';
 const PALM_FROND_PATHS = [
   'M18 28 Q5 22 1 26',
@@ -95,9 +92,14 @@ export function Caravan() {
             className={styles.caravanCamelItem}
             style={{ left, bottom }}
           >
-            <svg viewBox="0 0 46 38" width="46" height="38" fill="currentColor">
-              <path d={CAMEL_PATH} />
-            </svg>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/camel_1024x1024.png"
+              alt=""
+              width={60}
+              height={60}
+              className={styles.caravanCamelImg}
+            />
           </span>
         ))}
         {OASES.map(([left, bottom]) => (
