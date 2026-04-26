@@ -75,7 +75,7 @@ export const en: TrailI18n = {
   'analytics.groupToolMetrics': 'Tool Metrics',
   'analytics.groupDora': 'DORA',
   'analytics.toolUsageTitle': 'Tool Usage',
-  'analytics.sessionCacheTimelineTitle': 'Session Cache Timeline',
+  'analytics.sessionCacheTimelineTitle': 'Session Timeline',
   'analytics.turns': 'turns',
   'analytics.compactLoopTooltip': 'Cache is being rebuilt by auto /compact events. Token consumption and rework cost may be elevated.',
   'analytics.close': 'Close',
