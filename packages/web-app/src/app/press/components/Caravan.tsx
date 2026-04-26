@@ -24,12 +24,8 @@ const PALM_FROND_PATHS = [
 // left = translateX / 2400 * 100%
 // bottom = (80 - (translateY + 38)) / 80 * 88
 const CAMELS: ReadonlyArray<readonly [string, number]> = [
-  ['5%', 15],        // translate(120, 28)
-  ['17.5%', 13],     // translate(420, 30)
-  ['34.17%', 11],    // translate(820, 32)
-  ['55%', 15],       // translate(1320, 28)
-  ['67.5%', 13],     // translate(1620, 30)
-  ['84.17%', 11],    // translate(2020, 32)
+  ['17.5%', 13],
+  ['67.5%', 13],
 ];
 
 // Oases at ~44% and 94% (offset by 50% for seamless loop)
