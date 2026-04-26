@@ -9,6 +9,14 @@ import styles from '../press.module.css';
 const WAFUU_TSUKIMEI = ['睦月', '如月', '弥生', '卯月', '皐月', '水無月', '文月', '葉月', '長月', '神無月', '霜月', '師走'] as const;
 const KANJI_DIGITS = ['零', '壱', '弐', '参', '肆', '伍', '陸', '漆', '捌', '玖'] as const;
 
+// 十二支の刻 — hour 0..23 → 支 (子=23:00-01:00, 丑=01:00-03:00, …)
+const JIKOKU_BY_HOUR = ['子','丑','丑','寅','寅','卯','卯','辰','辰','巳','巳','午','午','未','未','申','申','酉','酉','戌','戌','亥','亥','子'] as const;
+
+function getCurrentJikoku(): string {
+  const h = new Date().getHours();
+  return `${JIKOKU_BY_HOUR[h]}の刻`;
+}
+
 function toKanjiDay(n: number): string {
   const tens = Math.floor(n / 10);
   const ones = n % 10;
@@ -88,7 +96,7 @@ export function Masthead() {
       <div className={styles.mastEdition}>
         <b>{t('editionVolume')}</b>
         <br />
-        Edition of {formatTodayEdition(locale)} · {getCurrentSolarTerm(locale)} {t('editionDateSuffix')}
+        Edition of {formatTodayEdition(locale)} · {getCurrentSolarTerm(locale)} · {locale === 'ja' ? getCurrentJikoku() : t('editionDateSuffix').replace(/^·\s*/, '')}
       </div>
       <div className={styles.mastTitle}>
         {t('titlePrefix')} <em>{t('titleEm')}</em>
