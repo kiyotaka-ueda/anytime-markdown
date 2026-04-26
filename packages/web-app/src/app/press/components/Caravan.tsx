@@ -94,7 +94,7 @@ export function Caravan() {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/images/camel_1024x1024.png"
+              src="/images/camel_transparent.png"
               alt=""
               width={60}
               height={60}
