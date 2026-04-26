@@ -767,14 +767,19 @@ export class SupabaseTrailReader implements ITrailReader {
         .lte('released_at', t);
       return (data ?? []) as ReleaseRow[];
     };
-    const fetchMessages = async (f: string, t: string): Promise<MessageRow[]> => {
-      const { data } = await this.client
-        .from('trail_messages')
-        .select('uuid, timestamp, type, session_id, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens')
-        .eq('type', 'user')
-        .gte('timestamp', f)
-        .lte('timestamp', t);
-      return (data ?? []) as MessageRow[];
+    const fetchMessagesBySessionIds = async (sessionIds: string[]): Promise<MessageRow[]> => {
+      if (sessionIds.length === 0) return [];
+      const BATCH = 200;
+      const results: MessageRow[] = [];
+      for (let i = 0; i < sessionIds.length; i += BATCH) {
+        const { data } = await this.client
+          .from('trail_messages')
+          .select('uuid, timestamp, type, session_id, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens')
+          .eq('type', 'user')
+          .in('session_id', sessionIds.slice(i, i + BATCH));
+        results.push(...(data ?? []) as MessageRow[]);
+      }
+      return results;
     };
     const fetchAssistantMessages = async (f: string, t: string) => {
       const { data } = await this.client
@@ -870,24 +875,27 @@ export class SupabaseTrailReader implements ITrailReader {
       return tokensByUuid;
     };
 
-    const [curReleases, curMessages, curAssistants, curCommits, prevReleases, prevMessages, prevAssistants, prevCommits] = await Promise.all([
+    const [curReleases, curCommits, prevReleases, prevCommits] = await Promise.all([
       fetchReleases(range.from, range.to),
-      fetchMessages(range.from, range.to),
-      fetchAssistantMessages(range.from, range.to),
       fetchCommits(range.from, range.to),
       fetchReleases(prevFrom, prevTo),
-      fetchMessages(prevFrom, prevTo),
-      fetchAssistantMessages(prevFrom, prevTo),
       fetchCommits(prevFrom, prevTo),
+    ]);
+
+    const curSessionIds = [...new Set(curCommits.map((c) => c.session_id))];
+    const prevSessionIds = [...new Set(prevCommits.map((c) => c.session_id))];
+
+    const [curMessages, curAssistants, curFilesByHash, prevMessages, prevAssistants, prevFilesByHash] = await Promise.all([
+      fetchMessagesBySessionIds(curSessionIds),
+      fetchAssistantMessages(range.from, range.to),
+      fetchFilesByHashes(curCommits.map((c) => c.commit_hash)),
+      fetchMessagesBySessionIds(prevSessionIds),
+      fetchAssistantMessages(prevFrom, prevTo),
+      fetchFilesByHashes(prevCommits.map((c) => c.commit_hash)),
     ]);
 
     const curTokens = aggregateTokensByUser(curMessages, curAssistants);
     const prevTokens = aggregateTokensByUser(prevMessages, prevAssistants);
-
-    const [curFilesByHash, prevFilesByHash] = await Promise.all([
-      fetchFilesByHashes(curCommits.map((c) => c.commit_hash)),
-      fetchFilesByHashes(prevCommits.map((c) => c.commit_hash)),
-    ]);
     return computeQualityMetrics(
       {
         releases: curReleases.map((r) => ({ id: r.tag, tag_date: r.released_at, commit_hashes: [], fix_count: r.fix_count })),
