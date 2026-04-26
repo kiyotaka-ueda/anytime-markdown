@@ -1,10 +1,11 @@
 {
   "masthead": {
     "editionVolume": "Vol. III · No. 142",
-    "editionDate": "Edition of 25 Apr 2026 · 余白 · 朝刊",
+    "editionDateSuffix": "",
     "title": "Anytime Trial",
     "titleEm": "Trial",
     "titlePrefix": "Anytime",
+    "navNews": "Today's News",
     "navMarkdown": "Markdown",
     "navTrail": "Trail",
     "localeAria": "Switch to English",
@@ -52,6 +53,46 @@
   "pullQuote": {
     "text": "速い道具は、書き手を迷子にする。隊商の歩幅で、文字を運ぶ。",
     "attr": "— editorial · 巻頭言 · vol.iii"
+  },
+  "news": {
+    "label": "DISPATCH · 速報",
+    "heading": "本日のニュース",
+    "poweredBy": "via The Guardian"
+  },
+  "wsj": {
+    "label": "BUSINESS · TODAY",
+    "heading": "本日のビジネスニュース",
+    "poweredBy": "via The Wall Street Journal"
+  },
+  "weather": {
+    "label": "WEATHER · 気象",
+    "heading": "世界の天気",
+    "poweredBy": "Open-Meteo"
+  },
+  "charts": {
+    "label": "MUSIC · 新譜",
+    "heading": "注目の新譜",
+    "poweredBy": "via Spotify",
+    "labelJp": "JAPAN",
+    "labelGlobal": "GLOBAL"
+  },
+  "githubTrending": {
+    "label": "GITHUB · トレンド",
+    "heading": "GitHub トレンド",
+    "poweredBy": "via GitHub",
+    "labelDaily": "DAILY",
+    "labelWeekly": "WEEKLY",
+    "labelMonthly": "MONTHLY"
+  },
+  "pressDocs": {
+    "label": "DOCS · ドキュメント",
+    "heading": "ドキュメント"
+  },
+  "pressReports": {
+    "label": "REPORT · レポート",
+    "heading": "最新レポート",
+    "labelDaily": "DAILY",
+    "labelWeekly": "WEEKLY"
   },
   "ticker": {
     "item1": "open source · MIT licensed",

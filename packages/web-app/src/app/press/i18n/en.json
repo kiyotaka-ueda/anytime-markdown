@@ -1,10 +1,11 @@
 {
   "masthead": {
     "editionVolume": "Vol. III · No. 142",
-    "editionDate": "Edition of 25 Apr 2026 · Yohaku · Morning",
+    "editionDateSuffix": "Morning",
     "title": "Anytime Trial",
     "titleEm": "Trial",
     "titlePrefix": "Anytime",
+    "navNews": "Today's News",
     "navMarkdown": "Markdown",
     "navTrail": "Trail",
     "localeAria": "日本語に切り替え",
@@ -52,6 +53,46 @@
   "pullQuote": {
     "text": "Faster tools lead writers astray. We carry words at the caravan's pace.",
     "attr": "— editorial · prologue · vol.iii"
+  },
+  "news": {
+    "label": "DISPATCH · BREAKING",
+    "heading": "Today's Top Stories",
+    "poweredBy": "via The Guardian"
+  },
+  "wsj": {
+    "label": "BUSINESS · TODAY",
+    "heading": "Today's Business News",
+    "poweredBy": "via The Wall Street Journal"
+  },
+  "weather": {
+    "label": "WEATHER · WORLD",
+    "heading": "Today's Weather",
+    "poweredBy": "Open-Meteo"
+  },
+  "charts": {
+    "label": "MUSIC · NEW RELEASES",
+    "heading": "Charts",
+    "poweredBy": "via Spotify",
+    "labelJp": "JAPAN",
+    "labelGlobal": "GLOBAL"
+  },
+  "githubTrending": {
+    "label": "GITHUB · TRENDING",
+    "heading": "GitHub Trending",
+    "poweredBy": "via GitHub",
+    "labelDaily": "DAILY",
+    "labelWeekly": "WEEKLY",
+    "labelMonthly": "MONTHLY"
+  },
+  "pressDocs": {
+    "label": "DOCS · DOCUMENTS",
+    "heading": "Docs"
+  },
+  "pressReports": {
+    "label": "REPORT · LATEST",
+    "heading": "Latest Reports",
+    "labelDaily": "DAILY",
+    "labelWeekly": "WEEKLY"
   },
   "ticker": {
     "item1": "open source · MIT licensed",

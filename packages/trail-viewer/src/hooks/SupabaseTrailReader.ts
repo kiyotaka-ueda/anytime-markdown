@@ -688,9 +688,43 @@ export class SupabaseTrailReader implements ITrailReader {
         .map(([k, e]) => { const [p, model] = splitKey(k); return { period: p, model, ...e }; })
         .sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
 
-      // commitPrefixStats / aiFirstTryRate は session_commits + commit_files ベースのため
-      // Supabase 側は未対応（空配列）。
-      return { toolCounts, errorRate, skillStats, modelStats, commitPrefixStats: [], aiFirstTryRate: [] };
+      const cutoffIso = new Date(cutoffMs).toISOString();
+      const { data: commitData } = await this.client
+        .from('trail_session_commits')
+        .select('commit_hash, commit_message, committed_at, lines_added')
+        .gte('committed_at', cutoffIso);
+
+      const toJSTDate = (isoStr: string): string => {
+        const ms = new Date(isoStr).getTime();
+        const jstMs = ms + getIanaOffsetMs('Asia/Tokyo', new Date(ms));
+        const d = new Date(jstMs);
+        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+      };
+
+      const extractPrefix = (subject: string): string => {
+        const m = /^([a-z]+)(?:\([^)]*\))?!?:\s/i.exec(subject);
+        return m ? m[1].toLowerCase() : 'other';
+      };
+      const seenHashes = new Set<string>();
+      const prefixMap = new Map<string, { count: number; linesAdded: number }>();
+      for (const c of (commitData ?? []) as Array<{ commit_hash: string; commit_message: string; committed_at: string; lines_added: number }>) {
+        if (seenHashes.has(c.commit_hash)) continue;
+        seenHashes.add(c.commit_hash);
+        const subject = (c.commit_message ?? '').split('\n')[0];
+        const prefix = extractPrefix(subject);
+        const p = periodKey(toJSTDate(c.committed_at));
+        const k = `${p}::${prefix}`;
+        const e = prefixMap.get(k) ?? { count: 0, linesAdded: 0 };
+        e.count++;
+        e.linesAdded += c.lines_added ?? 0;
+        prefixMap.set(k, e);
+      }
+
+      const commitPrefixStats = [...prefixMap.entries()]
+        .map(([k, e]) => { const [p, prefix] = splitKey(k); return { period: p, prefix, count: e.count, linesAdded: e.linesAdded }; })
+        .sort((a, b) => a.period.localeCompare(b.period));
+
+      return { toolCounts, errorRate, skillStats, modelStats, commitPrefixStats, aiFirstTryRate: [] };
     } catch {
       return null;
     }
@@ -720,6 +754,7 @@ export class SupabaseTrailReader implements ITrailReader {
       commit_message: string;
       committed_at: string;
       session_id: string;
+      is_ai_assisted: number;
       lines_added: number;
       lines_deleted: number;
     };
@@ -732,23 +767,32 @@ export class SupabaseTrailReader implements ITrailReader {
         .lte('released_at', t);
       return (data ?? []) as ReleaseRow[];
     };
-    const fetchMessages = async (f: string, t: string): Promise<MessageRow[]> => {
-      const { data } = await this.client
-        .from('trail_messages')
-        .select('uuid, timestamp, type, session_id, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens')
-        .eq('type', 'user')
-        .gte('timestamp', f)
-        .lte('timestamp', t);
-      return (data ?? []) as MessageRow[];
+    const fetchMessagesBySessionIds = async (sessionIds: string[]): Promise<MessageRow[]> => {
+      if (sessionIds.length === 0) return [];
+      const SESSION_BATCH = 200;
+      const PAGE_SIZE = 1000;
+      const results: MessageRow[] = [];
+      for (let i = 0; i < sessionIds.length; i += SESSION_BATCH) {
+        const batchIds = sessionIds.slice(i, i + SESSION_BATCH);
+        let offset = 0;
+        while (true) {
+          const { data } = await this.client
+            .from('trail_messages')
+            .select('uuid, timestamp, type, session_id, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens')
+            .eq('type', 'user')
+            .in('session_id', batchIds)
+            .order('timestamp', { ascending: true })
+            .range(offset, offset + PAGE_SIZE - 1);
+          const rows = (data ?? []) as MessageRow[];
+          results.push(...rows);
+          if (rows.length < PAGE_SIZE) break;
+          offset += PAGE_SIZE;
+        }
+      }
+      return results;
     };
     const fetchAssistantMessages = async (f: string, t: string) => {
-      const { data } = await this.client
-        .from('trail_messages')
-        .select('session_id, timestamp, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, model')
-        .eq('type', 'assistant')
-        .gte('timestamp', f)
-        .lte('timestamp', t);
-      return (data ?? []) as Array<{
+      type AssistantRow = {
         session_id: string;
         timestamp: string;
         input_tokens: number;
@@ -756,15 +800,61 @@ export class SupabaseTrailReader implements ITrailReader {
         cache_read_tokens: number;
         cache_creation_tokens: number;
         model: string | null;
-      }>;
+      };
+      const PAGE_SIZE = 1000;
+      const results: AssistantRow[] = [];
+      let offset = 0;
+      while (true) {
+        const { data } = await this.client
+          .from('trail_messages')
+          .select('session_id, timestamp, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, model')
+          .eq('type', 'assistant')
+          .gte('timestamp', f)
+          .lte('timestamp', t)
+          .order('timestamp', { ascending: true })
+          .range(offset, offset + PAGE_SIZE - 1);
+        const rows = (data ?? []) as AssistantRow[];
+        results.push(...rows);
+        if (rows.length < PAGE_SIZE) break;
+        offset += PAGE_SIZE;
+      }
+      return results;
     };
     const fetchCommits = async (f: string, t: string): Promise<CommitRow[]> => {
-      const { data } = await this.client
-        .from('trail_session_commits')
-        .select('commit_hash, commit_message, committed_at, session_id, lines_added, lines_deleted')
-        .gte('committed_at', f)
-        .lte('committed_at', t);
-      return (data ?? []) as CommitRow[];
+      const PAGE_SIZE = 1000;
+      const results: CommitRow[] = [];
+      let offset = 0;
+      while (true) {
+        const { data } = await this.client
+          .from('trail_session_commits')
+          .select('commit_hash, commit_message, committed_at, session_id, is_ai_assisted, lines_added, lines_deleted')
+          .gte('committed_at', f)
+          .lte('committed_at', t)
+          .order('committed_at', { ascending: true })
+          .range(offset, offset + PAGE_SIZE - 1);
+        const rows = (data ?? []) as CommitRow[];
+        results.push(...rows);
+        if (rows.length < PAGE_SIZE) break;
+        offset += PAGE_SIZE;
+      }
+      return results;
+    };
+    const fetchFilesByHashes = async (hashes: string[]): Promise<Map<string, string[]>> => {
+      if (hashes.length === 0) return new Map();
+      const BATCH = 200;
+      const map = new Map<string, string[]>();
+      for (let i = 0; i < hashes.length; i += BATCH) {
+        const { data } = await this.client
+          .from('trail_commit_files')
+          .select('commit_hash, file_path')
+          .in('commit_hash', hashes.slice(i, i + BATCH));
+        for (const { commit_hash, file_path } of (data ?? []) as Array<{ commit_hash: string; file_path: string }>) {
+          const arr = map.get(commit_hash);
+          if (arr) arr.push(file_path);
+          else map.set(commit_hash, [file_path]);
+        }
+      }
+      return map;
     };
 
     const aggregateTokensByUser = (
@@ -818,20 +908,27 @@ export class SupabaseTrailReader implements ITrailReader {
       return tokensByUuid;
     };
 
-    const [curReleases, curMessages, curAssistants, curCommits, prevReleases, prevMessages, prevAssistants, prevCommits] = await Promise.all([
+    const [curReleases, curCommits, prevReleases, prevCommits] = await Promise.all([
       fetchReleases(range.from, range.to),
-      fetchMessages(range.from, range.to),
-      fetchAssistantMessages(range.from, range.to),
       fetchCommits(range.from, range.to),
       fetchReleases(prevFrom, prevTo),
-      fetchMessages(prevFrom, prevTo),
-      fetchAssistantMessages(prevFrom, prevTo),
       fetchCommits(prevFrom, prevTo),
+    ]);
+
+    const curSessionIds = [...new Set(curCommits.map((c) => c.session_id))];
+    const prevSessionIds = [...new Set(prevCommits.map((c) => c.session_id))];
+
+    const [curMessages, curAssistants, curFilesByHash, prevMessages, prevAssistants, prevFilesByHash] = await Promise.all([
+      fetchMessagesBySessionIds(curSessionIds),
+      fetchAssistantMessages(range.from, range.to),
+      fetchFilesByHashes(curCommits.map((c) => c.commit_hash)),
+      fetchMessagesBySessionIds(prevSessionIds),
+      fetchAssistantMessages(prevFrom, prevTo),
+      fetchFilesByHashes(prevCommits.map((c) => c.commit_hash)),
     ]);
 
     const curTokens = aggregateTokensByUser(curMessages, curAssistants);
     const prevTokens = aggregateTokensByUser(prevMessages, prevAssistants);
-
     return computeQualityMetrics(
       {
         releases: curReleases.map((r) => ({ id: r.tag, tag_date: r.released_at, commit_hashes: [], fix_count: r.fix_count })),
@@ -855,8 +952,8 @@ export class SupabaseTrailReader implements ITrailReader {
           hash: c.commit_hash,
           subject: (c.commit_message ?? '').split('\n')[0],
           committed_at: c.committed_at,
-          is_ai_assisted: false,
-          files: [],
+          is_ai_assisted: c.is_ai_assisted === 1,
+          files: curFilesByHash.get(c.commit_hash) ?? [],
           session_id: c.session_id,
           lines_added: c.lines_added ?? 0,
           lines_deleted: c.lines_deleted ?? 0,
@@ -882,8 +979,8 @@ export class SupabaseTrailReader implements ITrailReader {
           hash: c.commit_hash,
           subject: (c.commit_message ?? '').split('\n')[0],
           committed_at: c.committed_at,
-          is_ai_assisted: false,
-          files: [],
+          is_ai_assisted: c.is_ai_assisted === 1,
+          files: prevFilesByHash.get(c.commit_hash) ?? [],
           session_id: c.session_id,
           lines_added: c.lines_added ?? 0,
           lines_deleted: c.lines_deleted ?? 0,

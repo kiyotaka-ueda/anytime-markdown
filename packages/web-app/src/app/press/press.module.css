@@ -100,6 +100,27 @@
     z-index: 50;
 }
 
+.mastVignette {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: min(280px, 28vw);
+    pointer-events: none;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    color: var(--ink);
+}
+
+@media (max-width: 560px) {
+    .mastVignette {
+        width: 140px;
+        opacity: 0.6;
+    }
+}
+
 .mastEdition {
     font-family: var(--font-mono);
     font-size: var(--fs-footnote);
@@ -993,4 +1014,1065 @@
     z-index: 100;
     width: 0;
     transition: width 0.05s linear;
+}
+
+/* ── Today's Dispatch ニュース面 ────────────────────── */
+.newsfront {
+    padding: 48px var(--gutter);
+    border-bottom: var(--rule-bold) solid var(--ink);
+    scroll-margin-top: 120px;
+}
+
+.newsfrontHeader {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    border-bottom: var(--rule-thin) solid var(--ink);
+    padding-bottom: 8px;
+    margin-bottom: 32px;
+    font-family: var(--font-display);
+}
+
+.newsfrontLabel {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--vermilion);
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    white-space: nowrap;
+}
+
+.newsfrontHeading {
+    font-style: italic;
+    font-weight: 700;
+    font-size: 28px;
+    margin: 0;
+}
+
+.newsfrontMeta {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+    white-space: nowrap;
+}
+
+.newsfrontColumns {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--column-gap);
+}
+
+@media (max-width: 880px) {
+    .newsfrontColumns {
+        grid-template-columns: 1fr;
+        gap: 32px;
+    }
+}
+
+.newsfrontArticle {
+    border-top: var(--rule-bold) solid var(--ink);
+    padding-top: 16px;
+    border-right: var(--rule-hair) solid var(--ink-light);
+    padding-right: calc(var(--column-gap) / 2);
+}
+
+.newsfrontArticle:last-child {
+    border-right: 0;
+    padding-right: 0;
+}
+
+@media (max-width: 880px) {
+    .newsfrontArticle {
+        border-right: 0;
+        padding-right: 0;
+        border-bottom: var(--rule-hair) solid var(--ink-light);
+        padding-bottom: 24px;
+    }
+
+    .newsfrontArticle:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
+    }
+}
+
+.newsfrontKicker {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--vermilion);
+    letter-spacing: 0.1em;
+    display: block;
+    margin-bottom: 10px;
+}
+
+.newsfrontHeadline {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 700;
+    font-size: clamp(18px, 2vw, 24px);
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+    margin: 0 0 14px;
+}
+
+.newsfrontLink {
+    color: var(--ink);
+    border-bottom: 1px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+    text-decoration: none;
+}
+
+.newsfrontLink:hover {
+    color: var(--vermilion);
+    border-bottom-color: var(--vermilion);
+}
+
+.newsfrontLink:focus-visible {
+    outline: 2px solid var(--vermilion);
+    outline-offset: 2px;
+    border-radius: 1px;
+}
+
+.newsfrontLead {
+    font-family: var(--font-body);
+    font-size: var(--fs-caption);
+    line-height: 1.7;
+    color: var(--ink-faded);
+    margin: 0 0 14px;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.newsfrontByline {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    border-top: var(--rule-hair) solid var(--ink-light);
+    padding-top: 10px;
+}
+
+.newsfrontSkeleton {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--column-gap);
+}
+
+@media (max-width: 880px) {
+    .newsfrontSkeleton {
+        grid-template-columns: 1fr;
+    }
+}
+
+.newsfrontSkeletonItem {
+    border-top: var(--rule-bold) solid var(--ink-light);
+    padding-top: 16px;
+    height: 140px;
+    position: relative;
+    overflow: hidden;
+}
+
+.newsfrontSkeletonItem::before {
+    content: '';
+    position: absolute;
+    top: 24px;
+    left: 0;
+    right: 0;
+    height: 8px;
+    background: var(--ink-light);
+    opacity: 0.3;
+    border-radius: 2px;
+}
+
+.newsfrontSkeletonItem::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.06) 50%,
+        transparent 100%
+    );
+    animation: newsfrontShimmer 1.6s ease-in-out infinite;
+}
+
+.root[data-cp-mode='dark'] .newsfrontSkeletonItem::after {
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.04) 50%,
+        transparent 100%
+    );
+}
+
+@keyframes newsfrontShimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .newsfrontSkeletonItem::after {
+        animation: none;
+    }
+}
+
+/* ── Spotify Charts 音楽面 ──────────────────────────── */
+.charts {
+    padding: 48px var(--gutter);
+    border-bottom: var(--rule-bold) solid var(--ink);
+}
+
+.chartsHeader {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    border-bottom: var(--rule-thin) solid var(--ink);
+    padding-bottom: 8px;
+    margin-bottom: 32px;
+    font-family: var(--font-display);
+    flex-wrap: wrap;
+}
+
+.chartsLabel {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--vermilion);
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    white-space: nowrap;
+}
+
+.chartsHeading {
+    font-style: italic;
+    font-weight: 700;
+    font-size: 28px;
+    margin: 0;
+}
+
+.chartsMeta {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+    white-space: nowrap;
+}
+
+.chartsBody {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--column-gap);
+}
+
+@media (max-width: 720px) {
+    .chartsBody {
+        grid-template-columns: 1fr;
+        gap: 32px;
+    }
+}
+
+.chartsColumn {
+    min-width: 0;
+}
+
+.chartsColumnHeader {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 0;
+}
+
+.chartsColumnLabel {
+    font-family: var(--font-mono);
+    font-size: var(--fs-caption);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--ink);
+    border: var(--rule-thin) solid var(--ink);
+    padding: 3px 8px;
+    line-height: 1.4;
+}
+
+.chartsList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border-top: var(--rule-bold) solid var(--ink);
+}
+
+.chartsItem {
+    display: grid;
+    grid-template-columns: 32px 48px 1fr auto;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: var(--rule-hair) solid var(--ink-light);
+    align-items: center;
+}
+
+.chartsItem:last-child {
+    border-bottom: var(--rule-bold) solid var(--ink);
+}
+
+.chartsRank {
+    font-family: var(--font-mono);
+    font-size: var(--fs-caption);
+    font-weight: 600;
+    color: var(--vermilion);
+    letter-spacing: 0.05em;
+    line-height: 1;
+}
+
+.chartsArt {
+    display: block;
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.chartsInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.chartsTrackName {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-bottom: 1px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+    text-decoration: none;
+}
+
+.chartsTrackName:hover {
+    color: var(--vermilion);
+    border-bottom-color: var(--vermilion);
+}
+
+.chartsTrackName:focus-visible {
+    outline: 2px solid var(--vermilion);
+    outline-offset: 2px;
+    border-radius: 1px;
+}
+
+.chartsArtist {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chartsDate {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+}
+
+.chartsItemSkeleton {
+    height: 76px;
+    border-bottom: var(--rule-hair) solid var(--ink-light);
+    position: relative;
+    overflow: hidden;
+}
+
+.chartsItemSkeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.06) 50%,
+        transparent 100%
+    );
+    animation: newsfrontShimmer 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chartsItemSkeleton::after {
+        animation: none;
+    }
+}
+
+/* ── Weather Forecast 天気面 ────────────────────────── */
+.weather {
+    padding: 48px var(--gutter);
+    border-bottom: var(--rule-bold) solid var(--ink);
+}
+
+.weatherHeader {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    border-bottom: var(--rule-thin) solid var(--ink);
+    padding-bottom: 8px;
+    margin-bottom: 32px;
+    font-family: var(--font-display);
+    flex-wrap: wrap;
+}
+
+.weatherLabel {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--vermilion);
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    white-space: nowrap;
+}
+
+.weatherHeading {
+    font-style: italic;
+    font-weight: 700;
+    font-size: 28px;
+    margin: 0;
+}
+
+.weatherMeta {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+    white-space: nowrap;
+}
+
+.weatherGrid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0;
+}
+
+@media (max-width: 1080px) {
+    .weatherGrid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .weatherGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.weatherCard {
+    border-top: var(--rule-bold) solid var(--ink);
+    border-right: var(--rule-hair) solid var(--ink-light);
+    padding: 20px 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.weatherCard:last-child {
+    border-right: 0;
+}
+
+@media (max-width: 1080px) {
+    .weatherCard:nth-child(3n) {
+        border-right: 0;
+    }
+}
+
+.weatherCity {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--ink-faded);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+
+.weatherTemp {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: clamp(32px, 4vw, 48px);
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+}
+
+.weatherDeg {
+    font-size: 0.45em;
+    font-weight: 400;
+    vertical-align: super;
+    letter-spacing: 0;
+}
+
+.weatherCondition {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--vermilion);
+    margin-top: 4px;
+}
+
+.weatherHiLo {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+    letter-spacing: 0.02em;
+}
+
+.weatherCardSkeleton {
+    border-top: var(--rule-bold) solid var(--ink-light);
+    border-right: var(--rule-hair) solid var(--ink-light);
+    padding: 20px 16px;
+    height: 130px;
+    position: relative;
+    overflow: hidden;
+}
+
+.weatherCardSkeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.06) 50%,
+        transparent 100%
+    );
+    animation: newsfrontShimmer 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .weatherCardSkeleton::after {
+        animation: none;
+    }
+}
+
+/* ── Press Reports ─────────────────────────────────────────── */
+
+.pressReports {
+    padding: 48px var(--gutter);
+    border-bottom: var(--rule-bold) solid var(--ink);
+}
+
+.pressReportsHeader {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    border-bottom: var(--rule-thin) solid var(--ink);
+    padding-bottom: 10px;
+    margin-bottom: 28px;
+}
+
+.pressReportsLabel {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faded);
+    white-space: nowrap;
+}
+
+.pressReportsHeading {
+    font-family: var(--font-display);
+    font-size: var(--fs-section);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0;
+    color: var(--ink);
+}
+
+.pressReportsGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+}
+
+@media (max-width: 640px) {
+    .pressReportsGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.pressReportCard {
+    padding: 24px 0;
+    border-right: var(--rule-thin) solid var(--ink);
+    padding-right: 32px;
+}
+
+.pressReportCard:last-child {
+    border-right: none;
+    padding-right: 0;
+    padding-left: 32px;
+}
+
+@media (max-width: 640px) {
+    .pressReportCard {
+        border-right: none;
+        border-bottom: var(--rule-thin) solid var(--ink);
+        padding-right: 0;
+    }
+    .pressReportCard:last-child {
+        border-bottom: none;
+        padding-left: 0;
+    }
+}
+
+.pressReportCardLabel {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--vermilion);
+    display: block;
+    margin-bottom: 10px;
+}
+
+.pressReportCardTitle {
+    font-family: var(--font-display);
+    font-size: clamp(18px, 2.2vw, 26px);
+    font-weight: 700;
+    line-height: 1.25;
+    margin: 0 0 12px;
+    color: var(--ink);
+}
+
+.pressReportCardLink {
+    color: inherit;
+    text-decoration: none;
+}
+
+.pressReportCardLink:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.pressReportCardLink:focus-visible {
+    outline: 2px solid var(--vermilion);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+.pressReportCardExcerpt {
+    font-family: var(--font-body);
+    font-size: var(--fs-body);
+    line-height: 1.65;
+    color: var(--ink-faded);
+    margin: 0 0 14px;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.pressReportCardMeta {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.pressReportsSkeleton {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+}
+
+.pressReportsSkeletonItem {
+    height: 120px;
+    border-radius: 2px;
+    background: var(--ink-light);
+    opacity: 0.15;
+    position: relative;
+    overflow: hidden;
+}
+
+.pressReportsSkeletonItem::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.06) 50%,
+        transparent 100%
+    );
+    animation: newsfrontShimmer 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pressReportsSkeletonItem::after {
+        animation: none;
+    }
+}
+
+/* ── Press Docs ────────────────────────────────────────────── */
+
+.pressDocs {
+    padding: 48px var(--gutter);
+    border-bottom: var(--rule-bold) solid var(--ink);
+}
+
+.pressDocs_header {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    border-bottom: var(--rule-thin) solid var(--ink);
+    padding-bottom: 10px;
+    margin-bottom: 28px;
+}
+
+.pressDocs_label {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faded);
+    white-space: nowrap;
+}
+
+.pressDocs_heading {
+    font-family: var(--font-display);
+    font-size: var(--fs-section);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0;
+    color: var(--ink);
+}
+
+.pressDocs_grid {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+    line-height: 1.8;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0 40px;
+}
+
+@media (max-width: 900px) {
+    .pressDocs_grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 560px) {
+    .pressDocs_grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.pressDocs_colTitle {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+    margin: 0 0 8px;
+}
+
+.pressDocs_itemList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.pressDocs_item {
+    border-bottom: var(--rule-hair) dashed var(--ink-light);
+    padding: 4px 0;
+}
+
+.pressDocs_link {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+    text-decoration: none;
+    display: block;
+    transition: color 0.15s;
+}
+
+.pressDocs_link:hover {
+    color: var(--ink);
+}
+
+.pressDocs_link:focus-visible {
+    outline: 2px solid var(--vermilion);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+.pressDocs_skeleton {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 40px;
+}
+
+.pressDocs_skeletonCol {
+    height: 120px;
+    background: var(--ink-light);
+    opacity: 0.08;
+    position: relative;
+    overflow: hidden;
+}
+
+.pressDocs_skeletonCol::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.06) 50%,
+        transparent 100%
+    );
+    animation: newsfrontShimmer 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pressDocs_skeletonCol::after {
+        animation: none;
+    }
+}
+
+/* ── GitHub Trending ───────────────────────────────────────── */
+
+.ghTrending {
+    padding: 48px var(--gutter);
+    border-bottom: var(--rule-bold) solid var(--ink);
+}
+
+.ghTrendingHeader {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    border-bottom: var(--rule-thin) solid var(--ink);
+    padding-bottom: 10px;
+    margin-bottom: 28px;
+}
+
+.ghTrendingLabel {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faded);
+    white-space: nowrap;
+}
+
+.ghTrendingHeading {
+    font-family: var(--font-display);
+    font-size: var(--fs-section);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0;
+    color: var(--ink);
+    flex: 1;
+}
+
+.ghTrendingPoweredBy {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+    white-space: nowrap;
+}
+
+.ghTrendingColumns {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+}
+
+@media (max-width: 900px) {
+    .ghTrendingColumns {
+        grid-template-columns: 1fr;
+    }
+}
+
+.ghTrendingColumn {
+    padding-right: 32px;
+    border-right: var(--rule-thin) solid var(--ink);
+}
+
+.ghTrendingColumn:last-child {
+    border-right: none;
+    padding-right: 0;
+    padding-left: 32px;
+}
+
+.ghTrendingColumn:nth-child(2) {
+    padding-left: 32px;
+}
+
+@media (max-width: 900px) {
+    .ghTrendingColumn,
+    .ghTrendingColumn:last-child,
+    .ghTrendingColumn:nth-child(2) {
+        padding: 0 0 32px;
+        border-right: none;
+        border-bottom: var(--rule-thin) solid var(--ink);
+    }
+    .ghTrendingColumn:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+}
+
+.ghTrendingColumnHeader {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--vermilion);
+    border-bottom: var(--rule-thin) solid var(--ink-light);
+    padding-bottom: 8px;
+    margin-bottom: 4px;
+}
+
+.ghTrendingList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.ghTrendingItem {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 10px;
+    align-items: start;
+    padding: 12px 0;
+    border-bottom: var(--rule-thin) solid var(--ink-light);
+}
+
+.ghTrendingItem:last-child {
+    border-bottom: none;
+}
+
+.ghTrendingRank {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    font-weight: 700;
+    color: var(--ink-faded);
+    padding-top: 2px;
+    letter-spacing: 0.05em;
+}
+
+.ghTrendingBody {
+    min-width: 0;
+}
+
+.ghTrendingName {
+    font-family: var(--font-display);
+    font-size: clamp(13px, 1.2vw, 16px);
+    font-weight: 700;
+    margin: 0 0 3px;
+    line-height: 1.3;
+}
+
+.ghTrendingLink {
+    color: var(--ink);
+    text-decoration: none;
+}
+
+.ghTrendingLink:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.ghTrendingLink:focus-visible {
+    outline: 2px solid var(--vermilion);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+.ghTrendingOwner {
+    color: var(--ink-faded);
+    font-weight: 400;
+}
+
+.ghTrendingSep {
+    color: var(--ink-faded);
+    margin: 0 1px;
+    font-weight: 400;
+}
+
+.ghTrendingDesc {
+    font-family: var(--font-body);
+    font-size: var(--fs-caption);
+    color: var(--ink-faded);
+    margin: 0 0 4px;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.ghTrendingMeta {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.ghTrendingLang {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink-faded);
+}
+
+.ghTrendingStars {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    font-weight: 700;
+    color: var(--vermilion);
+}
+
+.ghTrendingSkeletonHeader {
+    height: 16px;
+    background: var(--ink-light);
+    opacity: 0.15;
+    border-radius: 2px;
+    margin-bottom: 4px;
+}
+
+.ghTrendingSkeletonItem {
+    height: 60px;
+    border-radius: 2px;
+    background: var(--ink-light);
+    opacity: 0.12;
+    margin-bottom: 4px;
+    position: relative;
+    overflow: hidden;
+}
+
+.ghTrendingSkeletonItem::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.06) 50%,
+        transparent 100%
+    );
+    animation: newsfrontShimmer 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ghTrendingSkeletonItem::after {
+        animation: none;
+    }
 }

@@ -14,6 +14,13 @@ import { Masthead } from './components/Masthead';
 import { ProgressRule } from './components/ProgressRule';
 import { PullQuote } from './components/PullQuote';
 import { Ticker } from './components/Ticker';
+import { SpotifyCharts } from './components/SpotifyCharts';
+import { TodaysNews } from './components/TodaysNews';
+import { WsjNews } from './components/WsjNews';
+import { WeatherForecast } from './components/WeatherForecast';
+import { GithubTrending } from './components/GithubTrending';
+import { PressDocsSection } from './components/PressDocsSection';
+import { PressReports } from './components/PressReports';
 import { bodoni, jetbrains, shippori, yujiBoku } from './fonts';
 import styles from './press.module.css';
 
@@ -75,6 +82,13 @@ export function PressBody() {
         }
       />
       <PullQuote />
+      <TodaysNews />
+      <WsjNews />
+      <PressReports />
+      <GithubTrending />
+      <SpotifyCharts />
+      <PressDocsSection />
+      <WeatherForecast />
       <Ticker />
       <Colophon />
     </div>

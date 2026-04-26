@@ -4,7 +4,6 @@ import type { NextResponse } from 'next/server';
 import { trailReaderRoute } from '../../../../lib/api-helpers';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 /**
  * GET /api/trail/sessions

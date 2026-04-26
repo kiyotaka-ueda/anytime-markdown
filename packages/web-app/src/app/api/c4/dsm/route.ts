@@ -13,7 +13,6 @@ import { createC4ModelStore,NO_STORE_HEADERS } from "../../../../lib/api-helpers
  */
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const release = request.nextUrl.searchParams.get("release") ?? "current";
