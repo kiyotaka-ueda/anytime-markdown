@@ -12,13 +12,10 @@ function resolveHref(item: LayoutCategory['items'][number]): string {
     return `/docs/view?key=${encodeURIComponent(item.docKey)}`;
 }
 
-function CategoryCard({ category }: Readonly<{ category: LayoutCategory }>) {
+function CategoryColumn({ category }: Readonly<{ category: LayoutCategory }>) {
     return (
-        <div className={styles.pressDocs_card}>
-            <h3 className={styles.pressDocs_cardTitle}>{category.title}</h3>
-            {category.description && (
-                <p className={styles.pressDocs_cardDesc}>{category.description}</p>
-            )}
+        <div>
+            <h4 className={styles.pressDocs_colTitle}>{category.title}</h4>
             <ul className={styles.pressDocs_itemList}>
                 {category.items.map((item) => {
                     const href = resolveHref(item);
@@ -32,9 +29,6 @@ function CategoryCard({ category }: Readonly<{ category: LayoutCategory }>) {
                                 className={styles.pressDocs_link}
                             >
                                 {item.displayName}
-                                {isExternal && (
-                                    <span className={styles.pressDocs_extIcon} aria-hidden="true"> ↗</span>
-                                )}
                             </a>
                         </li>
                     );
@@ -76,14 +70,14 @@ export function PressDocsSection() {
 
             {loading ? (
                 <div className={styles.pressDocs_skeleton}>
-                    {[0, 1, 2, 3, 4, 5].map((i) => (
-                        <div key={i} className={styles.pressDocs_skeletonCard} />
+                    {[0, 1, 2, 3].map((i) => (
+                        <div key={i} className={styles.pressDocs_skeletonCol} />
                     ))}
                 </div>
             ) : (
                 <div className={styles.pressDocs_grid}>
                     {data?.categories.map((cat) => (
-                        <CategoryCard key={cat.id} category={cat} />
+                        <CategoryColumn key={cat.id} category={cat} />
                     ))}
                 </div>
             )}
