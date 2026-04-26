@@ -116,6 +116,7 @@ export const en: TrailI18n = {
   'analytics.chartCumulativeInferenceTime': 'Cum. Inference',
   'analytics.chartApiInferenceTime': 'API Inference',
   'analytics.chartToolExecTime': 'Tool Exec',
+  'analytics.chartToolUsageTokens': 'Tool Usage Tokens',
   'analytics.timingBreakdownTitle': 'Timing Breakdown',
   'analytics.openInTraces': 'Open in Traces',
   'chart.tokenUsage': 'Token',

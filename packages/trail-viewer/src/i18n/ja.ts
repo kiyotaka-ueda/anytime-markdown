@@ -116,6 +116,7 @@ export const ja: TrailI18n = {
   'analytics.chartCumulativeInferenceTime': '累積推論時間',
   'analytics.chartApiInferenceTime': 'API推論',
   'analytics.chartToolExecTime': 'ツール実行',
+  'analytics.chartToolUsageTokens': 'ツール使用トークン',
   'analytics.timingBreakdownTitle': 'タイミング内訳',
   'analytics.openInTraces': 'トレースタブで開く',
   'chart.tokenUsage': 'トークン',

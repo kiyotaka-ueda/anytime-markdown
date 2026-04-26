@@ -125,6 +125,7 @@ export interface TrailI18n {
   'analytics.chartCacheWrite': string;
   'analytics.chartApiInferenceTime': string;
   'analytics.chartToolExecTime': string;
+  'analytics.chartToolUsageTokens': string;
   'analytics.timingBreakdownTitle': string;
   // chart
   'chart.tokenUsage': string;
