@@ -1698,6 +1698,209 @@
     }
 }
 
+/* ── Press Docs ────────────────────────────────────────────── */
+
+.pressDocs {
+    padding: 48px var(--gutter);
+    border-bottom: var(--rule-bold) solid var(--ink);
+}
+
+.pressDocs_header {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    border-bottom: var(--rule-thin) solid var(--ink);
+    padding-bottom: 10px;
+    margin-bottom: 28px;
+}
+
+.pressDocs_label {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faded);
+    white-space: nowrap;
+}
+
+.pressDocs_heading {
+    font-family: var(--font-display);
+    font-size: var(--fs-section);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0;
+    color: var(--ink);
+}
+
+.pressDocs_grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+}
+
+@media (max-width: 900px) {
+    .pressDocs_grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 560px) {
+    .pressDocs_grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.pressDocs_card {
+    padding: 20px 28px 20px 0;
+    border-right: var(--rule-thin) solid var(--ink);
+}
+
+.pressDocs_card:nth-child(3n) {
+    border-right: none;
+    padding-right: 0;
+    padding-left: 28px;
+}
+
+.pressDocs_card:nth-child(3n - 1) {
+    padding-left: 28px;
+}
+
+.pressDocs_card:nth-last-child(-n+3):nth-child(3n+1),
+.pressDocs_card:nth-last-child(-n+3):nth-child(3n+2),
+.pressDocs_card:nth-last-child(-n+3):nth-child(3n) {
+    border-bottom: none;
+}
+
+@media (max-width: 900px) {
+    .pressDocs_card {
+        padding: 20px 24px 20px 0;
+    }
+    .pressDocs_card:nth-child(3n) {
+        border-right: var(--rule-thin) solid var(--ink);
+        padding-left: 0;
+        padding-right: 24px;
+    }
+    .pressDocs_card:nth-child(3n - 1) {
+        padding-left: 0;
+    }
+    .pressDocs_card:nth-child(2n) {
+        border-right: none;
+        padding-right: 0;
+        padding-left: 24px;
+    }
+}
+
+@media (max-width: 560px) {
+    .pressDocs_card,
+    .pressDocs_card:nth-child(3n),
+    .pressDocs_card:nth-child(3n - 1),
+    .pressDocs_card:nth-child(2n) {
+        border-right: none;
+        border-bottom: var(--rule-thin) solid var(--ink);
+        padding: 16px 0;
+    }
+    .pressDocs_card:last-child {
+        border-bottom: none;
+    }
+}
+
+.pressDocs_cardTitle {
+    font-family: var(--font-display);
+    font-size: clamp(14px, 1.4vw, 17px);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--vermilion);
+    margin: 0 0 10px;
+    border-bottom: var(--rule-thin) solid var(--ink-light);
+    padding-bottom: 6px;
+}
+
+.pressDocs_cardDesc {
+    font-family: var(--font-body);
+    font-size: var(--fs-caption);
+    color: var(--ink-faded);
+    margin: 0 0 8px;
+    line-height: 1.5;
+}
+
+.pressDocs_itemList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.pressDocs_item {
+    display: flex;
+    align-items: center;
+}
+
+.pressDocs_link {
+    font-family: var(--font-mono);
+    font-size: var(--fs-footnote);
+    color: var(--ink);
+    text-decoration: none;
+    padding: 3px 0;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    border-bottom: 1px dotted transparent;
+    transition: border-color 0.15s;
+}
+
+.pressDocs_link:hover {
+    border-bottom-color: var(--ink-faded);
+}
+
+.pressDocs_link:focus-visible {
+    outline: 2px solid var(--vermilion);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+.pressDocs_extIcon {
+    font-size: 10px;
+    color: var(--ink-faded);
+    line-height: 1;
+}
+
+.pressDocs_skeleton {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+}
+
+.pressDocs_skeletonCard {
+    height: 100px;
+    border-radius: 2px;
+    background: var(--ink-light);
+    opacity: 0.12;
+    position: relative;
+    overflow: hidden;
+}
+
+.pressDocs_skeletonCard::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.06) 50%,
+        transparent 100%
+    );
+    animation: newsfrontShimmer 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pressDocs_skeletonCard::after {
+        animation: none;
+    }
+}
+
 /* ── GitHub Trending ───────────────────────────────────────── */
 
 .ghTrending {

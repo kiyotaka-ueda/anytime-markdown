@@ -79,6 +79,10 @@
     "labelWeekly": "WEEKLY",
     "labelMonthly": "MONTHLY"
   },
+  "pressDocs": {
+    "label": "DOCS · DOCUMENTS",
+    "heading": "Docs"
+  },
   "pressReports": {
     "label": "REPORT · LATEST",
     "heading": "Latest Reports",

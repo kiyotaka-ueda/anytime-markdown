@@ -79,6 +79,10 @@
     "labelWeekly": "WEEKLY",
     "labelMonthly": "MONTHLY"
   },
+  "pressDocs": {
+    "label": "DOCS · ドキュメント",
+    "heading": "ドキュメント"
+  },
   "pressReports": {
     "label": "REPORT · レポート",
     "heading": "最新レポート",

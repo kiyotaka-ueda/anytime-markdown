@@ -18,6 +18,7 @@ import { SpotifyCharts } from './components/SpotifyCharts';
 import { TodaysNews } from './components/TodaysNews';
 import { WeatherForecast } from './components/WeatherForecast';
 import { GithubTrending } from './components/GithubTrending';
+import { PressDocsSection } from './components/PressDocsSection';
 import { PressReports } from './components/PressReports';
 import { bodoni, jetbrains, shippori, yujiBoku } from './fonts';
 import styles from './press.module.css';
@@ -85,6 +86,7 @@ export function PressBody() {
       <WeatherForecast />
       <GithubTrending />
       <PressReports />
+      <PressDocsSection />
       <Ticker />
       <Colophon />
     </div>
