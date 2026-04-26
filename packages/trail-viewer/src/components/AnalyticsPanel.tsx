@@ -879,6 +879,7 @@ function SessionCacheTimeline({
   const assistantMsgs = messages.filter((m) => m.type === 'assistant' && m.usage);
   const hasData = assistantMsgs.length > 0;
   const compactDrops = useMemo(() => countCompactDrops(assistantMsgs), [assistantMsgs]);
+  const [mode, setMode] = useState<'tool' | 'skill'>('tool');
 
   const byUuid = useMemo(() => {
     const map = new Map<string, TrailMessage>();
@@ -888,6 +889,7 @@ function SessionCacheTimeline({
 
   const dataset = useMemo(() => {
     let cumulativeMs = 0;
+    let currentSkill = '';
     return assistantMsgs.map((m, i) => {
       const parent = m.parentUuid ? byUuid.get(m.parentUuid) : undefined;
       const apiInferenceMs = (parent?.timestamp && m.timestamp)
@@ -898,6 +900,8 @@ function SessionCacheTimeline({
       const inputTokens = m.usage?.inputTokens ?? 0;
       const outputTokens = m.usage?.outputTokens ?? 0;
       const hasTool = (m.toolCalls?.length ?? 0) > 0;
+      if (!m.agentId && m.skill) currentSkill = m.skill;
+      const skillActive = !m.agentId && currentSkill !== '';
       return {
         turn: i + 1,
         inputTokens,
@@ -905,6 +909,8 @@ function SessionCacheTimeline({
         cacheReadTokens: m.usage?.cacheReadTokens ?? 0,
         cacheCreationTokens: m.usage?.cacheCreationTokens ?? 0,
         toolUsageTokens: hasTool ? inputTokens + outputTokens : 0,
+        skillUsageTokens: skillActive ? inputTokens + outputTokens : 0,
+        skillExecMs: skillActive ? apiInferenceMs + toolExecMs : 0,
         cumulativeMs,
         apiInferenceMs,
         toolExecMs,
@@ -975,6 +981,17 @@ function SessionCacheTimeline({
             />
           </Tooltip>
         )}
+        <Box sx={{ flex: 1 }} />
+        <ToggleButtonGroup
+          size="small"
+          exclusive
+          value={mode}
+          onChange={(_, v: 'tool' | 'skill' | null) => { if (v) setMode(v); }}
+          sx={{ '& .MuiToggleButton-root': { py: 0.25, px: 1, fontSize: '0.7rem' } }}
+        >
+          <ToggleButton value="tool">{t('analytics.modeTool')}</ToggleButton>
+          <ToggleButton value="skill">{t('analytics.modeSkill')}</ToggleButton>
+        </ToggleButtonGroup>
       </Box>
       {hasData ? (
         <>
@@ -983,7 +1000,9 @@ function SessionCacheTimeline({
           <ChartsDataProvider
             dataset={dataset as any}
             series={[
-              { type: 'bar' as const, dataKey: 'toolUsageTokens', label: t('analytics.chartToolUsageTokens'), color: chartColors.toolExec, yAxisId: 'toolTokens', valueFormatter: (v: number | null) => (v == null ? '' : fmtTokens(v)) },
+              mode === 'tool'
+                ? { type: 'bar' as const, dataKey: 'toolUsageTokens', label: t('analytics.chartToolUsageTokens'), color: chartColors.toolExec, yAxisId: 'toolTokens', valueFormatter: (v: number | null) => (v == null ? '' : fmtTokens(v)) }
+                : { type: 'bar' as const, dataKey: 'skillUsageTokens', label: t('analytics.chartSkillUsageTokens'), color: chartColors.skill, yAxisId: 'toolTokens', valueFormatter: (v: number | null) => (v == null ? '' : fmtTokens(v)) },
               { type: 'line', dataKey: 'inputTokens', label: t('analytics.chartInput'), color: chartColors.input, showMark: false, yAxisId: 'tokens' },
               { type: 'line', dataKey: 'outputTokens', label: t('analytics.chartOutput'), color: chartColors.output, showMark: false, yAxisId: 'tokens' },
               { type: 'line', dataKey: 'cacheReadTokens', label: t('analytics.chartCacheRead'), color: chartColors.cacheRead, showMark: false, yAxisId: 'tokens' },
@@ -1014,9 +1033,12 @@ function SessionCacheTimeline({
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <ChartsDataProvider
             dataset={dataset as any}
-            series={[
+            series={mode === 'tool' ? [
               { type: 'bar' as const, dataKey: 'apiInferenceMs', label: t('analytics.chartApiInferenceTime'), color: chartColors.apiInference, stack: 'timing', yAxisId: 'perTurn', valueFormatter: (v: number | null) => (v == null ? '' : fmtDurationShort(v)) },
               { type: 'bar' as const, dataKey: 'toolExecMs', label: t('analytics.chartToolExecTime'), color: chartColors.toolExec, stack: 'timing', yAxisId: 'perTurn', valueFormatter: (v: number | null) => (v == null ? '' : fmtDurationShort(v)) },
+              { type: 'line' as const, dataKey: 'cumulativeMs', label: t('analytics.chartCumulativeInferenceTime'), color: chartColors.cumulativeTime, showMark: false, yAxisId: 'cumTime', valueFormatter: (v: number | null) => (v == null ? '' : fmtDurationShort(v)) },
+            ] : [
+              { type: 'bar' as const, dataKey: 'skillExecMs', label: t('analytics.chartSkillExecTime'), color: chartColors.skill, yAxisId: 'perTurn', valueFormatter: (v: number | null) => (v == null ? '' : fmtDurationShort(v)) },
               { type: 'line' as const, dataKey: 'cumulativeMs', label: t('analytics.chartCumulativeInferenceTime'), color: chartColors.cumulativeTime, showMark: false, yAxisId: 'cumTime', valueFormatter: (v: number | null) => (v == null ? '' : fmtDurationShort(v)) },
             ]}
             xAxis={[{ id: 'x', dataKey: 'turn', scaleType: 'band', tickInterval: (value: number) => value % tickStep === 0 }]}
