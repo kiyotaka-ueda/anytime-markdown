@@ -682,16 +682,22 @@ function TurnLaneChart({
             width={Math.max((run.end - run.start + 1) * colW, 1)} height={LANE_H}
             fill={LANE_TOOL_COLORS[run.value as LaneTool]} />
         ))}
-        {mainSkillRuns.map((run) => (
-          <rect key={`ts${run.start}`} x={toX(run.start)} y={toolY + LANE_H - MODEL_LINE_H - SKILL_MODEL_GAP - SKILL_LINE_H}
-            width={Math.max((run.end - run.start + 1) * colW, 1)} height={SKILL_LINE_H}
-            fill={laneSkillColor(run.value)} />
-        ))}
         {mainModelRuns.filter((r) => r.value).map((run) => (
           <rect key={`tm${run.start}`} x={toX(run.start)} y={toolY + LANE_H - MODEL_LINE_H}
             width={Math.max((run.end - run.start + 1) * colW, 1)} height={MODEL_LINE_H}
             fill={laneModelColor(run.value)} />
         ))}
+        {mainSkillRuns.map((run) => {
+          const naturalW = (run.end - run.start + 1) * colW;
+          const w = Math.max(naturalW, 5);
+          const cx = toX(run.start) + naturalW / 2;
+          return (
+            <rect key={`ts${run.start}`} data-skill={run.value}
+              x={cx - w / 2} y={toolY + LANE_H - MODEL_LINE_H - SKILL_LINE_H}
+              width={w} height={SKILL_LINE_H}
+              fill={laneSkillColor(run.value)} />
+          );
+        })}
         {/* SubAgent lanes — one per unique sub-agent */}
         {subAgents.map(({ id }, i) => {
           const y = subAgentLaneY(i);
@@ -708,16 +714,22 @@ function TurnLaneChart({
                   width={Math.max((run.end - run.start + 1) * colW, 1)} height={LANE_H}
                   fill={LANE_TOOL_COLORS[run.value as LaneTool]} />
               ))}
-              {skillRunsForAgent.map((run) => (
-                <rect key={`sas${i}-${run.start}`} x={toX(run.start)} y={y + LANE_H - MODEL_LINE_H - SKILL_MODEL_GAP - SKILL_LINE_H}
-                  width={Math.max((run.end - run.start + 1) * colW, 1)} height={SKILL_LINE_H}
-                  fill={laneSkillColor(run.value)} />
-              ))}
               {modelRunsForAgent.filter((r) => r.value).map((run) => (
                 <rect key={`sam${i}-${run.start}`} x={toX(run.start)} y={y + LANE_H - MODEL_LINE_H}
                   width={Math.max((run.end - run.start + 1) * colW, 1)} height={MODEL_LINE_H}
                   fill={laneModelColor(run.value)} />
               ))}
+              {skillRunsForAgent.map((run) => {
+                const naturalW = (run.end - run.start + 1) * colW;
+                const w = Math.max(naturalW, 5);
+                const cx = toX(run.start) + naturalW / 2;
+                return (
+                  <rect key={`sas${i}-${run.start}`}
+                    x={cx - w / 2} y={y + LANE_H - MODEL_LINE_H - SKILL_LINE_H}
+                    width={w} height={SKILL_LINE_H}
+                    fill={laneSkillColor(run.value)} />
+                );
+              })}
             </g>
           );
         })}

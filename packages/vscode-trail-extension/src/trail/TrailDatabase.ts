@@ -2634,13 +2634,15 @@ export class TrailDatabase {
 
   getSkillsBySession(sessionId: string): Map<string, string> {
     const db = this.ensureDb();
-    const result = db.exec(
+    const map = new Map<string, string>();
+
+    // Primary: message_tool_calls.skill_name (populated for sessions imported after skill column was added)
+    const tcResult = db.exec(
       'SELECT message_uuid, skill_name FROM message_tool_calls WHERE session_id = ? AND skill_name IS NOT NULL GROUP BY message_uuid',
       [sessionId],
     );
-    const map = new Map<string, string>();
-    if (result[0]) {
-      for (const row of result[0].values) {
+    if (tcResult[0]) {
+      for (const row of tcResult[0].values) {
         const uuid = row[0];
         const skill = row[1];
         if (typeof uuid === 'string' && typeof skill === 'string') {
@@ -2648,6 +2650,25 @@ export class TrailDatabase {
         }
       }
     }
+
+    // Fallback: parse messages.tool_calls directly for sessions where skill_name was not backfilled
+    const msgResult = db.exec(
+      "SELECT uuid, tool_calls FROM messages WHERE session_id = ? AND type = 'assistant' AND tool_calls IS NOT NULL",
+      [sessionId],
+    );
+    if (msgResult[0]) {
+      for (const row of msgResult[0].values) {
+        const uuid = row[0];
+        const toolCallsJson = row[1];
+        if (typeof uuid === 'string' && typeof toolCallsJson === 'string' && !map.has(uuid)) {
+          const skill = extractSkillName(toolCallsJson);
+          if (skill) {
+            map.set(uuid, skill);
+          }
+        }
+      }
+    }
+
     return map;
   }
 
