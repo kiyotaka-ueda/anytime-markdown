@@ -1063,6 +1063,16 @@
 }
 
 @media (max-width: 880px) {
+    .newsfrontHeader {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+
+    .newsfrontMeta {
+        margin-left: 0;
+    }
+
     .newsfrontColumns {
         grid-template-columns: 1fr;
         gap: 32px;
