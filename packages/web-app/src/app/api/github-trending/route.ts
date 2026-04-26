@@ -20,7 +20,7 @@ export interface TrendingResponse {
 const REVALIDATE_SECONDS = 3600;
 const PER_PAGE = 5;
 
-export const revalidate = REVALIDATE_SECONDS;
+export const revalidate = 3600;
 
 function daysAgoIso(days: number): string {
     const d = new Date();

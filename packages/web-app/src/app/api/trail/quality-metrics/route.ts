@@ -4,7 +4,6 @@ import { type NextRequest,NextResponse } from 'next/server';
 import { trailReaderRoute } from '../../../../lib/api-helpers';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 function emptyMetrics(from: string, to: string): QualityMetrics {
   const fromMs = new Date(from).getTime();

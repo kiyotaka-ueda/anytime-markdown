@@ -8,7 +8,6 @@ import { createC4ModelStore,NO_STORE_HEADERS } from "../../../../lib/api-helpers
 import { resolveSupabaseEnv } from "../../../../lib/supabase-env";
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 /**
  * GET /api/c4/complexity?release=...&repo=...

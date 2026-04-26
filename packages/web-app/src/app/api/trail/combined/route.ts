@@ -3,7 +3,6 @@ import type { NextRequest, NextResponse } from "next/server";
 import { trailReaderRoute } from "../../../../lib/api-helpers";
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const period = (req.nextUrl.searchParams.get('period') ?? 'day') as 'day' | 'week';

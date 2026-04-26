@@ -4,7 +4,6 @@ import { NextResponse } from "next/server";
 import { createC4ModelStore,NO_STORE_HEADERS } from "../../../../lib/api-helpers";
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 /**
  * GET /api/c4/releases
