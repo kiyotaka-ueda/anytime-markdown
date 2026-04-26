@@ -82,11 +82,11 @@ export function PressBody() {
       />
       <PullQuote />
       <TodaysNews />
-      <SpotifyCharts />
-      <WeatherForecast />
-      <GithubTrending />
       <PressReports />
+      <GithubTrending />
+      <SpotifyCharts />
       <PressDocsSection />
+      <WeatherForecast />
       <Ticker />
       <Colophon />
     </div>
