@@ -1,13 +1,20 @@
-import { NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 
 import { getClientCredentialsToken } from "../../../../lib/spotify";
 
-export async function GET() {
+const ALLOWED_MARKETS = new Set([
+  "JP", "US", "GB", "DE", "FR", "AU", "CA", "KR", "BR", "MX",
+]);
+
+export async function GET(req: NextRequest) {
   try {
+    const raw = req.nextUrl.searchParams.get("market") ?? "JP";
+    const market = ALLOWED_MARKETS.has(raw.toUpperCase()) ? raw.toUpperCase() : "JP";
+
     const token = await getClientCredentialsToken();
 
     const res = await fetch(
-      "https://api.spotify.com/v1/browse/new-releases?market=JP&limit=20",
+      `https://api.spotify.com/v1/browse/new-releases?market=${market}&limit=20`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
@@ -23,6 +30,8 @@ export async function GET() {
           uri: string;
           artists: { name: string }[];
           images: { url: string; width: number; height: number }[];
+          release_date: string;
+          external_urls: { spotify: string };
         }[];
       };
     };

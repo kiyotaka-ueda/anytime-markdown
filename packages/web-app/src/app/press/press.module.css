@@ -1204,38 +1204,17 @@
 .charts {
     padding: 48px var(--gutter);
     border-bottom: var(--rule-bold) solid var(--ink);
-    display: grid;
-    grid-template-columns: 260px 1fr;
-    gap: 48px;
-    align-items: start;
-}
-
-@media (max-width: 880px) {
-    .charts {
-        grid-template-columns: 1fr;
-        gap: 24px;
-    }
 }
 
 .chartsHeader {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
-    border-right: var(--rule-thin) solid var(--ink);
-    padding-right: 48px;
-}
-
-@media (max-width: 880px) {
-    .chartsHeader {
-        flex-direction: row;
-        align-items: baseline;
-        border-right: 0;
-        padding-right: 0;
-        border-bottom: var(--rule-thin) solid var(--ink);
-        padding-bottom: 12px;
-        flex-wrap: wrap;
-        gap: 12px;
-    }
+    align-items: baseline;
+    gap: 16px;
+    border-bottom: var(--rule-thin) solid var(--ink);
+    padding-bottom: 8px;
+    margin-bottom: 32px;
+    font-family: var(--font-display);
+    flex-wrap: wrap;
 }
 
 .chartsLabel {
@@ -1244,30 +1223,57 @@
     color: var(--vermilion);
     font-weight: 600;
     letter-spacing: 0.12em;
+    white-space: nowrap;
 }
 
 .chartsHeading {
-    font-family: var(--font-display);
     font-style: italic;
-    font-weight: 900;
-    font-size: clamp(28px, 3vw, 40px);
-    line-height: 1;
-    letter-spacing: -0.03em;
+    font-weight: 700;
+    font-size: 28px;
     margin: 0;
 }
 
 .chartsMeta {
-    margin-top: auto;
+    margin-left: auto;
     font-family: var(--font-mono);
     font-size: var(--fs-footnote);
     color: var(--ink-faded);
+    white-space: nowrap;
 }
 
-@media (max-width: 880px) {
-    .chartsMeta {
-        margin-top: 0;
-        margin-left: auto;
+.chartsBody {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--column-gap);
+}
+
+@media (max-width: 720px) {
+    .chartsBody {
+        grid-template-columns: 1fr;
+        gap: 32px;
     }
+}
+
+.chartsColumn {
+    min-width: 0;
+}
+
+.chartsColumnHeader {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 0;
+}
+
+.chartsColumnLabel {
+    font-family: var(--font-mono);
+    font-size: var(--fs-caption);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--ink);
+    border: var(--rule-thin) solid var(--ink);
+    padding: 3px 8px;
+    line-height: 1.4;
 }
 
 .chartsList {

@@ -61,7 +61,9 @@
   "charts": {
     "label": "MUSIC · NEW RELEASES",
     "heading": "Charts",
-    "poweredBy": "via Spotify"
+    "poweredBy": "via Spotify",
+    "labelJp": "JAPAN",
+    "labelGlobal": "GLOBAL"
   },
   "ticker": {
     "item1": "open source · MIT licensed",

@@ -61,7 +61,9 @@
   "charts": {
     "label": "MUSIC · 新譜",
     "heading": "注目の新譜",
-    "poweredBy": "via Spotify"
+    "poweredBy": "via Spotify",
+    "labelJp": "JAPAN",
+    "labelGlobal": "GLOBAL"
   },
   "ticker": {
     "item1": "open source · MIT licensed",
