@@ -720,6 +720,7 @@ export class SupabaseTrailReader implements ITrailReader {
       commit_message: string;
       committed_at: string;
       session_id: string;
+      is_ai_assisted: number;
       lines_added: number;
       lines_deleted: number;
     };
@@ -761,7 +762,7 @@ export class SupabaseTrailReader implements ITrailReader {
     const fetchCommits = async (f: string, t: string): Promise<CommitRow[]> => {
       const { data } = await this.client
         .from('trail_session_commits')
-        .select('commit_hash, commit_message, committed_at, session_id, lines_added, lines_deleted')
+        .select('commit_hash, commit_message, committed_at, session_id, is_ai_assisted, lines_added, lines_deleted')
         .gte('committed_at', f)
         .lte('committed_at', t);
       return (data ?? []) as CommitRow[];
@@ -855,7 +856,7 @@ export class SupabaseTrailReader implements ITrailReader {
           hash: c.commit_hash,
           subject: (c.commit_message ?? '').split('\n')[0],
           committed_at: c.committed_at,
-          is_ai_assisted: false,
+          is_ai_assisted: c.is_ai_assisted === 1,
           files: [],
           session_id: c.session_id,
           lines_added: c.lines_added ?? 0,
@@ -882,7 +883,7 @@ export class SupabaseTrailReader implements ITrailReader {
           hash: c.commit_hash,
           subject: (c.commit_message ?? '').split('\n')[0],
           committed_at: c.committed_at,
-          is_ai_assisted: false,
+          is_ai_assisted: c.is_ai_assisted === 1,
           files: [],
           session_id: c.session_id,
           lines_added: c.lines_added ?? 0,
