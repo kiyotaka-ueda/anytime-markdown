@@ -432,7 +432,8 @@
     to   { transform: translateX(-50%); }
 }
 
-.caravanCamelItem {
+.caravanCamelItem,
+.caravanOasisItem {
     position: absolute;
 }
 
