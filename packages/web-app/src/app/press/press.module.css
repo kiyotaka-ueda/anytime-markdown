@@ -632,7 +632,7 @@
     white-space: nowrap;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 880px) {
     .briefingList li {
         grid-template-columns: 24px 1fr;
         gap: 3px 8px;
