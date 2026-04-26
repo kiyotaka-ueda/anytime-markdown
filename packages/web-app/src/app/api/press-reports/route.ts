@@ -13,8 +13,8 @@ export const revalidate = 3600;
 export async function GET() {
     try {
         const reports = await listReports();
-        const daily = reports.find((r) => r.category?.toLowerCase() === 'daily') ?? null;
-        const weekly = reports.find((r) => r.category?.toLowerCase() === 'weekly') ?? null;
+        const daily = reports.find((r) => r.category?.toLowerCase().includes('daily')) ?? null;
+        const weekly = reports.find((r) => r.category?.toLowerCase().includes('weekly')) ?? null;
         return NextResponse.json({ daily, weekly } satisfies PressReportsResponse);
     } catch (e) {
         const message = e instanceof Error ? e.message : 'Unknown error';
