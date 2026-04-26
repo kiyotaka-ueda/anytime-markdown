@@ -1413,120 +1413,97 @@ function SessionModelUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
 }
 
 function SessionToolUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics | null }>) {
-  const { cardSx, toolPalette } = useTrailTheme();
+  const { colors, cardSx, toolPalette } = useTrailTheme();
   const { t } = useTrailI18n();
-  const [metric, setMetric] = useState<SessionToolMetric>('count');
   const usage = toolMetrics?.toolUsage;
   if (!usage || usage.length === 0) {
     return (
-      <Paper elevation={0} sx={{ ...cardSx, pt: 2, pr: 2, pb: 0, pl: 2 }}>
-        <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{t('analytics.toolUsageTitle')}</Typography>
-        <Typography variant="body2" color="text.secondary">0</Typography>
+      <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
+        <Typography variant="subtitle2" sx={{ px: 1.5 }}>{t('analytics.toolUsageTitle')}</Typography>
+        <Box sx={{ height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Typography variant="h5" sx={{ color: colors.textSecondary }}>0</Typography>
+        </Box>
       </Paper>
     );
   }
 
-  const getValue = (e: { count: number; tokens: number; durationMs: number }): number =>
-    metric === 'tokens' ? e.tokens
-    : metric === 'duration' ? Math.round(e.durationMs / 1000)
-    : e.count;
-
-  const sorted = [...usage].sort((a, b) => getValue(b) - getValue(a));
-
-  // 1行の積算横棒: Y軸=メトリクス名、各ツールが色分けでスタック
-  const entry: Record<string, string | number> = { metric: metric === 'tokens' ? 'tokens' : metric === 'duration' ? 'sec' : 'count' };
-  let total = 0;
-  for (let i = 0; i < sorted.length; i++) {
-    const v = getValue(sorted[i]);
-    entry[`t${i}`] = v;
-    total += v;
-  }
-  const tickValues = niceTicks(total);
+  const sorted = [...usage].sort((a, b) => b.count - a.count);
+  const pieData = sorted.map((e, i) => ({
+    id: i,
+    value: e.count,
+    label: `${e.tool} (${e.count})`,
+    color: toolPalette[i % toolPalette.length],
+  }));
 
   return (
-    <Paper elevation={0} sx={{ ...cardSx, pt: 2, pr: 2, pb: 0, pl: 0 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, px: 2 }}>
-        <Typography variant="subtitle2">{t('analytics.toolUsageTitle')}</Typography>
-        <ToggleButtonGroup size="small" exclusive value={metric} onChange={(_, v: SessionToolMetric | null) => { if (v) setMetric(v); }}>
-          <ToggleButton value="count">{t('analytics.combined.count')}</ToggleButton>
-          <ToggleButton value="tokens">{t('analytics.combined.tokens')}</ToggleButton>
-          <ToggleButton value="duration">{t('analytics.combined.duration')}</ToggleButton>
-        </ToggleButtonGroup>
-      </Box>
-      <BarChart
-        dataset={[entry]}
-        layout="horizontal"
-        yAxis={[{ scaleType: 'band', dataKey: 'metric', categoryGapRatio: 0.25, tickLabelStyle: { display: 'none' } }]}
-        xAxis={[{ tickInterval: tickValues, valueFormatter: metric === 'duration' ? fmtDurationShort : fmtTokens }]}
-        series={sorted.map((e, i) => ({
-          dataKey: `t${i}`,
-          label: e.tool,
-          stack: 'total',
-          color: toolPalette[i % toolPalette.length],
-        }))}
-        height={70}
-        margin={{ left: 20, right: 16, top: 4, bottom: 16 }}
+    <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
+      <Typography variant="subtitle2" sx={{ px: 1.5 }}>{t('analytics.toolUsageTitle')}</Typography>
+      <PieChart
+        series={[{ data: pieData, innerRadius: 28, outerRadius: 52, paddingAngle: 2, cornerRadius: 3 }]}
+        height={130}
+        margin={{ top: 8, right: 8, bottom: 8, left: 8 }}
         slots={{ legend: () => null }}
-      />
+      >
+        <PieCenterLabel value={sorted.reduce((s, e) => s + e.count, 0)} color={colors.textPrimary} />
+      </PieChart>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, px: 1.5, pb: 0.5 }}>
+        {sorted.map((e, i) => (
+          <Chip
+            key={e.tool}
+            size="small"
+            label={`${e.tool} (${e.count})`}
+            sx={{ bgcolor: toolPalette[i % toolPalette.length], color: '#fff', fontSize: '0.65rem', height: 18 }}
+          />
+        ))}
+      </Box>
     </Paper>
   );
 }
 
 function SessionSkillUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics | null }>) {
-  const { cardSx, toolPalette } = useTrailTheme();
+  const { colors, cardSx, toolPalette } = useTrailTheme();
   const { t } = useTrailI18n();
-  const [metric, setMetric] = useState<SessionToolMetric>('count');
   const usage = toolMetrics?.skillUsage;
   if (!usage || usage.length === 0) {
     return (
-      <Paper elevation={0} sx={{ ...cardSx, pt: 2, pr: 2, pb: 0, pl: 2 }}>
-        <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{t('analytics.combined.skill')}</Typography>
-        <Typography variant="body2" color="text.secondary">0</Typography>
+      <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
+        <Typography variant="subtitle2" sx={{ px: 1.5 }}>{t('analytics.combined.skill')}</Typography>
+        <Box sx={{ height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Typography variant="h5" sx={{ color: colors.textSecondary }}>0</Typography>
+        </Box>
       </Paper>
     );
   }
 
-  const getValue = (e: { count: number; tokens: number; durationMs: number }): number =>
-    metric === 'tokens' ? e.tokens
-    : metric === 'duration' ? Math.round(e.durationMs / 1000)
-    : e.count;
-
-  const sorted = [...usage].sort((a, b) => getValue(b) - getValue(a));
-
-  const entry: Record<string, string | number> = { metric: metric === 'tokens' ? 'tokens' : metric === 'duration' ? 'sec' : 'count' };
-  let total = 0;
-  for (let i = 0; i < sorted.length; i++) {
-    const v = getValue(sorted[i]);
-    entry[`s${i}`] = v;
-    total += v;
-  }
-  const tickValues = niceTicks(total);
+  const sorted = [...usage].sort((a, b) => b.count - a.count);
+  const pieData = sorted.map((e, i) => ({
+    id: i,
+    value: e.count,
+    label: `${e.skill} (${e.count})`,
+    color: toolPalette[i % toolPalette.length],
+  }));
 
   return (
-    <Paper elevation={0} sx={{ ...cardSx, pt: 2, pr: 2, pb: 0, pl: 0 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, px: 2 }}>
-        <Typography variant="subtitle2">{t('analytics.combined.skill')}</Typography>
-        <ToggleButtonGroup size="small" exclusive value={metric} onChange={(_, v: SessionToolMetric | null) => { if (v) setMetric(v); }}>
-          <ToggleButton value="count">{t('analytics.combined.count')}</ToggleButton>
-          <ToggleButton value="tokens">{t('analytics.combined.tokens')}</ToggleButton>
-          <ToggleButton value="duration">{t('analytics.combined.duration')}</ToggleButton>
-        </ToggleButtonGroup>
-      </Box>
-      <BarChart
-        dataset={[entry]}
-        layout="horizontal"
-        yAxis={[{ scaleType: 'band', dataKey: 'metric', categoryGapRatio: 0.25, tickLabelStyle: { display: 'none' } }]}
-        xAxis={[{ tickInterval: tickValues, valueFormatter: metric === 'duration' ? fmtDurationShort : fmtTokens }]}
-        series={sorted.map((e, i) => ({
-          dataKey: `s${i}`,
-          label: e.skill,
-          stack: 'total',
-          color: toolPalette[i % toolPalette.length],
-        }))}
-        height={70}
-        margin={{ left: 20, right: 16, top: 4, bottom: 16 }}
+    <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
+      <Typography variant="subtitle2" sx={{ px: 1.5 }}>{t('analytics.combined.skill')}</Typography>
+      <PieChart
+        series={[{ data: pieData, innerRadius: 28, outerRadius: 52, paddingAngle: 2, cornerRadius: 3 }]}
+        height={130}
+        margin={{ top: 8, right: 8, bottom: 8, left: 8 }}
         slots={{ legend: () => null }}
-      />
+      >
+        <PieCenterLabel value={sorted.reduce((s, e) => s + e.count, 0)} color={colors.textPrimary} />
+      </PieChart>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, px: 1.5, pb: 0.5 }}>
+        {sorted.map((e, i) => (
+          <Chip
+            key={e.skill}
+            size="small"
+            label={`${e.skill} (${e.count})`}
+            sx={{ bgcolor: toolPalette[i % toolPalette.length], color: '#fff', fontSize: '0.65rem', height: 18 }}
+          />
+        ))}
+      </Box>
     </Paper>
   );
 }
@@ -1902,8 +1879,10 @@ function DailySessionList({
                     />
                   )}
                 </Box>
-                <SessionSkillUsageChart toolMetrics={sessionToolMetrics} />
-                <SessionToolUsageChart toolMetrics={sessionToolMetrics} />
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <SessionSkillUsageChart toolMetrics={sessionToolMetrics} />
+                  <SessionToolUsageChart toolMetrics={sessionToolMetrics} />
+                </Box>
               </Box>
             );
           }
@@ -1911,8 +1890,10 @@ function DailySessionList({
             <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 1, width: { lg: 600 } }}>
               <SessionMetricsPanel session={buildDaySession(date, daySessions)} toolMetrics={dayAggToolMetrics} />
               <SessionModelUsageChart toolMetrics={dayAggToolMetrics} />
-              <SessionSkillUsageChart toolMetrics={dayAggToolMetrics} />
-              <SessionToolUsageChart toolMetrics={dayAggToolMetrics} />
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <SessionSkillUsageChart toolMetrics={dayAggToolMetrics} />
+                <SessionToolUsageChart toolMetrics={dayAggToolMetrics} />
+              </Box>
               <SessionErrorChart toolMetrics={dayAggToolMetrics} />
             </Box>
           );
