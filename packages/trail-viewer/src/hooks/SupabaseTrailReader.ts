@@ -767,6 +767,20 @@ export class SupabaseTrailReader implements ITrailReader {
         .lte('committed_at', t);
       return (data ?? []) as CommitRow[];
     };
+    const fetchFilesByHashes = async (hashes: string[]): Promise<Map<string, string[]>> => {
+      if (hashes.length === 0) return new Map();
+      const { data } = await this.client
+        .from('trail_commit_files')
+        .select('commit_hash, file_path')
+        .in('commit_hash', hashes);
+      const map = new Map<string, string[]>();
+      for (const { commit_hash, file_path } of (data ?? []) as Array<{ commit_hash: string; file_path: string }>) {
+        const arr = map.get(commit_hash);
+        if (arr) arr.push(file_path);
+        else map.set(commit_hash, [file_path]);
+      }
+      return map;
+    };
 
     const aggregateTokensByUser = (
       users: ReadonlyArray<MessageRow>,
@@ -833,6 +847,11 @@ export class SupabaseTrailReader implements ITrailReader {
     const curTokens = aggregateTokensByUser(curMessages, curAssistants);
     const prevTokens = aggregateTokensByUser(prevMessages, prevAssistants);
 
+    const [curFilesByHash, prevFilesByHash] = await Promise.all([
+      fetchFilesByHashes(curCommits.map((c) => c.commit_hash)),
+      fetchFilesByHashes(prevCommits.map((c) => c.commit_hash)),
+    ]);
+
     return computeQualityMetrics(
       {
         releases: curReleases.map((r) => ({ id: r.tag, tag_date: r.released_at, commit_hashes: [], fix_count: r.fix_count })),
@@ -857,7 +876,7 @@ export class SupabaseTrailReader implements ITrailReader {
           subject: (c.commit_message ?? '').split('\n')[0],
           committed_at: c.committed_at,
           is_ai_assisted: c.is_ai_assisted === 1,
-          files: [],
+          files: curFilesByHash.get(c.commit_hash) ?? [],
           session_id: c.session_id,
           lines_added: c.lines_added ?? 0,
           lines_deleted: c.lines_deleted ?? 0,
@@ -884,7 +903,7 @@ export class SupabaseTrailReader implements ITrailReader {
           subject: (c.commit_message ?? '').split('\n')[0],
           committed_at: c.committed_at,
           is_ai_assisted: c.is_ai_assisted === 1,
-          files: [],
+          files: prevFilesByHash.get(c.commit_hash) ?? [],
           session_id: c.session_id,
           lines_added: c.lines_added ?? 0,
           lines_deleted: c.lines_deleted ?? 0,
