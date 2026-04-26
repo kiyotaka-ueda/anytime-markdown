@@ -638,10 +638,18 @@
     padding: 36px var(--gutter);
     border-bottom: var(--rule-bold) solid var(--ink);
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 32px;
+    grid-template-columns: 1.4fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 32px 48px;
     align-items: start;
     scroll-margin-top: 120px;
+}
+
+@media (max-width: 880px) {
+    .briefingWithEmbed {
+        grid-template-columns: 1fr;
+        gap: 24px;
+    }
 }
 
 .briefingEmbed {
@@ -685,7 +693,6 @@
 .briefingMain {
     display: flex;
     flex-direction: column;
-    order: -1;
 }
 
 .briefingHeader {
@@ -695,6 +702,7 @@
     border-bottom: var(--rule-bold) solid var(--ink);
     padding-bottom: 14px;
     margin-bottom: 0;
+    grid-column: 1 / -1;
 }
 
 .briefingHeaderTitle {
