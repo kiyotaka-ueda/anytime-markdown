@@ -52,15 +52,32 @@ export function CodeGraphCanvas({
     if (!containerReady || !containerRef.current) return undefined;
 
     const g = new Graph();
+    let invalidCoordCount = 0;
     for (const node of graph.nodes) {
+      // x/y が欠けているグラフ（レイアウト未実行の中間形式）でも壊さないよう、
+      // 円周上に等間隔配置するフォールバックを用意する。
+      const hasValidXY =
+        typeof node.x === 'number' && Number.isFinite(node.x) &&
+        typeof node.y === 'number' && Number.isFinite(node.y);
+      if (!hasValidXY) invalidCoordCount++;
+      const fallbackAngle = (g.order / Math.max(graph.nodes.length, 1)) * Math.PI * 2;
+      const x = hasValidXY ? node.x : Math.cos(fallbackAngle);
+      const y = hasValidXY ? node.y : Math.sin(fallbackAngle);
+      const community = Number.isFinite(node.community) ? node.community : 0;
       g.addNode(node.id, {
         label: node.label,
-        x: node.x,
-        y: node.y,
-        size: Math.max(3, Math.min(node.size + 4, 20)),
-        color: COMMUNITY_COLORS[node.community % COMMUNITY_COLORS.length],
-        community: node.community,
+        x,
+        y,
+        size: Math.max(3, Math.min((node.size ?? 0) + 4, 20)),
+        color: COMMUNITY_COLORS[community % COMMUNITY_COLORS.length],
+        community,
       });
+    }
+    if (invalidCoordCount > 0) {
+      console.warn(
+        `[CodeGraphCanvas] ${invalidCoordCount} / ${graph.nodes.length} nodes had invalid x/y; ` +
+          `placed on a fallback circle. Run "Anytime Trail: Generate Code Graph" to fix.`,
+      );
     }
     for (const edge of graph.edges) {
       if (g.hasNode(edge.source) && g.hasNode(edge.target) && !g.hasEdge(edge.source, edge.target)) {
