@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+import { extractErrorMessage } from '../../../../lib/api-helpers';
+
 export interface WsjArticle {
     id: string;
     title: string;
@@ -73,11 +75,11 @@ export async function GET() {
         const articles: WsjArticle[] = results
             .filter((r): r is PromiseFulfilledResult<WsjArticle[]> => r.status === 'fulfilled')
             .flatMap((r) => r.value)
-            .slice(0, 4);
+            .slice(0, 3);
 
         return NextResponse.json({ articles });
     } catch (e) {
-        const message = e instanceof Error ? e.message : 'Unknown error';
+        const message = extractErrorMessage(e);
         console.error(`[/api/news/wsj] ${message}`, e instanceof Error ? e.stack : e);
         return NextResponse.json({ error: message }, { status: 500 });
     }
