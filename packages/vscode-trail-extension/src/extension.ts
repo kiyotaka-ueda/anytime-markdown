@@ -382,22 +382,18 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Code graph service
 	const codeGraphCfg = vscode.workspace.getConfiguration('anytimeTrail.codeGraph');
+	const expandWorkspace = (s: string): string =>
+		wsRootForDb ? s.replace('${workspaceFolder}', wsRootForDb) : s;
 	const rawOutputDir = codeGraphCfg.get<string>('outputDir', '${workspaceFolder}/.vscode/graphify-out');
-	const outputDir = wsRootForDb ? rawOutputDir.replace('${workspaceFolder}', wsRootForDb) : rawOutputDir;
+	const outputDir = expandWorkspace(rawOutputDir);
 	const configuredRepos = codeGraphCfg.get<Array<{ path: string; label: string }>>('repositories', []);
 	const codeGraphAutoRefresh = codeGraphCfg.get<boolean>('autoRefresh', false);
-
-	// 未設定時は当ワークスペースをデフォルト解析対象にする。
-	// `anytimeTrail.docsPath` が設定されていれば Docs リポジトリとしても追加。
-	const defaultRepos: Array<{ path: string; label: string }> = [];
-	if (configuredRepos.length === 0 && wsRootForDb) {
-		defaultRepos.push({ path: wsRootForDb, label: 'Product' });
-		const docsPath = vscode.workspace.getConfiguration('anytimeTrail').get<string>('docsPath', '');
-		if (docsPath) defaultRepos.push({ path: docsPath, label: 'Docs' });
-	}
-	const codeGraphRepos = configuredRepos.length > 0 ? configuredRepos : defaultRepos;
 	const codeGraphService = new CodeGraphService({
-		repositories: codeGraphRepos.map((r, i) => ({ id: String(i), label: r.label, path: r.path })),
+		repositories: configuredRepos.map((r, i) => ({
+			id: String(i),
+			label: r.label,
+			path: expandWorkspace(r.path),
+		})),
 		outputDir,
 	});
 	trailDataServer.setCodeGraphService(codeGraphService);

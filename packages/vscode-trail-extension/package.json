@@ -299,8 +299,10 @@
               "label"
             ]
           },
-          "default": [],
-          "markdownDescription": "解析対象リポジトリのリスト。`path`（絶対パス）と `label`（表示名）を指定する。空配列の場合は現在のワークスペースをデフォルト解析対象とし、`anytimeTrail.docsPath` が設定されていれば Docs としても追加する。"
+          "default": [
+            { "path": "${workspaceFolder}", "label": "Workspace" }
+          ],
+          "markdownDescription": "解析対象リポジトリのリスト。`path`（絶対パス、`${workspaceFolder}` を使用可能）と `label`（表示名）を指定する。デフォルトでは現在のワークスペースのみを解析する。外部リポジトリも対象にしたい場合は明示的に追加する。"
         },
         "anytimeTrail.codeGraph.autoRefresh": {
           "type": "boolean",
