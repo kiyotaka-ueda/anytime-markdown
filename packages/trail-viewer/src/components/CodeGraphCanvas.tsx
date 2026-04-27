@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Sigma from 'sigma';
 import Graph from 'graphology';
 import type { CodeGraph } from '@anytime-markdown/trail-core/codeGraph';
@@ -31,9 +31,25 @@ export function CodeGraphCanvas({
 }: Readonly<CodeGraphCanvasProps>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sigmaRef = useRef<Sigma | null>(null);
+  const [containerReady, setContainerReady] = useState(false);
+
+  // タブが display:none の間はコンテナの幅が 0 になり sigma 初期化が失敗する。
+  // ResizeObserver で可視サイズを検知してから初期化する。
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return undefined;
+    const update = () => {
+      const ready = el.clientWidth > 0 && el.clientHeight > 0;
+      setContainerReady((prev) => (prev === ready ? prev : ready));
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerReady || !containerRef.current) return undefined;
 
     const g = new Graph();
     for (const node of graph.nodes) {
@@ -55,6 +71,7 @@ export function CodeGraphCanvas({
     const sigma = new Sigma(g, containerRef.current, {
       renderEdgeLabels: false,
       defaultEdgeColor: isDark ? '#444' : '#ccc',
+      allowInvalidContainer: true,
     });
 
     if (onNodeClick) {
@@ -66,7 +83,7 @@ export function CodeGraphCanvas({
       sigma.kill();
       sigmaRef.current = null;
     };
-  }, [graph, isDark, onNodeClick]);
+  }, [containerReady, graph, isDark, onNodeClick]);
 
   useEffect(() => {
     const sigma = sigmaRef.current;
