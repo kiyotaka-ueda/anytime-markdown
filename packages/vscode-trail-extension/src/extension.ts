@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { C4Panel } from './c4/C4Panel';
 import { registerC4Commands } from './commands/c4Commands';
 import { CodeGraphService } from './graph/CodeGraphService';
+import { synthesizeC4ElementsFromFilesystem } from './graph/synthesizeC4Elements';
 import { AiMemoryItem,AiMemoryProvider } from './providers/AiMemoryProvider';
 import { AiNoteItem,AiNoteProvider } from './providers/AiNoteProvider';
 import { C4TreeProvider } from './providers/C4TreeProvider';
@@ -394,23 +395,27 @@ export async function activate(context: vscode.ExtensionContext) {
 	const c4ExcludePatterns = vscode.workspace
 		.getConfiguration('anytimeTrail.c4')
 		.get<string[]>('analyzeExcludePatterns', []);
+	const codeGraphRepos = configuredRepos.map((r, i) => ({
+		id: String(i),
+		label: r.label,
+		path: expandWorkspace(r.path),
+	}));
 	const codeGraphService = new CodeGraphService({
-		repositories: configuredRepos.map((r, i) => ({
-			id: String(i),
-			label: r.label,
-			path: expandWorkspace(r.path),
-		})),
+		repositories: codeGraphRepos,
 		outputDir,
 		excludePatterns: c4ExcludePatterns,
 		c4ElementsProvider: () => {
 			const trailGraph = C4Panel.getDataProvider()?.trailGraph;
-			if (!trailGraph) return undefined;
-			try {
-				return trailToC4(trailGraph).elements;
-			} catch (err) {
-				TrailLogger.error('Failed to derive C4 elements for code graph clustering', err);
-				return undefined;
+			if (trailGraph) {
+				try {
+					return trailToC4(trailGraph).elements;
+				} catch (err) {
+					TrailLogger.error('Failed to derive C4 elements from trail graph', err);
+				}
 			}
+			// analyzeWorkspace 未実行時は packages/<pkg>/src/<dir> 構造から合成する。
+			// trail-core 解析と同じ命名規則で elements を作るため、c4-aware 命名が機能する。
+			return synthesizeC4ElementsFromFilesystem(codeGraphRepos);
 		},
 	});
 	trailDataServer.setCodeGraphService(codeGraphService);
