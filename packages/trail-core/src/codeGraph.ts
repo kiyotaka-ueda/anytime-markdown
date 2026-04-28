@@ -27,6 +27,13 @@ export interface CodeGraphEdge {
   readonly crossRepo: boolean;
 }
 
+export interface CommunitySummary {
+  /** AI が生成した 3 語以内の表示名 */
+  readonly name: string;
+  /** AI が生成した 1 文 60 文字以内の説明 */
+  readonly summary: string;
+}
+
 export interface CodeGraph {
   readonly generatedAt: string;
   readonly repositories: readonly CodeGraphRepository[];
@@ -34,6 +41,11 @@ export interface CodeGraph {
   readonly edges: readonly CodeGraphEdge[];
   readonly communities: Record<number, string>;
   readonly godNodes: readonly string[];
+  /**
+   * AI 生成のコミュニティ要約（任意）。
+   * /build-code-graph スキル経由で生成。VS Code 拡張の Generate Code Graph 単独では未生成。
+   */
+  readonly communitySummaries?: Record<number, CommunitySummary>;
 }
 
 export interface CodeGraphQueryResult {

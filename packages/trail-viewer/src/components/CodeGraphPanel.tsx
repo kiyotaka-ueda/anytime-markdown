@@ -54,6 +54,10 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
     refetch();
   }, [refetch]);
 
+  const communitySummary = selectedNode
+    ? graph?.communitySummaries?.[selectedNode.community]
+    : undefined;
+
   if (loading) {
     return (
       <Box sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -168,8 +172,20 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
               リポジトリ: {selectedNode.repo}
             </Typography>
             <Typography variant="caption" display="block">
-              コミュニティ: {selectedNode.communityLabel}
+              コミュニティ: {communitySummary
+                ? `${communitySummary.name} (${selectedNode.communityLabel})`
+                : selectedNode.communityLabel}
             </Typography>
+            {communitySummary?.summary && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                display="block"
+                sx={{ pl: 1.5, mt: 0.25 }}
+              >
+                {communitySummary.summary}
+              </Typography>
+            )}
             <Typography variant="caption" display="block">
               被参照数: {selectedNode.size}
             </Typography>
