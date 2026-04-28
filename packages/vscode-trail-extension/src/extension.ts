@@ -422,6 +422,13 @@ export async function activate(context: vscode.ExtensionContext) {
 			// trail-core 解析と同じ命名規則で elements を作るため、c4-aware 命名が機能する。
 			return synthesizeC4ElementsFromFilesystem(codeGraphRepos);
 		},
+		trailGraphProvider: () => {
+			// Analyze Workspace 既実行時は lastTrailGraph を流用して analyze() の重複呼び出しを避ける。
+			// プライマリリポ（最初の設定）にのみ適用。それ以外は CodeGraphService が個別に analyze() する。
+			const tg = C4Panel.getDataProvider()?.trailGraph;
+			if (!tg || codeGraphRepos.length === 0) return undefined;
+			return { [codeGraphRepos[0].id]: tg };
+		},
 	});
 	trailDataServer.setCodeGraphService(codeGraphService);
 	void codeGraphService.loadFromDisk().then(() => {
