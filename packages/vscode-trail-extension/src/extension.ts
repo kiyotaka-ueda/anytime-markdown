@@ -1,22 +1,25 @@
-import * as vscode from 'vscode';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { C4Panel } from './c4/C4Panel';
-import { TrailPanel } from './trail/TrailPanel';
-import { TrailDataServer } from './server/TrailDataServer';
-import { CodeGraphService } from './graph/CodeGraphService';
-import { TrailDatabase } from './trail/TrailDatabase';
-import { registerC4Commands } from './commands/c4Commands';
-import { TrailLogger } from './utils/TrailLogger';
-import { C4TreeProvider } from './providers/C4TreeProvider';
-import { DatabaseProvider } from './trail/DatabaseProvider';
-import { AiMemoryProvider, AiMemoryItem } from './providers/AiMemoryProvider';
-import { AiNoteProvider, AiNoteItem } from './providers/AiNoteProvider';
-import type { IRemoteTrailStore } from './trail/IRemoteTrailStore';
-import { SupabaseTrailStore } from './trail/SupabaseTrailStore';
-import { PostgresTrailStore } from './trail/PostgresTrailStore';
-import { SyncService } from './trail/SyncService';
+
+import { trailToC4 } from '@anytime-markdown/trail-core';
 import { setupClaudeHooks } from '@anytime-markdown/vscode-common';
+import * as vscode from 'vscode';
+
+import { C4Panel } from './c4/C4Panel';
+import { registerC4Commands } from './commands/c4Commands';
+import { CodeGraphService } from './graph/CodeGraphService';
+import { AiMemoryItem,AiMemoryProvider } from './providers/AiMemoryProvider';
+import { AiNoteItem,AiNoteProvider } from './providers/AiNoteProvider';
+import { C4TreeProvider } from './providers/C4TreeProvider';
+import { TrailDataServer } from './server/TrailDataServer';
+import { DatabaseProvider } from './trail/DatabaseProvider';
+import type { IRemoteTrailStore } from './trail/IRemoteTrailStore';
+import { PostgresTrailStore } from './trail/PostgresTrailStore';
+import { SupabaseTrailStore } from './trail/SupabaseTrailStore';
+import { SyncService } from './trail/SyncService';
+import { TrailDatabase } from './trail/TrailDatabase';
+import { TrailPanel } from './trail/TrailPanel';
+import { TrailLogger } from './utils/TrailLogger';
 
 let trailDataServer: TrailDataServer | undefined;
 let trailDb: TrailDatabase | undefined;
@@ -399,6 +402,16 @@ export async function activate(context: vscode.ExtensionContext) {
 		})),
 		outputDir,
 		excludePatterns: c4ExcludePatterns,
+		c4ElementsProvider: () => {
+			const trailGraph = C4Panel.getDataProvider()?.trailGraph;
+			if (!trailGraph) return undefined;
+			try {
+				return trailToC4(trailGraph).elements;
+			} catch (err) {
+				TrailLogger.error('Failed to derive C4 elements for code graph clustering', err);
+				return undefined;
+			}
+		},
 	});
 	trailDataServer.setCodeGraphService(codeGraphService);
 	void codeGraphService.loadFromDisk().then(() => {
