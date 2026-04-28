@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - Reworked embed excerpt and OGP/frontmatter parsing paths to avoid regex backtracking hotspots (`S5852`)
 - Updated escaping in comment serialization and regex literals to satisfy secure/string-escape Sonar findings (`S7780`)
+- Updated RSS parsing to match the current `@xmldom/xmldom` handler type and keep feed parsing compatible
 
 ## [0.13.2] - 2026-04-26
 
