@@ -2,7 +2,7 @@
   "name": "anytime-trail",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "license": "MIT",
   "publisher": "anytime-trial",
   "repository": {
@@ -300,7 +300,10 @@
             ]
           },
           "default": [
-            { "path": "${workspaceFolder}", "label": "Workspace" }
+            {
+              "path": "${workspaceFolder}",
+              "label": "Workspace"
+            }
           ],
           "markdownDescription": "解析対象リポジトリのリスト。`path`（絶対パス、`${workspaceFolder}` を使用可能）と `label`（表示名）を指定する。デフォルトでは現在のワークスペースのみを解析する。外部リポジトリも対象にしたい場合は明示的に追加する。"
         },
