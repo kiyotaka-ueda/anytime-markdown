@@ -1,22 +1,26 @@
-import * as vscode from 'vscode';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { C4Panel } from './c4/C4Panel';
-import { TrailPanel } from './trail/TrailPanel';
-import { TrailDataServer } from './server/TrailDataServer';
-import { CodeGraphService } from './graph/CodeGraphService';
-import { TrailDatabase } from './trail/TrailDatabase';
-import { registerC4Commands } from './commands/c4Commands';
-import { TrailLogger } from './utils/TrailLogger';
-import { C4TreeProvider } from './providers/C4TreeProvider';
-import { DatabaseProvider } from './trail/DatabaseProvider';
-import { AiMemoryProvider, AiMemoryItem } from './providers/AiMemoryProvider';
-import { AiNoteProvider, AiNoteItem } from './providers/AiNoteProvider';
-import type { IRemoteTrailStore } from './trail/IRemoteTrailStore';
-import { SupabaseTrailStore } from './trail/SupabaseTrailStore';
-import { PostgresTrailStore } from './trail/PostgresTrailStore';
-import { SyncService } from './trail/SyncService';
+
+import { trailToC4 } from '@anytime-markdown/trail-core';
 import { setupClaudeHooks } from '@anytime-markdown/vscode-common';
+import * as vscode from 'vscode';
+
+import { C4Panel } from './c4/C4Panel';
+import { registerC4Commands } from './commands/c4Commands';
+import { CodeGraphService } from './graph/CodeGraphService';
+import { synthesizeC4ElementsFromFilesystem } from './graph/synthesizeC4Elements';
+import { AiMemoryItem,AiMemoryProvider } from './providers/AiMemoryProvider';
+import { AiNoteItem,AiNoteProvider } from './providers/AiNoteProvider';
+import { C4TreeProvider } from './providers/C4TreeProvider';
+import { TrailDataServer } from './server/TrailDataServer';
+import { DatabaseProvider } from './trail/DatabaseProvider';
+import type { IRemoteTrailStore } from './trail/IRemoteTrailStore';
+import { PostgresTrailStore } from './trail/PostgresTrailStore';
+import { SupabaseTrailStore } from './trail/SupabaseTrailStore';
+import { SyncService } from './trail/SyncService';
+import { TrailDatabase } from './trail/TrailDatabase';
+import { TrailPanel } from './trail/TrailPanel';
+import { TrailLogger } from './utils/TrailLogger';
 
 let trailDataServer: TrailDataServer | undefined;
 let trailDb: TrailDatabase | undefined;
@@ -391,14 +395,40 @@ export async function activate(context: vscode.ExtensionContext) {
 	const c4ExcludePatterns = vscode.workspace
 		.getConfiguration('anytimeTrail.c4')
 		.get<string[]>('analyzeExcludePatterns', []);
+	// repo.id は trail viewer のサイドパネルに「リポジトリ」として表示されるため、
+	// 数値インデックスではなく label ベースの slug を使う。重複時は index を付与する。
+	const usedRepoIds = new Set<string>();
+	const codeGraphRepos = configuredRepos.map((r, i) => {
+		const slug = (r.label ?? '').trim().replace(/\s+/g, '-');
+		let id = slug || String(i);
+		if (usedRepoIds.has(id)) id = `${id}-${i}`;
+		usedRepoIds.add(id);
+		return { id, label: r.label, path: expandWorkspace(r.path) };
+	});
 	const codeGraphService = new CodeGraphService({
-		repositories: configuredRepos.map((r, i) => ({
-			id: String(i),
-			label: r.label,
-			path: expandWorkspace(r.path),
-		})),
+		repositories: codeGraphRepos,
 		outputDir,
 		excludePatterns: c4ExcludePatterns,
+		c4ElementsProvider: () => {
+			const trailGraph = C4Panel.getDataProvider()?.trailGraph;
+			if (trailGraph) {
+				try {
+					return trailToC4(trailGraph).elements;
+				} catch (err) {
+					TrailLogger.error('Failed to derive C4 elements from trail graph', err);
+				}
+			}
+			// analyzeWorkspace 未実行時は packages/<pkg>/src/<dir> 構造から合成する。
+			// trail-core 解析と同じ命名規則で elements を作るため、c4-aware 命名が機能する。
+			return synthesizeC4ElementsFromFilesystem(codeGraphRepos);
+		},
+		trailGraphProvider: () => {
+			// Analyze Workspace 既実行時は lastTrailGraph を流用して analyze() の重複呼び出しを避ける。
+			// プライマリリポ（最初の設定）にのみ適用。それ以外は CodeGraphService が個別に analyze() する。
+			const tg = C4Panel.getDataProvider()?.trailGraph;
+			if (!tg || codeGraphRepos.length === 0) return undefined;
+			return { [codeGraphRepos[0].id]: tg };
+		},
 	});
 	trailDataServer.setCodeGraphService(codeGraphService);
 	void codeGraphService.loadFromDisk().then(() => {
