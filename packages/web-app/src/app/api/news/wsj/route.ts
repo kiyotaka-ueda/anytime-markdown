@@ -26,9 +26,9 @@ const RSS_FEEDS = [
 ];
 
 function extractTag(xml: string, tag: string): string {
-    const cdataMatch = new RegExp(`<${tag}[^>]*>\\s*<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>\\s*</${tag}>`).exec(xml);
+    const cdataMatch = new RegExp(String.raw`<${tag}[^>]*>\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*</${tag}>`).exec(xml);
     if (cdataMatch?.[1]) return cdataMatch[1].trim();
-    const match = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`).exec(xml);
+    const match = new RegExp(String.raw`<${tag}[^>]*>([\s\S]*?)</${tag}>`).exec(xml);
     return match?.[1]?.trim() ?? '';
 }
 
