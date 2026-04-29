@@ -1,4 +1,4 @@
-import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
+import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFilesToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
 import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, ImportanceMatrix, ManualGroup, MetricOverlay } from '@anytime-markdown/trail-core/c4';
 import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 import { engine, layoutWithSubgroups, MinimapCanvas, state as graphState } from '@anytime-markdown/graph-core';
@@ -616,16 +616,16 @@ export function C4ViewerCore({
   }, [coverageMatrix, c4Model, currentLevel]);
 
   const defectRiskMap = useMemo<ReadonlyMap<string, number> | null>(() => {
-    if (metricOverlay !== 'defect-risk' || drEntries.length === 0) return null;
+    if (metricOverlay !== 'defect-risk' || drEntries.length === 0 || !c4Model) return null;
     const map = new Map<string, number>();
     for (const entry of drEntries) {
-      const match = /^packages\/([^/]+)\//.exec(entry.filePath);
-      if (!match) continue;
-      const c4Id = `pkg_${match[1]}`;
-      map.set(c4Id, Math.max(map.get(c4Id) ?? 0, entry.score));
+      const mappings = mapFilesToC4Elements([entry.filePath], c4Model.elements);
+      for (const m of mappings) {
+        map.set(m.elementId, Math.max(map.get(m.elementId) ?? 0, entry.score));
+      }
     }
     return map;
-  }, [metricOverlay, drEntries]);
+  }, [metricOverlay, drEntries, c4Model]);
 
   const overlayMap = useMemo(
     () => computeColorMap(metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, defectRiskMap),

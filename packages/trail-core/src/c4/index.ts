@@ -54,6 +54,8 @@ export type { C4ModelPayload } from './c4ModelService';
 
 export type { MetricOverlay, ComplexityClass, ComplexityEntry, ComplexityMatrix } from './types';
 export { computeColorMap } from './metrics/computeColorMap';
+export { mapFilesToC4Elements } from '../domain/engine/c4Mapper';
+export type { C4MappingResult } from '../domain/engine/c4Mapper';
 export type { MessageInput } from './metrics/computeComplexityMatrix';
 export { computeComplexityMatrix } from './metrics/computeComplexityMatrix';
 export { computeImportanceMatrix } from './metrics/computeImportanceMatrix';
