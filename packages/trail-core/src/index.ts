@@ -13,3 +13,10 @@ export { mergeManualIntoC4Model } from './c4/mergeManual';
 
 export type { ServiceEntry } from './c4/services/catalog';
 export { SERVICE_CATALOG, findService, filterServices } from './c4/services/catalog';
+
+export { computeTemporalCoupling } from './temporalCoupling/computeTemporalCoupling';
+export type {
+  CommitFileRow,
+  ComputeTemporalCouplingOptions,
+  TemporalCouplingEdge,
+} from './temporalCoupling/types';

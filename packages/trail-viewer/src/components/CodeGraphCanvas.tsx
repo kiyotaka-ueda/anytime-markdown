@@ -16,11 +16,22 @@ const COMMUNITY_COLORS = [
   '#bab0ac',
 ];
 
+const GHOST_EDGE_LIGHT = '#7c3aed';
+const GHOST_EDGE_DARK = '#c4b5fd';
+
+export interface CodeGraphGhostEdge {
+  readonly source: string;
+  readonly target: string;
+  readonly jaccard: number;
+  readonly coChangeCount: number;
+}
+
 interface CodeGraphCanvasProps {
   readonly graph: CodeGraph;
   readonly highlightedNodes?: ReadonlySet<string>;
   readonly onNodeClick?: (nodeId: string) => void;
   readonly isDark?: boolean;
+  readonly ghostEdges?: ReadonlyArray<CodeGraphGhostEdge>;
 }
 
 export function CodeGraphCanvas({
@@ -28,6 +39,7 @@ export function CodeGraphCanvas({
   highlightedNodes,
   onNodeClick,
   isDark,
+  ghostEdges,
 }: Readonly<CodeGraphCanvasProps>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sigmaRef = useRef<Sigma | null>(null);
@@ -85,8 +97,28 @@ export function CodeGraphCanvas({
       }
     }
 
+    const ghostColor = isDark ? GHOST_EDGE_DARK : GHOST_EDGE_LIGHT;
+    let ghostRendered = 0;
+    for (const ge of ghostEdges ?? []) {
+      if (
+        g.hasNode(ge.source) &&
+        g.hasNode(ge.target) &&
+        !g.hasEdge(ge.source, ge.target) &&
+        !g.hasEdge(ge.target, ge.source)
+      ) {
+        g.addEdge(ge.source, ge.target, {
+          color: ghostColor,
+          size: 1 + ge.jaccard * 3,
+          label: `Temporal J=${ge.jaccard.toFixed(2)}`,
+          forceLabel: true,
+          temporal: true,
+        });
+        ghostRendered++;
+      }
+    }
+
     const sigma = new Sigma(g, containerRef.current, {
-      renderEdgeLabels: false,
+      renderEdgeLabels: ghostRendered > 0,
       defaultEdgeColor: isDark ? '#444' : '#ccc',
       allowInvalidContainer: true,
     });
@@ -100,7 +132,7 @@ export function CodeGraphCanvas({
       sigma.kill();
       sigmaRef.current = null;
     };
-  }, [containerReady, graph, isDark, onNodeClick]);
+  }, [containerReady, graph, isDark, onNodeClick, ghostEdges]);
 
   useEffect(() => {
     const sigma = sigmaRef.current;

@@ -40,8 +40,9 @@ import {
   AI_FIRST_TRY_FIX_WINDOW_MS,
   calculateCost,
   normalizeModelName,
+  computeTemporalCoupling,
 } from '@anytime-markdown/trail-core';
-import type { TrailGraph, IC4ModelStore, C4ModelEntry, C4ModelResult, TrailMessageCommit, MessageCommitInput, ManualElement, ManualRelationship, ManualGroup } from '@anytime-markdown/trail-core';
+import type { TrailGraph, IC4ModelStore, C4ModelEntry, C4ModelResult, TrailMessageCommit, MessageCommitInput, ManualElement, ManualRelationship, ManualGroup, CommitFileRow, TemporalCouplingEdge } from '@anytime-markdown/trail-core';
 import { matchCommitsToMessages } from '@anytime-markdown/trail-core';
 import { JsonlSessionReader } from './JsonlSessionReader';
 import { ExecFileGitService } from './ExecFileGitService';
@@ -68,6 +69,22 @@ const SKIP_TYPES = new Set([
   'last-prompt',
   'queue-operation',
 ]);
+
+const TEMPORAL_COUPLING_EXCLUDE_PATTERNS: readonly RegExp[] = [
+  /\.lock$/,
+  /(^|\/)package-lock\.json$/,
+  /(^|\/)yarn\.lock$/,
+  /(^|\/)pnpm-lock\.yaml$/,
+  /(^|\/)dist\//,
+  /(^|\/)node_modules\//,
+  /\.min\.js$/,
+  /\.map$/,
+  /(^|\/)\.worktrees\//,
+];
+
+export function defaultTemporalCouplingPathFilter(filePath: string): boolean {
+  return !TEMPORAL_COUPLING_EXCLUDE_PATTERNS.some((re) => re.test(filePath));
+}
 
 // ---------------------------------------------------------------------------
 //  Type definitions
@@ -2206,6 +2223,83 @@ export class TrailDatabase {
       }
     }
     return out;
+  }
+
+  /**
+   * 直近 windowDays 日に変更されたファイルから時間的結合（Ghost Edge）を計算する。
+   * 静的依存ペア（current_graphs.graph_json から抽出）は excludePairs として除外する。
+   */
+  fetchTemporalCoupling(options: {
+    repoName: string;
+    windowDays: number;
+    minChangeCount?: number;
+    jaccardThreshold?: number;
+    topK?: number;
+  }): TemporalCouplingEdge[] {
+    const db = this.ensureDb();
+    const {
+      repoName,
+      windowDays,
+      minChangeCount = 5,
+      jaccardThreshold = 0.5,
+      topK = 50,
+    } = options;
+
+    const now = new Date();
+    const toIso = now.toISOString();
+    const fromIso = new Date(now.getTime() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+
+    const result = db.exec(
+      `SELECT cf.commit_hash, cf.file_path
+       FROM commit_files cf
+       WHERE cf.commit_hash IN (
+         SELECT DISTINCT commit_hash FROM session_commits
+         WHERE committed_at >= ? AND committed_at <= ?
+       )
+       ORDER BY cf.commit_hash`,
+      [fromIso, toIso],
+    );
+    const values = result[0]?.values ?? [];
+    const rows: CommitFileRow[] = values.map((r) => ({
+      commitHash: String(r[0] ?? ''),
+      filePath: String(r[1] ?? ''),
+    }));
+
+    const excludePairs = this.buildStaticDependencyPairs(repoName);
+
+    return computeTemporalCoupling(rows, {
+      minChangeCount,
+      jaccardThreshold,
+      topK,
+      maxFilesPerCommit: 50,
+      excludePairs,
+      pathFilter: defaultTemporalCouplingPathFilter,
+    });
+  }
+
+  /**
+   * current_graphs.graph_json の import エッジから、ファイル間の静的依存ペアを抽出する。
+   * 同一ファイル内のシンボル参照は除外する。
+   */
+  private buildStaticDependencyPairs(repoName: string): ReadonlyArray<readonly [string, string]> {
+    const graph = this.getCurrentGraph(repoName);
+    if (!graph) return [];
+    const idToFile = new Map<string, string>();
+    for (const node of graph.nodes) {
+      if (node.filePath) idToFile.set(node.id, node.filePath);
+    }
+    const seen = new Set<string>();
+    const pairs: Array<readonly [string, string]> = [];
+    for (const edge of graph.edges) {
+      const src = idToFile.get(edge.source);
+      const tgt = idToFile.get(edge.target);
+      if (!src || !tgt || src === tgt) continue;
+      const key = src < tgt ? `${src} ${tgt}` : `${tgt} ${src}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      pairs.push([src, tgt]);
+    }
+    return pairs;
   }
 
   /** current_graphs の commit_id を取得する内部ヘルパ */
