@@ -69,8 +69,8 @@ const insertSessionCommit = (
     `INSERT OR IGNORE INTO sessions (
        id, slug, repo_name, version, entrypoint, model, start_time, end_time,
        message_count, file_path, file_size, imported_at
-     ) VALUES (?, ?, ?, ?, '0', '', '', '', '', 0, '', 0, '')`,
-    [sessionId, sessionId, 'p', 'r'],
+     ) VALUES (?, ?, 'r', '0', '', '', '', '', 0, '', 0, '')`,
+    [sessionId, sessionId],
   );
   inner.run(
     `INSERT OR IGNORE INTO session_commits (session_id, commit_hash, committed_at)
