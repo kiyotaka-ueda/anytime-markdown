@@ -316,6 +316,10 @@ describe('TrailDatabase.importSession - Codex token usage', () => {
     expect(sessionCost?.slice(1, 4)).toEqual([60, 12, 40]);
     expect(Number(sessionCost?.[4] ?? 0)).toBeCloseTo(0.0002, 6);
 
+    const execMs = (db as unknown as { getTurnExecMsBySession: (sessionId: string) => Map<string, number> })
+      .getTurnExecMsBySession('codex-token-session');
+    expect(execMs.get('codex-0')).toBe(1000);
+
     db.close();
   });
 });

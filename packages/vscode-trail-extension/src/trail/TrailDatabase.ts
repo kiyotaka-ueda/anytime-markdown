@@ -3626,6 +3626,34 @@ export class TrailDatabase {
         }
       }
     }
+    const fallback = db.exec(
+      `SELECT uuid, type, timestamp, tool_calls, tool_use_result
+       FROM messages
+       WHERE session_id = ?
+       ORDER BY timestamp ASC, uuid ASC`,
+      [sessionId],
+    );
+    const rows = fallback[0]?.values ?? [];
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const uuid = row[0];
+      const type = row[1];
+      const timestamp = row[2];
+      const toolCalls = row[3];
+      if (typeof uuid !== 'string' || map.has(uuid)) continue;
+      if (type !== 'assistant' || typeof timestamp !== 'string' || typeof toolCalls !== 'string') continue;
+      const startMs = new Date(timestamp).getTime();
+      if (!Number.isFinite(startMs)) continue;
+      for (let j = i + 1; j < rows.length; j++) {
+        const next = rows[j];
+        if (next[1] !== 'user' || typeof next[2] !== 'string' || typeof next[4] !== 'string') continue;
+        const endMs = new Date(next[2]).getTime();
+        if (Number.isFinite(endMs) && endMs > startMs) {
+          map.set(uuid, endMs - startMs);
+        }
+        break;
+      }
+    }
     return map;
   }
 
