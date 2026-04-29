@@ -2136,7 +2136,13 @@ export class TrailDatabase {
     const UUID_RE = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/;
 
     // Collect files per session directory (main + subagents grouped)
-    type SessionDir = { sid: string; mainFile: string; subagentFiles: string[]; repoName: string };
+    type SessionDir = {
+      sid: string;
+      mainFile: string;
+      subagentFiles: string[];
+      repoName: string;
+      source: 'claude_code' | 'codex';
+    };
     const sessionDirs: SessionDir[] = [];
 
     for (const projectName of projectDirs) {
@@ -2167,7 +2173,7 @@ export class TrailDatabase {
           }
         } catch { /* no subagents dir */ }
 
-        sessionDirs.push({ sid, mainFile, subagentFiles, repoName: repoName || projectName });
+        sessionDirs.push({ sid, mainFile, subagentFiles, repoName: repoName || projectName, source: 'claude_code' });
       }
     }
 
@@ -2186,7 +2192,7 @@ export class TrailDatabase {
           const normalizedGitRoot = path.resolve(gitRoot);
           if (!normalizedCwd.startsWith(normalizedGitRoot)) continue;
         }
-        sessionDirs.push({ sid, mainFile: filePath, subagentFiles: [], repoName: repoName || 'codex' });
+        sessionDirs.push({ sid, mainFile: filePath, subagentFiles: [], repoName: repoName || 'codex', source: 'codex' });
       }
     } catch {
       // codex sessions may not exist
@@ -2194,7 +2200,16 @@ export class TrailDatabase {
 
     const totalSessions = sessionDirs.length;
     const totalFiles = sessionDirs.reduce((s, d) => s + 1 + d.subagentFiles.length, 0);
-    onProgress?.(`Found ${totalSessions} sessions (${totalFiles} files)`, 0);
+    const claudeSessions = sessionDirs.filter(d => d.source === 'claude_code');
+    const codexSessions = sessionDirs.filter(d => d.source === 'codex');
+    const claudeFiles = claudeSessions.reduce((s, d) => s + 1 + d.subagentFiles.length, 0);
+    const codexFiles = codexSessions.reduce((s, d) => s + 1 + d.subagentFiles.length, 0);
+    onProgress?.(
+      `Found ${totalSessions} sessions (${totalFiles} files): ` +
+        `Claude Code ${claudeSessions.length} sessions (${claudeFiles} files), ` +
+        `Codex ${codexSessions.length} sessions (${codexFiles} files)`,
+      0,
+    );
 
     const BATCH_MESSAGE_LIMIT = 20_000;
     const BATCH_FILE_LIMIT = 100;
