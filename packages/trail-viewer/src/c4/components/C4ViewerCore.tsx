@@ -759,6 +759,19 @@ export function C4ViewerCore({
     return null;
   }, [c4Model, boundaryInfos, selectedElementId]);
 
+  const selectedElementInfo = useMemo(() => {
+    if (!c4Model || !selectedElementId) return null;
+    const element = c4Model.elements.find(e => e.id === selectedElementId);
+    if (!element) return null;
+    let incoming = 0;
+    let outgoing = 0;
+    for (const rel of c4Model.relationships) {
+      if (rel.to === element.id) incoming++;
+      if (rel.from === element.id) outgoing++;
+    }
+    return { element, incoming, outgoing };
+  }, [c4Model, selectedElementId]);
+
   const handleSplitDrag = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     const container = containerRef.current;
@@ -1158,6 +1171,67 @@ export function C4ViewerCore({
                 onViewportChange={(vp) => dispatch({ type: 'SET_VIEWPORT', viewport: vp })}
                 isDark={isDark}
               />
+              {selectedElementInfo && (
+                <Box
+                  role="dialog"
+                  aria-label="Selected C4 element details"
+                  sx={{
+                    position: 'absolute',
+                    top: 146,
+                    right: 8,
+                    width: 240,
+                    maxHeight: 'calc(100% - 158px)',
+                    overflow: 'auto',
+                    zIndex: 10,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '8px',
+                    bgcolor: isDark ? 'rgba(18,18,18,0.92)' : 'rgba(251,249,243,0.94)',
+                    color: colors.text,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                    backdropFilter: 'blur(10px)',
+                    px: 1.5,
+                    py: 1.25,
+                  }}
+                >
+                  <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', textTransform: 'uppercase' }}>
+                    {selectedElementInfo.element.type}
+                  </Typography>
+                  <Typography variant="subtitle2" sx={{ color: colors.text, fontSize: '0.85rem', fontWeight: 700, lineHeight: 1.3, mt: 0.25, wordBreak: 'break-word' }}>
+                    {selectedElementInfo.element.name}
+                  </Typography>
+                  {selectedElementInfo.element.technology && (
+                    <Typography variant="caption" sx={{ display: 'block', color: colors.accent, fontSize: '0.7rem', mt: 0.5, wordBreak: 'break-word' }}>
+                      {selectedElementInfo.element.technology}
+                    </Typography>
+                  )}
+                  {selectedElementInfo.element.description && (
+                    <Typography variant="body2" sx={{ color: colors.textSecondary, fontSize: '0.72rem', lineHeight: 1.45, mt: 1, wordBreak: 'break-word' }}>
+                      {selectedElementInfo.element.description}
+                    </Typography>
+                  )}
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mt: 1.25 }}>
+                    <Box sx={{ borderTop: `1px solid ${colors.border}`, pt: 0.75 }}>
+                      <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.62rem' }}>
+                        In
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.8rem', fontWeight: 700 }}>
+                        {selectedElementInfo.incoming}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ borderTop: `1px solid ${colors.border}`, pt: 0.75 }}>
+                      <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.62rem' }}>
+                        Out
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.8rem', fontWeight: 700 }}>
+                        {selectedElementInfo.outgoing}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.62rem', mt: 1, wordBreak: 'break-all' }}>
+                    {selectedElementInfo.element.id}
+                  </Typography>
+                </Box>
+              )}
               {showContextMenu && contextMenu && (
                 <>
                   {/* オーバーレイ: メニュー外クリックで閉じる */}
