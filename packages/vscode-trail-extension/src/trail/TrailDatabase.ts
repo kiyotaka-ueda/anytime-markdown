@@ -41,8 +41,9 @@ import {
   calculateCost,
   normalizeModelName,
   computeTemporalCoupling,
+  computeConfidenceCoupling,
 } from '@anytime-markdown/trail-core';
-import type { TrailGraph, IC4ModelStore, C4ModelEntry, C4ModelResult, TrailMessageCommit, MessageCommitInput, ManualElement, ManualRelationship, ManualGroup, CommitFileRow, TemporalCouplingEdge } from '@anytime-markdown/trail-core';
+import type { TrailGraph, IC4ModelStore, C4ModelEntry, C4ModelResult, TrailMessageCommit, MessageCommitInput, ManualElement, ManualRelationship, ManualGroup, CommitFileRow, TemporalCouplingEdge, ConfidenceCouplingEdge } from '@anytime-markdown/trail-core';
 import { matchCommitsToMessages } from '@anytime-markdown/trail-core';
 import { JsonlSessionReader } from './JsonlSessionReader';
 import { ExecFileGitService } from './ExecFileGitService';
@@ -85,6 +86,17 @@ const TEMPORAL_COUPLING_EXCLUDE_PATTERNS: readonly RegExp[] = [
 export function defaultTemporalCouplingPathFilter(filePath: string): boolean {
   return !TEMPORAL_COUPLING_EXCLUDE_PATTERNS.some((re) => re.test(filePath));
 }
+
+export type FetchTemporalCouplingOptions = {
+  repoName: string;
+  windowDays: number;
+  minChangeCount?: number;
+  jaccardThreshold?: number;
+  topK?: number;
+  directional?: boolean;
+  confidenceThreshold?: number;
+  directionalDiffThreshold?: number;
+};
 
 // ---------------------------------------------------------------------------
 //  Type definitions
@@ -2228,14 +2240,13 @@ export class TrailDatabase {
   /**
    * 直近 windowDays 日に変更されたファイルから時間的結合（Ghost Edge）を計算する。
    * 静的依存ペア（current_graphs.graph_json から抽出）は excludePairs として除外する。
+   * directional: true の場合は方向性付き Confidence ベースのエッジを返す。
    */
-  fetchTemporalCoupling(options: {
-    repoName: string;
-    windowDays: number;
-    minChangeCount?: number;
-    jaccardThreshold?: number;
-    topK?: number;
-  }): TemporalCouplingEdge[] {
+  fetchTemporalCoupling(options: FetchTemporalCouplingOptions & { directional?: false }): TemporalCouplingEdge[];
+  fetchTemporalCoupling(options: FetchTemporalCouplingOptions & { directional: true }): ConfidenceCouplingEdge[];
+  fetchTemporalCoupling(
+    options: FetchTemporalCouplingOptions,
+  ): TemporalCouplingEdge[] | ConfidenceCouplingEdge[] {
     const db = this.ensureDb();
     const {
       repoName,
@@ -2243,6 +2254,9 @@ export class TrailDatabase {
       minChangeCount = 5,
       jaccardThreshold = 0.5,
       topK = 50,
+      directional = false,
+      confidenceThreshold = 0.5,
+      directionalDiffThreshold = 0.3,
     } = options;
 
     const now = new Date();
@@ -2266,6 +2280,18 @@ export class TrailDatabase {
     }));
 
     const excludePairs = this.buildStaticDependencyPairs(repoName);
+
+    if (directional) {
+      return computeConfidenceCoupling(rows, {
+        minChangeCount,
+        confidenceThreshold,
+        directionalDiffThreshold,
+        topK,
+        maxFilesPerCommit: 50,
+        excludePairs,
+        pathFilter: defaultTemporalCouplingPathFilter,
+      });
+    }
 
     return computeTemporalCoupling(rows, {
       minChangeCount,

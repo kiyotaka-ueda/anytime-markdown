@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 
-import type { TemporalCouplingEdge } from '@anytime-markdown/trail-core';
+import type {
+  ConfidenceCouplingEdge,
+  TemporalCouplingEdge,
+} from '@anytime-markdown/trail-core';
 
 import {
   fetchTemporalCouplingApi,
@@ -14,7 +17,8 @@ export interface UseTemporalCouplingOptions extends TemporalCouplingFetchParams 
 }
 
 export interface UseTemporalCouplingResult {
-  edges: TemporalCouplingEdge[];
+  edges: TemporalCouplingEdge[] | ConfidenceCouplingEdge[];
+  directional: boolean;
   loading: boolean;
   error: Error | null;
 }
@@ -32,10 +36,14 @@ export function useTemporalCoupling(
     threshold,
     topK,
     minChange,
+    directional,
+    confidenceThreshold,
+    directionalDiff,
     debounceMs = DEFAULT_DEBOUNCE_MS,
   } = options;
 
-  const [edges, setEdges] = useState<TemporalCouplingEdge[]>([]);
+  const [edges, setEdges] = useState<TemporalCouplingEdge[] | ConfidenceCouplingEdge[]>([]);
+  const [directionalState, setDirectionalState] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -44,6 +52,7 @@ export function useTemporalCoupling(
     if (!enabled || !serverUrl || !repoName) {
       abortRef.current?.abort();
       setEdges([]);
+      setDirectionalState(false);
       setLoading(false);
       setError(null);
       return;
@@ -58,12 +67,22 @@ export function useTemporalCoupling(
       setError(null);
       fetchTemporalCouplingApi(
         serverUrl,
-        { repoName, windowDays, threshold, topK, minChange },
+        {
+          repoName,
+          windowDays,
+          threshold,
+          topK,
+          minChange,
+          directional,
+          confidenceThreshold,
+          directionalDiff,
+        },
         controller.signal,
       )
         .then((res) => {
           if (controller.signal.aborted) return;
           setEdges(res.edges);
+          setDirectionalState(res.directional === true);
           setLoading(false);
         })
         .catch((e: unknown) => {
@@ -79,7 +98,19 @@ export function useTemporalCoupling(
       clearTimeout(handle);
       controller.abort();
     };
-  }, [enabled, serverUrl, repoName, windowDays, threshold, topK, minChange, debounceMs]);
+  }, [
+    enabled,
+    serverUrl,
+    repoName,
+    windowDays,
+    threshold,
+    topK,
+    minChange,
+    directional,
+    confidenceThreshold,
+    directionalDiff,
+    debounceMs,
+  ]);
 
-  return { edges, loading, error };
+  return { edges, directional: directionalState, loading, error };
 }

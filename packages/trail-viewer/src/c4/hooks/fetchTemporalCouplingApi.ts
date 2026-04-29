@@ -1,11 +1,23 @@
-import type { TemporalCouplingEdge } from '@anytime-markdown/trail-core';
+import type {
+  ConfidenceCouplingEdge,
+  TemporalCouplingEdge,
+} from '@anytime-markdown/trail-core';
 
-export type TemporalCouplingResponse = {
-  edges: TemporalCouplingEdge[];
-  computedAt: string;
-  windowDays: number;
-  totalPairs: number;
-};
+export type TemporalCouplingResponse =
+  | {
+      directional?: false;
+      edges: TemporalCouplingEdge[];
+      computedAt: string;
+      windowDays: number;
+      totalPairs: number;
+    }
+  | {
+      directional: true;
+      edges: ConfidenceCouplingEdge[];
+      computedAt: string;
+      windowDays: number;
+      totalPairs: number;
+    };
 
 export type TemporalCouplingFetchParams = {
   repoName: string;
@@ -13,6 +25,9 @@ export type TemporalCouplingFetchParams = {
   threshold: number;
   topK: number;
   minChange?: number;
+  directional?: boolean;
+  confidenceThreshold?: number;
+  directionalDiff?: number;
 };
 
 export function buildTemporalCouplingUrl(
@@ -25,6 +40,15 @@ export function buildTemporalCouplingUrl(
   qs.set('threshold', String(params.threshold));
   qs.set('topK', String(params.topK));
   if (params.minChange !== undefined) qs.set('minChange', String(params.minChange));
+  if (params.directional) {
+    qs.set('directional', 'true');
+    if (params.confidenceThreshold !== undefined) {
+      qs.set('confidenceThreshold', String(params.confidenceThreshold));
+    }
+    if (params.directionalDiff !== undefined) {
+      qs.set('directionalDiff', String(params.directionalDiff));
+    }
+  }
   return `${serverUrl}/api/temporal-coupling?${qs.toString()}`;
 }
 

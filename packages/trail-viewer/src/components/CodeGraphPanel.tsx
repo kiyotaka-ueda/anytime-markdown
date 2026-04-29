@@ -24,6 +24,9 @@ const DEFAULT_TC_VALUE: TemporalCouplingControlsValue = {
   windowDays: 30,
   threshold: 0.5,
   topK: 50,
+  directional: false,
+  confidenceThreshold: 0.5,
+  directionalDiff: 0.3,
 };
 
 interface CodeGraphPanelProps {
@@ -55,16 +58,30 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
     windowDays: tcValue.windowDays,
     threshold: tcValue.threshold,
     topK: tcValue.topK,
+    directional: tcValue.directional,
+    confidenceThreshold: tcValue.confidenceThreshold,
+    directionalDiff: tcValue.directionalDiff,
   });
 
   const ghostEdges = useMemo<CodeGraphGhostEdge[]>(() => {
     if (!tcRepoId) return [];
-    return rawGhostEdges.map((e) => ({
-      source: toCodeGraphNodeId(tcRepoId, e.source),
-      target: toCodeGraphNodeId(tcRepoId, e.target),
-      jaccard: e.jaccard,
-      coChangeCount: e.coChangeCount,
-    }));
+    return rawGhostEdges.map((e) => {
+      const base: CodeGraphGhostEdge = {
+        source: toCodeGraphNodeId(tcRepoId, e.source),
+        target: toCodeGraphNodeId(tcRepoId, e.target),
+        jaccard: e.jaccard,
+        coChangeCount: e.coChangeCount,
+      };
+      if ('direction' in e) {
+        return {
+          ...base,
+          direction: e.direction,
+          confidenceForward: e.confidenceForward,
+          confidenceBackward: e.confidenceBackward,
+        };
+      }
+      return base;
+    });
   }, [rawGhostEdges, tcRepoId]);
 
   const handleSearch = useCallback(async () => {

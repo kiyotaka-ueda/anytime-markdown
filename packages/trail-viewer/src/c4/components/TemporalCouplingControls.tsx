@@ -13,6 +13,9 @@ export interface TemporalCouplingControlsValue {
   windowDays: number;
   threshold: number;
   topK: number;
+  directional: boolean;
+  confidenceThreshold: number;
+  directionalDiff: number;
 }
 
 export interface TemporalCouplingControlsProps {
@@ -41,6 +44,12 @@ export function TemporalCouplingControls({
   const handleWindow = (days: number): void => onChange({ ...value, windowDays: days });
   const handleThreshold = (threshold: number): void => onChange({ ...value, threshold });
   const handleTopK = (topK: number): void => onChange({ ...value, topK });
+  const handleDirectional = (directional: boolean): void =>
+    onChange({ ...value, directional });
+  const handleConfidenceThreshold = (confidenceThreshold: number): void =>
+    onChange({ ...value, confidenceThreshold });
+  const handleDirectionalDiff = (directionalDiff: number): void =>
+    onChange({ ...value, directionalDiff });
 
   return (
     <Box
@@ -69,6 +78,19 @@ export function TemporalCouplingControls({
         label={<Typography variant="caption">Ghost Edges</Typography>}
       />
 
+      <FormControlLabel
+        control={
+          <Switch
+            checked={value.directional}
+            onChange={(e) => handleDirectional(e.target.checked)}
+            inputProps={{ 'aria-label': '方向性付きエッジを表示' }}
+            disabled={!value.enabled}
+            size="small"
+          />
+        }
+        label={<Typography variant="caption">方向性</Typography>}
+      />
+
       <FormControl size="small" sx={{ minWidth: 88 }} disabled={!value.enabled}>
         <InputLabel id="tc-window-label">期間</InputLabel>
         <Select
@@ -86,23 +108,68 @@ export function TemporalCouplingControls({
         </Select>
       </FormControl>
 
-      <Box sx={{ minWidth: 140, display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Typography variant="caption" sx={{ whiteSpace: 'nowrap' }}>
-          閾値 {value.threshold.toFixed(2)}
-        </Typography>
-        <Slider
-          value={value.threshold}
-          min={0}
-          max={1}
-          step={0.05}
-          size="small"
-          disabled={!value.enabled}
-          onChange={(_, v) => handleThreshold(Array.isArray(v) ? v[0] : v)}
-          aria-label="Jaccard 閾値"
-          aria-valuetext={`Jaccard ${value.threshold.toFixed(2)}`}
-          sx={{ flex: 1 }}
-        />
-      </Box>
+      {!value.directional && (
+        <Box sx={{ minWidth: 140, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="caption" sx={{ whiteSpace: 'nowrap' }}>
+            閾値 {value.threshold.toFixed(2)}
+          </Typography>
+          <Slider
+            value={value.threshold}
+            min={0}
+            max={1}
+            step={0.05}
+            size="small"
+            disabled={!value.enabled}
+            onChange={(_, v) => handleThreshold(Array.isArray(v) ? v[0] : v)}
+            aria-label="Jaccard 閾値"
+            aria-valuetext={`Jaccard ${value.threshold.toFixed(2)}`}
+            sx={{ flex: 1 }}
+          />
+        </Box>
+      )}
+
+      {value.directional && (
+        <>
+          <Box sx={{ minWidth: 140, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="caption" sx={{ whiteSpace: 'nowrap' }}>
+              Conf {value.confidenceThreshold.toFixed(2)}
+            </Typography>
+            <Slider
+              value={value.confidenceThreshold}
+              min={0}
+              max={1}
+              step={0.05}
+              size="small"
+              disabled={!value.enabled}
+              onChange={(_, v) =>
+                handleConfidenceThreshold(Array.isArray(v) ? v[0] : v)
+              }
+              aria-label="Confidence 閾値"
+              aria-valuetext={`Confidence ${value.confidenceThreshold.toFixed(2)}`}
+              sx={{ flex: 1 }}
+            />
+          </Box>
+          <Box sx={{ minWidth: 140, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="caption" sx={{ whiteSpace: 'nowrap' }}>
+              Diff {value.directionalDiff.toFixed(2)}
+            </Typography>
+            <Slider
+              value={value.directionalDiff}
+              min={0}
+              max={1}
+              step={0.05}
+              size="small"
+              disabled={!value.enabled}
+              onChange={(_, v) =>
+                handleDirectionalDiff(Array.isArray(v) ? v[0] : v)
+              }
+              aria-label="方向差分閾値"
+              aria-valuetext={`方向差分 ${value.directionalDiff.toFixed(2)}`}
+              sx={{ flex: 1 }}
+            />
+          </Box>
+        </>
+      )}
 
       <FormControl size="small" sx={{ minWidth: 80 }} disabled={!value.enabled}>
         <InputLabel id="tc-topk-label">Top-K</InputLabel>

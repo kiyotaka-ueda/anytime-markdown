@@ -39,6 +39,48 @@ describe('buildTemporalCouplingUrl', () => {
     });
     expect(url).toContain('repo=my+repo%2Fx');
   });
+
+  it('omits directional params when directional is false/undefined', () => {
+    const url = buildTemporalCouplingUrl('http://x', {
+      repoName: 'r',
+      windowDays: 7,
+      threshold: 0.3,
+      topK: 10,
+    });
+    expect(url).not.toContain('directional=');
+    expect(url).not.toContain('confidenceThreshold=');
+    expect(url).not.toContain('directionalDiff=');
+  });
+
+  it('includes directional params when directional=true', () => {
+    const url = buildTemporalCouplingUrl('http://x', {
+      repoName: 'r',
+      windowDays: 7,
+      threshold: 0.3,
+      topK: 10,
+      directional: true,
+      confidenceThreshold: 0.5,
+      directionalDiff: 0.3,
+    });
+    expect(url).toContain('directional=true');
+    expect(url).toContain('confidenceThreshold=0.5');
+    expect(url).toContain('directionalDiff=0.3');
+  });
+
+  it('omits directional sub-params when directional flag is false', () => {
+    const url = buildTemporalCouplingUrl('http://x', {
+      repoName: 'r',
+      windowDays: 7,
+      threshold: 0.3,
+      topK: 10,
+      directional: false,
+      confidenceThreshold: 0.5,
+      directionalDiff: 0.3,
+    });
+    expect(url).not.toContain('directional=true');
+    expect(url).not.toContain('confidenceThreshold=');
+    expect(url).not.toContain('directionalDiff=');
+  });
 });
 
 describe('fetchTemporalCouplingApi', () => {
@@ -83,6 +125,46 @@ describe('fetchTemporalCouplingApi', () => {
         topK: 50,
       }),
     ).rejects.toThrow(/500/);
+  });
+
+  it('parses directional response shape', async () => {
+    const mockResponse = {
+      directional: true,
+      edges: [
+        {
+          source: 'login.ts',
+          target: 'auth.ts',
+          direction: 'A→B',
+          confidenceForward: 1.0,
+          confidenceBackward: 0.25,
+          coChangeCount: 1,
+          sourceChangeCount: 1,
+          targetChangeCount: 4,
+          jaccard: 0.25,
+        },
+      ],
+      computedAt: '2026-04-29T00:00:00.000Z',
+      windowDays: 30,
+      totalPairs: 1,
+    };
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => mockResponse,
+    }) as unknown as typeof fetch;
+
+    const res = await fetchTemporalCouplingApi('http://x', {
+      repoName: 'r',
+      windowDays: 30,
+      threshold: 0.5,
+      topK: 50,
+      directional: true,
+      confidenceThreshold: 0.5,
+      directionalDiff: 0.3,
+    });
+    expect(res).toEqual(mockResponse);
+    if ('directional' in res && res.directional === true) {
+      expect(res.edges[0].direction).toBe('A→B');
+    }
   });
 
   it('passes AbortSignal to fetch', async () => {

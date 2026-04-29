@@ -577,9 +577,33 @@ export class TrailDataServer {
     const threshold = clampFloat(params.get('threshold'), 0.5, 0, 1);
     const topK = clampInt(params.get('topK'), 50, 1, 500);
     const minChange = clampInt(params.get('minChange'), 5, 1, 1000);
+    const directional = params.get('directional') === 'true';
+    const confidenceThreshold = clampFloat(params.get('confidenceThreshold'), 0.5, 0, 1);
+    const directionalDiff = clampFloat(params.get('directionalDiff'), 0.3, 0, 1);
 
     try {
       const computedAt = new Date().toISOString();
+      if (directional) {
+        const edges = this.trailDb.fetchTemporalCoupling({
+          repoName,
+          windowDays,
+          minChangeCount: minChange,
+          topK,
+          directional: true,
+          confidenceThreshold,
+          directionalDiffThreshold: directionalDiff,
+        });
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({
+          directional: true,
+          edges,
+          computedAt,
+          windowDays,
+          totalPairs: edges.length,
+        }));
+        return;
+      }
+
       const edges = this.trailDb.fetchTemporalCoupling({
         repoName,
         windowDays,
