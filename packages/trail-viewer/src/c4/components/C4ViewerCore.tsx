@@ -36,6 +36,9 @@ const DRILL_SCOPE_TYPES = new Set(['system', 'container', 'containerDb', 'compon
 function matchesDocScope(docScope: readonly string[], elementId: string): boolean {
   return docScope.some(scope => scope === elementId || scope.startsWith(`${elementId}/`));
 }
+function formatPct(value: number): string {
+  return `${Math.round(value)}%`;
+}
 import { AddElementDialog, AddRelationshipDialog } from './C4EditDialogs';
 import type { C4ElementKind, ElementFormData, RelationshipFormData } from './C4EditDialogs';
 import type { ExportedSymbol, FlowGraph } from '@anytime-markdown/trail-core/analyzer';
@@ -773,8 +776,19 @@ export function C4ViewerCore({
       if (rel.from === element.id) outgoing++;
     }
     const documents = (docLinks ?? []).filter(doc => matchesDocScope(doc.c4Scope, element.id));
-    return { element, incoming, outgoing, documents };
-  }, [c4Model, docLinks, selectedElementId]);
+    const coverage = coverageMatrix?.entries.find(entry => entry.elementId === element.id) ?? null;
+    const complexity = complexityMatrix?.entries.find(entry => entry.elementId === element.id) ?? null;
+    const importance = importanceMatrix?.[element.id] ?? null;
+    const defectRisk = defectRiskMap?.get(element.id) ?? null;
+    const dsmIndex = filteredDsmMatrix?.nodes.findIndex(node => node.id === element.id) ?? -1;
+    const dsm = dsmIndex >= 0 && filteredDsmMatrix
+      ? {
+          out: filteredDsmMatrix.adjacency[dsmIndex]?.reduce((sum, value) => sum + (value > 0 ? 1 : 0), 0) ?? 0,
+          in: filteredDsmMatrix.adjacency.reduce((sum, row) => sum + (row[dsmIndex] > 0 ? 1 : 0), 0),
+        }
+      : null;
+    return { element, incoming, outgoing, documents, coverage, complexity, importance, defectRisk, dsm };
+  }, [c4Model, complexityMatrix, coverageMatrix, defectRiskMap, docLinks, filteredDsmMatrix, importanceMatrix, selectedElementId]);
 
   const handleSplitDrag = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -1232,6 +1246,61 @@ export function C4ViewerCore({
                   <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.62rem', mt: 1, wordBreak: 'break-all' }}>
                     {selectedElementInfo.element.id}
                   </Typography>
+                  <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 1 }}>
+                    <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700, mb: 0.75 }}>
+                      Metrics
+                    </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
+                      <Box>
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
+                          Coverage
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
+                          {selectedElementInfo.coverage ? formatPct(selectedElementInfo.coverage.lines.pct) : '-'}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
+                          Branches
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
+                          {selectedElementInfo.coverage ? formatPct(selectedElementInfo.coverage.branches.pct) : '-'}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
+                          Complexity
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {selectedElementInfo.complexity?.highest ?? '-'}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
+                          Importance
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
+                          {selectedElementInfo.importance != null ? Math.round(selectedElementInfo.importance) : '-'}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
+                          DSM
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
+                          {selectedElementInfo.dsm ? `${selectedElementInfo.dsm.in}/${selectedElementInfo.dsm.out}` : '-'}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
+                          Defect
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
+                          {selectedElementInfo.defectRisk != null ? Math.round(selectedElementInfo.defectRisk) : '-'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
                   <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 1 }}>
                     <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700, mb: 0.5 }}>
                       Documents
