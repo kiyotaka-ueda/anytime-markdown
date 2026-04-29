@@ -328,6 +328,8 @@ interface RawLine {
       speed?: string;
     };
   };
+  payload?: Record<string, unknown>;
+  call_id?: string;
 }
 
 interface RawContentBlock {
@@ -402,6 +404,153 @@ function extractToolCalls(
     .filter((b) => b.type === 'tool_use')
     .map((b) => ({ id: b.id ?? '', name: b.name ?? '', input: b.input ?? {} }));
   return calls.length > 0 ? JSON.stringify(calls) : null;
+}
+
+function extractCodexText(content: unknown): string | null {
+  if (!Array.isArray(content)) return null;
+  const texts: string[] = [];
+  for (const block of content) {
+    if (!block || typeof block !== 'object') continue;
+    const text = (block as Record<string, unknown>).text;
+    if (typeof text === 'string' && text.trim()) texts.push(text);
+  }
+  return texts.length > 0 ? texts.join('\n') : null;
+}
+
+function collectJsonlFilesRecursive(rootDir: string): string[] {
+  const results: string[] = [];
+  function walk(dir: string): void {
+    let entries: string[] = [];
+    try { entries = fs.readdirSync(dir); } catch { return; }
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry);
+      let stat: fs.Stats;
+      try { stat = fs.statSync(fullPath); } catch { continue; }
+      if (stat.isDirectory()) {
+        walk(fullPath);
+      } else if (stat.isFile() && entry.endsWith('.jsonl')) {
+        results.push(fullPath);
+      }
+    }
+  }
+  walk(rootDir);
+  return results;
+}
+
+function normalizeCodexRecords(records: readonly RawLine[], fallbackSessionId: string): {
+  normalized: RawLine[];
+  sessionId: string;
+  source: 'codex';
+} {
+  const normalized: RawLine[] = [];
+  let seq = 0;
+  let sessionId = fallbackSessionId;
+
+  for (const record of records) {
+    const timestamp = typeof record.timestamp === 'string' ? record.timestamp : '';
+    if (record.type === 'session_meta' && record.payload && typeof record.payload === 'object') {
+      const payload = record.payload as Record<string, unknown>;
+      const id = payload.id;
+      if (typeof id === 'string' && id) sessionId = id;
+      continue;
+    }
+    if (record.type === 'event_msg' && record.payload && typeof record.payload === 'object') {
+      const payload = record.payload as Record<string, unknown>;
+      if (payload.type === 'task_started') {
+        continue;
+      }
+      if (payload.type === 'agent_message' && typeof payload.message === 'string') {
+        normalized.push({
+          uuid: `codex-${seq++}`,
+          sessionId,
+          type: 'assistant',
+          timestamp,
+          message: { content: payload.message },
+        });
+      }
+      continue;
+    }
+    if (record.type !== 'response_item' || !record.payload || typeof record.payload !== 'object') continue;
+    const payload = record.payload as Record<string, unknown>;
+    const payloadType = typeof payload.type === 'string' ? payload.type : '';
+    if (payloadType === 'message') {
+      const role = typeof payload.role === 'string' ? payload.role : '';
+      if (role !== 'user' && role !== 'assistant' && role !== 'developer' && role !== 'system') continue;
+      const text = extractCodexText(payload.content);
+      const normalizedType: 'user' | 'assistant' = role === 'user' ? 'user' : 'assistant';
+      normalized.push({
+        uuid: `codex-${seq++}`,
+        sessionId,
+        type: normalizedType,
+        subtype: role,
+        timestamp,
+        message: { content: text ?? '' },
+      });
+      continue;
+    }
+    if (payloadType === 'function_call' || payloadType === 'custom_tool_call') {
+      const id = typeof payload.call_id === 'string' ? payload.call_id : `codex-call-${seq}`;
+      const name = typeof payload.name === 'string' ? payload.name : 'tool';
+      const rawInput = payloadType === 'function_call' ? payload.arguments : payload.input;
+      let parsedInput: Record<string, unknown> = {};
+      if (typeof rawInput === 'string' && rawInput.trim()) {
+        try { parsedInput = JSON.parse(rawInput) as Record<string, unknown>; } catch { parsedInput = { raw: rawInput }; }
+      } else if (rawInput && typeof rawInput === 'object') {
+        parsedInput = rawInput as Record<string, unknown>;
+      }
+      normalized.push({
+        uuid: `codex-${seq++}`,
+        sessionId,
+        type: 'assistant',
+        timestamp,
+        message: {
+          content: [{ type: 'tool_use', id, name, input: parsedInput }],
+        },
+      });
+      continue;
+    }
+    if (payloadType === 'function_call_output' || payloadType === 'custom_tool_call_output') {
+      const id = typeof payload.call_id === 'string' ? payload.call_id : '';
+      const output = typeof payload.output === 'string'
+        ? payload.output
+        : JSON.stringify(payload.output ?? '');
+      normalized.push({
+        uuid: `codex-${seq++}`,
+        sessionId,
+        type: 'user',
+        timestamp,
+        message: {
+          content: [{
+            type: 'tool_result',
+            tool_use_id: id,
+            content: output,
+            is_error: false,
+          }] as unknown as readonly RawContentBlock[],
+        },
+      });
+      continue;
+    }
+    if (payloadType === 'token_count' && payload.info && typeof payload.info === 'object') {
+      const info = payload.info as Record<string, unknown>;
+      const last = info.last_token_usage as Record<string, unknown> | undefined;
+      if (last && normalized.length > 0) {
+        const tail = normalized[normalized.length - 1];
+        if (tail.type === 'assistant') {
+          tail.message = {
+            ...(tail.message ?? {}),
+            usage: {
+              input_tokens: Number(last.input_tokens ?? 0),
+              output_tokens: Number(last.output_tokens ?? 0),
+              cache_read_input_tokens: Number(last.cached_input_tokens ?? 0),
+              cache_creation_input_tokens: 0,
+            },
+          };
+        }
+      }
+      continue;
+    }
+  }
+  return { normalized, sessionId, source: 'codex' };
 }
 
 /**
@@ -1527,6 +1676,28 @@ export class TrailDatabase {
     return match ? match[1] : null;
   }
 
+  private readCodexSessionMeta(filePath: string): { cwd: string | null } | null {
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        let rec: RawLine;
+        try {
+          rec = JSON.parse(trimmed) as RawLine;
+        } catch {
+          continue;
+        }
+        if (rec.type !== 'session_meta' || !rec.payload || typeof rec.payload !== 'object') continue;
+        const cwd = (rec.payload as Record<string, unknown>).cwd;
+        return { cwd: typeof cwd === 'string' ? cwd : null };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   resolveCommits(sessionId: string, gitRoot: string): number {
     const db = this.ensureDb();
     const range = this.getSessionTimeRange(sessionId);
@@ -1702,15 +1873,25 @@ export class TrailDatabase {
     // この JSONL 内の全メッセージに付与する。古いセッションは meta.json なし → NULL のまま。
     const fileSubagentType = isSubagent ? readSubagentTypeFromMeta(filePath) : null;
 
-    const parsed: RawLine[] = [];
+    const parsedRaw: RawLine[] = [];
     for (const line of lines) {
       try {
-        parsed.push(JSON.parse(line) as RawLine);
+        parsedRaw.push(JSON.parse(line) as RawLine);
       } catch {
         // Skip malformed lines
       }
     }
 
+    if (parsedRaw.length === 0) return 0;
+
+    const fallbackSessionId = path.basename(filePath).replace(/\.jsonl$/i, '');
+    const isCodex = parsedRaw.some(
+      (r) => r.type === 'session_meta' || r.type === 'response_item' || r.type === 'event_msg',
+    );
+    const parsed: RawLine[] = isCodex
+      ? normalizeCodexRecords(parsedRaw, fallbackSessionId).normalized
+      : parsedRaw;
+    const source: 'claude_code' | 'codex' = isCodex ? 'codex' : 'claude_code';
     if (parsed.length === 0) return 0;
 
     // Extract session metadata
@@ -1742,7 +1923,7 @@ export class TrailDatabase {
       messageCount++;
     }
 
-    if (!sessionId) return 0;
+    if (!sessionId) sessionId = fallbackSessionId;
 
     const fileSize = fs.statSync(filePath).size;
     const importedAt = new Date().toISOString();
@@ -1754,7 +1935,7 @@ export class TrailDatabase {
         db.run(INSERT_SESSION, [
           sessionId, slug, projectName, repoName, version,
           entrypoint, model, startTime, endTime, messageCount,
-          filePath, fileSize, importedAt, 'claude_code',
+          filePath, fileSize, importedAt, source,
         ]);
       }
 
@@ -1856,6 +2037,7 @@ export class TrailDatabase {
     gitRoot?: string,
   ): Promise<{ imported: number; skipped: number; commitsResolved: number; releasesResolved: number; releasesAnalyzed: number; coverageImported: number; messageCommitsBackfilled: number }> {
     const projectsDir = path.join(os.homedir(), '.claude', 'projects');
+    const codexSessionsDir = path.join(os.homedir(), '.codex', 'sessions');
     const repoName = gitRoot ? path.basename(gitRoot) : '';
     let imported = 0;
     let skipped = 0;
@@ -1907,6 +2089,27 @@ export class TrailDatabase {
 
         sessionDirs.push({ sid, mainFile, subagentFiles, projectName });
       }
+    }
+
+    // Codex sessions (~/.codex/sessions/**/rollout-*.jsonl)
+    try {
+      const codexFiles = collectJsonlFilesRecursive(codexSessionsDir).filter((f: string) =>
+        path.basename(f).startsWith('rollout-'),
+      );
+      for (const filePath of codexFiles) {
+        const sidMatch = filePath.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i);
+        const sid = sidMatch?.[1] ?? path.basename(filePath, '.jsonl');
+        if (gitRoot) {
+          const meta = this.readCodexSessionMeta(filePath);
+          if (!meta?.cwd) continue;
+          const normalizedCwd = path.resolve(meta.cwd);
+          const normalizedGitRoot = path.resolve(gitRoot);
+          if (!normalizedCwd.startsWith(normalizedGitRoot)) continue;
+        }
+        sessionDirs.push({ sid, mainFile: filePath, subagentFiles: [], projectName: 'codex' });
+      }
+    } catch {
+      // codex sessions may not exist
     }
 
     const totalSessions = sessionDirs.length;
