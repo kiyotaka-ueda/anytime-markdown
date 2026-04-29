@@ -23,7 +23,7 @@ import Typography from '@mui/material/Typography';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import { useTrailI18n } from '../../i18n';
-import { getC4Colors } from '../c4Theme';
+import { DOC_TYPE_COLORS, getC4Colors } from '../c4Theme';
 import { useDefectRisk } from '../hooks/useDefectRisk';
 
 const UNKNOWN_REPO_KEY = '__unknown__';
@@ -33,6 +33,9 @@ const CURRENT_RELEASE_TAG = 'current';
 const FILTER_CHECKABLE_TYPES = new Set(['container', 'containerDb', 'component'] as const);
 /** ドリルダウン時のスコープに含まれる型 */
 const DRILL_SCOPE_TYPES = new Set(['system', 'container', 'containerDb', 'component'] as const);
+function matchesDocScope(docScope: readonly string[], elementId: string): boolean {
+  return docScope.some(scope => scope === elementId || scope.startsWith(`${elementId}/`));
+}
 import { AddElementDialog, AddRelationshipDialog } from './C4EditDialogs';
 import type { C4ElementKind, ElementFormData, RelationshipFormData } from './C4EditDialogs';
 import type { ExportedSymbol, FlowGraph } from '@anytime-markdown/trail-core/analyzer';
@@ -769,8 +772,9 @@ export function C4ViewerCore({
       if (rel.to === element.id) incoming++;
       if (rel.from === element.id) outgoing++;
     }
-    return { element, incoming, outgoing };
-  }, [c4Model, selectedElementId]);
+    const documents = (docLinks ?? []).filter(doc => matchesDocScope(doc.c4Scope, element.id));
+    return { element, incoming, outgoing, documents };
+  }, [c4Model, docLinks, selectedElementId]);
 
   const handleSplitDrag = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -1230,6 +1234,57 @@ export function C4ViewerCore({
                   <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.62rem', mt: 1, wordBreak: 'break-all' }}>
                     {selectedElementInfo.element.id}
                   </Typography>
+                  <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 1 }}>
+                    <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700, mb: 0.5 }}>
+                      Documents
+                    </Typography>
+                    {selectedElementInfo.documents.length === 0 ? (
+                      <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.68rem' }}>
+                        No linked documents
+                      </Typography>
+                    ) : (
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                        {selectedElementInfo.documents.map(doc => (
+                          <Button
+                            key={doc.path}
+                            size="small"
+                            onClick={() => onDocLinkClick?.(doc)}
+                            sx={{
+                              justifyContent: 'flex-start',
+                              minHeight: 26,
+                              px: 0.5,
+                              py: 0.25,
+                              color: colors.text,
+                              textTransform: 'none',
+                              '&:hover': { bgcolor: colors.hover },
+                            }}
+                          >
+                            <Box
+                              component="span"
+                              sx={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                height: 16,
+                                px: 0.5,
+                                mr: 0.75,
+                                borderRadius: '4px',
+                                bgcolor: DOC_TYPE_COLORS[doc.type] ?? '#757575',
+                                color: '#000',
+                                fontSize: '0.58rem',
+                                fontWeight: 700,
+                                flexShrink: 0,
+                              }}
+                            >
+                              {doc.type}
+                            </Box>
+                            <Typography component="span" sx={{ fontSize: '0.7rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {doc.title}
+                            </Typography>
+                          </Button>
+                        ))}
+                      </Box>
+                    )}
+                  </Box>
                 </Box>
               )}
               {showContextMenu && contextMenu && (
