@@ -210,6 +210,13 @@ export interface TrailI18n {
   'c4.copyPath': string;
   'c4.frameFilter.reset': string;
   'c4.elementPanel.searchPlaceholder': string;
+  'c4.popup.metrics': string;
+  'c4.popup.metric.coverage': string;
+  'c4.popup.metric.branches': string;
+  'c4.popup.metric.complexity': string;
+  'c4.popup.metric.importance': string;
+  'c4.popup.metric.dsm': string;
+  'c4.popup.metric.defectRisk': string;
   // combined (analytics)
   'analytics.combined.tool': string;
   'analytics.combined.count': string;

@@ -1248,12 +1248,12 @@ export function C4ViewerCore({
                   </Typography>
                   <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 1 }}>
                     <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700, mb: 0.75 }}>
-                      Metrics
+                      {t('c4.popup.metrics')}
                     </Typography>
                     <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
                       <Box>
                         <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
-                          Coverage
+                          {t('c4.popup.metric.coverage')}
                         </Typography>
                         <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
                           {selectedElementInfo.coverage ? formatPct(selectedElementInfo.coverage.lines.pct) : '-'}
@@ -1261,7 +1261,7 @@ export function C4ViewerCore({
                       </Box>
                       <Box>
                         <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
-                          Branches
+                          {t('c4.popup.metric.branches')}
                         </Typography>
                         <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
                           {selectedElementInfo.coverage ? formatPct(selectedElementInfo.coverage.branches.pct) : '-'}
@@ -1269,7 +1269,7 @@ export function C4ViewerCore({
                       </Box>
                       <Box>
                         <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
-                          Complexity
+                          {t('c4.popup.metric.complexity')}
                         </Typography>
                         <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {selectedElementInfo.complexity?.highest ?? '-'}
@@ -1277,7 +1277,7 @@ export function C4ViewerCore({
                       </Box>
                       <Box>
                         <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
-                          Importance
+                          {t('c4.popup.metric.importance')}
                         </Typography>
                         <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
                           {selectedElementInfo.importance != null ? Math.round(selectedElementInfo.importance) : '-'}
@@ -1285,7 +1285,7 @@ export function C4ViewerCore({
                       </Box>
                       <Box>
                         <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
-                          DSM
+                          {t('c4.popup.metric.dsm')}
                         </Typography>
                         <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
                           {selectedElementInfo.dsm ? `${selectedElementInfo.dsm.in}/${selectedElementInfo.dsm.out}` : '-'}
@@ -1293,7 +1293,7 @@ export function C4ViewerCore({
                       </Box>
                       <Box>
                         <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
-                          Defect
+                          {t('c4.popup.metric.defectRisk')}
                         </Typography>
                         <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
                           {selectedElementInfo.defectRisk != null ? Math.round(selectedElementInfo.defectRisk) : '-'}
