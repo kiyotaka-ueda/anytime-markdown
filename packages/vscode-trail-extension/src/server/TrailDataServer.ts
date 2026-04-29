@@ -521,6 +521,11 @@ export class TrailDataServer {
       return;
     }
 
+    if (pathname === '/api/defect-risk' && method === 'GET') {
+      this.handleDefectRisk(res, parsed.searchParams);
+      return;
+    }
+
     res.writeHead(404);
     res.end();
   }
@@ -645,6 +650,23 @@ export class TrailDataServer {
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
       TrailLogger.error(`/api/temporal-coupling failed: ${err.message}\n${err.stack ?? ''}`);
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: err.message }));
+    }
+  }
+
+  private handleDefectRisk(res: http.ServerResponse, params: URLSearchParams): void {
+    const windowDays = clampInt(params.get('windowDays'), 90, 1, 365);
+    const halfLifeDays = clampInt(params.get('halfLifeDays'), 90, 1, 730);
+
+    try {
+      const entries = this.trailDb.fetchDefectRisk({ windowDays, halfLifeDays });
+      const computedAt = new Date().toISOString();
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({ entries, computedAt, windowDays, halfLifeDays, totalFiles: entries.length }));
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      TrailLogger.error(`/api/defect-risk failed: ${err.message}\n${err.stack ?? ''}`);
       res.writeHead(500, JSON_HEADERS);
       res.end(JSON.stringify({ error: err.message }));
     }
