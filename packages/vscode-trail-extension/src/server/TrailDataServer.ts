@@ -2134,7 +2134,19 @@ function scanPromptFiles(): PromptEntry[] {
     // skills dir may not exist
   }
 
-  // 6. settings.json
+  // 6. Scripts
+  const scriptsDir = path.join(claudeDir, 'scripts');
+  try {
+    for (const f of fs.readdirSync(scriptsDir)) {
+      const scriptFile = path.join(scriptsDir, f);
+      if (!fs.existsSync(scriptFile) || !fs.statSync(scriptFile).isFile()) continue;
+      addFile(scriptFile, ['script']);
+    }
+  } catch {
+    // scripts dir may not exist
+  }
+
+  // 7. settings.json
   const settingsFile = path.join(claudeDir, 'settings.json');
   try {
     const stat = fs.statSync(settingsFile);
