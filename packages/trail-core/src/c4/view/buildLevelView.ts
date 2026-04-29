@@ -28,6 +28,18 @@ function cloneDoc(doc: GraphDocument): GraphDocument {
   };
 }
 
+export interface BuildLevelViewOptions {
+  readonly showAncestorFrames?: boolean;
+}
+
+function stripHiddenGroupIds(nodes: readonly GraphNode[], visibleNodeIds: ReadonlySet<string>): GraphNode[] {
+  return nodes.map((node) => {
+    if (!node.groupId || visibleNodeIds.has(node.groupId)) return node;
+    const { groupId: _groupId, ...rest } = node;
+    return rest;
+  });
+}
+
 /**
  * C4 レベルに応じた表示用 GraphDocument を構築する。
  *
@@ -36,8 +48,25 @@ function cloneDoc(doc: GraphDocument): GraphDocument {
  * - L2: L3/L4 を非表示、L2 フレームを矩形ノードに変換、L1 フレームを保持
  * - L1: L1 フレームのみ矩形表示
  */
-export function buildLevelView(doc: GraphDocument, level: number): GraphDocument {
-  if (level >= 4) return cloneDoc(doc);
+export function buildLevelView(
+  doc: GraphDocument,
+  level: number,
+  options: BuildLevelViewOptions = {},
+): GraphDocument {
+  const showAncestorFrames = options.showAncestorFrames ?? true;
+
+  if (level >= 4) {
+    const cloned = cloneDoc(doc);
+    if (showAncestorFrames) return cloned;
+    const visibleNodes = cloned.nodes.filter(n => n.type !== 'frame');
+    const visibleNodeIds = new Set(visibleNodes.map(n => n.id));
+    const visibleEdges = cloned.edges.filter((e) => {
+      const fromId = e.from.nodeId;
+      const toId = e.to.nodeId;
+      return fromId && toId && visibleNodeIds.has(fromId) && visibleNodeIds.has(toId);
+    });
+    return { ...cloned, nodes: stripHiddenGroupIds(visibleNodes, visibleNodeIds), edges: visibleEdges };
+  }
 
   // system フレーム（depth=1）がある場合、表示可能な深さを +1 する
   const hasSystemFrame = doc.nodes.some(
@@ -58,6 +87,7 @@ export function buildLevelView(doc: GraphDocument, level: number): GraphDocument
     if (node.type === 'frame') {
       const depth = getFrameDepth(node, doc.nodes);
       if (depth > maxFrameDepth) continue;
+      if (!showAncestorFrames && depth < maxFrameDepth) continue;
       // depth == maxFrameDepth、または子要素なしの中間フレーム（手動登録等）は rect に変換
       const isLeaf = depth === maxFrameDepth || !framesWithChildren.has(node.id);
       if (isLeaf) {
@@ -88,6 +118,9 @@ export function buildLevelView(doc: GraphDocument, level: number): GraphDocument
       }
     }
   }
+  const nodesWithoutHiddenGroups = showAncestorFrames
+    ? visibleNodes
+    : stripHiddenGroupIds(visibleNodes, visibleNodeIds);
 
   const visibleEdges: GraphEdge[] = doc.edges
     .filter(e => {
@@ -97,5 +130,5 @@ export function buildLevelView(doc: GraphDocument, level: number): GraphDocument
     })
     .map(e => ({ ...e, from: { ...e.from }, to: { ...e.to } }));
 
-  return { ...doc, nodes: visibleNodes, edges: visibleEdges };
+  return { ...doc, nodes: nodesWithoutHiddenGroups, edges: visibleEdges };
 }

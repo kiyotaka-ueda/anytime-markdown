@@ -6,6 +6,7 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import FitScreenIcon from '@mui/icons-material/FitScreen';
+import LayersIcon from '@mui/icons-material/Layers';
 import LinkIcon from '@mui/icons-material/Link';
 import PersonIcon from '@mui/icons-material/Person';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -206,6 +207,7 @@ export function C4ViewerCore({
   const [showC4, setShowC4] = useState(true);
   const [showDsm, setShowDsm] = useState(false);
   const [showCoverage, setShowCoverage] = useState(false);
+  const [showAncestorFrames, setShowAncestorFrames] = useState(true);
   const [matrixView, setMatrixView] = useState<'dsm' | 'fcmap' | 'coverage'>('dsm');
   const [metricOverlay, setMetricOverlay] = useState<MetricOverlay>('none');
   const [drWindowDays, setDrWindowDays] = useState(90);
@@ -371,8 +373,12 @@ export function C4ViewerCore({
     const doc = c4ToGraphDocument(filteredModel, boundaryInfos, manualGroups);
     layoutWithSubgroups(doc, 'TB', 180, 60);
     setFullDoc(doc);
-    let viewDoc = currentLevel < 4
-      ? (() => { const v = buildLevelView(doc, currentLevel); layoutWithSubgroups(v, 'TB', 180, 60); return v; })()
+    let viewDoc = currentLevel < 4 || !showAncestorFrames
+      ? (() => {
+        const v = buildLevelView(doc, currentLevel, { showAncestorFrames });
+        layoutWithSubgroups(v, 'TB', 180, 60);
+        return v;
+      })()
       : doc;
 
     // L1/L2/L3/L4 切り替え時に Fit を実行する。
@@ -391,7 +397,7 @@ export function C4ViewerCore({
     }
 
     dispatch({ type: 'SET_DOCUMENT', doc: viewDoc });
-  }, [c4Model, boundaryInfos, drillStack, currentLevel, checkedPackageIds, soloFrameId, manualGroups]);
+  }, [c4Model, boundaryInfos, drillStack, currentLevel, checkedPackageIds, soloFrameId, manualGroups, showAncestorFrames]);
 
   /** 右クリックメニューを表示する */
   const handleNodeContextMenu = useCallback(
@@ -876,6 +882,23 @@ export function C4ViewerCore({
             </Button>
           ))}
         </ButtonGroup>
+        <Button
+          size="small"
+          startIcon={<LayersIcon sx={{ fontSize: 16 }} />}
+          onClick={() => setShowAncestorFrames(prev => !prev)}
+          disabled={currentLevel === 1}
+          aria-pressed={showAncestorFrames}
+          aria-label="Toggle upper C4 layers"
+          title="Toggle upper C4 layers"
+          sx={{
+            ...toolbarButtonSx,
+            ml: 0.5,
+            fontSize: '0.75rem',
+            ...(showAncestorFrames && currentLevel !== 1 && { bgcolor: toolbarButtonActiveBg }),
+          }}
+        >
+          Upper
+        </Button>
         <Button size="small" startIcon={<FitScreenIcon sx={{ fontSize: 16 }} />} onClick={handleFit} sx={{ ...toolbarButtonSx, ml: 0.5 }} aria-label="Fit">Fit</Button>
         {soloFrameId !== null && (
           <Button
@@ -1344,4 +1367,3 @@ export function C4ViewerCore({
     </Box>
   );
 }
-

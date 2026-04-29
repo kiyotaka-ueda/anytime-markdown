@@ -112,4 +112,26 @@ describe('buildLevelView', () => {
     buildLevelView(doc, 3);
     expect(doc.nodes[1].type).toBe('frame');
   });
+
+  it('should hide ancestor frames when requested', () => {
+    const sysFrame: GraphNode = {
+      ...makeFrame('sys'), metadata: { c4Type: 'system' },
+    };
+    const doc = makeDoc([sysFrame, makeFrame('pkg1', 'sys'), makeFrame('cmp1', 'pkg1'), makeRect('leaf', 'cmp1')]);
+    const view = buildLevelView(doc, 3, { showAncestorFrames: false });
+
+    expect(view.nodes.find(n => n.id === 'sys')).toBeUndefined();
+    expect(view.nodes.find(n => n.id === 'pkg1')).toBeUndefined();
+    const component = view.nodes.find(n => n.id === 'cmp1');
+    expect(component?.type).toBe('rect');
+    expect(component?.groupId).toBeUndefined();
+  });
+
+  it('should hide frames at L4 when ancestor frames are disabled', () => {
+    const doc = makeDoc([makeFrame('sys'), makeFrame('pkg1', 'sys'), makeRect('leaf', 'pkg1')]);
+    const view = buildLevelView(doc, 4, { showAncestorFrames: false });
+
+    expect(view.nodes.map(n => n.id)).toEqual(['leaf']);
+    expect(view.nodes[0].groupId).toBeUndefined();
+  });
 });
