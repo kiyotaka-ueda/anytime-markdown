@@ -48,7 +48,7 @@ import {
   resolvePricingModelName,
 } from '@anytime-markdown/trail-core';
 import type { TrailGraph, IC4ModelStore, C4ModelEntry, C4ModelResult, TrailMessageCommit, MessageCommitInput, ManualElement, ManualRelationship, ManualGroup, CommitFileRow, SessionFileRow, SubagentTypeFileRow, TemporalCouplingEdge, ConfidenceCouplingEdge, PricingSource } from '@anytime-markdown/trail-core';
-import { matchCommitsToMessages } from '@anytime-markdown/trail-core';
+import { matchCommitsToMessages, computeDefectRisk, type CommitRiskRow, type DefectRiskEntry } from '@anytime-markdown/trail-core';
 import { JsonlSessionReader } from './JsonlSessionReader';
 import { ExecFileGitService } from './ExecFileGitService';
 import { TrailLogger } from '../utils/TrailLogger';
@@ -127,6 +127,11 @@ export type FetchTemporalCouplingOptions = {
   directionalDiffThreshold?: number;
   /** 'commit'（デフォルト）= commit_files 起点、'session' = message_tool_calls 起点。 */
   granularity?: TemporalCouplingGranularity;
+};
+
+export type FetchDefectRiskOptions = {
+  windowDays: number;
+  halfLifeDays: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -3064,6 +3069,33 @@ export class TrailDatabase {
       excludePairs,
       pathFilter: defaultTemporalCouplingPathFilter,
     });
+  }
+
+  fetchDefectRisk(options: FetchDefectRiskOptions): DefectRiskEntry[] {
+    const db = this.ensureDb();
+    const { windowDays, halfLifeDays } = options;
+    const now = new Date();
+    const toIso = now.toISOString();
+    const fromIso = new Date(now.getTime() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+
+    const result = db.exec(
+      `SELECT sc.commit_hash, sc.commit_message, sc.committed_at, cf.file_path
+       FROM session_commits sc
+       JOIN commit_files cf ON cf.commit_hash = sc.commit_hash
+       WHERE sc.committed_at >= ? AND sc.committed_at <= ?
+       ORDER BY sc.committed_at`,
+      [fromIso, toIso],
+    );
+
+    const values = result[0]?.values ?? [];
+    const rows: CommitRiskRow[] = values.map((r) => ({
+      commitHash: String(r[0] ?? ''),
+      commitMessage: String(r[1] ?? ''),
+      committedAt: String(r[2] ?? ''),
+      filePath: String(r[3] ?? ''),
+    })).filter((r) => r.filePath && r.commitHash);
+
+    return computeDefectRisk(rows, { halfLifeDays });
   }
 
   /**
