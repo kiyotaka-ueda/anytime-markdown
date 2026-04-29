@@ -47,6 +47,42 @@ export const GRANULARITY_DEFAULT_THRESHOLD: Readonly<Record<TemporalCouplingGran
   subagentType: 0.5,
 };
 
+/** Phase 5: 粒度別 Confidence デフォルト（commit→session→subagentType で段階的に緩める） */
+export const GRANULARITY_DEFAULT_CONFIDENCE: Readonly<Record<TemporalCouplingGranularity, number>> = {
+  commit: 0.5,
+  session: 0.4,
+  subagentType: 0.3,
+};
+
+/** Phase 5: 粒度別 directionalDiff デフォルト */
+export const GRANULARITY_DEFAULT_DIRECTIONAL_DIFF: Readonly<Record<TemporalCouplingGranularity, number>> = {
+  commit: 0.3,
+  session: 0.25,
+  subagentType: 0.2,
+};
+
+/**
+ * 粒度切替時の値リセット計算（pure）。
+ * - directional=false 時: Jaccard 閾値（threshold）のみ粒度別デフォルトへ
+ * - directional=true 時: confidenceThreshold / directionalDiff も粒度別デフォルトへ
+ */
+export function computeGranularityChangeValue(
+  current: Readonly<TemporalCouplingControlsValue>,
+  nextGranularity: TemporalCouplingGranularity,
+): TemporalCouplingControlsValue {
+  if (nextGranularity === current.granularity) return { ...current };
+  const next: TemporalCouplingControlsValue = {
+    ...current,
+    granularity: nextGranularity,
+    threshold: GRANULARITY_DEFAULT_THRESHOLD[nextGranularity],
+  };
+  if (current.directional) {
+    next.confidenceThreshold = GRANULARITY_DEFAULT_CONFIDENCE[nextGranularity];
+    next.directionalDiff = GRANULARITY_DEFAULT_DIRECTIONAL_DIFF[nextGranularity];
+  }
+  return next;
+}
+
 const GRANULARITY_DESCRIPTION_ID: Readonly<Record<TemporalCouplingGranularity, string>> = {
   commit: 'tc-granularity-commit-desc',
   session: 'tc-granularity-session-desc',
@@ -71,12 +107,7 @@ export function TemporalCouplingControls({
     onChange({ ...value, directionalDiff });
   const handleGranularity = (granularity: TemporalCouplingGranularity): void => {
     if (granularity === value.granularity) return;
-    // 粒度切替時は閾値を粒度別デフォルトへリセット
-    onChange({
-      ...value,
-      granularity,
-      threshold: GRANULARITY_DEFAULT_THRESHOLD[granularity],
-    });
+    onChange(computeGranularityChangeValue(value, granularity));
   };
 
   return (
