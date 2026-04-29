@@ -44,6 +44,8 @@ import {
   computeSessionCoupling,
   computeSubagentTypeCoupling,
   computeConfidenceCoupling,
+  computeSessionConfidenceCoupling,
+  computeSubagentTypeConfidenceCoupling,
 } from '@anytime-markdown/trail-core';
 import type { TrailGraph, IC4ModelStore, C4ModelEntry, C4ModelResult, TrailMessageCommit, MessageCommitInput, ManualElement, ManualRelationship, ManualGroup, CommitFileRow, SessionFileRow, SubagentTypeFileRow, TemporalCouplingEdge, ConfidenceCouplingEdge } from '@anytime-markdown/trail-core';
 import { matchCommitsToMessages } from '@anytime-markdown/trail-core';
@@ -2751,14 +2753,7 @@ export class TrailDatabase {
       }
 
       if (directional) {
-        // 方向性付き Confidence は今のところ commit 粒度のみ正式サポート（Phase 2）。
-        // session × directional は別途 Phase 4 以降で対応するため、ここでは Jaccard と同じ rows を
-        // computeConfidenceCoupling に渡す（CommitFileRow 型に変換）。
-        const adapted: CommitFileRow[] = sessionRows.map((r) => ({
-          commitHash: r.sessionId,
-          filePath: r.filePath,
-        }));
-        return computeConfidenceCoupling(adapted, {
+        return computeSessionConfidenceCoupling(sessionRows, {
           minChangeCount,
           confidenceThreshold,
           directionalDiffThreshold,
@@ -2859,13 +2854,7 @@ export class TrailDatabase {
       }
 
       if (directional) {
-        // directional × subagentType は本計画では暫定対応。Confidence の Phase 2 ロジックを流用するため、
-        // CommitFileRow に変換して computeConfidenceCoupling に渡す。
-        const adapted: CommitFileRow[] = subagentRows.map((r) => ({
-          commitHash: r.subagentType,
-          filePath: r.filePath,
-        }));
-        return computeConfidenceCoupling(adapted, {
+        return computeSubagentTypeConfidenceCoupling(subagentRows, {
           minChangeCount,
           confidenceThreshold,
           directionalDiffThreshold,

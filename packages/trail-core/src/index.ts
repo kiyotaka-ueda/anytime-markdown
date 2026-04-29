@@ -18,6 +18,8 @@ export { computeTemporalCoupling } from './temporalCoupling/computeTemporalCoupl
 export { computeSessionCoupling } from './temporalCoupling/computeSessionCoupling';
 export { computeSubagentTypeCoupling } from './temporalCoupling/computeSubagentTypeCoupling';
 export { computeConfidenceCoupling } from './temporalCoupling/computeConfidenceCoupling';
+export { computeSessionConfidenceCoupling } from './temporalCoupling/computeSessionConfidenceCoupling';
+export { computeSubagentTypeConfidenceCoupling } from './temporalCoupling/computeSubagentTypeConfidenceCoupling';
 export type {
   CommitFileRow,
   SessionFileRow,
