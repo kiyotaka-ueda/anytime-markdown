@@ -305,7 +305,7 @@ describe('TrailDatabase.importSession - Codex token usage', () => {
        FROM messages
        WHERE session_id = 'codex-token-session' AND type = 'assistant'`,
     )[0]?.values[0];
-    expect(messageUsage).toEqual([100, 12, 40]);
+    expect(messageUsage).toEqual([60, 12, 40]);
 
     const sessionCost = inner.exec(
       `SELECT model, input_tokens, output_tokens, cache_read_tokens, estimated_cost_usd
@@ -313,8 +313,47 @@ describe('TrailDatabase.importSession - Codex token usage', () => {
        WHERE session_id = 'codex-token-session'`,
     )[0]?.values[0];
     expect(sessionCost?.[0]).toBe('gpt-5.1-codex');
-    expect(sessionCost?.slice(1, 4)).toEqual([100, 12, 40]);
-    expect(Number(sessionCost?.[4] ?? 0)).toBeCloseTo(0.00025, 6);
+    expect(sessionCost?.slice(1, 4)).toEqual([60, 12, 40]);
+    expect(Number(sessionCost?.[4] ?? 0)).toBeCloseTo(0.0002, 6);
+
+    db.close();
+  });
+});
+
+describe('TrailDatabase.rebuildDailyCounts', () => {
+  it('merges rows that resolve to the same daily count key', async () => {
+    const db = await createTestTrailDatabase();
+    const inner = (db as unknown as { db: import('sql.js').Database }).db;
+    inner.run(
+      `INSERT INTO sessions (id, slug, repo_name, version, entrypoint, model,
+         start_time, end_time, message_count, file_path, file_size, imported_at, source)
+       VALUES
+         ('codex-default','','repo','','','','2026-04-29T00:00:00Z','2026-04-29T00:01:00Z',1,'/tmp/codex-default.jsonl',1,'','codex'),
+         ('codex-explicit','','repo','','','gpt-5.1-codex','2026-04-29T00:00:00Z','2026-04-29T00:01:00Z',1,'/tmp/codex-explicit.jsonl',1,'','codex')`,
+    );
+    inner.run(
+      `INSERT INTO messages
+         (uuid, session_id, type, model, timestamp, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens)
+       VALUES
+         ('m-default','codex-default','assistant','','2026-04-29T00:00:10Z',10,20,30,0),
+         ('m-explicit','codex-explicit','assistant','gpt-5.1-codex','2026-04-29T00:00:20Z',40,50,60,0)`,
+    );
+
+    (db as unknown as Record<string, () => void>).rebuildDailyCounts();
+
+    const costRows = inner.exec(
+      `SELECT key, input_tokens, output_tokens, cache_read_tokens
+       FROM daily_counts
+       WHERE kind = 'cost_actual'`,
+    )[0]?.values;
+    expect(costRows).toEqual([['gpt-5.1-codex', 50, 70, 90]]);
+
+    const modelRows = inner.exec(
+      `SELECT key, count, tokens
+       FROM daily_counts
+       WHERE kind = 'model'`,
+    )[0]?.values;
+    expect(modelRows).toEqual([['gpt-5.1-codex', 2, 120]]);
 
     db.close();
   });

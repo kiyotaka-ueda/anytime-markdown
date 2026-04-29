@@ -88,6 +88,10 @@ function fmtTokens(n: number): string {
   return String(n);
 }
 
+export function getMainAgentLabel(source?: TrailSession['source']): string {
+  return source === 'codex' ? 'Codex' : 'Claude Code';
+}
+
 // Return up to ~5 "nice" tick values covering [0, max]. Minimum step is 1 (no fractions).
 function PieCenterLabel({ value, color }: Readonly<{ value: number; color: string }>) {
   const { width, height, left, top } = useDrawingArea();
@@ -558,11 +562,13 @@ function TurnLaneChart({
   tickStep,
   commitTurns,
   errorTurns,
+  mainAgentLabel,
 }: Readonly<{
   assistantMsgs: readonly TrailMessage[];
   tickStep: number;
   commitTurns?: readonly number[];
   errorTurns?: readonly number[];
+  mainAgentLabel: string;
 }>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [svgWidth, setSvgWidth] = useState(600);
@@ -668,8 +674,8 @@ function TurnLaneChart({
   return (
     <Box ref={containerRef} sx={{ mt: 0.5 }}>
       <svg width="100%" height={totalH} style={{ display: 'block', overflow: 'visible' }}>
-        {/* Claude Code lane (main agent only) */}
-        <text x={LABEL_W - 4} y={toolY + TOOL_LANE_H / 2 + 4} textAnchor="end" fontSize={9} fill={colors.textSecondary}>Claude Code</text>
+        {/* Main agent lane */}
+        <text x={LABEL_W - 4} y={toolY + TOOL_LANE_H / 2 + 4} textAnchor="end" fontSize={9} fill={colors.textSecondary}>{mainAgentLabel}</text>
         {toolRuns.map((run) => (
           <rect key={`t${run.start}`} x={toX(run.start)} y={toolY}
             width={Math.max((run.end - run.start + 1) * colW, 1)} height={TOOL_LANE_H}
@@ -871,8 +877,10 @@ function StackedReferenceLines({
 
 function SessionCacheTimeline({
   messages,
+  session,
 }: Readonly<{
   messages: readonly TrailMessage[];
+  session: TrailSession;
 }>) {
   const { colors, chartColors, cardSx } = useTrailTheme();
   const { t } = useTrailI18n();
@@ -880,6 +888,7 @@ function SessionCacheTimeline({
   const hasData = assistantMsgs.length > 0;
   const compactDrops = useMemo(() => countCompactDrops(assistantMsgs), [assistantMsgs]);
   const [mode, setMode] = useState<'tool' | 'skill'>('tool');
+  const mainAgentLabel = getMainAgentLabel(session.source);
 
   const byUuid = useMemo(() => {
     const map = new Map<string, TrailMessage>();
@@ -930,24 +939,24 @@ function SessionCacheTimeline({
   const commitMarkers = useMemo<readonly CommitMarkerData[]>(() =>
     assistantMsgs.flatMap((m, i) => {
       if (!((m.triggerCommitHashes && m.triggerCommitHashes.length > 0) || m.hasCommit)) return [];
-      const agentLabel = m.agentId ? `SubAgent ${agentIndexMap.get(m.agentId) ?? '?'}` : 'Claude Code';
+      const agentLabel = m.agentId ? `SubAgent ${agentIndexMap.get(m.agentId) ?? '?'}` : mainAgentLabel;
       const commitHash = m.triggerCommitHashes?.[0]?.slice(0, 8) ?? '';
       const bashCmd = m.toolCalls?.find((tc) => tc.name === 'Bash')?.input?.command;
       const subject = typeof bashCmd === 'string' ? parseCommitSubject(bashCmd) : '';
       const commitPrefix = extractPrefixWithScope(subject);
       return [{ turn: i + 1, agentLabel, commitHash, commitPrefix }];
     }),
-    [assistantMsgs, agentIndexMap],
+    [assistantMsgs, agentIndexMap, mainAgentLabel],
   );
 
   const errorMarkers = useMemo<readonly ErrorMarkerData[]>(() =>
     assistantMsgs.flatMap((m, i) => {
       if (!m.hasToolError) return [];
-      const agentLabel = m.agentId ? `SubAgent ${agentIndexMap.get(m.agentId) ?? '?'}` : 'Claude Code';
+      const agentLabel = m.agentId ? `SubAgent ${agentIndexMap.get(m.agentId) ?? '?'}` : mainAgentLabel;
       const toolName = dominantTool(m.toolCalls) || m.toolCalls?.[0]?.name || '';
       return [{ turn: i + 1, agentLabel, toolName }];
     }),
-    [assistantMsgs, agentIndexMap],
+    [assistantMsgs, agentIndexMap, mainAgentLabel],
   );
 
   const commitTurns = useMemo(() => commitMarkers.map((m) => m.turn), [commitMarkers]);
@@ -1064,6 +1073,9 @@ function SessionCacheTimeline({
           <TurnLaneChart
             assistantMsgs={assistantMsgs}
             tickStep={tickStep}
+            commitTurns={commitTurns}
+            errorTurns={errorTurns}
+            mainAgentLabel={mainAgentLabel}
           />
           <StackedReferenceLines
             commitTurns={commitTurns}
@@ -1627,6 +1639,9 @@ function DailySessionList({
   const headerLabel = sessionsLoading
     ? '...'
     : `${daySessions.length} ${sessionCountLabel}`;
+  const selectedTimelineSession = timelineSessionId
+    ? daySessions.find((s) => s.id === timelineSessionId)
+    : undefined;
 
   useEffect(() => {
     if (!fetchDayToolMetrics) {
@@ -1683,6 +1698,7 @@ function DailySessionList({
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow sx={{ '& .MuiTableCell-head': { color: colors.textSecondary, borderColor: colors.border, bgcolor: colors.midnightNavy } }}>
+                  <TableCell>Agent</TableCell>
                   <TableCell>{t('sessionList.timeHeader')}</TableCell>
                   <TableCell align="right">{t('sessionList.tokensHeader')}</TableCell>
                   <TableCell align="right">{t('sessionList.costHeader')}</TableCell>
@@ -1702,6 +1718,9 @@ function DailySessionList({
                     sx={{ cursor: 'pointer', '& .MuiTableCell-root': { borderColor: colors.border } }}
                     onClick={() => handleSessionClick(s.id)}
                   >
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                      {s.source ?? 'claude_code'}
+                    </TableCell>
                     <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
                       {formatLocalTime(s.startTime)}–{formatLocalTime(s.endTime)}
                       {s.interruption?.interrupted && (
@@ -1839,13 +1858,13 @@ function DailySessionList({
           );
         })()}
       </Box>
-      {timelineSessionId && (
+      {timelineSessionId && selectedTimelineSession && (
         timelineLoading ? (
           <Paper elevation={0} sx={{ ...cardSx, mt: 1, p: 1.5, height: 270, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Typography variant="body2" color="text.secondary">{t('sessionList.loadingTimeline')}</Typography>
           </Paper>
         ) : (
-          <SessionCacheTimeline messages={timelineMessages} />
+          <SessionCacheTimeline messages={timelineMessages} session={selectedTimelineSession} />
         )
       )}
     </Paper>

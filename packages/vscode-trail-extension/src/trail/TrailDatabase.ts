@@ -423,6 +423,22 @@ function extractCodexText(content: unknown): string | null {
   return texts.length > 0 ? texts.join('\n') : null;
 }
 
+function normalizeCodexTokenUsage(last: Record<string, unknown>): {
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_input_tokens: number;
+  cache_creation_input_tokens: number;
+} {
+  const totalInputTokens = Number(last.input_tokens ?? 0);
+  const cachedInputTokens = Number(last.cached_input_tokens ?? 0);
+  return {
+    input_tokens: Math.max(0, totalInputTokens - cachedInputTokens),
+    output_tokens: Number(last.output_tokens ?? 0),
+    cache_read_input_tokens: cachedInputTokens,
+    cache_creation_input_tokens: 0,
+  };
+}
+
 function collectJsonlFilesRecursive(rootDir: string): string[] {
   const results: string[] = [];
   function walk(dir: string): void {
@@ -478,12 +494,7 @@ function normalizeCodexRecords(records: readonly RawLine[], fallbackSessionId: s
             if (candidate.type !== 'assistant') continue;
             candidate.message = {
               ...(candidate.message ?? {}),
-              usage: {
-                input_tokens: Number(last.input_tokens ?? 0),
-                output_tokens: Number(last.output_tokens ?? 0),
-                cache_read_input_tokens: Number(last.cached_input_tokens ?? 0),
-                cache_creation_input_tokens: 0,
-              },
+              usage: normalizeCodexTokenUsage(last),
             };
             break;
           }
@@ -574,12 +585,7 @@ function normalizeCodexRecords(records: readonly RawLine[], fallbackSessionId: s
           if (candidate.type !== 'assistant') continue;
           candidate.message = {
             ...(candidate.message ?? {}),
-            usage: {
-              input_tokens: Number(last.input_tokens ?? 0),
-              output_tokens: Number(last.output_tokens ?? 0),
-              cache_read_input_tokens: Number(last.cached_input_tokens ?? 0),
-              cache_creation_input_tokens: 0,
-            },
+            usage: normalizeCodexTokenUsage(last),
           };
           break;
         }
@@ -1513,7 +1519,16 @@ export class TrailDatabase {
     const INSERT_DC = `INSERT INTO daily_counts
       (date, kind, key, count, tokens, input_tokens, output_tokens,
        cache_read_tokens, cache_creation_tokens, duration_ms, estimated_cost_usd)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?)`;
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)
+      ON CONFLICT(date, kind, key) DO UPDATE SET
+        count = daily_counts.count + excluded.count,
+        tokens = daily_counts.tokens + excluded.tokens,
+        input_tokens = daily_counts.input_tokens + excluded.input_tokens,
+        output_tokens = daily_counts.output_tokens + excluded.output_tokens,
+        cache_read_tokens = daily_counts.cache_read_tokens + excluded.cache_read_tokens,
+        cache_creation_tokens = daily_counts.cache_creation_tokens + excluded.cache_creation_tokens,
+        duration_ms = daily_counts.duration_ms + excluded.duration_ms,
+        estimated_cost_usd = daily_counts.estimated_cost_usd + excluded.estimated_cost_usd`;
     const stmt = db.prepare(INSERT_DC);
 
     // ── kind='cost_actual' : assistant メッセージ日次トークン・コスト ──
@@ -1621,15 +1636,20 @@ export class TrailDatabase {
 
     // ── kind='model' : assistant メッセージ数のモデル別日次集計 ──
     const modelCounts = db.exec(
-      `SELECT DATE(timestamp, '${tzOffset}') AS d, model,
+      `SELECT DATE(m.timestamp, '${tzOffset}') AS d,
+              s.source,
+              COALESCE(m.model, '') AS model,
               COUNT(*) AS count,
-              CAST(SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS INTEGER) AS tokens
-       FROM messages
-       WHERE type = 'assistant' AND model IS NOT NULL
-       GROUP BY d, model`,
+              CAST(SUM(COALESCE(m.input_tokens, 0) + COALESCE(m.output_tokens, 0)) AS INTEGER) AS tokens
+       FROM messages m
+       INNER JOIN sessions s ON s.id = m.session_id
+       WHERE m.type = 'assistant'
+       GROUP BY d, s.source, COALESCE(m.model, '')`,
     );
     for (const row of modelCounts[0]?.values ?? []) {
-      stmt.run([String(row[0]), 'model', String(row[1] ?? ''), Number(row[2] ?? 0), Number(row[3] ?? 0), 0, 0, 0, 0, 0, 0]);
+      const source = String(row[1]) as PricingSource;
+      const model = resolvePricingModelName(String(row[2] ?? ''), source);
+      stmt.run([String(row[0]), 'model', model, Number(row[3] ?? 0), Number(row[4] ?? 0), 0, 0, 0, 0, 0, 0]);
     }
 
     stmt.free();
