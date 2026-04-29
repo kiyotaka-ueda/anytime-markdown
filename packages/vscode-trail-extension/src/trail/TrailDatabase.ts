@@ -2296,10 +2296,30 @@ export class TrailDatabase {
         [...SESSION_COUPLING_EDIT_TOOLS, fromIso, toIso],
       );
       const values = result[0]?.values ?? [];
-      const sessionRows: SessionFileRow[] = values.map((r) => ({
-        sessionId: String(r[0] ?? ''),
-        filePath: String(r[1] ?? ''),
-      }));
+
+      // message_tool_calls.file_path は Claude Code の Edit/Write ツール input を
+      // そのまま記録しているため、絶対パスで入る。CodeGraph のノード ID は
+      // リポ相対パス前提のため、current_graphs.metadata.projectRoot を起点に
+      // 相対化する。リポ外のファイルは捨てる。
+      const projectRoot = this.getCurrentGraph(repoName)?.metadata?.projectRoot ?? null;
+      const normalize = (raw: string): string | null => {
+        if (!raw) return null;
+        if (!raw.startsWith('/')) return raw; // 既に相対パス
+        if (!projectRoot) return null; // 絶対パスだが基準がない → 捨てる
+        const prefix = projectRoot.endsWith('/') ? projectRoot : `${projectRoot}/`;
+        if (raw === projectRoot) return null;
+        if (raw.startsWith(prefix)) return raw.slice(prefix.length);
+        return null;
+      };
+
+      const sessionRows: SessionFileRow[] = [];
+      for (const r of values) {
+        const sessionId = String(r[0] ?? '');
+        const normalized = normalize(String(r[1] ?? ''));
+        if (sessionId && normalized) {
+          sessionRows.push({ sessionId, filePath: normalized });
+        }
+      }
 
       if (directional) {
         // 方向性付き Confidence は今のところ commit 粒度のみ正式サポート（Phase 2）。

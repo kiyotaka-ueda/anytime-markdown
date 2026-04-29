@@ -232,6 +232,97 @@ describe('TrailDatabase.fetchTemporalCoupling (granularity=session)', () => {
     });
   });
 
+  it('normalizes absolute file_path to repo-relative using current_graphs.metadata.projectRoot', () => {
+    // Claude Code の Edit/Write ツールは file_path を「絶対パス」で記録する。
+    // CodeGraph のノード ID はリポ相対パス前提のため、TrailDatabase 側で正規化する必要がある。
+    const projectRoot = '/repo-root';
+
+    // 静的依存除外でリポ相対パスを参照させるため、saveCurrentGraph で projectRoot を登録
+    db.saveCurrentGraph(
+      {
+        nodes: [
+          { id: 'n1', label: 'a', type: 'file', filePath: 'src/a.ts', line: 0 },
+        ],
+        edges: [],
+        metadata: {
+          projectRoot,
+          analyzedAt: '2026-04-29T00:00:00.000Z',
+          fileCount: 1,
+        },
+      },
+      `${projectRoot}/tsconfig.json`,
+      'commitX',
+      'r',
+    );
+
+    insertSession(db, 's1', isoDaysAgo(1));
+    insertMessage(db, 'm1', 's1');
+    insertToolCall(db, 's1', 'm1', 0, 'Edit', `${projectRoot}/src/a.ts`);
+    insertToolCall(db, 's1', 'm1', 1, 'Edit', `${projectRoot}/src/b.ts`);
+
+    insertSession(db, 's2', isoDaysAgo(2));
+    insertMessage(db, 'm2', 's2');
+    insertToolCall(db, 's2', 'm2', 0, 'Write', `${projectRoot}/src/a.ts`);
+    insertToolCall(db, 's2', 'm2', 1, 'Edit', `${projectRoot}/src/b.ts`);
+
+    const edges = db.fetchTemporalCoupling({
+      repoName: 'r',
+      windowDays: 30,
+      minChangeCount: 1,
+      jaccardThreshold: 0,
+      topK: 50,
+      granularity: 'session',
+    });
+
+    expect(edges).toHaveLength(1);
+    // ノード ID と整合する形（リポ相対）であることを確認
+    expect(edges[0]).toMatchObject({
+      source: 'src/a.ts',
+      target: 'src/b.ts',
+      coChangeCount: 2,
+      jaccard: 1.0,
+    });
+  });
+
+  it('drops file_path that lives outside the repo root', () => {
+    const projectRoot = '/repo-root';
+    db.saveCurrentGraph(
+      {
+        nodes: [
+          { id: 'n1', label: 'a', type: 'file', filePath: 'src/a.ts', line: 0 },
+        ],
+        edges: [],
+        metadata: {
+          projectRoot,
+          analyzedAt: '2026-04-29T00:00:00.000Z',
+          fileCount: 1,
+        },
+      },
+      `${projectRoot}/tsconfig.json`,
+      'commitX',
+      'r',
+    );
+
+    insertSession(db, 's1', isoDaysAgo(1));
+    insertMessage(db, 'm1', 's1');
+    insertToolCall(db, 's1', 'm1', 0, 'Edit', '/somewhere-else/x.ts');
+    insertToolCall(db, 's1', 'm1', 1, 'Edit', `${projectRoot}/src/a.ts`);
+    insertToolCall(db, 's1', 'm1', 2, 'Edit', `${projectRoot}/src/b.ts`);
+
+    const edges = db.fetchTemporalCoupling({
+      repoName: 'r',
+      windowDays: 30,
+      minChangeCount: 1,
+      jaccardThreshold: 0,
+      topK: 50,
+      granularity: 'session',
+    });
+
+    // a/b のペアのみ。リポ外の x.ts は除外
+    expect(edges).toHaveLength(1);
+    expect(edges[0]).toMatchObject({ source: 'src/a.ts', target: 'src/b.ts' });
+  });
+
   it('applies session-grain default thresholds (minChangeCount=3, jaccardThreshold=0.4, maxFilesPerGroup=20)', () => {
     // 同じ a/b ペアを 2 セッションでのみ → minChangeCount=3 のデフォルトでスキップされる
     for (let i = 1; i <= 2; i++) {
