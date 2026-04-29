@@ -174,6 +174,72 @@ describe('TrailDatabase.getImportedFileMap', () => {
   });
 });
 
+describe('TrailDatabase.migrateDropSessionsProjectColumn', () => {
+  it('drops the legacy project column while preserving rows with foreign-key references', async () => {
+    const db = await createTestTrailDatabase();
+    const inMemoryDb = (db as unknown as Record<string, unknown>).db as import('sql.js').Database;
+
+    inMemoryDb.run('PRAGMA foreign_keys = OFF');
+    inMemoryDb.run('DROP TABLE IF EXISTS session_costs');
+    inMemoryDb.run('DROP TABLE IF EXISTS sessions');
+    inMemoryDb.run(`CREATE TABLE sessions (
+      id TEXT PRIMARY KEY,
+      slug TEXT NOT NULL DEFAULT '',
+      project TEXT NOT NULL DEFAULT '',
+      repo_name TEXT NOT NULL DEFAULT '',
+      version TEXT NOT NULL DEFAULT '',
+      entrypoint TEXT NOT NULL DEFAULT '',
+      model TEXT NOT NULL DEFAULT '',
+      start_time TEXT NOT NULL DEFAULT '',
+      end_time TEXT NOT NULL DEFAULT '',
+      message_count INTEGER NOT NULL DEFAULT 0,
+      file_path TEXT NOT NULL DEFAULT '',
+      file_size INTEGER NOT NULL DEFAULT 0,
+      imported_at TEXT NOT NULL DEFAULT '',
+      commits_resolved_at TEXT,
+      peak_context_tokens INTEGER,
+      initial_context_tokens INTEGER,
+      git_branch TEXT,
+      interruption_reason TEXT,
+      interruption_context_tokens INTEGER,
+      message_commits_resolved_at TEXT,
+      source TEXT NOT NULL DEFAULT 'claude_code',
+      compact_count INTEGER
+    )`);
+    inMemoryDb.run(`CREATE TABLE session_costs (
+      session_id TEXT NOT NULL,
+      model TEXT NOT NULL,
+      input_tokens INTEGER NOT NULL DEFAULT 0,
+      output_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+      estimated_cost_usd REAL NOT NULL DEFAULT 0,
+      PRIMARY KEY (session_id, model),
+      FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+    )`);
+    inMemoryDb.run('PRAGMA foreign_keys = ON');
+    inMemoryDb.run(
+      `INSERT INTO sessions (id, slug, project, repo_name, start_time, end_time, file_path, imported_at)
+       VALUES ('s1', 'slug', 'legacy-project', 'repo', '2026-04-29T00:00:00.000Z', '2026-04-29T00:00:01.000Z', '/tmp/s1.jsonl', '2026-04-29T00:00:02.000Z')`,
+    );
+    inMemoryDb.run(
+      `INSERT INTO session_costs (session_id, model, input_tokens, output_tokens)
+       VALUES ('s1', 'sonnet', 10, 2)`,
+    );
+
+    (db as unknown as Record<string, (inner: import('sql.js').Database) => void>).migrateDropSessionsProjectColumn(inMemoryDb);
+
+    const cols = inMemoryDb.exec('PRAGMA table_info(sessions)')[0]?.values.map((r) => String(r[1])) ?? [];
+    expect(cols).not.toContain('project');
+    expect(cols).toContain('repo_name');
+    expect(inMemoryDb.exec(`SELECT repo_name FROM sessions WHERE id = 's1'`)[0]?.values[0]?.[0]).toBe('repo');
+    expect(inMemoryDb.exec(`SELECT input_tokens FROM session_costs WHERE session_id = 's1'`)[0]?.values[0]?.[0]).toBe(10);
+    expect(Number(inMemoryDb.exec('PRAGMA foreign_keys')[0]?.values[0]?.[0] ?? 0)).toBe(1);
+
+    db.close();
+  });
+});
+
 describe('TrailDatabase.getDayToolMetrics', () => {
   it('aggregates tool/skill/error/model rows for the given date', async () => {
     const db = await createTestTrailDatabase();

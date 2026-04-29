@@ -795,10 +795,14 @@ export class TrailDatabase {
   }
 
   private migrateDropSessionsProjectColumn(db: Database): void {
+    let foreignKeysWereEnabled = true;
     try {
       const colInfo = db.exec(`PRAGMA table_info(sessions)`);
       const cols = (colInfo[0]?.values ?? []).map((r) => String(r[1]));
       if (!cols.includes('project')) return;
+      const fkInfo = db.exec('PRAGMA foreign_keys');
+      foreignKeysWereEnabled = Number(fkInfo[0]?.values?.[0]?.[0] ?? 1) === 1;
+      db.run('PRAGMA foreign_keys = OFF');
       db.run('BEGIN TRANSACTION');
       db.run(`CREATE TABLE sessions_new (
         id TEXT PRIMARY KEY,
@@ -840,8 +844,12 @@ export class TrailDatabase {
       db.run('DROP TABLE sessions');
       db.run('ALTER TABLE sessions_new RENAME TO sessions');
       db.run('COMMIT');
+      if (foreignKeysWereEnabled) db.run('PRAGMA foreign_keys = ON');
     } catch (e) {
       try { db.run('ROLLBACK'); } catch { /* ignore */ }
+      if (foreignKeysWereEnabled) {
+        try { db.run('PRAGMA foreign_keys = ON'); } catch (re) { TrailLogger.error('restore foreign_keys failed', re); }
+      }
       TrailLogger.error('migrateDropSessionsProjectColumn failed', e);
     }
   }
