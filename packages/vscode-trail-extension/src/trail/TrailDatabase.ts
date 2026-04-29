@@ -41,9 +41,10 @@ import {
   calculateCost,
   normalizeModelName,
   computeTemporalCoupling,
+  computeSessionCoupling,
   computeConfidenceCoupling,
 } from '@anytime-markdown/trail-core';
-import type { TrailGraph, IC4ModelStore, C4ModelEntry, C4ModelResult, TrailMessageCommit, MessageCommitInput, ManualElement, ManualRelationship, ManualGroup, CommitFileRow, TemporalCouplingEdge, ConfidenceCouplingEdge } from '@anytime-markdown/trail-core';
+import type { TrailGraph, IC4ModelStore, C4ModelEntry, C4ModelResult, TrailMessageCommit, MessageCommitInput, ManualElement, ManualRelationship, ManualGroup, CommitFileRow, SessionFileRow, TemporalCouplingEdge, ConfidenceCouplingEdge } from '@anytime-markdown/trail-core';
 import { matchCommitsToMessages } from '@anytime-markdown/trail-core';
 import { JsonlSessionReader } from './JsonlSessionReader';
 import { ExecFileGitService } from './ExecFileGitService';
@@ -87,6 +88,15 @@ export function defaultTemporalCouplingPathFilter(filePath: string): boolean {
   return !TEMPORAL_COUPLING_EXCLUDE_PATTERNS.some((re) => re.test(filePath));
 }
 
+export type TemporalCouplingGranularity = 'commit' | 'session';
+
+/** session 粒度で「ファイル編集」とみなすツール名。 */
+export const SESSION_COUPLING_EDIT_TOOLS: readonly string[] = [
+  'Edit',
+  'Write',
+  'NotebookEdit',
+];
+
 export type FetchTemporalCouplingOptions = {
   repoName: string;
   windowDays: number;
@@ -96,6 +106,8 @@ export type FetchTemporalCouplingOptions = {
   directional?: boolean;
   confidenceThreshold?: number;
   directionalDiffThreshold?: number;
+  /** 'commit'（デフォルト）= commit_files 起点、'session' = message_tool_calls 起点。 */
+  granularity?: TemporalCouplingGranularity;
 };
 
 // ---------------------------------------------------------------------------
@@ -2251,18 +2263,74 @@ export class TrailDatabase {
     const {
       repoName,
       windowDays,
-      minChangeCount = 5,
-      jaccardThreshold = 0.5,
-      topK = 50,
       directional = false,
       confidenceThreshold = 0.5,
       directionalDiffThreshold = 0.3,
+      granularity = 'commit',
     } = options;
+
+    // 粒度別デフォルト
+    const isSession = granularity === 'session';
+    const minChangeCount = options.minChangeCount ?? (isSession ? 3 : 5);
+    const jaccardThreshold = options.jaccardThreshold ?? (isSession ? 0.4 : 0.5);
+    const topK = options.topK ?? 50;
+    const maxFilesPerGroup = isSession ? 20 : 50;
 
     const now = new Date();
     const toIso = now.toISOString();
     const fromIso = new Date(now.getTime() - windowDays * 24 * 60 * 60 * 1000).toISOString();
 
+    const excludePairs = this.buildStaticDependencyPairs(repoName);
+
+    if (isSession) {
+      const editToolPlaceholders = SESSION_COUPLING_EDIT_TOOLS.map(() => '?').join(', ');
+      const result = db.exec(
+        `SELECT mtc.session_id, mtc.file_path
+         FROM message_tool_calls mtc
+         JOIN sessions s ON s.id = mtc.session_id
+         WHERE mtc.tool_name IN (${editToolPlaceholders})
+           AND mtc.file_path IS NOT NULL
+           AND mtc.file_path != ''
+           AND s.start_time >= ? AND s.start_time <= ?
+         ORDER BY mtc.session_id`,
+        [...SESSION_COUPLING_EDIT_TOOLS, fromIso, toIso],
+      );
+      const values = result[0]?.values ?? [];
+      const sessionRows: SessionFileRow[] = values.map((r) => ({
+        sessionId: String(r[0] ?? ''),
+        filePath: String(r[1] ?? ''),
+      }));
+
+      if (directional) {
+        // 方向性付き Confidence は今のところ commit 粒度のみ正式サポート（Phase 2）。
+        // session × directional は別途 Phase 4 以降で対応するため、ここでは Jaccard と同じ rows を
+        // computeConfidenceCoupling に渡す（CommitFileRow 型に変換）。
+        const adapted: CommitFileRow[] = sessionRows.map((r) => ({
+          commitHash: r.sessionId,
+          filePath: r.filePath,
+        }));
+        return computeConfidenceCoupling(adapted, {
+          minChangeCount,
+          confidenceThreshold,
+          directionalDiffThreshold,
+          topK,
+          maxFilesPerCommit: maxFilesPerGroup,
+          excludePairs,
+          pathFilter: defaultTemporalCouplingPathFilter,
+        });
+      }
+
+      return computeSessionCoupling(sessionRows, {
+        minChangeCount,
+        jaccardThreshold,
+        topK,
+        maxFilesPerCommit: maxFilesPerGroup,
+        excludePairs,
+        pathFilter: defaultTemporalCouplingPathFilter,
+      });
+    }
+
+    // commit 粒度 (Phase 1/2)
     const result = db.exec(
       `SELECT cf.commit_hash, cf.file_path
        FROM commit_files cf
@@ -2279,15 +2347,13 @@ export class TrailDatabase {
       filePath: String(r[1] ?? ''),
     }));
 
-    const excludePairs = this.buildStaticDependencyPairs(repoName);
-
     if (directional) {
       return computeConfidenceCoupling(rows, {
         minChangeCount,
         confidenceThreshold,
         directionalDiffThreshold,
         topK,
-        maxFilesPerCommit: 50,
+        maxFilesPerCommit: maxFilesPerGroup,
         excludePairs,
         pathFilter: defaultTemporalCouplingPathFilter,
       });
@@ -2297,7 +2363,7 @@ export class TrailDatabase {
       minChangeCount,
       jaccardThreshold,
       topK,
-      maxFilesPerCommit: 50,
+      maxFilesPerCommit: maxFilesPerGroup,
       excludePairs,
       pathFilter: defaultTemporalCouplingPathFilter,
     });
