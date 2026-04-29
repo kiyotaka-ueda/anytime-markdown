@@ -2149,6 +2149,7 @@ export class TrailDatabase {
   async importAll(
     onProgress?: (message: string, increment?: number) => void,
     gitRoot?: string,
+    excludePatterns?: readonly string[],
   ): Promise<{ imported: number; skipped: number; commitsResolved: number; releasesResolved: number; releasesAnalyzed: number; coverageImported: number; messageCommitsBackfilled: number }> {
     const projectsDir = path.join(os.homedir(), '.claude', 'projects');
     const codexSessionsDir = path.join(os.homedir(), '.codex', 'sessions');
@@ -2354,7 +2355,7 @@ export class TrailDatabase {
     if (gitRoot) {
       try {
         onProgress?.('Analyzing releases...', 0);
-        releasesAnalyzed = this.analyzeReleases(gitRoot, (msg) => onProgress?.(msg, 0));
+        releasesAnalyzed = this.analyzeReleases(gitRoot, (msg) => onProgress?.(msg, 0), excludePatterns);
         onProgress?.(`Releases analyzed: ${releasesAnalyzed}`, 0);
       } catch {
         // Skip analysis errors
@@ -4701,6 +4702,7 @@ export class TrailDatabase {
   analyzeReleases(
     gitRoot: string,
     onProgress?: (message: string) => void,
+    excludePatterns: readonly string[] = ['.worktrees', '.vscode-test', '__tests__', 'fixtures'],
   ): number {
     const db = this.ensureDb();
     const releases = this.getReleases();
@@ -4763,7 +4765,7 @@ export class TrailDatabase {
         // 解析実行
         const graph = analyze({
           tsconfigPath: worktreeTsconfig,
-          exclude: ['.worktrees', '.vscode-test', '__tests__', 'fixtures'],
+          exclude: excludePatterns.map(p => `**/${p}/**`),
         });
 
         // 保存（tsconfigPath は canonical パスを記録）
