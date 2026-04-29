@@ -143,7 +143,6 @@ interface CoverageSummaryEntry {
 export interface SessionRow {
   readonly id: string;
   readonly slug: string;
-  readonly project: string;
   readonly repo_name: string;
   readonly git_branch?: string | null;
   readonly cwd?: string | null;
@@ -215,7 +214,7 @@ export interface SessionCommitRow {
 interface SessionFilters {
   readonly branch?: string;
   readonly model?: string;
-  readonly project?: string;
+  readonly repository?: string;
   readonly from?: string;
   readonly to?: string;
 }
@@ -361,10 +360,10 @@ interface RawContentBlock {
 // CREATE_INDEXES imported from trail-core (see import at top of file)
 
 const INSERT_SESSION = `INSERT OR REPLACE INTO sessions
-  (id, slug, project, repo_name, version, entrypoint, model,
+  (id, slug, repo_name, version, entrypoint, model,
    start_time, end_time, message_count,
    file_path, file_size, imported_at, source)
-  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 
 const INSERT_SESSION_COST = `INSERT OR REPLACE INTO session_costs
   (session_id, model, input_tokens, output_tokens,
@@ -442,11 +441,13 @@ function collectJsonlFilesRecursive(rootDir: string): string[] {
 function normalizeCodexRecords(records: readonly RawLine[], fallbackSessionId: string): {
   normalized: RawLine[];
   sessionId: string;
+  version: string;
   source: 'codex';
 } {
   const normalized: RawLine[] = [];
   let seq = 0;
   let sessionId = fallbackSessionId;
+  let version = '';
 
   for (const record of records) {
     const timestamp = typeof record.timestamp === 'string' ? record.timestamp : '';
@@ -454,6 +455,8 @@ function normalizeCodexRecords(records: readonly RawLine[], fallbackSessionId: s
       const payload = record.payload as Record<string, unknown>;
       const id = payload.id;
       if (typeof id === 'string' && id) sessionId = id;
+      const cliVersion = payload.cli_version;
+      if (typeof cliVersion === 'string' && cliVersion) version = cliVersion;
       continue;
     }
     if (record.type === 'event_msg' && record.payload && typeof record.payload === 'object') {
@@ -479,7 +482,11 @@ function normalizeCodexRecords(records: readonly RawLine[], fallbackSessionId: s
       const role = typeof payload.role === 'string' ? payload.role : '';
       if (role !== 'user' && role !== 'assistant' && role !== 'developer' && role !== 'system') continue;
       const text = extractCodexText(payload.content);
-      const normalizedType: 'user' | 'assistant' = role === 'user' ? 'user' : 'assistant';
+      const normalizedType: 'user' | 'assistant' | 'system' = role === 'user'
+        ? 'user'
+        : role === 'assistant'
+          ? 'assistant'
+          : 'system';
       normalized.push({
         uuid: `codex-${seq++}`,
         sessionId,
@@ -552,7 +559,7 @@ function normalizeCodexRecords(records: readonly RawLine[], fallbackSessionId: s
       continue;
     }
   }
-  return { normalized, sessionId, source: 'codex' };
+  return { normalized, sessionId, version, source: 'codex' };
 }
 
 /**
@@ -741,6 +748,7 @@ export class TrailDatabase {
     for (const sql of sessionAlters) {
       try { db.run(sql); } catch { /* Column already exists */ }
     }
+    this.migrateDropSessionsProjectColumn(db);
     const messageAlters = [
       'ALTER TABLE messages ADD COLUMN rule_recommended_model TEXT',
       'ALTER TABLE messages ADD COLUMN feature_recommended_model TEXT',
@@ -783,6 +791,58 @@ export class TrailDatabase {
       this.backfillSubagentType();
     } catch (e) {
       TrailLogger.warn(`backfillSubagentType (init) failed (non-fatal): ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  private migrateDropSessionsProjectColumn(db: Database): void {
+    try {
+      const colInfo = db.exec(`PRAGMA table_info(sessions)`);
+      const cols = (colInfo[0]?.values ?? []).map((r) => String(r[1]));
+      if (!cols.includes('project')) return;
+      db.run('BEGIN TRANSACTION');
+      db.run(`CREATE TABLE sessions_new (
+        id TEXT PRIMARY KEY,
+        slug TEXT NOT NULL DEFAULT '',
+        repo_name TEXT NOT NULL DEFAULT '',
+        version TEXT NOT NULL DEFAULT '',
+        entrypoint TEXT NOT NULL DEFAULT '',
+        model TEXT NOT NULL DEFAULT '',
+        start_time TEXT NOT NULL DEFAULT '',
+        end_time TEXT NOT NULL DEFAULT '',
+        message_count INTEGER NOT NULL DEFAULT 0,
+        file_path TEXT NOT NULL DEFAULT '',
+        file_size INTEGER NOT NULL DEFAULT 0,
+        imported_at TEXT NOT NULL DEFAULT '',
+        commits_resolved_at TEXT,
+        peak_context_tokens INTEGER,
+        initial_context_tokens INTEGER,
+        git_branch TEXT,
+        interruption_reason TEXT,
+        interruption_context_tokens INTEGER,
+        message_commits_resolved_at TEXT,
+        source TEXT NOT NULL DEFAULT 'claude_code',
+        compact_count INTEGER
+      )`);
+      db.run(`INSERT INTO sessions_new (
+        id, slug, repo_name, version, entrypoint, model,
+        start_time, end_time, message_count, file_path, file_size, imported_at,
+        commits_resolved_at, peak_context_tokens, initial_context_tokens, git_branch,
+        interruption_reason, interruption_context_tokens, message_commits_resolved_at,
+        source, compact_count
+      )
+      SELECT
+        id, slug, repo_name, version, entrypoint, model,
+        start_time, end_time, message_count, file_path, file_size, imported_at,
+        commits_resolved_at, peak_context_tokens, initial_context_tokens, git_branch,
+        interruption_reason, interruption_context_tokens, message_commits_resolved_at,
+        source, compact_count
+      FROM sessions`);
+      db.run('DROP TABLE sessions');
+      db.run('ALTER TABLE sessions_new RENAME TO sessions');
+      db.run('COMMIT');
+    } catch (e) {
+      try { db.run('ROLLBACK'); } catch { /* ignore */ }
+      TrailLogger.error('migrateDropSessionsProjectColumn failed', e);
     }
   }
 
@@ -1866,7 +1926,7 @@ export class TrailDatabase {
   }
 
   /** @returns number of messages imported */
-  importSession(filePath: string, projectName: string, isSubagent = false, externalTransaction = false, repoName = ''): number {
+  importSession(filePath: string, repoName: string, isSubagent = false, externalTransaction = false): number {
     const db = this.ensureDb();
     const content = fs.readFileSync(filePath, 'utf-8');
     const lines = content.split('\n').filter((l) => l.trim() !== '');
@@ -1890,9 +1950,8 @@ export class TrailDatabase {
     const isCodex = parsedRaw.some(
       (r) => r.type === 'session_meta' || r.type === 'response_item' || r.type === 'event_msg',
     );
-    const parsed: RawLine[] = isCodex
-      ? normalizeCodexRecords(parsedRaw, fallbackSessionId).normalized
-      : parsedRaw;
+    const codexNormalized = isCodex ? normalizeCodexRecords(parsedRaw, fallbackSessionId) : null;
+    const parsed: RawLine[] = codexNormalized ? codexNormalized.normalized : parsedRaw;
     const source: 'claude_code' | 'codex' = isCodex ? 'codex' : 'claude_code';
     if (parsed.length === 0) return 0;
 
@@ -1925,7 +1984,8 @@ export class TrailDatabase {
       messageCount++;
     }
 
-    if (!sessionId) sessionId = fallbackSessionId;
+    if (!sessionId) sessionId = codexNormalized?.sessionId || fallbackSessionId;
+    if (!version && codexNormalized?.version) version = codexNormalized.version;
 
     const fileSize = fs.statSync(filePath).size;
     const importedAt = new Date().toISOString();
@@ -1935,7 +1995,7 @@ export class TrailDatabase {
       // Insert/update session metadata only for main session files
       if (!isSubagent) {
         db.run(INSERT_SESSION, [
-          sessionId, slug, projectName, repoName, version,
+          sessionId, slug, repoName, version,
           entrypoint, model, startTime, endTime, messageCount,
           filePath, fileSize, importedAt, source,
         ]);
@@ -2058,7 +2118,7 @@ export class TrailDatabase {
     const UUID_RE = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/;
 
     // Collect files per session directory (main + subagents grouped)
-    type SessionDir = { sid: string; mainFile: string; subagentFiles: string[]; projectName: string };
+    type SessionDir = { sid: string; mainFile: string; subagentFiles: string[]; repoName: string };
     const sessionDirs: SessionDir[] = [];
 
     for (const projectName of projectDirs) {
@@ -2089,7 +2149,7 @@ export class TrailDatabase {
           }
         } catch { /* no subagents dir */ }
 
-        sessionDirs.push({ sid, mainFile, subagentFiles, projectName });
+        sessionDirs.push({ sid, mainFile, subagentFiles, repoName: repoName || projectName });
       }
     }
 
@@ -2108,7 +2168,7 @@ export class TrailDatabase {
           const normalizedGitRoot = path.resolve(gitRoot);
           if (!normalizedCwd.startsWith(normalizedGitRoot)) continue;
         }
-        sessionDirs.push({ sid, mainFile: filePath, subagentFiles: [], projectName: 'codex' });
+        sessionDirs.push({ sid, mainFile: filePath, subagentFiles: [], repoName: repoName || 'codex' });
       }
     } catch {
       // codex sessions may not exist
@@ -2159,7 +2219,7 @@ export class TrailDatabase {
 
       for (const file of filesToImport) {
         try {
-          const msgCount = this.importSession(file.filePath, dir.projectName, file.isSubagent, true, repoName);
+          const msgCount = this.importSession(file.filePath, dir.repoName, file.isSubagent, true);
           imported++;
           batchMessageCount += msgCount;
           batchFileCount++;
@@ -3013,9 +3073,9 @@ export class TrailDatabase {
       conditions.push('s.model = ?');
       params.push(filters.model);
     }
-    if (filters?.project) {
-      conditions.push('s.project = ?');
-      params.push(filters.project);
+    if (filters?.repository) {
+      conditions.push('s.repo_name = ?');
+      params.push(filters.repository);
     }
     if (filters?.from) {
       conditions.push('s.start_time >= ?');

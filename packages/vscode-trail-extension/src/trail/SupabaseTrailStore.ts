@@ -77,7 +77,7 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
   async upsertSessions(rows: readonly SessionRow[]): Promise<void> {
     if (rows.length === 0) return;
     const mapped = rows.map((r) => ({
-      id: r.id, slug: r.slug, project: r.project, repo_name: r.repo_name,
+      id: r.id, slug: r.slug, repo_name: r.repo_name,
       version: r.version, entrypoint: r.entrypoint, model: r.model,
       start_time: r.start_time, end_time: r.end_time,
       message_count: r.message_count,

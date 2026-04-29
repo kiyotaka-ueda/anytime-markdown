@@ -16,9 +16,9 @@ const insertSession = (db: TrailDatabase, sessionId: string, startTime: string):
   const inner = (db as unknown as { db: SqlJsDb }).db;
   inner.run(
     `INSERT OR IGNORE INTO sessions (
-       id, slug, project, repo_name, version, entrypoint, model, start_time, end_time,
+       id, slug, repo_name, version, entrypoint, model, start_time, end_time,
        message_count, file_path, file_size, imported_at
-     ) VALUES (?, ?, 'p', 'r', '0', '', '', ?, '', 0, '', 0, '')`,
+     ) VALUES (?, ?, 'r', '0', '', '', ?, '', 0, '', 0, '')`,
     [sessionId, sessionId, startTime],
   );
 };

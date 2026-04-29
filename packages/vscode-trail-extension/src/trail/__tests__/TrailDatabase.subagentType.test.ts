@@ -17,9 +17,9 @@ const insertParentSession = (db: TrailDatabase, sessionId: string): void => {
   const inner = (db as unknown as { db: SqlJsDb }).db;
   inner.run(
     `INSERT OR IGNORE INTO sessions (
-       id, slug, project, repo_name, version, entrypoint, model, start_time, end_time,
+       id, slug, repo_name, version, entrypoint, model, start_time, end_time,
        message_count, file_path, file_size, imported_at
-     ) VALUES (?, ?, 'p', 'r', '0', '', '', '2026-04-29T00:00:00.000Z', '', 0, '', 0, '')`,
+     ) VALUES (?, ?, 'r', '0', '', '', '2026-04-29T00:00:00.000Z', '', 0, '', 0, '')`,
     [sessionId, sessionId],
   );
 };
@@ -78,7 +78,7 @@ describe('TrailDatabase.importSession - subagent_type extraction', () => {
     const filePath = path.join(tmpDir, `${sessionId}.jsonl`);
     fs.writeFileSync(filePath, lines.join('\n'));
 
-    db.importSession(filePath, 'project-name', false, false, 'repo');
+    db.importSession(filePath, 'repo', false, false);
 
     const inner = (db as unknown as { db: SqlJsDb }).db;
     const result = inner.exec(
@@ -125,7 +125,7 @@ describe('TrailDatabase.importSession - subagent_type extraction', () => {
     fs.writeFileSync(subFile, subLines.join('\n'));
 
     insertParentSession(db, sessionId);
-    db.importSession(subFile, 'project-name', true, false, 'repo');
+    db.importSession(subFile, 'repo', true, false);
 
     const inner = (db as unknown as { db: SqlJsDb }).db;
     const result = inner.exec(
@@ -160,7 +160,7 @@ describe('TrailDatabase.importSession - subagent_type extraction', () => {
     fs.writeFileSync(subFile, subLines.join('\n'));
 
     insertParentSession(db, sessionId);
-    db.importSession(subFile, 'project-name', true, false, 'repo');
+    db.importSession(subFile, 'repo', true, false);
 
     const inner = (db as unknown as { db: SqlJsDb }).db;
     const result = inner.exec(
@@ -196,7 +196,7 @@ describe('TrailDatabase.importSession - subagent_type extraction', () => {
     const filePath = path.join(tmpDir, `${sessionId}.jsonl`);
     fs.writeFileSync(filePath, lines.join('\n'));
 
-    db.importSession(filePath, 'project-name', false, false, 'repo');
+    db.importSession(filePath, 'repo', false, false);
 
     const inner = (db as unknown as { db: SqlJsDb }).db;
     const result = inner.exec(

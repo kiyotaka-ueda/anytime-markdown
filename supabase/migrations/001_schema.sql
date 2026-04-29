@@ -27,7 +27,6 @@ DROP TABLE IF EXISTS trail_sessions CASCADE;
 CREATE TABLE IF NOT EXISTS trail_sessions (
     id TEXT PRIMARY KEY,
     slug TEXT NOT NULL DEFAULT '',
-    project TEXT NOT NULL DEFAULT '',
     repo_name TEXT NOT NULL DEFAULT '',
     model TEXT NOT NULL DEFAULT '',
     version TEXT NOT NULL DEFAULT '',

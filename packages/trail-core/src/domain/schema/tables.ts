@@ -3,7 +3,6 @@
 export const CREATE_SESSIONS = `CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
   slug TEXT NOT NULL DEFAULT '',
-  project TEXT NOT NULL DEFAULT '',
   repo_name TEXT NOT NULL DEFAULT '',
   version TEXT NOT NULL DEFAULT '',
   entrypoint TEXT NOT NULL DEFAULT '',

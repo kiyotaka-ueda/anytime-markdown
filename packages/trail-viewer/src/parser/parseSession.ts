@@ -230,7 +230,7 @@ export function parseSession(
   const session: TrailSession = {
     id: firstRaw?.sessionId ?? '',
     slug: firstRaw?.slug ?? firstAssistant?.slug ?? '',
-    project: projectName,
+    repoName: projectName,
     gitBranch: firstRaw?.gitBranch ?? '',
     startTime: firstRaw?.timestamp ?? '',
     endTime: lastRaw?.timestamp ?? '',

@@ -121,12 +121,12 @@ function TrailViewerCoreInner({
       cutoff.setDate(cutoff.getDate() - 7);
       result = result.filter((s) => new Date(s.startTime) >= cutoff);
     }
-    if (filter.project) {
-      result = result.filter((s) => s.project === filter.project);
+    if (filter.repository) {
+      result = result.filter((s) => s.repoName === filter.repository);
     }
     if (q) {
       result = result.filter((s) => {
-        const haystack = [s.slug, s.id, s.project, s.gitBranch, s.model]
+        const haystack = [s.slug, s.id, s.repoName, s.gitBranch, s.model]
           .filter((v): v is string => typeof v === 'string')
           .join(' ')
           .toLowerCase();
@@ -134,12 +134,12 @@ function TrailViewerCoreInner({
       });
     }
     return result;
-  }, [sessions, allSessions, filter.project, filter.searchText]);
+  }, [sessions, allSessions, filter.repository, filter.searchText]);
 
   const handleJumpToTrace = useCallback(
     (session: TrailSession) => {
       const query = session.slug || session.id;
-      onFilterChange({ ...filter, project: session.project, searchText: query });
+      onFilterChange({ ...filter, repository: session.repoName, searchText: query });
       onSelectSession(session.id);
       setActiveTab(1);
     },

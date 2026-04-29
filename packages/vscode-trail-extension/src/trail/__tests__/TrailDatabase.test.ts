@@ -105,13 +105,13 @@ describe('TrailDatabase.getImportedFileMap', () => {
 
     // Broken session: row inserted but messages silently dropped by a prior bug.
     inMemoryDb.run(
-      `INSERT INTO sessions (id, slug, project, version, entrypoint, model,
+      `INSERT INTO sessions (id, slug, repo_name, version, entrypoint, model,
          start_time, end_time, message_count, file_path, file_size, imported_at)
        VALUES ('broken-sid','','','','','','','',10,'/tmp/broken.jsonl',123,'')`,
     );
     // Healthy session with matching messages.
     inMemoryDb.run(
-      `INSERT INTO sessions (id, slug, project, version, entrypoint, model,
+      `INSERT INTO sessions (id, slug, repo_name, version, entrypoint, model,
          start_time, end_time, message_count, file_path, file_size, imported_at)
        VALUES ('ok-sid','','','','','','','',1,'/tmp/ok.jsonl',456,'')`,
     );
@@ -121,7 +121,7 @@ describe('TrailDatabase.getImportedFileMap', () => {
     );
     // Empty-log session (message_count=0) is considered healthy — nothing to reimport.
     inMemoryDb.run(
-      `INSERT INTO sessions (id, slug, project, version, entrypoint, model,
+      `INSERT INTO sessions (id, slug, repo_name, version, entrypoint, model,
          start_time, end_time, message_count, file_path, file_size, imported_at)
        VALUES ('empty-sid','','','','','','','',0,'/tmp/empty.jsonl',789,'')`,
     );

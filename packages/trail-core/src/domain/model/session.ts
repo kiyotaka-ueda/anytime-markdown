@@ -45,7 +45,7 @@ export interface TrailMessageCommit {
 export interface TrailSession {
   readonly id: string;
   readonly slug: string;
-  readonly project: string;
+  readonly repoName: string;
   readonly gitBranch: string;
   readonly startTime: string;
   readonly endTime: string;
@@ -71,6 +71,7 @@ export interface TrailSession {
   readonly subAgentCount?: number;
   /** 自動 /compact によりキャッシュが再構築された回数 (前ターン >= 50K かつ現ターン <= 前ターン × 0.3) */
   readonly compactCount?: number;
+  readonly source?: 'claude_code' | 'codex';
 }
 
 export interface TrailSessionCommit {

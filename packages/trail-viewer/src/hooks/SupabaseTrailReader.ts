@@ -34,7 +34,7 @@ interface SessionCostDbRow {
 interface SessionDbRow {
   readonly id: string;
   readonly slug: string;
-  readonly project: string;
+  readonly repo_name: string;
   readonly model: string;
   readonly version: string;
   readonly start_time: string;
@@ -94,8 +94,8 @@ export class SupabaseTrailReader implements ITrailReader {
       .select('*, trail_session_costs(*)')
       .order('start_time', { ascending: false });
 
-    if (filters?.project) {
-      query = query.eq('project', filters.project);
+    if (filters?.repository) {
+      query = query.eq('repo_name', filters.repository);
     }
     if (filters?.model) {
       query = query.eq('model', filters.model);
@@ -504,7 +504,7 @@ export class SupabaseTrailReader implements ITrailReader {
     return {
       id: r.id,
       slug: r.slug,
-      project: r.project,
+      repoName: r.repo_name ?? '',
       gitBranch: '',
       startTime: r.start_time,
       endTime: r.end_time,

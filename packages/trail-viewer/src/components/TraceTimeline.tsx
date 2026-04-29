@@ -118,6 +118,7 @@ export function TraceTimeline({
   onSelectMessage,
 }: Readonly<TraceTimelineProps>) {
   const { colors } = useTrailTheme();
+  const mainAgentLabel = session?.source === 'codex' ? 'Codex' : 'Claude Code';
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
       return localStorage.getItem(STORAGE_KEY) === 'true';
@@ -399,7 +400,7 @@ export function TraceTimeline({
                 {/* AI */}
                 <Box sx={{ height: LANE_HEIGHT, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', pr: 1, borderRight: `1px solid ${colors.border}` }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.1 }}>
-                    <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.7rem' }}>Claude Code</Typography>
+                    <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.7rem' }}>{mainAgentLabel}</Typography>
                     {session?.version && (
                       <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.6rem', opacity: 0.7 }}>
                         v{session.version}

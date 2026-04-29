@@ -724,20 +724,20 @@ export class TrailDataServer {
       const filters: {
         branch?: string;
         model?: string;
-        project?: string;
+        repository?: string;
         from?: string;
         to?: string;
       } = {};
 
       const branch = params.get('branch');
       const model = params.get('model');
-      const project = params.get('project');
+      const repository = params.get('repository');
       const from = params.get('from');
       const to = params.get('to');
 
       if (branch) filters.branch = branch;
       if (model) filters.model = model;
-      if (project) filters.project = project;
+      if (repository) filters.repository = repository;
       if (from) filters.from = from;
       if (to) filters.to = to;
 
@@ -754,7 +754,7 @@ export class TrailDataServer {
         return {
           id: s.id,
           slug: s.slug,
-          project: s.project,
+          repoName: s.repo_name ?? '',
           gitBranch: s.git_branch ?? '',
           model: s.model,
           version: s.version,
@@ -773,6 +773,7 @@ export class TrailDataServer {
             cacheCreationTokens: s.cache_creation_tokens ?? 0,
           },
           estimatedCostUsd: s.estimated_cost_usd ?? 0,
+          source: (s.source as 'claude_code' | 'codex' | undefined) ?? 'claude_code',
           commitStats: cStats
             ? { commits: cStats.commits, linesAdded: cStats.linesAdded,
                 linesDeleted: cStats.linesDeleted, filesChanged: cStats.filesChanged }

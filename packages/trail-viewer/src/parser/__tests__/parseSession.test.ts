@@ -183,7 +183,7 @@ describe('parseSession', () => {
       const { session } = parseSession(input, 'my-project');
 
       expect(session.id).toBe('session-1');
-      expect(session.project).toBe('my-project');
+      expect(session.repoName).toBe('my-project');
       expect(session.gitBranch).toBe('develop');
       expect(session.version).toBe('2.1.85');
       expect(session.model).toBe('claude-opus-4-6');
@@ -224,7 +224,7 @@ describe('parseSession', () => {
 
       expect(messages).toHaveLength(0);
       expect(session.id).toBe('');
-      expect(session.project).toBe('my-project');
+      expect(session.repoName).toBe('my-project');
       expect(session.messageCount).toBe(0);
       expect(session.usage).toEqual({
         inputTokens: 0,

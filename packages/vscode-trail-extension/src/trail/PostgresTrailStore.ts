@@ -50,7 +50,7 @@ export class PostgresTrailStore implements IRemoteTrailStore {
     for (const r of rows) {
       await pool.query(
         `INSERT INTO trail_sessions (
-          id, slug, project, repo_name, git_branch, cwd, model, version, entrypoint,
+          id, slug, repo_name, git_branch, cwd, model, version, entrypoint,
           permission_mode, start_time, end_time, message_count,
           input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens,
           file_path, file_size, imported_at,
@@ -60,9 +60,9 @@ export class PostgresTrailStore implements IRemoteTrailStore {
           $10, $11, $12, $13,
           $14, $15, $16, $17,
           $18, $19, $20,
-          $21, $22, $23, NOW()
+          $21, $22, NOW()
         ) ON CONFLICT (id) DO UPDATE SET
-          slug = EXCLUDED.slug, project = EXCLUDED.project,
+          slug = EXCLUDED.slug,
           repo_name = EXCLUDED.repo_name,
           git_branch = EXCLUDED.git_branch, cwd = EXCLUDED.cwd,
           model = EXCLUDED.model, version = EXCLUDED.version,
@@ -79,7 +79,7 @@ export class PostgresTrailStore implements IRemoteTrailStore {
           commits_resolved_at = EXCLUDED.commits_resolved_at,
           synced_at = NOW()`,
         [
-          r.id, r.slug, r.project, r.repo_name, r.git_branch, r.cwd, r.model,
+          r.id, r.slug, r.repo_name, r.git_branch, r.cwd, r.model,
           r.version, r.entrypoint, r.permission_mode,
           r.start_time, r.end_time, r.message_count,
           r.input_tokens, r.output_tokens, r.cache_read_tokens, r.cache_creation_tokens,

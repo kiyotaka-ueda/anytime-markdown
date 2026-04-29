@@ -69,6 +69,6 @@ describe('JsonlSessionReader', () => {
     expect(messages.length).toBeGreaterThanOrEqual(3);
     const assistantTool = messages.find((m) => m.type === 'assistant' && (m.toolCalls?.length ?? 0) > 0);
     expect(assistantTool?.toolCalls?.[0]?.name).toBe('exec_command');
-    expect(messages.some((m) => m.type === 'assistant')).toBe(true);
+    expect(messages.some((m) => m.type === 'system')).toBe(true);
   });
 });

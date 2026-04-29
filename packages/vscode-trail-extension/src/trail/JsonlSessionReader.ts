@@ -53,13 +53,13 @@ export class JsonlSessionReader {
     const messages: TrailMessage[] = [];
     for (const raw of normalized) {
       if (!raw.uuid || !raw.type || raw.isMeta) continue;
-      if (raw.type !== 'user' && raw.type !== 'assistant') continue;
+      if (raw.type !== 'user' && raw.type !== 'assistant' && raw.type !== 'system') continue;
 
       const toolCalls = JsonlSessionReader.extractToolCalls(raw);
       messages.push({
         uuid: raw.uuid,
         parentUuid: raw.parentUuid ?? null,
-        type: raw.type as 'user' | 'assistant',
+        type: raw.type as 'user' | 'assistant' | 'system',
         timestamp: raw.timestamp ?? '',
         isSidechain: raw.isSidechain ?? false,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
@@ -85,7 +85,11 @@ export class JsonlSessionReader {
           const role = typeof payload.role === 'string' ? payload.role : '';
           if (role === 'user' || role === 'assistant' || role === 'developer' || role === 'system') {
             const text = JsonlSessionReader.extractCodexText(payload.content);
-            const normalizedType = role === 'user' ? 'user' : 'assistant';
+            const normalizedType = role === 'user'
+              ? 'user'
+              : role === 'assistant'
+                ? 'assistant'
+                : 'system';
             normalized.push({
               uuid: `codex-${seq++}`,
               type: normalizedType,

@@ -1544,7 +1544,7 @@ function mergeToolMetrics(metrics: readonly (ToolMetrics | null)[]): ToolMetrics
 function buildDaySession(date: string, daySessions: readonly TrailSession[]): TrailSession {
   if (daySessions.length === 0) {
     return {
-      id: `day-${date}`, slug: date, project: '', gitBranch: '',
+      id: `day-${date}`, slug: date, repoName: '', gitBranch: '',
       startTime: `${date}T00:00:00.000Z`, endTime: `${date}T23:59:59.999Z`,
       version: '', model: '', messageCount: 0,
       usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 },
@@ -1569,7 +1569,7 @@ function buildDaySession(date: string, daySessions: readonly TrailSession[]): Tr
   }, undefined);
   const peakContextTokens = daySessions.reduce((max, s) => Math.max(max, s.peakContextTokens ?? 0), 0);
   return {
-    id: `day-${date}`, slug: date, project: sorted[0].project, gitBranch: '',
+    id: `day-${date}`, slug: date, repoName: sorted[0].repoName, gitBranch: '',
     startTime: sorted[0].startTime, endTime: sorted.at(-1)!.endTime,
     version: '', model: '',
     messageCount: daySessions.reduce((acc, s) => acc + s.messageCount, 0),

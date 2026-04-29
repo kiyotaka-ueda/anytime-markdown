@@ -47,7 +47,7 @@ export interface SkillModelRow {
 export interface SessionRow {
   readonly id: string;
   readonly slug: string;
-  readonly project: string;
+  readonly repo_name: string;
   readonly version: string;
   readonly entrypoint: string;
   readonly model: string;
