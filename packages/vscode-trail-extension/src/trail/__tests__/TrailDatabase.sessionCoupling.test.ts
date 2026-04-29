@@ -284,6 +284,54 @@ describe('TrailDatabase.fetchTemporalCoupling (granularity=session)', () => {
     });
   });
 
+  it('normalizes absolute paths even when repoName mismatches current_graphs.repo_name', () => {
+    // 実運用では CodeGraph 側 repoId と current_graphs.repo_name が揺れることがある。
+    // listCurrentGraphs() から projectRoot を集めて prefix match する経路をカバー。
+    const projectRoot = '/anytime-markdown';
+    db.saveCurrentGraph(
+      {
+        nodes: [
+          { id: 'n1', label: 'a', type: 'file', filePath: 'packages/x/src/a.ts', line: 0 },
+        ],
+        edges: [],
+        metadata: {
+          projectRoot,
+          analyzedAt: '2026-04-29T00:00:00.000Z',
+          fileCount: 1,
+        },
+      },
+      `${projectRoot}/tsconfig.json`,
+      'commitX',
+      'anytime-markdown', // ← この repo_name で保存
+    );
+
+    insertSession(db, 's1', isoDaysAgo(1));
+    insertMessage(db, 'm1', 's1');
+    insertToolCall(db, 's1', 'm1', 0, 'Edit', `${projectRoot}/packages/x/src/a.ts`);
+    insertToolCall(db, 's1', 'm1', 1, 'Edit', `${projectRoot}/packages/y/src/b.ts`);
+
+    insertSession(db, 's2', isoDaysAgo(2));
+    insertMessage(db, 'm2', 's2');
+    insertToolCall(db, 's2', 'm2', 0, 'Write', `${projectRoot}/packages/x/src/a.ts`);
+    insertToolCall(db, 's2', 'm2', 1, 'Edit', `${projectRoot}/packages/y/src/b.ts`);
+
+    // 別の repoName を渡しても正規化が機能する
+    const edges = db.fetchTemporalCoupling({
+      repoName: 'Workspace',
+      windowDays: 30,
+      minChangeCount: 1,
+      jaccardThreshold: 0,
+      topK: 50,
+      granularity: 'session',
+    });
+
+    expect(edges).toHaveLength(1);
+    expect(edges[0]).toMatchObject({
+      source: 'packages/x/src/a.ts',
+      target: 'packages/y/src/b.ts',
+    });
+  });
+
   it('drops file_path that lives outside the repo root', () => {
     const projectRoot = '/repo-root';
     db.saveCurrentGraph(

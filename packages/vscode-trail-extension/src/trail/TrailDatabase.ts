@@ -2298,18 +2298,31 @@ export class TrailDatabase {
       const values = result[0]?.values ?? [];
 
       // message_tool_calls.file_path は Claude Code の Edit/Write ツール input を
-      // そのまま記録しているため、絶対パスで入る。CodeGraph のノード ID は
-      // リポ相対パス前提のため、current_graphs.metadata.projectRoot を起点に
-      // 相対化する。リポ外のファイルは捨てる。
-      const projectRoot = this.getCurrentGraph(repoName)?.metadata?.projectRoot ?? null;
+      // そのまま記録するため絶対パス。CodeGraph のノード ID はリポ相対パス前提なので
+      // current_graphs.metadata.projectRoot を起点に正規化する。
+      //
+      // repoName と current_graphs.repo_name の表記が揺れる運用（例: CodeGraph 側は
+      // 'Workspace' / TrailDatabase 側はパッケージ名）にも耐えるよう、すべての
+      // current_graphs 行から projectRoot を集めて prefix match で相対化する。
+      // 短い順（リポルートに近いほうが先）にソートして、`/anytime-markdown/packages/...`
+      // のような長いルートよりリポルート側を優先する。
+      const projectRootCandidates = Array.from(
+        new Set(
+          this.listCurrentGraphs()
+            .map((g) => g.graph?.metadata?.projectRoot)
+            .filter((p): p is string => typeof p === 'string' && p.length > 0),
+        ),
+      ).sort((a, b) => a.length - b.length);
+
       const normalize = (raw: string): string | null => {
         if (!raw) return null;
         if (!raw.startsWith('/')) return raw; // 既に相対パス
-        if (!projectRoot) return null; // 絶対パスだが基準がない → 捨てる
-        const prefix = projectRoot.endsWith('/') ? projectRoot : `${projectRoot}/`;
-        if (raw === projectRoot) return null;
-        if (raw.startsWith(prefix)) return raw.slice(prefix.length);
-        return null;
+        for (const root of projectRootCandidates) {
+          if (raw === root) continue;
+          const prefix = root.endsWith('/') ? root : `${root}/`;
+          if (raw.startsWith(prefix)) return raw.slice(prefix.length);
+        }
+        return null; // どの projectRoot にも一致しない → リポ外と判断
       };
 
       const sessionRows: SessionFileRow[] = [];
@@ -2323,7 +2336,7 @@ export class TrailDatabase {
         const normalized = normalize(raw);
         if (!normalized) {
           if (raw.startsWith('/')) {
-            if (!projectRoot) droppedNoProjectRoot++;
+            if (projectRootCandidates.length === 0) droppedNoProjectRoot++;
             else droppedAbsolute++;
           }
           continue;
@@ -2337,7 +2350,7 @@ export class TrailDatabase {
         `[TemporalCoupling/session] repo=${repoName} window=${windowDays}d ` +
           `rawRows=${values.length} normalized=${sessionRows.length} ` +
           `droppedAbsolute=${droppedAbsolute} droppedNoProjectRoot=${droppedNoProjectRoot} ` +
-          `projectRoot=${projectRoot ?? '(none)'} ` +
+          `projectRootCandidates=${JSON.stringify(projectRootCandidates)} ` +
           `sampleRawPaths=${JSON.stringify(sampleRaw)} ` +
           `excludePairs=${excludePairs.length} ` +
           `defaults: minChangeCount=${minChangeCount} jaccardThreshold=${jaccardThreshold} maxFilesPerGroup=${maxFilesPerGroup} topK=${topK}`,
