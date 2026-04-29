@@ -2,6 +2,8 @@ export { computeTemporalCoupling } from './computeTemporalCoupling';
 export { computeSessionCoupling } from './computeSessionCoupling';
 export { computeSubagentTypeCoupling } from './computeSubagentTypeCoupling';
 export { computeConfidenceCoupling } from './computeConfidenceCoupling';
+export { computeSessionConfidenceCoupling } from './computeSessionConfidenceCoupling';
+export { computeSubagentTypeConfidenceCoupling } from './computeSubagentTypeConfidenceCoupling';
 export {
   aggregatePairs,
   pairKey,
