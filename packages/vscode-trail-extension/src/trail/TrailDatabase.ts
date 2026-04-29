@@ -2240,22 +2240,32 @@ export class TrailDatabase {
     let batchFileCount = 0;
     let inTransaction = false;
     let processedFiles = 0;
+    const processedBySource = { claude_code: 0, codex: 0 };
+    const skippedBySource = { claude_code: 0, codex: 0 };
     // Sessions that entered the import path in this run. Sessions skipped via
     // the file-size check did not gain new messages, so message_tool_calls is
     // already up to date and the analyzer can be skipped for them.
     const sessionsToAnalyze = new Set<string>();
 
+    const formatProgress = (): string =>
+      `${batchMessageCount} messages (${processedFiles}/${totalFiles}, skipped ${skipped}): ` +
+      `Claude Code ${processedBySource.claude_code}/${claudeFiles} skipped ${skippedBySource.claude_code}, ` +
+      `Codex ${processedBySource.codex}/${codexFiles} skipped ${skippedBySource.codex}`;
+
     for (const dir of sessionDirs) {
+      const sessionFileTotal = 1 + dir.subagentFiles.length;
       // Skip entire session (main + all subagents) if main file size unchanged
       // and the existing row actually has messages. A session row with zero messages
       // is a leftover from a previously-failed import and must be re-processed.
       const existing = importedFiles.get(dir.mainFile);
       if (existing && existing.hasMessages && existing.hasUsableCostData) {
         let currentFileSize = 0;
-        try { currentFileSize = fs.statSync(dir.mainFile).size; } catch (e) { TrailLogger.error(`statSync failed: ${dir.mainFile}`, e); skipped++; continue; }
+        try { currentFileSize = fs.statSync(dir.mainFile).size; } catch (e) { TrailLogger.error(`statSync failed: ${dir.mainFile}`, e); skipped++; skippedBySource[dir.source]++; continue; }
         if (currentFileSize <= existing.fileSize) {
-          skipped += 1 + dir.subagentFiles.length;
-          processedFiles += 1 + dir.subagentFiles.length;
+          skipped += sessionFileTotal;
+          skippedBySource[dir.source] += sessionFileTotal;
+          processedFiles += sessionFileTotal;
+          processedBySource[dir.source] += sessionFileTotal;
           if (gitRoot && !existing.commitsResolved) {
             try { commitsResolved += this.resolveCommits(dir.sid, gitRoot); } catch (e) { TrailLogger.error(`resolveCommits failed (skipped session): ${dir.sid}`, e); }
           }
@@ -2289,6 +2299,7 @@ export class TrailDatabase {
           TrailLogger.error(`importSession failed: ${file.filePath}`, e);
         }
         processedFiles++;
+        processedBySource[dir.source]++;
       }
 
       // Resolve commits after all files for this session
@@ -2302,7 +2313,7 @@ export class TrailDatabase {
           try { db.run('COMMIT'); } catch (e) { TrailLogger.error('COMMIT failed, rolling back', e); try { db.run('ROLLBACK'); } catch (re) { TrailLogger.error('ROLLBACK also failed', re); } }
           inTransaction = false;
         }
-        onProgress?.(`${batchMessageCount} messages (${processedFiles}/${totalFiles}, skipped ${skipped})`, 0);
+        onProgress?.(formatProgress(), 0);
         await new Promise<void>((resolve) => setTimeout(resolve, 0));
       }
     }
@@ -2312,7 +2323,7 @@ export class TrailDatabase {
       const db = this.ensureDb();
       try { db.run('COMMIT'); } catch (e) { TrailLogger.error('COMMIT failed, rolling back', e); try { db.run('ROLLBACK'); } catch (re) { TrailLogger.error('ROLLBACK also failed', re); } }
       inTransaction = false;
-      onProgress?.(`${batchMessageCount} messages (${processedFiles}/${totalFiles}, skipped ${skipped})`, 0);
+      onProgress?.(formatProgress(), 0);
     }
 
     // Resolve releases from version tags
