@@ -15,7 +15,7 @@ import type {
 import type { AnalyticsData, ITrailReader, TrailRelease } from '@anytime-markdown/trail-core/domain';
 import { computeDeploymentFrequency, computeQualityMetrics, computeReleaseQualityTimeSeries } from '@anytime-markdown/trail-core/domain/metrics';
 import type { DateRange, QualityMetrics, ReleaseQualityBucket } from '@anytime-markdown/trail-core/domain/metrics';
-import { calculateCost, normalizeModelName } from '@anytime-markdown/trail-core/domain/engine';
+import { calculateCost } from '@anytime-markdown/trail-core/domain/engine';
 
 // ---------------------------------------------------------------------------
 // Row shapes returned by Supabase (snake_case DB columns)
@@ -791,6 +791,22 @@ export class SupabaseTrailReader implements ITrailReader {
       }
       return results;
     };
+    const fetchSessionSources = async (sessionIds: string[]): Promise<Map<string, 'claude_code' | 'codex'>> => {
+      if (sessionIds.length === 0) return new Map();
+      const SESSION_BATCH = 200;
+      const sourceMap = new Map<string, 'claude_code' | 'codex'>();
+      for (let i = 0; i < sessionIds.length; i += SESSION_BATCH) {
+        const batchIds = sessionIds.slice(i, i + SESSION_BATCH);
+        const { data } = await this.client
+          .from('trail_sessions')
+          .select('id, source')
+          .in('id', batchIds);
+        for (const row of (data ?? []) as Array<{ id: string; source: 'claude_code' | 'codex' }>) {
+          sourceMap.set(row.id, row.source);
+        }
+      }
+      return sourceMap;
+    };
     const fetchAssistantMessages = async (f: string, t: string) => {
       type AssistantRow = {
         session_id: string;
@@ -860,6 +876,7 @@ export class SupabaseTrailReader implements ITrailReader {
     const aggregateTokensByUser = (
       users: ReadonlyArray<MessageRow>,
       assistants: ReadonlyArray<{ session_id: string; timestamp: string; input_tokens: number; output_tokens: number; cache_read_tokens: number; cache_creation_tokens: number; model: string | null }>,
+      sourceBySessionId: ReadonlyMap<string, 'claude_code' | 'codex'>,
     ): Map<string, { input: number; output: number; cr: number; cc: number; cost: number }> => {
       const usersBySession = new Map<string, MessageRow[]>();
       for (const u of users) {
@@ -898,12 +915,12 @@ export class SupabaseTrailReader implements ITrailReader {
         t.output += outputToks;
         t.cr += crToks;
         t.cc += ccToks;
-        t.cost += calculateCost(normalizeModelName(a.model ?? ''), {
+        t.cost += calculateCost(a.model ?? '', {
           inputTokens: inputToks,
           outputTokens: outputToks,
           cacheReadTokens: crToks,
           cacheCreationTokens: ccToks,
-        });
+        }, sourceBySessionId.get(a.session_id));
       }
       return tokensByUuid;
     };
@@ -918,17 +935,19 @@ export class SupabaseTrailReader implements ITrailReader {
     const curSessionIds = [...new Set(curCommits.map((c) => c.session_id))];
     const prevSessionIds = [...new Set(prevCommits.map((c) => c.session_id))];
 
-    const [curMessages, curAssistants, curFilesByHash, prevMessages, prevAssistants, prevFilesByHash] = await Promise.all([
+    const [curMessages, curAssistants, curFilesByHash, prevMessages, prevAssistants, prevFilesByHash, curSources, prevSources] = await Promise.all([
       fetchMessagesBySessionIds(curSessionIds),
       fetchAssistantMessages(range.from, range.to),
       fetchFilesByHashes(curCommits.map((c) => c.commit_hash)),
       fetchMessagesBySessionIds(prevSessionIds),
       fetchAssistantMessages(prevFrom, prevTo),
       fetchFilesByHashes(prevCommits.map((c) => c.commit_hash)),
+      fetchSessionSources(curSessionIds),
+      fetchSessionSources(prevSessionIds),
     ]);
 
-    const curTokens = aggregateTokensByUser(curMessages, curAssistants);
-    const prevTokens = aggregateTokensByUser(prevMessages, prevAssistants);
+    const curTokens = aggregateTokensByUser(curMessages, curAssistants, curSources);
+    const prevTokens = aggregateTokensByUser(prevMessages, prevAssistants, prevSources);
     return computeQualityMetrics(
       {
         releases: curReleases.map((r) => ({ id: r.tag, tag_date: r.released_at, commit_hashes: [], fix_count: r.fix_count })),

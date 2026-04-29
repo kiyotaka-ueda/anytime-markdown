@@ -1,5 +1,5 @@
-export { MODEL_PRICING, normalizeModelName, calculateCost } from './pricing';
-export type { TokenUsage, ModelPricing } from './pricing';
+export { MODEL_PRICING, normalizeModelName, resolvePricingModelName, calculateCost } from './pricing';
+export type { TokenUsage, ModelPricing, PricingSource } from './pricing';
 
 export {
   classifyByRules,

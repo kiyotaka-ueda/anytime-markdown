@@ -36,6 +36,11 @@ describe('estimateCost', () => {
     const result = estimateCost('some-opus-variant', 1_000_000, 0, 0, 0);
     expect(result).toBeCloseTo(15.0);
   });
+
+  it('should use Codex pricing when the session source is codex', () => {
+    const result = estimateCost('', 1_000_000, 1_000_000, 1_000_000, 1_000_000, 'codex');
+    expect(result).toBeCloseTo(12.625);
+  });
 });
 
 describe('TrailDatabase.parseSessionIdFromBody', () => {
@@ -303,12 +308,13 @@ describe('TrailDatabase.importSession - Codex token usage', () => {
     expect(messageUsage).toEqual([100, 12, 40]);
 
     const sessionCost = inner.exec(
-      `SELECT input_tokens, output_tokens, cache_read_tokens, estimated_cost_usd
+      `SELECT model, input_tokens, output_tokens, cache_read_tokens, estimated_cost_usd
        FROM session_costs
        WHERE session_id = 'codex-token-session'`,
     )[0]?.values[0];
-    expect(sessionCost?.slice(0, 3)).toEqual([100, 12, 40]);
-    expect(Number(sessionCost?.[3] ?? 0)).toBeGreaterThan(0);
+    expect(sessionCost?.[0]).toBe('gpt-5.1-codex');
+    expect(sessionCost?.slice(1, 4)).toEqual([100, 12, 40]);
+    expect(Number(sessionCost?.[4] ?? 0)).toBeCloseTo(0.00025, 6);
 
     db.close();
   });

@@ -39,15 +39,15 @@ import {
   isAiFirstTryFailureCommit,
   AI_FIRST_TRY_FIX_WINDOW_MS,
   calculateCost,
-  normalizeModelName,
   computeTemporalCoupling,
   computeSessionCoupling,
   computeSubagentTypeCoupling,
   computeConfidenceCoupling,
   computeSessionConfidenceCoupling,
   computeSubagentTypeConfidenceCoupling,
+  resolvePricingModelName,
 } from '@anytime-markdown/trail-core';
-import type { TrailGraph, IC4ModelStore, C4ModelEntry, C4ModelResult, TrailMessageCommit, MessageCommitInput, ManualElement, ManualRelationship, ManualGroup, CommitFileRow, SessionFileRow, SubagentTypeFileRow, TemporalCouplingEdge, ConfidenceCouplingEdge } from '@anytime-markdown/trail-core';
+import type { TrailGraph, IC4ModelStore, C4ModelEntry, C4ModelResult, TrailMessageCommit, MessageCommitInput, ManualElement, ManualRelationship, ManualGroup, CommitFileRow, SessionFileRow, SubagentTypeFileRow, TemporalCouplingEdge, ConfidenceCouplingEdge, PricingSource } from '@anytime-markdown/trail-core';
 import { matchCommitsToMessages } from '@anytime-markdown/trail-core';
 import { JsonlSessionReader } from './JsonlSessionReader';
 import { ExecFileGitService } from './ExecFileGitService';
@@ -1411,18 +1411,21 @@ export class TrailDatabase {
     db.run('DELETE FROM session_costs');
 
     const result = db.exec(
-      `SELECT session_id, COALESCE(model,''),
+      `SELECT m.session_id, COALESCE(m.model,''), s.source,
         SUM(input_tokens), SUM(output_tokens),
         SUM(cache_read_tokens), SUM(cache_creation_tokens)
-       FROM messages WHERE type = 'assistant'
-       GROUP BY session_id, model`,
+       FROM messages m
+       INNER JOIN sessions s ON s.id = m.session_id
+       WHERE m.type = 'assistant'
+       GROUP BY m.session_id, m.model, s.source`,
     );
     const stmt = db.prepare(INSERT_SESSION_COST);
     for (const row of result[0]?.values ?? []) {
-      const sid = String(row[0]); const m = String(row[1]);
-      const inp = Number(row[2]); const outp = Number(row[3]);
-      const cr = Number(row[4]); const cc = Number(row[5]);
-      stmt.run([sid, m, inp, outp, cr, cc, estimateCost(m, inp, outp, cr, cc)]);
+      const sid = String(row[0]); const m = String(row[1]); const source = String(row[2]) as PricingSource;
+      const inp = Number(row[3]); const outp = Number(row[4]);
+      const cr = Number(row[5]); const cc = Number(row[6]);
+      const billingModel = resolvePricingModelName(m, source);
+      stmt.run([sid, billingModel, inp, outp, cr, cc, estimateCost(m, inp, outp, cr, cc, source)]);
     }
     stmt.free();
   }
@@ -1510,17 +1513,20 @@ export class TrailDatabase {
 
     // ── kind='cost_actual' : assistant メッセージ日次トークン・コスト ──
     const actual = db.exec(
-      `SELECT DATE(timestamp, '${tzOffset}'), COALESCE(model,''),
+      `SELECT DATE(m.timestamp, '${tzOffset}'), COALESCE(m.model,''), s.source,
         SUM(input_tokens), SUM(output_tokens),
         SUM(cache_read_tokens), SUM(cache_creation_tokens)
-       FROM messages WHERE type = 'assistant'
-       GROUP BY DATE(timestamp, '${tzOffset}'), model`,
+       FROM messages m
+       INNER JOIN sessions s ON s.id = m.session_id
+       WHERE m.type = 'assistant'
+       GROUP BY DATE(m.timestamp, '${tzOffset}'), m.model, s.source`,
     );
     for (const row of actual[0]?.values ?? []) {
-      const d = String(row[0]); const m = String(row[1]);
-      const inp = Number(row[2]); const outp = Number(row[3]);
-      const cr = Number(row[4]); const cc = Number(row[5]);
-      stmt.run([d, 'cost_actual', m, 0, 0, inp, outp, cr, cc, 0, estimateCost(m, inp, outp, cr, cc)]);
+      const d = String(row[0]); const m = String(row[1]); const source = String(row[2]) as PricingSource;
+      const inp = Number(row[3]); const outp = Number(row[4]);
+      const cr = Number(row[5]); const cc = Number(row[6]);
+      const billingModel = resolvePricingModelName(m, source);
+      stmt.run([d, 'cost_actual', billingModel, 0, 0, inp, outp, cr, cc, 0, estimateCost(m, inp, outp, cr, cc, source)]);
     }
 
     // Auto-register new skills that are not yet in skill_models
@@ -4961,16 +4967,18 @@ export class TrailDatabase {
       }
 
       const asstRes = db.exec(
-        `SELECT session_id, timestamp, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, model
-         FROM messages
-         WHERE type = 'assistant' AND timestamp >= ? AND timestamp <= ?`,
+        `SELECT m.session_id, s.source, m.timestamp, m.input_tokens, m.output_tokens, m.cache_read_tokens, m.cache_creation_tokens, m.model
+         FROM messages m
+         INNER JOIN sessions s ON s.id = m.session_id
+         WHERE m.type = 'assistant' AND m.timestamp >= ? AND m.timestamp <= ?`,
         [f, t],
       );
 
       if (asstRes[0]) {
         for (const row of asstRes[0].values) {
           const sessionId = row[0] as string;
-          const asstTs = row[1] as string;
+          const source = row[1] as string;
+          const asstTs = row[2] as string;
           const sessionUsers = usersBySession.get(sessionId);
           if (!sessionUsers) continue;
 
@@ -4991,21 +4999,21 @@ export class TrailDatabase {
 
           const tokens = tokensByUserUuid.get(sessionUsers[idx].uuid);
           if (!tokens) continue;
-          const inputToks = (row[2] as number) ?? 0;
-          const outputToks = (row[3] as number) ?? 0;
-          const crToks = (row[4] as number) ?? 0;
-          const ccToks = (row[5] as number) ?? 0;
-          const model = (row[6] as string | null) ?? '';
+          const inputToks = (row[3] as number) ?? 0;
+          const outputToks = (row[4] as number) ?? 0;
+          const crToks = (row[5] as number) ?? 0;
+          const ccToks = (row[6] as number) ?? 0;
+          const model = (row[7] as string | null) ?? '';
           tokens.input += inputToks;
           tokens.output += outputToks;
           tokens.cr += crToks;
           tokens.cc += ccToks;
-          tokens.cost += calculateCost(normalizeModelName(model), {
+          tokens.cost += calculateCost(model, {
             inputTokens: inputToks,
             outputTokens: outputToks,
             cacheReadTokens: crToks,
             cacheCreationTokens: ccToks,
-          });
+          }, source as PricingSource);
         }
       }
 
@@ -5131,50 +5139,23 @@ export class TrailDatabase {
   }
 }
 
-// ---------------------------------------------------------------------------
-//  Cost estimation
-// ---------------------------------------------------------------------------
-
-export interface ModelRates {
-  readonly input: number;
-  readonly output: number;
-  readonly cacheRead: number;
-  readonly cacheCreation: number;
-}
-
-/** Per-1M-token rates in USD. */
-const MODEL_RATES: Record<string, ModelRates> = {
-  'claude-opus-4-6': { input: 15, output: 75, cacheRead: 1.5, cacheCreation: 18.75 },
-  'claude-sonnet-4-6': { input: 3, output: 15, cacheRead: 0.3, cacheCreation: 3.75 },
-  'claude-haiku-4-5': { input: 0.8, output: 4, cacheRead: 0.08, cacheCreation: 1.0 },
-};
-
-const DEFAULT_RATES: ModelRates = { input: 3, output: 15, cacheRead: 0.3, cacheCreation: 3.75 };
-
-function getModelRates(model: string): ModelRates {
-  for (const [key, rates] of Object.entries(MODEL_RATES)) {
-    if (model.includes(key)) return rates;
-  }
-  // Fallback heuristics
-  if (model.includes('opus')) return MODEL_RATES['claude-opus-4-6'];
-  if (model.includes('haiku')) return MODEL_RATES['claude-haiku-4-5'];
-  return DEFAULT_RATES;
-}
-
 export function estimateCost(
   model: string,
   inputTokens: number,
   outputTokens: number,
   cacheReadTokens: number,
   cacheCreationTokens: number,
+  source?: PricingSource,
 ): number {
-  const rates = getModelRates(model);
-  return (
-    (inputTokens * rates.input +
-      outputTokens * rates.output +
-      cacheReadTokens * rates.cacheRead +
-      cacheCreationTokens * rates.cacheCreation) /
-    1_000_000
+  return calculateCost(
+    model,
+    {
+      inputTokens,
+      outputTokens,
+      cacheReadTokens,
+      cacheCreationTokens,
+    },
+    source,
   );
 }
 
