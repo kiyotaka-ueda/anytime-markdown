@@ -15,8 +15,12 @@ export type { ServiceEntry } from './c4/services/catalog';
 export { SERVICE_CATALOG, findService, filterServices } from './c4/services/catalog';
 
 export { computeTemporalCoupling } from './temporalCoupling/computeTemporalCoupling';
+export { computeConfidenceCoupling } from './temporalCoupling/computeConfidenceCoupling';
 export type {
   CommitFileRow,
   ComputeTemporalCouplingOptions,
   TemporalCouplingEdge,
+  ComputeConfidenceCouplingOptions,
+  ConfidenceCouplingEdge,
+  CouplingDirection,
 } from './temporalCoupling/types';
