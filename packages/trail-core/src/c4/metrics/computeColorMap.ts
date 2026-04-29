@@ -51,12 +51,19 @@ function interpolateDsmColor(t: number): string {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
+function defectRiskHeatColor(score: number): string {
+  if (score >= 0.7) return '#c62828';
+  if (score >= 0.35) return '#f9a825';
+  return '#2e7d32';
+}
+
 export function computeColorMap(
   overlay: MetricOverlay,
   coverageMatrix: CoverageMatrix | null,
   dsmMatrix: DsmMatrix | null,
   complexityMatrix: ComplexityMatrix | null,
   importanceMatrix: ImportanceMatrix | null = null,
+  defectRiskMap: ReadonlyMap<string, number> | null = null,
 ): Map<string, string> {
   if (overlay === 'none') return new Map();
 
@@ -128,6 +135,16 @@ export function computeColorMap(
     const map = new Map<string, string>();
     for (const [elementId, score] of Object.entries(importanceMatrix)) {
       map.set(elementId, importanceHeatColor(score));
+    }
+    return map;
+  }
+
+  // ── Defect Risk ──
+  if (overlay === 'defect-risk') {
+    if (!defectRiskMap) return new Map();
+    const map = new Map<string, string>();
+    for (const [elementId, score] of defectRiskMap) {
+      map.set(elementId, defectRiskHeatColor(score));
     }
     return map;
   }

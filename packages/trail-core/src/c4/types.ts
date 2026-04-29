@@ -176,7 +176,8 @@ export type MetricOverlay =
   | 'dsm-cyclic'
   | 'complexity-most'
   | 'complexity-highest'
-  | 'importance';
+  | 'importance'
+  | 'defect-risk';
 
 /** 複雑度分類（classifyByFeatures の label に対応） */
 export type ComplexityClass =

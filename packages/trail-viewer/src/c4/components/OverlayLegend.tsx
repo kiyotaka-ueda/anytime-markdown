@@ -67,6 +67,14 @@ export function OverlayLegend({ overlay, isDark, dsmMax }: Readonly<OverlayLegen
         <Swatch color="#2e7d32" label="< 40" />
       </>
     );
+  } else if (overlay === 'defect-risk') {
+    items = (
+      <>
+        <Swatch color="#c62828" label="≥ 0.7" />
+        <Swatch color="#f9a825" label="0.35–0.7" />
+        <Swatch color="#2e7d32" label="< 0.35" />
+      </>
+    );
   }
 
   return (
