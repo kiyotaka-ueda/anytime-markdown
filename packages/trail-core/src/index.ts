@@ -31,3 +31,10 @@ export type {
   ConfidenceCouplingEdge,
   CouplingDirection,
 } from './temporalCoupling/types';
+
+export {
+  computeDefectRisk,
+  type CommitRiskRow,
+  type DefectRiskEntry,
+  type ComputeDefectRiskOptions,
+} from './defectRisk';
