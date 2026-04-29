@@ -187,6 +187,7 @@ export const en: TrailI18n = {
   'c4.overlay.complexityHighest': 'Complexity (highest)',
   'c4.overlay.groupImportance': 'Importance',
   'c4.overlay.importance': 'Importance score',
+  'c4.overlay.defectRisk': 'Defect risk',
   'c4.claudeActivity.reset': 'Clear edit history',
   'c4.multiAgent.badge': 'agents',
   'c4.multiAgent.conflicts': 'conflicts',

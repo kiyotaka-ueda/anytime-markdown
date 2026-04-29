@@ -201,6 +201,7 @@ export interface TrailI18n {
   'c4.overlay.complexityHighest': string;
   'c4.overlay.groupImportance': string;
   'c4.overlay.importance': string;
+  'c4.overlay.defectRisk': string;
   'c4.claudeActivity.reset': string;
   'c4.multiAgent.badge': string;
   'c4.multiAgent.conflicts': string;

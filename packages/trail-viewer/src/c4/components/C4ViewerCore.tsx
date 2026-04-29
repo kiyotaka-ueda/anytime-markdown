@@ -23,6 +23,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 
 import { useTrailI18n } from '../../i18n';
 import { getC4Colors } from '../c4Theme';
+import { useDefectRisk } from '../hooks/useDefectRisk';
 
 const UNKNOWN_REPO_KEY = '__unknown__';
 const CURRENT_RELEASE_TAG = 'current';
@@ -207,6 +208,13 @@ export function C4ViewerCore({
   const [showCoverage, setShowCoverage] = useState(false);
   const [matrixView, setMatrixView] = useState<'dsm' | 'fcmap' | 'coverage'>('dsm');
   const [metricOverlay, setMetricOverlay] = useState<MetricOverlay>('none');
+  const [drWindowDays, setDrWindowDays] = useState(90);
+  const { entries: drEntries } = useDefectRisk({
+    enabled: metricOverlay === 'defect-risk',
+    serverUrl,
+    windowDays: drWindowDays,
+    halfLifeDays: 90,
+  });
   const [dsmLevel, setDsmLevel] = useState<'component' | 'package'>('component');
   const [dsmClustered, setDsmClustered] = useState(false);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
@@ -607,9 +615,21 @@ export function C4ViewerCore({
     return { ...coverageMatrix, entries };
   }, [coverageMatrix, c4Model, currentLevel]);
 
+  const defectRiskMap = useMemo<ReadonlyMap<string, number> | null>(() => {
+    if (metricOverlay !== 'defect-risk' || drEntries.length === 0) return null;
+    const map = new Map<string, number>();
+    for (const entry of drEntries) {
+      const match = /^packages\/([^/]+)\//.exec(entry.filePath);
+      if (!match) continue;
+      const c4Id = `pkg_${match[1]}`;
+      map.set(c4Id, Math.max(map.get(c4Id) ?? 0, entry.score));
+    }
+    return map;
+  }, [metricOverlay, drEntries]);
+
   const overlayMap = useMemo(
-    () => computeColorMap(metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix),
-    [metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix],
+    () => computeColorMap(metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, defectRiskMap),
+    [metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, defectRiskMap],
   );
 
   const claudeActivityMap = useMemo(() => {
@@ -894,6 +914,7 @@ export function C4ViewerCore({
               {t('c4.overlay.groupImportance')}
             </ListSubheader>
             <MenuItem value="importance" disabled={!importanceMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.importance')}</MenuItem>
+            <MenuItem value="defect-risk" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.defectRisk')}</MenuItem>
           </Select>
         </Box>
         <Button size="small" onClick={() => { if (showC4 && !showDsm) { setShowDsm(true); } else { setShowC4(true); setShowDsm(false); } }} aria-pressed={showC4 && !showDsm} aria-label="Toggle C4 graph" sx={{ ...toolbarButtonSx, ...(showC4 && !showDsm && { bgcolor: toolbarButtonActiveBg }) }}>C4</Button>

@@ -187,6 +187,7 @@ export const ja: TrailI18n = {
   'c4.overlay.complexityHighest': '複雑度（最高）',
   'c4.overlay.groupImportance': '重要度',
   'c4.overlay.importance': '重要度スコア',
+  'c4.overlay.defectRisk': '欠陥リスク',
   'c4.claudeActivity.reset': '編集履歴をクリア',
   'c4.multiAgent.badge': 'agents',
   'c4.multiAgent.conflicts': '衝突',
