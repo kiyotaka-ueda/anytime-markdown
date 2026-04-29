@@ -2202,6 +2202,10 @@ export class TrailDatabase {
     let batchFileCount = 0;
     let inTransaction = false;
     let processedFiles = 0;
+    // Sessions that entered the import path in this run. Sessions skipped via
+    // the file-size check did not gain new messages, so message_tool_calls is
+    // already up to date and the analyzer can be skipped for them.
+    const sessionsToAnalyze = new Set<string>();
 
     for (const dir of sessionDirs) {
       // Skip entire session (main + all subagents) if main file size unchanged
@@ -2220,6 +2224,8 @@ export class TrailDatabase {
           continue;
         }
       }
+
+      sessionsToAnalyze.add(dir.sid);
 
       // Import all files for this session (main + subagents) in one batch
       const db = this.ensureDb();
@@ -2312,15 +2318,18 @@ export class TrailDatabase {
     this.rebuildSessionCosts();
     onProgress?.('Session costs rebuilt', 0);
 
-    // Analyze Claude Code behavior for all sessions (INSERT OR IGNORE ensures idempotency)
-    const db = this.ensureDb();
-    const analyzer = new ClaudeCodeBehaviorAnalyzer();
-    onProgress?.('Analyzing Claude Code behavior...', 0);
-    for (const dir of sessionDirs) {
-      try {
-        analyzer.analyze(dir.sid, db);
-      } catch (e) {
-        TrailLogger.error(`ClaudeCodeBehaviorAnalyzer failed for session ${dir.sid}`, e);
+    // Analyze Claude Code behavior only for sessions that were (re)imported in this run.
+    // Sessions skipped above had no new messages, so message_tool_calls is already current.
+    if (sessionsToAnalyze.size > 0) {
+      const db = this.ensureDb();
+      const analyzer = new ClaudeCodeBehaviorAnalyzer();
+      onProgress?.(`Analyzing Claude Code behavior (${sessionsToAnalyze.size} sessions)...`, 0);
+      for (const sid of sessionsToAnalyze) {
+        try {
+          analyzer.analyze(sid, db);
+        } catch (e) {
+          TrailLogger.error(`ClaudeCodeBehaviorAnalyzer failed for session ${sid}`, e);
+        }
       }
     }
 
