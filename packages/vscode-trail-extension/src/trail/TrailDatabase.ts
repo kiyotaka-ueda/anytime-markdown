@@ -464,6 +464,27 @@ function normalizeCodexRecords(records: readonly RawLine[], fallbackSessionId: s
       if (payload.type === 'task_started') {
         continue;
       }
+      if (payload.type === 'token_count' && payload.info && typeof payload.info === 'object') {
+        const info = payload.info as Record<string, unknown>;
+        const last = info.last_token_usage as Record<string, unknown> | undefined;
+        if (last && normalized.length > 0) {
+          for (let i = normalized.length - 1; i >= 0; i--) {
+            const candidate = normalized[i];
+            if (candidate.type !== 'assistant') continue;
+            candidate.message = {
+              ...(candidate.message ?? {}),
+              usage: {
+                input_tokens: Number(last.input_tokens ?? 0),
+                output_tokens: Number(last.output_tokens ?? 0),
+                cache_read_input_tokens: Number(last.cached_input_tokens ?? 0),
+                cache_creation_input_tokens: 0,
+              },
+            };
+            break;
+          }
+        }
+        continue;
+      }
       if (payload.type === 'agent_message' && typeof payload.message === 'string') {
         normalized.push({
           uuid: `codex-${seq++}`,
@@ -543,10 +564,11 @@ function normalizeCodexRecords(records: readonly RawLine[], fallbackSessionId: s
       const info = payload.info as Record<string, unknown>;
       const last = info.last_token_usage as Record<string, unknown> | undefined;
       if (last && normalized.length > 0) {
-        const tail = normalized[normalized.length - 1];
-        if (tail.type === 'assistant') {
-          tail.message = {
-            ...(tail.message ?? {}),
+        for (let i = normalized.length - 1; i >= 0; i--) {
+          const candidate = normalized[i];
+          if (candidate.type !== 'assistant') continue;
+          candidate.message = {
+            ...(candidate.message ?? {}),
             usage: {
               input_tokens: Number(last.input_tokens ?? 0),
               output_tokens: Number(last.output_tokens ?? 0),
@@ -554,6 +576,7 @@ function normalizeCodexRecords(records: readonly RawLine[], fallbackSessionId: s
               cache_creation_input_tokens: 0,
             },
           };
+          break;
         }
       }
       continue;
