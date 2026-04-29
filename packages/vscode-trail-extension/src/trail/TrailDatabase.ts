@@ -84,6 +84,11 @@ const TEMPORAL_COUPLING_EXCLUDE_PATTERNS: readonly RegExp[] = [
   /\.map$/,
   /(^|\/)\.worktrees\//,
   /(^|\/)\.claude\//, // .claude/settings.json 等は CodeGraph 対象外
+  /(^|\/)\.vscode\//, // .vscode/graphify-out/*.json 等の生成物は CodeGraph 対象外
+  /(^|\/)\.next\//,
+  /(^|\/)out\//,
+  /(^|\/)build\//,
+  /(^|\/)coverage\//,
 ];
 
 export function defaultTemporalCouplingPathFilter(filePath: string): boolean {
