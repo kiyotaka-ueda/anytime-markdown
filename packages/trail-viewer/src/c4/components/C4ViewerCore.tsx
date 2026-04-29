@@ -627,9 +627,24 @@ export function C4ViewerCore({
     return map;
   }, [metricOverlay, drEntries, c4Model]);
 
+  // currentLevel に合わせて対象タイプのみに絞る（system境界の塗りつぶし防止）
+  const levelFilteredDefectRiskMap = useMemo<ReadonlyMap<string, number> | null>(() => {
+    if (!defectRiskMap || !c4Model) return defectRiskMap;
+    const targetType = currentLevel === 1 ? 'system'
+      : currentLevel === 2 ? 'container'
+      : currentLevel === 3 ? 'component'
+      : 'code';
+    const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
+    const filtered = new Map<string, number>();
+    for (const [id, score] of defectRiskMap) {
+      if (typeById.get(id) === targetType) filtered.set(id, score);
+    }
+    return filtered;
+  }, [defectRiskMap, c4Model, currentLevel]);
+
   const overlayMap = useMemo(
-    () => computeColorMap(metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, defectRiskMap),
-    [metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, defectRiskMap],
+    () => computeColorMap(metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap),
+    [metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap],
   );
 
   const claudeActivityMap = useMemo(() => {
