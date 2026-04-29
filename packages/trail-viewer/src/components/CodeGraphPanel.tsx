@@ -10,10 +10,16 @@ import type { CodeGraph, CodeGraphNode } from '@anytime-markdown/trail-core/code
 import { CodeGraphCanvas, type CodeGraphGhostEdge } from './CodeGraphCanvas';
 import { useCodeGraph } from '../hooks/useCodeGraph';
 import { useTemporalCoupling } from '../c4/hooks/useTemporalCoupling';
+import { useDefectRisk } from '../c4/hooks/useDefectRisk';
 import {
   TemporalCouplingControls,
   type TemporalCouplingControlsValue,
 } from '../c4/components/TemporalCouplingControls';
+import {
+  DefectRiskControls,
+  DEFAULT_DEFECT_RISK_VALUE,
+  type DefectRiskControlsValue,
+} from '../c4/components/DefectRiskControls';
 
 function toCodeGraphNodeId(repoId: string, filePath: string): string {
   const cleaned = filePath.replace(/\.(tsx?|mdx?)$/, '');
@@ -43,6 +49,7 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
   const [selectedNode, setSelectedNode] = useState<CodeGraphNode | null>(null);
   const [repoFilter, setRepoFilter] = useState<string>('all');
   const [tcValue, setTcValue] = useState<TemporalCouplingControlsValue>(DEFAULT_TC_VALUE);
+  const [drValue, setDrValue] = useState<DefectRiskControlsValue>(DEFAULT_DEFECT_RISK_VALUE);
 
   const tcRepoId = useMemo<string | null>(() => {
     if (!graph || graph.repositories.length === 0) return null;
@@ -81,6 +88,23 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
       (e) => !('direction' in e) || e.direction !== 'A→B',
     );
   }, [tcValue.enabled, tcGranularity, tcDirectional, rawGhostEdges]);
+
+  const { entries: drEntries, loading: drLoading } = useDefectRisk({
+    enabled: drValue.enabled,
+    serverUrl,
+    windowDays: drValue.windowDays,
+    halfLifeDays: drValue.halfLifeDays,
+  });
+
+  const riskMap = useMemo<ReadonlyMap<string, number> | null>(() => {
+    if (!drEntries.length || !tcRepoId) return null;
+    const map = new Map<string, number>();
+    for (const entry of drEntries) {
+      const nodeId = toCodeGraphNodeId(tcRepoId, entry.filePath);
+      map.set(nodeId, entry.score);
+    }
+    return map;
+  }, [drEntries, tcRepoId]);
 
   const ghostEdges = useMemo<CodeGraphGhostEdge[]>(() => {
     if (!tcRepoId) return [];
@@ -225,6 +249,13 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
         </Box>
       </Box>
 
+      <DefectRiskControls
+        value={drValue}
+        onChange={setDrValue}
+        resultCount={drEntries.length}
+        loading={drLoading}
+      />
+
       <TemporalCouplingControls
         value={tcValue}
         onChange={setTcValue}
@@ -250,6 +281,7 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
             isDark={isDark}
             ghostEdges={tcValue.enabled ? ghostEdges : undefined}
             ghostEdgeGranularity={tcGranularity}
+            riskMap={drValue.enabled ? riskMap : null}
           />
         </Box>
         {selectedNode && (

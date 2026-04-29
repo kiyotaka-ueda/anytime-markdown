@@ -39,6 +39,12 @@ export interface CodeGraphGhostEdge {
   readonly confidenceBackward?: number;
 }
 
+function riskColor(score: number, dark: boolean): string {
+  if (score >= 0.7) return dark ? '#ef5350' : '#c62828';
+  if (score >= 0.35) return dark ? '#ffa726' : '#f9a825';
+  return dark ? '#66bb6a' : '#2e7d32';
+}
+
 interface CodeGraphCanvasProps {
   readonly graph: CodeGraph;
   readonly highlightedNodes?: ReadonlySet<string>;
@@ -46,6 +52,7 @@ interface CodeGraphCanvasProps {
   readonly isDark?: boolean;
   readonly ghostEdges?: ReadonlyArray<CodeGraphGhostEdge>;
   readonly ghostEdgeGranularity?: CodeGraphGhostEdgeGranularity;
+  readonly riskMap?: ReadonlyMap<string, number> | null;
 }
 
 export function CodeGraphCanvas({
@@ -55,6 +62,7 @@ export function CodeGraphCanvas({
   isDark,
   ghostEdges,
   ghostEdgeGranularity = 'commit',
+  riskMap,
 }: Readonly<CodeGraphCanvasProps>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sigmaRef = useRef<Sigma | null>(null);
@@ -159,6 +167,15 @@ export function CodeGraphCanvas({
       ghostRendered++;
     }
 
+    if (riskMap) {
+      g.forEachNode((nodeId) => {
+        const score = riskMap.get(nodeId);
+        if (score !== undefined) {
+          g.setNodeAttribute(nodeId, 'color', riskColor(score, isDark ?? false));
+        }
+      });
+    }
+
     const sigma = new Sigma(g, containerRef.current, {
       renderEdgeLabels: ghostRendered > 0,
       defaultEdgeColor: isDark ? '#444' : '#ccc',
@@ -177,7 +194,7 @@ export function CodeGraphCanvas({
       sigma.kill();
       sigmaRef.current = null;
     };
-  }, [containerReady, graph, isDark, onNodeClick, ghostEdges, ghostEdgeGranularity]);
+  }, [containerReady, graph, isDark, onNodeClick, ghostEdges, ghostEdgeGranularity, riskMap]);
 
   useEffect(() => {
     const sigma = sigmaRef.current;
