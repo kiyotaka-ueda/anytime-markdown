@@ -2,6 +2,10 @@
 const sqlAsmActual = require(require.resolve('sql.js/dist/sql-asm.js')); // eslint-disable-line @typescript-eslint/no-require-imports
 (global as Record<string, unknown>).__non_webpack_require__ = (_path: string) => sqlAsmActual;
 
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
 import { TrailDatabase, estimateCost, INSERT_MESSAGE } from '../TrailDatabase';
 import { createTestTrailDatabase } from './support/createTestDb';
 
@@ -235,6 +239,76 @@ describe('TrailDatabase.migrateDropSessionsProjectColumn', () => {
     expect(inMemoryDb.exec(`SELECT repo_name FROM sessions WHERE id = 's1'`)[0]?.values[0]?.[0]).toBe('repo');
     expect(inMemoryDb.exec(`SELECT input_tokens FROM session_costs WHERE session_id = 's1'`)[0]?.values[0]?.[0]).toBe(10);
     expect(Number(inMemoryDb.exec('PRAGMA foreign_keys')[0]?.values[0]?.[0] ?? 0)).toBe(1);
+
+    db.close();
+  });
+});
+
+describe('TrailDatabase.importSession - Codex token usage', () => {
+  it('attaches token_count usage to the latest assistant message even after tool output', async () => {
+    const db = await createTestTrailDatabase();
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'trail-codex-token-'));
+    const filePath = path.join(tmpDir, 'rollout-2026-04-29T00-00-00-test.jsonl');
+    const lines = [
+      {
+        timestamp: '2026-04-29T00:00:00.000Z',
+        type: 'session_meta',
+        payload: { id: 'codex-token-session', cli_version: '0.125.0' },
+      },
+      {
+        timestamp: '2026-04-29T00:00:01.000Z',
+        type: 'response_item',
+        payload: {
+          type: 'function_call',
+          name: 'exec_command',
+          call_id: 'call_1',
+          arguments: '{"cmd":"pwd"}',
+        },
+      },
+      {
+        timestamp: '2026-04-29T00:00:02.000Z',
+        type: 'response_item',
+        payload: {
+          type: 'function_call_output',
+          call_id: 'call_1',
+          output: '/repo',
+        },
+      },
+      {
+        timestamp: '2026-04-29T00:00:03.000Z',
+        type: 'event_msg',
+        payload: {
+          type: 'token_count',
+          info: {
+            last_token_usage: {
+              input_tokens: 100,
+              cached_input_tokens: 40,
+              output_tokens: 12,
+            },
+          },
+        },
+      },
+    ];
+    fs.writeFileSync(filePath, `${lines.map((line) => JSON.stringify(line)).join('\n')}\n`, 'utf-8');
+
+    db.importSession(filePath, 'repo', false, false);
+    (db as unknown as Record<string, () => void>).rebuildSessionCosts();
+
+    const inner = (db as unknown as { db: import('sql.js').Database }).db;
+    const messageUsage = inner.exec(
+      `SELECT input_tokens, output_tokens, cache_read_tokens
+       FROM messages
+       WHERE session_id = 'codex-token-session' AND type = 'assistant'`,
+    )[0]?.values[0];
+    expect(messageUsage).toEqual([100, 12, 40]);
+
+    const sessionCost = inner.exec(
+      `SELECT input_tokens, output_tokens, cache_read_tokens, estimated_cost_usd
+       FROM session_costs
+       WHERE session_id = 'codex-token-session'`,
+    )[0]?.values[0];
+    expect(sessionCost?.slice(0, 3)).toEqual([100, 12, 40]);
+    expect(Number(sessionCost?.[3] ?? 0)).toBeGreaterThan(0);
 
     db.close();
   });

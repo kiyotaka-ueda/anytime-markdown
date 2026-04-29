@@ -464,6 +464,27 @@ function normalizeCodexRecords(records: readonly RawLine[], fallbackSessionId: s
       if (payload.type === 'task_started') {
         continue;
       }
+      if (payload.type === 'token_count' && payload.info && typeof payload.info === 'object') {
+        const info = payload.info as Record<string, unknown>;
+        const last = info.last_token_usage as Record<string, unknown> | undefined;
+        if (last && normalized.length > 0) {
+          for (let i = normalized.length - 1; i >= 0; i--) {
+            const candidate = normalized[i];
+            if (candidate.type !== 'assistant') continue;
+            candidate.message = {
+              ...(candidate.message ?? {}),
+              usage: {
+                input_tokens: Number(last.input_tokens ?? 0),
+                output_tokens: Number(last.output_tokens ?? 0),
+                cache_read_input_tokens: Number(last.cached_input_tokens ?? 0),
+                cache_creation_input_tokens: 0,
+              },
+            };
+            break;
+          }
+        }
+        continue;
+      }
       if (payload.type === 'agent_message' && typeof payload.message === 'string') {
         normalized.push({
           uuid: `codex-${seq++}`,
@@ -543,10 +564,11 @@ function normalizeCodexRecords(records: readonly RawLine[], fallbackSessionId: s
       const info = payload.info as Record<string, unknown>;
       const last = info.last_token_usage as Record<string, unknown> | undefined;
       if (last && normalized.length > 0) {
-        const tail = normalized[normalized.length - 1];
-        if (tail.type === 'assistant') {
-          tail.message = {
-            ...(tail.message ?? {}),
+        for (let i = normalized.length - 1; i >= 0; i--) {
+          const candidate = normalized[i];
+          if (candidate.type !== 'assistant') continue;
+          candidate.message = {
+            ...(candidate.message ?? {}),
             usage: {
               input_tokens: Number(last.input_tokens ?? 0),
               output_tokens: Number(last.output_tokens ?? 0),
@@ -554,6 +576,7 @@ function normalizeCodexRecords(records: readonly RawLine[], fallbackSessionId: s
               cache_creation_input_tokens: 0,
             },
           };
+          break;
         }
       }
       continue;
@@ -2136,7 +2159,13 @@ export class TrailDatabase {
     const UUID_RE = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/;
 
     // Collect files per session directory (main + subagents grouped)
-    type SessionDir = { sid: string; mainFile: string; subagentFiles: string[]; repoName: string };
+    type SessionDir = {
+      sid: string;
+      mainFile: string;
+      subagentFiles: string[];
+      repoName: string;
+      source: 'claude_code' | 'codex';
+    };
     const sessionDirs: SessionDir[] = [];
 
     for (const projectName of projectDirs) {
@@ -2167,7 +2196,7 @@ export class TrailDatabase {
           }
         } catch { /* no subagents dir */ }
 
-        sessionDirs.push({ sid, mainFile, subagentFiles, repoName: repoName || projectName });
+        sessionDirs.push({ sid, mainFile, subagentFiles, repoName: repoName || projectName, source: 'claude_code' });
       }
     }
 
@@ -2186,7 +2215,7 @@ export class TrailDatabase {
           const normalizedGitRoot = path.resolve(gitRoot);
           if (!normalizedCwd.startsWith(normalizedGitRoot)) continue;
         }
-        sessionDirs.push({ sid, mainFile: filePath, subagentFiles: [], repoName: repoName || 'codex' });
+        sessionDirs.push({ sid, mainFile: filePath, subagentFiles: [], repoName: repoName || 'codex', source: 'codex' });
       }
     } catch {
       // codex sessions may not exist
@@ -2194,7 +2223,16 @@ export class TrailDatabase {
 
     const totalSessions = sessionDirs.length;
     const totalFiles = sessionDirs.reduce((s, d) => s + 1 + d.subagentFiles.length, 0);
-    onProgress?.(`Found ${totalSessions} sessions (${totalFiles} files)`, 0);
+    const claudeSessions = sessionDirs.filter(d => d.source === 'claude_code');
+    const codexSessions = sessionDirs.filter(d => d.source === 'codex');
+    const claudeFiles = claudeSessions.reduce((s, d) => s + 1 + d.subagentFiles.length, 0);
+    const codexFiles = codexSessions.reduce((s, d) => s + 1 + d.subagentFiles.length, 0);
+    onProgress?.(
+      `Found ${totalSessions} sessions (${totalFiles} files): ` +
+        `Claude Code ${claudeSessions.length} sessions (${claudeFiles} files), ` +
+        `Codex ${codexSessions.length} sessions (${codexFiles} files)`,
+      0,
+    );
 
     const BATCH_MESSAGE_LIMIT = 20_000;
     const BATCH_FILE_LIMIT = 100;
@@ -2202,24 +2240,40 @@ export class TrailDatabase {
     let batchFileCount = 0;
     let inTransaction = false;
     let processedFiles = 0;
+    const processedBySource = { claude_code: 0, codex: 0 };
+    const skippedBySource = { claude_code: 0, codex: 0 };
+    // Sessions that entered the import path in this run. Sessions skipped via
+    // the file-size check did not gain new messages, so message_tool_calls is
+    // already up to date and the analyzer can be skipped for them.
+    const sessionsToAnalyze = new Set<string>();
+
+    const formatProgress = (): string =>
+      `${batchMessageCount} messages (${processedFiles}/${totalFiles}, skipped ${skipped}): ` +
+      `Claude Code ${processedBySource.claude_code}/${claudeFiles} skipped ${skippedBySource.claude_code}, ` +
+      `Codex ${processedBySource.codex}/${codexFiles} skipped ${skippedBySource.codex}`;
 
     for (const dir of sessionDirs) {
+      const sessionFileTotal = 1 + dir.subagentFiles.length;
       // Skip entire session (main + all subagents) if main file size unchanged
       // and the existing row actually has messages. A session row with zero messages
       // is a leftover from a previously-failed import and must be re-processed.
       const existing = importedFiles.get(dir.mainFile);
       if (existing && existing.hasMessages && existing.hasUsableCostData) {
         let currentFileSize = 0;
-        try { currentFileSize = fs.statSync(dir.mainFile).size; } catch (e) { TrailLogger.error(`statSync failed: ${dir.mainFile}`, e); skipped++; continue; }
+        try { currentFileSize = fs.statSync(dir.mainFile).size; } catch (e) { TrailLogger.error(`statSync failed: ${dir.mainFile}`, e); skipped++; skippedBySource[dir.source]++; continue; }
         if (currentFileSize <= existing.fileSize) {
-          skipped += 1 + dir.subagentFiles.length;
-          processedFiles += 1 + dir.subagentFiles.length;
+          skipped += sessionFileTotal;
+          skippedBySource[dir.source] += sessionFileTotal;
+          processedFiles += sessionFileTotal;
+          processedBySource[dir.source] += sessionFileTotal;
           if (gitRoot && !existing.commitsResolved) {
             try { commitsResolved += this.resolveCommits(dir.sid, gitRoot); } catch (e) { TrailLogger.error(`resolveCommits failed (skipped session): ${dir.sid}`, e); }
           }
           continue;
         }
       }
+
+      sessionsToAnalyze.add(dir.sid);
 
       // Import all files for this session (main + subagents) in one batch
       const db = this.ensureDb();
@@ -2245,6 +2299,7 @@ export class TrailDatabase {
           TrailLogger.error(`importSession failed: ${file.filePath}`, e);
         }
         processedFiles++;
+        processedBySource[dir.source]++;
       }
 
       // Resolve commits after all files for this session
@@ -2258,7 +2313,7 @@ export class TrailDatabase {
           try { db.run('COMMIT'); } catch (e) { TrailLogger.error('COMMIT failed, rolling back', e); try { db.run('ROLLBACK'); } catch (re) { TrailLogger.error('ROLLBACK also failed', re); } }
           inTransaction = false;
         }
-        onProgress?.(`${batchMessageCount} messages (${processedFiles}/${totalFiles}, skipped ${skipped})`, 0);
+        onProgress?.(formatProgress(), 0);
         await new Promise<void>((resolve) => setTimeout(resolve, 0));
       }
     }
@@ -2268,7 +2323,7 @@ export class TrailDatabase {
       const db = this.ensureDb();
       try { db.run('COMMIT'); } catch (e) { TrailLogger.error('COMMIT failed, rolling back', e); try { db.run('ROLLBACK'); } catch (re) { TrailLogger.error('ROLLBACK also failed', re); } }
       inTransaction = false;
-      onProgress?.(`${batchMessageCount} messages (${processedFiles}/${totalFiles}, skipped ${skipped})`, 0);
+      onProgress?.(formatProgress(), 0);
     }
 
     // Resolve releases from version tags
@@ -2312,15 +2367,18 @@ export class TrailDatabase {
     this.rebuildSessionCosts();
     onProgress?.('Session costs rebuilt', 0);
 
-    // Analyze Claude Code behavior for all sessions (INSERT OR IGNORE ensures idempotency)
-    const db = this.ensureDb();
-    const analyzer = new ClaudeCodeBehaviorAnalyzer();
-    onProgress?.('Analyzing Claude Code behavior...', 0);
-    for (const dir of sessionDirs) {
-      try {
-        analyzer.analyze(dir.sid, db);
-      } catch (e) {
-        TrailLogger.error(`ClaudeCodeBehaviorAnalyzer failed for session ${dir.sid}`, e);
+    // Analyze Claude Code behavior only for sessions that were (re)imported in this run.
+    // Sessions skipped above had no new messages, so message_tool_calls is already current.
+    if (sessionsToAnalyze.size > 0) {
+      const db = this.ensureDb();
+      const analyzer = new ClaudeCodeBehaviorAnalyzer();
+      onProgress?.(`Analyzing Claude Code behavior (${sessionsToAnalyze.size} sessions)...`, 0);
+      for (const sid of sessionsToAnalyze) {
+        try {
+          analyzer.analyze(sid, db);
+        } catch (e) {
+          TrailLogger.error(`ClaudeCodeBehaviorAnalyzer failed for session ${sid}`, e);
+        }
       }
     }
 
