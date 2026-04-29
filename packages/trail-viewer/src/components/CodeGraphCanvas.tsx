@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import Sigma from 'sigma';
+import { EdgeArrowProgram } from 'sigma/rendering';
 import Graph from 'graphology';
 import type { CodeGraph } from '@anytime-markdown/trail-core/codeGraph';
+import type { CouplingDirection } from '@anytime-markdown/trail-core';
 
 const COMMUNITY_COLORS = [
   '#4e79a7',
@@ -24,6 +26,9 @@ export interface CodeGraphGhostEdge {
   readonly target: string;
   readonly jaccard: number;
   readonly coChangeCount: number;
+  readonly direction?: CouplingDirection;
+  readonly confidenceForward?: number;
+  readonly confidenceBackward?: number;
 }
 
 interface CodeGraphCanvasProps {
@@ -101,26 +106,48 @@ export function CodeGraphCanvas({
     let ghostRendered = 0;
     for (const ge of ghostEdges ?? []) {
       if (
-        g.hasNode(ge.source) &&
-        g.hasNode(ge.target) &&
-        !g.hasEdge(ge.source, ge.target) &&
-        !g.hasEdge(ge.target, ge.source)
-      ) {
+        !g.hasNode(ge.source) ||
+        !g.hasNode(ge.target) ||
+        g.hasEdge(ge.source, ge.target) ||
+        g.hasEdge(ge.target, ge.source)
+      ) continue;
+
+      const conf = ge.confidenceForward;
+      const sizeBase = conf ?? ge.jaccard;
+      const baseAttrs = {
+        color: ghostColor,
+        size: 1 + sizeBase * 3,
+        forceLabel: true,
+        temporal: true,
+      };
+      if (ge.direction === 'A→B' && conf !== undefined) {
+        g.addDirectedEdge(ge.source, ge.target, {
+          ...baseAttrs,
+          type: 'arrow',
+          label: `Conf ${conf.toFixed(2)} →`,
+        });
+      } else if (ge.direction === 'undirected' && conf !== undefined) {
         g.addEdge(ge.source, ge.target, {
-          color: ghostColor,
+          ...baseAttrs,
+          label: `Conf ${conf.toFixed(2)} ↔`,
+        });
+      } else {
+        g.addEdge(ge.source, ge.target, {
+          ...baseAttrs,
           size: 1 + ge.jaccard * 3,
           label: `Temporal J=${ge.jaccard.toFixed(2)}`,
-          forceLabel: true,
-          temporal: true,
         });
-        ghostRendered++;
       }
+      ghostRendered++;
     }
 
     const sigma = new Sigma(g, containerRef.current, {
       renderEdgeLabels: ghostRendered > 0,
       defaultEdgeColor: isDark ? '#444' : '#ccc',
       allowInvalidContainer: true,
+      edgeProgramClasses: {
+        arrow: EdgeArrowProgram,
+      },
     });
 
     if (onNodeClick) {
