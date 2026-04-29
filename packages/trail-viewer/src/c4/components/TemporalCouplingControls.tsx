@@ -44,7 +44,7 @@ const TOP_K_OPTIONS: ReadonlyArray<number> = [10, 50, 100];
 export const GRANULARITY_DEFAULT_THRESHOLD: Readonly<Record<TemporalCouplingGranularity, number>> = {
   commit: 0.5,
   session: 0.4,
-  subagentType: 0.3,
+  subagentType: 0.5,
 };
 
 const GRANULARITY_DESCRIPTION_ID: Readonly<Record<TemporalCouplingGranularity, string>> = {

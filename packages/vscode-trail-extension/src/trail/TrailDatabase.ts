@@ -610,6 +610,13 @@ export class TrailDatabase {
     this.migrateTimestampsToUTC(db);
     this.migrateToolUseResult(db);
     this.migrateMessageCommitsToUserUuid(db);
+    // Phase D-2: subagent_type を既存データに後付けで埋める（_migrations で冪等性確保）。
+    // importAll() を待たず init 段階で実行するため、ユーザーが同期未実行でも有効。
+    try {
+      this.backfillSubagentType();
+    } catch (e) {
+      TrailLogger.warn(`backfillSubagentType (init) failed (non-fatal): ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 
   /**
@@ -2398,12 +2405,18 @@ export class TrailDatabase {
     // 粒度別デフォルト
     const isSession = granularity === 'session';
     const isSubagentType = granularity === 'subagentType';
+    // subagentType は集約数が極端に少ない（実用 2〜6 型）。minChangeCount=2 にすると
+    // 「2 つ以上の型に跨って触られたファイル」のみが eligible になり、
+    // 役割別に専門領域が分かれる典型ケースで eligibleFiles.size<2 短絡 → 0 件となる。
+    // そのため minChangeCount=1（すべてのファイルを eligible 化）にし、
+    // 各 subagent_type の内部で co-edit ペアを描画する。
     const minChangeCount = options.minChangeCount
-      ?? (isSubagentType ? 2 : isSession ? 3 : 5);
+      ?? (isSubagentType ? 1 : isSession ? 3 : 5);
     const jaccardThreshold = options.jaccardThreshold
-      ?? (isSubagentType ? 0.3 : isSession ? 0.4 : 0.5);
+      ?? (isSubagentType ? 0.5 : isSession ? 0.4 : 0.5);
     const topK = options.topK ?? 50;
-    const maxFilesPerGroup = isSubagentType ? 100 : isSession ? 20 : 50;
+    // subagentType は 1 型あたり数百ファイルに到達することがあるため maxFilesPerGroup を高めに。
+    const maxFilesPerGroup = isSubagentType ? 300 : isSession ? 20 : 50;
 
     const now = new Date();
     const toIso = now.toISOString();
@@ -2529,12 +2542,29 @@ export class TrailDatabase {
       };
 
       const subagentRows: SubagentTypeFileRow[] = [];
+      let normalizationDropped = 0;
       for (const r of values) {
         const subagentType = String(r[0] ?? '');
-        const normalized = normalize(String(r[1] ?? ''));
+        const rawPath = String(r[1] ?? '');
+        const normalized = normalize(rawPath);
         if (subagentType && normalized) {
           subagentRows.push({ subagentType, filePath: normalized });
+        } else if (subagentType && rawPath && !normalized) {
+          normalizationDropped++;
         }
+      }
+
+      // 0 件時の診断: 取得段階で空ならスキーマ/データの欠落、正規化で全部落ちたなら projectRoot ミスマッチ。
+      if (subagentRows.length === 0) {
+        const totalMessages = (db.exec(
+          'SELECT COUNT(*) FROM messages WHERE subagent_type IS NOT NULL',
+        )[0]?.values[0]?.[0] ?? 0) as number;
+        TrailLogger.warn(
+          `[fetchTemporalCoupling/subagentType] 0 rows. ` +
+          `messages.subagent_type populated=${totalMessages}, ` +
+          `mtc_join_rows=${values.length}, normalizationDropped=${normalizationDropped}, ` +
+          `projectRootCandidates=${projectRootCandidates.length}`,
+        );
       }
 
       if (directional) {

@@ -168,8 +168,9 @@ describe('TrailDatabase.fetchTemporalCoupling (granularity=subagentType)', () =>
     expect(edges[0]).toMatchObject({ source: 'src/a.ts', target: 'src/b.ts' });
   });
 
-  it('uses default minChangeCount=2 / jaccardThreshold=0.3 when omitted', () => {
-    // 1 つの subagent_type のみで a/b ペアが 1 回だけ → minChangeCount=2 で除外される
+  it('uses default minChangeCount=1 / jaccardThreshold=0.5 when omitted (single-type pair survives)', () => {
+    // subagentType 粒度では「1 つの型に閉じた共編集ペア」も意味を持たせるため minChangeCount=1。
+    // 1 つの型のみで a/b → coChange=1, count=1+1, Jaccard=1.0 → 0.5 閾値も通過
     insertSession(db, 's1', isoDaysAgo(1));
     insertMessage(db, 'm1', 's1', 'Explore');
     insertToolCall(db, 's1', 'm1', 0, 'Edit', 'src/a.ts');
@@ -182,6 +183,7 @@ describe('TrailDatabase.fetchTemporalCoupling (granularity=subagentType)', () =>
       granularity: 'subagentType',
     });
 
-    expect(edges).toEqual([]);
+    expect(edges).toHaveLength(1);
+    expect(edges[0]).toMatchObject({ source: 'src/a.ts', target: 'src/b.ts', jaccard: 1.0 });
   });
 });

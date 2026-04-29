@@ -52,6 +52,11 @@ describe('TrailDatabase.backfillSubagentType', () => {
 
   beforeEach(async () => {
     db = await createTestTrailDatabase();
+    // createTestTrailDatabase は createTables() を呼び、その末尾で init-time backfillSubagentType() が
+    // 走って _migrations.subagent_type_backfill_v1 が記録される。テスト内で同関数を再実行できるよう、
+    // 該当フラグを毎テスト削除する。
+    const inner = (db as unknown as { db: SqlJsDb }).db;
+    inner.run("DELETE FROM _migrations WHERE key = 'subagent_type_backfill_v1'");
     tmpProjectsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'trail-backfill-test-'));
   });
 
