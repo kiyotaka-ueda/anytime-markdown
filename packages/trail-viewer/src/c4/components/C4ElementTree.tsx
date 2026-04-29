@@ -1,4 +1,4 @@
-import type { C4TreeNode, DocLink } from '@anytime-markdown/trail-core/c4';
+import type { C4TreeNode } from '@anytime-markdown/trail-core/c4';
 import { findService } from '@anytime-markdown/trail-core/c4';
 import type { ExportedSymbol } from '@anytime-markdown/trail-core/analyzer';
 import type { Action } from '@anytime-markdown/graph-core/state';
@@ -14,8 +14,6 @@ import PersonIcon from '@mui/icons-material/Person';
 import Box from '@mui/material/Box';
 import Checkbox from '@mui/material/Checkbox';
 import Collapse from '@mui/material/Collapse';
-import DescriptionIcon from '@mui/icons-material/Description';
-import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
@@ -32,7 +30,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import TextField from '@mui/material/TextField';
 import { filterTreeBySearch } from '@anytime-markdown/trail-core/c4';
 import { useTrailI18n } from '../../i18n';
-import { DOC_TYPE_COLORS, getC4Colors } from '../c4Theme';
+import { getC4Colors } from '../c4Theme';
 import { getTokens } from '../../theme/designTokens';
 
 const INDENT_PX = 20;
@@ -229,92 +227,6 @@ const TreeNodeItem: FC<TreeNodeItemProps> = memo(({ node, depth, selectedId, onS
 });
 TreeNodeItem.displayName = 'TreeNodeItem';
 
-// ---------------------------------------------------------------------------
-//  Documents section
-// ---------------------------------------------------------------------------
-
-/** c4Scope がターゲット要素IDに一致するか（完全一致 or 子パス前方一致） */
-function matchesScope(docScope: readonly string[], elementId: string): boolean {
-  return docScope.some(s => s === elementId || s.startsWith(elementId + '/'));
-}
-
-interface DocLinksSectionProps {
-  readonly isDark?: boolean;
-  readonly docLinks: readonly DocLink[];
-  readonly selectedId: string | null;
-  readonly onDocLinkClick?: (doc: DocLink) => void;
-}
-
-const DocLinksSection: FC<DocLinksSectionProps> = memo(({ docLinks, selectedId, onDocLinkClick, isDark }) => {
-  const colors = useMemo(() => getC4Colors(isDark ?? true), [isDark]);
-  const { scrollbarSx } = useMemo(() => getTokens(isDark ?? true), [isDark]);
-  const matched = useMemo(() => {
-    if (!selectedId || docLinks.length === 0) return [];
-    return docLinks.filter(d => matchesScope(d.c4Scope, selectedId));
-  }, [docLinks, selectedId]);
-
-  return (
-    <>
-      <Divider sx={{ borderColor: colors.border }} />
-      <Box sx={{
-        px: 1,
-        py: 0.25,
-        borderBottom: `1px solid ${colors.border}`,
-        minHeight: 32,
-        display: 'flex',
-        alignItems: 'center',
-        flexShrink: 0,
-      }}>
-        <DescriptionIcon sx={{ fontSize: 14, mr: 0.5, color: colors.textSecondary }} />
-        <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.7rem' }}>
-          Documents
-        </Typography>
-      </Box>
-      {!selectedId ? (
-        <Typography variant="caption" sx={{ px: 1.5, py: 1, color: colors.textMuted, fontSize: '0.7rem' }}>
-          Select an element
-        </Typography>
-      ) : matched.length === 0 ? (
-        <Typography variant="caption" sx={{ px: 1.5, py: 1, color: colors.textMuted, fontSize: '0.7rem' }}>
-          No linked documents
-        </Typography>
-      ) : (
-        <List dense disablePadding sx={{ overflowY: 'auto', ...scrollbarSx }}>
-          {matched.map(doc => (
-            <ListItemButton
-              key={doc.path}
-              onClick={() => onDocLinkClick?.(doc)}
-              sx={{ py: 0.25, pl: 1.5, minHeight: 28 }}
-            >
-              <Chip
-                label={doc.type}
-                size="small"
-                sx={{
-                  height: 16,
-                  fontSize: '0.6rem',
-                  mr: 0.75,
-                  bgcolor: DOC_TYPE_COLORS[doc.type] ?? '#757575',
-                  color: '#000',
-                  '& .MuiChip-label': { px: 0.5 },
-                }}
-              />
-              <ListItemText
-                primary={doc.title}
-                primaryTypographyProps={{
-                  variant: 'body2',
-                  noWrap: true,
-                  fontSize: '0.75rem',
-                }}
-              />
-            </ListItemButton>
-          ))}
-        </List>
-      )}
-    </>
-  );
-});
-DocLinksSection.displayName = 'DocLinksSection';
-
 const EXPORT_KIND_ICONS: Record<ExportedSymbol['kind'], string> = { function: 'ƒ', class: '◆', method: '→', variable: '≡' };
 
 // ---------------------------------------------------------------------------
@@ -326,8 +238,6 @@ interface C4ElementTreeProps {
   readonly onCheckedChange?: (checkedIds: ReadonlySet<string>) => void;
   readonly onRemoveElement?: (id: string) => void;
   readonly onPurgeDeleted?: () => void;
-  readonly docLinks?: readonly DocLink[];
-  readonly onDocLinkClick?: (doc: DocLink) => void;
   readonly exports?: readonly ExportedSymbol[];
   readonly onExportSelect?: (symbol: ExportedSymbol) => void;
   readonly selectedExportId?: string | null;
@@ -336,7 +246,7 @@ interface C4ElementTreeProps {
   readonly checkReset?: { readonly key: number; readonly ids: ReadonlySet<string> | null; readonly expanded: ReadonlySet<string> | null };
 }
 
-export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onSelect, onCheckedChange, onRemoveElement, onPurgeDeleted, docLinks, onDocLinkClick, exports, onExportSelect, selectedExportId, isDark, checkReset }) => {
+export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onSelect, onCheckedChange, onRemoveElement, onPurgeDeleted, exports, onExportSelect, selectedExportId, isDark, checkReset }) => {
   const { t } = useTrailI18n();
   const [searchText, setSearchText] = useState('');
 
@@ -533,14 +443,6 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
           />
         ))}
       </List>
-      {docLinks && docLinks.length > 0 && (
-        <DocLinksSection
-          docLinks={docLinks}
-          selectedId={selectedId}
-          onDocLinkClick={onDocLinkClick}
-          isDark={isDark}
-        />
-      )}
       {exports && exports.length > 0 && <><Divider sx={{ borderColor: colors.border }} />
         <Box sx={{ px: 1, py: 0.25, borderBottom: `1px solid ${colors.border}`, minHeight: 32, display: 'flex', alignItems: 'center', flexShrink: 0 }}><Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.7rem' }}>Exports</Typography></Box>
         <List dense disablePadding sx={{ overflowY: 'auto', ...scrollbarSx }}>{exports.map(sym => (

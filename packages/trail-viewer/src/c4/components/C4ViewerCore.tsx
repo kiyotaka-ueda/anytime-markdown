@@ -1134,8 +1134,6 @@ export function C4ViewerCore({
             checkReset={checkReset}
             onRemoveElement={onRemoveElement}
             onPurgeDeleted={onPurgeDeleted}
-            docLinks={docLinks}
-            onDocLinkClick={onDocLinkClick}
             isDark={isDark}
             exports={exports}
             selectedExportId={selectedExport?.id ?? null}
