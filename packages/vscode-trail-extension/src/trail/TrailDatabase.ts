@@ -2921,6 +2921,16 @@ export class TrailDatabase {
           `maxFilesPerGroup=${maxFilesPerGroup}, normalizationDropped=${normalizationDropped}, ` +
           `groups: ${summary}`,
         );
+        // directional は粒度間で Confidence の差を見るので、グループが 1 つしかない場合は
+        // 任意のペアで co=count(A)=count(B) → C(A→B)=C(B→A)=1.0 → diff=0 で必ず undirected になる。
+        // 矢印が出ない原因が「単一グループ」であることを発見できるよう WARN を出す。
+        if (directional && filesPerType.size < 2) {
+          TrailLogger.warn(
+            `[fetchTemporalCoupling/subagentType] directional=true だが subagent_type が ${filesPerType.size} 種類しか存在しないため、` +
+            `すべてのペアが undirected になり矢印は描画されません。` +
+            `期間（windowDays）を伸ばすか、複数の subagent_type を含むデータの取り込みを確認してください。`,
+          );
+        }
       }
 
       if (directional) {

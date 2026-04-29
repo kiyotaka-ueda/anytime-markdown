@@ -5,6 +5,7 @@ const sqlAsmActual = require(require.resolve('sql.js/dist/sql-asm.js')); // esli
 import { TrailDatabase } from '../TrailDatabase';
 import { createTestTrailDatabase } from './support/createTestDb';
 import type { ConfidenceCouplingEdge } from '@anytime-markdown/trail-core';
+import { TrailLogger } from '../../utils/TrailLogger';
 
 type SqlJsDb = {
   run: (sql: string, params?: ReadonlyArray<unknown>) => void;
@@ -227,5 +228,74 @@ describe('TrailDatabase.fetchTemporalCoupling (directional × granularity)', () 
       target: 'src/y.ts',
       jaccard: 1.0,
     });
+  });
+
+  it('subagentType × directional: warns when only 1 subagent_type touches files (all edges undirected)', () => {
+    // general-purpose のみが a/b を触る → groups=1
+    // 任意のペアで co=count(A)=count(B)=1 → C=1.0/1.0 → diff=0 → 必ず undirected
+    // 矢印が出ない原因が「単一グループ」であることを WARN ログで示す。
+    insertSession(db, 's1', isoDaysAgo(1));
+    insertMessage(db, 'm1', 's1', 'general-purpose');
+    insertToolCall(db, 's1', 'm1', 0, 'Edit', 'src/a.ts');
+    insertToolCall(db, 's1', 'm1', 1, 'Edit', 'src/b.ts');
+
+    const warnSpy = jest.spyOn(TrailLogger, 'warn');
+
+    const edges = db.fetchTemporalCoupling({
+      repoName: 'r',
+      windowDays: 30,
+      minChangeCount: 1,
+      topK: 50,
+      granularity: 'subagentType',
+      directional: true,
+      confidenceThreshold: 0,
+      directionalDiffThreshold: 0.2,
+    }) as ConfidenceCouplingEdge[];
+
+    // エッジは出るが必ず undirected
+    expect(edges).toHaveLength(1);
+    expect(edges[0].direction).toBe('undirected');
+
+    // WARN が「1 種類しか存在しない」ヒントを含む
+    expect(warnSpy).toHaveBeenCalled();
+    const warnMessages = warnSpy.mock.calls.map((c) => String(c[0]));
+    expect(
+      warnMessages.some(
+        (m) => m.includes('subagent_type が 1 種類') && m.includes('undirected'),
+      ),
+    ).toBe(true);
+
+    warnSpy.mockRestore();
+  });
+
+  it('subagentType × directional: does NOT warn when ≥ 2 subagent_types are present', () => {
+    // 2 種類ある場合は警告しない
+    insertSession(db, 's1', isoDaysAgo(1));
+    insertMessage(db, 'm1', 's1', 'general-purpose');
+    insertToolCall(db, 's1', 'm1', 0, 'Edit', 'src/a.ts');
+    insertToolCall(db, 's1', 'm1', 1, 'Edit', 'src/b.ts');
+
+    insertMessage(db, 'm2', 's1', 'code-reviewer');
+    insertToolCall(db, 's1', 'm2', 2, 'Edit', 'src/a.ts');
+
+    const warnSpy = jest.spyOn(TrailLogger, 'warn');
+
+    db.fetchTemporalCoupling({
+      repoName: 'r',
+      windowDays: 30,
+      minChangeCount: 1,
+      topK: 50,
+      granularity: 'subagentType',
+      directional: true,
+      confidenceThreshold: 0,
+      directionalDiffThreshold: 0.2,
+    });
+
+    const warnMessages = warnSpy.mock.calls.map((c) => String(c[0]));
+    expect(
+      warnMessages.some((m) => m.includes('subagent_type が 1 種類')),
+    ).toBe(false);
+
+    warnSpy.mockRestore();
   });
 });
