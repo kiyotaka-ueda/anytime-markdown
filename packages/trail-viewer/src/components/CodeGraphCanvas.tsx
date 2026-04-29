@@ -115,13 +115,21 @@ export function CodeGraphCanvas({
     const jaccardLabelPrefix = isSession ? 'Session J' : 'Temporal J';
     const confLabelPrefix = isSession ? 'Session' : 'Conf';
     let ghostRendered = 0;
+    let ghostSkipMissingNode = 0;
+    let ghostSkipExistingEdge = 0;
+    const ghostSampleMissing: string[] = [];
     for (const ge of ghostEdges ?? []) {
-      if (
-        !g.hasNode(ge.source) ||
-        !g.hasNode(ge.target) ||
-        g.hasEdge(ge.source, ge.target) ||
-        g.hasEdge(ge.target, ge.source)
-      ) continue;
+      if (!g.hasNode(ge.source) || !g.hasNode(ge.target)) {
+        ghostSkipMissingNode++;
+        if (ghostSampleMissing.length < 3) {
+          ghostSampleMissing.push(`${ge.source}↔${ge.target}`);
+        }
+        continue;
+      }
+      if (g.hasEdge(ge.source, ge.target) || g.hasEdge(ge.target, ge.source)) {
+        ghostSkipExistingEdge++;
+        continue;
+      }
 
       const conf = ge.confidenceForward;
       const sizeBase = conf ?? ge.jaccard;
@@ -150,6 +158,17 @@ export function CodeGraphCanvas({
         });
       }
       ghostRendered++;
+    }
+
+    if ((ghostEdges?.length ?? 0) > 0) {
+      console.info(
+        `[CodeGraphCanvas] Ghost Edges granularity=${ghostEdgeGranularity} ` +
+          `received=${ghostEdges?.length ?? 0} rendered=${ghostRendered} ` +
+          `skipMissingNode=${ghostSkipMissingNode} skipExistingEdge=${ghostSkipExistingEdge}` +
+          (ghostSampleMissing.length > 0
+            ? ` sampleMissing=${JSON.stringify(ghostSampleMissing)}`
+            : ''),
+      );
     }
 
     const sigma = new Sigma(g, containerRef.current, {

@@ -2313,13 +2313,35 @@ export class TrailDatabase {
       };
 
       const sessionRows: SessionFileRow[] = [];
+      let droppedAbsolute = 0;
+      let droppedNoProjectRoot = 0;
+      const sampleRaw: string[] = [];
       for (const r of values) {
         const sessionId = String(r[0] ?? '');
-        const normalized = normalize(String(r[1] ?? ''));
-        if (sessionId && normalized) {
+        const raw = String(r[1] ?? '');
+        if (sampleRaw.length < 3) sampleRaw.push(raw);
+        const normalized = normalize(raw);
+        if (!normalized) {
+          if (raw.startsWith('/')) {
+            if (!projectRoot) droppedNoProjectRoot++;
+            else droppedAbsolute++;
+          }
+          continue;
+        }
+        if (sessionId) {
           sessionRows.push({ sessionId, filePath: normalized });
         }
       }
+
+      TrailLogger.info(
+        `[TemporalCoupling/session] repo=${repoName} window=${windowDays}d ` +
+          `rawRows=${values.length} normalized=${sessionRows.length} ` +
+          `droppedAbsolute=${droppedAbsolute} droppedNoProjectRoot=${droppedNoProjectRoot} ` +
+          `projectRoot=${projectRoot ?? '(none)'} ` +
+          `sampleRawPaths=${JSON.stringify(sampleRaw)} ` +
+          `excludePairs=${excludePairs.length} ` +
+          `defaults: minChangeCount=${minChangeCount} jaccardThreshold=${jaccardThreshold} maxFilesPerGroup=${maxFilesPerGroup} topK=${topK}`,
+      );
 
       if (directional) {
         // 方向性付き Confidence は今のところ commit 粒度のみ正式サポート（Phase 2）。
@@ -2340,7 +2362,7 @@ export class TrailDatabase {
         });
       }
 
-      return computeSessionCoupling(sessionRows, {
+      const sessionEdges = computeSessionCoupling(sessionRows, {
         minChangeCount,
         jaccardThreshold,
         topK,
@@ -2348,6 +2370,11 @@ export class TrailDatabase {
         excludePairs,
         pathFilter: defaultTemporalCouplingPathFilter,
       });
+      TrailLogger.info(
+        `[TemporalCoupling/session] computed edges=${sessionEdges.length} ` +
+          `samplePair=${sessionEdges[0] ? `${sessionEdges[0].source} ↔ ${sessionEdges[0].target} J=${sessionEdges[0].jaccard.toFixed(2)}` : '(none)'}`,
+      );
+      return sessionEdges;
     }
 
     // commit 粒度 (Phase 1/2)
