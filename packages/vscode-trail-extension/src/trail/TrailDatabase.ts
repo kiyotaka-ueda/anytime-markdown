@@ -711,80 +711,133 @@ export class TrailDatabase {
     const done = db.exec("SELECT 1 FROM _migrations WHERE key = 'subagent_type_backfill_v1'");
     if (done[0]?.values?.length) return;
 
+    const startedAt = Date.now();
+    TrailLogger.info('[Migration] subagent_type_backfill_v1: starting...');
+
+    // 性能上の必須: messages.agent_id にインデックスがないと UPDATE WHERE agent_id=? が
+    // 毎回フルスキャン。1000+ meta.json × 数十万 messages で数億行スキャンになり数十分ハングする。
+    db.run('CREATE INDEX IF NOT EXISTS idx_messages_agent_id ON messages(agent_id)');
+
     const baseDir = projectsDir ?? path.join(os.homedir(), '.claude', 'projects');
-    let metaUpdated = 0;
-    const updateByAgentId = db.prepare(
-      'UPDATE messages SET subagent_type = ? WHERE agent_id = ? AND subagent_type IS NULL',
-    );
+
+    // Step 1: meta.json を集約してメモリ上で agent_id → agentType マップを作る（fs IO のみ、SQL なし）
+    const agentTypeByAgentId = new Map<string, string>();
+    let projectNames: string[];
     try {
-      let projectNames: string[];
+      projectNames = fs.readdirSync(baseDir);
+    } catch (e) {
+      TrailLogger.warn(`[Migration] subagent_type_backfill_v1: cannot read projects dir ${baseDir}: ${e instanceof Error ? e.message : String(e)}`);
+      projectNames = [];
+    }
+    for (const projectName of projectNames) {
+      const projectPath = path.join(baseDir, projectName);
+      let sessionEntries: string[];
       try {
-        projectNames = fs.readdirSync(baseDir);
-      } catch (e) {
-        TrailLogger.warn(`[Migration] subagent_type_backfill_v1: cannot read projects dir ${baseDir}: ${e instanceof Error ? e.message : String(e)}`);
-        projectNames = [];
-      }
-      for (const projectName of projectNames) {
-        const projectPath = path.join(baseDir, projectName);
-        let sessionEntries: string[];
+        if (!fs.statSync(projectPath).isDirectory()) continue;
+        sessionEntries = fs.readdirSync(projectPath);
+      } catch { continue; }
+      for (const sessionEntry of sessionEntries) {
+        const subagentDir = path.join(projectPath, sessionEntry, 'subagents');
+        let metaFiles: string[];
         try {
-          if (!fs.statSync(projectPath).isDirectory()) continue;
-          sessionEntries = fs.readdirSync(projectPath);
+          metaFiles = fs.readdirSync(subagentDir).filter((f) => f.endsWith('.meta.json'));
         } catch { continue; }
-        for (const sessionEntry of sessionEntries) {
-          const subagentDir = path.join(projectPath, sessionEntry, 'subagents');
-          let metaFiles: string[];
+        for (const metaFile of metaFiles) {
+          const match = /^agent-(.+)\.meta\.json$/.exec(metaFile);
+          if (!match) continue;
+          const agentId = match[1];
           try {
-            metaFiles = fs.readdirSync(subagentDir).filter((f) => f.endsWith('.meta.json'));
-          } catch { continue; }
-          for (const metaFile of metaFiles) {
-            const match = /^agent-(.+)\.meta\.json$/.exec(metaFile);
-            if (!match) continue;
-            const agentId = match[1];
-            try {
-              const raw = fs.readFileSync(path.join(subagentDir, metaFile), 'utf-8');
-              const meta = JSON.parse(raw) as { agentType?: unknown };
-              const agentType = typeof meta.agentType === 'string' && meta.agentType.length > 0 ? meta.agentType : null;
-              if (agentType) {
-                updateByAgentId.run([agentType, agentId]);
-                metaUpdated++;
-              }
-            } catch (e) {
-              TrailLogger.warn(`[Migration] subagent_type_backfill_v1: skip ${metaFile}: ${e instanceof Error ? e.message : String(e)}`);
-            }
+            const raw = fs.readFileSync(path.join(subagentDir, metaFile), 'utf-8');
+            const meta = JSON.parse(raw) as { agentType?: unknown };
+            const agentType = typeof meta.agentType === 'string' && meta.agentType.length > 0 ? meta.agentType : null;
+            if (agentType) agentTypeByAgentId.set(agentId, agentType);
+          } catch (e) {
+            TrailLogger.warn(`[Migration] subagent_type_backfill_v1: skip ${metaFile}: ${e instanceof Error ? e.message : String(e)}`);
           }
         }
       }
-    } finally {
-      updateByAgentId.free();
     }
+    TrailLogger.info(`[Migration] subagent_type_backfill_v1: collected ${agentTypeByAgentId.size} agent_id mappings (${Date.now() - startedAt}ms)`);
 
-    // 親メッセージ側: tool_calls JSON に Agent tool_use を持つ assistant メッセージの subagent_type を埋める
-    let parentUpdated = 0;
-    const parentRes = db.exec(
-      "SELECT uuid, tool_calls FROM messages WHERE subagent_type IS NULL AND tool_calls LIKE '%\"name\":\"Agent\"%'",
-    );
-    const parentRows = parentRes[0]?.values ?? [];
-    if (parentRows.length > 0) {
-      const updateParent = db.prepare('UPDATE messages SET subagent_type = ? WHERE uuid = ?');
+    // Step 2: 単一トランザクションで一括 UPDATE。インデックスありで O(log N)/UPDATE。
+    let metaUpdated = 0;
+    const phase2Start = Date.now();
+    db.run('BEGIN TRANSACTION');
+    try {
+      const updateByAgentId = db.prepare(
+        'UPDATE messages SET subagent_type = ? WHERE agent_id = ? AND subagent_type IS NULL',
+      );
       try {
-        for (const row of parentRows) {
-          const uuid = String(row[0] ?? '');
-          const toolCalls = row[1] as string | null;
-          if (!uuid || !toolCalls) continue;
-          const info = extractAgentInfo(toolCalls);
-          if (info.subagentType) {
-            updateParent.run([info.subagentType, uuid]);
-            parentUpdated++;
+        let processed = 0;
+        for (const [agentId, agentType] of agentTypeByAgentId) {
+          updateByAgentId.run([agentType, agentId]);
+          metaUpdated++;
+          processed++;
+          if (processed % 500 === 0) {
+            TrailLogger.info(`[Migration] subagent_type_backfill_v1: agent_id UPDATEs ${processed}/${agentTypeByAgentId.size} (${Date.now() - phase2Start}ms)`);
           }
         }
       } finally {
-        updateParent.free();
+        updateByAgentId.free();
+      }
+      db.run('COMMIT');
+    } catch (e) {
+      try { db.run('ROLLBACK'); } catch (re) { TrailLogger.error('[Migration] subagent_type_backfill_v1: ROLLBACK failed', re); }
+      throw e;
+    }
+    TrailLogger.info(`[Migration] subagent_type_backfill_v1: meta UPDATE done meta=${metaUpdated} (${Date.now() - phase2Start}ms)`);
+
+    // Step 3: 親メッセージ側 (Agent tool_use を持つ assistant)。tool_calls JSON は大きいので
+    // 先に uuid リストだけ取り出し、次に PK 経由で 1 行ずつ SELECT して逐次処理する。
+    const phase3Start = Date.now();
+    const uuidRes = db.exec(
+      "SELECT uuid FROM messages WHERE subagent_type IS NULL AND tool_calls LIKE '%\"name\":\"Agent\"%'",
+    );
+    const candidateUuids = (uuidRes[0]?.values ?? []).map((r) => String(r[0] ?? '')).filter(Boolean);
+    TrailLogger.info(`[Migration] subagent_type_backfill_v1: ${candidateUuids.length} parent message candidates (${Date.now() - phase3Start}ms)`);
+
+    let parentUpdated = 0;
+    if (candidateUuids.length > 0) {
+      db.run('BEGIN TRANSACTION');
+      try {
+        const selectStmt = db.prepare('SELECT tool_calls FROM messages WHERE uuid = ?');
+        const updateParent = db.prepare('UPDATE messages SET subagent_type = ? WHERE uuid = ?');
+        try {
+          for (let i = 0; i < candidateUuids.length; i++) {
+            const uuid = candidateUuids[i];
+            selectStmt.bind([uuid]);
+            try {
+              if (selectStmt.step()) {
+                const row = selectStmt.get();
+                const toolCalls = row[0] as string | null;
+                if (toolCalls) {
+                  const info = extractAgentInfo(toolCalls);
+                  if (info.subagentType) {
+                    updateParent.run([info.subagentType, uuid]);
+                    parentUpdated++;
+                  }
+                }
+              }
+            } finally {
+              selectStmt.reset();
+            }
+            if ((i + 1) % 500 === 0) {
+              TrailLogger.info(`[Migration] subagent_type_backfill_v1: parent ${i + 1}/${candidateUuids.length} processed`);
+            }
+          }
+        } finally {
+          selectStmt.free();
+          updateParent.free();
+        }
+        db.run('COMMIT');
+      } catch (e) {
+        try { db.run('ROLLBACK'); } catch (re) { TrailLogger.error('[Migration] subagent_type_backfill_v1: ROLLBACK failed', re); }
+        throw e;
       }
     }
 
     TrailLogger.info(
-      `[Migration] subagent_type_backfill_v1: meta=${metaUpdated} parent=${parentUpdated}`,
+      `[Migration] subagent_type_backfill_v1: COMPLETED meta=${metaUpdated} parent=${parentUpdated} totalMs=${Date.now() - startedAt}`,
     );
     db.run("INSERT OR IGNORE INTO _migrations (key) VALUES ('subagent_type_backfill_v1')");
   }
