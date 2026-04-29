@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -6,8 +6,25 @@ import CircularProgress from '@mui/material/CircularProgress';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import type { CodeGraph, CodeGraphNode } from '@anytime-markdown/trail-core/codeGraph';
-import { CodeGraphCanvas } from './CodeGraphCanvas';
+import { CodeGraphCanvas, type CodeGraphGhostEdge } from './CodeGraphCanvas';
 import { useCodeGraph } from '../hooks/useCodeGraph';
+import { useTemporalCoupling } from '../c4/hooks/useTemporalCoupling';
+import {
+  TemporalCouplingControls,
+  type TemporalCouplingControlsValue,
+} from '../c4/components/TemporalCouplingControls';
+
+function toCodeGraphNodeId(repoId: string, filePath: string): string {
+  const cleaned = filePath.replace(/\.(tsx?|mdx?)$/, '');
+  return `${repoId}:${cleaned}`;
+}
+
+const DEFAULT_TC_VALUE: TemporalCouplingControlsValue = {
+  enabled: false,
+  windowDays: 30,
+  threshold: 0.5,
+  topK: 50,
+};
 
 interface CodeGraphPanelProps {
   readonly serverUrl: string;
@@ -20,6 +37,35 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
   const [highlightedNodes, setHighlightedNodes] = useState<ReadonlySet<string>>(new Set());
   const [selectedNode, setSelectedNode] = useState<CodeGraphNode | null>(null);
   const [repoFilter, setRepoFilter] = useState<string>('all');
+  const [tcValue, setTcValue] = useState<TemporalCouplingControlsValue>(DEFAULT_TC_VALUE);
+
+  const tcRepoId = useMemo<string | null>(() => {
+    if (!graph || graph.repositories.length === 0) return null;
+    if (repoFilter !== 'all') return repoFilter;
+    return graph.repositories[0]?.id ?? null;
+  }, [graph, repoFilter]);
+
+  const {
+    edges: rawGhostEdges,
+    loading: tcLoading,
+  } = useTemporalCoupling({
+    enabled: tcValue.enabled && !!tcRepoId,
+    serverUrl,
+    repoName: tcRepoId ?? '',
+    windowDays: tcValue.windowDays,
+    threshold: tcValue.threshold,
+    topK: tcValue.topK,
+  });
+
+  const ghostEdges = useMemo<CodeGraphGhostEdge[]>(() => {
+    if (!tcRepoId) return [];
+    return rawGhostEdges.map((e) => ({
+      source: toCodeGraphNodeId(tcRepoId, e.source),
+      target: toCodeGraphNodeId(tcRepoId, e.target),
+      jaccard: e.jaccard,
+      coChangeCount: e.coChangeCount,
+    }));
+  }, [rawGhostEdges, tcRepoId]);
 
   const handleSearch = useCallback(async () => {
     if (!query.trim()) {
@@ -143,6 +189,13 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
         </Box>
       </Box>
 
+      <TemporalCouplingControls
+        value={tcValue}
+        onChange={setTcValue}
+        resultCount={ghostEdges.length}
+        loading={tcLoading}
+      />
+
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Box sx={{ flex: 1 }}>
           <CodeGraphCanvas
@@ -150,6 +203,7 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
             highlightedNodes={highlightedNodes}
             onNodeClick={(n) => void handleNodeClick(n)}
             isDark={isDark}
+            ghostEdges={tcValue.enabled ? ghostEdges : undefined}
           />
         </Box>
         {selectedNode && (
