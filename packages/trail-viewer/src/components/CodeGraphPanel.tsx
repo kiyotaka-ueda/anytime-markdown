@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -51,6 +52,7 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
 
   const {
     edges: rawGhostEdges,
+    directional: tcDirectional,
     granularity: tcGranularity,
     loading: tcLoading,
   } = useTemporalCoupling({
@@ -65,6 +67,20 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
     directionalDiff: tcValue.directionalDiff,
     granularity: tcValue.granularity,
   });
+
+  // subagent × directional でデータが対称的（A→B エッジが 1 件も無い）場合、
+  // 矢印が出ない原因をエンドユーザーに伝えるためのヒントを表示する。
+  // 発生条件: subagent_type が 1 種類しかないとき、または各 type が触るファイル集合が
+  // 完全に同じ・完全に独立している場合（数学的に diff=0 で必ず undirected になる）。
+  const showSubagentDirectionalHint = useMemo<boolean>(() => {
+    if (!tcValue.enabled) return false;
+    if (tcGranularity !== 'subagentType') return false;
+    if (!tcDirectional) return false;
+    if (rawGhostEdges.length === 0) return false;
+    return rawGhostEdges.every(
+      (e) => !('direction' in e) || e.direction !== 'A→B',
+    );
+  }, [tcValue.enabled, tcGranularity, tcDirectional, rawGhostEdges]);
 
   const ghostEdges = useMemo<CodeGraphGhostEdge[]>(() => {
     if (!tcRepoId) return [];
@@ -215,6 +231,15 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
         resultCount={ghostEdges.length}
         loading={tcLoading}
       />
+
+      {showSubagentDirectionalHint && (
+        <Alert severity="info" sx={{ mx: 1, mb: 1, py: 0 }}>
+          subagent 粒度では複数の subagent_type が共通ファイルを触っていないと方向性
+          （矢印）は出ません。現在のデータは対称的なため全エッジが無向です。期間
+          （windowDays）を伸ばすか、別の subagent_type を含むセッションが取り込まれて
+          いるか確認してください。
+        </Alert>
+      )}
 
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Box sx={{ flex: 1 }}>
