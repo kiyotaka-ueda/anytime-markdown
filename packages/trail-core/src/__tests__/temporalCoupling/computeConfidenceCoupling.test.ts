@@ -2,6 +2,7 @@ import { computeConfidenceCoupling } from '../../temporalCoupling/computeConfide
 import type {
   CommitFileRow,
   ComputeConfidenceCouplingOptions,
+  GroupedFileRow,
 } from '../../temporalCoupling/types';
 
 const baseOptions: ComputeConfidenceCouplingOptions = {
@@ -228,5 +229,43 @@ describe('computeConfidenceCoupling', () => {
     const result = computeConfidenceCoupling(rows, baseOptions);
     expect(result).toHaveLength(1);
     expect(result[0].jaccard).toBeCloseTo(0.5, 5);
+  });
+
+  it('accepts GroupedFileRow input and produces the same result as CommitFileRow', () => {
+    // 同じ集約構造を CommitFileRow / GroupedFileRow の両形式で渡し、結果一致を確認
+    const commitRows: CommitFileRow[] = [
+      { commitHash: 'c1', filePath: 'auth.ts' },
+      { commitHash: 'c1', filePath: 'login.ts' },
+      { commitHash: 'c2', filePath: 'auth.ts' },
+      { commitHash: 'c3', filePath: 'auth.ts' },
+      { commitHash: 'c4', filePath: 'auth.ts' },
+    ];
+    const groupedRows: GroupedFileRow[] = commitRows.map((r) => ({
+      groupKey: r.commitHash,
+      filePath: r.filePath,
+    }));
+    const fromCommit = computeConfidenceCoupling(commitRows, baseOptions);
+    const fromGrouped = computeConfidenceCoupling(groupedRows, baseOptions);
+    expect(fromGrouped).toEqual(fromCommit);
+  });
+
+  it('uses arbitrary groupKey values (e.g. sessionId) without depending on commit semantics', () => {
+    // groupKey が「セッション ID」相当でも同じ計算ロジックが働くことを確認
+    const rows: GroupedFileRow[] = [
+      { groupKey: 'session-A', filePath: 'a.ts' },
+      { groupKey: 'session-A', filePath: 'b.ts' },
+      { groupKey: 'session-B', filePath: 'a.ts' },
+      { groupKey: 'session-B', filePath: 'b.ts' },
+    ];
+    const result = computeConfidenceCoupling(rows, baseOptions);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      source: 'a.ts',
+      target: 'b.ts',
+      direction: 'undirected',
+      confidenceForward: 1.0,
+      confidenceBackward: 1.0,
+      coChangeCount: 2,
+    });
   });
 });

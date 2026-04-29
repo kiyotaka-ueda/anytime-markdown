@@ -4,10 +4,19 @@ import type {
   ComputeConfidenceCouplingOptions,
   ConfidenceCouplingEdge,
   CouplingDirection,
+  GroupedFileRow,
 } from './types';
 
 export function computeConfidenceCoupling(
   rows: ReadonlyArray<CommitFileRow>,
+  options: ComputeConfidenceCouplingOptions,
+): ConfidenceCouplingEdge[];
+export function computeConfidenceCoupling(
+  rows: ReadonlyArray<GroupedFileRow>,
+  options: ComputeConfidenceCouplingOptions,
+): ConfidenceCouplingEdge[];
+export function computeConfidenceCoupling(
+  rows: ReadonlyArray<CommitFileRow | GroupedFileRow>,
   options: ComputeConfidenceCouplingOptions,
 ): ConfidenceCouplingEdge[] {
   if (rows.length === 0) return [];
@@ -22,10 +31,11 @@ export function computeConfidenceCoupling(
     pathFilter,
   } = options;
 
-  const groupedRows = rows.map((r) => ({
-    groupKey: r.commitHash,
-    filePath: r.filePath,
-  }));
+  const groupedRows: GroupedFileRow[] = rows.map((r) =>
+    'commitHash' in r
+      ? { groupKey: r.commitHash, filePath: r.filePath }
+      : { groupKey: r.groupKey, filePath: r.filePath },
+  );
 
   const { fileChangeCount, coChange } = aggregatePairs(groupedRows, {
     minChangeCount,
