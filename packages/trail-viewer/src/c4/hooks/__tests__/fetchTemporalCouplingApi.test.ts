@@ -81,6 +81,38 @@ describe('buildTemporalCouplingUrl', () => {
     expect(url).not.toContain('confidenceThreshold=');
     expect(url).not.toContain('directionalDiff=');
   });
+
+  it('omits granularity when not specified', () => {
+    const url = buildTemporalCouplingUrl('http://x', {
+      repoName: 'r',
+      windowDays: 7,
+      threshold: 0.3,
+      topK: 10,
+    });
+    expect(url).not.toContain('granularity=');
+  });
+
+  it('includes granularity=session when specified', () => {
+    const url = buildTemporalCouplingUrl('http://x', {
+      repoName: 'r',
+      windowDays: 7,
+      threshold: 0.3,
+      topK: 10,
+      granularity: 'session',
+    });
+    expect(url).toContain('granularity=session');
+  });
+
+  it('includes granularity=commit when explicitly specified', () => {
+    const url = buildTemporalCouplingUrl('http://x', {
+      repoName: 'r',
+      windowDays: 7,
+      threshold: 0.3,
+      topK: 10,
+      granularity: 'commit',
+    });
+    expect(url).toContain('granularity=commit');
+  });
 });
 
 describe('fetchTemporalCouplingApi', () => {

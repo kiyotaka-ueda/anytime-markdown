@@ -22,9 +22,14 @@ export function computeConfidenceCoupling(
     pathFilter,
   } = options;
 
-  const { fileChangeCount, coChange } = aggregatePairs(rows, {
+  const groupedRows = rows.map((r) => ({
+    groupKey: r.commitHash,
+    filePath: r.filePath,
+  }));
+
+  const { fileChangeCount, coChange } = aggregatePairs(groupedRows, {
     minChangeCount,
-    maxFilesPerCommit,
+    maxFilesPerGroup: maxFilesPerCommit,
     excludePairs,
     pathFilter,
   });

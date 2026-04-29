@@ -573,13 +573,25 @@ export class TrailDataServer {
       return;
     }
 
+    const granularityRaw = params.get('granularity');
+    if (granularityRaw !== null && granularityRaw !== 'commit' && granularityRaw !== 'session') {
+      res.writeHead(400, JSON_HEADERS);
+      res.end(JSON.stringify({ error: "granularity must be 'commit' or 'session'" }));
+      return;
+    }
+    const granularity: 'commit' | 'session' = granularityRaw === 'session' ? 'session' : 'commit';
+
     const windowDays = clampInt(params.get('windowDays'), 30, 1, 365);
-    const threshold = clampFloat(params.get('threshold'), 0.5, 0, 1);
     const topK = clampInt(params.get('topK'), 50, 1, 500);
-    const minChange = clampInt(params.get('minChange'), 5, 1, 1000);
     const directional = params.get('directional') === 'true';
     const confidenceThreshold = clampFloat(params.get('confidenceThreshold'), 0.5, 0, 1);
     const directionalDiff = clampFloat(params.get('directionalDiff'), 0.3, 0, 1);
+
+    // 明示指定された場合のみ採用。未指定なら undefined を渡し、TrailDatabase 側の粒度別デフォルトを使う。
+    const thresholdRaw = params.get('threshold');
+    const threshold = thresholdRaw !== null ? clampFloat(thresholdRaw, 0.5, 0, 1) : undefined;
+    const minChangeRaw = params.get('minChange');
+    const minChange = minChangeRaw !== null ? clampInt(minChangeRaw, 5, 1, 1000) : undefined;
 
     try {
       const computedAt = new Date().toISOString();
@@ -592,10 +604,12 @@ export class TrailDataServer {
           directional: true,
           confidenceThreshold,
           directionalDiffThreshold: directionalDiff,
+          granularity,
         });
         res.writeHead(200, JSON_HEADERS);
         res.end(JSON.stringify({
           directional: true,
+          granularity,
           edges,
           computedAt,
           windowDays,
@@ -610,9 +624,11 @@ export class TrailDataServer {
         minChangeCount: minChange,
         jaccardThreshold: threshold,
         topK,
+        granularity,
       });
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({
+        granularity,
         edges,
         computedAt,
         windowDays,

@@ -27,6 +27,7 @@ const DEFAULT_TC_VALUE: TemporalCouplingControlsValue = {
   directional: false,
   confidenceThreshold: 0.5,
   directionalDiff: 0.3,
+  granularity: 'commit',
 };
 
 interface CodeGraphPanelProps {
@@ -50,6 +51,7 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
 
   const {
     edges: rawGhostEdges,
+    granularity: tcGranularity,
     loading: tcLoading,
   } = useTemporalCoupling({
     enabled: tcValue.enabled && !!tcRepoId,
@@ -61,6 +63,7 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
     directional: tcValue.directional,
     confidenceThreshold: tcValue.confidenceThreshold,
     directionalDiff: tcValue.directionalDiff,
+    granularity: tcValue.granularity,
   });
 
   const ghostEdges = useMemo<CodeGraphGhostEdge[]>(() => {
@@ -221,6 +224,7 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
             onNodeClick={(n) => void handleNodeClick(n)}
             isDark={isDark}
             ghostEdges={tcValue.enabled ? ghostEdges : undefined}
+            ghostEdgeGranularity={tcGranularity}
           />
         </Box>
         {selectedNode && (

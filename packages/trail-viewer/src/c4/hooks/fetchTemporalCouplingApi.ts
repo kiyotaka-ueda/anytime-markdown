@@ -3,9 +3,12 @@ import type {
   TemporalCouplingEdge,
 } from '@anytime-markdown/trail-core';
 
+export type TemporalCouplingGranularity = 'commit' | 'session';
+
 export type TemporalCouplingResponse =
   | {
       directional?: false;
+      granularity?: TemporalCouplingGranularity;
       edges: TemporalCouplingEdge[];
       computedAt: string;
       windowDays: number;
@@ -13,6 +16,7 @@ export type TemporalCouplingResponse =
     }
   | {
       directional: true;
+      granularity?: TemporalCouplingGranularity;
       edges: ConfidenceCouplingEdge[];
       computedAt: string;
       windowDays: number;
@@ -28,6 +32,7 @@ export type TemporalCouplingFetchParams = {
   directional?: boolean;
   confidenceThreshold?: number;
   directionalDiff?: number;
+  granularity?: TemporalCouplingGranularity;
 };
 
 export function buildTemporalCouplingUrl(
@@ -40,6 +45,7 @@ export function buildTemporalCouplingUrl(
   qs.set('threshold', String(params.threshold));
   qs.set('topK', String(params.topK));
   if (params.minChange !== undefined) qs.set('minChange', String(params.minChange));
+  if (params.granularity !== undefined) qs.set('granularity', params.granularity);
   if (params.directional) {
     qs.set('directional', 'true');
     if (params.confidenceThreshold !== undefined) {

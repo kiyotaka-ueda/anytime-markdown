@@ -1,12 +1,17 @@
 import Box from '@mui/material/Box';
 import FormControl from '@mui/material/FormControl';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import FormLabel from '@mui/material/FormLabel';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
+import Radio from '@mui/material/Radio';
+import RadioGroup from '@mui/material/RadioGroup';
 import Select from '@mui/material/Select';
 import Slider from '@mui/material/Slider';
 import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
+
+export type TemporalCouplingGranularity = 'commit' | 'session';
 
 export interface TemporalCouplingControlsValue {
   enabled: boolean;
@@ -16,6 +21,7 @@ export interface TemporalCouplingControlsValue {
   directional: boolean;
   confidenceThreshold: number;
   directionalDiff: number;
+  granularity: TemporalCouplingGranularity;
 }
 
 export interface TemporalCouplingControlsProps {
@@ -34,6 +40,17 @@ const WINDOW_OPTIONS: ReadonlyArray<{ label: string; days: number }> = [
 
 const TOP_K_OPTIONS: ReadonlyArray<number> = [10, 50, 100];
 
+/** 粒度別のしきい値デフォルト（plan/20260429-ghost-edge-session-granularity 第「パラメータの粒度別デフォルト」表） */
+export const GRANULARITY_DEFAULT_THRESHOLD: Readonly<Record<TemporalCouplingGranularity, number>> = {
+  commit: 0.5,
+  session: 0.4,
+};
+
+const GRANULARITY_DESCRIPTION_ID: Readonly<Record<TemporalCouplingGranularity, string>> = {
+  commit: 'tc-granularity-commit-desc',
+  session: 'tc-granularity-session-desc',
+};
+
 export function TemporalCouplingControls({
   value,
   onChange,
@@ -50,6 +67,15 @@ export function TemporalCouplingControls({
     onChange({ ...value, confidenceThreshold });
   const handleDirectionalDiff = (directionalDiff: number): void =>
     onChange({ ...value, directionalDiff });
+  const handleGranularity = (granularity: TemporalCouplingGranularity): void => {
+    if (granularity === value.granularity) return;
+    // 粒度切替時は閾値を粒度別デフォルトへリセット
+    onChange({
+      ...value,
+      granularity,
+      threshold: GRANULARITY_DEFAULT_THRESHOLD[granularity],
+    });
+  };
 
   return (
     <Box
@@ -77,6 +103,53 @@ export function TemporalCouplingControls({
         }
         label={<Typography variant="caption">Ghost Edges</Typography>}
       />
+
+      <FormControl
+        component="fieldset"
+        size="small"
+        disabled={!value.enabled}
+        sx={{ display: 'flex', alignItems: 'center', flexDirection: 'row', gap: 1 }}
+      >
+        <FormLabel
+          component="legend"
+          sx={{ typography: 'caption', position: 'static', transform: 'none', m: 0 }}
+        >
+          粒度
+        </FormLabel>
+        <RadioGroup
+          row
+          value={value.granularity}
+          onChange={(e) =>
+            handleGranularity((e.target.value as TemporalCouplingGranularity) ?? 'commit')
+          }
+          aria-label="結合の粒度"
+        >
+          <FormControlLabel
+            value="commit"
+            control={<Radio size="small" inputProps={{ 'aria-describedby': GRANULARITY_DESCRIPTION_ID.commit }} />}
+            label={<Typography variant="caption">commit</Typography>}
+          />
+          <FormControlLabel
+            value="session"
+            control={<Radio size="small" inputProps={{ 'aria-describedby': GRANULARITY_DESCRIPTION_ID.session }} />}
+            label={<Typography variant="caption">session</Typography>}
+          />
+        </RadioGroup>
+        <Typography
+          id={GRANULARITY_DESCRIPTION_ID.commit}
+          variant="caption"
+          sx={{ position: 'absolute', left: '-9999px' }}
+        >
+          コミット単位の共変更
+        </Typography>
+        <Typography
+          id={GRANULARITY_DESCRIPTION_ID.session}
+          variant="caption"
+          sx={{ position: 'absolute', left: '-9999px' }}
+        >
+          セッション単位の共編集
+        </Typography>
+      </FormControl>
 
       <FormControlLabel
         control={
@@ -192,7 +265,7 @@ export function TemporalCouplingControls({
         {value.enabled
           ? loading
             ? '計算中...'
-            : `${resultCount} edges shown`
+            : `${resultCount} edges (${value.granularity})`
           : 'OFF'}
       </Typography>
     </Box>

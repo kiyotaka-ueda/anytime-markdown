@@ -3,6 +3,16 @@ export type CommitFileRow = {
   filePath: string;
 };
 
+export type SessionFileRow = {
+  sessionId: string;
+  filePath: string;
+};
+
+export type GroupedFileRow = {
+  groupKey: string;
+  filePath: string;
+};
+
 export type TemporalCouplingEdge = {
   source: string;
   target: string;
@@ -52,7 +62,10 @@ export type PairAggregation = {
 
 export type AggregatePairsOptions = {
   minChangeCount: number;
-  maxFilesPerCommit: number;
+  /** 1 グループあたりに含めるファイル数の上限（超過するとそのグループはスキップ）。 */
+  maxFilesPerGroup?: number;
+  /** 旧名。`maxFilesPerGroup` が未指定の場合のみ参照される後方互換 alias。 */
+  maxFilesPerCommit?: number;
   excludePairs?: ReadonlyArray<readonly [string, string]>;
   pathFilter?: (filePath: string) => boolean;
 };
