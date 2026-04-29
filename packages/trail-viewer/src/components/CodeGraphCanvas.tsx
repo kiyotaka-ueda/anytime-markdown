@@ -18,8 +18,12 @@ const COMMUNITY_COLORS = [
   '#bab0ac',
 ];
 
-const GHOST_EDGE_LIGHT = '#7c3aed';
-const GHOST_EDGE_DARK = '#c4b5fd';
+const GHOST_EDGE_COMMIT_LIGHT = '#7c3aed';
+const GHOST_EDGE_COMMIT_DARK = '#c4b5fd';
+const GHOST_EDGE_SESSION_LIGHT = '#0891b2';
+const GHOST_EDGE_SESSION_DARK = '#67e8f9';
+
+export type CodeGraphGhostEdgeGranularity = 'commit' | 'session';
 
 export interface CodeGraphGhostEdge {
   readonly source: string;
@@ -37,6 +41,7 @@ interface CodeGraphCanvasProps {
   readonly onNodeClick?: (nodeId: string) => void;
   readonly isDark?: boolean;
   readonly ghostEdges?: ReadonlyArray<CodeGraphGhostEdge>;
+  readonly ghostEdgeGranularity?: CodeGraphGhostEdgeGranularity;
 }
 
 export function CodeGraphCanvas({
@@ -45,6 +50,7 @@ export function CodeGraphCanvas({
   onNodeClick,
   isDark,
   ghostEdges,
+  ghostEdgeGranularity = 'commit',
 }: Readonly<CodeGraphCanvasProps>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sigmaRef = useRef<Sigma | null>(null);
@@ -102,7 +108,12 @@ export function CodeGraphCanvas({
       }
     }
 
-    const ghostColor = isDark ? GHOST_EDGE_DARK : GHOST_EDGE_LIGHT;
+    const isSession = ghostEdgeGranularity === 'session';
+    const ghostColor = isSession
+      ? (isDark ? GHOST_EDGE_SESSION_DARK : GHOST_EDGE_SESSION_LIGHT)
+      : (isDark ? GHOST_EDGE_COMMIT_DARK : GHOST_EDGE_COMMIT_LIGHT);
+    const jaccardLabelPrefix = isSession ? 'Session J' : 'Temporal J';
+    const confLabelPrefix = isSession ? 'Session' : 'Conf';
     let ghostRendered = 0;
     for (const ge of ghostEdges ?? []) {
       if (
@@ -124,18 +135,18 @@ export function CodeGraphCanvas({
         g.addDirectedEdge(ge.source, ge.target, {
           ...baseAttrs,
           type: 'arrow',
-          label: `Conf ${conf.toFixed(2)} →`,
+          label: `${confLabelPrefix} ${conf.toFixed(2)} →`,
         });
       } else if (ge.direction === 'undirected' && conf !== undefined) {
         g.addEdge(ge.source, ge.target, {
           ...baseAttrs,
-          label: `Conf ${conf.toFixed(2)} ↔`,
+          label: `${confLabelPrefix} ${conf.toFixed(2)} ↔`,
         });
       } else {
         g.addEdge(ge.source, ge.target, {
           ...baseAttrs,
           size: 1 + ge.jaccard * 3,
-          label: `Temporal J=${ge.jaccard.toFixed(2)}`,
+          label: `${jaccardLabelPrefix}=${ge.jaccard.toFixed(2)}`,
         });
       }
       ghostRendered++;
@@ -159,7 +170,7 @@ export function CodeGraphCanvas({
       sigma.kill();
       sigmaRef.current = null;
     };
-  }, [containerReady, graph, isDark, onNodeClick, ghostEdges]);
+  }, [containerReady, graph, isDark, onNodeClick, ghostEdges, ghostEdgeGranularity]);
 
   useEffect(() => {
     const sigma = sigmaRef.current;
