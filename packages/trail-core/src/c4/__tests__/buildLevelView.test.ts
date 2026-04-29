@@ -3,9 +3,9 @@ import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 
 const BASE_STYLE = { fill: '#fff', stroke: '#000', strokeWidth: 1, fontSize: 12, fontFamily: 'sans-serif' };
 
-function makeDoc(nodes: GraphNode[]): GraphDocument {
+function makeDoc(nodes: GraphNode[], edges: GraphDocument['edges'] = []): GraphDocument {
   return {
-    id: 'test', name: 'test', nodes, edges: [],
+    id: 'test', name: 'test', nodes, edges,
     viewport: { offsetX: 0, offsetY: 0, scale: 1 },
     createdAt: 0, updatedAt: 0,
   };
@@ -113,25 +113,35 @@ describe('buildLevelView', () => {
     expect(doc.nodes[1].type).toBe('frame');
   });
 
-  it('should hide ancestor frames when requested', () => {
+  it('should hide ancestor frame edges when requested', () => {
     const sysFrame: GraphNode = {
       ...makeFrame('sys'), metadata: { c4Type: 'system' },
     };
-    const doc = makeDoc([sysFrame, makeFrame('pkg1', 'sys'), makeFrame('cmp1', 'pkg1'), makeRect('leaf', 'cmp1')]);
-    const view = buildLevelView(doc, 3, { showAncestorFrames: false });
+    const doc = makeDoc(
+      [sysFrame, makeFrame('pkg1', 'sys'), makeFrame('cmp1', 'pkg1'), makeFrame('cmp2', 'pkg1')],
+      [
+        { id: 'e1', type: 'connector', from: { nodeId: 'pkg1', x: 0, y: 0 }, to: { nodeId: 'cmp1', x: 0, y: 0 }, style: {} },
+        { id: 'e2', type: 'connector', from: { nodeId: 'cmp1', x: 0, y: 0 }, to: { nodeId: 'cmp2', x: 0, y: 0 }, style: {} },
+      ],
+    );
+    const view = buildLevelView(doc, 3, { showAncestorEdges: false });
 
-    expect(view.nodes.find(n => n.id === 'sys')).toBeUndefined();
-    expect(view.nodes.find(n => n.id === 'pkg1')).toBeUndefined();
-    const component = view.nodes.find(n => n.id === 'cmp1');
-    expect(component?.type).toBe('rect');
-    expect(component?.groupId).toBeUndefined();
+    expect(view.nodes.find(n => n.id === 'sys')?.type).toBe('frame');
+    expect(view.nodes.find(n => n.id === 'pkg1')?.type).toBe('frame');
+    expect(view.edges.map(e => e.id)).toEqual(['e2']);
   });
 
-  it('should hide frames at L4 when ancestor frames are disabled', () => {
-    const doc = makeDoc([makeFrame('sys'), makeFrame('pkg1', 'sys'), makeRect('leaf', 'pkg1')]);
-    const view = buildLevelView(doc, 4, { showAncestorFrames: false });
+  it('should hide frame edges at L4 when ancestor edges are disabled', () => {
+    const doc = makeDoc(
+      [makeFrame('sys'), makeFrame('pkg1', 'sys'), makeRect('leaf1', 'pkg1'), makeRect('leaf2', 'pkg1')],
+      [
+        { id: 'e1', type: 'connector', from: { nodeId: 'pkg1', x: 0, y: 0 }, to: { nodeId: 'leaf1', x: 0, y: 0 }, style: {} },
+        { id: 'e2', type: 'connector', from: { nodeId: 'leaf1', x: 0, y: 0 }, to: { nodeId: 'leaf2', x: 0, y: 0 }, style: {} },
+      ],
+    );
+    const view = buildLevelView(doc, 4, { showAncestorEdges: false });
 
-    expect(view.nodes.map(n => n.id)).toEqual(['leaf']);
-    expect(view.nodes[0].groupId).toBeUndefined();
+    expect(view.nodes.map(n => n.id)).toEqual(['sys', 'pkg1', 'leaf1', 'leaf2']);
+    expect(view.edges.map(e => e.id)).toEqual(['e2']);
   });
 });

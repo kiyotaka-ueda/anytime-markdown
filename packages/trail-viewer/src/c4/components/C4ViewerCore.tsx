@@ -207,7 +207,7 @@ export function C4ViewerCore({
   const [showC4, setShowC4] = useState(true);
   const [showDsm, setShowDsm] = useState(false);
   const [showCoverage, setShowCoverage] = useState(false);
-  const [showAncestorFrames, setShowAncestorFrames] = useState(true);
+  const [showAncestorEdges, setShowAncestorEdges] = useState(true);
   const [matrixView, setMatrixView] = useState<'dsm' | 'fcmap' | 'coverage'>('dsm');
   const [metricOverlay, setMetricOverlay] = useState<MetricOverlay>('none');
   const [drWindowDays, setDrWindowDays] = useState(90);
@@ -373,9 +373,9 @@ export function C4ViewerCore({
     const doc = c4ToGraphDocument(filteredModel, boundaryInfos, manualGroups);
     layoutWithSubgroups(doc, 'TB', 180, 60);
     setFullDoc(doc);
-    let viewDoc = currentLevel < 4 || !showAncestorFrames
+    let viewDoc = currentLevel < 4 || !showAncestorEdges
       ? (() => {
-        const v = buildLevelView(doc, currentLevel, { showAncestorFrames });
+        const v = buildLevelView(doc, currentLevel, { showAncestorEdges });
         layoutWithSubgroups(v, 'TB', 180, 60);
         return v;
       })()
@@ -397,7 +397,7 @@ export function C4ViewerCore({
     }
 
     dispatch({ type: 'SET_DOCUMENT', doc: viewDoc });
-  }, [c4Model, boundaryInfos, drillStack, currentLevel, checkedPackageIds, soloFrameId, manualGroups, showAncestorFrames]);
+  }, [c4Model, boundaryInfos, drillStack, currentLevel, checkedPackageIds, soloFrameId, manualGroups, showAncestorEdges]);
 
   /** 右クリックメニューを表示する */
   const handleNodeContextMenu = useCallback(
@@ -885,19 +885,19 @@ export function C4ViewerCore({
         <Button
           size="small"
           startIcon={<LayersIcon sx={{ fontSize: 16 }} />}
-          onClick={() => setShowAncestorFrames(prev => !prev)}
+          onClick={() => setShowAncestorEdges(prev => !prev)}
           disabled={currentLevel === 1}
-          aria-pressed={showAncestorFrames}
-          aria-label="Toggle upper C4 layers"
-          title="Toggle upper C4 layers"
+          aria-pressed={showAncestorEdges}
+          aria-label="Toggle upper C4 layer relationships"
+          title="Toggle upper C4 layer relationships"
           sx={{
             ...toolbarButtonSx,
             ml: 0.5,
             fontSize: '0.75rem',
-            ...(showAncestorFrames && currentLevel !== 1 && { bgcolor: toolbarButtonActiveBg }),
+            ...(showAncestorEdges && currentLevel !== 1 && { bgcolor: toolbarButtonActiveBg }),
           }}
         >
-          Upper
+          Upper Lines
         </Button>
         <Button size="small" startIcon={<FitScreenIcon sx={{ fontSize: 16 }} />} onClick={handleFit} sx={{ ...toolbarButtonSx, ml: 0.5 }} aria-label="Fit">Fit</Button>
         {soloFrameId !== null && (
