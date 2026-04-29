@@ -28,6 +28,7 @@ const WINDOW_OPTIONS: ReadonlyArray<{ label: string; days: number }> = [
 ];
 
 const HALF_LIFE_OPTIONS: ReadonlyArray<{ label: string; days: number }> = [
+  { label: '7d', days: 7 },
   { label: '30d', days: 30 },
   { label: '90d', days: 90 },
   { label: '180d', days: 180 },
