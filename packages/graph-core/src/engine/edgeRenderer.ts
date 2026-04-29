@@ -15,6 +15,8 @@ export function drawEdge(
   ctx.save();
 
   const { style, type } = edge;
+  const opacity = style.opacity ?? 100;
+  ctx.globalAlpha *= Math.max(0, Math.min(100, opacity)) / 100;
 
   ctx.strokeStyle = selected ? c.canvasSelection : style.stroke;
   ctx.lineWidth = selected ? style.strokeWidth + 1 : style.strokeWidth;

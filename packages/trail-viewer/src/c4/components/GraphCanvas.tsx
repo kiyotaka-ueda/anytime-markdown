@@ -4,6 +4,8 @@ import type { Action } from '@anytime-markdown/graph-core/state';
 import { useCanvasBase } from '@anytime-markdown/graph-core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+const DIM_OPACITY = 10;
+
 interface C4GraphCanvasProps {
   readonly document: GraphDocument;
   readonly viewport: Viewport;
@@ -101,7 +103,7 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
   }, [centerOnSelect, selectedNodeId, document.nodes, canvasRef]);
 
   // Resolve connector edges to line endpoints
-  const resolvedEdges = document.edges.map(e => {
+  const resolvedEdges = useMemo(() => document.edges.map(e => {
     if (e.type === 'connector' && e.from.nodeId && e.to.nodeId) {
       const fromNode = document.nodes.find(n => n.id === e.from.nodeId);
       const toNode = document.nodes.find(n => n.id === e.to.nodeId);
@@ -119,7 +121,24 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
       }
     }
     return e;
-  });
+  }), [document.edges, document.nodes]);
+
+  const focusScope = useMemo(() => {
+    if (!selectedNodeId) return null;
+    const nodeIds = new Set<string>([selectedNodeId]);
+    const edgeIds = new Set<string>();
+    for (const edge of resolvedEdges) {
+      const fromId = edge.from.nodeId;
+      const toId = edge.to.nodeId;
+      if (!fromId || !toId) continue;
+      if (fromId === selectedNodeId || toId === selectedNodeId) {
+        edgeIds.add(edge.id);
+        nodeIds.add(fromId);
+        nodeIds.add(toId);
+      }
+    }
+    return { nodeIds, edgeIds };
+  }, [resolvedEdges, selectedNodeId]);
 
   // Metric overlay: replace node fill colors
   const styledNodes = useMemo(() => {
@@ -145,6 +164,34 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
     });
   }, [styledNodes, claudeActivityMap]);
 
+  const focusStyledNodes = useMemo(() => {
+    if (!focusScope) return activityStyledNodes;
+    return activityStyledNodes.map((node) => {
+      if (focusScope.nodeIds.has(node.id)) return node;
+      return {
+        ...node,
+        style: {
+          ...node.style,
+          opacity: DIM_OPACITY,
+        },
+      };
+    });
+  }, [activityStyledNodes, focusScope]);
+
+  const focusStyledEdges = useMemo(() => {
+    if (!focusScope) return resolvedEdges;
+    return resolvedEdges.map((edge) => {
+      if (focusScope.edgeIds.has(edge.id)) return edge;
+      return {
+        ...edge,
+        style: {
+          ...edge.style,
+          opacity: DIM_OPACITY,
+        },
+      };
+    });
+  }, [focusScope, resolvedEdges]);
+
   // Render loop
   useEffect(() => {
     const cvs = canvasRef.current;
@@ -165,8 +212,8 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
         ctx: ctx!,
         width: w,
         height: h,
-        nodes: activityStyledNodes,
-        edges: resolvedEdges,
+        nodes: focusStyledNodes,
+        edges: focusStyledEdges,
         groups: groupsRef.current,
         viewport: viewportRef.current,
         selection: sel.length > 0 ? { nodeIds: sel, edgeIds: [] } : EMPTY_SELECTION,
@@ -181,7 +228,7 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
     }
     rafRef.current = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [activityStyledNodes, resolvedEdges, canvasRef, canvas]);
+  }, [focusStyledNodes, focusStyledEdges, canvasRef, canvas]);
 
   const nodeMap = useMemo(
     () => new Map<string, GraphNode>(document.nodes.map(n => [n.id, n])),

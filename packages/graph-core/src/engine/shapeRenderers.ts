@@ -422,6 +422,8 @@ export function drawNode(
 ): void {
   setCurrentColors(colors ?? getCanvasColors(true));
   ctx.save();
+  const opacity = node.style.opacity ?? 100;
+  ctx.globalAlpha *= Math.max(0, Math.min(100, opacity)) / 100;
 
   // ドラッグ中の浮き上がりエフェクト
   if (isDragging) {
