@@ -84,7 +84,8 @@ export const CREATE_MESSAGES = `CREATE TABLE IF NOT EXISTS messages (
   duration_ms INTEGER,
   tool_result_size INTEGER,
   agent_description TEXT,
-  agent_model TEXT
+  agent_model TEXT,
+  subagent_type TEXT
 )`;
 
 export const CREATE_SESSION_COMMITS = `CREATE TABLE IF NOT EXISTS session_commits (

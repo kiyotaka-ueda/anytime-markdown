@@ -1,5 +1,6 @@
 export { computeTemporalCoupling } from './computeTemporalCoupling';
 export { computeSessionCoupling } from './computeSessionCoupling';
+export { computeSubagentTypeCoupling } from './computeSubagentTypeCoupling';
 export { computeConfidenceCoupling } from './computeConfidenceCoupling';
 export {
   aggregatePairs,
@@ -10,6 +11,7 @@ export {
 export type {
   CommitFileRow,
   SessionFileRow,
+  SubagentTypeFileRow,
   GroupedFileRow,
   ComputeTemporalCouplingOptions,
   TemporalCouplingEdge,

@@ -16,10 +16,12 @@ export { SERVICE_CATALOG, findService, filterServices } from './c4/services/cata
 
 export { computeTemporalCoupling } from './temporalCoupling/computeTemporalCoupling';
 export { computeSessionCoupling } from './temporalCoupling/computeSessionCoupling';
+export { computeSubagentTypeCoupling } from './temporalCoupling/computeSubagentTypeCoupling';
 export { computeConfidenceCoupling } from './temporalCoupling/computeConfidenceCoupling';
 export type {
   CommitFileRow,
   SessionFileRow,
+  SubagentTypeFileRow,
   GroupedFileRow,
   ComputeTemporalCouplingOptions,
   TemporalCouplingEdge,

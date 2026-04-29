@@ -22,8 +22,12 @@ const GHOST_EDGE_COMMIT_LIGHT = '#7c3aed';
 const GHOST_EDGE_COMMIT_DARK = '#c4b5fd';
 const GHOST_EDGE_SESSION_LIGHT = '#0891b2';
 const GHOST_EDGE_SESSION_DARK = '#67e8f9';
+// subagent_type 粒度。commit 紫・session シアンと区別するためエメラルド系を採用。
+// ライトモード #047857 vs 白背景 = 5.5:1, ダークモード #6ee7b7 vs #1e1e1e ≒ 8.5:1（共に WCAG AA 4.5:1 達成）。
+const GHOST_EDGE_SUBAGENT_LIGHT = '#047857';
+const GHOST_EDGE_SUBAGENT_DARK = '#6ee7b7';
 
-export type CodeGraphGhostEdgeGranularity = 'commit' | 'session';
+export type CodeGraphGhostEdgeGranularity = 'commit' | 'session' | 'subagentType';
 
 export interface CodeGraphGhostEdge {
   readonly source: string;
@@ -108,12 +112,15 @@ export function CodeGraphCanvas({
       }
     }
 
+    const isSubagent = ghostEdgeGranularity === 'subagentType';
     const isSession = ghostEdgeGranularity === 'session';
-    const ghostColor = isSession
-      ? (isDark ? GHOST_EDGE_SESSION_DARK : GHOST_EDGE_SESSION_LIGHT)
-      : (isDark ? GHOST_EDGE_COMMIT_DARK : GHOST_EDGE_COMMIT_LIGHT);
-    const jaccardLabelPrefix = isSession ? 'Session J' : 'Temporal J';
-    const confLabelPrefix = isSession ? 'Session' : 'Conf';
+    const ghostColor = isSubagent
+      ? (isDark ? GHOST_EDGE_SUBAGENT_DARK : GHOST_EDGE_SUBAGENT_LIGHT)
+      : isSession
+        ? (isDark ? GHOST_EDGE_SESSION_DARK : GHOST_EDGE_SESSION_LIGHT)
+        : (isDark ? GHOST_EDGE_COMMIT_DARK : GHOST_EDGE_COMMIT_LIGHT);
+    const jaccardLabelPrefix = isSubagent ? 'Subagent J' : isSession ? 'Session J' : 'Temporal J';
+    const confLabelPrefix = isSubagent ? 'Subagent' : isSession ? 'Session' : 'Conf';
     let ghostRendered = 0;
     for (const ge of ghostEdges ?? []) {
       if (

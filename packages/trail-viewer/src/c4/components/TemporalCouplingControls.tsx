@@ -11,7 +11,7 @@ import Slider from '@mui/material/Slider';
 import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
 
-export type TemporalCouplingGranularity = 'commit' | 'session';
+export type TemporalCouplingGranularity = 'commit' | 'session' | 'subagentType';
 
 export interface TemporalCouplingControlsValue {
   enabled: boolean;
@@ -40,15 +40,17 @@ const WINDOW_OPTIONS: ReadonlyArray<{ label: string; days: number }> = [
 
 const TOP_K_OPTIONS: ReadonlyArray<number> = [10, 50, 100];
 
-/** 粒度別のしきい値デフォルト（plan/20260429-ghost-edge-session-granularity 第「パラメータの粒度別デフォルト」表） */
+/** 粒度別のしきい値デフォルト（plan/20260429-ghost-edge-* 第「パラメータの粒度別デフォルト」表） */
 export const GRANULARITY_DEFAULT_THRESHOLD: Readonly<Record<TemporalCouplingGranularity, number>> = {
   commit: 0.5,
   session: 0.4,
+  subagentType: 0.3,
 };
 
 const GRANULARITY_DESCRIPTION_ID: Readonly<Record<TemporalCouplingGranularity, string>> = {
   commit: 'tc-granularity-commit-desc',
   session: 'tc-granularity-session-desc',
+  subagentType: 'tc-granularity-subagent-desc',
 };
 
 export function TemporalCouplingControls({
@@ -134,6 +136,11 @@ export function TemporalCouplingControls({
             control={<Radio size="small" inputProps={{ 'aria-describedby': GRANULARITY_DESCRIPTION_ID.session }} />}
             label={<Typography variant="caption">session</Typography>}
           />
+          <FormControlLabel
+            value="subagentType"
+            control={<Radio size="small" inputProps={{ 'aria-describedby': GRANULARITY_DESCRIPTION_ID.subagentType }} />}
+            label={<Typography variant="caption">subagent</Typography>}
+          />
         </RadioGroup>
         <Typography
           id={GRANULARITY_DESCRIPTION_ID.commit}
@@ -148,6 +155,13 @@ export function TemporalCouplingControls({
           sx={{ position: 'absolute', left: '-9999px' }}
         >
           セッション単位の共編集
+        </Typography>
+        <Typography
+          id={GRANULARITY_DESCRIPTION_ID.subagentType}
+          variant="caption"
+          sx={{ position: 'absolute', left: '-9999px' }}
+        >
+          エージェント型ごとの編集領域
         </Typography>
       </FormControl>
 
