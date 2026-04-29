@@ -83,10 +83,21 @@ const TEMPORAL_COUPLING_EXCLUDE_PATTERNS: readonly RegExp[] = [
   /\.min\.js$/,
   /\.map$/,
   /(^|\/)\.worktrees\//,
+  /(^|\/)\.claude\//, // .claude/settings.json 等は CodeGraph 対象外
 ];
 
 export function defaultTemporalCouplingPathFilter(filePath: string): boolean {
   return !TEMPORAL_COUPLING_EXCLUDE_PATTERNS.some((re) => re.test(filePath));
+}
+
+/**
+ * サブエージェントが `.claude/worktrees/agent-XXXX/` 内で編集したファイルパスから
+ * worktree プレフィックスを剥がし、リポルート起点の相対パスに正規化する。
+ * 例: `.claude/worktrees/agent-a30eb6d2/packages/foo/bar.ts` → `packages/foo/bar.ts`
+ * これをやらないと `Workspace:packages/foo/bar` のような CodeGraph node ID と一致せず描画されない。
+ */
+export function stripWorktreePrefix(relPath: string): string {
+  return relPath.replace(/^\.claude\/worktrees\/[^/]+\//, '');
 }
 
 export type TemporalCouplingGranularity = 'commit' | 'session' | 'subagentType';
@@ -2513,11 +2524,11 @@ export class TrailDatabase {
 
       const normalize = (raw: string): string | null => {
         if (!raw) return null;
-        if (!raw.startsWith('/')) return raw; // 既に相対パス
+        if (!raw.startsWith('/')) return stripWorktreePrefix(raw);
         for (const root of projectRootCandidates) {
           if (raw === root) continue;
           const prefix = root.endsWith('/') ? root : `${root}/`;
-          if (raw.startsWith(prefix)) return raw.slice(prefix.length);
+          if (raw.startsWith(prefix)) return stripWorktreePrefix(raw.slice(prefix.length));
         }
         return null; // どの projectRoot にも一致しない → リポ外と判断
       };
@@ -2587,11 +2598,11 @@ export class TrailDatabase {
       ).sort((a, b) => a.length - b.length);
       const normalize = (raw: string): string | null => {
         if (!raw) return null;
-        if (!raw.startsWith('/')) return raw;
+        if (!raw.startsWith('/')) return stripWorktreePrefix(raw);
         for (const root of projectRootCandidates) {
           if (raw === root) continue;
           const prefix = root.endsWith('/') ? root : `${root}/`;
-          if (raw.startsWith(prefix)) return raw.slice(prefix.length);
+          if (raw.startsWith(prefix)) return stripWorktreePrefix(raw.slice(prefix.length));
         }
         return null;
       };
