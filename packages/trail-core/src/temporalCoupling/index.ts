@@ -1,4 +1,5 @@
 export { computeTemporalCoupling } from './computeTemporalCoupling';
+export { computeSessionCoupling } from './computeSessionCoupling';
 export { computeConfidenceCoupling } from './computeConfidenceCoupling';
 export {
   aggregatePairs,
@@ -8,6 +9,8 @@ export {
 } from './aggregatePairs';
 export type {
   CommitFileRow,
+  SessionFileRow,
+  GroupedFileRow,
   ComputeTemporalCouplingOptions,
   TemporalCouplingEdge,
   ComputeConfidenceCouplingOptions,

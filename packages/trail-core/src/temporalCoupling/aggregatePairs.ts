@@ -1,6 +1,6 @@
 import type {
   AggregatePairsOptions,
-  CommitFileRow,
+  GroupedFileRow,
   PairAggregation,
 } from './types';
 
@@ -15,7 +15,7 @@ export const normalizePair = (
 ): readonly [string, string] => (a < b ? [a, b] : [b, a]);
 
 export function aggregatePairs(
-  rows: ReadonlyArray<CommitFileRow>,
+  rows: ReadonlyArray<GroupedFileRow>,
   options: AggregatePairsOptions,
 ): PairAggregation {
   const empty: PairAggregation = {
@@ -24,23 +24,25 @@ export function aggregatePairs(
   };
   if (rows.length === 0) return empty;
 
-  const { minChangeCount, maxFilesPerCommit, excludePairs, pathFilter } =
-    options;
+  const { minChangeCount, excludePairs, pathFilter } = options;
+  const maxFilesPerGroup =
+    options.maxFilesPerGroup ?? options.maxFilesPerCommit ?? Infinity;
 
-  const commitToFiles = new Map<string, Set<string>>();
+  const groupToFiles = new Map<string, Set<string>>();
   for (const row of rows) {
+    if (!row.groupKey) continue;
     if (pathFilter && !pathFilter(row.filePath)) continue;
-    let files = commitToFiles.get(row.commitHash);
+    let files = groupToFiles.get(row.groupKey);
     if (!files) {
       files = new Set();
-      commitToFiles.set(row.commitHash, files);
+      groupToFiles.set(row.groupKey, files);
     }
     files.add(row.filePath);
   }
 
   const fileChangeCount = new Map<string, number>();
-  for (const files of commitToFiles.values()) {
-    if (files.size > maxFilesPerCommit) continue;
+  for (const files of groupToFiles.values()) {
+    if (files.size > maxFilesPerGroup) continue;
     for (const file of files) {
       fileChangeCount.set(file, (fileChangeCount.get(file) ?? 0) + 1);
     }
@@ -60,8 +62,8 @@ export function aggregatePairs(
   }
 
   const coChange = new Map<string, number>();
-  for (const files of commitToFiles.values()) {
-    if (files.size > maxFilesPerCommit) continue;
+  for (const files of groupToFiles.values()) {
+    if (files.size > maxFilesPerGroup) continue;
     const sorted = [...files].filter((f) => eligibleFiles.has(f)).sort();
     for (let i = 0; i < sorted.length; i++) {
       for (let j = i + 1; j < sorted.length; j++) {

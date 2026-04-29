@@ -1,12 +1,16 @@
 import { aggregatePairs, PAIR_KEY_SEPARATOR, normalizePair } from './aggregatePairs';
 import type {
-  CommitFileRow,
   ComputeTemporalCouplingOptions,
+  SessionFileRow,
   TemporalCouplingEdge,
 } from './types';
 
-export function computeTemporalCoupling(
-  rows: ReadonlyArray<CommitFileRow>,
+/**
+ * セッション粒度の Temporal Coupling を計算するアダプタ。
+ * `aggregatePairs` を再利用し、`sessionId` を `groupKey` として扱う。
+ */
+export function computeSessionCoupling(
+  rows: ReadonlyArray<SessionFileRow>,
   options: ComputeTemporalCouplingOptions,
 ): TemporalCouplingEdge[] {
   if (rows.length === 0) return [];
@@ -21,7 +25,7 @@ export function computeTemporalCoupling(
   } = options;
 
   const groupedRows = rows.map((r) => ({
-    groupKey: r.commitHash,
+    groupKey: r.sessionId,
     filePath: r.filePath,
   }));
 
