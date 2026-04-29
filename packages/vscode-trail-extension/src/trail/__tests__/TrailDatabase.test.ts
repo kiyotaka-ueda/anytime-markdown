@@ -132,6 +132,46 @@ describe('TrailDatabase.getImportedFileMap', () => {
     expect(map.get('/tmp/empty.jsonl')?.hasMessages).toBe(true);
     db.close();
   });
+
+  it('flags imported Codex sessions with zero session costs for reimport', async () => {
+    const db = await createTestTrailDatabase();
+    const inMemoryDb = (db as unknown as Record<string, unknown>).db as import('sql.js').Database;
+
+    inMemoryDb.run(
+      `INSERT INTO sessions (id, slug, repo_name, version, entrypoint, model,
+         start_time, end_time, message_count, file_path, file_size, imported_at, source)
+       VALUES ('codex-zero','','','','','','','',2,'/tmp/codex-zero.jsonl',123,'','codex')`,
+    );
+    inMemoryDb.run(
+      `INSERT INTO messages (uuid, session_id, type, timestamp)
+       VALUES ('codex-zero-m1','codex-zero','assistant','2026-04-12T00:00:00Z')`,
+    );
+    inMemoryDb.run(
+      `INSERT INTO session_costs
+         (session_id, model, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, estimated_cost_usd)
+       VALUES ('codex-zero','',0,0,0,0,0)`,
+    );
+
+    inMemoryDb.run(
+      `INSERT INTO sessions (id, slug, repo_name, version, entrypoint, model,
+         start_time, end_time, message_count, file_path, file_size, imported_at, source)
+       VALUES ('codex-ok','','','','','','','',2,'/tmp/codex-ok.jsonl',456,'','codex')`,
+    );
+    inMemoryDb.run(
+      `INSERT INTO messages (uuid, session_id, type, timestamp)
+       VALUES ('codex-ok-m1','codex-ok','assistant','2026-04-12T00:00:00Z')`,
+    );
+    inMemoryDb.run(
+      `INSERT INTO session_costs
+         (session_id, model, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, estimated_cost_usd)
+       VALUES ('codex-ok','',100,20,50,0,0.001)`,
+    );
+
+    const map = (db as unknown as Record<string, () => Map<string, { hasUsableCostData: boolean }>>).getImportedFileMap();
+    expect(map.get('/tmp/codex-zero.jsonl')?.hasUsableCostData).toBe(false);
+    expect(map.get('/tmp/codex-ok.jsonl')?.hasUsableCostData).toBe(true);
+    db.close();
+  });
 });
 
 describe('TrailDatabase.getDayToolMetrics', () => {

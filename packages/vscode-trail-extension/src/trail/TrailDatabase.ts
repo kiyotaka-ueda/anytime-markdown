@@ -1640,22 +1640,32 @@ export class TrailDatabase {
   /** Load imported sessions keyed by file_path for accurate skip detection.
    *  `hasMessages` is false when `sessions` row exists but no `messages` rows are present
    *  (happens after a silent message-insert failure). Callers should re-import such sessions. */
-  private getImportedFileMap(): Map<string, { sessionId: string; fileSize: number; commitsResolved: boolean; hasMessages: boolean }> {
+  private getImportedFileMap(): Map<string, { sessionId: string; fileSize: number; commitsResolved: boolean; hasMessages: boolean; hasUsableCostData: boolean }> {
     const db = this.ensureDb();
     const result = db.exec(
       `SELECT s.id, s.file_path, s.file_size, s.commits_resolved_at,
         CASE WHEN s.message_count = 0 THEN 1
              WHEN EXISTS (SELECT 1 FROM messages m WHERE m.session_id = s.id) THEN 1
-             ELSE 0 END AS has_messages
+             ELSE 0 END AS has_messages,
+        CASE WHEN s.source = 'codex' AND s.message_count > 0 THEN
+             CASE WHEN EXISTS (
+               SELECT 1 FROM session_costs sc
+               WHERE sc.session_id = s.id
+                 AND (COALESCE(sc.input_tokens, 0) + COALESCE(sc.output_tokens, 0) +
+                      COALESCE(sc.cache_read_tokens, 0) + COALESCE(sc.cache_creation_tokens, 0) +
+                      COALESCE(sc.estimated_cost_usd, 0)) > 0
+             ) THEN 1 ELSE 0 END
+             ELSE 1 END AS has_usable_cost_data
        FROM sessions s`,
     );
-    const map = new Map<string, { sessionId: string; fileSize: number; commitsResolved: boolean; hasMessages: boolean }>();
+    const map = new Map<string, { sessionId: string; fileSize: number; commitsResolved: boolean; hasMessages: boolean; hasUsableCostData: boolean }>();
     for (const row of result[0]?.values ?? []) {
       map.set(String(row[1]), {
         sessionId: String(row[0]),
         fileSize: Number(row[2]),
         commitsResolved: row[3] != null,
         hasMessages: Number(row[4]) === 1,
+        hasUsableCostData: Number(row[5]) === 1,
       });
     }
     return map;
@@ -2190,7 +2200,7 @@ export class TrailDatabase {
       // and the existing row actually has messages. A session row with zero messages
       // is a leftover from a previously-failed import and must be re-processed.
       const existing = importedFiles.get(dir.mainFile);
-      if (existing && existing.hasMessages) {
+      if (existing && existing.hasMessages && existing.hasUsableCostData) {
         let currentFileSize = 0;
         try { currentFileSize = fs.statSync(dir.mainFile).size; } catch (e) { TrailLogger.error(`statSync failed: ${dir.mainFile}`, e); skipped++; continue; }
         if (currentFileSize <= existing.fileSize) {
