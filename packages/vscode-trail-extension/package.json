@@ -286,12 +286,17 @@
           "type": "array",
           "items": {
             "type": "object",
+            "additionalProperties": false,
             "properties": {
               "path": {
-                "type": "string"
+                "type": "string",
+                "default": "${workspaceFolder}",
+                "markdownDescription": "リポジトリの絶対パス。`${workspaceFolder}` を使用可能。"
               },
               "label": {
-                "type": "string"
+                "type": "string",
+                "default": "",
+                "markdownDescription": "表示名。"
               }
             },
             "required": [
