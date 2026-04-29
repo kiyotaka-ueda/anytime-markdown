@@ -2468,8 +2468,10 @@ export class TrailDatabase {
     const jaccardThreshold = options.jaccardThreshold
       ?? (isSubagentType ? 0.5 : isSession ? 0.4 : 0.5);
     const topK = options.topK ?? 50;
-    // subagentType は 1 型あたり数百ファイルに到達することがあるため maxFilesPerGroup を高めに。
-    const maxFilesPerGroup = isSubagentType ? 300 : isSession ? 20 : 50;
+    // subagentType は 1 型あたり数百〜数千ファイルになる（general-purpose は半年で 500+）。
+    // maxFilesPerGroup を絞ると「巨大な役割」が丸ごとスキップされ実質 0 件になる典型ケースを生む。
+    // ペア計算は内部 Map で N^2 だが N=2000 なら 2M ペアで in-memory に収まるため Infinity 相当の上限にする。
+    const maxFilesPerGroup = isSubagentType ? 5000 : isSession ? 20 : 50;
 
     const now = new Date();
     const toIso = now.toISOString();
@@ -2617,6 +2619,23 @@ export class TrailDatabase {
           `messages.subagent_type populated=${totalMessages}, ` +
           `mtc_join_rows=${values.length}, normalizationDropped=${normalizationDropped}, ` +
           `projectRootCandidates=${projectRootCandidates.length}`,
+        );
+      } else {
+        // edges=0 が「グループのファイル数が多すぎてスキップ」由来かを確認できるよう、
+        // 粒度別の生データ件数を残す。maxFilesPerGroup 越えのグループは丸ごと aggregatePairs で除外される。
+        const filesPerType = new Map<string, Set<string>>();
+        for (const r of subagentRows) {
+          let s = filesPerType.get(r.subagentType);
+          if (!s) { s = new Set(); filesPerType.set(r.subagentType, s); }
+          s.add(r.filePath);
+        }
+        const summary = Array.from(filesPerType.entries())
+          .map(([t, s]) => `${t}=${s.size}${s.size > maxFilesPerGroup ? '(SKIPPED:>maxFilesPerGroup)' : ''}`)
+          .join(', ');
+        TrailLogger.info(
+          `[fetchTemporalCoupling/subagentType] rows=${subagentRows.length}, ` +
+          `maxFilesPerGroup=${maxFilesPerGroup}, normalizationDropped=${normalizationDropped}, ` +
+          `groups: ${summary}`,
         );
       }
 
