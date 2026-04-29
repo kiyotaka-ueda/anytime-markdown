@@ -43,6 +43,20 @@ const JSON_HEADERS: Record<string, string> = {
   'Content-Type': 'application/json',
 };
 
+function clampInt(value: string | null, fallback: number, min: number, max: number): number {
+  if (value === null || value === '') return fallback;
+  const n = Number.parseInt(value, 10);
+  if (Number.isNaN(n)) return fallback;
+  return Math.min(Math.max(n, min), max);
+}
+
+function clampFloat(value: string | null, fallback: number, min: number, max: number): number {
+  if (value === null || value === '') return fallback;
+  const n = Number.parseFloat(value);
+  if (Number.isNaN(n)) return fallback;
+  return Math.min(Math.max(n, min), max);
+}
+
 // ---------------------------------------------------------------------------
 //  DSM level mapping
 // ---------------------------------------------------------------------------
@@ -502,6 +516,10 @@ export class TrailDataServer {
       );
       return;
     }
+    if (pathname === '/api/temporal-coupling' && method === 'GET') {
+      this.handleTemporalCoupling(res, parsed.searchParams);
+      return;
+    }
 
     res.writeHead(404);
     res.end();
@@ -545,6 +563,43 @@ export class TrailDataServer {
     const result = engine.explain(id);
     res.writeHead(result ? 200 : 404, JSON_HEADERS);
     res.end(JSON.stringify(result ?? {}));
+  }
+
+  private handleTemporalCoupling(res: http.ServerResponse, params: URLSearchParams): void {
+    const repoName = params.get('repo')?.trim() ?? '';
+    if (!repoName) {
+      res.writeHead(400, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'repo is required' }));
+      return;
+    }
+
+    const windowDays = clampInt(params.get('windowDays'), 30, 1, 365);
+    const threshold = clampFloat(params.get('threshold'), 0.5, 0, 1);
+    const topK = clampInt(params.get('topK'), 50, 1, 500);
+    const minChange = clampInt(params.get('minChange'), 5, 1, 1000);
+
+    try {
+      const computedAt = new Date().toISOString();
+      const edges = this.trailDb.fetchTemporalCoupling({
+        repoName,
+        windowDays,
+        minChangeCount: minChange,
+        jaccardThreshold: threshold,
+        topK,
+      });
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({
+        edges,
+        computedAt,
+        windowDays,
+        totalPairs: edges.length,
+      }));
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      TrailLogger.error(`/api/temporal-coupling failed: ${err.message}\n${err.stack ?? ''}`);
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: err.message }));
+    }
   }
 
   private handleCodeGraphPath(res: http.ServerResponse, from: string, to: string): void {
