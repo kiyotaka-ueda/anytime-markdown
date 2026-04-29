@@ -1,0 +1,42 @@
+import type { TemporalCouplingEdge } from '@anytime-markdown/trail-core';
+
+export type TemporalCouplingResponse = {
+  edges: TemporalCouplingEdge[];
+  computedAt: string;
+  windowDays: number;
+  totalPairs: number;
+};
+
+export type TemporalCouplingFetchParams = {
+  repoName: string;
+  windowDays: number;
+  threshold: number;
+  topK: number;
+  minChange?: number;
+};
+
+export function buildTemporalCouplingUrl(
+  serverUrl: string,
+  params: TemporalCouplingFetchParams,
+): string {
+  const qs = new URLSearchParams();
+  qs.set('repo', params.repoName);
+  qs.set('windowDays', String(params.windowDays));
+  qs.set('threshold', String(params.threshold));
+  qs.set('topK', String(params.topK));
+  if (params.minChange !== undefined) qs.set('minChange', String(params.minChange));
+  return `${serverUrl}/api/temporal-coupling?${qs.toString()}`;
+}
+
+export async function fetchTemporalCouplingApi(
+  serverUrl: string,
+  params: TemporalCouplingFetchParams,
+  signal?: AbortSignal,
+): Promise<TemporalCouplingResponse> {
+  const url = buildTemporalCouplingUrl(serverUrl, params);
+  const res = await fetch(url, { signal });
+  if (!res.ok) {
+    throw new Error(`temporal-coupling request failed: ${res.status} ${res.statusText}`);
+  }
+  return (await res.json()) as TemporalCouplingResponse;
+}
