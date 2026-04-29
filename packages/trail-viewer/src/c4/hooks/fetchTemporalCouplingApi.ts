@@ -3,7 +3,7 @@ import type {
   TemporalCouplingEdge,
 } from '@anytime-markdown/trail-core';
 
-export type TemporalCouplingGranularity = 'commit' | 'session';
+export type TemporalCouplingGranularity = 'commit' | 'session' | 'subagentType';
 
 export type TemporalCouplingResponse =
   | {

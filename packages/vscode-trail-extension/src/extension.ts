@@ -513,9 +513,19 @@ export async function activate(context: vscode.ExtensionContext) {
 			};
 		} catch (err) {
 			TrailLogger.error('Trail Data Server failed to start', err);
+			const message = err instanceof Error ? err.message : String(err);
+			// EADDRINUSE は別 VS Code ウィンドウが同じポートを掴んでいるケースが圧倒的に多いので、
+			// OutputChannel のみだとユーザーが trail viewer 不通の原因に気付けない。
+			// 通知でポートと回復策を示す。
+			const isPortConflict = /EADDRINUSE|already in use/i.test(message);
+			const userMsg = isPortConflict
+				? `Trail Data Server failed to bind port ${trailPort} (already in use). 別の VS Code ウィンドウが同じポートを掴んでいる可能性が高いです。古いウィンドウを閉じるか anytimeTrail.trailServer.port 設定で別ポートに変更してください。`
+				: `Trail Data Server failed to start: ${message}`;
+			void vscode.window.showErrorMessage(userMsg);
 		}
 	})().catch((err) => {
 		TrailLogger.error('Unexpected error during initialization', err);
+		void vscode.window.showErrorMessage(`Anytime Trail initialization failed: ${err instanceof Error ? err.message : String(err)}`);
 	});
 
 	context.subscriptions.push(

@@ -113,6 +113,17 @@ describe('buildTemporalCouplingUrl', () => {
     });
     expect(url).toContain('granularity=commit');
   });
+
+  it('includes granularity=subagentType when specified', () => {
+    const url = buildTemporalCouplingUrl('http://x', {
+      repoName: 'r',
+      windowDays: 7,
+      threshold: 0.3,
+      topK: 10,
+      granularity: 'subagentType',
+    });
+    expect(url).toContain('granularity=subagentType');
+  });
 });
 
 describe('fetchTemporalCouplingApi', () => {

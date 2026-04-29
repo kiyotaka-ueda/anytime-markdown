@@ -574,12 +574,20 @@ export class TrailDataServer {
     }
 
     const granularityRaw = params.get('granularity');
-    if (granularityRaw !== null && granularityRaw !== 'commit' && granularityRaw !== 'session') {
+    if (
+      granularityRaw !== null
+      && granularityRaw !== 'commit'
+      && granularityRaw !== 'session'
+      && granularityRaw !== 'subagentType'
+    ) {
       res.writeHead(400, JSON_HEADERS);
-      res.end(JSON.stringify({ error: "granularity must be 'commit' or 'session'" }));
+      res.end(JSON.stringify({ error: "granularity must be 'commit', 'session', or 'subagentType'" }));
       return;
     }
-    const granularity: 'commit' | 'session' = granularityRaw === 'session' ? 'session' : 'commit';
+    const granularity: 'commit' | 'session' | 'subagentType' =
+      granularityRaw === 'session' ? 'session'
+      : granularityRaw === 'subagentType' ? 'subagentType'
+      : 'commit';
 
     const windowDays = clampInt(params.get('windowDays'), 30, 1, 365);
     const topK = clampInt(params.get('topK'), 50, 1, 500);

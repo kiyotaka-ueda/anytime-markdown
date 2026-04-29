@@ -42,9 +42,10 @@ import {
   normalizeModelName,
   computeTemporalCoupling,
   computeSessionCoupling,
+  computeSubagentTypeCoupling,
   computeConfidenceCoupling,
 } from '@anytime-markdown/trail-core';
-import type { TrailGraph, IC4ModelStore, C4ModelEntry, C4ModelResult, TrailMessageCommit, MessageCommitInput, ManualElement, ManualRelationship, ManualGroup, CommitFileRow, SessionFileRow, TemporalCouplingEdge, ConfidenceCouplingEdge } from '@anytime-markdown/trail-core';
+import type { TrailGraph, IC4ModelStore, C4ModelEntry, C4ModelResult, TrailMessageCommit, MessageCommitInput, ManualElement, ManualRelationship, ManualGroup, CommitFileRow, SessionFileRow, SubagentTypeFileRow, TemporalCouplingEdge, ConfidenceCouplingEdge } from '@anytime-markdown/trail-core';
 import { matchCommitsToMessages } from '@anytime-markdown/trail-core';
 import { JsonlSessionReader } from './JsonlSessionReader';
 import { ExecFileGitService } from './ExecFileGitService';
@@ -82,13 +83,29 @@ const TEMPORAL_COUPLING_EXCLUDE_PATTERNS: readonly RegExp[] = [
   /\.min\.js$/,
   /\.map$/,
   /(^|\/)\.worktrees\//,
+  /(^|\/)\.claude\//, // .claude/settings.json 等は CodeGraph 対象外
+  /(^|\/)\.vscode\//, // .vscode/graphify-out/*.json 等の生成物は CodeGraph 対象外
+  /(^|\/)\.next\//,
+  /(^|\/)out\//,
+  /(^|\/)build\//,
+  /(^|\/)coverage\//,
 ];
 
 export function defaultTemporalCouplingPathFilter(filePath: string): boolean {
   return !TEMPORAL_COUPLING_EXCLUDE_PATTERNS.some((re) => re.test(filePath));
 }
 
-export type TemporalCouplingGranularity = 'commit' | 'session';
+/**
+ * サブエージェントが `.claude/worktrees/agent-XXXX/` 内で編集したファイルパスから
+ * worktree プレフィックスを剥がし、リポルート起点の相対パスに正規化する。
+ * 例: `.claude/worktrees/agent-a30eb6d2/packages/foo/bar.ts` → `packages/foo/bar.ts`
+ * これをやらないと `Workspace:packages/foo/bar` のような CodeGraph node ID と一致せず描画されない。
+ */
+export function stripWorktreePrefix(relPath: string): string {
+  return relPath.replace(/^\.claude\/worktrees\/[^/]+\//, '');
+}
+
+export type TemporalCouplingGranularity = 'commit' | 'session' | 'subagentType';
 
 /** session 粒度で「ファイル編集」とみなすツール名。 */
 export const SESSION_COUPLING_EDIT_TOOLS: readonly string[] = [
@@ -358,8 +375,8 @@ export const INSERT_MESSAGE = `INSERT OR REPLACE INTO messages
    cache_creation_tokens, service_tier, speed, timestamp,
    is_sidechain, is_meta, cwd, git_branch,
    duration_ms, tool_result_size, agent_description, agent_model,
-   permission_mode, skill, agent_id, system_command)
-  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+   permission_mode, skill, agent_id, system_command, subagent_type)
+  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 
 
 // ---------------------------------------------------------------------------
@@ -393,18 +410,34 @@ function extractToolCalls(
  */
 function extractAgentInfo(
   toolCallsJson: string | null,
-): { description: string | null; model: string | null } {
-  if (!toolCallsJson) return { description: null, model: null };
+): { description: string | null; model: string | null; subagentType: string | null } {
+  if (!toolCallsJson) return { description: null, model: null, subagentType: null };
   try {
     const calls = JSON.parse(toolCallsJson) as { name?: string; input?: Record<string, unknown> }[];
     const agentCall = calls.find((c) => c.name === 'Agent');
-    if (!agentCall?.input) return { description: null, model: null };
+    if (!agentCall?.input) return { description: null, model: null, subagentType: null };
     return {
       description: (agentCall.input.description as string) ?? null,
       model: (agentCall.input.model as string) ?? null,
+      subagentType: (agentCall.input.subagent_type as string) ?? null,
     };
   } catch {
-    return { description: null, model: null };
+    return { description: null, model: null, subagentType: null };
+  }
+}
+
+/**
+ * サブエージェント JSONL に隣接する `agent-{agentId}.meta.json` から `agentType` を読む。
+ * April 2026 以降に Claude Code が記録する。古いセッションでは存在せず NULL を返す。
+ */
+function readSubagentTypeFromMeta(jsonlPath: string): string | null {
+  const metaPath = jsonlPath.replace(/\.jsonl$/, '.meta.json');
+  try {
+    const raw = fs.readFileSync(metaPath, 'utf-8');
+    const meta = JSON.parse(raw) as { agentType?: unknown };
+    return typeof meta.agentType === 'string' && meta.agentType.length > 0 ? meta.agentType : null;
+  } catch {
+    return null;
   }
 }
 
@@ -569,6 +602,7 @@ export class TrailDatabase {
       'ALTER TABLE messages ADD COLUMN skill TEXT',
       'ALTER TABLE messages ADD COLUMN agent_id TEXT',
       'ALTER TABLE messages ADD COLUMN system_command TEXT',
+      'ALTER TABLE messages ADD COLUMN subagent_type TEXT',
     ];
     for (const sql of messageAlters) {
       try { db.run(sql); } catch { /* Column already exists */ }
@@ -592,6 +626,13 @@ export class TrailDatabase {
     this.migrateTimestampsToUTC(db);
     this.migrateToolUseResult(db);
     this.migrateMessageCommitsToUserUuid(db);
+    // Phase D-2: subagent_type を既存データに後付けで埋める（_migrations で冪等性確保）。
+    // importAll() を待たず init 段階で実行するため、ユーザーが同期未実行でも有効。
+    try {
+      this.backfillSubagentType();
+    } catch (e) {
+      TrailLogger.warn(`backfillSubagentType (init) failed (non-fatal): ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 
   /**
@@ -671,6 +712,150 @@ export class TrailDatabase {
   private migrateMessageCommitsSchema(db: Database): void {
     db.run('CREATE INDEX IF NOT EXISTS idx_message_commits_session ON message_commits(session_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_message_commits_commit ON message_commits(commit_hash)');
+  }
+
+  /**
+   * 既存 messages に対して subagent_type を後付けで埋める。一度だけ実行（_migrations で冪等性確保）。
+   *   1) 各 project 配下の `subagents/agent-{id}.meta.json` を走査し、agent_id → agentType マッピングを作る
+   *   2) tool_calls JSON に Agent tool_use を持つ親メッセージから input.subagent_type を抽出
+   * 既に値がある行は触らない（`WHERE subagent_type IS NULL`）。
+   * @internal テスト用に projectsDir を差し替え可能。本番は `~/.claude/projects` を使用。
+   */
+  private backfillSubagentType(projectsDir?: string): void {
+    const db = this.ensureDb();
+    db.run('CREATE TABLE IF NOT EXISTS _migrations (key TEXT PRIMARY KEY)');
+    const done = db.exec("SELECT 1 FROM _migrations WHERE key = 'subagent_type_backfill_v1'");
+    if (done[0]?.values?.length) return;
+
+    const startedAt = Date.now();
+    TrailLogger.info('[Migration] subagent_type_backfill_v1: starting...');
+
+    // 性能上の必須: messages.agent_id にインデックスがないと UPDATE WHERE agent_id=? が
+    // 毎回フルスキャン。1000+ meta.json × 数十万 messages で数億行スキャンになり数十分ハングする。
+    db.run('CREATE INDEX IF NOT EXISTS idx_messages_agent_id ON messages(agent_id)');
+
+    const baseDir = projectsDir ?? path.join(os.homedir(), '.claude', 'projects');
+
+    // Step 1: meta.json を集約してメモリ上で agent_id → agentType マップを作る（fs IO のみ、SQL なし）
+    const agentTypeByAgentId = new Map<string, string>();
+    let projectNames: string[];
+    try {
+      projectNames = fs.readdirSync(baseDir);
+    } catch (e) {
+      TrailLogger.warn(`[Migration] subagent_type_backfill_v1: cannot read projects dir ${baseDir}: ${e instanceof Error ? e.message : String(e)}`);
+      projectNames = [];
+    }
+    for (const projectName of projectNames) {
+      const projectPath = path.join(baseDir, projectName);
+      let sessionEntries: string[];
+      try {
+        if (!fs.statSync(projectPath).isDirectory()) continue;
+        sessionEntries = fs.readdirSync(projectPath);
+      } catch { continue; }
+      for (const sessionEntry of sessionEntries) {
+        const subagentDir = path.join(projectPath, sessionEntry, 'subagents');
+        let metaFiles: string[];
+        try {
+          metaFiles = fs.readdirSync(subagentDir).filter((f) => f.endsWith('.meta.json'));
+        } catch { continue; }
+        for (const metaFile of metaFiles) {
+          const match = /^agent-(.+)\.meta\.json$/.exec(metaFile);
+          if (!match) continue;
+          const agentId = match[1];
+          try {
+            const raw = fs.readFileSync(path.join(subagentDir, metaFile), 'utf-8');
+            const meta = JSON.parse(raw) as { agentType?: unknown };
+            const agentType = typeof meta.agentType === 'string' && meta.agentType.length > 0 ? meta.agentType : null;
+            if (agentType) agentTypeByAgentId.set(agentId, agentType);
+          } catch (e) {
+            TrailLogger.warn(`[Migration] subagent_type_backfill_v1: skip ${metaFile}: ${e instanceof Error ? e.message : String(e)}`);
+          }
+        }
+      }
+    }
+    TrailLogger.info(`[Migration] subagent_type_backfill_v1: collected ${agentTypeByAgentId.size} agent_id mappings (${Date.now() - startedAt}ms)`);
+
+    // Step 2: 単一トランザクションで一括 UPDATE。インデックスありで O(log N)/UPDATE。
+    let metaUpdated = 0;
+    const phase2Start = Date.now();
+    db.run('BEGIN TRANSACTION');
+    try {
+      const updateByAgentId = db.prepare(
+        'UPDATE messages SET subagent_type = ? WHERE agent_id = ? AND subagent_type IS NULL',
+      );
+      try {
+        let processed = 0;
+        for (const [agentId, agentType] of agentTypeByAgentId) {
+          updateByAgentId.run([agentType, agentId]);
+          metaUpdated++;
+          processed++;
+          if (processed % 500 === 0) {
+            TrailLogger.info(`[Migration] subagent_type_backfill_v1: agent_id UPDATEs ${processed}/${agentTypeByAgentId.size} (${Date.now() - phase2Start}ms)`);
+          }
+        }
+      } finally {
+        updateByAgentId.free();
+      }
+      db.run('COMMIT');
+    } catch (e) {
+      try { db.run('ROLLBACK'); } catch (re) { TrailLogger.error('[Migration] subagent_type_backfill_v1: ROLLBACK failed', re); }
+      throw e;
+    }
+    TrailLogger.info(`[Migration] subagent_type_backfill_v1: meta UPDATE done meta=${metaUpdated} (${Date.now() - phase2Start}ms)`);
+
+    // Step 3: 親メッセージ側 (Agent tool_use を持つ assistant)。tool_calls JSON は大きいので
+    // 先に uuid リストだけ取り出し、次に PK 経由で 1 行ずつ SELECT して逐次処理する。
+    const phase3Start = Date.now();
+    const uuidRes = db.exec(
+      "SELECT uuid FROM messages WHERE subagent_type IS NULL AND tool_calls LIKE '%\"name\":\"Agent\"%'",
+    );
+    const candidateUuids = (uuidRes[0]?.values ?? []).map((r) => String(r[0] ?? '')).filter(Boolean);
+    TrailLogger.info(`[Migration] subagent_type_backfill_v1: ${candidateUuids.length} parent message candidates (${Date.now() - phase3Start}ms)`);
+
+    let parentUpdated = 0;
+    if (candidateUuids.length > 0) {
+      db.run('BEGIN TRANSACTION');
+      try {
+        const selectStmt = db.prepare('SELECT tool_calls FROM messages WHERE uuid = ?');
+        const updateParent = db.prepare('UPDATE messages SET subagent_type = ? WHERE uuid = ?');
+        try {
+          for (let i = 0; i < candidateUuids.length; i++) {
+            const uuid = candidateUuids[i];
+            selectStmt.bind([uuid]);
+            try {
+              if (selectStmt.step()) {
+                const row = selectStmt.get();
+                const toolCalls = row[0] as string | null;
+                if (toolCalls) {
+                  const info = extractAgentInfo(toolCalls);
+                  if (info.subagentType) {
+                    updateParent.run([info.subagentType, uuid]);
+                    parentUpdated++;
+                  }
+                }
+              }
+            } finally {
+              selectStmt.reset();
+            }
+            if ((i + 1) % 500 === 0) {
+              TrailLogger.info(`[Migration] subagent_type_backfill_v1: parent ${i + 1}/${candidateUuids.length} processed`);
+            }
+          }
+        } finally {
+          selectStmt.free();
+          updateParent.free();
+        }
+        db.run('COMMIT');
+      } catch (e) {
+        try { db.run('ROLLBACK'); } catch (re) { TrailLogger.error('[Migration] subagent_type_backfill_v1: ROLLBACK failed', re); }
+        throw e;
+      }
+    }
+
+    TrailLogger.info(
+      `[Migration] subagent_type_backfill_v1: COMPLETED meta=${metaUpdated} parent=${parentUpdated} totalMs=${Date.now() - startedAt}`,
+    );
+    db.run("INSERT OR IGNORE INTO _migrations (key) VALUES ('subagent_type_backfill_v1')");
   }
 
   /**
@@ -1513,6 +1698,10 @@ export class TrailDatabase {
     const content = fs.readFileSync(filePath, 'utf-8');
     const lines = content.split('\n').filter((l) => l.trim() !== '');
 
+    // サブエージェント JSONL の場合は隣接 meta.json から subagent_type を取得し、
+    // この JSONL 内の全メッセージに付与する。古いセッションは meta.json なし → NULL のまま。
+    const fileSubagentType = isSubagent ? readSubagentTypeFromMeta(filePath) : null;
+
     const parsed: RawLine[] = [];
     for (const line of lines) {
       try {
@@ -1613,6 +1802,10 @@ export class TrailDatabase {
           : raw.subtype === 'local_command' ? '/clear'
           : null;
 
+        // 主セッションでは Agent tool_use を持つ親メッセージのみ subagent_type を持つ（呼び出し意図記録）。
+        // サブエージェント JSONL では全メッセージが meta.json 由来の subagent_type を持つ。
+        const subagentType = isSubagent ? fileSubagentType : agentInfo.subagentType;
+
         msgStmt.run([
           raw.uuid ?? '',
           sessionId,
@@ -1645,6 +1838,7 @@ export class TrailDatabase {
           skill,
           agentId,
           systemCommand,
+          subagentType,
         ]);
       }
       msgStmt.free();
@@ -1860,6 +2054,14 @@ export class TrailDatabase {
     // Phase 2a: backfill commit_files (one-time migration for existing commits)
     if (gitRoot) {
       this.backfillCommitFiles(gitRoot, (msg) => onProgress?.(msg, 0));
+    }
+
+    // Phase D-2: backfill subagent_type from .meta.json + parent tool_calls (one-time)
+    onProgress?.('Backfilling subagent_type...', 0);
+    try {
+      this.backfillSubagentType();
+    } catch (e) {
+      TrailLogger.warn(`backfillSubagentType failed (non-fatal): ${e instanceof Error ? e.message : String(e)}`);
     }
 
     // Phase 2: backfill message_commits
@@ -2271,10 +2473,21 @@ export class TrailDatabase {
 
     // 粒度別デフォルト
     const isSession = granularity === 'session';
-    const minChangeCount = options.minChangeCount ?? (isSession ? 3 : 5);
-    const jaccardThreshold = options.jaccardThreshold ?? (isSession ? 0.4 : 0.5);
+    const isSubagentType = granularity === 'subagentType';
+    // subagentType は集約数が極端に少ない（実用 2〜6 型）。minChangeCount=2 にすると
+    // 「2 つ以上の型に跨って触られたファイル」のみが eligible になり、
+    // 役割別に専門領域が分かれる典型ケースで eligibleFiles.size<2 短絡 → 0 件となる。
+    // そのため minChangeCount=1（すべてのファイルを eligible 化）にし、
+    // 各 subagent_type の内部で co-edit ペアを描画する。
+    const minChangeCount = options.minChangeCount
+      ?? (isSubagentType ? 1 : isSession ? 3 : 5);
+    const jaccardThreshold = options.jaccardThreshold
+      ?? (isSubagentType ? 0.5 : isSession ? 0.4 : 0.5);
     const topK = options.topK ?? 50;
-    const maxFilesPerGroup = isSession ? 20 : 50;
+    // subagentType は 1 型あたり数百〜数千ファイルになる（general-purpose は半年で 500+）。
+    // maxFilesPerGroup を絞ると「巨大な役割」が丸ごとスキップされ実質 0 件になる典型ケースを生む。
+    // ペア計算は内部 Map で N^2 だが N=2000 なら 2M ペアで in-memory に収まるため Infinity 相当の上限にする。
+    const maxFilesPerGroup = isSubagentType ? 5000 : isSession ? 20 : 50;
 
     const now = new Date();
     const toIso = now.toISOString();
@@ -2316,11 +2529,11 @@ export class TrailDatabase {
 
       const normalize = (raw: string): string | null => {
         if (!raw) return null;
-        if (!raw.startsWith('/')) return raw; // 既に相対パス
+        if (!raw.startsWith('/')) return stripWorktreePrefix(raw);
         for (const root of projectRootCandidates) {
           if (raw === root) continue;
           const prefix = root.endsWith('/') ? root : `${root}/`;
-          if (raw.startsWith(prefix)) return raw.slice(prefix.length);
+          if (raw.startsWith(prefix)) return stripWorktreePrefix(raw.slice(prefix.length));
         }
         return null; // どの projectRoot にも一致しない → リポ外と判断
       };
@@ -2354,6 +2567,113 @@ export class TrailDatabase {
       }
 
       return computeSessionCoupling(sessionRows, {
+        minChangeCount,
+        jaccardThreshold,
+        topK,
+        maxFilesPerCommit: maxFilesPerGroup,
+        excludePairs,
+        pathFilter: defaultTemporalCouplingPathFilter,
+      });
+    }
+
+    if (isSubagentType) {
+      const editToolPlaceholders = SESSION_COUPLING_EDIT_TOOLS.map(() => '?').join(', ');
+      const result = db.exec(
+        `SELECT m.subagent_type, mtc.file_path
+         FROM message_tool_calls mtc
+         JOIN messages m ON m.uuid = mtc.message_uuid
+         JOIN sessions s ON s.id = mtc.session_id
+         WHERE mtc.tool_name IN (${editToolPlaceholders})
+           AND mtc.file_path IS NOT NULL
+           AND mtc.file_path != ''
+           AND m.subagent_type IS NOT NULL
+           AND s.start_time >= ? AND s.start_time <= ?
+         ORDER BY m.subagent_type`,
+        [...SESSION_COUPLING_EDIT_TOOLS, fromIso, toIso],
+      );
+      const values = result[0]?.values ?? [];
+
+      // session 粒度と同じ projectRoot 正規化を適用（mtc.file_path は絶対パス）。
+      const projectRootCandidates = Array.from(
+        new Set(
+          this.listCurrentGraphs()
+            .map((g) => g.graph?.metadata?.projectRoot)
+            .filter((p): p is string => typeof p === 'string' && p.length > 0),
+        ),
+      ).sort((a, b) => a.length - b.length);
+      const normalize = (raw: string): string | null => {
+        if (!raw) return null;
+        if (!raw.startsWith('/')) return stripWorktreePrefix(raw);
+        for (const root of projectRootCandidates) {
+          if (raw === root) continue;
+          const prefix = root.endsWith('/') ? root : `${root}/`;
+          if (raw.startsWith(prefix)) return stripWorktreePrefix(raw.slice(prefix.length));
+        }
+        return null;
+      };
+
+      const subagentRows: SubagentTypeFileRow[] = [];
+      let normalizationDropped = 0;
+      for (const r of values) {
+        const subagentType = String(r[0] ?? '');
+        const rawPath = String(r[1] ?? '');
+        const normalized = normalize(rawPath);
+        if (subagentType && normalized) {
+          subagentRows.push({ subagentType, filePath: normalized });
+        } else if (subagentType && rawPath && !normalized) {
+          normalizationDropped++;
+        }
+      }
+
+      // 0 件時の診断: 取得段階で空ならスキーマ/データの欠落、正規化で全部落ちたなら projectRoot ミスマッチ。
+      if (subagentRows.length === 0) {
+        const totalMessages = (db.exec(
+          'SELECT COUNT(*) FROM messages WHERE subagent_type IS NOT NULL',
+        )[0]?.values[0]?.[0] ?? 0) as number;
+        TrailLogger.warn(
+          `[fetchTemporalCoupling/subagentType] 0 rows. ` +
+          `messages.subagent_type populated=${totalMessages}, ` +
+          `mtc_join_rows=${values.length}, normalizationDropped=${normalizationDropped}, ` +
+          `projectRootCandidates=${projectRootCandidates.length}`,
+        );
+      } else {
+        // edges=0 が「グループのファイル数が多すぎてスキップ」由来かを確認できるよう、
+        // 粒度別の生データ件数を残す。maxFilesPerGroup 越えのグループは丸ごと aggregatePairs で除外される。
+        const filesPerType = new Map<string, Set<string>>();
+        for (const r of subagentRows) {
+          let s = filesPerType.get(r.subagentType);
+          if (!s) { s = new Set(); filesPerType.set(r.subagentType, s); }
+          s.add(r.filePath);
+        }
+        const summary = Array.from(filesPerType.entries())
+          .map(([t, s]) => `${t}=${s.size}${s.size > maxFilesPerGroup ? '(SKIPPED:>maxFilesPerGroup)' : ''}`)
+          .join(', ');
+        TrailLogger.info(
+          `[fetchTemporalCoupling/subagentType] rows=${subagentRows.length}, ` +
+          `maxFilesPerGroup=${maxFilesPerGroup}, normalizationDropped=${normalizationDropped}, ` +
+          `groups: ${summary}`,
+        );
+      }
+
+      if (directional) {
+        // directional × subagentType は本計画では暫定対応。Confidence の Phase 2 ロジックを流用するため、
+        // CommitFileRow に変換して computeConfidenceCoupling に渡す。
+        const adapted: CommitFileRow[] = subagentRows.map((r) => ({
+          commitHash: r.subagentType,
+          filePath: r.filePath,
+        }));
+        return computeConfidenceCoupling(adapted, {
+          minChangeCount,
+          confidenceThreshold,
+          directionalDiffThreshold,
+          topK,
+          maxFilesPerCommit: maxFilesPerGroup,
+          excludePairs,
+          pathFilter: defaultTemporalCouplingPathFilter,
+        });
+      }
+
+      return computeSubagentTypeCoupling(subagentRows, {
         minChangeCount,
         jaccardThreshold,
         topK,

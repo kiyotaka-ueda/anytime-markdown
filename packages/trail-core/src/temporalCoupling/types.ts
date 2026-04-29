@@ -8,6 +8,11 @@ export type SessionFileRow = {
   filePath: string;
 };
 
+export type SubagentTypeFileRow = {
+  subagentType: string;
+  filePath: string;
+};
+
 export type GroupedFileRow = {
   groupKey: string;
   filePath: string;
