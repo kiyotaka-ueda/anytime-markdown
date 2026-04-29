@@ -285,32 +285,12 @@
         "anytimeTrail.codeGraph.repositories": {
           "type": "array",
           "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "path": {
-                "type": "string",
-                "default": "${workspaceFolder}",
-                "markdownDescription": "リポジトリの絶対パス。`${workspaceFolder}` を使用可能。"
-              },
-              "label": {
-                "type": "string",
-                "default": "",
-                "markdownDescription": "表示名。"
-              }
-            },
-            "required": [
-              "path",
-              "label"
-            ]
+            "type": "string"
           },
           "default": [
-            {
-              "path": "${workspaceFolder}",
-              "label": "Workspace"
-            }
+            "${workspaceFolder}"
           ],
-          "markdownDescription": "解析対象リポジトリのリスト。`path`（絶対パス、`${workspaceFolder}` を使用可能）と `label`（表示名）を指定する。デフォルトでは現在のワークスペースのみを解析する。外部リポジトリも対象にしたい場合は明示的に追加する。"
+          "markdownDescription": "解析対象リポジトリのパスリスト。絶対パスまたは `${workspaceFolder}` を指定する。表示名はパスの末尾フォルダ名が使用される。"
         },
         "anytimeTrail.codeGraph.autoRefresh": {
           "type": "boolean",

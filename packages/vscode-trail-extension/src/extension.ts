@@ -390,7 +390,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		wsRootForDb ? s.replace('${workspaceFolder}', wsRootForDb) : s;
 	const rawOutputDir = codeGraphCfg.get<string>('outputDir', '${workspaceFolder}/.vscode/graphify-out');
 	const outputDir = expandWorkspace(rawOutputDir);
-	const configuredRepos = codeGraphCfg.get<Array<{ path: string; label: string }>>('repositories', []);
+	const configuredRepoPaths = codeGraphCfg.get<string[]>('repositories', []);
 	const codeGraphAutoRefresh = codeGraphCfg.get<boolean>('autoRefresh', false);
 	const c4ExcludePatterns = vscode.workspace
 		.getConfiguration('anytimeTrail.c4')
@@ -398,12 +398,14 @@ export async function activate(context: vscode.ExtensionContext) {
 	// repo.id は trail viewer のサイドパネルに「リポジトリ」として表示されるため、
 	// 数値インデックスではなく label ベースの slug を使う。重複時は index を付与する。
 	const usedRepoIds = new Set<string>();
-	const codeGraphRepos = configuredRepos.map((r, i) => {
-		const slug = (r.label ?? '').trim().replace(/\s+/g, '-');
+	const codeGraphRepos = configuredRepoPaths.map((rawPath, i) => {
+		const expandedPath = expandWorkspace(rawPath);
+		const label = path.basename(expandedPath) || String(i);
+		const slug = label.trim().replace(/\s+/g, '-');
 		let id = slug || String(i);
 		if (usedRepoIds.has(id)) id = `${id}-${i}`;
 		usedRepoIds.add(id);
-		return { id, label: r.label, path: expandWorkspace(r.path) };
+		return { id, label, path: expandedPath };
 	});
 	const codeGraphService = new CodeGraphService({
 		repositories: codeGraphRepos,
