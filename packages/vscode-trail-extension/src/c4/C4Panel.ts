@@ -237,6 +237,7 @@ export class C4Panel implements C4DataProvider {
           server?.notifyProgress('Loading project...', 0);
           const graph = analyze({
             tsconfigPath,
+            exclude: excludePatterns.map(p => `**/${p}/**`),
             onProgress: (phase) => {
               TrailLogger.info(`C4 analysis [${repoName}]: ${phase}`);
               progress.report({ message: phase });
