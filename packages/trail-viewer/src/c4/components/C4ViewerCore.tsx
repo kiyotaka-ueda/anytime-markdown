@@ -19,6 +19,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import type { SelectChangeEvent } from '@mui/material/Select';
 import Toolbar from '@mui/material/Toolbar';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
@@ -1424,22 +1425,66 @@ export function C4ViewerCore({
                             <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem', mb: 0.25 }}>
                               {t('c4.community.breakdown')}
                             </Typography>
-                            {topThree.map(entry => (
-                              <Box key={entry.community} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.25 }}>
-                                <Box sx={{ width: 8, height: 8, borderRadius: '2px', bgcolor: communityColor(entry.community), flexShrink: 0 }} />
-                                <Box sx={{ flex: 1, height: 4, bgcolor: colors.hover, borderRadius: '2px', overflow: 'hidden' }}>
-                                  <Box sx={{ width: `${(entry.count / totalCount) * 100}%`, height: '100%', bgcolor: communityColor(entry.community) }} />
+                            {topThree.map(entry => {
+                              const entrySummary = codeGraph?.communitySummaries?.[entry.community];
+                              const entryFallback = codeGraph?.communities[entry.community];
+                              const entryName = entrySummary?.name ?? entryFallback ?? `#${entry.community}`;
+                              const tooltipLabel = (
+                                <Box>
+                                  <Box sx={{ fontWeight: 700, fontSize: '0.72rem' }}>
+                                    {entryName} <Box component="span" sx={{ opacity: 0.7, fontWeight: 400 }}>#{entry.community}</Box>
+                                  </Box>
+                                  {entrySummary?.summary && (
+                                    <Box sx={{ fontSize: '0.66rem', mt: 0.25, opacity: 0.85, maxWidth: 240 }}>
+                                      {entrySummary.summary}
+                                    </Box>
+                                  )}
+                                  <Box sx={{ fontSize: '0.66rem', mt: 0.25, opacity: 0.85 }}>
+                                    {entry.count} / {totalCount} ({Math.round((entry.count / totalCount) * 100)}%)
+                                  </Box>
                                 </Box>
-                                <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.6rem', minWidth: 32, textAlign: 'right' }}>
-                                  {Math.round((entry.count / totalCount) * 100)}%
-                                </Typography>
-                              </Box>
-                            ))}
-                            {otherCount > 0 && (
-                              <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.58rem' }}>
-                                {t('c4.community.other')}: {Math.round((otherCount / totalCount) * 100)}%
-                              </Typography>
-                            )}
+                              );
+                              return (
+                                <Tooltip key={entry.community} title={tooltipLabel} arrow placement="left">
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.25, cursor: 'help' }}>
+                                    <Box sx={{ width: 8, height: 8, borderRadius: '2px', bgcolor: communityColor(entry.community), flexShrink: 0 }} />
+                                    <Box sx={{ flex: 1, height: 4, bgcolor: colors.hover, borderRadius: '2px', overflow: 'hidden' }}>
+                                      <Box sx={{ width: `${(entry.count / totalCount) * 100}%`, height: '100%', bgcolor: communityColor(entry.community) }} />
+                                    </Box>
+                                    <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.6rem', minWidth: 32, textAlign: 'right' }}>
+                                      {Math.round((entry.count / totalCount) * 100)}%
+                                    </Typography>
+                                  </Box>
+                                </Tooltip>
+                              );
+                            })}
+                            {otherCount > 0 && (() => {
+                              const otherEntries = community.breakdown.slice(3);
+                              const otherTooltip = (
+                                <Box sx={{ maxWidth: 260 }}>
+                                  <Box sx={{ fontWeight: 700, fontSize: '0.72rem', mb: 0.25 }}>
+                                    {t('c4.community.other')} ({otherEntries.length})
+                                  </Box>
+                                  {otherEntries.map(e => {
+                                    const s = codeGraph?.communitySummaries?.[e.community];
+                                    const f = codeGraph?.communities[e.community];
+                                    const n = s?.name ?? f ?? `#${e.community}`;
+                                    return (
+                                      <Box key={e.community} sx={{ fontSize: '0.66rem', opacity: 0.85 }}>
+                                        ● {n} #{e.community} — {e.count} ({Math.round((e.count / totalCount) * 100)}%)
+                                      </Box>
+                                    );
+                                  })}
+                                </Box>
+                              );
+                              return (
+                                <Tooltip title={otherTooltip} arrow placement="left">
+                                  <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.58rem', cursor: 'help' }}>
+                                    {t('c4.community.other')}: {Math.round((otherCount / totalCount) * 100)}%
+                                  </Typography>
+                                </Tooltip>
+                              );
+                            })()}
                           </Box>
                         )}
                       </Box>
