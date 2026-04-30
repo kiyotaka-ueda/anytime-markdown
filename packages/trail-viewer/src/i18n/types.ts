@@ -217,6 +217,17 @@ export interface TrailI18n {
   'c4.popup.metric.importance': string;
   'c4.popup.metric.dsm': string;
   'c4.popup.metric.defectRisk': string;
+  // community overlay (C4 model tab × CodeGraph)
+  'c4.community.toggle': string;
+  'c4.community.title': string;
+  'c4.community.summary': string;
+  'c4.community.hubNode': string;
+  'c4.community.breakdown': string;
+  'c4.community.other': string;
+  'c4.community.disabledLevel': string;
+  'c4.community.disabledNoData': string;
+  'c4.community.noData': string;
+  'c4.community.unknown': string;
   // combined (analytics)
   'analytics.combined.tool': string;
   'analytics.combined.count': string;
