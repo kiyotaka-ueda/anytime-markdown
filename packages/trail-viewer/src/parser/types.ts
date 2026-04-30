@@ -157,6 +157,7 @@ export type TrailMessage = _TrailMessage & {
   readonly triggerCommitHashes?: readonly string[];
   readonly agentId?: string;
   readonly agentDescription?: string;
+  readonly codexSessionId?: string;
   /** True when the tool result response to this assistant turn contained at least one is_error block */
   readonly hasToolError?: boolean;
   /** True when this assistant turn ran a git commit bash command */

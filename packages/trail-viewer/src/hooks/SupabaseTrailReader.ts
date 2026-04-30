@@ -45,6 +45,7 @@ interface SessionDbRow {
   readonly interruption_reason: string | null;
   readonly interruption_context_tokens: number | null;
   readonly compact_count: number | null;
+  readonly source?: 'claude_code' | 'codex' | null;
   readonly trail_session_costs?: readonly SessionCostDbRow[];
 }
 
@@ -64,6 +65,8 @@ interface MessageDbRow {
   readonly cache_creation_tokens: number;
   readonly timestamp: string;
   readonly is_sidechain: number;
+  readonly agent_id?: string | null;
+  readonly agent_description?: string | null;
 }
 
 interface CommitDbRow {
@@ -521,6 +524,7 @@ export class SupabaseTrailReader implements ITrailReader {
           }
         : undefined,
       compactCount: r.compact_count && r.compact_count > 0 ? r.compact_count : undefined,
+      source: r.source ?? undefined,
       commitStats,
       usage: {
         inputTokens: totalInput,
@@ -562,6 +566,8 @@ export class SupabaseTrailReader implements ITrailReader {
         cacheReadTokens: r.cache_read_tokens,
         cacheCreationTokens: r.cache_creation_tokens,
       },
+      agentId: r.agent_id ?? undefined,
+      agentDescription: r.agent_description ?? undefined,
     };
   }
 

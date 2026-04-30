@@ -79,6 +79,8 @@ export const CREATE_MESSAGES = `CREATE TABLE IF NOT EXISTS messages (
   permission_mode TEXT,
   skill TEXT,
   agent_id TEXT,
+  source_tool_assistant_uuid TEXT,
+  source_tool_use_id TEXT,
   system_command TEXT,
   duration_ms INTEGER,
   tool_result_size INTEGER,

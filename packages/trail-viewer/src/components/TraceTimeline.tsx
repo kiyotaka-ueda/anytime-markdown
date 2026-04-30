@@ -37,6 +37,13 @@ function getAgentColor(agentId: string): string {
   return AGENT_PALETTE[hashString(agentId) % AGENT_PALETTE.length];
 }
 
+function getDelegatedAgentLabel(agentId: string): string {
+  if (agentId.startsWith('codex:') || agentId.startsWith('delegated:')) {
+    return 'Codex';
+  }
+  return 'Claude Code';
+}
+
 function getTurnColor(
   toolNames: readonly string[],
   toolColors: { bash: string; edit: string; write: string; read: string; task: string; other: string; plain: string },
@@ -105,6 +112,23 @@ interface TimelineEntry {
   readonly role: string;
 }
 
+function extractAgentCallMeta(toolCalls: readonly { name: string; input: Record<string, unknown> }[] | undefined): {
+  delegated: boolean;
+  description?: string;
+  subagentType?: string;
+} {
+  if (!toolCalls || toolCalls.length === 0) return { delegated: false };
+  const agentCall = toolCalls.find((tc) => tc.name === 'Agent');
+  if (!agentCall) return { delegated: false };
+  const description = typeof agentCall.input?.description === 'string'
+    ? agentCall.input.description
+    : undefined;
+  const subagentType = typeof agentCall.input?.subagent_type === 'string'
+    ? agentCall.input.subagent_type
+    : undefined;
+  return { delegated: true, description, subagentType };
+}
+
 interface Turn {
   readonly userMsg: TimelineEntry | null;
   readonly aiMsgs: TimelineEntry[];
@@ -163,15 +187,20 @@ export function TraceTimeline({
           }
         }
         const hasAgentId = typeof msg.agentId === 'string' && msg.agentId.length > 0;
-        const laneKind: LaneKind = hasAgentId ? 'subagent' : t;
+        const agentCall = extractAgentCallMeta(msg.toolCalls as readonly { name: string; input: Record<string, unknown> }[] | undefined);
+        const isDelegatedAgentCall = t === 'assistant' && agentCall.delegated;
+        const laneKind: LaneKind = (hasAgentId || isDelegatedAgentCall) ? 'subagent' : t;
+        const syntheticAgentId = isDelegatedAgentCall
+          ? `delegated:${agentCall.subagentType ?? 'unknown'}`
+          : undefined;
         const ms = Date.parse(msg.timestamp);
         result.push({
           uuid: msg.uuid,
           timestamp: msg.timestamp,
           ms,
           laneKind,
-          agentId: hasAgentId ? msg.agentId : undefined,
-          agentDescription: msg.agentDescription,
+          agentId: hasAgentId ? msg.agentId : syntheticAgentId,
+          agentDescription: msg.agentDescription ?? agentCall.description,
           toolNames: (msg.toolCalls ?? []).map((tc) => tc.name),
           hasCommit: (msg.triggerCommitHashes?.length ?? 0) > 0,
           role: t,
@@ -228,6 +257,10 @@ export function TraceTimeline({
     subagentTracks.forEach((id, i) => map.set(id, i));
     return map;
   }, [subagentTracks]);
+  const subagentTrackLabels = useMemo(
+    () => subagentTracks.map((id) => getDelegatedAgentLabel(id)),
+    [subagentTracks],
+  );
 
   // user(1) + ai(1) + subagent(subTrackCount) + system(1)
   const totalLaneCount = 3 + subTrackCount;
@@ -408,17 +441,25 @@ export function TraceTimeline({
                     )}
                   </Box>
                 </Box>
-                {/* Subagent (spans subTrackCount tracks) */}
-                <Box sx={{ height: subTrackCount * LANE_HEIGHT, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', pr: 1, borderRight: `1px solid ${colors.border}` }}>
-                  <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.7rem' }}>
-                    Subagent
-                    {subagentTracks.length > 0 && (
-                      <Box component="span" sx={{ ml: 0.5, color: colors.textSecondary, opacity: 0.6 }}>
-                        ×{subagentTracks.length}
-                      </Box>
-                    )}
-                  </Typography>
-                </Box>
+                {/* Delegated agent tracks */}
+                {subagentTracks.length > 0 ? (
+                  subagentTracks.map((_, idx) => (
+                    <Box
+                      key={`subagent-label-${idx}`}
+                      sx={{ height: LANE_HEIGHT, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', pr: 1, borderRight: `1px solid ${colors.border}` }}
+                    >
+                      <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.7rem' }}>
+                        {subagentTrackLabels[idx] ?? 'Claude Code'}
+                      </Typography>
+                    </Box>
+                  ))
+                ) : (
+                  <Box sx={{ height: LANE_HEIGHT, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', pr: 1, borderRight: `1px solid ${colors.border}` }}>
+                    <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.7rem' }}>
+                      -
+                    </Typography>
+                  </Box>
+                )}
                 {/* System */}
                 <Box sx={{ height: LANE_HEIGHT, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', pr: 1, borderRight: `1px solid ${colors.border}` }}>
                   <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.7rem' }}>System</Typography>

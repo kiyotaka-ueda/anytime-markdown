@@ -1055,6 +1055,7 @@ export class TrailDataServer {
       }
 
       const rawMessages: MessageRow[] = this.trailDb.getMessages(sessionId);
+      const codexSessionByAssistantUuid = this.trailDb.getLinkedCodexSessionByAssistantUuid(sessionId);
       const toolExecMsMap = this.trailDb.getTurnExecMsBySession(sessionId);
       const skillsMap = this.trailDb.getSkillsBySession(sessionId);
       const messageCommits = this.trailDb.getMessageCommitsBySession(sessionId);
@@ -1094,7 +1095,13 @@ export class TrailDataServer {
           }
         }
       }
-      const messages = rawMessages.map((m) => ({
+      const messages = rawMessages.map((m) => {
+        const linkedCodexSessionId = codexSessionByAssistantUuid.get(m.uuid);
+        const agentId = m.agent_id ?? (linkedCodexSessionId ? `codex:${linkedCodexSessionId}` : undefined);
+        const agentDescription = m.agent_description ?? (linkedCodexSessionId
+          ? `Codex delegated session ${linkedCodexSessionId.slice(0, 8)}`
+          : undefined);
+        return {
         uuid: m.uuid,
         parentUuid: m.parent_uuid,
         type: m.type,
@@ -1116,11 +1123,13 @@ export class TrailDataServer {
         triggerCommitHashes: commitsByAssistantUuid.get(m.uuid) ?? commitsByMessageUuid.get(m.uuid),
         hasToolError: errorUuids.has(m.uuid) ? true : undefined,
         hasCommit: gitCommitUuids.has(m.uuid) ? true : undefined,
-        agentId: m.agent_id,
-        agentDescription: m.agent_description,
+        agentId,
+        agentDescription,
+        codexSessionId: linkedCodexSessionId,
         toolExecMs: toolExecMsMap.get(m.uuid),
         skill: skillsMap.get(m.uuid),
-      }));
+        };
+      });
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({ session, messages }));
     } catch {

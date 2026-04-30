@@ -202,6 +202,8 @@ export interface MessageRow {
   readonly git_branch: string | null;
   readonly agent_id?: string | null;
   readonly agent_description?: string | null;
+  readonly source_tool_assistant_uuid?: string | null;
+  readonly source_tool_use_id?: string | null;
 }
 
 export interface SessionCommitRow {
@@ -383,8 +385,8 @@ export const INSERT_MESSAGE = `INSERT OR REPLACE INTO messages
    cache_creation_tokens, service_tier, speed, timestamp,
    is_sidechain, is_meta, cwd, git_branch,
    duration_ms, tool_result_size, agent_description, agent_model,
-   permission_mode, skill, agent_id, system_command, subagent_type)
-  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+   permission_mode, skill, agent_id, source_tool_assistant_uuid, source_tool_use_id, system_command, subagent_type)
+  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 
 
 // ---------------------------------------------------------------------------
@@ -797,6 +799,8 @@ export class TrailDatabase {
       'ALTER TABLE messages ADD COLUMN permission_mode TEXT',
       'ALTER TABLE messages ADD COLUMN skill TEXT',
       'ALTER TABLE messages ADD COLUMN agent_id TEXT',
+      'ALTER TABLE messages ADD COLUMN source_tool_assistant_uuid TEXT',
+      'ALTER TABLE messages ADD COLUMN source_tool_use_id TEXT',
       'ALTER TABLE messages ADD COLUMN system_command TEXT',
       'ALTER TABLE messages ADD COLUMN subagent_type TEXT',
     ];
@@ -829,6 +833,65 @@ export class TrailDatabase {
     } catch (e) {
       TrailLogger.warn(`backfillSubagentType (init) failed (non-fatal): ${e instanceof Error ? e.message : String(e)}`);
     }
+    try {
+      this.backfillSourceToolLinkFields();
+    } catch (e) {
+      TrailLogger.warn(`backfillSourceToolLinkFields (init) failed (non-fatal): ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  private backfillSourceToolLinkFields(): void {
+    const db = this.ensureDb();
+    db.run('CREATE TABLE IF NOT EXISTS _migrations (key TEXT PRIMARY KEY)');
+    const done = db.exec("SELECT 1 FROM _migrations WHERE key = 'source_tool_link_backfill_v1'");
+    if (done[0]?.values?.length) return;
+
+    const rows = db.exec(
+      `SELECT s.id, s.file_path
+       FROM sessions s
+       WHERE s.source = 'claude_code'
+         AND EXISTS (
+           SELECT 1 FROM messages m
+           WHERE m.session_id = s.id
+             AND (m.source_tool_assistant_uuid IS NULL OR m.source_tool_assistant_uuid = '')
+         )`,
+    )[0]?.values ?? [];
+
+    const updateStmt = db.prepare(
+      'UPDATE messages SET source_tool_assistant_uuid = ?, source_tool_use_id = ? WHERE session_id = ? AND uuid = ?',
+    );
+    let updated = 0;
+    for (const row of rows) {
+      const sid = String(row[0] ?? '');
+      const filePath = String(row[1] ?? '');
+      if (!sid || !filePath) continue;
+      if (!fs.existsSync(filePath)) continue;
+      let content = '';
+      try {
+        content = fs.readFileSync(filePath, 'utf-8');
+      } catch {
+        continue;
+      }
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        let raw: RawLine;
+        try {
+          raw = JSON.parse(trimmed) as RawLine;
+        } catch {
+          continue;
+        }
+        if (!raw.uuid) continue;
+        const srcAssistant = raw.sourceToolAssistantUUID ?? null;
+        const srcToolUseId = raw.sourceToolUseID ?? null;
+        if (!srcAssistant && !srcToolUseId) continue;
+        updateStmt.run([srcAssistant, srcToolUseId, sid, raw.uuid]);
+        updated++;
+      }
+    }
+    updateStmt.free();
+    TrailLogger.info(`[Migration] source_tool_link_backfill_v1: updated=${updated}`);
+    db.run("INSERT OR IGNORE INTO _migrations (key) VALUES ('source_tool_link_backfill_v1')");
   }
 
   private migrateDropSessionsProjectColumn(db: Database): void {
@@ -2116,6 +2179,8 @@ export class TrailDatabase {
         const permMode = raw.permissionMode ?? null;
         const skill = extractSkillName(toolCalls);
         const agentId = raw.agentId ?? null;
+        const sourceToolAssistantUUID = raw.sourceToolAssistantUUID ?? null;
+        const sourceToolUseID = raw.sourceToolUseID ?? null;
         const systemCommand = raw.subtype === 'compact_boundary' ? '/compact'
           : raw.subtype === 'local_command' ? '/clear'
           : null;
@@ -2155,6 +2220,8 @@ export class TrailDatabase {
           permMode,
           skill,
           agentId,
+          sourceToolAssistantUUID,
+          sourceToolUseID,
           systemCommand,
           subagentType,
         ]);
@@ -3673,6 +3740,71 @@ export class TrailDatabase {
     }
     stmt.free();
     return rows;
+  }
+
+  getLinkedCodexSessionByAssistantUuid(sessionId: string): Map<string, string> {
+    const db = this.ensureDb();
+    const out = new Map<string, string>();
+
+    const repoRes = db.exec('SELECT repo_name FROM sessions WHERE id = ? LIMIT 1', [sessionId]);
+    const repoName = String(repoRes[0]?.values?.[0]?.[0] ?? '');
+
+    const delegationRes = db.exec(
+      `SELECT source_tool_assistant_uuid, MIN(timestamp)
+       FROM messages
+       WHERE session_id = ?
+         AND source_tool_assistant_uuid IS NOT NULL
+         AND source_tool_assistant_uuid != ''
+       GROUP BY source_tool_assistant_uuid`,
+      [sessionId],
+    );
+    const delegations = (delegationRes[0]?.values ?? [])
+      .map((r) => ({ assistantUuid: String(r[0] ?? ''), timestamp: String(r[1] ?? '') }))
+      .filter((r) => r.assistantUuid.length > 0 && r.timestamp.length > 0);
+    if (delegations.length === 0) return out;
+
+    const codexRes = db.exec(
+      `SELECT id, start_time, end_time
+       FROM sessions
+       WHERE source = 'codex'
+         AND (? = '' OR repo_name = ?)
+       ORDER BY start_time ASC`,
+      [repoName, repoName],
+    );
+    const codexSessions = (codexRes[0]?.values ?? [])
+      .map((r) => ({
+        id: String(r[0] ?? ''),
+        startMs: Date.parse(String(r[1] ?? '')),
+        endMs: Date.parse(String(r[2] ?? '')),
+      }))
+      .filter((s) => s.id.length > 0 && Number.isFinite(s.startMs) && Number.isFinite(s.endMs));
+    if (codexSessions.length === 0) return out;
+
+    for (const d of delegations) {
+      const t = Date.parse(d.timestamp);
+      if (!Number.isFinite(t)) continue;
+      let bestId: string | null = null;
+      let bestScore = Number.POSITIVE_INFINITY;
+      for (const s of codexSessions) {
+        const inside = t >= (s.startMs - 5 * 60_000) && t <= (s.endMs + 5 * 60_000);
+        const score = Math.abs(s.startMs - t);
+        if (inside && score < bestScore) {
+          bestScore = score;
+          bestId = s.id;
+        }
+      }
+      if (!bestId) {
+        for (const s of codexSessions) {
+          const score = Math.abs(s.startMs - t);
+          if (score <= 60 * 60_000 && score < bestScore) {
+            bestScore = score;
+            bestId = s.id;
+          }
+        }
+      }
+      if (bestId) out.set(d.assistantUuid, bestId);
+    }
+    return out;
   }
 
   searchMessages(query: string): SearchResult[] {
