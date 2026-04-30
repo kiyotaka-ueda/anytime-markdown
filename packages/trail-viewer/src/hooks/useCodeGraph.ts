@@ -8,12 +8,22 @@ export interface UseCodeGraphResult {
   refetch: () => void;
 }
 
-export function useCodeGraph(serverUrl: string): UseCodeGraphResult {
+export interface UseCodeGraphOptions {
+  /** false の場合 fetch を行わず、graph は null のまま保持される */
+  readonly enabled?: boolean;
+}
+
+export function useCodeGraph(
+  serverUrl: string,
+  options: UseCodeGraphOptions = {},
+): UseCodeGraphResult {
+  const { enabled = true } = options;
   const [graph, setGraph] = useState<CodeGraph | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (!enabled) return;
     setLoading(true);
     setError(null);
     try {
@@ -30,7 +40,7 @@ export function useCodeGraph(serverUrl: string): UseCodeGraphResult {
     } finally {
       setLoading(false);
     }
-  }, [serverUrl]);
+  }, [serverUrl, enabled]);
 
   useEffect(() => {
     void load();
