@@ -128,7 +128,9 @@ export const AdmonitionBlockquote = Blockquote.extend({
             });
             // Admonition 間に空行を確保
             state.ensureNewLine();
-            state.out += "\n";
+            if (!state.out.endsWith("\n\n")) {
+              state.out += "\n";
+            }
           } else {
             state.wrapBlock("> ", null, node, () => {
               state.renderContent(node);
