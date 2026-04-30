@@ -7,10 +7,26 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 const DIM_OPACITY = 10;
 const COMMUNITY_OVERLAY_ALPHA = 0.5;
 const GOD_NODE_STROKE_WIDTH = 3;
+const GHOST_EDGE_COMMIT_LIGHT = '#7c3aed';
+const GHOST_EDGE_COMMIT_DARK = '#c4b5fd';
+const GHOST_EDGE_SESSION_LIGHT = '#0891b2';
+const GHOST_EDGE_SESSION_DARK = '#67e8f9';
+const GHOST_EDGE_SUBAGENT_LIGHT = '#047857';
+const GHOST_EDGE_SUBAGENT_DARK = '#6ee7b7';
 
 export interface CommunityOverlayStyle {
   readonly color: string;
   readonly isGodNode: boolean;
+}
+
+export type C4GhostEdgeGranularity = 'commit' | 'session' | 'subagentType';
+
+export interface C4GhostEdgeRender {
+  readonly source: string;
+  readonly target: string;
+  readonly jaccard: number;
+  readonly direction?: 'A→B' | 'B→A' | 'undirected';
+  readonly confidenceForward?: number;
 }
 
 /** hex `#rrggbb` → [r,g,b] 数値配列 */
@@ -61,6 +77,8 @@ interface C4GraphCanvasProps {
   readonly overlayMap?: ReadonlyMap<string, string> | null;
   readonly claudeActivityMap?: ReadonlyMap<string, string> | null;
   readonly communityMap?: ReadonlyMap<string, CommunityOverlayStyle> | null;
+  readonly ghostEdges?: ReadonlyArray<C4GhostEdgeRender>;
+  readonly ghostEdgeGranularity?: C4GhostEdgeGranularity;
   readonly onNodeSelect?: (nodeId: string | null) => void;
   readonly onNodeDoubleClick?: (nodeId: string) => void;
   readonly onNodeContextMenu?: (c4Id: string, x: number, y: number, nodeType: string) => void;
@@ -70,17 +88,21 @@ interface C4GraphCanvasProps {
 
 const EMPTY_SELECTION: SelectionState = { nodeIds: [], edgeIds: [] };
 
-export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedNodeId, centerOnSelect, overlayMap, claudeActivityMap, communityMap, onNodeSelect, onNodeDoubleClick, onNodeContextMenu, onGroupContextMenu, isDark }: Readonly<C4GraphCanvasProps>) {
+export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedNodeId, centerOnSelect, overlayMap, claudeActivityMap, communityMap, ghostEdges, ghostEdgeGranularity = 'commit', onNodeSelect, onNodeDoubleClick, onNodeContextMenu, onGroupContextMenu, isDark }: Readonly<C4GraphCanvasProps>) {
   const rafRef = useRef<number>(0);
   const viewportRef = useRef(viewport);
   const dispatchRef = useRef(dispatch);
   const nodesRef = useRef(document.nodes);
   const groupsRef = useRef<readonly GraphGroup[]>(document.groups ?? []);
   const [isFocused, setIsFocused] = useState(false);
+  const ghostEdgesRef = useRef<ReadonlyArray<C4GhostEdgeRender>>(ghostEdges ?? []);
+  const ghostGranularityRef = useRef<C4GhostEdgeGranularity>(ghostEdgeGranularity);
   viewportRef.current = viewport;
   dispatchRef.current = dispatch;
   nodesRef.current = document.nodes;
   groupsRef.current = document.groups ?? [];
+  ghostEdgesRef.current = ghostEdges ?? [];
+  ghostGranularityRef.current = ghostEdgeGranularity;
 
   // Selection state
   const selectionRef = useRef<string[]>(selectedNodeId ? [selectedNodeId] : []);
@@ -287,6 +309,15 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
         isDark: isDark ?? true,
       });
 
+      drawGhostEdges(
+        ctx!,
+        viewportRef.current,
+        focusStyledNodes,
+        ghostEdgesRef.current,
+        ghostGranularityRef.current,
+        isDark ?? false,
+      );
+
       // Selection rectangle overlay
       canvas.drawSelectOverlay(ctx!, viewportRef.current);
 
@@ -363,4 +394,76 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
       onContextMenu={handleContextMenu}
     />
   );
+}
+
+function drawGhostEdges(
+  ctx: CanvasRenderingContext2D,
+  viewport: Viewport,
+  nodes: ReadonlyArray<GraphNode>,
+  ghosts: ReadonlyArray<C4GhostEdgeRender>,
+  granularity: C4GhostEdgeGranularity,
+  isDark: boolean,
+): void {
+  if (ghosts.length === 0) return;
+  const color =
+    granularity === 'subagentType'
+      ? (isDark ? GHOST_EDGE_SUBAGENT_DARK : GHOST_EDGE_SUBAGENT_LIGHT)
+      : granularity === 'session'
+        ? (isDark ? GHOST_EDGE_SESSION_DARK : GHOST_EDGE_SESSION_LIGHT)
+        : (isDark ? GHOST_EDGE_COMMIT_DARK : GHOST_EDGE_COMMIT_LIGHT);
+
+  const idToWorld = new Map<string, { x: number; y: number }>();
+  for (const n of nodes) {
+    const c4Id = n.metadata?.c4Id as string | undefined;
+    if (!c4Id) continue;
+    idToWorld.set(c4Id, { x: n.x + (n.width ?? 0) / 2, y: n.y + (n.height ?? 0) / 2 });
+  }
+
+  ctx.save();
+  ctx.setLineDash([6, 4]);
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineCap = 'round';
+
+  for (const ge of ghosts) {
+    const s = idToWorld.get(ge.source);
+    const t = idToWorld.get(ge.target);
+    if (!s || !t) continue;
+    const sx = s.x * viewport.scale + viewport.offsetX;
+    const sy = s.y * viewport.scale + viewport.offsetY;
+    const tx = t.x * viewport.scale + viewport.offsetX;
+    const ty = t.y * viewport.scale + viewport.offsetY;
+    const width = 1 + Math.max(0, Math.min(ge.jaccard, 1)) * 3;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(tx, ty);
+    ctx.stroke();
+
+    if (ge.direction === 'A→B' || ge.direction === 'B→A') {
+      const from = ge.direction === 'A→B' ? { x: sx, y: sy } : { x: tx, y: ty };
+      const to = ge.direction === 'A→B' ? { x: tx, y: ty } : { x: sx, y: sy };
+      drawArrowHead(ctx, from, to, width);
+    }
+  }
+  ctx.restore();
+}
+
+function drawArrowHead(
+  ctx: CanvasRenderingContext2D,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  thickness: number,
+): void {
+  const angle = Math.atan2(to.y - from.y, to.x - from.x);
+  const headLen = Math.max(6, thickness * 3);
+  ctx.save();
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(to.x, to.y);
+  ctx.lineTo(to.x - headLen * Math.cos(angle - Math.PI / 6), to.y - headLen * Math.sin(angle - Math.PI / 6));
+  ctx.lineTo(to.x - headLen * Math.cos(angle + Math.PI / 6), to.y - headLen * Math.sin(angle + Math.PI / 6));
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
 }

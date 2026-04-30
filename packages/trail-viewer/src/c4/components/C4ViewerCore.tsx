@@ -26,9 +26,21 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import { useTrailI18n } from '../../i18n';
 import { DOC_TYPE_COLORS, getC4Colors } from '../c4Theme';
 import { useDefectRisk } from '../hooks/useDefectRisk';
+import { useTemporalCoupling } from '../hooks/useTemporalCoupling';
+import { useC4GhostEdges } from '../hooks/useC4GhostEdges';
 
 const UNKNOWN_REPO_KEY = '__unknown__';
 const CURRENT_RELEASE_TAG = 'current';
+const DEFAULT_TC_VALUE: TemporalCouplingControlsValue = {
+  enabled: false,
+  windowDays: 30,
+  threshold: 0.5,
+  topK: 50,
+  directional: false,
+  confidenceThreshold: 0.5,
+  directionalDiff: 0.3,
+  granularity: 'commit',
+};
 
 /** チェックボックス非表示フィルタ対象の型（system は常時表示のため除外） */
 const FILTER_CHECKABLE_TYPES = new Set(['container', 'containerDb', 'component'] as const);
@@ -50,6 +62,10 @@ import { FcMapCanvas } from './FcMapCanvas';
 import { FlowchartCanvas } from './FlowchartCanvas';
 import { GraphCanvas } from './GraphCanvas';
 import { OverlayLegend, type CommunityLegendItem } from './OverlayLegend';
+import {
+  TemporalCouplingControls,
+  type TemporalCouplingControlsValue,
+} from './TemporalCouplingControls';
 import { computeClaudeActivityColorMap, computeMultiAgentColorMap, computeConflictBorderMap } from '../claudeActivityColorMap';
 import { useCodeGraph } from '../../hooks/useCodeGraph';
 import { communityColor } from '../../components/communityColors';
@@ -221,6 +237,7 @@ export function C4ViewerCore({
   const [matrixView, setMatrixView] = useState<'dsm' | 'fcmap' | 'coverage'>('dsm');
   const [metricOverlay, setMetricOverlay] = useState<MetricOverlay>('none');
   const [drWindowDays, setDrWindowDays] = useState(90);
+  const [tcValue, setTcValue] = useState<TemporalCouplingControlsValue>(DEFAULT_TC_VALUE);
   const { entries: drEntries } = useDefectRisk({
     enabled: metricOverlay === 'defect-risk',
     serverUrl,
@@ -228,6 +245,22 @@ export function C4ViewerCore({
     halfLifeDays: 90,
   });
   const [dsmLevel, setDsmLevel] = useState<'component' | 'package'>('component');
+  const {
+    edges: rawTcEdges,
+    granularity: tcGranularity,
+    loading: tcLoading,
+  } = useTemporalCoupling({
+    enabled: tcValue.enabled && !!selectedRepo,
+    serverUrl,
+    repoName: selectedRepo ?? '',
+    windowDays: tcValue.windowDays,
+    threshold: tcValue.threshold,
+    topK: tcValue.topK,
+    directional: tcValue.directional,
+    confidenceThreshold: tcValue.confidenceThreshold,
+    directionalDiff: tcValue.directionalDiff,
+    granularity: tcValue.granularity,
+  });
   const [dsmClustered, setDsmClustered] = useState(false);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [drillStack, setDrillStack] = useState<readonly { readonly element: C4Element; readonly prevLevel: number; readonly prevCheckedIds: ReadonlySet<string> | null }[]>([]);
@@ -253,6 +286,12 @@ export function C4ViewerCore({
   const [flowGraph, setFlowGraph] = useState<FlowGraph | null>(null);
   const [flowError, setFlowError] = useState<string | null>(null);
   const [showFlow, setShowFlow] = useState(false);
+  const ghostEdges = useC4GhostEdges(
+    rawTcEdges,
+    c4Model,
+    currentLevel as 1 | 2 | 3 | 4,
+    selectedRepo ?? null,
+  );
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1151,6 +1190,12 @@ export function C4ViewerCore({
           </Button>
         )}
       </Toolbar>
+      <TemporalCouplingControls
+        value={tcValue}
+        onChange={setTcValue}
+        resultCount={ghostEdges.length}
+        loading={tcLoading}
+      />
       {(currentLevel === 1 || currentLevel === 2 || currentLevel === 3) && (
         <Toolbar variant="dense" sx={{ gap: 1, bgcolor: colors.bgSecondary, borderBottom: `1px solid ${colors.border}`, minHeight: 36, px: { xs: 2, md: 3 } }}>
           <Typography variant="caption" sx={{ color: colors.textMuted, mr: 1, fontSize: '0.7rem' }}>Edit</Typography>
@@ -1250,6 +1295,18 @@ export function C4ViewerCore({
                 overlayMap={overlayMap.size > 0 ? overlayMap : null}
                 claudeActivityMap={claudeActivityMapWithConflicts}
                 communityMap={communityMap}
+                ghostEdges={
+                  tcValue.enabled && (currentLevel === 3 || currentLevel === 4)
+                    ? ghostEdges.map((e) => ({
+                      source: e.source,
+                      target: e.target,
+                      jaccard: e.jaccard,
+                      direction: e.direction,
+                      confidenceForward: e.confidenceForward,
+                    }))
+                    : undefined
+                }
+                ghostEdgeGranularity={tcGranularity}
                 onNodeSelect={(id) => { setCenterOnSelect(false); setSelectedElementId(id); }}
                 onNodeDoubleClick={(nodeId) => {
                   if (!c4Model) return;
