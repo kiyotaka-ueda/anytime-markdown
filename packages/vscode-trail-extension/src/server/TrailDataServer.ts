@@ -5,9 +5,13 @@ import path from 'node:path';
 
 import {
   aggregateCoverage,
+  aggregateHeatmapColumnsToC4,
   buildElementTree,
   buildSourceMatrix,
+  computeActivityHeatmap,
+  computeActivityTrend,
   computeComplexityMatrix,
+  computeFileHotspot,
   fetchC4Model,
   fetchC4ModelEntries,
   filterTreeByLevel,
@@ -15,6 +19,7 @@ import {
 } from '@anytime-markdown/trail-core/c4';
 import type { MessageInput } from '@anytime-markdown/trail-core/c4';
 import type {
+  C4Model,
   DocLink,
   DsmMatrix,
   FeatureMatrix,
@@ -48,6 +53,59 @@ function clampInt(value: string | null, fallback: number, min: number, max: numb
   const n = Number.parseInt(value, 10);
   if (Number.isNaN(n)) return fallback;
   return Math.min(Math.max(n, min), max);
+}
+
+const HOTSPOT_PERIODS = ['7d', '30d', '90d', 'all'] as const;
+type HotspotPeriod = typeof HOTSPOT_PERIODS[number];
+const HOTSPOT_GRANULARITIES = ['commit', 'session', 'subagent'] as const;
+type HotspotGranularity = typeof HOTSPOT_GRANULARITIES[number];
+const ELEMENT_ID_RE = /^(sys|pkg|comp|code|file)[_:][\w/.:-]+$/;
+const ALL_PERIOD_FROM = '1970-01-01T00:00:00.000Z';
+const MS_PER_DAY = 86_400_000;
+
+function parseHotspotPeriod(raw: string | null): HotspotPeriod | null {
+  if (raw === null) return '30d';
+  return (HOTSPOT_PERIODS as readonly string[]).includes(raw) ? (raw as HotspotPeriod) : null;
+}
+
+function parseHotspotGranularity(raw: string | null): HotspotGranularity | null {
+  if (raw === null) return 'commit';
+  return (HOTSPOT_GRANULARITIES as readonly string[]).includes(raw) ? (raw as HotspotGranularity) : null;
+}
+
+function computePeriodRangeUtc(period: HotspotPeriod): { from: string; to: string } {
+  const now = new Date();
+  const to = now.toISOString();
+  if (period === 'all') return { from: ALL_PERIOD_FROM, to };
+  const days = period === '7d' ? 7 : period === '30d' ? 30 : 90;
+  const from = new Date(now.getTime() - days * MS_PER_DAY).toISOString();
+  return { from, to };
+}
+
+function collectFilePathsForElement(elementId: string, c4Model: C4Model): string[] {
+  const FILE_PREFIX = 'file::';
+  const elementById = new Map(c4Model.elements.map((el) => [el.id, el] as const));
+  const target = elementById.get(elementId);
+  const result = new Set<string>();
+  if (target && target.type === 'code' && target.id.startsWith(FILE_PREFIX)) {
+    result.add(target.id.slice(FILE_PREFIX.length));
+    return Array.from(result);
+  }
+  const visited = new Set<string>();
+  const stack: string[] = [elementId];
+  while (stack.length > 0) {
+    const cur = stack.pop();
+    if (cur === undefined || visited.has(cur)) continue;
+    visited.add(cur);
+    for (const el of c4Model.elements) {
+      if (el.boundaryId !== cur) continue;
+      if (el.type === 'code' && el.id.startsWith(FILE_PREFIX)) {
+        result.add(el.id.slice(FILE_PREFIX.length));
+      }
+      stack.push(el.id);
+    }
+  }
+  return Array.from(result);
 }
 
 function clampFloat(value: string | null, fallback: number, min: number, max: number): number {
@@ -526,6 +584,19 @@ export class TrailDataServer {
       return;
     }
 
+    if (pathname === '/api/hotspot' && method === 'GET') {
+      this.handleHotspot(res, parsed.searchParams);
+      return;
+    }
+    if (pathname === '/api/activity-heatmap' && method === 'GET') {
+      this.handleActivityHeatmap(res, parsed.searchParams);
+      return;
+    }
+    if (pathname === '/api/activity-trend' && method === 'GET') {
+      this.handleActivityTrend(res, parsed.searchParams);
+      return;
+    }
+
     res.writeHead(404);
     res.end();
   }
@@ -652,6 +723,144 @@ export class TrailDataServer {
       TrailLogger.error(`/api/temporal-coupling failed: ${err.message}\n${err.stack ?? ''}`);
       res.writeHead(500, JSON_HEADERS);
       res.end(JSON.stringify({ error: err.message }));
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  //  Hotspot / Activity Map (trail-time-axis-requirements 3.2)
+  // -------------------------------------------------------------------------
+
+  private handleHotspot(res: http.ServerResponse, params: URLSearchParams): void {
+    const period = parseHotspotPeriod(params.get('period'));
+    if (period === null) {
+      this.sendError(res, 400, "period must be one of '7d', '30d', '90d', or 'all'");
+      return;
+    }
+    const granularity = parseHotspotGranularity(params.get('granularity'));
+    if (granularity === null) {
+      this.sendError(res, 400, "granularity must be one of 'commit', 'session', or 'subagent'");
+      return;
+    }
+    try {
+      const { from, to } = computePeriodRangeUtc(period);
+      const rows = this.trailDb.fetchHotspotRows({ from, to, granularity });
+      const files = computeFileHotspot(rows);
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({ period, granularity, from, to, files }));
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      TrailLogger.error(`/api/hotspot failed: ${err.message}\n${err.stack ?? ''}`);
+      this.sendError(res, 500, err.message);
+    }
+  }
+
+  private handleActivityHeatmap(res: http.ServerResponse, params: URLSearchParams): void {
+    const period = parseHotspotPeriod(params.get('period'));
+    if (period === null) {
+      this.sendError(res, 400, "period must be one of '7d', '30d', '90d', or 'all'");
+      return;
+    }
+    const modeRaw = params.get('mode');
+    if (modeRaw !== 'session-file' && modeRaw !== 'subagent-file') {
+      this.sendError(res, 400, "mode must be 'session-file' or 'subagent-file'");
+      return;
+    }
+    const topK = clampInt(params.get('topK'), modeRaw === 'session-file' ? 50 : 200, 1, 200);
+    try {
+      const { from, to } = computePeriodRangeUtc(period);
+      const rawRows = this.trailDb.fetchActivityHeatmapRows({ from, to, mode: modeRaw, rowLimit: topK });
+      const rowLabelByKey = new Map(rawRows.map((r) => [r.rowId, r.rowLabel] as const));
+      const intermediate = computeActivityHeatmap({
+        rows: rawRows.map((r) => ({ rowKey: r.rowId, filePath: r.filePath, count: r.count })),
+        mode: modeRaw,
+        topK,
+        rowLabelResolver: (key) => rowLabelByKey.get(key) ?? key,
+      });
+      const c4Model = this.loadCurrentC4Model();
+      const matrix = c4Model
+        ? aggregateHeatmapColumnsToC4(intermediate.rows, intermediate.cellsByRowFile, c4Model)
+        : { rows: intermediate.rows, columns: [], cells: [], maxValue: intermediate.maxValue };
+      res.writeHead(200, JSON_HEADERS);
+      res.end(
+        JSON.stringify({
+          period,
+          mode: modeRaw,
+          from,
+          to,
+          rows: matrix.rows,
+          columns: matrix.columns,
+          cells: matrix.cells,
+          maxValue: matrix.maxValue,
+        }),
+      );
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      TrailLogger.error(`/api/activity-heatmap failed: ${err.message}\n${err.stack ?? ''}`);
+      this.sendError(res, 500, err.message);
+    }
+  }
+
+  private handleActivityTrend(res: http.ServerResponse, params: URLSearchParams): void {
+    const elementId = (params.get('elementId') ?? '').trim();
+    if (!ELEMENT_ID_RE.test(elementId)) {
+      this.sendError(res, 400, 'elementId is required and must match ^(sys|pkg|comp|code|file)_[\\w/.:-]+$');
+      return;
+    }
+    const period = parseHotspotPeriod(params.get('period'));
+    if (period === null) {
+      this.sendError(res, 400, "period must be one of '7d', '30d', '90d', or 'all'");
+      return;
+    }
+    const granularity = parseHotspotGranularity(params.get('granularity'));
+    if (granularity === null) {
+      this.sendError(res, 400, "granularity must be one of 'commit', 'session', or 'subagent'");
+      return;
+    }
+    try {
+      const c4Model = this.loadCurrentC4Model();
+      if (!c4Model) {
+        this.sendError(res, 503, 'c4 model not yet available');
+        return;
+      }
+      const { from, to } = computePeriodRangeUtc(period);
+      const filePaths = collectFilePathsForElement(elementId, c4Model);
+      const rows = this.trailDb.fetchActivityTrendRows({
+        from,
+        to,
+        granularity,
+        filePathsIn: filePaths,
+      });
+      const trend = computeActivityTrend({
+        rows,
+        elementId,
+        granularity,
+        period,
+        from,
+        to,
+        c4Model,
+      });
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({ elementId, period, granularity, from, to, ...trend }));
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      TrailLogger.error(`/api/activity-trend failed: ${err.message}\n${err.stack ?? ''}`);
+      this.sendError(res, 500, err.message);
+    }
+  }
+
+  private sendError(res: http.ServerResponse, status: number, message: string): void {
+    res.writeHead(status, JSON_HEADERS);
+    res.end(JSON.stringify({ error: message }));
+  }
+
+  private loadCurrentC4Model(): C4Model | null {
+    const persisted = this.trailDb.getC4Model();
+    if (!persisted) return null;
+    try {
+      return JSON.parse(persisted.json) as C4Model;
+    } catch (e) {
+      TrailLogger.warn(`failed to parse persisted c4 model: ${e instanceof Error ? e.message : String(e)}`);
+      return null;
     }
   }
 

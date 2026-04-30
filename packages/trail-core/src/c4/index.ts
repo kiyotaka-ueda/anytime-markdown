@@ -68,6 +68,32 @@ export type { CommunityOverlayEntry } from './computeCommunityOverlay';
 export { aggregateGhostEdgesToC4 } from './aggregateGhostEdgesToC4';
 export type { C4GhostEdge } from './aggregateGhostEdgesToC4';
 
+export {
+  computeFileHotspot,
+  aggregateHotspotToC4,
+  computeActivityHeatmap,
+  aggregateHeatmapColumnsToC4,
+  computeActivityTrend,
+} from '../hotspot';
+export type {
+  FileHotspotRow,
+  HotspotEntry,
+  HotspotMap,
+  ActivityHeatmapRow,
+  HeatmapAxis,
+  HeatmapCell,
+  HeatmapMatrix,
+  ActivityTrendRow,
+  TrendBucketSize,
+  TrendBucket,
+  TrendPeriod,
+  TrendGranularity,
+  ActivityTrend,
+  ComputeHeatmapInput,
+  ComputeTrendInput,
+  HeatmapIntermediate,
+} from '../hotspot';
+
 export type {
   ManualElement,
   ManualRelationship,
