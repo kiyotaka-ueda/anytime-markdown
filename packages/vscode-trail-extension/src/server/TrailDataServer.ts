@@ -754,7 +754,7 @@ export class TrailDataServer {
     }
   }
 
-  private handleActivityHeatmap(res: http.ServerResponse, params: URLSearchParams): void {
+  private async handleActivityHeatmap(res: http.ServerResponse, params: URLSearchParams): Promise<void> {
     const period = parseHotspotPeriod(params.get('period'));
     if (period === null) {
       this.sendError(res, 400, "period must be one of '7d', '30d', '90d', or 'all'");
@@ -766,6 +766,7 @@ export class TrailDataServer {
       return;
     }
     const topK = clampInt(params.get('topK'), modeRaw === 'session-file' ? 50 : 200, 1, 200);
+    const repo = params.get('repo') ?? undefined;
     try {
       const { from, to } = computePeriodRangeUtc(period);
       const rawRows = this.trailDb.fetchActivityHeatmapRows({ from, to, mode: modeRaw, rowLimit: topK });
@@ -776,7 +777,7 @@ export class TrailDataServer {
         topK,
         rowLabelResolver: (key) => rowLabelByKey.get(key) ?? key,
       });
-      const c4Model = this.loadCurrentC4Model();
+      const c4Model = await this.loadCurrentC4Model(repo);
       const matrix = c4Model
         ? aggregateHeatmapColumnsToC4(intermediate.rows, intermediate.cellsByRowFile, c4Model)
         : { rows: intermediate.rows, columns: [], cells: [], maxValue: intermediate.maxValue };
@@ -800,7 +801,7 @@ export class TrailDataServer {
     }
   }
 
-  private handleActivityTrend(res: http.ServerResponse, params: URLSearchParams): void {
+  private async handleActivityTrend(res: http.ServerResponse, params: URLSearchParams): Promise<void> {
     const elementId = (params.get('elementId') ?? '').trim();
     if (!ELEMENT_ID_RE.test(elementId)) {
       this.sendError(res, 400, 'elementId is required and must match ^(sys|pkg|comp|code|file)_[\\w/.:-]+$');
@@ -816,8 +817,9 @@ export class TrailDataServer {
       this.sendError(res, 400, "granularity must be one of 'commit', 'session', or 'subagent'");
       return;
     }
+    const repo = params.get('repo') ?? undefined;
     try {
-      const c4Model = this.loadCurrentC4Model();
+      const c4Model = await this.loadCurrentC4Model(repo);
       if (!c4Model) {
         this.sendError(res, 503, 'c4 model not yet available');
         return;
@@ -853,7 +855,20 @@ export class TrailDataServer {
     res.end(JSON.stringify({ error: message }));
   }
 
-  private loadCurrentC4Model(): C4Model | null {
+  private async loadCurrentC4Model(repoName?: string): Promise<C4Model | null> {
+    // 本番経路: current_graphs (asC4ModelStore) → trailToC4 で動的に組み立て
+    const resolvedRepo = repoName ?? (this.gitRoot ? path.basename(this.gitRoot) : undefined);
+    if (resolvedRepo) {
+      try {
+        const store = this.trailDb.asC4ModelStore();
+        const result = await Promise.resolve(store.getCurrentC4Model(resolvedRepo));
+        if (result?.model) return result.model;
+      } catch (e) {
+        TrailLogger.warn(`asC4ModelStore.getCurrentC4Model failed: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    // フォールバック: c4_models テーブル直読み（saveC4Model は現状どこからも呼ばれていないが、
+    // テスト fixture が直接 INSERT するケースに備える）
     const persisted = this.trailDb.getC4Model();
     if (!persisted) return null;
     try {

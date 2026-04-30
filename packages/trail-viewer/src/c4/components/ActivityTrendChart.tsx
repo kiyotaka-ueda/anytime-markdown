@@ -28,12 +28,14 @@ const SUBAGENT_PALETTE_LIGHT: ReadonlyArray<string> = [
 export interface ActivityTrendChartProps {
   readonly elementId: string | null;
   readonly serverUrl: string | undefined;
+  readonly repoName?: string;
   readonly isDark?: boolean;
 }
 
 export function ActivityTrendChart({
   elementId,
   serverUrl,
+  repoName,
   isDark = false,
 }: Readonly<ActivityTrendChartProps>) {
   const { t } = useTrailI18n();
@@ -47,6 +49,7 @@ export function ActivityTrendChart({
     elementId: elementId ?? '',
     period,
     granularity,
+    repoName,
   });
 
   const palette = isDark ? SUBAGENT_PALETTE_DARK : SUBAGENT_PALETTE_LIGHT;
