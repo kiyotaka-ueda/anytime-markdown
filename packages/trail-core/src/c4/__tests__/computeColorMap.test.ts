@@ -154,3 +154,27 @@ describe('computeColorMap — none', () => {
     expect(m.size).toBe(0);
   });
 });
+
+describe('computeColorMap — hotspot', () => {
+  const hotspotMap = new Map([
+    ['pkg_x', { elementId: 'pkg_x', churn: 8, churnNorm: 1, complexity: 3, complexityNorm: 1, risk: 1 }],
+    ['pkg_y', { elementId: 'pkg_y', churn: 0, churnNorm: 0, complexity: 0, complexityNorm: 0, risk: 0 }],
+  ]);
+
+  it('hotspot-frequency は amber 系色を返す', () => {
+    const m = computeColorMap('hotspot-frequency', null, null, null, null, null, hotspotMap);
+    expect(m.get('pkg_x')).toMatch(/^rgba\(232, 160, 18, /);
+    expect(m.get('pkg_y')).toMatch(/^rgba\(232, 160, 18, /);
+    expect(m.get('pkg_x')).not.toEqual(m.get('pkg_y'));
+  });
+
+  it('hotspot-risk は赤橙系色を返す', () => {
+    const m = computeColorMap('hotspot-risk', null, null, null, null, null, hotspotMap);
+    expect(m.get('pkg_x')).toMatch(/^rgba\(232, 80, 28, /);
+  });
+
+  it('hotspotMap 未指定時は空 Map', () => {
+    const m = computeColorMap('hotspot-frequency', null, null, null);
+    expect(m.size).toBe(0);
+  });
+});
