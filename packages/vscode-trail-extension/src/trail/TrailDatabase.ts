@@ -755,6 +755,9 @@ export class TrailDatabase {
     for (const sql of CREATE_MESSAGE_TOOL_CALLS_INDEXES) {
       db.run(sql);
     }
+    // Hotspot / activity map 集計用 (trail-time-axis-requirements 3.2)
+    db.run('CREATE INDEX IF NOT EXISTS idx_messages_subagent_type ON messages(subagent_type)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_message_tool_calls_tool_name_file_path ON message_tool_calls(tool_name, file_path)');
     db.run(CREATE_C4_MANUAL_ELEMENTS);
     db.run(CREATE_C4_MANUAL_RELATIONSHIPS);
     db.run(CREATE_C4_MANUAL_GROUPS);
@@ -5219,6 +5222,218 @@ export class TrailDatabase {
     const [json, revision] = res[0].values[0] as [string, string];
     return { json, revision };
   }
+
+  // ---------------------------------------------------------------------------
+  //  Hotspot / Activity Map (trail-time-axis-requirements 3.2)
+  // ---------------------------------------------------------------------------
+
+  fetchHotspotRows(params: {
+    from: string;
+    to: string;
+    granularity: 'commit' | 'session' | 'subagent';
+  }): ReadonlyArray<{ readonly filePath: string; readonly churn: number }> {
+    const db = this.ensureDb();
+    const { from, to, granularity } = params;
+    const sql = HOTSPOT_SQL_BY_GRANULARITY[granularity];
+    const res = db.exec(sql, [from, to]);
+    if (!res.length) return [];
+    return res[0].values.map((row) => ({
+      filePath: String(row[0]),
+      churn: Number(row[1]),
+    }));
+  }
+
+  fetchActivityHeatmapRows(params: {
+    from: string;
+    to: string;
+    mode: 'session-file' | 'subagent-file';
+    rowLimit?: number;
+  }): ReadonlyArray<{
+    readonly rowId: string;
+    readonly rowLabel: string;
+    readonly filePath: string;
+    readonly count: number;
+  }> {
+    const db = this.ensureDb();
+    const { from, to, mode, rowLimit = 200 } = params;
+    if (mode === 'session-file') {
+      const sql = `
+        SELECT m.session_id AS rowId,
+               COALESCE(MAX(s.slug), m.session_id) AS slug,
+               COALESCE(MAX(DATE(m.timestamp)), '') AS sessionDate,
+               mtc.file_path AS filePath,
+               COUNT(*) AS cnt
+        FROM message_tool_calls mtc
+        INNER JOIN messages m ON mtc.message_uuid = m.uuid
+        LEFT JOIN sessions s ON m.session_id = s.id
+        WHERE m.timestamp >= ? AND m.timestamp <= ?
+          AND mtc.tool_name IN ('Edit', 'Write', 'NotebookEdit')
+          AND mtc.file_path IS NOT NULL
+        GROUP BY m.session_id, mtc.file_path
+        ORDER BY cnt DESC
+      `;
+      const res = db.exec(sql, [from, to]);
+      if (!res.length) return [];
+      const rowsAll = res[0].values.map((row) => {
+        const sessionId = String(row[0]);
+        const slug = String(row[1] ?? sessionId);
+        const date = String(row[2] ?? '');
+        const shortHash = sessionId.length > 8 ? sessionId.slice(0, 8) : sessionId;
+        const label = date ? `${slug || shortHash} (${date})` : (slug || shortHash);
+        return {
+          rowId: sessionId,
+          rowLabel: label,
+          filePath: String(row[3]),
+          count: Number(row[4]),
+        };
+      });
+      return limitToTopRowKeys(rowsAll, rowLimit);
+    }
+    const sql = `
+      SELECT m.subagent_type AS rowId,
+             mtc.file_path AS filePath,
+             COUNT(*) AS cnt
+      FROM message_tool_calls mtc
+      INNER JOIN messages m ON mtc.message_uuid = m.uuid
+      WHERE m.timestamp >= ? AND m.timestamp <= ?
+        AND mtc.tool_name IN ('Edit', 'Write', 'NotebookEdit')
+        AND mtc.file_path IS NOT NULL
+        AND m.subagent_type IS NOT NULL
+      GROUP BY m.subagent_type, mtc.file_path
+      ORDER BY cnt DESC
+    `;
+    const res = db.exec(sql, [from, to]);
+    if (!res.length) return [];
+    const rowsAll = res[0].values.map((row) => {
+      const subagent = String(row[0]);
+      return {
+        rowId: subagent,
+        rowLabel: subagent,
+        filePath: String(row[1]),
+        count: Number(row[2]),
+      };
+    });
+    return limitToTopRowKeys(rowsAll, rowLimit);
+  }
+
+  fetchActivityTrendRows(params: {
+    from: string;
+    to: string;
+    granularity: 'commit' | 'session' | 'subagent';
+    filePathsIn: ReadonlyArray<string>;
+  }): ReadonlyArray<{
+    readonly committedAt: string;
+    readonly filePath: string;
+    readonly subagentType?: string | null;
+  }> {
+    const db = this.ensureDb();
+    const { from, to, granularity, filePathsIn } = params;
+    if (filePathsIn.length === 0) return [];
+
+    const useTempTable = filePathsIn.length > 900;
+    if (useTempTable) {
+      db.run('DROP TABLE IF EXISTS _hotspot_paths');
+      db.run('CREATE TEMP TABLE _hotspot_paths (file_path TEXT PRIMARY KEY)');
+      const stmt = db.prepare('INSERT OR IGNORE INTO _hotspot_paths VALUES (?)');
+      try {
+        for (const p of filePathsIn) stmt.run([p]);
+      } finally {
+        stmt.free();
+      }
+    }
+
+    const inClause = useTempTable
+      ? `(SELECT file_path FROM _hotspot_paths)`
+      : `(${filePathsIn.map(() => '?').join(',')})`;
+
+    let sql: string;
+    let bindings: Array<string | number | null>;
+    if (granularity === 'commit') {
+      sql = `
+        SELECT sc.committed_at AS committedAt, cf.file_path AS filePath, NULL AS subagentType
+        FROM commit_files cf
+        INNER JOIN session_commits sc ON cf.commit_hash = sc.commit_hash
+        WHERE sc.committed_at >= ? AND sc.committed_at <= ?
+          AND cf.file_path IN ${inClause}
+        ORDER BY sc.committed_at
+      `;
+      bindings = useTempTable ? [from, to] : [from, to, ...filePathsIn];
+    } else {
+      sql = `
+        SELECT m.timestamp AS committedAt,
+               mtc.file_path AS filePath,
+               m.subagent_type AS subagentType
+        FROM message_tool_calls mtc
+        INNER JOIN messages m ON mtc.message_uuid = m.uuid
+        WHERE m.timestamp >= ? AND m.timestamp <= ?
+          AND mtc.tool_name IN ('Edit', 'Write', 'NotebookEdit')
+          AND mtc.file_path IN ${inClause}
+          ${granularity === 'subagent' ? 'AND m.subagent_type IS NOT NULL' : ''}
+        ORDER BY m.timestamp
+      `;
+      bindings = useTempTable ? [from, to] : [from, to, ...filePathsIn];
+    }
+    const res = db.exec(sql, bindings);
+    if (useTempTable) db.run('DROP TABLE IF EXISTS _hotspot_paths');
+    if (!res.length) return [];
+    return res[0].values.map((row) => {
+      const subagentType = row[2];
+      return {
+        committedAt: String(row[0]),
+        filePath: String(row[1]),
+        subagentType: subagentType == null ? null : String(subagentType),
+      };
+    });
+  }
+}
+
+const HOTSPOT_SQL_BY_GRANULARITY: Record<'commit' | 'session' | 'subagent', string> = {
+  commit: `
+    SELECT cf.file_path AS filePath, COUNT(DISTINCT cf.commit_hash) AS churn
+    FROM commit_files cf
+    INNER JOIN session_commits sc ON cf.commit_hash = sc.commit_hash
+    WHERE sc.committed_at >= ? AND sc.committed_at <= ?
+    GROUP BY cf.file_path
+    ORDER BY churn DESC
+  `,
+  session: `
+    SELECT mtc.file_path AS filePath, COUNT(*) AS churn
+    FROM message_tool_calls mtc
+    INNER JOIN messages m ON mtc.message_uuid = m.uuid
+    WHERE m.timestamp >= ? AND m.timestamp <= ?
+      AND mtc.tool_name IN ('Edit', 'Write', 'NotebookEdit')
+      AND mtc.file_path IS NOT NULL
+    GROUP BY mtc.file_path
+    ORDER BY churn DESC
+  `,
+  subagent: `
+    SELECT mtc.file_path AS filePath, COUNT(*) AS churn
+    FROM message_tool_calls mtc
+    INNER JOIN messages m ON mtc.message_uuid = m.uuid
+    WHERE m.timestamp >= ? AND m.timestamp <= ?
+      AND mtc.tool_name IN ('Edit', 'Write', 'NotebookEdit')
+      AND mtc.file_path IS NOT NULL
+      AND m.subagent_type IS NOT NULL
+    GROUP BY mtc.file_path
+    ORDER BY churn DESC
+  `,
+};
+
+function limitToTopRowKeys<T extends { rowId: string; count: number }>(
+  rows: ReadonlyArray<T>,
+  rowLimit: number,
+): T[] {
+  const totals = new Map<string, number>();
+  for (const r of rows) {
+    totals.set(r.rowId, (totals.get(r.rowId) ?? 0) + r.count);
+  }
+  const topKeys = new Set(
+    Array.from(totals.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, rowLimit)
+      .map(([k]) => k),
+  );
+  return rows.filter((r) => topKeys.has(r.rowId));
 }
 
 export function estimateCost(

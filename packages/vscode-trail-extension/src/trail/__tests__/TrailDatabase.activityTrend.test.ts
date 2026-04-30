@@ -1,0 +1,140 @@
+// __non_webpack_require__ はwebpackグローバル。テスト環境では sql-asm.js を直接ロードするよう差し替え
+const sqlAsmActual = require(require.resolve('sql.js/dist/sql-asm.js')); // eslint-disable-line @typescript-eslint/no-require-imports
+(global as Record<string, unknown>).__non_webpack_require__ = (_path: string) => sqlAsmActual;
+
+import { TrailDatabase } from '../TrailDatabase';
+import { createTestTrailDatabase } from './support/createTestDb';
+
+type SqlJsDb = {
+  run: (sql: string, params?: ReadonlyArray<unknown>) => void;
+};
+
+const inner = (db: TrailDatabase): SqlJsDb => (db as unknown as { db: SqlJsDb }).db;
+
+const insertSessionCommit = (
+  db: TrailDatabase,
+  sessionId: string,
+  hash: string,
+  committedAt: string,
+): void => {
+  inner(db).run(
+    `INSERT OR IGNORE INTO sessions (
+       id, slug, repo_name, version, entrypoint, model, start_time, end_time,
+       message_count, file_path, file_size, imported_at
+     ) VALUES (?, ?, 'r', '0', '', '', '', '', 0, '', 0, '')`,
+    [sessionId, sessionId],
+  );
+  inner(db).run(
+    `INSERT OR IGNORE INTO session_commits (session_id, commit_hash, committed_at)
+     VALUES (?, ?, ?)`,
+    [sessionId, hash, committedAt],
+  );
+};
+
+const insertCommitFile = (db: TrailDatabase, hash: string, filePath: string): void => {
+  inner(db).run(
+    `INSERT OR IGNORE INTO commit_files (commit_hash, file_path) VALUES (?, ?)`,
+    [hash, filePath],
+  );
+};
+
+const insertMessage = (
+  db: TrailDatabase,
+  uuid: string,
+  sessionId: string,
+  timestamp: string,
+  subagentType: string | null = null,
+): void => {
+  inner(db).run(
+    `INSERT OR IGNORE INTO sessions (
+       id, slug, repo_name, version, entrypoint, model, start_time, end_time,
+       message_count, file_path, file_size, imported_at
+     ) VALUES (?, ?, 'r', '0', '', '', '', '', 0, '', 0, '')`,
+    [sessionId, sessionId],
+  );
+  inner(db).run(
+    `INSERT OR IGNORE INTO messages (uuid, session_id, type, timestamp, subagent_type)
+     VALUES (?, ?, 'assistant', ?, ?)`,
+    [uuid, sessionId, timestamp, subagentType],
+  );
+};
+
+const insertToolCall = (
+  db: TrailDatabase,
+  messageUuid: string,
+  sessionId: string,
+  toolName: string,
+  filePath: string,
+  callIndex: number,
+  timestamp: string,
+): void => {
+  inner(db).run(
+    `INSERT OR IGNORE INTO message_tool_calls (
+       session_id, message_uuid, turn_index, call_index, tool_name, file_path, timestamp
+     ) VALUES (?, ?, 0, ?, ?, ?, ?)`,
+    [sessionId, messageUuid, callIndex, toolName, filePath, timestamp],
+  );
+};
+
+describe('TrailDatabase.fetchActivityTrendRows', () => {
+  let db: TrailDatabase;
+  beforeEach(async () => {
+    db = await createTestTrailDatabase();
+  });
+
+  test('returns empty when filePathsIn is empty', () => {
+    const rows = db.fetchActivityTrendRows({
+      from: '2026-04-23T00:00:00.000Z',
+      to: '2026-04-30T00:00:00.000Z',
+      granularity: 'commit',
+      filePathsIn: [],
+    });
+    expect(rows).toHaveLength(0);
+  });
+
+  test('commit granularity returns committed_at and filePath rows', () => {
+    insertSessionCommit(db, 's1', 'h1', '2026-04-25T10:00:00.000Z');
+    insertCommitFile(db, 'h1', 'a.ts');
+    insertCommitFile(db, 'h1', 'b.ts');
+
+    const rows = db.fetchActivityTrendRows({
+      from: '2026-04-23T00:00:00.000Z',
+      to: '2026-04-30T00:00:00.000Z',
+      granularity: 'commit',
+      filePathsIn: ['a.ts'],
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].filePath).toBe('a.ts');
+    expect(rows[0].committedAt).toContain('2026-04-25');
+  });
+
+  test('subagent granularity exposes subagent_type and excludes nulls', () => {
+    insertMessage(db, 'm1', 's1', '2026-04-25T10:00:00.000Z', 'general-purpose');
+    insertMessage(db, 'm2', 's1', '2026-04-25T11:00:00.000Z', null);
+    insertToolCall(db, 'm1', 's1', 'Edit', 'a.ts', 0, '2026-04-25T10:00:00.000Z');
+    insertToolCall(db, 'm2', 's1', 'Edit', 'a.ts', 0, '2026-04-25T11:00:00.000Z');
+
+    const rows = db.fetchActivityTrendRows({
+      from: '2026-04-23T00:00:00.000Z',
+      to: '2026-04-30T00:00:00.000Z',
+      granularity: 'subagent',
+      filePathsIn: ['a.ts'],
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].subagentType).toBe('general-purpose');
+  });
+
+  test('large filePathsIn (>900) uses temp-table fallback successfully', () => {
+    insertSessionCommit(db, 's1', 'h1', '2026-04-25T10:00:00.000Z');
+    insertCommitFile(db, 'h1', 'target.ts');
+    const filePaths = ['target.ts', ...Array.from({ length: 1500 }, (_, i) => `f-${i}.ts`)];
+
+    const rows = db.fetchActivityTrendRows({
+      from: '2026-04-23T00:00:00.000Z',
+      to: '2026-04-30T00:00:00.000Z',
+      granularity: 'commit',
+      filePathsIn: filePaths,
+    });
+    expect(rows.find((r) => r.filePath === 'target.ts')).toBeDefined();
+  });
+});
