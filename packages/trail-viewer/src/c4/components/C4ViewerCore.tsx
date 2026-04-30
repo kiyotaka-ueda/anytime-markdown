@@ -701,8 +701,18 @@ export function C4ViewerCore({
         summary: summary?.summary,
       });
     }
-    items.sort((a, b) => a.community - b.community);
-    return items.length > 0 ? items : null;
+    // 同名ラベル重複時は曖昧性解消のためコミュニティ番号を付与する。
+    // GraphClusterer のラベルは pkg_*/component の component 名で多数決するため、
+    // 異なるパッケージが同じ component 名（"engine" 等）を持つと衝突しうる。
+    const nameCount = new Map<string, number>();
+    for (const item of items) nameCount.set(item.name, (nameCount.get(item.name) ?? 0) + 1);
+    const disambiguated = items.map((item) =>
+      (nameCount.get(item.name) ?? 0) > 1
+        ? { ...item, name: `${item.name} #${item.community}` }
+        : item,
+    );
+    disambiguated.sort((a, b) => a.community - b.community);
+    return disambiguated.length > 0 ? disambiguated : null;
   }, [communityOverlay, codeGraph]);
 
   const claudeActivityMap = useMemo(() => {
