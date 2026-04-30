@@ -1,11 +1,22 @@
 import { Box, Typography } from '@mui/material';
 import type { MetricOverlay } from '@anytime-markdown/trail-core/c4';
 
+export interface CommunityLegendItem {
+  readonly community: number;
+  readonly color: string;
+  readonly name: string;
+  readonly summary?: string;
+}
+
 interface OverlayLegendProps {
   readonly overlay: MetricOverlay;
   readonly isDark: boolean;
   /** DSM依存数の最大値（dsm-out/in の場合に表示） */
   readonly dsmMax?: number;
+  /** Community オーバーレイ凡例（指定時はメトリクス凡例の上に表示） */
+  readonly communityLegend?: readonly CommunityLegendItem[];
+  /** 凡例タイトル（i18n 済み文字列） */
+  readonly communityTitle?: string;
 }
 
 const SWATCH_SIZE = 12;
@@ -19,16 +30,19 @@ function Swatch({ color, label }: Readonly<{ color: string; label: string }>) {
   );
 }
 
-export function OverlayLegend({ overlay, isDark, dsmMax }: Readonly<OverlayLegendProps>) {
-  if (overlay === 'none') return null;
+export function OverlayLegend({ overlay, isDark, dsmMax, communityLegend, communityTitle }: Readonly<OverlayLegendProps>) {
+  const hasCommunity = !!communityLegend && communityLegend.length > 0;
+  const hasMetric = overlay !== 'none';
+  if (!hasCommunity && !hasMetric) return null;
 
   const bg = isDark ? 'rgba(0,0,0,0.65)' : 'rgba(255,255,255,0.85)';
   const textColor = isDark ? '#e0e0e0' : '#212121';
+  const dividerColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)';
 
-  let items: React.ReactNode = null;
+  let metricItems: React.ReactNode = null;
 
   if (overlay === 'coverage-lines' || overlay === 'coverage-branches' || overlay === 'coverage-functions') {
-    items = (
+    metricItems = (
       <>
         <Swatch color="#2e7d32" label="≥ 80%" />
         <Swatch color="#f9a825" label="50–79%" />
@@ -37,21 +51,21 @@ export function OverlayLegend({ overlay, isDark, dsmMax }: Readonly<OverlayLegen
       </>
     );
   } else if (overlay === 'dsm-out' || overlay === 'dsm-in') {
-    items = (
+    metricItems = (
       <>
         <Swatch color="#c62828" label={`max${dsmMax !== undefined ? ` (${dsmMax})` : ''}`} />
         <Swatch color="#1565c0" label="0" />
       </>
     );
   } else if (overlay === 'dsm-cyclic') {
-    items = (
+    metricItems = (
       <>
         <Swatch color="#c62828" label="cyclic" />
         <Swatch color="#2e7d32" label="ok" />
       </>
     );
   } else if (overlay === 'complexity-most' || overlay === 'complexity-highest') {
-    items = (
+    metricItems = (
       <>
         <Swatch color="#c62828" label="high" />
         <Swatch color="#f9a825" label="multi-file" />
@@ -60,7 +74,7 @@ export function OverlayLegend({ overlay, isDark, dsmMax }: Readonly<OverlayLegen
       </>
     );
   } else if (overlay === 'importance') {
-    items = (
+    metricItems = (
       <>
         <Swatch color="#c62828" label="≥ 70" />
         <Swatch color="#f9a825" label="40–69" />
@@ -68,7 +82,7 @@ export function OverlayLegend({ overlay, isDark, dsmMax }: Readonly<OverlayLegen
       </>
     );
   } else if (overlay === 'defect-risk') {
-    items = (
+    metricItems = (
       <>
         <Swatch color="#c62828" label="≥ 0.7" />
         <Swatch color="#f9a825" label="0.35–0.7" />
@@ -95,9 +109,29 @@ export function OverlayLegend({ overlay, isDark, dsmMax }: Readonly<OverlayLegen
         zIndex: 10,
         backdropFilter: 'blur(4px)',
         minWidth: 80,
+        maxWidth: 220,
       }}
     >
-      {items}
+      {hasCommunity && (
+        <>
+          {communityTitle && (
+            <Typography variant="caption" sx={{ fontSize: '0.65rem', fontWeight: 700, opacity: 0.85 }}>
+              {communityTitle}
+            </Typography>
+          )}
+          {communityLegend!.map((item) => (
+            <Swatch
+              key={item.community}
+              color={item.color}
+              label={item.summary ? `${item.name} — ${item.summary}` : item.name}
+            />
+          ))}
+        </>
+      )}
+      {hasCommunity && hasMetric && (
+        <Box sx={{ height: '1px', bgcolor: dividerColor, my: 0.25 }} />
+      )}
+      {metricItems}
     </Box>
   );
 }

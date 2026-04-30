@@ -5,6 +5,51 @@ import { useCanvasBase } from '@anytime-markdown/graph-core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const DIM_OPACITY = 10;
+const COMMUNITY_OVERLAY_ALPHA = 0.5;
+const GOD_NODE_STROKE_WIDTH = 3;
+
+export interface CommunityOverlayStyle {
+  readonly color: string;
+  readonly isGodNode: boolean;
+}
+
+/** hex `#rrggbb` → [r,g,b] 数値配列 */
+function parseHex(hex: string): [number, number, number] | null {
+  const h = hex.replace('#', '');
+  if (h.length !== 6) return null;
+  const r = Number.parseInt(h.slice(0, 2), 16);
+  const g = Number.parseInt(h.slice(2, 4), 16);
+  const b = Number.parseInt(h.slice(4, 6), 16);
+  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return null;
+  return [r, g, b];
+}
+
+/** [r,g,b] → `#rrggbb` */
+function toHex(rgb: readonly [number, number, number]): string {
+  return `#${rgb.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/**
+ * `base` の上に `overlay` を `alpha` の不透明度で重ねた色を返す。
+ * パースに失敗した場合は base を返す。
+ */
+function blendColors(base: string, overlay: string, alpha: number): string {
+  const baseRgb = parseHex(base);
+  const overRgb = parseHex(overlay);
+  if (!baseRgb || !overRgb) return base;
+  return toHex([
+    baseRgb[0] * (1 - alpha) + overRgb[0] * alpha,
+    baseRgb[1] * (1 - alpha) + overRgb[1] * alpha,
+    baseRgb[2] * (1 - alpha) + overRgb[2] * alpha,
+  ]);
+}
+
+/** `#rrggbb` の各成分を `factor` 倍した色を返す（< 1 で暗く、> 1 で明るく）。 */
+function adjustBrightness(hex: string, factor: number): string {
+  const rgb = parseHex(hex);
+  if (!rgb) return hex;
+  return toHex([rgb[0] * factor, rgb[1] * factor, rgb[2] * factor]);
+}
 
 interface C4GraphCanvasProps {
   readonly document: GraphDocument;
@@ -15,6 +60,7 @@ interface C4GraphCanvasProps {
   readonly centerOnSelect?: boolean;
   readonly overlayMap?: ReadonlyMap<string, string> | null;
   readonly claudeActivityMap?: ReadonlyMap<string, string> | null;
+  readonly communityMap?: ReadonlyMap<string, CommunityOverlayStyle> | null;
   readonly onNodeSelect?: (nodeId: string | null) => void;
   readonly onNodeDoubleClick?: (nodeId: string) => void;
   readonly onNodeContextMenu?: (c4Id: string, x: number, y: number, nodeType: string) => void;
@@ -24,7 +70,7 @@ interface C4GraphCanvasProps {
 
 const EMPTY_SELECTION: SelectionState = { nodeIds: [], edgeIds: [] };
 
-export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedNodeId, centerOnSelect, overlayMap, claudeActivityMap, onNodeSelect, onNodeDoubleClick, onNodeContextMenu, onGroupContextMenu, isDark }: Readonly<C4GraphCanvasProps>) {
+export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedNodeId, centerOnSelect, overlayMap, claudeActivityMap, communityMap, onNodeSelect, onNodeDoubleClick, onNodeContextMenu, onGroupContextMenu, isDark }: Readonly<C4GraphCanvasProps>) {
   const rafRef = useRef<number>(0);
   const viewportRef = useRef(viewport);
   const dispatchRef = useRef(dispatch);
@@ -152,17 +198,37 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
     });
   }, [document.nodes, overlayMap]);
 
+  // Community overlay: 背景塗りをコミュニティ色で置換 / godNode は枠線強調
+  // overlayMap が同じ要素にも当たっている場合は、overlay を 50% 透過してコミュニティ色とブレンドする
+  const communityStyledNodes = useMemo(() => {
+    if (!communityMap || communityMap.size === 0) return styledNodes;
+    return styledNodes.map(n => {
+      const c4Id = n.metadata?.c4Id as string | undefined;
+      if (!c4Id) return n;
+      const community = communityMap.get(c4Id);
+      if (!community) return n;
+      const overlayFill = overlayMap?.get(c4Id);
+      const fill = overlayFill
+        ? blendColors(community.color, overlayFill, COMMUNITY_OVERLAY_ALPHA)
+        : community.color;
+      const style = community.isGodNode
+        ? { ...n.style, fill, stroke: adjustBrightness(community.color, 0.6), strokeWidth: GOD_NODE_STROKE_WIDTH }
+        : { ...n.style, fill };
+      return { ...n, style };
+    });
+  }, [styledNodes, communityMap, overlayMap]);
+
   // Claude activity overlay: metric overlay とは独立した常時表示レイヤー
   const activityStyledNodes = useMemo(() => {
-    if (!claudeActivityMap) return styledNodes;
-    return styledNodes.map(n => {
+    if (!claudeActivityMap) return communityStyledNodes;
+    return communityStyledNodes.map(n => {
       const c4Id = n.metadata?.c4Id as string | undefined;
       if (!c4Id) return n;
       const fill = claudeActivityMap.get(c4Id);
       if (!fill) return n;
       return { ...n, style: { ...n.style, fill } };
     });
-  }, [styledNodes, claudeActivityMap]);
+  }, [communityStyledNodes, claudeActivityMap]);
 
   const focusStyledNodes = useMemo(() => {
     if (!focusScope) return activityStyledNodes;
