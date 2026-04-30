@@ -110,7 +110,42 @@ export class SupabaseTrailReader implements ITrailReader {
     const { data, error } = await query;
     if (error) throw new Error(`Supabase getSessions failed: ${error.message}`);
 
-    return (data ?? []).map((r: SessionDbRow) => this.toTrailSession(r, [], undefined, undefined));
+    const sessions = (data ?? []) as readonly SessionDbRow[];
+    const subAgentCounts = await this.fetchSubAgentCountsForSessions(sessions.map((s) => s.id));
+    return sessions.map((r) => this.toTrailSession(r, [], undefined, subAgentCounts.get(r.id)));
+  }
+
+  /**
+   * 各セッションの subAgentCount を集計する。
+   * 初期版は CC ネイティブ subagent (DISTINCT agent_id) のみで簡易計算。
+   * codex 委任セッションの time-proximity マッチングは別 PR で対応。
+   */
+  private async fetchSubAgentCountsForSessions(sessionIds: readonly string[]): Promise<Map<string, number>> {
+    const out = new Map<string, number>();
+    if (sessionIds.length === 0) return out;
+    const { data, error } = await this.client
+      .from('trail_messages')
+      .select('session_id, agent_id')
+      .in('session_id', sessionIds as string[])
+      .not('agent_id', 'is', null);
+    if (error) {
+      // 旧スキーマ（agent_id カラム未追加）でも getSessions が落ちないようグレースフル fallback
+      return out;
+    }
+    const distinctByScope = new Map<string, Set<string>>();
+    for (const row of (data ?? []) as Array<{ session_id: string; agent_id: string | null }>) {
+      if (!row.agent_id) continue;
+      let s = distinctByScope.get(row.session_id);
+      if (!s) {
+        s = new Set();
+        distinctByScope.set(row.session_id, s);
+      }
+      s.add(row.agent_id);
+    }
+    for (const [sid, set] of distinctByScope) {
+      out.set(sid, set.size);
+    }
+    return out;
   }
 
   async getMessages(sessionId: string): Promise<readonly TrailMessage[]> {

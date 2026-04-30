@@ -54,4 +54,55 @@ describe('SupabaseTrailReader mapping', () => {
     expect(message.agentId).toBe('agent-123');
     expect(message.agentDescription).toBe('Codex delegation');
   });
+
+  it('propagates subAgentCount through toTrailSession', () => {
+    const reader = new SupabaseTrailReader('http://localhost:54321', 'anon-key') as any;
+    const session = reader.toTrailSession(
+      {
+        id: 's1',
+        slug: 'slug-1',
+        repo_name: 'repo',
+        model: 'opus',
+        version: '0.1.0',
+        start_time: '2026-04-30T00:00:00.000Z',
+        end_time: '2026-04-30T00:10:00.000Z',
+        message_count: 2,
+        peak_context_tokens: null,
+        initial_context_tokens: null,
+        interruption_reason: null,
+        interruption_context_tokens: null,
+        compact_count: null,
+        source: 'claude_code',
+        trail_session_costs: [],
+      },
+      [],
+      undefined,
+      3,
+    );
+
+    expect(session.subAgentCount).toBe(3);
+  });
+
+  it('omits subAgentCount when 0 or undefined', () => {
+    const reader = new SupabaseTrailReader('http://localhost:54321', 'anon-key') as any;
+    const baseRow = {
+      id: 's1',
+      slug: 'slug-1',
+      repo_name: 'repo',
+      model: 'opus',
+      version: '0.1.0',
+      start_time: '2026-04-30T00:00:00.000Z',
+      end_time: '2026-04-30T00:10:00.000Z',
+      message_count: 2,
+      peak_context_tokens: null,
+      initial_context_tokens: null,
+      interruption_reason: null,
+      interruption_context_tokens: null,
+      compact_count: null,
+      source: 'claude_code',
+      trail_session_costs: [],
+    };
+    expect(reader.toTrailSession(baseRow, [], undefined, undefined).subAgentCount).toBeUndefined();
+    expect(reader.toTrailSession(baseRow, [], undefined, 0).subAgentCount).toBeUndefined();
+  });
 });

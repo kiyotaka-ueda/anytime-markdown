@@ -181,6 +181,17 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
         timestamp: r.timestamp,
         is_sidechain: r.is_sidechain, is_meta: r.is_meta,
         cwd: r.cwd, git_branch: r.git_branch,
+        permission_mode: r.permission_mode ?? null,
+        skill: r.skill ?? null,
+        agent_id: r.agent_id ?? null,
+        agent_description: r.agent_description ?? null,
+        agent_model: r.agent_model ?? null,
+        subagent_type: r.subagent_type ?? null,
+        source_tool_assistant_uuid: r.source_tool_assistant_uuid ?? null,
+        source_tool_use_id: r.source_tool_use_id ?? null,
+        system_command: r.system_command ?? null,
+        duration_ms: r.duration_ms ?? null,
+        tool_result_size: r.tool_result_size ?? null,
       }));
       const { error } = await this.ensureClient()
         .from('trail_messages')

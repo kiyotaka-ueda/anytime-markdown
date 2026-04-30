@@ -137,4 +137,39 @@ describe('TrailDatabase.fetchActivityTrendRows', () => {
     });
     expect(rows.find((r) => r.filePath === 'target.ts')).toBeDefined();
   });
+
+  test('subagent granularity includes codex-linked sessions as "codex"', () => {
+    // CC parent session + delegation marker
+    inner(db).run(
+      `INSERT INTO sessions (
+         id, slug, repo_name, version, entrypoint, model, start_time, end_time,
+         message_count, file_path, file_size, imported_at, source
+       ) VALUES ('cc1', 'cc1', 'r', '0', '', '', '2026-04-25T10:00:00.000Z', '2026-04-25T11:00:00.000Z', 0, '', 0, '', 'claude_code')`,
+    );
+    inner(db).run(
+      `INSERT INTO messages (uuid, session_id, type, timestamp, source_tool_assistant_uuid)
+       VALUES ('cc1-child', 'cc1', 'assistant', '2026-04-25T10:01:00.000Z', 'p-uuid')`,
+    );
+    // codex session in same repo, time-overlapping
+    inner(db).run(
+      `INSERT INTO sessions (
+         id, slug, repo_name, version, entrypoint, model, start_time, end_time,
+         message_count, file_path, file_size, imported_at, source
+       ) VALUES ('codex1', 'codex1', 'r', '0', '', '', '2026-04-25T10:02:00.000Z', '2026-04-25T10:05:00.000Z', 0, '', 0, '', 'codex')`,
+    );
+    inner(db).run(
+      `INSERT INTO messages (uuid, session_id, type, timestamp)
+       VALUES ('cm1', 'codex1', 'assistant', '2026-04-25T10:03:00.000Z')`,
+    );
+    insertToolCall(db, 'cm1', 'codex1', 'Edit', 'a.ts', 0, '2026-04-25T10:03:00.000Z');
+
+    const rows = db.fetchActivityTrendRows({
+      from: '2026-04-25T00:00:00.000Z',
+      to: '2026-04-26T00:00:00.000Z',
+      granularity: 'subagent',
+      filePathsIn: ['a.ts'],
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].subagentType).toBe('codex');
+  });
 });

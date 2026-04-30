@@ -22,6 +22,9 @@ export interface RawJsonlMessage {
   };
   readonly userContent?: string;
   readonly isMeta?: boolean;
+  /** Subagent (CC sidechain or codex 委任) のメッセージで、委任元の親 assistant メッセージ UUID。 */
+  readonly sourceToolAssistantUUID?: string;
+  readonly sourceToolUseID?: string;
 }
 
 export interface RawContentBlock {

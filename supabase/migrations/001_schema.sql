@@ -71,7 +71,19 @@ CREATE TABLE IF NOT EXISTS trail_messages (
     is_sidechain INTEGER NOT NULL DEFAULT 0,
     is_meta INTEGER NOT NULL DEFAULT 0,
     cwd TEXT,
-    git_branch TEXT
+    git_branch TEXT,
+    -- Subagent / 委任関連: ローカル DB と整合
+    permission_mode TEXT,
+    skill TEXT,
+    agent_id TEXT,
+    agent_description TEXT,
+    agent_model TEXT,
+    subagent_type TEXT,
+    source_tool_assistant_uuid TEXT,
+    source_tool_use_id TEXT,
+    system_command TEXT,
+    duration_ms INTEGER,
+    tool_result_size INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS trail_session_commits (
@@ -238,6 +250,9 @@ CREATE TABLE IF NOT EXISTS trail_c4_manual_groups (
 CREATE INDEX IF NOT EXISTS idx_trail_messages_session ON trail_messages(session_id);
 CREATE INDEX IF NOT EXISTS idx_trail_messages_type ON trail_messages(type);
 CREATE INDEX IF NOT EXISTS idx_trail_messages_timestamp ON trail_messages(timestamp);
+CREATE INDEX IF NOT EXISTS idx_trail_messages_agent_id ON trail_messages(agent_id) WHERE agent_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_trail_messages_subagent_type ON trail_messages(subagent_type) WHERE subagent_type IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_trail_messages_source_tool ON trail_messages(source_tool_assistant_uuid) WHERE source_tool_assistant_uuid IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_trail_sessions_start ON trail_sessions(start_time);
 CREATE INDEX IF NOT EXISTS idx_trail_session_costs_session ON trail_session_costs(session_id);
 CREATE INDEX IF NOT EXISTS idx_trail_daily_counts_date ON trail_daily_counts(date);

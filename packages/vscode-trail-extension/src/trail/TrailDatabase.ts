@@ -200,10 +200,17 @@ export interface MessageRow {
   readonly is_meta: number;
   readonly cwd: string | null;
   readonly git_branch: string | null;
+  readonly permission_mode?: string | null;
+  readonly skill?: string | null;
   readonly agent_id?: string | null;
   readonly agent_description?: string | null;
+  readonly agent_model?: string | null;
+  readonly subagent_type?: string | null;
   readonly source_tool_assistant_uuid?: string | null;
   readonly source_tool_use_id?: string | null;
+  readonly system_command?: string | null;
+  readonly duration_ms?: number | null;
+  readonly tool_result_size?: number | null;
 }
 
 export interface SessionCommitRow {
@@ -3013,21 +3020,17 @@ export class TrailDatabase {
     }
 
     if (isSubagentType) {
-      const editToolPlaceholders = SESSION_COUPLING_EDIT_TOOLS.map(() => '?').join(', ');
-      const result = db.exec(
-        `SELECT m.subagent_type, mtc.file_path
-         FROM message_tool_calls mtc
-         JOIN messages m ON m.uuid = mtc.message_uuid
-         JOIN sessions s ON s.id = mtc.session_id
-         WHERE mtc.tool_name IN (${editToolPlaceholders})
-           AND mtc.file_path IS NOT NULL
-           AND mtc.file_path != ''
-           AND m.subagent_type IS NOT NULL
-           AND s.start_time >= ? AND s.start_time <= ?
-         ORDER BY m.subagent_type`,
-        [...SESSION_COUPLING_EDIT_TOOLS, fromIso, toIso],
+      // 経路 A (CC subagent) と経路 B (codex 委任) を共通ヘルパーで取得。
+      // s.start_time 起点の範囲フィルタを維持（既存挙動互換）。
+      const activityRows = this.fetchSubagentActivityRows({
+        from: fromIso,
+        to: toIso,
+        toolNames: SESSION_COUPLING_EDIT_TOOLS,
+        filterBy: 'session',
+      });
+      const values: ReadonlyArray<readonly [string, string]> = activityRows.map(
+        (r) => [r.subagentType, r.filePath] as const,
       );
-      const values = result[0]?.values ?? [];
 
       // session 粒度と同じ projectRoot 正規化を適用（mtc.file_path は絶対パス）。
       const projectRootCandidates = Array.from(
@@ -3836,6 +3839,150 @@ export class TrailDatabase {
     const ids = new Set<string>();
     for (const sid of linked.values()) ids.add(sid);
     return ids.size;
+  }
+
+  /**
+   * 期間 [from, to] 内の Claude Code セッションから委任された codex セッション ID 集合。
+   * `getLinkedCodexSessionByAssistantUuid` を CC セッション全件に対して走らせ、
+   * 解決された codex セッション ID を重複排除して返す。
+   */
+  fetchLinkedCodexSessionIdsInRange(from: string, to: string): Set<string> {
+    const db = this.ensureDb();
+    const out = new Set<string>();
+    try {
+      const ccRes = db.exec(
+        `SELECT id FROM sessions
+         WHERE source = 'claude_code'
+           AND start_time >= ? AND start_time <= ?`,
+        [from, to],
+      );
+      const ccIds = (ccRes[0]?.values ?? []).map((r) => String(r[0] ?? ''));
+      for (const sid of ccIds) {
+        if (!sid) continue;
+        const linked = this.getLinkedCodexSessionByAssistantUuid(sid);
+        for (const codexId of linked.values()) {
+          if (codexId) out.add(codexId);
+        }
+      }
+    } catch (e) {
+      TrailLogger.warn(
+        `fetchLinkedCodexSessionIdsInRange failed (returning empty set): ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+    return out;
+  }
+
+  /**
+   * subagent 粒度の集計で使用する活動行を返す共通関数。
+   * - 経路 A (CC ネイティブ subagent): `messages.subagent_type IS NOT NULL` の編集行
+   * - 経路 B (codex 委任): `sessions.source='codex'` かつ範囲内 CC から委任された session の編集行
+   *   → `subagentType` ラベルとして `'codex'` を合成
+   *
+   * `filterBy`:
+   *   - `'message'` (default): `m.timestamp` で範囲フィルタ。Heatmap/Trend/Hotspot 用
+   *   - `'session'`: `s.start_time` で範囲フィルタ。TC subagentType 既存挙動互換
+   *
+   * 戻り値は `committedAt` (= messages.timestamp) でソート済み。
+   */
+  fetchSubagentActivityRows(params: {
+    from: string;
+    to: string;
+    toolNames: readonly string[];
+    filterBy?: 'message' | 'session';
+  }): ReadonlyArray<{
+    readonly committedAt: string;
+    readonly filePath: string;
+    readonly subagentType: string;
+    readonly sessionId: string;
+    readonly messageUuid: string;
+  }> {
+    const db = this.ensureDb();
+    const { from, to, toolNames, filterBy = 'message' } = params;
+    if (toolNames.length === 0) return [];
+
+    const toolPlaceholders = toolNames.map(() => '?').join(',');
+    const rows: Array<{
+      committedAt: string;
+      filePath: string;
+      subagentType: string;
+      sessionId: string;
+      messageUuid: string;
+    }> = [];
+
+    const rangeJoin = filterBy === 'session'
+      ? 'INNER JOIN sessions s ON s.id = m.session_id'
+      : '';
+    const rangeWhere = filterBy === 'session'
+      ? 's.start_time >= ? AND s.start_time <= ?'
+      : 'm.timestamp >= ? AND m.timestamp <= ?';
+
+    // 経路 A: CC ネイティブ subagent
+    try {
+      const resA = db.exec(
+        `SELECT m.timestamp, mtc.file_path, m.subagent_type, m.session_id, m.uuid
+         FROM message_tool_calls mtc
+         INNER JOIN messages m ON m.uuid = mtc.message_uuid
+         ${rangeJoin}
+         WHERE ${rangeWhere}
+           AND mtc.tool_name IN (${toolPlaceholders})
+           AND mtc.file_path IS NOT NULL
+           AND mtc.file_path != ''
+           AND m.subagent_type IS NOT NULL`,
+        [from, to, ...toolNames],
+      );
+      for (const row of resA[0]?.values ?? []) {
+        const subagentType = String(row[2] ?? '');
+        if (!subagentType) continue;
+        rows.push({
+          committedAt: String(row[0] ?? ''),
+          filePath: String(row[1] ?? ''),
+          subagentType,
+          sessionId: String(row[3] ?? ''),
+          messageUuid: String(row[4] ?? ''),
+        });
+      }
+    } catch (e) {
+      TrailLogger.warn(
+        `fetchSubagentActivityRows path A (cc subagent) failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+
+    // 経路 B: codex 委任セッション（同一 repo + 時刻近傍でリンク済）
+    const codexSessionIds = this.fetchLinkedCodexSessionIdsInRange(from, to);
+    if (codexSessionIds.size > 0) {
+      try {
+        const idList = Array.from(codexSessionIds);
+        const idPlaceholders = idList.map(() => '?').join(',');
+        const resB = db.exec(
+          `SELECT m.timestamp, mtc.file_path, m.session_id, m.uuid
+           FROM message_tool_calls mtc
+           INNER JOIN messages m ON m.uuid = mtc.message_uuid
+           ${rangeJoin}
+           WHERE ${rangeWhere}
+             AND mtc.tool_name IN (${toolPlaceholders})
+             AND mtc.file_path IS NOT NULL
+             AND mtc.file_path != ''
+             AND m.session_id IN (${idPlaceholders})`,
+          [from, to, ...toolNames, ...idList],
+        );
+        for (const row of resB[0]?.values ?? []) {
+          rows.push({
+            committedAt: String(row[0] ?? ''),
+            filePath: String(row[1] ?? ''),
+            subagentType: 'codex',
+            sessionId: String(row[2] ?? ''),
+            messageUuid: String(row[3] ?? ''),
+          });
+        }
+      } catch (e) {
+        TrailLogger.warn(
+          `fetchSubagentActivityRows path B (codex linked) failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    }
+
+    rows.sort((a, b) => (a.committedAt < b.committedAt ? -1 : a.committedAt > b.committedAt ? 1 : 0));
+    return rows;
   }
 
   searchMessages(query: string): SearchResult[] {
@@ -5397,6 +5544,24 @@ export class TrailDatabase {
   }): ReadonlyArray<{ readonly filePath: string; readonly churn: number }> {
     const db = this.ensureDb();
     const { from, to, granularity } = params;
+
+    if (granularity === 'subagent') {
+      // 経路 A (CC subagent) と経路 B (codex 委任) を共通ヘルパーで取得し、file_path 単位で集計。
+      const activityRows = this.fetchSubagentActivityRows({
+        from,
+        to,
+        toolNames: SESSION_COUPLING_EDIT_TOOLS,
+      });
+      const churnByFile = new Map<string, number>();
+      for (const r of activityRows) {
+        if (!r.filePath) continue;
+        churnByFile.set(r.filePath, (churnByFile.get(r.filePath) ?? 0) + 1);
+      }
+      return Array.from(churnByFile.entries())
+        .map(([filePath, churn]) => ({ filePath, churn }))
+        .sort((a, b) => b.churn - a.churn);
+    }
+
     const sql = HOTSPOT_SQL_BY_GRANULARITY[granularity];
     const res = db.exec(sql, [from, to]);
     if (!res.length) return [];
@@ -5452,30 +5617,27 @@ export class TrailDatabase {
       });
       return limitToTopRowKeys(rowsAll, rowLimit);
     }
-    const sql = `
-      SELECT m.subagent_type AS rowId,
-             mtc.file_path AS filePath,
-             COUNT(*) AS cnt
-      FROM message_tool_calls mtc
-      INNER JOIN messages m ON mtc.message_uuid = m.uuid
-      WHERE m.timestamp >= ? AND m.timestamp <= ?
-        AND mtc.tool_name IN ('Edit', 'Write', 'NotebookEdit')
-        AND mtc.file_path IS NOT NULL
-        AND m.subagent_type IS NOT NULL
-      GROUP BY m.subagent_type, mtc.file_path
-      ORDER BY cnt DESC
-    `;
-    const res = db.exec(sql, [from, to]);
-    if (!res.length) return [];
-    const rowsAll = res[0].values.map((row) => {
-      const subagent = String(row[0]);
-      return {
-        rowId: subagent,
-        rowLabel: subagent,
-        filePath: String(row[1]),
-        count: Number(row[2]),
-      };
+    // 経路 A (CC subagent) と経路 B (codex 委任) を共通ヘルパーで取得し、
+    // (subagent_type, file_path) 単位で件数を集計。
+    const activityRows = this.fetchSubagentActivityRows({
+      from,
+      to,
+      toolNames: SESSION_COUPLING_EDIT_TOOLS,
     });
+    const counts = new Map<string, { rowId: string; filePath: string; count: number }>();
+    for (const r of activityRows) {
+      if (!r.subagentType || !r.filePath) continue;
+      const key = `${r.subagentType} ${r.filePath}`;
+      const cur = counts.get(key);
+      if (cur) {
+        cur.count++;
+      } else {
+        counts.set(key, { rowId: r.subagentType, filePath: r.filePath, count: 1 });
+      }
+    }
+    const rowsAll = Array.from(counts.values())
+      .map(({ rowId, filePath, count }) => ({ rowId, rowLabel: rowId, filePath, count }))
+      .sort((a, b) => b.count - a.count);
     return limitToTopRowKeys(rowsAll, rowLimit);
   }
 
@@ -5509,6 +5671,24 @@ export class TrailDatabase {
       ? `(SELECT file_path FROM _hotspot_paths)`
       : `(${filePathsIn.map(() => '?').join(',')})`;
 
+    if (granularity === 'subagent') {
+      // 経路 A (CC subagent) と経路 B (codex 委任) を共通ヘルパーで取得し、
+      // filePathsIn で絞り込み。
+      if (useTempTable) db.run('DROP TABLE IF EXISTS _hotspot_paths');
+      const allowed = new Set(filePathsIn);
+      return this.fetchSubagentActivityRows({
+        from,
+        to,
+        toolNames: SESSION_COUPLING_EDIT_TOOLS,
+      })
+        .filter((r) => allowed.has(r.filePath))
+        .map((r) => ({
+          committedAt: r.committedAt,
+          filePath: r.filePath,
+          subagentType: r.subagentType,
+        }));
+    }
+
     let sql: string;
     let bindings: Array<string | number | null>;
     if (granularity === 'commit') {
@@ -5531,7 +5711,6 @@ export class TrailDatabase {
         WHERE m.timestamp >= ? AND m.timestamp <= ?
           AND mtc.tool_name IN ('Edit', 'Write', 'NotebookEdit')
           AND mtc.file_path IN ${inClause}
-          ${granularity === 'subagent' ? 'AND m.subagent_type IS NOT NULL' : ''}
         ORDER BY m.timestamp
       `;
       bindings = useTempTable ? [from, to] : [from, to, ...filePathsIn];
