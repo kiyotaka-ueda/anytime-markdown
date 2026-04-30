@@ -208,14 +208,24 @@ export function parseSession(
   }
 
   let errorCount = 0;
-  let subAgentCount = 0;
+  let agentToolCount = 0;
+  const delegationParents = new Set<string>();
   for (const raw of parsedRaws) {
+    // 委任マーカー: 子側メッセージが sourceToolAssistantUUID で親 assistant を参照する。
+    // CC sidechain と codex 委任の両方で同じカラムが立つため、1 個の親 UUID で1 件カウント。
+    if (raw.sourceToolAssistantUUID) {
+      delegationParents.add(raw.sourceToolAssistantUUID);
+    }
     if (!Array.isArray(raw.message?.content)) continue;
     for (const block of raw.message.content as readonly RawContentBlock[]) {
       if (raw.type === 'user' && block.type === 'tool_result' && block.is_error === true) errorCount++;
-      if (raw.type === 'assistant' && block.type === 'tool_use' && block.name === 'Agent') subAgentCount++;
+      if (raw.type === 'assistant' && block.type === 'tool_use' && block.name === 'Agent') agentToolCount++;
     }
   }
+  // 親側の Agent tool 呼出回数と、子側の委任マーカー集合の和。
+  // codex セッションが Bash 経由で起動された場合は Agent tool が出ないため、
+  // 子側マーカーで補完する。
+  const subAgentCount = Math.max(agentToolCount, delegationParents.size);
 
   // 自動 /compact の検出: 連続する assistant ターンで cacheRead が
   // 50K 以上積まれていた状態から 70% 以上減少したケースをカウント
