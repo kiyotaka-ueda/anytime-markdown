@@ -1,6 +1,6 @@
 import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 import { engine, layoutWithSubgroups, MinimapCanvas, state as graphState } from '@anytime-markdown/graph-core';
-import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, CommunityOverlayEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, HotspotMap, ImportanceMatrix, ManualGroup, MetricOverlay } from '@anytime-markdown/trail-core/c4';
+import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, CommunityOverlayEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, HeatmapMatrix, HotspotMap, ImportanceMatrix, ManualGroup, MetricOverlay } from '@anytime-markdown/trail-core/c4';
 import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, aggregateHotspotToC4, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, computeCommunityOverlay, computeFileHotspot, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFilesToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -25,6 +25,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 
 import { useTrailI18n } from '../../i18n';
 import { DOC_TYPE_COLORS, getC4Colors } from '../c4Theme';
+import { useActivityHeatmap } from '../hooks/useActivityHeatmap';
 import { useC4GhostEdges } from '../hooks/useC4GhostEdges';
 import { useDefectRisk } from '../hooks/useDefectRisk';
 import { useHotspot } from '../hooks/useHotspot';
@@ -67,6 +68,7 @@ import { DsmCanvas } from './DsmCanvas';
 import { FcMapCanvas } from './FcMapCanvas';
 import { FlowchartCanvas } from './FlowchartCanvas';
 import { GraphCanvas } from './GraphCanvas';
+import { HeatmapCanvas } from './HeatmapCanvas';
 import { HotspotControls, type HotspotControlsValue } from './HotspotControls';
 import { type CommunityLegendItem,OverlayLegend } from './OverlayLegend';
 import {
@@ -237,7 +239,8 @@ export function C4ViewerCore({
   const [showDsm, setShowDsm] = useState(false);
   const [showCoverage, setShowCoverage] = useState(false);
   const [showAncestorEdges, setShowAncestorEdges] = useState(true);
-  const [matrixView, setMatrixView] = useState<'dsm' | 'fcmap' | 'coverage'>('dsm');
+  const [matrixView, setMatrixView] = useState<'dsm' | 'fcmap' | 'coverage' | 'heatmap'>('dsm');
+  const [heatmapMode, setHeatmapMode] = useState<'session-file' | 'subagent-file'>('session-file');
   const [metricOverlay, setMetricOverlay] = useState<MetricOverlay>('none');
   const [drWindowDays, setDrWindowDays] = useState(90);
   const [tcValue, setTcValue] = useState<TemporalCouplingControlsValue>(DEFAULT_TC_VALUE);
@@ -252,6 +255,23 @@ export function C4ViewerCore({
     period: hotspotValue.period,
     granularity: hotspotValue.granularity,
   });
+  const heatmapEnabled = matrixView === 'heatmap';
+  const { data: heatmapResponse } = useActivityHeatmap({
+    enabled: heatmapEnabled,
+    serverUrl,
+    period: hotspotValue.period,
+    mode: heatmapMode,
+    topK: 50,
+  });
+  const heatmapMatrix = useMemo<HeatmapMatrix | null>(() => {
+    if (!heatmapResponse) return null;
+    return {
+      rows: heatmapResponse.rows,
+      columns: heatmapResponse.columns,
+      cells: heatmapResponse.cells,
+      maxValue: heatmapResponse.maxValue,
+    };
+  }, [heatmapResponse]);
   const { entries: drEntries } = useDefectRisk({
     enabled: metricOverlay === 'defect-risk',
     serverUrl,
@@ -1147,8 +1167,8 @@ export function C4ViewerCore({
         </Box>
         <Button size="small" onClick={() => { if (showC4 && !showDsm) { setShowDsm(true); } else { setShowC4(true); setShowDsm(false); } }} aria-pressed={showC4 && !showDsm} aria-label="Toggle C4 graph" sx={{ ...toolbarButtonSx, ...(showC4 && !showDsm && { bgcolor: toolbarButtonActiveBg }) }}>C4</Button>
         <ButtonGroup size="small">
-          {(['dsm', 'fcmap', 'coverage'] as const).map((view) => {
-            const label = view === 'dsm' ? 'DSM' : view === 'fcmap' ? 'F-cMap' : 'Cov';
+          {(['dsm', 'fcmap', 'coverage', 'heatmap'] as const).map((view) => {
+            const label = view === 'dsm' ? 'DSM' : view === 'fcmap' ? 'F-cMap' : view === 'coverage' ? 'Cov' : t('c4.viewToggle.heatmap');
             const isActive = showDsm && matrixView === view;
             const isDisabled = (view === 'fcmap' && !featureMatrix) || (view === 'coverage' && !coverageMatrix);
             return (
@@ -1177,6 +1197,25 @@ export function C4ViewerCore({
         </ButtonGroup>
         {showDsm && matrixView === 'dsm' && (
           <Button size="small" onClick={() => setDsmClustered(prev => !prev)} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(dsmClustered && { bgcolor: toolbarButtonActiveBg }) }}>Cluster</Button>
+        )}
+        {showDsm && matrixView === 'heatmap' && (
+          <ButtonGroup size="small" aria-label="Heatmap mode">
+            {(['session-file', 'subagent-file'] as const).map((m) => {
+              const label = m === 'session-file' ? t('c4.heatmap.modeSessionFile') : t('c4.heatmap.modeSubagentFile');
+              const isActive = heatmapMode === m;
+              return (
+                <Button
+                  key={m}
+                  size="small"
+                  aria-pressed={isActive}
+                  onClick={() => setHeatmapMode(m)}
+                  sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(isActive && { bgcolor: toolbarButtonActiveBg }) }}
+                >
+                  {label}
+                </Button>
+              );
+            })}
+          </ButtonGroup>
         )}
         {selectedExport && (
           <>
@@ -1791,7 +1830,23 @@ export function C4ViewerCore({
         {showDsm && (
           <Box sx={{ flex: showC4 ? 1 - splitRatio : 1, display: 'flex', flexDirection: 'column', minWidth: 100 }}>
             <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-              {matrixView === 'coverage' && coverageMatrix && c4Model ? (
+              {matrixView === 'heatmap' ? (
+                heatmapMatrix && heatmapMatrix.rows.length > 0 && heatmapMatrix.columns.length > 0 ? (
+                  <HeatmapCanvas
+                    matrix={heatmapMatrix}
+                    colorScale={isDark ? 'amber' : 'sumi'}
+                    selectedElementId={selectedElementId}
+                    onCellClick={(col) => setSelectedElementId(col.id)}
+                    isDark={isDark}
+                  />
+                ) : (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                    <Typography variant="body2" sx={{ color: colors.textSecondary }}>
+                      {heatmapEnabled ? t('c4.heatmap.empty') : t('c4.heatmap.loading')}
+                    </Typography>
+                  </Box>
+                )
+              ) : matrixView === 'coverage' && coverageMatrix && c4Model ? (
                 <CoverageCanvas coverageMatrix={coverageMatrix} coverageDiff={coverageDiff} model={c4Model} level={currentLevel} isDark={isDark} />
               ) : matrixView === 'fcmap' && featureMatrix && c4Model ? (
                 <FcMapCanvas featureMatrix={featureMatrix} model={c4Model} excludedElementIds={excludedDescendantIds} level={currentLevel} isDark={isDark} />
