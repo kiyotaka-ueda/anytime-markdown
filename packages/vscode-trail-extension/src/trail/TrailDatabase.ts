@@ -116,6 +116,9 @@ export const SESSION_COUPLING_EDIT_TOOLS: readonly string[] = [
   'NotebookEdit',
 ];
 
+/** subagent 粒度集計で codex 委任セッションを表すラベル。 */
+export const CODEX_SUBAGENT_TYPE = 'codex';
+
 export type FetchTemporalCouplingOptions = {
   repoName: string;
   windowDays: number;
@@ -3020,8 +3023,7 @@ export class TrailDatabase {
     }
 
     if (isSubagentType) {
-      // 経路 A (CC subagent) と経路 B (codex 委任) を共通ヘルパーで取得。
-      // s.start_time 起点の範囲フィルタを維持（既存挙動互換）。
+      // filterBy='session' で TC subagentType の既存挙動（s.start_time でのウィンドウ判定）を維持。
       const activityRows = this.fetchSubagentActivityRows({
         from: fromIso,
         to: toIso,
@@ -3769,105 +3771,129 @@ export class TrailDatabase {
     return rows;
   }
 
+  /**
+   * 委任 (CC sidechain or codex) を CC 親 assistant UUID から委任先 codex session ID へ解決する。
+   * 1セッション分の解決を行うラッパー。バッチ実行は `fetchLinkedCodexSessionMapForCcSessions` を使う。
+   */
   getLinkedCodexSessionByAssistantUuid(sessionId: string): Map<string, string> {
-    const db = this.ensureDb();
-    const out = new Map<string, string>();
-
-    const repoRes = db.exec('SELECT repo_name FROM sessions WHERE id = ? LIMIT 1', [sessionId]);
-    const repoName = String(repoRes[0]?.values?.[0]?.[0] ?? '');
-
-    const delegationRes = db.exec(
-      `SELECT source_tool_assistant_uuid, MIN(timestamp)
-       FROM messages
-       WHERE session_id = ?
-         AND source_tool_assistant_uuid IS NOT NULL
-         AND source_tool_assistant_uuid != ''
-       GROUP BY source_tool_assistant_uuid`,
-      [sessionId],
-    );
-    const delegations = (delegationRes[0]?.values ?? [])
-      .map((r) => ({ assistantUuid: String(r[0] ?? ''), timestamp: String(r[1] ?? '') }))
-      .filter((r) => r.assistantUuid.length > 0 && r.timestamp.length > 0);
-    if (delegations.length === 0) return out;
-
-    const codexRes = db.exec(
-      `SELECT id, start_time, end_time
-       FROM sessions
-       WHERE source = 'codex'
-         AND (? = '' OR repo_name = ?)
-       ORDER BY start_time ASC`,
-      [repoName, repoName],
-    );
-    const codexSessions = (codexRes[0]?.values ?? [])
-      .map((r) => ({
-        id: String(r[0] ?? ''),
-        startMs: Date.parse(String(r[1] ?? '')),
-        endMs: Date.parse(String(r[2] ?? '')),
-      }))
-      .filter((s) => s.id.length > 0 && Number.isFinite(s.startMs) && Number.isFinite(s.endMs));
-    if (codexSessions.length === 0) return out;
-
-    for (const d of delegations) {
-      const t = Date.parse(d.timestamp);
-      if (!Number.isFinite(t)) continue;
-      let bestId: string | null = null;
-      let bestScore = Number.POSITIVE_INFINITY;
-      for (const s of codexSessions) {
-        const inside = t >= (s.startMs - 5 * 60_000) && t <= (s.endMs + 5 * 60_000);
-        const score = Math.abs(s.startMs - t);
-        if (inside && score < bestScore) {
-          bestScore = score;
-          bestId = s.id;
-        }
-      }
-      if (!bestId) {
-        for (const s of codexSessions) {
-          const score = Math.abs(s.startMs - t);
-          if (score <= 60 * 60_000 && score < bestScore) {
-            bestScore = score;
-            bestId = s.id;
-          }
-        }
-      }
-      if (bestId) out.set(d.assistantUuid, bestId);
-    }
-    return out;
+    return this.fetchLinkedCodexSessionMapForCcSessions([sessionId]).get(sessionId) ?? new Map();
   }
 
   getLinkedCodexSessionCount(sessionId: string): number {
-    const linked = this.getLinkedCodexSessionByAssistantUuid(sessionId);
-    const ids = new Set<string>();
-    for (const sid of linked.values()) ids.add(sid);
-    return ids.size;
+    return new Set(this.getLinkedCodexSessionByAssistantUuid(sessionId).values()).size;
   }
 
   /**
    * 期間 [from, to] 内の Claude Code セッションから委任された codex セッション ID 集合。
-   * `getLinkedCodexSessionByAssistantUuid` を CC セッション全件に対して走らせ、
-   * 解決された codex セッション ID を重複排除して返す。
    */
   fetchLinkedCodexSessionIdsInRange(from: string, to: string): Set<string> {
-    const db = this.ensureDb();
     const out = new Set<string>();
     try {
+      const db = this.ensureDb();
       const ccRes = db.exec(
         `SELECT id FROM sessions
          WHERE source = 'claude_code'
            AND start_time >= ? AND start_time <= ?`,
         [from, to],
       );
-      const ccIds = (ccRes[0]?.values ?? []).map((r) => String(r[0] ?? ''));
-      for (const sid of ccIds) {
-        if (!sid) continue;
-        const linked = this.getLinkedCodexSessionByAssistantUuid(sid);
-        for (const codexId of linked.values()) {
-          if (codexId) out.add(codexId);
-        }
+      const ccIds = (ccRes[0]?.values ?? [])
+        .map((r) => String(r[0] ?? ''))
+        .filter((s) => s.length > 0);
+      const linkMap = this.fetchLinkedCodexSessionMapForCcSessions(ccIds);
+      for (const m of linkMap.values()) {
+        for (const codexId of m.values()) out.add(codexId);
       }
     } catch (e) {
       TrailLogger.warn(
         `fetchLinkedCodexSessionIdsInRange failed (returning empty set): ${e instanceof Error ? e.message : String(e)}`,
       );
+    }
+    return out;
+  }
+
+  /**
+   * 複数 CC セッションについて `(parent_assistant_uuid → codex_session_id)` Map をバッチ解決する。
+   * クエリ数は CC セッション数によらず最大 3。N+1 を避けるための共通実装。
+   */
+  private fetchLinkedCodexSessionMapForCcSessions(
+    ccSessionIds: readonly string[],
+  ): Map<string, Map<string, string>> {
+    const out = new Map<string, Map<string, string>>();
+    if (ccSessionIds.length === 0) return out;
+    const db = this.ensureDb();
+    const idPlaceholders = ccSessionIds.map(() => '?').join(',');
+
+    type Delegation = { ccSessionId: string; parentUuid: string; ms: number };
+    type CodexSess = { id: string; repoName: string; startMs: number; endMs: number };
+
+    const ccRepoRes = db.exec(
+      `SELECT id, repo_name FROM sessions WHERE id IN (${idPlaceholders})`,
+      ccSessionIds as string[],
+    );
+    const repoByCcId = new Map<string, string>();
+    for (const r of ccRepoRes[0]?.values ?? []) {
+      repoByCcId.set(String(r[0] ?? ''), String(r[1] ?? ''));
+    }
+
+    const delegRes = db.exec(
+      `SELECT session_id, source_tool_assistant_uuid, MIN(timestamp)
+       FROM messages
+       WHERE session_id IN (${idPlaceholders})
+         AND source_tool_assistant_uuid IS NOT NULL
+         AND source_tool_assistant_uuid != ''
+       GROUP BY session_id, source_tool_assistant_uuid`,
+      ccSessionIds as string[],
+    );
+    const delegationsByCc = new Map<string, Delegation[]>();
+    const repoNamesNeeded = new Set<string>();
+    for (const r of delegRes[0]?.values ?? []) {
+      const ccId = String(r[0] ?? '');
+      const parent = String(r[1] ?? '');
+      const ts = String(r[2] ?? '');
+      const ms = Date.parse(ts);
+      if (!ccId || !parent || !Number.isFinite(ms)) continue;
+      const list = delegationsByCc.get(ccId) ?? [];
+      list.push({ ccSessionId: ccId, parentUuid: parent, ms });
+      delegationsByCc.set(ccId, list);
+      repoNamesNeeded.add(repoByCcId.get(ccId) ?? '');
+    }
+    if (delegationsByCc.size === 0) return out;
+
+    const repoFilter = Array.from(repoNamesNeeded).filter((r) => r.length > 0);
+    const codexRes = repoFilter.length > 0
+      ? db.exec(
+          `SELECT id, repo_name, start_time, end_time
+           FROM sessions
+           WHERE source = 'codex' AND repo_name IN (${repoFilter.map(() => '?').join(',')})
+           ORDER BY start_time ASC`,
+          repoFilter,
+        )
+      : db.exec(
+          `SELECT id, repo_name, start_time, end_time
+           FROM sessions WHERE source = 'codex' ORDER BY start_time ASC`,
+        );
+    const codexByRepo = new Map<string, CodexSess[]>();
+    for (const r of codexRes[0]?.values ?? []) {
+      const id = String(r[0] ?? '');
+      const repo = String(r[1] ?? '');
+      const startMs = Date.parse(String(r[2] ?? ''));
+      const endMs = Date.parse(String(r[3] ?? ''));
+      if (!id || !Number.isFinite(startMs) || !Number.isFinite(endMs)) continue;
+      const list = codexByRepo.get(repo) ?? [];
+      list.push({ id, repoName: repo, startMs, endMs });
+      codexByRepo.set(repo, list);
+    }
+
+    for (const [ccId, delegations] of delegationsByCc) {
+      const repo = repoByCcId.get(ccId) ?? '';
+      const candidates = codexByRepo.get(repo) ?? [];
+      if (candidates.length === 0) continue;
+      const m = new Map<string, string>();
+      for (const d of delegations) {
+        const matched = matchCodexSessionByTime(d.ms, candidates);
+        if (matched) m.set(d.parentUuid, matched);
+      }
+      if (m.size > 0) out.set(ccId, m);
     }
     return out;
   }
@@ -3969,7 +3995,7 @@ export class TrailDatabase {
           rows.push({
             committedAt: String(row[0] ?? ''),
             filePath: String(row[1] ?? ''),
-            subagentType: 'codex',
+            subagentType: CODEX_SUBAGENT_TYPE,
             sessionId: String(row[2] ?? ''),
             messageUuid: String(row[3] ?? ''),
           });
@@ -5546,7 +5572,6 @@ export class TrailDatabase {
     const { from, to, granularity } = params;
 
     if (granularity === 'subagent') {
-      // 経路 A (CC subagent) と経路 B (codex 委任) を共通ヘルパーで取得し、file_path 単位で集計。
       const activityRows = this.fetchSubagentActivityRows({
         from,
         to,
@@ -5617,8 +5642,6 @@ export class TrailDatabase {
       });
       return limitToTopRowKeys(rowsAll, rowLimit);
     }
-    // 経路 A (CC subagent) と経路 B (codex 委任) を共通ヘルパーで取得し、
-    // (subagent_type, file_path) 単位で件数を集計。
     const activityRows = this.fetchSubagentActivityRows({
       from,
       to,
@@ -5672,8 +5695,6 @@ export class TrailDatabase {
       : `(${filePathsIn.map(() => '?').join(',')})`;
 
     if (granularity === 'subagent') {
-      // 経路 A (CC subagent) と経路 B (codex 委任) を共通ヘルパーで取得し、
-      // filePathsIn で絞り込み。
       if (useTempTable) db.run('DROP TABLE IF EXISTS _hotspot_paths');
       const allowed = new Set(filePathsIn);
       return this.fetchSubagentActivityRows({
@@ -5760,6 +5781,31 @@ const HOTSPOT_SQL_BY_GRANULARITY: Record<'commit' | 'session' | 'subagent', stri
     ORDER BY churn DESC
   `,
 };
+
+function matchCodexSessionByTime(
+  delegationMs: number,
+  candidates: ReadonlyArray<{ readonly id: string; readonly startMs: number; readonly endMs: number }>,
+): string | null {
+  let bestId: string | null = null;
+  let bestScore = Number.POSITIVE_INFINITY;
+  for (const s of candidates) {
+    const inside = delegationMs >= s.startMs - 5 * 60_000 && delegationMs <= s.endMs + 5 * 60_000;
+    const score = Math.abs(s.startMs - delegationMs);
+    if (inside && score < bestScore) {
+      bestScore = score;
+      bestId = s.id;
+    }
+  }
+  if (bestId) return bestId;
+  for (const s of candidates) {
+    const score = Math.abs(s.startMs - delegationMs);
+    if (score <= 60 * 60_000 && score < bestScore) {
+      bestScore = score;
+      bestId = s.id;
+    }
+  }
+  return bestId;
+}
 
 function limitToTopRowKeys<T extends { rowId: string; count: number }>(
   rows: ReadonlyArray<T>,
