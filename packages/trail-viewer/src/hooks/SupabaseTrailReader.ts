@@ -129,7 +129,11 @@ export class SupabaseTrailReader implements ITrailReader {
       .in('session_id', sessionIds as string[])
       .not('agent_id', 'is', null);
     if (error) {
-      // 旧スキーマ（agent_id カラム未追加）でも getSessions が落ちないようグレースフル fallback
+      // 旧スキーマ（agent_id カラム未追加）でも getSessions が落ちないようグレースフル fallback。
+      // 失敗内容は記録して、サイレントに 0 件返さないようにする。
+      console.warn(
+        `[SupabaseTrailReader] fetchSubAgentCountsForSessions failed (sessionCount=${sessionIds.length}): ${error.message}`,
+      );
       return out;
     }
     const distinctByScope = new Map<string, Set<string>>();
