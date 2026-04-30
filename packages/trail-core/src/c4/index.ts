@@ -63,6 +63,9 @@ export type { ImportanceMatrix } from '../importance/types';
 
 export { mergeManualIntoC4Model } from './mergeManual';
 
+export { computeCommunityOverlay } from './computeCommunityOverlay';
+export type { CommunityOverlayEntry } from './computeCommunityOverlay';
+
 export type {
   ManualElement,
   ManualRelationship,
