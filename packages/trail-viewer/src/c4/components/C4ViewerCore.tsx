@@ -1,7 +1,7 @@
-import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, computeCommunityOverlay, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFilesToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
-import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, CommunityOverlayEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, ImportanceMatrix, ManualGroup, MetricOverlay } from '@anytime-markdown/trail-core/c4';
 import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 import { engine, layoutWithSubgroups, MinimapCanvas, state as graphState } from '@anytime-markdown/graph-core';
+import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, CommunityOverlayEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, HotspotMap, ImportanceMatrix, ManualGroup, MetricOverlay } from '@anytime-markdown/trail-core/c4';
+import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, aggregateHotspotToC4, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, computeCommunityOverlay, computeFileHotspot, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFilesToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
@@ -16,8 +16,8 @@ import ButtonGroup from '@mui/material/ButtonGroup';
 import LinearProgress from '@mui/material/LinearProgress';
 import ListSubheader from '@mui/material/ListSubheader';
 import MenuItem from '@mui/material/MenuItem';
-import Select from '@mui/material/Select';
 import type { SelectChangeEvent } from '@mui/material/Select';
+import Select from '@mui/material/Select';
 import Toolbar from '@mui/material/Toolbar';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
@@ -25,9 +25,10 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 
 import { useTrailI18n } from '../../i18n';
 import { DOC_TYPE_COLORS, getC4Colors } from '../c4Theme';
-import { useDefectRisk } from '../hooks/useDefectRisk';
-import { useTemporalCoupling } from '../hooks/useTemporalCoupling';
 import { useC4GhostEdges } from '../hooks/useC4GhostEdges';
+import { useDefectRisk } from '../hooks/useDefectRisk';
+import { useHotspot } from '../hooks/useHotspot';
+import { useTemporalCoupling } from '../hooks/useTemporalCoupling';
 
 const UNKNOWN_REPO_KEY = '__unknown__';
 const CURRENT_RELEASE_TAG = 'current';
@@ -52,24 +53,26 @@ function matchesDocScope(docScope: readonly string[], elementId: string): boolea
 function formatPct(value: number): string {
   return `${Math.round(value)}%`;
 }
-import { AddElementDialog, AddRelationshipDialog } from './C4EditDialogs';
-import type { C4ElementKind, ElementFormData, RelationshipFormData } from './C4EditDialogs';
 import type { ExportedSymbol, FlowGraph } from '@anytime-markdown/trail-core/analyzer';
+import GroupWorkIcon from '@mui/icons-material/GroupWork';
+
+import { communityColor } from '../../components/communityColors';
+import { useCodeGraph } from '../../hooks/useCodeGraph';
+import { computeClaudeActivityColorMap, computeConflictBorderMap,computeMultiAgentColorMap } from '../claudeActivityColorMap';
+import type { C4ElementKind, ElementFormData, RelationshipFormData } from './C4EditDialogs';
+import { AddElementDialog, AddRelationshipDialog } from './C4EditDialogs';
 import { C4ElementTree } from './C4ElementTree';
 import { CoverageCanvas } from './CoverageCanvas';
 import { DsmCanvas } from './DsmCanvas';
 import { FcMapCanvas } from './FcMapCanvas';
 import { FlowchartCanvas } from './FlowchartCanvas';
 import { GraphCanvas } from './GraphCanvas';
-import { OverlayLegend, type CommunityLegendItem } from './OverlayLegend';
+import { HotspotControls, type HotspotControlsValue } from './HotspotControls';
+import { type CommunityLegendItem,OverlayLegend } from './OverlayLegend';
 import {
   TemporalCouplingControls,
   type TemporalCouplingControlsValue,
 } from './TemporalCouplingControls';
-import { computeClaudeActivityColorMap, computeMultiAgentColorMap, computeConflictBorderMap } from '../claudeActivityColorMap';
-import { useCodeGraph } from '../../hooks/useCodeGraph';
-import { communityColor } from '../../components/communityColors';
-import GroupWorkIcon from '@mui/icons-material/GroupWork';
 
 const { graphReducer, createInitialState } = graphState;
 const { fitToContent } = engine;
@@ -238,6 +241,17 @@ export function C4ViewerCore({
   const [metricOverlay, setMetricOverlay] = useState<MetricOverlay>('none');
   const [drWindowDays, setDrWindowDays] = useState(90);
   const [tcValue, setTcValue] = useState<TemporalCouplingControlsValue>(DEFAULT_TC_VALUE);
+  const [hotspotValue, setHotspotValue] = useState<HotspotControlsValue>({
+    period: '30d',
+    granularity: 'commit',
+  });
+  const isHotspotOverlay = metricOverlay === 'hotspot-frequency' || metricOverlay === 'hotspot-risk';
+  const { data: hotspotResponse, loading: hotspotLoading } = useHotspot({
+    enabled: isHotspotOverlay,
+    serverUrl,
+    period: hotspotValue.period,
+    granularity: hotspotValue.granularity,
+  });
   const { entries: drEntries } = useDefectRisk({
     enabled: metricOverlay === 'defect-risk',
     serverUrl,
@@ -701,9 +715,29 @@ export function C4ViewerCore({
     return filtered;
   }, [defectRiskMap, c4Model, currentLevel]);
 
+  const hotspotMap = useMemo<HotspotMap | null>(() => {
+    if (!isHotspotOverlay || !hotspotResponse || !c4Model) return null;
+    const fileHotspots = computeFileHotspot(hotspotResponse.files);
+    return aggregateHotspotToC4(fileHotspots, c4Model, complexityMatrix ?? null);
+  }, [isHotspotOverlay, hotspotResponse, c4Model, complexityMatrix]);
+
+  const levelFilteredHotspotMap = useMemo<HotspotMap | null>(() => {
+    if (!hotspotMap || !c4Model) return hotspotMap;
+    const targetType = currentLevel === 1 ? 'system'
+      : currentLevel === 2 ? 'container'
+      : currentLevel === 3 ? 'component'
+      : 'code';
+    const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
+    const filtered = new Map<string, ReturnType<HotspotMap['get']> & object>();
+    for (const [id, entry] of hotspotMap) {
+      if (entry && typeById.get(id) === targetType) filtered.set(id, entry);
+    }
+    return filtered;
+  }, [hotspotMap, c4Model, currentLevel]);
+
   const overlayMap = useMemo(
-    () => computeColorMap(metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap),
-    [metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap],
+    () => computeColorMap(metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap),
+    [metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap],
   );
 
   // Community overlay: L3/L4 のみ。トグル ON かつ codeGraph が取得済みのときのみ計算する
@@ -1104,6 +1138,11 @@ export function C4ViewerCore({
             </ListSubheader>
             <MenuItem value="importance" disabled={!importanceMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.importance')}</MenuItem>
             <MenuItem value="defect-risk" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.defectRisk')}</MenuItem>
+            <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
+              {t('c4.overlay.groupHotspot')}
+            </ListSubheader>
+            <MenuItem value="hotspot-frequency" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotFrequency')}</MenuItem>
+            <MenuItem value="hotspot-risk" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotRisk')}</MenuItem>
           </Select>
         </Box>
         <Button size="small" onClick={() => { if (showC4 && !showDsm) { setShowDsm(true); } else { setShowC4(true); setShowDsm(false); } }} aria-pressed={showC4 && !showDsm} aria-label="Toggle C4 graph" sx={{ ...toolbarButtonSx, ...(showC4 && !showDsm && { bgcolor: toolbarButtonActiveBg }) }}>C4</Button>
@@ -1196,6 +1235,13 @@ export function C4ViewerCore({
         resultCount={ghostEdges.length}
         loading={tcLoading}
       />
+      {isHotspotOverlay && (
+        <HotspotControls
+          value={hotspotValue}
+          onChange={setHotspotValue}
+          loading={hotspotLoading}
+        />
+      )}
       {(currentLevel === 1 || currentLevel === 2 || currentLevel === 3) && (
         <Toolbar variant="dense" sx={{ gap: 1, bgcolor: colors.bgSecondary, borderBottom: `1px solid ${colors.border}`, minHeight: 36, px: { xs: 2, md: 3 } }}>
           <Typography variant="caption" sx={{ color: colors.textMuted, mr: 1, fontSize: '0.7rem' }}>Edit</Typography>
