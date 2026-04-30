@@ -97,6 +97,12 @@ export function OverlayLegend({ overlay, isDark, dsmMax, communityLegend, commun
         position: 'absolute',
         bottom: 12,
         right: 12,
+        // 上端に Minimap (top: 8, height ~150px) がいるため、bottom 起点で
+        // 上方向に成長する高さを Minimap 領域分（約 180px）控えて制限する。
+        // 内容が溢れた場合はスクロールできるよう pointerEvents を有効化する。
+        maxHeight: 'calc(100% - 180px)',
+        overflowY: 'auto',
+        overflowX: 'hidden',
         bgcolor: bg,
         color: textColor,
         borderRadius: 1,
@@ -105,11 +111,17 @@ export function OverlayLegend({ overlay, isDark, dsmMax, communityLegend, commun
         display: 'flex',
         flexDirection: 'column',
         gap: 0.4,
-        pointerEvents: 'none',
+        pointerEvents: 'auto',
         zIndex: 10,
         backdropFilter: 'blur(4px)',
         minWidth: 80,
         maxWidth: 220,
+        // Webkit 系ブラウザのスクロールバー細身化
+        '&::-webkit-scrollbar': { width: 6 },
+        '&::-webkit-scrollbar-thumb': {
+          bgcolor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)',
+          borderRadius: 3,
+        },
       }}
     >
       {hasCommunity && (
