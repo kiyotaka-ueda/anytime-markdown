@@ -186,4 +186,50 @@ describe('TrailDatabase.fetchTemporalCoupling (granularity=subagentType)', () =>
     expect(edges).toHaveLength(1);
     expect(edges[0]).toMatchObject({ source: 'src/a.ts', target: 'src/b.ts', jaccard: 1.0 });
   });
+
+  it('includes codex-linked sessions as subagentType="codex" in coupling', () => {
+    // CC parent session with a delegation marker pointing to a codex session
+    const ccStart = isoDaysAgo(1);
+    insertSession(db, 'cc1', ccStart);
+    insertMessage(db, 'p-uuid', 'cc1', null);
+
+    const inner = (db as unknown as { db: SqlJsDb }).db;
+    // delegation marker (child message in CC session pointing back to parent assistant)
+    inner.run(
+      `INSERT INTO messages (uuid, session_id, parent_uuid, type, timestamp, source_tool_assistant_uuid)
+       VALUES ('cc1-child', 'cc1', NULL, 'assistant', ?, 'p-uuid')`,
+      [ccStart],
+    );
+    // codex session in same repo, time-overlapping the delegation
+    const codexStart = new Date(Date.parse(ccStart) + 60_000).toISOString();
+    const codexEnd = new Date(Date.parse(ccStart) + 5 * 60_000).toISOString();
+    inner.run(
+      `INSERT INTO sessions (
+         id, slug, repo_name, version, entrypoint, model, start_time, end_time,
+         message_count, file_path, file_size, imported_at, source
+       ) VALUES ('codex1', 'codex1', 'r', '0', '', '', ?, ?, 0, '', 0, '', 'codex')`,
+      [codexStart, codexEnd],
+    );
+    // codex session message edits 2 files (both within same group → co-change pair within 'codex')
+    inner.run(
+      `INSERT INTO messages (uuid, session_id, parent_uuid, type, timestamp)
+       VALUES ('cm1', 'codex1', NULL, 'assistant', ?)`,
+      [codexStart],
+    );
+    insertToolCall(db, 'codex1', 'cm1', 0, 'Edit', 'src/a.ts');
+    insertToolCall(db, 'codex1', 'cm1', 1, 'Edit', 'src/b.ts');
+
+    const edges = db.fetchTemporalCoupling({
+      repoName: 'r',
+      windowDays: 30,
+      minChangeCount: 1,
+      jaccardThreshold: 0,
+      topK: 50,
+      granularity: 'subagentType',
+    });
+
+    // 'codex' group が a, b を共編集 → (a, b) ペアが produced
+    expect(edges).toHaveLength(1);
+    expect(edges[0]).toMatchObject({ source: 'src/a.ts', target: 'src/b.ts', jaccard: 1.0 });
+  });
 });
