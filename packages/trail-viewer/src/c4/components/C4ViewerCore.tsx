@@ -1,5 +1,5 @@
-import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFilesToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
-import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, ImportanceMatrix, ManualGroup, MetricOverlay } from '@anytime-markdown/trail-core/c4';
+import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, computeCommunityOverlay, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFilesToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
+import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, CommunityOverlayEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, ImportanceMatrix, ManualGroup, MetricOverlay } from '@anytime-markdown/trail-core/c4';
 import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 import { engine, layoutWithSubgroups, MinimapCanvas, state as graphState } from '@anytime-markdown/graph-core';
 import AddIcon from '@mui/icons-material/Add';
@@ -48,8 +48,11 @@ import { DsmCanvas } from './DsmCanvas';
 import { FcMapCanvas } from './FcMapCanvas';
 import { FlowchartCanvas } from './FlowchartCanvas';
 import { GraphCanvas } from './GraphCanvas';
-import { OverlayLegend } from './OverlayLegend';
+import { OverlayLegend, type CommunityLegendItem } from './OverlayLegend';
 import { computeClaudeActivityColorMap, computeMultiAgentColorMap, computeConflictBorderMap } from '../claudeActivityColorMap';
+import { useCodeGraph } from '../../hooks/useCodeGraph';
+import { communityColor } from '../../components/communityColors';
+import GroupWorkIcon from '@mui/icons-material/GroupWork';
 
 const { graphReducer, createInitialState } = graphState;
 const { fitToContent } = engine;
@@ -237,6 +240,10 @@ export function C4ViewerCore({
   const [soloFrameId, setSoloFrameId] = useState<string | null>(null);
   const [centerOnSelect, setCenterOnSelect] = useState(false);
   const [splitRatio, setSplitRatio] = useState(0.5);
+
+  // --- Community overlay state ---
+  const [showCommunity, setShowCommunity] = useState(false);
+  const { graph: codeGraph } = useCodeGraph(serverUrl, { enabled: showCommunity });
 
   // --- Flow mode state ---
   const [exports, setExports] = useState<readonly ExportedSymbol[]>([]);
@@ -659,6 +666,45 @@ export function C4ViewerCore({
     [metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap],
   );
 
+  // Community overlay: L3/L4 のみ。トグル ON かつ codeGraph が取得済みのときのみ計算する
+  const communityOverlay = useMemo<ReadonlyMap<string, CommunityOverlayEntry> | null>(() => {
+    if (!showCommunity || !codeGraph || !c4Model) return null;
+    if (currentLevel !== 3 && currentLevel !== 4) return null;
+    return computeCommunityOverlay(c4Model, codeGraph, currentLevel as 3 | 4, selectedRepo || null);
+  }, [showCommunity, codeGraph, c4Model, currentLevel, selectedRepo]);
+
+  const communityMap = useMemo(() => {
+    if (!communityOverlay) return null;
+    const map = new Map<string, { color: string; isGodNode: boolean }>();
+    for (const [elementId, entry] of communityOverlay) {
+      map.set(elementId, {
+        color: communityColor(entry.dominantCommunity),
+        isGodNode: entry.isGodNode,
+      });
+    }
+    return map.size > 0 ? map : null;
+  }, [communityOverlay]);
+
+  const communityLegend = useMemo<readonly CommunityLegendItem[] | null>(() => {
+    if (!communityOverlay || !codeGraph) return null;
+    const seen = new Set<number>();
+    const items: CommunityLegendItem[] = [];
+    for (const entry of communityOverlay.values()) {
+      if (seen.has(entry.dominantCommunity)) continue;
+      seen.add(entry.dominantCommunity);
+      const summary = entry.communitySummary;
+      const fallbackName = codeGraph.communities[entry.dominantCommunity];
+      items.push({
+        community: entry.dominantCommunity,
+        color: communityColor(entry.dominantCommunity),
+        name: summary?.name ?? fallbackName ?? `#${entry.dominantCommunity}`,
+        summary: summary?.summary,
+      });
+    }
+    items.sort((a, b) => a.community - b.community);
+    return items.length > 0 ? items : null;
+  }, [communityOverlay, codeGraph]);
+
   const claudeActivityMap = useMemo(() => {
     // マルチエージェントモード
     if (multiAgentActivity && multiAgentActivity.agents.length > 0) {
@@ -787,8 +833,9 @@ export function C4ViewerCore({
           in: filteredDsmMatrix.adjacency.reduce((sum, row) => sum + (row[dsmIndex] > 0 ? 1 : 0), 0),
         }
       : null;
-    return { element, incoming, outgoing, documents, coverage, complexity, importance, defectRisk, dsm };
-  }, [c4Model, complexityMatrix, coverageMatrix, defectRiskMap, docLinks, filteredDsmMatrix, importanceMatrix, selectedElementId]);
+    const community = communityOverlay?.get(element.id) ?? null;
+    return { element, incoming, outgoing, documents, coverage, complexity, importance, defectRisk, dsm, community };
+  }, [c4Model, complexityMatrix, coverageMatrix, defectRiskMap, docLinks, filteredDsmMatrix, importanceMatrix, selectedElementId, communityOverlay]);
 
   const handleSplitDrag = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -929,6 +976,29 @@ export function C4ViewerCore({
           }}
         >
           Upper Lines
+        </Button>
+        <Button
+          size="small"
+          startIcon={<GroupWorkIcon sx={{ fontSize: 16 }} />}
+          onClick={() => setShowCommunity(prev => !prev)}
+          disabled={currentLevel < 3 || (showCommunity && !codeGraph)}
+          aria-pressed={showCommunity}
+          aria-label="Toggle community overlay"
+          title={
+            currentLevel < 3
+              ? t('c4.community.disabledLevel')
+              : showCommunity && !codeGraph
+                ? t('c4.community.disabledNoData')
+                : t('c4.community.toggle')
+          }
+          sx={{
+            ...toolbarButtonSx,
+            ml: 0.5,
+            fontSize: '0.75rem',
+            ...(showCommunity && currentLevel >= 3 && { bgcolor: toolbarButtonActiveBg }),
+          }}
+        >
+          {t('c4.community.toggle')}
         </Button>
         <Button size="small" startIcon={<FitScreenIcon sx={{ fontSize: 16 }} />} onClick={handleFit} sx={{ ...toolbarButtonSx, ml: 0.5 }} aria-label="Fit">Fit</Button>
         {soloFrameId !== null && (
@@ -1168,6 +1238,7 @@ export function C4ViewerCore({
                 centerOnSelect={centerOnSelect}
                 overlayMap={overlayMap.size > 0 ? overlayMap : null}
                 claudeActivityMap={claudeActivityMapWithConflicts}
+                communityMap={communityMap}
                 onNodeSelect={(id) => { setCenterOnSelect(false); setSelectedElementId(id); }}
                 onNodeDoubleClick={(nodeId) => {
                   if (!c4Model) return;
@@ -1179,7 +1250,13 @@ export function C4ViewerCore({
                 }}
                 onNodeContextMenu={handleNodeContextMenu}
               />
-              <OverlayLegend overlay={metricOverlay} isDark={isDark} dsmMax={dsmMax} />
+              <OverlayLegend
+                overlay={metricOverlay}
+                isDark={isDark}
+                dsmMax={dsmMax}
+                communityLegend={communityLegend ?? undefined}
+                communityTitle={communityLegend ? t('c4.community.title') : undefined}
+              />
               <MinimapCanvas
                 nodes={state.document.nodes}
                 viewport={state.document.viewport}
@@ -1301,6 +1378,63 @@ export function C4ViewerCore({
                       </Box>
                     </Box>
                   </Box>
+                  {selectedElementInfo.community && (() => {
+                    const community = selectedElementInfo.community;
+                    const summary = community.communitySummary;
+                    const fallbackName = codeGraph?.communities[community.dominantCommunity];
+                    const displayName = summary?.name ?? fallbackName ?? `#${community.dominantCommunity}`;
+                    const dominantColor = communityColor(community.dominantCommunity);
+                    const showBreakdown = currentLevel === 3 && community.breakdown.length > 1;
+                    const topThree = community.breakdown.slice(0, 3);
+                    const otherCount = community.breakdown.slice(3).reduce((sum, e) => sum + e.count, 0);
+                    const totalCount = community.breakdown.reduce((sum, e) => sum + e.count, 0);
+                    return (
+                      <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 1 }}>
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700, mb: 0.5 }}>
+                          {t('c4.community.title')}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                          <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: dominantColor, flexShrink: 0 }} />
+                          <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.74rem', fontWeight: 600, wordBreak: 'break-word' }}>
+                            {displayName}
+                          </Typography>
+                        </Box>
+                        {summary?.summary && (
+                          <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.66rem', mt: 0.5, lineHeight: 1.4 }}>
+                            {summary.summary}
+                          </Typography>
+                        )}
+                        {community.isGodNode && (
+                          <Typography variant="caption" sx={{ display: 'inline-block', mt: 0.5, px: 0.5, py: 0.125, borderRadius: '4px', bgcolor: colors.accent, color: isDark ? colors.bg : '#fff', fontSize: '0.6rem', fontWeight: 700 }}>
+                            ★ {t('c4.community.hubNode')}
+                          </Typography>
+                        )}
+                        {showBreakdown && (
+                          <Box sx={{ mt: 0.75 }}>
+                            <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem', mb: 0.25 }}>
+                              {t('c4.community.breakdown')}
+                            </Typography>
+                            {topThree.map(entry => (
+                              <Box key={entry.community} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.25 }}>
+                                <Box sx={{ width: 8, height: 8, borderRadius: '2px', bgcolor: communityColor(entry.community), flexShrink: 0 }} />
+                                <Box sx={{ flex: 1, height: 4, bgcolor: colors.hover, borderRadius: '2px', overflow: 'hidden' }}>
+                                  <Box sx={{ width: `${(entry.count / totalCount) * 100}%`, height: '100%', bgcolor: communityColor(entry.community) }} />
+                                </Box>
+                                <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.6rem', minWidth: 32, textAlign: 'right' }}>
+                                  {Math.round((entry.count / totalCount) * 100)}%
+                                </Typography>
+                              </Box>
+                            ))}
+                            {otherCount > 0 && (
+                              <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.58rem' }}>
+                                {t('c4.community.other')}: {Math.round((otherCount / totalCount) * 100)}%
+                              </Typography>
+                            )}
+                          </Box>
+                        )}
+                      </Box>
+                    );
+                  })()}
                   <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 1 }}>
                     <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700, mb: 0.5 }}>
                       Documents
