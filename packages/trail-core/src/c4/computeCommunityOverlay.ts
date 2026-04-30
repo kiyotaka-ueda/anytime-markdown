@@ -24,20 +24,47 @@ function stripExt(filePath: string): string {
   return filePath.replace(STRIPPABLE_EXT_RE, '');
 }
 
-function findNodeByPath(
-  cleanedPath: string,
+/**
+ * CodeGraph ノードを「拡張子を除いた相対パス」で索引化する。
+ *
+ * - キー: `${repo}:${cleaned}` の colon 以降部分（拡張子なし相対パス）
+ * - 値: 同じパスを持つノード配列（複数 repo にまたがる場合あり）
+ */
+function indexByPath(codeGraph: CodeGraph): ReadonlyMap<string, readonly CodeGraphNode[]> {
+  const map = new Map<string, CodeGraphNode[]>();
+  for (const node of codeGraph.nodes) {
+    const colonIdx = node.id.indexOf(':');
+    if (colonIdx === -1) continue;
+    const path = node.id.slice(colonIdx + 1);
+    let arr = map.get(path);
+    if (!arr) {
+      arr = [];
+      map.set(path, arr);
+    }
+    arr.push(node);
+  }
+  return map;
+}
+
+/**
+ * 候補ノード群から `selectedRepo` の repo を優先して返す。
+ *
+ * - selectedRepo が候補のいずれかの `node.repo` と一致 → そのノードを返す
+ * - 一致しない／selectedRepo が null → 先頭候補を返す（パスのみマッチ・全 repo フォールバック）
+ *
+ * これにより、C4 側の repoName（`path.basename(wsRoot)`）と CodeGraph 側の
+ * `repo.id`（拡張機能の設定で別名になる場合あり）の不一致でもオーバーレイが成立する。
+ */
+function pickByRepo(
+  candidates: readonly CodeGraphNode[],
   selectedRepo: string | null,
-  repoIds: readonly string[],
-  nodesById: ReadonlyMap<string, CodeGraphNode>,
 ): CodeGraphNode | undefined {
+  if (candidates.length === 0) return undefined;
   if (selectedRepo) {
-    return nodesById.get(`${selectedRepo}:${cleanedPath}`);
+    const matched = candidates.find((n) => n.repo === selectedRepo);
+    if (matched) return matched;
   }
-  for (const repo of repoIds) {
-    const found = nodesById.get(`${repo}:${cleanedPath}`);
-    if (found) return found;
-  }
-  return undefined;
+  return candidates[0];
 }
 
 /**
@@ -47,6 +74,12 @@ function findNodeByPath(
  * - L3: `type === 'component'` の要素について配下の `code` を集約し、最頻コミュニティを決定する
  *
  * 同数最頻時は community 番号昇順を優先（決定性確保）。
+ *
+ * マッチング戦略:
+ * 1. C4 要素 ID から `file::` プレフィックスと拡張子を除いた相対パスを取得
+ * 2. CodeGraph ノードを「拡張子を除いた相対パス」で索引化済み Map から候補を引く
+ * 3. `selectedRepo` が候補内の `node.repo` と一致すればそれを採用、
+ *    そうでなければ先頭候補を採用（パスマッチのみで重畳を成立させる）
  */
 export function computeCommunityOverlay(
   c4Model: C4Model,
@@ -58,14 +91,9 @@ export function computeCommunityOverlay(
   if (level !== 3 && level !== 4) return result;
   if (codeGraph.nodes.length === 0) return result;
 
-  const nodesById = new Map<string, CodeGraphNode>();
-  for (const node of codeGraph.nodes) {
-    if (selectedRepo && node.repo !== selectedRepo) continue;
-    nodesById.set(node.id, node);
-  }
-  if (nodesById.size === 0) return result;
+  const nodesByPath = indexByPath(codeGraph);
+  if (nodesByPath.size === 0) return result;
 
-  const repoIds = codeGraph.repositories.map((r) => r.id);
   const godNodeSet = new Set(codeGraph.godNodes);
   const summaries = codeGraph.communitySummaries;
 
@@ -73,9 +101,9 @@ export function computeCommunityOverlay(
     for (const el of c4Model.elements) {
       if (el.type !== 'code') continue;
       if (!el.id.startsWith(FILE_PREFIX)) continue;
-      const filePath = el.id.slice(FILE_PREFIX.length);
-      const cleaned = stripExt(filePath);
-      const node = findNodeByPath(cleaned, selectedRepo, repoIds, nodesById);
+      const cleaned = stripExt(el.id.slice(FILE_PREFIX.length));
+      const candidates = nodesByPath.get(cleaned);
+      const node = candidates ? pickByRepo(candidates, selectedRepo) : undefined;
       if (!node) continue;
 
       result.set(el.id, {
@@ -97,9 +125,9 @@ export function computeCommunityOverlay(
     const counts = new Map<number, number>();
     for (const id of descendantIds) {
       if (!id.startsWith(FILE_PREFIX)) continue;
-      const filePath = id.slice(FILE_PREFIX.length);
-      const cleaned = stripExt(filePath);
-      const node = findNodeByPath(cleaned, selectedRepo, repoIds, nodesById);
+      const cleaned = stripExt(id.slice(FILE_PREFIX.length));
+      const candidates = nodesByPath.get(cleaned);
+      const node = candidates ? pickByRepo(candidates, selectedRepo) : undefined;
       if (!node) continue;
       counts.set(node.community, (counts.get(node.community) ?? 0) + 1);
     }

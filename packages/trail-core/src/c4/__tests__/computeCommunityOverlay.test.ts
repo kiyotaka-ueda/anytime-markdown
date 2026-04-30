@@ -76,7 +76,7 @@ describe('computeCommunityOverlay (L4)', () => {
     expect(result.get('file::packages/foo/src/main.tsx')?.isGodNode).toBe(true);
   });
 
-  test('skips nodes from non-selected repositories when selectedRepo is provided', () => {
+  test('filters by selectedRepo when it matches at least one node.repo', () => {
     const c4Model = makeC4Model([
       { id: 'file::packages/foo/src/bar.ts', type: 'code', name: 'bar.ts' },
     ]);
@@ -87,15 +87,44 @@ describe('computeCommunityOverlay (L4)', () => {
       ],
       nodes: [
         {
+          id: 'repoA:packages/foo/src/bar', label: 'bar', repo: 'repoA',
+          package: 'foo', fileType: 'code', community: 1,
+          communityLabel: 'a', x: 0, y: 0, size: 1,
+        },
+        {
           id: 'repoB:packages/foo/src/bar', label: 'bar', repo: 'repoB',
-          package: 'pkg_foo', fileType: 'code', community: 1,
+          package: 'foo', fileType: 'code', community: 2,
           communityLabel: 'b', x: 0, y: 0, size: 1,
         },
       ],
     });
 
-    const result = computeCommunityOverlay(c4Model, codeGraph, 4, 'repoA');
-    expect(result.size).toBe(0);
+    expect(computeCommunityOverlay(c4Model, codeGraph, 4, 'repoA')
+      .get('file::packages/foo/src/bar.ts')?.dominantCommunity).toBe(1);
+    expect(computeCommunityOverlay(c4Model, codeGraph, 4, 'repoB')
+      .get('file::packages/foo/src/bar.ts')?.dominantCommunity).toBe(2);
+  });
+
+  test('falls back to path-only match when selectedRepo matches no node.repo', () => {
+    // 実運用例: C4 側 selectedRepo = path.basename('/anytime-markdown') = 'anytime-markdown'、
+    // CodeGraph 側は label ベースで repo.id = 'Workspace'。
+    // 両者が異なっても file path 部分でマッチさせて重畳を成立させる。
+    const c4Model = makeC4Model([
+      { id: 'file::packages/foo/src/bar.ts', type: 'code', name: 'bar.ts' },
+    ]);
+    const codeGraph = makeCodeGraph({
+      repositories: [{ id: 'Workspace', label: 'Workspace', path: '/anytime-markdown' }],
+      nodes: [
+        {
+          id: 'Workspace:packages/foo/src/bar', label: 'bar', repo: 'Workspace',
+          package: 'foo', fileType: 'code', community: 4, communityLabel: 'core',
+          x: 0, y: 0, size: 1,
+        },
+      ],
+    });
+
+    const result = computeCommunityOverlay(c4Model, codeGraph, 4, 'anytime-markdown');
+    expect(result.get('file::packages/foo/src/bar.ts')?.dominantCommunity).toBe(4);
   });
 
   test('matches across all repositories when selectedRepo is null', () => {
