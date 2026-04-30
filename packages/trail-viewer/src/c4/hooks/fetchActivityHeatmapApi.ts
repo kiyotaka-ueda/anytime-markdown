@@ -6,6 +6,7 @@ export interface ActivityHeatmapFetchParams {
   readonly period: TrendPeriod;
   readonly mode: HeatmapMode;
   readonly topK?: number;
+  readonly repoName?: string;
 }
 
 export interface ActivityHeatmapResponse {
@@ -27,6 +28,7 @@ export function buildActivityHeatmapUrl(
   qs.set('period', params.period);
   qs.set('mode', params.mode);
   if (params.topK !== undefined) qs.set('topK', String(params.topK));
+  if (params.repoName) qs.set('repo', params.repoName);
   return `${serverUrl}/api/activity-heatmap?${qs.toString()}`;
 }
 

@@ -263,6 +263,7 @@ export function C4ViewerCore({
     period: hotspotValue.period,
     mode: heatmapMode,
     topK: 50,
+    repoName: selectedRepo || undefined,
   });
   const heatmapMatrix = useMemo<HeatmapMatrix | null>(() => {
     if (!heatmapResponse) return null;
@@ -1798,6 +1799,7 @@ export function C4ViewerCore({
             <ActivityTrendChart
               elementId={selectedElementId}
               serverUrl={serverUrl}
+              repoName={selectedRepo || undefined}
               isDark={isDark}
             />
           </Box>

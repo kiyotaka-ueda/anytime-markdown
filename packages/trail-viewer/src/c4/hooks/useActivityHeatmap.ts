@@ -23,7 +23,7 @@ const DEFAULT_DEBOUNCE_MS = 300;
 export function useActivityHeatmap(
   options: UseActivityHeatmapOptions,
 ): UseActivityHeatmapResult {
-  const { enabled, serverUrl, period, mode, topK, debounceMs = DEFAULT_DEBOUNCE_MS } = options;
+  const { enabled, serverUrl, period, mode, topK, repoName, debounceMs = DEFAULT_DEBOUNCE_MS } = options;
   const [data, setData] = useState<ActivityHeatmapResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -43,7 +43,7 @@ export function useActivityHeatmap(
     const handle = setTimeout(() => {
       setLoading(true);
       setError(null);
-      fetchActivityHeatmapApi(serverUrl, { period, mode, topK }, controller.signal)
+      fetchActivityHeatmapApi(serverUrl, { period, mode, topK, repoName }, controller.signal)
         .then((res) => {
           if (controller.signal.aborted) return;
           setData(res);
@@ -61,7 +61,7 @@ export function useActivityHeatmap(
       clearTimeout(handle);
       controller.abort();
     };
-  }, [enabled, serverUrl, period, mode, topK, debounceMs]);
+  }, [enabled, serverUrl, period, mode, topK, repoName, debounceMs]);
 
   return { data, loading, error };
 }
