@@ -4,19 +4,9 @@ import { EdgeArrowProgram } from 'sigma/rendering';
 import Graph from 'graphology';
 import type { CodeGraph } from '@anytime-markdown/trail-core/codeGraph';
 import type { CouplingDirection } from '@anytime-markdown/trail-core';
+import { COMMUNITY_COLORS } from './communityColors';
 
-const COMMUNITY_COLORS = [
-  '#4e79a7',
-  '#f28e2b',
-  '#e15759',
-  '#76b7b2',
-  '#59a14f',
-  '#edc948',
-  '#b07aa1',
-  '#ff9da7',
-  '#9c755f',
-  '#bab0ac',
-];
+export { COMMUNITY_COLORS };
 
 const GHOST_EDGE_COMMIT_LIGHT = '#7c3aed';
 const GHOST_EDGE_COMMIT_DARK = '#c4b5fd';
