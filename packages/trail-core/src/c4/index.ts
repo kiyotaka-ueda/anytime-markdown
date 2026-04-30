@@ -65,6 +65,8 @@ export { mergeManualIntoC4Model } from './mergeManual';
 
 export { computeCommunityOverlay } from './computeCommunityOverlay';
 export type { CommunityOverlayEntry } from './computeCommunityOverlay';
+export { aggregateGhostEdgesToC4 } from './aggregateGhostEdgesToC4';
+export type { C4GhostEdge } from './aggregateGhostEdgesToC4';
 
 export type {
   ManualElement,
