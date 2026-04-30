@@ -3528,6 +3528,30 @@ export class TrailDatabase {
     return result;
   }
 
+  getSessionDistinctAgentIdCounts(sessionIds: readonly string[]): Map<string, number> {
+    if (sessionIds.length === 0) return new Map();
+    const db = this.ensureDb();
+    const result = new Map<string, number>();
+    const placeholders = sessionIds.map(() => '?').join(',');
+    try {
+      const rows = db.exec(
+        `SELECT session_id, COUNT(DISTINCT agent_id) AS agent_count
+         FROM messages
+         WHERE session_id IN (${placeholders})
+           AND agent_id IS NOT NULL
+           AND agent_id != ''
+         GROUP BY session_id`,
+        sessionIds as string[],
+      );
+      for (const row of rows[0]?.values ?? []) {
+        result.set(String(row[0]), Number(row[1]));
+      }
+    } catch {
+      // Graceful fallback
+    }
+    return result;
+  }
+
   getSessionCommits(sessionId: string): SessionCommitRow[] {
     const db = this.ensureDb();
     const stmt = db.prepare(
@@ -3805,6 +3829,13 @@ export class TrailDatabase {
       if (bestId) out.set(d.assistantUuid, bestId);
     }
     return out;
+  }
+
+  getLinkedCodexSessionCount(sessionId: string): number {
+    const linked = this.getLinkedCodexSessionByAssistantUuid(sessionId);
+    const ids = new Set<string>();
+    for (const sid of linked.values()) ids.add(sid);
+    return ids.size;
   }
 
   searchMessages(query: string): SearchResult[] {

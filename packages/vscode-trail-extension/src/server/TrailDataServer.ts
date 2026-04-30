@@ -992,10 +992,14 @@ export class TrailDataServer {
       const commitStats = this.trailDb.getSessionCommitStats(sessionIds);
       const errorCounts = this.trailDb.getSessionErrorCounts(sessionIds);
       const subAgentCounts = this.trailDb.getSessionSubAgentCounts(sessionIds);
+      const distinctAgentIdCounts = this.trailDb.getSessionDistinctAgentIdCounts(sessionIds);
       const sessions = rawSessions.map((s) => {
         const cStats = commitStats.get(s.id);
         const errorCount = errorCounts.get(s.id);
         const subAgentCount = subAgentCounts.get(s.id);
+        const distinctAgentIdCount = distinctAgentIdCounts.get(s.id) ?? 0;
+        const linkedCodexCount = this.trailDb.getLinkedCodexSessionCount(s.id);
+        const resolvedSubAgentCount = Math.max(subAgentCount ?? 0, distinctAgentIdCount + linkedCodexCount);
         const interruptionReason = (s.interruption_reason ?? null) as 'max_tokens' | 'no_response' | null;
         return {
           id: s.id,
@@ -1025,7 +1029,7 @@ export class TrailDataServer {
                 linesDeleted: cStats.linesDeleted, filesChanged: cStats.filesChanged }
             : undefined,
           errorCount: errorCount != null && errorCount > 0 ? errorCount : undefined,
-          subAgentCount: subAgentCount != null && subAgentCount > 0 ? subAgentCount : undefined,
+          subAgentCount: resolvedSubAgentCount > 0 ? resolvedSubAgentCount : undefined,
           compactCount: s.compact_count != null && s.compact_count > 0 ? s.compact_count : undefined,
         };
       });
