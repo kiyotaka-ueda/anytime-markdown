@@ -60,6 +60,7 @@ import GroupWorkIcon from '@mui/icons-material/GroupWork';
 import { communityColor } from '../../components/communityColors';
 import { useCodeGraph } from '../../hooks/useCodeGraph';
 import { computeClaudeActivityColorMap, computeConflictBorderMap,computeMultiAgentColorMap } from '../claudeActivityColorMap';
+import { ActivityTrendChart } from './ActivityTrendChart';
 import type { C4ElementKind, ElementFormData, RelationshipFormData } from './C4EditDialogs';
 import { AddElementDialog, AddRelationshipDialog } from './C4EditDialogs';
 import { C4ElementTree } from './C4ElementTree';
@@ -1794,6 +1795,11 @@ export function C4ViewerCore({
                 </>
               )}
             </Box>
+            <ActivityTrendChart
+              elementId={selectedElementId}
+              serverUrl={serverUrl}
+              isDark={isDark}
+            />
           </Box>
         )}
         {showC4 && showDsm && (
