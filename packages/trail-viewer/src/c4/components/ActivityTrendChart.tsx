@@ -5,7 +5,16 @@ import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import Typography from '@mui/material/Typography';
-import { LineChart } from '@mui/x-charts/LineChart';
+import { BarPlot } from '@mui/x-charts/BarChart';
+import { ChartsDataProvider } from '@mui/x-charts/ChartsDataProvider';
+import { ChartsSurface } from '@mui/x-charts/ChartsSurface';
+import { ChartsWrapper } from '@mui/x-charts/ChartsWrapper';
+import { ChartsAxisHighlight } from '@mui/x-charts/ChartsAxisHighlight';
+import { ChartsGrid } from '@mui/x-charts/ChartsGrid';
+import { ChartsTooltip } from '@mui/x-charts/ChartsTooltip';
+import { ChartsXAxis } from '@mui/x-charts/ChartsXAxis';
+import { ChartsYAxis } from '@mui/x-charts/ChartsYAxis';
+import { LinePlot, MarkPlot } from '@mui/x-charts/LineChart';
 import { useMemo, useState } from 'react';
 
 import { useTrailI18n } from '../../i18n/context';
@@ -36,6 +45,8 @@ const ACTIVITY_TREND_PALETTE_LIGHT = {
 type ActivityTrendSeries = {
   readonly xs: readonly string[];
   readonly series: ReadonlyArray<{
+    readonly key: 'commit' | 'read' | 'write' | 'defect';
+    readonly kind: 'line' | 'bar';
     readonly data: readonly number[];
     readonly label: string;
     readonly color: string;
@@ -68,24 +79,32 @@ export function buildActivityTrendSeries(
     xs,
     series: [
       {
+        key: 'commit',
+        kind: 'line',
         data: commitData.buckets.map((b) => b.count),
         label: labels.commit,
         color: palette.commit,
         yAxisId: 'left',
       },
       {
+        key: 'read',
+        kind: 'line',
         data: xs.map((date) => readByDate.get(date) ?? 0),
         label: labels.read,
         color: palette.read,
         yAxisId: 'left',
       },
       {
+        key: 'write',
+        kind: 'line',
         data: xs.map((date) => writeByDate.get(date) ?? 0),
         label: labels.write,
         color: palette.write,
         yAxisId: 'left',
       },
       {
+        key: 'defect',
+        kind: 'bar',
         data: xs.map((date) => defectByDate.get(date) ?? 0),
         label: labels.defect,
         color: palette.defect,
@@ -168,6 +187,38 @@ export function ActivityTrendChart({
   const error = commitTrend.error ?? readTrend.error ?? writeTrend.error ?? defectTrend.error;
   const loading = commitTrend.loading || readTrend.loading || writeTrend.loading || defectTrend.loading;
   const legendItems = chartProps?.series ?? [];
+  const chartDataset = useMemo(() => {
+    if (!chartProps) return null;
+    return chartProps.xs.map((date, index) => ({
+      date,
+      commit: chartProps.series[0]?.data[index] ?? 0,
+      read: chartProps.series[1]?.data[index] ?? 0,
+      write: chartProps.series[2]?.data[index] ?? 0,
+      defect: chartProps.series[3]?.data[index] ?? 0,
+    }));
+  }, [chartProps]);
+  const chartSeries = useMemo(() => {
+    if (!chartProps) return [];
+    return chartProps.series.map((series) => {
+      if (series.kind === 'bar') {
+        return {
+          type: 'bar' as const,
+          dataKey: series.key,
+          label: series.label,
+          color: series.color,
+          yAxisId: series.yAxisId,
+        };
+      }
+      return {
+        type: 'line' as const,
+        dataKey: series.key,
+        label: series.label,
+        color: series.color,
+        yAxisId: series.yAxisId,
+        showMark: true,
+      };
+    });
+  }, [chartProps]);
 
   if (!elementId) return null;
 
@@ -250,17 +301,32 @@ export function ActivityTrendChart({
           )}
           {chartProps && (
             <Box sx={{ width: '100%', minHeight: 200 }}>
-              <LineChart
-                xAxis={[{ data: chartProps.xs, scaleType: 'point', valueFormatter: formatTrendDate }]}
+              <ChartsDataProvider
+                dataset={chartDataset ?? []}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                series={chartSeries as any}
+                xAxis={[{ id: 'date', scaleType: 'band', dataKey: 'date', valueFormatter: formatTrendDate }]}
                 yAxis={[
                   { id: 'left', min: 0 },
                   { id: 'right', min: 0, position: 'right' as const, width: 48 },
                 ]}
-                series={chartProps.series}
-                hideLegend
                 height={200}
                 margin={{ left: 36, right: 56, top: 16, bottom: 28 }}
-              />
+              >
+                <ChartsWrapper hideLegend>
+                  <ChartsSurface>
+                    <ChartsGrid horizontal />
+                    <BarPlot />
+                    <LinePlot />
+                    <MarkPlot />
+                    <ChartsAxisHighlight x="band" />
+                    <ChartsXAxis axisId="date" />
+                    <ChartsYAxis axisId="left" />
+                    <ChartsYAxis axisId="right" />
+                  </ChartsSurface>
+                  <ChartsTooltip />
+                </ChartsWrapper>
+              </ChartsDataProvider>
             </Box>
           )}
         </Box>

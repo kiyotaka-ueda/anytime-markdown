@@ -43,10 +43,10 @@ describe('buildActivityTrendSeries', () => {
     expect(result).toEqual({
       xs: ['2026-04-01', '2026-04-02'],
       series: [
-        { data: [1, 2], label: 'Commit', color: '#111111', yAxisId: 'left' },
-        { data: [3, 4], label: 'Read', color: '#222222', yAxisId: 'left' },
-        { data: [5, 6], label: 'Write', color: '#333333', yAxisId: 'left' },
-        { data: [7, 8], label: 'Defects', color: '#444444', yAxisId: 'right' },
+        { key: 'commit', kind: 'line', data: [1, 2], label: 'Commit', color: '#111111', yAxisId: 'left' },
+        { key: 'read', kind: 'line', data: [3, 4], label: 'Read', color: '#222222', yAxisId: 'left' },
+        { key: 'write', kind: 'line', data: [5, 6], label: 'Write', color: '#333333', yAxisId: 'left' },
+        { key: 'defect', kind: 'bar', data: [7, 8], label: 'Defects', color: '#444444', yAxisId: 'right' },
       ],
     });
   });
