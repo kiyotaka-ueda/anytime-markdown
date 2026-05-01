@@ -1,6 +1,5 @@
 import type { C4ReleaseEntry, C4TreeNode } from '@anytime-markdown/trail-core/c4';
 import { findService } from '@anytime-markdown/trail-core/c4';
-import type { ExportedSymbol } from '@anytime-markdown/trail-core/analyzer';
 import type { Action } from '@anytime-markdown/graph-core/state';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import AddIcon from '@mui/icons-material/Add';
@@ -233,8 +232,6 @@ const TreeNodeItem: FC<TreeNodeItemProps> = memo(({ node, depth, selectedId, onS
 });
 TreeNodeItem.displayName = 'TreeNodeItem';
 
-const EXPORT_KIND_ICONS: Record<ExportedSymbol['kind'], string> = { function: 'ƒ', class: '◆', method: '→', variable: '≡' };
-
 // ---------------------------------------------------------------------------
 
 interface C4ElementTreeProps {
@@ -253,15 +250,12 @@ interface C4ElementTreeProps {
   readonly onCheckedChange?: (checkedIds: ReadonlySet<string>) => void;
   readonly onRemoveElement?: (id: string) => void;
   readonly onPurgeDeleted?: () => void;
-  readonly exports?: readonly ExportedSymbol[];
-  readonly onExportSelect?: (symbol: ExportedSymbol) => void;
-  readonly selectedExportId?: string | null;
   readonly isDark?: boolean;
   /** レベル/ドリル変更時に渡すリセット指示。key が変化したらチェック・展開状態をリセットする */
   readonly checkReset?: { readonly key: number; readonly ids: ReadonlySet<string> | null; readonly expanded: ReadonlySet<string> | null };
 }
 
-export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onSelect, repoOptions = [], selectedRepo = '', onRepoChange, releaseOptions = [], selectedRelease = CURRENT_RELEASE_TAG, onReleaseChange, currentLevel, selectedSystemId, onAddElement, onCheckedChange, onRemoveElement, onPurgeDeleted, exports, onExportSelect, selectedExportId, isDark, checkReset }) => {
+export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onSelect, repoOptions = [], selectedRepo = '', onRepoChange, releaseOptions = [], selectedRelease = CURRENT_RELEASE_TAG, onReleaseChange, currentLevel, selectedSystemId, onAddElement, onCheckedChange, onRemoveElement, onPurgeDeleted, isDark, checkReset }) => {
   const { t } = useTrailI18n();
   const [searchText, setSearchText] = useState('');
 
@@ -512,15 +506,6 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
           />
         ))}
       </List>
-      {exports && exports.length > 0 && <><Divider sx={{ borderColor: colors.border }} />
-        <Box sx={{ px: 1, py: 0.25, borderBottom: `1px solid ${colors.border}`, minHeight: 32, display: 'flex', alignItems: 'center', flexShrink: 0 }}><Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.7rem' }}>Exports</Typography></Box>
-        <List dense disablePadding sx={{ overflowY: 'auto', ...scrollbarSx }}>{exports.map(sym => (
-          <ListItemButton key={sym.id} selected={sym.id === selectedExportId} onClick={() => onExportSelect?.(sym)} sx={{ py: 0.25, pl: 1.5, minHeight: 28 }}>
-            <Typography variant="caption" sx={{ mr: 0.75, color: colors.accent, fontFamily: 'monospace', fontSize: '0.75rem', minWidth: 14 }}>{EXPORT_KIND_ICONS[sym.kind]}</Typography>
-            <ListItemText primary={sym.name} primaryTypographyProps={{ variant: 'body2', noWrap: true, fontSize: '0.75rem' }} />
-          </ListItemButton>
-        ))}</List>
-      </>}
       {onAddElement && currentLevel && currentLevel >= 1 && currentLevel <= 3 && (
         <Box sx={{ borderTop: `1px solid ${colors.border}`, px: 1, py: 0.75, flexShrink: 0 }}>
           <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', mb: 0.5 }}>
