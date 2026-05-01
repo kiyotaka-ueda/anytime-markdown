@@ -124,6 +124,38 @@ describe('TrailDatabase.fetchActivityTrendRows', () => {
     expect(rows[0].subagentType).toBe('general-purpose');
   });
 
+  test('session granularity normalizes absolute tool file paths to repo-relative paths', () => {
+    const projectRoot = '/repo-root';
+    db.saveCurrentGraph(
+      {
+        nodes: [
+          { id: 'n1', label: 'a', type: 'file', filePath: 'src/a.ts', line: 0 },
+        ],
+        edges: [],
+        metadata: {
+          projectRoot,
+          analyzedAt: '2026-04-29T00:00:00.000Z',
+          fileCount: 1,
+        },
+      },
+      `${projectRoot}/tsconfig.json`,
+      'commitX',
+      'r',
+    );
+    insertMessage(db, 'm1', 's1', '2026-04-25T10:00:00.000Z');
+    insertToolCall(db, 'm1', 's1', 'Edit', `${projectRoot}/src/a.ts`, 0, '2026-04-25T10:00:00.000Z');
+
+    const rows = db.fetchActivityTrendRows({
+      from: '2026-04-23T00:00:00.000Z',
+      to: '2026-04-30T00:00:00.000Z',
+      granularity: 'session',
+      filePathsIn: ['src/a.ts'],
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].filePath).toBe('src/a.ts');
+  });
+
   test('large filePathsIn (>900) uses temp-table fallback successfully', () => {
     insertSessionCommit(db, 's1', 'h1', '2026-04-25T10:00:00.000Z');
     insertCommitFile(db, 'h1', 'target.ts');

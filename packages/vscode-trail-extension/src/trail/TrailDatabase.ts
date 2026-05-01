@@ -6030,6 +6030,24 @@ export class TrailDatabase {
       `;
       bindings = useTempTable ? [from, to] : [from, to, ...filePathsIn];
     } else {
+      const projectRootCandidates = Array.from(
+        new Set(
+          this.listCurrentGraphs()
+            .map((g) => g.graph?.metadata?.projectRoot)
+            .filter((p): p is string => typeof p === 'string' && p.length > 0),
+        ),
+      ).sort((a, b) => a.length - b.length);
+      const normalize = (raw: string): string | null => {
+        if (!raw) return null;
+        if (!raw.startsWith('/')) return stripWorktreePrefix(raw);
+        for (const root of projectRootCandidates) {
+          if (raw === root) continue;
+          const prefix = root.endsWith('/') ? root : `${root}/`;
+          if (raw.startsWith(prefix)) return stripWorktreePrefix(raw.slice(prefix.length));
+        }
+        return null;
+      };
+      const allowed = new Set(filePathsIn);
       sql = `
         SELECT m.timestamp AS committedAt,
                mtc.file_path AS filePath,
@@ -6038,10 +6056,24 @@ export class TrailDatabase {
         INNER JOIN messages m ON mtc.message_uuid = m.uuid
         WHERE m.timestamp >= ? AND m.timestamp <= ?
           AND mtc.tool_name IN ('Edit', 'Write', 'NotebookEdit')
-          AND mtc.file_path IN ${inClause}
+          AND mtc.file_path IS NOT NULL
+          AND mtc.file_path != ''
         ORDER BY m.timestamp
       `;
-      bindings = useTempTable ? [from, to] : [from, to, ...filePathsIn];
+      bindings = [from, to];
+      const res = db.exec(sql, bindings);
+      if (useTempTable) db.run('DROP TABLE IF EXISTS _hotspot_paths');
+      if (!res.length) return [];
+      return res[0].values.flatMap((row) => {
+        const normalized = normalize(String(row[1]));
+        if (!normalized || !allowed.has(normalized)) return [];
+        const subagentType = row[2];
+        return [{
+          committedAt: String(row[0]),
+          filePath: normalized,
+          subagentType: subagentType == null ? null : String(subagentType),
+        }];
+      });
     }
     const res = db.exec(sql, bindings);
     if (useTempTable) db.run('DROP TABLE IF EXISTS _hotspot_paths');
