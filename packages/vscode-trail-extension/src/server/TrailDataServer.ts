@@ -754,9 +754,9 @@ export class TrailDataServer {
       this.sendError(res, 400, "period must be one of '7d', '30d', '90d', or 'all'");
       return;
     }
-    const granularity = parseActivityTrendGranularity(params.get('granularity'));
+    const granularity = parseHotspotGranularity(params.get('granularity'));
     if (granularity === null) {
-      this.sendError(res, 400, "granularity must be one of 'commit', 'session', 'subagent', or 'defect'");
+      this.sendError(res, 400, "granularity must be one of 'commit', 'session', or 'subagent'");
       return;
     }
     try {
@@ -830,9 +830,9 @@ export class TrailDataServer {
       this.sendError(res, 400, "period must be one of '7d', '30d', '90d', or 'all'");
       return;
     }
-    const granularity = parseHotspotGranularity(params.get('granularity'));
+    const granularity = parseActivityTrendGranularity(params.get('granularity'));
     if (granularity === null) {
-      this.sendError(res, 400, "granularity must be one of 'commit', 'session', or 'subagent'");
+      this.sendError(res, 400, "granularity must be one of 'commit', 'session', 'subagent', or 'defect'");
       return;
     }
     const sessionMode = parseActivityTrendSessionMode(params.get('sessionMode'));
