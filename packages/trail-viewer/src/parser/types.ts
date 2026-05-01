@@ -109,6 +109,9 @@ export interface CombinedModel {
   readonly model: string;
   readonly count: number;
   readonly tokens: number;
+  readonly tokenMissingRate: number;
+  readonly tokenTotalTurns: number;
+  readonly tokenMissingTurns: number;
 }
 
 export interface CombinedAgent {

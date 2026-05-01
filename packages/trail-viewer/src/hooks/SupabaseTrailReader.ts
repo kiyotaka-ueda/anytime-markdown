@@ -792,7 +792,7 @@ export class SupabaseTrailReader implements ITrailReader {
       const { data, error } = await this.client
         .from('trail_daily_counts')
         .select('date,kind,key,count,tokens,duration_ms')
-        .in('kind', ['tool', 'skill', 'error', 'model'])
+        .in('kind', ['tool', 'skill', 'error'])
         .gte('date', cutoffDate);
       if (error || !data) return null;
 
@@ -818,7 +818,6 @@ export class SupabaseTrailReader implements ITrailReader {
       const toolMap = new Map<string, { count: number; tokens: number; durationMs: number }>();
       const errMap = new Map<string, { err: number; total: number; byTool: Record<string, number> }>();
       const skillMap = new Map<string, number>();
-      const modelMap = new Map<string, { count: number; tokens: number }>();
 
       for (const r of rows) {
         const p = periodKey(r.date);
@@ -838,11 +837,6 @@ export class SupabaseTrailReader implements ITrailReader {
         } else if (r.kind === 'skill') {
           const k = `${p}::${r.key}`;
           skillMap.set(k, (skillMap.get(k) ?? 0) + r.count);
-        } else if (r.kind === 'model') {
-          const k = `${p}::${r.key}`;
-          const e = modelMap.get(k) ?? { count: 0, tokens: 0 };
-          e.count += r.count; e.tokens += r.tokens;
-          modelMap.set(k, e);
         }
       }
 
@@ -864,9 +858,7 @@ export class SupabaseTrailReader implements ITrailReader {
         .map(([k, count]) => { const [p, skill] = splitKey(k); return { period: p, skill, count, costUsd: 0 }; })
         .sort((a, b) => a.period.localeCompare(b.period));
 
-      const modelStats = [...modelMap.entries()]
-        .map(([k, e]) => { const [p, model] = splitKey(k); return { period: p, model, ...e }; })
-        .sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
+      const modelAggMap = new Map<string, { count: number; tokens: number; totalTurns: number; missingTurns: number }>();
 
       const { data: sessionRows } = await this.client
         .from('trail_sessions')
@@ -895,11 +887,11 @@ export class SupabaseTrailReader implements ITrailReader {
       if (sessionIds.length > 0) {
         const { data: msgRows } = await this.client
           .from('trail_messages')
-          .select('session_id,timestamp,type,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens')
+          .select('session_id,timestamp,type,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens,model')
           .in('session_id', sessionIds)
           .gte('timestamp', cutoffIso);
         for (const m of (msgRows ?? []) as Array<{
-          session_id: string; timestamp: string; type?: string | null;
+          session_id: string; timestamp: string; type?: string | null; model?: string | null;
           input_tokens: number | null; output_tokens: number | null; cache_read_tokens: number | null; cache_creation_tokens: number | null;
         }>) {
           const agent = sourceBySessionId.get(m.session_id) ?? 'Claude Code';
@@ -910,6 +902,19 @@ export class SupabaseTrailReader implements ITrailReader {
             tokenTotalTurns: m.type === 'assistant' ? 1 : 0,
             tokenMissingTurns: m.type === 'assistant' && tokens === 0 ? 1 : 0,
           });
+          if (m.type === 'assistant') {
+            const source = sourceBySessionId.get(m.session_id) === 'Codex' ? 'Codex' : 'Claude Code';
+            const rawModel = m.model ?? '';
+            const modelKey = `${p}::${rawModel}::${source}`;
+            const rawTokens = (m.input_tokens ?? 0) + (m.output_tokens ?? 0);
+            const isMissing = tokens === 0 ? 1 : 0;
+            const cur = modelAggMap.get(modelKey) ?? { count: 0, tokens: 0, totalTurns: 0, missingTurns: 0 };
+            cur.count += 1;
+            cur.tokens += rawTokens;
+            cur.totalTurns += 1;
+            cur.missingTurns += isMissing;
+            modelAggMap.set(modelKey, cur);
+          }
         }
 
         const { data: costRows } = await this.client
@@ -952,6 +957,35 @@ export class SupabaseTrailReader implements ITrailReader {
           };
         })
         .sort((a, b) => a.period.localeCompare(b.period) || a.agent.localeCompare(b.agent));
+
+      const modelFinalMap = new Map<string, { count: number; tokens: number; totalTurns: number; missingTurns: number }>();
+      for (const [k, v] of modelAggMap.entries()) {
+        const firstSep = k.indexOf('::');
+        const secondSep = k.indexOf('::', firstSep + 2);
+        const period = k.slice(0, firstSep);
+        const model = secondSep >= 0 ? k.slice(firstSep + 2, secondSep) : k.slice(firstSep + 2);
+        const observed = v.totalTurns - v.missingTurns;
+        const f = observed > 0 ? v.totalTurns / observed : 1;
+        const modelKey = `${period}::${model}`;
+        const cur = modelFinalMap.get(modelKey) ?? { count: 0, tokens: 0, totalTurns: 0, missingTurns: 0 };
+        cur.count += v.count;
+        cur.tokens += Math.round(v.tokens * f);
+        cur.totalTurns += v.totalTurns;
+        cur.missingTurns += v.missingTurns;
+        modelFinalMap.set(modelKey, cur);
+      }
+      const modelStats = [...modelFinalMap.entries()].map(([k, v]) => {
+        const sep = k.indexOf('::');
+        return {
+          period: k.slice(0, sep),
+          model: k.slice(sep + 2),
+          count: v.count,
+          tokens: v.tokens,
+          tokenMissingRate: v.totalTurns > 0 ? v.missingTurns / v.totalTurns : 0,
+          tokenTotalTurns: v.totalTurns,
+          tokenMissingTurns: v.missingTurns,
+        };
+      }).sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
 
       const { data: commitData } = await this.client
         .from('trail_session_commits')

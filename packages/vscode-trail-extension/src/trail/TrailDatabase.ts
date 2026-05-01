@@ -304,7 +304,7 @@ interface CombinedData {
   readonly toolCounts: readonly { period: string; tool: string; count: number; tokens: number; durationMs: number }[];
   readonly errorRate: readonly { period: string; rate: number; byTool: Readonly<Record<string, number>> }[];
   readonly skillStats: readonly { period: string; skill: string; count: number; costUsd: number }[];
-  readonly modelStats: readonly { period: string; model: string; count: number; tokens: number }[];
+  readonly modelStats: readonly { period: string; model: string; count: number; tokens: number; tokenMissingRate: number; tokenTotalTurns: number; tokenMissingTurns: number }[];
   readonly agentStats: readonly {
     period: string; agent: string; tokens: number; costUsd: number; loc: number;
     tokenMissingRate: number; tokenTotalTurns: number; tokenMissingTurns: number;
@@ -4750,19 +4750,49 @@ export class TrailDatabase {
     }));
 
     const modelResult = db.exec(
-      `SELECT ${periodExpr} AS period, key AS model,
-              SUM(count) AS count,
-              SUM(tokens) AS tokens
-       FROM daily_counts
-       WHERE kind = 'model' AND date >= ${cutoff}
-       GROUP BY period, key`,
+      `SELECT ${messagePeriodExpr} AS period,
+              COALESCE(m.model, '') AS model,
+              s.source,
+              COUNT(*) AS count,
+              CAST(SUM(COALESCE(m.input_tokens,0) + COALESCE(m.output_tokens,0)) AS INTEGER) AS tokens,
+              SUM(CASE WHEN COALESCE(m.input_tokens,0) + COALESCE(m.output_tokens,0)
+                              + COALESCE(m.cache_read_tokens,0) + COALESCE(m.cache_creation_tokens,0) = 0
+                       THEN 1 ELSE 0 END) AS token_missing_turns
+       FROM messages m
+       INNER JOIN sessions s ON s.id = m.session_id
+       WHERE m.type = 'assistant' AND DATE(m.timestamp, '${tzOffset}') >= ${cutoff}
+       GROUP BY period, COALESCE(m.model, ''), s.source`,
     );
-    const modelStats = toRows(modelResult).map(r => ({
-      period: String(r['period'] ?? ''),
-      model: String(r['model'] ?? ''),
-      count: Number(r['count'] ?? 0),
-      tokens: Number(r['tokens'] ?? 0),
-    }));
+    const modelAggMap = new Map<string, { count: number; tokens: number; totalTurns: number; missingTurns: number }>();
+    for (const r of toRows(modelResult)) {
+      const period = String(r['period'] ?? '');
+      const source = String(r['source'] ?? '') as PricingSource;
+      const model = resolvePricingModelName(String(r['model'] ?? ''), source);
+      const count = Number(r['count'] ?? 0);
+      const rawTokens = Number(r['tokens'] ?? 0);
+      const missingTurns = Number(r['token_missing_turns'] ?? 0);
+      const observedTurns = count - missingTurns;
+      const factor = observedTurns > 0 ? count / observedTurns : 1;
+      const key = `${period}::${model}`;
+      const cur = modelAggMap.get(key) ?? { count: 0, tokens: 0, totalTurns: 0, missingTurns: 0 };
+      cur.count += count;
+      cur.tokens += Math.round(rawTokens * factor);
+      cur.totalTurns += count;
+      cur.missingTurns += missingTurns;
+      modelAggMap.set(key, cur);
+    }
+    const modelStats = [...modelAggMap.entries()].map(([k, v]) => {
+      const sep = k.indexOf('::');
+      return {
+        period: k.slice(0, sep),
+        model: k.slice(sep + 2),
+        count: v.count,
+        tokens: v.tokens,
+        tokenMissingRate: v.totalTurns > 0 ? v.missingTurns / v.totalTurns : 0,
+        tokenTotalTurns: v.totalTurns,
+        tokenMissingTurns: v.missingTurns,
+      };
+    });
 
     const agentTokenResult = db.exec(
       `SELECT ${messagePeriodExpr} AS period,
