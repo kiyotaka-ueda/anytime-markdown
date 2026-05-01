@@ -1472,10 +1472,10 @@ export function C4ViewerCore({
                   aria-label="Selected C4 element details"
                   sx={{
                     position: 'absolute',
-                    top: 146,
+                    top: 8,
                     right: 8,
                     width: SELECTED_ELEMENT_DETAILS_WIDTH,
-                    maxHeight: 'calc(100% - 158px)',
+                    maxHeight: 'calc(100% - 20px)',
                     overflow: 'auto',
                     zIndex: 10,
                     border: `1px solid ${colors.border}`,
