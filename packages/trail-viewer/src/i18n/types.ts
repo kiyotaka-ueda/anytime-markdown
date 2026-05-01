@@ -180,6 +180,7 @@ export interface TrailI18n {
   'releases.unknownRepo': string;
   // c4
   'viewer.c4': string;
+  'viewer.matrix': string;
   'c4.releases': string;
   'c4.releaseRepository': string;
   'c4.unknownRepo': string;
