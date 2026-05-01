@@ -136,6 +136,7 @@ export function ActivityTrendChart({
 
   const error = commitTrend.error ?? readTrend.error ?? writeTrend.error;
   const loading = commitTrend.loading || readTrend.loading || writeTrend.loading;
+  const legendItems = chartProps?.series ?? [];
 
   if (!elementId) return null;
 
@@ -155,43 +156,80 @@ export function ActivityTrendChart({
       <Typography variant="subtitle2" sx={{ fontSize: '0.8rem' }}>
         {t('c4.trend.title')}
       </Typography>
-      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-        <FormControl size="small" sx={{ minWidth: 88 }}>
-          <InputLabel id="trend-period-label">{t('c4.hotspot.controls.period')}</InputLabel>
-          <Select
-            labelId="trend-period-label"
-            label={t('c4.hotspot.controls.period')}
-            value={period}
-            onChange={(e) => setPeriod(String(e.target.value) as TrendPeriod)}
-          >
-            {PERIOD_OPTIONS.map((p) => (
-              <MenuItem key={p} value={p}>
-                {p}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      </Box>
-      {error && (
-        <Typography variant="caption" color="error" role="alert">
-          {error.message}
-        </Typography>
-      )}
-      {loading && !chartProps && (
-        <Typography variant="caption" color="text.secondary" aria-live="polite">
-          {t('c4.trend.loading')}
-        </Typography>
-      )}
-      {chartProps && (
-        <Box sx={{ width: '100%', minHeight: 200 }}>
-          <LineChart
-            xAxis={[{ data: chartProps.xs, scaleType: 'point' }]}
-            series={chartProps.series}
-            height={200}
-            margin={{ left: 36, right: 12, top: 16, bottom: 28 }}
-          />
+      <Box
+        sx={{
+          display: 'grid',
+          gap: 2,
+          gridTemplateColumns: { xs: '1fr', md: 'max-content minmax(0, 1fr)' },
+          alignItems: 'start',
+        }}
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+          <FormControl size="small" sx={{ minWidth: 88 }}>
+            <InputLabel id="trend-period-label">{t('c4.hotspot.controls.period')}</InputLabel>
+            <Select
+              labelId="trend-period-label"
+              label={t('c4.hotspot.controls.period')}
+              value={period}
+              onChange={(e) => setPeriod(String(e.target.value) as TrendPeriod)}
+            >
+              {PERIOD_OPTIONS.map((p) => (
+                <MenuItem key={p} value={p}>
+                  {p}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          {chartProps && (
+            <Box component="ul" sx={{ m: 0, p: 0, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+              {legendItems.map((item) => (
+                <Box
+                  component="li"
+                  key={item.label}
+                  sx={{ display: 'flex', alignItems: 'center', gap: 1, listStyle: 'none' }}
+                >
+                  <Box
+                    aria-hidden="true"
+                    sx={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: '2px',
+                      bgcolor: item.color,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <Typography variant="caption" sx={{ lineHeight: 1.2 }}>
+                    {item.label}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          )}
         </Box>
-      )}
+        <Box sx={{ minWidth: 0 }}>
+          {error && (
+            <Typography variant="caption" color="error" role="alert">
+              {error.message}
+            </Typography>
+          )}
+          {loading && !chartProps && (
+            <Typography variant="caption" color="text.secondary" aria-live="polite">
+              {t('c4.trend.loading')}
+            </Typography>
+          )}
+          {chartProps && (
+            <Box sx={{ width: '100%', minHeight: 200 }}>
+              <LineChart
+                xAxis={[{ data: chartProps.xs, scaleType: 'point' }]}
+                series={chartProps.series}
+                hideLegend
+                height={200}
+                margin={{ left: 36, right: 12, top: 16, bottom: 28 }}
+              />
+            </Box>
+          )}
+        </Box>
+      </Box>
     </Box>
   );
 }
