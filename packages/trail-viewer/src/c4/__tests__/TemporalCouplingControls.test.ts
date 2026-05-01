@@ -1,8 +1,10 @@
 import {
+  applyGhostEdgeMode,
   computeGranularityChangeValue,
   GRANULARITY_DEFAULT_CONFIDENCE,
   GRANULARITY_DEFAULT_DIRECTIONAL_DIFF,
   GRANULARITY_DEFAULT_THRESHOLD,
+  getGhostEdgeMode,
   getTemporalCouplingGranularities,
   type TemporalCouplingControlsValue,
 } from '../components/TemporalCouplingControls';
@@ -92,5 +94,36 @@ describe('TemporalCouplingControls / getTemporalCouplingGranularities', () => {
       'session',
       'subagentType',
     ]);
+  });
+});
+
+describe('TemporalCouplingControls / ghost edge mode helpers', () => {
+  it('maps disabled state to none', () => {
+    expect(getGhostEdgeMode({ ...baseValue, enabled: false })).toBe('none');
+  });
+
+  it('maps enabled state to commit or session', () => {
+    expect(getGhostEdgeMode({ ...baseValue, enabled: true, granularity: 'commit' })).toBe(
+      'commit',
+    );
+    expect(getGhostEdgeMode({ ...baseValue, enabled: true, granularity: 'session' })).toBe(
+      'session',
+    );
+  });
+
+  it('applies none/commit/session mode changes', () => {
+    const disabled = applyGhostEdgeMode(baseValue, 'none');
+    expect(disabled.enabled).toBe(false);
+    expect(disabled.directional).toBe(false);
+
+    const commit = applyGhostEdgeMode({ ...baseValue, enabled: false }, 'commit');
+    expect(commit.enabled).toBe(true);
+    expect(commit.granularity).toBe('commit');
+    expect(commit.directional).toBe(false);
+
+    const session = applyGhostEdgeMode({ ...baseValue, enabled: false }, 'session');
+    expect(session.enabled).toBe(true);
+    expect(session.granularity).toBe('session');
+    expect(session.directional).toBe(false);
   });
 });

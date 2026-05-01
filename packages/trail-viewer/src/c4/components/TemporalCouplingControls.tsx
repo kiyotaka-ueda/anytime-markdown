@@ -12,6 +12,7 @@ import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
 
 export type TemporalCouplingGranularity = 'commit' | 'session' | 'subagentType';
+export type GhostEdgeMode = 'none' | 'commit' | 'session';
 
 export interface TemporalCouplingControlsValue {
   enabled: boolean;
@@ -31,6 +32,7 @@ export interface TemporalCouplingControlsProps {
   readonly loading: boolean;
   readonly showDirectionalControls?: boolean;
   readonly showSubagentGranularity?: boolean;
+  readonly showCombinedGhostEdgeSelector?: boolean;
 }
 
 const WINDOW_OPTIONS: ReadonlyArray<{ label: string; days: number }> = [
@@ -51,6 +53,31 @@ export function getTemporalCouplingGranularities(
   showSubagentGranularity: boolean,
 ): ReadonlyArray<TemporalCouplingGranularity> {
   return showSubagentGranularity ? DEFAULT_GRANULARITIES : ['commit', 'session'];
+}
+
+export function getGhostEdgeMode(value: Readonly<TemporalCouplingControlsValue>): GhostEdgeMode {
+  if (!value.enabled) return 'none';
+  return value.granularity === 'session' ? 'session' : 'commit';
+}
+
+export function applyGhostEdgeMode(
+  current: Readonly<TemporalCouplingControlsValue>,
+  mode: GhostEdgeMode,
+): TemporalCouplingControlsValue {
+  if (mode === 'none') {
+    return {
+      ...current,
+      enabled: false,
+      directional: false,
+    };
+  }
+
+  return {
+    ...current,
+    enabled: true,
+    directional: false,
+    granularity: mode,
+  };
 }
 
 /** 粒度別のしきい値デフォルト（plan/20260429-ghost-edge-* 第「パラメータの粒度別デフォルト」表） */
@@ -109,6 +136,7 @@ export function TemporalCouplingControls({
   loading,
   showDirectionalControls = true,
   showSubagentGranularity = true,
+  showCombinedGhostEdgeSelector = false,
 }: Readonly<TemporalCouplingControlsProps>) {
   const handleEnabled = (next: boolean): void => onChange({ ...value, enabled: next });
   const handleWindow = (days: number): void => onChange({ ...value, windowDays: days });
@@ -125,6 +153,7 @@ export function TemporalCouplingControls({
     onChange(computeGranularityChangeValue(value, granularity));
   };
   const granularityOptions = getTemporalCouplingGranularities(showSubagentGranularity);
+  const ghostEdgeMode = getGhostEdgeMode(value);
   const granularityDescription = {
     commit: 'コミット単位の共変更',
     session: 'セッション単位の共編集',
@@ -146,78 +175,113 @@ export function TemporalCouplingControls({
       role="group"
       aria-label="時間的結合エッジの表示制御"
     >
-      <FormControlLabel
-        control={
-          <Switch
-            checked={value.enabled}
-            onChange={(e) => handleEnabled(e.target.checked)}
-            inputProps={{ 'aria-label': '時間的結合エッジを表示' }}
-            size="small"
+      {showCombinedGhostEdgeSelector ? (
+        <FormControl size="small" sx={{ minWidth: 160 }}>
+          <InputLabel id="tc-ghost-edge-label">Ghost Edges</InputLabel>
+          <Select
+            labelId="tc-ghost-edge-label"
+            label="Ghost Edges"
+            value={ghostEdgeMode}
+            onChange={(e) => onChange(applyGhostEdgeMode(value, e.target.value as GhostEdgeMode))}
+            inputProps={{ 'aria-label': 'Ghost Edges の切り替え' }}
+          >
+            <MenuItem value="none">None</MenuItem>
+            <MenuItem value="commit">commit</MenuItem>
+            <MenuItem value="session">session</MenuItem>
+          </Select>
+        </FormControl>
+      ) : (
+        <>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={value.enabled}
+                onChange={(e) => handleEnabled(e.target.checked)}
+                inputProps={{ 'aria-label': '時間的結合エッジを表示' }}
+                size="small"
+              />
+            }
+            label={<Typography variant="caption">Ghost Edges</Typography>}
           />
-        }
-        label={<Typography variant="caption">Ghost Edges</Typography>}
-      />
 
-      <FormControl
-        component="fieldset"
-        size="small"
-        disabled={!value.enabled}
-        sx={{ display: 'flex', alignItems: 'center', flexDirection: 'row', gap: 1 }}
-      >
-        <FormLabel
-          component="legend"
-          sx={{ typography: 'caption', position: 'static', transform: 'none', m: 0 }}
-        >
-          粒度
-        </FormLabel>
-        <RadioGroup
-          row
-          value={value.granularity}
-          onChange={(e) =>
-            handleGranularity((e.target.value as TemporalCouplingGranularity) ?? 'commit')
-          }
-          aria-label="結合の粒度"
-        >
-          {granularityOptions.map((granularity) => (
+          <FormControl
+            component="fieldset"
+            size="small"
+            disabled={!value.enabled}
+            sx={{ display: 'flex', alignItems: 'center', flexDirection: 'row', gap: 1 }}
+          >
+            <FormLabel
+              component="legend"
+              sx={{ typography: 'caption', position: 'static', transform: 'none', m: 0 }}
+            >
+              粒度
+            </FormLabel>
+            <RadioGroup
+              row
+              value={value.granularity}
+              onChange={(e) =>
+                handleGranularity((e.target.value as TemporalCouplingGranularity) ?? 'commit')
+              }
+              aria-label="結合の粒度"
+            >
+              {granularityOptions.map((granularity) => (
+                <FormControlLabel
+                  key={granularity}
+                  value={granularity}
+                  control={
+                    <Radio
+                      size="small"
+                      inputProps={{
+                        'aria-describedby': GRANULARITY_DESCRIPTION_ID[granularity],
+                      }}
+                    />
+                  }
+                  label={
+                    <Typography variant="caption">
+                      {granularity === 'subagentType' ? 'subagent' : granularity}
+                    </Typography>
+                  }
+                />
+              ))}
+            </RadioGroup>
+            <Typography
+              id={GRANULARITY_DESCRIPTION_ID.commit}
+              variant="caption"
+              sx={{ position: 'absolute', left: '-9999px' }}
+            >
+              {granularityDescription.commit}
+            </Typography>
+            <Typography
+              id={GRANULARITY_DESCRIPTION_ID.session}
+              variant="caption"
+              sx={{ position: 'absolute', left: '-9999px' }}
+            >
+              {granularityDescription.session}
+            </Typography>
+            <Typography
+              id={GRANULARITY_DESCRIPTION_ID.subagentType}
+              variant="caption"
+              sx={{ position: 'absolute', left: '-9999px' }}
+            >
+              {granularityDescription.subagentType}
+            </Typography>
+          </FormControl>
+
+          {showDirectionalControls && (
             <FormControlLabel
-              key={granularity}
-              value={granularity}
               control={
-                <Radio
+                <Switch
+                  checked={value.directional}
+                  onChange={(e) => handleDirectional(e.target.checked)}
+                  inputProps={{ 'aria-label': '方向性付きエッジを表示' }}
+                  disabled={!value.enabled}
                   size="small"
-                  inputProps={{
-                    'aria-describedby': GRANULARITY_DESCRIPTION_ID[granularity],
-                  }}
                 />
               }
-              label={<Typography variant="caption">{granularity === 'subagentType' ? 'subagent' : granularity}</Typography>}
+              label={<Typography variant="caption">方向性</Typography>}
             />
-          ))}
-        </RadioGroup>
-        <Typography id={GRANULARITY_DESCRIPTION_ID.commit} variant="caption" sx={{ position: 'absolute', left: '-9999px' }}>
-          {granularityDescription.commit}
-        </Typography>
-        <Typography id={GRANULARITY_DESCRIPTION_ID.session} variant="caption" sx={{ position: 'absolute', left: '-9999px' }}>
-          {granularityDescription.session}
-        </Typography>
-        <Typography id={GRANULARITY_DESCRIPTION_ID.subagentType} variant="caption" sx={{ position: 'absolute', left: '-9999px' }}>
-          {granularityDescription.subagentType}
-        </Typography>
-      </FormControl>
-
-      {showDirectionalControls && (
-        <FormControlLabel
-          control={
-            <Switch
-              checked={value.directional}
-              onChange={(e) => handleDirectional(e.target.checked)}
-              inputProps={{ 'aria-label': '方向性付きエッジを表示' }}
-              disabled={!value.enabled}
-              size="small"
-            />
-          }
-          label={<Typography variant="caption">方向性</Typography>}
-        />
+          )}
+        </>
       )}
 
       <FormControl size="small" sx={{ minWidth: 88 }} disabled={!value.enabled}>

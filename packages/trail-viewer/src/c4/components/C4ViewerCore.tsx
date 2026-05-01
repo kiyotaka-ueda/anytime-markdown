@@ -1289,11 +1289,10 @@ export function C4ViewerCore({
       </Toolbar>
       <TemporalCouplingControls
         value={tcValue}
-        onChange={(next) => setTcValue({ ...next, directional: false })}
+        onChange={setTcValue}
         resultCount={ghostEdges.length}
         loading={tcLoading}
-        showDirectionalControls={false}
-        showSubagentGranularity={false}
+        showCombinedGhostEdgeSelector
       />
       {isHotspotOverlay && (
         <HotspotControls
