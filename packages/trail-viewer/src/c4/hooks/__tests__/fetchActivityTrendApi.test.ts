@@ -22,6 +22,15 @@ describe('buildActivityTrendUrl', () => {
     expect(url).toContain('granularity=session');
     expect(url).toContain('sessionMode=read');
   });
+
+  it('allows defect granularity', () => {
+    const url = buildActivityTrendUrl('http://x', {
+      elementId: 'pkg_x',
+      period: '30d',
+      granularity: 'defect',
+    });
+    expect(url).toContain('granularity=defect');
+  });
 });
 
 describe('fetchActivityTrendApi', () => {

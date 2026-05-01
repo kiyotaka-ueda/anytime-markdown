@@ -24,11 +24,13 @@ const ACTIVITY_TREND_PALETTE_DARK = {
   commit: '#E8A012',
   read: '#7AB8FF',
   write: '#76C893',
+  defect: '#FF8A80',
 } as const;
 const ACTIVITY_TREND_PALETTE_LIGHT = {
   commit: '#3D4A52',
   read: '#1565C0',
   write: '#2E7D32',
+  defect: '#C62828',
 } as const;
 
 type ActivityTrendSeries = {
@@ -37,6 +39,7 @@ type ActivityTrendSeries = {
     readonly data: readonly number[];
     readonly label: string;
     readonly color: string;
+    readonly yAxisId?: 'left' | 'right';
   }>;
 };
 
@@ -44,19 +47,22 @@ export function buildActivityTrendSeries(
   commitData: ActivityTrendResponse | null,
   readData: ActivityTrendResponse | null,
   writeData: ActivityTrendResponse | null,
-  labels: Readonly<{ commit: string; read: string; write: string }>,
-  palette: Readonly<{ commit: string; read: string; write: string }>,
+  defectData: ActivityTrendResponse | null,
+  labels: Readonly<{ commit: string; read: string; write: string; defect: string }>,
+  palette: Readonly<{ commit: string; read: string; write: string; defect: string }>,
 ): ActivityTrendSeries | null {
-  if (!commitData || !readData || !writeData) return null;
+  if (!commitData || !readData || !writeData || !defectData) return null;
   if (
     commitData.type !== 'single-series'
     || readData.type !== 'single-series'
     || writeData.type !== 'single-series'
+    || defectData.type !== 'single-series'
   ) return null;
 
   const xs = commitData.buckets.map((b) => b.date);
   const readByDate = new Map(readData.buckets.map((b) => [b.date, b.count] as const));
   const writeByDate = new Map(writeData.buckets.map((b) => [b.date, b.count] as const));
+  const defectByDate = new Map(defectData.buckets.map((b) => [b.date, b.count] as const));
 
   return {
     xs,
@@ -65,16 +71,25 @@ export function buildActivityTrendSeries(
         data: commitData.buckets.map((b) => b.count),
         label: labels.commit,
         color: palette.commit,
+        yAxisId: 'left',
       },
       {
         data: xs.map((date) => readByDate.get(date) ?? 0),
         label: labels.read,
         color: palette.read,
+        yAxisId: 'left',
       },
       {
         data: xs.map((date) => writeByDate.get(date) ?? 0),
         label: labels.write,
         color: palette.write,
+        yAxisId: 'left',
+      },
+      {
+        data: xs.map((date) => defectByDate.get(date) ?? 0),
+        label: labels.defect,
+        color: palette.defect,
+        yAxisId: 'right',
       },
     ],
   };
@@ -123,6 +138,14 @@ export function ActivityTrendChart({
     sessionMode: 'write',
     repoName,
   });
+  const defectTrend = useActivityTrend({
+    enabled,
+    serverUrl,
+    elementId: elementId ?? '',
+    period,
+    granularity: 'defect',
+    repoName,
+  });
 
   const palette = isDark ? ACTIVITY_TREND_PALETTE_DARK : ACTIVITY_TREND_PALETTE_LIGHT;
 
@@ -131,17 +154,19 @@ export function ActivityTrendChart({
       commitTrend.data,
       readTrend.data,
       writeTrend.data,
+      defectTrend.data,
       {
         commit: t('c4.trend.seriesCommit'),
         read: t('c4.trend.seriesRead'),
         write: t('c4.trend.seriesWrite'),
+        defect: t('c4.trend.seriesDefect'),
       },
       palette,
     );
-  }, [commitTrend.data, readTrend.data, writeTrend.data, palette, t]);
+  }, [commitTrend.data, readTrend.data, writeTrend.data, defectTrend.data, palette, t]);
 
-  const error = commitTrend.error ?? readTrend.error ?? writeTrend.error;
-  const loading = commitTrend.loading || readTrend.loading || writeTrend.loading;
+  const error = commitTrend.error ?? readTrend.error ?? writeTrend.error ?? defectTrend.error;
+  const loading = commitTrend.loading || readTrend.loading || writeTrend.loading || defectTrend.loading;
   const legendItems = chartProps?.series ?? [];
 
   if (!elementId) return null;
@@ -227,11 +252,14 @@ export function ActivityTrendChart({
             <Box sx={{ width: '100%', minHeight: 200 }}>
               <LineChart
                 xAxis={[{ data: chartProps.xs, scaleType: 'point', valueFormatter: formatTrendDate }]}
-                yAxis={[{ min: 0 }]}
+                yAxis={[
+                  { id: 'left', min: 0 },
+                  { id: 'right', min: 0, position: 'right' as const, width: 48 },
+                ]}
                 series={chartProps.series}
                 hideLegend
                 height={200}
-                margin={{ left: 36, right: 12, top: 16, bottom: 28 }}
+                margin={{ left: 36, right: 56, top: 16, bottom: 28 }}
               />
             </Box>
           )}

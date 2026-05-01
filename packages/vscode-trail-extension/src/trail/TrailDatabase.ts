@@ -108,6 +108,7 @@ export function stripWorktreePrefix(relPath: string): string {
 }
 
 export type TemporalCouplingGranularity = 'commit' | 'session' | 'subagentType';
+export type ActivityTrendGranularity = 'commit' | 'session' | 'subagent' | 'defect';
 
 /** session 粒度で「ファイル編集」とみなすツール名。 */
 export const SESSION_COUPLING_EDIT_TOOLS: readonly string[] = [
@@ -5978,7 +5979,7 @@ export class TrailDatabase {
   fetchActivityTrendRows(params: {
     from: string;
     to: string;
-    granularity: 'commit' | 'session' | 'subagent';
+    granularity: ActivityTrendGranularity;
     sessionMode?: 'read' | 'write';
     filePathsIn: ReadonlyArray<string>;
   }): ReadonlyArray<{
@@ -6020,6 +6021,33 @@ export class TrailDatabase {
           filePath: r.filePath,
           subagentType: r.subagentType,
         }));
+    }
+
+    if (granularity === 'defect') {
+      const sql = `
+        SELECT sc.committed_at AS committedAt,
+               MIN(cf.file_path) AS filePath,
+               NULL AS subagentType
+        FROM session_commits sc
+        INNER JOIN commit_files cf ON cf.commit_hash = sc.commit_hash
+        WHERE sc.committed_at >= ? AND sc.committed_at <= ?
+          AND LOWER(sc.commit_message) GLOB 'fix[:(]*'
+          AND cf.file_path IN ${inClause}
+        GROUP BY sc.commit_hash
+        ORDER BY sc.committed_at
+      `;
+      const bindings = useTempTable ? [from, to] : [from, to, ...filePathsIn];
+      const res = db.exec(sql, bindings);
+      if (useTempTable) db.run('DROP TABLE IF EXISTS _hotspot_paths');
+      if (!res.length) return [];
+      return res[0].values.map((row) => {
+        const subagentType = row[2];
+        return {
+          committedAt: String(row[0]),
+          filePath: String(row[1]),
+          subagentType: subagentType == null ? null : String(subagentType),
+        };
+      });
     }
 
     let sql: string;

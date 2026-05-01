@@ -59,6 +59,8 @@ const HOTSPOT_PERIODS = ['7d', '30d', '90d', 'all'] as const;
 type HotspotPeriod = typeof HOTSPOT_PERIODS[number];
 const HOTSPOT_GRANULARITIES = ['commit', 'session', 'subagent'] as const;
 type HotspotGranularity = typeof HOTSPOT_GRANULARITIES[number];
+const ACTIVITY_TREND_GRANULARITIES = ['commit', 'session', 'subagent', 'defect'] as const;
+type ActivityTrendGranularity = typeof ACTIVITY_TREND_GRANULARITIES[number];
 const ACTIVITY_TREND_SESSION_MODES = ['read', 'write'] as const;
 type ActivityTrendSessionMode = typeof ACTIVITY_TREND_SESSION_MODES[number];
 const ELEMENT_ID_RE = /^(sys|pkg|comp|code|file)[_:][\w/.:-]+$/;
@@ -73,6 +75,13 @@ function parseHotspotPeriod(raw: string | null): HotspotPeriod | null {
 function parseHotspotGranularity(raw: string | null): HotspotGranularity | null {
   if (raw === null) return 'commit';
   return (HOTSPOT_GRANULARITIES as readonly string[]).includes(raw) ? (raw as HotspotGranularity) : null;
+}
+
+function parseActivityTrendGranularity(raw: string | null): ActivityTrendGranularity | null {
+  if (raw === null) return 'commit';
+  return (ACTIVITY_TREND_GRANULARITIES as readonly string[]).includes(raw)
+    ? (raw as ActivityTrendGranularity)
+    : null;
 }
 
 function parseActivityTrendSessionMode(raw: string | null): ActivityTrendSessionMode | null {
@@ -745,9 +754,9 @@ export class TrailDataServer {
       this.sendError(res, 400, "period must be one of '7d', '30d', '90d', or 'all'");
       return;
     }
-    const granularity = parseHotspotGranularity(params.get('granularity'));
+    const granularity = parseActivityTrendGranularity(params.get('granularity'));
     if (granularity === null) {
-      this.sendError(res, 400, "granularity must be one of 'commit', 'session', or 'subagent'");
+      this.sendError(res, 400, "granularity must be one of 'commit', 'session', 'subagent', or 'defect'");
       return;
     }
     try {
@@ -850,7 +859,7 @@ export class TrailDataServer {
       const trend = computeActivityTrend({
         rows,
         elementId,
-        granularity,
+        granularity: granularity === 'defect' ? 'commit' : granularity,
         period,
         from,
         to,

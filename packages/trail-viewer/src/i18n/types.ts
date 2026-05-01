@@ -221,6 +221,7 @@ export interface TrailI18n {
   'c4.trend.seriesCommit': string;
   'c4.trend.seriesRead': string;
   'c4.trend.seriesWrite': string;
+  'c4.trend.seriesDefect': string;
   'c4.claudeActivity.reset': string;
   'c4.multiAgent.badge': string;
   'c4.multiAgent.conflicts': string;

@@ -264,4 +264,5 @@ export const ja: TrailI18n = {
   'c4.trend.seriesCommit': 'Commit',
   'c4.trend.seriesRead': '読み込み',
   'c4.trend.seriesWrite': '書き出し',
+  'c4.trend.seriesDefect': '不具合数',
 };

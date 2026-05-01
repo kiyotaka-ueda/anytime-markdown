@@ -16,6 +16,7 @@ const insertSessionCommit = (
   sessionId: string,
   hash: string,
   committedAt: string,
+  commitMessage: string | null = null,
 ): void => {
   inner(db).run(
     `INSERT OR IGNORE INTO sessions (
@@ -25,9 +26,9 @@ const insertSessionCommit = (
     [sessionId, sessionId],
   );
   inner(db).run(
-    `INSERT OR IGNORE INTO session_commits (session_id, commit_hash, committed_at)
-     VALUES (?, ?, ?)`,
-    [sessionId, hash, committedAt],
+    `INSERT OR IGNORE INTO session_commits (session_id, commit_hash, committed_at, commit_message)
+     VALUES (?, ?, ?, ?)`,
+    [sessionId, hash, committedAt, commitMessage ?? ''],
   );
 };
 
@@ -105,6 +106,24 @@ describe('TrailDatabase.fetchActivityTrendRows', () => {
     });
     expect(rows).toHaveLength(1);
     expect(rows[0].filePath).toBe('a.ts');
+    expect(rows[0].committedAt).toContain('2026-04-25');
+  });
+
+  test('defect granularity counts fix commits once even when multiple files match', () => {
+    insertSessionCommit(db, 's1', 'fix1', '2026-04-25T10:00:00.000Z', 'fix: bug');
+    insertSessionCommit(db, 's2', 'feat1', '2026-04-25T11:00:00.000Z', 'feat: feature');
+    insertCommitFile(db, 'fix1', 'a.ts');
+    insertCommitFile(db, 'fix1', 'b.ts');
+    insertCommitFile(db, 'feat1', 'a.ts');
+
+    const rows = db.fetchActivityTrendRows({
+      from: '2026-04-23T00:00:00.000Z',
+      to: '2026-04-30T00:00:00.000Z',
+      granularity: 'defect',
+      filePathsIn: ['a.ts', 'b.ts'],
+    });
+
+    expect(rows).toHaveLength(1);
     expect(rows[0].committedAt).toContain('2026-04-25');
   });
 

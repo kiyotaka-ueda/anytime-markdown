@@ -1,13 +1,11 @@
-import type {
-  ActivityTrend,
-  TrendGranularity,
-  TrendPeriod,
-} from '@anytime-markdown/trail-core/c4';
+import type { ActivityTrend, TrendPeriod } from '@anytime-markdown/trail-core/c4';
+
+export type ActivityTrendGranularity = 'commit' | 'session' | 'subagent' | 'defect';
 
 export interface ActivityTrendFetchParams {
   readonly elementId: string;
   readonly period: TrendPeriod;
-  readonly granularity: TrendGranularity;
+  readonly granularity: ActivityTrendGranularity;
   readonly sessionMode?: 'read' | 'write';
   readonly repoName?: string;
 }
@@ -15,7 +13,7 @@ export interface ActivityTrendFetchParams {
 export type ActivityTrendResponse = {
   readonly elementId: string;
   readonly period: TrendPeriod;
-  readonly granularity: TrendGranularity;
+  readonly granularity: ActivityTrendGranularity;
   readonly from: string;
   readonly to: string;
 } & ActivityTrend;

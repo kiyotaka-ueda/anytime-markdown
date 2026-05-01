@@ -264,4 +264,5 @@ export const en: TrailI18n = {
   'c4.trend.seriesCommit': 'Commit',
   'c4.trend.seriesRead': 'Read',
   'c4.trend.seriesWrite': 'Write',
+  'c4.trend.seriesDefect': 'Defects',
 };
