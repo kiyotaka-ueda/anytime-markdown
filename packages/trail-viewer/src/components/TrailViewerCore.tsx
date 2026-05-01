@@ -33,6 +33,7 @@ import type { TrailRelease } from '@anytime-markdown/trail-core/domain';
 import { C4ViewerCore } from '../c4/components/C4ViewerCore';
 import type { C4ViewerCoreProps } from '../c4/components/C4ViewerCore';
 import { CodeGraphPanel } from './CodeGraphPanel';
+import { MatrixPanel } from '../c4/components/MatrixPanel';
 
 /** C4-related props forwarded to the embedded C4ViewerCore. */
 type C4Props = Omit<C4ViewerCoreProps, 'isDark' | 'containerHeight'>;
@@ -201,7 +202,8 @@ function TrailViewerCoreInner({
           <Tab id="trail-tab-2" aria-controls="trail-panel-2" label={t('viewer.prompts')} />
           <Tab id="trail-tab-3" aria-controls="trail-panel-3" label={t('releases.title')} />
           {c4 && <Tab id="trail-tab-4" aria-controls="trail-panel-4" label={t('viewer.c4')} />}
-          {codeGraph && <Tab id="trail-tab-5" aria-controls="trail-panel-5" label="Graph" />}
+          {c4 && <Tab id="trail-tab-5" aria-controls="trail-panel-5" label={t('viewer.matrix')} />}
+          {codeGraph && <Tab id="trail-tab-6" aria-controls="trail-panel-6" label="Graph" />}
         </Tabs>
         {tokenBudgets.length > 0 && (
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', px: 2, flexShrink: 0 }}>
@@ -332,12 +334,32 @@ function TrailViewerCoreInner({
         </Box>
       )}
 
-      {codeGraph && (
+      {c4 && (
         <Box
           role="tabpanel"
           id="trail-panel-5"
           aria-labelledby="trail-tab-5"
           sx={{ display: activeTab !== 5 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
+        >
+          <MatrixPanel
+            dsmMatrix={c4.dsmMatrix}
+            featureMatrix={c4.featureMatrix}
+            coverageMatrix={c4.coverageMatrix}
+            coverageDiff={c4.coverageDiff}
+            c4Model={c4.c4Model}
+            serverUrl={c4.serverUrl}
+            selectedRepo={c4.selectedRepo}
+            isDark={isDark}
+          />
+        </Box>
+      )}
+
+      {codeGraph && (
+        <Box
+          role="tabpanel"
+          id="trail-panel-6"
+          aria-labelledby="trail-tab-6"
+          sx={{ display: activeTab !== 6 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
         >
           <CodeGraphPanel serverUrl={codeGraph.serverUrl} isDark={isDark} />
         </Box>
