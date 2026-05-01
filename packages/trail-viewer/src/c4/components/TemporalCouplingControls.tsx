@@ -30,6 +30,7 @@ export interface TemporalCouplingControlsProps {
   readonly resultCount: number;
   readonly loading: boolean;
   readonly showDirectionalControls?: boolean;
+  readonly showSubagentGranularity?: boolean;
 }
 
 const WINDOW_OPTIONS: ReadonlyArray<{ label: string; days: number }> = [
@@ -40,6 +41,17 @@ const WINDOW_OPTIONS: ReadonlyArray<{ label: string; days: number }> = [
 ];
 
 const TOP_K_OPTIONS: ReadonlyArray<number> = [10, 50, 100];
+const DEFAULT_GRANULARITIES: ReadonlyArray<TemporalCouplingGranularity> = [
+  'commit',
+  'session',
+  'subagentType',
+];
+
+export function getTemporalCouplingGranularities(
+  showSubagentGranularity: boolean,
+): ReadonlyArray<TemporalCouplingGranularity> {
+  return showSubagentGranularity ? DEFAULT_GRANULARITIES : ['commit', 'session'];
+}
 
 /** 粒度別のしきい値デフォルト（plan/20260429-ghost-edge-* 第「パラメータの粒度別デフォルト」表） */
 export const GRANULARITY_DEFAULT_THRESHOLD: Readonly<Record<TemporalCouplingGranularity, number>> = {
@@ -96,6 +108,7 @@ export function TemporalCouplingControls({
   resultCount,
   loading,
   showDirectionalControls = true,
+  showSubagentGranularity = true,
 }: Readonly<TemporalCouplingControlsProps>) {
   const handleEnabled = (next: boolean): void => onChange({ ...value, enabled: next });
   const handleWindow = (days: number): void => onChange({ ...value, windowDays: days });
@@ -111,6 +124,12 @@ export function TemporalCouplingControls({
     if (granularity === value.granularity) return;
     onChange(computeGranularityChangeValue(value, granularity));
   };
+  const granularityOptions = getTemporalCouplingGranularities(showSubagentGranularity);
+  const granularityDescription = {
+    commit: 'コミット単位の共変更',
+    session: 'セッション単位の共編集',
+    subagentType: 'エージェント型ごとの編集領域',
+  } as const;
 
   return (
     <Box
@@ -159,42 +178,30 @@ export function TemporalCouplingControls({
           }
           aria-label="結合の粒度"
         >
-          <FormControlLabel
-            value="commit"
-            control={<Radio size="small" inputProps={{ 'aria-describedby': GRANULARITY_DESCRIPTION_ID.commit }} />}
-            label={<Typography variant="caption">commit</Typography>}
-          />
-          <FormControlLabel
-            value="session"
-            control={<Radio size="small" inputProps={{ 'aria-describedby': GRANULARITY_DESCRIPTION_ID.session }} />}
-            label={<Typography variant="caption">session</Typography>}
-          />
-          <FormControlLabel
-            value="subagentType"
-            control={<Radio size="small" inputProps={{ 'aria-describedby': GRANULARITY_DESCRIPTION_ID.subagentType }} />}
-            label={<Typography variant="caption">subagent</Typography>}
-          />
+          {granularityOptions.map((granularity) => (
+            <FormControlLabel
+              key={granularity}
+              value={granularity}
+              control={
+                <Radio
+                  size="small"
+                  inputProps={{
+                    'aria-describedby': GRANULARITY_DESCRIPTION_ID[granularity],
+                  }}
+                />
+              }
+              label={<Typography variant="caption">{granularity === 'subagentType' ? 'subagent' : granularity}</Typography>}
+            />
+          ))}
         </RadioGroup>
-        <Typography
-          id={GRANULARITY_DESCRIPTION_ID.commit}
-          variant="caption"
-          sx={{ position: 'absolute', left: '-9999px' }}
-        >
-          コミット単位の共変更
+        <Typography id={GRANULARITY_DESCRIPTION_ID.commit} variant="caption" sx={{ position: 'absolute', left: '-9999px' }}>
+          {granularityDescription.commit}
         </Typography>
-        <Typography
-          id={GRANULARITY_DESCRIPTION_ID.session}
-          variant="caption"
-          sx={{ position: 'absolute', left: '-9999px' }}
-        >
-          セッション単位の共編集
+        <Typography id={GRANULARITY_DESCRIPTION_ID.session} variant="caption" sx={{ position: 'absolute', left: '-9999px' }}>
+          {granularityDescription.session}
         </Typography>
-        <Typography
-          id={GRANULARITY_DESCRIPTION_ID.subagentType}
-          variant="caption"
-          sx={{ position: 'absolute', left: '-9999px' }}
-        >
-          エージェント型ごとの編集領域
+        <Typography id={GRANULARITY_DESCRIPTION_ID.subagentType} variant="caption" sx={{ position: 'absolute', left: '-9999px' }}>
+          {granularityDescription.subagentType}
         </Typography>
       </FormControl>
 

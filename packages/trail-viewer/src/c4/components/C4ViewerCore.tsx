@@ -1293,6 +1293,7 @@ export function C4ViewerCore({
         resultCount={ghostEdges.length}
         loading={tcLoading}
         showDirectionalControls={false}
+        showSubagentGranularity={false}
       />
       {isHotspotOverlay && (
         <HotspotControls

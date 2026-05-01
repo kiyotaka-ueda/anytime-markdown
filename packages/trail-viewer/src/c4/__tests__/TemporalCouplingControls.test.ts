@@ -3,6 +3,7 @@ import {
   GRANULARITY_DEFAULT_CONFIDENCE,
   GRANULARITY_DEFAULT_DIRECTIONAL_DIFF,
   GRANULARITY_DEFAULT_THRESHOLD,
+  getTemporalCouplingGranularities,
   type TemporalCouplingControlsValue,
 } from '../components/TemporalCouplingControls';
 
@@ -77,5 +78,19 @@ describe('TemporalCouplingControls / GRANULARITY_DEFAULT_CONFIDENCE', () => {
     expect(GRANULARITY_DEFAULT_CONFIDENCE.session).toBeGreaterThan(
       GRANULARITY_DEFAULT_CONFIDENCE.subagentType,
     );
+  });
+});
+
+describe('TemporalCouplingControls / getTemporalCouplingGranularities', () => {
+  it('hides subagentType when disabled', () => {
+    expect(getTemporalCouplingGranularities(false)).toEqual(['commit', 'session']);
+  });
+
+  it('keeps subagentType when enabled', () => {
+    expect(getTemporalCouplingGranularities(true)).toEqual([
+      'commit',
+      'session',
+      'subagentType',
+    ]);
   });
 });
