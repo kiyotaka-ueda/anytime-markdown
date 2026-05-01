@@ -1117,6 +1117,8 @@ export class SupabaseTrailReader implements ITrailReader {
           tokens: Math.round(e.adjustedTokens),
           durationMs: e.durationMs,
           tokenMissingRate: e.totalTurns > 0 ? e.missingTurns / e.totalTurns : 0,
+          tokenTotalTurns: e.totalTurns,
+          tokenMissingTurns: e.missingTurns,
         };
       }).sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
       // errorRate.total を toolCounts の count から補完

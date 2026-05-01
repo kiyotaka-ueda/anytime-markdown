@@ -301,7 +301,7 @@ export interface CostOptimizationData {
 }
 
 interface CombinedData {
-  readonly toolCounts: readonly { period: string; tool: string; count: number; tokens: number; durationMs: number; tokenMissingRate: number }[];
+  readonly toolCounts: readonly { period: string; tool: string; count: number; tokens: number; durationMs: number; tokenMissingRate: number; tokenTotalTurns: number; tokenMissingTurns: number }[];
   readonly errorRate: readonly { period: string; rate: number; byTool: Readonly<Record<string, number>> }[];
   readonly skillStats: readonly { period: string; skill: string; count: number; costUsd: number }[];
   readonly modelStats: readonly { period: string; model: string; count: number; tokens: number; tokenMissingRate: number; tokenTotalTurns: number; tokenMissingTurns: number }[];
@@ -4857,6 +4857,8 @@ export class TrailDatabase {
         tokens: Math.round(e.adjustedTokens),
         durationMs: e.durationMs,
         tokenMissingRate: e.totalTurns > 0 ? e.missingTurns / e.totalTurns : 0,
+        tokenTotalTurns: e.totalTurns,
+        tokenMissingTurns: e.missingTurns,
       };
     });
 

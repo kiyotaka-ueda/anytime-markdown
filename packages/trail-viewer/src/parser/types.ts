@@ -89,6 +89,8 @@ export interface CombinedToolCount {
   readonly durationMs: number;
   /** トークン欠損ターン比率 (0–1)。欠損がない場合は 0 */
   readonly tokenMissingRate: number;
+  readonly tokenTotalTurns: number;
+  readonly tokenMissingTurns: number;
 }
 
 
