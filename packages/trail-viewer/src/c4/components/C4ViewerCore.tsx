@@ -33,6 +33,16 @@ import { useTemporalCoupling } from '../hooks/useTemporalCoupling';
 
 const UNKNOWN_REPO_KEY = '__unknown__';
 const CURRENT_RELEASE_TAG = 'current';
+const SELECTED_ELEMENT_DETAILS_WIDTH = 240;
+const SELECTED_ELEMENT_DETAILS_RIGHT_OFFSET = 8;
+const TREND_CHART_POPUP_GAP = 8;
+const TREND_CHART_RESERVED_RIGHT_WIDTH =
+  SELECTED_ELEMENT_DETAILS_WIDTH + SELECTED_ELEMENT_DETAILS_RIGHT_OFFSET + TREND_CHART_POPUP_GAP;
+
+export function getActivityTrendChartWidth(hasSelectedElementDetails: boolean): string {
+  return hasSelectedElementDetails ? `calc(100% - ${TREND_CHART_RESERVED_RIGHT_WIDTH}px)` : '100%';
+}
+
 const DEFAULT_TC_VALUE: TemporalCouplingControlsValue = {
   enabled: false,
   windowDays: 30,
@@ -1427,7 +1437,7 @@ export function C4ViewerCore({
                     position: 'absolute',
                     top: 146,
                     right: 8,
-                    width: 240,
+                    width: SELECTED_ELEMENT_DETAILS_WIDTH,
                     maxHeight: 'calc(100% - 158px)',
                     overflow: 'auto',
                     zIndex: 10,
@@ -1796,12 +1806,21 @@ export function C4ViewerCore({
                 </>
               )}
             </Box>
-            <ActivityTrendChart
-              elementId={selectedElementId}
-              serverUrl={serverUrl}
-              repoName={selectedRepo || undefined}
-              isDark={isDark}
-            />
+            <Box
+              sx={{
+                width: getActivityTrendChartWidth(!!selectedElementInfo),
+                minWidth: 0,
+                maxWidth: '100%',
+                transition: 'width 150ms cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+            >
+              <ActivityTrendChart
+                elementId={selectedElementId}
+                serverUrl={serverUrl}
+                repoName={selectedRepo || undefined}
+                isDark={isDark}
+              />
+            </Box>
           </Box>
         )}
         {showC4 && showDsm && (
