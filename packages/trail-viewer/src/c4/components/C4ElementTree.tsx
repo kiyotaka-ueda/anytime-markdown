@@ -1,4 +1,4 @@
-import type { C4TreeNode } from '@anytime-markdown/trail-core/c4';
+import type { C4ReleaseEntry, C4TreeNode } from '@anytime-markdown/trail-core/c4';
 import { findService } from '@anytime-markdown/trail-core/c4';
 import type { ExportedSymbol } from '@anytime-markdown/trail-core/analyzer';
 import type { Action } from '@anytime-markdown/graph-core/state';
@@ -22,6 +22,8 @@ import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import type { Dispatch, FC } from 'react';
@@ -36,6 +38,8 @@ import { getC4Colors } from '../c4Theme';
 import { getTokens } from '../../theme/designTokens';
 
 const INDENT_PX = 20;
+const UNKNOWN_REPO_KEY = '__unknown__';
+const CURRENT_RELEASE_TAG = 'current';
 
 /** C4要素タイプに対応するアイコン */
 function TypeIcon({ type, serviceType }: Readonly<{ type: C4TreeNode['type']; serviceType?: string }>) {
@@ -237,6 +241,12 @@ interface C4ElementTreeProps {
   readonly tree: readonly C4TreeNode[];
   readonly dispatch: Dispatch<Action>;
   readonly onSelect?: (id: string) => void;
+  readonly repoOptions?: readonly string[];
+  readonly selectedRepo?: string;
+  readonly onRepoChange?: (repo: string) => void;
+  readonly releaseOptions?: readonly C4ReleaseEntry[];
+  readonly selectedRelease?: string;
+  readonly onReleaseChange?: (release: string) => void;
   readonly currentLevel?: number;
   readonly selectedSystemId?: string | null;
   readonly onAddElement?: (type: 'person' | 'system' | 'container' | 'component') => void;
@@ -251,7 +261,7 @@ interface C4ElementTreeProps {
   readonly checkReset?: { readonly key: number; readonly ids: ReadonlySet<string> | null; readonly expanded: ReadonlySet<string> | null };
 }
 
-export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onSelect, currentLevel, selectedSystemId, onAddElement, onCheckedChange, onRemoveElement, onPurgeDeleted, exports, onExportSelect, selectedExportId, isDark, checkReset }) => {
+export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onSelect, repoOptions = [], selectedRepo = '', onRepoChange, releaseOptions = [], selectedRelease = CURRENT_RELEASE_TAG, onReleaseChange, currentLevel, selectedSystemId, onAddElement, onCheckedChange, onRemoveElement, onPurgeDeleted, exports, onExportSelect, selectedExportId, isDark, checkReset }) => {
   const { t } = useTrailI18n();
   const [searchText, setSearchText] = useState('');
 
@@ -397,6 +407,12 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
     '&:disabled': { color: colors.textMuted },
   } as const;
 
+  const selectorSx = {
+    fontSize: '0.75rem',
+    height: 30,
+    '& .MuiSelect-select': { py: '3px' },
+  } as const;
+
   return (
     <Box
       sx={{
@@ -408,6 +424,42 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
         ...scrollbarSx,
       }}
     >
+      {(repoOptions.length > 0 || releaseOptions.length > 0) && (
+        <Box sx={{ px: 1, py: 0.75, flexShrink: 0, borderBottom: `1px solid ${colors.border}`, display: 'grid', gap: 0.75 }}>
+          {repoOptions.length > 0 && (
+            <Select
+              size="small"
+              fullWidth
+              value={selectedRepo}
+              onChange={(event) => onRepoChange?.(event.target.value)}
+              sx={selectorSx}
+              aria-label={t('c4.releaseRepository')}
+            >
+              {repoOptions.map((key) => (
+                <MenuItem key={key} value={key} sx={{ fontSize: '0.75rem' }}>
+                  {key === UNKNOWN_REPO_KEY ? t('c4.unknownRepo') : key}
+                </MenuItem>
+              ))}
+            </Select>
+          )}
+          {releaseOptions.length > 0 && (
+            <Select
+              size="small"
+              fullWidth
+              value={selectedRelease}
+              onChange={(event) => onReleaseChange?.(event.target.value)}
+              sx={selectorSx}
+              aria-label={t('c4.releases')}
+            >
+              {releaseOptions.map((entry) => (
+                <MenuItem key={entry.tag} value={entry.tag} sx={{ fontSize: '0.75rem' }}>
+                  {entry.tag === CURRENT_RELEASE_TAG ? t('c4.currentRelease') : entry.tag}
+                </MenuItem>
+              ))}
+            </Select>
+          )}
+        </Box>
+      )}
       <Box sx={{ px: 1, py: 0.5, flexShrink: 0, borderBottom: `1px solid ${colors.border}` }}>
         <TextField
           size="small"

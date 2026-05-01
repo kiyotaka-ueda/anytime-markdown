@@ -14,7 +14,6 @@ import ButtonGroup from '@mui/material/ButtonGroup';
 import LinearProgress from '@mui/material/LinearProgress';
 import ListSubheader from '@mui/material/ListSubheader';
 import MenuItem from '@mui/material/MenuItem';
-import type { SelectChangeEvent } from '@mui/material/Select';
 import Select from '@mui/material/Select';
 import Toolbar from '@mui/material/Toolbar';
 import Tooltip from '@mui/material/Tooltip';
@@ -251,14 +250,13 @@ export function C4ViewerCore({
     return out;
   }, [releases, selectedRepo]);
 
-  const handleRepoChange = useCallback((event: SelectChangeEvent<string>): void => {
-    const next = event.target.value;
+  const handleRepoChange = useCallback((next: string): void => {
     setSelectedRepoInternal(next);
     onRepoSelect?.(next);
   }, [onRepoSelect]);
 
-  const handleReleaseChange = useCallback((event: SelectChangeEvent<string>): void => {
-    onReleaseSelect?.(event.target.value);
+  const handleReleaseChange = useCallback((next: string): void => {
+    onReleaseSelect?.(next);
   }, [onReleaseSelect]);
 
   const [state, dispatch] = useReducer(graphReducer, createInitialState());
@@ -1052,36 +1050,6 @@ export function C4ViewerCore({
             Import
           </Button>
         )}
-        {repoOptions.length > 0 && (
-          <Select
-            size="small"
-            value={selectedRepo}
-            onChange={handleRepoChange}
-            sx={{ fontSize: '0.75rem', height: 28, minWidth: 100, mr: 0.5, '& .MuiSelect-select': { py: '2px' } }}
-            aria-label={t('c4.releaseRepository')}
-          >
-            {repoOptions.map((key) => (
-              <MenuItem key={key} value={key} sx={{ fontSize: '0.75rem' }}>
-                {key === UNKNOWN_REPO_KEY ? t('c4.unknownRepo') : key}
-              </MenuItem>
-            ))}
-          </Select>
-        )}
-        {visibleReleases.length > 0 && (
-          <Select
-            size="small"
-            value={selectedRelease}
-            onChange={handleReleaseChange}
-            sx={{ fontSize: '0.75rem', height: 28, minWidth: 120, mr: 0.5, '& .MuiSelect-select': { py: '2px' } }}
-            aria-label={t('c4.releases')}
-          >
-            {visibleReleases.map((entry) => (
-              <MenuItem key={entry.tag} value={entry.tag} sx={{ fontSize: '0.75rem' }}>
-                {entry.tag === CURRENT_RELEASE_TAG ? t('c4.currentRelease') : entry.tag}
-              </MenuItem>
-            ))}
-          </Select>
-        )}
         <ButtonGroup size="small" sx={{ ml: 1 }}>
           {([1, 2, 3, 4] as const).map(level => (
             <Button
@@ -1375,6 +1343,12 @@ export function C4ViewerCore({
             tree={elementTree}
             dispatch={dispatch}
             onSelect={handleElementSelect}
+            repoOptions={repoOptions}
+            selectedRepo={selectedRepo}
+            onRepoChange={handleRepoChange}
+            releaseOptions={visibleReleases}
+            selectedRelease={selectedRelease}
+            onReleaseChange={handleReleaseChange}
             currentLevel={currentLevel}
             selectedSystemId={selectedSystemId}
             onAddElement={(type) => setAddElementType(type)}
