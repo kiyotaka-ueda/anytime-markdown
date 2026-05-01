@@ -792,7 +792,7 @@ export class SupabaseTrailReader implements ITrailReader {
       const { data, error } = await this.client
         .from('trail_daily_counts')
         .select('date,kind,key,count,tokens,duration_ms')
-        .in('kind', ['tool', 'skill', 'error'])
+        .in('kind', ['skill', 'error'])
         .gte('date', cutoffDate);
       if (error || !data) return null;
 
@@ -815,21 +815,12 @@ export class SupabaseTrailReader implements ITrailReader {
         return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
       };
 
-      const toolMap = new Map<string, { count: number; tokens: number; durationMs: number }>();
       const errMap = new Map<string, { err: number; total: number; byTool: Record<string, number> }>();
       const skillMap = new Map<string, number>();
 
       for (const r of rows) {
         const p = periodKey(r.date);
-        if (r.kind === 'tool') {
-          const k = `${p}::${r.key}`;
-          const e = toolMap.get(k) ?? { count: 0, tokens: 0, durationMs: 0 };
-          e.count += r.count; e.tokens += r.tokens; e.durationMs += r.duration_ms;
-          toolMap.set(k, e);
-          const ef = errMap.get(p) ?? { err: 0, total: 0, byTool: {} };
-          ef.total += r.count;
-          errMap.set(p, ef);
-        } else if (r.kind === 'error') {
+        if (r.kind === 'error') {
           const ef = errMap.get(p) ?? { err: 0, total: 0, byTool: {} };
           ef.err += r.count;
           ef.byTool[r.key] = (ef.byTool[r.key] ?? 0) + r.count;
@@ -845,9 +836,9 @@ export class SupabaseTrailReader implements ITrailReader {
         return [k.slice(0, sep), k.slice(sep + 2)];
       };
 
-      const toolCounts = [...toolMap.entries()]
-        .map(([k, e]) => { const [p, tool] = splitKey(k); return { period: p, tool, ...e }; })
-        .sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
+      // toolCounts will be populated from trail_message_tool_calls after sessionIds are ready
+      type SupaToolAggEntry = { count: number; durationMs: number; adjustedTokens: number; totalTurns: number; missingTurns: number };
+      const tcAggMap = new Map<string, SupaToolAggEntry>();
 
       const errorRate = [...errMap.entries()]
         .filter(([, e]) => e.total > 0)
@@ -939,6 +930,115 @@ export class SupabaseTrailReader implements ITrailReader {
           const p = periodKey(toJSTDate(c.committed_at));
           addAgent(p, agent, { loc: c.lines_added ?? 0 });
         }
+      }
+      // ── toolCounts: trail_message_tool_calls + trail_messages 直接 JOIN 集計 ──
+      const normalizeTcTool = (name: string): string => {
+        if (!name.startsWith('mcp__')) return name;
+        const parts = name.split('__');
+        return parts.length >= 3 ? `${parts[0]}__${parts[1]}` : name;
+      };
+      if (sessionIds.length > 0) {
+        // バッチサイズ 500 で trail_message_tool_calls を取得
+        const TC_BATCH = 500;
+        for (let bi = 0; bi < sessionIds.length; bi += TC_BATCH) {
+          const batchIds = sessionIds.slice(bi, bi + TC_BATCH);
+          const { data: tcBatch } = await this.client
+            .from('trail_message_tool_calls')
+            .select('session_id, message_uuid, turn_index, tool_name, turn_exec_ms')
+            .in('session_id', batchIds);
+          const tcBatchRows = (tcBatch ?? []) as Array<{
+            session_id: string; message_uuid: string; turn_index: number;
+            tool_name: string; turn_exec_ms: number | null;
+          }>;
+          // メッセージ uuid を収集
+          const batchMsgUuids = [...new Set(tcBatchRows.map(r => r.message_uuid))];
+          if (batchMsgUuids.length === 0) continue;
+          const { data: batchMsgs } = await this.client
+            .from('trail_messages')
+            .select('uuid, session_id, timestamp, type, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens')
+            .in('uuid', batchMsgUuids);
+          type MsgRow = { uuid: string; session_id: string; timestamp: string; type: string | null; input_tokens: number | null; output_tokens: number | null; cache_read_tokens: number | null; cache_creation_tokens: number | null };
+          const batchMsgMap = new Map<string, MsgRow>();
+          for (const m of (batchMsgs ?? []) as MsgRow[]) {
+            batchMsgMap.set(m.uuid, m);
+          }
+          // message_uuid ごとのツール数を事前集計
+          const msgToolCountBatch = new Map<string, number>();
+          for (const r of tcBatchRows) {
+            msgToolCountBatch.set(r.message_uuid, (msgToolCountBatch.get(r.message_uuid) ?? 0) + 1);
+          }
+          // session_id + turn_index ごとのツール数
+          const turnToolCountBatch = new Map<string, number>();
+          for (const r of tcBatchRows) {
+            const tk = `${r.session_id}:${r.turn_index}`;
+            turnToolCountBatch.set(tk, (turnToolCountBatch.get(tk) ?? 0) + 1);
+          }
+          // 集計
+          for (const r of tcBatchRows) {
+            const m = batchMsgMap.get(r.message_uuid);
+            if (!m || !m.timestamp) continue;
+            const p = periodKey(toJSTDate(m.timestamp));
+            const tool = normalizeTcTool(r.tool_name);
+            const source = sourceBySessionId.get(r.session_id) ?? 'Claude Code';
+            const toolsInMsg = msgToolCountBatch.get(r.message_uuid) ?? 1;
+            const tk = `${r.session_id}:${r.turn_index}`;
+            const toolsInTurn = turnToolCountBatch.get(tk) ?? 1;
+            const rawTokens = m.type === 'assistant'
+              ? Math.round(((m.input_tokens ?? 0) + (m.output_tokens ?? 0)) / toolsInMsg)
+              : 0;
+            const totalAllTokens = (m.input_tokens ?? 0) + (m.output_tokens ?? 0) + (m.cache_read_tokens ?? 0) + (m.cache_creation_tokens ?? 0);
+            const isMissing = m.type === 'assistant' && totalAllTokens === 0 ? 1 : 0;
+            const isTurn = m.type === 'assistant' ? 1 : 0;
+            const durationContrib = Math.round((r.turn_exec_ms ?? 0) / toolsInTurn);
+            // key: period|tool|source
+            const aggKey = `${p}|${tool}|${source}`;
+            const cur = tcAggMap.get(aggKey) ?? { count: 0, durationMs: 0, adjustedTokens: 0, totalTurns: 0, missingTurns: 0 };
+            cur.count += 1;
+            cur.durationMs += durationContrib;
+            // tokens and turns are accumulated per-row; factor applied after grouping by (period, tool)
+            // Store raw token contrib here; factor applied below after (period, tool) grouping
+            cur.adjustedTokens += rawTokens; // temporarily raw; factor applied in final map
+            cur.totalTurns += isTurn;
+            cur.missingTurns += isMissing;
+            tcAggMap.set(aggKey, cur);
+          }
+        }
+      }
+      // (period, tool) 単位に集約し factor を適用
+      type ToolFinalEntry = { count: number; durationMs: number; adjustedTokens: number; totalTurns: number; missingTurns: number };
+      const toolFinalMap = new Map<string, ToolFinalEntry>();
+      for (const [k, v] of tcAggMap.entries()) {
+        const lastPipe = k.lastIndexOf('|');
+        const firstPipe = k.indexOf('|');
+        const period = k.slice(0, firstPipe);
+        const tool = k.slice(firstPipe + 1, lastPipe);
+        const observedTurns = v.totalTurns - v.missingTurns;
+        const factor = observedTurns > 0 ? v.totalTurns / observedTurns : 1;
+        const finalKey = `${period}|${tool}`;
+        const cur = toolFinalMap.get(finalKey) ?? { count: 0, durationMs: 0, adjustedTokens: 0, totalTurns: 0, missingTurns: 0 };
+        cur.count += v.count;
+        cur.durationMs += v.durationMs;
+        cur.adjustedTokens += v.adjustedTokens * factor;
+        cur.totalTurns += v.totalTurns;
+        cur.missingTurns += v.missingTurns;
+        toolFinalMap.set(finalKey, cur);
+      }
+      const toolCounts = [...toolFinalMap.entries()].map(([k, e]) => {
+        const sep = k.indexOf('|');
+        return {
+          period: k.slice(0, sep),
+          tool: k.slice(sep + 1),
+          count: e.count,
+          tokens: Math.round(e.adjustedTokens),
+          durationMs: e.durationMs,
+          tokenMissingRate: e.totalTurns > 0 ? e.missingTurns / e.totalTurns : 0,
+        };
+      }).sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
+      // errorRate.total を toolCounts の count から補完
+      for (const tc of toolCounts) {
+        const ef = errMap.get(tc.period) ?? { err: 0, total: 0, byTool: {} };
+        ef.total += tc.count;
+        errMap.set(tc.period, ef);
       }
       const agentStats = [...agentMap.entries()]
         .map(([k, v]) => {

@@ -106,4 +106,63 @@ describe('TrailDatabase.getCombinedData - token missing rate compensation', () =
       }
     });
   });
+
+  describe('toolCounts', () => {
+    beforeAll(() => {
+      // Codex session: 5 Bash tool calls, 3 observed turns + 2 missing turns
+      insertSession(db, 'session-tool-1', 'codex');
+      // 3 observed assistant messages (input=100, output=50)
+      for (let i = 0; i < 3; i++) {
+        insertAssistantMessage(db, `msg-tool-obs-${i}`, 'session-tool-1', 'gpt-5.4-codex', 100, 50);
+        inner(db).run(
+          `INSERT OR IGNORE INTO message_tool_calls (
+             session_id, message_uuid, turn_index, call_index, tool_name, timestamp
+           ) VALUES (?, ?, ?, 0, 'Bash', '2026-05-01T10:00:00.000Z')`,
+          ['session-tool-1', `msg-tool-obs-${i}`, i],
+        );
+      }
+      // 2 missing assistant messages (all tokens=0)
+      for (let i = 3; i < 5; i++) {
+        inner(db).run(
+          `INSERT OR IGNORE INTO messages (
+             uuid, session_id, type, model, input_tokens, output_tokens,
+             cache_read_tokens, cache_creation_tokens, timestamp
+           ) VALUES (?, ?, 'assistant', 'gpt-5.4-codex', 0, 0, 0, 0, '2026-05-01T10:00:00.000Z')`,
+          [`msg-tool-miss-${i}`, 'session-tool-1'],
+        );
+        inner(db).run(
+          `INSERT OR IGNORE INTO message_tool_calls (
+             session_id, message_uuid, turn_index, call_index, tool_name, timestamp
+           ) VALUES (?, ?, ?, 0, 'Bash', '2026-05-01T10:00:00.000Z')`,
+          ['session-tool-1', `msg-tool-miss-${i}`, i],
+        );
+      }
+    });
+
+    it('applies factor to Bash toolCounts tokens', () => {
+      const data = db.getCombinedData('day', 30);
+      const bashRow = data.toolCounts.find(r => r.tool === 'Bash' && r.count >= 5);
+      expect(bashRow).toBeDefined();
+      // rawTokens per tool call = (100+50) / 1 = 150 for each observed turn
+      // total raw = 3 * 150 = 450
+      // factor = 5 / 3
+      // adjusted = round(450 * 5/3) = round(750) = 750
+      expect(bashRow!.tokens).toBe(Math.round(3 * 150 * (5 / 3)));
+    });
+
+    it('returns tokenMissingRate ≈ 0.4 for Bash', () => {
+      const data = db.getCombinedData('day', 30);
+      const bashRow = data.toolCounts.find(r => r.tool === 'Bash' && r.count >= 5);
+      expect(bashRow).toBeDefined();
+      expect(bashRow!.tokenMissingRate).toBeCloseTo(0.4);
+    });
+
+    it('includes tokenMissingRate on all toolCounts rows', () => {
+      const data = db.getCombinedData('day', 30);
+      for (const row of data.toolCounts) {
+        expect(typeof row.tokenMissingRate).toBe('number');
+      }
+    });
+  });
+
 });

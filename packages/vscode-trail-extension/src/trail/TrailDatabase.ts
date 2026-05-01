@@ -301,7 +301,7 @@ export interface CostOptimizationData {
 }
 
 interface CombinedData {
-  readonly toolCounts: readonly { period: string; tool: string; count: number; tokens: number; durationMs: number }[];
+  readonly toolCounts: readonly { period: string; tool: string; count: number; tokens: number; durationMs: number; tokenMissingRate: number }[];
   readonly errorRate: readonly { period: string; rate: number; byTool: Readonly<Record<string, number>> }[];
   readonly skillStats: readonly { period: string; skill: string; count: number; costUsd: number }[];
   readonly modelStats: readonly { period: string; model: string; count: number; tokens: number; tokenMissingRate: number; tokenTotalTurns: number; tokenMissingTurns: number }[];
@@ -4699,22 +4699,66 @@ export class TrailDatabase {
       return values.map(row => Object.fromEntries(columns.map((c, i) => [c, row[i]])));
     };
 
-    const toolResult = db.exec(
-      `SELECT ${periodExpr} AS period, key AS tool,
-              SUM(count) AS count,
-              SUM(tokens) AS tokens,
-              SUM(duration_ms) AS duration_ms
-       FROM daily_counts
-       WHERE kind = 'tool' AND date >= ${cutoff}
-       GROUP BY period, key`,
+    const toolRawResult = db.exec(
+      `SELECT ${messagePeriodExpr} AS period,
+             CASE
+               WHEN tool_name LIKE 'mcp\\_\\_%\\_\\_%' ESCAPE '\\'
+               THEN SUBSTR(tool_name, 1, INSTR(SUBSTR(tool_name, 6), '__') + 4)
+               ELSE tool_name
+             END AS tool,
+             s.source,
+             COUNT(*) AS count,
+             CAST(SUM(ROUND(1.0 * (COALESCE(m.input_tokens,0)+COALESCE(m.output_tokens,0)) / tools_in_msg)) AS INTEGER) AS tokens,
+             CAST(SUM(ROUND(1.0 * COALESCE(tc.turn_exec_ms,0) / tools_in_turn)) AS INTEGER) AS duration_ms,
+             SUM(CASE WHEN m.type = 'assistant' THEN 1 ELSE 0 END) AS token_total_turns,
+             SUM(CASE WHEN m.type = 'assistant'
+                       AND COALESCE(m.input_tokens,0) + COALESCE(m.output_tokens,0)
+                          + COALESCE(m.cache_read_tokens,0) + COALESCE(m.cache_creation_tokens,0) = 0
+                      THEN 1 ELSE 0 END) AS token_missing_turns
+      FROM (
+        SELECT tc.session_id, tc.message_uuid, tc.tool_name, tc.turn_exec_ms,
+               COUNT(*) OVER (PARTITION BY tc.message_uuid) AS tools_in_msg,
+               COUNT(*) OVER (PARTITION BY tc.session_id, tc.turn_index) AS tools_in_turn
+        FROM message_tool_calls tc
+      ) tc
+      JOIN messages m ON m.uuid = tc.message_uuid
+      JOIN sessions s ON s.id = m.session_id
+      WHERE DATE(m.timestamp, '${tzOffset}') >= ${cutoff}
+      GROUP BY period, tool, s.source`,
     );
-    const toolCounts = toRows(toolResult).map(r => ({
-      period: String(r['period'] ?? ''),
-      tool: String(r['tool'] ?? ''),
-      count: Number(r['count'] ?? 0),
-      tokens: Number(r['tokens'] ?? 0),
-      durationMs: Number(r['duration_ms'] ?? 0),
-    }));
+    // JS 側で (period, tool) 単位に集約し factor を適用する
+    type ToolAggEntry = { count: number; durationMs: number; adjustedTokens: number; totalTurns: number; missingTurns: number };
+    const toolAggMap = new Map<string, ToolAggEntry>();
+    for (const r of toRows(toolRawResult)) {
+      const p = String(r['period'] ?? '');
+      const tool = String(r['tool'] ?? '');
+      const totalTurns = Number(r['token_total_turns'] ?? 0);
+      const missingTurns = Number(r['token_missing_turns'] ?? 0);
+      const observedTurns = totalTurns - missingTurns;
+      const factor = observedTurns > 0 ? totalTurns / observedTurns : 1;
+      const rawTokens = Number(r['tokens'] ?? 0);
+      const k = `${p}|${tool}`;
+      const cur = toolAggMap.get(k) ?? { count: 0, durationMs: 0, adjustedTokens: 0, totalTurns: 0, missingTurns: 0 };
+      cur.count += Number(r['count'] ?? 0);
+      cur.durationMs += Number(r['duration_ms'] ?? 0);
+      cur.adjustedTokens += rawTokens * factor;
+      cur.totalTurns += totalTurns;
+      cur.missingTurns += missingTurns;
+      toolAggMap.set(k, cur);
+    }
+    const toolCounts = [...toolAggMap.entries()].map(([k, e]) => {
+      const sep = k.indexOf('|');
+      const period = k.slice(0, sep);
+      const tool = k.slice(sep + 1);
+      return {
+        period,
+        tool,
+        count: e.count,
+        tokens: Math.round(e.adjustedTokens),
+        durationMs: e.durationMs,
+        tokenMissingRate: e.totalTurns > 0 ? e.missingTurns / e.totalTurns : 0,
+      };
+    });
 
     const errResult = db.exec(
       `SELECT ${periodExpr} AS period, key AS tool, SUM(count) AS err_count
