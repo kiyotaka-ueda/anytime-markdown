@@ -12,7 +12,13 @@ import { useTrailI18n } from '../../i18n/context';
 import type { ActivityTrendResponse } from '../hooks/fetchActivityTrendApi';
 import { useActivityTrend } from '../hooks/useActivityTrend';
 
-const PERIOD_OPTIONS: ReadonlyArray<TrendPeriod> = ['7d', '30d', '90d', 'all'];
+const PERIOD_OPTIONS: ReadonlyArray<Exclude<TrendPeriod, 'all'>> = ['7d', '30d', '90d'];
+
+function formatTrendDate(date: string): string {
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric' }).format(parsed);
+}
 
 const ACTIVITY_TREND_PALETTE_DARK = {
   commit: '#E8A012',
@@ -220,7 +226,7 @@ export function ActivityTrendChart({
           {chartProps && (
             <Box sx={{ width: '100%', minHeight: 200 }}>
               <LineChart
-                xAxis={[{ data: chartProps.xs, scaleType: 'point' }]}
+                xAxis={[{ data: chartProps.xs, scaleType: 'point', valueFormatter: formatTrendDate }]}
                 series={chartProps.series}
                 hideLegend
                 height={200}
