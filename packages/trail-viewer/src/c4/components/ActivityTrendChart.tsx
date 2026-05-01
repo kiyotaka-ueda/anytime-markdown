@@ -227,6 +227,7 @@ export function ActivityTrendChart({
             <Box sx={{ width: '100%', minHeight: 200 }}>
               <LineChart
                 xAxis={[{ data: chartProps.xs, scaleType: 'point', valueFormatter: formatTrendDate }]}
+                yAxis={[{ min: 0 }]}
                 series={chartProps.series}
                 hideLegend
                 height={200}
