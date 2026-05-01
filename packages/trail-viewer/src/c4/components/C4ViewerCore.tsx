@@ -1317,8 +1317,18 @@ export function C4ViewerCore({
                 communityLegend={communityLegend ?? undefined}
                 communityTitle={communityLegend ? t('c4.community.title') : undefined}
               />
-              {/* 左側パネル: C4 ビュー設定コントロール群 */}
+              {/* 左側パネル: 全体マップ + C4 ビュー設定コントロール群 */}
               <Box sx={{ position: 'absolute', top: 8, left: 8, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {/* 全体マップ（ミニマップ） */}
+                <MinimapCanvas
+                  nodes={state.document.nodes}
+                  viewport={state.document.viewport}
+                  mainCanvasRef={canvasRef}
+                  onViewportChange={(vp) => dispatch({ type: 'SET_VIEWPORT', viewport: vp })}
+                  isDark={isDark}
+                  onFit={handleFit}
+                  containerStyle={{ position: 'static', width: 220 }}
+                />
                 {/* メインコントロールパネル */}
                 <Box
                   role="group"
@@ -1456,14 +1466,6 @@ export function C4ViewerCore({
                   sx={{ position: 'static' }}
                 />
               </Box>
-              <MinimapCanvas
-                nodes={state.document.nodes}
-                viewport={state.document.viewport}
-                mainCanvasRef={canvasRef}
-                onViewportChange={(vp) => dispatch({ type: 'SET_VIEWPORT', viewport: vp })}
-                isDark={isDark}
-                onFit={handleFit}
-              />
               {selectedElementInfo && (
                 <Box
                   role="dialog"

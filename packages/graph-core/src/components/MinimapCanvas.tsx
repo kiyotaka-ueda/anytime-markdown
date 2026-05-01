@@ -23,6 +23,8 @@ export interface MinimapCanvasProps {
   readonly width?: number;
   /** ミニマップの高さ px（デフォルト 130） */
   readonly height?: number;
+  /** 外側コンテナの style オーバーライド（position 等の変更用） */
+  readonly containerStyle?: React.CSSProperties;
 }
 
 type DragState =
@@ -55,6 +57,7 @@ export function MinimapCanvas({
   onFit,
   width = 200,
   height = 130,
+  containerStyle,
 }: MinimapCanvasProps) {
   const colors = getCanvasColors(isDark);
   const minimapRef = useRef<HTMLCanvasElement | null>(null);
@@ -277,6 +280,7 @@ export function MinimapCanvas({
         zIndex: 10,
         boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
         overflow: 'hidden',
+        ...containerStyle,
       }}
     >
       <canvas
