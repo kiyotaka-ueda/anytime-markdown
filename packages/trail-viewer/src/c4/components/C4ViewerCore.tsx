@@ -1,6 +1,6 @@
 import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 import { engine, layoutWithSubgroups, MinimapCanvas, state as graphState } from '@anytime-markdown/graph-core';
-import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, CommunityOverlayEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, HeatmapMatrix, HotspotMap, ImportanceMatrix, ManualGroup, MetricOverlay } from '@anytime-markdown/trail-core/c4';
+import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, CommunityOverlayEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, HotspotMap, ImportanceMatrix, ManualGroup, MetricOverlay } from '@anytime-markdown/trail-core/c4';
 import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, aggregateHotspotToC4, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, computeCommunityOverlay, computeFileHotspot, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFilesToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
@@ -21,7 +21,6 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 
 import { useTrailI18n } from '../../i18n';
 import { DOC_TYPE_COLORS, getC4Colors } from '../c4Theme';
-import { useActivityHeatmap } from '../hooks/useActivityHeatmap';
 import { useC4GhostEdges } from '../hooks/useC4GhostEdges';
 import { useDefectRisk } from '../hooks/useDefectRisk';
 import { useHotspot } from '../hooks/useHotspot';
@@ -90,12 +89,8 @@ import { ActivityTrendChart } from './ActivityTrendChart';
 import type { C4ElementKind, ElementFormData, RelationshipFormData } from './C4EditDialogs';
 import { AddElementDialog, AddRelationshipDialog } from './C4EditDialogs';
 import { C4ElementTree } from './C4ElementTree';
-import { CoverageCanvas } from './CoverageCanvas';
-import { DsmCanvas } from './DsmCanvas';
-import { FcMapCanvas } from './FcMapCanvas';
 import { FlowchartCanvas } from './FlowchartCanvas';
 import { GraphCanvas } from './GraphCanvas';
-import { HeatmapCanvas } from './HeatmapCanvas';
 import { HotspotControls, type HotspotControlsValue } from './HotspotControls';
 import { type CommunityLegendItem,OverlayLegend } from './OverlayLegend';
 import {
@@ -262,12 +257,8 @@ export function C4ViewerCore({
   const [fullDoc, setFullDoc] = useState<GraphDocument | null>(null);
   const [currentLevel, setCurrentLevel] = useState<number>(1);
 
-  const [showC4, setShowC4] = useState(true);
-  const [showDsm, setShowDsm] = useState(false);
   const [showCoverage, setShowCoverage] = useState(false);
   const [showAncestorEdges, setShowAncestorEdges] = useState(true);
-  const [matrixView, setMatrixView] = useState<'dsm' | 'fcmap' | 'coverage' | 'heatmap'>('dsm');
-  const [heatmapMode, setHeatmapMode] = useState<'session-file' | 'subagent-file'>('session-file');
   const [metricOverlay, setMetricOverlay] = useState<MetricOverlay>('none');
   const [drWindowDays, setDrWindowDays] = useState(90);
   const [tcValue, setTcValue] = useState<TemporalCouplingControlsValue>(DEFAULT_TC_VALUE);
@@ -282,24 +273,6 @@ export function C4ViewerCore({
     period: hotspotValue.period,
     granularity: hotspotValue.granularity,
   });
-  const heatmapEnabled = matrixView === 'heatmap';
-  const { data: heatmapResponse } = useActivityHeatmap({
-    enabled: heatmapEnabled,
-    serverUrl,
-    period: hotspotValue.period,
-    mode: heatmapMode,
-    topK: 50,
-    repoName: selectedRepo || undefined,
-  });
-  const heatmapMatrix = useMemo<HeatmapMatrix | null>(() => {
-    if (!heatmapResponse) return null;
-    return {
-      rows: heatmapResponse.rows,
-      columns: heatmapResponse.columns,
-      cells: heatmapResponse.cells,
-      maxValue: heatmapResponse.maxValue,
-    };
-  }, [heatmapResponse]);
   const { entries: drEntries } = useDefectRisk({
     enabled: metricOverlay === 'defect-risk',
     serverUrl,
@@ -321,7 +294,6 @@ export function C4ViewerCore({
     directional: false,
     granularity: tcValue.granularity,
   });
-  const [dsmClustered, setDsmClustered] = useState(false);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [drillStack, setDrillStack] = useState<readonly { readonly element: C4Element; readonly prevLevel: number; readonly prevCheckedIds: ReadonlySet<string> | null }[]>([]);
   const [contextMenu, setContextMenu] = useState<{
@@ -333,7 +305,6 @@ export function C4ViewerCore({
   const [checkedPackageIds, setCheckedPackageIds] = useState<ReadonlySet<string> | null>(null);
   const [soloFrameId, setSoloFrameId] = useState<string | null>(null);
   const [centerOnSelect, setCenterOnSelect] = useState(false);
-  const [splitRatio, setSplitRatio] = useState(0.5);
 
   // --- Community overlay state ---
   const [showCommunity, setShowCommunity] = useState(false);
@@ -964,30 +935,6 @@ export function C4ViewerCore({
     return { element, incoming, outgoing, documents, coverage, complexity, importance, defectRisk, dsm, community };
   }, [c4Model, complexityMatrix, coverageMatrix, defectRiskMap, docLinks, filteredDsmMatrix, importanceMatrix, selectedElementId, communityOverlay]);
 
-  const handleSplitDrag = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    const container = containerRef.current;
-    if (!container) return;
-    const onMove = (ev: MouseEvent) => {
-      const rect = container.getBoundingClientRect();
-      const treeWidth = elementTree.length > 0 ? 260 : 0;
-      const available = rect.width - treeWidth;
-      if (available <= 0) return;
-      const ratio = Math.min(0.8, Math.max(0.2, (ev.clientX - rect.left) / available));
-      setSplitRatio(ratio);
-    };
-    const onUp = () => {
-      globalThis.removeEventListener('mousemove', onMove);
-      globalThis.removeEventListener('mouseup', onUp);
-      globalThis.document.body.style.cursor = '';
-      globalThis.document.body.style.userSelect = '';
-    };
-    globalThis.addEventListener('mousemove', onMove);
-    globalThis.addEventListener('mouseup', onUp);
-    globalThis.document.body.style.cursor = 'col-resize';
-    globalThis.document.body.style.userSelect = 'none';
-  }, [elementTree.length]);
-
   const toolbarButtonSx = {
     textTransform: 'none', color: colors.accent, borderColor: colors.border,
     fontWeight: 600, fontSize: '0.875rem', borderRadius: '8px',
@@ -1070,59 +1017,6 @@ export function C4ViewerCore({
         )}
         <Box sx={{ flex: 1 }} />
 
-        <Button size="small" onClick={() => { if (showC4 && !showDsm) { setShowDsm(true); } else { setShowC4(true); setShowDsm(false); } }} aria-pressed={showC4 && !showDsm} aria-label="Toggle C4 graph" sx={{ ...toolbarButtonSx, ...(showC4 && !showDsm && { bgcolor: toolbarButtonActiveBg }) }}>C4</Button>
-        <ButtonGroup size="small">
-          {(['dsm', 'fcmap', 'coverage', 'heatmap'] as const).map((view) => {
-            const label = view === 'dsm' ? 'DSM' : view === 'fcmap' ? 'F-cMap' : view === 'coverage' ? 'Cov' : t('c4.viewToggle.heatmap');
-            const isActive = showDsm && matrixView === view;
-            const isDisabled = (view === 'fcmap' && !featureMatrix) || (view === 'coverage' && !coverageMatrix);
-            return (
-              <Button
-                key={view}
-                size="small"
-                disabled={isDisabled}
-                aria-pressed={isActive}
-                aria-label={`Show ${label} matrix`}
-                onClick={() => {
-                  if (isActive) {
-                    setShowC4(true);
-                    setShowDsm(false);
-                  } else {
-                    setShowC4(false);
-                    setShowDsm(true);
-                    setMatrixView(view);
-                  }
-                }}
-                sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(isActive && { bgcolor: toolbarButtonActiveBg }) }}
-              >
-                {label}
-              </Button>
-            );
-          })}
-        </ButtonGroup>
-        {showDsm && matrixView === 'dsm' && (
-          <Button size="small" onClick={() => setDsmClustered(prev => !prev)} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(dsmClustered && { bgcolor: toolbarButtonActiveBg }) }}>Cluster</Button>
-        )}
-
-        {showDsm && matrixView === 'heatmap' && (
-          <ButtonGroup size="small" aria-label="Heatmap mode">
-            {(['session-file', 'subagent-file'] as const).map((m) => {
-              const label = m === 'session-file' ? t('c4.heatmap.modeSessionFile') : t('c4.heatmap.modeSubagentFile');
-              const isActive = heatmapMode === m;
-              return (
-                <Button
-                  key={m}
-                  size="small"
-                  aria-pressed={isActive}
-                  onClick={() => setHeatmapMode(m)}
-                  sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(isActive && { bgcolor: toolbarButtonActiveBg }) }}
-                >
-                  {label}
-                </Button>
-              );
-            })}
-          </ButtonGroup>
-        )}
         {selectedExport && (
           <>
             <Button
@@ -1255,9 +1149,8 @@ export function C4ViewerCore({
             onExportSelect={handleExportSelect}
           />
         )}
-        {/* 既存コンテンツ (C4Graph / Separator / DSM) */}
-        {showC4 && (
-          <Box sx={{ flex: showDsm ? splitRatio : 1, display: 'flex', flexDirection: 'column', minWidth: 100, position: 'relative' }}>
+        {/* C4 Graph */}
+        <Box sx={{ flex: showFlow ? 0.5 : 1, display: 'flex', flexDirection: 'column', minWidth: 100, position: 'relative' }}>
             <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
               <GraphCanvas
                 isDark={isDark}
@@ -1937,79 +1830,16 @@ export function C4ViewerCore({
             </Box>
             )}
           </Box>
-        )}
-        {showC4 && showDsm && (
-          <Box
-            role="separator"
-            aria-orientation="vertical"
-            aria-valuenow={Math.round(splitRatio * 100)}
-            aria-valuemin={20}
-            aria-valuemax={80}
-            aria-label="Resize C4 graph and DSM matrix"
-            tabIndex={0}
-            onMouseDown={handleSplitDrag}
-            onKeyDown={(e: React.KeyboardEvent) => {
-              if (e.key === 'ArrowLeft') {
-                e.preventDefault();
-                setSplitRatio(prev => Math.max(0.2, prev - 0.05));
-              } else if (e.key === 'ArrowRight') {
-                e.preventDefault();
-                setSplitRatio(prev => Math.min(0.8, prev + 0.05));
-              }
-            }}
-            sx={{ width: 5, cursor: 'col-resize', bgcolor: 'transparent', borderLeft: `1px solid ${colors.border}`, '&:hover': { bgcolor: colors.focus }, '&:focus-visible': { outline: `2px solid ${colors.accent}`, outlineOffset: '2px' }, flexShrink: 0 }}
-          />
+        {showFlow && (
+          <Box role="separator" aria-orientation="vertical" aria-label="Resize C4 graph and flow" sx={{ width: 5, cursor: 'col-resize', bgcolor: 'transparent', borderLeft: `1px solid ${colors.border}`, '&:hover': { bgcolor: colors.focus }, flexShrink: 0 }} />
         )}
         {showFlow && (
-          <Box sx={{ flex: showC4 ? 1 - splitRatio : 1, display: 'flex', flexDirection: 'column', minWidth: 100 }}>
+          <Box sx={{ flex: 0.5, display: 'flex', flexDirection: 'column', minWidth: 100 }}>
             <FlowchartCanvas
               graph={flowGraph ?? { nodes: [], edges: [] }}
               isDark={isDark}
               errorMessage={flowError}
             />
-          </Box>
-        )}
-        {showDsm && (
-          <Box sx={{ flex: showC4 ? 1 - splitRatio : 1, display: 'flex', flexDirection: 'column', minWidth: 100 }}>
-            <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-              {matrixView === 'heatmap' ? (
-                heatmapMatrix && heatmapMatrix.rows.length > 0 && heatmapMatrix.columns.length > 0 ? (
-                  <HeatmapCanvas
-                    matrix={heatmapMatrix}
-                    colorScale={isDark ? 'amber' : 'sumi'}
-                    selectedElementId={selectedElementId}
-                    onCellClick={(col) => setSelectedElementId(col.id)}
-                    isDark={isDark}
-                  />
-                ) : (
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                    <Typography variant="body2" sx={{ color: colors.textSecondary }}>
-                      {heatmapEnabled ? t('c4.heatmap.empty') : t('c4.heatmap.loading')}
-                    </Typography>
-                  </Box>
-                )
-              ) : matrixView === 'coverage' && coverageMatrix && c4Model ? (
-                <CoverageCanvas coverageMatrix={coverageMatrix} coverageDiff={coverageDiff} model={c4Model} level={currentLevel} isDark={isDark} />
-              ) : matrixView === 'fcmap' && featureMatrix && c4Model ? (
-                <FcMapCanvas featureMatrix={featureMatrix} model={c4Model} excludedElementIds={excludedDescendantIds} level={currentLevel} isDark={isDark} />
-              ) : filteredDsmMatrix ? (
-                <DsmCanvas
-                  matrix={filteredDsmMatrix}
-                  fullModel={c4Model ?? undefined}
-                  clustered={dsmClustered}
-                  focusedNodeId={selectedElementId}
-                  scopeIds={selectedScopeIds}
-                  deletedIds={deletedIds}
-                  isDark={isDark}
-                />
-              ) : (
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                  <Typography variant="body2" sx={{ color: colors.textSecondary }}>
-                    Import a C4 model to view DSM
-                  </Typography>
-                </Box>
-              )}
-            </Box>
           </Box>
         )}
       </Box>
