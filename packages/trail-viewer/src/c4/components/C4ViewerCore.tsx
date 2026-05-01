@@ -1067,29 +1067,7 @@ export function C4ViewerCore({
         >
           Upper Lines
         </Button>
-        <Button
-          size="small"
-          startIcon={<GroupWorkIcon sx={{ fontSize: 16 }} />}
-          onClick={() => setShowCommunity(prev => !prev)}
-          disabled={currentLevel < 3 || (showCommunity && !codeGraph)}
-          aria-pressed={showCommunity}
-          aria-label="Toggle community overlay"
-          title={
-            currentLevel < 3
-              ? t('c4.community.disabledLevel')
-              : showCommunity && !codeGraph
-                ? t('c4.community.disabledNoData')
-                : t('c4.community.toggle')
-          }
-          sx={{
-            ...toolbarButtonSx,
-            ml: 0.5,
-            fontSize: '0.75rem',
-            ...(showCommunity && currentLevel >= 3 && { bgcolor: toolbarButtonActiveBg }),
-          }}
-        >
-          {t('c4.community.toggle')}
-        </Button>
+
         {soloFrameId !== null && (
           <Button
             size="small"
@@ -1108,48 +1086,7 @@ export function C4ViewerCore({
           </Button>
         )}
         <Box sx={{ flex: 1 }} />
-        {/* 指標オーバーレイ ドロップダウン */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 1 }}>
-          <Typography variant="caption" sx={{ fontSize: '0.7rem', color: colors.textMuted, whiteSpace: 'nowrap' }}>
-            {t('c4.overlay.label')}:
-          </Typography>
-          <Select
-            size="small"
-            value={metricOverlay}
-            onChange={(e) => { setMetricOverlay(e.target.value as MetricOverlay); }}
-            sx={{ fontSize: '0.75rem', height: 24, '.MuiSelect-select': { py: 0, px: 1 } }}
-            aria-label={t('c4.overlay.label')}
-          >
-            <MenuItem value="none" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.none')}</MenuItem>
-            <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
-              {t('c4.overlay.groupCoverage')}
-            </ListSubheader>
-            <MenuItem value="coverage-lines" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageLines')}</MenuItem>
-            <MenuItem value="coverage-branches" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageBranches')}</MenuItem>
-            <MenuItem value="coverage-functions" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageFunctions')}</MenuItem>
-            <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
-              {t('c4.overlay.groupDsm')}
-            </ListSubheader>
-            <MenuItem value="dsm-out" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmOut')}</MenuItem>
-            <MenuItem value="dsm-in" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmIn')}</MenuItem>
-            <MenuItem value="dsm-cyclic" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmCyclic')}</MenuItem>
-            <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
-              {t('c4.overlay.groupComplexity')}
-            </ListSubheader>
-            <MenuItem value="complexity-most" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.complexityMost')}</MenuItem>
-            <MenuItem value="complexity-highest" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.complexityHighest')}</MenuItem>
-            <ListSubheader sx={{ fontSize: '0.7rem', lineHeight: '2' }}>
-              {t('c4.overlay.groupImportance')}
-            </ListSubheader>
-            <MenuItem value="importance" disabled={!importanceMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.importance')}</MenuItem>
-            <MenuItem value="defect-risk" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.defectRisk')}</MenuItem>
-            <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
-              {t('c4.overlay.groupHotspot')}
-            </ListSubheader>
-            <MenuItem value="hotspot-frequency" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotFrequency')}</MenuItem>
-            <MenuItem value="hotspot-risk" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotRisk')}</MenuItem>
-          </Select>
-        </Box>
+
         <Button size="small" onClick={() => { if (showC4 && !showDsm) { setShowDsm(true); } else { setShowC4(true); setShowDsm(false); } }} aria-pressed={showC4 && !showDsm} aria-label="Toggle C4 graph" sx={{ ...toolbarButtonSx, ...(showC4 && !showDsm && { bgcolor: toolbarButtonActiveBg }) }}>C4</Button>
         <ButtonGroup size="small">
           {(['dsm', 'fcmap', 'coverage', 'heatmap'] as const).map((view) => {
@@ -1183,19 +1120,7 @@ export function C4ViewerCore({
         {showDsm && matrixView === 'dsm' && (
           <Button size="small" onClick={() => setDsmClustered(prev => !prev)} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(dsmClustered && { bgcolor: toolbarButtonActiveBg }) }}>Cluster</Button>
         )}
-        <Button
-          size="small"
-          onClick={() => {
-            setTcValue(prev => {
-              const nextMode = prev.enabled ? 'none' : prev.granularity === 'session' ? 'session' : 'commit';
-              return applyGhostEdgeMode(prev, nextMode);
-            });
-          }}
-          aria-pressed={tcValue.enabled}
-          sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(tcValue.enabled && { bgcolor: toolbarButtonActiveBg }) }}
-        >
-          Ghost Edges
-        </Button>
+
         {showDsm && matrixView === 'heatmap' && (
           <ButtonGroup size="small" aria-label="Heatmap mode">
             {(['session-file', 'subagent-file'] as const).map((m) => {
@@ -1392,11 +1317,12 @@ export function C4ViewerCore({
                 communityLegend={communityLegend ?? undefined}
                 communityTitle={communityLegend ? t('c4.community.title') : undefined}
               />
-              {/* 左側パネル: C4 Level 切り替え + Ghost Edges 設定（縦積み） */}
+              {/* 左側パネル: C4 ビュー設定コントロール群 */}
               <Box sx={{ position: 'absolute', top: 8, left: 8, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {/* メインコントロールパネル */}
                 <Box
                   role="group"
-                  aria-label="C4 表示レベル"
+                  aria-label="C4 ビュー設定"
                   sx={{
                     width: 220,
                     border: `1px solid ${colors.border}`,
@@ -1406,26 +1332,121 @@ export function C4ViewerCore({
                     backdropFilter: 'blur(10px)',
                     px: 1.5,
                     py: 1.25,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 1,
                   }}
                 >
-                  <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', mb: 1 }}>
-                    C4 Level
-                  </Typography>
-                  <ButtonGroup size="small" fullWidth>
-                    {([1, 2, 3, 4] as const).map(level => (
-                      <Button
-                        key={level}
-                        onClick={() => handleSetLevel(level)}
-                        aria-pressed={currentLevel === level}
-                        aria-label={`Level ${level}: ${({ 1: 'Context', 2: 'Container', 3: 'Component', 4: 'Code' } as const)[level]}`}
-                        title={({ 1: 'Context', 2: 'Container', 3: 'Component', 4: 'Code' } as const)[level]}
-                        sx={currentLevel === level ? levelButtonActiveSx : levelButtonSx}
-                      >
-                        L{level}
-                      </Button>
-                    ))}
-                  </ButtonGroup>
+                  {/* L1/L2/L3/L4 */}
+                  <Box>
+                    <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', mb: 0.5 }}>
+                      C4 Level
+                    </Typography>
+                    <ButtonGroup size="small" fullWidth>
+                      {([1, 2, 3, 4] as const).map(level => (
+                        <Button
+                          key={level}
+                          onClick={() => handleSetLevel(level)}
+                          aria-pressed={currentLevel === level}
+                          aria-label={`Level ${level}: ${({ 1: 'Context', 2: 'Container', 3: 'Component', 4: 'Code' } as const)[level]}`}
+                          title={({ 1: 'Context', 2: 'Container', 3: 'Component', 4: 'Code' } as const)[level]}
+                          sx={currentLevel === level ? levelButtonActiveSx : levelButtonSx}
+                        >
+                          L{level}
+                        </Button>
+                      ))}
+                    </ButtonGroup>
+                  </Box>
+                  {/* Community */}
+                  <Button
+                    size="small"
+                    startIcon={<GroupWorkIcon sx={{ fontSize: 16 }} />}
+                    onClick={() => setShowCommunity(prev => !prev)}
+                    disabled={currentLevel < 3 || (showCommunity && !codeGraph)}
+                    aria-pressed={showCommunity}
+                    aria-label="Toggle community overlay"
+                    title={
+                      currentLevel < 3
+                        ? t('c4.community.disabledLevel')
+                        : showCommunity && !codeGraph
+                          ? t('c4.community.disabledNoData')
+                          : t('c4.community.toggle')
+                    }
+                    fullWidth
+                    sx={{
+                      ...toolbarButtonSx,
+                      fontSize: '0.75rem',
+                      justifyContent: 'flex-start',
+                      ...(showCommunity && currentLevel >= 3 && { bgcolor: toolbarButtonActiveBg }),
+                    }}
+                  >
+                    {t('c4.community.toggle')}
+                  </Button>
+                  {/* Ghost Edges トグル */}
+                  <Button
+                    size="small"
+                    fullWidth
+                    onClick={() => {
+                      setTcValue(prev => {
+                        const nextMode = prev.enabled ? 'none' : prev.granularity === 'session' ? 'session' : 'commit';
+                        return applyGhostEdgeMode(prev, nextMode);
+                      });
+                    }}
+                    aria-pressed={tcValue.enabled}
+                    sx={{
+                      ...toolbarButtonSx,
+                      fontSize: '0.75rem',
+                      justifyContent: 'flex-start',
+                      ...(tcValue.enabled && { bgcolor: toolbarButtonActiveBg }),
+                    }}
+                  >
+                    Ghost Edges
+                  </Button>
+                  {/* Overlay ドロップダウン */}
+                  <Box>
+                    <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', mb: 0.5 }}>
+                      {t('c4.overlay.label')}
+                    </Typography>
+                    <Select
+                      size="small"
+                      fullWidth
+                      value={metricOverlay}
+                      onChange={(e) => { setMetricOverlay(e.target.value as MetricOverlay); }}
+                      sx={{ fontSize: '0.75rem', height: 28, '.MuiSelect-select': { py: 0, px: 1 } }}
+                      aria-label={t('c4.overlay.label')}
+                    >
+                      <MenuItem value="none" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.none')}</MenuItem>
+                      <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
+                        {t('c4.overlay.groupCoverage')}
+                      </ListSubheader>
+                      <MenuItem value="coverage-lines" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageLines')}</MenuItem>
+                      <MenuItem value="coverage-branches" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageBranches')}</MenuItem>
+                      <MenuItem value="coverage-functions" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageFunctions')}</MenuItem>
+                      <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
+                        {t('c4.overlay.groupDsm')}
+                      </ListSubheader>
+                      <MenuItem value="dsm-out" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmOut')}</MenuItem>
+                      <MenuItem value="dsm-in" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmIn')}</MenuItem>
+                      <MenuItem value="dsm-cyclic" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmCyclic')}</MenuItem>
+                      <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
+                        {t('c4.overlay.groupComplexity')}
+                      </ListSubheader>
+                      <MenuItem value="complexity-most" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.complexityMost')}</MenuItem>
+                      <MenuItem value="complexity-highest" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.complexityHighest')}</MenuItem>
+                      <ListSubheader sx={{ fontSize: '0.7rem', lineHeight: '2' }}>
+                        {t('c4.overlay.groupImportance')}
+                      </ListSubheader>
+                      <MenuItem value="importance" disabled={!importanceMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.importance')}</MenuItem>
+                      <MenuItem value="defect-risk" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.defectRisk')}</MenuItem>
+                      <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
+                        {t('c4.overlay.groupHotspot')}
+                      </ListSubheader>
+                      <MenuItem value="hotspot-frequency" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotFrequency')}</MenuItem>
+                      <MenuItem value="hotspot-risk" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotRisk')}</MenuItem>
+                    </Select>
+                  </Box>
                 </Box>
+                {/* Ghost Edges 詳細設定（有効時のみ表示） */}
                 <TemporalCouplingSettingsPopup
                   value={tcValue}
                   onChange={setTcValue}
