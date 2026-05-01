@@ -311,9 +311,7 @@ export function C4ViewerCore({
     windowDays: tcValue.windowDays,
     threshold: tcValue.threshold,
     topK: tcValue.topK,
-    directional: tcValue.directional,
-    confidenceThreshold: tcValue.confidenceThreshold,
-    directionalDiff: tcValue.directionalDiff,
+    directional: false,
     granularity: tcValue.granularity,
   });
   const [dsmClustered, setDsmClustered] = useState(false);
@@ -1291,9 +1289,10 @@ export function C4ViewerCore({
       </Toolbar>
       <TemporalCouplingControls
         value={tcValue}
-        onChange={setTcValue}
+        onChange={(next) => setTcValue({ ...next, directional: false })}
         resultCount={ghostEdges.length}
         loading={tcLoading}
+        showDirectionalControls={false}
       />
       {isHotspotOverlay && (
         <HotspotControls

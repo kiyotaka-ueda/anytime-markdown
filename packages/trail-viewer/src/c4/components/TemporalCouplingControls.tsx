@@ -29,6 +29,7 @@ export interface TemporalCouplingControlsProps {
   readonly onChange: (next: TemporalCouplingControlsValue) => void;
   readonly resultCount: number;
   readonly loading: boolean;
+  readonly showDirectionalControls?: boolean;
 }
 
 const WINDOW_OPTIONS: ReadonlyArray<{ label: string; days: number }> = [
@@ -94,6 +95,7 @@ export function TemporalCouplingControls({
   onChange,
   resultCount,
   loading,
+  showDirectionalControls = true,
 }: Readonly<TemporalCouplingControlsProps>) {
   const handleEnabled = (next: boolean): void => onChange({ ...value, enabled: next });
   const handleWindow = (days: number): void => onChange({ ...value, windowDays: days });
@@ -196,18 +198,20 @@ export function TemporalCouplingControls({
         </Typography>
       </FormControl>
 
-      <FormControlLabel
-        control={
-          <Switch
-            checked={value.directional}
-            onChange={(e) => handleDirectional(e.target.checked)}
-            inputProps={{ 'aria-label': '方向性付きエッジを表示' }}
-            disabled={!value.enabled}
-            size="small"
-          />
-        }
-        label={<Typography variant="caption">方向性</Typography>}
-      />
+      {showDirectionalControls && (
+        <FormControlLabel
+          control={
+            <Switch
+              checked={value.directional}
+              onChange={(e) => handleDirectional(e.target.checked)}
+              inputProps={{ 'aria-label': '方向性付きエッジを表示' }}
+              disabled={!value.enabled}
+              size="small"
+            />
+          }
+          label={<Typography variant="caption">方向性</Typography>}
+        />
+      )}
 
       <FormControl size="small" sx={{ minWidth: 88 }} disabled={!value.enabled}>
         <InputLabel id="tc-window-label">期間</InputLabel>
@@ -246,7 +250,7 @@ export function TemporalCouplingControls({
         </Box>
       )}
 
-      {value.directional && (
+      {showDirectionalControls && value.directional && (
         <>
           <Box sx={{ minWidth: 140, display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography variant="caption" sx={{ whiteSpace: 'nowrap' }}>
