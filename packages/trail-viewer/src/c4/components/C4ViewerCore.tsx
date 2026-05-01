@@ -43,6 +43,15 @@ export function getActivityTrendChartWidth(hasSelectedElementDetails: boolean): 
   return hasSelectedElementDetails ? `calc(100% - ${TREND_CHART_RESERVED_RIGHT_WIDTH}px)` : '100%';
 }
 
+export function getActivityTrendChartPlacement() {
+  return {
+    position: 'absolute' as const,
+    left: 0,
+    bottom: 0,
+    zIndex: 9,
+  };
+}
+
 const DEFAULT_TC_VALUE: TemporalCouplingControlsValue = {
   enabled: false,
   windowDays: 30,
@@ -1379,7 +1388,7 @@ export function C4ViewerCore({
         )}
         {/* 既存コンテンツ (C4Graph / Separator / DSM) */}
         {showC4 && (
-          <Box sx={{ flex: showDsm ? splitRatio : 1, display: 'flex', flexDirection: 'column', minWidth: 100 }}>
+          <Box sx={{ flex: showDsm ? splitRatio : 1, display: 'flex', flexDirection: 'column', minWidth: 100, position: 'relative' }}>
             <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
               <GraphCanvas
                 isDark={isDark}
@@ -1808,6 +1817,7 @@ export function C4ViewerCore({
             </Box>
             <Box
               sx={{
+                ...getActivityTrendChartPlacement(),
                 width: getActivityTrendChartWidth(!!selectedElementInfo),
                 minWidth: 0,
                 maxWidth: '100%',
