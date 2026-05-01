@@ -3557,6 +3557,53 @@ export class TrailDatabase {
     return result;
   }
 
+  getSessionDelegatedTrackCounts(sessionIds: readonly string[]): Map<string, number> {
+    if (sessionIds.length === 0) return new Map();
+    const db = this.ensureDb();
+    const result = new Map<string, number>();
+    const placeholders = sessionIds.map(() => '?').join(',');
+    try {
+      const rows = db.exec(
+        `SELECT session_id, tool_calls
+         FROM messages
+         WHERE session_id IN (${placeholders})
+           AND type = 'assistant'
+           AND (agent_id IS NULL OR agent_id = '')
+           AND tool_calls IS NOT NULL`,
+        sessionIds as string[],
+      );
+      const tracksBySession = new Map<string, Set<string>>();
+      for (const row of rows[0]?.values ?? []) {
+        const sid = String(row[0] ?? '');
+        const toolCallsJson = typeof row[1] === 'string' ? row[1] : '';
+        if (!sid || !toolCallsJson) continue;
+        let calls: Array<{ name?: string; input?: Record<string, unknown> }> = [];
+        try {
+          calls = JSON.parse(toolCallsJson) as Array<{ name?: string; input?: Record<string, unknown> }>;
+        } catch {
+          continue;
+        }
+        const agentCall = calls.find((c) => c.name === 'Agent');
+        if (!agentCall) continue;
+        const subagentType = typeof agentCall.input?.subagent_type === 'string'
+          ? agentCall.input.subagent_type
+          : 'unknown';
+        let set = tracksBySession.get(sid);
+        if (!set) {
+          set = new Set<string>();
+          tracksBySession.set(sid, set);
+        }
+        set.add(`delegated:${subagentType}`);
+      }
+      for (const [sid, set] of tracksBySession.entries()) {
+        result.set(sid, set.size);
+      }
+    } catch {
+      // Graceful fallback
+    }
+    return result;
+  }
+
   getSessionCommits(sessionId: string): SessionCommitRow[] {
     const db = this.ensureDb();
     const stmt = db.prepare(
