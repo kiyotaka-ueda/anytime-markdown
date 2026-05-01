@@ -421,15 +421,6 @@ export function C4ViewerCore({
     onAddRelationship?.(data);
   }, [onAddRelationship]);
 
-  const handleDeleteSelected = useCallback(() => {
-    if (!selectedElementId || !c4Model) return;
-    const elem = c4Model.elements.find(e => e.id === selectedElementId);
-    if (elem?.manual) {
-      onRemoveElement?.(selectedElementId);
-      setSelectedElementId(null);
-    }
-  }, [selectedElementId, c4Model, onRemoveElement]);
-
   const handleDeleteElement = useCallback((elementId: string) => {
     if (!c4Model) return;
     const elem = c4Model.elements.find(e => e.id === elementId);
@@ -439,11 +430,6 @@ export function C4ViewerCore({
     }
     setContextMenu(null);
   }, [c4Model, onRemoveElement, selectedElementId]);
-
-  const selectedIsManual = useMemo(() => {
-    if (!selectedElementId || !c4Model) return false;
-    return c4Model.elements.find(e => e.id === selectedElementId)?.manual === true;
-  }, [selectedElementId, c4Model]);
 
   const selectedSystemId = useMemo(() => {
     if (!selectedElementId || !c4Model) return null;
@@ -1348,8 +1334,6 @@ export function C4ViewerCore({
           {currentLevel === 3 && (
             <Button size="small" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={() => setAddElementType('component')} sx={toolbarButtonSx} aria-label="Add Component">Component</Button>
           )}
-          <Button size="small" startIcon={<LinkIcon sx={{ fontSize: 16 }} />} onClick={() => setAddRelOpen(true)} disabled={!selectedElementId} sx={toolbarButtonSx} aria-label="Add Relationship">Rel</Button>
-          <Button size="small" startIcon={<DeleteIcon sx={{ fontSize: 16 }} />} onClick={handleDeleteSelected} disabled={!selectedIsManual} sx={{ ...toolbarButtonSx, ...(selectedIsManual && { color: '#ef5350' }) }} aria-label="Delete selected">Del</Button>
         </Toolbar>
       )}
       {analysisProgress && (
@@ -1854,7 +1838,9 @@ export function C4ViewerCore({
                         <button
                           type="button"
                           style={{
-                            display: 'block',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
                             width: '100%',
                             padding: '6px 16px',
                             textAlign: 'left',
@@ -1870,12 +1856,15 @@ export function C4ViewerCore({
                             setContextMenu(null);
                           }}
                         >
+                          <LinkIcon sx={{ fontSize: 16 }} />
                           Rel
                         </button>
                         <button
                           type="button"
                           style={{
-                            display: 'block',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
                             width: '100%',
                             padding: '6px 16px',
                             textAlign: 'left',
@@ -1887,6 +1876,7 @@ export function C4ViewerCore({
                           }}
                           onClick={() => handleDeleteElement(contextMenu.c4Id)}
                         >
+                          <DeleteIcon sx={{ fontSize: 16 }} />
                           Del
                         </button>
                       </>
