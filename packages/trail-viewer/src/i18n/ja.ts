@@ -261,4 +261,7 @@ export const ja: TrailI18n = {
   'c4.heatmap.empty': '選択期間内に活動はありません',
   'c4.trend.title': 'Activity Trend',
   'c4.trend.loading': 'トレンドを読み込み中...',
+  'c4.trend.seriesCommit': 'Commit',
+  'c4.trend.seriesRead': '読み込み',
+  'c4.trend.seriesWrite': '書き出し',
 };

@@ -11,6 +11,17 @@ describe('buildActivityTrendUrl', () => {
     expect(url).toContain('period=30d');
     expect(url).toContain('granularity=commit');
   });
+
+  it('adds sessionMode when requested', () => {
+    const url = buildActivityTrendUrl('http://x', {
+      elementId: 'pkg_x',
+      period: '30d',
+      granularity: 'session',
+      sessionMode: 'read',
+    });
+    expect(url).toContain('granularity=session');
+    expect(url).toContain('sessionMode=read');
+  });
 });
 
 describe('fetchActivityTrendApi', () => {

@@ -115,6 +115,10 @@ export const SESSION_COUPLING_EDIT_TOOLS: readonly string[] = [
   'Write',
   'NotebookEdit',
 ];
+const ACTIVITY_TREND_READ_TOOLS: readonly string[] = [
+  'Read',
+  'NotebookRead',
+];
 
 /** subagent 粒度集計で codex 委任セッションを表すラベル。 */
 export const CODEX_SUBAGENT_TYPE = 'codex';
@@ -5975,6 +5979,7 @@ export class TrailDatabase {
     from: string;
     to: string;
     granularity: 'commit' | 'session' | 'subagent';
+    sessionMode?: 'read' | 'write';
     filePathsIn: ReadonlyArray<string>;
   }): ReadonlyArray<{
     readonly committedAt: string;
@@ -5982,7 +5987,7 @@ export class TrailDatabase {
     readonly subagentType?: string | null;
   }> {
     const db = this.ensureDb();
-    const { from, to, granularity, filePathsIn } = params;
+    const { from, to, granularity, filePathsIn, sessionMode = 'write' } = params;
     if (filePathsIn.length === 0) return [];
 
     const useTempTable = filePathsIn.length > 900;
@@ -6030,6 +6035,9 @@ export class TrailDatabase {
       `;
       bindings = useTempTable ? [from, to] : [from, to, ...filePathsIn];
     } else {
+      const toolNames = sessionMode === 'read'
+        ? ACTIVITY_TREND_READ_TOOLS
+        : SESSION_COUPLING_EDIT_TOOLS;
       const projectRootCandidates = Array.from(
         new Set(
           this.listCurrentGraphs()
@@ -6048,6 +6056,7 @@ export class TrailDatabase {
         return null;
       };
       const allowed = new Set(filePathsIn);
+      const toolPlaceholders = toolNames.map(() => '?').join(', ');
       sql = `
         SELECT m.timestamp AS committedAt,
                mtc.file_path AS filePath,
@@ -6055,12 +6064,12 @@ export class TrailDatabase {
         FROM message_tool_calls mtc
         INNER JOIN messages m ON mtc.message_uuid = m.uuid
         WHERE m.timestamp >= ? AND m.timestamp <= ?
-          AND mtc.tool_name IN ('Edit', 'Write', 'NotebookEdit')
+          AND mtc.tool_name IN (${toolPlaceholders})
           AND mtc.file_path IS NOT NULL
           AND mtc.file_path != ''
         ORDER BY m.timestamp
       `;
-      bindings = [from, to];
+      bindings = [from, to, ...toolNames];
       const res = db.exec(sql, bindings);
       if (useTempTable) db.run('DROP TABLE IF EXISTS _hotspot_paths');
       if (!res.length) return [];

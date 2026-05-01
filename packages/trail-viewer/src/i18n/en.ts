@@ -261,4 +261,7 @@ export const en: TrailI18n = {
   'c4.heatmap.empty': 'No activity in the selected period',
   'c4.trend.title': 'Activity Trend',
   'c4.trend.loading': 'Loading trend...',
+  'c4.trend.seriesCommit': 'Commit',
+  'c4.trend.seriesRead': 'Read',
+  'c4.trend.seriesWrite': 'Write',
 };

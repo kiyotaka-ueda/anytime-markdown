@@ -149,11 +149,56 @@ describe('TrailDatabase.fetchActivityTrendRows', () => {
       from: '2026-04-23T00:00:00.000Z',
       to: '2026-04-30T00:00:00.000Z',
       granularity: 'session',
+      sessionMode: 'write',
       filePathsIn: ['src/a.ts'],
     });
 
     expect(rows).toHaveLength(1);
     expect(rows[0].filePath).toBe('src/a.ts');
+  });
+
+  test('session read mode counts Read tool calls separately from write activity', () => {
+    const projectRoot = '/repo-root';
+    db.saveCurrentGraph(
+      {
+        nodes: [
+          { id: 'n1', label: 'a', type: 'file', filePath: 'src/a.ts', line: 0 },
+        ],
+        edges: [],
+        metadata: {
+          projectRoot,
+          analyzedAt: '2026-04-29T00:00:00.000Z',
+          fileCount: 1,
+        },
+      },
+      `${projectRoot}/tsconfig.json`,
+      'commitX',
+      'r',
+    );
+    insertMessage(db, 'm1', 's1', '2026-04-25T10:00:00.000Z');
+    insertMessage(db, 'm2', 's1', '2026-04-25T10:01:00.000Z');
+    insertToolCall(db, 'm1', 's1', 'Read', `${projectRoot}/src/a.ts`, 0, '2026-04-25T10:00:00.000Z');
+    insertToolCall(db, 'm2', 's1', 'Edit', `${projectRoot}/src/a.ts`, 0, '2026-04-25T10:01:00.000Z');
+
+    const readRows = db.fetchActivityTrendRows({
+      from: '2026-04-23T00:00:00.000Z',
+      to: '2026-04-30T00:00:00.000Z',
+      granularity: 'session',
+      sessionMode: 'read',
+      filePathsIn: ['src/a.ts'],
+    });
+    const writeRows = db.fetchActivityTrendRows({
+      from: '2026-04-23T00:00:00.000Z',
+      to: '2026-04-30T00:00:00.000Z',
+      granularity: 'session',
+      sessionMode: 'write',
+      filePathsIn: ['src/a.ts'],
+    });
+
+    expect(readRows).toHaveLength(1);
+    expect(writeRows).toHaveLength(1);
+    expect(readRows[0].committedAt).toContain('10:00');
+    expect(writeRows[0].committedAt).toContain('10:01');
   });
 
   test('large filePathsIn (>900) uses temp-table fallback successfully', () => {

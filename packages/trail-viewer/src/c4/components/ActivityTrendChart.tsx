@@ -16,11 +16,13 @@ const PERIOD_OPTIONS: ReadonlyArray<TrendPeriod> = ['7d', '30d', '90d', 'all'];
 
 const ACTIVITY_TREND_PALETTE_DARK = {
   commit: '#E8A012',
-  session: '#7AB8FF',
+  read: '#7AB8FF',
+  write: '#76C893',
 } as const;
 const ACTIVITY_TREND_PALETTE_LIGHT = {
   commit: '#3D4A52',
-  session: '#6B2A20',
+  read: '#1565C0',
+  write: '#2E7D32',
 } as const;
 
 type ActivityTrendSeries = {
@@ -34,15 +36,21 @@ type ActivityTrendSeries = {
 
 export function buildActivityTrendSeries(
   commitData: ActivityTrendResponse | null,
-  sessionData: ActivityTrendResponse | null,
-  labels: Readonly<{ commit: string; session: string }>,
-  palette: Readonly<{ commit: string; session: string }>,
+  readData: ActivityTrendResponse | null,
+  writeData: ActivityTrendResponse | null,
+  labels: Readonly<{ commit: string; read: string; write: string }>,
+  palette: Readonly<{ commit: string; read: string; write: string }>,
 ): ActivityTrendSeries | null {
-  if (!commitData || !sessionData) return null;
-  if (commitData.type !== 'single-series' || sessionData.type !== 'single-series') return null;
+  if (!commitData || !readData || !writeData) return null;
+  if (
+    commitData.type !== 'single-series'
+    || readData.type !== 'single-series'
+    || writeData.type !== 'single-series'
+  ) return null;
 
   const xs = commitData.buckets.map((b) => b.date);
-  const sessionByDate = new Map(sessionData.buckets.map((b) => [b.date, b.count] as const));
+  const readByDate = new Map(readData.buckets.map((b) => [b.date, b.count] as const));
+  const writeByDate = new Map(writeData.buckets.map((b) => [b.date, b.count] as const));
 
   return {
     xs,
@@ -53,9 +61,14 @@ export function buildActivityTrendSeries(
         color: palette.commit,
       },
       {
-        data: xs.map((date) => sessionByDate.get(date) ?? 0),
-        label: labels.session,
-        color: palette.session,
+        data: xs.map((date) => readByDate.get(date) ?? 0),
+        label: labels.read,
+        color: palette.read,
+      },
+      {
+        data: xs.map((date) => writeByDate.get(date) ?? 0),
+        label: labels.write,
+        color: palette.write,
       },
     ],
   };
@@ -86,12 +99,22 @@ export function ActivityTrendChart({
     granularity: 'commit',
     repoName,
   });
-  const sessionTrend = useActivityTrend({
+  const readTrend = useActivityTrend({
     enabled,
     serverUrl,
     elementId: elementId ?? '',
     period,
     granularity: 'session',
+    sessionMode: 'read',
+    repoName,
+  });
+  const writeTrend = useActivityTrend({
+    enabled,
+    serverUrl,
+    elementId: elementId ?? '',
+    period,
+    granularity: 'session',
+    sessionMode: 'write',
     repoName,
   });
 
@@ -100,17 +123,19 @@ export function ActivityTrendChart({
   const chartProps = useMemo(() => {
     return buildActivityTrendSeries(
       commitTrend.data,
-      sessionTrend.data,
+      readTrend.data,
+      writeTrend.data,
       {
-        commit: t('c4.hotspot.controls.granularityCommit'),
-        session: t('c4.hotspot.controls.granularitySession'),
+        commit: t('c4.trend.seriesCommit'),
+        read: t('c4.trend.seriesRead'),
+        write: t('c4.trend.seriesWrite'),
       },
       palette,
     );
-  }, [commitTrend.data, sessionTrend.data, palette, t]);
+  }, [commitTrend.data, readTrend.data, writeTrend.data, palette, t]);
 
-  const error = commitTrend.error ?? sessionTrend.error;
-  const loading = commitTrend.loading || sessionTrend.loading;
+  const error = commitTrend.error ?? readTrend.error ?? writeTrend.error;
+  const loading = commitTrend.loading || readTrend.loading || writeTrend.loading;
 
   if (!elementId) return null;
 

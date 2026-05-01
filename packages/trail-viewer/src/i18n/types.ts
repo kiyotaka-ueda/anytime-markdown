@@ -218,6 +218,9 @@ export interface TrailI18n {
   'c4.heatmap.empty': string;
   'c4.trend.title': string;
   'c4.trend.loading': string;
+  'c4.trend.seriesCommit': string;
+  'c4.trend.seriesRead': string;
+  'c4.trend.seriesWrite': string;
   'c4.claudeActivity.reset': string;
   'c4.multiAgent.badge': string;
   'c4.multiAgent.conflicts': string;

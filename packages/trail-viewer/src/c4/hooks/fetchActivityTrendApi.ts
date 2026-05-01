@@ -8,6 +8,7 @@ export interface ActivityTrendFetchParams {
   readonly elementId: string;
   readonly period: TrendPeriod;
   readonly granularity: TrendGranularity;
+  readonly sessionMode?: 'read' | 'write';
   readonly repoName?: string;
 }
 
@@ -27,6 +28,7 @@ export function buildActivityTrendUrl(
   qs.set('elementId', params.elementId);
   qs.set('period', params.period);
   qs.set('granularity', params.granularity);
+  if (params.sessionMode) qs.set('sessionMode', params.sessionMode);
   if (params.repoName) qs.set('repo', params.repoName);
   return `${serverUrl}/api/activity-trend?${qs.toString()}`;
 }

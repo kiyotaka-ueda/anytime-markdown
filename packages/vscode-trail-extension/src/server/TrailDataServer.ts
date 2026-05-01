@@ -59,6 +59,8 @@ const HOTSPOT_PERIODS = ['7d', '30d', '90d', 'all'] as const;
 type HotspotPeriod = typeof HOTSPOT_PERIODS[number];
 const HOTSPOT_GRANULARITIES = ['commit', 'session', 'subagent'] as const;
 type HotspotGranularity = typeof HOTSPOT_GRANULARITIES[number];
+const ACTIVITY_TREND_SESSION_MODES = ['read', 'write'] as const;
+type ActivityTrendSessionMode = typeof ACTIVITY_TREND_SESSION_MODES[number];
 const ELEMENT_ID_RE = /^(sys|pkg|comp|code|file)[_:][\w/.:-]+$/;
 const ALL_PERIOD_FROM = '1970-01-01T00:00:00.000Z';
 const MS_PER_DAY = 86_400_000;
@@ -71,6 +73,13 @@ function parseHotspotPeriod(raw: string | null): HotspotPeriod | null {
 function parseHotspotGranularity(raw: string | null): HotspotGranularity | null {
   if (raw === null) return 'commit';
   return (HOTSPOT_GRANULARITIES as readonly string[]).includes(raw) ? (raw as HotspotGranularity) : null;
+}
+
+function parseActivityTrendSessionMode(raw: string | null): ActivityTrendSessionMode | null {
+  if (raw === null) return 'write';
+  return (ACTIVITY_TREND_SESSION_MODES as readonly string[]).includes(raw)
+    ? (raw as ActivityTrendSessionMode)
+    : null;
 }
 
 function computePeriodRangeUtc(period: HotspotPeriod): { from: string; to: string } {
@@ -817,6 +826,11 @@ export class TrailDataServer {
       this.sendError(res, 400, "granularity must be one of 'commit', 'session', or 'subagent'");
       return;
     }
+    const sessionMode = parseActivityTrendSessionMode(params.get('sessionMode'));
+    if (sessionMode === null) {
+      this.sendError(res, 400, "sessionMode must be one of 'read' or 'write'");
+      return;
+    }
     const repo = params.get('repo') ?? undefined;
     try {
       const c4Model = await this.loadCurrentC4Model(repo);
@@ -830,6 +844,7 @@ export class TrailDataServer {
         from,
         to,
         granularity,
+        sessionMode,
         filePathsIn: filePaths,
       });
       const trend = computeActivityTrend({
