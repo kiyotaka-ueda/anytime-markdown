@@ -1049,20 +1049,7 @@ export function C4ViewerCore({
             Import
           </Button>
         )}
-        <ButtonGroup size="small" sx={{ ml: 1 }}>
-          {([1, 2, 3, 4] as const).map(level => (
-            <Button
-              key={level}
-              onClick={() => handleSetLevel(level)}
-              aria-pressed={currentLevel === level}
-              aria-label={`Level ${level}: ${({ 1: 'Context', 2: 'Container', 3: 'Component', 4: 'Code' } as const)[level]}`}
-              title={({ 1: 'Context', 2: 'Container', 3: 'Component', 4: 'Code' } as const)[level]}
-              sx={currentLevel === level ? levelButtonActiveSx : levelButtonSx}
-            >
-              L{level}
-            </Button>
-          ))}
-        </ButtonGroup>
+
         <Button
           size="small"
           startIcon={<LayersIcon sx={{ fontSize: 16 }} />}
@@ -1405,13 +1392,49 @@ export function C4ViewerCore({
                 communityLegend={communityLegend ?? undefined}
                 communityTitle={communityLegend ? t('c4.community.title') : undefined}
               />
-              <TemporalCouplingSettingsPopup
-                value={tcValue}
-                onChange={setTcValue}
-                resultCount={ghostEdges.length}
-                loading={tcLoading}
-                isDark={isDark}
-              />
+              {/* 左側パネル: C4 Level 切り替え + Ghost Edges 設定（縦積み） */}
+              <Box sx={{ position: 'absolute', top: 8, left: 8, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Box
+                  role="group"
+                  aria-label="C4 表示レベル"
+                  sx={{
+                    width: 220,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '8px',
+                    bgcolor: isDark ? 'rgba(18,18,18,0.92)' : 'rgba(251,249,243,0.94)',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                    backdropFilter: 'blur(10px)',
+                    px: 1.5,
+                    py: 1.25,
+                  }}
+                >
+                  <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', mb: 1 }}>
+                    C4 Level
+                  </Typography>
+                  <ButtonGroup size="small" fullWidth>
+                    {([1, 2, 3, 4] as const).map(level => (
+                      <Button
+                        key={level}
+                        onClick={() => handleSetLevel(level)}
+                        aria-pressed={currentLevel === level}
+                        aria-label={`Level ${level}: ${({ 1: 'Context', 2: 'Container', 3: 'Component', 4: 'Code' } as const)[level]}`}
+                        title={({ 1: 'Context', 2: 'Container', 3: 'Component', 4: 'Code' } as const)[level]}
+                        sx={currentLevel === level ? levelButtonActiveSx : levelButtonSx}
+                      >
+                        L{level}
+                      </Button>
+                    ))}
+                  </ButtonGroup>
+                </Box>
+                <TemporalCouplingSettingsPopup
+                  value={tcValue}
+                  onChange={setTcValue}
+                  resultCount={ghostEdges.length}
+                  loading={tcLoading}
+                  isDark={isDark}
+                  sx={{ position: 'static' }}
+                />
+              </Box>
               <MinimapCanvas
                 nodes={state.document.nodes}
                 viewport={state.document.viewport}

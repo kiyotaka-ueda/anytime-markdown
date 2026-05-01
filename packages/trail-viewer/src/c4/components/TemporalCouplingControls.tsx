@@ -41,6 +41,7 @@ export interface TemporalCouplingSettingsPopupProps {
   readonly resultCount: number;
   readonly loading: boolean;
   readonly isDark?: boolean;
+  readonly sx?: Record<string, unknown>;
 }
 
 const WINDOW_OPTIONS: ReadonlyArray<{ label: string; days: number }> = [
@@ -424,6 +425,7 @@ export function TemporalCouplingSettingsPopup({
   resultCount,
   loading,
   isDark = false,
+  sx: sxOverride,
 }: Readonly<TemporalCouplingSettingsPopupProps>) {
   if (!value.enabled) return null;
 
@@ -450,6 +452,7 @@ export function TemporalCouplingSettingsPopup({
         backdropFilter: 'blur(10px)',
         px: 1.5,
         py: 1.25,
+        ...sxOverride,
       }}
     >
       <Typography
