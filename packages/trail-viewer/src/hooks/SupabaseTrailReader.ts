@@ -785,6 +785,7 @@ export class SupabaseTrailReader implements ITrailReader {
         return sign * (Number(match[2]) * 60 + Number(match[3])) * 60_000;
       };
       const cutoffMs = Date.now() - rangeDays * 86_400_000;
+      const cutoffIso = new Date(cutoffMs).toISOString();
       const cutoffLocal = new Date(cutoffMs + getIanaOffsetMs('Asia/Tokyo', new Date(cutoffMs)));
       const cutoffDate = `${cutoffLocal.getUTCFullYear()}-${String(cutoffLocal.getUTCMonth() + 1).padStart(2, '0')}-${String(cutoffLocal.getUTCDate()).padStart(2, '0')}`;
 
@@ -807,6 +808,12 @@ export class SupabaseTrailReader implements ITrailReader {
       };
       const periodKey = (dateStr: string): string =>
         period === 'week' ? getMonday(dateStr) : dateStr;
+      const toJSTDate = (isoStr: string): string => {
+        const ms = new Date(isoStr).getTime();
+        const jstMs = ms + getIanaOffsetMs('Asia/Tokyo', new Date(ms));
+        const d = new Date(jstMs);
+        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+      };
 
       const toolMap = new Map<string, { count: number; tokens: number; durationMs: number }>();
       const errMap = new Map<string, { err: number; total: number; byTool: Record<string, number> }>();
@@ -861,18 +868,75 @@ export class SupabaseTrailReader implements ITrailReader {
         .map(([k, e]) => { const [p, model] = splitKey(k); return { period: p, model, ...e }; })
         .sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
 
-      const cutoffIso = new Date(cutoffMs).toISOString();
+      const { data: sessionRows } = await this.client
+        .from('trail_sessions')
+        .select('id,source,start_time')
+        .gte('start_time', cutoffIso);
+      const sourceBySessionId = new Map<string, string>();
+      const sessionIds: string[] = [];
+      const sessionStartById = new Map<string, string>();
+      for (const s of (sessionRows ?? []) as Array<{ id: string; source: string | null; start_time?: string | null }>) {
+        const source = s.source === 'codex' ? 'Codex' : 'Claude Code';
+        sourceBySessionId.set(s.id, source);
+        if (s.start_time) sessionStartById.set(s.id, s.start_time);
+        sessionIds.push(s.id);
+      }
+      const agentMap = new Map<string, { tokens: number; costUsd: number; loc: number }>();
+      const addAgent = (periodKeyStr: string, agent: string, delta: Partial<{ tokens: number; costUsd: number; loc: number }>) => {
+        const k = `${periodKeyStr}::${agent}`;
+        const cur = agentMap.get(k) ?? { tokens: 0, costUsd: 0, loc: 0 };
+        cur.tokens += delta.tokens ?? 0;
+        cur.costUsd += delta.costUsd ?? 0;
+        cur.loc += delta.loc ?? 0;
+        agentMap.set(k, cur);
+      };
+      if (sessionIds.length > 0) {
+        const { data: msgRows } = await this.client
+          .from('trail_messages')
+          .select('session_id,timestamp,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens')
+          .in('session_id', sessionIds)
+          .gte('timestamp', cutoffIso);
+        for (const m of (msgRows ?? []) as Array<{
+          session_id: string; timestamp: string;
+          input_tokens: number | null; output_tokens: number | null; cache_read_tokens: number | null; cache_creation_tokens: number | null;
+        }>) {
+          const agent = sourceBySessionId.get(m.session_id) ?? 'Claude Code';
+          const p = periodKey(toJSTDate(m.timestamp));
+          const tokens = (m.input_tokens ?? 0) + (m.output_tokens ?? 0) + (m.cache_read_tokens ?? 0) + (m.cache_creation_tokens ?? 0);
+          addAgent(p, agent, { tokens });
+        }
+
+        const { data: costRows } = await this.client
+          .from('trail_session_costs')
+          .select('session_id,estimated_cost_usd');
+        for (const c of (costRows ?? []) as Array<{ session_id: string; estimated_cost_usd: number | null }>) {
+          const agent = sourceBySessionId.get(c.session_id);
+          if (!agent) continue;
+          const start = sessionStartById.get(c.session_id);
+          if (!start) continue;
+          const p = periodKey(toJSTDate(start));
+          addAgent(p, agent, { costUsd: c.estimated_cost_usd ?? 0 });
+        }
+
+        const { data: commitRows } = await this.client
+          .from('trail_session_commits')
+          .select('session_id,committed_at,lines_added')
+          .gte('committed_at', cutoffIso);
+        for (const c of (commitRows ?? []) as Array<{ session_id: string; committed_at: string; lines_added: number | null }>) {
+          const agent = sourceBySessionId.get(c.session_id);
+          if (!agent) continue;
+          const p = periodKey(toJSTDate(c.committed_at));
+          addAgent(p, agent, { loc: c.lines_added ?? 0 });
+        }
+      }
+      const agentStats = [...agentMap.entries()]
+        .map(([k, v]) => { const [p, agent] = splitKey(k); return { period: p, agent, tokens: v.tokens, costUsd: v.costUsd, loc: v.loc }; })
+        .sort((a, b) => a.period.localeCompare(b.period) || a.agent.localeCompare(b.agent));
+
       const { data: commitData } = await this.client
         .from('trail_session_commits')
         .select('commit_hash, commit_message, committed_at, lines_added')
         .gte('committed_at', cutoffIso);
-
-      const toJSTDate = (isoStr: string): string => {
-        const ms = new Date(isoStr).getTime();
-        const jstMs = ms + getIanaOffsetMs('Asia/Tokyo', new Date(ms));
-        const d = new Date(jstMs);
-        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
-      };
 
       const extractPrefix = (subject: string): string => {
         const m = /^([a-z]+)(?:\([^)]*\))?!?:\s/i.exec(subject);
@@ -897,7 +961,7 @@ export class SupabaseTrailReader implements ITrailReader {
         .map(([k, e]) => { const [p, prefix] = splitKey(k); return { period: p, prefix, count: e.count, linesAdded: e.linesAdded }; })
         .sort((a, b) => a.period.localeCompare(b.period));
 
-      return { toolCounts, errorRate, skillStats, modelStats, commitPrefixStats, aiFirstTryRate: [] };
+      return { toolCounts, errorRate, skillStats, modelStats, agentStats, commitPrefixStats, aiFirstTryRate: [] };
     } catch {
       return null;
     }

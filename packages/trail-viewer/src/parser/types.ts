@@ -111,6 +111,14 @@ export interface CombinedModel {
   readonly tokens: number;
 }
 
+export interface CombinedAgent {
+  readonly period: string;
+  readonly agent: string;
+  readonly tokens: number;
+  readonly costUsd: number;
+  readonly loc: number;
+}
+
 
 export interface CombinedCommitPrefix {
   readonly period: string;
@@ -130,6 +138,7 @@ export interface CombinedData {
   readonly errorRate: readonly CombinedError[];
   readonly skillStats: readonly CombinedSkill[];
   readonly modelStats: readonly CombinedModel[];
+  readonly agentStats: readonly CombinedAgent[];
   readonly commitPrefixStats: readonly CombinedCommitPrefix[];
   readonly aiFirstTryRate: readonly CombinedAiFirstTryRate[];
 }

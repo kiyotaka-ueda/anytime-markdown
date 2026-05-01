@@ -230,6 +230,7 @@ export const en: TrailI18n = {
   'analytics.commitPrefixChartTitle': 'Commit types',
   'analytics.combined.skill': 'Skill',
   'analytics.combined.model': 'Model',
+  'analytics.combined.agent': 'Agent',
 
   'metrics.deploymentFrequency.name': 'Deployment Frequency',
   'metrics.deploymentFrequency.description': 'Releases per day in the selected period',

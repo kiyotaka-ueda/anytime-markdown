@@ -262,6 +262,7 @@ export interface TrailI18n {
   'analytics.commitPrefixChartTitle': string;
   'analytics.combined.skill': string;
   'analytics.combined.model': string;
+  'analytics.combined.agent': string;
 
   // metrics
   'metrics.deploymentFrequency.name': string;

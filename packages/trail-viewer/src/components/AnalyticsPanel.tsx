@@ -2068,7 +2068,8 @@ function DailyActivityChart({
 // ─── Behavior charts in Analytics ───────────────────────────────────────────
 
 type ChartMetric = 'count' | 'tokens';
-type CombinedChartKind = 'tools' | 'errors' | 'skills' | 'models' | 'commits' | 'releases';
+type CombinedChartKind = 'tools' | 'errors' | 'skills' | 'models' | 'agents' | 'commits' | 'releases';
+type AgentMetric = 'tokens' | 'cost' | 'loc';
 
 // スタック棒グラフの系列数が多すぎると描画・凡例・ツールチップが重くなるため、
 // 上位 N 件以外を "Others" に集約する。
@@ -2137,12 +2138,13 @@ function LeadTimeAxisTooltipContent({ unmappedByBucket, bucketKeys }: Readonly<{
   );
 }
 
-function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, modelMetric, commitMetric, leadTimeOverlay, onDateClick }: Readonly<{
+function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, modelMetric, agentMetric, commitMetric, leadTimeOverlay, onDateClick }: Readonly<{
   data: CombinedData | null;
   periodDays: PeriodDays;
   activeChart: CombinedChartKind;
   toolMetric: ChartMetric;
   modelMetric: ChartMetric;
+  agentMetric: AgentMetric;
   commitMetric: CommitMetric;
   leadTimeOverlay: {
     leadTimePerLoc: ReadonlyArray<{ bucketStart: string; value: number }>;
@@ -2165,12 +2167,15 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
     const errorRows = (data.errorRate ?? []).filter(r => r.period >= cutoffStr);
     const skillRows = (data.skillStats ?? []).filter(r => r.period >= cutoffStr);
     const modelRows = (data.modelStats ?? []).filter(r => r.period >= cutoffStr);
+    const agentRows = (data.agentStats ?? []).filter(r => r.period >= cutoffStr);
     const commitRows = (data.commitPrefixStats ?? []).filter(r => r.period >= cutoffStr);
     const aiRateRows = (data.aiFirstTryRate ?? []).filter(r => r.period >= cutoffStr);
     const allPeriods = [...new Set(toolRows.map(r => r.period))].sort();
     const labels = allPeriods.map(p => p.length > 5 ? p.slice(5) : p);
     const modelPeriods = [...new Set(modelRows.map(r => r.period))].sort();
     const modelLabels = modelPeriods.map(p => p.length > 5 ? p.slice(5) : p);
+    const agentPeriods = [...new Set(agentRows.map(r => r.period))].sort();
+    const agentLabels = agentPeriods.map(p => p.length > 5 ? p.slice(5) : p);
     const commitPeriods = [...new Set(commitRows.map(r => r.period))].sort();
     const commitLabels = commitPeriods.map(p => p.length > 5 ? p.slice(5) : p);
 
@@ -2182,6 +2187,8 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
     for (const r of skillRows) skillTotals.set(r.skill, (skillTotals.get(r.skill) ?? 0) + r.count);
     const modelTotals = new Map<string, number>();
     for (const r of modelRows) modelTotals.set(r.model, (modelTotals.get(r.model) ?? 0) + r.count);
+    const agentTotals = new Map<string, number>();
+    for (const r of agentRows) agentTotals.set(r.agent, (agentTotals.get(r.agent) ?? 0) + r.tokens);
     const commitTotals = new Map<string, number>();
     for (const r of commitRows) commitTotals.set(r.prefix, (commitTotals.get(r.prefix) ?? 0) + r.count);
 
@@ -2189,6 +2196,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
     const errCap = capTopN(errToolTotals);
     const skillCap = capTopN(skillTotals);
     const modelCap = capTopN(modelTotals);
+    const agentCap = capTopN(agentTotals);
     const commitCap = capTopN(commitTotals);
 
     return {
@@ -2196,12 +2204,15 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
       errorRows,
       skillRows,
       modelRows,
+      agentRows,
       commitRows,
       aiRateRows,
       allPeriods,
       labels,
       modelPeriods,
       modelLabels,
+      agentPeriods,
+      agentLabels,
       commitPeriods,
       commitLabels,
       tools: toolCap.displayKeys,
@@ -2212,6 +2223,8 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
       skillMap: skillCap.keyMap,
       models: modelCap.displayKeys,
       modelMap: modelCap.keyMap,
+      agents: agentCap.displayKeys,
+      agentMap: agentCap.keyMap,
       commitPrefixes: commitCap.displayKeys,
       commitMap: commitCap.keyMap,
     };
@@ -2314,8 +2327,28 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
     });
   }, [axisInfo, modelMetric]);
 
+  const agentDataset = useMemo(() => {
+    if (!axisInfo) return [];
+    const { agentRows, agentPeriods, agentLabels, agents, agentMap } = axisInfo;
+    const getValue = (r: { tokens: number; costUsd: number; loc: number }): number =>
+      agentMetric === 'tokens' ? r.tokens : agentMetric === 'cost' ? r.costUsd : r.loc;
+    const valMap = new Map<string, number>();
+    for (const r of agentRows) {
+      const displayKey = agentMap.get(r.agent) ?? r.agent;
+      const key = `${r.period}::${displayKey}`;
+      valMap.set(key, (valMap.get(key) ?? 0) + getValue(r));
+    }
+    return agentPeriods.map((p, pi) => {
+      const entry: Record<string, string | number> = { period: agentLabels[pi] };
+      for (let i = 0; i < agents.length; i++) {
+        entry[`a${i}`] = valMap.get(`${p}::${agents[i]}`) ?? 0;
+      }
+      return entry;
+    });
+  }, [axisInfo, agentMetric]);
+
   if (!axisInfo) return null;
-  const { toolRows, errTools, tools, skills, models, commitPrefixes, aiRateRows, allPeriods, modelPeriods, commitPeriods, commitLabels } = axisInfo;
+  const { toolRows, errTools, tools, skills, models, agents, commitPrefixes, aiRateRows, allPeriods, modelPeriods, agentPeriods, commitPeriods, commitLabels } = axisInfo;
   const hideZero = (v: number | null) => (v == null || v === 0 ? null : String(v));
   const canDrill = periodDays < 90 && !!onDateClick;
   const makeAxisClick = (periods: readonly string[]) =>
@@ -2401,6 +2434,29 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
           margin={{ left: 16, right: 8, top: 8, bottom: 40 }}
           slotProps={{ legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } } }}
           onAxisClick={makeAxisClick(allPeriods)}
+        />
+      </Paper>
+    );
+  }
+
+  if (activeChart === 'agents') {
+    return (
+      <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+        <BarChart
+          dataset={agentDataset}
+          xAxis={[{ scaleType: 'band', dataKey: 'period' }]}
+          yAxis={[{ valueFormatter: agentMetric === 'cost' ? fmtUsd : fmtTokens }]}
+          series={agents.map((agent, i) => ({
+            dataKey: `a${i}`,
+            label: agent,
+            stack: 'total',
+            color: toolPalette[i % toolPalette.length],
+            valueFormatter: hideZero,
+          }))}
+          height={240}
+          margin={{ left: 16, right: 8, top: 8, bottom: 60 }}
+          slotProps={{ legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } } }}
+          onAxisClick={makeAxisClick(agentPeriods)}
         />
       </Paper>
     );
@@ -2655,7 +2711,7 @@ function ReleasesBarChart({ timeSeries }: Readonly<{
   );
 }
 
-type CombinedMetric = 'tokens' | 'tools' | 'errors' | 'skills' | 'models' | 'commits' | 'releases';
+type CombinedMetric = 'tokens' | 'tools' | 'errors' | 'skills' | 'models' | 'agents' | 'commits' | 'releases';
 
 function CombinedChartsSection({
   dailyActivity,
@@ -2696,6 +2752,7 @@ function CombinedChartsSection({
   const [tokenMode, setTokenMode] = useState<DailyViewMode>('tokens');
   const [toolMetric, setToolMetric] = useState<ChartMetric>('count');
   const [modelMetric, setModelMetric] = useState<ChartMetric>('count');
+  const [agentMetric, setAgentMetric] = useState<AgentMetric>('tokens');
   const [commitMetric, setCommitMetric] = useState<CommitMetric>('count');
   const [combinedData, setCombinedData] = useState<CombinedData | null>(null);
   const [combinedLoading, setCombinedLoading] = useState(false);
@@ -2804,6 +2861,7 @@ function CombinedChartsSection({
           >
             <ToggleButton value="tokens" sx={toggleSx}>{t('chart.tokenUsage')}</ToggleButton>
             <ToggleButton value="models" sx={toggleSx}>{t('analytics.combined.model')}</ToggleButton>
+            <ToggleButton value="agents" sx={toggleSx}>{t('analytics.combined.agent')}</ToggleButton>
             <ToggleButton value="skills" sx={toggleSx}>{t('analytics.combined.skill')}</ToggleButton>
             <ToggleButton value="tools" sx={toggleSx}>{t('analytics.combined.tool')}</ToggleButton>
             <ToggleButton value="errors" sx={toggleSx}>{t('analytics.combined.error')}</ToggleButton>
@@ -2856,6 +2914,18 @@ function CombinedChartsSection({
             <ToggleButton value="tokens" sx={toggleSx}>{t('analytics.combined.tokens')}</ToggleButton>
           </ToggleButtonGroup>
         )}
+        {metric === 'agents' && (
+          <ToggleButtonGroup
+            value={agentMetric}
+            exclusive
+            onChange={(_e, v: AgentMetric | null) => { if (v) setAgentMetric(v); }}
+            size="small"
+          >
+            <ToggleButton value="tokens" sx={toggleSx}>{t('analytics.combined.tokens')}</ToggleButton>
+            <ToggleButton value="cost" sx={toggleSx}>{t('chart.cost')}</ToggleButton>
+            <ToggleButton value="loc" sx={toggleSx}>{t('analytics.combined.loc')}</ToggleButton>
+          </ToggleButtonGroup>
+        )}
         {metric === 'commits' && (
           <ToggleButtonGroup
             value={commitMetric}
@@ -2898,6 +2968,7 @@ function CombinedChartsSection({
             activeChart={metric}
             toolMetric={toolMetric}
             modelMetric={modelMetric}
+            agentMetric={agentMetric}
             commitMetric={commitMetric}
             leadTimeOverlay={overlay ? { leadTimePerLoc: overlay.leadTimePerLoc, unmapped: overlay.leadTimeUnmapped, byPrefix: overlay.leadTimeByPrefix } : null}
             onDateClick={handleDateClick}

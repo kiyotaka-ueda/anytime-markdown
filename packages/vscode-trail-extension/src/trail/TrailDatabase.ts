@@ -305,6 +305,7 @@ interface CombinedData {
   readonly errorRate: readonly { period: string; rate: number; byTool: Readonly<Record<string, number>> }[];
   readonly skillStats: readonly { period: string; skill: string; count: number; costUsd: number }[];
   readonly modelStats: readonly { period: string; model: string; count: number; tokens: number }[];
+  readonly agentStats: readonly { period: string; agent: string; tokens: number; costUsd: number; loc: number }[];
   readonly commitPrefixStats: readonly { period: string; prefix: string; count: number; linesAdded: number }[];
   readonly aiFirstTryRate: readonly { period: string; rate: number; sampleSize: number }[];
 }
@@ -4754,6 +4755,56 @@ export class TrailDatabase {
       tokens: Number(r['tokens'] ?? 0),
     }));
 
+    const agentTokenResult = db.exec(
+      `SELECT ${periodExpr} AS period,
+              CASE WHEN s.source = 'codex' THEN 'Codex' ELSE 'Claude Code' END AS agent,
+              SUM(COALESCE(m.input_tokens,0) + COALESCE(m.output_tokens,0) + COALESCE(m.cache_read_tokens,0) + COALESCE(m.cache_creation_tokens,0)) AS tokens
+       FROM messages m
+       JOIN sessions s ON s.id = m.session_id
+       WHERE DATE(m.timestamp, '${tzOffset}') >= ${cutoff}
+       GROUP BY period, agent`,
+    );
+    const agentCostResult = db.exec(
+      `SELECT ${periodExpr.replace('date', `DATE(s.start_time, '${tzOffset}')`)} AS period,
+              CASE WHEN s.source = 'codex' THEN 'Codex' ELSE 'Claude Code' END AS agent,
+              SUM(COALESCE(sc.estimated_cost_usd,0)) AS cost_usd
+       FROM session_costs sc
+       JOIN sessions s ON s.id = sc.session_id
+       WHERE DATE(s.start_time, '${tzOffset}') >= ${cutoff}
+       GROUP BY period, agent`,
+    );
+    const agentLocResult = db.exec(
+      `SELECT ${commitPeriodExpr} AS period,
+              CASE WHEN s.source = 'codex' THEN 'Codex' ELSE 'Claude Code' END AS agent,
+              SUM(COALESCE(c.lines_added,0)) AS loc
+       FROM session_commits c
+       JOIN sessions s ON s.id = c.session_id
+       WHERE DATE(c.committed_at, '${tzOffset}') >= ${cutoff}
+       GROUP BY period, agent`,
+    );
+    const agentMap = new Map<string, { tokens: number; costUsd: number; loc: number }>();
+    const addAgentMetric = (period: string, agent: string, delta: Partial<{ tokens: number; costUsd: number; loc: number }>) => {
+      const key = `${period}::${agent}`;
+      const cur = agentMap.get(key) ?? { tokens: 0, costUsd: 0, loc: 0 };
+      cur.tokens += delta.tokens ?? 0;
+      cur.costUsd += delta.costUsd ?? 0;
+      cur.loc += delta.loc ?? 0;
+      agentMap.set(key, cur);
+    };
+    for (const r of toRows(agentTokenResult)) {
+      addAgentMetric(String(r['period'] ?? ''), String(r['agent'] ?? ''), { tokens: Number(r['tokens'] ?? 0) });
+    }
+    for (const r of toRows(agentCostResult)) {
+      addAgentMetric(String(r['period'] ?? ''), String(r['agent'] ?? ''), { costUsd: Number(r['cost_usd'] ?? 0) });
+    }
+    for (const r of toRows(agentLocResult)) {
+      addAgentMetric(String(r['period'] ?? ''), String(r['agent'] ?? ''), { loc: Number(r['loc'] ?? 0) });
+    }
+    const agentStats = [...agentMap.entries()].map(([k, v]) => {
+      const sep = k.indexOf('::');
+      return { period: k.slice(0, sep), agent: k.slice(sep + 2), tokens: v.tokens, costUsd: v.costUsd, loc: v.loc };
+    });
+
     // Commit stats: session_commits を取得し、AI 1 発成功率のファイル overlap 判定に必要な
     // committed_at / is_ai_assisted / commit_files を一緒に取る。分母の fix 検出のために
     // 期間末尾から 168h 先のコミットも取得する。手動コミットが複数セッションに重複登録される
@@ -4863,6 +4914,7 @@ export class TrailDatabase {
       errorRate,
       skillStats,
       modelStats,
+      agentStats,
       commitPrefixStats,
       aiFirstTryRate,
     };
