@@ -329,30 +329,131 @@ export class SupabaseTrailReader implements ITrailReader {
     if (error) return null;
     if (!sessions || sessions.length === 0) return null;
 
-    const { data: costData } = await this.client
-      .from('trail_session_costs')
-      .select('*');
-    const allCosts = (costData ?? []) as readonly SessionCostDbRow[];
-
-    const { data: dailyCostData } = await this.client
-      .from('trail_daily_counts')
-      .select('date,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens,estimated_cost_usd')
-      .eq('kind', 'cost_actual')
-      .order('date');
-
     const { data: commits } = await this.client
       .from('trail_session_commits')
       .select('*');
-
     const allCommits = commits ?? [];
+
+    // Build source and start_time lookup maps from sessions
+    const sourceBySessionId = new Map<string, string>();
+    const startBySessionId = new Map<string, string>();
+    const sessionIds: string[] = [];
+    for (const s of sessions as Array<{ id: string; source?: string | null; start_time?: string }>) {
+      sourceBySessionId.set(s.id, s.source === 'codex' ? 'codex' : 'claude_code');
+      if (s.start_time) startBySessionId.set(s.id, s.start_time);
+      sessionIds.push(s.id);
+    }
+
+    let totalInput = 0, totalOutput = 0, totalCacheRead = 0, totalCacheCreation = 0;
+    let totalEstimatedCost = 0;
+    type DailyEntry = { sessions: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number; estimatedCostUsd: number };
+    const dailyMap = new Map<string, DailyEntry>();
+
+    if (sessionIds.length > 0) {
+      const getIanaOffsetMs = (timeZone: string, at: Date): number => {
+        const parts = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'longOffset' }).formatToParts(at);
+        const label = parts.find(p => p.type === 'timeZoneName')?.value ?? 'GMT+00:00';
+        const match = /^GMT([+-])(\d{1,2}):(\d{2})$/.exec(label);
+        if (!match) return 0;
+        return (match[1] === '+' ? 1 : -1) * (Number(match[2]) * 60 + Number(match[3])) * 60_000;
+      };
+      const toJSTDate = (isoStr: string): string => {
+        const ms = new Date(isoStr).getTime();
+        const jstMs = ms + getIanaOffsetMs('Asia/Tokyo', new Date(ms));
+        const d = new Date(jstMs);
+        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+      };
+
+      // Fetch assistant messages for token aggregation
+      const { data: msgRows } = await this.client
+        .from('trail_messages')
+        .select('session_id,timestamp,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens')
+        .in('session_id', sessionIds)
+        .eq('type', 'assistant');
+
+      type TokenAgg = { rawInput: number; rawOutput: number; rawCacheRead: number; rawCacheCreation: number; totalTurns: number; missingTurns: number };
+      const sourceAgg = new Map<string, TokenAgg>();
+      const dailySrcAgg = new Map<string, TokenAgg>();
+
+      for (const m of (msgRows ?? []) as Array<{
+        session_id: string; timestamp: string;
+        input_tokens: number | null; output_tokens: number | null; cache_read_tokens: number | null; cache_creation_tokens: number | null;
+      }>) {
+        const source = sourceBySessionId.get(m.session_id) ?? 'claude_code';
+        const inp = m.input_tokens ?? 0;
+        const out = m.output_tokens ?? 0;
+        const crd = m.cache_read_tokens ?? 0;
+        const ccr = m.cache_creation_tokens ?? 0;
+        const allZero = inp + out + crd + ccr === 0 ? 1 : 0;
+
+        const sa = sourceAgg.get(source) ?? { rawInput: 0, rawOutput: 0, rawCacheRead: 0, rawCacheCreation: 0, totalTurns: 0, missingTurns: 0 };
+        sa.rawInput += inp; sa.rawOutput += out; sa.rawCacheRead += crd; sa.rawCacheCreation += ccr;
+        sa.totalTurns += 1; sa.missingTurns += allZero;
+        sourceAgg.set(source, sa);
+
+        const date = toJSTDate(m.timestamp);
+        const dk = `${date}::${source}`;
+        const da = dailySrcAgg.get(dk) ?? { rawInput: 0, rawOutput: 0, rawCacheRead: 0, rawCacheCreation: 0, totalTurns: 0, missingTurns: 0 };
+        da.rawInput += inp; da.rawOutput += out; da.rawCacheRead += crd; da.rawCacheCreation += ccr;
+        da.totalTurns += 1; da.missingTurns += allZero;
+        dailySrcAgg.set(dk, da);
+      }
+
+      // Global source factor → token totals
+      const factorBySource = new Map<string, number>();
+      for (const [source, sa] of sourceAgg.entries()) {
+        const observed = sa.totalTurns - sa.missingTurns;
+        const factor = observed > 0 ? sa.totalTurns / observed : 1;
+        factorBySource.set(source, factor);
+        totalInput += Math.round(sa.rawInput * factor);
+        totalOutput += Math.round(sa.rawOutput * factor);
+        totalCacheRead += Math.round(sa.rawCacheRead * factor);
+        totalCacheCreation += Math.round(sa.rawCacheCreation * factor);
+      }
+
+      // Per-(date,source) factor → daily token map
+      for (const [dk, da] of dailySrcAgg.entries()) {
+        const date = dk.split('::')[0]!;
+        const observed = da.totalTurns - da.missingTurns;
+        const factor = observed > 0 ? da.totalTurns / observed : 1;
+        const entry = dailyMap.get(date) ?? { sessions: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, estimatedCostUsd: 0 };
+        entry.inputTokens += Math.round(da.rawInput * factor);
+        entry.outputTokens += Math.round(da.rawOutput * factor);
+        entry.cacheReadTokens += Math.round(da.rawCacheRead * factor);
+        entry.cacheCreationTokens += Math.round(da.rawCacheCreation * factor);
+        dailyMap.set(date, entry);
+      }
+
+      // Estimated cost from session_costs with global source factor
+      const { data: costRows } = await this.client
+        .from('trail_session_costs')
+        .select('session_id,estimated_cost_usd');
+      for (const c of (costRows ?? []) as Array<{ session_id: string; estimated_cost_usd: number | null }>) {
+        const source = sourceBySessionId.get(c.session_id) ?? 'claude_code';
+        const factor = factorBySource.get(source) ?? 1;
+        const cost = (c.estimated_cost_usd ?? 0) * factor;
+        totalEstimatedCost += cost;
+        const start = startBySessionId.get(c.session_id);
+        if (start) {
+          const date = toJSTDate(start);
+          const entry = dailyMap.get(date) ?? { sessions: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, estimatedCostUsd: 0 };
+          entry.estimatedCostUsd += cost;
+          dailyMap.set(date, entry);
+        }
+      }
+    }
+
+    const dailyActivity = [...dailyMap.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, v]) => ({ date, ...v }));
 
     const totals = {
       sessions: sessions.length,
-      inputTokens: allCosts.reduce((s, c) => s + c.input_tokens, 0),
-      outputTokens: allCosts.reduce((s, c) => s + c.output_tokens, 0),
-      cacheReadTokens: allCosts.reduce((s, c) => s + c.cache_read_tokens, 0),
-      cacheCreationTokens: allCosts.reduce((s, c) => s + c.cache_creation_tokens, 0),
-      estimatedCostUsd: allCosts.reduce((s, c) => s + c.estimated_cost_usd, 0),
+      inputTokens: totalInput,
+      outputTokens: totalOutput,
+      cacheReadTokens: totalCacheRead,
+      cacheCreationTokens: totalCacheCreation,
+      estimatedCostUsd: totalEstimatedCost,
       totalCommits: allCommits.length,
       totalLinesAdded: allCommits.reduce((s, c) => s + c.lines_added, 0),
       totalLinesDeleted: allCommits.reduce((s, c) => s + c.lines_deleted, 0),
@@ -370,22 +471,6 @@ export class SupabaseTrailReader implements ITrailReader {
       totalTestRuns: 0,
       totalTestFails: 0,
     };
-
-    // Daily activity from trail_daily_counts (kind='cost_actual')
-    type DailyEntry = { sessions: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number; estimatedCostUsd: number };
-    const dailyMap = new Map<string, DailyEntry>();
-    for (const r of (dailyCostData ?? []) as readonly { date: string; input_tokens: number; output_tokens: number; cache_read_tokens: number; cache_creation_tokens: number; estimated_cost_usd: number }[]) {
-      const entry = dailyMap.get(r.date) ?? { sessions: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, estimatedCostUsd: 0 };
-      entry.inputTokens += r.input_tokens;
-      entry.outputTokens += r.output_tokens;
-      entry.cacheReadTokens += r.cache_read_tokens;
-      entry.cacheCreationTokens += r.cache_creation_tokens;
-      entry.estimatedCostUsd += r.estimated_cost_usd;
-      dailyMap.set(r.date, entry);
-    }
-    const dailyActivity = [...dailyMap.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, v]) => ({ date, ...v }));
 
     return { totals, toolUsage: [], dailyActivity };
   }
@@ -792,7 +877,7 @@ export class SupabaseTrailReader implements ITrailReader {
       const { data, error } = await this.client
         .from('trail_daily_counts')
         .select('date,kind,key,count,tokens,duration_ms')
-        .in('kind', ['tool', 'skill', 'error', 'model'])
+        .in('kind', ['skill', 'error'])
         .gte('date', cutoffDate);
       if (error || !data) return null;
 
@@ -815,22 +900,12 @@ export class SupabaseTrailReader implements ITrailReader {
         return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
       };
 
-      const toolMap = new Map<string, { count: number; tokens: number; durationMs: number }>();
       const errMap = new Map<string, { err: number; total: number; byTool: Record<string, number> }>();
       const skillMap = new Map<string, number>();
-      const modelMap = new Map<string, { count: number; tokens: number }>();
 
       for (const r of rows) {
         const p = periodKey(r.date);
-        if (r.kind === 'tool') {
-          const k = `${p}::${r.key}`;
-          const e = toolMap.get(k) ?? { count: 0, tokens: 0, durationMs: 0 };
-          e.count += r.count; e.tokens += r.tokens; e.durationMs += r.duration_ms;
-          toolMap.set(k, e);
-          const ef = errMap.get(p) ?? { err: 0, total: 0, byTool: {} };
-          ef.total += r.count;
-          errMap.set(p, ef);
-        } else if (r.kind === 'error') {
+        if (r.kind === 'error') {
           const ef = errMap.get(p) ?? { err: 0, total: 0, byTool: {} };
           ef.err += r.count;
           ef.byTool[r.key] = (ef.byTool[r.key] ?? 0) + r.count;
@@ -838,11 +913,6 @@ export class SupabaseTrailReader implements ITrailReader {
         } else if (r.kind === 'skill') {
           const k = `${p}::${r.key}`;
           skillMap.set(k, (skillMap.get(k) ?? 0) + r.count);
-        } else if (r.kind === 'model') {
-          const k = `${p}::${r.key}`;
-          const e = modelMap.get(k) ?? { count: 0, tokens: 0 };
-          e.count += r.count; e.tokens += r.tokens;
-          modelMap.set(k, e);
         }
       }
 
@@ -851,9 +921,9 @@ export class SupabaseTrailReader implements ITrailReader {
         return [k.slice(0, sep), k.slice(sep + 2)];
       };
 
-      const toolCounts = [...toolMap.entries()]
-        .map(([k, e]) => { const [p, tool] = splitKey(k); return { period: p, tool, ...e }; })
-        .sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
+      // toolCounts will be populated from trail_message_tool_calls after sessionIds are ready
+      type SupaToolAggEntry = { count: number; durationMs: number; adjustedTokens: number; totalTurns: number; missingTurns: number };
+      const tcAggMap = new Map<string, SupaToolAggEntry>();
 
       const errorRate = [...errMap.entries()]
         .filter(([, e]) => e.total > 0)
@@ -864,9 +934,7 @@ export class SupabaseTrailReader implements ITrailReader {
         .map(([k, count]) => { const [p, skill] = splitKey(k); return { period: p, skill, count, costUsd: 0 }; })
         .sort((a, b) => a.period.localeCompare(b.period));
 
-      const modelStats = [...modelMap.entries()]
-        .map(([k, e]) => { const [p, model] = splitKey(k); return { period: p, model, ...e }; })
-        .sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
+      const modelAggMap = new Map<string, { count: number; tokens: number; totalTurns: number; missingTurns: number }>();
 
       const { data: sessionRows } = await this.client
         .from('trail_sessions')
@@ -895,11 +963,11 @@ export class SupabaseTrailReader implements ITrailReader {
       if (sessionIds.length > 0) {
         const { data: msgRows } = await this.client
           .from('trail_messages')
-          .select('session_id,timestamp,type,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens')
+          .select('session_id,timestamp,type,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens,model')
           .in('session_id', sessionIds)
           .gte('timestamp', cutoffIso);
         for (const m of (msgRows ?? []) as Array<{
-          session_id: string; timestamp: string; type?: string | null;
+          session_id: string; timestamp: string; type?: string | null; model?: string | null;
           input_tokens: number | null; output_tokens: number | null; cache_read_tokens: number | null; cache_creation_tokens: number | null;
         }>) {
           const agent = sourceBySessionId.get(m.session_id) ?? 'Claude Code';
@@ -910,6 +978,19 @@ export class SupabaseTrailReader implements ITrailReader {
             tokenTotalTurns: m.type === 'assistant' ? 1 : 0,
             tokenMissingTurns: m.type === 'assistant' && tokens === 0 ? 1 : 0,
           });
+          if (m.type === 'assistant') {
+            const source = sourceBySessionId.get(m.session_id) === 'Codex' ? 'Codex' : 'Claude Code';
+            const rawModel = m.model ?? '';
+            const modelKey = `${p}::${rawModel}::${source}`;
+            const rawTokens = (m.input_tokens ?? 0) + (m.output_tokens ?? 0);
+            const isMissing = tokens === 0 ? 1 : 0;
+            const cur = modelAggMap.get(modelKey) ?? { count: 0, tokens: 0, totalTurns: 0, missingTurns: 0 };
+            cur.count += 1;
+            cur.tokens += rawTokens;
+            cur.totalTurns += 1;
+            cur.missingTurns += isMissing;
+            modelAggMap.set(modelKey, cur);
+          }
         }
 
         const { data: costRows } = await this.client
@@ -935,6 +1016,117 @@ export class SupabaseTrailReader implements ITrailReader {
           addAgent(p, agent, { loc: c.lines_added ?? 0 });
         }
       }
+      // ── toolCounts: trail_message_tool_calls + trail_messages 直接 JOIN 集計 ──
+      const normalizeTcTool = (name: string): string => {
+        if (!name.startsWith('mcp__')) return name;
+        const parts = name.split('__');
+        return parts.length >= 3 ? `${parts[0]}__${parts[1]}` : name;
+      };
+      if (sessionIds.length > 0) {
+        // バッチサイズ 500 で trail_message_tool_calls を取得
+        const TC_BATCH = 500;
+        for (let bi = 0; bi < sessionIds.length; bi += TC_BATCH) {
+          const batchIds = sessionIds.slice(bi, bi + TC_BATCH);
+          const { data: tcBatch } = await this.client
+            .from('trail_message_tool_calls')
+            .select('session_id, message_uuid, turn_index, tool_name, turn_exec_ms')
+            .in('session_id', batchIds);
+          const tcBatchRows = (tcBatch ?? []) as Array<{
+            session_id: string; message_uuid: string; turn_index: number;
+            tool_name: string; turn_exec_ms: number | null;
+          }>;
+          // メッセージ uuid を収集
+          const batchMsgUuids = [...new Set(tcBatchRows.map(r => r.message_uuid))];
+          if (batchMsgUuids.length === 0) continue;
+          const { data: batchMsgs } = await this.client
+            .from('trail_messages')
+            .select('uuid, session_id, timestamp, type, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens')
+            .in('uuid', batchMsgUuids);
+          type MsgRow = { uuid: string; session_id: string; timestamp: string; type: string | null; input_tokens: number | null; output_tokens: number | null; cache_read_tokens: number | null; cache_creation_tokens: number | null };
+          const batchMsgMap = new Map<string, MsgRow>();
+          for (const m of (batchMsgs ?? []) as MsgRow[]) {
+            batchMsgMap.set(m.uuid, m);
+          }
+          // message_uuid ごとのツール数を事前集計
+          const msgToolCountBatch = new Map<string, number>();
+          for (const r of tcBatchRows) {
+            msgToolCountBatch.set(r.message_uuid, (msgToolCountBatch.get(r.message_uuid) ?? 0) + 1);
+          }
+          // session_id + turn_index ごとのツール数
+          const turnToolCountBatch = new Map<string, number>();
+          for (const r of tcBatchRows) {
+            const tk = `${r.session_id}:${r.turn_index}`;
+            turnToolCountBatch.set(tk, (turnToolCountBatch.get(tk) ?? 0) + 1);
+          }
+          // 集計
+          for (const r of tcBatchRows) {
+            const m = batchMsgMap.get(r.message_uuid);
+            if (!m || !m.timestamp) continue;
+            const p = periodKey(toJSTDate(m.timestamp));
+            const tool = normalizeTcTool(r.tool_name);
+            const source = sourceBySessionId.get(r.session_id) ?? 'Claude Code';
+            const toolsInMsg = msgToolCountBatch.get(r.message_uuid) ?? 1;
+            const tk = `${r.session_id}:${r.turn_index}`;
+            const toolsInTurn = turnToolCountBatch.get(tk) ?? 1;
+            const rawTokens = m.type === 'assistant'
+              ? Math.round(((m.input_tokens ?? 0) + (m.output_tokens ?? 0)) / toolsInMsg)
+              : 0;
+            const totalAllTokens = (m.input_tokens ?? 0) + (m.output_tokens ?? 0) + (m.cache_read_tokens ?? 0) + (m.cache_creation_tokens ?? 0);
+            const isMissing = m.type === 'assistant' && totalAllTokens === 0 ? 1 : 0;
+            const isTurn = m.type === 'assistant' ? 1 : 0;
+            const durationContrib = Math.round((r.turn_exec_ms ?? 0) / toolsInTurn);
+            // key: period|tool|source
+            const aggKey = `${p}|${tool}|${source}`;
+            const cur = tcAggMap.get(aggKey) ?? { count: 0, durationMs: 0, adjustedTokens: 0, totalTurns: 0, missingTurns: 0 };
+            cur.count += 1;
+            cur.durationMs += durationContrib;
+            // tokens and turns are accumulated per-row; factor applied after grouping by (period, tool)
+            // Store raw token contrib here; factor applied below after (period, tool) grouping
+            cur.adjustedTokens += rawTokens; // temporarily raw; factor applied in final map
+            cur.totalTurns += isTurn;
+            cur.missingTurns += isMissing;
+            tcAggMap.set(aggKey, cur);
+          }
+        }
+      }
+      // (period, tool) 単位に集約し factor を適用
+      type ToolFinalEntry = { count: number; durationMs: number; adjustedTokens: number; totalTurns: number; missingTurns: number };
+      const toolFinalMap = new Map<string, ToolFinalEntry>();
+      for (const [k, v] of tcAggMap.entries()) {
+        const lastPipe = k.lastIndexOf('|');
+        const firstPipe = k.indexOf('|');
+        const period = k.slice(0, firstPipe);
+        const tool = k.slice(firstPipe + 1, lastPipe);
+        const observedTurns = v.totalTurns - v.missingTurns;
+        const factor = observedTurns > 0 ? v.totalTurns / observedTurns : 1;
+        const finalKey = `${period}|${tool}`;
+        const cur = toolFinalMap.get(finalKey) ?? { count: 0, durationMs: 0, adjustedTokens: 0, totalTurns: 0, missingTurns: 0 };
+        cur.count += v.count;
+        cur.durationMs += v.durationMs;
+        cur.adjustedTokens += v.adjustedTokens * factor;
+        cur.totalTurns += v.totalTurns;
+        cur.missingTurns += v.missingTurns;
+        toolFinalMap.set(finalKey, cur);
+      }
+      const toolCounts = [...toolFinalMap.entries()].map(([k, e]) => {
+        const sep = k.indexOf('|');
+        return {
+          period: k.slice(0, sep),
+          tool: k.slice(sep + 1),
+          count: e.count,
+          tokens: Math.round(e.adjustedTokens),
+          durationMs: e.durationMs,
+          tokenMissingRate: e.totalTurns > 0 ? e.missingTurns / e.totalTurns : 0,
+          tokenTotalTurns: e.totalTurns,
+          tokenMissingTurns: e.missingTurns,
+        };
+      }).sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
+      // errorRate.total を toolCounts の count から補完
+      for (const tc of toolCounts) {
+        const ef = errMap.get(tc.period) ?? { err: 0, total: 0, byTool: {} };
+        ef.total += tc.count;
+        errMap.set(tc.period, ef);
+      }
       const agentStats = [...agentMap.entries()]
         .map(([k, v]) => {
           const [p, agent] = splitKey(k);
@@ -952,6 +1144,35 @@ export class SupabaseTrailReader implements ITrailReader {
           };
         })
         .sort((a, b) => a.period.localeCompare(b.period) || a.agent.localeCompare(b.agent));
+
+      const modelFinalMap = new Map<string, { count: number; tokens: number; totalTurns: number; missingTurns: number }>();
+      for (const [k, v] of modelAggMap.entries()) {
+        const firstSep = k.indexOf('::');
+        const secondSep = k.indexOf('::', firstSep + 2);
+        const period = k.slice(0, firstSep);
+        const model = secondSep >= 0 ? k.slice(firstSep + 2, secondSep) : k.slice(firstSep + 2);
+        const observed = v.totalTurns - v.missingTurns;
+        const f = observed > 0 ? v.totalTurns / observed : 1;
+        const modelKey = `${period}::${model}`;
+        const cur = modelFinalMap.get(modelKey) ?? { count: 0, tokens: 0, totalTurns: 0, missingTurns: 0 };
+        cur.count += v.count;
+        cur.tokens += Math.round(v.tokens * f);
+        cur.totalTurns += v.totalTurns;
+        cur.missingTurns += v.missingTurns;
+        modelFinalMap.set(modelKey, cur);
+      }
+      const modelStats = [...modelFinalMap.entries()].map(([k, v]) => {
+        const sep = k.indexOf('::');
+        return {
+          period: k.slice(0, sep),
+          model: k.slice(sep + 2),
+          count: v.count,
+          tokens: v.tokens,
+          tokenMissingRate: v.totalTurns > 0 ? v.missingTurns / v.totalTurns : 0,
+          tokenTotalTurns: v.totalTurns,
+          tokenMissingTurns: v.missingTurns,
+        };
+      }).sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
 
       const { data: commitData } = await this.client
         .from('trail_session_commits')

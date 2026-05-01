@@ -9,3 +9,5 @@ export {
   isAiFirstTryFailureCommit,
   AI_FIRST_TRY_FIX_WINDOW_MS,
 } from './metrics/aiFirstTrySuccessRate';
+export { tokenFactor, tokenMissingRate, applyTokenFactor } from './metrics/tokenAdjustment';
+export type { TokenTurnCounts } from './metrics/tokenAdjustment';

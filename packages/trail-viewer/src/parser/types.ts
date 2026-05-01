@@ -87,6 +87,10 @@ export interface CombinedToolCount {
   readonly tokens: number;
   /** ターンの実行時間（ms）をツール呼び出し数で按分した推定値 */
   readonly durationMs: number;
+  /** トークン欠損ターン比率 (0–1)。欠損がない場合は 0 */
+  readonly tokenMissingRate: number;
+  readonly tokenTotalTurns: number;
+  readonly tokenMissingTurns: number;
 }
 
 
@@ -109,6 +113,9 @@ export interface CombinedModel {
   readonly model: string;
   readonly count: number;
   readonly tokens: number;
+  readonly tokenMissingRate: number;
+  readonly tokenTotalTurns: number;
+  readonly tokenMissingTurns: number;
 }
 
 export interface CombinedAgent {
