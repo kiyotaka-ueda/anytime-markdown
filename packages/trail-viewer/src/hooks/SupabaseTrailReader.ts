@@ -67,6 +67,7 @@ interface MessageDbRow {
   readonly is_sidechain: number;
   readonly agent_id?: string | null;
   readonly agent_description?: string | null;
+  readonly source_tool_assistant_uuid?: string | null;
 }
 
 interface CommitDbRow {
@@ -111,43 +112,170 @@ export class SupabaseTrailReader implements ITrailReader {
     if (error) throw new Error(`Supabase getSessions failed: ${error.message}`);
 
     const sessions = (data ?? []) as readonly SessionDbRow[];
-    const subAgentCounts = await this.fetchSubAgentCountsForSessions(sessions.map((s) => s.id));
-    return sessions.map((r) => this.toTrailSession(r, [], undefined, subAgentCounts.get(r.id)));
+    const sessionById = new Map(sessions.map((s) => [s.id, s] as const));
+    const sessionIds = sessions.map((s) => s.id);
+    const subAgentCounts = await this.fetchSubAgentCountsForSessions(sessionIds);
+    const linkedCodexByParent = await this.fetchLinkedCodexSessionIdsByParent(sessions);
+    const consumedCodexIds = new Set<string>();
+    for (const ids of linkedCodexByParent.values()) {
+      for (const id of ids) consumedCodexIds.add(id);
+    }
+
+    const visibleSessions = sessions.filter((s) => !(s.source === 'codex' && consumedCodexIds.has(s.id)));
+    return visibleSessions.map((r) => {
+      const linkedIds = linkedCodexByParent.get(r.id) ?? new Set<string>();
+      let linkedMessageCount = 0;
+      let linkedInput = 0;
+      let linkedOutput = 0;
+      let linkedCacheRead = 0;
+      let linkedCacheCreation = 0;
+      let linkedCost = 0;
+      for (const linkedId of linkedIds) {
+        const linked = sessionById.get(linkedId);
+        if (!linked) continue;
+        linkedMessageCount += linked.message_count ?? 0;
+        for (const c of linked.trail_session_costs ?? []) {
+          linkedInput += c.input_tokens;
+          linkedOutput += c.output_tokens;
+          linkedCacheRead += c.cache_read_tokens;
+          linkedCacheCreation += c.cache_creation_tokens;
+          linkedCost += c.estimated_cost_usd;
+        }
+      }
+      const base = this.toTrailSession(r, [], undefined, subAgentCounts.get(r.id));
+      return {
+        ...base,
+        messageCount: base.messageCount + linkedMessageCount,
+        usage: {
+          inputTokens: base.usage.inputTokens + linkedInput,
+          outputTokens: base.usage.outputTokens + linkedOutput,
+          cacheReadTokens: base.usage.cacheReadTokens + linkedCacheRead,
+          cacheCreationTokens: base.usage.cacheCreationTokens + linkedCacheCreation,
+        },
+        estimatedCostUsd: (base.estimatedCostUsd ?? 0) + linkedCost,
+      };
+    });
   }
 
-  /**
-   * 各セッションの subAgentCount を集計する。
-   * 初期版は CC ネイティブ subagent (DISTINCT agent_id) のみで簡易計算。
-   * codex 委任セッションの time-proximity マッチングは別 PR で対応。
-   */
   private async fetchSubAgentCountsForSessions(sessionIds: readonly string[]): Promise<Map<string, number>> {
     const out = new Map<string, number>();
     if (sessionIds.length === 0) return out;
     const { data, error } = await this.client
       .from('trail_messages')
-      .select('session_id, agent_id')
+      .select('session_id, agent_id, tool_calls')
       .in('session_id', sessionIds as string[])
-      .not('agent_id', 'is', null);
+      .eq('type', 'assistant');
     if (error) {
-      // 旧スキーマ（agent_id カラム未追加）でも getSessions が落ちないようグレースフル fallback。
-      // 失敗内容は記録して、サイレントに 0 件返さないようにする。
       console.warn(
         `[SupabaseTrailReader] fetchSubAgentCountsForSessions failed (sessionCount=${sessionIds.length}): ${error.message}`,
       );
       return out;
     }
-    const distinctByScope = new Map<string, Set<string>>();
-    for (const row of (data ?? []) as Array<{ session_id: string; agent_id: string | null }>) {
-      if (!row.agent_id) continue;
-      let s = distinctByScope.get(row.session_id);
-      if (!s) {
-        s = new Set();
-        distinctByScope.set(row.session_id, s);
+    const claudeTrackBySession = new Map<string, Set<string>>();
+    const delegatedTrackBySession = new Map<string, Set<string>>();
+    const agentCallCountBySession = new Map<string, number>();
+    for (const row of (data ?? []) as Array<{ session_id: string; agent_id: string | null; tool_calls: string | null }>) {
+      const sid = row.session_id;
+      if (row.agent_id) {
+        let set = claudeTrackBySession.get(sid);
+        if (!set) {
+          set = new Set();
+          claudeTrackBySession.set(sid, set);
+        }
+        set.add(row.agent_id);
       }
-      s.add(row.agent_id);
+      if (!row.tool_calls) continue;
+      let calls: Array<{ name?: string; input?: Record<string, unknown> }> = [];
+      try {
+        calls = JSON.parse(row.tool_calls) as Array<{ name?: string; input?: Record<string, unknown> }>;
+      } catch {
+        continue;
+      }
+      const agentCall = calls.find((c) => c.name === 'Agent');
+      if (!agentCall) continue;
+      agentCallCountBySession.set(sid, (agentCallCountBySession.get(sid) ?? 0) + 1);
+      if (!row.agent_id) {
+        const subagentType = typeof agentCall.input?.subagent_type === 'string'
+          ? agentCall.input.subagent_type
+          : 'unknown';
+        let set = delegatedTrackBySession.get(sid);
+        if (!set) {
+          set = new Set();
+          delegatedTrackBySession.set(sid, set);
+        }
+        set.add(`delegated:${subagentType}`);
+      }
     }
-    for (const [sid, set] of distinctByScope) {
-      out.set(sid, set.size);
+    for (const sid of sessionIds) {
+      const claudeTracks = claudeTrackBySession.get(sid)?.size ?? 0;
+      const delegatedTracks = delegatedTrackBySession.get(sid)?.size ?? 0;
+      const agentCalls = agentCallCountBySession.get(sid) ?? 0;
+      const count = Math.max(agentCalls, claudeTracks + delegatedTracks);
+      if (count > 0) out.set(sid, count);
+    }
+    return out;
+  }
+
+  private async fetchLinkedCodexSessionIdsByParent(
+    sessions: readonly SessionDbRow[],
+  ): Promise<Map<string, Set<string>>> {
+    const out = new Map<string, Set<string>>();
+    const parentSessions = sessions.filter((s) => s.source !== 'codex');
+    if (parentSessions.length === 0) return out;
+
+    const parentIds = parentSessions.map((s) => s.id);
+    const { data: markerRows, error: markerErr } = await this.client
+      .from('trail_messages')
+      .select('session_id, source_tool_assistant_uuid, timestamp')
+      .in('session_id', parentIds as string[])
+      .not('source_tool_assistant_uuid', 'is', null);
+    if (markerErr) return out;
+
+    const codexSessions = sessions
+      .filter((s) => s.source === 'codex')
+      .map((s) => ({
+        id: s.id,
+        repoName: s.repo_name ?? '',
+        startMs: Date.parse(s.start_time),
+        endMs: Date.parse(s.end_time),
+      }))
+      .filter((s) => Number.isFinite(s.startMs) && Number.isFinite(s.endMs));
+
+    const parentRepoById = new Map(parentSessions.map((s) => [s.id, s.repo_name ?? ''] as const));
+    for (const row of (markerRows ?? []) as Array<{ session_id: string; source_tool_assistant_uuid: string | null; timestamp: string | null }>) {
+      if (!row.timestamp) continue;
+      const sid = row.session_id;
+      const t = Date.parse(row.timestamp);
+      if (!Number.isFinite(t)) continue;
+      const parentRepo = parentRepoById.get(sid) ?? '';
+      const candidates = codexSessions.filter((s) => parentRepo === '' || s.repoName === parentRepo);
+      let bestId: string | null = null;
+      let bestScore = Number.POSITIVE_INFINITY;
+      for (const c of candidates) {
+        const inside = t >= (c.startMs - 5 * 60_000) && t <= (c.endMs + 5 * 60_000);
+        const score = Math.abs(c.startMs - t);
+        if (inside && score < bestScore) {
+          bestScore = score;
+          bestId = c.id;
+        }
+      }
+      if (!bestId) {
+        for (const c of candidates) {
+          const score = Math.abs(c.startMs - t);
+          if (score <= 60 * 60_000 && score < bestScore) {
+            bestScore = score;
+            bestId = c.id;
+          }
+        }
+      }
+      if (bestId) {
+        let set = out.get(sid);
+        if (!set) {
+          set = new Set<string>();
+          out.set(sid, set);
+        }
+        set.add(bestId);
+      }
     }
     return out;
   }
