@@ -263,6 +263,7 @@ export interface TrailI18n {
   'analytics.combined.skill': string;
   'analytics.combined.model': string;
   'analytics.combined.agent': string;
+  'analytics.combined.missingRate': string;
 
   // metrics
   'metrics.deploymentFrequency.name': string;

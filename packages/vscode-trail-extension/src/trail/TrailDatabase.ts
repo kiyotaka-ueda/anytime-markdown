@@ -305,7 +305,10 @@ interface CombinedData {
   readonly errorRate: readonly { period: string; rate: number; byTool: Readonly<Record<string, number>> }[];
   readonly skillStats: readonly { period: string; skill: string; count: number; costUsd: number }[];
   readonly modelStats: readonly { period: string; model: string; count: number; tokens: number }[];
-  readonly agentStats: readonly { period: string; agent: string; tokens: number; costUsd: number; loc: number }[];
+  readonly agentStats: readonly {
+    period: string; agent: string; tokens: number; costUsd: number; loc: number;
+    tokenMissingRate: number; tokenTotalTurns: number; tokenMissingTurns: number;
+  }[];
   readonly commitPrefixStats: readonly { period: string; prefix: string; count: number; linesAdded: number }[];
   readonly aiFirstTryRate: readonly { period: string; rate: number; sampleSize: number }[];
 }
@@ -4764,7 +4767,13 @@ export class TrailDatabase {
     const agentTokenResult = db.exec(
       `SELECT ${messagePeriodExpr} AS period,
               CASE WHEN s.source = 'codex' THEN 'Codex' ELSE 'Claude Code' END AS agent,
-              SUM(COALESCE(m.input_tokens,0) + COALESCE(m.output_tokens,0) + COALESCE(m.cache_read_tokens,0) + COALESCE(m.cache_creation_tokens,0)) AS tokens
+              SUM(COALESCE(m.input_tokens,0) + COALESCE(m.output_tokens,0) + COALESCE(m.cache_read_tokens,0) + COALESCE(m.cache_creation_tokens,0)) AS tokens,
+              SUM(CASE WHEN m.type = 'assistant' THEN 1 ELSE 0 END) AS token_total_turns,
+              SUM(CASE
+                    WHEN m.type = 'assistant'
+                     AND COALESCE(m.input_tokens,0) + COALESCE(m.output_tokens,0) + COALESCE(m.cache_read_tokens,0) + COALESCE(m.cache_creation_tokens,0) = 0
+                    THEN 1 ELSE 0
+                  END) AS token_missing_turns
        FROM messages m
        JOIN sessions s ON s.id = m.session_id
        WHERE DATE(m.timestamp, '${tzOffset}') >= ${cutoff}
@@ -4788,17 +4797,23 @@ export class TrailDatabase {
        WHERE DATE(c.committed_at, '${tzOffset}') >= ${cutoff}
        GROUP BY period, agent`,
     );
-    const agentMap = new Map<string, { tokens: number; costUsd: number; loc: number }>();
-    const addAgentMetric = (period: string, agent: string, delta: Partial<{ tokens: number; costUsd: number; loc: number }>) => {
+    const agentMap = new Map<string, { tokens: number; costUsd: number; loc: number; tokenTotalTurns: number; tokenMissingTurns: number }>();
+    const addAgentMetric = (period: string, agent: string, delta: Partial<{ tokens: number; costUsd: number; loc: number; tokenTotalTurns: number; tokenMissingTurns: number }>) => {
       const key = `${period}::${agent}`;
-      const cur = agentMap.get(key) ?? { tokens: 0, costUsd: 0, loc: 0 };
+      const cur = agentMap.get(key) ?? { tokens: 0, costUsd: 0, loc: 0, tokenTotalTurns: 0, tokenMissingTurns: 0 };
       cur.tokens += delta.tokens ?? 0;
       cur.costUsd += delta.costUsd ?? 0;
       cur.loc += delta.loc ?? 0;
+      cur.tokenTotalTurns += delta.tokenTotalTurns ?? 0;
+      cur.tokenMissingTurns += delta.tokenMissingTurns ?? 0;
       agentMap.set(key, cur);
     };
     for (const r of toRows(agentTokenResult)) {
-      addAgentMetric(String(r['period'] ?? ''), String(r['agent'] ?? ''), { tokens: Number(r['tokens'] ?? 0) });
+      addAgentMetric(String(r['period'] ?? ''), String(r['agent'] ?? ''), {
+        tokens: Number(r['tokens'] ?? 0),
+        tokenTotalTurns: Number(r['token_total_turns'] ?? 0),
+        tokenMissingTurns: Number(r['token_missing_turns'] ?? 0),
+      });
     }
     for (const r of toRows(agentCostResult)) {
       addAgentMetric(String(r['period'] ?? ''), String(r['agent'] ?? ''), { costUsd: Number(r['cost_usd'] ?? 0) });
@@ -4808,7 +4823,18 @@ export class TrailDatabase {
     }
     const agentStats = [...agentMap.entries()].map(([k, v]) => {
       const sep = k.indexOf('::');
-      return { period: k.slice(0, sep), agent: k.slice(sep + 2), tokens: v.tokens, costUsd: v.costUsd, loc: v.loc };
+      const observedTurns = v.tokenTotalTurns - v.tokenMissingTurns;
+      const factor = observedTurns > 0 ? v.tokenTotalTurns / observedTurns : 1;
+      return {
+        period: k.slice(0, sep),
+        agent: k.slice(sep + 2),
+        tokens: Math.round(v.tokens * factor),
+        costUsd: v.costUsd * factor,
+        loc: v.loc,
+        tokenMissingRate: v.tokenTotalTurns > 0 ? v.tokenMissingTurns / v.tokenTotalTurns : 0,
+        tokenTotalTurns: v.tokenTotalTurns,
+        tokenMissingTurns: v.tokenMissingTurns,
+      };
     });
 
     // Commit stats: session_commits を取得し、AI 1 発成功率のファイル overlap 判定に必要な

@@ -881,29 +881,35 @@ export class SupabaseTrailReader implements ITrailReader {
         if (s.start_time) sessionStartById.set(s.id, s.start_time);
         sessionIds.push(s.id);
       }
-      const agentMap = new Map<string, { tokens: number; costUsd: number; loc: number }>();
-      const addAgent = (periodKeyStr: string, agent: string, delta: Partial<{ tokens: number; costUsd: number; loc: number }>) => {
+      const agentMap = new Map<string, { tokens: number; costUsd: number; loc: number; tokenTotalTurns: number; tokenMissingTurns: number }>();
+      const addAgent = (periodKeyStr: string, agent: string, delta: Partial<{ tokens: number; costUsd: number; loc: number; tokenTotalTurns: number; tokenMissingTurns: number }>) => {
         const k = `${periodKeyStr}::${agent}`;
-        const cur = agentMap.get(k) ?? { tokens: 0, costUsd: 0, loc: 0 };
+        const cur = agentMap.get(k) ?? { tokens: 0, costUsd: 0, loc: 0, tokenTotalTurns: 0, tokenMissingTurns: 0 };
         cur.tokens += delta.tokens ?? 0;
         cur.costUsd += delta.costUsd ?? 0;
         cur.loc += delta.loc ?? 0;
+        cur.tokenTotalTurns += delta.tokenTotalTurns ?? 0;
+        cur.tokenMissingTurns += delta.tokenMissingTurns ?? 0;
         agentMap.set(k, cur);
       };
       if (sessionIds.length > 0) {
         const { data: msgRows } = await this.client
           .from('trail_messages')
-          .select('session_id,timestamp,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens')
+          .select('session_id,timestamp,type,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens')
           .in('session_id', sessionIds)
           .gte('timestamp', cutoffIso);
         for (const m of (msgRows ?? []) as Array<{
-          session_id: string; timestamp: string;
+          session_id: string; timestamp: string; type?: string | null;
           input_tokens: number | null; output_tokens: number | null; cache_read_tokens: number | null; cache_creation_tokens: number | null;
         }>) {
           const agent = sourceBySessionId.get(m.session_id) ?? 'Claude Code';
           const p = periodKey(toJSTDate(m.timestamp));
           const tokens = (m.input_tokens ?? 0) + (m.output_tokens ?? 0) + (m.cache_read_tokens ?? 0) + (m.cache_creation_tokens ?? 0);
-          addAgent(p, agent, { tokens });
+          addAgent(p, agent, {
+            tokens,
+            tokenTotalTurns: m.type === 'assistant' ? 1 : 0,
+            tokenMissingTurns: m.type === 'assistant' && tokens === 0 ? 1 : 0,
+          });
         }
 
         const { data: costRows } = await this.client
@@ -930,7 +936,21 @@ export class SupabaseTrailReader implements ITrailReader {
         }
       }
       const agentStats = [...agentMap.entries()]
-        .map(([k, v]) => { const [p, agent] = splitKey(k); return { period: p, agent, tokens: v.tokens, costUsd: v.costUsd, loc: v.loc }; })
+        .map(([k, v]) => {
+          const [p, agent] = splitKey(k);
+          const observedTurns = v.tokenTotalTurns - v.tokenMissingTurns;
+          const factor = observedTurns > 0 ? v.tokenTotalTurns / observedTurns : 1;
+          return {
+            period: p,
+            agent,
+            tokens: Math.round(v.tokens * factor),
+            costUsd: v.costUsd * factor,
+            loc: v.loc,
+            tokenMissingRate: v.tokenTotalTurns > 0 ? v.tokenMissingTurns / v.tokenTotalTurns : 0,
+            tokenTotalTurns: v.tokenTotalTurns,
+            tokenMissingTurns: v.tokenMissingTurns,
+          };
+        })
         .sort((a, b) => a.period.localeCompare(b.period) || a.agent.localeCompare(b.agent));
 
       const { data: commitData } = await this.client

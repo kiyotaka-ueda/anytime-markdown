@@ -231,6 +231,7 @@ export const en: TrailI18n = {
   'analytics.combined.skill': 'Skill',
   'analytics.combined.model': 'Model',
   'analytics.combined.agent': 'Agent',
+  'analytics.combined.missingRate': 'missing',
 
   'metrics.deploymentFrequency.name': 'Deployment Frequency',
   'metrics.deploymentFrequency.description': 'Releases per day in the selected period',

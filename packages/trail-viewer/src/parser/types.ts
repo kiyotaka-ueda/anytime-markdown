@@ -117,6 +117,9 @@ export interface CombinedAgent {
   readonly tokens: number;
   readonly costUsd: number;
   readonly loc: number;
+  readonly tokenMissingRate: number;
+  readonly tokenTotalTurns: number;
+  readonly tokenMissingTurns: number;
 }
 
 

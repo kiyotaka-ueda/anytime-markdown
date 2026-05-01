@@ -2157,6 +2157,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
   onDateClick?: (fullDate: string) => void;
 }>) {
   const { cardSx, toolPalette } = useTrailTheme();
+  const { t } = useTrailI18n();
 
   const axisInfo = useMemo(() => {
     if (!data) return null;
@@ -2198,6 +2199,14 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
     const modelCap = capTopN(modelTotals);
     const agentCap = capTopN(agentTotals);
     const commitCap = capTopN(commitTotals);
+    const agentMissingByDisplay = new Map<string, { total: number; missing: number }>();
+    for (const r of agentRows) {
+      const displayKey = agentCap.keyMap.get(r.agent) ?? r.agent;
+      const cur = agentMissingByDisplay.get(displayKey) ?? { total: 0, missing: 0 };
+      cur.total += r.tokenTotalTurns ?? 0;
+      cur.missing += r.tokenMissingTurns ?? 0;
+      agentMissingByDisplay.set(displayKey, cur);
+    }
 
     return {
       toolRows,
@@ -2225,6 +2234,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
       modelMap: modelCap.keyMap,
       agents: agentCap.displayKeys,
       agentMap: agentCap.keyMap,
+      agentMissingByDisplay,
       commitPrefixes: commitCap.displayKeys,
       commitMap: commitCap.keyMap,
     };
@@ -2348,8 +2358,13 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
   }, [axisInfo, agentMetric]);
 
   if (!axisInfo) return null;
-  const { toolRows, errTools, tools, skills, models, agents, commitPrefixes, aiRateRows, allPeriods, modelPeriods, agentPeriods, commitPeriods, commitLabels } = axisInfo;
+  const { toolRows, errTools, tools, skills, models, agents, agentMissingByDisplay, commitPrefixes, aiRateRows, allPeriods, modelPeriods, agentPeriods, commitPeriods, commitLabels } = axisInfo;
   const hideZero = (v: number | null) => (v == null || v === 0 ? null : String(v));
+  const agentSeriesLabel = (agent: string): string => {
+    const missing = agentMissingByDisplay.get(agent);
+    const rate = missing && missing.total > 0 ? missing.missing / missing.total : 0;
+    return `${agent} (${t('analytics.combined.missingRate')} ${fmtPercent(rate)})`;
+  };
   const canDrill = periodDays < 90 && !!onDateClick;
   const makeAxisClick = (periods: readonly string[]) =>
     canDrill
@@ -2448,7 +2463,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
           yAxis={[{ valueFormatter: agentMetric === 'cost' ? fmtUsd : fmtTokens }]}
           series={agents.map((agent, i) => ({
             dataKey: `a${i}`,
-            label: agent,
+            label: agentSeriesLabel(agent),
             stack: 'total',
             color: toolPalette[i % toolPalette.length],
             valueFormatter: hideZero,

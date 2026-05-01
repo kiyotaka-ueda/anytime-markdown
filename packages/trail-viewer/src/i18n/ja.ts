@@ -231,6 +231,7 @@ export const ja: TrailI18n = {
   'analytics.combined.skill': 'スキル',
   'analytics.combined.model': 'モデル',
   'analytics.combined.agent': 'Agent',
+  'analytics.combined.missingRate': '欠損',
 
   'metrics.deploymentFrequency.name': 'デプロイ頻度',
   'metrics.deploymentFrequency.description': '期間内の 1 日あたりリリース数',
