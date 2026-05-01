@@ -4680,6 +4680,12 @@ export class TrailDatabase {
     const periodExpr = period === 'week' ? `strftime('%Y-W%W', date)` : 'date';
     const cutoff = `DATE('now', '-${rangeDays} days')`;
     const tzOffset = this.getLocalTzOffset();
+    const messagePeriodExpr = period === 'week'
+      ? `strftime('%Y-W%W', m.timestamp, '${tzOffset}')`
+      : `DATE(m.timestamp, '${tzOffset}')`;
+    const sessionStartPeriodExpr = period === 'week'
+      ? `strftime('%Y-W%W', s.start_time, '${tzOffset}')`
+      : `DATE(s.start_time, '${tzOffset}')`;
     const commitPeriodExpr = period === 'week'
       ? `strftime('%Y-W%W', committed_at, '${tzOffset}')`
       : `DATE(committed_at, '${tzOffset}')`;
@@ -4756,7 +4762,7 @@ export class TrailDatabase {
     }));
 
     const agentTokenResult = db.exec(
-      `SELECT ${periodExpr} AS period,
+      `SELECT ${messagePeriodExpr} AS period,
               CASE WHEN s.source = 'codex' THEN 'Codex' ELSE 'Claude Code' END AS agent,
               SUM(COALESCE(m.input_tokens,0) + COALESCE(m.output_tokens,0) + COALESCE(m.cache_read_tokens,0) + COALESCE(m.cache_creation_tokens,0)) AS tokens
        FROM messages m
@@ -4765,7 +4771,7 @@ export class TrailDatabase {
        GROUP BY period, agent`,
     );
     const agentCostResult = db.exec(
-      `SELECT ${periodExpr.replace('date', `DATE(s.start_time, '${tzOffset}')`)} AS period,
+      `SELECT ${sessionStartPeriodExpr} AS period,
               CASE WHEN s.source = 'codex' THEN 'Codex' ELSE 'Claude Code' END AS agent,
               SUM(COALESCE(sc.estimated_cost_usd,0)) AS cost_usd
        FROM session_costs sc
