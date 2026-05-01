@@ -1,29 +1,65 @@
-import type { TrendGranularity, TrendPeriod } from '@anytime-markdown/trail-core/c4';
+import type { TrendPeriod } from '@anytime-markdown/trail-core/c4';
 import Box from '@mui/material/Box';
 import FormControl from '@mui/material/FormControl';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import FormLabel from '@mui/material/FormLabel';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
-import Radio from '@mui/material/Radio';
-import RadioGroup from '@mui/material/RadioGroup';
 import Select from '@mui/material/Select';
 import Typography from '@mui/material/Typography';
 import { LineChart } from '@mui/x-charts/LineChart';
 import { useMemo, useState } from 'react';
 
 import { useTrailI18n } from '../../i18n/context';
+import type { ActivityTrendResponse } from '../hooks/fetchActivityTrendApi';
 import { useActivityTrend } from '../hooks/useActivityTrend';
 
 const PERIOD_OPTIONS: ReadonlyArray<TrendPeriod> = ['7d', '30d', '90d', 'all'];
-const GRANULARITY_OPTIONS: ReadonlyArray<TrendGranularity> = ['commit', 'session', 'subagent'];
 
-const SUBAGENT_PALETTE_DARK: ReadonlyArray<string> = [
-  '#E8A012', '#7AB8FF', '#76C893', '#E8501C', '#C3AED6',
-];
-const SUBAGENT_PALETTE_LIGHT: ReadonlyArray<string> = [
-  '#3D4A52', '#6B2A20', '#1565C0', '#2E7D32', '#5C5470',
-];
+const ACTIVITY_TREND_PALETTE_DARK = {
+  commit: '#E8A012',
+  session: '#7AB8FF',
+} as const;
+const ACTIVITY_TREND_PALETTE_LIGHT = {
+  commit: '#3D4A52',
+  session: '#6B2A20',
+} as const;
+
+type ActivityTrendSeries = {
+  readonly xs: readonly string[];
+  readonly series: ReadonlyArray<{
+    readonly data: readonly number[];
+    readonly label: string;
+    readonly color: string;
+  }>;
+};
+
+export function buildActivityTrendSeries(
+  commitData: ActivityTrendResponse | null,
+  sessionData: ActivityTrendResponse | null,
+  labels: Readonly<{ commit: string; session: string }>,
+  palette: Readonly<{ commit: string; session: string }>,
+): ActivityTrendSeries | null {
+  if (!commitData || !sessionData) return null;
+  if (commitData.type !== 'single-series' || sessionData.type !== 'single-series') return null;
+
+  const xs = commitData.buckets.map((b) => b.date);
+  const sessionByDate = new Map(sessionData.buckets.map((b) => [b.date, b.count] as const));
+
+  return {
+    xs,
+    series: [
+      {
+        data: commitData.buckets.map((b) => b.count),
+        label: labels.commit,
+        color: palette.commit,
+      },
+      {
+        data: xs.map((date) => sessionByDate.get(date) ?? 0),
+        label: labels.session,
+        color: palette.session,
+      },
+    ],
+  };
+}
 
 export interface ActivityTrendChartProps {
   readonly elementId: string | null;
@@ -40,39 +76,41 @@ export function ActivityTrendChart({
 }: Readonly<ActivityTrendChartProps>) {
   const { t } = useTrailI18n();
   const [period, setPeriod] = useState<TrendPeriod>('30d');
-  const [granularity, setGranularity] = useState<TrendGranularity>('commit');
 
   const enabled = !!elementId;
-  const { data, loading, error } = useActivityTrend({
+  const commitTrend = useActivityTrend({
     enabled,
     serverUrl,
     elementId: elementId ?? '',
     period,
-    granularity,
+    granularity: 'commit',
+    repoName,
+  });
+  const sessionTrend = useActivityTrend({
+    enabled,
+    serverUrl,
+    elementId: elementId ?? '',
+    period,
+    granularity: 'session',
     repoName,
   });
 
-  const palette = isDark ? SUBAGENT_PALETTE_DARK : SUBAGENT_PALETTE_LIGHT;
+  const palette = isDark ? ACTIVITY_TREND_PALETTE_DARK : ACTIVITY_TREND_PALETTE_LIGHT;
 
   const chartProps = useMemo(() => {
-    if (!data) return null;
-    if (data.type === 'single-series') {
-      const xs = data.buckets.map((b) => b.date);
-      const ys = data.buckets.map((b) => b.count);
-      return {
-        xs,
-        series: [{ data: ys, label: granularity, color: palette[0] }],
-      };
-    }
-    if (data.series.length === 0) return null;
-    const baseXs = data.series[0].buckets.map((b) => b.date);
-    const series = data.series.map((s, i) => ({
-      data: s.buckets.map((b) => b.count),
-      label: s.key,
-      color: palette[i % palette.length],
-    }));
-    return { xs: baseXs, series };
-  }, [data, granularity, palette]);
+    return buildActivityTrendSeries(
+      commitTrend.data,
+      sessionTrend.data,
+      {
+        commit: t('c4.hotspot.controls.granularityCommit'),
+        session: t('c4.hotspot.controls.granularitySession'),
+      },
+      palette,
+    );
+  }, [commitTrend.data, sessionTrend.data, palette, t]);
+
+  const error = commitTrend.error ?? sessionTrend.error;
+  const loading = commitTrend.loading || sessionTrend.loading;
 
   if (!elementId) return null;
 
@@ -107,41 +145,6 @@ export function ActivityTrendChart({
               </MenuItem>
             ))}
           </Select>
-        </FormControl>
-        <FormControl
-          component="fieldset"
-          size="small"
-          sx={{ display: 'flex', alignItems: 'center', flexDirection: 'row', gap: 1 }}
-        >
-          <FormLabel
-            component="legend"
-            sx={{ typography: 'caption', position: 'static', transform: 'none', m: 0 }}
-          >
-            {t('c4.hotspot.controls.granularity')}
-          </FormLabel>
-          <RadioGroup
-            row
-            value={granularity}
-            onChange={(e) => setGranularity(String(e.target.value) as TrendGranularity)}
-            aria-label={t('c4.hotspot.controls.granularity')}
-          >
-            {GRANULARITY_OPTIONS.map((g) => (
-              <FormControlLabel
-                key={g}
-                value={g}
-                control={<Radio size="small" />}
-                label={
-                  <Typography variant="caption">
-                    {g === 'commit'
-                      ? t('c4.hotspot.controls.granularityCommit')
-                      : g === 'session'
-                        ? t('c4.hotspot.controls.granularitySession')
-                        : t('c4.hotspot.controls.granularitySubagent')}
-                  </Typography>
-                }
-              />
-            ))}
-          </RadioGroup>
         </FormControl>
       </Box>
       {error && (
