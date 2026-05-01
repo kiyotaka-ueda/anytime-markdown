@@ -989,17 +989,53 @@ export class TrailDataServer {
 
       const rawSessions = this.trailDb.getSessions(filters);
       const sessionIds = rawSessions.map((s) => s.id);
+      const rawSessionById = new Map(rawSessions.map((s) => [s.id, s] as const));
       const commitStats = this.trailDb.getSessionCommitStats(sessionIds);
       const errorCounts = this.trailDb.getSessionErrorCounts(sessionIds);
       const subAgentCounts = this.trailDb.getSessionSubAgentCounts(sessionIds);
       const distinctAgentIdCounts = this.trailDb.getSessionDistinctAgentIdCounts(sessionIds);
-      const sessions = rawSessions.map((s) => {
+      const delegatedTrackCounts = this.trailDb.getSessionDelegatedTrackCounts(sessionIds);
+      const linkedCodexSessionIdsByParent = new Map<string, Set<string>>();
+      const consumedCodexSessionIds = new Set<string>();
+      for (const s of rawSessions) {
+        if ((s.source as string | undefined) === 'codex') continue;
+        const linked = this.trailDb.getLinkedCodexSessionByAssistantUuid(s.id);
+        const ids = new Set<string>();
+        for (const sid of linked.values()) {
+          ids.add(sid);
+          consumedCodexSessionIds.add(sid);
+        }
+        linkedCodexSessionIdsByParent.set(s.id, ids);
+      }
+
+      const sessions = rawSessions
+        .filter((s) => !((s.source as string | undefined) === 'codex' && consumedCodexSessionIds.has(s.id)))
+        .map((s) => {
         const cStats = commitStats.get(s.id);
         const errorCount = errorCounts.get(s.id);
         const subAgentCount = subAgentCounts.get(s.id);
         const distinctAgentIdCount = distinctAgentIdCounts.get(s.id) ?? 0;
-        const linkedCodexCount = this.trailDb.getLinkedCodexSessionCount(s.id);
-        const resolvedSubAgentCount = Math.max(subAgentCount ?? 0, distinctAgentIdCount + linkedCodexCount);
+        const delegatedTrackCount = delegatedTrackCounts.get(s.id) ?? 0;
+        const linkedCodexIds = linkedCodexSessionIdsByParent.get(s.id) ?? new Set<string>();
+        const linkedCodexCount = linkedCodexIds.size;
+        let linkedInputTokens = 0;
+        let linkedOutputTokens = 0;
+        let linkedCacheReadTokens = 0;
+        let linkedCacheCreationTokens = 0;
+        let linkedEstimatedCostUsd = 0;
+        let linkedMessageCount = 0;
+        for (const linkedId of linkedCodexIds) {
+          const linkedSession = rawSessionById.get(linkedId);
+          if (!linkedSession) continue;
+          linkedInputTokens += linkedSession.input_tokens ?? 0;
+          linkedOutputTokens += linkedSession.output_tokens ?? 0;
+          linkedCacheReadTokens += linkedSession.cache_read_tokens ?? 0;
+          linkedCacheCreationTokens += linkedSession.cache_creation_tokens ?? 0;
+          linkedEstimatedCostUsd += linkedSession.estimated_cost_usd ?? 0;
+          linkedMessageCount += linkedSession.message_count ?? 0;
+        }
+        const codexTrackCount = Math.max(linkedCodexCount, delegatedTrackCount);
+        const resolvedSubAgentCount = Math.max(subAgentCount ?? 0, distinctAgentIdCount + codexTrackCount);
         const interruptionReason = (s.interruption_reason ?? null) as 'max_tokens' | 'no_response' | null;
         return {
           id: s.id,
@@ -1010,19 +1046,19 @@ export class TrailDataServer {
           version: s.version,
           startTime: s.start_time,
           endTime: s.end_time,
-          messageCount: s.message_count,
+          messageCount: (s.message_count ?? 0) + linkedMessageCount,
           peakContextTokens: s.peak_context_tokens ?? 0,
           initialContextTokens: s.initial_context_tokens ?? 0,
           interruption: interruptionReason
             ? { interrupted: true, reason: interruptionReason, contextTokens: s.interruption_context_tokens ?? 0 }
             : undefined,
           usage: {
-            inputTokens: s.input_tokens ?? 0,
-            outputTokens: s.output_tokens ?? 0,
-            cacheReadTokens: s.cache_read_tokens ?? 0,
-            cacheCreationTokens: s.cache_creation_tokens ?? 0,
+            inputTokens: (s.input_tokens ?? 0) + linkedInputTokens,
+            outputTokens: (s.output_tokens ?? 0) + linkedOutputTokens,
+            cacheReadTokens: (s.cache_read_tokens ?? 0) + linkedCacheReadTokens,
+            cacheCreationTokens: (s.cache_creation_tokens ?? 0) + linkedCacheCreationTokens,
           },
-          estimatedCostUsd: s.estimated_cost_usd ?? 0,
+          estimatedCostUsd: (s.estimated_cost_usd ?? 0) + linkedEstimatedCostUsd,
           source: (s.source as 'claude_code' | 'codex' | undefined) ?? 'claude_code',
           commitStats: cStats
             ? { commits: cStats.commits, linesAdded: cStats.linesAdded,
@@ -1032,7 +1068,7 @@ export class TrailDataServer {
           subAgentCount: resolvedSubAgentCount > 0 ? resolvedSubAgentCount : undefined,
           compactCount: s.compact_count != null && s.compact_count > 0 ? s.compact_count : undefined,
         };
-      });
+        });
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({ sessions }));
     } catch {
