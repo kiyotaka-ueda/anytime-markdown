@@ -29,6 +29,7 @@ export function useActivityTrend(
     elementId,
     period,
     granularity,
+    sessionMode,
     repoName,
     debounceMs = DEFAULT_DEBOUNCE_MS,
   } = options;
@@ -51,7 +52,7 @@ export function useActivityTrend(
     const handle = setTimeout(() => {
       setLoading(true);
       setError(null);
-      fetchActivityTrendApi(serverUrl, { elementId, period, granularity, repoName }, controller.signal)
+      fetchActivityTrendApi(serverUrl, { elementId, period, granularity, sessionMode, repoName }, controller.signal)
         .then((res) => {
           if (controller.signal.aborted) return;
           setData(res);
@@ -69,7 +70,7 @@ export function useActivityTrend(
       clearTimeout(handle);
       controller.abort();
     };
-  }, [enabled, serverUrl, elementId, period, granularity, repoName, debounceMs]);
+  }, [enabled, serverUrl, elementId, period, granularity, sessionMode, repoName, debounceMs]);
 
   return { data, loading, error };
 }
