@@ -2,13 +2,11 @@ import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 import { engine, layoutWithSubgroups, MinimapCanvas, state as graphState } from '@anytime-markdown/graph-core';
 import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, CommunityOverlayEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, HeatmapMatrix, HotspotMap, ImportanceMatrix, ManualGroup, MetricOverlay } from '@anytime-markdown/trail-core/c4';
 import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, aggregateHotspotToC4, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, computeCommunityOverlay, computeFileHotspot, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFilesToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
-import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import FitScreenIcon from '@mui/icons-material/FitScreen';
 import LayersIcon from '@mui/icons-material/Layers';
 import LinkIcon from '@mui/icons-material/Link';
-import PersonIcon from '@mui/icons-material/Person';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -1319,23 +1317,6 @@ export function C4ViewerCore({
           loading={hotspotLoading}
         />
       )}
-      {(currentLevel === 1 || currentLevel === 2 || currentLevel === 3) && (
-        <Toolbar variant="dense" sx={{ gap: 1, bgcolor: colors.bgSecondary, borderBottom: `1px solid ${colors.border}`, minHeight: 36, px: { xs: 2, md: 3 } }}>
-          <Typography variant="caption" sx={{ color: colors.textMuted, mr: 1, fontSize: '0.7rem' }}>Edit</Typography>
-          {currentLevel === 1 && (
-            <>
-              <Button size="small" startIcon={<PersonIcon sx={{ fontSize: 16 }} />} onClick={() => setAddElementType('person')} sx={toolbarButtonSx} aria-label="Add Person">Person</Button>
-              <Button size="small" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={() => setAddElementType('system')} sx={toolbarButtonSx} aria-label="Add System">System</Button>
-            </>
-          )}
-          {currentLevel === 2 && (
-            <Button size="small" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={() => setAddElementType('container')} disabled={!selectedSystemId} sx={toolbarButtonSx} aria-label="Add Container">Container</Button>
-          )}
-          {currentLevel === 3 && (
-            <Button size="small" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={() => setAddElementType('component')} sx={toolbarButtonSx} aria-label="Add Component">Component</Button>
-          )}
-        </Toolbar>
-      )}
       {analysisProgress && (
         <Box
           role="dialog"
@@ -1391,6 +1372,9 @@ export function C4ViewerCore({
             tree={elementTree}
             dispatch={dispatch}
             onSelect={handleElementSelect}
+            currentLevel={currentLevel}
+            selectedSystemId={selectedSystemId}
+            onAddElement={(type) => setAddElementType(type)}
             onCheckedChange={setCheckedPackageIds}
             checkReset={checkReset}
             onRemoveElement={onRemoveElement}

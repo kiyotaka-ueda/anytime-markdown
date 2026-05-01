@@ -3,6 +3,7 @@ import { findService } from '@anytime-markdown/trail-core/c4';
 import type { ExportedSymbol } from '@anytime-markdown/trail-core/analyzer';
 import type { Action } from '@anytime-markdown/graph-core/state';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import AddIcon from '@mui/icons-material/Add';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
@@ -12,6 +13,7 @@ import ExtensionIcon from '@mui/icons-material/Extension';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import PersonIcon from '@mui/icons-material/Person';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import Collapse from '@mui/material/Collapse';
 import Divider from '@mui/material/Divider';
@@ -235,6 +237,9 @@ interface C4ElementTreeProps {
   readonly tree: readonly C4TreeNode[];
   readonly dispatch: Dispatch<Action>;
   readonly onSelect?: (id: string) => void;
+  readonly currentLevel?: number;
+  readonly selectedSystemId?: string | null;
+  readonly onAddElement?: (type: 'person' | 'system' | 'container' | 'component') => void;
   readonly onCheckedChange?: (checkedIds: ReadonlySet<string>) => void;
   readonly onRemoveElement?: (id: string) => void;
   readonly onPurgeDeleted?: () => void;
@@ -246,7 +251,7 @@ interface C4ElementTreeProps {
   readonly checkReset?: { readonly key: number; readonly ids: ReadonlySet<string> | null; readonly expanded: ReadonlySet<string> | null };
 }
 
-export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onSelect, onCheckedChange, onRemoveElement, onPurgeDeleted, exports, onExportSelect, selectedExportId, isDark, checkReset }) => {
+export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onSelect, currentLevel, selectedSystemId, onAddElement, onCheckedChange, onRemoveElement, onPurgeDeleted, exports, onExportSelect, selectedExportId, isDark, checkReset }) => {
   const { t } = useTrailI18n();
   const [searchText, setSearchText] = useState('');
 
@@ -380,6 +385,18 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
     onCheckedChange?.(checkedIds);
   }, [checkedIds, onCheckedChange]);
 
+  const addButtonSx = {
+    textTransform: 'none',
+    justifyContent: 'flex-start',
+    fontSize: '0.75rem',
+    minHeight: 28,
+    borderRadius: '8px',
+    color: colors.accent,
+    borderColor: colors.border,
+    '&:hover': { bgcolor: colors.hover },
+    '&:disabled': { color: colors.textMuted },
+  } as const;
+
   return (
     <Box
       sx={{
@@ -452,6 +469,64 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
           </ListItemButton>
         ))}</List>
       </>}
+      {onAddElement && currentLevel && currentLevel >= 1 && currentLevel <= 3 && (
+        <Box sx={{ borderTop: `1px solid ${colors.border}`, px: 1, py: 0.75, flexShrink: 0 }}>
+          <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', mb: 0.5 }}>
+            Add
+          </Typography>
+          <Box sx={{ display: 'grid', gap: 0.5 }}>
+            {currentLevel === 1 && (
+              <>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<PersonIcon sx={{ fontSize: 16 }} />}
+                  onClick={() => onAddElement('person')}
+                  sx={addButtonSx}
+                  aria-label="Add Person"
+                >
+                  Person
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<AddIcon sx={{ fontSize: 16 }} />}
+                  onClick={() => onAddElement('system')}
+                  sx={addButtonSx}
+                  aria-label="Add System"
+                >
+                  System
+                </Button>
+              </>
+            )}
+            {currentLevel === 2 && (
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<AddIcon sx={{ fontSize: 16 }} />}
+                onClick={() => onAddElement('container')}
+                disabled={!selectedSystemId}
+                sx={addButtonSx}
+                aria-label="Add Container"
+              >
+                Container
+              </Button>
+            )}
+            {currentLevel === 3 && (
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<AddIcon sx={{ fontSize: 16 }} />}
+                onClick={() => onAddElement('component')}
+                sx={addButtonSx}
+                aria-label="Add Component"
+              >
+                Component
+              </Button>
+            )}
+          </Box>
+        </Box>
+      )}
     </Box>
   );
 });
