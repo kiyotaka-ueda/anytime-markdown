@@ -52,6 +52,14 @@ export function getActivityTrendChartPlacement() {
   };
 }
 
+export function canShowManualContextActions(
+  c4Model: C4Model | null,
+  c4Id: string | null,
+): boolean {
+  if (!c4Model || !c4Id) return false;
+  return c4Model.elements.some((element) => element.id === c4Id && element.manual === true);
+}
+
 const DEFAULT_TC_VALUE: TemporalCouplingControlsValue = {
   enabled: false,
   windowDays: 30,
@@ -421,6 +429,16 @@ export function C4ViewerCore({
       setSelectedElementId(null);
     }
   }, [selectedElementId, c4Model, onRemoveElement]);
+
+  const handleDeleteElement = useCallback((elementId: string) => {
+    if (!c4Model) return;
+    const elem = c4Model.elements.find(e => e.id === elementId);
+    if (elem?.manual) {
+      onRemoveElement?.(elementId);
+      if (selectedElementId === elementId) setSelectedElementId(null);
+    }
+    setContextMenu(null);
+  }, [c4Model, onRemoveElement, selectedElementId]);
 
   const selectedIsManual = useMemo(() => {
     if (!selectedElementId || !c4Model) return false;
@@ -1025,7 +1043,14 @@ export function C4ViewerCore({
     contextMenu.nodeType === 'frame';
   const canCopyPath = contextMenu !== null &&
     (contextMenu.c4Id.startsWith('pkg_') || contextMenu.c4Id.startsWith('file::'));
-  const showContextMenu = contextMenu !== null && (canDrillDown || canDrillUp || canShowOnlyFrame || canCopyPath);
+  const canShowManualActions = canShowManualContextActions(c4Model, contextMenu?.c4Id ?? null);
+  const showContextMenu = contextMenu !== null && (
+    canDrillDown ||
+    canDrillUp ||
+    canShowOnlyFrame ||
+    canCopyPath ||
+    canShowManualActions
+  );
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: containerHeight, bgcolor: colors.bg }}>
@@ -1823,6 +1848,48 @@ export function C4ViewerCore({
                       >
                         {t('c4.copyPath')}
                       </button>
+                    )}
+                    {canShowManualActions && (
+                      <>
+                        <button
+                          type="button"
+                          style={{
+                            display: 'block',
+                            width: '100%',
+                            padding: '6px 16px',
+                            textAlign: 'left',
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: 14,
+                            color: isDark ? '#e0e0e0' : '#333',
+                          }}
+                          onClick={() => {
+                            setSelectedElementId(contextMenu.c4Id);
+                            setAddRelOpen(true);
+                            setContextMenu(null);
+                          }}
+                        >
+                          Rel
+                        </button>
+                        <button
+                          type="button"
+                          style={{
+                            display: 'block',
+                            width: '100%',
+                            padding: '6px 16px',
+                            textAlign: 'left',
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: 14,
+                            color: '#ef5350',
+                          }}
+                          onClick={() => handleDeleteElement(contextMenu.c4Id)}
+                        >
+                          Del
+                        </button>
+                      </>
                     )}
                   </div>
                 </>
