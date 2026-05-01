@@ -1235,31 +1235,34 @@ export function C4ViewerCore({
                       <MenuItem value="hotspot-risk" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotRisk')}</MenuItem>
                     </Select>
                   </Box>
-                  {(soloFrameId !== null || (multiAgentActivity && multiAgentActivity.agents.length > 0) || (claudeActivity && (claudeActivity.activeElementIds.length > 0 || claudeActivity.touchedElementIds.length > 0 || claudeActivity.plannedElementIds.length > 0))) && (
-                    <>
-                      <Box sx={{ borderTop: `1px solid ${colors.border}`, mx: -1.5 }} />
-                      {soloFrameId !== null && (
-                        <Button size="small" fullWidth startIcon={<FilterAltOffIcon sx={{ fontSize: 14 }} />} onClick={handleClearFrameFilter} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', justifyContent: 'flex-start', color: colors.accent }}>
-                          {t('c4.frameFilter.reset')}
-                        </Button>
-                      )}
-                      {multiAgentActivity && multiAgentActivity.agents.length > 1 && (
-                        <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.65rem' }}>
-                          {multiAgentActivity.agents.length} {t('c4.multiAgent.badge')}
-                          {multiAgentActivity.conflicts && multiAgentActivity.conflicts.length > 0 && (
-                            <Typography component="span" variant="caption" sx={{ ml: 0.5, color: 'error.main', fontWeight: 'bold' }}>
-                              {multiAgentActivity.conflicts.length} {t('c4.multiAgent.conflicts')}
-                            </Typography>
-                          )}
+                  <Box sx={{ borderTop: `1px solid ${colors.border}`, mx: -1.5 }} />
+                  {soloFrameId !== null && (
+                    <Button size="small" fullWidth startIcon={<FilterAltOffIcon sx={{ fontSize: 14 }} />} onClick={handleClearFrameFilter} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', justifyContent: 'flex-start', color: colors.accent }}>
+                      {t('c4.frameFilter.reset')}
+                    </Button>
+                  )}
+                  {multiAgentActivity && multiAgentActivity.agents.length > 1 && (
+                    <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.65rem' }}>
+                      {multiAgentActivity.agents.length} {t('c4.multiAgent.badge')}
+                      {multiAgentActivity.conflicts && multiAgentActivity.conflicts.length > 0 && (
+                        <Typography component="span" variant="caption" sx={{ ml: 0.5, color: 'error.main', fontWeight: 'bold' }}>
+                          {multiAgentActivity.conflicts.length} {t('c4.multiAgent.conflicts')}
                         </Typography>
                       )}
-                      {((claudeActivity && (claudeActivity.activeElementIds.length > 0 || claudeActivity.touchedElementIds.length > 0 || claudeActivity.plannedElementIds.length > 0)) || (multiAgentActivity && multiAgentActivity.agents.length > 0)) && (
-                        <Button size="small" fullWidth onClick={onResetClaudeActivity} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', justifyContent: 'flex-start' }}>
-                          {t('c4.claudeActivity.reset')}
-                        </Button>
-                      )}
-                    </>
+                    </Typography>
                   )}
+                  <Button
+                    size="small"
+                    fullWidth
+                    disabled={
+                      !(claudeActivity && (claudeActivity.activeElementIds.length > 0 || claudeActivity.touchedElementIds.length > 0 || claudeActivity.plannedElementIds.length > 0)) &&
+                      !(multiAgentActivity && multiAgentActivity.agents.length > 0)
+                    }
+                    onClick={onResetClaudeActivity}
+                    sx={{ ...toolbarButtonSx, fontSize: '0.75rem', justifyContent: 'flex-start' }}
+                  >
+                    {t('c4.claudeActivity.reset')}
+                  </Button>
                 </Box>
                 {/* Ghost Edges 詳細設定（有効時のみ表示） */}
                 <TemporalCouplingSettingsPopup
