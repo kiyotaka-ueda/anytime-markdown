@@ -337,6 +337,7 @@ export function C4ViewerCore({
 
   // --- Community overlay state ---
   const [showCommunity, setShowCommunity] = useState(false);
+  const [showActivityTrend, setShowActivityTrend] = useState(true);
   const { graph: codeGraph } = useCodeGraph(serverUrl, { enabled: showCommunity });
 
   // --- Flow mode state ---
@@ -1050,24 +1051,6 @@ export function C4ViewerCore({
           </Button>
         )}
 
-        <Button
-          size="small"
-          startIcon={<LayersIcon sx={{ fontSize: 16 }} />}
-          onClick={() => setShowAncestorEdges(prev => !prev)}
-          disabled={currentLevel === 1}
-          aria-pressed={showAncestorEdges}
-          aria-label="Toggle upper C4 layer relationships"
-          title="Toggle upper C4 layer relationships"
-          sx={{
-            ...toolbarButtonSx,
-            ml: 0.5,
-            fontSize: '0.75rem',
-            ...(showAncestorEdges && currentLevel !== 1 && { bgcolor: toolbarButtonActiveBg }),
-          }}
-        >
-          Upper Lines
-        </Button>
-
         {soloFrameId !== null && (
           <Button
             size="small"
@@ -1367,6 +1350,25 @@ export function C4ViewerCore({
                       ))}
                     </ButtonGroup>
                   </Box>
+                  {/* Upper Lines */}
+                  <Button
+                    size="small"
+                    startIcon={<LayersIcon sx={{ fontSize: 16 }} />}
+                    onClick={() => setShowAncestorEdges(prev => !prev)}
+                    disabled={currentLevel === 1}
+                    aria-pressed={showAncestorEdges}
+                    aria-label="Toggle upper C4 layer relationships"
+                    title="Toggle upper C4 layer relationships"
+                    fullWidth
+                    sx={{
+                      ...toolbarButtonSx,
+                      fontSize: '0.75rem',
+                      justifyContent: 'flex-start',
+                      ...(showAncestorEdges && currentLevel !== 1 && { bgcolor: toolbarButtonActiveBg }),
+                    }}
+                  >
+                    Upper Lines
+                  </Button>
                   {/* Community */}
                   <Button
                     size="small"
@@ -1411,6 +1413,23 @@ export function C4ViewerCore({
                     }}
                   >
                     Ghost Edges
+                  </Button>
+                  {/* Activity Trend */}
+                  <Button
+                    size="small"
+                    fullWidth
+                    onClick={() => setShowActivityTrend(prev => !prev)}
+                    aria-pressed={showActivityTrend}
+                    aria-label="Toggle Activity Trend chart"
+                    title="Toggle Activity Trend chart"
+                    sx={{
+                      ...toolbarButtonSx,
+                      fontSize: '0.75rem',
+                      justifyContent: 'flex-start',
+                      ...(showActivityTrend && { bgcolor: toolbarButtonActiveBg }),
+                    }}
+                  >
+                    Activity Trend
                   </Button>
                   {/* Overlay ドロップダウン */}
                   <Box>
@@ -1891,6 +1910,7 @@ export function C4ViewerCore({
                 </>
               )}
             </Box>
+            {showActivityTrend && (
             <Box
               role="dialog"
               aria-label="Activity Trend"
@@ -1915,6 +1935,7 @@ export function C4ViewerCore({
                 isDark={isDark}
               />
             </Box>
+            )}
           </Box>
         )}
         {showC4 && showDsm && (
