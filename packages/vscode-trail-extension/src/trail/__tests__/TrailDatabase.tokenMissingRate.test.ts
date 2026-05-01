@@ -219,3 +219,114 @@ describe('TrailDatabase.getCombinedData - token missing rate compensation', () =
   });
 
 });
+
+// ---------------------------------------------------------------------------
+// Task 7: 統合シナリオ（独立 DB インスタンス）
+// Claude 5 sessions (100 turns, 0 missing) + Codex 3 sessions (60 turns, 24 missing)
+// ---------------------------------------------------------------------------
+describe('TrailDatabase integration scenario - mixed Claude + Codex', () => {
+  let db2: TrailDatabase;
+
+  // fixture constants
+  const CC_SESSIONS = 5;
+  const CC_TURNS_PER = 20;
+  const CC_INPUT = 10;
+  const CC_OUTPUT = 10;
+  const CX_SESSIONS = 3;
+  const CX_TURNS_PER = 20;
+  const CX_OBSERVED = 12; // per session
+  const CX_MISSING = 8;   // per session  (total missing = 24)
+  const CX_INPUT = 5;
+  const CX_OUTPUT = 5;
+  const CC_MODEL = 'claude-sonnet-int';
+  const CX_MODEL = 'gpt-codex-int';
+
+  beforeAll(async () => {
+    db2 = await createTestTrailDatabase();
+    const db2inner = inner(db2);
+
+    // Claude Code sessions
+    for (let s = 0; s < CC_SESSIONS; s++) {
+      const sid = `s7-cc-${s}`;
+      db2inner.run(
+        `INSERT OR IGNORE INTO sessions (id, slug, repo_name, version, entrypoint, model, start_time, end_time, message_count, file_path, file_size, imported_at, source) VALUES (?, ?, 'r', '0', '', '', '', '', 0, '', 0, '', 'claude_code')`,
+        [sid, sid],
+      );
+      for (let t = 0; t < CC_TURNS_PER; t++) {
+        db2inner.run(
+          `INSERT OR IGNORE INTO messages (uuid, session_id, type, model, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, timestamp) VALUES (?, ?, 'assistant', ?, ?, ?, 0, 0, '2026-05-01T10:00:00.000Z')`,
+          [`s7-cc-${s}-t${t}`, sid, CC_MODEL, CC_INPUT, CC_OUTPUT],
+        );
+      }
+    }
+
+    // Codex sessions
+    for (let s = 0; s < CX_SESSIONS; s++) {
+      const sid = `s7-cx-${s}`;
+      db2inner.run(
+        `INSERT OR IGNORE INTO sessions (id, slug, repo_name, version, entrypoint, model, start_time, end_time, message_count, file_path, file_size, imported_at, source) VALUES (?, ?, 'r', '0', '', '', '', '', 0, '', 0, '', 'codex')`,
+        [sid, sid],
+      );
+      for (let t = 0; t < CX_OBSERVED; t++) {
+        db2inner.run(
+          `INSERT OR IGNORE INTO messages (uuid, session_id, type, model, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, timestamp) VALUES (?, ?, 'assistant', ?, ?, ?, 0, 0, '2026-05-01T10:00:00.000Z')`,
+          [`s7-cx-${s}-obs${t}`, sid, CX_MODEL, CX_INPUT, CX_OUTPUT],
+        );
+      }
+      for (let t = 0; t < CX_MISSING; t++) {
+        db2inner.run(
+          `INSERT OR IGNORE INTO messages (uuid, session_id, type, model, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, timestamp) VALUES (?, ?, 'assistant', ?, 0, 0, 0, 0, '2026-05-01T10:00:00.000Z')`,
+          [`s7-cx-${s}-miss${t}`, sid, CX_MODEL],
+        );
+      }
+    }
+  });
+
+  it('agentStats sum matches getAnalytics totals within ±2', () => {
+    const analytics = db2.getAnalytics();
+    const combined = db2.getCombinedData('day', 30);
+    const agentSum = combined.agentStats.reduce((s, r) => s + r.tokens, 0);
+    const totalsSum = analytics.totals.inputTokens + analytics.totals.outputTokens
+      + analytics.totals.cacheReadTokens + analytics.totals.cacheCreationTokens;
+    expect(Math.abs(agentSum - totalsSum)).toBeLessThanOrEqual(2);
+  });
+
+  it('getAnalytics totals have correct Codex factor applied', () => {
+    const analytics = db2.getAnalytics();
+    // Claude: 5×20×10=1000 input, 1000 output (factor=1)
+    // Codex raw: 3×12×5=180 input, 180 output; factor=60/36=5/3; adjusted=300 each
+    expect(analytics.totals.inputTokens).toBe(1000 + 300);
+    expect(analytics.totals.outputTokens).toBe(1000 + 300);
+  });
+
+  it('modelStats Codex tokens match agentStats Codex tokens', () => {
+    const combined = db2.getCombinedData('day', 30);
+    // Codex model rows are the ones with missing turns > 0 (all other models in db2 have 0 missing)
+    const codexModelTokens = combined.modelStats
+      .filter(r => r.tokenMissingTurns > 0)
+      .reduce((s, r) => s + r.tokens, 0);
+    const codexAgentTokens = combined.agentStats
+      .filter(r => r.agent === 'Codex')
+      .reduce((s, r) => s + r.tokens, 0);
+    expect(Math.abs(codexModelTokens - codexAgentTokens)).toBeLessThanOrEqual(2);
+  });
+
+  it('modelStats tokenMissingRate correct for Codex and Claude Code rows', () => {
+    const combined = db2.getCombinedData('day', 30);
+    // Codex rows: tokenMissingTurns > 0
+    const cxRows = combined.modelStats.filter(r => r.tokenMissingTurns > 0);
+    // CC rows: tokenMissingTurns === 0 and tokenTotalTurns > 0
+    const ccRows = combined.modelStats.filter(r => r.tokenMissingTurns === 0 && r.tokenTotalTurns > 0);
+    expect(cxRows.length).toBeGreaterThan(0);
+    expect(ccRows.length).toBeGreaterThan(0);
+    const cxTotalTurns = cxRows.reduce((s, r) => s + r.tokenTotalTurns, 0);
+    const cxMissingTurns = cxRows.reduce((s, r) => s + r.tokenMissingTurns, 0);
+    // Codex: 24 missing out of 60 total = 0.4
+    expect(cxTotalTurns).toBe(CX_SESSIONS * CX_TURNS_PER);
+    expect(cxMissingTurns).toBe(CX_SESSIONS * CX_MISSING);
+    // Claude Code: no missing
+    for (const r of ccRows) {
+      expect(r.tokenMissingRate).toBe(0);
+    }
+  });
+});
