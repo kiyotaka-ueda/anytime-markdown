@@ -14,7 +14,6 @@ import LinearProgress from '@mui/material/LinearProgress';
 import ListSubheader from '@mui/material/ListSubheader';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
-import Toolbar from '@mui/material/Toolbar';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
@@ -986,88 +985,6 @@ export function C4ViewerCore({
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: containerHeight, bgcolor: colors.bg }}>
-      <Toolbar variant="dense" sx={{ gap: 1, bgcolor: isDark ? 'rgba(18,18,18,0.85)' : 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${colors.border}`, minHeight: 44, px: { xs: 2, md: 3 }, zIndex: 1100 }}>
-        {onImport && (
-          <Button
-            size="small"
-            startIcon={<UploadFileIcon sx={{ fontSize: 18 }} />}
-            onClick={onImport}
-            sx={toolbarButtonSx}
-          >
-            Import
-          </Button>
-        )}
-
-        {soloFrameId !== null && (
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<FilterAltOffIcon sx={{ fontSize: 16 }} />}
-            onClick={handleClearFrameFilter}
-            sx={{
-              ...toolbarButtonSx,
-              ml: 0.5,
-              borderColor: colors.accent,
-              color: colors.accent,
-              '&:hover': { bgcolor: `${colors.accent}22` },
-            }}
-          >
-            {t('c4.frameFilter.reset')}
-          </Button>
-        )}
-        <Box sx={{ flex: 1 }} />
-
-        {selectedExport && (
-          <>
-            <Button
-              size="small"
-              onClick={() => setShowFlow(prev => !prev)}
-              aria-pressed={showFlow}
-              sx={{ ...toolbarButtonSx, ...(showFlow && { bgcolor: toolbarButtonActiveBg }) }}
-            >
-              Flow: {selectedExport.name}
-            </Button>
-            {showFlow && (
-              <ButtonGroup size="small">
-                {(['control', 'call'] as const).map(t => (
-                  <Button
-                    key={t}
-                    onClick={() => { setFlowType(t); }}
-                    sx={{ ...toolbarButtonSx, fontSize: '0.7rem', ...(flowType === t && { bgcolor: toolbarButtonActiveBg }) }}
-                  >
-                    {t}
-                  </Button>
-                ))}
-              </ButtonGroup>
-            )}
-          </>
-        )}
-        {multiAgentActivity && multiAgentActivity.agents.length > 1 && (
-          <Typography variant="caption" sx={{ ml: 1, opacity: 0.7 }}>
-            {multiAgentActivity.agents.length} {t('c4.multiAgent.badge')}
-          </Typography>
-        )}
-        {multiAgentActivity?.conflicts && multiAgentActivity.conflicts.length > 0 && (
-          <Typography variant="caption" sx={{ ml: 0.5, color: 'error.main', fontWeight: 'bold' }}>
-            {multiAgentActivity.conflicts.length} {t('c4.multiAgent.conflicts')}
-          </Typography>
-        )}
-        {((claudeActivity && (
-          claudeActivity.activeElementIds.length > 0 ||
-          claudeActivity.touchedElementIds.length > 0 ||
-          claudeActivity.plannedElementIds.length > 0
-        )) || (multiAgentActivity && multiAgentActivity.agents.length > 0)) && (
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={onResetClaudeActivity}
-            title={t('c4.claudeActivity.reset')}
-            sx={{ ...toolbarButtonSx, ml: 0.5 }}
-          >
-            {t('c4.claudeActivity.reset')}
-          </Button>
-        )}
-      </Toolbar>
       {isHotspotOverlay && (
         <HotspotControls
           value={hotspotValue}
@@ -1377,6 +1294,50 @@ export function C4ViewerCore({
                   isDark={isDark}
                   sx={{ position: 'static' }}
                 />
+                {(onImport || soloFrameId !== null || selectedExport || (multiAgentActivity && multiAgentActivity.agents.length > 0) || (claudeActivity && (claudeActivity.activeElementIds.length > 0 || claudeActivity.touchedElementIds.length > 0 || claudeActivity.plannedElementIds.length > 0))) && (
+                  <>
+                    <Box sx={{ borderTop: `1px solid ${colors.border}`, mx: -1.5 }} />
+                    {onImport && (
+                      <Button size="small" fullWidth startIcon={<UploadFileIcon sx={{ fontSize: 16 }} />} onClick={onImport} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', justifyContent: 'flex-start' }}>
+                        Import
+                      </Button>
+                    )}
+                    {soloFrameId !== null && (
+                      <Button size="small" fullWidth startIcon={<FilterAltOffIcon sx={{ fontSize: 14 }} />} onClick={handleClearFrameFilter} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', justifyContent: 'flex-start', color: colors.accent }}>
+                        {t('c4.frameFilter.reset')}
+                      </Button>
+                    )}
+                    {selectedExport && (
+                      <>
+                        <Button size="small" fullWidth onClick={() => setShowFlow(prev => !prev)} aria-pressed={showFlow} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', justifyContent: 'flex-start', ...(showFlow && { bgcolor: toolbarButtonActiveBg }) }}>
+                          Flow: {selectedExport.name}
+                        </Button>
+                        {showFlow && (
+                          <ButtonGroup size="small" fullWidth>
+                            {(['control', 'call'] as const).map(ft => (
+                              <Button key={ft} onClick={() => setFlowType(ft)} sx={{ ...toolbarButtonSx, fontSize: '0.7rem', ...(flowType === ft && { bgcolor: toolbarButtonActiveBg }) }}>{ft}</Button>
+                            ))}
+                          </ButtonGroup>
+                        )}
+                      </>
+                    )}
+                    {multiAgentActivity && multiAgentActivity.agents.length > 1 && (
+                      <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.65rem' }}>
+                        {multiAgentActivity.agents.length} {t('c4.multiAgent.badge')}
+                        {multiAgentActivity.conflicts && multiAgentActivity.conflicts.length > 0 && (
+                          <Typography component="span" variant="caption" sx={{ ml: 0.5, color: 'error.main', fontWeight: 'bold' }}>
+                            {multiAgentActivity.conflicts.length} {t('c4.multiAgent.conflicts')}
+                          </Typography>
+                        )}
+                      </Typography>
+                    )}
+                    {((claudeActivity && (claudeActivity.activeElementIds.length > 0 || claudeActivity.touchedElementIds.length > 0 || claudeActivity.plannedElementIds.length > 0)) || (multiAgentActivity && multiAgentActivity.agents.length > 0)) && (
+                      <Button size="small" fullWidth onClick={onResetClaudeActivity} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', justifyContent: 'flex-start' }}>
+                        {t('c4.claudeActivity.reset')}
+                      </Button>
+                    )}
+                  </>
+                )}
               </Box>
               {selectedElementInfo && (
                 <Box
