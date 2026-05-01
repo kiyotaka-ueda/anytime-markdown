@@ -329,30 +329,131 @@ export class SupabaseTrailReader implements ITrailReader {
     if (error) return null;
     if (!sessions || sessions.length === 0) return null;
 
-    const { data: costData } = await this.client
-      .from('trail_session_costs')
-      .select('*');
-    const allCosts = (costData ?? []) as readonly SessionCostDbRow[];
-
-    const { data: dailyCostData } = await this.client
-      .from('trail_daily_counts')
-      .select('date,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens,estimated_cost_usd')
-      .eq('kind', 'cost_actual')
-      .order('date');
-
     const { data: commits } = await this.client
       .from('trail_session_commits')
       .select('*');
-
     const allCommits = commits ?? [];
+
+    // Build source and start_time lookup maps from sessions
+    const sourceBySessionId = new Map<string, string>();
+    const startBySessionId = new Map<string, string>();
+    const sessionIds: string[] = [];
+    for (const s of sessions as Array<{ id: string; source?: string | null; start_time?: string }>) {
+      sourceBySessionId.set(s.id, s.source === 'codex' ? 'codex' : 'claude_code');
+      if (s.start_time) startBySessionId.set(s.id, s.start_time);
+      sessionIds.push(s.id);
+    }
+
+    let totalInput = 0, totalOutput = 0, totalCacheRead = 0, totalCacheCreation = 0;
+    let totalEstimatedCost = 0;
+    type DailyEntry = { sessions: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number; estimatedCostUsd: number };
+    const dailyMap = new Map<string, DailyEntry>();
+
+    if (sessionIds.length > 0) {
+      const getIanaOffsetMs = (timeZone: string, at: Date): number => {
+        const parts = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'longOffset' }).formatToParts(at);
+        const label = parts.find(p => p.type === 'timeZoneName')?.value ?? 'GMT+00:00';
+        const match = /^GMT([+-])(\d{1,2}):(\d{2})$/.exec(label);
+        if (!match) return 0;
+        return (match[1] === '+' ? 1 : -1) * (Number(match[2]) * 60 + Number(match[3])) * 60_000;
+      };
+      const toJSTDate = (isoStr: string): string => {
+        const ms = new Date(isoStr).getTime();
+        const jstMs = ms + getIanaOffsetMs('Asia/Tokyo', new Date(ms));
+        const d = new Date(jstMs);
+        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+      };
+
+      // Fetch assistant messages for token aggregation
+      const { data: msgRows } = await this.client
+        .from('trail_messages')
+        .select('session_id,timestamp,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens')
+        .in('session_id', sessionIds)
+        .eq('type', 'assistant');
+
+      type TokenAgg = { rawInput: number; rawOutput: number; rawCacheRead: number; rawCacheCreation: number; totalTurns: number; missingTurns: number };
+      const sourceAgg = new Map<string, TokenAgg>();
+      const dailySrcAgg = new Map<string, TokenAgg>();
+
+      for (const m of (msgRows ?? []) as Array<{
+        session_id: string; timestamp: string;
+        input_tokens: number | null; output_tokens: number | null; cache_read_tokens: number | null; cache_creation_tokens: number | null;
+      }>) {
+        const source = sourceBySessionId.get(m.session_id) ?? 'claude_code';
+        const inp = m.input_tokens ?? 0;
+        const out = m.output_tokens ?? 0;
+        const crd = m.cache_read_tokens ?? 0;
+        const ccr = m.cache_creation_tokens ?? 0;
+        const allZero = inp + out + crd + ccr === 0 ? 1 : 0;
+
+        const sa = sourceAgg.get(source) ?? { rawInput: 0, rawOutput: 0, rawCacheRead: 0, rawCacheCreation: 0, totalTurns: 0, missingTurns: 0 };
+        sa.rawInput += inp; sa.rawOutput += out; sa.rawCacheRead += crd; sa.rawCacheCreation += ccr;
+        sa.totalTurns += 1; sa.missingTurns += allZero;
+        sourceAgg.set(source, sa);
+
+        const date = toJSTDate(m.timestamp);
+        const dk = `${date}::${source}`;
+        const da = dailySrcAgg.get(dk) ?? { rawInput: 0, rawOutput: 0, rawCacheRead: 0, rawCacheCreation: 0, totalTurns: 0, missingTurns: 0 };
+        da.rawInput += inp; da.rawOutput += out; da.rawCacheRead += crd; da.rawCacheCreation += ccr;
+        da.totalTurns += 1; da.missingTurns += allZero;
+        dailySrcAgg.set(dk, da);
+      }
+
+      // Global source factor → token totals
+      const factorBySource = new Map<string, number>();
+      for (const [source, sa] of sourceAgg.entries()) {
+        const observed = sa.totalTurns - sa.missingTurns;
+        const factor = observed > 0 ? sa.totalTurns / observed : 1;
+        factorBySource.set(source, factor);
+        totalInput += Math.round(sa.rawInput * factor);
+        totalOutput += Math.round(sa.rawOutput * factor);
+        totalCacheRead += Math.round(sa.rawCacheRead * factor);
+        totalCacheCreation += Math.round(sa.rawCacheCreation * factor);
+      }
+
+      // Per-(date,source) factor → daily token map
+      for (const [dk, da] of dailySrcAgg.entries()) {
+        const date = dk.split('::')[0]!;
+        const observed = da.totalTurns - da.missingTurns;
+        const factor = observed > 0 ? da.totalTurns / observed : 1;
+        const entry = dailyMap.get(date) ?? { sessions: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, estimatedCostUsd: 0 };
+        entry.inputTokens += Math.round(da.rawInput * factor);
+        entry.outputTokens += Math.round(da.rawOutput * factor);
+        entry.cacheReadTokens += Math.round(da.rawCacheRead * factor);
+        entry.cacheCreationTokens += Math.round(da.rawCacheCreation * factor);
+        dailyMap.set(date, entry);
+      }
+
+      // Estimated cost from session_costs with global source factor
+      const { data: costRows } = await this.client
+        .from('trail_session_costs')
+        .select('session_id,estimated_cost_usd');
+      for (const c of (costRows ?? []) as Array<{ session_id: string; estimated_cost_usd: number | null }>) {
+        const source = sourceBySessionId.get(c.session_id) ?? 'claude_code';
+        const factor = factorBySource.get(source) ?? 1;
+        const cost = (c.estimated_cost_usd ?? 0) * factor;
+        totalEstimatedCost += cost;
+        const start = startBySessionId.get(c.session_id);
+        if (start) {
+          const date = toJSTDate(start);
+          const entry = dailyMap.get(date) ?? { sessions: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, estimatedCostUsd: 0 };
+          entry.estimatedCostUsd += cost;
+          dailyMap.set(date, entry);
+        }
+      }
+    }
+
+    const dailyActivity = [...dailyMap.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, v]) => ({ date, ...v }));
 
     const totals = {
       sessions: sessions.length,
-      inputTokens: allCosts.reduce((s, c) => s + c.input_tokens, 0),
-      outputTokens: allCosts.reduce((s, c) => s + c.output_tokens, 0),
-      cacheReadTokens: allCosts.reduce((s, c) => s + c.cache_read_tokens, 0),
-      cacheCreationTokens: allCosts.reduce((s, c) => s + c.cache_creation_tokens, 0),
-      estimatedCostUsd: allCosts.reduce((s, c) => s + c.estimated_cost_usd, 0),
+      inputTokens: totalInput,
+      outputTokens: totalOutput,
+      cacheReadTokens: totalCacheRead,
+      cacheCreationTokens: totalCacheCreation,
+      estimatedCostUsd: totalEstimatedCost,
       totalCommits: allCommits.length,
       totalLinesAdded: allCommits.reduce((s, c) => s + c.lines_added, 0),
       totalLinesDeleted: allCommits.reduce((s, c) => s + c.lines_deleted, 0),
@@ -370,22 +471,6 @@ export class SupabaseTrailReader implements ITrailReader {
       totalTestRuns: 0,
       totalTestFails: 0,
     };
-
-    // Daily activity from trail_daily_counts (kind='cost_actual')
-    type DailyEntry = { sessions: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number; estimatedCostUsd: number };
-    const dailyMap = new Map<string, DailyEntry>();
-    for (const r of (dailyCostData ?? []) as readonly { date: string; input_tokens: number; output_tokens: number; cache_read_tokens: number; cache_creation_tokens: number; estimated_cost_usd: number }[]) {
-      const entry = dailyMap.get(r.date) ?? { sessions: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, estimatedCostUsd: 0 };
-      entry.inputTokens += r.input_tokens;
-      entry.outputTokens += r.output_tokens;
-      entry.cacheReadTokens += r.cache_read_tokens;
-      entry.cacheCreationTokens += r.cache_creation_tokens;
-      entry.estimatedCostUsd += r.estimated_cost_usd;
-      dailyMap.set(r.date, entry);
-    }
-    const dailyActivity = [...dailyMap.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, v]) => ({ date, ...v }));
 
     return { totals, toolUsage: [], dailyActivity };
   }

@@ -1740,23 +1740,52 @@ export class TrailDatabase {
     const db = this.ensureDb();
     const tzOffset = getSqliteTzOffset('Asia/Tokyo');
     const result = db.exec(
-      `SELECT COALESCE(SUM(input_tokens + output_tokens), 0)
-       FROM session_costs sc
-       JOIN sessions s ON s.id = sc.session_id
-       WHERE DATE(s.start_time, '${tzOffset}') = DATE('now', '${tzOffset}')`,
+      `SELECT s.source,
+        SUM(COALESCE(m.input_tokens,0)+COALESCE(m.output_tokens,0)) AS raw_tokens,
+        COUNT(*) AS total_turns,
+        SUM(CASE WHEN COALESCE(m.input_tokens,0)+COALESCE(m.output_tokens,0)
+                      +COALESCE(m.cache_read_tokens,0)+COALESCE(m.cache_creation_tokens,0)=0
+                 THEN 1 ELSE 0 END) AS missing_turns
+       FROM messages m
+       JOIN sessions s ON s.id = m.session_id
+       WHERE m.type = 'assistant'
+         AND DATE(m.timestamp, '${tzOffset}') = DATE('now', '${tzOffset}')
+       GROUP BY s.source`,
     );
-    return Number(result[0]?.values[0]?.[0] ?? 0);
+    let total = 0;
+    for (const row of result[0]?.values ?? []) {
+      const rawTokens = Number(row[1]);
+      const totalTurns = Number(row[2]);
+      const missingTurns = Number(row[3]);
+      const observed = totalTurns - missingTurns;
+      const factor = observed > 0 ? totalTurns / observed : 1;
+      total += Math.round(rawTokens * factor);
+    }
+    return total;
   }
 
-  /** 指定セッションの input + output トークン合計を返す。 */
+  /** 指定セッションの input + output トークン合計を返す（欠損補正済み）。 */
   getSessionTokens(sessionId: string): number {
     const db = this.ensureDb();
     const result = db.exec(
-      `SELECT COALESCE(SUM(input_tokens + output_tokens), 0)
-       FROM session_costs WHERE session_id = ?`,
+      `SELECT
+        SUM(COALESCE(m.input_tokens,0)+COALESCE(m.output_tokens,0)) AS raw_tokens,
+        COUNT(*) AS total_turns,
+        SUM(CASE WHEN COALESCE(m.input_tokens,0)+COALESCE(m.output_tokens,0)
+                      +COALESCE(m.cache_read_tokens,0)+COALESCE(m.cache_creation_tokens,0)=0
+                 THEN 1 ELSE 0 END) AS missing_turns
+       FROM messages m
+       WHERE m.type = 'assistant' AND m.session_id = ?`,
       [sessionId],
     );
-    return Number(result[0]?.values[0]?.[0] ?? 0);
+    const row = result[0]?.values[0];
+    if (!row) return 0;
+    const rawTokens = Number(row[0] ?? 0);
+    const totalTurns = Number(row[1] ?? 0);
+    const missingTurns = Number(row[2] ?? 0);
+    const observed = totalTurns - missingTurns;
+    const factor = observed > 0 ? totalTurns / observed : 1;
+    return Math.round(rawTokens * factor);
   }
 
   save(): void {
@@ -4554,23 +4583,56 @@ export class TrailDatabase {
   getAnalytics(): AnalyticsData {
     const db = this.ensureDb();
 
-    // Token totals from session_costs
-    const totals = db.exec(
-      `SELECT COALESCE(SUM(input_tokens),0),
-        COALESCE(SUM(output_tokens),0),
-        COALESCE(SUM(cache_read_tokens),0),
-        COALESCE(SUM(cache_creation_tokens),0),
-        COALESCE(SUM(estimated_cost_usd),0),
-        (SELECT COUNT(*) FROM sessions)
-      FROM session_costs`,
+    // Token totals from messages with source-aware missing-rate compensation
+    const tzOffset = this.getLocalTzOffset();
+    const tokensBySourceResult = db.exec(
+      `SELECT s.source,
+        SUM(COALESCE(m.input_tokens,0)) AS raw_input,
+        SUM(COALESCE(m.output_tokens,0)) AS raw_output,
+        SUM(COALESCE(m.cache_read_tokens,0)) AS raw_cache_read,
+        SUM(COALESCE(m.cache_creation_tokens,0)) AS raw_cache_creation,
+        COUNT(*) AS total_turns,
+        SUM(CASE WHEN COALESCE(m.input_tokens,0)+COALESCE(m.output_tokens,0)
+                      +COALESCE(m.cache_read_tokens,0)+COALESCE(m.cache_creation_tokens,0)=0
+                 THEN 1 ELSE 0 END) AS missing_turns
+       FROM messages m
+       JOIN sessions s ON s.id = m.session_id
+       WHERE m.type = 'assistant'
+       GROUP BY s.source`,
     );
-    const tr = totals[0]?.values[0] ?? [0, 0, 0, 0, 0, 0];
-    const totalInput = Number(tr[0]);
-    const totalOutput = Number(tr[1]);
-    const totalCacheRead = Number(tr[2]);
-    const totalCacheCreation = Number(tr[3]);
-    const totalEstimatedCost = Number(tr[4]);
-    const totalSessions = Number(tr[5]);
+    const factorBySource = new Map<string, number>();
+    let totalInput = 0, totalOutput = 0, totalCacheRead = 0, totalCacheCreation = 0;
+    for (const row of tokensBySourceResult[0]?.values ?? []) {
+      const source = String(row[0] ?? '');
+      const rawInput = Number(row[1]);
+      const rawOutput = Number(row[2]);
+      const rawCacheRead = Number(row[3]);
+      const rawCacheCreation = Number(row[4]);
+      const totalTurns = Number(row[5]);
+      const missingTurns = Number(row[6]);
+      const observed = totalTurns - missingTurns;
+      const factor = observed > 0 ? totalTurns / observed : 1;
+      factorBySource.set(source, factor);
+      totalInput += Math.round(rawInput * factor);
+      totalOutput += Math.round(rawOutput * factor);
+      totalCacheRead += Math.round(rawCacheRead * factor);
+      totalCacheCreation += Math.round(rawCacheCreation * factor);
+    }
+    // Estimated cost from session_costs with source factor
+    const costBySourceResult = db.exec(
+      `SELECT s.source, COALESCE(SUM(sc.estimated_cost_usd), 0)
+       FROM session_costs sc
+       JOIN sessions s ON s.id = sc.session_id
+       GROUP BY s.source`,
+    );
+    let totalEstimatedCost = 0;
+    for (const row of costBySourceResult[0]?.values ?? []) {
+      const source = String(row[0] ?? '');
+      const rawCost = Number(row[1]);
+      const factor = factorBySource.get(source) ?? 1;
+      totalEstimatedCost += rawCost * factor;
+    }
+    const totalSessions = Number(db.exec(`SELECT COUNT(*) FROM sessions`)[0]?.values[0]?.[0] ?? 0);
 
     // Tool usage TOP 15
     const toolsSql = `SELECT jt.value AS name, COUNT(*) AS cnt
@@ -4596,27 +4658,65 @@ export class TrailDatabase {
       // json functions may not be available
     }
 
-    // Daily activity from daily_counts (kind='cost_actual', last 90 days — frontend filters to 7/30/90)
-    const tzOffset = this.getLocalTzOffset();
-    const dailyResult = db.exec(
-      `SELECT date,
-        SUM(input_tokens), SUM(output_tokens),
-        SUM(cache_read_tokens), SUM(cache_creation_tokens),
-        SUM(estimated_cost_usd),
-        0 AS sessions
-       FROM daily_counts
-       WHERE kind = 'cost_actual' AND date >= DATE('now', '${tzOffset}', '-90 days')
-       GROUP BY date ORDER BY date`,
+    // Daily activity from messages with source-aware factor (last 90 days)
+    const dailyMsgResult = db.exec(
+      `SELECT DATE(m.timestamp, '${tzOffset}') AS date,
+        s.source,
+        SUM(COALESCE(m.input_tokens,0)) AS raw_input,
+        SUM(COALESCE(m.output_tokens,0)) AS raw_output,
+        SUM(COALESCE(m.cache_read_tokens,0)) AS raw_cache_read,
+        SUM(COALESCE(m.cache_creation_tokens,0)) AS raw_cache_creation,
+        COUNT(*) AS total_turns,
+        SUM(CASE WHEN COALESCE(m.input_tokens,0)+COALESCE(m.output_tokens,0)
+                      +COALESCE(m.cache_read_tokens,0)+COALESCE(m.cache_creation_tokens,0)=0
+                 THEN 1 ELSE 0 END) AS missing_turns
+       FROM messages m
+       JOIN sessions s ON s.id = m.session_id
+       WHERE m.type = 'assistant'
+         AND DATE(m.timestamp, '${tzOffset}') >= DATE('now', '${tzOffset}', '-90 days')
+       GROUP BY date, s.source
+       ORDER BY date`,
     );
-    const dailyActivity = (dailyResult[0]?.values ?? []).map((r) => ({
-      date: String(r[0]),
-      sessions: Number(r[6]),
-      inputTokens: Number(r[1]),
-      outputTokens: Number(r[2]),
-      cacheReadTokens: Number(r[3]),
-      cacheCreationTokens: Number(r[4]),
-      estimatedCostUsd: Number(r[5]),
-    }));
+    const dailyCostResult = db.exec(
+      `SELECT DATE(s.start_time, '${tzOffset}') AS date,
+        s.source, COALESCE(SUM(sc.estimated_cost_usd), 0)
+       FROM session_costs sc
+       JOIN sessions s ON s.id = sc.session_id
+       WHERE DATE(s.start_time, '${tzOffset}') >= DATE('now', '${tzOffset}', '-90 days')
+       GROUP BY date, s.source`,
+    );
+    type DailyEntry = { sessions: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number; estimatedCostUsd: number };
+    const dailyMap = new Map<string, DailyEntry>();
+    for (const row of dailyMsgResult[0]?.values ?? []) {
+      const date = String(row[0]);
+      const source = String(row[1] ?? '');
+      const rawInput = Number(row[2]);
+      const rawOutput = Number(row[3]);
+      const rawCacheRead = Number(row[4]);
+      const rawCacheCreation = Number(row[5]);
+      const totalTurns = Number(row[6]);
+      const missingTurns = Number(row[7]);
+      const observed = totalTurns - missingTurns;
+      const factor = observed > 0 ? totalTurns / observed : 1;
+      const entry = dailyMap.get(date) ?? { sessions: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, estimatedCostUsd: 0 };
+      entry.inputTokens += Math.round(rawInput * factor);
+      entry.outputTokens += Math.round(rawOutput * factor);
+      entry.cacheReadTokens += Math.round(rawCacheRead * factor);
+      entry.cacheCreationTokens += Math.round(rawCacheCreation * factor);
+      dailyMap.set(date, entry);
+    }
+    for (const row of dailyCostResult[0]?.values ?? []) {
+      const date = String(row[0]);
+      const source = String(row[1] ?? '');
+      const rawCost = Number(row[2]);
+      const factor = factorBySource.get(source) ?? 1;
+      const entry = dailyMap.get(date) ?? { sessions: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, estimatedCostUsd: 0 };
+      entry.estimatedCostUsd += rawCost * factor;
+      dailyMap.set(date, entry);
+    }
+    const dailyActivity = [...dailyMap.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, v]) => ({ date, ...v }));
 
     // Commit totals
     const commitTotals = db.exec(

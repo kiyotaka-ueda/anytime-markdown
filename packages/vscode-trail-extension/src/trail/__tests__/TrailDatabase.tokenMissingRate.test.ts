@@ -165,4 +165,57 @@ describe('TrailDatabase.getCombinedData - token missing rate compensation', () =
     });
   });
 
+  describe('getAnalytics - totals & dailyActivity', () => {
+    it('applies factor to totals inputTokens and outputTokens', () => {
+      const analytics = db.getAnalytics();
+      // All test data combined:
+      // codex source: session-codex-1 (10 turns, 4 missing) + session-tool-1 (5 turns, 2 missing)
+      //   total_turns=15, missing=6, factor=15/9=5/3
+      //   raw_input = 6*100 + 3*100 = 900, raw_output = 6*100 + 3*50 = 750
+      //   adjusted_input = round(900*5/3)=1500, adjusted_output = round(750*5/3)=1250
+      // claude_code source: session-cc-1 (5 turns, 0 missing), factor=1
+      //   raw_input=5*200=1000, raw_output=5*200=1000
+      expect(analytics.totals.inputTokens).toBe(2500);
+      expect(analytics.totals.outputTokens).toBe(2250);
+      expect(analytics.totals.cacheReadTokens).toBe(0);
+      expect(analytics.totals.cacheCreationTokens).toBe(0);
+    });
+
+    it('totals token sum matches sum of agentStats.tokens from getCombinedData', () => {
+      const analytics = db.getAnalytics();
+      const combined = db.getCombinedData('day', 30);
+      const agentSum = combined.agentStats.reduce((s, r) => s + r.tokens, 0);
+      const totalsSum = analytics.totals.inputTokens + analytics.totals.outputTokens
+        + analytics.totals.cacheReadTokens + analytics.totals.cacheCreationTokens;
+      expect(Math.abs(agentSum - totalsSum)).toBeLessThanOrEqual(4);
+    });
+
+    it('dailyActivity rows have factor-adjusted tokens', () => {
+      const analytics = db.getAnalytics();
+      const testDate = '2026-05-01';
+      const dayEntry = analytics.dailyActivity.find(d => d.date === testDate);
+      expect(dayEntry).toBeDefined();
+      // Same expected values as totals (all test data is on 2026-05-01)
+      expect(dayEntry!.inputTokens).toBe(2500);
+      expect(dayEntry!.outputTokens).toBe(2250);
+    });
+  });
+
+  describe('getSessionTokens & getDailyTokensToday', () => {
+    it('getSessionTokens applies factor for Codex session', () => {
+      // session-codex-1: 10 turns, 4 missing, 6 observed turns with input=100, output=100
+      // raw = 6*(100+100) = 1200, factor = 10/6
+      // adjusted = round(1200 * 10/6) = round(2000) = 2000
+      const tokens = db.getSessionTokens('session-codex-1');
+      expect(tokens).toBe(Math.round(6 * 200 * (10 / 6)));
+    });
+
+    it('getSessionTokens returns raw sum for Claude Code session (factor=1)', () => {
+      // session-cc-1: 5 turns, 0 missing
+      // raw = 5*(200+200) = 2000, factor=1
+      const tokens = db.getSessionTokens('session-cc-1');
+      expect(tokens).toBe(5 * 400);
+    });
+  });
+
 });
