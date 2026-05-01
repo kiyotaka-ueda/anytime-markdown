@@ -6,6 +6,7 @@ import {
   GRANULARITY_DEFAULT_THRESHOLD,
   TemporalCouplingSettingsPopup,
   getGhostEdgeMode,
+  getPopupGhostEdgeModes,
   getTemporalCouplingGranularities,
   shouldShowTemporalCouplingInlineSettings,
   type TemporalCouplingControlsValue,
@@ -134,6 +135,10 @@ describe('TemporalCouplingControls / C4 ghost edge settings popup', () => {
   it('hides inline period/threshold/top-k settings when using the combined selector', () => {
     expect(shouldShowTemporalCouplingInlineSettings(true)).toBe(false);
     expect(shouldShowTemporalCouplingInlineSettings(false)).toBe(true);
+  });
+
+  it('uses the popup for commit/session mode selection only', () => {
+    expect(getPopupGhostEdgeModes()).toEqual(['commit', 'session']);
   });
 
   it('does not render the settings popup while ghost edges are disabled', () => {

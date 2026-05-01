@@ -92,8 +92,8 @@ import { HeatmapCanvas } from './HeatmapCanvas';
 import { HotspotControls, type HotspotControlsValue } from './HotspotControls';
 import { type CommunityLegendItem,OverlayLegend } from './OverlayLegend';
 import {
-  TemporalCouplingControls,
   TemporalCouplingSettingsPopup,
+  applyGhostEdgeMode,
   type TemporalCouplingControlsValue,
 } from './TemporalCouplingControls';
 
@@ -1218,6 +1218,19 @@ export function C4ViewerCore({
         {showDsm && matrixView === 'dsm' && (
           <Button size="small" onClick={() => setDsmClustered(prev => !prev)} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(dsmClustered && { bgcolor: toolbarButtonActiveBg }) }}>Cluster</Button>
         )}
+        <Button
+          size="small"
+          onClick={() => {
+            setTcValue(prev => {
+              const nextMode = prev.enabled ? 'none' : prev.granularity === 'session' ? 'session' : 'commit';
+              return applyGhostEdgeMode(prev, nextMode);
+            });
+          }}
+          aria-pressed={tcValue.enabled}
+          sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(tcValue.enabled && { bgcolor: toolbarButtonActiveBg }) }}
+        >
+          Ghost Edges
+        </Button>
         {showDsm && matrixView === 'heatmap' && (
           <ButtonGroup size="small" aria-label="Heatmap mode">
             {(['session-file', 'subagent-file'] as const).map((m) => {
@@ -1288,13 +1301,6 @@ export function C4ViewerCore({
           </Button>
         )}
       </Toolbar>
-      <TemporalCouplingControls
-        value={tcValue}
-        onChange={setTcValue}
-        resultCount={ghostEdges.length}
-        loading={tcLoading}
-        showCombinedGhostEdgeSelector
-      />
       {isHotspotOverlay && (
         <HotspotControls
           value={hotspotValue}

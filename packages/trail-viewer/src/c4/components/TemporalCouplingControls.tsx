@@ -51,6 +51,7 @@ const WINDOW_OPTIONS: ReadonlyArray<{ label: string; days: number }> = [
 ];
 
 const TOP_K_OPTIONS: ReadonlyArray<number> = [10, 50, 100];
+const POPUP_GHOST_EDGE_MODES: ReadonlyArray<Exclude<GhostEdgeMode, 'none'>> = ['commit', 'session'];
 const DEFAULT_GRANULARITIES: ReadonlyArray<TemporalCouplingGranularity> = [
   'commit',
   'session',
@@ -66,6 +67,10 @@ export function getTemporalCouplingGranularities(
 export function getGhostEdgeMode(value: Readonly<TemporalCouplingControlsValue>): GhostEdgeMode {
   if (!value.enabled) return 'none';
   return value.granularity === 'session' ? 'session' : 'commit';
+}
+
+export function getPopupGhostEdgeModes(): ReadonlyArray<Exclude<GhostEdgeMode, 'none'>> {
+  return POPUP_GHOST_EDGE_MODES;
 }
 
 export function applyGhostEdgeMode(
@@ -425,6 +430,7 @@ export function TemporalCouplingSettingsPopup({
   const handleWindow = (days: number): void => onChange({ ...value, windowDays: days });
   const handleThreshold = (threshold: number): void => onChange({ ...value, threshold });
   const handleTopK = (topK: number): void => onChange({ ...value, topK });
+  const handleMode = (mode: GhostEdgeMode): void => onChange(applyGhostEdgeMode(value, mode));
 
   return (
     <Box
@@ -452,6 +458,23 @@ export function TemporalCouplingSettingsPopup({
       >
         Ghost Edges
       </Typography>
+
+      <FormControl size="small" fullWidth sx={{ mb: 1.25 }}>
+        <InputLabel id="tc-popup-mode-label">Mode</InputLabel>
+        <Select
+          labelId="tc-popup-mode-label"
+          label="Mode"
+          value={getGhostEdgeMode(value)}
+          onChange={(e) => handleMode(e.target.value as GhostEdgeMode)}
+          inputProps={{ 'aria-label': 'Ghost Edges の粒度' }}
+        >
+          {POPUP_GHOST_EDGE_MODES.map((mode) => (
+            <MenuItem key={mode} value={mode}>
+              {mode}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
 
       <FormControl size="small" fullWidth sx={{ mb: 1.25 }}>
         <InputLabel id="tc-popup-window-label">期間</InputLabel>
