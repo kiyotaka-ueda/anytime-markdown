@@ -301,7 +301,7 @@ export function MinimapCanvas({
         size="small"
         onClick={handleZoomIn}
         aria-label="Zoom in"
-        style={{ ...btnStyle, right: 2 }}
+        style={{ ...btnStyle, right: onFit ? 26 : 2 }}
         sx={{ fontSize: '0.9rem' }}
       >
         <ZoomInIcon fontSize="inherit" />
@@ -311,7 +311,7 @@ export function MinimapCanvas({
           size="small"
           onClick={onFit}
           aria-label="Fit"
-          style={{ ...btnStyle, right: 26 }}
+          style={{ ...btnStyle, right: 2 }}
           sx={{ fontSize: '0.9rem' }}
         >
           <FitScreenIcon fontSize="inherit" />
