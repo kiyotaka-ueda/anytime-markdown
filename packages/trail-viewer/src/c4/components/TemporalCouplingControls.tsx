@@ -35,6 +35,14 @@ export interface TemporalCouplingControlsProps {
   readonly showCombinedGhostEdgeSelector?: boolean;
 }
 
+export interface TemporalCouplingSettingsPopupProps {
+  readonly value: TemporalCouplingControlsValue;
+  readonly onChange: (next: TemporalCouplingControlsValue) => void;
+  readonly resultCount: number;
+  readonly loading: boolean;
+  readonly isDark?: boolean;
+}
+
 const WINDOW_OPTIONS: ReadonlyArray<{ label: string; days: number }> = [
   { label: '7d', days: 7 },
   { label: '30d', days: 30 },
@@ -78,6 +86,12 @@ export function applyGhostEdgeMode(
     directional: false,
     granularity: mode,
   };
+}
+
+export function shouldShowTemporalCouplingInlineSettings(
+  showCombinedGhostEdgeSelector: boolean,
+): boolean {
+  return !showCombinedGhostEdgeSelector;
 }
 
 /** 粒度別のしきい値デフォルト（plan/20260429-ghost-edge-* 第「パラメータの粒度別デフォルト」表） */
@@ -159,6 +173,9 @@ export function TemporalCouplingControls({
     session: 'セッション単位の共編集',
     subagentType: 'エージェント型ごとの編集領域',
   } as const;
+  const shouldShowInlineSettings = shouldShowTemporalCouplingInlineSettings(
+    showCombinedGhostEdgeSelector,
+  );
 
   return (
     <Box
@@ -284,10 +301,162 @@ export function TemporalCouplingControls({
         </>
       )}
 
-      <FormControl size="small" sx={{ minWidth: 88 }} disabled={!value.enabled}>
-        <InputLabel id="tc-window-label">期間</InputLabel>
+      {shouldShowInlineSettings && (
+        <>
+          <FormControl size="small" sx={{ minWidth: 88 }} disabled={!value.enabled}>
+            <InputLabel id="tc-window-label">期間</InputLabel>
+            <Select
+              labelId="tc-window-label"
+              label="期間"
+              value={String(value.windowDays)}
+              onChange={(e) => handleWindow(Number.parseInt(String(e.target.value), 10))}
+              inputProps={{ 'aria-label': '集計期間' }}
+            >
+              {WINDOW_OPTIONS.map((opt) => (
+                <MenuItem key={opt.days} value={String(opt.days)}>
+                  {opt.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {!value.directional && (
+            <Box sx={{ minWidth: 140, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="caption" sx={{ whiteSpace: 'nowrap' }}>
+                閾値 {value.threshold.toFixed(2)}
+              </Typography>
+              <Slider
+                value={value.threshold}
+                min={0}
+                max={1}
+                step={0.05}
+                size="small"
+                disabled={!value.enabled}
+                onChange={(_, v) => handleThreshold(Array.isArray(v) ? v[0] : v)}
+                aria-label="Jaccard 閾値"
+                aria-valuetext={`Jaccard ${value.threshold.toFixed(2)}`}
+                sx={{ flex: 1 }}
+              />
+            </Box>
+          )}
+
+          {showDirectionalControls && value.directional && (
+            <>
+              <Box sx={{ minWidth: 140, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="caption" sx={{ whiteSpace: 'nowrap' }}>
+                  Conf {value.confidenceThreshold.toFixed(2)}
+                </Typography>
+                <Slider
+                  value={value.confidenceThreshold}
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  size="small"
+                  disabled={!value.enabled}
+                  onChange={(_, v) =>
+                    handleConfidenceThreshold(Array.isArray(v) ? v[0] : v)
+                  }
+                  aria-label="Confidence 閾値"
+                  aria-valuetext={`Confidence ${value.confidenceThreshold.toFixed(2)}`}
+                  sx={{ flex: 1 }}
+                />
+              </Box>
+              <Box sx={{ minWidth: 140, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="caption" sx={{ whiteSpace: 'nowrap' }}>
+                  Diff {value.directionalDiff.toFixed(2)}
+                </Typography>
+                <Slider
+                  value={value.directionalDiff}
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  size="small"
+                  disabled={!value.enabled}
+                  onChange={(_, v) =>
+                    handleDirectionalDiff(Array.isArray(v) ? v[0] : v)
+                  }
+                  aria-label="方向差分閾値"
+                  aria-valuetext={`方向差分 ${value.directionalDiff.toFixed(2)}`}
+                  sx={{ flex: 1 }}
+                />
+              </Box>
+            </>
+          )}
+
+          <FormControl size="small" sx={{ minWidth: 80 }} disabled={!value.enabled}>
+            <InputLabel id="tc-topk-label">Top-K</InputLabel>
+            <Select
+              labelId="tc-topk-label"
+              label="Top-K"
+              value={String(value.topK)}
+              onChange={(e) => handleTopK(Number.parseInt(String(e.target.value), 10))}
+              inputProps={{ 'aria-label': 'Top-K 件数' }}
+            >
+              {TOP_K_OPTIONS.map((k) => (
+                <MenuItem key={k} value={String(k)}>
+                  {k}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </>
+      )}
+
+      <Typography variant="caption" color="text.secondary" aria-live="polite">
+        {value.enabled
+          ? loading
+            ? '計算中...'
+            : `${resultCount} edges (${value.granularity})`
+          : 'OFF'}
+      </Typography>
+    </Box>
+  );
+}
+
+export function TemporalCouplingSettingsPopup({
+  value,
+  onChange,
+  resultCount,
+  loading,
+  isDark = false,
+}: Readonly<TemporalCouplingSettingsPopupProps>) {
+  if (!value.enabled) return null;
+
+  const handleWindow = (days: number): void => onChange({ ...value, windowDays: days });
+  const handleThreshold = (threshold: number): void => onChange({ ...value, threshold });
+  const handleTopK = (topK: number): void => onChange({ ...value, topK });
+
+  return (
+    <Box
+      role="dialog"
+      aria-label="Ghost Edges 設定"
+      sx={{
+        position: 'absolute',
+        top: 8,
+        left: 8,
+        width: 220,
+        zIndex: 10,
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: '8px',
+        bgcolor: isDark ? 'rgba(18,18,18,0.92)' : 'rgba(251,249,243,0.94)',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+        backdropFilter: 'blur(10px)',
+        px: 1.5,
+        py: 1.25,
+      }}
+    >
+      <Typography
+        variant="caption"
+        sx={{ display: 'block', color: 'text.secondary', fontSize: '0.65rem', mb: 1 }}
+      >
+        Ghost Edges
+      </Typography>
+
+      <FormControl size="small" fullWidth sx={{ mb: 1.25 }}>
+        <InputLabel id="tc-popup-window-label">期間</InputLabel>
         <Select
-          labelId="tc-window-label"
+          labelId="tc-popup-window-label"
           label="期間"
           value={String(value.windowDays)}
           onChange={(e) => handleWindow(Number.parseInt(String(e.target.value), 10))}
@@ -301,73 +470,26 @@ export function TemporalCouplingControls({
         </Select>
       </FormControl>
 
-      {!value.directional && (
-        <Box sx={{ minWidth: 140, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="caption" sx={{ whiteSpace: 'nowrap' }}>
-            閾値 {value.threshold.toFixed(2)}
-          </Typography>
-          <Slider
-            value={value.threshold}
-            min={0}
-            max={1}
-            step={0.05}
-            size="small"
-            disabled={!value.enabled}
-            onChange={(_, v) => handleThreshold(Array.isArray(v) ? v[0] : v)}
-            aria-label="Jaccard 閾値"
-            aria-valuetext={`Jaccard ${value.threshold.toFixed(2)}`}
-            sx={{ flex: 1 }}
-          />
-        </Box>
-      )}
+      <Box sx={{ mb: 1.25 }}>
+        <Typography variant="caption" sx={{ display: 'block', mb: 0.5 }}>
+          閾値 {value.threshold.toFixed(2)}
+        </Typography>
+        <Slider
+          value={value.threshold}
+          min={0}
+          max={1}
+          step={0.05}
+          size="small"
+          onChange={(_, v) => handleThreshold(Array.isArray(v) ? v[0] : v)}
+          aria-label="Jaccard 閾値"
+          aria-valuetext={`Jaccard ${value.threshold.toFixed(2)}`}
+        />
+      </Box>
 
-      {showDirectionalControls && value.directional && (
-        <>
-          <Box sx={{ minWidth: 140, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="caption" sx={{ whiteSpace: 'nowrap' }}>
-              Conf {value.confidenceThreshold.toFixed(2)}
-            </Typography>
-            <Slider
-              value={value.confidenceThreshold}
-              min={0}
-              max={1}
-              step={0.05}
-              size="small"
-              disabled={!value.enabled}
-              onChange={(_, v) =>
-                handleConfidenceThreshold(Array.isArray(v) ? v[0] : v)
-              }
-              aria-label="Confidence 閾値"
-              aria-valuetext={`Confidence ${value.confidenceThreshold.toFixed(2)}`}
-              sx={{ flex: 1 }}
-            />
-          </Box>
-          <Box sx={{ minWidth: 140, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="caption" sx={{ whiteSpace: 'nowrap' }}>
-              Diff {value.directionalDiff.toFixed(2)}
-            </Typography>
-            <Slider
-              value={value.directionalDiff}
-              min={0}
-              max={1}
-              step={0.05}
-              size="small"
-              disabled={!value.enabled}
-              onChange={(_, v) =>
-                handleDirectionalDiff(Array.isArray(v) ? v[0] : v)
-              }
-              aria-label="方向差分閾値"
-              aria-valuetext={`方向差分 ${value.directionalDiff.toFixed(2)}`}
-              sx={{ flex: 1 }}
-            />
-          </Box>
-        </>
-      )}
-
-      <FormControl size="small" sx={{ minWidth: 80 }} disabled={!value.enabled}>
-        <InputLabel id="tc-topk-label">Top-K</InputLabel>
+      <FormControl size="small" fullWidth sx={{ mb: 1 }}>
+        <InputLabel id="tc-popup-topk-label">Top-K</InputLabel>
         <Select
-          labelId="tc-topk-label"
+          labelId="tc-popup-topk-label"
           label="Top-K"
           value={String(value.topK)}
           onChange={(e) => handleTopK(Number.parseInt(String(e.target.value), 10))}
@@ -382,11 +504,7 @@ export function TemporalCouplingControls({
       </FormControl>
 
       <Typography variant="caption" color="text.secondary" aria-live="polite">
-        {value.enabled
-          ? loading
-            ? '計算中...'
-            : `${resultCount} edges (${value.granularity})`
-          : 'OFF'}
+        {loading ? '計算中...' : `${resultCount} edges (${value.granularity})`}
       </Typography>
     </Box>
   );

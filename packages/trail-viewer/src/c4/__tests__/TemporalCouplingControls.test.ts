@@ -4,8 +4,10 @@ import {
   GRANULARITY_DEFAULT_CONFIDENCE,
   GRANULARITY_DEFAULT_DIRECTIONAL_DIFF,
   GRANULARITY_DEFAULT_THRESHOLD,
+  TemporalCouplingSettingsPopup,
   getGhostEdgeMode,
   getTemporalCouplingGranularities,
+  shouldShowTemporalCouplingInlineSettings,
   type TemporalCouplingControlsValue,
 } from '../components/TemporalCouplingControls';
 
@@ -125,5 +127,23 @@ describe('TemporalCouplingControls / ghost edge mode helpers', () => {
     expect(session.enabled).toBe(true);
     expect(session.granularity).toBe('session');
     expect(session.directional).toBe(false);
+  });
+});
+
+describe('TemporalCouplingControls / C4 ghost edge settings popup', () => {
+  it('hides inline period/threshold/top-k settings when using the combined selector', () => {
+    expect(shouldShowTemporalCouplingInlineSettings(true)).toBe(false);
+    expect(shouldShowTemporalCouplingInlineSettings(false)).toBe(true);
+  });
+
+  it('does not render the settings popup while ghost edges are disabled', () => {
+    const popup = TemporalCouplingSettingsPopup({
+      value: { ...baseValue, enabled: false },
+      onChange: jest.fn(),
+      resultCount: 0,
+      loading: false,
+      isDark: false,
+    });
+    expect(popup).toBeNull();
   });
 });

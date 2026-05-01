@@ -93,6 +93,7 @@ import { HotspotControls, type HotspotControlsValue } from './HotspotControls';
 import { type CommunityLegendItem,OverlayLegend } from './OverlayLegend';
 import {
   TemporalCouplingControls,
+  TemporalCouplingSettingsPopup,
   type TemporalCouplingControlsValue,
 } from './TemporalCouplingControls';
 
@@ -1429,6 +1430,13 @@ export function C4ViewerCore({
                 dsmMax={dsmMax}
                 communityLegend={communityLegend ?? undefined}
                 communityTitle={communityLegend ? t('c4.community.title') : undefined}
+              />
+              <TemporalCouplingSettingsPopup
+                value={tcValue}
+                onChange={setTcValue}
+                resultCount={ghostEdges.length}
+                loading={tcLoading}
+                isDark={isDark}
               />
               <MinimapCanvas
                 nodes={state.document.nodes}
