@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import FitScreenIcon from '@mui/icons-material/FitScreen';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import IconButton from '@mui/material/IconButton';
@@ -17,6 +18,7 @@ export interface MinimapCanvasProps {
   readonly mainCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   readonly onViewportChange: (vp: Viewport) => void;
   readonly isDark?: boolean;
+  readonly onFit?: () => void;
   /** ミニマップの幅 px（デフォルト 200） */
   readonly width?: number;
   /** ミニマップの高さ px（デフォルト 130） */
@@ -50,6 +52,7 @@ export function MinimapCanvas({
   mainCanvasRef,
   onViewportChange,
   isDark = true,
+  onFit,
   width = 200,
   height = 130,
 }: MinimapCanvasProps) {
@@ -289,7 +292,7 @@ export function MinimapCanvas({
         size="small"
         onClick={handleZoomOut}
         aria-label="Zoom out"
-        style={{ ...btnStyle, right: 26 }}
+        style={{ ...btnStyle, right: onFit ? 50 : 26 }}
         sx={{ fontSize: '0.9rem' }}
       >
         <ZoomOutIcon fontSize="inherit" />
@@ -303,6 +306,17 @@ export function MinimapCanvas({
       >
         <ZoomInIcon fontSize="inherit" />
       </IconButton>
+      {onFit && (
+        <IconButton
+          size="small"
+          onClick={onFit}
+          aria-label="Fit"
+          style={{ ...btnStyle, right: 26 }}
+          sx={{ fontSize: '0.9rem' }}
+        >
+          <FitScreenIcon fontSize="inherit" />
+        </IconButton>
+      )}
     </div>
   );
 }

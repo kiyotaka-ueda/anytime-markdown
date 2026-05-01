@@ -4,7 +4,6 @@ import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, CommunityOverlay
 import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, aggregateHotspotToC4, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, computeCommunityOverlay, computeFileHotspot, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFilesToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
-import FitScreenIcon from '@mui/icons-material/FitScreen';
 import LayersIcon from '@mui/icons-material/Layers';
 import LinkIcon from '@mui/icons-material/Link';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -1104,7 +1103,6 @@ export function C4ViewerCore({
         >
           {t('c4.community.toggle')}
         </Button>
-        <Button size="small" startIcon={<FitScreenIcon sx={{ fontSize: 16 }} />} onClick={handleFit} sx={{ ...toolbarButtonSx, ml: 0.5 }} aria-label="Fit">Fit</Button>
         {soloFrameId !== null && (
           <Button
             size="small"
@@ -1420,6 +1418,7 @@ export function C4ViewerCore({
                 mainCanvasRef={canvasRef}
                 onViewportChange={(vp) => dispatch({ type: 'SET_VIEWPORT', viewport: vp })}
                 isDark={isDark}
+                onFit={handleFit}
               />
               {selectedElementInfo && (
                 <Box
