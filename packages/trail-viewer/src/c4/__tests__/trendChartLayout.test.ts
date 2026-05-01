@@ -7,19 +7,19 @@ import {
 } from '../components/C4ViewerCore';
 
 describe('getActivityTrendChartWidth', () => {
-  it('keeps the trend chart full width when element details are hidden', () => {
-    expect(getActivityTrendChartWidth(false)).toBe('100%');
+  it('caps the trend chart popup width when element details are hidden', () => {
+    expect(getActivityTrendChartWidth(false)).toBe('min(1000px, calc(100% - 16px))');
   });
 
-  it('reserves the selected element details popup width when it is visible', () => {
-    expect(getActivityTrendChartWidth(true)).toBe('calc(100% - 256px)');
+  it('caps the trend chart popup width while reserving selected element details space', () => {
+    expect(getActivityTrendChartWidth(true)).toBe('min(1000px, calc(100% - 256px))');
   });
 
-  it('overlays the trend chart so the graph area and popup height stay stable', () => {
+  it('places the trend chart as an inset graph popup', () => {
     expect(getActivityTrendChartPlacement()).toEqual({
       position: 'absolute',
-      left: 0,
-      bottom: 0,
+      left: 8,
+      bottom: 8,
       zIndex: 9,
     });
   });

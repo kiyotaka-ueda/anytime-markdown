@@ -34,18 +34,21 @@ const CURRENT_RELEASE_TAG = 'current';
 const SELECTED_ELEMENT_DETAILS_WIDTH = 240;
 const SELECTED_ELEMENT_DETAILS_RIGHT_OFFSET = 8;
 const TREND_CHART_POPUP_GAP = 8;
+const TREND_CHART_POPUP_MAX_WIDTH = 1000;
 const TREND_CHART_RESERVED_RIGHT_WIDTH =
   SELECTED_ELEMENT_DETAILS_WIDTH + SELECTED_ELEMENT_DETAILS_RIGHT_OFFSET + TREND_CHART_POPUP_GAP;
 
 export function getActivityTrendChartWidth(hasSelectedElementDetails: boolean): string {
-  return hasSelectedElementDetails ? `calc(100% - ${TREND_CHART_RESERVED_RIGHT_WIDTH}px)` : '100%';
+  return hasSelectedElementDetails
+    ? `min(${TREND_CHART_POPUP_MAX_WIDTH}px, calc(100% - ${TREND_CHART_RESERVED_RIGHT_WIDTH}px))`
+    : `min(${TREND_CHART_POPUP_MAX_WIDTH}px, calc(100% - 16px))`;
 }
 
 export function getActivityTrendChartPlacement() {
   return {
     position: 'absolute' as const,
-    left: 0,
-    bottom: 0,
+    left: 8,
+    bottom: 8,
     zIndex: 9,
   };
 }
@@ -1870,11 +1873,19 @@ export function C4ViewerCore({
               )}
             </Box>
             <Box
+              role="dialog"
+              aria-label="Activity Trend"
               sx={{
                 ...getActivityTrendChartPlacement(),
                 width: getActivityTrendChartWidth(!!selectedElementInfo),
                 minWidth: 0,
-                maxWidth: '100%',
+                maxWidth: `${TREND_CHART_POPUP_MAX_WIDTH}px`,
+                border: `1px solid ${colors.border}`,
+                borderRadius: '8px',
+                bgcolor: isDark ? 'rgba(18,18,18,0.92)' : 'rgba(251,249,243,0.94)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                backdropFilter: 'blur(10px)',
+                overflow: 'hidden',
                 transition: 'width 150ms cubic-bezier(0.4, 0, 0.2, 1)',
               }}
             >
