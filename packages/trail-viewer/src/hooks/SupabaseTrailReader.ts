@@ -869,15 +869,20 @@ export class SupabaseTrailReader implements ITrailReader {
       const cutoffLocal = new Date(cutoffMs + getIanaOffsetMs('Asia/Tokyo', new Date(cutoffMs)));
       const cutoffDate = `${cutoffLocal.getUTCFullYear()}-${String(cutoffLocal.getUTCMonth() + 1).padStart(2, '0')}-${String(cutoffLocal.getUTCDate()).padStart(2, '0')}`;
 
-      const { data, error } = await this.client
-        .from('trail_daily_counts')
-        .select('date,kind,key,count,tokens,duration_ms')
-        .in('kind', ['skill', 'error'])
-        .gte('date', cutoffDate);
-      if (error || !data) return null;
-
+      // Fetch all 4 kinds from trail_daily_counts with pagination
       type DcRow = { date: string; kind: string; key: string; count: number; tokens: number; duration_ms: number };
-      const rows = data as DcRow[];
+      const allDcRows: DcRow[] = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data: batchRows, error: batchErr } = await this.client
+          .from('trail_daily_counts')
+          .select('date,kind,key,count,tokens,duration_ms')
+          .in('kind', ['skill', 'error', 'tool', 'model'])
+          .gte('date', cutoffDate)
+          .range(offset, offset + 999);
+        if (batchErr || !batchRows || batchRows.length === 0) break;
+        allDcRows.push(...(batchRows as DcRow[]));
+        if (batchRows.length < 1000) break;
+      }
 
       const getMonday = (dateStr: string): string => {
         const [y, m, d] = dateStr.split('-').map(Number);
@@ -894,11 +899,20 @@ export class SupabaseTrailReader implements ITrailReader {
         const d = new Date(jstMs);
         return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
       };
+      const normalizeTool = (name: string): string => {
+        if (!name.startsWith('mcp__')) return name;
+        const parts = name.split('__');
+        return parts.length >= 3 ? `${parts[0]}__${parts[1]}` : name;
+      };
 
       const errMap = new Map<string, { err: number; total: number; byTool: Record<string, number> }>();
       const skillMap = new Map<string, number>();
+      // tool: key = `${periodKey}|${toolName}`, value = { count, tokens, durationMs }
+      const toolDcMap = new Map<string, { count: number; tokens: number; durationMs: number }>();
+      // model: key = `${periodKey}::${modelName}`, value = { count, tokens }
+      const modelDcMap = new Map<string, { count: number; tokens: number }>();
 
-      for (const r of rows) {
+      for (const r of allDcRows) {
         const p = periodKey(r.date);
         if (r.kind === 'error') {
           const ef = errMap.get(p) ?? { err: 0, total: 0, byTool: {} };
@@ -908,17 +922,34 @@ export class SupabaseTrailReader implements ITrailReader {
         } else if (r.kind === 'skill') {
           const k = `${p}::${r.key}`;
           skillMap.set(k, (skillMap.get(k) ?? 0) + r.count);
+        } else if (r.kind === 'tool') {
+          const k = `${p}|${normalizeTool(r.key)}`;
+          const cur = toolDcMap.get(k) ?? { count: 0, tokens: 0, durationMs: 0 };
+          cur.count += r.count;
+          cur.tokens += r.tokens ?? 0;
+          cur.durationMs += r.duration_ms ?? 0;
+          toolDcMap.set(k, cur);
+        } else if (r.kind === 'model') {
+          const k = `${p}::${r.key}`;
+          const cur = modelDcMap.get(k) ?? { count: 0, tokens: 0 };
+          cur.count += r.count;
+          cur.tokens += r.tokens ?? 0;
+          modelDcMap.set(k, cur);
         }
+      }
+
+      // Populate errMap.total from tool daily_counts
+      for (const [k, e] of toolDcMap.entries()) {
+        const p = k.slice(0, k.indexOf('|'));
+        const ef = errMap.get(p) ?? { err: 0, total: 0, byTool: {} };
+        ef.total += e.count;
+        errMap.set(p, ef);
       }
 
       const splitKey = (k: string): [string, string] => {
         const sep = k.indexOf('::');
         return [k.slice(0, sep), k.slice(sep + 2)];
       };
-
-      // toolCounts will be populated from trail_message_tool_calls after sessionIds are ready
-      type SupaToolAggEntry = { count: number; durationMs: number; adjustedTokens: number; totalTurns: number; missingTurns: number };
-      const tcAggMap = new Map<string, SupaToolAggEntry>();
 
       const errorRate = [...errMap.entries()]
         .filter(([, e]) => e.total > 0)
@@ -929,256 +960,111 @@ export class SupabaseTrailReader implements ITrailReader {
         .map(([k, count]) => { const [p, skill] = splitKey(k); return { period: p, skill, count, costUsd: 0 }; })
         .sort((a, b) => a.period.localeCompare(b.period));
 
-      const modelAggMap = new Map<string, { count: number; tokens: number; totalTurns: number; missingTurns: number }>();
-
-      const { data: sessionRows } = await this.client
-        .from('trail_sessions')
-        .select('id,source,start_time')
-        .gte('start_time', cutoffIso);
+      // Paginated fetch of trail_sessions within the period window
       const sourceBySessionId = new Map<string, string>();
-      const sessionIds: string[] = [];
       const sessionStartById = new Map<string, string>();
-      for (const s of (sessionRows ?? []) as Array<{ id: string; source: string | null; start_time?: string | null }>) {
-        const source = s.source === 'codex' ? 'Codex' : 'Claude Code';
-        sourceBySessionId.set(s.id, source);
-        if (s.start_time) sessionStartById.set(s.id, s.start_time);
-        sessionIds.push(s.id);
+      for (let offset = 0; ; offset += 1000) {
+        const { data: batchRows } = await this.client
+          .from('trail_sessions')
+          .select('id,source,start_time')
+          .gte('start_time', cutoffIso)
+          .range(offset, offset + 999);
+        if (!batchRows || batchRows.length === 0) break;
+        for (const s of batchRows as Array<{ id: string; source: string | null; start_time?: string | null }>) {
+          const source = s.source === 'codex' ? 'Codex' : 'Claude Code';
+          sourceBySessionId.set(s.id, source);
+          if (s.start_time) sessionStartById.set(s.id, s.start_time);
+        }
+        if (batchRows.length < 1000) break;
       }
-      const agentMap = new Map<string, { tokens: number; costUsd: number; loc: number; tokenTotalTurns: number; tokenMissingTurns: number }>();
-      const addAgent = (periodKeyStr: string, agent: string, delta: Partial<{ tokens: number; costUsd: number; loc: number; tokenTotalTurns: number; tokenMissingTurns: number }>) => {
+
+      // agentStats: tokens + cost from session_costs (all-time, paginated), LOC from session_commits
+      const agentMap = new Map<string, { tokens: number; costUsd: number; loc: number }>();
+      const addAgent = (periodKeyStr: string, agent: string, delta: Partial<{ tokens: number; costUsd: number; loc: number }>) => {
         const k = `${periodKeyStr}::${agent}`;
-        const cur = agentMap.get(k) ?? { tokens: 0, costUsd: 0, loc: 0, tokenTotalTurns: 0, tokenMissingTurns: 0 };
+        const cur = agentMap.get(k) ?? { tokens: 0, costUsd: 0, loc: 0 };
         cur.tokens += delta.tokens ?? 0;
         cur.costUsd += delta.costUsd ?? 0;
         cur.loc += delta.loc ?? 0;
-        cur.tokenTotalTurns += delta.tokenTotalTurns ?? 0;
-        cur.tokenMissingTurns += delta.tokenMissingTurns ?? 0;
         agentMap.set(k, cur);
       };
-      if (sessionIds.length > 0) {
-        const allAgentMsgRows: Array<{ session_id: string; timestamp: string; type?: string | null; model?: string | null; input_tokens: number | null; output_tokens: number | null; cache_read_tokens: number | null; cache_creation_tokens: number | null }> = [];
-        const AGENT_BATCH = 200;
-        for (let bi = 0; bi < sessionIds.length; bi += AGENT_BATCH) {
-          const batchIds = sessionIds.slice(bi, bi + AGENT_BATCH);
-          const { data: batchRows } = await this.client
-            .from('trail_messages')
-            .select('session_id,timestamp,type,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens,model')
-            .in('session_id', batchIds)
-            .gte('timestamp', cutoffIso);
-          if (batchRows) allAgentMsgRows.push(...(batchRows as typeof allAgentMsgRows));
-        }
-        for (const m of allAgentMsgRows as Array<{
-          session_id: string; timestamp: string; type?: string | null; model?: string | null;
-          input_tokens: number | null; output_tokens: number | null; cache_read_tokens: number | null; cache_creation_tokens: number | null;
-        }>) {
-          const agent = sourceBySessionId.get(m.session_id) ?? 'Claude Code';
-          const p = periodKey(toJSTDate(m.timestamp));
-          const tokens = (m.input_tokens ?? 0) + (m.output_tokens ?? 0) + (m.cache_read_tokens ?? 0) + (m.cache_creation_tokens ?? 0);
-          addAgent(p, agent, {
-            tokens,
-            tokenTotalTurns: m.type === 'assistant' ? 1 : 0,
-            tokenMissingTurns: m.type === 'assistant' && tokens === 0 ? 1 : 0,
-          });
-          if (m.type === 'assistant') {
-            const source = sourceBySessionId.get(m.session_id) === 'Codex' ? 'Codex' : 'Claude Code';
-            const rawModel = m.model ?? '';
-            const modelKey = `${p}::${rawModel}::${source}`;
-            const rawTokens = (m.input_tokens ?? 0) + (m.output_tokens ?? 0);
-            const isMissing = tokens === 0 ? 1 : 0;
-            const cur = modelAggMap.get(modelKey) ?? { count: 0, tokens: 0, totalTurns: 0, missingTurns: 0 };
-            cur.count += 1;
-            cur.tokens += rawTokens;
-            cur.totalTurns += 1;
-            cur.missingTurns += isMissing;
-            modelAggMap.set(modelKey, cur);
-          }
-        }
 
-        const { data: costRows } = await this.client
+      for (let offset = 0; ; offset += 1000) {
+        const { data: batchRows } = await this.client
           .from('trail_session_costs')
-          .select('session_id,estimated_cost_usd');
-        for (const c of (costRows ?? []) as Array<{ session_id: string; estimated_cost_usd: number | null }>) {
+          .select('session_id,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens,estimated_cost_usd')
+          .range(offset, offset + 999);
+        if (!batchRows || batchRows.length === 0) break;
+        for (const c of batchRows as Array<{ session_id: string; input_tokens: number | null; output_tokens: number | null; cache_read_tokens: number | null; cache_creation_tokens: number | null; estimated_cost_usd: number | null }>) {
           const agent = sourceBySessionId.get(c.session_id);
           if (!agent) continue;
           const start = sessionStartById.get(c.session_id);
           if (!start) continue;
           const p = periodKey(toJSTDate(start));
-          addAgent(p, agent, { costUsd: c.estimated_cost_usd ?? 0 });
+          const tokens = (c.input_tokens ?? 0) + (c.output_tokens ?? 0) + (c.cache_read_tokens ?? 0) + (c.cache_creation_tokens ?? 0);
+          addAgent(p, agent, { tokens, costUsd: c.estimated_cost_usd ?? 0 });
         }
+        if (batchRows.length < 1000) break;
+      }
 
-        const { data: commitRows } = await this.client
+      for (let offset = 0; ; offset += 1000) {
+        const { data: batchRows } = await this.client
           .from('trail_session_commits')
           .select('session_id,committed_at,lines_added')
-          .gte('committed_at', cutoffIso);
-        for (const c of (commitRows ?? []) as Array<{ session_id: string; committed_at: string; lines_added: number | null }>) {
+          .gte('committed_at', cutoffIso)
+          .range(offset, offset + 999);
+        if (!batchRows || batchRows.length === 0) break;
+        for (const c of batchRows as Array<{ session_id: string; committed_at: string; lines_added: number | null }>) {
           const agent = sourceBySessionId.get(c.session_id);
           if (!agent) continue;
           const p = periodKey(toJSTDate(c.committed_at));
           addAgent(p, agent, { loc: c.lines_added ?? 0 });
         }
+        if (batchRows.length < 1000) break;
       }
-      // ── toolCounts: trail_message_tool_calls + trail_messages 直接 JOIN 集計 ──
-      const normalizeTcTool = (name: string): string => {
-        if (!name.startsWith('mcp__')) return name;
-        const parts = name.split('__');
-        return parts.length >= 3 ? `${parts[0]}__${parts[1]}` : name;
-      };
-      if (sessionIds.length > 0) {
-        // バッチサイズ 500 で trail_message_tool_calls を取得
-        const TC_BATCH = 500;
-        for (let bi = 0; bi < sessionIds.length; bi += TC_BATCH) {
-          const batchIds = sessionIds.slice(bi, bi + TC_BATCH);
-          const { data: tcBatch } = await this.client
-            .from('trail_message_tool_calls')
-            .select('session_id, message_uuid, turn_index, tool_name, turn_exec_ms')
-            .in('session_id', batchIds);
-          const tcBatchRows = (tcBatch ?? []) as Array<{
-            session_id: string; message_uuid: string; turn_index: number;
-            tool_name: string; turn_exec_ms: number | null;
-          }>;
-          // メッセージ uuid を収集
-          const batchMsgUuids = [...new Set(tcBatchRows.map(r => r.message_uuid))];
-          if (batchMsgUuids.length === 0) continue;
-          const { data: batchMsgs } = await this.client
-            .from('trail_messages')
-            .select('uuid, session_id, timestamp, type, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens')
-            .in('uuid', batchMsgUuids);
-          type MsgRow = { uuid: string; session_id: string; timestamp: string; type: string | null; input_tokens: number | null; output_tokens: number | null; cache_read_tokens: number | null; cache_creation_tokens: number | null };
-          const batchMsgMap = new Map<string, MsgRow>();
-          for (const m of (batchMsgs ?? []) as MsgRow[]) {
-            batchMsgMap.set(m.uuid, m);
-          }
-          // message_uuid ごとのツール数を事前集計
-          const msgToolCountBatch = new Map<string, number>();
-          for (const r of tcBatchRows) {
-            msgToolCountBatch.set(r.message_uuid, (msgToolCountBatch.get(r.message_uuid) ?? 0) + 1);
-          }
-          // session_id + turn_index ごとのツール数
-          const turnToolCountBatch = new Map<string, number>();
-          for (const r of tcBatchRows) {
-            const tk = `${r.session_id}:${r.turn_index}`;
-            turnToolCountBatch.set(tk, (turnToolCountBatch.get(tk) ?? 0) + 1);
-          }
-          // 集計
-          for (const r of tcBatchRows) {
-            const m = batchMsgMap.get(r.message_uuid);
-            if (!m || !m.timestamp) continue;
-            const p = periodKey(toJSTDate(m.timestamp));
-            const tool = normalizeTcTool(r.tool_name);
-            const source = sourceBySessionId.get(r.session_id) ?? 'Claude Code';
-            const toolsInMsg = msgToolCountBatch.get(r.message_uuid) ?? 1;
-            const tk = `${r.session_id}:${r.turn_index}`;
-            const toolsInTurn = turnToolCountBatch.get(tk) ?? 1;
-            const rawTokens = m.type === 'assistant'
-              ? Math.round(((m.input_tokens ?? 0) + (m.output_tokens ?? 0)) / toolsInMsg)
-              : 0;
-            const totalAllTokens = (m.input_tokens ?? 0) + (m.output_tokens ?? 0) + (m.cache_read_tokens ?? 0) + (m.cache_creation_tokens ?? 0);
-            const isMissing = m.type === 'assistant' && totalAllTokens === 0 ? 1 : 0;
-            const isTurn = m.type === 'assistant' ? 1 : 0;
-            const durationContrib = Math.round((r.turn_exec_ms ?? 0) / toolsInTurn);
-            // key: period|tool|source
-            const aggKey = `${p}|${tool}|${source}`;
-            const cur = tcAggMap.get(aggKey) ?? { count: 0, durationMs: 0, adjustedTokens: 0, totalTurns: 0, missingTurns: 0 };
-            cur.count += 1;
-            cur.durationMs += durationContrib;
-            // tokens and turns are accumulated per-row; factor applied after grouping by (period, tool)
-            // Store raw token contrib here; factor applied below after (period, tool) grouping
-            cur.adjustedTokens += rawTokens; // temporarily raw; factor applied in final map
-            cur.totalTurns += isTurn;
-            cur.missingTurns += isMissing;
-            tcAggMap.set(aggKey, cur);
-          }
-        }
-      }
-      // (period, tool) 単位に集約し factor を適用
-      type ToolFinalEntry = { count: number; durationMs: number; adjustedTokens: number; totalTurns: number; missingTurns: number };
-      const toolFinalMap = new Map<string, ToolFinalEntry>();
-      for (const [k, v] of tcAggMap.entries()) {
-        const lastPipe = k.lastIndexOf('|');
-        const firstPipe = k.indexOf('|');
-        const period = k.slice(0, firstPipe);
-        const tool = k.slice(firstPipe + 1, lastPipe);
-        const observedTurns = v.totalTurns - v.missingTurns;
-        const factor = observedTurns > 0 ? v.totalTurns / observedTurns : 1;
-        const finalKey = `${period}|${tool}`;
-        const cur = toolFinalMap.get(finalKey) ?? { count: 0, durationMs: 0, adjustedTokens: 0, totalTurns: 0, missingTurns: 0 };
-        cur.count += v.count;
-        cur.durationMs += v.durationMs;
-        cur.adjustedTokens += v.adjustedTokens * factor;
-        cur.totalTurns += v.totalTurns;
-        cur.missingTurns += v.missingTurns;
-        toolFinalMap.set(finalKey, cur);
-      }
-      const toolCounts = [...toolFinalMap.entries()].map(([k, e]) => {
+
+      const toolCounts = [...toolDcMap.entries()].map(([k, e]) => {
         const sep = k.indexOf('|');
         return {
           period: k.slice(0, sep),
           tool: k.slice(sep + 1),
           count: e.count,
-          tokens: Math.round(e.adjustedTokens),
+          tokens: e.tokens,
           durationMs: e.durationMs,
-          tokenMissingRate: e.totalTurns > 0 ? e.missingTurns / e.totalTurns : 0,
-          tokenTotalTurns: e.totalTurns,
-          tokenMissingTurns: e.missingTurns,
+          tokenMissingRate: 0,
+          tokenTotalTurns: 0,
+          tokenMissingTurns: 0,
         };
       }).sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
-      // errorRate.total を toolCounts の count から補完
-      for (const tc of toolCounts) {
-        const ef = errMap.get(tc.period) ?? { err: 0, total: 0, byTool: {} };
-        ef.total += tc.count;
-        errMap.set(tc.period, ef);
-      }
+
       const agentStats = [...agentMap.entries()]
         .map(([k, v]) => {
           const [p, agent] = splitKey(k);
-          const observedTurns = v.tokenTotalTurns - v.tokenMissingTurns;
-          const factor = observedTurns > 0 ? v.tokenTotalTurns / observedTurns : 1;
           return {
             period: p,
             agent,
-            tokens: Math.round(v.tokens * factor),
-            costUsd: v.costUsd * factor,
+            tokens: v.tokens,
+            costUsd: v.costUsd,
             loc: v.loc,
-            tokenMissingRate: v.tokenTotalTurns > 0 ? v.tokenMissingTurns / v.tokenTotalTurns : 0,
-            tokenTotalTurns: v.tokenTotalTurns,
-            tokenMissingTurns: v.tokenMissingTurns,
+            tokenMissingRate: 0,
+            tokenTotalTurns: 0,
+            tokenMissingTurns: 0,
           };
         })
         .sort((a, b) => a.period.localeCompare(b.period) || a.agent.localeCompare(b.agent));
 
-      const modelFinalMap = new Map<string, { count: number; tokens: number; totalTurns: number; missingTurns: number }>();
-      for (const [k, v] of modelAggMap.entries()) {
-        const firstSep = k.indexOf('::');
-        const secondSep = k.indexOf('::', firstSep + 2);
-        const period = k.slice(0, firstSep);
-        const model = secondSep >= 0 ? k.slice(firstSep + 2, secondSep) : k.slice(firstSep + 2);
-        const observed = v.totalTurns - v.missingTurns;
-        const f = observed > 0 ? v.totalTurns / observed : 1;
-        const modelKey = `${period}::${model}`;
-        const cur = modelFinalMap.get(modelKey) ?? { count: 0, tokens: 0, totalTurns: 0, missingTurns: 0 };
-        cur.count += v.count;
-        cur.tokens += Math.round(v.tokens * f);
-        cur.totalTurns += v.totalTurns;
-        cur.missingTurns += v.missingTurns;
-        modelFinalMap.set(modelKey, cur);
-      }
-      const modelStats = [...modelFinalMap.entries()].map(([k, v]) => {
+      const modelStats = [...modelDcMap.entries()].map(([k, v]) => {
         const sep = k.indexOf('::');
         return {
           period: k.slice(0, sep),
           model: k.slice(sep + 2),
           count: v.count,
           tokens: v.tokens,
-          tokenMissingRate: v.totalTurns > 0 ? v.missingTurns / v.totalTurns : 0,
-          tokenTotalTurns: v.totalTurns,
-          tokenMissingTurns: v.missingTurns,
+          tokenMissingRate: 0,
+          tokenTotalTurns: 0,
+          tokenMissingTurns: 0,
         };
       }).sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
-
-      const { data: commitData } = await this.client
-        .from('trail_session_commits')
-        .select('commit_hash, commit_message, committed_at, lines_added')
-        .gte('committed_at', cutoffIso);
 
       const extractPrefix = (subject: string): string => {
         const m = /^([a-z]+)(?:\([^)]*\))?!?:\s/i.exec(subject);
@@ -1186,17 +1072,26 @@ export class SupabaseTrailReader implements ITrailReader {
       };
       const seenHashes = new Set<string>();
       const prefixMap = new Map<string, { count: number; linesAdded: number }>();
-      for (const c of (commitData ?? []) as Array<{ commit_hash: string; commit_message: string; committed_at: string; lines_added: number }>) {
-        if (seenHashes.has(c.commit_hash)) continue;
-        seenHashes.add(c.commit_hash);
-        const subject = (c.commit_message ?? '').split('\n')[0];
-        const prefix = extractPrefix(subject);
-        const p = periodKey(toJSTDate(c.committed_at));
-        const k = `${p}::${prefix}`;
-        const e = prefixMap.get(k) ?? { count: 0, linesAdded: 0 };
-        e.count++;
-        e.linesAdded += c.lines_added ?? 0;
-        prefixMap.set(k, e);
+      for (let offset = 0; ; offset += 1000) {
+        const { data: batchRows } = await this.client
+          .from('trail_session_commits')
+          .select('commit_hash,commit_message,committed_at,lines_added')
+          .gte('committed_at', cutoffIso)
+          .range(offset, offset + 999);
+        if (!batchRows || batchRows.length === 0) break;
+        for (const c of batchRows as Array<{ commit_hash: string; commit_message: string; committed_at: string; lines_added: number }>) {
+          if (seenHashes.has(c.commit_hash)) continue;
+          seenHashes.add(c.commit_hash);
+          const subject = (c.commit_message ?? '').split('\n')[0];
+          const prefix = extractPrefix(subject);
+          const p = periodKey(toJSTDate(c.committed_at));
+          const commitKey = `${p}::${prefix}`;
+          const e = prefixMap.get(commitKey) ?? { count: 0, linesAdded: 0 };
+          e.count++;
+          e.linesAdded += c.lines_added ?? 0;
+          prefixMap.set(commitKey, e);
+        }
+        if (batchRows.length < 1000) break;
       }
 
       const commitPrefixStats = [...prefixMap.entries()]
