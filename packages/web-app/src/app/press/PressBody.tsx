@@ -87,6 +87,10 @@ export function PressBody() {
           />
         }
       />
+      <BriefingPrimary
+        subtitle="- スキル"
+        embed={null}
+      />
       <BriefingSecondary
         embed={
           <div style={{ height: MARKDOWN_PREVIEW_HEIGHT, overflow: 'hidden' }}>
