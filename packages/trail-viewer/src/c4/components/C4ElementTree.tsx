@@ -265,9 +265,10 @@ interface C4ElementTreeProps {
   /** レベル/ドリル変更時に渡すリセット指示。key が変化したらチェック・展開状態をリセットする */
   readonly checkReset?: { readonly key: number; readonly ids: ReadonlySet<string> | null; readonly expanded: ReadonlySet<string> | null };
   readonly communityTree?: readonly C4TreeNode[];
+  readonly onCommunityTabOpen?: () => void;
 }
 
-export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onSelect, repoOptions = [], selectedRepo = '', onRepoChange, releaseOptions = [], selectedRelease = CURRENT_RELEASE_TAG, onReleaseChange, currentLevel, selectedSystemId, onAddElement, onCheckedChange, onRemoveElement, onPurgeDeleted, isDark, checkReset, communityTree }) => {
+export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onSelect, repoOptions = [], selectedRepo = '', onRepoChange, releaseOptions = [], selectedRelease = CURRENT_RELEASE_TAG, onReleaseChange, currentLevel, selectedSystemId, onAddElement, onCheckedChange, onRemoveElement, onPurgeDeleted, isDark, checkReset, communityTree, onCommunityTabOpen }) => {
   const { t } = useTrailI18n();
   const [searchText, setSearchText] = useState('');
   const [activeTab, setActiveTab] = useState<0 | 1>(0);
@@ -499,7 +500,10 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
       )}
       <Tabs
         value={activeTab}
-        onChange={(_, v: number) => setActiveTab(v as 0 | 1)}
+        onChange={(_, v: number) => {
+          setActiveTab(v as 0 | 1);
+          if (v === 1) onCommunityTabOpen?.();
+        }}
         variant="fullWidth"
         sx={{
           minHeight: 32,

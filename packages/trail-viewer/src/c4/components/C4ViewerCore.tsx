@@ -302,8 +302,9 @@ export function C4ViewerCore({
 
   // --- Community overlay state ---
   const [showCommunity, setShowCommunity] = useState(false);
+  const [codeGraphEnabled, setCodeGraphEnabled] = useState(false);
   const [showActivityTrend, setShowActivityTrend] = useState(true);
-  const { graph: codeGraph } = useCodeGraph(serverUrl, { enabled: showCommunity });
+  const { graph: codeGraph } = useCodeGraph(serverUrl, { enabled: showCommunity || codeGraphEnabled });
 
   // --- Flow mode state ---
   const ghostEdges = useC4GhostEdges(
@@ -1050,6 +1051,7 @@ export function C4ViewerCore({
             onPurgeDeleted={onPurgeDeleted}
             isDark={isDark}
             communityTree={communityTree}
+            onCommunityTabOpen={() => setCodeGraphEnabled(true)}
           />
         )}
         {/* C4 Graph */}
