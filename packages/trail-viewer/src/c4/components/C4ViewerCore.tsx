@@ -23,6 +23,7 @@ import { useC4GhostEdges } from '../hooks/useC4GhostEdges';
 import { useDefectRisk } from '../hooks/useDefectRisk';
 import { useHotspot } from '../hooks/useHotspot';
 import { useTemporalCoupling } from '../hooks/useTemporalCoupling';
+import { useElementFunctions } from '../hooks/useElementFunctions';
 
 const UNKNOWN_REPO_KEY = '__unknown__';
 const CURRENT_RELEASE_TAG = 'current';
@@ -952,6 +953,12 @@ export function C4ViewerCore({
     return { element, incoming, outgoing, documents, coverage, complexity, importance, defectRisk, dsm, community };
   }, [c4Model, complexityMatrix, coverageMatrix, defectRiskMap, docLinks, filteredDsmMatrix, importanceMatrix, selectedElementId, communityOverlayL3, codeGraph]);
 
+  const { data: elementFunctions, loading: elementFunctionsLoading } = useElementFunctions({
+    serverUrl,
+    elementId: selectedElementInfo?.element.type === 'code' ? selectedElementId : null,
+    enabled: selectedElementInfo?.element.type === 'code' && !!selectedElementId,
+  });
+
   const toolbarButtonSx = {
     textTransform: 'none', color: colors.accent, borderColor: colors.border,
     fontWeight: 600, fontSize: '0.875rem', borderRadius: '8px',
@@ -1559,6 +1566,60 @@ export function C4ViewerCore({
                       </Box>
                     );
                   })()}
+                  {selectedElementInfo.element.type === 'code' && (
+                    <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 1 }}>
+                      <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700, mb: 0.5 }}>
+                        {t('c4.popup.functions')}
+                      </Typography>
+                      {elementFunctionsLoading ? (
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem' }}>
+                          ...
+                        </Typography>
+                      ) : !elementFunctions || elementFunctions.symbols.length === 0 ? (
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem' }}>
+                          {t('c4.popup.functions.empty')}
+                        </Typography>
+                      ) : (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                          {elementFunctions.symbols.map(sym => (
+                            <Box key={sym.id} sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+                              <Typography
+                                component="span"
+                                sx={{
+                                  fontSize: '0.58rem',
+                                  fontWeight: 700,
+                                  color: isDark ? '#7ec8e3' : '#0070c0',
+                                  flexShrink: 0,
+                                  textTransform: 'uppercase',
+                                }}
+                              >
+                                {sym.kind.slice(0, 2)}
+                              </Typography>
+                              <Typography
+                                component="span"
+                                sx={{
+                                  fontSize: '0.68rem',
+                                  color: colors.text,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  flex: 1,
+                                }}
+                              >
+                                {sym.name}
+                              </Typography>
+                              <Typography
+                                component="span"
+                                sx={{ fontSize: '0.58rem', color: colors.textMuted, flexShrink: 0 }}
+                              >
+                                :{sym.line + 1}
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Box>
+                      )}
+                    </Box>
+                  )}
                   <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 1 }}>
                     <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700, mb: 0.5 }}>
                       Documents
