@@ -1,0 +1,58 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`instrumentCode snapshots transforms async function 1`] = `
+"const { __traceEnter, __traceExit, __traceThrow } = require('@anytime-markdown/trace-agent-node/runtime');
+async function fetchData(url) {
+  const __tid = __traceEnter("src/fetch.js", "fetchData", [url], 0, 1);
+  try {
+    const res = await fetch(url);
+    const __ret = res.json();
+    __traceExit(__tid, __ret);
+    return __ret;
+  } catch (__e) {
+    __traceThrow(__tid, __e);
+    throw __e;
+  }
+}"
+`;
+
+exports[`instrumentCode snapshots transforms function declaration 1`] = `
+"const { __traceEnter, __traceExit, __traceThrow } = require('@anytime-markdown/trace-agent-node/runtime');
+function add(a, b) {
+  const __tid = __traceEnter("src/add.js", "add", [a, b], 0, 1);
+  try {
+    const __ret = a + b;
+    __traceExit(__tid, __ret);
+    return __ret;
+  } catch (__e) {
+    __traceThrow(__tid, __e);
+    throw __e;
+  }
+}"
+`;
+
+exports[`instrumentCode snapshots transforms nested functions 1`] = `
+"const { __traceEnter, __traceExit, __traceThrow } = require('@anytime-markdown/trace-agent-node/runtime');
+function outer() {
+  const __tid = __traceEnter("src/nested.js", "outer", [], 0, 1);
+  try {
+    function inner() {
+      const __tid = __traceEnter("src/nested.js", "inner", [], 0, 1);
+      try {
+        const __ret = 1;
+        __traceExit(__tid, __ret);
+        return __ret;
+      } catch (__e) {
+        __traceThrow(__tid, __e);
+        throw __e;
+      }
+    }
+    const __ret = inner();
+    __traceExit(__tid, __ret);
+    return __ret;
+  } catch (__e) {
+    __traceThrow(__tid, __e);
+    throw __e;
+  }
+}"
+`;
