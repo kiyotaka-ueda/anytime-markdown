@@ -44,6 +44,8 @@ export interface UseCanvasBaseOptions {
   readonly dispatch?: (action: { type: string; [key: string]: unknown }) => void;
   /** Space キーによるパンモード切替を有効にするか（デフォルト false） */
   readonly enableSpacePan?: boolean;
+  /** ホイールズームに Shift を要求するか（デフォルト true） */
+  readonly wheelRequiresShift?: boolean;
   /** コピー実行時のコールバック */
   readonly onCopy?: () => void;
   /** ペースト実行時のコールバック */
@@ -103,6 +105,7 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
     getSelection,
     dispatch: editorDispatch,
     enableSpacePan = false,
+    wheelRequiresShift = true,
     onCopy,
     onPaste,
     onDelete,
@@ -427,7 +430,7 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
     const canvas = canvasRef.current;
     if (!canvas) return;
     const onWheel = (e: WheelEvent) => {
-      if (!e.shiftKey) return;
+      if (wheelRequiresShift && !e.shiftKey) return;
       e.preventDefault();
       const rect = canvas.getBoundingClientRect();
       const cx = e.clientX - rect.left;
@@ -436,7 +439,7 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
     };
     canvas.addEventListener('wheel', onWheel, { passive: false });
     return () => canvas.removeEventListener('wheel', onWheel);
-  }, [canvasRef, getViewport, setViewport]);
+  }, [canvasRef, getViewport, setViewport, wheelRequiresShift]);
 
   // --- Draw helper ---
   const drawSelectOverlay = useCallback((ctx: CanvasRenderingContext2D, vp: Viewport) => {

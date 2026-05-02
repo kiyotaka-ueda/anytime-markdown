@@ -144,6 +144,8 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
       const c4Id = node.metadata?.c4Id as string | undefined;
       if (c4Id) onNodeContextMenu?.(c4Id, x, y, node.type);
     },
+    enableSpacePan: true,
+    wheelRequiresShift: false,
   });
 
   // Center on selected node (only when centerOnSelect is true, e.g. tree panel selection)
