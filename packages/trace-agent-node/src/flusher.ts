@@ -29,7 +29,7 @@ export class Flusher {
         const timestamp = endedAt.replaceAll(/[:.]/g, '-');
         const filename = path.join(outputDir, `${timestamp}-${safeName}.json`);
 
-        const lifelines = Array.from(lifelineMap.entries()).map(([filePath, id]) => ({
+        const lifelines: TraceFile['lifelines'] = Array.from(lifelineMap.entries()).map(([filePath, id]) => ({
             id, kind: 'file' as const, path: filePath,
         }));
 
@@ -65,6 +65,21 @@ export class Flusher {
                 meta: safeSerialize(entry.meta) as JsonValue,
             };
         });
+
+        // io イベントが参照する lifeline ID を lifelines 配列に補完する。
+        // patchFs/Http/Sql は '__process__' / 'L_fs' 等の固定 ID を使うが
+        // lifelineMap（関数呼び出し lifeline）には含まれないため別途追加が必要。
+        const existingIds = new Set(lifelines.map(l => l.id));
+        for (const ev of events) {
+            if (ev.type !== 'io') continue;
+            for (const raw of [ev.from, ev.to] as (string | null | undefined)[]) {
+                const id = raw ?? '';
+                if (!id || existingIds.has(id)) continue;
+                existingIds.add(id);
+                const label = id === '__process__' ? 'process' : id.replace(/^L_/, '');
+                lifelines.push({ id, kind: 'io', label });
+            }
+        }
 
         const traceFile: TraceFile = {
             version: 1,
