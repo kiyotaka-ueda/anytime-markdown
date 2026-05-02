@@ -96,7 +96,7 @@ export function PressBody() {
         embed={null}
       />
       <BriefingPrimary
-        subtitle="- スキル"
+        subtitle="- 将来対応"
         trailKeys={['trail4', 'trail12', 'trail13']}
         embed={null}
       />
