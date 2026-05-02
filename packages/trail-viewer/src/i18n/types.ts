@@ -231,6 +231,9 @@ export interface TrailI18n {
   'c4.copyPath': string;
   'c4.frameFilter.reset': string;
   'c4.elementPanel.searchPlaceholder': string;
+  'c4.elementPanel.tabLayer': string;
+  'c4.elementPanel.tabCommunity': string;
+  'c4.elementPanel.communityUnavailable': string;
   'c4.popup.metrics': string;
   'c4.popup.metric.coverage': string;
   'c4.popup.metric.branches': string;
