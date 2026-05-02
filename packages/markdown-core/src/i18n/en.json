@@ -702,7 +702,7 @@
     "trail3Body": "Automatically collect Claude Code work logs to centralize tool usage, skill execution, model costs, and commit history. The daily activity chart and turn-lane timeline show tool calls, inference time, commits, and errors side by side — enabling complete tracking and verification of every AI agent behavior.",
     "trail4Title": "Visual AI Briefing",
     "trail4Body": "Paste screenshots and annotations into Agent Note to share visual context with your AI assistant. With skills, you can issue work instructions referencing the note in a single command.",
-    "trail5Title": "Optimize Costs — token efficiency visualization",
+    "trail5Title": "Optimize Costs — productivity visualization",
     "trail5Body": "Monitor total token consumption, estimated cost, and cache hit rate over time, with output ratio and context-growth signals at a glance. Productivity metrics per commit, per hour, and per line let you quantify AI agent ROI.",
     "trail6Title": "Track DevOps Metrics — DORA visualization",
     "trail6Body": "Automatically measure lead time, deployment frequency, change failure rate, and release success rate. Quantify Four Keys-based delivery performance and accelerate continuous improvement with the release bar chart and DORA scorecards.",
