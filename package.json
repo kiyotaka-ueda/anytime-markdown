@@ -8,7 +8,8 @@
     "postinstall": "rm -rf node_modules/next-auth/node_modules/@auth",
     "lint": "eslint packages/markdown-core/src packages/web-app/src",
     "lint:fix": "eslint --fix packages/markdown-core/src packages/web-app/src",
-    "prepare": "husky"
+    "prepare": "husky",
+    "import-coverage": "node scripts/import-coverage.js"
   },
   "workspaces": [
     "packages/markdown-core",
