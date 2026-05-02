@@ -93,13 +93,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         summary: (r.summary as string) ?? '',
       }));
       const graph = composeCodeGraph(stored, communities);
-      const prefix = repoId ? `${repoId}:` : '';
       for (const node of graph.nodes) {
-        // ノードIDから repoId プレフィックスを除去したパスを収集
-        const nodePath = prefix && node.id.startsWith(prefix)
-          ? node.id.slice(prefix.length)
-          : node.id;
-        graphNodePaths.add(nodePath);
+        // ノードIDの "repoId:" プレフィックスを除去してファイルパスのみ収集。
+        // repoId はコードグラフの repo prefix（例: "Workspace"）と一致しない場合があるため
+        // repoId に依存せず ":" 以降を切り出す。
+        const colonIdx = node.id.indexOf(':');
+        graphNodePaths.add(colonIdx >= 0 ? node.id.slice(colonIdx + 1) : node.id);
       }
     }
 
