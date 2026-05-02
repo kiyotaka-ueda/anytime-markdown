@@ -4,6 +4,7 @@ import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
@@ -136,6 +137,7 @@ interface MetricItem {
   readonly value: React.ReactNode;
   readonly badge?: { readonly label: string; readonly color: string };
   readonly delta?: { readonly text: string; readonly color: string };
+  readonly tooltip?: string;
 }
 
 function CyclingCard({
@@ -165,9 +167,16 @@ function CyclingCard({
       }}
       onClick={onCycle}
     >
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, textAlign: 'left' }}>
-        {`${groupName}：${current.label}`}
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5, gap: 0.5 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'left' }}>
+          {`${groupName}：${current.label}`}
+        </Typography>
+        {current.tooltip && (
+          <Tooltip title={current.tooltip} arrow placement="top">
+            <HelpOutlineIcon sx={{ fontSize: 12, color: 'text.disabled', cursor: 'help', flexShrink: 0 }} />
+          </Tooltip>
+        )}
+      </Box>
       <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 1 }}>
           <Typography variant="h3">{current.value}</Typography>
@@ -240,6 +249,7 @@ function OverviewCards({
     {
       label: t('analytics.totalSessions'),
       value: fmtNum(totals.sessions),
+      tooltip: t('analytics.totalSessions.description'),
       delta: totals.comparison?.sessions?.deltaPct != null ? {
         text: `${totals.comparison.sessions.deltaPct > 0 ? '↑' : totals.comparison.sessions.deltaPct < 0 ? '↓' : '→'} ${Math.abs(totals.comparison.sessions.deltaPct).toFixed(1)}%`,
         color: totals.comparison.sessions.deltaPct > 0 ? 'success.main' : totals.comparison.sessions.deltaPct < 0 ? 'error.main' : 'text.secondary',
@@ -248,6 +258,7 @@ function OverviewCards({
     {
       label: t('analytics.totalTokens'),
       value: fmtTokens(totalTokens),
+      tooltip: t('analytics.totalTokens.description'),
       delta: totals.comparison?.tokens?.deltaPct != null ? {
         text: `${totals.comparison.tokens.deltaPct > 0 ? '↑' : totals.comparison.tokens.deltaPct < 0 ? '↓' : '→'} ${Math.abs(totals.comparison.tokens.deltaPct).toFixed(1)}%`,
         color: totals.comparison.tokens.deltaPct > 0 ? 'error.main' : totals.comparison.tokens.deltaPct < 0 ? 'success.main' : 'text.secondary',
@@ -256,6 +267,7 @@ function OverviewCards({
     {
       label: t('analytics.estimatedCost'),
       value: fmtUsd(totals.estimatedCostUsd),
+      tooltip: t('analytics.estimatedCost.description'),
       delta: totals.comparison?.cost?.deltaPct != null ? {
         text: `${totals.comparison.cost.deltaPct > 0 ? '↑' : totals.comparison.cost.deltaPct < 0 ? '↓' : '→'} ${Math.abs(totals.comparison.cost.deltaPct).toFixed(1)}%`,
         color: totals.comparison.cost.deltaPct > 0 ? 'error.main' : totals.comparison.cost.deltaPct < 0 ? 'success.main' : 'text.secondary',
@@ -264,6 +276,7 @@ function OverviewCards({
     {
       label: t('analytics.totalCommits'),
       value: fmtNum(totals.totalCommits),
+      tooltip: t('analytics.totalCommits.description'),
       delta: totals.comparison?.commits?.deltaPct != null ? {
         text: `${totals.comparison.commits.deltaPct > 0 ? '↑' : totals.comparison.commits.deltaPct < 0 ? '↓' : '→'} ${Math.abs(totals.comparison.commits.deltaPct).toFixed(1)}%`,
         color: totals.comparison.commits.deltaPct > 0 ? 'success.main' : totals.comparison.commits.deltaPct < 0 ? 'error.main' : 'text.secondary',
@@ -272,6 +285,7 @@ function OverviewCards({
     {
       label: t('analytics.linesAdded'),
       value: fmtNum(totals.totalLinesAdded),
+      tooltip: t('analytics.linesAdded.description'),
       delta: totals.comparison?.loc?.deltaPct != null ? {
         text: `${totals.comparison.loc.deltaPct > 0 ? '↑' : totals.comparison.loc.deltaPct < 0 ? '↓' : '→'} ${Math.abs(totals.comparison.loc.deltaPct).toFixed(1)}%`,
         color: totals.comparison.loc.deltaPct > 0 ? 'success.main' : totals.comparison.loc.deltaPct < 0 ? 'error.main' : 'text.secondary',
@@ -280,6 +294,7 @@ function OverviewCards({
     {
       label: t('analytics.totalLoc'),
       value: fmtNum(totals.totalLoc),
+      tooltip: t('analytics.totalLoc.description'),
     },
   ];
 
@@ -289,6 +304,13 @@ function OverviewCards({
     tokensPerLoc: 'metrics.tokensPerLoc.name',
     aiFirstTrySuccessRate: 'metrics.aiFirstTrySuccessRate.name',
     changeFailureRate: 'metrics.changeFailureRate.name',
+  };
+  const DORA_DESCRIPTION_KEYS: Record<string, string> = {
+    deploymentFrequency: 'metrics.deploymentFrequency.description',
+    leadTimePerLoc: 'metrics.leadTimePerLoc.description',
+    tokensPerLoc: 'metrics.tokensPerLoc.description',
+    aiFirstTrySuccessRate: 'metrics.aiFirstTrySuccessRate.description',
+    changeFailureRate: 'metrics.changeFailureRate.description',
   };
   const LEVEL_COLORS: Record<string, string> = {
     elite: isDark ? '#42A5F5' : '#1976D2',
@@ -309,6 +331,7 @@ function OverviewCards({
             primary: formatted.primary,
             unit: formatted.unit,
             label: t((DORA_ID_KEYS[m.id] ?? m.id) as Parameters<typeof t>[0]),
+            tooltip: DORA_DESCRIPTION_KEYS[m.id] ? t(DORA_DESCRIPTION_KEYS[m.id] as Parameters<typeof t>[0]) : undefined,
             badge: m.level ? { label: LEVEL_LABELS[m.level], color: LEVEL_COLORS[m.level] } : undefined,
             delta: deltaPct != null ? {
               text: `${deltaPct > 0 ? '↑' : deltaPct < 0 ? '↓' : '→'} ${Math.abs(deltaPct).toFixed(1)}%`,
@@ -331,9 +354,16 @@ function OverviewCards({
       />
       {doraCards.map((card) => (
         <Paper key={card.label} elevation={0} sx={{ ...cardStyle, display: 'flex', flexDirection: 'column' }}>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, textAlign: 'left' }}>
-            {card.label}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5, gap: 0.5 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'left' }}>
+              {card.label}
+            </Typography>
+            {card.tooltip && (
+              <Tooltip title={card.tooltip} arrow placement="top">
+                <HelpOutlineIcon sx={{ fontSize: 12, color: 'text.disabled', cursor: 'help', flexShrink: 0 }} />
+              </Tooltip>
+            )}
+          </Box>
           <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
               <Typography variant="h3">{card.primary}</Typography>
@@ -1046,8 +1076,12 @@ function SessionCacheTimeline({
           onChange={(_, v: 'tool' | 'skill' | null) => { if (v) setMode(v); }}
           sx={{ '& .MuiToggleButton-root': { py: 0.25, px: 1, fontSize: '0.7rem' } }}
         >
-          <ToggleButton value="tool">{t('analytics.modeTool')}</ToggleButton>
-          <ToggleButton value="skill">{t('analytics.modeSkill')}</ToggleButton>
+          <Tooltip title={t('analytics.modeTool.description')} arrow placement="top">
+            <ToggleButton value="tool">{t('analytics.modeTool')}</ToggleButton>
+          </Tooltip>
+          <Tooltip title={t('analytics.modeSkill.description')} arrow placement="top">
+            <ToggleButton value="skill">{t('analytics.modeSkill')}</ToggleButton>
+          </Tooltip>
         </ToggleButtonGroup>
       </Box>
       {hasData ? (
@@ -1177,7 +1211,7 @@ function SessionCommitPrefixChart({
   if (commits.length === 0) {
     return (
       <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
-        <Typography variant="subtitle2" sx={{ px: 1.5 }}>{t('analytics.commitPrefixChartTitle')}</Typography>
+        <ChartTitle title={t('analytics.commitPrefixChartTitle')} description={t('analytics.commitPrefixChartTitle.description')} />
         <Box sx={{ height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Typography variant="h5" sx={{ color: colors.textSecondary }}>0</Typography>
         </Box>
@@ -1201,9 +1235,7 @@ function SessionCommitPrefixChart({
 
   return (
     <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
-      <Typography variant="subtitle2" sx={{ px: 1.5 }}>
-        {t('analytics.commitPrefixChartTitle')}
-      </Typography>
+      <ChartTitle title={t('analytics.commitPrefixChartTitle')} description={t('analytics.commitPrefixChartTitle.description')} />
       <PieChart
         series={[{ data: pieData, innerRadius: 28, outerRadius: 52, paddingAngle: 2, cornerRadius: 3 }]}
         height={130}
@@ -1354,34 +1386,34 @@ function SessionMetricsPanel({ session, toolMetrics }: Readonly<{
   const cardStyle = { ...cardSx, p: 2, minWidth: 160, flex: '1 1 160px', textAlign: 'center' } as const;
 
   const usageCards = [
-    { label: t('analytics.totalTokens'), value: fmtTokens(totalTokens) },
-    { label: t('analytics.estimatedCost'), value: fmtUsd(cost) },
-    { label: t('analytics.metricMessages'), value: fmtNum(s.messageCount) },
-    { label: t('analytics.metricErrors'), value: (s.errorCount ?? 0) > 0 ? fmtNum(s.errorCount!) : '\u2014' },
-    { label: t('analytics.cacheHit'), value: cacheInput > 0 ? fmtPercent(cacheHitRate) : '\u2014' },
-    { label: t('analytics.outputRatio'), value: cacheInput > 0 ? fmtPercent(outputRatio) : '\u2014' },
-    { label: t('analytics.contextGrowth'), value: s.messageCount > 0 ? `${fmtTokens(Math.round(contextGrowth))}/step` : '\u2014' },
-    { label: t('analytics.netLines'), value: linesAdded > 0 || linesDeleted > 0 ? `+${fmtNum(linesAdded)} / -${fmtNum(linesDeleted)}` : '\u2014' },
-    { label: t('analytics.metricFiles'), value: (s.commitStats?.filesChanged ?? 0) > 0 ? fmtNum(s.commitStats!.filesChanged) : '\u2014' },
-    { label: t('analytics.metricDuration'), value: durationMs > 0 ? fmtDuration(durationMs) : '\u2014' },
+    { label: t('analytics.totalTokens'), value: fmtTokens(totalTokens), tooltip: t('analytics.totalTokens.description') },
+    { label: t('analytics.estimatedCost'), value: fmtUsd(cost), tooltip: t('analytics.estimatedCost.description') },
+    { label: t('analytics.metricMessages'), value: fmtNum(s.messageCount), tooltip: t('analytics.metricMessages.description') },
+    { label: t('analytics.metricErrors'), value: (s.errorCount ?? 0) > 0 ? fmtNum(s.errorCount!) : '—', tooltip: t('analytics.metricErrors.description') },
+    { label: t('analytics.cacheHit'), value: cacheInput > 0 ? fmtPercent(cacheHitRate) : '—', tooltip: t('analytics.cacheHit.description') },
+    { label: t('analytics.outputRatio'), value: cacheInput > 0 ? fmtPercent(outputRatio) : '—', tooltip: t('analytics.outputRatio.description') },
+    { label: t('analytics.contextGrowth'), value: s.messageCount > 0 ? `${fmtTokens(Math.round(contextGrowth))}/step` : '—', tooltip: t('analytics.contextGrowth.description') },
+    { label: t('analytics.netLines'), value: linesAdded > 0 || linesDeleted > 0 ? `+${fmtNum(linesAdded)} / -${fmtNum(linesDeleted)}` : '—', tooltip: t('analytics.netLines.description') },
+    { label: t('analytics.metricFiles'), value: (s.commitStats?.filesChanged ?? 0) > 0 ? fmtNum(s.commitStats!.filesChanged) : '—', tooltip: t('analytics.metricFiles.description') },
+    { label: t('analytics.metricDuration'), value: durationMs > 0 ? fmtDuration(durationMs) : '—', tooltip: t('analytics.metricDuration.description') },
   ];
 
   const productivityCards = [
-    { label: t('analytics.tokensPerStep'), value: s.messageCount > 0 ? fmtTokens(Math.round(totalTokens / s.messageCount)) : '\u2014' },
-    { label: t('analytics.costPerStep'), value: s.messageCount > 0 ? fmtUsd(cost / s.messageCount) : '\u2014' },
-    { label: t('analytics.linesPerHour'), value: durationHours > 0 && linesAdded > 0 ? fmtNum(Math.round(linesAdded / durationHours)) : '\u2014' },
-    { label: t('analytics.costPerHour'), value: durationHours > 0 ? fmtUsd(cost / durationHours) : '\u2014' },
-    { label: t('analytics.costPerCommit'), value: (s.commitStats?.commits ?? 0) > 0 ? fmtUsd(cost / s.commitStats!.commits) : '\u2014' },
-    { label: t('analytics.avgInterval'), value: s.messageCount > 1 ? fmtDuration(durationMs / (s.messageCount - 1)) : '\u2014' },
+    { label: t('analytics.tokensPerStep'), value: s.messageCount > 0 ? fmtTokens(Math.round(totalTokens / s.messageCount)) : '—', tooltip: t('analytics.tokensPerStep.description') },
+    { label: t('analytics.costPerStep'), value: s.messageCount > 0 ? fmtUsd(cost / s.messageCount) : '—', tooltip: t('analytics.costPerStep.description') },
+    { label: t('analytics.linesPerHour'), value: durationHours > 0 && linesAdded > 0 ? fmtNum(Math.round(linesAdded / durationHours)) : '—', tooltip: t('analytics.linesPerHour.description') },
+    { label: t('analytics.costPerHour'), value: durationHours > 0 ? fmtUsd(cost / durationHours) : '—', tooltip: t('analytics.costPerHour.description') },
+    { label: t('analytics.costPerCommit'), value: (s.commitStats?.commits ?? 0) > 0 ? fmtUsd(cost / s.commitStats!.commits) : '—', tooltip: t('analytics.costPerCommit.description') },
+    { label: t('analytics.avgInterval'), value: s.messageCount > 1 ? fmtDuration(durationMs / (s.messageCount - 1)) : '—', tooltip: t('analytics.avgInterval.description') },
   ];
 
   const qualityCards = [
-    { label: t('analytics.retryRate'), value: tm && tm.totalEdits > 0 ? fmtPercent(tm.totalRetries / tm.totalEdits) : '\u2014' },
-    { label: t('analytics.buildFail'), value: tm && tm.totalBuildRuns > 0 ? fmtPercent(tm.totalBuildFails / tm.totalBuildRuns) : '\u2014' },
-    { label: t('analytics.testFail'), value: tm && tm.totalTestRuns > 0 ? fmtPercent(tm.totalTestFails / tm.totalTestRuns) : '\u2014' },
+    { label: t('analytics.retryRate'), value: tm && tm.totalEdits > 0 ? fmtPercent(tm.totalRetries / tm.totalEdits) : '—', tooltip: t('analytics.retryRate.description') },
+    { label: t('analytics.buildFail'), value: tm && tm.totalBuildRuns > 0 ? fmtPercent(tm.totalBuildFails / tm.totalBuildRuns) : '—', tooltip: t('analytics.buildFail.description') },
+    { label: t('analytics.testFail'), value: tm && tm.totalTestRuns > 0 ? fmtPercent(tm.totalTestFails / tm.totalTestRuns) : '—', tooltip: t('analytics.testFail.description') },
     { label: t('analytics.metricInterrupted'), value: s.interruption?.interrupted
         ? `${s.interruption.reason === 'max_tokens' ? 'max_tokens' : 'no response'} (${fmtTokens(s.interruption.contextTokens)})`
-        : '\u2014' },
+        : '—', tooltip: t('analytics.metricInterrupted.description') },
   ];
 
   return (
@@ -1413,6 +1445,19 @@ function SessionMetricsPanel({ session, toolMetrics }: Readonly<{
 
 type SessionToolMetric = 'count' | 'tokens' | 'duration';
 
+function ChartTitle({ title, description }: Readonly<{ title: string; description?: string }>) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', px: 1.5, gap: 0.5 }}>
+      <Typography variant="subtitle2">{title}</Typography>
+      {description && (
+        <Tooltip title={description} arrow placement="top">
+          <HelpOutlineIcon sx={{ fontSize: 12, color: 'text.disabled', cursor: 'help', flexShrink: 0 }} />
+        </Tooltip>
+      )}
+    </Box>
+  );
+}
+
 function SessionToolUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics | null }>) {
   const { colors, cardSx, toolPalette } = useTrailTheme();
   const { t } = useTrailI18n();
@@ -1420,7 +1465,7 @@ function SessionToolUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetr
   if (!usage || usage.length === 0) {
     return (
       <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
-        <Typography variant="subtitle2" sx={{ px: 1.5 }}>{t('analytics.toolUsageTitle')}</Typography>
+        <ChartTitle title={t('analytics.toolUsageTitle')} description={t('analytics.toolUsageTitle.description')} />
         <Box sx={{ height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Typography variant="h5" sx={{ color: colors.textSecondary }}>0</Typography>
         </Box>
@@ -1438,7 +1483,7 @@ function SessionToolUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetr
 
   return (
     <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
-      <Typography variant="subtitle2" sx={{ px: 1.5 }}>{t('analytics.toolUsageTitle')}</Typography>
+      <ChartTitle title={t('analytics.toolUsageTitle')} description={t('analytics.toolUsageTitle.description')} />
       <PieChart
         series={[{ data: pieData, innerRadius: 28, outerRadius: 52, paddingAngle: 2, cornerRadius: 3 }]}
         height={130}
@@ -1468,7 +1513,7 @@ function SessionSkillUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
   if (!usage || usage.length === 0) {
     return (
       <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
-        <Typography variant="subtitle2" sx={{ px: 1.5 }}>{t('analytics.combined.skill')}</Typography>
+        <ChartTitle title={t('analytics.combined.skill')} description={t('analytics.combined.skill.description')} />
         <Box sx={{ height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Typography variant="h5" sx={{ color: colors.textSecondary }}>0</Typography>
         </Box>
@@ -1486,7 +1531,7 @@ function SessionSkillUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
 
   return (
     <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
-      <Typography variant="subtitle2" sx={{ px: 1.5 }}>{t('analytics.combined.skill')}</Typography>
+      <ChartTitle title={t('analytics.combined.skill')} description={t('analytics.combined.skill.description')} />
       <PieChart
         series={[{ data: pieData, innerRadius: 28, outerRadius: 52, paddingAngle: 2, cornerRadius: 3 }]}
         height={130}
@@ -1516,7 +1561,7 @@ function SessionErrorChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics 
   if (!errors || errors.length === 0) {
     return (
       <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
-        <Typography variant="subtitle2" sx={{ px: 1.5 }}>{t('analytics.combined.error')}</Typography>
+        <ChartTitle title={t('analytics.combined.error')} description={t('analytics.combined.error.description')} />
         <Box sx={{ height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Typography variant="h5" sx={{ color: colors.textSecondary }}>0</Typography>
         </Box>
@@ -1534,7 +1579,7 @@ function SessionErrorChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics 
 
   return (
     <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
-      <Typography variant="subtitle2" sx={{ px: 1.5 }}>{t('analytics.combined.error')}</Typography>
+      <ChartTitle title={t('analytics.combined.error')} description={t('analytics.combined.error.description')} />
       <PieChart
         series={[{ data: pieData, innerRadius: 28, outerRadius: 52, paddingAngle: 2, cornerRadius: 3 }]}
         height={130}
@@ -2950,14 +2995,30 @@ function CombinedChartsSection({
             onChange={(_e, v: CombinedMetric | null) => { if (v) setMetric(v); }}
             size="small"
           >
-            <ToggleButton value="tokens" sx={toggleSx}>{t('chart.tokenUsage')}</ToggleButton>
-            <ToggleButton value="agents" sx={toggleSx}>{t('analytics.combined.agent')}</ToggleButton>
-            <ToggleButton value="models" sx={toggleSx}>{t('analytics.combined.model')}</ToggleButton>
-            <ToggleButton value="skills" sx={toggleSx}>{t('analytics.combined.skill')}</ToggleButton>
-            <ToggleButton value="tools" sx={toggleSx}>{t('analytics.combined.tool')}</ToggleButton>
-            <ToggleButton value="errors" sx={toggleSx}>{t('analytics.combined.error')}</ToggleButton>
-            <ToggleButton value="commits" sx={toggleSx}>{t('analytics.combined.commitPrefix')}</ToggleButton>
-            <ToggleButton value="releases" sx={toggleSx}>{t('analytics.combined.release')}</ToggleButton>
+            <Tooltip title={t('chart.tokenUsage.description')} arrow placement="top">
+              <ToggleButton value="tokens" sx={toggleSx}>{t('chart.tokenUsage')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('analytics.combined.agent.description')} arrow placement="top">
+              <ToggleButton value="agents" sx={toggleSx}>{t('analytics.combined.agent')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('analytics.combined.model.description')} arrow placement="top">
+              <ToggleButton value="models" sx={toggleSx}>{t('analytics.combined.model')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('analytics.combined.skill.description')} arrow placement="top">
+              <ToggleButton value="skills" sx={toggleSx}>{t('analytics.combined.skill')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('analytics.combined.tool.description')} arrow placement="top">
+              <ToggleButton value="tools" sx={toggleSx}>{t('analytics.combined.tool')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('analytics.combined.error.description')} arrow placement="top">
+              <ToggleButton value="errors" sx={toggleSx}>{t('analytics.combined.error')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('analytics.combined.commitPrefix.description')} arrow placement="top">
+              <ToggleButton value="commits" sx={toggleSx}>{t('analytics.combined.commitPrefix')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('analytics.combined.release.description')} arrow placement="top">
+              <ToggleButton value="releases" sx={toggleSx}>{t('analytics.combined.release')}</ToggleButton>
+            </Tooltip>
           </ToggleButtonGroup>
           <ToggleButtonGroup
             value={period}
@@ -2977,8 +3038,12 @@ function CombinedChartsSection({
             onChange={(_e, v: DailyViewMode | null) => { if (v) setTokenMode(v); }}
             size="small"
           >
-            <ToggleButton value="tokens" sx={toggleSx}>{t('chart.tokens')}</ToggleButton>
-            <ToggleButton value="cost" sx={toggleSx}>{t('chart.cost')}</ToggleButton>
+            <Tooltip title={t('chart.tokens.description')} arrow placement="top">
+              <ToggleButton value="tokens" sx={toggleSx}>{t('chart.tokens')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('chart.cost.description')} arrow placement="top">
+              <ToggleButton value="cost" sx={toggleSx}>{t('chart.cost')}</ToggleButton>
+            </Tooltip>
           </ToggleButtonGroup>
         )}
         {metric === 'tools' && (
@@ -2988,8 +3053,12 @@ function CombinedChartsSection({
             onChange={(_e, v: ChartMetric | null) => { if (v) setToolMetric(v); }}
             size="small"
           >
-            <ToggleButton value="count" sx={toggleSx}>{t('analytics.combined.count')}</ToggleButton>
-            <ToggleButton value="tokens" sx={toggleSx}>{t('analytics.combined.tokens')}</ToggleButton>
+            <Tooltip title={t('analytics.combined.count.description')} arrow placement="top">
+              <ToggleButton value="count" sx={toggleSx}>{t('analytics.combined.count')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('analytics.combined.tokens.description')} arrow placement="top">
+              <ToggleButton value="tokens" sx={toggleSx}>{t('analytics.combined.tokens')}</ToggleButton>
+            </Tooltip>
           </ToggleButtonGroup>
         )}
         {metric === 'models' && (
@@ -2999,8 +3068,12 @@ function CombinedChartsSection({
             onChange={(_e, v: ChartMetric | null) => { if (v) setModelMetric(v); }}
             size="small"
           >
-            <ToggleButton value="count" sx={toggleSx}>{t('analytics.combined.count')}</ToggleButton>
-            <ToggleButton value="tokens" sx={toggleSx}>{t('analytics.combined.tokens')}</ToggleButton>
+            <Tooltip title={t('analytics.combined.count.description')} arrow placement="top">
+              <ToggleButton value="count" sx={toggleSx}>{t('analytics.combined.count')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('analytics.combined.tokens.description')} arrow placement="top">
+              <ToggleButton value="tokens" sx={toggleSx}>{t('analytics.combined.tokens')}</ToggleButton>
+            </Tooltip>
           </ToggleButtonGroup>
         )}
         {metric === 'agents' && (
@@ -3010,9 +3083,15 @@ function CombinedChartsSection({
             onChange={(_e, v: AgentMetric | null) => { if (v) setAgentMetric(v); }}
             size="small"
           >
-            <ToggleButton value="tokens" sx={toggleSx}>{t('analytics.combined.tokens')}</ToggleButton>
-            <ToggleButton value="cost" sx={toggleSx}>{t('chart.cost')}</ToggleButton>
-            <ToggleButton value="loc" sx={toggleSx}>{t('analytics.combined.loc')}</ToggleButton>
+            <Tooltip title={t('analytics.combined.tokens.description')} arrow placement="top">
+              <ToggleButton value="tokens" sx={toggleSx}>{t('analytics.combined.tokens')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('chart.cost.description')} arrow placement="top">
+              <ToggleButton value="cost" sx={toggleSx}>{t('chart.cost')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('analytics.combined.loc.description')} arrow placement="top">
+              <ToggleButton value="loc" sx={toggleSx}>{t('analytics.combined.loc')}</ToggleButton>
+            </Tooltip>
           </ToggleButtonGroup>
         )}
         {metric === 'commits' && (
@@ -3022,9 +3101,15 @@ function CombinedChartsSection({
             onChange={(_e, v: CommitMetric | null) => { if (v) setCommitMetric(v); }}
             size="small"
           >
-            <ToggleButton value="count" sx={toggleSx}>{t('analytics.combined.commitCount')}</ToggleButton>
-            <ToggleButton value="loc" sx={toggleSx}>{t('analytics.combined.loc')}</ToggleButton>
-            <ToggleButton value="leadTime" sx={toggleSx}>{t('analytics.combined.leadTime')}</ToggleButton>
+            <Tooltip title={t('analytics.combined.commitCount.description')} arrow placement="top">
+              <ToggleButton value="count" sx={toggleSx}>{t('analytics.combined.commitCount')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('analytics.combined.loc.description')} arrow placement="top">
+              <ToggleButton value="loc" sx={toggleSx}>{t('analytics.combined.loc')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('analytics.combined.leadTime.description')} arrow placement="top">
+              <ToggleButton value="leadTime" sx={toggleSx}>{t('analytics.combined.leadTime')}</ToggleButton>
+            </Tooltip>
           </ToggleButtonGroup>
         )}
       </Box>

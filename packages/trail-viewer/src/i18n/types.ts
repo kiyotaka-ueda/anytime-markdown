@@ -65,13 +65,19 @@ export interface TrailI18n {
   'message.type.system': string;
   // analytics
   'analytics.totalSessions': string;
+  'analytics.totalSessions.description': string;
   'analytics.totalTokens': string;
+  'analytics.totalTokens.description': string;
   'analytics.estimatedCost': string;
+  'analytics.estimatedCost.description': string;
   'analytics.cacheHitRate': string;
   'analytics.totalCommits': string;
+  'analytics.totalCommits.description': string;
   'analytics.linesAdded': string;
+  'analytics.linesAdded.description': string;
   'analytics.linesAddedShort': string;
   'analytics.totalLoc': string;
+  'analytics.totalLoc.description': string;
   'analytics.tokensPerLine': string;
   'analytics.costPerLine': string;
   'analytics.aiCommitPercent': string;
@@ -79,6 +85,7 @@ export interface TrailI18n {
   'analytics.avgCostPerHour': string;
   'analytics.avgContextGrowth': string;
   'analytics.retryRate': string;
+  'analytics.retryRate.description': string;
   'analytics.buildFailRate': string;
   'analytics.testFailRate': string;
   'analytics.groupUsage': string;
@@ -87,6 +94,7 @@ export interface TrailI18n {
   'analytics.groupToolMetrics': string;
   'analytics.groupDora': string;
   'analytics.toolUsageTitle': string;
+  'analytics.toolUsageTitle.description': string;
   'analytics.sessionCacheTimelineTitle': string;
   'analytics.turns': string;
   'analytics.compactLoopTooltip': string;
@@ -103,22 +111,39 @@ export interface TrailI18n {
   'analytics.tokensPerLineLabel': string;
   'analytics.sessionMetricsTitle': string;
   'analytics.tokensPerStep': string;
+  'analytics.tokensPerStep.description': string;
   'analytics.costPerStep': string;
+  'analytics.costPerStep.description': string;
   'analytics.linesPerHour': string;
+  'analytics.linesPerHour.description': string;
   'analytics.costPerHour': string;
+  'analytics.costPerHour.description': string;
   'analytics.costPerCommit': string;
+  'analytics.costPerCommit.description': string;
   'analytics.cacheHit': string;
+  'analytics.cacheHit.description': string;
   'analytics.outputRatio': string;
+  'analytics.outputRatio.description': string;
   'analytics.contextGrowth': string;
+  'analytics.contextGrowth.description': string;
   'analytics.netLines': string;
+  'analytics.netLines.description': string;
   'analytics.metricMessages': string;
+  'analytics.metricMessages.description': string;
   'analytics.metricErrors': string;
+  'analytics.metricErrors.description': string;
   'analytics.metricFiles': string;
+  'analytics.metricFiles.description': string;
   'analytics.metricDuration': string;
+  'analytics.metricDuration.description': string;
   'analytics.avgInterval': string;
+  'analytics.avgInterval.description': string;
   'analytics.buildFail': string;
+  'analytics.buildFail.description': string;
   'analytics.testFail': string;
+  'analytics.testFail.description': string;
   'analytics.metricInterrupted': string;
+  'analytics.metricInterrupted.description': string;
   'analytics.loadingAnalytics': string;
   'analytics.turn': string;
   'analytics.chartInput': string;
@@ -131,13 +156,18 @@ export interface TrailI18n {
   'analytics.chartSkillUsageTokens': string;
   'analytics.chartSkillExecTime': string;
   'analytics.modeTool': string;
+  'analytics.modeTool.description': string;
   'analytics.modeSkill': string;
+  'analytics.modeSkill.description': string;
   'analytics.timingBreakdownTitle': string;
   // chart
   'chart.tokenUsage': string;
+  'chart.tokenUsage.description': string;
   'chart.estimatedCost': string;
   'chart.tokens': string;
+  'chart.tokens.description': string;
   'chart.cost': string;
+  'chart.cost.description': string;
   'chart.tokensPerLoc': string;
   'chart.costPerLoc': string;
   // cost optimization
@@ -260,23 +290,34 @@ export interface TrailI18n {
   'c4.community.containers': string;
   // combined (analytics)
   'analytics.combined.tool': string;
+  'analytics.combined.tool.description': string;
   'analytics.combined.count': string;
+  'analytics.combined.count.description': string;
   'analytics.combined.tokens': string;
+  'analytics.combined.tokens.description': string;
   'analytics.combined.duration': string;
-
-
   'analytics.combined.error': string;
+  'analytics.combined.error.description': string;
   'analytics.combined.commitPrefix': string;
+  'analytics.combined.commitPrefix.description': string;
   'analytics.combined.release': string;
+  'analytics.combined.release.description': string;
   'analytics.combined.releaseSucceeded': string;
   'analytics.combined.releaseFailed': string;
   'analytics.combined.commitCount': string;
+  'analytics.combined.commitCount.description': string;
   'analytics.combined.loc': string;
+  'analytics.combined.loc.description': string;
   'analytics.combined.leadTime': string;
+  'analytics.combined.leadTime.description': string;
   'analytics.commitPrefixChartTitle': string;
+  'analytics.commitPrefixChartTitle.description': string;
   'analytics.combined.skill': string;
+  'analytics.combined.skill.description': string;
   'analytics.combined.model': string;
+  'analytics.combined.model.description': string;
   'analytics.combined.agent': string;
+  'analytics.combined.agent.description': string;
   'analytics.combined.missingRate': string;
 
   // metrics
