@@ -6,6 +6,7 @@ import type { TrailGraph } from '@anytime-markdown/trail-core';
 import type { C4Element } from '@anytime-markdown/trail-core/c4';
 
 import { TrailLogger } from '../utils/TrailLogger';
+import type { TrailDatabase } from '../trail/TrailDatabase';
 import type { CodeGraph, CodeGraphEdge, CodeGraphNode, CodeGraphRepository } from './CodeGraph.types';
 import { GraphBuilder } from './GraphBuilder';
 import { GraphClusterer } from './GraphClusterer';
@@ -28,6 +29,8 @@ export interface CodeGraphServiceConfig {
    * で生成されたものを流用するためのルート。リポ ID → TrailGraph のマップを返す。
    */
   readonly trailGraphProvider?: () => Record<string, TrailGraph | undefined> | undefined;
+  /** CodeGraph の保存・読み込みに使用する DB（設定時は DB 優先、未設定は graph.json ファイルにフォールバック） */
+  readonly trailDb?: TrailDatabase;
 }
 
 export type ProgressCallback = (phase: string, percent: number) => void;
@@ -43,10 +46,20 @@ export class CodeGraphService {
     return this.cached;
   }
 
-  async loadFromDisk(): Promise<CodeGraph | null> {
+  async loadFromDb(): Promise<CodeGraph | null> {
+    const repoName = this.config.repositories[0]?.label ?? path.basename(this.config.repositories[0]?.path ?? '');
+    if (this.config.trailDb && repoName) {
+      const graph = this.config.trailDb.getCurrentCodeGraph(repoName);
+      if (graph) {
+        this.cached = graph;
+        return graph;
+      }
+    }
+    // Fallback: graph.json（移行期間）
     const jsonPath = path.join(this.config.outputDir, 'graph.json');
     if (!fs.existsSync(jsonPath)) return null;
     try {
+      TrailLogger.warn(`[migration warning] Loading code graph from graph.json fallback (DB not populated yet): ${jsonPath}`);
       this.cached = JSON.parse(fs.readFileSync(jsonPath, 'utf-8')) as CodeGraph;
       return this.cached;
     } catch (err) {
@@ -179,9 +192,16 @@ export class CodeGraphService {
   }
 
   private save(graph: CodeGraph): void {
-    fs.mkdirSync(this.config.outputDir, { recursive: true });
-    const jsonPath = path.join(this.config.outputDir, 'graph.json');
-    fs.writeFileSync(jsonPath, JSON.stringify(graph, null, 2), 'utf-8');
-    TrailLogger.info(`Code graph saved to ${jsonPath}`);
+    const repoName = this.config.repositories[0]?.label ?? path.basename(this.config.repositories[0]?.path ?? '');
+    if (this.config.trailDb && repoName) {
+      this.config.trailDb.saveCurrentCodeGraph(repoName, graph);
+      TrailLogger.info(`Code graph saved to DB (repo=${repoName})`);
+    } else {
+      // Fallback: ファイルに保存（trailDb 未設定時）
+      fs.mkdirSync(this.config.outputDir, { recursive: true });
+      const jsonPath = path.join(this.config.outputDir, 'graph.json');
+      fs.writeFileSync(jsonPath, JSON.stringify(graph, null, 2), 'utf-8');
+      TrailLogger.info(`Code graph saved to ${jsonPath}`);
+    }
   }
 }

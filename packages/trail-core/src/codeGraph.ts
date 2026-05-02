@@ -64,3 +64,91 @@ export interface CodeGraphPathResult {
   readonly path: readonly string[];
   readonly hops: number;
 }
+
+// ---------------------------------------------------------------------------
+// DB 分割保存用の型とヘルパー
+// ---------------------------------------------------------------------------
+
+/** DB 保存用 CodeGraph（communities / communitySummaries を除いたサブセット） */
+export interface StoredCodeGraph {
+  readonly generatedAt: string;
+  readonly repositories: readonly CodeGraphRepository[];
+  readonly nodes: readonly CodeGraphNode[];
+  readonly edges: readonly CodeGraphEdge[];
+  readonly godNodes: readonly string[];
+}
+
+/** コミュニティ行の型（DB の `*_code_graph_communities` テーブル 1 行に対応） */
+export interface StoredCommunity {
+  readonly id: number;
+  readonly label: string;
+  readonly name: string;
+  readonly summary: string;
+}
+
+/**
+ * CodeGraph を DB 保存用の 2 つの部品に分割する。
+ *
+ * @returns stored - communities / communitySummaries を除いた保存用サブセット
+ * @returns communities - community メタ行の配列（コミュニティ行テーブルに 1 行ずつ保存する）
+ */
+export function splitCodeGraph(full: CodeGraph): {
+  stored: StoredCodeGraph;
+  communities: ReadonlyArray<StoredCommunity>;
+} {
+  const stored: StoredCodeGraph = {
+    generatedAt: full.generatedAt,
+    repositories: full.repositories,
+    nodes: full.nodes,
+    edges: full.edges,
+    godNodes: full.godNodes,
+  };
+
+  const communities: StoredCommunity[] = Object.entries(full.communities).map(
+    ([idStr, label]) => {
+      const id = Number(idStr);
+      const cs = full.communitySummaries?.[id];
+      return {
+        id,
+        label,
+        name: cs?.name ?? '',
+        summary: cs?.summary ?? '',
+      };
+    }
+  );
+
+  return { stored, communities };
+}
+
+/**
+ * splitCodeGraph で分割した部品から元の CodeGraph を復元する。
+ *
+ * name === '' && summary === '' のエントリは communitySummaries に含めない
+ * （任意フィールドの再現）。
+ */
+export function composeCodeGraph(
+  stored: StoredCodeGraph,
+  communities: ReadonlyArray<StoredCommunity>
+): CodeGraph {
+  const communitiesRecord: Record<number, string> = {};
+  const summariesRecord: Record<number, CommunitySummary> = {};
+
+  for (const c of communities) {
+    communitiesRecord[c.id] = c.label;
+    if (c.name !== '' || c.summary !== '') {
+      summariesRecord[c.id] = { name: c.name, summary: c.summary };
+    }
+  }
+
+  const hasSummaries = Object.keys(summariesRecord).length > 0;
+
+  return {
+    generatedAt: stored.generatedAt,
+    repositories: stored.repositories,
+    nodes: stored.nodes,
+    edges: stored.edges,
+    godNodes: stored.godNodes,
+    communities: communitiesRecord,
+    ...(hasSummaries ? { communitySummaries: summariesRecord } : {}),
+  };
+}

@@ -189,6 +189,16 @@
         "title": "Generate Code Graph",
         "category": "Anytime Trail",
         "icon": "$(graph)"
+      },
+      {
+        "command": "anytime-trail.regenerateCurrentCodeGraph",
+        "title": "Regenerate Current Code Graph",
+        "category": "Anytime Trail"
+      },
+      {
+        "command": "anytime-trail.regenerateReleaseCodeGraphs",
+        "title": "Regenerate Release Code Graphs",
+        "category": "Anytime Trail"
       }
     ],
     "menus": {
