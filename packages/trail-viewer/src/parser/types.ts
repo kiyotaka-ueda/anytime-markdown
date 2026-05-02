@@ -66,6 +66,16 @@ export interface AnalyticsData {
     readonly totalBuildFails: number;
     readonly totalTestRuns: number;
     readonly totalTestFails: number;
+    /** Current total lines of code from coverage data */
+    readonly totalLoc: number;
+    /** Optional comparison data for deltas */
+    readonly comparison?: {
+      readonly sessions?: { readonly deltaPct: number | null };
+      readonly tokens?: { readonly deltaPct: number | null };
+      readonly cost?: { readonly deltaPct: number | null };
+      readonly commits?: { readonly deltaPct: number | null };
+      readonly loc?: { readonly deltaPct: number | null };
+    };
   };
   readonly toolUsage: readonly { name: string; count: number }[];
   readonly dailyActivity: readonly {
@@ -76,6 +86,8 @@ export interface AnalyticsData {
     readonly cacheReadTokens: number;
     readonly cacheCreationTokens: number;
     readonly estimatedCostUsd: number;
+    readonly commits: number;
+    readonly linesAdded: number;
   }[];
 }
 

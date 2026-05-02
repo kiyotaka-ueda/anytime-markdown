@@ -71,6 +71,7 @@ export interface TrailI18n {
   'analytics.totalCommits': string;
   'analytics.linesAdded': string;
   'analytics.linesAddedShort': string;
+  'analytics.totalLoc': string;
   'analytics.tokensPerLine': string;
   'analytics.costPerLine': string;
   'analytics.aiCommitPercent': string;

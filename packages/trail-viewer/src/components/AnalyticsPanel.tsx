@@ -236,12 +236,51 @@ function OverviewCards({
   const [usageIdx, setUsageIdx] = useState(0);
   const totalTokens = totals.inputTokens + totals.outputTokens;
 
-  const cards = [
-    { label: t('analytics.totalSessions'), value: fmtNum(totals.sessions) },
-    { label: t('analytics.totalTokens'), value: fmtTokens(totalTokens) },
-    { label: t('analytics.estimatedCost'), value: fmtUsd(totals.estimatedCostUsd) },
-    { label: t('analytics.totalCommits'), value: fmtNum(totals.totalCommits) },
-    { label: t('analytics.linesAdded'), value: fmtNum(totals.totalLinesAdded) },
+  const cards: MetricItem[] = [
+    {
+      label: t('analytics.totalSessions'),
+      value: fmtNum(totals.sessions),
+      delta: totals.comparison?.sessions?.deltaPct != null ? {
+        text: `${totals.comparison.sessions.deltaPct > 0 ? '↑' : totals.comparison.sessions.deltaPct < 0 ? '↓' : '→'} ${Math.abs(totals.comparison.sessions.deltaPct).toFixed(1)}%`,
+        color: totals.comparison.sessions.deltaPct > 0 ? 'success.main' : totals.comparison.sessions.deltaPct < 0 ? 'error.main' : 'text.secondary',
+      } : undefined,
+    },
+    {
+      label: t('analytics.totalTokens'),
+      value: fmtTokens(totalTokens),
+      delta: totals.comparison?.tokens?.deltaPct != null ? {
+        text: `${totals.comparison.tokens.deltaPct > 0 ? '↑' : totals.comparison.tokens.deltaPct < 0 ? '↓' : '→'} ${Math.abs(totals.comparison.tokens.deltaPct).toFixed(1)}%`,
+        color: totals.comparison.tokens.deltaPct > 0 ? 'error.main' : totals.comparison.tokens.deltaPct < 0 ? 'success.main' : 'text.secondary',
+      } : undefined,
+    },
+    {
+      label: t('analytics.estimatedCost'),
+      value: fmtUsd(totals.estimatedCostUsd),
+      delta: totals.comparison?.cost?.deltaPct != null ? {
+        text: `${totals.comparison.cost.deltaPct > 0 ? '↑' : totals.comparison.cost.deltaPct < 0 ? '↓' : '→'} ${Math.abs(totals.comparison.cost.deltaPct).toFixed(1)}%`,
+        color: totals.comparison.cost.deltaPct > 0 ? 'error.main' : totals.comparison.cost.deltaPct < 0 ? 'success.main' : 'text.secondary',
+      } : undefined,
+    },
+    {
+      label: t('analytics.totalCommits'),
+      value: fmtNum(totals.totalCommits),
+      delta: totals.comparison?.commits?.deltaPct != null ? {
+        text: `${totals.comparison.commits.deltaPct > 0 ? '↑' : totals.comparison.commits.deltaPct < 0 ? '↓' : '→'} ${Math.abs(totals.comparison.commits.deltaPct).toFixed(1)}%`,
+        color: totals.comparison.commits.deltaPct > 0 ? 'success.main' : totals.comparison.commits.deltaPct < 0 ? 'error.main' : 'text.secondary',
+      } : undefined,
+    },
+    {
+      label: t('analytics.linesAdded'),
+      value: fmtNum(totals.totalLinesAdded),
+      delta: totals.comparison?.loc?.deltaPct != null ? {
+        text: `${totals.comparison.loc.deltaPct > 0 ? '↑' : totals.comparison.loc.deltaPct < 0 ? '↓' : '→'} ${Math.abs(totals.comparison.loc.deltaPct).toFixed(1)}%`,
+        color: totals.comparison.loc.deltaPct > 0 ? 'success.main' : totals.comparison.loc.deltaPct < 0 ? 'error.main' : 'text.secondary',
+      } : undefined,
+    },
+    {
+      label: t('analytics.totalLoc'),
+      value: fmtNum(totals.totalLoc),
+    },
   ];
 
   const DORA_ID_KEYS: Record<string, string> = {
@@ -2911,18 +2950,6 @@ function CombinedChartsSection({
             <ToggleButton value="commits" sx={toggleSx}>{t('analytics.combined.commitPrefix')}</ToggleButton>
             <ToggleButton value="releases" sx={toggleSx}>{t('analytics.combined.release')}</ToggleButton>
           </ToggleButtonGroup>
-          <ToggleButtonGroup
-            value={period}
-            exclusive
-            onChange={(_e, v: PeriodDays | null) => { if (v) setPeriod(v); }}
-            size="small"
-          >
-            <ToggleButton value={7} sx={toggleSx}>7d</ToggleButton>
-            <ToggleButton value={30} sx={toggleSx}>30d</ToggleButton>
-            {process.env.NEXT_PUBLIC_SHOW_UNLIMITED === '1' && (
-              <ToggleButton value={90} sx={toggleSx}>90d</ToggleButton>
-            )}
-          </ToggleButtonGroup>
         </Box>
         {metric === 'tokens' && (
           <ToggleButtonGroup
@@ -3044,13 +3071,63 @@ export function AnalyticsPanel({ analytics, sessions = [], sessionsLoading, onSe
   useEffect(() => {
     if (!fetchQualityMetrics) return;
     const to = new Date();
-    const from = new Date(to.getTime() - 30 * 86_400_000);
+    const from = new Date(to.getTime() - period * 86_400_000);
     void fetchQualityMetrics({ from: from.toISOString(), to: to.toISOString() }).then((result) => {
       if (result) setOverviewQualityMetrics(result);
     });
-  }, [fetchQualityMetrics]);
+  }, [fetchQualityMetrics, period]);
 
-  if (!analytics) {
+  const { currentTotals, comparison } = useMemo(() => {
+    if (!analytics) return { currentTotals: null, comparison: undefined };
+    const now = new Date();
+    const currentFrom = new Date(now.getTime() - period * 24 * 3600 * 1000);
+    const previousFrom = new Date(currentFrom.getTime() - period * 24 * 3600 * 1000);
+
+    const current = { sessions: 0, tokens: 0, cost: 0, commits: 0, loc: 0 };
+    const previous = { sessions: 0, tokens: 0, cost: 0, commits: 0, loc: 0 };
+
+    for (const d of analytics.dailyActivity) {
+      const date = new Date(d.date);
+      if (date >= currentFrom) {
+        current.sessions += d.sessions;
+        current.tokens += (d.inputTokens + d.outputTokens);
+        current.cost += d.estimatedCostUsd;
+        current.commits += d.commits;
+        current.loc += d.linesAdded;
+      } else if (date >= previousFrom) {
+        previous.sessions += d.sessions;
+        previous.tokens += (d.inputTokens + d.outputTokens);
+        previous.cost += d.estimatedCostUsd;
+        previous.commits += d.commits;
+        previous.loc += d.linesAdded;
+      }
+    }
+
+    const calcDelta = (cur: number, prev: number) => (prev > 0 ? ((cur - prev) / prev) * 100 : null);
+
+    return {
+      currentTotals: {
+        ...analytics.totals,
+        sessions: current.sessions,
+        inputTokens: 0,
+        outputTokens: current.tokens, // Using combined tokens for display
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
+        estimatedCostUsd: current.cost,
+        totalCommits: current.commits,
+        totalLinesAdded: current.loc,
+      },
+      comparison: {
+        sessions: { deltaPct: calcDelta(current.sessions, previous.sessions) },
+        tokens: { deltaPct: calcDelta(current.tokens, previous.tokens) },
+        cost: { deltaPct: calcDelta(current.cost, previous.cost) },
+        commits: { deltaPct: calcDelta(current.commits, previous.commits) },
+        loc: { deltaPct: calcDelta(current.loc, previous.loc) },
+      },
+    };
+  }, [analytics, period]);
+
+  if (!analytics || !currentTotals) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         <Typography variant="body2" color="text.secondary">
@@ -3062,7 +3139,20 @@ export function AnalyticsPanel({ analytics, sessions = [], sessionsLoading, onSe
 
   return (
     <Box sx={{ overflow: 'auto', flex: 1, p: 2, display: 'flex', flexDirection: 'column', gap: 3, ...scrollbarSx }}>
-      <OverviewCards totals={analytics.totals} sessions={sessions} qualityMetrics={overviewQualityMetrics} />
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h5">{t('viewer.analytics')}</Typography>
+        <ToggleButtonGroup
+          value={period}
+          exclusive
+          onChange={(_, v) => { if (v !== null) setPeriod(v); }}
+          size="small"
+        >
+          <ToggleButton value={7}>7d</ToggleButton>
+          <ToggleButton value={30}>30d</ToggleButton>
+          <ToggleButton value={90}>90d</ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
+      <OverviewCards totals={{ ...currentTotals, comparison }} sessions={sessions} qualityMetrics={overviewQualityMetrics} />
       <ToolUsageChart items={analytics.toolUsage} />
       <CombinedChartsSection
         dailyActivity={analytics.dailyActivity}

@@ -61,6 +61,7 @@ export const ja: TrailI18n = {
   'analytics.totalCommits': '総コミット数',
   'analytics.linesAdded': 'Gross Added LOC',
   'analytics.linesAddedShort': '総追加',
+  'analytics.totalLoc': 'LOC',
   'analytics.tokensPerLine': 'トークン/行',
   'analytics.costPerLine': 'コスト/行',
   'analytics.aiCommitPercent': 'AIコミット率',

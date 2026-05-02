@@ -61,6 +61,7 @@ export const en: TrailI18n = {
   'analytics.totalCommits': 'Total Commits',
   'analytics.linesAdded': 'Gross Added LOC',
   'analytics.linesAddedShort': 'Total Added',
+  'analytics.totalLoc': 'LOC',
   'analytics.tokensPerLine': 'Tokens/Line',
   'analytics.costPerLine': 'Cost/Line',
   'analytics.aiCommitPercent': 'AI Commit %',

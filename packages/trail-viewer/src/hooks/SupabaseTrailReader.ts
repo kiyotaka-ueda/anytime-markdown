@@ -346,7 +346,7 @@ export class SupabaseTrailReader implements ITrailReader {
 
     let totalInput = 0, totalOutput = 0, totalCacheRead = 0, totalCacheCreation = 0;
     let totalEstimatedCost = 0;
-    type DailyEntry = { sessions: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number; estimatedCostUsd: number };
+    type DailyEntry = { sessions: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number; estimatedCostUsd: number; commits: number; linesAdded: number };
     const dailyMap = new Map<string, DailyEntry>();
 
     if (sessionIds.length > 0) {
@@ -363,6 +363,25 @@ export class SupabaseTrailReader implements ITrailReader {
         const d = new Date(jstMs);
         return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
       };
+
+      for (const s of sessions as Array<{ id: string; start_time?: string }>) {
+        if (s.start_time) {
+          const date = toJSTDate(s.start_time);
+          const entry = dailyMap.get(date) ?? { sessions: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, estimatedCostUsd: 0, commits: 0, linesAdded: 0 };
+          entry.sessions += 1;
+          dailyMap.set(date, entry);
+        }
+      }
+
+      for (const c of allCommits) {
+        if (c.committed_at) {
+          const date = toJSTDate(c.committed_at);
+          const entry = dailyMap.get(date) ?? { sessions: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, estimatedCostUsd: 0, commits: 0, linesAdded: 0 };
+          entry.commits += 1;
+          entry.linesAdded += c.lines_added;
+          dailyMap.set(date, entry);
+        }
+      }
 
       // Fetch assistant messages for token aggregation
       const { data: msgRows } = await this.client
@@ -416,7 +435,7 @@ export class SupabaseTrailReader implements ITrailReader {
         const date = dk.split('::')[0]!;
         const observed = da.totalTurns - da.missingTurns;
         const factor = observed > 0 ? da.totalTurns / observed : 1;
-        const entry = dailyMap.get(date) ?? { sessions: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, estimatedCostUsd: 0 };
+        const entry = dailyMap.get(date) ?? { sessions: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, estimatedCostUsd: 0, commits: 0, linesAdded: 0 };
         entry.inputTokens += Math.round(da.rawInput * factor);
         entry.outputTokens += Math.round(da.rawOutput * factor);
         entry.cacheReadTokens += Math.round(da.rawCacheRead * factor);
@@ -436,7 +455,7 @@ export class SupabaseTrailReader implements ITrailReader {
         const start = startBySessionId.get(c.session_id);
         if (start) {
           const date = toJSTDate(start);
-          const entry = dailyMap.get(date) ?? { sessions: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, estimatedCostUsd: 0 };
+          const entry = dailyMap.get(date) ?? { sessions: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, estimatedCostUsd: 0, commits: 0, linesAdded: 0 };
           entry.estimatedCostUsd += cost;
           dailyMap.set(date, entry);
         }
@@ -446,6 +465,12 @@ export class SupabaseTrailReader implements ITrailReader {
     const dailyActivity = [...dailyMap.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, v]) => ({ date, ...v }));
+
+    // Fetch current total LOC from current_coverage
+    const { data: locData } = await this.client
+      .from('trail_current_coverage')
+      .select('lines_total');
+    const totalLoc = (locData ?? []).reduce((s, r) => s + (r.lines_total ?? 0), 0);
 
     const totals = {
       sessions: sessions.length,
@@ -464,6 +489,7 @@ export class SupabaseTrailReader implements ITrailReader {
         const end = new Date(r.end_time).getTime();
         return s + (Number.isFinite(end - start) ? end - start : 0);
       }, 0),
+      totalLoc,
       totalRetries: 0,
       totalEdits: 0,
       totalBuildRuns: 0,
