@@ -5,8 +5,6 @@ import {
   computeTemporalCoupling,
 } from '@anytime-markdown/trail-core';
 import type { CommitFileRow, SessionFileRow } from '@anytime-markdown/trail-core';
-import type { StoredCodeGraph, StoredCommunity } from '@anytime-markdown/trail-core/codeGraph';
-import { composeCodeGraph } from '@anytime-markdown/trail-core/codeGraph';
 import { createClient } from '@supabase/supabase-js';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
@@ -15,6 +13,29 @@ import { NO_STORE_HEADERS } from '../../../lib/api-helpers';
 import { resolveSupabaseEnv } from '../../../lib/supabase-env';
 
 export const dynamic = 'force-dynamic';
+
+/** 拡張機能の defaultTemporalCouplingPathFilter と同一のブラックリスト */
+const EXCLUDE_PATTERNS: readonly RegExp[] = [
+  /\.lock$/,
+  /(^|\/)package-lock\.json$/,
+  /(^|\/)yarn\.lock$/,
+  /(^|\/)pnpm-lock\.yaml$/,
+  /(^|\/)dist\//,
+  /(^|\/)node_modules\//,
+  /\.min\.js$/,
+  /\.map$/,
+  /(^|\/)\.worktrees\//,
+  /(^|\/)\.claude\//,
+  /(^|\/)\.vscode\//,
+  /(^|\/)\.next\//,
+  /(^|\/)out\//,
+  /(^|\/)build\//,
+  /(^|\/)coverage\//,
+];
+
+function pathFilter(filePath: string): boolean {
+  return !EXCLUDE_PATTERNS.some((re) => re.test(filePath));
+}
 
 function clampInt(raw: string | null, def: number, min: number, max: number): number {
   const v = raw !== null ? Number.parseInt(raw, 10) : def;
@@ -25,21 +46,15 @@ function clampFloat(raw: string | null, def: number, min: number, max: number): 
   return Number.isNaN(v) ? def : Math.min(max, Math.max(min, v));
 }
 
-/** コードグラフノードIDと同じ形式でファイルパスを正規化する（拡張子除去） */
-function toNodePath(filePath: string): string {
-  return filePath.replace(/\.(tsx?|mdx?)$/, '');
-}
-
 /**
  * GET /api/temporal-coupling?repo=...&windowDays=...&topK=...&...
  *
  * trail_session_commits + trail_commit_files から Temporal Coupling を計算して返す。
- * コードグラフに存在するファイルのみを対象とする（graph node set でフィルタ）。
+ * パスフィルタは拡張機能と同一のブラックリスト方式（ロックファイル・生成物等を除外）。
  * granularity=subagentType はデータなし（message_tool_calls は 7 日制限）→ 空配列。
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const sp = request.nextUrl.searchParams;
-  const repoId = sp.get('repo') ?? '';
   const granularityRaw = sp.get('granularity');
   const granularity: 'commit' | 'session' | 'subagentType' =
     granularityRaw === 'session' ? 'session'
@@ -75,37 +90,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const supabase = createClient(env.url, env.anonKey);
     const fromIso = new Date(Date.now() - windowDays * 86_400_000).toISOString();
-
-    // コードグラフのノードパスセットを構築（graph node ID から repoId プレフィックスを除去）
-    // 例: "Workspace:packages/foo/bar" → "packages/foo/bar"
-    const [{ data: graphRow }, { data: communityRows }] = await Promise.all([
-      supabase.from('trail_current_code_graphs').select('graph_json').limit(1).single(),
-      supabase.from('trail_current_code_graph_communities').select('community_id,label,name,summary').limit(1000),
-    ]);
-
-    const graphNodePaths = new Set<string>();
-    if (graphRow) {
-      const stored = JSON.parse(graphRow.graph_json as string) as StoredCodeGraph;
-      const communities: StoredCommunity[] = (communityRows ?? []).map((r: Record<string, unknown>) => ({
-        id: r.community_id as number,
-        label: (r.label as string) ?? '',
-        name: (r.name as string) ?? '',
-        summary: (r.summary as string) ?? '',
-      }));
-      const graph = composeCodeGraph(stored, communities);
-      for (const node of graph.nodes) {
-        // ノードIDの "repoId:" プレフィックスを除去してファイルパスのみ収集。
-        // repoId はコードグラフの repo prefix（例: "Workspace"）と一致しない場合があるため
-        // repoId に依存せず ":" 以降を切り出す。
-        const colonIdx = node.id.indexOf(':');
-        graphNodePaths.add(colonIdx >= 0 ? node.id.slice(colonIdx + 1) : node.id);
-      }
-    }
-
-    // pathFilter: commit file がグラフノードに対応するか（拡張子除去後にセット照合）
-    const pathFilter = graphNodePaths.size > 0
-      ? (filePath: string) => graphNodePaths.has(toNodePath(filePath))
-      : undefined;
 
     // ウィンドウ内のコミットを取得
     const commitHashToSessionId = new Map<string, string>();
