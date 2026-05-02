@@ -52,6 +52,8 @@ export function PressBody() {
       <Caravan />
       <Dispatch />
       <BriefingPrimary
+        subtitle="- 品質"
+        trailKeys={['trail2']}
         embed={<TrailViewerEmbed containerHeight="clamp(400px, 62vh, 760px)" />}
         embedActions={
           <CtaActions
@@ -61,6 +63,37 @@ export function PressBody() {
             secondaryHref="https://marketplace.visualstudio.com/items?itemName=anytime-trial.anytime-trail"
           />
         }
+      />
+      <BriefingPrimary
+        subtitle="- 行動"
+        trailKeys={['trail3']}
+        embed={<TrailViewerEmbed containerHeight="clamp(400px, 62vh, 760px)" initialTab={1} />}
+        embedActions={
+          <CtaActions
+            primaryLabel={tCta('openViewer')}
+            secondaryLabel={tCta('vsCode')}
+            primaryHref="/trail?tab=1"
+            secondaryHref="https://marketplace.visualstudio.com/items?itemName=anytime-trial.anytime-trail"
+          />
+        }
+      />
+      <BriefingPrimary
+        subtitle="- 構造"
+        trailKeys={['trail1']}
+        embed={<TrailViewerEmbed containerHeight="clamp(400px, 62vh, 760px)" initialTab={4} initialC4Level={2} />}
+        embedActions={
+          <CtaActions
+            primaryLabel={tCta('openViewer')}
+            secondaryLabel={tCta('vsCode')}
+            primaryHref="/trail?tab=4&c4level=2"
+            secondaryHref="https://marketplace.visualstudio.com/items?itemName=anytime-trial.anytime-trail"
+          />
+        }
+      />
+      <BriefingPrimary
+        subtitle="- スキル"
+        trailKeys={['trail4']}
+        embed={null}
       />
       <BriefingSecondary
         embed={

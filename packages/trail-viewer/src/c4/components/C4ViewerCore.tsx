@@ -141,6 +141,8 @@ export interface C4ViewerCoreProps {
   readonly multiAgentActivity?: import('../hooks/useC4DataSource').MultiAgentActivityState | null;
   readonly onResetClaudeActivity?: () => void;
   readonly manualGroups?: readonly ManualGroup[];
+  /** 初期表示 C4 レベル（1=L1 Context, 2=L2 Container, 3=L3 Component, 4=L4 Code）*/
+  readonly initialLevel?: number;
 }
 
 export function C4ViewerCore({
@@ -173,6 +175,7 @@ export function C4ViewerCore({
   multiAgentActivity,
   onResetClaudeActivity,
   manualGroups,
+  initialLevel,
 }: Readonly<C4ViewerCoreProps>) {
   const { t } = useTrailI18n();
   const colors = useMemo(() => getC4Colors(isDark), [isDark]);
@@ -249,7 +252,7 @@ export function C4ViewerCore({
 
   const [state, dispatch] = useReducer(graphReducer, createInitialState());
   const [fullDoc, setFullDoc] = useState<GraphDocument | null>(null);
-  const [currentLevel, setCurrentLevel] = useState<number>(1);
+  const [currentLevel, setCurrentLevel] = useState<number>(initialLevel ?? 1);
 
   const [showCoverage, setShowCoverage] = useState(false);
   const [showAncestorEdges, setShowAncestorEdges] = useState(true);
