@@ -714,22 +714,24 @@ export function C4ViewerCore({
     return computeCommunityOverlay(c4Model, codeGraph, currentLevel as 3 | 4, selectedRepo || null);
   }, [showCommunity, codeGraph, c4Model, currentLevel, selectedRepo]);
 
-  // Community タブ用: showCommunity トグル不要、L3/L4 で常に L3 ベースで計算
+  // Community タブ用: showCommunity トグル不要、L2/L3/L4 で常に L3 ベースで計算
   const communityOverlayL3 = useMemo<ReadonlyMap<string, CommunityOverlayEntry> | null>(() => {
     if (!codeGraph || !c4Model) return null;
-    if (currentLevel !== 3 && currentLevel !== 4) return null;
+    if (currentLevel === 1) return null;
     return computeCommunityOverlay(c4Model, codeGraph, 3, selectedRepo || null);
   }, [codeGraph, c4Model, currentLevel, selectedRepo]);
 
   const communityTree = useMemo(() => {
     if (!communityOverlayL3 || !codeGraph || !c4Model) return undefined;
+    const maxDepth = currentLevel === 2 ? 'container' : currentLevel === 3 ? 'component' : 'code';
     return buildCommunityTree({
       c4Model,
       communityOverlay: communityOverlayL3,
       communities: codeGraph.communities,
       communitySummaries: codeGraph.communitySummaries,
+      maxDepth,
     });
-  }, [communityOverlayL3, codeGraph, c4Model]);
+  }, [communityOverlayL3, codeGraph, c4Model, currentLevel]);
 
   const selectedCommunityInfo = useMemo(() => {
     if (!selectedElementId?.startsWith('community:')) return null;

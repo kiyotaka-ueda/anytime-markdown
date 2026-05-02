@@ -199,7 +199,7 @@ export const ja: TrailI18n = {
   'c4.elementPanel.searchPlaceholder': '要素を検索...',
   'c4.elementPanel.tabLayer': 'レイヤー',
   'c4.elementPanel.tabCommunity': 'コミュニティ',
-  'c4.elementPanel.communityUnavailable': 'L3/L4 でコードグラフが必要です',
+  'c4.elementPanel.communityUnavailable': 'コードグラフが必要です',
   'c4.popup.metrics': '指標',
   'c4.popup.metric.coverage': 'カバレッジ',
   'c4.popup.metric.branches': '分岐',

@@ -7,10 +7,11 @@ export interface CommunityTreeInput {
   readonly communityOverlay: ReadonlyMap<string, CommunityOverlayEntry>;
   readonly communities: Record<number, string>;
   readonly communitySummaries?: Record<number, CommunitySummary>;
+  readonly maxDepth?: 'container' | 'component' | 'code';
 }
 
 export function buildCommunityTree(input: CommunityTreeInput): C4TreeNode[] {
-  const { c4Model, communityOverlay, communities, communitySummaries } = input;
+  const { c4Model, communityOverlay, communities, communitySummaries, maxDepth = 'code' } = input;
   const elements = c4Model.elements;
 
   const elementById = new Map(elements.map(el => [el.id, el]));
@@ -54,19 +55,21 @@ export function buildCommunityTree(input: CommunityTreeInput): C4TreeNode[] {
     for (const [containerId, compIds] of componentsByContainer) {
       const containerEl = containerId ? elementById.get(containerId) : undefined;
 
-      const componentNodes: C4TreeNode[] = compIds
+      const componentNodes: C4TreeNode[] = maxDepth === 'container' ? [] : compIds
         .flatMap(compId => {
           const compEl = elementById.get(compId);
           if (!compEl) return [];
-          const codeChildren: C4TreeNode[] = elements
-            .filter(el => el.boundaryId === compId && el.type === 'code')
-            .sort((a, b) => a.name.localeCompare(b.name))
-            .map(el => ({
-              id: el.id,
-              name: el.name,
-              type: el.type as C4TreeNode['type'],
-              children: [] as C4TreeNode[],
-            }));
+          const codeChildren: C4TreeNode[] = maxDepth === 'code'
+            ? elements
+                .filter(el => el.boundaryId === compId && el.type === 'code')
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map(el => ({
+                  id: el.id,
+                  name: el.name,
+                  type: el.type as C4TreeNode['type'],
+                  children: [] as C4TreeNode[],
+                }))
+            : [];
           const node: C4TreeNode = {
             id: compEl.id,
             name: compEl.name,
