@@ -7,6 +7,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import CodeIcon from '@mui/icons-material/Code';
+import HubIcon from '@mui/icons-material/Hub';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExtensionIcon from '@mui/icons-material/Extension';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
@@ -24,6 +25,8 @@ import ListItemText from '@mui/material/ListItemText';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import Tooltip from '@mui/material/Tooltip';
+import Tab from '@mui/material/Tab';
+import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
 import type { Dispatch, FC } from 'react';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
@@ -72,6 +75,7 @@ function TypeIcon({ type, serviceType }: Readonly<{ type: C4TreeNode['type']; se
     case 'containerDb': return <Inventory2Icon sx={sx} />;
     case 'component': return <ExtensionIcon sx={sx} />;
     case 'code': return <CodeIcon sx={sx} />;
+    case 'community': return <HubIcon sx={sx} />;
   }
 }
 
@@ -108,9 +112,10 @@ interface TreeNodeItemProps {
   readonly checkedIds: ReadonlySet<string>;
   readonly onCheck: (id: string) => void;
   readonly onRemove?: (id: string) => void;
+  readonly hideCheckbox?: boolean;
 }
 
-const TreeNodeItem: FC<TreeNodeItemProps> = memo(({ node, depth, selectedId, onSelect, expanded, onToggle, checkedIds, onCheck, onRemove }) => {
+const TreeNodeItem: FC<TreeNodeItemProps> = memo(({ node, depth, selectedId, onSelect, expanded, onToggle, checkedIds, onCheck, onRemove, hideCheckbox }) => {
   const hasChildren = node.children.length > 0;
   const isOpen = expanded.has(node.id);
   const isSelected = node.id === selectedId;
@@ -172,7 +177,7 @@ const TreeNodeItem: FC<TreeNodeItemProps> = memo(({ node, depth, selectedId, onS
         ) : (
           <Box sx={{ width: 20 }} />
         )}
-        {isCheckable && (
+        {isCheckable && !hideCheckbox && (
           <Checkbox
             size="small"
             checked={isChecked}
@@ -222,6 +227,7 @@ const TreeNodeItem: FC<TreeNodeItemProps> = memo(({ node, depth, selectedId, onS
                 checkedIds={checkedIds}
                 onCheck={onCheck}
                 onRemove={onRemove}
+                hideCheckbox={hideCheckbox}
               />
             ))}
           </List>
@@ -253,15 +259,23 @@ interface C4ElementTreeProps {
   readonly isDark?: boolean;
   /** レベル/ドリル変更時に渡すリセット指示。key が変化したらチェック・展開状態をリセットする */
   readonly checkReset?: { readonly key: number; readonly ids: ReadonlySet<string> | null; readonly expanded: ReadonlySet<string> | null };
+  readonly communityTree?: readonly C4TreeNode[];
 }
 
-export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onSelect, repoOptions = [], selectedRepo = '', onRepoChange, releaseOptions = [], selectedRelease = CURRENT_RELEASE_TAG, onReleaseChange, currentLevel, selectedSystemId, onAddElement, onCheckedChange, onRemoveElement, onPurgeDeleted, isDark, checkReset }) => {
+export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onSelect, repoOptions = [], selectedRepo = '', onRepoChange, releaseOptions = [], selectedRelease = CURRENT_RELEASE_TAG, onReleaseChange, currentLevel, selectedSystemId, onAddElement, onCheckedChange, onRemoveElement, onPurgeDeleted, isDark, checkReset, communityTree }) => {
   const { t } = useTrailI18n();
   const [searchText, setSearchText] = useState('');
+  const [activeTab, setActiveTab] = useState<0 | 1>(0);
+  const hasCommunityTree = (communityTree?.length ?? 0) > 0;
 
   const filteredTree = useMemo(
     () => filterTreeBySearch(tree, searchText),
     [tree, searchText],
+  );
+
+  const filteredCommunityTree = useMemo(
+    () => communityTree ? filterTreeBySearch(communityTree, searchText) : [],
+    [communityTree, searchText],
   );
 
   const colors = useMemo(() => getC4Colors(isDark ?? true), [isDark]);
@@ -279,6 +293,24 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
     }
     return ids;
   });
+  const [communityExpanded, setCommunityExpanded] = useState<ReadonlySet<string>>(() => {
+    const ids = new Set<string>();
+    for (const n of communityTree ?? []) ids.add(n.id);
+    return ids;
+  });
+
+  const handleCommunityToggle = useCallback((id: string) => {
+    setCommunityExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [checkedIds, setCheckedIds] = useState<ReadonlySet<string>>(() => collectCheckableIds(tree));
 
@@ -389,6 +421,12 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
     onCheckedChange?.(checkedIds);
   }, [checkedIds, onCheckedChange]);
 
+  useEffect(() => {
+    const ids = new Set<string>();
+    for (const n of communityTree ?? []) ids.add(n.id);
+    setCommunityExpanded(ids);
+  }, [communityTree]);
+
   const addButtonSx = {
     textTransform: 'none',
     justifyContent: 'flex-start',
@@ -454,6 +492,19 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
           )}
         </Box>
       )}
+      <Tabs
+        value={activeTab}
+        onChange={(_, v: number) => setActiveTab(v as 0 | 1)}
+        variant="fullWidth"
+        sx={{
+          minHeight: 32,
+          borderBottom: `1px solid ${colors.border}`,
+          '& .MuiTab-root': { minHeight: 32, fontSize: '0.72rem', py: 0.5 },
+        }}
+      >
+        <Tab label={t('c4.elementPanel.tabLayer')} value={0} />
+        <Tab label={t('c4.elementPanel.tabCommunity')} value={1} />
+      </Tabs>
       <Box sx={{ px: 1, py: 0.5, flexShrink: 0, borderBottom: `1px solid ${colors.border}` }}>
         <TextField
           size="small"
@@ -490,23 +541,51 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
           </Tooltip>
         </Box>
       )}
-      <List dense disablePadding sx={{ flex: 1, overflowY: 'auto', ...scrollbarSx }}>
-        {filteredTree.map(node => (
-          <TreeNodeItem
-            key={node.id}
-            node={node}
-            depth={0}
-            selectedId={selectedId}
-            onSelect={handleSelect}
-            expanded={expanded}
-            onToggle={handleToggle}
-            checkedIds={checkedIds}
-            onCheck={handleCheck}
-            onRemove={onRemoveElement}
-          />
-        ))}
-      </List>
-      {onAddElement && currentLevel && currentLevel >= 1 && currentLevel <= 3 && (
+      {activeTab === 0 && (
+        <List dense disablePadding sx={{ flex: 1, overflowY: 'auto', ...scrollbarSx }}>
+          {filteredTree.map(node => (
+            <TreeNodeItem
+              key={node.id}
+              node={node}
+              depth={0}
+              selectedId={selectedId}
+              onSelect={handleSelect}
+              expanded={expanded}
+              onToggle={handleToggle}
+              checkedIds={checkedIds}
+              onCheck={handleCheck}
+              onRemove={onRemoveElement}
+            />
+          ))}
+        </List>
+      )}
+      {activeTab === 1 && (
+        hasCommunityTree ? (
+          <List dense disablePadding sx={{ flex: 1, overflowY: 'auto', ...scrollbarSx }}>
+            {filteredCommunityTree.map(node => (
+              <TreeNodeItem
+                key={node.id}
+                node={node}
+                depth={0}
+                selectedId={selectedId}
+                onSelect={handleSelect}
+                expanded={communityExpanded}
+                onToggle={handleCommunityToggle}
+                checkedIds={new Set()}
+                onCheck={() => undefined}
+                hideCheckbox
+              />
+            ))}
+          </List>
+        ) : (
+          <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
+            <Typography variant="caption" sx={{ color: colors.textMuted, textAlign: 'center' }}>
+              {t('c4.elementPanel.communityUnavailable')}
+            </Typography>
+          </Box>
+        )
+      )}
+      {activeTab === 0 && onAddElement && currentLevel && currentLevel >= 1 && currentLevel <= 3 && (
         <Box sx={{ borderTop: `1px solid ${colors.border}`, px: 1, py: 0.75, flexShrink: 0 }}>
           <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', mb: 0.5 }}>
             Add
