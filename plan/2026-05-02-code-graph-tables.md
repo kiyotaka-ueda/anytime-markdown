@@ -1,7 +1,7 @@
 ---
 title: code_graph テーブル群追加（current/release 分離 + コミュニティ要約の独立保存）
 date: 2026-05-02
-status: pending
+status: completed
 ---
 
 ## 目的
@@ -471,12 +471,12 @@ flowchart TD
 
 ## 進捗
 
-- [ ] タスク 1: schema 定義 + StoredCodeGraph 型・変換ヘルパー
-- [ ] タスク 2: TrailDatabase CRUD + analyzeReleaseCodeGraphsForce + コメントアウト追加
-- [ ] タスク 3: CodeGraphService DB 化
-- [ ] タスク 4: C4Panel.analyzeWorkspace 統合
-- [ ] タスク 5: 強制再生成コマンド 2 つ + package.json
-- [ ] タスク 6: 設計書反映
+- [x] タスク 1: schema 定義 + StoredCodeGraph 型・変換ヘルパー
+- [x] タスク 2: TrailDatabase CRUD + analyzeReleaseCodeGraphsForce + コメントアウト追加
+- [x] タスク 3: CodeGraphService DB 化
+- [x] タスク 4: C4Panel.analyzeWorkspace 統合
+- [x] タスク 5: 強制再生成コマンド 2 つ + package.json
+- [x] タスク 6: 設計書反映
 
 
 ## オープン課題
