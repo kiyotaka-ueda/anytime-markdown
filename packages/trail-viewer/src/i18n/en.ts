@@ -59,7 +59,7 @@ export const en: TrailI18n = {
   'analytics.estimatedCost': 'Estimated Cost',
   'analytics.cacheHitRate': 'Cache Hit Rate',
   'analytics.totalCommits': 'Total Commits',
-  'analytics.linesAdded': 'Total LOC',
+  'analytics.linesAdded': 'Gross Added LOC',
   'analytics.linesAddedShort': 'Total Added',
   'analytics.tokensPerLine': 'Tokens/Line',
   'analytics.costPerLine': 'Cost/Line',
