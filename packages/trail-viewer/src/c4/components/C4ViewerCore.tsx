@@ -711,18 +711,25 @@ export function C4ViewerCore({
   const communityOverlay = useMemo<ReadonlyMap<string, CommunityOverlayEntry> | null>(() => {
     if (!showCommunity || !codeGraph || !c4Model) return null;
     if (currentLevel !== 3 && currentLevel !== 4) return null;
-    return computeCommunityOverlay(c4Model, codeGraph, currentLevel as 3 | 4, selectedRepo || null);
+    return computeCommunityOverlay(c4Model, codeGraph, 3, selectedRepo || null);
   }, [showCommunity, codeGraph, c4Model, currentLevel, selectedRepo]);
 
+  // Community タブ用: showCommunity トグル不要、L3/L4 で常に L3 ベースで計算
+  const communityOverlayL3 = useMemo<ReadonlyMap<string, CommunityOverlayEntry> | null>(() => {
+    if (!codeGraph || !c4Model) return null;
+    if (currentLevel !== 3 && currentLevel !== 4) return null;
+    return computeCommunityOverlay(c4Model, codeGraph, 3, selectedRepo || null);
+  }, [codeGraph, c4Model, currentLevel, selectedRepo]);
+
   const communityTree = useMemo(() => {
-    if (!communityOverlay || !codeGraph || !c4Model || currentLevel !== 3) return undefined;
+    if (!communityOverlayL3 || !codeGraph || !c4Model) return undefined;
     return buildCommunityTree({
       c4Model,
-      communityOverlay,
+      communityOverlay: communityOverlayL3,
       communities: codeGraph.communities,
       communitySummaries: codeGraph.communitySummaries,
     });
-  }, [communityOverlay, codeGraph, c4Model, currentLevel]);
+  }, [communityOverlayL3, codeGraph, c4Model]);
 
   const selectedCommunityInfo = useMemo(() => {
     if (!selectedElementId?.startsWith('community:')) return null;
@@ -743,16 +750,25 @@ export function C4ViewerCore({
   }, [selectedElementId, communityTree, codeGraph]);
 
   const communityMap = useMemo(() => {
-    if (!communityOverlay) return null;
+    if (!communityOverlay || !c4Model) return null;
     const map = new Map<string, { color: string; isGodNode: boolean }>();
-    for (const [elementId, entry] of communityOverlay) {
-      map.set(elementId, {
-        color: communityColor(entry.dominantCommunity),
-        isGodNode: entry.isGodNode,
-      });
+    if (currentLevel === 4) {
+      // L4: code 要素の親 component の L3 community 色を伝播
+      for (const el of c4Model.elements) {
+        if (el.type !== 'code') continue;
+        const parentId = el.boundaryId;
+        if (!parentId) continue;
+        const entry = communityOverlay.get(parentId);
+        if (!entry) continue;
+        map.set(el.id, { color: communityColor(entry.dominantCommunity), isGodNode: false });
+      }
+    } else {
+      for (const [elementId, entry] of communityOverlay) {
+        map.set(elementId, { color: communityColor(entry.dominantCommunity), isGodNode: entry.isGodNode });
+      }
     }
     return map.size > 0 ? map : null;
-  }, [communityOverlay]);
+  }, [communityOverlay, c4Model, currentLevel]);
 
   const communityLegend = useMemo<readonly CommunityLegendItem[] | null>(() => {
     if (!communityOverlay || !codeGraph) return null;
@@ -1087,8 +1103,6 @@ export function C4ViewerCore({
                 overlay={metricOverlay}
                 isDark={isDark}
                 dsmMax={dsmMax}
-                communityLegend={communityLegend ?? undefined}
-                communityTitle={communityLegend ? t('c4.community.title') : undefined}
               />
               {/* 左側パネル: 全体マップ + C4 ビュー設定コントロール群 */}
               <Box sx={{ position: 'absolute', top: 8, left: 8, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 1 }}>

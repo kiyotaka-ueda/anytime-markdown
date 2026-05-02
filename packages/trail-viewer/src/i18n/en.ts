@@ -199,7 +199,7 @@ export const en: TrailI18n = {
   'c4.elementPanel.searchPlaceholder': 'Search elements...',
   'c4.elementPanel.tabLayer': 'Layer',
   'c4.elementPanel.tabCommunity': 'Community',
-  'c4.elementPanel.communityUnavailable': 'Enable Community at L3 to use this tab',
+  'c4.elementPanel.communityUnavailable': 'Code graph required at L3/L4',
   'c4.popup.metrics': 'Metrics',
   'c4.popup.metric.coverage': 'Coverage',
   'c4.popup.metric.branches': 'Branches',
