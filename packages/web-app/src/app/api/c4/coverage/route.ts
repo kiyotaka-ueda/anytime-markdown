@@ -25,11 +25,25 @@ export async function GET(): Promise<NextResponse> {
   if (!env) return NextResponse.json(empty, { headers: NO_STORE_HEADERS });
 
   try {
+    const supabase = createClient(env.url, env.anonKey);
+
+    // repo_name を trail_current_coverage から取得（モデル取得に必要）
+    const { data: firstRow } = await supabase
+      .from('trail_current_coverage')
+      .select('repo_name')
+      .limit(1)
+      .maybeSingle<{ repo_name: string }>();
+
+    if (!firstRow) return NextResponse.json(empty, { headers: NO_STORE_HEADERS });
+
+    const repoName = firstRow.repo_name;
+
     const [payload, supabaseCovResult] = await Promise.all([
-      fetchC4Model(store, 'current', undefined),
-      createClient(env.url, env.anonKey)
+      fetchC4Model(store, 'current', repoName),
+      supabase
         .from('trail_current_coverage')
-        .select('package,file_path,lines_total,lines_covered,lines_pct,statements_total,statements_covered,statements_pct,functions_total,functions_covered,functions_pct,branches_total,branches_covered,branches_pct'),
+        .select('package,file_path,lines_total,lines_covered,lines_pct,statements_total,statements_covered,statements_pct,functions_total,functions_covered,functions_pct,branches_total,branches_covered,branches_pct')
+        .eq('repo_name', repoName),
     ]);
 
     if (!payload) return NextResponse.json(empty, { headers: NO_STORE_HEADERS });
