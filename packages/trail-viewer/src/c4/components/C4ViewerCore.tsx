@@ -711,7 +711,7 @@ export function C4ViewerCore({
   const communityOverlay = useMemo<ReadonlyMap<string, CommunityOverlayEntry> | null>(() => {
     if (!showCommunity || !codeGraph || !c4Model) return null;
     if (currentLevel !== 3 && currentLevel !== 4) return null;
-    return computeCommunityOverlay(c4Model, codeGraph, 3, selectedRepo || null);
+    return computeCommunityOverlay(c4Model, codeGraph, currentLevel as 3 | 4, selectedRepo || null);
   }, [showCommunity, codeGraph, c4Model, currentLevel, selectedRepo]);
 
   // Community タブ用: showCommunity トグル不要、L3/L4 で常に L3 ベースで計算
@@ -750,25 +750,13 @@ export function C4ViewerCore({
   }, [selectedElementId, communityTree, codeGraph]);
 
   const communityMap = useMemo(() => {
-    if (!communityOverlay || !c4Model) return null;
+    if (!communityOverlay) return null;
     const map = new Map<string, { color: string; isGodNode: boolean }>();
-    if (currentLevel === 4) {
-      // L4: code 要素の親 component の L3 community 色を伝播
-      for (const el of c4Model.elements) {
-        if (el.type !== 'code') continue;
-        const parentId = el.boundaryId;
-        if (!parentId) continue;
-        const entry = communityOverlay.get(parentId);
-        if (!entry) continue;
-        map.set(el.id, { color: communityColor(entry.dominantCommunity), isGodNode: false });
-      }
-    } else {
-      for (const [elementId, entry] of communityOverlay) {
-        map.set(elementId, { color: communityColor(entry.dominantCommunity), isGodNode: entry.isGodNode });
-      }
+    for (const [elementId, entry] of communityOverlay) {
+      map.set(elementId, { color: communityColor(entry.dominantCommunity), isGodNode: entry.isGodNode });
     }
     return map.size > 0 ? map : null;
-  }, [communityOverlay, c4Model, currentLevel]);
+  }, [communityOverlay]);
 
   const communityLegend = useMemo<readonly CommunityLegendItem[] | null>(() => {
     if (!communityOverlay || !codeGraph) return null;
