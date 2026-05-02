@@ -18,7 +18,7 @@ import {
   filterTreeByLevel,
   parseCoverage,
 } from '@anytime-markdown/trail-core/c4';
-import type { MessageInput } from '@anytime-markdown/trail-core/c4';
+import type { FileCoverage, MessageInput } from '@anytime-markdown/trail-core/c4';
 import type {
   C4Model,
   DocLink,
@@ -1380,19 +1380,36 @@ export class TrailDataServer {
         }
       }
 
-      // Fallback: single coverage-final.json configured via anytimeTrail.coverage.path
-      const coveragePath = provider?.coveragePath;
+      // Fallback: scan packages/*/coverage/coverage-final.json
       const projectRoot = provider?.projectRoot ?? this.gitRoot;
-
-      if (!coveragePath || !projectRoot || !fs.existsSync(coveragePath)) {
+      if (!this.gitRoot || !projectRoot) {
         res.writeHead(200, JSON_HEADERS);
         res.end(JSON.stringify({ coverageMatrix: null, coverageDiff: null }));
         return;
       }
 
-      const raw = JSON.parse(await fs.promises.readFile(coveragePath, 'utf-8')) as Record<string, unknown>;
-      const files = parseCoverage(raw as Parameters<typeof parseCoverage>[0]);
-      const coverageMatrix = aggregateCoverage(files, payload.model, projectRoot);
+      const allFiles: FileCoverage[] = [];
+      const packagesDir = path.join(this.gitRoot, 'packages');
+      if (fs.existsSync(packagesDir)) {
+        for (const pkgDir of fs.readdirSync(packagesDir)) {
+          const coveragePath = path.join(packagesDir, pkgDir, 'coverage', 'coverage-final.json');
+          if (!fs.existsSync(coveragePath)) continue;
+          try {
+            const raw = JSON.parse(fs.readFileSync(coveragePath, 'utf-8')) as Parameters<typeof parseCoverage>[0];
+            allFiles.push(...parseCoverage(raw));
+          } catch {
+            // skip unreadable files
+          }
+        }
+      }
+
+      if (allFiles.length === 0) {
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({ coverageMatrix: null, coverageDiff: null }));
+        return;
+      }
+
+      const coverageMatrix = aggregateCoverage(allFiles, payload.model, projectRoot);
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({ coverageMatrix, coverageDiff: null }));
     } catch (e) {
