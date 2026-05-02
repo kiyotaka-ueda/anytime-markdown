@@ -244,6 +244,7 @@ export const en: TrailI18n = {
   'c4.popup.metric.defectRisk': 'Defect',
   'c4.popup.functions': 'Functions',
   'c4.popup.functions.empty': 'No functions found',
+  'c4.openFile': 'Open File',
   'c4.community.toggle': 'Community',
   'c4.community.title': 'Community',
   'c4.community.summary': 'Summary',

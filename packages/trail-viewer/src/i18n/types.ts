@@ -279,6 +279,7 @@ export interface TrailI18n {
   'c4.popup.metric.defectRisk': string;
   'c4.popup.functions': string;
   'c4.popup.functions.empty': string;
+  'c4.openFile': string;
   // community overlay (C4 model tab × CodeGraph)
   'c4.community.toggle': string;
   'c4.community.title': string;
