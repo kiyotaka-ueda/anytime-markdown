@@ -3,6 +3,7 @@
 import type { DocLink } from '@anytime-markdown/trail-core/c4';
 import { TrailViewerApp } from '@anytime-markdown/trail-viewer';
 import { useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 import { useLocaleSwitch } from '../../LocaleProvider';
 import { useThemeMode } from '../../providers';
@@ -18,6 +19,10 @@ export function TrailViewer({ containerHeight = 'calc(100vh - 64px)' }: Readonly
   const { themeMode } = useThemeMode();
   const isDark = themeMode === 'dark';
   const { locale } = useLocaleSwitch();
+  const searchParams = useSearchParams();
+
+  const tabParam = searchParams.get('tab');
+  const initialTab = tabParam !== null ? Number(tabParam) : undefined;
 
   const handleDocLinkClick = useCallback((doc: DocLink) => {
     globalThis.open(`/docs/view?ghPath=${encodeURIComponent(doc.path)}`, '_blank');
@@ -32,6 +37,7 @@ export function TrailViewer({ containerHeight = 'calc(100vh - 64px)' }: Readonly
         locale={locale}
         containerHeight={containerHeight}
         onDocLinkClick={handleDocLinkClick}
+        initialTab={initialTab}
       />
     </TrailErrorBoundary>
   );

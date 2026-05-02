@@ -36,6 +36,8 @@ export interface TrailViewerAppProps {
    * 拡張機能では VS Code に通知、web アプリでは新規タブで開く等の挙動を上書きできる。
    */
   readonly onDocLinkClick?: (doc: DocLink) => void;
+  /** 初期表示タブ番号（0=Analytics, 1=Traces, 2=Prompts, 3=Releases, 4=C4, 5=Matrix, 6=Graph）*/
+  readonly initialTab?: number;
 }
 
 export function TrailViewerApp({
@@ -45,6 +47,7 @@ export function TrailViewerApp({
   containerHeight,
   editable = false,
   onDocLinkClick,
+  initialTab,
 }: Readonly<TrailViewerAppProps>) {
   const dataSource = useTrailDataSource(serverUrl);
   const c4 = useC4DataSource(serverUrl);
@@ -173,6 +176,7 @@ export function TrailViewerApp({
       sessionsLoading={dataSource.sessionsLoading}
       c4={c4Props}
       codeGraph={{ serverUrl }}
+      initialTab={initialTab}
     />
   );
 }

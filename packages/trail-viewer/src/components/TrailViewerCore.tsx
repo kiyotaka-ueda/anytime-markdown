@@ -67,6 +67,8 @@ export interface TrailViewerCoreProps {
   readonly c4?: C4Props;
   /** Code graph props. When provided, the Graph tab is shown. */
   readonly codeGraph?: { readonly serverUrl: string };
+  /** 初期表示タブ番号（0=Analytics, 1=Traces, 2=Prompts, 3=Releases, 4=C4, 5=Matrix, 6=Graph）*/
+  readonly initialTab?: number;
 }
 
 const SESSION_LIST_WIDTH = 300;
@@ -107,11 +109,12 @@ function TrailViewerCoreInner({
   sessionsLoading,
   c4,
   codeGraph,
+  initialTab,
 }: Readonly<TrailViewerCoreProps>) {
   const { t } = useTrailI18n();
   const tokens = useMemo(() => getTokens(isDark ?? true), [isDark]);
   const { colors, scrollbarSx } = tokens;
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState(initialTab ?? 0);
 
   const visibleSessions = useMemo(() => {
     let result: readonly TrailSession[] = allSessions ?? sessions;
