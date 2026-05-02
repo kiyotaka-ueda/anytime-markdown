@@ -79,7 +79,7 @@ export function PressBody() {
       />
       <BriefingPrimary
         subtitle="- 構造"
-        trailKeys={['trail1']}
+        trailKeys={['trail1', 'trail2']}
         embed={<TrailViewerEmbed containerHeight="clamp(400px, 62vh, 760px)" initialTab={4} initialC4Level={2} />}
         embedActions={
           <CtaActions
