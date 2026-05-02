@@ -34,6 +34,8 @@ export interface UseCanvasBaseOptions {
   readonly onNodeDoubleClick?: (node: GraphNode | null) => void;
   /** 右クリック時のコールバック */
   readonly onNodeContextMenu?: (node: GraphNode, screenX: number, screenY: number) => void;
+  /** Ctrl+クリック時のコールバック（複数選択トグル後に呼ばれる） */
+  readonly onNodeCtrlClick?: (node: GraphNode) => void;
   /** フレームノードをヒットテスト対象から除外するか（デフォルト true） */
   readonly skipFrames?: boolean;
 
@@ -101,6 +103,7 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
     onNodeClick,
     onNodeDoubleClick,
     onNodeContextMenu,
+    onNodeCtrlClick,
     skipFrames = true,
     getSelection,
     dispatch: editorDispatch,
@@ -197,6 +200,16 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
           }
           return;
         }
+        // Ctrl+click: 複数選択トグル
+        if ((e.ctrlKey || e.metaKey) && onNodeCtrlClick) {
+          const current = getSelection?.()?.nodeIds ?? [];
+          const newNodeIds = current.includes(hit.id)
+            ? current.filter(id => id !== hit.id)
+            : [...current, hit.id];
+          setSelection({ nodeIds: newNodeIds, edgeIds: [] });
+          onNodeCtrlClick(hit);
+          return;
+        }
         // 通常ノード hit
         onNodeClick?.(hit);
         setSelection({ nodeIds: [hit.id], edgeIds: [] });
@@ -216,7 +229,7 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
         selectRectRef.current = { x1: world.x, y1: world.y, x2: world.x, y2: world.y };
       }
     }
-  }, [screenPos, getViewport, nodeAtScreen, onNodeClick, setSelection, getNodes, editorDispatch]);
+  }, [screenPos, getViewport, nodeAtScreen, onNodeClick, onNodeCtrlClick, setSelection, getSelection, getNodes, editorDispatch]);
 
   // --- Mouse move ---
   const handleMouseMove = useCallback((e: React.MouseEvent) => {

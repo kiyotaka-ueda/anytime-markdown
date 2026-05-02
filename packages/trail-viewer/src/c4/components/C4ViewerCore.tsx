@@ -298,6 +298,7 @@ export function C4ViewerCore({
     granularity: tcValue.granularity,
   });
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [selectedElementIds, setSelectedElementIds] = useState<readonly string[]>([]);
   const [drillStack, setDrillStack] = useState<readonly { readonly element: C4Element; readonly prevLevel: number; readonly prevCheckedIds: ReadonlySet<string> | null }[]>([]);
   const [contextMenu, setContextMenu] = useState<{
     readonly x: number;
@@ -541,6 +542,7 @@ export function C4ViewerCore({
         setCheckReset(prev => ({ key: prev.key + 1, ids: inScope, expanded: expandIds }));
       }
       setSelectedElementId(null);
+      setSelectedElementIds([]);
       setSoloFrameId(null);
       setContextMenu(null);
     },
@@ -1135,7 +1137,19 @@ export function C4ViewerCore({
                     : undefined
                 }
                 ghostEdgeGranularity={tcGranularity}
-                onNodeSelect={(id) => { setCenterOnSelect(false); setSelectedElementId(id); }}
+                onNodeSelect={(id) => { setCenterOnSelect(false); setSelectedElementId(id); setSelectedElementIds([]); }}
+                onMultiNodeSelect={(ids) => {
+                  if (ids.length === 1) {
+                    setSelectedElementId(ids[0]);
+                    setSelectedElementIds([]);
+                  } else if (ids.length === 0) {
+                    setSelectedElementId(null);
+                    setSelectedElementIds([]);
+                  } else {
+                    setSelectedElementId(null);
+                    setSelectedElementIds(ids);
+                  }
+                }}
                 onNodeDoubleClick={(nodeId) => {
                   if (!c4Model) return;
                   const elem = c4Model.elements.find(e => e.id === nodeId);
@@ -1369,6 +1383,47 @@ export function C4ViewerCore({
                   sx={{ position: 'static' }}
                 />
               </Box>
+              {selectedElementIds.length > 1 && c4Model && (
+                <Box
+                  role="dialog"
+                  aria-label="Multiple C4 elements selected"
+                  sx={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    width: SELECTED_ELEMENT_DETAILS_WIDTH,
+                    maxHeight: 'calc(100% - 20px)',
+                    overflow: 'auto',
+                    zIndex: 10,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '8px',
+                    bgcolor: isDark ? 'rgba(18,18,18,0.92)' : 'rgba(251,249,243,0.94)',
+                    color: colors.text,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                    backdropFilter: 'blur(10px)',
+                    px: 1.5,
+                    py: 1.25,
+                  }}
+                >
+                  <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', textTransform: 'uppercase', mb: 0.75 }}>
+                    {selectedElementIds.length} elements selected
+                  </Typography>
+                  {selectedElementIds.map(id => {
+                    const elem = c4Model.elements.find(e => e.id === id);
+                    if (!elem) return null;
+                    return (
+                      <Box key={id} sx={{ py: 0.5, borderBottom: `1px solid ${colors.border}`, '&:last-child': { borderBottom: 'none' } }}>
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem', textTransform: 'uppercase' }}>
+                          {elem.type}
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.8rem', fontWeight: 600, wordBreak: 'break-word' }}>
+                          {elem.name}
+                        </Typography>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              )}
               {selectedElementInfo && (
                 <Box
                   role="dialog"

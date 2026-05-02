@@ -80,6 +80,7 @@ interface C4GraphCanvasProps {
   readonly ghostEdges?: ReadonlyArray<C4GhostEdgeRender>;
   readonly ghostEdgeGranularity?: C4GhostEdgeGranularity;
   readonly onNodeSelect?: (nodeId: string | null) => void;
+  readonly onMultiNodeSelect?: (c4Ids: readonly string[]) => void;
   readonly onNodeDoubleClick?: (nodeId: string) => void;
   readonly onNodeContextMenu?: (c4Id: string, x: number, y: number, nodeType: string) => void;
   readonly onGroupContextMenu?: (groupId: string, x: number, y: number) => void;
@@ -88,7 +89,7 @@ interface C4GraphCanvasProps {
 
 const EMPTY_SELECTION: SelectionState = { nodeIds: [], edgeIds: [] };
 
-export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedNodeId, centerOnSelect, overlayMap, claudeActivityMap, communityMap, ghostEdges, ghostEdgeGranularity = 'commit', onNodeSelect, onNodeDoubleClick, onNodeContextMenu, onGroupContextMenu, isDark }: Readonly<C4GraphCanvasProps>) {
+export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedNodeId, centerOnSelect, overlayMap, claudeActivityMap, communityMap, ghostEdges, ghostEdgeGranularity = 'commit', onNodeSelect, onMultiNodeSelect, onNodeDoubleClick, onNodeContextMenu, onGroupContextMenu, isDark }: Readonly<C4GraphCanvasProps>) {
   const rafRef = useRef<number>(0);
   const viewportRef = useRef(viewport);
   const dispatchRef = useRef(dispatch);
@@ -143,6 +144,14 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
     onNodeContextMenu: (node, x, y) => {
       const c4Id = node.metadata?.c4Id as string | undefined;
       if (c4Id) onNodeContextMenu?.(c4Id, x, y, node.type);
+    },
+    onNodeCtrlClick: () => {
+      const allC4Ids = selectionRef.current.flatMap(nodeId => {
+        const n = nodesRef.current.find(n => n.id === nodeId);
+        const c4Id = n?.metadata?.c4Id as string | undefined;
+        return c4Id ? [c4Id] : [];
+      });
+      onMultiNodeSelect?.(allC4Ids);
     },
     enableSpacePan: true,
   });
