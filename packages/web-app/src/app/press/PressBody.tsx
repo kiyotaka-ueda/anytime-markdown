@@ -78,7 +78,7 @@ export function PressBody() {
         }
       />
       <BriefingPrimary
-        subtitle="- メッセージ"
+        subtitle="- モデル"
         trailKeys={['trail1', 'trail2', 'trail3']}
         embed={<TrailViewerEmbed containerHeight="clamp(400px, 62vh, 760px)" initialTab={4} initialC4Level={2} />}
         embedActions={
