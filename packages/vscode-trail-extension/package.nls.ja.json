@@ -28,5 +28,6 @@
   "command.deleteNotePage": "ノートページを削除",
   "command.openNotePage": "ノートページを開く",
   "command.clearContext": "AI ノートをクリア",
-  "command.copyContextPath": "AI ノートのパスをコピー"
+  "command.copyContextPath": "AI ノートのパスをコピー",
+  "command.runWithTrace": "トレース付きで実行"
 }

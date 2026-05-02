@@ -199,6 +199,26 @@
         "command": "anytime-trail.regenerateReleaseCodeGraphs",
         "title": "Regenerate Release Code Graphs",
         "category": "Anytime Trail"
+      },
+      {
+        "command": "anytime-trail.runWithTrace",
+        "title": "%command.runWithTrace%",
+        "category": "Anytime Trail",
+        "icon": "$(beaker)"
+      }
+    ],
+    "codeLensProviders": [
+      {
+        "language": "typescript",
+        "scheme": "file"
+      },
+      {
+        "language": "javascript",
+        "scheme": "file"
+      },
+      {
+        "language": "json",
+        "scheme": "file"
       }
     ],
     "menus": {

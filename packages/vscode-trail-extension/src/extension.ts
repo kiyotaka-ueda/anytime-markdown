@@ -7,11 +7,14 @@ import * as vscode from 'vscode';
 
 import { C4Panel } from './c4/C4Panel';
 import { registerC4Commands } from './commands/c4Commands';
+import { registerTraceCommands } from './commands/traceCommands';
 import { CodeGraphService } from './graph/CodeGraphService';
 import { synthesizeC4ElementsFromFilesystem } from './graph/synthesizeC4Elements';
 import { AiMemoryItem,AiMemoryProvider } from './providers/AiMemoryProvider';
 import { AiNoteItem,AiNoteProvider } from './providers/AiNoteProvider';
 import { C4TreeProvider } from './providers/C4TreeProvider';
+import { TraceCodeLensProvider } from './providers/TraceCodeLensProvider';
+import { TraceScriptLensProvider } from './providers/TraceScriptLensProvider';
 import { TrailDataServer } from './server/TrailDataServer';
 import { DatabaseProvider } from './trail/DatabaseProvider';
 import type { IRemoteTrailStore } from './trail/IRemoteTrailStore';
@@ -873,6 +876,40 @@ export async function activate(context: vscode.ExtensionContext) {
 		aiMemoryRefresh,
 		openAiMemory,
 	);
+
+	// Trace CodeLens providers
+	const testSelector: vscode.DocumentSelector = [
+		{ language: 'typescript', scheme: 'file' },
+		{ language: 'javascript', scheme: 'file' },
+	];
+	const jsonSelector: vscode.DocumentSelector = { language: 'json', scheme: 'file' };
+	context.subscriptions.push(
+		vscode.languages.registerCodeLensProvider(testSelector, new TraceCodeLensProvider()),
+		vscode.languages.registerCodeLensProvider(jsonSelector, new TraceScriptLensProvider()),
+	);
+
+	// Trace run command
+	registerTraceCommands(context);
+
+	// .vscode/trace/ watcher: notify when a new trace file is created
+	if (wsRootForDb) {
+		const traceDir = vscode.Uri.file(path.join(wsRootForDb, '.vscode', 'trace'));
+		const traceWatcher = vscode.workspace.createFileSystemWatcher(
+			new vscode.RelativePattern(traceDir, '*.json'),
+		);
+		traceWatcher.onDidCreate((uri) => {
+			const fileName = path.basename(uri.fsPath);
+			void vscode.window.showInformationMessage(
+				`トレースファイルを保存しました: ${fileName}`,
+				'Trail Viewer で開く',
+			).then((action) => {
+				if (action === 'Trail Viewer で開く') {
+					void vscode.commands.executeCommand('anytime-trail.openTrailViewer');
+				}
+			});
+		});
+		context.subscriptions.push(traceWatcher);
+	}
 }
 
 export function deactivate(): void {

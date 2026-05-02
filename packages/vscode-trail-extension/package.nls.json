@@ -28,5 +28,6 @@
   "command.deleteNotePage": "Delete Note Page",
   "command.openNotePage": "Open Note Page",
   "command.clearContext": "Clear Agent Note",
-  "command.copyContextPath": "Copy Agent Note Path"
+  "command.copyContextPath": "Copy Agent Note Path",
+  "command.runWithTrace": "Run with Trace"
 }
