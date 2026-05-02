@@ -304,7 +304,7 @@ export function C4ViewerCore({
   const [showCommunity, setShowCommunity] = useState(false);
   const [codeGraphEnabled, setCodeGraphEnabled] = useState(false);
   const [showActivityTrend, setShowActivityTrend] = useState(true);
-  const { graph: codeGraph } = useCodeGraph(serverUrl, { enabled: showCommunity || codeGraphEnabled });
+  const { graph: codeGraph } = useCodeGraph(serverUrl, { enabled: showCommunity || codeGraphEnabled || currentLevel >= 2 });
 
   // --- Flow mode state ---
   const ghostEdges = useC4GhostEdges(
@@ -919,9 +919,9 @@ export function C4ViewerCore({
           in: filteredDsmMatrix.adjacency.reduce((sum, row) => sum + (row[dsmIndex] > 0 ? 1 : 0), 0),
         }
       : null;
-    const community = communityOverlay?.get(element.id) ?? null;
+    const community = communityOverlayL3?.get(element.id) ?? null;
     return { element, incoming, outgoing, documents, coverage, complexity, importance, defectRisk, dsm, community };
-  }, [c4Model, complexityMatrix, coverageMatrix, defectRiskMap, docLinks, filteredDsmMatrix, importanceMatrix, selectedElementId, communityOverlay]);
+  }, [c4Model, complexityMatrix, coverageMatrix, defectRiskMap, docLinks, filteredDsmMatrix, importanceMatrix, selectedElementId, communityOverlayL3]);
 
   const toolbarButtonSx = {
     textTransform: 'none', color: colors.accent, borderColor: colors.border,
