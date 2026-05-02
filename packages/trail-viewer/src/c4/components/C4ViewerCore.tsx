@@ -1,7 +1,7 @@
 import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 import { engine, layoutWithSubgroups, MinimapCanvas, state as graphState } from '@anytime-markdown/graph-core';
 import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, CommunityOverlayEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, HotspotMap, ImportanceMatrix, ManualGroup, MetricOverlay } from '@anytime-markdown/trail-core/c4';
-import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, aggregateHotspotToC4, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, computeCommunityOverlay, computeFileHotspot, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFilesToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
+import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, aggregateHotspotToC4, buildCommunityTree, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, computeCommunityOverlay, computeFileHotspot, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFilesToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import LayersIcon from '@mui/icons-material/Layers';
@@ -714,6 +714,16 @@ export function C4ViewerCore({
     return computeCommunityOverlay(c4Model, codeGraph, currentLevel as 3 | 4, selectedRepo || null);
   }, [showCommunity, codeGraph, c4Model, currentLevel, selectedRepo]);
 
+  const communityTree = useMemo(() => {
+    if (!communityOverlay || !codeGraph || !c4Model || currentLevel !== 3) return undefined;
+    return buildCommunityTree({
+      c4Model,
+      communityOverlay,
+      communities: codeGraph.communities,
+      communitySummaries: codeGraph.communitySummaries,
+    });
+  }, [communityOverlay, codeGraph, c4Model, currentLevel]);
+
   const communityMap = useMemo(() => {
     if (!communityOverlay) return null;
     const map = new Map<string, { color: string; isGodNode: boolean }>();
@@ -1015,6 +1025,7 @@ export function C4ViewerCore({
             onRemoveElement={onRemoveElement}
             onPurgeDeleted={onPurgeDeleted}
             isDark={isDark}
+            communityTree={communityTree}
           />
         )}
         {/* C4 Graph */}
