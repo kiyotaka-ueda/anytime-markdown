@@ -73,7 +73,7 @@ export interface TrailViewerCoreProps {
   /** Trace files. When provided, the Trace tab is shown. */
   readonly traceFiles?: readonly TraceFileSource[];
   /** Called when user clicks a node to jump to source. */
-  onJumpToSource?: (loc: SourceLocation) => void;
+  readonly onJumpToSource?: (loc: SourceLocation) => void;
   /** 初期表示タブ番号（0=Analytics, 1=Traces, 2=Prompts, 3=Releases, 4=C4, 5=Matrix, 6=Graph, 7=Trace）*/
   readonly initialTab?: number;
 }

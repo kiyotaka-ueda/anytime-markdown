@@ -9,6 +9,10 @@ export interface TraceFileListing {
 /**
  * Fetches a list of trace files and converts them into TraceFileSource objects.
  * Pass a function that returns an array of {name, url} objects for each .vscode/trace/*.json file.
+ *
+ * IMPORTANT: Wrap `fetchList` in `useCallback` to prevent re-fetch loops.
+ * Passing a new function instance on every render will cause the effect to re-run
+ * and trigger repeated network requests.
  */
 export function useTraceFiles(
     fetchList: (() => Promise<readonly TraceFileListing[]>) | null,
@@ -17,7 +21,7 @@ export function useTraceFiles(
 
     useEffect(() => {
         if (!fetchList) {
-            setSources([]);
+            setSources((prev) => (prev.length > 0 ? [] : prev));
             return;
         }
         let cancelled = false;
