@@ -153,7 +153,6 @@ export interface C4DataProvider {
   readonly currentDsmLevel: 'component' | 'package';
   readonly importanceMatrix: ImportanceMatrix | undefined;
   readonly trailGraph: TrailGraph | undefined;
-  readonly coveragePath: string | undefined;
   readonly projectRoot: string | undefined;
   handleSetDsmLevel(level: 'component' | 'package'): void;
   handleCluster(enabled: boolean): void;

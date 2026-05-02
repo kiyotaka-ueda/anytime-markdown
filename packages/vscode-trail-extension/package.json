@@ -297,11 +297,6 @@
           "default": false,
           "markdownDescription": "拡張機能起動時にコードグラフを自動生成する。"
         },
-        "anytimeTrail.coverage.path": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "Path to `coverage-final.json` (relative to workspace root). When set, file changes are watched and coverage is auto-updated."
-        },
         "anytimeTrail.test.e2eCommand": {
           "type": "string",
           "default": "cd packages/web-app && npm run e2e",
