@@ -173,7 +173,7 @@ function CyclingCard({
           {current.label}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 1 }}>
-          <Typography variant="h5">{current.value}</Typography>
+          <Typography variant="h3">{current.value}</Typography>
           {current.badge && (
             <Chip
               label={current.badge.label}
@@ -339,7 +339,7 @@ function OverviewCards({
           </Typography>
           <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-              <Typography variant="h5">{card.primary}</Typography>
+              <Typography variant="h3">{card.primary}</Typography>
               {card.unit && (
                 <Typography variant="caption" color="text.secondary">{card.unit}</Typography>
               )}
