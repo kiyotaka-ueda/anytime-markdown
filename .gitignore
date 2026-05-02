@@ -11,6 +11,7 @@ docs/project-structure.md
 *.tsbuildinfo
 coverage/
 !packages/trail-core/src/c4/coverage/
+!packages/trail-core/src/c4/__tests__/coverage/
 .v8-coverage/
 
 # Serwist
