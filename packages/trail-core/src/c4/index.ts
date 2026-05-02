@@ -47,6 +47,7 @@ export { clusterMatrix } from './dsm/cluster';
 export { parseCoverage } from './coverage/parseCoverage';
 export type { FileCoverage } from './coverage/parseCoverage';
 export { aggregateCoverage } from './coverage/aggregateCoverage';
+export { aggregateCoverageFromDb } from './coverage/aggregateCoverageFromDb';
 export { computeCoverageDiff } from './coverage/computeCoverageDiff';
 
 export { fetchC4Model, fetchC4ModelEntries } from './c4ModelService';
