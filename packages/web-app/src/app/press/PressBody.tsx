@@ -52,7 +52,7 @@ export function PressBody() {
       <Caravan />
       <Dispatch />
       <BriefingPrimary
-        subtitle="- 品質"
+        subtitle="- アクティビティ"
         trailKeys={['trail2']}
         embed={<TrailViewerEmbed containerHeight="clamp(400px, 62vh, 760px)" />}
         embedActions={
