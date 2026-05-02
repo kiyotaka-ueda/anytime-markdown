@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@anytime-markdown/trail-core": "*",
+    "@anytime-markdown/trace-viewer": "*",
     "@mui/x-charts": "9.0.1",
     "graphology": "0.26.0",
     "sigma": "3.0.2",
