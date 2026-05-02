@@ -160,64 +160,65 @@ function CyclingCard({
         cursor: 'pointer',
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
         '&:hover': { backgroundColor: 'action.hover' },
         userSelect: 'none',
       }}
       onClick={onCycle}
     >
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, alignSelf: 'flex-start' }}>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, textAlign: 'left' }}>
         {groupName}
       </Typography>
-      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-        <Typography variant="h5">{current.value}</Typography>
-        {current.badge && (
-          <Chip
-            label={current.badge.label}
-            size="small"
-            sx={{ backgroundColor: current.badge.color, color: '#fff', fontWeight: 700, height: 20, fontSize: 10 }}
-          />
-        )}
+      <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+          <Typography variant="caption" color="text.secondary">{current.label}</Typography>
+          <Typography variant="h5">{current.value}</Typography>
+          {current.badge && (
+            <Chip
+              label={current.badge.label}
+              size="small"
+              sx={{ backgroundColor: current.badge.color, color: '#fff', fontWeight: 700, height: 20, fontSize: 10 }}
+            />
+          )}
+        </Box>
       </Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
-          {current.label}
-        </Typography>
+      <Box sx={{ minHeight: 32, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
         {current.delta && (
           <Typography variant="caption" sx={{ color: current.delta.color }}>
             {current.delta.text}
           </Typography>
         )}
-      </Box>
-      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5, mt: 1 }}>
-        {items.map((item, i) => (
-          <Box
-            key={item.label}
-            sx={{
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              backgroundColor: i === index ? 'primary.main' : 'action.disabled',
-            }}
-          />
-        ))}
+        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
+          {items.map((item, i) => (
+            <Box
+              key={item.label}
+              sx={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                backgroundColor: i === index ? 'primary.main' : 'action.disabled',
+              }}
+            />
+          ))}
+        </Box>
       </Box>
     </Paper>
   );
 }
 
-function formatDoraValue(m: { value: number; unit: string }): string {
+function formatDoraValue(m: { value: number; unit: string }): { primary: string; unit?: string } {
   if (m.unit === 'perDay') {
-    return m.value >= 1 ? `${m.value.toFixed(1)}/day` : m.value > 0 ? `${(m.value * 7).toFixed(1)}/week` : '0/day';
+    const text = m.value >= 1 ? `${m.value.toFixed(1)}/day` : m.value > 0 ? `${(m.value * 7).toFixed(1)}/week` : '0/day';
+    return { primary: text };
   }
   if (m.unit === 'minPerLoc') {
-    return m.value < 60 ? `${m.value.toFixed(2)} min/LOC` : `${(m.value / 60).toFixed(1)} h/LOC`;
+    const num = m.value < 60 ? m.value.toFixed(2) : (m.value / 60).toFixed(1);
+    return { primary: num, unit: m.value < 60 ? 'min/LOC' : 'h/LOC' };
   }
   if (m.unit === 'tokensPerLoc') {
-    return m.value >= 1000 ? `${(m.value / 1000).toFixed(1)}k tok/LOC` : `${m.value.toFixed(0)} tok/LOC`;
+    const num = m.value >= 1000 ? `${(m.value / 1000).toFixed(1)}k` : m.value.toFixed(0);
+    return { primary: num, unit: 'tok/LOC' };
   }
-  return `${m.value.toFixed(1)}%`;
+  return { primary: `${m.value.toFixed(1)}%` };
 }
 
 function OverviewCards({
@@ -304,8 +305,10 @@ function OverviewCards({
         .filter((m) => m.sampleSize > 0)
         .map((m) => {
           const deltaPct = m.comparison?.deltaPct ?? null;
+          const formatted = formatDoraValue(m);
           return {
-            value: formatDoraValue(m),
+            primary: formatted.primary,
+            unit: formatted.unit,
             label: t((DORA_ID_KEYS[m.id] ?? m.id) as Parameters<typeof t>[0]),
             badge: m.level ? { label: LEVEL_LABELS[m.level], color: LEVEL_COLORS[m.level] } : undefined,
             delta: deltaPct != null ? {
@@ -328,25 +331,34 @@ function OverviewCards({
         cardStyle={cardStyle}
       />
       {doraCards.map((card) => (
-        <Paper key={card.label} elevation={0} sx={{ ...cardStyle, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, alignSelf: 'flex-start' }}>
+        <Paper key={card.label} elevation={0} sx={{ ...cardStyle, display: 'flex', flexDirection: 'column', minHeight: 110 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, textAlign: 'left' }}>
             {card.label}
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-            <Typography variant="h5">{card.value}</Typography>
-            {card.badge && (
-              <Chip
-                label={card.badge.label}
-                size="small"
-                sx={{ backgroundColor: card.badge.color, color: '#fff', fontWeight: 700, height: 20, fontSize: 10 }}
-              />
+          <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.25 }}>
+              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+                <Typography variant="h5">{card.primary}</Typography>
+                {card.badge && (
+                  <Chip
+                    label={card.badge.label}
+                    size="small"
+                    sx={{ backgroundColor: card.badge.color, color: '#fff', fontWeight: 700, height: 20, fontSize: 10 }}
+                  />
+                )}
+              </Box>
+              {card.unit && (
+                <Typography variant="caption" color="text.secondary">{card.unit}</Typography>
+              )}
+            </Box>
+          </Box>
+          <Box sx={{ minHeight: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {card.delta && (
+              <Typography variant="caption" sx={{ color: card.delta.color }}>
+                {card.delta.text}
+              </Typography>
             )}
           </Box>
-          {card.delta && (
-            <Typography variant="caption" sx={{ color: card.delta.color }}>
-              {card.delta.text}
-            </Typography>
-          )}
         </Paper>
       ))}
     </Box>
@@ -2942,13 +2954,23 @@ function CombinedChartsSection({
             size="small"
           >
             <ToggleButton value="tokens" sx={toggleSx}>{t('chart.tokenUsage')}</ToggleButton>
-            <ToggleButton value="models" sx={toggleSx}>{t('analytics.combined.model')}</ToggleButton>
             <ToggleButton value="agents" sx={toggleSx}>{t('analytics.combined.agent')}</ToggleButton>
+            <ToggleButton value="models" sx={toggleSx}>{t('analytics.combined.model')}</ToggleButton>
             <ToggleButton value="skills" sx={toggleSx}>{t('analytics.combined.skill')}</ToggleButton>
             <ToggleButton value="tools" sx={toggleSx}>{t('analytics.combined.tool')}</ToggleButton>
             <ToggleButton value="errors" sx={toggleSx}>{t('analytics.combined.error')}</ToggleButton>
             <ToggleButton value="commits" sx={toggleSx}>{t('analytics.combined.commitPrefix')}</ToggleButton>
             <ToggleButton value="releases" sx={toggleSx}>{t('analytics.combined.release')}</ToggleButton>
+          </ToggleButtonGroup>
+          <ToggleButtonGroup
+            value={period}
+            exclusive
+            onChange={(_e, v: PeriodDays | null) => { if (v !== null) setPeriod(v); }}
+            size="small"
+          >
+            <ToggleButton value={7} sx={toggleSx}>{`7${t('releases.days')}`}</ToggleButton>
+            <ToggleButton value={30} sx={toggleSx}>{`30${t('releases.days')}`}</ToggleButton>
+            <ToggleButton value={90} sx={toggleSx}>{`90${t('releases.days')}`}</ToggleButton>
           </ToggleButtonGroup>
         </Box>
         {metric === 'tokens' && (
@@ -3139,19 +3161,6 @@ export function AnalyticsPanel({ analytics, sessions = [], sessionsLoading, onSe
 
   return (
     <Box sx={{ overflow: 'auto', flex: 1, p: 2, display: 'flex', flexDirection: 'column', gap: 3, ...scrollbarSx }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h5">{t('viewer.analytics')}</Typography>
-        <ToggleButtonGroup
-          value={period}
-          exclusive
-          onChange={(_, v) => { if (v !== null) setPeriod(v); }}
-          size="small"
-        >
-          <ToggleButton value={7}>7d</ToggleButton>
-          <ToggleButton value={30}>30d</ToggleButton>
-          <ToggleButton value={90}>90d</ToggleButton>
-        </ToggleButtonGroup>
-      </Box>
       <OverviewCards totals={{ ...currentTotals, comparison }} sessions={sessions} qualityMetrics={overviewQualityMetrics} />
       <ToolUsageChart items={analytics.toolUsage} />
       <CombinedChartsSection

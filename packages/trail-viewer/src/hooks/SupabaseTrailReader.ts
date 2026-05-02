@@ -334,16 +334,30 @@ export class SupabaseTrailReader implements ITrailReader {
   }
 
   async getAnalytics(): Promise<AnalyticsData | null> {
-    const { data: sessions, error } = await this.client
-      .from('trail_sessions')
-      .select('*');
-    if (error) return null;
-    if (!sessions || sessions.length === 0) return null;
+    const allSessions: Array<{ id: string; start_time?: string; end_time?: string }> = [];
+    for (let offset = 0; ; offset += 1000) {
+      const { data: batch, error } = await this.client
+        .from('trail_sessions')
+        .select('id,start_time,end_time')
+        .range(offset, offset + 999);
+      if (error) return null;
+      if (!batch || batch.length === 0) break;
+      allSessions.push(...(batch as typeof allSessions));
+      if (batch.length < 1000) break;
+    }
+    if (allSessions.length === 0) return null;
+    const sessions = allSessions;
 
-    const { data: commits } = await this.client
-      .from('trail_session_commits')
-      .select('*');
-    const allCommits = commits ?? [];
+    const allCommits: Array<{ committed_at?: string; lines_added: number; lines_deleted: number; files_changed: number; is_ai_assisted: number }> = [];
+    for (let offset = 0; ; offset += 1000) {
+      const { data: batch } = await this.client
+        .from('trail_session_commits')
+        .select('committed_at,lines_added,lines_deleted,files_changed,is_ai_assisted')
+        .range(offset, offset + 999);
+      if (!batch || batch.length === 0) break;
+      allCommits.push(...(batch as typeof allCommits));
+      if (batch.length < 1000) break;
+    }
 
     // Build start_time lookup map from sessions
     const startBySessionId = new Map<string, string>();
@@ -454,6 +468,7 @@ export class SupabaseTrailReader implements ITrailReader {
       totalFilesChanged: allCommits.reduce((s, c) => s + c.files_changed, 0),
       totalAiAssistedCommits: allCommits.filter((c) => c.is_ai_assisted === 1).length,
       totalSessionDurationMs: sessions.reduce((s, r) => {
+        if (!r.start_time || !r.end_time) return s;
         const start = new Date(r.start_time).getTime();
         const end = new Date(r.end_time).getTime();
         return s + (Number.isFinite(end - start) ? end - start : 0);
