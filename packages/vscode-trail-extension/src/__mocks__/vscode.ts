@@ -47,6 +47,15 @@ export const window = {
   })),
   withProgress: jest.fn(),
   showOpenDialog: jest.fn(),
+  createTerminal: jest.fn(() => ({
+    show: jest.fn(),
+    sendText: jest.fn(),
+    dispose: jest.fn(),
+  })),
+  tabGroups: {
+    all: [],
+    close: jest.fn(),
+  },
 };
 
 export const workspace = {
@@ -93,4 +102,29 @@ export enum FileType {
 
 export const extensions = {
   getExtension: jest.fn(),
+};
+
+export class Position {
+  constructor(public readonly line: number, public readonly character: number) {}
+}
+
+export class Range {
+  constructor(public readonly start: Position, public readonly end: Position) {}
+}
+
+export class CodeLens {
+  isResolved = true;
+  constructor(
+    public readonly range: Range,
+    public command?: { command: string; title: string; arguments?: unknown[] },
+  ) {}
+}
+
+export const languages = {
+  registerCodeLensProvider: jest.fn(),
+  createDiagnosticCollection: jest.fn(),
+};
+
+export const RelativePattern = class {
+  constructor(public base: unknown, public pattern: string) {}
 };
