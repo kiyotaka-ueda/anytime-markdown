@@ -1,0 +1,36 @@
+{
+    "version": 1,
+    "metadata": {
+        "startedAt": "2026-05-02T09:30:15.000Z",
+        "endedAt": "2026-05-02T09:30:15.030Z",
+        "command": "node test.js",
+        "cwd": "/tmp/sample",
+        "nodeVersion": "v22.0.0",
+        "depthLimit": 8
+    },
+    "lifelines": [
+        { "id": "L0", "kind": "file", "path": "src/recursive.ts" }
+    ],
+    "events": [
+        { "id": 1, "type": "call", "ts": 0.001, "from": null, "to": "L0", "fn": "f", "args": [10], "depth": 0 },
+        { "id": 2, "type": "call", "ts": 0.002, "from": "L0", "to": "L0", "fn": "f", "args": [9], "depth": 1 },
+        { "id": 3, "type": "call", "ts": 0.003, "from": "L0", "to": "L0", "fn": "f", "args": [8], "depth": 2 },
+        { "id": 4, "type": "call", "ts": 0.004, "from": "L0", "to": "L0", "fn": "f", "args": [7], "depth": 3 },
+        { "id": 5, "type": "call", "ts": 0.005, "from": "L0", "to": "L0", "fn": "f", "args": [6], "depth": 4 },
+        { "id": 6, "type": "call", "ts": 0.006, "from": "L0", "to": "L0", "fn": "f", "args": [5], "depth": 5 },
+        { "id": 7, "type": "call", "ts": 0.007, "from": "L0", "to": "L0", "fn": "f", "args": [4], "depth": 6 },
+        { "id": 8, "type": "call", "ts": 0.008, "from": "L0", "to": "L0", "fn": "f", "args": [3], "depth": 7 },
+        { "id": 9, "type": "call", "ts": 0.009, "from": "L0", "to": "L0", "fn": "f", "args": [2], "depth": 8 },
+        { "id": 10, "type": "call", "ts": 0.010, "from": "L0", "to": "L0", "fn": "f", "args": [1], "depth": 9 },
+        { "id": 11, "type": "return", "ts": 0.011, "of": 10, "ok": true, "result": 1 },
+        { "id": 12, "type": "return", "ts": 0.012, "of": 9, "ok": true, "result": 2 },
+        { "id": 13, "type": "return", "ts": 0.013, "of": 8, "ok": true, "result": 6 },
+        { "id": 14, "type": "return", "ts": 0.014, "of": 7, "ok": true, "result": 24 },
+        { "id": 15, "type": "return", "ts": 0.015, "of": 6, "ok": true, "result": 120 },
+        { "id": 16, "type": "return", "ts": 0.016, "of": 5, "ok": true, "result": 720 },
+        { "id": 17, "type": "return", "ts": 0.017, "of": 4, "ok": true, "result": 5040 },
+        { "id": 18, "type": "return", "ts": 0.018, "of": 3, "ok": true, "result": 40320 },
+        { "id": 19, "type": "return", "ts": 0.019, "of": 2, "ok": true, "result": 362880 },
+        { "id": 20, "type": "return", "ts": 0.020, "of": 1, "ok": true, "result": 3628800 }
+    ]
+}
