@@ -2306,7 +2306,7 @@ export class TrailDatabase {
     onProgress?: (message: string, increment?: number) => void,
     gitRoot?: string,
     excludePatterns?: readonly string[],
-  ): Promise<{ imported: number; skipped: number; commitsResolved: number; releasesResolved: number; releasesAnalyzed: number; coverageImported: number; messageCommitsBackfilled: number }> {
+  ): Promise<{ imported: number; skipped: number; commitsResolved: number; releasesResolved: number; releasesAnalyzed: number; coverageImported: number; currentCoverageImported: number; messageCommitsBackfilled: number }> {
     const projectsDir = path.join(os.homedir(), '.claude', 'projects');
     const codexSessionsDir = path.join(os.homedir(), '.codex', 'sessions');
     const repoName = gitRoot ? path.basename(gitRoot) : '';
@@ -2319,7 +2319,7 @@ export class TrailDatabase {
     try {
       projectDirs = fs.readdirSync(projectsDir);
     } catch {
-      return { imported, skipped, commitsResolved, releasesResolved: 0, releasesAnalyzed: 0, coverageImported: 0, messageCommitsBackfilled: 0 };
+      return { imported, skipped, commitsResolved, releasesResolved: 0, releasesAnalyzed: 0, coverageImported: 0, currentCoverageImported: 0, messageCommitsBackfilled: 0 };
     }
 
     // Pre-load imported file paths + sizes for fast skip
@@ -2520,6 +2520,7 @@ export class TrailDatabase {
 
     // Import coverage data from packages/*/coverage/coverage-summary.json
     let coverageImported = 0;
+    let currentCoverageImported = 0;
     if (gitRoot) {
       try {
         onProgress?.('Importing coverage data...', 0);
@@ -2527,6 +2528,13 @@ export class TrailDatabase {
         onProgress?.(`Coverage imported: ${coverageImported} entries`, 0);
       } catch {
         // Skip coverage import errors
+      }
+      try {
+        onProgress?.('Importing current coverage snapshot...', 0);
+        currentCoverageImported = this.importCurrentCoverage(gitRoot, path.basename(gitRoot));
+        onProgress?.(`Current coverage imported: ${currentCoverageImported} entries`, 0);
+      } catch {
+        // Skip current coverage import errors
       }
     }
 
@@ -2611,7 +2619,16 @@ export class TrailDatabase {
     onProgress?.(`Backfilled ${messageCommitsBackfilled} message_commits`, 0);
 
     this.save();
-    return { imported, skipped, commitsResolved, releasesResolved, releasesAnalyzed, coverageImported, messageCommitsBackfilled };
+    return {
+      imported,
+      skipped,
+      commitsResolved,
+      releasesResolved,
+      releasesAnalyzed,
+      coverageImported,
+      currentCoverageImported,
+      messageCommitsBackfilled,
+    };
   }
 
   saveManualElement(
@@ -2916,11 +2933,26 @@ export class TrailDatabase {
        VALUES (?, ?, ?, datetime('now'))`,
       [repoName, JSON.stringify(stored), stored.generatedAt],
     );
-    db.run('DELETE FROM current_code_graph_communities WHERE repo_name = ?', [repoName]);
+    // 新しいグラフに存在しない古いコミュニティのみ削除（AI 要約を保持するため全削除はしない）
+    if (communities.length === 0) {
+      db.run('DELETE FROM current_code_graph_communities WHERE repo_name = ?', [repoName]);
+    } else {
+      const placeholders = communities.map(() => '?').join(',');
+      db.run(
+        `DELETE FROM current_code_graph_communities WHERE repo_name = ? AND community_id NOT IN (${placeholders})`,
+        [repoName, ...communities.map((c) => c.id)],
+      );
+    }
+    // label は常に更新。name/summary は新しい値が空の場合は既存の AI 要約を保持する
     const stmt = db.prepare(
       `INSERT INTO current_code_graph_communities
          (repo_name, community_id, label, name, summary, generated_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+       VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+       ON CONFLICT(repo_name, community_id) DO UPDATE SET
+         label      = excluded.label,
+         name       = CASE WHEN excluded.name    != '' THEN excluded.name    ELSE name    END,
+         summary    = CASE WHEN excluded.summary != '' THEN excluded.summary ELSE summary END,
+         updated_at = datetime('now')`,
     );
     for (const c of communities) {
       stmt.run([repoName, c.id, c.label, c.name, c.summary]);
