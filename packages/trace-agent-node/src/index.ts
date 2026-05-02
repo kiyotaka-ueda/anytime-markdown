@@ -1,1 +1,10 @@
 export * from './types';
+export { Recorder } from './recorder';
+export { Flusher } from './flusher';
+export { safeSerialize } from './serializer';
+export { instrumentCode } from './astTransform';
+export { installRequireHook, uninstallRequireHook } from './requireHook';
+export { installEsmHook, uninstallEsmHook } from './esmHook';
+export { patchHttp, unpatchHttp } from './monkeyPatch/http';
+export { patchSql } from './monkeyPatch/sql';
+export { patchFs, unpatchFs } from './monkeyPatch/fs';
