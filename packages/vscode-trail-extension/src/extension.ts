@@ -399,8 +399,18 @@ export async function activate(context: vscode.ExtensionContext) {
 	// 数値インデックスではなく label ベースの slug を使う。重複時は index を付与する。
 	const usedRepoIds = new Set<string>();
 	const codeGraphRepos = configuredRepoPaths.map((rawPath, i) => {
-		const expandedPath = expandWorkspace(rawPath);
-		const label = path.basename(expandedPath) || String(i);
+		// 後方互換: 設定値が JSON オブジェクト文字列 '{ "path": "...", "label": "..." }' の場合も受け付ける
+		let resolvedPath = rawPath;
+		let explicitLabel: string | undefined;
+		try {
+			const parsed = JSON.parse(rawPath) as { path?: string; label?: string };
+			if (parsed && typeof parsed === 'object' && typeof parsed.path === 'string') {
+				resolvedPath = parsed.path;
+				if (typeof parsed.label === 'string' && parsed.label) explicitLabel = parsed.label;
+			}
+		} catch { /* not JSON — treat as plain path string */ }
+		const expandedPath = expandWorkspace(resolvedPath);
+		const label = explicitLabel ?? (path.basename(expandedPath) || String(i));
 		const slug = label.trim().replace(/\s+/g, '-');
 		let id = slug || String(i);
 		if (usedRepoIds.has(id)) id = `${id}-${i}`;
