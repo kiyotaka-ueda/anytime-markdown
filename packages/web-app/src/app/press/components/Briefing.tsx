@@ -27,9 +27,9 @@ interface BriefingEmbedProps {
 }
 
 const TRAFFIC_LIGHT_COLORS = ['#FF5F57', '#FFBD2E', '#28C840'] as const;
-const TRAIL_KEYS = ['trail1', 'trail2', 'trail3', 'trail4'] as const;
+const TRAIL_KEYS = ['trail1', 'trail2', 'trail3', 'trail4', 'trail5', 'trail6'] as const;
 const MARKDOWN_KEYS = ['md3', 'md1', 'md2'] as const;
-const ROMAN = ['i', 'ii', 'iii', 'iv'] as const;
+const ROMAN = ['i', 'ii', 'iii', 'iv', 'v', 'vi'] as const;
 
 function BriefingWithEmbed({
   id,
