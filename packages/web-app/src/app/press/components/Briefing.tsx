@@ -23,6 +23,7 @@ interface BriefingEmbedProps {
   embed: ReactNode;
   embedActions?: ReactNode;
   subtitle?: string;
+  trailKeys?: readonly (typeof TRAIL_KEYS[number])[];
 }
 
 const TRAFFIC_LIGHT_COLORS = ['#FF5F57', '#FFBD2E', '#28C840'] as const;
@@ -80,10 +81,10 @@ function BriefingWithEmbed({
   );
 }
 
-export function BriefingPrimary({ embed, embedActions, subtitle }: BriefingEmbedProps) {
+export function BriefingPrimary({ embed, embedActions, subtitle, trailKeys = TRAIL_KEYS }: BriefingEmbedProps) {
   const t = useTranslations('VsCode');
   const tBriefing = useTranslations('press.briefing');
-  const items: BriefingItem[] = TRAIL_KEYS.map((key, idx) => ({
+  const items: BriefingItem[] = trailKeys.map((key, idx) => ({
     num: ROMAN[idx],
     head: t(`${key}Title`),
     body: t(`${key}Body`),

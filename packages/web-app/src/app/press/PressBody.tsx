@@ -53,6 +53,7 @@ export function PressBody() {
       <Dispatch />
       <BriefingPrimary
         subtitle="- 品質"
+        trailKeys={['trail2']}
         embed={<TrailViewerEmbed containerHeight="clamp(400px, 62vh, 760px)" />}
         embedActions={
           <CtaActions
@@ -65,6 +66,7 @@ export function PressBody() {
       />
       <BriefingPrimary
         subtitle="- 行動"
+        trailKeys={['trail3']}
         embed={<TrailViewerEmbed containerHeight="clamp(400px, 62vh, 760px)" initialTab={1} />}
         embedActions={
           <CtaActions
@@ -77,6 +79,7 @@ export function PressBody() {
       />
       <BriefingPrimary
         subtitle="- 構造"
+        trailKeys={['trail1']}
         embed={<TrailViewerEmbed containerHeight="clamp(400px, 62vh, 760px)" initialTab={4} initialC4Level={2} />}
         embedActions={
           <CtaActions
@@ -89,6 +92,7 @@ export function PressBody() {
       />
       <BriefingPrimary
         subtitle="- スキル"
+        trailKeys={['trail4']}
         embed={null}
       />
       <BriefingSecondary
