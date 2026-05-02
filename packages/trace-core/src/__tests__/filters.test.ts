@@ -25,9 +25,11 @@ describe('applyFilters', () => {
     });
 });
 
-function collectDepths(node: { depth: number; children: { depth: number; children: unknown[] }[] }): number[] {
+type DepthNode = { depth: number; children: DepthNode[] };
+
+function collectDepths(node: DepthNode): number[] {
     const out: number[] = [];
-    function walk(n: { depth: number; children: { depth: number; children: unknown[] }[] }): void {
+    function walk(n: DepthNode): void {
         if (n.depth >= 0) out.push(n.depth);
         for (const c of n.children) walk(c);
     }
