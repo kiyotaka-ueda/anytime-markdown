@@ -199,6 +199,7 @@ export const en: TrailI18n = {
   'releases.unknownRepo': '(unknown)',
   'viewer.c4': 'C4 Model',
   'viewer.matrix': 'Matrix',
+  'viewer.trace': 'Trace',
   'c4.releases': 'Releases',
   'c4.releaseRepository': 'Repository',
   'c4.unknownRepo': '(unknown)',

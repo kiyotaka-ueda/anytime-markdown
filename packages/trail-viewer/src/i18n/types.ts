@@ -213,6 +213,8 @@ export interface TrailI18n {
   // c4
   'viewer.c4': string;
   'viewer.matrix': string;
+  // trace
+  'viewer.trace': string;
   'c4.releases': string;
   'c4.releaseRepository': string;
   'c4.unknownRepo': string;
