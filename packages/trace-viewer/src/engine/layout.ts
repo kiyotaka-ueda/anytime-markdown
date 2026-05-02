@@ -33,6 +33,8 @@ const HEADER_HEIGHT = 40;
 const LIFELINE_SPACING = 200;
 const STEP_HEIGHT = 36;
 const ACTIVATION_WIDTH = 10;
+/** ヘッダーボックス底辺と最初のイベント矢印の間に設けるギャップ */
+const GAP_AFTER_HEADER = STEP_HEIGHT;
 
 function makeUid() {
     let _counter = 0;
@@ -148,7 +150,7 @@ export function buildSequenceLayout(
             const toX = lifelineXMap.get(ev.to);
             if (toX === undefined) continue;
             ioCount++;
-            const y = MARGIN_TOP + HEADER_HEIGHT + tick.value * STEP_HEIGHT;
+            const y = MARGIN_TOP + HEADER_HEIGHT + GAP_AFTER_HEADER + tick.value * STEP_HEIGHT;
             tick.value += 1;
             if (fromX !== null) {
                 edges.push({
@@ -164,7 +166,7 @@ export function buildSequenceLayout(
         }
     }
 
-    const totalHeight = MARGIN_TOP + HEADER_HEIGHT + (tick.value + 1) * STEP_HEIGHT + MARGIN_BOTTOM;
+    const totalHeight = MARGIN_TOP + HEADER_HEIGHT + GAP_AFTER_HEADER + (tick.value + 1) * STEP_HEIGHT + MARGIN_BOTTOM;
 
     // Draw lifeline vertical lines (dashed)
     for (const ll of activeLifelines) {
@@ -184,8 +186,8 @@ export function buildSequenceLayout(
     // Draw activation bars
     for (const act of activations) {
         const x = act.x - ACTIVATION_WIDTH / 2;
-        const y1 = MARGIN_TOP + HEADER_HEIGHT + act.startTick * STEP_HEIGHT;
-        const y2 = MARGIN_TOP + HEADER_HEIGHT + tick.value * STEP_HEIGHT;
+        const y1 = MARGIN_TOP + HEADER_HEIGHT + GAP_AFTER_HEADER + act.startTick * STEP_HEIGHT;
+        const y2 = MARGIN_TOP + HEADER_HEIGHT + GAP_AFTER_HEADER + tick.value * STEP_HEIGHT;
         if (y2 > y1) {
             nodes.push({
                 id: act.nodeId,
@@ -235,7 +237,7 @@ function walkNode(
     if (toX === undefined) return;
 
     const callTick = tick.value;
-    const y = MARGIN_TOP + HEADER_HEIGHT + callTick * STEP_HEIGHT;
+    const y = MARGIN_TOP + HEADER_HEIGHT + GAP_AFTER_HEADER + callTick * STEP_HEIGHT;
     tick.value += 1;
 
     const actId = uid('act');
@@ -295,7 +297,7 @@ function walkNode(
 
     // Return arrow
     if (!isSelfCall && fromX !== null) {
-        const returnY = MARGIN_TOP + HEADER_HEIGHT + tick.value * STEP_HEIGHT;
+        const returnY = MARGIN_TOP + HEADER_HEIGHT + GAP_AFTER_HEADER + tick.value * STEP_HEIGHT;
         tick.value += 1;
         edges.push({
             id: uid('return'),
