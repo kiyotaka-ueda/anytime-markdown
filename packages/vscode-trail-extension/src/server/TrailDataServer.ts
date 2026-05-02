@@ -180,6 +180,7 @@ export class TrailDataServer {
   private lastClaudeActivity: { activeElementIds: readonly string[]; touchedElementIds: readonly string[]; plannedElementIds: readonly string[] } | undefined;
   private lastMultiAgentActivity: { agents: readonly import('./types').AgentActivityEntry[]; conflicts: readonly import('./types').FileConflict[] } | undefined;
   onOpenDocLink: ((docPath: string) => void) | undefined;
+  onOpenFile: ((filePath: string) => void) | undefined;
   onTokenBudgetExceeded: ((status: import('./types').TokenBudgetUpdatedMessage) => void) | undefined;
   private tokenBudgetConfig: { dailyLimitTokens: number | null; sessionLimitTokens: number | null; alertThresholdPct: number } = {
     dailyLimitTokens: null,
@@ -2024,6 +2025,9 @@ export class TrailDataServer {
       case 'open-doc-link':
         this.onOpenDocLink?.(message.path);
         break;
+      case 'open-file':
+        this.onOpenFile?.(message.filePath);
+        break;
       case 'reset-claude-activity':
         provider.handleResetClaudeActivity();
         break;
@@ -2431,7 +2435,7 @@ export class TrailDataServer {
 export function isClientMessage(data: unknown): data is ClientMessage {
   if (typeof data !== 'object' || data === null) return false;
   const msg = data as Record<string, unknown>;
-  const validTypes = ['set-level', 'cluster', 'refresh', 'open-doc-link', 'reset-claude-activity', 'generate-code-graph'];
+  const validTypes = ['set-level', 'cluster', 'refresh', 'open-doc-link', 'reset-claude-activity', 'generate-code-graph', 'open-file'];
   return typeof msg.type === 'string' && validTypes.includes(msg.type);
 }
 
