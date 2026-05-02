@@ -3,9 +3,12 @@ import { engine, layoutWithSubgroups, MinimapCanvas, state as graphState } from 
 import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, CommunityOverlayEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, HotspotMap, ImportanceMatrix, ManualGroup, MetricOverlay } from '@anytime-markdown/trail-core/c4';
 import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, aggregateHotspotToC4, buildCommunityTree, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, computeCommunityOverlay, computeFileHotspot, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFilesToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
 import DeleteIcon from '@mui/icons-material/Delete';
+import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import LayersIcon from '@mui/icons-material/Layers';
 import LinkIcon from '@mui/icons-material/Link';
+import TimelineIcon from '@mui/icons-material/Timeline';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import ButtonGroup from '@mui/material/ButtonGroup';
@@ -1197,25 +1200,6 @@ export function C4ViewerCore({
                       ))}
                     </ButtonGroup>
                   </Box>
-                  {/* Upper Lines */}
-                  <Button
-                    size="small"
-                    startIcon={<LayersIcon sx={{ fontSize: 16 }} />}
-                    onClick={() => setShowAncestorEdges(prev => !prev)}
-                    disabled={currentLevel === 1}
-                    aria-pressed={showAncestorEdges}
-                    aria-label="Toggle upper C4 layer relationships"
-                    title="Toggle upper C4 layer relationships"
-                    fullWidth
-                    sx={{
-                      ...toolbarButtonSx,
-                      fontSize: '0.75rem',
-                      justifyContent: 'flex-start',
-                      ...(showAncestorEdges && currentLevel !== 1 && { bgcolor: toolbarButtonActiveBg }),
-                    }}
-                  >
-                    Upper Lines
-                  </Button>
                   {/* Community */}
                   <Button
                     size="small"
@@ -1245,6 +1229,7 @@ export function C4ViewerCore({
                   <Button
                     size="small"
                     fullWidth
+                    startIcon={<TimelineIcon sx={{ fontSize: 16 }} />}
                     onClick={() => {
                       setTcValue(prev => {
                         const nextMode = prev.enabled ? 'none' : prev.granularity === 'session' ? 'session' : 'commit';
@@ -1265,6 +1250,7 @@ export function C4ViewerCore({
                   <Button
                     size="small"
                     fullWidth
+                    startIcon={<TrendingUpIcon sx={{ fontSize: 16 }} />}
                     onClick={() => setShowActivityTrend(prev => !prev)}
                     aria-pressed={showActivityTrend}
                     aria-label="Toggle Activity Trend chart"
@@ -1277,6 +1263,39 @@ export function C4ViewerCore({
                     }}
                   >
                     Activity Trend
+                  </Button>
+                  {/* Upper Lines */}
+                  <Button
+                    size="small"
+                    startIcon={<LayersIcon sx={{ fontSize: 16 }} />}
+                    onClick={() => setShowAncestorEdges(prev => !prev)}
+                    disabled={currentLevel === 1}
+                    aria-pressed={showAncestorEdges}
+                    aria-label="Toggle upper C4 layer relationships"
+                    title="Toggle upper C4 layer relationships"
+                    fullWidth
+                    sx={{
+                      ...toolbarButtonSx,
+                      fontSize: '0.75rem',
+                      justifyContent: 'flex-start',
+                      ...(showAncestorEdges && currentLevel !== 1 && { bgcolor: toolbarButtonActiveBg }),
+                    }}
+                  >
+                    Upper Lines
+                  </Button>
+                  {/* Clear Edit History */}
+                  <Button
+                    size="small"
+                    fullWidth
+                    startIcon={<DeleteSweepIcon sx={{ fontSize: 16 }} />}
+                    disabled={
+                      !(claudeActivity && (claudeActivity.activeElementIds.length > 0 || claudeActivity.touchedElementIds.length > 0 || claudeActivity.plannedElementIds.length > 0)) &&
+                      !(multiAgentActivity && multiAgentActivity.agents.length > 0)
+                    }
+                    onClick={onResetClaudeActivity}
+                    sx={{ ...toolbarButtonSx, fontSize: '0.75rem', justifyContent: 'flex-start' }}
+                  >
+                    {t('c4.claudeActivity.reset')}
                   </Button>
                   {/* Overlay ドロップダウン */}
                   <Box>
@@ -1337,18 +1356,6 @@ export function C4ViewerCore({
                       )}
                     </Typography>
                   )}
-                  <Button
-                    size="small"
-                    fullWidth
-                    disabled={
-                      !(claudeActivity && (claudeActivity.activeElementIds.length > 0 || claudeActivity.touchedElementIds.length > 0 || claudeActivity.plannedElementIds.length > 0)) &&
-                      !(multiAgentActivity && multiAgentActivity.agents.length > 0)
-                    }
-                    onClick={onResetClaudeActivity}
-                    sx={{ ...toolbarButtonSx, fontSize: '0.75rem', justifyContent: 'flex-start' }}
-                  >
-                    {t('c4.claudeActivity.reset')}
-                  </Button>
                 </Box>
                 {/* Ghost Edges 詳細設定（有効時のみ表示） */}
                 <TemporalCouplingSettingsPopup
