@@ -59,7 +59,7 @@ export const ja: TrailI18n = {
   'analytics.estimatedCost': '推定コスト',
   'analytics.cacheHitRate': 'キャッシュヒット率',
   'analytics.totalCommits': '総コミット数',
-  'analytics.linesAdded': 'Total LOC',
+  'analytics.linesAdded': 'Total LOC (Lines Added)',
   'analytics.tokensPerLine': 'トークン/行',
   'analytics.costPerLine': 'コスト/行',
   'analytics.aiCommitPercent': 'AIコミット率',

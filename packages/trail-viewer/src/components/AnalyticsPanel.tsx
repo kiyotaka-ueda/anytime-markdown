@@ -133,7 +133,7 @@ type PeriodDays = 7 | 30 | 90;
 
 interface MetricItem {
   readonly label: string;
-  readonly value: string;
+  readonly value: React.ReactNode;
   readonly badge?: { readonly label: string; readonly color: string };
   readonly delta?: { readonly text: string; readonly color: string };
 }
@@ -241,7 +241,18 @@ function OverviewCards({
     { label: t('analytics.totalTokens'), value: fmtTokens(totalTokens) },
     { label: t('analytics.estimatedCost'), value: fmtUsd(totals.estimatedCostUsd) },
     { label: t('analytics.totalCommits'), value: fmtNum(totals.totalCommits) },
-    { label: t('analytics.linesAdded'), value: fmtNum(totals.totalLinesAdded) },
+    {
+      label: t('analytics.linesAdded'),
+      value: (
+        <>
+          {fmtNum(totals.totalLinesAdded)}
+          <Typography component="span" variant="body2" sx={{ ml: 0.5, opacity: 0.8 }}>
+            ({totals.totalLinesAdded - totals.totalLinesDeleted > 0 ? '+' : ''}
+            {fmtNum(totals.totalLinesAdded - totals.totalLinesDeleted)})
+          </Typography>
+        </>
+      ),
+    },
   ];
 
   const DORA_ID_KEYS: Record<string, string> = {
