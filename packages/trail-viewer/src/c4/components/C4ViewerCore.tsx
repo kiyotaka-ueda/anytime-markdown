@@ -919,9 +919,35 @@ export function C4ViewerCore({
           in: filteredDsmMatrix.adjacency.reduce((sum, row) => sum + (row[dsmIndex] > 0 ? 1 : 0), 0),
         }
       : null;
-    const community = communityOverlayL3?.get(element.id) ?? null;
+    const community = (() => {
+      const direct = communityOverlayL3?.get(element.id) ?? null;
+      if (direct) return direct;
+      if (element.type !== 'container' || !communityOverlayL3) return null;
+      const counts = new Map<number, number>();
+      for (const child of c4Model.elements) {
+        if (child.boundaryId !== element.id || child.type !== 'component') continue;
+        const entry = communityOverlayL3.get(child.id);
+        if (!entry) continue;
+        for (const { community: cid, count } of entry.breakdown) {
+          counts.set(cid, (counts.get(cid) ?? 0) + count);
+        }
+      }
+      if (counts.size === 0) return null;
+      const breakdown = Array.from(counts, ([community, count]) => ({ community, count }))
+        .sort((a, b) => (b.count !== a.count ? b.count - a.count : a.community - b.community));
+      const total = breakdown.reduce((sum, e) => sum + e.count, 0);
+      const dominant = breakdown[0];
+      return {
+        elementId: element.id,
+        dominantCommunity: dominant.community,
+        dominantRatio: dominant.count / total,
+        breakdown,
+        isGodNode: false,
+        communitySummary: codeGraph?.communitySummaries?.[dominant.community],
+      } as CommunityOverlayEntry;
+    })();
     return { element, incoming, outgoing, documents, coverage, complexity, importance, defectRisk, dsm, community };
-  }, [c4Model, complexityMatrix, coverageMatrix, defectRiskMap, docLinks, filteredDsmMatrix, importanceMatrix, selectedElementId, communityOverlayL3]);
+  }, [c4Model, complexityMatrix, coverageMatrix, defectRiskMap, docLinks, filteredDsmMatrix, importanceMatrix, selectedElementId, communityOverlayL3, codeGraph]);
 
   const toolbarButtonSx = {
     textTransform: 'none', color: colors.accent, borderColor: colors.border,
@@ -1429,7 +1455,7 @@ export function C4ViewerCore({
                     const fallbackName = codeGraph?.communities[community.dominantCommunity];
                     const displayName = summary?.name ?? fallbackName ?? `#${community.dominantCommunity}`;
                     const dominantColor = communityColor(community.dominantCommunity);
-                    const showBreakdown = currentLevel === 3 && community.breakdown.length > 1;
+                    const showBreakdown = community.breakdown.length > 1;
                     const topThree = community.breakdown.slice(0, 3);
                     const otherCount = community.breakdown.slice(3).reduce((sum, e) => sum + e.count, 0);
                     const totalCount = community.breakdown.reduce((sum, e) => sum + e.count, 0);
