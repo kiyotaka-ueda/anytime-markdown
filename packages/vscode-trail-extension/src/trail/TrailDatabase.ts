@@ -24,6 +24,10 @@ import {
   CREATE_RELEASE_INDEXES,
   CREATE_CURRENT_COVERAGE,
   CREATE_CURRENT_COVERAGE_INDEXES,
+  CREATE_CURRENT_CODE_GRAPHS,
+  CREATE_RELEASE_CODE_GRAPHS,
+  CREATE_CURRENT_CODE_GRAPH_COMMUNITIES,
+  CREATE_RELEASE_CODE_GRAPH_COMMUNITIES,
   CREATE_MESSAGE_TOOL_CALLS,
   CREATE_MESSAGE_TOOL_CALLS_INDEXES,
   CREATE_MESSAGE_COMMITS,
@@ -51,6 +55,9 @@ import {
 } from '@anytime-markdown/trail-core';
 import type { TrailGraph, IC4ModelStore, C4ModelEntry, C4ModelResult, TrailMessageCommit, MessageCommitInput, ManualElement, ManualRelationship, ManualGroup, CommitFileRow, SessionFileRow, SubagentTypeFileRow, TemporalCouplingEdge, ConfidenceCouplingEdge, PricingSource } from '@anytime-markdown/trail-core';
 import { matchCommitsToMessages, computeDefectRisk, type CommitRiskRow, type DefectRiskEntry } from '@anytime-markdown/trail-core';
+import type { CodeGraph } from '@anytime-markdown/trail-core/codeGraph';
+import { splitCodeGraph, composeCodeGraph } from '@anytime-markdown/trail-core/codeGraph';
+import type { StoredCommunity } from '@anytime-markdown/trail-core/codeGraph';
 import { JsonlSessionReader } from './JsonlSessionReader';
 import { ExecFileGitService } from './ExecFileGitService';
 import { TrailLogger } from '../utils/TrailLogger';
@@ -280,6 +287,7 @@ export interface AnalyticsData {
     readonly totalBuildFails: number;
     readonly totalTestRuns: number;
     readonly totalTestFails: number;
+    readonly totalLoc: number;
   };
   readonly toolUsage: readonly { name: string; count: number }[];
   readonly dailyActivity: readonly {
@@ -770,6 +778,10 @@ export class TrailDatabase {
     db.run(CREATE_CURRENT_GRAPHS);
     db.run(CREATE_RELEASE_GRAPHS);
     this.migrateTrailGraphsTable(db);
+    db.run(CREATE_CURRENT_CODE_GRAPHS);
+    db.run(CREATE_RELEASE_CODE_GRAPHS);
+    db.run(CREATE_CURRENT_CODE_GRAPH_COMMUNITIES);
+    db.run(CREATE_RELEASE_CODE_GRAPH_COMMUNITIES);
     db.run(CREATE_SKILL_MODELS_TABLE);
     db.run(CREATE_SKILL_MODELS_RESOLVED_VIEW);
     db.run(CREATE_MESSAGE_COMMITS);
@@ -2891,6 +2903,184 @@ export class TrailDatabase {
     return JSON.parse(json) as TrailGraph;
   }
 
+  // ---------------------------------------------------------------------------
+  //  CodeGraph CRUD
+  // ---------------------------------------------------------------------------
+
+  saveCurrentCodeGraph(repoName: string, graph: CodeGraph): void {
+    const db = this.ensureDb();
+    const { stored, communities } = splitCodeGraph(graph);
+    db.run(
+      `INSERT OR REPLACE INTO current_code_graphs
+         (repo_name, graph_json, generated_at, updated_at)
+       VALUES (?, ?, ?, datetime('now'))`,
+      [repoName, JSON.stringify(stored), stored.generatedAt],
+    );
+    db.run('DELETE FROM current_code_graph_communities WHERE repo_name = ?', [repoName]);
+    const stmt = db.prepare(
+      `INSERT INTO current_code_graph_communities
+         (repo_name, community_id, label, name, summary, generated_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+    );
+    for (const c of communities) {
+      stmt.run([repoName, c.id, c.label, c.name, c.summary]);
+    }
+    stmt.free();
+    this.save();
+  }
+
+  getCurrentCodeGraph(repoName: string): CodeGraph | null {
+    const db = this.ensureDb();
+    const graphResult = db.exec(
+      'SELECT graph_json FROM current_code_graphs WHERE repo_name = ?',
+      [repoName],
+    );
+    const json = graphResult[0]?.values?.[0]?.[0];
+    if (typeof json !== 'string') return null;
+    const stored = JSON.parse(json) as import('@anytime-markdown/trail-core/codeGraph').StoredCodeGraph;
+    const commResult = db.exec(
+      'SELECT community_id, label, name, summary FROM current_code_graph_communities WHERE repo_name = ?',
+      [repoName],
+    );
+    const communities: StoredCommunity[] = (commResult[0]?.values ?? []).map((row) => ({
+      id: row[0] as number,
+      label: row[1] as string,
+      name: row[2] as string,
+      summary: row[3] as string,
+    }));
+    return composeCodeGraph(stored, communities);
+  }
+
+  upsertCurrentCodeGraphCommunities(
+    repoName: string,
+    communities: ReadonlyArray<{ community_id: number; label?: string; name: string; summary: string }>,
+  ): void {
+    const db = this.ensureDb();
+    for (const c of communities) {
+      const existing = db.exec(
+        'SELECT label FROM current_code_graph_communities WHERE repo_name = ? AND community_id = ?',
+        [repoName, c.community_id],
+      );
+      const existingLabel = existing[0]?.values?.[0]?.[0] as string | undefined;
+      db.run(
+        `INSERT OR REPLACE INTO current_code_graph_communities
+           (repo_name, community_id, label, name, summary, generated_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+        [repoName, c.community_id, c.label ?? existingLabel ?? '', c.name, c.summary],
+      );
+    }
+    this.save();
+  }
+
+  saveReleaseCodeGraph(tag: string, graph: CodeGraph): void {
+    const db = this.ensureDb();
+    const { stored, communities } = splitCodeGraph(graph);
+    db.run(
+      `INSERT OR REPLACE INTO release_code_graphs
+         (release_tag, graph_json, generated_at, updated_at)
+       VALUES (?, ?, ?, datetime('now'))`,
+      [tag, JSON.stringify(stored), stored.generatedAt],
+    );
+    db.run('DELETE FROM release_code_graph_communities WHERE release_tag = ?', [tag]);
+    const stmt = db.prepare(
+      `INSERT INTO release_code_graph_communities
+         (release_tag, community_id, label, name, summary, generated_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+    );
+    for (const c of communities) {
+      stmt.run([tag, c.id, c.label, c.name, c.summary]);
+    }
+    stmt.free();
+    this.save();
+  }
+
+  getReleaseCodeGraph(tag: string): CodeGraph | null {
+    const db = this.ensureDb();
+    const graphResult = db.exec(
+      'SELECT graph_json FROM release_code_graphs WHERE release_tag = ?',
+      [tag],
+    );
+    const json = graphResult[0]?.values?.[0]?.[0];
+    if (typeof json !== 'string') return null;
+    const stored = JSON.parse(json) as import('@anytime-markdown/trail-core/codeGraph').StoredCodeGraph;
+    const commResult = db.exec(
+      'SELECT community_id, label, name, summary FROM release_code_graph_communities WHERE release_tag = ?',
+      [tag],
+    );
+    const communities: StoredCommunity[] = (commResult[0]?.values ?? []).map((row) => ({
+      id: row[0] as number,
+      label: row[1] as string,
+      name: row[2] as string,
+      summary: row[3] as string,
+    }));
+    return composeCodeGraph(stored, communities);
+  }
+
+  deleteCurrentCodeGraphs(): void {
+    const db = this.ensureDb();
+    db.run('DELETE FROM current_code_graph_communities');
+    db.run('DELETE FROM current_code_graphs');
+    this.save();
+  }
+
+  deleteReleaseCodeGraphs(): void {
+    const db = this.ensureDb();
+    db.run('DELETE FROM release_code_graph_communities');
+    db.run('DELETE FROM release_code_graphs');
+    this.save();
+  }
+
+  analyzeReleaseCodeGraphsForce(opts: {
+    codeGraphService: { generate: (onProgress?: (phase: string, percent: number) => void) => Promise<CodeGraph> };
+    gitRoot: string;
+    onProgress?: (msg: string) => void;
+  }): Promise<number> {
+    const db = this.ensureDb();
+    const releases = this.getReleases();
+    if (releases.length === 0) return Promise.resolve(0);
+
+    const git = new ExecFileGitService(opts.gitRoot);
+    let count = 0;
+
+    const runNext = async (i: number): Promise<number> => {
+      if (i >= releases.length) return count;
+      const release = releases[i];
+      const tag = release.tag;
+      const tmpDir = path.join(os.tmpdir(), `trail-cg-release-${tag.replaceAll('/', '-')}`);
+      try {
+        opts.onProgress?.(`Generating code graph for release ${tag}...`);
+        if (fs.existsSync(tmpDir)) {
+          try {
+            execFileSync('git', ['worktree', 'remove', tmpDir, '--force'], { cwd: opts.gitRoot, stdio: 'pipe' });
+          } catch {
+            try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
+          }
+        }
+        const commitHash = git.getTagCommitHash(tag);
+        execFileSync('git', ['worktree', 'add', '--detach', tmpDir, commitHash], { cwd: opts.gitRoot, stdio: 'pipe' });
+        const worktreeNodeModules = path.join(tmpDir, 'node_modules');
+        if (!fs.existsSync(worktreeNodeModules)) {
+          fs.symlinkSync(path.join(opts.gitRoot, 'node_modules'), worktreeNodeModules, 'dir');
+        }
+        const graph = await opts.codeGraphService.generate();
+        this.saveReleaseCodeGraph(tag, graph);
+        count++;
+        opts.onProgress?.(`Release ${tag}: code graph saved`);
+      } catch (e) {
+        opts.onProgress?.(`Skipping ${tag}: ${e instanceof Error ? e.message : String(e)}`);
+      } finally {
+        try {
+          execFileSync('git', ['worktree', 'remove', tmpDir, '--force'], { cwd: opts.gitRoot, stdio: 'pipe' });
+        } catch {
+          try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
+        }
+      }
+      return runNext(i + 1);
+    };
+    void db; // db is used via this.ensureDb() in called methods
+    return runNext(0);
+  }
+
   /**
    * 互換ラッパー: id='current' なら current_graphs、それ以外は release_graphs から取得する。
    * id='current' の場合、repoName が指定されていればそのリポジトリを、未指定なら最初の1件を返す。
@@ -4696,7 +4886,7 @@ export class TrailDatabase {
        WHERE DATE(s.start_time, '${tzOffset}') >= DATE('now', '${tzOffset}', '-180 days')
        GROUP BY date, s.source`,
     );
-    type DailyEntry = { sessions: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number; estimatedCostUsd: number };
+    type DailyEntry = { sessions: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number; estimatedCostUsd: number; commits: number; linesAdded: number };
     const dailyMap = new Map<string, DailyEntry>();
     for (const row of dailyMsgResult[0]?.values ?? []) {
       const date = String(row[0]);
@@ -5585,6 +5775,8 @@ export class TrailDatabase {
 
         // 保存（tsconfigPath は canonical パスを記録）
         this.saveReleaseGraph(graph, tsconfigPath, tag);
+        // TODO(plan/2026-05-02-code-graph-tables): importAll 単体動作を別セッションで確認後にコメントアウト解除
+        // this.analyzeReleaseCodeGraphsForce({ tag, worktreeTsconfig, codeGraphService, gitRoot });
         existingIds.add(tag);
         count++;
         onProgress?.(`Release ${tag} analyzed: ${graph.nodes.length} nodes, ${graph.edges.length} edges`);

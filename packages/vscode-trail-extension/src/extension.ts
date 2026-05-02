@@ -431,9 +431,11 @@ export async function activate(context: vscode.ExtensionContext) {
 			if (!tg || codeGraphRepos.length === 0) return undefined;
 			return { [codeGraphRepos[0].id]: tg };
 		},
+		trailDb: trailDb!,
 	});
 	trailDataServer.setCodeGraphService(codeGraphService);
-	void codeGraphService.loadFromDisk().then(() => {
+	C4Panel.setCodeGraphService(codeGraphService);
+	void codeGraphService.loadFromDb().then(() => {
 		if (codeGraphAutoRefresh) {
 			return codeGraphService.generate((phase, percent) => trailDataServer?.notifyCodeGraphProgress(phase, percent))
 				.then(() => trailDataServer?.notifyCodeGraphUpdated());
@@ -451,6 +453,52 @@ export async function activate(context: vscode.ExtensionContext) {
 				TrailLogger.error('Failed to generate code graph', err);
 				vscode.window.showErrorMessage(`Code graph generation failed: ${(err as Error).message}`);
 			}
+		}),
+		vscode.commands.registerCommand('anytime-trail.regenerateCurrentCodeGraph', async () => {
+			if (!trailDb) {
+				vscode.window.showErrorMessage('Trail DB is not initialized.');
+				return;
+			}
+			await vscode.window.withProgress(
+				{ location: vscode.ProgressLocation.Notification, title: 'Trail: Regenerate Current Code Graph', cancellable: false },
+				async (progress) => {
+					try {
+						progress.report({ message: 'Clearing current code graph...' });
+						trailDb!.deleteCurrentCodeGraphs();
+						progress.report({ message: 'Re-analyzing workspace...' });
+						await C4Panel.analyzeWorkspace();
+						vscode.window.showInformationMessage('Current code graph regenerated.');
+					} catch (err) {
+						TrailLogger.error('Failed to regenerate current code graph', err);
+						vscode.window.showErrorMessage(`Regenerate failed: ${err instanceof Error ? err.message : String(err)}`);
+					}
+				},
+			);
+		}),
+		vscode.commands.registerCommand('anytime-trail.regenerateReleaseCodeGraphs', async () => {
+			if (!trailDb) {
+				vscode.window.showErrorMessage('Trail DB is not initialized.');
+				return;
+			}
+			await vscode.window.withProgress(
+				{ location: vscode.ProgressLocation.Notification, title: 'Trail: Regenerate Release Code Graphs', cancellable: false },
+				async (progress) => {
+					try {
+						progress.report({ message: 'Clearing release code graphs...' });
+						trailDb!.deleteReleaseCodeGraphs();
+						progress.report({ message: 'Generating release code graphs...' });
+						const count = await trailDb!.analyzeReleaseCodeGraphsForce({
+							codeGraphService,
+							gitRoot,
+							onProgress: (msg) => progress.report({ message: msg }),
+						});
+						vscode.window.showInformationMessage(`Release code graphs regenerated (${count} releases).`);
+					} catch (err) {
+						TrailLogger.error('Failed to regenerate release code graphs', err);
+						vscode.window.showErrorMessage(`Regenerate failed: ${err instanceof Error ? err.message : String(err)}`);
+					}
+				},
+			);
 		}),
 	);
 

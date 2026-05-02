@@ -293,3 +293,39 @@ export const CREATE_C4_MANUAL_GROUPS = `CREATE TABLE IF NOT EXISTS c4_manual_gro
   updated_at TEXT NOT NULL,
   PRIMARY KEY (repo_name, group_id)
 )`;
+
+export const CREATE_CURRENT_CODE_GRAPHS = `CREATE TABLE IF NOT EXISTS current_code_graphs (
+  repo_name    TEXT PRIMARY KEY,
+  graph_json   TEXT NOT NULL,
+  generated_at TEXT NOT NULL DEFAULT '',
+  updated_at   TEXT NOT NULL DEFAULT ''
+)`;
+
+export const CREATE_RELEASE_CODE_GRAPHS = `CREATE TABLE IF NOT EXISTS release_code_graphs (
+  release_tag  TEXT PRIMARY KEY REFERENCES releases(tag) ON DELETE CASCADE,
+  graph_json   TEXT NOT NULL,
+  generated_at TEXT NOT NULL DEFAULT '',
+  updated_at   TEXT NOT NULL DEFAULT ''
+)`;
+
+export const CREATE_CURRENT_CODE_GRAPH_COMMUNITIES = `CREATE TABLE IF NOT EXISTS current_code_graph_communities (
+  repo_name    TEXT    NOT NULL,
+  community_id INTEGER NOT NULL,
+  label        TEXT    NOT NULL DEFAULT '',
+  name         TEXT    NOT NULL DEFAULT '',
+  summary      TEXT    NOT NULL DEFAULT '',
+  generated_at TEXT    NOT NULL DEFAULT '',
+  updated_at   TEXT    NOT NULL DEFAULT '',
+  PRIMARY KEY (repo_name, community_id)
+)`;
+
+export const CREATE_RELEASE_CODE_GRAPH_COMMUNITIES = `CREATE TABLE IF NOT EXISTS release_code_graph_communities (
+  release_tag  TEXT    NOT NULL REFERENCES releases(tag) ON DELETE CASCADE,
+  community_id INTEGER NOT NULL,
+  label        TEXT    NOT NULL DEFAULT '',
+  name         TEXT    NOT NULL DEFAULT '',
+  summary      TEXT    NOT NULL DEFAULT '',
+  generated_at TEXT    NOT NULL DEFAULT '',
+  updated_at   TEXT    NOT NULL DEFAULT '',
+  PRIMARY KEY (release_tag, community_id)
+)`;

@@ -12,6 +12,7 @@ import type { C4DataProvider } from '../server/TrailDataServer';
 import type { TrailDataServer } from '../server/TrailDataServer';
 import { TrailLogger } from '../utils/TrailLogger';
 import type { TrailDatabase } from '../trail/TrailDatabase';
+import type { CodeGraphService } from '../graph/CodeGraphService';
 import { ExecFileGitService } from '../trail/ExecFileGitService';
 import { ClaudeStatusWatcher } from '@anytime-markdown/vscode-common';
 import { ClaudeActivityTracker } from './ClaudeActivityTracker';
@@ -25,6 +26,7 @@ export class C4Panel implements C4DataProvider {
   private static instance: C4Panel | undefined;
   private static dataServer: TrailDataServer | undefined;
   private static trailDb: TrailDatabase | undefined;
+  private static codeGraphService: CodeGraphService | undefined;
 
   private lastFeatureMatrix: FeatureMatrix | undefined;
   private lastTrailGraph: TrailGraph | undefined;
@@ -43,6 +45,10 @@ export class C4Panel implements C4DataProvider {
 
   public static setDataServer(server: TrailDataServer): void {
     C4Panel.dataServer = server;
+  }
+
+  public static setCodeGraphService(svc: CodeGraphService): void {
+    C4Panel.codeGraphService = svc;
   }
 
   public static setTrailDatabase(db: TrailDatabase): void {
@@ -246,6 +252,19 @@ export class C4Panel implements C4DataProvider {
           const commitId = gitRoot ? new ExecFileGitService(gitRoot).getHeadCommit() : '';
           C4Panel.trailDb?.saveCurrentGraph(graph, tsconfigPath, commitId, dbRepoName);
           TrailLogger.info(`C4 analysis [${repoName}]: TrailGraph saved to current_graphs (repo=${dbRepoName}, commit=${commitId || 'unknown'})`);
+
+          // CodeGraph を生成して DB に保存
+          if (C4Panel.codeGraphService) {
+            try {
+              progress.report({ message: 'Generating code graph...' });
+              await C4Panel.codeGraphService.generate((phase, percent) => {
+                progress.report({ message: `Code graph: ${phase} (${percent}%)` });
+              });
+            } catch (err) {
+              TrailLogger.error(`C4 analysis [${repoName}]: code graph generation failed`, err);
+              vscode.window.showWarningMessage(`Code graph generation failed: ${err instanceof Error ? err.message : String(err)}`);
+            }
+          }
 
           // coverage-summary.json を current_coverage テーブルに取り込む
           if (gitRoot && C4Panel.trailDb) {
