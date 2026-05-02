@@ -1,4 +1,5 @@
-import type { CodeGraph, CodeGraphQueryResult } from '@anytime-markdown/trail-core/codeGraph';
+import type { CodeGraph, CodeGraphQueryResult, StoredCodeGraph, StoredCommunity } from '@anytime-markdown/trail-core/codeGraph';
+import { composeCodeGraph } from '@anytime-markdown/trail-core/codeGraph';
 import { createClient } from '@supabase/supabase-js';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
@@ -14,7 +15,6 @@ function queryGraph(graph: CodeGraph, keyword: string, depth = 3): CodeGraphQuer
     .filter((n) => n.label.toLowerCase().includes(lower) || n.id.toLowerCase().includes(lower))
     .map((n) => n.id);
 
-  // Build adjacency list
   const adj = new Map<string, string[]>();
   for (const e of graph.edges) {
     const ns = adj.get(e.source) ?? [];
@@ -55,15 +55,22 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   try {
     const supabase = createClient(env.url, env.anonKey);
-    const { data, error } = await supabase
-      .from('trail_current_code_graphs')
-      .select('graph_json')
-      .limit(1)
-      .single();
+    const [{ data: graphRow, error: graphErr }, { data: communityRows }] = await Promise.all([
+      supabase.from('trail_current_code_graphs').select('graph_json').limit(1).single(),
+      supabase.from('trail_current_code_graph_communities').select('community_id,label,name,summary').limit(1000),
+    ]);
 
-    if (error || !data) return new NextResponse(null, { status: 404 });
+    if (graphErr || !graphRow) return new NextResponse(null, { status: 404 });
 
-    const graph = JSON.parse(data.graph_json as string) as CodeGraph;
+    const stored = JSON.parse(graphRow.graph_json as string) as StoredCodeGraph;
+    const communities: StoredCommunity[] = (communityRows ?? []).map((r: Record<string, unknown>) => ({
+      id: r.community_id as number,
+      label: (r.label as string) ?? '',
+      name: (r.name as string) ?? '',
+      summary: (r.summary as string) ?? '',
+    }));
+
+    const graph = composeCodeGraph(stored, communities);
     return NextResponse.json(queryGraph(graph, q), { headers: NO_STORE_HEADERS });
   } catch {
     return new NextResponse(null, { status: 404 });
