@@ -9,9 +9,14 @@ export interface LayoutOptions {
     isDark?: boolean;
 }
 
+/** GraphEdge extended with trace-specific metadata */
+export interface SequenceEdge extends GraphEdge {
+    metadata?: Record<string, string | number>;
+}
+
 export interface SequenceLayout {
     nodes: GraphNode[];
-    edges: GraphEdge[];
+    edges: SequenceEdge[];
     width: number;
     height: number;
     /** lifelineId → X center coordinate */
@@ -103,7 +108,7 @@ export function buildSequenceLayout(
     });
 
     const nodes: GraphNode[] = [];
-    const edges: GraphEdge[] = [];
+    const edges: SequenceEdge[] = [];
     const tick: TickState = { value: 0 };
     const activations: ActivationRecord[] = [];
 
@@ -181,7 +186,7 @@ function walkNode(
     lifelineXMap: Map<string, number>,
     styles: ReturnType<typeof makeStyle>,
     nodes: GraphNode[],
-    edges: GraphEdge[],
+    edges: SequenceEdge[],
     tick: TickState,
     activations: ActivationRecord[],
 ): void {
