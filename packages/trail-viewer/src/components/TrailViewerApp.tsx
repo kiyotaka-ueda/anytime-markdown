@@ -38,6 +38,8 @@ export interface TrailViewerAppProps {
   readonly onDocLinkClick?: (doc: DocLink) => void;
   /** 初期表示タブ番号（0=Analytics, 1=Traces, 2=Prompts, 3=Releases, 4=C4, 5=Matrix, 6=Graph）*/
   readonly initialTab?: number;
+  /** C4 ビューアの初期表示レベル（1=L1 Context, 2=L2 Container, 3=L3 Component, 4=L4 Code）*/
+  readonly initialC4Level?: number;
 }
 
 export function TrailViewerApp({
@@ -48,6 +50,7 @@ export function TrailViewerApp({
   editable = false,
   onDocLinkClick,
   initialTab,
+  initialC4Level,
 }: Readonly<TrailViewerAppProps>) {
   const dataSource = useTrailDataSource(serverUrl);
   const c4 = useC4DataSource(serverUrl);
@@ -146,6 +149,7 @@ export function TrailViewerApp({
     multiAgentActivity: c4.multiAgentActivity,
     onResetClaudeActivity: () => sendCommand('reset-claude-activity'),
     manualGroups: c4.manualGroups,
+    initialLevel: initialC4Level,
   };
 
   return (
