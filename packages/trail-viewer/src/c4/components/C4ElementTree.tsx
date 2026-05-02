@@ -38,13 +38,14 @@ import { filterTreeBySearch } from '@anytime-markdown/trail-core/c4';
 import { useTrailI18n } from '../../i18n';
 import { getC4Colors } from '../c4Theme';
 import { getTokens } from '../../theme/designTokens';
+import { communityColor } from '../../components/communityColors';
 
 const INDENT_PX = 20;
 const UNKNOWN_REPO_KEY = '__unknown__';
 const CURRENT_RELEASE_TAG = 'current';
 
 /** C4要素タイプに対応するアイコン */
-function TypeIcon({ type, serviceType }: Readonly<{ type: C4TreeNode['type']; serviceType?: string }>) {
+function TypeIcon({ type, serviceType, color }: Readonly<{ type: C4TreeNode['type']; serviceType?: string; color?: string }>) {
   const sx = { fontSize: 16 };
 
   if (type === 'container' && serviceType) {
@@ -75,7 +76,7 @@ function TypeIcon({ type, serviceType }: Readonly<{ type: C4TreeNode['type']; se
     case 'containerDb': return <Inventory2Icon sx={sx} />;
     case 'component': return <ExtensionIcon sx={sx} />;
     case 'code': return <CodeIcon sx={sx} />;
-    case 'community': return <HubIcon sx={sx} />;
+    case 'community': return <HubIcon sx={{ ...sx, color: color ?? 'inherit' }} />;
   }
 }
 
@@ -188,7 +189,11 @@ const TreeNodeItem: FC<TreeNodeItemProps> = memo(({ node, depth, selectedId, onS
           />
         )}
         <ListItemIcon sx={{ minWidth: 24 }}>
-          <TypeIcon type={node.type} serviceType={node.serviceType} />
+          <TypeIcon
+            type={node.type}
+            serviceType={node.serviceType}
+            color={node.type === 'community' && node.communityId !== undefined ? communityColor(node.communityId) : undefined}
+          />
         </ListItemIcon>
         <ListItemText
           primary={node.name}
