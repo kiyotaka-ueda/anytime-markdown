@@ -5590,8 +5590,9 @@ export class TrailDatabase {
       } catch {
         continue;
       }
+      const toPct = (v: number | string | undefined | null): number => { const n = Number(v ?? 0); return Number.isFinite(n) ? n : 0; };
       for (const [key, entry] of Object.entries(summary)) {
-        const e = entry as Record<string, { total: number; covered: number; pct: number }>;
+        const e = entry as Record<string, { total: number; covered: number; pct: number | string }>;
         if (!e?.lines || !e?.statements || !e?.functions || !e?.branches) continue;
         const filePath = key === 'total' ? '__total__' : key;
         db.run(
@@ -5605,10 +5606,10 @@ export class TrailDatabase {
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             repoName, pkgDir, filePath,
-            e.lines.total, e.lines.covered, e.lines.pct,
-            e.statements.total, e.statements.covered, e.statements.pct,
-            e.functions.total, e.functions.covered, e.functions.pct,
-            e.branches.total, e.branches.covered, e.branches.pct,
+            e.lines.total, e.lines.covered, toPct(e.lines.pct),
+            e.statements.total, e.statements.covered, toPct(e.statements.pct),
+            e.functions.total, e.functions.covered, toPct(e.functions.pct),
+            e.branches.total, e.branches.covered, toPct(e.branches.pct),
             now,
           ],
         );
@@ -5651,22 +5652,25 @@ export class TrailDatabase {
       'SELECT repo_name, package, file_path, lines_total, lines_covered, lines_pct, statements_total, statements_covered, statements_pct, functions_total, functions_covered, functions_pct, branches_total, branches_covered, branches_pct, updated_at FROM current_coverage',
     );
     const values = result[0]?.values ?? [];
+    // NaN-safe converter: istanbul/v8 stores "Unknown" for pct when total=0
+    // Number("Unknown") = NaN, which JSON.stringify serializes as null → Supabase NOT NULL violation
+    const toNum = (v: unknown): number => { const n = Number(v ?? 0); return Number.isFinite(n) ? n : 0; };
     return values.map((r) => ({
       repo_name: String(r[0] ?? ''),
       package: String(r[1] ?? ''),
       file_path: String(r[2] ?? ''),
-      lines_total: Number(r[3] ?? 0),
-      lines_covered: Number(r[4] ?? 0),
-      lines_pct: Number(r[5] ?? 0),
-      statements_total: Number(r[6] ?? 0),
-      statements_covered: Number(r[7] ?? 0),
-      statements_pct: Number(r[8] ?? 0),
-      functions_total: Number(r[9] ?? 0),
-      functions_covered: Number(r[10] ?? 0),
-      functions_pct: Number(r[11] ?? 0),
-      branches_total: Number(r[12] ?? 0),
-      branches_covered: Number(r[13] ?? 0),
-      branches_pct: Number(r[14] ?? 0),
+      lines_total: toNum(r[3]),
+      lines_covered: toNum(r[4]),
+      lines_pct: toNum(r[5]),
+      statements_total: toNum(r[6]),
+      statements_covered: toNum(r[7]),
+      statements_pct: toNum(r[8]),
+      functions_total: toNum(r[9]),
+      functions_covered: toNum(r[10]),
+      functions_pct: toNum(r[11]),
+      branches_total: toNum(r[12]),
+      branches_covered: toNum(r[13]),
+      branches_pct: toNum(r[14]),
       updated_at: String(r[15] ?? ''),
     }));
   }
