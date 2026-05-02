@@ -32,7 +32,8 @@
     "packages/mobile-app",
     "packages/trail-core",
     "packages/trail-viewer",
-    "packages/graph-viewer"
+    "packages/graph-viewer",
+    "packages/mcp-trail"
   ],
   "overrides": {
     "serialize-javascript": "7.0.5",
