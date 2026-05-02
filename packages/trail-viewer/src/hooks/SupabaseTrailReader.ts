@@ -160,50 +160,54 @@ export class SupabaseTrailReader implements ITrailReader {
   private async fetchSubAgentCountsForSessions(sessionIds: readonly string[]): Promise<Map<string, number>> {
     const out = new Map<string, number>();
     if (sessionIds.length === 0) return out;
-    const { data, error } = await this.client
-      .from('trail_messages')
-      .select('session_id, agent_id, tool_calls')
-      .in('session_id', sessionIds as string[])
-      .eq('type', 'assistant');
-    if (error) {
-      console.warn(
-        `[SupabaseTrailReader] fetchSubAgentCountsForSessions failed (sessionCount=${sessionIds.length}): ${error.message}`,
-      );
-      return out;
-    }
     const claudeTrackBySession = new Map<string, Set<string>>();
     const delegatedTrackBySession = new Map<string, Set<string>>();
     const agentCallCountBySession = new Map<string, number>();
-    for (const row of (data ?? []) as Array<{ session_id: string; agent_id: string | null; tool_calls: string | null }>) {
-      const sid = row.session_id;
-      if (row.agent_id) {
-        let set = claudeTrackBySession.get(sid);
-        if (!set) {
-          set = new Set();
-          claudeTrackBySession.set(sid, set);
-        }
-        set.add(row.agent_id);
+    const BATCH = 200;
+    for (let i = 0; i < sessionIds.length; i += BATCH) {
+      const batchIds = sessionIds.slice(i, i + BATCH);
+      const { data, error } = await this.client
+        .from('trail_messages')
+        .select('session_id, agent_id, tool_calls')
+        .in('session_id', batchIds as string[])
+        .eq('type', 'assistant');
+      if (error) {
+        console.warn(
+          `[SupabaseTrailReader] fetchSubAgentCountsForSessions failed (sessionCount=${sessionIds.length}): ${error.message}`,
+        );
+        return out;
       }
-      if (!row.tool_calls) continue;
-      let calls: Array<{ name?: string; input?: Record<string, unknown> }> = [];
-      try {
-        calls = JSON.parse(row.tool_calls) as Array<{ name?: string; input?: Record<string, unknown> }>;
-      } catch {
-        continue;
-      }
-      const agentCall = calls.find((c) => c.name === 'Agent');
-      if (!agentCall) continue;
-      agentCallCountBySession.set(sid, (agentCallCountBySession.get(sid) ?? 0) + 1);
-      if (!row.agent_id) {
-        const subagentType = typeof agentCall.input?.subagent_type === 'string'
-          ? agentCall.input.subagent_type
-          : 'unknown';
-        let set = delegatedTrackBySession.get(sid);
-        if (!set) {
-          set = new Set();
-          delegatedTrackBySession.set(sid, set);
+      for (const row of (data ?? []) as Array<{ session_id: string; agent_id: string | null; tool_calls: string | null }>) {
+        const sid = row.session_id;
+        if (row.agent_id) {
+          let set = claudeTrackBySession.get(sid);
+          if (!set) {
+            set = new Set();
+            claudeTrackBySession.set(sid, set);
+          }
+          set.add(row.agent_id);
         }
-        set.add(`delegated:${subagentType}`);
+        if (!row.tool_calls) continue;
+        let calls: Array<{ name?: string; input?: Record<string, unknown> }> = [];
+        try {
+          calls = JSON.parse(row.tool_calls) as Array<{ name?: string; input?: Record<string, unknown> }>;
+        } catch {
+          continue;
+        }
+        const agentCall = calls.find((c) => c.name === 'Agent');
+        if (!agentCall) continue;
+        agentCallCountBySession.set(sid, (agentCallCountBySession.get(sid) ?? 0) + 1);
+        if (!row.agent_id) {
+          const subagentType = typeof agentCall.input?.subagent_type === 'string'
+            ? agentCall.input.subagent_type
+            : 'unknown';
+          let set = delegatedTrackBySession.get(sid);
+          if (!set) {
+            set = new Set();
+            delegatedTrackBySession.set(sid, set);
+          }
+          set.add(`delegated:${subagentType}`);
+        }
       }
     }
     for (const sid of sessionIds) {
@@ -224,12 +228,19 @@ export class SupabaseTrailReader implements ITrailReader {
     if (parentSessions.length === 0) return out;
 
     const parentIds = parentSessions.map((s) => s.id);
-    const { data: markerRows, error: markerErr } = await this.client
-      .from('trail_messages')
-      .select('session_id, source_tool_assistant_uuid, timestamp')
-      .in('session_id', parentIds as string[])
-      .not('source_tool_assistant_uuid', 'is', null);
-    if (markerErr) return out;
+    const allMarkerRows: Array<{ session_id: string; source_tool_assistant_uuid: string | null; timestamp: string | null }> = [];
+    const BATCH = 200;
+    for (let i = 0; i < parentIds.length; i += BATCH) {
+      const batchIds = parentIds.slice(i, i + BATCH);
+      const { data: batchRows, error: markerErr } = await this.client
+        .from('trail_messages')
+        .select('session_id, source_tool_assistant_uuid, timestamp')
+        .in('session_id', batchIds as string[])
+        .not('source_tool_assistant_uuid', 'is', null);
+      if (markerErr) return out;
+      if (batchRows) allMarkerRows.push(...(batchRows as typeof allMarkerRows));
+    }
+    const markerRows = allMarkerRows;
 
     const codexSessions = sessions
       .filter((s) => s.source === 'codex')
