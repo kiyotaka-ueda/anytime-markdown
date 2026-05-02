@@ -35,6 +35,22 @@ class FakeRemoteStore implements IRemoteTrailStore {
   async unsafeClearMessageToolCalls(): Promise<void> {}
   async upsertMessageToolCalls(): Promise<void> {}
 
+  coverageRows: Array<{ repo_name: string; package: string; file_path: string; lines_total: number; lines_covered: number; lines_pct: number; statements_total: number; statements_covered: number; statements_pct: number; functions_total: number; functions_covered: number; functions_pct: number; branches_total: number; branches_covered: number; branches_pct: number; updated_at: string }> = [];
+  codeGraphRows: Array<{ repo_name: string; graph_json: string; generated_at: string; updated_at: string }> = [];
+  codeGraphCommunityRows: Array<{ repo_name: string; community_id: number; label: string; name: string; summary: string; generated_at: string; updated_at: string }> = [];
+
+  async unsafeClearCurrentCoverage(): Promise<void> { this.coverageRows = []; }
+  async upsertCurrentCoverage(rows: readonly { repo_name: string; package: string; file_path: string; lines_total: number; lines_covered: number; lines_pct: number; statements_total: number; statements_covered: number; statements_pct: number; functions_total: number; functions_covered: number; functions_pct: number; branches_total: number; branches_covered: number; branches_pct: number; updated_at: string }[]): Promise<void> {
+    this.coverageRows.push(...(rows as typeof this.coverageRows));
+  }
+  async unsafeClearCurrentCodeGraphs(): Promise<void> { this.codeGraphRows = []; this.codeGraphCommunityRows = []; }
+  async upsertCurrentCodeGraphs(rows: readonly { repo_name: string; graph_json: string; generated_at: string; updated_at: string }[]): Promise<void> {
+    this.codeGraphRows.push(...(rows as typeof this.codeGraphRows));
+  }
+  async upsertCurrentCodeGraphCommunities(rows: readonly { repo_name: string; community_id: number; label: string; name: string; summary: string; generated_at: string; updated_at: string }[]): Promise<void> {
+    this.codeGraphCommunityRows.push(...(rows as typeof this.codeGraphCommunityRows));
+  }
+
   async listManualElements(repoName: string): Promise<readonly ManualElement[]> {
     return this.elements.filter(e => (e as ManualElement & { _repo: string })._repo === repoName);
   }
@@ -97,6 +113,50 @@ describe('SyncService.syncManualElements', () => {
     const sync = new SyncService(localDb, remoteStore);
     await sync.syncManualElements('repo-a');
     expect(localDb.getManualElements('repo-a')[0].name).toBe('New');
+    localDb.close();
+  });
+});
+
+describe('SyncService.doSync coverage and code graph', () => {
+  it('syncs current_coverage to remote (wash-away)', async () => {
+    const localDb = await createDb();
+    const remoteStore = new FakeRemoteStore();
+    const sync = new SyncService(localDb, remoteStore);
+    await sync.sync();
+    expect(remoteStore.coverageRows).toHaveLength(0);
+    localDb.close();
+  });
+
+  it('sync calls unsafeClearCurrentCoverage before upsert', async () => {
+    const localDb = await createDb();
+    const remoteStore = new FakeRemoteStore();
+    let clearCalled = false;
+    const origClear = remoteStore.unsafeClearCurrentCoverage.bind(remoteStore);
+    remoteStore.unsafeClearCurrentCoverage = async () => { clearCalled = true; return origClear(); };
+    const sync = new SyncService(localDb, remoteStore);
+    await sync.sync();
+    expect(clearCalled).toBe(true);
+    localDb.close();
+  });
+
+  it('syncs current_code_graphs to remote (wash-away)', async () => {
+    const localDb = await createDb();
+    const remoteStore = new FakeRemoteStore();
+    const sync = new SyncService(localDb, remoteStore);
+    await sync.sync();
+    expect(remoteStore.codeGraphRows).toHaveLength(0);
+    localDb.close();
+  });
+
+  it('sync calls unsafeClearCurrentCodeGraphs before upsert', async () => {
+    const localDb = await createDb();
+    const remoteStore = new FakeRemoteStore();
+    let clearCalled = false;
+    const origClear = remoteStore.unsafeClearCurrentCodeGraphs.bind(remoteStore);
+    remoteStore.unsafeClearCurrentCodeGraphs = async () => { clearCalled = true; return origClear(); };
+    const sync = new SyncService(localDb, remoteStore);
+    await sync.sync();
+    expect(clearCalled).toBe(true);
     localDb.close();
   });
 });

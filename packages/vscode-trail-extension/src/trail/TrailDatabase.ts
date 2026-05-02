@@ -2983,6 +2983,33 @@ export class TrailDatabase {
     return composeCodeGraph(stored, communities);
   }
 
+  getAllCurrentCodeGraphRaws(): Array<{ repo_name: string; graph_json: string; generated_at: string; updated_at: string }> {
+    const db = this.ensureDb();
+    const result = db.exec('SELECT repo_name, graph_json, generated_at, updated_at FROM current_code_graphs');
+    const values = result[0]?.values ?? [];
+    return values.map((r) => ({
+      repo_name: String(r[0] ?? ''),
+      graph_json: String(r[1] ?? ''),
+      generated_at: String(r[2] ?? ''),
+      updated_at: String(r[3] ?? ''),
+    }));
+  }
+
+  getAllCurrentCodeGraphCommunityRaws(): Array<{ repo_name: string; community_id: number; label: string; name: string; summary: string; generated_at: string; updated_at: string }> {
+    const db = this.ensureDb();
+    const result = db.exec('SELECT repo_name, community_id, label, name, summary, generated_at, updated_at FROM current_code_graph_communities');
+    const values = result[0]?.values ?? [];
+    return values.map((r) => ({
+      repo_name: String(r[0] ?? ''),
+      community_id: Number(r[1] ?? 0),
+      label: String(r[2] ?? ''),
+      name: String(r[3] ?? ''),
+      summary: String(r[4] ?? ''),
+      generated_at: String(r[5] ?? ''),
+      updated_at: String(r[6] ?? ''),
+    }));
+  }
+
   upsertCurrentCodeGraphCommunities(
     repoName: string,
     communities: ReadonlyArray<{ community_id: number; label?: string; name: string; summary: string }>,
@@ -5596,6 +5623,32 @@ export class TrailDatabase {
     const result = db.exec(
       'SELECT repo_name, package, file_path, lines_total, lines_covered, lines_pct, statements_total, statements_covered, statements_pct, functions_total, functions_covered, functions_pct, branches_total, branches_covered, branches_pct, updated_at FROM current_coverage WHERE repo_name = ?',
       [repoName],
+    );
+    const values = result[0]?.values ?? [];
+    return values.map((r) => ({
+      repo_name: String(r[0] ?? ''),
+      package: String(r[1] ?? ''),
+      file_path: String(r[2] ?? ''),
+      lines_total: Number(r[3] ?? 0),
+      lines_covered: Number(r[4] ?? 0),
+      lines_pct: Number(r[5] ?? 0),
+      statements_total: Number(r[6] ?? 0),
+      statements_covered: Number(r[7] ?? 0),
+      statements_pct: Number(r[8] ?? 0),
+      functions_total: Number(r[9] ?? 0),
+      functions_covered: Number(r[10] ?? 0),
+      functions_pct: Number(r[11] ?? 0),
+      branches_total: Number(r[12] ?? 0),
+      branches_covered: Number(r[13] ?? 0),
+      branches_pct: Number(r[14] ?? 0),
+      updated_at: String(r[15] ?? ''),
+    }));
+  }
+
+  getAllCurrentCoverage(): CurrentCoverageRow[] {
+    const db = this.ensureDb();
+    const result = db.exec(
+      'SELECT repo_name, package, file_path, lines_total, lines_covered, lines_pct, statements_total, statements_covered, statements_pct, functions_total, functions_covered, functions_pct, branches_total, branches_covered, branches_pct, updated_at FROM current_coverage',
     );
     const values = result[0]?.values ?? [];
     return values.map((r) => ({

@@ -5,6 +5,9 @@
 -- 先頭で全テーブルを DROP し、その後に CREATE TABLE を実行する。
 -- FK 依存順序に注意し、子テーブル → 親テーブルの順で DROP する。
 
+DROP TABLE IF EXISTS trail_current_code_graph_communities CASCADE;
+DROP TABLE IF EXISTS trail_current_code_graphs CASCADE;
+DROP TABLE IF EXISTS trail_current_coverage CASCADE;
 DROP TABLE IF EXISTS trail_c4_manual_groups CASCADE;
 DROP TABLE IF EXISTS trail_c4_manual_relationships CASCADE;
 DROP TABLE IF EXISTS trail_c4_manual_elements CASCADE;
@@ -246,6 +249,47 @@ CREATE TABLE IF NOT EXISTS trail_c4_manual_groups (
     PRIMARY KEY (repo_name, group_id)
 );
 
+-- カバレッジ最新スナップショット（ローカル current_coverage と対応）
+CREATE TABLE IF NOT EXISTS trail_current_coverage (
+  repo_name          TEXT    NOT NULL,
+  package            TEXT    NOT NULL,
+  file_path          TEXT    NOT NULL,
+  lines_total        INTEGER NOT NULL DEFAULT 0,
+  lines_covered      INTEGER NOT NULL DEFAULT 0,
+  lines_pct          REAL    NOT NULL DEFAULT 0,
+  statements_total   INTEGER NOT NULL DEFAULT 0,
+  statements_covered INTEGER NOT NULL DEFAULT 0,
+  statements_pct     REAL    NOT NULL DEFAULT 0,
+  functions_total    INTEGER NOT NULL DEFAULT 0,
+  functions_covered  INTEGER NOT NULL DEFAULT 0,
+  functions_pct      REAL    NOT NULL DEFAULT 0,
+  branches_total     INTEGER NOT NULL DEFAULT 0,
+  branches_covered   INTEGER NOT NULL DEFAULT 0,
+  branches_pct       REAL    NOT NULL DEFAULT 0,
+  updated_at         TEXT    NOT NULL DEFAULT '',
+  PRIMARY KEY (repo_name, package, file_path)
+);
+
+-- コードグラフ最新スナップショット（ローカル current_code_graphs と対応）
+CREATE TABLE IF NOT EXISTS trail_current_code_graphs (
+  repo_name    TEXT PRIMARY KEY,
+  graph_json   TEXT NOT NULL,
+  generated_at TEXT NOT NULL DEFAULT '',
+  updated_at   TEXT NOT NULL DEFAULT ''
+);
+
+-- コードグラフコミュニティ（ローカル current_code_graph_communities と対応）
+CREATE TABLE IF NOT EXISTS trail_current_code_graph_communities (
+  repo_name    TEXT    NOT NULL,
+  community_id INTEGER NOT NULL,
+  label        TEXT    NOT NULL DEFAULT '',
+  name         TEXT    NOT NULL DEFAULT '',
+  summary      TEXT    NOT NULL DEFAULT '',
+  generated_at TEXT    NOT NULL DEFAULT '',
+  updated_at   TEXT    NOT NULL DEFAULT '',
+  PRIMARY KEY (repo_name, community_id)
+);
+
 -- インデックス
 CREATE INDEX IF NOT EXISTS idx_trail_messages_session ON trail_messages(session_id);
 CREATE INDEX IF NOT EXISTS idx_trail_messages_type ON trail_messages(type);
@@ -331,3 +375,15 @@ CREATE POLICY "trail_c4_manual_relationships_all" ON trail_c4_manual_relationshi
 ALTER TABLE trail_c4_manual_groups ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "trail_c4_manual_groups_all" ON trail_c4_manual_groups;
 CREATE POLICY "trail_c4_manual_groups_all" ON trail_c4_manual_groups FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE trail_current_coverage ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "trail_current_coverage_all" ON trail_current_coverage;
+CREATE POLICY "trail_current_coverage_all" ON trail_current_coverage FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE trail_current_code_graphs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "trail_current_code_graphs_all" ON trail_current_code_graphs;
+CREATE POLICY "trail_current_code_graphs_all" ON trail_current_code_graphs FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE trail_current_code_graph_communities ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "trail_current_code_graph_communities_all" ON trail_current_code_graph_communities;
+CREATE POLICY "trail_current_code_graph_communities_all" ON trail_current_code_graph_communities FOR ALL USING (true) WITH CHECK (true);
