@@ -319,7 +319,7 @@ function OverviewCards({
         })
     : [];
 
-  const cardStyle = { ...cardSx, flex: '1 1 140px', p: 2, minWidth: 140, textAlign: 'center' } as const;
+  const cardStyle = { ...cardSx, flex: '1 1 140px', p: 2, minWidth: 140, textAlign: 'center', height: '150px' } as const;
 
   return (
     <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
@@ -331,7 +331,7 @@ function OverviewCards({
         cardStyle={cardStyle}
       />
       {doraCards.map((card) => (
-        <Paper key={card.label} elevation={0} sx={{ ...cardStyle, display: 'flex', flexDirection: 'column', minHeight: 110 }}>
+        <Paper key={card.label} elevation={0} sx={{ ...cardStyle, display: 'flex', flexDirection: 'column' }}>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, textAlign: 'left' }}>
             {card.label}
           </Typography>
