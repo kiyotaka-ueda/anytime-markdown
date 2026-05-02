@@ -52,6 +52,7 @@ export function PressBody() {
       <Caravan />
       <Dispatch />
       <BriefingPrimary
+        subtitle="- 品質"
         embed={<TrailViewerEmbed containerHeight="clamp(400px, 62vh, 760px)" />}
         embedActions={
           <CtaActions
@@ -63,6 +64,7 @@ export function PressBody() {
         }
       />
       <BriefingPrimary
+        subtitle="- 行動"
         embed={<TrailViewerEmbed containerHeight="clamp(400px, 62vh, 760px)" initialTab={1} />}
         embedActions={
           <CtaActions
@@ -74,6 +76,7 @@ export function PressBody() {
         }
       />
       <BriefingPrimary
+        subtitle="- 構造"
         embed={<TrailViewerEmbed containerHeight="clamp(400px, 62vh, 760px)" initialTab={4} initialC4Level={2} />}
         embedActions={
           <CtaActions
