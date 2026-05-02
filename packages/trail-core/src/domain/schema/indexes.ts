@@ -21,6 +21,12 @@ export const CREATE_RELEASE_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_release_files_tag ON release_files(release_tag)',
   'CREATE INDEX IF NOT EXISTS idx_release_features_tag ON release_features(release_tag)',
   'CREATE INDEX IF NOT EXISTS idx_release_coverage_tag ON release_coverage(release_tag)',
+  'CREATE INDEX IF NOT EXISTS idx_release_code_graphs_tag ON release_code_graphs(release_tag)',
+  'CREATE INDEX IF NOT EXISTS idx_release_code_graph_communities_tag ON release_code_graph_communities(release_tag)',
+];
+
+export const CREATE_CURRENT_COVERAGE_INDEXES = [
+  'CREATE INDEX IF NOT EXISTS idx_current_coverage_repo ON current_coverage(repo_name)',
 ];
 
 export const CREATE_MESSAGE_TOOL_CALLS_INDEXES = [

@@ -6,7 +6,7 @@
 //   - ''                          : same-origin relative paths (web app, Next.js)
 //   - 'http://localhost:NNNN'     : extension's bundled HTTP/WebSocket server
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { DocLink } from '@anytime-markdown/trail-core/c4';
 
@@ -36,6 +36,10 @@ export interface TrailViewerAppProps {
    * 拡張機能では VS Code に通知、web アプリでは新規タブで開く等の挙動を上書きできる。
    */
   readonly onDocLinkClick?: (doc: DocLink) => void;
+  /** 初期表示タブ番号（0=Analytics, 1=Traces, 2=Prompts, 3=Releases, 4=C4, 5=Matrix, 6=Graph）*/
+  readonly initialTab?: number;
+  /** C4 ビューアの初期表示レベル（1=L1 Context, 2=L2 Container, 3=L3 Component, 4=L4 Code）*/
+  readonly initialC4Level?: number;
 }
 
 export function TrailViewerApp({
@@ -45,6 +49,8 @@ export function TrailViewerApp({
   containerHeight,
   editable = false,
   onDocLinkClick,
+  initialTab,
+  initialC4Level,
 }: Readonly<TrailViewerAppProps>) {
   const dataSource = useTrailDataSource(serverUrl);
   const c4 = useC4DataSource(serverUrl);
@@ -106,6 +112,16 @@ export function TrailViewerApp({
     [dataSource],
   );
 
+  // initialTab=1(Traces)で開いた場合、セッション一覧の先頭を自動選択する
+  const didAutoSelect = useRef(false);
+  useEffect(() => {
+    if (initialTab !== 1 || didAutoSelect.current) return;
+    const first = (dataSource.allSessions ?? dataSource.sessions)[0];
+    if (!first) return;
+    didAutoSelect.current = true;
+    handleSelectSession(first.id);
+  }, [initialTab, dataSource.allSessions, dataSource.sessions, handleSelectSession]);
+
   const handleFilterChange = useCallback(
     (newFilter: TrailFilter) => {
       setFilter(newFilter);
@@ -143,6 +159,7 @@ export function TrailViewerApp({
     multiAgentActivity: c4.multiAgentActivity,
     onResetClaudeActivity: () => sendCommand('reset-claude-activity'),
     manualGroups: c4.manualGroups,
+    initialLevel: initialC4Level,
   };
 
   return (
@@ -173,6 +190,7 @@ export function TrailViewerApp({
       sessionsLoading={dataSource.sessionsLoading}
       c4={c4Props}
       codeGraph={{ serverUrl }}
+      initialTab={initialTab}
     />
   );
 }

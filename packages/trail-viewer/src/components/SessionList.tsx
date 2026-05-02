@@ -106,6 +106,12 @@ export function SessionList({ sessions, selectedId, onSelect }: Readonly<Session
                 </Typography>
                 <Box component="span" sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                   <Chip
+                    label={session.source ?? 'claude_code'}
+                    size="small"
+                    variant="outlined"
+                    sx={{ height: 20, fontSize: '0.7rem', borderColor: colors.iceBlue }}
+                  />
+                  <Chip
                     label={`${session.messageCount} ${t('sessionList.messages')}`}
                     size="small"
                     variant="outlined"

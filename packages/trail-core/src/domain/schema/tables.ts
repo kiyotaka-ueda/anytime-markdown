@@ -3,7 +3,6 @@
 export const CREATE_SESSIONS = `CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
   slug TEXT NOT NULL DEFAULT '',
-  project TEXT NOT NULL DEFAULT '',
   repo_name TEXT NOT NULL DEFAULT '',
   version TEXT NOT NULL DEFAULT '',
   entrypoint TEXT NOT NULL DEFAULT '',
@@ -80,11 +79,14 @@ export const CREATE_MESSAGES = `CREATE TABLE IF NOT EXISTS messages (
   permission_mode TEXT,
   skill TEXT,
   agent_id TEXT,
+  source_tool_assistant_uuid TEXT,
+  source_tool_use_id TEXT,
   system_command TEXT,
   duration_ms INTEGER,
   tool_result_size INTEGER,
   agent_description TEXT,
-  agent_model TEXT
+  agent_model TEXT,
+  subagent_type TEXT
 )`;
 
 export const CREATE_SESSION_COMMITS = `CREATE TABLE IF NOT EXISTS session_commits (
@@ -219,6 +221,26 @@ export const CREATE_RELEASE_COVERAGE = `CREATE TABLE IF NOT EXISTS release_cover
   PRIMARY KEY (release_tag, package, file_path)
 )`;
 
+export const CREATE_CURRENT_COVERAGE = `CREATE TABLE IF NOT EXISTS current_coverage (
+  repo_name          TEXT    NOT NULL,
+  package            TEXT    NOT NULL,
+  file_path          TEXT    NOT NULL,
+  lines_total        INTEGER NOT NULL DEFAULT 0,
+  lines_covered      INTEGER NOT NULL DEFAULT 0,
+  lines_pct          REAL    NOT NULL DEFAULT 0,
+  statements_total   INTEGER NOT NULL DEFAULT 0,
+  statements_covered INTEGER NOT NULL DEFAULT 0,
+  statements_pct     REAL    NOT NULL DEFAULT 0,
+  functions_total    INTEGER NOT NULL DEFAULT 0,
+  functions_covered  INTEGER NOT NULL DEFAULT 0,
+  functions_pct      REAL    NOT NULL DEFAULT 0,
+  branches_total     INTEGER NOT NULL DEFAULT 0,
+  branches_covered   INTEGER NOT NULL DEFAULT 0,
+  branches_pct       REAL    NOT NULL DEFAULT 0,
+  updated_at         TEXT    NOT NULL DEFAULT '',
+  PRIMARY KEY (repo_name, package, file_path)
+)`;
+
 export const CREATE_MESSAGE_TOOL_CALLS = `CREATE TABLE IF NOT EXISTS message_tool_calls (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   session_id   TEXT NOT NULL REFERENCES sessions(id),
@@ -270,4 +292,40 @@ export const CREATE_C4_MANUAL_GROUPS = `CREATE TABLE IF NOT EXISTS c4_manual_gro
   label      TEXT,
   updated_at TEXT NOT NULL,
   PRIMARY KEY (repo_name, group_id)
+)`;
+
+export const CREATE_CURRENT_CODE_GRAPHS = `CREATE TABLE IF NOT EXISTS current_code_graphs (
+  repo_name    TEXT PRIMARY KEY,
+  graph_json   TEXT NOT NULL,
+  generated_at TEXT NOT NULL DEFAULT '',
+  updated_at   TEXT NOT NULL DEFAULT ''
+)`;
+
+export const CREATE_RELEASE_CODE_GRAPHS = `CREATE TABLE IF NOT EXISTS release_code_graphs (
+  release_tag  TEXT PRIMARY KEY REFERENCES releases(tag) ON DELETE CASCADE,
+  graph_json   TEXT NOT NULL,
+  generated_at TEXT NOT NULL DEFAULT '',
+  updated_at   TEXT NOT NULL DEFAULT ''
+)`;
+
+export const CREATE_CURRENT_CODE_GRAPH_COMMUNITIES = `CREATE TABLE IF NOT EXISTS current_code_graph_communities (
+  repo_name    TEXT    NOT NULL,
+  community_id INTEGER NOT NULL,
+  label        TEXT    NOT NULL DEFAULT '',
+  name         TEXT    NOT NULL DEFAULT '',
+  summary      TEXT    NOT NULL DEFAULT '',
+  generated_at TEXT    NOT NULL DEFAULT '',
+  updated_at   TEXT    NOT NULL DEFAULT '',
+  PRIMARY KEY (repo_name, community_id)
+)`;
+
+export const CREATE_RELEASE_CODE_GRAPH_COMMUNITIES = `CREATE TABLE IF NOT EXISTS release_code_graph_communities (
+  release_tag  TEXT    NOT NULL REFERENCES releases(tag) ON DELETE CASCADE,
+  community_id INTEGER NOT NULL,
+  label        TEXT    NOT NULL DEFAULT '',
+  name         TEXT    NOT NULL DEFAULT '',
+  summary      TEXT    NOT NULL DEFAULT '',
+  generated_at TEXT    NOT NULL DEFAULT '',
+  updated_at   TEXT    NOT NULL DEFAULT '',
+  PRIMARY KEY (release_tag, community_id)
 )`;

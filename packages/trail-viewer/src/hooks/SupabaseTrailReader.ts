@@ -15,7 +15,7 @@ import type {
 import type { AnalyticsData, ITrailReader, TrailRelease } from '@anytime-markdown/trail-core/domain';
 import { computeDeploymentFrequency, computeQualityMetrics, computeReleaseQualityTimeSeries } from '@anytime-markdown/trail-core/domain/metrics';
 import type { DateRange, QualityMetrics, ReleaseQualityBucket } from '@anytime-markdown/trail-core/domain/metrics';
-import { calculateCost, normalizeModelName } from '@anytime-markdown/trail-core/domain/engine';
+import { calculateCost } from '@anytime-markdown/trail-core/domain/engine';
 
 // ---------------------------------------------------------------------------
 // Row shapes returned by Supabase (snake_case DB columns)
@@ -34,7 +34,7 @@ interface SessionCostDbRow {
 interface SessionDbRow {
   readonly id: string;
   readonly slug: string;
-  readonly project: string;
+  readonly repo_name: string;
   readonly model: string;
   readonly version: string;
   readonly start_time: string;
@@ -45,6 +45,7 @@ interface SessionDbRow {
   readonly interruption_reason: string | null;
   readonly interruption_context_tokens: number | null;
   readonly compact_count: number | null;
+  readonly source?: 'claude_code' | 'codex' | null;
   readonly trail_session_costs?: readonly SessionCostDbRow[];
 }
 
@@ -64,6 +65,9 @@ interface MessageDbRow {
   readonly cache_creation_tokens: number;
   readonly timestamp: string;
   readonly is_sidechain: number;
+  readonly agent_id?: string | null;
+  readonly agent_description?: string | null;
+  readonly source_tool_assistant_uuid?: string | null;
 }
 
 interface CommitDbRow {
@@ -94,8 +98,8 @@ export class SupabaseTrailReader implements ITrailReader {
       .select('*, trail_session_costs(*)')
       .order('start_time', { ascending: false });
 
-    if (filters?.project) {
-      query = query.eq('project', filters.project);
+    if (filters?.repository) {
+      query = query.eq('repo_name', filters.repository);
     }
     if (filters?.model) {
       query = query.eq('model', filters.model);
@@ -107,7 +111,184 @@ export class SupabaseTrailReader implements ITrailReader {
     const { data, error } = await query;
     if (error) throw new Error(`Supabase getSessions failed: ${error.message}`);
 
-    return (data ?? []).map((r: SessionDbRow) => this.toTrailSession(r, [], undefined, undefined));
+    const sessions = (data ?? []) as readonly SessionDbRow[];
+    const sessionById = new Map(sessions.map((s) => [s.id, s] as const));
+    const sessionIds = sessions.map((s) => s.id);
+    const subAgentCounts = await this.fetchSubAgentCountsForSessions(sessionIds);
+    const linkedCodexByParent = await this.fetchLinkedCodexSessionIdsByParent(sessions);
+    const consumedCodexIds = new Set<string>();
+    for (const ids of linkedCodexByParent.values()) {
+      for (const id of ids) consumedCodexIds.add(id);
+    }
+
+    const visibleSessions = sessions.filter((s) => !(s.source === 'codex' && consumedCodexIds.has(s.id)));
+    return visibleSessions.map((r) => {
+      const linkedIds = linkedCodexByParent.get(r.id) ?? new Set<string>();
+      let linkedMessageCount = 0;
+      let linkedInput = 0;
+      let linkedOutput = 0;
+      let linkedCacheRead = 0;
+      let linkedCacheCreation = 0;
+      let linkedCost = 0;
+      for (const linkedId of linkedIds) {
+        const linked = sessionById.get(linkedId);
+        if (!linked) continue;
+        linkedMessageCount += linked.message_count ?? 0;
+        for (const c of linked.trail_session_costs ?? []) {
+          linkedInput += c.input_tokens;
+          linkedOutput += c.output_tokens;
+          linkedCacheRead += c.cache_read_tokens;
+          linkedCacheCreation += c.cache_creation_tokens;
+          linkedCost += c.estimated_cost_usd;
+        }
+      }
+      const base = this.toTrailSession(r, [], undefined, subAgentCounts.get(r.id));
+      return {
+        ...base,
+        messageCount: base.messageCount + linkedMessageCount,
+        usage: {
+          inputTokens: base.usage.inputTokens + linkedInput,
+          outputTokens: base.usage.outputTokens + linkedOutput,
+          cacheReadTokens: base.usage.cacheReadTokens + linkedCacheRead,
+          cacheCreationTokens: base.usage.cacheCreationTokens + linkedCacheCreation,
+        },
+        estimatedCostUsd: (base.estimatedCostUsd ?? 0) + linkedCost,
+      };
+    });
+  }
+
+  private async fetchSubAgentCountsForSessions(sessionIds: readonly string[]): Promise<Map<string, number>> {
+    const out = new Map<string, number>();
+    if (sessionIds.length === 0) return out;
+    const claudeTrackBySession = new Map<string, Set<string>>();
+    const delegatedTrackBySession = new Map<string, Set<string>>();
+    const agentCallCountBySession = new Map<string, number>();
+    const BATCH = 200;
+    for (let i = 0; i < sessionIds.length; i += BATCH) {
+      const batchIds = sessionIds.slice(i, i + BATCH);
+      const { data, error } = await this.client
+        .from('trail_messages')
+        .select('session_id, agent_id, tool_calls')
+        .in('session_id', batchIds as string[])
+        .eq('type', 'assistant');
+      if (error) {
+        console.warn(
+          `[SupabaseTrailReader] fetchSubAgentCountsForSessions failed (sessionCount=${sessionIds.length}): ${error.message}`,
+        );
+        return out;
+      }
+      for (const row of (data ?? []) as Array<{ session_id: string; agent_id: string | null; tool_calls: string | null }>) {
+        const sid = row.session_id;
+        if (row.agent_id) {
+          let set = claudeTrackBySession.get(sid);
+          if (!set) {
+            set = new Set();
+            claudeTrackBySession.set(sid, set);
+          }
+          set.add(row.agent_id);
+        }
+        if (!row.tool_calls) continue;
+        let calls: Array<{ name?: string; input?: Record<string, unknown> }> = [];
+        try {
+          calls = JSON.parse(row.tool_calls) as Array<{ name?: string; input?: Record<string, unknown> }>;
+        } catch {
+          continue;
+        }
+        const agentCall = calls.find((c) => c.name === 'Agent');
+        if (!agentCall) continue;
+        agentCallCountBySession.set(sid, (agentCallCountBySession.get(sid) ?? 0) + 1);
+        if (!row.agent_id) {
+          const subagentType = typeof agentCall.input?.subagent_type === 'string'
+            ? agentCall.input.subagent_type
+            : 'unknown';
+          let set = delegatedTrackBySession.get(sid);
+          if (!set) {
+            set = new Set();
+            delegatedTrackBySession.set(sid, set);
+          }
+          set.add(`delegated:${subagentType}`);
+        }
+      }
+    }
+    for (const sid of sessionIds) {
+      const claudeTracks = claudeTrackBySession.get(sid)?.size ?? 0;
+      const delegatedTracks = delegatedTrackBySession.get(sid)?.size ?? 0;
+      const agentCalls = agentCallCountBySession.get(sid) ?? 0;
+      const count = Math.max(agentCalls, claudeTracks + delegatedTracks);
+      if (count > 0) out.set(sid, count);
+    }
+    return out;
+  }
+
+  private async fetchLinkedCodexSessionIdsByParent(
+    sessions: readonly SessionDbRow[],
+  ): Promise<Map<string, Set<string>>> {
+    const out = new Map<string, Set<string>>();
+    const parentSessions = sessions.filter((s) => s.source !== 'codex');
+    if (parentSessions.length === 0) return out;
+
+    const parentIds = parentSessions.map((s) => s.id);
+    const allMarkerRows: Array<{ session_id: string; source_tool_assistant_uuid: string | null; timestamp: string | null }> = [];
+    const BATCH = 200;
+    for (let i = 0; i < parentIds.length; i += BATCH) {
+      const batchIds = parentIds.slice(i, i + BATCH);
+      const { data: batchRows, error: markerErr } = await this.client
+        .from('trail_messages')
+        .select('session_id, source_tool_assistant_uuid, timestamp')
+        .in('session_id', batchIds as string[])
+        .not('source_tool_assistant_uuid', 'is', null);
+      if (markerErr) return out;
+      if (batchRows) allMarkerRows.push(...(batchRows as typeof allMarkerRows));
+    }
+    const markerRows = allMarkerRows;
+
+    const codexSessions = sessions
+      .filter((s) => s.source === 'codex')
+      .map((s) => ({
+        id: s.id,
+        repoName: s.repo_name ?? '',
+        startMs: Date.parse(s.start_time),
+        endMs: Date.parse(s.end_time),
+      }))
+      .filter((s) => Number.isFinite(s.startMs) && Number.isFinite(s.endMs));
+
+    const parentRepoById = new Map(parentSessions.map((s) => [s.id, s.repo_name ?? ''] as const));
+    for (const row of (markerRows ?? []) as Array<{ session_id: string; source_tool_assistant_uuid: string | null; timestamp: string | null }>) {
+      if (!row.timestamp) continue;
+      const sid = row.session_id;
+      const t = Date.parse(row.timestamp);
+      if (!Number.isFinite(t)) continue;
+      const parentRepo = parentRepoById.get(sid) ?? '';
+      const candidates = codexSessions.filter((s) => parentRepo === '' || s.repoName === parentRepo);
+      let bestId: string | null = null;
+      let bestScore = Number.POSITIVE_INFINITY;
+      for (const c of candidates) {
+        const inside = t >= (c.startMs - 5 * 60_000) && t <= (c.endMs + 5 * 60_000);
+        const score = Math.abs(c.startMs - t);
+        if (inside && score < bestScore) {
+          bestScore = score;
+          bestId = c.id;
+        }
+      }
+      if (!bestId) {
+        for (const c of candidates) {
+          const score = Math.abs(c.startMs - t);
+          if (score <= 60 * 60_000 && score < bestScore) {
+            bestScore = score;
+            bestId = c.id;
+          }
+        }
+      }
+      if (bestId) {
+        let set = out.get(sid);
+        if (!set) {
+          set = new Set<string>();
+          out.set(sid, set);
+        }
+        set.add(bestId);
+      }
+    }
+    return out;
   }
 
   async getMessages(sessionId: string): Promise<readonly TrailMessage[]> {
@@ -153,46 +334,146 @@ export class SupabaseTrailReader implements ITrailReader {
   }
 
   async getAnalytics(): Promise<AnalyticsData | null> {
-    const { data: sessions, error } = await this.client
-      .from('trail_sessions')
-      .select('*');
-    if (error) return null;
-    if (!sessions || sessions.length === 0) return null;
+    const allSessions: Array<{ id: string; start_time?: string; end_time?: string }> = [];
+    for (let offset = 0; ; offset += 1000) {
+      const { data: batch, error } = await this.client
+        .from('trail_sessions')
+        .select('id,start_time,end_time')
+        .range(offset, offset + 999);
+      if (error) return null;
+      if (!batch || batch.length === 0) break;
+      allSessions.push(...(batch as typeof allSessions));
+      if (batch.length < 1000) break;
+    }
+    if (allSessions.length === 0) return null;
+    const sessions = allSessions;
 
-    const { data: costData } = await this.client
-      .from('trail_session_costs')
-      .select('*');
-    const allCosts = (costData ?? []) as readonly SessionCostDbRow[];
+    const allCommits: Array<{ committed_at?: string; lines_added: number; lines_deleted: number; files_changed: number; is_ai_assisted: number }> = [];
+    for (let offset = 0; ; offset += 1000) {
+      const { data: batch } = await this.client
+        .from('trail_session_commits')
+        .select('committed_at,lines_added,lines_deleted,files_changed,is_ai_assisted')
+        .range(offset, offset + 999);
+      if (!batch || batch.length === 0) break;
+      allCommits.push(...(batch as typeof allCommits));
+      if (batch.length < 1000) break;
+    }
 
-    const { data: dailyCostData } = await this.client
-      .from('trail_daily_counts')
-      .select('date,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens,estimated_cost_usd')
-      .eq('kind', 'cost_actual')
-      .order('date');
+    // Build start_time lookup map from sessions
+    const startBySessionId = new Map<string, string>();
+    for (const s of sessions as Array<{ id: string; start_time?: string }>) {
+      if (s.start_time) startBySessionId.set(s.id, s.start_time);
+    }
 
-    const { data: commits } = await this.client
-      .from('trail_session_commits')
-      .select('*');
+    let totalInput = 0, totalOutput = 0, totalCacheRead = 0, totalCacheCreation = 0;
+    let totalEstimatedCost = 0;
+    type DailyEntry = { sessions: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number; estimatedCostUsd: number; commits: number; linesAdded: number };
+    const dailyMap = new Map<string, DailyEntry>();
 
-    const allCommits = commits ?? [];
+    if (sessions.length > 0) {
+      const getIanaOffsetMs = (timeZone: string, at: Date): number => {
+        const parts = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'longOffset' }).formatToParts(at);
+        const label = parts.find(p => p.type === 'timeZoneName')?.value ?? 'GMT+00:00';
+        const match = /^GMT([+-])(\d{1,2}):(\d{2})$/.exec(label);
+        if (!match) return 0;
+        return (match[1] === '+' ? 1 : -1) * (Number(match[2]) * 60 + Number(match[3])) * 60_000;
+      };
+      const toJSTDate = (isoStr: string): string => {
+        const ms = new Date(isoStr).getTime();
+        const jstMs = ms + getIanaOffsetMs('Asia/Tokyo', new Date(ms));
+        const d = new Date(jstMs);
+        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+      };
+
+      for (const s of sessions as Array<{ id: string; start_time?: string }>) {
+        if (s.start_time) {
+          const date = toJSTDate(s.start_time);
+          const entry = dailyMap.get(date) ?? { sessions: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, estimatedCostUsd: 0, commits: 0, linesAdded: 0 };
+          entry.sessions += 1;
+          dailyMap.set(date, entry);
+        }
+      }
+
+      for (const c of allCommits) {
+        if (c.committed_at) {
+          const date = toJSTDate(c.committed_at);
+          const entry = dailyMap.get(date) ?? { sessions: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, estimatedCostUsd: 0, commits: 0, linesAdded: 0 };
+          entry.commits += 1;
+          entry.linesAdded += c.lines_added;
+          dailyMap.set(date, entry);
+        }
+      }
+
+      // Fetch session costs (no date limit — all sessions are synced).
+      // trail_messages is limited to 7 days for privacy; trail_session_costs has no such limit
+      // and already contains per-session token totals, so use it for the token chart.
+      const allSessionCostRows: Array<{ session_id: string; input_tokens: number | null; output_tokens: number | null; cache_read_tokens: number | null; cache_creation_tokens: number | null; estimated_cost_usd: number | null }> = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data: batchRows } = await this.client
+          .from('trail_session_costs')
+          .select('session_id,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens,estimated_cost_usd')
+          .range(offset, offset + 999);
+        if (!batchRows || batchRows.length === 0) break;
+        allSessionCostRows.push(...(batchRows as typeof allSessionCostRows));
+        if (batchRows.length < 1000) break;
+      }
+
+      for (const c of allSessionCostRows) {
+        const inp = c.input_tokens ?? 0;
+        const out = c.output_tokens ?? 0;
+        const crd = c.cache_read_tokens ?? 0;
+        const ccr = c.cache_creation_tokens ?? 0;
+        const cost = c.estimated_cost_usd ?? 0;
+
+        totalInput += inp;
+        totalOutput += out;
+        totalCacheRead += crd;
+        totalCacheCreation += ccr;
+        totalEstimatedCost += cost;
+
+        const start = startBySessionId.get(c.session_id);
+        if (start) {
+          const date = toJSTDate(start);
+          const entry = dailyMap.get(date) ?? { sessions: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, estimatedCostUsd: 0, commits: 0, linesAdded: 0 };
+          entry.inputTokens += inp;
+          entry.outputTokens += out;
+          entry.cacheReadTokens += crd;
+          entry.cacheCreationTokens += ccr;
+          entry.estimatedCostUsd += cost;
+          dailyMap.set(date, entry);
+        }
+      }
+    }
+
+    const dailyActivity = [...dailyMap.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, v]) => ({ date, ...v }));
+
+    // Fetch current total LOC from current_coverage
+    const { data: locData } = await this.client
+      .from('trail_current_coverage')
+      .select('lines_total');
+    const totalLoc = (locData ?? []).reduce((s, r) => s + (r.lines_total ?? 0), 0);
 
     const totals = {
       sessions: sessions.length,
-      inputTokens: allCosts.reduce((s, c) => s + c.input_tokens, 0),
-      outputTokens: allCosts.reduce((s, c) => s + c.output_tokens, 0),
-      cacheReadTokens: allCosts.reduce((s, c) => s + c.cache_read_tokens, 0),
-      cacheCreationTokens: allCosts.reduce((s, c) => s + c.cache_creation_tokens, 0),
-      estimatedCostUsd: allCosts.reduce((s, c) => s + c.estimated_cost_usd, 0),
+      inputTokens: totalInput,
+      outputTokens: totalOutput,
+      cacheReadTokens: totalCacheRead,
+      cacheCreationTokens: totalCacheCreation,
+      estimatedCostUsd: totalEstimatedCost,
       totalCommits: allCommits.length,
       totalLinesAdded: allCommits.reduce((s, c) => s + c.lines_added, 0),
       totalLinesDeleted: allCommits.reduce((s, c) => s + c.lines_deleted, 0),
       totalFilesChanged: allCommits.reduce((s, c) => s + c.files_changed, 0),
       totalAiAssistedCommits: allCommits.filter((c) => c.is_ai_assisted === 1).length,
       totalSessionDurationMs: sessions.reduce((s, r) => {
+        if (!r.start_time || !r.end_time) return s;
         const start = new Date(r.start_time).getTime();
         const end = new Date(r.end_time).getTime();
         return s + (Number.isFinite(end - start) ? end - start : 0);
       }, 0),
+      totalLoc,
       totalRetries: 0,
       totalEdits: 0,
       totalBuildRuns: 0,
@@ -200,22 +481,6 @@ export class SupabaseTrailReader implements ITrailReader {
       totalTestRuns: 0,
       totalTestFails: 0,
     };
-
-    // Daily activity from trail_daily_counts (kind='cost_actual')
-    type DailyEntry = { sessions: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number; estimatedCostUsd: number };
-    const dailyMap = new Map<string, DailyEntry>();
-    for (const r of (dailyCostData ?? []) as readonly { date: string; input_tokens: number; output_tokens: number; cache_read_tokens: number; cache_creation_tokens: number; estimated_cost_usd: number }[]) {
-      const entry = dailyMap.get(r.date) ?? { sessions: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, estimatedCostUsd: 0 };
-      entry.inputTokens += r.input_tokens;
-      entry.outputTokens += r.output_tokens;
-      entry.cacheReadTokens += r.cache_read_tokens;
-      entry.cacheCreationTokens += r.cache_creation_tokens;
-      entry.estimatedCostUsd += r.estimated_cost_usd;
-      dailyMap.set(r.date, entry);
-    }
-    const dailyActivity = [...dailyMap.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, v]) => ({ date, ...v }));
 
     return { totals, toolUsage: [], dailyActivity };
   }
@@ -504,7 +769,7 @@ export class SupabaseTrailReader implements ITrailReader {
     return {
       id: r.id,
       slug: r.slug,
-      project: r.project,
+      repoName: r.repo_name ?? '',
       gitBranch: '',
       startTime: r.start_time,
       endTime: r.end_time,
@@ -521,6 +786,7 @@ export class SupabaseTrailReader implements ITrailReader {
           }
         : undefined,
       compactCount: r.compact_count && r.compact_count > 0 ? r.compact_count : undefined,
+      source: r.source ?? undefined,
       commitStats,
       usage: {
         inputTokens: totalInput,
@@ -562,6 +828,8 @@ export class SupabaseTrailReader implements ITrailReader {
         cacheReadTokens: r.cache_read_tokens,
         cacheCreationTokens: r.cache_creation_tokens,
       },
+      agentId: r.agent_id ?? undefined,
+      agentDescription: r.agent_description ?? undefined,
     };
   }
 
@@ -612,18 +880,24 @@ export class SupabaseTrailReader implements ITrailReader {
         return sign * (Number(match[2]) * 60 + Number(match[3])) * 60_000;
       };
       const cutoffMs = Date.now() - rangeDays * 86_400_000;
+      const cutoffIso = new Date(cutoffMs).toISOString();
       const cutoffLocal = new Date(cutoffMs + getIanaOffsetMs('Asia/Tokyo', new Date(cutoffMs)));
       const cutoffDate = `${cutoffLocal.getUTCFullYear()}-${String(cutoffLocal.getUTCMonth() + 1).padStart(2, '0')}-${String(cutoffLocal.getUTCDate()).padStart(2, '0')}`;
 
-      const { data, error } = await this.client
-        .from('trail_daily_counts')
-        .select('date,kind,key,count,tokens,duration_ms')
-        .in('kind', ['tool', 'skill', 'error', 'model'])
-        .gte('date', cutoffDate);
-      if (error || !data) return null;
-
+      // Fetch all 4 kinds from trail_daily_counts with pagination
       type DcRow = { date: string; kind: string; key: string; count: number; tokens: number; duration_ms: number };
-      const rows = data as DcRow[];
+      const allDcRows: DcRow[] = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data: batchRows, error: batchErr } = await this.client
+          .from('trail_daily_counts')
+          .select('date,kind,key,count,tokens,duration_ms')
+          .in('kind', ['skill', 'error', 'tool', 'model'])
+          .gte('date', cutoffDate)
+          .range(offset, offset + 999);
+        if (batchErr || !batchRows || batchRows.length === 0) break;
+        allDcRows.push(...(batchRows as DcRow[]));
+        if (batchRows.length < 1000) break;
+      }
 
       const getMonday = (dateStr: string): string => {
         const [y, m, d] = dateStr.split('-').map(Number);
@@ -634,23 +908,28 @@ export class SupabaseTrailReader implements ITrailReader {
       };
       const periodKey = (dateStr: string): string =>
         period === 'week' ? getMonday(dateStr) : dateStr;
+      const toJSTDate = (isoStr: string): string => {
+        const ms = new Date(isoStr).getTime();
+        const jstMs = ms + getIanaOffsetMs('Asia/Tokyo', new Date(ms));
+        const d = new Date(jstMs);
+        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+      };
+      const normalizeTool = (name: string): string => {
+        if (!name.startsWith('mcp__')) return name;
+        const parts = name.split('__');
+        return parts.length >= 3 ? `${parts[0]}__${parts[1]}` : name;
+      };
 
-      const toolMap = new Map<string, { count: number; tokens: number; durationMs: number }>();
       const errMap = new Map<string, { err: number; total: number; byTool: Record<string, number> }>();
       const skillMap = new Map<string, number>();
-      const modelMap = new Map<string, { count: number; tokens: number }>();
+      // tool: key = `${periodKey}|${toolName}`, value = { count, tokens, durationMs }
+      const toolDcMap = new Map<string, { count: number; tokens: number; durationMs: number }>();
+      // model: key = `${periodKey}::${modelName}`, value = { count, tokens }
+      const modelDcMap = new Map<string, { count: number; tokens: number }>();
 
-      for (const r of rows) {
+      for (const r of allDcRows) {
         const p = periodKey(r.date);
-        if (r.kind === 'tool') {
-          const k = `${p}::${r.key}`;
-          const e = toolMap.get(k) ?? { count: 0, tokens: 0, durationMs: 0 };
-          e.count += r.count; e.tokens += r.tokens; e.durationMs += r.duration_ms;
-          toolMap.set(k, e);
-          const ef = errMap.get(p) ?? { err: 0, total: 0, byTool: {} };
-          ef.total += r.count;
-          errMap.set(p, ef);
-        } else if (r.kind === 'error') {
+        if (r.kind === 'error') {
           const ef = errMap.get(p) ?? { err: 0, total: 0, byTool: {} };
           ef.err += r.count;
           ef.byTool[r.key] = (ef.byTool[r.key] ?? 0) + r.count;
@@ -658,22 +937,34 @@ export class SupabaseTrailReader implements ITrailReader {
         } else if (r.kind === 'skill') {
           const k = `${p}::${r.key}`;
           skillMap.set(k, (skillMap.get(k) ?? 0) + r.count);
+        } else if (r.kind === 'tool') {
+          const k = `${p}|${normalizeTool(r.key)}`;
+          const cur = toolDcMap.get(k) ?? { count: 0, tokens: 0, durationMs: 0 };
+          cur.count += r.count;
+          cur.tokens += r.tokens ?? 0;
+          cur.durationMs += r.duration_ms ?? 0;
+          toolDcMap.set(k, cur);
         } else if (r.kind === 'model') {
           const k = `${p}::${r.key}`;
-          const e = modelMap.get(k) ?? { count: 0, tokens: 0 };
-          e.count += r.count; e.tokens += r.tokens;
-          modelMap.set(k, e);
+          const cur = modelDcMap.get(k) ?? { count: 0, tokens: 0 };
+          cur.count += r.count;
+          cur.tokens += r.tokens ?? 0;
+          modelDcMap.set(k, cur);
         }
+      }
+
+      // Populate errMap.total from tool daily_counts
+      for (const [k, e] of toolDcMap.entries()) {
+        const p = k.slice(0, k.indexOf('|'));
+        const ef = errMap.get(p) ?? { err: 0, total: 0, byTool: {} };
+        ef.total += e.count;
+        errMap.set(p, ef);
       }
 
       const splitKey = (k: string): [string, string] => {
         const sep = k.indexOf('::');
         return [k.slice(0, sep), k.slice(sep + 2)];
       };
-
-      const toolCounts = [...toolMap.entries()]
-        .map(([k, e]) => { const [p, tool] = splitKey(k); return { period: p, tool, ...e }; })
-        .sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
 
       const errorRate = [...errMap.entries()]
         .filter(([, e]) => e.total > 0)
@@ -684,22 +975,111 @@ export class SupabaseTrailReader implements ITrailReader {
         .map(([k, count]) => { const [p, skill] = splitKey(k); return { period: p, skill, count, costUsd: 0 }; })
         .sort((a, b) => a.period.localeCompare(b.period));
 
-      const modelStats = [...modelMap.entries()]
-        .map(([k, e]) => { const [p, model] = splitKey(k); return { period: p, model, ...e }; })
-        .sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
+      // Paginated fetch of trail_sessions within the period window
+      const sourceBySessionId = new Map<string, string>();
+      const sessionStartById = new Map<string, string>();
+      for (let offset = 0; ; offset += 1000) {
+        const { data: batchRows } = await this.client
+          .from('trail_sessions')
+          .select('id,source,start_time')
+          .gte('start_time', cutoffIso)
+          .range(offset, offset + 999);
+        if (!batchRows || batchRows.length === 0) break;
+        for (const s of batchRows as Array<{ id: string; source: string | null; start_time?: string | null }>) {
+          const source = s.source === 'codex' ? 'Codex' : 'Claude Code';
+          sourceBySessionId.set(s.id, source);
+          if (s.start_time) sessionStartById.set(s.id, s.start_time);
+        }
+        if (batchRows.length < 1000) break;
+      }
 
-      const cutoffIso = new Date(cutoffMs).toISOString();
-      const { data: commitData } = await this.client
-        .from('trail_session_commits')
-        .select('commit_hash, commit_message, committed_at, lines_added')
-        .gte('committed_at', cutoffIso);
-
-      const toJSTDate = (isoStr: string): string => {
-        const ms = new Date(isoStr).getTime();
-        const jstMs = ms + getIanaOffsetMs('Asia/Tokyo', new Date(ms));
-        const d = new Date(jstMs);
-        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+      // agentStats: tokens + cost from session_costs (all-time, paginated), LOC from session_commits
+      const agentMap = new Map<string, { tokens: number; costUsd: number; loc: number }>();
+      const addAgent = (periodKeyStr: string, agent: string, delta: Partial<{ tokens: number; costUsd: number; loc: number }>) => {
+        const k = `${periodKeyStr}::${agent}`;
+        const cur = agentMap.get(k) ?? { tokens: 0, costUsd: 0, loc: 0 };
+        cur.tokens += delta.tokens ?? 0;
+        cur.costUsd += delta.costUsd ?? 0;
+        cur.loc += delta.loc ?? 0;
+        agentMap.set(k, cur);
       };
+
+      for (let offset = 0; ; offset += 1000) {
+        const { data: batchRows } = await this.client
+          .from('trail_session_costs')
+          .select('session_id,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens,estimated_cost_usd')
+          .range(offset, offset + 999);
+        if (!batchRows || batchRows.length === 0) break;
+        for (const c of batchRows as Array<{ session_id: string; input_tokens: number | null; output_tokens: number | null; cache_read_tokens: number | null; cache_creation_tokens: number | null; estimated_cost_usd: number | null }>) {
+          const agent = sourceBySessionId.get(c.session_id);
+          if (!agent) continue;
+          const start = sessionStartById.get(c.session_id);
+          if (!start) continue;
+          const p = periodKey(toJSTDate(start));
+          const tokens = (c.input_tokens ?? 0) + (c.output_tokens ?? 0) + (c.cache_read_tokens ?? 0) + (c.cache_creation_tokens ?? 0);
+          addAgent(p, agent, { tokens, costUsd: c.estimated_cost_usd ?? 0 });
+        }
+        if (batchRows.length < 1000) break;
+      }
+
+      for (let offset = 0; ; offset += 1000) {
+        const { data: batchRows } = await this.client
+          .from('trail_session_commits')
+          .select('session_id,committed_at,lines_added')
+          .gte('committed_at', cutoffIso)
+          .range(offset, offset + 999);
+        if (!batchRows || batchRows.length === 0) break;
+        for (const c of batchRows as Array<{ session_id: string; committed_at: string; lines_added: number | null }>) {
+          const agent = sourceBySessionId.get(c.session_id);
+          if (!agent) continue;
+          const p = periodKey(toJSTDate(c.committed_at));
+          addAgent(p, agent, { loc: c.lines_added ?? 0 });
+        }
+        if (batchRows.length < 1000) break;
+      }
+
+      const toolCounts = [...toolDcMap.entries()].map(([k, e]) => {
+        const sep = k.indexOf('|');
+        return {
+          period: k.slice(0, sep),
+          tool: k.slice(sep + 1),
+          count: e.count,
+          tokens: e.tokens,
+          durationMs: e.durationMs,
+          tokenMissingRate: 0,
+          tokenTotalTurns: 0,
+          tokenMissingTurns: 0,
+        };
+      }).sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
+
+      const agentStats = [...agentMap.entries()]
+        .map(([k, v]) => {
+          const [p, agent] = splitKey(k);
+          return {
+            period: p,
+            agent,
+            tokens: v.tokens,
+            costUsd: v.costUsd,
+            loc: v.loc,
+            tokenMissingRate: 0,
+            tokenTotalTurns: 0,
+            tokenMissingTurns: 0,
+          };
+        })
+        .sort((a, b) => a.period.localeCompare(b.period) || a.agent.localeCompare(b.agent));
+
+      const modelStats = [...modelDcMap.entries()].map(([k, v]) => {
+        const sep = k.indexOf('::');
+        return {
+          period: k.slice(0, sep),
+          model: k.slice(sep + 2),
+          count: v.count,
+          tokens: v.tokens,
+          tokenMissingRate: 0,
+          tokenTotalTurns: 0,
+          tokenMissingTurns: 0,
+        };
+      }).sort((a, b) => a.period.localeCompare(b.period) || b.count - a.count);
 
       const extractPrefix = (subject: string): string => {
         const m = /^([a-z]+)(?:\([^)]*\))?!?:\s/i.exec(subject);
@@ -707,24 +1087,33 @@ export class SupabaseTrailReader implements ITrailReader {
       };
       const seenHashes = new Set<string>();
       const prefixMap = new Map<string, { count: number; linesAdded: number }>();
-      for (const c of (commitData ?? []) as Array<{ commit_hash: string; commit_message: string; committed_at: string; lines_added: number }>) {
-        if (seenHashes.has(c.commit_hash)) continue;
-        seenHashes.add(c.commit_hash);
-        const subject = (c.commit_message ?? '').split('\n')[0];
-        const prefix = extractPrefix(subject);
-        const p = periodKey(toJSTDate(c.committed_at));
-        const k = `${p}::${prefix}`;
-        const e = prefixMap.get(k) ?? { count: 0, linesAdded: 0 };
-        e.count++;
-        e.linesAdded += c.lines_added ?? 0;
-        prefixMap.set(k, e);
+      for (let offset = 0; ; offset += 1000) {
+        const { data: batchRows } = await this.client
+          .from('trail_session_commits')
+          .select('commit_hash,commit_message,committed_at,lines_added')
+          .gte('committed_at', cutoffIso)
+          .range(offset, offset + 999);
+        if (!batchRows || batchRows.length === 0) break;
+        for (const c of batchRows as Array<{ commit_hash: string; commit_message: string; committed_at: string; lines_added: number }>) {
+          if (seenHashes.has(c.commit_hash)) continue;
+          seenHashes.add(c.commit_hash);
+          const subject = (c.commit_message ?? '').split('\n')[0];
+          const prefix = extractPrefix(subject);
+          const p = periodKey(toJSTDate(c.committed_at));
+          const commitKey = `${p}::${prefix}`;
+          const e = prefixMap.get(commitKey) ?? { count: 0, linesAdded: 0 };
+          e.count++;
+          e.linesAdded += c.lines_added ?? 0;
+          prefixMap.set(commitKey, e);
+        }
+        if (batchRows.length < 1000) break;
       }
 
       const commitPrefixStats = [...prefixMap.entries()]
         .map(([k, e]) => { const [p, prefix] = splitKey(k); return { period: p, prefix, count: e.count, linesAdded: e.linesAdded }; })
         .sort((a, b) => a.period.localeCompare(b.period));
 
-      return { toolCounts, errorRate, skillStats, modelStats, commitPrefixStats, aiFirstTryRate: [] };
+      return { toolCounts, errorRate, skillStats, modelStats, agentStats, commitPrefixStats, aiFirstTryRate: [] };
     } catch {
       return null;
     }
@@ -790,6 +1179,22 @@ export class SupabaseTrailReader implements ITrailReader {
         }
       }
       return results;
+    };
+    const fetchSessionSources = async (sessionIds: string[]): Promise<Map<string, 'claude_code' | 'codex'>> => {
+      if (sessionIds.length === 0) return new Map();
+      const SESSION_BATCH = 200;
+      const sourceMap = new Map<string, 'claude_code' | 'codex'>();
+      for (let i = 0; i < sessionIds.length; i += SESSION_BATCH) {
+        const batchIds = sessionIds.slice(i, i + SESSION_BATCH);
+        const { data } = await this.client
+          .from('trail_sessions')
+          .select('id, source')
+          .in('id', batchIds);
+        for (const row of (data ?? []) as Array<{ id: string; source: 'claude_code' | 'codex' }>) {
+          sourceMap.set(row.id, row.source);
+        }
+      }
+      return sourceMap;
     };
     const fetchAssistantMessages = async (f: string, t: string) => {
       type AssistantRow = {
@@ -860,6 +1265,7 @@ export class SupabaseTrailReader implements ITrailReader {
     const aggregateTokensByUser = (
       users: ReadonlyArray<MessageRow>,
       assistants: ReadonlyArray<{ session_id: string; timestamp: string; input_tokens: number; output_tokens: number; cache_read_tokens: number; cache_creation_tokens: number; model: string | null }>,
+      sourceBySessionId: ReadonlyMap<string, 'claude_code' | 'codex'>,
     ): Map<string, { input: number; output: number; cr: number; cc: number; cost: number }> => {
       const usersBySession = new Map<string, MessageRow[]>();
       for (const u of users) {
@@ -898,12 +1304,12 @@ export class SupabaseTrailReader implements ITrailReader {
         t.output += outputToks;
         t.cr += crToks;
         t.cc += ccToks;
-        t.cost += calculateCost(normalizeModelName(a.model ?? ''), {
+        t.cost += calculateCost(a.model ?? '', {
           inputTokens: inputToks,
           outputTokens: outputToks,
           cacheReadTokens: crToks,
           cacheCreationTokens: ccToks,
-        });
+        }, sourceBySessionId.get(a.session_id));
       }
       return tokensByUuid;
     };
@@ -918,17 +1324,19 @@ export class SupabaseTrailReader implements ITrailReader {
     const curSessionIds = [...new Set(curCommits.map((c) => c.session_id))];
     const prevSessionIds = [...new Set(prevCommits.map((c) => c.session_id))];
 
-    const [curMessages, curAssistants, curFilesByHash, prevMessages, prevAssistants, prevFilesByHash] = await Promise.all([
+    const [curMessages, curAssistants, curFilesByHash, prevMessages, prevAssistants, prevFilesByHash, curSources, prevSources] = await Promise.all([
       fetchMessagesBySessionIds(curSessionIds),
       fetchAssistantMessages(range.from, range.to),
       fetchFilesByHashes(curCommits.map((c) => c.commit_hash)),
       fetchMessagesBySessionIds(prevSessionIds),
       fetchAssistantMessages(prevFrom, prevTo),
       fetchFilesByHashes(prevCommits.map((c) => c.commit_hash)),
+      fetchSessionSources(curSessionIds),
+      fetchSessionSources(prevSessionIds),
     ]);
 
-    const curTokens = aggregateTokensByUser(curMessages, curAssistants);
-    const prevTokens = aggregateTokensByUser(prevMessages, prevAssistants);
+    const curTokens = aggregateTokensByUser(curMessages, curAssistants, curSources);
+    const prevTokens = aggregateTokensByUser(prevMessages, prevAssistants, prevSources);
     return computeQualityMetrics(
       {
         releases: curReleases.map((r) => ({ id: r.tag, tag_date: r.released_at, commit_hashes: [], fix_count: r.fix_count })),

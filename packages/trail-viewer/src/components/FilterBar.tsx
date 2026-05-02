@@ -4,7 +4,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Toolbar from '@mui/material/Toolbar';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import type { TrailFilter, TrailSession } from '../parser/types';
 import { useTrailI18n } from '../i18n';
@@ -23,16 +23,11 @@ export function FilterBar({ filter, sessions, onChange }: Readonly<FilterBarProp
   const repositories = useMemo(() => {
     const set = new Set<string>();
     for (const s of sessions) {
-      if (s.project) set.add(s.project);
+      const repo = s.repoName;
+      if (repo) set.add(repo);
     }
     return [...set].sort();
   }, [sessions]);
-
-  useEffect(() => {
-    if (!filter.project && repositories.length > 0) {
-      onChange({ ...filter, project: repositories[0] });
-    }
-  }, [filter, repositories, onChange]);
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,7 +38,8 @@ export function FilterBar({ filter, sessions, onChange }: Readonly<FilterBarProp
 
   const handleRepositoryChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      onChange({ ...filter, project: e.target.value });
+      const value = e.target.value;
+      onChange({ ...filter, repository: value ? value : undefined });
     },
     [filter, onChange],
   );
@@ -92,10 +88,13 @@ export function FilterBar({ filter, sessions, onChange }: Readonly<FilterBarProp
           select
           size="small"
           label={t('filter.repository')}
-          value={filter.project ?? ''}
+          value={filter.repository ?? ''}
           onChange={handleRepositoryChange}
           sx={{ minWidth: 200 }}
         >
+          <MenuItem value="">
+            All
+          </MenuItem>
           {repositories.map((r) => (
             <MenuItem key={r} value={r}>
               {r}

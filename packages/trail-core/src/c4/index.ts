@@ -47,6 +47,7 @@ export { clusterMatrix } from './dsm/cluster';
 export { parseCoverage } from './coverage/parseCoverage';
 export type { FileCoverage } from './coverage/parseCoverage';
 export { aggregateCoverage } from './coverage/aggregateCoverage';
+export { aggregateCoverageFromDb } from './coverage/aggregateCoverageFromDb';
 export { computeCoverageDiff } from './coverage/computeCoverageDiff';
 
 export { fetchC4Model, fetchC4ModelEntries } from './c4ModelService';
@@ -54,12 +55,47 @@ export type { C4ModelPayload } from './c4ModelService';
 
 export type { MetricOverlay, ComplexityClass, ComplexityEntry, ComplexityMatrix } from './types';
 export { computeColorMap } from './metrics/computeColorMap';
+export { mapFilesToC4Elements } from '../domain/engine/c4Mapper';
+export type { C4MappingResult } from '../domain/engine/c4Mapper';
 export type { MessageInput } from './metrics/computeComplexityMatrix';
 export { computeComplexityMatrix } from './metrics/computeComplexityMatrix';
 export { computeImportanceMatrix } from './metrics/computeImportanceMatrix';
 export type { ImportanceMatrix } from '../importance/types';
 
 export { mergeManualIntoC4Model } from './mergeManual';
+
+export { computeCommunityOverlay } from './computeCommunityOverlay';
+export type { CommunityOverlayEntry } from './computeCommunityOverlay';
+export { buildCommunityTree } from './view/buildCommunityTree';
+export type { CommunityTreeInput } from './view/buildCommunityTree';
+export { aggregateGhostEdgesToC4 } from './aggregateGhostEdgesToC4';
+export type { C4GhostEdge } from './aggregateGhostEdgesToC4';
+
+export {
+  computeFileHotspot,
+  aggregateHotspotToC4,
+  computeActivityHeatmap,
+  aggregateHeatmapColumnsToC4,
+  computeActivityTrend,
+} from '../hotspot';
+export type {
+  FileHotspotRow,
+  HotspotEntry,
+  HotspotMap,
+  ActivityHeatmapRow,
+  HeatmapAxis,
+  HeatmapCell,
+  HeatmapMatrix,
+  ActivityTrendRow,
+  TrendBucketSize,
+  TrendBucket,
+  TrendPeriod,
+  TrendGranularity,
+  ActivityTrend,
+  ComputeHeatmapInput,
+  ComputeTrendInput,
+  HeatmapIntermediate,
+} from '../hotspot';
 
 export type {
   ManualElement,

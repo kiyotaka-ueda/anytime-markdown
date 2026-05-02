@@ -7,6 +7,7 @@ describe('pricing', () => {
       expect(MODEL_PRICING).toHaveProperty('opus');
       expect(MODEL_PRICING).toHaveProperty('sonnet');
       expect(MODEL_PRICING).toHaveProperty('haiku');
+      expect(MODEL_PRICING).toHaveProperty(['gpt-5.1-codex']);
     });
   });
 
@@ -71,6 +72,27 @@ describe('pricing', () => {
       expect(calculateCost('claude-opus-4-6', tokens)).toBeCloseTo(15, 2);
       expect(calculateCost('claude-sonnet-4-6', tokens)).toBeCloseTo(3, 2);
       expect(calculateCost('claude-haiku-4-5-20251001', tokens)).toBeCloseTo(0.8, 2);
+    });
+
+    it('should calculate cost for Codex model names', () => {
+      const tokens = {
+        inputTokens: 1_000_000,
+        outputTokens: 1_000_000,
+        cacheReadTokens: 1_000_000,
+        cacheCreationTokens: 1_000_000,
+      };
+      expect(calculateCost('gpt-5.1-codex', tokens)).toBeCloseTo(1.25 + 10 + 0.125 + 1.25, 2);
+      expect(calculateCost('gpt-5.2-codex', tokens)).toBeCloseTo(1.75 + 14 + 0.175 + 1.75, 2);
+    });
+
+    it('should default empty Codex models to Codex pricing', () => {
+      const cost = calculateCost('', {
+        inputTokens: 1_000_000,
+        outputTokens: 0,
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
+      }, 'codex');
+      expect(cost).toBeCloseTo(1.25, 2);
     });
   });
 });

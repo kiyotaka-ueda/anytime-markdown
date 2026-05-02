@@ -50,7 +50,7 @@ export class PostgresTrailStore implements IRemoteTrailStore {
     for (const r of rows) {
       await pool.query(
         `INSERT INTO trail_sessions (
-          id, slug, project, repo_name, git_branch, cwd, model, version, entrypoint,
+          id, slug, repo_name, git_branch, cwd, model, version, entrypoint,
           permission_mode, start_time, end_time, message_count,
           input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens,
           file_path, file_size, imported_at,
@@ -60,9 +60,9 @@ export class PostgresTrailStore implements IRemoteTrailStore {
           $10, $11, $12, $13,
           $14, $15, $16, $17,
           $18, $19, $20,
-          $21, $22, $23, NOW()
+          $21, $22, NOW()
         ) ON CONFLICT (id) DO UPDATE SET
-          slug = EXCLUDED.slug, project = EXCLUDED.project,
+          slug = EXCLUDED.slug,
           repo_name = EXCLUDED.repo_name,
           git_branch = EXCLUDED.git_branch, cwd = EXCLUDED.cwd,
           model = EXCLUDED.model, version = EXCLUDED.version,
@@ -79,7 +79,7 @@ export class PostgresTrailStore implements IRemoteTrailStore {
           commits_resolved_at = EXCLUDED.commits_resolved_at,
           synced_at = NOW()`,
         [
-          r.id, r.slug, r.project, r.repo_name, r.git_branch, r.cwd, r.model,
+          r.id, r.slug, r.repo_name, r.git_branch, r.cwd, r.model,
           r.version, r.entrypoint, r.permission_mode,
           r.start_time, r.end_time, r.message_count,
           r.input_tokens, r.output_tokens, r.cache_read_tokens, r.cache_creation_tokens,
@@ -105,14 +105,20 @@ export class PostgresTrailStore implements IRemoteTrailStore {
             model, request_id, stop_reason,
             input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens,
             service_tier, speed, timestamp,
-            is_sidechain, is_meta, cwd, git_branch
+            is_sidechain, is_meta, cwd, git_branch,
+            permission_mode, skill, agent_id, agent_description, agent_model,
+            subagent_type, source_tool_assistant_uuid, source_tool_use_id,
+            system_command, duration_ms, tool_result_size
           ) VALUES (
             $1, $2, $3, $4, $5,
             $6, $7, $8, $9,
             $10, $11, $12,
             $13, $14, $15, $16,
             $17, $18, $19,
-            $20, $21, $22, $23
+            $20, $21, $22, $23,
+            $24, $25, $26, $27, $28,
+            $29, $30, $31,
+            $32, $33, $34
           ) ON CONFLICT (uuid) DO UPDATE SET
             session_id = EXCLUDED.session_id, parent_uuid = EXCLUDED.parent_uuid,
             type = EXCLUDED.type, subtype = EXCLUDED.subtype,
@@ -126,7 +132,16 @@ export class PostgresTrailStore implements IRemoteTrailStore {
             service_tier = EXCLUDED.service_tier, speed = EXCLUDED.speed,
             timestamp = EXCLUDED.timestamp,
             is_sidechain = EXCLUDED.is_sidechain, is_meta = EXCLUDED.is_meta,
-            cwd = EXCLUDED.cwd, git_branch = EXCLUDED.git_branch`,
+            cwd = EXCLUDED.cwd, git_branch = EXCLUDED.git_branch,
+            permission_mode = EXCLUDED.permission_mode, skill = EXCLUDED.skill,
+            agent_id = EXCLUDED.agent_id, agent_description = EXCLUDED.agent_description,
+            agent_model = EXCLUDED.agent_model,
+            subagent_type = EXCLUDED.subagent_type,
+            source_tool_assistant_uuid = EXCLUDED.source_tool_assistant_uuid,
+            source_tool_use_id = EXCLUDED.source_tool_use_id,
+            system_command = EXCLUDED.system_command,
+            duration_ms = EXCLUDED.duration_ms,
+            tool_result_size = EXCLUDED.tool_result_size`,
           [
             r.uuid, r.session_id, r.parent_uuid, r.type, r.subtype,
             r.text_content, r.user_content, r.tool_calls, r.tool_use_result,
@@ -134,6 +149,11 @@ export class PostgresTrailStore implements IRemoteTrailStore {
             r.input_tokens, r.output_tokens, r.cache_read_tokens, r.cache_creation_tokens,
             r.service_tier, r.speed, r.timestamp,
             r.is_sidechain, r.is_meta, r.cwd, r.git_branch,
+            r.permission_mode ?? null, r.skill ?? null,
+            r.agent_id ?? null, r.agent_description ?? null, r.agent_model ?? null,
+            r.subagent_type ?? null,
+            r.source_tool_assistant_uuid ?? null, r.source_tool_use_id ?? null,
+            r.system_command ?? null, r.duration_ms ?? null, r.tool_result_size ?? null,
           ],
         );
       }
@@ -400,6 +420,12 @@ export class PostgresTrailStore implements IRemoteTrailStore {
       );
     }
   }
+
+  async unsafeClearCurrentCoverage(): Promise<never> { throw new Error('PostgresTrailStore.unsafeClearCurrentCoverage not implemented'); }
+  async upsertCurrentCoverage(): Promise<never> { throw new Error('PostgresTrailStore.upsertCurrentCoverage not implemented'); }
+  async unsafeClearCurrentCodeGraphs(): Promise<never> { throw new Error('PostgresTrailStore.unsafeClearCurrentCodeGraphs not implemented'); }
+  async upsertCurrentCodeGraphs(): Promise<never> { throw new Error('PostgresTrailStore.upsertCurrentCodeGraphs not implemented'); }
+  async upsertCurrentCodeGraphCommunities(): Promise<never> { throw new Error('PostgresTrailStore.upsertCurrentCodeGraphCommunities not implemented'); }
 
   async listManualElements(): Promise<never> { throw new Error('PostgresTrailStore.listManualElements not implemented'); }
   async upsertCommitFiles(rows: readonly { commit_hash: string; file_path: string }[]): Promise<void> {

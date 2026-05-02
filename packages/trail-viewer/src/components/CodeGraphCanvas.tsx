@@ -1,26 +1,48 @@
 import { useEffect, useRef, useState } from 'react';
 import Sigma from 'sigma';
+import { EdgeArrowProgram } from 'sigma/rendering';
 import Graph from 'graphology';
 import type { CodeGraph } from '@anytime-markdown/trail-core/codeGraph';
+import type { CouplingDirection } from '@anytime-markdown/trail-core';
+import { COMMUNITY_COLORS } from './communityColors';
 
-const COMMUNITY_COLORS = [
-  '#4e79a7',
-  '#f28e2b',
-  '#e15759',
-  '#76b7b2',
-  '#59a14f',
-  '#edc948',
-  '#b07aa1',
-  '#ff9da7',
-  '#9c755f',
-  '#bab0ac',
-];
+export { COMMUNITY_COLORS };
+
+const GHOST_EDGE_COMMIT_LIGHT = '#7c3aed';
+const GHOST_EDGE_COMMIT_DARK = '#c4b5fd';
+const GHOST_EDGE_SESSION_LIGHT = '#0891b2';
+const GHOST_EDGE_SESSION_DARK = '#67e8f9';
+// subagent_type 粒度。commit 紫・session シアンと区別するためエメラルド系を採用。
+// ライトモード #047857 vs 白背景 = 5.5:1, ダークモード #6ee7b7 vs #1e1e1e ≒ 8.5:1（共に WCAG AA 4.5:1 達成）。
+const GHOST_EDGE_SUBAGENT_LIGHT = '#047857';
+const GHOST_EDGE_SUBAGENT_DARK = '#6ee7b7';
+
+export type CodeGraphGhostEdgeGranularity = 'commit' | 'session' | 'subagentType';
+
+export interface CodeGraphGhostEdge {
+  readonly source: string;
+  readonly target: string;
+  readonly jaccard: number;
+  readonly coChangeCount: number;
+  readonly direction?: CouplingDirection;
+  readonly confidenceForward?: number;
+  readonly confidenceBackward?: number;
+}
+
+function riskColor(score: number, dark: boolean): string {
+  if (score >= 0.7) return dark ? '#ef5350' : '#c62828';
+  if (score >= 0.35) return dark ? '#ffa726' : '#f9a825';
+  return dark ? '#66bb6a' : '#2e7d32';
+}
 
 interface CodeGraphCanvasProps {
   readonly graph: CodeGraph;
   readonly highlightedNodes?: ReadonlySet<string>;
   readonly onNodeClick?: (nodeId: string) => void;
   readonly isDark?: boolean;
+  readonly ghostEdges?: ReadonlyArray<CodeGraphGhostEdge>;
+  readonly ghostEdgeGranularity?: CodeGraphGhostEdgeGranularity;
+  readonly riskMap?: ReadonlyMap<string, number> | null;
 }
 
 export function CodeGraphCanvas({
@@ -28,6 +50,9 @@ export function CodeGraphCanvas({
   highlightedNodes,
   onNodeClick,
   isDark,
+  ghostEdges,
+  ghostEdgeGranularity = 'commit',
+  riskMap,
 }: Readonly<CodeGraphCanvasProps>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sigmaRef = useRef<Sigma | null>(null);
@@ -85,10 +110,69 @@ export function CodeGraphCanvas({
       }
     }
 
+    const isSubagent = ghostEdgeGranularity === 'subagentType';
+    const isSession = ghostEdgeGranularity === 'session';
+    const ghostColor = isSubagent
+      ? (isDark ? GHOST_EDGE_SUBAGENT_DARK : GHOST_EDGE_SUBAGENT_LIGHT)
+      : isSession
+        ? (isDark ? GHOST_EDGE_SESSION_DARK : GHOST_EDGE_SESSION_LIGHT)
+        : (isDark ? GHOST_EDGE_COMMIT_DARK : GHOST_EDGE_COMMIT_LIGHT);
+    const jaccardLabelPrefix = isSubagent ? 'Subagent J' : isSession ? 'Session J' : 'Temporal J';
+    const confLabelPrefix = isSubagent ? 'Subagent' : isSession ? 'Session' : 'Conf';
+    let ghostRendered = 0;
+    for (const ge of ghostEdges ?? []) {
+      if (
+        !g.hasNode(ge.source) ||
+        !g.hasNode(ge.target) ||
+        g.hasEdge(ge.source, ge.target) ||
+        g.hasEdge(ge.target, ge.source)
+      ) continue;
+
+      const conf = ge.confidenceForward;
+      const sizeBase = conf ?? ge.jaccard;
+      const baseAttrs = {
+        color: ghostColor,
+        size: 1 + sizeBase * 3,
+        forceLabel: true,
+        temporal: true,
+      };
+      if (ge.direction === 'A→B' && conf !== undefined) {
+        g.addDirectedEdge(ge.source, ge.target, {
+          ...baseAttrs,
+          type: 'arrow',
+          label: `${confLabelPrefix} ${conf.toFixed(2)} →`,
+        });
+      } else if (ge.direction === 'undirected' && conf !== undefined) {
+        g.addEdge(ge.source, ge.target, {
+          ...baseAttrs,
+          label: `${confLabelPrefix} ${conf.toFixed(2)} ↔`,
+        });
+      } else {
+        g.addEdge(ge.source, ge.target, {
+          ...baseAttrs,
+          size: 1 + ge.jaccard * 3,
+          label: `${jaccardLabelPrefix}=${ge.jaccard.toFixed(2)}`,
+        });
+      }
+      ghostRendered++;
+    }
+
+    if (riskMap) {
+      g.forEachNode((nodeId) => {
+        const score = riskMap.get(nodeId);
+        if (score !== undefined) {
+          g.setNodeAttribute(nodeId, 'color', riskColor(score, isDark ?? false));
+        }
+      });
+    }
+
     const sigma = new Sigma(g, containerRef.current, {
-      renderEdgeLabels: false,
+      renderEdgeLabels: ghostRendered > 0,
       defaultEdgeColor: isDark ? '#444' : '#ccc',
       allowInvalidContainer: true,
+      edgeProgramClasses: {
+        arrow: EdgeArrowProgram,
+      },
     });
 
     if (onNodeClick) {
@@ -100,7 +184,7 @@ export function CodeGraphCanvas({
       sigma.kill();
       sigmaRef.current = null;
     };
-  }, [containerReady, graph, isDark, onNodeClick]);
+  }, [containerReady, graph, isDark, onNodeClick, ghostEdges, ghostEdgeGranularity, riskMap]);
 
   useEffect(() => {
     const sigma = sigmaRef.current;

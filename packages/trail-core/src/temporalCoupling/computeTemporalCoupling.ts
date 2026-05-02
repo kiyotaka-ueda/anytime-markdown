@@ -1,0 +1,63 @@
+import { aggregatePairs, PAIR_KEY_SEPARATOR, normalizePair } from './aggregatePairs';
+import type {
+  CommitFileRow,
+  ComputeTemporalCouplingOptions,
+  TemporalCouplingEdge,
+} from './types';
+
+export function computeTemporalCoupling(
+  rows: ReadonlyArray<CommitFileRow>,
+  options: ComputeTemporalCouplingOptions,
+): TemporalCouplingEdge[] {
+  if (rows.length === 0) return [];
+
+  const {
+    minChangeCount,
+    jaccardThreshold,
+    topK,
+    maxFilesPerCommit,
+    excludePairs,
+    pathFilter,
+  } = options;
+
+  const groupedRows = rows.map((r) => ({
+    groupKey: r.commitHash,
+    filePath: r.filePath,
+  }));
+
+  const { fileChangeCount, coChange } = aggregatePairs(groupedRows, {
+    minChangeCount,
+    maxFilesPerGroup: maxFilesPerCommit,
+    excludePairs,
+    pathFilter,
+  });
+
+  const edges: TemporalCouplingEdge[] = [];
+  for (const [key, co] of coChange) {
+    const [a, b] = key.split(PAIR_KEY_SEPARATOR);
+    const [source, target] = normalizePair(a, b);
+    const sourceChangeCount = fileChangeCount.get(source) ?? 0;
+    const targetChangeCount = fileChangeCount.get(target) ?? 0;
+    const union = sourceChangeCount + targetChangeCount - co;
+    if (union <= 0) continue;
+    const jaccard = co / union;
+    if (jaccard < jaccardThreshold) continue;
+    edges.push({
+      source,
+      target,
+      coChangeCount: co,
+      sourceChangeCount,
+      targetChangeCount,
+      jaccard,
+    });
+  }
+
+  edges.sort((x, y) => {
+    if (y.jaccard !== x.jaccard) return y.jaccard - x.jaccard;
+    if (y.coChangeCount !== x.coChangeCount) return y.coChangeCount - x.coChangeCount;
+    if (x.source !== y.source) return x.source < y.source ? -1 : 1;
+    return x.target < y.target ? -1 : 1;
+  });
+
+  return edges.slice(0, topK);
+}

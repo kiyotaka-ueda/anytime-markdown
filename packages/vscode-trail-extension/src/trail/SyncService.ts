@@ -46,6 +46,9 @@ export class SyncService {
     onProgress?.({ message: 'Fetching local sessions...' });
     const localSessions = this.trailDb.getSessions();
 
+    // 意図的な制約: web アプリはデモ用途であり、メッセージにプロンプト等の個人データが
+    // 含まれるため、Supabase への同期は直近 7 日間のみに限定している。
+    // token チャートの 30D/90D 表示は現状この制約の範囲内となる。
     const messageCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
     let synced = 0;
@@ -171,6 +174,36 @@ export class SyncService {
       }
     } catch (e) {
       TrailLogger.error('Failed to sync manual C4 elements', e);
+      errors++;
+    }
+
+    // Sync current_coverage（洗い替え）
+    try {
+      onProgress?.({ message: 'Syncing current coverage...' });
+      const coverageRows = this.trailDb.getAllCurrentCoverage();
+      await this.store.unsafeClearCurrentCoverage();
+      if (coverageRows.length > 0) {
+        await this.store.upsertCurrentCoverage(coverageRows);
+      }
+    } catch (e) {
+      TrailLogger.error('Failed to sync current coverage', e);
+      errors++;
+    }
+
+    // Sync current_code_graphs（洗い替え）
+    try {
+      onProgress?.({ message: 'Syncing current code graphs...' });
+      const graphRows = this.trailDb.getAllCurrentCodeGraphRaws();
+      const communityRows = this.trailDb.getAllCurrentCodeGraphCommunityRaws();
+      await this.store.unsafeClearCurrentCodeGraphs();
+      if (graphRows.length > 0) {
+        await this.store.upsertCurrentCodeGraphs(graphRows);
+      }
+      if (communityRows.length > 0) {
+        await this.store.upsertCurrentCodeGraphCommunities(communityRows);
+      }
+    } catch (e) {
+      TrailLogger.error('Failed to sync current code graphs', e);
       errors++;
     }
 

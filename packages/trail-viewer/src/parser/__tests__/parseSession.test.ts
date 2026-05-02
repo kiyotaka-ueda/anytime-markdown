@@ -183,7 +183,7 @@ describe('parseSession', () => {
       const { session } = parseSession(input, 'my-project');
 
       expect(session.id).toBe('session-1');
-      expect(session.project).toBe('my-project');
+      expect(session.repoName).toBe('my-project');
       expect(session.gitBranch).toBe('develop');
       expect(session.version).toBe('2.1.85');
       expect(session.model).toBe('claude-opus-4-6');
@@ -224,7 +224,7 @@ describe('parseSession', () => {
 
       expect(messages).toHaveLength(0);
       expect(session.id).toBe('');
-      expect(session.project).toBe('my-project');
+      expect(session.repoName).toBe('my-project');
       expect(session.messageCount).toBe(0);
       expect(session.usage).toEqual({
         inputTokens: 0,
@@ -260,6 +260,88 @@ describe('parseSession', () => {
       expect(messages).toHaveLength(1);
       // Array content for user messages is not extracted as userContent
       expect(messages[0].userContent).toBeUndefined();
+    });
+  });
+
+  describe('subAgentCount', () => {
+    it('counts Agent tool_use blocks (legacy parent-side count)', () => {
+      const agentLine = JSON.stringify({
+        parentUuid: 'user-1',
+        type: 'assistant',
+        uuid: 'assistant-agent',
+        timestamp: '2026-03-27T23:24:00.000Z',
+        sessionId: 'session-1',
+        message: {
+          role: 'assistant',
+          content: [
+            {
+              type: 'tool_use',
+              id: 'toolu_agent_1',
+              name: 'Agent',
+              input: { subagent_type: 'general-purpose', description: 'sub task' },
+            },
+          ],
+        },
+      });
+      const input = [makeUserLine(), agentLine].join('\n');
+      const { session } = parseSession(input, 'my-project');
+      expect(session.subAgentCount).toBe(1);
+    });
+
+    it('counts codex delegation via sourceToolAssistantUUID (no Agent tool_use)', () => {
+      // codex 委任マーカー (Bash 経由で codex を起動するとここに記録される)
+      const codexMarker = JSON.stringify({
+        parentUuid: 'assistant-1',
+        type: 'user',
+        uuid: 'codex-marker',
+        timestamp: '2026-03-27T23:24:30.000Z',
+        sessionId: 'session-1',
+        sourceToolAssistantUUID: 'assistant-1',
+        sourceToolUseID: 'tool-use-1',
+        message: { role: 'user', content: 'codex result' },
+      });
+      const input = [makeUserLine(), makeAssistantLine(), codexMarker].join('\n');
+      const { session } = parseSession(input, 'my-project');
+      expect(session.subAgentCount).toBe(1);
+    });
+
+    it('combines parent-side and child-side counts (max)', () => {
+      // 親側: 2 個の Agent tool_use（CC subagent 2 個）
+      const parentAgents = JSON.stringify({
+        parentUuid: 'user-1',
+        type: 'assistant',
+        uuid: 'assistant-parent',
+        timestamp: '2026-03-27T23:24:00.000Z',
+        sessionId: 'session-1',
+        message: {
+          role: 'assistant',
+          content: [
+            { type: 'tool_use', id: 't1', name: 'Agent', input: { subagent_type: 'Explore' } },
+            { type: 'tool_use', id: 't2', name: 'Agent', input: { subagent_type: 'Plan' } },
+          ],
+        },
+      });
+      // 子側: 1 個の codex 委任マーカー（別 parent UUID）
+      const codexMarker = JSON.stringify({
+        parentUuid: 'assistant-other',
+        type: 'user',
+        uuid: 'codex-marker',
+        timestamp: '2026-03-27T23:25:00.000Z',
+        sessionId: 'session-1',
+        sourceToolAssistantUUID: 'assistant-other',
+        message: { role: 'user', content: 'codex result' },
+      });
+      const input = [makeUserLine(), parentAgents, codexMarker].join('\n');
+      const { session } = parseSession(input, 'my-project');
+      // agentToolCount=2, delegationParents.size=1 → max=2
+      // (codex via Agent tool は agentToolCount に含まれており二重計上回避)
+      expect(session.subAgentCount).toBe(2);
+    });
+
+    it('returns undefined when no agent activity', () => {
+      const input = [makeUserLine(), makeAssistantLine()].join('\n');
+      const { session } = parseSession(input, 'my-project');
+      expect(session.subAgentCount).toBeUndefined();
     });
   });
 });

@@ -1,7 +1,7 @@
-import type { Config } from 'jest';
-
-const config: Config = {
-  coverageReporters: ['json', 'text', 'lcov', 'clover', 'json-summary'],
+const base = require('../../jest.config.base');
+/** @type {import('jest').Config} */
+module.exports = {
+  ...base,
   preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
@@ -9,6 +9,11 @@ const config: Config = {
     '^@anytime-markdown/cms-core$': '<rootDir>/../cms-core/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
+  globals: {
+    'ts-jest': {
+      tsconfig: {
+        module: 'CommonJS',
+      },
+    },
+  },
 };
-
-export default config;

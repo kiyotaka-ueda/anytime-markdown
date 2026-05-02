@@ -1,14 +1,11 @@
-import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
-import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, ImportanceMatrix, ManualGroup, MetricOverlay } from '@anytime-markdown/trail-core/c4';
 import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 import { engine, layoutWithSubgroups, MinimapCanvas, state as graphState } from '@anytime-markdown/graph-core';
-import AddIcon from '@mui/icons-material/Add';
+import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, CommunityOverlayEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, HotspotMap, ImportanceMatrix, ManualGroup, MetricOverlay } from '@anytime-markdown/trail-core/c4';
+import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, aggregateHotspotToC4, buildCommunityTree, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, computeCommunityOverlay, computeFileHotspot, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFilesToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
-import FitScreenIcon from '@mui/icons-material/FitScreen';
+import LayersIcon from '@mui/icons-material/Layers';
 import LinkIcon from '@mui/icons-material/Link';
-import PersonIcon from '@mui/icons-material/Person';
-import UploadFileIcon from '@mui/icons-material/UploadFile';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import ButtonGroup from '@mui/material/ButtonGroup';
@@ -16,32 +13,87 @@ import LinearProgress from '@mui/material/LinearProgress';
 import ListSubheader from '@mui/material/ListSubheader';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
-import type { SelectChangeEvent } from '@mui/material/Select';
-import Toolbar from '@mui/material/Toolbar';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import { useTrailI18n } from '../../i18n';
-import { getC4Colors } from '../c4Theme';
+import { DOC_TYPE_COLORS, getC4Colors } from '../c4Theme';
+import { useC4GhostEdges } from '../hooks/useC4GhostEdges';
+import { useDefectRisk } from '../hooks/useDefectRisk';
+import { useHotspot } from '../hooks/useHotspot';
+import { useTemporalCoupling } from '../hooks/useTemporalCoupling';
 
 const UNKNOWN_REPO_KEY = '__unknown__';
 const CURRENT_RELEASE_TAG = 'current';
+const SELECTED_ELEMENT_DETAILS_WIDTH = 240;
+const SELECTED_ELEMENT_DETAILS_RIGHT_OFFSET = 8;
+const TREND_CHART_POPUP_GAP = 8;
+const TREND_CHART_POPUP_MAX_WIDTH = 1000;
+const TREND_CHART_RESERVED_RIGHT_WIDTH =
+  SELECTED_ELEMENT_DETAILS_WIDTH + SELECTED_ELEMENT_DETAILS_RIGHT_OFFSET + TREND_CHART_POPUP_GAP;
+
+export function getActivityTrendChartWidth(hasSelectedElementDetails: boolean): string {
+  return hasSelectedElementDetails
+    ? `min(${TREND_CHART_POPUP_MAX_WIDTH}px, calc(100% - ${TREND_CHART_RESERVED_RIGHT_WIDTH}px))`
+    : `min(${TREND_CHART_POPUP_MAX_WIDTH}px, calc(100% - 16px))`;
+}
+
+export function getActivityTrendChartPlacement() {
+  return {
+    position: 'absolute' as const,
+    left: 8,
+    bottom: 8,
+    zIndex: 9,
+  };
+}
+
+export function canShowManualContextActions(
+  c4Model: C4Model | null,
+  c4Id: string | null,
+): boolean {
+  if (!c4Model || !c4Id) return false;
+  return c4Model.elements.some((element) => element.id === c4Id && element.manual === true);
+}
+
+const DEFAULT_TC_VALUE: TemporalCouplingControlsValue = {
+  enabled: false,
+  windowDays: 30,
+  threshold: 0.5,
+  topK: 50,
+  directional: false,
+  confidenceThreshold: 0.5,
+  directionalDiff: 0.3,
+  granularity: 'commit',
+};
 
 /** チェックボックス非表示フィルタ対象の型（system は常時表示のため除外） */
 const FILTER_CHECKABLE_TYPES = new Set(['container', 'containerDb', 'component'] as const);
 /** ドリルダウン時のスコープに含まれる型 */
 const DRILL_SCOPE_TYPES = new Set(['system', 'container', 'containerDb', 'component'] as const);
-import { AddElementDialog, AddRelationshipDialog } from './C4EditDialogs';
+function matchesDocScope(docScope: readonly string[], elementId: string): boolean {
+  return docScope.some(scope => scope === elementId || scope.startsWith(`${elementId}/`));
+}
+function formatPct(value: number): string {
+  return `${Math.round(value)}%`;
+}
+import GroupWorkIcon from '@mui/icons-material/GroupWork';
+
+import { communityColor } from '../../components/communityColors';
+import { useCodeGraph } from '../../hooks/useCodeGraph';
+import { computeClaudeActivityColorMap, computeConflictBorderMap,computeMultiAgentColorMap } from '../claudeActivityColorMap';
+import { ActivityTrendChart } from './ActivityTrendChart';
 import type { C4ElementKind, ElementFormData, RelationshipFormData } from './C4EditDialogs';
-import type { ExportedSymbol, FlowGraph } from '@anytime-markdown/trail-core/analyzer';
+import { AddElementDialog, AddRelationshipDialog } from './C4EditDialogs';
 import { C4ElementTree } from './C4ElementTree';
-import { CoverageCanvas } from './CoverageCanvas';
-import { DsmCanvas } from './DsmCanvas';
-import { FcMapCanvas } from './FcMapCanvas';
-import { FlowchartCanvas } from './FlowchartCanvas';
 import { GraphCanvas } from './GraphCanvas';
-import { OverlayLegend } from './OverlayLegend';
-import { computeClaudeActivityColorMap, computeMultiAgentColorMap, computeConflictBorderMap } from '../claudeActivityColorMap';
+import { HotspotControls, type HotspotControlsValue } from './HotspotControls';
+import { type CommunityLegendItem,OverlayLegend } from './OverlayLegend';
+import {
+  TemporalCouplingSettingsPopup,
+  applyGhostEdgeMode,
+  type TemporalCouplingControlsValue,
+} from './TemporalCouplingControls';
 
 const { graphReducer, createInitialState } = graphState;
 const { fitToContent } = engine;
@@ -78,7 +130,6 @@ export interface C4ViewerCoreProps {
   readonly onRemoveElement?: (id: string) => void;
   readonly onPurgeDeleted?: () => void;
   readonly onDocLinkClick?: (doc: DocLink) => void;
-  readonly onImport?: () => void;
   readonly containerHeight?: string;
   readonly releases?: readonly C4ReleaseEntry[];
   readonly selectedRelease?: string;
@@ -90,6 +141,8 @@ export interface C4ViewerCoreProps {
   readonly multiAgentActivity?: import('../hooks/useC4DataSource').MultiAgentActivityState | null;
   readonly onResetClaudeActivity?: () => void;
   readonly manualGroups?: readonly ManualGroup[];
+  /** 初期表示 C4 レベル（1=L1 Context, 2=L2 Container, 3=L3 Component, 4=L4 Code）*/
+  readonly initialLevel?: number;
 }
 
 export function C4ViewerCore({
@@ -111,7 +164,6 @@ export function C4ViewerCore({
   onRemoveElement,
   onPurgeDeleted,
   onDocLinkClick,
-  onImport,
   containerHeight = '100vh',
   releases = [],
   selectedRelease = CURRENT_RELEASE_TAG,
@@ -123,6 +175,7 @@ export function C4ViewerCore({
   multiAgentActivity,
   onResetClaudeActivity,
   manualGroups,
+  initialLevel,
 }: Readonly<C4ViewerCoreProps>) {
   const { t } = useTrailI18n();
   const colors = useMemo(() => getC4Colors(isDark), [isDark]);
@@ -188,27 +241,56 @@ export function C4ViewerCore({
     return out;
   }, [releases, selectedRepo]);
 
-  const handleRepoChange = useCallback((event: SelectChangeEvent<string>): void => {
-    const next = event.target.value;
+  const handleRepoChange = useCallback((next: string): void => {
     setSelectedRepoInternal(next);
     onRepoSelect?.(next);
   }, [onRepoSelect]);
 
-  const handleReleaseChange = useCallback((event: SelectChangeEvent<string>): void => {
-    onReleaseSelect?.(event.target.value);
+  const handleReleaseChange = useCallback((next: string): void => {
+    onReleaseSelect?.(next);
   }, [onReleaseSelect]);
 
   const [state, dispatch] = useReducer(graphReducer, createInitialState());
   const [fullDoc, setFullDoc] = useState<GraphDocument | null>(null);
-  const [currentLevel, setCurrentLevel] = useState<number>(1);
+  const [currentLevel, setCurrentLevel] = useState<number>(initialLevel ?? 1);
 
-  const [showC4, setShowC4] = useState(true);
-  const [showDsm, setShowDsm] = useState(false);
   const [showCoverage, setShowCoverage] = useState(false);
-  const [matrixView, setMatrixView] = useState<'dsm' | 'fcmap' | 'coverage'>('dsm');
+  const [showAncestorEdges, setShowAncestorEdges] = useState(true);
   const [metricOverlay, setMetricOverlay] = useState<MetricOverlay>('none');
+  const [drWindowDays, setDrWindowDays] = useState(90);
+  const [tcValue, setTcValue] = useState<TemporalCouplingControlsValue>(DEFAULT_TC_VALUE);
+  const [hotspotValue, setHotspotValue] = useState<HotspotControlsValue>({
+    period: '30d',
+    granularity: 'commit',
+  });
+  const isHotspotOverlay = metricOverlay === 'hotspot-frequency' || metricOverlay === 'hotspot-risk';
+  const { data: hotspotResponse, loading: hotspotLoading } = useHotspot({
+    enabled: isHotspotOverlay,
+    serverUrl,
+    period: hotspotValue.period,
+    granularity: hotspotValue.granularity,
+  });
+  const { entries: drEntries } = useDefectRisk({
+    enabled: metricOverlay === 'defect-risk',
+    serverUrl,
+    windowDays: drWindowDays,
+    halfLifeDays: 90,
+  });
   const [dsmLevel, setDsmLevel] = useState<'component' | 'package'>('component');
-  const [dsmClustered, setDsmClustered] = useState(false);
+  const {
+    edges: rawTcEdges,
+    granularity: tcGranularity,
+    loading: tcLoading,
+  } = useTemporalCoupling({
+    enabled: tcValue.enabled && !!selectedRepo,
+    serverUrl,
+    repoName: selectedRepo ?? '',
+    windowDays: tcValue.windowDays,
+    threshold: tcValue.threshold,
+    topK: tcValue.topK,
+    directional: false,
+    granularity: tcValue.granularity,
+  });
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [drillStack, setDrillStack] = useState<readonly { readonly element: C4Element; readonly prevLevel: number; readonly prevCheckedIds: ReadonlySet<string> | null }[]>([]);
   const [contextMenu, setContextMenu] = useState<{
@@ -220,15 +302,20 @@ export function C4ViewerCore({
   const [checkedPackageIds, setCheckedPackageIds] = useState<ReadonlySet<string> | null>(null);
   const [soloFrameId, setSoloFrameId] = useState<string | null>(null);
   const [centerOnSelect, setCenterOnSelect] = useState(false);
-  const [splitRatio, setSplitRatio] = useState(0.5);
+
+  // --- Community overlay state ---
+  const [showCommunity, setShowCommunity] = useState(false);
+  const [codeGraphEnabled, setCodeGraphEnabled] = useState(false);
+  const [showActivityTrend, setShowActivityTrend] = useState(true);
+  const { graph: codeGraph } = useCodeGraph(serverUrl, { enabled: showCommunity || codeGraphEnabled || currentLevel >= 2 });
 
   // --- Flow mode state ---
-  const [exports, setExports] = useState<readonly ExportedSymbol[]>([]);
-  const [selectedExport, setSelectedExport] = useState<ExportedSymbol | null>(null);
-  const [flowType, setFlowType] = useState<'control' | 'call'>('control');
-  const [flowGraph, setFlowGraph] = useState<FlowGraph | null>(null);
-  const [flowError, setFlowError] = useState<string | null>(null);
-  const [showFlow, setShowFlow] = useState(false);
+  const ghostEdges = useC4GhostEdges(
+    rawTcEdges,
+    c4Model,
+    currentLevel as 1 | 2 | 3 | 4,
+    selectedRepo ?? null,
+  );
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -242,45 +329,10 @@ export function C4ViewerCore({
   const [editElement, setEditElement] = useState<{ id: string; type: C4ElementKind; name: string; description: string; external: boolean; parentId?: string | null } | null>(null);
   const [addRelOpen, setAddRelOpen] = useState(false);
 
-  const handleElementSelect = useCallback(async (id: string) => {
+  const handleElementSelect = useCallback((id: string) => {
     setCenterOnSelect(true);
     setSelectedElementId(id);
-    setSelectedExport(null);
-    setFlowGraph(null);
-    setShowFlow(false);
-
-    const el = c4Model?.elements.find(e => e.id === id);
-    if (el?.type !== 'component') { setExports([]); return; }
-
-    try {
-      const repoQuery = selectedRepo ? `&repo=${encodeURIComponent(selectedRepo)}` : '';
-      const url = `${serverUrl}/api/c4/exports?componentId=${encodeURIComponent(id)}${repoQuery}`;
-      const res = await fetch(url);
-      if (!res.ok) { setExports([]); return; }
-      const data = await res.json() as { symbols: ExportedSymbol[] };
-      setExports(data.symbols ?? []);
-    } catch {
-      setExports([]);
-    }
-  }, [c4Model, serverUrl, selectedRepo]);
-
-  const handleExportSelect = useCallback(async (symbol: ExportedSymbol) => {
-    setSelectedExport(symbol);
-    setFlowError(null);
-    setFlowGraph(null);
-    setShowFlow(true);
-
-    try {
-      const repoQuery = selectedRepo ? `&repo=${encodeURIComponent(selectedRepo)}` : '';
-      const url = `${serverUrl}/api/c4/flowchart?componentId=${encodeURIComponent(selectedElementId ?? '')}&symbolId=${encodeURIComponent(symbol.id)}&type=${flowType}${repoQuery}`;
-      const res = await fetch(url);
-      if (!res.ok) { setFlowError('Failed to load flowchart'); return; }
-      const data = await res.json() as { graph: FlowGraph };
-      setFlowGraph(data.graph ?? null);
-    } catch {
-      setFlowError('Failed to load flowchart');
-    }
-  }, [serverUrl, selectedElementId, flowType, selectedRepo]);
+  }, []);
 
   const handleAddElement = useCallback((data: ElementFormData) => {
     onAddElement?.(data);
@@ -296,19 +348,15 @@ export function C4ViewerCore({
     onAddRelationship?.(data);
   }, [onAddRelationship]);
 
-  const handleDeleteSelected = useCallback(() => {
-    if (!selectedElementId || !c4Model) return;
-    const elem = c4Model.elements.find(e => e.id === selectedElementId);
+  const handleDeleteElement = useCallback((elementId: string) => {
+    if (!c4Model) return;
+    const elem = c4Model.elements.find(e => e.id === elementId);
     if (elem?.manual) {
-      onRemoveElement?.(selectedElementId);
-      setSelectedElementId(null);
+      onRemoveElement?.(elementId);
+      if (selectedElementId === elementId) setSelectedElementId(null);
     }
-  }, [selectedElementId, c4Model, onRemoveElement]);
-
-  const selectedIsManual = useMemo(() => {
-    if (!selectedElementId || !c4Model) return false;
-    return c4Model.elements.find(e => e.id === selectedElementId)?.manual === true;
-  }, [selectedElementId, c4Model]);
+    setContextMenu(null);
+  }, [c4Model, onRemoveElement, selectedElementId]);
 
   const selectedSystemId = useMemo(() => {
     if (!selectedElementId || !c4Model) return null;
@@ -363,8 +411,12 @@ export function C4ViewerCore({
     const doc = c4ToGraphDocument(filteredModel, boundaryInfos, manualGroups);
     layoutWithSubgroups(doc, 'TB', 180, 60);
     setFullDoc(doc);
-    let viewDoc = currentLevel < 4
-      ? (() => { const v = buildLevelView(doc, currentLevel); layoutWithSubgroups(v, 'TB', 180, 60); return v; })()
+    let viewDoc = currentLevel < 4 || !showAncestorEdges
+      ? (() => {
+        const v = buildLevelView(doc, currentLevel, { showAncestorEdges });
+        layoutWithSubgroups(v, 'TB', 180, 60);
+        return v;
+      })()
       : doc;
 
     // L1/L2/L3/L4 切り替え時に Fit を実行する。
@@ -383,7 +435,7 @@ export function C4ViewerCore({
     }
 
     dispatch({ type: 'SET_DOCUMENT', doc: viewDoc });
-  }, [c4Model, boundaryInfos, drillStack, currentLevel, checkedPackageIds, soloFrameId, manualGroups]);
+  }, [c4Model, boundaryInfos, drillStack, currentLevel, checkedPackageIds, soloFrameId, manualGroups, showAncestorEdges]);
 
   /** 右クリックメニューを表示する */
   const handleNodeContextMenu = useCallback(
@@ -607,10 +659,140 @@ export function C4ViewerCore({
     return { ...coverageMatrix, entries };
   }, [coverageMatrix, c4Model, currentLevel]);
 
+  const defectRiskMap = useMemo<ReadonlyMap<string, number> | null>(() => {
+    if (metricOverlay !== 'defect-risk' || drEntries.length === 0 || !c4Model) return null;
+    const map = new Map<string, number>();
+    for (const entry of drEntries) {
+      const mappings = mapFilesToC4Elements([entry.filePath], c4Model.elements);
+      for (const m of mappings) {
+        map.set(m.elementId, Math.max(map.get(m.elementId) ?? 0, entry.score));
+      }
+    }
+    return map;
+  }, [metricOverlay, drEntries, c4Model]);
+
+  // currentLevel に合わせて対象タイプのみに絞る（system境界の塗りつぶし防止）
+  const levelFilteredDefectRiskMap = useMemo<ReadonlyMap<string, number> | null>(() => {
+    if (!defectRiskMap || !c4Model) return defectRiskMap;
+    const targetType = currentLevel === 1 ? 'system'
+      : currentLevel === 2 ? 'container'
+      : currentLevel === 3 ? 'component'
+      : 'code';
+    const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
+    const filtered = new Map<string, number>();
+    for (const [id, score] of defectRiskMap) {
+      if (typeById.get(id) === targetType) filtered.set(id, score);
+    }
+    return filtered;
+  }, [defectRiskMap, c4Model, currentLevel]);
+
+  const hotspotMap = useMemo<HotspotMap | null>(() => {
+    if (!isHotspotOverlay || !hotspotResponse || !c4Model) return null;
+    const fileHotspots = computeFileHotspot(hotspotResponse.files);
+    return aggregateHotspotToC4(fileHotspots, c4Model, complexityMatrix ?? null);
+  }, [isHotspotOverlay, hotspotResponse, c4Model, complexityMatrix]);
+
+  const levelFilteredHotspotMap = useMemo<HotspotMap | null>(() => {
+    if (!hotspotMap || !c4Model) return hotspotMap;
+    const targetType = currentLevel === 1 ? 'system'
+      : currentLevel === 2 ? 'container'
+      : currentLevel === 3 ? 'component'
+      : 'code';
+    const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
+    const filtered = new Map<string, ReturnType<HotspotMap['get']> & object>();
+    for (const [id, entry] of hotspotMap) {
+      if (entry && typeById.get(id) === targetType) filtered.set(id, entry);
+    }
+    return filtered;
+  }, [hotspotMap, c4Model, currentLevel]);
+
   const overlayMap = useMemo(
-    () => computeColorMap(metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix),
-    [metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix],
+    () => computeColorMap(metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap),
+    [metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap],
   );
+
+  // Community overlay: L3/L4 のみ。トグル ON かつ codeGraph が取得済みのときのみ計算する
+  const communityOverlay = useMemo<ReadonlyMap<string, CommunityOverlayEntry> | null>(() => {
+    if (!showCommunity || !codeGraph || !c4Model) return null;
+    if (currentLevel !== 3 && currentLevel !== 4) return null;
+    return computeCommunityOverlay(c4Model, codeGraph, currentLevel as 3 | 4, selectedRepo || null);
+  }, [showCommunity, codeGraph, c4Model, currentLevel, selectedRepo]);
+
+  // Community タブ用: showCommunity トグル不要、L2/L3/L4 で常に L3 ベースで計算
+  const communityOverlayL3 = useMemo<ReadonlyMap<string, CommunityOverlayEntry> | null>(() => {
+    if (!codeGraph || !c4Model) return null;
+    if (currentLevel === 1) return null;
+    return computeCommunityOverlay(c4Model, codeGraph, 3, selectedRepo || null);
+  }, [codeGraph, c4Model, currentLevel, selectedRepo]);
+
+  const communityTree = useMemo(() => {
+    if (!communityOverlayL3 || !codeGraph || !c4Model) return undefined;
+    const maxDepth = currentLevel === 2 ? 'container' : currentLevel === 3 ? 'component' : 'code';
+    return buildCommunityTree({
+      c4Model,
+      communityOverlay: communityOverlayL3,
+      communities: codeGraph.communities,
+      communitySummaries: codeGraph.communitySummaries,
+      maxDepth,
+    });
+  }, [communityOverlayL3, codeGraph, c4Model, currentLevel]);
+
+  const selectedCommunityInfo = useMemo(() => {
+    if (!selectedElementId?.startsWith('community:')) return null;
+    const cid = Number.parseInt(selectedElementId.slice('community:'.length), 10);
+    if (Number.isNaN(cid)) return null;
+    const node = communityTree?.find(n => n.communityId === cid) ?? null;
+    if (!node) return null;
+    const summary = codeGraph?.communitySummaries?.[cid];
+    const fallbackLabel = codeGraph?.communities[cid];
+    return {
+      cid,
+      displayName: summary?.name ?? fallbackLabel ?? `#${cid}`,
+      color: communityColor(cid),
+      nodeCount: node.nodeCount ?? 0,
+      summaryText: summary?.summary ?? node.description,
+      children: node.children,
+    };
+  }, [selectedElementId, communityTree, codeGraph]);
+
+  const communityMap = useMemo(() => {
+    if (!communityOverlay) return null;
+    const map = new Map<string, { color: string; isGodNode: boolean }>();
+    for (const [elementId, entry] of communityOverlay) {
+      map.set(elementId, { color: communityColor(entry.dominantCommunity), isGodNode: entry.isGodNode });
+    }
+    return map.size > 0 ? map : null;
+  }, [communityOverlay]);
+
+  const communityLegend = useMemo<readonly CommunityLegendItem[] | null>(() => {
+    if (!communityOverlay || !codeGraph) return null;
+    const seen = new Set<number>();
+    const items: CommunityLegendItem[] = [];
+    for (const entry of communityOverlay.values()) {
+      if (seen.has(entry.dominantCommunity)) continue;
+      seen.add(entry.dominantCommunity);
+      const summary = entry.communitySummary;
+      const fallbackName = codeGraph.communities[entry.dominantCommunity];
+      items.push({
+        community: entry.dominantCommunity,
+        color: communityColor(entry.dominantCommunity),
+        name: summary?.name ?? fallbackName ?? `#${entry.dominantCommunity}`,
+        summary: summary?.summary,
+      });
+    }
+    // 同名ラベル重複時は曖昧性解消のためコミュニティ番号を付与する。
+    // GraphClusterer のラベルは pkg_*/component の component 名で多数決するため、
+    // 異なるパッケージが同じ component 名（"engine" 等）を持つと衝突しうる。
+    const nameCount = new Map<string, number>();
+    for (const item of items) nameCount.set(item.name, (nameCount.get(item.name) ?? 0) + 1);
+    const disambiguated = items.map((item) =>
+      (nameCount.get(item.name) ?? 0) > 1
+        ? { ...item, name: `${item.name} #${item.community}` }
+        : item,
+    );
+    disambiguated.sort((a, b) => a.community - b.community);
+    return disambiguated.length > 0 ? disambiguated : null;
+  }, [communityOverlay, codeGraph]);
 
   const claudeActivityMap = useMemo(() => {
     // マルチエージェントモード
@@ -718,29 +900,57 @@ export function C4ViewerCore({
     return null;
   }, [c4Model, boundaryInfos, selectedElementId]);
 
-  const handleSplitDrag = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    const container = containerRef.current;
-    if (!container) return;
-    const onMove = (ev: MouseEvent) => {
-      const rect = container.getBoundingClientRect();
-      const treeWidth = elementTree.length > 0 ? 260 : 0;
-      const available = rect.width - treeWidth;
-      if (available <= 0) return;
-      const ratio = Math.min(0.8, Math.max(0.2, (ev.clientX - rect.left) / available));
-      setSplitRatio(ratio);
-    };
-    const onUp = () => {
-      globalThis.removeEventListener('mousemove', onMove);
-      globalThis.removeEventListener('mouseup', onUp);
-      globalThis.document.body.style.cursor = '';
-      globalThis.document.body.style.userSelect = '';
-    };
-    globalThis.addEventListener('mousemove', onMove);
-    globalThis.addEventListener('mouseup', onUp);
-    globalThis.document.body.style.cursor = 'col-resize';
-    globalThis.document.body.style.userSelect = 'none';
-  }, [elementTree.length]);
+  const selectedElementInfo = useMemo(() => {
+    if (!c4Model || !selectedElementId) return null;
+    const element = c4Model.elements.find(e => e.id === selectedElementId);
+    if (!element) return null;
+    let incoming = 0;
+    let outgoing = 0;
+    for (const rel of c4Model.relationships) {
+      if (rel.to === element.id) incoming++;
+      if (rel.from === element.id) outgoing++;
+    }
+    const documents = (docLinks ?? []).filter(doc => matchesDocScope(doc.c4Scope, element.id));
+    const coverage = coverageMatrix?.entries.find(entry => entry.elementId === element.id) ?? null;
+    const complexity = complexityMatrix?.entries.find(entry => entry.elementId === element.id) ?? null;
+    const importance = importanceMatrix?.[element.id] ?? null;
+    const defectRisk = defectRiskMap?.get(element.id) ?? null;
+    const dsmIndex = filteredDsmMatrix?.nodes.findIndex(node => node.id === element.id) ?? -1;
+    const dsm = dsmIndex >= 0 && filteredDsmMatrix
+      ? {
+          out: filteredDsmMatrix.adjacency[dsmIndex]?.reduce((sum, value) => sum + (value > 0 ? 1 : 0), 0) ?? 0,
+          in: filteredDsmMatrix.adjacency.reduce((sum, row) => sum + (row[dsmIndex] > 0 ? 1 : 0), 0),
+        }
+      : null;
+    const community = (() => {
+      const direct = communityOverlayL3?.get(element.id) ?? null;
+      if (direct) return direct;
+      if (element.type !== 'container' || !communityOverlayL3) return null;
+      const counts = new Map<number, number>();
+      for (const child of c4Model.elements) {
+        if (child.boundaryId !== element.id || child.type !== 'component') continue;
+        const entry = communityOverlayL3.get(child.id);
+        if (!entry) continue;
+        for (const { community: cid, count } of entry.breakdown) {
+          counts.set(cid, (counts.get(cid) ?? 0) + count);
+        }
+      }
+      if (counts.size === 0) return null;
+      const breakdown = Array.from(counts, ([community, count]) => ({ community, count }))
+        .sort((a, b) => (b.count !== a.count ? b.count - a.count : a.community - b.community));
+      const total = breakdown.reduce((sum, e) => sum + e.count, 0);
+      const dominant = breakdown[0];
+      return {
+        elementId: element.id,
+        dominantCommunity: dominant.community,
+        dominantRatio: dominant.count / total,
+        breakdown,
+        isGodNode: false,
+        communitySummary: codeGraph?.communitySummaries?.[dominant.community],
+      } as CommunityOverlayEntry;
+    })();
+    return { element, incoming, outgoing, documents, coverage, complexity, importance, defectRisk, dsm, community };
+  }, [c4Model, complexityMatrix, coverageMatrix, defectRiskMap, docLinks, filteredDsmMatrix, importanceMatrix, selectedElementId, communityOverlayL3, codeGraph]);
 
   const toolbarButtonSx = {
     textTransform: 'none', color: colors.accent, borderColor: colors.border,
@@ -782,222 +992,23 @@ export function C4ViewerCore({
     contextMenu.nodeType === 'frame';
   const canCopyPath = contextMenu !== null &&
     (contextMenu.c4Id.startsWith('pkg_') || contextMenu.c4Id.startsWith('file::'));
-  const showContextMenu = contextMenu !== null && (canDrillDown || canDrillUp || canShowOnlyFrame || canCopyPath);
+  const canShowManualActions = canShowManualContextActions(c4Model, contextMenu?.c4Id ?? null);
+  const showContextMenu = contextMenu !== null && (
+    canDrillDown ||
+    canDrillUp ||
+    canShowOnlyFrame ||
+    canCopyPath ||
+    canShowManualActions
+  );
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: containerHeight, bgcolor: colors.bg }}>
-      <Toolbar variant="dense" sx={{ gap: 1, bgcolor: isDark ? 'rgba(18,18,18,0.85)' : 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${colors.border}`, minHeight: 44, px: { xs: 2, md: 3 }, zIndex: 1100 }}>
-        {onImport && (
-          <Button
-            size="small"
-            startIcon={<UploadFileIcon sx={{ fontSize: 18 }} />}
-            onClick={onImport}
-            sx={toolbarButtonSx}
-          >
-            Import
-          </Button>
-        )}
-        {repoOptions.length > 0 && (
-          <Select
-            size="small"
-            value={selectedRepo}
-            onChange={handleRepoChange}
-            sx={{ fontSize: '0.75rem', height: 28, minWidth: 100, mr: 0.5, '& .MuiSelect-select': { py: '2px' } }}
-            aria-label={t('c4.releaseRepository')}
-          >
-            {repoOptions.map((key) => (
-              <MenuItem key={key} value={key} sx={{ fontSize: '0.75rem' }}>
-                {key === UNKNOWN_REPO_KEY ? t('c4.unknownRepo') : key}
-              </MenuItem>
-            ))}
-          </Select>
-        )}
-        {visibleReleases.length > 0 && (
-          <Select
-            size="small"
-            value={selectedRelease}
-            onChange={handleReleaseChange}
-            sx={{ fontSize: '0.75rem', height: 28, minWidth: 120, mr: 0.5, '& .MuiSelect-select': { py: '2px' } }}
-            aria-label={t('c4.releases')}
-          >
-            {visibleReleases.map((entry) => (
-              <MenuItem key={entry.tag} value={entry.tag} sx={{ fontSize: '0.75rem' }}>
-                {entry.tag === CURRENT_RELEASE_TAG ? t('c4.currentRelease') : entry.tag}
-              </MenuItem>
-            ))}
-          </Select>
-        )}
-        <ButtonGroup size="small" sx={{ ml: 1 }}>
-          {([1, 2, 3, 4] as const).map(level => (
-            <Button
-              key={level}
-              onClick={() => handleSetLevel(level)}
-              aria-pressed={currentLevel === level}
-              aria-label={`Level ${level}: ${({ 1: 'Context', 2: 'Container', 3: 'Component', 4: 'Code' } as const)[level]}`}
-              title={({ 1: 'Context', 2: 'Container', 3: 'Component', 4: 'Code' } as const)[level]}
-              sx={currentLevel === level ? levelButtonActiveSx : levelButtonSx}
-            >
-              L{level}
-            </Button>
-          ))}
-        </ButtonGroup>
-        <Button size="small" startIcon={<FitScreenIcon sx={{ fontSize: 16 }} />} onClick={handleFit} sx={{ ...toolbarButtonSx, ml: 0.5 }} aria-label="Fit">Fit</Button>
-        {soloFrameId !== null && (
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<FilterAltOffIcon sx={{ fontSize: 16 }} />}
-            onClick={handleClearFrameFilter}
-            sx={{
-              ...toolbarButtonSx,
-              ml: 0.5,
-              borderColor: colors.accent,
-              color: colors.accent,
-              '&:hover': { bgcolor: `${colors.accent}22` },
-            }}
-          >
-            {t('c4.frameFilter.reset')}
-          </Button>
-        )}
-        <Box sx={{ flex: 1 }} />
-        {/* 指標オーバーレイ ドロップダウン */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 1 }}>
-          <Typography variant="caption" sx={{ fontSize: '0.7rem', color: colors.textMuted, whiteSpace: 'nowrap' }}>
-            {t('c4.overlay.label')}:
-          </Typography>
-          <Select
-            size="small"
-            value={metricOverlay}
-            onChange={(e) => { setMetricOverlay(e.target.value as MetricOverlay); }}
-            sx={{ fontSize: '0.75rem', height: 24, '.MuiSelect-select': { py: 0, px: 1 } }}
-            aria-label={t('c4.overlay.label')}
-          >
-            <MenuItem value="none" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.none')}</MenuItem>
-            <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
-              {t('c4.overlay.groupCoverage')}
-            </ListSubheader>
-            <MenuItem value="coverage-lines" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageLines')}</MenuItem>
-            <MenuItem value="coverage-branches" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageBranches')}</MenuItem>
-            <MenuItem value="coverage-functions" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageFunctions')}</MenuItem>
-            <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
-              {t('c4.overlay.groupDsm')}
-            </ListSubheader>
-            <MenuItem value="dsm-out" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmOut')}</MenuItem>
-            <MenuItem value="dsm-in" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmIn')}</MenuItem>
-            <MenuItem value="dsm-cyclic" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmCyclic')}</MenuItem>
-            <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
-              {t('c4.overlay.groupComplexity')}
-            </ListSubheader>
-            <MenuItem value="complexity-most" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.complexityMost')}</MenuItem>
-            <MenuItem value="complexity-highest" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.complexityHighest')}</MenuItem>
-            <ListSubheader sx={{ fontSize: '0.7rem', lineHeight: '2' }}>
-              {t('c4.overlay.groupImportance')}
-            </ListSubheader>
-            <MenuItem value="importance" disabled={!importanceMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.importance')}</MenuItem>
-          </Select>
-        </Box>
-        <Button size="small" onClick={() => { if (showC4 && !showDsm) { setShowDsm(true); } else { setShowC4(true); setShowDsm(false); } }} aria-pressed={showC4 && !showDsm} aria-label="Toggle C4 graph" sx={{ ...toolbarButtonSx, ...(showC4 && !showDsm && { bgcolor: toolbarButtonActiveBg }) }}>C4</Button>
-        <ButtonGroup size="small">
-          {(['dsm', 'fcmap', 'coverage'] as const).map((view) => {
-            const label = view === 'dsm' ? 'DSM' : view === 'fcmap' ? 'F-cMap' : 'Cov';
-            const isActive = showDsm && matrixView === view;
-            const isDisabled = (view === 'fcmap' && !featureMatrix) || (view === 'coverage' && !coverageMatrix);
-            return (
-              <Button
-                key={view}
-                size="small"
-                disabled={isDisabled}
-                aria-pressed={isActive}
-                aria-label={`Show ${label} matrix`}
-                onClick={() => {
-                  if (isActive) {
-                    setShowC4(true);
-                    setShowDsm(false);
-                  } else {
-                    setShowC4(false);
-                    setShowDsm(true);
-                    setMatrixView(view);
-                  }
-                }}
-                sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(isActive && { bgcolor: toolbarButtonActiveBg }) }}
-              >
-                {label}
-              </Button>
-            );
-          })}
-        </ButtonGroup>
-        {showDsm && matrixView === 'dsm' && (
-          <Button size="small" onClick={() => setDsmClustered(prev => !prev)} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', ...(dsmClustered && { bgcolor: toolbarButtonActiveBg }) }}>Cluster</Button>
-        )}
-        {selectedExport && (
-          <>
-            <Button
-              size="small"
-              onClick={() => setShowFlow(prev => !prev)}
-              aria-pressed={showFlow}
-              sx={{ ...toolbarButtonSx, ...(showFlow && { bgcolor: toolbarButtonActiveBg }) }}
-            >
-              Flow: {selectedExport.name}
-            </Button>
-            {showFlow && (
-              <ButtonGroup size="small">
-                {(['control', 'call'] as const).map(t => (
-                  <Button
-                    key={t}
-                    onClick={() => { setFlowType(t); }}
-                    sx={{ ...toolbarButtonSx, fontSize: '0.7rem', ...(flowType === t && { bgcolor: toolbarButtonActiveBg }) }}
-                  >
-                    {t}
-                  </Button>
-                ))}
-              </ButtonGroup>
-            )}
-          </>
-        )}
-        {multiAgentActivity && multiAgentActivity.agents.length > 1 && (
-          <Typography variant="caption" sx={{ ml: 1, opacity: 0.7 }}>
-            {multiAgentActivity.agents.length} {t('c4.multiAgent.badge')}
-          </Typography>
-        )}
-        {multiAgentActivity?.conflicts && multiAgentActivity.conflicts.length > 0 && (
-          <Typography variant="caption" sx={{ ml: 0.5, color: 'error.main', fontWeight: 'bold' }}>
-            {multiAgentActivity.conflicts.length} {t('c4.multiAgent.conflicts')}
-          </Typography>
-        )}
-        {((claudeActivity && (
-          claudeActivity.activeElementIds.length > 0 ||
-          claudeActivity.touchedElementIds.length > 0 ||
-          claudeActivity.plannedElementIds.length > 0
-        )) || (multiAgentActivity && multiAgentActivity.agents.length > 0)) && (
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={onResetClaudeActivity}
-            title={t('c4.claudeActivity.reset')}
-            sx={{ ...toolbarButtonSx, ml: 0.5 }}
-          >
-            {t('c4.claudeActivity.reset')}
-          </Button>
-        )}
-      </Toolbar>
-      {(currentLevel === 1 || currentLevel === 2 || currentLevel === 3) && (
-        <Toolbar variant="dense" sx={{ gap: 1, bgcolor: colors.bgSecondary, borderBottom: `1px solid ${colors.border}`, minHeight: 36, px: { xs: 2, md: 3 } }}>
-          <Typography variant="caption" sx={{ color: colors.textMuted, mr: 1, fontSize: '0.7rem' }}>Edit</Typography>
-          {currentLevel === 1 && (
-            <>
-              <Button size="small" startIcon={<PersonIcon sx={{ fontSize: 16 }} />} onClick={() => setAddElementType('person')} sx={toolbarButtonSx} aria-label="Add Person">Person</Button>
-              <Button size="small" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={() => setAddElementType('system')} sx={toolbarButtonSx} aria-label="Add System">System</Button>
-            </>
-          )}
-          {currentLevel === 2 && (
-            <Button size="small" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={() => setAddElementType('container')} disabled={!selectedSystemId} sx={toolbarButtonSx} aria-label="Add Container">Container</Button>
-          )}
-          {currentLevel === 3 && (
-            <Button size="small" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={() => setAddElementType('component')} sx={toolbarButtonSx} aria-label="Add Component">Component</Button>
-          )}
-          <Button size="small" startIcon={<LinkIcon sx={{ fontSize: 16 }} />} onClick={() => setAddRelOpen(true)} disabled={!selectedElementId} sx={toolbarButtonSx} aria-label="Add Relationship">Rel</Button>
-          <Button size="small" startIcon={<DeleteIcon sx={{ fontSize: 16 }} />} onClick={handleDeleteSelected} disabled={!selectedIsManual} sx={{ ...toolbarButtonSx, ...(selectedIsManual && { color: '#ef5350' }) }} aria-label="Delete selected">Del</Button>
-        </Toolbar>
+      {isHotspotOverlay && (
+        <HotspotControls
+          value={hotspotValue}
+          onChange={setHotspotValue}
+          loading={hotspotLoading}
+        />
       )}
       {analysisProgress && (
         <Box
@@ -1054,21 +1065,26 @@ export function C4ViewerCore({
             tree={elementTree}
             dispatch={dispatch}
             onSelect={handleElementSelect}
+            repoOptions={repoOptions}
+            selectedRepo={selectedRepo}
+            onRepoChange={handleRepoChange}
+            releaseOptions={visibleReleases}
+            selectedRelease={selectedRelease}
+            onReleaseChange={handleReleaseChange}
+            currentLevel={currentLevel}
+            selectedSystemId={selectedSystemId}
+            onAddElement={(type) => setAddElementType(type)}
             onCheckedChange={setCheckedPackageIds}
             checkReset={checkReset}
             onRemoveElement={onRemoveElement}
             onPurgeDeleted={onPurgeDeleted}
-            docLinks={docLinks}
-            onDocLinkClick={onDocLinkClick}
             isDark={isDark}
-            exports={exports}
-            selectedExportId={selectedExport?.id ?? null}
-            onExportSelect={handleExportSelect}
+            communityTree={communityTree}
+            onCommunityTabOpen={() => setCodeGraphEnabled(true)}
           />
         )}
-        {/* 既存コンテンツ (C4Graph / Separator / DSM) */}
-        {showC4 && (
-          <Box sx={{ flex: showDsm ? splitRatio : 1, display: 'flex', flexDirection: 'column', minWidth: 100 }}>
+        {/* C4 Graph */}
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 100, position: 'relative' }}>
             <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
               <GraphCanvas
                 isDark={isDark}
@@ -1080,6 +1096,19 @@ export function C4ViewerCore({
                 centerOnSelect={centerOnSelect}
                 overlayMap={overlayMap.size > 0 ? overlayMap : null}
                 claudeActivityMap={claudeActivityMapWithConflicts}
+                communityMap={communityMap}
+                ghostEdges={
+                  tcValue.enabled && (currentLevel === 3 || currentLevel === 4)
+                    ? ghostEdges.map((e) => ({
+                      source: e.source,
+                      target: e.target,
+                      jaccard: e.jaccard,
+                      direction: e.direction,
+                      confidenceForward: e.confidenceForward,
+                    }))
+                    : undefined
+                }
+                ghostEdgeGranularity={tcGranularity}
                 onNodeSelect={(id) => { setCenterOnSelect(false); setSelectedElementId(id); }}
                 onNodeDoubleClick={(nodeId) => {
                   if (!c4Model) return;
@@ -1091,14 +1120,564 @@ export function C4ViewerCore({
                 }}
                 onNodeContextMenu={handleNodeContextMenu}
               />
-              <OverlayLegend overlay={metricOverlay} isDark={isDark} dsmMax={dsmMax} />
-              <MinimapCanvas
-                nodes={state.document.nodes}
-                viewport={state.document.viewport}
-                mainCanvasRef={canvasRef}
-                onViewportChange={(vp) => dispatch({ type: 'SET_VIEWPORT', viewport: vp })}
+              <OverlayLegend
+                overlay={metricOverlay}
                 isDark={isDark}
+                dsmMax={dsmMax}
               />
+              {/* 左側パネル: 全体マップ + C4 ビュー設定コントロール群 */}
+              <Box sx={{ position: 'absolute', top: 8, left: 8, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {/* 全体マップ（ミニマップ） */}
+                <MinimapCanvas
+                  nodes={state.document.nodes}
+                  viewport={state.document.viewport}
+                  mainCanvasRef={canvasRef}
+                  onViewportChange={(vp) => dispatch({ type: 'SET_VIEWPORT', viewport: vp })}
+                  isDark={isDark}
+                  onFit={handleFit}
+                  containerStyle={{ position: 'static', width: 220 }}
+                />
+                {/* メインコントロールパネル */}
+                <Box
+                  role="group"
+                  aria-label="C4 ビュー設定"
+                  sx={{
+                    width: 220,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '8px',
+                    bgcolor: isDark ? 'rgba(18,18,18,0.92)' : 'rgba(251,249,243,0.94)',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                    backdropFilter: 'blur(10px)',
+                    px: 1.5,
+                    py: 1.25,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 1,
+                  }}
+                >
+                  {/* L1/L2/L3/L4 */}
+                  <Box>
+                    <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', mb: 0.5 }}>
+                      C4 Level
+                    </Typography>
+                    <ButtonGroup size="small" fullWidth>
+                      {([1, 2, 3, 4] as const).map(level => (
+                        <Button
+                          key={level}
+                          onClick={() => handleSetLevel(level)}
+                          aria-pressed={currentLevel === level}
+                          aria-label={`Level ${level}: ${({ 1: 'Context', 2: 'Container', 3: 'Component', 4: 'Code' } as const)[level]}`}
+                          title={({ 1: 'Context', 2: 'Container', 3: 'Component', 4: 'Code' } as const)[level]}
+                          sx={currentLevel === level ? levelButtonActiveSx : levelButtonSx}
+                        >
+                          L{level}
+                        </Button>
+                      ))}
+                    </ButtonGroup>
+                  </Box>
+                  {/* Upper Lines */}
+                  <Button
+                    size="small"
+                    startIcon={<LayersIcon sx={{ fontSize: 16 }} />}
+                    onClick={() => setShowAncestorEdges(prev => !prev)}
+                    disabled={currentLevel === 1}
+                    aria-pressed={showAncestorEdges}
+                    aria-label="Toggle upper C4 layer relationships"
+                    title="Toggle upper C4 layer relationships"
+                    fullWidth
+                    sx={{
+                      ...toolbarButtonSx,
+                      fontSize: '0.75rem',
+                      justifyContent: 'flex-start',
+                      ...(showAncestorEdges && currentLevel !== 1 && { bgcolor: toolbarButtonActiveBg }),
+                    }}
+                  >
+                    Upper Lines
+                  </Button>
+                  {/* Community */}
+                  <Button
+                    size="small"
+                    startIcon={<GroupWorkIcon sx={{ fontSize: 16 }} />}
+                    onClick={() => setShowCommunity(prev => !prev)}
+                    disabled={currentLevel < 3 || (showCommunity && !codeGraph)}
+                    aria-pressed={showCommunity}
+                    aria-label="Toggle community overlay"
+                    title={
+                      currentLevel < 3
+                        ? t('c4.community.disabledLevel')
+                        : showCommunity && !codeGraph
+                          ? t('c4.community.disabledNoData')
+                          : t('c4.community.toggle')
+                    }
+                    fullWidth
+                    sx={{
+                      ...toolbarButtonSx,
+                      fontSize: '0.75rem',
+                      justifyContent: 'flex-start',
+                      ...(showCommunity && currentLevel >= 3 && { bgcolor: toolbarButtonActiveBg }),
+                    }}
+                  >
+                    {t('c4.community.toggle')}
+                  </Button>
+                  {/* Ghost Edges トグル */}
+                  <Button
+                    size="small"
+                    fullWidth
+                    onClick={() => {
+                      setTcValue(prev => {
+                        const nextMode = prev.enabled ? 'none' : prev.granularity === 'session' ? 'session' : 'commit';
+                        return applyGhostEdgeMode(prev, nextMode);
+                      });
+                    }}
+                    aria-pressed={tcValue.enabled}
+                    sx={{
+                      ...toolbarButtonSx,
+                      fontSize: '0.75rem',
+                      justifyContent: 'flex-start',
+                      ...(tcValue.enabled && { bgcolor: toolbarButtonActiveBg }),
+                    }}
+                  >
+                    Ghost Edges
+                  </Button>
+                  {/* Activity Trend */}
+                  <Button
+                    size="small"
+                    fullWidth
+                    onClick={() => setShowActivityTrend(prev => !prev)}
+                    aria-pressed={showActivityTrend}
+                    aria-label="Toggle Activity Trend chart"
+                    title="Toggle Activity Trend chart"
+                    sx={{
+                      ...toolbarButtonSx,
+                      fontSize: '0.75rem',
+                      justifyContent: 'flex-start',
+                      ...(showActivityTrend && { bgcolor: toolbarButtonActiveBg }),
+                    }}
+                  >
+                    Activity Trend
+                  </Button>
+                  {/* Overlay ドロップダウン */}
+                  <Box>
+                    <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', mb: 0.5 }}>
+                      {t('c4.overlay.label')}
+                    </Typography>
+                    <Select
+                      size="small"
+                      fullWidth
+                      value={metricOverlay}
+                      onChange={(e) => { setMetricOverlay(e.target.value as MetricOverlay); }}
+                      sx={{ fontSize: '0.75rem', height: 28, '.MuiSelect-select': { py: 0, px: 1 } }}
+                      aria-label={t('c4.overlay.label')}
+                    >
+                      <MenuItem value="none" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.none')}</MenuItem>
+                      <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
+                        {t('c4.overlay.groupCoverage')}
+                      </ListSubheader>
+                      <MenuItem value="coverage-lines" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageLines')}</MenuItem>
+                      <MenuItem value="coverage-branches" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageBranches')}</MenuItem>
+                      <MenuItem value="coverage-functions" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageFunctions')}</MenuItem>
+                      <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
+                        {t('c4.overlay.groupDsm')}
+                      </ListSubheader>
+                      <MenuItem value="dsm-out" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmOut')}</MenuItem>
+                      <MenuItem value="dsm-in" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmIn')}</MenuItem>
+                      <MenuItem value="dsm-cyclic" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmCyclic')}</MenuItem>
+                      <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
+                        {t('c4.overlay.groupComplexity')}
+                      </ListSubheader>
+                      <MenuItem value="complexity-most" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.complexityMost')}</MenuItem>
+                      <MenuItem value="complexity-highest" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.complexityHighest')}</MenuItem>
+                      <ListSubheader sx={{ fontSize: '0.7rem', lineHeight: '2' }}>
+                        {t('c4.overlay.groupImportance')}
+                      </ListSubheader>
+                      <MenuItem value="importance" disabled={!importanceMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.importance')}</MenuItem>
+                      <MenuItem value="defect-risk" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.defectRisk')}</MenuItem>
+                      <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
+                        {t('c4.overlay.groupHotspot')}
+                      </ListSubheader>
+                      <MenuItem value="hotspot-frequency" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotFrequency')}</MenuItem>
+                      <MenuItem value="hotspot-risk" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotRisk')}</MenuItem>
+                    </Select>
+                  </Box>
+                  <Box sx={{ borderTop: `1px solid ${colors.border}`, mx: -1.5 }} />
+                  {soloFrameId !== null && (
+                    <Button size="small" fullWidth startIcon={<FilterAltOffIcon sx={{ fontSize: 14 }} />} onClick={handleClearFrameFilter} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', justifyContent: 'flex-start', color: colors.accent }}>
+                      {t('c4.frameFilter.reset')}
+                    </Button>
+                  )}
+                  {multiAgentActivity && multiAgentActivity.agents.length > 1 && (
+                    <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.65rem' }}>
+                      {multiAgentActivity.agents.length} {t('c4.multiAgent.badge')}
+                      {multiAgentActivity.conflicts && multiAgentActivity.conflicts.length > 0 && (
+                        <Typography component="span" variant="caption" sx={{ ml: 0.5, color: 'error.main', fontWeight: 'bold' }}>
+                          {multiAgentActivity.conflicts.length} {t('c4.multiAgent.conflicts')}
+                        </Typography>
+                      )}
+                    </Typography>
+                  )}
+                  <Button
+                    size="small"
+                    fullWidth
+                    disabled={
+                      !(claudeActivity && (claudeActivity.activeElementIds.length > 0 || claudeActivity.touchedElementIds.length > 0 || claudeActivity.plannedElementIds.length > 0)) &&
+                      !(multiAgentActivity && multiAgentActivity.agents.length > 0)
+                    }
+                    onClick={onResetClaudeActivity}
+                    sx={{ ...toolbarButtonSx, fontSize: '0.75rem', justifyContent: 'flex-start' }}
+                  >
+                    {t('c4.claudeActivity.reset')}
+                  </Button>
+                </Box>
+                {/* Ghost Edges 詳細設定（有効時のみ表示） */}
+                <TemporalCouplingSettingsPopup
+                  value={tcValue}
+                  onChange={setTcValue}
+                  resultCount={ghostEdges.length}
+                  loading={tcLoading}
+                  isDark={isDark}
+                  sx={{ position: 'static' }}
+                />
+              </Box>
+              {selectedElementInfo && (
+                <Box
+                  role="dialog"
+                  aria-label="Selected C4 element details"
+                  sx={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    width: SELECTED_ELEMENT_DETAILS_WIDTH,
+                    maxHeight: 'calc(100% - 20px)',
+                    overflow: 'auto',
+                    zIndex: 10,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '8px',
+                    bgcolor: isDark ? 'rgba(18,18,18,0.92)' : 'rgba(251,249,243,0.94)',
+                    color: colors.text,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                    backdropFilter: 'blur(10px)',
+                    px: 1.5,
+                    py: 1.25,
+                  }}
+                >
+                  <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', textTransform: 'uppercase' }}>
+                    {selectedElementInfo.element.type}
+                  </Typography>
+                  <Typography variant="subtitle2" sx={{ color: colors.text, fontSize: '0.85rem', fontWeight: 700, lineHeight: 1.3, mt: 0.25, wordBreak: 'break-word' }}>
+                    {selectedElementInfo.element.name}
+                  </Typography>
+                  {selectedElementInfo.element.technology && (
+                    <Typography variant="caption" sx={{ display: 'block', color: colors.accent, fontSize: '0.7rem', mt: 0.5, wordBreak: 'break-word' }}>
+                      {selectedElementInfo.element.technology}
+                    </Typography>
+                  )}
+                  {selectedElementInfo.element.description && (
+                    <Typography variant="body2" sx={{ color: colors.textSecondary, fontSize: '0.72rem', lineHeight: 1.45, mt: 1, wordBreak: 'break-word' }}>
+                      {selectedElementInfo.element.description}
+                    </Typography>
+                  )}
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mt: 1.25 }}>
+                    <Box sx={{ borderTop: `1px solid ${colors.border}`, pt: 0.75 }}>
+                      <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.62rem' }}>
+                        In
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.8rem', fontWeight: 700 }}>
+                        {selectedElementInfo.incoming}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ borderTop: `1px solid ${colors.border}`, pt: 0.75 }}>
+                      <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.62rem' }}>
+                        Out
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.8rem', fontWeight: 700 }}>
+                        {selectedElementInfo.outgoing}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.62rem', mt: 1, wordBreak: 'break-all' }}>
+                    {selectedElementInfo.element.id}
+                  </Typography>
+                  <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 1 }}>
+                    <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700, mb: 0.75 }}>
+                      {t('c4.popup.metrics')}
+                    </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
+                      <Box sx={{ gridColumn: '1 / -1' }}>
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.62rem', fontWeight: 600, mb: 0.5 }}>
+                          {t('c4.popup.coverage')}
+                        </Typography>
+                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0.5 }}>
+                          {(['coverage', 'branches', 'functions'] as const).map((key, i) => {
+                            const pct = selectedElementInfo.coverage
+                              ? (i === 0 ? selectedElementInfo.coverage.lines.pct : i === 1 ? selectedElementInfo.coverage.branches.pct : selectedElementInfo.coverage.functions.pct)
+                              : null;
+                            return (
+                              <Box key={key}>
+                                <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.58rem' }}>
+                                  {t(`c4.popup.metric.${key}`)}
+                                </Typography>
+                                <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
+                                  {pct != null ? formatPct(pct) : '-'}
+                                </Typography>
+                              </Box>
+                            );
+                          })}
+                        </Box>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
+                          {t('c4.popup.metric.complexity')}
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {selectedElementInfo.complexity?.highest ?? '-'}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
+                          {t('c4.popup.metric.importance')}
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
+                          {selectedElementInfo.importance != null ? Math.round(selectedElementInfo.importance) : '-'}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
+                          {t('c4.popup.metric.dsm')}
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
+                          {selectedElementInfo.dsm ? `${selectedElementInfo.dsm.in}/${selectedElementInfo.dsm.out}` : '-'}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
+                          {t('c4.popup.metric.defectRisk')}
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
+                          {selectedElementInfo.defectRisk != null ? Math.round(selectedElementInfo.defectRisk) : '-'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+                  {selectedElementInfo.community && (() => {
+                    const community = selectedElementInfo.community;
+                    const summary = community.communitySummary;
+                    const fallbackName = codeGraph?.communities[community.dominantCommunity];
+                    const displayName = summary?.name ?? fallbackName ?? `#${community.dominantCommunity}`;
+                    const dominantColor = communityColor(community.dominantCommunity);
+                    const showBreakdown = community.breakdown.length > 1;
+                    const topThree = community.breakdown.slice(0, 3);
+                    const otherCount = community.breakdown.slice(3).reduce((sum, e) => sum + e.count, 0);
+                    const totalCount = community.breakdown.reduce((sum, e) => sum + e.count, 0);
+                    return (
+                      <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 1 }}>
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700, mb: 0.5 }}>
+                          {t('c4.community.title')}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                          <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: dominantColor, flexShrink: 0 }} />
+                          <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.74rem', fontWeight: 600, wordBreak: 'break-word' }}>
+                            {displayName}
+                          </Typography>
+                        </Box>
+                        {summary?.summary && (
+                          <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.66rem', mt: 0.5, lineHeight: 1.4 }}>
+                            {summary.summary}
+                          </Typography>
+                        )}
+                        {community.isGodNode && (
+                          <Typography variant="caption" sx={{ display: 'inline-block', mt: 0.5, px: 0.5, py: 0.125, borderRadius: '4px', bgcolor: colors.accent, color: isDark ? colors.bg : '#fff', fontSize: '0.6rem', fontWeight: 700 }}>
+                            ★ {t('c4.community.hubNode')}
+                          </Typography>
+                        )}
+                        {showBreakdown && (
+                          <Box sx={{ mt: 0.75 }}>
+                            <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem', mb: 0.25 }}>
+                              {t('c4.community.breakdown')}
+                            </Typography>
+                            {topThree.map(entry => {
+                              const entrySummary = codeGraph?.communitySummaries?.[entry.community];
+                              const entryFallback = codeGraph?.communities[entry.community];
+                              const entryName = entrySummary?.name ?? entryFallback ?? `#${entry.community}`;
+                              const tooltipLabel = (
+                                <Box>
+                                  <Box sx={{ fontWeight: 700, fontSize: '0.72rem' }}>
+                                    {entryName} <Box component="span" sx={{ opacity: 0.7, fontWeight: 400 }}>#{entry.community}</Box>
+                                  </Box>
+                                  {entrySummary?.summary && (
+                                    <Box sx={{ fontSize: '0.66rem', mt: 0.25, opacity: 0.85, maxWidth: 240 }}>
+                                      {entrySummary.summary}
+                                    </Box>
+                                  )}
+                                  <Box sx={{ fontSize: '0.66rem', mt: 0.25, opacity: 0.85 }}>
+                                    {entry.count} / {totalCount} ({Math.round((entry.count / totalCount) * 100)}%)
+                                  </Box>
+                                </Box>
+                              );
+                              return (
+                                <Tooltip key={entry.community} title={tooltipLabel} arrow placement="left">
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.25, cursor: 'help' }}>
+                                    <Box sx={{ width: 8, height: 8, borderRadius: '2px', bgcolor: communityColor(entry.community), flexShrink: 0 }} />
+                                    <Box sx={{ flex: 1, height: 4, bgcolor: colors.hover, borderRadius: '2px', overflow: 'hidden' }}>
+                                      <Box sx={{ width: `${(entry.count / totalCount) * 100}%`, height: '100%', bgcolor: communityColor(entry.community) }} />
+                                    </Box>
+                                    <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.6rem', minWidth: 32, textAlign: 'right' }}>
+                                      {Math.round((entry.count / totalCount) * 100)}%
+                                    </Typography>
+                                  </Box>
+                                </Tooltip>
+                              );
+                            })}
+                            {otherCount > 0 && (() => {
+                              const otherEntries = community.breakdown.slice(3);
+                              const otherTooltip = (
+                                <Box sx={{ maxWidth: 260 }}>
+                                  <Box sx={{ fontWeight: 700, fontSize: '0.72rem', mb: 0.25 }}>
+                                    {t('c4.community.other')} ({otherEntries.length})
+                                  </Box>
+                                  {otherEntries.map(e => {
+                                    const s = codeGraph?.communitySummaries?.[e.community];
+                                    const f = codeGraph?.communities[e.community];
+                                    const n = s?.name ?? f ?? `#${e.community}`;
+                                    return (
+                                      <Box key={e.community} sx={{ fontSize: '0.66rem', opacity: 0.85 }}>
+                                        ● {n} #{e.community} — {e.count} ({Math.round((e.count / totalCount) * 100)}%)
+                                      </Box>
+                                    );
+                                  })}
+                                </Box>
+                              );
+                              return (
+                                <Tooltip title={otherTooltip} arrow placement="left">
+                                  <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.58rem', cursor: 'help' }}>
+                                    {t('c4.community.other')}: {Math.round((otherCount / totalCount) * 100)}%
+                                  </Typography>
+                                </Tooltip>
+                              );
+                            })()}
+                          </Box>
+                        )}
+                      </Box>
+                    );
+                  })()}
+                  <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 1 }}>
+                    <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700, mb: 0.5 }}>
+                      Documents
+                    </Typography>
+                    {selectedElementInfo.documents.length === 0 ? (
+                      <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.68rem' }}>
+                        No linked documents
+                      </Typography>
+                    ) : (
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                        {selectedElementInfo.documents.map(doc => (
+                          <Button
+                            key={doc.path}
+                            size="small"
+                            onClick={() => onDocLinkClick?.(doc)}
+                            sx={{
+                              justifyContent: 'flex-start',
+                              minHeight: 26,
+                              px: 0.5,
+                              py: 0.25,
+                              color: colors.text,
+                              textTransform: 'none',
+                              '&:hover': { bgcolor: colors.hover },
+                            }}
+                          >
+                            <Box
+                              component="span"
+                              sx={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                height: 16,
+                                px: 0.5,
+                                mr: 0.75,
+                                borderRadius: '4px',
+                                bgcolor: DOC_TYPE_COLORS[doc.type] ?? '#757575',
+                                color: '#000',
+                                fontSize: '0.58rem',
+                                fontWeight: 700,
+                                flexShrink: 0,
+                              }}
+                            >
+                              {doc.type}
+                            </Box>
+                            <Typography component="span" sx={{ fontSize: '0.7rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {doc.title}
+                            </Typography>
+                          </Button>
+                        ))}
+                      </Box>
+                    )}
+                  </Box>
+                </Box>
+              )}
+              {selectedCommunityInfo && !selectedElementInfo && (
+                <Box
+                  role="dialog"
+                  aria-label="Selected community details"
+                  sx={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    width: SELECTED_ELEMENT_DETAILS_WIDTH,
+                    maxHeight: 'calc(100% - 20px)',
+                    overflow: 'auto',
+                    zIndex: 10,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '8px',
+                    bgcolor: isDark ? 'rgba(18,18,18,0.92)' : 'rgba(251,249,243,0.94)',
+                    color: colors.text,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                    backdropFilter: 'blur(10px)',
+                    px: 1.5,
+                    py: 1.25,
+                  }}
+                >
+                  <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', textTransform: 'uppercase' }}>
+                    {t('c4.community.title')}
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.25 }}>
+                    <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: selectedCommunityInfo.color, flexShrink: 0 }} />
+                    <Typography variant="subtitle2" sx={{ color: colors.text, fontSize: '0.85rem', fontWeight: 700, lineHeight: 1.3, wordBreak: 'break-word' }}>
+                      {selectedCommunityInfo.displayName}
+                    </Typography>
+                  </Box>
+                  {selectedCommunityInfo.summaryText && (
+                    <Typography variant="body2" sx={{ color: colors.textSecondary, fontSize: '0.72rem', lineHeight: 1.45, mt: 1, wordBreak: 'break-word' }}>
+                      {selectedCommunityInfo.summaryText}
+                    </Typography>
+                  )}
+                  <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 0.75 }}>
+                    <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.62rem' }}>
+                      {t('c4.community.nodeCount')}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.8rem', fontWeight: 700 }}>
+                      {selectedCommunityInfo.nodeCount}
+                    </Typography>
+                  </Box>
+                  {selectedCommunityInfo.children.length > 0 && (
+                    <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 0.75 }}>
+                      <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700, mb: 0.5 }}>
+                        {t('c4.community.containers')}
+                      </Typography>
+                      {selectedCommunityInfo.children.slice(0, 8).map(child => (
+                        <Typography key={child.id} variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', py: 0.125, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          • {child.name}
+                        </Typography>
+                      ))}
+                      {selectedCommunityInfo.children.length > 8 && (
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.62rem', mt: 0.25 }}>
+                          + {selectedCommunityInfo.children.length - 8}
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
+                  <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.62rem', mt: 1 }}>
+                    #{selectedCommunityInfo.cid}
+                  </Typography>
+                </Box>
+              )}
               {showContextMenu && contextMenu && (
                 <>
                   {/* オーバーレイ: メニュー外クリックで閉じる */}
@@ -1204,70 +1783,85 @@ export function C4ViewerCore({
                         {t('c4.copyPath')}
                       </button>
                     )}
+                    {canShowManualActions && (
+                      <>
+                        <button
+                          type="button"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            width: '100%',
+                            padding: '6px 16px',
+                            textAlign: 'left',
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: 14,
+                            color: isDark ? '#e0e0e0' : '#333',
+                          }}
+                          onClick={() => {
+                            setSelectedElementId(contextMenu.c4Id);
+                            setAddRelOpen(true);
+                            setContextMenu(null);
+                          }}
+                        >
+                          <LinkIcon sx={{ fontSize: 16 }} />
+                          Rel
+                        </button>
+                        <button
+                          type="button"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            width: '100%',
+                            padding: '6px 16px',
+                            textAlign: 'left',
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: 14,
+                            color: '#ef5350',
+                          }}
+                          onClick={() => handleDeleteElement(contextMenu.c4Id)}
+                        >
+                          <DeleteIcon sx={{ fontSize: 16 }} />
+                          Del
+                        </button>
+                      </>
+                    )}
                   </div>
                 </>
               )}
             </Box>
-          </Box>
-        )}
-        {showC4 && showDsm && (
-          <Box
-            role="separator"
-            aria-orientation="vertical"
-            aria-valuenow={Math.round(splitRatio * 100)}
-            aria-valuemin={20}
-            aria-valuemax={80}
-            aria-label="Resize C4 graph and DSM matrix"
-            tabIndex={0}
-            onMouseDown={handleSplitDrag}
-            onKeyDown={(e: React.KeyboardEvent) => {
-              if (e.key === 'ArrowLeft') {
-                e.preventDefault();
-                setSplitRatio(prev => Math.max(0.2, prev - 0.05));
-              } else if (e.key === 'ArrowRight') {
-                e.preventDefault();
-                setSplitRatio(prev => Math.min(0.8, prev + 0.05));
-              }
-            }}
-            sx={{ width: 5, cursor: 'col-resize', bgcolor: 'transparent', borderLeft: `1px solid ${colors.border}`, '&:hover': { bgcolor: colors.focus }, '&:focus-visible': { outline: `2px solid ${colors.accent}`, outlineOffset: '2px' }, flexShrink: 0 }}
-          />
-        )}
-        {showFlow && (
-          <Box sx={{ flex: showC4 ? 1 - splitRatio : 1, display: 'flex', flexDirection: 'column', minWidth: 100 }}>
-            <FlowchartCanvas
-              graph={flowGraph ?? { nodes: [], edges: [] }}
-              isDark={isDark}
-              errorMessage={flowError}
-            />
-          </Box>
-        )}
-        {showDsm && (
-          <Box sx={{ flex: showC4 ? 1 - splitRatio : 1, display: 'flex', flexDirection: 'column', minWidth: 100 }}>
-            <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-              {matrixView === 'coverage' && coverageMatrix && c4Model ? (
-                <CoverageCanvas coverageMatrix={coverageMatrix} coverageDiff={coverageDiff} model={c4Model} level={currentLevel} isDark={isDark} />
-              ) : matrixView === 'fcmap' && featureMatrix && c4Model ? (
-                <FcMapCanvas featureMatrix={featureMatrix} model={c4Model} excludedElementIds={excludedDescendantIds} level={currentLevel} isDark={isDark} />
-              ) : filteredDsmMatrix ? (
-                <DsmCanvas
-                  matrix={filteredDsmMatrix}
-                  fullModel={c4Model ?? undefined}
-                  clustered={dsmClustered}
-                  focusedNodeId={selectedElementId}
-                  scopeIds={selectedScopeIds}
-                  deletedIds={deletedIds}
-                  isDark={isDark}
-                />
-              ) : (
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                  <Typography variant="body2" sx={{ color: colors.textSecondary }}>
-                    Import a C4 model to view DSM
-                  </Typography>
-                </Box>
-              )}
+            {showActivityTrend && (
+            <Box
+              role="dialog"
+              aria-label="Activity Trend"
+              sx={{
+                ...getActivityTrendChartPlacement(),
+                width: getActivityTrendChartWidth(!!selectedElementInfo),
+                minWidth: 0,
+                maxWidth: `${TREND_CHART_POPUP_MAX_WIDTH}px`,
+                border: `1px solid ${colors.border}`,
+                borderRadius: '8px',
+                bgcolor: isDark ? 'rgba(18,18,18,0.92)' : 'rgba(251,249,243,0.94)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                backdropFilter: 'blur(10px)',
+                overflow: 'hidden',
+                transition: 'width 150ms cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+            >
+              <ActivityTrendChart
+                elementId={selectedElementId}
+                serverUrl={serverUrl}
+                repoName={selectedRepo || undefined}
+                isDark={isDark}
+              />
             </Box>
+            )}
           </Box>
-        )}
       </Box>
       <AddElementDialog
         open={addElementType !== null && !editElement}
@@ -1308,4 +1902,3 @@ export function C4ViewerCore({
     </Box>
   );
 }
-

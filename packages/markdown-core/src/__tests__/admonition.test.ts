@@ -8,7 +8,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "tiptap-markdown";
 import { AdmonitionBlockquote } from "../extensions/admonitionExtension";
 import { preprocessAdmonition } from "../utils/admonitionHelpers";
-import { getMarkdownStorage } from "../types";
+import { getMarkdownFromEditor, getMarkdownStorage } from "../types";
 
 function createAdmonitionEditor(md = ""): Editor {
   // commands.setContent() 経由で読み込むことで appendTransaction が発火する。
@@ -182,6 +182,23 @@ describe("AdmonitionBlockquote", () => {
       expect(output).toContain("`moduleResolution: \"node\"`");
       editor.destroy();
       editor2.destroy();
+    });
+
+    test("保存を繰り返しても admonition 末尾に空行が増殖しない", () => {
+      const input = [
+        "> [!NOTE]",
+        "> 本書は時間軸に関する要件を集約するメタ要件書であり、個別機能の実装責務は既存の機体・管制塔要件書に委ねる。\\",
+        "> 本書の役割は「時間軸の概念定義」と「既存要件の時間軸的整合性確認」に限定する。",
+      ].join("\n");
+      const editor = createAdmonitionEditor(input);
+
+      const once = getMarkdownFromEditor(editor);
+      const twice = getMarkdownFromEditor(editor);
+      const threeTimes = getMarkdownFromEditor(editor);
+
+      expect(twice).toBe(once);
+      expect(threeTimes).toBe(once);
+      editor.destroy();
     });
   });
 });

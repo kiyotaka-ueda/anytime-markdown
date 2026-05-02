@@ -33,6 +33,7 @@ import type { TrailRelease } from '@anytime-markdown/trail-core/domain';
 import { C4ViewerCore } from '../c4/components/C4ViewerCore';
 import type { C4ViewerCoreProps } from '../c4/components/C4ViewerCore';
 import { CodeGraphPanel } from './CodeGraphPanel';
+import { MatrixPanel } from '../c4/components/MatrixPanel';
 
 /** C4-related props forwarded to the embedded C4ViewerCore. */
 type C4Props = Omit<C4ViewerCoreProps, 'isDark' | 'containerHeight'>;
@@ -66,6 +67,8 @@ export interface TrailViewerCoreProps {
   readonly c4?: C4Props;
   /** Code graph props. When provided, the Graph tab is shown. */
   readonly codeGraph?: { readonly serverUrl: string };
+  /** 初期表示タブ番号（0=Analytics, 1=Traces, 2=Prompts, 3=Releases, 4=C4, 5=Matrix, 6=Graph）*/
+  readonly initialTab?: number;
 }
 
 const SESSION_LIST_WIDTH = 300;
@@ -106,11 +109,12 @@ function TrailViewerCoreInner({
   sessionsLoading,
   c4,
   codeGraph,
+  initialTab,
 }: Readonly<TrailViewerCoreProps>) {
   const { t } = useTrailI18n();
   const tokens = useMemo(() => getTokens(isDark ?? true), [isDark]);
   const { colors, scrollbarSx } = tokens;
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState(initialTab ?? 0);
 
   const visibleSessions = useMemo(() => {
     let result: readonly TrailSession[] = allSessions ?? sessions;
@@ -121,12 +125,12 @@ function TrailViewerCoreInner({
       cutoff.setDate(cutoff.getDate() - 7);
       result = result.filter((s) => new Date(s.startTime) >= cutoff);
     }
-    if (filter.project) {
-      result = result.filter((s) => s.project === filter.project);
+    if (filter.repository) {
+      result = result.filter((s) => s.repoName === filter.repository);
     }
     if (q) {
       result = result.filter((s) => {
-        const haystack = [s.slug, s.id, s.project, s.gitBranch, s.model]
+        const haystack = [s.slug, s.id, s.repoName, s.gitBranch, s.model]
           .filter((v): v is string => typeof v === 'string')
           .join(' ')
           .toLowerCase();
@@ -134,12 +138,12 @@ function TrailViewerCoreInner({
       });
     }
     return result;
-  }, [sessions, allSessions, filter.project, filter.searchText]);
+  }, [sessions, allSessions, filter.repository, filter.searchText]);
 
   const handleJumpToTrace = useCallback(
     (session: TrailSession) => {
       const query = session.slug || session.id;
-      onFilterChange({ ...filter, project: session.project, searchText: query });
+      onFilterChange({ ...filter, repository: session.repoName, searchText: query });
       onSelectSession(session.id);
       setActiveTab(1);
     },
@@ -201,7 +205,8 @@ function TrailViewerCoreInner({
           <Tab id="trail-tab-2" aria-controls="trail-panel-2" label={t('viewer.prompts')} />
           <Tab id="trail-tab-3" aria-controls="trail-panel-3" label={t('releases.title')} />
           {c4 && <Tab id="trail-tab-4" aria-controls="trail-panel-4" label={t('viewer.c4')} />}
-          {codeGraph && <Tab id="trail-tab-5" aria-controls="trail-panel-5" label="Graph" />}
+          {c4 && <Tab id="trail-tab-5" aria-controls="trail-panel-5" label={t('viewer.matrix')} />}
+          {codeGraph && <Tab id="trail-tab-6" aria-controls="trail-panel-6" label="Graph" />}
         </Tabs>
         {tokenBudgets.length > 0 && (
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', px: 2, flexShrink: 0 }}>
@@ -332,12 +337,32 @@ function TrailViewerCoreInner({
         </Box>
       )}
 
-      {codeGraph && (
+      {c4 && (
         <Box
           role="tabpanel"
           id="trail-panel-5"
           aria-labelledby="trail-tab-5"
           sx={{ display: activeTab !== 5 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
+        >
+          <MatrixPanel
+            dsmMatrix={c4.dsmMatrix}
+            featureMatrix={c4.featureMatrix}
+            coverageMatrix={c4.coverageMatrix}
+            coverageDiff={c4.coverageDiff}
+            c4Model={c4.c4Model}
+            serverUrl={c4.serverUrl}
+            selectedRepo={c4.selectedRepo}
+            isDark={isDark}
+          />
+        </Box>
+      )}
+
+      {codeGraph && (
+        <Box
+          role="tabpanel"
+          id="trail-panel-6"
+          aria-labelledby="trail-tab-6"
+          sx={{ display: activeTab !== 6 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
         >
           <CodeGraphPanel serverUrl={codeGraph.serverUrl} isDark={isDark} />
         </Box>

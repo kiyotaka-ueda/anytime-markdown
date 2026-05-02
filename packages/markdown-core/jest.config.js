@@ -1,6 +1,7 @@
+const base = require('../../jest.config.base');
 /** @type {import('jest').Config} */
 const config = {
-  coverageReporters: ["json", "text", "lcov", "clover", "json-summary"],
+  ...base,
   testEnvironment: "jsdom",
   setupFiles: ["<rootDir>/jest.setup.ts"],
   transform: {
@@ -34,5 +35,4 @@ const config = {
     "!src/components/EditorToolbarSection.tsx",
   ],
 };
-
 module.exports = config;

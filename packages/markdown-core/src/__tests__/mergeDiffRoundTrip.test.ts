@@ -29,6 +29,16 @@ function tiptapRoundTrip(md: string): string {
   }
 }
 
+function simulateVsCodeSaveLoop(md: string, count: number): string {
+  let current = md;
+  for (let i = 0; i < count; i++) {
+    let next = tiptapRoundTrip(current);
+    if (next && !next.endsWith("\n")) next += "\n";
+    current = next;
+  }
+  return current;
+}
+
 // ---------- ラウンドトリップ安定性テスト ----------
 
 describe("Tiptap ラウンドトリップ安定性", () => {
@@ -44,6 +54,32 @@ describe("Tiptap ラウンドトリップ安定性", () => {
     const first = tiptapRoundTrip(md);
     const second = tiptapRoundTrip(first);
     expect(first).toBe(second);
+  });
+
+  test("admonition + blockquote hardbreak で再保存時に改行が増殖しない", () => {
+    const md = [
+      "> [!NOTE]",
+      "> 本書は時間軸に関する要件を集約するメタ要件書であり、個別機能の実装責務は既存の機体・管制塔要件書に委ねる。\\",
+      "> 本書の役割は「時間軸の概念定義」と「既存要件の時間軸的整合性確認」に限定する。",
+      "",
+    ].join("\n");
+    const first = tiptapRoundTrip(md);
+    const second = tiptapRoundTrip(first);
+    const third = tiptapRoundTrip(second);
+    expect(second).toBe(first);
+    expect(third).toBe(first);
+  });
+
+  test("VS Code 保存ループでも末尾改行が増殖しない", () => {
+    const md = [
+      "> [!NOTE]",
+      "> 本書は時間軸に関する要件を集約するメタ要件書であり、個別機能の実装責務は既存の機体・管制塔要件書に委ねる。\\",
+      "> 本書の役割は「時間軸の概念定義」と「既存要件の時間軸的整合性確認」に限定する。",
+      "",
+    ].join("\n");
+    const once = simulateVsCodeSaveLoop(md, 1);
+    const many = simulateVsCodeSaveLoop(md, 8);
+    expect(many).toBe(once);
   });
 });
 

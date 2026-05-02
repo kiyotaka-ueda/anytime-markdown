@@ -22,3 +22,5 @@ export type {
   UnmeasuredMetric,
   QualityMetrics,
 } from './types';
+export { tokenFactor, tokenMissingRate, applyTokenFactor } from './tokenAdjustment';
+export type { TokenTurnCounts } from './tokenAdjustment';

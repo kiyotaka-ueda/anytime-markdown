@@ -1,6 +1,7 @@
+const base = require('../../jest.config.base');
 /** @type {import('jest').Config} */
 const config = {
-  coverageReporters: ["json", "text", "lcov", "clover", "json-summary"],
+  ...base,
   testEnvironment: "jsdom",
   transform: {
     "^.+\\.tsx?$": ["ts-jest", { tsconfig: { jsx: "react-jsx" } }],
@@ -27,5 +28,4 @@ const config = {
     "!src/app/sw.ts",
   ],
 };
-
 module.exports = config;

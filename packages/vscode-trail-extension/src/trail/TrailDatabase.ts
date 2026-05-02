@@ -22,6 +22,12 @@ import {
   CREATE_RELEASE_FEATURES,
   CREATE_RELEASE_COVERAGE,
   CREATE_RELEASE_INDEXES,
+  CREATE_CURRENT_COVERAGE,
+  CREATE_CURRENT_COVERAGE_INDEXES,
+  CREATE_CURRENT_CODE_GRAPHS,
+  CREATE_RELEASE_CODE_GRAPHS,
+  CREATE_CURRENT_CODE_GRAPH_COMMUNITIES,
+  CREATE_RELEASE_CODE_GRAPH_COMMUNITIES,
   CREATE_MESSAGE_TOOL_CALLS,
   CREATE_MESSAGE_TOOL_CALLS_INDEXES,
   CREATE_MESSAGE_COMMITS,
@@ -39,15 +45,24 @@ import {
   isAiFirstTryFailureCommit,
   AI_FIRST_TRY_FIX_WINDOW_MS,
   calculateCost,
-  normalizeModelName,
+  computeTemporalCoupling,
+  computeSessionCoupling,
+  computeSubagentTypeCoupling,
+  computeConfidenceCoupling,
+  computeSessionConfidenceCoupling,
+  computeSubagentTypeConfidenceCoupling,
+  resolvePricingModelName,
 } from '@anytime-markdown/trail-core';
-import type { TrailGraph, IC4ModelStore, C4ModelEntry, C4ModelResult, TrailMessageCommit, MessageCommitInput, ManualElement, ManualRelationship, ManualGroup } from '@anytime-markdown/trail-core';
-import { matchCommitsToMessages } from '@anytime-markdown/trail-core';
+import type { TrailGraph, IC4ModelStore, C4ModelEntry, C4ModelResult, TrailMessageCommit, MessageCommitInput, ManualElement, ManualRelationship, ManualGroup, CommitFileRow, SessionFileRow, SubagentTypeFileRow, TemporalCouplingEdge, ConfidenceCouplingEdge, PricingSource } from '@anytime-markdown/trail-core';
+import { matchCommitsToMessages, computeDefectRisk, type CommitRiskRow, type DefectRiskEntry } from '@anytime-markdown/trail-core';
+import type { CodeGraph } from '@anytime-markdown/trail-core/codeGraph';
+import { splitCodeGraph, composeCodeGraph } from '@anytime-markdown/trail-core/codeGraph';
+import type { StoredCommunity } from '@anytime-markdown/trail-core/codeGraph';
 import { JsonlSessionReader } from './JsonlSessionReader';
 import { ExecFileGitService } from './ExecFileGitService';
 import { TrailLogger } from '../utils/TrailLogger';
 import { ClaudeCodeBehaviorAnalyzer } from './ClaudeCodeBehaviorAnalyzer';
-import type { ReleaseFileRow, ReleaseFeatureRow, ReleaseCoverageRow, ReleaseRow } from '@anytime-markdown/trail-core';
+import type { ReleaseFileRow, ReleaseFeatureRow, ReleaseCoverageRow, ReleaseRow, CurrentCoverageRow } from '@anytime-markdown/trail-core';
 export type { ReleaseFileRow, ReleaseFeatureRow, ReleaseCoverageRow, ReleaseRow } from '@anytime-markdown/trail-core';
 
 declare const __non_webpack_require__: (id: string) => unknown;
@@ -69,6 +84,73 @@ const SKIP_TYPES = new Set([
   'queue-operation',
 ]);
 
+const TEMPORAL_COUPLING_EXCLUDE_PATTERNS: readonly RegExp[] = [
+  /\.lock$/,
+  /(^|\/)package-lock\.json$/,
+  /(^|\/)yarn\.lock$/,
+  /(^|\/)pnpm-lock\.yaml$/,
+  /(^|\/)dist\//,
+  /(^|\/)node_modules\//,
+  /\.min\.js$/,
+  /\.map$/,
+  /(^|\/)\.worktrees\//,
+  /(^|\/)\.claude\//, // .claude/settings.json 等は CodeGraph 対象外
+  /(^|\/)\.vscode\//, // .vscode/graphify-out/*.json 等の生成物は CodeGraph 対象外
+  /(^|\/)\.next\//,
+  /(^|\/)out\//,
+  /(^|\/)build\//,
+  /(^|\/)coverage\//,
+];
+
+export function defaultTemporalCouplingPathFilter(filePath: string): boolean {
+  return !TEMPORAL_COUPLING_EXCLUDE_PATTERNS.some((re) => re.test(filePath));
+}
+
+/**
+ * サブエージェントが `.claude/worktrees/agent-XXXX/` 内で編集したファイルパスから
+ * worktree プレフィックスを剥がし、リポルート起点の相対パスに正規化する。
+ * 例: `.claude/worktrees/agent-a30eb6d2/packages/foo/bar.ts` → `packages/foo/bar.ts`
+ * これをやらないと `Workspace:packages/foo/bar` のような CodeGraph node ID と一致せず描画されない。
+ */
+export function stripWorktreePrefix(relPath: string): string {
+  return relPath.replace(/^\.claude\/worktrees\/[^/]+\//, '');
+}
+
+export type TemporalCouplingGranularity = 'commit' | 'session' | 'subagentType';
+export type ActivityTrendGranularity = 'commit' | 'session' | 'subagent' | 'defect';
+
+/** session 粒度で「ファイル編集」とみなすツール名。 */
+export const SESSION_COUPLING_EDIT_TOOLS: readonly string[] = [
+  'Edit',
+  'Write',
+  'NotebookEdit',
+];
+const ACTIVITY_TREND_READ_TOOLS: readonly string[] = [
+  'Read',
+  'NotebookRead',
+];
+
+/** subagent 粒度集計で codex 委任セッションを表すラベル。 */
+export const CODEX_SUBAGENT_TYPE = 'codex';
+
+export type FetchTemporalCouplingOptions = {
+  repoName: string;
+  windowDays: number;
+  minChangeCount?: number;
+  jaccardThreshold?: number;
+  topK?: number;
+  directional?: boolean;
+  confidenceThreshold?: number;
+  directionalDiffThreshold?: number;
+  /** 'commit'（デフォルト）= commit_files 起点、'session' = message_tool_calls 起点。 */
+  granularity?: TemporalCouplingGranularity;
+};
+
+export type FetchDefectRiskOptions = {
+  windowDays: number;
+  halfLifeDays: number;
+};
+
 // ---------------------------------------------------------------------------
 //  Type definitions
 // ---------------------------------------------------------------------------
@@ -83,7 +165,6 @@ interface CoverageSummaryEntry {
 export interface SessionRow {
   readonly id: string;
   readonly slug: string;
-  readonly project: string;
   readonly repo_name: string;
   readonly git_branch?: string | null;
   readonly cwd?: string | null;
@@ -136,8 +217,17 @@ export interface MessageRow {
   readonly is_meta: number;
   readonly cwd: string | null;
   readonly git_branch: string | null;
+  readonly permission_mode?: string | null;
+  readonly skill?: string | null;
   readonly agent_id?: string | null;
   readonly agent_description?: string | null;
+  readonly agent_model?: string | null;
+  readonly subagent_type?: string | null;
+  readonly source_tool_assistant_uuid?: string | null;
+  readonly source_tool_use_id?: string | null;
+  readonly system_command?: string | null;
+  readonly duration_ms?: number | null;
+  readonly tool_result_size?: number | null;
 }
 
 export interface SessionCommitRow {
@@ -155,7 +245,7 @@ export interface SessionCommitRow {
 interface SessionFilters {
   readonly branch?: string;
   readonly model?: string;
-  readonly project?: string;
+  readonly repository?: string;
   readonly from?: string;
   readonly to?: string;
 }
@@ -197,6 +287,7 @@ export interface AnalyticsData {
     readonly totalBuildFails: number;
     readonly totalTestRuns: number;
     readonly totalTestFails: number;
+    readonly totalLoc: number;
   };
   readonly toolUsage: readonly { name: string; count: number }[];
   readonly dailyActivity: readonly {
@@ -225,10 +316,14 @@ export interface CostOptimizationData {
 }
 
 interface CombinedData {
-  readonly toolCounts: readonly { period: string; tool: string; count: number; tokens: number; durationMs: number }[];
+  readonly toolCounts: readonly { period: string; tool: string; count: number; tokens: number; durationMs: number; tokenMissingRate: number; tokenTotalTurns: number; tokenMissingTurns: number }[];
   readonly errorRate: readonly { period: string; rate: number; byTool: Readonly<Record<string, number>> }[];
   readonly skillStats: readonly { period: string; skill: string; count: number; costUsd: number }[];
-  readonly modelStats: readonly { period: string; model: string; count: number; tokens: number }[];
+  readonly modelStats: readonly { period: string; model: string; count: number; tokens: number; tokenMissingRate: number; tokenTotalTurns: number; tokenMissingTurns: number }[];
+  readonly agentStats: readonly {
+    period: string; agent: string; tokens: number; costUsd: number; loc: number;
+    tokenMissingRate: number; tokenTotalTurns: number; tokenMissingTurns: number;
+  }[];
   readonly commitPrefixStats: readonly { period: string; prefix: string; count: number; linesAdded: number }[];
   readonly aiFirstTryRate: readonly { period: string; rate: number; sampleSize: number }[];
 }
@@ -270,6 +365,8 @@ interface RawLine {
       speed?: string;
     };
   };
+  payload?: Record<string, unknown>;
+  call_id?: string;
 }
 
 interface RawContentBlock {
@@ -299,10 +396,10 @@ interface RawContentBlock {
 // CREATE_INDEXES imported from trail-core (see import at top of file)
 
 const INSERT_SESSION = `INSERT OR REPLACE INTO sessions
-  (id, slug, project, repo_name, version, entrypoint, model,
+  (id, slug, repo_name, version, entrypoint, model,
    start_time, end_time, message_count,
    file_path, file_size, imported_at, source)
-  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 
 const INSERT_SESSION_COST = `INSERT OR REPLACE INTO session_costs
   (session_id, model, input_tokens, output_tokens,
@@ -317,8 +414,8 @@ export const INSERT_MESSAGE = `INSERT OR REPLACE INTO messages
    cache_creation_tokens, service_tier, speed, timestamp,
    is_sidechain, is_meta, cwd, git_branch,
    duration_ms, tool_result_size, agent_description, agent_model,
-   permission_mode, skill, agent_id, system_command)
-  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+   permission_mode, skill, agent_id, source_tool_assistant_uuid, source_tool_use_id, system_command, subagent_type)
+  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 
 
 // ---------------------------------------------------------------------------
@@ -346,24 +443,224 @@ function extractToolCalls(
   return calls.length > 0 ? JSON.stringify(calls) : null;
 }
 
+function extractCodexText(content: unknown): string | null {
+  if (!Array.isArray(content)) return null;
+  const texts: string[] = [];
+  for (const block of content) {
+    if (!block || typeof block !== 'object') continue;
+    const text = (block as Record<string, unknown>).text;
+    if (typeof text === 'string' && text.trim()) texts.push(text);
+  }
+  return texts.length > 0 ? texts.join('\n') : null;
+}
+
+function normalizeCodexTokenUsage(last: Record<string, unknown>): {
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_input_tokens: number;
+  cache_creation_input_tokens: number;
+} {
+  const totalInputTokens = Number(last.input_tokens ?? 0);
+  const cachedInputTokens = Number(last.cached_input_tokens ?? 0);
+  return {
+    input_tokens: Math.max(0, totalInputTokens - cachedInputTokens),
+    output_tokens: Number(last.output_tokens ?? 0),
+    cache_read_input_tokens: cachedInputTokens,
+    cache_creation_input_tokens: 0,
+  };
+}
+
+function collectJsonlFilesRecursive(rootDir: string): string[] {
+  const results: string[] = [];
+  function walk(dir: string): void {
+    let entries: string[] = [];
+    try { entries = fs.readdirSync(dir); } catch { return; }
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry);
+      let stat: fs.Stats;
+      try { stat = fs.statSync(fullPath); } catch { continue; }
+      if (stat.isDirectory()) {
+        walk(fullPath);
+      } else if (stat.isFile() && entry.endsWith('.jsonl')) {
+        results.push(fullPath);
+      }
+    }
+  }
+  walk(rootDir);
+  return results;
+}
+
+function normalizeCodexRecords(records: readonly RawLine[], fallbackSessionId: string): {
+  normalized: RawLine[];
+  sessionId: string;
+  version: string;
+  source: 'codex';
+} {
+  const normalized: RawLine[] = [];
+  let seq = 0;
+  let sessionId = fallbackSessionId;
+  let version = '';
+
+  for (const record of records) {
+    const timestamp = typeof record.timestamp === 'string' ? record.timestamp : '';
+    if (record.type === 'session_meta' && record.payload && typeof record.payload === 'object') {
+      const payload = record.payload as Record<string, unknown>;
+      const id = payload.id;
+      if (typeof id === 'string' && id) sessionId = id;
+      const cliVersion = payload.cli_version;
+      if (typeof cliVersion === 'string' && cliVersion) version = cliVersion;
+      continue;
+    }
+    if (record.type === 'event_msg' && record.payload && typeof record.payload === 'object') {
+      const payload = record.payload as Record<string, unknown>;
+      if (payload.type === 'task_started') {
+        continue;
+      }
+      if (payload.type === 'token_count' && payload.info && typeof payload.info === 'object') {
+        const info = payload.info as Record<string, unknown>;
+        const last = info.last_token_usage as Record<string, unknown> | undefined;
+        if (last && normalized.length > 0) {
+          for (let i = normalized.length - 1; i >= 0; i--) {
+            const candidate = normalized[i];
+            if (candidate.type !== 'assistant') continue;
+            candidate.message = {
+              ...(candidate.message ?? {}),
+              usage: normalizeCodexTokenUsage(last),
+            };
+            break;
+          }
+        }
+        continue;
+      }
+      if (payload.type === 'agent_message' && typeof payload.message === 'string') {
+        normalized.push({
+          uuid: `codex-${seq++}`,
+          sessionId,
+          type: 'assistant',
+          timestamp,
+          message: { content: payload.message },
+        });
+      }
+      continue;
+    }
+    if (record.type !== 'response_item' || !record.payload || typeof record.payload !== 'object') continue;
+    const payload = record.payload as Record<string, unknown>;
+    const payloadType = typeof payload.type === 'string' ? payload.type : '';
+    if (payloadType === 'message') {
+      const role = typeof payload.role === 'string' ? payload.role : '';
+      if (role !== 'user' && role !== 'assistant' && role !== 'developer' && role !== 'system') continue;
+      const text = extractCodexText(payload.content);
+      const normalizedType: 'user' | 'assistant' | 'system' = role === 'user'
+        ? 'user'
+        : role === 'assistant'
+          ? 'assistant'
+          : 'system';
+      normalized.push({
+        uuid: `codex-${seq++}`,
+        sessionId,
+        type: normalizedType,
+        subtype: role,
+        timestamp,
+        message: { content: text ?? '' },
+      });
+      continue;
+    }
+    if (payloadType === 'function_call' || payloadType === 'custom_tool_call') {
+      const id = typeof payload.call_id === 'string' ? payload.call_id : `codex-call-${seq}`;
+      const name = typeof payload.name === 'string' ? payload.name : 'tool';
+      const rawInput = payloadType === 'function_call' ? payload.arguments : payload.input;
+      let parsedInput: Record<string, unknown> = {};
+      if (typeof rawInput === 'string' && rawInput.trim()) {
+        try { parsedInput = JSON.parse(rawInput) as Record<string, unknown>; } catch { parsedInput = { raw: rawInput }; }
+      } else if (rawInput && typeof rawInput === 'object') {
+        parsedInput = rawInput as Record<string, unknown>;
+      }
+      normalized.push({
+        uuid: `codex-${seq++}`,
+        sessionId,
+        type: 'assistant',
+        timestamp,
+        message: {
+          content: [{ type: 'tool_use', id, name, input: parsedInput }],
+        },
+      });
+      continue;
+    }
+    if (payloadType === 'function_call_output' || payloadType === 'custom_tool_call_output') {
+      const id = typeof payload.call_id === 'string' ? payload.call_id : '';
+      const output = typeof payload.output === 'string'
+        ? payload.output
+        : JSON.stringify(payload.output ?? '');
+      normalized.push({
+        uuid: `codex-${seq++}`,
+        sessionId,
+        type: 'user',
+        timestamp,
+        message: {
+          content: [{
+            type: 'tool_result',
+            tool_use_id: id,
+            content: output,
+            is_error: false,
+          }] as unknown as readonly RawContentBlock[],
+        },
+      });
+      continue;
+    }
+    if (payloadType === 'token_count' && payload.info && typeof payload.info === 'object') {
+      const info = payload.info as Record<string, unknown>;
+      const last = info.last_token_usage as Record<string, unknown> | undefined;
+      if (last && normalized.length > 0) {
+        for (let i = normalized.length - 1; i >= 0; i--) {
+          const candidate = normalized[i];
+          if (candidate.type !== 'assistant') continue;
+          candidate.message = {
+            ...(candidate.message ?? {}),
+            usage: normalizeCodexTokenUsage(last),
+          };
+          break;
+        }
+      }
+      continue;
+    }
+  }
+  return { normalized, sessionId, version, source: 'codex' };
+}
+
 /**
  * Extract Agent tool call description and model from tool_calls JSON.
  * Returns the first Agent call found (most messages have at most one).
  */
 function extractAgentInfo(
   toolCallsJson: string | null,
-): { description: string | null; model: string | null } {
-  if (!toolCallsJson) return { description: null, model: null };
+): { description: string | null; model: string | null; subagentType: string | null } {
+  if (!toolCallsJson) return { description: null, model: null, subagentType: null };
   try {
     const calls = JSON.parse(toolCallsJson) as { name?: string; input?: Record<string, unknown> }[];
     const agentCall = calls.find((c) => c.name === 'Agent');
-    if (!agentCall?.input) return { description: null, model: null };
+    if (!agentCall?.input) return { description: null, model: null, subagentType: null };
     return {
       description: (agentCall.input.description as string) ?? null,
       model: (agentCall.input.model as string) ?? null,
+      subagentType: (agentCall.input.subagent_type as string) ?? null,
     };
   } catch {
-    return { description: null, model: null };
+    return { description: null, model: null, subagentType: null };
+  }
+}
+
+/**
+ * サブエージェント JSONL に隣接する `agent-{agentId}.meta.json` から `agentType` を読む。
+ * April 2026 以降に Claude Code が記録する。古いセッションでは存在せず NULL を返す。
+ */
+function readSubagentTypeFromMeta(jsonlPath: string): string | null {
+  const metaPath = jsonlPath.replace(/\.jsonl$/, '.meta.json');
+  try {
+    const raw = fs.readFileSync(metaPath, 'utf-8');
+    const meta = JSON.parse(raw) as { agentType?: unknown };
+    return typeof meta.agentType === 'string' && meta.agentType.length > 0 ? meta.agentType : null;
+  } catch {
+    return null;
   }
 }
 
@@ -472,11 +769,19 @@ export class TrailDatabase {
     db.run(CREATE_RELEASE_FILES);
     db.run(CREATE_RELEASE_FEATURES);
     db.run(CREATE_RELEASE_COVERAGE);
+    db.run(CREATE_CURRENT_COVERAGE);
+    for (const idx of CREATE_CURRENT_COVERAGE_INDEXES) {
+      db.run(idx);
+    }
     db.run(CREATE_C4_MODELS);
     this.migrateCurrentGraphsSchema(db);
     db.run(CREATE_CURRENT_GRAPHS);
     db.run(CREATE_RELEASE_GRAPHS);
     this.migrateTrailGraphsTable(db);
+    db.run(CREATE_CURRENT_CODE_GRAPHS);
+    db.run(CREATE_RELEASE_CODE_GRAPHS);
+    db.run(CREATE_CURRENT_CODE_GRAPH_COMMUNITIES);
+    db.run(CREATE_RELEASE_CODE_GRAPH_COMMUNITIES);
     db.run(CREATE_SKILL_MODELS_TABLE);
     db.run(CREATE_SKILL_MODELS_RESOLVED_VIEW);
     db.run(CREATE_MESSAGE_COMMITS);
@@ -489,6 +794,9 @@ export class TrailDatabase {
     for (const sql of CREATE_MESSAGE_TOOL_CALLS_INDEXES) {
       db.run(sql);
     }
+    // Hotspot / activity map 集計用 (trail-time-axis-requirements 3.2)
+    db.run('CREATE INDEX IF NOT EXISTS idx_messages_subagent_type ON messages(subagent_type)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_message_tool_calls_tool_name_file_path ON message_tool_calls(tool_name, file_path)');
     db.run(CREATE_C4_MANUAL_ELEMENTS);
     db.run(CREATE_C4_MANUAL_RELATIONSHIPS);
     db.run(CREATE_C4_MANUAL_GROUPS);
@@ -516,6 +824,7 @@ export class TrailDatabase {
     for (const sql of sessionAlters) {
       try { db.run(sql); } catch { /* Column already exists */ }
     }
+    this.migrateDropSessionsProjectColumn(db);
     const messageAlters = [
       'ALTER TABLE messages ADD COLUMN rule_recommended_model TEXT',
       'ALTER TABLE messages ADD COLUMN feature_recommended_model TEXT',
@@ -527,7 +836,10 @@ export class TrailDatabase {
       'ALTER TABLE messages ADD COLUMN permission_mode TEXT',
       'ALTER TABLE messages ADD COLUMN skill TEXT',
       'ALTER TABLE messages ADD COLUMN agent_id TEXT',
+      'ALTER TABLE messages ADD COLUMN source_tool_assistant_uuid TEXT',
+      'ALTER TABLE messages ADD COLUMN source_tool_use_id TEXT',
       'ALTER TABLE messages ADD COLUMN system_command TEXT',
+      'ALTER TABLE messages ADD COLUMN subagent_type TEXT',
     ];
     for (const sql of messageAlters) {
       try { db.run(sql); } catch { /* Column already exists */ }
@@ -551,6 +863,132 @@ export class TrailDatabase {
     this.migrateTimestampsToUTC(db);
     this.migrateToolUseResult(db);
     this.migrateMessageCommitsToUserUuid(db);
+    // Phase D-2: subagent_type を既存データに後付けで埋める（_migrations で冪等性確保）。
+    // importAll() を待たず init 段階で実行するため、ユーザーが同期未実行でも有効。
+    try {
+      this.backfillSubagentType();
+    } catch (e) {
+      TrailLogger.warn(`backfillSubagentType (init) failed (non-fatal): ${e instanceof Error ? e.message : String(e)}`);
+    }
+    try {
+      this.backfillSourceToolLinkFields();
+    } catch (e) {
+      TrailLogger.warn(`backfillSourceToolLinkFields (init) failed (non-fatal): ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  private backfillSourceToolLinkFields(): void {
+    const db = this.ensureDb();
+    db.run('CREATE TABLE IF NOT EXISTS _migrations (key TEXT PRIMARY KEY)');
+    const done = db.exec("SELECT 1 FROM _migrations WHERE key = 'source_tool_link_backfill_v1'");
+    if (done[0]?.values?.length) return;
+
+    const rows = db.exec(
+      `SELECT s.id, s.file_path
+       FROM sessions s
+       WHERE s.source = 'claude_code'
+         AND EXISTS (
+           SELECT 1 FROM messages m
+           WHERE m.session_id = s.id
+             AND (m.source_tool_assistant_uuid IS NULL OR m.source_tool_assistant_uuid = '')
+         )`,
+    )[0]?.values ?? [];
+
+    const updateStmt = db.prepare(
+      'UPDATE messages SET source_tool_assistant_uuid = ?, source_tool_use_id = ? WHERE session_id = ? AND uuid = ?',
+    );
+    let updated = 0;
+    for (const row of rows) {
+      const sid = String(row[0] ?? '');
+      const filePath = String(row[1] ?? '');
+      if (!sid || !filePath) continue;
+      if (!fs.existsSync(filePath)) continue;
+      let content = '';
+      try {
+        content = fs.readFileSync(filePath, 'utf-8');
+      } catch {
+        continue;
+      }
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        let raw: RawLine;
+        try {
+          raw = JSON.parse(trimmed) as RawLine;
+        } catch {
+          continue;
+        }
+        if (!raw.uuid) continue;
+        const srcAssistant = raw.sourceToolAssistantUUID ?? null;
+        const srcToolUseId = raw.sourceToolUseID ?? null;
+        if (!srcAssistant && !srcToolUseId) continue;
+        updateStmt.run([srcAssistant, srcToolUseId, sid, raw.uuid]);
+        updated++;
+      }
+    }
+    updateStmt.free();
+    TrailLogger.info(`[Migration] source_tool_link_backfill_v1: updated=${updated}`);
+    db.run("INSERT OR IGNORE INTO _migrations (key) VALUES ('source_tool_link_backfill_v1')");
+  }
+
+  private migrateDropSessionsProjectColumn(db: Database): void {
+    let foreignKeysWereEnabled = true;
+    try {
+      const colInfo = db.exec(`PRAGMA table_info(sessions)`);
+      const cols = (colInfo[0]?.values ?? []).map((r) => String(r[1]));
+      if (!cols.includes('project')) return;
+      const fkInfo = db.exec('PRAGMA foreign_keys');
+      foreignKeysWereEnabled = Number(fkInfo[0]?.values?.[0]?.[0] ?? 1) === 1;
+      db.run('PRAGMA foreign_keys = OFF');
+      db.run('BEGIN TRANSACTION');
+      db.run(`CREATE TABLE sessions_new (
+        id TEXT PRIMARY KEY,
+        slug TEXT NOT NULL DEFAULT '',
+        repo_name TEXT NOT NULL DEFAULT '',
+        version TEXT NOT NULL DEFAULT '',
+        entrypoint TEXT NOT NULL DEFAULT '',
+        model TEXT NOT NULL DEFAULT '',
+        start_time TEXT NOT NULL DEFAULT '',
+        end_time TEXT NOT NULL DEFAULT '',
+        message_count INTEGER NOT NULL DEFAULT 0,
+        file_path TEXT NOT NULL DEFAULT '',
+        file_size INTEGER NOT NULL DEFAULT 0,
+        imported_at TEXT NOT NULL DEFAULT '',
+        commits_resolved_at TEXT,
+        peak_context_tokens INTEGER,
+        initial_context_tokens INTEGER,
+        git_branch TEXT,
+        interruption_reason TEXT,
+        interruption_context_tokens INTEGER,
+        message_commits_resolved_at TEXT,
+        source TEXT NOT NULL DEFAULT 'claude_code',
+        compact_count INTEGER
+      )`);
+      db.run(`INSERT INTO sessions_new (
+        id, slug, repo_name, version, entrypoint, model,
+        start_time, end_time, message_count, file_path, file_size, imported_at,
+        commits_resolved_at, peak_context_tokens, initial_context_tokens, git_branch,
+        interruption_reason, interruption_context_tokens, message_commits_resolved_at,
+        source, compact_count
+      )
+      SELECT
+        id, slug, repo_name, version, entrypoint, model,
+        start_time, end_time, message_count, file_path, file_size, imported_at,
+        commits_resolved_at, peak_context_tokens, initial_context_tokens, git_branch,
+        interruption_reason, interruption_context_tokens, message_commits_resolved_at,
+        source, compact_count
+      FROM sessions`);
+      db.run('DROP TABLE sessions');
+      db.run('ALTER TABLE sessions_new RENAME TO sessions');
+      db.run('COMMIT');
+      if (foreignKeysWereEnabled) db.run('PRAGMA foreign_keys = ON');
+    } catch (e) {
+      try { db.run('ROLLBACK'); } catch { /* ignore */ }
+      if (foreignKeysWereEnabled) {
+        try { db.run('PRAGMA foreign_keys = ON'); } catch (re) { TrailLogger.error('restore foreign_keys failed', re); }
+      }
+      TrailLogger.error('migrateDropSessionsProjectColumn failed', e);
+    }
   }
 
   /**
@@ -630,6 +1068,150 @@ export class TrailDatabase {
   private migrateMessageCommitsSchema(db: Database): void {
     db.run('CREATE INDEX IF NOT EXISTS idx_message_commits_session ON message_commits(session_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_message_commits_commit ON message_commits(commit_hash)');
+  }
+
+  /**
+   * 既存 messages に対して subagent_type を後付けで埋める。一度だけ実行（_migrations で冪等性確保）。
+   *   1) 各 project 配下の `subagents/agent-{id}.meta.json` を走査し、agent_id → agentType マッピングを作る
+   *   2) tool_calls JSON に Agent tool_use を持つ親メッセージから input.subagent_type を抽出
+   * 既に値がある行は触らない（`WHERE subagent_type IS NULL`）。
+   * @internal テスト用に projectsDir を差し替え可能。本番は `~/.claude/projects` を使用。
+   */
+  private backfillSubagentType(projectsDir?: string): void {
+    const db = this.ensureDb();
+    db.run('CREATE TABLE IF NOT EXISTS _migrations (key TEXT PRIMARY KEY)');
+    const done = db.exec("SELECT 1 FROM _migrations WHERE key = 'subagent_type_backfill_v1'");
+    if (done[0]?.values?.length) return;
+
+    const startedAt = Date.now();
+    TrailLogger.info('[Migration] subagent_type_backfill_v1: starting...');
+
+    // 性能上の必須: messages.agent_id にインデックスがないと UPDATE WHERE agent_id=? が
+    // 毎回フルスキャン。1000+ meta.json × 数十万 messages で数億行スキャンになり数十分ハングする。
+    db.run('CREATE INDEX IF NOT EXISTS idx_messages_agent_id ON messages(agent_id)');
+
+    const baseDir = projectsDir ?? path.join(os.homedir(), '.claude', 'projects');
+
+    // Step 1: meta.json を集約してメモリ上で agent_id → agentType マップを作る（fs IO のみ、SQL なし）
+    const agentTypeByAgentId = new Map<string, string>();
+    let projectNames: string[];
+    try {
+      projectNames = fs.readdirSync(baseDir);
+    } catch (e) {
+      TrailLogger.warn(`[Migration] subagent_type_backfill_v1: cannot read projects dir ${baseDir}: ${e instanceof Error ? e.message : String(e)}`);
+      projectNames = [];
+    }
+    for (const projectName of projectNames) {
+      const projectPath = path.join(baseDir, projectName);
+      let sessionEntries: string[];
+      try {
+        if (!fs.statSync(projectPath).isDirectory()) continue;
+        sessionEntries = fs.readdirSync(projectPath);
+      } catch { continue; }
+      for (const sessionEntry of sessionEntries) {
+        const subagentDir = path.join(projectPath, sessionEntry, 'subagents');
+        let metaFiles: string[];
+        try {
+          metaFiles = fs.readdirSync(subagentDir).filter((f) => f.endsWith('.meta.json'));
+        } catch { continue; }
+        for (const metaFile of metaFiles) {
+          const match = /^agent-(.+)\.meta\.json$/.exec(metaFile);
+          if (!match) continue;
+          const agentId = match[1];
+          try {
+            const raw = fs.readFileSync(path.join(subagentDir, metaFile), 'utf-8');
+            const meta = JSON.parse(raw) as { agentType?: unknown };
+            const agentType = typeof meta.agentType === 'string' && meta.agentType.length > 0 ? meta.agentType : null;
+            if (agentType) agentTypeByAgentId.set(agentId, agentType);
+          } catch (e) {
+            TrailLogger.warn(`[Migration] subagent_type_backfill_v1: skip ${metaFile}: ${e instanceof Error ? e.message : String(e)}`);
+          }
+        }
+      }
+    }
+    TrailLogger.info(`[Migration] subagent_type_backfill_v1: collected ${agentTypeByAgentId.size} agent_id mappings (${Date.now() - startedAt}ms)`);
+
+    // Step 2: 単一トランザクションで一括 UPDATE。インデックスありで O(log N)/UPDATE。
+    let metaUpdated = 0;
+    const phase2Start = Date.now();
+    db.run('BEGIN TRANSACTION');
+    try {
+      const updateByAgentId = db.prepare(
+        'UPDATE messages SET subagent_type = ? WHERE agent_id = ? AND subagent_type IS NULL',
+      );
+      try {
+        let processed = 0;
+        for (const [agentId, agentType] of agentTypeByAgentId) {
+          updateByAgentId.run([agentType, agentId]);
+          metaUpdated++;
+          processed++;
+          if (processed % 500 === 0) {
+            TrailLogger.info(`[Migration] subagent_type_backfill_v1: agent_id UPDATEs ${processed}/${agentTypeByAgentId.size} (${Date.now() - phase2Start}ms)`);
+          }
+        }
+      } finally {
+        updateByAgentId.free();
+      }
+      db.run('COMMIT');
+    } catch (e) {
+      try { db.run('ROLLBACK'); } catch (re) { TrailLogger.error('[Migration] subagent_type_backfill_v1: ROLLBACK failed', re); }
+      throw e;
+    }
+    TrailLogger.info(`[Migration] subagent_type_backfill_v1: meta UPDATE done meta=${metaUpdated} (${Date.now() - phase2Start}ms)`);
+
+    // Step 3: 親メッセージ側 (Agent tool_use を持つ assistant)。tool_calls JSON は大きいので
+    // 先に uuid リストだけ取り出し、次に PK 経由で 1 行ずつ SELECT して逐次処理する。
+    const phase3Start = Date.now();
+    const uuidRes = db.exec(
+      "SELECT uuid FROM messages WHERE subagent_type IS NULL AND tool_calls LIKE '%\"name\":\"Agent\"%'",
+    );
+    const candidateUuids = (uuidRes[0]?.values ?? []).map((r) => String(r[0] ?? '')).filter(Boolean);
+    TrailLogger.info(`[Migration] subagent_type_backfill_v1: ${candidateUuids.length} parent message candidates (${Date.now() - phase3Start}ms)`);
+
+    let parentUpdated = 0;
+    if (candidateUuids.length > 0) {
+      db.run('BEGIN TRANSACTION');
+      try {
+        const selectStmt = db.prepare('SELECT tool_calls FROM messages WHERE uuid = ?');
+        const updateParent = db.prepare('UPDATE messages SET subagent_type = ? WHERE uuid = ?');
+        try {
+          for (let i = 0; i < candidateUuids.length; i++) {
+            const uuid = candidateUuids[i];
+            selectStmt.bind([uuid]);
+            try {
+              if (selectStmt.step()) {
+                const row = selectStmt.get();
+                const toolCalls = row[0] as string | null;
+                if (toolCalls) {
+                  const info = extractAgentInfo(toolCalls);
+                  if (info.subagentType) {
+                    updateParent.run([info.subagentType, uuid]);
+                    parentUpdated++;
+                  }
+                }
+              }
+            } finally {
+              selectStmt.reset();
+            }
+            if ((i + 1) % 500 === 0) {
+              TrailLogger.info(`[Migration] subagent_type_backfill_v1: parent ${i + 1}/${candidateUuids.length} processed`);
+            }
+          }
+        } finally {
+          selectStmt.free();
+          updateParent.free();
+        }
+        db.run('COMMIT');
+      } catch (e) {
+        try { db.run('ROLLBACK'); } catch (re) { TrailLogger.error('[Migration] subagent_type_backfill_v1: ROLLBACK failed', re); }
+        throw e;
+      }
+    }
+
+    TrailLogger.info(
+      `[Migration] subagent_type_backfill_v1: COMPLETED meta=${metaUpdated} parent=${parentUpdated} totalMs=${Date.now() - startedAt}`,
+    );
+    db.run("INSERT OR IGNORE INTO _migrations (key) VALUES ('subagent_type_backfill_v1')");
   }
 
   /**
@@ -943,18 +1525,21 @@ export class TrailDatabase {
     db.run('DELETE FROM session_costs');
 
     const result = db.exec(
-      `SELECT session_id, COALESCE(model,''),
+      `SELECT m.session_id, COALESCE(m.model,''), s.source,
         SUM(input_tokens), SUM(output_tokens),
         SUM(cache_read_tokens), SUM(cache_creation_tokens)
-       FROM messages WHERE type = 'assistant'
-       GROUP BY session_id, model`,
+       FROM messages m
+       INNER JOIN sessions s ON s.id = m.session_id
+       WHERE m.type = 'assistant'
+       GROUP BY m.session_id, m.model, s.source`,
     );
     const stmt = db.prepare(INSERT_SESSION_COST);
     for (const row of result[0]?.values ?? []) {
-      const sid = String(row[0]); const m = String(row[1]);
-      const inp = Number(row[2]); const outp = Number(row[3]);
-      const cr = Number(row[4]); const cc = Number(row[5]);
-      stmt.run([sid, m, inp, outp, cr, cc, estimateCost(m, inp, outp, cr, cc)]);
+      const sid = String(row[0]); const m = String(row[1]); const source = String(row[2]) as PricingSource;
+      const inp = Number(row[3]); const outp = Number(row[4]);
+      const cr = Number(row[5]); const cc = Number(row[6]);
+      const billingModel = resolvePricingModelName(m, source);
+      stmt.run([sid, billingModel, inp, outp, cr, cc, estimateCost(m, inp, outp, cr, cc, source)]);
     }
     stmt.free();
   }
@@ -1037,22 +1622,34 @@ export class TrailDatabase {
     const INSERT_DC = `INSERT INTO daily_counts
       (date, kind, key, count, tokens, input_tokens, output_tokens,
        cache_read_tokens, cache_creation_tokens, duration_ms, estimated_cost_usd)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?)`;
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)
+      ON CONFLICT(date, kind, key) DO UPDATE SET
+        count = daily_counts.count + excluded.count,
+        tokens = daily_counts.tokens + excluded.tokens,
+        input_tokens = daily_counts.input_tokens + excluded.input_tokens,
+        output_tokens = daily_counts.output_tokens + excluded.output_tokens,
+        cache_read_tokens = daily_counts.cache_read_tokens + excluded.cache_read_tokens,
+        cache_creation_tokens = daily_counts.cache_creation_tokens + excluded.cache_creation_tokens,
+        duration_ms = daily_counts.duration_ms + excluded.duration_ms,
+        estimated_cost_usd = daily_counts.estimated_cost_usd + excluded.estimated_cost_usd`;
     const stmt = db.prepare(INSERT_DC);
 
     // ── kind='cost_actual' : assistant メッセージ日次トークン・コスト ──
     const actual = db.exec(
-      `SELECT DATE(timestamp, '${tzOffset}'), COALESCE(model,''),
+      `SELECT DATE(m.timestamp, '${tzOffset}'), COALESCE(m.model,''), s.source,
         SUM(input_tokens), SUM(output_tokens),
         SUM(cache_read_tokens), SUM(cache_creation_tokens)
-       FROM messages WHERE type = 'assistant'
-       GROUP BY DATE(timestamp, '${tzOffset}'), model`,
+       FROM messages m
+       INNER JOIN sessions s ON s.id = m.session_id
+       WHERE m.type = 'assistant'
+       GROUP BY DATE(m.timestamp, '${tzOffset}'), m.model, s.source`,
     );
     for (const row of actual[0]?.values ?? []) {
-      const d = String(row[0]); const m = String(row[1]);
-      const inp = Number(row[2]); const outp = Number(row[3]);
-      const cr = Number(row[4]); const cc = Number(row[5]);
-      stmt.run([d, 'cost_actual', m, 0, 0, inp, outp, cr, cc, 0, estimateCost(m, inp, outp, cr, cc)]);
+      const d = String(row[0]); const m = String(row[1]); const source = String(row[2]) as PricingSource;
+      const inp = Number(row[3]); const outp = Number(row[4]);
+      const cr = Number(row[5]); const cc = Number(row[6]);
+      const billingModel = resolvePricingModelName(m, source);
+      stmt.run([d, 'cost_actual', billingModel, 0, 0, inp, outp, cr, cc, 0, estimateCost(m, inp, outp, cr, cc, source)]);
     }
 
     // Auto-register new skills that are not yet in skill_models
@@ -1142,15 +1739,20 @@ export class TrailDatabase {
 
     // ── kind='model' : assistant メッセージ数のモデル別日次集計 ──
     const modelCounts = db.exec(
-      `SELECT DATE(timestamp, '${tzOffset}') AS d, model,
+      `SELECT DATE(m.timestamp, '${tzOffset}') AS d,
+              s.source,
+              COALESCE(m.model, '') AS model,
               COUNT(*) AS count,
-              CAST(SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS INTEGER) AS tokens
-       FROM messages
-       WHERE type = 'assistant' AND model IS NOT NULL
-       GROUP BY d, model`,
+              CAST(SUM(COALESCE(m.input_tokens, 0) + COALESCE(m.output_tokens, 0)) AS INTEGER) AS tokens
+       FROM messages m
+       INNER JOIN sessions s ON s.id = m.session_id
+       WHERE m.type = 'assistant'
+       GROUP BY d, s.source, COALESCE(m.model, '')`,
     );
     for (const row of modelCounts[0]?.values ?? []) {
-      stmt.run([String(row[0]), 'model', String(row[1] ?? ''), Number(row[2] ?? 0), Number(row[3] ?? 0), 0, 0, 0, 0, 0, 0]);
+      const source = String(row[1]) as PricingSource;
+      const model = resolvePricingModelName(String(row[2] ?? ''), source);
+      stmt.run([String(row[0]), 'model', model, Number(row[3] ?? 0), Number(row[4] ?? 0), 0, 0, 0, 0, 0, 0]);
     }
 
     stmt.free();
@@ -1161,23 +1763,52 @@ export class TrailDatabase {
     const db = this.ensureDb();
     const tzOffset = getSqliteTzOffset('Asia/Tokyo');
     const result = db.exec(
-      `SELECT COALESCE(SUM(input_tokens + output_tokens), 0)
-       FROM session_costs sc
-       JOIN sessions s ON s.id = sc.session_id
-       WHERE DATE(s.start_time, '${tzOffset}') = DATE('now', '${tzOffset}')`,
+      `SELECT s.source,
+        SUM(COALESCE(m.input_tokens,0)+COALESCE(m.output_tokens,0)) AS raw_tokens,
+        COUNT(*) AS total_turns,
+        SUM(CASE WHEN COALESCE(m.input_tokens,0)+COALESCE(m.output_tokens,0)
+                      +COALESCE(m.cache_read_tokens,0)+COALESCE(m.cache_creation_tokens,0)=0
+                 THEN 1 ELSE 0 END) AS missing_turns
+       FROM messages m
+       JOIN sessions s ON s.id = m.session_id
+       WHERE m.type = 'assistant'
+         AND DATE(m.timestamp, '${tzOffset}') = DATE('now', '${tzOffset}')
+       GROUP BY s.source`,
     );
-    return Number(result[0]?.values[0]?.[0] ?? 0);
+    let total = 0;
+    for (const row of result[0]?.values ?? []) {
+      const rawTokens = Number(row[1]);
+      const totalTurns = Number(row[2]);
+      const missingTurns = Number(row[3]);
+      const observed = totalTurns - missingTurns;
+      const factor = observed > 0 ? totalTurns / observed : 1;
+      total += Math.round(rawTokens * factor);
+    }
+    return total;
   }
 
-  /** 指定セッションの input + output トークン合計を返す。 */
+  /** 指定セッションの input + output トークン合計を返す（欠損補正済み）。 */
   getSessionTokens(sessionId: string): number {
     const db = this.ensureDb();
     const result = db.exec(
-      `SELECT COALESCE(SUM(input_tokens + output_tokens), 0)
-       FROM session_costs WHERE session_id = ?`,
+      `SELECT
+        SUM(COALESCE(m.input_tokens,0)+COALESCE(m.output_tokens,0)) AS raw_tokens,
+        COUNT(*) AS total_turns,
+        SUM(CASE WHEN COALESCE(m.input_tokens,0)+COALESCE(m.output_tokens,0)
+                      +COALESCE(m.cache_read_tokens,0)+COALESCE(m.cache_creation_tokens,0)=0
+                 THEN 1 ELSE 0 END) AS missing_turns
+       FROM messages m
+       WHERE m.type = 'assistant' AND m.session_id = ?`,
       [sessionId],
     );
-    return Number(result[0]?.values[0]?.[0] ?? 0);
+    const row = result[0]?.values[0];
+    if (!row) return 0;
+    const rawTokens = Number(row[0] ?? 0);
+    const totalTurns = Number(row[1] ?? 0);
+    const missingTurns = Number(row[2] ?? 0);
+    const observed = totalTurns - missingTurns;
+    const factor = observed > 0 ? totalTurns / observed : 1;
+    return Math.round(rawTokens * factor);
   }
 
   save(): void {
@@ -1203,22 +1834,32 @@ export class TrailDatabase {
   /** Load imported sessions keyed by file_path for accurate skip detection.
    *  `hasMessages` is false when `sessions` row exists but no `messages` rows are present
    *  (happens after a silent message-insert failure). Callers should re-import such sessions. */
-  private getImportedFileMap(): Map<string, { sessionId: string; fileSize: number; commitsResolved: boolean; hasMessages: boolean }> {
+  private getImportedFileMap(): Map<string, { sessionId: string; fileSize: number; commitsResolved: boolean; hasMessages: boolean; hasUsableCostData: boolean }> {
     const db = this.ensureDb();
     const result = db.exec(
       `SELECT s.id, s.file_path, s.file_size, s.commits_resolved_at,
         CASE WHEN s.message_count = 0 THEN 1
              WHEN EXISTS (SELECT 1 FROM messages m WHERE m.session_id = s.id) THEN 1
-             ELSE 0 END AS has_messages
+             ELSE 0 END AS has_messages,
+        CASE WHEN s.source = 'codex' AND s.message_count > 0 THEN
+             CASE WHEN EXISTS (
+               SELECT 1 FROM session_costs sc
+               WHERE sc.session_id = s.id
+                 AND (COALESCE(sc.input_tokens, 0) + COALESCE(sc.output_tokens, 0) +
+                      COALESCE(sc.cache_read_tokens, 0) + COALESCE(sc.cache_creation_tokens, 0) +
+                      COALESCE(sc.estimated_cost_usd, 0)) > 0
+             ) THEN 1 ELSE 0 END
+             ELSE 1 END AS has_usable_cost_data
        FROM sessions s`,
     );
-    const map = new Map<string, { sessionId: string; fileSize: number; commitsResolved: boolean; hasMessages: boolean }>();
+    const map = new Map<string, { sessionId: string; fileSize: number; commitsResolved: boolean; hasMessages: boolean; hasUsableCostData: boolean }>();
     for (const row of result[0]?.values ?? []) {
       map.set(String(row[1]), {
         sessionId: String(row[0]),
         fileSize: Number(row[2]),
         commitsResolved: row[3] != null,
         hasMessages: Number(row[4]) === 1,
+        hasUsableCostData: Number(row[5]) === 1,
       });
     }
     return map;
@@ -1299,6 +1940,28 @@ export class TrailDatabase {
   parseSessionIdFromBody(body: string): string | null {
     const match = /^Session-Id:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\s*$/im.exec(body);
     return match ? match[1] : null;
+  }
+
+  private readCodexSessionMeta(filePath: string): { cwd: string | null } | null {
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        let rec: RawLine;
+        try {
+          rec = JSON.parse(trimmed) as RawLine;
+        } catch {
+          continue;
+        }
+        if (rec.type !== 'session_meta' || !rec.payload || typeof rec.payload !== 'object') continue;
+        const cwd = (rec.payload as Record<string, unknown>).cwd;
+        return { cwd: typeof cwd === 'string' ? cwd : null };
+      }
+      return null;
+    } catch {
+      return null;
+    }
   }
 
   resolveCommits(sessionId: string, gitRoot: string): number {
@@ -1467,20 +2130,33 @@ export class TrailDatabase {
   }
 
   /** @returns number of messages imported */
-  importSession(filePath: string, projectName: string, isSubagent = false, externalTransaction = false, repoName = ''): number {
+  importSession(filePath: string, repoName: string, isSubagent = false, externalTransaction = false): number {
     const db = this.ensureDb();
     const content = fs.readFileSync(filePath, 'utf-8');
     const lines = content.split('\n').filter((l) => l.trim() !== '');
 
-    const parsed: RawLine[] = [];
+    // サブエージェント JSONL の場合は隣接 meta.json から subagent_type を取得し、
+    // この JSONL 内の全メッセージに付与する。古いセッションは meta.json なし → NULL のまま。
+    const fileSubagentType = isSubagent ? readSubagentTypeFromMeta(filePath) : null;
+
+    const parsedRaw: RawLine[] = [];
     for (const line of lines) {
       try {
-        parsed.push(JSON.parse(line) as RawLine);
+        parsedRaw.push(JSON.parse(line) as RawLine);
       } catch {
         // Skip malformed lines
       }
     }
 
+    if (parsedRaw.length === 0) return 0;
+
+    const fallbackSessionId = path.basename(filePath).replace(/\.jsonl$/i, '');
+    const isCodex = parsedRaw.some(
+      (r) => r.type === 'session_meta' || r.type === 'response_item' || r.type === 'event_msg',
+    );
+    const codexNormalized = isCodex ? normalizeCodexRecords(parsedRaw, fallbackSessionId) : null;
+    const parsed: RawLine[] = codexNormalized ? codexNormalized.normalized : parsedRaw;
+    const source: 'claude_code' | 'codex' = isCodex ? 'codex' : 'claude_code';
     if (parsed.length === 0) return 0;
 
     // Extract session metadata
@@ -1512,7 +2188,8 @@ export class TrailDatabase {
       messageCount++;
     }
 
-    if (!sessionId) return 0;
+    if (!sessionId) sessionId = codexNormalized?.sessionId || fallbackSessionId;
+    if (!version && codexNormalized?.version) version = codexNormalized.version;
 
     const fileSize = fs.statSync(filePath).size;
     const importedAt = new Date().toISOString();
@@ -1522,9 +2199,9 @@ export class TrailDatabase {
       // Insert/update session metadata only for main session files
       if (!isSubagent) {
         db.run(INSERT_SESSION, [
-          sessionId, slug, projectName, repoName, version,
+          sessionId, slug, repoName, version,
           entrypoint, model, startTime, endTime, messageCount,
-          filePath, fileSize, importedAt, 'claude_code',
+          filePath, fileSize, importedAt, source,
         ]);
       }
 
@@ -1568,9 +2245,15 @@ export class TrailDatabase {
         const permMode = raw.permissionMode ?? null;
         const skill = extractSkillName(toolCalls);
         const agentId = raw.agentId ?? null;
+        const sourceToolAssistantUUID = raw.sourceToolAssistantUUID ?? null;
+        const sourceToolUseID = raw.sourceToolUseID ?? null;
         const systemCommand = raw.subtype === 'compact_boundary' ? '/compact'
           : raw.subtype === 'local_command' ? '/clear'
           : null;
+
+        // 主セッションでは Agent tool_use を持つ親メッセージのみ subagent_type を持つ（呼び出し意図記録）。
+        // サブエージェント JSONL では全メッセージが meta.json 由来の subagent_type を持つ。
+        const subagentType = isSubagent ? fileSubagentType : agentInfo.subagentType;
 
         msgStmt.run([
           raw.uuid ?? '',
@@ -1603,7 +2286,10 @@ export class TrailDatabase {
           permMode,
           skill,
           agentId,
+          sourceToolAssistantUUID,
+          sourceToolUseID,
           systemCommand,
+          subagentType,
         ]);
       }
       msgStmt.free();
@@ -1619,8 +2305,10 @@ export class TrailDatabase {
   async importAll(
     onProgress?: (message: string, increment?: number) => void,
     gitRoot?: string,
-  ): Promise<{ imported: number; skipped: number; commitsResolved: number; releasesResolved: number; releasesAnalyzed: number; coverageImported: number; messageCommitsBackfilled: number }> {
+    excludePatterns?: readonly string[],
+  ): Promise<{ imported: number; skipped: number; commitsResolved: number; releasesResolved: number; releasesAnalyzed: number; coverageImported: number; currentCoverageImported: number; messageCommitsBackfilled: number }> {
     const projectsDir = path.join(os.homedir(), '.claude', 'projects');
+    const codexSessionsDir = path.join(os.homedir(), '.codex', 'sessions');
     const repoName = gitRoot ? path.basename(gitRoot) : '';
     let imported = 0;
     let skipped = 0;
@@ -1631,7 +2319,7 @@ export class TrailDatabase {
     try {
       projectDirs = fs.readdirSync(projectsDir);
     } catch {
-      return { imported, skipped, commitsResolved, releasesResolved: 0, releasesAnalyzed: 0, coverageImported: 0, messageCommitsBackfilled: 0 };
+      return { imported, skipped, commitsResolved, releasesResolved: 0, releasesAnalyzed: 0, coverageImported: 0, currentCoverageImported: 0, messageCommitsBackfilled: 0 };
     }
 
     // Pre-load imported file paths + sizes for fast skip
@@ -1639,7 +2327,13 @@ export class TrailDatabase {
     const UUID_RE = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/;
 
     // Collect files per session directory (main + subagents grouped)
-    type SessionDir = { sid: string; mainFile: string; subagentFiles: string[]; projectName: string };
+    type SessionDir = {
+      sid: string;
+      mainFile: string;
+      subagentFiles: string[];
+      repoName: string;
+      source: 'claude_code' | 'codex';
+    };
     const sessionDirs: SessionDir[] = [];
 
     for (const projectName of projectDirs) {
@@ -1670,13 +2364,43 @@ export class TrailDatabase {
           }
         } catch { /* no subagents dir */ }
 
-        sessionDirs.push({ sid, mainFile, subagentFiles, projectName });
+        sessionDirs.push({ sid, mainFile, subagentFiles, repoName: repoName || projectName, source: 'claude_code' });
       }
+    }
+
+    // Codex sessions (~/.codex/sessions/**/rollout-*.jsonl)
+    try {
+      const codexFiles = collectJsonlFilesRecursive(codexSessionsDir).filter((f: string) =>
+        path.basename(f).startsWith('rollout-'),
+      );
+      for (const filePath of codexFiles) {
+        const sidMatch = filePath.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i);
+        const sid = sidMatch?.[1] ?? path.basename(filePath, '.jsonl');
+        if (gitRoot) {
+          const meta = this.readCodexSessionMeta(filePath);
+          if (!meta?.cwd) continue;
+          const normalizedCwd = path.resolve(meta.cwd);
+          const normalizedGitRoot = path.resolve(gitRoot);
+          if (!normalizedCwd.startsWith(normalizedGitRoot)) continue;
+        }
+        sessionDirs.push({ sid, mainFile: filePath, subagentFiles: [], repoName: repoName || 'codex', source: 'codex' });
+      }
+    } catch {
+      // codex sessions may not exist
     }
 
     const totalSessions = sessionDirs.length;
     const totalFiles = sessionDirs.reduce((s, d) => s + 1 + d.subagentFiles.length, 0);
-    onProgress?.(`Found ${totalSessions} sessions (${totalFiles} files)`, 0);
+    const claudeSessions = sessionDirs.filter(d => d.source === 'claude_code');
+    const codexSessions = sessionDirs.filter(d => d.source === 'codex');
+    const claudeFiles = claudeSessions.reduce((s, d) => s + 1 + d.subagentFiles.length, 0);
+    const codexFiles = codexSessions.reduce((s, d) => s + 1 + d.subagentFiles.length, 0);
+    onProgress?.(
+      `Found ${totalSessions} sessions (${totalFiles} files): ` +
+        `Claude Code ${claudeSessions.length} sessions (${claudeFiles} files), ` +
+        `Codex ${codexSessions.length} sessions (${codexFiles} files)`,
+      0,
+    );
 
     const BATCH_MESSAGE_LIMIT = 20_000;
     const BATCH_FILE_LIMIT = 100;
@@ -1684,24 +2408,40 @@ export class TrailDatabase {
     let batchFileCount = 0;
     let inTransaction = false;
     let processedFiles = 0;
+    const processedBySource = { claude_code: 0, codex: 0 };
+    const skippedBySource = { claude_code: 0, codex: 0 };
+    // Sessions that entered the import path in this run. Sessions skipped via
+    // the file-size check did not gain new messages, so message_tool_calls is
+    // already up to date and the analyzer can be skipped for them.
+    const sessionsToAnalyze = new Set<string>();
+
+    const formatProgress = (): string =>
+      `${batchMessageCount} messages (${processedFiles}/${totalFiles}, skipped ${skipped}): ` +
+      `Claude Code ${processedBySource.claude_code}/${claudeFiles} skipped ${skippedBySource.claude_code}, ` +
+      `Codex ${processedBySource.codex}/${codexFiles} skipped ${skippedBySource.codex}`;
 
     for (const dir of sessionDirs) {
+      const sessionFileTotal = 1 + dir.subagentFiles.length;
       // Skip entire session (main + all subagents) if main file size unchanged
       // and the existing row actually has messages. A session row with zero messages
       // is a leftover from a previously-failed import and must be re-processed.
       const existing = importedFiles.get(dir.mainFile);
-      if (existing && existing.hasMessages) {
+      if (existing && existing.hasMessages && existing.hasUsableCostData) {
         let currentFileSize = 0;
-        try { currentFileSize = fs.statSync(dir.mainFile).size; } catch (e) { TrailLogger.error(`statSync failed: ${dir.mainFile}`, e); skipped++; continue; }
+        try { currentFileSize = fs.statSync(dir.mainFile).size; } catch (e) { TrailLogger.error(`statSync failed: ${dir.mainFile}`, e); skipped++; skippedBySource[dir.source]++; continue; }
         if (currentFileSize <= existing.fileSize) {
-          skipped += 1 + dir.subagentFiles.length;
-          processedFiles += 1 + dir.subagentFiles.length;
+          skipped += sessionFileTotal;
+          skippedBySource[dir.source] += sessionFileTotal;
+          processedFiles += sessionFileTotal;
+          processedBySource[dir.source] += sessionFileTotal;
           if (gitRoot && !existing.commitsResolved) {
             try { commitsResolved += this.resolveCommits(dir.sid, gitRoot); } catch (e) { TrailLogger.error(`resolveCommits failed (skipped session): ${dir.sid}`, e); }
           }
           continue;
         }
       }
+
+      sessionsToAnalyze.add(dir.sid);
 
       // Import all files for this session (main + subagents) in one batch
       const db = this.ensureDb();
@@ -1719,7 +2459,7 @@ export class TrailDatabase {
 
       for (const file of filesToImport) {
         try {
-          const msgCount = this.importSession(file.filePath, dir.projectName, file.isSubagent, true, repoName);
+          const msgCount = this.importSession(file.filePath, dir.repoName, file.isSubagent, true);
           imported++;
           batchMessageCount += msgCount;
           batchFileCount++;
@@ -1727,6 +2467,7 @@ export class TrailDatabase {
           TrailLogger.error(`importSession failed: ${file.filePath}`, e);
         }
         processedFiles++;
+        processedBySource[dir.source]++;
       }
 
       // Resolve commits after all files for this session
@@ -1740,7 +2481,7 @@ export class TrailDatabase {
           try { db.run('COMMIT'); } catch (e) { TrailLogger.error('COMMIT failed, rolling back', e); try { db.run('ROLLBACK'); } catch (re) { TrailLogger.error('ROLLBACK also failed', re); } }
           inTransaction = false;
         }
-        onProgress?.(`${batchMessageCount} messages (${processedFiles}/${totalFiles}, skipped ${skipped})`, 0);
+        onProgress?.(formatProgress(), 0);
         await new Promise<void>((resolve) => setTimeout(resolve, 0));
       }
     }
@@ -1750,7 +2491,7 @@ export class TrailDatabase {
       const db = this.ensureDb();
       try { db.run('COMMIT'); } catch (e) { TrailLogger.error('COMMIT failed, rolling back', e); try { db.run('ROLLBACK'); } catch (re) { TrailLogger.error('ROLLBACK also failed', re); } }
       inTransaction = false;
-      onProgress?.(`${batchMessageCount} messages (${processedFiles}/${totalFiles}, skipped ${skipped})`, 0);
+      onProgress?.(formatProgress(), 0);
     }
 
     // Resolve releases from version tags
@@ -1770,7 +2511,7 @@ export class TrailDatabase {
     if (gitRoot) {
       try {
         onProgress?.('Analyzing releases...', 0);
-        releasesAnalyzed = this.analyzeReleases(gitRoot, (msg) => onProgress?.(msg, 0));
+        releasesAnalyzed = this.analyzeReleases(gitRoot, (msg) => onProgress?.(msg, 0), excludePatterns);
         onProgress?.(`Releases analyzed: ${releasesAnalyzed}`, 0);
       } catch {
         // Skip analysis errors
@@ -1779,6 +2520,7 @@ export class TrailDatabase {
 
     // Import coverage data from packages/*/coverage/coverage-summary.json
     let coverageImported = 0;
+    let currentCoverageImported = 0;
     if (gitRoot) {
       try {
         onProgress?.('Importing coverage data...', 0);
@@ -1787,6 +2529,13 @@ export class TrailDatabase {
       } catch {
         // Skip coverage import errors
       }
+      try {
+        onProgress?.('Importing current coverage snapshot...', 0);
+        currentCoverageImported = this.importCurrentCoverage(gitRoot, path.basename(gitRoot));
+        onProgress?.(`Current coverage imported: ${currentCoverageImported} entries`, 0);
+      } catch {
+        // Skip current coverage import errors
+      }
     }
 
     // Rebuild session_costs and daily_counts from all messages / tool_calls
@@ -1794,15 +2543,18 @@ export class TrailDatabase {
     this.rebuildSessionCosts();
     onProgress?.('Session costs rebuilt', 0);
 
-    // Analyze Claude Code behavior for all sessions (INSERT OR IGNORE ensures idempotency)
-    const db = this.ensureDb();
-    const analyzer = new ClaudeCodeBehaviorAnalyzer();
-    onProgress?.('Analyzing Claude Code behavior...', 0);
-    for (const dir of sessionDirs) {
-      try {
-        analyzer.analyze(dir.sid, db);
-      } catch (e) {
-        TrailLogger.error(`ClaudeCodeBehaviorAnalyzer failed for session ${dir.sid}`, e);
+    // Analyze Claude Code behavior only for sessions that were (re)imported in this run.
+    // Sessions skipped above had no new messages, so message_tool_calls is already current.
+    if (sessionsToAnalyze.size > 0) {
+      const db = this.ensureDb();
+      const analyzer = new ClaudeCodeBehaviorAnalyzer();
+      onProgress?.(`Analyzing Claude Code behavior (${sessionsToAnalyze.size} sessions)...`, 0);
+      for (const sid of sessionsToAnalyze) {
+        try {
+          analyzer.analyze(sid, db);
+        } catch (e) {
+          TrailLogger.error(`ClaudeCodeBehaviorAnalyzer failed for session ${sid}`, e);
+        }
       }
     }
 
@@ -1819,6 +2571,14 @@ export class TrailDatabase {
     // Phase 2a: backfill commit_files (one-time migration for existing commits)
     if (gitRoot) {
       this.backfillCommitFiles(gitRoot, (msg) => onProgress?.(msg, 0));
+    }
+
+    // Phase D-2: backfill subagent_type from .meta.json + parent tool_calls (one-time)
+    onProgress?.('Backfilling subagent_type...', 0);
+    try {
+      this.backfillSubagentType();
+    } catch (e) {
+      TrailLogger.warn(`backfillSubagentType failed (non-fatal): ${e instanceof Error ? e.message : String(e)}`);
     }
 
     // Phase 2: backfill message_commits
@@ -1859,7 +2619,16 @@ export class TrailDatabase {
     onProgress?.(`Backfilled ${messageCommitsBackfilled} message_commits`, 0);
 
     this.save();
-    return { imported, skipped, commitsResolved, releasesResolved, releasesAnalyzed, coverageImported, messageCommitsBackfilled };
+    return {
+      imported,
+      skipped,
+      commitsResolved,
+      releasesResolved,
+      releasesAnalyzed,
+      coverageImported,
+      currentCoverageImported,
+      messageCommitsBackfilled,
+    };
   }
 
   saveManualElement(
@@ -2151,6 +2920,226 @@ export class TrailDatabase {
     return JSON.parse(json) as TrailGraph;
   }
 
+  // ---------------------------------------------------------------------------
+  //  CodeGraph CRUD
+  // ---------------------------------------------------------------------------
+
+  saveCurrentCodeGraph(repoName: string, graph: CodeGraph): void {
+    const db = this.ensureDb();
+    const { stored, communities } = splitCodeGraph(graph);
+    db.run(
+      `INSERT OR REPLACE INTO current_code_graphs
+         (repo_name, graph_json, generated_at, updated_at)
+       VALUES (?, ?, ?, datetime('now'))`,
+      [repoName, JSON.stringify(stored), stored.generatedAt],
+    );
+    // 新しいグラフに存在しない古いコミュニティのみ削除（AI 要約を保持するため全削除はしない）
+    if (communities.length === 0) {
+      db.run('DELETE FROM current_code_graph_communities WHERE repo_name = ?', [repoName]);
+    } else {
+      const placeholders = communities.map(() => '?').join(',');
+      db.run(
+        `DELETE FROM current_code_graph_communities WHERE repo_name = ? AND community_id NOT IN (${placeholders})`,
+        [repoName, ...communities.map((c) => c.id)],
+      );
+    }
+    // label は常に更新。name/summary は新しい値が空の場合は既存の AI 要約を保持する
+    const stmt = db.prepare(
+      `INSERT INTO current_code_graph_communities
+         (repo_name, community_id, label, name, summary, generated_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+       ON CONFLICT(repo_name, community_id) DO UPDATE SET
+         label      = excluded.label,
+         name       = CASE WHEN excluded.name    != '' THEN excluded.name    ELSE name    END,
+         summary    = CASE WHEN excluded.summary != '' THEN excluded.summary ELSE summary END,
+         updated_at = datetime('now')`,
+    );
+    for (const c of communities) {
+      stmt.run([repoName, c.id, c.label, c.name, c.summary]);
+    }
+    stmt.free();
+    this.save();
+  }
+
+  getCurrentCodeGraph(repoName: string): CodeGraph | null {
+    const db = this.ensureDb();
+    const graphResult = db.exec(
+      'SELECT graph_json FROM current_code_graphs WHERE repo_name = ?',
+      [repoName],
+    );
+    const json = graphResult[0]?.values?.[0]?.[0];
+    if (typeof json !== 'string') return null;
+    const stored = JSON.parse(json) as import('@anytime-markdown/trail-core/codeGraph').StoredCodeGraph;
+    const commResult = db.exec(
+      'SELECT community_id, label, name, summary FROM current_code_graph_communities WHERE repo_name = ?',
+      [repoName],
+    );
+    const communities: StoredCommunity[] = (commResult[0]?.values ?? []).map((row) => ({
+      id: row[0] as number,
+      label: row[1] as string,
+      name: row[2] as string,
+      summary: row[3] as string,
+    }));
+    return composeCodeGraph(stored, communities);
+  }
+
+  getAllCurrentCodeGraphRaws(): Array<{ repo_name: string; graph_json: string; generated_at: string; updated_at: string }> {
+    const db = this.ensureDb();
+    const result = db.exec('SELECT repo_name, graph_json, generated_at, updated_at FROM current_code_graphs');
+    const values = result[0]?.values ?? [];
+    return values.map((r) => ({
+      repo_name: String(r[0] ?? ''),
+      graph_json: String(r[1] ?? ''),
+      generated_at: String(r[2] ?? ''),
+      updated_at: String(r[3] ?? ''),
+    }));
+  }
+
+  getAllCurrentCodeGraphCommunityRaws(): Array<{ repo_name: string; community_id: number; label: string; name: string; summary: string; generated_at: string; updated_at: string }> {
+    const db = this.ensureDb();
+    const result = db.exec('SELECT repo_name, community_id, label, name, summary, generated_at, updated_at FROM current_code_graph_communities');
+    const values = result[0]?.values ?? [];
+    return values.map((r) => ({
+      repo_name: String(r[0] ?? ''),
+      community_id: Number(r[1] ?? 0),
+      label: String(r[2] ?? ''),
+      name: String(r[3] ?? ''),
+      summary: String(r[4] ?? ''),
+      generated_at: String(r[5] ?? ''),
+      updated_at: String(r[6] ?? ''),
+    }));
+  }
+
+  upsertCurrentCodeGraphCommunities(
+    repoName: string,
+    communities: ReadonlyArray<{ community_id: number; label?: string; name: string; summary: string }>,
+  ): void {
+    const db = this.ensureDb();
+    for (const c of communities) {
+      const existing = db.exec(
+        'SELECT label FROM current_code_graph_communities WHERE repo_name = ? AND community_id = ?',
+        [repoName, c.community_id],
+      );
+      const existingLabel = existing[0]?.values?.[0]?.[0] as string | undefined;
+      db.run(
+        `INSERT OR REPLACE INTO current_code_graph_communities
+           (repo_name, community_id, label, name, summary, generated_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+        [repoName, c.community_id, c.label ?? existingLabel ?? '', c.name, c.summary],
+      );
+    }
+    this.save();
+  }
+
+  saveReleaseCodeGraph(tag: string, graph: CodeGraph): void {
+    const db = this.ensureDb();
+    const { stored, communities } = splitCodeGraph(graph);
+    db.run(
+      `INSERT OR REPLACE INTO release_code_graphs
+         (release_tag, graph_json, generated_at, updated_at)
+       VALUES (?, ?, ?, datetime('now'))`,
+      [tag, JSON.stringify(stored), stored.generatedAt],
+    );
+    db.run('DELETE FROM release_code_graph_communities WHERE release_tag = ?', [tag]);
+    const stmt = db.prepare(
+      `INSERT INTO release_code_graph_communities
+         (release_tag, community_id, label, name, summary, generated_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+    );
+    for (const c of communities) {
+      stmt.run([tag, c.id, c.label, c.name, c.summary]);
+    }
+    stmt.free();
+    this.save();
+  }
+
+  getReleaseCodeGraph(tag: string): CodeGraph | null {
+    const db = this.ensureDb();
+    const graphResult = db.exec(
+      'SELECT graph_json FROM release_code_graphs WHERE release_tag = ?',
+      [tag],
+    );
+    const json = graphResult[0]?.values?.[0]?.[0];
+    if (typeof json !== 'string') return null;
+    const stored = JSON.parse(json) as import('@anytime-markdown/trail-core/codeGraph').StoredCodeGraph;
+    const commResult = db.exec(
+      'SELECT community_id, label, name, summary FROM release_code_graph_communities WHERE release_tag = ?',
+      [tag],
+    );
+    const communities: StoredCommunity[] = (commResult[0]?.values ?? []).map((row) => ({
+      id: row[0] as number,
+      label: row[1] as string,
+      name: row[2] as string,
+      summary: row[3] as string,
+    }));
+    return composeCodeGraph(stored, communities);
+  }
+
+  deleteCurrentCodeGraphs(): void {
+    const db = this.ensureDb();
+    db.run('DELETE FROM current_code_graph_communities');
+    db.run('DELETE FROM current_code_graphs');
+    this.save();
+  }
+
+  deleteReleaseCodeGraphs(): void {
+    const db = this.ensureDb();
+    db.run('DELETE FROM release_code_graph_communities');
+    db.run('DELETE FROM release_code_graphs');
+    this.save();
+  }
+
+  analyzeReleaseCodeGraphsForce(opts: {
+    codeGraphService: { generate: (onProgress?: (phase: string, percent: number) => void) => Promise<CodeGraph> };
+    gitRoot: string;
+    onProgress?: (msg: string) => void;
+  }): Promise<number> {
+    const db = this.ensureDb();
+    const releases = this.getReleases();
+    if (releases.length === 0) return Promise.resolve(0);
+
+    const git = new ExecFileGitService(opts.gitRoot);
+    let count = 0;
+
+    const runNext = async (i: number): Promise<number> => {
+      if (i >= releases.length) return count;
+      const release = releases[i];
+      const tag = release.tag;
+      const tmpDir = path.join(os.tmpdir(), `trail-cg-release-${tag.replaceAll('/', '-')}`);
+      try {
+        opts.onProgress?.(`Generating code graph for release ${tag}...`);
+        if (fs.existsSync(tmpDir)) {
+          try {
+            execFileSync('git', ['worktree', 'remove', tmpDir, '--force'], { cwd: opts.gitRoot, stdio: 'pipe' });
+          } catch {
+            try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
+          }
+        }
+        const commitHash = git.getTagCommitHash(tag);
+        execFileSync('git', ['worktree', 'add', '--detach', tmpDir, commitHash], { cwd: opts.gitRoot, stdio: 'pipe' });
+        const worktreeNodeModules = path.join(tmpDir, 'node_modules');
+        if (!fs.existsSync(worktreeNodeModules)) {
+          fs.symlinkSync(path.join(opts.gitRoot, 'node_modules'), worktreeNodeModules, 'dir');
+        }
+        const graph = await opts.codeGraphService.generate();
+        this.saveReleaseCodeGraph(tag, graph);
+        count++;
+        opts.onProgress?.(`Release ${tag}: code graph saved`);
+      } catch (e) {
+        opts.onProgress?.(`Skipping ${tag}: ${e instanceof Error ? e.message : String(e)}`);
+      } finally {
+        try {
+          execFileSync('git', ['worktree', 'remove', tmpDir, '--force'], { cwd: opts.gitRoot, stdio: 'pipe' });
+        } catch {
+          try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
+        }
+      }
+      return runNext(i + 1);
+    };
+    void db; // db is used via this.ensureDb() in called methods
+    return runNext(0);
+  }
+
   /**
    * 互換ラッパー: id='current' なら current_graphs、それ以外は release_graphs から取得する。
    * id='current' の場合、repoName が指定されていればそのリポジトリを、未指定なら最初の1件を返す。
@@ -2206,6 +3195,321 @@ export class TrailDatabase {
       }
     }
     return out;
+  }
+
+  /**
+   * 直近 windowDays 日に変更されたファイルから時間的結合（Ghost Edge）を計算する。
+   * 静的依存ペア（current_graphs.graph_json から抽出）は excludePairs として除外する。
+   * directional: true の場合は方向性付き Confidence ベースのエッジを返す。
+   */
+  fetchTemporalCoupling(options: FetchTemporalCouplingOptions & { directional?: false }): TemporalCouplingEdge[];
+  fetchTemporalCoupling(options: FetchTemporalCouplingOptions & { directional: true }): ConfidenceCouplingEdge[];
+  fetchTemporalCoupling(
+    options: FetchTemporalCouplingOptions,
+  ): TemporalCouplingEdge[] | ConfidenceCouplingEdge[] {
+    const db = this.ensureDb();
+    const {
+      repoName,
+      windowDays,
+      directional = false,
+      confidenceThreshold = 0.5,
+      directionalDiffThreshold = 0.3,
+      granularity = 'commit',
+    } = options;
+
+    // 粒度別デフォルト
+    const isSession = granularity === 'session';
+    const isSubagentType = granularity === 'subagentType';
+    // subagentType は集約数が極端に少ない（実用 2〜6 型）。minChangeCount=2 にすると
+    // 「2 つ以上の型に跨って触られたファイル」のみが eligible になり、
+    // 役割別に専門領域が分かれる典型ケースで eligibleFiles.size<2 短絡 → 0 件となる。
+    // そのため minChangeCount=1（すべてのファイルを eligible 化）にし、
+    // 各 subagent_type の内部で co-edit ペアを描画する。
+    const minChangeCount = options.minChangeCount
+      ?? (isSubagentType ? 1 : isSession ? 3 : 5);
+    const jaccardThreshold = options.jaccardThreshold
+      ?? (isSubagentType ? 0.5 : isSession ? 0.4 : 0.5);
+    const topK = options.topK ?? 50;
+    // subagentType は 1 型あたり数百〜数千ファイルになる（general-purpose は半年で 500+）。
+    // maxFilesPerGroup を絞ると「巨大な役割」が丸ごとスキップされ実質 0 件になる典型ケースを生む。
+    // ペア計算は内部 Map で N^2 だが N=2000 なら 2M ペアで in-memory に収まるため Infinity 相当の上限にする。
+    const maxFilesPerGroup = isSubagentType ? 5000 : isSession ? 20 : 50;
+
+    const now = new Date();
+    const toIso = now.toISOString();
+    const fromIso = new Date(now.getTime() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+
+    const excludePairs = this.buildStaticDependencyPairs(repoName);
+
+    if (isSession) {
+      const editToolPlaceholders = SESSION_COUPLING_EDIT_TOOLS.map(() => '?').join(', ');
+      const result = db.exec(
+        `SELECT mtc.session_id, mtc.file_path
+         FROM message_tool_calls mtc
+         JOIN sessions s ON s.id = mtc.session_id
+         WHERE mtc.tool_name IN (${editToolPlaceholders})
+           AND mtc.file_path IS NOT NULL
+           AND mtc.file_path != ''
+           AND s.start_time >= ? AND s.start_time <= ?
+         ORDER BY mtc.session_id`,
+        [...SESSION_COUPLING_EDIT_TOOLS, fromIso, toIso],
+      );
+      const values = result[0]?.values ?? [];
+
+      // message_tool_calls.file_path は Claude Code の Edit/Write ツール input を
+      // そのまま記録するため絶対パス。CodeGraph のノード ID はリポ相対パス前提なので
+      // current_graphs.metadata.projectRoot を起点に正規化する。
+      //
+      // repoName と current_graphs.repo_name の表記が揺れる運用（例: CodeGraph 側は
+      // 'Workspace' / TrailDatabase 側はパッケージ名）にも耐えるよう、すべての
+      // current_graphs 行から projectRoot を集めて prefix match で相対化する。
+      // 短い順（リポルートに近いほうが先）にソートして、`/anytime-markdown/packages/...`
+      // のような長いルートよりリポルート側を優先する。
+      const projectRootCandidates = Array.from(
+        new Set(
+          this.listCurrentGraphs()
+            .map((g) => g.graph?.metadata?.projectRoot)
+            .filter((p): p is string => typeof p === 'string' && p.length > 0),
+        ),
+      ).sort((a, b) => a.length - b.length);
+
+      const normalize = (raw: string): string | null => {
+        if (!raw) return null;
+        if (!raw.startsWith('/')) return stripWorktreePrefix(raw);
+        for (const root of projectRootCandidates) {
+          if (raw === root) continue;
+          const prefix = root.endsWith('/') ? root : `${root}/`;
+          if (raw.startsWith(prefix)) return stripWorktreePrefix(raw.slice(prefix.length));
+        }
+        return null; // どの projectRoot にも一致しない → リポ外と判断
+      };
+
+      const sessionRows: SessionFileRow[] = [];
+      for (const r of values) {
+        const sessionId = String(r[0] ?? '');
+        const normalized = normalize(String(r[1] ?? ''));
+        if (sessionId && normalized) {
+          sessionRows.push({ sessionId, filePath: normalized });
+        }
+      }
+
+      if (directional) {
+        return computeSessionConfidenceCoupling(sessionRows, {
+          minChangeCount,
+          confidenceThreshold,
+          directionalDiffThreshold,
+          topK,
+          maxFilesPerCommit: maxFilesPerGroup,
+          excludePairs,
+          pathFilter: defaultTemporalCouplingPathFilter,
+        });
+      }
+
+      return computeSessionCoupling(sessionRows, {
+        minChangeCount,
+        jaccardThreshold,
+        topK,
+        maxFilesPerCommit: maxFilesPerGroup,
+        excludePairs,
+        pathFilter: defaultTemporalCouplingPathFilter,
+      });
+    }
+
+    if (isSubagentType) {
+      // filterBy='session' で TC subagentType の既存挙動（s.start_time でのウィンドウ判定）を維持。
+      const activityRows = this.fetchSubagentActivityRows({
+        from: fromIso,
+        to: toIso,
+        toolNames: SESSION_COUPLING_EDIT_TOOLS,
+        filterBy: 'session',
+      });
+      const values: ReadonlyArray<readonly [string, string]> = activityRows.map(
+        (r) => [r.subagentType, r.filePath] as const,
+      );
+
+      // session 粒度と同じ projectRoot 正規化を適用（mtc.file_path は絶対パス）。
+      const projectRootCandidates = Array.from(
+        new Set(
+          this.listCurrentGraphs()
+            .map((g) => g.graph?.metadata?.projectRoot)
+            .filter((p): p is string => typeof p === 'string' && p.length > 0),
+        ),
+      ).sort((a, b) => a.length - b.length);
+      const normalize = (raw: string): string | null => {
+        if (!raw) return null;
+        if (!raw.startsWith('/')) return stripWorktreePrefix(raw);
+        for (const root of projectRootCandidates) {
+          if (raw === root) continue;
+          const prefix = root.endsWith('/') ? root : `${root}/`;
+          if (raw.startsWith(prefix)) return stripWorktreePrefix(raw.slice(prefix.length));
+        }
+        return null;
+      };
+
+      const subagentRows: SubagentTypeFileRow[] = [];
+      let normalizationDropped = 0;
+      for (const r of values) {
+        const subagentType = String(r[0] ?? '');
+        const rawPath = String(r[1] ?? '');
+        const normalized = normalize(rawPath);
+        if (subagentType && normalized) {
+          subagentRows.push({ subagentType, filePath: normalized });
+        } else if (subagentType && rawPath && !normalized) {
+          normalizationDropped++;
+        }
+      }
+
+      // 0 件時の診断: 取得段階で空ならスキーマ/データの欠落、正規化で全部落ちたなら projectRoot ミスマッチ。
+      if (subagentRows.length === 0) {
+        const totalMessages = (db.exec(
+          'SELECT COUNT(*) FROM messages WHERE subagent_type IS NOT NULL',
+        )[0]?.values[0]?.[0] ?? 0) as number;
+        TrailLogger.warn(
+          `[fetchTemporalCoupling/subagentType] 0 rows. ` +
+          `messages.subagent_type populated=${totalMessages}, ` +
+          `mtc_join_rows=${values.length}, normalizationDropped=${normalizationDropped}, ` +
+          `projectRootCandidates=${projectRootCandidates.length}`,
+        );
+      } else {
+        // edges=0 が「グループのファイル数が多すぎてスキップ」由来かを確認できるよう、
+        // 粒度別の生データ件数を残す。maxFilesPerGroup 越えのグループは丸ごと aggregatePairs で除外される。
+        const filesPerType = new Map<string, Set<string>>();
+        for (const r of subagentRows) {
+          let s = filesPerType.get(r.subagentType);
+          if (!s) { s = new Set(); filesPerType.set(r.subagentType, s); }
+          s.add(r.filePath);
+        }
+        const summary = Array.from(filesPerType.entries())
+          .map(([t, s]) => `${t}=${s.size}${s.size > maxFilesPerGroup ? '(SKIPPED:>maxFilesPerGroup)' : ''}`)
+          .join(', ');
+        TrailLogger.info(
+          `[fetchTemporalCoupling/subagentType] rows=${subagentRows.length}, ` +
+          `maxFilesPerGroup=${maxFilesPerGroup}, normalizationDropped=${normalizationDropped}, ` +
+          `groups: ${summary}`,
+        );
+        // directional は粒度間で Confidence の差を見るので、グループが 1 つしかない場合は
+        // 任意のペアで co=count(A)=count(B) → C(A→B)=C(B→A)=1.0 → diff=0 で必ず undirected になる。
+        // 矢印が出ない原因が「単一グループ」であることを発見できるよう WARN を出す。
+        if (directional && filesPerType.size < 2) {
+          TrailLogger.warn(
+            `[fetchTemporalCoupling/subagentType] directional=true だが subagent_type が ${filesPerType.size} 種類しか存在しないため、` +
+            `すべてのペアが undirected になり矢印は描画されません。` +
+            `期間（windowDays）を伸ばすか、複数の subagent_type を含むデータの取り込みを確認してください。`,
+          );
+        }
+      }
+
+      if (directional) {
+        return computeSubagentTypeConfidenceCoupling(subagentRows, {
+          minChangeCount,
+          confidenceThreshold,
+          directionalDiffThreshold,
+          topK,
+          maxFilesPerCommit: maxFilesPerGroup,
+          excludePairs,
+          pathFilter: defaultTemporalCouplingPathFilter,
+        });
+      }
+
+      return computeSubagentTypeCoupling(subagentRows, {
+        minChangeCount,
+        jaccardThreshold,
+        topK,
+        maxFilesPerCommit: maxFilesPerGroup,
+        excludePairs,
+        pathFilter: defaultTemporalCouplingPathFilter,
+      });
+    }
+
+    // commit 粒度 (Phase 1/2)
+    const result = db.exec(
+      `SELECT cf.commit_hash, cf.file_path
+       FROM commit_files cf
+       WHERE cf.commit_hash IN (
+         SELECT DISTINCT commit_hash FROM session_commits
+         WHERE committed_at >= ? AND committed_at <= ?
+       )
+       ORDER BY cf.commit_hash`,
+      [fromIso, toIso],
+    );
+    const values = result[0]?.values ?? [];
+    const rows: CommitFileRow[] = values.map((r) => ({
+      commitHash: String(r[0] ?? ''),
+      filePath: String(r[1] ?? ''),
+    }));
+
+    if (directional) {
+      return computeConfidenceCoupling(rows, {
+        minChangeCount,
+        confidenceThreshold,
+        directionalDiffThreshold,
+        topK,
+        maxFilesPerCommit: maxFilesPerGroup,
+        excludePairs,
+        pathFilter: defaultTemporalCouplingPathFilter,
+      });
+    }
+
+    return computeTemporalCoupling(rows, {
+      minChangeCount,
+      jaccardThreshold,
+      topK,
+      maxFilesPerCommit: maxFilesPerGroup,
+      excludePairs,
+      pathFilter: defaultTemporalCouplingPathFilter,
+    });
+  }
+
+  fetchDefectRisk(options: FetchDefectRiskOptions): DefectRiskEntry[] {
+    const db = this.ensureDb();
+    const { windowDays, halfLifeDays } = options;
+    const now = new Date();
+    const toIso = now.toISOString();
+    const fromIso = new Date(now.getTime() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+
+    const result = db.exec(
+      `SELECT sc.commit_hash, sc.commit_message, sc.committed_at, cf.file_path
+       FROM session_commits sc
+       JOIN commit_files cf ON cf.commit_hash = sc.commit_hash
+       WHERE sc.committed_at >= ? AND sc.committed_at <= ?
+       ORDER BY sc.committed_at`,
+      [fromIso, toIso],
+    );
+
+    const values = result[0]?.values ?? [];
+    const rows: CommitRiskRow[] = values.map((r) => ({
+      commitHash: String(r[0] ?? ''),
+      commitMessage: String(r[1] ?? ''),
+      committedAt: String(r[2] ?? ''),
+      filePath: String(r[3] ?? ''),
+    })).filter((r) => r.filePath && r.commitHash);
+
+    return computeDefectRisk(rows, { halfLifeDays });
+  }
+
+  /**
+   * current_graphs.graph_json の import エッジから、ファイル間の静的依存ペアを抽出する。
+   * 同一ファイル内のシンボル参照は除外する。
+   */
+  private buildStaticDependencyPairs(repoName: string): ReadonlyArray<readonly [string, string]> {
+    const graph = this.getCurrentGraph(repoName);
+    if (!graph) return [];
+    const idToFile = new Map<string, string>();
+    for (const node of graph.nodes) {
+      if (node.filePath) idToFile.set(node.id, node.filePath);
+    }
+    const seen = new Set<string>();
+    const pairs: Array<readonly [string, string]> = [];
+    for (const edge of graph.edges) {
+      const src = idToFile.get(edge.source);
+      const tgt = idToFile.get(edge.target);
+      if (!src || !tgt || src === tgt) continue;
+      const key = src < tgt ? `${src} ${tgt}` : `${tgt} ${src}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      pairs.push([src, tgt]);
+    }
+    return pairs;
   }
 
   /** current_graphs の commit_id を取得する内部ヘルパ */
@@ -2282,9 +3586,9 @@ export class TrailDatabase {
       conditions.push('s.model = ?');
       params.push(filters.model);
     }
-    if (filters?.project) {
-      conditions.push('s.project = ?');
-      params.push(filters.project);
+    if (filters?.repository) {
+      conditions.push('s.repo_name = ?');
+      params.push(filters.repository);
     }
     if (filters?.from) {
       conditions.push('s.start_time >= ?');
@@ -2522,6 +3826,77 @@ export class TrailDatabase {
     return result;
   }
 
+  getSessionDistinctAgentIdCounts(sessionIds: readonly string[]): Map<string, number> {
+    if (sessionIds.length === 0) return new Map();
+    const db = this.ensureDb();
+    const result = new Map<string, number>();
+    const placeholders = sessionIds.map(() => '?').join(',');
+    try {
+      const rows = db.exec(
+        `SELECT session_id, COUNT(DISTINCT agent_id) AS agent_count
+         FROM messages
+         WHERE session_id IN (${placeholders})
+           AND agent_id IS NOT NULL
+           AND agent_id != ''
+         GROUP BY session_id`,
+        sessionIds as string[],
+      );
+      for (const row of rows[0]?.values ?? []) {
+        result.set(String(row[0]), Number(row[1]));
+      }
+    } catch {
+      // Graceful fallback
+    }
+    return result;
+  }
+
+  getSessionDelegatedTrackCounts(sessionIds: readonly string[]): Map<string, number> {
+    if (sessionIds.length === 0) return new Map();
+    const db = this.ensureDb();
+    const result = new Map<string, number>();
+    const placeholders = sessionIds.map(() => '?').join(',');
+    try {
+      const rows = db.exec(
+        `SELECT session_id, tool_calls
+         FROM messages
+         WHERE session_id IN (${placeholders})
+           AND type = 'assistant'
+           AND (agent_id IS NULL OR agent_id = '')
+           AND tool_calls IS NOT NULL`,
+        sessionIds as string[],
+      );
+      const tracksBySession = new Map<string, Set<string>>();
+      for (const row of rows[0]?.values ?? []) {
+        const sid = String(row[0] ?? '');
+        const toolCallsJson = typeof row[1] === 'string' ? row[1] : '';
+        if (!sid || !toolCallsJson) continue;
+        let calls: Array<{ name?: string; input?: Record<string, unknown> }> = [];
+        try {
+          calls = JSON.parse(toolCallsJson) as Array<{ name?: string; input?: Record<string, unknown> }>;
+        } catch {
+          continue;
+        }
+        const agentCall = calls.find((c) => c.name === 'Agent');
+        if (!agentCall) continue;
+        const subagentType = typeof agentCall.input?.subagent_type === 'string'
+          ? agentCall.input.subagent_type
+          : 'unknown';
+        let set = tracksBySession.get(sid);
+        if (!set) {
+          set = new Set<string>();
+          tracksBySession.set(sid, set);
+        }
+        set.add(`delegated:${subagentType}`);
+      }
+      for (const [sid, set] of tracksBySession.entries()) {
+        result.set(sid, set.size);
+      }
+    } catch {
+      // Graceful fallback
+    }
+    return result;
+  }
+
   getSessionCommits(sessionId: string): SessionCommitRow[] {
     const db = this.ensureDb();
     const stmt = db.prepare(
@@ -2690,6 +4065,34 @@ export class TrailDatabase {
         }
       }
     }
+    const fallback = db.exec(
+      `SELECT uuid, type, timestamp, tool_calls, tool_use_result
+       FROM messages
+       WHERE session_id = ?
+       ORDER BY timestamp ASC, uuid ASC`,
+      [sessionId],
+    );
+    const rows = fallback[0]?.values ?? [];
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const uuid = row[0];
+      const type = row[1];
+      const timestamp = row[2];
+      const toolCalls = row[3];
+      if (typeof uuid !== 'string' || map.has(uuid)) continue;
+      if (type !== 'assistant' || typeof timestamp !== 'string' || typeof toolCalls !== 'string') continue;
+      const startMs = new Date(timestamp).getTime();
+      if (!Number.isFinite(startMs)) continue;
+      for (let j = i + 1; j < rows.length; j++) {
+        const next = rows[j];
+        if (next[1] !== 'user' || typeof next[2] !== 'string' || typeof next[4] !== 'string') continue;
+        const endMs = new Date(next[2]).getTime();
+        if (Number.isFinite(endMs) && endMs > startMs) {
+          map.set(uuid, endMs - startMs);
+        }
+        break;
+      }
+    }
     return map;
   }
 
@@ -2705,6 +4108,246 @@ export class TrailDatabase {
       rows.push(stmt.getAsObject() as unknown as MessageRow);
     }
     stmt.free();
+    return rows;
+  }
+
+  /**
+   * 委任 (CC sidechain or codex) を CC 親 assistant UUID から委任先 codex session ID へ解決する。
+   * 1セッション分の解決を行うラッパー。バッチ実行は `fetchLinkedCodexSessionMapForCcSessions` を使う。
+   */
+  getLinkedCodexSessionByAssistantUuid(sessionId: string): Map<string, string> {
+    return this.fetchLinkedCodexSessionMapForCcSessions([sessionId]).get(sessionId) ?? new Map();
+  }
+
+  getLinkedCodexSessionCount(sessionId: string): number {
+    return new Set(this.getLinkedCodexSessionByAssistantUuid(sessionId).values()).size;
+  }
+
+  /**
+   * 期間 [from, to] 内の Claude Code セッションから委任された codex セッション ID 集合。
+   */
+  fetchLinkedCodexSessionIdsInRange(from: string, to: string): Set<string> {
+    const out = new Set<string>();
+    try {
+      const db = this.ensureDb();
+      const ccRes = db.exec(
+        `SELECT id FROM sessions
+         WHERE source = 'claude_code'
+           AND start_time >= ? AND start_time <= ?`,
+        [from, to],
+      );
+      const ccIds = (ccRes[0]?.values ?? [])
+        .map((r) => String(r[0] ?? ''))
+        .filter((s) => s.length > 0);
+      const linkMap = this.fetchLinkedCodexSessionMapForCcSessions(ccIds);
+      for (const m of linkMap.values()) {
+        for (const codexId of m.values()) out.add(codexId);
+      }
+    } catch (e) {
+      TrailLogger.warn(
+        `fetchLinkedCodexSessionIdsInRange failed (returning empty set): ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+    return out;
+  }
+
+  /**
+   * 複数 CC セッションについて `(parent_assistant_uuid → codex_session_id)` Map をバッチ解決する。
+   * クエリ数は CC セッション数によらず最大 3。N+1 を避けるための共通実装。
+   */
+  private fetchLinkedCodexSessionMapForCcSessions(
+    ccSessionIds: readonly string[],
+  ): Map<string, Map<string, string>> {
+    const out = new Map<string, Map<string, string>>();
+    if (ccSessionIds.length === 0) return out;
+    const db = this.ensureDb();
+    const idPlaceholders = ccSessionIds.map(() => '?').join(',');
+
+    type Delegation = { ccSessionId: string; parentUuid: string; ms: number };
+    type CodexSess = { id: string; repoName: string; startMs: number; endMs: number };
+
+    const ccRepoRes = db.exec(
+      `SELECT id, repo_name FROM sessions WHERE id IN (${idPlaceholders})`,
+      ccSessionIds as string[],
+    );
+    const repoByCcId = new Map<string, string>();
+    for (const r of ccRepoRes[0]?.values ?? []) {
+      repoByCcId.set(String(r[0] ?? ''), String(r[1] ?? ''));
+    }
+
+    const delegRes = db.exec(
+      `SELECT session_id, source_tool_assistant_uuid, MIN(timestamp)
+       FROM messages
+       WHERE session_id IN (${idPlaceholders})
+         AND source_tool_assistant_uuid IS NOT NULL
+         AND source_tool_assistant_uuid != ''
+       GROUP BY session_id, source_tool_assistant_uuid`,
+      ccSessionIds as string[],
+    );
+    const delegationsByCc = new Map<string, Delegation[]>();
+    const repoNamesNeeded = new Set<string>();
+    for (const r of delegRes[0]?.values ?? []) {
+      const ccId = String(r[0] ?? '');
+      const parent = String(r[1] ?? '');
+      const ts = String(r[2] ?? '');
+      const ms = Date.parse(ts);
+      if (!ccId || !parent || !Number.isFinite(ms)) continue;
+      const list = delegationsByCc.get(ccId) ?? [];
+      list.push({ ccSessionId: ccId, parentUuid: parent, ms });
+      delegationsByCc.set(ccId, list);
+      repoNamesNeeded.add(repoByCcId.get(ccId) ?? '');
+    }
+    if (delegationsByCc.size === 0) return out;
+
+    const repoFilter = Array.from(repoNamesNeeded).filter((r) => r.length > 0);
+    const codexRes = repoFilter.length > 0
+      ? db.exec(
+          `SELECT id, repo_name, start_time, end_time
+           FROM sessions
+           WHERE source = 'codex' AND repo_name IN (${repoFilter.map(() => '?').join(',')})
+           ORDER BY start_time ASC`,
+          repoFilter,
+        )
+      : db.exec(
+          `SELECT id, repo_name, start_time, end_time
+           FROM sessions WHERE source = 'codex' ORDER BY start_time ASC`,
+        );
+    const codexByRepo = new Map<string, CodexSess[]>();
+    for (const r of codexRes[0]?.values ?? []) {
+      const id = String(r[0] ?? '');
+      const repo = String(r[1] ?? '');
+      const startMs = Date.parse(String(r[2] ?? ''));
+      const endMs = Date.parse(String(r[3] ?? ''));
+      if (!id || !Number.isFinite(startMs) || !Number.isFinite(endMs)) continue;
+      const list = codexByRepo.get(repo) ?? [];
+      list.push({ id, repoName: repo, startMs, endMs });
+      codexByRepo.set(repo, list);
+    }
+
+    for (const [ccId, delegations] of delegationsByCc) {
+      const repo = repoByCcId.get(ccId) ?? '';
+      const candidates = codexByRepo.get(repo) ?? [];
+      if (candidates.length === 0) continue;
+      const m = new Map<string, string>();
+      for (const d of delegations) {
+        const matched = matchCodexSessionByTime(d.ms, candidates);
+        if (matched) m.set(d.parentUuid, matched);
+      }
+      if (m.size > 0) out.set(ccId, m);
+    }
+    return out;
+  }
+
+  /**
+   * subagent 粒度の集計で使用する活動行を返す共通関数。
+   * - 経路 A (CC ネイティブ subagent): `messages.subagent_type IS NOT NULL` の編集行
+   * - 経路 B (codex 委任): `sessions.source='codex'` かつ範囲内 CC から委任された session の編集行
+   *   → `subagentType` ラベルとして `'codex'` を合成
+   *
+   * `filterBy`:
+   *   - `'message'` (default): `m.timestamp` で範囲フィルタ。Heatmap/Trend/Hotspot 用
+   *   - `'session'`: `s.start_time` で範囲フィルタ。TC subagentType 既存挙動互換
+   *
+   * 戻り値は `committedAt` (= messages.timestamp) でソート済み。
+   */
+  fetchSubagentActivityRows(params: {
+    from: string;
+    to: string;
+    toolNames: readonly string[];
+    filterBy?: 'message' | 'session';
+  }): ReadonlyArray<{
+    readonly committedAt: string;
+    readonly filePath: string;
+    readonly subagentType: string;
+    readonly sessionId: string;
+    readonly messageUuid: string;
+  }> {
+    const db = this.ensureDb();
+    const { from, to, toolNames, filterBy = 'message' } = params;
+    if (toolNames.length === 0) return [];
+
+    const toolPlaceholders = toolNames.map(() => '?').join(',');
+    const rows: Array<{
+      committedAt: string;
+      filePath: string;
+      subagentType: string;
+      sessionId: string;
+      messageUuid: string;
+    }> = [];
+
+    const rangeJoin = filterBy === 'session'
+      ? 'INNER JOIN sessions s ON s.id = m.session_id'
+      : '';
+    const rangeWhere = filterBy === 'session'
+      ? 's.start_time >= ? AND s.start_time <= ?'
+      : 'm.timestamp >= ? AND m.timestamp <= ?';
+
+    // 経路 A: CC ネイティブ subagent
+    try {
+      const resA = db.exec(
+        `SELECT m.timestamp, mtc.file_path, m.subagent_type, m.session_id, m.uuid
+         FROM message_tool_calls mtc
+         INNER JOIN messages m ON m.uuid = mtc.message_uuid
+         ${rangeJoin}
+         WHERE ${rangeWhere}
+           AND mtc.tool_name IN (${toolPlaceholders})
+           AND mtc.file_path IS NOT NULL
+           AND mtc.file_path != ''
+           AND m.subagent_type IS NOT NULL`,
+        [from, to, ...toolNames],
+      );
+      for (const row of resA[0]?.values ?? []) {
+        const subagentType = String(row[2] ?? '');
+        if (!subagentType) continue;
+        rows.push({
+          committedAt: String(row[0] ?? ''),
+          filePath: String(row[1] ?? ''),
+          subagentType,
+          sessionId: String(row[3] ?? ''),
+          messageUuid: String(row[4] ?? ''),
+        });
+      }
+    } catch (e) {
+      TrailLogger.warn(
+        `fetchSubagentActivityRows path A (cc subagent) failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+
+    // 経路 B: codex 委任セッション（同一 repo + 時刻近傍でリンク済）
+    const codexSessionIds = this.fetchLinkedCodexSessionIdsInRange(from, to);
+    if (codexSessionIds.size > 0) {
+      try {
+        const idList = Array.from(codexSessionIds);
+        const idPlaceholders = idList.map(() => '?').join(',');
+        const resB = db.exec(
+          `SELECT m.timestamp, mtc.file_path, m.session_id, m.uuid
+           FROM message_tool_calls mtc
+           INNER JOIN messages m ON m.uuid = mtc.message_uuid
+           ${rangeJoin}
+           WHERE ${rangeWhere}
+             AND mtc.tool_name IN (${toolPlaceholders})
+             AND mtc.file_path IS NOT NULL
+             AND mtc.file_path != ''
+             AND m.session_id IN (${idPlaceholders})`,
+          [from, to, ...toolNames, ...idList],
+        );
+        for (const row of resB[0]?.values ?? []) {
+          rows.push({
+            committedAt: String(row[0] ?? ''),
+            filePath: String(row[1] ?? ''),
+            subagentType: CODEX_SUBAGENT_TYPE,
+            sessionId: String(row[2] ?? ''),
+            messageUuid: String(row[3] ?? ''),
+          });
+        }
+      } catch (e) {
+        TrailLogger.warn(
+          `fetchSubagentActivityRows path B (codex linked) failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    }
+
+    rows.sort((a, b) => (a.committedAt < b.committedAt ? -1 : a.committedAt > b.committedAt ? 1 : 0));
     return rows;
   }
 
@@ -3200,23 +4843,56 @@ export class TrailDatabase {
   getAnalytics(): AnalyticsData {
     const db = this.ensureDb();
 
-    // Token totals from session_costs
-    const totals = db.exec(
-      `SELECT COALESCE(SUM(input_tokens),0),
-        COALESCE(SUM(output_tokens),0),
-        COALESCE(SUM(cache_read_tokens),0),
-        COALESCE(SUM(cache_creation_tokens),0),
-        COALESCE(SUM(estimated_cost_usd),0),
-        (SELECT COUNT(*) FROM sessions)
-      FROM session_costs`,
+    // Token totals from messages with source-aware missing-rate compensation
+    const tzOffset = this.getLocalTzOffset();
+    const tokensBySourceResult = db.exec(
+      `SELECT s.source,
+        SUM(COALESCE(m.input_tokens,0)) AS raw_input,
+        SUM(COALESCE(m.output_tokens,0)) AS raw_output,
+        SUM(COALESCE(m.cache_read_tokens,0)) AS raw_cache_read,
+        SUM(COALESCE(m.cache_creation_tokens,0)) AS raw_cache_creation,
+        COUNT(*) AS total_turns,
+        SUM(CASE WHEN COALESCE(m.input_tokens,0)+COALESCE(m.output_tokens,0)
+                      +COALESCE(m.cache_read_tokens,0)+COALESCE(m.cache_creation_tokens,0)=0
+                 THEN 1 ELSE 0 END) AS missing_turns
+       FROM messages m
+       JOIN sessions s ON s.id = m.session_id
+       WHERE m.type = 'assistant'
+       GROUP BY s.source`,
     );
-    const tr = totals[0]?.values[0] ?? [0, 0, 0, 0, 0, 0];
-    const totalInput = Number(tr[0]);
-    const totalOutput = Number(tr[1]);
-    const totalCacheRead = Number(tr[2]);
-    const totalCacheCreation = Number(tr[3]);
-    const totalEstimatedCost = Number(tr[4]);
-    const totalSessions = Number(tr[5]);
+    const factorBySource = new Map<string, number>();
+    let totalInput = 0, totalOutput = 0, totalCacheRead = 0, totalCacheCreation = 0;
+    for (const row of tokensBySourceResult[0]?.values ?? []) {
+      const source = String(row[0] ?? '');
+      const rawInput = Number(row[1]);
+      const rawOutput = Number(row[2]);
+      const rawCacheRead = Number(row[3]);
+      const rawCacheCreation = Number(row[4]);
+      const totalTurns = Number(row[5]);
+      const missingTurns = Number(row[6]);
+      const observed = totalTurns - missingTurns;
+      const factor = observed > 0 ? totalTurns / observed : 1;
+      factorBySource.set(source, factor);
+      totalInput += Math.round(rawInput * factor);
+      totalOutput += Math.round(rawOutput * factor);
+      totalCacheRead += Math.round(rawCacheRead * factor);
+      totalCacheCreation += Math.round(rawCacheCreation * factor);
+    }
+    // Estimated cost from session_costs with source factor
+    const costBySourceResult = db.exec(
+      `SELECT s.source, COALESCE(SUM(sc.estimated_cost_usd), 0)
+       FROM session_costs sc
+       JOIN sessions s ON s.id = sc.session_id
+       GROUP BY s.source`,
+    );
+    let totalEstimatedCost = 0;
+    for (const row of costBySourceResult[0]?.values ?? []) {
+      const source = String(row[0] ?? '');
+      const rawCost = Number(row[1]);
+      const factor = factorBySource.get(source) ?? 1;
+      totalEstimatedCost += rawCost * factor;
+    }
+    const totalSessions = Number(db.exec(`SELECT COUNT(*) FROM sessions`)[0]?.values[0]?.[0] ?? 0);
 
     // Tool usage TOP 15
     const toolsSql = `SELECT jt.value AS name, COUNT(*) AS cnt
@@ -3242,27 +4918,91 @@ export class TrailDatabase {
       // json functions may not be available
     }
 
-    // Daily activity from daily_counts (kind='cost_actual', last 90 days — frontend filters to 7/30/90)
-    const tzOffset = this.getLocalTzOffset();
-    const dailyResult = db.exec(
-      `SELECT date,
-        SUM(input_tokens), SUM(output_tokens),
-        SUM(cache_read_tokens), SUM(cache_creation_tokens),
-        SUM(estimated_cost_usd),
-        0 AS sessions
-       FROM daily_counts
-       WHERE kind = 'cost_actual' AND date >= DATE('now', '${tzOffset}', '-90 days')
-       GROUP BY date ORDER BY date`,
+    // Daily activity from messages with source-aware factor (last 90 days)
+    const dailyMsgResult = db.exec(
+      `SELECT DATE(m.timestamp, '${tzOffset}') AS date,
+        s.source,
+        SUM(COALESCE(m.input_tokens,0)) AS raw_input,
+        SUM(COALESCE(m.output_tokens,0)) AS raw_output,
+        SUM(COALESCE(m.cache_read_tokens,0)) AS raw_cache_read,
+        SUM(COALESCE(m.cache_creation_tokens,0)) AS raw_cache_creation,
+        COUNT(*) AS total_turns,
+        SUM(CASE WHEN COALESCE(m.input_tokens,0)+COALESCE(m.output_tokens,0)
+                      +COALESCE(m.cache_read_tokens,0)+COALESCE(m.cache_creation_tokens,0)=0
+                 THEN 1 ELSE 0 END) AS missing_turns
+       FROM messages m
+       JOIN sessions s ON s.id = m.session_id
+       WHERE m.type = 'assistant'
+         AND DATE(m.timestamp, '${tzOffset}') >= DATE('now', '${tzOffset}', '-180 days')
+       GROUP BY date, s.source
+       ORDER BY date`,
     );
-    const dailyActivity = (dailyResult[0]?.values ?? []).map((r) => ({
-      date: String(r[0]),
-      sessions: Number(r[6]),
-      inputTokens: Number(r[1]),
-      outputTokens: Number(r[2]),
-      cacheReadTokens: Number(r[3]),
-      cacheCreationTokens: Number(r[4]),
-      estimatedCostUsd: Number(r[5]),
-    }));
+    const dailyCostResult = db.exec(
+      `SELECT DATE(s.start_time, '${tzOffset}') AS date,
+        s.source, COALESCE(SUM(sc.estimated_cost_usd), 0)
+       FROM session_costs sc
+       JOIN sessions s ON s.id = sc.session_id
+       WHERE DATE(s.start_time, '${tzOffset}') >= DATE('now', '${tzOffset}', '-180 days')
+       GROUP BY date, s.source`,
+    );
+    type DailyEntry = { sessions: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number; estimatedCostUsd: number; commits: number; linesAdded: number };
+    const dailyMap = new Map<string, DailyEntry>();
+    for (const row of dailyMsgResult[0]?.values ?? []) {
+      const date = String(row[0]);
+      const source = String(row[1] ?? '');
+      const rawInput = Number(row[2]);
+      const rawOutput = Number(row[3]);
+      const rawCacheRead = Number(row[4]);
+      const rawCacheCreation = Number(row[5]);
+      const totalTurns = Number(row[6]);
+      const missingTurns = Number(row[7]);
+      const observed = totalTurns - missingTurns;
+      const factor = observed > 0 ? totalTurns / observed : 1;
+      const entry = dailyMap.get(date) ?? { sessions: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, estimatedCostUsd: 0, commits: 0, linesAdded: 0 };
+      entry.inputTokens += Math.round(rawInput * factor);
+      entry.outputTokens += Math.round(rawOutput * factor);
+      entry.cacheReadTokens += Math.round(rawCacheRead * factor);
+      entry.cacheCreationTokens += Math.round(rawCacheCreation * factor);
+      dailyMap.set(date, entry);
+    }
+    for (const row of dailyCostResult[0]?.values ?? []) {
+      const date = String(row[0]);
+      const source = String(row[1] ?? '');
+      const rawCost = Number(row[2]);
+      const factor = factorBySource.get(source) ?? 1;
+      const entry = dailyMap.get(date) ?? { sessions: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, estimatedCostUsd: 0, commits: 0, linesAdded: 0 };
+      entry.estimatedCostUsd += rawCost * factor;
+      dailyMap.set(date, entry);
+    }
+
+    // Sessions, Commits, LOC daily breakdown
+    const dailyStatsResult = db.exec(
+      `SELECT date,
+              SUM(sessions) AS sessions,
+              SUM(commits) AS commits,
+              SUM(loc) AS loc
+       FROM (
+         SELECT DATE(start_time, '${tzOffset}') AS date, COUNT(*) AS sessions, 0 AS commits, 0 AS loc
+         FROM sessions WHERE start_time != '' GROUP BY date
+         UNION ALL
+         SELECT DATE(committed_at, '${tzOffset}') AS date, 0 AS sessions, COUNT(*) AS commits, SUM(lines_added) AS loc
+         FROM session_commits WHERE committed_at != '' GROUP BY date
+       )
+       WHERE date >= DATE('now', '${tzOffset}', '-180 days')
+       GROUP BY date`,
+    );
+    for (const row of dailyStatsResult[0]?.values ?? []) {
+      const date = String(row[0]);
+      const entry = dailyMap.get(date) ?? { sessions: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, estimatedCostUsd: 0, commits: 0, linesAdded: 0 };
+      entry.sessions += Number(row[1]);
+      entry.commits += Number(row[2]);
+      entry.linesAdded += Number(row[3]);
+      dailyMap.set(date, entry);
+    }
+
+    const dailyActivity = [...dailyMap.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, v]) => ({ date, ...v }));
 
     // Commit totals
     const commitTotals = db.exec(
@@ -3298,6 +5038,10 @@ export class TrailDatabase {
       durationResult[0]?.values[0]?.[0] ?? 0,
     );
 
+    // Current total LOC from current_coverage
+    const locResult = db.exec(`SELECT COALESCE(SUM(lines_total), 0) FROM current_coverage`);
+    const totalLoc = Number(locResult[0]?.values[0]?.[0] ?? 0);
+
     // Tool-call-based metrics (Retry Rate, Build/Test Fail Rate)
     const toolMetrics = this.computeToolMetrics();
 
@@ -3315,6 +5059,7 @@ export class TrailDatabase {
         totalFilesChanged,
         totalAiAssistedCommits,
         totalSessionDurationMs,
+        totalLoc,
         ...toolMetrics,
       },
       toolUsage,
@@ -3329,6 +5074,12 @@ export class TrailDatabase {
     const periodExpr = period === 'week' ? `strftime('%Y-W%W', date)` : 'date';
     const cutoff = `DATE('now', '-${rangeDays} days')`;
     const tzOffset = this.getLocalTzOffset();
+    const messagePeriodExpr = period === 'week'
+      ? `strftime('%Y-W%W', m.timestamp, '${tzOffset}')`
+      : `DATE(m.timestamp, '${tzOffset}')`;
+    const sessionStartPeriodExpr = period === 'week'
+      ? `strftime('%Y-W%W', s.start_time, '${tzOffset}')`
+      : `DATE(s.start_time, '${tzOffset}')`;
     const commitPeriodExpr = period === 'week'
       ? `strftime('%Y-W%W', committed_at, '${tzOffset}')`
       : `DATE(committed_at, '${tzOffset}')`;
@@ -3339,22 +5090,68 @@ export class TrailDatabase {
       return values.map(row => Object.fromEntries(columns.map((c, i) => [c, row[i]])));
     };
 
-    const toolResult = db.exec(
-      `SELECT ${periodExpr} AS period, key AS tool,
-              SUM(count) AS count,
-              SUM(tokens) AS tokens,
-              SUM(duration_ms) AS duration_ms
-       FROM daily_counts
-       WHERE kind = 'tool' AND date >= ${cutoff}
-       GROUP BY period, key`,
+    const toolRawResult = db.exec(
+      `SELECT ${messagePeriodExpr} AS period,
+             CASE
+               WHEN tool_name LIKE 'mcp\\_\\_%\\_\\_%' ESCAPE '\\'
+               THEN SUBSTR(tool_name, 1, INSTR(SUBSTR(tool_name, 6), '__') + 4)
+               ELSE tool_name
+             END AS tool,
+             s.source,
+             COUNT(*) AS count,
+             CAST(SUM(ROUND(1.0 * (COALESCE(m.input_tokens,0)+COALESCE(m.output_tokens,0)) / tools_in_msg)) AS INTEGER) AS tokens,
+             CAST(SUM(ROUND(1.0 * COALESCE(tc.turn_exec_ms,0) / tools_in_turn)) AS INTEGER) AS duration_ms,
+             SUM(CASE WHEN m.type = 'assistant' THEN 1 ELSE 0 END) AS token_total_turns,
+             SUM(CASE WHEN m.type = 'assistant'
+                       AND COALESCE(m.input_tokens,0) + COALESCE(m.output_tokens,0)
+                          + COALESCE(m.cache_read_tokens,0) + COALESCE(m.cache_creation_tokens,0) = 0
+                      THEN 1 ELSE 0 END) AS token_missing_turns
+      FROM (
+        SELECT tc.session_id, tc.message_uuid, tc.tool_name, tc.turn_exec_ms,
+               COUNT(*) OVER (PARTITION BY tc.message_uuid) AS tools_in_msg,
+               COUNT(*) OVER (PARTITION BY tc.session_id, tc.turn_index) AS tools_in_turn
+        FROM message_tool_calls tc
+      ) tc
+      JOIN messages m ON m.uuid = tc.message_uuid
+      JOIN sessions s ON s.id = m.session_id
+      WHERE DATE(m.timestamp, '${tzOffset}') >= ${cutoff}
+      GROUP BY period, tool, s.source`,
     );
-    const toolCounts = toRows(toolResult).map(r => ({
-      period: String(r['period'] ?? ''),
-      tool: String(r['tool'] ?? ''),
-      count: Number(r['count'] ?? 0),
-      tokens: Number(r['tokens'] ?? 0),
-      durationMs: Number(r['duration_ms'] ?? 0),
-    }));
+    // JS 側で (period, tool) 単位に集約し factor を適用する
+    type ToolAggEntry = { count: number; durationMs: number; adjustedTokens: number; totalTurns: number; missingTurns: number };
+    const toolAggMap = new Map<string, ToolAggEntry>();
+    for (const r of toRows(toolRawResult)) {
+      const p = String(r['period'] ?? '');
+      const tool = String(r['tool'] ?? '');
+      const totalTurns = Number(r['token_total_turns'] ?? 0);
+      const missingTurns = Number(r['token_missing_turns'] ?? 0);
+      const observedTurns = totalTurns - missingTurns;
+      const factor = observedTurns > 0 ? totalTurns / observedTurns : 1;
+      const rawTokens = Number(r['tokens'] ?? 0);
+      const k = `${p}|${tool}`;
+      const cur = toolAggMap.get(k) ?? { count: 0, durationMs: 0, adjustedTokens: 0, totalTurns: 0, missingTurns: 0 };
+      cur.count += Number(r['count'] ?? 0);
+      cur.durationMs += Number(r['duration_ms'] ?? 0);
+      cur.adjustedTokens += rawTokens * factor;
+      cur.totalTurns += totalTurns;
+      cur.missingTurns += missingTurns;
+      toolAggMap.set(k, cur);
+    }
+    const toolCounts = [...toolAggMap.entries()].map(([k, e]) => {
+      const sep = k.indexOf('|');
+      const period = k.slice(0, sep);
+      const tool = k.slice(sep + 1);
+      return {
+        period,
+        tool,
+        count: e.count,
+        tokens: Math.round(e.adjustedTokens),
+        durationMs: e.durationMs,
+        tokenMissingRate: e.totalTurns > 0 ? e.missingTurns / e.totalTurns : 0,
+        tokenTotalTurns: e.totalTurns,
+        tokenMissingTurns: e.missingTurns,
+      };
+    });
 
     const errResult = db.exec(
       `SELECT ${periodExpr} AS period, key AS tool, SUM(count) AS err_count
@@ -3390,19 +5187,122 @@ export class TrailDatabase {
     }));
 
     const modelResult = db.exec(
-      `SELECT ${periodExpr} AS period, key AS model,
-              SUM(count) AS count,
-              SUM(tokens) AS tokens
-       FROM daily_counts
-       WHERE kind = 'model' AND date >= ${cutoff}
-       GROUP BY period, key`,
+      `SELECT ${messagePeriodExpr} AS period,
+              COALESCE(m.model, '') AS model,
+              s.source,
+              COUNT(*) AS count,
+              CAST(SUM(COALESCE(m.input_tokens,0) + COALESCE(m.output_tokens,0)) AS INTEGER) AS tokens,
+              SUM(CASE WHEN COALESCE(m.input_tokens,0) + COALESCE(m.output_tokens,0)
+                              + COALESCE(m.cache_read_tokens,0) + COALESCE(m.cache_creation_tokens,0) = 0
+                       THEN 1 ELSE 0 END) AS token_missing_turns
+       FROM messages m
+       INNER JOIN sessions s ON s.id = m.session_id
+       WHERE m.type = 'assistant' AND DATE(m.timestamp, '${tzOffset}') >= ${cutoff}
+       GROUP BY period, COALESCE(m.model, ''), s.source`,
     );
-    const modelStats = toRows(modelResult).map(r => ({
-      period: String(r['period'] ?? ''),
-      model: String(r['model'] ?? ''),
-      count: Number(r['count'] ?? 0),
-      tokens: Number(r['tokens'] ?? 0),
-    }));
+    const modelAggMap = new Map<string, { count: number; tokens: number; totalTurns: number; missingTurns: number }>();
+    for (const r of toRows(modelResult)) {
+      const period = String(r['period'] ?? '');
+      const source = String(r['source'] ?? '') as PricingSource;
+      const model = resolvePricingModelName(String(r['model'] ?? ''), source);
+      const count = Number(r['count'] ?? 0);
+      const rawTokens = Number(r['tokens'] ?? 0);
+      const missingTurns = Number(r['token_missing_turns'] ?? 0);
+      const observedTurns = count - missingTurns;
+      const factor = observedTurns > 0 ? count / observedTurns : 1;
+      const key = `${period}::${model}`;
+      const cur = modelAggMap.get(key) ?? { count: 0, tokens: 0, totalTurns: 0, missingTurns: 0 };
+      cur.count += count;
+      cur.tokens += Math.round(rawTokens * factor);
+      cur.totalTurns += count;
+      cur.missingTurns += missingTurns;
+      modelAggMap.set(key, cur);
+    }
+    const modelStats = [...modelAggMap.entries()].map(([k, v]) => {
+      const sep = k.indexOf('::');
+      return {
+        period: k.slice(0, sep),
+        model: k.slice(sep + 2),
+        count: v.count,
+        tokens: v.tokens,
+        tokenMissingRate: v.totalTurns > 0 ? v.missingTurns / v.totalTurns : 0,
+        tokenTotalTurns: v.totalTurns,
+        tokenMissingTurns: v.missingTurns,
+      };
+    });
+
+    const agentTokenResult = db.exec(
+      `SELECT ${messagePeriodExpr} AS period,
+              CASE WHEN s.source = 'codex' THEN 'Codex' ELSE 'Claude Code' END AS agent,
+              SUM(COALESCE(m.input_tokens,0) + COALESCE(m.output_tokens,0) + COALESCE(m.cache_read_tokens,0) + COALESCE(m.cache_creation_tokens,0)) AS tokens,
+              SUM(CASE WHEN m.type = 'assistant' THEN 1 ELSE 0 END) AS token_total_turns,
+              SUM(CASE
+                    WHEN m.type = 'assistant'
+                     AND COALESCE(m.input_tokens,0) + COALESCE(m.output_tokens,0) + COALESCE(m.cache_read_tokens,0) + COALESCE(m.cache_creation_tokens,0) = 0
+                    THEN 1 ELSE 0
+                  END) AS token_missing_turns
+       FROM messages m
+       JOIN sessions s ON s.id = m.session_id
+       WHERE DATE(m.timestamp, '${tzOffset}') >= ${cutoff}
+       GROUP BY period, agent`,
+    );
+    const agentCostResult = db.exec(
+      `SELECT ${sessionStartPeriodExpr} AS period,
+              CASE WHEN s.source = 'codex' THEN 'Codex' ELSE 'Claude Code' END AS agent,
+              SUM(COALESCE(sc.estimated_cost_usd,0)) AS cost_usd
+       FROM session_costs sc
+       JOIN sessions s ON s.id = sc.session_id
+       WHERE DATE(s.start_time, '${tzOffset}') >= ${cutoff}
+       GROUP BY period, agent`,
+    );
+    const agentLocResult = db.exec(
+      `SELECT ${commitPeriodExpr} AS period,
+              CASE WHEN s.source = 'codex' THEN 'Codex' ELSE 'Claude Code' END AS agent,
+              SUM(COALESCE(c.lines_added,0)) AS loc
+       FROM session_commits c
+       JOIN sessions s ON s.id = c.session_id
+       WHERE DATE(c.committed_at, '${tzOffset}') >= ${cutoff}
+       GROUP BY period, agent`,
+    );
+    const agentMap = new Map<string, { tokens: number; costUsd: number; loc: number; tokenTotalTurns: number; tokenMissingTurns: number }>();
+    const addAgentMetric = (period: string, agent: string, delta: Partial<{ tokens: number; costUsd: number; loc: number; tokenTotalTurns: number; tokenMissingTurns: number }>) => {
+      const key = `${period}::${agent}`;
+      const cur = agentMap.get(key) ?? { tokens: 0, costUsd: 0, loc: 0, tokenTotalTurns: 0, tokenMissingTurns: 0 };
+      cur.tokens += delta.tokens ?? 0;
+      cur.costUsd += delta.costUsd ?? 0;
+      cur.loc += delta.loc ?? 0;
+      cur.tokenTotalTurns += delta.tokenTotalTurns ?? 0;
+      cur.tokenMissingTurns += delta.tokenMissingTurns ?? 0;
+      agentMap.set(key, cur);
+    };
+    for (const r of toRows(agentTokenResult)) {
+      addAgentMetric(String(r['period'] ?? ''), String(r['agent'] ?? ''), {
+        tokens: Number(r['tokens'] ?? 0),
+        tokenTotalTurns: Number(r['token_total_turns'] ?? 0),
+        tokenMissingTurns: Number(r['token_missing_turns'] ?? 0),
+      });
+    }
+    for (const r of toRows(agentCostResult)) {
+      addAgentMetric(String(r['period'] ?? ''), String(r['agent'] ?? ''), { costUsd: Number(r['cost_usd'] ?? 0) });
+    }
+    for (const r of toRows(agentLocResult)) {
+      addAgentMetric(String(r['period'] ?? ''), String(r['agent'] ?? ''), { loc: Number(r['loc'] ?? 0) });
+    }
+    const agentStats = [...agentMap.entries()].map(([k, v]) => {
+      const sep = k.indexOf('::');
+      const observedTurns = v.tokenTotalTurns - v.tokenMissingTurns;
+      const factor = observedTurns > 0 ? v.tokenTotalTurns / observedTurns : 1;
+      return {
+        period: k.slice(0, sep),
+        agent: k.slice(sep + 2),
+        tokens: Math.round(v.tokens * factor),
+        costUsd: v.costUsd * factor,
+        loc: v.loc,
+        tokenMissingRate: v.tokenTotalTurns > 0 ? v.tokenMissingTurns / v.tokenTotalTurns : 0,
+        tokenTotalTurns: v.tokenTotalTurns,
+        tokenMissingTurns: v.tokenMissingTurns,
+      };
+    });
 
     // Commit stats: session_commits を取得し、AI 1 発成功率のファイル overlap 判定に必要な
     // committed_at / is_ai_assisted / commit_files を一緒に取る。分母の fix 検出のために
@@ -3513,6 +5413,7 @@ export class TrailDatabase {
       errorRate,
       skillStats,
       modelStats,
+      agentStats,
       commitPrefixStats,
       aiFirstTryRate,
     };
@@ -3556,7 +5457,7 @@ export class TrailDatabase {
       `SELECT date, SUBSTR(kind, 6) AS cost_type, SUM(estimated_cost_usd)
        FROM daily_counts
        WHERE kind IN ('cost_actual', 'cost_skill')
-         AND date >= DATE('now', '${tzOffset}', '-90 days')
+         AND date >= DATE('now', '${tzOffset}', '-180 days')
        GROUP BY date, kind ORDER BY date`,
     );
     const dailyMap = new Map<string, { actual: number; skill: number }>();
@@ -3663,6 +5564,115 @@ export class TrailDatabase {
     }
 
     return count;
+  }
+
+  importCurrentCoverage(gitRoot: string, repoName: string): number {
+    const db = this.ensureDb();
+    // 洗い替え
+    db.run('DELETE FROM current_coverage WHERE repo_name = ?', [repoName]);
+
+    const packagesDir = path.join(gitRoot, 'packages');
+    let count = 0;
+    let pkgDirs: string[];
+    try {
+      pkgDirs = fs.readdirSync(packagesDir);
+    } catch {
+      return 0;
+    }
+
+    const now = new Date().toISOString();
+    for (const pkgDir of pkgDirs) {
+      const summaryPath = path.join(packagesDir, pkgDir, 'coverage', 'coverage-summary.json');
+      if (!fs.existsSync(summaryPath)) continue;
+      let summary: Record<string, unknown>;
+      try {
+        summary = JSON.parse(fs.readFileSync(summaryPath, 'utf-8')) as Record<string, unknown>;
+      } catch {
+        continue;
+      }
+      const toPct = (v: number | string | undefined | null): number => { const n = Number(v ?? 0); return Number.isFinite(n) ? n : 0; };
+      for (const [key, entry] of Object.entries(summary)) {
+        const e = entry as Record<string, { total: number; covered: number; pct: number | string }>;
+        if (!e?.lines || !e?.statements || !e?.functions || !e?.branches) continue;
+        const filePath = key === 'total' ? '__total__' : key;
+        db.run(
+          `INSERT OR REPLACE INTO current_coverage (
+            repo_name, package, file_path,
+            lines_total, lines_covered, lines_pct,
+            statements_total, statements_covered, statements_pct,
+            functions_total, functions_covered, functions_pct,
+            branches_total, branches_covered, branches_pct,
+            updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            repoName, pkgDir, filePath,
+            e.lines.total, e.lines.covered, toPct(e.lines.pct),
+            e.statements.total, e.statements.covered, toPct(e.statements.pct),
+            e.functions.total, e.functions.covered, toPct(e.functions.pct),
+            e.branches.total, e.branches.covered, toPct(e.branches.pct),
+            now,
+          ],
+        );
+        count++;
+      }
+    }
+    return count;
+  }
+
+  getCurrentCoverage(repoName: string): CurrentCoverageRow[] {
+    const db = this.ensureDb();
+    const result = db.exec(
+      'SELECT repo_name, package, file_path, lines_total, lines_covered, lines_pct, statements_total, statements_covered, statements_pct, functions_total, functions_covered, functions_pct, branches_total, branches_covered, branches_pct, updated_at FROM current_coverage WHERE repo_name = ?',
+      [repoName],
+    );
+    const values = result[0]?.values ?? [];
+    return values.map((r) => ({
+      repo_name: String(r[0] ?? ''),
+      package: String(r[1] ?? ''),
+      file_path: String(r[2] ?? ''),
+      lines_total: Number(r[3] ?? 0),
+      lines_covered: Number(r[4] ?? 0),
+      lines_pct: Number(r[5] ?? 0),
+      statements_total: Number(r[6] ?? 0),
+      statements_covered: Number(r[7] ?? 0),
+      statements_pct: Number(r[8] ?? 0),
+      functions_total: Number(r[9] ?? 0),
+      functions_covered: Number(r[10] ?? 0),
+      functions_pct: Number(r[11] ?? 0),
+      branches_total: Number(r[12] ?? 0),
+      branches_covered: Number(r[13] ?? 0),
+      branches_pct: Number(r[14] ?? 0),
+      updated_at: String(r[15] ?? ''),
+    }));
+  }
+
+  getAllCurrentCoverage(): CurrentCoverageRow[] {
+    const db = this.ensureDb();
+    const result = db.exec(
+      'SELECT repo_name, package, file_path, lines_total, lines_covered, lines_pct, statements_total, statements_covered, statements_pct, functions_total, functions_covered, functions_pct, branches_total, branches_covered, branches_pct, updated_at FROM current_coverage',
+    );
+    const values = result[0]?.values ?? [];
+    // NaN-safe converter: istanbul/v8 stores "Unknown" for pct when total=0
+    // Number("Unknown") = NaN, which JSON.stringify serializes as null → Supabase NOT NULL violation
+    const toNum = (v: unknown): number => { const n = Number(v ?? 0); return Number.isFinite(n) ? n : 0; };
+    return values.map((r) => ({
+      repo_name: String(r[0] ?? ''),
+      package: String(r[1] ?? ''),
+      file_path: String(r[2] ?? ''),
+      lines_total: toNum(r[3]),
+      lines_covered: toNum(r[4]),
+      lines_pct: toNum(r[5]),
+      statements_total: toNum(r[6]),
+      statements_covered: toNum(r[7]),
+      statements_pct: toNum(r[8]),
+      functions_total: toNum(r[9]),
+      functions_covered: toNum(r[10]),
+      functions_pct: toNum(r[11]),
+      branches_total: toNum(r[12]),
+      branches_covered: toNum(r[13]),
+      branches_pct: toNum(r[14]),
+      updated_at: String(r[15] ?? ''),
+    }));
   }
 
   // -------------------------------------------------------------------------
@@ -3786,6 +5796,7 @@ export class TrailDatabase {
   analyzeReleases(
     gitRoot: string,
     onProgress?: (message: string) => void,
+    excludePatterns: readonly string[] = ['.worktrees', '.vscode-test', '__tests__', 'fixtures'],
   ): number {
     const db = this.ensureDb();
     const releases = this.getReleases();
@@ -3848,11 +5859,13 @@ export class TrailDatabase {
         // 解析実行
         const graph = analyze({
           tsconfigPath: worktreeTsconfig,
-          exclude: ['.worktrees', '.vscode-test', '__tests__', 'fixtures'],
+          exclude: excludePatterns.map(p => `**/${p}/**`),
         });
 
         // 保存（tsconfigPath は canonical パスを記録）
         this.saveReleaseGraph(graph, tsconfigPath, tag);
+        // TODO(plan/2026-05-02-code-graph-tables): importAll 単体動作を別セッションで確認後にコメントアウト解除
+        // this.analyzeReleaseCodeGraphsForce({ tag, worktreeTsconfig, codeGraphService, gitRoot });
         existingIds.add(tag);
         count++;
         onProgress?.(`Release ${tag} analyzed: ${graph.nodes.length} nodes, ${graph.edges.length} edges`);
@@ -4084,16 +6097,18 @@ export class TrailDatabase {
       }
 
       const asstRes = db.exec(
-        `SELECT session_id, timestamp, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, model
-         FROM messages
-         WHERE type = 'assistant' AND timestamp >= ? AND timestamp <= ?`,
+        `SELECT m.session_id, s.source, m.timestamp, m.input_tokens, m.output_tokens, m.cache_read_tokens, m.cache_creation_tokens, m.model
+         FROM messages m
+         INNER JOIN sessions s ON s.id = m.session_id
+         WHERE m.type = 'assistant' AND m.timestamp >= ? AND m.timestamp <= ?`,
         [f, t],
       );
 
       if (asstRes[0]) {
         for (const row of asstRes[0].values) {
           const sessionId = row[0] as string;
-          const asstTs = row[1] as string;
+          const source = row[1] as string;
+          const asstTs = row[2] as string;
           const sessionUsers = usersBySession.get(sessionId);
           if (!sessionUsers) continue;
 
@@ -4114,21 +6129,21 @@ export class TrailDatabase {
 
           const tokens = tokensByUserUuid.get(sessionUsers[idx].uuid);
           if (!tokens) continue;
-          const inputToks = (row[2] as number) ?? 0;
-          const outputToks = (row[3] as number) ?? 0;
-          const crToks = (row[4] as number) ?? 0;
-          const ccToks = (row[5] as number) ?? 0;
-          const model = (row[6] as string | null) ?? '';
+          const inputToks = (row[3] as number) ?? 0;
+          const outputToks = (row[4] as number) ?? 0;
+          const crToks = (row[5] as number) ?? 0;
+          const ccToks = (row[6] as number) ?? 0;
+          const model = (row[7] as string | null) ?? '';
           tokens.input += inputToks;
           tokens.output += outputToks;
           tokens.cr += crToks;
           tokens.cc += ccToks;
-          tokens.cost += calculateCost(normalizeModelName(model), {
+          tokens.cost += calculateCost(model, {
             inputTokens: inputToks,
             outputTokens: outputToks,
             cacheReadTokens: crToks,
             cacheCreationTokens: ccToks,
-          });
+          }, source as PricingSource);
         }
       }
 
@@ -4252,36 +6267,334 @@ export class TrailDatabase {
     const [json, revision] = res[0].values[0] as [string, string];
     return { json, revision };
   }
+
+  // ---------------------------------------------------------------------------
+  //  Hotspot / Activity Map (trail-time-axis-requirements 3.2)
+  // ---------------------------------------------------------------------------
+
+  fetchHotspotRows(params: {
+    from: string;
+    to: string;
+    granularity: 'commit' | 'session' | 'subagent';
+  }): ReadonlyArray<{ readonly filePath: string; readonly churn: number }> {
+    const db = this.ensureDb();
+    const { from, to, granularity } = params;
+
+    if (granularity === 'subagent') {
+      const activityRows = this.fetchSubagentActivityRows({
+        from,
+        to,
+        toolNames: SESSION_COUPLING_EDIT_TOOLS,
+      });
+      const churnByFile = new Map<string, number>();
+      for (const r of activityRows) {
+        if (!r.filePath) continue;
+        churnByFile.set(r.filePath, (churnByFile.get(r.filePath) ?? 0) + 1);
+      }
+      return Array.from(churnByFile.entries())
+        .map(([filePath, churn]) => ({ filePath, churn }))
+        .sort((a, b) => b.churn - a.churn);
+    }
+
+    const sql = HOTSPOT_SQL_BY_GRANULARITY[granularity];
+    const res = db.exec(sql, [from, to]);
+    if (!res.length) return [];
+    return res[0].values.map((row) => ({
+      filePath: String(row[0]),
+      churn: Number(row[1]),
+    }));
+  }
+
+  fetchActivityHeatmapRows(params: {
+    from: string;
+    to: string;
+    mode: 'session-file' | 'subagent-file';
+    rowLimit?: number;
+  }): ReadonlyArray<{
+    readonly rowId: string;
+    readonly rowLabel: string;
+    readonly filePath: string;
+    readonly count: number;
+  }> {
+    const db = this.ensureDb();
+    const { from, to, mode, rowLimit = 200 } = params;
+    if (mode === 'session-file') {
+      const sql = `
+        SELECT m.session_id AS rowId,
+               COALESCE(MAX(s.slug), m.session_id) AS slug,
+               COALESCE(MAX(DATE(m.timestamp)), '') AS sessionDate,
+               mtc.file_path AS filePath,
+               COUNT(*) AS cnt
+        FROM message_tool_calls mtc
+        INNER JOIN messages m ON mtc.message_uuid = m.uuid
+        LEFT JOIN sessions s ON m.session_id = s.id
+        WHERE m.timestamp >= ? AND m.timestamp <= ?
+          AND mtc.tool_name IN ('Edit', 'Write', 'NotebookEdit')
+          AND mtc.file_path IS NOT NULL
+        GROUP BY m.session_id, mtc.file_path
+        ORDER BY cnt DESC
+      `;
+      const res = db.exec(sql, [from, to]);
+      if (!res.length) return [];
+      const rowsAll = res[0].values.map((row) => {
+        const sessionId = String(row[0]);
+        const slug = String(row[1] ?? sessionId);
+        const date = String(row[2] ?? '');
+        const shortHash = sessionId.length > 8 ? sessionId.slice(0, 8) : sessionId;
+        const label = date ? `${slug || shortHash} (${date})` : (slug || shortHash);
+        return {
+          rowId: sessionId,
+          rowLabel: label,
+          filePath: String(row[3]),
+          count: Number(row[4]),
+        };
+      });
+      return limitToTopRowKeys(rowsAll, rowLimit);
+    }
+    const activityRows = this.fetchSubagentActivityRows({
+      from,
+      to,
+      toolNames: SESSION_COUPLING_EDIT_TOOLS,
+    });
+    const counts = new Map<string, { rowId: string; filePath: string; count: number }>();
+    for (const r of activityRows) {
+      if (!r.subagentType || !r.filePath) continue;
+      const key = `${r.subagentType} ${r.filePath}`;
+      const cur = counts.get(key);
+      if (cur) {
+        cur.count++;
+      } else {
+        counts.set(key, { rowId: r.subagentType, filePath: r.filePath, count: 1 });
+      }
+    }
+    const rowsAll = Array.from(counts.values())
+      .map(({ rowId, filePath, count }) => ({ rowId, rowLabel: rowId, filePath, count }))
+      .sort((a, b) => b.count - a.count);
+    return limitToTopRowKeys(rowsAll, rowLimit);
+  }
+
+  fetchActivityTrendRows(params: {
+    from: string;
+    to: string;
+    granularity: ActivityTrendGranularity;
+    sessionMode?: 'read' | 'write';
+    filePathsIn: ReadonlyArray<string>;
+  }): ReadonlyArray<{
+    readonly committedAt: string;
+    readonly filePath: string;
+    readonly subagentType?: string | null;
+  }> {
+    const db = this.ensureDb();
+    const { from, to, granularity, filePathsIn, sessionMode = 'write' } = params;
+    if (filePathsIn.length === 0) return [];
+
+    const useTempTable = filePathsIn.length > 900;
+    if (useTempTable) {
+      db.run('DROP TABLE IF EXISTS _hotspot_paths');
+      db.run('CREATE TEMP TABLE _hotspot_paths (file_path TEXT PRIMARY KEY)');
+      const stmt = db.prepare('INSERT OR IGNORE INTO _hotspot_paths VALUES (?)');
+      try {
+        for (const p of filePathsIn) stmt.run([p]);
+      } finally {
+        stmt.free();
+      }
+    }
+
+    const inClause = useTempTable
+      ? `(SELECT file_path FROM _hotspot_paths)`
+      : `(${filePathsIn.map(() => '?').join(',')})`;
+
+    if (granularity === 'subagent') {
+      if (useTempTable) db.run('DROP TABLE IF EXISTS _hotspot_paths');
+      const allowed = new Set(filePathsIn);
+      return this.fetchSubagentActivityRows({
+        from,
+        to,
+        toolNames: SESSION_COUPLING_EDIT_TOOLS,
+      })
+        .filter((r) => allowed.has(r.filePath))
+        .map((r) => ({
+          committedAt: r.committedAt,
+          filePath: r.filePath,
+          subagentType: r.subagentType,
+        }));
+    }
+
+    if (granularity === 'defect') {
+      const sql = `
+        SELECT sc.committed_at AS committedAt,
+               MIN(cf.file_path) AS filePath,
+               NULL AS subagentType
+        FROM session_commits sc
+        INNER JOIN commit_files cf ON cf.commit_hash = sc.commit_hash
+        WHERE sc.committed_at >= ? AND sc.committed_at <= ?
+          AND LOWER(sc.commit_message) GLOB 'fix[:(]*'
+          AND cf.file_path IN ${inClause}
+        GROUP BY sc.commit_hash
+        ORDER BY sc.committed_at
+      `;
+      const bindings = useTempTable ? [from, to] : [from, to, ...filePathsIn];
+      const res = db.exec(sql, bindings);
+      if (useTempTable) db.run('DROP TABLE IF EXISTS _hotspot_paths');
+      if (!res.length) return [];
+      return res[0].values.map((row) => {
+        const subagentType = row[2];
+        return {
+          committedAt: String(row[0]),
+          filePath: String(row[1]),
+          subagentType: subagentType == null ? null : String(subagentType),
+        };
+      });
+    }
+
+    let sql: string;
+    let bindings: Array<string | number | null>;
+    if (granularity === 'commit') {
+      sql = `
+        SELECT sc.committed_at AS committedAt, cf.file_path AS filePath, NULL AS subagentType
+        FROM commit_files cf
+        INNER JOIN session_commits sc ON cf.commit_hash = sc.commit_hash
+        WHERE sc.committed_at >= ? AND sc.committed_at <= ?
+          AND cf.file_path IN ${inClause}
+        ORDER BY sc.committed_at
+      `;
+      bindings = useTempTable ? [from, to] : [from, to, ...filePathsIn];
+    } else {
+      const toolNames = sessionMode === 'read'
+        ? ACTIVITY_TREND_READ_TOOLS
+        : SESSION_COUPLING_EDIT_TOOLS;
+      const projectRootCandidates = Array.from(
+        new Set(
+          this.listCurrentGraphs()
+            .map((g) => g.graph?.metadata?.projectRoot)
+            .filter((p): p is string => typeof p === 'string' && p.length > 0),
+        ),
+      ).sort((a, b) => a.length - b.length);
+      const normalize = (raw: string): string | null => {
+        if (!raw) return null;
+        if (!raw.startsWith('/')) return stripWorktreePrefix(raw);
+        for (const root of projectRootCandidates) {
+          if (raw === root) continue;
+          const prefix = root.endsWith('/') ? root : `${root}/`;
+          if (raw.startsWith(prefix)) return stripWorktreePrefix(raw.slice(prefix.length));
+        }
+        return null;
+      };
+      const allowed = new Set(filePathsIn);
+      const toolPlaceholders = toolNames.map(() => '?').join(', ');
+      sql = `
+        SELECT m.timestamp AS committedAt,
+               mtc.file_path AS filePath,
+               m.subagent_type AS subagentType
+        FROM message_tool_calls mtc
+        INNER JOIN messages m ON mtc.message_uuid = m.uuid
+        WHERE m.timestamp >= ? AND m.timestamp <= ?
+          AND mtc.tool_name IN (${toolPlaceholders})
+          AND mtc.file_path IS NOT NULL
+          AND mtc.file_path != ''
+        ORDER BY m.timestamp
+      `;
+      bindings = [from, to, ...toolNames];
+      const res = db.exec(sql, bindings);
+      if (useTempTable) db.run('DROP TABLE IF EXISTS _hotspot_paths');
+      if (!res.length) return [];
+      return res[0].values.flatMap((row) => {
+        const normalized = normalize(String(row[1]));
+        if (!normalized || !allowed.has(normalized)) return [];
+        const subagentType = row[2];
+        return [{
+          committedAt: String(row[0]),
+          filePath: normalized,
+          subagentType: subagentType == null ? null : String(subagentType),
+        }];
+      });
+    }
+    const res = db.exec(sql, bindings);
+    if (useTempTable) db.run('DROP TABLE IF EXISTS _hotspot_paths');
+    if (!res.length) return [];
+    return res[0].values.map((row) => {
+      const subagentType = row[2];
+      return {
+        committedAt: String(row[0]),
+        filePath: String(row[1]),
+        subagentType: subagentType == null ? null : String(subagentType),
+      };
+    });
+  }
 }
 
-// ---------------------------------------------------------------------------
-//  Cost estimation
-// ---------------------------------------------------------------------------
-
-export interface ModelRates {
-  readonly input: number;
-  readonly output: number;
-  readonly cacheRead: number;
-  readonly cacheCreation: number;
-}
-
-/** Per-1M-token rates in USD. */
-const MODEL_RATES: Record<string, ModelRates> = {
-  'claude-opus-4-6': { input: 15, output: 75, cacheRead: 1.5, cacheCreation: 18.75 },
-  'claude-sonnet-4-6': { input: 3, output: 15, cacheRead: 0.3, cacheCreation: 3.75 },
-  'claude-haiku-4-5': { input: 0.8, output: 4, cacheRead: 0.08, cacheCreation: 1.0 },
+const HOTSPOT_SQL_BY_GRANULARITY: Record<'commit' | 'session' | 'subagent', string> = {
+  commit: `
+    SELECT cf.file_path AS filePath, COUNT(DISTINCT cf.commit_hash) AS churn
+    FROM commit_files cf
+    INNER JOIN session_commits sc ON cf.commit_hash = sc.commit_hash
+    WHERE sc.committed_at >= ? AND sc.committed_at <= ?
+    GROUP BY cf.file_path
+    ORDER BY churn DESC
+  `,
+  session: `
+    SELECT mtc.file_path AS filePath, COUNT(*) AS churn
+    FROM message_tool_calls mtc
+    INNER JOIN messages m ON mtc.message_uuid = m.uuid
+    WHERE m.timestamp >= ? AND m.timestamp <= ?
+      AND mtc.tool_name IN ('Edit', 'Write', 'NotebookEdit')
+      AND mtc.file_path IS NOT NULL
+    GROUP BY mtc.file_path
+    ORDER BY churn DESC
+  `,
+  subagent: `
+    SELECT mtc.file_path AS filePath, COUNT(*) AS churn
+    FROM message_tool_calls mtc
+    INNER JOIN messages m ON mtc.message_uuid = m.uuid
+    WHERE m.timestamp >= ? AND m.timestamp <= ?
+      AND mtc.tool_name IN ('Edit', 'Write', 'NotebookEdit')
+      AND mtc.file_path IS NOT NULL
+      AND m.subagent_type IS NOT NULL
+    GROUP BY mtc.file_path
+    ORDER BY churn DESC
+  `,
 };
 
-const DEFAULT_RATES: ModelRates = { input: 3, output: 15, cacheRead: 0.3, cacheCreation: 3.75 };
-
-function getModelRates(model: string): ModelRates {
-  for (const [key, rates] of Object.entries(MODEL_RATES)) {
-    if (model.includes(key)) return rates;
+function matchCodexSessionByTime(
+  delegationMs: number,
+  candidates: ReadonlyArray<{ readonly id: string; readonly startMs: number; readonly endMs: number }>,
+): string | null {
+  let bestId: string | null = null;
+  let bestScore = Number.POSITIVE_INFINITY;
+  for (const s of candidates) {
+    const inside = delegationMs >= s.startMs - 5 * 60_000 && delegationMs <= s.endMs + 5 * 60_000;
+    const score = Math.abs(s.startMs - delegationMs);
+    if (inside && score < bestScore) {
+      bestScore = score;
+      bestId = s.id;
+    }
   }
-  // Fallback heuristics
-  if (model.includes('opus')) return MODEL_RATES['claude-opus-4-6'];
-  if (model.includes('haiku')) return MODEL_RATES['claude-haiku-4-5'];
-  return DEFAULT_RATES;
+  if (bestId) return bestId;
+  for (const s of candidates) {
+    const score = Math.abs(s.startMs - delegationMs);
+    if (score <= 60 * 60_000 && score < bestScore) {
+      bestScore = score;
+      bestId = s.id;
+    }
+  }
+  return bestId;
+}
+
+function limitToTopRowKeys<T extends { rowId: string; count: number }>(
+  rows: ReadonlyArray<T>,
+  rowLimit: number,
+): T[] {
+  const totals = new Map<string, number>();
+  for (const r of rows) {
+    totals.set(r.rowId, (totals.get(r.rowId) ?? 0) + r.count);
+  }
+  const topKeys = new Set(
+    Array.from(totals.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, rowLimit)
+      .map(([k]) => k),
+  );
+  return rows.filter((r) => topKeys.has(r.rowId));
 }
 
 export function estimateCost(
@@ -4290,14 +6603,17 @@ export function estimateCost(
   outputTokens: number,
   cacheReadTokens: number,
   cacheCreationTokens: number,
+  source?: PricingSource,
 ): number {
-  const rates = getModelRates(model);
-  return (
-    (inputTokens * rates.input +
-      outputTokens * rates.output +
-      cacheReadTokens * rates.cacheRead +
-      cacheCreationTokens * rates.cacheCreation) /
-    1_000_000
+  return calculateCost(
+    model,
+    {
+      inputTokens,
+      outputTokens,
+      cacheReadTokens,
+      cacheCreationTokens,
+    },
+    source,
   );
 }
 

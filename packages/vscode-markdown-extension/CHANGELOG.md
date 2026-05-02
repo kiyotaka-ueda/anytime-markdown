@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.13.4] - 2026-05-02
+
+### Editor Core (markdown-core)
+
+- Fixed admonition newline serialization to be idempotent
+- Updated i18n strings for press page content
+
 ## [0.13.3] - 2026-04-28
 
 ### Editor Core (markdown-core)

@@ -2,6 +2,7 @@ import { detectCycles } from '../dsm/detectCycles';
 import type { DsmMatrix } from '../dsm/types';
 import type { CoverageMatrix, ComplexityMatrix, MetricOverlay, ComplexityClass } from '../types';
 import type { ImportanceMatrix } from '../../importance/types';
+import type { HotspotMap } from '../../hotspot/types';
 
 // ─── Color constants ──────────────────────────────────────────────────────────
 
@@ -51,12 +52,43 @@ function interpolateDsmColor(t: number): string {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
+function defectRiskHeatColor(score: number): string {
+  if (score >= 0.7) return '#c62828';
+  if (score >= 0.35) return '#f9a825';
+  return '#2e7d32';
+}
+
+const HOTSPOT_FREQ_BASE = { r: 232, g: 160, b: 18 } as const; // amber #E8A012
+const HOTSPOT_RISK_BASE = { r: 232, g: 80, b: 28 } as const;  // red-orange #E8501C
+
+function hotspotColor(t: number, base: { r: number; g: number; b: number }): string {
+  const clamped = Math.max(0, Math.min(1, t));
+  // alpha ≈ 0.10 (cold) → 1.0 (hot)
+  const alpha = 0.10 + clamped * 0.90;
+  return `rgba(${base.r}, ${base.g}, ${base.b}, ${alpha.toFixed(3)})`;
+}
+
+function computeHotspotColorMap(
+  overlay: 'hotspot-frequency' | 'hotspot-risk',
+  hotspotMap: HotspotMap,
+): Map<string, string> {
+  const map = new Map<string, string>();
+  const base = overlay === 'hotspot-risk' ? HOTSPOT_RISK_BASE : HOTSPOT_FREQ_BASE;
+  for (const [elementId, entry] of hotspotMap) {
+    const value = overlay === 'hotspot-risk' ? entry.risk : entry.churnNorm;
+    map.set(elementId, hotspotColor(value, base));
+  }
+  return map;
+}
+
 export function computeColorMap(
   overlay: MetricOverlay,
   coverageMatrix: CoverageMatrix | null,
   dsmMatrix: DsmMatrix | null,
   complexityMatrix: ComplexityMatrix | null,
   importanceMatrix: ImportanceMatrix | null = null,
+  defectRiskMap: ReadonlyMap<string, number> | null = null,
+  hotspotMap: HotspotMap | null = null,
 ): Map<string, string> {
   if (overlay === 'none') return new Map();
 
@@ -130,6 +162,22 @@ export function computeColorMap(
       map.set(elementId, importanceHeatColor(score));
     }
     return map;
+  }
+
+  // ── Defect Risk ──
+  if (overlay === 'defect-risk') {
+    if (!defectRiskMap) return new Map();
+    const map = new Map<string, string>();
+    for (const [elementId, score] of defectRiskMap) {
+      map.set(elementId, defectRiskHeatColor(score));
+    }
+    return map;
+  }
+
+  // ── Hotspot ──
+  if (overlay === 'hotspot-frequency' || overlay === 'hotspot-risk') {
+    if (!hotspotMap) return new Map();
+    return computeHotspotColorMap(overlay, hotspotMap);
   }
 
   return new Map();

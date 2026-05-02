@@ -36,6 +36,9 @@ RUN npm install -g @anthropic-ai/claude-code
 # OpenAI Codex CLI のインストール
 RUN npm install -g @openai/codex
 
+# Gemini CLI のインストール
+RUN npm install -g @google/gemini-cli
+
 # Playwright のシステム依存パッケージのインストール（root で実行）
 RUN npx playwright install-deps
 

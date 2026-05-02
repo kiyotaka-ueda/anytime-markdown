@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-05-02
+
+### Graph Core (graph-core)
+
+- Dim unrelated C4 graph elements when a node is selected
+- Minimap control ordering and fit control positioning improvements
+
 ## [0.2.1] - 2026-04-24
 
 ### Changed

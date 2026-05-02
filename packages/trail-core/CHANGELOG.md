@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-05-02
+
+### Added
+
+- `current_coverage` table for release-independent coverage snapshots
+- `LOC` metric showing total lines of code from coverage data
+- CodeGraph DB persistence tables and persistence layer
+- Unit tests for coverage aggregation and parsing
+
+### Changed
+
+- Moved `importCurrentCoverage` from `importAll` to `c4Analyze`
+- Removed `graph.json` fallback; completed migration to DB-backed code graph
+
+### Fixed
+
+- Guard `CodeGraphService.loadFromDb` against uninitialized DB
+- Parse JSON object strings in `codeGraph.repositories` setting
+- Guard against NaN percentage values (Istanbul "Unknown") in coverage sync
+- Preserve AI community summaries across code graph regeneration
+- Add L4 file-level coverage entries in `aggregateCoverageFromDb`
+- Export `C4Model` type from package root
+- Add `project` field to `TrailFilter`
+
 ## [0.13.0] - 2026-04-28
 
 ### Added

@@ -5,22 +5,28 @@ import path from 'node:path';
 
 import {
   aggregateCoverage,
+  aggregateCoverageFromDb,
+  aggregateHeatmapColumnsToC4,
   buildElementTree,
   buildSourceMatrix,
+  computeActivityHeatmap,
+  computeActivityTrend,
   computeComplexityMatrix,
+  computeFileHotspot,
   fetchC4Model,
   fetchC4ModelEntries,
   filterTreeByLevel,
   parseCoverage,
 } from '@anytime-markdown/trail-core/c4';
-import type { MessageInput } from '@anytime-markdown/trail-core/c4';
+import type { FileCoverage, MessageInput } from '@anytime-markdown/trail-core/c4';
 import type {
+  C4Model,
   DocLink,
   DsmMatrix,
   FeatureMatrix,
   ImportanceMatrix,
 } from '@anytime-markdown/trail-core/c4';
-import type { TrailGraph } from '@anytime-markdown/trail-core';
+import type { TrailGraph, ReleaseCoverageRow, CurrentCoverageRow } from '@anytime-markdown/trail-core';
 import { WebSocketServer, type WebSocket } from 'ws';
 
 import type { ClientMessage, ServerMessage } from './types';
@@ -43,6 +49,91 @@ const JSON_HEADERS: Record<string, string> = {
   'Content-Type': 'application/json',
 };
 
+function clampInt(value: string | null, fallback: number, min: number, max: number): number {
+  if (value === null || value === '') return fallback;
+  const n = Number.parseInt(value, 10);
+  if (Number.isNaN(n)) return fallback;
+  return Math.min(Math.max(n, min), max);
+}
+
+const HOTSPOT_PERIODS = ['7d', '30d', '90d', 'all'] as const;
+type HotspotPeriod = typeof HOTSPOT_PERIODS[number];
+const HOTSPOT_GRANULARITIES = ['commit', 'session', 'subagent'] as const;
+type HotspotGranularity = typeof HOTSPOT_GRANULARITIES[number];
+const ACTIVITY_TREND_GRANULARITIES = ['commit', 'session', 'subagent', 'defect'] as const;
+type ActivityTrendGranularity = typeof ACTIVITY_TREND_GRANULARITIES[number];
+const ACTIVITY_TREND_SESSION_MODES = ['read', 'write'] as const;
+type ActivityTrendSessionMode = typeof ACTIVITY_TREND_SESSION_MODES[number];
+const ELEMENT_ID_RE = /^(sys|pkg|comp|code|file)[_:][\w/.:-]+$/;
+const ALL_PERIOD_FROM = '1970-01-01T00:00:00.000Z';
+const MS_PER_DAY = 86_400_000;
+
+function parseHotspotPeriod(raw: string | null): HotspotPeriod | null {
+  if (raw === null) return '30d';
+  return (HOTSPOT_PERIODS as readonly string[]).includes(raw) ? (raw as HotspotPeriod) : null;
+}
+
+function parseHotspotGranularity(raw: string | null): HotspotGranularity | null {
+  if (raw === null) return 'commit';
+  return (HOTSPOT_GRANULARITIES as readonly string[]).includes(raw) ? (raw as HotspotGranularity) : null;
+}
+
+function parseActivityTrendGranularity(raw: string | null): ActivityTrendGranularity | null {
+  if (raw === null) return 'commit';
+  return (ACTIVITY_TREND_GRANULARITIES as readonly string[]).includes(raw)
+    ? (raw as ActivityTrendGranularity)
+    : null;
+}
+
+function parseActivityTrendSessionMode(raw: string | null): ActivityTrendSessionMode | null {
+  if (raw === null) return 'write';
+  return (ACTIVITY_TREND_SESSION_MODES as readonly string[]).includes(raw)
+    ? (raw as ActivityTrendSessionMode)
+    : null;
+}
+
+function computePeriodRangeUtc(period: HotspotPeriod): { from: string; to: string } {
+  const now = new Date();
+  const to = now.toISOString();
+  if (period === 'all') return { from: ALL_PERIOD_FROM, to };
+  const days = period === '7d' ? 7 : period === '30d' ? 30 : 90;
+  const from = new Date(now.getTime() - days * MS_PER_DAY).toISOString();
+  return { from, to };
+}
+
+function collectFilePathsForElement(elementId: string, c4Model: C4Model): string[] {
+  const FILE_PREFIX = 'file::';
+  const elementById = new Map(c4Model.elements.map((el) => [el.id, el] as const));
+  const target = elementById.get(elementId);
+  const result = new Set<string>();
+  if (target && target.type === 'code' && target.id.startsWith(FILE_PREFIX)) {
+    result.add(target.id.slice(FILE_PREFIX.length));
+    return Array.from(result);
+  }
+  const visited = new Set<string>();
+  const stack: string[] = [elementId];
+  while (stack.length > 0) {
+    const cur = stack.pop();
+    if (cur === undefined || visited.has(cur)) continue;
+    visited.add(cur);
+    for (const el of c4Model.elements) {
+      if (el.boundaryId !== cur) continue;
+      if (el.type === 'code' && el.id.startsWith(FILE_PREFIX)) {
+        result.add(el.id.slice(FILE_PREFIX.length));
+      }
+      stack.push(el.id);
+    }
+  }
+  return Array.from(result);
+}
+
+function clampFloat(value: string | null, fallback: number, min: number, max: number): number {
+  if (value === null || value === '') return fallback;
+  const n = Number.parseFloat(value);
+  if (Number.isNaN(n)) return fallback;
+  return Math.min(Math.max(n, min), max);
+}
+
 // ---------------------------------------------------------------------------
 //  DSM level mapping
 // ---------------------------------------------------------------------------
@@ -62,7 +153,6 @@ export interface C4DataProvider {
   readonly currentDsmLevel: 'component' | 'package';
   readonly importanceMatrix: ImportanceMatrix | undefined;
   readonly trailGraph: TrailGraph | undefined;
-  readonly coveragePath: string | undefined;
   readonly projectRoot: string | undefined;
   handleSetDsmLevel(level: 'component' | 'package'): void;
   handleCluster(enabled: boolean): void;
@@ -502,6 +592,28 @@ export class TrailDataServer {
       );
       return;
     }
+    if (pathname === '/api/temporal-coupling' && method === 'GET') {
+      this.handleTemporalCoupling(res, parsed.searchParams);
+      return;
+    }
+
+    if (pathname === '/api/defect-risk' && method === 'GET') {
+      this.handleDefectRisk(res, parsed.searchParams);
+      return;
+    }
+
+    if (pathname === '/api/hotspot' && method === 'GET') {
+      this.handleHotspot(res, parsed.searchParams);
+      return;
+    }
+    if (pathname === '/api/activity-heatmap' && method === 'GET') {
+      this.handleActivityHeatmap(res, parsed.searchParams);
+      return;
+    }
+    if (pathname === '/api/activity-trend' && method === 'GET') {
+      this.handleActivityTrend(res, parsed.searchParams);
+      return;
+    }
 
     res.writeHead(404);
     res.end();
@@ -545,6 +657,267 @@ export class TrailDataServer {
     const result = engine.explain(id);
     res.writeHead(result ? 200 : 404, JSON_HEADERS);
     res.end(JSON.stringify(result ?? {}));
+  }
+
+  private handleTemporalCoupling(res: http.ServerResponse, params: URLSearchParams): void {
+    const repoName = params.get('repo')?.trim() ?? '';
+    if (!repoName) {
+      res.writeHead(400, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'repo is required' }));
+      return;
+    }
+
+    const granularityRaw = params.get('granularity');
+    if (
+      granularityRaw !== null
+      && granularityRaw !== 'commit'
+      && granularityRaw !== 'session'
+      && granularityRaw !== 'subagentType'
+    ) {
+      res.writeHead(400, JSON_HEADERS);
+      res.end(JSON.stringify({ error: "granularity must be 'commit', 'session', or 'subagentType'" }));
+      return;
+    }
+    const granularity: 'commit' | 'session' | 'subagentType' =
+      granularityRaw === 'session' ? 'session'
+      : granularityRaw === 'subagentType' ? 'subagentType'
+      : 'commit';
+
+    const windowDays = clampInt(params.get('windowDays'), 30, 1, 365);
+    const topK = clampInt(params.get('topK'), 50, 1, 500);
+    const directional = params.get('directional') === 'true';
+    const confidenceThreshold = clampFloat(params.get('confidenceThreshold'), 0.5, 0, 1);
+    const directionalDiff = clampFloat(params.get('directionalDiff'), 0.3, 0, 1);
+
+    // 明示指定された場合のみ採用。未指定なら undefined を渡し、TrailDatabase 側の粒度別デフォルトを使う。
+    const thresholdRaw = params.get('threshold');
+    const threshold = thresholdRaw !== null ? clampFloat(thresholdRaw, 0.5, 0, 1) : undefined;
+    const minChangeRaw = params.get('minChange');
+    const minChange = minChangeRaw !== null ? clampInt(minChangeRaw, 5, 1, 1000) : undefined;
+
+    try {
+      const computedAt = new Date().toISOString();
+      if (directional) {
+        const edges = this.trailDb.fetchTemporalCoupling({
+          repoName,
+          windowDays,
+          minChangeCount: minChange,
+          topK,
+          directional: true,
+          confidenceThreshold,
+          directionalDiffThreshold: directionalDiff,
+          granularity,
+        });
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({
+          directional: true,
+          granularity,
+          edges,
+          computedAt,
+          windowDays,
+          totalPairs: edges.length,
+        }));
+        return;
+      }
+
+      const edges = this.trailDb.fetchTemporalCoupling({
+        repoName,
+        windowDays,
+        minChangeCount: minChange,
+        jaccardThreshold: threshold,
+        topK,
+        granularity,
+      });
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({
+        granularity,
+        edges,
+        computedAt,
+        windowDays,
+        totalPairs: edges.length,
+      }));
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      TrailLogger.error(`/api/temporal-coupling failed: ${err.message}\n${err.stack ?? ''}`);
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: err.message }));
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  //  Hotspot / Activity Map (trail-time-axis-requirements 3.2)
+  // -------------------------------------------------------------------------
+
+  private handleHotspot(res: http.ServerResponse, params: URLSearchParams): void {
+    const period = parseHotspotPeriod(params.get('period'));
+    if (period === null) {
+      this.sendError(res, 400, "period must be one of '7d', '30d', '90d', or 'all'");
+      return;
+    }
+    const granularity = parseHotspotGranularity(params.get('granularity'));
+    if (granularity === null) {
+      this.sendError(res, 400, "granularity must be one of 'commit', 'session', or 'subagent'");
+      return;
+    }
+    try {
+      const { from, to } = computePeriodRangeUtc(period);
+      const rows = this.trailDb.fetchHotspotRows({ from, to, granularity });
+      const files = computeFileHotspot(rows);
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({ period, granularity, from, to, files }));
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      TrailLogger.error(`/api/hotspot failed: ${err.message}\n${err.stack ?? ''}`);
+      this.sendError(res, 500, err.message);
+    }
+  }
+
+  private async handleActivityHeatmap(res: http.ServerResponse, params: URLSearchParams): Promise<void> {
+    const period = parseHotspotPeriod(params.get('period'));
+    if (period === null) {
+      this.sendError(res, 400, "period must be one of '7d', '30d', '90d', or 'all'");
+      return;
+    }
+    const modeRaw = params.get('mode');
+    if (modeRaw !== 'session-file' && modeRaw !== 'subagent-file') {
+      this.sendError(res, 400, "mode must be 'session-file' or 'subagent-file'");
+      return;
+    }
+    const topK = clampInt(params.get('topK'), modeRaw === 'session-file' ? 50 : 200, 1, 200);
+    const repo = params.get('repo') ?? undefined;
+    try {
+      const { from, to } = computePeriodRangeUtc(period);
+      const rawRows = this.trailDb.fetchActivityHeatmapRows({ from, to, mode: modeRaw, rowLimit: topK });
+      const rowLabelByKey = new Map(rawRows.map((r) => [r.rowId, r.rowLabel] as const));
+      const intermediate = computeActivityHeatmap({
+        rows: rawRows.map((r) => ({ rowKey: r.rowId, filePath: r.filePath, count: r.count })),
+        mode: modeRaw,
+        topK,
+        rowLabelResolver: (key) => rowLabelByKey.get(key) ?? key,
+      });
+      const c4Model = await this.loadCurrentC4Model(repo);
+      const matrix = c4Model
+        ? aggregateHeatmapColumnsToC4(intermediate.rows, intermediate.cellsByRowFile, c4Model)
+        : { rows: intermediate.rows, columns: [], cells: [], maxValue: intermediate.maxValue };
+      res.writeHead(200, JSON_HEADERS);
+      res.end(
+        JSON.stringify({
+          period,
+          mode: modeRaw,
+          from,
+          to,
+          rows: matrix.rows,
+          columns: matrix.columns,
+          cells: matrix.cells,
+          maxValue: matrix.maxValue,
+        }),
+      );
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      TrailLogger.error(`/api/activity-heatmap failed: ${err.message}\n${err.stack ?? ''}`);
+      this.sendError(res, 500, err.message);
+    }
+  }
+
+  private async handleActivityTrend(res: http.ServerResponse, params: URLSearchParams): Promise<void> {
+    const elementId = (params.get('elementId') ?? '').trim();
+    if (!ELEMENT_ID_RE.test(elementId)) {
+      this.sendError(res, 400, 'elementId is required and must match ^(sys|pkg|comp|code|file)_[\\w/.:-]+$');
+      return;
+    }
+    const period = parseHotspotPeriod(params.get('period'));
+    if (period === null) {
+      this.sendError(res, 400, "period must be one of '7d', '30d', '90d', or 'all'");
+      return;
+    }
+    const granularity = parseActivityTrendGranularity(params.get('granularity'));
+    if (granularity === null) {
+      this.sendError(res, 400, "granularity must be one of 'commit', 'session', 'subagent', or 'defect'");
+      return;
+    }
+    const sessionMode = parseActivityTrendSessionMode(params.get('sessionMode'));
+    if (sessionMode === null) {
+      this.sendError(res, 400, "sessionMode must be one of 'read' or 'write'");
+      return;
+    }
+    const repo = params.get('repo') ?? undefined;
+    try {
+      const c4Model = await this.loadCurrentC4Model(repo);
+      if (!c4Model) {
+        this.sendError(res, 503, 'c4 model not yet available');
+        return;
+      }
+      const { from, to } = computePeriodRangeUtc(period);
+      const filePaths = collectFilePathsForElement(elementId, c4Model);
+      const rows = this.trailDb.fetchActivityTrendRows({
+        from,
+        to,
+        granularity,
+        sessionMode,
+        filePathsIn: filePaths,
+      });
+      const trend = computeActivityTrend({
+        rows,
+        elementId,
+        granularity: granularity === 'defect' ? 'commit' : granularity,
+        period,
+        from,
+        to,
+        c4Model,
+      });
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({ elementId, period, granularity, from, to, ...trend }));
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      TrailLogger.error(`/api/activity-trend failed: ${err.message}\n${err.stack ?? ''}`);
+      this.sendError(res, 500, err.message);
+    }
+  }
+
+  private sendError(res: http.ServerResponse, status: number, message: string): void {
+    res.writeHead(status, JSON_HEADERS);
+    res.end(JSON.stringify({ error: message }));
+  }
+
+  private async loadCurrentC4Model(repoName?: string): Promise<C4Model | null> {
+    // 本番経路: current_graphs (asC4ModelStore) → trailToC4 で動的に組み立て
+    const resolvedRepo = repoName ?? (this.gitRoot ? path.basename(this.gitRoot) : undefined);
+    if (resolvedRepo) {
+      try {
+        const store = this.trailDb.asC4ModelStore();
+        const result = await Promise.resolve(store.getCurrentC4Model(resolvedRepo));
+        if (result?.model) return result.model;
+      } catch (e) {
+        TrailLogger.warn(`asC4ModelStore.getCurrentC4Model failed: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    // フォールバック: c4_models テーブル直読み（saveC4Model は現状どこからも呼ばれていないが、
+    // テスト fixture が直接 INSERT するケースに備える）
+    const persisted = this.trailDb.getC4Model();
+    if (!persisted) return null;
+    try {
+      return JSON.parse(persisted.json) as C4Model;
+    } catch (e) {
+      TrailLogger.warn(`failed to parse persisted c4 model: ${e instanceof Error ? e.message : String(e)}`);
+      return null;
+    }
+  }
+
+  private handleDefectRisk(res: http.ServerResponse, params: URLSearchParams): void {
+    const windowDays = clampInt(params.get('windowDays'), 90, 1, 365);
+    const halfLifeDays = clampInt(params.get('halfLifeDays'), 90, 1, 730);
+
+    try {
+      const entries = this.trailDb.fetchDefectRisk({ windowDays, halfLifeDays });
+      const computedAt = new Date().toISOString();
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({ entries, computedAt, windowDays, halfLifeDays, totalFiles: entries.length }));
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      TrailLogger.error(`/api/defect-risk failed: ${err.message}\n${err.stack ?? ''}`);
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: err.message }));
+    }
   }
 
   private handleCodeGraphPath(res: http.ServerResponse, from: string, to: string): void {
@@ -621,64 +994,105 @@ export class TrailDataServer {
       const filters: {
         branch?: string;
         model?: string;
-        project?: string;
+        repository?: string;
         from?: string;
         to?: string;
       } = {};
 
       const branch = params.get('branch');
       const model = params.get('model');
-      const project = params.get('project');
+      const repository = params.get('repository');
       const from = params.get('from');
       const to = params.get('to');
 
       if (branch) filters.branch = branch;
       if (model) filters.model = model;
-      if (project) filters.project = project;
+      if (repository) filters.repository = repository;
       if (from) filters.from = from;
       if (to) filters.to = to;
 
       const rawSessions = this.trailDb.getSessions(filters);
       const sessionIds = rawSessions.map((s) => s.id);
+      const rawSessionById = new Map(rawSessions.map((s) => [s.id, s] as const));
       const commitStats = this.trailDb.getSessionCommitStats(sessionIds);
       const errorCounts = this.trailDb.getSessionErrorCounts(sessionIds);
       const subAgentCounts = this.trailDb.getSessionSubAgentCounts(sessionIds);
-      const sessions = rawSessions.map((s) => {
+      const distinctAgentIdCounts = this.trailDb.getSessionDistinctAgentIdCounts(sessionIds);
+      const delegatedTrackCounts = this.trailDb.getSessionDelegatedTrackCounts(sessionIds);
+      const linkedCodexSessionIdsByParent = new Map<string, Set<string>>();
+      const consumedCodexSessionIds = new Set<string>();
+      for (const s of rawSessions) {
+        if ((s.source as string | undefined) === 'codex') continue;
+        const linked = this.trailDb.getLinkedCodexSessionByAssistantUuid(s.id);
+        const ids = new Set<string>();
+        for (const sid of linked.values()) {
+          ids.add(sid);
+          consumedCodexSessionIds.add(sid);
+        }
+        linkedCodexSessionIdsByParent.set(s.id, ids);
+      }
+
+      const sessions = rawSessions
+        .filter((s) => !((s.source as string | undefined) === 'codex' && consumedCodexSessionIds.has(s.id)))
+        .map((s) => {
         const cStats = commitStats.get(s.id);
         const errorCount = errorCounts.get(s.id);
         const subAgentCount = subAgentCounts.get(s.id);
+        const distinctAgentIdCount = distinctAgentIdCounts.get(s.id) ?? 0;
+        const delegatedTrackCount = delegatedTrackCounts.get(s.id) ?? 0;
+        const linkedCodexIds = linkedCodexSessionIdsByParent.get(s.id) ?? new Set<string>();
+        const linkedCodexCount = linkedCodexIds.size;
+        let linkedInputTokens = 0;
+        let linkedOutputTokens = 0;
+        let linkedCacheReadTokens = 0;
+        let linkedCacheCreationTokens = 0;
+        let linkedEstimatedCostUsd = 0;
+        let linkedMessageCount = 0;
+        for (const linkedId of linkedCodexIds) {
+          const linkedSession = rawSessionById.get(linkedId);
+          if (!linkedSession) continue;
+          linkedInputTokens += linkedSession.input_tokens ?? 0;
+          linkedOutputTokens += linkedSession.output_tokens ?? 0;
+          linkedCacheReadTokens += linkedSession.cache_read_tokens ?? 0;
+          linkedCacheCreationTokens += linkedSession.cache_creation_tokens ?? 0;
+          linkedEstimatedCostUsd += linkedSession.estimated_cost_usd ?? 0;
+          linkedMessageCount += linkedSession.message_count ?? 0;
+        }
+        const codexTrackCount = Math.max(linkedCodexCount, delegatedTrackCount);
+        const resolvedSubAgentCount = Math.max(subAgentCount ?? 0, distinctAgentIdCount + codexTrackCount);
         const interruptionReason = (s.interruption_reason ?? null) as 'max_tokens' | 'no_response' | null;
         return {
           id: s.id,
           slug: s.slug,
-          project: s.project,
+          repoName: s.repo_name ?? '',
           gitBranch: s.git_branch ?? '',
           model: s.model,
           version: s.version,
           startTime: s.start_time,
           endTime: s.end_time,
-          messageCount: s.message_count,
+          messageCount: (s.message_count ?? 0) + linkedMessageCount,
           peakContextTokens: s.peak_context_tokens ?? 0,
           initialContextTokens: s.initial_context_tokens ?? 0,
           interruption: interruptionReason
             ? { interrupted: true, reason: interruptionReason, contextTokens: s.interruption_context_tokens ?? 0 }
             : undefined,
           usage: {
-            inputTokens: s.input_tokens ?? 0,
-            outputTokens: s.output_tokens ?? 0,
-            cacheReadTokens: s.cache_read_tokens ?? 0,
-            cacheCreationTokens: s.cache_creation_tokens ?? 0,
+            inputTokens: (s.input_tokens ?? 0) + linkedInputTokens,
+            outputTokens: (s.output_tokens ?? 0) + linkedOutputTokens,
+            cacheReadTokens: (s.cache_read_tokens ?? 0) + linkedCacheReadTokens,
+            cacheCreationTokens: (s.cache_creation_tokens ?? 0) + linkedCacheCreationTokens,
           },
-          estimatedCostUsd: s.estimated_cost_usd ?? 0,
+          estimatedCostUsd: (s.estimated_cost_usd ?? 0) + linkedEstimatedCostUsd,
+          source: (s.source as 'claude_code' | 'codex' | undefined) ?? 'claude_code',
           commitStats: cStats
             ? { commits: cStats.commits, linesAdded: cStats.linesAdded,
                 linesDeleted: cStats.linesDeleted, filesChanged: cStats.filesChanged }
             : undefined,
           errorCount: errorCount != null && errorCount > 0 ? errorCount : undefined,
-          subAgentCount: subAgentCount != null && subAgentCount > 0 ? subAgentCount : undefined,
+          subAgentCount: resolvedSubAgentCount > 0 ? resolvedSubAgentCount : undefined,
           compactCount: s.compact_count != null && s.compact_count > 0 ? s.compact_count : undefined,
         };
-      });
+        });
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({ sessions }));
     } catch {
@@ -705,6 +1119,7 @@ export class TrailDataServer {
       }
 
       const rawMessages: MessageRow[] = this.trailDb.getMessages(sessionId);
+      const codexSessionByAssistantUuid = this.trailDb.getLinkedCodexSessionByAssistantUuid(sessionId);
       const toolExecMsMap = this.trailDb.getTurnExecMsBySession(sessionId);
       const skillsMap = this.trailDb.getSkillsBySession(sessionId);
       const messageCommits = this.trailDb.getMessageCommitsBySession(sessionId);
@@ -744,7 +1159,13 @@ export class TrailDataServer {
           }
         }
       }
-      const messages = rawMessages.map((m) => ({
+      const messages = rawMessages.map((m) => {
+        const linkedCodexSessionId = codexSessionByAssistantUuid.get(m.uuid);
+        const agentId = m.agent_id ?? (linkedCodexSessionId ? `codex:${linkedCodexSessionId}` : undefined);
+        const agentDescription = m.agent_description ?? (linkedCodexSessionId
+          ? `Codex delegated session ${linkedCodexSessionId.slice(0, 8)}`
+          : undefined);
+        return {
         uuid: m.uuid,
         parentUuid: m.parent_uuid,
         type: m.type,
@@ -766,11 +1187,13 @@ export class TrailDataServer {
         triggerCommitHashes: commitsByAssistantUuid.get(m.uuid) ?? commitsByMessageUuid.get(m.uuid),
         hasToolError: errorUuids.has(m.uuid) ? true : undefined,
         hasCommit: gitCommitUuids.has(m.uuid) ? true : undefined,
-        agentId: m.agent_id,
-        agentDescription: m.agent_description,
+        agentId,
+        agentDescription,
+        codexSessionId: linkedCodexSessionId,
         toolExecMs: toolExecMsMap.get(m.uuid),
         skill: skillsMap.get(m.uuid),
-      }));
+        };
+      });
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({ session, messages }));
     } catch {
@@ -935,32 +1358,6 @@ export class TrailDataServer {
   private async handleC4CoverageEndpoint(res: http.ServerResponse): Promise<void> {
     try {
       const provider = this.getC4Provider?.();
-      const coveragePath = provider?.coveragePath;
-      const projectRoot = provider?.projectRoot ?? this.gitRoot;
-
-      if (!coveragePath) {
-        res.writeHead(200, JSON_HEADERS);
-        res.end(JSON.stringify({ coverageMatrix: null, coverageDiff: null }));
-        return;
-      }
-
-      if (!projectRoot) {
-        TrailLogger.warn('[/api/c4/coverage] projectRoot not available (run C4 Analyze first)');
-        res.writeHead(200, JSON_HEADERS);
-        res.end(JSON.stringify({ coverageMatrix: null, coverageDiff: null }));
-        return;
-      }
-
-      if (!fs.existsSync(coveragePath)) {
-        TrailLogger.warn(`[/api/c4/coverage] file not found: ${coveragePath}`);
-        res.writeHead(200, JSON_HEADERS);
-        res.end(JSON.stringify({ coverageMatrix: null, coverageDiff: null }));
-        return;
-      }
-
-      const raw = JSON.parse(await fs.promises.readFile(coveragePath, 'utf-8')) as Record<string, unknown>;
-      const files = parseCoverage(raw as Parameters<typeof parseCoverage>[0]);
-
       const repoName = this.gitRoot ? path.basename(this.gitRoot) : undefined;
       const store = this.trailDb.asC4ModelStore();
       const payload = await fetchC4Model(store, 'current', repoName, provider?.featureMatrix);
@@ -970,7 +1367,76 @@ export class TrailDataServer {
         return;
       }
 
-      const coverageMatrix = aggregateCoverage(files, payload.model, projectRoot);
+      // DB-based coverage (populated by Trail Import from coverage-summary.json per package)
+      const latestTag = this.trailDb.getReleases()[0]?.tag;
+      if (latestTag) {
+        const dbRows = this.trailDb.getCoverageByTag(latestTag);
+        if (dbRows.length > 0) {
+          const coverageMatrix = aggregateCoverageFromDb(dbRows, payload.model);
+          res.writeHead(200, JSON_HEADERS);
+          res.end(JSON.stringify({ coverageMatrix, coverageDiff: null }));
+          return;
+        }
+      }
+
+      // Fallback 1: current_coverage table (repo-level latest snapshot, no release tag required)
+      if (repoName) {
+        const currentRows = this.trailDb.getCurrentCoverage(repoName);
+        if (currentRows.length > 0) {
+          const asReleaseRows: ReleaseCoverageRow[] = currentRows.map((r: CurrentCoverageRow) => ({
+            release_tag: '__current__',
+            package: r.package,
+            file_path: r.file_path,
+            lines_total: r.lines_total,
+            lines_covered: r.lines_covered,
+            lines_pct: r.lines_pct,
+            statements_total: r.statements_total,
+            statements_covered: r.statements_covered,
+            statements_pct: r.statements_pct,
+            functions_total: r.functions_total,
+            functions_covered: r.functions_covered,
+            functions_pct: r.functions_pct,
+            branches_total: r.branches_total,
+            branches_covered: r.branches_covered,
+            branches_pct: r.branches_pct,
+          }));
+          const coverageMatrix = aggregateCoverageFromDb(asReleaseRows, payload.model);
+          res.writeHead(200, JSON_HEADERS);
+          res.end(JSON.stringify({ coverageMatrix, coverageDiff: null }));
+          return;
+        }
+      }
+
+      // Fallback 2: scan packages/*/coverage/coverage-final.json
+      const projectRoot = provider?.projectRoot ?? this.gitRoot;
+      if (!this.gitRoot || !projectRoot) {
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({ coverageMatrix: null, coverageDiff: null }));
+        return;
+      }
+
+      const allFiles: FileCoverage[] = [];
+      const packagesDir = path.join(this.gitRoot, 'packages');
+      if (fs.existsSync(packagesDir)) {
+        for (const pkgDir of fs.readdirSync(packagesDir)) {
+          const coveragePath = path.join(packagesDir, pkgDir, 'coverage', 'coverage-final.json');
+          if (!fs.existsSync(coveragePath)) continue;
+          try {
+            const raw = JSON.parse(fs.readFileSync(coveragePath, 'utf-8')) as Parameters<typeof parseCoverage>[0];
+            allFiles.push(...parseCoverage(raw));
+          } catch {
+            // skip unreadable files
+          }
+        }
+      }
+
+      if (allFiles.length === 0) {
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({ coverageMatrix: null, coverageDiff: null }));
+        return;
+      }
+
+      const coverageMatrix = aggregateCoverage(allFiles, payload.model, projectRoot);
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({ coverageMatrix, coverageDiff: null }));
     } catch (e) {
@@ -2031,7 +2497,19 @@ function scanPromptFiles(): PromptEntry[] {
     // skills dir may not exist
   }
 
-  // 6. settings.json
+  // 6. Scripts
+  const scriptsDir = path.join(claudeDir, 'scripts');
+  try {
+    for (const f of fs.readdirSync(scriptsDir)) {
+      const scriptFile = path.join(scriptsDir, f);
+      if (!fs.existsSync(scriptFile) || !fs.statSync(scriptFile).isFile()) continue;
+      addFile(scriptFile, ['script']);
+    }
+  } catch {
+    // scripts dir may not exist
+  }
+
+  // 7. settings.json
   const settingsFile = path.join(claudeDir, 'settings.json');
   try {
     const stat = fs.statSync(settingsFile);

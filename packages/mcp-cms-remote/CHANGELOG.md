@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.0.5] - 2026-05-02
+
+### Changed
+
+- Updated Jest coverage configuration to use shared `jest.config.base.js`
+
 ## [0.0.4] - 2026-04-12
 
 ### Fixed

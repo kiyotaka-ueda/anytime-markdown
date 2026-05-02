@@ -2,6 +2,10 @@
 const sqlAsmActual = require(require.resolve('sql.js/dist/sql-asm.js')); // eslint-disable-line @typescript-eslint/no-require-imports
 (global as Record<string, unknown>).__non_webpack_require__ = (_path: string) => sqlAsmActual;
 
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
 import { TrailDatabase, estimateCost, INSERT_MESSAGE } from '../TrailDatabase';
 import { createTestTrailDatabase } from './support/createTestDb';
 
@@ -31,6 +35,11 @@ describe('estimateCost', () => {
   it('should match opus by partial name', () => {
     const result = estimateCost('some-opus-variant', 1_000_000, 0, 0, 0);
     expect(result).toBeCloseTo(15.0);
+  });
+
+  it('should use Codex pricing when the session source is codex', () => {
+    const result = estimateCost('', 1_000_000, 1_000_000, 1_000_000, 1_000_000, 'codex');
+    expect(result).toBeCloseTo(12.625);
   });
 });
 
@@ -105,13 +114,13 @@ describe('TrailDatabase.getImportedFileMap', () => {
 
     // Broken session: row inserted but messages silently dropped by a prior bug.
     inMemoryDb.run(
-      `INSERT INTO sessions (id, slug, project, version, entrypoint, model,
+      `INSERT INTO sessions (id, slug, repo_name, version, entrypoint, model,
          start_time, end_time, message_count, file_path, file_size, imported_at)
        VALUES ('broken-sid','','','','','','','',10,'/tmp/broken.jsonl',123,'')`,
     );
     // Healthy session with matching messages.
     inMemoryDb.run(
-      `INSERT INTO sessions (id, slug, project, version, entrypoint, model,
+      `INSERT INTO sessions (id, slug, repo_name, version, entrypoint, model,
          start_time, end_time, message_count, file_path, file_size, imported_at)
        VALUES ('ok-sid','','','','','','','',1,'/tmp/ok.jsonl',456,'')`,
     );
@@ -121,7 +130,7 @@ describe('TrailDatabase.getImportedFileMap', () => {
     );
     // Empty-log session (message_count=0) is considered healthy — nothing to reimport.
     inMemoryDb.run(
-      `INSERT INTO sessions (id, slug, project, version, entrypoint, model,
+      `INSERT INTO sessions (id, slug, repo_name, version, entrypoint, model,
          start_time, end_time, message_count, file_path, file_size, imported_at)
        VALUES ('empty-sid','','','','','','','',0,'/tmp/empty.jsonl',789,'')`,
     );
@@ -130,6 +139,226 @@ describe('TrailDatabase.getImportedFileMap', () => {
     expect(map.get('/tmp/broken.jsonl')?.hasMessages).toBe(false);
     expect(map.get('/tmp/ok.jsonl')?.hasMessages).toBe(true);
     expect(map.get('/tmp/empty.jsonl')?.hasMessages).toBe(true);
+    db.close();
+  });
+
+  it('flags imported Codex sessions with zero session costs for reimport', async () => {
+    const db = await createTestTrailDatabase();
+    const inMemoryDb = (db as unknown as Record<string, unknown>).db as import('sql.js').Database;
+
+    inMemoryDb.run(
+      `INSERT INTO sessions (id, slug, repo_name, version, entrypoint, model,
+         start_time, end_time, message_count, file_path, file_size, imported_at, source)
+       VALUES ('codex-zero','','','','','','','',2,'/tmp/codex-zero.jsonl',123,'','codex')`,
+    );
+    inMemoryDb.run(
+      `INSERT INTO messages (uuid, session_id, type, timestamp)
+       VALUES ('codex-zero-m1','codex-zero','assistant','2026-04-12T00:00:00Z')`,
+    );
+    inMemoryDb.run(
+      `INSERT INTO session_costs
+         (session_id, model, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, estimated_cost_usd)
+       VALUES ('codex-zero','',0,0,0,0,0)`,
+    );
+
+    inMemoryDb.run(
+      `INSERT INTO sessions (id, slug, repo_name, version, entrypoint, model,
+         start_time, end_time, message_count, file_path, file_size, imported_at, source)
+       VALUES ('codex-ok','','','','','','','',2,'/tmp/codex-ok.jsonl',456,'','codex')`,
+    );
+    inMemoryDb.run(
+      `INSERT INTO messages (uuid, session_id, type, timestamp)
+       VALUES ('codex-ok-m1','codex-ok','assistant','2026-04-12T00:00:00Z')`,
+    );
+    inMemoryDb.run(
+      `INSERT INTO session_costs
+         (session_id, model, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, estimated_cost_usd)
+       VALUES ('codex-ok','',100,20,50,0,0.001)`,
+    );
+
+    const map = (db as unknown as Record<string, () => Map<string, { hasUsableCostData: boolean }>>).getImportedFileMap();
+    expect(map.get('/tmp/codex-zero.jsonl')?.hasUsableCostData).toBe(false);
+    expect(map.get('/tmp/codex-ok.jsonl')?.hasUsableCostData).toBe(true);
+    db.close();
+  });
+});
+
+describe('TrailDatabase.migrateDropSessionsProjectColumn', () => {
+  it('drops the legacy project column while preserving rows with foreign-key references', async () => {
+    const db = await createTestTrailDatabase();
+    const inMemoryDb = (db as unknown as Record<string, unknown>).db as import('sql.js').Database;
+
+    inMemoryDb.run('PRAGMA foreign_keys = OFF');
+    inMemoryDb.run('DROP TABLE IF EXISTS session_costs');
+    inMemoryDb.run('DROP TABLE IF EXISTS sessions');
+    inMemoryDb.run(`CREATE TABLE sessions (
+      id TEXT PRIMARY KEY,
+      slug TEXT NOT NULL DEFAULT '',
+      project TEXT NOT NULL DEFAULT '',
+      repo_name TEXT NOT NULL DEFAULT '',
+      version TEXT NOT NULL DEFAULT '',
+      entrypoint TEXT NOT NULL DEFAULT '',
+      model TEXT NOT NULL DEFAULT '',
+      start_time TEXT NOT NULL DEFAULT '',
+      end_time TEXT NOT NULL DEFAULT '',
+      message_count INTEGER NOT NULL DEFAULT 0,
+      file_path TEXT NOT NULL DEFAULT '',
+      file_size INTEGER NOT NULL DEFAULT 0,
+      imported_at TEXT NOT NULL DEFAULT '',
+      commits_resolved_at TEXT,
+      peak_context_tokens INTEGER,
+      initial_context_tokens INTEGER,
+      git_branch TEXT,
+      interruption_reason TEXT,
+      interruption_context_tokens INTEGER,
+      message_commits_resolved_at TEXT,
+      source TEXT NOT NULL DEFAULT 'claude_code',
+      compact_count INTEGER
+    )`);
+    inMemoryDb.run(`CREATE TABLE session_costs (
+      session_id TEXT NOT NULL,
+      model TEXT NOT NULL,
+      input_tokens INTEGER NOT NULL DEFAULT 0,
+      output_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+      estimated_cost_usd REAL NOT NULL DEFAULT 0,
+      PRIMARY KEY (session_id, model),
+      FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+    )`);
+    inMemoryDb.run('PRAGMA foreign_keys = ON');
+    inMemoryDb.run(
+      `INSERT INTO sessions (id, slug, project, repo_name, start_time, end_time, file_path, imported_at)
+       VALUES ('s1', 'slug', 'legacy-project', 'repo', '2026-04-29T00:00:00.000Z', '2026-04-29T00:00:01.000Z', '/tmp/s1.jsonl', '2026-04-29T00:00:02.000Z')`,
+    );
+    inMemoryDb.run(
+      `INSERT INTO session_costs (session_id, model, input_tokens, output_tokens)
+       VALUES ('s1', 'sonnet', 10, 2)`,
+    );
+
+    (db as unknown as Record<string, (inner: import('sql.js').Database) => void>).migrateDropSessionsProjectColumn(inMemoryDb);
+
+    const cols = inMemoryDb.exec('PRAGMA table_info(sessions)')[0]?.values.map((r) => String(r[1])) ?? [];
+    expect(cols).not.toContain('project');
+    expect(cols).toContain('repo_name');
+    expect(inMemoryDb.exec(`SELECT repo_name FROM sessions WHERE id = 's1'`)[0]?.values[0]?.[0]).toBe('repo');
+    expect(inMemoryDb.exec(`SELECT input_tokens FROM session_costs WHERE session_id = 's1'`)[0]?.values[0]?.[0]).toBe(10);
+    expect(Number(inMemoryDb.exec('PRAGMA foreign_keys')[0]?.values[0]?.[0] ?? 0)).toBe(1);
+
+    db.close();
+  });
+});
+
+describe('TrailDatabase.importSession - Codex token usage', () => {
+  it('attaches token_count usage to the latest assistant message even after tool output', async () => {
+    const db = await createTestTrailDatabase();
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'trail-codex-token-'));
+    const filePath = path.join(tmpDir, 'rollout-2026-04-29T00-00-00-test.jsonl');
+    const lines = [
+      {
+        timestamp: '2026-04-29T00:00:00.000Z',
+        type: 'session_meta',
+        payload: { id: 'codex-token-session', cli_version: '0.125.0' },
+      },
+      {
+        timestamp: '2026-04-29T00:00:01.000Z',
+        type: 'response_item',
+        payload: {
+          type: 'function_call',
+          name: 'exec_command',
+          call_id: 'call_1',
+          arguments: '{"cmd":"pwd"}',
+        },
+      },
+      {
+        timestamp: '2026-04-29T00:00:02.000Z',
+        type: 'response_item',
+        payload: {
+          type: 'function_call_output',
+          call_id: 'call_1',
+          output: '/repo',
+        },
+      },
+      {
+        timestamp: '2026-04-29T00:00:03.000Z',
+        type: 'event_msg',
+        payload: {
+          type: 'token_count',
+          info: {
+            last_token_usage: {
+              input_tokens: 100,
+              cached_input_tokens: 40,
+              output_tokens: 12,
+            },
+          },
+        },
+      },
+    ];
+    fs.writeFileSync(filePath, `${lines.map((line) => JSON.stringify(line)).join('\n')}\n`, 'utf-8');
+
+    db.importSession(filePath, 'repo', false, false);
+    (db as unknown as Record<string, () => void>).rebuildSessionCosts();
+
+    const inner = (db as unknown as { db: import('sql.js').Database }).db;
+    const messageUsage = inner.exec(
+      `SELECT input_tokens, output_tokens, cache_read_tokens
+       FROM messages
+       WHERE session_id = 'codex-token-session' AND type = 'assistant'`,
+    )[0]?.values[0];
+    expect(messageUsage).toEqual([60, 12, 40]);
+
+    const sessionCost = inner.exec(
+      `SELECT model, input_tokens, output_tokens, cache_read_tokens, estimated_cost_usd
+       FROM session_costs
+       WHERE session_id = 'codex-token-session'`,
+    )[0]?.values[0];
+    expect(sessionCost?.[0]).toBe('gpt-5.1-codex');
+    expect(sessionCost?.slice(1, 4)).toEqual([60, 12, 40]);
+    expect(Number(sessionCost?.[4] ?? 0)).toBeCloseTo(0.0002, 6);
+
+    const execMs = (db as unknown as { getTurnExecMsBySession: (sessionId: string) => Map<string, number> })
+      .getTurnExecMsBySession('codex-token-session');
+    expect(execMs.get('codex-0')).toBe(1000);
+
+    db.close();
+  });
+});
+
+describe('TrailDatabase.rebuildDailyCounts', () => {
+  it('merges rows that resolve to the same daily count key', async () => {
+    const db = await createTestTrailDatabase();
+    const inner = (db as unknown as { db: import('sql.js').Database }).db;
+    inner.run(
+      `INSERT INTO sessions (id, slug, repo_name, version, entrypoint, model,
+         start_time, end_time, message_count, file_path, file_size, imported_at, source)
+       VALUES
+         ('codex-default','','repo','','','','2026-04-29T00:00:00Z','2026-04-29T00:01:00Z',1,'/tmp/codex-default.jsonl',1,'','codex'),
+         ('codex-explicit','','repo','','','gpt-5.1-codex','2026-04-29T00:00:00Z','2026-04-29T00:01:00Z',1,'/tmp/codex-explicit.jsonl',1,'','codex')`,
+    );
+    inner.run(
+      `INSERT INTO messages
+         (uuid, session_id, type, model, timestamp, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens)
+       VALUES
+         ('m-default','codex-default','assistant','','2026-04-29T00:00:10Z',10,20,30,0),
+         ('m-explicit','codex-explicit','assistant','gpt-5.1-codex','2026-04-29T00:00:20Z',40,50,60,0)`,
+    );
+
+    (db as unknown as Record<string, () => void>).rebuildDailyCounts();
+
+    const costRows = inner.exec(
+      `SELECT key, input_tokens, output_tokens, cache_read_tokens
+       FROM daily_counts
+       WHERE kind = 'cost_actual'`,
+    )[0]?.values;
+    expect(costRows).toEqual([['gpt-5.1-codex', 50, 70, 90]]);
+
+    const modelRows = inner.exec(
+      `SELECT key, count, tokens
+       FROM daily_counts
+       WHERE kind = 'model'`,
+    )[0]?.values;
+    expect(modelRows).toEqual([['gpt-5.1-codex', 2, 120]]);
+
     db.close();
   });
 });

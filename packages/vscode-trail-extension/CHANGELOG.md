@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-05-02
+
+### Added
+
+- Sync `current_coverage` and `current_code_graphs` to Supabase via `SyncService`
+
+### Changed
+
+- Removed `anytimeTrail.coverage.path` configuration setting
+
+### Fixed
+
+- Load code graph after DB initialization instead of before
+- Guard `regenerateReleaseCodeGraphs` command against missing workspace folder
+
+### Trail Core (trail-core)
+
+- Added `current_coverage` table and `LOC` metric for release-independent coverage snapshots
+- Added CodeGraph DB persistence tables and persistence layer
+- Fixed coverage sync NaN values, community summary preservation, and code graph initialization guard
+
 ## [0.13.0] - 2026-04-28
 
 ### Added

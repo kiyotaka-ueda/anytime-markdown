@@ -1,6 +1,6 @@
 {
   "name": "anytime-markdown-monorepo",
-  "version": "0.13.3",
+  "version": "0.13.4",
   "license": "MIT",
   "private": true,
   "scripts": {
@@ -8,7 +8,8 @@
     "postinstall": "rm -rf node_modules/next-auth/node_modules/@auth",
     "lint": "eslint packages/markdown-core/src packages/web-app/src",
     "lint:fix": "eslint --fix packages/markdown-core/src packages/web-app/src",
-    "prepare": "husky"
+    "prepare": "husky",
+    "import-coverage": "node scripts/import-coverage.js"
   },
   "workspaces": [
     "packages/markdown-core",
@@ -31,7 +32,8 @@
     "packages/mobile-app",
     "packages/trail-core",
     "packages/trail-viewer",
-    "packages/graph-viewer"
+    "packages/graph-viewer",
+    "packages/mcp-trail"
   ],
   "overrides": {
     "serialize-javascript": "7.0.5",

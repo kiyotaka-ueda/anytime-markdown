@@ -2,7 +2,7 @@
   "name": "anytime-trail",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "license": "MIT",
   "publisher": "anytime-trial",
   "repository": {
@@ -189,6 +189,16 @@
         "title": "Generate Code Graph",
         "category": "Anytime Trail",
         "icon": "$(graph)"
+      },
+      {
+        "command": "anytime-trail.regenerateCurrentCodeGraph",
+        "title": "Regenerate Current Code Graph",
+        "category": "Anytime Trail"
+      },
+      {
+        "command": "anytime-trail.regenerateReleaseCodeGraphs",
+        "title": "Regenerate Release Code Graphs",
+        "category": "Anytime Trail"
       }
     ],
     "menus": {
@@ -285,37 +295,17 @@
         "anytimeTrail.codeGraph.repositories": {
           "type": "array",
           "items": {
-            "type": "object",
-            "properties": {
-              "path": {
-                "type": "string"
-              },
-              "label": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "path",
-              "label"
-            ]
+            "type": "string"
           },
           "default": [
-            {
-              "path": "${workspaceFolder}",
-              "label": "Workspace"
-            }
+            "${workspaceFolder}"
           ],
-          "markdownDescription": "解析対象リポジトリのリスト。`path`（絶対パス、`${workspaceFolder}` を使用可能）と `label`（表示名）を指定する。デフォルトでは現在のワークスペースのみを解析する。外部リポジトリも対象にしたい場合は明示的に追加する。"
+          "markdownDescription": "解析対象リポジトリのパスリスト。絶対パスまたは `${workspaceFolder}` を指定する。表示名はパスの末尾フォルダ名が使用される。"
         },
         "anytimeTrail.codeGraph.autoRefresh": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "拡張機能起動時にコードグラフを自動生成する。"
-        },
-        "anytimeTrail.coverage.path": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "Path to `coverage-final.json` (relative to workspace root). When set, file changes are watched and coverage is auto-updated."
         },
         "anytimeTrail.test.e2eCommand": {
           "type": "string",

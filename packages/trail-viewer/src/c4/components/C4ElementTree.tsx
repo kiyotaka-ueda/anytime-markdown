@@ -1,28 +1,32 @@
-import type { C4TreeNode, DocLink } from '@anytime-markdown/trail-core/c4';
+import type { C4ReleaseEntry, C4TreeNode } from '@anytime-markdown/trail-core/c4';
 import { findService } from '@anytime-markdown/trail-core/c4';
-import type { ExportedSymbol } from '@anytime-markdown/trail-core/analyzer';
 import type { Action } from '@anytime-markdown/graph-core/state';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import AddIcon from '@mui/icons-material/Add';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import CodeIcon from '@mui/icons-material/Code';
+import HubIcon from '@mui/icons-material/Hub';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExtensionIcon from '@mui/icons-material/Extension';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import PersonIcon from '@mui/icons-material/Person';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import Collapse from '@mui/material/Collapse';
-import DescriptionIcon from '@mui/icons-material/Description';
-import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
 import Tooltip from '@mui/material/Tooltip';
+import Tab from '@mui/material/Tab';
+import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
 import type { Dispatch, FC } from 'react';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
@@ -32,13 +36,16 @@ import SearchIcon from '@mui/icons-material/Search';
 import TextField from '@mui/material/TextField';
 import { filterTreeBySearch } from '@anytime-markdown/trail-core/c4';
 import { useTrailI18n } from '../../i18n';
-import { DOC_TYPE_COLORS, getC4Colors } from '../c4Theme';
+import { getC4Colors } from '../c4Theme';
 import { getTokens } from '../../theme/designTokens';
+import { communityColor } from '../../components/communityColors';
 
 const INDENT_PX = 20;
+const UNKNOWN_REPO_KEY = '__unknown__';
+const CURRENT_RELEASE_TAG = 'current';
 
 /** C4要素タイプに対応するアイコン */
-function TypeIcon({ type, serviceType }: Readonly<{ type: C4TreeNode['type']; serviceType?: string }>) {
+function TypeIcon({ type, serviceType, color }: Readonly<{ type: C4TreeNode['type']; serviceType?: string; color?: string }>) {
   const sx = { fontSize: 16 };
 
   if (type === 'container' && serviceType) {
@@ -69,6 +76,7 @@ function TypeIcon({ type, serviceType }: Readonly<{ type: C4TreeNode['type']; se
     case 'containerDb': return <Inventory2Icon sx={sx} />;
     case 'component': return <ExtensionIcon sx={sx} />;
     case 'code': return <CodeIcon sx={sx} />;
+    case 'community': return <HubIcon sx={{ ...sx, color: color ?? 'inherit' }} />;
   }
 }
 
@@ -105,9 +113,10 @@ interface TreeNodeItemProps {
   readonly checkedIds: ReadonlySet<string>;
   readonly onCheck: (id: string) => void;
   readonly onRemove?: (id: string) => void;
+  readonly hideCheckbox?: boolean;
 }
 
-const TreeNodeItem: FC<TreeNodeItemProps> = memo(({ node, depth, selectedId, onSelect, expanded, onToggle, checkedIds, onCheck, onRemove }) => {
+const TreeNodeItem: FC<TreeNodeItemProps> = memo(({ node, depth, selectedId, onSelect, expanded, onToggle, checkedIds, onCheck, onRemove, hideCheckbox }) => {
   const hasChildren = node.children.length > 0;
   const isOpen = expanded.has(node.id);
   const isSelected = node.id === selectedId;
@@ -169,7 +178,7 @@ const TreeNodeItem: FC<TreeNodeItemProps> = memo(({ node, depth, selectedId, onS
         ) : (
           <Box sx={{ width: 20 }} />
         )}
-        {isCheckable && (
+        {isCheckable && !hideCheckbox && (
           <Checkbox
             size="small"
             checked={isChecked}
@@ -180,7 +189,11 @@ const TreeNodeItem: FC<TreeNodeItemProps> = memo(({ node, depth, selectedId, onS
           />
         )}
         <ListItemIcon sx={{ minWidth: 24 }}>
-          <TypeIcon type={node.type} serviceType={node.serviceType} />
+          <TypeIcon
+            type={node.type}
+            serviceType={node.serviceType}
+            color={node.type === 'community' && node.communityId !== undefined ? communityColor(node.communityId) : undefined}
+          />
         </ListItemIcon>
         <ListItemText
           primary={node.name}
@@ -219,6 +232,7 @@ const TreeNodeItem: FC<TreeNodeItemProps> = memo(({ node, depth, selectedId, onS
                 checkedIds={checkedIds}
                 onCheck={onCheck}
                 onRemove={onRemove}
+                hideCheckbox={hideCheckbox}
               />
             ))}
           </List>
@@ -230,119 +244,44 @@ const TreeNodeItem: FC<TreeNodeItemProps> = memo(({ node, depth, selectedId, onS
 TreeNodeItem.displayName = 'TreeNodeItem';
 
 // ---------------------------------------------------------------------------
-//  Documents section
-// ---------------------------------------------------------------------------
-
-/** c4Scope がターゲット要素IDに一致するか（完全一致 or 子パス前方一致） */
-function matchesScope(docScope: readonly string[], elementId: string): boolean {
-  return docScope.some(s => s === elementId || s.startsWith(elementId + '/'));
-}
-
-interface DocLinksSectionProps {
-  readonly isDark?: boolean;
-  readonly docLinks: readonly DocLink[];
-  readonly selectedId: string | null;
-  readonly onDocLinkClick?: (doc: DocLink) => void;
-}
-
-const DocLinksSection: FC<DocLinksSectionProps> = memo(({ docLinks, selectedId, onDocLinkClick, isDark }) => {
-  const colors = useMemo(() => getC4Colors(isDark ?? true), [isDark]);
-  const { scrollbarSx } = useMemo(() => getTokens(isDark ?? true), [isDark]);
-  const matched = useMemo(() => {
-    if (!selectedId || docLinks.length === 0) return [];
-    return docLinks.filter(d => matchesScope(d.c4Scope, selectedId));
-  }, [docLinks, selectedId]);
-
-  return (
-    <>
-      <Divider sx={{ borderColor: colors.border }} />
-      <Box sx={{
-        px: 1,
-        py: 0.25,
-        borderBottom: `1px solid ${colors.border}`,
-        minHeight: 32,
-        display: 'flex',
-        alignItems: 'center',
-        flexShrink: 0,
-      }}>
-        <DescriptionIcon sx={{ fontSize: 14, mr: 0.5, color: colors.textSecondary }} />
-        <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.7rem' }}>
-          Documents
-        </Typography>
-      </Box>
-      {!selectedId ? (
-        <Typography variant="caption" sx={{ px: 1.5, py: 1, color: colors.textMuted, fontSize: '0.7rem' }}>
-          Select an element
-        </Typography>
-      ) : matched.length === 0 ? (
-        <Typography variant="caption" sx={{ px: 1.5, py: 1, color: colors.textMuted, fontSize: '0.7rem' }}>
-          No linked documents
-        </Typography>
-      ) : (
-        <List dense disablePadding sx={{ overflowY: 'auto', ...scrollbarSx }}>
-          {matched.map(doc => (
-            <ListItemButton
-              key={doc.path}
-              onClick={() => onDocLinkClick?.(doc)}
-              sx={{ py: 0.25, pl: 1.5, minHeight: 28 }}
-            >
-              <Chip
-                label={doc.type}
-                size="small"
-                sx={{
-                  height: 16,
-                  fontSize: '0.6rem',
-                  mr: 0.75,
-                  bgcolor: DOC_TYPE_COLORS[doc.type] ?? '#757575',
-                  color: '#000',
-                  '& .MuiChip-label': { px: 0.5 },
-                }}
-              />
-              <ListItemText
-                primary={doc.title}
-                primaryTypographyProps={{
-                  variant: 'body2',
-                  noWrap: true,
-                  fontSize: '0.75rem',
-                }}
-              />
-            </ListItemButton>
-          ))}
-        </List>
-      )}
-    </>
-  );
-});
-DocLinksSection.displayName = 'DocLinksSection';
-
-const EXPORT_KIND_ICONS: Record<ExportedSymbol['kind'], string> = { function: 'ƒ', class: '◆', method: '→', variable: '≡' };
-
-// ---------------------------------------------------------------------------
 
 interface C4ElementTreeProps {
   readonly tree: readonly C4TreeNode[];
   readonly dispatch: Dispatch<Action>;
   readonly onSelect?: (id: string) => void;
+  readonly repoOptions?: readonly string[];
+  readonly selectedRepo?: string;
+  readonly onRepoChange?: (repo: string) => void;
+  readonly releaseOptions?: readonly C4ReleaseEntry[];
+  readonly selectedRelease?: string;
+  readonly onReleaseChange?: (release: string) => void;
+  readonly currentLevel?: number;
+  readonly selectedSystemId?: string | null;
+  readonly onAddElement?: (type: 'person' | 'system' | 'container' | 'component') => void;
   readonly onCheckedChange?: (checkedIds: ReadonlySet<string>) => void;
   readonly onRemoveElement?: (id: string) => void;
   readonly onPurgeDeleted?: () => void;
-  readonly docLinks?: readonly DocLink[];
-  readonly onDocLinkClick?: (doc: DocLink) => void;
-  readonly exports?: readonly ExportedSymbol[];
-  readonly onExportSelect?: (symbol: ExportedSymbol) => void;
-  readonly selectedExportId?: string | null;
   readonly isDark?: boolean;
   /** レベル/ドリル変更時に渡すリセット指示。key が変化したらチェック・展開状態をリセットする */
   readonly checkReset?: { readonly key: number; readonly ids: ReadonlySet<string> | null; readonly expanded: ReadonlySet<string> | null };
+  readonly communityTree?: readonly C4TreeNode[];
+  readonly onCommunityTabOpen?: () => void;
 }
 
-export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onSelect, onCheckedChange, onRemoveElement, onPurgeDeleted, docLinks, onDocLinkClick, exports, onExportSelect, selectedExportId, isDark, checkReset }) => {
+export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onSelect, repoOptions = [], selectedRepo = '', onRepoChange, releaseOptions = [], selectedRelease = CURRENT_RELEASE_TAG, onReleaseChange, currentLevel, selectedSystemId, onAddElement, onCheckedChange, onRemoveElement, onPurgeDeleted, isDark, checkReset, communityTree, onCommunityTabOpen }) => {
   const { t } = useTrailI18n();
   const [searchText, setSearchText] = useState('');
+  const [activeTab, setActiveTab] = useState<0 | 1>(0);
+  const hasCommunityTree = (communityTree?.length ?? 0) > 0;
 
   const filteredTree = useMemo(
     () => filterTreeBySearch(tree, searchText),
     [tree, searchText],
+  );
+
+  const filteredCommunityTree = useMemo(
+    () => communityTree ? filterTreeBySearch(communityTree, searchText) : [],
+    [communityTree, searchText],
   );
 
   const colors = useMemo(() => getC4Colors(isDark ?? true), [isDark]);
@@ -360,6 +299,24 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
     }
     return ids;
   });
+  const [communityExpanded, setCommunityExpanded] = useState<ReadonlySet<string>>(() => {
+    const ids = new Set<string>();
+    for (const n of communityTree ?? []) ids.add(n.id);
+    return ids;
+  });
+
+  const handleCommunityToggle = useCallback((id: string) => {
+    setCommunityExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [checkedIds, setCheckedIds] = useState<ReadonlySet<string>>(() => collectCheckableIds(tree));
 
@@ -470,6 +427,30 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
     onCheckedChange?.(checkedIds);
   }, [checkedIds, onCheckedChange]);
 
+  useEffect(() => {
+    const ids = new Set<string>();
+    for (const n of communityTree ?? []) ids.add(n.id);
+    setCommunityExpanded(ids);
+  }, [communityTree]);
+
+  const addButtonSx = {
+    textTransform: 'none',
+    justifyContent: 'flex-start',
+    fontSize: '0.75rem',
+    minHeight: 28,
+    borderRadius: '8px',
+    color: colors.accent,
+    borderColor: colors.border,
+    '&:hover': { bgcolor: colors.hover },
+    '&:disabled': { color: colors.textMuted },
+  } as const;
+
+  const selectorSx = {
+    fontSize: '0.75rem',
+    height: 30,
+    '& .MuiSelect-select': { py: '3px' },
+  } as const;
+
   return (
     <Box
       sx={{
@@ -481,6 +462,58 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
         ...scrollbarSx,
       }}
     >
+      {(repoOptions.length > 0 || releaseOptions.length > 0) && (
+        <Box sx={{ px: 1, py: 0.75, flexShrink: 0, borderBottom: `1px solid ${colors.border}`, display: 'grid', gap: 0.75 }}>
+          {repoOptions.length > 0 && (
+            <Select
+              size="small"
+              fullWidth
+              value={selectedRepo}
+              onChange={(event) => onRepoChange?.(event.target.value)}
+              sx={selectorSx}
+              aria-label={t('c4.releaseRepository')}
+            >
+              {repoOptions.map((key) => (
+                <MenuItem key={key} value={key} sx={{ fontSize: '0.75rem' }}>
+                  {key === UNKNOWN_REPO_KEY ? t('c4.unknownRepo') : key}
+                </MenuItem>
+              ))}
+            </Select>
+          )}
+          {releaseOptions.length > 0 && (
+            <Select
+              size="small"
+              fullWidth
+              value={selectedRelease}
+              onChange={(event) => onReleaseChange?.(event.target.value)}
+              sx={selectorSx}
+              aria-label={t('c4.releases')}
+            >
+              {releaseOptions.map((entry) => (
+                <MenuItem key={entry.tag} value={entry.tag} sx={{ fontSize: '0.75rem' }}>
+                  {entry.tag === CURRENT_RELEASE_TAG ? t('c4.currentRelease') : entry.tag}
+                </MenuItem>
+              ))}
+            </Select>
+          )}
+        </Box>
+      )}
+      <Tabs
+        value={activeTab}
+        onChange={(_, v: number) => {
+          setActiveTab(v as 0 | 1);
+          if (v === 1) onCommunityTabOpen?.();
+        }}
+        variant="fullWidth"
+        sx={{
+          minHeight: 32,
+          borderBottom: `1px solid ${colors.border}`,
+          '& .MuiTab-root': { minHeight: 32, fontSize: '0.72rem', py: 0.5 },
+        }}
+      >
+        <Tab label={t('c4.elementPanel.tabLayer')} value={0} />
+        <Tab label={t('c4.elementPanel.tabCommunity')} value={1} />
+      </Tabs>
       <Box sx={{ px: 1, py: 0.5, flexShrink: 0, borderBottom: `1px solid ${colors.border}` }}>
         <TextField
           size="small"
@@ -517,39 +550,108 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
           </Tooltip>
         </Box>
       )}
-      <List dense disablePadding sx={{ flex: 1, overflowY: 'auto', ...scrollbarSx }}>
-        {filteredTree.map(node => (
-          <TreeNodeItem
-            key={node.id}
-            node={node}
-            depth={0}
-            selectedId={selectedId}
-            onSelect={handleSelect}
-            expanded={expanded}
-            onToggle={handleToggle}
-            checkedIds={checkedIds}
-            onCheck={handleCheck}
-            onRemove={onRemoveElement}
-          />
-        ))}
-      </List>
-      {docLinks && docLinks.length > 0 && (
-        <DocLinksSection
-          docLinks={docLinks}
-          selectedId={selectedId}
-          onDocLinkClick={onDocLinkClick}
-          isDark={isDark}
-        />
+      {activeTab === 0 && (
+        <List dense disablePadding sx={{ flex: 1, overflowY: 'auto', ...scrollbarSx }}>
+          {filteredTree.map(node => (
+            <TreeNodeItem
+              key={node.id}
+              node={node}
+              depth={0}
+              selectedId={selectedId}
+              onSelect={handleSelect}
+              expanded={expanded}
+              onToggle={handleToggle}
+              checkedIds={checkedIds}
+              onCheck={handleCheck}
+              onRemove={onRemoveElement}
+            />
+          ))}
+        </List>
       )}
-      {exports && exports.length > 0 && <><Divider sx={{ borderColor: colors.border }} />
-        <Box sx={{ px: 1, py: 0.25, borderBottom: `1px solid ${colors.border}`, minHeight: 32, display: 'flex', alignItems: 'center', flexShrink: 0 }}><Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.7rem' }}>Exports</Typography></Box>
-        <List dense disablePadding sx={{ overflowY: 'auto', ...scrollbarSx }}>{exports.map(sym => (
-          <ListItemButton key={sym.id} selected={sym.id === selectedExportId} onClick={() => onExportSelect?.(sym)} sx={{ py: 0.25, pl: 1.5, minHeight: 28 }}>
-            <Typography variant="caption" sx={{ mr: 0.75, color: colors.accent, fontFamily: 'monospace', fontSize: '0.75rem', minWidth: 14 }}>{EXPORT_KIND_ICONS[sym.kind]}</Typography>
-            <ListItemText primary={sym.name} primaryTypographyProps={{ variant: 'body2', noWrap: true, fontSize: '0.75rem' }} />
-          </ListItemButton>
-        ))}</List>
-      </>}
+      {activeTab === 1 && (
+        hasCommunityTree ? (
+          <List dense disablePadding sx={{ flex: 1, overflowY: 'auto', ...scrollbarSx }}>
+            {filteredCommunityTree.map(node => (
+              <TreeNodeItem
+                key={node.id}
+                node={node}
+                depth={0}
+                selectedId={selectedId}
+                onSelect={handleSelect}
+                expanded={communityExpanded}
+                onToggle={handleCommunityToggle}
+                checkedIds={new Set()}
+                onCheck={() => undefined}
+                hideCheckbox
+              />
+            ))}
+          </List>
+        ) : (
+          <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
+            <Typography variant="caption" sx={{ color: colors.textMuted, textAlign: 'center' }}>
+              {t('c4.elementPanel.communityUnavailable')}
+            </Typography>
+          </Box>
+        )
+      )}
+      {activeTab === 0 && onAddElement && currentLevel && currentLevel >= 1 && currentLevel <= 3 && (
+        <Box sx={{ borderTop: `1px solid ${colors.border}`, px: 1, py: 0.75, flexShrink: 0 }}>
+          <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', mb: 0.5 }}>
+            Add
+          </Typography>
+          <Box sx={{ display: 'grid', gap: 0.5 }}>
+            {currentLevel === 1 && (
+              <>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<PersonIcon sx={{ fontSize: 16 }} />}
+                  onClick={() => onAddElement('person')}
+                  sx={addButtonSx}
+                  aria-label="Add Person"
+                >
+                  Person
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<AddIcon sx={{ fontSize: 16 }} />}
+                  onClick={() => onAddElement('system')}
+                  sx={addButtonSx}
+                  aria-label="Add System"
+                >
+                  System
+                </Button>
+              </>
+            )}
+            {currentLevel === 2 && (
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<AddIcon sx={{ fontSize: 16 }} />}
+                onClick={() => onAddElement('container')}
+                disabled={!selectedSystemId}
+                sx={addButtonSx}
+                aria-label="Add Container"
+              >
+                Container
+              </Button>
+            )}
+            {currentLevel === 3 && (
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<AddIcon sx={{ fontSize: 16 }} />}
+                onClick={() => onAddElement('component')}
+                sx={addButtonSx}
+                aria-label="Add Component"
+              >
+                Component
+              </Button>
+            )}
+          </Box>
+        </Box>
+      )}
     </Box>
   );
 });

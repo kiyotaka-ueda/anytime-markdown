@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -6,8 +7,35 @@ import CircularProgress from '@mui/material/CircularProgress';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import type { CodeGraph, CodeGraphNode } from '@anytime-markdown/trail-core/codeGraph';
-import { CodeGraphCanvas } from './CodeGraphCanvas';
+import { CodeGraphCanvas, type CodeGraphGhostEdge } from './CodeGraphCanvas';
 import { useCodeGraph } from '../hooks/useCodeGraph';
+import { useTemporalCoupling } from '../c4/hooks/useTemporalCoupling';
+import { useDefectRisk } from '../c4/hooks/useDefectRisk';
+import {
+  TemporalCouplingControls,
+  type TemporalCouplingControlsValue,
+} from '../c4/components/TemporalCouplingControls';
+import {
+  DefectRiskControls,
+  DEFAULT_DEFECT_RISK_VALUE,
+  type DefectRiskControlsValue,
+} from '../c4/components/DefectRiskControls';
+
+function toCodeGraphNodeId(repoId: string, filePath: string): string {
+  const cleaned = filePath.replace(/\.(tsx?|mdx?)$/, '');
+  return `${repoId}:${cleaned}`;
+}
+
+const DEFAULT_TC_VALUE: TemporalCouplingControlsValue = {
+  enabled: false,
+  windowDays: 30,
+  threshold: 0.5,
+  topK: 50,
+  directional: false,
+  confidenceThreshold: 0.5,
+  directionalDiff: 0.3,
+  granularity: 'commit',
+};
 
 interface CodeGraphPanelProps {
   readonly serverUrl: string;
@@ -20,6 +48,84 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
   const [highlightedNodes, setHighlightedNodes] = useState<ReadonlySet<string>>(new Set());
   const [selectedNode, setSelectedNode] = useState<CodeGraphNode | null>(null);
   const [repoFilter, setRepoFilter] = useState<string>('all');
+  const [tcValue, setTcValue] = useState<TemporalCouplingControlsValue>(DEFAULT_TC_VALUE);
+  const [drValue, setDrValue] = useState<DefectRiskControlsValue>(DEFAULT_DEFECT_RISK_VALUE);
+
+  const tcRepoId = useMemo<string | null>(() => {
+    if (!graph || graph.repositories.length === 0) return null;
+    if (repoFilter !== 'all') return repoFilter;
+    return graph.repositories[0]?.id ?? null;
+  }, [graph, repoFilter]);
+
+  const {
+    edges: rawGhostEdges,
+    directional: tcDirectional,
+    granularity: tcGranularity,
+    loading: tcLoading,
+  } = useTemporalCoupling({
+    enabled: tcValue.enabled && !!tcRepoId,
+    serverUrl,
+    repoName: tcRepoId ?? '',
+    windowDays: tcValue.windowDays,
+    threshold: tcValue.threshold,
+    topK: tcValue.topK,
+    directional: tcValue.directional,
+    confidenceThreshold: tcValue.confidenceThreshold,
+    directionalDiff: tcValue.directionalDiff,
+    granularity: tcValue.granularity,
+  });
+
+  // subagent × directional でデータが対称的（A→B エッジが 1 件も無い）場合、
+  // 矢印が出ない原因をエンドユーザーに伝えるためのヒントを表示する。
+  // 発生条件: subagent_type が 1 種類しかないとき、または各 type が触るファイル集合が
+  // 完全に同じ・完全に独立している場合（数学的に diff=0 で必ず undirected になる）。
+  const showSubagentDirectionalHint = useMemo<boolean>(() => {
+    if (!tcValue.enabled) return false;
+    if (tcGranularity !== 'subagentType') return false;
+    if (!tcDirectional) return false;
+    if (rawGhostEdges.length === 0) return false;
+    return rawGhostEdges.every(
+      (e) => !('direction' in e) || e.direction !== 'A→B',
+    );
+  }, [tcValue.enabled, tcGranularity, tcDirectional, rawGhostEdges]);
+
+  const { entries: drEntries, loading: drLoading } = useDefectRisk({
+    enabled: drValue.enabled,
+    serverUrl,
+    windowDays: drValue.windowDays,
+    halfLifeDays: drValue.halfLifeDays,
+  });
+
+  const riskMap = useMemo<ReadonlyMap<string, number> | null>(() => {
+    if (!drEntries.length || !tcRepoId) return null;
+    const map = new Map<string, number>();
+    for (const entry of drEntries) {
+      const nodeId = toCodeGraphNodeId(tcRepoId, entry.filePath);
+      map.set(nodeId, entry.score);
+    }
+    return map;
+  }, [drEntries, tcRepoId]);
+
+  const ghostEdges = useMemo<CodeGraphGhostEdge[]>(() => {
+    if (!tcRepoId) return [];
+    return rawGhostEdges.map((e) => {
+      const base: CodeGraphGhostEdge = {
+        source: toCodeGraphNodeId(tcRepoId, e.source),
+        target: toCodeGraphNodeId(tcRepoId, e.target),
+        jaccard: e.jaccard,
+        coChangeCount: e.coChangeCount,
+      };
+      if ('direction' in e) {
+        return {
+          ...base,
+          direction: e.direction,
+          confidenceForward: e.confidenceForward,
+          confidenceBackward: e.confidenceBackward,
+        };
+      }
+      return base;
+    });
+  }, [rawGhostEdges, tcRepoId]);
 
   const handleSearch = useCallback(async () => {
     if (!query.trim()) {
@@ -53,6 +159,10 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
   const handleGenerate = useCallback(() => {
     refetch();
   }, [refetch]);
+
+  const communitySummary = selectedNode
+    ? graph?.communitySummaries?.[selectedNode.community]
+    : undefined;
 
   if (loading) {
     return (
@@ -139,6 +249,29 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
         </Box>
       </Box>
 
+      <DefectRiskControls
+        value={drValue}
+        onChange={setDrValue}
+        resultCount={drEntries.length}
+        loading={drLoading}
+      />
+
+      <TemporalCouplingControls
+        value={tcValue}
+        onChange={setTcValue}
+        resultCount={ghostEdges.length}
+        loading={tcLoading}
+      />
+
+      {showSubagentDirectionalHint && (
+        <Alert severity="info" sx={{ mx: 1, mb: 1, py: 0 }}>
+          subagent 粒度では複数の subagent_type が共通ファイルを触っていないと方向性
+          （矢印）は出ません。現在のデータは対称的なため全エッジが無向です。期間
+          （windowDays）を伸ばすか、別の subagent_type を含むセッションが取り込まれて
+          いるか確認してください。
+        </Alert>
+      )}
+
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Box sx={{ flex: 1 }}>
           <CodeGraphCanvas
@@ -146,6 +279,9 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
             highlightedNodes={highlightedNodes}
             onNodeClick={(n) => void handleNodeClick(n)}
             isDark={isDark}
+            ghostEdges={tcValue.enabled ? ghostEdges : undefined}
+            ghostEdgeGranularity={tcGranularity}
+            riskMap={drValue.enabled ? riskMap : null}
           />
         </Box>
         {selectedNode && (
@@ -168,8 +304,20 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
               リポジトリ: {selectedNode.repo}
             </Typography>
             <Typography variant="caption" display="block">
-              コミュニティ: {selectedNode.communityLabel}
+              コミュニティ: {communitySummary
+                ? `${communitySummary.name} (${selectedNode.communityLabel})`
+                : selectedNode.communityLabel}
             </Typography>
+            {communitySummary?.summary && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                display="block"
+                sx={{ pl: 1.5, mt: 0.25 }}
+              >
+                {communitySummary.summary}
+              </Typography>
+            )}
             <Typography variant="caption" display="block">
               被参照数: {selectedNode.size}
             </Typography>

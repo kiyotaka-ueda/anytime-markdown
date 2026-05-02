@@ -1,22 +1,26 @@
-import * as vscode from 'vscode';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { C4Panel } from './c4/C4Panel';
-import { TrailPanel } from './trail/TrailPanel';
-import { TrailDataServer } from './server/TrailDataServer';
-import { CodeGraphService } from './graph/CodeGraphService';
-import { TrailDatabase } from './trail/TrailDatabase';
-import { registerC4Commands } from './commands/c4Commands';
-import { TrailLogger } from './utils/TrailLogger';
-import { C4TreeProvider } from './providers/C4TreeProvider';
-import { DatabaseProvider } from './trail/DatabaseProvider';
-import { AiMemoryProvider, AiMemoryItem } from './providers/AiMemoryProvider';
-import { AiNoteProvider, AiNoteItem } from './providers/AiNoteProvider';
-import type { IRemoteTrailStore } from './trail/IRemoteTrailStore';
-import { SupabaseTrailStore } from './trail/SupabaseTrailStore';
-import { PostgresTrailStore } from './trail/PostgresTrailStore';
-import { SyncService } from './trail/SyncService';
+
+import { trailToC4 } from '@anytime-markdown/trail-core';
 import { setupClaudeHooks } from '@anytime-markdown/vscode-common';
+import * as vscode from 'vscode';
+
+import { C4Panel } from './c4/C4Panel';
+import { registerC4Commands } from './commands/c4Commands';
+import { CodeGraphService } from './graph/CodeGraphService';
+import { synthesizeC4ElementsFromFilesystem } from './graph/synthesizeC4Elements';
+import { AiMemoryItem,AiMemoryProvider } from './providers/AiMemoryProvider';
+import { AiNoteItem,AiNoteProvider } from './providers/AiNoteProvider';
+import { C4TreeProvider } from './providers/C4TreeProvider';
+import { TrailDataServer } from './server/TrailDataServer';
+import { DatabaseProvider } from './trail/DatabaseProvider';
+import type { IRemoteTrailStore } from './trail/IRemoteTrailStore';
+import { PostgresTrailStore } from './trail/PostgresTrailStore';
+import { SupabaseTrailStore } from './trail/SupabaseTrailStore';
+import { SyncService } from './trail/SyncService';
+import { TrailDatabase } from './trail/TrailDatabase';
+import { TrailPanel } from './trail/TrailPanel';
+import { TrailLogger } from './utils/TrailLogger';
 
 let trailDataServer: TrailDataServer | undefined;
 let trailDb: TrailDatabase | undefined;
@@ -384,30 +388,62 @@ export async function activate(context: vscode.ExtensionContext) {
 	const codeGraphCfg = vscode.workspace.getConfiguration('anytimeTrail.codeGraph');
 	const expandWorkspace = (s: string): string =>
 		wsRootForDb ? s.replace('${workspaceFolder}', wsRootForDb) : s;
-	const rawOutputDir = codeGraphCfg.get<string>('outputDir', '${workspaceFolder}/.vscode/graphify-out');
-	const outputDir = expandWorkspace(rawOutputDir);
-	const configuredRepos = codeGraphCfg.get<Array<{ path: string; label: string }>>('repositories', []);
+	const configuredRepoPaths = codeGraphCfg.get<string[]>('repositories', []);
 	const codeGraphAutoRefresh = codeGraphCfg.get<boolean>('autoRefresh', false);
 	const c4ExcludePatterns = vscode.workspace
 		.getConfiguration('anytimeTrail.c4')
 		.get<string[]>('analyzeExcludePatterns', []);
+	// repo.id は trail viewer のサイドパネルに「リポジトリ」として表示されるため、
+	// 数値インデックスではなく label ベースの slug を使う。重複時は index を付与する。
+	const usedRepoIds = new Set<string>();
+	const codeGraphRepos = configuredRepoPaths.map((rawPath, i) => {
+		// 後方互換: 設定値が JSON オブジェクト文字列 '{ "path": "...", "label": "..." }' の場合も受け付ける
+		let resolvedPath = rawPath;
+		let explicitLabel: string | undefined;
+		try {
+			const parsed = JSON.parse(rawPath) as { path?: string; label?: string };
+			if (parsed && typeof parsed === 'object' && typeof parsed.path === 'string') {
+				resolvedPath = parsed.path;
+				if (typeof parsed.label === 'string' && parsed.label) explicitLabel = parsed.label;
+			}
+		} catch { /* not JSON — treat as plain path string */ }
+		const expandedPath = expandWorkspace(resolvedPath);
+		const label = explicitLabel ?? (path.basename(expandedPath) || String(i));
+		const slug = label.trim().replace(/\s+/g, '-');
+		let id = slug || String(i);
+		if (usedRepoIds.has(id)) id = `${id}-${i}`;
+		usedRepoIds.add(id);
+		return { id, label, path: expandedPath };
+	});
 	const codeGraphService = new CodeGraphService({
-		repositories: configuredRepos.map((r, i) => ({
-			id: String(i),
-			label: r.label,
-			path: expandWorkspace(r.path),
-		})),
-		outputDir,
+		repositories: codeGraphRepos,
 		excludePatterns: c4ExcludePatterns,
+		c4ElementsProvider: () => {
+			const trailGraph = C4Panel.getDataProvider()?.trailGraph;
+			if (trailGraph) {
+				try {
+					return trailToC4(trailGraph).elements;
+				} catch (err) {
+					TrailLogger.error('Failed to derive C4 elements from trail graph', err);
+				}
+			}
+			// analyzeWorkspace 未実行時は packages/<pkg>/src/<dir> 構造から合成する。
+			// trail-core 解析と同じ命名規則で elements を作るため、c4-aware 命名が機能する。
+			return synthesizeC4ElementsFromFilesystem(codeGraphRepos);
+		},
+		trailGraphProvider: () => {
+			// Analyze Workspace 既実行時は lastTrailGraph を流用して analyze() の重複呼び出しを避ける。
+			// プライマリリポ（最初の設定）にのみ適用。それ以外は CodeGraphService が個別に analyze() する。
+			const tg = C4Panel.getDataProvider()?.trailGraph;
+			if (!tg || codeGraphRepos.length === 0) return undefined;
+			return { [codeGraphRepos[0].id]: tg };
+		},
+		trailDb: trailDb!,
 	});
 	trailDataServer.setCodeGraphService(codeGraphService);
-	void codeGraphService.loadFromDisk().then(() => {
-		if (codeGraphAutoRefresh) {
-			return codeGraphService.generate((phase, percent) => trailDataServer?.notifyCodeGraphProgress(phase, percent))
-				.then(() => trailDataServer?.notifyCodeGraphUpdated());
-		}
-		return undefined;
-	}).catch((err) => TrailLogger.error('Failed to initialize code graph', err));
+	C4Panel.setCodeGraphService(codeGraphService);
+	// loadFromDb() は trailDb.init() 完了後に下の async IIFE 内で呼ぶ。
+	// ここで呼ぶと DB 未初期化のまま ensureDb() が throw → null が返るため。
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('anytime-trail.generateCodeGraph', async () => {
@@ -419,6 +455,56 @@ export async function activate(context: vscode.ExtensionContext) {
 				TrailLogger.error('Failed to generate code graph', err);
 				vscode.window.showErrorMessage(`Code graph generation failed: ${(err as Error).message}`);
 			}
+		}),
+		vscode.commands.registerCommand('anytime-trail.regenerateCurrentCodeGraph', async () => {
+			if (!trailDb) {
+				vscode.window.showErrorMessage('Trail DB is not initialized.');
+				return;
+			}
+			await vscode.window.withProgress(
+				{ location: vscode.ProgressLocation.Notification, title: 'Trail: Regenerate Current Code Graph', cancellable: false },
+				async (progress) => {
+					try {
+						progress.report({ message: 'Clearing current code graph...' });
+						trailDb!.deleteCurrentCodeGraphs();
+						progress.report({ message: 'Re-analyzing workspace...' });
+						await C4Panel.analyzeWorkspace();
+						vscode.window.showInformationMessage('Current code graph regenerated.');
+					} catch (err) {
+						TrailLogger.error('Failed to regenerate current code graph', err);
+						vscode.window.showErrorMessage(`Regenerate failed: ${err instanceof Error ? err.message : String(err)}`);
+					}
+				},
+			);
+		}),
+		vscode.commands.registerCommand('anytime-trail.regenerateReleaseCodeGraphs', async () => {
+			if (!trailDb) {
+				vscode.window.showErrorMessage('Trail DB is not initialized.');
+				return;
+			}
+			if (!gitRoot) {
+				vscode.window.showErrorMessage('No workspace folder found.');
+				return;
+			}
+			await vscode.window.withProgress(
+				{ location: vscode.ProgressLocation.Notification, title: 'Trail: Regenerate Release Code Graphs', cancellable: false },
+				async (progress) => {
+					try {
+						progress.report({ message: 'Clearing release code graphs...' });
+						trailDb!.deleteReleaseCodeGraphs();
+						progress.report({ message: 'Generating release code graphs...' });
+						const count = await trailDb!.analyzeReleaseCodeGraphsForce({
+							codeGraphService,
+							gitRoot,
+							onProgress: (msg) => progress.report({ message: msg }),
+						});
+						vscode.window.showInformationMessage(`Release code graphs regenerated (${count} releases).`);
+					} catch (err) {
+						TrailLogger.error('Failed to regenerate release code graphs', err);
+						vscode.window.showErrorMessage(`Regenerate failed: ${err instanceof Error ? err.message : String(err)}`);
+					}
+				},
+			);
 		}),
 	);
 
@@ -448,6 +534,15 @@ export async function activate(context: vscode.ExtensionContext) {
 			await trailDb!.init();
 			databaseProvider.updateSqliteStatus('Ready', trailDb!.getLastImportedAt());
 			TrailLogger.info('Trail DB: initialized');
+			// DB 初期化完了後に loadFromDb() を実行（初期化前に呼ぶと ensureDb が throw するため）
+			const dbGraph = await codeGraphService!.loadFromDb();
+			if (dbGraph) {
+				trailDataServer?.notifyCodeGraphUpdated();
+			}
+			if (codeGraphAutoRefresh) {
+				await codeGraphService!.generate((phase, percent) => trailDataServer?.notifyCodeGraphProgress(phase, percent));
+				trailDataServer?.notifyCodeGraphUpdated();
+			}
 		} catch (err) {
 			TrailLogger.error('Failed to initialize trail database', err);
 			databaseProvider.updateSqliteStatus('Error');
@@ -483,9 +578,19 @@ export async function activate(context: vscode.ExtensionContext) {
 			};
 		} catch (err) {
 			TrailLogger.error('Trail Data Server failed to start', err);
+			const message = err instanceof Error ? err.message : String(err);
+			// EADDRINUSE は別 VS Code ウィンドウが同じポートを掴んでいるケースが圧倒的に多いので、
+			// OutputChannel のみだとユーザーが trail viewer 不通の原因に気付けない。
+			// 通知でポートと回復策を示す。
+			const isPortConflict = /EADDRINUSE|already in use/i.test(message);
+			const userMsg = isPortConflict
+				? `Trail Data Server failed to bind port ${trailPort} (already in use). 別の VS Code ウィンドウが同じポートを掴んでいる可能性が高いです。古いウィンドウを閉じるか anytimeTrail.trailServer.port 設定で別ポートに変更してください。`
+				: `Trail Data Server failed to start: ${message}`;
+			void vscode.window.showErrorMessage(userMsg);
 		}
 	})().catch((err) => {
 		TrailLogger.error('Unexpected error during initialization', err);
+		void vscode.window.showErrorMessage(`Anytime Trail initialization failed: ${err instanceof Error ? err.message : String(err)}`);
 	});
 
 	context.subscriptions.push(
@@ -575,10 +680,11 @@ export async function activate(context: vscode.ExtensionContext) {
 					},
 					async (progress) => {
 						const gitRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+						const excludePatterns = vscode.workspace.getConfiguration('anytimeTrail.c4').get<string[]>('analyzeExcludePatterns', ['.worktrees', '.vscode-test', '__tests__', 'fixtures']);
 						return trailDb!.importAll((message, increment) => {
 							progress.report({ message, increment });
 							TrailLogger.info(`Trail import [${repoName}]: ${message}`);
-						}, gitRoot);
+						}, gitRoot, excludePatterns);
 					},
 				);
 				TrailLogger.info(`Trail DB [${repoName}]: import complete - imported=${result.imported}, skipped=${result.skipped}, commits=${result.commitsResolved}, releases=${result.releasesResolved}, analyzed=${result.releasesAnalyzed}`);

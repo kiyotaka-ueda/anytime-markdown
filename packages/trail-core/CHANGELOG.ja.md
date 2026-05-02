@@ -6,6 +6,30 @@
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-05-02
+
+### 追加
+
+- リリース非依存のカバレッジスナップショット用 `current_coverage` テーブルを追加
+- カバレッジデータから総行数を示す `LOC` メトリクスを追加
+- CodeGraph の DB 永続化テーブルと永続化レイヤーを追加
+- カバレッジ集計・解析のユニットテストを追加
+
+### 変更
+
+- `importCurrentCoverage` を `importAll` から `c4Analyze` に移動
+- `graph.json` フォールバックを削除し、DB ベースの Code Graph 移行を完了
+
+### 修正
+
+- 未初期化 DB に対する `CodeGraphService.loadFromDb` のガードを追加
+- `codeGraph.repositories` 設定の JSON オブジェクト文字列をパース可能に修正
+- カバレッジ同期時の NaN パーセント値（Istanbul "Unknown"）をガード
+- Code Graph 再生成時に AI コミュニティサマリーを保持するよう修正
+- `aggregateCoverageFromDb` に L4 ファイルレベルのカバレッジエントリを追加
+- `C4Model` 型をパッケージルートからエクスポート
+- `TrailFilter` に `project` フィールドを追加
+
 ## [0.13.0] - 2026-04-28
 
 ### 追加

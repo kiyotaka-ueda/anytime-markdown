@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import FitScreenIcon from '@mui/icons-material/FitScreen';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import IconButton from '@mui/material/IconButton';
@@ -17,10 +18,13 @@ export interface MinimapCanvasProps {
   readonly mainCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   readonly onViewportChange: (vp: Viewport) => void;
   readonly isDark?: boolean;
+  readonly onFit?: () => void;
   /** ミニマップの幅 px（デフォルト 200） */
   readonly width?: number;
   /** ミニマップの高さ px（デフォルト 130） */
   readonly height?: number;
+  /** 外側コンテナの style オーバーライド（position 等の変更用） */
+  readonly containerStyle?: React.CSSProperties;
 }
 
 type DragState =
@@ -50,8 +54,10 @@ export function MinimapCanvas({
   mainCanvasRef,
   onViewportChange,
   isDark = true,
+  onFit,
   width = 200,
   height = 130,
+  containerStyle,
 }: MinimapCanvasProps) {
   const colors = getCanvasColors(isDark);
   const minimapRef = useRef<HTMLCanvasElement | null>(null);
@@ -274,6 +280,7 @@ export function MinimapCanvas({
         zIndex: 10,
         boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
         overflow: 'hidden',
+        ...containerStyle,
       }}
     >
       <canvas
@@ -289,7 +296,7 @@ export function MinimapCanvas({
         size="small"
         onClick={handleZoomOut}
         aria-label="Zoom out"
-        style={{ ...btnStyle, right: 26 }}
+        style={{ ...btnStyle, right: onFit ? 50 : 26 }}
         sx={{ fontSize: '0.9rem' }}
       >
         <ZoomOutIcon fontSize="inherit" />
@@ -298,11 +305,22 @@ export function MinimapCanvas({
         size="small"
         onClick={handleZoomIn}
         aria-label="Zoom in"
-        style={{ ...btnStyle, right: 2 }}
+        style={{ ...btnStyle, right: onFit ? 26 : 2 }}
         sx={{ fontSize: '0.9rem' }}
       >
         <ZoomInIcon fontSize="inherit" />
       </IconButton>
+      {onFit && (
+        <IconButton
+          size="small"
+          onClick={onFit}
+          aria-label="Fit"
+          style={{ ...btnStyle, right: 2 }}
+          sx={{ fontSize: '0.9rem' }}
+        >
+          <FitScreenIcon fontSize="inherit" />
+        </IconButton>
+      )}
     </div>
   );
 }

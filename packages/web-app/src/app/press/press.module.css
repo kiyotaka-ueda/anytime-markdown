@@ -823,6 +823,35 @@
     flex-wrap: wrap;
 }
 
+/* ── Briefing (Roadmap variant: 複数列・埋め込み無し) ──── */
+.briefingRoadmapSection {
+    padding: 36px var(--gutter);
+    border-bottom: var(--rule-bold) solid var(--ink);
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    scroll-margin-top: 120px;
+}
+
+.briefingListGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 0 48px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border-top: var(--rule-bold) solid var(--ink);
+}
+
+.briefingListGrid li {
+    display: grid;
+    grid-template-columns: 24px 1fr;
+    gap: 3px 8px;
+    padding: 14px 0;
+    border-bottom: var(--rule-thin) solid var(--ink-light);
+    align-items: start;
+}
+
 /* ── PullQuote ─────────────────────────────────────── */
 .pullQuote {
     padding: 56px var(--gutter);

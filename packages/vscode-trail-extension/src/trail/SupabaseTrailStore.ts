@@ -77,7 +77,7 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
   async upsertSessions(rows: readonly SessionRow[]): Promise<void> {
     if (rows.length === 0) return;
     const mapped = rows.map((r) => ({
-      id: r.id, slug: r.slug, project: r.project, repo_name: r.repo_name,
+      id: r.id, slug: r.slug, repo_name: r.repo_name,
       version: r.version, entrypoint: r.entrypoint, model: r.model,
       start_time: r.start_time, end_time: r.end_time,
       message_count: r.message_count,
@@ -181,6 +181,17 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
         timestamp: r.timestamp,
         is_sidechain: r.is_sidechain, is_meta: r.is_meta,
         cwd: r.cwd, git_branch: r.git_branch,
+        permission_mode: r.permission_mode ?? null,
+        skill: r.skill ?? null,
+        agent_id: r.agent_id ?? null,
+        agent_description: r.agent_description ?? null,
+        agent_model: r.agent_model ?? null,
+        subagent_type: r.subagent_type ?? null,
+        source_tool_assistant_uuid: r.source_tool_assistant_uuid ?? null,
+        source_tool_use_id: r.source_tool_use_id ?? null,
+        system_command: r.system_command ?? null,
+        duration_ms: r.duration_ms ?? null,
+        tool_result_size: r.tool_result_size ?? null,
       }));
       const { error } = await this.ensureClient()
         .from('trail_messages')
@@ -341,6 +352,59 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
         .from('trail_message_tool_calls')
         .upsert(rows.slice(i, i + CHUNK), { onConflict: 'session_id,message_uuid,call_index' });
       if (error) throw new Error(`Supabase upsert trail_message_tool_calls failed: ${error.message}`);
+    }
+  }
+
+  async unsafeClearCurrentCoverage(): Promise<void> {
+    await this.ensureClient().from('trail_current_coverage').delete().gte('repo_name', '');
+  }
+
+  async upsertCurrentCoverage(rows: readonly {
+    repo_name: string; package: string; file_path: string;
+    lines_total: number; lines_covered: number; lines_pct: number;
+    statements_total: number; statements_covered: number; statements_pct: number;
+    functions_total: number; functions_covered: number; functions_pct: number;
+    branches_total: number; branches_covered: number; branches_pct: number;
+    updated_at: string;
+  }[]): Promise<void> {
+    if (rows.length === 0) return;
+    const CHUNK = 500;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK);
+      const { error } = await this.ensureClient()
+        .from('trail_current_coverage')
+        .upsert(chunk.map((r) => ({ ...r })), { onConflict: 'repo_name,package,file_path' });
+      if (error) throw new Error(`Supabase upsert current_coverage failed: ${error.message}`);
+    }
+  }
+
+  async unsafeClearCurrentCodeGraphs(): Promise<void> {
+    await this.ensureClient().from('trail_current_code_graph_communities').delete().gte('repo_name', '');
+    await this.ensureClient().from('trail_current_code_graphs').delete().gte('repo_name', '');
+  }
+
+  async upsertCurrentCodeGraphs(rows: readonly {
+    repo_name: string; graph_json: string; generated_at: string; updated_at: string;
+  }[]): Promise<void> {
+    if (rows.length === 0) return;
+    const { error } = await this.ensureClient()
+      .from('trail_current_code_graphs')
+      .upsert(rows.map((r) => ({ ...r })), { onConflict: 'repo_name' });
+    if (error) throw new Error(`Supabase upsert current_code_graphs failed: ${error.message}`);
+  }
+
+  async upsertCurrentCodeGraphCommunities(rows: readonly {
+    repo_name: string; community_id: number; label: string;
+    name: string; summary: string; generated_at: string; updated_at: string;
+  }[]): Promise<void> {
+    if (rows.length === 0) return;
+    const CHUNK = 200;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK);
+      const { error } = await this.ensureClient()
+        .from('trail_current_code_graph_communities')
+        .upsert(chunk.map((r) => ({ ...r })), { onConflict: 'repo_name,community_id' });
+      if (error) throw new Error(`Supabase upsert current_code_graph_communities failed: ${error.message}`);
     }
   }
 

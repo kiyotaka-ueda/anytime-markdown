@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
 
 import { useThemeMode } from '../providers';
-import { BriefingPrimary, BriefingSecondary } from './components/Briefing';
+import { BriefingPrimary, BriefingRoadmap, BriefingSecondary } from './components/Briefing';
 import { Caravan } from './components/Caravan';
 import { Colophon } from './components/Colophon';
 import { CtaActions } from './components/CtaStrip';
@@ -52,6 +52,8 @@ export function PressBody() {
       <Caravan />
       <Dispatch />
       <BriefingPrimary
+        subtitle="- アクティビティ"
+        trailKeys={['trail2', 'trail3', 'trail5', 'trail6']}
         embed={<TrailViewerEmbed containerHeight="clamp(400px, 62vh, 760px)" />}
         embedActions={
           <CtaActions
@@ -61,6 +63,56 @@ export function PressBody() {
             secondaryHref="https://marketplace.visualstudio.com/items?itemName=anytime-trial.anytime-trail"
           />
         }
+      />
+      <BriefingPrimary
+        subtitle="- メッセージ"
+        trailKeys={['trail3', 'trail7']}
+        embed={<TrailViewerEmbed containerHeight="clamp(400px, 62vh, 760px)" initialTab={1} />}
+        embedActions={
+          <CtaActions
+            primaryLabel={tCta('openViewer')}
+            secondaryLabel={tCta('vsCode')}
+            primaryHref="/trail?tab=1"
+            secondaryHref="https://marketplace.visualstudio.com/items?itemName=anytime-trial.anytime-trail"
+          />
+        }
+      />
+      <BriefingPrimary
+        subtitle="- モデル"
+        trailKeys={['trail1', 'trail8', 'trail9', 'trail10', 'trail11']}
+        embed={<TrailViewerEmbed containerHeight="clamp(400px, 62vh, 760px)" initialTab={4} initialC4Level={2} />}
+        embedActions={
+          <CtaActions
+            primaryLabel={tCta('openViewer')}
+            secondaryLabel={tCta('vsCode')}
+            primaryHref="/trail?tab=4&c4level=2"
+            secondaryHref="https://marketplace.visualstudio.com/items?itemName=anytime-trial.anytime-trail"
+          />
+        }
+      />
+      <BriefingPrimary
+        subtitle="- スキル"
+        trailKeys={['trail4', 'trail12', 'trail13']}
+        embed={null}
+      />
+      <BriefingRoadmap
+        subtitle="- 将来対応"
+        trailKeys={[
+          'trail14',
+          'trail15',
+          'trail16',
+          'trail17',
+          'trail18',
+          'trail19',
+          'trail20',
+          'trail21',
+          'trail22',
+          'trail23',
+          'trail24',
+          'trail25',
+          'trail26',
+        ]}
+        verdict="— planned"
       />
       <BriefingSecondary
         embed={

@@ -28,6 +28,25 @@ function cloneDoc(doc: GraphDocument): GraphDocument {
   };
 }
 
+export interface BuildLevelViewOptions {
+  readonly showAncestorEdges?: boolean;
+}
+
+function filterAncestorEdges(
+  edges: readonly GraphEdge[],
+  nodeById: ReadonlyMap<string, GraphNode>,
+  isAncestorNode: (node: GraphNode) => boolean,
+): GraphEdge[] {
+  return edges.filter((edge) => {
+    const fromId = edge.from.nodeId;
+    const toId = edge.to.nodeId;
+    if (!fromId || !toId) return false;
+    const from = nodeById.get(fromId);
+    const to = nodeById.get(toId);
+    return !(from && isAncestorNode(from)) && !(to && isAncestorNode(to));
+  }).map(e => ({ ...e, from: { ...e.from }, to: { ...e.to } }));
+}
+
 /**
  * C4 レベルに応じた表示用 GraphDocument を構築する。
  *
@@ -36,8 +55,19 @@ function cloneDoc(doc: GraphDocument): GraphDocument {
  * - L2: L3/L4 を非表示、L2 フレームを矩形ノードに変換、L1 フレームを保持
  * - L1: L1 フレームのみ矩形表示
  */
-export function buildLevelView(doc: GraphDocument, level: number): GraphDocument {
-  if (level >= 4) return cloneDoc(doc);
+export function buildLevelView(
+  doc: GraphDocument,
+  level: number,
+  options: BuildLevelViewOptions = {},
+): GraphDocument {
+  const showAncestorEdges = options.showAncestorEdges ?? true;
+
+  if (level >= 4) {
+    const cloned = cloneDoc(doc);
+    if (showAncestorEdges) return cloned;
+    const nodeById = new Map(cloned.nodes.map(n => [n.id, n]));
+    return { ...cloned, edges: filterAncestorEdges(cloned.edges, nodeById, node => node.type === 'frame') };
+  }
 
   // system フレーム（depth=1）がある場合、表示可能な深さを +1 する
   const hasSystemFrame = doc.nodes.some(
@@ -88,6 +118,7 @@ export function buildLevelView(doc: GraphDocument, level: number): GraphDocument
       }
     }
   }
+  const visibleNodeById = new Map(visibleNodes.map(n => [n.id, n]));
 
   const visibleEdges: GraphEdge[] = doc.edges
     .filter(e => {
@@ -96,6 +127,13 @@ export function buildLevelView(doc: GraphDocument, level: number): GraphDocument
       return fromId && toId && visibleNodeIds.has(fromId) && visibleNodeIds.has(toId);
     })
     .map(e => ({ ...e, from: { ...e.from }, to: { ...e.to } }));
+  const filteredEdges = showAncestorEdges
+    ? visibleEdges
+    : filterAncestorEdges(
+      visibleEdges,
+      visibleNodeById,
+      node => node.type === 'frame' && getFrameDepth(node, doc.nodes) < maxFrameDepth,
+    );
 
-  return { ...doc, nodes: visibleNodes, edges: visibleEdges };
+  return { ...doc, nodes: visibleNodes, edges: filteredEdges };
 }

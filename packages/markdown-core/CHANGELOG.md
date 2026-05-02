@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.13.4] - 2026-05-02
+
+### Fixed
+
+- Make admonition newline serialization idempotent
+
+### Changed
+
+- Updated i18n strings (en/ja) for press page content
+
 ## [0.13.3] - 2026-04-28
 
 ### Fixed

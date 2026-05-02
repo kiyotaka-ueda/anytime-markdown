@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-05-02
+
+### Changed
+
+- Updated press page スキル section with detailed anytime-note feature descriptions
+- Renamed press page section headings (行動 → メッセージ, メッセージ → モデル)
+- Updated Activity, Messages, and Model tab descriptions to align with actual feature set
+- Added 将来対応 roadmap section to the press page with future-vision concepts
+
 ## [0.21.0] - 2026-04-28
 
 ### Added

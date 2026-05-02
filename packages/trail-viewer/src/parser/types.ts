@@ -22,6 +22,9 @@ export interface RawJsonlMessage {
   };
   readonly userContent?: string;
   readonly isMeta?: boolean;
+  /** Subagent (CC sidechain or codex 委任) のメッセージで、委任元の親 assistant メッセージ UUID。 */
+  readonly sourceToolAssistantUUID?: string;
+  readonly sourceToolUseID?: string;
 }
 
 export interface RawContentBlock {
@@ -63,6 +66,16 @@ export interface AnalyticsData {
     readonly totalBuildFails: number;
     readonly totalTestRuns: number;
     readonly totalTestFails: number;
+    /** Current total lines of code from coverage data */
+    readonly totalLoc: number;
+    /** Optional comparison data for deltas */
+    readonly comparison?: {
+      readonly sessions?: { readonly deltaPct: number | null };
+      readonly tokens?: { readonly deltaPct: number | null };
+      readonly cost?: { readonly deltaPct: number | null };
+      readonly commits?: { readonly deltaPct: number | null };
+      readonly loc?: { readonly deltaPct: number | null };
+    };
   };
   readonly toolUsage: readonly { name: string; count: number }[];
   readonly dailyActivity: readonly {
@@ -73,6 +86,8 @@ export interface AnalyticsData {
     readonly cacheReadTokens: number;
     readonly cacheCreationTokens: number;
     readonly estimatedCostUsd: number;
+    readonly commits: number;
+    readonly linesAdded: number;
   }[];
 }
 
@@ -84,6 +99,10 @@ export interface CombinedToolCount {
   readonly tokens: number;
   /** ターンの実行時間（ms）をツール呼び出し数で按分した推定値 */
   readonly durationMs: number;
+  /** トークン欠損ターン比率 (0–1)。欠損がない場合は 0 */
+  readonly tokenMissingRate: number;
+  readonly tokenTotalTurns: number;
+  readonly tokenMissingTurns: number;
 }
 
 
@@ -106,6 +125,20 @@ export interface CombinedModel {
   readonly model: string;
   readonly count: number;
   readonly tokens: number;
+  readonly tokenMissingRate: number;
+  readonly tokenTotalTurns: number;
+  readonly tokenMissingTurns: number;
+}
+
+export interface CombinedAgent {
+  readonly period: string;
+  readonly agent: string;
+  readonly tokens: number;
+  readonly costUsd: number;
+  readonly loc: number;
+  readonly tokenMissingRate: number;
+  readonly tokenTotalTurns: number;
+  readonly tokenMissingTurns: number;
 }
 
 
@@ -127,6 +160,7 @@ export interface CombinedData {
   readonly errorRate: readonly CombinedError[];
   readonly skillStats: readonly CombinedSkill[];
   readonly modelStats: readonly CombinedModel[];
+  readonly agentStats: readonly CombinedAgent[];
   readonly commitPrefixStats: readonly CombinedCommitPrefix[];
   readonly aiFirstTryRate: readonly CombinedAiFirstTryRate[];
 }
@@ -157,6 +191,7 @@ export type TrailMessage = _TrailMessage & {
   readonly triggerCommitHashes?: readonly string[];
   readonly agentId?: string;
   readonly agentDescription?: string;
+  readonly codexSessionId?: string;
   /** True when the tool result response to this assistant turn contained at least one is_error block */
   readonly hasToolError?: boolean;
   /** True when this assistant turn ran a git commit bash command */

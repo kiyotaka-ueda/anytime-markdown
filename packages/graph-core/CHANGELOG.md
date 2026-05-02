@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-05-02
+
+### Added
+
+- Dim unrelated elements in the graph when a node is selected
+
+### Fixed
+
+- Move `MinimapCanvas` above the left-side control panel
+- Order minimap controls
+- Move fit control into minimap
+
 ## [0.2.1] - 2026-04-24
 
 ### Added

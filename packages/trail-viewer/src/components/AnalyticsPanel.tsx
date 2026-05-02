@@ -4,6 +4,7 @@ import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
@@ -88,6 +89,10 @@ function fmtTokens(n: number): string {
   return String(n);
 }
 
+export function getMainAgentLabel(source?: TrailSession['source']): string {
+  return source === 'codex' ? 'Codex' : 'Claude Code';
+}
+
 // Return up to ~5 "nice" tick values covering [0, max]. Minimum step is 1 (no fractions).
 function PieCenterLabel({ value, color }: Readonly<{ value: number; color: string }>) {
   const { width, height, left, top } = useDrawingArea();
@@ -129,9 +134,10 @@ type PeriodDays = 7 | 30 | 90;
 
 interface MetricItem {
   readonly label: string;
-  readonly value: string;
+  readonly value: React.ReactNode;
   readonly badge?: { readonly label: string; readonly color: string };
   readonly delta?: { readonly text: string; readonly color: string };
+  readonly tooltip?: string;
 }
 
 function CyclingCard({
@@ -156,64 +162,71 @@ function CyclingCard({
         cursor: 'pointer',
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
         '&:hover': { backgroundColor: 'action.hover' },
         userSelect: 'none',
       }}
       onClick={onCycle}
     >
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, alignSelf: 'flex-start' }}>
-        {groupName}
-      </Typography>
-      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-        <Typography variant="h5">{current.value}</Typography>
-        {current.badge && (
-          <Chip
-            label={current.badge.label}
-            size="small"
-            sx={{ backgroundColor: current.badge.color, color: '#fff', fontWeight: 700, height: 20, fontSize: 10 }}
-          />
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5, gap: 0.5 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'left' }}>
+          {`${groupName}：${current.label}`}
+        </Typography>
+        {current.tooltip && (
+          <Tooltip title={current.tooltip} arrow placement="top">
+            <HelpOutlineIcon sx={{ fontSize: 12, color: 'text.disabled', cursor: 'help', flexShrink: 0 }} />
+          </Tooltip>
         )}
       </Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
-          {current.label}
-        </Typography>
+      <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 1 }}>
+          <Typography variant="h3">{current.value}</Typography>
+          {current.badge && (
+            <Chip
+              label={current.badge.label}
+              size="small"
+              sx={{ backgroundColor: current.badge.color, color: '#fff', fontWeight: 700, height: 20, fontSize: 10 }}
+            />
+          )}
+        </Box>
+      </Box>
+      <Box sx={{ minHeight: 32, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
         {current.delta && (
           <Typography variant="caption" sx={{ color: current.delta.color }}>
             {current.delta.text}
           </Typography>
         )}
-      </Box>
-      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5, mt: 1 }}>
-        {items.map((item, i) => (
-          <Box
-            key={item.label}
-            sx={{
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              backgroundColor: i === index ? 'primary.main' : 'action.disabled',
-            }}
-          />
-        ))}
+        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
+          {items.map((item, i) => (
+            <Box
+              key={item.label}
+              sx={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                backgroundColor: i === index ? 'primary.main' : 'action.disabled',
+              }}
+            />
+          ))}
+        </Box>
       </Box>
     </Paper>
   );
 }
 
-function formatDoraValue(m: { value: number; unit: string }): string {
+function formatDoraValue(m: { value: number; unit: string }): { primary: string; unit?: string } {
   if (m.unit === 'perDay') {
-    return m.value >= 1 ? `${m.value.toFixed(1)}/day` : m.value > 0 ? `${(m.value * 7).toFixed(1)}/week` : '0/day';
+    const text = m.value >= 1 ? `${m.value.toFixed(1)}/day` : m.value > 0 ? `${(m.value * 7).toFixed(1)}/week` : '0/day';
+    return { primary: text };
   }
   if (m.unit === 'minPerLoc') {
-    return m.value < 60 ? `${m.value.toFixed(2)} min/LOC` : `${(m.value / 60).toFixed(1)} h/LOC`;
+    const num = m.value < 60 ? m.value.toFixed(2) : (m.value / 60).toFixed(1);
+    return { primary: num, unit: m.value < 60 ? 'min/LOC' : 'h/LOC' };
   }
   if (m.unit === 'tokensPerLoc') {
-    return m.value >= 1000 ? `${(m.value / 1000).toFixed(1)}k tok/LOC` : `${m.value.toFixed(0)} tok/LOC`;
+    const num = m.value >= 1000 ? `${(m.value / 1000).toFixed(1)}k` : m.value.toFixed(0);
+    return { primary: num, unit: 'tok/LOC' };
   }
-  return `${m.value.toFixed(1)}%`;
+  return { primary: `${m.value.toFixed(1)}%` };
 }
 
 function OverviewCards({
@@ -232,12 +245,57 @@ function OverviewCards({
   const [usageIdx, setUsageIdx] = useState(0);
   const totalTokens = totals.inputTokens + totals.outputTokens;
 
-  const cards = [
-    { label: t('analytics.totalSessions'), value: fmtNum(totals.sessions) },
-    { label: t('analytics.totalTokens'), value: fmtTokens(totalTokens) },
-    { label: t('analytics.estimatedCost'), value: fmtUsd(totals.estimatedCostUsd) },
-    { label: t('analytics.totalCommits'), value: fmtNum(totals.totalCommits) },
-    { label: t('analytics.linesAdded'), value: fmtNum(totals.totalLinesAdded) },
+  const cards: MetricItem[] = [
+    {
+      label: t('analytics.totalSessions'),
+      value: fmtNum(totals.sessions),
+      tooltip: t('analytics.totalSessions.description'),
+      delta: totals.comparison?.sessions?.deltaPct != null ? {
+        text: `${totals.comparison.sessions.deltaPct > 0 ? '↑' : totals.comparison.sessions.deltaPct < 0 ? '↓' : '→'} ${Math.abs(totals.comparison.sessions.deltaPct).toFixed(1)}%`,
+        color: totals.comparison.sessions.deltaPct > 0 ? 'success.main' : totals.comparison.sessions.deltaPct < 0 ? 'error.main' : 'text.secondary',
+      } : undefined,
+    },
+    {
+      label: t('analytics.totalTokens'),
+      value: fmtTokens(totalTokens),
+      tooltip: t('analytics.totalTokens.description'),
+      delta: totals.comparison?.tokens?.deltaPct != null ? {
+        text: `${totals.comparison.tokens.deltaPct > 0 ? '↑' : totals.comparison.tokens.deltaPct < 0 ? '↓' : '→'} ${Math.abs(totals.comparison.tokens.deltaPct).toFixed(1)}%`,
+        color: totals.comparison.tokens.deltaPct > 0 ? 'error.main' : totals.comparison.tokens.deltaPct < 0 ? 'success.main' : 'text.secondary',
+      } : undefined,
+    },
+    {
+      label: t('analytics.estimatedCost'),
+      value: fmtUsd(totals.estimatedCostUsd),
+      tooltip: t('analytics.estimatedCost.description'),
+      delta: totals.comparison?.cost?.deltaPct != null ? {
+        text: `${totals.comparison.cost.deltaPct > 0 ? '↑' : totals.comparison.cost.deltaPct < 0 ? '↓' : '→'} ${Math.abs(totals.comparison.cost.deltaPct).toFixed(1)}%`,
+        color: totals.comparison.cost.deltaPct > 0 ? 'error.main' : totals.comparison.cost.deltaPct < 0 ? 'success.main' : 'text.secondary',
+      } : undefined,
+    },
+    {
+      label: t('analytics.totalCommits'),
+      value: fmtNum(totals.totalCommits),
+      tooltip: t('analytics.totalCommits.description'),
+      delta: totals.comparison?.commits?.deltaPct != null ? {
+        text: `${totals.comparison.commits.deltaPct > 0 ? '↑' : totals.comparison.commits.deltaPct < 0 ? '↓' : '→'} ${Math.abs(totals.comparison.commits.deltaPct).toFixed(1)}%`,
+        color: totals.comparison.commits.deltaPct > 0 ? 'success.main' : totals.comparison.commits.deltaPct < 0 ? 'error.main' : 'text.secondary',
+      } : undefined,
+    },
+    {
+      label: t('analytics.linesAdded'),
+      value: fmtNum(totals.totalLinesAdded),
+      tooltip: t('analytics.linesAdded.description'),
+      delta: totals.comparison?.loc?.deltaPct != null ? {
+        text: `${totals.comparison.loc.deltaPct > 0 ? '↑' : totals.comparison.loc.deltaPct < 0 ? '↓' : '→'} ${Math.abs(totals.comparison.loc.deltaPct).toFixed(1)}%`,
+        color: totals.comparison.loc.deltaPct > 0 ? 'success.main' : totals.comparison.loc.deltaPct < 0 ? 'error.main' : 'text.secondary',
+      } : undefined,
+    },
+    {
+      label: t('analytics.totalLoc'),
+      value: fmtNum(totals.totalLoc),
+      tooltip: t('analytics.totalLoc.description'),
+    },
   ];
 
   const DORA_ID_KEYS: Record<string, string> = {
@@ -246,6 +304,13 @@ function OverviewCards({
     tokensPerLoc: 'metrics.tokensPerLoc.name',
     aiFirstTrySuccessRate: 'metrics.aiFirstTrySuccessRate.name',
     changeFailureRate: 'metrics.changeFailureRate.name',
+  };
+  const DORA_DESCRIPTION_KEYS: Record<string, string> = {
+    deploymentFrequency: 'metrics.deploymentFrequency.description',
+    leadTimePerLoc: 'metrics.leadTimePerLoc.description',
+    tokensPerLoc: 'metrics.tokensPerLoc.description',
+    aiFirstTrySuccessRate: 'metrics.aiFirstTrySuccessRate.description',
+    changeFailureRate: 'metrics.changeFailureRate.description',
   };
   const LEVEL_COLORS: Record<string, string> = {
     elite: isDark ? '#42A5F5' : '#1976D2',
@@ -261,9 +326,12 @@ function OverviewCards({
         .filter((m) => m.sampleSize > 0)
         .map((m) => {
           const deltaPct = m.comparison?.deltaPct ?? null;
+          const formatted = formatDoraValue(m);
           return {
-            value: formatDoraValue(m),
+            primary: formatted.primary,
+            unit: formatted.unit,
             label: t((DORA_ID_KEYS[m.id] ?? m.id) as Parameters<typeof t>[0]),
+            tooltip: DORA_DESCRIPTION_KEYS[m.id] ? t(DORA_DESCRIPTION_KEYS[m.id] as Parameters<typeof t>[0]) : undefined,
             badge: m.level ? { label: LEVEL_LABELS[m.level], color: LEVEL_COLORS[m.level] } : undefined,
             delta: deltaPct != null ? {
               text: `${deltaPct > 0 ? '↑' : deltaPct < 0 ? '↓' : '→'} ${Math.abs(deltaPct).toFixed(1)}%`,
@@ -273,7 +341,7 @@ function OverviewCards({
         })
     : [];
 
-  const cardStyle = { ...cardSx, flex: '1 1 140px', p: 2, minWidth: 140, textAlign: 'center' } as const;
+  const cardStyle = { ...cardSx, flex: '1 1 140px', p: 2, minWidth: 140, textAlign: 'center', height: '150px' } as const;
 
   return (
     <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
@@ -285,25 +353,39 @@ function OverviewCards({
         cardStyle={cardStyle}
       />
       {doraCards.map((card) => (
-        <Paper key={card.label} elevation={0} sx={{ ...cardStyle, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, alignSelf: 'flex-start' }}>
-            {card.label}
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-            <Typography variant="h5">{card.value}</Typography>
-            {card.badge && (
-              <Chip
-                label={card.badge.label}
-                size="small"
-                sx={{ backgroundColor: card.badge.color, color: '#fff', fontWeight: 700, height: 20, fontSize: 10 }}
-              />
+        <Paper key={card.label} elevation={0} sx={{ ...cardStyle, display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5, gap: 0.5 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'left' }}>
+              {card.label}
+            </Typography>
+            {card.tooltip && (
+              <Tooltip title={card.tooltip} arrow placement="top">
+                <HelpOutlineIcon sx={{ fontSize: 12, color: 'text.disabled', cursor: 'help', flexShrink: 0 }} />
+              </Tooltip>
             )}
           </Box>
-          {card.delta && (
-            <Typography variant="caption" sx={{ color: card.delta.color }}>
-              {card.delta.text}
-            </Typography>
-          )}
+          <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+              <Typography variant="h3">{card.primary}</Typography>
+              {card.unit && (
+                <Typography variant="caption" color="text.secondary">{card.unit}</Typography>
+              )}
+              {card.badge && (
+                <Chip
+                  label={card.badge.label}
+                  size="small"
+                  sx={{ backgroundColor: card.badge.color, color: '#fff', fontWeight: 700, height: 20, fontSize: 10 }}
+                />
+              )}
+            </Box>
+          </Box>
+          <Box sx={{ minHeight: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {card.delta && (
+              <Typography variant="caption" sx={{ color: card.delta.color }}>
+                {card.delta.text}
+              </Typography>
+            )}
+          </Box>
         </Paper>
       ))}
     </Box>
@@ -558,11 +640,13 @@ function TurnLaneChart({
   tickStep,
   commitTurns,
   errorTurns,
+  mainAgentLabel,
 }: Readonly<{
   assistantMsgs: readonly TrailMessage[];
   tickStep: number;
   commitTurns?: readonly number[];
   errorTurns?: readonly number[];
+  mainAgentLabel: string;
 }>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [svgWidth, setSvgWidth] = useState(600);
@@ -668,8 +752,8 @@ function TurnLaneChart({
   return (
     <Box ref={containerRef} sx={{ mt: 0.5 }}>
       <svg width="100%" height={totalH} style={{ display: 'block', overflow: 'visible' }}>
-        {/* Claude Code lane (main agent only) */}
-        <text x={LABEL_W - 4} y={toolY + TOOL_LANE_H / 2 + 4} textAnchor="end" fontSize={9} fill={colors.textSecondary}>Claude Code</text>
+        {/* Main agent lane */}
+        <text x={LABEL_W - 4} y={toolY + TOOL_LANE_H / 2 + 4} textAnchor="end" fontSize={9} fill={colors.textSecondary}>{mainAgentLabel}</text>
         {toolRuns.map((run) => (
           <rect key={`t${run.start}`} x={toX(run.start)} y={toolY}
             width={Math.max((run.end - run.start + 1) * colW, 1)} height={TOOL_LANE_H}
@@ -871,8 +955,10 @@ function StackedReferenceLines({
 
 function SessionCacheTimeline({
   messages,
+  session,
 }: Readonly<{
   messages: readonly TrailMessage[];
+  session: TrailSession;
 }>) {
   const { colors, chartColors, cardSx } = useTrailTheme();
   const { t } = useTrailI18n();
@@ -880,6 +966,7 @@ function SessionCacheTimeline({
   const hasData = assistantMsgs.length > 0;
   const compactDrops = useMemo(() => countCompactDrops(assistantMsgs), [assistantMsgs]);
   const [mode, setMode] = useState<'tool' | 'skill'>('tool');
+  const mainAgentLabel = getMainAgentLabel(session.source);
 
   const byUuid = useMemo(() => {
     const map = new Map<string, TrailMessage>();
@@ -930,24 +1017,24 @@ function SessionCacheTimeline({
   const commitMarkers = useMemo<readonly CommitMarkerData[]>(() =>
     assistantMsgs.flatMap((m, i) => {
       if (!((m.triggerCommitHashes && m.triggerCommitHashes.length > 0) || m.hasCommit)) return [];
-      const agentLabel = m.agentId ? `SubAgent ${agentIndexMap.get(m.agentId) ?? '?'}` : 'Claude Code';
+      const agentLabel = m.agentId ? `SubAgent ${agentIndexMap.get(m.agentId) ?? '?'}` : mainAgentLabel;
       const commitHash = m.triggerCommitHashes?.[0]?.slice(0, 8) ?? '';
       const bashCmd = m.toolCalls?.find((tc) => tc.name === 'Bash')?.input?.command;
       const subject = typeof bashCmd === 'string' ? parseCommitSubject(bashCmd) : '';
       const commitPrefix = extractPrefixWithScope(subject);
       return [{ turn: i + 1, agentLabel, commitHash, commitPrefix }];
     }),
-    [assistantMsgs, agentIndexMap],
+    [assistantMsgs, agentIndexMap, mainAgentLabel],
   );
 
   const errorMarkers = useMemo<readonly ErrorMarkerData[]>(() =>
     assistantMsgs.flatMap((m, i) => {
       if (!m.hasToolError) return [];
-      const agentLabel = m.agentId ? `SubAgent ${agentIndexMap.get(m.agentId) ?? '?'}` : 'Claude Code';
+      const agentLabel = m.agentId ? `SubAgent ${agentIndexMap.get(m.agentId) ?? '?'}` : mainAgentLabel;
       const toolName = dominantTool(m.toolCalls) || m.toolCalls?.[0]?.name || '';
       return [{ turn: i + 1, agentLabel, toolName }];
     }),
-    [assistantMsgs, agentIndexMap],
+    [assistantMsgs, agentIndexMap, mainAgentLabel],
   );
 
   const commitTurns = useMemo(() => commitMarkers.map((m) => m.turn), [commitMarkers]);
@@ -989,8 +1076,12 @@ function SessionCacheTimeline({
           onChange={(_, v: 'tool' | 'skill' | null) => { if (v) setMode(v); }}
           sx={{ '& .MuiToggleButton-root': { py: 0.25, px: 1, fontSize: '0.7rem' } }}
         >
-          <ToggleButton value="tool">{t('analytics.modeTool')}</ToggleButton>
-          <ToggleButton value="skill">{t('analytics.modeSkill')}</ToggleButton>
+          <Tooltip title={t('analytics.modeTool.description')} arrow placement="top">
+            <ToggleButton value="tool">{t('analytics.modeTool')}</ToggleButton>
+          </Tooltip>
+          <Tooltip title={t('analytics.modeSkill.description')} arrow placement="top">
+            <ToggleButton value="skill">{t('analytics.modeSkill')}</ToggleButton>
+          </Tooltip>
         </ToggleButtonGroup>
       </Box>
       {hasData ? (
@@ -1064,6 +1155,9 @@ function SessionCacheTimeline({
           <TurnLaneChart
             assistantMsgs={assistantMsgs}
             tickStep={tickStep}
+            commitTurns={commitTurns}
+            errorTurns={errorTurns}
+            mainAgentLabel={mainAgentLabel}
           />
           <StackedReferenceLines
             commitTurns={commitTurns}
@@ -1117,7 +1211,7 @@ function SessionCommitPrefixChart({
   if (commits.length === 0) {
     return (
       <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
-        <Typography variant="subtitle2" sx={{ px: 1.5 }}>{t('analytics.commitPrefixChartTitle')}</Typography>
+        <ChartTitle title={t('analytics.commitPrefixChartTitle')} description={t('analytics.commitPrefixChartTitle.description')} />
         <Box sx={{ height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Typography variant="h5" sx={{ color: colors.textSecondary }}>0</Typography>
         </Box>
@@ -1141,9 +1235,7 @@ function SessionCommitPrefixChart({
 
   return (
     <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
-      <Typography variant="subtitle2" sx={{ px: 1.5 }}>
-        {t('analytics.commitPrefixChartTitle')}
-      </Typography>
+      <ChartTitle title={t('analytics.commitPrefixChartTitle')} description={t('analytics.commitPrefixChartTitle.description')} />
       <PieChart
         series={[{ data: pieData, innerRadius: 28, outerRadius: 52, paddingAngle: 2, cornerRadius: 3 }]}
         height={130}
@@ -1294,34 +1386,34 @@ function SessionMetricsPanel({ session, toolMetrics }: Readonly<{
   const cardStyle = { ...cardSx, p: 2, minWidth: 160, flex: '1 1 160px', textAlign: 'center' } as const;
 
   const usageCards = [
-    { label: t('analytics.totalTokens'), value: fmtTokens(totalTokens) },
-    { label: t('analytics.estimatedCost'), value: fmtUsd(cost) },
-    { label: t('analytics.metricMessages'), value: fmtNum(s.messageCount) },
-    { label: t('analytics.metricErrors'), value: (s.errorCount ?? 0) > 0 ? fmtNum(s.errorCount!) : '\u2014' },
-    { label: t('analytics.cacheHit'), value: cacheInput > 0 ? fmtPercent(cacheHitRate) : '\u2014' },
-    { label: t('analytics.outputRatio'), value: cacheInput > 0 ? fmtPercent(outputRatio) : '\u2014' },
-    { label: t('analytics.contextGrowth'), value: s.messageCount > 0 ? `${fmtTokens(Math.round(contextGrowth))}/step` : '\u2014' },
-    { label: t('analytics.netLines'), value: linesAdded > 0 || linesDeleted > 0 ? `+${fmtNum(linesAdded)} / -${fmtNum(linesDeleted)}` : '\u2014' },
-    { label: t('analytics.metricFiles'), value: (s.commitStats?.filesChanged ?? 0) > 0 ? fmtNum(s.commitStats!.filesChanged) : '\u2014' },
-    { label: t('analytics.metricDuration'), value: durationMs > 0 ? fmtDuration(durationMs) : '\u2014' },
+    { label: t('analytics.totalTokens'), value: fmtTokens(totalTokens), tooltip: t('analytics.totalTokens.description') },
+    { label: t('analytics.estimatedCost'), value: fmtUsd(cost), tooltip: t('analytics.estimatedCost.description') },
+    { label: t('analytics.metricMessages'), value: fmtNum(s.messageCount), tooltip: t('analytics.metricMessages.description') },
+    { label: t('analytics.metricErrors'), value: (s.errorCount ?? 0) > 0 ? fmtNum(s.errorCount!) : '—', tooltip: t('analytics.metricErrors.description') },
+    { label: t('analytics.cacheHit'), value: cacheInput > 0 ? fmtPercent(cacheHitRate) : '—', tooltip: t('analytics.cacheHit.description') },
+    { label: t('analytics.outputRatio'), value: cacheInput > 0 ? fmtPercent(outputRatio) : '—', tooltip: t('analytics.outputRatio.description') },
+    { label: t('analytics.contextGrowth'), value: s.messageCount > 0 ? `${fmtTokens(Math.round(contextGrowth))}/step` : '—', tooltip: t('analytics.contextGrowth.description') },
+    { label: t('analytics.netLines'), value: linesAdded > 0 || linesDeleted > 0 ? `+${fmtNum(linesAdded)} / -${fmtNum(linesDeleted)}` : '—', tooltip: t('analytics.netLines.description') },
+    { label: t('analytics.metricFiles'), value: (s.commitStats?.filesChanged ?? 0) > 0 ? fmtNum(s.commitStats!.filesChanged) : '—', tooltip: t('analytics.metricFiles.description') },
+    { label: t('analytics.metricDuration'), value: durationMs > 0 ? fmtDuration(durationMs) : '—', tooltip: t('analytics.metricDuration.description') },
   ];
 
   const productivityCards = [
-    { label: t('analytics.tokensPerStep'), value: s.messageCount > 0 ? fmtTokens(Math.round(totalTokens / s.messageCount)) : '\u2014' },
-    { label: t('analytics.costPerStep'), value: s.messageCount > 0 ? fmtUsd(cost / s.messageCount) : '\u2014' },
-    { label: t('analytics.linesPerHour'), value: durationHours > 0 && linesAdded > 0 ? fmtNum(Math.round(linesAdded / durationHours)) : '\u2014' },
-    { label: t('analytics.costPerHour'), value: durationHours > 0 ? fmtUsd(cost / durationHours) : '\u2014' },
-    { label: t('analytics.costPerCommit'), value: (s.commitStats?.commits ?? 0) > 0 ? fmtUsd(cost / s.commitStats!.commits) : '\u2014' },
-    { label: t('analytics.avgInterval'), value: s.messageCount > 1 ? fmtDuration(durationMs / (s.messageCount - 1)) : '\u2014' },
+    { label: t('analytics.tokensPerStep'), value: s.messageCount > 0 ? fmtTokens(Math.round(totalTokens / s.messageCount)) : '—', tooltip: t('analytics.tokensPerStep.description') },
+    { label: t('analytics.costPerStep'), value: s.messageCount > 0 ? fmtUsd(cost / s.messageCount) : '—', tooltip: t('analytics.costPerStep.description') },
+    { label: t('analytics.linesPerHour'), value: durationHours > 0 && linesAdded > 0 ? fmtNum(Math.round(linesAdded / durationHours)) : '—', tooltip: t('analytics.linesPerHour.description') },
+    { label: t('analytics.costPerHour'), value: durationHours > 0 ? fmtUsd(cost / durationHours) : '—', tooltip: t('analytics.costPerHour.description') },
+    { label: t('analytics.costPerCommit'), value: (s.commitStats?.commits ?? 0) > 0 ? fmtUsd(cost / s.commitStats!.commits) : '—', tooltip: t('analytics.costPerCommit.description') },
+    { label: t('analytics.avgInterval'), value: s.messageCount > 1 ? fmtDuration(durationMs / (s.messageCount - 1)) : '—', tooltip: t('analytics.avgInterval.description') },
   ];
 
   const qualityCards = [
-    { label: t('analytics.retryRate'), value: tm && tm.totalEdits > 0 ? fmtPercent(tm.totalRetries / tm.totalEdits) : '\u2014' },
-    { label: t('analytics.buildFail'), value: tm && tm.totalBuildRuns > 0 ? fmtPercent(tm.totalBuildFails / tm.totalBuildRuns) : '\u2014' },
-    { label: t('analytics.testFail'), value: tm && tm.totalTestRuns > 0 ? fmtPercent(tm.totalTestFails / tm.totalTestRuns) : '\u2014' },
+    { label: t('analytics.retryRate'), value: tm && tm.totalEdits > 0 ? fmtPercent(tm.totalRetries / tm.totalEdits) : '—', tooltip: t('analytics.retryRate.description') },
+    { label: t('analytics.buildFail'), value: tm && tm.totalBuildRuns > 0 ? fmtPercent(tm.totalBuildFails / tm.totalBuildRuns) : '—', tooltip: t('analytics.buildFail.description') },
+    { label: t('analytics.testFail'), value: tm && tm.totalTestRuns > 0 ? fmtPercent(tm.totalTestFails / tm.totalTestRuns) : '—', tooltip: t('analytics.testFail.description') },
     { label: t('analytics.metricInterrupted'), value: s.interruption?.interrupted
         ? `${s.interruption.reason === 'max_tokens' ? 'max_tokens' : 'no response'} (${fmtTokens(s.interruption.contextTokens)})`
-        : '\u2014' },
+        : '—', tooltip: t('analytics.metricInterrupted.description') },
   ];
 
   return (
@@ -1353,6 +1445,19 @@ function SessionMetricsPanel({ session, toolMetrics }: Readonly<{
 
 type SessionToolMetric = 'count' | 'tokens' | 'duration';
 
+function ChartTitle({ title, description }: Readonly<{ title: string; description?: string }>) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', px: 1.5, gap: 0.5 }}>
+      <Typography variant="subtitle2">{title}</Typography>
+      {description && (
+        <Tooltip title={description} arrow placement="top">
+          <HelpOutlineIcon sx={{ fontSize: 12, color: 'text.disabled', cursor: 'help', flexShrink: 0 }} />
+        </Tooltip>
+      )}
+    </Box>
+  );
+}
+
 function SessionToolUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics | null }>) {
   const { colors, cardSx, toolPalette } = useTrailTheme();
   const { t } = useTrailI18n();
@@ -1360,7 +1465,7 @@ function SessionToolUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetr
   if (!usage || usage.length === 0) {
     return (
       <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
-        <Typography variant="subtitle2" sx={{ px: 1.5 }}>{t('analytics.toolUsageTitle')}</Typography>
+        <ChartTitle title={t('analytics.toolUsageTitle')} description={t('analytics.toolUsageTitle.description')} />
         <Box sx={{ height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Typography variant="h5" sx={{ color: colors.textSecondary }}>0</Typography>
         </Box>
@@ -1378,7 +1483,7 @@ function SessionToolUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetr
 
   return (
     <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
-      <Typography variant="subtitle2" sx={{ px: 1.5 }}>{t('analytics.toolUsageTitle')}</Typography>
+      <ChartTitle title={t('analytics.toolUsageTitle')} description={t('analytics.toolUsageTitle.description')} />
       <PieChart
         series={[{ data: pieData, innerRadius: 28, outerRadius: 52, paddingAngle: 2, cornerRadius: 3 }]}
         height={130}
@@ -1408,7 +1513,7 @@ function SessionSkillUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
   if (!usage || usage.length === 0) {
     return (
       <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
-        <Typography variant="subtitle2" sx={{ px: 1.5 }}>{t('analytics.combined.skill')}</Typography>
+        <ChartTitle title={t('analytics.combined.skill')} description={t('analytics.combined.skill.description')} />
         <Box sx={{ height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Typography variant="h5" sx={{ color: colors.textSecondary }}>0</Typography>
         </Box>
@@ -1426,7 +1531,7 @@ function SessionSkillUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMet
 
   return (
     <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
-      <Typography variant="subtitle2" sx={{ px: 1.5 }}>{t('analytics.combined.skill')}</Typography>
+      <ChartTitle title={t('analytics.combined.skill')} description={t('analytics.combined.skill.description')} />
       <PieChart
         series={[{ data: pieData, innerRadius: 28, outerRadius: 52, paddingAngle: 2, cornerRadius: 3 }]}
         height={130}
@@ -1456,7 +1561,7 @@ function SessionErrorChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics 
   if (!errors || errors.length === 0) {
     return (
       <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
-        <Typography variant="subtitle2" sx={{ px: 1.5 }}>{t('analytics.combined.error')}</Typography>
+        <ChartTitle title={t('analytics.combined.error')} description={t('analytics.combined.error.description')} />
         <Box sx={{ height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Typography variant="h5" sx={{ color: colors.textSecondary }}>0</Typography>
         </Box>
@@ -1474,7 +1579,7 @@ function SessionErrorChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics 
 
   return (
     <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
-      <Typography variant="subtitle2" sx={{ px: 1.5 }}>{t('analytics.combined.error')}</Typography>
+      <ChartTitle title={t('analytics.combined.error')} description={t('analytics.combined.error.description')} />
       <PieChart
         series={[{ data: pieData, innerRadius: 28, outerRadius: 52, paddingAngle: 2, cornerRadius: 3 }]}
         height={130}
@@ -1544,7 +1649,7 @@ function mergeToolMetrics(metrics: readonly (ToolMetrics | null)[]): ToolMetrics
 function buildDaySession(date: string, daySessions: readonly TrailSession[]): TrailSession {
   if (daySessions.length === 0) {
     return {
-      id: `day-${date}`, slug: date, project: '', gitBranch: '',
+      id: `day-${date}`, slug: date, repoName: '', gitBranch: '',
       startTime: `${date}T00:00:00.000Z`, endTime: `${date}T23:59:59.999Z`,
       version: '', model: '', messageCount: 0,
       usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 },
@@ -1569,7 +1674,7 @@ function buildDaySession(date: string, daySessions: readonly TrailSession[]): Tr
   }, undefined);
   const peakContextTokens = daySessions.reduce((max, s) => Math.max(max, s.peakContextTokens ?? 0), 0);
   return {
-    id: `day-${date}`, slug: date, project: sorted[0].project, gitBranch: '',
+    id: `day-${date}`, slug: date, repoName: sorted[0].repoName, gitBranch: '',
     startTime: sorted[0].startTime, endTime: sorted.at(-1)!.endTime,
     version: '', model: '',
     messageCount: daySessions.reduce((acc, s) => acc + s.messageCount, 0),
@@ -1627,6 +1732,9 @@ function DailySessionList({
   const headerLabel = sessionsLoading
     ? '...'
     : `${daySessions.length} ${sessionCountLabel}`;
+  const selectedTimelineSession = timelineSessionId
+    ? daySessions.find((s) => s.id === timelineSessionId)
+    : undefined;
 
   useEffect(() => {
     if (!fetchDayToolMetrics) {
@@ -1683,6 +1791,7 @@ function DailySessionList({
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow sx={{ '& .MuiTableCell-head': { color: colors.textSecondary, borderColor: colors.border, bgcolor: colors.midnightNavy } }}>
+                  <TableCell>Agent</TableCell>
                   <TableCell>{t('sessionList.timeHeader')}</TableCell>
                   <TableCell align="right">{t('sessionList.tokensHeader')}</TableCell>
                   <TableCell align="right">{t('sessionList.costHeader')}</TableCell>
@@ -1702,6 +1811,9 @@ function DailySessionList({
                     sx={{ cursor: 'pointer', '& .MuiTableCell-root': { borderColor: colors.border } }}
                     onClick={() => handleSessionClick(s.id)}
                   >
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                      {s.source ?? 'claude_code'}
+                    </TableCell>
                     <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
                       {formatLocalTime(s.startTime)}–{formatLocalTime(s.endTime)}
                       {s.interruption?.interrupted && (
@@ -1839,13 +1951,13 @@ function DailySessionList({
           );
         })()}
       </Box>
-      {timelineSessionId && (
+      {timelineSessionId && selectedTimelineSession && (
         timelineLoading ? (
           <Paper elevation={0} sx={{ ...cardSx, mt: 1, p: 1.5, height: 270, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Typography variant="body2" color="text.secondary">{t('sessionList.loadingTimeline')}</Typography>
           </Paper>
         ) : (
-          <SessionCacheTimeline messages={timelineMessages} />
+          <SessionCacheTimeline messages={timelineMessages} session={selectedTimelineSession} />
         )
       )}
     </Paper>
@@ -2049,7 +2161,8 @@ function DailyActivityChart({
 // ─── Behavior charts in Analytics ───────────────────────────────────────────
 
 type ChartMetric = 'count' | 'tokens';
-type CombinedChartKind = 'tools' | 'errors' | 'skills' | 'models' | 'commits' | 'releases';
+type CombinedChartKind = 'tools' | 'errors' | 'skills' | 'models' | 'agents' | 'commits' | 'releases';
+type AgentMetric = 'tokens' | 'cost' | 'loc';
 
 // スタック棒グラフの系列数が多すぎると描画・凡例・ツールチップが重くなるため、
 // 上位 N 件以外を "Others" に集約する。
@@ -2118,12 +2231,13 @@ function LeadTimeAxisTooltipContent({ unmappedByBucket, bucketKeys }: Readonly<{
   );
 }
 
-function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, modelMetric, commitMetric, leadTimeOverlay, onDateClick }: Readonly<{
+function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, modelMetric, agentMetric, commitMetric, leadTimeOverlay, onDateClick }: Readonly<{
   data: CombinedData | null;
   periodDays: PeriodDays;
   activeChart: CombinedChartKind;
   toolMetric: ChartMetric;
   modelMetric: ChartMetric;
+  agentMetric: AgentMetric;
   commitMetric: CommitMetric;
   leadTimeOverlay: {
     leadTimePerLoc: ReadonlyArray<{ bucketStart: string; value: number }>;
@@ -2136,6 +2250,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
   onDateClick?: (fullDate: string) => void;
 }>) {
   const { cardSx, toolPalette } = useTrailTheme();
+  const { t } = useTrailI18n();
 
   const axisInfo = useMemo(() => {
     if (!data) return null;
@@ -2146,12 +2261,15 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
     const errorRows = (data.errorRate ?? []).filter(r => r.period >= cutoffStr);
     const skillRows = (data.skillStats ?? []).filter(r => r.period >= cutoffStr);
     const modelRows = (data.modelStats ?? []).filter(r => r.period >= cutoffStr);
+    const agentRows = (data.agentStats ?? []).filter(r => r.period >= cutoffStr);
     const commitRows = (data.commitPrefixStats ?? []).filter(r => r.period >= cutoffStr);
     const aiRateRows = (data.aiFirstTryRate ?? []).filter(r => r.period >= cutoffStr);
     const allPeriods = [...new Set(toolRows.map(r => r.period))].sort();
     const labels = allPeriods.map(p => p.length > 5 ? p.slice(5) : p);
     const modelPeriods = [...new Set(modelRows.map(r => r.period))].sort();
     const modelLabels = modelPeriods.map(p => p.length > 5 ? p.slice(5) : p);
+    const agentPeriods = [...new Set(agentRows.map(r => r.period))].sort();
+    const agentLabels = agentPeriods.map(p => p.length > 5 ? p.slice(5) : p);
     const commitPeriods = [...new Set(commitRows.map(r => r.period))].sort();
     const commitLabels = commitPeriods.map(p => p.length > 5 ? p.slice(5) : p);
 
@@ -2163,6 +2281,8 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
     for (const r of skillRows) skillTotals.set(r.skill, (skillTotals.get(r.skill) ?? 0) + r.count);
     const modelTotals = new Map<string, number>();
     for (const r of modelRows) modelTotals.set(r.model, (modelTotals.get(r.model) ?? 0) + r.count);
+    const agentTotals = new Map<string, number>();
+    for (const r of agentRows) agentTotals.set(r.agent, (agentTotals.get(r.agent) ?? 0) + r.tokens);
     const commitTotals = new Map<string, number>();
     for (const r of commitRows) commitTotals.set(r.prefix, (commitTotals.get(r.prefix) ?? 0) + r.count);
 
@@ -2170,19 +2290,47 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
     const errCap = capTopN(errToolTotals);
     const skillCap = capTopN(skillTotals);
     const modelCap = capTopN(modelTotals);
+    const agentCap = capTopN(agentTotals);
     const commitCap = capTopN(commitTotals);
+    const agentMissingByDisplay = new Map<string, { total: number; missing: number }>();
+    for (const r of agentRows) {
+      const displayKey = agentCap.keyMap.get(r.agent) ?? r.agent;
+      const cur = agentMissingByDisplay.get(displayKey) ?? { total: 0, missing: 0 };
+      cur.total += r.tokenTotalTurns ?? 0;
+      cur.missing += r.tokenMissingTurns ?? 0;
+      agentMissingByDisplay.set(displayKey, cur);
+    }
+    const modelMissingByDisplay = new Map<string, { total: number; missing: number }>();
+    for (const r of modelRows) {
+      const displayKey = modelCap.keyMap.get(r.model) ?? r.model;
+      const cur = modelMissingByDisplay.get(displayKey) ?? { total: 0, missing: 0 };
+      cur.total += r.tokenTotalTurns ?? 0;
+      cur.missing += r.tokenMissingTurns ?? 0;
+      modelMissingByDisplay.set(displayKey, cur);
+    }
+    const toolMissingByDisplay = new Map<string, { total: number; missing: number }>();
+    for (const r of toolRows) {
+      const displayKey = toolCap.keyMap.get(r.tool) ?? r.tool;
+      const cur = toolMissingByDisplay.get(displayKey) ?? { total: 0, missing: 0 };
+      cur.total += r.tokenTotalTurns ?? 0;
+      cur.missing += r.tokenMissingTurns ?? 0;
+      toolMissingByDisplay.set(displayKey, cur);
+    }
 
     return {
       toolRows,
       errorRows,
       skillRows,
       modelRows,
+      agentRows,
       commitRows,
       aiRateRows,
       allPeriods,
       labels,
       modelPeriods,
       modelLabels,
+      agentPeriods,
+      agentLabels,
       commitPeriods,
       commitLabels,
       tools: toolCap.displayKeys,
@@ -2193,6 +2341,11 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
       skillMap: skillCap.keyMap,
       models: modelCap.displayKeys,
       modelMap: modelCap.keyMap,
+      agents: agentCap.displayKeys,
+      agentMap: agentCap.keyMap,
+      agentMissingByDisplay,
+      modelMissingByDisplay,
+      toolMissingByDisplay,
       commitPrefixes: commitCap.displayKeys,
       commitMap: commitCap.keyMap,
     };
@@ -2295,9 +2448,44 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
     });
   }, [axisInfo, modelMetric]);
 
+  const agentDataset = useMemo(() => {
+    if (!axisInfo) return [];
+    const { agentRows, agentPeriods, agentLabels, agents, agentMap } = axisInfo;
+    const getValue = (r: { tokens: number; costUsd: number; loc: number }): number =>
+      agentMetric === 'tokens' ? r.tokens : agentMetric === 'cost' ? r.costUsd : r.loc;
+    const valMap = new Map<string, number>();
+    for (const r of agentRows) {
+      const displayKey = agentMap.get(r.agent) ?? r.agent;
+      const key = `${r.period}::${displayKey}`;
+      valMap.set(key, (valMap.get(key) ?? 0) + getValue(r));
+    }
+    return agentPeriods.map((p, pi) => {
+      const entry: Record<string, string | number> = { period: agentLabels[pi] };
+      for (let i = 0; i < agents.length; i++) {
+        entry[`a${i}`] = valMap.get(`${p}::${agents[i]}`) ?? 0;
+      }
+      return entry;
+    });
+  }, [axisInfo, agentMetric]);
+
   if (!axisInfo) return null;
-  const { toolRows, errTools, tools, skills, models, commitPrefixes, aiRateRows, allPeriods, modelPeriods, commitPeriods, commitLabels } = axisInfo;
+  const { toolRows, errTools, tools, skills, models, agents, agentMissingByDisplay, modelMissingByDisplay, toolMissingByDisplay, commitPrefixes, aiRateRows, allPeriods, modelPeriods, agentPeriods, commitPeriods, commitLabels } = axisInfo;
   const hideZero = (v: number | null) => (v == null || v === 0 ? null : String(v));
+  const agentSeriesLabel = (agent: string): string => {
+    const missing = agentMissingByDisplay.get(agent);
+    const rate = missing && missing.total > 0 ? missing.missing / missing.total : 0;
+    return `${agent} (${t('analytics.combined.missingRate')} ${fmtPercent(rate)})`;
+  };
+  const modelSeriesLabel = (model: string): string => {
+    const missing = modelMissingByDisplay.get(model);
+    const rate = missing && missing.total > 0 ? missing.missing / missing.total : 0;
+    return rate > 0 ? `${model} (${t('analytics.combined.missingRate')} ${fmtPercent(rate)})` : model;
+  };
+  const toolSeriesLabel = (tool: string): string => {
+    const missing = toolMissingByDisplay.get(tool);
+    const rate = missing && missing.total > 0 ? missing.missing / missing.total : 0;
+    return rate > 0 ? `${tool} (${t('analytics.combined.missingRate')} ${fmtPercent(rate)})` : tool;
+  };
   const canDrill = periodDays < 90 && !!onDateClick;
   const makeAxisClick = (periods: readonly string[]) =>
     canDrill
@@ -2320,7 +2508,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
           yAxis={[{ valueFormatter: fmtTokens }]}
           series={tools.map((tool, i) => ({
             dataKey: `t${i}`,
-            label: tool,
+            label: toolSeriesLabel(tool),
             stack: 'total',
             color: toolPalette[i % toolPalette.length],
             valueFormatter: hideZero,
@@ -2382,6 +2570,29 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
           margin={{ left: 16, right: 8, top: 8, bottom: 40 }}
           slotProps={{ legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } } }}
           onAxisClick={makeAxisClick(allPeriods)}
+        />
+      </Paper>
+    );
+  }
+
+  if (activeChart === 'agents') {
+    return (
+      <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
+        <BarChart
+          dataset={agentDataset}
+          xAxis={[{ scaleType: 'band', dataKey: 'period' }]}
+          yAxis={[{ valueFormatter: agentMetric === 'cost' ? fmtUsd : fmtTokens }]}
+          series={agents.map((agent, i) => ({
+            dataKey: `a${i}`,
+            label: agentSeriesLabel(agent),
+            stack: 'total',
+            color: toolPalette[i % toolPalette.length],
+            valueFormatter: hideZero,
+          }))}
+          height={240}
+          margin={{ left: 16, right: 8, top: 8, bottom: 60 }}
+          slotProps={{ legend: { direction: 'horizontal', position: { vertical: 'bottom', horizontal: 'center' } } }}
+          onAxisClick={makeAxisClick(agentPeriods)}
         />
       </Paper>
     );
@@ -2585,7 +2796,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
         yAxis={[{ valueFormatter: fmtTokens }]}
         series={models.map((model, i) => ({
           dataKey: `m${i}`,
-          label: model,
+          label: modelSeriesLabel(model),
           stack: 'total',
           color: toolPalette[i % toolPalette.length],
           valueFormatter: hideZero,
@@ -2636,7 +2847,7 @@ function ReleasesBarChart({ timeSeries }: Readonly<{
   );
 }
 
-type CombinedMetric = 'tokens' | 'tools' | 'errors' | 'skills' | 'models' | 'commits' | 'releases';
+type CombinedMetric = 'tokens' | 'tools' | 'errors' | 'skills' | 'models' | 'agents' | 'commits' | 'releases';
 
 function CombinedChartsSection({
   dailyActivity,
@@ -2677,6 +2888,7 @@ function CombinedChartsSection({
   const [tokenMode, setTokenMode] = useState<DailyViewMode>('tokens');
   const [toolMetric, setToolMetric] = useState<ChartMetric>('count');
   const [modelMetric, setModelMetric] = useState<ChartMetric>('count');
+  const [agentMetric, setAgentMetric] = useState<AgentMetric>('tokens');
   const [commitMetric, setCommitMetric] = useState<CommitMetric>('count');
   const [combinedData, setCombinedData] = useState<CombinedData | null>(null);
   const [combinedLoading, setCombinedLoading] = useState(false);
@@ -2783,25 +2995,40 @@ function CombinedChartsSection({
             onChange={(_e, v: CombinedMetric | null) => { if (v) setMetric(v); }}
             size="small"
           >
-            <ToggleButton value="tokens" sx={toggleSx}>{t('chart.tokenUsage')}</ToggleButton>
-            <ToggleButton value="models" sx={toggleSx}>{t('analytics.combined.model')}</ToggleButton>
-            <ToggleButton value="skills" sx={toggleSx}>{t('analytics.combined.skill')}</ToggleButton>
-            <ToggleButton value="tools" sx={toggleSx}>{t('analytics.combined.tool')}</ToggleButton>
-            <ToggleButton value="errors" sx={toggleSx}>{t('analytics.combined.error')}</ToggleButton>
-            <ToggleButton value="commits" sx={toggleSx}>{t('analytics.combined.commitPrefix')}</ToggleButton>
-            <ToggleButton value="releases" sx={toggleSx}>{t('analytics.combined.release')}</ToggleButton>
+            <Tooltip title={t('chart.tokenUsage.description')} arrow placement="top">
+              <ToggleButton value="tokens" sx={toggleSx}>{t('chart.tokenUsage')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('analytics.combined.agent.description')} arrow placement="top">
+              <ToggleButton value="agents" sx={toggleSx}>{t('analytics.combined.agent')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('analytics.combined.model.description')} arrow placement="top">
+              <ToggleButton value="models" sx={toggleSx}>{t('analytics.combined.model')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('analytics.combined.skill.description')} arrow placement="top">
+              <ToggleButton value="skills" sx={toggleSx}>{t('analytics.combined.skill')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('analytics.combined.tool.description')} arrow placement="top">
+              <ToggleButton value="tools" sx={toggleSx}>{t('analytics.combined.tool')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('analytics.combined.error.description')} arrow placement="top">
+              <ToggleButton value="errors" sx={toggleSx}>{t('analytics.combined.error')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('analytics.combined.commitPrefix.description')} arrow placement="top">
+              <ToggleButton value="commits" sx={toggleSx}>{t('analytics.combined.commitPrefix')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('analytics.combined.release.description')} arrow placement="top">
+              <ToggleButton value="releases" sx={toggleSx}>{t('analytics.combined.release')}</ToggleButton>
+            </Tooltip>
           </ToggleButtonGroup>
           <ToggleButtonGroup
             value={period}
             exclusive
-            onChange={(_e, v: PeriodDays | null) => { if (v) setPeriod(v); }}
+            onChange={(_e, v: PeriodDays | null) => { if (v !== null) setPeriod(v); }}
             size="small"
           >
-            <ToggleButton value={7} sx={toggleSx}>7d</ToggleButton>
-            <ToggleButton value={30} sx={toggleSx}>30d</ToggleButton>
-            {process.env.NEXT_PUBLIC_SHOW_UNLIMITED === '1' && (
-              <ToggleButton value={90} sx={toggleSx}>90d</ToggleButton>
-            )}
+            <ToggleButton value={7} sx={toggleSx}>{`7${t('releases.days')}`}</ToggleButton>
+            <ToggleButton value={30} sx={toggleSx}>{`30${t('releases.days')}`}</ToggleButton>
+            <ToggleButton value={90} sx={toggleSx}>{`90${t('releases.days')}`}</ToggleButton>
           </ToggleButtonGroup>
         </Box>
         {metric === 'tokens' && (
@@ -2811,8 +3038,12 @@ function CombinedChartsSection({
             onChange={(_e, v: DailyViewMode | null) => { if (v) setTokenMode(v); }}
             size="small"
           >
-            <ToggleButton value="tokens" sx={toggleSx}>{t('chart.tokens')}</ToggleButton>
-            <ToggleButton value="cost" sx={toggleSx}>{t('chart.cost')}</ToggleButton>
+            <Tooltip title={t('chart.tokens.description')} arrow placement="top">
+              <ToggleButton value="tokens" sx={toggleSx}>{t('chart.tokens')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('chart.cost.description')} arrow placement="top">
+              <ToggleButton value="cost" sx={toggleSx}>{t('chart.cost')}</ToggleButton>
+            </Tooltip>
           </ToggleButtonGroup>
         )}
         {metric === 'tools' && (
@@ -2822,8 +3053,12 @@ function CombinedChartsSection({
             onChange={(_e, v: ChartMetric | null) => { if (v) setToolMetric(v); }}
             size="small"
           >
-            <ToggleButton value="count" sx={toggleSx}>{t('analytics.combined.count')}</ToggleButton>
-            <ToggleButton value="tokens" sx={toggleSx}>{t('analytics.combined.tokens')}</ToggleButton>
+            <Tooltip title={t('analytics.combined.count.description')} arrow placement="top">
+              <ToggleButton value="count" sx={toggleSx}>{t('analytics.combined.count')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('analytics.combined.tokens.description')} arrow placement="top">
+              <ToggleButton value="tokens" sx={toggleSx}>{t('analytics.combined.tokens')}</ToggleButton>
+            </Tooltip>
           </ToggleButtonGroup>
         )}
         {metric === 'models' && (
@@ -2833,8 +3068,30 @@ function CombinedChartsSection({
             onChange={(_e, v: ChartMetric | null) => { if (v) setModelMetric(v); }}
             size="small"
           >
-            <ToggleButton value="count" sx={toggleSx}>{t('analytics.combined.count')}</ToggleButton>
-            <ToggleButton value="tokens" sx={toggleSx}>{t('analytics.combined.tokens')}</ToggleButton>
+            <Tooltip title={t('analytics.combined.count.description')} arrow placement="top">
+              <ToggleButton value="count" sx={toggleSx}>{t('analytics.combined.count')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('analytics.combined.tokens.description')} arrow placement="top">
+              <ToggleButton value="tokens" sx={toggleSx}>{t('analytics.combined.tokens')}</ToggleButton>
+            </Tooltip>
+          </ToggleButtonGroup>
+        )}
+        {metric === 'agents' && (
+          <ToggleButtonGroup
+            value={agentMetric}
+            exclusive
+            onChange={(_e, v: AgentMetric | null) => { if (v) setAgentMetric(v); }}
+            size="small"
+          >
+            <Tooltip title={t('analytics.combined.tokens.description')} arrow placement="top">
+              <ToggleButton value="tokens" sx={toggleSx}>{t('analytics.combined.tokens')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('chart.cost.description')} arrow placement="top">
+              <ToggleButton value="cost" sx={toggleSx}>{t('chart.cost')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('analytics.combined.loc.description')} arrow placement="top">
+              <ToggleButton value="loc" sx={toggleSx}>{t('analytics.combined.loc')}</ToggleButton>
+            </Tooltip>
           </ToggleButtonGroup>
         )}
         {metric === 'commits' && (
@@ -2844,9 +3101,15 @@ function CombinedChartsSection({
             onChange={(_e, v: CommitMetric | null) => { if (v) setCommitMetric(v); }}
             size="small"
           >
-            <ToggleButton value="count" sx={toggleSx}>{t('analytics.combined.commitCount')}</ToggleButton>
-            <ToggleButton value="loc" sx={toggleSx}>{t('analytics.combined.loc')}</ToggleButton>
-            <ToggleButton value="leadTime" sx={toggleSx}>{t('analytics.combined.leadTime')}</ToggleButton>
+            <Tooltip title={t('analytics.combined.commitCount.description')} arrow placement="top">
+              <ToggleButton value="count" sx={toggleSx}>{t('analytics.combined.commitCount')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('analytics.combined.loc.description')} arrow placement="top">
+              <ToggleButton value="loc" sx={toggleSx}>{t('analytics.combined.loc')}</ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('analytics.combined.leadTime.description')} arrow placement="top">
+              <ToggleButton value="leadTime" sx={toggleSx}>{t('analytics.combined.leadTime')}</ToggleButton>
+            </Tooltip>
           </ToggleButtonGroup>
         )}
       </Box>
@@ -2879,6 +3142,7 @@ function CombinedChartsSection({
             activeChart={metric}
             toolMetric={toolMetric}
             modelMetric={modelMetric}
+            agentMetric={agentMetric}
             commitMetric={commitMetric}
             leadTimeOverlay={overlay ? { leadTimePerLoc: overlay.leadTimePerLoc, unmapped: overlay.leadTimeUnmapped, byPrefix: overlay.leadTimeByPrefix } : null}
             onDateClick={handleDateClick}
@@ -2911,13 +3175,63 @@ export function AnalyticsPanel({ analytics, sessions = [], sessionsLoading, onSe
   useEffect(() => {
     if (!fetchQualityMetrics) return;
     const to = new Date();
-    const from = new Date(to.getTime() - 30 * 86_400_000);
+    const from = new Date(to.getTime() - period * 86_400_000);
     void fetchQualityMetrics({ from: from.toISOString(), to: to.toISOString() }).then((result) => {
       if (result) setOverviewQualityMetrics(result);
     });
-  }, [fetchQualityMetrics]);
+  }, [fetchQualityMetrics, period]);
 
-  if (!analytics) {
+  const { currentTotals, comparison } = useMemo(() => {
+    if (!analytics) return { currentTotals: null, comparison: undefined };
+    const now = new Date();
+    const currentFrom = new Date(now.getTime() - period * 24 * 3600 * 1000);
+    const previousFrom = new Date(currentFrom.getTime() - period * 24 * 3600 * 1000);
+
+    const current = { sessions: 0, tokens: 0, cost: 0, commits: 0, loc: 0 };
+    const previous = { sessions: 0, tokens: 0, cost: 0, commits: 0, loc: 0 };
+
+    for (const d of analytics.dailyActivity) {
+      const date = new Date(d.date);
+      if (date >= currentFrom) {
+        current.sessions += d.sessions;
+        current.tokens += (d.inputTokens + d.outputTokens);
+        current.cost += d.estimatedCostUsd;
+        current.commits += d.commits;
+        current.loc += d.linesAdded;
+      } else if (date >= previousFrom) {
+        previous.sessions += d.sessions;
+        previous.tokens += (d.inputTokens + d.outputTokens);
+        previous.cost += d.estimatedCostUsd;
+        previous.commits += d.commits;
+        previous.loc += d.linesAdded;
+      }
+    }
+
+    const calcDelta = (cur: number, prev: number) => (prev > 0 ? ((cur - prev) / prev) * 100 : null);
+
+    return {
+      currentTotals: {
+        ...analytics.totals,
+        sessions: current.sessions,
+        inputTokens: 0,
+        outputTokens: current.tokens, // Using combined tokens for display
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
+        estimatedCostUsd: current.cost,
+        totalCommits: current.commits,
+        totalLinesAdded: current.loc,
+      },
+      comparison: {
+        sessions: { deltaPct: calcDelta(current.sessions, previous.sessions) },
+        tokens: { deltaPct: calcDelta(current.tokens, previous.tokens) },
+        cost: { deltaPct: calcDelta(current.cost, previous.cost) },
+        commits: { deltaPct: calcDelta(current.commits, previous.commits) },
+        loc: { deltaPct: calcDelta(current.loc, previous.loc) },
+      },
+    };
+  }, [analytics, period]);
+
+  if (!analytics || !currentTotals) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         <Typography variant="body2" color="text.secondary">
@@ -2929,7 +3243,7 @@ export function AnalyticsPanel({ analytics, sessions = [], sessionsLoading, onSe
 
   return (
     <Box sx={{ overflow: 'auto', flex: 1, p: 2, display: 'flex', flexDirection: 'column', gap: 3, ...scrollbarSx }}>
-      <OverviewCards totals={analytics.totals} sessions={sessions} qualityMetrics={overviewQualityMetrics} />
+      <OverviewCards totals={{ ...currentTotals, comparison }} sessions={sessions} qualityMetrics={overviewQualityMetrics} />
       <ToolUsageChart items={analytics.toolUsage} />
       <CombinedChartsSection
         dailyActivity={analytics.dailyActivity}
