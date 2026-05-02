@@ -245,10 +245,9 @@ function OverviewCards({
       label: t('analytics.linesAdded'),
       value: (
         <>
-          {fmtNum(totals.totalLinesAdded)}
+          {fmtNum(totals.totalLinesAdded - totals.totalLinesDeleted)}
           <Typography component="span" variant="body2" sx={{ ml: 0.5, opacity: 0.8 }}>
-            ({totals.totalLinesAdded - totals.totalLinesDeleted > 0 ? '+' : ''}
-            {fmtNum(totals.totalLinesAdded - totals.totalLinesDeleted)})
+            ({t('analytics.linesAddedShort')}: {fmtNum(totals.totalLinesAdded)})
           </Typography>
         </>
       ),
