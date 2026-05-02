@@ -55,7 +55,7 @@ export function useTemporalCoupling(
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    if (!enabled || !serverUrl || !repoName) {
+    if (!enabled || serverUrl === undefined || !repoName) {
       abortRef.current?.abort();
       setEdges([]);
       setDirectionalState(false);
