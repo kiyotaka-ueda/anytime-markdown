@@ -615,6 +615,15 @@ export class TrailDataServer {
       return;
     }
 
+    if (pathname === '/api/trace/list' && method === 'GET') {
+      this.handleTraceList(res);
+      return;
+    }
+    if (pathname === '/api/trace/file' && method === 'GET') {
+      this.handleTraceFile(res, parsed.searchParams.get('name') ?? '');
+      return;
+    }
+
     res.writeHead(404);
     res.end();
   }
@@ -870,6 +879,60 @@ export class TrailDataServer {
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
       TrailLogger.error(`/api/activity-trend failed: ${err.message}\n${err.stack ?? ''}`);
+      this.sendError(res, 500, err.message);
+    }
+  }
+
+  private handleTraceList(res: http.ServerResponse): void {
+    const traceDir = this.gitRoot
+      ? path.join(this.gitRoot, '.vscode', 'trace')
+      : path.join(process.cwd(), '.vscode', 'trace');
+    try {
+      const files = fs.readdirSync(traceDir)
+        .filter(f => f.endsWith('.json'))
+        .map(f => {
+          const stat = fs.statSync(path.join(traceDir, f));
+          return { name: f, mtime: stat.mtime.toISOString() };
+        })
+        .sort((a, b) => b.mtime.localeCompare(a.mtime));
+      const result = files.map(({ name, mtime }) => ({
+        name,
+        url: `/api/trace/file?name=${encodeURIComponent(name)}`,
+        mtime,
+      }));
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify(result));
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') {
+        res.writeHead(200, JSON_HEADERS);
+        res.end('[]');
+        return;
+      }
+      const err = e instanceof Error ? e : new Error(String(e));
+      TrailLogger.error(`/api/trace/list failed: ${err.message}\n${err.stack ?? ''}`);
+      this.sendError(res, 500, err.message);
+    }
+  }
+
+  private handleTraceFile(res: http.ServerResponse, name: string): void {
+    if (!name || name.includes('..') || name.includes('/') || !name.endsWith('.json')) {
+      this.sendError(res, 400, 'Invalid file name');
+      return;
+    }
+    const traceDir = this.gitRoot
+      ? path.join(this.gitRoot, '.vscode', 'trace')
+      : path.join(process.cwd(), '.vscode', 'trace');
+    const filePath = path.join(traceDir, name);
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(content);
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') { this.sendError(res, 404, 'File not found'); return; }
+      const err = e instanceof Error ? e : new Error(String(e));
+      TrailLogger.error(`/api/trace/file failed: ${filePath}: ${err.message}\n${err.stack ?? ''}`);
       this.sendError(res, 500, err.message);
     }
   }

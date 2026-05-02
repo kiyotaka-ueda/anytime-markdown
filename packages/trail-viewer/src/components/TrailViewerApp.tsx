@@ -13,6 +13,7 @@ import type { DocLink } from '@anytime-markdown/trail-core/c4';
 import { TrailViewerCore } from './TrailViewerCore';
 import { useTrailDataSource } from '../hooks/useTrailDataSource';
 import { useC4DataSource } from '../c4/hooks/useC4DataSource';
+import { useTraceFiles } from '../hooks/useTraceFiles';
 import type { ElementFormData, RelationshipFormData } from '../c4/components/C4EditDialogs';
 import type { TrailFilter } from '../parser/types';
 import type { TrailLocale } from '../i18n/types';
@@ -36,7 +37,7 @@ export interface TrailViewerAppProps {
    * 拡張機能では VS Code に通知、web アプリでは新規タブで開く等の挙動を上書きできる。
    */
   readonly onDocLinkClick?: (doc: DocLink) => void;
-  /** 初期表示タブ番号（0=Analytics, 1=Traces, 2=Prompts, 3=Releases, 4=C4, 5=Matrix, 6=Graph）*/
+  /** 初期表示タブ番号（0=Analytics, 1=Traces, 2=Prompts, 3=Releases, 4=C4, 5=Matrix, 6=Graph, 7=Trace）*/
   readonly initialTab?: number;
   /** C4 ビューアの初期表示レベル（1=L1 Context, 2=L2 Container, 3=L3 Component, 4=L4 Code）*/
   readonly initialC4Level?: number;
@@ -55,6 +56,13 @@ export function TrailViewerApp({
   const dataSource = useTrailDataSource(serverUrl);
   const c4 = useC4DataSource(serverUrl);
   const sendCommand = c4.sendCommand;
+
+  const fetchTraceList = useCallback(async () => {
+    const res = await fetch(`${serverUrl}/api/trace/list`);
+    if (!res.ok) throw new Error(`trace/list: ${res.status}`);
+    return res.json() as Promise<{ name: string; url: string }[]>;
+  }, [serverUrl]);
+  const traceFiles = useTraceFiles(fetchTraceList);
 
   // effectiveEditable: editing is only possible when a repo is selected
   const effectiveEditable = editable && !!c4.selectedRepo;
@@ -190,6 +198,7 @@ export function TrailViewerApp({
       sessionsLoading={dataSource.sessionsLoading}
       c4={c4Props}
       codeGraph={{ serverUrl }}
+      traceFiles={traceFiles.length > 0 ? traceFiles : undefined}
       initialTab={initialTab}
     />
   );
