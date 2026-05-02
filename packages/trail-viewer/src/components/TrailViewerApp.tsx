@@ -6,7 +6,7 @@
 //   - ''                          : same-origin relative paths (web app, Next.js)
 //   - 'http://localhost:NNNN'     : extension's bundled HTTP/WebSocket server
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { DocLink } from '@anytime-markdown/trail-core/c4';
 
@@ -111,6 +111,16 @@ export function TrailViewerApp({
     },
     [dataSource],
   );
+
+  // initialTab=1(Traces)で開いた場合、セッション一覧の先頭を自動選択する
+  const didAutoSelect = useRef(false);
+  useEffect(() => {
+    if (initialTab !== 1 || didAutoSelect.current) return;
+    const first = (dataSource.allSessions ?? dataSource.sessions)[0];
+    if (!first) return;
+    didAutoSelect.current = true;
+    handleSelectSession(first.id);
+  }, [initialTab, dataSource.allSessions, dataSource.sessions, handleSelectSession]);
 
   const handleFilterChange = useCallback(
     (newFilter: TrailFilter) => {
