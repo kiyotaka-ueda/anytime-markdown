@@ -442,13 +442,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	});
 	trailDataServer.setCodeGraphService(codeGraphService);
 	C4Panel.setCodeGraphService(codeGraphService);
-	void codeGraphService.loadFromDb().then(() => {
-		if (codeGraphAutoRefresh) {
-			return codeGraphService.generate((phase, percent) => trailDataServer?.notifyCodeGraphProgress(phase, percent))
-				.then(() => trailDataServer?.notifyCodeGraphUpdated());
-		}
-		return undefined;
-	}).catch((err) => TrailLogger.error('Failed to initialize code graph', err));
+	// loadFromDb() は trailDb.init() 完了後に下の async IIFE 内で呼ぶ。
+	// ここで呼ぶと DB 未初期化のまま ensureDb() が throw → null が返るため。
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('anytime-trail.generateCodeGraph', async () => {
@@ -535,6 +530,15 @@ export async function activate(context: vscode.ExtensionContext) {
 			await trailDb!.init();
 			databaseProvider.updateSqliteStatus('Ready', trailDb!.getLastImportedAt());
 			TrailLogger.info('Trail DB: initialized');
+			// DB 初期化完了後に loadFromDb() を実行（初期化前に呼ぶと ensureDb が throw するため）
+			const dbGraph = await codeGraphService!.loadFromDb();
+			if (dbGraph) {
+				trailDataServer?.notifyCodeGraphUpdated();
+			}
+			if (codeGraphAutoRefresh) {
+				await codeGraphService!.generate((phase, percent) => trailDataServer?.notifyCodeGraphProgress(phase, percent));
+				trailDataServer?.notifyCodeGraphUpdated();
+			}
 		} catch (err) {
 			TrailLogger.error('Failed to initialize trail database', err);
 			databaseProvider.updateSqliteStatus('Error');
