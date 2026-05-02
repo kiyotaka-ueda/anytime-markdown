@@ -394,18 +394,24 @@ export class SupabaseTrailReader implements ITrailReader {
         }
       }
 
-      // Fetch assistant messages for token aggregation
-      const { data: msgRows } = await this.client
-        .from('trail_messages')
-        .select('session_id,timestamp,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens')
-        .in('session_id', sessionIds)
-        .eq('type', 'assistant');
+      // Fetch assistant messages for token aggregation (chunked to avoid URL length limit)
+      const allMsgRows: Array<{ session_id: string; timestamp: string; input_tokens: number | null; output_tokens: number | null; cache_read_tokens: number | null; cache_creation_tokens: number | null }> = [];
+      const MSG_BATCH = 200;
+      for (let bi = 0; bi < sessionIds.length; bi += MSG_BATCH) {
+        const batchIds = sessionIds.slice(bi, bi + MSG_BATCH);
+        const { data: batchRows } = await this.client
+          .from('trail_messages')
+          .select('session_id,timestamp,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens')
+          .in('session_id', batchIds)
+          .eq('type', 'assistant');
+        if (batchRows) allMsgRows.push(...(batchRows as typeof allMsgRows));
+      }
 
       type TokenAgg = { rawInput: number; rawOutput: number; rawCacheRead: number; rawCacheCreation: number; totalTurns: number; missingTurns: number };
       const sourceAgg = new Map<string, TokenAgg>();
       const dailySrcAgg = new Map<string, TokenAgg>();
 
-      for (const m of (msgRows ?? []) as Array<{
+      for (const m of allMsgRows as Array<{
         session_id: string; timestamp: string;
         input_tokens: number | null; output_tokens: number | null; cache_read_tokens: number | null; cache_creation_tokens: number | null;
       }>) {
@@ -998,12 +1004,18 @@ export class SupabaseTrailReader implements ITrailReader {
         agentMap.set(k, cur);
       };
       if (sessionIds.length > 0) {
-        const { data: msgRows } = await this.client
-          .from('trail_messages')
-          .select('session_id,timestamp,type,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens,model')
-          .in('session_id', sessionIds)
-          .gte('timestamp', cutoffIso);
-        for (const m of (msgRows ?? []) as Array<{
+        const allAgentMsgRows: Array<{ session_id: string; timestamp: string; type?: string | null; model?: string | null; input_tokens: number | null; output_tokens: number | null; cache_read_tokens: number | null; cache_creation_tokens: number | null }> = [];
+        const AGENT_BATCH = 200;
+        for (let bi = 0; bi < sessionIds.length; bi += AGENT_BATCH) {
+          const batchIds = sessionIds.slice(bi, bi + AGENT_BATCH);
+          const { data: batchRows } = await this.client
+            .from('trail_messages')
+            .select('session_id,timestamp,type,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens,model')
+            .in('session_id', batchIds)
+            .gte('timestamp', cutoffIso);
+          if (batchRows) allAgentMsgRows.push(...(batchRows as typeof allAgentMsgRows));
+        }
+        for (const m of allAgentMsgRows as Array<{
           session_id: string; timestamp: string; type?: string | null; model?: string | null;
           input_tokens: number | null; output_tokens: number | null; cache_read_tokens: number | null; cache_creation_tokens: number | null;
         }>) {
