@@ -49,10 +49,15 @@ export class CodeGraphService {
   async loadFromDb(): Promise<CodeGraph | null> {
     const repoName = this.config.repositories[0]?.label ?? path.basename(this.config.repositories[0]?.path ?? '');
     if (this.config.trailDb && repoName) {
-      const graph = this.config.trailDb.getCurrentCodeGraph(repoName);
-      if (graph) {
-        this.cached = graph;
-        return graph;
+      try {
+        const graph = this.config.trailDb.getCurrentCodeGraph(repoName);
+        if (graph) {
+          this.cached = graph;
+          return graph;
+        }
+      } catch (err) {
+        // DB not yet initialized (init() runs async after activate); fall through to graph.json
+        TrailLogger.warn(`[CodeGraphService] DB not ready in loadFromDb, using graph.json fallback: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
     // Fallback: graph.json（移行期間）
