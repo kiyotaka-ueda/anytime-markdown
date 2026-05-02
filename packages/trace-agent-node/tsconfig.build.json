@@ -3,7 +3,13 @@
     "compilerOptions": {
         "noEmit": false,
         "outDir": "dist/cjs",
+        "rootDir": "src",
         "declaration": true,
-        "declarationDir": "dist/types"
+        "declarationDir": "dist/types",
+        "paths": {
+            "@anytime-markdown/trace-core/types": ["../../node_modules/@anytime-markdown/trace-core/src/types.ts"],
+            "@anytime-markdown/trace-core": ["../../node_modules/@anytime-markdown/trace-core/src/index.ts"]
+        },
+        "preserveSymlinks": true
     }
 }

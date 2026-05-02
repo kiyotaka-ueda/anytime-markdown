@@ -37,6 +37,10 @@ export function instrumentCode(code: string, filename: string): string {
         },
     });
 
+    // ESM ファイルは require() プリアンブルと混在させると Node.js v22+ が ESM として
+    // パースし SyntaxError になるため計装をスキップする
+    if (ast.program.sourceType === 'module') return code;
+
     const output = generate(ast, { retainLines: false }, code);
     return PREAMBLE + output.code;
 }
