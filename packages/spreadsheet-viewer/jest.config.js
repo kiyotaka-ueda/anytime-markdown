@@ -1,5 +1,7 @@
+const base = require('../../jest.config.base');
 /** @type {import('jest').Config} */
 const config = {
+  ...base,
   testEnvironment: "jsdom",
   transform: {
     "^.+\\.tsx?$": "ts-jest",
@@ -14,5 +16,4 @@ const config = {
     "^@anytime-markdown/spreadsheet-core$": "<rootDir>/../spreadsheet-core/src/index.ts",
   },
 };
-
 module.exports = config;
