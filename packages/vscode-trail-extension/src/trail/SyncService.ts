@@ -46,6 +46,9 @@ export class SyncService {
     onProgress?.({ message: 'Fetching local sessions...' });
     const localSessions = this.trailDb.getSessions();
 
+    // 意図的な制約: web アプリはデモ用途であり、メッセージにプロンプト等の個人データが
+    // 含まれるため、Supabase への同期は直近 7 日間のみに限定している。
+    // token チャートの 30D/90D 表示は現状この制約の範囲内となる。
     const messageCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
     let synced = 0;
