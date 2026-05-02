@@ -145,7 +145,6 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
       if (c4Id) onNodeContextMenu?.(c4Id, x, y, node.type);
     },
     enableSpacePan: true,
-    wheelRequiresShift: false,
   });
 
   // Center on selected node (only when centerOnSelect is true, e.g. tree panel selection)
