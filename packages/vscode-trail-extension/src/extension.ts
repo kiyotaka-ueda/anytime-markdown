@@ -56,6 +56,15 @@ function setupC4OnServer(server: TrailDataServer): void {
 			},
 		);
 	};
+	server.onOpenFile = (filePath) => {
+		const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+		if (!workspaceFolder) return;
+		const uri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, filePath));
+		vscode.workspace.openTextDocument(uri).then(
+			(doc) => vscode.window.showTextDocument(doc),
+			() => vscode.window.showWarningMessage(`File not found: ${uri.fsPath}`),
+		);
+	};
 }
 
 export async function activate(context: vscode.ExtensionContext) {
