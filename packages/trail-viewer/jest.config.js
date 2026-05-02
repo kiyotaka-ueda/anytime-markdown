@@ -1,5 +1,7 @@
+const base = require('../../jest.config.base');
 /** @type {import('jest').Config} */
 const config = {
+  ...base,
   testEnvironment: "node",
   transform: {
     "^.+\\.tsx?$": "ts-jest",
@@ -8,5 +10,4 @@ const config = {
   moduleFileExtensions: ["tsx", "ts", "js", "json"],
   maxWorkers: 1,
 };
-
 module.exports = config;

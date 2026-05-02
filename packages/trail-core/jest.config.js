@@ -1,6 +1,7 @@
+const base = require('../../jest.config.base');
 /** @type {import('jest').Config} */
 module.exports = {
-  coverageReporters: ["json", "text", "lcov", "clover", "json-summary"],
+  ...base,
   preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],

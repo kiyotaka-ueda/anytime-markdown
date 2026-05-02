@@ -1,7 +1,8 @@
 import type { Config } from 'jest';
-
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const base = require('../../jest.config.base') as Config;
 const config: Config = {
-  coverageReporters: ['json', 'text', 'lcov', 'clover', 'json-summary'],
+  ...base,
   preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
@@ -10,5 +11,4 @@ const config: Config = {
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
 };
-
 export default config;
