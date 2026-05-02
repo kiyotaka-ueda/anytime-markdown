@@ -540,6 +540,7 @@ export function C4ViewerCore({
         setCheckedPackageIds(null);
         setCheckReset(prev => ({ key: prev.key + 1, ids: inScope, expanded: expandIds }));
       }
+      setSelectedElementId(null);
       setSoloFrameId(null);
       setContextMenu(null);
     },
