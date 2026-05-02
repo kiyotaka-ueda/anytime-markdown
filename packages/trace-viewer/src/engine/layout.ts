@@ -7,6 +7,8 @@ export interface LayoutOptions {
     maxDepth?: number;
     hiddenLifelines?: Set<string>;
     isDark?: boolean;
+    /** Maximum number of io events to render (default 200). Set to 0 to hide all io events. */
+    maxIoEvents?: number;
 }
 
 /** GraphEdge extended with trace-specific metadata */
@@ -133,6 +135,34 @@ export function buildSequenceLayout(
 
     // Walk tree and emit messages
     walkNode(filteredTree, lifelineXMap, styles, nodes, edges, tick, activations, uid);
+
+    // Draw io events (fs / http / sql calls)
+    const maxIoEvents = opts.maxIoEvents ?? 200;
+    if (maxIoEvents > 0) {
+        const ioStroke = isDark ? '#68d391' : '#276749';
+        let ioCount = 0;
+        for (const ev of file.events) {
+            if (ev.type !== 'io') continue;
+            if (ioCount >= maxIoEvents) break;
+            const fromX = lifelineXMap.get(ev.from) ?? null;
+            const toX = lifelineXMap.get(ev.to);
+            if (toX === undefined) continue;
+            ioCount++;
+            const y = MARGIN_TOP + HEADER_HEIGHT + tick.value * STEP_HEIGHT;
+            tick.value += 1;
+            if (fromX !== null) {
+                edges.push({
+                    id: uid('io'),
+                    type: 'line',
+                    from: { nodeId: undefined, x: fromX, y },
+                    to: { nodeId: undefined, x: toX, y },
+                    style: { stroke: ioStroke, strokeWidth: 1, endShape: 'arrow' },
+                    label: ev.method,
+                    metadata: { role: 'io', method: ev.method },
+                });
+            }
+        }
+    }
 
     const totalHeight = MARGIN_TOP + HEADER_HEIGHT + (tick.value + 1) * STEP_HEIGHT + MARGIN_BOTTOM;
 
