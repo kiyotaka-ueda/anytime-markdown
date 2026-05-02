@@ -46,7 +46,7 @@ export class SyncService {
     onProgress?.({ message: 'Fetching local sessions...' });
     const localSessions = this.trailDb.getSessions();
 
-    const messageCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+    const messageCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
     let synced = 0;
     let errors = 0;

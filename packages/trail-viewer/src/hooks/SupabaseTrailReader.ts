@@ -396,7 +396,7 @@ export class SupabaseTrailReader implements ITrailReader {
 
       // Fetch assistant messages for token aggregation — paginate by date, not session_id,
       // to avoid URL length limit and Supabase's default 1000-row cap per request.
-      const msgCutoffIso = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+      const msgCutoffIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const allMsgRows: Array<{ session_id: string; timestamp: string; input_tokens: number | null; output_tokens: number | null; cache_read_tokens: number | null; cache_creation_tokens: number | null }> = [];
       for (let offset = 0; ; offset += 1000) {
         const { data: batchRows } = await this.client
