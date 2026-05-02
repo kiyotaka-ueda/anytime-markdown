@@ -131,6 +131,7 @@ export interface C4ViewerCoreProps {
   readonly onRemoveElement?: (id: string) => void;
   readonly onPurgeDeleted?: () => void;
   readonly onDocLinkClick?: (doc: DocLink) => void;
+  readonly onOpenFile?: (filePath: string) => void;
   readonly containerHeight?: string;
   readonly releases?: readonly C4ReleaseEntry[];
   readonly selectedRelease?: string;
@@ -165,6 +166,7 @@ export function C4ViewerCore({
   onRemoveElement,
   onPurgeDeleted,
   onDocLinkClick,
+  onOpenFile,
   containerHeight = '100vh',
   releases = [],
   selectedRelease = CURRENT_RELEASE_TAG,
@@ -482,7 +484,18 @@ export function C4ViewerCore({
     }
     navigator.clipboard.writeText(path).catch(() => {});
     setContextMenu(null);
-  }, [contextMenu]);
+  }, [contextMenu])
+
+  const handleOpenFile = useCallback(() => {
+    if (!contextMenu) return;
+    const id = contextMenu.c4Id;
+    // file::packages/web-app/src/index.ts → packages/web-app/src/index.ts
+    const withoutPrefix = id.slice(6);
+    const colonIdx = withoutPrefix.indexOf('::');
+    const filePath = colonIdx === -1 ? withoutPrefix : withoutPrefix.slice(0, colonIdx);
+    onOpenFile?.(filePath);
+    setContextMenu(null);
+  }, [contextMenu, onOpenFile]);
 
   /** フレームフィルタを解除する */
   const handleClearFrameFilter = useCallback(() => {
@@ -999,11 +1012,13 @@ export function C4ViewerCore({
     contextMenu.nodeType === 'frame';
   const canCopyPath = contextMenu !== null &&
     (contextMenu.c4Id.startsWith('pkg_') || contextMenu.c4Id.startsWith('file::'));
+  const canOpenFile = contextMenu !== null && contextMenu.c4Id.startsWith('file::');
   const canShowManualActions = canShowManualContextActions(c4Model, contextMenu?.c4Id ?? null);
   const showContextMenu = contextMenu !== null && (
     canDrillDown ||
     canDrillUp ||
     canShowOnlyFrame ||
+    canOpenFile ||
     canCopyPath ||
     canShowManualActions
   );
@@ -1823,6 +1838,25 @@ export function C4ViewerCore({
                         {soloFrameId === contextMenu.c4Id
                           ? t('c4.clearFrameFilter')
                           : t('c4.showOnlyThisFrame')}
+                      </button>
+                    )}
+                    {canOpenFile && (
+                      <button
+                        type="button"
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '6px 16px',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: 14,
+                          color: isDark ? '#e0e0e0' : '#333',
+                        }}
+                        onClick={handleOpenFile}
+                      >
+                        {t('c4.openFile')}
                       </button>
                     )}
                     {canCopyPath && (
