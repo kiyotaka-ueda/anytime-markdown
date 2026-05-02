@@ -33,7 +33,8 @@
     "packages/trail-core",
     "packages/trail-viewer",
     "packages/graph-viewer",
-    "packages/mcp-trail"
+    "packages/mcp-trail",
+    "packages/trace-core"
   ],
   "overrides": {
     "serialize-javascript": "7.0.5",
