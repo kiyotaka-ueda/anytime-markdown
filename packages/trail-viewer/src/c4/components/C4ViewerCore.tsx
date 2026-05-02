@@ -1399,21 +1399,27 @@ export function C4ViewerCore({
                       {t('c4.popup.metrics')}
                     </Typography>
                     <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
-                      <Box>
-                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
-                          {t('c4.popup.metric.coverage')}
+                      <Box sx={{ gridColumn: '1 / -1' }}>
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.62rem', fontWeight: 600, mb: 0.5 }}>
+                          {t('c4.popup.coverage')}
                         </Typography>
-                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
-                          {selectedElementInfo.coverage ? formatPct(selectedElementInfo.coverage.lines.pct) : '-'}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
-                          {t('c4.popup.metric.branches')}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
-                          {selectedElementInfo.coverage ? formatPct(selectedElementInfo.coverage.branches.pct) : '-'}
-                        </Typography>
+                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0.5 }}>
+                          {(['coverage', 'branches', 'functions'] as const).map((key, i) => {
+                            const pct = selectedElementInfo.coverage
+                              ? (i === 0 ? selectedElementInfo.coverage.lines.pct : i === 1 ? selectedElementInfo.coverage.branches.pct : selectedElementInfo.coverage.functions.pct)
+                              : null;
+                            return (
+                              <Box key={key}>
+                                <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.58rem' }}>
+                                  {t(`c4.popup.metric.${key}`)}
+                                </Typography>
+                                <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
+                                  {pct != null ? formatPct(pct) : '-'}
+                                </Typography>
+                              </Box>
+                            );
+                          })}
+                        </Box>
                       </Box>
                       <Box>
                         <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
