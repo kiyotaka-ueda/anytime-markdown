@@ -1,0 +1,16 @@
+{
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+        "module": "CommonJS",
+        "moduleResolution": "node",
+        "lib": ["ES2023"],
+        "noEmit": true,
+        "declaration": false,
+        "types": ["node", "jest"],
+        "paths": {
+            "@anytime-markdown/trace-core/types": ["../trace-core/src/types.ts"],
+            "@anytime-markdown/trace-core": ["../trace-core/src/index.ts"]
+        }
+    },
+    "include": ["src/**/*"]
+}
