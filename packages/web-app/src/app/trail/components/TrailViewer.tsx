@@ -15,14 +15,17 @@ import { TrailErrorBoundary } from './TrailErrorBoundary';
  * 共通の TrailViewerApp に同居 Next.js API ルート（serverUrl=''）を渡すだけのシェル。
  * editable は true（グループ機能などの編集操作を有効化）。doc link は新規タブで開く。
  */
-export function TrailViewer({ containerHeight = 'calc(100vh - 64px)' }: Readonly<{ containerHeight?: string }> = {}) {
+export function TrailViewer({
+  containerHeight = 'calc(100vh - 64px)',
+  initialTab: initialTabProp,
+}: Readonly<{ containerHeight?: string; initialTab?: number }> = {}) {
   const { themeMode } = useThemeMode();
   const isDark = themeMode === 'dark';
   const { locale } = useLocaleSwitch();
   const searchParams = useSearchParams();
 
   const tabParam = searchParams.get('tab');
-  const initialTab = tabParam !== null ? Number(tabParam) : undefined;
+  const initialTab = initialTabProp ?? (tabParam !== null ? Number(tabParam) : undefined);
 
   const c4LevelParam = searchParams.get('c4level');
   const initialC4Level = c4LevelParam !== null ? Number(c4LevelParam) : undefined;

@@ -62,6 +62,17 @@ export function PressBody() {
           />
         }
       />
+      <BriefingPrimary
+        embed={<TrailViewerEmbed containerHeight="clamp(400px, 62vh, 760px)" initialTab={1} />}
+        embedActions={
+          <CtaActions
+            primaryLabel={tCta('openViewer')}
+            secondaryLabel={tCta('vsCode')}
+            primaryHref="/trail?tab=1"
+            secondaryHref="https://marketplace.visualstudio.com/items?itemName=anytime-trial.anytime-trail"
+          />
+        }
+      />
       <BriefingSecondary
         embed={
           <div style={{ height: MARKDOWN_PREVIEW_HEIGHT, overflow: 'hidden' }}>
