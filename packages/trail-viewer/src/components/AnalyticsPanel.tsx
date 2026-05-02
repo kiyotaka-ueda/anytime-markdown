@@ -336,19 +336,17 @@ function OverviewCards({
             {card.label}
           </Typography>
           <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.25 }}>
-              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-                <Typography variant="h5">{card.primary}</Typography>
-                {card.badge && (
-                  <Chip
-                    label={card.badge.label}
-                    size="small"
-                    sx={{ backgroundColor: card.badge.color, color: '#fff', fontWeight: 700, height: 20, fontSize: 10 }}
-                  />
-                )}
-              </Box>
+            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+              <Typography variant="h5">{card.primary}</Typography>
               {card.unit && (
                 <Typography variant="caption" color="text.secondary">{card.unit}</Typography>
+              )}
+              {card.badge && (
+                <Chip
+                  label={card.badge.label}
+                  size="small"
+                  sx={{ backgroundColor: card.badge.color, color: '#fff', fontWeight: 700, height: 20, fontSize: 10 }}
+                />
               )}
             </Box>
           </Box>
