@@ -18,7 +18,8 @@ import { TrailErrorBoundary } from './TrailErrorBoundary';
 export function TrailViewer({
   containerHeight = 'calc(100vh - 64px)',
   initialTab: initialTabProp,
-}: Readonly<{ containerHeight?: string; initialTab?: number }> = {}) {
+  initialC4Level: initialC4LevelProp,
+}: Readonly<{ containerHeight?: string; initialTab?: number; initialC4Level?: number }> = {}) {
   const { themeMode } = useThemeMode();
   const isDark = themeMode === 'dark';
   const { locale } = useLocaleSwitch();
@@ -28,7 +29,7 @@ export function TrailViewer({
   const initialTab = initialTabProp ?? (tabParam !== null ? Number(tabParam) : undefined);
 
   const c4LevelParam = searchParams.get('c4level');
-  const initialC4Level = c4LevelParam !== null ? Number(c4LevelParam) : undefined;
+  const initialC4Level = initialC4LevelProp ?? (c4LevelParam !== null ? Number(c4LevelParam) : undefined);
 
   const handleDocLinkClick = useCallback((doc: DocLink) => {
     globalThis.open(`/docs/view?ghPath=${encodeURIComponent(doc.path)}`, '_blank');
