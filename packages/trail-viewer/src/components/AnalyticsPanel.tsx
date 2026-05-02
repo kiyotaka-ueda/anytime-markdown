@@ -166,12 +166,9 @@ function CyclingCard({
       onClick={onCycle}
     >
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, textAlign: 'left' }}>
-        {groupName}
+        {`${groupName}：${current.label}`}
       </Typography>
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-        <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'left', mb: 0.25 }}>
-          {current.label}
-        </Typography>
+      <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 1 }}>
           <Typography variant="h3">{current.value}</Typography>
           {current.badge && (
