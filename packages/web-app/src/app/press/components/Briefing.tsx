@@ -27,7 +27,7 @@ interface BriefingEmbedProps {
 }
 
 const TRAFFIC_LIGHT_COLORS = ['#FF5F57', '#FFBD2E', '#28C840'] as const;
-const TRAIL_KEYS = ['trail1', 'trail2', 'trail3', 'trail4', 'trail5', 'trail6', 'trail7', 'trail8', 'trail9', 'trail10', 'trail11', 'trail12', 'trail13', 'trail14', 'trail15', 'trail16', 'trail17', 'trail18'] as const;
+const TRAIL_KEYS = ['trail1', 'trail2', 'trail3', 'trail4', 'trail5', 'trail6', 'trail7', 'trail8', 'trail9', 'trail10', 'trail11', 'trail12', 'trail13', 'trail14', 'trail15', 'trail16', 'trail17', 'trail18', 'trail19', 'trail20', 'trail21', 'trail22', 'trail23', 'trail24', 'trail25', 'trail26'] as const;
 const MARKDOWN_KEYS = ['md3', 'md1', 'md2'] as const;
 const ROMAN = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii'] as const;
 
@@ -103,6 +103,45 @@ export function BriefingPrimary({ embed, embedActions, subtitle, trailKeys = TRA
         </>
       }
     />
+  );
+}
+
+interface BriefingRoadmapProps {
+  subtitle?: string;
+  trailKeys: readonly (typeof TRAIL_KEYS[number])[];
+  verdict?: string;
+}
+
+export function BriefingRoadmap({ subtitle, trailKeys, verdict }: BriefingRoadmapProps) {
+  const t = useTranslations('VsCode');
+  const tBriefing = useTranslations('press.briefing');
+  const verdictText = verdict ?? tBriefing('shipped');
+  const items: BriefingItem[] = trailKeys.map((key, idx) => ({
+    num: String(idx + 1).padStart(2, '0'),
+    head: t(`${key}Title`),
+    body: t(`${key}Body`),
+    verdict: verdictText,
+  }));
+  return (
+    <section className={styles.briefingRoadmapSection} id="trail-roadmap">
+      <header className={styles.briefingHeader}>
+        <span className={styles.briefingHeaderTitle}>
+          {tBriefing('trailHeader')} <em>{tBriefing('trailHeaderEm')}</em>{subtitle ? ` ${subtitle}` : null}
+        </span>
+      </header>
+      <ul className={styles.briefingListGrid}>
+        {items.map((item) => (
+          <li key={item.num}>
+            <span className={styles.briefingNum}>{item.num}</span>
+            <div className={styles.briefingHead}>
+              {item.head}
+              <p>{item.body}</p>
+            </div>
+            <span className={styles.briefingVerdict}>{item.verdict}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
 
 import { useThemeMode } from '../providers';
-import { BriefingPrimary, BriefingSecondary } from './components/Briefing';
+import { BriefingPrimary, BriefingRoadmap, BriefingSecondary } from './components/Briefing';
 import { Caravan } from './components/Caravan';
 import { Colophon } from './components/Colophon';
 import { CtaActions } from './components/CtaStrip';
@@ -95,10 +95,24 @@ export function PressBody() {
         trailKeys={['trail4', 'trail12', 'trail13']}
         embed={null}
       />
-      <BriefingPrimary
+      <BriefingRoadmap
         subtitle="- 将来対応"
-        trailKeys={['trail14', 'trail15', 'trail16', 'trail17', 'trail18']}
-        embed={null}
+        trailKeys={[
+          'trail14',
+          'trail15',
+          'trail16',
+          'trail17',
+          'trail18',
+          'trail19',
+          'trail20',
+          'trail21',
+          'trail22',
+          'trail23',
+          'trail24',
+          'trail25',
+          'trail26',
+        ]}
+        verdict="— planned"
       />
       <BriefingSecondary
         embed={
