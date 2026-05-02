@@ -40,15 +40,24 @@ export function aggregateCoverageFromDb(
   for (const row of rows) {
     if (row.file_path === '__total__') continue;
 
+    const lines: CoverageMetric = { covered: row.lines_covered, total: row.lines_total, pct: row.lines_pct };
+    const branches: CoverageMetric = { covered: row.branches_covered, total: row.branches_total, pct: row.branches_pct };
+    const functions: CoverageMetric = { covered: row.functions_covered, total: row.functions_total, pct: row.functions_pct };
+
+    // L4: file-level entry — elementId matches C4 code element IDs produced by toC4.ts
+    const pkgMarker = `/packages/${row.package}/`;
+    const pkgIdx = row.file_path.indexOf(pkgMarker);
+    if (pkgIdx >= 0) {
+      const fullRelPath = row.file_path.slice(pkgIdx + 1); // 'packages/pkg/src/dir/file.ts'
+      aggregated.set(`file::${fullRelPath}`, { elementId: `file::${fullRelPath}`, lines, branches, functions });
+    }
+
+    // L3: component-level aggregation
     const componentDir = extractComponentDir(row.file_path, row.package);
     if (!componentDir) continue;
 
     const componentId = `pkg_${row.package}/${componentDir}`;
     const prev = aggregated.get(componentId);
-
-    const lines: CoverageMetric = { covered: row.lines_covered, total: row.lines_total, pct: row.lines_pct };
-    const branches: CoverageMetric = { covered: row.branches_covered, total: row.branches_total, pct: row.branches_pct };
-    const functions: CoverageMetric = { covered: row.functions_covered, total: row.functions_total, pct: row.functions_pct };
 
     if (!prev) {
       aggregated.set(componentId, { elementId: componentId, lines, branches, functions });

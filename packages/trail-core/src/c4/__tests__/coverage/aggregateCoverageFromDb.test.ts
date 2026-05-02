@@ -88,12 +88,30 @@ describe('aggregateCoverageFromDb', () => {
     expect(engine?.lines.total).toBe(100);
   });
 
-  it('skips files without extractable component dir', () => {
+  it('generates file-level code entries for L4 view', () => {
+    const rows: ReleaseCoverageRow[] = [
+      makeRow('core', '/repo/packages/core/src/engine/render.ts', 80, 100),
+    ];
+    const result = aggregateCoverageFromDb(rows, model);
+    const fileEntry = result.entries.find(
+      e => e.elementId === 'file::packages/core/src/engine/render.ts',
+    );
+    expect(fileEntry).toBeDefined();
+    expect(fileEntry!.lines.covered).toBe(80);
+    expect(fileEntry!.lines.total).toBe(100);
+  });
+
+  it('generates file-level entry even for root-level files (no component dir)', () => {
     const rows: ReleaseCoverageRow[] = [
       makeRow('core', '/repo/packages/core/root-file.ts', 10, 10),
     ];
     const result = aggregateCoverageFromDb(rows, model);
-    expect(result.entries).toHaveLength(0);
+    const fileEntry = result.entries.find(
+      e => e.elementId === 'file::packages/core/root-file.ts',
+    );
+    expect(fileEntry).toBeDefined();
+    // No component-level entry should be created
+    expect(result.entries.find(e => e.elementId === 'pkg_core')).toBeUndefined();
   });
 
   it('includes generatedAt timestamp', () => {
