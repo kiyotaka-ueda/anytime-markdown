@@ -134,7 +134,7 @@ export function filterTreeByLevel(
   const visibleTypes = VISIBLE_TYPES_BY_LEVEL[level] ?? VISIBLE_TYPES_BY_LEVEL[4];
 
   function filterNode(node: C4TreeNode): C4TreeNode | null {
-    if (node.type !== 'boundary' && !visibleTypes.has(node.type)) {
+    if (node.type !== 'boundary' && node.type !== 'community' && !visibleTypes.has(node.type)) {
       return null;
     }
     const children = node.children

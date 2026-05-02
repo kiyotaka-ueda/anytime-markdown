@@ -103,12 +103,14 @@ export interface DocLink {
 export interface C4TreeNode {
   readonly id: string;
   readonly name: string;
-  readonly type: C4ElementType | 'boundary';
+  readonly type: C4ElementType | 'boundary' | 'community';
   readonly external?: boolean;
   readonly technology?: string;
   readonly description?: string;
   readonly deleted?: boolean;
   readonly serviceType?: string;
+  readonly communityId?: number;
+  readonly nodeCount?: number;
   readonly children: readonly C4TreeNode[];
 }
 
