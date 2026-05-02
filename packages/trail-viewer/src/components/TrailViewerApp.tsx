@@ -107,6 +107,13 @@ export function TrailViewerApp({
       }
     },
     [onDocLinkClick, sendCommand],
+  )
+
+  const handleOpenFile = useCallback(
+    (filePath: string) => {
+      sendCommand('open-file', { filePath });
+    },
+    [sendCommand],
   );
 
   const [filter, setFilter] = useState<TrailFilter>(EMPTY_FILTER);
@@ -162,6 +169,7 @@ export function TrailViewerApp({
     onAddRelationship,
     onRemoveElement,
     onDocLinkClick: handleDocLinkClick,
+    onOpenFile: handleOpenFile,
     serverUrl,
     claudeActivity: c4.claudeActivity,
     multiAgentActivity: c4.multiAgentActivity,
