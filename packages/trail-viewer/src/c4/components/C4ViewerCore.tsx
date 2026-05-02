@@ -1145,11 +1145,6 @@ export function C4ViewerCore({
                 }}
                 onNodeContextMenu={handleNodeContextMenu}
               />
-              <OverlayLegend
-                overlay={metricOverlay}
-                isDark={isDark}
-                dsmMax={dsmMax}
-              />
               {/* 左側パネル: 全体マップ + C4 ビュー設定コントロール群 */}
               <Box sx={{ position: 'absolute', top: 8, left: 8, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {/* 全体マップ（ミニマップ） */}
@@ -1340,6 +1335,12 @@ export function C4ViewerCore({
                       <MenuItem value="hotspot-risk" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotRisk')}</MenuItem>
                     </Select>
                   </Box>
+                  <OverlayLegend
+                    overlay={metricOverlay}
+                    isDark={isDark}
+                    dsmMax={dsmMax}
+                    inline
+                  />
                   <Box sx={{ borderTop: `1px solid ${colors.border}`, mx: -1.5 }} />
                   {soloFrameId !== null && (
                     <Button size="small" fullWidth startIcon={<FilterAltOffIcon sx={{ fontSize: 14 }} />} onClick={handleClearFrameFilter} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', justifyContent: 'flex-start', color: colors.accent }}>

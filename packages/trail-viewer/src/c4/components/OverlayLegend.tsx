@@ -17,6 +17,8 @@ interface OverlayLegendProps {
   readonly communityLegend?: readonly CommunityLegendItem[];
   /** 凡例タイトル（i18n 済み文字列） */
   readonly communityTitle?: string;
+  /** true のとき position:absolute を使わずインライン表示する */
+  readonly inline?: boolean;
 }
 
 const SWATCH_SIZE = 12;
@@ -30,7 +32,7 @@ function Swatch({ color, label }: Readonly<{ color: string; label: string }>) {
   );
 }
 
-export function OverlayLegend({ overlay, isDark, dsmMax, communityLegend, communityTitle }: Readonly<OverlayLegendProps>) {
+export function OverlayLegend({ overlay, isDark, dsmMax, communityLegend, communityTitle, inline }: Readonly<OverlayLegendProps>) {
   const hasCommunity = !!communityLegend && communityLegend.length > 0;
   const hasMetric = overlay !== 'none';
   if (!hasCommunity && !hasMetric) return null;
@@ -91,26 +93,17 @@ export function OverlayLegend({ overlay, isDark, dsmMax, communityLegend, commun
     );
   }
 
-  return (
-    <Box
-      sx={{
+  const positionSx = inline
+    ? {}
+    : {
         position: 'absolute',
         bottom: 12,
         right: 12,
         // 上端に Minimap (top: 8, height ~150px) がいるため、bottom 起点で
         // 上方向に成長する高さを Minimap 領域分（約 180px）控えて制限する。
-        // 内容が溢れた場合はスクロールできるよう pointerEvents を有効化する。
         maxHeight: 'calc(100% - 180px)',
         overflowY: 'auto',
         overflowX: 'hidden',
-        bgcolor: bg,
-        color: textColor,
-        borderRadius: 1,
-        px: 1,
-        py: 0.75,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 0.4,
         pointerEvents: 'auto',
         zIndex: 10,
         backdropFilter: 'blur(4px)',
@@ -122,6 +115,20 @@ export function OverlayLegend({ overlay, isDark, dsmMax, communityLegend, commun
           bgcolor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)',
           borderRadius: 3,
         },
+      };
+
+  return (
+    <Box
+      sx={{
+        ...positionSx,
+        bgcolor: bg,
+        color: textColor,
+        borderRadius: 1,
+        px: 1,
+        py: 0.75,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 0.4,
       }}
     >
       {hasCommunity && (
