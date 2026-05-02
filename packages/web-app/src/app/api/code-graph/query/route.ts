@@ -58,7 +58,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const { data, error } = await supabase
       .from('trail_current_code_graphs')
       .select('graph_json')
-      .eq('repo_name', 'anytime-markdown')
+      .limit(1)
       .single();
 
     if (error || !data) return new NextResponse(null, { status: 404 });
