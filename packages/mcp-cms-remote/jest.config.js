@@ -1,7 +1,6 @@
-import type { Config } from 'jest';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const base = require('../../jest.config.base') as Config;
-const config: Config = {
+const base = require('../../jest.config.base');
+/** @type {import('jest').Config} */
+module.exports = {
   ...base,
   preset: 'ts-jest',
   testEnvironment: 'node',
@@ -10,5 +9,11 @@ const config: Config = {
     '^@anytime-markdown/cms-core$': '<rootDir>/../cms-core/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
+  globals: {
+    'ts-jest': {
+      tsconfig: {
+        module: 'CommonJS',
+      },
+    },
+  },
 };
-export default config;

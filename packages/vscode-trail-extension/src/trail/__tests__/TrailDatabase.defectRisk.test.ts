@@ -37,7 +37,8 @@ describe('TrailDatabase.fetchDefectRisk', () => {
   });
 
   it('returns file-level risk entries', () => {
-    insertSessionCommit(db, 's1', 'h1', 'fix: crash', '2026-01-30T00:00:00.000Z');
+    const recent = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
+    insertSessionCommit(db, 's1', 'h1', 'fix: crash', recent);
     insertCommitFile(db, 'h1', 'packages/trail-core/src/foo.ts');
     const result = db.fetchDefectRisk({ windowDays: 90, halfLifeDays: 90 });
     expect(result.length).toBeGreaterThan(0);
