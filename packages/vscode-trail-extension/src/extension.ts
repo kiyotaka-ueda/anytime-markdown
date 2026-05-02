@@ -388,8 +388,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	const codeGraphCfg = vscode.workspace.getConfiguration('anytimeTrail.codeGraph');
 	const expandWorkspace = (s: string): string =>
 		wsRootForDb ? s.replace('${workspaceFolder}', wsRootForDb) : s;
-	const rawOutputDir = codeGraphCfg.get<string>('outputDir', '${workspaceFolder}/.vscode/graphify-out');
-	const outputDir = expandWorkspace(rawOutputDir);
 	const configuredRepoPaths = codeGraphCfg.get<string[]>('repositories', []);
 	const codeGraphAutoRefresh = codeGraphCfg.get<boolean>('autoRefresh', false);
 	const c4ExcludePatterns = vscode.workspace
@@ -419,7 +417,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	});
 	const codeGraphService = new CodeGraphService({
 		repositories: codeGraphRepos,
-		outputDir,
 		excludePatterns: c4ExcludePatterns,
 		c4ElementsProvider: () => {
 			const trailGraph = C4Panel.getDataProvider()?.trailGraph;

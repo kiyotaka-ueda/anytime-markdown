@@ -16,7 +16,6 @@ import { trailGraphToCodeGraphInputs } from './trailGraphToCodeGraphInputs';
 
 export interface CodeGraphServiceConfig {
   readonly repositories: readonly CodeGraphRepository[];
-  readonly outputDir: string;
   /** ディレクトリ名で除外するパターン（GraphDetector のデフォルトに追加される） */
   readonly excludePatterns?: readonly string[];
   /**
@@ -29,7 +28,7 @@ export interface CodeGraphServiceConfig {
    * で生成されたものを流用するためのルート。リポ ID → TrailGraph のマップを返す。
    */
   readonly trailGraphProvider?: () => Record<string, TrailGraph | undefined> | undefined;
-  /** CodeGraph の保存・読み込みに使用する DB（設定時は DB 優先、未設定は graph.json ファイルにフォールバック） */
+  /** CodeGraph の保存・読み込みに使用する DB */
   readonly trailDb?: TrailDatabase;
 }
 
@@ -56,21 +55,10 @@ export class CodeGraphService {
           return graph;
         }
       } catch (err) {
-        // DB not yet initialized (init() runs async after activate); fall through to graph.json
-        TrailLogger.warn(`[CodeGraphService] DB not ready in loadFromDb, using graph.json fallback: ${err instanceof Error ? err.message : String(err)}`);
+        TrailLogger.warn(`[CodeGraphService] DB not ready in loadFromDb: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
-    // Fallback: graph.json（移行期間）
-    const jsonPath = path.join(this.config.outputDir, 'graph.json');
-    if (!fs.existsSync(jsonPath)) return null;
-    try {
-      TrailLogger.warn(`[migration warning] Loading code graph from graph.json fallback (DB not populated yet): ${jsonPath}`);
-      this.cached = JSON.parse(fs.readFileSync(jsonPath, 'utf-8')) as CodeGraph;
-      return this.cached;
-    } catch (err) {
-      TrailLogger.error(`Failed to load graph.json at ${jsonPath}`, err);
-      return null;
-    }
+    return null;
   }
 
   async generate(onProgress?: ProgressCallback): Promise<CodeGraph> {
@@ -202,11 +190,7 @@ export class CodeGraphService {
       this.config.trailDb.saveCurrentCodeGraph(repoName, graph);
       TrailLogger.info(`Code graph saved to DB (repo=${repoName})`);
     } else {
-      // Fallback: ファイルに保存（trailDb 未設定時）
-      fs.mkdirSync(this.config.outputDir, { recursive: true });
-      const jsonPath = path.join(this.config.outputDir, 'graph.json');
-      fs.writeFileSync(jsonPath, JSON.stringify(graph, null, 2), 'utf-8');
-      TrailLogger.info(`Code graph saved to ${jsonPath}`);
+      TrailLogger.warn('[CodeGraphService] save() skipped: trailDb not configured');
     }
   }
 }
