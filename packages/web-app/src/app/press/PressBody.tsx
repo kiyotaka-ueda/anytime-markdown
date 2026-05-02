@@ -97,7 +97,7 @@ export function PressBody() {
       />
       <BriefingPrimary
         subtitle="- 将来対応"
-        trailKeys={['trail4', 'trail12', 'trail13']}
+        trailKeys={['trail14', 'trail15', 'trail16', 'trail17', 'trail18']}
         embed={null}
       />
       <BriefingSecondary
