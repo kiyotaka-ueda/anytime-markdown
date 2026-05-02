@@ -2,14 +2,9 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { NextResponse } from 'next/server';
 
-export const dynamic = 'force-dynamic';
+import { getTraceDir } from '../_utils';
 
-function getTraceDir(): string {
-  if (process.env['TRACE_OUTPUT_DIR']) {
-    return process.env['TRACE_OUTPUT_DIR'];
-  }
-  return path.join(process.cwd(), '.vscode', 'trace');
-}
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request): Promise<NextResponse> {
   if (process.env.NODE_ENV === 'production') {
@@ -22,19 +17,17 @@ export async function GET(request: Request): Promise<NextResponse> {
     return new NextResponse('Invalid file name', { status: 400 });
   }
 
-  const traceDir = getTraceDir();
-  const filePath = path.join(traceDir, name);
-
-  if (!fs.existsSync(filePath)) {
-    return new NextResponse('File not found', { status: 404 });
-  }
+  const filePath = path.join(getTraceDir(), name);
 
   try {
     const content = fs.readFileSync(filePath, 'utf-8');
     return new NextResponse(content, {
       headers: { 'Content-Type': 'application/json' },
     });
-  } catch {
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT') return new NextResponse('File not found', { status: 404 });
+    console.error(`[${new Date().toISOString()}] [ERROR] trace/file GET failed: ${filePath}`, err);
     return new NextResponse('Failed to read file', { status: 500 });
   }
 }

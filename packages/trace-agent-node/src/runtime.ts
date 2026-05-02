@@ -26,10 +26,12 @@ export function __traceThrow(id: number, err: unknown): void {
 }
 
 export function fileToLifelineId(file: string): string {
-    if (!lifelineMap.has(file)) {
-        lifelineMap.set(file, `L${lifelineCounter++}`);
+    let id = lifelineMap.get(file);
+    if (id === undefined) {
+        id = `L${lifelineCounter++}`;
+        lifelineMap.set(file, id);
     }
-    return lifelineMap.get(file)!;
+    return id;
 }
 
 export function getLifelineMap(): Map<string, string> {

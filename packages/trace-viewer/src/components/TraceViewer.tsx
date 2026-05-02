@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { SourceLocation } from '@anytime-markdown/trace-core/types';
 import type { TraceFileSource } from '../hooks/useTraceFile';
 import { useTraceFile } from '../hooks/useTraceFile';
@@ -117,7 +117,9 @@ function EmptyState({
     message,
     isError,
 }: Readonly<{ isDark: boolean; message: string; isError?: boolean }>) {
-    const color = isError ? (isDark ? '#fc8181' : '#e53e3e') : (isDark ? '#718096' : '#a0aec0');
+    const darkColor = isError ? '#fc8181' : '#718096';
+    const lightColor = isError ? '#e53e3e' : '#a0aec0';
+    const color = isDark ? darkColor : lightColor;
     return (
         <div
             style={{

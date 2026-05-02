@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useCallback } from 'react';
 
-import { useThemeMode } from '../../../providers';
+import { useTheme } from '@mui/material/styles';
 
 const TraceViewer = dynamic(
   () => import('@anytime-markdown/trace-viewer').then(m => ({ default: m.TraceViewer })),
@@ -15,8 +15,8 @@ interface Props {
 }
 
 export default function TraceReportBody({ fileName }: Readonly<Props>) {
-  const { themeMode } = useThemeMode();
-  const isDark = themeMode === 'dark';
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
 
   const traceFiles = [
     {

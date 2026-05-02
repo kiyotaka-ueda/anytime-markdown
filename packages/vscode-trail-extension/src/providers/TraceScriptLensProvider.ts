@@ -8,9 +8,10 @@ export class TraceScriptLensProvider implements vscode.CodeLensProvider {
 			return [];
 		}
 
+		const text = document.getText();
 		let pkg: Record<string, unknown>;
 		try {
-			pkg = JSON.parse(document.getText()) as Record<string, unknown>;
+			pkg = JSON.parse(text) as Record<string, unknown>;
 		} catch {
 			return [];
 		}
@@ -21,7 +22,7 @@ export class TraceScriptLensProvider implements vscode.CodeLensProvider {
 		}
 
 		const lenses: vscode.CodeLens[] = [];
-		const lines = document.getText().split('\n');
+		const lines = text.split('\n');
 
 		for (const scriptName of Object.keys(scripts as Record<string, string>)) {
 			if (!TRACE_SCRIPT_RE.test(scriptName)) { continue; }

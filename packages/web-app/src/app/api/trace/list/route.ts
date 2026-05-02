@@ -2,6 +2,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { NextResponse } from 'next/server';
 
+import { getTraceDir } from '../_utils';
+
 export const dynamic = 'force-dynamic';
 
 export interface TraceFileMeta {
@@ -10,24 +12,12 @@ export interface TraceFileMeta {
   mtime: string;
 }
 
-function getTraceDir(): string | null {
-  if (process.env['TRACE_OUTPUT_DIR']) {
-    return process.env['TRACE_OUTPUT_DIR'];
-  }
-  const cwd = process.cwd();
-  const candidate = path.join(cwd, '.vscode', 'trace');
-  return candidate;
-}
-
 export async function GET(): Promise<NextResponse> {
   if (process.env.NODE_ENV === 'production') {
     return NextResponse.json([], { status: 200 });
   }
 
   const traceDir = getTraceDir();
-  if (!traceDir || !fs.existsSync(traceDir)) {
-    return NextResponse.json([]);
-  }
 
   try {
     const files = fs.readdirSync(traceDir)
@@ -46,7 +36,10 @@ export async function GET(): Promise<NextResponse> {
     }));
 
     return NextResponse.json(result);
-  } catch {
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT') return NextResponse.json([]);
+    console.error(`[${new Date().toISOString()}] [ERROR] trace/list GET failed: ${traceDir}`, err);
     return NextResponse.json([]);
   }
 }

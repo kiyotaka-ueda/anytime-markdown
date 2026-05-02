@@ -4,7 +4,7 @@ import type { TraceFile } from '@anytime-markdown/trace-core/types';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const FIXTURES = path.join(__dirname, 'fixtures');
+const FIXTURES = path.join(__dirname, '../../../trace-core/src/__tests__/fixtures');
 
 function loadFixture(name: string): TraceFile {
     const fixturePath = path.join(FIXTURES, name);

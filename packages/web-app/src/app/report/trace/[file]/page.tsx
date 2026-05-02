@@ -26,7 +26,7 @@ export default async function TraceFilePage({ params }: Props) {
   const fileName = decodeURIComponent(file) + '.json';
 
   return (
-    <Suspense>
+    <Suspense fallback={<div style={{ padding: '2rem' }}>Loading...</div>}>
       <TraceReportBody fileName={fileName} />
     </Suspense>
   );

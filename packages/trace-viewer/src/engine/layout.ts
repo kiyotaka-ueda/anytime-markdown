@@ -32,9 +32,9 @@ const LIFELINE_SPACING = 200;
 const STEP_HEIGHT = 36;
 const ACTIVATION_WIDTH = 10;
 
-let _idCounter = 0;
-function uid(prefix: string): string {
-    return `${prefix}-${++_idCounter}`;
+function makeUid() {
+    let _counter = 0;
+    return (prefix: string): string => `${prefix}-${++_counter}`;
 }
 
 function makeStyle(dark: boolean): { node: NodeStyle; lifelineEdge: EdgeStyle; callEdge: EdgeStyle; returnEdge: EdgeStyle } {
@@ -89,6 +89,7 @@ export function buildSequenceLayout(
     callTree: CallNode,
     opts: LayoutOptions = {},
 ): SequenceLayout {
+    const uid = makeUid();
     const isDark = opts.isDark ?? true;
     const styles = makeStyle(isDark);
 
@@ -131,7 +132,7 @@ export function buildSequenceLayout(
     }
 
     // Walk tree and emit messages
-    walkNode(filteredTree, lifelineXMap, styles, nodes, edges, tick, activations);
+    walkNode(filteredTree, lifelineXMap, styles, nodes, edges, tick, activations, uid);
 
     const totalHeight = MARGIN_TOP + HEADER_HEIGHT + (tick.value + 1) * STEP_HEIGHT + MARGIN_BOTTOM;
 
@@ -189,11 +190,12 @@ function walkNode(
     edges: SequenceEdge[],
     tick: TickState,
     activations: ActivationRecord[],
+    uid: (prefix: string) => string,
 ): void {
     if (node.eventId === -1) {
         // root: just walk children
         for (const child of node.children) {
-            walkNode(child, lifelineXMap, styles, nodes, edges, tick, activations);
+            walkNode(child, lifelineXMap, styles, nodes, edges, tick, activations, uid);
         }
         return;
     }
@@ -258,7 +260,7 @@ function walkNode(
 
     // Recurse into children
     for (const child of node.children) {
-        walkNode(child, lifelineXMap, styles, nodes, edges, tick, activations);
+        walkNode(child, lifelineXMap, styles, nodes, edges, tick, activations, uid);
     }
 
     // Return arrow
