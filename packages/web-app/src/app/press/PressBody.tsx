@@ -95,6 +95,11 @@ export function PressBody() {
         trailKeys={['trail4', 'trail12', 'trail13']}
         embed={null}
       />
+      <BriefingPrimary
+        subtitle="- スキル"
+        trailKeys={['trail4', 'trail12', 'trail13']}
+        embed={null}
+      />
       <BriefingSecondary
         embed={
           <div style={{ height: MARKDOWN_PREVIEW_HEIGHT, overflow: 'hidden' }}>
