@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-05-02
+
+### Added
+
+- URL parameter `?tab=` for initial tab selection on page load
+- URL parameter `?c4level=` for initial C4 hierarchy level on page load
+- Auto-select first session when opening Traces tab via URL
+- Help tooltips on metric cards, chart toggles, and pie chart titles
+- Dim unrelated C4 graph elements when a node is focused
+
+### Fixed
+
+- Left-align metric label, center-align value, place unit text right of value in `CyclingCard`
+- Unify card height to align values vertically across cards
+- Allow empty `serverUrl` in `useTemporalCoupling`
+- Extend message read window up to 90 days
+- Add `sectionBg` token to `ThemeColors` used by `PromptManager`
+- Fix test mock to include `range` method and `trail_current_coverage` handler
+
 ## [0.12.0] - 2026-04-28
 
 ### Added

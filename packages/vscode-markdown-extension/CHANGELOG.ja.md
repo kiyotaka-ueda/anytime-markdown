@@ -6,6 +6,13 @@
 
 ## [Unreleased]
 
+## [0.13.4] - 2026-05-02
+
+### Editor Core (markdown-core)
+
+- admonition の改行シリアライズをべき等（idempotent）に修正
+- Press ページ向け i18n 文字列を更新
+
 ## [0.13.3] - 2026-04-28
 
 ### Editor Core (markdown-core)

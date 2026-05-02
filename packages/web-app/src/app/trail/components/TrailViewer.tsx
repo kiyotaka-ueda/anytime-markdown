@@ -2,8 +2,8 @@
 
 import type { DocLink } from '@anytime-markdown/trail-core/c4';
 import { TrailViewerApp } from '@anytime-markdown/trail-viewer';
-import { useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useCallback } from 'react';
 
 import { useLocaleSwitch } from '../../LocaleProvider';
 import { useThemeMode } from '../../providers';

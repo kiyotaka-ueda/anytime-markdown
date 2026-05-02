@@ -2,6 +2,7 @@
 
 export interface TrailFilter {
   readonly repository?: string;
+  readonly project?: string;
   readonly gitBranch?: string;
   readonly model?: string;
   readonly dateRange?: Readonly<{ from: string; to: string }>;

@@ -35,6 +35,7 @@ const darkColors = {
   border: 'rgba(255,255,255,0.12)',
   hoverBg: 'rgba(255,255,255,0.16)',
   activeBg: 'rgba(255,255,255,0.24)',
+  sectionBg: 'rgba(255,255,255,0.05)',
   iceBlueBg: 'rgba(144,202,249,0.08)',
   iceBlueSubtle: 'rgba(144,202,249,0.15)',
 
@@ -89,6 +90,7 @@ const lightColors: ThemeColors = {
   border: 'rgba(0,0,0,0.12)',
   hoverBg: 'rgba(0,0,0,0.04)',
   activeBg: 'rgba(0,0,0,0.08)',
+  sectionBg: 'rgba(0,0,0,0.03)',
   iceBlueBg: 'rgba(25,118,210,0.08)',
   iceBlueSubtle: 'rgba(25,118,210,0.12)',
 
@@ -140,6 +142,7 @@ export interface ThemeColors {
   readonly border: string;
   readonly hoverBg: string;
   readonly activeBg: string;
+  readonly sectionBg: string;
   readonly iceBlueBg: string;
   readonly iceBlueSubtle: string;
   readonly success: string;

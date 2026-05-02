@@ -482,6 +482,10 @@ export async function activate(context: vscode.ExtensionContext) {
 				vscode.window.showErrorMessage('Trail DB is not initialized.');
 				return;
 			}
+			if (!gitRoot) {
+				vscode.window.showErrorMessage('No workspace folder found.');
+				return;
+			}
 			await vscode.window.withProgress(
 				{ location: vscode.ProgressLocation.Notification, title: 'Trail: Regenerate Release Code Graphs', cancellable: false },
 				async (progress) => {

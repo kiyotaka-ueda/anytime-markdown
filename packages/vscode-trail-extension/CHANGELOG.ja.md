@@ -6,6 +6,27 @@
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-05-02
+
+### 追加
+
+- `SyncService` を通じて `current_coverage` と `current_code_graphs` を Supabase に同期
+
+### 変更
+
+- `anytimeTrail.coverage.path` 設定を削除
+
+### 修正
+
+- Code Graph の読み込みを DB 初期化後に変更
+- `regenerateReleaseCodeGraphs` コマンドでワークスペースフォルダー未設定時のガードを追加
+
+### Trail Core (trail-core)
+
+- リリース非依存のカバレッジスナップショット用 `current_coverage` テーブルと `LOC` メトリクスを追加
+- CodeGraph の DB 永続化テーブルと永続化レイヤーを追加
+- カバレッジ同期の NaN 値・コミュニティサマリー保持・Code Graph 初期化ガードを修正
+
 ## [0.13.0] - 2026-04-28
 
 ### 追加

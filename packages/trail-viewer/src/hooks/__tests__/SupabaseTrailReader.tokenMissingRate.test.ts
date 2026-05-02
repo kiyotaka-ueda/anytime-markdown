@@ -27,7 +27,7 @@ function makeSupabaseMock(fromHandler: FromCallHandler): {
 function chain(resolvedData: unknown, resolvedError: unknown = null) {
   const obj: Record<string, unknown> = {};
   const self = () => obj;
-  const methods = ['select', 'eq', 'in', 'gte', 'lte', 'order', 'limit', 'filter'];
+  const methods = ['select', 'eq', 'in', 'gte', 'lte', 'order', 'limit', 'filter', 'range'];
   for (const m of methods) {
     obj[m] = (..._args: unknown[]) => obj;
   }
@@ -104,11 +104,31 @@ for (let s = 0; s < CX_SESSIONS; s++) {
   }
 }
 
-// Minimal cost rows (zero cost)
-const costRows = sessions.map(s => ({
-  session_id: s.id,
-  estimated_cost_usd: 0,
-}));
+// Cost rows — getAnalytics reads token totals from trail_session_costs.
+// CC sessions store observed totals (CC_TURNS_PER × CC_INPUT = 200 per session).
+// CX sessions store full-expected totals (CX_TURNS_PER × CX_INPUT = 100 per session).
+const costRows = [
+  ...sessions
+    .filter(s => s.source === 'claude_code')
+    .map(s => ({
+      session_id: s.id,
+      input_tokens: CC_TURNS_PER * CC_INPUT,
+      output_tokens: CC_TURNS_PER * CC_OUTPUT,
+      cache_read_tokens: 0,
+      cache_creation_tokens: 0,
+      estimated_cost_usd: 0,
+    })),
+  ...sessions
+    .filter(s => s.source === 'codex')
+    .map(s => ({
+      session_id: s.id,
+      input_tokens: CX_TURNS_PER * CX_INPUT,
+      output_tokens: CX_TURNS_PER * CX_OUTPUT,
+      cache_read_tokens: 0,
+      cache_creation_tokens: 0,
+      estimated_cost_usd: 0,
+    })),
+];
 
 // ---------------------------------------------------------------------------
 // Mock @supabase/supabase-js
@@ -120,6 +140,7 @@ jest.mock('@supabase/supabase-js', () => {
     if (table === 'trail_session_commits') return chain([]);
     if (table === 'trail_messages') return chain(messages);
     if (table === 'trail_session_costs') return chain(costRows);
+    if (table === 'trail_current_coverage') return chain([]);
     return chain(null, new Error(`unexpected table: ${table}`));
   };
   return makeSupabaseMock(fromHandler);
@@ -139,8 +160,8 @@ describe('SupabaseTrailReader.getAnalytics - token missing-rate compensation', (
   it('applies factor to totalInput and totalOutput', async () => {
     const analytics = await reader.getAnalytics();
     expect(analytics).not.toBeNull();
-    // Claude: 5×20×10 = 1000 input, 1000 output (factor=1)
-    // Codex raw: 3×12×5 = 180 input, 180 output; factor=60/36=5/3; adjusted=300
+    // CC: 5 sessions × (20 turns × 10 tokens) = 1000 input, 1000 output
+    // CX: 3 sessions × (20 turns × 5 tokens) = 300 input, 300 output
     expect(analytics!.totals.inputTokens).toBe(1000 + 300);
     expect(analytics!.totals.outputTokens).toBe(1000 + 300);
     expect(analytics!.totals.cacheReadTokens).toBe(0);
