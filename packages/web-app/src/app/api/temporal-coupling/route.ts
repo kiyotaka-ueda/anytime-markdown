@@ -123,31 +123,30 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       if (batch.length < 1000) break;
     }
 
-    const commitHashes = [...commitHashToSessionId.keys()];
-    if (commitHashes.length === 0) {
+    if (commitHashToSessionId.size === 0) {
       return NextResponse.json(
         { granularity, edges: [], computedAt, windowDays, totalPairs: 0 },
         { headers: NO_STORE_HEADERS },
       );
     }
 
-    // commit_files を取得（500件バッチ）
+    // trail_commit_files を全件取得（URL長制限回避のため .in() バッチは使わず全件ロード後 JS でフィルタ）
+    // trail_commit_files は最大でも数万行の小テーブルのため全件ロードで問題ない。
     const commitFileRows: CommitFileRow[] = [];
-    const HASH_BATCH = 500;
-    for (let i = 0; i < commitHashes.length; i += HASH_BATCH) {
-      const batch = commitHashes.slice(i, i + HASH_BATCH);
-      for (let offset = 0; ; offset += 1000) {
-        const { data } = await supabase
-          .from('trail_commit_files')
-          .select('commit_hash,file_path')
-          .in('commit_hash', batch)
-          .range(offset, offset + 999);
-        if (!data || data.length === 0) break;
-        for (const r of data as Array<{ commit_hash: string; file_path: string }>) {
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await supabase
+        .from('trail_commit_files')
+        .select('commit_hash,file_path')
+        .order('commit_hash')
+        .order('file_path')
+        .range(offset, offset + 999);
+      if (error || !data || data.length === 0) break;
+      for (const r of data as Array<{ commit_hash: string; file_path: string }>) {
+        if (commitHashToSessionId.has(r.commit_hash)) {
           commitFileRows.push({ commitHash: r.commit_hash, filePath: r.file_path });
         }
-        if (data.length < 1000) break;
       }
+      if (data.length < 1000) break;
     }
 
     if (granularity === 'commit') {
