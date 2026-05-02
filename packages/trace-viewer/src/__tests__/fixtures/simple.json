@@ -1,0 +1,21 @@
+{
+    "version": 1,
+    "metadata": {
+        "startedAt": "2026-05-02T09:30:15.000Z",
+        "endedAt": "2026-05-02T09:30:15.030Z",
+        "command": "node test.js",
+        "cwd": "/tmp/sample",
+        "nodeVersion": "v22.0.0",
+        "depthLimit": 8
+    },
+    "lifelines": [
+        { "id": "L0", "kind": "file", "path": "src/foo.ts" },
+        { "id": "L1", "kind": "file", "path": "src/bar.ts" }
+    ],
+    "events": [
+        { "id": 1, "type": "call", "ts": 0.012, "from": null, "to": "L0", "fn": "foo", "args": [42], "depth": 0 },
+        { "id": 2, "type": "call", "ts": 0.015, "from": "L0", "to": "L1", "fn": "bar", "args": [42], "depth": 1 },
+        { "id": 3, "type": "return", "ts": 0.020, "of": 2, "ok": true, "result": 84 },
+        { "id": 4, "type": "return", "ts": 0.022, "of": 1, "ok": true, "result": 84 }
+    ]
+}

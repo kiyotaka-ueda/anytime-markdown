@@ -1,0 +1,18 @@
+{
+    "version": 1,
+    "metadata": {
+        "startedAt": "2026-05-02T09:30:15.000Z",
+        "endedAt": "2026-05-02T09:30:15.030Z",
+        "command": "node test.js",
+        "cwd": "/tmp/sample",
+        "nodeVersion": "v22.0.0",
+        "depthLimit": 8
+    },
+    "lifelines": [
+        { "id": "L0", "kind": "file", "path": "src/foo.ts" }
+    ],
+    "events": [
+        { "id": 1, "type": "call", "ts": 0.012, "from": null, "to": "L0", "fn": "foo", "args": [], "depth": 0 },
+        { "id": 2, "type": "throw", "ts": 0.020, "of": 1, "ok": false, "error": { "name": "Error", "message": "boom" } }
+    ]
+}
