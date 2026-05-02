@@ -53,7 +53,7 @@ export function PressBody() {
       <Dispatch />
       <BriefingPrimary
         subtitle="- アクティビティ"
-        trailKeys={['trail2']}
+        trailKeys={['trail2', 'trail3']}
         embed={<TrailViewerEmbed containerHeight="clamp(400px, 62vh, 760px)" />}
         embedActions={
           <CtaActions
