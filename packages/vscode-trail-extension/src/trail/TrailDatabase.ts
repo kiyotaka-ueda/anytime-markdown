@@ -2294,7 +2294,7 @@ export class TrailDatabase {
     onProgress?: (message: string, increment?: number) => void,
     gitRoot?: string,
     excludePatterns?: readonly string[],
-  ): Promise<{ imported: number; skipped: number; commitsResolved: number; releasesResolved: number; releasesAnalyzed: number; coverageImported: number; currentCoverageImported: number; messageCommitsBackfilled: number }> {
+  ): Promise<{ imported: number; skipped: number; commitsResolved: number; releasesResolved: number; releasesAnalyzed: number; coverageImported: number; messageCommitsBackfilled: number }> {
     const projectsDir = path.join(os.homedir(), '.claude', 'projects');
     const codexSessionsDir = path.join(os.homedir(), '.codex', 'sessions');
     const repoName = gitRoot ? path.basename(gitRoot) : '';
@@ -2307,7 +2307,7 @@ export class TrailDatabase {
     try {
       projectDirs = fs.readdirSync(projectsDir);
     } catch {
-      return { imported, skipped, commitsResolved, releasesResolved: 0, releasesAnalyzed: 0, coverageImported: 0, currentCoverageImported: 0, messageCommitsBackfilled: 0 };
+      return { imported, skipped, commitsResolved, releasesResolved: 0, releasesAnalyzed: 0, coverageImported: 0, messageCommitsBackfilled: 0 };
     }
 
     // Pre-load imported file paths + sizes for fast skip
@@ -2518,18 +2518,6 @@ export class TrailDatabase {
       }
     }
 
-    // Import current coverage (repo-level latest snapshot)
-    let currentCoverageImported = 0;
-    if (gitRoot) {
-      try {
-        currentCoverageImported = this.importCurrentCoverage(gitRoot, path.basename(gitRoot));
-        onProgress?.(`current_coverage: ${currentCoverageImported} entries`, 0);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        TrailLogger.warn(`importCurrentCoverage failed: ${msg}`);
-      }
-    }
-
     // Rebuild session_costs and daily_counts from all messages / tool_calls
     onProgress?.('Rebuilding session costs...', 0);
     this.rebuildSessionCosts();
@@ -2611,7 +2599,7 @@ export class TrailDatabase {
     onProgress?.(`Backfilled ${messageCommitsBackfilled} message_commits`, 0);
 
     this.save();
-    return { imported, skipped, commitsResolved, releasesResolved, releasesAnalyzed, coverageImported, currentCoverageImported, messageCommitsBackfilled };
+    return { imported, skipped, commitsResolved, releasesResolved, releasesAnalyzed, coverageImported, messageCommitsBackfilled };
   }
 
   saveManualElement(

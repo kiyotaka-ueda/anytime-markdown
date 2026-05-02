@@ -247,6 +247,16 @@ export class C4Panel implements C4DataProvider {
           C4Panel.trailDb?.saveCurrentGraph(graph, tsconfigPath, commitId, dbRepoName);
           TrailLogger.info(`C4 analysis [${repoName}]: TrailGraph saved to current_graphs (repo=${dbRepoName}, commit=${commitId || 'unknown'})`);
 
+          // coverage-summary.json を current_coverage テーブルに取り込む
+          if (gitRoot && C4Panel.trailDb) {
+            try {
+              const count = C4Panel.trailDb.importCurrentCoverage(gitRoot, dbRepoName);
+              TrailLogger.info(`C4 analysis [${repoName}]: current_coverage updated (${count} entries)`);
+            } catch (err) {
+              TrailLogger.warn(`C4 analysis [${repoName}]: importCurrentCoverage failed: ${err instanceof Error ? err.message : String(err)}`);
+            }
+          }
+
           const panel = C4Panel.getInstance();
           panel.lastTrailGraph = graph;
           panel.lastTsconfigPath = tsconfigPath;
