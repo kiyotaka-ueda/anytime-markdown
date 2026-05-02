@@ -520,6 +520,12 @@ export class TrailDataServer {
       return;
     }
 
+    if (pathname === '/api/c4/functions' && method === 'GET') {
+      const elementId = parsed.searchParams.get('elementId') ?? '';
+      void this.handleC4FunctionsEndpoint(res, elementId);
+      return;
+    }
+
     if (pathname === '/api/c4/flowchart' && method === 'GET') {
       const componentId = parsed.searchParams.get('componentId') ?? '';
       const symbolId = parsed.searchParams.get('symbolId') ?? '';
@@ -2154,6 +2160,59 @@ export class TrailDataServer {
       res.end(JSON.stringify({ symbols }));
     } catch (e) {
       TrailLogger.error(`[/api/c4/exports] error: componentId=${componentId}`, e);
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({ symbols: [] }));
+    }
+  }
+
+  private async handleC4FunctionsEndpoint(
+    res: http.ServerResponse,
+    elementId: string,
+  ): Promise<void> {
+    const { ExportExtractor, createSourceFile } = await import('@anytime-markdown/trail-core/analyzer');
+    try {
+      if (!elementId) {
+        res.writeHead(400, JSON_HEADERS);
+        res.end(JSON.stringify({ error: 'elementId is required' }));
+        return;
+      }
+      const resolved = await this.resolveModelAndGraph();
+      if (!resolved) {
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({ symbols: [] }));
+        return;
+      }
+      const { graph } = resolved;
+      const { projectRoot } = graph.metadata;
+      const node = graph.nodes.find(n => n.id === elementId);
+      if (!node) {
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({ symbols: [] }));
+        return;
+      }
+      const normalizedRoot = projectRoot.endsWith(path.sep) ? projectRoot : `${projectRoot}${path.sep}`;
+      const absolutePath = path.resolve(projectRoot, node.filePath);
+      if (!absolutePath.startsWith(normalizedRoot)) {
+        TrailLogger.warn(`[/api/c4/functions] path traversal blocked: ${node.filePath}`);
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({ symbols: [] }));
+        return;
+      }
+      let sourceFile;
+      try {
+        const content = fs.readFileSync(absolutePath, 'utf-8');
+        sourceFile = createSourceFile(node.filePath, content);
+      } catch (e) {
+        TrailLogger.error(`[/api/c4/functions] failed to read file: ${node.filePath}`, e);
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({ symbols: [] }));
+        return;
+      }
+      const symbols = ExportExtractor.extract([sourceFile], elementId);
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({ symbols }));
+    } catch (e) {
+      TrailLogger.error(`[/api/c4/functions] error: elementId=${elementId}`, e);
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({ symbols: [] }));
     }
