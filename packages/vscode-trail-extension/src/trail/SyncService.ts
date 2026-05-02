@@ -174,6 +174,36 @@ export class SyncService {
       errors++;
     }
 
+    // Sync current_coverage（洗い替え）
+    try {
+      onProgress?.({ message: 'Syncing current coverage...' });
+      const coverageRows = this.trailDb.getAllCurrentCoverage();
+      await this.store.unsafeClearCurrentCoverage();
+      if (coverageRows.length > 0) {
+        await this.store.upsertCurrentCoverage(coverageRows);
+      }
+    } catch (e) {
+      TrailLogger.error('Failed to sync current coverage', e);
+      errors++;
+    }
+
+    // Sync current_code_graphs（洗い替え）
+    try {
+      onProgress?.({ message: 'Syncing current code graphs...' });
+      const graphRows = this.trailDb.getAllCurrentCodeGraphRaws();
+      const communityRows = this.trailDb.getAllCurrentCodeGraphCommunityRaws();
+      await this.store.unsafeClearCurrentCodeGraphs();
+      if (graphRows.length > 0) {
+        await this.store.upsertCurrentCodeGraphs(graphRows);
+      }
+      if (communityRows.length > 0) {
+        await this.store.upsertCurrentCodeGraphCommunities(communityRows);
+      }
+    } catch (e) {
+      TrailLogger.error('Failed to sync current code graphs', e);
+      errors++;
+    }
+
     return {
       synced,
       skipped: 0,

@@ -355,6 +355,59 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
     }
   }
 
+  async unsafeClearCurrentCoverage(): Promise<void> {
+    await this.ensureClient().from('trail_current_coverage').delete().gte('repo_name', '');
+  }
+
+  async upsertCurrentCoverage(rows: readonly {
+    repo_name: string; package: string; file_path: string;
+    lines_total: number; lines_covered: number; lines_pct: number;
+    statements_total: number; statements_covered: number; statements_pct: number;
+    functions_total: number; functions_covered: number; functions_pct: number;
+    branches_total: number; branches_covered: number; branches_pct: number;
+    updated_at: string;
+  }[]): Promise<void> {
+    if (rows.length === 0) return;
+    const CHUNK = 500;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK);
+      const { error } = await this.ensureClient()
+        .from('trail_current_coverage')
+        .upsert(chunk.map((r) => ({ ...r })), { onConflict: 'repo_name,package,file_path' });
+      if (error) throw new Error(`Supabase upsert current_coverage failed: ${error.message}`);
+    }
+  }
+
+  async unsafeClearCurrentCodeGraphs(): Promise<void> {
+    await this.ensureClient().from('trail_current_code_graph_communities').delete().gte('repo_name', '');
+    await this.ensureClient().from('trail_current_code_graphs').delete().gte('repo_name', '');
+  }
+
+  async upsertCurrentCodeGraphs(rows: readonly {
+    repo_name: string; graph_json: string; generated_at: string; updated_at: string;
+  }[]): Promise<void> {
+    if (rows.length === 0) return;
+    const { error } = await this.ensureClient()
+      .from('trail_current_code_graphs')
+      .upsert(rows.map((r) => ({ ...r })), { onConflict: 'repo_name' });
+    if (error) throw new Error(`Supabase upsert current_code_graphs failed: ${error.message}`);
+  }
+
+  async upsertCurrentCodeGraphCommunities(rows: readonly {
+    repo_name: string; community_id: number; label: string;
+    name: string; summary: string; generated_at: string; updated_at: string;
+  }[]): Promise<void> {
+    if (rows.length === 0) return;
+    const CHUNK = 200;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK);
+      const { error } = await this.ensureClient()
+        .from('trail_current_code_graph_communities')
+        .upsert(chunk.map((r) => ({ ...r })), { onConflict: 'repo_name,community_id' });
+      if (error) throw new Error(`Supabase upsert current_code_graph_communities failed: ${error.message}`);
+    }
+  }
+
   async listManualElements(repoName: string): Promise<readonly ManualElement[]> {
     const { data, error } = await this.ensureClient()
       .from('trail_c4_manual_elements')
