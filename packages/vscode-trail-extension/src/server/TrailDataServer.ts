@@ -26,7 +26,7 @@ import type {
   FeatureMatrix,
   ImportanceMatrix,
 } from '@anytime-markdown/trail-core/c4';
-import type { TrailGraph } from '@anytime-markdown/trail-core';
+import type { TrailGraph, ReleaseCoverageRow, CurrentCoverageRow } from '@anytime-markdown/trail-core';
 import { WebSocketServer, type WebSocket } from 'ws';
 
 import type { ClientMessage, ServerMessage } from './types';
@@ -1379,7 +1379,35 @@ export class TrailDataServer {
         }
       }
 
-      // Fallback: scan packages/*/coverage/coverage-final.json
+      // Fallback 1: current_coverage table (repo-level latest snapshot, no release tag required)
+      if (repoName) {
+        const currentRows = this.trailDb.getCurrentCoverage(repoName);
+        if (currentRows.length > 0) {
+          const asReleaseRows: ReleaseCoverageRow[] = currentRows.map((r: CurrentCoverageRow) => ({
+            release_tag: '__current__',
+            package: r.package,
+            file_path: r.file_path,
+            lines_total: r.lines_total,
+            lines_covered: r.lines_covered,
+            lines_pct: r.lines_pct,
+            statements_total: r.statements_total,
+            statements_covered: r.statements_covered,
+            statements_pct: r.statements_pct,
+            functions_total: r.functions_total,
+            functions_covered: r.functions_covered,
+            functions_pct: r.functions_pct,
+            branches_total: r.branches_total,
+            branches_covered: r.branches_covered,
+            branches_pct: r.branches_pct,
+          }));
+          const coverageMatrix = aggregateCoverageFromDb(asReleaseRows, payload.model);
+          res.writeHead(200, JSON_HEADERS);
+          res.end(JSON.stringify({ coverageMatrix, coverageDiff: null }));
+          return;
+        }
+      }
+
+      // Fallback 2: scan packages/*/coverage/coverage-final.json
       const projectRoot = provider?.projectRoot ?? this.gitRoot;
       if (!this.gitRoot || !projectRoot) {
         res.writeHead(200, JSON_HEADERS);

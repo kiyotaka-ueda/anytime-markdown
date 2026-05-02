@@ -221,6 +221,26 @@ export const CREATE_RELEASE_COVERAGE = `CREATE TABLE IF NOT EXISTS release_cover
   PRIMARY KEY (release_tag, package, file_path)
 )`;
 
+export const CREATE_CURRENT_COVERAGE = `CREATE TABLE IF NOT EXISTS current_coverage (
+  repo_name          TEXT    NOT NULL,
+  package            TEXT    NOT NULL,
+  file_path          TEXT    NOT NULL,
+  lines_total        INTEGER NOT NULL DEFAULT 0,
+  lines_covered      INTEGER NOT NULL DEFAULT 0,
+  lines_pct          REAL    NOT NULL DEFAULT 0,
+  statements_total   INTEGER NOT NULL DEFAULT 0,
+  statements_covered INTEGER NOT NULL DEFAULT 0,
+  statements_pct     REAL    NOT NULL DEFAULT 0,
+  functions_total    INTEGER NOT NULL DEFAULT 0,
+  functions_covered  INTEGER NOT NULL DEFAULT 0,
+  functions_pct      REAL    NOT NULL DEFAULT 0,
+  branches_total     INTEGER NOT NULL DEFAULT 0,
+  branches_covered   INTEGER NOT NULL DEFAULT 0,
+  branches_pct       REAL    NOT NULL DEFAULT 0,
+  updated_at         TEXT    NOT NULL DEFAULT '',
+  PRIMARY KEY (repo_name, package, file_path)
+)`;
+
 export const CREATE_MESSAGE_TOOL_CALLS = `CREATE TABLE IF NOT EXISTS message_tool_calls (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   session_id   TEXT NOT NULL REFERENCES sessions(id),

@@ -34,3 +34,22 @@ export interface ReleaseCoverageRow {
   readonly branches_covered: number;
   readonly branches_pct: number;
 }
+
+export interface CurrentCoverageRow {
+  repo_name: string;
+  package: string;
+  file_path: string;
+  lines_total: number;
+  lines_covered: number;
+  lines_pct: number;
+  statements_total: number;
+  statements_covered: number;
+  statements_pct: number;
+  functions_total: number;
+  functions_covered: number;
+  functions_pct: number;
+  branches_total: number;
+  branches_covered: number;
+  branches_pct: number;
+  updated_at: string;
+}

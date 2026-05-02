@@ -22,6 +22,8 @@ import {
   CREATE_RELEASE_FEATURES,
   CREATE_RELEASE_COVERAGE,
   CREATE_RELEASE_INDEXES,
+  CREATE_CURRENT_COVERAGE,
+  CREATE_CURRENT_COVERAGE_INDEXES,
   CREATE_MESSAGE_TOOL_CALLS,
   CREATE_MESSAGE_TOOL_CALLS_INDEXES,
   CREATE_MESSAGE_COMMITS,
@@ -53,7 +55,7 @@ import { JsonlSessionReader } from './JsonlSessionReader';
 import { ExecFileGitService } from './ExecFileGitService';
 import { TrailLogger } from '../utils/TrailLogger';
 import { ClaudeCodeBehaviorAnalyzer } from './ClaudeCodeBehaviorAnalyzer';
-import type { ReleaseFileRow, ReleaseFeatureRow, ReleaseCoverageRow, ReleaseRow } from '@anytime-markdown/trail-core';
+import type { ReleaseFileRow, ReleaseFeatureRow, ReleaseCoverageRow, ReleaseRow, CurrentCoverageRow } from '@anytime-markdown/trail-core';
 export type { ReleaseFileRow, ReleaseFeatureRow, ReleaseCoverageRow, ReleaseRow } from '@anytime-markdown/trail-core';
 
 declare const __non_webpack_require__: (id: string) => unknown;
@@ -759,6 +761,10 @@ export class TrailDatabase {
     db.run(CREATE_RELEASE_FILES);
     db.run(CREATE_RELEASE_FEATURES);
     db.run(CREATE_RELEASE_COVERAGE);
+    db.run(CREATE_CURRENT_COVERAGE);
+    for (const idx of CREATE_CURRENT_COVERAGE_INDEXES) {
+      db.run(idx);
+    }
     db.run(CREATE_C4_MODELS);
     this.migrateCurrentGraphsSchema(db);
     db.run(CREATE_CURRENT_GRAPHS);
@@ -2288,7 +2294,7 @@ export class TrailDatabase {
     onProgress?: (message: string, increment?: number) => void,
     gitRoot?: string,
     excludePatterns?: readonly string[],
-  ): Promise<{ imported: number; skipped: number; commitsResolved: number; releasesResolved: number; releasesAnalyzed: number; coverageImported: number; messageCommitsBackfilled: number }> {
+  ): Promise<{ imported: number; skipped: number; commitsResolved: number; releasesResolved: number; releasesAnalyzed: number; coverageImported: number; currentCoverageImported: number; messageCommitsBackfilled: number }> {
     const projectsDir = path.join(os.homedir(), '.claude', 'projects');
     const codexSessionsDir = path.join(os.homedir(), '.codex', 'sessions');
     const repoName = gitRoot ? path.basename(gitRoot) : '';
@@ -2301,7 +2307,7 @@ export class TrailDatabase {
     try {
       projectDirs = fs.readdirSync(projectsDir);
     } catch {
-      return { imported, skipped, commitsResolved, releasesResolved: 0, releasesAnalyzed: 0, coverageImported: 0, messageCommitsBackfilled: 0 };
+      return { imported, skipped, commitsResolved, releasesResolved: 0, releasesAnalyzed: 0, coverageImported: 0, currentCoverageImported: 0, messageCommitsBackfilled: 0 };
     }
 
     // Pre-load imported file paths + sizes for fast skip
@@ -2512,6 +2518,18 @@ export class TrailDatabase {
       }
     }
 
+    // Import current coverage (repo-level latest snapshot)
+    let currentCoverageImported = 0;
+    if (gitRoot) {
+      try {
+        currentCoverageImported = this.importCurrentCoverage(gitRoot, path.basename(gitRoot));
+        onProgress?.(`current_coverage: ${currentCoverageImported} entries`, 0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        TrailLogger.warn(`importCurrentCoverage failed: ${msg}`);
+      }
+    }
+
     // Rebuild session_costs and daily_counts from all messages / tool_calls
     onProgress?.('Rebuilding session costs...', 0);
     this.rebuildSessionCosts();
@@ -2593,7 +2611,7 @@ export class TrailDatabase {
     onProgress?.(`Backfilled ${messageCommitsBackfilled} message_commits`, 0);
 
     this.save();
-    return { imported, skipped, commitsResolved, releasesResolved, releasesAnalyzed, coverageImported, messageCommitsBackfilled };
+    return { imported, skipped, commitsResolved, releasesResolved, releasesAnalyzed, coverageImported, currentCoverageImported, messageCommitsBackfilled };
   }
 
   saveManualElement(
@@ -5278,6 +5296,85 @@ export class TrailDatabase {
     }
 
     return count;
+  }
+
+  importCurrentCoverage(gitRoot: string, repoName: string): number {
+    const db = this.ensureDb();
+    // 洗い替え
+    db.run('DELETE FROM current_coverage WHERE repo_name = ?', [repoName]);
+
+    const packagesDir = path.join(gitRoot, 'packages');
+    let count = 0;
+    let pkgDirs: string[];
+    try {
+      pkgDirs = fs.readdirSync(packagesDir);
+    } catch {
+      return 0;
+    }
+
+    const now = new Date().toISOString();
+    for (const pkgDir of pkgDirs) {
+      const summaryPath = path.join(packagesDir, pkgDir, 'coverage', 'coverage-summary.json');
+      if (!fs.existsSync(summaryPath)) continue;
+      let summary: Record<string, unknown>;
+      try {
+        summary = JSON.parse(fs.readFileSync(summaryPath, 'utf-8')) as Record<string, unknown>;
+      } catch {
+        continue;
+      }
+      for (const [key, entry] of Object.entries(summary)) {
+        const e = entry as Record<string, { total: number; covered: number; pct: number }>;
+        if (!e?.lines || !e?.statements || !e?.functions || !e?.branches) continue;
+        const filePath = key === 'total' ? '__total__' : key;
+        db.run(
+          `INSERT OR REPLACE INTO current_coverage (
+            repo_name, package, file_path,
+            lines_total, lines_covered, lines_pct,
+            statements_total, statements_covered, statements_pct,
+            functions_total, functions_covered, functions_pct,
+            branches_total, branches_covered, branches_pct,
+            updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            repoName, pkgDir, filePath,
+            e.lines.total, e.lines.covered, e.lines.pct,
+            e.statements.total, e.statements.covered, e.statements.pct,
+            e.functions.total, e.functions.covered, e.functions.pct,
+            e.branches.total, e.branches.covered, e.branches.pct,
+            now,
+          ],
+        );
+        count++;
+      }
+    }
+    return count;
+  }
+
+  getCurrentCoverage(repoName: string): CurrentCoverageRow[] {
+    const db = this.ensureDb();
+    const result = db.exec(
+      'SELECT repo_name, package, file_path, lines_total, lines_covered, lines_pct, statements_total, statements_covered, statements_pct, functions_total, functions_covered, functions_pct, branches_total, branches_covered, branches_pct, updated_at FROM current_coverage WHERE repo_name = ?',
+      [repoName],
+    );
+    const values = result[0]?.values ?? [];
+    return values.map((r) => ({
+      repo_name: String(r[0] ?? ''),
+      package: String(r[1] ?? ''),
+      file_path: String(r[2] ?? ''),
+      lines_total: Number(r[3] ?? 0),
+      lines_covered: Number(r[4] ?? 0),
+      lines_pct: Number(r[5] ?? 0),
+      statements_total: Number(r[6] ?? 0),
+      statements_covered: Number(r[7] ?? 0),
+      statements_pct: Number(r[8] ?? 0),
+      functions_total: Number(r[9] ?? 0),
+      functions_covered: Number(r[10] ?? 0),
+      functions_pct: Number(r[11] ?? 0),
+      branches_total: Number(r[12] ?? 0),
+      branches_covered: Number(r[13] ?? 0),
+      branches_pct: Number(r[14] ?? 0),
+      updated_at: String(r[15] ?? ''),
+    }));
   }
 
   // -------------------------------------------------------------------------

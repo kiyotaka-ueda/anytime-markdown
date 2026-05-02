@@ -23,6 +23,10 @@ export const CREATE_RELEASE_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_release_coverage_tag ON release_coverage(release_tag)',
 ];
 
+export const CREATE_CURRENT_COVERAGE_INDEXES = [
+  'CREATE INDEX IF NOT EXISTS idx_current_coverage_repo ON current_coverage(repo_name)',
+];
+
 export const CREATE_MESSAGE_TOOL_CALLS_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_mtc_session   ON message_tool_calls(session_id)',
   'CREATE INDEX IF NOT EXISTS idx_mtc_tool_name ON message_tool_calls(tool_name)',
