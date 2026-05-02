@@ -252,6 +252,8 @@ export interface TrailI18n {
   'c4.community.disabledNoData': string;
   'c4.community.noData': string;
   'c4.community.unknown': string;
+  'c4.community.nodeCount': string;
+  'c4.community.containers': string;
   // combined (analytics)
   'analytics.combined.tool': string;
   'analytics.combined.count': string;

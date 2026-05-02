@@ -217,6 +217,8 @@ export const en: TrailI18n = {
   'c4.community.disabledNoData': 'Generate the code graph first',
   'c4.community.noData': 'No code graph nodes for this repository',
   'c4.community.unknown': '(unnamed)',
+  'c4.community.nodeCount': 'Components',
+  'c4.community.containers': 'Containers',
   'analytics.combined.tool': 'Tool',
   'analytics.combined.count': 'Count',
   'analytics.combined.tokens': 'Tokens',

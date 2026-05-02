@@ -724,6 +724,24 @@ export function C4ViewerCore({
     });
   }, [communityOverlay, codeGraph, c4Model, currentLevel]);
 
+  const selectedCommunityInfo = useMemo(() => {
+    if (!selectedElementId?.startsWith('community:')) return null;
+    const cid = Number.parseInt(selectedElementId.slice('community:'.length), 10);
+    if (Number.isNaN(cid)) return null;
+    const node = communityTree?.find(n => n.communityId === cid) ?? null;
+    if (!node) return null;
+    const summary = codeGraph?.communitySummaries?.[cid];
+    const fallbackLabel = codeGraph?.communities[cid];
+    return {
+      cid,
+      displayName: summary?.name ?? fallbackLabel ?? `#${cid}`,
+      color: communityColor(cid),
+      nodeCount: node.nodeCount ?? 0,
+      summaryText: summary?.summary ?? node.description,
+      children: node.children,
+    };
+  }, [selectedElementId, communityTree, codeGraph]);
+
   const communityMap = useMemo(() => {
     if (!communityOverlay) return null;
     const map = new Map<string, { color: string; isGodNode: boolean }>();
@@ -1551,6 +1569,72 @@ export function C4ViewerCore({
                       </Box>
                     )}
                   </Box>
+                </Box>
+              )}
+              {selectedCommunityInfo && !selectedElementInfo && (
+                <Box
+                  role="dialog"
+                  aria-label="Selected community details"
+                  sx={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    width: SELECTED_ELEMENT_DETAILS_WIDTH,
+                    maxHeight: 'calc(100% - 20px)',
+                    overflow: 'auto',
+                    zIndex: 10,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '8px',
+                    bgcolor: isDark ? 'rgba(18,18,18,0.92)' : 'rgba(251,249,243,0.94)',
+                    color: colors.text,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                    backdropFilter: 'blur(10px)',
+                    px: 1.5,
+                    py: 1.25,
+                  }}
+                >
+                  <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', textTransform: 'uppercase' }}>
+                    {t('c4.community.title')}
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.25 }}>
+                    <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: selectedCommunityInfo.color, flexShrink: 0 }} />
+                    <Typography variant="subtitle2" sx={{ color: colors.text, fontSize: '0.85rem', fontWeight: 700, lineHeight: 1.3, wordBreak: 'break-word' }}>
+                      {selectedCommunityInfo.displayName}
+                    </Typography>
+                  </Box>
+                  {selectedCommunityInfo.summaryText && (
+                    <Typography variant="body2" sx={{ color: colors.textSecondary, fontSize: '0.72rem', lineHeight: 1.45, mt: 1, wordBreak: 'break-word' }}>
+                      {selectedCommunityInfo.summaryText}
+                    </Typography>
+                  )}
+                  <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 0.75 }}>
+                    <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.62rem' }}>
+                      {t('c4.community.nodeCount')}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.8rem', fontWeight: 700 }}>
+                      {selectedCommunityInfo.nodeCount}
+                    </Typography>
+                  </Box>
+                  {selectedCommunityInfo.children.length > 0 && (
+                    <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 0.75 }}>
+                      <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700, mb: 0.5 }}>
+                        {t('c4.community.containers')}
+                      </Typography>
+                      {selectedCommunityInfo.children.slice(0, 8).map(child => (
+                        <Typography key={child.id} variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', py: 0.125, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          • {child.name}
+                        </Typography>
+                      ))}
+                      {selectedCommunityInfo.children.length > 8 && (
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.62rem', mt: 0.25 }}>
+                          + {selectedCommunityInfo.children.length - 8}
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
+                  <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.62rem', mt: 1 }}>
+                    #{selectedCommunityInfo.cid}
+                  </Typography>
                 </Box>
               )}
               {showContextMenu && contextMenu && (

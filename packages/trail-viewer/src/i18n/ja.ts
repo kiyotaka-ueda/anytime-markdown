@@ -217,6 +217,8 @@ export const ja: TrailI18n = {
   'c4.community.disabledNoData': 'コードグラフを先に生成してください',
   'c4.community.noData': 'このリポジトリのコードグラフノードがありません',
   'c4.community.unknown': '(未命名)',
+  'c4.community.nodeCount': 'コンポーネント数',
+  'c4.community.containers': 'コンテナ',
   'analytics.combined.tool': 'ツール',
   'analytics.combined.count': '回数',
   'analytics.combined.tokens': 'トークン',
