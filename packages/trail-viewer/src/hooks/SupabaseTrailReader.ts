@@ -394,17 +394,20 @@ export class SupabaseTrailReader implements ITrailReader {
         }
       }
 
-      // Fetch assistant messages for token aggregation (chunked to avoid URL length limit)
+      // Fetch assistant messages for token aggregation — paginate by date, not session_id,
+      // to avoid URL length limit and Supabase's default 1000-row cap per request.
+      const msgCutoffIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const allMsgRows: Array<{ session_id: string; timestamp: string; input_tokens: number | null; output_tokens: number | null; cache_read_tokens: number | null; cache_creation_tokens: number | null }> = [];
-      const MSG_BATCH = 200;
-      for (let bi = 0; bi < sessionIds.length; bi += MSG_BATCH) {
-        const batchIds = sessionIds.slice(bi, bi + MSG_BATCH);
+      for (let offset = 0; ; offset += 1000) {
         const { data: batchRows } = await this.client
           .from('trail_messages')
           .select('session_id,timestamp,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens')
-          .in('session_id', batchIds)
-          .eq('type', 'assistant');
-        if (batchRows) allMsgRows.push(...(batchRows as typeof allMsgRows));
+          .eq('type', 'assistant')
+          .gte('timestamp', msgCutoffIso)
+          .range(offset, offset + 999);
+        if (!batchRows || batchRows.length === 0) break;
+        allMsgRows.push(...(batchRows as typeof allMsgRows));
+        if (batchRows.length < 1000) break;
       }
 
       type TokenAgg = { rawInput: number; rawOutput: number; rawCacheRead: number; rawCacheCreation: number; totalTurns: number; missingTurns: number };
