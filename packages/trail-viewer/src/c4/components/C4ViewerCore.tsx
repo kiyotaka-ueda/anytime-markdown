@@ -37,6 +37,17 @@ const TREND_CHART_POPUP_MAX_WIDTH = 1000;
 const TREND_CHART_RESERVED_RIGHT_WIDTH =
   SELECTED_ELEMENT_DETAILS_WIDTH + SELECTED_ELEMENT_DETAILS_RIGHT_OFFSET + TREND_CHART_POPUP_GAP;
 
+type OverlayCategory = 'none' | 'coverage' | 'dsm' | 'complexity' | 'importance' | 'hotspot' | 'fcmap';
+
+// fcmap はサブ項目が MetricOverlay ではなくフィーチャー ID のため除外
+const OVERLAY_CATEGORY_DEFAULTS: Record<Exclude<OverlayCategory, 'none' | 'fcmap'>, MetricOverlay> = {
+  coverage: 'coverage-lines',
+  dsm: 'dsm-out',
+  complexity: 'complexity-most',
+  importance: 'importance',
+  hotspot: 'hotspot-frequency',
+};
+
 export function getActivityTrendChartWidth(hasSelectedElementDetails: boolean): string {
   return hasSelectedElementDetails
     ? `min(${TREND_CHART_POPUP_MAX_WIDTH}px, calc(100% - ${TREND_CHART_RESERVED_RIGHT_WIDTH}px))`
@@ -263,6 +274,7 @@ export function C4ViewerCore({
   const [showAncestorEdges, setShowAncestorEdges] = useState(true);
   const [metricOverlay, setMetricOverlay] = useState<MetricOverlay>('none');
   const [selectedFcmapFeatureId, setSelectedFcmapFeatureId] = useState<string | null>(null);
+  const [overlayCategory, setOverlayCategory] = useState<OverlayCategory>('none');
   const [drWindowDays, setDrWindowDays] = useState(90);
   const [tcValue, setTcValue] = useState<TemporalCouplingControlsValue>(DEFAULT_TC_VALUE);
   const [hotspotValue, setHotspotValue] = useState<HotspotControlsValue>({
@@ -335,6 +347,17 @@ export function C4ViewerCore({
   const [addElementType, setAddElementType] = useState<C4ElementKind | null>(null);
   const [editElement, setEditElement] = useState<{ id: string; type: C4ElementKind; name: string; description: string; external: boolean; parentId?: string | null } | null>(null);
   const [addRelOpen, setAddRelOpen] = useState(false);
+
+  const handleOverlayCategoryChange = useCallback((cat: OverlayCategory) => {
+    setOverlayCategory(cat);
+    if (cat === 'none') {
+      setMetricOverlay('none');
+    } else if (cat === 'fcmap') {
+      setMetricOverlay('fcmap');
+    } else {
+      setMetricOverlay(OVERLAY_CATEGORY_DEFAULTS[cat]);
+    }
+  }, []);
 
   const handleElementSelect = useCallback((id: string) => {
     setCenterOnSelect(true);
@@ -1306,73 +1329,74 @@ export function C4ViewerCore({
                     {t('c4.claudeActivity.reset')}
                   </Button>
                   {/* Overlay ドロップダウン */}
-                  <Box>
-                    <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', mb: 0.5 }}>
-                      {t('c4.overlay.label')}
-                    </Typography>
-                    <Select
-                      size="small"
-                      fullWidth
-                      value={metricOverlay}
-                      onChange={(e) => { setMetricOverlay(e.target.value as MetricOverlay); }}
-                      sx={{ fontSize: '0.75rem', height: 28, '.MuiSelect-select': { py: 0, px: 1 } }}
-                      aria-label={t('c4.overlay.label')}
-                    >
-                      <MenuItem value="none" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.none')}</MenuItem>
-                      <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
-                        {t('c4.overlay.groupCoverage')}
-                      </ListSubheader>
-                      <MenuItem value="coverage-lines" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageLines')}</MenuItem>
-                      <MenuItem value="coverage-branches" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageBranches')}</MenuItem>
-                      <MenuItem value="coverage-functions" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageFunctions')}</MenuItem>
-                      <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
-                        {t('c4.overlay.groupDsm')}
-                      </ListSubheader>
-                      <MenuItem value="dsm-out" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmOut')}</MenuItem>
-                      <MenuItem value="dsm-in" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmIn')}</MenuItem>
-                      <MenuItem value="dsm-cyclic" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmCyclic')}</MenuItem>
-                      <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
-                        {t('c4.overlay.groupComplexity')}
-                      </ListSubheader>
-                      <MenuItem value="complexity-most" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.complexityMost')}</MenuItem>
-                      <MenuItem value="complexity-highest" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.complexityHighest')}</MenuItem>
-                      <ListSubheader sx={{ fontSize: '0.7rem', lineHeight: '2' }}>
-                        {t('c4.overlay.groupImportance')}
-                      </ListSubheader>
-                      <MenuItem value="importance" disabled={!importanceMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.importance')}</MenuItem>
-                      <MenuItem value="defect-risk" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.defectRisk')}</MenuItem>
-                      <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
-                        {t('c4.overlay.groupHotspot')}
-                      </ListSubheader>
-                      <MenuItem value="hotspot-frequency" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotFrequency')}</MenuItem>
-                      <MenuItem value="hotspot-risk" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotRisk')}</MenuItem>
-                      {featureMatrix && [
-                        <ListSubheader key="fcmap-header" sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
-                          F-cMap
-                        </ListSubheader>,
-                        <MenuItem key="fcmap-item" value="fcmap" sx={{ fontSize: '0.75rem' }}>F-cMap</MenuItem>,
-                      ]}
-                    </Select>
-                  </Box>
-                  {metricOverlay === 'fcmap' && featureMatrix && (
-                    <Box>
-                      <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', mb: 0.5 }}>
-                        フィーチャー
-                      </Typography>
-                      <Select
-                        size="small"
-                        fullWidth
-                        value={selectedFcmapFeatureId ?? featureMatrix.features[0]?.id ?? ''}
-                        onChange={(e) => { setSelectedFcmapFeatureId(e.target.value); }}
-                        sx={{ fontSize: '0.75rem', height: 28, '.MuiSelect-select': { py: 0, px: 1 } }}
-                        aria-label="フィーチャー選択"
-                      >
-                        {featureMatrix.features.map((f) => (
-                          <MenuItem key={f.id} value={f.id} sx={{ fontSize: '0.75rem' }}>{f.name}</MenuItem>
-                        ))}
-                      </Select>
-                    </Box>
-                  )}
+<Box>
+  <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', mb: 0.5 }}>
+    {t('c4.overlay.label')}
+  </Typography>
+  <Select
+    size="small"
+    fullWidth
+    value={overlayCategory}
+    onChange={(e) => { handleOverlayCategoryChange(e.target.value as OverlayCategory); }}
+    sx={{ fontSize: '0.75rem', height: 28, '.MuiSelect-select': { py: 0, px: 1 } }}
+    aria-label={t('c4.overlay.label')}
+  >
+    <MenuItem value="none" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.none')}</MenuItem>
+    <MenuItem value="coverage" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupCoverage')}</MenuItem>
+    <MenuItem value="dsm" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupDsm')}</MenuItem>
+    <MenuItem value="complexity" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupComplexity')}</MenuItem>
+    <MenuItem value="importance" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupImportance')}</MenuItem>
+    <MenuItem value="hotspot" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupHotspot')}</MenuItem>
+    {featureMatrix && <MenuItem value="fcmap" sx={{ fontSize: '0.75rem' }}>F-cMap</MenuItem>}
+  </Select>
+</Box>
+{overlayCategory !== 'none' && (
+  <Box>
+    <Select
+      size="small"
+      fullWidth
+      value={overlayCategory === 'fcmap'
+        ? (selectedFcmapFeatureId ?? featureMatrix?.features[0]?.id ?? '')
+        : metricOverlay
+      }
+      onChange={(e) => {
+        if (overlayCategory === 'fcmap') {
+          setSelectedFcmapFeatureId(e.target.value);
+        } else {
+          setMetricOverlay(e.target.value as MetricOverlay);
+        }
+      }}
+      sx={{ fontSize: '0.75rem', height: 28, '.MuiSelect-select': { py: 0, px: 1 } }}
+      aria-label="overlay-sub"
+    >
+      {overlayCategory === 'coverage' && [
+        <MenuItem key="lines" value="coverage-lines" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageLines')}</MenuItem>,
+        <MenuItem key="branches" value="coverage-branches" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageBranches')}</MenuItem>,
+        <MenuItem key="functions" value="coverage-functions" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageFunctions')}</MenuItem>,
+      ]}
+      {overlayCategory === 'dsm' && [
+        <MenuItem key="out" value="dsm-out" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmOut')}</MenuItem>,
+        <MenuItem key="in" value="dsm-in" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmIn')}</MenuItem>,
+        <MenuItem key="cyclic" value="dsm-cyclic" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmCyclic')}</MenuItem>,
+      ]}
+      {overlayCategory === 'complexity' && [
+        <MenuItem key="most" value="complexity-most" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.complexityMost')}</MenuItem>,
+        <MenuItem key="highest" value="complexity-highest" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.complexityHighest')}</MenuItem>,
+      ]}
+      {overlayCategory === 'importance' && [
+        <MenuItem key="importance" value="importance" disabled={!importanceMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.importance')}</MenuItem>,
+        <MenuItem key="defect-risk" value="defect-risk" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.defectRisk')}</MenuItem>,
+      ]}
+      {overlayCategory === 'hotspot' && [
+        <MenuItem key="frequency" value="hotspot-frequency" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotFrequency')}</MenuItem>,
+        <MenuItem key="risk" value="hotspot-risk" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotRisk')}</MenuItem>,
+      ]}
+      {overlayCategory === 'fcmap' && featureMatrix?.features.map((f) => (
+        <MenuItem key={f.id} value={f.id} sx={{ fontSize: '0.75rem' }}>{f.name}</MenuItem>
+      ))}
+    </Select>
+  </Box>
+)}
                   <OverlayLegend
                     overlay={metricOverlay}
                     isDark={isDark}
