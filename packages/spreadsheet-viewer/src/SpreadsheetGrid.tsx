@@ -80,6 +80,8 @@ interface SpreadsheetGridProps {
   readonly showRange?: boolean;
   /** 1行目をヘッダー行（H）として表示するか（デフォルト: false） */
   readonly showHeaderRow?: boolean;
+  /** 列ヘッダーに表示するラベル（未指定時は A, B, C...） */
+  readonly columnHeaders?: readonly string[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -151,6 +153,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   showApply = false,
   showRange = false,
   showHeaderRow = false,
+  columnHeaders,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -691,7 +694,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
         ctx.fillStyle = headerTextColor;
       }
 
-      ctx.fillText(columnLabel(c), x, y);
+      ctx.fillText(columnHeaders?.[c] ?? columnLabel(c), x, y);
     }
 
     ctx.fillStyle = headerBg;

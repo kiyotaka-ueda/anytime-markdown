@@ -75,6 +75,17 @@ function heatmapToSheet(matrix: HeatmapMatrix) {
 
 const sheetT = (key: string) => (spreadsheetViewerEnMessages.Spreadsheet as Record<string, string>)[key] ?? key;
 
+function makeSheetResult(sheet: ReturnType<typeof dsmToSheet>) {
+  const headers = sheet.cells[0] ?? [];
+  const dataRows = sheet.cells.slice(1);
+  const dataAligns = sheet.alignments.slice(1);
+  const adapter = createInMemorySheetAdapter(
+    { cells: dataRows, alignments: dataAligns, range: { rows: dataRows.length, cols: sheet.range.cols } },
+    { readOnly: true },
+  );
+  return { headers, adapter };
+}
+
 // ---------------------------------------------------------------------------
 
 export interface MatrixPanelProps {
@@ -133,28 +144,31 @@ export function MatrixPanel({
     return sortDsmMatrixByName(m);
   }, [dsmMatrix, dsmLevel, c4Model]);
 
-  const dsmAdapter = useMemo(
-    () => filteredDsmMatrix ? createInMemorySheetAdapter(dsmToSheet(filteredDsmMatrix), { readOnly: true }) : null,
+  const dsmResult = useMemo(
+    () => filteredDsmMatrix ? makeSheetResult(dsmToSheet(filteredDsmMatrix)) : null,
     [filteredDsmMatrix],
   );
-  const fcmapAdapter = useMemo(
-    () => featureMatrix && c4Model ? createInMemorySheetAdapter(fcmapToSheet(featureMatrix, c4Model), { readOnly: true }) : null,
+  const fcmapResult = useMemo(
+    () => featureMatrix && c4Model ? makeSheetResult(fcmapToSheet(featureMatrix, c4Model)) : null,
     [featureMatrix, c4Model],
   );
-  const coverageAdapter = useMemo(
-    () => coverageMatrix && c4Model ? createInMemorySheetAdapter(coverageToSheet(coverageMatrix, c4Model), { readOnly: true }) : null,
+  const coverageResult = useMemo(
+    () => coverageMatrix && c4Model ? makeSheetResult(coverageToSheet(coverageMatrix, c4Model)) : null,
     [coverageMatrix, c4Model],
   );
-  const heatmapAdapter = useMemo(
-    () => heatmapMatrix ? createInMemorySheetAdapter(heatmapToSheet(heatmapMatrix), { readOnly: true }) : null,
+  const heatmapResult = useMemo(
+    () => heatmapMatrix ? makeSheetResult(heatmapToSheet(heatmapMatrix)) : null,
     [heatmapMatrix],
   );
 
-  const activeAdapter =
-    matrixView === 'heatmap' ? heatmapAdapter :
-    matrixView === 'coverage' ? coverageAdapter :
-    matrixView === 'fcmap' ? fcmapAdapter :
-    dsmAdapter;
+  const activeResult =
+    matrixView === 'heatmap' ? heatmapResult :
+    matrixView === 'coverage' ? coverageResult :
+    matrixView === 'fcmap' ? fcmapResult :
+    dsmResult;
+
+  const activeAdapter = activeResult?.adapter ?? null;
+  const activeHeaders = activeResult?.headers;
 
   const gridDimensions = useMemo(() => {
     if (!activeAdapter) return { rows: 51, cols: 15 };
@@ -224,6 +238,7 @@ export function MatrixPanel({
             t={sheetT}
             showApply={false}
             showRange={false}
+            columnHeaders={activeHeaders}
             gridRows={gridDimensions.rows}
             gridCols={gridDimensions.cols}
           />
