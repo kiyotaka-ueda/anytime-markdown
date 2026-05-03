@@ -227,11 +227,6 @@
           ],
           "markdownDescription": "解析対象リポジトリのパスリスト。絶対パスまたは `${workspaceFolder}` を指定する。表示名はパスの末尾フォルダ名が使用される。"
         },
-        "anytimeTrail.codeGraph.autoRefresh": {
-          "type": "boolean",
-          "default": false,
-          "markdownDescription": "拡張機能起動時にコードグラフを自動生成する。"
-        },
         "anytimeTrail.test.e2eCommand": {
           "type": "string",
           "default": "cd packages/web-app && npm run e2e",

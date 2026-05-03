@@ -373,7 +373,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	const expandWorkspace = (s: string): string =>
 		wsRootForDb ? s.replace('${workspaceFolder}', wsRootForDb) : s;
 	const configuredRepoPaths = codeGraphCfg.get<string[]>('repositories', []);
-	const codeGraphAutoRefresh = codeGraphCfg.get<boolean>('autoRefresh', false);
 	// repo.id は trail viewer のサイドパネルに「リポジトリ」として表示されるため、
 	// 数値インデックスではなく label ベースの slug を使う。重複時は index を付与する。
 	const usedRepoIds = new Set<string>();
@@ -596,10 +595,6 @@ export async function activate(context: vscode.ExtensionContext) {
 			// DB 初期化完了後に loadFromDb() を実行（初期化前に呼ぶと ensureDb が throw するため）
 			const dbGraph = await codeGraphService!.loadFromDb();
 			if (dbGraph) {
-				trailDataServer?.notifyCodeGraphUpdated();
-			}
-			if (codeGraphAutoRefresh) {
-				await codeGraphService!.generate((phase, percent) => trailDataServer?.notifyCodeGraphProgress(phase, percent));
 				trailDataServer?.notifyCodeGraphUpdated();
 			}
 		} catch (err) {
