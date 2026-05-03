@@ -24,19 +24,19 @@ let extensionDistPath = '';
 const EXCLUDE_PATTERNS: readonly string[] = ['.worktrees', '.vscode-test', '__tests__', 'fixtures'];
 
 function getEffectiveWorkspacePath(): string | undefined {
-	const configured = vscode.workspace.getConfiguration('anytimeTrail').get<string>('workspacePath', '').trim();
+	const configured = vscode.workspace.getConfiguration('anytimeTrail.workspace').get<string>('path', '').trim();
 	return configured || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
 
 function applyDocsPathConfig(): void {
-	const docsPath = vscode.workspace.getConfiguration('anytimeTrail').get<string>('docsPath', '');
+	const docsPath = vscode.workspace.getConfiguration('anytimeTrail.workspace').get<string>('docsPath', '');
 	trailDataServer?.setDocsPath(docsPath || undefined);
 }
 
 function setupServerCallbacks(server: TrailDataServer): void {
 	applyDocsPathConfig();
 	server.onOpenDocLink = (docPath) => {
-		const docsDir = vscode.workspace.getConfiguration('anytimeTrail').get<string>('docsPath', '');
+		const docsDir = vscode.workspace.getConfiguration('anytimeTrail.workspace').get<string>('docsPath', '');
 		if (!docsDir) return;
 		const uri = vscode.Uri.file(path.join(docsDir, docPath));
 		vscode.commands.executeCommand('vscode.openWith', uri, 'anytimeMarkdown').then(
@@ -65,7 +65,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Claude Code hook を ~/.claude/settings.json に自動登録
 	const claudeStatusDirSetting = vscode.workspace.getConfiguration('anytimeTrail.claudeStatus').get<string>('directory', '') || '.vscode';
-	const trailPortForHooks = vscode.workspace.getConfiguration('anytimeTrail.trailServer').get<number>('port', 19841);
+	const trailPortForHooks = vscode.workspace.getConfiguration('anytimeTrail.viewer').get<number>('port', 19841);
 	{
 		const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 		if (wsRoot) {
@@ -362,7 +362,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		codeGraphRepos.push({ id: 'Workspace', label: 'Workspace', path: analysisWorkspacePath });
 	}
 
-	const docsPathForCodeGraph = vscode.workspace.getConfiguration('anytimeTrail').get<string>('docsPath', '').trim();
+	const docsPathForCodeGraph = vscode.workspace.getConfiguration('anytimeTrail.workspace').get<string>('docsPath', '').trim();
 	if (docsPathForCodeGraph && !codeGraphRepos.some((r) => r.path === docsPathForCodeGraph)) {
 		codeGraphRepos.push({ id: 'Docs', label: 'Docs', path: docsPathForCodeGraph });
 	}
@@ -379,18 +379,18 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('anytime-trail.analyzeCurrentCode', async () => {
 			const analysisRoot = getEffectiveWorkspacePath();
 			if (!analysisRoot) {
-				vscode.window.showErrorMessage('解析対象のワークスペースが指定されていません。anytimeTrail.workspacePath を設定するか、ワークスペースを開いてください。');
+				vscode.window.showErrorMessage('解析対象のワークスペースが指定されていません。anytimeTrail.workspace.path を設定するか、ワークスペースを開いてください。');
 				return;
 			}
 			let rootStat: fs.Stats;
 			try {
 				rootStat = fs.statSync(analysisRoot);
 			} catch {
-				vscode.window.showErrorMessage(`anytimeTrail.workspacePath のパスが存在しません: ${analysisRoot}`);
+				vscode.window.showErrorMessage(`anytimeTrail.workspace.path のパスが存在しません: ${analysisRoot}`);
 				return;
 			}
 			if (!rootStat.isDirectory()) {
-				vscode.window.showErrorMessage(`anytimeTrail.workspacePath はディレクトリではありません: ${analysisRoot}`);
+				vscode.window.showErrorMessage(`anytimeTrail.workspace.path はディレクトリではありません: ${analysisRoot}`);
 				return;
 			}
 			const repoName = path.basename(analysisRoot);
@@ -530,7 +530,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		}),
 	);
 
-	const trailPort = vscode.workspace.getConfiguration('anytimeTrail.trailServer').get<number>('port', 19841);
+	const trailPort = vscode.workspace.getConfiguration('anytimeTrail.viewer').get<number>('port', 19841);
 
 	// Database panel
 	const databaseProvider = new DatabaseProvider(trailDb);
@@ -591,7 +591,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			// 通知でポートと回復策を示す。
 			const isPortConflict = /EADDRINUSE|already in use/i.test(message);
 			const userMsg = isPortConflict
-				? `Trail Data Server failed to bind port ${trailPort} (already in use). 別の VS Code ウィンドウが同じポートを掴んでいる可能性が高いです。古いウィンドウを閉じるか anytimeTrail.trailServer.port 設定で別ポートに変更してください。`
+				? `Trail Data Server failed to bind port ${trailPort} (already in use). 別の VS Code ウィンドウが同じポートを掴んでいる可能性が高いです。古いウィンドウを閉じるか anytimeTrail.viewer.port 設定で別ポートに変更してください。`
 				: `Trail Data Server failed to start: ${message}`;
 			void vscode.window.showErrorMessage(userMsg);
 		}
@@ -720,7 +720,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Watch for configuration changes
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration((e) => {
-			if (e.affectsConfiguration('anytimeTrail.docsPath')) {
+			if (e.affectsConfiguration('anytimeTrail.workspace.docsPath')) {
 				applyDocsPathConfig();
 			}
 			if (e.affectsConfiguration('anytimeTrail.budget') && trailDataServer) {
