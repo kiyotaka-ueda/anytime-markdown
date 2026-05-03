@@ -59,7 +59,7 @@ export function TraceTree({
         {nodes.length === 0 ? (
           <Box sx={{ p: 2, textAlign: 'center' }}>
             <Box component="span" sx={{ color: colors.textSecondary }}>
-              {t('trace.noMessages')}
+              {t('message.noMessages')}
             </Box>
           </Box>
         ) : (

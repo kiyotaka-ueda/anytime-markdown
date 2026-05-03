@@ -52,10 +52,8 @@ export interface TrailI18n {
   'tokenBudget.daily': string;
   'tokenBudget.turns': string;
   'tokenBudget.messages': string;
-  // trace
-  'trace.showSystemMessages': string;
-  'trace.noMessages': string;
   // message
+  'message.noMessages': string;
   'message.collapse': string;
   'message.expand': string;
   'message.collapseDetail': string;
