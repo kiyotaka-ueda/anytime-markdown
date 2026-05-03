@@ -385,7 +385,7 @@ export function MatrixPanel({
 
         {matrixView === 'coverage' && (
           <ButtonGroup size="small">
-            {(['component', 'package', 'code'] as const).map((level) => (
+            {(['package', 'component', 'code'] as const).map((level) => (
               <Button
                 key={level}
                 size="small"
@@ -393,7 +393,7 @@ export function MatrixPanel({
                 onClick={() => setCovLevel(level)}
                 sx={{ ...toolbarButtonSx, ...(covLevel === level && { bgcolor: toolbarButtonActiveBg }) }}
               >
-                {level === 'component' ? 'Component' : level === 'package' ? 'Package' : 'Code'}
+                {level === 'package' ? 'L2' : level === 'component' ? 'L3' : 'L4'}
               </Button>
             ))}
           </ButtonGroup>
