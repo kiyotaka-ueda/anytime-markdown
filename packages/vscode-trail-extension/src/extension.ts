@@ -469,6 +469,14 @@ export async function activate(context: vscode.ExtensionContext) {
 						TrailLogger.info(`C4 analysis [${repoName}]: TrailGraph saved to current_graphs (repo=${dbRepoName}, commit=${commitId || 'unknown'})`);
 
 						try {
+							progress.report({ message: 'Computing importance scores...' });
+							await trailDataServer?.computeAndNotifyImportance(tsconfigPath);
+							TrailLogger.info(`C4 analysis [${repoName}]: importance matrix computed and notified`);
+						} catch (err) {
+							TrailLogger.warn(`C4 analysis [${repoName}]: importance computation failed: ${err instanceof Error ? err.message : String(err)}`);
+						}
+
+						try {
 							progress.report({ message: 'Generating code graph...' });
 							await codeGraphService.generate((phase, percent) => {
 								progress.report({ message: `Code graph: ${phase} (${percent}%)` });
