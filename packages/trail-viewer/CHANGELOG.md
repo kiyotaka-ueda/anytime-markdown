@@ -6,6 +6,53 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-05-03
+
+### Added
+
+- F-cMap overlay on C4 graph nodes
+- Matrix panel: DSM L4 (Code level)
+- Matrix panel: Cov L3/L4 with Component/Package/Code level switching
+- Cov view: complexity, defect count, LOC, and commit count columns
+- Cov view: community label colors and coverage coloring
+- DSM: community color fill in label cells
+- Breadcrumb ancestor labels for Cov L3/L4 row headers
+- Ctrl+click multi-select for C4 elements
+- L4 element function list in right-side popup
+- L4 "Open file" context menu item
+- Trace tab with TraceViewer integration
+- Overlay legend moved into C4 popup
+- Step count display in model tab element popup
+
+### Fixed
+
+- DSM L4 aggregates from C4 code elements instead of raw files
+- Complexity column shows `totalCount` numeric value
+- Cov view numeric columns right-aligned
+- Drill Down clears selection state
+- Column header 90° rotation restricted to DSM view only
+- SpreadsheetGrid `showHeaderRow` disabled in Matrix panel
+- Matrix panel Sheet wrapper uses `display:flex` for proper scrolling
+- Space pan and Ctrl+click multi-select interaction fixed
+
+### Changed
+
+- Matrix view button order: Cov / DSM / F-cMap
+- Level buttons use L2/L3/L4 notation (was C2/C3)
+- DSM and Cov share a unified level state
+- C4 tab label changed to "C4 Model"
+- Matrix toolbar hidden in SpreadsheetGrid
+- Pan/zoom: Shift+wheel required for zoom (reverted from plain wheel)
+- Removed duplicate logic and unused code in trail-viewer components
+
+### Removed
+
+- Heatmap view from MatrixPanel
+- DSM metrics from element selection popup
+- Defect risk display from CodeGraphPanel
+- Reload button from CodeGraphPanel
+- Subagent mode display from Heatmap
+
 ## [0.13.0] - 2026-05-02
 
 ### Added

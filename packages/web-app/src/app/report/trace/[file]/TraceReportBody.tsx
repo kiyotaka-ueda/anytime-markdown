@@ -1,9 +1,8 @@
 'use client';
 
+import { useTheme } from '@mui/material/styles';
 import dynamic from 'next/dynamic';
 import { useCallback } from 'react';
-
-import { useTheme } from '@mui/material/styles';
 
 const TraceViewer = dynamic(
   () => import('@anytime-markdown/trace-viewer').then(m => ({ default: m.TraceViewer })),

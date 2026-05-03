@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-05-03
+
+### Added
+
+- Multi-row and multi-column group header support
+
+### Fixed
+
+- Cell value now rendered after `getCellBackground` is applied
+- Vertical border line added to column header row
+- Horizontal line at group row boundary in corner cell
+
 ## [0.3.0] - 2026-04-23
 
 ### Added

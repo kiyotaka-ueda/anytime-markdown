@@ -6,6 +6,30 @@
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-05-03
+
+### 追加
+
+- TrailDataServer 経由の F-cMap データ生成・表示
+- L4 コード要素の関数一覧 API エンドポイント
+- open-file WebSocket メッセージ型と dispatch 処理
+- L4 ファイルを VS Code で開くコマンド配線（`onOpenFile`）
+- Trace CodeLens と `runWithTrace` コマンド（M5 完了）
+
+### 修正
+
+- Trail ビューアで Trace タブが表示されない問題を修正
+
+### 変更
+
+- M1-M6 トレース実装のリファクタリング（重複削除・品質改善）
+
+### Trail Core (trail-core)
+
+- C4 グラフノードオーバーレイ用の F-cMap カラーマップ計算
+- DSM L4 を C4 code 要素の集約に変更
+- c4Mapper の重複ロジック削減
+
 ## [0.14.0] - 2026-05-02
 
 ### 追加

@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-05-03
+
+### Added
+
+- Trace Viewer page and API route (`/report/trace/[file]`)
+- Added `trace-core` and `trace-viewer` package dependencies
+
 ## [0.22.0] - 2026-05-02
 
 ### Changed

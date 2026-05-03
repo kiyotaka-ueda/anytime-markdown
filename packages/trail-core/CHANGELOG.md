@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-05-03
+
+### Added
+
+- F-cMap color map computation for C4 graph node overlay
+
+### Fixed
+
+- DSM L4 now aggregates from C4 code elements instead of raw files
+
+### Changed
+
+- Optimized c4Mapper to reduce duplicate logic and unnecessary fetches
+
 ## [0.14.0] - 2026-05-02
 
 ### Added

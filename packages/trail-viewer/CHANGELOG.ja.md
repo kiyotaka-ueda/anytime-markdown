@@ -6,6 +6,53 @@
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-05-03
+
+### 追加
+
+- C4 グラフノードへの F-cMap オーバーレイ表示
+- Matrix パネル: DSM L4（コードレベル）
+- Matrix パネル: Cov L3/L4 のコンポーネント/パッケージ/コードレベル切り替え
+- Cov ビュー: 複雑度・欠陥数・LOC・変更コミット数列
+- Cov ビュー: コミュニティラベル色とカバレッジ色付け
+- DSM: ラベルセルへのコミュニティ色塗りつぶし
+- Cov L3/L4 行ラベルへの祖先パンくず表示
+- C4 要素の Ctrl+クリック複数選択
+- L4 要素の右ポップアップへ関数一覧表示
+- L4 右クリックメニューへ「ファイルを開く」追加
+- Trace タブ（TraceViewer 統合）
+- オーバーレイ凡例を C4 ポップアップ内に移動
+- モデルタブ要素ポップアップへのステップ数表示
+
+### 修正
+
+- DSM L4 を C4 code 要素の集約に変更（ファイル直参照から修正）
+- Complexity 列を totalCount（数値）で表示
+- Cov ビューの数値列を右寄せ表示
+- Drill Down 時に選択状態をクリアする
+- 列ヘッダー 90° 回転を DSM ビューのみに限定
+- Matrix パネルの SpreadsheetGrid で showHeaderRow を無効化
+- Matrix パネルの Sheet ラッパーに display:flex を追加しスクロール修正
+- Space パンと Ctrl+クリック複数選択の動作不具合を修正
+
+### 変更
+
+- Matrix ビューのボタン順序を Cov / DSM / F-cMap に変更
+- レベルボタンを L2/L3/L4 表記に統一（旧 C2/C3）
+- DSM と Cov のレベル選択を単一の state に統合
+- C4 タブラベルを「C4 Model」に変更
+- SpreadsheetGrid でツールバーを非表示
+- パン/ズーム: Shift+ホイールでズームに戻す
+- trail-viewer コンポーネントの重複ロジック・未使用コード削除
+
+### 削除
+
+- MatrixPanel から Heatmap ビューを削除
+- 要素選択ポップアップから DSM メトリクス表示を削除
+- CodeGraphPanel から欠陥リスク表示を削除
+- CodeGraphPanel から再読込ボタンを削除
+- Heatmap の Subagent モード表示を削除
+
 ## [0.13.0] - 2026-05-02
 
 ### 追加

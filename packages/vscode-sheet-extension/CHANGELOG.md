@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-05-03
+
+### Spreadsheet Core (spreadsheet-core)
+
+- `columnHeaders`, `rowHeaders`, `rotateColumnHeaders`, `cellSize` props added
+- DSM cell coloring and top-left corner click to select all
+- Copy includes column/row header labels
+
+### Spreadsheet Viewer (spreadsheet-viewer)
+
+- Multi-row/column group header support
+- Fixed cell rendering after `getCellBackground`, border lines in headers
+
 ## [0.3.0] - 2026-04-23
 
 ### Added

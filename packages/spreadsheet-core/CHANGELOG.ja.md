@@ -6,6 +6,18 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-05-03
+
+### 追加
+
+- 列ヘッダーラベルをカスタマイズできる `columnHeaders` プロパティ
+- 行ラベル表示用の `rowHeaders` / `rowHeaderWidth` プロパティ
+- 列ヘッダーを 90° 縦表示する `rotateColumnHeaders` プロパティ
+- 正方形セル初期化用の `cellSize` プロパティ
+- DSM セルの背景色付けサポート
+- 左上角クリックで全セルを選択
+- コピー時に `columnHeaders` / `rowHeaders` をラベルとして含める
+
 ## [0.3.0] - 2026-04-23
 
 ### 追加
