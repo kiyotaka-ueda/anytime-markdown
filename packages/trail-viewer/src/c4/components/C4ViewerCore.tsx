@@ -969,7 +969,21 @@ export function C4ViewerCore({
         communitySummary: codeGraph?.communitySummaries?.[dominant.community],
       } as CommunityOverlayEntry;
     })();
-    return { element, incoming, outgoing, documents, coverage, complexity, importance, defectRisk, dsm, community };
+    const steps = (() => {
+      if (!coverageMatrix) return null;
+      if (element.type === 'code') return coverage?.lines.total ?? null;
+      const descendantIds = collectDescendantIds(c4Model.elements, element.id);
+      let total = 0;
+      let hasData = false;
+      for (const id of descendantIds) {
+        const desc = c4Model.elements.find(e => e.id === id);
+        if (desc?.type !== 'code') continue;
+        const entry = coverageMatrix.entries.find(e => e.elementId === id);
+        if (entry) { total += entry.lines.total; hasData = true; }
+      }
+      return hasData ? total : null;
+    })();
+    return { element, incoming, outgoing, documents, coverage, complexity, importance, defectRisk, dsm, community, steps };
   }, [c4Model, complexityMatrix, coverageMatrix, defectRiskMap, docLinks, filteredDsmMatrix, importanceMatrix, selectedElementId, communityOverlayL3, codeGraph]);
 
   const { data: elementFunctions, loading: elementFunctionsLoading } = useElementFunctions({
@@ -1547,7 +1561,7 @@ export function C4ViewerCore({
                           {t('c4.popup.metric.steps')}
                         </Typography>
                         <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
-                          {selectedElementInfo.coverage?.lines.total ?? '-'}
+                          {selectedElementInfo.steps ?? '-'}
                         </Typography>
                       </Box>
                     </Box>
