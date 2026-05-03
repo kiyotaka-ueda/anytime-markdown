@@ -66,35 +66,42 @@
       {
         "command": "anytime-trail.openAiNote",
         "title": "%command.openAiNote%",
+        "category": "Anytime Trail",
         "icon": "$(note)"
       },
       {
         "command": "anytime-trail.openAiNoteSkill",
         "title": "%command.openAiNoteSkill%",
+        "category": "Anytime Trail",
         "icon": "$(book)"
       },
       {
         "command": "anytime-trail.addAiNotePage",
         "title": "%command.addAiNotePage%",
+        "category": "Anytime Trail",
         "icon": "$(add)"
       },
       {
         "command": "anytime-trail.deleteAiNotePage",
         "title": "%command.deleteAiNotePage%",
+        "category": "Anytime Trail",
         "icon": "$(trash)"
       },
       {
         "command": "anytime-trail.openAiNotePage",
-        "title": "%command.openAiNotePage%"
+        "title": "%command.openAiNotePage%",
+        "category": "Anytime Trail"
       },
       {
         "command": "anytime-trail.clearAiNote",
         "title": "%command.clearAiNote%",
+        "category": "Anytime Trail",
         "icon": "$(trash)"
       },
       {
         "command": "anytime-trail.copyAiNotePath",
         "title": "%command.copyAiNotePath%",
+        "category": "Anytime Trail",
         "icon": "$(clippy)"
       },
       {
