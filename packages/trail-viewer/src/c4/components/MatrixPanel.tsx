@@ -74,7 +74,8 @@ function dsmToSheet(matrix: DsmMatrix) {
     ...matrix.adjacency[i].map(v => (v === 0 ? '' : String(v))),
   ]);
   const cells = [headerRow, ...dataRows];
-  return { cells, alignments: cells.map(r => r.map(() => null)), range: { rows: n + 1, cols: n + 1 } };
+  const alignments = cells.map(r => r.map((_, ci): CellAlign => ci === 0 ? 'right' : null));
+  return { cells, alignments, range: { rows: n + 1, cols: n + 1 } };
 }
 
 
@@ -119,7 +120,7 @@ function coverageToSheet(
     ];
   });
   const cells = [headerRow, ...dataRows];
-  const alignments = cells.map(r => r.map((_, ci): CellAlign => ci === 0 ? null : 'right'));
+  const alignments = cells.map(r => r.map((): CellAlign => 'right'));
   return { cells, alignments, range: { rows: cells.length, cols: 7 } };
 }
 
@@ -164,8 +165,9 @@ export function MatrixPanel({
 }: Readonly<MatrixPanelProps>) {
   const colors = useMemo(() => getC4Colors(isDark), [isDark]);
 
-  const [matrixView, setMatrixView] = useState<'dsm' | 'coverage'>('dsm');
+  const [matrixView, setMatrixView] = useState<'dsm' | 'coverage'>('coverage');
   const [level, setLevel] = useState<'package' | 'component' | 'code'>('component');
+  const [isCommunityColor, setIsCommunityColor] = useState(false);
 
   const { graph: codeGraph } = useCodeGraph(serverUrl ?? '', { enabled: isActive });
 
@@ -366,6 +368,17 @@ export function MatrixPanel({
             </Button>
           ))}
         </ButtonGroup>
+
+        <Button
+          size="small"
+          aria-pressed={isCommunityColor}
+          aria-label="Toggle community coloring"
+          disabled={!dsmNodeColorMap}
+          onClick={() => setIsCommunityColor((v) => !v)}
+          sx={{ ...toolbarButtonSx, ...(isCommunityColor && { bgcolor: toolbarButtonActiveBg }) }}
+        >
+          Community
+        </Button>
       </Box>
 
       {/* Sheet */}
@@ -397,17 +410,21 @@ export function MatrixPanel({
             }
             gridRows={gridDimensions.rows}
             gridCols={gridDimensions.cols}
+            getCellDisplayText={matrixView === 'dsm' ? () => '' : undefined}
             getCellBackground={
               matrixView === 'dsm' ? dsmCellBackground :
               matrixView === 'coverage' ? coverageCellBackground :
               undefined
             }
             getRowHeaderBackground={
+              !isCommunityColor ? undefined :
               matrixView === 'dsm' ? dsmRowHeaderBackground :
               matrixView === 'coverage' ? coverageRowHeaderBackground :
               undefined
             }
-            getColumnHeaderBackground={matrixView === 'dsm' ? dsmColHeaderBackground : undefined}
+            getColumnHeaderBackground={
+              isCommunityColor && matrixView === 'dsm' ? dsmColHeaderBackground : undefined
+            }
           />
         ) : (
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
