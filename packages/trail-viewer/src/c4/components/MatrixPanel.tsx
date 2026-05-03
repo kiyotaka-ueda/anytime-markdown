@@ -1,5 +1,6 @@
 import type { C4Model, CoverageDiffMatrix, CoverageMatrix, DsmMatrix, FeatureMatrix, HeatmapMatrix } from '@anytime-markdown/trail-core/c4';
 import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
+import { SpreadsheetGrid, createInMemorySheetAdapter, spreadsheetViewerEnMessages } from '@anytime-markdown/spreadsheet-viewer';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import ButtonGroup from '@mui/material/ButtonGroup';
@@ -9,10 +10,72 @@ import { useMemo, useState } from 'react';
 import { useTrailI18n } from '../../i18n';
 import { getC4Colors } from '../c4Theme';
 import { useActivityHeatmap } from '../hooks/useActivityHeatmap';
-import { CoverageCanvas } from './CoverageCanvas';
-import { DsmCanvas } from './DsmCanvas';
-import { FcMapCanvas } from './FcMapCanvas';
-import { HeatmapCanvas } from './HeatmapCanvas';
+
+// ---------------------------------------------------------------------------
+// Matrix → SheetSnapshot converters
+// ---------------------------------------------------------------------------
+
+function dsmToSheet(matrix: DsmMatrix) {
+  const { nodes } = matrix;
+  const n = nodes.length;
+  const headerRow = ['', ...nodes.map(nd => nd.name)];
+  const dataRows = nodes.map((nd, i) => [
+    nd.name,
+    ...matrix.adjacency[i].map(v => (v === 0 ? '' : String(v))),
+  ]);
+  const cells = [headerRow, ...dataRows];
+  return { cells, alignments: cells.map(r => r.map(() => null)), range: { rows: n + 1, cols: n + 1 } };
+}
+
+function fcmapToSheet(fm: FeatureMatrix, model: C4Model) {
+  const elementMap = new Map(model.elements.map(e => [e.id, e.name]));
+  const colIds = [...new Set(fm.mappings.map(m => m.elementId))];
+  const catMap = new Map(fm.categories.map(c => [c.id, c.name]));
+  const roleLabel = { primary: 'P', secondary: 'S', dependency: 'D' } as const;
+  const cellLookup = new Map(fm.mappings.map(m => [`${m.featureId}:${m.elementId}`, roleLabel[m.role] ?? '']));
+  const headerRow = ['Feature', ...colIds.map(id => elementMap.get(id) ?? id)];
+  const dataRows = fm.features.map(f => [
+    `${catMap.get(f.categoryId) ?? f.categoryId} / ${f.name}`,
+    ...colIds.map(id => cellLookup.get(`${f.id}:${id}`) ?? ''),
+  ]);
+  const cells = [headerRow, ...dataRows];
+  return { cells, alignments: cells.map(r => r.map(() => null)), range: { rows: cells.length, cols: headerRow.length } };
+}
+
+function coverageToSheet(matrix: CoverageMatrix, model: C4Model) {
+  const elementMap = new Map(model.elements.map(e => [e.id, e.name]));
+  const headerRow = ['Component', 'Lines%', 'Branches%', 'Functions%'];
+  const dataRows = matrix.entries.map(e => [
+    elementMap.get(e.elementId) ?? e.elementId,
+    String(Math.round(e.lines.pct * 10) / 10),
+    String(Math.round(e.branches.pct * 10) / 10),
+    String(Math.round(e.functions.pct * 10) / 10),
+  ]);
+  const cells = [headerRow, ...dataRows];
+  return { cells, alignments: cells.map(r => r.map(() => null)), range: { rows: cells.length, cols: 4 } };
+}
+
+function heatmapToSheet(matrix: HeatmapMatrix) {
+  const cellMap = new Map(matrix.cells.map(c => [`${c.rowIndex}:${c.colIndex}`, c.value]));
+  const headerRow = ['', ...matrix.columns.map(c => c.label)];
+  const dataRows = matrix.rows.map((row, ri) => [
+    row.label,
+    ...matrix.columns.map((_, ci) => {
+      const v = cellMap.get(`${ri}:${ci}`);
+      return v !== undefined && v > 0 ? String(v) : '';
+    }),
+  ]);
+  const cells = [headerRow, ...dataRows];
+  return {
+    cells,
+    alignments: cells.map(r => r.map(() => null)),
+    range: { rows: matrix.rows.length + 1, cols: matrix.columns.length + 1 },
+  };
+}
+
+const sheetT = (key: string) => (spreadsheetViewerEnMessages.Spreadsheet as Record<string, string>)[key] ?? key;
+
+// ---------------------------------------------------------------------------
 
 export interface MatrixPanelProps {
   readonly dsmMatrix: DsmMatrix | null;
@@ -29,7 +92,6 @@ export function MatrixPanel({
   dsmMatrix,
   featureMatrix,
   coverageMatrix,
-  coverageDiff,
   c4Model,
   serverUrl,
   selectedRepo,
@@ -40,7 +102,6 @@ export function MatrixPanel({
 
   const [matrixView, setMatrixView] = useState<'dsm' | 'fcmap' | 'coverage' | 'heatmap'>('dsm');
   const [dsmLevel, setDsmLevel] = useState<'component' | 'package'>('component');
-  const [dsmClustered, setDsmClustered] = useState(false);
 
   const heatmapEnabled = matrixView === 'heatmap';
   const { data: heatmapResponse } = useActivityHeatmap({
@@ -71,6 +132,29 @@ export function MatrixPanel({
     }
     return sortDsmMatrixByName(m);
   }, [dsmMatrix, dsmLevel, c4Model]);
+
+  const dsmAdapter = useMemo(
+    () => filteredDsmMatrix ? createInMemorySheetAdapter(dsmToSheet(filteredDsmMatrix), { readOnly: true }) : null,
+    [filteredDsmMatrix],
+  );
+  const fcmapAdapter = useMemo(
+    () => featureMatrix && c4Model ? createInMemorySheetAdapter(fcmapToSheet(featureMatrix, c4Model), { readOnly: true }) : null,
+    [featureMatrix, c4Model],
+  );
+  const coverageAdapter = useMemo(
+    () => coverageMatrix && c4Model ? createInMemorySheetAdapter(coverageToSheet(coverageMatrix, c4Model), { readOnly: true }) : null,
+    [coverageMatrix, c4Model],
+  );
+  const heatmapAdapter = useMemo(
+    () => heatmapMatrix ? createInMemorySheetAdapter(heatmapToSheet(heatmapMatrix), { readOnly: true }) : null,
+    [heatmapMatrix],
+  );
+
+  const activeAdapter =
+    matrixView === 'heatmap' ? heatmapAdapter :
+    matrixView === 'coverage' ? coverageAdapter :
+    matrixView === 'fcmap' ? fcmapAdapter :
+    dsmAdapter;
 
   const toolbarButtonSx = {
     textTransform: 'none' as const,
@@ -108,67 +192,40 @@ export function MatrixPanel({
         </ButtonGroup>
 
         {matrixView === 'dsm' && (
-          <>
-            <ButtonGroup size="small">
-              {(['component', 'package'] as const).map((level) => (
-                <Button
-                  key={level}
-                  size="small"
-                  aria-pressed={dsmLevel === level}
-                  onClick={() => setDsmLevel(level)}
-                  sx={{ ...toolbarButtonSx, ...(dsmLevel === level && { bgcolor: toolbarButtonActiveBg }) }}
-                >
-                  {level === 'component' ? 'Component' : 'Package'}
-                </Button>
-              ))}
-            </ButtonGroup>
-            <Button
-              size="small"
-              onClick={() => setDsmClustered(prev => !prev)}
-              sx={{ ...toolbarButtonSx, ...(dsmClustered && { bgcolor: toolbarButtonActiveBg }) }}
-            >
-              Cluster
-            </Button>
-          </>
+          <ButtonGroup size="small">
+            {(['component', 'package'] as const).map((level) => (
+              <Button
+                key={level}
+                size="small"
+                aria-pressed={dsmLevel === level}
+                onClick={() => setDsmLevel(level)}
+                sx={{ ...toolbarButtonSx, ...(dsmLevel === level && { bgcolor: toolbarButtonActiveBg }) }}
+              >
+                {level === 'component' ? 'Component' : 'Package'}
+              </Button>
+            ))}
+          </ButtonGroup>
         )}
       </Box>
 
-      {/* Canvas */}
-      <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-        {matrixView === 'heatmap' ? (
-          heatmapMatrix && heatmapMatrix.rows.length > 0 && heatmapMatrix.columns.length > 0 ? (
-            <HeatmapCanvas
-              matrix={heatmapMatrix}
-              colorScale={isDark ? 'amber' : 'sumi'}
-              isDark={isDark}
-            />
-          ) : (
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-              <Typography variant="body2" sx={{ color: colors.textSecondary }}>
-                {heatmapEnabled ? t('c4.heatmap.empty') : t('c4.heatmap.loading')}
-              </Typography>
-            </Box>
-          )
-        ) : matrixView === 'coverage' && coverageMatrix && c4Model ? (
-          <CoverageCanvas
-            coverageMatrix={coverageMatrix}
-            coverageDiff={coverageDiff}
-            model={c4Model}
+      {/* Sheet */}
+      <Box sx={{ flex: 1, overflow: 'hidden' }}>
+        {activeAdapter ? (
+          <SpreadsheetGrid
+            key={matrixView === 'dsm' ? `dsm-${dsmLevel}` : matrixView}
+            adapter={activeAdapter}
             isDark={isDark}
+            t={sheetT}
+            showApply={false}
+            showRange={false}
+            showHeaderRow
           />
-        ) : matrixView === 'fcmap' && featureMatrix && c4Model ? (
-          <FcMapCanvas
-            featureMatrix={featureMatrix}
-            model={c4Model}
-            isDark={isDark}
-          />
-        ) : filteredDsmMatrix ? (
-          <DsmCanvas
-            matrix={filteredDsmMatrix}
-            fullModel={c4Model ?? undefined}
-            clustered={dsmClustered}
-            isDark={isDark}
-          />
+        ) : matrixView === 'heatmap' ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+            <Typography variant="body2" sx={{ color: colors.textSecondary }}>
+              {heatmapEnabled ? t('c4.heatmap.loading') : t('c4.heatmap.empty')}
+            </Typography>
+          </Box>
         ) : (
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
             <Typography variant="body2" sx={{ color: colors.textSecondary }}>

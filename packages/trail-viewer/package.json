@@ -11,6 +11,7 @@
     "./supabase": "./src/supabase/index.ts"
   },
   "dependencies": {
+    "@anytime-markdown/spreadsheet-viewer": "*",
     "@anytime-markdown/trail-core": "*",
     "@anytime-markdown/trace-viewer": "*",
     "@mui/x-charts": "9.0.1",
