@@ -80,6 +80,10 @@ jobs:
           path: packages/web-app/bundle-report.md
           retention-days: 30
 
+      - name: Build vscode-common
+        run: npm run build
+        working-directory: packages/vscode-common
+
       - name: Build markdown extension
         run: npm run package
         working-directory: packages/vscode-markdown-extension
