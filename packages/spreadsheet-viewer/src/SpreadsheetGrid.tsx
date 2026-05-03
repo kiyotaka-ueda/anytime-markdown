@@ -1325,8 +1325,17 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
       if (key === "c" || key === "x") {
         e.preventDefault();
         const lines: string[] = [];
+        const includeColHeaders = columnHeaders !== undefined && anchor.minR === 0;
+        const includeRowHeaders = rowHeaders !== undefined && anchor.minC === 0;
+        if (includeColHeaders) {
+          const headerRow: string[] = [];
+          if (includeRowHeaders) headerRow.push('');
+          for (let c = anchor.minC; c <= anchor.maxC; c++) headerRow.push(columnHeaders[c] ?? '');
+          lines.push(headerRow.join("\t"));
+        }
         for (let r = anchor.minR; r <= anchor.maxR; r++) {
           const cells: string[] = [];
+          if (includeRowHeaders) cells.push(rowHeaders[r] ?? '');
           for (let c = anchor.minC; c <= anchor.maxC; c++) cells.push(grid[r][c]);
           lines.push(cells.join("\t"));
         }
