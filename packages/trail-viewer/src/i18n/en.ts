@@ -2,7 +2,7 @@ import type { TrailI18n } from './types';
 
 export const en: TrailI18n = {
   'viewer.analytics': 'Activity',
-  'viewer.traces': 'Messages',
+  'viewer.messages': 'Messages',
   'viewer.prompts': 'Prompts',
   'viewer.loading': 'Loading...',
   'viewer.selectSession': 'Select a session',

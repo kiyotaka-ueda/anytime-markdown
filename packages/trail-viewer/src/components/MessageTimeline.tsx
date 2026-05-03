@@ -94,7 +94,7 @@ function formatTimeLabel(ms: number, includeDate: boolean): string {
   return new Intl.DateTimeFormat(undefined, opts).format(d);
 }
 
-interface TraceTimelineProps {
+interface MessageTimelineProps {
   readonly nodes: readonly TrailTreeNode[];
   readonly session?: TrailSession;
   readonly onSelectMessage: (uuid: string) => void;
@@ -136,11 +136,11 @@ interface Turn {
   readonly systemMsgs: TimelineEntry[];
 }
 
-export function TraceTimeline({
+export function MessageTimeline({
   nodes,
   session,
   onSelectMessage,
-}: Readonly<TraceTimelineProps>) {
+}: Readonly<MessageTimelineProps>) {
   const { colors } = useTrailTheme();
   const mainAgentLabel = session?.source === 'codex' ? 'Codex' : 'Claude Code';
   const [collapsed, setCollapsed] = useState<boolean>(() => {

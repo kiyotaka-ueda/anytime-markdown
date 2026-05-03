@@ -3,7 +3,7 @@ export type TrailLocale = 'ja' | 'en';
 export interface TrailI18n {
   // viewer
   'viewer.analytics': string;
-  'viewer.traces': string;
+  'viewer.messages': string;
   'viewer.prompts': string;
   'viewer.loading': string;
   'viewer.selectSession': string;

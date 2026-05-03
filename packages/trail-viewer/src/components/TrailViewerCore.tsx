@@ -26,7 +26,7 @@ import { ReleasesPanel } from './ReleasesPanel';
 import { SessionList } from './SessionList';
 import { StatsBar } from './StatsBar';
 import { TraceTree } from './TraceTree';
-import { TraceTimeline } from './TraceTimeline';
+import { MessageTimeline } from './MessageTimeline';
 import { TrailThemeProvider } from './TrailThemeContext';
 import { getTokens } from './designTokens';
 import { TrailLocaleProvider, useTrailI18n } from '../i18n';
@@ -210,7 +210,7 @@ function TrailViewerCoreInner({
           }}
         >
           <Tab id="trail-tab-0" aria-controls="trail-panel-0" label={t('viewer.analytics')} />
-          <Tab id="trail-tab-1" aria-controls="trail-panel-1" label={t('viewer.traces')} />
+          <Tab id="trail-tab-1" aria-controls="trail-panel-1" label={t('viewer.messages')} />
           <Tab id="trail-tab-2" aria-controls="trail-panel-2" label={t('viewer.prompts')} />
           <Tab id="trail-tab-3" aria-controls="trail-panel-3" label={t('releases.title')} />
           {c4 && <Tab id="trail-tab-4" aria-controls="trail-panel-4" label={t('viewer.c4')} />}
@@ -295,7 +295,7 @@ function TrailViewerCoreInner({
           </Box>
 
           <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <TraceTimeline
+            <MessageTimeline
               nodes={buildMessageTree(messages)}
               session={selectedSession}
               onSelectMessage={() => { /* scroll handled inside component */ }}
