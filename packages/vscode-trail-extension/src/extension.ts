@@ -22,6 +22,36 @@ let extensionDistPath = '';
 
 const EXCLUDE_PATTERNS: readonly string[] = ['.worktrees', '.vscode-test', '__tests__', 'fixtures'];
 
+function getEffectiveWorkspacePath(): string | undefined {
+	const configured = vscode.workspace.getConfiguration('anytimeTrail').get<string>('workspacePath', '').trim();
+	return configured || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+}
+
+function findTsconfigsRecursive(rootDir: string, excludeDirs: readonly string[]): string[] {
+	const results: string[] = [];
+	const excludeSet = new Set<string>([...excludeDirs, 'node_modules']);
+	const stack: string[] = [rootDir];
+	while (stack.length > 0) {
+		const current = stack.pop()!;
+		let entries: fs.Dirent[];
+		try {
+			entries = fs.readdirSync(current, { withFileTypes: true });
+		} catch (err) {
+			TrailLogger.warn(`findTsconfigsRecursive: failed to read ${current}: ${err instanceof Error ? err.message : String(err)}`);
+			continue;
+		}
+		for (const entry of entries) {
+			if (entry.isDirectory()) {
+				if (excludeSet.has(entry.name)) continue;
+				stack.push(path.join(current, entry.name));
+			} else if (entry.isFile() && entry.name === 'tsconfig.json') {
+				results.push(path.join(current, entry.name));
+			}
+		}
+	}
+	return results;
+}
+
 function applyDocsPathConfig(): void {
 	const docsPath = vscode.workspace.getConfiguration('anytimeTrail').get<string>('docsPath', '');
 	trailDataServer?.setDocsPath(docsPath || undefined);
@@ -350,12 +380,10 @@ export async function activate(context: vscode.ExtensionContext) {
 	setupServerCallbacks(trailDataServer);
 
 	// Code graph service
-	const codeGraphCfg = vscode.workspace.getConfiguration('anytimeTrail.codeGraph');
 	const codeGraphRepos: { id: string; label: string; path: string }[] = [];
-	const configuredWorkspacePath = codeGraphCfg.get<string>('workspacePath', '').trim();
-	const workspacePath = configuredWorkspacePath || wsRootForDb;
-	if (workspacePath) {
-		codeGraphRepos.push({ id: 'Workspace', label: 'Workspace', path: workspacePath });
+	const analysisWorkspacePath = getEffectiveWorkspacePath();
+	if (analysisWorkspacePath) {
+		codeGraphRepos.push({ id: 'Workspace', label: 'Workspace', path: analysisWorkspacePath });
 	}
 
 	const docsPathForCodeGraph = vscode.workspace.getConfiguration('anytimeTrail').get<string>('docsPath', '').trim();
@@ -373,22 +401,27 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('anytime-trail.c4Analyze', async () => {
-			const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-			const repoName = workspaceFolder?.name ?? '(no workspace)';
-			TrailLogger.info(`C4 analysis [${repoName}]: searching tsconfig.json in workspace`);
-			const allTsconfigFiles = await vscode.workspace.findFiles('**/tsconfig.json', '**/node_modules/**');
-			const tsconfigFiles = allTsconfigFiles
-				.filter(f => !EXCLUDE_PATTERNS.some(p => f.fsPath.includes(`/${p}/`)))
+			const analysisRoot = getEffectiveWorkspacePath();
+			if (!analysisRoot) {
+				vscode.window.showErrorMessage('解析対象のワークスペースが指定されていません。anytimeTrail.workspacePath を設定するか、ワークスペースを開いてください。');
+				return;
+			}
+			if (!fs.existsSync(analysisRoot) || !fs.statSync(analysisRoot).isDirectory()) {
+				vscode.window.showErrorMessage(`anytimeTrail.workspacePath のパスが存在しないかディレクトリではありません: ${analysisRoot}`);
+				return;
+			}
+			const repoName = path.basename(analysisRoot) || '(no workspace)';
+			TrailLogger.info(`C4 analysis [${repoName}]: searching tsconfig.json under ${analysisRoot}`);
+			const tsconfigFiles = findTsconfigsRecursive(analysisRoot, EXCLUDE_PATTERNS)
+				.map(p => ({ fsPath: p, rel: path.relative(analysisRoot, p) }))
 				.sort((a, b) => {
-					const aRel = vscode.workspace.asRelativePath(a);
-					const bRel = vscode.workspace.asRelativePath(b);
-					const aDepth = aRel.split('/').length;
-					const bDepth = bRel.split('/').length;
-					return aDepth !== bDepth ? aDepth - bDepth : aRel.localeCompare(bRel);
+					const aDepth = a.rel.split(path.sep).length;
+					const bDepth = b.rel.split(path.sep).length;
+					return aDepth !== bDepth ? aDepth - bDepth : a.rel.localeCompare(b.rel);
 				});
 			if (tsconfigFiles.length === 0) {
-				TrailLogger.warn(`C4 analysis [${repoName}]: no tsconfig.json found in workspace`);
-				vscode.window.showWarningMessage('No tsconfig.json found in workspace.');
+				TrailLogger.warn(`C4 analysis [${repoName}]: no tsconfig.json found under ${analysisRoot}`);
+				vscode.window.showWarningMessage(`No tsconfig.json found under ${analysisRoot}`);
 				return;
 			}
 
@@ -396,15 +429,11 @@ export async function activate(context: vscode.ExtensionContext) {
 			if (tsconfigFiles.length === 1) {
 				tsconfigPath = tsconfigFiles[0].fsPath;
 			} else {
-				const items = tsconfigFiles.map(f => {
-					const rel = vscode.workspace.asRelativePath(f);
-					const isRoot = !rel.includes('/');
-					return {
-						label: rel,
-						description: isRoot ? '(workspace root — analyzes all packages)' : undefined,
-						uri: f,
-					};
-				});
+				const items = tsconfigFiles.map(f => ({
+					label: f.rel,
+					description: f.rel === 'tsconfig.json' ? '(workspace root — analyzes all packages)' : undefined,
+					fsPath: f.fsPath,
+				}));
 				const picked = await vscode.window.showQuickPick(items, {
 					placeHolder: 'Select tsconfig.json to analyze',
 					matchOnDescription: true,
@@ -413,7 +442,7 @@ export async function activate(context: vscode.ExtensionContext) {
 					TrailLogger.info(`C4 analysis [${repoName}]: cancelled at tsconfig selection`);
 					return;
 				}
-				tsconfigPath = picked.uri.fsPath;
+				tsconfigPath = picked.fsPath;
 			}
 
 			TrailLogger.info(`C4 analysis [${repoName}]: starting for ${tsconfigPath}`);
@@ -445,9 +474,8 @@ export async function activate(context: vscode.ExtensionContext) {
 							`C4 analysis [${repoName}]: analyzed ${graph.metadata.fileCount} files, ${graph.nodes.length} nodes, ${graph.edges.length} edges`,
 						);
 
-						const gitRoot = workspaceFolder?.uri.fsPath;
-						const dbRepoName = gitRoot ? path.basename(gitRoot) : repoName;
-						const commitId = gitRoot ? new ExecFileGitService(gitRoot).getHeadCommit() : '';
+						const dbRepoName = path.basename(analysisRoot);
+						const commitId = new ExecFileGitService(analysisRoot).getHeadCommit();
 						trailDb?.saveCurrentGraph(graph, tsconfigPath, commitId, dbRepoName);
 						TrailLogger.info(`C4 analysis [${repoName}]: TrailGraph saved to current_graphs (repo=${dbRepoName}, commit=${commitId || 'unknown'})`);
 
@@ -463,9 +491,9 @@ export async function activate(context: vscode.ExtensionContext) {
 							vscode.window.showWarningMessage(`Code graph generation failed: ${err instanceof Error ? err.message : String(err)}`);
 						}
 
-						if (gitRoot && trailDb) {
+						if (trailDb) {
 							try {
-								const count = trailDb.importCurrentCoverage(gitRoot, dbRepoName);
+								const count = trailDb.importCurrentCoverage(analysisRoot, dbRepoName);
 								TrailLogger.info(`C4 analysis [${repoName}]: current_coverage updated (${count} entries)`);
 							} catch (err) {
 								TrailLogger.warn(`C4 analysis [${repoName}]: importCurrentCoverage failed: ${err instanceof Error ? err.message : String(err)}`);
