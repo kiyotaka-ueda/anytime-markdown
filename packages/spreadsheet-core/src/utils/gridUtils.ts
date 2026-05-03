@@ -1,8 +1,8 @@
 /** グリッドのデフォルト行数 */
-export const DEFAULT_GRID_ROWS = 1024;
+export const DEFAULT_GRID_ROWS = 51;
 
 /** グリッドのデフォルト列数 */
-export const DEFAULT_GRID_COLS = 128;
+export const DEFAULT_GRID_COLS = 15;
 
 /** 列インデックスをアルファベットラベルに変換（0=A, 1=B, ...） */
 export function columnLabel(index: number): string {
