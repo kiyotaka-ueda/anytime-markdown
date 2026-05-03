@@ -395,7 +395,7 @@ export function MatrixPanel({
 
         {matrixView === 'dsm' && (
           <ButtonGroup size="small">
-            {(['component', 'package'] as const).map((level) => (
+            {(['package', 'component'] as const).map((level) => (
               <Button
                 key={level}
                 size="small"
@@ -403,7 +403,7 @@ export function MatrixPanel({
                 onClick={() => setDsmLevel(level)}
                 sx={{ ...toolbarButtonSx, ...(dsmLevel === level && { bgcolor: toolbarButtonActiveBg }) }}
               >
-                {level === 'component' ? 'Component' : 'Package'}
+                {level === 'package' ? 'C2' : 'C3'}
               </Button>
             ))}
           </ButtonGroup>
