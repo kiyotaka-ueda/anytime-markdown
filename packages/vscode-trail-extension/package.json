@@ -238,7 +238,7 @@
           "command": "anytime-trail.c4Analyze",
           "when": "view == anytimeTrail.c4Elements",
           "group": "navigation@1"
-        },
+        }
       ],
       "view/item/context": [
         {

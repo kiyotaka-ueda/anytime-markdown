@@ -454,7 +454,49 @@
         "mac": "cmd+v",
         "when": "focusedView == anytimeHistory.specDocs"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Anytime History",
+      "properties": {
+        "anytimeTrail.database.storagePath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%config.database.storagePath%"
+        },
+        "anytimeTrail.database.backupGenerations": {
+          "type": "number",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 10,
+          "markdownDescription": "%config.database.backupGenerations%"
+        },
+        "anytimeTrail.remote.provider": {
+          "type": "string",
+          "enum": [
+            "none",
+            "supabase",
+            "postgres"
+          ],
+          "default": "none",
+          "markdownDescription": "Remote database provider for Trail data sync. `none` disables sync."
+        },
+        "anytimeTrail.remote.supabaseUrl": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Supabase project URL (e.g. `https://xxx.supabase.co`)"
+        },
+        "anytimeTrail.remote.supabaseAnonKey": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Supabase anon key for Trail data sync"
+        },
+        "anytimeTrail.remote.postgresUrl": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "PostgreSQL connection string (e.g. `postgres://user:pass@host:5432/db`)"
+        }
+      }
+    }
   },
   "capabilities": {
     "untrustedWorkspaces": {
