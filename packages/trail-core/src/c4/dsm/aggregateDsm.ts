@@ -131,6 +131,14 @@ function aggregateDsmByC4Ancestors(
   return { nodes, edges: [], adjacency };
 }
 
+/** L4 用: C4 code 要素単位で集約（code 要素を持つファイルのみ表示） */
+export function aggregateDsmToC4CodeLevel(
+  matrix: DsmMatrix,
+  elements: readonly C4Element[],
+): DsmMatrix {
+  return aggregateDsmByC4Ancestors(matrix, elements, new Set<C4ElementType>(['code']));
+}
+
 /** L3 用: C4 component 単位で集約 */
 export function aggregateDsmToC4ComponentLevel(
   matrix: DsmMatrix,

@@ -40,7 +40,7 @@ export type {
 } from './dsm/types';
 
 export { buildSourceMatrix } from './dsm/buildSourceMatrix';
-export { aggregateDsmToPackageLevel, aggregateDsmToC4SystemLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4ComponentLevel, sortDsmMatrixByName, filterDsmMatrix } from './dsm/aggregateDsm';
+export { aggregateDsmToPackageLevel, aggregateDsmToC4SystemLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4ComponentLevel, aggregateDsmToC4CodeLevel, sortDsmMatrixByName, filterDsmMatrix } from './dsm/aggregateDsm';
 export { detectCycles } from './dsm/detectCycles';
 export { clusterMatrix } from './dsm/cluster';
 

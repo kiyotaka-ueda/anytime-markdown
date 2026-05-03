@@ -1,5 +1,5 @@
 import type { C4Element, C4ElementType, C4Model, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DsmMatrix, DsmNode, FeatureMatrix } from '@anytime-markdown/trail-core/c4';
-import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, computeCommunityOverlay, mapFilesToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
+import { aggregateDsmToC4CodeLevel, aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, computeCommunityOverlay, mapFilesToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
 import type { CellAlign, HeaderSpan } from '@anytime-markdown/spreadsheet-core';
 import { SpreadsheetGrid, createInMemorySheetAdapter, spreadsheetViewerEnMessages } from '@anytime-markdown/spreadsheet-viewer';
 import Box from '@mui/material/Box';
@@ -239,10 +239,11 @@ export function MatrixPanel({
 
   const filteredDsmMatrix = useMemo(() => {
     if (!dsmMatrix) return null;
-    if (dsmLevel === 'code' || !c4Model) return sortDsmMatrixByName(dsmMatrix);
-    const m = dsmLevel === 'package'
-      ? aggregateDsmToC4ContainerLevel(dsmMatrix, c4Model.elements)
-      : aggregateDsmToC4ComponentLevel(dsmMatrix, c4Model.elements);
+    if (!c4Model) return sortDsmMatrixByName(dsmMatrix);
+    const m =
+      dsmLevel === 'package' ? aggregateDsmToC4ContainerLevel(dsmMatrix, c4Model.elements) :
+      dsmLevel === 'code'    ? aggregateDsmToC4CodeLevel(dsmMatrix, c4Model.elements) :
+                               aggregateDsmToC4ComponentLevel(dsmMatrix, c4Model.elements);
     return sortDsmMatrixByName(m);
   }, [dsmMatrix, dsmLevel, c4Model]);
 
