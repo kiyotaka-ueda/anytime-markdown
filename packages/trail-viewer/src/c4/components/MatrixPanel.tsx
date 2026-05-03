@@ -1,4 +1,4 @@
-import type { C4Element, C4ElementType, C4Model, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DsmMatrix, DsmNode, FeatureMatrix } from '@anytime-markdown/trail-core/c4';
+import type { C4Element, C4ElementType, C4Model, ComplexityMatrix, CoverageMatrix, DsmMatrix, DsmNode } from '@anytime-markdown/trail-core/c4';
 import { aggregateDsmToC4CodeLevel, aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, computeCommunityOverlay, mapFilesToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
 import type { CellAlign, HeaderSpan } from '@anytime-markdown/spreadsheet-core';
 import { SpreadsheetGrid, createInMemorySheetAdapter, spreadsheetViewerEnMessages } from '@anytime-markdown/spreadsheet-viewer';
@@ -35,28 +35,12 @@ function buildDsmPackageSpans(
   nodes: readonly DsmNode[],
   elements: readonly C4Element[],
 ): readonly HeaderSpan[] | null {
-  const elementById = new Map<string, C4Element>();
-  for (const el of elements) elementById.set(el.id, el);
-
-  const spans: HeaderSpan[] = [];
-  let currentLabel = '';
-  let currentSpan = 0;
-
-  for (const node of nodes) {
+  const elementById = new Map(elements.map(el => [el.id, el]));
+  const keys = nodes.map(node => {
     const el = elementById.get(node.id);
-    const pkgEl = el?.boundaryId ? elementById.get(el.boundaryId) : null;
-    const label = pkgEl?.name ?? '';
-
-    if (label === currentLabel) {
-      currentSpan++;
-    } else {
-      if (currentSpan > 0) spans.push({ label: currentLabel, span: currentSpan });
-      currentLabel = label;
-      currentSpan = 1;
-    }
-  }
-  if (currentSpan > 0) spans.push({ label: currentLabel, span: currentSpan });
-
+    return (el?.boundaryId ? elementById.get(el.boundaryId)?.name : undefined) ?? '';
+  });
+  const spans = buildSpansFromKey(keys);
   return spans.length > 1 ? spans : null;
 }
 
@@ -93,20 +77,6 @@ function dsmToSheet(matrix: DsmMatrix) {
   return { cells, alignments: cells.map(r => r.map(() => null)), range: { rows: n + 1, cols: n + 1 } };
 }
 
-function fcmapToSheet(fm: FeatureMatrix, model: C4Model) {
-  const elementMap = new Map(model.elements.map(e => [e.id, e.name]));
-  const colIds = [...new Set(fm.mappings.map(m => m.elementId))];
-  const catMap = new Map(fm.categories.map(c => [c.id, c.name]));
-  const roleLabel = { primary: 'P', secondary: 'S', dependency: 'D' } as const;
-  const cellLookup = new Map(fm.mappings.map(m => [`${m.featureId}:${m.elementId}`, roleLabel[m.role] ?? '']));
-  const headerRow = ['Feature', ...colIds.map(id => elementMap.get(id) ?? id)];
-  const dataRows = fm.features.map(f => [
-    `${catMap.get(f.categoryId) ?? f.categoryId} / ${f.name}`,
-    ...colIds.map(id => cellLookup.get(`${f.id}:${id}`) ?? ''),
-  ]);
-  const cells = [headerRow, ...dataRows];
-  return { cells, alignments: cells.map(r => r.map(() => null)), range: { rows: cells.length, cols: headerRow.length } };
-}
 
 function buildCoverageBreadcrumb(
   elementId: string,
@@ -131,7 +101,6 @@ function coverageToSheet(
   model: C4Model,
   complexityMatrix: ComplexityMatrix | null,
   churnCountMap: ReadonlyMap<string, number> | null,
-  level: 'package' | 'component' | 'code',
 ) {
   const elementById = new Map(model.elements.map(e => [e.id, e]));
   const complexityMap = new Map(complexityMatrix?.entries.map(e => [e.elementId, e.totalCount]) ?? []);
@@ -173,9 +142,7 @@ function makeSheetResult(sheet: { cells: string[][]; alignments: CellAlign[][]; 
 
 export interface MatrixPanelProps {
   readonly dsmMatrix: DsmMatrix | null;
-  readonly featureMatrix: FeatureMatrix | null;
   readonly coverageMatrix: CoverageMatrix | null;
-  readonly coverageDiff: CoverageDiffMatrix | null;
   readonly complexityMatrix?: ComplexityMatrix | null;
   readonly c4Model: C4Model | null;
   readonly serverUrl?: string;
@@ -185,7 +152,6 @@ export interface MatrixPanelProps {
 
 export function MatrixPanel({
   dsmMatrix,
-  featureMatrix,
   coverageMatrix,
   complexityMatrix,
   c4Model,
@@ -195,7 +161,7 @@ export function MatrixPanel({
 }: Readonly<MatrixPanelProps>) {
   const colors = useMemo(() => getC4Colors(isDark), [isDark]);
 
-  const [matrixView, setMatrixView] = useState<'dsm' | 'fcmap' | 'coverage'>('dsm');
+  const [matrixView, setMatrixView] = useState<'dsm' | 'coverage'>('dsm');
   const [level, setLevel] = useState<'package' | 'component' | 'code'>('component');
 
   const { graph: codeGraph } = useCodeGraph(serverUrl ?? '');
@@ -266,20 +232,13 @@ export function MatrixPanel({
     () => filteredDsmMatrix ? makeSheetResult(dsmToSheet(filteredDsmMatrix)) : null,
     [filteredDsmMatrix],
   );
-  const fcmapResult = useMemo(
-    () => featureMatrix && c4Model ? makeSheetResult(fcmapToSheet(featureMatrix, c4Model)) : null,
-    [featureMatrix, c4Model],
-  );
   const coverageResult = useMemo(
     () => filteredCoverageMatrix && c4Model
-      ? makeSheetResult(coverageToSheet(filteredCoverageMatrix, c4Model, complexityMatrix ?? null, churnCountMap, level))
+      ? makeSheetResult(coverageToSheet(filteredCoverageMatrix, c4Model, complexityMatrix ?? null, churnCountMap))
       : null,
-    [filteredCoverageMatrix, c4Model, complexityMatrix, churnCountMap, level],
+    [filteredCoverageMatrix, c4Model, complexityMatrix, churnCountMap],
   );
-  const activeResult =
-    matrixView === 'coverage' ? coverageResult :
-    matrixView === 'fcmap' ? fcmapResult :
-    dsmResult;
+  const activeResult = matrixView === 'coverage' ? coverageResult : dsmResult;
 
   const activeAdapter = activeResult?.adapter ?? null;
   const activeColHeaders = activeResult?.colHeaders;
@@ -372,9 +331,9 @@ export function MatrixPanel({
       {/* Toolbar */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.5, borderBottom: `1px solid ${colors.border}`, flexShrink: 0, flexWrap: 'wrap' }}>
         <ButtonGroup size="small">
-          {(['coverage', 'dsm', 'fcmap'] as const).map((view) => {
-            const label = view === 'dsm' ? 'DSM' : view === 'fcmap' ? 'F-cMap' : 'Metrics';
-            const isDisabled = (view === 'fcmap' && !featureMatrix) || (view === 'coverage' && !coverageMatrix);
+          {(['coverage', 'dsm'] as const).map((view) => {
+            const label = view === 'dsm' ? 'DSM' : 'Metrics';
+            const isDisabled = view === 'coverage' && !coverageMatrix;
             return (
               <Button
                 key={view}
@@ -391,21 +350,19 @@ export function MatrixPanel({
           })}
         </ButtonGroup>
 
-        {(matrixView === 'dsm' || matrixView === 'coverage') && (
-          <ButtonGroup size="small">
-            {(['package', 'component', 'code'] as const).map((lv) => (
-              <Button
-                key={lv}
-                size="small"
-                aria-pressed={level === lv}
-                onClick={() => setLevel(lv)}
-                sx={{ ...toolbarButtonSx, ...(level === lv && { bgcolor: toolbarButtonActiveBg }) }}
-              >
-                {lv === 'package' ? 'L2' : lv === 'component' ? 'L3' : 'L4'}
-              </Button>
-            ))}
-          </ButtonGroup>
-        )}
+        <ButtonGroup size="small">
+          {(['package', 'component', 'code'] as const).map((lv) => (
+            <Button
+              key={lv}
+              size="small"
+              aria-pressed={level === lv}
+              onClick={() => setLevel(lv)}
+              sx={{ ...toolbarButtonSx, ...(level === lv && { bgcolor: toolbarButtonActiveBg }) }}
+            >
+              {lv === 'package' ? 'L2' : lv === 'component' ? 'L3' : 'L4'}
+            </Button>
+          ))}
+        </ButtonGroup>
       </Box>
 
       {/* Sheet */}

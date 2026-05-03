@@ -157,7 +157,6 @@ export function C4ViewerCore({
   featureMatrix,
   dsmMatrix,
   coverageMatrix,
-  coverageDiff,
   complexityMatrix,
   importanceMatrix,
   docLinks,
