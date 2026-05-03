@@ -27,6 +27,9 @@ const extensionConfig = {
     // webpack が「Critical dependency: ... expression」警告を出すため外部化。
     // ランタイムでは extension の dependencies に含まれている typescript を使う。
     typescript: 'commonjs typescript',
+    // pg のオプションネイティブバインディング (pg-native) は未インストール。
+    // pg.native を参照しない限りロードされないため外部化で OK。
+    'pg-native': 'commonjs pg-native',
   },
   resolve: {
     extensions: ['.ts', '.js'],
@@ -60,7 +63,10 @@ const extensionConfig = {
 /** @type WebpackConfig */
 const trailStandaloneConfig = {
   target: 'web',
-  mode: 'development',
+  // ブラウザに WebSocket 経由で配信する Trail Viewer バンドル。React も
+  // production ビルドで配信したいので mode を production に固定する
+  // (extension.js とは別ターゲット)。
+  mode: 'production',
   entry: './src/trail/standalone/index.tsx',
   output: {
     path: path.resolve(__dirname, 'dist'),
@@ -86,8 +92,8 @@ const trailStandaloneConfig = {
     ],
   },
   plugins: [
+    // process.env.NODE_ENV は webpack の mode から自動設定されるため明示不要
     new webpack.DefinePlugin({
-      'process.env.NODE_ENV': JSON.stringify('production'),
       'process.env.NEXT_PUBLIC_SHOW_UNLIMITED': JSON.stringify('1'),
     }),
     new webpack.optimize.LimitChunkCountPlugin({
@@ -95,6 +101,9 @@ const trailStandaloneConfig = {
     }),
     new webpack.NormalModuleReplacementPlugin(/^node:path$/, require.resolve('./src/shims/empty.js')),
   ],
+  // 単発で配信する Trail Viewer バンドル。code splitting の対象ではないため
+  // webpack デフォルトの 244 KiB 閾値による perf hint は無効化する。
+  performance: { hints: false },
   devtool: 'nosources-source-map',
 };
 
