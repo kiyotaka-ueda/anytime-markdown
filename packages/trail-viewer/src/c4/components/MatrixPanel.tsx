@@ -242,7 +242,7 @@ export function MatrixPanel({
             showApply={false}
             showRange={false}
             columnHeaders={activeColHeaders}
-            rotateColumnHeaders
+            rotateColumnHeaders={matrixView === 'dsm'}
             rowHeaders={activeRowHeaders}
             rowHeaderWidth={120}
             gridRows={gridDimensions.rows}
