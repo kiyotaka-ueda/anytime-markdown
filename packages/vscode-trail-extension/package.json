@@ -227,16 +227,6 @@
           ],
           "markdownDescription": "解析対象リポジトリのパスリスト。絶対パスまたは `${workspaceFolder}` を指定する。表示名はパスの末尾フォルダ名が使用される。"
         },
-        "anytimeTrail.test.e2eCommand": {
-          "type": "string",
-          "default": "cd packages/web-app && npm run e2e",
-          "markdownDescription": "Command to run E2E tests (executed in VS Code terminal)."
-        },
-        "anytimeTrail.test.coverageCommand": {
-          "type": "string",
-          "default": "npx jest --coverage --maxWorkers=1",
-          "markdownDescription": "Command to run tests with coverage (executed in VS Code terminal). The generated `coverage-final.json` is auto-detected by the coverage watcher."
-        },
         "anytimeTrail.trailServer.port": {
           "type": "number",
           "default": 19841,

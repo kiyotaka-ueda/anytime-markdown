@@ -328,25 +328,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		openNotePage,
 	);
 
-	// --- コマンド登録 ---
-	context.subscriptions.push(
-		vscode.commands.registerCommand('anytime-trail.runE2eTest', () => {
-			const cmd = vscode.workspace.getConfiguration('anytimeTrail.test').get<string>('e2eCommand', 'cd packages/web-app && npm run e2e');
-			const terminal = vscode.window.createTerminal('E2E Test');
-			terminal.show();
-			terminal.sendText(cmd);
-		}),
-	);
-
-	context.subscriptions.push(
-		vscode.commands.registerCommand('anytime-trail.runCoverageTest', () => {
-			const cmd = vscode.workspace.getConfiguration('anytimeTrail.test').get<string>('coverageCommand', 'npx jest --coverage --maxWorkers=1');
-			const terminal = vscode.window.createTerminal('Coverage Test');
-			terminal.show();
-			terminal.sendText(cmd);
-		}),
-	);
-
 	// Trail Database + Data Server (non-blocking initialization)
 	const dbStoragePathSetting = vscode.workspace.getConfiguration('anytimeTrail.database').get<string>('storagePath', '') || '.vscode';
 	const wsRootForDb = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
