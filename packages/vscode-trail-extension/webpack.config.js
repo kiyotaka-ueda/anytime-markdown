@@ -23,6 +23,10 @@ const extensionConfig = {
     // ws のオプショナルなネイティブ依存を除外（バンドルなしで動作する）
     bufferutil: 'commonjs bufferutil',
     'utf-8-validate': 'commonjs utf-8-validate',
+    // typescript は ProjectAnalyzer が動的 require する。バンドルに含めると
+    // webpack が「Critical dependency: ... expression」警告を出すため外部化。
+    // ランタイムでは extension の dependencies に含まれている typescript を使う。
+    typescript: 'commonjs typescript',
   },
   resolve: {
     extensions: ['.ts', '.js'],

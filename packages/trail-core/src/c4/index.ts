@@ -59,7 +59,6 @@ export { mapFilesToC4Elements, mapFileToC4Elements, buildC4ElementById } from '.
 export type { C4MappingResult } from '../domain/engine/c4Mapper';
 export type { MessageInput } from './metrics/computeComplexityMatrix';
 export { computeComplexityMatrix } from './metrics/computeComplexityMatrix';
-export { computeImportanceMatrix } from './metrics/computeImportanceMatrix';
 export type { ImportanceMatrix } from '../importance/types';
 
 export { mergeManualIntoC4Model } from './mergeManual';
