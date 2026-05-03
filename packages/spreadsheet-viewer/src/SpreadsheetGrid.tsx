@@ -94,6 +94,8 @@ interface SpreadsheetGridProps {
   readonly cellSize?: number;
   /** セルの背景色を返すコールバック。undefined 返却時はデフォルト背景 */
   readonly getCellBackground?: (row: number, col: number, value: string) => string | undefined;
+  /** セルの表示テキストを上書きするコールバック。未指定時はセル値をそのまま表示 */
+  readonly getCellDisplayText?: (row: number, col: number, value: string) => string;
   /** 行ヘッダーセルの背景色を返すコールバック（行インデックス渡し） */
   readonly getRowHeaderBackground?: (rowIndex: number) => string | undefined;
   /** 列ヘッダーセルの背景色を返すコールバック（列インデックス渡し） */
@@ -185,6 +187,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   rotateColumnHeaders = false,
   cellSize,
   getCellBackground,
+  getCellDisplayText,
   getRowHeaderBackground,
   getColumnHeaderBackground,
   showToolbar = true,
@@ -589,7 +592,8 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
           ctx.restore();
         }
 
-        if (!value) continue;
+        const displayValue = getCellDisplayText ? getCellDisplayText(r, c, value ?? '') : value;
+        if (!displayValue) continue;
 
         const cellY = cellTop + rowHeight / 2;
         const colAlign = alignments[r]?.[c] ?? null;
@@ -613,7 +617,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
         if (r === 0) {
           ctx.font = "600 13px -apple-system, BlinkMacSystemFont, sans-serif";
         }
-        ctx.fillText(value, textX, cellY);
+        ctx.fillText(displayValue, textX, cellY);
         if (r === 0) {
           ctx.font = "13px -apple-system, BlinkMacSystemFont, sans-serif";
         }
@@ -946,7 +950,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
 
     ctx.restore();
   }, [
-    alignments, bgColor, borderColor, colGroupHeight, columnHeaderGroups, dataRange, editing, getCellBackground,
+    alignments, bgColor, borderColor, colGroupHeight, columnHeaderGroups, dataRange, editing, getCellBackground, getCellDisplayText,
     getColumnHeaderBackground, getColWidth, getColX, getRowHeaderBackground,
     grid, GRID_COLS, GRID_ROWS, gridRowToVisualIndex, groupColWidth, groupRowHeight, HEADER_HEIGHT, headerBg, headerTextColor,
     hiddenRows, innerHEADER_HEIGHT, innerROW_NUM_WIDTH, previewRange, primaryColor, reorderDrag, rowGroupWidth, rowHeaderGroups,
