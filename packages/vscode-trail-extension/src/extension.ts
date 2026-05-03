@@ -449,6 +449,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 			TrailLogger.info(`C4 analysis [${repoName}]: starting for ${tsconfigPath}`);
 			const startedAt = Date.now();
+			TrailPanel.openViewer(true);
 
 			try {
 				await vscode.window.withProgress(
