@@ -1375,6 +1375,7 @@ export function C4ViewerCore({
                       <Select
                         size="small"
                         fullWidth
+                        disabled={!isCategoryDataAvailable}
                         value={!isCategoryDataAvailable ? '' : overlayCategory === 'fcmap'
                           ? (selectedFcmapFeatureId ?? featureMatrix?.features[0]?.id ?? '')
                           : metricOverlay
@@ -1390,7 +1391,7 @@ export function C4ViewerCore({
                         aria-label="overlay-sub"
                       >
                         {!isCategoryDataAvailable && (
-                          <MenuItem value="" disabled sx={{ fontSize: '0.75rem' }}>-</MenuItem>
+                          <MenuItem value="" sx={{ fontSize: '0.75rem' }}>-</MenuItem>
                         )}
                         {overlayCategory === 'coverage' && isCategoryDataAvailable && [
                           <MenuItem key="lines" value="coverage-lines" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageLines')}</MenuItem>,
