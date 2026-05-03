@@ -90,6 +90,8 @@ interface SpreadsheetGridProps {
   readonly rotateColumnHeaders?: boolean;
   /** セルを正方形にする px（指定時は行高さ・列幅を同値の fixed モードで初期化） */
   readonly cellSize?: number;
+  /** セルの背景色を返すコールバック。undefined 返却時はデフォルト背景 */
+  readonly getCellBackground?: (row: number, col: number, value: string) => string | undefined;
 }
 
 /* ------------------------------------------------------------------ */
@@ -166,6 +168,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   rowHeaderWidth,
   rotateColumnHeaders = false,
   cellSize,
+  getCellBackground,
 }) => {
   const ROW_NUM_WIDTH = rowHeaderWidth ?? DEFAULT_ROW_NUM_WIDTH;
   const HEADER_HEIGHT = rotateColumnHeaders ? 120 : DEFAULT_HEADER_HEIGHT;
@@ -545,12 +548,24 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
       const r = visibleRows[vi];
       for (let c = startCol; c < endCol; c++) {
         const value = grid[r][c];
-        if (!value) continue;
         if (editing?.row === r && editing?.col === c) continue;
 
         const cw = getColWidth(c);
         const cellLeft = getColX(c);
-        const cellY = topOffset + vi * rowHeight + rowHeight / 2;
+        const cellTop = topOffset + vi * rowHeight;
+
+        const cellBg = getCellBackground?.(r, c, value ?? '');
+        if (cellBg) {
+          ctx.save();
+          ctx.fillStyle = cellBg;
+          ctx.fillRect(cellLeft, cellTop, cw, rowHeight);
+          ctx.restore();
+          continue;
+        }
+
+        if (!value) continue;
+
+        const cellY = cellTop + rowHeight / 2;
         const colAlign = alignments[r]?.[c] ?? null;
 
         let textX: number;
@@ -567,7 +582,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
 
         ctx.save();
         ctx.beginPath();
-        ctx.rect(cellLeft, topOffset + vi * rowHeight, cw, rowHeight);
+        ctx.rect(cellLeft, cellTop, cw, rowHeight);
         ctx.clip();
         if (r === 0) {
           ctx.font = "600 13px -apple-system, BlinkMacSystemFont, sans-serif";
@@ -786,7 +801,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
 
     ctx.restore();
   }, [
-    alignments, bgColor, borderColor, dataRange, editing, getColWidth, getColX, grid, GRID_COLS, gridRowToVisualIndex,
+    alignments, bgColor, borderColor, dataRange, editing, getCellBackground, getColWidth, getColX, grid, GRID_COLS, gridRowToVisualIndex,
     headerBg, headerTextColor, hiddenRows, previewRange, primaryColor, reorderDrag, rowHeight, selectedBg,
     selection, showHeaderRow, showRange, textColor, topOffset, totalHeight, totalWidth, visibleRows,
   ]);
@@ -933,6 +948,14 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
       return;
     }
 
+    // コーナー（左上角）クリック → 全セル選択
+    const coords = getCanvasCoords(e);
+    if (coords && coords.x < ROW_NUM_WIDTH && coords.y < HEADER_HEIGHT) {
+      setSelection({ type: "range", startRow: 0, startCol: 0, endRow: dataRange.rows - 1, endCol: dataRange.cols - 1 });
+      setEditing(null);
+      return;
+    }
+
     const col = getHeaderCol(e);
     if (col !== null) {
       const next = handleHeaderColClick(col, e.shiftKey, selection);
@@ -955,7 +978,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
       setSelection(next);
       setEditing(null);
     }
-  }, [getHeaderCol, getRowNum, getGridCoords, setSelection, selection]);
+  }, [getCanvasCoords, getHeaderCol, getRowNum, getGridCoords, setSelection, setEditing, selection, dataRange, ROW_NUM_WIDTH, HEADER_HEIGHT]);
 
   const handleCanvasDoubleClick = useCallback((e: React.MouseEvent) => {
     const cell = getGridCoords(e);

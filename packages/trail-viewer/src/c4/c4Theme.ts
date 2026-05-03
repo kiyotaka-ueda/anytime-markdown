@@ -75,6 +75,34 @@ export function getC4Colors(isDark: boolean): C4ThemeColors {
   return isDark ? DARK : LIGHT;
 }
 
+/** computeColorMap.ts の interpolateDsmColor と同じ: 青(min)→赤(max) */
+function interpolateDsmColor(t: number): string {
+  const r = Math.round(0x15 + (0xc6 - 0x15) * t);
+  const g = Math.round(0x65 + (0x28 - 0x65) * t);
+  const b = Math.round(0xc0 + (0x28 - 0xc0) * t);
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
+/**
+ * DSM セルの背景色を返すコールバックを生成する。
+ * @param colors C4 テーマカラー（対角セルの色に使用）
+ * @param maxValue 行列内の最大依存数（色の正規化に使用）
+ */
+export function getDsmCellBackground(
+  colors: C4ThemeColors,
+  maxValue: number,
+): (row: number, col: number, value: string) => string | undefined {
+  return (row, col, value) => {
+    if (row === col) return colors.diagonal;
+    const v = Number(value);
+    if (v > 0) {
+      const t = maxValue > 0 ? v / maxValue : 1;
+      return interpolateDsmColor(t);
+    }
+    return undefined;
+  };
+}
+
 /** Document type badge colors (theme-independent). */
 export const DOC_TYPE_COLORS: Readonly<Record<string, string>> = {
   spec: '#4FC3F7',

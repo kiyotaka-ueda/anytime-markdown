@@ -8,7 +8,7 @@ import Typography from '@mui/material/Typography';
 import { useMemo, useState } from 'react';
 
 import { useTrailI18n } from '../../i18n';
-import { getC4Colors } from '../c4Theme';
+import { getDsmCellBackground, getC4Colors } from '../c4Theme';
 import { useActivityHeatmap } from '../hooks/useActivityHeatmap';
 
 // ---------------------------------------------------------------------------
@@ -179,6 +179,16 @@ export function MatrixPanel({
     return { rows: snap.range.rows, cols: snap.range.cols };
   }, [activeAdapter]);
 
+  const dsmMaxValue = useMemo(() => {
+    if (!filteredDsmMatrix) return 1;
+    return Math.max(1, ...filteredDsmMatrix.adjacency.map(row => Math.max(0, ...row)));
+  }, [filteredDsmMatrix]);
+
+  const dsmCellBackground = useMemo(
+    () => getDsmCellBackground(colors, dsmMaxValue),
+    [colors, dsmMaxValue],
+  );
+
   const toolbarButtonSx = {
     textTransform: 'none' as const,
     color: colors.accent,
@@ -248,6 +258,7 @@ export function MatrixPanel({
             rowHeaderWidth={120}
             gridRows={gridDimensions.rows}
             gridCols={gridDimensions.cols}
+            getCellBackground={matrixView === 'dsm' ? dsmCellBackground : undefined}
           />
         ) : matrixView === 'heatmap' ? (
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
