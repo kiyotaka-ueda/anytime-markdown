@@ -219,14 +219,14 @@
           "group": "navigation@3"
         },
         {
-          "command": "anytime-trail.c4Analyze",
-          "when": "view == anytimeTrail.c4Elements",
+          "command": "anytime-trail.importTrailData",
+          "when": "view == anytimeTrail.database",
           "group": "navigation@1"
         },
         {
-          "command": "anytime-trail.importTrailData",
+          "command": "anytime-trail.c4Analyze",
           "when": "view == anytimeTrail.database",
-          "group": "navigation"
+          "group": "navigation@2"
         }
       ],
       "view/item/context": [
