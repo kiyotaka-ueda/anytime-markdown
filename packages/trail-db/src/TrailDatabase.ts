@@ -2898,6 +2898,15 @@ export class TrailDatabase {
     return JSON.parse(json) as TrailGraph;
   }
 
+  getCurrentTsconfigPath(repoName?: string): string | null {
+    const db = this.ensureDb();
+    const result = repoName
+      ? db.exec('SELECT tsconfig_path FROM current_graphs WHERE repo_name = ?', [repoName])
+      : db.exec('SELECT tsconfig_path FROM current_graphs LIMIT 1');
+    const val = result[0]?.values?.[0]?.[0];
+    return typeof val === 'string' ? val : null;
+  }
+
   saveReleaseGraph(graph: TrailGraph, tsconfigPath: string, tag: string): void {
     const db = this.ensureDb();
     db.run(
