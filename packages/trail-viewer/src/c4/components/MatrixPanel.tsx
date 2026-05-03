@@ -196,7 +196,7 @@ export function MatrixPanel({
   const colors = useMemo(() => getC4Colors(isDark), [isDark]);
 
   const [matrixView, setMatrixView] = useState<'dsm' | 'fcmap' | 'coverage'>('dsm');
-  const [dsmLevel, setDsmLevel] = useState<'component' | 'package'>('component');
+  const [dsmLevel, setDsmLevel] = useState<'component' | 'package' | 'code'>('component');
   const [covLevel, setCovLevel] = useState<'component' | 'package' | 'code'>('component');
 
   const { graph: codeGraph } = useCodeGraph(serverUrl ?? '');
@@ -239,17 +239,15 @@ export function MatrixPanel({
 
   const filteredDsmMatrix = useMemo(() => {
     if (!dsmMatrix) return null;
-    let m = dsmMatrix;
-    if (c4Model) {
-      m = dsmLevel === 'package'
-        ? aggregateDsmToC4ContainerLevel(dsmMatrix, c4Model.elements)
-        : aggregateDsmToC4ComponentLevel(dsmMatrix, c4Model.elements);
-    }
+    if (dsmLevel === 'code' || !c4Model) return sortDsmMatrixByName(dsmMatrix);
+    const m = dsmLevel === 'package'
+      ? aggregateDsmToC4ContainerLevel(dsmMatrix, c4Model.elements)
+      : aggregateDsmToC4ComponentLevel(dsmMatrix, c4Model.elements);
     return sortDsmMatrixByName(m);
   }, [dsmMatrix, dsmLevel, c4Model]);
 
   const dsmPackageSpans = useMemo(() => {
-    if (dsmLevel !== 'component' || !filteredDsmMatrix || !c4Model) return null;
+    if (dsmLevel === 'package' || !filteredDsmMatrix || !c4Model) return null;
     return buildDsmPackageSpans(filteredDsmMatrix.nodes, c4Model.elements);
   }, [dsmLevel, filteredDsmMatrix, c4Model]);
 
@@ -395,7 +393,7 @@ export function MatrixPanel({
 
         {matrixView === 'dsm' && (
           <ButtonGroup size="small">
-            {(['package', 'component'] as const).map((level) => (
+            {(['package', 'component', 'code'] as const).map((level) => (
               <Button
                 key={level}
                 size="small"
@@ -403,7 +401,7 @@ export function MatrixPanel({
                 onClick={() => setDsmLevel(level)}
                 sx={{ ...toolbarButtonSx, ...(dsmLevel === level && { bgcolor: toolbarButtonActiveBg }) }}
               >
-                {level === 'package' ? 'L2' : 'L3'}
+                {level === 'package' ? 'L2' : level === 'component' ? 'L3' : 'L4'}
               </Button>
             ))}
           </ButtonGroup>
@@ -441,7 +439,12 @@ export function MatrixPanel({
             rotateColumnHeaders={matrixView === 'dsm'}
             cellSize={matrixView === 'dsm' ? 28 : undefined}
             rowHeaders={activeRowHeaders}
-            rowHeaderWidth={120}
+            rowHeaderWidth={
+              matrixView === 'dsm' && dsmLevel === 'code' ? 240 :
+              matrixView === 'coverage' && covLevel === 'code' ? 280 :
+              matrixView === 'coverage' && covLevel === 'component' ? 200 :
+              120
+            }
             columnHeaderGroups={matrixView === 'dsm' && dsmPackageSpans ? [dsmPackageSpans] : undefined}
             rowHeaderGroups={
               matrixView === 'dsm' && dsmPackageSpans ? [dsmPackageSpans] :
