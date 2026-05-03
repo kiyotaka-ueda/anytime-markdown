@@ -3001,9 +3001,15 @@ export class TrailDatabase {
     }));
   }
 
-  getAllCurrentCodeGraphCommunityRaws(): Array<{ repo_name: string; community_id: number; label: string; name: string; summary: string; generated_at: string; updated_at: string }> {
+  getAllCurrentCodeGraphCommunityRaws(): Array<{ repo_name: string; community_id: number; label: string; name: string; summary: string; mappings_json: string | null; generated_at: string; updated_at: string }> {
     const db = this.ensureDb();
-    const result = db.exec('SELECT repo_name, community_id, label, name, summary, generated_at, updated_at FROM current_code_graph_communities');
+    const cols = db.exec('PRAGMA table_info(current_code_graph_communities)');
+    const colNames = (cols[0]?.values ?? []).map((r) => String(r[1]));
+    const hasMappings = colNames.includes('mappings_json');
+    const select = hasMappings
+      ? 'SELECT repo_name, community_id, label, name, summary, mappings_json, generated_at, updated_at FROM current_code_graph_communities'
+      : 'SELECT repo_name, community_id, label, name, summary, generated_at, updated_at FROM current_code_graph_communities';
+    const result = db.exec(select);
     const values = result[0]?.values ?? [];
     return values.map((r) => ({
       repo_name: String(r[0] ?? ''),
@@ -3011,8 +3017,9 @@ export class TrailDatabase {
       label: String(r[2] ?? ''),
       name: String(r[3] ?? ''),
       summary: String(r[4] ?? ''),
-      generated_at: String(r[5] ?? ''),
-      updated_at: String(r[6] ?? ''),
+      mappings_json: hasMappings ? (r[5] == null ? null : String(r[5])) : null,
+      generated_at: String(r[hasMappings ? 6 : 5] ?? ''),
+      updated_at: String(r[hasMappings ? 7 : 6] ?? ''),
     }));
   }
 
