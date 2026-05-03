@@ -841,6 +841,17 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
       }
     }
 
+    // 列ヘッダー縦の境界線
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    for (let c = startCol; c <= endCol; c++) {
+      const x = getColX(c);
+      ctx.moveTo(x, colHeaderY);
+      ctx.lineTo(x, colHeaderY + innerHEADER_HEIGHT);
+    }
+    ctx.stroke();
+
     // コーナーセル（左上）
     ctx.fillStyle = headerBg;
     ctx.fillRect(scrollLeft, scrollTop, ROW_NUM_WIDTH, HEADER_HEIGHT);
