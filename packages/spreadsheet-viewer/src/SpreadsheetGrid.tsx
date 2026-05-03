@@ -94,6 +94,10 @@ interface SpreadsheetGridProps {
   readonly cellSize?: number;
   /** セルの背景色を返すコールバック。undefined 返却時はデフォルト背景 */
   readonly getCellBackground?: (row: number, col: number, value: string) => string | undefined;
+  /** 行ヘッダーセルの背景色を返すコールバック（行インデックス渡し） */
+  readonly getRowHeaderBackground?: (rowIndex: number) => string | undefined;
+  /** 列ヘッダーセルの背景色を返すコールバック（列インデックス渡し） */
+  readonly getColumnHeaderBackground?: (colIndex: number) => string | undefined;
   /** 配置・フィルター等のツールバーを表示するか（デフォルト: true） */
   readonly showToolbar?: boolean;
   /** 列グループヘッダー（複数行対応）。列ヘッダーの上に描画される */
@@ -181,6 +185,8 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   rotateColumnHeaders = false,
   cellSize,
   getCellBackground,
+  getRowHeaderBackground,
+  getColumnHeaderBackground,
   showToolbar = true,
   columnHeaderGroups,
   rowHeaderGroups,
@@ -741,6 +747,14 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
       const x = scrollLeft + rowGroupWidth + innerROW_NUM_WIDTH / 2;
       const y = topOffset + vi * rowHeight + rowHeight / 2;
 
+      const rowHeaderBg = getRowHeaderBackground?.(r);
+      if (rowHeaderBg) {
+        ctx.save();
+        ctx.fillStyle = rowHeaderBg + '55';
+        ctx.fillRect(scrollLeft + rowGroupWidth, topOffset + vi * rowHeight, innerROW_NUM_WIDTH, rowHeight);
+        ctx.restore();
+      }
+
       if (selection?.type === "row" &&
           r >= Math.min(selection.start, selection.end) &&
           r <= Math.max(selection.start, selection.end)) {
@@ -818,6 +832,14 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
       const cx = getColX(c);
       const x = cx + cw / 2;
       const y = colHeaderY + innerHEADER_HEIGHT / 2;
+
+      const colHeaderBg = getColumnHeaderBackground?.(c);
+      if (colHeaderBg) {
+        ctx.save();
+        ctx.fillStyle = colHeaderBg + '55';
+        ctx.fillRect(cx, colHeaderY, cw, innerHEADER_HEIGHT);
+        ctx.restore();
+      }
 
       if (selection?.type === "col" &&
           c >= Math.min(selection.start, selection.end) &&
@@ -925,7 +947,8 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
 
     ctx.restore();
   }, [
-    alignments, bgColor, borderColor, colGroupHeight, columnHeaderGroups, dataRange, editing, getCellBackground, getColWidth, getColX,
+    alignments, bgColor, borderColor, colGroupHeight, columnHeaderGroups, dataRange, editing, getCellBackground,
+    getColumnHeaderBackground, getColWidth, getColX, getRowHeaderBackground,
     grid, GRID_COLS, GRID_ROWS, gridRowToVisualIndex, groupColWidth, groupRowHeight, HEADER_HEIGHT, headerBg, headerTextColor,
     hiddenRows, innerHEADER_HEIGHT, innerROW_NUM_WIDTH, previewRange, primaryColor, reorderDrag, rowGroupWidth, rowHeaderGroups,
     rowHeight, ROW_NUM_WIDTH, selectedBg, selection, showHeaderRow, showRange, textColor, topOffset, totalHeight, totalWidth, visibleRows,

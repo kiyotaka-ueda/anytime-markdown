@@ -1,5 +1,5 @@
 import type { C4Element, C4Model, CoverageDiffMatrix, CoverageMatrix, DsmMatrix, DsmNode, FeatureMatrix, HeatmapMatrix } from '@anytime-markdown/trail-core/c4';
-import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
+import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, computeCommunityOverlay, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
 import type { HeaderSpan } from '@anytime-markdown/spreadsheet-core';
 import { SpreadsheetGrid, createInMemorySheetAdapter, spreadsheetViewerEnMessages } from '@anytime-markdown/spreadsheet-viewer';
 import Box from '@mui/material/Box';
@@ -11,6 +11,8 @@ import { useMemo, useState } from 'react';
 import { useTrailI18n } from '../../i18n';
 import { getDsmCellBackground, getC4Colors } from '../c4Theme';
 import { useActivityHeatmap } from '../hooks/useActivityHeatmap';
+import { useCodeGraph } from '../../hooks/useCodeGraph';
+import { communityColor } from '../../components/communityColors';
 
 // ---------------------------------------------------------------------------
 // Package group helpers
@@ -154,6 +156,8 @@ export function MatrixPanel({
   const [matrixView, setMatrixView] = useState<'dsm' | 'fcmap' | 'coverage' | 'heatmap'>('dsm');
   const [dsmLevel, setDsmLevel] = useState<'component' | 'package'>('component');
 
+  const { graph: codeGraph } = useCodeGraph(serverUrl ?? '');
+
   const heatmapEnabled = matrixView === 'heatmap';
   const { data: heatmapResponse } = useActivityHeatmap({
     enabled: heatmapEnabled,
@@ -188,6 +192,17 @@ export function MatrixPanel({
     if (dsmLevel !== 'component' || !filteredDsmMatrix || !c4Model) return null;
     return buildDsmPackageSpans(filteredDsmMatrix.nodes, c4Model.elements);
   }, [dsmLevel, filteredDsmMatrix, c4Model]);
+
+  const dsmNodeColorMap = useMemo(() => {
+    if (!codeGraph || !c4Model || !filteredDsmMatrix) return null;
+    const overlay = computeCommunityOverlay(c4Model, codeGraph, 3, selectedRepo ?? null);
+    if (!overlay || overlay.size === 0) return null;
+    const map = new Map<string, string>();
+    for (const [elementId, entry] of overlay) {
+      map.set(elementId, communityColor(entry.dominantCommunity));
+    }
+    return map;
+  }, [codeGraph, c4Model, filteredDsmMatrix, selectedRepo]);
 
   const dsmResult = useMemo(
     () => filteredDsmMatrix ? makeSheetResult(dsmToSheet(filteredDsmMatrix)) : null,
@@ -231,6 +246,18 @@ export function MatrixPanel({
     () => getDsmCellBackground(colors, dsmMaxValue),
     [colors, dsmMaxValue],
   );
+
+  const dsmRowHeaderBackground = useMemo(() => {
+    if (!dsmNodeColorMap || !filteredDsmMatrix) return undefined;
+    const nodes = filteredDsmMatrix.nodes;
+    return (rowIndex: number) => dsmNodeColorMap.get(nodes[rowIndex]?.id ?? '');
+  }, [dsmNodeColorMap, filteredDsmMatrix]);
+
+  const dsmColHeaderBackground = useMemo(() => {
+    if (!dsmNodeColorMap || !filteredDsmMatrix) return undefined;
+    const nodes = filteredDsmMatrix.nodes;
+    return (colIndex: number) => dsmNodeColorMap.get(nodes[colIndex]?.id ?? '');
+  }, [dsmNodeColorMap, filteredDsmMatrix]);
 
   const toolbarButtonSx = {
     textTransform: 'none' as const,
@@ -305,6 +332,8 @@ export function MatrixPanel({
             gridRows={gridDimensions.rows}
             gridCols={gridDimensions.cols}
             getCellBackground={matrixView === 'dsm' ? dsmCellBackground : undefined}
+            getRowHeaderBackground={matrixView === 'dsm' ? dsmRowHeaderBackground : undefined}
+            getColumnHeaderBackground={matrixView === 'dsm' ? dsmColHeaderBackground : undefined}
           />
         ) : matrixView === 'heatmap' ? (
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
