@@ -376,7 +376,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	// ここで呼ぶと DB 未初期化のまま ensureDb() が throw → null が返るため。
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('anytime-trail.c4Analyze', async () => {
+		vscode.commands.registerCommand('anytime-trail.analyzeCurrentCode', async () => {
 			const analysisRoot = getEffectiveWorkspacePath();
 			if (!analysisRoot) {
 				vscode.window.showErrorMessage('解析対象のワークスペースが指定されていません。anytimeTrail.workspacePath を設定するか、ワークスペースを開いてください。');
@@ -680,7 +680,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('anytime-trail.importTrailData', async () => {
+		vscode.commands.registerCommand('anytime-trail.analyzeAll', async () => {
 			const repoName = vscode.workspace.workspaceFolders?.[0]?.name ?? '(no workspace)';
 			if (!trailDb) {
 				TrailLogger.error(`Trail import [${repoName}] skipped: trailDb is null (not initialized)`);

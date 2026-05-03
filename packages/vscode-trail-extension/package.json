@@ -110,14 +110,14 @@
         "icon": "$(discard)"
       },
       {
-        "command": "anytime-trail.importTrailData",
-        "title": "Refresh Trail Data",
+        "command": "anytime-trail.analyzeAll",
+        "title": "%command.analyzeAll%",
         "category": "Anytime Trail",
         "icon": "$(refresh)"
       },
       {
-        "command": "anytime-trail.c4Analyze",
-        "title": "%command.c4Analyze%",
+        "command": "anytime-trail.analyzeCurrentCode",
+        "title": "%command.analyzeCurrentCode%",
         "category": "Anytime Trail",
         "icon": "$(symbol-class)"
       },
@@ -176,12 +176,12 @@
           "group": "navigation@3"
         },
         {
-          "command": "anytime-trail.importTrailData",
+          "command": "anytime-trail.analyzeAll",
           "when": "view == anytimeTrail.database",
           "group": "navigation@1"
         },
         {
-          "command": "anytime-trail.c4Analyze",
+          "command": "anytime-trail.analyzeCurrentCode",
           "when": "view == anytimeTrail.database",
           "group": "navigation@2"
         }
