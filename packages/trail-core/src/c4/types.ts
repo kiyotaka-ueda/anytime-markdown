@@ -181,7 +181,8 @@ export type MetricOverlay =
   | 'importance'
   | 'defect-risk'
   | 'hotspot-frequency'
-  | 'hotspot-risk';
+  | 'hotspot-risk'
+  | 'fcmap';
 
 /** 複雑度分類（classifyByFeatures の label に対応） */
 export type ComplexityClass =

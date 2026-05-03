@@ -263,6 +263,7 @@ export function C4ViewerCore({
   const [showCoverage, setShowCoverage] = useState(false);
   const [showAncestorEdges, setShowAncestorEdges] = useState(true);
   const [metricOverlay, setMetricOverlay] = useState<MetricOverlay>('none');
+  const [selectedFcmapFeatureId, setSelectedFcmapFeatureId] = useState<string | null>(null);
   const [drWindowDays, setDrWindowDays] = useState(90);
   const [tcValue, setTcValue] = useState<TemporalCouplingControlsValue>(DEFAULT_TC_VALUE);
   const [hotspotValue, setHotspotValue] = useState<HotspotControlsValue>({
@@ -731,6 +732,24 @@ export function C4ViewerCore({
     [metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap],
   );
 
+  // F-cMap overlay: 選択フィーチャーの P/S/D ロールをノード色として返す
+  const fcmapColorMap = useMemo<ReadonlyMap<string, string>>(() => {
+    if (metricOverlay !== 'fcmap' || !featureMatrix || !selectedFcmapFeatureId) return new Map();
+    const ROLE_COLORS: Record<string, string> = { primary: '#e53935', secondary: '#1e88e5', dependency: '#fb8c00' };
+    const map = new Map<string, string>();
+    for (const m of featureMatrix.mappings) {
+      if (m.featureId === selectedFcmapFeatureId) {
+        map.set(m.elementId, ROLE_COLORS[m.role] ?? '#616161');
+      }
+    }
+    return map;
+  }, [metricOverlay, featureMatrix, selectedFcmapFeatureId]);
+
+  const effectiveOverlayMap = useMemo(
+    () => (metricOverlay === 'fcmap' ? fcmapColorMap : overlayMap),
+    [metricOverlay, fcmapColorMap, overlayMap],
+  );
+
   // Community overlay: L3/L4 のみ。トグル ON かつ codeGraph が取得済みのときのみ計算する
   const communityOverlay = useMemo<ReadonlyMap<string, CommunityOverlayEntry> | null>(() => {
     if (!showCommunity || !codeGraph || !c4Model) return null;
@@ -1136,7 +1155,7 @@ export function C4ViewerCore({
                 canvasRef={canvasRef}
                 selectedNodeId={selectedElementId ? (state.document.nodes.find(n => n.metadata?.c4Id === selectedElementId)?.id ?? null) : null}
                 centerOnSelect={centerOnSelect}
-                overlayMap={overlayMap.size > 0 ? overlayMap : null}
+                overlayMap={effectiveOverlayMap.size > 0 ? effectiveOverlayMap : null}
                 claudeActivityMap={claudeActivityMapWithConflicts}
                 communityMap={communityMap}
                 ghostEdges={
@@ -1362,8 +1381,31 @@ export function C4ViewerCore({
                       </ListSubheader>
                       <MenuItem value="hotspot-frequency" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotFrequency')}</MenuItem>
                       <MenuItem value="hotspot-risk" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotRisk')}</MenuItem>
+                      <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
+                        F-cMap
+                      </ListSubheader>
+                      <MenuItem value="fcmap" disabled={!featureMatrix} sx={{ fontSize: '0.75rem' }}>F-cMap</MenuItem>
                     </Select>
                   </Box>
+                  {metricOverlay === 'fcmap' && featureMatrix && (
+                    <Box>
+                      <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', mb: 0.5 }}>
+                        フィーチャー
+                      </Typography>
+                      <Select
+                        size="small"
+                        fullWidth
+                        value={selectedFcmapFeatureId ?? featureMatrix.features[0]?.id ?? ''}
+                        onChange={(e) => { setSelectedFcmapFeatureId(e.target.value); }}
+                        sx={{ fontSize: '0.75rem', height: 28, '.MuiSelect-select': { py: 0, px: 1 } }}
+                        aria-label="フィーチャー選択"
+                      >
+                        {featureMatrix.features.map((f) => (
+                          <MenuItem key={f.id} value={f.id} sx={{ fontSize: '0.75rem' }}>{f.name}</MenuItem>
+                        ))}
+                      </Select>
+                    </Box>
+                  )}
                   <OverlayLegend
                     overlay={metricOverlay}
                     isDark={isDark}

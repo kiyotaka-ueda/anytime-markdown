@@ -91,6 +91,14 @@ export function OverlayLegend({ overlay, isDark, dsmMax, communityLegend, commun
         <Swatch color="#2e7d32" label="< 0.35" />
       </>
     );
+  } else if (overlay === 'fcmap') {
+    metricItems = (
+      <>
+        <Swatch color="#e53935" label="Primary" />
+        <Swatch color="#1e88e5" label="Secondary" />
+        <Swatch color="#fb8c00" label="Dependency" />
+      </>
+    );
   }
 
   const positionSx = inline
