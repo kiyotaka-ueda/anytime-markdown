@@ -92,6 +92,24 @@ function fcmapToSheet(fm: FeatureMatrix, model: C4Model) {
   return { cells, alignments: cells.map(r => r.map(() => null)), range: { rows: cells.length, cols: headerRow.length } };
 }
 
+function buildCoverageBreadcrumb(
+  elementId: string,
+  covLevel: 'package' | 'component' | 'code',
+  elementById: ReadonlyMap<string, C4Element>,
+): string {
+  const el = elementById.get(elementId);
+  if (!el) return elementId;
+  if (covLevel === 'package') return el.name;
+  if (covLevel === 'component') {
+    const container = el.boundaryId ? elementById.get(el.boundaryId) : null;
+    return container ? `${container.name} / ${el.name}` : el.name;
+  }
+  // code
+  const component = el.boundaryId ? elementById.get(el.boundaryId) : null;
+  const container = component?.boundaryId ? elementById.get(component.boundaryId) : null;
+  return [container?.name, component?.name, el.name].filter(Boolean).join(' / ');
+}
+
 function coverageToSheet(
   matrix: CoverageMatrix,
   model: C4Model,
@@ -99,8 +117,9 @@ function coverageToSheet(
   defectCountMap: ReadonlyMap<string, number> | null,
   defectRiskScoreMap: ReadonlyMap<string, number> | null,
   churnCountMap: ReadonlyMap<string, number> | null,
+  covLevel: 'package' | 'component' | 'code',
 ) {
-  const elementMap = new Map(model.elements.map(e => [e.id, e.name]));
+  const elementById = new Map(model.elements.map(e => [e.id, e]));
   const complexityMap = new Map(complexityMatrix?.entries.map(e => [e.elementId, e.totalCount]) ?? []);
   const headerRow = ['Component', 'Lines%', 'Branches%', 'Functions%', 'Complexity', 'Defects', 'Risk', 'LOC', 'Commits'];
   const dataRows = matrix.entries.map(e => {
@@ -109,7 +128,7 @@ function coverageToSheet(
     const risk = defectRiskScoreMap?.get(e.elementId);
     const commits = churnCountMap?.get(e.elementId);
     return [
-      elementMap.get(e.elementId) ?? e.elementId,
+      buildCoverageBreadcrumb(e.elementId, covLevel, elementById),
       String(Math.round(e.lines.pct * 10) / 10),
       String(Math.round(e.branches.pct * 10) / 10),
       String(Math.round(e.functions.pct * 10) / 10),
@@ -273,9 +292,9 @@ export function MatrixPanel({
   );
   const coverageResult = useMemo(
     () => filteredCoverageMatrix && c4Model
-      ? makeSheetResult(coverageToSheet(filteredCoverageMatrix, c4Model, complexityMatrix ?? null, defectCountMap, defectRiskScoreMap, churnCountMap))
+      ? makeSheetResult(coverageToSheet(filteredCoverageMatrix, c4Model, complexityMatrix ?? null, defectCountMap, defectRiskScoreMap, churnCountMap, covLevel))
       : null,
-    [filteredCoverageMatrix, c4Model, complexityMatrix, defectCountMap, defectRiskScoreMap, churnCountMap],
+    [filteredCoverageMatrix, c4Model, complexityMatrix, defectCountMap, defectRiskScoreMap, churnCountMap, covLevel],
   );
   const activeResult =
     matrixView === 'coverage' ? coverageResult :
@@ -415,7 +434,11 @@ export function MatrixPanel({
             rotateColumnHeaders={matrixView === 'dsm'}
             cellSize={matrixView === 'dsm' ? 28 : undefined}
             rowHeaders={activeRowHeaders}
-            rowHeaderWidth={120}
+            rowHeaderWidth={
+              matrixView === 'coverage' && covLevel === 'code' ? 280 :
+              matrixView === 'coverage' && covLevel === 'component' ? 200 :
+              120
+            }
             columnHeaderGroups={matrixView === 'dsm' && dsmPackageSpans ? [dsmPackageSpans] : undefined}
             rowHeaderGroups={matrixView === 'dsm' && dsmPackageSpans ? [dsmPackageSpans] : undefined}
             gridRows={gridDimensions.rows}
