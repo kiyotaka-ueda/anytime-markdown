@@ -851,6 +851,12 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
     ctx.lineTo(scrollLeft + ROW_NUM_WIDTH, scrollTop + HEADER_HEIGHT);
     ctx.moveTo(scrollLeft, scrollTop + HEADER_HEIGHT);
     ctx.lineTo(scrollLeft + ROW_NUM_WIDTH, scrollTop + HEADER_HEIGHT);
+    if (columnHeaderGroups && colGroupHeight > 0) {
+      for (let gi = 0; gi < columnHeaderGroups.length; gi++) {
+        ctx.moveTo(scrollLeft, scrollTop + (gi + 1) * groupRowHeight);
+        ctx.lineTo(scrollLeft + ROW_NUM_WIDTH, scrollTop + (gi + 1) * groupRowHeight);
+      }
+    }
     ctx.stroke();
 
     if (selection?.type === "cell") {
