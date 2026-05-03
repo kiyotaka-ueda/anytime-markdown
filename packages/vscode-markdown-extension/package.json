@@ -56,32 +56,6 @@
         "enablement": "activeCustomEditorId == anytimeMarkdown"
       },
       {
-        "command": "anytime-markdown.insertSectionNumbers",
-        "title": "%command.insertSectionNumbers%",
-        "icon": "$(list-ordered)"
-      },
-      {
-        "command": "anytime-markdown.removeSectionNumbers",
-        "title": "%command.removeSectionNumbers%",
-        "icon": "$(list-flat)"
-      },
-      {
-        "command": "anytime-markdown.pasteAsMarkdown",
-        "title": "%command.pasteAsMarkdown%"
-      },
-      {
-        "command": "anytime-markdown.toggleAutoReloadOff",
-        "title": "%command.autoReloadDisable%",
-        "icon": "$(sync)",
-        "enablement": "activeCustomEditorId == anytimeMarkdown"
-      },
-      {
-        "command": "anytime-markdown.toggleAutoReloadOn",
-        "title": "%command.autoReloadEnable%",
-        "icon": "$(sync-ignored)",
-        "enablement": "activeCustomEditorId == anytimeMarkdown"
-      },
-      {
         "command": "anytime-markdown.switchToReview",
         "title": "%command.switchToReview%",
         "icon": "$(eye)",
@@ -197,16 +171,6 @@
       ],
       "editor/title": [
         {
-          "command": "anytime-markdown.toggleAutoReloadOff",
-          "when": "activeCustomEditorId == anytimeMarkdown && anytimeMarkdown.autoReload != false",
-          "group": "navigation@1"
-        },
-        {
-          "command": "anytime-markdown.toggleAutoReloadOn",
-          "when": "activeCustomEditorId == anytimeMarkdown && anytimeMarkdown.autoReload == false",
-          "group": "navigation@1"
-        },
-        {
           "submenu": "anytime-markdown.modeMenu.review",
           "when": "activeCustomEditorId == anytimeMarkdown && anytimeMarkdown.editorMode == review",
           "group": "navigation@2"
@@ -276,15 +240,7 @@
           "group": "navigation@2"
         }
       ]
-    },
-    "keybindings": [
-      {
-        "command": "anytime-markdown.pasteAsMarkdown",
-        "key": "ctrl+shift+v",
-        "mac": "cmd+shift+v",
-        "when": "activeCustomEditorId == anytimeMarkdown"
-      }
-    ]
+    }
   },
   "capabilities": {
     "untrustedWorkspaces": {

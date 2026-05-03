@@ -125,44 +125,6 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	);
 
-	const insertSectionNumbers = vscode.commands.registerCommand(
-		'anytime-markdown.insertSectionNumbers',
-		() => {
-			const p = MarkdownEditorProvider.getInstance();
-			p?.postMessageToActivePanel({ type: 'toggleSectionNumbers', show: true });
-		}
-	);
-
-	const removeSectionNumbers = vscode.commands.registerCommand(
-		'anytime-markdown.removeSectionNumbers',
-		() => {
-			const p = MarkdownEditorProvider.getInstance();
-			p?.postMessageToActivePanel({ type: 'toggleSectionNumbers', show: false });
-		}
-	);
-
-	// Markdown で貼り付け
-	const pasteAsMarkdown = vscode.commands.registerCommand(
-		'anytime-markdown.pasteAsMarkdown', async () => {
-			const p = MarkdownEditorProvider.getInstance();
-			if (!p) return;
-			const text = await vscode.env.clipboard.readText();
-			if (text) {
-				p.postMessageToActivePanel({ type: 'pasteMarkdown', text });
-			}
-		}
-	);
-
-	// 自動再読込トグル（VS Code ツールバー）
-	const toggleAutoReloadOff = vscode.commands.registerCommand(
-		'anytime-markdown.toggleAutoReloadOff',
-		() => { MarkdownEditorProvider.getInstance()?.toggleAutoReload(); }
-	);
-	const toggleAutoReloadOn = vscode.commands.registerCommand(
-		'anytime-markdown.toggleAutoReloadOn',
-		() => { MarkdownEditorProvider.getInstance()?.toggleAutoReload(); }
-	);
-
 	// エディタモード切替（VS Code ツールバー）
 	const switchToReview = vscode.commands.registerCommand(
 		'anytime-markdown.switchToReview',
@@ -198,9 +160,6 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		...statusBarItems,
 		openEditorWithFile, compareCmd, openCompareMode,
-		insertSectionNumbers, removeSectionNumbers,
-		pasteAsMarkdown,
-		toggleAutoReloadOff, toggleAutoReloadOn,
 		switchToReview, switchToWysiwyg, switchToSource,
 		...claudeSubscriptions,
 	);
