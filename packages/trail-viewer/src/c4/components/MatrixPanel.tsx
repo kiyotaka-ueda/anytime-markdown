@@ -15,6 +15,16 @@ import { useCodeGraph } from '../../hooks/useCodeGraph';
 import { communityColor } from '../../components/communityColors';
 
 // ---------------------------------------------------------------------------
+// Coverage heat color (mirrors computeColorMap.ts logic)
+// ---------------------------------------------------------------------------
+
+function coverageHeatColor(pct: number): string {
+  if (pct >= 80) return '#2e7d32';
+  if (pct >= 50) return '#f9a825';
+  return '#c62828';
+}
+
+// ---------------------------------------------------------------------------
 // Package group helpers
 // ---------------------------------------------------------------------------
 
@@ -259,6 +269,23 @@ export function MatrixPanel({
     return (colIndex: number) => dsmNodeColorMap.get(nodes[colIndex]?.id ?? '');
   }, [dsmNodeColorMap, filteredDsmMatrix]);
 
+  // Coverage ビュー: 行ヘッダーにコミュニティ色
+  const coverageRowHeaderBackground = useMemo(() => {
+    if (!dsmNodeColorMap || !coverageMatrix) return undefined;
+    const entries = coverageMatrix.entries;
+    return (rowIndex: number) => dsmNodeColorMap.get(entries[rowIndex]?.elementId ?? '');
+  }, [dsmNodeColorMap, coverageMatrix]);
+
+  // Coverage ビュー: セルを coverage overlay 色（Lines/Branches/Functions 共通の閾値）で塗りつぶし
+  const coverageCellBackground = useMemo(() => {
+    if (!coverageMatrix) return undefined;
+    return (_row: number, _col: number, value: string): string | undefined => {
+      const pct = Number.parseFloat(value);
+      if (Number.isNaN(pct)) return undefined;
+      return coverageHeatColor(pct) + '55';
+    };
+  }, [coverageMatrix]);
+
   const toolbarButtonSx = {
     textTransform: 'none' as const,
     color: colors.accent,
@@ -331,8 +358,16 @@ export function MatrixPanel({
             rowHeaderGroups={matrixView === 'dsm' && dsmPackageSpans ? [dsmPackageSpans] : undefined}
             gridRows={gridDimensions.rows}
             gridCols={gridDimensions.cols}
-            getCellBackground={matrixView === 'dsm' ? dsmCellBackground : undefined}
-            getRowHeaderBackground={matrixView === 'dsm' ? dsmRowHeaderBackground : undefined}
+            getCellBackground={
+              matrixView === 'dsm' ? dsmCellBackground :
+              matrixView === 'coverage' ? coverageCellBackground :
+              undefined
+            }
+            getRowHeaderBackground={
+              matrixView === 'dsm' ? dsmRowHeaderBackground :
+              matrixView === 'coverage' ? coverageRowHeaderBackground :
+              undefined
+            }
             getColumnHeaderBackground={matrixView === 'dsm' ? dsmColHeaderBackground : undefined}
           />
         ) : matrixView === 'heatmap' ? (
