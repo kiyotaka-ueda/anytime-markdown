@@ -30,6 +30,7 @@ export { buildElementTree, filterTreeByLevel } from './view/buildElementTree';
 export { filterTreeBySearch } from './view/filterTreeBySearch';
 export { collectDescendantIds } from './view/collectDescendants';
 export { enrichFeatureMatrixWithComponents } from './featureMatrix';
+export { buildFeatureMatrixFromCommunities, type CommunityRow } from './buildFeatureMatrixFromCommunities';
 
 export type {
   DsmMatrix,

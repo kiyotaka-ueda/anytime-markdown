@@ -285,6 +285,7 @@ CREATE TABLE IF NOT EXISTS trail_current_code_graph_communities (
   label        TEXT    NOT NULL DEFAULT '',
   name         TEXT    NOT NULL DEFAULT '',
   summary      TEXT    NOT NULL DEFAULT '',
+  mappings_json TEXT NULL,
   generated_at TEXT    NOT NULL DEFAULT '',
   updated_at   TEXT    NOT NULL DEFAULT '',
   PRIMARY KEY (repo_name, community_id)

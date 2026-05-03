@@ -30,7 +30,7 @@ describe('useC4GhostEdges', () => {
   it('returns referentially stable result for unchanged inputs', () => {
     const { result, rerender } = renderHook(
       ({ lvl }: { lvl: 1 | 2 | 3 | 4 }) => useC4GhostEdges(edges, c4Model, lvl, null),
-      { initialProps: { lvl: 4 as const } },
+      { initialProps: { lvl: 4 } as { lvl: 1 | 2 | 3 | 4 } },
     );
     const first = result.current;
     rerender({ lvl: 4 });
@@ -40,7 +40,7 @@ describe('useC4GhostEdges', () => {
   it('recomputes when level changes', () => {
     const { result, rerender } = renderHook(
       ({ lvl }: { lvl: 1 | 2 | 3 | 4 }) => useC4GhostEdges(edges, c4Model, lvl, null),
-      { initialProps: { lvl: 4 as const } },
+      { initialProps: { lvl: 4 } as { lvl: 1 | 2 | 3 | 4 } },
     );
     const first = result.current;
     rerender({ lvl: 1 });

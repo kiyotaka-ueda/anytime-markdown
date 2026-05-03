@@ -114,6 +114,7 @@ export interface IRemoteTrailStore {
     label: string;
     name: string;
     summary: string;
+    mappings_json: string | null;
     generated_at: string;
     updated_at: string;
   }[]): Promise<void>;

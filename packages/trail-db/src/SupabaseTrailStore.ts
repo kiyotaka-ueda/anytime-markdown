@@ -399,7 +399,8 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
 
   async upsertCurrentCodeGraphCommunities(rows: readonly {
     repo_name: string; community_id: number; label: string;
-    name: string; summary: string; generated_at: string; updated_at: string;
+    name: string; summary: string; mappings_json: string | null;
+    generated_at: string; updated_at: string;
   }[]): Promise<void> {
     if (rows.length === 0) return;
     const CHUNK = 200;
