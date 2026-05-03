@@ -155,7 +155,6 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
       });
       onMultiNodeSelect?.(allC4Ids);
     },
-    enableSpacePan: true,
   });
 
   // Center on selected node (only when centerOnSelect is true, e.g. tree panel selection)
