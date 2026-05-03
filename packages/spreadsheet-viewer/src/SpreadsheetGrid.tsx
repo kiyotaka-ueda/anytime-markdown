@@ -587,7 +587,6 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
           ctx.fillStyle = cellBg;
           ctx.fillRect(cellLeft, cellTop, cw, rowHeight);
           ctx.restore();
-          continue;
         }
 
         if (!value) continue;
