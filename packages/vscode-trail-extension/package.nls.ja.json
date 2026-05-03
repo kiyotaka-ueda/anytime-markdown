@@ -14,7 +14,6 @@
   "config.claudeStatus.directory": "`claude-code-status.json` の保存ディレクトリ。絶対パスまたはワークスペースルートからの相対パス。空の場合は `.vscode/` を使用します。",
   "command.dsmShow": "Trail: DSMを表示",
   "command.dsmAnalyze": "Trail: 依存関係を解析",
-  "command.aiMemoryRefresh": "Memory を更新",
   "command.openTrailViewer": "Trail ビューアを開く",
   "command.restoreBackup": "Trail DB をバックアップから復元",
   "view.dashboard": "ダッシュボード",

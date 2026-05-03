@@ -58,10 +58,6 @@
         {
           "id": "anytimeTrail.c4Elements",
           "name": "%view.c4Elements%"
-        },
-        {
-          "id": "anytimeTrail.aiMemory",
-          "name": "Memory"
         }
       ]
     },
@@ -180,11 +176,6 @@
         "category": "Anytime Trail"
       },
       {
-        "command": "anytime-trail.aiMemoryRefresh",
-        "title": "%command.aiMemoryRefresh%",
-        "icon": "$(refresh)"
-      },
-      {
         "command": "anytime-trail.generateCodeGraph",
         "title": "Generate Code Graph",
         "category": "Anytime Trail",
@@ -248,11 +239,6 @@
           "when": "view == anytimeTrail.c4Elements",
           "group": "navigation@1"
         },
-        {
-          "command": "anytime-trail.aiMemoryRefresh",
-          "when": "view == anytimeTrail.aiMemory",
-          "group": "navigation"
-        }
       ],
       "view/item/context": [
         {

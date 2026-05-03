@@ -10,7 +10,6 @@ import { registerC4Commands } from './commands/c4Commands';
 import { registerTraceCommands } from './commands/traceCommands';
 import { CodeGraphService } from './graph/CodeGraphService';
 import { synthesizeC4ElementsFromFilesystem } from './graph/synthesizeC4Elements';
-import { AiMemoryItem,AiMemoryProvider } from './providers/AiMemoryProvider';
 import { AiNoteItem,AiNoteProvider } from './providers/AiNoteProvider';
 import { C4TreeProvider } from './providers/C4TreeProvider';
 import { TraceCodeLensProvider } from './providers/TraceCodeLensProvider';
@@ -850,37 +849,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		}),
 	);
 
-	// AI Memory ビュー
-	const sessionsDir = claudeDir ? path.join(claudeDir, 'projects') : '';
-	const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
-	const projectDirName = workspaceRoot.replaceAll('/', '-') || '-';
-	const memoryDir = sessionsDir
-		? path.join(sessionsDir, projectDirName, 'memory')
-		: '';
-
-	const aiMemoryProvider = new AiMemoryProvider(memoryDir);
-	const aiMemoryTreeView = vscode.window.createTreeView('anytimeTrail.aiMemory', {
-		treeDataProvider: aiMemoryProvider,
-	});
-
-	const aiMemoryRefresh = vscode.commands.registerCommand(
-		'anytime-trail.aiMemoryRefresh', () => aiMemoryProvider.refresh(),
-	);
-
-	const openAiMemory = vscode.commands.registerCommand(
-		'anytime-trail.openAiMemory',
-		async (item: AiMemoryItem) => {
-			const uri = vscode.Uri.file(item.filePath);
-			await vscode.commands.executeCommand('vscode.openWith', uri, 'anytimeMarkdown');
-		},
-	);
-
 	context.subscriptions.push(
 		c4ElementsTreeView,
 		databaseTreeView,
-		aiMemoryTreeView,
-		aiMemoryRefresh,
-		openAiMemory,
 	);
 
 	// Trace CodeLens providers

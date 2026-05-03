@@ -14,7 +14,6 @@
   "config.claudeStatus.directory": "Directory where `claude-code-status.json` is stored. Absolute path or relative to workspace root. Defaults to `.vscode/` when empty.",
   "command.dsmShow": "Trail: Show DSM",
   "command.dsmAnalyze": "Trail: Analyze Dependencies",
-  "command.aiMemoryRefresh": "Refresh Memory",
   "command.openTrailViewer": "Open Trail Viewer",
   "command.restoreBackup": "Restore Trail DB from Backup",
   "view.dashboard": "Dashboard",
