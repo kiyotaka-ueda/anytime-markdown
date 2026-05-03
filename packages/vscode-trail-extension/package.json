@@ -121,6 +121,12 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "anytime-trail.c4Analyze",
+        "title": "%command.c4Analyze%",
+        "category": "Anytime Trail",
+        "icon": "$(symbol-class)"
+      },
+      {
         "command": "anytime-trail.generateCodeGraph",
         "title": "Generate Code Graph",
         "category": "Anytime Trail",
@@ -185,7 +191,7 @@
           "group": "navigation@1"
         },
         {
-          "command": "anytime-trail.generateCodeGraph",
+          "command": "anytime-trail.c4Analyze",
           "when": "view == anytimeTrail.database",
           "group": "navigation@2"
         }

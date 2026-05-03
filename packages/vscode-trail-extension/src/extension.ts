@@ -402,6 +402,16 @@ export async function activate(context: vscode.ExtensionContext) {
 	// ここで呼ぶと DB 未初期化のまま ensureDb() が throw → null が返るため。
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('anytime-trail.c4Analyze', async () => {
+			try {
+				await codeGraphService.generate((phase, percent) => trailDataServer?.notifyCodeGraphProgress(phase, percent));
+				trailDataServer?.notifyCodeGraphUpdated();
+				vscode.window.showInformationMessage('Code graph analyzed.');
+			} catch (err) {
+				TrailLogger.error('Failed to analyze code graph', err);
+				vscode.window.showErrorMessage(`Code graph analysis failed: ${(err as Error).message}`);
+			}
+		}),
 		vscode.commands.registerCommand('anytime-trail.generateCodeGraph', async () => {
 			try {
 				await codeGraphService.generate((phase, percent) => trailDataServer?.notifyCodeGraphProgress(phase, percent));
