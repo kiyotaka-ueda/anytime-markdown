@@ -64,37 +64,37 @@
     ],
     "commands": [
       {
-        "command": "anytime-trail.openContext",
-        "title": "%command.openContext%",
+        "command": "anytime-trail.openAiNote",
+        "title": "%command.openAiNote%",
         "icon": "$(note)"
       },
       {
-        "command": "anytime-trail.openNoteSkill",
-        "title": "%command.openNoteSkill%",
+        "command": "anytime-trail.openAiNoteSkill",
+        "title": "%command.openAiNoteSkill%",
         "icon": "$(book)"
       },
       {
-        "command": "anytime-trail.addNotePage",
-        "title": "%command.addNotePage%",
+        "command": "anytime-trail.addAiNotePage",
+        "title": "%command.addAiNotePage%",
         "icon": "$(add)"
       },
       {
-        "command": "anytime-trail.deleteNotePage",
-        "title": "%command.deleteNotePage%",
+        "command": "anytime-trail.deleteAiNotePage",
+        "title": "%command.deleteAiNotePage%",
         "icon": "$(trash)"
       },
       {
-        "command": "anytime-trail.openNotePage",
-        "title": "%command.openNotePage%"
+        "command": "anytime-trail.openAiNotePage",
+        "title": "%command.openAiNotePage%"
       },
       {
-        "command": "anytime-trail.clearContext",
-        "title": "%command.clearContext%",
+        "command": "anytime-trail.clearAiNote",
+        "title": "%command.clearAiNote%",
         "icon": "$(trash)"
       },
       {
-        "command": "anytime-trail.copyContextPath",
-        "title": "%command.copyContextPath%",
+        "command": "anytime-trail.copyAiNotePath",
+        "title": "%command.copyAiNotePath%",
         "icon": "$(clippy)"
       },
       {
@@ -156,22 +156,22 @@
     "menus": {
       "view/title": [
         {
-          "command": "anytime-trail.openNoteSkill",
+          "command": "anytime-trail.openAiNoteSkill",
           "when": "view == anytimeTrail.aiNote",
           "group": "navigation@1"
         },
         {
-          "command": "anytime-trail.addNotePage",
+          "command": "anytime-trail.addAiNotePage",
           "when": "view == anytimeTrail.aiNote",
           "group": "navigation@2"
         },
         {
-          "command": "anytime-trail.clearContext",
+          "command": "anytime-trail.clearAiNote",
           "when": "view == anytimeTrail.aiNote",
           "group": "navigation@3"
         },
         {
-          "command": "anytime-trail.copyContextPath",
+          "command": "anytime-trail.copyAiNotePath",
           "when": "view == anytimeTrail.aiNote",
           "group": "navigation@3"
         },
@@ -188,7 +188,7 @@
       ],
       "view/item/context": [
         {
-          "command": "anytime-trail.deleteNotePage",
+          "command": "anytime-trail.deleteAiNotePage",
           "when": "view == anytimeTrail.aiNote && viewItem == noteItem",
           "group": "inline"
         }

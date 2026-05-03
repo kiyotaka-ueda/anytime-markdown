@@ -109,8 +109,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	const claudeDir = homeDir ? path.join(homeDir, '.claude') : '';
 	const hasClaudeDir = Boolean(claudeDir) && fs.existsSync(claudeDir);
 
-	const openContext = vscode.commands.registerCommand(
-		'anytime-trail.openContext',
+	const openAiNote = vscode.commands.registerCommand(
+		'anytime-trail.openAiNote',
 		async () => {
 			const dir = noteStorageDir;
 			const filePath = path.join(dir, 'anytime-note-1.md');
@@ -232,8 +232,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	);
 
-	const openNoteSkill = vscode.commands.registerCommand(
-		'anytime-trail.openNoteSkill',
+	const openAiNoteSkill = vscode.commands.registerCommand(
+		'anytime-trail.openAiNoteSkill',
 		async () => {
 			const skillPath = path.join(homeDir, '.claude', 'skills', 'anytime-note', 'SKILL.md');
 			if (!fs.existsSync(skillPath)) {
@@ -244,8 +244,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	);
 
-	const copyContextPath = vscode.commands.registerCommand(
-		'anytime-trail.copyContextPath',
+	const copyAiNotePath = vscode.commands.registerCommand(
+		'anytime-trail.copyAiNotePath',
 		async () => {
 			const filePath = path.join(noteStorageDir, 'anytime-context.md');
 			await vscode.env.clipboard.writeText(filePath);
@@ -253,8 +253,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	);
 
-	const clearContext = vscode.commands.registerCommand(
-		'anytime-trail.clearContext',
+	const clearAiNote = vscode.commands.registerCommand(
+		'anytime-trail.clearAiNote',
 		async () => {
 			const answer = await vscode.window.showWarningMessage(
 				'すべてのノートページと画像を削除しますか？',
@@ -278,8 +278,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	);
 
-	const addNotePage = vscode.commands.registerCommand(
-		'anytime-trail.addNotePage',
+	const addAiNotePage = vscode.commands.registerCommand(
+		'anytime-trail.addAiNotePage',
 		async () => {
 			const dir = noteStorageDir;
 			if (!fs.existsSync(dir)) {
@@ -299,8 +299,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	);
 
-	const deleteNotePage = vscode.commands.registerCommand(
-		'anytime-trail.deleteNotePage',
+	const deleteAiNotePage = vscode.commands.registerCommand(
+		'anytime-trail.deleteAiNotePage',
 		async (item: AiNoteItem) => {
 			const answer = await vscode.window.showWarningMessage(
 				`"${item.label as string}" を削除しますか？`,
@@ -315,8 +315,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	);
 
-	const openNotePage = vscode.commands.registerCommand(
-		'anytime-trail.openNotePage',
+	const openAiNotePage = vscode.commands.registerCommand(
+		'anytime-trail.openAiNotePage',
 		async (filePath: string) => {
 			await openNoteFile(filePath);
 		}
@@ -325,13 +325,13 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		aiNoteTreeView,
 		noteWatcher,
-		openContext,
-		openNoteSkill,
-		copyContextPath,
-		clearContext,
-		addNotePage,
-		deleteNotePage,
-		openNotePage,
+		openAiNote,
+		openAiNoteSkill,
+		copyAiNotePath,
+		clearAiNote,
+		addAiNotePage,
+		deleteAiNotePage,
+		openAiNotePage,
 	);
 
 	// Trail Database + Data Server (non-blocking initialization)
