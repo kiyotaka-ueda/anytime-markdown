@@ -508,7 +508,8 @@ export class TrailDataServer {
       return;
     }
     if (pathname === '/api/c4/coverage' && method === 'GET') {
-      void this.handleC4CoverageEndpoint(res);
+      const repo = parsed.searchParams.get('repo') ?? undefined;
+      void this.handleC4CoverageEndpoint(res, repo);
       return;
     }
     if (pathname === '/api/c4/complexity' && method === 'GET') {
@@ -1430,10 +1431,10 @@ export class TrailDataServer {
     res.end(JSON.stringify({ tree }));
   }
 
-  private async handleC4CoverageEndpoint(res: http.ServerResponse): Promise<void> {
+  private async handleC4CoverageEndpoint(res: http.ServerResponse, repo?: string): Promise<void> {
     try {
       const provider = this.getC4Provider?.();
-      const repoName = this.gitRoot ? path.basename(this.gitRoot) : undefined;
+      const repoName = repo ?? (this.gitRoot ? path.basename(this.gitRoot) : undefined);
       const store = this.trailDb.asC4ModelStore();
       const payload = await fetchC4Model(store, 'current', repoName, provider?.featureMatrix);
       if (!payload) {
@@ -1443,7 +1444,8 @@ export class TrailDataServer {
       }
 
       // DB-based coverage (populated by Trail Import from coverage-summary.json per package)
-      const latestTag = this.trailDb.getReleases()[0]?.tag;
+      const latestTag = this.trailDb.getReleases()
+        .filter((r) => !repoName || r.repo_name === repoName)[0]?.tag;
       if (latestTag) {
         const dbRows = this.trailDb.getCoverageByTag(latestTag);
         if (dbRows.length > 0) {
@@ -1483,8 +1485,11 @@ export class TrailDataServer {
       }
 
       // Fallback 2: scan packages/*/coverage/coverage-final.json
+      // 要求された repo が現在のワークスペースの gitRoot と一致しない場合は、
+      // ローカルのファイルスキャン結果は他リポジトリのデータと混ざるため返さない
       const projectRoot = provider?.projectRoot ?? this.gitRoot;
-      if (!this.gitRoot || !projectRoot) {
+      const workspaceRepoName = this.gitRoot ? path.basename(this.gitRoot) : undefined;
+      if (!this.gitRoot || !projectRoot || (repoName && repoName !== workspaceRepoName)) {
         res.writeHead(200, JSON_HEADERS);
         res.end(JSON.stringify({ coverageMatrix: null, coverageDiff: null }));
         return;
