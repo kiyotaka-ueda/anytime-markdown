@@ -23,10 +23,6 @@ const extensionConfig = {
     // ws のオプショナルなネイティブ依存を除外（バンドルなしで動作する）
     bufferutil: 'commonjs bufferutil',
     'utf-8-validate': 'commonjs utf-8-validate',
-    // typescript は ProjectAnalyzer が動的 require する。バンドルに含めると
-    // webpack が「Critical dependency: ... expression」警告を出すため外部化。
-    // ランタイムでは extension の dependencies に含まれている typescript を使う。
-    typescript: 'commonjs typescript',
     // pg のオプションネイティブバインディング (pg-native) は未インストール。
     // pg.native を参照しない限りロードされないため外部化で OK。
     'pg-native': 'commonjs pg-native',
@@ -34,6 +30,18 @@ const extensionConfig = {
   resolve: {
     extensions: ['.ts', '.js'],
   },
+  // typescript の内部プラグインローダーが動的 require を使うため
+  // 「Critical dependency: the request of a dependency is an expression」警告
+  // が出るが、実害なし (typescript 自身の plugin 機構は使っていない)。
+  // 過去 typescript を externalize して回避していたが VSIX 配布では node_modules
+  // が同梱されないためランタイムで Cannot find module 'typescript' になり拡張が
+  // 起動しない。bundle に含めて警告は ignore する方針に戻す。
+  ignoreWarnings: [
+    {
+      module: /node_modules[\\/]typescript[\\/]lib[\\/]typescript\.js$/,
+      message: /Critical dependency: the request of a dependency is an expression/,
+    },
+  ],
   module: {
     rules: [
       {
