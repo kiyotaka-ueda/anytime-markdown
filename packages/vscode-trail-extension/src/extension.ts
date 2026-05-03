@@ -6,6 +6,7 @@ import * as vscode from 'vscode';
 
 import { registerTraceCommands } from './commands/traceCommands';
 import { CodeGraphService } from './graph/CodeGraphService';
+import { GraphDetector } from './graph/GraphDetector';
 import { AiNoteItem,AiNoteProvider } from './providers/AiNoteProvider';
 import { TraceCodeLensProvider } from './providers/TraceCodeLensProvider';
 import { TraceScriptLensProvider } from './providers/TraceScriptLensProvider';
@@ -25,31 +26,6 @@ const EXCLUDE_PATTERNS: readonly string[] = ['.worktrees', '.vscode-test', '__te
 function getEffectiveWorkspacePath(): string | undefined {
 	const configured = vscode.workspace.getConfiguration('anytimeTrail').get<string>('workspacePath', '').trim();
 	return configured || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-}
-
-function findTsconfigsRecursive(rootDir: string, excludeDirs: readonly string[]): string[] {
-	const results: string[] = [];
-	const excludeSet = new Set<string>([...excludeDirs, 'node_modules']);
-	const stack: string[] = [rootDir];
-	while (stack.length > 0) {
-		const current = stack.pop()!;
-		let entries: fs.Dirent[];
-		try {
-			entries = fs.readdirSync(current, { withFileTypes: true });
-		} catch (err) {
-			TrailLogger.warn(`findTsconfigsRecursive: failed to read ${current}: ${err instanceof Error ? err.message : String(err)}`);
-			continue;
-		}
-		for (const entry of entries) {
-			if (entry.isDirectory()) {
-				if (excludeSet.has(entry.name)) continue;
-				stack.push(path.join(current, entry.name));
-			} else if (entry.isFile() && entry.name === 'tsconfig.json') {
-				results.push(path.join(current, entry.name));
-			}
-		}
-	}
-	return results;
 }
 
 function applyDocsPathConfig(): void {
@@ -406,13 +382,21 @@ export async function activate(context: vscode.ExtensionContext) {
 				vscode.window.showErrorMessage('解析対象のワークスペースが指定されていません。anytimeTrail.workspacePath を設定するか、ワークスペースを開いてください。');
 				return;
 			}
-			if (!fs.existsSync(analysisRoot) || !fs.statSync(analysisRoot).isDirectory()) {
-				vscode.window.showErrorMessage(`anytimeTrail.workspacePath のパスが存在しないかディレクトリではありません: ${analysisRoot}`);
+			let rootStat: fs.Stats;
+			try {
+				rootStat = fs.statSync(analysisRoot);
+			} catch {
+				vscode.window.showErrorMessage(`anytimeTrail.workspacePath のパスが存在しません: ${analysisRoot}`);
 				return;
 			}
-			const repoName = path.basename(analysisRoot) || '(no workspace)';
+			if (!rootStat.isDirectory()) {
+				vscode.window.showErrorMessage(`anytimeTrail.workspacePath はディレクトリではありません: ${analysisRoot}`);
+				return;
+			}
+			const repoName = path.basename(analysisRoot);
 			TrailLogger.info(`C4 analysis [${repoName}]: searching tsconfig.json under ${analysisRoot}`);
-			const tsconfigFiles = findTsconfigsRecursive(analysisRoot, EXCLUDE_PATTERNS)
+			const tsconfigFiles = new GraphDetector(analysisRoot, EXCLUDE_PATTERNS)
+				.detectFilesByName('tsconfig.json')
 				.map(p => ({ fsPath: p, rel: path.relative(analysisRoot, p) }))
 				.sort((a, b) => {
 					const aDepth = a.rel.split(path.sep).length;
@@ -475,7 +459,12 @@ export async function activate(context: vscode.ExtensionContext) {
 						);
 
 						const dbRepoName = path.basename(analysisRoot);
-						const commitId = new ExecFileGitService(analysisRoot).getHeadCommit();
+						let commitId = '';
+						try {
+							commitId = new ExecFileGitService(analysisRoot).getHeadCommit();
+						} catch (err) {
+							TrailLogger.warn(`C4 analysis [${repoName}]: getHeadCommit failed (not a git repo?): ${err instanceof Error ? err.message : String(err)}`);
+						}
 						trailDb?.saveCurrentGraph(graph, tsconfigPath, commitId, dbRepoName);
 						TrailLogger.info(`C4 analysis [${repoName}]: TrailGraph saved to current_graphs (repo=${dbRepoName}, commit=${commitId || 'unknown'})`);
 
