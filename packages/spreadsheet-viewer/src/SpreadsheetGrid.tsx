@@ -37,7 +37,7 @@ import { useSpreadsheetState } from "./hooks/useSpreadsheetState";
 const DEFAULT_COL_WIDTH = 100;
 const DEFAULT_ROW_HEIGHT = 28;
 const DEFAULT_ROW_NUM_WIDTH = 40;
-const HEADER_HEIGHT = 28;
+const DEFAULT_HEADER_HEIGHT = 28;
 const FILTER_ROW_HEIGHT = 28;
 const RESIZE_HANDLE_THRESHOLD = 4;
 const MIN_RESIZE_ROWS = 2;
@@ -86,6 +86,8 @@ interface SpreadsheetGridProps {
   readonly rowHeaders?: readonly string[];
   /** 行ヘッダー列の幅 px（デフォルト: 40） */
   readonly rowHeaderWidth?: number;
+  /** 列ヘッダーのテキストを90°回転して縦表示するか（デフォルト: false） */
+  readonly rotateColumnHeaders?: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -160,8 +162,10 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   columnHeaders,
   rowHeaders,
   rowHeaderWidth,
+  rotateColumnHeaders = false,
 }) => {
   const ROW_NUM_WIDTH = rowHeaderWidth ?? DEFAULT_ROW_NUM_WIDTH;
+  const HEADER_HEIGHT = rotateColumnHeaders ? 120 : DEFAULT_HEADER_HEIGHT;
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -701,7 +705,16 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
         ctx.fillStyle = headerTextColor;
       }
 
-      ctx.fillText(columnHeaders?.[c] ?? columnLabel(c), x, y);
+      if (rotateColumnHeaders && columnHeaders?.[c] != null) {
+        ctx.save();
+        ctx.translate(x, scrollTop + HEADER_HEIGHT - 4);
+        ctx.rotate(-Math.PI / 2);
+        ctx.textAlign = "left";
+        ctx.fillText(columnHeaders[c], 0, 0);
+        ctx.restore();
+      } else {
+        ctx.fillText(columnHeaders?.[c] ?? columnLabel(c), x, y);
+      }
     }
 
     ctx.fillStyle = headerBg;
