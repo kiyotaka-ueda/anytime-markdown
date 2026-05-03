@@ -6,7 +6,7 @@ export interface TrailI18n {
   'viewer.tab.messages': string;
   'viewer.tab.prompts': string;
   'viewer.tab.releases': string;
-  'viewer.tab.c4': string;
+  'viewer.tab.model': string;
   'viewer.tab.matrix': string;
   'viewer.tab.trace': string;
   'viewer.loading': string;

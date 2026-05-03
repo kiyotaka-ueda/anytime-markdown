@@ -213,7 +213,7 @@ function TrailViewerCoreInner({
           <Tab id="trail-tab-1" aria-controls="trail-panel-1" label={t('viewer.tab.messages')} />
           <Tab id="trail-tab-2" aria-controls="trail-panel-2" label={t('viewer.tab.prompts')} />
           <Tab id="trail-tab-3" aria-controls="trail-panel-3" label={t('viewer.tab.releases')} />
-          {c4 && <Tab id="trail-tab-4" aria-controls="trail-panel-4" label={t('viewer.tab.c4')} />}
+          {c4 && <Tab id="trail-tab-4" aria-controls="trail-panel-4" label={t('viewer.tab.model')} />}
           {c4 && <Tab id="trail-tab-5" aria-controls="trail-panel-5" label={t('viewer.tab.matrix')} />}
           {codeGraph && <Tab id="trail-tab-6" aria-controls="trail-panel-6" label="Graph" />}
           {traceFiles && <Tab id="trail-tab-7" aria-controls="trail-panel-7" label={t('viewer.tab.trace')} />}

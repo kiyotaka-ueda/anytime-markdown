@@ -5,7 +5,7 @@ export const ja: TrailI18n = {
   'viewer.tab.messages': 'メッセージ',
   'viewer.tab.prompts': 'プロンプト',
   'viewer.tab.releases': 'リリース',
-  'viewer.tab.c4': 'C4 Model',
+  'viewer.tab.model': 'C4 Model',
   'viewer.tab.matrix': 'Matrix',
   'viewer.tab.trace': 'トレース',
   'viewer.loading': '読み込み中...',
