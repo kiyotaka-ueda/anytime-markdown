@@ -160,22 +160,6 @@
         "icon": "$(refresh)"
       },
       {
-        "command": "anytime-trail.syncToRemote",
-        "title": "Sync to Remote DB",
-        "category": "Anytime Trail",
-        "icon": "$(cloud-upload)"
-      },
-      {
-        "command": "anytime-trail.syncToSupabase",
-        "title": "同期",
-        "category": "Anytime Trail"
-      },
-      {
-        "command": "anytime-trail.reconnectSupabase",
-        "title": "再接続",
-        "category": "Anytime Trail"
-      },
-      {
         "command": "anytime-trail.generateCodeGraph",
         "title": "Generate Code Graph",
         "category": "Anytime Trail",
@@ -260,16 +244,6 @@
           "command": "anytime-trail.importTrailData",
           "when": "view == anytimeTrail.database && viewItem == sqliteDb",
           "group": "inline"
-        },
-        {
-          "command": "anytime-trail.syncToSupabase",
-          "when": "view == anytimeTrail.database && viewItem == supabaseDb",
-          "group": "inline"
-        },
-        {
-          "command": "anytime-trail.reconnectSupabase",
-          "when": "view == anytimeTrail.database && viewItem == supabaseDb",
-          "group": "inline"
         }
       ]
     },
@@ -335,31 +309,6 @@
           "maximum": 500,
           "markdownDescription": "Maximum number of coverage history snapshots to keep."
         },
-        "anytimeTrail.remote.provider": {
-          "type": "string",
-          "enum": [
-            "none",
-            "supabase",
-            "postgres"
-          ],
-          "default": "none",
-          "markdownDescription": "Remote database provider for Trail data sync. `none` disables sync."
-        },
-        "anytimeTrail.remote.supabaseUrl": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "Supabase project URL (e.g. `https://xxx.supabase.co`)"
-        },
-        "anytimeTrail.remote.supabaseAnonKey": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "Supabase anon key for Trail data sync"
-        },
-        "anytimeTrail.remote.postgresUrl": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "PostgreSQL connection string (e.g. `postgres://user:pass@host:5432/db`)"
-        },
         "anytimeTrail.database.storagePath": {
           "type": "string",
           "default": "",
@@ -422,7 +371,6 @@
     "@anytime-markdown/trail-core": "*",
     "@anytime-markdown/trail-db": "*",
     "@anytime-markdown/vscode-common": "*",
-    "@supabase/supabase-js": "2.103.0",
     "graphology": "0.26.0",
     "graphology-communities-louvain": "2.0.2",
     "graphology-layout": "0.6.1",

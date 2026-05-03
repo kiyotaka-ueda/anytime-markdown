@@ -15,8 +15,7 @@ import { C4TreeProvider } from './providers/C4TreeProvider';
 import { TraceCodeLensProvider } from './providers/TraceCodeLensProvider';
 import { TraceScriptLensProvider } from './providers/TraceScriptLensProvider';
 import { TrailDataServer } from './server/TrailDataServer';
-import type { IRemoteTrailStore } from '@anytime-markdown/trail-db';
-import { PostgresTrailStore, SupabaseTrailStore, SyncService, TrailDatabase } from '@anytime-markdown/trail-db';
+import { TrailDatabase } from '@anytime-markdown/trail-db';
 import { DatabaseProvider } from './trail/DatabaseProvider';
 import { TrailPanel } from './trail/TrailPanel';
 import { TrailLogger } from './utils/TrailLogger';
@@ -518,19 +517,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const trailPort = vscode.workspace.getConfiguration('anytimeTrail.trailServer').get<number>('port', 19841);
 
-	// Supabase store（設定が揃っている場合のみ初期化）
-	const remoteConfig = vscode.workspace.getConfiguration('anytimeTrail.remote');
-	let supabaseStore: SupabaseTrailStore | undefined;
-	if (remoteConfig.get<string>('provider', 'none') === 'supabase') {
-		const url = remoteConfig.get<string>('supabaseUrl', '');
-		const key = remoteConfig.get<string>('supabaseAnonKey', '');
-		if (url && key) {
-			supabaseStore = new SupabaseTrailStore(url, key, TrailLogger);
-		}
-	}
-
 	// Database panel
-	const databaseProvider = new DatabaseProvider(trailDb, supabaseStore);
+	const databaseProvider = new DatabaseProvider(trailDb);
 	const databaseTreeView = vscode.window.createTreeView('anytimeTrail.database', {
 		treeDataProvider: databaseProvider,
 	});
@@ -708,119 +696,6 @@ export async function activate(context: vscode.ExtensionContext) {
 				databaseProvider.setImporting(false);
 				databaseProvider.updateSqliteStatus('Import failed');
 				TrailLogger.error(`Trail import [${repoName}] failed`, err);
-			}
-		}),
-	);
-
-	context.subscriptions.push(
-		vscode.commands.registerCommand('anytime-trail.syncToRemote', async () => {
-			if (!trailDb) return;
-			const config = vscode.workspace.getConfiguration('anytimeTrail.remote');
-			const provider = config.get<string>('provider', 'none');
-
-			if (provider === 'none') {
-				vscode.window.showWarningMessage(
-					'Remote sync is disabled. Set anytimeTrail.remote.provider in settings.',
-				);
-				return;
-			}
-
-			let store: IRemoteTrailStore;
-			if (provider === 'supabase') {
-				const url = config.get<string>('supabaseUrl', '');
-				const key = config.get<string>('supabaseAnonKey', '');
-				if (!url || !key) {
-					vscode.window.showWarningMessage('Supabase URL and anon key are required.');
-					return;
-				}
-				store = new SupabaseTrailStore(url, key, TrailLogger);
-			} else if (provider === 'postgres') {
-				const pgUrl = config.get<string>('postgresUrl', '');
-				if (!pgUrl) {
-					vscode.window.showWarningMessage('PostgreSQL connection string is required.');
-					return;
-				}
-				store = new PostgresTrailStore(pgUrl);
-			} else {
-				vscode.window.showWarningMessage(`Unknown provider: ${provider}`);
-				return;
-			}
-
-			const syncService = new SyncService(trailDb, store, TrailLogger);
-			await vscode.window.withProgress(
-				{
-					location: vscode.ProgressLocation.Notification,
-					title: 'Syncing Trail data to remote DB...',
-					cancellable: false,
-				},
-				async (progress) => {
-					const result = await syncService.sync(({ message, increment }) => {
-						progress.report({ message, increment });
-					});
-					vscode.window.showInformationMessage(
-						`Trail sync complete: ${result.synced} synced, ${result.skipped} up-to-date, ${result.errors} errors`,
-					);
-				},
-			);
-		}),
-	);
-
-	// Supabase 同期
-	context.subscriptions.push(
-		vscode.commands.registerCommand('anytime-trail.syncToSupabase', async () => {
-			if (!supabaseStore || !trailDb) {
-				vscode.window.showErrorMessage('Supabase が設定されていません');
-				return;
-			}
-			databaseProvider.setImporting(true);
-			databaseProvider.updateSupabaseStatus('Syncing...');
-			try {
-				const syncService = new SyncService(trailDb, supabaseStore, TrailLogger);
-				await vscode.window.withProgress(
-					{
-						location: vscode.ProgressLocation.Notification,
-						title: 'Trail: Syncing to Supabase',
-						cancellable: false,
-					},
-					async (progress) => {
-						const result = await syncService.sync(({ message, increment }) => {
-							progress.report({ message, increment });
-							TrailLogger.info(`Trail Supabase sync: ${message}`);
-						});
-						databaseProvider.updateSupabaseStatus('Connected', new Date().toISOString());
-						vscode.window.showInformationMessage(
-							`Supabase sync complete: ${result.synced} synced, ${result.skipped} up-to-date, ${result.errors} errors`,
-						);
-					},
-				);
-			} catch (e) {
-				databaseProvider.updateSupabaseStatus('Sync failed');
-				vscode.window.showErrorMessage(`同期エラー: ${e}`);
-			} finally {
-				databaseProvider.setImporting(false);
-			}
-		}),
-	);
-
-	// Supabase 再接続
-	context.subscriptions.push(
-		vscode.commands.registerCommand('anytime-trail.reconnectSupabase', async () => {
-			if (!supabaseStore) {
-				vscode.window.showErrorMessage('Supabase が設定されていません');
-				return;
-			}
-			databaseProvider.updateSupabaseStatus('Connecting...');
-			try {
-				await supabaseStore.close();
-				await supabaseStore.connect();
-				const syncedAt = await supabaseStore.getExistingSyncedAt();
-				const lastSync = syncedAt.size > 0
-					? [...syncedAt.values()].reduce((a, b) => (a > b ? a : b))
-					: null;
-				databaseProvider.updateSupabaseStatus('Connected', lastSync);
-			} catch (e) {
-				databaseProvider.updateSupabaseStatus('Connection failed');
-				vscode.window.showErrorMessage(`再接続エラー: ${e}`);
 			}
 		}),
 	);
