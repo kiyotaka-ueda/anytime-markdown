@@ -16,18 +16,13 @@
     "Visualization"
   ],
   "keywords": [
-    "c4",
     "architecture",
     "trail",
     "dashboard",
     "analysis"
   ],
   "activationEvents": [
-    "onCommand:anytime-trail.c4Analyze",
-    "onCommand:anytime-trail.c4View",
-    "onCommand:anytime-trail.dsmAnalyze",
-    "onView:anytimeTrail.database",
-    "onView:anytimeTrail.c4Elements"
+    "onView:anytimeTrail.database"
   ],
   "icon": "images/anytime-control-256.png",
   "main": "./dist/extension.js",
@@ -54,10 +49,6 @@
         {
           "id": "anytimeTrail.database",
           "name": "%view.database%"
-        },
-        {
-          "id": "anytimeTrail.c4Elements",
-          "name": "%view.c4Elements%"
         }
       ]
     },
@@ -69,11 +60,6 @@
       {
         "view": "anytimeTrail.dashboard",
         "contents": "%viewsWelcome.dashboard%"
-      },
-      {
-        "view": "anytimeTrail.c4Elements",
-        "contents": "%viewsWelcome.c4Elements%",
-        "when": "!anytimeTrail.c4ModelLoaded"
       }
     ],
     "commands": [
@@ -112,33 +98,8 @@
         "icon": "$(clippy)"
       },
       {
-        "command": "anytime-trail.c4Analyze",
-        "title": "%command.c4Analyze%",
-        "icon": "$(symbol-class)"
-      },
-      {
-        "command": "anytime-trail.c4View",
-        "title": "%command.c4View%",
-        "icon": "$(open-preview)"
-      },
-      {
-        "command": "anytime-trail.dsmAnalyze",
-        "title": "%command.dsmAnalyze%",
-        "icon": "$(graph)"
-      },
-      {
         "command": "anytime-trail.loadCoverage",
         "title": "Load Coverage",
-        "icon": "$(beaker)"
-      },
-      {
-        "command": "anytime-trail.runE2eTest",
-        "title": "E2Eテスト実行",
-        "icon": "$(play)"
-      },
-      {
-        "command": "anytime-trail.runCoverageTest",
-        "title": "テスト実行（カバレッジ付き）",
         "icon": "$(beaker)"
       },
       {
@@ -222,11 +183,6 @@
           "command": "anytime-trail.importTrailData",
           "when": "view == anytimeTrail.database",
           "group": "navigation@1"
-        },
-        {
-          "command": "anytime-trail.c4Analyze",
-          "when": "view == anytimeTrail.database",
-          "group": "navigation@2"
         }
       ],
       "view/item/context": [
@@ -234,34 +190,12 @@
           "command": "anytime-trail.deleteNotePage",
           "when": "view == anytimeTrail.aiNote && viewItem == noteItem",
           "group": "inline"
-        },
-        {
-          "command": "anytime-trail.runE2eTest",
-          "when": "view == anytimeTrail.c4Elements && viewItem == c4Level.c1",
-          "group": "1_test@1"
-        },
-        {
-          "command": "anytime-trail.runCoverageTest",
-          "when": "view == anytimeTrail.c4Elements && viewItem == c4Level.c4",
-          "group": "1_test@1"
         }
       ]
     },
     "configuration": {
       "title": "Anytime Trail",
       "properties": {
-        "anytimeTrail.c4.analyzeExcludePatterns": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [
-            ".worktrees",
-            ".vscode-test",
-            "__tests__"
-          ],
-          "markdownDescription": "%config.c4AnalyzeExcludePatterns%"
-        },
         "anytimeTrail.docsPath": {
           "type": "string",
           "default": "",

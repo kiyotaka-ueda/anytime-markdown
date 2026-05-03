@@ -1,17 +1,12 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import { trailToC4 } from '@anytime-markdown/trail-core';
 import { setupClaudeHooks } from '@anytime-markdown/vscode-common';
 import * as vscode from 'vscode';
 
-import { C4Panel } from './c4/C4Panel';
-import { registerC4Commands } from './commands/c4Commands';
 import { registerTraceCommands } from './commands/traceCommands';
 import { CodeGraphService } from './graph/CodeGraphService';
-import { synthesizeC4ElementsFromFilesystem } from './graph/synthesizeC4Elements';
 import { AiNoteItem,AiNoteProvider } from './providers/AiNoteProvider';
-import { C4TreeProvider } from './providers/C4TreeProvider';
 import { TraceCodeLensProvider } from './providers/TraceCodeLensProvider';
 import { TraceScriptLensProvider } from './providers/TraceScriptLensProvider';
 import { TrailDataServer } from './server/TrailDataServer';
@@ -24,18 +19,12 @@ let trailDataServer: TrailDataServer | undefined;
 let trailDb: TrailDatabase | undefined;
 let extensionDistPath = '';
 
-// ---------------------------------------------------------------------------
-//  C4 Data Server helpers
-// ---------------------------------------------------------------------------
-
 function applyDocsPathConfig(): void {
 	const docsPath = vscode.workspace.getConfiguration('anytimeTrail').get<string>('docsPath', '');
 	trailDataServer?.setDocsPath(docsPath || undefined);
 }
 
-function setupC4OnServer(server: TrailDataServer): void {
-	server.setC4Provider(() => C4Panel.getDataProvider());
-	C4Panel.setDataServer(server);
+function setupServerCallbacks(server: TrailDataServer): void {
 	applyDocsPathConfig();
 	server.onOpenDocLink = (docPath) => {
 		const docsDir = vscode.workspace.getConfiguration('anytimeTrail').get<string>('docsPath', '');
@@ -355,20 +344,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		}),
 	);
 
-	registerC4Commands(context, {
-		getDataServer: () => trailDataServer,
-		startServer: async () => {
-			// TrailDataServer は非同期で起動済みのため待機のみ
-			await new Promise((resolve) => setTimeout(resolve, 1000));
-		},
-	});
-
-	// C4 Elements パネル
-	const c4TreeProvider = new C4TreeProvider();
-	const c4ElementsTreeView = vscode.window.createTreeView('anytimeTrail.c4Elements', {
-		treeDataProvider: c4TreeProvider,
-	});
-
 	// Trail Database + Data Server (non-blocking initialization)
 	const dbStoragePathSetting = vscode.workspace.getConfiguration('anytimeTrail.database').get<string>('storagePath', '') || '.vscode';
 	const wsRootForDb = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -385,11 +360,10 @@ export async function activate(context: vscode.ExtensionContext) {
 			);
 		}
 	});
-	C4Panel.setTrailDatabase(trailDb);
 	const gitRoot = wsRootForDb;
 	trailDataServer = new TrailDataServer(extensionDistPath, trailDb, gitRoot);
 	TrailPanel.setDataServer(trailDataServer);
-	setupC4OnServer(trailDataServer);
+	setupServerCallbacks(trailDataServer);
 
 	// Code graph service
 	const codeGraphCfg = vscode.workspace.getConfiguration('anytimeTrail.codeGraph');
@@ -397,9 +371,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		wsRootForDb ? s.replace('${workspaceFolder}', wsRootForDb) : s;
 	const configuredRepoPaths = codeGraphCfg.get<string[]>('repositories', []);
 	const codeGraphAutoRefresh = codeGraphCfg.get<boolean>('autoRefresh', false);
-	const c4ExcludePatterns = vscode.workspace
-		.getConfiguration('anytimeTrail.c4')
-		.get<string[]>('analyzeExcludePatterns', []);
 	// repo.id は trail viewer のサイドパネルに「リポジトリ」として表示されるため、
 	// 数値インデックスではなく label ベースの slug を使う。重複時は index を付与する。
 	const usedRepoIds = new Set<string>();
@@ -424,31 +395,9 @@ export async function activate(context: vscode.ExtensionContext) {
 	});
 	const codeGraphService = new CodeGraphService({
 		repositories: codeGraphRepos,
-		excludePatterns: c4ExcludePatterns,
-		c4ElementsProvider: () => {
-			const trailGraph = C4Panel.getDataProvider()?.trailGraph;
-			if (trailGraph) {
-				try {
-					return trailToC4(trailGraph).elements;
-				} catch (err) {
-					TrailLogger.error('Failed to derive C4 elements from trail graph', err);
-				}
-			}
-			// analyzeWorkspace 未実行時は packages/<pkg>/src/<dir> 構造から合成する。
-			// trail-core 解析と同じ命名規則で elements を作るため、c4-aware 命名が機能する。
-			return synthesizeC4ElementsFromFilesystem(codeGraphRepos);
-		},
-		trailGraphProvider: () => {
-			// Analyze Workspace 既実行時は lastTrailGraph を流用して analyze() の重複呼び出しを避ける。
-			// プライマリリポ（最初の設定）にのみ適用。それ以外は CodeGraphService が個別に analyze() する。
-			const tg = C4Panel.getDataProvider()?.trailGraph;
-			if (!tg || codeGraphRepos.length === 0) return undefined;
-			return { [codeGraphRepos[0].id]: tg };
-		},
 		trailDb: trailDb!,
 	});
 	trailDataServer.setCodeGraphService(codeGraphService);
-	C4Panel.setCodeGraphService(codeGraphService);
 	// loadFromDb() は trailDb.init() 完了後に下の async IIFE 内で呼ぶ。
 	// ここで呼ぶと DB 未初期化のまま ensureDb() が throw → null が返るため。
 
@@ -475,7 +424,8 @@ export async function activate(context: vscode.ExtensionContext) {
 						progress.report({ message: 'Clearing current code graph...' });
 						trailDb!.deleteCurrentCodeGraphs();
 						progress.report({ message: 'Re-analyzing workspace...' });
-						await C4Panel.analyzeWorkspace();
+						await codeGraphService.generate((phase, percent) => trailDataServer?.notifyCodeGraphProgress(phase, percent));
+						trailDataServer?.notifyCodeGraphUpdated();
 						vscode.window.showInformationMessage('Current code graph regenerated.');
 					} catch (err) {
 						TrailLogger.error('Failed to regenerate current code graph', err);
@@ -676,7 +626,7 @@ export async function activate(context: vscode.ExtensionContext) {
 					},
 					async (progress) => {
 						const gitRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-						const excludePatterns = vscode.workspace.getConfiguration('anytimeTrail.c4').get<string[]>('analyzeExcludePatterns', ['.worktrees', '.vscode-test', '__tests__', 'fixtures']);
+						const excludePatterns = ['.worktrees', '.vscode-test', '__tests__', 'fixtures'];
 						return trailDb!.importAll((message, increment) => {
 							progress.report({ message, increment });
 							TrailLogger.info(`Trail import [${repoName}]: ${message}`);
@@ -725,7 +675,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	);
 
 	context.subscriptions.push(
-		c4ElementsTreeView,
 		databaseTreeView,
 	);
 
@@ -767,6 +716,5 @@ export async function activate(context: vscode.ExtensionContext) {
 export function deactivate(): void {
 	trailDataServer?.stop().catch((err) => TrailLogger.error('Failed to stop trail data server', err));
 	trailDb?.close();
-	C4Panel.disposeClaudeWatcher();
 	TrailLogger.dispose();
 }
