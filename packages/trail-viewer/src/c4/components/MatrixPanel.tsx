@@ -10,7 +10,6 @@ import { useMemo, useState } from 'react';
 
 import { getDsmCellBackground, getC4Colors } from '../c4Theme';
 import { useCodeGraph } from '../../hooks/useCodeGraph';
-import { useDefectRisk } from '../hooks/useDefectRisk';
 import { useHotspot } from '../hooks/useHotspot';
 import { communityColor } from '../../components/communityColors';
 
@@ -59,6 +58,23 @@ function buildDsmPackageSpans(
   if (currentSpan > 0) spans.push({ label: currentLabel, span: currentSpan });
 
   return spans.length > 1 ? spans : null;
+}
+
+function buildSpansFromKey(keys: readonly string[]): HeaderSpan[] {
+  const spans: HeaderSpan[] = [];
+  let currentLabel = '';
+  let currentSpan = 0;
+  for (const key of keys) {
+    if (key === currentLabel) {
+      currentSpan++;
+    } else {
+      if (currentSpan > 0) spans.push({ label: currentLabel, span: currentSpan });
+      currentLabel = key;
+      currentSpan = 1;
+    }
+  }
+  if (currentSpan > 0) spans.push({ label: currentLabel, span: currentSpan });
+  return spans;
 }
 
 // ---------------------------------------------------------------------------
@@ -114,34 +130,28 @@ function coverageToSheet(
   matrix: CoverageMatrix,
   model: C4Model,
   complexityMatrix: ComplexityMatrix | null,
-  defectCountMap: ReadonlyMap<string, number> | null,
-  defectRiskScoreMap: ReadonlyMap<string, number> | null,
   churnCountMap: ReadonlyMap<string, number> | null,
   covLevel: 'package' | 'component' | 'code',
 ) {
   const elementById = new Map(model.elements.map(e => [e.id, e]));
   const complexityMap = new Map(complexityMatrix?.entries.map(e => [e.elementId, e.totalCount]) ?? []);
-  const headerRow = ['Component', 'Lines%', 'Branches%', 'Functions%', 'Complexity', 'Defects', 'Risk', 'LOC', 'Commits'];
+  const headerRow = ['Component', 'Lines%', 'Branches%', 'Functions%', 'Complexity', 'LOC', 'Commits'];
   const dataRows = matrix.entries.map(e => {
     const complexity = complexityMap.get(e.elementId);
-    const defects = defectCountMap?.get(e.elementId);
-    const risk = defectRiskScoreMap?.get(e.elementId);
     const commits = churnCountMap?.get(e.elementId);
     return [
-      buildCoverageBreadcrumb(e.elementId, covLevel, elementById),
+      elementById.get(e.elementId)?.name ?? e.elementId,
       String(Math.round(e.lines.pct * 10) / 10),
       String(Math.round(e.branches.pct * 10) / 10),
       String(Math.round(e.functions.pct * 10) / 10),
       complexity != null ? String(complexity) : '',
-      defects != null ? String(defects) : '',
-      risk != null ? String(Math.round(risk * 100) / 100) : '',
       e.lines.total > 0 ? String(e.lines.total) : '',
       commits != null ? String(commits) : '',
     ];
   });
   const cells = [headerRow, ...dataRows];
   const alignments = cells.map(r => r.map((_, ci): CellAlign => ci === 0 ? null : 'right'));
-  return { cells, alignments, range: { rows: cells.length, cols: 9 } };
+  return { cells, alignments, range: { rows: cells.length, cols: 7 } };
 }
 
 const sheetT = (key: string) => (spreadsheetViewerEnMessages.Spreadsheet as Record<string, string>)[key] ?? key;
@@ -191,43 +201,12 @@ export function MatrixPanel({
 
   const { graph: codeGraph } = useCodeGraph(serverUrl ?? '');
 
-  const { entries: drEntries } = useDefectRisk({
-    enabled: !!serverUrl,
-    serverUrl,
-    windowDays: 180,
-    halfLifeDays: 90,
-  });
-
   const { data: hotspotData } = useHotspot({
     enabled: !!serverUrl,
     serverUrl,
     period: '90d',
     granularity: 'commit',
   });
-
-  const defectCountMap = useMemo<ReadonlyMap<string, number> | null>(() => {
-    if (!drEntries.length || !c4Model) return null;
-    const map = new Map<string, number>();
-    for (const entry of drEntries) {
-      const mappings = mapFilesToC4Elements([entry.filePath], c4Model.elements);
-      for (const m of mappings) {
-        map.set(m.elementId, (map.get(m.elementId) ?? 0) + entry.fixCount);
-      }
-    }
-    return map.size > 0 ? map : null;
-  }, [drEntries, c4Model]);
-
-  const defectRiskScoreMap = useMemo<ReadonlyMap<string, number> | null>(() => {
-    if (!drEntries.length || !c4Model) return null;
-    const map = new Map<string, number>();
-    for (const entry of drEntries) {
-      const mappings = mapFilesToC4Elements([entry.filePath], c4Model.elements);
-      for (const m of mappings) {
-        map.set(m.elementId, Math.max(map.get(m.elementId) ?? 0, entry.score));
-      }
-    }
-    return map.size > 0 ? map : null;
-  }, [drEntries, c4Model]);
 
   const churnCountMap = useMemo<ReadonlyMap<string, number> | null>(() => {
     if (!hotspotData?.files.length || !c4Model) return null;
@@ -248,10 +227,13 @@ export function MatrixPanel({
       covLevel === 'code'    ? new Set(['code']) :
                                new Set(['component']);
     const validIds = new Set(c4Model.elements.filter(e => typeFilter.has(e.type)).map(e => e.id));
-    const nameMap = new Map(c4Model.elements.map(e => [e.id, e.name]));
+    const elementById = new Map(c4Model.elements.map(e => [e.id, e]));
     const entries = coverageMatrix.entries
       .filter(e => validIds.has(e.elementId))
-      .sort((a, b) => (nameMap.get(a.elementId) ?? a.elementId).localeCompare(nameMap.get(b.elementId) ?? b.elementId));
+      .sort((a, b) =>
+        buildCoverageBreadcrumb(a.elementId, covLevel, elementById)
+          .localeCompare(buildCoverageBreadcrumb(b.elementId, covLevel, elementById)),
+      );
     return { ...coverageMatrix, entries };
   }, [coverageMatrix, c4Model, covLevel]);
 
@@ -292,9 +274,9 @@ export function MatrixPanel({
   );
   const coverageResult = useMemo(
     () => filteredCoverageMatrix && c4Model
-      ? makeSheetResult(coverageToSheet(filteredCoverageMatrix, c4Model, complexityMatrix ?? null, defectCountMap, defectRiskScoreMap, churnCountMap, covLevel))
+      ? makeSheetResult(coverageToSheet(filteredCoverageMatrix, c4Model, complexityMatrix ?? null, churnCountMap, covLevel))
       : null,
-    [filteredCoverageMatrix, c4Model, complexityMatrix, defectCountMap, defectRiskScoreMap, churnCountMap, covLevel],
+    [filteredCoverageMatrix, c4Model, complexityMatrix, churnCountMap, covLevel],
   );
   const activeResult =
     matrixView === 'coverage' ? coverageResult :
@@ -332,6 +314,31 @@ export function MatrixPanel({
     const nodes = filteredDsmMatrix.nodes;
     return (colIndex: number) => dsmNodeColorMap.get(nodes[colIndex]?.id ?? '');
   }, [dsmNodeColorMap, filteredDsmMatrix]);
+
+  // Coverage ビュー: L3=コンテナ列、L4=コンテナ列+コンポーネント列
+  const coverageRowHeaderGroups = useMemo(() => {
+    if (covLevel === 'package' || !filteredCoverageMatrix || !c4Model) return undefined;
+    const elementById = new Map(c4Model.elements.map(e => [e.id, e]));
+    const entries = filteredCoverageMatrix.entries;
+    if (covLevel === 'component') {
+      const containerKeys = entries.map(e => {
+        const el = elementById.get(e.elementId);
+        return (el?.boundaryId ? elementById.get(el.boundaryId)?.name : undefined) ?? '';
+      });
+      return [buildSpansFromKey(containerKeys)];
+    }
+    // code: コンテナ列 + コンポーネント列
+    const containerKeys = entries.map(e => {
+      const el = elementById.get(e.elementId);
+      const comp = el?.boundaryId ? elementById.get(el.boundaryId) : null;
+      return (comp?.boundaryId ? elementById.get(comp.boundaryId)?.name : undefined) ?? '';
+    });
+    const componentKeys = entries.map(e => {
+      const el = elementById.get(e.elementId);
+      return (el?.boundaryId ? elementById.get(el.boundaryId)?.name : undefined) ?? '';
+    });
+    return [buildSpansFromKey(containerKeys), buildSpansFromKey(componentKeys)];
+  }, [covLevel, filteredCoverageMatrix, c4Model]);
 
   // Coverage ビュー: 行ヘッダーにコミュニティ色
   const coverageRowHeaderBackground = useMemo(() => {
@@ -434,13 +441,13 @@ export function MatrixPanel({
             rotateColumnHeaders={matrixView === 'dsm'}
             cellSize={matrixView === 'dsm' ? 28 : undefined}
             rowHeaders={activeRowHeaders}
-            rowHeaderWidth={
-              matrixView === 'coverage' && covLevel === 'code' ? 280 :
-              matrixView === 'coverage' && covLevel === 'component' ? 200 :
-              120
-            }
+            rowHeaderWidth={120}
             columnHeaderGroups={matrixView === 'dsm' && dsmPackageSpans ? [dsmPackageSpans] : undefined}
-            rowHeaderGroups={matrixView === 'dsm' && dsmPackageSpans ? [dsmPackageSpans] : undefined}
+            rowHeaderGroups={
+              matrixView === 'dsm' && dsmPackageSpans ? [dsmPackageSpans] :
+              matrixView === 'coverage' && coverageRowHeaderGroups ? coverageRowHeaderGroups :
+              undefined
+            }
             gridRows={gridDimensions.rows}
             gridCols={gridDimensions.cols}
             getCellBackground={
