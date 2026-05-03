@@ -1,4 +1,4 @@
-import type { C4Element, C4Model, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DsmMatrix, DsmNode, FeatureMatrix } from '@anytime-markdown/trail-core/c4';
+import type { C4Element, C4ElementType, C4Model, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DsmMatrix, DsmNode, FeatureMatrix } from '@anytime-markdown/trail-core/c4';
 import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, computeCommunityOverlay, mapFilesToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
 import type { CellAlign, HeaderSpan } from '@anytime-markdown/spreadsheet-core';
 import { SpreadsheetGrid, createInMemorySheetAdapter, spreadsheetViewerEnMessages } from '@anytime-markdown/spreadsheet-viewer';
@@ -168,6 +168,7 @@ export function MatrixPanel({
 
   const [matrixView, setMatrixView] = useState<'dsm' | 'fcmap' | 'coverage'>('dsm');
   const [dsmLevel, setDsmLevel] = useState<'component' | 'package'>('component');
+  const [covLevel, setCovLevel] = useState<'component' | 'package' | 'code'>('component');
 
   const { graph: codeGraph } = useCodeGraph(serverUrl ?? '');
 
@@ -221,6 +222,20 @@ export function MatrixPanel({
     return map.size > 0 ? map : null;
   }, [hotspotData, c4Model]);
 
+  const filteredCoverageMatrix = useMemo(() => {
+    if (!coverageMatrix || !c4Model) return coverageMatrix;
+    const typeFilter: Set<C4ElementType> =
+      covLevel === 'package' ? new Set(['container', 'containerDb']) :
+      covLevel === 'code'    ? new Set(['code']) :
+                               new Set(['component']);
+    const validIds = new Set(c4Model.elements.filter(e => typeFilter.has(e.type)).map(e => e.id));
+    const nameMap = new Map(c4Model.elements.map(e => [e.id, e.name]));
+    const entries = coverageMatrix.entries
+      .filter(e => validIds.has(e.elementId))
+      .sort((a, b) => (nameMap.get(a.elementId) ?? a.elementId).localeCompare(nameMap.get(b.elementId) ?? b.elementId));
+    return { ...coverageMatrix, entries };
+  }, [coverageMatrix, c4Model, covLevel]);
+
   const filteredDsmMatrix = useMemo(() => {
     if (!dsmMatrix) return null;
     let m = dsmMatrix;
@@ -257,10 +272,10 @@ export function MatrixPanel({
     [featureMatrix, c4Model],
   );
   const coverageResult = useMemo(
-    () => coverageMatrix && c4Model
-      ? makeSheetResult(coverageToSheet(coverageMatrix, c4Model, complexityMatrix ?? null, defectCountMap, defectRiskScoreMap, churnCountMap))
+    () => filteredCoverageMatrix && c4Model
+      ? makeSheetResult(coverageToSheet(filteredCoverageMatrix, c4Model, complexityMatrix ?? null, defectCountMap, defectRiskScoreMap, churnCountMap))
       : null,
-    [coverageMatrix, c4Model, complexityMatrix, defectCountMap, defectRiskScoreMap, churnCountMap],
+    [filteredCoverageMatrix, c4Model, complexityMatrix, defectCountMap, defectRiskScoreMap, churnCountMap],
   );
   const activeResult =
     matrixView === 'coverage' ? coverageResult :
@@ -301,10 +316,10 @@ export function MatrixPanel({
 
   // Coverage ビュー: 行ヘッダーにコミュニティ色
   const coverageRowHeaderBackground = useMemo(() => {
-    if (!dsmNodeColorMap || !coverageMatrix) return undefined;
-    const entries = coverageMatrix.entries;
+    if (!dsmNodeColorMap || !filteredCoverageMatrix) return undefined;
+    const entries = filteredCoverageMatrix.entries;
     return (rowIndex: number) => dsmNodeColorMap.get(entries[rowIndex]?.elementId ?? '');
-  }, [dsmNodeColorMap, coverageMatrix]);
+  }, [dsmNodeColorMap, filteredCoverageMatrix]);
 
   // Coverage ビュー: セルを coverage overlay 色（Lines/Branches/Functions 共通の閾値）で塗りつぶし
   const coverageCellBackground = useMemo(() => {
@@ -367,13 +382,29 @@ export function MatrixPanel({
             ))}
           </ButtonGroup>
         )}
+
+        {matrixView === 'coverage' && (
+          <ButtonGroup size="small">
+            {(['component', 'package', 'code'] as const).map((level) => (
+              <Button
+                key={level}
+                size="small"
+                aria-pressed={covLevel === level}
+                onClick={() => setCovLevel(level)}
+                sx={{ ...toolbarButtonSx, ...(covLevel === level && { bgcolor: toolbarButtonActiveBg }) }}
+              >
+                {level === 'component' ? 'Component' : level === 'package' ? 'Package' : 'Code'}
+              </Button>
+            ))}
+          </ButtonGroup>
+        )}
       </Box>
 
       {/* Sheet */}
       <Box sx={{ flex: 1, display: 'flex', minHeight: 0 }}>
         {activeAdapter ? (
           <SpreadsheetGrid
-            key={matrixView === 'dsm' ? `dsm-${dsmLevel}` : matrixView}
+            key={matrixView === 'dsm' ? `dsm-${dsmLevel}` : matrixView === 'coverage' ? `coverage-${covLevel}` : matrixView}
             adapter={activeAdapter}
             isDark={isDark}
             t={sheetT}
