@@ -373,7 +373,7 @@ export function MatrixPanel({
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.5, borderBottom: `1px solid ${colors.border}`, flexShrink: 0, flexWrap: 'wrap' }}>
         <ButtonGroup size="small">
           {(['coverage', 'dsm', 'fcmap'] as const).map((view) => {
-            const label = view === 'dsm' ? 'DSM' : view === 'fcmap' ? 'F-cMap' : 'Cov';
+            const label = view === 'dsm' ? 'DSM' : view === 'fcmap' ? 'F-cMap' : 'Metrics';
             const isDisabled = (view === 'fcmap' && !featureMatrix) || (view === 'coverage' && !coverageMatrix);
             return (
               <Button
