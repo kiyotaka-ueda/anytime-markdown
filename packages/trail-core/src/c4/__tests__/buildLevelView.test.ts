@@ -2,6 +2,7 @@ import { buildLevelView, getFrameDepth } from '../view/buildLevelView';
 import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 
 const BASE_STYLE = { fill: '#fff', stroke: '#000', strokeWidth: 1, fontSize: 12, fontFamily: 'sans-serif' };
+const EDGE_STYLE = { stroke: '#000', strokeWidth: 1 };
 
 function makeDoc(nodes: GraphNode[], edges: GraphDocument['edges'] = []): GraphDocument {
   return {
@@ -120,8 +121,8 @@ describe('buildLevelView', () => {
     const doc = makeDoc(
       [sysFrame, makeFrame('pkg1', 'sys'), makeFrame('cmp1', 'pkg1'), makeFrame('cmp2', 'pkg1')],
       [
-        { id: 'e1', type: 'connector', from: { nodeId: 'pkg1', x: 0, y: 0 }, to: { nodeId: 'cmp1', x: 0, y: 0 }, style: {} },
-        { id: 'e2', type: 'connector', from: { nodeId: 'cmp1', x: 0, y: 0 }, to: { nodeId: 'cmp2', x: 0, y: 0 }, style: {} },
+        { id: 'e1', type: 'connector', from: { nodeId: 'pkg1', x: 0, y: 0 }, to: { nodeId: 'cmp1', x: 0, y: 0 }, style: { ...EDGE_STYLE } },
+        { id: 'e2', type: 'connector', from: { nodeId: 'cmp1', x: 0, y: 0 }, to: { nodeId: 'cmp2', x: 0, y: 0 }, style: { ...EDGE_STYLE } },
       ],
     );
     const view = buildLevelView(doc, 3, { showAncestorEdges: false });
@@ -135,8 +136,8 @@ describe('buildLevelView', () => {
     const doc = makeDoc(
       [makeFrame('sys'), makeFrame('pkg1', 'sys'), makeRect('leaf1', 'pkg1'), makeRect('leaf2', 'pkg1')],
       [
-        { id: 'e1', type: 'connector', from: { nodeId: 'pkg1', x: 0, y: 0 }, to: { nodeId: 'leaf1', x: 0, y: 0 }, style: {} },
-        { id: 'e2', type: 'connector', from: { nodeId: 'leaf1', x: 0, y: 0 }, to: { nodeId: 'leaf2', x: 0, y: 0 }, style: {} },
+        { id: 'e1', type: 'connector', from: { nodeId: 'pkg1', x: 0, y: 0 }, to: { nodeId: 'leaf1', x: 0, y: 0 }, style: { ...EDGE_STYLE } },
+        { id: 'e2', type: 'connector', from: { nodeId: 'leaf1', x: 0, y: 0 }, to: { nodeId: 'leaf2', x: 0, y: 0 }, style: { ...EDGE_STYLE } },
       ],
     );
     const view = buildLevelView(doc, 4, { showAncestorEdges: false });
