@@ -183,6 +183,11 @@
           "command": "anytime-trail.importTrailData",
           "when": "view == anytimeTrail.database",
           "group": "navigation@1"
+        },
+        {
+          "command": "anytime-trail.generateCodeGraph",
+          "when": "view == anytimeTrail.database",
+          "group": "navigation@2"
         }
       ],
       "view/item/context": [
