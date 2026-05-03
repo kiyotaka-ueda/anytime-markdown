@@ -438,6 +438,37 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
     }
   }, [onNodeContextMenu, screenPos, getViewport, getNodes]);
 
+  // --- Global Space key listener for pan mode (canvas must be hovered) ---
+  useEffect(() => {
+    if (!enableSpacePan) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    let isOver = false;
+    const onMouseEnter = () => { isOver = true; };
+    const onMouseLeave = () => { isOver = false; };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== 'Space' || e.repeat || !isOver || spaceRef.current) return;
+      spaceRef.current = true;
+      canvas.style.cursor = 'grab';
+      e.preventDefault();
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return;
+      spaceRef.current = false;
+      if (dragRef.current.mode !== 'pan') canvas.style.cursor = 'default';
+    };
+    canvas.addEventListener('mouseenter', onMouseEnter);
+    canvas.addEventListener('mouseleave', onMouseLeave);
+    globalThis.addEventListener('keydown', onKeyDown);
+    globalThis.addEventListener('keyup', onKeyUp);
+    return () => {
+      canvas.removeEventListener('mouseenter', onMouseEnter);
+      canvas.removeEventListener('mouseleave', onMouseLeave);
+      globalThis.removeEventListener('keydown', onKeyDown);
+      globalThis.removeEventListener('keyup', onKeyUp);
+    };
+  }, [enableSpacePan, canvasRef]);
+
   // --- Wheel zoom (non-passive) ---
   useEffect(() => {
     const canvas = canvasRef.current;

@@ -108,6 +108,8 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
   // Selection state
   const selectionRef = useRef<string[]>(selectedNodeId ? [selectedNodeId] : []);
   useEffect(() => {
+    // 複数選択中（selectedNodeId=null かつ 2+ノード選択済み）はリセットしない
+    if (!selectedNodeId && selectionRef.current.length > 1) return;
     selectionRef.current = selectedNodeId ? [selectedNodeId] : [];
   }, [selectedNodeId]);
 
@@ -345,6 +347,8 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
   // グループ右クリック検出を含む拡張コンテキストメニュー
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
+    // Ctrl/Cmd+click は複数選択トグルに使用するため、コンテキストメニューを開かない（Mac 対応）
+    if (e.ctrlKey || e.metaKey) return;
     if (!onGroupContextMenu) {
       canvas.handleContextMenu(e);
       return;
