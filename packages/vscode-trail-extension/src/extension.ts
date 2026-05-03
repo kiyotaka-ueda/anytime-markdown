@@ -20,6 +20,8 @@ let trailDataServer: TrailDataServer | undefined;
 let trailDb: TrailDatabase | undefined;
 let extensionDistPath = '';
 
+const EXCLUDE_PATTERNS: readonly string[] = ['.worktrees', '.vscode-test', '__tests__', 'fixtures'];
+
 function applyDocsPathConfig(): void {
 	const docsPath = vscode.workspace.getConfiguration('anytimeTrail').get<string>('docsPath', '');
 	trailDataServer?.setDocsPath(docsPath || undefined);
@@ -404,12 +406,12 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('anytime-trail.c4Analyze', async () => {
-			const repoName = vscode.workspace.workspaceFolders?.[0]?.name ?? '(no workspace)';
+			const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+			const repoName = workspaceFolder?.name ?? '(no workspace)';
 			TrailLogger.info(`C4 analysis [${repoName}]: searching tsconfig.json in workspace`);
-			const excludePatterns: readonly string[] = ['.worktrees', '.vscode-test', '__tests__', 'fixtures'];
 			const allTsconfigFiles = await vscode.workspace.findFiles('**/tsconfig.json', '**/node_modules/**');
 			const tsconfigFiles = allTsconfigFiles
-				.filter(f => !excludePatterns.some(p => f.fsPath.includes(`/${p}/`)))
+				.filter(f => !EXCLUDE_PATTERNS.some(p => f.fsPath.includes(`/${p}/`)))
 				.sort((a, b) => {
 					const aRel = vscode.workspace.asRelativePath(a);
 					const bRel = vscode.workspace.asRelativePath(b);
@@ -464,7 +466,7 @@ export async function activate(context: vscode.ExtensionContext) {
 						trailDataServer?.notifyProgress('Loading project...', 0);
 						const graph = analyze({
 							tsconfigPath,
-							exclude: excludePatterns.map(p => `**/${p}/**`),
+							exclude: EXCLUDE_PATTERNS.map(p => `**/${p}/**`),
 							onProgress: (phase) => {
 								TrailLogger.info(`C4 analysis [${repoName}]: ${phase}`);
 								progress.report({ message: phase });
@@ -476,7 +478,7 @@ export async function activate(context: vscode.ExtensionContext) {
 							`C4 analysis [${repoName}]: analyzed ${graph.metadata.fileCount} files, ${graph.nodes.length} nodes, ${graph.edges.length} edges`,
 						);
 
-						const gitRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
+						const gitRoot = workspaceFolder?.uri.fsPath;
 						const dbRepoName = gitRoot ? path.basename(gitRoot) : repoName;
 						const commitId = gitRoot ? new ExecFileGitService(gitRoot).getHeadCommit() : '';
 						trailDb?.saveCurrentGraph(graph, tsconfigPath, commitId, dbRepoName);
@@ -737,11 +739,10 @@ export async function activate(context: vscode.ExtensionContext) {
 					},
 					async (progress) => {
 						const gitRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-						const excludePatterns = ['.worktrees', '.vscode-test', '__tests__', 'fixtures'];
 						return trailDb!.importAll((message, increment) => {
 							progress.report({ message, increment });
 							TrailLogger.info(`Trail import [${repoName}]: ${message}`);
-						}, gitRoot, excludePatterns);
+						}, gitRoot, EXCLUDE_PATTERNS);
 					},
 				);
 				TrailLogger.info(`Trail DB [${repoName}]: import complete - imported=${result.imported}, skipped=${result.skipped}, commits=${result.commitsResolved}, releases=${result.releasesResolved}, analyzed=${result.releasesAnalyzed}`);
