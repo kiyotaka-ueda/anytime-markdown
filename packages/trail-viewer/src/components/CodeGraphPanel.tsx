@@ -132,10 +132,6 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
     [serverUrl],
   );
 
-  const handleGenerate = useCallback(() => {
-    refetch();
-  }, [refetch]);
-
   const communitySummary = selectedNode
     ? graph?.communitySummaries?.[selectedNode.community]
     : undefined;
@@ -162,7 +158,7 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
     return (
       <Box sx={{ p: 3 }}>
         <Typography sx={{ mb: 2 }}>グラフがまだ生成されていません。</Typography>
-        <Button variant="contained" onClick={handleGenerate}>
+        <Button variant="contained" onClick={refetch}>
           Reload
         </Button>
       </Box>
@@ -208,9 +204,6 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
         />
         <Button size="small" variant="outlined" onClick={() => void handleSearch()}>
           検索
-        </Button>
-        <Button size="small" onClick={handleGenerate}>
-          再読込
         </Button>
         <Box sx={{ display: 'flex', gap: 0.5 }}>
           {repos.map((r) => (
