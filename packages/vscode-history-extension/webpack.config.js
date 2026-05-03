@@ -3,6 +3,7 @@
 'use strict';
 
 const path = require('path');
+const CopyPlugin = require('copy-webpack-plugin');
 
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
 
@@ -18,6 +19,8 @@ const extensionConfig = {
   },
   externals: {
     vscode: 'commonjs vscode',
+    bufferutil: 'commonjs bufferutil',
+    'utf-8-validate': 'commonjs utf-8-validate',
   },
   resolve: {
     extensions: ['.ts', '.js'],
@@ -26,16 +29,25 @@ const extensionConfig = {
     rules: [
       {
         test: /\.ts$/,
-        exclude: /node_modules/,
+        exclude: /node_modules[\\/](?!@anytime-markdown[\\/](?:trail-db|trail-core))/,
         use: [{
           loader: 'ts-loader',
           options: {
+            allowTsInNodeModules: true,
             transpileOnly: true,
           },
         }],
       },
     ],
   },
+  plugins: [
+    new CopyPlugin({
+      patterns: [{
+        from: path.resolve(__dirname, '../../node_modules/sql.js/dist/sql-asm.js'),
+        to: 'sql-asm.js',
+      }],
+    }),
+  ],
   devtool: 'nosources-source-map',
 };
 
