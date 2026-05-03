@@ -98,13 +98,15 @@ function coverageToSheet(
   model: C4Model,
   complexityMatrix: ComplexityMatrix | null,
   defectCountMap: ReadonlyMap<string, number> | null,
+  defectRiskScoreMap: ReadonlyMap<string, number> | null,
 ) {
   const elementMap = new Map(model.elements.map(e => [e.id, e.name]));
   const complexityMap = new Map(complexityMatrix?.entries.map(e => [e.elementId, e.totalCount]) ?? []);
-  const headerRow = ['Component', 'Lines%', 'Branches%', 'Functions%', 'Complexity', 'Defects', 'LOC'];
+  const headerRow = ['Component', 'Lines%', 'Branches%', 'Functions%', 'Complexity', 'Defects', 'Risk', 'LOC'];
   const dataRows = matrix.entries.map(e => {
     const complexity = complexityMap.get(e.elementId);
     const defects = defectCountMap?.get(e.elementId);
+    const risk = defectRiskScoreMap?.get(e.elementId);
     return [
       elementMap.get(e.elementId) ?? e.elementId,
       String(Math.round(e.lines.pct * 10) / 10),
@@ -112,12 +114,13 @@ function coverageToSheet(
       String(Math.round(e.functions.pct * 10) / 10),
       complexity != null ? String(complexity) : '',
       defects != null ? String(defects) : '',
+      risk != null ? String(Math.round(risk * 100) / 100) : '',
       e.lines.total > 0 ? String(e.lines.total) : '',
     ];
   });
   const cells = [headerRow, ...dataRows];
   const alignments = cells.map(r => r.map((_, ci): CellAlign => ci === 0 ? null : 'right'));
-  return { cells, alignments, range: { rows: cells.length, cols: 7 } };
+  return { cells, alignments, range: { rows: cells.length, cols: 8 } };
 }
 
 function heatmapToSheet(matrix: HeatmapMatrix) {
@@ -204,6 +207,18 @@ export function MatrixPanel({
     return map.size > 0 ? map : null;
   }, [drEntries, c4Model]);
 
+  const defectRiskScoreMap = useMemo<ReadonlyMap<string, number> | null>(() => {
+    if (!drEntries.length || !c4Model) return null;
+    const map = new Map<string, number>();
+    for (const entry of drEntries) {
+      const mappings = mapFilesToC4Elements([entry.filePath], c4Model.elements);
+      for (const m of mappings) {
+        map.set(m.elementId, Math.max(map.get(m.elementId) ?? 0, entry.score));
+      }
+    }
+    return map.size > 0 ? map : null;
+  }, [drEntries, c4Model]);
+
   const heatmapEnabled = matrixView === 'heatmap';
   const { data: heatmapResponse } = useActivityHeatmap({
     enabled: heatmapEnabled,
@@ -260,9 +275,9 @@ export function MatrixPanel({
   );
   const coverageResult = useMemo(
     () => coverageMatrix && c4Model
-      ? makeSheetResult(coverageToSheet(coverageMatrix, c4Model, complexityMatrix ?? null, defectCountMap))
+      ? makeSheetResult(coverageToSheet(coverageMatrix, c4Model, complexityMatrix ?? null, defectCountMap, defectRiskScoreMap))
       : null,
-    [coverageMatrix, c4Model, complexityMatrix, defectCountMap],
+    [coverageMatrix, c4Model, complexityMatrix, defectCountMap, defectRiskScoreMap],
   );
   const heatmapResult = useMemo(
     () => heatmapMatrix ? makeSheetResult(heatmapToSheet(heatmapMatrix)) : null,
