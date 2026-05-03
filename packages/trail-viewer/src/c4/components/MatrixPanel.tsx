@@ -41,14 +41,13 @@ export function MatrixPanel({
   const [matrixView, setMatrixView] = useState<'dsm' | 'fcmap' | 'coverage' | 'heatmap'>('dsm');
   const [dsmLevel, setDsmLevel] = useState<'component' | 'package'>('component');
   const [dsmClustered, setDsmClustered] = useState(false);
-  const [heatmapMode, setHeatmapMode] = useState<'session-file' | 'subagent-file'>('session-file');
 
   const heatmapEnabled = matrixView === 'heatmap';
   const { data: heatmapResponse } = useActivityHeatmap({
     enabled: heatmapEnabled,
     serverUrl,
     period: '30d',
-    mode: heatmapMode,
+    mode: 'session-file',
     topK: 50,
     repoName: selectedRepo || undefined,
   });
@@ -131,25 +130,6 @@ export function MatrixPanel({
               Cluster
             </Button>
           </>
-        )}
-
-        {matrixView === 'heatmap' && (
-          <ButtonGroup size="small" aria-label="Heatmap mode">
-            {(['session-file', 'subagent-file'] as const).map((m) => {
-              const label = m === 'session-file' ? t('c4.heatmap.modeSessionFile') : t('c4.heatmap.modeSubagentFile');
-              return (
-                <Button
-                  key={m}
-                  size="small"
-                  aria-pressed={heatmapMode === m}
-                  onClick={() => setHeatmapMode(m)}
-                  sx={{ ...toolbarButtonSx, ...(heatmapMode === m && { bgcolor: toolbarButtonActiveBg }) }}
-                >
-                  {label}
-                </Button>
-              );
-            })}
-          </ButtonGroup>
         )}
       </Box>
 

@@ -1,6 +1,6 @@
 import type { HeatmapAxis, HeatmapCell, TrendPeriod } from '@anytime-markdown/trail-core/c4';
 
-export type HeatmapMode = 'session-file' | 'subagent-file';
+export type HeatmapMode = 'session-file';
 
 export interface ActivityHeatmapFetchParams {
   readonly period: TrendPeriod;

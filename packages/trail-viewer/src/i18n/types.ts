@@ -246,8 +246,6 @@ export interface TrailI18n {
   'c4.hotspot.controls.granularityCommit': string;
   'c4.hotspot.controls.granularitySession': string;
   'c4.hotspot.controls.granularitySubagent': string;
-  'c4.heatmap.modeSessionFile': string;
-  'c4.heatmap.modeSubagentFile': string;
   'c4.heatmap.topK': string;
   'c4.heatmap.loading': string;
   'c4.heatmap.empty': string;

@@ -309,8 +309,6 @@ export const ja: TrailI18n = {
   'c4.hotspot.controls.granularityCommit': 'Commit',
   'c4.hotspot.controls.granularitySession': 'Session',
   'c4.hotspot.controls.granularitySubagent': 'Subagent',
-  'c4.heatmap.modeSessionFile': 'Session × C4',
-  'c4.heatmap.modeSubagentFile': 'Subagent × C4',
   'c4.heatmap.topK': 'Top-K',
   'c4.heatmap.loading': 'ヒートマップを読み込み中...',
   'c4.heatmap.empty': '選択期間内に活動はありません',
