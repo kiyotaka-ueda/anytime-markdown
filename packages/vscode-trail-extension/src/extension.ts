@@ -376,6 +376,15 @@ export async function activate(context: vscode.ExtensionContext) {
 		usedRepoIds.add(id);
 		return { id, label, path: expandedPath };
 	});
+
+	const docsPathForCodeGraph = vscode.workspace.getConfiguration('anytimeTrail').get<string>('docsPath', '').trim();
+	if (docsPathForCodeGraph && !codeGraphRepos.some((r) => r.path === docsPathForCodeGraph)) {
+		let docsId = 'Docs';
+		if (usedRepoIds.has(docsId)) docsId = `Docs-${codeGraphRepos.length}`;
+		usedRepoIds.add(docsId);
+		codeGraphRepos.push({ id: docsId, label: 'Docs', path: docsPathForCodeGraph });
+	}
+
 	const codeGraphService = new CodeGraphService({
 		repositories: codeGraphRepos,
 		trailDb: trailDb!,
