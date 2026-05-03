@@ -11,9 +11,9 @@ import type { TrailGraph } from '@anytime-markdown/trail-core';
 import type { C4DataProvider } from '../server/TrailDataServer';
 import type { TrailDataServer } from '../server/TrailDataServer';
 import { TrailLogger } from '../utils/TrailLogger';
-import type { TrailDatabase } from '../trail/TrailDatabase';
+import type { TrailDatabase } from '@anytime-markdown/trail-db';
+import { ExecFileGitService } from '@anytime-markdown/trail-db';
 import type { CodeGraphService } from '../graph/CodeGraphService';
-import { ExecFileGitService } from '../trail/ExecFileGitService';
 import { ClaudeStatusWatcher } from '@anytime-markdown/vscode-common';
 import { ClaudeActivityTracker } from './ClaudeActivityTracker';
 

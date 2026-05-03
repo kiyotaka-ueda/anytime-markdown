@@ -434,6 +434,7 @@
   "dependencies": {
     "@anytime-markdown/graph-core": "*",
     "@anytime-markdown/trail-core": "*",
+    "@anytime-markdown/trail-db": "*",
     "@anytime-markdown/vscode-common": "*",
     "@supabase/supabase-js": "2.103.0",
     "graphology": "0.26.0",

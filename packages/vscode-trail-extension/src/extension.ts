@@ -16,12 +16,9 @@ import { C4TreeProvider } from './providers/C4TreeProvider';
 import { TraceCodeLensProvider } from './providers/TraceCodeLensProvider';
 import { TraceScriptLensProvider } from './providers/TraceScriptLensProvider';
 import { TrailDataServer } from './server/TrailDataServer';
+import type { IRemoteTrailStore } from '@anytime-markdown/trail-db';
+import { PostgresTrailStore, SupabaseTrailStore, SyncService, TrailDatabase } from '@anytime-markdown/trail-db';
 import { DatabaseProvider } from './trail/DatabaseProvider';
-import type { IRemoteTrailStore } from './trail/IRemoteTrailStore';
-import { PostgresTrailStore } from './trail/PostgresTrailStore';
-import { SupabaseTrailStore } from './trail/SupabaseTrailStore';
-import { SyncService } from './trail/SyncService';
-import { TrailDatabase } from './trail/TrailDatabase';
 import { TrailPanel } from './trail/TrailPanel';
 import { TrailLogger } from './utils/TrailLogger';
 
@@ -381,7 +378,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		? dbStoragePathSetting
 		: wsRootForDb ? path.join(wsRootForDb, dbStoragePathSetting) : undefined;
 	const backupGenerations = vscode.workspace.getConfiguration('anytimeTrail.database').get<number>('backupGenerations', 1);
-	trailDb = new TrailDatabase(extensionDistPath, dbStorageDir, backupGenerations);
+	trailDb = new TrailDatabase(extensionDistPath, dbStorageDir, backupGenerations, TrailLogger);
 	trailDb.setIntegrityAlertHandler((alerts) => {
 		for (const a of alerts) {
 			TrailLogger.warn(
@@ -529,7 +526,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const url = remoteConfig.get<string>('supabaseUrl', '');
 		const key = remoteConfig.get<string>('supabaseAnonKey', '');
 		if (url && key) {
-			supabaseStore = new SupabaseTrailStore(url, key);
+			supabaseStore = new SupabaseTrailStore(url, key, TrailLogger);
 		}
 	}
 
@@ -737,7 +734,7 @@ export async function activate(context: vscode.ExtensionContext) {
 					vscode.window.showWarningMessage('Supabase URL and anon key are required.');
 					return;
 				}
-				store = new SupabaseTrailStore(url, key);
+				store = new SupabaseTrailStore(url, key, TrailLogger);
 			} else if (provider === 'postgres') {
 				const pgUrl = config.get<string>('postgresUrl', '');
 				if (!pgUrl) {
@@ -750,7 +747,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				return;
 			}
 
-			const syncService = new SyncService(trailDb, store);
+			const syncService = new SyncService(trailDb, store, TrailLogger);
 			await vscode.window.withProgress(
 				{
 					location: vscode.ProgressLocation.Notification,
@@ -779,7 +776,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			databaseProvider.setImporting(true);
 			databaseProvider.updateSupabaseStatus('Syncing...');
 			try {
-				const syncService = new SyncService(trailDb, supabaseStore);
+				const syncService = new SyncService(trailDb, supabaseStore, TrailLogger);
 				await vscode.window.withProgress(
 					{
 						location: vscode.ProgressLocation.Notification,

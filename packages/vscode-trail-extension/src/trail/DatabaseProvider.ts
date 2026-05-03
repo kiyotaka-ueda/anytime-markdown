@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
-import type { TrailDatabase } from './TrailDatabase';
-import type { SupabaseTrailStore } from './SupabaseTrailStore';
+import type { TrailDatabase, SupabaseTrailStore } from '@anytime-markdown/trail-db';
 import { formatLocalDateTime } from '@anytime-markdown/trail-core/formatDate';
 
 // ルートノード（SQLite / Supabase）

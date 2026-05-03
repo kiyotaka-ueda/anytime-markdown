@@ -6,7 +6,7 @@ import type { TrailGraph } from '@anytime-markdown/trail-core';
 import type { C4Element } from '@anytime-markdown/trail-core/c4';
 
 import { TrailLogger } from '../utils/TrailLogger';
-import type { TrailDatabase } from '../trail/TrailDatabase';
+import type { TrailDatabase } from '@anytime-markdown/trail-db';
 import type { CodeGraph, CodeGraphEdge, CodeGraphNode, CodeGraphRepository } from './CodeGraph.types';
 import { GraphBuilder } from './GraphBuilder';
 import { GraphClusterer } from './GraphClusterer';

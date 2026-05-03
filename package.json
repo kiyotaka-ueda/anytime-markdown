@@ -31,6 +31,7 @@
     "packages/web-app",
     "packages/mobile-app",
     "packages/trail-core",
+    "packages/trail-db",
     "packages/trail-viewer",
     "packages/graph-viewer",
     "packages/mcp-trail",

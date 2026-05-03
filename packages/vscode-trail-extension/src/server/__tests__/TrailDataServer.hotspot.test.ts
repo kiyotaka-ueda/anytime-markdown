@@ -9,9 +9,9 @@ jest.mock('@anytime-markdown/trail-core/c4', () => {
   return { ...actual, fetchC4Model: jest.fn() };
 });
 
-import { TrailDatabase } from '../../trail/TrailDatabase';
+import { TrailDatabase } from '@anytime-markdown/trail-db';
 import { TrailDataServer } from '../TrailDataServer';
-import { createTestTrailDatabase } from '../../trail/__tests__/support/createTestDb';
+import { createTestTrailDatabase } from '../../__tests__/support/createTestDb';
 
 type SqlJsDb = {
   run: (sql: string, params?: ReadonlyArray<unknown>) => void;
