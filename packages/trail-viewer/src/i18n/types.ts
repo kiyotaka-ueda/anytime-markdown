@@ -27,7 +27,6 @@ export interface TrailI18n {
   'sessionList.noSessionsFound': string;
   'sessionList.loadingTimeline': string;
   'sessionList.timeHeader': string;
-  'sessionList.modelHeader': string;
   'sessionList.tokensHeader': string;
   'sessionList.costHeader': string;
   'sessionList.messagesHeader': string;
@@ -49,10 +48,7 @@ export interface TrailI18n {
   'stats.duration': string;
   'stats.messages': string;
   // tokenBudget
-  'tokenBudget.session': string;
   'tokenBudget.daily': string;
-  'tokenBudget.turns': string;
-  'tokenBudget.messages': string;
   // message
   'message.noMessages': string;
   'message.collapse': string;
@@ -73,35 +69,22 @@ export interface TrailI18n {
   'analytics.totalTokens.description': string;
   'analytics.estimatedCost': string;
   'analytics.estimatedCost.description': string;
-  'analytics.cacheHitRate': string;
   'analytics.totalCommits': string;
   'analytics.totalCommits.description': string;
   'analytics.linesAdded': string;
   'analytics.linesAdded.description': string;
-  'analytics.linesAddedShort': string;
   'analytics.totalLoc': string;
   'analytics.totalLoc.description': string;
-  'analytics.tokensPerLine': string;
-  'analytics.costPerLine': string;
-  'analytics.aiCommitPercent': string;
-  'analytics.avgLinesPerHour': string;
-  'analytics.avgCostPerHour': string;
-  'analytics.avgContextGrowth': string;
   'analytics.retryRate': string;
   'analytics.retryRate.description': string;
-  'analytics.buildFailRate': string;
-  'analytics.testFailRate': string;
   'analytics.groupUsage': string;
   'analytics.groupProductivity': string;
   'analytics.groupQuality': string;
-  'analytics.groupToolMetrics': string;
-  'analytics.groupDora': string;
   'analytics.toolUsageTitle': string;
   'analytics.toolUsageTitle.description': string;
   'analytics.sessionCacheTimelineTitle': string;
   'analytics.turns': string;
   'analytics.compactLoopTooltip': string;
-  'analytics.close': string;
   'analytics.noTokenData': string;
   'analytics.relatedCommits': string;
   'analytics.loadingCommits': string;
@@ -112,7 +95,6 @@ export interface TrailI18n {
   'analytics.commitDiff': string;
   'analytics.commitAI': string;
   'analytics.tokensPerLineLabel': string;
-  'analytics.sessionMetricsTitle': string;
   'analytics.tokensPerStep': string;
   'analytics.tokensPerStep.description': string;
   'analytics.costPerStep': string;
@@ -148,7 +130,6 @@ export interface TrailI18n {
   'analytics.metricInterrupted': string;
   'analytics.metricInterrupted.description': string;
   'analytics.loadingAnalytics': string;
-  'analytics.turn': string;
   'analytics.chartInput': string;
   'analytics.chartOutput': string;
   'analytics.chartCacheRead': string;
@@ -162,11 +143,9 @@ export interface TrailI18n {
   'analytics.modeTool.description': string;
   'analytics.modeSkill': string;
   'analytics.modeSkill.description': string;
-  'analytics.timingBreakdownTitle': string;
   // chart
   'chart.tokenUsage': string;
   'chart.tokenUsage.description': string;
-  'chart.estimatedCost': string;
   'chart.tokens': string;
   'chart.tokens.description': string;
   'chart.cost': string;
@@ -237,15 +216,11 @@ export interface TrailI18n {
   'c4.overlay.groupHotspot': string;
   'c4.overlay.hotspotFrequency': string;
   'c4.overlay.hotspotRisk': string;
-  'c4.viewToggle.heatmap': string;
   'c4.hotspot.controls.period': string;
   'c4.hotspot.controls.granularity': string;
   'c4.hotspot.controls.granularityCommit': string;
   'c4.hotspot.controls.granularitySession': string;
   'c4.hotspot.controls.granularitySubagent': string;
-  'c4.heatmap.topK': string;
-  'c4.heatmap.loading': string;
-  'c4.heatmap.empty': string;
   'c4.trend.title': string;
   'c4.trend.loading': string;
   'c4.trend.seriesCommit': string;
@@ -270,7 +245,6 @@ export interface TrailI18n {
   'c4.popup.metric.functions': string;
   'c4.popup.metric.complexity': string;
   'c4.popup.metric.importance': string;
-  'c4.popup.metric.dsm': string;
   'c4.popup.metric.defectRisk': string;
   'c4.popup.metric.steps': string;
   'c4.popup.functions': string;
@@ -279,14 +253,11 @@ export interface TrailI18n {
   // community overlay (C4 model tab × CodeGraph)
   'c4.community.toggle': string;
   'c4.community.title': string;
-  'c4.community.summary': string;
   'c4.community.hubNode': string;
   'c4.community.breakdown': string;
   'c4.community.other': string;
   'c4.community.disabledLevel': string;
   'c4.community.disabledNoData': string;
-  'c4.community.noData': string;
-  'c4.community.unknown': string;
   'c4.community.nodeCount': string;
   'c4.community.containers': string;
   // combined (analytics)
@@ -296,7 +267,6 @@ export interface TrailI18n {
   'analytics.combined.count.description': string;
   'analytics.combined.tokens': string;
   'analytics.combined.tokens.description': string;
-  'analytics.combined.duration': string;
   'analytics.combined.error': string;
   'analytics.combined.error.description': string;
   'analytics.combined.commitPrefix': string;
