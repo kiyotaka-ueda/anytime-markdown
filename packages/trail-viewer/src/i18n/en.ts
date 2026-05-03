@@ -185,6 +185,7 @@ export const en: TrailI18n = {
   'c4.currentRelease': 'Current',
   'c4.drillDown': 'Drill Down',
   'c4.drillUp': 'Drill Up',
+  'c4.showSequence': 'Show Sequence',
   'c4.overlay.label': 'Overlay',
   'c4.overlay.none': 'None',
   'c4.overlay.groupCoverage': 'Coverage',

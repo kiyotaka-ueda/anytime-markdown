@@ -145,6 +145,8 @@ export interface C4ViewerCoreProps {
   readonly onPurgeDeleted?: () => void;
   readonly onDocLinkClick?: (doc: DocLink) => void;
   readonly onOpenFile?: (filePath: string) => void;
+  /** L3 component 右クリックの「シーケンス表示」を選択したときのコールバック。 */
+  readonly onShowSequence?: (elementId: string) => void;
   readonly containerHeight?: string;
   readonly releases?: readonly C4ReleaseEntry[];
   readonly selectedRelease?: string;
@@ -179,6 +181,7 @@ export function C4ViewerCore({
   onPurgeDeleted,
   onDocLinkClick,
   onOpenFile,
+  onShowSequence,
   containerHeight = '100vh',
   releases = [],
   selectedRelease = CURRENT_RELEASE_TAG,
@@ -1080,6 +1083,9 @@ export function C4ViewerCore({
   const canCopyPath = contextMenu !== null &&
     (contextMenu.c4Id.startsWith('pkg_') || contextMenu.c4Id.startsWith('file::'));
   const canOpenFile = contextMenu !== null && contextMenu.c4Id.startsWith('file::');
+  const canShowSequence = contextMenu !== null
+    && contextMenu.nodeType === 'component'
+    && onShowSequence !== undefined;
   const canShowManualActions = canShowManualContextActions(c4Model, contextMenu?.c4Id ?? null);
   const showContextMenu = contextMenu !== null && (
     canDrillDown ||
@@ -1087,6 +1093,7 @@ export function C4ViewerCore({
     canShowOnlyFrame ||
     canOpenFile ||
     canCopyPath ||
+    canShowSequence ||
     canShowManualActions
   );
 
@@ -2012,6 +2019,28 @@ export function C4ViewerCore({
                         onClick={handleOpenFile}
                       >
                         {t('c4.openFile')}
+                      </button>
+                    )}
+                    {canShowSequence && (
+                      <button
+                        type="button"
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '6px 16px',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: 14,
+                          color: isDark ? '#e0e0e0' : '#333',
+                        }}
+                        onClick={() => {
+                          onShowSequence?.(contextMenu.c4Id);
+                          setContextMenu(null);
+                        }}
+                      >
+                        {t('c4.showSequence')}
                       </button>
                     )}
                     {canCopyPath && (

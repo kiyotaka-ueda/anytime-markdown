@@ -197,6 +197,7 @@ export interface TrailI18n {
   'c4.currentRelease': string;
   'c4.drillDown': string;
   'c4.drillUp': string;
+  'c4.showSequence': string;
   'c4.overlay.label': string;
   'c4.overlay.none': string;
   'c4.overlay.groupCoverage': string;

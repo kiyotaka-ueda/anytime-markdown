@@ -35,11 +35,12 @@ import type { TrailRelease } from '@anytime-markdown/trail-core/domain';
 
 import { C4ViewerCore } from '../c4/components/C4ViewerCore';
 import type { C4ViewerCoreProps } from '../c4/components/C4ViewerCore';
+import { useC4SequenceData } from '../c4/hooks/useC4SequenceData';
 import { CodeGraphPanel } from './CodeGraphPanel';
 import { MatrixPanel } from '../c4/components/MatrixPanel';
 
 /** C4-related props forwarded to the embedded C4ViewerCore. */
-type C4Props = Omit<C4ViewerCoreProps, 'isDark' | 'containerHeight'>;
+type C4Props = Omit<C4ViewerCoreProps, 'isDark' | 'containerHeight' | 'onShowSequence'>;
 
 export interface TrailViewerCoreProps {
   readonly isDark?: boolean;
@@ -124,6 +125,16 @@ function TrailViewerCoreInner({
   const tokens = useMemo(() => getTokens(isDark ?? true), [isDark]);
   const { colors, scrollbarSx } = tokens;
   const [activeTab, setActiveTab] = useState(initialTab ?? 0);
+  const [activeSequenceElementId, setActiveSequenceElementId] = useState<string | null>(null);
+  const c4SequenceState = useC4SequenceData(c4?.serverUrl, activeSequenceElementId);
+
+  const handleShowSequence = useCallback(
+    (elementId: string) => {
+      setActiveSequenceElementId(elementId);
+      setActiveTab(7);
+    },
+    [],
+  );
 
   const visibleSessions = useMemo(() => {
     let result: readonly TrailSession[] = allSessions ?? sessions;
@@ -216,7 +227,7 @@ function TrailViewerCoreInner({
           {c4 && <Tab id="trail-tab-4" aria-controls="trail-panel-4" label={t('viewer.tab.model')} />}
           {c4 && <Tab id="trail-tab-5" aria-controls="trail-panel-5" label={t('viewer.tab.matrix')} />}
           {codeGraph && <Tab id="trail-tab-6" aria-controls="trail-panel-6" label={t('viewer.tab.graph')} />}
-          {traceFiles && <Tab id="trail-tab-7" aria-controls="trail-panel-7" label={t('viewer.tab.trace')} />}
+          {(traceFiles || c4) && <Tab id="trail-tab-7" aria-controls="trail-panel-7" label={t('viewer.tab.trace')} />}
         </Tabs>
         {tokenBudgets.length > 0 && (
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', px: 2, flexShrink: 0 }}>
@@ -343,7 +354,12 @@ function TrailViewerCoreInner({
           aria-labelledby="trail-tab-4"
           sx={{ display: activeTab !== 4 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
         >
-          <C4ViewerCore isDark={isDark} containerHeight="100%" {...c4} />
+          <C4ViewerCore
+            isDark={isDark}
+            containerHeight="100%"
+            onShowSequence={handleShowSequence}
+            {...c4}
+          />
         </Box>
       )}
 
@@ -378,7 +394,7 @@ function TrailViewerCoreInner({
         </Box>
       )}
 
-      {traceFiles && (
+      {(traceFiles || c4) && (
         <Box
           role="tabpanel"
           id="trail-panel-7"
@@ -386,9 +402,10 @@ function TrailViewerCoreInner({
           sx={{ display: activeTab !== 7 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
         >
           <TraceViewer
-            traceFiles={traceFiles}
+            traceFiles={traceFiles ?? []}
             isDark={isDark ?? true}
             onJumpToSource={onJumpToSource}
+            c4Sequence={c4SequenceState.model}
           />
         </Box>
       )}

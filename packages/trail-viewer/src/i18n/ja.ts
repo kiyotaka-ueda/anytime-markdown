@@ -185,6 +185,7 @@ export const ja: TrailI18n = {
   'c4.currentRelease': '現在',
   'c4.drillDown': 'ドリルダウン',
   'c4.drillUp': 'ドリルアップ',
+  'c4.showSequence': 'シーケンス表示',
   'c4.overlay.label': '色分け',
   'c4.overlay.none': 'なし',
   'c4.overlay.groupCoverage': 'Coverage',
