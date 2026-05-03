@@ -1,4 +1,4 @@
-import type { C4Element, C4Model, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DsmMatrix, DsmNode, FeatureMatrix, HeatmapMatrix } from '@anytime-markdown/trail-core/c4';
+import type { C4Element, C4Model, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DsmMatrix, DsmNode, FeatureMatrix } from '@anytime-markdown/trail-core/c4';
 import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, computeCommunityOverlay, mapFilesToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
 import type { CellAlign, HeaderSpan } from '@anytime-markdown/spreadsheet-core';
 import { SpreadsheetGrid, createInMemorySheetAdapter, spreadsheetViewerEnMessages } from '@anytime-markdown/spreadsheet-viewer';
@@ -8,9 +8,7 @@ import ButtonGroup from '@mui/material/ButtonGroup';
 import Typography from '@mui/material/Typography';
 import { useMemo, useState } from 'react';
 
-import { useTrailI18n } from '../../i18n';
 import { getDsmCellBackground, getC4Colors } from '../c4Theme';
-import { useActivityHeatmap } from '../hooks/useActivityHeatmap';
 import { useCodeGraph } from '../../hooks/useCodeGraph';
 import { useDefectRisk } from '../hooks/useDefectRisk';
 import { useHotspot } from '../hooks/useHotspot';
@@ -127,24 +125,6 @@ function coverageToSheet(
   return { cells, alignments, range: { rows: cells.length, cols: 9 } };
 }
 
-function heatmapToSheet(matrix: HeatmapMatrix) {
-  const cellMap = new Map(matrix.cells.map(c => [`${c.rowIndex}:${c.colIndex}`, c.value]));
-  const headerRow = ['', ...matrix.columns.map(c => c.label)];
-  const dataRows = matrix.rows.map((row, ri) => [
-    row.label,
-    ...matrix.columns.map((_, ci) => {
-      const v = cellMap.get(`${ri}:${ci}`);
-      return v !== undefined && v > 0 ? String(v) : '';
-    }),
-  ]);
-  const cells = [headerRow, ...dataRows];
-  return {
-    cells,
-    alignments: cells.map(r => r.map(() => null)),
-    range: { rows: matrix.rows.length + 1, cols: matrix.columns.length + 1 },
-  };
-}
-
 const sheetT = (key: string) => (spreadsheetViewerEnMessages.Spreadsheet as Record<string, string>)[key] ?? key;
 
 function makeSheetResult(sheet: { cells: string[][]; alignments: CellAlign[][]; range: { rows: number; cols: number } }) {
@@ -184,10 +164,9 @@ export function MatrixPanel({
   selectedRepo,
   isDark = false,
 }: Readonly<MatrixPanelProps>) {
-  const { t } = useTrailI18n();
   const colors = useMemo(() => getC4Colors(isDark), [isDark]);
 
-  const [matrixView, setMatrixView] = useState<'dsm' | 'fcmap' | 'coverage' | 'heatmap'>('dsm');
+  const [matrixView, setMatrixView] = useState<'dsm' | 'fcmap' | 'coverage'>('dsm');
   const [dsmLevel, setDsmLevel] = useState<'component' | 'package'>('component');
 
   const { graph: codeGraph } = useCodeGraph(serverUrl ?? '');
@@ -242,25 +221,6 @@ export function MatrixPanel({
     return map.size > 0 ? map : null;
   }, [hotspotData, c4Model]);
 
-  const heatmapEnabled = matrixView === 'heatmap';
-  const { data: heatmapResponse } = useActivityHeatmap({
-    enabled: heatmapEnabled,
-    serverUrl,
-    period: '30d',
-    mode: 'session-file',
-    topK: 50,
-    repoName: selectedRepo || undefined,
-  });
-  const heatmapMatrix = useMemo<HeatmapMatrix | null>(() => {
-    if (!heatmapResponse) return null;
-    return {
-      rows: heatmapResponse.rows,
-      columns: heatmapResponse.columns,
-      cells: heatmapResponse.cells,
-      maxValue: heatmapResponse.maxValue,
-    };
-  }, [heatmapResponse]);
-
   const filteredDsmMatrix = useMemo(() => {
     if (!dsmMatrix) return null;
     let m = dsmMatrix;
@@ -302,13 +262,7 @@ export function MatrixPanel({
       : null,
     [coverageMatrix, c4Model, complexityMatrix, defectCountMap, defectRiskScoreMap, churnCountMap],
   );
-  const heatmapResult = useMemo(
-    () => heatmapMatrix ? makeSheetResult(heatmapToSheet(heatmapMatrix)) : null,
-    [heatmapMatrix],
-  );
-
   const activeResult =
-    matrixView === 'heatmap' ? heatmapResult :
     matrixView === 'coverage' ? coverageResult :
     matrixView === 'fcmap' ? fcmapResult :
     dsmResult;
@@ -379,8 +333,8 @@ export function MatrixPanel({
       {/* Toolbar */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.5, borderBottom: `1px solid ${colors.border}`, flexShrink: 0, flexWrap: 'wrap' }}>
         <ButtonGroup size="small">
-          {(['dsm', 'fcmap', 'coverage', 'heatmap'] as const).map((view) => {
-            const label = view === 'dsm' ? 'DSM' : view === 'fcmap' ? 'F-cMap' : view === 'coverage' ? 'Cov' : t('c4.viewToggle.heatmap');
+          {(['dsm', 'fcmap', 'coverage'] as const).map((view) => {
+            const label = view === 'dsm' ? 'DSM' : view === 'fcmap' ? 'F-cMap' : 'Cov';
             const isDisabled = (view === 'fcmap' && !featureMatrix) || (view === 'coverage' && !coverageMatrix);
             return (
               <Button
@@ -447,12 +401,6 @@ export function MatrixPanel({
             }
             getColumnHeaderBackground={matrixView === 'dsm' ? dsmColHeaderBackground : undefined}
           />
-        ) : matrixView === 'heatmap' ? (
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-            <Typography variant="body2" sx={{ color: colors.textSecondary }}>
-              {heatmapEnabled ? t('c4.heatmap.loading') : t('c4.heatmap.empty')}
-            </Typography>
-          </Box>
         ) : (
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
             <Typography variant="body2" sx={{ color: colors.textSecondary }}>
