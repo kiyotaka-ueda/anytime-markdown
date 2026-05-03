@@ -88,6 +88,8 @@ interface SpreadsheetGridProps {
   readonly rowHeaderWidth?: number;
   /** 列ヘッダーのテキストを90°回転して縦表示するか（デフォルト: false） */
   readonly rotateColumnHeaders?: boolean;
+  /** セルを正方形にする px（指定時は行高さ・列幅を同値の fixed モードで初期化） */
+  readonly cellSize?: number;
 }
 
 /* ------------------------------------------------------------------ */
@@ -163,6 +165,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   rowHeaders,
   rowHeaderWidth,
   rotateColumnHeaders = false,
+  cellSize,
 }) => {
   const ROW_NUM_WIDTH = rowHeaderWidth ?? DEFAULT_ROW_NUM_WIDTH;
   const HEADER_HEIGHT = rotateColumnHeaders ? 120 : DEFAULT_HEADER_HEIGHT;
@@ -224,9 +227,9 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   /* Cell size settings */
   const [settings, setSettings] = useState<CellSizeSettings>({
     heightMode: "fixed",
-    fixedHeight: DEFAULT_ROW_HEIGHT,
+    fixedHeight: cellSize ?? DEFAULT_ROW_HEIGHT,
     widthMode: "fixed",
-    fixedWidth: DEFAULT_COL_WIDTH,
+    fixedWidth: cellSize ?? DEFAULT_COL_WIDTH,
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsDraft, setSettingsDraft] = useState<CellSizeSettings>(settings);
