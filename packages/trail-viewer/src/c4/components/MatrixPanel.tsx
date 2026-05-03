@@ -157,9 +157,9 @@ export function MatrixPanel({
     dsmAdapter;
 
   const gridDimensions = useMemo(() => {
-    if (!activeAdapter) return { rows: 51, cols: 15 };
+    if (!activeAdapter) return { rows: 1024, cols: 128 };
     const snap = activeAdapter.getSnapshot();
-    return { rows: Math.max(51, snap.range.rows + 5), cols: Math.max(15, snap.range.cols + 3) };
+    return { rows: Math.max(1024, snap.range.rows + 5), cols: Math.max(128, snap.range.cols + 3) };
   }, [activeAdapter]);
 
   const toolbarButtonSx = {
