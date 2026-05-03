@@ -2,9 +2,13 @@ export type TrailLocale = 'ja' | 'en';
 
 export interface TrailI18n {
   // viewer
-  'viewer.analytics': string;
-  'viewer.messages': string;
-  'viewer.prompts': string;
+  'viewer.tab.analytics': string;
+  'viewer.tab.messages': string;
+  'viewer.tab.prompts': string;
+  'viewer.tab.releases': string;
+  'viewer.tab.c4': string;
+  'viewer.tab.matrix': string;
+  'viewer.tab.trace': string;
   'viewer.loading': string;
   'viewer.selectSession': string;
   'viewer.loaded': string;
@@ -195,7 +199,6 @@ export interface TrailI18n {
   'prompt.noPrompts': string;
   'prompt.selectPrompt': string;
   // releases
-  'releases.title': string;
   'releases.version': string;
   'releases.date': string;
   'releases.interval': string;
@@ -210,11 +213,6 @@ export interface TrailI18n {
   'releases.noReleases': string;
   'releases.repository': string;
   'releases.unknownRepo': string;
-  // c4
-  'viewer.c4': string;
-  'viewer.matrix': string;
-  // trace
-  'viewer.trace': string;
   'c4.releases': string;
   'c4.releaseRepository': string;
   'c4.unknownRepo': string;

@@ -209,14 +209,14 @@ function TrailViewerCoreInner({
             '& .MuiTabs-indicator': { backgroundColor: colors.iceBlue },
           }}
         >
-          <Tab id="trail-tab-0" aria-controls="trail-panel-0" label={t('viewer.analytics')} />
-          <Tab id="trail-tab-1" aria-controls="trail-panel-1" label={t('viewer.messages')} />
-          <Tab id="trail-tab-2" aria-controls="trail-panel-2" label={t('viewer.prompts')} />
-          <Tab id="trail-tab-3" aria-controls="trail-panel-3" label={t('releases.title')} />
-          {c4 && <Tab id="trail-tab-4" aria-controls="trail-panel-4" label={t('viewer.c4')} />}
-          {c4 && <Tab id="trail-tab-5" aria-controls="trail-panel-5" label={t('viewer.matrix')} />}
+          <Tab id="trail-tab-0" aria-controls="trail-panel-0" label={t('viewer.tab.analytics')} />
+          <Tab id="trail-tab-1" aria-controls="trail-panel-1" label={t('viewer.tab.messages')} />
+          <Tab id="trail-tab-2" aria-controls="trail-panel-2" label={t('viewer.tab.prompts')} />
+          <Tab id="trail-tab-3" aria-controls="trail-panel-3" label={t('viewer.tab.releases')} />
+          {c4 && <Tab id="trail-tab-4" aria-controls="trail-panel-4" label={t('viewer.tab.c4')} />}
+          {c4 && <Tab id="trail-tab-5" aria-controls="trail-panel-5" label={t('viewer.tab.matrix')} />}
           {codeGraph && <Tab id="trail-tab-6" aria-controls="trail-panel-6" label="Graph" />}
-          {traceFiles && <Tab id="trail-tab-7" aria-controls="trail-panel-7" label={t('viewer.trace')} />}
+          {traceFiles && <Tab id="trail-tab-7" aria-controls="trail-panel-7" label={t('viewer.tab.trace')} />}
         </Tabs>
         {tokenBudgets.length > 0 && (
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', px: 2, flexShrink: 0 }}>
