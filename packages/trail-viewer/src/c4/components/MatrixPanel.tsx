@@ -251,6 +251,7 @@ export function MatrixPanel({
             t={sheetT}
             showApply={false}
             showRange={false}
+            showToolbar={false}
             columnHeaders={activeColHeaders}
             rotateColumnHeaders={matrixView === 'dsm'}
             cellSize={matrixView === 'dsm' ? 28 : undefined}

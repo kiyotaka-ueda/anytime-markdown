@@ -92,6 +92,8 @@ interface SpreadsheetGridProps {
   readonly cellSize?: number;
   /** セルの背景色を返すコールバック。undefined 返却時はデフォルト背景 */
   readonly getCellBackground?: (row: number, col: number, value: string) => string | undefined;
+  /** 配置・フィルター等のツールバーを表示するか（デフォルト: true） */
+  readonly showToolbar?: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -169,6 +171,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   rotateColumnHeaders = false,
   cellSize,
   getCellBackground,
+  showToolbar = true,
 }) => {
   const ROW_NUM_WIDTH = rowHeaderWidth ?? DEFAULT_ROW_NUM_WIDTH;
   const HEADER_HEIGHT = rotateColumnHeaders ? 120 : DEFAULT_HEADER_HEIGHT;
@@ -1572,7 +1575,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
-      <Box sx={{ display: "flex", alignItems: "center", borderBottom: 1, borderColor: getDivider(isDark), px: 1, py: 0.25, gap: 0.5, flexShrink: 0 }}>
+      {showToolbar && <Box sx={{ display: "flex", alignItems: "center", borderBottom: 1, borderColor: getDivider(isDark), px: 1, py: 0.25, gap: 0.5, flexShrink: 0 }}>
         <ToggleButtonGroup exclusive size="small" sx={{ height: 24 }} onChange={handleAlignChange} disabled={readOnly}>
           <ToggleButton value="left" aria-label={t("alignLeft")} sx={{ px: 0.5, py: 0.125 }}>
             <Tooltip title={t("alignLeft")} placement="top"><FormatAlignLeftIcon sx={iconSx} /></Tooltip>
@@ -1621,7 +1624,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
             </Button>
           </Tooltip>
         )}
-      </Box>
+      </Box>}
 
       <Dialog open={settingsOpen} onClose={() => setSettingsOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>{t("spreadsheetCellSettings")}</DialogTitle>
