@@ -156,6 +156,12 @@ export function MatrixPanel({
     matrixView === 'fcmap' ? fcmapAdapter :
     dsmAdapter;
 
+  const gridDimensions = useMemo(() => {
+    if (!activeAdapter) return { rows: 51, cols: 15 };
+    const snap = activeAdapter.getSnapshot();
+    return { rows: Math.max(51, snap.range.rows + 5), cols: Math.max(15, snap.range.cols + 3) };
+  }, [activeAdapter]);
+
   const toolbarButtonSx = {
     textTransform: 'none' as const,
     color: colors.accent,
@@ -219,6 +225,8 @@ export function MatrixPanel({
             showApply={false}
             showRange={false}
             showHeaderRow
+            gridRows={gridDimensions.rows}
+            gridCols={gridDimensions.cols}
           />
         ) : matrixView === 'heatmap' ? (
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
