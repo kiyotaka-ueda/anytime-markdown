@@ -89,7 +89,7 @@ const trailStandaloneConfig = {
     new webpack.optimize.LimitChunkCountPlugin({
       maxChunks: 1,
     }),
-    new webpack.NormalModuleReplacementPlugin(/^node:path$/, require.resolve('./src/c4/standalone/shims/empty.js')),
+    new webpack.NormalModuleReplacementPlugin(/^node:path$/, require.resolve('./src/shims/empty.js')),
   ],
   devtool: 'nosources-source-map',
 };
