@@ -403,7 +403,7 @@ export function MatrixPanel({
                 onClick={() => setDsmLevel(level)}
                 sx={{ ...toolbarButtonSx, ...(dsmLevel === level && { bgcolor: toolbarButtonActiveBg }) }}
               >
-                {level === 'package' ? 'C2' : 'C3'}
+                {level === 'package' ? 'L2' : 'L3'}
               </Button>
             ))}
           </ButtonGroup>
