@@ -1,6 +1,6 @@
 import type { C4Element, C4Model, CoverageDiffMatrix, CoverageMatrix, DsmMatrix, DsmNode, FeatureMatrix, HeatmapMatrix } from '@anytime-markdown/trail-core/c4';
 import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, computeCommunityOverlay, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
-import type { HeaderSpan } from '@anytime-markdown/spreadsheet-core';
+import type { CellAlign, HeaderSpan } from '@anytime-markdown/spreadsheet-core';
 import { SpreadsheetGrid, createInMemorySheetAdapter, spreadsheetViewerEnMessages } from '@anytime-markdown/spreadsheet-viewer';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -102,7 +102,8 @@ function coverageToSheet(matrix: CoverageMatrix, model: C4Model) {
     String(Math.round(e.functions.pct * 10) / 10),
   ]);
   const cells = [headerRow, ...dataRows];
-  return { cells, alignments: cells.map(r => r.map(() => null)), range: { rows: cells.length, cols: 4 } };
+  const alignments = cells.map(r => r.map((_, ci) => (ci > 0 ? 'right' as const : null)));
+  return { cells, alignments, range: { rows: cells.length, cols: 4 } };
 }
 
 function heatmapToSheet(matrix: HeatmapMatrix) {
@@ -125,7 +126,7 @@ function heatmapToSheet(matrix: HeatmapMatrix) {
 
 const sheetT = (key: string) => (spreadsheetViewerEnMessages.Spreadsheet as Record<string, string>)[key] ?? key;
 
-function makeSheetResult(sheet: ReturnType<typeof dsmToSheet>) {
+function makeSheetResult(sheet: { cells: string[][]; alignments: CellAlign[][]; range: { rows: number; cols: number } }) {
   const colHeaders = sheet.cells[0]?.slice(1) ?? [];
   const dataRows = sheet.cells.slice(1).map(r => r.slice(1));
   const dataAligns = sheet.alignments.slice(1).map(r => r.slice(1));
