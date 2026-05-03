@@ -1351,7 +1351,8 @@ export class TrailDataServer {
       getElements: async (repo: string) => provider.getManualElements(repo),
       getRelationships: async (repo: string) => provider.getManualRelationships(repo),
     } : undefined;
-    const payload = await fetchC4Model(store, releaseId, repoName, provider?.featureMatrix, manualProvider);
+    const featureMatrix = provider?.featureMatrix ?? this.trailDb.getCurrentFeatureMatrix() ?? undefined;
+    const payload = await fetchC4Model(store, releaseId, repoName, featureMatrix, manualProvider);
     if (payload) {
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify(payload));
@@ -1408,7 +1409,8 @@ export class TrailDataServer {
     const repoName = this.gitRoot ? path.basename(this.gitRoot) : undefined;
     const provider = this.getC4Provider?.();
     const store = this.trailDb.asC4ModelStore();
-    const payload = await fetchC4Model(store, 'current', repoName, provider?.featureMatrix);
+    const featureMatrix = provider?.featureMatrix ?? this.trailDb.getCurrentFeatureMatrix() ?? undefined;
+    const payload = await fetchC4Model(store, 'current', repoName, featureMatrix);
 
     if (!payload) {
       res.writeHead(204);
