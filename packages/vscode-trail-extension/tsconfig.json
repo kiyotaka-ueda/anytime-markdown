@@ -12,7 +12,8 @@
       "@anytime-markdown/graph-core": ["../graph-core/src/index.ts"],
       "@anytime-markdown/graph-core/*": ["../graph-core/src/*"],
       "@anytime-markdown/trail-viewer": ["../trail-viewer/src/index.ts"],
-      "@anytime-markdown/trail-viewer/*": ["../trail-viewer/src/*"]
+      "@anytime-markdown/trail-viewer/*": ["../trail-viewer/src/*"],
+      "@anytime-markdown/trace-core/c4Sequence": ["../trace-core/src/c4Sequence.ts"]
     }
   },
   "include": ["src/**/*"],

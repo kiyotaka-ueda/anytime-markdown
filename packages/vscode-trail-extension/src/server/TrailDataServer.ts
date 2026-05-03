@@ -540,6 +540,12 @@ export class TrailDataServer {
       return;
     }
 
+    if (pathname === '/api/c4/sequence' && method === 'GET') {
+      const elementId = parsed.searchParams.get('elementId') ?? '';
+      void this.handleC4SequenceEndpoint(res, elementId);
+      return;
+    }
+
     if (method === 'POST' && pathname === '/api/c4/manual-elements') {
       void this.handleCreateManualElement(req, res, parsed);
       return;
@@ -2341,6 +2347,74 @@ export class TrailDataServer {
       TrailLogger.error(`[/api/c4/flowchart] error: componentId=${componentId}, symbolId=${symbolId}`, e);
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({ graph: EMPTY_GRAPH }));
+    }
+  }
+
+  private async handleC4SequenceEndpoint(
+    res: http.ServerResponse,
+    elementId: string,
+  ): Promise<void> {
+    const { SequenceAnalyzer, createSourceFile } = await import('@anytime-markdown/trail-core/analyzer');
+    const emptyModel = {
+      version: 1 as const,
+      rootElementId: elementId,
+      participants: [],
+      root: { kind: 'sequence' as const, steps: [] },
+    };
+    try {
+      if (!elementId) {
+        res.writeHead(400, JSON_HEADERS);
+        res.end(JSON.stringify({ error: 'elementId is required' }));
+        return;
+      }
+
+      const resolved = await this.resolveModelAndGraph();
+      if (!resolved) {
+        TrailLogger.warn(`[/api/c4/sequence] model or graph not available for elementId=${elementId}`);
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify(emptyModel));
+        return;
+      }
+
+      const { model, graph } = resolved;
+      const { projectRoot } = graph.metadata;
+
+      // 起点要素 + In/Out 関連要素配下の code 要素を全部対象にしてソースを読む
+      const involvedComponentIds = new Set<string>([elementId]);
+      for (const r of model.relationships) {
+        if (r.from === elementId) involvedComponentIds.add(r.to);
+        if (r.to === elementId) involvedComponentIds.add(r.from);
+      }
+      const codeElementIds = new Set(
+        model.elements
+          .filter(el => el.type === 'code' && el.boundaryId !== undefined && involvedComponentIds.has(el.boundaryId))
+          .map(el => el.id),
+      );
+
+      const normalizedRoot = projectRoot.endsWith(path.sep) ? projectRoot : `${projectRoot}${path.sep}`;
+      const sourceFiles = new Map<string, ReturnType<typeof createSourceFile>>();
+      for (const node of graph.nodes) {
+        if (!codeElementIds.has(node.id)) continue;
+        const absolutePath = path.resolve(projectRoot, node.filePath);
+        if (!absolutePath.startsWith(normalizedRoot)) {
+          TrailLogger.warn(`[/api/c4/sequence] path traversal blocked: ${node.filePath}`);
+          continue;
+        }
+        try {
+          const content = fs.readFileSync(absolutePath, 'utf-8');
+          sourceFiles.set(node.filePath, createSourceFile(node.filePath, content));
+        } catch (e) {
+          TrailLogger.error(`[/api/c4/sequence] failed to read file: ${node.filePath}`, e);
+        }
+      }
+
+      const sequenceModel = SequenceAnalyzer.build(elementId, model, graph, sourceFiles);
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify(sequenceModel));
+    } catch (e) {
+      TrailLogger.error(`[/api/c4/sequence] error: elementId=${elementId}`, e);
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify(emptyModel));
     }
   }
 
