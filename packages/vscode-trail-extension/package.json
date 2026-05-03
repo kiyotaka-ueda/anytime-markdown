@@ -222,6 +222,11 @@
           "command": "anytime-trail.c4Analyze",
           "when": "view == anytimeTrail.c4Elements",
           "group": "navigation@1"
+        },
+        {
+          "command": "anytime-trail.importTrailData",
+          "when": "view == anytimeTrail.database",
+          "group": "navigation"
         }
       ],
       "view/item/context": [
@@ -239,11 +244,6 @@
           "command": "anytime-trail.runCoverageTest",
           "when": "view == anytimeTrail.c4Elements && viewItem == c4Level.c4",
           "group": "1_test@1"
-        },
-        {
-          "command": "anytime-trail.importTrailData",
-          "when": "view == anytimeTrail.database && viewItem == sqliteDb",
-          "group": "inline"
         }
       ]
     },
