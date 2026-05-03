@@ -8,6 +8,7 @@ export interface TrailI18n {
   'viewer.tab.releases': string;
   'viewer.tab.model': string;
   'viewer.tab.matrix': string;
+  'viewer.tab.graph': string;
   'viewer.tab.trace': string;
   'viewer.loading': string;
   'viewer.selectSession': string;

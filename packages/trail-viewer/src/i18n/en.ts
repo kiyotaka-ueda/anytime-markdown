@@ -7,6 +7,7 @@ export const en: TrailI18n = {
   'viewer.tab.releases': 'Releases',
   'viewer.tab.model': 'C4 Model',
   'viewer.tab.matrix': 'Matrix',
+  'viewer.tab.graph': 'Graph',
   'viewer.tab.trace': 'Trace',
   'viewer.loading': 'Loading...',
   'viewer.selectSession': 'Select a session',
