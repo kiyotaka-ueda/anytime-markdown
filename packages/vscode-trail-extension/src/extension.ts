@@ -783,7 +783,7 @@ export async function activate(context: vscode.ExtensionContext) {
 						cancellable: false,
 					},
 					async (progress) => {
-						const result = await syncService.syncWithOpenStore(({ message, increment }) => {
+						const result = await syncService.sync(({ message, increment }) => {
 							progress.report({ message, increment });
 							TrailLogger.info(`Trail Supabase sync: ${message}`);
 						});
