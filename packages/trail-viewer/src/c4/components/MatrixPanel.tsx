@@ -1,5 +1,6 @@
-import type { C4Model, CoverageDiffMatrix, CoverageMatrix, DsmMatrix, FeatureMatrix, HeatmapMatrix } from '@anytime-markdown/trail-core/c4';
+import type { C4Element, C4Model, CoverageDiffMatrix, CoverageMatrix, DsmMatrix, DsmNode, FeatureMatrix, HeatmapMatrix } from '@anytime-markdown/trail-core/c4';
 import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
+import type { HeaderSpan } from '@anytime-markdown/spreadsheet-core';
 import { SpreadsheetGrid, createInMemorySheetAdapter, spreadsheetViewerEnMessages } from '@anytime-markdown/spreadsheet-viewer';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -10,6 +11,43 @@ import { useMemo, useState } from 'react';
 import { useTrailI18n } from '../../i18n';
 import { getDsmCellBackground, getC4Colors } from '../c4Theme';
 import { useActivityHeatmap } from '../hooks/useActivityHeatmap';
+
+// ---------------------------------------------------------------------------
+// Package group helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * DSM ノード列からパッケージ別スパンを計算する。
+ * component レベルのノードに対し C4 要素の boundaryId（親コンテナ）でグルーピングする。
+ */
+function buildDsmPackageSpans(
+  nodes: readonly DsmNode[],
+  elements: readonly C4Element[],
+): readonly HeaderSpan[] | null {
+  const elementById = new Map<string, C4Element>();
+  for (const el of elements) elementById.set(el.id, el);
+
+  const spans: HeaderSpan[] = [];
+  let currentLabel = '';
+  let currentSpan = 0;
+
+  for (const node of nodes) {
+    const el = elementById.get(node.id);
+    const pkgEl = el?.boundaryId ? elementById.get(el.boundaryId) : null;
+    const label = pkgEl?.name ?? '';
+
+    if (label === currentLabel) {
+      currentSpan++;
+    } else {
+      if (currentSpan > 0) spans.push({ label: currentLabel, span: currentSpan });
+      currentLabel = label;
+      currentSpan = 1;
+    }
+  }
+  if (currentSpan > 0) spans.push({ label: currentLabel, span: currentSpan });
+
+  return spans.length > 1 ? spans : null;
+}
 
 // ---------------------------------------------------------------------------
 // Matrix → SheetSnapshot converters
@@ -146,6 +184,11 @@ export function MatrixPanel({
     return sortDsmMatrixByName(m);
   }, [dsmMatrix, dsmLevel, c4Model]);
 
+  const dsmPackageSpans = useMemo(() => {
+    if (dsmLevel !== 'component' || !filteredDsmMatrix || !c4Model) return null;
+    return buildDsmPackageSpans(filteredDsmMatrix.nodes, c4Model.elements);
+  }, [dsmLevel, filteredDsmMatrix, c4Model]);
+
   const dsmResult = useMemo(
     () => filteredDsmMatrix ? makeSheetResult(dsmToSheet(filteredDsmMatrix)) : null,
     [filteredDsmMatrix],
@@ -257,6 +300,8 @@ export function MatrixPanel({
             cellSize={matrixView === 'dsm' ? 28 : undefined}
             rowHeaders={activeRowHeaders}
             rowHeaderWidth={120}
+            columnHeaderGroups={matrixView === 'dsm' && dsmPackageSpans ? [dsmPackageSpans] : undefined}
+            rowHeaderGroups={matrixView === 'dsm' && dsmPackageSpans ? [dsmPackageSpans] : undefined}
             gridRows={gridDimensions.rows}
             gridCols={gridDimensions.cols}
             getCellBackground={matrixView === 'dsm' ? dsmCellBackground : undefined}
