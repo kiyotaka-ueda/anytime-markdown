@@ -93,13 +93,6 @@ function fcmapToSheet(fm: FeatureMatrix, model: C4Model) {
   return { cells, alignments: cells.map(r => r.map(() => null)), range: { rows: cells.length, cols: headerRow.length } };
 }
 
-const COMPLEXITY_LABEL: Record<string, string> = {
-  'high-complexity': 'High',
-  'multi-file-edit': 'Multi',
-  'search-only': 'Search',
-  'low-complexity': 'Low',
-};
-
 function coverageToSheet(
   matrix: CoverageMatrix,
   model: C4Model,
@@ -107,26 +100,23 @@ function coverageToSheet(
   defectCountMap: ReadonlyMap<string, number> | null,
 ) {
   const elementMap = new Map(model.elements.map(e => [e.id, e.name]));
-  const complexityMap = new Map(complexityMatrix?.entries.map(e => [e.elementId, e.highest]) ?? []);
+  const complexityMap = new Map(complexityMatrix?.entries.map(e => [e.elementId, e.totalCount]) ?? []);
   const headerRow = ['Component', 'Lines%', 'Branches%', 'Functions%', 'Complexity', 'Defects', 'LOC'];
   const dataRows = matrix.entries.map(e => {
-    const cls = complexityMap.get(e.elementId);
+    const complexity = complexityMap.get(e.elementId);
     const defects = defectCountMap?.get(e.elementId);
     return [
       elementMap.get(e.elementId) ?? e.elementId,
       String(Math.round(e.lines.pct * 10) / 10),
       String(Math.round(e.branches.pct * 10) / 10),
       String(Math.round(e.functions.pct * 10) / 10),
-      cls ? (COMPLEXITY_LABEL[cls] ?? cls) : '',
+      complexity != null ? String(complexity) : '',
       defects != null ? String(defects) : '',
       e.lines.total > 0 ? String(e.lines.total) : '',
     ];
   });
   const cells = [headerRow, ...dataRows];
-  // col 0: name (left), col 4: Complexity label (left), others: right
-  const alignments = cells.map(r => r.map((_, ci): CellAlign =>
-    (ci === 0 || ci === 4) ? null : 'right',
-  ));
+  const alignments = cells.map(r => r.map((_, ci): CellAlign => ci === 0 ? null : 'right'));
   return { cells, alignments, range: { rows: cells.length, cols: 7 } };
 }
 
