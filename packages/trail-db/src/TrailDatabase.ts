@@ -58,7 +58,8 @@ import { matchCommitsToMessages, computeDefectRisk, type CommitRiskRow, type Def
 import type { CodeGraph } from '@anytime-markdown/trail-core/codeGraph';
 import { splitCodeGraph, composeCodeGraph } from '@anytime-markdown/trail-core/codeGraph';
 import type { StoredCommunity } from '@anytime-markdown/trail-core/codeGraph';
-import type { FeatureMatrix, FeatureCategory, Feature, FeatureMapping } from '@anytime-markdown/trail-core/c4';
+import type { FeatureMatrix } from '@anytime-markdown/trail-core/c4';
+import { buildFeatureMatrixFromCommunities } from '@anytime-markdown/trail-core/c4';
 import { JsonlSessionReader } from './JsonlSessionReader';
 import { ExecFileGitService } from './ExecFileGitService';
 import { type DbLogger, noopDbLogger } from './DbLogger';
@@ -6282,37 +6283,14 @@ export class TrailDatabase {
     const result = db.exec(
       "SELECT community_id, name, label, mappings_json FROM current_code_graph_communities WHERE name IS NOT NULL AND name != '' AND mappings_json IS NOT NULL ORDER BY community_id",
     );
-    const rows = result[0]?.values ?? [];
-    if (rows.length === 0) return null;
+    const rows = (result[0]?.values ?? []).map((row) => ({
+      community_id: Number(row[0]),
+      name: String(row[1]),
+      label: String(row[2]),
+      mappings_json: row[3] == null ? null : String(row[3]),
+    }));
 
-    const LABEL_TO_CATEGORY: Record<string, string> = {
-      engine: 'cat_core', trail: 'cat_core', c4: 'cat_core', domain: 'cat_core', importance: 'cat_core',
-      components: 'cat_ui', hooks: 'cat_ui', utils: 'cat_ui', plugins: 'cat_ui',
-      'spreadsheet-core': 'cat_ui', i18n: 'cat_ui', app: 'cat_ui',
-      'cms-core': 'cat_infra', tools: 'cat_infra', providers: 'cat_infra', 'mcp-trail': 'cat_infra',
-    };
-    const categories: FeatureCategory[] = [
-      { id: 'cat_core', name: 'コア基盤' },
-      { id: 'cat_ui', name: 'UI / アプリ' },
-      { id: 'cat_infra', name: 'インフラ / 外部連携' },
-    ];
-    const features: Feature[] = [];
-    const mappings: FeatureMapping[] = [];
-
-    for (const row of rows) {
-      const [communityId, name, label, mappingsJson] = row as [number, string, string, string];
-      const featureId = `f_community_${communityId}`;
-      const categoryId = LABEL_TO_CATEGORY[String(label)] ?? 'cat_infra';
-      features.push({ id: featureId, name: String(name), categoryId });
-      try {
-        const parsed = JSON.parse(String(mappingsJson)) as FeatureMapping[];
-        mappings.push(...parsed);
-      } catch {
-        this.logger.warn(`getCurrentFeatureMatrix: failed to parse mappings_json for community ${communityId}`);
-      }
-    }
-
-    return { categories, features, mappings };
+    return buildFeatureMatrixFromCommunities(rows);
   }
 
   // ---------------------------------------------------------------------------
