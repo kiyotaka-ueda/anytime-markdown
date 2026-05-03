@@ -13,6 +13,7 @@ import { getDsmCellBackground, getC4Colors } from '../c4Theme';
 import { useActivityHeatmap } from '../hooks/useActivityHeatmap';
 import { useCodeGraph } from '../../hooks/useCodeGraph';
 import { useDefectRisk } from '../hooks/useDefectRisk';
+import { useHotspot } from '../hooks/useHotspot';
 import { communityColor } from '../../components/communityColors';
 
 // ---------------------------------------------------------------------------
@@ -99,14 +100,16 @@ function coverageToSheet(
   complexityMatrix: ComplexityMatrix | null,
   defectCountMap: ReadonlyMap<string, number> | null,
   defectRiskScoreMap: ReadonlyMap<string, number> | null,
+  churnCountMap: ReadonlyMap<string, number> | null,
 ) {
   const elementMap = new Map(model.elements.map(e => [e.id, e.name]));
   const complexityMap = new Map(complexityMatrix?.entries.map(e => [e.elementId, e.totalCount]) ?? []);
-  const headerRow = ['Component', 'Lines%', 'Branches%', 'Functions%', 'Complexity', 'Defects', 'Risk', 'LOC'];
+  const headerRow = ['Component', 'Lines%', 'Branches%', 'Functions%', 'Complexity', 'Defects', 'Risk', 'LOC', 'Commits'];
   const dataRows = matrix.entries.map(e => {
     const complexity = complexityMap.get(e.elementId);
     const defects = defectCountMap?.get(e.elementId);
     const risk = defectRiskScoreMap?.get(e.elementId);
+    const commits = churnCountMap?.get(e.elementId);
     return [
       elementMap.get(e.elementId) ?? e.elementId,
       String(Math.round(e.lines.pct * 10) / 10),
@@ -116,11 +119,12 @@ function coverageToSheet(
       defects != null ? String(defects) : '',
       risk != null ? String(Math.round(risk * 100) / 100) : '',
       e.lines.total > 0 ? String(e.lines.total) : '',
+      commits != null ? String(commits) : '',
     ];
   });
   const cells = [headerRow, ...dataRows];
   const alignments = cells.map(r => r.map((_, ci): CellAlign => ci === 0 ? null : 'right'));
-  return { cells, alignments, range: { rows: cells.length, cols: 8 } };
+  return { cells, alignments, range: { rows: cells.length, cols: 9 } };
 }
 
 function heatmapToSheet(matrix: HeatmapMatrix) {
@@ -195,6 +199,13 @@ export function MatrixPanel({
     halfLifeDays: 90,
   });
 
+  const { data: hotspotData } = useHotspot({
+    enabled: !!serverUrl,
+    serverUrl,
+    period: '90d',
+    granularity: 'commit',
+  });
+
   const defectCountMap = useMemo<ReadonlyMap<string, number> | null>(() => {
     if (!drEntries.length || !c4Model) return null;
     const map = new Map<string, number>();
@@ -218,6 +229,18 @@ export function MatrixPanel({
     }
     return map.size > 0 ? map : null;
   }, [drEntries, c4Model]);
+
+  const churnCountMap = useMemo<ReadonlyMap<string, number> | null>(() => {
+    if (!hotspotData?.files.length || !c4Model) return null;
+    const map = new Map<string, number>();
+    for (const entry of hotspotData.files) {
+      const mappings = mapFilesToC4Elements([entry.filePath], c4Model.elements);
+      for (const m of mappings) {
+        map.set(m.elementId, (map.get(m.elementId) ?? 0) + entry.churn);
+      }
+    }
+    return map.size > 0 ? map : null;
+  }, [hotspotData, c4Model]);
 
   const heatmapEnabled = matrixView === 'heatmap';
   const { data: heatmapResponse } = useActivityHeatmap({
@@ -275,9 +298,9 @@ export function MatrixPanel({
   );
   const coverageResult = useMemo(
     () => coverageMatrix && c4Model
-      ? makeSheetResult(coverageToSheet(coverageMatrix, c4Model, complexityMatrix ?? null, defectCountMap, defectRiskScoreMap))
+      ? makeSheetResult(coverageToSheet(coverageMatrix, c4Model, complexityMatrix ?? null, defectCountMap, defectRiskScoreMap, churnCountMap))
       : null,
-    [coverageMatrix, c4Model, complexityMatrix, defectCountMap, defectRiskScoreMap],
+    [coverageMatrix, c4Model, complexityMatrix, defectCountMap, defectRiskScoreMap, churnCountMap],
   );
   const heatmapResult = useMemo(
     () => heatmapMatrix ? makeSheetResult(heatmapToSheet(heatmapMatrix)) : null,
