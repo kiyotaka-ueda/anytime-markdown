@@ -1346,10 +1346,12 @@ export function C4ViewerCore({
                       </ListSubheader>
                       <MenuItem value="hotspot-frequency" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotFrequency')}</MenuItem>
                       <MenuItem value="hotspot-risk" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotRisk')}</MenuItem>
-                      <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
-                        F-cMap
-                      </ListSubheader>
-                      <MenuItem value="fcmap" disabled={!featureMatrix} sx={{ fontSize: '0.75rem' }}>F-cMap</MenuItem>
+                      {featureMatrix && [
+                        <ListSubheader key="fcmap-header" sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
+                          F-cMap
+                        </ListSubheader>,
+                        <MenuItem key="fcmap-item" value="fcmap" sx={{ fontSize: '0.75rem' }}>F-cMap</MenuItem>,
+                      ]}
                     </Select>
                   </Box>
                   {metricOverlay === 'fcmap' && featureMatrix && (
