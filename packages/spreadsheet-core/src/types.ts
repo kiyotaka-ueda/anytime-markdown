@@ -65,3 +65,24 @@ export interface WorkbookSnapshot {
   readonly sheets: ReadonlyArray<SheetData>;
   readonly activeSheet: number;
 }
+
+/** ヘッダーグループの1スパン */
+export interface HeaderSpan {
+  readonly label: string;
+  /** スパンする列数または行数 */
+  readonly span: number;
+}
+
+/**
+ * 列グループヘッダー（複数行対応）
+ * 外側配列のインデックス = 行番号（0 が最上段）
+ * 内側配列 = その行のスパン一覧（左から順）
+ */
+export type ColumnHeaderGroups = readonly (readonly HeaderSpan[])[];
+
+/**
+ * 行グループヘッダー（複数列対応）
+ * 外側配列のインデックス = 列番号（0 が最左列）
+ * 内側配列 = その列のスパン一覧（上から順）
+ */
+export type RowHeaderGroups = readonly (readonly HeaderSpan[])[];

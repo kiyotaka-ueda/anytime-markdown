@@ -1,60 +1,60 @@
-# Anytime Markdown
+# Any
 
-![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=alert_status)![Coverage](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=coverage)![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=sqale_rating)![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=security_rating)**書く、描く、見通す。Markdown から始まるソフトウェア開発ツール。**
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=alert_status)![Bugs](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=bugs)![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=code_smells)![Coverage](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=coverage)![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=duplicated_lines_density)
+
+[日本語](https://github.com/anytime-trial/anytime-markdown/blob/master/README.ja.md) | [English](https://github.com/anytime-trial/anytime-markdown/blob/master/README.md)
+
+**コードも文書も AI も見える化する。**
+
+AI エージェントは、苛酷な砂漠（開発環境）を往くキャラバン。\
+Markdown の WYSIWYG 編集・差分レビューと、TypeScript プロジェクトのリアルタイム可視化で、その旅路を安全に見守り導く ― AI 時代の羅針盤となる **2 つの VS Code 拡張** です。
 
 
-## 特徴的な機能
+[**Web サイトを見る**](https://www.anytime-trial.com)
 
 
-### C4 アーキテクチャ図 & DSM ライブビューア
+## 2 つの VS Code 拡張
 
-TypeScript プロジェクトを1コマンドで解析し、C4 アーキテクチャ図と DSM（依存構造マトリクス）を自動生成する。\
+
+### Anytime Trail — 構造・品質・行動の可視化
+
+TypeScript プロジェクトを 1 コマンドで解析し、コードベース・AI 行動・プロジェクト品質をリアルタイムに可視化する VS Code 拡張機能。\
 ブラウザのライブビューアで構造を確認しながらコーディングできる。
 
-- L1（システムコンテキスト）〜 L4（コード）の4段階でドリルダウン
-- DSM クラスタリングで関連モジュールをグルーピング
-- 循環依存を赤枠でハイライト
-- VS Code での再解析が WebSocket 経由でリアルタイムに反映
+- **構造の可視化**: C4 アーキテクチャ図と DSM（依存構造マトリクス）を自動生成。L1（システムコンテキスト）〜 L4（コード）の 4 段階でドリルダウン、循環依存は赤枠でハイライト
+- **行動の可視化**: ユーザー入力・AI 応答・ツール実行を 1 ターンずつ階層ツリーで可視化。ターンタイムラインと連動した会話ツリーで AI エージェントの判断を時系列で追跡
+- **品質の可視化**: エラー発生数・リトライ率・ビルド/テスト失敗率・カバレッジを C4 図にヒートマップで重ね、構造の中で品質弱点を特定
+- **生産性の可視化**: トークン消費・推定コスト・キャッシュヒット率・Four Keys（DORA）指標で AI エージェントの投資対効果を定量評価
 
 > 詳細: [Anytime Trail README](packages/vscode-trail-extension/README.ja.md)
 
 
-### グラフエディタ
-
-ノード・エッジを自由に配置するダイアグラムエディタ。\
-VS Code 拡張機能で `.graph` ファイルとして保存・編集できる。
-
-- 直交・ベジェ・直線のルーティング切替
-- フレームノードによるグルーピング
-- SVG / draw.io エクスポート
-- 物理レイアウト（力学モデル）
-
-> 詳細: [Graph Core](packages/graph-core/)、[VS Code Graph Extension](packages/vscode-graph-extension/)
-
-
-### リッチマークダウンエディタ
+### Anytime Markdown — WYSIWYG 編集と差分レビュー
 
 Tiptap / ProseMirror ベースの WYSIWYG マークダウンエディタ。\
-Web、VS Code、Android の3つのプラットフォームで同じ編集体験を提供する。
+Web ・ VS Code ・ Android の 3 プラットフォームで同じ編集体験を提供する。
 
-- Mermaid / PlantUML ダイアグラム描画
-- diff 比較・マージビュー
-- PDF エクスポート
-- テンプレート挿入（スラッシュコマンド）
-- 検索・置換、アウトライン、脚注、インラインコメント
-- セクション自動番号
+- **AI の足跡をレビュー**: AI が編集した箇所を色付きで表示し、セクション単位の差分比較で変更点を即把握。確定済みセクションはロックして AI の再編集を防止
+- **3 モード瞬時切替**: WYSIWYG ・ ソース ・ レビューの 3 モードをワンクリックで切替。レビューモードは読み取り専用で AI 出力の集中レビューに最適
+- **図表の即時プレビュー**: Mermaid ・ PlantUML ・ 数式（KaTeX）をエディタ内で直接プレビュー。コンテキストスイッチなしで完結
+- **画像アノテーション**: 矩形・円・線・テキストで画像に直接注釈を追加。Agent Note にスクリーンキャプチャを貼り付けて AI に視覚コンテキストを共有
+- **スラッシュコマンド**: 「/」入力で見出し・表・コードブロック・図表・テンプレートを素早く挿入
+- **Git サイドバー**: 変更一覧・コミットグラフ・タイムラインをサイドバーに統合
+- **インラインコメント / アウトライン / 脚注 / セクション自動番号 / 検索・置換**
 - 日本語 / 英語 対応
 
-### MCP サーバー
+
+## MCP サーバー
 
 AI エージェントがプロジェクトの資産に直接アクセスするための MCP（Model Context Protocol）サーバー群。
 
 | サーバー | 機能 |
 | --- | --- |
 | `mcp-markdown` | Markdown の読み書き・セクション操作・差分計算 |
-| `mcp-graph` | グラフドキュメントの CRUD・SVG / draw.io エクスポート |
+| `mcp-graph` | グラフドキュメントの CRUD ・ SVG / draw.io エクスポート |
+| `mcp-trail` | C4 モデル・DSM の操作、要素・グループ・関係の管理 |
 | `mcp-cms` | S3 上のドキュメント・レポートの管理 |
-| `mcp-c4` | C4 モデル・DSM の操作 |
+| `mcp-cms-remote` | Cloudflare Workers 経由のリモート CMS アクセス |
 
 
 ## プロジェクト構成
@@ -64,9 +64,15 @@ flowchart TD
     subgraph core ["共有ライブラリ"]
         MC["markdown-core<br/>(エディタエンジン)"]
         GC["graph-core<br/>(グラフエンジン)"]
-        TC["trail-core<br/>(TypeScript 解析)"]
-        C4["c4-kernel<br/>(C4 モデル・DSM)"]
+        TC["trail-core<br/>(TypeScript 解析・C4・DSM)"]
         CC["cms-core<br/>(S3 クライアント)"]
+        SC["spreadsheet-core<br/>trace-core"]
+    end
+
+    subgraph viewer ["ビューア (Web 埋め込み)"]
+        TV["trail-viewer"]
+        GV["graph-viewer"]
+        SV["spreadsheet-viewer"]
     end
 
     subgraph app ["アプリケーション"]
@@ -76,32 +82,32 @@ flowchart TD
 
     subgraph ext ["VS Code 拡張機能"]
         VME["vscode-markdown-extension"]
-        VGE["vscode-graph-extension"]
         VTE["vscode-trail-extension"]
+        VGE["vscode-graph-extension"]
+        VSE["vscode-sheet-extension<br/>vscode-history-extension"]
         VEP["vscode-extension-pack"]
     end
 
     subgraph mcp ["MCP サーバー"]
         MM["mcp-markdown"]
         MG["mcp-graph"]
-        MCM["mcp-cms"]
-        MC4["mcp-c4"]
+        MT["mcp-trail"]
+        MCM["mcp-cms<br/>mcp-cms-remote"]
     end
 
     WA --> MC
     WA --> GC
-    WA --> C4
+    WA --> TV
     WA --> CC
     VME --> MC
     VGE --> GC
     VTE --> TC
-    VTE --> C4
-    VTE --> GC
+    VTE --> TV
     MA --> WA
     MM --> MC
     MG --> GC
+    MT --> TC
     MCM --> CC
-    MC4 --> C4
 ```
 
 
@@ -119,30 +125,11 @@ flowchart TD
 ### Dev Container を使う場合（推奨）
 
 1. WSL2 上でリポジトリをクローンする
-2. GitHub Personal Access Token を WSL のシェルに設定する
-3. VS Code でリポジトリを開く
-4. コマンドパレット → 「Dev Containers: Reopen in Container」を実行
+2. VS Code でリポジトリを開く
+3. コマンドパレット → 「Dev Containers: Reopen in Container」を実行
 
 > 初回はコンテナのビルドと `npm install` が自動実行される。\
 > ポート `3000` は自動フォワードされる。
-
-
-#### GitHub Personal Access Token の設定
-
-GitHub MCP サーバーや `gh` CLI で使用する。\
-未設定でも開発は可能だが、PR 作成等の GitHub 操作が制限される。
-
-1. https://github.com/settings/tokens にアクセス
-2. 「Generate new token (classic)」をクリック
-3. スコープ: `repo` にチェックを入れてトークンを生成
-4. WSL のシェル設定ファイルに追加:
-
-```bash
-echo 'export GH_TOKEN=ghp_xxxxxxxxxxxxxxxx' >> ~/.bashrc
-source ~/.bashrc
-```
-
-Dev Container 起動時に `GH_TOKEN` が設定されていれば、GitHub MCP サーバーが自動登録される。
 
 ```bash
 # 開発サーバーを起動
@@ -171,63 +158,3 @@ npm run dev
 ```
 
 ブラウザで http://localhost:3000 にアクセスする。
-
-
-## テスト
-
-
-### ユニットテスト
-
-追加インストールは不要。
-
-```bash
-# リポジトリルートで全パッケージのテストを実行
-npx jest --no-coverage
-```
-
-
-### E2E テスト（Playwright）
-
-Playwright ブラウザは Dockerfile のビルド時にインストール済み。\
-パッケージ更新等でブラウザバージョンが変わった場合は、手動で再インストールする:
-
-```bash
-npx playwright install --with-deps
-```
-
-E2E テストの実行:
-
-```bash
-cd packages/web-app
-npm run e2e
-```
-
-> E2E テストは開発サーバーが起動していなくても、テスト内で自動起動される。
-
-### VSIX ファイルの作成
-
-ローカルインストールやテスト配布用に `.vsix` ファイルを作成する手順。
-
-```bash
-# 1. リポジトリルートで依存パッケージをインストール
-npm install
-
-# 2. vscode-markdown-extension ディレクトリに移動
-cd packages/vscode-markdown-extension
-
-# 3. VSIX ファイルを生成
-npx vsce package --no-dependencies
-```
-
-`anytime-markdown-<version>.vsix` が生成される。
-
-
-### ローカルへのインストール
-
-```bash
-code --install-extension anytime-markdown-<version>.vsix
-```
-
-または VS Code のコマンドパレットから「Extensions: Install from VSIX...」を選択してファイルを指定する。
-
-​

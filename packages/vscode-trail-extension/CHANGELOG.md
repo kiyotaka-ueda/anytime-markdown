@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-05-03
+
+### Added
+
+- F-cMap data generation and display via TrailDataServer
+- L4 code element function list API endpoint
+- open-file WebSocket message type and dispatch handling
+- L4 file open command wiring via VS Code (`onOpenFile`)
+- Trace CodeLens and `runWithTrace` command (M5)
+
+### Fixed
+
+- Trace tab not showing in trail viewer
+
+### Changed
+
+- Refactored M1-M6 trace implementation: removed duplication and improved quality
+
+### Trail Core (trail-core)
+
+- F-cMap color map computation for C4 graph node overlay
+- DSM L4 aggregates from C4 code elements instead of raw files
+- c4Mapper duplicate logic reduction
+
 ## [0.14.0] - 2026-05-02
 
 ### Added

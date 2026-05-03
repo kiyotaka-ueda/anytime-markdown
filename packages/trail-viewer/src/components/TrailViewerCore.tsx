@@ -1,4 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
+import { TraceViewer } from '@anytime-markdown/trace-viewer';
+import type { TraceFileSource } from '@anytime-markdown/trace-viewer';
+import type { SourceLocation } from '@anytime-markdown/trace-core/types';
 import Box from '@mui/material/Box';
 import LinearProgress from '@mui/material/LinearProgress';
 import Tab from '@mui/material/Tab';
@@ -67,7 +70,11 @@ export interface TrailViewerCoreProps {
   readonly c4?: C4Props;
   /** Code graph props. When provided, the Graph tab is shown. */
   readonly codeGraph?: { readonly serverUrl: string };
-  /** 初期表示タブ番号（0=Analytics, 1=Traces, 2=Prompts, 3=Releases, 4=C4, 5=Matrix, 6=Graph）*/
+  /** Trace files. When provided, the Trace tab is shown. */
+  readonly traceFiles?: readonly TraceFileSource[];
+  /** Called when user clicks a node to jump to source. */
+  readonly onJumpToSource?: (loc: SourceLocation) => void;
+  /** 初期表示タブ番号（0=Analytics, 1=Traces, 2=Prompts, 3=Releases, 4=C4, 5=Matrix, 6=Graph, 7=Trace）*/
   readonly initialTab?: number;
 }
 
@@ -109,6 +116,8 @@ function TrailViewerCoreInner({
   sessionsLoading,
   c4,
   codeGraph,
+  traceFiles,
+  onJumpToSource,
   initialTab,
 }: Readonly<TrailViewerCoreProps>) {
   const { t } = useTrailI18n();
@@ -207,6 +216,7 @@ function TrailViewerCoreInner({
           {c4 && <Tab id="trail-tab-4" aria-controls="trail-panel-4" label={t('viewer.c4')} />}
           {c4 && <Tab id="trail-tab-5" aria-controls="trail-panel-5" label={t('viewer.matrix')} />}
           {codeGraph && <Tab id="trail-tab-6" aria-controls="trail-panel-6" label="Graph" />}
+          {traceFiles && <Tab id="trail-tab-7" aria-controls="trail-panel-7" label={t('viewer.trace')} />}
         </Tabs>
         {tokenBudgets.length > 0 && (
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', px: 2, flexShrink: 0 }}>
@@ -346,13 +356,13 @@ function TrailViewerCoreInner({
         >
           <MatrixPanel
             dsmMatrix={c4.dsmMatrix}
-            featureMatrix={c4.featureMatrix}
             coverageMatrix={c4.coverageMatrix}
-            coverageDiff={c4.coverageDiff}
+            complexityMatrix={c4.complexityMatrix}
             c4Model={c4.c4Model}
             serverUrl={c4.serverUrl}
             selectedRepo={c4.selectedRepo}
             isDark={isDark}
+            isActive={activeTab === 5}
           />
         </Box>
       )}
@@ -365,6 +375,21 @@ function TrailViewerCoreInner({
           sx={{ display: activeTab !== 6 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
         >
           <CodeGraphPanel serverUrl={codeGraph.serverUrl} isDark={isDark} />
+        </Box>
+      )}
+
+      {traceFiles && (
+        <Box
+          role="tabpanel"
+          id="trail-panel-7"
+          aria-labelledby="trail-tab-7"
+          sx={{ display: activeTab !== 7 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
+        >
+          <TraceViewer
+            traceFiles={traceFiles}
+            isDark={isDark ?? true}
+            onJumpToSource={onJumpToSource}
+          />
         </Box>
       )}
     </Box>

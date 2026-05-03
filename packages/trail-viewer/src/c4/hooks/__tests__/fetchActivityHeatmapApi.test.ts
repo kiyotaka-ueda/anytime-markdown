@@ -11,7 +11,7 @@ describe('buildActivityHeatmapUrl', () => {
   it('includes topK when provided', () => {
     const url = buildActivityHeatmapUrl('http://x', {
       period: '30d',
-      mode: 'subagent-file',
+      mode: 'session-file',
       topK: 5,
     });
     expect(url).toContain('topK=5');

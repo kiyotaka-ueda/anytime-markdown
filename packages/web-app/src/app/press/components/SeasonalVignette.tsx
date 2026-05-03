@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+
 import styles from '../press.module.css';
 
 type Season = 'spring' | 'summer' | 'autumn' | 'winter';
@@ -271,13 +273,21 @@ function WinterMotif({ day }: Readonly<{ day: number }>) {
 
 // ─── メインコンポーネント ─────────────────────────────────
 
-const _today = new Date();
-const CURRENT_SEASON = getSeason(_today.getMonth() + 1);
-const DAY_SEED = getDaySeed();
+type MotifState = { season: Season; day: number } | null;
 
 export function SeasonalVignette() {
-  const season = CURRENT_SEASON;
-  const day = DAY_SEED;
+  const [motif, setMotif] = useState<MotifState>(null);
+
+  useEffect(() => {
+    const today = new Date();
+    setMotif({ season: getSeason(today.getMonth() + 1), day: getDaySeed() });
+  }, []);
+
+  if (!motif) {
+    return <div className={styles.mastVignette} aria-hidden="true" />;
+  }
+
+  const { season, day } = motif;
 
   return (
     <div className={styles.mastVignette} aria-hidden="true">

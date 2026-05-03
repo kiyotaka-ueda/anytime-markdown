@@ -4,7 +4,7 @@ import { EdgeArrowProgram } from 'sigma/rendering';
 import Graph from 'graphology';
 import type { CodeGraph } from '@anytime-markdown/trail-core/codeGraph';
 import type { CouplingDirection } from '@anytime-markdown/trail-core';
-import { COMMUNITY_COLORS } from './communityColors';
+import { COMMUNITY_COLORS, communityColor } from './communityColors';
 
 export { COMMUNITY_COLORS };
 
@@ -94,7 +94,7 @@ export function CodeGraphCanvas({
         x,
         y,
         size: Math.max(3, Math.min((node.size ?? 0) + 4, 20)),
-        color: COMMUNITY_COLORS[community % COMMUNITY_COLORS.length],
+        color: communityColor(community),
         community,
       });
     }
@@ -192,7 +192,7 @@ export function CodeGraphCanvas({
     const g = sigma.getGraph();
     g.forEachNode((node) => {
       const community = (g.getNodeAttribute(node, 'community') as number | undefined) ?? 0;
-      const fullColor = COMMUNITY_COLORS[community % COMMUNITY_COLORS.length];
+      const fullColor = communityColor(community);
       const dimmed = isDark ? '#333' : '#eee';
       const highlighted =
         !highlightedNodes || highlightedNodes.size === 0 || highlightedNodes.has(node);

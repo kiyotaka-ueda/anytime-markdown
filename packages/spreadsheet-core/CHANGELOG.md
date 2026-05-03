@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-05-03
+
+### Added
+
+- `columnHeaders` prop for custom column header labels
+- `rowHeaders` / `rowHeaderWidth` props for row label display
+- `rotateColumnHeaders` prop for 90° vertical column header display
+- `cellSize` prop for square cell initialization
+- DSM cell background coloring support
+- Top-left corner click to select all cells
+- Copy includes `columnHeaders` / `rowHeaders` as labels
+
 ## [0.3.0] - 2026-04-23
 
 ### Added

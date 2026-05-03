@@ -6,6 +6,19 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-05-03
+
+### Spreadsheet Core (spreadsheet-core)
+
+- `columnHeaders`・`rowHeaders`・`rotateColumnHeaders`・`cellSize` プロパティ追加
+- DSM セル色付けと左上角クリック全選択
+- コピー時に列/行ヘッダーラベルを含める
+
+### Spreadsheet Viewer (spreadsheet-viewer)
+
+- グループヘッダーの複数行・複数列対応
+- `getCellBackground` 後のセル描画修正、ヘッダーの境界線追加
+
 ## [0.3.0] - 2026-04-23
 
 ### 追加

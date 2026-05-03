@@ -80,6 +80,7 @@ interface C4GraphCanvasProps {
   readonly ghostEdges?: ReadonlyArray<C4GhostEdgeRender>;
   readonly ghostEdgeGranularity?: C4GhostEdgeGranularity;
   readonly onNodeSelect?: (nodeId: string | null) => void;
+  readonly onMultiNodeSelect?: (c4Ids: readonly string[]) => void;
   readonly onNodeDoubleClick?: (nodeId: string) => void;
   readonly onNodeContextMenu?: (c4Id: string, x: number, y: number, nodeType: string) => void;
   readonly onGroupContextMenu?: (groupId: string, x: number, y: number) => void;
@@ -88,7 +89,7 @@ interface C4GraphCanvasProps {
 
 const EMPTY_SELECTION: SelectionState = { nodeIds: [], edgeIds: [] };
 
-export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedNodeId, centerOnSelect, overlayMap, claudeActivityMap, communityMap, ghostEdges, ghostEdgeGranularity = 'commit', onNodeSelect, onNodeDoubleClick, onNodeContextMenu, onGroupContextMenu, isDark }: Readonly<C4GraphCanvasProps>) {
+export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedNodeId, centerOnSelect, overlayMap, claudeActivityMap, communityMap, ghostEdges, ghostEdgeGranularity = 'commit', onNodeSelect, onMultiNodeSelect, onNodeDoubleClick, onNodeContextMenu, onGroupContextMenu, isDark }: Readonly<C4GraphCanvasProps>) {
   const rafRef = useRef<number>(0);
   const viewportRef = useRef(viewport);
   const dispatchRef = useRef(dispatch);
@@ -107,6 +108,8 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
   // Selection state
   const selectionRef = useRef<string[]>(selectedNodeId ? [selectedNodeId] : []);
   useEffect(() => {
+    // 複数選択中（selectedNodeId=null かつ 2+ノード選択済み）はリセットしない
+    if (!selectedNodeId && selectionRef.current.length > 1) return;
     selectionRef.current = selectedNodeId ? [selectedNodeId] : [];
   }, [selectedNodeId]);
 
@@ -143,6 +146,14 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
     onNodeContextMenu: (node, x, y) => {
       const c4Id = node.metadata?.c4Id as string | undefined;
       if (c4Id) onNodeContextMenu?.(c4Id, x, y, node.type);
+    },
+    onNodeCtrlClick: () => {
+      const allC4Ids = selectionRef.current.flatMap(nodeId => {
+        const n = nodesRef.current.find(n => n.id === nodeId);
+        const c4Id = n?.metadata?.c4Id as string | undefined;
+        return c4Id ? [c4Id] : [];
+      });
+      onMultiNodeSelect?.(allC4Ids);
     },
   });
 
@@ -335,6 +346,8 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
   // グループ右クリック検出を含む拡張コンテキストメニュー
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
+    // Ctrl/Cmd+click は複数選択トグルに使用するため、コンテキストメニューを開かない（Mac 対応）
+    if (e.ctrlKey || e.metaKey) return;
     if (!onGroupContextMenu) {
       canvas.handleContextMenu(e);
       return;

@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-05-03
+
+### Graph Core (graph-core)
+
+- `onNodeCtrlClick` callback for Ctrl+click multi-select toggle
+- `wheelRequiresShift` option for wheel zoom behavior
+
 ## [0.2.2] - 2026-05-02
 
 ### Graph Core (graph-core)

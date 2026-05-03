@@ -6,6 +6,13 @@
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-05-03
+
+### 追加
+
+- Trace Viewer ページと API ルート（`/report/trace/[file]`）
+- `trace-core` と `trace-viewer` パッケージ依存を追加
+
 ## [0.22.0] - 2026-05-02
 
 ### 変更

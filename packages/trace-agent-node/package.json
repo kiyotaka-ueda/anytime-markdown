@@ -1,0 +1,40 @@
+{
+    "name": "@anytime-markdown/trace-agent-node",
+    "version": "0.14.0",
+    "license": "MIT",
+    "private": true,
+    "main": "dist/cjs/entry.js",
+    "types": "src/index.ts",
+    "exports": {
+        ".": {
+            "require": "./dist/cjs/entry.js",
+            "types": "./src/index.ts"
+        },
+        "./runtime": {
+            "require": "./dist/cjs/runtime.js",
+            "types": "./src/runtime.ts"
+        }
+    },
+    "scripts": {
+        "build": "tsc -p tsconfig.build.json",
+        "test": "jest --maxWorkers=1"
+    },
+    "dependencies": {
+        "@anytime-markdown/trace-core": "*",
+        "@babel/generator": "7.29.1",
+        "@babel/parser": "7.29.3",
+        "@babel/traverse": "7.29.0",
+        "@babel/types": "7.29.0",
+        "import-in-the-middle": "3.0.1",
+        "pirates": "4.0.7"
+    },
+    "devDependencies": {
+        "@types/babel__generator": "7.27.0",
+        "@types/babel__traverse": "7.28.0",
+        "@types/jest": "30.0.0",
+        "@types/node": "22.15.17",
+        "jest": "30.2.0",
+        "ts-jest": "29.4.6",
+        "typescript": "5.8.3"
+    }
+}

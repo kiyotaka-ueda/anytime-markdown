@@ -180,6 +180,7 @@ export class TrailDataServer {
   private lastClaudeActivity: { activeElementIds: readonly string[]; touchedElementIds: readonly string[]; plannedElementIds: readonly string[] } | undefined;
   private lastMultiAgentActivity: { agents: readonly import('./types').AgentActivityEntry[]; conflicts: readonly import('./types').FileConflict[] } | undefined;
   onOpenDocLink: ((docPath: string) => void) | undefined;
+  onOpenFile: ((filePath: string) => void) | undefined;
   onTokenBudgetExceeded: ((status: import('./types').TokenBudgetUpdatedMessage) => void) | undefined;
   private tokenBudgetConfig: { dailyLimitTokens: number | null; sessionLimitTokens: number | null; alertThresholdPct: number } = {
     dailyLimitTokens: null,
@@ -520,6 +521,12 @@ export class TrailDataServer {
       return;
     }
 
+    if (pathname === '/api/c4/functions' && method === 'GET') {
+      const elementId = parsed.searchParams.get('elementId') ?? '';
+      void this.handleC4FunctionsEndpoint(res, elementId);
+      return;
+    }
+
     if (pathname === '/api/c4/flowchart' && method === 'GET') {
       const componentId = parsed.searchParams.get('componentId') ?? '';
       const symbolId = parsed.searchParams.get('symbolId') ?? '';
@@ -612,6 +619,15 @@ export class TrailDataServer {
     }
     if (pathname === '/api/activity-trend' && method === 'GET') {
       this.handleActivityTrend(res, parsed.searchParams);
+      return;
+    }
+
+    if (pathname === '/api/trace/list' && method === 'GET') {
+      this.handleTraceList(res);
+      return;
+    }
+    if (pathname === '/api/trace/file' && method === 'GET') {
+      this.handleTraceFile(res, parsed.searchParams.get('name') ?? '');
       return;
     }
 
@@ -870,6 +886,60 @@ export class TrailDataServer {
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
       TrailLogger.error(`/api/activity-trend failed: ${err.message}\n${err.stack ?? ''}`);
+      this.sendError(res, 500, err.message);
+    }
+  }
+
+  private handleTraceList(res: http.ServerResponse): void {
+    const traceDir = this.gitRoot
+      ? path.join(this.gitRoot, '.vscode', 'trace')
+      : path.join(process.cwd(), '.vscode', 'trace');
+    try {
+      const files = fs.readdirSync(traceDir)
+        .filter(f => f.endsWith('.json'))
+        .map(f => {
+          const stat = fs.statSync(path.join(traceDir, f));
+          return { name: f, mtime: stat.mtime.toISOString() };
+        })
+        .sort((a, b) => b.mtime.localeCompare(a.mtime));
+      const result = files.map(({ name, mtime }) => ({
+        name,
+        url: `/api/trace/file?name=${encodeURIComponent(name)}`,
+        mtime,
+      }));
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify(result));
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') {
+        res.writeHead(200, JSON_HEADERS);
+        res.end('[]');
+        return;
+      }
+      const err = e instanceof Error ? e : new Error(String(e));
+      TrailLogger.error(`/api/trace/list failed: ${err.message}\n${err.stack ?? ''}`);
+      this.sendError(res, 500, err.message);
+    }
+  }
+
+  private handleTraceFile(res: http.ServerResponse, name: string): void {
+    if (!name || name.includes('..') || name.includes('/') || !name.endsWith('.json')) {
+      this.sendError(res, 400, 'Invalid file name');
+      return;
+    }
+    const traceDir = this.gitRoot
+      ? path.join(this.gitRoot, '.vscode', 'trace')
+      : path.join(process.cwd(), '.vscode', 'trace');
+    const filePath = path.join(traceDir, name);
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(content);
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') { this.sendError(res, 404, 'File not found'); return; }
+      const err = e instanceof Error ? e : new Error(String(e));
+      TrailLogger.error(`/api/trace/file failed: ${filePath}: ${err.message}\n${err.stack ?? ''}`);
       this.sendError(res, 500, err.message);
     }
   }
@@ -1281,7 +1351,8 @@ export class TrailDataServer {
       getElements: async (repo: string) => provider.getManualElements(repo),
       getRelationships: async (repo: string) => provider.getManualRelationships(repo),
     } : undefined;
-    const payload = await fetchC4Model(store, releaseId, repoName, provider?.featureMatrix, manualProvider);
+    const featureMatrix = provider?.featureMatrix ?? this.trailDb.getCurrentFeatureMatrix() ?? undefined;
+    const payload = await fetchC4Model(store, releaseId, repoName, featureMatrix, manualProvider);
     if (payload) {
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify(payload));
@@ -1338,7 +1409,8 @@ export class TrailDataServer {
     const repoName = this.gitRoot ? path.basename(this.gitRoot) : undefined;
     const provider = this.getC4Provider?.();
     const store = this.trailDb.asC4ModelStore();
-    const payload = await fetchC4Model(store, 'current', repoName, provider?.featureMatrix);
+    const featureMatrix = provider?.featureMatrix ?? this.trailDb.getCurrentFeatureMatrix() ?? undefined;
+    const payload = await fetchC4Model(store, 'current', repoName, featureMatrix);
 
     if (!payload) {
       res.writeHead(204);
@@ -1955,6 +2027,9 @@ export class TrailDataServer {
       case 'open-doc-link':
         this.onOpenDocLink?.(message.path);
         break;
+      case 'open-file':
+        this.onOpenFile?.(message.filePath);
+        break;
       case 'reset-claude-activity':
         provider.handleResetClaudeActivity();
         break;
@@ -2091,6 +2166,59 @@ export class TrailDataServer {
       res.end(JSON.stringify({ symbols }));
     } catch (e) {
       TrailLogger.error(`[/api/c4/exports] error: componentId=${componentId}`, e);
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({ symbols: [] }));
+    }
+  }
+
+  private async handleC4FunctionsEndpoint(
+    res: http.ServerResponse,
+    elementId: string,
+  ): Promise<void> {
+    const { ExportExtractor, createSourceFile } = await import('@anytime-markdown/trail-core/analyzer');
+    try {
+      if (!elementId) {
+        res.writeHead(400, JSON_HEADERS);
+        res.end(JSON.stringify({ error: 'elementId is required' }));
+        return;
+      }
+      const resolved = await this.resolveModelAndGraph();
+      if (!resolved) {
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({ symbols: [] }));
+        return;
+      }
+      const { graph } = resolved;
+      const { projectRoot } = graph.metadata;
+      const node = graph.nodes.find(n => n.id === elementId);
+      if (!node) {
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({ symbols: [] }));
+        return;
+      }
+      const normalizedRoot = projectRoot.endsWith(path.sep) ? projectRoot : `${projectRoot}${path.sep}`;
+      const absolutePath = path.resolve(projectRoot, node.filePath);
+      if (!absolutePath.startsWith(normalizedRoot)) {
+        TrailLogger.warn(`[/api/c4/functions] path traversal blocked: ${node.filePath}`);
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({ symbols: [] }));
+        return;
+      }
+      let sourceFile;
+      try {
+        const content = fs.readFileSync(absolutePath, 'utf-8');
+        sourceFile = createSourceFile(node.filePath, content);
+      } catch (e) {
+        TrailLogger.error(`[/api/c4/functions] failed to read file: ${node.filePath}`, e);
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({ symbols: [] }));
+        return;
+      }
+      const symbols = ExportExtractor.extract([sourceFile], elementId);
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({ symbols }));
+    } catch (e) {
+      TrailLogger.error(`[/api/c4/functions] error: elementId=${elementId}`, e);
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({ symbols: [] }));
     }
@@ -2309,7 +2437,7 @@ export class TrailDataServer {
 export function isClientMessage(data: unknown): data is ClientMessage {
   if (typeof data !== 'object' || data === null) return false;
   const msg = data as Record<string, unknown>;
-  const validTypes = ['set-level', 'cluster', 'refresh', 'open-doc-link', 'reset-claude-activity', 'generate-code-graph'];
+  const validTypes = ['set-level', 'cluster', 'refresh', 'open-doc-link', 'reset-claude-activity', 'generate-code-graph', 'open-file'];
   return typeof msg.type === 'string' && validTypes.includes(msg.type);
 }
 

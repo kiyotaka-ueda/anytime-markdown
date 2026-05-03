@@ -213,6 +213,8 @@ export interface TrailI18n {
   // c4
   'viewer.c4': string;
   'viewer.matrix': string;
+  // trace
+  'viewer.trace': string;
   'c4.releases': string;
   'c4.releaseRepository': string;
   'c4.unknownRepo': string;
@@ -244,8 +246,6 @@ export interface TrailI18n {
   'c4.hotspot.controls.granularityCommit': string;
   'c4.hotspot.controls.granularitySession': string;
   'c4.hotspot.controls.granularitySubagent': string;
-  'c4.heatmap.modeSessionFile': string;
-  'c4.heatmap.modeSubagentFile': string;
   'c4.heatmap.topK': string;
   'c4.heatmap.loading': string;
   'c4.heatmap.empty': string;
@@ -275,6 +275,10 @@ export interface TrailI18n {
   'c4.popup.metric.importance': string;
   'c4.popup.metric.dsm': string;
   'c4.popup.metric.defectRisk': string;
+  'c4.popup.metric.steps': string;
+  'c4.popup.functions': string;
+  'c4.popup.functions.empty': string;
+  'c4.openFile': string;
   // community overlay (C4 model tab × CodeGraph)
   'c4.community.toggle': string;
   'c4.community.title': string;

@@ -122,10 +122,16 @@ export interface GenerateCodeGraphCommand {
   readonly type: 'generate-code-graph';
 }
 
+export interface OpenFileCommand {
+  readonly type: 'open-file';
+  readonly filePath: string;
+}
+
 export type ClientMessage =
   | SetLevelCommand
   | ClusterCommand
   | RefreshCommand
   | OpenDocLinkCommand
   | ResetClaudeActivityCommand
-  | GenerateCodeGraphCommand;
+  | GenerateCodeGraphCommand
+  | OpenFileCommand;

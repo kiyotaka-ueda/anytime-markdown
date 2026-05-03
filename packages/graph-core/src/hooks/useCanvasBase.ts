@@ -34,6 +34,8 @@ export interface UseCanvasBaseOptions {
   readonly onNodeDoubleClick?: (node: GraphNode | null) => void;
   /** 右クリック時のコールバック */
   readonly onNodeContextMenu?: (node: GraphNode, screenX: number, screenY: number) => void;
+  /** Ctrl+クリック時のコールバック（複数選択トグル後に呼ばれる） */
+  readonly onNodeCtrlClick?: (node: GraphNode) => void;
   /** フレームノードをヒットテスト対象から除外するか（デフォルト true） */
   readonly skipFrames?: boolean;
 
@@ -44,6 +46,8 @@ export interface UseCanvasBaseOptions {
   readonly dispatch?: (action: { type: string; [key: string]: unknown }) => void;
   /** Space キーによるパンモード切替を有効にするか（デフォルト false） */
   readonly enableSpacePan?: boolean;
+  /** ホイールズームに Shift を要求するか（デフォルト true） */
+  readonly wheelRequiresShift?: boolean;
   /** コピー実行時のコールバック */
   readonly onCopy?: () => void;
   /** ペースト実行時のコールバック */
@@ -99,10 +103,12 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
     onNodeClick,
     onNodeDoubleClick,
     onNodeContextMenu,
+    onNodeCtrlClick,
     skipFrames = true,
     getSelection,
     dispatch: editorDispatch,
     enableSpacePan = false,
+    wheelRequiresShift = true,
     onCopy,
     onPaste,
     onDelete,
@@ -194,6 +200,16 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
           }
           return;
         }
+        // Ctrl+click: 複数選択トグル
+        if ((e.ctrlKey || e.metaKey) && onNodeCtrlClick) {
+          const current = getSelection?.()?.nodeIds ?? [];
+          const newNodeIds = current.includes(hit.id)
+            ? current.filter(id => id !== hit.id)
+            : [...current, hit.id];
+          setSelection({ nodeIds: newNodeIds, edgeIds: [] });
+          onNodeCtrlClick(hit);
+          return;
+        }
         // 通常ノード hit
         onNodeClick?.(hit);
         setSelection({ nodeIds: [hit.id], edgeIds: [] });
@@ -213,7 +229,7 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
         selectRectRef.current = { x1: world.x, y1: world.y, x2: world.x, y2: world.y };
       }
     }
-  }, [screenPos, getViewport, nodeAtScreen, onNodeClick, setSelection, getNodes, editorDispatch]);
+  }, [screenPos, getViewport, nodeAtScreen, onNodeClick, onNodeCtrlClick, setSelection, getSelection, getNodes, editorDispatch]);
 
   // --- Mouse move ---
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
@@ -422,12 +438,43 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
     }
   }, [onNodeContextMenu, screenPos, getViewport, getNodes]);
 
+  // --- Global Space key listener for pan mode (canvas must be hovered) ---
+  useEffect(() => {
+    if (!enableSpacePan) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    let isOver = false;
+    const onMouseEnter = () => { isOver = true; };
+    const onMouseLeave = () => { isOver = false; };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== 'Space' || e.repeat || !isOver || spaceRef.current) return;
+      spaceRef.current = true;
+      canvas.style.cursor = 'grab';
+      e.preventDefault();
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return;
+      spaceRef.current = false;
+      if (dragRef.current.mode !== 'pan') canvas.style.cursor = 'default';
+    };
+    canvas.addEventListener('mouseenter', onMouseEnter);
+    canvas.addEventListener('mouseleave', onMouseLeave);
+    globalThis.addEventListener('keydown', onKeyDown);
+    globalThis.addEventListener('keyup', onKeyUp);
+    return () => {
+      canvas.removeEventListener('mouseenter', onMouseEnter);
+      canvas.removeEventListener('mouseleave', onMouseLeave);
+      globalThis.removeEventListener('keydown', onKeyDown);
+      globalThis.removeEventListener('keyup', onKeyUp);
+    };
+  }, [enableSpacePan, canvasRef]);
+
   // --- Wheel zoom (non-passive) ---
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const onWheel = (e: WheelEvent) => {
-      if (!e.shiftKey) return;
+      if (wheelRequiresShift && !e.shiftKey) return;
       e.preventDefault();
       const rect = canvas.getBoundingClientRect();
       const cx = e.clientX - rect.left;
@@ -436,7 +483,7 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
     };
     canvas.addEventListener('wheel', onWheel, { passive: false });
     return () => canvas.removeEventListener('wheel', onWheel);
-  }, [canvasRef, getViewport, setViewport]);
+  }, [canvasRef, getViewport, setViewport, wheelRequiresShift]);
 
   // --- Draw helper ---
   const drawSelectOverlay = useCallback((ctx: CanvasRenderingContext2D, vp: Viewport) => {

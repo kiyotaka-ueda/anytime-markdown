@@ -1,11 +1,14 @@
 import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 import { engine, layoutWithSubgroups, MinimapCanvas, state as graphState } from '@anytime-markdown/graph-core';
 import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, CommunityOverlayEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, HotspotMap, ImportanceMatrix, ManualGroup, MetricOverlay } from '@anytime-markdown/trail-core/c4';
-import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, aggregateHotspotToC4, buildCommunityTree, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, computeCommunityOverlay, computeFileHotspot, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFilesToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
+import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, aggregateHotspotToC4, buildC4ElementById, buildCommunityTree, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, computeCommunityOverlay, computeFileHotspot, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFileToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
 import DeleteIcon from '@mui/icons-material/Delete';
+import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import LayersIcon from '@mui/icons-material/Layers';
 import LinkIcon from '@mui/icons-material/Link';
+import TimelineIcon from '@mui/icons-material/Timeline';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import ButtonGroup from '@mui/material/ButtonGroup';
@@ -23,6 +26,7 @@ import { useC4GhostEdges } from '../hooks/useC4GhostEdges';
 import { useDefectRisk } from '../hooks/useDefectRisk';
 import { useHotspot } from '../hooks/useHotspot';
 import { useTemporalCoupling } from '../hooks/useTemporalCoupling';
+import { useElementFunctions } from '../hooks/useElementFunctions';
 
 const UNKNOWN_REPO_KEY = '__unknown__';
 const CURRENT_RELEASE_TAG = 'current';
@@ -130,6 +134,7 @@ export interface C4ViewerCoreProps {
   readonly onRemoveElement?: (id: string) => void;
   readonly onPurgeDeleted?: () => void;
   readonly onDocLinkClick?: (doc: DocLink) => void;
+  readonly onOpenFile?: (filePath: string) => void;
   readonly containerHeight?: string;
   readonly releases?: readonly C4ReleaseEntry[];
   readonly selectedRelease?: string;
@@ -152,7 +157,6 @@ export function C4ViewerCore({
   featureMatrix,
   dsmMatrix,
   coverageMatrix,
-  coverageDiff,
   complexityMatrix,
   importanceMatrix,
   docLinks,
@@ -164,6 +168,7 @@ export function C4ViewerCore({
   onRemoveElement,
   onPurgeDeleted,
   onDocLinkClick,
+  onOpenFile,
   containerHeight = '100vh',
   releases = [],
   selectedRelease = CURRENT_RELEASE_TAG,
@@ -257,6 +262,7 @@ export function C4ViewerCore({
   const [showCoverage, setShowCoverage] = useState(false);
   const [showAncestorEdges, setShowAncestorEdges] = useState(true);
   const [metricOverlay, setMetricOverlay] = useState<MetricOverlay>('none');
+  const [selectedFcmapFeatureId, setSelectedFcmapFeatureId] = useState<string | null>(null);
   const [drWindowDays, setDrWindowDays] = useState(90);
   const [tcValue, setTcValue] = useState<TemporalCouplingControlsValue>(DEFAULT_TC_VALUE);
   const [hotspotValue, setHotspotValue] = useState<HotspotControlsValue>({
@@ -292,6 +298,7 @@ export function C4ViewerCore({
     granularity: tcValue.granularity,
   });
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [selectedElementIds, setSelectedElementIds] = useState<readonly string[]>([]);
   const [drillStack, setDrillStack] = useState<readonly { readonly element: C4Element; readonly prevLevel: number; readonly prevCheckedIds: ReadonlySet<string> | null }[]>([]);
   const [contextMenu, setContextMenu] = useState<{
     readonly x: number;
@@ -481,7 +488,18 @@ export function C4ViewerCore({
     }
     navigator.clipboard.writeText(path).catch(() => {});
     setContextMenu(null);
-  }, [contextMenu]);
+  }, [contextMenu])
+
+  const handleOpenFile = useCallback(() => {
+    if (!contextMenu) return;
+    const id = contextMenu.c4Id;
+    // file::packages/web-app/src/index.ts → packages/web-app/src/index.ts
+    const withoutPrefix = id.slice(6);
+    const colonIdx = withoutPrefix.indexOf('::');
+    const filePath = colonIdx === -1 ? withoutPrefix : withoutPrefix.slice(0, colonIdx);
+    onOpenFile?.(filePath);
+    setContextMenu(null);
+  }, [contextMenu, onOpenFile]);
 
   /** フレームフィルタを解除する */
   const handleClearFrameFilter = useCallback(() => {
@@ -523,6 +541,8 @@ export function C4ViewerCore({
         setCheckedPackageIds(null);
         setCheckReset(prev => ({ key: prev.key + 1, ids: inScope, expanded: expandIds }));
       }
+      setSelectedElementId(null);
+      setSelectedElementIds([]);
       setSoloFrameId(null);
       setContextMenu(null);
     },
@@ -619,34 +639,33 @@ export function C4ViewerCore({
     return m;
   }, [dsmMatrix, currentLevel, c4Model, checkedPackageIds]);
 
-  // currentLevel に合わせて importance スコアを対象タイプに絞る
-  // L2(1): container のみ、L3(2): component のみ、L4(3): code のみ
+  const elementTypeById = useMemo<ReadonlyMap<string, string>>(
+    () => new Map((c4Model?.elements ?? []).map((e) => [e.id, e.type])),
+    [c4Model],
+  );
+
+  // L1=Context(system), L2=Container(container), L3=Component(component), L4=Code(code)
+  const levelTargetType = useMemo(() => {
+    return currentLevel === 1 ? 'system'
+      : currentLevel === 2 ? 'container'
+      : currentLevel === 3 ? 'component'
+      : 'code';
+  }, [currentLevel]);
+
   const levelFilteredImportanceMatrix = useMemo(() => {
     if (!importanceMatrix || !c4Model) return importanceMatrix ?? null;
-    // L1=Context(system), L2=Container(container), L3=Component(component), L4=Code(code)
-    const targetType = currentLevel === 1 ? 'system'
-      : currentLevel === 2 ? 'container'
-      : currentLevel === 3 ? 'component'
-      : 'code';
-    const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
     const filtered: ImportanceMatrix = {};
     for (const [id, score] of Object.entries(importanceMatrix)) {
-      if (typeById.get(id) === targetType) filtered[id] = score;
+      if (elementTypeById.get(id) === levelTargetType) filtered[id] = score;
     }
     return filtered;
-  }, [importanceMatrix, c4Model, currentLevel]);
+  }, [importanceMatrix, c4Model, elementTypeById, levelTargetType]);
 
-  // currentLevel に合わせて complexity エントリを対象タイプに絞る（boundary 除外）
   const levelFilteredComplexityMatrix = useMemo(() => {
     if (!complexityMatrix || !c4Model) return complexityMatrix ?? null;
-    const targetType = currentLevel === 1 ? 'system'
-      : currentLevel === 2 ? 'container'
-      : currentLevel === 3 ? 'component'
-      : 'code';
-    const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
-    const entries = complexityMatrix.entries.filter((e) => typeById.get(e.elementId) === targetType);
+    const entries = complexityMatrix.entries.filter((e) => elementTypeById.get(e.elementId) === levelTargetType);
     return { ...complexityMatrix, entries };
-  }, [complexityMatrix, c4Model, currentLevel]);
+  }, [complexityMatrix, c4Model, elementTypeById, levelTargetType]);
 
   // currentLevel に合わせて coverage エントリを対象タイプに絞る（boundary 除外）
   const levelFilteredCoverageMatrix = useMemo(() => {
@@ -661,30 +680,24 @@ export function C4ViewerCore({
 
   const defectRiskMap = useMemo<ReadonlyMap<string, number> | null>(() => {
     if (metricOverlay !== 'defect-risk' || drEntries.length === 0 || !c4Model) return null;
+    const elementById = buildC4ElementById(c4Model.elements);
     const map = new Map<string, number>();
     for (const entry of drEntries) {
-      const mappings = mapFilesToC4Elements([entry.filePath], c4Model.elements);
-      for (const m of mappings) {
+      for (const m of mapFileToC4Elements(entry.filePath, elementById)) {
         map.set(m.elementId, Math.max(map.get(m.elementId) ?? 0, entry.score));
       }
     }
     return map;
   }, [metricOverlay, drEntries, c4Model]);
 
-  // currentLevel に合わせて対象タイプのみに絞る（system境界の塗りつぶし防止）
   const levelFilteredDefectRiskMap = useMemo<ReadonlyMap<string, number> | null>(() => {
     if (!defectRiskMap || !c4Model) return defectRiskMap;
-    const targetType = currentLevel === 1 ? 'system'
-      : currentLevel === 2 ? 'container'
-      : currentLevel === 3 ? 'component'
-      : 'code';
-    const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
     const filtered = new Map<string, number>();
     for (const [id, score] of defectRiskMap) {
-      if (typeById.get(id) === targetType) filtered.set(id, score);
+      if (elementTypeById.get(id) === levelTargetType) filtered.set(id, score);
     }
     return filtered;
-  }, [defectRiskMap, c4Model, currentLevel]);
+  }, [defectRiskMap, c4Model, elementTypeById, levelTargetType]);
 
   const hotspotMap = useMemo<HotspotMap | null>(() => {
     if (!isHotspotOverlay || !hotspotResponse || !c4Model) return null;
@@ -694,21 +707,34 @@ export function C4ViewerCore({
 
   const levelFilteredHotspotMap = useMemo<HotspotMap | null>(() => {
     if (!hotspotMap || !c4Model) return hotspotMap;
-    const targetType = currentLevel === 1 ? 'system'
-      : currentLevel === 2 ? 'container'
-      : currentLevel === 3 ? 'component'
-      : 'code';
-    const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
     const filtered = new Map<string, ReturnType<HotspotMap['get']> & object>();
     for (const [id, entry] of hotspotMap) {
-      if (entry && typeById.get(id) === targetType) filtered.set(id, entry);
+      if (entry && elementTypeById.get(id) === levelTargetType) filtered.set(id, entry);
     }
     return filtered;
-  }, [hotspotMap, c4Model, currentLevel]);
+  }, [hotspotMap, c4Model, elementTypeById, levelTargetType]);
 
   const overlayMap = useMemo(
     () => computeColorMap(metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap),
     [metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap],
+  );
+
+  // F-cMap overlay: 選択フィーチャーの P/S/D ロールをノード色として返す
+  const fcmapColorMap = useMemo<ReadonlyMap<string, string>>(() => {
+    if (metricOverlay !== 'fcmap' || !featureMatrix || !selectedFcmapFeatureId) return new Map();
+    const ROLE_COLORS: Record<string, string> = { primary: '#e53935', secondary: '#1e88e5', dependency: '#fb8c00' };
+    const map = new Map<string, string>();
+    for (const m of featureMatrix.mappings) {
+      if (m.featureId === selectedFcmapFeatureId) {
+        map.set(m.elementId, ROLE_COLORS[m.role] ?? '#616161');
+      }
+    }
+    return map;
+  }, [metricOverlay, featureMatrix, selectedFcmapFeatureId]);
+
+  const effectiveOverlayMap = useMemo(
+    () => (metricOverlay === 'fcmap' ? fcmapColorMap : overlayMap),
+    [metricOverlay, fcmapColorMap, overlayMap],
   );
 
   // Community overlay: L3/L4 のみ。トグル ON かつ codeGraph が取得済みのときのみ計算する
@@ -799,16 +825,11 @@ export function C4ViewerCore({
     if (multiAgentActivity && multiAgentActivity.agents.length > 0) {
       const agentsForLevel = multiAgentActivity.agents.map((agent) => {
         if (!c4Model) return agent;
-        const targetType = currentLevel === 1 ? 'system'
-          : currentLevel === 2 ? 'container'
-          : currentLevel === 3 ? 'component'
-          : 'code';
-        const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
         return {
           ...agent,
-          activeElementIds: agent.activeElementIds.filter((id) => typeById.get(id) === targetType),
-          touchedElementIds: agent.touchedElementIds.filter((id) => typeById.get(id) === targetType),
-          plannedElementIds: agent.plannedElementIds.filter((id) => typeById.get(id) === targetType),
+          activeElementIds: agent.activeElementIds.filter((id) => elementTypeById.get(id) === levelTargetType),
+          touchedElementIds: agent.touchedElementIds.filter((id) => elementTypeById.get(id) === levelTargetType),
+          plannedElementIds: agent.plannedElementIds.filter((id) => elementTypeById.get(id) === levelTargetType),
         };
       });
       const hasAny = agentsForLevel.some((a) =>
@@ -821,35 +842,25 @@ export function C4ViewerCore({
     const { activeElementIds, touchedElementIds, plannedElementIds } = claudeActivity;
     if (activeElementIds.length === 0 && touchedElementIds.length === 0 && plannedElementIds.length === 0) return null;
     if (c4Model) {
-      const targetType = currentLevel === 1 ? 'system'
-        : currentLevel === 2 ? 'container'
-        : currentLevel === 3 ? 'component'
-        : 'code';
-      const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
-      const filteredActive = activeElementIds.filter((id) => typeById.get(id) === targetType);
-      const filteredTouched = touchedElementIds.filter((id) => typeById.get(id) === targetType);
-      const filteredPlanned = plannedElementIds.filter((id) => typeById.get(id) === targetType);
+      const filteredActive = activeElementIds.filter((id) => elementTypeById.get(id) === levelTargetType);
+      const filteredTouched = touchedElementIds.filter((id) => elementTypeById.get(id) === levelTargetType);
+      const filteredPlanned = plannedElementIds.filter((id) => elementTypeById.get(id) === levelTargetType);
       if (filteredActive.length === 0 && filteredTouched.length === 0 && filteredPlanned.length === 0) return null;
       return computeClaudeActivityColorMap(filteredActive, filteredTouched, filteredPlanned, isDark);
     }
     return computeClaudeActivityColorMap(activeElementIds, touchedElementIds, plannedElementIds, isDark);
-  }, [multiAgentActivity, claudeActivity, c4Model, currentLevel, isDark]);
+  }, [multiAgentActivity, claudeActivity, c4Model, elementTypeById, levelTargetType, isDark]);
 
   const conflictBorderMap = useMemo(() => {
     if (!multiAgentActivity?.conflicts?.length) return null;
     if (!c4Model) return computeConflictBorderMap(multiAgentActivity.conflicts);
-    const targetType = currentLevel === 1 ? 'system'
-      : currentLevel === 2 ? 'container'
-      : currentLevel === 3 ? 'component'
-      : 'code';
-    const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
     const filtered = multiAgentActivity.conflicts.map((c) => ({
       ...c,
-      elementIds: c.elementIds.filter((id) => typeById.get(id) === targetType),
+      elementIds: c.elementIds.filter((id) => elementTypeById.get(id) === levelTargetType),
     })).filter((c) => c.elementIds.length > 0);
     if (filtered.length === 0) return null;
     return computeConflictBorderMap(filtered);
-  }, [multiAgentActivity, c4Model, currentLevel]);
+  }, [multiAgentActivity, c4Model, elementTypeById, levelTargetType]);
 
   const claudeActivityMapWithConflicts = useMemo(() => {
     if (!claudeActivityMap && !conflictBorderMap) return null;
@@ -915,13 +926,6 @@ export function C4ViewerCore({
     const complexity = complexityMatrix?.entries.find(entry => entry.elementId === element.id) ?? null;
     const importance = importanceMatrix?.[element.id] ?? null;
     const defectRisk = defectRiskMap?.get(element.id) ?? null;
-    const dsmIndex = filteredDsmMatrix?.nodes.findIndex(node => node.id === element.id) ?? -1;
-    const dsm = dsmIndex >= 0 && filteredDsmMatrix
-      ? {
-          out: filteredDsmMatrix.adjacency[dsmIndex]?.reduce((sum, value) => sum + (value > 0 ? 1 : 0), 0) ?? 0,
-          in: filteredDsmMatrix.adjacency.reduce((sum, row) => sum + (row[dsmIndex] > 0 ? 1 : 0), 0),
-        }
-      : null;
     const community = (() => {
       const direct = communityOverlayL3?.get(element.id) ?? null;
       if (direct) return direct;
@@ -949,8 +953,28 @@ export function C4ViewerCore({
         communitySummary: codeGraph?.communitySummaries?.[dominant.community],
       } as CommunityOverlayEntry;
     })();
-    return { element, incoming, outgoing, documents, coverage, complexity, importance, defectRisk, dsm, community };
-  }, [c4Model, complexityMatrix, coverageMatrix, defectRiskMap, docLinks, filteredDsmMatrix, importanceMatrix, selectedElementId, communityOverlayL3, codeGraph]);
+    const steps = (() => {
+      if (!coverageMatrix) return null;
+      if (element.type === 'code') return coverage?.lines.total ?? null;
+      const descendantIds = collectDescendantIds(c4Model.elements, element.id);
+      let total = 0;
+      let hasData = false;
+      for (const id of descendantIds) {
+        const desc = c4Model.elements.find(e => e.id === id);
+        if (desc?.type !== 'code') continue;
+        const entry = coverageMatrix.entries.find(e => e.elementId === id);
+        if (entry) { total += entry.lines.total; hasData = true; }
+      }
+      return hasData ? total : null;
+    })();
+    return { element, incoming, outgoing, documents, coverage, complexity, importance, defectRisk, community, steps };
+  }, [c4Model, complexityMatrix, coverageMatrix, defectRiskMap, docLinks, importanceMatrix, selectedElementId, communityOverlayL3, codeGraph]);
+
+  const { data: elementFunctions, loading: elementFunctionsLoading } = useElementFunctions({
+    serverUrl,
+    elementId: selectedElementInfo?.element.type === 'code' ? selectedElementId : null,
+    enabled: selectedElementInfo?.element.type === 'code' && !!selectedElementId,
+  });
 
   const toolbarButtonSx = {
     textTransform: 'none', color: colors.accent, borderColor: colors.border,
@@ -992,11 +1016,13 @@ export function C4ViewerCore({
     contextMenu.nodeType === 'frame';
   const canCopyPath = contextMenu !== null &&
     (contextMenu.c4Id.startsWith('pkg_') || contextMenu.c4Id.startsWith('file::'));
+  const canOpenFile = contextMenu !== null && contextMenu.c4Id.startsWith('file::');
   const canShowManualActions = canShowManualContextActions(c4Model, contextMenu?.c4Id ?? null);
   const showContextMenu = contextMenu !== null && (
     canDrillDown ||
     canDrillUp ||
     canShowOnlyFrame ||
+    canOpenFile ||
     canCopyPath ||
     canShowManualActions
   );
@@ -1094,7 +1120,7 @@ export function C4ViewerCore({
                 canvasRef={canvasRef}
                 selectedNodeId={selectedElementId ? (state.document.nodes.find(n => n.metadata?.c4Id === selectedElementId)?.id ?? null) : null}
                 centerOnSelect={centerOnSelect}
-                overlayMap={overlayMap.size > 0 ? overlayMap : null}
+                overlayMap={effectiveOverlayMap.size > 0 ? effectiveOverlayMap : null}
                 claudeActivityMap={claudeActivityMapWithConflicts}
                 communityMap={communityMap}
                 ghostEdges={
@@ -1109,7 +1135,19 @@ export function C4ViewerCore({
                     : undefined
                 }
                 ghostEdgeGranularity={tcGranularity}
-                onNodeSelect={(id) => { setCenterOnSelect(false); setSelectedElementId(id); }}
+                onNodeSelect={(id) => { setCenterOnSelect(false); setSelectedElementId(id); setSelectedElementIds([]); }}
+                onMultiNodeSelect={(ids) => {
+                  if (ids.length === 1) {
+                    setSelectedElementId(ids[0]);
+                    setSelectedElementIds([]);
+                  } else if (ids.length === 0) {
+                    setSelectedElementId(null);
+                    setSelectedElementIds([]);
+                  } else {
+                    setSelectedElementId(null);
+                    setSelectedElementIds(ids);
+                  }
+                }}
                 onNodeDoubleClick={(nodeId) => {
                   if (!c4Model) return;
                   const elem = c4Model.elements.find(e => e.id === nodeId);
@@ -1119,11 +1157,6 @@ export function C4ViewerCore({
                   }
                 }}
                 onNodeContextMenu={handleNodeContextMenu}
-              />
-              <OverlayLegend
-                overlay={metricOverlay}
-                isDark={isDark}
-                dsmMax={dsmMax}
               />
               {/* 左側パネル: 全体マップ + C4 ビュー設定コントロール群 */}
               <Box sx={{ position: 'absolute', top: 8, left: 8, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -1175,25 +1208,6 @@ export function C4ViewerCore({
                       ))}
                     </ButtonGroup>
                   </Box>
-                  {/* Upper Lines */}
-                  <Button
-                    size="small"
-                    startIcon={<LayersIcon sx={{ fontSize: 16 }} />}
-                    onClick={() => setShowAncestorEdges(prev => !prev)}
-                    disabled={currentLevel === 1}
-                    aria-pressed={showAncestorEdges}
-                    aria-label="Toggle upper C4 layer relationships"
-                    title="Toggle upper C4 layer relationships"
-                    fullWidth
-                    sx={{
-                      ...toolbarButtonSx,
-                      fontSize: '0.75rem',
-                      justifyContent: 'flex-start',
-                      ...(showAncestorEdges && currentLevel !== 1 && { bgcolor: toolbarButtonActiveBg }),
-                    }}
-                  >
-                    Upper Lines
-                  </Button>
                   {/* Community */}
                   <Button
                     size="small"
@@ -1223,6 +1237,7 @@ export function C4ViewerCore({
                   <Button
                     size="small"
                     fullWidth
+                    startIcon={<TimelineIcon sx={{ fontSize: 16 }} />}
                     onClick={() => {
                       setTcValue(prev => {
                         const nextMode = prev.enabled ? 'none' : prev.granularity === 'session' ? 'session' : 'commit';
@@ -1243,6 +1258,7 @@ export function C4ViewerCore({
                   <Button
                     size="small"
                     fullWidth
+                    startIcon={<TrendingUpIcon sx={{ fontSize: 16 }} />}
                     onClick={() => setShowActivityTrend(prev => !prev)}
                     aria-pressed={showActivityTrend}
                     aria-label="Toggle Activity Trend chart"
@@ -1255,6 +1271,39 @@ export function C4ViewerCore({
                     }}
                   >
                     Activity Trend
+                  </Button>
+                  {/* Upper Lines */}
+                  <Button
+                    size="small"
+                    startIcon={<LayersIcon sx={{ fontSize: 16 }} />}
+                    onClick={() => setShowAncestorEdges(prev => !prev)}
+                    disabled={currentLevel === 1}
+                    aria-pressed={showAncestorEdges}
+                    aria-label="Toggle upper C4 layer relationships"
+                    title="Toggle upper C4 layer relationships"
+                    fullWidth
+                    sx={{
+                      ...toolbarButtonSx,
+                      fontSize: '0.75rem',
+                      justifyContent: 'flex-start',
+                      ...(showAncestorEdges && currentLevel !== 1 && { bgcolor: toolbarButtonActiveBg }),
+                    }}
+                  >
+                    Upper Lines
+                  </Button>
+                  {/* Clear Edit History */}
+                  <Button
+                    size="small"
+                    fullWidth
+                    startIcon={<DeleteSweepIcon sx={{ fontSize: 16 }} />}
+                    disabled={
+                      !(claudeActivity && (claudeActivity.activeElementIds.length > 0 || claudeActivity.touchedElementIds.length > 0 || claudeActivity.plannedElementIds.length > 0)) &&
+                      !(multiAgentActivity && multiAgentActivity.agents.length > 0)
+                    }
+                    onClick={onResetClaudeActivity}
+                    sx={{ ...toolbarButtonSx, fontSize: '0.75rem', justifyContent: 'flex-start' }}
+                  >
+                    {t('c4.claudeActivity.reset')}
                   </Button>
                   {/* Overlay ドロップダウン */}
                   <Box>
@@ -1297,8 +1346,37 @@ export function C4ViewerCore({
                       </ListSubheader>
                       <MenuItem value="hotspot-frequency" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotFrequency')}</MenuItem>
                       <MenuItem value="hotspot-risk" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotRisk')}</MenuItem>
+                      <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
+                        F-cMap
+                      </ListSubheader>
+                      <MenuItem value="fcmap" disabled={!featureMatrix} sx={{ fontSize: '0.75rem' }}>F-cMap</MenuItem>
                     </Select>
                   </Box>
+                  {metricOverlay === 'fcmap' && featureMatrix && (
+                    <Box>
+                      <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', mb: 0.5 }}>
+                        フィーチャー
+                      </Typography>
+                      <Select
+                        size="small"
+                        fullWidth
+                        value={selectedFcmapFeatureId ?? featureMatrix.features[0]?.id ?? ''}
+                        onChange={(e) => { setSelectedFcmapFeatureId(e.target.value); }}
+                        sx={{ fontSize: '0.75rem', height: 28, '.MuiSelect-select': { py: 0, px: 1 } }}
+                        aria-label="フィーチャー選択"
+                      >
+                        {featureMatrix.features.map((f) => (
+                          <MenuItem key={f.id} value={f.id} sx={{ fontSize: '0.75rem' }}>{f.name}</MenuItem>
+                        ))}
+                      </Select>
+                    </Box>
+                  )}
+                  <OverlayLegend
+                    overlay={metricOverlay}
+                    isDark={isDark}
+                    dsmMax={dsmMax}
+                    inline
+                  />
                   <Box sx={{ borderTop: `1px solid ${colors.border}`, mx: -1.5 }} />
                   {soloFrameId !== null && (
                     <Button size="small" fullWidth startIcon={<FilterAltOffIcon sx={{ fontSize: 14 }} />} onClick={handleClearFrameFilter} sx={{ ...toolbarButtonSx, fontSize: '0.75rem', justifyContent: 'flex-start', color: colors.accent }}>
@@ -1315,18 +1393,6 @@ export function C4ViewerCore({
                       )}
                     </Typography>
                   )}
-                  <Button
-                    size="small"
-                    fullWidth
-                    disabled={
-                      !(claudeActivity && (claudeActivity.activeElementIds.length > 0 || claudeActivity.touchedElementIds.length > 0 || claudeActivity.plannedElementIds.length > 0)) &&
-                      !(multiAgentActivity && multiAgentActivity.agents.length > 0)
-                    }
-                    onClick={onResetClaudeActivity}
-                    sx={{ ...toolbarButtonSx, fontSize: '0.75rem', justifyContent: 'flex-start' }}
-                  >
-                    {t('c4.claudeActivity.reset')}
-                  </Button>
                 </Box>
                 {/* Ghost Edges 詳細設定（有効時のみ表示） */}
                 <TemporalCouplingSettingsPopup
@@ -1338,6 +1404,47 @@ export function C4ViewerCore({
                   sx={{ position: 'static' }}
                 />
               </Box>
+              {selectedElementIds.length > 1 && c4Model && (
+                <Box
+                  role="dialog"
+                  aria-label="Multiple C4 elements selected"
+                  sx={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    width: SELECTED_ELEMENT_DETAILS_WIDTH,
+                    maxHeight: 'calc(100% - 20px)',
+                    overflow: 'auto',
+                    zIndex: 10,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '8px',
+                    bgcolor: isDark ? 'rgba(18,18,18,0.92)' : 'rgba(251,249,243,0.94)',
+                    color: colors.text,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                    backdropFilter: 'blur(10px)',
+                    px: 1.5,
+                    py: 1.25,
+                  }}
+                >
+                  <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', textTransform: 'uppercase', mb: 0.75 }}>
+                    {selectedElementIds.length} elements selected
+                  </Typography>
+                  {selectedElementIds.map(id => {
+                    const elem = c4Model.elements.find(e => e.id === id);
+                    if (!elem) return null;
+                    return (
+                      <Box key={id} sx={{ py: 0.5, borderBottom: `1px solid ${colors.border}`, '&:last-child': { borderBottom: 'none' } }}>
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem', textTransform: 'uppercase' }}>
+                          {elem.type}
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.8rem', fontWeight: 600, wordBreak: 'break-word' }}>
+                          {elem.name}
+                        </Typography>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              )}
               {selectedElementInfo && (
                 <Box
                   role="dialog"
@@ -1442,18 +1549,18 @@ export function C4ViewerCore({
                       </Box>
                       <Box>
                         <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
-                          {t('c4.popup.metric.dsm')}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
-                          {selectedElementInfo.dsm ? `${selectedElementInfo.dsm.in}/${selectedElementInfo.dsm.out}` : '-'}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
                           {t('c4.popup.metric.defectRisk')}
                         </Typography>
                         <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
                           {selectedElementInfo.defectRisk != null ? Math.round(selectedElementInfo.defectRisk) : '-'}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
+                          {t('c4.popup.metric.steps')}
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
+                          {selectedElementInfo.steps ?? '-'}
                         </Typography>
                       </Box>
                     </Box>
@@ -1559,6 +1666,60 @@ export function C4ViewerCore({
                       </Box>
                     );
                   })()}
+                  {selectedElementInfo.element.type === 'code' && (
+                    <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 1 }}>
+                      <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700, mb: 0.5 }}>
+                        {t('c4.popup.functions')}
+                      </Typography>
+                      {elementFunctionsLoading ? (
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem' }}>
+                          ...
+                        </Typography>
+                      ) : !elementFunctions || elementFunctions.symbols.length === 0 ? (
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem' }}>
+                          {t('c4.popup.functions.empty')}
+                        </Typography>
+                      ) : (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                          {elementFunctions.symbols.map(sym => (
+                            <Box key={sym.id} sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+                              <Typography
+                                component="span"
+                                sx={{
+                                  fontSize: '0.58rem',
+                                  fontWeight: 700,
+                                  color: isDark ? '#7ec8e3' : '#0070c0',
+                                  flexShrink: 0,
+                                  textTransform: 'uppercase',
+                                }}
+                              >
+                                {sym.kind.slice(0, 2)}
+                              </Typography>
+                              <Typography
+                                component="span"
+                                sx={{
+                                  fontSize: '0.68rem',
+                                  color: colors.text,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  flex: 1,
+                                }}
+                              >
+                                {sym.name}
+                              </Typography>
+                              <Typography
+                                component="span"
+                                sx={{ fontSize: '0.58rem', color: colors.textMuted, flexShrink: 0 }}
+                              >
+                                :{sym.line + 1}
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Box>
+                      )}
+                    </Box>
+                  )}
                   <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 1 }}>
                     <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700, mb: 0.5 }}>
                       Documents
@@ -1762,6 +1923,25 @@ export function C4ViewerCore({
                         {soloFrameId === contextMenu.c4Id
                           ? t('c4.clearFrameFilter')
                           : t('c4.showOnlyThisFrame')}
+                      </button>
+                    )}
+                    {canOpenFile && (
+                      <button
+                        type="button"
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '6px 16px',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: 14,
+                          color: isDark ? '#e0e0e0' : '#333',
+                        }}
+                        onClick={handleOpenFile}
+                      >
+                        {t('c4.openFile')}
                       </button>
                     )}
                     {canCopyPath && (

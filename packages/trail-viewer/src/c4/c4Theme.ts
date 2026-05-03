@@ -5,6 +5,8 @@
  * @see packages/graph-core/src/theme.ts (getCanvasColors pattern)
  */
 
+import { interpolateDsmColor } from '@anytime-markdown/trail-core/c4';
+
 export interface C4ThemeColors {
   readonly bg: string;
   readonly bgSecondary: string;
@@ -73,6 +75,26 @@ const LIGHT: C4ThemeColors = {
 
 export function getC4Colors(isDark: boolean): C4ThemeColors {
   return isDark ? DARK : LIGHT;
+}
+
+/**
+ * DSM セルの背景色を返すコールバックを生成する。
+ * @param colors C4 テーマカラー（対角セルの色に使用）
+ * @param maxValue 行列内の最大依存数（色の正規化に使用）
+ */
+export function getDsmCellBackground(
+  colors: C4ThemeColors,
+  maxValue: number,
+): (row: number, col: number, value: string) => string | undefined {
+  return (row, col, value) => {
+    if (row === col) return colors.diagonal;
+    const v = Number(value);
+    if (v > 0) {
+      const t = maxValue > 0 ? v / maxValue : 1;
+      return interpolateDsmColor(t);
+    }
+    return undefined;
+  };
 }
 
 /** Document type badge colors (theme-independent). */

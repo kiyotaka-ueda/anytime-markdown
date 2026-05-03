@@ -1,60 +1,50 @@
 # Anytime Markdown
 
-![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=alert_status)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=alert_status)![Bugs](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=bugs)![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=code_smells)![Coverage](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=coverage)![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=duplicated_lines_density)
 
-![Coverage](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=coverage)
+[日本語](https://github.com/anytime-trial/anytime-markdown/blob/master/README.ja.md) | [English](https://github.com/anytime-trial/anytime-markdown/blob/master/README.md)
 
-![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=sqale_rating)
+**Code, docs, and AI — made visible.**
 
-![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=anytime-trial_anytime-markdown&metric=security_rating)
-
-**Write, draw, and see the big picture. Software development tools that start with Markdown.**
-
-
-## Key Features
+AI agents are a caravan crossing the harsh terrain of development.\
+WYSIWYG Markdown editing with diff review and real-time TypeScript architecture visualization — **two VS Code extensions** that serve as your compass in the age of AI.
 
 
-### C4 Architecture Diagrams & DSM Live Viewer
+[**Visit the website**](https://www.anytime-trial.com)
 
-Analyze a TypeScript project with a single command to auto-generate C4 architecture diagrams and a DSM (Dependency Structure Matrix).\
-Code while viewing your project's structure in a live browser viewer.
 
-- Drill down through four levels: L1 (System Context) to L4 (Code)
-- Cluster related modules in the DSM
-- Circular dependencies highlighted in red
-- Re-analysis in VS Code reflected in real time via WebSocket
+## Two VS Code Extensions
+
+
+### Anytime Trail — Visualize Structure, Quality, and Behavior
+
+A VS Code extension that analyzes a TypeScript project with a single command and visualizes the codebase, AI behavior, and project quality in real time.\
+Code while inspecting structure in a live browser viewer.
+
+- **Structure visualization**: Auto-generate C4 architecture diagrams and a DSM (Dependency Structure Matrix). Drill down across four levels (L1 System Context to L4 Code), with circular dependencies highlighted in red
+- **Behavior visualization**: Visualize user input, AI responses, and tool executions turn by turn as a hierarchical tree. A conversation tree synced with the turn timeline traces what the AI agent decided, when, and why
+- **Quality visualization**: Overlay error counts, retry rates, build/test failure rates, and coverage as a heatmap on the C4 diagram to locate weak spots within the structure
+- **Productivity visualization**: Quantify AI agent ROI with token consumption, estimated cost, cache hit rate, and Four Keys (DORA) metrics
 
 > Details: [Anytime Trail README](packages/vscode-trail-extension/README.md)
 
 
-### Graph Editor
-
-A freeform diagram editor for placing nodes and edges.\
-Save and edit as `.graph` files in the VS Code extension.
-
-- Switch between orthogonal, bezier, and straight routing
-- Group elements with frame nodes
-- Export to SVG / draw.io
-- Physics-based layout (force-directed model)
-
-> Details: [Graph Core](packages/graph-core/), [VS Code Graph Extension](packages/vscode-graph-extension/)
-
-
-### Rich Markdown Editor
+### Anytime Markdown — WYSIWYG Editing and Diff Review
 
 A WYSIWYG Markdown editor built on Tiptap / ProseMirror.\
 The same editing experience across three platforms: Web, VS Code, and Android.
 
-- Mermaid / PlantUML diagram rendering
-- Diff compare and merge view
-- PDF export
-- Template insertion (slash commands)
-- Find and replace, outline, footnotes, inline comments
-- Automatic section numbering
+- **Review AI's footprints**: AI-edited sections are color-highlighted for instant section-level diff comparison. Lock finalized sections to prevent AI from re-editing them
+- **Instant 3-mode switching**: Switch between WYSIWYG, Source, and Review modes with a single click. Review mode is read-only — perfect for focused review of AI output
+- **Diagram preview in-editor**: Render Mermaid, PlantUML, and math (KaTeX) directly in the editor. No context switching needed
+- **Image annotation**: Add rectangles, circles, lines, and text directly on images. Paste screen captures into Agent Note to share visual context with the AI
+- **Slash commands**: Quickly insert headings, tables, code blocks, diagrams, and templates by typing "/"
+- **Git sidebar**: Change list, commit graph, and timeline integrated in the sidebar
+- **Inline comments / outline / footnotes / automatic section numbering / find & replace**
 - Japanese / English support
 
 
-### MCP Servers
+## MCP Servers
 
 A set of MCP (Model Context Protocol) servers that give AI agents direct access to project assets.
 
@@ -62,8 +52,9 @@ A set of MCP (Model Context Protocol) servers that give AI agents direct access 
 | --- | --- |
 | `mcp-markdown` | Read/write Markdown, section operations, diff computation |
 | `mcp-graph` | Graph document CRUD, SVG / draw.io export |
+| `mcp-trail` | C4 model and DSM operations; manage elements, groups, and relationships |
 | `mcp-cms` | Document and report management on S3 |
-| `mcp-c4` | C4 model and DSM operations |
+| `mcp-cms-remote` | Remote CMS access via Cloudflare Workers |
 
 
 ## Project Structure
@@ -73,9 +64,15 @@ flowchart TD
     subgraph core ["Shared Libraries"]
         MC["markdown-core<br/>(Editor engine)"]
         GC["graph-core<br/>(Graph engine)"]
-        TC["trail-core<br/>(TypeScript analysis)"]
-        C4["c4-kernel<br/>(C4 model & DSM)"]
+        TC["trail-core<br/>(TypeScript analysis · C4 · DSM)"]
         CC["cms-core<br/>(S3 client)"]
+        SC["spreadsheet-core<br/>trace-core"]
+    end
+
+    subgraph viewer ["Viewers (Web Embed)"]
+        TV["trail-viewer"]
+        GV["graph-viewer"]
+        SV["spreadsheet-viewer"]
     end
 
     subgraph app ["Applications"]
@@ -85,32 +82,32 @@ flowchart TD
 
     subgraph ext ["VS Code Extensions"]
         VME["vscode-markdown-extension"]
-        VGE["vscode-graph-extension"]
         VTE["vscode-trail-extension"]
+        VGE["vscode-graph-extension"]
+        VSE["vscode-sheet-extension<br/>vscode-history-extension"]
         VEP["vscode-extension-pack"]
     end
 
     subgraph mcp ["MCP Servers"]
         MM["mcp-markdown"]
         MG["mcp-graph"]
-        MCM["mcp-cms"]
-        MC4["mcp-c4"]
+        MT["mcp-trail"]
+        MCM["mcp-cms<br/>mcp-cms-remote"]
     end
 
     WA --> MC
     WA --> GC
-    WA --> C4
+    WA --> TV
     WA --> CC
     VME --> MC
     VGE --> GC
     VTE --> TC
-    VTE --> C4
-    VTE --> GC
+    VTE --> TV
     MA --> WA
     MM --> MC
     MG --> GC
+    MT --> TC
     MCM --> CC
-    MC4 --> C4
 ```
 
 
@@ -128,30 +125,11 @@ flowchart TD
 ### Using Dev Container (Recommended)
 
 1. Clone the repository on WSL2
-2. Set a GitHub Personal Access Token in your WSL shell
-3. Open the repository in VS Code
-4. Command Palette -> "Dev Containers: Reopen in Container"
+2. Open the repository in VS Code
+3. Command Palette -> "Dev Containers: Reopen in Container"
 
 > On first run, the container build and `npm install` run automatically.\
 > Port `3000` is auto-forwarded.
-
-
-#### GitHub Personal Access Token Setup
-
-Used by the GitHub MCP server and `gh` CLI.\
-Development works without it, but GitHub operations like PR creation will be restricted.
-
-1. Go to https://github.com/settings/tokens
-2. Click "Generate new token (classic)"
-3. Scope: check `repo` and generate the token
-4. Add to your WSL shell config:
-
-```bash
-echo 'export GH_TOKEN=ghp_xxxxxxxxxxxxxxxx' >> ~/.bashrc
-source ~/.bashrc
-```
-
-If `GH_TOKEN` is set when the Dev Container starts, the GitHub MCP server is automatically registered.
 
 ```bash
 # Start the development server
@@ -180,62 +158,3 @@ npm run dev
 ```
 
 Open http://localhost:3000 in your browser.
-
-
-## Testing
-
-
-### Unit Tests
-
-No additional installation required.
-
-```bash
-# Run tests for all packages from the repository root
-npx jest --no-coverage
-```
-
-
-### E2E Tests (Playwright)
-
-Playwright browsers are installed during the Docker image build.\
-If the browser version changes due to package updates, reinstall manually:
-
-```bash
-npx playwright install --with-deps
-```
-
-Running E2E tests:
-
-```bash
-cd packages/web-app
-npm run e2e
-```
-
-> E2E tests auto-start the development server if it is not already running.
-
-
-### Building a VSIX File
-
-Steps to create a `.vsix` file for local installation or test distribution.
-
-```bash
-# 1. Install dependencies from the repository root
-npm install
-
-# 2. Navigate to the vscode-markdown-extension directory
-cd packages/vscode-markdown-extension
-
-# 3. Generate the VSIX file
-npx vsce package --no-dependencies
-```
-
-This produces `anytime-markdown-<version>.vsix`.
-
-
-### Local Installation
-
-```bash
-code --install-extension anytime-markdown-<version>.vsix
-```
-
-Or use the VS Code Command Palette -> "Extensions: Install from VSIX..." and select the file.

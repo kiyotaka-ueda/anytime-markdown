@@ -40,7 +40,7 @@ export type {
 } from './dsm/types';
 
 export { buildSourceMatrix } from './dsm/buildSourceMatrix';
-export { aggregateDsmToPackageLevel, aggregateDsmToC4SystemLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4ComponentLevel, sortDsmMatrixByName, filterDsmMatrix } from './dsm/aggregateDsm';
+export { aggregateDsmToPackageLevel, aggregateDsmToC4SystemLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4ComponentLevel, aggregateDsmToC4CodeLevel, sortDsmMatrixByName, filterDsmMatrix } from './dsm/aggregateDsm';
 export { detectCycles } from './dsm/detectCycles';
 export { clusterMatrix } from './dsm/cluster';
 
@@ -54,8 +54,8 @@ export { fetchC4Model, fetchC4ModelEntries } from './c4ModelService';
 export type { C4ModelPayload } from './c4ModelService';
 
 export type { MetricOverlay, ComplexityClass, ComplexityEntry, ComplexityMatrix } from './types';
-export { computeColorMap } from './metrics/computeColorMap';
-export { mapFilesToC4Elements } from '../domain/engine/c4Mapper';
+export { computeColorMap, interpolateDsmColor } from './metrics/computeColorMap';
+export { mapFilesToC4Elements, mapFileToC4Elements, buildC4ElementById } from '../domain/engine/c4Mapper';
 export type { C4MappingResult } from '../domain/engine/c4Mapper';
 export type { MessageInput } from './metrics/computeComplexityMatrix';
 export { computeComplexityMatrix } from './metrics/computeComplexityMatrix';

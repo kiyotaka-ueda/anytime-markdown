@@ -1,6 +1,6 @@
 {
   "name": "@anytime-markdown/web-app",
-  "version": "0.22.0",
+  "version": "0.23.0",
   "license": "MIT",
   "private": true,
   "scripts": {
@@ -19,6 +19,8 @@
     "@anytime-markdown/graph-core": "*",
     "@anytime-markdown/graph-viewer": "*",
     "@anytime-markdown/markdown-core": "*",
+    "@anytime-markdown/trace-core": "*",
+    "@anytime-markdown/trace-viewer": "*",
     "@anytime-markdown/trail-viewer": "*",
     "@auth/core": "0.41.1",
     "@aws-sdk/client-s3": "3.1004.0",

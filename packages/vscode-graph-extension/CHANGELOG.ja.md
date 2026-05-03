@@ -6,6 +6,13 @@
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-05-03
+
+### Graph Core (graph-core)
+
+- Ctrl+クリック複数選択トグル用の `onNodeCtrlClick` コールバック
+- ホイールズーム動作制御の `wheelRequiresShift` オプション
+
 ## [0.2.2] - 2026-05-02
 
 ### Graph Core (graph-core)

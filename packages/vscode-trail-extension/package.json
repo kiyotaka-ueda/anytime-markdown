@@ -2,7 +2,7 @@
   "name": "anytime-trail",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "license": "MIT",
   "publisher": "anytime-trial",
   "repository": {
@@ -199,6 +199,26 @@
         "command": "anytime-trail.regenerateReleaseCodeGraphs",
         "title": "Regenerate Release Code Graphs",
         "category": "Anytime Trail"
+      },
+      {
+        "command": "anytime-trail.runWithTrace",
+        "title": "%command.runWithTrace%",
+        "category": "Anytime Trail",
+        "icon": "$(beaker)"
+      }
+    ],
+    "codeLensProviders": [
+      {
+        "language": "typescript",
+        "scheme": "file"
+      },
+      {
+        "language": "javascript",
+        "scheme": "file"
+      },
+      {
+        "language": "json",
+        "scheme": "file"
       }
     ],
     "menus": {
