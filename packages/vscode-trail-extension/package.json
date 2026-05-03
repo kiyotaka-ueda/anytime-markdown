@@ -98,11 +98,6 @@
         "icon": "$(clippy)"
       },
       {
-        "command": "anytime-trail.loadCoverage",
-        "title": "Load Coverage",
-        "icon": "$(beaker)"
-      },
-      {
         "command": "anytime-trail.openTrailViewer",
         "title": "%command.openTrailViewer%",
         "category": "Anytime Trail",
@@ -131,11 +126,6 @@
         "title": "Generate Code Graph",
         "category": "Anytime Trail",
         "icon": "$(graph)"
-      },
-      {
-        "command": "anytime-trail.regenerateCurrentCodeGraph",
-        "title": "Regenerate Current Code Graph",
-        "category": "Anytime Trail"
       },
       {
         "command": "anytime-trail.regenerateReleaseCodeGraphs",

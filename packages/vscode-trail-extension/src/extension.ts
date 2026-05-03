@@ -509,28 +509,6 @@ export async function activate(context: vscode.ExtensionContext) {
 				vscode.window.showErrorMessage(`Code graph generation failed: ${(err as Error).message}`);
 			}
 		}),
-		vscode.commands.registerCommand('anytime-trail.regenerateCurrentCodeGraph', async () => {
-			if (!trailDb) {
-				vscode.window.showErrorMessage('Trail DB is not initialized.');
-				return;
-			}
-			await vscode.window.withProgress(
-				{ location: vscode.ProgressLocation.Notification, title: 'Trail: Regenerate Current Code Graph', cancellable: false },
-				async (progress) => {
-					try {
-						progress.report({ message: 'Clearing current code graph...' });
-						trailDb!.deleteCurrentCodeGraphs();
-						progress.report({ message: 'Re-analyzing workspace...' });
-						await codeGraphService.generate((phase, percent) => trailDataServer?.notifyCodeGraphProgress(phase, percent));
-						trailDataServer?.notifyCodeGraphUpdated();
-						vscode.window.showInformationMessage('Current code graph regenerated.');
-					} catch (err) {
-						TrailLogger.error('Failed to regenerate current code graph', err);
-						vscode.window.showErrorMessage(`Regenerate failed: ${err instanceof Error ? err.message : String(err)}`);
-					}
-				},
-			);
-		}),
 		vscode.commands.registerCommand('anytime-trail.regenerateReleaseCodeGraphs', async () => {
 			if (!trailDb) {
 				vscode.window.showErrorMessage('Trail DB is not initialized.');
