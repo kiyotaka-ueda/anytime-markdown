@@ -76,14 +76,16 @@ function heatmapToSheet(matrix: HeatmapMatrix) {
 const sheetT = (key: string) => (spreadsheetViewerEnMessages.Spreadsheet as Record<string, string>)[key] ?? key;
 
 function makeSheetResult(sheet: ReturnType<typeof dsmToSheet>) {
-  const headers = sheet.cells[0] ?? [];
-  const dataRows = sheet.cells.slice(1);
-  const dataAligns = sheet.alignments.slice(1);
+  const colHeaders = sheet.cells[0]?.slice(1) ?? [];
+  const dataRows = sheet.cells.slice(1).map(r => r.slice(1));
+  const dataAligns = sheet.alignments.slice(1).map(r => r.slice(1));
+  const rowHeaders = sheet.cells.slice(1).map(r => r[0] ?? '');
+  const cols = Math.max(0, sheet.range.cols - 1);
   const adapter = createInMemorySheetAdapter(
-    { cells: dataRows, alignments: dataAligns, range: { rows: dataRows.length, cols: sheet.range.cols } },
+    { cells: dataRows, alignments: dataAligns, range: { rows: dataRows.length, cols } },
     { readOnly: true },
   );
-  return { headers, adapter };
+  return { colHeaders, rowHeaders, adapter };
 }
 
 // ---------------------------------------------------------------------------
@@ -168,7 +170,8 @@ export function MatrixPanel({
     dsmResult;
 
   const activeAdapter = activeResult?.adapter ?? null;
-  const activeHeaders = activeResult?.headers;
+  const activeColHeaders = activeResult?.colHeaders;
+  const activeRowHeaders = activeResult?.rowHeaders;
 
   const gridDimensions = useMemo(() => {
     if (!activeAdapter) return { rows: 51, cols: 15 };
@@ -238,7 +241,9 @@ export function MatrixPanel({
             t={sheetT}
             showApply={false}
             showRange={false}
-            columnHeaders={activeHeaders}
+            columnHeaders={activeColHeaders}
+            rowHeaders={activeRowHeaders}
+            rowHeaderWidth={120}
             gridRows={gridDimensions.rows}
             gridCols={gridDimensions.cols}
           />

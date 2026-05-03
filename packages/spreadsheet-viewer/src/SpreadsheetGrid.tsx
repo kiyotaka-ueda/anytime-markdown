@@ -36,7 +36,7 @@ import { useSpreadsheetState } from "./hooks/useSpreadsheetState";
 
 const DEFAULT_COL_WIDTH = 100;
 const DEFAULT_ROW_HEIGHT = 28;
-const ROW_NUM_WIDTH = 40;
+const DEFAULT_ROW_NUM_WIDTH = 40;
 const HEADER_HEIGHT = 28;
 const FILTER_ROW_HEIGHT = 28;
 const RESIZE_HANDLE_THRESHOLD = 4;
@@ -82,6 +82,10 @@ interface SpreadsheetGridProps {
   readonly showHeaderRow?: boolean;
   /** 列ヘッダーに表示するラベル（未指定時は A, B, C...） */
   readonly columnHeaders?: readonly string[];
+  /** 行ヘッダーに表示するラベル（未指定時は 1, 2, 3...） */
+  readonly rowHeaders?: readonly string[];
+  /** 行ヘッダー列の幅 px（デフォルト: 40） */
+  readonly rowHeaderWidth?: number;
 }
 
 /* ------------------------------------------------------------------ */
@@ -154,7 +158,10 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
   showRange = false,
   showHeaderRow = false,
   columnHeaders,
+  rowHeaders,
+  rowHeaderWidth,
 }) => {
+  const ROW_NUM_WIDTH = rowHeaderWidth ?? DEFAULT_ROW_NUM_WIDTH;
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -660,7 +667,7 @@ export const SpreadsheetGrid: React.FC<Readonly<SpreadsheetGridProps>> = ({
         ctx.fillStyle = headerTextColor;
       }
 
-      ctx.fillText(showHeaderRow && r === 0 ? "H" : String(showHeaderRow ? r : r + 1), x, y);
+      ctx.fillText(rowHeaders?.[r] ?? (showHeaderRow && r === 0 ? "H" : String(showHeaderRow ? r : r + 1)), x, y);
     }
     ctx.restore();
 
