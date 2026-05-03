@@ -224,7 +224,6 @@ export function MatrixPanel({
             t={sheetT}
             showApply={false}
             showRange={false}
-            showHeaderRow
             gridRows={gridDimensions.rows}
             gridCols={gridDimensions.cols}
           />
