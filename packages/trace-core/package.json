@@ -9,7 +9,8 @@
         ".": "./src/index.ts",
         "./parse": "./src/parse/index.ts",
         "./analyze": "./src/analyze/index.ts",
-        "./types": "./src/types.ts"
+        "./types": "./src/types.ts",
+        "./c4Sequence": "./src/c4Sequence.ts"
     },
     "scripts": {
         "test": "jest --maxWorkers=1"
