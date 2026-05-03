@@ -1,7 +1,7 @@
 import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 import { engine, layoutWithSubgroups, MinimapCanvas, state as graphState } from '@anytime-markdown/graph-core';
 import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, CommunityOverlayEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, HotspotMap, ImportanceMatrix, ManualGroup, MetricOverlay } from '@anytime-markdown/trail-core/c4';
-import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, aggregateHotspotToC4, buildCommunityTree, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, computeCommunityOverlay, computeFileHotspot, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFilesToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
+import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, aggregateHotspotToC4, buildC4ElementById, buildCommunityTree, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, computeCommunityOverlay, computeFileHotspot, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFileToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
@@ -639,34 +639,33 @@ export function C4ViewerCore({
     return m;
   }, [dsmMatrix, currentLevel, c4Model, checkedPackageIds]);
 
-  // currentLevel に合わせて importance スコアを対象タイプに絞る
-  // L2(1): container のみ、L3(2): component のみ、L4(3): code のみ
+  const elementTypeById = useMemo<ReadonlyMap<string, string>>(
+    () => new Map((c4Model?.elements ?? []).map((e) => [e.id, e.type])),
+    [c4Model],
+  );
+
+  // L1=Context(system), L2=Container(container), L3=Component(component), L4=Code(code)
+  const levelTargetType = useMemo(() => {
+    return currentLevel === 1 ? 'system'
+      : currentLevel === 2 ? 'container'
+      : currentLevel === 3 ? 'component'
+      : 'code';
+  }, [currentLevel]);
+
   const levelFilteredImportanceMatrix = useMemo(() => {
     if (!importanceMatrix || !c4Model) return importanceMatrix ?? null;
-    // L1=Context(system), L2=Container(container), L3=Component(component), L4=Code(code)
-    const targetType = currentLevel === 1 ? 'system'
-      : currentLevel === 2 ? 'container'
-      : currentLevel === 3 ? 'component'
-      : 'code';
-    const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
     const filtered: ImportanceMatrix = {};
     for (const [id, score] of Object.entries(importanceMatrix)) {
-      if (typeById.get(id) === targetType) filtered[id] = score;
+      if (elementTypeById.get(id) === levelTargetType) filtered[id] = score;
     }
     return filtered;
-  }, [importanceMatrix, c4Model, currentLevel]);
+  }, [importanceMatrix, c4Model, elementTypeById, levelTargetType]);
 
-  // currentLevel に合わせて complexity エントリを対象タイプに絞る（boundary 除外）
   const levelFilteredComplexityMatrix = useMemo(() => {
     if (!complexityMatrix || !c4Model) return complexityMatrix ?? null;
-    const targetType = currentLevel === 1 ? 'system'
-      : currentLevel === 2 ? 'container'
-      : currentLevel === 3 ? 'component'
-      : 'code';
-    const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
-    const entries = complexityMatrix.entries.filter((e) => typeById.get(e.elementId) === targetType);
+    const entries = complexityMatrix.entries.filter((e) => elementTypeById.get(e.elementId) === levelTargetType);
     return { ...complexityMatrix, entries };
-  }, [complexityMatrix, c4Model, currentLevel]);
+  }, [complexityMatrix, c4Model, elementTypeById, levelTargetType]);
 
   // currentLevel に合わせて coverage エントリを対象タイプに絞る（boundary 除外）
   const levelFilteredCoverageMatrix = useMemo(() => {
@@ -681,30 +680,24 @@ export function C4ViewerCore({
 
   const defectRiskMap = useMemo<ReadonlyMap<string, number> | null>(() => {
     if (metricOverlay !== 'defect-risk' || drEntries.length === 0 || !c4Model) return null;
+    const elementById = buildC4ElementById(c4Model.elements);
     const map = new Map<string, number>();
     for (const entry of drEntries) {
-      const mappings = mapFilesToC4Elements([entry.filePath], c4Model.elements);
-      for (const m of mappings) {
+      for (const m of mapFileToC4Elements(entry.filePath, elementById)) {
         map.set(m.elementId, Math.max(map.get(m.elementId) ?? 0, entry.score));
       }
     }
     return map;
   }, [metricOverlay, drEntries, c4Model]);
 
-  // currentLevel に合わせて対象タイプのみに絞る（system境界の塗りつぶし防止）
   const levelFilteredDefectRiskMap = useMemo<ReadonlyMap<string, number> | null>(() => {
     if (!defectRiskMap || !c4Model) return defectRiskMap;
-    const targetType = currentLevel === 1 ? 'system'
-      : currentLevel === 2 ? 'container'
-      : currentLevel === 3 ? 'component'
-      : 'code';
-    const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
     const filtered = new Map<string, number>();
     for (const [id, score] of defectRiskMap) {
-      if (typeById.get(id) === targetType) filtered.set(id, score);
+      if (elementTypeById.get(id) === levelTargetType) filtered.set(id, score);
     }
     return filtered;
-  }, [defectRiskMap, c4Model, currentLevel]);
+  }, [defectRiskMap, c4Model, elementTypeById, levelTargetType]);
 
   const hotspotMap = useMemo<HotspotMap | null>(() => {
     if (!isHotspotOverlay || !hotspotResponse || !c4Model) return null;
@@ -714,17 +707,12 @@ export function C4ViewerCore({
 
   const levelFilteredHotspotMap = useMemo<HotspotMap | null>(() => {
     if (!hotspotMap || !c4Model) return hotspotMap;
-    const targetType = currentLevel === 1 ? 'system'
-      : currentLevel === 2 ? 'container'
-      : currentLevel === 3 ? 'component'
-      : 'code';
-    const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
     const filtered = new Map<string, ReturnType<HotspotMap['get']> & object>();
     for (const [id, entry] of hotspotMap) {
-      if (entry && typeById.get(id) === targetType) filtered.set(id, entry);
+      if (entry && elementTypeById.get(id) === levelTargetType) filtered.set(id, entry);
     }
     return filtered;
-  }, [hotspotMap, c4Model, currentLevel]);
+  }, [hotspotMap, c4Model, elementTypeById, levelTargetType]);
 
   const overlayMap = useMemo(
     () => computeColorMap(metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap),
@@ -837,16 +825,11 @@ export function C4ViewerCore({
     if (multiAgentActivity && multiAgentActivity.agents.length > 0) {
       const agentsForLevel = multiAgentActivity.agents.map((agent) => {
         if (!c4Model) return agent;
-        const targetType = currentLevel === 1 ? 'system'
-          : currentLevel === 2 ? 'container'
-          : currentLevel === 3 ? 'component'
-          : 'code';
-        const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
         return {
           ...agent,
-          activeElementIds: agent.activeElementIds.filter((id) => typeById.get(id) === targetType),
-          touchedElementIds: agent.touchedElementIds.filter((id) => typeById.get(id) === targetType),
-          plannedElementIds: agent.plannedElementIds.filter((id) => typeById.get(id) === targetType),
+          activeElementIds: agent.activeElementIds.filter((id) => elementTypeById.get(id) === levelTargetType),
+          touchedElementIds: agent.touchedElementIds.filter((id) => elementTypeById.get(id) === levelTargetType),
+          plannedElementIds: agent.plannedElementIds.filter((id) => elementTypeById.get(id) === levelTargetType),
         };
       });
       const hasAny = agentsForLevel.some((a) =>
@@ -859,35 +842,25 @@ export function C4ViewerCore({
     const { activeElementIds, touchedElementIds, plannedElementIds } = claudeActivity;
     if (activeElementIds.length === 0 && touchedElementIds.length === 0 && plannedElementIds.length === 0) return null;
     if (c4Model) {
-      const targetType = currentLevel === 1 ? 'system'
-        : currentLevel === 2 ? 'container'
-        : currentLevel === 3 ? 'component'
-        : 'code';
-      const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
-      const filteredActive = activeElementIds.filter((id) => typeById.get(id) === targetType);
-      const filteredTouched = touchedElementIds.filter((id) => typeById.get(id) === targetType);
-      const filteredPlanned = plannedElementIds.filter((id) => typeById.get(id) === targetType);
+      const filteredActive = activeElementIds.filter((id) => elementTypeById.get(id) === levelTargetType);
+      const filteredTouched = touchedElementIds.filter((id) => elementTypeById.get(id) === levelTargetType);
+      const filteredPlanned = plannedElementIds.filter((id) => elementTypeById.get(id) === levelTargetType);
       if (filteredActive.length === 0 && filteredTouched.length === 0 && filteredPlanned.length === 0) return null;
       return computeClaudeActivityColorMap(filteredActive, filteredTouched, filteredPlanned, isDark);
     }
     return computeClaudeActivityColorMap(activeElementIds, touchedElementIds, plannedElementIds, isDark);
-  }, [multiAgentActivity, claudeActivity, c4Model, currentLevel, isDark]);
+  }, [multiAgentActivity, claudeActivity, c4Model, elementTypeById, levelTargetType, isDark]);
 
   const conflictBorderMap = useMemo(() => {
     if (!multiAgentActivity?.conflicts?.length) return null;
     if (!c4Model) return computeConflictBorderMap(multiAgentActivity.conflicts);
-    const targetType = currentLevel === 1 ? 'system'
-      : currentLevel === 2 ? 'container'
-      : currentLevel === 3 ? 'component'
-      : 'code';
-    const typeById = new Map(c4Model.elements.map((e) => [e.id, e.type]));
     const filtered = multiAgentActivity.conflicts.map((c) => ({
       ...c,
-      elementIds: c.elementIds.filter((id) => typeById.get(id) === targetType),
+      elementIds: c.elementIds.filter((id) => elementTypeById.get(id) === levelTargetType),
     })).filter((c) => c.elementIds.length > 0);
     if (filtered.length === 0) return null;
     return computeConflictBorderMap(filtered);
-  }, [multiAgentActivity, c4Model, currentLevel]);
+  }, [multiAgentActivity, c4Model, elementTypeById, levelTargetType]);
 
   const claudeActivityMapWithConflicts = useMemo(() => {
     if (!claudeActivityMap && !conflictBorderMap) return null;

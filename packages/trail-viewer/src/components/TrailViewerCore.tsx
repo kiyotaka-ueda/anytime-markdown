@@ -362,6 +362,7 @@ function TrailViewerCoreInner({
             serverUrl={c4.serverUrl}
             selectedRepo={c4.selectedRepo}
             isDark={isDark}
+            isActive={activeTab === 5}
           />
         </Box>
       )}

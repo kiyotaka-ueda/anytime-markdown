@@ -14,70 +14,95 @@ export interface C4MappingResult {
   readonly matchType: 'exact' | 'package_fallback';
 }
 
+export function buildC4ElementById(
+  elements: readonly C4Element[],
+): ReadonlyMap<string, C4Element> {
+  const map = new Map<string, C4Element>();
+  for (const el of elements) {
+    map.set(el.id, el);
+  }
+  return map;
+}
+
+/**
+ * 単一ファイルパスを C4 要素にマップする。呼び出し側がループする場合は
+ * `buildC4ElementById` で構築済みの Map を渡すことで O(N×M) を避けられる。
+ *
+ * Strategy 1: `file::` + filePath で完全一致
+ * Strategy 2: `packages/xxx/` -> `pkg_xxx` のパッケージフォールバック
+ */
+export function mapFileToC4Elements(
+  filePath: string,
+  elementById: ReadonlyMap<string, C4Element>,
+): C4MappingResult[] {
+  const results: C4MappingResult[] = [];
+  const seen = new Set<string>();
+
+  // 1. Exact file match
+  const fileId = `file::${filePath}`;
+  const fileEl = elementById.get(fileId);
+  if (fileEl) {
+    results.push({
+      elementId: fileEl.id,
+      elementType: fileEl.type,
+      elementName: fileEl.name,
+      matchType: 'exact',
+    });
+    seen.add(fileEl.id);
+
+    // Also add parent container/component via boundaryId chain
+    let current = fileEl;
+    while (current.boundaryId) {
+      const parent = elementById.get(current.boundaryId);
+      if (!parent || seen.has(parent.id)) break;
+      results.push({
+        elementId: parent.id,
+        elementType: parent.type,
+        elementName: parent.name,
+        matchType: 'exact',
+      });
+      seen.add(parent.id);
+      current = parent;
+    }
+    return results;
+  }
+
+  // 2. Package fallback: packages/xxx/ -> pkg_xxx
+  const pkgMatch = /^packages\/([^/]+)\//.exec(filePath);
+  if (pkgMatch) {
+    const pkgId = `pkg_${pkgMatch[1]}`;
+    const pkgEl = elementById.get(pkgId);
+    if (pkgEl) {
+      results.push({
+        elementId: pkgId,
+        elementType: pkgEl.type,
+        elementName: pkgEl.name,
+        matchType: 'package_fallback',
+      });
+    }
+  }
+
+  return results;
+}
+
 /**
  * Map changed file paths to C4 model elements.
  *
- * Strategy 1: `file::` + filePath for exact match
- * Strategy 2: `packages/xxx/` -> `pkg_xxx` package fallback
+ * 戻り値は要素 ID で重複排除される（複数ファイルが同じ要素にマップされた場合は最初の一つのみ）。
  */
 export function mapFilesToC4Elements(
   filePaths: readonly string[],
   elements: readonly C4Element[],
 ): C4MappingResult[] {
+  const elementById = buildC4ElementById(elements);
   const results: C4MappingResult[] = [];
   const seen = new Set<string>();
 
-  const elementById = new Map<string, C4Element>();
-  for (const el of elements) {
-    elementById.set(el.id, el);
-  }
-
   for (const filePath of filePaths) {
-    // 1. Exact file match
-    const fileId = `file::${filePath}`;
-    const fileEl = elementById.get(fileId);
-    if (fileEl && !seen.has(fileEl.id)) {
-      results.push({
-        elementId: fileEl.id,
-        elementType: fileEl.type,
-        elementName: fileEl.name,
-        matchType: 'exact',
-      });
-      seen.add(fileEl.id);
-
-      // Also add parent container/component via boundaryId chain
-      let current = fileEl;
-      while (current.boundaryId) {
-        const parent = elementById.get(current.boundaryId);
-        if (!parent || seen.has(parent.id)) break;
-        results.push({
-          elementId: parent.id,
-          elementType: parent.type,
-          elementName: parent.name,
-          matchType: 'exact',
-        });
-        seen.add(parent.id);
-        current = parent;
-      }
-      continue;
-    }
-
-    // 2. Package fallback: packages/xxx/ -> pkg_xxx
-    const pkgMatch = /^packages\/([^/]+)\//.exec(filePath);
-    if (pkgMatch) {
-      const pkgId = `pkg_${pkgMatch[1]}`;
-      if (!seen.has(pkgId)) {
-        const pkgEl = elementById.get(pkgId);
-        if (pkgEl) {
-          results.push({
-            elementId: pkgId,
-            elementType: pkgEl.type,
-            elementName: pkgEl.name,
-            matchType: 'package_fallback',
-          });
-          seen.add(pkgId);
-        }
-      }
+    for (const m of mapFileToC4Elements(filePath, elementById)) {
+      if (seen.has(m.elementId)) continue;
+      seen.add(m.elementId);
+      results.push(m);
     }
   }
 

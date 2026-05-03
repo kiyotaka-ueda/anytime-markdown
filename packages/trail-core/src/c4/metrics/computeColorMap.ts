@@ -42,7 +42,7 @@ function importanceHeatColor(score: number): string {
 }
 
 /** 0〜1 の t で青(min)→赤(max) を線形補間する */
-function interpolateDsmColor(t: number): string {
+export function interpolateDsmColor(t: number): string {
   // blue #1565c0 → red #c62828
   const r = Math.round(0x15 + (0xc6 - 0x15) * t);
   const g = Math.round(0x65 + (0x28 - 0x65) * t);

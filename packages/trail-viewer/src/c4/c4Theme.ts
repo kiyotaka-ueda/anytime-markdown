@@ -5,6 +5,8 @@
  * @see packages/graph-core/src/theme.ts (getCanvasColors pattern)
  */
 
+import { interpolateDsmColor } from '@anytime-markdown/trail-core/c4';
+
 export interface C4ThemeColors {
   readonly bg: string;
   readonly bgSecondary: string;
@@ -73,14 +75,6 @@ const LIGHT: C4ThemeColors = {
 
 export function getC4Colors(isDark: boolean): C4ThemeColors {
   return isDark ? DARK : LIGHT;
-}
-
-/** computeColorMap.ts の interpolateDsmColor と同じ: 青(min)→赤(max) */
-function interpolateDsmColor(t: number): string {
-  const r = Math.round(0x15 + (0xc6 - 0x15) * t);
-  const g = Math.round(0x65 + (0x28 - 0x65) * t);
-  const b = Math.round(0xc0 + (0x28 - 0xc0) * t);
-  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
 /**

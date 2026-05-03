@@ -1,5 +1,5 @@
 import type { C4Element, C4ElementType, C4Model, ComplexityMatrix, CoverageMatrix, DsmMatrix, DsmNode } from '@anytime-markdown/trail-core/c4';
-import { aggregateDsmToC4CodeLevel, aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, computeCommunityOverlay, mapFilesToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
+import { aggregateDsmToC4CodeLevel, aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, buildC4ElementById, computeCommunityOverlay, mapFileToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
 import type { CellAlign, HeaderSpan } from '@anytime-markdown/spreadsheet-core';
 import { SpreadsheetGrid, createInMemorySheetAdapter, spreadsheetViewerEnMessages } from '@anytime-markdown/spreadsheet-viewer';
 import Box from '@mui/material/Box';
@@ -148,6 +148,8 @@ export interface MatrixPanelProps {
   readonly serverUrl?: string;
   readonly selectedRepo?: string;
   readonly isDark?: boolean;
+  /** タブ非表示中は API フェッチを抑止する。省略時は true（後方互換）。 */
+  readonly isActive?: boolean;
 }
 
 export function MatrixPanel({
@@ -158,16 +160,17 @@ export function MatrixPanel({
   serverUrl,
   selectedRepo,
   isDark = false,
+  isActive = true,
 }: Readonly<MatrixPanelProps>) {
   const colors = useMemo(() => getC4Colors(isDark), [isDark]);
 
   const [matrixView, setMatrixView] = useState<'dsm' | 'coverage'>('dsm');
   const [level, setLevel] = useState<'package' | 'component' | 'code'>('component');
 
-  const { graph: codeGraph } = useCodeGraph(serverUrl ?? '');
+  const { graph: codeGraph } = useCodeGraph(serverUrl ?? '', { enabled: isActive });
 
   const { data: hotspotData } = useHotspot({
-    enabled: !!serverUrl,
+    enabled: isActive && !!serverUrl,
     serverUrl,
     period: '90d',
     granularity: 'commit',
@@ -175,10 +178,10 @@ export function MatrixPanel({
 
   const churnCountMap = useMemo<ReadonlyMap<string, number> | null>(() => {
     if (!hotspotData?.files.length || !c4Model) return null;
+    const elementById = buildC4ElementById(c4Model.elements);
     const map = new Map<string, number>();
     for (const entry of hotspotData.files) {
-      const mappings = mapFilesToC4Elements([entry.filePath], c4Model.elements);
-      for (const m of mappings) {
+      for (const m of mapFileToC4Elements(entry.filePath, elementById)) {
         map.set(m.elementId, (map.get(m.elementId) ?? 0) + entry.churn);
       }
     }
