@@ -954,13 +954,6 @@ export function C4ViewerCore({
     const complexity = complexityMatrix?.entries.find(entry => entry.elementId === element.id) ?? null;
     const importance = importanceMatrix?.[element.id] ?? null;
     const defectRisk = defectRiskMap?.get(element.id) ?? null;
-    const dsmIndex = filteredDsmMatrix?.nodes.findIndex(node => node.id === element.id) ?? -1;
-    const dsm = dsmIndex >= 0 && filteredDsmMatrix
-      ? {
-          out: filteredDsmMatrix.adjacency[dsmIndex]?.reduce((sum, value) => sum + (value > 0 ? 1 : 0), 0) ?? 0,
-          in: filteredDsmMatrix.adjacency.reduce((sum, row) => sum + (row[dsmIndex] > 0 ? 1 : 0), 0),
-        }
-      : null;
     const community = (() => {
       const direct = communityOverlayL3?.get(element.id) ?? null;
       if (direct) return direct;
@@ -1002,8 +995,8 @@ export function C4ViewerCore({
       }
       return hasData ? total : null;
     })();
-    return { element, incoming, outgoing, documents, coverage, complexity, importance, defectRisk, dsm, community, steps };
-  }, [c4Model, complexityMatrix, coverageMatrix, defectRiskMap, docLinks, filteredDsmMatrix, importanceMatrix, selectedElementId, communityOverlayL3, codeGraph]);
+    return { element, incoming, outgoing, documents, coverage, complexity, importance, defectRisk, community, steps };
+  }, [c4Model, complexityMatrix, coverageMatrix, defectRiskMap, docLinks, importanceMatrix, selectedElementId, communityOverlayL3, codeGraph]);
 
   const { data: elementFunctions, loading: elementFunctionsLoading } = useElementFunctions({
     serverUrl,
@@ -1580,14 +1573,6 @@ export function C4ViewerCore({
                         </Typography>
                         <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
                           {selectedElementInfo.importance != null ? Math.round(selectedElementInfo.importance) : '-'}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
-                          {t('c4.popup.metric.dsm')}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
-                          {selectedElementInfo.dsm ? `${selectedElementInfo.dsm.in}/${selectedElementInfo.dsm.out}` : '-'}
                         </Typography>
                       </Box>
                       <Box>
