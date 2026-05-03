@@ -358,6 +358,12 @@ export function C4ViewerCore({
     }
   }, []);
 
+  useEffect(() => {
+    if (!featureMatrix && overlayCategory === 'fcmap') {
+      handleOverlayCategoryChange('none');
+    }
+  }, [featureMatrix, overlayCategory, handleOverlayCategoryChange]);
+
   const handleElementSelect = useCallback((id: string) => {
     setCenterOnSelect(true);
     setSelectedElementId(id);
@@ -1341,9 +1347,9 @@ export function C4ViewerCore({
                       aria-label={t('c4.overlay.label')}
                     >
                       <MenuItem value="none" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.none')}</MenuItem>
-                      <MenuItem value="coverage" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupCoverage')}</MenuItem>
-                      <MenuItem value="dsm" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupDsm')}</MenuItem>
-                      <MenuItem value="complexity" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupComplexity')}</MenuItem>
+                      <MenuItem value="coverage" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupCoverage')}</MenuItem>
+                      <MenuItem value="dsm" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupDsm')}</MenuItem>
+                      <MenuItem value="complexity" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupComplexity')}</MenuItem>
                       <MenuItem value="importance" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupImportance')}</MenuItem>
                       <MenuItem value="hotspot" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupHotspot')}</MenuItem>
                       {featureMatrix && <MenuItem value="fcmap" sx={{ fontSize: '0.75rem' }}>F-cMap</MenuItem>}
