@@ -10,7 +10,8 @@ import { AiNoteItem,AiNoteProvider } from './providers/AiNoteProvider';
 import { TraceCodeLensProvider } from './providers/TraceCodeLensProvider';
 import { TraceScriptLensProvider } from './providers/TraceScriptLensProvider';
 import { TrailDataServer } from './server/TrailDataServer';
-import { TrailDatabase } from '@anytime-markdown/trail-db';
+import { TrailDatabase, ExecFileGitService } from '@anytime-markdown/trail-db';
+import { analyze } from '@anytime-markdown/trail-core';
 import { DatabaseProvider } from './trail/DatabaseProvider';
 import { TrailPanel } from './trail/TrailPanel';
 import { TrailLogger } from './utils/TrailLogger';
@@ -403,13 +404,112 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('anytime-trail.c4Analyze', async () => {
+			const repoName = vscode.workspace.workspaceFolders?.[0]?.name ?? '(no workspace)';
+			TrailLogger.info(`C4 analysis [${repoName}]: searching tsconfig.json in workspace`);
+			const excludePatterns: readonly string[] = ['.worktrees', '.vscode-test', '__tests__', 'fixtures'];
+			const allTsconfigFiles = await vscode.workspace.findFiles('**/tsconfig.json', '**/node_modules/**');
+			const tsconfigFiles = allTsconfigFiles
+				.filter(f => !excludePatterns.some(p => f.fsPath.includes(`/${p}/`)))
+				.sort((a, b) => {
+					const aRel = vscode.workspace.asRelativePath(a);
+					const bRel = vscode.workspace.asRelativePath(b);
+					const aDepth = aRel.split('/').length;
+					const bDepth = bRel.split('/').length;
+					return aDepth !== bDepth ? aDepth - bDepth : aRel.localeCompare(bRel);
+				});
+			if (tsconfigFiles.length === 0) {
+				TrailLogger.warn(`C4 analysis [${repoName}]: no tsconfig.json found in workspace`);
+				vscode.window.showWarningMessage('No tsconfig.json found in workspace.');
+				return;
+			}
+
+			let tsconfigPath: string;
+			if (tsconfigFiles.length === 1) {
+				tsconfigPath = tsconfigFiles[0].fsPath;
+			} else {
+				const items = tsconfigFiles.map(f => {
+					const rel = vscode.workspace.asRelativePath(f);
+					const isRoot = !rel.includes('/');
+					return {
+						label: rel,
+						description: isRoot ? '(workspace root — analyzes all packages)' : undefined,
+						uri: f,
+					};
+				});
+				const picked = await vscode.window.showQuickPick(items, {
+					placeHolder: 'Select tsconfig.json to analyze',
+					matchOnDescription: true,
+				});
+				if (!picked) {
+					TrailLogger.info(`C4 analysis [${repoName}]: cancelled at tsconfig selection`);
+					return;
+				}
+				tsconfigPath = picked.uri.fsPath;
+			}
+
+			TrailLogger.info(`C4 analysis [${repoName}]: starting for ${tsconfigPath}`);
+			const startedAt = Date.now();
+
 			try {
-				await codeGraphService.generate((phase, percent) => trailDataServer?.notifyCodeGraphProgress(phase, percent));
-				trailDataServer?.notifyCodeGraphUpdated();
-				vscode.window.showInformationMessage('Code graph analyzed.');
+				await vscode.window.withProgress(
+					{ location: vscode.ProgressLocation.Notification, title: 'C4 Analysis', cancellable: false },
+					async (progress) => {
+						const phases = ['Loading project...', 'Extracting symbols...', 'Extracting dependencies...', 'Filtering results...'];
+						const phasePercent = (phase: string): number => {
+							const idx = phases.indexOf(phase);
+							return idx >= 0 ? Math.round((idx / phases.length) * 100) : -1;
+						};
+
+						trailDataServer?.notifyProgress('Loading project...', 0);
+						const graph = analyze({
+							tsconfigPath,
+							exclude: excludePatterns.map(p => `**/${p}/**`),
+							onProgress: (phase) => {
+								TrailLogger.info(`C4 analysis [${repoName}]: ${phase}`);
+								progress.report({ message: phase });
+								trailDataServer?.notifyProgress(phase, phasePercent(phase));
+							},
+						});
+
+						TrailLogger.info(
+							`C4 analysis [${repoName}]: analyzed ${graph.metadata.fileCount} files, ${graph.nodes.length} nodes, ${graph.edges.length} edges`,
+						);
+
+						const gitRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
+						const dbRepoName = gitRoot ? path.basename(gitRoot) : repoName;
+						const commitId = gitRoot ? new ExecFileGitService(gitRoot).getHeadCommit() : '';
+						trailDb?.saveCurrentGraph(graph, tsconfigPath, commitId, dbRepoName);
+						TrailLogger.info(`C4 analysis [${repoName}]: TrailGraph saved to current_graphs (repo=${dbRepoName}, commit=${commitId || 'unknown'})`);
+
+						try {
+							progress.report({ message: 'Generating code graph...' });
+							await codeGraphService.generate((phase, percent) => {
+								progress.report({ message: `Code graph: ${phase} (${percent}%)` });
+								trailDataServer?.notifyCodeGraphProgress(phase, percent);
+							});
+							trailDataServer?.notifyCodeGraphUpdated();
+						} catch (err) {
+							TrailLogger.error(`C4 analysis [${repoName}]: code graph generation failed`, err);
+							vscode.window.showWarningMessage(`Code graph generation failed: ${err instanceof Error ? err.message : String(err)}`);
+						}
+
+						if (gitRoot && trailDb) {
+							try {
+								const count = trailDb.importCurrentCoverage(gitRoot, dbRepoName);
+								TrailLogger.info(`C4 analysis [${repoName}]: current_coverage updated (${count} entries)`);
+							} catch (err) {
+								TrailLogger.warn(`C4 analysis [${repoName}]: importCurrentCoverage failed: ${err instanceof Error ? err.message : String(err)}`);
+							}
+						}
+
+						trailDataServer?.notifyProgress('', 100);
+					},
+				);
+				TrailLogger.info(`C4 analysis [${repoName}]: completed in ${Date.now() - startedAt}ms`);
+				vscode.window.showInformationMessage('C4 analysis completed.');
 			} catch (err) {
-				TrailLogger.error('Failed to analyze code graph', err);
-				vscode.window.showErrorMessage(`Code graph analysis failed: ${(err as Error).message}`);
+				TrailLogger.error(`C4 analysis [${repoName}] failed`, err);
+				vscode.window.showErrorMessage(`C4 analysis failed: ${err instanceof Error ? err.message : String(err)}`);
 			}
 		}),
 		vscode.commands.registerCommand('anytime-trail.generateCodeGraph', async () => {
