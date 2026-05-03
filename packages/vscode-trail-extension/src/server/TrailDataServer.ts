@@ -13,6 +13,7 @@ import {
   computeActivityTrend,
   computeComplexityMatrix,
   computeFileHotspot,
+  computeImportanceMatrix,
   fetchC4Model,
   fetchC4ModelEntries,
   filterTreeByLevel,
@@ -179,6 +180,7 @@ export class TrailDataServer {
   private docsPath: string | undefined;
   private lastClaudeActivity: { activeElementIds: readonly string[]; touchedElementIds: readonly string[]; plannedElementIds: readonly string[] } | undefined;
   private lastMultiAgentActivity: { agents: readonly import('./types').AgentActivityEntry[]; conflicts: readonly import('./types').FileConflict[] } | undefined;
+  private lastImportanceMatrix: ImportanceMatrix | null = null;
   onOpenDocLink: ((docPath: string) => void) | undefined;
   onOpenFile: ((filePath: string) => void) | undefined;
   onTokenBudgetExceeded: ((status: import('./types').TokenBudgetUpdatedMessage) => void) | undefined;
@@ -1948,11 +1950,12 @@ export class TrailDataServer {
 
   private sendC4CurrentState(ws: WebSocket): void {
     const provider = this.getC4Provider?.();
-    if (!provider) return;
 
-    const dsmMsg = this.buildDsmMessage(provider);
-    if (dsmMsg) {
-      ws.send(JSON.stringify(dsmMsg));
+    if (provider) {
+      const dsmMsg = this.buildDsmMessage(provider);
+      if (dsmMsg) {
+        ws.send(JSON.stringify(dsmMsg));
+      }
     }
 
     if (this.docLinks.length > 0) {
@@ -1960,8 +1963,8 @@ export class TrailDataServer {
       ws.send(JSON.stringify(docMsg));
     }
 
-    const importanceMsg = this.buildNotifyMessage('importance-updated', provider);
-    if (importanceMsg) {
+    if (this.lastImportanceMatrix) {
+      const importanceMsg: ServerMessage = { type: 'importance-updated', importanceMatrix: this.lastImportanceMatrix };
       ws.send(JSON.stringify(importanceMsg));
     }
 
@@ -2055,6 +2058,28 @@ export class TrailDataServer {
     const payload = JSON.stringify(message);
     for (const ws of this.clients) {
       ws.send(payload);
+    }
+  }
+
+  async computeAndNotifyImportance(tsconfigPath: string): Promise<void> {
+    const repoName = this.gitRoot ? path.basename(this.gitRoot) : undefined;
+    const store = this.trailDb.asC4ModelStore();
+    const payload = await fetchC4Model(store, 'current', repoName, undefined);
+    if (!payload?.model) {
+      TrailLogger.warn('[importance] C4 model not available, skipping importance computation');
+      return;
+    }
+    try {
+      this.lastImportanceMatrix = computeImportanceMatrix(tsconfigPath, payload.model.elements);
+    } catch (err) {
+      TrailLogger.error('[importance] computeImportanceMatrix failed', err);
+      return;
+    }
+    if (this.clients.size === 0) return;
+    const message: ServerMessage = { type: 'importance-updated', importanceMatrix: this.lastImportanceMatrix };
+    const json = JSON.stringify(message);
+    for (const ws of this.clients) {
+      ws.send(json);
     }
   }
 
