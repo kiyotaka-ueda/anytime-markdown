@@ -1542,6 +1542,14 @@ export function C4ViewerCore({
                           {selectedElementInfo.defectRisk != null ? Math.round(selectedElementInfo.defectRisk) : '-'}
                         </Typography>
                       </Box>
+                      <Box>
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
+                          {t('c4.popup.metric.steps')}
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
+                          {selectedElementInfo.coverage?.lines.total ?? '-'}
+                        </Typography>
+                      </Box>
                     </Box>
                   </Box>
                   {selectedElementInfo.community && (() => {

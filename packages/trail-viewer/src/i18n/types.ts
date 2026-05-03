@@ -275,6 +275,7 @@ export interface TrailI18n {
   'c4.popup.metric.importance': string;
   'c4.popup.metric.dsm': string;
   'c4.popup.metric.defectRisk': string;
+  'c4.popup.metric.steps': string;
   'c4.popup.functions': string;
   'c4.popup.functions.empty': string;
   'c4.openFile': string;

@@ -242,6 +242,7 @@ export const en: TrailI18n = {
   'c4.popup.metric.importance': 'Importance',
   'c4.popup.metric.dsm': 'DSM',
   'c4.popup.metric.defectRisk': 'Defect',
+  'c4.popup.metric.steps': 'Steps',
   'c4.popup.functions': 'Functions',
   'c4.popup.functions.empty': 'No functions found',
   'c4.openFile': 'Open File',

@@ -242,6 +242,7 @@ export const ja: TrailI18n = {
   'c4.popup.metric.importance': '重要度',
   'c4.popup.metric.dsm': 'DSM',
   'c4.popup.metric.defectRisk': '欠陥リスク',
+  'c4.popup.metric.steps': 'ステップ数',
   'c4.popup.functions': '関数一覧',
   'c4.popup.functions.empty': '関数が見つかりません',
   'c4.openFile': 'ファイルを開く',
