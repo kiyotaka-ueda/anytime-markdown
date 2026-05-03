@@ -22,11 +22,7 @@
     "./c4": "./src/c4/index.ts",
     "./codeGraph": "./src/codeGraph.ts"
   },
-  "bin": {
-    "trail-core": "./bin/trail.js"
-  },
   "scripts": {
-    "build": "esbuild src/cli.ts --bundle --platform=node --target=node18 --outfile=dist/cli.js --external:typescript",
     "test": "jest --maxWorkers=1"
   },
   "peerDependencies": {

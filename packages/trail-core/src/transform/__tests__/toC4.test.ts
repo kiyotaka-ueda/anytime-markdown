@@ -111,7 +111,7 @@ describe('trailToC4', () => {
       const graph = makeTrailGraph({
         nodes: [
           { id: 'f1', label: 'ProjectAnalyzer.ts', type: 'file', filePath: 'packages/trail-core/src/analyzer/ProjectAnalyzer.ts', line: 0 },
-          { id: 'f2', label: 'toCytoscape.ts', type: 'file', filePath: 'packages/trail-core/src/transform/toCytoscape.ts', line: 0 },
+          { id: 'f2', label: 'toC4Helper.ts', type: 'file', filePath: 'packages/trail-core/src/transform/toC4Helper.ts', line: 0 },
         ],
       });
       const model = trailToC4(graph);
@@ -125,7 +125,7 @@ describe('trailToC4', () => {
         metadata: { projectRoot: '/workspace/packages/trail-core', analyzedAt: '2026-01-01', fileCount: 2 },
         nodes: [
           { id: 'f1', label: 'ProjectAnalyzer.ts', type: 'file', filePath: 'src/analyzer/ProjectAnalyzer.ts', line: 0 },
-          { id: 'f2', label: 'toCytoscape.ts', type: 'file', filePath: 'src/transform/toCytoscape.ts', line: 0 },
+          { id: 'f2', label: 'toC4Helper.ts', type: 'file', filePath: 'src/transform/toC4Helper.ts', line: 0 },
         ],
       });
       const model = trailToC4(graph);
@@ -138,7 +138,7 @@ describe('trailToC4', () => {
       const graph = makeTrailGraph({
         metadata: { projectRoot: '/workspace/packages/trail-core', analyzedAt: '2026-01-01', fileCount: 2 },
         nodes: [
-          { id: 'f1', label: 'toCytoscape.ts', type: 'file', filePath: 'src/transform/toCytoscape.ts', line: 0 },
+          { id: 'f1', label: 'toC4Helper.ts', type: 'file', filePath: 'src/transform/toC4Helper.ts', line: 0 },
           { id: 'f2', label: 'types.ts', type: 'file', filePath: 'src/model/types.ts', line: 0 },
         ],
         edges: [
