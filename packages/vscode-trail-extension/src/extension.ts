@@ -351,38 +351,16 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Code graph service
 	const codeGraphCfg = vscode.workspace.getConfiguration('anytimeTrail.codeGraph');
-	const expandWorkspace = (s: string): string =>
-		wsRootForDb ? s.replace('${workspaceFolder}', wsRootForDb) : s;
-	const configuredRepoPaths = codeGraphCfg.get<string[]>('repositories', []);
-	// repo.id は trail viewer のサイドパネルに「リポジトリ」として表示されるため、
-	// 数値インデックスではなく label ベースの slug を使う。重複時は index を付与する。
-	const usedRepoIds = new Set<string>();
-	const codeGraphRepos = configuredRepoPaths.map((rawPath, i) => {
-		// 後方互換: 設定値が JSON オブジェクト文字列 '{ "path": "...", "label": "..." }' の場合も受け付ける
-		let resolvedPath = rawPath;
-		let explicitLabel: string | undefined;
-		try {
-			const parsed = JSON.parse(rawPath) as { path?: string; label?: string };
-			if (parsed && typeof parsed === 'object' && typeof parsed.path === 'string') {
-				resolvedPath = parsed.path;
-				if (typeof parsed.label === 'string' && parsed.label) explicitLabel = parsed.label;
-			}
-		} catch { /* not JSON — treat as plain path string */ }
-		const expandedPath = expandWorkspace(resolvedPath);
-		const label = explicitLabel ?? (path.basename(expandedPath) || String(i));
-		const slug = label.trim().replace(/\s+/g, '-');
-		let id = slug || String(i);
-		if (usedRepoIds.has(id)) id = `${id}-${i}`;
-		usedRepoIds.add(id);
-		return { id, label, path: expandedPath };
-	});
+	const codeGraphRepos: { id: string; label: string; path: string }[] = [];
+	const configuredWorkspacePath = codeGraphCfg.get<string>('workspacePath', '').trim();
+	const workspacePath = configuredWorkspacePath || wsRootForDb;
+	if (workspacePath) {
+		codeGraphRepos.push({ id: 'Workspace', label: 'Workspace', path: workspacePath });
+	}
 
 	const docsPathForCodeGraph = vscode.workspace.getConfiguration('anytimeTrail').get<string>('docsPath', '').trim();
 	if (docsPathForCodeGraph && !codeGraphRepos.some((r) => r.path === docsPathForCodeGraph)) {
-		let docsId = 'Docs';
-		if (usedRepoIds.has(docsId)) docsId = `Docs-${codeGraphRepos.length}`;
-		usedRepoIds.add(docsId);
-		codeGraphRepos.push({ id: docsId, label: 'Docs', path: docsPathForCodeGraph });
+		codeGraphRepos.push({ id: 'Docs', label: 'Docs', path: docsPathForCodeGraph });
 	}
 
 	const codeGraphService = new CodeGraphService({

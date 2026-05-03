@@ -212,15 +212,10 @@
           "default": "",
           "markdownDescription": "Absolute path to the documentation directory for C4 document links. When set, Markdown files with `c4Scope` frontmatter are indexed and shown in the C4 viewer."
         },
-        "anytimeTrail.codeGraph.repositories": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [
-            "${workspaceFolder}"
-          ],
-          "markdownDescription": "解析対象リポジトリのパスリスト。絶対パスまたは `${workspaceFolder}` を指定する。表示名はパスの末尾フォルダ名が使用される。"
+        "anytimeTrail.codeGraph.workspacePath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "解析対象ワークスペースの絶対パス。空欄の場合は現在開いているワークスペースを使用する。表示名は常に `Workspace` が割り当てられる。"
         },
         "anytimeTrail.trailServer.port": {
           "type": "number",
