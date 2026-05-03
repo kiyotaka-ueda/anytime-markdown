@@ -359,6 +359,7 @@ function TrailViewerCoreInner({
             featureMatrix={c4.featureMatrix}
             coverageMatrix={c4.coverageMatrix}
             coverageDiff={c4.coverageDiff}
+            complexityMatrix={c4.complexityMatrix}
             c4Model={c4.c4Model}
             serverUrl={c4.serverUrl}
             selectedRepo={c4.selectedRepo}

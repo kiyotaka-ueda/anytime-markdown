@@ -1,5 +1,5 @@
-import type { C4Element, C4Model, CoverageDiffMatrix, CoverageMatrix, DsmMatrix, DsmNode, FeatureMatrix, HeatmapMatrix } from '@anytime-markdown/trail-core/c4';
-import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, computeCommunityOverlay, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
+import type { C4Element, C4Model, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DsmMatrix, DsmNode, FeatureMatrix, HeatmapMatrix } from '@anytime-markdown/trail-core/c4';
+import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, computeCommunityOverlay, mapFilesToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
 import type { CellAlign, HeaderSpan } from '@anytime-markdown/spreadsheet-core';
 import { SpreadsheetGrid, createInMemorySheetAdapter, spreadsheetViewerEnMessages } from '@anytime-markdown/spreadsheet-viewer';
 import Box from '@mui/material/Box';
@@ -12,6 +12,7 @@ import { useTrailI18n } from '../../i18n';
 import { getDsmCellBackground, getC4Colors } from '../c4Theme';
 import { useActivityHeatmap } from '../hooks/useActivityHeatmap';
 import { useCodeGraph } from '../../hooks/useCodeGraph';
+import { useDefectRisk } from '../hooks/useDefectRisk';
 import { communityColor } from '../../components/communityColors';
 
 // ---------------------------------------------------------------------------
@@ -92,18 +93,41 @@ function fcmapToSheet(fm: FeatureMatrix, model: C4Model) {
   return { cells, alignments: cells.map(r => r.map(() => null)), range: { rows: cells.length, cols: headerRow.length } };
 }
 
-function coverageToSheet(matrix: CoverageMatrix, model: C4Model) {
+const COMPLEXITY_LABEL: Record<string, string> = {
+  'high-complexity': 'High',
+  'multi-file-edit': 'Multi',
+  'search-only': 'Search',
+  'low-complexity': 'Low',
+};
+
+function coverageToSheet(
+  matrix: CoverageMatrix,
+  model: C4Model,
+  complexityMatrix: ComplexityMatrix | null,
+  defectCountMap: ReadonlyMap<string, number> | null,
+) {
   const elementMap = new Map(model.elements.map(e => [e.id, e.name]));
-  const headerRow = ['Component', 'Lines%', 'Branches%', 'Functions%'];
-  const dataRows = matrix.entries.map(e => [
-    elementMap.get(e.elementId) ?? e.elementId,
-    String(Math.round(e.lines.pct * 10) / 10),
-    String(Math.round(e.branches.pct * 10) / 10),
-    String(Math.round(e.functions.pct * 10) / 10),
-  ]);
+  const complexityMap = new Map(complexityMatrix?.entries.map(e => [e.elementId, e.highest]) ?? []);
+  const headerRow = ['Component', 'Lines%', 'Branches%', 'Functions%', 'Complexity', 'Defects', 'LOC'];
+  const dataRows = matrix.entries.map(e => {
+    const cls = complexityMap.get(e.elementId);
+    const defects = defectCountMap?.get(e.elementId);
+    return [
+      elementMap.get(e.elementId) ?? e.elementId,
+      String(Math.round(e.lines.pct * 10) / 10),
+      String(Math.round(e.branches.pct * 10) / 10),
+      String(Math.round(e.functions.pct * 10) / 10),
+      cls ? (COMPLEXITY_LABEL[cls] ?? cls) : '',
+      defects != null ? String(defects) : '',
+      e.lines.total > 0 ? String(e.lines.total) : '',
+    ];
+  });
   const cells = [headerRow, ...dataRows];
-  const alignments = cells.map(r => r.map((_, ci) => (ci > 0 ? 'right' as const : null)));
-  return { cells, alignments, range: { rows: cells.length, cols: 4 } };
+  // col 0: name (left), col 4: Complexity label (left), others: right
+  const alignments = cells.map(r => r.map((_, ci): CellAlign =>
+    (ci === 0 || ci === 4) ? null : 'right',
+  ));
+  return { cells, alignments, range: { rows: cells.length, cols: 7 } };
 }
 
 function heatmapToSheet(matrix: HeatmapMatrix) {
@@ -146,6 +170,7 @@ export interface MatrixPanelProps {
   readonly featureMatrix: FeatureMatrix | null;
   readonly coverageMatrix: CoverageMatrix | null;
   readonly coverageDiff: CoverageDiffMatrix | null;
+  readonly complexityMatrix?: ComplexityMatrix | null;
   readonly c4Model: C4Model | null;
   readonly serverUrl?: string;
   readonly selectedRepo?: string;
@@ -156,6 +181,7 @@ export function MatrixPanel({
   dsmMatrix,
   featureMatrix,
   coverageMatrix,
+  complexityMatrix,
   c4Model,
   serverUrl,
   selectedRepo,
@@ -168,6 +194,25 @@ export function MatrixPanel({
   const [dsmLevel, setDsmLevel] = useState<'component' | 'package'>('component');
 
   const { graph: codeGraph } = useCodeGraph(serverUrl ?? '');
+
+  const { entries: drEntries } = useDefectRisk({
+    enabled: !!serverUrl,
+    serverUrl,
+    windowDays: 180,
+    halfLifeDays: 90,
+  });
+
+  const defectCountMap = useMemo<ReadonlyMap<string, number> | null>(() => {
+    if (!drEntries.length || !c4Model) return null;
+    const map = new Map<string, number>();
+    for (const entry of drEntries) {
+      const mappings = mapFilesToC4Elements([entry.filePath], c4Model.elements);
+      for (const m of mappings) {
+        map.set(m.elementId, (map.get(m.elementId) ?? 0) + entry.fixCount);
+      }
+    }
+    return map.size > 0 ? map : null;
+  }, [drEntries, c4Model]);
 
   const heatmapEnabled = matrixView === 'heatmap';
   const { data: heatmapResponse } = useActivityHeatmap({
@@ -224,8 +269,10 @@ export function MatrixPanel({
     [featureMatrix, c4Model],
   );
   const coverageResult = useMemo(
-    () => coverageMatrix && c4Model ? makeSheetResult(coverageToSheet(coverageMatrix, c4Model)) : null,
-    [coverageMatrix, c4Model],
+    () => coverageMatrix && c4Model
+      ? makeSheetResult(coverageToSheet(coverageMatrix, c4Model, complexityMatrix ?? null, defectCountMap))
+      : null,
+    [coverageMatrix, c4Model, complexityMatrix, defectCountMap],
   );
   const heatmapResult = useMemo(
     () => heatmapMatrix ? makeSheetResult(heatmapToSheet(heatmapMatrix)) : null,
@@ -280,7 +327,8 @@ export function MatrixPanel({
   // Coverage ビュー: セルを coverage overlay 色（Lines/Branches/Functions 共通の閾値）で塗りつぶし
   const coverageCellBackground = useMemo(() => {
     if (!coverageMatrix) return undefined;
-    return (_row: number, _col: number, value: string): string | undefined => {
+    return (_row: number, col: number, value: string): string | undefined => {
+      if (col > 2) return undefined; // Lines%/Branches%/Functions% のみ色付け
       const pct = Number.parseFloat(value);
       if (Number.isNaN(pct)) return undefined;
       return coverageHeatColor(pct) + '55';
