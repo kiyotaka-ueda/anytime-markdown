@@ -122,14 +122,8 @@
         "icon": "$(symbol-class)"
       },
       {
-        "command": "anytime-trail.generateCodeGraph",
-        "title": "Generate Code Graph",
-        "category": "Anytime Trail",
-        "icon": "$(graph)"
-      },
-      {
-        "command": "anytime-trail.regenerateReleaseCodeGraphs",
-        "title": "Regenerate Release Code Graphs",
+        "command": "anytime-trail.analyzeReleaseCode",
+        "title": "%command.analyzeReleaseCode%",
         "category": "Anytime Trail"
       },
       {

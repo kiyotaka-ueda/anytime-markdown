@@ -499,17 +499,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				vscode.window.showErrorMessage(`C4 analysis failed: ${err instanceof Error ? err.message : String(err)}`);
 			}
 		}),
-		vscode.commands.registerCommand('anytime-trail.generateCodeGraph', async () => {
-			try {
-				await codeGraphService.generate((phase, percent) => trailDataServer?.notifyCodeGraphProgress(phase, percent));
-				trailDataServer?.notifyCodeGraphUpdated();
-				vscode.window.showInformationMessage('Code graph generated.');
-			} catch (err) {
-				TrailLogger.error('Failed to generate code graph', err);
-				vscode.window.showErrorMessage(`Code graph generation failed: ${(err as Error).message}`);
-			}
-		}),
-		vscode.commands.registerCommand('anytime-trail.regenerateReleaseCodeGraphs', async () => {
+		vscode.commands.registerCommand('anytime-trail.analyzeReleaseCode', async () => {
 			if (!trailDb) {
 				vscode.window.showErrorMessage('Trail DB is not initialized.');
 				return;
@@ -519,21 +509,21 @@ export async function activate(context: vscode.ExtensionContext) {
 				return;
 			}
 			await vscode.window.withProgress(
-				{ location: vscode.ProgressLocation.Notification, title: 'Trail: Regenerate Release Code Graphs', cancellable: false },
+				{ location: vscode.ProgressLocation.Notification, title: 'Trail: Analyze Release Code', cancellable: false },
 				async (progress) => {
 					try {
 						progress.report({ message: 'Clearing release code graphs...' });
 						trailDb!.deleteReleaseCodeGraphs();
-						progress.report({ message: 'Generating release code graphs...' });
+						progress.report({ message: 'Analyzing release code...' });
 						const count = await trailDb!.analyzeReleaseCodeGraphsForce({
 							codeGraphService,
 							gitRoot,
 							onProgress: (msg) => progress.report({ message: msg }),
 						});
-						vscode.window.showInformationMessage(`Release code graphs regenerated (${count} releases).`);
+						vscode.window.showInformationMessage(`Release code analyzed (${count} releases).`);
 					} catch (err) {
-						TrailLogger.error('Failed to regenerate release code graphs', err);
-						vscode.window.showErrorMessage(`Regenerate failed: ${err instanceof Error ? err.message : String(err)}`);
+						TrailLogger.error('Failed to analyze release code', err);
+						vscode.window.showErrorMessage(`Analyze release code failed: ${err instanceof Error ? err.message : String(err)}`);
 					}
 				},
 			);
