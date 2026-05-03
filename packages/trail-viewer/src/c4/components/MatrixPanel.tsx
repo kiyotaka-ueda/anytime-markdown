@@ -215,7 +215,7 @@ export function MatrixPanel({
       </Box>
 
       {/* Sheet */}
-      <Box sx={{ flex: 1, overflow: 'hidden' }}>
+      <Box sx={{ flex: 1, display: 'flex', minHeight: 0 }}>
         {activeAdapter ? (
           <SpreadsheetGrid
             key={matrixView === 'dsm' ? `dsm-${dsmLevel}` : matrixView}
