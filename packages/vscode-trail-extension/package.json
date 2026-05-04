@@ -330,7 +330,7 @@
         },
         "anytimeTrail.claudeStatus.directory": {
           "type": "string",
-          "default": "",
+          "default": ".vscode/trail/agent-status",
           "markdownDescription": "%config.claudeStatus.directory%"
         },
         "anytimeTrail.budget.dailyLimitTokens": {
