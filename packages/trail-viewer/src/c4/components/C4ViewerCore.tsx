@@ -364,6 +364,14 @@ export function C4ViewerCore({
     }
   }, [featureMatrix, overlayCategory, handleOverlayCategoryChange]);
 
+  // リポジトリ切替時は overlay 関連の選択を初期化する
+  // （前のリポジトリ向けの選択が新リポジトリで無効になり、ユーザーに混乱を与えるため）
+  useEffect(() => {
+    setOverlayCategory('none');
+    setMetricOverlay('none');
+    setSelectedFcmapFeatureId(null);
+  }, [selectedRepo]);
+
 
 
   const handleElementSelect = useCallback((id: string) => {
