@@ -101,6 +101,7 @@ import { CodeGraphPanel } from '../../components/CodeGraphPanel';
 import { communityColor } from '../../components/communityColors';
 import { useCodeGraph } from '../../hooks/useCodeGraph';
 import { computeClaudeActivityColorMap, computeConflictBorderMap,computeMultiAgentColorMap } from '../claudeActivityColorMap';
+import { computeContextMenuCapabilities } from '../utils/contextMenuCapabilities';
 import { ActivityTrendChart } from './ActivityTrendChart';
 import type { C4ElementKind, ElementFormData, RelationshipFormData } from './C4EditDialogs';
 import { AddElementDialog, AddRelationshipDialog } from './C4EditDialogs';
@@ -345,7 +346,6 @@ export function C4ViewerCore({
     readonly x: number;
     readonly y: number;
     readonly c4Id: string;
-    readonly nodeType: string;
   } | null>(null);
   const [checkedPackageIds, setCheckedPackageIds] = useState<ReadonlySet<string> | null>(null);
   const [soloFrameId, setSoloFrameId] = useState<string | null>(null);
@@ -518,8 +518,8 @@ export function C4ViewerCore({
 
   /** 右クリックメニューを表示する */
   const handleNodeContextMenu = useCallback(
-    (c4Id: string, x: number, y: number, nodeType: string) => {
-      setContextMenu({ x, y, c4Id, nodeType });
+    (c4Id: string, x: number, y: number) => {
+      setContextMenu({ x, y, c4Id });
     },
     [],
   );
@@ -1103,34 +1103,24 @@ export function C4ViewerCore({
     borderColor: `${colors.accent} !important`,
   } as const;
 
-  // コンテキストメニュー表示時の情報計算
-  // boundaryId で親子関係が表現されているため、children ではなく boundaryId で子の有無を判定する
-  // 現在のドリルルートへの再ドリルは防ぐ
-  const canDrillDown = contextMenu !== null &&
-    contextMenu.nodeType !== 'frame' &&
-    drillStack.at(-1)?.element.id !== contextMenu.c4Id &&
-    (c4Model?.elements.some(e => e.boundaryId === contextMenu.c4Id) ?? false);
-  const canDrillUp = contextMenu !== null &&
-    contextMenu.nodeType === 'frame' &&
-    drillStack.length > 0;
-  const canShowOnlyFrame = contextMenu !== null &&
-    contextMenu.nodeType === 'frame';
-  const canCopyPath = contextMenu !== null &&
-    (contextMenu.c4Id.startsWith('pkg_') || contextMenu.c4Id.startsWith('file::'));
-  const canOpenFile = contextMenu !== null && contextMenu.c4Id.startsWith('file::');
-  const canShowSequence = contextMenu !== null
-    && contextMenu.nodeType === 'component'
-    && onShowSequence !== undefined;
-  const canShowManualActions = canShowManualContextActions(c4Model, contextMenu?.c4Id ?? null);
-  const showContextMenu = contextMenu !== null && (
-    canDrillDown ||
-    canDrillUp ||
-    canShowOnlyFrame ||
-    canOpenFile ||
-    canCopyPath ||
-    canShowSequence ||
-    canShowManualActions
-  );
+  // コンテキストメニュー表示時の capability 計算は contextMenuCapabilities.ts に集約。
+  // ドメイン判定は graph node.type ではなく c4Model から解決し、レイヤー混同を避ける。
+  const {
+    canDrillDown,
+    canDrillUp,
+    canShowOnlyFrame,
+    canCopyPath,
+    canOpenFile,
+    canShowSequence,
+    canShowManualActions,
+    showContextMenu,
+  } = computeContextMenuCapabilities({
+    c4Model,
+    c4Id: contextMenu?.c4Id ?? null,
+    drillStack,
+    hasShowSequenceHandler: onShowSequence !== undefined,
+    canShowManualContextActions,
+  });
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: containerHeight, bgcolor: colors.bg }}>

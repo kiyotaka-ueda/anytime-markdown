@@ -82,7 +82,7 @@ interface C4GraphCanvasProps {
   readonly onNodeSelect?: (nodeId: string | null) => void;
   readonly onMultiNodeSelect?: (c4Ids: readonly string[]) => void;
   readonly onNodeDoubleClick?: (nodeId: string) => void;
-  readonly onNodeContextMenu?: (c4Id: string, x: number, y: number, nodeType: string) => void;
+  readonly onNodeContextMenu?: (c4Id: string, x: number, y: number) => void;
   readonly onGroupContextMenu?: (groupId: string, x: number, y: number) => void;
   readonly isDark?: boolean;
 }
@@ -145,7 +145,7 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
     },
     onNodeContextMenu: (node, x, y) => {
       const c4Id = node.metadata?.c4Id as string | undefined;
-      if (c4Id) onNodeContextMenu?.(c4Id, x, y, node.type);
+      if (c4Id) onNodeContextMenu?.(c4Id, x, y);
     },
     onNodeCtrlClick: () => {
       const allC4Ids = selectionRef.current.flatMap(nodeId => {
