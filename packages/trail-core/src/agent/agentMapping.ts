@@ -190,12 +190,9 @@ export function buildAgentMapping(
 
   const result: WorktreeMapping[] = [];
 
-  // Build entries for each worktree that has at least one session
+  // すべての worktree をセッションの有無に関わらず含める
   for (const wt of worktrees) {
-    const sessions = wtSessions.get(wt.path);
-    if (sessions === undefined || sessions.length === 0) {
-      continue;
-    }
+    const sessions = wtSessions.get(wt.path) ?? [];
     const states = sessions.map((s) => s.state);
     result.push({
       worktreePath: wt.path,

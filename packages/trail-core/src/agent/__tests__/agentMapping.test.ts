@@ -293,8 +293,11 @@ describe('buildAgentMapping', () => {
 
     const result = buildAgentMapping(agents, worktrees, { now });
 
-    expect(result).toHaveLength(1);
-    expect(result[0].worktreePath).toBe('(orphan)');
+    // 全 worktree + orphan グループが含まれる
+    expect(result.length).toBe(worktrees.length + 1);
+    const orphan = result.find((w) => w.worktreePath === '(orphan)');
+    expect(orphan).toBeDefined();
+    expect(orphan?.sessions).toHaveLength(1);
   });
 
   test('全 agent が worktree に割り当てられた場合 orphan グループは含まれない', () => {
@@ -477,7 +480,7 @@ describe('buildAgentMapping', () => {
     expect(featWt?.worktreeName).toBe('feat');
   });
 
-  test('worktree に属するセッションが 0 の worktree は結果に含まれない', () => {
+  test('worktree に属するセッションが 0 でも worktree は結果に含まれる', () => {
     const agents = [
       {
         sessionId: 'g1',
@@ -491,8 +494,12 @@ describe('buildAgentMapping', () => {
     ];
 
     const result = buildAgentMapping(agents, worktrees, { now });
-    // main worktree に session がないので含まれない
-    expect(result.find((w) => w.isMain)).toBeUndefined();
-    expect(result).toHaveLength(1);
+    // main worktree にセッションがなくても結果に含まれる
+    const main = result.find((w) => w.isMain);
+    expect(main).toBeDefined();
+    expect(main?.sessions).toHaveLength(0);
+    expect(main?.aggregatedState).toBe('stale');
+    // feat worktree も含まれる
+    expect(result).toHaveLength(worktrees.length);
   });
 });

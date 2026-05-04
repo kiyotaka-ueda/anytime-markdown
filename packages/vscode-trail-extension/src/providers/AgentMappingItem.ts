@@ -11,19 +11,19 @@ const STATE_ICONS: Record<MappingState, vscode.ThemeIcon> = {
 
 export class WorktreeTreeItem extends vscode.TreeItem {
   constructor(public readonly mapping: WorktreeMapping) {
-    super(
-      mapping.worktreeName,
-      mapping.aggregatedState === 'active'
+    const collapsible = mapping.sessions.length === 0
+      ? vscode.TreeItemCollapsibleState.None
+      : mapping.aggregatedState === 'active'
         ? vscode.TreeItemCollapsibleState.Expanded
-        : vscode.TreeItemCollapsibleState.Collapsed,
-    );
+        : vscode.TreeItemCollapsibleState.Collapsed;
+    super(mapping.worktreeName, collapsible);
     const stateLabelMap: Record<MappingState, string> = {
       active: `[${mapping.activeCount} active]`,
       recent: `[${mapping.activeCount} recent]`,
       stale: '[stale]',
     };
-    const stateLabel = stateLabelMap[mapping.aggregatedState];
-    this.description = `${mapping.branch}  ${stateLabel}`;
+    const stateLabel = mapping.sessions.length === 0 ? '' : `  ${stateLabelMap[mapping.aggregatedState]}`;
+    this.description = `${mapping.branch}${stateLabel}`;
     this.iconPath = mapping.aggregatedState === 'active'
       ? new vscode.ThemeIcon('folder-active')
       : new vscode.ThemeIcon('folder');
