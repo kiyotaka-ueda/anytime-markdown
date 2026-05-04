@@ -96,26 +96,72 @@
 > Claude Code がインストールされていない場合（`~/.claude/` 不在時）は登録をスキップします。
 
 
-## 6. 設定一覧
+## 6. リポジトリの解析手順
+
+現在 VS Code で開いているワークスペースの C4 アーキテクチャ図・コードグラフを解析し、各コミュニティに AI 要約を付与してカテゴライズするまでの一連の手順を示します。
+
+**前提**
+
+- 解析対象が TypeScript プロジェクトであり、`tsconfig.json` を含むこと
+- Step 2 を実行する場合、Claude Code 本体と `/anytime-reverse-engineer` スキルがインストールされていること
+
+**実施手順**
+
+1. **コード解析を実行する**
+   - コマンドパレットで `Anytime Trail: コード解析` を実行する。
+   - 対象リポジトリ配下に複数の `tsconfig.json` がある場合は QuickPick で選択する（プロジェクトルートを選ぶと配下の全パッケージを解析）。
+2. **コミュニティ要約を AI 生成する（カテゴライズ）**
+   - Claude Code で `/anytime-reverse-engineer` スキルを実行する。
+   - 各コミュニティに対して、人間が読んで意味のある名前と要約が AI で自動生成される。
+3. **Trail Viewer で結果を確認する**
+   - コマンドパレットで `Anytime Trail: Trail ビューアを開く` を実行し、Trail Viewer（`http://localhost:19841`）を開く。
+   - C4 タブで C4 モデルが表示される。要素を選択すると、所属コミュニティの名前と要約が画面に表示される。
+
+> [!IMPORTANT]
+> Step 2 の AI 要約は外部 API（Anthropic）への送信を伴う。機密リポジトリで利用する場合は、ファイルパスやモジュール名等のコード構造情報が外部送信されることを事前確認すること。
+
+
+## 7. 設定一覧
+
+### 7.1 ワークスペース
 
 | 設定キー | デフォルト | 説明 |
 | --- | --- | --- |
-| `anytimeTrail.trailServer.port` | `19841` | サーバーのポート番号 |
-| `anytimeTrail.c4.analyzeExcludePatterns` | `[".worktrees", ...]` | C4 解析から除外するディレクトリ名パターン |
-| `anytimeTrail.docsPath` | `""` | C4 ドキュメントリンク用ドキュメントディレクトリの絶対パス |
-| `anytimeTrail.coverage.path` | `""` | `coverage-final.json` へのパス（ワークスペースルートからの相対パス） |
-| `anytimeTrail.coverage.historyLimit` | `50` | カバレッジ履歴スナップショットの最大保存件数 |
-| `anytimeTrail.test.e2eCommand` | `cd packages/web-app && npm run e2e` | E2E テスト実行コマンド |
-| `anytimeTrail.test.coverageCommand` | `npx jest --coverage --maxWorkers=1` | カバレッジ付きテスト実行コマンド |
-| `anytimeTrail.database.storagePath` | `""` | `trail.db` の保存先（空の場合は `.vscode/`） |
-| `anytimeTrail.database.backupGenerations` | `1` | `trail.db` バックアップの保持世代数 |
-| `anytimeTrail.claudeStatus.directory` | `""` | `claude-code-status.json` の保存先（空の場合は `.vscode/`） |
-| `anytimeTrail.remote.provider` | `none` | リモート DB プロバイダー（`none` / `supabase` / `postgres`） |
-| `anytimeTrail.remote.supabaseUrl` | `""` | Supabase プロジェクト URL |
-| `anytimeTrail.remote.supabaseAnonKey` | `""` | Supabase anon キー |
-| `anytimeTrail.remote.postgresUrl` | `""` | PostgreSQL 接続文字列 |
+| `anytimeTrail.workspace.path` | `""` | 解析対象ワークスペースの絶対パス。Code Graph と C4 Model 両方の解析で使用される。空欄の場合は現在 VS Code で開いているワークスペースを使用する |
+| `anytimeTrail.workspace.docsPath` | `""` | C4 ドキュメントリンク用のドキュメントディレクトリ絶対パス。設定すると `c4Scope` フロントマターを持つ Markdown が C4 ビューアでインデックスされる |
 
 
-## 7. ライセンス
+### 7.2 ビューア
+
+| 設定キー | デフォルト | 説明 |
+| --- | --- | --- |
+| `anytimeTrail.viewer.port` | `19841` | Trail Viewer サーバーのポート番号 |
+
+
+### 7.3 データベース
+
+| 設定キー | デフォルト | 説明 |
+| --- | --- | --- |
+| `anytimeTrail.database.storagePath` | `""` | `trail.db` の保存ディレクトリ。絶対パスまたはワークスペースルートからの相対パス。空の場合は `.vscode/` を使用 |
+| `anytimeTrail.database.backupGenerations` | `1` | `trail.db` のバックアップ世代数。各世代は `.bak.N.gz` として DB ファイルと同じディレクトリに gzip 圧縮で保存される（範囲: 1〜10） |
+
+
+### 7.4 Claude Code 連携
+
+| 設定キー | デフォルト | 説明 |
+| --- | --- | --- |
+| `anytimeTrail.claudeStatus.directory` | `""` | `claude-code-status.json` の保存ディレクトリ。絶対パスまたはワークスペースルートからの相対パス。空の場合は `.vscode/` を使用 |
+
+
+### 7.5 トークンバジェット
+
+| 設定キー | デフォルト | 説明 |
+| --- | --- | --- |
+| `anytimeTrail.budget.dailyLimitTokens` | `null` | 日次トークン上限。`null` で無効 |
+| `anytimeTrail.budget.sessionLimitTokens` | `null` | セッションあたりのトークン上限。`null` で無効 |
+| `anytimeTrail.budget.alertThresholdPct` | `80` | 上限に対する警告閾値（%、範囲 1〜100） |
+
+
+## 8. ライセンス
 
 [MIT](https://github.com/anytime-trial/anytime-markdown/blob/master/LICENSE)

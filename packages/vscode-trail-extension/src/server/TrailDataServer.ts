@@ -58,6 +58,35 @@ function clampInt(value: string | null, fallback: number, min: number, max: numb
   return Math.min(Math.max(n, min), max);
 }
 
+/** AnalyzePipeline.ts と同型。HTTP 応答のシリアライズ対象 */
+export interface AnalyzePipelineResult {
+  repoName: string;
+  tsconfigPath: string;
+  fileCount: number;
+  nodeCount: number;
+  edgeCount: number;
+  commitId: string;
+  durationMs: number;
+  warnings: string[];
+}
+
+export interface AnalyzeReleasePipelineResult {
+  releaseCount: number;
+  durationMs: number;
+}
+
+export interface AnalyzeAllPipelineResult {
+  imported: number;
+  skipped: number;
+  commitsResolved: number;
+  releasesResolved: number;
+  releasesAnalyzed: number;
+  coverageImported: number;
+  currentCoverageImported: number;
+  messageCommitsBackfilled: number;
+  durationMs: number;
+}
+
 const HOTSPOT_PERIODS = ['7d', '30d', '90d', 'all'] as const;
 type HotspotPeriod = typeof HOTSPOT_PERIODS[number];
 const HOTSPOT_GRANULARITIES = ['commit', 'session', 'subagent'] as const;
@@ -186,6 +215,22 @@ export class TrailDataServer {
   onOpenDocLink: ((docPath: string) => void) | undefined;
   onOpenFile: ((filePath: string) => void) | undefined;
   onTokenBudgetExceeded: ((status: import('./types').TokenBudgetUpdatedMessage) => void) | undefined;
+
+  /** POST /api/analyze/current ハンドラ。extension.ts で登録される */
+  onAnalyzeCurrentCode:
+    | ((req: { workspacePath?: string; tsconfigPath?: string }) => Promise<AnalyzePipelineResult>)
+    | undefined;
+  /** POST /api/analyze/release ハンドラ */
+  onAnalyzeReleaseCode:
+    | (() => Promise<AnalyzeReleasePipelineResult>)
+    | undefined;
+  /** POST /api/analyze/all ハンドラ */
+  onAnalyzeAll:
+    | (() => Promise<AnalyzeAllPipelineResult>)
+    | undefined;
+
+  /** 現在進行中の解析タスク種別。並行実行時の 409 判定に使う */
+  private analysisInProgress: { kind: 'current' | 'release' | 'all'; startedAt: number } | null = null;
   private tokenBudgetConfig: { dailyLimitTokens: number | null; sessionLimitTokens: number | null; alertThresholdPct: number } = {
     dailyLimitTokens: null,
     sessionLimitTokens: null,
@@ -399,6 +444,23 @@ export class TrailDataServer {
     }
     if (pathname === '/api/trail/refresh' && method === 'POST') {
       this.handleRefresh(res);
+      return;
+    }
+
+    if (pathname === '/api/analyze/current' && method === 'POST') {
+      this.handleAnalyzeCurrent(req, res);
+      return;
+    }
+    if (pathname === '/api/analyze/release' && method === 'POST') {
+      this.handleAnalyzeRelease(req, res);
+      return;
+    }
+    if (pathname === '/api/analyze/all' && method === 'POST') {
+      this.handleAnalyzeAll(req, res);
+      return;
+    }
+    if (pathname === '/api/analyze/status' && method === 'GET') {
+      this.handleAnalyzeStatus(res);
       return;
     }
 
@@ -2094,6 +2156,18 @@ export class TrailDataServer {
       return;
     }
 
+    // provider 不要のコマンドはここで処理する。
+    // C4Panel 撤去後 setC4Provider を呼ぶ箇所が無く provider が常に undefined のため、
+    // ファイルを開くだけのコマンドを provider 必須ロジックに巻き込まれて drop させない。
+    if (parsed.type === 'open-doc-link') {
+      this.onOpenDocLink?.(parsed.path);
+      return;
+    }
+    if (parsed.type === 'open-file') {
+      this.onOpenFile?.(parsed.filePath);
+      return;
+    }
+
     const provider = this.getC4Provider?.();
     if (!provider) return;
     this.dispatchClientMessage(parsed, provider);
@@ -2605,6 +2679,108 @@ export class TrailDataServer {
     if (typeof b.name !== 'string' || b.name.length === 0) return false;
     if (b.serviceType !== undefined && typeof b.serviceType !== 'string') return false;
     return true;
+  }
+
+  // -------------------------------------------------------------------------
+  //  Analyze pipeline handlers (POST /api/analyze/*)
+  // -------------------------------------------------------------------------
+
+  private async handleAnalyzeCurrent(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+  ): Promise<void> {
+    if (!this.onAnalyzeCurrentCode) {
+      res.writeHead(503, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'analyze handler not registered' }));
+      return;
+    }
+    if (this.analysisInProgress) {
+      res.writeHead(409, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'analysis in progress', current: this.analysisInProgress }));
+      return;
+    }
+    let body: { workspacePath?: string; tsconfigPath?: string } = {};
+    try {
+      const parsed = (await this.readJsonBody(req).catch(() => ({}))) as Record<string, unknown>;
+      if (typeof parsed.workspacePath === 'string') body.workspacePath = parsed.workspacePath;
+      if (typeof parsed.tsconfigPath === 'string') body.tsconfigPath = parsed.tsconfigPath;
+    } catch {
+      // 空 body 許容（全引数省略時はサーバー側で workspacePath を解決）
+      body = {};
+    }
+    this.analysisInProgress = { kind: 'current', startedAt: Date.now() };
+    try {
+      const result = await this.onAnalyzeCurrentCode(body);
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      TrailLogger.error('handleAnalyzeCurrent failed', err);
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+    } finally {
+      this.analysisInProgress = null;
+    }
+  }
+
+  private async handleAnalyzeRelease(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse,
+  ): Promise<void> {
+    if (!this.onAnalyzeReleaseCode) {
+      res.writeHead(503, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'analyze handler not registered' }));
+      return;
+    }
+    if (this.analysisInProgress) {
+      res.writeHead(409, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'analysis in progress', current: this.analysisInProgress }));
+      return;
+    }
+    this.analysisInProgress = { kind: 'release', startedAt: Date.now() };
+    try {
+      const result = await this.onAnalyzeReleaseCode();
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      TrailLogger.error('handleAnalyzeRelease failed', err);
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+    } finally {
+      this.analysisInProgress = null;
+    }
+  }
+
+  private async handleAnalyzeAll(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse,
+  ): Promise<void> {
+    if (!this.onAnalyzeAll) {
+      res.writeHead(503, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'analyze handler not registered' }));
+      return;
+    }
+    if (this.analysisInProgress) {
+      res.writeHead(409, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'analysis in progress', current: this.analysisInProgress }));
+      return;
+    }
+    this.analysisInProgress = { kind: 'all', startedAt: Date.now() };
+    try {
+      const result = await this.onAnalyzeAll();
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      TrailLogger.error('handleAnalyzeAll failed', err);
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+    } finally {
+      this.analysisInProgress = null;
+    }
+  }
+
+  private handleAnalyzeStatus(res: http.ServerResponse): void {
+    res.writeHead(200, JSON_HEADERS);
+    res.end(JSON.stringify({ inProgress: this.analysisInProgress }));
   }
 
   private readJsonBody(req: http.IncomingMessage): Promise<unknown> {

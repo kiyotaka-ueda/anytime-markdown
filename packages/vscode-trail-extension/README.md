@@ -9,7 +9,7 @@
 In an era where multiple AI agents work concurrently on the same codebase, Anytime Trail prevents file editing conflicts, design drift, runaway costs, and opaque decision-making.\
 This document introduces the **currently available features** by functional area, against the broader vision.
 
-**[Try the Online Viewer](https://www.anytime-trial.com/trail)**
+[**Try the Online Viewer**](https://www.anytime-trial.com/trail)
 
 
 ## 1. Behavior Visibility (Trail Viewer)
@@ -30,8 +30,6 @@ This document introduces the **currently available features** by functional area
 ## 2. Structure Visibility (C4 Architecture Diagrams & DSM)
 
 **Vision:** Before the AI makes changes that drift from design intent, let it see where the edit lands in the overall project and what it affects.
-
-![C4 Mermaid diagram example](images/c4-mermaid.png)
 
 **What you can do today:**
 
@@ -98,26 +96,72 @@ Without any manual setup, session info, edit state, commit history, and token co
 > Registration is skipped when Claude Code is not installed (i.e., `~/.claude/` is absent).
 
 
-## 6. Configuration
+## 6. Repository Analysis Procedure
+
+This section walks through the end-to-end procedure for analyzing the C4 architecture diagram and code graph of the workspace currently open in VS Code, then categorizing each community with an AI-generated summary.
+
+**Prerequisites**
+
+- The target must be a TypeScript project that contains `tsconfig.json`
+- For Step 2, Claude Code itself and the `/anytime-reverse-engineer` skill must be installed
+
+**Steps**
+
+1. **Run code analysis**
+   - Open the command palette and execute `Anytime Trail: Analyze Code`.
+   - If multiple `tsconfig.json` files exist under the target repository, choose one in the QuickPick (selecting the project root analyzes every package below).
+2. **Generate community summaries with AI (categorization)**
+   - In Claude Code, run the `/anytime-reverse-engineer` skill.
+   - Each community is automatically given a human-readable name and summary by AI.
+3. **Verify results in Trail Viewer**
+   - From the command palette, run `Anytime Trail: Open Trail Viewer` to open Trail Viewer at `http://localhost:19841`.
+   - The C4 model is rendered on the C4 tab. Selecting an element shows the name and summary of its community on the panel.
+
+> [!IMPORTANT]
+> The AI summarization in Step 2 sends data to an external API (Anthropic). Before using on confidential repositories, confirm that transmitting code structure information such as file paths and module names externally is acceptable.
+
+
+## 7. Configuration
+
+### 7.1 Workspace
 
 | Key | Default | Description |
 | --- | --- | --- |
-| `anytimeTrail.trailServer.port` | `19841` | Server port number |
-| `anytimeTrail.c4.analyzeExcludePatterns` | `[".worktrees", ...]` | Directory patterns to exclude from C4 analysis |
-| `anytimeTrail.docsPath` | `""` | Absolute path to the documentation directory for C4 document links |
-| `anytimeTrail.coverage.path` | `""` | Path to `coverage-final.json` (relative to workspace root) |
-| `anytimeTrail.coverage.historyLimit` | `50` | Maximum number of coverage history snapshots to keep |
-| `anytimeTrail.test.e2eCommand` | `cd packages/web-app && npm run e2e` | Command to run E2E tests |
-| `anytimeTrail.test.coverageCommand` | `npx jest --coverage --maxWorkers=1` | Command to run tests with coverage |
-| `anytimeTrail.database.storagePath` | `""` | Directory for `trail.db` (defaults to `.vscode/`) |
-| `anytimeTrail.database.backupGenerations` | `1` | Number of `trail.db` backup generations to keep |
-| `anytimeTrail.claudeStatus.directory` | `""` | Directory for `claude-code-status.json` (defaults to `.vscode/`) |
-| `anytimeTrail.remote.provider` | `none` | Remote DB provider (`none` / `supabase` / `postgres`) |
-| `anytimeTrail.remote.supabaseUrl` | `""` | Supabase project URL |
-| `anytimeTrail.remote.supabaseAnonKey` | `""` | Supabase anon key |
-| `anytimeTrail.remote.postgresUrl` | `""` | PostgreSQL connection string |
+| `anytimeTrail.workspace.path` | `""` | Absolute path of the workspace to analyze. Used by both Code Graph and C4 Model analysis. When empty, the workspace currently open in VS Code is used |
+| `anytimeTrail.workspace.docsPath` | `""` | Absolute path to the documentation directory for C4 document links. When set, Markdown files with `c4Scope` frontmatter are indexed and shown in the C4 viewer |
 
 
-## 7. License
+### 7.2 Viewer
+
+| Key | Default | Description |
+| --- | --- | --- |
+| `anytimeTrail.viewer.port` | `19841` | Port number for the Trail Viewer server |
+
+
+### 7.3 Database
+
+| Key | Default | Description |
+| --- | --- | --- |
+| `anytimeTrail.database.storagePath` | `""` | Directory where `trail.db` is stored. Absolute path or relative to workspace root. Defaults to `.vscode/` when empty |
+| `anytimeTrail.database.backupGenerations` | `1` | Number of gzip-compressed backup generations to keep for `trail.db`. Each generation is stored as `.bak.N.gz` next to the database file (range: 1–10) |
+
+
+### 7.4 Claude Code Integration
+
+| Key | Default | Description |
+| --- | --- | --- |
+| `anytimeTrail.claudeStatus.directory` | `""` | Directory where `claude-code-status.json` is stored. Absolute path or relative to workspace root. Defaults to `.vscode/` when empty |
+
+
+### 7.5 Token Budget
+
+| Key | Default | Description |
+| --- | --- | --- |
+| `anytimeTrail.budget.dailyLimitTokens` | `null` | Daily token limit. Disabled when `null` |
+| `anytimeTrail.budget.sessionLimitTokens` | `null` | Per-session token limit. Disabled when `null` |
+| `anytimeTrail.budget.alertThresholdPct` | `80` | Warning threshold against the limit (%, range 1–100) |
+
+
+## 8. License
 
 [MIT](https://github.com/anytime-trial/anytime-markdown/blob/master/LICENSE)

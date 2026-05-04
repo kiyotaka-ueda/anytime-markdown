@@ -6,14 +6,19 @@ import * as vscode from 'vscode';
 
 import { registerTraceCommands } from './commands/traceCommands';
 import { CodeGraphService } from './graph/CodeGraphService';
-import { GraphDetector } from './graph/GraphDetector';
 import { AiNoteItem,AiNoteProvider } from './providers/AiNoteProvider';
 import { AgentMappingProvider } from './providers/AgentMappingProvider';
 import { TraceCodeLensProvider } from './providers/TraceCodeLensProvider';
 import { TraceScriptLensProvider } from './providers/TraceScriptLensProvider';
 import { TrailDataServer } from './server/TrailDataServer';
-import { TrailDatabase, ExecFileGitService } from '@anytime-markdown/trail-db';
+import { TrailDatabase } from '@anytime-markdown/trail-db';
 import { analyze } from '@anytime-markdown/trail-core/analyze';
+import {
+	ANALYZE_EXCLUDE_PATTERNS,
+	findTsconfigCandidates,
+	runAnalyzeCurrentCodePipeline,
+	runAnalyzeReleaseCodePipeline,
+} from './graph/AnalyzePipeline';
 import { DatabaseProvider } from './trail/DatabaseProvider';
 import { TrailPanel } from './trail/TrailPanel';
 import { TrailLogger } from './utils/TrailLogger';
@@ -21,8 +26,6 @@ import { TrailLogger } from './utils/TrailLogger';
 let trailDataServer: TrailDataServer | undefined;
 let trailDb: TrailDatabase | undefined;
 let extensionDistPath = '';
-
-const EXCLUDE_PATTERNS: readonly string[] = ['.worktrees', '.vscode-test', '__tests__', 'fixtures'];
 
 function getEffectiveWorkspacePath(): string | undefined {
 	const configured = vscode.workspace.getConfiguration('anytimeTrail.workspace').get<string>('path', '').trim();
@@ -38,14 +41,29 @@ function setupServerCallbacks(server: TrailDataServer): void {
 	applyDocsPathConfig();
 	server.onOpenDocLink = (docPath) => {
 		const docsDir = vscode.workspace.getConfiguration('anytimeTrail.workspace').get<string>('docsPath', '');
-		if (!docsDir) return;
-		const uri = vscode.Uri.file(path.join(docsDir, docPath));
+		if (!docsDir) {
+			TrailLogger.warn(`[open-doc-link] docsPath is not configured (anytimeTrail.workspace.docsPath). Cannot open: ${docPath}`);
+			vscode.window.showWarningMessage('Set anytimeTrail.workspace.docsPath to open document links.');
+			return;
+		}
+		const fsPath = path.join(docsDir, docPath);
+		if (!fs.existsSync(fsPath)) {
+			TrailLogger.warn(`[open-doc-link] file not found: ${fsPath}`);
+			vscode.window.showWarningMessage(`File not found: ${fsPath}`);
+			return;
+		}
+		const uri = vscode.Uri.file(fsPath);
+		TrailLogger.info(`[open-doc-link] opening ${fsPath}`);
 		vscode.commands.executeCommand('vscode.openWith', uri, 'anytimeMarkdown').then(
 			undefined,
-			() => {
+			(err) => {
+				TrailLogger.warn(`[open-doc-link] vscode.openWith(anytimeMarkdown) failed, falling back to text editor: ${String(err)}`);
 				vscode.workspace.openTextDocument(uri).then(
 					(doc) => vscode.window.showTextDocument(doc),
-					() => vscode.window.showWarningMessage(`File not found: ${uri.fsPath}`),
+					(err2) => {
+						TrailLogger.error(`[open-doc-link] openTextDocument fallback failed: ${String(err2)}`);
+						vscode.window.showWarningMessage(`Failed to open: ${fsPath}`);
+					},
 				);
 			},
 		);
@@ -376,6 +394,65 @@ export async function activate(context: vscode.ExtensionContext) {
 		trailDb: trailDb!,
 	});
 	trailDataServer.setCodeGraphService(codeGraphService);
+
+	// HTTP 経由（mcp-trail 等）から解析パイプラインを起動するためのハンドラ登録
+	trailDataServer.onAnalyzeCurrentCode = async ({ workspacePath, tsconfigPath }) => {
+		const analysisRoot = workspacePath ?? getEffectiveWorkspacePath();
+		if (!analysisRoot) {
+			throw new Error('No workspace path. Set anytimeTrail.workspace.path or open a workspace.');
+		}
+		let rootStat: fs.Stats;
+		try {
+			rootStat = fs.statSync(analysisRoot);
+		} catch {
+			throw new Error(`workspace path does not exist: ${analysisRoot}`);
+		}
+		if (!rootStat.isDirectory()) {
+			throw new Error(`workspace path is not a directory: ${analysisRoot}`);
+		}
+
+		let resolvedTsconfig = tsconfigPath;
+		if (!resolvedTsconfig) {
+			const candidates = findTsconfigCandidates(analysisRoot);
+			if (candidates.length === 0) {
+				throw new Error(`No tsconfig.json found under ${analysisRoot}`);
+			}
+			resolvedTsconfig = candidates[0].fsPath;
+		}
+
+		if (!trailDb) throw new Error('Trail DB not initialized');
+		return runAnalyzeCurrentCodePipeline({
+			analysisRoot,
+			tsconfigPath: resolvedTsconfig,
+			trailDb,
+			trailDataServer: trailDataServer!,
+			codeGraphService,
+		});
+	};
+
+	trailDataServer.onAnalyzeReleaseCode = async () => {
+		if (!trailDb) throw new Error('Trail DB not initialized');
+		if (!gitRoot) throw new Error('No workspace folder for release analysis');
+		return runAnalyzeReleaseCodePipeline({
+			trailDb,
+			codeGraphService,
+			gitRoot,
+		});
+	};
+
+	trailDataServer.onAnalyzeAll = async () => {
+		if (!trailDb) throw new Error('Trail DB not initialized');
+		const startedAt = Date.now();
+		const result = await trailDb.importAll(
+			(message) => TrailLogger.info(`Trail import (HTTP): ${message}`),
+			gitRoot,
+			ANALYZE_EXCLUDE_PATTERNS,
+			analyze,
+		);
+		trailDataServer?.notifySessionsUpdated();
+		return { ...result, durationMs: Date.now() - startedAt };
+	};
+
 	// loadFromDb() は trailDb.init() 完了後に下の async IIFE 内で呼ぶ。
 	// ここで呼ぶと DB 未初期化のまま ensureDb() が throw → null が返るため。
 
@@ -399,14 +476,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			}
 			const repoName = path.basename(analysisRoot);
 			TrailLogger.info(`C4 analysis [${repoName}]: searching tsconfig.json under ${analysisRoot}`);
-			const tsconfigFiles = new GraphDetector(analysisRoot, EXCLUDE_PATTERNS)
-				.detectFilesByName('tsconfig.json')
-				.map(p => ({ fsPath: p, rel: path.relative(analysisRoot, p) }))
-				.sort((a, b) => {
-					const aDepth = a.rel.split(path.sep).length;
-					const bDepth = b.rel.split(path.sep).length;
-					return aDepth !== bDepth ? aDepth - bDepth : a.rel.localeCompare(b.rel);
-				});
+			const tsconfigFiles = findTsconfigCandidates(analysisRoot);
 			if (tsconfigFiles.length === 0) {
 				TrailLogger.warn(`C4 analysis [${repoName}]: no tsconfig.json found under ${analysisRoot}`);
 				vscode.window.showWarningMessage(`No tsconfig.json found under ${analysisRoot}`);
@@ -434,77 +504,28 @@ export async function activate(context: vscode.ExtensionContext) {
 			}
 
 			TrailLogger.info(`C4 analysis [${repoName}]: starting for ${tsconfigPath}`);
-			const startedAt = Date.now();
 			TrailPanel.openViewer(true);
+
+			if (!trailDb || !trailDataServer) {
+				vscode.window.showErrorMessage('Trail DB or server is not initialized.');
+				return;
+			}
 
 			try {
 				await vscode.window.withProgress(
 					{ location: vscode.ProgressLocation.Notification, title: 'C4 Analysis', cancellable: false },
 					async (progress) => {
-						const phases = ['Loading project...', 'Extracting symbols...', 'Extracting dependencies...', 'Filtering results...'];
-						const phasePercent = (phase: string): number => {
-							const idx = phases.indexOf(phase);
-							return idx >= 0 ? Math.round((idx / phases.length) * 100) : -1;
-						};
-
-						trailDataServer?.notifyProgress('Loading project...', 0);
-						const graph = analyze({
+						const result = await runAnalyzeCurrentCodePipeline({
+							analysisRoot,
 							tsconfigPath,
-							exclude: EXCLUDE_PATTERNS.map(p => `**/${p}/**`),
-							onProgress: (phase) => {
-								TrailLogger.info(`C4 analysis [${repoName}]: ${phase}`);
-								progress.report({ message: phase });
-								trailDataServer?.notifyProgress(phase, phasePercent(phase));
-							},
+							trailDb: trailDb!,
+							trailDataServer: trailDataServer!,
+							codeGraphService,
+							onProgress: (phase) => progress.report({ message: phase }),
 						});
-
-						TrailLogger.info(
-							`C4 analysis [${repoName}]: analyzed ${graph.metadata.fileCount} files, ${graph.nodes.length} nodes, ${graph.edges.length} edges`,
-						);
-
-						const dbRepoName = path.basename(analysisRoot);
-						let commitId = '';
-						try {
-							commitId = new ExecFileGitService(analysisRoot).getHeadCommit();
-						} catch (err) {
-							TrailLogger.warn(`C4 analysis [${repoName}]: getHeadCommit failed (not a git repo?): ${err instanceof Error ? err.message : String(err)}`);
-						}
-						trailDb?.saveCurrentGraph(graph, tsconfigPath, commitId, dbRepoName);
-						TrailLogger.info(`C4 analysis [${repoName}]: TrailGraph saved to current_graphs (repo=${dbRepoName}, commit=${commitId || 'unknown'})`);
-
-						try {
-							progress.report({ message: 'Computing importance scores...' });
-							await trailDataServer?.computeAndNotifyImportance(tsconfigPath);
-							TrailLogger.info(`C4 analysis [${repoName}]: importance matrix computed and notified`);
-						} catch (err) {
-							TrailLogger.warn(`C4 analysis [${repoName}]: importance computation failed: ${err instanceof Error ? err.message : String(err)}`);
-						}
-
-						try {
-							progress.report({ message: 'Generating code graph...' });
-							await codeGraphService.generate((phase, percent) => {
-								progress.report({ message: `Code graph: ${phase} (${percent}%)` });
-								trailDataServer?.notifyCodeGraphProgress(phase, percent);
-							});
-							trailDataServer?.notifyCodeGraphUpdated();
-						} catch (err) {
-							TrailLogger.error(`C4 analysis [${repoName}]: code graph generation failed`, err);
-							vscode.window.showWarningMessage(`Code graph generation failed: ${err instanceof Error ? err.message : String(err)}`);
-						}
-
-						if (trailDb) {
-							try {
-								const count = trailDb.importCurrentCoverage(analysisRoot, dbRepoName);
-								TrailLogger.info(`C4 analysis [${repoName}]: current_coverage updated (${count} entries)`);
-							} catch (err) {
-								TrailLogger.warn(`C4 analysis [${repoName}]: importCurrentCoverage failed: ${err instanceof Error ? err.message : String(err)}`);
-							}
-						}
-
-						trailDataServer?.notifyProgress('', 100);
+						TrailLogger.info(`C4 analysis [${repoName}]: completed in ${result.durationMs}ms`);
 					},
 				);
-				TrailLogger.info(`C4 analysis [${repoName}]: completed in ${Date.now() - startedAt}ms`);
 				vscode.window.showInformationMessage('C4 analysis completed.');
 			} catch (err) {
 				TrailLogger.error(`C4 analysis [${repoName}] failed`, err);
@@ -524,15 +545,13 @@ export async function activate(context: vscode.ExtensionContext) {
 				{ location: vscode.ProgressLocation.Notification, title: 'Trail: Analyze Release Code', cancellable: false },
 				async (progress) => {
 					try {
-						progress.report({ message: 'Clearing release code graphs...' });
-						trailDb!.deleteReleaseCodeGraphs();
-						progress.report({ message: 'Analyzing release code...' });
-						const count = await trailDb!.analyzeReleaseCodeGraphsForce({
+						const result = await runAnalyzeReleaseCodePipeline({
+							trailDb: trailDb!,
 							codeGraphService,
-							gitRoot,
+							gitRoot: gitRoot!,
 							onProgress: (msg) => progress.report({ message: msg }),
 						});
-						vscode.window.showInformationMessage(`Release code analyzed (${count} releases).`);
+						vscode.window.showInformationMessage(`Release code analyzed (${result.releaseCount} releases).`);
 					} catch (err) {
 						TrailLogger.error('Failed to analyze release code', err);
 						vscode.window.showErrorMessage(`Analyze release code failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -702,7 +721,7 @@ export async function activate(context: vscode.ExtensionContext) {
 						return trailDb!.importAll((message, increment) => {
 							progress.report({ message, increment });
 							TrailLogger.info(`Trail import [${repoName}]: ${message}`);
-						}, gitRoot, EXCLUDE_PATTERNS, analyze);
+						}, gitRoot, ANALYZE_EXCLUDE_PATTERNS, analyze);
 					},
 				);
 				TrailLogger.info(`Trail DB [${repoName}]: import complete - imported=${result.imported}, skipped=${result.skipped}, commits=${result.commitsResolved}, releases=${result.releasesResolved}, analyzed=${result.releasesAnalyzed}`);

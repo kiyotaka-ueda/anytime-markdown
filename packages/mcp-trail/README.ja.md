@@ -1,0 +1,185 @@
+# @anytime-markdown/mcp-trail
+
+Anytime Trail（VS Code 拡張）の `TrailDataServer`（既定 `http://localhost:19841`）を MCP 経由で操作するための薄いクライアントサーバー。\
+C4 モデル要素・関係・グループの CRUD と、コード解析パイプラインの起動を MCP ツールとして公開します。
+
+[English](./README.md) | 日本語
+
+
+## 1. 前提
+
+- **VS Code 拡張機能 (Anytime Trail) が稼働中**であり、`TrailDataServer` がローカルポートで listen していること
+  - 既定: `http://localhost:19841`（`anytimeTrail.viewer.port` で変更可）
+- Node 22 以上（progress 受信に WebSocket、Anthropic SDK 不要）
+
+
+## 2. MCP サーバー登録
+
+`/anytime-markdown/.mcp.json` または各環境の MCP 設定に登録します。
+
+```json
+{
+  "mcpServers": {
+    "mcp-trail": {
+      "command": "npx",
+      "args": ["tsx", "packages/mcp-trail/src/stdio.ts"],
+      "cwd": "/anytime-markdown"
+    }
+  }
+}
+```
+
+環境変数で既定値を上書き可能:
+
+| 変数 | 用途 |
+| --- | --- |
+| `TRAIL_SERVER_URL` | `serverUrl` の既定値（例: `http://localhost:19842`） |
+| `TRAIL_REPO_NAME` | `repoName` の既定値（例: `anytime-markdown`） |
+
+
+## 3. 共通パラメータ
+
+ほぼ全てのツールで以下を受け取ります（省略可）。
+
+| パラメータ | 型 | 既定値 | 説明 |
+| --- | --- | --- | --- |
+| `serverUrl` | string | `http://localhost:19841` | TrailDataServer の URL |
+| `repoName` | string | カレントディレクトリの basename | 対象リポジトリ名（C4 モデル参照キー） |
+
+
+## 4. ツール一覧
+
+全 16 ツール。カテゴリ別に整理しています。
+
+### 4.1 C4 モデル参照（読み取り）
+
+| ツール | 用途 |
+| --- | --- |
+| `get_c4_model` | 現在の C4 モデル全体（要素・関係・グループ）を取得する |
+| `list_elements` | C4 要素の ID / type / name 一覧を簡略表示する。関係追加前の ID 確認に有用 |
+| `list_relationships` | 手動定義の C4 関係を ID 付きで一覧する。削除前の ID 確認に有用 |
+| `list_groups` | 手動定義のグループを ID と所属要素付きで一覧する |
+
+
+### 4.2 C4 要素の編集
+
+| ツール | 主要パラメータ | 用途 |
+| --- | --- | --- |
+| `add_element` | `type`（`person` / `system` / `container` / `component`）/ `name` / `parentId` / `description?` / `external?` / `serviceType?` | 手動 C4 要素を追加する |
+| `update_element` | `id` / 任意の `name` / `description` / `external` / `serviceType` | 既存要素を更新する |
+| `remove_element` | `id` | 要素を削除する（関連する関係も削除される） |
+
+
+### 4.3 C4 関係の編集
+
+| ツール | 主要パラメータ | 用途 |
+| --- | --- | --- |
+| `add_relationship` | `fromId` / `toId` / `label?` / `technology?` | 2 つの C4 要素間に関係を追加する |
+| `remove_relationship` | `id` | 関係を削除する |
+
+> [!NOTE]
+> 関係に関する更新ツールはありません。変更したい場合は削除 + 再追加で対応します。
+
+
+### 4.4 C4 グループの編集
+
+| ツール | 主要パラメータ | 用途 |
+| --- | --- | --- |
+| `add_group` | `memberIds`（2 件以上）/ `label?` | 視覚的なグループを作成する。要素自体は変更しない |
+| `update_group` | `id` / `memberIds?`（2 件以上）/ `label?`（`null` でクリア） | グループのラベルや所属要素を更新する |
+| `remove_group` | `id` | グループを削除する。所属要素は削除されない |
+
+
+### 4.5 解析パイプライン起動
+
+VS Code 拡張のコマンド（`Anytime Trail: コード解析` 等）と同じ処理を HTTP 経由で起動します。VS Code 拡張が稼働中である必要があります。\
+並行起動は `analysisInProgress` で排他制御され、進行中の場合は `409 Conflict` が返ります。
+
+| ツール | 主要パラメータ | 用途 |
+| --- | --- | --- |
+| `analyze_current_code` | `workspacePath?` / `tsconfigPath?` / `includeProgress?`（既定 `true`） | C4 / コードグラフ解析を起動する。`Anytime Trail: コード解析` 相当。`includeProgress = true` のとき WebSocket 進捗ログを応答に同梱する |
+| `analyze_release_code` | （共通のみ） | リリース別 C4 / コードグラフ解析。`release_code_graphs` を全削除して再生成する。`Anytime Trail: リリース別コード解析` 相当 |
+| `analyze_all` | （共通のみ） | `~/.claude/projects` から JSONL を取り込み、コミット・リリース・カバレッジを Trail DB に書き込む。`Anytime Trail: 全データ解析` 相当 |
+| `get_analyze_status` | （共通のみ） | 現在進行中の解析タスク種別と開始時刻を取得する |
+
+> [!IMPORTANT]
+> `analyze_current_code` の `includeProgress` を有効化すると、Node 22 のグローバル `WebSocket` でサーバーに接続し `analysis-progress` イベントを購読します。\
+> 結果オブジェクトに `progressLog: { phase, percent, ts }[]` が追加されます。WS 利用不可環境では空配列で返ります。
+
+
+## 5. 使用例
+
+### 5.1 C4 モデルの取得
+
+```
+ツール: mcp__mcp-trail__get_c4_model
+引数: { repoName: "anytime-markdown" }
+```
+
+### 5.2 手動 C4 要素の追加
+
+```
+ツール: mcp__mcp-trail__add_element
+引数: {
+  type: "container",
+  name: "Cache Layer",
+  parentId: "sys_anytime-markdown",
+  description: "Redis ベースのアプリケーションキャッシュ",
+  serviceType: "redis",
+  repoName: "anytime-markdown"
+}
+```
+
+### 5.3 解析の起動と進捗確認
+
+1. `analyze_current_code` を起動
+
+   ```
+   引数: { workspacePath: "/anytime-markdown", includeProgress: true }
+   ```
+
+2. 並行起動が拒否された場合、`get_analyze_status` で進行中タスクを確認
+
+   ```
+   応答例: { "inProgress": { "kind": "current", "startedAt": 1714808400000 } }
+   ```
+
+3. 完了応答に `progressLog` が含まれる
+
+   ```json
+   {
+     "repoName": "anytime-markdown",
+     "fileCount": 1234,
+     "nodeCount": 5678,
+     "edgeCount": 9012,
+     "commitId": "abc123...",
+     "durationMs": 45678,
+     "warnings": [],
+     "progressLog": [
+       { "phase": "Loading project...", "percent": 0, "ts": 1714808400123 },
+       { "phase": "Extracting symbols...", "percent": 25, "ts": 1714808410234 },
+       { "phase": "Extracting dependencies...", "percent": 50, "ts": 1714808420345 },
+       { "phase": "Filtering results...", "percent": 75, "ts": 1714808430456 },
+       { "phase": "", "percent": 100, "ts": 1714808445789 }
+     ]
+   }
+   ```
+
+
+## 6. 関連スキル
+
+| スキル | 連携内容 |
+| --- | --- |
+| `/anytime-reverse-engineer` | Step 0 で `analyze_current_code` を起動し、Trail DB にコードグラフを保存。Step 2 以降で AI コミュニティ要約を生成する |
+
+
+## 7. 関連ドキュメント
+
+- VS Code 拡張: [`packages/vscode-trail-extension/README.ja.md`](../vscode-trail-extension/README.ja.md)
+- 変更履歴: [`CHANGELOG.ja.md`](./CHANGELOG.ja.md)
+- 実装プラン（mcp-trail 解析ツール追加）: `/Shared/anytime-markdown-docs/plan/2026-05-04-mcp-trail-analyze-tools.ja.md`
+
+
+## 8. ライセンス
+
+[MIT](../../LICENSE)
