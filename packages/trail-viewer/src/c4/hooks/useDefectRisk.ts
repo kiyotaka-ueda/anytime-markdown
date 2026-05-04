@@ -17,7 +17,7 @@ export interface UseDefectRiskResult {
 const DEFAULT_DEBOUNCE_MS = 300;
 
 export function useDefectRisk(options: UseDefectRiskOptions): UseDefectRiskResult {
-  const { enabled, serverUrl, windowDays, halfLifeDays, debounceMs = DEFAULT_DEBOUNCE_MS } = options;
+  const { enabled, serverUrl, windowDays, halfLifeDays, repo, debounceMs = DEFAULT_DEBOUNCE_MS } = options;
   const [entries, setEntries] = useState<DefectRiskEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -39,7 +39,7 @@ export function useDefectRisk(options: UseDefectRiskOptions): UseDefectRiskResul
     const handle = setTimeout(() => {
       setLoading(true);
       setError(null);
-      fetchDefectRiskApi(serverUrl, { windowDays, halfLifeDays }, controller.signal)
+      fetchDefectRiskApi(serverUrl, { windowDays, halfLifeDays, repo }, controller.signal)
         .then((res) => {
           if (controller.signal.aborted) return;
           setEntries(res.entries);
@@ -58,7 +58,7 @@ export function useDefectRisk(options: UseDefectRiskOptions): UseDefectRiskResul
       clearTimeout(handle);
       controller.abort();
     };
-  }, [enabled, serverUrl, windowDays, halfLifeDays, debounceMs]);
+  }, [enabled, serverUrl, windowDays, halfLifeDays, repo, debounceMs]);
 
   return { entries, loading, error };
 }

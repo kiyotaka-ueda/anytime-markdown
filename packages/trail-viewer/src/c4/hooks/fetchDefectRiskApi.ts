@@ -3,6 +3,7 @@ import type { DefectRiskEntry } from '@anytime-markdown/trail-core';
 export type DefectRiskFetchParams = {
   windowDays?: number;
   halfLifeDays?: number;
+  repo?: string;
 };
 
 export type DefectRiskResponse = {
@@ -17,6 +18,7 @@ export function buildDefectRiskUrl(serverUrl: string, params: DefectRiskFetchPar
   const qs = new URLSearchParams();
   qs.set('windowDays', String(params.windowDays ?? 90));
   qs.set('halfLifeDays', String(params.halfLifeDays ?? 90));
+  if (params.repo) qs.set('repo', params.repo);
   return `${serverUrl}/api/defect-risk?${qs.toString()}`;
 }
 

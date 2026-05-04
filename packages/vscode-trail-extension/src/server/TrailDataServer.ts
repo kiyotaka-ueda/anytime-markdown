@@ -13,12 +13,13 @@ import {
   computeActivityTrend,
   computeComplexityMatrix,
   computeFileHotspot,
-  computeImportanceMatrix,
   fetchC4Model,
   fetchC4ModelEntries,
   filterTreeByLevel,
   parseCoverage,
 } from '@anytime-markdown/trail-core/c4';
+import { computeImportanceMatrix } from '@anytime-markdown/trail-core/c4/metrics/computeImportanceMatrix';
+import { analyze } from '@anytime-markdown/trail-core/analyze';
 import type { FileCoverage, MessageInput } from '@anytime-markdown/trail-core/c4';
 import type {
   C4Model,
@@ -779,9 +780,10 @@ export class TrailDataServer {
       this.sendError(res, 400, "granularity must be one of 'commit', 'session', or 'subagent'");
       return;
     }
+    const repo = params.get('repo') ?? undefined;
     try {
       const { from, to } = computePeriodRangeUtc(period);
-      const rows = this.trailDb.fetchHotspotRows({ from, to, granularity });
+      const rows = this.trailDb.fetchHotspotRows({ from, to, granularity, repo });
       const files = computeFileHotspot(rows);
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({ period, granularity, from, to, files }));
@@ -980,9 +982,10 @@ export class TrailDataServer {
   private handleDefectRisk(res: http.ServerResponse, params: URLSearchParams): void {
     const windowDays = clampInt(params.get('windowDays'), 90, 1, 365);
     const halfLifeDays = clampInt(params.get('halfLifeDays'), 90, 1, 730);
+    const repo = params.get('repo') ?? undefined;
 
     try {
-      const entries = this.trailDb.fetchDefectRisk({ windowDays, halfLifeDays });
+      const entries = this.trailDb.fetchDefectRisk({ windowDays, halfLifeDays, repo });
       const computedAt = new Date().toISOString();
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({ entries, computedAt, windowDays, halfLifeDays, totalFiles: entries.length }));
@@ -1790,7 +1793,7 @@ export class TrailDataServer {
 
   private handleRefresh(res: http.ServerResponse): void {
     this.trailDb
-      .importAll(undefined, this.gitRoot)
+      .importAll(undefined, this.gitRoot, undefined, analyze)
       .then((result) => {
         this.notifySessionsUpdated();
         res.writeHead(200, JSON_HEADERS);

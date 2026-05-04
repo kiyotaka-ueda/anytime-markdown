@@ -286,12 +286,14 @@ export function C4ViewerCore({
     serverUrl,
     period: hotspotValue.period,
     granularity: hotspotValue.granularity,
+    repo: selectedRepo || undefined,
   });
   const { entries: drEntries } = useDefectRisk({
     enabled: metricOverlay === 'defect-risk',
     serverUrl,
     windowDays: drWindowDays,
     halfLifeDays: 90,
+    repo: selectedRepo || undefined,
   });
   const [dsmLevel, setDsmLevel] = useState<'component' | 'package'>('component');
   const {

@@ -38,7 +38,6 @@ import {
   DEFAULT_SKILL_MODELS,
   extractSkillName,
   buildReleaseFromGitData,
-  analyze,
   trailToC4,
   extractCommitPrefix,
   isCodeFile,
@@ -55,6 +54,9 @@ import {
 } from '@anytime-markdown/trail-core';
 import type { TrailGraph, IC4ModelStore, C4ModelEntry, C4ModelResult, TrailMessageCommit, MessageCommitInput, ManualElement, ManualRelationship, ManualGroup, CommitFileRow, SessionFileRow, SubagentTypeFileRow, TemporalCouplingEdge, ConfidenceCouplingEdge, PricingSource } from '@anytime-markdown/trail-core';
 import { matchCommitsToMessages, computeDefectRisk, type CommitRiskRow, type DefectRiskEntry } from '@anytime-markdown/trail-core';
+import type { AnalyzeOptions } from '@anytime-markdown/trail-core/analyze';
+
+export type AnalyzeFunction = (options: AnalyzeOptions) => TrailGraph;
 import type { CodeGraph } from '@anytime-markdown/trail-core/codeGraph';
 import { splitCodeGraph, composeCodeGraph } from '@anytime-markdown/trail-core/codeGraph';
 import type { StoredCommunity } from '@anytime-markdown/trail-core/codeGraph';
@@ -2312,6 +2314,7 @@ export class TrailDatabase {
     onProgress?: (message: string, increment?: number) => void,
     gitRoot?: string,
     excludePatterns?: readonly string[],
+    analyzeFn?: AnalyzeFunction,
   ): Promise<{ imported: number; skipped: number; commitsResolved: number; releasesResolved: number; releasesAnalyzed: number; coverageImported: number; currentCoverageImported: number; messageCommitsBackfilled: number }> {
     const projectsDir = path.join(os.homedir(), '.claude', 'projects');
     const codexSessionsDir = path.join(os.homedir(), '.codex', 'sessions');
@@ -2514,10 +2517,10 @@ export class TrailDatabase {
 
     // Analyze source code for each release
     let releasesAnalyzed = 0;
-    if (gitRoot) {
+    if (gitRoot && analyzeFn) {
       try {
         onProgress?.('Analyzing releases...', 0);
-        releasesAnalyzed = this.analyzeReleases(gitRoot, (msg) => onProgress?.(msg, 0), excludePatterns);
+        releasesAnalyzed = this.analyzeReleases(gitRoot, analyzeFn, (msg) => onProgress?.(msg, 0), excludePatterns);
         onProgress?.(`Releases analyzed: ${releasesAnalyzed}`, 0);
       } catch {
         // Skip analysis errors
@@ -3482,21 +3485,28 @@ export class TrailDatabase {
     });
   }
 
-  fetchDefectRisk(options: FetchDefectRiskOptions): DefectRiskEntry[] {
+  fetchDefectRisk(options: FetchDefectRiskOptions & { repo?: string }): DefectRiskEntry[] {
     const db = this.ensureDb();
-    const { windowDays, halfLifeDays } = options;
+    const { windowDays, halfLifeDays, repo } = options;
     const now = new Date();
     const toIso = now.toISOString();
     const fromIso = new Date(now.getTime() - windowDays * 24 * 60 * 60 * 1000).toISOString();
 
-    const result = db.exec(
-      `SELECT sc.commit_hash, sc.commit_message, sc.committed_at, cf.file_path
-       FROM session_commits sc
-       JOIN commit_files cf ON cf.commit_hash = sc.commit_hash
-       WHERE sc.committed_at >= ? AND sc.committed_at <= ?
-       ORDER BY sc.committed_at`,
-      [fromIso, toIso],
-    );
+    const sql = repo
+      ? `SELECT sc.commit_hash, sc.commit_message, sc.committed_at, cf.file_path
+         FROM session_commits sc
+         JOIN commit_files cf ON cf.commit_hash = sc.commit_hash
+         INNER JOIN sessions s ON s.id = sc.session_id
+         WHERE sc.committed_at >= ? AND sc.committed_at <= ?
+           AND s.repo_name = ?
+         ORDER BY sc.committed_at`
+      : `SELECT sc.commit_hash, sc.commit_message, sc.committed_at, cf.file_path
+         FROM session_commits sc
+         JOIN commit_files cf ON cf.commit_hash = sc.commit_hash
+         WHERE sc.committed_at >= ? AND sc.committed_at <= ?
+         ORDER BY sc.committed_at`;
+    const args = repo ? [fromIso, toIso, repo] : [fromIso, toIso];
+    const result = db.exec(sql, args);
 
     const values = result[0]?.values ?? [];
     const rows: CommitRiskRow[] = values.map((r) => ({
@@ -4277,6 +4287,7 @@ export class TrailDatabase {
     to: string;
     toolNames: readonly string[];
     filterBy?: 'message' | 'session';
+    repo?: string;
   }): ReadonlyArray<{
     readonly committedAt: string;
     readonly filePath: string;
@@ -4285,7 +4296,7 @@ export class TrailDatabase {
     readonly messageUuid: string;
   }> {
     const db = this.ensureDb();
-    const { from, to, toolNames, filterBy = 'message' } = params;
+    const { from, to, toolNames, filterBy = 'message', repo } = params;
     if (toolNames.length === 0) return [];
 
     const toolPlaceholders = toolNames.map(() => '?').join(',');
@@ -4297,12 +4308,16 @@ export class TrailDatabase {
       messageUuid: string;
     }> = [];
 
-    const rangeJoin = filterBy === 'session'
+    // session JOIN は filterBy='session' または repo 指定時に必要
+    const needsSessionJoin = filterBy === 'session' || !!repo;
+    const rangeJoin = needsSessionJoin
       ? 'INNER JOIN sessions s ON s.id = m.session_id'
       : '';
     const rangeWhere = filterBy === 'session'
       ? 's.start_time >= ? AND s.start_time <= ?'
       : 'm.timestamp >= ? AND m.timestamp <= ?';
+    const repoFilter = repo ? 'AND s.repo_name = ?' : '';
+    const repoArg = repo ? [repo] : [];
 
     // 経路 A: CC ネイティブ subagent
     try {
@@ -4312,11 +4327,12 @@ export class TrailDatabase {
          INNER JOIN messages m ON m.uuid = mtc.message_uuid
          ${rangeJoin}
          WHERE ${rangeWhere}
+           ${repoFilter}
            AND mtc.tool_name IN (${toolPlaceholders})
            AND mtc.file_path IS NOT NULL
            AND mtc.file_path != ''
            AND m.subagent_type IS NOT NULL`,
-        [from, to, ...toolNames],
+        [from, to, ...repoArg, ...toolNames],
       );
       for (const row of resA[0]?.values ?? []) {
         const subagentType = String(row[2] ?? '');
@@ -4347,11 +4363,12 @@ export class TrailDatabase {
            INNER JOIN messages m ON m.uuid = mtc.message_uuid
            ${rangeJoin}
            WHERE ${rangeWhere}
+             ${repoFilter}
              AND mtc.tool_name IN (${toolPlaceholders})
              AND mtc.file_path IS NOT NULL
              AND mtc.file_path != ''
              AND m.session_id IN (${idPlaceholders})`,
-          [from, to, ...toolNames, ...idList],
+          [from, to, ...repoArg, ...toolNames, ...idList],
         );
         for (const row of resB[0]?.values ?? []) {
           rows.push({
@@ -5817,6 +5834,7 @@ export class TrailDatabase {
    */
   analyzeReleases(
     gitRoot: string,
+    analyzeFn: AnalyzeFunction,
     onProgress?: (message: string) => void,
     excludePatterns: readonly string[] = ['.worktrees', '.vscode-test', '__tests__', 'fixtures'],
   ): number {
@@ -5879,7 +5897,7 @@ export class TrailDatabase {
         }
 
         // 解析実行
-        const graph = analyze({
+        const graph = analyzeFn({
           tsconfigPath: worktreeTsconfig,
           exclude: excludePatterns.map(p => `**/${p}/**`),
         });
@@ -6317,15 +6335,17 @@ export class TrailDatabase {
     from: string;
     to: string;
     granularity: 'commit' | 'session' | 'subagent';
+    repo?: string;
   }): ReadonlyArray<{ readonly filePath: string; readonly churn: number }> {
     const db = this.ensureDb();
-    const { from, to, granularity } = params;
+    const { from, to, granularity, repo } = params;
 
     if (granularity === 'subagent') {
       const activityRows = this.fetchSubagentActivityRows({
         from,
         to,
         toolNames: SESSION_COUPLING_EDIT_TOOLS,
+        repo,
       });
       const churnByFile = new Map<string, number>();
       for (const r of activityRows) {
@@ -6337,8 +6357,11 @@ export class TrailDatabase {
         .sort((a, b) => b.churn - a.churn);
     }
 
-    const sql = HOTSPOT_SQL_BY_GRANULARITY[granularity];
-    const res = db.exec(sql, [from, to]);
+    const sql = repo
+      ? HOTSPOT_SQL_BY_GRANULARITY_WITH_REPO[granularity]
+      : HOTSPOT_SQL_BY_GRANULARITY[granularity];
+    const args = repo ? [from, to, repo] : [from, to];
+    const res = db.exec(sql, args);
     if (!res.length) return [];
     return res[0].values.map((row) => ({
       filePath: String(row[0]),
@@ -6588,6 +6611,45 @@ const HOTSPOT_SQL_BY_GRANULARITY: Record<'commit' | 'session' | 'subagent', stri
     FROM message_tool_calls mtc
     INNER JOIN messages m ON mtc.message_uuid = m.uuid
     WHERE m.timestamp >= ? AND m.timestamp <= ?
+      AND mtc.tool_name IN ('Edit', 'Write', 'NotebookEdit')
+      AND mtc.file_path IS NOT NULL
+      AND m.subagent_type IS NOT NULL
+    GROUP BY mtc.file_path
+    ORDER BY churn DESC
+  `,
+};
+
+// repo フィルタ付きの hotspot SQL（params: from, to, repo）
+const HOTSPOT_SQL_BY_GRANULARITY_WITH_REPO: Record<'commit' | 'session' | 'subagent', string> = {
+  commit: `
+    SELECT cf.file_path AS filePath, COUNT(DISTINCT cf.commit_hash) AS churn
+    FROM commit_files cf
+    INNER JOIN session_commits sc ON cf.commit_hash = sc.commit_hash
+    INNER JOIN sessions s ON s.id = sc.session_id
+    WHERE sc.committed_at >= ? AND sc.committed_at <= ?
+      AND s.repo_name = ?
+    GROUP BY cf.file_path
+    ORDER BY churn DESC
+  `,
+  session: `
+    SELECT mtc.file_path AS filePath, COUNT(*) AS churn
+    FROM message_tool_calls mtc
+    INNER JOIN messages m ON mtc.message_uuid = m.uuid
+    INNER JOIN sessions s ON s.id = m.session_id
+    WHERE m.timestamp >= ? AND m.timestamp <= ?
+      AND s.repo_name = ?
+      AND mtc.tool_name IN ('Edit', 'Write', 'NotebookEdit')
+      AND mtc.file_path IS NOT NULL
+    GROUP BY mtc.file_path
+    ORDER BY churn DESC
+  `,
+  subagent: `
+    SELECT mtc.file_path AS filePath, COUNT(*) AS churn
+    FROM message_tool_calls mtc
+    INNER JOIN messages m ON mtc.message_uuid = m.uuid
+    INNER JOIN sessions s ON s.id = m.session_id
+    WHERE m.timestamp >= ? AND m.timestamp <= ?
+      AND s.repo_name = ?
       AND mtc.tool_name IN ('Edit', 'Write', 'NotebookEdit')
       AND mtc.file_path IS NOT NULL
       AND m.subagent_type IS NOT NULL
