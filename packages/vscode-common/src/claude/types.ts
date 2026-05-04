@@ -34,6 +34,8 @@ export interface AgentInfo {
   readonly branch: string;
   readonly sessionEdits: readonly SessionEdit[];
   readonly plannedEdits: readonly string[];
+  /** JSONL の ai-title エントリから取得したセッションタイトル */
+  readonly sessionTitle?: string;
 }
 
 export type StatusChangeCallback = (editing: boolean, filePath: string) => void;

@@ -13,6 +13,7 @@ interface AgentInfoLike {
   readonly branch: string;
   readonly sessionEdits: readonly { file: string; timestamp: string }[];
   readonly plannedEdits: readonly string[];
+  readonly sessionTitle?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -139,6 +140,7 @@ export function buildAgentMapping(
       ageSeconds,
       sessionEdits: agent.sessionEdits,
       plannedEdits: agent.plannedEdits,
+      sessionTitle: agent.sessionTitle,
     };
 
     const resolved = resolveWorktree(agent.file, agent.branch, worktrees);

@@ -40,7 +40,8 @@ export class SessionTreeItem extends vscode.TreeItem {
     const age = session.ageSeconds < 60
       ? `${session.ageSeconds} sec ago`
       : `${Math.round(session.ageSeconds / 60)} min ago`;
-    this.description = `${stateStr} • ${age}${session.fileBasename ? `    ${session.fileBasename}` : ''}`;
+    const label = session.sessionTitle || session.fileBasename;
+    this.description = `${stateStr} • ${age}${label ? `    ${label}` : ''}`;
     this.iconPath = STATE_ICONS[session.state];
     this.contextValue = `session.${session.state}`;
     this.tooltip = new vscode.MarkdownString(

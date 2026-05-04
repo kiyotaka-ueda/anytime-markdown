@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { getStatusFilePath } from './claudeHookSetup';
 import type { Disposable, ClaudeStatus, SessionEdit, StatusChangeCallback, AgentInfo, MultiStatusChangeCallback } from './types';
@@ -15,6 +16,7 @@ export class ClaudeStatusWatcher implements Disposable {
   private lastEditing: boolean | null = null;
   private lastTimestamp = '';
   private lastAgentMapJson = '';
+  private readonly _titleCache = new Map<string, string>();
 
   constructor(workspaceRoot?: string, statusDir?: string) {
     const filePath = getStatusFilePath(workspaceRoot, statusDir);
@@ -173,6 +175,7 @@ export class ClaudeStatusWatcher implements Disposable {
         branch: status.branch ?? '',
         sessionEdits: status.sessionEdits ?? [],
         plannedEdits: status.plannedEdits ?? [],
+        sessionTitle: this._readSessionTitle(sessionId),
       });
     }
     return agents;
@@ -211,6 +214,58 @@ export class ClaudeStatusWatcher implements Disposable {
       return parsed as ClaudeStatus;
     } catch {
       return null;
+    }
+  }
+
+  private _readSessionTitle(sessionId: string): string {
+    const cached = this._titleCache.get(sessionId);
+    if (cached !== undefined) return cached;
+
+    try {
+      const projectsDir = path.join(os.homedir(), '.claude', 'projects');
+      const dirs = fs.readdirSync(projectsDir);
+      for (const dir of dirs) {
+        const filePath = path.join(projectsDir, dir, `${sessionId}.jsonl`);
+        try {
+          fs.accessSync(filePath, fs.constants.R_OK);
+          const title = this._extractLastAiTitle(filePath);
+          this._titleCache.set(sessionId, title);
+          return title;
+        } catch {
+          // not in this project dir
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    this._titleCache.set(sessionId, '');
+    return '';
+  }
+
+  private _extractLastAiTitle(filePath: string): string {
+    try {
+      const stats = fs.statSync(filePath);
+      const readSize = Math.min(stats.size, 8192);
+      const fd = fs.openSync(filePath, 'r');
+      const buffer = Buffer.alloc(readSize);
+      fs.readSync(fd, buffer, 0, readSize, Math.max(0, stats.size - readSize));
+      fs.closeSync(fd);
+      let lastTitle = '';
+      for (const line of buffer.toString('utf-8').split('\n')) {
+        if (!line.includes('"ai-title"')) continue;
+        try {
+          const obj = JSON.parse(line) as { type?: string; aiTitle?: string };
+          if (obj.type === 'ai-title' && obj.aiTitle) {
+            lastTitle = obj.aiTitle;
+          }
+        } catch {
+          // skip malformed line
+        }
+      }
+      return lastTitle;
+    } catch {
+      return '';
     }
   }
 

@@ -10,6 +10,7 @@ export interface SessionMapping {
   readonly ageSeconds: number;
   readonly sessionEdits: readonly { file: string; timestamp: string }[];
   readonly plannedEdits: readonly string[];
+  readonly sessionTitle?: string;
 }
 
 export interface WorktreeMapping {
