@@ -44,9 +44,9 @@ function buildSurface3dData(
     for (let xi = 0; xi <= GRID_SIZE; xi++) {
       try {
         const z = evalFn({ ...vars, x: xVals[xi], y: yVals[yi] }) as number;
-        row.push(Number.isFinite(z) ? z : NaN);
+        row.push(Number.isFinite(z) ? z : Number.NaN);
       } catch {
-        row.push(NaN);
+        row.push(Number.NaN);
       }
     }
     zVals.push(row);
@@ -74,15 +74,15 @@ function evalParametricPoint(
     if (typeof result === "object" && result !== null) {
       const r = result as Record<string, number>;
       return {
-        x: Number.isFinite(r.x) ? r.x : NaN,
-        y: Number.isFinite(r.y) ? r.y : NaN,
-        z: Number.isFinite(r.z) ? r.z : NaN,
+        x: Number.isFinite(r.x) ? r.x : Number.NaN,
+        y: Number.isFinite(r.y) ? r.y : Number.NaN,
+        z: Number.isFinite(r.z) ? r.z : Number.NaN,
       };
     }
   } catch {
     // 評価エラーは NaN で代替
   }
-  return { x: NaN, y: NaN, z: NaN };
+  return { x: Number.NaN, y: Number.NaN, z: Number.NaN };
 }
 
 /** parametric3d 用プロットデータを生成する */

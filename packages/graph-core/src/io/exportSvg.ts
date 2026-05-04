@@ -136,7 +136,7 @@ export function exportToSvg(doc: GraphDocument): string {
     maxX = Math.max(maxX, n.x + n.width);
     maxY = Math.max(maxY, n.y + n.height);
   }
-  if (!isFinite(minX)) { minX = 0; minY = 0; maxX = 800; maxY = 600; }
+  if (!Number.isFinite(minX)) { minX = 0; minY = 0; maxX = 800; maxY = 600; }
   const pad = 40;
   const vx = minX - pad;
   const vy = minY - pad;
