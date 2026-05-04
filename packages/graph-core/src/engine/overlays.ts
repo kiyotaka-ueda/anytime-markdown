@@ -18,7 +18,7 @@ export function drawResizeHandles(
   scale: number,
   colors?: CanvasColors,
 ): void {
-  colors = colors ?? getCanvasColors(true);
+  const safeColors = colors ?? getCanvasColors(true);
   const { x, y, width, height } = node;
   const handleSize = HANDLE_SIZE / scale;
 
@@ -37,7 +37,7 @@ export function drawResizeHandles(
   ctx.lineWidth = 1.5 / scale;
 
   handles.forEach(({ hx, hy }) => {
-    drawHandle(ctx, hx, hy, handleSize, colors!.handleFill, colors!.canvasSelection);
+    drawHandle(ctx, hx, hy, handleSize, safeColors.handleFill, safeColors.canvasSelection);
   });
 
   ctx.restore();

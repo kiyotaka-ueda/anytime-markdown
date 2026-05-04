@@ -72,7 +72,7 @@ function evalParametricPoint(
   try {
     const result = evalFn({ ...vars, u, v });
     if (typeof result === "object" && result !== null) {
-      const r = result as Record<string, number>;
+      const r = result;
       return {
         x: Number.isFinite(r.x) ? r.x : Number.NaN,
         y: Number.isFinite(r.y) ? r.y : Number.NaN,
@@ -296,7 +296,7 @@ export function Graph3DView({ graphExpr, plotly, isDark, width = 500, height = 4
                 max={PARAM_DEFAULT_RANGE[1]}
                 step={PARAM_STEP}
                 value={paramValues[param] ?? 1}
-                onChange={(_e, v) => handleParamChange(param, v as number)}
+                onChange={(_e, v) => handleParamChange(param, v)}
                 sx={{ flex: 1 }}
                 aria-label={`パラメータ ${param}`}
               />

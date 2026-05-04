@@ -144,7 +144,7 @@ export const EditorSettingsPanel = React.memo(function EditorSettingsPanel({
               <FormControl size="small" fullWidth>
                 <Select
                   value={presetName}
-                  onChange={(e) => onPresetChange(e.target.value as ThemePresetName)}
+                  onChange={(e) => onPresetChange(e.target.value)}
                   aria-label={t("settingThemePreset")}
                 >
                   {PRESET_NAMES.map((name) => (

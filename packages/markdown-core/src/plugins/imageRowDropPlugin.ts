@@ -166,7 +166,7 @@ export const imageRowDropPlugin = new Plugin({
   key: imageRowDropPluginKey,
   props: {
     handleDrop(view, event) {
-      const dragEvent = event as DragEvent;
+      const dragEvent = event;
       const decision = computeDropTarget({
         view,
         clientX: dragEvent.clientX,
@@ -199,7 +199,7 @@ export const imageRowDropPlugin = new Plugin({
     },
     handleDOMEvents: {
       dragover(view, event) {
-        const dragEvent = event as DragEvent;
+        const dragEvent = event;
         const decision = computeDropTarget({
           view,
           clientX: dragEvent.clientX,

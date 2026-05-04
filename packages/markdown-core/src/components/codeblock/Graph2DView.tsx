@@ -108,11 +108,11 @@ export function Graph2DView({ graphExpr, jsxGraph, isDark, width = 500, height =
           const tMax = 10;
           const xParam = (t: number) => {
             const result = evalFn({ ...paramValuesRef.current, t });
-            return typeof result === "object" && result !== null ? (result as Record<string, number>).x : 0;
+            return typeof result === "object" && result !== null ? result.x : 0;
           };
           const yParam = (t: number) => {
             const result = evalFn({ ...paramValuesRef.current, t });
-            return typeof result === "object" && result !== null ? (result as Record<string, number>).y : 0;
+            return typeof result === "object" && result !== null ? result.y : 0;
           };
           const paramAttrs: JXG.CurveAttributes = {
             curveType: "parameter",
@@ -229,7 +229,7 @@ export function Graph2DView({ graphExpr, jsxGraph, isDark, width = 500, height =
                 max={PARAM_DEFAULT_RANGE[1]}
                 step={PARAM_STEP}
                 value={paramValues[param] ?? 1}
-                onChange={(_e, v) => handleParamChange(param, v as number)}
+                onChange={(_e, v) => handleParamChange(param, v)}
                 sx={{ flex: 1 }}
                 aria-label={`パラメータ ${param}`}
               />

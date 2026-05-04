@@ -128,13 +128,11 @@ export function tableCellModePlugin(): Plugin<TableCellModeState> {
     props: {
       handleKeyDown: (view, event) => handleKeyDown(view, event),
       handleDOMEvents: {
-        mousedown: (view, event) =>
-          handleMouseDown(view, event as MouseEvent),
-        dblclick: (view, event) =>
-          handleDoubleClick(view, event as MouseEvent),
-        copy: (view, event) => handleCopy(view, event as ClipboardEvent),
-        cut: (view, event) => handleCut(view, event as ClipboardEvent),
-        paste: (view, event) => handlePaste(view, event as ClipboardEvent),
+        mousedown: (view, event) => handleMouseDown(view, event),
+        dblclick: (view, event) => handleDoubleClick(view, event),
+        copy: (view, event) => handleCopy(view, event),
+        cut: (view, event) => handleCut(view, event),
+        paste: (view, event) => handlePaste(view, event),
       },
       decorations(state) {
         const pluginState = tableCellModePluginKey.getState(state);
