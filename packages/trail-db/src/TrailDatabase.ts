@@ -3085,6 +3085,104 @@ export class TrailDatabase {
     this.save();
   }
 
+  /**
+   * AI 後処理スキル（anytime-reverse-engineer）からコミュニティの name/summary を upsert する。
+   * 既存の `upsertCurrentCodeGraphCommunities` は同期サービス用（label 含む全項目を上書き）なので、
+   * 命名のみを更新する API として独立。mappings_json は触らないので保持される。
+   */
+  upsertCurrentCodeGraphCommunitySummaries(
+    repoName: string,
+    rows: ReadonlyArray<{ communityId: number; name: string; summary: string }>,
+  ): { updated: number } {
+    const db = this.ensureDb();
+    for (const r of rows) {
+      db.run(
+        `INSERT INTO current_code_graph_communities
+           (repo_name, community_id, label, name, summary, generated_at, updated_at)
+         VALUES (?, ?, '', ?, ?, datetime('now'), datetime('now'))
+         ON CONFLICT(repo_name, community_id) DO UPDATE SET
+           name = excluded.name,
+           summary = excluded.summary,
+           updated_at = datetime('now')`,
+        [repoName, r.communityId, r.name, r.summary],
+      );
+    }
+    this.save();
+    return { updated: rows.length };
+  }
+
+  /**
+   * AI 後処理スキルからコミュニティ別の C4 要素 role マッピングを upsert する。
+   * `mappings_json` カラムが未存在の DB（古いスキーマ）では ALTER TABLE で追加する。
+   */
+  upsertCurrentCodeGraphCommunityMappings(
+    repoName: string,
+    rows: ReadonlyArray<{
+      communityId: number;
+      mappings: ReadonlyArray<{ elementId: string; elementType: string; role: 'primary' | 'secondary' | 'dependency' }>;
+    }>,
+  ): { updated: number; inserted: number } {
+    const db = this.ensureDb();
+
+    // mappings_json カラム保証（初回マイグレーション）
+    const cols = db.exec('PRAGMA table_info(current_code_graph_communities)')[0]?.values ?? [];
+    if (!cols.some((c) => String((c as unknown[])[1]) === 'mappings_json')) {
+      db.run('ALTER TABLE current_code_graph_communities ADD COLUMN mappings_json TEXT');
+    }
+
+    let updated = 0;
+    let inserted = 0;
+    for (const r of rows) {
+      const exists = db.exec(
+        'SELECT 1 FROM current_code_graph_communities WHERE repo_name = ? AND community_id = ?',
+        [repoName, r.communityId],
+      );
+      const found = (exists[0]?.values?.length ?? 0) > 0;
+      db.run(
+        `INSERT INTO current_code_graph_communities
+           (repo_name, community_id, label, name, summary, generated_at, updated_at, mappings_json)
+         VALUES (?, ?, '', '', '', datetime('now'), datetime('now'), ?)
+         ON CONFLICT(repo_name, community_id) DO UPDATE SET
+           mappings_json = excluded.mappings_json,
+           updated_at = datetime('now')`,
+        [repoName, r.communityId, JSON.stringify(r.mappings)],
+      );
+      if (found) updated++;
+      else inserted++;
+    }
+    this.save();
+    return { updated, inserted };
+  }
+
+  /**
+   * 指定リポジトリの全コミュニティ行を返す（label/name/summary/mappings_json 込み）。
+   * `mappings_json` カラムが無いスキーマでは null を返す。
+   */
+  listCurrentCodeGraphCommunities(
+    repoName: string,
+  ): ReadonlyArray<{
+    readonly communityId: number;
+    readonly label: string;
+    readonly name: string;
+    readonly summary: string;
+    readonly mappingsJson: string | null;
+  }> {
+    const db = this.ensureDb();
+    const cols = db.exec('PRAGMA table_info(current_code_graph_communities)')[0]?.values ?? [];
+    const hasMappings = cols.some((c) => String((c as unknown[])[1]) === 'mappings_json');
+    const sql = hasMappings
+      ? 'SELECT community_id, label, name, summary, mappings_json FROM current_code_graph_communities WHERE repo_name = ? ORDER BY community_id'
+      : 'SELECT community_id, label, name, summary FROM current_code_graph_communities WHERE repo_name = ? ORDER BY community_id';
+    const result = db.exec(sql, [repoName]);
+    return (result[0]?.values ?? []).map((row) => ({
+      communityId: Number(row[0]),
+      label: String(row[1] ?? ''),
+      name: String(row[2] ?? ''),
+      summary: String(row[3] ?? ''),
+      mappingsJson: hasMappings ? (row[4] == null ? null : String(row[4])) : null,
+    }));
+  }
+
   saveReleaseCodeGraph(tag: string, graph: CodeGraph): void {
     const db = this.ensureDb();
     const { stored, communities } = splitCodeGraph(graph);

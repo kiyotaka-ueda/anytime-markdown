@@ -107,6 +107,21 @@ VS Code 拡張のコマンド（`Anytime Trail: コード解析` 等）と同じ
 > 結果オブジェクトに `progressLog: { phase, percent, ts }[]` が追加されます。WS 利用不可環境では空配列で返ります。
 
 
+### 4.6 コミュニティ命名・mapping 書き込み
+
+`anytime-reverse-engineer` スキルから AI 生成結果を Trail DB に保存する用途。\
+拡張プロセスの `TrailDataServer` を経由するため、スキルと拡張で in-memory DB が分裂する事故（直接 sql.js 書き込み時に発生）を回避できる。
+
+| ツール | 主要パラメータ | 用途 |
+| --- | --- | --- |
+| `list_communities` | （共通のみ） | `current_code_graph_communities` の `label` / `name` / `summary` / `mappings_json` を取得する。スキルの cache 判定・命名済み判定に使用 |
+| `upsert_community_summaries` | `summaries: [{ communityId, name, summary }]` | 各コミュニティに AI 生成した name/summary を upsert する。`mappings_json` は保持される |
+| `upsert_community_mappings` | `mappings: [{ communityId, mappings: [{ elementId, elementType, role }] }]` | 各コミュニティの `mappings_json`（C4 要素 role）を upsert する。`mappings_json` カラム未存在時は自動 ALTER で追加。`name` / `summary` は保持される |
+
+> [!NOTE]
+> 書き込み完了後、TrailDataServer は `model-updated` を WebSocket 通知するため、Trail Viewer 側のキャッシュも自動再取得される（Reload Window 不要）。
+
+
 ## 5. 使用例
 
 ### 5.1 C4 モデルの取得
