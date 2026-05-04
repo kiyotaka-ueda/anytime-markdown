@@ -1,7 +1,6 @@
 import type { C4Element, C4Model } from '@anytime-markdown/trail-core/c4';
 import type { StatusChangeCallback, SessionEdit, AgentInfo } from '@anytime-markdown/vscode-common';
 import type { FileConflict } from '../server/types';
-import { TrailLogger } from '../utils/TrailLogger';
 
 export interface AgentActivityEntry {
   readonly sessionId: string;
