@@ -953,21 +953,36 @@ export function C4ViewerCore({
         communitySummary: codeGraph?.communitySummaries?.[dominant.community],
       } as CommunityOverlayEntry;
     })();
-    const steps = (() => {
-      if (!coverageMatrix) return null;
-      if (element.type === 'code') return coverage?.lines.total ?? null;
+    const sizeMetrics = (() => {
+      if (!coverageMatrix) return { loc: null, fileCount: null, functionCount: null };
+      if (element.type === 'code') {
+        return {
+          loc: coverage?.lines.total ?? null,
+          fileCount: coverage ? 1 : null,
+          functionCount: coverage?.functions.total ?? null,
+        };
+      }
       const descendantIds = collectDescendantIds(c4Model.elements, element.id);
-      let total = 0;
+      let loc = 0;
+      let fileCount = 0;
+      let functionCount = 0;
       let hasData = false;
       for (const id of descendantIds) {
         const desc = c4Model.elements.find(e => e.id === id);
         if (desc?.type !== 'code') continue;
         const entry = coverageMatrix.entries.find(e => e.elementId === id);
-        if (entry) { total += entry.lines.total; hasData = true; }
+        if (entry) {
+          loc += entry.lines.total;
+          fileCount += 1;
+          functionCount += entry.functions.total;
+          hasData = true;
+        }
       }
-      return hasData ? total : null;
+      return hasData
+        ? { loc, fileCount, functionCount }
+        : { loc: null, fileCount: null, functionCount: null };
     })();
-    return { element, incoming, outgoing, documents, coverage, complexity, importance, defectRisk, community, steps };
+    return { element, incoming, outgoing, documents, coverage, complexity, importance, defectRisk, community, sizeMetrics };
   }, [c4Model, complexityMatrix, coverageMatrix, defectRiskMap, docLinks, importanceMatrix, selectedElementId, communityOverlayL3, codeGraph]);
 
   const { data: elementFunctions, loading: elementFunctionsLoading } = useElementFunctions({
@@ -1508,60 +1523,78 @@ export function C4ViewerCore({
                     <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700, mb: 0.75 }}>
                       {t('c4.popup.metrics')}
                     </Typography>
-                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
-                      <Box sx={{ gridColumn: '1 / -1' }}>
-                        <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.62rem', fontWeight: 600, mb: 0.5 }}>
-                          {t('c4.popup.coverage')}
-                        </Typography>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0.5 }}>
-                          {(['coverage', 'branches', 'functions'] as const).map((key, i) => {
-                            const pct = selectedElementInfo.coverage
-                              ? (i === 0 ? selectedElementInfo.coverage.lines.pct : i === 1 ? selectedElementInfo.coverage.branches.pct : selectedElementInfo.coverage.functions.pct)
-                              : null;
-                            return (
-                              <Box key={key}>
-                                <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.58rem' }}>
-                                  {t(`c4.popup.metric.${key}`)}
-                                </Typography>
-                                <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
-                                  {pct != null ? formatPct(pct) : '-'}
-                                </Typography>
-                              </Box>
-                            );
-                          })}
-                        </Box>
+                    <Box>
+                      <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.62rem', fontWeight: 600, mb: 0.5 }}>
+                        {t('c4.popup.size')}
+                      </Typography>
+                      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0.5 }}>
+                        {([
+                          { key: 'loc', value: selectedElementInfo.sizeMetrics.loc },
+                          { key: 'files', value: selectedElementInfo.sizeMetrics.fileCount },
+                          { key: 'functionCount', value: selectedElementInfo.sizeMetrics.functionCount },
+                        ] as const).map(({ key, value }) => (
+                          <Box key={key}>
+                            <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.58rem' }}>
+                              {t(`c4.popup.metric.${key}`)}
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
+                              {value ?? '-'}
+                            </Typography>
+                          </Box>
+                        ))}
                       </Box>
-                      <Box>
-                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
-                          {t('c4.popup.metric.complexity')}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {selectedElementInfo.complexity?.highest ?? '-'}
-                        </Typography>
+                    </Box>
+                    <Box sx={{ mt: 1 }}>
+                      <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.62rem', fontWeight: 600, mb: 0.5 }}>
+                        {t('c4.popup.quality')}
+                      </Typography>
+                      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0.5 }}>
+                        {(['coverage', 'branches', 'functions'] as const).map((key, i) => {
+                          const pct = selectedElementInfo.coverage
+                            ? (i === 0 ? selectedElementInfo.coverage.lines.pct : i === 1 ? selectedElementInfo.coverage.branches.pct : selectedElementInfo.coverage.functions.pct)
+                            : null;
+                          return (
+                            <Box key={key}>
+                              <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.58rem' }}>
+                                {t(`c4.popup.metric.${key}`)}
+                              </Typography>
+                              <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
+                                {pct != null ? formatPct(pct) : '-'}
+                              </Typography>
+                            </Box>
+                          );
+                        })}
                       </Box>
-                      <Box>
-                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
-                          {t('c4.popup.metric.importance')}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
-                          {selectedElementInfo.importance != null ? Math.round(selectedElementInfo.importance) : '-'}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
+                      <Box sx={{ mt: 0.75 }}>
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.58rem' }}>
                           {t('c4.popup.metric.defectRisk')}
                         </Typography>
                         <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
                           {selectedElementInfo.defectRisk != null ? Math.round(selectedElementInfo.defectRisk) : '-'}
                         </Typography>
                       </Box>
-                      <Box>
-                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
-                          {t('c4.popup.metric.steps')}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
-                          {selectedElementInfo.steps ?? '-'}
-                        </Typography>
+                    </Box>
+                    <Box sx={{ mt: 1 }}>
+                      <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.62rem', fontWeight: 600, mb: 0.5 }}>
+                        {t('c4.popup.structure')}
+                      </Typography>
+                      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
+                        <Box>
+                          <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.58rem' }}>
+                            {t('c4.popup.metric.complexity')}
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {selectedElementInfo.complexity?.highest ?? '-'}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.58rem' }}>
+                            {t('c4.popup.metric.importance')}
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
+                            {selectedElementInfo.importance != null ? Math.round(selectedElementInfo.importance) : '-'}
+                          </Typography>
+                        </Box>
                       </Box>
                     </Box>
                   </Box>

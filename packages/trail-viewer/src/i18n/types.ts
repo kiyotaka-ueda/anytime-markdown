@@ -268,6 +268,9 @@ export interface TrailI18n {
   'c4.elementPanel.communityUnavailable': string;
   'c4.popup.metrics': string;
   'c4.popup.coverage': string;
+  'c4.popup.size': string;
+  'c4.popup.quality': string;
+  'c4.popup.structure': string;
   'c4.popup.metric.coverage': string;
   'c4.popup.metric.branches': string;
   'c4.popup.metric.functions': string;
@@ -275,7 +278,9 @@ export interface TrailI18n {
   'c4.popup.metric.importance': string;
   'c4.popup.metric.dsm': string;
   'c4.popup.metric.defectRisk': string;
-  'c4.popup.metric.steps': string;
+  'c4.popup.metric.loc': string;
+  'c4.popup.metric.files': string;
+  'c4.popup.metric.functionCount': string;
   'c4.popup.functions': string;
   'c4.popup.functions.empty': string;
   'c4.openFile': string;
