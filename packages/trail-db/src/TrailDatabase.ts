@@ -6058,6 +6058,37 @@ export class TrailDatabase {
     );
   }
 
+  getAllReleaseCoverage(): ReleaseCoverageRow[] {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT release_tag, package, file_path,
+              lines_total, lines_covered, lines_pct,
+              statements_total, statements_covered, statements_pct,
+              functions_total, functions_covered, functions_pct,
+              branches_total, branches_covered, branches_pct
+       FROM release_coverage`,
+    );
+    const values = result[0]?.values ?? [];
+    const toNum = (v: unknown): number => { const n = Number(v ?? 0); return Number.isFinite(n) ? n : 0; };
+    return values.map((r) => ({
+      release_tag: String(r[0] ?? ''),
+      package: String(r[1] ?? ''),
+      file_path: String(r[2] ?? ''),
+      lines_total: toNum(r[3]),
+      lines_covered: toNum(r[4]),
+      lines_pct: toNum(r[5]),
+      statements_total: toNum(r[6]),
+      statements_covered: toNum(r[7]),
+      statements_pct: toNum(r[8]),
+      functions_total: toNum(r[9]),
+      functions_covered: toNum(r[10]),
+      functions_pct: toNum(r[11]),
+      branches_total: toNum(r[12]),
+      branches_covered: toNum(r[13]),
+      branches_pct: toNum(r[14]),
+    }));
+  }
+
   getCoverageSummary(releaseTag: string): ReleaseCoverageRow[] {
     const db = this.ensureDb();
     const result = db.exec(

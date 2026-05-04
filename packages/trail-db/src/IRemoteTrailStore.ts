@@ -100,6 +100,25 @@ export interface IRemoteTrailStore {
     branches_pct: number;
     updated_at: string;
   }[]): Promise<void>;
+  /** [DESTRUCTIVE] trail_release_coverage を全削除する（洗い替え同期用）。 */
+  unsafeClearReleaseCoverage(): Promise<void>;
+  upsertReleaseCoverage(rows: readonly {
+    release_tag: string;
+    package: string;
+    file_path: string;
+    lines_total: number;
+    lines_covered: number;
+    lines_pct: number;
+    statements_total: number;
+    statements_covered: number;
+    statements_pct: number;
+    functions_total: number;
+    functions_covered: number;
+    functions_pct: number;
+    branches_total: number;
+    branches_covered: number;
+    branches_pct: number;
+  }[]): Promise<void>;
   /** [DESTRUCTIVE] trail_current_code_graphs と trail_current_code_graph_communities を全削除する（洗い替え同期用）。 */
   unsafeClearCurrentCodeGraphs(): Promise<void>;
   upsertCurrentCodeGraphs(rows: readonly {

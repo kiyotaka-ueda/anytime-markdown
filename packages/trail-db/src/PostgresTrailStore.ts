@@ -423,6 +423,8 @@ export class PostgresTrailStore implements IRemoteTrailStore {
 
   async unsafeClearCurrentCoverage(): Promise<never> { throw new Error('PostgresTrailStore.unsafeClearCurrentCoverage not implemented'); }
   async upsertCurrentCoverage(): Promise<never> { throw new Error('PostgresTrailStore.upsertCurrentCoverage not implemented'); }
+  async unsafeClearReleaseCoverage(): Promise<never> { throw new Error('PostgresTrailStore.unsafeClearReleaseCoverage not implemented'); }
+  async upsertReleaseCoverage(): Promise<never> { throw new Error('PostgresTrailStore.upsertReleaseCoverage not implemented'); }
   async unsafeClearCurrentCodeGraphs(): Promise<never> { throw new Error('PostgresTrailStore.unsafeClearCurrentCodeGraphs not implemented'); }
   async upsertCurrentCodeGraphs(): Promise<never> { throw new Error('PostgresTrailStore.upsertCurrentCodeGraphs not implemented'); }
   async upsertCurrentCodeGraphCommunities(): Promise<never> { throw new Error('PostgresTrailStore.upsertCurrentCodeGraphCommunities not implemented'); }

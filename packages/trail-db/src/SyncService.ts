@@ -195,6 +195,19 @@ export class SyncService {
       errors++;
     }
 
+    // Sync release_coverage（洗い替え）
+    try {
+      onProgress?.({ message: 'Syncing release coverage...' });
+      const releaseCoverageRows = this.trailDb.getAllReleaseCoverage();
+      await this.store.unsafeClearReleaseCoverage();
+      if (releaseCoverageRows.length > 0) {
+        await this.store.upsertReleaseCoverage(releaseCoverageRows);
+      }
+    } catch (e) {
+      this.logger.error('Failed to sync release coverage', e);
+      errors++;
+    }
+
     // Sync current_code_graphs（洗い替え）
     try {
       onProgress?.({ message: 'Syncing current code graphs...' });

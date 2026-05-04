@@ -36,12 +36,17 @@ class FakeRemoteStore implements IRemoteTrailStore {
   async upsertMessageToolCalls(): Promise<void> {}
 
   coverageRows: Array<{ repo_name: string; package: string; file_path: string; lines_total: number; lines_covered: number; lines_pct: number; statements_total: number; statements_covered: number; statements_pct: number; functions_total: number; functions_covered: number; functions_pct: number; branches_total: number; branches_covered: number; branches_pct: number; updated_at: string }> = [];
+  releaseCoverageRows: Array<{ release_tag: string; package: string; file_path: string; lines_total: number; lines_covered: number; lines_pct: number; statements_total: number; statements_covered: number; statements_pct: number; functions_total: number; functions_covered: number; functions_pct: number; branches_total: number; branches_covered: number; branches_pct: number }> = [];
   codeGraphRows: Array<{ repo_name: string; graph_json: string; generated_at: string; updated_at: string }> = [];
   codeGraphCommunityRows: Array<{ repo_name: string; community_id: number; label: string; name: string; summary: string; generated_at: string; updated_at: string }> = [];
 
   async unsafeClearCurrentCoverage(): Promise<void> { this.coverageRows = []; }
   async upsertCurrentCoverage(rows: readonly { repo_name: string; package: string; file_path: string; lines_total: number; lines_covered: number; lines_pct: number; statements_total: number; statements_covered: number; statements_pct: number; functions_total: number; functions_covered: number; functions_pct: number; branches_total: number; branches_covered: number; branches_pct: number; updated_at: string }[]): Promise<void> {
     this.coverageRows.push(...(rows as typeof this.coverageRows));
+  }
+  async unsafeClearReleaseCoverage(): Promise<void> { this.releaseCoverageRows = []; }
+  async upsertReleaseCoverage(rows: readonly { release_tag: string; package: string; file_path: string; lines_total: number; lines_covered: number; lines_pct: number; statements_total: number; statements_covered: number; statements_pct: number; functions_total: number; functions_covered: number; functions_pct: number; branches_total: number; branches_covered: number; branches_pct: number }[]): Promise<void> {
+    this.releaseCoverageRows.push(...(rows as typeof this.releaseCoverageRows));
   }
   async unsafeClearCurrentCodeGraphs(): Promise<void> { this.codeGraphRows = []; this.codeGraphCommunityRows = []; }
   async upsertCurrentCodeGraphs(rows: readonly { repo_name: string; graph_json: string; generated_at: string; updated_at: string }[]): Promise<void> {
@@ -133,6 +138,27 @@ describe('SyncService.doSync coverage and code graph', () => {
     let clearCalled = false;
     const origClear = remoteStore.unsafeClearCurrentCoverage.bind(remoteStore);
     remoteStore.unsafeClearCurrentCoverage = async () => { clearCalled = true; return origClear(); };
+    const sync = new SyncService(localDb, remoteStore);
+    await sync.sync();
+    expect(clearCalled).toBe(true);
+    localDb.close();
+  });
+
+  it('syncs release_coverage to remote (wash-away)', async () => {
+    const localDb = await createDb();
+    const remoteStore = new FakeRemoteStore();
+    const sync = new SyncService(localDb, remoteStore);
+    await sync.sync();
+    expect(remoteStore.releaseCoverageRows).toHaveLength(0);
+    localDb.close();
+  });
+
+  it('sync calls unsafeClearReleaseCoverage before upsert', async () => {
+    const localDb = await createDb();
+    const remoteStore = new FakeRemoteStore();
+    let clearCalled = false;
+    const origClear = remoteStore.unsafeClearReleaseCoverage.bind(remoteStore);
+    remoteStore.unsafeClearReleaseCoverage = async () => { clearCalled = true; return origClear(); };
     const sync = new SyncService(localDb, remoteStore);
     await sync.sync();
     expect(clearCalled).toBe(true);

@@ -382,6 +382,28 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
     }
   }
 
+  async unsafeClearReleaseCoverage(): Promise<void> {
+    await this.ensureClient().from('trail_release_coverage').delete().gte('release_tag', '');
+  }
+
+  async upsertReleaseCoverage(rows: readonly {
+    release_tag: string; package: string; file_path: string;
+    lines_total: number; lines_covered: number; lines_pct: number;
+    statements_total: number; statements_covered: number; statements_pct: number;
+    functions_total: number; functions_covered: number; functions_pct: number;
+    branches_total: number; branches_covered: number; branches_pct: number;
+  }[]): Promise<void> {
+    if (rows.length === 0) return;
+    const CHUNK = 500;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK);
+      const { error } = await this.ensureClient()
+        .from('trail_release_coverage')
+        .upsert(chunk.map((r) => ({ ...r })), { onConflict: 'release_tag,package,file_path' });
+      if (error) throw new Error(`Supabase upsert release_coverage failed: ${error.message}`);
+    }
+  }
+
   async unsafeClearCurrentCodeGraphs(): Promise<void> {
     await this.ensureClient().from('trail_current_code_graph_communities').delete().gte('repo_name', '');
     await this.ensureClient().from('trail_current_code_graphs').delete().gte('repo_name', '');
