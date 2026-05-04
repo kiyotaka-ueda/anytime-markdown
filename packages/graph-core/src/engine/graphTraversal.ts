@@ -120,28 +120,34 @@ export function findShortestPath(
 
   while (pq.length > 0) {
     const [currentDist, current] = extractMin(pq);
-
     if (visited.has(current)) continue;
     visited.add(current);
-
     if (current === targetId) break;
-
-    const neighbors = adj.get(current);
-    if (!neighbors) continue;
-
-    for (const { neighbor, edgeId, cost } of neighbors) {
-      if (visited.has(neighbor)) continue;
-
-      const newDist = currentDist + cost;
-      const knownDist = dist.get(neighbor);
-
-      if (knownDist === undefined || newDist < knownDist) {
-        dist.set(neighbor, newDist);
-        prev.set(neighbor, { node: current, edgeId });
-        pq.push([newDist, neighbor]);
-      }
-    }
+    relaxNeighbors(current, currentDist, adj, dist, prev, visited, pq);
   }
 
   return reconstructPath(prev, startId, targetId);
+}
+
+function relaxNeighbors(
+  current: string,
+  currentDist: number,
+  adj: Map<string, AdjEntry[]>,
+  dist: Map<string, number>,
+  prev: Map<string, { node: string; edgeId: string }>,
+  visited: Set<string>,
+  pq: Array<[number, string]>,
+): void {
+  const neighbors = adj.get(current);
+  if (!neighbors) return;
+  for (const { neighbor, edgeId, cost } of neighbors) {
+    if (visited.has(neighbor)) continue;
+    const newDist = currentDist + cost;
+    const knownDist = dist.get(neighbor);
+    if (knownDist === undefined || newDist < knownDist) {
+      dist.set(neighbor, newDist);
+      prev.set(neighbor, { node: current, edgeId });
+      pq.push([newDist, neighbor]);
+    }
+  }
 }

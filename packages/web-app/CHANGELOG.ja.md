@@ -6,6 +6,27 @@
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-05-04
+
+### 追加
+
+- C4 要素間シーケンス表示用 `/api/c4/sequence` ルートを追加
+- `/api/c4/coverage`・`/api/code-graph` に release フィルタ対応
+- `/api/c4/model` から `featureMatrix` を返却
+- `/api/docs-index` に `repo` パラメータ対応を追加
+
+### 修正
+
+- `/api/c4/coverage` が `repo` クエリパラメータを受け取るよう修正
+- 不要な型アサーションを削除（Sonar S4325）
+- 配列インデックスキーを安定した複合キーに置換（Sonar S6479）
+- リテラルパターンの `replace` を `replaceAll` に置換（Sonar S7781）
+
+### 変更
+
+- trail/search・temporal-coupling・docs-index API ハンドラからヘルパーを抽出（Sonar S3776）
+- `window.localStorage` を `globalThis.localStorage` に置換（Sonar S7764）
+
 ## [0.23.0] - 2026-05-03
 
 ### 追加

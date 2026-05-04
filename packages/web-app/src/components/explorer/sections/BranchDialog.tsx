@@ -68,13 +68,13 @@ export const BranchDialog: FC<BranchDialogProps> = ({
                 </ListItemIcon>
                 <ListItemText
                   primary={branch}
-                  primaryTypographyProps={{
+                  slotProps={{ primary: {
                     variant: "body2",
                     fontWeight:
                       branch === repo?.defaultBranch
                         ? 700
                         : 400,
-                  }}
+                  } }}
                 />
                 {branch === repo?.defaultBranch && (
                   <Typography

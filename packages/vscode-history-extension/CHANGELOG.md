@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-05-04
+
+### Added
+
+- Database panel for trail DB inspection (Phase 2)
+
+### Fixed
+
+- Resolved duplicate VS Code configuration registration warning for DB sync settings
+
+### Changed
+
+- Migrated `TimelineProvider` to `vscode-common` package for shared use
+
 ## [0.0.1] - 2026-04-12
 
 ### Changed

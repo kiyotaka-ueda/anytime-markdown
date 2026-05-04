@@ -18,6 +18,8 @@ import {
   filterTreeByLevel,
   parseCoverage,
 } from '@anytime-markdown/trail-core/c4';
+import { computeImportanceMatrix } from '@anytime-markdown/trail-core/c4/metrics/computeImportanceMatrix';
+import { analyze } from '@anytime-markdown/trail-core/analyze';
 import type { FileCoverage, MessageInput } from '@anytime-markdown/trail-core/c4';
 import type {
   C4Model,
@@ -30,8 +32,8 @@ import type { TrailGraph, ReleaseCoverageRow, CurrentCoverageRow } from '@anytim
 import { WebSocketServer, type WebSocket } from 'ws';
 
 import type { ClientMessage, ServerMessage } from './types';
-import type { TrailDatabase, SessionRow, MessageRow, SessionCommitRow, AnalyticsData, CostOptimizationData } from '../trail/TrailDatabase';
-import { MetricsThresholdsLoader } from '../trail/MetricsThresholdsLoader';
+import type { TrailDatabase, SessionRow, MessageRow, SessionCommitRow, AnalyticsData, CostOptimizationData } from '@anytime-markdown/trail-db';
+import { MetricsThresholdsLoader } from '@anytime-markdown/trail-db';
 import { computeDeploymentFrequency, computeQualityMetrics, computeReleaseQualityTimeSeries } from '@anytime-markdown/trail-core/domain/metrics';
 import { TrailLogger } from '../utils/TrailLogger';
 import type { CodeGraphService } from '../graph/CodeGraphService';
@@ -54,6 +56,35 @@ function clampInt(value: string | null, fallback: number, min: number, max: numb
   const n = Number.parseInt(value, 10);
   if (Number.isNaN(n)) return fallback;
   return Math.min(Math.max(n, min), max);
+}
+
+/** AnalyzePipeline.ts と同型。HTTP 応答のシリアライズ対象 */
+export interface AnalyzePipelineResult {
+  repoName: string;
+  tsconfigPath: string;
+  fileCount: number;
+  nodeCount: number;
+  edgeCount: number;
+  commitId: string;
+  durationMs: number;
+  warnings: string[];
+}
+
+export interface AnalyzeReleasePipelineResult {
+  releaseCount: number;
+  durationMs: number;
+}
+
+export interface AnalyzeAllPipelineResult {
+  imported: number;
+  skipped: number;
+  commitsResolved: number;
+  releasesResolved: number;
+  releasesAnalyzed: number;
+  coverageImported: number;
+  currentCoverageImported: number;
+  messageCommitsBackfilled: number;
+  durationMs: number;
 }
 
 const HOTSPOT_PERIODS = ['7d', '30d', '90d', 'all'] as const;
@@ -179,9 +210,27 @@ export class TrailDataServer {
   private docsPath: string | undefined;
   private lastClaudeActivity: { activeElementIds: readonly string[]; touchedElementIds: readonly string[]; plannedElementIds: readonly string[] } | undefined;
   private lastMultiAgentActivity: { agents: readonly import('./types').AgentActivityEntry[]; conflicts: readonly import('./types').FileConflict[] } | undefined;
+  private lastImportanceMatrix: ImportanceMatrix | null = null;
+  private importanceComputing = false;
   onOpenDocLink: ((docPath: string) => void) | undefined;
   onOpenFile: ((filePath: string) => void) | undefined;
   onTokenBudgetExceeded: ((status: import('./types').TokenBudgetUpdatedMessage) => void) | undefined;
+
+  /** POST /api/analyze/current ハンドラ。extension.ts で登録される */
+  onAnalyzeCurrentCode:
+    | ((req: { workspacePath?: string; tsconfigPath?: string }) => Promise<AnalyzePipelineResult>)
+    | undefined;
+  /** POST /api/analyze/release ハンドラ */
+  onAnalyzeReleaseCode:
+    | (() => Promise<AnalyzeReleasePipelineResult>)
+    | undefined;
+  /** POST /api/analyze/all ハンドラ */
+  onAnalyzeAll:
+    | (() => Promise<AnalyzeAllPipelineResult>)
+    | undefined;
+
+  /** 現在進行中の解析タスク種別。並行実行時の 409 判定に使う */
+  private analysisInProgress: { kind: 'current' | 'release' | 'all'; startedAt: number } | null = null;
   private tokenBudgetConfig: { dailyLimitTokens: number | null; sessionLimitTokens: number | null; alertThresholdPct: number } = {
     dailyLimitTokens: null,
     sessionLimitTokens: null,
@@ -398,6 +447,23 @@ export class TrailDataServer {
       return;
     }
 
+    if (pathname === '/api/analyze/current' && method === 'POST') {
+      this.handleAnalyzeCurrent(req, res);
+      return;
+    }
+    if (pathname === '/api/analyze/release' && method === 'POST') {
+      this.handleAnalyzeRelease(req, res);
+      return;
+    }
+    if (pathname === '/api/analyze/all' && method === 'POST') {
+      this.handleAnalyzeAll(req, res);
+      return;
+    }
+    if (pathname === '/api/analyze/status' && method === 'GET') {
+      this.handleAnalyzeStatus(res);
+      return;
+    }
+
     if (pathname === '/api/trail/token-budget' && method === 'POST') {
       this.handleTokenBudget(req, res);
       return;
@@ -484,6 +550,18 @@ export class TrailDataServer {
       void this.handleC4ModelEndpoint(res, releaseId, repo);
       return;
     }
+    if (pathname === '/api/c4/communities' && method === 'GET') {
+      this.handleListCommunities(res, parsed);
+      return;
+    }
+    if (pathname === '/api/c4/communities/upsert-summaries' && method === 'POST') {
+      void this.handleUpsertCommunitySummaries(req, res, parsed);
+      return;
+    }
+    if (pathname === '/api/c4/communities/upsert-mappings' && method === 'POST') {
+      void this.handleUpsertCommunityMappings(req, res, parsed);
+      return;
+    }
     if (pathname === '/api/c4/dsm' && method === 'GET') {
       const releaseId = parsed.searchParams.get('release') ?? 'current';
       const repo = parsed.searchParams.get('repo') ?? undefined;
@@ -500,18 +578,21 @@ export class TrailDataServer {
       return;
     }
     if (pathname === '/api/docs-index' && method === 'GET') {
-      res.writeHead(200, JSON_HEADERS);
-      res.end(JSON.stringify({ docs: this.docLinks }));
+      const repo = parsed.searchParams.get('repo') ?? undefined;
+      void this.handleDocsIndexEndpoint(res, repo);
       return;
     }
     if (pathname === '/api/c4/coverage' && method === 'GET') {
-      void this.handleC4CoverageEndpoint(res);
+      const releaseId = parsed.searchParams.get('release') ?? 'current';
+      const repo = parsed.searchParams.get('repo') ?? undefined;
+      void this.handleC4CoverageEndpoint(res, releaseId, repo);
       return;
     }
     if (pathname === '/api/c4/complexity' && method === 'GET') {
-      const releaseId = parsed.searchParams.get('release') ?? 'current';
+      // Complexity は累積指標のため release パラメータは受け取らない
+      // (古いクライアントが付与しても無視する)
       const repo = parsed.searchParams.get('repo') ?? undefined;
-      void this.handleC4ComplexityEndpoint(res, releaseId, repo);
+      void this.handleC4ComplexityEndpoint(res, repo);
       return;
     }
 
@@ -532,6 +613,12 @@ export class TrailDataServer {
       const symbolId = parsed.searchParams.get('symbolId') ?? '';
       const type = (parsed.searchParams.get('type') ?? 'control') as 'control' | 'call';
       void this.handleC4FlowchartEndpoint(res, componentId, symbolId, type);
+      return;
+    }
+
+    if (pathname === '/api/c4/sequence' && method === 'GET') {
+      const elementId = parsed.searchParams.get('elementId') ?? '';
+      void this.handleC4SequenceEndpoint(res, elementId);
       return;
     }
 
@@ -580,7 +667,9 @@ export class TrailDataServer {
     }
 
     if (pathname === '/api/code-graph' && method === 'GET') {
-      this.handleCodeGraphEndpoint(res);
+      const releaseId = parsed.searchParams.get('release') ?? 'current';
+      const repo = parsed.searchParams.get('repo') ?? undefined;
+      this.handleCodeGraphEndpoint(res, releaseId, repo);
       return;
     }
     if (pathname === '/api/code-graph/query' && method === 'GET') {
@@ -639,7 +728,28 @@ export class TrailDataServer {
   //  Code graph endpoints
   // -------------------------------------------------------------------------
 
-  private handleCodeGraphEndpoint(res: http.ServerResponse): void {
+  private handleCodeGraphEndpoint(res: http.ServerResponse, releaseId: string, repo?: string): void {
+    if (releaseId !== 'current') {
+      // 特定リリース: release_code_graphs から取得（repo 指定時は releases.repo_name で帰属確認）
+      const releaseTagBelongsToRepo = this.trailDb.getReleases()
+        .some((r) => r.tag === releaseId && (!repo || r.repo_name === repo));
+      if (!releaseTagBelongsToRepo) {
+        res.writeHead(404, JSON_HEADERS);
+        res.end('{}');
+        return;
+      }
+      const graph = this.trailDb.getReleaseCodeGraph(releaseId);
+      if (!graph) {
+        res.writeHead(404, JSON_HEADERS);
+        res.end('{}');
+        return;
+      }
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify(graph));
+      return;
+    }
+
+    // current: codeGraphService キャッシュを使用（既存挙動）
     const graph = this.codeGraphService?.getGraph();
     if (!graph) {
       res.writeHead(404, JSON_HEADERS);
@@ -775,9 +885,10 @@ export class TrailDataServer {
       this.sendError(res, 400, "granularity must be one of 'commit', 'session', or 'subagent'");
       return;
     }
+    const repo = params.get('repo') ?? undefined;
     try {
       const { from, to } = computePeriodRangeUtc(period);
-      const rows = this.trailDb.fetchHotspotRows({ from, to, granularity });
+      const rows = this.trailDb.fetchHotspotRows({ from, to, granularity, repo });
       const files = computeFileHotspot(rows);
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({ period, granularity, from, to, files }));
@@ -976,9 +1087,10 @@ export class TrailDataServer {
   private handleDefectRisk(res: http.ServerResponse, params: URLSearchParams): void {
     const windowDays = clampInt(params.get('windowDays'), 90, 1, 365);
     const halfLifeDays = clampInt(params.get('halfLifeDays'), 90, 1, 730);
+    const repo = params.get('repo') ?? undefined;
 
     try {
-      const entries = this.trailDb.fetchDefectRisk({ windowDays, halfLifeDays });
+      const entries = this.trailDb.fetchDefectRisk({ windowDays, halfLifeDays, repo });
       const computedAt = new Date().toISOString();
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({ entries, computedAt, windowDays, halfLifeDays, totalFiles: entries.length }));
@@ -1427,31 +1539,41 @@ export class TrailDataServer {
     res.end(JSON.stringify({ tree }));
   }
 
-  private async handleC4CoverageEndpoint(res: http.ServerResponse): Promise<void> {
+  private async handleC4CoverageEndpoint(res: http.ServerResponse, releaseId: string, repo?: string): Promise<void> {
     try {
       const provider = this.getC4Provider?.();
-      const repoName = this.gitRoot ? path.basename(this.gitRoot) : undefined;
+      const repoName = repo ?? (this.gitRoot ? path.basename(this.gitRoot) : undefined);
       const store = this.trailDb.asC4ModelStore();
-      const payload = await fetchC4Model(store, 'current', repoName, provider?.featureMatrix);
+      const payload = await fetchC4Model(store, releaseId, repoName, provider?.featureMatrix);
       if (!payload) {
         res.writeHead(200, JSON_HEADERS);
         res.end(JSON.stringify({ coverageMatrix: null, coverageDiff: null }));
         return;
       }
 
-      // DB-based coverage (populated by Trail Import from coverage-summary.json per package)
-      const latestTag = this.trailDb.getReleases()[0]?.tag;
-      if (latestTag) {
-        const dbRows = this.trailDb.getCoverageByTag(latestTag);
-        if (dbRows.length > 0) {
-          const coverageMatrix = aggregateCoverageFromDb(dbRows, payload.model);
+      // 特定リリース要求: release_coverage を repo 帰属確認のうえ取得
+      // ファイルスキャンへのフォールバックは行わない（過去スナップショットと現在ファイルが混ざる不整合を防止）
+      if (releaseId !== 'current') {
+        const releaseTagBelongsToRepo = this.trailDb.getReleases()
+          .some((r) => r.tag === releaseId && (!repoName || r.repo_name === repoName));
+        if (!releaseTagBelongsToRepo) {
           res.writeHead(200, JSON_HEADERS);
-          res.end(JSON.stringify({ coverageMatrix, coverageDiff: null }));
+          res.end(JSON.stringify({ coverageMatrix: null, coverageDiff: null }));
           return;
         }
+        const dbRows = this.trailDb.getCoverageByTag(releaseId);
+        if (dbRows.length === 0) {
+          res.writeHead(200, JSON_HEADERS);
+          res.end(JSON.stringify({ coverageMatrix: null, coverageDiff: null }));
+          return;
+        }
+        const coverageMatrix = aggregateCoverageFromDb(dbRows, payload.model);
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({ coverageMatrix, coverageDiff: null }));
+        return;
       }
 
-      // Fallback 1: current_coverage table (repo-level latest snapshot, no release tag required)
+      // current 要求: current_coverage を優先、なければファイルスキャン
       if (repoName) {
         const currentRows = this.trailDb.getCurrentCoverage(repoName);
         if (currentRows.length > 0) {
@@ -1479,9 +1601,12 @@ export class TrailDataServer {
         }
       }
 
-      // Fallback 2: scan packages/*/coverage/coverage-final.json
+      // current 要求のフォールバック: scan packages/*/coverage/coverage-final.json
+      // 要求された repo が現在のワークスペースの gitRoot と一致しない場合は、
+      // ローカルのファイルスキャン結果は他リポジトリのデータと混ざるため返さない
       const projectRoot = provider?.projectRoot ?? this.gitRoot;
-      if (!this.gitRoot || !projectRoot) {
+      const workspaceRepoName = this.gitRoot ? path.basename(this.gitRoot) : undefined;
+      if (!this.gitRoot || !projectRoot || (repoName && repoName !== workspaceRepoName)) {
         res.writeHead(200, JSON_HEADERS);
         res.end(JSON.stringify({ coverageMatrix: null, coverageDiff: null }));
         return;
@@ -1518,14 +1643,49 @@ export class TrailDataServer {
     }
   }
 
-  private async handleC4ComplexityEndpoint(res: http.ServerResponse, releaseId: string, repo?: string): Promise<void> {
+  private async handleDocsIndexEndpoint(res: http.ServerResponse, repo?: string): Promise<void> {
+    try {
+      // repo 指定なしは workspace global（全件返却）。後方互換。
+      if (!repo) {
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({ docs: this.docLinks }));
+        return;
+      }
+      // C4 モデルから repo の要素 ID 集合を構築し、
+      // doc.c4Scope のいずれかが要素 ID と完全一致または親パス（pkg_a/x の親 pkg_a）として
+      // ヒットするドキュメントだけを返す。
+      const store = this.trailDb.asC4ModelStore();
+      const provider = this.getC4Provider?.();
+      const payload = await fetchC4Model(store, 'current', repo, provider?.featureMatrix);
+      const elementIds = new Set((payload?.model.elements ?? []).map((e) => e.id));
+      if (elementIds.size === 0) {
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({ docs: [] }));
+        return;
+      }
+      const filtered = this.docLinks.filter((d) =>
+        d.c4Scope.some((scope) =>
+          elementIds.has(scope) || [...elementIds].some((id) => id.startsWith(scope + '/'))
+        )
+      );
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({ docs: filtered }));
+    } catch (e) {
+      TrailLogger.error('[/api/docs-index] failed', e);
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({ docs: this.docLinks }));
+    }
+  }
+
+  private async handleC4ComplexityEndpoint(res: http.ServerResponse, repo?: string): Promise<void> {
     try {
       const repoName = repo ?? (this.gitRoot ? path.basename(this.gitRoot) : undefined);
       const store = this.trailDb.asC4ModelStore();
       const provider = this.getC4Provider?.();
 
-      // モデルを SQLite から取得（elements が空でも complexityMatrix は計算する）
-      const payload = await fetchC4Model(store, releaseId, repoName, provider?.featureMatrix);
+      // Complexity は累積指標のため、C4 モデルは常に current を使用
+      // (release で時間窓を切る意味がないため)
+      const payload = await fetchC4Model(store, 'current', repoName, provider?.featureMatrix);
       const elements = payload?.model.elements ?? [];
 
       // メッセージから ComplexityMatrix を計算
@@ -1782,7 +1942,7 @@ export class TrailDataServer {
 
   private handleRefresh(res: http.ServerResponse): void {
     this.trailDb
-      .importAll(undefined, this.gitRoot)
+      .importAll(undefined, this.gitRoot, undefined, analyze)
       .then((result) => {
         this.notifySessionsUpdated();
         res.writeHead(200, JSON_HEADERS);
@@ -1948,11 +2108,12 @@ export class TrailDataServer {
 
   private sendC4CurrentState(ws: WebSocket): void {
     const provider = this.getC4Provider?.();
-    if (!provider) return;
 
-    const dsmMsg = this.buildDsmMessage(provider);
-    if (dsmMsg) {
-      ws.send(JSON.stringify(dsmMsg));
+    if (provider) {
+      const dsmMsg = this.buildDsmMessage(provider);
+      if (dsmMsg) {
+        ws.send(JSON.stringify(dsmMsg));
+      }
     }
 
     if (this.docLinks.length > 0) {
@@ -1960,9 +2121,11 @@ export class TrailDataServer {
       ws.send(JSON.stringify(docMsg));
     }
 
-    const importanceMsg = this.buildNotifyMessage('importance-updated', provider);
-    if (importanceMsg) {
+    if (this.lastImportanceMatrix) {
+      const importanceMsg: ServerMessage = { type: 'importance-updated', importanceMatrix: this.lastImportanceMatrix };
       ws.send(JSON.stringify(importanceMsg));
+    } else {
+      void this.computeAndNotifyImportance();
     }
 
     if (this.lastClaudeActivity) {
@@ -2002,6 +2165,18 @@ export class TrailDataServer {
           .then(() => this.notifyCodeGraphUpdated())
           .catch((err) => TrailLogger.error('Failed to generate code graph', err));
       }
+      return;
+    }
+
+    // provider 不要のコマンドはここで処理する。
+    // C4Panel 撤去後 setC4Provider を呼ぶ箇所が無く provider が常に undefined のため、
+    // ファイルを開くだけのコマンドを provider 必須ロジックに巻き込まれて drop させない。
+    if (parsed.type === 'open-doc-link') {
+      this.onOpenDocLink?.(parsed.path);
+      return;
+    }
+    if (parsed.type === 'open-file') {
+      this.onOpenFile?.(parsed.filePath);
       return;
     }
 
@@ -2055,6 +2230,39 @@ export class TrailDataServer {
     const payload = JSON.stringify(message);
     for (const ws of this.clients) {
       ws.send(payload);
+    }
+  }
+
+  async computeAndNotifyImportance(tsconfigPath?: string): Promise<void> {
+    if (this.importanceComputing) return;
+    this.importanceComputing = true;
+    try {
+      const repoName = this.gitRoot ? path.basename(this.gitRoot) : undefined;
+      const resolvedTsconfig = tsconfigPath ?? this.trailDb.getCurrentTsconfigPath(repoName);
+      if (!resolvedTsconfig) {
+        TrailLogger.warn('[importance] tsconfig path not available, skipping importance computation');
+        return;
+      }
+      const store = this.trailDb.asC4ModelStore();
+      const payload = await fetchC4Model(store, 'current', repoName, undefined);
+      if (!payload?.model) {
+        TrailLogger.warn('[importance] C4 model not available, skipping importance computation');
+        return;
+      }
+      try {
+        this.lastImportanceMatrix = computeImportanceMatrix(resolvedTsconfig, payload.model.elements);
+      } catch (err) {
+        TrailLogger.error('[importance] computeImportanceMatrix failed', err);
+        return;
+      }
+      if (this.clients.size === 0) return;
+      const message: ServerMessage = { type: 'importance-updated', importanceMatrix: this.lastImportanceMatrix };
+      const json = JSON.stringify(message);
+      for (const ws of this.clients) {
+        ws.send(json);
+      }
+    } finally {
+      this.importanceComputing = false;
     }
   }
 
@@ -2297,6 +2505,74 @@ export class TrailDataServer {
     }
   }
 
+  private async handleC4SequenceEndpoint(
+    res: http.ServerResponse,
+    elementId: string,
+  ): Promise<void> {
+    const { SequenceAnalyzer, createSourceFile } = await import('@anytime-markdown/trail-core/analyzer');
+    const emptyModel = {
+      version: 1 as const,
+      rootElementId: elementId,
+      participants: [],
+      root: { kind: 'sequence' as const, steps: [] },
+    };
+    try {
+      if (!elementId) {
+        res.writeHead(400, JSON_HEADERS);
+        res.end(JSON.stringify({ error: 'elementId is required' }));
+        return;
+      }
+
+      const resolved = await this.resolveModelAndGraph();
+      if (!resolved) {
+        TrailLogger.warn(`[/api/c4/sequence] model or graph not available for elementId=${elementId}`);
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify(emptyModel));
+        return;
+      }
+
+      const { model, graph } = resolved;
+      const { projectRoot } = graph.metadata;
+
+      // 起点要素 + In/Out 関連要素配下の code 要素を全部対象にしてソースを読む
+      const involvedComponentIds = new Set<string>([elementId]);
+      for (const r of model.relationships) {
+        if (r.from === elementId) involvedComponentIds.add(r.to);
+        if (r.to === elementId) involvedComponentIds.add(r.from);
+      }
+      const codeElementIds = new Set(
+        model.elements
+          .filter(el => el.type === 'code' && el.boundaryId !== undefined && involvedComponentIds.has(el.boundaryId))
+          .map(el => el.id),
+      );
+
+      const normalizedRoot = projectRoot.endsWith(path.sep) ? projectRoot : `${projectRoot}${path.sep}`;
+      const sourceFiles = new Map<string, ReturnType<typeof createSourceFile>>();
+      for (const node of graph.nodes) {
+        if (!codeElementIds.has(node.id)) continue;
+        const absolutePath = path.resolve(projectRoot, node.filePath);
+        if (!absolutePath.startsWith(normalizedRoot)) {
+          TrailLogger.warn(`[/api/c4/sequence] path traversal blocked: ${node.filePath}`);
+          continue;
+        }
+        try {
+          const content = fs.readFileSync(absolutePath, 'utf-8');
+          sourceFiles.set(node.filePath, createSourceFile(node.filePath, content));
+        } catch (e) {
+          TrailLogger.error(`[/api/c4/sequence] failed to read file: ${node.filePath}`, e);
+        }
+      }
+
+      const sequenceModel = SequenceAnalyzer.build(elementId, model, graph, sourceFiles);
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify(sequenceModel));
+    } catch (e) {
+      TrailLogger.error(`[/api/c4/sequence] error: elementId=${elementId}`, e);
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify(emptyModel));
+    }
+  }
+
   private async handleCreateManualElement(req: http.IncomingMessage, res: http.ServerResponse, url: URL): Promise<void> {
     const repoName = url.searchParams.get('repoName');
     if (!repoName) { res.writeHead(400); res.end('repoName required'); return; }
@@ -2415,6 +2691,220 @@ export class TrailDataServer {
     if (typeof b.name !== 'string' || b.name.length === 0) return false;
     if (b.serviceType !== undefined && typeof b.serviceType !== 'string') return false;
     return true;
+  }
+
+  // -------------------------------------------------------------------------
+  //  Community summary / mapping handlers (GET/POST /api/c4/communities/*)
+  // -------------------------------------------------------------------------
+
+  private handleListCommunities(res: http.ServerResponse, url: URL): void {
+    const repoName = url.searchParams.get('repoName') ?? url.searchParams.get('repo');
+    if (!repoName) {
+      res.writeHead(400, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'repoName required' }));
+      return;
+    }
+    try {
+      const communities = this.trailDb.listCurrentCodeGraphCommunities(repoName);
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({ communities }));
+    } catch (err) {
+      TrailLogger.error('handleListCommunities failed', err);
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+    }
+  }
+
+  private async handleUpsertCommunitySummaries(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    url: URL,
+  ): Promise<void> {
+    try {
+      const body = (await this.readJsonBody(req)) as {
+        repoName?: string;
+        summaries?: ReadonlyArray<{ communityId: number; name: string; summary: string }>;
+      };
+      const repoName = body.repoName ?? url.searchParams.get('repoName') ?? url.searchParams.get('repo');
+      if (!repoName) {
+        res.writeHead(400, JSON_HEADERS);
+        res.end(JSON.stringify({ error: 'repoName required (in body or query)' }));
+        return;
+      }
+      if (!Array.isArray(body.summaries)) {
+        res.writeHead(400, JSON_HEADERS);
+        res.end(JSON.stringify({ error: 'summaries array required' }));
+        return;
+      }
+      const result = this.trailDb.upsertCurrentCodeGraphCommunitySummaries(repoName, body.summaries);
+      // codeGraphService の in-memory cache を DB と同期してから client に通知。
+      // これにより /api/code-graph が新しい communitySummaries を返し、
+      // useCodeGraph 側で WS 経由 refetch が走る → Reload Window 不要。
+      await this.refreshCodeGraphCache();
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify(result));
+      this.notify('model-updated');
+      this.notifyCodeGraphUpdated();
+    } catch (err) {
+      TrailLogger.error('handleUpsertCommunitySummaries failed', err);
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+    }
+  }
+
+  private async handleUpsertCommunityMappings(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    url: URL,
+  ): Promise<void> {
+    try {
+      const body = (await this.readJsonBody(req)) as {
+        repoName?: string;
+        mappings?: ReadonlyArray<{
+          communityId: number;
+          mappings: ReadonlyArray<{ elementId: string; elementType: string; role: 'primary' | 'secondary' | 'dependency' }>;
+        }>;
+      };
+      const repoName = body.repoName ?? url.searchParams.get('repoName') ?? url.searchParams.get('repo');
+      if (!repoName) {
+        res.writeHead(400, JSON_HEADERS);
+        res.end(JSON.stringify({ error: 'repoName required (in body or query)' }));
+        return;
+      }
+      if (!Array.isArray(body.mappings)) {
+        res.writeHead(400, JSON_HEADERS);
+        res.end(JSON.stringify({ error: 'mappings array required' }));
+        return;
+      }
+      const result = this.trailDb.upsertCurrentCodeGraphCommunityMappings(repoName, body.mappings);
+      await this.refreshCodeGraphCache();
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify(result));
+      this.notify('model-updated');
+      this.notifyCodeGraphUpdated();
+    } catch (err) {
+      TrailLogger.error('handleUpsertCommunityMappings failed', err);
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+    }
+  }
+
+  /**
+   * codeGraphService の in-memory cache を最新の DB 状態で再構築する。
+   * MCP/HTTP 経由でコミュニティ name/summary/mappings_json が更新されたとき、
+   * 直接 sql.js の DB ファイルが書き換わったとしても、
+   * 拡張プロセスの cached graph は変わらないため、明示的に load し直す必要がある。
+   * 失敗してもレスポンスは成功扱い（cache 不整合でも DB は正しいため、Reload で復帰可能）。
+   */
+  private async refreshCodeGraphCache(): Promise<void> {
+    if (!this.codeGraphService) return;
+    try {
+      await this.codeGraphService.loadFromDb();
+    } catch (err) {
+      TrailLogger.warn(`[community-upsert] cache compose failed (loadFromDb): ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  //  Analyze pipeline handlers (POST /api/analyze/*)
+  // -------------------------------------------------------------------------
+
+  private async handleAnalyzeCurrent(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+  ): Promise<void> {
+    if (!this.onAnalyzeCurrentCode) {
+      res.writeHead(503, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'analyze handler not registered' }));
+      return;
+    }
+    if (this.analysisInProgress) {
+      res.writeHead(409, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'analysis in progress', current: this.analysisInProgress }));
+      return;
+    }
+    let body: { workspacePath?: string; tsconfigPath?: string } = {};
+    try {
+      const parsed = (await this.readJsonBody(req).catch(() => ({}))) as Record<string, unknown>;
+      if (typeof parsed.workspacePath === 'string') body.workspacePath = parsed.workspacePath;
+      if (typeof parsed.tsconfigPath === 'string') body.tsconfigPath = parsed.tsconfigPath;
+    } catch {
+      // 空 body 許容（全引数省略時はサーバー側で workspacePath を解決）
+      body = {};
+    }
+    this.analysisInProgress = { kind: 'current', startedAt: Date.now() };
+    try {
+      const result = await this.onAnalyzeCurrentCode(body);
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      TrailLogger.error('handleAnalyzeCurrent failed', err);
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+    } finally {
+      this.analysisInProgress = null;
+    }
+  }
+
+  private async handleAnalyzeRelease(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse,
+  ): Promise<void> {
+    if (!this.onAnalyzeReleaseCode) {
+      res.writeHead(503, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'analyze handler not registered' }));
+      return;
+    }
+    if (this.analysisInProgress) {
+      res.writeHead(409, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'analysis in progress', current: this.analysisInProgress }));
+      return;
+    }
+    this.analysisInProgress = { kind: 'release', startedAt: Date.now() };
+    try {
+      const result = await this.onAnalyzeReleaseCode();
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      TrailLogger.error('handleAnalyzeRelease failed', err);
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+    } finally {
+      this.analysisInProgress = null;
+    }
+  }
+
+  private async handleAnalyzeAll(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse,
+  ): Promise<void> {
+    if (!this.onAnalyzeAll) {
+      res.writeHead(503, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'analyze handler not registered' }));
+      return;
+    }
+    if (this.analysisInProgress) {
+      res.writeHead(409, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'analysis in progress', current: this.analysisInProgress }));
+      return;
+    }
+    this.analysisInProgress = { kind: 'all', startedAt: Date.now() };
+    try {
+      const result = await this.onAnalyzeAll();
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      TrailLogger.error('handleAnalyzeAll failed', err);
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+    } finally {
+      this.analysisInProgress = null;
+    }
+  }
+
+  private handleAnalyzeStatus(res: http.ServerResponse): void {
+    res.writeHead(200, JSON_HEADERS);
+    res.end(JSON.stringify({ inProgress: this.analysisInProgress }));
   }
 
   private readJsonBody(req: http.IncomingMessage): Promise<unknown> {

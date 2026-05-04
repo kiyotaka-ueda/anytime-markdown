@@ -1,47 +1,71 @@
 import type { OgpData } from "../types/embedProvider";
 
+const WHITESPACE = new Set([" ", "\t", "\n", "\r"]);
+const SKIP_BEFORE_NAME = new Set([" ", "\t", "\n", "\r", "/"]);
+const NAME_TERMINATORS = new Set([" ", "\t", "\n", "\r", "=", ">"]);
+const VALUE_TERMINATORS = new Set([" ", "\t", "\n", "\r", ">"]);
+
+function skipWhile(tag: string, end: number, start: number, chars: Set<string>): number {
+    let i = start;
+    while (i < end && chars.has(tag[i])) i += 1;
+    return i;
+}
+
+function readUntil(tag: string, end: number, start: number, terminators: Set<string>): number {
+    let i = start;
+    while (i < end && !terminators.has(tag[i])) i += 1;
+    return i;
+}
+
+function parseQuotedValue(tag: string, end: number, start: number, quote: string): { value: string; next: number } {
+    const valueStart = start + 1;
+    let i = valueStart;
+    while (i < end && tag[i] !== quote) i += 1;
+    const value = tag.slice(valueStart, i);
+    return { value, next: i < end ? i + 1 : i };
+}
+
+function parseUnquotedValue(tag: string, end: number, start: number): { value: string; next: number } {
+    const next = readUntil(tag, end, start, VALUE_TERMINATORS);
+    return { value: tag.slice(start, next), next };
+}
+
+function parseAttributeValue(tag: string, end: number, start: number): { value: string; next: number } {
+    const quote = tag[start];
+    if (quote === `"` || quote === "'") return parseQuotedValue(tag, end, start, quote);
+    return parseUnquotedValue(tag, end, start);
+}
+
 function parseTagAttributes(tag: string): Record<string, string> {
     const attrs: Record<string, string> = {};
     const end = tag.endsWith(">") ? tag.length - 1 : tag.length;
-    let i = 0;
 
-    while (i < end && tag[i] !== " ") i += 1;
+    // 先頭のタグ名をスキップ
+    let i = readUntil(tag, end, 0, new Set([" "]));
+
     while (i < end) {
-        while (i < end && (tag[i] === " " || tag[i] === "\t" || tag[i] === "\n" || tag[i] === "\r" || tag[i] === "/")) i += 1;
+        i = skipWhile(tag, end, i, SKIP_BEFORE_NAME);
         if (i >= end) break;
 
         const nameStart = i;
-        while (i < end && tag[i] !== "=" && tag[i] !== " " && tag[i] !== "\t" && tag[i] !== "\n" && tag[i] !== "\r" && tag[i] !== ">") i += 1;
+        i = readUntil(tag, end, i, NAME_TERMINATORS);
         const name = tag.slice(nameStart, i).toLowerCase();
         if (!name) break;
 
-        while (i < end && (tag[i] === " " || tag[i] === "\t" || tag[i] === "\n" || tag[i] === "\r")) i += 1;
+        i = skipWhile(tag, end, i, WHITESPACE);
         if (i >= end || tag[i] !== "=") {
             attrs[name] = "";
             continue;
         }
-        i += 1;
-        while (i < end && (tag[i] === " " || tag[i] === "\t" || tag[i] === "\n" || tag[i] === "\r")) i += 1;
+        i = skipWhile(tag, end, i + 1, WHITESPACE);
         if (i >= end) {
             attrs[name] = "";
             break;
         }
 
-        let value = "";
-        const quote = tag[i];
-        if (quote === `"` || quote === "'") {
-            i += 1;
-            const valueStart = i;
-            while (i < end && tag[i] !== quote) i += 1;
-            value = tag.slice(valueStart, i);
-            if (i < end && tag[i] === quote) i += 1;
-        } else {
-            const valueStart = i;
-            while (i < end && tag[i] !== " " && tag[i] !== "\t" && tag[i] !== "\n" && tag[i] !== "\r" && tag[i] !== ">") i += 1;
-            value = tag.slice(valueStart, i);
-        }
-
-        attrs[name] = value;
+        const parsed = parseAttributeValue(tag, end, i);
+        attrs[name] = parsed.value;
+        i = parsed.next;
     }
 
     return attrs;

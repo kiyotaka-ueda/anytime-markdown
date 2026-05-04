@@ -3,10 +3,8 @@ import { TraceViewer } from '@anytime-markdown/trace-viewer';
 import type { TraceFileSource } from '@anytime-markdown/trace-viewer';
 import type { SourceLocation } from '@anytime-markdown/trace-core/types';
 import Box from '@mui/material/Box';
-import LinearProgress from '@mui/material/LinearProgress';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 
 import type {
@@ -26,7 +24,7 @@ import { ReleasesPanel } from './ReleasesPanel';
 import { SessionList } from './SessionList';
 import { StatsBar } from './StatsBar';
 import { TraceTree } from './TraceTree';
-import { TraceTimeline } from './TraceTimeline';
+import { MessageTimeline } from './MessageTimeline';
 import { TrailThemeProvider } from './TrailThemeContext';
 import { getTokens } from './designTokens';
 import { TrailLocaleProvider, useTrailI18n } from '../i18n';
@@ -35,11 +33,10 @@ import type { TrailRelease } from '@anytime-markdown/trail-core/domain';
 
 import { C4ViewerCore } from '../c4/components/C4ViewerCore';
 import type { C4ViewerCoreProps } from '../c4/components/C4ViewerCore';
-import { CodeGraphPanel } from './CodeGraphPanel';
-import { MatrixPanel } from '../c4/components/MatrixPanel';
+import { useC4SequenceData } from '../c4/hooks/useC4SequenceData';
 
 /** C4-related props forwarded to the embedded C4ViewerCore. */
-type C4Props = Omit<C4ViewerCoreProps, 'isDark' | 'containerHeight'>;
+type C4Props = Omit<C4ViewerCoreProps, 'isDark' | 'containerHeight' | 'onShowSequence'>;
 
 export interface TrailViewerCoreProps {
   readonly isDark?: boolean;
@@ -64,17 +61,14 @@ export interface TrailViewerCoreProps {
   readonly fetchQualityMetrics?: AnalyticsPanelProps['fetchQualityMetrics'];
   readonly fetchDeploymentFrequency?: AnalyticsPanelProps['fetchDeploymentFrequency'];
   readonly fetchReleaseQuality?: AnalyticsPanelProps['fetchReleaseQuality'];
-  readonly tokenBudgets?: readonly import('../hooks/useTrailDataSource').TokenBudgetStatus[];
   readonly sessionsLoading?: boolean;
   /** C4 viewer props. When provided, the C4 tab is shown. */
   readonly c4?: C4Props;
-  /** Code graph props. When provided, the Graph tab is shown. */
-  readonly codeGraph?: { readonly serverUrl: string };
   /** Trace files. When provided, the Trace tab is shown. */
   readonly traceFiles?: readonly TraceFileSource[];
   /** Called when user clicks a node to jump to source. */
   readonly onJumpToSource?: (loc: SourceLocation) => void;
-  /** 初期表示タブ番号（0=Analytics, 1=Traces, 2=Prompts, 3=Releases, 4=C4, 5=Matrix, 6=Graph, 7=Trace）*/
+  /** 初期表示タブ番号（0=Analytics, 1=Traces, 2=Prompts, 3=Releases, 4=C4, 5=Trace）*/
   readonly initialTab?: number;
 }
 
@@ -112,10 +106,8 @@ function TrailViewerCoreInner({
   fetchQualityMetrics,
   fetchDeploymentFrequency,
   fetchReleaseQuality,
-  tokenBudgets = [],
   sessionsLoading,
   c4,
-  codeGraph,
   traceFiles,
   onJumpToSource,
   initialTab,
@@ -124,6 +116,16 @@ function TrailViewerCoreInner({
   const tokens = useMemo(() => getTokens(isDark ?? true), [isDark]);
   const { colors, scrollbarSx } = tokens;
   const [activeTab, setActiveTab] = useState(initialTab ?? 0);
+  const [activeSequenceElementId, setActiveSequenceElementId] = useState<string | null>(null);
+  const c4SequenceState = useC4SequenceData(c4?.serverUrl, activeSequenceElementId);
+
+  const handleShowSequence = useCallback(
+    (elementId: string) => {
+      setActiveSequenceElementId(elementId);
+      setActiveTab(7);
+    },
+    [],
+  );
 
   const visibleSessions = useMemo(() => {
     let result: readonly TrailSession[] = allSessions ?? sessions;
@@ -209,33 +211,14 @@ function TrailViewerCoreInner({
             '& .MuiTabs-indicator': { backgroundColor: colors.iceBlue },
           }}
         >
-          <Tab id="trail-tab-0" aria-controls="trail-panel-0" label={t('viewer.analytics')} />
-          <Tab id="trail-tab-1" aria-controls="trail-panel-1" label={t('viewer.traces')} />
-          <Tab id="trail-tab-2" aria-controls="trail-panel-2" label={t('viewer.prompts')} />
-          <Tab id="trail-tab-3" aria-controls="trail-panel-3" label={t('releases.title')} />
-          {c4 && <Tab id="trail-tab-4" aria-controls="trail-panel-4" label={t('viewer.c4')} />}
-          {c4 && <Tab id="trail-tab-5" aria-controls="trail-panel-5" label={t('viewer.matrix')} />}
-          {codeGraph && <Tab id="trail-tab-6" aria-controls="trail-panel-6" label="Graph" />}
-          {traceFiles && <Tab id="trail-tab-7" aria-controls="trail-panel-7" label={t('viewer.trace')} />}
+          <Tab id="trail-tab-0" aria-controls="trail-panel-0" label={t('viewer.tab.analytics')} />
+          <Tab id="trail-tab-1" aria-controls="trail-panel-1" label={t('viewer.tab.messages')} />
+          <Tab id="trail-tab-2" aria-controls="trail-panel-2" label={t('viewer.tab.prompts')} />
+          <Tab id="trail-tab-3" aria-controls="trail-panel-3" label={t('viewer.tab.releases')} />
+          {c4 && <Tab id="trail-tab-4" aria-controls="trail-panel-4" label={t('viewer.tab.model')} />}
+          {(traceFiles || c4) && <Tab id="trail-tab-5" aria-controls="trail-panel-5" label={t('viewer.tab.trace')} />}
         </Tabs>
-        {tokenBudgets.length > 0 && (
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', px: 2, flexShrink: 0 }}>
-            {tokenBudgets.map((tb, idx) => (
-              <Box key={tb.sessionId} sx={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                {idx > 0 && <Box sx={{ width: '1px', height: 24, bgcolor: colors.border, flexShrink: 0 }} />}
-                <SessionBudgetBadge tokenBudget={tb} colors={colors} />
-              </Box>
-            ))}
-            <Box sx={{ width: '1px', height: 24, bgcolor: colors.border, flexShrink: 0 }} />
-            <TokenBudgetIndicator
-              label={t('tokenBudget.daily')}
-              current={tokenBudgets[0].dailyTokens}
-              limit={tokenBudgets[0].dailyLimitTokens}
-              threshold={tokenBudgets[0].alertThresholdPct}
-              colors={colors}
-            />
-          </Box>
-        )}
+
       </Box>
 
       <Box
@@ -295,7 +278,7 @@ function TrailViewerCoreInner({
           </Box>
 
           <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <TraceTimeline
+            <MessageTimeline
               nodes={buildMessageTree(messages)}
               session={selectedSession}
               onSelectMessage={() => { /* scroll handled inside component */ }}
@@ -343,52 +326,27 @@ function TrailViewerCoreInner({
           aria-labelledby="trail-tab-4"
           sx={{ display: activeTab !== 4 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
         >
-          <C4ViewerCore isDark={isDark} containerHeight="100%" {...c4} />
+          <C4ViewerCore
+            isDark={isDark}
+            containerHeight="100%"
+            onShowSequence={handleShowSequence}
+            {...c4}
+          />
         </Box>
       )}
 
-      {c4 && (
+      {(traceFiles || c4) && (
         <Box
           role="tabpanel"
           id="trail-panel-5"
           aria-labelledby="trail-tab-5"
           sx={{ display: activeTab !== 5 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
         >
-          <MatrixPanel
-            dsmMatrix={c4.dsmMatrix}
-            coverageMatrix={c4.coverageMatrix}
-            complexityMatrix={c4.complexityMatrix}
-            c4Model={c4.c4Model}
-            serverUrl={c4.serverUrl}
-            selectedRepo={c4.selectedRepo}
-            isDark={isDark}
-            isActive={activeTab === 5}
-          />
-        </Box>
-      )}
-
-      {codeGraph && (
-        <Box
-          role="tabpanel"
-          id="trail-panel-6"
-          aria-labelledby="trail-tab-6"
-          sx={{ display: activeTab !== 6 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
-        >
-          <CodeGraphPanel serverUrl={codeGraph.serverUrl} isDark={isDark} />
-        </Box>
-      )}
-
-      {traceFiles && (
-        <Box
-          role="tabpanel"
-          id="trail-panel-7"
-          aria-labelledby="trail-tab-7"
-          sx={{ display: activeTab !== 7 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
-        >
           <TraceViewer
-            traceFiles={traceFiles}
+            traceFiles={traceFiles ?? []}
             isDark={isDark ?? true}
             onJumpToSource={onJumpToSource}
+            c4Sequence={c4SequenceState.model}
           />
         </Box>
       )}
@@ -396,96 +354,3 @@ function TrailViewerCoreInner({
   );
 }
 
-function SessionBudgetBadge({ tokenBudget, colors }: Readonly<{
-  tokenBudget: import('../hooks/useTrailDataSource').TokenBudgetStatus;
-  colors: ReturnType<typeof getTokens>['colors'];
-}>) {
-  const color = resolveTokenColor(tokenBudget.sessionTokens, tokenBudget.sessionLimitTokens, tokenBudget.alertThresholdPct, colors);
-  const tooltipText = tokenBudget.sessionLimitTokens != null
-    ? `${tokenBudget.sessionTokens.toLocaleString()} / ${tokenBudget.sessionLimitTokens.toLocaleString()} tokens · ${tokenBudget.messageCount} messages`
-    : `${tokenBudget.sessionTokens.toLocaleString()} tokens · ${tokenBudget.messageCount} messages`;
-
-  return (
-    <Tooltip title={tooltipText} placement="bottom">
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-        <Typography sx={{ color: colors.textSecondary, fontSize: '0.6rem', fontFamily: 'monospace', lineHeight: 1 }}>
-          {tokenBudget.sessionId.slice(0, 8)}
-        </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: '5px' }}>
-          <Typography sx={{ color, fontSize: '0.7rem', fontFamily: 'monospace', lineHeight: 1, fontWeight: 500 }}>
-            {formatTokens(tokenBudget.sessionTokens)}
-          </Typography>
-          <Typography sx={{ color: colors.textSecondary, fontSize: '0.65rem', lineHeight: 1 }}>
-            {tokenBudget.messageCount}
-          </Typography>
-        </Box>
-      </Box>
-    </Tooltip>
-  );
-}
-
-interface TokenBudgetIndicatorProps {
-  readonly label: string;
-  readonly current: number;
-  readonly limit: number | null;
-  readonly threshold: number;
-  readonly colors: ReturnType<typeof getTokens>['colors'];
-}
-
-function formatTokens(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
-  return String(n);
-}
-
-// リミットあり: threshold未満=緑, threshold〜中間=オレンジ, 中間以上=赤
-// リミットなし: <50K=緑, 50K-100K=オレンジ, >100K=赤
-function resolveTokenColor(
-  current: number,
-  limit: number | null,
-  threshold: number,
-  colors: ReturnType<typeof getTokens>['colors'],
-): string {
-  if (limit !== null) {
-    const pct = Math.min((current / limit) * 100, 100);
-    const midpoint = threshold + (100 - threshold) / 2;
-    if (pct >= midpoint) return colors.error;
-    if (pct >= threshold) return colors.warning;
-    return colors.success;
-  }
-  if (current >= 100_000) return colors.error;
-  if (current >= 50_000) return colors.warning;
-  return colors.success;
-}
-
-function TokenBudgetIndicator({ label, current, limit, threshold, colors }: Readonly<TokenBudgetIndicatorProps>) {
-  const color = resolveTokenColor(current, limit, threshold, colors);
-
-  if (limit === null) {
-    return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-        <Typography sx={{ color: colors.textSecondary, fontSize: '0.6rem', lineHeight: 1 }}>{label}</Typography>
-        <Typography sx={{ color, fontSize: '0.7rem', fontFamily: 'monospace', lineHeight: 1, fontWeight: 500 }}>{formatTokens(current)}</Typography>
-      </Box>
-    );
-  }
-
-  const pct = Math.min((current / limit) * 100, 100);
-  const tooltipText = `${current.toLocaleString()} / ${limit.toLocaleString()} tokens`;
-
-  return (
-    <Tooltip title={tooltipText} placement="bottom">
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-        <Typography sx={{ color: colors.textSecondary, fontSize: '0.6rem', lineHeight: 1 }}>{label}</Typography>
-        <LinearProgress
-          variant="determinate"
-          value={pct}
-          sx={{ width: 40, height: 2, borderRadius: 1, bgcolor: colors.border, '& .MuiLinearProgress-bar': { bgcolor: color } }}
-        />
-        <Typography sx={{ color, fontSize: '0.6rem', fontFamily: 'monospace', lineHeight: 1 }}>
-          {formatTokens(current)}/{formatTokens(limit)}
-        </Typography>
-      </Box>
-    </Tooltip>
-  );
-}

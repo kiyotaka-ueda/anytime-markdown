@@ -17,7 +17,7 @@ export interface UseHotspotResult {
 const DEFAULT_DEBOUNCE_MS = 300;
 
 export function useHotspot(options: UseHotspotOptions): UseHotspotResult {
-  const { enabled, serverUrl, period, granularity, debounceMs = DEFAULT_DEBOUNCE_MS } = options;
+  const { enabled, serverUrl, period, granularity, repo, debounceMs = DEFAULT_DEBOUNCE_MS } = options;
   const [data, setData] = useState<HotspotResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -37,7 +37,7 @@ export function useHotspot(options: UseHotspotOptions): UseHotspotResult {
     const handle = setTimeout(() => {
       setLoading(true);
       setError(null);
-      fetchHotspotApi(serverUrl, { period, granularity }, controller.signal)
+      fetchHotspotApi(serverUrl, { period, granularity, repo }, controller.signal)
         .then((res) => {
           if (controller.signal.aborted) return;
           setData(res);
@@ -55,7 +55,7 @@ export function useHotspot(options: UseHotspotOptions): UseHotspotResult {
       clearTimeout(handle);
       controller.abort();
     };
-  }, [enabled, serverUrl, period, granularity, debounceMs]);
+  }, [enabled, serverUrl, period, granularity, repo, debounceMs]);
 
   return { data, loading, error };
 }

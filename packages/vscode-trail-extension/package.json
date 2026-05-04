@@ -2,7 +2,7 @@
   "name": "anytime-trail",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "license": "MIT",
   "publisher": "anytime-trial",
   "repository": {
@@ -16,18 +16,13 @@
     "Visualization"
   ],
   "keywords": [
-    "c4",
     "architecture",
     "trail",
     "dashboard",
     "analysis"
   ],
   "activationEvents": [
-    "onCommand:anytime-trail.c4Analyze",
-    "onCommand:anytime-trail.c4View",
-    "onCommand:anytime-trail.dsmAnalyze",
-    "onView:anytimeTrail.database",
-    "onView:anytimeTrail.c4Elements"
+    "onView:anytimeTrail.database"
   ],
   "icon": "images/anytime-control-256.png",
   "main": "./dist/extension.js",
@@ -52,16 +47,12 @@
           "name": "%view.dashboard%"
         },
         {
+          "id": "anytimeTrail.agentMapping",
+          "name": "%view.agentMapping%"
+        },
+        {
           "id": "anytimeTrail.database",
           "name": "%view.database%"
-        },
-        {
-          "id": "anytimeTrail.c4Elements",
-          "name": "%view.c4Elements%"
-        },
-        {
-          "id": "anytimeTrail.aiMemory",
-          "name": "Memory"
         }
       ]
     },
@@ -75,75 +66,51 @@
         "contents": "%viewsWelcome.dashboard%"
       },
       {
-        "view": "anytimeTrail.c4Elements",
-        "contents": "%viewsWelcome.c4Elements%",
-        "when": "!anytimeTrail.c4ModelLoaded"
+        "view": "anytimeTrail.agentMapping",
+        "contents": "%viewsWelcome.agentMapping%"
       }
     ],
     "commands": [
       {
-        "command": "anytime-trail.openContext",
-        "title": "%command.openContext%",
+        "command": "anytime-trail.openAiNote",
+        "title": "%command.openAiNote%",
+        "category": "Anytime Trail",
         "icon": "$(note)"
       },
       {
-        "command": "anytime-trail.openNoteSkill",
-        "title": "%command.openNoteSkill%",
+        "command": "anytime-trail.openAiNoteSkill",
+        "title": "%command.openAiNoteSkill%",
+        "category": "Anytime Trail",
         "icon": "$(book)"
       },
       {
-        "command": "anytime-trail.addNotePage",
-        "title": "%command.addNotePage%",
+        "command": "anytime-trail.addAiNotePage",
+        "title": "%command.addAiNotePage%",
+        "category": "Anytime Trail",
         "icon": "$(add)"
       },
       {
-        "command": "anytime-trail.deleteNotePage",
-        "title": "%command.deleteNotePage%",
+        "command": "anytime-trail.deleteAiNotePage",
+        "title": "%command.deleteAiNotePage%",
+        "category": "Anytime Trail",
         "icon": "$(trash)"
       },
       {
-        "command": "anytime-trail.openNotePage",
-        "title": "%command.openNotePage%"
+        "command": "anytime-trail.openAiNotePage",
+        "title": "%command.openAiNotePage%",
+        "category": "Anytime Trail"
       },
       {
-        "command": "anytime-trail.clearContext",
-        "title": "%command.clearContext%",
+        "command": "anytime-trail.clearAiNote",
+        "title": "%command.clearAiNote%",
+        "category": "Anytime Trail",
         "icon": "$(trash)"
       },
       {
-        "command": "anytime-trail.copyContextPath",
-        "title": "%command.copyContextPath%",
+        "command": "anytime-trail.copyAiNotePath",
+        "title": "%command.copyAiNotePath%",
+        "category": "Anytime Trail",
         "icon": "$(clippy)"
-      },
-      {
-        "command": "anytime-trail.c4Analyze",
-        "title": "%command.c4Analyze%",
-        "icon": "$(symbol-class)"
-      },
-      {
-        "command": "anytime-trail.c4View",
-        "title": "%command.c4View%",
-        "icon": "$(open-preview)"
-      },
-      {
-        "command": "anytime-trail.dsmAnalyze",
-        "title": "%command.dsmAnalyze%",
-        "icon": "$(graph)"
-      },
-      {
-        "command": "anytime-trail.loadCoverage",
-        "title": "Load Coverage",
-        "icon": "$(beaker)"
-      },
-      {
-        "command": "anytime-trail.runE2eTest",
-        "title": "E2Eテスト実行",
-        "icon": "$(play)"
-      },
-      {
-        "command": "anytime-trail.runCoverageTest",
-        "title": "テスト実行（カバレッジ付き）",
-        "icon": "$(beaker)"
       },
       {
         "command": "anytime-trail.openTrailViewer",
@@ -158,46 +125,20 @@
         "icon": "$(discard)"
       },
       {
-        "command": "anytime-trail.importTrailData",
-        "title": "Refresh Trail Data",
+        "command": "anytime-trail.analyzeAll",
+        "title": "%command.analyzeAll%",
         "category": "Anytime Trail",
         "icon": "$(refresh)"
       },
       {
-        "command": "anytime-trail.syncToRemote",
-        "title": "Sync to Remote DB",
+        "command": "anytime-trail.analyzeCurrentCode",
+        "title": "%command.analyzeCurrentCode%",
         "category": "Anytime Trail",
-        "icon": "$(cloud-upload)"
+        "icon": "$(symbol-class)"
       },
       {
-        "command": "anytime-trail.syncToSupabase",
-        "title": "同期",
-        "category": "Anytime Trail"
-      },
-      {
-        "command": "anytime-trail.reconnectSupabase",
-        "title": "再接続",
-        "category": "Anytime Trail"
-      },
-      {
-        "command": "anytime-trail.aiMemoryRefresh",
-        "title": "%command.aiMemoryRefresh%",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "anytime-trail.generateCodeGraph",
-        "title": "Generate Code Graph",
-        "category": "Anytime Trail",
-        "icon": "$(graph)"
-      },
-      {
-        "command": "anytime-trail.regenerateCurrentCodeGraph",
-        "title": "Regenerate Current Code Graph",
-        "category": "Anytime Trail"
-      },
-      {
-        "command": "anytime-trail.regenerateReleaseCodeGraphs",
-        "title": "Regenerate Release Code Graphs",
+        "command": "anytime-trail.analyzeReleaseCode",
+        "title": "%command.analyzeReleaseCode%",
         "category": "Anytime Trail"
       },
       {
@@ -205,6 +146,54 @@
         "title": "%command.runWithTrace%",
         "category": "Anytime Trail",
         "icon": "$(beaker)"
+      },
+      {
+        "command": "anytime-trail.agentMapping.refresh",
+        "title": "%command.agentMapping.refresh%",
+        "icon": "$(refresh)",
+        "category": "Anytime Trail"
+      },
+      {
+        "command": "anytime-trail.agentMapping.cleanupStale",
+        "title": "%command.agentMapping.cleanupStale%",
+        "icon": "$(trash)",
+        "category": "Anytime Trail"
+      },
+      {
+        "command": "anytime-trail.agentMapping.toggleStale",
+        "title": "%command.agentMapping.toggleStale%",
+        "icon": "$(list-filter)",
+        "category": "Anytime Trail"
+      },
+      {
+        "command": "anytime-trail.agentMapping.openWorktree",
+        "title": "%command.agentMapping.openWorktree%",
+        "category": "Anytime Trail"
+      },
+      {
+        "command": "anytime-trail.agentMapping.copyWorktreePath",
+        "title": "%command.agentMapping.copyWorktreePath%",
+        "category": "Anytime Trail"
+      },
+      {
+        "command": "anytime-trail.agentMapping.showSessionEdits",
+        "title": "%command.agentMapping.showSessionEdits%",
+        "category": "Anytime Trail"
+      },
+      {
+        "command": "anytime-trail.agentMapping.copySessionId",
+        "title": "%command.agentMapping.copySessionId%",
+        "category": "Anytime Trail"
+      },
+      {
+        "command": "anytime-trail.agentMapping.deleteStatusFile",
+        "title": "%command.agentMapping.deleteStatusFile%",
+        "category": "Anytime Trail"
+      },
+      {
+        "command": "anytime-trail.reinstallSkills",
+        "title": "%command.reinstallSkills%",
+        "category": "Anytime Trail"
       }
     ],
     "codeLensProviders": [
@@ -224,155 +213,108 @@
     "menus": {
       "view/title": [
         {
-          "command": "anytime-trail.openNoteSkill",
+          "command": "anytime-trail.openAiNoteSkill",
           "when": "view == anytimeTrail.aiNote",
           "group": "navigation@1"
         },
         {
-          "command": "anytime-trail.addNotePage",
+          "command": "anytime-trail.addAiNotePage",
           "when": "view == anytimeTrail.aiNote",
           "group": "navigation@2"
         },
         {
-          "command": "anytime-trail.clearContext",
+          "command": "anytime-trail.clearAiNote",
           "when": "view == anytimeTrail.aiNote",
           "group": "navigation@3"
         },
         {
-          "command": "anytime-trail.copyContextPath",
+          "command": "anytime-trail.copyAiNotePath",
           "when": "view == anytimeTrail.aiNote",
           "group": "navigation@3"
         },
         {
-          "command": "anytime-trail.c4Analyze",
-          "when": "view == anytimeTrail.c4Elements",
+          "command": "anytime-trail.analyzeAll",
+          "when": "view == anytimeTrail.database",
           "group": "navigation@1"
         },
         {
-          "command": "anytime-trail.aiMemoryRefresh",
-          "when": "view == anytimeTrail.aiMemory",
+          "command": "anytime-trail.analyzeCurrentCode",
+          "when": "view == anytimeTrail.database",
+          "group": "navigation@2"
+        },
+        {
+          "command": "anytime-trail.agentMapping.refresh",
+          "when": "view == anytimeTrail.agentMapping",
           "group": "navigation"
+        },
+        {
+          "command": "anytime-trail.agentMapping.cleanupStale",
+          "when": "view == anytimeTrail.agentMapping",
+          "group": "navigation"
+        },
+        {
+          "command": "anytime-trail.agentMapping.toggleStale",
+          "when": "view == anytimeTrail.agentMapping && !anytimeTrail.agentMapping.filterActive",
+          "group": "navigation",
+          "icon": "$(filter)"
+        },
+        {
+          "command": "anytime-trail.agentMapping.toggleStale",
+          "when": "view == anytimeTrail.agentMapping && anytimeTrail.agentMapping.filterActive",
+          "group": "navigation",
+          "icon": "$(filter-filled)"
         }
       ],
       "view/item/context": [
         {
-          "command": "anytime-trail.deleteNotePage",
+          "command": "anytime-trail.deleteAiNotePage",
           "when": "view == anytimeTrail.aiNote && viewItem == noteItem",
           "group": "inline"
         },
         {
-          "command": "anytime-trail.runE2eTest",
-          "when": "view == anytimeTrail.c4Elements && viewItem == c4Level.c1",
-          "group": "1_test@1"
+          "command": "anytime-trail.agentMapping.openWorktree",
+          "when": "view == anytimeTrail.agentMapping && viewItem =~ /^worktree/",
+          "group": "1_open@1"
         },
         {
-          "command": "anytime-trail.runCoverageTest",
-          "when": "view == anytimeTrail.c4Elements && viewItem == c4Level.c4",
-          "group": "1_test@1"
+          "command": "anytime-trail.agentMapping.copyWorktreePath",
+          "when": "view == anytimeTrail.agentMapping && viewItem =~ /^worktree/",
+          "group": "2_copy@1"
         },
         {
-          "command": "anytime-trail.importTrailData",
-          "when": "view == anytimeTrail.database && viewItem == sqliteDb",
-          "group": "inline"
+          "command": "anytime-trail.agentMapping.showSessionEdits",
+          "when": "view == anytimeTrail.agentMapping && viewItem =~ /^session/",
+          "group": "1_open@1"
         },
         {
-          "command": "anytime-trail.syncToSupabase",
-          "when": "view == anytimeTrail.database && viewItem == supabaseDb",
-          "group": "inline"
+          "command": "anytime-trail.agentMapping.copySessionId",
+          "when": "view == anytimeTrail.agentMapping && viewItem =~ /^session/",
+          "group": "2_copy@1"
         },
         {
-          "command": "anytime-trail.reconnectSupabase",
-          "when": "view == anytimeTrail.database && viewItem == supabaseDb",
-          "group": "inline"
+          "command": "anytime-trail.agentMapping.deleteStatusFile",
+          "when": "view == anytimeTrail.agentMapping && viewItem == session.stale",
+          "group": "3_modify@1"
         }
       ]
     },
     "configuration": {
       "title": "Anytime Trail",
       "properties": {
-        "anytimeTrail.c4.analyzeExcludePatterns": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [
-            ".worktrees",
-            ".vscode-test",
-            "__tests__"
-          ],
-          "markdownDescription": "%config.c4AnalyzeExcludePatterns%"
+        "anytimeTrail.workspace.path": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "解析対象ワークスペースの絶対パス。Code Graph と C4 Model 両方の解析で使用される。空欄の場合は現在 VS Code で開いているワークスペースを使用する。"
         },
-        "anytimeTrail.docsPath": {
+        "anytimeTrail.workspace.docsPath": {
           "type": "string",
           "default": "",
           "markdownDescription": "Absolute path to the documentation directory for C4 document links. When set, Markdown files with `c4Scope` frontmatter are indexed and shown in the C4 viewer."
         },
-        "anytimeTrail.codeGraph.outputDir": {
-          "type": "string",
-          "default": "${workspaceFolder}/.vscode/graphify-out",
-          "markdownDescription": "コードグラフの出力先ディレクトリ。`${workspaceFolder}` を使用可能。"
-        },
-        "anytimeTrail.codeGraph.repositories": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [
-            "${workspaceFolder}"
-          ],
-          "markdownDescription": "解析対象リポジトリのパスリスト。絶対パスまたは `${workspaceFolder}` を指定する。表示名はパスの末尾フォルダ名が使用される。"
-        },
-        "anytimeTrail.codeGraph.autoRefresh": {
-          "type": "boolean",
-          "default": false,
-          "markdownDescription": "拡張機能起動時にコードグラフを自動生成する。"
-        },
-        "anytimeTrail.test.e2eCommand": {
-          "type": "string",
-          "default": "cd packages/web-app && npm run e2e",
-          "markdownDescription": "Command to run E2E tests (executed in VS Code terminal)."
-        },
-        "anytimeTrail.test.coverageCommand": {
-          "type": "string",
-          "default": "npx jest --coverage --maxWorkers=1",
-          "markdownDescription": "Command to run tests with coverage (executed in VS Code terminal). The generated `coverage-final.json` is auto-detected by the coverage watcher."
-        },
-        "anytimeTrail.trailServer.port": {
+        "anytimeTrail.viewer.port": {
           "type": "number",
           "default": 19841,
           "description": "Port number for the Trail Viewer server"
-        },
-        "anytimeTrail.coverage.historyLimit": {
-          "type": "number",
-          "default": 50,
-          "minimum": 1,
-          "maximum": 500,
-          "markdownDescription": "Maximum number of coverage history snapshots to keep."
-        },
-        "anytimeTrail.remote.provider": {
-          "type": "string",
-          "enum": [
-            "none",
-            "supabase",
-            "postgres"
-          ],
-          "default": "none",
-          "markdownDescription": "Remote database provider for Trail data sync. `none` disables sync."
-        },
-        "anytimeTrail.remote.supabaseUrl": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "Supabase project URL (e.g. `https://xxx.supabase.co`)"
-        },
-        "anytimeTrail.remote.supabaseAnonKey": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "Supabase anon key for Trail data sync"
-        },
-        "anytimeTrail.remote.postgresUrl": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "PostgreSQL connection string (e.g. `postgres://user:pass@host:5432/db`)"
         },
         "anytimeTrail.database.storagePath": {
           "type": "string",
@@ -434,8 +376,8 @@
   "dependencies": {
     "@anytime-markdown/graph-core": "*",
     "@anytime-markdown/trail-core": "*",
+    "@anytime-markdown/trail-db": "*",
     "@anytime-markdown/vscode-common": "*",
-    "@supabase/supabase-js": "2.103.0",
     "graphology": "0.26.0",
     "graphology-communities-louvain": "2.0.2",
     "graphology-layout": "0.6.1",

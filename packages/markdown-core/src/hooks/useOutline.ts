@@ -85,7 +85,7 @@ export function useOutline({ editor, sourceMode, defaultOutlineOpen }: UseOutlin
       // focus() が付与する scrollIntoView を先に処理させてからセンタリングする
       requestAnimationFrame(() => {
         const dom = editor.view.nodeDOM(pos);
-        const node = dom instanceof HTMLElement ? dom : (dom as Node | null)?.parentElement;
+        const node = dom instanceof HTMLElement ? dom : dom?.parentElement;
         node?.scrollIntoView({ behavior: "smooth", block: "center" });
       });
     },

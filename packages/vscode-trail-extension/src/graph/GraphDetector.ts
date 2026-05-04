@@ -31,14 +31,18 @@ export class GraphDetector {
   }
 
   detectCodeFiles(): string[] {
-    return this.walk(this.rootPath, CODE_EXTS);
+    return this.walk(this.rootPath, (entry) => CODE_EXTS.has(path.extname(entry.name)));
   }
 
   detectDocFiles(): string[] {
-    return this.walk(this.rootPath, DOC_EXTS);
+    return this.walk(this.rootPath, (entry) => DOC_EXTS.has(path.extname(entry.name)));
   }
 
-  private walk(dir: string, exts: Set<string>): string[] {
+  detectFilesByName(name: string): string[] {
+    return this.walk(this.rootPath, (entry) => entry.name === name);
+  }
+
+  private walk(dir: string, match: (entry: fs.Dirent) => boolean): string[] {
     const results: string[] = [];
     let entries: fs.Dirent[];
     try {
@@ -49,9 +53,9 @@ export class GraphDetector {
     for (const entry of entries) {
       if (entry.isDirectory()) {
         if (!this.excludeDirs.has(entry.name)) {
-          results.push(...this.walk(path.join(dir, entry.name), exts));
+          results.push(...this.walk(path.join(dir, entry.name), match));
         }
-      } else if (exts.has(path.extname(entry.name))) {
+      } else if (entry.isFile() && match(entry)) {
         results.push(path.join(dir, entry.name));
       }
     }

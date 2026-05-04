@@ -53,16 +53,18 @@ export const NewFolderInput: FC<{
         variant="standard"
         size="small"
         fullWidth
-        InputProps={{
-          disableUnderline: false,
-          sx: { fontSize: "0.78rem", py: 0 },
-          endAdornment: (
-            <InputAdornment position="end">
-              <IconButton size="small" onClick={handleSubmit} sx={{ p: 0.25 }} aria-label={t("createFolder")}>
-                <AddIcon sx={{ fontSize: 14 }} />
-              </IconButton>
-            </InputAdornment>
-          ),
+        slotProps={{
+          input: {
+            disableUnderline: false,
+            sx: { fontSize: "0.78rem", py: 0 },
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton size="small" onClick={handleSubmit} sx={{ p: 0.25 }} aria-label={t("createFolder")}>
+                  <AddIcon sx={{ fontSize: 14 }} />
+                </IconButton>
+              </InputAdornment>
+            ),
+          },
         }}
       />
     </Box>

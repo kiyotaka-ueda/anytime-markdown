@@ -158,78 +158,106 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
     return { sx: e.clientX - rect.left, sy: e.clientY - rect.top };
   }, [canvasRef]);
 
+  // --- Mouse down helpers ---
+
+  const startPanDrag = useCallback((sx: number, sy: number, world: { x: number; y: number }) => {
+    dragRef.current = { mode: 'pan', startScreenX: sx, startScreenY: sy, startWorldX: world.x, startWorldY: world.y };
+  }, []);
+
+  const startSelectRect = useCallback(
+    (sx: number, sy: number, world: { x: number; y: number }, shiftKey: boolean) => {
+      if (!shiftKey) {
+        onNodeClick?.(null);
+        setSelection(EMPTY_SELECTION);
+      }
+      dragRef.current = { mode: 'select-rect', startScreenX: sx, startScreenY: sy, startWorldX: world.x, startWorldY: world.y };
+      selectRectRef.current = { x1: world.x, y1: world.y, x2: world.x, y2: world.y };
+    },
+    [onNodeClick, setSelection],
+  );
+
+  const startMoveDrag = useCallback(
+    (sx: number, sy: number, world: { x: number; y: number }, moveIds: string[], initialPositions: Map<string, { x: number; y: number }>) => {
+      editorDispatch?.({ type: 'SNAPSHOT' });
+      dragRef.current = { mode: 'move', startScreenX: sx, startScreenY: sy, startWorldX: world.x, startWorldY: world.y, moveIds, initialPositions };
+    },
+    [editorDispatch],
+  );
+
+  const handleFrameNodeHit = useCallback(
+    (hit: GraphNode, e: React.MouseEvent, sx: number, sy: number, world: { x: number; y: number }) => {
+      const onBody = hitTestFrameBody({ x: world.x, y: world.y }, hit);
+      if (!(onBody && editorDispatch)) {
+        startSelectRect(sx, sy, world, e.shiftKey);
+        return;
+      }
+      // タイトル/枠線 → frame + 全 groupId 子ノードをドラッグ
+      const nodes = getNodes();
+      const childIds = nodes.filter(n => n.groupId === hit.id).map(n => n.id);
+      const moveIds = [hit.id, ...childIds];
+      const initialPositions = new Map(
+        nodes.filter(n => moveIds.includes(n.id)).map(n => [n.id, { x: n.x, y: n.y }]),
+      );
+      onNodeClick?.(hit);
+      setSelection({ nodeIds: moveIds, edgeIds: [] });
+      startMoveDrag(sx, sy, world, moveIds, initialPositions);
+    },
+    [editorDispatch, getNodes, onNodeClick, setSelection, startMoveDrag, startSelectRect],
+  );
+
+  const handleCtrlNodeHit = useCallback(
+    (hit: GraphNode) => {
+      if (!onNodeCtrlClick) return;
+      const current = getSelection?.()?.nodeIds ?? [];
+      const newNodeIds = current.includes(hit.id)
+        ? current.filter(id => id !== hit.id)
+        : [...current, hit.id];
+      setSelection({ nodeIds: newNodeIds, edgeIds: [] });
+      onNodeCtrlClick(hit);
+    },
+    [onNodeCtrlClick, getSelection, setSelection],
+  );
+
+  const handleNormalNodeHit = useCallback(
+    (hit: GraphNode, sx: number, sy: number, world: { x: number; y: number }) => {
+      onNodeClick?.(hit);
+      setSelection({ nodeIds: [hit.id], edgeIds: [] });
+      if (!editorDispatch) {
+        startPanDrag(sx, sy, world);
+        return;
+      }
+      const initialPositions = new Map([[hit.id, { x: hit.x, y: hit.y }]]);
+      startMoveDrag(sx, sy, world, [hit.id], initialPositions);
+    },
+    [onNodeClick, setSelection, editorDispatch, startMoveDrag, startPanDrag],
+  );
+
   // --- Mouse down ---
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     const { sx, sy } = screenPos(e);
-    const vp = getViewport();
-    const world = screenToWorld(vp, sx, sy);
+    const world = screenToWorld(getViewport(), sx, sy);
 
-    // Middle/right button or Space held → pan
     if (e.button === 1 || e.button === 2 || (enableSpacePan && spaceRef.current)) {
-      dragRef.current = { mode: 'pan', startScreenX: sx, startScreenY: sy, startWorldX: world.x, startWorldY: world.y };
+      startPanDrag(sx, sy, world);
       return;
     }
+    if (e.button !== 0) return;
 
-    // Left button
-    if (e.button === 0) {
-      const hit = nodeAtScreen(sx, sy);
-      if (hit) {
-        // frame ノード hit: Z 挙動 — タイトル/枠線のみドラッグ対象
-        if (hit.type === 'frame') {
-          const onBody = hitTestFrameBody({ x: world.x, y: world.y }, hit);
-          if (onBody && editorDispatch) {
-            // タイトル/枠線 → frame + 全 groupId 子ノードをドラッグ
-            const nodes = getNodes();
-            const childIds = nodes.filter(n => n.groupId === hit.id).map(n => n.id);
-            const moveIds = [hit.id, ...childIds];
-            const initialPositions = new Map(
-              nodes.filter(n => moveIds.includes(n.id)).map(n => [n.id, { x: n.x, y: n.y }]),
-            );
-            onNodeClick?.(hit);
-            setSelection({ nodeIds: moveIds, edgeIds: [] });
-            editorDispatch({ type: 'SNAPSHOT' });
-            dragRef.current = { mode: 'move', startScreenX: sx, startScreenY: sy, startWorldX: world.x, startWorldY: world.y, moveIds, initialPositions };
-          } else {
-            // 内部余白 → 子ノード領域としてスルー（パン開始）
-            if (!e.shiftKey) {
-              onNodeClick?.(null);
-              setSelection(EMPTY_SELECTION);
-            }
-            dragRef.current = { mode: 'select-rect', startScreenX: sx, startScreenY: sy, startWorldX: world.x, startWorldY: world.y };
-            selectRectRef.current = { x1: world.x, y1: world.y, x2: world.x, y2: world.y };
-          }
-          return;
-        }
-        // Ctrl+click: 複数選択トグル
-        if ((e.ctrlKey || e.metaKey) && onNodeCtrlClick) {
-          const current = getSelection?.()?.nodeIds ?? [];
-          const newNodeIds = current.includes(hit.id)
-            ? current.filter(id => id !== hit.id)
-            : [...current, hit.id];
-          setSelection({ nodeIds: newNodeIds, edgeIds: [] });
-          onNodeCtrlClick(hit);
-          return;
-        }
-        // 通常ノード hit
-        onNodeClick?.(hit);
-        setSelection({ nodeIds: [hit.id], edgeIds: [] });
-        if (editorDispatch) {
-          const initialPositions = new Map([[hit.id, { x: hit.x, y: hit.y }]]);
-          editorDispatch({ type: 'SNAPSHOT' });
-          dragRef.current = { mode: 'move', startScreenX: sx, startScreenY: sy, startWorldX: world.x, startWorldY: world.y, moveIds: [hit.id], initialPositions };
-        } else {
-          dragRef.current = { mode: 'pan', startScreenX: sx, startScreenY: sy, startWorldX: world.x, startWorldY: world.y };
-        }
-      } else {
-        if (!e.shiftKey) {
-          onNodeClick?.(null);
-          setSelection(EMPTY_SELECTION);
-        }
-        dragRef.current = { mode: 'select-rect', startScreenX: sx, startScreenY: sy, startWorldX: world.x, startWorldY: world.y };
-        selectRectRef.current = { x1: world.x, y1: world.y, x2: world.x, y2: world.y };
-      }
+    const hit = nodeAtScreen(sx, sy);
+    if (!hit) {
+      startSelectRect(sx, sy, world, e.shiftKey);
+      return;
     }
-  }, [screenPos, getViewport, nodeAtScreen, onNodeClick, onNodeCtrlClick, setSelection, getSelection, getNodes, editorDispatch]);
+    if (hit.type === 'frame') {
+      handleFrameNodeHit(hit, e, sx, sy, world);
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && onNodeCtrlClick) {
+      handleCtrlNodeHit(hit);
+      return;
+    }
+    handleNormalNodeHit(hit, sx, sy, world);
+  }, [screenPos, getViewport, enableSpacePan, nodeAtScreen, onNodeCtrlClick, startPanDrag, startSelectRect, handleFrameNodeHit, handleCtrlNodeHit, handleNormalNodeHit]);
 
   // --- Mouse move ---
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
@@ -298,72 +326,68 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
     onNodeDoubleClick?.(hit ?? null);
   }, [screenPos, nodeAtScreen, onNodeDoubleClick]);
 
-  // --- Keyboard ---
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    // Space → pan mode
-    if (enableSpacePan && e.code === 'Space' && !e.repeat) {
-      spaceRef.current = true;
-      if (canvasRef.current) canvasRef.current.style.cursor = 'grab';
-      return;
-    }
+  // --- Keyboard helpers ---
 
-    // Escape → clear selection
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      setSelection(EMPTY_SELECTION);
-      return;
-    }
+  /** 各ハンドラはキーを消化したら true を返し、そうでなければ false を返す */
+  const handleSpaceKey = useCallback((e: React.KeyboardEvent): boolean => {
+    if (!enableSpacePan || e.code !== 'Space' || e.repeat) return false;
+    spaceRef.current = true;
+    if (canvasRef.current) canvasRef.current.style.cursor = 'grab';
+    return true;
+  }, [enableSpacePan, canvasRef]);
 
-    // Delete / Backspace → delete selected
-    if (e.key === 'Delete' || e.key === 'Backspace') {
-      const sel = getSelection?.();
-      if (sel && (sel.nodeIds.length > 0 || sel.edgeIds.length > 0)) {
-        e.preventDefault();
-        if (onDelete) {
-          onDelete();
-        } else {
-          editorDispatch?.({ type: 'DELETE_SELECTED' });
-        }
-        return;
-      }
-    }
+  const handleEscapeKey = useCallback((e: React.KeyboardEvent): boolean => {
+    if (e.key !== 'Escape') return false;
+    e.preventDefault();
+    setSelection(EMPTY_SELECTION);
+    return true;
+  }, [setSelection]);
 
-    // Ctrl/Cmd shortcuts
-    if (e.ctrlKey || e.metaKey) {
+  const handleDeleteKey = useCallback((e: React.KeyboardEvent): boolean => {
+    if (e.key !== 'Delete' && e.key !== 'Backspace') return false;
+    const sel = getSelection?.();
+    if (!sel || (sel.nodeIds.length === 0 && sel.edgeIds.length === 0)) return false;
+    e.preventDefault();
+    if (onDelete) onDelete();
+    else editorDispatch?.({ type: 'DELETE_SELECTED' });
+    return true;
+  }, [getSelection, onDelete, editorDispatch]);
+
+  const handleCtrlShortcut = useCallback((e: React.KeyboardEvent): boolean => {
+    if (!e.ctrlKey && !e.metaKey) return false;
+    const dispatchType = (() => {
       switch (e.key) {
-        case 'z':
-          e.preventDefault();
-          editorDispatch?.({ type: e.shiftKey ? 'REDO' : 'UNDO' });
-          return;
-        case 'y':
-          e.preventDefault();
-          editorDispatch?.({ type: 'REDO' });
-          return;
-        case 'a':
-          e.preventDefault();
-          setSelection({ nodeIds: getNodes().map(n => n.id), edgeIds: [] });
-          return;
-        case 'c':
-          e.preventDefault();
-          onCopy?.();
-          return;
-        case 'v':
-          e.preventDefault();
-          onPaste?.();
-          return;
+        case 'z': return e.shiftKey ? 'REDO' : 'UNDO';
+        case 'y': return 'REDO';
+        default: return null;
       }
+    })();
+    if (dispatchType) {
+      e.preventDefault();
+      editorDispatch?.({ type: dispatchType });
+      return true;
     }
+    if (e.key === 'a') {
+      e.preventDefault();
+      setSelection({ nodeIds: getNodes().map(n => n.id), edgeIds: [] });
+      return true;
+    }
+    if (e.key === 'c') { e.preventDefault(); onCopy?.(); return true; }
+    if (e.key === 'v') { e.preventDefault(); onPaste?.(); return true; }
+    return false;
+  }, [editorDispatch, setSelection, getNodes, onCopy, onPaste]);
 
-    // g: グループ化 / Shift+G: グループ解除
-    if (!e.ctrlKey && !e.metaKey && e.key === 'g') {
+  const handleGroupKey = useCallback((e: React.KeyboardEvent): boolean => {
+    if (e.ctrlKey || e.metaKey) return false;
+    if (e.key === 'g' && !e.shiftKey) {
       e.preventDefault();
       const sel = getSelection?.();
       if (sel && sel.nodeIds.length >= 2) {
         editorDispatch?.({ type: 'CREATE_GROUP', memberIds: sel.nodeIds });
       }
-      return;
+      return true;
     }
-    if (!e.ctrlKey && !e.metaKey && e.key === 'G' && e.shiftKey) {
+    if (e.key === 'G' && e.shiftKey) {
       e.preventDefault();
       const sel = getSelection?.();
       const groups = getGroups?.() ?? [];
@@ -375,39 +399,47 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
           }
         }
       }
-      return;
+      return true;
     }
+    return false;
+  }, [getSelection, editorDispatch, getGroups]);
 
-    // Viewport navigation
+  const handleViewportKey = useCallback((e: React.KeyboardEvent): boolean => {
     const vp = getViewport();
-    switch (e.key) {
-      case 'ArrowUp':
-        e.preventDefault();
-        setViewport(pan(vp, 0, PAN_STEP));
-        break;
-      case 'ArrowDown':
-        e.preventDefault();
-        setViewport(pan(vp, 0, -PAN_STEP));
-        break;
-      case 'ArrowLeft':
-        e.preventDefault();
-        setViewport(pan(vp, PAN_STEP, 0));
-        break;
-      case 'ArrowRight':
-        e.preventDefault();
-        setViewport(pan(vp, -PAN_STEP, 0));
-        break;
-      case '+':
-      case '=':
-        e.preventDefault();
-        setViewport({ ...vp, scale: vp.scale * 1.1 });
-        break;
-      case '-':
-        e.preventDefault();
-        setViewport({ ...vp, scale: vp.scale * 0.9 });
-        break;
+    const PAN_DELTAS: Record<string, [number, number]> = {
+      ArrowUp: [0, PAN_STEP],
+      ArrowDown: [0, -PAN_STEP],
+      ArrowLeft: [PAN_STEP, 0],
+      ArrowRight: [-PAN_STEP, 0],
+    };
+    const panDelta = PAN_DELTAS[e.key];
+    if (panDelta) {
+      e.preventDefault();
+      setViewport(pan(vp, panDelta[0], panDelta[1]));
+      return true;
     }
-  }, [getViewport, setViewport, setSelection, getNodes, getSelection, editorDispatch, enableSpacePan, canvasRef, onCopy, onPaste, onDelete, getGroups]);
+    if (e.key === '+' || e.key === '=') {
+      e.preventDefault();
+      setViewport({ ...vp, scale: vp.scale * 1.1 });
+      return true;
+    }
+    if (e.key === '-') {
+      e.preventDefault();
+      setViewport({ ...vp, scale: vp.scale * 0.9 });
+      return true;
+    }
+    return false;
+  }, [getViewport, setViewport]);
+
+  // --- Keyboard ---
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (handleSpaceKey(e)) return;
+    if (handleEscapeKey(e)) return;
+    if (handleDeleteKey(e)) return;
+    if (handleCtrlShortcut(e)) return;
+    if (handleGroupKey(e)) return;
+    handleViewportKey(e);
+  }, [handleSpaceKey, handleEscapeKey, handleDeleteKey, handleCtrlShortcut, handleGroupKey, handleViewportKey]);
 
   // --- Key up (Space release) ---
   const handleKeyUp = useCallback((e: React.KeyboardEvent) => {

@@ -10,10 +10,7 @@ import type { CodeGraph, CodeGraphNode } from '@anytime-markdown/trail-core/code
 import { CodeGraphCanvas, type CodeGraphGhostEdge } from './CodeGraphCanvas';
 import { useCodeGraph } from '../hooks/useCodeGraph';
 import { useTemporalCoupling } from '../c4/hooks/useTemporalCoupling';
-import {
-  TemporalCouplingControls,
-  type TemporalCouplingControlsValue,
-} from '../c4/components/TemporalCouplingControls';
+import type { TemporalCouplingControlsValue } from '../c4/components/TemporalCouplingControls';
 
 function toCodeGraphNodeId(repoId: string, filePath: string): string {
   const cleaned = filePath.replace(/\.(tsx?|mdx?)$/, '');
@@ -34,15 +31,17 @@ const DEFAULT_TC_VALUE: TemporalCouplingControlsValue = {
 interface CodeGraphPanelProps {
   readonly serverUrl: string;
   readonly isDark?: boolean;
+  /** Ghost Edges 設定。C4 ビューと連動させるため外部から制御する。省略時は無効。 */
+  readonly tcValue?: TemporalCouplingControlsValue;
 }
 
-export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelProps>) {
+export function CodeGraphPanel({ serverUrl, isDark, tcValue: tcValueProp }: Readonly<CodeGraphPanelProps>) {
   const { graph, loading, error, refetch } = useCodeGraph(serverUrl);
   const [query, setQuery] = useState('');
   const [highlightedNodes, setHighlightedNodes] = useState<ReadonlySet<string>>(new Set());
   const [selectedNode, setSelectedNode] = useState<CodeGraphNode | null>(null);
   const [repoFilter, setRepoFilter] = useState<string>('all');
-  const [tcValue, setTcValue] = useState<TemporalCouplingControlsValue>(DEFAULT_TC_VALUE);
+  const tcValue = tcValueProp ?? DEFAULT_TC_VALUE;
 
   const tcRepoId = useMemo<string | null>(() => {
     if (!graph || graph.repositories.length === 0) return null;
@@ -54,7 +53,6 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
     edges: rawGhostEdges,
     directional: tcDirectional,
     granularity: tcGranularity,
-    loading: tcLoading,
   } = useTemporalCoupling({
     enabled: tcValue.enabled && !!tcRepoId,
     serverUrl,
@@ -200,9 +198,18 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
           onKeyDown={(e) => {
             if (e.key === 'Enter') void handleSearch();
           }}
-          sx={{ minWidth: 200 }}
+          sx={{
+            minWidth: 200,
+            '& .MuiOutlinedInput-root': { fontSize: '0.75rem' },
+            '& .MuiOutlinedInput-input': { py: 0.5 },
+          }}
         />
-        <Button size="small" variant="outlined" onClick={() => void handleSearch()}>
+        <Button
+          size="small"
+          variant="outlined"
+          onClick={() => void handleSearch()}
+          sx={{ py: 0.25, fontSize: '0.75rem', minWidth: 0, lineHeight: 1.5 }}
+        >
           検索
         </Button>
         <Box sx={{ display: 'flex', gap: 0.5 }}>
@@ -217,13 +224,6 @@ export function CodeGraphPanel({ serverUrl, isDark }: Readonly<CodeGraphPanelPro
           ))}
         </Box>
       </Box>
-
-      <TemporalCouplingControls
-        value={tcValue}
-        onChange={setTcValue}
-        resultCount={ghostEdges.length}
-        loading={tcLoading}
-      />
 
       {showSubagentDirectionalHint && (
         <Alert severity="info" sx={{ mx: 1, mb: 1, py: 0 }}>

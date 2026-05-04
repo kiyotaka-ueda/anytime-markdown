@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-04
+
+### Graph Core (graph-core)
+
+- Added `fragment` shape for sequence diagram fragments
+- Sonar fixes: Readonly props (S6759), type assertions (S4325), stable keys (S6479), Number globals (S7773), globalThis (S7764)
+- Cognitive complexity reduction via helper extraction across hooks, engine, physics, and IO modules (S3776)
+
 ## [0.2.3] - 2026-05-03
 
 ### Graph Core (graph-core)

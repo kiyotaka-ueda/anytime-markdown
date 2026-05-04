@@ -84,9 +84,9 @@ export function MarkdownMinimap({
           overflow: "hidden",
         }}
       >
-        {markerRatios.map((ratio, i) => (
+        {markerRatios.map((ratio) => (
           <Box
-            key={i}
+            key={`marker-${ratio}`}
             sx={{
               position: "absolute",
               left: 0,

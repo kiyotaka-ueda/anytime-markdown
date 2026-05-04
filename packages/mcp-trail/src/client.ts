@@ -121,3 +121,206 @@ export async function removeGroup(
 ): Promise<void> {
   return request(serverUrl, `/api/c4/manual-groups/${encodeURIComponent(id)}?repoName=${encodeURIComponent(repoName)}`, 'DELETE');
 }
+
+// ---------------------------------------------------------------------------
+//  Analyze pipeline triggers (POST /api/analyze/*)
+// ---------------------------------------------------------------------------
+
+export interface AnalyzeCurrentResult {
+  repoName: string;
+  tsconfigPath: string;
+  fileCount: number;
+  nodeCount: number;
+  edgeCount: number;
+  commitId: string;
+  durationMs: number;
+  warnings: string[];
+}
+
+export interface AnalyzeReleaseResult {
+  releaseCount: number;
+  durationMs: number;
+}
+
+export interface AnalyzeAllResult {
+  imported: number;
+  skipped: number;
+  commitsResolved: number;
+  releasesResolved: number;
+  releasesAnalyzed: number;
+  coverageImported: number;
+  currentCoverageImported: number;
+  messageCommitsBackfilled: number;
+  durationMs: number;
+}
+
+export interface AnalyzeStatus {
+  inProgress: { kind: 'current' | 'release' | 'all'; startedAt: number } | null;
+}
+
+/**
+ * VS Code 拡張の `Anytime Trail: コード解析` 相当を HTTP 経由で起動する。
+ * 引数省略時は拡張の現在ワークスペースで実行される。
+ */
+export async function analyzeCurrentCode(
+  serverUrl: string,
+  body: { workspacePath?: string; tsconfigPath?: string } = {},
+): Promise<AnalyzeCurrentResult> {
+  return request(serverUrl, '/api/analyze/current', 'POST', body);
+}
+
+/**
+ * `Anytime Trail: リリース別コード解析` 相当を HTTP 経由で起動する。
+ */
+export async function analyzeReleaseCode(serverUrl: string): Promise<AnalyzeReleaseResult> {
+  return request(serverUrl, '/api/analyze/release', 'POST', {});
+}
+
+/**
+ * `Anytime Trail: 全データ解析` 相当を HTTP 経由で起動する。
+ * `~/.claude/projects` から JSONL を取り込み、コミット解決・リリース解析・カバレッジ取り込みを行う。
+ */
+export async function analyzeAll(serverUrl: string): Promise<AnalyzeAllResult> {
+  return request(serverUrl, '/api/analyze/all', 'POST', {});
+}
+
+/**
+ * 解析の進行状況を確認する。
+ * 並行起動を避ける用途や、別エージェントが解析中かを確認する用途で使う。
+ */
+export async function getAnalyzeStatus(serverUrl: string): Promise<AnalyzeStatus> {
+  return request(serverUrl, '/api/analyze/status', 'GET');
+}
+
+export interface ProgressEntry {
+  phase: string;
+  percent: number;
+  ts: number;
+}
+
+/**
+ * `analyzeCurrentCode` 実行中の TrailDataServer WebSocket 進捗イベント
+ * （`type: "analysis-progress"`）を購読しつつ HTTP 解析を起動する。
+ *
+ * Node 22+ の global WebSocket を使用。WS が利用不可の環境では progressLog 空配列で返す。
+ */
+export async function analyzeCurrentCodeWithProgress(
+  serverUrl: string,
+  body: { workspacePath?: string; tsconfigPath?: string } = {},
+): Promise<AnalyzeCurrentResult & { progressLog: ProgressEntry[] }> {
+  const progressLog: ProgressEntry[] = [];
+  const WSCtor = (globalThis as { WebSocket?: typeof WebSocket }).WebSocket;
+  let ws: WebSocket | undefined;
+
+  if (WSCtor) {
+    const wsUrl = serverUrl.replace(/^http/, 'ws');
+    try {
+      ws = new WSCtor(wsUrl);
+      await new Promise<void>((resolve) => {
+        const onOpen = (): void => {
+          ws?.removeEventListener('open', onOpen);
+          ws?.removeEventListener('error', onError);
+          resolve();
+        };
+        const onError = (): void => {
+          ws?.removeEventListener('open', onOpen);
+          ws?.removeEventListener('error', onError);
+          ws = undefined;
+          resolve();
+        };
+        ws?.addEventListener('open', onOpen, { once: true });
+        ws?.addEventListener('error', onError, { once: true });
+      });
+      ws?.addEventListener('message', (event: MessageEvent) => {
+        try {
+          const data = typeof event.data === 'string' ? event.data : String(event.data);
+          const msg = JSON.parse(data) as { type?: string; phase?: string; percent?: number };
+          if (msg.type === 'analysis-progress' && typeof msg.phase === 'string') {
+            progressLog.push({
+              phase: msg.phase,
+              percent: typeof msg.percent === 'number' ? msg.percent : -1,
+              ts: Date.now(),
+            });
+          }
+        } catch {
+          // 不正な JSON は無視
+        }
+      });
+    } catch {
+      ws = undefined;
+    }
+  }
+
+  try {
+    const result = await analyzeCurrentCode(serverUrl, body);
+    return { ...result, progressLog };
+  } finally {
+    try {
+      ws?.close();
+    } catch {
+      // close 失敗は無視
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  Community summary / mapping API
+// ---------------------------------------------------------------------------
+
+export interface CommunityRow {
+  communityId: number;
+  label: string;
+  name: string;
+  summary: string;
+  mappingsJson: string | null;
+}
+
+export interface CommunitySummaryInput {
+  communityId: number;
+  name: string;
+  summary: string;
+}
+
+export type CommunityRole = 'primary' | 'secondary' | 'dependency';
+
+export interface CommunityMappingEntry {
+  elementId: string;
+  elementType: string;
+  role: CommunityRole;
+}
+
+export interface CommunityMappingInput {
+  communityId: number;
+  mappings: ReadonlyArray<CommunityMappingEntry>;
+}
+
+/**
+ * 指定リポジトリのコミュニティ一覧（label / name / summary / mappings_json）を取得する。
+ */
+export async function listCommunities(serverUrl: string, repoName: string): Promise<{ communities: ReadonlyArray<CommunityRow> }> {
+  return request(serverUrl, `/api/c4/communities?repoName=${encodeURIComponent(repoName)}`, 'GET');
+}
+
+/**
+ * AI 生成した name + summary をコミュニティに upsert する。
+ * mappings_json は触らないので保持される。
+ */
+export async function upsertCommunitySummaries(
+  serverUrl: string,
+  repoName: string,
+  summaries: ReadonlyArray<CommunitySummaryInput>,
+): Promise<{ updated: number }> {
+  return request(serverUrl, '/api/c4/communities/upsert-summaries', 'POST', { repoName, summaries });
+}
+
+/**
+ * AI 判定したコミュニティ別 C4 要素 role マッピングを upsert する。
+ * mappings_json カラムは未存在の DB では自動 ALTER で追加される。
+ */
+export async function upsertCommunityMappings(
+  serverUrl: string,
+  repoName: string,
+  mappings: ReadonlyArray<CommunityMappingInput>,
+): Promise<{ updated: number; inserted: number }> {
+  return request(serverUrl, '/api/c4/communities/upsert-mappings', 'POST', { repoName, mappings });
+}

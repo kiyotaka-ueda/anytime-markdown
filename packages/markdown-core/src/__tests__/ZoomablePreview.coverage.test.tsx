@@ -13,7 +13,7 @@ jest.mock("../constants/colors", () => ({
 
 jest.mock("../constants/uiPatterns", () => ({
   REDUCED_MOTION_SX: {},
-  TRANSITION_FAST: "0.15s",
+  DURATION_FAST: "0.15s",
 }));
 
 import { ZoomablePreview } from "../components/ZoomablePreview";

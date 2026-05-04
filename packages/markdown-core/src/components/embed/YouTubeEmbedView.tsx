@@ -7,7 +7,7 @@ interface Props {
     widthOverride?: string;
 }
 
-export function YouTubeEmbedView({ videoId, variant, widthOverride }: Props) {
+export function YouTubeEmbedView({ videoId, variant, widthOverride }: Readonly<Props>) {
     const theme = useTheme();
     const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
 

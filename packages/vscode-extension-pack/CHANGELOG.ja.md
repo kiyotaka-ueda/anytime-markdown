@@ -6,6 +6,12 @@
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-05-04
+
+### 変更
+
+- 同梱拡張機能のバージョンを更新: anytime-markdown 0.14.0・anytime-graph 0.3.0・anytime-trail 0.16.0
+
 ## [0.3.0] - 2026-04-23
 
 ### 追加

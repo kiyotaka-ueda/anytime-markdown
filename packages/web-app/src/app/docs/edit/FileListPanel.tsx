@@ -201,8 +201,10 @@ export default function FileListPanel({
                 <ListItemText
                   primary={link.displayName}
                   secondary={link.url}
-                  primaryTypographyProps={{ fontSize: '0.85rem', noWrap: true }}
-                  secondaryTypographyProps={{ fontSize: '0.7rem', noWrap: true }}
+                  slotProps={{
+                    primary: { fontSize: '0.85rem', noWrap: true },
+                    secondary: { fontSize: '0.7rem', noWrap: true },
+                  }}
                 />
               </ListItem>
             ))}

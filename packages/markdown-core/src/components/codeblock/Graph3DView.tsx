@@ -44,9 +44,9 @@ function buildSurface3dData(
     for (let xi = 0; xi <= GRID_SIZE; xi++) {
       try {
         const z = evalFn({ ...vars, x: xVals[xi], y: yVals[yi] }) as number;
-        row.push(Number.isFinite(z) ? z : NaN);
+        row.push(Number.isFinite(z) ? z : Number.NaN);
       } catch {
-        row.push(NaN);
+        row.push(Number.NaN);
       }
     }
     zVals.push(row);
@@ -72,17 +72,17 @@ function evalParametricPoint(
   try {
     const result = evalFn({ ...vars, u, v });
     if (typeof result === "object" && result !== null) {
-      const r = result as Record<string, number>;
+      const r = result;
       return {
-        x: Number.isFinite(r.x) ? r.x : NaN,
-        y: Number.isFinite(r.y) ? r.y : NaN,
-        z: Number.isFinite(r.z) ? r.z : NaN,
+        x: Number.isFinite(r.x) ? r.x : Number.NaN,
+        y: Number.isFinite(r.y) ? r.y : Number.NaN,
+        z: Number.isFinite(r.z) ? r.z : Number.NaN,
       };
     }
   } catch {
     // 評価エラーは NaN で代替
   }
-  return { x: NaN, y: NaN, z: NaN };
+  return { x: Number.NaN, y: Number.NaN, z: Number.NaN };
 }
 
 /** parametric3d 用プロットデータを生成する */
@@ -296,7 +296,7 @@ export function Graph3DView({ graphExpr, plotly, isDark, width = 500, height = 4
                 max={PARAM_DEFAULT_RANGE[1]}
                 step={PARAM_STEP}
                 value={paramValues[param] ?? 1}
-                onChange={(_e, v) => handleParamChange(param, v as number)}
+                onChange={(_e, v) => handleParamChange(param, v)}
                 sx={{ flex: 1 }}
                 aria-label={`パラメータ ${param}`}
               />

@@ -10,16 +10,18 @@ import { resolveSupabaseEnv } from "../../../../lib/supabase-env";
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/c4/complexity?release=...&repo=...
+ * GET /api/c4/complexity?repo=...
  *
  * 拡張機能の complexity-updated WebSocket メッセージと互換。
  * Supabase の trail_messages（type='assistant'）を全件取得し、
  * computeComplexityMatrix で ComplexityMatrix を計算して返す。
  *
+ * Complexity は累積指標のため release パラメータは受け取らない
+ * (古いクライアントが付与しても無視する)。
+ *
  * 返却形状: { complexityMatrix: ComplexityMatrix } | 204 No Content
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const release = request.nextUrl.searchParams.get("release") ?? "current";
   const repo = request.nextUrl.searchParams.get("repo") ?? undefined;
 
   const env = resolveSupabaseEnv();
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const supabase = createClient(env.url, env.anonKey);
     const [payload, messagesResult] = await Promise.all([
-      fetchC4Model(store, release, repo),
+      fetchC4Model(store, 'current', repo),
       supabase
         .from('trail_messages')
         .select('tool_calls, output_tokens')

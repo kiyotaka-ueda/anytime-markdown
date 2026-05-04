@@ -6,6 +6,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-05-04
+
+### Added
+
+- Agent Mapping TreeView showing Claude sessions grouped by git worktree
+- Context token usage, Today summary, and filter icon in Agent Mapping panel
+- AI session title display in Session TreeView
+- Automatically open Trail Viewer after `analyzeCurrentCode`
+- Bundle anytime-reverse-engineer skill and auto-install on activate
+- `/api/c4/sequence` endpoint for C4 sequence display
+- Release filter support for `/api/c4/coverage` and `/api/code-graph`
+- Docs repository auto-generation from `docsPath` setting
+
+### Fixed
+
+- Stale session filtering at both worktree and session level
+- C4 importance score display and transmission to Trail Viewer
+- Code graph repo label derived from path basename
+
+### Changed
+
+- Commands unified to `analyze` verb: `analyzeCurrentCode`, `analyzeAll`
+- AI Note command IDs unified to `AiNote` prefix; labels unified to "AI Note"
+- Configuration keys reorganized into subsections
+- `workspacePath` promoted to top-level setting shared by C4 and CodeGraph
+- Removed: C4 model panel, Memory panel, `loadCoverage`, `regenerateCurrentCodeGraph`, `codeGraph.autoRefresh`, `codeGraph.outputDir`, `coverage.historyLimit`, `test.coverageCommand`, `test.e2eCommand`, Supabase/sync commands
+
+### Trail Core (trail-core)
+
+- `agentMapping` pure functions for Claude session to worktree mapping
+- `SequenceAnalyzer` for C4 cross-element call extraction
+- Bash `cwd` recorded as workspace path for improved worktree detection
+- Fixed: worktree mappings maintained after docs changes
+- Fixed: sessions from separate repos no longer mapped to main worktree
+- Removed: CLI entry point and CLI-only transforms
+
 ## [0.15.0] - 2026-05-03
 
 ### Added

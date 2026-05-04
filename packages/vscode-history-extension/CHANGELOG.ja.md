@@ -6,6 +6,20 @@
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-05-04
+
+### 追加
+
+- Trail DB 確認用 Database パネルを追加（Phase 2）
+
+### 修正
+
+- DB 同期設定の VS Code 設定二重登録警告を解消
+
+### 変更
+
+- `TimelineProvider` を `vscode-common` パッケージに移行し共有化
+
 ## [0.0.1] - 2026-04-12
 
 ### 変更

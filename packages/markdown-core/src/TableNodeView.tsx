@@ -401,6 +401,46 @@ function TableDiscardDialog({ open, onClose, onConfirm, t }: Readonly<{
   );
 }
 
+interface TableActions {
+  onEdit: (() => void) | undefined;
+  onDelete: (() => void) | undefined;
+  onTableDoubleClick: (() => void) | undefined;
+}
+
+function buildTableActions(
+  flags: Readonly<{ canInteract: boolean; isEditable: boolean }>,
+  callbacks: Readonly<{ openEdit: () => void; openDelete: () => void }>,
+): TableActions {
+  return {
+    onEdit: flags.canInteract ? callbacks.openEdit : undefined,
+    onDelete: flags.canInteract ? callbacks.openDelete : undefined,
+    onTableDoubleClick: flags.isEditable ? undefined : callbacks.openEdit,
+  };
+}
+
+interface DialogPaperProps {
+  role?: "dialog";
+  "aria-modal"?: true;
+  "aria-label"?: string;
+  onKeyDown?: (e: React.KeyboardEvent) => void;
+}
+
+function buildDialogPaperProps(
+  editOpen: boolean,
+  ariaLabel: string,
+  onEscape: () => void,
+): DialogPaperProps {
+  if (!editOpen) return {};
+  return {
+    role: "dialog",
+    "aria-modal": true,
+    "aria-label": ariaLabel,
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.key === "Escape") onEscape();
+    },
+  };
+}
+
 export function TableNodeView({ editor, node, getPos }: Readonly<NodeViewProps>) {
   const t = useTranslations("MarkdownEditor");
   const isDark = useTheme().palette.mode === "dark";
@@ -429,10 +469,6 @@ export function TableNodeView({ editor, node, getPos }: Readonly<NodeViewProps>)
   const canInteract = !collapsed && !isCompareLeft;
   const showInlineToolbar = !editOpen && isEditable;
 
-  const onEditAction = canInteract ? () => setEditOpen(true) : undefined;
-  const onDeleteAction = canInteract ? () => setDeleteDialogOpen(true) : undefined;
-  const onTableDoubleClick = isEditable ? undefined : () => setEditOpen(true);
-
   // スプレッドシートの未適用変更追跡
   const spreadsheetDirtyRef = useRef(false);
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
@@ -460,12 +496,14 @@ export function TableNodeView({ editor, node, getPos }: Readonly<NodeViewProps>)
     setEditOpen(false);
   }, [setEditOpen]);
 
-  const dialogProps = editOpen ? {
-    role: "dialog" as const,
-    "aria-modal": true as const,
-    "aria-label": t("tableLabel"),
-    onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Escape") tryCloseEdit(); },
-  } : {};
+  const tableActions = buildTableActions(
+    { canInteract, isEditable },
+    {
+      openEdit: () => setEditOpen(true),
+      openDelete: () => setDeleteDialogOpen(true),
+    },
+  );
+  const dialogProps = buildDialogPaperProps(editOpen, t("tableLabel"), tryCloseEdit);
 
   return (
     <NodeViewWrapper className="block-node-wrapper">
@@ -481,8 +519,8 @@ export function TableNodeView({ editor, node, getPos }: Readonly<NodeViewProps>)
         {showInlineToolbar && (
           <BlockInlineToolbar
             label={t("tableLabel")}
-            onEdit={onEditAction}
-            onDelete={onDeleteAction}
+            onEdit={tableActions.onEdit}
+            onDelete={tableActions.onDelete}
             collapsed={collapsed}
             labelDivider
             t={t}
@@ -500,7 +538,7 @@ export function TableNodeView({ editor, node, getPos }: Readonly<NodeViewProps>)
           isDark={isDark}
           onDirtyChange={handleDirtyChange}
           onSpreadsheetClose={handleSpreadsheetClose}
-          onTableDoubleClick={onTableDoubleClick}
+          onTableDoubleClick={tableActions.onTableDoubleClick}
           t={t}
         />
       </Paper>

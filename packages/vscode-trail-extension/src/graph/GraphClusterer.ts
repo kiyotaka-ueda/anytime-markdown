@@ -13,7 +13,19 @@ export class GraphClusterer {
   cluster(graph: Graph, c4Elements?: readonly C4Element[]): ClusterResult {
     if (graph.order === 0) return { communities: {}, labels: {} };
 
-    const communities = louvain(graph) as Record<string, number>;
+    // louvain は mixed graph（有向・無向エッジ混在）を拒否するため、
+    // クラスタリング用に無向グラフへ変換する。
+    const undirected = new Graph({ type: 'undirected' });
+    graph.forEachNode((node, attrs) => {
+      undirected.addNode(node, attrs);
+    });
+    graph.forEachEdge((_edge, attrs, source, target) => {
+      if (!undirected.hasEdge(source, target)) {
+        undirected.addEdge(source, target, attrs);
+      }
+    });
+
+    const communities = louvain(undirected) as Record<string, number>;
     const labels = buildCommunityLabels(graph, communities, c4Elements);
     return { communities, labels };
   }

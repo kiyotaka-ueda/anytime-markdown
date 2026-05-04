@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { MarkdownEditorProvider } from './providers/MarkdownEditorProvider';
 import { LinkValidationProvider } from './providers/LinkValidationProvider';
-import { ClaudeStatusWatcher } from '@anytime-markdown/vscode-common';
+import { ClaudeStatusWatcher, TimelineProvider, TimelineItem } from '@anytime-markdown/vscode-common';
 
 export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
@@ -10,6 +10,50 @@ export function activate(context: vscode.ExtensionContext) {
 		// リンク検証（壊れたリンクの波線警告）
 		new LinkValidationProvider(),
 	);
+
+	// Timeline view: アクティブな markdown ファイルの git 履歴を表示
+	const timelineOutput = vscode.window.createOutputChannel('Anytime Markdown Timeline');
+	context.subscriptions.push(timelineOutput);
+	const timelineProvider = new TimelineProvider(
+		'anytime-markdown.compareWithCommit',
+		(msg, err) => {
+			const ts = new Date().toISOString();
+			const errStr = err instanceof Error
+				? `${err.message}\n${err.stack ?? ''}`
+				: String(err);
+			timelineOutput.appendLine(`[${ts}] [ERROR] ${msg}: ${errStr}`);
+		},
+	);
+	const timelineTreeView = vscode.window.createTreeView('anytimeMarkdown.timeline', {
+		treeDataProvider: timelineProvider,
+	});
+
+	const updateTimelineForUri = (uri: vscode.Uri | null) => {
+		timelineProvider.refresh(uri);
+	};
+
+	const isMarkdownPath = (uri: vscode.Uri): boolean => {
+		const lower = uri.path.toLowerCase();
+		return lower.endsWith('.md') || lower.endsWith('.markdown');
+	};
+
+	// 通常テキストエディタ経由の markdown
+	context.subscriptions.push(
+		vscode.window.onDidChangeActiveTextEditor((editor) => {
+			if (editor && editor.document.languageId === 'markdown') {
+				updateTimelineForUri(editor.document.uri);
+			} else if (editor) {
+				updateTimelineForUri(null);
+			}
+			// editor が undefined のときはカスタムエディタ側の polling に任せる
+		}),
+	);
+
+	// 初期表示: 現在アクティブなテキストエディタが markdown なら反映
+	const initialEditor = vscode.window.activeTextEditor;
+	if (initialEditor && initialEditor.document.languageId === 'markdown') {
+		updateTimelineForUri(initialEditor.document.uri);
+	}
 
 	// コンテキストの初期値を設定（editor/title メニュー表示に必要）
 	vscode.commands.executeCommand('setContext', 'anytimeMarkdown.autoReload', true);
@@ -64,6 +108,15 @@ export function activate(context: vscode.ExtensionContext) {
 			lastActiveUri = currentUri;
 			if (!currentUri) {
 				hideStatusBar();
+				// カスタムエディタが閉じてテキストエディタも未選択なら Timeline をクリア
+				if (!vscode.window.activeTextEditor) {
+					updateTimelineForUri(null);
+				}
+			} else {
+				const customUri = p?.activeDocumentUri;
+				if (customUri && isMarkdownPath(customUri)) {
+					updateTimelineForUri(customUri);
+				}
 			}
 		}
 		// コールバックの再設定（Provider 再生成時の対応）
@@ -125,44 +178,6 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	);
 
-	const insertSectionNumbers = vscode.commands.registerCommand(
-		'anytime-markdown.insertSectionNumbers',
-		() => {
-			const p = MarkdownEditorProvider.getInstance();
-			p?.postMessageToActivePanel({ type: 'toggleSectionNumbers', show: true });
-		}
-	);
-
-	const removeSectionNumbers = vscode.commands.registerCommand(
-		'anytime-markdown.removeSectionNumbers',
-		() => {
-			const p = MarkdownEditorProvider.getInstance();
-			p?.postMessageToActivePanel({ type: 'toggleSectionNumbers', show: false });
-		}
-	);
-
-	// Markdown で貼り付け
-	const pasteAsMarkdown = vscode.commands.registerCommand(
-		'anytime-markdown.pasteAsMarkdown', async () => {
-			const p = MarkdownEditorProvider.getInstance();
-			if (!p) return;
-			const text = await vscode.env.clipboard.readText();
-			if (text) {
-				p.postMessageToActivePanel({ type: 'pasteMarkdown', text });
-			}
-		}
-	);
-
-	// 自動再読込トグル（VS Code ツールバー）
-	const toggleAutoReloadOff = vscode.commands.registerCommand(
-		'anytime-markdown.toggleAutoReloadOff',
-		() => { MarkdownEditorProvider.getInstance()?.toggleAutoReload(); }
-	);
-	const toggleAutoReloadOn = vscode.commands.registerCommand(
-		'anytime-markdown.toggleAutoReloadOn',
-		() => { MarkdownEditorProvider.getInstance()?.toggleAutoReload(); }
-	);
-
 	// エディタモード切替（VS Code ツールバー）
 	const switchToReview = vscode.commands.registerCommand(
 		'anytime-markdown.switchToReview',
@@ -175,6 +190,22 @@ export function activate(context: vscode.ExtensionContext) {
 	const switchToSource = vscode.commands.registerCommand(
 		'anytime-markdown.switchToSource',
 		() => { MarkdownEditorProvider.getInstance()?.switchMode('source'); }
+	);
+
+	const compareWithCommit = vscode.commands.registerCommand(
+		'anytime-markdown.compareWithCommit',
+		async (item: TimelineItem) => {
+			const content = await timelineProvider.getCommitContent(item);
+			if (content === null) {
+				vscode.window.showErrorMessage('Failed to load commit content.');
+				return;
+			}
+			await vscode.commands.executeCommand(
+				'anytime-markdown.openCompareMode',
+				item.fileUri,
+				content,
+			);
+		},
 	);
 
 	// Claude Code 編集通知: ステータスファイル監視 + エディタロック
@@ -198,10 +229,8 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		...statusBarItems,
 		openEditorWithFile, compareCmd, openCompareMode,
-		insertSectionNumbers, removeSectionNumbers,
-		pasteAsMarkdown,
-		toggleAutoReloadOff, toggleAutoReloadOn,
 		switchToReview, switchToWysiwyg, switchToSource,
+		timelineTreeView, compareWithCommit,
 		...claudeSubscriptions,
 	);
 }

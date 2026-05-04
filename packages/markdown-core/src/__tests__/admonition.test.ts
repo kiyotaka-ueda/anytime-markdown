@@ -131,6 +131,29 @@ describe("AdmonitionBlockquote", () => {
       expect(output).toContain("Normal quote content.");
       editor.destroy();
     });
+
+    test("admonitionType 未設定でも firstChild の [!TYPE] からフォールバック serialize する", () => {
+      // regression: new Editor({ content }) は appendTransaction を発火させないため
+      // admonitionType が null のまま serialize される。else 分岐に落ちると
+      // ブラケットがエスケープされて > \[!IMPORTANT\] body のように壊れる
+      const editor = new Editor({
+        extensions: [
+          StarterKit.configure({ blockquote: false }),
+          AdmonitionBlockquote,
+          Markdown.configure({ html: true }),
+        ],
+        content: "> [!IMPORTANT]\n> body",
+      });
+      const output = getMarkdown(editor);
+
+      expect(output).not.toContain("\\[");
+      const lines = output.trim().split("\n");
+      expect(lines.some((l) => l.includes("> [!IMPORTANT]"))).toBe(true);
+      expect(lines.some((l) => /^>\s*body/.test(l))).toBe(true);
+      // [!IMPORTANT] が重複出力されないこと
+      expect(output.match(/\[!IMPORTANT\]/g)?.length).toBe(1);
+      editor.destroy();
+    });
   });
 
   describe("ラウンドトリップ", () => {

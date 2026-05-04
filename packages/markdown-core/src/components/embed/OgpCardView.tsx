@@ -27,7 +27,7 @@ function getDomain(url: string): string {
     }
 }
 
-export function OgpCardView({ url, variant, providers, widthOverride, baseline, onBaselineWrite }: Props) {
+export function OgpCardView({ url, variant, providers, widthOverride, baseline, onBaselineWrite }: Readonly<Props>) {
     const { loading, data, error } = useOgpData(url, providers);
     const theme = useTheme();
 

@@ -14,6 +14,7 @@ export async function copyTextToClipboard(text: string): Promise<void> {
     textarea.style.opacity = "0";
     document.body.appendChild(textarea);
     textarea.select();
+    // VS Code webview では navigator.clipboard が使えないため execCommand を残す（意図的な deprecated 利用）
     document.execCommand("copy");
     textarea.remove();
   }

@@ -1,5 +1,5 @@
-import type { ManualElement, ManualRelationship } from "@anytime-markdown/trail-core/c4";
-import { fetchC4Model, mergeManualIntoC4Model } from "@anytime-markdown/trail-core/c4";
+import type { CommunityRow, ManualElement, ManualRelationship } from "@anytime-markdown/trail-core/c4";
+import { buildFeatureMatrixFromCommunities, fetchC4Model, mergeManualIntoC4Model } from "@anytime-markdown/trail-core/c4";
 import { createClient } from '@supabase/supabase-js';
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
@@ -32,29 +32,39 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       const env = resolveSupabaseEnv();
       if (env) {
         const supabase = createClient(env.url, env.anonKey);
-        const [{ data: elements }, { data: rels }] = await Promise.all([
+        const [{ data: elements }, { data: rels }, { data: communities }] = await Promise.all([
           supabase.from('trail_c4_manual_elements').select('*').eq('repo_name', repo),
           supabase.from('trail_c4_manual_relationships').select('*').eq('repo_name', repo),
+          supabase.from('trail_current_code_graph_communities').select('community_id,name,label,mappings_json').eq('repo_name', repo),
         ]);
         const manualElements: ManualElement[] = (elements ?? []).map((row: Record<string, unknown>) => ({
           id: String(row.element_id),
           type: String(row.type) as ManualElement['type'],
           name: String(row.name),
-          description: row.description != null ? String(row.description) : undefined,
+          description: row.description == null ? undefined : String(row.description),
           external: Boolean(row.external),
-          parentId: row.parent_id != null ? String(row.parent_id) : null,
+          parentId: row.parent_id == null ? null : String(row.parent_id),
           updatedAt: String(row.updated_at),
         }));
         const manualRels: ManualRelationship[] = (rels ?? []).map((row: Record<string, unknown>) => ({
           id: String(row.rel_id),
           fromId: String(row.from_id),
           toId: String(row.to_id),
-          label: row.label != null ? String(row.label) : undefined,
-          technology: row.technology != null ? String(row.technology) : undefined,
+          label: row.label == null ? undefined : String(row.label),
+          technology: row.technology == null ? undefined : String(row.technology),
           updatedAt: String(row.updated_at),
         }));
+        const communityRows: CommunityRow[] = (communities ?? []).map((c: Record<string, unknown>) => ({
+          community_id: Number(c.community_id ?? 0),
+          name: String(c.name ?? ''),
+          label: String(c.label ?? ''),
+          mappings_json: c.mappings_json == null ? null : String(c.mappings_json),
+        }));
+        const featureMatrix = buildFeatureMatrixFromCommunities(communityRows);
         const mergedModel = mergeManualIntoC4Model(payload.model, manualElements, manualRels);
-        return NextResponse.json({ ...payload, model: mergedModel }, { headers: NO_STORE_HEADERS });
+        const responsePayload: Record<string, unknown> = { ...payload, model: mergedModel };
+        if (featureMatrix) responsePayload.featureMatrix = featureMatrix;
+        return NextResponse.json(responsePayload, { headers: NO_STORE_HEADERS });
       }
     }
 

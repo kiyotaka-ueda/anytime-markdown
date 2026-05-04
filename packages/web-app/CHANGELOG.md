@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-05-04
+
+### Added
+
+- `/api/c4/sequence` route for C4 cross-element sequence display
+- Release filter support for `/api/c4/coverage`, `/api/code-graph`
+- `featureMatrix` returned from `/api/c4/model`
+- `repo` parameter support for `/api/docs-index`
+
+### Fixed
+
+- `/api/c4/coverage` now accepts `repo` query parameter
+- Removed unnecessary type assertions (Sonar S4325)
+- Replaced array-index keys with stable composite keys (Sonar S6479)
+- Replaced literal `replace` with `replaceAll` (Sonar S7781)
+
+### Changed
+
+- Extracted helpers from trail/search, temporal-coupling, and docs-index API handlers (Sonar S3776)
+- Preferred `globalThis.localStorage` over `window.localStorage` (Sonar S7764)
+
 ## [0.23.0] - 2026-05-03
 
 ### Added

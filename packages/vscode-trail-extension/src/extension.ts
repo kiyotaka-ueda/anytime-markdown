@@ -1,27 +1,26 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import { trailToC4 } from '@anytime-markdown/trail-core';
-import { setupClaudeHooks } from '@anytime-markdown/vscode-common';
+import { setupClaudeHooks, ClaudeStatusWatcher } from '@anytime-markdown/vscode-common';
 import * as vscode from 'vscode';
 
-import { C4Panel } from './c4/C4Panel';
-import { registerC4Commands } from './commands/c4Commands';
 import { registerTraceCommands } from './commands/traceCommands';
+import { installBundledSkills } from './installBundledSkills';
 import { CodeGraphService } from './graph/CodeGraphService';
-import { synthesizeC4ElementsFromFilesystem } from './graph/synthesizeC4Elements';
-import { AiMemoryItem,AiMemoryProvider } from './providers/AiMemoryProvider';
 import { AiNoteItem,AiNoteProvider } from './providers/AiNoteProvider';
-import { C4TreeProvider } from './providers/C4TreeProvider';
+import { AgentMappingProvider } from './providers/AgentMappingProvider';
 import { TraceCodeLensProvider } from './providers/TraceCodeLensProvider';
 import { TraceScriptLensProvider } from './providers/TraceScriptLensProvider';
 import { TrailDataServer } from './server/TrailDataServer';
+import { TrailDatabase } from '@anytime-markdown/trail-db';
+import { analyze } from '@anytime-markdown/trail-core/analyze';
+import {
+	ANALYZE_EXCLUDE_PATTERNS,
+	findTsconfigCandidates,
+	runAnalyzeCurrentCodePipeline,
+	runAnalyzeReleaseCodePipeline,
+} from './graph/AnalyzePipeline';
 import { DatabaseProvider } from './trail/DatabaseProvider';
-import type { IRemoteTrailStore } from './trail/IRemoteTrailStore';
-import { PostgresTrailStore } from './trail/PostgresTrailStore';
-import { SupabaseTrailStore } from './trail/SupabaseTrailStore';
-import { SyncService } from './trail/SyncService';
-import { TrailDatabase } from './trail/TrailDatabase';
 import { TrailPanel } from './trail/TrailPanel';
 import { TrailLogger } from './utils/TrailLogger';
 
@@ -29,29 +28,43 @@ let trailDataServer: TrailDataServer | undefined;
 let trailDb: TrailDatabase | undefined;
 let extensionDistPath = '';
 
-// ---------------------------------------------------------------------------
-//  C4 Data Server helpers
-// ---------------------------------------------------------------------------
+function getEffectiveWorkspacePath(): string | undefined {
+	const configured = vscode.workspace.getConfiguration('anytimeTrail.workspace').get<string>('path', '').trim();
+	return configured || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+}
 
 function applyDocsPathConfig(): void {
-	const docsPath = vscode.workspace.getConfiguration('anytimeTrail').get<string>('docsPath', '');
+	const docsPath = vscode.workspace.getConfiguration('anytimeTrail.workspace').get<string>('docsPath', '');
 	trailDataServer?.setDocsPath(docsPath || undefined);
 }
 
-function setupC4OnServer(server: TrailDataServer): void {
-	server.setC4Provider(() => C4Panel.getDataProvider());
-	C4Panel.setDataServer(server);
+function setupServerCallbacks(server: TrailDataServer): void {
 	applyDocsPathConfig();
 	server.onOpenDocLink = (docPath) => {
-		const docsDir = vscode.workspace.getConfiguration('anytimeTrail').get<string>('docsPath', '');
-		if (!docsDir) return;
-		const uri = vscode.Uri.file(path.join(docsDir, docPath));
+		const docsDir = vscode.workspace.getConfiguration('anytimeTrail.workspace').get<string>('docsPath', '');
+		if (!docsDir) {
+			TrailLogger.warn(`[open-doc-link] docsPath is not configured (anytimeTrail.workspace.docsPath). Cannot open: ${docPath}`);
+			vscode.window.showWarningMessage('Set anytimeTrail.workspace.docsPath to open document links.');
+			return;
+		}
+		const fsPath = path.join(docsDir, docPath);
+		if (!fs.existsSync(fsPath)) {
+			TrailLogger.warn(`[open-doc-link] file not found: ${fsPath}`);
+			vscode.window.showWarningMessage(`File not found: ${fsPath}`);
+			return;
+		}
+		const uri = vscode.Uri.file(fsPath);
+		TrailLogger.info(`[open-doc-link] opening ${fsPath}`);
 		vscode.commands.executeCommand('vscode.openWith', uri, 'anytimeMarkdown').then(
 			undefined,
-			() => {
+			(err) => {
+				TrailLogger.warn(`[open-doc-link] vscode.openWith(anytimeMarkdown) failed, falling back to text editor: ${String(err)}`);
 				vscode.workspace.openTextDocument(uri).then(
 					(doc) => vscode.window.showTextDocument(doc),
-					() => vscode.window.showWarningMessage(`File not found: ${uri.fsPath}`),
+					(err2) => {
+						TrailLogger.error(`[open-doc-link] openTextDocument fallback failed: ${String(err2)}`);
+						vscode.window.showWarningMessage(`Failed to open: ${fsPath}`);
+					},
 				);
 			},
 		);
@@ -72,7 +85,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Claude Code hook を ~/.claude/settings.json に自動登録
 	const claudeStatusDirSetting = vscode.workspace.getConfiguration('anytimeTrail.claudeStatus').get<string>('directory', '') || '.vscode';
-	const trailPortForHooks = vscode.workspace.getConfiguration('anytimeTrail.trailServer').get<number>('port', 19841);
+	const trailPortForHooks = vscode.workspace.getConfiguration('anytimeTrail.viewer').get<number>('port', 19841);
 	{
 		const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 		if (wsRoot) {
@@ -116,8 +129,25 @@ export async function activate(context: vscode.ExtensionContext) {
 	const claudeDir = homeDir ? path.join(homeDir, '.claude') : '';
 	const hasClaudeDir = Boolean(claudeDir) && fs.existsSync(claudeDir);
 
-	const openContext = vscode.commands.registerCommand(
-		'anytime-trail.openContext',
+	// 同梱スキルを ~/.claude/skills/ に展開（初回 activate 時 / 旧 build-code-graph cleanup）
+	if (hasClaudeDir) {
+		try {
+			installBundledSkills({
+				claudeDir,
+				extensionPath: context.extensionUri.fsPath,
+				logger: {
+					info: (m) => TrailLogger.info(m),
+					warn: (m) => TrailLogger.warn(m),
+					error: (m) => TrailLogger.error(m),
+				},
+			});
+		} catch (err) {
+			TrailLogger.warn(`[install-skills] unexpected failure: ${String(err)}`);
+		}
+	}
+
+	const openAiNote = vscode.commands.registerCommand(
+		'anytime-trail.openAiNote',
 		async () => {
 			const dir = noteStorageDir;
 			const filePath = path.join(dir, 'anytime-note-1.md');
@@ -239,8 +269,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	);
 
-	const openNoteSkill = vscode.commands.registerCommand(
-		'anytime-trail.openNoteSkill',
+	const openAiNoteSkill = vscode.commands.registerCommand(
+		'anytime-trail.openAiNoteSkill',
 		async () => {
 			const skillPath = path.join(homeDir, '.claude', 'skills', 'anytime-note', 'SKILL.md');
 			if (!fs.existsSync(skillPath)) {
@@ -251,8 +281,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	);
 
-	const copyContextPath = vscode.commands.registerCommand(
-		'anytime-trail.copyContextPath',
+	const copyAiNotePath = vscode.commands.registerCommand(
+		'anytime-trail.copyAiNotePath',
 		async () => {
 			const filePath = path.join(noteStorageDir, 'anytime-context.md');
 			await vscode.env.clipboard.writeText(filePath);
@@ -260,8 +290,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	);
 
-	const clearContext = vscode.commands.registerCommand(
-		'anytime-trail.clearContext',
+	const clearAiNote = vscode.commands.registerCommand(
+		'anytime-trail.clearAiNote',
 		async () => {
 			const answer = await vscode.window.showWarningMessage(
 				'すべてのノートページと画像を削除しますか？',
@@ -285,8 +315,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	);
 
-	const addNotePage = vscode.commands.registerCommand(
-		'anytime-trail.addNotePage',
+	const addAiNotePage = vscode.commands.registerCommand(
+		'anytime-trail.addAiNotePage',
 		async () => {
 			const dir = noteStorageDir;
 			if (!fs.existsSync(dir)) {
@@ -306,8 +336,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	);
 
-	const deleteNotePage = vscode.commands.registerCommand(
-		'anytime-trail.deleteNotePage',
+	const deleteAiNotePage = vscode.commands.registerCommand(
+		'anytime-trail.deleteAiNotePage',
 		async (item: AiNoteItem) => {
 			const answer = await vscode.window.showWarningMessage(
 				`"${item.label as string}" を削除しますか？`,
@@ -322,57 +352,50 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	);
 
-	const openNotePage = vscode.commands.registerCommand(
-		'anytime-trail.openNotePage',
+	const openAiNotePage = vscode.commands.registerCommand(
+		'anytime-trail.openAiNotePage',
 		async (filePath: string) => {
 			await openNoteFile(filePath);
+		}
+	);
+
+	const reinstallSkills = vscode.commands.registerCommand(
+		'anytime-trail.reinstallSkills',
+		async () => {
+			if (!hasClaudeDir) {
+				vscode.window.showWarningMessage('Claude Code がインストールされていません（~/.claude が見つかりません）。');
+				return;
+			}
+			const result = installBundledSkills({
+				claudeDir,
+				extensionPath: context.extensionUri.fsPath,
+				force: true,
+				logger: {
+					info: (m) => TrailLogger.info(m),
+					warn: (m) => TrailLogger.warn(m),
+					error: (m) => TrailLogger.error(m),
+				},
+			});
+			if (result.installed) {
+				vscode.window.showInformationMessage('Anytime Trail のスキルを再インストールしました。');
+			} else {
+				vscode.window.showWarningMessage('スキルの再インストールに失敗しました。Output パネルでログを確認してください。');
+			}
 		}
 	);
 
 	context.subscriptions.push(
 		aiNoteTreeView,
 		noteWatcher,
-		openContext,
-		openNoteSkill,
-		copyContextPath,
-		clearContext,
-		addNotePage,
-		deleteNotePage,
-		openNotePage,
+		openAiNote,
+		openAiNoteSkill,
+		copyAiNotePath,
+		clearAiNote,
+		addAiNotePage,
+		deleteAiNotePage,
+		openAiNotePage,
+		reinstallSkills,
 	);
-
-	// --- コマンド登録 ---
-	context.subscriptions.push(
-		vscode.commands.registerCommand('anytime-trail.runE2eTest', () => {
-			const cmd = vscode.workspace.getConfiguration('anytimeTrail.test').get<string>('e2eCommand', 'cd packages/web-app && npm run e2e');
-			const terminal = vscode.window.createTerminal('E2E Test');
-			terminal.show();
-			terminal.sendText(cmd);
-		}),
-	);
-
-	context.subscriptions.push(
-		vscode.commands.registerCommand('anytime-trail.runCoverageTest', () => {
-			const cmd = vscode.workspace.getConfiguration('anytimeTrail.test').get<string>('coverageCommand', 'npx jest --coverage --maxWorkers=1');
-			const terminal = vscode.window.createTerminal('Coverage Test');
-			terminal.show();
-			terminal.sendText(cmd);
-		}),
-	);
-
-	registerC4Commands(context, {
-		getDataServer: () => trailDataServer,
-		startServer: async () => {
-			// TrailDataServer は非同期で起動済みのため待機のみ
-			await new Promise((resolve) => setTimeout(resolve, 1000));
-		},
-	});
-
-	// C4 Elements パネル
-	const c4TreeProvider = new C4TreeProvider();
-	const c4ElementsTreeView = vscode.window.createTreeView('anytimeTrail.c4Elements', {
-		treeDataProvider: c4TreeProvider,
-	});
 
 	// Trail Database + Data Server (non-blocking initialization)
 	const dbStoragePathSetting = vscode.workspace.getConfiguration('anytimeTrail.database').get<string>('storagePath', '') || '.vscode';
@@ -381,7 +404,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		? dbStoragePathSetting
 		: wsRootForDb ? path.join(wsRootForDb, dbStoragePathSetting) : undefined;
 	const backupGenerations = vscode.workspace.getConfiguration('anytimeTrail.database').get<number>('backupGenerations', 1);
-	trailDb = new TrailDatabase(extensionDistPath, dbStorageDir, backupGenerations);
+	trailDb = new TrailDatabase(extensionDistPath, dbStorageDir, backupGenerations, TrailLogger);
 	trailDb.setIntegrityAlertHandler((alerts) => {
 		for (const a of alerts) {
 			TrailLogger.warn(
@@ -390,106 +413,170 @@ export async function activate(context: vscode.ExtensionContext) {
 			);
 		}
 	});
-	C4Panel.setTrailDatabase(trailDb);
 	const gitRoot = wsRootForDb;
 	trailDataServer = new TrailDataServer(extensionDistPath, trailDb, gitRoot);
 	TrailPanel.setDataServer(trailDataServer);
-	setupC4OnServer(trailDataServer);
+	setupServerCallbacks(trailDataServer);
 
 	// Code graph service
-	const codeGraphCfg = vscode.workspace.getConfiguration('anytimeTrail.codeGraph');
-	const expandWorkspace = (s: string): string =>
-		wsRootForDb ? s.replace('${workspaceFolder}', wsRootForDb) : s;
-	const configuredRepoPaths = codeGraphCfg.get<string[]>('repositories', []);
-	const codeGraphAutoRefresh = codeGraphCfg.get<boolean>('autoRefresh', false);
-	const c4ExcludePatterns = vscode.workspace
-		.getConfiguration('anytimeTrail.c4')
-		.get<string[]>('analyzeExcludePatterns', []);
-	// repo.id は trail viewer のサイドパネルに「リポジトリ」として表示されるため、
-	// 数値インデックスではなく label ベースの slug を使う。重複時は index を付与する。
-	const usedRepoIds = new Set<string>();
-	const codeGraphRepos = configuredRepoPaths.map((rawPath, i) => {
-		// 後方互換: 設定値が JSON オブジェクト文字列 '{ "path": "...", "label": "..." }' の場合も受け付ける
-		let resolvedPath = rawPath;
-		let explicitLabel: string | undefined;
-		try {
-			const parsed = JSON.parse(rawPath) as { path?: string; label?: string };
-			if (parsed && typeof parsed === 'object' && typeof parsed.path === 'string') {
-				resolvedPath = parsed.path;
-				if (typeof parsed.label === 'string' && parsed.label) explicitLabel = parsed.label;
-			}
-		} catch { /* not JSON — treat as plain path string */ }
-		const expandedPath = expandWorkspace(resolvedPath);
-		const label = explicitLabel ?? (path.basename(expandedPath) || String(i));
-		const slug = label.trim().replace(/\s+/g, '-');
-		let id = slug || String(i);
-		if (usedRepoIds.has(id)) id = `${id}-${i}`;
-		usedRepoIds.add(id);
-		return { id, label, path: expandedPath };
-	});
+	const codeGraphRepos: { id: string; label: string; path: string }[] = [];
+	const analysisWorkspacePath = getEffectiveWorkspacePath();
+	if (analysisWorkspacePath) {
+		const workspaceLabel = path.basename(analysisWorkspacePath) || 'Workspace';
+		codeGraphRepos.push({ id: workspaceLabel, label: workspaceLabel, path: analysisWorkspacePath });
+	}
+
+	const docsPathForCodeGraph = vscode.workspace.getConfiguration('anytimeTrail.workspace').get<string>('docsPath', '').trim();
+	if (docsPathForCodeGraph && !codeGraphRepos.some((r) => r.path === docsPathForCodeGraph)) {
+		const docsLabel = path.basename(docsPathForCodeGraph) || 'Docs';
+		const uniqueDocsLabel = codeGraphRepos.some((r) => r.id === docsLabel) ? `${docsLabel}-docs` : docsLabel;
+		codeGraphRepos.push({ id: uniqueDocsLabel, label: uniqueDocsLabel, path: docsPathForCodeGraph });
+	}
+
 	const codeGraphService = new CodeGraphService({
 		repositories: codeGraphRepos,
-		excludePatterns: c4ExcludePatterns,
-		c4ElementsProvider: () => {
-			const trailGraph = C4Panel.getDataProvider()?.trailGraph;
-			if (trailGraph) {
-				try {
-					return trailToC4(trailGraph).elements;
-				} catch (err) {
-					TrailLogger.error('Failed to derive C4 elements from trail graph', err);
-				}
-			}
-			// analyzeWorkspace 未実行時は packages/<pkg>/src/<dir> 構造から合成する。
-			// trail-core 解析と同じ命名規則で elements を作るため、c4-aware 命名が機能する。
-			return synthesizeC4ElementsFromFilesystem(codeGraphRepos);
-		},
-		trailGraphProvider: () => {
-			// Analyze Workspace 既実行時は lastTrailGraph を流用して analyze() の重複呼び出しを避ける。
-			// プライマリリポ（最初の設定）にのみ適用。それ以外は CodeGraphService が個別に analyze() する。
-			const tg = C4Panel.getDataProvider()?.trailGraph;
-			if (!tg || codeGraphRepos.length === 0) return undefined;
-			return { [codeGraphRepos[0].id]: tg };
-		},
 		trailDb: trailDb!,
 	});
 	trailDataServer.setCodeGraphService(codeGraphService);
-	C4Panel.setCodeGraphService(codeGraphService);
+
+	// HTTP 経由（mcp-trail 等）から解析パイプラインを起動するためのハンドラ登録
+	trailDataServer.onAnalyzeCurrentCode = async ({ workspacePath, tsconfigPath }) => {
+		const analysisRoot = workspacePath ?? getEffectiveWorkspacePath();
+		if (!analysisRoot) {
+			throw new Error('No workspace path. Set anytimeTrail.workspace.path or open a workspace.');
+		}
+		let rootStat: fs.Stats;
+		try {
+			rootStat = fs.statSync(analysisRoot);
+		} catch {
+			throw new Error(`workspace path does not exist: ${analysisRoot}`);
+		}
+		if (!rootStat.isDirectory()) {
+			throw new Error(`workspace path is not a directory: ${analysisRoot}`);
+		}
+
+		let resolvedTsconfig = tsconfigPath;
+		if (!resolvedTsconfig) {
+			const candidates = findTsconfigCandidates(analysisRoot);
+			if (candidates.length === 0) {
+				throw new Error(`No tsconfig.json found under ${analysisRoot}`);
+			}
+			resolvedTsconfig = candidates[0].fsPath;
+		}
+
+		if (!trailDb) throw new Error('Trail DB not initialized');
+		return runAnalyzeCurrentCodePipeline({
+			analysisRoot,
+			tsconfigPath: resolvedTsconfig,
+			trailDb,
+			trailDataServer: trailDataServer!,
+			codeGraphService,
+		});
+	};
+
+	trailDataServer.onAnalyzeReleaseCode = async () => {
+		if (!trailDb) throw new Error('Trail DB not initialized');
+		if (!gitRoot) throw new Error('No workspace folder for release analysis');
+		return runAnalyzeReleaseCodePipeline({
+			trailDb,
+			codeGraphService,
+			gitRoot,
+		});
+	};
+
+	trailDataServer.onAnalyzeAll = async () => {
+		if (!trailDb) throw new Error('Trail DB not initialized');
+		const startedAt = Date.now();
+		const result = await trailDb.importAll(
+			(message) => TrailLogger.info(`Trail import (HTTP): ${message}`),
+			gitRoot,
+			ANALYZE_EXCLUDE_PATTERNS,
+			analyze,
+		);
+		trailDataServer?.notifySessionsUpdated();
+		return { ...result, durationMs: Date.now() - startedAt };
+	};
+
 	// loadFromDb() は trailDb.init() 完了後に下の async IIFE 内で呼ぶ。
 	// ここで呼ぶと DB 未初期化のまま ensureDb() が throw → null が返るため。
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('anytime-trail.generateCodeGraph', async () => {
-			try {
-				await codeGraphService.generate((phase, percent) => trailDataServer?.notifyCodeGraphProgress(phase, percent));
-				trailDataServer?.notifyCodeGraphUpdated();
-				vscode.window.showInformationMessage('Code graph generated.');
-			} catch (err) {
-				TrailLogger.error('Failed to generate code graph', err);
-				vscode.window.showErrorMessage(`Code graph generation failed: ${(err as Error).message}`);
-			}
-		}),
-		vscode.commands.registerCommand('anytime-trail.regenerateCurrentCodeGraph', async () => {
-			if (!trailDb) {
-				vscode.window.showErrorMessage('Trail DB is not initialized.');
+		vscode.commands.registerCommand('anytime-trail.analyzeCurrentCode', async () => {
+			const analysisRoot = getEffectiveWorkspacePath();
+			if (!analysisRoot) {
+				vscode.window.showErrorMessage('解析対象のワークスペースが指定されていません。anytimeTrail.workspace.path を設定するか、ワークスペースを開いてください。');
 				return;
 			}
-			await vscode.window.withProgress(
-				{ location: vscode.ProgressLocation.Notification, title: 'Trail: Regenerate Current Code Graph', cancellable: false },
-				async (progress) => {
-					try {
-						progress.report({ message: 'Clearing current code graph...' });
-						trailDb!.deleteCurrentCodeGraphs();
-						progress.report({ message: 'Re-analyzing workspace...' });
-						await C4Panel.analyzeWorkspace();
-						vscode.window.showInformationMessage('Current code graph regenerated.');
-					} catch (err) {
-						TrailLogger.error('Failed to regenerate current code graph', err);
-						vscode.window.showErrorMessage(`Regenerate failed: ${err instanceof Error ? err.message : String(err)}`);
-					}
-				},
-			);
+			let rootStat: fs.Stats;
+			try {
+				rootStat = fs.statSync(analysisRoot);
+			} catch {
+				vscode.window.showErrorMessage(`anytimeTrail.workspace.path のパスが存在しません: ${analysisRoot}`);
+				return;
+			}
+			if (!rootStat.isDirectory()) {
+				vscode.window.showErrorMessage(`anytimeTrail.workspace.path はディレクトリではありません: ${analysisRoot}`);
+				return;
+			}
+			const repoName = path.basename(analysisRoot);
+			TrailLogger.info(`C4 analysis [${repoName}]: searching tsconfig.json under ${analysisRoot}`);
+			const tsconfigFiles = findTsconfigCandidates(analysisRoot);
+			if (tsconfigFiles.length === 0) {
+				TrailLogger.warn(`C4 analysis [${repoName}]: no tsconfig.json found under ${analysisRoot}`);
+				vscode.window.showWarningMessage(`No tsconfig.json found under ${analysisRoot}`);
+				return;
+			}
+
+			let tsconfigPath: string;
+			if (tsconfigFiles.length === 1) {
+				tsconfigPath = tsconfigFiles[0].fsPath;
+			} else {
+				const items = tsconfigFiles.map(f => ({
+					label: f.rel,
+					description: f.rel === 'tsconfig.json' ? '(workspace root — analyzes all packages)' : undefined,
+					fsPath: f.fsPath,
+				}));
+				const picked = await vscode.window.showQuickPick(items, {
+					placeHolder: 'Select tsconfig.json to analyze',
+					matchOnDescription: true,
+				});
+				if (!picked) {
+					TrailLogger.info(`C4 analysis [${repoName}]: cancelled at tsconfig selection`);
+					return;
+				}
+				tsconfigPath = picked.fsPath;
+			}
+
+			TrailLogger.info(`C4 analysis [${repoName}]: starting for ${tsconfigPath}`);
+			TrailPanel.openViewer(true);
+
+			if (!trailDb || !trailDataServer) {
+				vscode.window.showErrorMessage('Trail DB or server is not initialized.');
+				return;
+			}
+
+			try {
+				await vscode.window.withProgress(
+					{ location: vscode.ProgressLocation.Notification, title: 'C4 Analysis', cancellable: false },
+					async (progress) => {
+						const result = await runAnalyzeCurrentCodePipeline({
+							analysisRoot,
+							tsconfigPath,
+							trailDb: trailDb!,
+							trailDataServer: trailDataServer!,
+							codeGraphService,
+							onProgress: (phase) => progress.report({ message: phase }),
+						});
+						TrailLogger.info(`C4 analysis [${repoName}]: completed in ${result.durationMs}ms`);
+					},
+				);
+				vscode.window.showInformationMessage('C4 analysis completed.');
+			} catch (err) {
+				TrailLogger.error(`C4 analysis [${repoName}] failed`, err);
+				vscode.window.showErrorMessage(`C4 analysis failed: ${err instanceof Error ? err.message : String(err)}`);
+			}
 		}),
-		vscode.commands.registerCommand('anytime-trail.regenerateReleaseCodeGraphs', async () => {
+		vscode.commands.registerCommand('anytime-trail.analyzeReleaseCode', async () => {
 			if (!trailDb) {
 				vscode.window.showErrorMessage('Trail DB is not initialized.');
 				return;
@@ -499,42 +586,29 @@ export async function activate(context: vscode.ExtensionContext) {
 				return;
 			}
 			await vscode.window.withProgress(
-				{ location: vscode.ProgressLocation.Notification, title: 'Trail: Regenerate Release Code Graphs', cancellable: false },
+				{ location: vscode.ProgressLocation.Notification, title: 'Trail: Analyze Release Code', cancellable: false },
 				async (progress) => {
 					try {
-						progress.report({ message: 'Clearing release code graphs...' });
-						trailDb!.deleteReleaseCodeGraphs();
-						progress.report({ message: 'Generating release code graphs...' });
-						const count = await trailDb!.analyzeReleaseCodeGraphsForce({
+						const result = await runAnalyzeReleaseCodePipeline({
+							trailDb: trailDb!,
 							codeGraphService,
-							gitRoot,
+							gitRoot: gitRoot!,
 							onProgress: (msg) => progress.report({ message: msg }),
 						});
-						vscode.window.showInformationMessage(`Release code graphs regenerated (${count} releases).`);
+						vscode.window.showInformationMessage(`Release code analyzed (${result.releaseCount} releases).`);
 					} catch (err) {
-						TrailLogger.error('Failed to regenerate release code graphs', err);
-						vscode.window.showErrorMessage(`Regenerate failed: ${err instanceof Error ? err.message : String(err)}`);
+						TrailLogger.error('Failed to analyze release code', err);
+						vscode.window.showErrorMessage(`Analyze release code failed: ${err instanceof Error ? err.message : String(err)}`);
 					}
 				},
 			);
 		}),
 	);
 
-	const trailPort = vscode.workspace.getConfiguration('anytimeTrail.trailServer').get<number>('port', 19841);
-
-	// Supabase store（設定が揃っている場合のみ初期化）
-	const remoteConfig = vscode.workspace.getConfiguration('anytimeTrail.remote');
-	let supabaseStore: SupabaseTrailStore | undefined;
-	if (remoteConfig.get<string>('provider', 'none') === 'supabase') {
-		const url = remoteConfig.get<string>('supabaseUrl', '');
-		const key = remoteConfig.get<string>('supabaseAnonKey', '');
-		if (url && key) {
-			supabaseStore = new SupabaseTrailStore(url, key);
-		}
-	}
+	const trailPort = vscode.workspace.getConfiguration('anytimeTrail.viewer').get<number>('port', 19841);
 
 	// Database panel
-	const databaseProvider = new DatabaseProvider(trailDb, supabaseStore);
+	const databaseProvider = new DatabaseProvider(trailDb);
 	const databaseTreeView = vscode.window.createTreeView('anytimeTrail.database', {
 		treeDataProvider: databaseProvider,
 	});
@@ -549,10 +623,6 @@ export async function activate(context: vscode.ExtensionContext) {
 			// DB 初期化完了後に loadFromDb() を実行（初期化前に呼ぶと ensureDb が throw するため）
 			const dbGraph = await codeGraphService!.loadFromDb();
 			if (dbGraph) {
-				trailDataServer?.notifyCodeGraphUpdated();
-			}
-			if (codeGraphAutoRefresh) {
-				await codeGraphService!.generate((phase, percent) => trailDataServer?.notifyCodeGraphProgress(phase, percent));
 				trailDataServer?.notifyCodeGraphUpdated();
 			}
 		} catch (err) {
@@ -596,7 +666,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			// 通知でポートと回復策を示す。
 			const isPortConflict = /EADDRINUSE|already in use/i.test(message);
 			const userMsg = isPortConflict
-				? `Trail Data Server failed to bind port ${trailPort} (already in use). 別の VS Code ウィンドウが同じポートを掴んでいる可能性が高いです。古いウィンドウを閉じるか anytimeTrail.trailServer.port 設定で別ポートに変更してください。`
+				? `Trail Data Server failed to bind port ${trailPort} (already in use). 別の VS Code ウィンドウが同じポートを掴んでいる可能性が高いです。古いウィンドウを閉じるか anytimeTrail.viewer.port 設定で別ポートに変更してください。`
 				: `Trail Data Server failed to start: ${message}`;
 			void vscode.window.showErrorMessage(userMsg);
 		}
@@ -675,7 +745,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('anytime-trail.importTrailData', async () => {
+		vscode.commands.registerCommand('anytime-trail.analyzeAll', async () => {
 			const repoName = vscode.workspace.workspaceFolders?.[0]?.name ?? '(no workspace)';
 			if (!trailDb) {
 				TrailLogger.error(`Trail import [${repoName}] skipped: trailDb is null (not initialized)`);
@@ -692,11 +762,10 @@ export async function activate(context: vscode.ExtensionContext) {
 					},
 					async (progress) => {
 						const gitRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-						const excludePatterns = vscode.workspace.getConfiguration('anytimeTrail.c4').get<string[]>('analyzeExcludePatterns', ['.worktrees', '.vscode-test', '__tests__', 'fixtures']);
 						return trailDb!.importAll((message, increment) => {
 							progress.report({ message, increment });
 							TrailLogger.info(`Trail import [${repoName}]: ${message}`);
-						}, gitRoot, excludePatterns);
+						}, gitRoot, ANALYZE_EXCLUDE_PATTERNS, analyze);
 					},
 				);
 				TrailLogger.info(`Trail DB [${repoName}]: import complete - imported=${result.imported}, skipped=${result.skipped}, commits=${result.commitsResolved}, releases=${result.releasesResolved}, analyzed=${result.releasesAnalyzed}`);
@@ -716,119 +785,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		}),
 	);
 
-	context.subscriptions.push(
-		vscode.commands.registerCommand('anytime-trail.syncToRemote', async () => {
-			if (!trailDb) return;
-			const config = vscode.workspace.getConfiguration('anytimeTrail.remote');
-			const provider = config.get<string>('provider', 'none');
-
-			if (provider === 'none') {
-				vscode.window.showWarningMessage(
-					'Remote sync is disabled. Set anytimeTrail.remote.provider in settings.',
-				);
-				return;
-			}
-
-			let store: IRemoteTrailStore;
-			if (provider === 'supabase') {
-				const url = config.get<string>('supabaseUrl', '');
-				const key = config.get<string>('supabaseAnonKey', '');
-				if (!url || !key) {
-					vscode.window.showWarningMessage('Supabase URL and anon key are required.');
-					return;
-				}
-				store = new SupabaseTrailStore(url, key);
-			} else if (provider === 'postgres') {
-				const pgUrl = config.get<string>('postgresUrl', '');
-				if (!pgUrl) {
-					vscode.window.showWarningMessage('PostgreSQL connection string is required.');
-					return;
-				}
-				store = new PostgresTrailStore(pgUrl);
-			} else {
-				vscode.window.showWarningMessage(`Unknown provider: ${provider}`);
-				return;
-			}
-
-			const syncService = new SyncService(trailDb, store);
-			await vscode.window.withProgress(
-				{
-					location: vscode.ProgressLocation.Notification,
-					title: 'Syncing Trail data to remote DB...',
-					cancellable: false,
-				},
-				async (progress) => {
-					const result = await syncService.sync(({ message, increment }) => {
-						progress.report({ message, increment });
-					});
-					vscode.window.showInformationMessage(
-						`Trail sync complete: ${result.synced} synced, ${result.skipped} up-to-date, ${result.errors} errors`,
-					);
-				},
-			);
-		}),
-	);
-
-	// Supabase 同期
-	context.subscriptions.push(
-		vscode.commands.registerCommand('anytime-trail.syncToSupabase', async () => {
-			if (!supabaseStore || !trailDb) {
-				vscode.window.showErrorMessage('Supabase が設定されていません');
-				return;
-			}
-			databaseProvider.setImporting(true);
-			databaseProvider.updateSupabaseStatus('Syncing...');
-			try {
-				const syncService = new SyncService(trailDb, supabaseStore);
-				await vscode.window.withProgress(
-					{
-						location: vscode.ProgressLocation.Notification,
-						title: 'Trail: Syncing to Supabase',
-						cancellable: false,
-					},
-					async (progress) => {
-						const result = await syncService.syncWithOpenStore(({ message, increment }) => {
-							progress.report({ message, increment });
-							TrailLogger.info(`Trail Supabase sync: ${message}`);
-						});
-						databaseProvider.updateSupabaseStatus('Connected', new Date().toISOString());
-						vscode.window.showInformationMessage(
-							`Supabase sync complete: ${result.synced} synced, ${result.skipped} up-to-date, ${result.errors} errors`,
-						);
-					},
-				);
-			} catch (e) {
-				databaseProvider.updateSupabaseStatus('Sync failed');
-				vscode.window.showErrorMessage(`同期エラー: ${e}`);
-			} finally {
-				databaseProvider.setImporting(false);
-			}
-		}),
-	);
-
-	// Supabase 再接続
-	context.subscriptions.push(
-		vscode.commands.registerCommand('anytime-trail.reconnectSupabase', async () => {
-			if (!supabaseStore) {
-				vscode.window.showErrorMessage('Supabase が設定されていません');
-				return;
-			}
-			databaseProvider.updateSupabaseStatus('Connecting...');
-			try {
-				await supabaseStore.close();
-				await supabaseStore.connect();
-				const syncedAt = await supabaseStore.getExistingSyncedAt();
-				const lastSync = syncedAt.size > 0
-					? [...syncedAt.values()].reduce((a, b) => (a > b ? a : b))
-					: null;
-				databaseProvider.updateSupabaseStatus('Connected', lastSync);
-			} catch (e) {
-				databaseProvider.updateSupabaseStatus('Connection failed');
-				vscode.window.showErrorMessage(`再接続エラー: ${e}`);
-			}
-		}),
-	);
-
 	context.subscriptions.push({
 		dispose: () => {
 			trailDataServer?.stop().catch(() => {});
@@ -839,7 +795,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Watch for configuration changes
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration((e) => {
-			if (e.affectsConfiguration('anytimeTrail.docsPath')) {
+			if (e.affectsConfiguration('anytimeTrail.workspace.docsPath')) {
 				applyDocsPathConfig();
 			}
 			if (e.affectsConfiguration('anytimeTrail.budget') && trailDataServer) {
@@ -853,37 +809,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		}),
 	);
 
-	// AI Memory ビュー
-	const sessionsDir = claudeDir ? path.join(claudeDir, 'projects') : '';
-	const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
-	const projectDirName = workspaceRoot.replaceAll('/', '-') || '-';
-	const memoryDir = sessionsDir
-		? path.join(sessionsDir, projectDirName, 'memory')
-		: '';
-
-	const aiMemoryProvider = new AiMemoryProvider(memoryDir);
-	const aiMemoryTreeView = vscode.window.createTreeView('anytimeTrail.aiMemory', {
-		treeDataProvider: aiMemoryProvider,
-	});
-
-	const aiMemoryRefresh = vscode.commands.registerCommand(
-		'anytime-trail.aiMemoryRefresh', () => aiMemoryProvider.refresh(),
-	);
-
-	const openAiMemory = vscode.commands.registerCommand(
-		'anytime-trail.openAiMemory',
-		async (item: AiMemoryItem) => {
-			const uri = vscode.Uri.file(item.filePath);
-			await vscode.commands.executeCommand('vscode.openWith', uri, 'anytimeMarkdown');
-		},
-	);
-
 	context.subscriptions.push(
-		c4ElementsTreeView,
 		databaseTreeView,
-		aiMemoryTreeView,
-		aiMemoryRefresh,
-		openAiMemory,
 	);
 
 	// Trace CodeLens providers
@@ -919,11 +846,60 @@ export async function activate(context: vscode.ExtensionContext) {
 		});
 		context.subscriptions.push(traceWatcher);
 	}
+
+	// Agent Mapping ビュー
+	const agentStatusRoot = getEffectiveWorkspacePath() ?? wsRootForDb;
+	const agentMappingProvider = new AgentMappingProvider(
+		new ClaudeStatusWatcher(agentStatusRoot, claudeStatusDirSetting),
+		agentStatusRoot ?? process.cwd(),
+	);
+	const agentMappingTreeView = vscode.window.createTreeView('anytimeTrail.agentMapping', {
+		treeDataProvider: agentMappingProvider,
+		showCollapseAll: true,
+	});
+	context.subscriptions.push(agentMappingProvider, agentMappingTreeView);
+	void vscode.commands.executeCommand('setContext', 'anytimeTrail.agentMapping.filterActive', false);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('anytime-trail.agentMapping.refresh', () => {
+			agentMappingProvider.refresh();
+		}),
+		vscode.commands.registerCommand('anytime-trail.agentMapping.cleanupStale', () => {
+			agentMappingProvider.cleanupStale();
+		}),
+		vscode.commands.registerCommand('anytime-trail.agentMapping.toggleStale', () => {
+			agentMappingProvider.toggleStale();
+			void vscode.commands.executeCommand(
+				'setContext',
+				'anytimeTrail.agentMapping.filterActive',
+				!agentMappingProvider.showStale,
+			);
+		}),
+		vscode.commands.registerCommand('anytime-trail.agentMapping.openWorktree', (item: import('./providers/AgentMappingItem').WorktreeTreeItem) => {
+			void vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(item.mapping.worktreePath), true);
+		}),
+		vscode.commands.registerCommand('anytime-trail.agentMapping.copyWorktreePath', (item: import('./providers/AgentMappingItem').WorktreeTreeItem) => {
+			void vscode.env.clipboard.writeText(item.mapping.worktreePath);
+		}),
+		vscode.commands.registerCommand('anytime-trail.agentMapping.showSessionEdits', (item: import('./providers/AgentMappingItem').SessionTreeItem) => {
+			const edits = item.session.sessionEdits.map(e => ({ label: e.file, description: e.timestamp }));
+			if (edits.length === 0) {
+				void vscode.window.showInformationMessage('No session edits recorded.');
+				return;
+			}
+			void vscode.window.showQuickPick(edits, { title: `Session Edits: ${item.session.sessionId.slice(0, 8)}` });
+		}),
+		vscode.commands.registerCommand('anytime-trail.agentMapping.copySessionId', (item: import('./providers/AgentMappingItem').SessionTreeItem) => {
+			void vscode.env.clipboard.writeText(item.session.sessionId);
+		}),
+		vscode.commands.registerCommand('anytime-trail.agentMapping.deleteStatusFile', (item: import('./providers/AgentMappingItem').SessionTreeItem) => {
+			agentMappingProvider.deleteSessionFile(item.session.sessionId);
+		}),
+	);
 }
 
 export function deactivate(): void {
 	trailDataServer?.stop().catch((err) => TrailLogger.error('Failed to stop trail data server', err));
 	trailDb?.close();
-	C4Panel.disposeClaudeWatcher();
 	TrailLogger.dispose();
 }

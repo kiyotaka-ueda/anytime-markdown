@@ -1,11 +1,18 @@
 import type { DocLink } from "@anytime-markdown/trail-core/c4";
+import { fetchC4Model } from "@anytime-markdown/trail-core/c4";
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
+import { createC4ModelStore } from "../../../lib/api-helpers";
+
 /**
- * GET /api/docs-index
+ * GET /api/docs-index?repo=...
  *
  * GitHub API でドキュメントリポジトリのファイルツリーを取得し、
  * フロントマターに `c4Scope` を持つ Markdown をインデックスとして返す。
+ *
+ * `repo` パラメータが指定された場合は、その repo の C4 モデル要素 ID 集合と
+ * `doc.c4Scope` がヒット（完全一致または親パス）するドキュメントだけを返す。
  *
  * 環境変数:
  *   DOCS_GITHUB_REPO  — "owner/repo" 形式（必須）
@@ -14,88 +21,98 @@ import { NextResponse } from "next/server";
 
 const CACHE_MAX_AGE = 300; // 5 min
 
-/** フロントマターの c4Scope / title / type / date を抽出する */
-function parseFrontmatter(raw: string): Pick<DocLink, "title" | "type" | "c4Scope" | "date"> | null {
-  const normalized = raw.replaceAll("\r\n", "\n");
-  const lines = normalized.split("\n");
-  if (lines[0] !== "---") return null;
-
-  let endLineIndex = -1;
-  for (let i = 1; i < lines.length; i += 1) {
-    if (lines[i] === "---") {
-      endLineIndex = i;
-      break;
-    }
+function trimQuotes(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length < 2) return trimmed;
+  const first = trimmed[0];
+  const last = trimmed[trimmed.length - 1];
+  if ((first === `"` && last === `"`) || (first === "'" && last === "'")) {
+    return trimmed.slice(1, -1);
   }
-  if (endLineIndex < 0) return null;
+  return trimmed;
+}
 
-  const fmLines = lines.slice(1, endLineIndex);
+function parseScalar(line: string, key: string): string | null {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith(`${key}:`)) return null;
+  return trimQuotes(trimmed.slice(key.length + 1));
+}
 
-  const trimQuotes = (value: string): string => {
-    const trimmed = value.trim();
-    if (trimmed.length >= 2) {
-      const first = trimmed[0];
-      const last = trimmed[trimmed.length - 1];
-      if ((first === `"` && last === `"`) || (first === "'" && last === "'")) {
-        return trimmed.slice(1, -1);
-      }
-    }
-    return trimmed;
-  };
+function findFrontmatterRange(lines: string[]): [number, number] | null {
+  if (lines[0] !== "---") return null;
+  for (let i = 1; i < lines.length; i += 1) {
+    if (lines[i] === "---") return [1, i];
+  }
+  return null;
+}
 
-  const parseScalar = (line: string, key: string): string | null => {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith(`${key}:`)) return null;
-    return trimQuotes(trimmed.slice(key.length + 1));
-  };
+function parseInlineC4Scope(line: string): string[] | null {
+  const start = line.indexOf("[");
+  const end = line.lastIndexOf("]");
+  if (start < 0 || end <= start) return null;
+  return line
+    .slice(start + 1, end)
+    .split(",")
+    .map(trimQuotes)
+    .filter(Boolean);
+}
 
-  // c4Scope (YAML array)
-  const scopeLines: string[] = [];
+function parseC4Scope(fmLines: readonly string[]): string[] {
+  const scope: string[] = [];
   let inScope = false;
   for (const line of fmLines) {
     const trimmed = line.trim();
     if (trimmed.startsWith("c4Scope:")) {
-      inScope = true;
-      // inline value (e.g. c4Scope: ["a"])
-      const start = line.indexOf("[");
-      const end = line.lastIndexOf("]");
-      if (start >= 0 && end > start) {
-        const inline = line.slice(start + 1, end);
-        scopeLines.push(
-          ...inline
-            .split(",")
-            .map((s) => trimQuotes(s))
-            .filter(Boolean),
-        );
+      const inline = parseInlineC4Scope(line);
+      if (inline) {
+        scope.push(...inline);
         inScope = false;
+      } else {
+        inScope = true;
       }
       continue;
     }
-    if (inScope) {
-      if (trimmed.startsWith("- ")) {
-        scopeLines.push(trimQuotes(trimmed.slice(2)));
-      } else {
-        inScope = false;
-      }
+    if (!inScope) continue;
+    if (trimmed.startsWith("- ")) {
+      scope.push(trimQuotes(trimmed.slice(2)));
+    } else {
+      inScope = false;
     }
   }
-  if (scopeLines.length === 0) return null;
+  return scope;
+}
 
-  let title: string | null = null;
-  let type: string | null = null;
-  let date: string | null = null;
+function parseScalars(
+  fmLines: readonly string[],
+  keys: readonly string[],
+): Record<string, string | null> {
+  const result: Record<string, string | null> = {};
+  for (const k of keys) result[k] = null;
   for (const line of fmLines) {
-    if (title === null) title = parseScalar(line, "title");
-    if (type === null) type = parseScalar(line, "type");
-    if (date === null) date = parseScalar(line, "date");
-    if (title !== null && type !== null && date !== null) break;
+    for (const k of keys) {
+      if (result[k] === null) result[k] = parseScalar(line, k);
+    }
+    if (keys.every((k) => result[k] !== null)) break;
   }
+  return result;
+}
 
+/** フロントマターの c4Scope / title / type / date を抽出する */
+function parseFrontmatter(raw: string): Pick<DocLink, "title" | "type" | "c4Scope" | "date"> | null {
+  const lines = raw.replaceAll("\r\n", "\n").split("\n");
+  const range = findFrontmatterRange(lines);
+  if (!range) return null;
+  const fmLines = lines.slice(range[0], range[1]);
+
+  const c4Scope = parseC4Scope(fmLines);
+  if (c4Scope.length === 0) return null;
+
+  const scalars = parseScalars(fmLines, ["title", "type", "date"]);
   return {
-    title: title ?? "Untitled",
-    type: type ?? "unknown",
-    c4Scope: scopeLines,
-    date: date ?? "",
+    title: scalars["title"] ?? "Untitled",
+    type: scalars["type"] ?? "unknown",
+    c4Scope,
+    date: scalars["date"] ?? "",
   };
 }
 
@@ -124,23 +141,15 @@ function extractOwnerRepo(value: string): string | null {
 
 let cachedIndex: { docs: DocLink[]; expiresAt: number } | null = null;
 
-export async function GET(): Promise<NextResponse> {
+/** GitHub から全ドキュメントを取得（5 分キャッシュ） */
+async function fetchAllDocs(): Promise<DocLink[] | null> {
   const repoRaw = process.env.DOCS_GITHUB_REPO;
-  if (!repoRaw) {
-    return NextResponse.json({ docs: [] });
-  }
-
+  if (!repoRaw) return null;
   const repo = extractOwnerRepo(repoRaw);
-  if (!repo) {
-    return NextResponse.json({ docs: [] });
-  }
+  if (!repo) return null;
 
-  // in-memory cache
   if (cachedIndex && Date.now() < cachedIndex.expiresAt) {
-    return NextResponse.json(
-      { docs: cachedIndex.docs },
-      { headers: { "Cache-Control": `public, max-age=${CACHE_MAX_AGE}` } },
-    );
+    return cachedIndex.docs;
   }
 
   const token = process.env.DOCS_GITHUB_TOKEN;
@@ -152,23 +161,16 @@ export async function GET(): Promise<NextResponse> {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  // 1. ファイルツリー取得
   const treeRes = await fetch(
     `https://api.github.com/repos/${encodeURI(repo)}/git/trees/main?recursive=1`,
     { headers, next: { revalidate: CACHE_MAX_AGE } },
   );
-  if (!treeRes.ok) {
-    return NextResponse.json(
-      { error: "Failed to fetch repository tree" },
-      { status: treeRes.status },
-    );
-  }
+  if (!treeRes.ok) return null;
   const treeData = (await treeRes.json()) as GitHubTreeResponse;
   const mdPaths = (treeData.tree ?? [])
     .filter((item) => item.type === "blob" && item.path?.endsWith(".md"))
     .map((item) => item.path as string);
 
-  // 2. 各ファイルのフロントマター取得（並列、最大20件ずつ）
   const docs: DocLink[] = [];
   const BATCH_SIZE = 20;
   for (let i = 0; i < mdPaths.length; i += BATCH_SIZE) {
@@ -194,9 +196,47 @@ export async function GET(): Promise<NextResponse> {
   }
 
   cachedIndex = { docs, expiresAt: Date.now() + CACHE_MAX_AGE * 1000 };
+  return docs;
+}
 
-  return NextResponse.json(
-    { docs },
-    { headers: { "Cache-Control": `public, max-age=${CACHE_MAX_AGE}` } },
-  );
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const repoParam = request.nextUrl.searchParams.get("repo") ?? undefined;
+
+  const allDocs = await fetchAllDocs();
+  if (allDocs === null) {
+    return NextResponse.json({ docs: [] });
+  }
+
+  // repo 指定なしは workspace global（全件返却、後方互換）
+  if (!repoParam) {
+    return NextResponse.json(
+      { docs: allDocs },
+      { headers: { "Cache-Control": `public, max-age=${CACHE_MAX_AGE}` } },
+    );
+  }
+
+  // C4 モデルから repo の要素 ID 集合を構築し、
+  // doc.c4Scope のいずれかが要素 ID と完全一致または親パスとしてヒットするものだけ返す
+  const store = createC4ModelStore();
+  if (!store) {
+    return NextResponse.json({ docs: allDocs });
+  }
+  try {
+    const payload = await fetchC4Model(store, 'current', repoParam);
+    const elementIds = new Set((payload?.model.elements ?? []).map((e) => e.id));
+    if (elementIds.size === 0) {
+      return NextResponse.json({ docs: [] });
+    }
+    const filtered = allDocs.filter((d) =>
+      d.c4Scope.some((scope) =>
+        elementIds.has(scope) || [...elementIds].some((id) => id.startsWith(scope + '/'))
+      )
+    );
+    return NextResponse.json(
+      { docs: filtered },
+      { headers: { "Cache-Control": `public, max-age=${CACHE_MAX_AGE}` } },
+    );
+  } catch {
+    return NextResponse.json({ docs: allDocs });
+  }
 }

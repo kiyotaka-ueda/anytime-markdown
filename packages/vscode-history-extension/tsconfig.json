@@ -1,12 +1,17 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "module": "CommonJS",
-    "moduleResolution": "node",
+    "module": "Node16",
+    "moduleResolution": "node16",
     "outDir": "out",
-    "lib": ["ES2022"],
-    "types": ["node"]
+    "lib": ["ES2023", "DOM"],
+    "types": ["node", "jest"],
+    "paths": {
+      "@anytime-markdown/trail-db": ["../trail-db/src/index.ts"],
+      "@anytime-markdown/trail-core": ["../trail-core/src/index.ts"],
+      "@anytime-markdown/trail-core/*": ["../trail-core/src/*"]
+    }
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*"],
   "exclude": []
 }

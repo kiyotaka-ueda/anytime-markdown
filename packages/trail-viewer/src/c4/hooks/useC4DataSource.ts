@@ -331,14 +331,17 @@ function useRemoteInitialFetch(
       const repoQuery = selectedRepo ? `&repo=${encodeURIComponent(selectedRepo)}` : '';
       const modelUrl = `${serverUrl}/api/c4/model?release=${encodeURIComponent(selectedRelease)}${repoQuery}`;
       const dsmUrl = `${serverUrl}/api/c4/dsm?release=${encodeURIComponent(selectedRelease)}${repoQuery}`;
-      const complexityUrl = `${serverUrl}/api/c4/complexity?release=${encodeURIComponent(selectedRelease)}${repoQuery}`;
+      // Complexity は累積指標のため release パラメータは送らない
+      const complexityUrl = selectedRepo
+        ? `${serverUrl}/api/c4/complexity?repo=${encodeURIComponent(selectedRepo)}`
+        : `${serverUrl}/api/c4/complexity`;
       const [modelRes, dsmRes, covRes, complexityRes, releasesRes, docsRes] = await Promise.all([
         fetch(modelUrl).catch(() => null),
         fetch(dsmUrl).catch(() => null),
-        fetch(`${serverUrl}/api/c4/coverage`).catch(() => null),
+        fetch(`${serverUrl}/api/c4/coverage?release=${encodeURIComponent(selectedRelease)}${repoQuery}`).catch(() => null),
         fetch(complexityUrl).catch(() => null),
         fetch(`${serverUrl}/api/c4/releases`).catch(() => null),
-        fetch(`${serverUrl}/api/docs-index`).catch(() => null),
+        fetch(`${serverUrl}/api/docs-index${selectedRepo ? `?repo=${encodeURIComponent(selectedRepo)}` : ''}`).catch(() => null),
       ]);
 
       const [modelJson, dsmJson, covJson, complexityJson, docsJson] = await Promise.all([
@@ -411,7 +414,7 @@ function useRemoteInitialFetch(
 // Hook
 // ---------------------------------------------------------------------------
 
-export function useC4DataSource(serverUrl: string): C4DataSourceResult {
+export function useC4DataSource(serverUrl: string, disableWebSocket = false): C4DataSourceResult {
   // State
   const [remoteModel, setRemoteModel] = useState<C4Model | null>(null);
   const [remoteBoundaries, setRemoteBoundaries] = useState<
@@ -605,6 +608,7 @@ export function useC4DataSource(serverUrl: string): C4DataSourceResult {
 
   // WebSocket connect / reconnect
   useEffect(() => {
+    if (disableWebSocket) return;
 
     let mounted = true;
 
@@ -652,7 +656,7 @@ export function useC4DataSource(serverUrl: string): C4DataSourceResult {
         wsRef.current = null;
       }
     };
-  }, [serverUrl, handleWsMessage]);
+  }, [serverUrl, handleWsMessage, disableWebSocket]);
 
   // sendCommand
   const sendCommand = useCallback(

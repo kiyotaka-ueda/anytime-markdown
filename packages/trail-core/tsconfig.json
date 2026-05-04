@@ -8,7 +8,8 @@
     "isolatedModules": true,
     "declaration": true,
     "paths": {
-      "@anytime-markdown/graph-core": ["../graph-core/src/index.ts"]
+      "@anytime-markdown/graph-core": ["../graph-core/src/index.ts"],
+      "@anytime-markdown/trace-core/c4Sequence": ["../trace-core/src/c4Sequence.ts"]
     }
   },
   "include": ["src/**/*"]

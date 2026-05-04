@@ -1,19 +1,22 @@
 import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 import { engine, layoutWithSubgroups, MinimapCanvas, state as graphState } from '@anytime-markdown/graph-core';
 import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, CommunityOverlayEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, HotspotMap, ImportanceMatrix, ManualGroup, MetricOverlay } from '@anytime-markdown/trail-core/c4';
-import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, aggregateHotspotToC4, buildC4ElementById, buildCommunityTree, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, computeCommunityOverlay, computeFileHotspot, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFileToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
+import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, aggregateHotspotToC4, buildC4ElementById, buildCommunityTree, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, computeCommunityOverlay, computeFileHotspot, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFileToC4Elements, resolveSelectedElementCommunity, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
+import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
+import HubIcon from '@mui/icons-material/Hub';
 import LayersIcon from '@mui/icons-material/Layers';
 import LinkIcon from '@mui/icons-material/Link';
+import TableChartIcon from '@mui/icons-material/TableChart';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
 import ButtonGroup from '@mui/material/ButtonGroup';
 import LinearProgress from '@mui/material/LinearProgress';
-import ListSubheader from '@mui/material/ListSubheader';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import Tooltip from '@mui/material/Tooltip';
@@ -27,6 +30,7 @@ import { useDefectRisk } from '../hooks/useDefectRisk';
 import { useHotspot } from '../hooks/useHotspot';
 import { useTemporalCoupling } from '../hooks/useTemporalCoupling';
 import { useElementFunctions } from '../hooks/useElementFunctions';
+import { ResizablePopup, type ResizablePopupSize } from './ResizablePopup';
 
 const UNKNOWN_REPO_KEY = '__unknown__';
 const CURRENT_RELEASE_TAG = 'current';
@@ -36,6 +40,17 @@ const TREND_CHART_POPUP_GAP = 8;
 const TREND_CHART_POPUP_MAX_WIDTH = 1000;
 const TREND_CHART_RESERVED_RIGHT_WIDTH =
   SELECTED_ELEMENT_DETAILS_WIDTH + SELECTED_ELEMENT_DETAILS_RIGHT_OFFSET + TREND_CHART_POPUP_GAP;
+
+type OverlayCategory = 'none' | 'coverage' | 'dsm' | 'complexity' | 'importance' | 'hotspot' | 'fcmap';
+
+// fcmap はサブ項目が MetricOverlay ではなくフィーチャー ID のため除外
+const OVERLAY_CATEGORY_DEFAULTS: Record<Exclude<OverlayCategory, 'none' | 'fcmap'>, MetricOverlay> = {
+  coverage: 'coverage-lines',
+  dsm: 'dsm-out',
+  complexity: 'complexity-most',
+  importance: 'importance',
+  hotspot: 'hotspot-frequency',
+};
 
 export function getActivityTrendChartWidth(hasSelectedElementDetails: boolean): string {
   return hasSelectedElementDetails
@@ -83,15 +98,18 @@ function formatPct(value: number): string {
 }
 import GroupWorkIcon from '@mui/icons-material/GroupWork';
 
+import { CodeGraphPanel } from '../../components/CodeGraphPanel';
 import { communityColor } from '../../components/communityColors';
 import { useCodeGraph } from '../../hooks/useCodeGraph';
 import { computeClaudeActivityColorMap, computeConflictBorderMap,computeMultiAgentColorMap } from '../claudeActivityColorMap';
+import { computeContextMenuCapabilities } from '../utils/contextMenuCapabilities';
 import { ActivityTrendChart } from './ActivityTrendChart';
 import type { C4ElementKind, ElementFormData, RelationshipFormData } from './C4EditDialogs';
 import { AddElementDialog, AddRelationshipDialog } from './C4EditDialogs';
 import { C4ElementTree } from './C4ElementTree';
 import { GraphCanvas } from './GraphCanvas';
 import { HotspotControls, type HotspotControlsValue } from './HotspotControls';
+import { MatrixPanel } from './MatrixPanel';
 import { type CommunityLegendItem,OverlayLegend } from './OverlayLegend';
 import {
   TemporalCouplingSettingsPopup,
@@ -135,6 +153,8 @@ export interface C4ViewerCoreProps {
   readonly onPurgeDeleted?: () => void;
   readonly onDocLinkClick?: (doc: DocLink) => void;
   readonly onOpenFile?: (filePath: string) => void;
+  /** L3 component 右クリックの「シーケンス表示」を選択したときのコールバック。 */
+  readonly onShowSequence?: (elementId: string) => void;
   readonly containerHeight?: string;
   readonly releases?: readonly C4ReleaseEntry[];
   readonly selectedRelease?: string;
@@ -169,6 +189,7 @@ export function C4ViewerCore({
   onPurgeDeleted,
   onDocLinkClick,
   onOpenFile,
+  onShowSequence,
   containerHeight = '100vh',
   releases = [],
   selectedRelease = CURRENT_RELEASE_TAG,
@@ -260,9 +281,33 @@ export function C4ViewerCore({
   const [currentLevel, setCurrentLevel] = useState<number>(initialLevel ?? 1);
 
   const [showCoverage, setShowCoverage] = useState(false);
-  const [showAncestorEdges, setShowAncestorEdges] = useState(true);
+  const [showAncestorEdges, setShowAncestorEdges] = useState(false);
+  const [matrixPopup, setMatrixPopup] = useState<{
+    readonly view: 'dsm' | 'coverage';
+    readonly initialLevel: 'package' | 'component' | 'code';
+    readonly filterElementId: string | null;
+  } | null>(null);
+  const showMatrixPopup = matrixPopup !== null;
+  const [matrixPopupSize, setMatrixPopupSize] = useState<ResizablePopupSize | null>(null);
+  const [matrixPopupMaximized, setMatrixPopupMaximized] = useState(false);
+  const [showGraphPopup, setShowGraphPopup] = useState(false);
+  const [graphPopupSize, setGraphPopupSize] = useState<ResizablePopupSize | null>(null);
+  const [graphPopupMaximized, setGraphPopupMaximized] = useState(false);
+  const openMatrixForElement = useCallback((view: 'dsm' | 'coverage', element: C4Element) => {
+    setShowGraphPopup(false);
+    if (element.type === 'container' || element.type === 'containerDb') {
+      setMatrixPopup({ view, initialLevel: 'component', filterElementId: element.id });
+    } else if (element.type === 'component') {
+      setMatrixPopup({ view, initialLevel: 'code', filterElementId: element.id });
+    } else if (element.type === 'code') {
+      setMatrixPopup({ view, initialLevel: 'code', filterElementId: element.boundaryId ?? null });
+    } else {
+      setMatrixPopup({ view, initialLevel: 'component', filterElementId: null });
+    }
+  }, []);
   const [metricOverlay, setMetricOverlay] = useState<MetricOverlay>('none');
   const [selectedFcmapFeatureId, setSelectedFcmapFeatureId] = useState<string | null>(null);
+  const [overlayCategory, setOverlayCategory] = useState<OverlayCategory>('none');
   const [drWindowDays, setDrWindowDays] = useState(90);
   const [tcValue, setTcValue] = useState<TemporalCouplingControlsValue>(DEFAULT_TC_VALUE);
   const [hotspotValue, setHotspotValue] = useState<HotspotControlsValue>({
@@ -275,12 +320,14 @@ export function C4ViewerCore({
     serverUrl,
     period: hotspotValue.period,
     granularity: hotspotValue.granularity,
+    repo: selectedRepo || undefined,
   });
   const { entries: drEntries } = useDefectRisk({
     enabled: metricOverlay === 'defect-risk',
     serverUrl,
     windowDays: drWindowDays,
     halfLifeDays: 90,
+    repo: selectedRepo || undefined,
   });
   const [dsmLevel, setDsmLevel] = useState<'component' | 'package'>('component');
   const {
@@ -304,7 +351,6 @@ export function C4ViewerCore({
     readonly x: number;
     readonly y: number;
     readonly c4Id: string;
-    readonly nodeType: string;
   } | null>(null);
   const [checkedPackageIds, setCheckedPackageIds] = useState<ReadonlySet<string> | null>(null);
   const [soloFrameId, setSoloFrameId] = useState<string | null>(null);
@@ -313,8 +359,12 @@ export function C4ViewerCore({
   // --- Community overlay state ---
   const [showCommunity, setShowCommunity] = useState(false);
   const [codeGraphEnabled, setCodeGraphEnabled] = useState(false);
-  const [showActivityTrend, setShowActivityTrend] = useState(true);
-  const { graph: codeGraph } = useCodeGraph(serverUrl, { enabled: showCommunity || codeGraphEnabled || currentLevel >= 2 });
+  const [showActivityTrend, setShowActivityTrend] = useState(false);
+  const { graph: codeGraph } = useCodeGraph(serverUrl, {
+    enabled: showCommunity || codeGraphEnabled || currentLevel >= 2,
+    release: selectedRelease,
+    repo: selectedRepo,
+  });
 
   // --- Flow mode state ---
   const ghostEdges = useC4GhostEdges(
@@ -335,6 +385,33 @@ export function C4ViewerCore({
   const [addElementType, setAddElementType] = useState<C4ElementKind | null>(null);
   const [editElement, setEditElement] = useState<{ id: string; type: C4ElementKind; name: string; description: string; external: boolean; parentId?: string | null } | null>(null);
   const [addRelOpen, setAddRelOpen] = useState(false);
+
+  const handleOverlayCategoryChange = useCallback((cat: OverlayCategory) => {
+    setOverlayCategory(cat);
+    if (cat === 'none') {
+      setMetricOverlay('none');
+    } else if (cat === 'fcmap') {
+      setMetricOverlay('fcmap');
+    } else {
+      setMetricOverlay(OVERLAY_CATEGORY_DEFAULTS[cat]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!featureMatrix && overlayCategory === 'fcmap') {
+      handleOverlayCategoryChange('none');
+    }
+  }, [featureMatrix, overlayCategory, handleOverlayCategoryChange]);
+
+  // リポジトリ切替時は overlay 関連の選択を初期化する
+  // （前のリポジトリ向けの選択が新リポジトリで無効になり、ユーザーに混乱を与えるため）
+  useEffect(() => {
+    setOverlayCategory('none');
+    setMetricOverlay('none');
+    setSelectedFcmapFeatureId(null);
+  }, [selectedRepo]);
+
+
 
   const handleElementSelect = useCallback((id: string) => {
     setCenterOnSelect(true);
@@ -446,8 +523,8 @@ export function C4ViewerCore({
 
   /** 右クリックメニューを表示する */
   const handleNodeContextMenu = useCallback(
-    (c4Id: string, x: number, y: number, nodeType: string) => {
-      setContextMenu({ x, y, c4Id, nodeType });
+    (c4Id: string, x: number, y: number) => {
+      setContextMenu({ x, y, c4Id });
     },
     [],
   );
@@ -639,6 +716,35 @@ export function C4ViewerCore({
     return m;
   }, [dsmMatrix, currentLevel, c4Model, checkedPackageIds]);
 
+  // importanceMatrix は WebSocket でリポジトリ非依存に push されるため、
+  // 現在の c4Model.elements とキーが一致するかでデータの有無を判定する
+  const hasImportanceData = useMemo(() => {
+    if (!importanceMatrix || !c4Model) return false;
+    const ids = new Set(c4Model.elements.map((e) => e.id));
+    return Object.keys(importanceMatrix).some((id) => ids.has(id));
+  }, [importanceMatrix, c4Model]);
+
+  const isCategoryDataAvailable = useMemo(() => {
+    // 空 entries / 空 nodes も「データなし」として扱う（サーバーが空マトリクスを返すケースに備える）
+    if (overlayCategory === 'coverage') return !!coverageMatrix && coverageMatrix.entries.length > 0;
+    if (overlayCategory === 'dsm') return !!filteredDsmMatrix && filteredDsmMatrix.nodes.length > 0;
+    if (overlayCategory === 'complexity') return !!complexityMatrix && complexityMatrix.entries.length > 0;
+    if (overlayCategory === 'importance') return hasImportanceData;
+    if (overlayCategory === 'hotspot') {
+      if (!hotspotResponse) return true;
+      return hotspotResponse.files.length > 0;
+    }
+    return true;
+  }, [overlayCategory, coverageMatrix, filteredDsmMatrix, complexityMatrix, hasImportanceData, hotspotResponse]);
+
+  useEffect(() => {
+    // hotspot は空応答時に metricOverlay をリセットすると useHotspot が disable され
+    // hotspotResponse=null に戻り isCategoryDataAvailable が true へ揺り戻すループになるため除外
+    if (!isCategoryDataAvailable && overlayCategory !== 'hotspot') {
+      setMetricOverlay('none');
+    }
+  }, [isCategoryDataAvailable, overlayCategory]);
+
   const elementTypeById = useMemo<ReadonlyMap<string, string>>(
     () => new Map((c4Model?.elements ?? []).map((e) => [e.id, e.type])),
     [c4Model],
@@ -749,6 +855,14 @@ export function C4ViewerCore({
     if (!codeGraph || !c4Model) return null;
     if (currentLevel === 1) return null;
     return computeCommunityOverlay(c4Model, codeGraph, 3, selectedRepo || null);
+  }, [codeGraph, c4Model, currentLevel, selectedRepo]);
+
+  // 情報パネル用 L4 オーバーレイ: code 要素選択時に community を解決するために必要。
+  // showCommunity トグルとは独立に C2/C3/C4 で常に計算する（パネル描画はトグルに依存しない）。
+  const communityOverlayL4 = useMemo<ReadonlyMap<string, CommunityOverlayEntry> | null>(() => {
+    if (!codeGraph || !c4Model) return null;
+    if (currentLevel === 1) return null;
+    return computeCommunityOverlay(c4Model, codeGraph, 4, selectedRepo || null);
   }, [codeGraph, c4Model, currentLevel, selectedRepo]);
 
   const communityTree = useMemo(() => {
@@ -926,49 +1040,44 @@ export function C4ViewerCore({
     const complexity = complexityMatrix?.entries.find(entry => entry.elementId === element.id) ?? null;
     const importance = importanceMatrix?.[element.id] ?? null;
     const defectRisk = defectRiskMap?.get(element.id) ?? null;
-    const community = (() => {
-      const direct = communityOverlayL3?.get(element.id) ?? null;
-      if (direct) return direct;
-      if (element.type !== 'container' || !communityOverlayL3) return null;
-      const counts = new Map<number, number>();
-      for (const child of c4Model.elements) {
-        if (child.boundaryId !== element.id || child.type !== 'component') continue;
-        const entry = communityOverlayL3.get(child.id);
-        if (!entry) continue;
-        for (const { community: cid, count } of entry.breakdown) {
-          counts.set(cid, (counts.get(cid) ?? 0) + count);
-        }
+    const community = resolveSelectedElementCommunity({
+      element,
+      c4Model,
+      communityOverlayL3,
+      communityOverlayL4,
+      communitySummaries: codeGraph?.communitySummaries,
+    });
+    const sizeMetrics = (() => {
+      if (!coverageMatrix) return { loc: null, fileCount: null, functionCount: null };
+      if (element.type === 'code') {
+        return {
+          loc: coverage?.lines.total ?? null,
+          fileCount: coverage ? 1 : null,
+          functionCount: coverage?.functions.total ?? null,
+        };
       }
-      if (counts.size === 0) return null;
-      const breakdown = Array.from(counts, ([community, count]) => ({ community, count }))
-        .sort((a, b) => (b.count !== a.count ? b.count - a.count : a.community - b.community));
-      const total = breakdown.reduce((sum, e) => sum + e.count, 0);
-      const dominant = breakdown[0];
-      return {
-        elementId: element.id,
-        dominantCommunity: dominant.community,
-        dominantRatio: dominant.count / total,
-        breakdown,
-        isGodNode: false,
-        communitySummary: codeGraph?.communitySummaries?.[dominant.community],
-      } as CommunityOverlayEntry;
-    })();
-    const steps = (() => {
-      if (!coverageMatrix) return null;
-      if (element.type === 'code') return coverage?.lines.total ?? null;
       const descendantIds = collectDescendantIds(c4Model.elements, element.id);
-      let total = 0;
+      let loc = 0;
+      let fileCount = 0;
+      let functionCount = 0;
       let hasData = false;
       for (const id of descendantIds) {
         const desc = c4Model.elements.find(e => e.id === id);
         if (desc?.type !== 'code') continue;
         const entry = coverageMatrix.entries.find(e => e.elementId === id);
-        if (entry) { total += entry.lines.total; hasData = true; }
+        if (entry) {
+          loc += entry.lines.total;
+          fileCount += 1;
+          functionCount += entry.functions.total;
+          hasData = true;
+        }
       }
-      return hasData ? total : null;
+      return hasData
+        ? { loc, fileCount, functionCount }
+        : { loc: null, fileCount: null, functionCount: null };
     })();
-    return { element, incoming, outgoing, documents, coverage, complexity, importance, defectRisk, community, steps };
-  }, [c4Model, complexityMatrix, coverageMatrix, defectRiskMap, docLinks, importanceMatrix, selectedElementId, communityOverlayL3, codeGraph]);
+    return { element, incoming, outgoing, documents, coverage, complexity, importance, defectRisk, community, sizeMetrics };
+  }, [c4Model, complexityMatrix, coverageMatrix, defectRiskMap, docLinks, importanceMatrix, selectedElementId, communityOverlayL3, communityOverlayL4, codeGraph]);
 
   const { data: elementFunctions, loading: elementFunctionsLoading } = useElementFunctions({
     serverUrl,
@@ -1002,40 +1111,27 @@ export function C4ViewerCore({
     borderColor: `${colors.accent} !important`,
   } as const;
 
-  // コンテキストメニュー表示時の情報計算
-  // boundaryId で親子関係が表現されているため、children ではなく boundaryId で子の有無を判定する
-  // 現在のドリルルートへの再ドリルは防ぐ
-  const canDrillDown = contextMenu !== null &&
-    contextMenu.nodeType !== 'frame' &&
-    drillStack.at(-1)?.element.id !== contextMenu.c4Id &&
-    (c4Model?.elements.some(e => e.boundaryId === contextMenu.c4Id) ?? false);
-  const canDrillUp = contextMenu !== null &&
-    contextMenu.nodeType === 'frame' &&
-    drillStack.length > 0;
-  const canShowOnlyFrame = contextMenu !== null &&
-    contextMenu.nodeType === 'frame';
-  const canCopyPath = contextMenu !== null &&
-    (contextMenu.c4Id.startsWith('pkg_') || contextMenu.c4Id.startsWith('file::'));
-  const canOpenFile = contextMenu !== null && contextMenu.c4Id.startsWith('file::');
-  const canShowManualActions = canShowManualContextActions(c4Model, contextMenu?.c4Id ?? null);
-  const showContextMenu = contextMenu !== null && (
-    canDrillDown ||
-    canDrillUp ||
-    canShowOnlyFrame ||
-    canOpenFile ||
-    canCopyPath ||
-    canShowManualActions
-  );
+  // コンテキストメニュー表示時の capability 計算は contextMenuCapabilities.ts に集約。
+  // ドメイン判定は graph node.type ではなく c4Model から解決し、レイヤー混同を避ける。
+  const {
+    canDrillDown,
+    canDrillUp,
+    canShowOnlyFrame,
+    canCopyPath,
+    canOpenFile,
+    canShowSequence,
+    canShowManualActions,
+    showContextMenu,
+  } = computeContextMenuCapabilities({
+    c4Model,
+    c4Id: contextMenu?.c4Id ?? null,
+    drillStack,
+    hasShowSequenceHandler: onShowSequence !== undefined,
+    canShowManualContextActions,
+  });
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: containerHeight, bgcolor: colors.bg }}>
-      {isHotspotOverlay && (
-        <HotspotControls
-          value={hotspotValue}
-          onChange={setHotspotValue}
-          loading={hotspotLoading}
-        />
-      )}
       {analysisProgress && (
         <Box
           role="dialog"
@@ -1203,94 +1299,85 @@ export function C4ViewerCore({
                           title={({ 1: 'Context', 2: 'Container', 3: 'Component', 4: 'Code' } as const)[level]}
                           sx={currentLevel === level ? levelButtonActiveSx : levelButtonSx}
                         >
-                          L{level}
+                          C{level}
                         </Button>
                       ))}
                     </ButtonGroup>
                   </Box>
-                  {/* Community */}
-                  <Button
-                    size="small"
-                    startIcon={<GroupWorkIcon sx={{ fontSize: 16 }} />}
-                    onClick={() => setShowCommunity(prev => !prev)}
-                    disabled={currentLevel < 3 || (showCommunity && !codeGraph)}
-                    aria-pressed={showCommunity}
-                    aria-label="Toggle community overlay"
-                    title={
-                      currentLevel < 3
-                        ? t('c4.community.disabledLevel')
-                        : showCommunity && !codeGraph
-                          ? t('c4.community.disabledNoData')
-                          : t('c4.community.toggle')
-                    }
-                    fullWidth
-                    sx={{
-                      ...toolbarButtonSx,
-                      fontSize: '0.75rem',
-                      justifyContent: 'flex-start',
-                      ...(showCommunity && currentLevel >= 3 && { bgcolor: toolbarButtonActiveBg }),
-                    }}
-                  >
-                    {t('c4.community.toggle')}
-                  </Button>
-                  {/* Ghost Edges トグル */}
-                  <Button
-                    size="small"
-                    fullWidth
-                    startIcon={<TimelineIcon sx={{ fontSize: 16 }} />}
-                    onClick={() => {
-                      setTcValue(prev => {
-                        const nextMode = prev.enabled ? 'none' : prev.granularity === 'session' ? 'session' : 'commit';
-                        return applyGhostEdgeMode(prev, nextMode);
-                      });
-                    }}
-                    aria-pressed={tcValue.enabled}
-                    sx={{
-                      ...toolbarButtonSx,
-                      fontSize: '0.75rem',
-                      justifyContent: 'flex-start',
-                      ...(tcValue.enabled && { bgcolor: toolbarButtonActiveBg }),
-                    }}
-                  >
-                    Ghost Edges
-                  </Button>
-                  {/* Activity Trend */}
-                  <Button
-                    size="small"
-                    fullWidth
-                    startIcon={<TrendingUpIcon sx={{ fontSize: 16 }} />}
-                    onClick={() => setShowActivityTrend(prev => !prev)}
-                    aria-pressed={showActivityTrend}
-                    aria-label="Toggle Activity Trend chart"
-                    title="Toggle Activity Trend chart"
-                    sx={{
-                      ...toolbarButtonSx,
-                      fontSize: '0.75rem',
-                      justifyContent: 'flex-start',
-                      ...(showActivityTrend && { bgcolor: toolbarButtonActiveBg }),
-                    }}
-                  >
-                    Activity Trend
-                  </Button>
-                  {/* Upper Lines */}
-                  <Button
-                    size="small"
-                    startIcon={<LayersIcon sx={{ fontSize: 16 }} />}
-                    onClick={() => setShowAncestorEdges(prev => !prev)}
-                    disabled={currentLevel === 1}
-                    aria-pressed={showAncestorEdges}
-                    aria-label="Toggle upper C4 layer relationships"
-                    title="Toggle upper C4 layer relationships"
-                    fullWidth
-                    sx={{
-                      ...toolbarButtonSx,
-                      fontSize: '0.75rem',
-                      justifyContent: 'flex-start',
-                      ...(showAncestorEdges && currentLevel !== 1 && { bgcolor: toolbarButtonActiveBg }),
-                    }}
-                  >
-                    Upper Lines
-                  </Button>
+                  {/* Community / Ghost Edges / Activity Trend / Upper Lines — アイコン横並び */}
+                  <Box sx={{ display: 'flex', flexDirection: 'row', gap: 0.5 }}>
+                    {/* Community */}
+                    <Tooltip title={currentLevel < 3 ? t('c4.community.disabledLevel') : showCommunity && !codeGraph ? t('c4.community.disabledNoData') : t('c4.community.toggle')}>
+                      <span>
+                        <IconButton
+                          size="small"
+                          onClick={() => setShowCommunity(prev => !prev)}
+                          disabled={currentLevel < 3 || (showCommunity && !codeGraph)}
+                          aria-pressed={showCommunity}
+                          aria-label={t('c4.community.toggle')}
+                          sx={{
+                            ...toolbarButtonSx,
+                            ...(showCommunity && currentLevel >= 3 && { bgcolor: toolbarButtonActiveBg }),
+                          }}
+                        >
+                          <GroupWorkIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                    {/* Ghost Edges */}
+                    <Tooltip title="Ghost Edges">
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setTcValue(prev => {
+                            const nextMode = prev.enabled ? 'none' : prev.granularity === 'session' ? 'session' : 'commit';
+                            return applyGhostEdgeMode(prev, nextMode);
+                          });
+                        }}
+                        aria-pressed={tcValue.enabled}
+                        aria-label="Ghost Edges"
+                        sx={{
+                          ...toolbarButtonSx,
+                          ...(tcValue.enabled && { bgcolor: toolbarButtonActiveBg }),
+                        }}
+                      >
+                        <TimelineIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Tooltip>
+                    {/* Activity Trend */}
+                    <Tooltip title="Activity Trend">
+                      <IconButton
+                        size="small"
+                        onClick={() => setShowActivityTrend(prev => !prev)}
+                        aria-pressed={showActivityTrend}
+                        aria-label="Toggle Activity Trend chart"
+                        sx={{
+                          ...toolbarButtonSx,
+                          ...(showActivityTrend && { bgcolor: toolbarButtonActiveBg }),
+                        }}
+                      >
+                        <TrendingUpIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Tooltip>
+                    {/* Upper Lines */}
+                    <Tooltip title="Upper Lines">
+                      <span>
+                        <IconButton
+                          size="small"
+                          onClick={() => setShowAncestorEdges(prev => !prev)}
+                          disabled={currentLevel === 1}
+                          aria-pressed={showAncestorEdges}
+                          aria-label="Toggle upper C4 layer relationships"
+                          sx={{
+                            ...toolbarButtonSx,
+                            ...(showAncestorEdges && currentLevel !== 1 && { bgcolor: toolbarButtonActiveBg }),
+                          }}
+                        >
+                          <LayersIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                  </Box>
                   {/* Clear Edit History */}
                   <Button
                     size="small"
@@ -1307,65 +1394,118 @@ export function C4ViewerCore({
                   </Button>
                   {/* Overlay ドロップダウン */}
                   <Box>
-                    <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', mb: 0.5 }}>
-                      {t('c4.overlay.label')}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.5, mb: 0.5 }}>
+                      <Typography variant="caption" sx={{ color: colors.textMuted, fontSize: '0.65rem' }}>
+                        {t('c4.overlay.label')}
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                        <Tooltip title={t('viewer.tab.graph')}>
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              setShowGraphPopup(prev => {
+                                const next = !prev;
+                                if (next) setMatrixPopup(null);
+                                return next;
+                              });
+                            }}
+                            aria-pressed={showGraphPopup}
+                            aria-label={t('viewer.tab.graph')}
+                            sx={{
+                              ...toolbarButtonSx,
+                              p: 0.25,
+                              ...(showGraphPopup && { bgcolor: toolbarButtonActiveBg }),
+                            }}
+                          >
+                            <HubIcon sx={{ fontSize: 14 }} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={t('viewer.tab.matrix')}>
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              setMatrixPopup(prev => {
+                                if (prev) return null;
+                                setShowGraphPopup(false);
+                                return { view: 'coverage', initialLevel: 'component', filterElementId: null };
+                              });
+                            }}
+                            aria-pressed={showMatrixPopup}
+                            aria-label={t('viewer.tab.matrix')}
+                            sx={{
+                              ...toolbarButtonSx,
+                              p: 0.25,
+                              ...(showMatrixPopup && { bgcolor: toolbarButtonActiveBg }),
+                            }}
+                          >
+                            <TableChartIcon sx={{ fontSize: 14 }} />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </Box>
                     <Select
                       size="small"
                       fullWidth
-                      value={metricOverlay}
-                      onChange={(e) => { setMetricOverlay(e.target.value as MetricOverlay); }}
+                      value={overlayCategory}
+                      onChange={(e) => { handleOverlayCategoryChange(e.target.value as OverlayCategory); }}
                       sx={{ fontSize: '0.75rem', height: 28, '.MuiSelect-select': { py: 0, px: 1 } }}
                       aria-label={t('c4.overlay.label')}
                     >
                       <MenuItem value="none" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.none')}</MenuItem>
-                      <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
-                        {t('c4.overlay.groupCoverage')}
-                      </ListSubheader>
-                      <MenuItem value="coverage-lines" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageLines')}</MenuItem>
-                      <MenuItem value="coverage-branches" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageBranches')}</MenuItem>
-                      <MenuItem value="coverage-functions" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageFunctions')}</MenuItem>
-                      <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
-                        {t('c4.overlay.groupDsm')}
-                      </ListSubheader>
-                      <MenuItem value="dsm-out" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmOut')}</MenuItem>
-                      <MenuItem value="dsm-in" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmIn')}</MenuItem>
-                      <MenuItem value="dsm-cyclic" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmCyclic')}</MenuItem>
-                      <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
-                        {t('c4.overlay.groupComplexity')}
-                      </ListSubheader>
-                      <MenuItem value="complexity-most" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.complexityMost')}</MenuItem>
-                      <MenuItem value="complexity-highest" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.complexityHighest')}</MenuItem>
-                      <ListSubheader sx={{ fontSize: '0.7rem', lineHeight: '2' }}>
-                        {t('c4.overlay.groupImportance')}
-                      </ListSubheader>
-                      <MenuItem value="importance" disabled={!importanceMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.importance')}</MenuItem>
-                      <MenuItem value="defect-risk" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.defectRisk')}</MenuItem>
-                      <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
-                        {t('c4.overlay.groupHotspot')}
-                      </ListSubheader>
-                      <MenuItem value="hotspot-frequency" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotFrequency')}</MenuItem>
-                      <MenuItem value="hotspot-risk" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotRisk')}</MenuItem>
-                      <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px', bgcolor: 'transparent' }}>
-                        F-cMap
-                      </ListSubheader>
-                      <MenuItem value="fcmap" disabled={!featureMatrix} sx={{ fontSize: '0.75rem' }}>F-cMap</MenuItem>
+                      <MenuItem value="coverage" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupCoverage')}</MenuItem>
+                      <MenuItem value="dsm" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupDsm')}</MenuItem>
+                      <MenuItem value="complexity" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupComplexity')}</MenuItem>
+                      <MenuItem value="importance" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupImportance')}</MenuItem>
+                      <MenuItem value="hotspot" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupHotspot')}</MenuItem>
+                      {featureMatrix && <MenuItem value="fcmap" sx={{ fontSize: '0.75rem' }}>F-cMap</MenuItem>}
                     </Select>
                   </Box>
-                  {metricOverlay === 'fcmap' && featureMatrix && (
+                  {overlayCategory !== 'none' && (
                     <Box>
-                      <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', mb: 0.5 }}>
-                        フィーチャー
-                      </Typography>
                       <Select
                         size="small"
                         fullWidth
-                        value={selectedFcmapFeatureId ?? featureMatrix.features[0]?.id ?? ''}
-                        onChange={(e) => { setSelectedFcmapFeatureId(e.target.value); }}
+                        disabled={!isCategoryDataAvailable}
+                        value={!isCategoryDataAvailable ? '' : overlayCategory === 'fcmap'
+                          ? (selectedFcmapFeatureId ?? featureMatrix?.features[0]?.id ?? '')
+                          : metricOverlay
+                        }
+                        onChange={(e) => {
+                          if (overlayCategory === 'fcmap') {
+                            setSelectedFcmapFeatureId(e.target.value);
+                          } else {
+                            setMetricOverlay(e.target.value as MetricOverlay);
+                          }
+                        }}
                         sx={{ fontSize: '0.75rem', height: 28, '.MuiSelect-select': { py: 0, px: 1 } }}
-                        aria-label="フィーチャー選択"
+                        aria-label="overlay-sub"
                       >
-                        {featureMatrix.features.map((f) => (
+                        {!isCategoryDataAvailable && (
+                          <MenuItem value="" sx={{ fontSize: '0.75rem' }}>-</MenuItem>
+                        )}
+                        {overlayCategory === 'coverage' && isCategoryDataAvailable && [
+                          <MenuItem key="lines" value="coverage-lines" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageLines')}</MenuItem>,
+                          <MenuItem key="branches" value="coverage-branches" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageBranches')}</MenuItem>,
+                          <MenuItem key="functions" value="coverage-functions" disabled={!coverageMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.coverageFunctions')}</MenuItem>,
+                        ]}
+                        {overlayCategory === 'dsm' && isCategoryDataAvailable && [
+                          <MenuItem key="out" value="dsm-out" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmOut')}</MenuItem>,
+                          <MenuItem key="in" value="dsm-in" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmIn')}</MenuItem>,
+                          <MenuItem key="cyclic" value="dsm-cyclic" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmCyclic')}</MenuItem>,
+                        ]}
+                        {overlayCategory === 'complexity' && isCategoryDataAvailable && [
+                          <MenuItem key="most" value="complexity-most" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.complexityMost')}</MenuItem>,
+                          <MenuItem key="highest" value="complexity-highest" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.complexityHighest')}</MenuItem>,
+                        ]}
+                        {overlayCategory === 'importance' && [
+                          <MenuItem key="importance" value="importance" disabled={!importanceMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.importance')}</MenuItem>,
+                          <MenuItem key="defect-risk" value="defect-risk" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.defectRisk')}</MenuItem>,
+                        ]}
+                        {overlayCategory === 'hotspot' && [
+                          <MenuItem key="frequency" value="hotspot-frequency" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotFrequency')}</MenuItem>,
+                          <MenuItem key="risk" value="hotspot-risk" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotRisk')}</MenuItem>,
+                        ]}
+                        {overlayCategory === 'fcmap' && featureMatrix?.features.map((f) => (
                           <MenuItem key={f.id} value={f.id} sx={{ fontSize: '0.75rem' }}>{f.name}</MenuItem>
                         ))}
                       </Select>
@@ -1403,7 +1543,71 @@ export function C4ViewerCore({
                   isDark={isDark}
                   sx={{ position: 'static' }}
                 />
+                {/* Hotspot 詳細設定（オーバーレイ選択時 + データ有り時のみ表示） */}
+                <HotspotControls
+                  value={hotspotValue}
+                  onChange={setHotspotValue}
+                  loading={hotspotLoading}
+                  isDark={isDark}
+                  enabled={isHotspotOverlay && isCategoryDataAvailable}
+                  sx={{ position: 'static' }}
+                />
               </Box>
+              {showMatrixPopup && (
+                <ResizablePopup
+                  title={t('viewer.tab.matrix')}
+                  ariaLabel={t('viewer.tab.matrix')}
+                  onClose={() => setMatrixPopup(null)}
+                  isDark={isDark}
+                  colors={colors}
+                  size={matrixPopupSize}
+                  onSizeChange={setMatrixPopupSize}
+                  maximized={matrixPopupMaximized}
+                  onMaximizedChange={setMatrixPopupMaximized}
+                  toolbarButtonSx={toolbarButtonSx}
+                  i18nMaximize={t('c4.popup.maximize')}
+                  i18nRestore={t('c4.popup.restore')}
+                  i18nClose={t('c4.popup.close')}
+                  i18nResize={t('c4.popup.resize')}
+                >
+                  <MatrixPanel
+                    key={`${matrixPopup?.view ?? 'coverage'}-${matrixPopup?.initialLevel ?? 'component'}-${matrixPopup?.filterElementId ?? ''}`}
+                    dsmMatrix={dsmMatrix}
+                    coverageMatrix={coverageMatrix}
+                    complexityMatrix={complexityMatrix}
+                    c4Model={c4Model}
+                    serverUrl={serverUrl}
+                    selectedRepo={selectedRepo}
+                    selectedRelease={selectedRelease}
+                    isDark={isDark}
+                    isActive={showMatrixPopup}
+                    isCommunityColor={showCommunity}
+                    initialMatrixView={matrixPopup?.view ?? 'coverage'}
+                    initialLevel={matrixPopup?.initialLevel ?? 'component'}
+                    filterElementId={matrixPopup?.filterElementId ?? null}
+                  />
+                </ResizablePopup>
+              )}
+              {showGraphPopup && (
+                <ResizablePopup
+                  title={t('viewer.tab.graph')}
+                  ariaLabel={t('viewer.tab.graph')}
+                  onClose={() => setShowGraphPopup(false)}
+                  isDark={isDark}
+                  colors={colors}
+                  size={graphPopupSize}
+                  onSizeChange={setGraphPopupSize}
+                  maximized={graphPopupMaximized}
+                  onMaximizedChange={setGraphPopupMaximized}
+                  toolbarButtonSx={toolbarButtonSx}
+                  i18nMaximize={t('c4.popup.maximize')}
+                  i18nRestore={t('c4.popup.restore')}
+                  i18nClose={t('c4.popup.close')}
+                  i18nResize={t('c4.popup.resize')}
+                >
+                  <CodeGraphPanel serverUrl={serverUrl} isDark={isDark} tcValue={tcValue} />
+                </ResizablePopup>
+              )}
               {selectedElementIds.length > 1 && c4Model && (
                 <Box
                   role="dialog"
@@ -1483,85 +1687,132 @@ export function C4ViewerCore({
                       {selectedElementInfo.element.description}
                     </Typography>
                   )}
-                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mt: 1.25 }}>
-                    <Box sx={{ borderTop: `1px solid ${colors.border}`, pt: 0.75 }}>
-                      <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.62rem' }}>
-                        In
+                  <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                      <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700 }}>
+                        DSM
                       </Typography>
-                      <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.8rem', fontWeight: 700 }}>
-                        {selectedElementInfo.incoming}
-                      </Typography>
+                      <Tooltip title={t('viewer.tab.matrix')}>
+                        <IconButton
+                          size="small"
+                          onClick={() => openMatrixForElement('dsm', selectedElementInfo.element)}
+                          aria-label={t('viewer.tab.matrix')}
+                          sx={{ ...toolbarButtonSx, p: 0.25 }}
+                        >
+                          <TableChartIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Tooltip>
                     </Box>
-                    <Box sx={{ borderTop: `1px solid ${colors.border}`, pt: 0.75 }}>
-                      <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.62rem' }}>
-                        Out
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.8rem', fontWeight: 700 }}>
-                        {selectedElementInfo.outgoing}
-                      </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                      <Box>
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.62rem' }}>
+                          In
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.8rem', fontWeight: 700 }}>
+                          {selectedElementInfo.incoming}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.62rem' }}>
+                          Out
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.8rem', fontWeight: 700 }}>
+                          {selectedElementInfo.outgoing}
+                        </Typography>
+                      </Box>
                     </Box>
                   </Box>
                   <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.62rem', mt: 1, wordBreak: 'break-all' }}>
                     {selectedElementInfo.element.id}
                   </Typography>
                   <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 1 }}>
-                    <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700, mb: 0.75 }}>
-                      {t('c4.popup.metrics')}
-                    </Typography>
-                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
-                      <Box sx={{ gridColumn: '1 / -1' }}>
-                        <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.62rem', fontWeight: 600, mb: 0.5 }}>
-                          {t('c4.popup.coverage')}
-                        </Typography>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0.5 }}>
-                          {(['coverage', 'branches', 'functions'] as const).map((key, i) => {
-                            const pct = selectedElementInfo.coverage
-                              ? (i === 0 ? selectedElementInfo.coverage.lines.pct : i === 1 ? selectedElementInfo.coverage.branches.pct : selectedElementInfo.coverage.functions.pct)
-                              : null;
-                            return (
-                              <Box key={key}>
-                                <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.58rem' }}>
-                                  {t(`c4.popup.metric.${key}`)}
-                                </Typography>
-                                <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
-                                  {pct != null ? formatPct(pct) : '-'}
-                                </Typography>
-                              </Box>
-                            );
-                          })}
-                        </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
+                      <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700 }}>
+                        {t('c4.popup.metrics')}
+                      </Typography>
+                      <Tooltip title={t('viewer.tab.matrix')}>
+                        <IconButton
+                          size="small"
+                          onClick={() => openMatrixForElement('coverage', selectedElementInfo.element)}
+                          aria-label={t('viewer.tab.matrix')}
+                          sx={{ ...toolbarButtonSx, p: 0.25 }}
+                        >
+                          <TableChartIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.62rem', fontWeight: 600, mb: 0.5 }}>
+                        {t('c4.popup.size')}
+                      </Typography>
+                      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0.5 }}>
+                        {([
+                          { key: 'loc', value: selectedElementInfo.sizeMetrics.loc },
+                          { key: 'files', value: selectedElementInfo.sizeMetrics.fileCount },
+                          { key: 'functionCount', value: selectedElementInfo.sizeMetrics.functionCount },
+                        ] as const).map(({ key, value }) => (
+                          <Box key={key}>
+                            <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.58rem' }}>
+                              {t(`c4.popup.metric.${key}`)}
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
+                              {value ?? '-'}
+                            </Typography>
+                          </Box>
+                        ))}
                       </Box>
-                      <Box>
-                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
-                          {t('c4.popup.metric.complexity')}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {selectedElementInfo.complexity?.highest ?? '-'}
-                        </Typography>
+                    </Box>
+                    <Box sx={{ mt: 1 }}>
+                      <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.62rem', fontWeight: 600, mb: 0.5 }}>
+                        {t('c4.popup.quality')}
+                      </Typography>
+                      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0.5 }}>
+                        {(['coverage', 'branches', 'functions'] as const).map((key, i) => {
+                          const pct = selectedElementInfo.coverage
+                            ? (i === 0 ? selectedElementInfo.coverage.lines.pct : i === 1 ? selectedElementInfo.coverage.branches.pct : selectedElementInfo.coverage.functions.pct)
+                            : null;
+                          return (
+                            <Box key={key}>
+                              <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.58rem' }}>
+                                {t(`c4.popup.metric.${key}`)}
+                              </Typography>
+                              <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
+                                {pct != null ? formatPct(pct) : '-'}
+                              </Typography>
+                            </Box>
+                          );
+                        })}
                       </Box>
-                      <Box>
-                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
-                          {t('c4.popup.metric.importance')}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
-                          {selectedElementInfo.importance != null ? Math.round(selectedElementInfo.importance) : '-'}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
+                      <Box sx={{ mt: 0.75 }}>
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.58rem' }}>
                           {t('c4.popup.metric.defectRisk')}
                         </Typography>
                         <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
                           {selectedElementInfo.defectRisk != null ? Math.round(selectedElementInfo.defectRisk) : '-'}
                         </Typography>
                       </Box>
-                      <Box>
-                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.6rem' }}>
-                          {t('c4.popup.metric.steps')}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
-                          {selectedElementInfo.steps ?? '-'}
-                        </Typography>
+                    </Box>
+                    <Box sx={{ mt: 1 }}>
+                      <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.62rem', fontWeight: 600, mb: 0.5 }}>
+                        {t('c4.popup.structure')}
+                      </Typography>
+                      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
+                        <Box>
+                          <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.58rem' }}>
+                            {t('c4.popup.metric.complexity')}
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {selectedElementInfo.complexity?.highest ?? '-'}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.58rem' }}>
+                            {t('c4.popup.metric.importance')}
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.72rem', fontWeight: 700 }}>
+                            {selectedElementInfo.importance != null ? Math.round(selectedElementInfo.importance) : '-'}
+                          </Typography>
+                        </Box>
                       </Box>
                     </Box>
                   </Box>
@@ -1577,9 +1828,21 @@ export function C4ViewerCore({
                     const totalCount = community.breakdown.reduce((sum, e) => sum + e.count, 0);
                     return (
                       <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 1 }}>
-                        <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700, mb: 0.5 }}>
-                          {t('c4.community.title')}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                          <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700 }}>
+                            {t('c4.community.title')}
+                          </Typography>
+                          <Tooltip title={t('viewer.tab.graph')}>
+                            <IconButton
+                              size="small"
+                              onClick={() => setShowGraphPopup(prev => !prev)}
+                              aria-label={t('viewer.tab.graph')}
+                              sx={{ ...toolbarButtonSx, p: 0.25 }}
+                            >
+                              <HubIcon sx={{ fontSize: 14 }} />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                           <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: dominantColor, flexShrink: 0 }} />
                           <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.74rem', fontWeight: 600, wordBreak: 'break-word' }}>
@@ -1942,6 +2205,28 @@ export function C4ViewerCore({
                         onClick={handleOpenFile}
                       >
                         {t('c4.openFile')}
+                      </button>
+                    )}
+                    {canShowSequence && (
+                      <button
+                        type="button"
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '6px 16px',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: 14,
+                          color: isDark ? '#e0e0e0' : '#333',
+                        }}
+                        onClick={() => {
+                          onShowSequence?.(contextMenu.c4Id);
+                          setContextMenu(null);
+                        }}
+                      >
+                        {t('c4.showSequence')}
                       </button>
                     )}
                     {canCopyPath && (

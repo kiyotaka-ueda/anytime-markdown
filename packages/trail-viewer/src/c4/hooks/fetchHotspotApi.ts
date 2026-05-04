@@ -3,6 +3,7 @@ import type { FileHotspotRow, TrendGranularity, TrendPeriod } from '@anytime-mar
 export interface HotspotFetchParams {
   readonly period: TrendPeriod;
   readonly granularity: TrendGranularity;
+  readonly repo?: string;
 }
 
 export interface HotspotResponse {
@@ -17,6 +18,7 @@ export function buildHotspotUrl(serverUrl: string, params: HotspotFetchParams): 
   const qs = new URLSearchParams();
   qs.set('period', params.period);
   qs.set('granularity', params.granularity);
+  if (params.repo) qs.set('repo', params.repo);
   return `${serverUrl}/api/hotspot?${qs.toString()}`;
 }
 

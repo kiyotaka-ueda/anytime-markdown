@@ -30,6 +30,7 @@ export { buildElementTree, filterTreeByLevel } from './view/buildElementTree';
 export { filterTreeBySearch } from './view/filterTreeBySearch';
 export { collectDescendantIds } from './view/collectDescendants';
 export { enrichFeatureMatrixWithComponents } from './featureMatrix';
+export { buildFeatureMatrixFromCommunities, type CommunityRow } from './buildFeatureMatrixFromCommunities';
 
 export type {
   DsmMatrix,
@@ -59,13 +60,14 @@ export { mapFilesToC4Elements, mapFileToC4Elements, buildC4ElementById } from '.
 export type { C4MappingResult } from '../domain/engine/c4Mapper';
 export type { MessageInput } from './metrics/computeComplexityMatrix';
 export { computeComplexityMatrix } from './metrics/computeComplexityMatrix';
-export { computeImportanceMatrix } from './metrics/computeImportanceMatrix';
 export type { ImportanceMatrix } from '../importance/types';
 
 export { mergeManualIntoC4Model } from './mergeManual';
 
 export { computeCommunityOverlay } from './computeCommunityOverlay';
 export type { CommunityOverlayEntry } from './computeCommunityOverlay';
+export { resolveSelectedElementCommunity } from './resolveSelectedElementCommunity';
+export type { ResolveSelectedElementCommunityInput } from './resolveSelectedElementCommunity';
 export { buildCommunityTree } from './view/buildCommunityTree';
 export type { CommunityTreeInput } from './view/buildCommunityTree';
 export { aggregateGhostEdgesToC4 } from './aggregateGhostEdgesToC4';

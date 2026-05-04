@@ -1,4 +1,4 @@
-export type NodeType = 'rect' | 'ellipse' | 'sticky' | 'text' | 'diamond' | 'parallelogram' | 'cylinder' | 'doc' | 'frame' | 'image' | 'person';
+export type NodeType = 'rect' | 'ellipse' | 'sticky' | 'text' | 'diamond' | 'parallelogram' | 'cylinder' | 'doc' | 'frame' | 'image' | 'person' | 'fragment';
 export type EdgeType = 'line' | 'connector';
 export type ToolType = 'select' | 'rect' | 'ellipse' | 'sticky' | 'text' | 'diamond' | 'parallelogram' | 'cylinder' | 'doc' | 'frame' | 'line' | 'connector' | 'pan';
 
@@ -167,6 +167,16 @@ export const DEFAULT_FRAME_STYLE: NodeStyle = {
   fontSize: 14,
   fontFamily: FONT_FAMILY,
   borderRadius: 8,
+};
+
+export const DEFAULT_FRAGMENT_STYLE: NodeStyle = {
+  fill: 'rgba(255,255,255,0.04)',
+  stroke: COLOR_BORDER_ACTIVE,
+  strokeWidth: 1,
+  fontSize: 11,
+  fontFamily: FONT_FAMILY,
+  borderRadius: 4,
+  dashed: true,
 };
 
 export const DEFAULT_EDGE_STYLE: EdgeStyle = {

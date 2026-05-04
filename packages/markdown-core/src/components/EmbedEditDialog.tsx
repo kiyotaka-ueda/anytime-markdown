@@ -37,7 +37,7 @@ export function EmbedEditDialog({
     onClose,
     onApply,
     t,
-}: Props) {
+}: Readonly<Props>) {
     const theme = useTheme();
     const providers = useOptionalEmbedProviders();
     const [url, setUrl] = useState(initialUrl);

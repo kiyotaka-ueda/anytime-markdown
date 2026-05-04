@@ -11,7 +11,6 @@ import {
   DOC_ICON_SIZE, DOC_ICON_CENTER_X, DOC_ICON_CENTER_Y,
   DOC_TITLE_X, DOC_TITLE_Y, DOC_TITLE_RIGHT_MARGIN,
   DOC_PREVIEW_X, DOC_PREVIEW_Y, DOC_PREVIEW_LINE_HEIGHT, DOC_PREVIEW_RIGHT_MARGIN,
-  EDGE_ENDPOINT_INNER_RATIO,
   LINK_ICON_OFFSET,
   LOCK_ICON_SIZE, LOCK_ICON_OFFSET,
 } from './constants';
@@ -263,6 +262,98 @@ const renderFrame: SpecialShapeRenderer = (ctx, node, selected, _isDragging, fil
   ctx.fill();
 };
 
+// --- Fragment renderer ---
+// シーケンス図の複合フラグメント（alt/loop/opt）を描画する矩形。
+// metadata.fragmentKind = 'alt' | 'loop' | 'opt' でラベル決定。
+// metadata.condition でラベル右側の条件式を表示。
+// metadata.role = 'fragment-divider' のときは水平な破線一本のみ描画（alt の else 分割線）。
+
+const FRAGMENT_LABEL_PAD_X = 6;
+const FRAGMENT_LABEL_PAD_Y = 3;
+const FRAGMENT_LABEL_GAP = 8;
+const FRAGMENT_DASH: readonly number[] = [4, 2];
+
+function getFragmentLabelText(kind: unknown): string {
+  if (kind === 'alt') return 'alt';
+  if (kind === 'loop') return 'loop';
+  if (kind === 'opt') return 'opt';
+  return 'frag';
+}
+
+const renderFragment: SpecialShapeRenderer = (ctx, node, selected, _isDragging, _fill) => {
+  const currentColors = getCurrentColors();
+  const { x, y, width, height, style } = node;
+  const role = node.metadata?.role;
+
+  if (role === 'fragment-divider') {
+    // 水平破線（alt の else 分割線）
+    ctx.save();
+    ctx.strokeStyle = selected ? currentColors.canvasSelection : style.stroke;
+    ctx.lineWidth = style.strokeWidth;
+    ctx.setLineDash([...FRAGMENT_DASH]);
+    ctx.beginPath();
+    ctx.moveTo(x, y + height / 2);
+    ctx.lineTo(x + width, y + height / 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // 条件テキスト（else 等）
+    const condition = typeof node.metadata?.condition === 'string' ? node.metadata.condition : '';
+    if (condition) {
+      ctx.fillStyle = currentColors.textSecondary;
+      ctx.font = `italic ${style.fontSize}px ${style.fontFamily}`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`[${condition}]`, x + FRAGMENT_LABEL_PAD_X, y + height / 2 - 2);
+    }
+    ctx.restore();
+    return;
+  }
+
+  const radius = effectiveBorderRadius(style, 4);
+
+  // 半透明の塗り（背後の lifeline などが透ける）
+  ctx.save();
+  ctx.fillStyle = style.fill;
+  drawRoundedRect(ctx, x, y, width, height, radius);
+  ctx.fill();
+
+  // 破線枠
+  ctx.strokeStyle = selected ? currentColors.canvasSelection : style.stroke;
+  ctx.lineWidth = selected ? STROKE_WIDTH_SELECTED : style.strokeWidth;
+  ctx.setLineDash([...FRAGMENT_DASH]);
+  drawRoundedRect(ctx, x, y, width, height, radius);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ラベルバッジ（"alt" / "loop" / "opt"）
+  const labelText = getFragmentLabelText(node.metadata?.fragmentKind);
+  ctx.font = `bold ${style.fontSize}px ${style.fontFamily}`;
+  const labelWidth = ctx.measureText(labelText).width + FRAGMENT_LABEL_PAD_X * 2;
+  const labelHeight = style.fontSize + FRAGMENT_LABEL_PAD_Y * 2;
+  ctx.fillStyle = currentColors.frameTitleBg;
+  ctx.fillRect(x, y, labelWidth, labelHeight);
+  ctx.strokeStyle = style.stroke;
+  ctx.lineWidth = style.strokeWidth;
+  ctx.strokeRect(x + 0.5, y + 0.5, labelWidth - 1, labelHeight - 1);
+  ctx.fillStyle = currentColors.textPrimary;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(labelText, x + FRAGMENT_LABEL_PAD_X, y + labelHeight / 2);
+
+  // 条件式テキスト（バッジ右側）
+  const condition = typeof node.metadata?.condition === 'string' ? node.metadata.condition : '';
+  if (condition) {
+    ctx.fillStyle = currentColors.textSecondary;
+    ctx.font = `italic ${style.fontSize}px ${style.fontFamily}`;
+    const maxConditionWidth = width - labelWidth - FRAGMENT_LABEL_GAP - FRAGMENT_LABEL_PAD_X;
+    if (maxConditionWidth > 10) {
+      ctx.fillText(`[${condition}]`, x + labelWidth + FRAGMENT_LABEL_GAP, y + labelHeight / 2, maxConditionWidth);
+    }
+  }
+
+  ctx.restore();
+};
+
 const PERSON_HEAD_RATIO = 0.30;    // head center at 30% from top
 const PERSON_HEAD_RADIUS = 0.22;   // head radius relative to width
 const PERSON_BODY_TOP = 0.45;      // body starts at 45% from top
@@ -499,13 +590,14 @@ export const specialShapes: Partial<Record<NodeType, SpecialShapeRenderer>> = {
   doc: renderDoc,
   image: renderImage,
   frame: renderFrame,
+  fragment: renderFragment,
   rect: renderRect,
   person: renderPerson,
 };
 
 /** テキスト描画をスキップするタイプ */
 export const skipTextTypes: ReadonlySet<NodeType> = new Set([
-  'doc', 'frame', 'image',
+  'doc', 'frame', 'image', 'fragment',
 ]);
 
 export { standardShapePaths };

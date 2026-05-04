@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-05-04
+
+### Added
+
+- Community write tools (`upsert_community_mappings`, `upsert_community_summaries`) to avoid in-memory DB conflicts
+- Analyze pipeline trigger tools and HTTP API endpoints
+
 ## [0.9.1] - 2026-05-02
 
 ### Changed

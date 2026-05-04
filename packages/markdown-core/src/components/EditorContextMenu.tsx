@@ -359,7 +359,7 @@ export function EditorContextMenu({ editor, readOnly, t, currentMode, onSwitchTo
       <ListItemIcon>
         <ContentCutIcon sx={{ fontSize: 16 }} />
       </ListItemIcon>
-      <ListItemText primaryTypographyProps={{ fontSize: CONTEXT_MENU_FONT_SIZE }}>
+      <ListItemText slotProps={{ primary: { fontSize: CONTEXT_MENU_FONT_SIZE } }}>
         {t("cut")}
       </ListItemText>
       <Typography variant="body2" sx={{ color: getTextSecondary(isDark), fontSize: SHORTCUT_HINT_FONT_SIZE, ml: 2 }}>
@@ -370,7 +370,7 @@ export function EditorContextMenu({ editor, readOnly, t, currentMode, onSwitchTo
       <ListItemIcon>
         <ContentCopyIcon sx={{ fontSize: 16 }} />
       </ListItemIcon>
-      <ListItemText primaryTypographyProps={{ fontSize: CONTEXT_MENU_FONT_SIZE }}>
+      <ListItemText slotProps={{ primary: { fontSize: CONTEXT_MENU_FONT_SIZE } }}>
         {t("copy")}
       </ListItemText>
       <Typography variant="body2" sx={{ color: getTextSecondary(isDark), fontSize: SHORTCUT_HINT_FONT_SIZE, ml: 2 }}>
@@ -381,7 +381,7 @@ export function EditorContextMenu({ editor, readOnly, t, currentMode, onSwitchTo
       <ListItemIcon>
         <ContentPasteIcon sx={{ fontSize: 16 }} />
       </ListItemIcon>
-      <ListItemText primaryTypographyProps={{ fontSize: CONTEXT_MENU_FONT_SIZE }}>
+      <ListItemText slotProps={{ primary: { fontSize: CONTEXT_MENU_FONT_SIZE } }}>
         {t("paste")}
       </ListItemText>
       <Typography variant="body2" sx={{ color: getTextSecondary(isDark), fontSize: SHORTCUT_HINT_FONT_SIZE, ml: 2 }}>
@@ -397,7 +397,7 @@ export function EditorContextMenu({ editor, readOnly, t, currentMode, onSwitchTo
         <ListItemIcon>
           <ContentPasteIcon sx={{ fontSize: 16 }} />
         </ListItemIcon>
-        <ListItemText primaryTypographyProps={{ fontSize: CONTEXT_MENU_FONT_SIZE }}>
+        <ListItemText slotProps={{ primary: { fontSize: CONTEXT_MENU_FONT_SIZE } }}>
           {t("pasteAsMarkdown")}
         </ListItemText>
         <Typography variant="body2" sx={{ color: getTextSecondary(isDark), fontSize: SHORTCUT_HINT_FONT_SIZE, ml: 2 }}>
@@ -408,7 +408,7 @@ export function EditorContextMenu({ editor, readOnly, t, currentMode, onSwitchTo
         <ListItemIcon>
           <CodeIcon sx={{ fontSize: 16 }} />
         </ListItemIcon>
-        <ListItemText primaryTypographyProps={{ fontSize: CONTEXT_MENU_FONT_SIZE }}>
+        <ListItemText slotProps={{ primary: { fontSize: CONTEXT_MENU_FONT_SIZE } }}>
           {t("pasteAsCodeBlock")}
         </ListItemText>
       </MenuItem>,
@@ -421,7 +421,7 @@ export function EditorContextMenu({ editor, readOnly, t, currentMode, onSwitchTo
       <ListItemIcon>
         <ClearAllIcon sx={{ fontSize: 16 }} />
       </ListItemIcon>
-      <ListItemText primaryTypographyProps={{ fontSize: CONTEXT_MENU_FONT_SIZE }}>
+      <ListItemText slotProps={{ primary: { fontSize: CONTEXT_MENU_FONT_SIZE } }}>
         {t("clearScreen")}
       </ListItemText>
     </MenuItem>,
@@ -434,7 +434,7 @@ export function EditorContextMenu({ editor, readOnly, t, currentMode, onSwitchTo
         <ListItemIcon>
           <VisibilityOutlinedIcon sx={{ fontSize: 16 }} />
         </ListItemIcon>
-        <ListItemText primaryTypographyProps={{ fontSize: CONTEXT_MENU_FONT_SIZE }}>
+        <ListItemText slotProps={{ primary: { fontSize: CONTEXT_MENU_FONT_SIZE } }}>
           {t("review")}
         </ListItemText>
       </MenuItem>,
@@ -442,7 +442,7 @@ export function EditorContextMenu({ editor, readOnly, t, currentMode, onSwitchTo
         <ListItemIcon>
           <EditOutlinedIcon sx={{ fontSize: 16 }} />
         </ListItemIcon>
-        <ListItemText primaryTypographyProps={{ fontSize: CONTEXT_MENU_FONT_SIZE }}>
+        <ListItemText slotProps={{ primary: { fontSize: CONTEXT_MENU_FONT_SIZE } }}>
           {t("wysiwyg")}
         </ListItemText>
       </MenuItem>,
@@ -450,7 +450,7 @@ export function EditorContextMenu({ editor, readOnly, t, currentMode, onSwitchTo
         <ListItemIcon>
           <CodeIcon sx={{ fontSize: 16 }} />
         </ListItemIcon>
-        <ListItemText primaryTypographyProps={{ fontSize: CONTEXT_MENU_FONT_SIZE }}>
+        <ListItemText slotProps={{ primary: { fontSize: CONTEXT_MENU_FONT_SIZE } }}>
           {t("source")}
         </ListItemText>
       </MenuItem>,

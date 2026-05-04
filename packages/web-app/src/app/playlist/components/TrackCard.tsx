@@ -40,7 +40,7 @@ export function TrackCard({ track, selected, onToggle }: Readonly<TrackCardProps
           onClick={(e) => e.stopPropagation()}
           size="small"
           sx={{ bgcolor: 'background.paper', borderRadius: 1, p: 0.5 }}
-          inputProps={{ 'aria-label': `${track.name} を選択` }}
+          slotProps={{ input: { 'aria-label': `${track.name} を選択` } }}
         />
       </Box>
       <Box sx={{ p: 1 }}>

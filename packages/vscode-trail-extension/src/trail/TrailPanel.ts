@@ -26,7 +26,7 @@ export class TrailPanel {
     if ((TrailPanel.dataServer.clientCount ?? 0) > 0) return;
     if (!force && TrailPanel.viewerOpened) return;
     TrailPanel.viewerOpened = true;
-    const port = vscode.workspace.getConfiguration('anytimeTrail.trailServer').get<number>('port', 19841);
+    const port = vscode.workspace.getConfiguration('anytimeTrail.viewer').get<number>('port', 19841);
     vscode.env.openExternal(vscode.Uri.parse(`http://localhost:${port}`));
   }
 

@@ -30,7 +30,7 @@ function extractUrl(body: string): string | null {
     return null;
 }
 
-function PlaceholderBox({ message }: { message: string }) {
+function PlaceholderBox({ message }: Readonly<{ message: string }>) {
     const theme = useTheme();
     return (
         <Stack
@@ -54,7 +54,7 @@ function PlaceholderBox({ message }: { message: string }) {
     );
 }
 
-export function EmbedNodeView({ language, body, providers, widthOverride, baseline, onBaselineWrite }: EmbedNodeViewProps) {
+export function EmbedNodeView({ language, body, providers, widthOverride, baseline, onBaselineWrite }: Readonly<EmbedNodeViewProps>) {
     const ctxProviders = useOptionalEmbedProviders();
     const effectiveProviders = providers ?? ctxProviders;
 

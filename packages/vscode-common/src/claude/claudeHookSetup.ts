@@ -221,6 +221,12 @@ export function setupClaudeHooks(workspaceRoot?: string, statusDir?: string, tra
   const makeCommand = (editing: boolean): string =>
     `node -e "let d='';process.stdin.resume();process.stdin.setEncoding('utf8');process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const i=JSON.parse(d),fp=i.tool_input?.file_path;if(!fp)return;const sid=i.session_id||'',fs=require('fs'),fb='${statusFileBase}',f=sid?fb+'-'+sid+'.json':fb+'.json',ts=new Date().toISOString();let br='';try{br=require('child_process').execSync('git branch --show-current',{cwd:'${workspaceRootForHook}',timeout:3000}).toString().trim()}catch{}let c={};try{c=JSON.parse(fs.readFileSync(f,'utf8'))}catch{}const e=(c.sessionId===sid)?(c.sessionEdits||[]):[];const j=e.findIndex(x=>x.file===fp);if(j>=0)e[j].timestamp=ts;else e.push({file:fp,timestamp:ts});fs.writeFileSync(f,JSON.stringify({editing:${editing},file:fp,timestamp:ts,sessionId:sid,sessionEdits:e,plannedEdits:c.plannedEdits||[],branch:br}))}catch{}})"`;
 
+  // Bash ツール実行時に cwd（実行ディレクトリ）を workspacePath として記録する。
+  // テスト実行など file_path がない操作でも worktree を特定できるようにする。
+  // 既存の file/sessionEdits は上書きせず timestamp と editing・workspacePath・branch のみ更新する。
+  const makeBashCommand = (editing: boolean): string =>
+    `node -e "let d='';process.stdin.resume();process.stdin.setEncoding('utf8');process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const i=JSON.parse(d),cwd=i.cwd||process.cwd(),sid=i.session_id||'',fs=require('fs'),fb='${statusFileBase}',f=sid?fb+'-'+sid+'.json':fb+'.json',ts=new Date().toISOString();let br='';try{br=require('child_process').execSync('git branch --show-current',{cwd,timeout:3000}).toString().trim()}catch{}let c={};try{c=JSON.parse(fs.readFileSync(f,'utf8'))}catch{}if(c.sessionId&&c.sessionId!==sid)return;c.editing=${editing};c.timestamp=ts;c.sessionId=sid;c.workspacePath=cwd;c.branch=br;fs.writeFileSync(f,JSON.stringify(c))}catch{}})"`;
+
   // プランファイル書き込み時に plannedEdits を更新するフック。
   // /Shared/anytime-markdown-docs/plan/ 配下のファイルが Write ツールで書き込まれたとき、
   // ## 変更対象ファイル セクションからパスを抽出して plannedEdits に書き込む。
@@ -242,6 +248,16 @@ export function setupClaudeHooks(workspaceRoot?: string, statusDir?: string, tra
   settings.hooks.PostToolUse.push({
     matcher: 'Write',
     hooks: [{ type: 'command', command: planHookCommand }],
+  });
+
+  // Bash フック: cwd を workspacePath として記録し、テスト実行中も worktree を特定可能にする
+  settings.hooks.PreToolUse.push({
+    matcher: 'Bash',
+    hooks: [{ type: 'command', command: makeBashCommand(true) }],
+  });
+  settings.hooks.PostToolUse.push({
+    matcher: 'Bash',
+    hooks: [{ type: 'command', command: makeBashCommand(false) }],
   });
 
   // PostToolUse hook: commit-tracker.sh (realtime message_commits recording)

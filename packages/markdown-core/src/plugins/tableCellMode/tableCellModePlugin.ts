@@ -128,13 +128,11 @@ export function tableCellModePlugin(): Plugin<TableCellModeState> {
     props: {
       handleKeyDown: (view, event) => handleKeyDown(view, event),
       handleDOMEvents: {
-        mousedown: (view, event) =>
-          handleMouseDown(view, event as MouseEvent),
-        dblclick: (view, event) =>
-          handleDoubleClick(view, event as MouseEvent),
-        copy: (view, event) => handleCopy(view, event as ClipboardEvent),
-        cut: (view, event) => handleCut(view, event as ClipboardEvent),
-        paste: (view, event) => handlePaste(view, event as ClipboardEvent),
+        mousedown: (view, event) => handleMouseDown(view, event),
+        dblclick: (view, event) => handleDoubleClick(view, event),
+        copy: (view, event) => handleCopy(view, event),
+        cut: (view, event) => handleCut(view, event),
+        paste: (view, event) => handlePaste(view, event),
       },
       decorations(state) {
         const pluginState = tableCellModePluginKey.getState(state);
@@ -159,17 +157,17 @@ function mapPositions(
   }
 
   const mappedSelected =
-    selectedCellPos != null ? tr.mapping.map(selectedCellPos) : null;
+    selectedCellPos == null ? null : tr.mapping.map(selectedCellPos);
   const mappedEditing =
-    editingCellPos != null ? tr.mapping.map(editingCellPos) : null;
+    editingCellPos == null ? null : tr.mapping.map(editingCellPos);
 
   // マッピング後の位置が有効なセルノードか検証
-  const validSelected = mappedSelected != null
-    ? validateCellPos(tr.doc, mappedSelected)
-    : null;
-  const validEditing = mappedEditing != null
-    ? validateCellPos(tr.doc, mappedEditing)
-    : null;
+  const validSelected = mappedSelected == null
+    ? null
+    : validateCellPos(tr.doc, mappedSelected);
+  const validEditing = mappedEditing == null
+    ? null
+    : validateCellPos(tr.doc, mappedEditing);
 
   // 位置が無効になった場合は初期状態に戻す
   if (

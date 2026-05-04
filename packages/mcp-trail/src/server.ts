@@ -13,6 +13,14 @@ import {
   addGroup,
   updateGroup,
   removeGroup,
+  analyzeCurrentCode,
+  analyzeCurrentCodeWithProgress,
+  analyzeReleaseCode,
+  analyzeAll,
+  getAnalyzeStatus,
+  listCommunities,
+  upsertCommunitySummaries,
+  upsertCommunityMappings,
 } from './client.js';
 
 export interface McpTrailOptions {
@@ -233,6 +241,129 @@ export function createMcpServer(options: McpTrailOptions = {}): McpServer {
       const opts = resolveOptions({ serverUrl, repoName: repoName ?? options.repoName, ...options });
       await removeGroup(opts.serverUrl, opts.repoName, id);
       return { content: [{ type: 'text' as const, text: `Removed group ${id}` }] };
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  //  Analyze pipeline tools (trigger VS Code extension via HTTP)
+  // -------------------------------------------------------------------------
+
+  server.tool(
+    'analyze_current_code',
+    'Run C4 / code graph analysis for the current workspace and persist results to Trail DB. Equivalent to "Anytime Trail: コード解析" command. Requires VS Code extension to be running. Returns 409 if another analysis is in progress. Subscribes to WebSocket progress events during the run and includes them in the response.',
+    {
+      ...commonParams,
+      workspacePath: z.string().optional().describe('Absolute path to analyze (overrides anytimeTrail.workspace.path; defaults to extension current workspace)'),
+      tsconfigPath: z.string().optional().describe('Specific tsconfig.json path to use. If omitted and multiple are found, the topmost (workspace root) is selected automatically'),
+      includeProgress: z.boolean().optional().describe('Include WebSocket progress log in response (default: true)'),
+    },
+    async ({ serverUrl, workspacePath, tsconfigPath, includeProgress }) => {
+      const opts = resolveOptions({ serverUrl, ...options });
+      const result = includeProgress === false
+        ? await analyzeCurrentCode(opts.serverUrl, { workspacePath, tsconfigPath })
+        : await analyzeCurrentCodeWithProgress(opts.serverUrl, { workspacePath, tsconfigPath });
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    'analyze_release_code',
+    'Run release-grouped C4 / code graph analysis (deletes existing release_code_graphs and regenerates). Equivalent to "Anytime Trail: リリース別コード解析" command.',
+    { ...commonParams },
+    async ({ serverUrl }) => {
+      const opts = resolveOptions({ serverUrl, ...options });
+      const result = await analyzeReleaseCode(opts.serverUrl);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    'analyze_all',
+    'Import all Trail data (Claude Code JSONL sessions, commits, releases, coverage) from ~/.claude/projects. Equivalent to "Anytime Trail: 全データ解析" command.',
+    { ...commonParams },
+    async ({ serverUrl }) => {
+      const opts = resolveOptions({ serverUrl, ...options });
+      const result = await analyzeAll(opts.serverUrl);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    'get_analyze_status',
+    'Check whether an analysis pipeline is currently in progress.',
+    { ...commonParams },
+    async ({ serverUrl }) => {
+      const opts = resolveOptions({ serverUrl, ...options });
+      const status = await getAnalyzeStatus(opts.serverUrl);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(status, null, 2) }] };
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  //  Community summary / mapping tools (anytime-reverse-engineer skill 用)
+  // -------------------------------------------------------------------------
+
+  const roleEnum = z.enum(['primary', 'secondary', 'dependency']);
+
+  server.tool(
+    'list_communities',
+    'List code graph communities for a repo with their label / name / summary / mappings_json. Used by anytime-reverse-engineer skill for filtering and cache lookup.',
+    { ...commonParams },
+    async ({ repoName, serverUrl }) => {
+      const opts = resolveOptions({ serverUrl, repoName: repoName ?? options.repoName, ...options });
+      const result = await listCommunities(opts.serverUrl, opts.repoName);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    'upsert_community_summaries',
+    'Upsert community name + summary pairs to current_code_graph_communities. Used by anytime-reverse-engineer skill after AI generation. mappings_json is preserved.',
+    {
+      summaries: z
+        .array(
+          z.object({
+            communityId: z.number().int().describe('community_id from current_code_graphs.graph_json'),
+            name: z.string().describe('Short name (3 words)'),
+            summary: z.string().describe('One-sentence summary (max 60 chars)'),
+          }),
+        )
+        .describe('List of community summaries to upsert'),
+      ...commonParams,
+    },
+    async ({ summaries, repoName, serverUrl }) => {
+      const opts = resolveOptions({ serverUrl, repoName: repoName ?? options.repoName, ...options });
+      const result = await upsertCommunitySummaries(opts.serverUrl, opts.repoName, summaries);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    'upsert_community_mappings',
+    'Upsert C4 element role mappings (mappings_json) per community. Used by anytime-reverse-engineer skill after role determination. name/summary are preserved.',
+    {
+      mappings: z
+        .array(
+          z.object({
+            communityId: z.number().int().describe('community_id'),
+            mappings: z
+              .array(
+                z.object({
+                  elementId: z.string().describe('C4 element id (e.g. pkg_trail-core/coverage)'),
+                  elementType: z.string().describe('C4 element type (component, container, etc.)'),
+                  role: roleEnum.describe('primary / secondary / dependency'),
+                }),
+              )
+              .describe('Per-element role mappings within this community'),
+          }),
+        )
+        .describe('List of community mapping batches to upsert'),
+      ...commonParams,
+    },
+    async ({ mappings, repoName, serverUrl }) => {
+      const opts = resolveOptions({ serverUrl, repoName: repoName ?? options.repoName, ...options });
+      const result = await upsertCommunityMappings(opts.serverUrl, opts.repoName, mappings);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
     },
   );
 

@@ -68,6 +68,47 @@ export function render(options: RenderOptions): void {
   ctx.restore();
 }
 
+function buildHiddenNodeIds(
+  nodes: readonly GraphNode[],
+  collapsedFrameIds: Set<string>,
+): Set<string> {
+  const hidden = new Set<string>();
+  if (collapsedFrameIds.size === 0) return hidden;
+  for (const n of nodes) {
+    if (n.groupId && collapsedFrameIds.has(n.groupId)) hidden.add(n.id);
+  }
+  return hidden;
+}
+
+function compareNodeOrder(a: GraphNode, b: GraphNode): number {
+  const aIsFrame = a.type === 'frame' ? 0 : 1;
+  const bIsFrame = b.type === 'frame' ? 0 : 1;
+  if (aIsFrame !== bIsFrame) return aIsFrame - bIsFrame;
+  return (a.zIndex ?? 0) - (b.zIndex ?? 0);
+}
+
+function isEdgeConnectedToHidden(e: GraphEdge, hiddenNodeIds: Set<string>): boolean {
+  if (e.from.nodeId && hiddenNodeIds.has(e.from.nodeId)) return true;
+  if (e.to.nodeId && hiddenNodeIds.has(e.to.nodeId)) return true;
+  return false;
+}
+
+function partitionVisibleByFrame(
+  sortedNodes: readonly GraphNode[],
+  hiddenNodeIds: Set<string>,
+  visibleBounds: ReturnType<typeof getVisibleBounds>,
+): { frameNodes: GraphNode[]; nonFrameNodes: GraphNode[] } {
+  const frameNodes: GraphNode[] = [];
+  const nonFrameNodes: GraphNode[] = [];
+  for (const n of sortedNodes) {
+    if (hiddenNodeIds.has(n.id)) continue;
+    if (!isNodeVisible(n, visibleBounds)) continue;
+    if (n.type === 'frame') frameNodes.push(n);
+    else nonFrameNodes.push(n);
+  }
+  return { frameNodes, nonFrameNodes };
+}
+
 /** ビューポートカリングと collapsed フレーム除外を適用し、描画対象の要素を返す */
 function computeVisibleElements(
   nodes: readonly GraphNode[],
@@ -82,43 +123,20 @@ function computeVisibleElements(
   const collapsedFrameIds = new Set(
     nodes.filter(n => n.type === 'frame' && n.collapsed).map(n => n.id),
   );
-  const hiddenNodeIds = new Set<string>();
-  if (collapsedFrameIds.size > 0) {
-    for (const n of nodes) {
-      if (n.groupId && collapsedFrameIds.has(n.groupId)) {
-        hiddenNodeIds.add(n.id);
-      }
-    }
-  }
+  const hiddenNodeIds = buildHiddenNodeIds(nodes, collapsedFrameIds);
 
   // zIndex順にソートして描画（フレームは常に背面）
-  const sortedNodes = [...nodes].sort((a, b) => {
-    const aIsFrame = a.type === 'frame' ? 0 : 1;
-    const bIsFrame = b.type === 'frame' ? 0 : 1;
-    if (aIsFrame !== bIsFrame) return aIsFrame - bIsFrame;
-    return (a.zIndex ?? 0) - (b.zIndex ?? 0);
-  });
+  const sortedNodes = [...nodes].sort(compareNodeOrder);
 
-  const frameNodes: GraphNode[] = [];
-  const nonFrameNodes: GraphNode[] = [];
-  for (const n of sortedNodes) {
-    if (hiddenNodeIds.has(n.id)) continue;
-    if (!isNodeVisible(n, visibleBounds)) continue;
-    if (n.type === 'frame') {
-      frameNodes.push(n);
-    } else {
-      nonFrameNodes.push(n);
-    }
-  }
+  const { frameNodes, nonFrameNodes } = partitionVisibleByFrame(
+    sortedNodes,
+    hiddenNodeIds,
+    visibleBounds,
+  );
 
-  const visibleEdges: GraphEdge[] = [];
-  for (const e of edges) {
-    if ((e.from.nodeId && hiddenNodeIds.has(e.from.nodeId)) ||
-        (e.to.nodeId && hiddenNodeIds.has(e.to.nodeId))) continue;
-    if (isEdgeVisible(e, visibleBounds)) {
-      visibleEdges.push(e);
-    }
-  }
+  const visibleEdges = edges.filter(
+    (e) => !isEdgeConnectedToHidden(e, hiddenNodeIds) && isEdgeVisible(e, visibleBounds),
+  );
 
   return { frameNodes, nonFrameNodes, visibleEdges };
 }
