@@ -100,15 +100,15 @@ function SpringMotif({ day }: Readonly<{ day: number }>) {
       <path d={`M 148 ${23 + (r(61) - 0.5) * 4} C 142 14, 140 6, 144 2`}
         stroke="currentColor" strokeWidth={0.9} strokeLinecap="round" opacity={0.18} />
       {blossoms.map((b, i) => (
-        <InkBlossom key={i} cx={b.cx} cy={b.cy} size={b.size} op={0.22 + r(70 + i) * 0.1} />
+        <InkBlossom key={`blossom-${b.cx}-${b.cy}`} cx={b.cx} cy={b.cy} size={b.size} op={0.22 + r(70 + i) * 0.1} />
       ))}
-      {petals.map((p, i) => (
-        <g key={i} transform={`translate(${p.cx},${p.cy}) rotate(${p.angle})`} opacity={p.op} fill="currentColor">
+      {petals.map((p) => (
+        <g key={`petal-${p.cx}-${p.cy}-${p.angle}`} transform={`translate(${p.cx},${p.cy}) rotate(${p.angle})`} opacity={p.op} fill="currentColor">
           <InkPetal size={p.size} />
         </g>
       ))}
-      {rainLines.map((l, i) => (
-        <line key={i} x1={l.x} y1={l.y} x2={l.x - 2} y2={l.y + l.len}
+      {rainLines.map((l) => (
+        <line key={`rain-${l.x}-${l.y}-${l.len}`} x1={l.x} y1={l.y} x2={l.x - 2} y2={l.y + l.len}
           stroke="currentColor" strokeWidth={0.6} strokeLinecap="round" opacity={l.op} />
       ))}
     </>
@@ -150,8 +150,8 @@ function SummerMotif({ day }: Readonly<{ day: number }>) {
 
   return (
     <>
-      {stalks.map((s, i) => (
-        <path key={i}
+      {stalks.map((s) => (
+        <path key={`stalk-${s.x}`}
           d={`M ${s.x} 80 C ${s.x - 2} 55, ${s.x + 2} 30, ${s.x - 2} 0`}
           stroke="currentColor" strokeWidth={s.w} strokeLinecap="round" opacity={s.op} />
       ))}
@@ -165,13 +165,13 @@ function SummerMotif({ day }: Readonly<{ day: number }>) {
         const ex = l.x1 + l.dx * l.len;
         const ey = l.y1 - 8 + r(15 + i) * 6;
         return (
-          <path key={i}
+          <path key={`leaf-${l.x1}-${l.y1}-${l.dx}-${l.len}`}
             d={`M ${l.x1} ${l.y1} C ${l.x1 + l.dx * l.len * 0.5} ${l.y1 - 12} ${ex} ${ey} ${ex} ${ey}`}
             stroke="currentColor" strokeWidth={1.3} strokeLinecap="round" opacity={l.op} />
         );
       })}
-      {fireflies.map((f, i) => (
-        <circle key={i} cx={f.cx} cy={f.cy} r={1.2} fill="currentColor" opacity={f.op} />
+      {fireflies.map((f) => (
+        <circle key={`firefly-${f.cx}-${f.cy}`} cx={f.cx} cy={f.cy} r={1.2} fill="currentColor" opacity={f.op} />
       ))}
     </>
   );
@@ -219,8 +219,8 @@ function AutumnMotif({ day }: Readonly<{ day: number }>) {
         stroke="currentColor" strokeWidth={2} strokeLinecap="round" opacity={0.2} />
       <path d={`M 195 ${26 + (r(60) - 0.5) * 4} C 185 14, 180 7, 178 3`}
         stroke="currentColor" strokeWidth={1.2} strokeLinecap="round" opacity={0.18} />
-      {leaves.map((l, i) => (
-        <MapleLeaf key={i} cx={l.cx} cy={l.cy} size={l.size} angle={l.angle} op={l.op} />
+      {leaves.map((l) => (
+        <MapleLeaf key={`maple-${l.cx}-${l.cy}-${l.angle}`} cx={l.cx} cy={l.cy} size={l.size} angle={l.angle} op={l.op} />
       ))}
       {showMoon && (
         <circle cx={255 + r(51) * 20} cy={12 + r(52) * 15} r={9 + r(53) * 4}
@@ -262,10 +262,10 @@ function WinterMotif({ day }: Readonly<{ day: number }>) {
       <path d="M 200 38 C 194 30, 192 24, 192 20"
         stroke="currentColor" strokeWidth={1} strokeLinecap="round" opacity={0.16} />
       {blossoms.map(({ cx, cy }, i) => (
-        <InkBlossom key={i} cx={cx} cy={cy} size={4 + r(30 + i) * 1.5} op={0.24 - i * 0.02} />
+        <InkBlossom key={`winter-blossom-${cx}-${cy}`} cx={cx} cy={cy} size={4 + r(30 + i) * 1.5} op={0.24 - i * 0.02} />
       ))}
-      {snow.map((s, i) => (
-        <circle key={i} cx={s.cx} cy={s.cy} r={s.r} fill="currentColor" opacity={s.op} />
+      {snow.map((s) => (
+        <circle key={`snow-${s.cx}-${s.cy}-${s.r}`} cx={s.cx} cy={s.cy} r={s.r} fill="currentColor" opacity={s.op} />
       ))}
     </>
   );
