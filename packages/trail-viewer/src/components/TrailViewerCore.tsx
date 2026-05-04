@@ -377,6 +377,7 @@ function TrailViewerCoreInner({
             c4Model={c4.c4Model}
             serverUrl={c4.serverUrl}
             selectedRepo={c4.selectedRepo}
+            selectedRelease={c4.selectedRelease}
             isDark={isDark}
             isActive={activeTab === 5}
           />

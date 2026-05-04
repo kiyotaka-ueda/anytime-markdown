@@ -330,7 +330,11 @@ export function C4ViewerCore({
   const [showCommunity, setShowCommunity] = useState(false);
   const [codeGraphEnabled, setCodeGraphEnabled] = useState(false);
   const [showActivityTrend, setShowActivityTrend] = useState(true);
-  const { graph: codeGraph } = useCodeGraph(serverUrl, { enabled: showCommunity || codeGraphEnabled || currentLevel >= 2 });
+  const { graph: codeGraph } = useCodeGraph(serverUrl, {
+    enabled: showCommunity || codeGraphEnabled || currentLevel >= 2,
+    release: selectedRelease,
+    repo: selectedRepo,
+  });
 
   // --- Flow mode state ---
   const ghostEdges = useC4GhostEdges(

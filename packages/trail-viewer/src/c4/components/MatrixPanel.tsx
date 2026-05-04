@@ -148,6 +148,7 @@ export interface MatrixPanelProps {
   readonly c4Model: C4Model | null;
   readonly serverUrl?: string;
   readonly selectedRepo?: string;
+  readonly selectedRelease?: string;
   readonly isDark?: boolean;
   /** タブ非表示中は API フェッチを抑止する。省略時は true（後方互換）。 */
   readonly isActive?: boolean;
@@ -160,6 +161,7 @@ export function MatrixPanel({
   c4Model,
   serverUrl,
   selectedRepo,
+  selectedRelease,
   isDark = false,
   isActive = true,
 }: Readonly<MatrixPanelProps>) {
@@ -169,7 +171,11 @@ export function MatrixPanel({
   const [level, setLevel] = useState<'package' | 'component' | 'code'>('component');
   const [isCommunityColor, setIsCommunityColor] = useState(false);
 
-  const { graph: codeGraph } = useCodeGraph(serverUrl ?? '', { enabled: isActive });
+  const { graph: codeGraph } = useCodeGraph(serverUrl ?? '', {
+    enabled: isActive,
+    release: selectedRelease,
+    repo: selectedRepo,
+  });
 
   const { data: hotspotData } = useHotspot({
     enabled: isActive && !!serverUrl,
