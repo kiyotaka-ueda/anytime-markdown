@@ -1,40 +1,31 @@
 out
 dist
 node_modules
-.vscode-test/
-*.vsix
-.next
-.serena
+.agents
+.anytime-trail
 .claude
+.next
+.playwright-mcp
+.serena
 .vscode
-docs/project-structure.md
-*.tsbuildinfo
+.worktrees
+
+.vscode-test/
 coverage/
-!packages/trail-core/src/c4/coverage/
-!packages/trail-core/src/c4/__tests__/coverage/
-!packages/web-app/src/app/api/c4/coverage/
-.v8-coverage/
-
-# Serwist
-packages/web-app/public/sw*
-packages/web-app/public/swe-worker*
-
-.agents/skills/
-skills-lock.json
-
-# Environment variables
-.env
-.env.local
-.env*.local
 
 # Playwright
 playwright-report/
 test-results/
-.playwright-mcp/
 
-# Worktrees
-.worktrees/
-HANDOFF.md
+*.vsix
+*.tsbuildinfo
 
-# Anytime Trail
-.anytime-trail/
+# Environment variables
+.env
+.env.local
+
+
+# Serwist
+packages/web-app/public/sw.js
+
+skills-lock.json
