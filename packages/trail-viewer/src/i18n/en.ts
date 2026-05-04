@@ -234,7 +234,7 @@ export const en: TrailI18n = {
   'c4.community.hubNode': 'Hub node',
   'c4.community.breakdown': 'Breakdown',
   'c4.community.other': 'Other',
-  'c4.community.disabledLevel': 'Available at L3 / L4 only',
+  'c4.community.disabledLevel': 'Available at C3 / C4 only',
   'c4.community.disabledNoData': 'Generate the code graph first',
   'c4.community.nodeCount': 'Components',
   'c4.community.containers': 'Containers',

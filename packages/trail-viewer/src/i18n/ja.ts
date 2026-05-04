@@ -234,7 +234,7 @@ export const ja: TrailI18n = {
   'c4.community.hubNode': 'Hub node',
   'c4.community.breakdown': '内訳',
   'c4.community.other': 'その他',
-  'c4.community.disabledLevel': 'L3 / L4 でのみ利用可能',
+  'c4.community.disabledLevel': 'C3 / C4 でのみ利用可能',
   'c4.community.disabledNoData': 'コードグラフを先に生成してください',
   'c4.community.nodeCount': 'コンポーネント数',
   'c4.community.containers': 'コンテナ',

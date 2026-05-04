@@ -393,7 +393,7 @@ export function MatrixPanel({
               onClick={() => setLevel(lv)}
               sx={{ ...toolbarButtonSx, ...(level === lv && { bgcolor: toolbarButtonActiveBg }) }}
             >
-              {lv === 'package' ? 'L2' : lv === 'component' ? 'L3' : 'L4'}
+              {lv === 'package' ? 'C2' : lv === 'component' ? 'C3' : 'C4'}
             </Button>
           ))}
         </ButtonGroup>
