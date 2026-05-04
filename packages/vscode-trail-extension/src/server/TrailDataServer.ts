@@ -504,8 +504,8 @@ export class TrailDataServer {
       return;
     }
     if (pathname === '/api/docs-index' && method === 'GET') {
-      res.writeHead(200, JSON_HEADERS);
-      res.end(JSON.stringify({ docs: this.docLinks }));
+      const repo = parsed.searchParams.get('repo') ?? undefined;
+      void this.handleDocsIndexEndpoint(res, repo);
       return;
     }
     if (pathname === '/api/c4/coverage' && method === 'GET') {
@@ -1566,6 +1566,40 @@ export class TrailDataServer {
       TrailLogger.error('[/api/c4/coverage] failed', e);
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({ coverageMatrix: null, coverageDiff: null }));
+    }
+  }
+
+  private async handleDocsIndexEndpoint(res: http.ServerResponse, repo?: string): Promise<void> {
+    try {
+      // repo 指定なしは workspace global（全件返却）。後方互換。
+      if (!repo) {
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({ docs: this.docLinks }));
+        return;
+      }
+      // C4 モデルから repo の要素 ID 集合を構築し、
+      // doc.c4Scope のいずれかが要素 ID と完全一致または親パス（pkg_a/x の親 pkg_a）として
+      // ヒットするドキュメントだけを返す。
+      const store = this.trailDb.asC4ModelStore();
+      const provider = this.getC4Provider?.();
+      const payload = await fetchC4Model(store, 'current', repo, provider?.featureMatrix);
+      const elementIds = new Set((payload?.model.elements ?? []).map((e) => e.id));
+      if (elementIds.size === 0) {
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({ docs: [] }));
+        return;
+      }
+      const filtered = this.docLinks.filter((d) =>
+        d.c4Scope.some((scope) =>
+          elementIds.has(scope) || [...elementIds].some((id) => id.startsWith(scope + '/'))
+        )
+      );
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({ docs: filtered }));
+    } catch (e) {
+      TrailLogger.error('[/api/docs-index] failed', e);
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({ docs: this.docLinks }));
     }
   }
 

@@ -341,7 +341,7 @@ function useRemoteInitialFetch(
         fetch(`${serverUrl}/api/c4/coverage?release=${encodeURIComponent(selectedRelease)}${repoQuery}`).catch(() => null),
         fetch(complexityUrl).catch(() => null),
         fetch(`${serverUrl}/api/c4/releases`).catch(() => null),
-        fetch(`${serverUrl}/api/docs-index`).catch(() => null),
+        fetch(`${serverUrl}/api/docs-index${selectedRepo ? `?repo=${encodeURIComponent(selectedRepo)}` : ''}`).catch(() => null),
       ]);
 
       const [modelJson, dsmJson, covJson, complexityJson, docsJson] = await Promise.all([
