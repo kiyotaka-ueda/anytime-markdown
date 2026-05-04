@@ -5,6 +5,8 @@
 -- 先頭で全テーブルを DROP し、その後に CREATE TABLE を実行する。
 -- FK 依存順序に注意し、子テーブル → 親テーブルの順で DROP する。
 
+DROP TABLE IF EXISTS trail_release_code_graph_communities CASCADE;
+DROP TABLE IF EXISTS trail_release_code_graphs CASCADE;
 DROP TABLE IF EXISTS trail_current_code_graph_communities CASCADE;
 DROP TABLE IF EXISTS trail_current_code_graphs CASCADE;
 DROP TABLE IF EXISTS trail_current_coverage CASCADE;
@@ -312,6 +314,26 @@ CREATE TABLE IF NOT EXISTS trail_current_code_graph_communities (
   PRIMARY KEY (repo_name, community_id)
 );
 
+-- コードグラフ リリーススナップショット（ローカル release_code_graphs と対応）
+CREATE TABLE IF NOT EXISTS trail_release_code_graphs (
+  release_tag  TEXT PRIMARY KEY REFERENCES trail_releases(tag) ON DELETE CASCADE,
+  graph_json   TEXT NOT NULL,
+  generated_at TEXT NOT NULL DEFAULT '',
+  updated_at   TEXT NOT NULL DEFAULT ''
+);
+
+-- コードグラフ リリースコミュニティ（ローカル release_code_graph_communities と対応）
+CREATE TABLE IF NOT EXISTS trail_release_code_graph_communities (
+  release_tag  TEXT    NOT NULL REFERENCES trail_releases(tag) ON DELETE CASCADE,
+  community_id INTEGER NOT NULL,
+  label        TEXT    NOT NULL DEFAULT '',
+  name         TEXT    NOT NULL DEFAULT '',
+  summary      TEXT    NOT NULL DEFAULT '',
+  generated_at TEXT    NOT NULL DEFAULT '',
+  updated_at   TEXT    NOT NULL DEFAULT '',
+  PRIMARY KEY (release_tag, community_id)
+);
+
 -- インデックス
 CREATE INDEX IF NOT EXISTS idx_trail_messages_session ON trail_messages(session_id);
 CREATE INDEX IF NOT EXISTS idx_trail_messages_type ON trail_messages(type);
@@ -329,6 +351,8 @@ CREATE INDEX IF NOT EXISTS idx_trail_releases_released_at ON trail_releases(rele
 CREATE INDEX IF NOT EXISTS idx_trail_release_files_tag ON trail_release_files(release_tag);
 CREATE INDEX IF NOT EXISTS idx_trail_release_features_tag ON trail_release_features(release_tag);
 CREATE INDEX IF NOT EXISTS idx_trail_release_coverage_tag ON trail_release_coverage(release_tag);
+CREATE INDEX IF NOT EXISTS idx_trail_release_code_graphs_tag ON trail_release_code_graphs(release_tag);
+CREATE INDEX IF NOT EXISTS idx_trail_release_code_graph_communities_tag ON trail_release_code_graph_communities(release_tag);
 CREATE INDEX IF NOT EXISTS idx_trail_mtc_session ON trail_message_tool_calls(session_id);
 CREATE INDEX IF NOT EXISTS idx_trail_mtc_timestamp ON trail_message_tool_calls(timestamp);
 
@@ -414,3 +438,11 @@ CREATE POLICY "trail_current_code_graphs_all" ON trail_current_code_graphs FOR A
 ALTER TABLE trail_current_code_graph_communities ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "trail_current_code_graph_communities_all" ON trail_current_code_graph_communities;
 CREATE POLICY "trail_current_code_graph_communities_all" ON trail_current_code_graph_communities FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE trail_release_code_graphs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "trail_release_code_graphs_all" ON trail_release_code_graphs;
+CREATE POLICY "trail_release_code_graphs_all" ON trail_release_code_graphs FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE trail_release_code_graph_communities ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "trail_release_code_graph_communities_all" ON trail_release_code_graph_communities;
+CREATE POLICY "trail_release_code_graph_communities_all" ON trail_release_code_graph_communities FOR ALL USING (true) WITH CHECK (true);
