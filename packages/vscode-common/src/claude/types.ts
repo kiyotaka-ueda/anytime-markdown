@@ -23,6 +23,8 @@ export interface ClaudeStatus {
   readonly plannedEdits?: readonly string[];
   /** 現在の git ブランチ名 */
   readonly branch?: string;
+  /** Bash ツール実行時の cwd（worktree 内でのテスト実行検出に使用） */
+  readonly workspacePath?: string;
 }
 
 /** マルチエージェント監視で使用するエージェント情報 */
@@ -36,6 +38,8 @@ export interface AgentInfo {
   readonly plannedEdits: readonly string[];
   /** JSONL の ai-title エントリから取得したセッションタイトル */
   readonly sessionTitle?: string;
+  /** Bash ツール実行時の cwd（worktree 内でのテスト実行検出に使用） */
+  readonly workspacePath?: string;
 }
 
 export type StatusChangeCallback = (editing: boolean, filePath: string) => void;

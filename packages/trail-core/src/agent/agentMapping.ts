@@ -14,6 +14,7 @@ interface AgentInfoLike {
   readonly sessionEdits: readonly { file: string; timestamp: string }[];
   readonly plannedEdits: readonly string[];
   readonly sessionTitle?: string;
+  readonly workspacePath?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -48,8 +49,24 @@ export function classifySession(
 export function resolveWorktree(
   file: string,
   branch: string,
-  worktrees: readonly WorktreeEntry[]
+  worktrees: readonly WorktreeEntry[],
+  workspacePath?: string
 ): WorktreeEntry | null {
+  // 0. workspacePath prefix match（Bash のみのセッション用: テスト実行中など）
+  // cwd から正確な worktree を特定できる。最長一致優先。
+  if (workspacePath) {
+    let best: WorktreeEntry | null = null;
+    for (const wt of worktrees) {
+      const prefix = wt.path.endsWith('/') ? wt.path : `${wt.path}/`;
+      if (workspacePath.startsWith(prefix) || workspacePath === wt.path) {
+        if (best === null || wt.path.length > best.path.length) {
+          best = wt;
+        }
+      }
+    }
+    if (best !== null) return best;
+  }
+
   // 1. file path prefix match (longest wins)
   if (file) {
     let best: WorktreeEntry | null = null;
@@ -67,7 +84,7 @@ export function resolveWorktree(
     return best;
   }
 
-  // 2. file が空のとき（セッション開始直後）のみ branch でフォールバック
+  // 2. file も workspacePath も空のとき（セッション開始直後）のみ branch でフォールバック
   const byBranch = worktrees.find((wt) => wt.branch === branch);
   if (byBranch !== undefined) {
     return byBranch;
@@ -142,9 +159,10 @@ export function buildAgentMapping(
       sessionEdits: agent.sessionEdits,
       plannedEdits: agent.plannedEdits,
       sessionTitle: agent.sessionTitle,
+      workspacePath: agent.workspacePath,
     };
 
-    const resolved = resolveWorktree(agent.file, agent.branch, worktrees);
+    const resolved = resolveWorktree(agent.file, agent.branch, worktrees, agent.workspacePath);
     if (resolved === null) {
       orphanSessions.push(session);
     } else {

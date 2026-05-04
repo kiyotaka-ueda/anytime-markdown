@@ -176,6 +176,7 @@ export class ClaudeStatusWatcher implements Disposable {
         sessionEdits: status.sessionEdits ?? [],
         plannedEdits: status.plannedEdits ?? [],
         sessionTitle: this._readSessionTitle(sessionId),
+        workspacePath: status.workspacePath,
       });
     }
     return agents;

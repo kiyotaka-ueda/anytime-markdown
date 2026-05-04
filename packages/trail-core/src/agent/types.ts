@@ -11,6 +11,7 @@ export interface SessionMapping {
   readonly sessionEdits: readonly { file: string; timestamp: string }[];
   readonly plannedEdits: readonly string[];
   readonly sessionTitle?: string;
+  readonly workspacePath?: string;
 }
 
 export interface WorktreeMapping {

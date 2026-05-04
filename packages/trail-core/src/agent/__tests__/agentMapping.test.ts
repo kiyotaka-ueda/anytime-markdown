@@ -121,6 +121,36 @@ describe('resolveWorktree', () => {
     expect(result?.path).toBe('/anytime-markdown/.worktrees/feature-b');
   });
 
+  test('workspacePath が worktree パスに一致 → step 0 で解決（テスト実行中など）', () => {
+    const result = resolveWorktree(
+      '',
+      'develop',  // ブランチは main と同じで誤マッチしうる値
+      worktrees,
+      '/anytime-markdown/.worktrees/feature-b/packages/trail-core'
+    );
+    expect(result?.path).toBe('/anytime-markdown/.worktrees/feature-b');
+  });
+
+  test('workspacePath が別リポジトリ → step 0 で一致なし → orphan', () => {
+    const result = resolveWorktree(
+      '',
+      'develop',
+      worktrees,
+      '/Shared/anytime-markdown-docs'
+    );
+    expect(result).toBeNull();
+  });
+
+  test('workspacePath が main worktree の cwd → main に解決', () => {
+    const result = resolveWorktree(
+      '',
+      'develop',
+      worktrees,
+      '/anytime-markdown/packages/trail-core'
+    );
+    expect(result?.path).toBe('/anytime-markdown');
+  });
+
   test('fileもbranchも一致しない → null', () => {
     const result = resolveWorktree(
       '/completely/different/path/src/foo.ts',
