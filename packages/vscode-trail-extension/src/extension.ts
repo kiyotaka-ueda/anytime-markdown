@@ -12,7 +12,7 @@ import { TraceCodeLensProvider } from './providers/TraceCodeLensProvider';
 import { TraceScriptLensProvider } from './providers/TraceScriptLensProvider';
 import { TrailDataServer } from './server/TrailDataServer';
 import { TrailDatabase, ExecFileGitService } from '@anytime-markdown/trail-db';
-import { analyze } from '@anytime-markdown/trail-core';
+import { analyze } from '@anytime-markdown/trail-core/analyze';
 import { DatabaseProvider } from './trail/DatabaseProvider';
 import { TrailPanel } from './trail/TrailPanel';
 import { TrailLogger } from './utils/TrailLogger';
@@ -698,7 +698,7 @@ export async function activate(context: vscode.ExtensionContext) {
 						return trailDb!.importAll((message, increment) => {
 							progress.report({ message, increment });
 							TrailLogger.info(`Trail import [${repoName}]: ${message}`);
-						}, gitRoot, EXCLUDE_PATTERNS);
+						}, gitRoot, EXCLUDE_PATTERNS, analyze);
 					},
 				);
 				TrailLogger.info(`Trail DB [${repoName}]: import complete - imported=${result.imported}, skipped=${result.skipped}, commits=${result.commitsResolved}, releases=${result.releasesResolved}, analyzed=${result.releasesAnalyzed}`);

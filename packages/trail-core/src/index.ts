@@ -1,11 +1,9 @@
 export type { TrailGraph } from './model/types';
-export { analyze, type AnalyzeOptions } from './analyze';
 export { trailToC4 } from './transform/toC4';
 export { formatLocalDate, formatLocalTime, formatLocalDateTime, toLocalDateKey } from './formatDate';
 
 // Domain layer
 export * from './domain';
-export * from './importance';
 
 export type { ManualElement, ManualRelationship, ManualGroup, IManualElementProvider } from './c4/manualTypes';
 export { mergeManualIntoC4Model } from './c4/mergeManual';
