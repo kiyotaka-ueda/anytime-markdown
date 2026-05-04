@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { MarkdownEditorProvider } from './providers/MarkdownEditorProvider';
 import { LinkValidationProvider } from './providers/LinkValidationProvider';
-import { ClaudeStatusWatcher } from '@anytime-markdown/vscode-common';
+import { ClaudeStatusWatcher, TimelineProvider, TimelineItem } from '@anytime-markdown/vscode-common';
 
 export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
@@ -10,6 +10,39 @@ export function activate(context: vscode.ExtensionContext) {
 		// リンク検証（壊れたリンクの波線警告）
 		new LinkValidationProvider(),
 	);
+
+	// Timeline view: アクティブな markdown ファイルの git 履歴を表示
+	const timelineProvider = new TimelineProvider('anytime-markdown.compareWithCommit');
+	const timelineTreeView = vscode.window.createTreeView('anytimeMarkdown.timeline', {
+		treeDataProvider: timelineProvider,
+	});
+
+	const updateTimelineForUri = (uri: vscode.Uri | null) => {
+		timelineProvider.refresh(uri);
+	};
+
+	const isMarkdownPath = (uri: vscode.Uri): boolean => {
+		const lower = uri.path.toLowerCase();
+		return lower.endsWith('.md') || lower.endsWith('.markdown');
+	};
+
+	// 通常テキストエディタ経由の markdown
+	context.subscriptions.push(
+		vscode.window.onDidChangeActiveTextEditor((editor) => {
+			if (editor && editor.document.languageId === 'markdown') {
+				updateTimelineForUri(editor.document.uri);
+			} else if (editor) {
+				updateTimelineForUri(null);
+			}
+			// editor が undefined のときはカスタムエディタ側の polling に任せる
+		}),
+	);
+
+	// 初期表示: 現在アクティブなテキストエディタが markdown なら反映
+	const initialEditor = vscode.window.activeTextEditor;
+	if (initialEditor && initialEditor.document.languageId === 'markdown') {
+		updateTimelineForUri(initialEditor.document.uri);
+	}
 
 	// コンテキストの初期値を設定（editor/title メニュー表示に必要）
 	vscode.commands.executeCommand('setContext', 'anytimeMarkdown.autoReload', true);
@@ -64,6 +97,13 @@ export function activate(context: vscode.ExtensionContext) {
 			lastActiveUri = currentUri;
 			if (!currentUri) {
 				hideStatusBar();
+				// カスタムエディタが閉じた直後は通常テキストエディタ側のリスナーが
+				// 走るため、ここでは Timeline をクリアしない
+			} else {
+				const customUri = p?.activeDocumentUri;
+				if (customUri && isMarkdownPath(customUri)) {
+					updateTimelineForUri(customUri);
+				}
 			}
 		}
 		// コールバックの再設定（Provider 再生成時の対応）
@@ -139,6 +179,22 @@ export function activate(context: vscode.ExtensionContext) {
 		() => { MarkdownEditorProvider.getInstance()?.switchMode('source'); }
 	);
 
+	const compareWithCommit = vscode.commands.registerCommand(
+		'anytime-markdown.compareWithCommit',
+		async (item: TimelineItem) => {
+			const content = await timelineProvider.getCommitContent(item);
+			if (content === null) {
+				vscode.window.showErrorMessage('Failed to load commit content.');
+				return;
+			}
+			await vscode.commands.executeCommand(
+				'anytime-markdown.openCompareMode',
+				item.fileUri,
+				content,
+			);
+		},
+	);
+
 	// Claude Code 編集通知: ステータスファイル監視 + エディタロック
 	// フック登録は trail 拡張で一元管理する。markdown 拡張はステータスファイルの読み取りのみ。
 	const storagePathSetting = vscode.workspace.getConfiguration('anytimeMarkdown.claudeStatus').get<string>('directory', '') || '.vscode';
@@ -161,6 +217,7 @@ export function activate(context: vscode.ExtensionContext) {
 		...statusBarItems,
 		openEditorWithFile, compareCmd, openCompareMode,
 		switchToReview, switchToWysiwyg, switchToSource,
+		timelineTreeView, compareWithCommit,
 		...claudeSubscriptions,
 	);
 }
