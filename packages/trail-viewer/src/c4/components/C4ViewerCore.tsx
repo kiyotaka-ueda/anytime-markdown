@@ -677,13 +677,22 @@ export function C4ViewerCore({
     return m;
   }, [dsmMatrix, currentLevel, c4Model, checkedPackageIds]);
 
+  // importanceMatrix は WebSocket でリポジトリ非依存に push されるため、
+  // 現在の c4Model.elements とキーが一致するかでデータの有無を判定する
+  const hasImportanceData = useMemo(() => {
+    if (!importanceMatrix || !c4Model) return false;
+    const ids = new Set(c4Model.elements.map((e) => e.id));
+    return Object.keys(importanceMatrix).some((id) => ids.has(id));
+  }, [importanceMatrix, c4Model]);
+
   const isCategoryDataAvailable = useMemo(() => {
     // 空 entries / 空 nodes も「データなし」として扱う（サーバーが空マトリクスを返すケースに備える）
     if (overlayCategory === 'coverage') return !!coverageMatrix && coverageMatrix.entries.length > 0;
     if (overlayCategory === 'dsm') return !!filteredDsmMatrix && filteredDsmMatrix.nodes.length > 0;
     if (overlayCategory === 'complexity') return !!complexityMatrix && complexityMatrix.entries.length > 0;
+    if (overlayCategory === 'importance') return hasImportanceData;
     return true;
-  }, [overlayCategory, coverageMatrix, filteredDsmMatrix, complexityMatrix]);
+  }, [overlayCategory, coverageMatrix, filteredDsmMatrix, complexityMatrix, hasImportanceData]);
 
   useEffect(() => {
     if (!isCategoryDataAvailable) {
