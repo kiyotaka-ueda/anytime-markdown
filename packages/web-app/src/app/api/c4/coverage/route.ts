@@ -1,6 +1,7 @@
 import { aggregateCoverageFromDb, fetchC4Model } from "@anytime-markdown/trail-core/c4";
 import type { ReleaseCoverageRow } from "@anytime-markdown/trail-core/domain";
 import { createClient } from '@supabase/supabase-js';
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 import { createC4ModelStore, NO_STORE_HEADERS } from "../../../../lib/api-helpers";
@@ -9,13 +10,17 @@ import { resolveSupabaseEnv } from "../../../../lib/supabase-env";
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/c4/coverage
+ * GET /api/c4/coverage?release=...&repo=...
  *
  * 拡張機能の /api/c4/coverage と互換。
  * trail_current_coverage テーブル（拡張機能が Sync で書き込む）から
  * カバレッジを取得し、C4 モデルで集約して返す。
+ *
+ * repo 未指定時は trail_current_coverage の先頭行から推定（後方互換）。
  */
-export async function GET(): Promise<NextResponse> {
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const release = request.nextUrl.searchParams.get('release') ?? 'current';
+  const repoParam = request.nextUrl.searchParams.get('repo') ?? undefined;
   const empty = { coverageMatrix: null, coverageDiff: null };
 
   const store = createC4ModelStore();
@@ -27,19 +32,20 @@ export async function GET(): Promise<NextResponse> {
   try {
     const supabase = createClient(env.url, env.anonKey);
 
-    // repo_name を trail_current_coverage から取得（モデル取得に必要）
-    const { data: firstRow } = await supabase
-      .from('trail_current_coverage')
-      .select('repo_name')
-      .limit(1)
-      .maybeSingle<{ repo_name: string }>();
-
-    if (!firstRow) return NextResponse.json(empty, { headers: NO_STORE_HEADERS });
-
-    const repoName = firstRow.repo_name;
+    let repoName = repoParam;
+    if (!repoName) {
+      // 後方互換: クエリで repo 指定がない場合は先頭行から推定
+      const { data: firstRow } = await supabase
+        .from('trail_current_coverage')
+        .select('repo_name')
+        .limit(1)
+        .maybeSingle<{ repo_name: string }>();
+      if (!firstRow) return NextResponse.json(empty, { headers: NO_STORE_HEADERS });
+      repoName = firstRow.repo_name;
+    }
 
     const [payload, supabaseCovResult] = await Promise.all([
-      fetchC4Model(store, 'current', repoName),
+      fetchC4Model(store, release, repoName),
       supabase
         .from('trail_current_coverage')
         .select('package,file_path,lines_total,lines_covered,lines_pct,statements_total,statements_covered,statements_pct,functions_total,functions_covered,functions_pct,branches_total,branches_covered,branches_pct')
