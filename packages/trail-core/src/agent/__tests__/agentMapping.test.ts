@@ -5,10 +5,6 @@ import type { WorktreeEntry } from '../types';
 // helpers
 // ---------------------------------------------------------------------------
 
-function makeDate(secondsAgo: number): string {
-  return new Date(Date.now() - secondsAgo * 1000).toISOString();
-}
-
 function fixedNow(): Date {
   return new Date('2026-01-01T00:00:00.000Z');
 }
