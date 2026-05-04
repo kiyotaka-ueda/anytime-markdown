@@ -41,7 +41,6 @@ export const ja: TrailI18n = {
   'stats.cacheRead': 'キャッシュ読取:',
   'stats.duration': '所要時間:',
   'stats.messages': '件',
-  'tokenBudget.daily': '本日',
   'message.noMessages': 'メッセージがありません',
   'message.collapse': '折りたたむ',
   'message.expand': '展開する',

@@ -41,7 +41,6 @@ export const en: TrailI18n = {
   'stats.cacheRead': 'Cache read:',
   'stats.duration': 'Duration:',
   'stats.messages': 'messages',
-  'tokenBudget.daily': 'Today',
   'message.noMessages': 'No messages',
   'message.collapse': 'Collapse',
   'message.expand': 'Expand',

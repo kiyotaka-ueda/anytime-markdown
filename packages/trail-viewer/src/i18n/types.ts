@@ -48,7 +48,6 @@ export interface TrailI18n {
   'stats.duration': string;
   'stats.messages': string;
   // tokenBudget
-  'tokenBudget.daily': string;
   // message
   'message.noMessages': string;
   'message.collapse': string;

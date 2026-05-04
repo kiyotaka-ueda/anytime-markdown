@@ -3,10 +3,8 @@ import { TraceViewer } from '@anytime-markdown/trace-viewer';
 import type { TraceFileSource } from '@anytime-markdown/trace-viewer';
 import type { SourceLocation } from '@anytime-markdown/trace-core/types';
 import Box from '@mui/material/Box';
-import LinearProgress from '@mui/material/LinearProgress';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 
 import type {
@@ -65,7 +63,6 @@ export interface TrailViewerCoreProps {
   readonly fetchQualityMetrics?: AnalyticsPanelProps['fetchQualityMetrics'];
   readonly fetchDeploymentFrequency?: AnalyticsPanelProps['fetchDeploymentFrequency'];
   readonly fetchReleaseQuality?: AnalyticsPanelProps['fetchReleaseQuality'];
-  readonly tokenBudgets?: readonly import('../hooks/useTrailDataSource').TokenBudgetStatus[];
   readonly sessionsLoading?: boolean;
   /** C4 viewer props. When provided, the C4 tab is shown. */
   readonly c4?: C4Props;
@@ -113,7 +110,6 @@ function TrailViewerCoreInner({
   fetchQualityMetrics,
   fetchDeploymentFrequency,
   fetchReleaseQuality,
-  tokenBudgets = [],
   sessionsLoading,
   c4,
   codeGraph,
@@ -229,24 +225,7 @@ function TrailViewerCoreInner({
           {codeGraph && <Tab id="trail-tab-6" aria-controls="trail-panel-6" label={t('viewer.tab.graph')} />}
           {(traceFiles || c4) && <Tab id="trail-tab-7" aria-controls="trail-panel-7" label={t('viewer.tab.trace')} />}
         </Tabs>
-        {tokenBudgets.length > 0 && (
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', px: 2, flexShrink: 0 }}>
-            {tokenBudgets.map((tb, idx) => (
-              <Box key={tb.sessionId} sx={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                {idx > 0 && <Box sx={{ width: '1px', height: 24, bgcolor: colors.border, flexShrink: 0 }} />}
-                <SessionBudgetBadge tokenBudget={tb} colors={colors} />
-              </Box>
-            ))}
-            <Box sx={{ width: '1px', height: 24, bgcolor: colors.border, flexShrink: 0 }} />
-            <TokenBudgetIndicator
-              label={t('tokenBudget.daily')}
-              current={tokenBudgets[0].dailyTokens}
-              limit={tokenBudgets[0].dailyLimitTokens}
-              threshold={tokenBudgets[0].alertThresholdPct}
-              colors={colors}
-            />
-          </Box>
-        )}
+
       </Box>
 
       <Box
@@ -414,96 +393,3 @@ function TrailViewerCoreInner({
   );
 }
 
-function SessionBudgetBadge({ tokenBudget, colors }: Readonly<{
-  tokenBudget: import('../hooks/useTrailDataSource').TokenBudgetStatus;
-  colors: ReturnType<typeof getTokens>['colors'];
-}>) {
-  const color = resolveTokenColor(tokenBudget.sessionTokens, tokenBudget.sessionLimitTokens, tokenBudget.alertThresholdPct, colors);
-  const tooltipText = tokenBudget.sessionLimitTokens != null
-    ? `${tokenBudget.sessionTokens.toLocaleString()} / ${tokenBudget.sessionLimitTokens.toLocaleString()} tokens · ${tokenBudget.messageCount} messages`
-    : `${tokenBudget.sessionTokens.toLocaleString()} tokens · ${tokenBudget.messageCount} messages`;
-
-  return (
-    <Tooltip title={tooltipText} placement="bottom">
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-        <Typography sx={{ color: colors.textSecondary, fontSize: '0.6rem', fontFamily: 'monospace', lineHeight: 1 }}>
-          {tokenBudget.sessionId.slice(0, 8)}
-        </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: '5px' }}>
-          <Typography sx={{ color, fontSize: '0.7rem', fontFamily: 'monospace', lineHeight: 1, fontWeight: 500 }}>
-            {formatTokens(tokenBudget.sessionTokens)}
-          </Typography>
-          <Typography sx={{ color: colors.textSecondary, fontSize: '0.65rem', lineHeight: 1 }}>
-            {tokenBudget.messageCount}
-          </Typography>
-        </Box>
-      </Box>
-    </Tooltip>
-  );
-}
-
-interface TokenBudgetIndicatorProps {
-  readonly label: string;
-  readonly current: number;
-  readonly limit: number | null;
-  readonly threshold: number;
-  readonly colors: ReturnType<typeof getTokens>['colors'];
-}
-
-function formatTokens(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
-  return String(n);
-}
-
-// リミットあり: threshold未満=緑, threshold〜中間=オレンジ, 中間以上=赤
-// リミットなし: <50K=緑, 50K-100K=オレンジ, >100K=赤
-function resolveTokenColor(
-  current: number,
-  limit: number | null,
-  threshold: number,
-  colors: ReturnType<typeof getTokens>['colors'],
-): string {
-  if (limit !== null) {
-    const pct = Math.min((current / limit) * 100, 100);
-    const midpoint = threshold + (100 - threshold) / 2;
-    if (pct >= midpoint) return colors.error;
-    if (pct >= threshold) return colors.warning;
-    return colors.success;
-  }
-  if (current >= 100_000) return colors.error;
-  if (current >= 50_000) return colors.warning;
-  return colors.success;
-}
-
-function TokenBudgetIndicator({ label, current, limit, threshold, colors }: Readonly<TokenBudgetIndicatorProps>) {
-  const color = resolveTokenColor(current, limit, threshold, colors);
-
-  if (limit === null) {
-    return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-        <Typography sx={{ color: colors.textSecondary, fontSize: '0.6rem', lineHeight: 1 }}>{label}</Typography>
-        <Typography sx={{ color, fontSize: '0.7rem', fontFamily: 'monospace', lineHeight: 1, fontWeight: 500 }}>{formatTokens(current)}</Typography>
-      </Box>
-    );
-  }
-
-  const pct = Math.min((current / limit) * 100, 100);
-  const tooltipText = `${current.toLocaleString()} / ${limit.toLocaleString()} tokens`;
-
-  return (
-    <Tooltip title={tooltipText} placement="bottom">
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-        <Typography sx={{ color: colors.textSecondary, fontSize: '0.6rem', lineHeight: 1 }}>{label}</Typography>
-        <LinearProgress
-          variant="determinate"
-          value={pct}
-          sx={{ width: 40, height: 2, borderRadius: 1, bgcolor: colors.border, '& .MuiLinearProgress-bar': { bgcolor: color } }}
-        />
-        <Typography sx={{ color, fontSize: '0.6rem', fontFamily: 'monospace', lineHeight: 1 }}>
-          {formatTokens(current)}/{formatTokens(limit)}
-        </Typography>
-      </Box>
-    </Tooltip>
-  );
-}

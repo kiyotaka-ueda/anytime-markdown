@@ -202,7 +202,6 @@ export function TrailViewerApp({
       fetchQualityMetrics={dataSource.fetchQualityMetrics}
       fetchDeploymentFrequency={dataSource.fetchDeploymentFrequency}
       fetchReleaseQuality={dataSource.fetchReleaseQuality}
-      tokenBudgets={dataSource.tokenBudgets}
       sessionsLoading={dataSource.sessionsLoading}
       c4={c4Props}
       codeGraph={{ serverUrl }}
