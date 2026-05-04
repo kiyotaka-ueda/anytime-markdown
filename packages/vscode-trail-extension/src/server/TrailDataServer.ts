@@ -2737,9 +2737,14 @@ export class TrailDataServer {
         return;
       }
       const result = this.trailDb.upsertCurrentCodeGraphCommunitySummaries(repoName, body.summaries);
+      // codeGraphService の in-memory cache を DB と同期してから client に通知。
+      // これにより /api/code-graph が新しい communitySummaries を返し、
+      // useCodeGraph 側で WS 経由 refetch が走る → Reload Window 不要。
+      await this.refreshCodeGraphCache();
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify(result));
       this.notify('model-updated');
+      this.notifyCodeGraphUpdated();
     } catch (err) {
       TrailLogger.error('handleUpsertCommunitySummaries failed', err);
       res.writeHead(500, JSON_HEADERS);
@@ -2772,13 +2777,31 @@ export class TrailDataServer {
         return;
       }
       const result = this.trailDb.upsertCurrentCodeGraphCommunityMappings(repoName, body.mappings);
+      await this.refreshCodeGraphCache();
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify(result));
       this.notify('model-updated');
+      this.notifyCodeGraphUpdated();
     } catch (err) {
       TrailLogger.error('handleUpsertCommunityMappings failed', err);
       res.writeHead(500, JSON_HEADERS);
       res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+    }
+  }
+
+  /**
+   * codeGraphService の in-memory cache を最新の DB 状態で再構築する。
+   * MCP/HTTP 経由でコミュニティ name/summary/mappings_json が更新されたとき、
+   * 直接 sql.js の DB ファイルが書き換わったとしても、
+   * 拡張プロセスの cached graph は変わらないため、明示的に load し直す必要がある。
+   * 失敗してもレスポンスは成功扱い（cache 不整合でも DB は正しいため、Reload で復帰可能）。
+   */
+  private async refreshCodeGraphCache(): Promise<void> {
+    if (!this.codeGraphService) return;
+    try {
+      await this.codeGraphService.loadFromDb();
+    } catch (err) {
+      TrailLogger.warn(`[community-upsert] cache compose failed (loadFromDb): ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 

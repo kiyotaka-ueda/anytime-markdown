@@ -52,8 +52,38 @@ export function useCodeGraph(
   }, [serverUrl, enabled, release, repo]);
 
   useEffect(() => {
+    if (!enabled) return;
     void load();
-  }, [load]);
+
+    // WS で code-graph-updated を購読し、サーバ側のキャッシュ更新時に再 fetch する。
+    // Reload Window 不要で skill 後の community 名・要約反映を実現するための同期経路。
+    const WSCtor = (globalThis as { WebSocket?: typeof WebSocket }).WebSocket;
+    if (!WSCtor) return;
+    let ws: WebSocket | undefined;
+    try {
+      const wsUrl = serverUrl.replace(/^http/, 'ws');
+      ws = new WSCtor(wsUrl);
+      ws.addEventListener('message', (event: MessageEvent) => {
+        try {
+          const data = typeof event.data === 'string' ? event.data : String(event.data);
+          const msg = JSON.parse(data) as { type?: string };
+          if (msg.type === 'code-graph-updated') void load();
+        } catch {
+          // 不正な JSON は無視
+        }
+      });
+    } catch {
+      // WS 接続失敗は静かに無視（fetch だけは成立しているため、初回 mount のデータは表示できる）
+      ws = undefined;
+    }
+    return () => {
+      try {
+        ws?.close();
+      } catch {
+        // close 失敗は無視
+      }
+    };
+  }, [load, enabled, serverUrl]);
 
   return { graph, loading, error, refetch: load };
 }
