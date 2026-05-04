@@ -670,9 +670,10 @@ export function C4ViewerCore({
   }, [dsmMatrix, currentLevel, c4Model, checkedPackageIds]);
 
   const isCategoryDataAvailable = useMemo(() => {
-    if (overlayCategory === 'coverage') return !!coverageMatrix;
-    if (overlayCategory === 'dsm') return !!filteredDsmMatrix;
-    if (overlayCategory === 'complexity') return !!complexityMatrix;
+    // 空 entries / 空 nodes も「データなし」として扱う（サーバーが空マトリクスを返すケースに備える）
+    if (overlayCategory === 'coverage') return !!coverageMatrix && coverageMatrix.entries.length > 0;
+    if (overlayCategory === 'dsm') return !!filteredDsmMatrix && filteredDsmMatrix.nodes.length > 0;
+    if (overlayCategory === 'complexity') return !!complexityMatrix && complexityMatrix.entries.length > 0;
     return true;
   }, [overlayCategory, coverageMatrix, filteredDsmMatrix, complexityMatrix]);
 
