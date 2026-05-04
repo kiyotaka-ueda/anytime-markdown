@@ -360,12 +360,15 @@ export async function activate(context: vscode.ExtensionContext) {
 	const codeGraphRepos: { id: string; label: string; path: string }[] = [];
 	const analysisWorkspacePath = getEffectiveWorkspacePath();
 	if (analysisWorkspacePath) {
-		codeGraphRepos.push({ id: 'Workspace', label: 'Workspace', path: analysisWorkspacePath });
+		const workspaceLabel = path.basename(analysisWorkspacePath) || 'Workspace';
+		codeGraphRepos.push({ id: workspaceLabel, label: workspaceLabel, path: analysisWorkspacePath });
 	}
 
 	const docsPathForCodeGraph = vscode.workspace.getConfiguration('anytimeTrail.workspace').get<string>('docsPath', '').trim();
 	if (docsPathForCodeGraph && !codeGraphRepos.some((r) => r.path === docsPathForCodeGraph)) {
-		codeGraphRepos.push({ id: 'Docs', label: 'Docs', path: docsPathForCodeGraph });
+		const docsLabel = path.basename(docsPathForCodeGraph) || 'Docs';
+		const uniqueDocsLabel = codeGraphRepos.some((r) => r.id === docsLabel) ? `${docsLabel}-docs` : docsLabel;
+		codeGraphRepos.push({ id: uniqueDocsLabel, label: uniqueDocsLabel, path: docsPathForCodeGraph });
 	}
 
 	const codeGraphService = new CodeGraphService({
