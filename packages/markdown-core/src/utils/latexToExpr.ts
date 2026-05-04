@@ -72,9 +72,9 @@ export function latexToMathjs(latex: string): string {
   let expr = latex;
 
   // \left, \right, \, を除去
-  expr = expr.replaceAll(/\\left/g, "");
-  expr = expr.replaceAll(/\\right/g, "");
-  expr = expr.replaceAll(/\\,/g, " ");
+  expr = expr.replaceAll("\\left", "");
+  expr = expr.replaceAll("\\right", "");
+  expr = expr.replaceAll("\\,", " ");
 
   // \frac{a}{b} → ((a)/(b))
   // ネストに対応するため繰り返し適用
@@ -91,37 +91,37 @@ export function latexToMathjs(latex: string): string {
   expr = expr.replaceAll(/\\sqrt\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/g, "sqrt($1)");
 
   // 三角関数・対数関数
-  expr = expr.replaceAll(/\\sin/g, "sin");
-  expr = expr.replaceAll(/\\cos/g, "cos");
-  expr = expr.replaceAll(/\\tan/g, "tan");
-  expr = expr.replaceAll(/\\asin/g, "asin");
-  expr = expr.replaceAll(/\\acos/g, "acos");
-  expr = expr.replaceAll(/\\atan/g, "atan");
-  expr = expr.replaceAll(/\\sinh/g, "sinh");
-  expr = expr.replaceAll(/\\cosh/g, "cosh");
-  expr = expr.replaceAll(/\\tanh/g, "tanh");
-  expr = expr.replaceAll(/\\ln/g, "log");
-  expr = expr.replaceAll(/\\log/g, "log10");
-  expr = expr.replaceAll(/\\exp/g, "exp");
+  expr = expr.replaceAll("\\sin", "sin");
+  expr = expr.replaceAll("\\cos", "cos");
+  expr = expr.replaceAll("\\tan", "tan");
+  expr = expr.replaceAll("\\asin", "asin");
+  expr = expr.replaceAll("\\acos", "acos");
+  expr = expr.replaceAll("\\atan", "atan");
+  expr = expr.replaceAll("\\sinh", "sinh");
+  expr = expr.replaceAll("\\cosh", "cosh");
+  expr = expr.replaceAll("\\tanh", "tanh");
+  expr = expr.replaceAll("\\ln", "log");
+  expr = expr.replaceAll("\\log", "log10");
+  expr = expr.replaceAll("\\exp", "exp");
 
   // 定数
-  expr = expr.replaceAll(/\\pi/g, "pi");
-  expr = expr.replaceAll(/\\theta/g, "theta");
+  expr = expr.replaceAll("\\pi", "pi");
+  expr = expr.replaceAll("\\theta", "theta");
 
   // 演算子
-  expr = expr.replaceAll(/\\cdot/g, "*");
-  expr = expr.replaceAll(/\\times/g, "*");
+  expr = expr.replaceAll("\\cdot", "*");
+  expr = expr.replaceAll("\\times", "*");
 
   // {} → ()
-  expr = expr.replaceAll(/\{/g, "(");
-  expr = expr.replaceAll(/\}/g, ")");
+  expr = expr.replaceAll("{", "(");
+  expr = expr.replaceAll("}", ")");
 
   // 暗黙の乗算: 数字の直後に英字が来る場合
   expr = expr.replaceAll(/(\d)([a-zA-Z])/g, "$1*$2");
 
   // 閉じ括弧の直後に英字または開き括弧が来る場合の暗黙の乗算
   expr = expr.replaceAll(/\)([a-zA-Z])/g, ")*$1");
-  expr = expr.replaceAll(/\)\(/g, ")*(");
+  expr = expr.replaceAll(")(", ")*(");
 
   // 不要な空白を正規化
   expr = expr.replaceAll(/\s+/g, " ").trim();

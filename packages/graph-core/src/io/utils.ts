@@ -1,6 +1,6 @@
 /** XML 特殊文字のエスケープ */
 export function escapeXml(s: string): string {
-  return s.replaceAll(/&/g, '&amp;').replaceAll(/</g, '&lt;').replaceAll(/>/g, '&gt;').replaceAll(/"/g, '&quot;').replaceAll(/'/g, '&apos;');
+  return s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&apos;');
 }
 
 /** rgba/hex 色文字列から # 付き hex を返す。アルファ値は別途 `toAlpha` で取得する */
