@@ -178,3 +178,54 @@ describe('computeColorMap — hotspot', () => {
     expect(m.size).toBe(0);
   });
 });
+
+describe('computeColorMap — dsm-in', () => {
+  it('入力数に応じた色を返す', () => {
+    const m = computeColorMap('dsm-in', null, dsm, null);
+    // a: inbound from b (b→a), so 1 incoming
+    // b: inbound from a (a→b), so 1 incoming
+    // c: inbound from a (a→c), so 1 incoming
+    expect(m.size).toBe(3);
+    expect(m.get('a')).toBeDefined();
+  });
+
+  it('dsmMatrix 未指定時は空 Map', () => {
+    const m = computeColorMap('dsm-in', null, null, null);
+    expect(m.size).toBe(0);
+  });
+});
+
+describe('computeColorMap — defect-risk', () => {
+  const defectRiskMap = new Map<string, number>([
+    ['pkg_high', 0.8],    // >= 0.7 → red #c62828
+    ['pkg_medium', 0.5],  // >= 0.35 → amber #f9a825
+    ['pkg_low', 0.1],     // < 0.35 → green #2e7d32
+  ]);
+
+  it('スコア0.7以上は赤', () => {
+    const m = computeColorMap('defect-risk', null, null, null, null, defectRiskMap);
+    expect(m.get('pkg_high')).toBe('#c62828');
+  });
+
+  it('スコア0.35以上は amber', () => {
+    const m = computeColorMap('defect-risk', null, null, null, null, defectRiskMap);
+    expect(m.get('pkg_medium')).toBe('#f9a825');
+  });
+
+  it('スコア0.35未満は緑', () => {
+    const m = computeColorMap('defect-risk', null, null, null, null, defectRiskMap);
+    expect(m.get('pkg_low')).toBe('#2e7d32');
+  });
+
+  it('defectRiskMap 未指定時は空 Map', () => {
+    const m = computeColorMap('defect-risk', null, null, null);
+    expect(m.size).toBe(0);
+  });
+});
+
+describe('computeColorMap — unknown overlay fallback', () => {
+  it('未知のオーバーレイタイプは空 Map を返す', () => {
+    const m = computeColorMap('unknown-overlay' as never, null, null, null);
+    expect(m.size).toBe(0);
+  });
+});
