@@ -26,6 +26,11 @@ export interface HotspotControlsProps {
   readonly onChange: (next: HotspotControlsValue) => void;
   readonly loading?: boolean;
   readonly disabled?: boolean;
+  readonly isDark?: boolean;
+  /** ポップアップを表示するか。false の場合は何も描画しない（Ghost Edges 設定ポップアップと同じパターン） */
+  readonly enabled?: boolean;
+  /** Box.sx の上書き（デフォルトの position: 'absolute' を 'static' に変えたい場合など） */
+  readonly sx?: Record<string, unknown>;
 }
 
 const PERIOD_OPTIONS: ReadonlyArray<TrendPeriod> = ['7d', '30d', '90d', 'all'];
@@ -36,27 +41,44 @@ export function HotspotControls({
   onChange,
   loading,
   disabled = false,
+  isDark = false,
+  enabled = true,
+  sx: sxOverride,
 }: Readonly<HotspotControlsProps>) {
   const { t } = useTrailI18n();
+  if (!enabled) return null;
   const handlePeriod = (period: TrendPeriod): void => onChange({ ...value, period });
   const handleGranularity = (granularity: TrendGranularity): void =>
     onChange({ ...value, granularity });
   return (
     <Box
-      sx={{
-        display: 'flex',
-        gap: 2,
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        px: 1,
-        py: 0.5,
-        borderTop: 1,
-        borderColor: 'divider',
-      }}
-      role="group"
+      role="dialog"
       aria-label="Hotspot overlay controls"
+      sx={{
+        position: 'absolute',
+        top: 8,
+        left: 8,
+        width: 220,
+        zIndex: 10,
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: '8px',
+        bgcolor: isDark ? 'rgba(18,18,18,0.92)' : 'rgba(251,249,243,0.94)',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+        backdropFilter: 'blur(10px)',
+        px: 1.5,
+        py: 1.25,
+        ...sxOverride,
+      }}
     >
-      <FormControl size="small" sx={{ minWidth: 96 }} disabled={disabled}>
+      <Typography
+        variant="caption"
+        sx={{ display: 'block', color: 'text.secondary', fontSize: '0.65rem', mb: 1 }}
+      >
+        Hotspot
+      </Typography>
+
+      <FormControl size="small" fullWidth sx={{ mb: 1.25 }} disabled={disabled}>
         <InputLabel id="hs-period-label">{t('c4.hotspot.controls.period')}</InputLabel>
         <Select
           labelId="hs-period-label"
@@ -76,17 +98,17 @@ export function HotspotControls({
       <FormControl
         component="fieldset"
         size="small"
+        fullWidth
         disabled={disabled}
-        sx={{ display: 'flex', alignItems: 'center', flexDirection: 'row', gap: 1 }}
+        sx={{ mb: 0.5 }}
       >
         <FormLabel
           component="legend"
-          sx={{ typography: 'caption', position: 'static', transform: 'none', m: 0 }}
+          sx={{ typography: 'caption', position: 'static', transform: 'none', m: 0, mb: 0.5, fontSize: '0.65rem' }}
         >
           {t('c4.hotspot.controls.granularity')}
         </FormLabel>
         <RadioGroup
-          row
           value={value.granularity}
           onChange={(e) => handleGranularity(String(e.target.value) as TrendGranularity)}
           aria-label={t('c4.hotspot.controls.granularity')}
@@ -95,7 +117,7 @@ export function HotspotControls({
             <FormControlLabel
               key={g}
               value={g}
-              control={<Radio size="small" />}
+              control={<Radio size="small" sx={{ py: 0.25 }} />}
               label={
                 <Typography variant="caption">
                   {g === 'commit'
@@ -105,13 +127,14 @@ export function HotspotControls({
                       : t('c4.hotspot.controls.granularitySubagent')}
                 </Typography>
               }
+              sx={{ m: 0 }}
             />
           ))}
         </RadioGroup>
       </FormControl>
 
       {loading && (
-        <Typography variant="caption" color="text.secondary" aria-live="polite">
+        <Typography variant="caption" color="text.secondary" aria-live="polite" sx={{ display: 'block', mt: 0.5 }}>
           ...
         </Typography>
       )}

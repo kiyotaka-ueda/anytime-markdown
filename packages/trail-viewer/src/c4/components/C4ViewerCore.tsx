@@ -1103,13 +1103,6 @@ export function C4ViewerCore({
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: containerHeight, bgcolor: colors.bg }}>
-      {isHotspotOverlay && (
-        <HotspotControls
-          value={hotspotValue}
-          onChange={setHotspotValue}
-          loading={hotspotLoading}
-        />
-      )}
       {analysisProgress && (
         <Box
           role="dialog"
@@ -1482,6 +1475,15 @@ export function C4ViewerCore({
                   resultCount={ghostEdges.length}
                   loading={tcLoading}
                   isDark={isDark}
+                  sx={{ position: 'static' }}
+                />
+                {/* Hotspot 詳細設定（オーバーレイ選択時のみ表示） */}
+                <HotspotControls
+                  value={hotspotValue}
+                  onChange={setHotspotValue}
+                  loading={hotspotLoading}
+                  isDark={isDark}
+                  enabled={isHotspotOverlay}
                   sx={{ position: 'static' }}
                 />
               </Box>
