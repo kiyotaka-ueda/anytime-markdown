@@ -39,6 +39,8 @@ class FakeRemoteStore implements IRemoteTrailStore {
   releaseCoverageRows: Array<{ release_tag: string; package: string; file_path: string; lines_total: number; lines_covered: number; lines_pct: number; statements_total: number; statements_covered: number; statements_pct: number; functions_total: number; functions_covered: number; functions_pct: number; branches_total: number; branches_covered: number; branches_pct: number }> = [];
   codeGraphRows: Array<{ repo_name: string; graph_json: string; generated_at: string; updated_at: string }> = [];
   codeGraphCommunityRows: Array<{ repo_name: string; community_id: number; label: string; name: string; summary: string; generated_at: string; updated_at: string }> = [];
+  releaseCodeGraphRows: Array<{ release_tag: string; graph_json: string; generated_at: string; updated_at: string }> = [];
+  releaseCodeGraphCommunityRows: Array<{ release_tag: string; community_id: number; label: string; name: string; summary: string; generated_at: string; updated_at: string }> = [];
 
   async unsafeClearCurrentCoverage(): Promise<void> { this.coverageRows = []; }
   async upsertCurrentCoverage(rows: readonly { repo_name: string; package: string; file_path: string; lines_total: number; lines_covered: number; lines_pct: number; statements_total: number; statements_covered: number; statements_pct: number; functions_total: number; functions_covered: number; functions_pct: number; branches_total: number; branches_covered: number; branches_pct: number; updated_at: string }[]): Promise<void> {
@@ -54,6 +56,13 @@ class FakeRemoteStore implements IRemoteTrailStore {
   }
   async upsertCurrentCodeGraphCommunities(rows: readonly { repo_name: string; community_id: number; label: string; name: string; summary: string; generated_at: string; updated_at: string }[]): Promise<void> {
     this.codeGraphCommunityRows.push(...(rows as typeof this.codeGraphCommunityRows));
+  }
+  async unsafeClearReleaseCodeGraphs(): Promise<void> { this.releaseCodeGraphRows = []; this.releaseCodeGraphCommunityRows = []; }
+  async upsertReleaseCodeGraphs(rows: readonly { release_tag: string; graph_json: string; generated_at: string; updated_at: string }[]): Promise<void> {
+    this.releaseCodeGraphRows.push(...(rows as typeof this.releaseCodeGraphRows));
+  }
+  async upsertReleaseCodeGraphCommunities(rows: readonly { release_tag: string; community_id: number; label: string; name: string; summary: string; generated_at: string; updated_at: string }[]): Promise<void> {
+    this.releaseCodeGraphCommunityRows.push(...(rows as typeof this.releaseCodeGraphCommunityRows));
   }
 
   async listManualElements(repoName: string): Promise<readonly ManualElement[]> {
@@ -180,6 +189,28 @@ describe('SyncService.doSync coverage and code graph', () => {
     let clearCalled = false;
     const origClear = remoteStore.unsafeClearCurrentCodeGraphs.bind(remoteStore);
     remoteStore.unsafeClearCurrentCodeGraphs = async () => { clearCalled = true; return origClear(); };
+    const sync = new SyncService(localDb, remoteStore);
+    await sync.sync();
+    expect(clearCalled).toBe(true);
+    localDb.close();
+  });
+
+  it('syncs release_code_graphs to remote (wash-away)', async () => {
+    const localDb = await createDb();
+    const remoteStore = new FakeRemoteStore();
+    const sync = new SyncService(localDb, remoteStore);
+    await sync.sync();
+    expect(remoteStore.releaseCodeGraphRows).toHaveLength(0);
+    expect(remoteStore.releaseCodeGraphCommunityRows).toHaveLength(0);
+    localDb.close();
+  });
+
+  it('sync calls unsafeClearReleaseCodeGraphs before upsert', async () => {
+    const localDb = await createDb();
+    const remoteStore = new FakeRemoteStore();
+    let clearCalled = false;
+    const origClear = remoteStore.unsafeClearReleaseCodeGraphs.bind(remoteStore);
+    remoteStore.unsafeClearReleaseCodeGraphs = async () => { clearCalled = true; return origClear(); };
     const sync = new SyncService(localDb, remoteStore);
     await sync.sync();
     expect(clearCalled).toBe(true);

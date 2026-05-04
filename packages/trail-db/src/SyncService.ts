@@ -225,6 +225,23 @@ export class SyncService {
       errors++;
     }
 
+    // Sync release_code_graphs（洗い替え）
+    try {
+      onProgress?.({ message: 'Syncing release code graphs...' });
+      const releaseGraphRows = this.trailDb.getAllReleaseCodeGraphRaws();
+      const releaseCommunityRows = this.trailDb.getAllReleaseCodeGraphCommunityRaws();
+      await this.store.unsafeClearReleaseCodeGraphs();
+      if (releaseGraphRows.length > 0) {
+        await this.store.upsertReleaseCodeGraphs(releaseGraphRows);
+      }
+      if (releaseCommunityRows.length > 0) {
+        await this.store.upsertReleaseCodeGraphCommunities(releaseCommunityRows);
+      }
+    } catch (e) {
+      this.logger.error('Failed to sync release code graphs', e);
+      errors++;
+    }
+
     return {
       synced,
       skipped: 0,

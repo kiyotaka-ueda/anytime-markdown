@@ -435,6 +435,37 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
     }
   }
 
+  async unsafeClearReleaseCodeGraphs(): Promise<void> {
+    await this.ensureClient().from('trail_release_code_graph_communities').delete().gte('release_tag', '');
+    await this.ensureClient().from('trail_release_code_graphs').delete().gte('release_tag', '');
+  }
+
+  async upsertReleaseCodeGraphs(rows: readonly {
+    release_tag: string; graph_json: string; generated_at: string; updated_at: string;
+  }[]): Promise<void> {
+    if (rows.length === 0) return;
+    const { error } = await this.ensureClient()
+      .from('trail_release_code_graphs')
+      .upsert(rows.map((r) => ({ ...r })), { onConflict: 'release_tag' });
+    if (error) throw new Error(`Supabase upsert release_code_graphs failed: ${error.message}`);
+  }
+
+  async upsertReleaseCodeGraphCommunities(rows: readonly {
+    release_tag: string; community_id: number; label: string;
+    name: string; summary: string;
+    generated_at: string; updated_at: string;
+  }[]): Promise<void> {
+    if (rows.length === 0) return;
+    const CHUNK = 200;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK);
+      const { error } = await this.ensureClient()
+        .from('trail_release_code_graph_communities')
+        .upsert(chunk.map((r) => ({ ...r })), { onConflict: 'release_tag,community_id' });
+      if (error) throw new Error(`Supabase upsert release_code_graph_communities failed: ${error.message}`);
+    }
+  }
+
   async listManualElements(repoName: string): Promise<readonly ManualElement[]> {
     const { data, error } = await this.ensureClient()
       .from('trail_c4_manual_elements')

@@ -3035,6 +3035,35 @@ export class TrailDatabase {
     }));
   }
 
+  getAllReleaseCodeGraphRaws(): Array<{ release_tag: string; graph_json: string; generated_at: string; updated_at: string }> {
+    const db = this.ensureDb();
+    const result = db.exec('SELECT release_tag, graph_json, generated_at, updated_at FROM release_code_graphs');
+    const values = result[0]?.values ?? [];
+    return values.map((r) => ({
+      release_tag: String(r[0] ?? ''),
+      graph_json: String(r[1] ?? ''),
+      generated_at: String(r[2] ?? ''),
+      updated_at: String(r[3] ?? ''),
+    }));
+  }
+
+  getAllReleaseCodeGraphCommunityRaws(): Array<{ release_tag: string; community_id: number; label: string; name: string; summary: string; generated_at: string; updated_at: string }> {
+    const db = this.ensureDb();
+    const result = db.exec(
+      'SELECT release_tag, community_id, label, name, summary, generated_at, updated_at FROM release_code_graph_communities',
+    );
+    const values = result[0]?.values ?? [];
+    return values.map((r) => ({
+      release_tag: String(r[0] ?? ''),
+      community_id: Number(r[1] ?? 0),
+      label: String(r[2] ?? ''),
+      name: String(r[3] ?? ''),
+      summary: String(r[4] ?? ''),
+      generated_at: String(r[5] ?? ''),
+      updated_at: String(r[6] ?? ''),
+    }));
+  }
+
   upsertCurrentCodeGraphCommunities(
     repoName: string,
     communities: ReadonlyArray<{ community_id: number; label?: string; name: string; summary: string }>,

@@ -137,4 +137,21 @@ export interface IRemoteTrailStore {
     generated_at: string;
     updated_at: string;
   }[]): Promise<void>;
+  /** [DESTRUCTIVE] trail_release_code_graphs と trail_release_code_graph_communities を全削除する（洗い替え同期用）。 */
+  unsafeClearReleaseCodeGraphs(): Promise<void>;
+  upsertReleaseCodeGraphs(rows: readonly {
+    release_tag: string;
+    graph_json: string;
+    generated_at: string;
+    updated_at: string;
+  }[]): Promise<void>;
+  upsertReleaseCodeGraphCommunities(rows: readonly {
+    release_tag: string;
+    community_id: number;
+    label: string;
+    name: string;
+    summary: string;
+    generated_at: string;
+    updated_at: string;
+  }[]): Promise<void>;
 }

@@ -428,6 +428,9 @@ export class PostgresTrailStore implements IRemoteTrailStore {
   async unsafeClearCurrentCodeGraphs(): Promise<never> { throw new Error('PostgresTrailStore.unsafeClearCurrentCodeGraphs not implemented'); }
   async upsertCurrentCodeGraphs(): Promise<never> { throw new Error('PostgresTrailStore.upsertCurrentCodeGraphs not implemented'); }
   async upsertCurrentCodeGraphCommunities(): Promise<never> { throw new Error('PostgresTrailStore.upsertCurrentCodeGraphCommunities not implemented'); }
+  async unsafeClearReleaseCodeGraphs(): Promise<never> { throw new Error('PostgresTrailStore.unsafeClearReleaseCodeGraphs not implemented'); }
+  async upsertReleaseCodeGraphs(): Promise<never> { throw new Error('PostgresTrailStore.upsertReleaseCodeGraphs not implemented'); }
+  async upsertReleaseCodeGraphCommunities(): Promise<never> { throw new Error('PostgresTrailStore.upsertReleaseCodeGraphCommunities not implemented'); }
 
   async listManualElements(): Promise<never> { throw new Error('PostgresTrailStore.listManualElements not implemented'); }
   async upsertCommitFiles(rows: readonly { commit_hash: string; file_path: string }[]): Promise<void> {
