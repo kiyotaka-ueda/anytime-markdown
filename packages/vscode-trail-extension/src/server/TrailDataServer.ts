@@ -515,9 +515,10 @@ export class TrailDataServer {
       return;
     }
     if (pathname === '/api/c4/complexity' && method === 'GET') {
-      const releaseId = parsed.searchParams.get('release') ?? 'current';
+      // Complexity は累積指標のため release パラメータは受け取らない
+      // (古いクライアントが付与しても無視する)
       const repo = parsed.searchParams.get('repo') ?? undefined;
-      void this.handleC4ComplexityEndpoint(res, releaseId, repo);
+      void this.handleC4ComplexityEndpoint(res, repo);
       return;
     }
 
@@ -1545,14 +1546,15 @@ export class TrailDataServer {
     }
   }
 
-  private async handleC4ComplexityEndpoint(res: http.ServerResponse, releaseId: string, repo?: string): Promise<void> {
+  private async handleC4ComplexityEndpoint(res: http.ServerResponse, repo?: string): Promise<void> {
     try {
       const repoName = repo ?? (this.gitRoot ? path.basename(this.gitRoot) : undefined);
       const store = this.trailDb.asC4ModelStore();
       const provider = this.getC4Provider?.();
 
-      // モデルを SQLite から取得（elements が空でも complexityMatrix は計算する）
-      const payload = await fetchC4Model(store, releaseId, repoName, provider?.featureMatrix);
+      // Complexity は累積指標のため、C4 モデルは常に current を使用
+      // (release で時間窓を切る意味がないため)
+      const payload = await fetchC4Model(store, 'current', repoName, provider?.featureMatrix);
       const elements = payload?.model.elements ?? [];
 
       // メッセージから ComplexityMatrix を計算

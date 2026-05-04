@@ -331,7 +331,10 @@ function useRemoteInitialFetch(
       const repoQuery = selectedRepo ? `&repo=${encodeURIComponent(selectedRepo)}` : '';
       const modelUrl = `${serverUrl}/api/c4/model?release=${encodeURIComponent(selectedRelease)}${repoQuery}`;
       const dsmUrl = `${serverUrl}/api/c4/dsm?release=${encodeURIComponent(selectedRelease)}${repoQuery}`;
-      const complexityUrl = `${serverUrl}/api/c4/complexity?release=${encodeURIComponent(selectedRelease)}${repoQuery}`;
+      // Complexity は累積指標のため release パラメータは送らない
+      const complexityUrl = selectedRepo
+        ? `${serverUrl}/api/c4/complexity?repo=${encodeURIComponent(selectedRepo)}`
+        : `${serverUrl}/api/c4/complexity`;
       const [modelRes, dsmRes, covRes, complexityRes, releasesRes, docsRes] = await Promise.all([
         fetch(modelUrl).catch(() => null),
         fetch(dsmUrl).catch(() => null),
