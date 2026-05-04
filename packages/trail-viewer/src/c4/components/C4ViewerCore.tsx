@@ -1291,7 +1291,7 @@ export function C4ViewerCore({
                           title={({ 1: 'Context', 2: 'Container', 3: 'Component', 4: 'Code' } as const)[level]}
                           sx={currentLevel === level ? levelButtonActiveSx : levelButtonSx}
                         >
-                          L{level}
+                          C{level}
                         </Button>
                       ))}
                     </ButtonGroup>
