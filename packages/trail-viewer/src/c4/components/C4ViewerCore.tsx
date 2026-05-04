@@ -30,6 +30,7 @@ import { useDefectRisk } from '../hooks/useDefectRisk';
 import { useHotspot } from '../hooks/useHotspot';
 import { useTemporalCoupling } from '../hooks/useTemporalCoupling';
 import { useElementFunctions } from '../hooks/useElementFunctions';
+import { ResizablePopup, type ResizablePopupSize } from './ResizablePopup';
 
 const UNKNOWN_REPO_KEY = '__unknown__';
 const CURRENT_RELEASE_TAG = 'current';
@@ -287,7 +288,11 @@ export function C4ViewerCore({
     readonly filterElementId: string | null;
   } | null>(null);
   const showMatrixPopup = matrixPopup !== null;
+  const [matrixPopupSize, setMatrixPopupSize] = useState<ResizablePopupSize | null>(null);
+  const [matrixPopupMaximized, setMatrixPopupMaximized] = useState(false);
   const [showGraphPopup, setShowGraphPopup] = useState(false);
+  const [graphPopupSize, setGraphPopupSize] = useState<ResizablePopupSize | null>(null);
+  const [graphPopupMaximized, setGraphPopupMaximized] = useState(false);
   const openMatrixForElement = useCallback((view: 'dsm' | 'coverage', element: C4Element) => {
     setShowGraphPopup(false);
     if (element.type === 'container' || element.type === 'containerDb') {
@@ -1546,101 +1551,59 @@ export function C4ViewerCore({
                 />
               </Box>
               {showMatrixPopup && (
-                <Box
-                  role="dialog"
-                  aria-label={t('viewer.tab.matrix')}
-                  sx={{
-                    position: 'absolute',
-                    top: 8,
-                    left: 244,
-                    right: 8,
-                    maxWidth: 960,
-                    height: 'calc(100% - 16px)',
-                    zIndex: 11,
-                    border: `1px solid ${colors.border}`,
-                    borderRadius: '8px',
-                    bgcolor: isDark ? 'rgba(18,18,18,0.96)' : 'rgba(251,249,243,0.98)',
-                    color: colors.text,
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
-                    backdropFilter: 'blur(10px)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    overflow: 'hidden',
-                  }}
+                <ResizablePopup
+                  title={t('viewer.tab.matrix')}
+                  ariaLabel={t('viewer.tab.matrix')}
+                  onClose={() => setMatrixPopup(null)}
+                  isDark={isDark}
+                  colors={colors}
+                  size={matrixPopupSize}
+                  onSizeChange={setMatrixPopupSize}
+                  maximized={matrixPopupMaximized}
+                  onMaximizedChange={setMatrixPopupMaximized}
+                  toolbarButtonSx={toolbarButtonSx}
+                  i18nMaximize={t('c4.popup.maximize')}
+                  i18nRestore={t('c4.popup.restore')}
+                  i18nClose={t('c4.popup.close')}
+                  i18nResize={t('c4.popup.resize')}
                 >
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1.5, py: 0.75, borderBottom: `1px solid ${colors.border}`, flexShrink: 0 }}>
-                    <Typography variant="caption" sx={{ color: colors.text, fontSize: '0.8rem', fontWeight: 600 }}>
-                      {t('viewer.tab.matrix')}
-                    </Typography>
-                    <IconButton
-                      size="small"
-                      onClick={() => setMatrixPopup(null)}
-                      aria-label="Close matrix popup"
-                      sx={{ ...toolbarButtonSx, width: 22, height: 22, minWidth: 22 }}
-                    >
-                      <CloseIcon sx={{ fontSize: 14 }} />
-                    </IconButton>
-                  </Box>
-                  <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-                    <MatrixPanel
-                      key={`${matrixPopup?.view ?? 'coverage'}-${matrixPopup?.initialLevel ?? 'component'}-${matrixPopup?.filterElementId ?? ''}`}
-                      dsmMatrix={dsmMatrix}
-                      coverageMatrix={coverageMatrix}
-                      complexityMatrix={complexityMatrix}
-                      c4Model={c4Model}
-                      serverUrl={serverUrl}
-                      selectedRepo={selectedRepo}
-                      selectedRelease={selectedRelease}
-                      isDark={isDark}
-                      isActive={showMatrixPopup}
-                      isCommunityColor={showCommunity}
-                      initialMatrixView={matrixPopup?.view ?? 'coverage'}
-                      initialLevel={matrixPopup?.initialLevel ?? 'component'}
-                      filterElementId={matrixPopup?.filterElementId ?? null}
-                    />
-                  </Box>
-                </Box>
+                  <MatrixPanel
+                    key={`${matrixPopup?.view ?? 'coverage'}-${matrixPopup?.initialLevel ?? 'component'}-${matrixPopup?.filterElementId ?? ''}`}
+                    dsmMatrix={dsmMatrix}
+                    coverageMatrix={coverageMatrix}
+                    complexityMatrix={complexityMatrix}
+                    c4Model={c4Model}
+                    serverUrl={serverUrl}
+                    selectedRepo={selectedRepo}
+                    selectedRelease={selectedRelease}
+                    isDark={isDark}
+                    isActive={showMatrixPopup}
+                    isCommunityColor={showCommunity}
+                    initialMatrixView={matrixPopup?.view ?? 'coverage'}
+                    initialLevel={matrixPopup?.initialLevel ?? 'component'}
+                    filterElementId={matrixPopup?.filterElementId ?? null}
+                  />
+                </ResizablePopup>
               )}
               {showGraphPopup && (
-                <Box
-                  role="dialog"
-                  aria-label={t('viewer.tab.graph')}
-                  sx={{
-                    position: 'absolute',
-                    top: 8,
-                    left: 244,
-                    right: 8,
-                    maxWidth: 960,
-                    height: 'calc(100% - 16px)',
-                    zIndex: 11,
-                    border: `1px solid ${colors.border}`,
-                    borderRadius: '8px',
-                    bgcolor: isDark ? 'rgba(18,18,18,0.96)' : 'rgba(251,249,243,0.98)',
-                    color: colors.text,
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
-                    backdropFilter: 'blur(10px)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    overflow: 'hidden',
-                  }}
+                <ResizablePopup
+                  title={t('viewer.tab.graph')}
+                  ariaLabel={t('viewer.tab.graph')}
+                  onClose={() => setShowGraphPopup(false)}
+                  isDark={isDark}
+                  colors={colors}
+                  size={graphPopupSize}
+                  onSizeChange={setGraphPopupSize}
+                  maximized={graphPopupMaximized}
+                  onMaximizedChange={setGraphPopupMaximized}
+                  toolbarButtonSx={toolbarButtonSx}
+                  i18nMaximize={t('c4.popup.maximize')}
+                  i18nRestore={t('c4.popup.restore')}
+                  i18nClose={t('c4.popup.close')}
+                  i18nResize={t('c4.popup.resize')}
                 >
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1.5, py: 0.75, borderBottom: `1px solid ${colors.border}`, flexShrink: 0 }}>
-                    <Typography variant="caption" sx={{ color: colors.text, fontSize: '0.8rem', fontWeight: 600 }}>
-                      {t('viewer.tab.graph')}
-                    </Typography>
-                    <IconButton
-                      size="small"
-                      onClick={() => setShowGraphPopup(false)}
-                      aria-label="Close graph popup"
-                      sx={{ ...toolbarButtonSx, width: 22, height: 22, minWidth: 22 }}
-                    >
-                      <CloseIcon sx={{ fontSize: 14 }} />
-                    </IconButton>
-                  </Box>
-                  <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-                    <CodeGraphPanel serverUrl={serverUrl} isDark={isDark} tcValue={tcValue} />
-                  </Box>
-                </Box>
+                  <CodeGraphPanel serverUrl={serverUrl} isDark={isDark} tcValue={tcValue} />
+                </ResizablePopup>
               )}
               {selectedElementIds.length > 1 && c4Model && (
                 <Box
