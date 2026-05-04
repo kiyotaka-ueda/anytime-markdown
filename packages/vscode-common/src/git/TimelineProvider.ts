@@ -1,6 +1,9 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 
 interface GitExtension {
 	getAPI(version: 1): GitAPI;
@@ -62,7 +65,13 @@ export class TimelineProvider implements vscode.TreeDataProvider<TimelineItem> {
 
 	private gitRoot: string | null = null;
 
-	constructor(private readonly clickCommand: string) {}
+	constructor(
+		private readonly clickCommand: string,
+		private readonly logError: (msg: string, err: unknown) => void = (msg, err) => {
+			// フォールバック: console.error。各拡張は OutputChannel を渡すこと推奨
+			console.error(msg, err);
+		},
+	) {}
 
 	/** 外部リポジトリ（マークダウン管理）の履歴表示中かどうか */
 	get isExternalMode(): boolean { return this.gitRoot !== null; }
@@ -111,20 +120,20 @@ export class TimelineProvider implements vscode.TreeDataProvider<TimelineItem> {
 			this.items = commits.map(c => new TimelineItem(c, this.fileUri!, this.clickCommand));
 			return this.items;
 		} catch (err) {
-			console.error('[TimelineProvider] vscode.git log failed', err);
+			this.logError('[TimelineProvider] vscode.git log failed', err);
 			return [];
 		}
 	}
 
-	private getChildrenFromGitCommand(): TimelineItem[] {
+	private async getChildrenFromGitCommand(): Promise<TimelineItem[]> {
 		if (!this.gitRoot || !this.fileUri) { return []; }
 		const relativePath = path.relative(this.gitRoot, this.fileUri.fsPath).replaceAll("\\", '/');
 		try {
-			const output = execFileSync(
+			const result = await execFileAsync(
 				'git', ['log', '--format=%H%n%s%n%an%n%aI', '-50', '--', relativePath],
 				{ cwd: this.gitRoot, encoding: 'utf-8' },
-			);
-			const lines = output.trim().split('\n');
+			) as { stdout: string; stderr: string };
+			const lines = result.stdout.trim().split('\n');
 			const commits: TimelineItem[] = [];
 			for (let i = 0; i + 3 < lines.length; i += 4) {
 				const hash = lines[i];
@@ -140,7 +149,7 @@ export class TimelineProvider implements vscode.TreeDataProvider<TimelineItem> {
 			this.items = commits;
 			return this.items;
 		} catch (err) {
-			console.error('[TimelineProvider] git log command failed', { gitRoot: this.gitRoot, relativePath, err });
+			this.logError(`[TimelineProvider] git log command failed (gitRoot=${this.gitRoot}, relativePath=${relativePath})`, err);
 			return [];
 		}
 	}
@@ -150,9 +159,13 @@ export class TimelineProvider implements vscode.TreeDataProvider<TimelineItem> {
 		if (this.gitRoot) {
 			const relativePath = path.relative(this.gitRoot, item.fileUri.fsPath).replaceAll("\\", '/');
 			try {
-				return execFileSync('git', ['show', `${item.commit.hash}:${relativePath}`], { cwd: this.gitRoot, encoding: 'utf-8' });
+				const result = await execFileAsync(
+					'git', ['show', `${item.commit.hash}:${relativePath}`],
+					{ cwd: this.gitRoot, encoding: 'utf-8' },
+				) as { stdout: string; stderr: string };
+				return result.stdout;
 			} catch (err) {
-				console.error('[TimelineProvider] git show command failed', { gitRoot: this.gitRoot, relativePath, hash: item.commit.hash, err });
+				this.logError(`[TimelineProvider] git show command failed (gitRoot=${this.gitRoot}, relativePath=${relativePath}, hash=${item.commit.hash})`, err);
 				return null;
 			}
 		}
@@ -163,7 +176,7 @@ export class TimelineProvider implements vscode.TreeDataProvider<TimelineItem> {
 		try {
 			return await repo.show(item.commit.hash, relativePath);
 		} catch (err) {
-			console.error('[TimelineProvider] vscode.git show failed', { relativePath, hash: item.commit.hash, err });
+			this.logError(`[TimelineProvider] vscode.git show failed (relativePath=${relativePath}, hash=${item.commit.hash})`, err);
 			return null;
 		}
 	}

@@ -57,7 +57,10 @@ export async function activate(context: vscode.ExtensionContext) {
 			previousChangedPaths = cp.getChangedPaths();
 		}, 2000);
 
-		timelineProvider = new TimelineProvider('anytime-history.compareWithCommit');
+		timelineProvider = new TimelineProvider(
+			'anytime-history.compareWithCommit',
+			(msg, err) => GitLogger.error(msg, err),
+		);
 		timelineTreeView = vscode.window.createTreeView('anytimeHistory.timeline', {
 			treeDataProvider: timelineProvider,
 		});

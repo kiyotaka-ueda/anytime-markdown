@@ -12,7 +12,18 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	// Timeline view: アクティブな markdown ファイルの git 履歴を表示
-	const timelineProvider = new TimelineProvider('anytime-markdown.compareWithCommit');
+	const timelineOutput = vscode.window.createOutputChannel('Anytime Markdown Timeline');
+	context.subscriptions.push(timelineOutput);
+	const timelineProvider = new TimelineProvider(
+		'anytime-markdown.compareWithCommit',
+		(msg, err) => {
+			const ts = new Date().toISOString();
+			const errStr = err instanceof Error
+				? `${err.message}\n${err.stack ?? ''}`
+				: String(err);
+			timelineOutput.appendLine(`[${ts}] [ERROR] ${msg}: ${errStr}`);
+		},
+	);
 	const timelineTreeView = vscode.window.createTreeView('anytimeMarkdown.timeline', {
 		treeDataProvider: timelineProvider,
 	});
@@ -97,8 +108,10 @@ export function activate(context: vscode.ExtensionContext) {
 			lastActiveUri = currentUri;
 			if (!currentUri) {
 				hideStatusBar();
-				// カスタムエディタが閉じた直後は通常テキストエディタ側のリスナーが
-				// 走るため、ここでは Timeline をクリアしない
+				// カスタムエディタが閉じてテキストエディタも未選択なら Timeline をクリア
+				if (!vscode.window.activeTextEditor) {
+					updateTimelineForUri(null);
+				}
 			} else {
 				const customUri = p?.activeDocumentUri;
 				if (customUri && isMarkdownPath(customUri)) {
