@@ -159,17 +159,17 @@ function mapPositions(
   }
 
   const mappedSelected =
-    selectedCellPos != null ? tr.mapping.map(selectedCellPos) : null;
+    selectedCellPos == null ? null : tr.mapping.map(selectedCellPos);
   const mappedEditing =
-    editingCellPos != null ? tr.mapping.map(editingCellPos) : null;
+    editingCellPos == null ? null : tr.mapping.map(editingCellPos);
 
   // マッピング後の位置が有効なセルノードか検証
-  const validSelected = mappedSelected != null
-    ? validateCellPos(tr.doc, mappedSelected)
-    : null;
-  const validEditing = mappedEditing != null
-    ? validateCellPos(tr.doc, mappedEditing)
-    : null;
+  const validSelected = mappedSelected == null
+    ? null
+    : validateCellPos(tr.doc, mappedSelected);
+  const validEditing = mappedEditing == null
+    ? null
+    : validateCellPos(tr.doc, mappedEditing);
 
   // 位置が無効になった場合は初期状態に戻す
   if (

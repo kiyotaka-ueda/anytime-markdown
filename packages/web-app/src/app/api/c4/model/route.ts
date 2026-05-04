@@ -40,17 +40,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           id: String(row.element_id),
           type: String(row.type) as ManualElement['type'],
           name: String(row.name),
-          description: row.description != null ? String(row.description) : undefined,
+          description: row.description == null ? undefined : String(row.description),
           external: Boolean(row.external),
-          parentId: row.parent_id != null ? String(row.parent_id) : null,
+          parentId: row.parent_id == null ? null : String(row.parent_id),
           updatedAt: String(row.updated_at),
         }));
         const manualRels: ManualRelationship[] = (rels ?? []).map((row: Record<string, unknown>) => ({
           id: String(row.rel_id),
           fromId: String(row.from_id),
           toId: String(row.to_id),
-          label: row.label != null ? String(row.label) : undefined,
-          technology: row.technology != null ? String(row.technology) : undefined,
+          label: row.label == null ? undefined : String(row.label),
+          technology: row.technology == null ? undefined : String(row.technology),
           updatedAt: String(row.updated_at),
         }));
         const mergedModel = mergeManualIntoC4Model(payload.model, manualElements, manualRels);

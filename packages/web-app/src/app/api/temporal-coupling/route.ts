@@ -38,11 +38,11 @@ function pathFilter(filePath: string): boolean {
 }
 
 function clampInt(raw: string | null, def: number, min: number, max: number): number {
-  const v = raw !== null ? Number.parseInt(raw, 10) : def;
+  const v = raw === null ? def : Number.parseInt(raw, 10);
   return Number.isNaN(v) ? def : Math.min(max, Math.max(min, v));
 }
 function clampFloat(raw: string | null, def: number, min: number, max: number): number {
-  const v = raw !== null ? Number.parseFloat(raw) : def;
+  const v = raw === null ? def : Number.parseFloat(raw);
   return Number.isNaN(v) ? def : Math.min(max, Math.max(min, v));
 }
 

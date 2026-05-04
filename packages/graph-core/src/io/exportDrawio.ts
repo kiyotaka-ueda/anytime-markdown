@@ -113,7 +113,7 @@ function buildEdgeCell(edge: GraphEdge, style: string): string[] {
   const label = edge.label ? escapeXml(edge.label) : '';
   const src = edge.from.nodeId ? `source="${escapeXml(edge.from.nodeId)}"` : '';
   const tgt = edge.to.nodeId ? `target="${escapeXml(edge.to.nodeId)}"` : '';
-  const weightAttr = edge.weight != null ? ` data-weight="${edge.weight}"` : '';
+  const weightAttr = edge.weight == null ? '' : ` data-weight="${edge.weight}"`;
   const lines: string[] = [
     `<mxCell id="${escapeXml(edge.id)}" value="${label}" style="${style}" edge="1" parent="1" ${src} ${tgt}${weightAttr}>`,
     '<mxGeometry relative="1" as="geometry">',
