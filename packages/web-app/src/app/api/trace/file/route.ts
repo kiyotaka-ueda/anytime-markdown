@@ -28,7 +28,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code;
     if (code === 'ENOENT') return new NextResponse('File not found', { status: 404 });
-    console.error(`[${new Date().toISOString()}] [ERROR] trace/file GET failed: ${filePath}`, err);
+    console.error(`[${new Date().toISOString()}] [ERROR] trace/file GET failed: ${filePath.replaceAll(/[\r\n]/g, '↵')}`, err);
     return new NextResponse('Failed to read file', { status: 500 });
   }
 }
