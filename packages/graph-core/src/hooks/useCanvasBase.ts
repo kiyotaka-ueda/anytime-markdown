@@ -326,72 +326,68 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
     onNodeDoubleClick?.(hit ?? null);
   }, [screenPos, nodeAtScreen, onNodeDoubleClick]);
 
-  // --- Keyboard ---
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    // Space → pan mode
-    if (enableSpacePan && e.code === 'Space' && !e.repeat) {
-      spaceRef.current = true;
-      if (canvasRef.current) canvasRef.current.style.cursor = 'grab';
-      return;
-    }
+  // --- Keyboard helpers ---
 
-    // Escape → clear selection
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      setSelection(EMPTY_SELECTION);
-      return;
-    }
+  /** 各ハンドラはキーを消化したら true を返し、そうでなければ false を返す */
+  const handleSpaceKey = useCallback((e: React.KeyboardEvent): boolean => {
+    if (!enableSpacePan || e.code !== 'Space' || e.repeat) return false;
+    spaceRef.current = true;
+    if (canvasRef.current) canvasRef.current.style.cursor = 'grab';
+    return true;
+  }, [enableSpacePan, canvasRef]);
 
-    // Delete / Backspace → delete selected
-    if (e.key === 'Delete' || e.key === 'Backspace') {
-      const sel = getSelection?.();
-      if (sel && (sel.nodeIds.length > 0 || sel.edgeIds.length > 0)) {
-        e.preventDefault();
-        if (onDelete) {
-          onDelete();
-        } else {
-          editorDispatch?.({ type: 'DELETE_SELECTED' });
-        }
-        return;
-      }
-    }
+  const handleEscapeKey = useCallback((e: React.KeyboardEvent): boolean => {
+    if (e.key !== 'Escape') return false;
+    e.preventDefault();
+    setSelection(EMPTY_SELECTION);
+    return true;
+  }, [setSelection]);
 
-    // Ctrl/Cmd shortcuts
-    if (e.ctrlKey || e.metaKey) {
+  const handleDeleteKey = useCallback((e: React.KeyboardEvent): boolean => {
+    if (e.key !== 'Delete' && e.key !== 'Backspace') return false;
+    const sel = getSelection?.();
+    if (!sel || (sel.nodeIds.length === 0 && sel.edgeIds.length === 0)) return false;
+    e.preventDefault();
+    if (onDelete) onDelete();
+    else editorDispatch?.({ type: 'DELETE_SELECTED' });
+    return true;
+  }, [getSelection, onDelete, editorDispatch]);
+
+  const handleCtrlShortcut = useCallback((e: React.KeyboardEvent): boolean => {
+    if (!e.ctrlKey && !e.metaKey) return false;
+    const dispatchType = (() => {
       switch (e.key) {
-        case 'z':
-          e.preventDefault();
-          editorDispatch?.({ type: e.shiftKey ? 'REDO' : 'UNDO' });
-          return;
-        case 'y':
-          e.preventDefault();
-          editorDispatch?.({ type: 'REDO' });
-          return;
-        case 'a':
-          e.preventDefault();
-          setSelection({ nodeIds: getNodes().map(n => n.id), edgeIds: [] });
-          return;
-        case 'c':
-          e.preventDefault();
-          onCopy?.();
-          return;
-        case 'v':
-          e.preventDefault();
-          onPaste?.();
-          return;
+        case 'z': return e.shiftKey ? 'REDO' : 'UNDO';
+        case 'y': return 'REDO';
+        default: return null;
       }
+    })();
+    if (dispatchType) {
+      e.preventDefault();
+      editorDispatch?.({ type: dispatchType });
+      return true;
     }
+    if (e.key === 'a') {
+      e.preventDefault();
+      setSelection({ nodeIds: getNodes().map(n => n.id), edgeIds: [] });
+      return true;
+    }
+    if (e.key === 'c') { e.preventDefault(); onCopy?.(); return true; }
+    if (e.key === 'v') { e.preventDefault(); onPaste?.(); return true; }
+    return false;
+  }, [editorDispatch, setSelection, getNodes, onCopy, onPaste]);
 
-    // g: グループ化 / Shift+G: グループ解除
-    if (!e.ctrlKey && !e.metaKey && e.key === 'g') {
+  const handleGroupKey = useCallback((e: React.KeyboardEvent): boolean => {
+    if (e.ctrlKey || e.metaKey) return false;
+    if (e.key === 'g' && !e.shiftKey) {
       e.preventDefault();
       const sel = getSelection?.();
       if (sel && sel.nodeIds.length >= 2) {
         editorDispatch?.({ type: 'CREATE_GROUP', memberIds: sel.nodeIds });
       }
-      return;
+      return true;
     }
-    if (!e.ctrlKey && !e.metaKey && e.key === 'G' && e.shiftKey) {
+    if (e.key === 'G' && e.shiftKey) {
       e.preventDefault();
       const sel = getSelection?.();
       const groups = getGroups?.() ?? [];
@@ -403,39 +399,47 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
           }
         }
       }
-      return;
+      return true;
     }
+    return false;
+  }, [getSelection, editorDispatch, getGroups]);
 
-    // Viewport navigation
+  const handleViewportKey = useCallback((e: React.KeyboardEvent): boolean => {
     const vp = getViewport();
-    switch (e.key) {
-      case 'ArrowUp':
-        e.preventDefault();
-        setViewport(pan(vp, 0, PAN_STEP));
-        break;
-      case 'ArrowDown':
-        e.preventDefault();
-        setViewport(pan(vp, 0, -PAN_STEP));
-        break;
-      case 'ArrowLeft':
-        e.preventDefault();
-        setViewport(pan(vp, PAN_STEP, 0));
-        break;
-      case 'ArrowRight':
-        e.preventDefault();
-        setViewport(pan(vp, -PAN_STEP, 0));
-        break;
-      case '+':
-      case '=':
-        e.preventDefault();
-        setViewport({ ...vp, scale: vp.scale * 1.1 });
-        break;
-      case '-':
-        e.preventDefault();
-        setViewport({ ...vp, scale: vp.scale * 0.9 });
-        break;
+    const PAN_DELTAS: Record<string, [number, number]> = {
+      ArrowUp: [0, PAN_STEP],
+      ArrowDown: [0, -PAN_STEP],
+      ArrowLeft: [PAN_STEP, 0],
+      ArrowRight: [-PAN_STEP, 0],
+    };
+    const panDelta = PAN_DELTAS[e.key];
+    if (panDelta) {
+      e.preventDefault();
+      setViewport(pan(vp, panDelta[0], panDelta[1]));
+      return true;
     }
-  }, [getViewport, setViewport, setSelection, getNodes, getSelection, editorDispatch, enableSpacePan, canvasRef, onCopy, onPaste, onDelete, getGroups]);
+    if (e.key === '+' || e.key === '=') {
+      e.preventDefault();
+      setViewport({ ...vp, scale: vp.scale * 1.1 });
+      return true;
+    }
+    if (e.key === '-') {
+      e.preventDefault();
+      setViewport({ ...vp, scale: vp.scale * 0.9 });
+      return true;
+    }
+    return false;
+  }, [getViewport, setViewport]);
+
+  // --- Keyboard ---
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (handleSpaceKey(e)) return;
+    if (handleEscapeKey(e)) return;
+    if (handleDeleteKey(e)) return;
+    if (handleCtrlShortcut(e)) return;
+    if (handleGroupKey(e)) return;
+    handleViewportKey(e);
+  }, [handleSpaceKey, handleEscapeKey, handleDeleteKey, handleCtrlShortcut, handleGroupKey, handleViewportKey]);
 
   // --- Key up (Space release) ---
   const handleKeyUp = useCallback((e: React.KeyboardEvent) => {
