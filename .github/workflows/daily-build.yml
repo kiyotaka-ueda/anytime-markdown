@@ -168,13 +168,13 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
           queries: security-and-quality
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: daily-build
 
@@ -247,8 +247,25 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
-      - name: Upload Snyk results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
+      - name: Filter empty runs from snyk-os.sarif
+        run: |
+          if [ -f snyk-os.sarif ]; then
+            jq '.runs |= map(select(.results | length > 0))' snyk-os.sarif > snyk-os-filtered.sarif
+            echo "Runs after filter: $(jq '.runs | length' snyk-os-filtered.sarif)"
+          else
+            echo '{"version":"2.1.0","runs":[]}' > snyk-os-filtered.sarif
+          fi
+
+      - name: Upload Snyk Code results
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
         with:
-          sarif_file: .
-          category: snyk
+          sarif_file: snyk-code.sarif
+          category: snyk-code
+
+      - name: Upload Snyk Open Source results
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: snyk-os-filtered.sarif
+          category: snyk-os
