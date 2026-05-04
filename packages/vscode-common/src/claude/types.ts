@@ -44,5 +44,10 @@ export interface AgentInfo {
   readonly contextTokens?: number;
 }
 
+export interface TodayStats {
+  readonly sessionCount: number;
+  readonly totalTokens: number;
+}
+
 export type StatusChangeCallback = (editing: boolean, filePath: string) => void;
 export type MultiStatusChangeCallback = (agents: ReadonlyMap<string, AgentInfo>) => void;

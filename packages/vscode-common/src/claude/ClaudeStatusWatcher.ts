@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { getStatusFilePath } from './claudeHookSetup';
-import type { Disposable, ClaudeStatus, SessionEdit, StatusChangeCallback, AgentInfo, MultiStatusChangeCallback } from './types';
+import type { Disposable, ClaudeStatus, SessionEdit, StatusChangeCallback, AgentInfo, MultiStatusChangeCallback, TodayStats } from './types';
 
 const STALE_THRESHOLD_MS = 30_000;
 const POLL_INTERVAL_MS = 3000;
@@ -18,6 +18,7 @@ export class ClaudeStatusWatcher implements Disposable {
   private lastAgentMapJson = '';
   private readonly _titleCache = new Map<string, string>();
   private readonly _tokenCache = new Map<string, { tokens: number; expiry: number }>();
+  private _todayStatsCache: { stats: TodayStats; expiry: number } | null = null;
 
   constructor(workspaceRoot?: string, statusDir?: string) {
     const filePath = getStatusFilePath(workspaceRoot, statusDir);
@@ -90,6 +91,16 @@ export class ClaudeStatusWatcher implements Disposable {
   /** ステータスファイルの格納ディレクトリを返す */
   getStatusDir(): string {
     return this.statusDir;
+  }
+
+  /** 今日（JST）のセッション数・合計トークン数を返す（60s キャッシュ） */
+  getTodayStats(): TodayStats {
+    if (this._todayStatsCache && Date.now() < this._todayStatsCache.expiry) {
+      return this._todayStatsCache.stats;
+    }
+    const stats = this._computeTodayStats();
+    this._todayStatsCache = { stats, expiry: Date.now() + 60_000 };
+    return stats;
   }
 
   dispose(): void {
@@ -269,6 +280,32 @@ export class ClaudeStatusWatcher implements Disposable {
 
     this._tokenCache.set(sessionId, { tokens, expiry: Date.now() + 15_000 });
     return tokens;
+  }
+
+  private _computeTodayStats(): TodayStats {
+    const todayJst = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(new Date());
+    const projectsDir = path.join(os.homedir(), '.claude', 'projects');
+    let sessionCount = 0;
+    let totalTokens = 0;
+    try {
+      for (const entry of fs.readdirSync(projectsDir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const dirPath = path.join(projectsDir, entry.name);
+        try {
+          for (const file of fs.readdirSync(dirPath)) {
+            if (!file.endsWith('.jsonl')) continue;
+            const filePath = path.join(dirPath, file);
+            const mtime = fs.statSync(filePath).mtimeMs;
+            const mtimeJst = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(new Date(mtime));
+            if (mtimeJst === todayJst) {
+              sessionCount++;
+              totalTokens += this._extractContextTokens(filePath);
+            }
+          }
+        } catch { /* 個別ディレクトリ読み取り失敗は無視 */ }
+      }
+    } catch { /* projects ディレクトリ読み取り失敗は無視 */ }
+    return { sessionCount, totalTokens };
   }
 
   private _extractContextTokens(filePath: string): number {

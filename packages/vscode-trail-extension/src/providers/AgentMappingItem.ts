@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import type { WorktreeMapping, SessionMapping, MappingState } from '@anytime-markdown/trail-core';
+import type { TodayStats } from '@anytime-markdown/vscode-common';
 
 // アイコン: ThemeIcon + ThemeColor
 const STATE_ICONS: Record<MappingState, vscode.ThemeIcon> = {
@@ -37,6 +38,23 @@ function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
   return String(n);
+}
+
+export class TodaySummaryItem extends vscode.TreeItem {
+  constructor(stats: TodayStats, commitCount: number) {
+    super('Today');
+    const tokenStr = stats.totalTokens > 0 ? `  ${formatTokens(stats.totalTokens)} tokens` : '';
+    const commitStr = commitCount > 0 ? `  ${commitCount} commits` : '';
+    this.description = `${stats.sessionCount} sessions${commitStr}${tokenStr}`;
+    this.iconPath = new vscode.ThemeIcon('calendar');
+    this.collapsibleState = vscode.TreeItemCollapsibleState.None;
+    this.tooltip = new vscode.MarkdownString(
+      `**今日 (JST)**\n\n` +
+      `- セッション数: ${stats.sessionCount}\n` +
+      `- コミット数: ${commitCount}\n` +
+      (stats.totalTokens > 0 ? `- トークン合計: ${formatTokens(stats.totalTokens)}` : ''),
+    );
+  }
 }
 
 export class SessionTreeItem extends vscode.TreeItem {

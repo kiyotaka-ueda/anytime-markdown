@@ -5,9 +5,9 @@ import * as vscode from 'vscode';
 import { ClaudeStatusWatcher } from '@anytime-markdown/vscode-common';
 import { buildAgentMapping } from '@anytime-markdown/trail-core';
 import type { WorktreeEntry, WorktreeMapping } from '@anytime-markdown/trail-core';
-import { WorktreeTreeItem, SessionTreeItem } from './AgentMappingItem';
+import { WorktreeTreeItem, SessionTreeItem, TodaySummaryItem } from './AgentMappingItem';
 
-type AgentMappingItem = WorktreeTreeItem | SessionTreeItem;
+type AgentMappingItem = WorktreeTreeItem | SessionTreeItem | TodaySummaryItem;
 
 const WORKTREE_CACHE_TTL_MS = 30_000;
 
@@ -20,6 +20,7 @@ export class AgentMappingProvider
   private _showStale = true;
   private _cachedWorktrees: readonly WorktreeEntry[] = [];
   private _worktreeCacheExpiry = 0;
+  private _commitCountCache: { count: number; expiry: number } | null = null;
 
   constructor(
     private readonly watcher: ClaudeStatusWatcher,
@@ -53,7 +54,12 @@ export class AgentMappingProvider
     const filtered = this._showStale
       ? mappings
       : mappings.filter(m => m.aggregatedState !== 'stale');
-    return filtered.map(m => new WorktreeTreeItem(m));
+
+    const todayStats = this.watcher.getTodayStats();
+    const commitCount = this._getTodayCommitCountCached();
+    const todayItem = new TodaySummaryItem(todayStats, commitCount);
+
+    return [todayItem, ...filtered.map(m => new WorktreeTreeItem(m))];
   }
 
   dispose(): void {
@@ -81,6 +87,31 @@ export class AgentMappingProvider
         `ステータスファイルの削除に失敗しました: ${filePath}\n${String(err)}`,
       );
       return false;
+    }
+  }
+
+  private _getTodayCommitCountCached(): number {
+    const now = Date.now();
+    if (this._commitCountCache && now < this._commitCountCache.expiry) {
+      return this._commitCountCache.count;
+    }
+    const count = this._fetchTodayCommitCount();
+    this._commitCountCache = { count, expiry: now + 60_000 };
+    return count;
+  }
+
+  private _fetchTodayCommitCount(): number {
+    try {
+      // 今日（JST）の00:00:00+09:00以降のコミット数
+      const todayJst = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(new Date());
+      const after = `${todayJst}T00:00:00+09:00`;
+      const output = cp.execSync(
+        `git log --after="${after}" --format="%H" --all`,
+        { cwd: this.gitRoot, encoding: 'utf-8', timeout: 5000 },
+      );
+      return output.trim().split('\n').filter(Boolean).length;
+    } catch {
+      return 0;
     }
   }
 
