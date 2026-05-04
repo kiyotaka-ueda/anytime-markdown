@@ -8,6 +8,7 @@
 DROP TABLE IF EXISTS trail_current_code_graph_communities CASCADE;
 DROP TABLE IF EXISTS trail_current_code_graphs CASCADE;
 DROP TABLE IF EXISTS trail_current_coverage CASCADE;
+DROP TABLE IF EXISTS trail_release_coverage CASCADE;
 DROP TABLE IF EXISTS trail_c4_manual_groups CASCADE;
 DROP TABLE IF EXISTS trail_c4_manual_relationships CASCADE;
 DROP TABLE IF EXISTS trail_c4_manual_elements CASCADE;
@@ -270,6 +271,26 @@ CREATE TABLE IF NOT EXISTS trail_current_coverage (
   PRIMARY KEY (repo_name, package, file_path)
 );
 
+-- カバレッジ リリーススナップショット（ローカル release_coverage と対応）
+CREATE TABLE IF NOT EXISTS trail_release_coverage (
+  release_tag        TEXT    NOT NULL REFERENCES trail_releases(tag) ON DELETE CASCADE,
+  package            TEXT    NOT NULL,
+  file_path          TEXT    NOT NULL,
+  lines_total        INTEGER NOT NULL DEFAULT 0,
+  lines_covered      INTEGER NOT NULL DEFAULT 0,
+  lines_pct          REAL    NOT NULL DEFAULT 0,
+  statements_total   INTEGER NOT NULL DEFAULT 0,
+  statements_covered INTEGER NOT NULL DEFAULT 0,
+  statements_pct     REAL    NOT NULL DEFAULT 0,
+  functions_total    INTEGER NOT NULL DEFAULT 0,
+  functions_covered  INTEGER NOT NULL DEFAULT 0,
+  functions_pct      REAL    NOT NULL DEFAULT 0,
+  branches_total     INTEGER NOT NULL DEFAULT 0,
+  branches_covered   INTEGER NOT NULL DEFAULT 0,
+  branches_pct       REAL    NOT NULL DEFAULT 0,
+  PRIMARY KEY (release_tag, package, file_path)
+);
+
 -- コードグラフ最新スナップショット（ローカル current_code_graphs と対応）
 CREATE TABLE IF NOT EXISTS trail_current_code_graphs (
   repo_name    TEXT PRIMARY KEY,
@@ -307,6 +328,7 @@ CREATE INDEX IF NOT EXISTS idx_trail_commit_files_hash ON trail_commit_files(com
 CREATE INDEX IF NOT EXISTS idx_trail_releases_released_at ON trail_releases(released_at);
 CREATE INDEX IF NOT EXISTS idx_trail_release_files_tag ON trail_release_files(release_tag);
 CREATE INDEX IF NOT EXISTS idx_trail_release_features_tag ON trail_release_features(release_tag);
+CREATE INDEX IF NOT EXISTS idx_trail_release_coverage_tag ON trail_release_coverage(release_tag);
 CREATE INDEX IF NOT EXISTS idx_trail_mtc_session ON trail_message_tool_calls(session_id);
 CREATE INDEX IF NOT EXISTS idx_trail_mtc_timestamp ON trail_message_tool_calls(timestamp);
 
@@ -380,6 +402,10 @@ CREATE POLICY "trail_c4_manual_groups_all" ON trail_c4_manual_groups FOR ALL USI
 ALTER TABLE trail_current_coverage ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "trail_current_coverage_all" ON trail_current_coverage;
 CREATE POLICY "trail_current_coverage_all" ON trail_current_coverage FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE trail_release_coverage ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "trail_release_coverage_all" ON trail_release_coverage;
+CREATE POLICY "trail_release_coverage_all" ON trail_release_coverage FOR ALL USING (true) WITH CHECK (true);
 
 ALTER TABLE trail_current_code_graphs ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "trail_current_code_graphs_all" ON trail_current_code_graphs;
