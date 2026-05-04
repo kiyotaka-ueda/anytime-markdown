@@ -22,5 +22,15 @@
   "command.openAiNotePage": "AI ノートページを開く",
   "command.clearAiNote": "AI ノートをクリア",
   "command.copyAiNotePath": "AI ノートのパスをコピー",
-  "command.runWithTrace": "トレース付きで実行"
+  "command.runWithTrace": "トレース付きで実行",
+  "view.agentMapping": "Agent マッピング",
+  "viewsWelcome.agentMapping": "Claude Code セッションが検出されませんでした。\n\nステータスファイルは anytime-trail Claude Code フックによって書き込まれます。\nフックがインストールされているか確認してください。\n\n[Claude Code フックをインストール](command:anytime-trail.setup)",
+  "command.agentMapping.refresh": "Agent マッピングを更新",
+  "command.agentMapping.cleanupStale": "古いセッションをクリーンアップ",
+  "command.agentMapping.toggleStale": "古いセッションの表示切替",
+  "command.agentMapping.openWorktree": "新しいウィンドウで Worktree を開く",
+  "command.agentMapping.copyWorktreePath": "Worktree パスをコピー",
+  "command.agentMapping.showSessionEdits": "セッション編集履歴を表示",
+  "command.agentMapping.copySessionId": "セッション ID をコピー",
+  "command.agentMapping.deleteStatusFile": "ステータスファイルを削除"
 }
