@@ -47,12 +47,12 @@
           "name": "%view.dashboard%"
         },
         {
-          "id": "anytimeTrail.database",
-          "name": "%view.database%"
-        },
-        {
           "id": "anytimeTrail.agentMapping",
           "name": "%view.agentMapping%"
+        },
+        {
+          "id": "anytimeTrail.database",
+          "name": "%view.database%"
         }
       ]
     },
