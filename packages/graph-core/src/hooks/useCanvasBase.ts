@@ -158,78 +158,106 @@ export function useCanvasBase(options: UseCanvasBaseOptions): UseCanvasBaseRetur
     return { sx: e.clientX - rect.left, sy: e.clientY - rect.top };
   }, [canvasRef]);
 
+  // --- Mouse down helpers ---
+
+  const startPanDrag = useCallback((sx: number, sy: number, world: { x: number; y: number }) => {
+    dragRef.current = { mode: 'pan', startScreenX: sx, startScreenY: sy, startWorldX: world.x, startWorldY: world.y };
+  }, []);
+
+  const startSelectRect = useCallback(
+    (sx: number, sy: number, world: { x: number; y: number }, shiftKey: boolean) => {
+      if (!shiftKey) {
+        onNodeClick?.(null);
+        setSelection(EMPTY_SELECTION);
+      }
+      dragRef.current = { mode: 'select-rect', startScreenX: sx, startScreenY: sy, startWorldX: world.x, startWorldY: world.y };
+      selectRectRef.current = { x1: world.x, y1: world.y, x2: world.x, y2: world.y };
+    },
+    [onNodeClick, setSelection],
+  );
+
+  const startMoveDrag = useCallback(
+    (sx: number, sy: number, world: { x: number; y: number }, moveIds: string[], initialPositions: Map<string, { x: number; y: number }>) => {
+      editorDispatch?.({ type: 'SNAPSHOT' });
+      dragRef.current = { mode: 'move', startScreenX: sx, startScreenY: sy, startWorldX: world.x, startWorldY: world.y, moveIds, initialPositions };
+    },
+    [editorDispatch],
+  );
+
+  const handleFrameNodeHit = useCallback(
+    (hit: GraphNode, e: React.MouseEvent, sx: number, sy: number, world: { x: number; y: number }) => {
+      const onBody = hitTestFrameBody({ x: world.x, y: world.y }, hit);
+      if (!(onBody && editorDispatch)) {
+        startSelectRect(sx, sy, world, e.shiftKey);
+        return;
+      }
+      // タイトル/枠線 → frame + 全 groupId 子ノードをドラッグ
+      const nodes = getNodes();
+      const childIds = nodes.filter(n => n.groupId === hit.id).map(n => n.id);
+      const moveIds = [hit.id, ...childIds];
+      const initialPositions = new Map(
+        nodes.filter(n => moveIds.includes(n.id)).map(n => [n.id, { x: n.x, y: n.y }]),
+      );
+      onNodeClick?.(hit);
+      setSelection({ nodeIds: moveIds, edgeIds: [] });
+      startMoveDrag(sx, sy, world, moveIds, initialPositions);
+    },
+    [editorDispatch, getNodes, onNodeClick, setSelection, startMoveDrag, startSelectRect],
+  );
+
+  const handleCtrlNodeHit = useCallback(
+    (hit: GraphNode) => {
+      if (!onNodeCtrlClick) return;
+      const current = getSelection?.()?.nodeIds ?? [];
+      const newNodeIds = current.includes(hit.id)
+        ? current.filter(id => id !== hit.id)
+        : [...current, hit.id];
+      setSelection({ nodeIds: newNodeIds, edgeIds: [] });
+      onNodeCtrlClick(hit);
+    },
+    [onNodeCtrlClick, getSelection, setSelection],
+  );
+
+  const handleNormalNodeHit = useCallback(
+    (hit: GraphNode, sx: number, sy: number, world: { x: number; y: number }) => {
+      onNodeClick?.(hit);
+      setSelection({ nodeIds: [hit.id], edgeIds: [] });
+      if (!editorDispatch) {
+        startPanDrag(sx, sy, world);
+        return;
+      }
+      const initialPositions = new Map([[hit.id, { x: hit.x, y: hit.y }]]);
+      startMoveDrag(sx, sy, world, [hit.id], initialPositions);
+    },
+    [onNodeClick, setSelection, editorDispatch, startMoveDrag, startPanDrag],
+  );
+
   // --- Mouse down ---
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     const { sx, sy } = screenPos(e);
-    const vp = getViewport();
-    const world = screenToWorld(vp, sx, sy);
+    const world = screenToWorld(getViewport(), sx, sy);
 
-    // Middle/right button or Space held → pan
     if (e.button === 1 || e.button === 2 || (enableSpacePan && spaceRef.current)) {
-      dragRef.current = { mode: 'pan', startScreenX: sx, startScreenY: sy, startWorldX: world.x, startWorldY: world.y };
+      startPanDrag(sx, sy, world);
       return;
     }
+    if (e.button !== 0) return;
 
-    // Left button
-    if (e.button === 0) {
-      const hit = nodeAtScreen(sx, sy);
-      if (hit) {
-        // frame ノード hit: Z 挙動 — タイトル/枠線のみドラッグ対象
-        if (hit.type === 'frame') {
-          const onBody = hitTestFrameBody({ x: world.x, y: world.y }, hit);
-          if (onBody && editorDispatch) {
-            // タイトル/枠線 → frame + 全 groupId 子ノードをドラッグ
-            const nodes = getNodes();
-            const childIds = nodes.filter(n => n.groupId === hit.id).map(n => n.id);
-            const moveIds = [hit.id, ...childIds];
-            const initialPositions = new Map(
-              nodes.filter(n => moveIds.includes(n.id)).map(n => [n.id, { x: n.x, y: n.y }]),
-            );
-            onNodeClick?.(hit);
-            setSelection({ nodeIds: moveIds, edgeIds: [] });
-            editorDispatch({ type: 'SNAPSHOT' });
-            dragRef.current = { mode: 'move', startScreenX: sx, startScreenY: sy, startWorldX: world.x, startWorldY: world.y, moveIds, initialPositions };
-          } else {
-            // 内部余白 → 子ノード領域としてスルー（パン開始）
-            if (!e.shiftKey) {
-              onNodeClick?.(null);
-              setSelection(EMPTY_SELECTION);
-            }
-            dragRef.current = { mode: 'select-rect', startScreenX: sx, startScreenY: sy, startWorldX: world.x, startWorldY: world.y };
-            selectRectRef.current = { x1: world.x, y1: world.y, x2: world.x, y2: world.y };
-          }
-          return;
-        }
-        // Ctrl+click: 複数選択トグル
-        if ((e.ctrlKey || e.metaKey) && onNodeCtrlClick) {
-          const current = getSelection?.()?.nodeIds ?? [];
-          const newNodeIds = current.includes(hit.id)
-            ? current.filter(id => id !== hit.id)
-            : [...current, hit.id];
-          setSelection({ nodeIds: newNodeIds, edgeIds: [] });
-          onNodeCtrlClick(hit);
-          return;
-        }
-        // 通常ノード hit
-        onNodeClick?.(hit);
-        setSelection({ nodeIds: [hit.id], edgeIds: [] });
-        if (editorDispatch) {
-          const initialPositions = new Map([[hit.id, { x: hit.x, y: hit.y }]]);
-          editorDispatch({ type: 'SNAPSHOT' });
-          dragRef.current = { mode: 'move', startScreenX: sx, startScreenY: sy, startWorldX: world.x, startWorldY: world.y, moveIds: [hit.id], initialPositions };
-        } else {
-          dragRef.current = { mode: 'pan', startScreenX: sx, startScreenY: sy, startWorldX: world.x, startWorldY: world.y };
-        }
-      } else {
-        if (!e.shiftKey) {
-          onNodeClick?.(null);
-          setSelection(EMPTY_SELECTION);
-        }
-        dragRef.current = { mode: 'select-rect', startScreenX: sx, startScreenY: sy, startWorldX: world.x, startWorldY: world.y };
-        selectRectRef.current = { x1: world.x, y1: world.y, x2: world.x, y2: world.y };
-      }
+    const hit = nodeAtScreen(sx, sy);
+    if (!hit) {
+      startSelectRect(sx, sy, world, e.shiftKey);
+      return;
     }
-  }, [screenPos, getViewport, nodeAtScreen, onNodeClick, onNodeCtrlClick, setSelection, getSelection, getNodes, editorDispatch]);
+    if (hit.type === 'frame') {
+      handleFrameNodeHit(hit, e, sx, sy, world);
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && onNodeCtrlClick) {
+      handleCtrlNodeHit(hit);
+      return;
+    }
+    handleNormalNodeHit(hit, sx, sy, world);
+  }, [screenPos, getViewport, enableSpacePan, nodeAtScreen, onNodeCtrlClick, startPanDrag, startSelectRect, handleFrameNodeHit, handleCtrlNodeHit, handleNormalNodeHit]);
 
   // --- Mouse move ---
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
