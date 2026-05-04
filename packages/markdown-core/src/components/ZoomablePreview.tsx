@@ -2,7 +2,7 @@ import { Box, useTheme } from "@mui/material";
 import React from "react";
 
 import { DEFAULT_DARK_BG, DEFAULT_LIGHT_BG } from "../constants/colors";
-import { REDUCED_MOTION_SX, TRANSITION_FAST } from "../constants/uiPatterns";
+import { DURATION_FAST, REDUCED_MOTION_SX } from "../constants/uiPatterns";
 import type { UseZoomPanReturn } from "../hooks/useZoomPan";
 
 interface ZoomablePreviewProps {
@@ -38,7 +38,7 @@ export function ZoomablePreview({ fsZP, children, origin = "center" }: Readonly<
         display: "flex", justifyContent: justify, alignItems: align,
         transform: `translate(${fsZP.pan.x}px, ${fsZP.pan.y}px) scale(${fsZP.zoom})`,
         transformOrigin,
-        transition: fsZP.isPanningRef.current ? "none" : `transform ${TRANSITION_FAST}`,
+        transition: fsZP.isPanningRef.current ? "none" : `transform ${DURATION_FAST}`,
         ...REDUCED_MOTION_SX,
         pointerEvents: "none",
       }}>

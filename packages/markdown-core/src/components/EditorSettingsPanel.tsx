@@ -113,7 +113,7 @@ export const EditorSettingsPanel = React.memo(function EditorSettingsPanel({
               checked={themeMode === 'dark'}
               onChange={(e) => onThemeModeChange(e.target.checked ? 'dark' : 'light')}
               size="small"
-              inputProps={{ "aria-label": t("settingDarkMode") }}
+              slotProps={{ input: { "aria-label": t("settingDarkMode") } }}
             />
           </Box>
 
@@ -297,7 +297,7 @@ export const EditorSettingsPanel = React.memo(function EditorSettingsPanel({
           checked={settings.spellCheck}
           onChange={(e) => updateSettings({ spellCheck: e.target.checked })}
           size="small"
-          inputProps={{ "aria-label": t("settingSpellCheck") }}
+          slotProps={{ input: { "aria-label": t("settingSpellCheck") } }}
         />
       </Box>
 

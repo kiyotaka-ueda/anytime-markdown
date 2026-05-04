@@ -165,12 +165,12 @@ export const TreeNode: FC<TreeNodeProps> = ({ entry, depth, repo, expanded, load
         ) : (
           <ListItemText
             primary={entry.name}
-            primaryTypographyProps={{
+            slotProps={{ primary: {
               variant: "body2",
               noWrap: true,
               fontSize: "0.8rem",
               color: empty ? emptyColor : undefined,
-            }}
+            } }}
           />
         )}
         {!isRenaming && (

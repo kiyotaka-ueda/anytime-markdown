@@ -43,7 +43,7 @@ export function CreatePlaylistDialog({
           label="プレイリスト名"
           variant="outlined"
           sx={{ mt: 1 }}
-          inputProps={{ maxLength: 100 }}
+          slotProps={{ htmlInput: { maxLength: 100 } }}
         />
       </DialogContent>
       <DialogActions>

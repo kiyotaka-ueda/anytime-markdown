@@ -86,7 +86,7 @@ export const RepoListSection: FC<RepoListSectionProps> = ({
           </ListItemIcon>
           <ListItemText
             primary={repo.fullName}
-            primaryTypographyProps={{ variant: "body2", noWrap: true }}
+            slotProps={{ primary: { variant: "body2", noWrap: true } }}
           />
         </ListItemButton>
       ))}

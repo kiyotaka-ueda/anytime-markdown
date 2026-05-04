@@ -79,7 +79,7 @@ export function getSplitterSx(isDark: boolean) {
     flexShrink: 0,
     "&:hover": { bgcolor: getPrimaryMain(isDark) },
     "&:focus-visible": { ...getFocusOutlineBare(isDark), bgcolor: getPrimaryMain(isDark) },
-    transition: `background-color ${TRANSITION_FAST}`,
+    transition: `background-color ${DURATION_FAST}`,
     ...REDUCED_MOTION_SX,
   } as const;
 }

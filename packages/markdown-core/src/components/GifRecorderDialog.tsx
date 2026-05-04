@@ -396,7 +396,7 @@ export function GifRecorderDialog({ open, onClose, onComplete }: Readonly<GifRec
                 value={fileName}
                 onChange={(e) => setFileName(e.target.value)}
                 sx={{ flex: 1 }}
-                inputProps={{ "aria-label": "File name" }}
+                slotProps={{ htmlInput: { "aria-label": "File name" } }}
               />
               <Button size="small" variant="contained" startIcon={<SaveIcon />} onClick={handleSave}>
                 Save
