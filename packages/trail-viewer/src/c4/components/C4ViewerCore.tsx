@@ -701,14 +701,20 @@ export function C4ViewerCore({
     if (overlayCategory === 'dsm') return !!filteredDsmMatrix && filteredDsmMatrix.nodes.length > 0;
     if (overlayCategory === 'complexity') return !!complexityMatrix && complexityMatrix.entries.length > 0;
     if (overlayCategory === 'importance') return hasImportanceData;
+    if (overlayCategory === 'hotspot') {
+      if (!hotspotResponse) return true;
+      return hotspotResponse.files.length > 0;
+    }
     return true;
-  }, [overlayCategory, coverageMatrix, filteredDsmMatrix, complexityMatrix, hasImportanceData]);
+  }, [overlayCategory, coverageMatrix, filteredDsmMatrix, complexityMatrix, hasImportanceData, hotspotResponse]);
 
   useEffect(() => {
-    if (!isCategoryDataAvailable) {
+    // hotspot は空応答時に metricOverlay をリセットすると useHotspot が disable され
+    // hotspotResponse=null に戻り isCategoryDataAvailable が true へ揺り戻すループになるため除外
+    if (!isCategoryDataAvailable && overlayCategory !== 'hotspot') {
       setMetricOverlay('none');
     }
-  }, [isCategoryDataAvailable]);
+  }, [isCategoryDataAvailable, overlayCategory]);
 
   const elementTypeById = useMemo<ReadonlyMap<string, string>>(
     () => new Map((c4Model?.elements ?? []).map((e) => [e.id, e.type])),
