@@ -15,7 +15,7 @@ export class AgentMappingProvider
   private readonly _onDidChangeTreeData = new vscode.EventEmitter<void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  private _showStale = false;
+  private _showStale = true;
   private _cachedWorktrees: readonly WorktreeEntry[] = [];
   private _worktreeCacheExpiry = 0;
 
