@@ -32,7 +32,7 @@ function djb2Hash(s: string): string {
 }
 
 function hasLocalStorage(): boolean {
-    return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+    return typeof window !== "undefined" && typeof globalThis.localStorage !== "undefined";
 }
 
 export class EmbedCache {
@@ -55,11 +55,11 @@ export class EmbedCache {
     get(url: string): CacheValue | null {
         if (!hasLocalStorage()) return null;
         try {
-            const raw = window.localStorage.getItem(this.key(url));
+            const raw = globalThis.localStorage.getItem(this.key(url));
             if (!raw) return null;
             const entry = JSON.parse(raw) as CachedEntry;
             if (Date.now() - entry.savedAt > this.ttlMs) {
-                window.localStorage.removeItem(this.key(url));
+                globalThis.localStorage.removeItem(this.key(url));
                 return null;
             }
             return entry.data;
@@ -78,7 +78,7 @@ export class EmbedCache {
             const payload = JSON.stringify({ data: stripped, savedAt: Date.now() } satisfies CachedEntry);
             if (payload.length > MAX_ENTRY_BYTES) return;
             this.evictIfNeeded();
-            window.localStorage.setItem(this.key(url), payload);
+            globalThis.localStorage.setItem(this.key(url), payload);
         } catch (err) {
             console.warn("[embedCache] set failed", err);
         }
@@ -87,11 +87,11 @@ export class EmbedCache {
     getError(url: string): string | null {
         if (!hasLocalStorage()) return null;
         try {
-            const raw = window.localStorage.getItem(this.errorKey(url));
+            const raw = globalThis.localStorage.getItem(this.errorKey(url));
             if (!raw) return null;
             const entry = JSON.parse(raw) as CachedError;
             if (Date.now() - entry.savedAt > this.errorTtlMs) {
-                window.localStorage.removeItem(this.errorKey(url));
+                globalThis.localStorage.removeItem(this.errorKey(url));
                 return null;
             }
             return entry.error;
@@ -105,7 +105,7 @@ export class EmbedCache {
         try {
             const payload = JSON.stringify({ error, savedAt: Date.now() } satisfies CachedError);
             this.evictIfNeeded();
-            window.localStorage.setItem(this.errorKey(url), payload);
+            globalThis.localStorage.setItem(this.errorKey(url), payload);
         } catch (err) {
             console.warn("[embedCache] setError failed", err);
         }
@@ -114,23 +114,23 @@ export class EmbedCache {
     private evictIfNeeded(): void {
         if (!hasLocalStorage()) return;
         const keys: { key: string; savedAt: number }[] = [];
-        for (let i = 0; i < window.localStorage.length; i++) {
-            const key = window.localStorage.key(i);
+        for (let i = 0; i < globalThis.localStorage.length; i++) {
+            const key = globalThis.localStorage.key(i);
             if (!key || !key.startsWith(KEY_PREFIX)) continue;
             try {
-                const raw = window.localStorage.getItem(key);
+                const raw = globalThis.localStorage.getItem(key);
                 if (!raw) continue;
                 const entry = JSON.parse(raw) as { savedAt?: number };
                 keys.push({ key, savedAt: entry.savedAt ?? 0 });
             } catch {
-                window.localStorage.removeItem(key);
+                globalThis.localStorage.removeItem(key);
             }
         }
         if (keys.length < MAX_ENTRIES) return;
         keys.sort((a, b) => a.savedAt - b.savedAt);
         const removeCount = keys.length - MAX_ENTRIES + 1;
         for (let i = 0; i < removeCount; i++) {
-            window.localStorage.removeItem(keys[i].key);
+            globalThis.localStorage.removeItem(keys[i].key);
         }
     }
 }
