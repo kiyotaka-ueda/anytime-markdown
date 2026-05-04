@@ -63,7 +63,10 @@ export class TimelineProvider implements vscode.TreeDataProvider<TimelineItem> {
 	private fileUri: vscode.Uri | null = null;
 	private items: TimelineItem[] = [];
 
+	/** 明示的に外部リポジトリ指定された git root（refreshWithGitRoot 経由）*/
 	private gitRoot: string | null = null;
+	/** vscode.git API でリポジトリが見つからなかったとき検出した git root */
+	private resolvedGitRoot: string | null = null;
 
 	constructor(
 		private readonly clickCommand: string,
@@ -79,6 +82,7 @@ export class TimelineProvider implements vscode.TreeDataProvider<TimelineItem> {
 	refresh(uri: vscode.Uri | null): void {
 		this.fileUri = uri;
 		this.gitRoot = null;
+		this.resolvedGitRoot = null;
 		this.items = [];
 		this._onDidChangeTreeData.fire();
 	}
@@ -87,6 +91,7 @@ export class TimelineProvider implements vscode.TreeDataProvider<TimelineItem> {
 	refreshWithGitRoot(fileAbsPath: string, gitRoot: string): void {
 		this.fileUri = vscode.Uri.file(fileAbsPath);
 		this.gitRoot = gitRoot;
+		this.resolvedGitRoot = null;
 		this.items = [];
 		this._onDidChangeTreeData.fire();
 	}
@@ -103,35 +108,40 @@ export class TimelineProvider implements vscode.TreeDataProvider<TimelineItem> {
 			return this.items;
 		}
 
-		// git コマンドベース（外部リポジトリ）
+		// 明示指定された外部リポジトリ
 		if (this.gitRoot) {
-			return this.getChildrenFromGitCommand();
+			return this.getChildrenFromGitCommand(this.gitRoot, this.fileUri);
 		}
 
-		// vscode.git API（メインプロジェクト）
+		// vscode.git API（ワークスペース内）
 		const repo = await this.getRepository(this.fileUri);
-		if (!repo) {
-			return [];
+		if (repo) {
+			const relativePath = path.relative(repo.rootUri.fsPath, this.fileUri.fsPath).replaceAll("\\", '/');
+			try {
+				const commits = await repo.log({ path: relativePath });
+				this.items = commits.map(c => new TimelineItem(c, this.fileUri!, this.clickCommand));
+				return this.items;
+			} catch (err) {
+				this.logError('[TimelineProvider] vscode.git log failed', err);
+				return [];
+			}
 		}
 
-		const relativePath = path.relative(repo.rootUri.fsPath, this.fileUri.fsPath).replaceAll("\\", '/');
-		try {
-			const commits = await repo.log({ path: relativePath });
-			this.items = commits.map(c => new TimelineItem(c, this.fileUri!, this.clickCommand));
-			return this.items;
-		} catch (err) {
-			this.logError('[TimelineProvider] vscode.git log failed', err);
-			return [];
+		// フォールバック: ワークスペース外のファイル → git rev-parse で root 検出
+		const detected = await this.detectGitRoot(this.fileUri.fsPath);
+		if (detected) {
+			this.resolvedGitRoot = detected;
+			return this.getChildrenFromGitCommand(detected, this.fileUri);
 		}
+		return [];
 	}
 
-	private async getChildrenFromGitCommand(): Promise<TimelineItem[]> {
-		if (!this.gitRoot || !this.fileUri) { return []; }
-		const relativePath = path.relative(this.gitRoot, this.fileUri.fsPath).replaceAll("\\", '/');
+	private async getChildrenFromGitCommand(gitRoot: string, fileUri: vscode.Uri): Promise<TimelineItem[]> {
+		const relativePath = path.relative(gitRoot, fileUri.fsPath).replaceAll("\\", '/');
 		try {
 			const result = await execFileAsync(
 				'git', ['log', '--format=%H%n%s%n%an%n%aI', '-50', '--', relativePath],
-				{ cwd: this.gitRoot, encoding: 'utf-8' },
+				{ cwd: gitRoot, encoding: 'utf-8' },
 			) as { stdout: string; stderr: string };
 			const lines = result.stdout.trim().split('\n');
 			const commits: TimelineItem[] = [];
@@ -142,30 +152,46 @@ export class TimelineProvider implements vscode.TreeDataProvider<TimelineItem> {
 				const authorDate = new Date(lines[i + 3]);
 				commits.push(new TimelineItem(
 					{ hash, message, authorName, authorDate },
-					this.fileUri,
+					fileUri,
 					this.clickCommand,
 				));
 			}
 			this.items = commits;
 			return this.items;
 		} catch (err) {
-			this.logError(`[TimelineProvider] git log command failed (gitRoot=${this.gitRoot}, relativePath=${relativePath})`, err);
+			this.logError(`[TimelineProvider] git log command failed (gitRoot=${gitRoot}, relativePath=${relativePath})`, err);
 			return [];
 		}
 	}
 
+	private async detectGitRoot(absPath: string): Promise<string | null> {
+		try {
+			const dir = path.dirname(absPath);
+			const result = await execFileAsync(
+				'git', ['rev-parse', '--show-toplevel'],
+				{ cwd: dir, encoding: 'utf-8' },
+			) as { stdout: string; stderr: string };
+			const root = result.stdout.trim();
+			return root || null;
+		} catch {
+			// git リポジトリでない場合 — 正常系のためログ不要
+			return null;
+		}
+	}
+
 	async getCommitContent(item: TimelineItem): Promise<string | null> {
+		const effectiveGitRoot = this.gitRoot ?? this.resolvedGitRoot;
 		// git コマンドベース
-		if (this.gitRoot) {
-			const relativePath = path.relative(this.gitRoot, item.fileUri.fsPath).replaceAll("\\", '/');
+		if (effectiveGitRoot) {
+			const relativePath = path.relative(effectiveGitRoot, item.fileUri.fsPath).replaceAll("\\", '/');
 			try {
 				const result = await execFileAsync(
 					'git', ['show', `${item.commit.hash}:${relativePath}`],
-					{ cwd: this.gitRoot, encoding: 'utf-8' },
+					{ cwd: effectiveGitRoot, encoding: 'utf-8' },
 				) as { stdout: string; stderr: string };
 				return result.stdout;
 			} catch (err) {
-				this.logError(`[TimelineProvider] git show command failed (gitRoot=${this.gitRoot}, relativePath=${relativePath}, hash=${item.commit.hash})`, err);
+				this.logError(`[TimelineProvider] git show command failed (gitRoot=${effectiveGitRoot}, relativePath=${relativePath}, hash=${item.commit.hash})`, err);
 				return null;
 			}
 		}
