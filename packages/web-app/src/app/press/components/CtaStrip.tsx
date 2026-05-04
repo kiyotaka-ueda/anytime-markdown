@@ -14,7 +14,7 @@ export function CtaActions({
   secondaryHref,
   primaryLabel = 'Online Editor',
   secondaryLabel = 'VS Code Extension',
-}: CtaActionsProps) {
+}: Readonly<CtaActionsProps>) {
   return (
     <div className={styles.ctaActions}>
       <Link

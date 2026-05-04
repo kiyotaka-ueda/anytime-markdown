@@ -14,7 +14,7 @@ function iframeHeightFor(type: string): number {
     return 152;
 }
 
-export function SpotifyEmbedView({ spotifyType, spotifyId, variant, widthOverride }: Props) {
+export function SpotifyEmbedView({ spotifyType, spotifyId, variant, widthOverride }: Readonly<Props>) {
     const theme = useTheme();
     const pageUrl = `https://open.spotify.com/${spotifyType}/${spotifyId}`;
 
