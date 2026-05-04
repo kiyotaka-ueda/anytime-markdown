@@ -27,7 +27,7 @@ async function fetchRss(feedUrl: string): Promise<RssLatestData> {
   return (await res.json()) as RssLatestData;
 }
 
-export function EmbedProvidersBoundary({ children }: { children: ReactNode }) {
+export function EmbedProvidersBoundary({ children }: Readonly<{ children: ReactNode }>) {
   const providers = useMemo<EmbedProviders>(() => ({ fetchOgp, fetchOembed, fetchRss }), []);
   return <EmbedProvidersProvider value={providers}>{children}</EmbedProvidersProvider>;
 }

@@ -217,15 +217,6 @@ export function hitTestWaypointHandle(
   return null;
 }
 
-function hitTestConnectionPoints(node: GraphNode, wx: number, wy: number, scale: number): ConnectionSide | null {
-  const r = CONNECTION_POINT_RADIUS / scale;
-  const points = getConnectionPoints(node);
-  for (const { side, x: px, y: py } of points) {
-    if (Math.hypot(wx - px, wy - py) <= r) return side;
-  }
-  return null;
-}
-
 function hitTestEdgeEndpoints(
   edge: GraphEdge,
   wx: number, wy: number, scale: number,

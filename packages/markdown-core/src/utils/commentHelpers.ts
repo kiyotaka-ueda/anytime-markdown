@@ -163,7 +163,7 @@ export function appendCommentData(
   for (const comment of comments.values()) {
     const prefix = comment.resolved ? "[resolved] " : "";
     const escapedText = comment.text
-      .replaceAll(/\\/g, (match) => `${match}${match}`)
+      .replaceAll('\\', (match) => `${match}${match}`)
       .replaceAll("\n", String.raw`\n`);
     lines.push(`${prefix}${comment.id}: ${escapedText} | ${comment.createdAt}`);
   }

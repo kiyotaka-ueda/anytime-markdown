@@ -12,7 +12,7 @@ function extractFileName(path: string): string {
     return segments.at(-1) ?? "Figma";
 }
 
-export function FigmaEmbedView({ path, variant, widthOverride }: Props) {
+export function FigmaEmbedView({ path, variant, widthOverride }: Readonly<Props>) {
     const theme = useTheme();
     const canonical = `https://www.figma.com${path}`;
 

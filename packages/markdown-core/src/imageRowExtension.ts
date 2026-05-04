@@ -79,11 +79,11 @@ export const ImageRow = Node.create({
           node.forEach((child) => {
             if (child.type.name !== "image") return;
             const alt = String(child.attrs.alt ?? "");
-            const src = String(child.attrs.src ?? "").replace(/[()]/g, "\\$&");
+            const src = String(child.attrs.src ?? "").replaceAll(/[()]/g, "\\$&");
             const title = child.attrs.title
-              ? ` "${String(child.attrs.title).replace(/"/g, '\\"')}"`
+              ? ` "${String(child.attrs.title).replaceAll('"', '\\"')}"`
               : "";
-            state.write(`![${alt.replace(/([\\[\]])/g, "\\$1")}](${src}${title})`);
+            state.write(`![${alt.replaceAll(/([\\[\]])/g, "\\$1")}](${src}${title})`);
           });
           state.closeBlock(node);
         },

@@ -4,7 +4,7 @@ const MAX_ENTRIES = 500;
 type SeenMap = Record<string, string>;
 
 function hasLocalStorage(): boolean {
-    return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+    return typeof window !== "undefined" && typeof globalThis.localStorage !== "undefined";
 }
 
 let cache: SeenMap | null = null;
@@ -16,7 +16,7 @@ function loadCache(): SeenMap {
         return cache;
     }
     try {
-        const raw = window.localStorage.getItem(STORAGE_KEY);
+        const raw = globalThis.localStorage.getItem(STORAGE_KEY);
         if (!raw) {
             cache = {};
             return cache;
@@ -37,7 +37,7 @@ function persist(map: SeenMap): void {
         if (keys.length > MAX_ENTRIES) {
             for (let i = 0; i < keys.length - MAX_ENTRIES; i++) delete map[keys[i]];
         }
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+        globalThis.localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
     } catch (e) {
         console.warn(`embedSeenStore: failed to write storage - ${(e as Error).message}`);
     }
@@ -58,7 +58,7 @@ export function __resetForTest(): void {
     cache = null;
     if (!hasLocalStorage()) return;
     try {
-        window.localStorage.removeItem(STORAGE_KEY);
+        globalThis.localStorage.removeItem(STORAGE_KEY);
     } catch (e) {
         console.warn(`embedSeenStore: failed to reset storage - ${(e as Error).message}`);
     }

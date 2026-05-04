@@ -38,7 +38,7 @@ function BriefingWithEmbed({
   embedTitle,
   embedActions,
   title,
-}: BriefingWithEmbedProps) {
+}: Readonly<BriefingWithEmbedProps>) {
   return (
     <section className={styles.briefingWithEmbed} id={id}>
       <header className={styles.briefingHeader}>
@@ -81,7 +81,7 @@ function BriefingWithEmbed({
   );
 }
 
-export function BriefingPrimary({ embed, embedActions, subtitle, trailKeys = TRAIL_KEYS }: BriefingEmbedProps) {
+export function BriefingPrimary({ embed, embedActions, subtitle, trailKeys = TRAIL_KEYS }: Readonly<BriefingEmbedProps>) {
   const t = useTranslations('VsCode');
   const tBriefing = useTranslations('press.briefing');
   const items: BriefingItem[] = trailKeys.map((key, idx) => ({
@@ -112,7 +112,7 @@ interface BriefingRoadmapProps {
   verdict?: string;
 }
 
-export function BriefingRoadmap({ subtitle, trailKeys, verdict }: BriefingRoadmapProps) {
+export function BriefingRoadmap({ subtitle, trailKeys, verdict }: Readonly<BriefingRoadmapProps>) {
   const t = useTranslations('VsCode');
   const tBriefing = useTranslations('press.briefing');
   const verdictText = verdict ?? tBriefing('shipped');
@@ -145,7 +145,7 @@ export function BriefingRoadmap({ subtitle, trailKeys, verdict }: BriefingRoadma
   );
 }
 
-export function BriefingSecondary({ embed, embedActions }: BriefingEmbedProps) {
+export function BriefingSecondary({ embed, embedActions }: Readonly<BriefingEmbedProps>) {
   const t = useTranslations('VsCode');
   const tBriefing = useTranslations('press.briefing');
   const items: BriefingItem[] = MARKDOWN_KEYS.map((key, idx) => ({

@@ -152,41 +152,50 @@ function convertVertex(
   };
 }
 
+function parseOptionalFloat(raw: string | undefined): number | undefined {
+  return raw === undefined ? undefined : Number.parseFloat(raw);
+}
+
+function pickEnum<T extends string>(
+  raw: string | undefined,
+  allowed: readonly T[],
+): T | undefined {
+  return raw !== undefined && (allowed as readonly string[]).includes(raw)
+    ? (raw as T)
+    : undefined;
+}
+
+function pruneUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
+  const result: Partial<T> = {};
+  for (const k of Object.keys(obj) as Array<keyof T>) {
+    if (obj[k] !== undefined) result[k] = obj[k];
+  }
+  return result;
+}
+
 /** ノードスタイルオブジェクトを構築する */
 function buildNodeStyle(
   style: Record<string, string>,
   fill: string, stroke: string, strokeWidth: number,
   fontSize: number, fontFamily: string,
 ): GraphNode['style'] {
-  const fontColor = style['fontColor'] ? colorFromHex(style['fontColor'], '#FFFFFF') : undefined;
-  const fontStyleVal = style['fontStyle'] ? Number.parseInt(style['fontStyle'], 10) : undefined;
-  const align = (['left', 'center', 'right'].includes(style['align']) ? style['align'] : undefined) as TextAlign | undefined;
-  const verticalAlign = (['top', 'middle', 'bottom'].includes(style['verticalAlign']) ? style['verticalAlign'] : undefined) as VerticalAlign | undefined;
-  const opacity = style['opacity'] === undefined ? undefined : Number.parseFloat(style['opacity']);
-  const dashed = style['dashed'] === '1' ? true : undefined;
   const rounded = style['rounded'] === '1';
-  const borderRadius = rounded ? (Number.parseFloat(style['arcSize'] ?? '0') || 10) : undefined;
-  const spacing = style['spacing'] === undefined ? undefined : Number.parseFloat(style['spacing']);
-  const spacingTop = style['spacingTop'] === undefined ? undefined : Number.parseFloat(style['spacingTop']);
-  const spacingRight = style['spacingRight'] === undefined ? undefined : Number.parseFloat(style['spacingRight']);
-  const spacingBottom = style['spacingBottom'] === undefined ? undefined : Number.parseFloat(style['spacingBottom']);
-  const spacingLeft = style['spacingLeft'] === undefined ? undefined : Number.parseFloat(style['spacingLeft']);
+  const optional = pruneUndefined({
+    fontColor: style['fontColor'] ? colorFromHex(style['fontColor'], '#FFFFFF') : undefined,
+    fontStyle: style['fontStyle'] ? Number.parseInt(style['fontStyle'], 10) : undefined,
+    align: pickEnum<TextAlign>(style['align'], ['left', 'center', 'right']),
+    verticalAlign: pickEnum<VerticalAlign>(style['verticalAlign'], ['top', 'middle', 'bottom']),
+    opacity: parseOptionalFloat(style['opacity']),
+    dashed: style['dashed'] === '1' ? true : undefined,
+    borderRadius: rounded ? (Number.parseFloat(style['arcSize'] ?? '0') || 10) : undefined,
+    spacing: parseOptionalFloat(style['spacing']),
+    spacingTop: parseOptionalFloat(style['spacingTop']),
+    spacingRight: parseOptionalFloat(style['spacingRight']),
+    spacingBottom: parseOptionalFloat(style['spacingBottom']),
+    spacingLeft: parseOptionalFloat(style['spacingLeft']),
+  });
 
-  return {
-    fill, stroke, strokeWidth, fontSize, fontFamily,
-    ...(fontColor ? { fontColor } : {}),
-    ...(fontStyleVal ? { fontStyle: fontStyleVal } : {}),
-    ...(align ? { align } : {}),
-    ...(verticalAlign ? { verticalAlign } : {}),
-    ...(opacity === undefined ? {} : { opacity }),
-    ...(dashed ? { dashed } : {}),
-    ...(borderRadius ? { borderRadius } : {}),
-    ...(spacing === undefined ? {} : { spacing }),
-    ...(spacingTop === undefined ? {} : { spacingTop }),
-    ...(spacingRight === undefined ? {} : { spacingRight }),
-    ...(spacingBottom === undefined ? {} : { spacingBottom }),
-    ...(spacingLeft === undefined ? {} : { spacingLeft }),
-  };
+  return { fill, stroke, strokeWidth, fontSize, fontFamily, ...optional };
 }
 
 /** data-metadata 属性からメタデータを取得する */

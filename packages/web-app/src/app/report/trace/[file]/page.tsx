@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function TraceFilePage({ params }: Props) {
+export default async function TraceFilePage({ params }: Readonly<Props>) {
   const { file } = await params;
   if (!file || file.includes('..')) {
     notFound();

@@ -43,9 +43,11 @@ export const RenameInput: FC<{
       variant="standard"
       size="small"
       fullWidth
-      InputProps={{
-        disableUnderline: false,
-        sx: { fontSize: "0.78rem", py: 0 },
+      slotProps={{
+        input: {
+          disableUnderline: false,
+          sx: { fontSize: "0.78rem", py: 0 },
+        },
       }}
     />
   );

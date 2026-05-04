@@ -50,7 +50,7 @@ export const GitHistorySection: FC<GitHistorySectionProps> = ({
           </ListItemIcon>
           <ListItemText
             primary={t("editing")}
-            primaryTypographyProps={{ variant: "body2", fontSize: "0.78rem", fontStyle: "italic", color: "warning.main" }}
+            slotProps={{ primary: { variant: "body2", fontSize: "0.78rem", fontStyle: "italic", color: "warning.main" } }}
           />
         </ListItemButton>
       )}
@@ -75,8 +75,10 @@ export const GitHistorySection: FC<GitHistorySectionProps> = ({
           <ListItemText
             primary={truncateMessage(c.message)}
             secondary={`${formatCommitDate(c.date)} · ${c.author}`}
-            primaryTypographyProps={{ variant: "body2", fontSize: "0.78rem", noWrap: true }}
-            secondaryTypographyProps={{ variant: "caption", fontSize: "0.68rem", noWrap: true }}
+            slotProps={{
+              primary: { variant: "body2", fontSize: "0.78rem", noWrap: true },
+              secondary: { variant: "caption", fontSize: "0.68rem", noWrap: true },
+            }}
           />
         </ListItemButton>
       ))}

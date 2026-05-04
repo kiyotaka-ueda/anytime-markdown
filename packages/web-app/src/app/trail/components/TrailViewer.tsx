@@ -26,10 +26,10 @@ export function TrailViewer({
   const searchParams = useSearchParams();
 
   const tabParam = searchParams.get('tab');
-  const initialTab = initialTabProp ?? (tabParam !== null ? Number(tabParam) : undefined);
+  const initialTab = initialTabProp ?? (tabParam === null ? undefined : Number(tabParam));
 
   const c4LevelParam = searchParams.get('c4level');
-  const initialC4Level = initialC4LevelProp ?? (c4LevelParam !== null ? Number(c4LevelParam) : undefined);
+  const initialC4Level = initialC4LevelProp ?? (c4LevelParam === null ? undefined : Number(c4LevelParam));
 
   const handleDocLinkClick = useCallback((doc: DocLink) => {
     globalThis.open(`/docs/view?ghPath=${encodeURIComponent(doc.path)}`, '_blank');

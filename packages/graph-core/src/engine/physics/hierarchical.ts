@@ -275,6 +275,46 @@ function makeDirectionAccessor(direction: 'TB' | 'LR') {
   };
 }
 
+function computeLayerSpan(
+  layer: string[],
+  bodies: Map<string, PhysicsBody>,
+  span: (b: PhysicsBody) => number,
+  nodeSpacing: number,
+): number {
+  if (layer.length === 0) return 0;
+  let total = 0;
+  for (const id of layer) total += span(bodies.get(id)!);
+  return total + (layer.length - 1) * nodeSpacing;
+}
+
+function computeLayerDepth(
+  layer: string[],
+  bodies: Map<string, PhysicsBody>,
+  depth: (b: PhysicsBody) => number,
+): number {
+  let max = 0;
+  for (const id of layer) max = Math.max(max, depth(bodies.get(id)!));
+  return max;
+}
+
+function placeLayerBodies(
+  layer: string[],
+  bodies: Map<string, PhysicsBody>,
+  span: (b: PhysicsBody) => number,
+  setPos: (b: PhysicsBody, primary: number, depth: number) => void,
+  startCursor: number,
+  depthCursor: number,
+  nodeSpacing: number,
+): void {
+  let cursor = startCursor;
+  for (const id of layer) {
+    const body = bodies.get(id)!;
+    if (body.fixed) continue;
+    setPos(body, cursor, depthCursor);
+    cursor += span(body) + nodeSpacing;
+  }
+}
+
 /**
  * Assign x/y coordinates to each body based on layer ordering.
  * Centers each layer horizontally (or vertically for LR).
@@ -290,27 +330,13 @@ function assignCoordinates(
 ): void {
   const { span, depth, setPos } = makeDirectionAccessor(direction);
 
-  // Find the widest layer to center all layers relative to it
-  let maxLayerSpan = 0;
-  for (const layer of layerOrder) {
-    if (layer.length === 0) continue;
-    let layerSpan = 0;
-    for (const id of layer) {
-      layerSpan += span(bodies.get(id)!);
-    }
-    layerSpan += (layer.length - 1) * nodeSpacing;
-    maxLayerSpan = Math.max(maxLayerSpan, layerSpan);
-  }
-
-  // Precompute the max depth per layer
-  const layerDepths: number[] = [];
-  for (const layer of layerOrder) {
-    let maxDepth = 0;
-    for (const id of layer) {
-      maxDepth = Math.max(maxDepth, depth(bodies.get(id)!));
-    }
-    layerDepths.push(maxDepth);
-  }
+  const layerSpans = layerOrder.map((layer) =>
+    computeLayerSpan(layer, bodies, span, nodeSpacing),
+  );
+  const layerDepths = layerOrder.map((layer) =>
+    computeLayerDepth(layer, bodies, depth),
+  );
+  const maxLayerSpan = layerSpans.reduce((a, b) => Math.max(a, b), 0);
 
   const startOffset = 100; // margin from canvas origin
   let depthCursor = startOffset;
@@ -319,25 +345,17 @@ function assignCoordinates(
     const layer = layerOrder[layerIdx];
     if (layer.length === 0) continue;
 
-    // Calculate total span of this layer
-    let totalSpan = 0;
-    for (const id of layer) {
-      totalSpan += span(bodies.get(id)!);
-    }
-    totalSpan += (layer.length - 1) * nodeSpacing;
+    const layerOffset = (maxLayerSpan - layerSpans[layerIdx]) / 2;
+    placeLayerBodies(
+      layer,
+      bodies,
+      span,
+      setPos,
+      startOffset + layerOffset,
+      depthCursor,
+      nodeSpacing,
+    );
 
-    // Center this layer relative to the widest layer
-    const layerOffset = (maxLayerSpan - totalSpan) / 2;
-
-    let cursor = startOffset + layerOffset;
-    for (const id of layer) {
-      const body = bodies.get(id)!;
-      if (body.fixed) continue;
-      setPos(body, cursor, depthCursor);
-      cursor += span(body) + nodeSpacing;
-    }
-
-    // Advance depth cursor by this layer's max depth + gap
     depthCursor += layerDepths[layerIdx] + levelGap;
   }
 }

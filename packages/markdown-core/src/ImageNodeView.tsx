@@ -415,6 +415,37 @@ function ImageContentArea({
   );
 }
 
+type AsyncOrVoid = () => void | Promise<void>;
+
+interface ImageActions {
+  onDelete: (() => void) | undefined;
+  onEdit: (() => void) | undefined;
+  onEditUrl: AsyncOrVoid | undefined;
+  onScreenCapture: (() => void) | undefined;
+  onImageDoubleClick: (() => void) | undefined;
+  onExport: AsyncOrVoid | undefined;
+}
+
+function buildImageActions(
+  flags: Readonly<{ canInteract: boolean; hasScreenCapture: boolean; isEditable: boolean }>,
+  callbacks: Readonly<{
+    openDelete: () => void;
+    openEdit: () => void;
+    editUrl: AsyncOrVoid;
+    openScreenCapture: () => void;
+    handleCapture: AsyncOrVoid;
+  }>,
+): ImageActions {
+  return {
+    onDelete: flags.canInteract ? callbacks.openDelete : undefined,
+    onEdit: flags.canInteract ? callbacks.openEdit : undefined,
+    onEditUrl: flags.canInteract ? callbacks.editUrl : undefined,
+    onScreenCapture: flags.hasScreenCapture ? callbacks.openScreenCapture : undefined,
+    onImageDoubleClick: flags.isEditable ? undefined : callbacks.openEdit,
+    onExport: flags.canInteract ? callbacks.handleCapture : undefined,
+  };
+}
+
 export function ImageNodeView({ editor, node, updateAttributes, getPos }: Readonly<NodeViewProps>) {
   const t = useTranslations("MarkdownEditor");
   const theme = useTheme();
@@ -452,13 +483,19 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: Readon
 
   const { canInteract, hasScreenCapture, showBorder, showBlockToolbar } = computeImageInteractionFlags(collapsed, isCompareLeft, isCompareLeftEditable, isEditable, isSelected, showToolbar);
 
-  const onDeleteAction = canInteract ? () => setDeleteDialogOpen(true) : undefined;
-  const onEditAction = canInteract ? () => setEditOpen(true) : undefined;
-  const onEditUrlAction = canInteract ? handleEditUrl : undefined;
-  const onScreenCaptureAction = hasScreenCapture ? () => setScreenCaptureOpen(true) : undefined;
-  const onImageDoubleClick = isEditable ? undefined : () => setEditOpen(true);
+  const imageActions = buildImageActions(
+    { canInteract, hasScreenCapture, isEditable },
+    {
+      openDelete: () => setDeleteDialogOpen(true),
+      openEdit: () => setEditOpen(true),
+      editUrl: handleEditUrl,
+      openScreenCapture: () => setScreenCaptureOpen(true),
+      handleCapture,
+    },
+  );
 
   const insideImageRow = isInsideImageRow(editor, getPos);
+  const showToolbarRow = showBlockToolbar && !(insideImageRow && !isSelected);
 
   return (
     <NodeViewWrapper
@@ -474,16 +511,16 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: Readon
         imgError={imgError}
         imgSize={imgSize}
         onCrop={onCrop}
-        onExport={canInteract ? handleCapture : undefined}
-        onScreenCapture={onScreenCaptureAction}
+        onExport={imageActions.onExport}
+        onScreenCapture={imageActions.onScreenCapture}
         isDark={isDark}
         t={t}
       />
       <Box sx={buildImageWrapperSx(showBorder, isDark, insideImageRow)}>
-        {showBlockToolbar && !(insideImageRow && !isSelected) && (
+        {showToolbarRow && (
           <BlockInlineToolbar
             label={t("image")}
-            onDelete={onDeleteAction}
+            onDelete={imageActions.onDelete}
             labelOnly={isCompareLeftEditable}
             collapsed={collapsed}
             extra={
@@ -495,8 +532,8 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: Readon
                 collapsed={collapsed}
                 annotations={annotations}
                 onAnnotationOpen={() => setAnnotationOpen(true)}
-                onEdit={onEditAction}
-                onEditUrl={onEditUrlAction}
+                onEdit={imageActions.onEdit}
+                onEditUrl={imageActions.onEditUrl}
                 isDark={isDark}
                 t={t}
               />
@@ -522,7 +559,7 @@ export function ImageNodeView({ editor, node, updateAttributes, getPos }: Readon
           handleResizePointerMove={handleResizePointerMove}
           handleResizePointerUp={handleResizePointerUp}
           handleResizeKeyDown={handleResizeKeyDown}
-          onDoubleClick={onImageDoubleClick}
+          onDoubleClick={imageActions.onImageDoubleClick}
           width={width}
           isDark={isDark}
           t={t}

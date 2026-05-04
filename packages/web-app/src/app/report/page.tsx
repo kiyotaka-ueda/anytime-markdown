@@ -20,7 +20,7 @@ interface Props {
   searchParams: Promise<{ page?: string; month?: string }>;
 }
 
-export default async function ReportPage({ searchParams }: Props) {
+export default async function ReportPage({ searchParams }: Readonly<Props>) {
   const { page, month } = await searchParams;
   const currentPage = Math.max(1, Number.parseInt(page ?? '1', 10) || 1);
 

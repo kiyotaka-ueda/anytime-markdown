@@ -37,7 +37,7 @@ export function YouTubeVideoCard({ video, selected, onToggle }: Readonly<YouTube
           onClick={(e) => e.stopPropagation()}
           size="small"
           sx={{ bgcolor: 'background.paper', borderRadius: 1, p: 0.5 }}
-          inputProps={{ 'aria-label': `${video.title} を選択` }}
+          slotProps={{ input: { 'aria-label': `${video.title} を選択` } }}
         />
       </Box>
       <Box sx={{ p: 1 }}>

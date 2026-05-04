@@ -46,6 +46,64 @@ export function computeDropTarget(params: Readonly<ComputeDropTargetParams>): Dr
   return { action: "default" };
 }
 
+interface ResolvedDropTarget {
+  node: ProseMirrorNode;
+  pos: number;
+  parentIsImageRow: boolean;
+}
+
+function resolveTargetImage(
+  $target: ReturnType<EditorView["state"]["doc"]["resolve"]>,
+): ResolvedDropTarget | null {
+  for (let depth = $target.depth; depth >= 0; depth--) {
+    const node = $target.node(depth);
+    if (node.type.name === "image") {
+      const parentIsImageRow =
+        depth > 0 && $target.node(depth - 1).type.name === "imageRow";
+      return { node, pos: $target.before(depth), parentIsImageRow };
+    }
+    const maybeChild = node.maybeChild($target.indexAfter(depth));
+    if (maybeChild?.type.name === "image") {
+      return {
+        node: maybeChild,
+        pos: $target.posAtIndex($target.indexAfter(depth), depth),
+        parentIsImageRow: node.type.name === "imageRow",
+      };
+    }
+  }
+  return null;
+}
+
+function insertIntoImageRow(
+  tr: ReturnType<EditorView["state"]["tr"]["delete"]>,
+  source: Readonly<{ node: ProseMirrorNode; pos: number }>,
+  target: ResolvedDropTarget,
+  insertLeft: boolean,
+): void {
+  const insertPos = insertLeft ? target.pos : target.pos + target.node.nodeSize;
+  tr.delete(source.pos, source.pos + source.node.nodeSize);
+  tr.insert(tr.mapping.map(insertPos), source.node);
+}
+
+function wrapInNewImageRow(
+  view: EditorView,
+  tr: ReturnType<EditorView["state"]["tr"]["delete"]>,
+  source: Readonly<{ node: ProseMirrorNode; pos: number }>,
+  target: ResolvedDropTarget,
+  insertLeft: boolean,
+): boolean {
+  const imageRowType = view.state.schema.nodes.imageRow;
+  if (!imageRowType) return false;
+  const children = insertLeft
+    ? [source.node, target.node]
+    : [target.node, source.node];
+  const newRow = imageRowType.create(null, children);
+  tr.delete(source.pos, source.pos + source.node.nodeSize);
+  const mappedTargetPos = tr.mapping.map(target.pos);
+  tr.replaceWith(mappedTargetPos, mappedTargetPos + target.node.nodeSize, newRow);
+  return true;
+}
+
 /**
  * ドラッグされたソース image と、ドロップ先の判定結果から transaction を構築して適用する。
  * - wrap-left / wrap-right: ターゲット画像と source で新規 imageRow を作成
@@ -59,65 +117,18 @@ export function applyDropAction(
 ): boolean {
   if (decision.action === "default") return false;
 
-  const { state } = view;
-  const targetPos = decision.targetPos;
+  const target = resolveTargetImage(view.state.doc.resolve(decision.targetPos));
+  if (!target) return false;
 
-  // ターゲット位置の解決
-  const $target = state.doc.resolve(targetPos);
-  // $target が image を指している場合とその親を扱う
-  let targetImageNode: ProseMirrorNode | null = null;
-  let targetImagePos = -1;
-  let parentIsImageRow = false;
-
-  // 直下が image の場合
-  for (let depth = $target.depth; depth >= 0; depth--) {
-    const node = $target.node(depth);
-    if (node.type.name === "image") {
-      targetImageNode = node;
-      targetImagePos = $target.before(depth);
-      if (depth > 0) {
-        const parent = $target.node(depth - 1);
-        parentIsImageRow = parent.type.name === "imageRow";
-      }
-      break;
-    }
-    // image の直前（before）に位置している場合
-    const maybeChild = node.maybeChild($target.indexAfter(depth));
-    if (maybeChild?.type.name === "image") {
-      targetImageNode = maybeChild;
-      targetImagePos = $target.posAtIndex($target.indexAfter(depth), depth);
-      parentIsImageRow = node.type.name === "imageRow";
-      break;
-    }
-  }
-  if (!targetImageNode || targetImagePos < 0) return false;
-
-  const tr = state.tr;
-
-  // 挿入位置の決定（source 削除前の座標系で計算）
+  const tr = view.state.tr;
   const insertLeft = decision.action === "wrap-left";
-  const sourceCopy = source.node;
 
-  if (parentIsImageRow) {
-    // 既存 imageRow 内に左右挿入
-    const insertPos = insertLeft ? targetImagePos : targetImagePos + targetImageNode.nodeSize;
-    // source を削除
-    tr.delete(source.pos, source.pos + sourceCopy.nodeSize);
-    // source 削除で insertPos がずれる可能性を調整
-    const mappedInsertPos = tr.mapping.map(insertPos);
-    tr.insert(mappedInsertPos, sourceCopy);
+  if (target.parentIsImageRow) {
+    insertIntoImageRow(tr, source, target, insertLeft);
   } else {
-    // 新規 imageRow を作成してターゲットを置換
-    const imageRowType = state.schema.nodes.imageRow;
-    if (!imageRowType) return false;
-    const children = insertLeft ? [sourceCopy, targetImageNode] : [targetImageNode, sourceCopy];
-    const newRow = imageRowType.create(null, children);
-    // source を先に削除
-    tr.delete(source.pos, source.pos + sourceCopy.nodeSize);
-    // 削除後のターゲット位置
-    const mappedTargetPos = tr.mapping.map(targetImagePos);
-    tr.replaceWith(mappedTargetPos, mappedTargetPos + targetImageNode.nodeSize, newRow);
+    if (!wrapInNewImageRow(view, tr, source, target, insertLeft)) return false;
   }
+
   tr.setMeta("imageRowDrop", true);
   view.dispatch(tr);
   return true;
@@ -155,7 +166,7 @@ export const imageRowDropPlugin = new Plugin({
   key: imageRowDropPluginKey,
   props: {
     handleDrop(view, event) {
-      const dragEvent = event as DragEvent;
+      const dragEvent = event;
       const decision = computeDropTarget({
         view,
         clientX: dragEvent.clientX,
@@ -188,7 +199,7 @@ export const imageRowDropPlugin = new Plugin({
     },
     handleDOMEvents: {
       dragover(view, event) {
-        const dragEvent = event as DragEvent;
+        const dragEvent = event;
         const decision = computeDropTarget({
           view,
           clientX: dragEvent.clientX,

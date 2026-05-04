@@ -1,7 +1,6 @@
 const sqlAsmActual = require(require.resolve('sql.js/dist/sql-asm.js')); // eslint-disable-line @typescript-eslint/no-require-imports
 (global as Record<string, unknown>).__non_webpack_require__ = (_path: string) => sqlAsmActual;
 
-import { TrailDatabase } from '../TrailDatabase';
 import { SyncService } from '../SyncService';
 import type { IRemoteTrailStore } from '../IRemoteTrailStore';
 import type { ManualElement, ManualRelationship } from '@anytime-markdown/trail-core';

@@ -28,7 +28,7 @@ function calcMarkerRatios(editor: Editor): number[] {
       const el =
         domInfo.node instanceof Element
           ? (domInfo.node as HTMLElement)
-          : (domInfo.node as Node).parentElement;
+          : domInfo.node.parentElement;
       if (!el) return [];
       const elTop = el.getBoundingClientRect().top;
       const absY = elTop - containerTop + scrollTop;

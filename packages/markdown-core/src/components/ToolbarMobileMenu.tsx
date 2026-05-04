@@ -131,7 +131,7 @@ export const ToolbarMobileMenu = React.memo(function ToolbarMobileMenu({
       {[
         ...fileItems,
         ...(fileItems.length > 0 ? [<Divider key="divider-file" />] : []),
-        ...(!hideOutline ? [
+        ...(hideOutline ? [] : [
           <MenuItem
             key="outline"
             onClick={() => { onToggleOutline(); onClose(); }}
@@ -140,7 +140,7 @@ export const ToolbarMobileMenu = React.memo(function ToolbarMobileMenu({
             <ListItemIcon><ListAltIcon fontSize="small" color={outlineOpen ? "primary" : "inherit"} /></ListItemIcon>
             <ListItemText>{t("outline")}</ListItemText>
           </MenuItem>,
-        ] : []),
+        ]),
         ...(!hideComments && onToggleComments ? [
           <MenuItem
             key="comments"
@@ -162,7 +162,7 @@ export const ToolbarMobileMenu = React.memo(function ToolbarMobileMenu({
           </MenuItem>,
         ] : []),
         <Divider key="divider" />,
-        ...(!hideVersionInfo ? [
+        ...(hideVersionInfo ? [] : [
           <MenuItem
             key="versionInfo"
             onClick={() => { onOpenVersionDialog?.(); onClose(); }}
@@ -170,7 +170,7 @@ export const ToolbarMobileMenu = React.memo(function ToolbarMobileMenu({
             <ListItemIcon><InfoOutlinedIcon fontSize="small" /></ListItemIcon>
             <ListItemText>{t("versionInfo")}</ListItemText>
           </MenuItem>,
-        ] : []),
+        ]),
       ]}
     </Menu>
   );

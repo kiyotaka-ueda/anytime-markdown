@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function ReportDetailPage({ params }: Props) {
+export default async function ReportDetailPage({ params }: Readonly<Props>) {
   const { slug } = await params;
 
   let report: { meta: ReportMeta; content: string } | null = null;

@@ -17,7 +17,7 @@ function extractFileName(url: string): string {
     }
 }
 
-export function DrawioEmbedView({ url, variant, widthOverride }: Props) {
+export function DrawioEmbedView({ url, variant, widthOverride }: Readonly<Props>) {
     const theme = useTheme();
 
     if (variant === "compact") {

@@ -70,7 +70,7 @@ function extractTextExcerpt(html: string): string {
     return text.trim().slice(0, 50);
 }
 
-export function TwitterEmbedView({ url, variant, providers, widthOverride }: Props) {
+export function TwitterEmbedView({ url, variant, providers, widthOverride }: Readonly<Props>) {
     const { loading, data, error } = useOembedData(url, providers);
     const theme = useTheme();
     const containerRef = useRef<HTMLDivElement | null>(null);

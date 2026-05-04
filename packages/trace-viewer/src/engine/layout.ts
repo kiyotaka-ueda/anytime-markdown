@@ -1,5 +1,5 @@
 import type { GraphNode, GraphEdge, NodeStyle, EdgeStyle } from '@anytime-markdown/graph-core';
-import { buildCallTree, type CallNode } from '@anytime-markdown/trace-core/parse';
+import type { CallNode } from '@anytime-markdown/trace-core/parse';
 import { extractLifelines, applyFilters } from '@anytime-markdown/trace-core/analyze';
 import type { TraceFile } from '@anytime-markdown/trace-core/types';
 

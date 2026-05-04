@@ -9,7 +9,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(req.url);
   const from = searchParams.get('from');
   const to = searchParams.get('to');
-  const bucket = (searchParams.get('bucket') === 'week' ? 'week' : 'day') as 'day' | 'week';
+  const bucket = searchParams.get('bucket') === 'week' ? 'week' : 'day';
   if (!from || !to) {
     return NextResponse.json({ error: 'from and to are required' }, { status: 400 });
   }

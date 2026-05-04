@@ -36,6 +36,30 @@ export function computeSmartGuides(
   return { snappedX, snappedY, guides };
 }
 
+/**
+ * 1 軸の 3x3 ペアからベストスナップを 1 ノードぶん探索する。
+ * 戻り値の bestDelta が threshold を超えていればスナップ候補なし。
+ */
+function findAxisSnap(
+  base: number,
+  selfPoints: number[],
+  otherPoints: number[],
+  threshold: number,
+): { snapped: number; bestDelta: number } {
+  let snapped = base;
+  let bestDelta = threshold + 1;
+  for (const sp of selfPoints) {
+    for (const op of otherPoints) {
+      const d = Math.abs(sp - op);
+      if (d <= threshold && d < bestDelta) {
+        bestDelta = d;
+        snapped = base + (op - sp);
+      }
+    }
+  }
+  return { snapped, bestDelta };
+}
+
 /** 全ノードに対して最も近いスナップ位置を探索する */
 function findBestSnap(
   x: number, y: number,
@@ -51,19 +75,15 @@ function findBestSnap(
     const otherXPoints = [other.x, other.x + other.width / 2, other.x + other.width];
     const otherYPoints = [other.y, other.y + other.height / 2, other.y + other.height];
 
-    for (let si = 0; si < 3; si++) {
-      for (let oi = 0; oi < 3; oi++) {
-        const dx = Math.abs(selfXPoints[si] - otherXPoints[oi]);
-        if (dx <= threshold && dx < bestDx) {
-          bestDx = dx;
-          snappedX = x + (otherXPoints[oi] - selfXPoints[si]);
-        }
-        const dy = Math.abs(selfYPoints[si] - otherYPoints[oi]);
-        if (dy <= threshold && dy < bestDy) {
-          bestDy = dy;
-          snappedY = y + (otherYPoints[oi] - selfYPoints[si]);
-        }
-      }
+    const xResult = findAxisSnap(x, selfXPoints, otherXPoints, threshold);
+    if (xResult.bestDelta < bestDx) {
+      bestDx = xResult.bestDelta;
+      snappedX = xResult.snapped;
+    }
+    const yResult = findAxisSnap(y, selfYPoints, otherYPoints, threshold);
+    if (yResult.bestDelta < bestDy) {
+      bestDy = yResult.bestDelta;
+      snappedY = yResult.snapped;
     }
   }
 

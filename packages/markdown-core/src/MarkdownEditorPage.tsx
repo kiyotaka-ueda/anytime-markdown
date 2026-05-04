@@ -304,6 +304,10 @@ function useFrontmatterStorage(
   }, [editor, frontmatterRef]);
 }
 
+function maskWhenRestricted<T>(isRestricted: boolean, value: T): T | undefined {
+  return isRestricted ? undefined : value;
+}
+
 export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSettings, hideVersionInfo, onCompareModeChange, onHeadingsChange, onCommentsChange, themeMode, onThemeModeChange, presetName, onPresetChange, onLocaleChange, fileSystemProvider, externalContent, externalFileName, externalFilePath: _externalFilePath, onExternalSave, readOnly, hideToolbar, hideOutline, hideComments, hideTemplates, hideFoldAll, hideStatusBar, onStatusChange, autoReload, onModeChange, defaultSourceMode, showReadonlyMode, externalCompareContent, explorerOpen, onToggleExplorer, sideToolbar, hideCompareToggle, hideGraph, explorerSlot, noScroll, defaultOutlineOpen, fixedEditorHeight, defaultFontSize, initialFontSize, defaultBlockAlign, onContentChange, showFrontmatter, bottomOffset: extraBottomOffset, gridRows, gridCols, onHomeClick }: MarkdownEditorPageProps = {}) {
   const t = useTranslations("MarkdownEditor");
   const locale = useLocale() as "en" | "ja";
@@ -559,12 +563,18 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
     headings, foldedIndices, hiddenByFold, foldAll, unfoldAll, toggleFold,
     handleOutlineClick,
     handleOutlineResizeStart,
-    onHeadingDragEnd: isRestrictedMode ? undefined : handleHeadingDragEnd,
-    onOutlineDelete: isRestrictedMode ? undefined : handleOutlineDelete,
-    onInsertSectionNumbers: isRestrictedMode ? undefined : handleInsertSectionNumbers,
-    onRemoveSectionNumbers: isRestrictedMode ? undefined : handleRemoveSectionNumbers,
+    onHeadingDragEnd: maskWhenRestricted(isRestrictedMode, handleHeadingDragEnd),
+    onOutlineDelete: maskWhenRestricted(isRestrictedMode, handleOutlineDelete),
+    onInsertSectionNumbers: maskWhenRestricted(isRestrictedMode, handleInsertSectionNumbers),
+    onRemoveSectionNumbers: maskWhenRestricted(isRestrictedMode, handleRemoveSectionNumbers),
     t,
   };
+  const onOpenSettingsHandler = hideSettings ? undefined : () => setSettingsOpen(true);
+  const onLineEndingChangeHandler = hideStatusBar ? undefined : fileHandling.handleLineEndingChange;
+  const onEncodingChangeHandler = hideStatusBar ? undefined : fileHandling.handleEncodingChange;
+  const sideToolbarVisibleEditable = !!(sideToolbar && !readonlyMode && isMd);
+  const sideToolbarVisible = !!(sideToolbar && isMd);
+  const showReadonlyToolbar = (_readonlyMode || readOnly) && !hideToolbar;
 
   return (
     <EditorErrorBoundary>
@@ -590,8 +600,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
           onToggleExplorer,
         }}
         hide={{
-          outline: hideOutline || (sideToolbar && !readonlyMode && isMd), comments: hideComments || (sideToolbar && isMd),
-          explorer: sideToolbar && isMd, compareToggle: hideCompareToggle,
+          outline: hideOutline || sideToolbarVisibleEditable, comments: hideComments || sideToolbarVisible,
+          explorer: sideToolbarVisible, compareToggle: hideCompareToggle,
           templates: hideTemplates, foldAll: hideFoldAll,
           fileOps: hideFileOps, undoRedo: hideUndoRedo,
           versionInfo: hideVersionInfo,
@@ -633,7 +643,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         t={t}
       />
 
-      {(_readonlyMode || readOnly) && !hideToolbar && (
+      {showReadonlyToolbar && (
         <ReadonlyToolbar
           outlineOpen={outlineOpen}
           onToggleOutline={handleToggleOutline}
@@ -662,7 +672,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         fileDragOver={fileDragOver} onFileDragOverChange={setFileDragOver}
         onToggleOutline={handleToggleOutline}
         onToggleExplorer={onToggleExplorer}
-        onOpenSettings={hideSettings ? undefined : () => setSettingsOpen(true)}
+        onOpenSettings={onOpenSettingsHandler}
         explorerSlot={explorerSlot}
       />
 
@@ -671,8 +681,8 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         handleLink={handleLink} executeInReviewMode={executeInReviewMode}
         slashCommandCallbackRef={slashCommandCallbackRef}
         sourceText={sourceText} fileName={fileName ?? externalFileName ?? null} isDirty={isDirty}
-        handleLineEndingChange={hideStatusBar ? undefined : fileHandling.handleLineEndingChange}
-        encoding={fileHandling.encoding} handleEncodingChange={hideStatusBar ? undefined : fileHandling.handleEncodingChange}
+        handleLineEndingChange={onLineEndingChangeHandler}
+        encoding={fileHandling.encoding} handleEncodingChange={onEncodingChangeHandler}
         onStatusChange={onStatusChange} hideStatusBar={hideStatusBar}
         helpAnchorEl={helpAnchorEl} setHelpAnchorEl={setHelpAnchorEl}
         diagramAnchorEl={diagramAnchorEl} setDiagramAnchorEl={setDiagramAnchorEl}
@@ -686,7 +696,7 @@ export default function MarkdownEditorPage({ hideFileOps, hideUndoRedo, hideSett
         outlineOpen={outlineOpen} commentOpen={commentOpen}
         onToggleOutline={handleToggleOutline}
         onToggleComments={() => setCommentOpen((prev) => !prev)}
-        onOpenSettings={hideSettings ? undefined : () => setSettingsOpen(true)}
+        onOpenSettings={onOpenSettingsHandler}
         pdfExporting={pdfExporting} notification={notification} setNotification={setNotification} t={t}
       />
     </Box>

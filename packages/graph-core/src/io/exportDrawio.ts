@@ -32,41 +32,61 @@ const ROUTING_MAP: Record<string, string> = {
   orthogonal: 'edgeStyle=orthogonalEdgeStyle',
 };
 
-function nodeStyle(node: GraphNode): string {
-  const parts: string[] = [];
-  const fill = toHexColor(node.style.fill).replaceAll('#', '');
-  const stroke = toHexColor(node.style.stroke).replaceAll('#', '');
+type OptionalStyleEntry = (
+  style: GraphNode['style'],
+  type: GraphNode['type'],
+) => string | null;
 
+const OPTIONAL_STYLE_ENTRIES: readonly OptionalStyleEntry[] = [
+  (s) => (s.fontStyle ? `fontStyle=${s.fontStyle}` : null),
+  (s) => (s.align && s.align !== 'center' ? `align=${s.align}` : null),
+  (s) =>
+    s.verticalAlign && s.verticalAlign !== 'middle'
+      ? `verticalAlign=${s.verticalAlign}`
+      : null,
+  (s) =>
+    s.opacity !== undefined && s.opacity !== 100 ? `opacity=${s.opacity}` : null,
+  (s) => (s.dashed ? 'dashed=1' : null),
+  (s, type) => (s.borderRadius && type !== 'ellipse' ? 'rounded=1' : null),
+  (s) => (s.spacing !== undefined ? `spacing=${s.spacing}` : null),
+  (s) => (s.spacingTop !== undefined ? `spacingTop=${s.spacingTop}` : null),
+  (s) => (s.spacingRight !== undefined ? `spacingRight=${s.spacingRight}` : null),
+  (s) => (s.spacingBottom !== undefined ? `spacingBottom=${s.spacingBottom}` : null),
+  (s) => (s.spacingLeft !== undefined ? `spacingLeft=${s.spacingLeft}` : null),
+];
+
+function buildOptionalStyleParts(node: GraphNode): string[] {
+  const result: string[] = [];
+  for (const entry of OPTIONAL_STYLE_ENTRIES) {
+    const part = entry(node.style, node.type);
+    if (part !== null) result.push(part);
+  }
+  return result;
+}
+
+function nodeStyle(node: GraphNode): string {
   if (node.type === 'text') {
-    parts.push('text;strokeColor=none;fillColor=none');
-    return parts.join(';');
+    return 'text;strokeColor=none;fillColor=none';
   }
 
-  parts.push(NODE_SHAPE_MAP[node.type] ?? 'rounded=0');
+  const fill = toHexColor(node.style.fill).replaceAll('#', '');
+  const stroke = toHexColor(node.style.stroke).replaceAll('#', '');
+  const fontColor = node.style.fontColor
+    ? toHexColor(node.style.fontColor).replaceAll('#', '')
+    : 'FFFFFF';
 
-  parts.push(
+  const parts: string[] = [
+    NODE_SHAPE_MAP[node.type] ?? 'rounded=0',
     `fillColor=#${fill}`,
     `strokeColor=#${stroke}`,
     `strokeWidth=${node.style.strokeWidth}`,
     `fontSize=${node.style.fontSize}`,
     `fontFamily=${node.style.fontFamily}`,
-  );
-
-  const fontColor = node.style.fontColor ? toHexColor(node.style.fontColor).replaceAll('#', '') : 'FFFFFF';
-  parts.push(`fontColor=#${fontColor}`);
-  if (node.style.fontStyle) parts.push(`fontStyle=${node.style.fontStyle}`);
-  if (node.style.align && node.style.align !== 'center') parts.push(`align=${node.style.align}`);
-  if (node.style.verticalAlign && node.style.verticalAlign !== 'middle') parts.push(`verticalAlign=${node.style.verticalAlign}`);
-  if (node.style.opacity !== undefined && node.style.opacity !== 100) parts.push(`opacity=${node.style.opacity}`);
-  if (node.style.dashed) parts.push('dashed=1');
-  if (node.style.borderRadius && node.type !== 'ellipse') parts.push('rounded=1');
-  if (node.style.spacing !== undefined) parts.push(`spacing=${node.style.spacing}`);
-  if (node.style.spacingTop !== undefined) parts.push(`spacingTop=${node.style.spacingTop}`);
-  if (node.style.spacingRight !== undefined) parts.push(`spacingRight=${node.style.spacingRight}`);
-  if (node.style.spacingBottom !== undefined) parts.push(`spacingBottom=${node.style.spacingBottom}`);
-  if (node.style.spacingLeft !== undefined) parts.push(`spacingLeft=${node.style.spacingLeft}`);
-
-  parts.push('whiteSpace=wrap', 'html=1');
+    `fontColor=#${fontColor}`,
+    ...buildOptionalStyleParts(node),
+    'whiteSpace=wrap',
+    'html=1',
+  ];
 
   return parts.join(';');
 }
@@ -113,7 +133,7 @@ function buildEdgeCell(edge: GraphEdge, style: string): string[] {
   const label = edge.label ? escapeXml(edge.label) : '';
   const src = edge.from.nodeId ? `source="${escapeXml(edge.from.nodeId)}"` : '';
   const tgt = edge.to.nodeId ? `target="${escapeXml(edge.to.nodeId)}"` : '';
-  const weightAttr = edge.weight != null ? ` data-weight="${edge.weight}"` : '';
+  const weightAttr = edge.weight == null ? '' : ` data-weight="${edge.weight}"`;
   const lines: string[] = [
     `<mxCell id="${escapeXml(edge.id)}" value="${label}" style="${style}" edge="1" parent="1" ${src} ${tgt}${weightAttr}>`,
     '<mxGeometry relative="1" as="geometry">',
