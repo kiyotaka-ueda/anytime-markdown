@@ -162,7 +162,7 @@
       {
         "command": "anytime-trail.agentMapping.toggleStale",
         "title": "%command.agentMapping.toggleStale%",
-        "icon": "$(eye)",
+        "icon": "$(list-filter)",
         "category": "Anytime Trail"
       },
       {
@@ -249,8 +249,15 @@
         },
         {
           "command": "anytime-trail.agentMapping.toggleStale",
-          "when": "view == anytimeTrail.agentMapping",
-          "group": "navigation"
+          "when": "view == anytimeTrail.agentMapping && !anytimeTrail.agentMapping.filterActive",
+          "group": "navigation",
+          "icon": "$(filter)"
+        },
+        {
+          "command": "anytime-trail.agentMapping.toggleStale",
+          "when": "view == anytimeTrail.agentMapping && anytimeTrail.agentMapping.filterActive",
+          "group": "navigation",
+          "icon": "$(filter-filled)"
         }
       ],
       "view/item/context": [

@@ -792,6 +792,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		showCollapseAll: true,
 	});
 	context.subscriptions.push(agentMappingProvider, agentMappingTreeView);
+	void vscode.commands.executeCommand('setContext', 'anytimeTrail.agentMapping.filterActive', false);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('anytime-trail.agentMapping.refresh', () => {
@@ -804,8 +805,8 @@ export async function activate(context: vscode.ExtensionContext) {
 			agentMappingProvider.toggleStale();
 			void vscode.commands.executeCommand(
 				'setContext',
-				'agentMapping.showStale',
-				agentMappingProvider.showStale,
+				'anytimeTrail.agentMapping.filterActive',
+				!agentMappingProvider.showStale,
 			);
 		}),
 		vscode.commands.registerCommand('anytime-trail.agentMapping.openWorktree', (item: import('./providers/AgentMappingItem').WorktreeTreeItem) => {
