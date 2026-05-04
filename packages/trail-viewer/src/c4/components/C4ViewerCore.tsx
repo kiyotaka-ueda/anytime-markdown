@@ -11,6 +11,7 @@ import TimelineIcon from '@mui/icons-material/Timeline';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
 import ButtonGroup from '@mui/material/ButtonGroup';
 import LinearProgress from '@mui/material/LinearProgress';
 import MenuItem from '@mui/material/MenuItem';
@@ -273,7 +274,7 @@ export function C4ViewerCore({
   const [currentLevel, setCurrentLevel] = useState<number>(initialLevel ?? 1);
 
   const [showCoverage, setShowCoverage] = useState(false);
-  const [showAncestorEdges, setShowAncestorEdges] = useState(true);
+  const [showAncestorEdges, setShowAncestorEdges] = useState(false);
   const [metricOverlay, setMetricOverlay] = useState<MetricOverlay>('none');
   const [selectedFcmapFeatureId, setSelectedFcmapFeatureId] = useState<string | null>(null);
   const [overlayCategory, setOverlayCategory] = useState<OverlayCategory>('none');
@@ -329,7 +330,7 @@ export function C4ViewerCore({
   // --- Community overlay state ---
   const [showCommunity, setShowCommunity] = useState(false);
   const [codeGraphEnabled, setCodeGraphEnabled] = useState(false);
-  const [showActivityTrend, setShowActivityTrend] = useState(true);
+  const [showActivityTrend, setShowActivityTrend] = useState(false);
   const { graph: codeGraph } = useCodeGraph(serverUrl, {
     enabled: showCommunity || codeGraphEnabled || currentLevel >= 2,
     release: selectedRelease,
@@ -1275,89 +1276,80 @@ export function C4ViewerCore({
                       ))}
                     </ButtonGroup>
                   </Box>
-                  {/* Community */}
-                  <Button
-                    size="small"
-                    startIcon={<GroupWorkIcon sx={{ fontSize: 16 }} />}
-                    onClick={() => setShowCommunity(prev => !prev)}
-                    disabled={currentLevel < 3 || (showCommunity && !codeGraph)}
-                    aria-pressed={showCommunity}
-                    aria-label="Toggle community overlay"
-                    title={
-                      currentLevel < 3
-                        ? t('c4.community.disabledLevel')
-                        : showCommunity && !codeGraph
-                          ? t('c4.community.disabledNoData')
-                          : t('c4.community.toggle')
-                    }
-                    fullWidth
-                    sx={{
-                      ...toolbarButtonSx,
-                      fontSize: '0.75rem',
-                      justifyContent: 'flex-start',
-                      ...(showCommunity && currentLevel >= 3 && { bgcolor: toolbarButtonActiveBg }),
-                    }}
-                  >
-                    {t('c4.community.toggle')}
-                  </Button>
-                  {/* Ghost Edges トグル */}
-                  <Button
-                    size="small"
-                    fullWidth
-                    startIcon={<TimelineIcon sx={{ fontSize: 16 }} />}
-                    onClick={() => {
-                      setTcValue(prev => {
-                        const nextMode = prev.enabled ? 'none' : prev.granularity === 'session' ? 'session' : 'commit';
-                        return applyGhostEdgeMode(prev, nextMode);
-                      });
-                    }}
-                    aria-pressed={tcValue.enabled}
-                    sx={{
-                      ...toolbarButtonSx,
-                      fontSize: '0.75rem',
-                      justifyContent: 'flex-start',
-                      ...(tcValue.enabled && { bgcolor: toolbarButtonActiveBg }),
-                    }}
-                  >
-                    Ghost Edges
-                  </Button>
-                  {/* Activity Trend */}
-                  <Button
-                    size="small"
-                    fullWidth
-                    startIcon={<TrendingUpIcon sx={{ fontSize: 16 }} />}
-                    onClick={() => setShowActivityTrend(prev => !prev)}
-                    aria-pressed={showActivityTrend}
-                    aria-label="Toggle Activity Trend chart"
-                    title="Toggle Activity Trend chart"
-                    sx={{
-                      ...toolbarButtonSx,
-                      fontSize: '0.75rem',
-                      justifyContent: 'flex-start',
-                      ...(showActivityTrend && { bgcolor: toolbarButtonActiveBg }),
-                    }}
-                  >
-                    Activity Trend
-                  </Button>
-                  {/* Upper Lines */}
-                  <Button
-                    size="small"
-                    startIcon={<LayersIcon sx={{ fontSize: 16 }} />}
-                    onClick={() => setShowAncestorEdges(prev => !prev)}
-                    disabled={currentLevel === 1}
-                    aria-pressed={showAncestorEdges}
-                    aria-label="Toggle upper C4 layer relationships"
-                    title="Toggle upper C4 layer relationships"
-                    fullWidth
-                    sx={{
-                      ...toolbarButtonSx,
-                      fontSize: '0.75rem',
-                      justifyContent: 'flex-start',
-                      ...(showAncestorEdges && currentLevel !== 1 && { bgcolor: toolbarButtonActiveBg }),
-                    }}
-                  >
-                    Upper Lines
-                  </Button>
+                  {/* Community / Ghost Edges / Activity Trend / Upper Lines — アイコン横並び */}
+                  <Box sx={{ display: 'flex', flexDirection: 'row', gap: 0.5 }}>
+                    {/* Community */}
+                    <Tooltip title={currentLevel < 3 ? t('c4.community.disabledLevel') : showCommunity && !codeGraph ? t('c4.community.disabledNoData') : t('c4.community.toggle')}>
+                      <span>
+                        <IconButton
+                          size="small"
+                          onClick={() => setShowCommunity(prev => !prev)}
+                          disabled={currentLevel < 3 || (showCommunity && !codeGraph)}
+                          aria-pressed={showCommunity}
+                          aria-label={t('c4.community.toggle')}
+                          sx={{
+                            ...toolbarButtonSx,
+                            ...(showCommunity && currentLevel >= 3 && { bgcolor: toolbarButtonActiveBg }),
+                          }}
+                        >
+                          <GroupWorkIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                    {/* Ghost Edges */}
+                    <Tooltip title="Ghost Edges">
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setTcValue(prev => {
+                            const nextMode = prev.enabled ? 'none' : prev.granularity === 'session' ? 'session' : 'commit';
+                            return applyGhostEdgeMode(prev, nextMode);
+                          });
+                        }}
+                        aria-pressed={tcValue.enabled}
+                        aria-label="Ghost Edges"
+                        sx={{
+                          ...toolbarButtonSx,
+                          ...(tcValue.enabled && { bgcolor: toolbarButtonActiveBg }),
+                        }}
+                      >
+                        <TimelineIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Tooltip>
+                    {/* Activity Trend */}
+                    <Tooltip title="Activity Trend">
+                      <IconButton
+                        size="small"
+                        onClick={() => setShowActivityTrend(prev => !prev)}
+                        aria-pressed={showActivityTrend}
+                        aria-label="Toggle Activity Trend chart"
+                        sx={{
+                          ...toolbarButtonSx,
+                          ...(showActivityTrend && { bgcolor: toolbarButtonActiveBg }),
+                        }}
+                      >
+                        <TrendingUpIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Tooltip>
+                    {/* Upper Lines */}
+                    <Tooltip title="Upper Lines">
+                      <span>
+                        <IconButton
+                          size="small"
+                          onClick={() => setShowAncestorEdges(prev => !prev)}
+                          disabled={currentLevel === 1}
+                          aria-pressed={showAncestorEdges}
+                          aria-label="Toggle upper C4 layer relationships"
+                          sx={{
+                            ...toolbarButtonSx,
+                            ...(showAncestorEdges && currentLevel !== 1 && { bgcolor: toolbarButtonActiveBg }),
+                          }}
+                        >
+                          <LayersIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                  </Box>
                   {/* Clear Edit History */}
                   <Button
                     size="small"
