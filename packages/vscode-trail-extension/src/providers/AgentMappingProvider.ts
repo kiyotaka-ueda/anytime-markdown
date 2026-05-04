@@ -2,7 +2,7 @@ import * as cp from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { ClaudeStatusWatcher } from '@anytime-markdown/vscode-common';
+import { ClaudeStatusWatcher, jstDateString } from '@anytime-markdown/vscode-common';
 import { buildAgentMapping } from '@anytime-markdown/trail-core';
 import type { WorktreeEntry, WorktreeMapping } from '@anytime-markdown/trail-core';
 import { WorktreeTreeItem, SessionTreeItem, TodaySummaryItem } from './AgentMappingItem';
@@ -102,11 +102,9 @@ export class AgentMappingProvider
 
   private _fetchTodayCommitCount(): number {
     try {
-      // 今日（JST）の00:00:00+09:00以降のコミット数
-      const todayJst = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(new Date());
-      const after = `${todayJst}T00:00:00+09:00`;
+      const after = `${jstDateString()}T00:00:00+09:00`;
       const output = cp.execSync(
-        `git log --after="${after}" --format="%H" --all`,
+        `git log --after="${after}" --format="%H"`,
         { cwd: this.gitRoot, encoding: 'utf-8', timeout: 5000 },
       );
       return output.trim().split('\n').filter(Boolean).length;

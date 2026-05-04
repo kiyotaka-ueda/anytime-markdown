@@ -7,6 +7,12 @@ import type { Disposable, ClaudeStatus, SessionEdit, StatusChangeCallback, Agent
 const STALE_THRESHOLD_MS = 30_000;
 const POLL_INTERVAL_MS = 3000;
 
+const _jstFmt = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' });
+/** YYYY-MM-DD 形式の JST 日付文字列を返す */
+export function jstDateString(date: Date = new Date()): string {
+  return _jstFmt.format(date);
+}
+
 export class ClaudeStatusWatcher implements Disposable {
   private readonly callbacks: StatusChangeCallback[] = [];
   private readonly multiCallbacks: MultiStatusChangeCallback[] = [];
@@ -283,7 +289,7 @@ export class ClaudeStatusWatcher implements Disposable {
   }
 
   private _computeTodayStats(): TodayStats {
-    const todayJst = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(new Date());
+    const todayJst = jstDateString();
     const projectsDir = path.join(os.homedir(), '.claude', 'projects');
     let sessionCount = 0;
     let totalTokens = 0;
@@ -295,16 +301,14 @@ export class ClaudeStatusWatcher implements Disposable {
           for (const file of fs.readdirSync(dirPath)) {
             if (!file.endsWith('.jsonl')) continue;
             const filePath = path.join(dirPath, file);
-            const mtime = fs.statSync(filePath).mtimeMs;
-            const mtimeJst = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(new Date(mtime));
-            if (mtimeJst === todayJst) {
+            if (jstDateString(new Date(fs.statSync(filePath).mtimeMs)) === todayJst) {
               sessionCount++;
               totalTokens += this._extractContextTokens(filePath);
             }
           }
-        } catch { /* 個別ディレクトリ読み取り失敗は無視 */ }
+        } catch { /* ignore */ }
       }
-    } catch { /* projects ディレクトリ読み取り失敗は無視 */ }
+    } catch { /* ignore */ }
     return { sessionCount, totalTokens };
   }
 
