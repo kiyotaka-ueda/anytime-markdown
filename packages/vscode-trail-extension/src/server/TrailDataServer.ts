@@ -509,8 +509,9 @@ export class TrailDataServer {
       return;
     }
     if (pathname === '/api/c4/coverage' && method === 'GET') {
+      const releaseId = parsed.searchParams.get('release') ?? 'current';
       const repo = parsed.searchParams.get('repo') ?? undefined;
-      void this.handleC4CoverageEndpoint(res, repo);
+      void this.handleC4CoverageEndpoint(res, releaseId, repo);
       return;
     }
     if (pathname === '/api/c4/complexity' && method === 'GET') {
@@ -1440,32 +1441,41 @@ export class TrailDataServer {
     res.end(JSON.stringify({ tree }));
   }
 
-  private async handleC4CoverageEndpoint(res: http.ServerResponse, repo?: string): Promise<void> {
+  private async handleC4CoverageEndpoint(res: http.ServerResponse, releaseId: string, repo?: string): Promise<void> {
     try {
       const provider = this.getC4Provider?.();
       const repoName = repo ?? (this.gitRoot ? path.basename(this.gitRoot) : undefined);
       const store = this.trailDb.asC4ModelStore();
-      const payload = await fetchC4Model(store, 'current', repoName, provider?.featureMatrix);
+      const payload = await fetchC4Model(store, releaseId, repoName, provider?.featureMatrix);
       if (!payload) {
         res.writeHead(200, JSON_HEADERS);
         res.end(JSON.stringify({ coverageMatrix: null, coverageDiff: null }));
         return;
       }
 
-      // DB-based coverage (populated by Trail Import from coverage-summary.json per package)
-      const latestTag = this.trailDb.getReleases()
-        .filter((r) => !repoName || r.repo_name === repoName)[0]?.tag;
-      if (latestTag) {
-        const dbRows = this.trailDb.getCoverageByTag(latestTag);
-        if (dbRows.length > 0) {
-          const coverageMatrix = aggregateCoverageFromDb(dbRows, payload.model);
+      // 特定リリース要求: release_coverage を repo 帰属確認のうえ取得
+      // ファイルスキャンへのフォールバックは行わない（過去スナップショットと現在ファイルが混ざる不整合を防止）
+      if (releaseId !== 'current') {
+        const releaseTagBelongsToRepo = this.trailDb.getReleases()
+          .some((r) => r.tag === releaseId && (!repoName || r.repo_name === repoName));
+        if (!releaseTagBelongsToRepo) {
           res.writeHead(200, JSON_HEADERS);
-          res.end(JSON.stringify({ coverageMatrix, coverageDiff: null }));
+          res.end(JSON.stringify({ coverageMatrix: null, coverageDiff: null }));
           return;
         }
+        const dbRows = this.trailDb.getCoverageByTag(releaseId);
+        if (dbRows.length === 0) {
+          res.writeHead(200, JSON_HEADERS);
+          res.end(JSON.stringify({ coverageMatrix: null, coverageDiff: null }));
+          return;
+        }
+        const coverageMatrix = aggregateCoverageFromDb(dbRows, payload.model);
+        res.writeHead(200, JSON_HEADERS);
+        res.end(JSON.stringify({ coverageMatrix, coverageDiff: null }));
+        return;
       }
 
-      // Fallback 1: current_coverage table (repo-level latest snapshot, no release tag required)
+      // current 要求: current_coverage を優先、なければファイルスキャン
       if (repoName) {
         const currentRows = this.trailDb.getCurrentCoverage(repoName);
         if (currentRows.length > 0) {
@@ -1493,7 +1503,7 @@ export class TrailDataServer {
         }
       }
 
-      // Fallback 2: scan packages/*/coverage/coverage-final.json
+      // current 要求のフォールバック: scan packages/*/coverage/coverage-final.json
       // 要求された repo が現在のワークスペースの gitRoot と一致しない場合は、
       // ローカルのファイルスキャン結果は他リポジトリのデータと混ざるため返さない
       const projectRoot = provider?.projectRoot ?? this.gitRoot;
