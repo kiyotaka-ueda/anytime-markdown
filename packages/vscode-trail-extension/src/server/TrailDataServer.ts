@@ -550,6 +550,18 @@ export class TrailDataServer {
       void this.handleC4ModelEndpoint(res, releaseId, repo);
       return;
     }
+    if (pathname === '/api/c4/communities' && method === 'GET') {
+      this.handleListCommunities(res, parsed);
+      return;
+    }
+    if (pathname === '/api/c4/communities/upsert-summaries' && method === 'POST') {
+      void this.handleUpsertCommunitySummaries(req, res, parsed);
+      return;
+    }
+    if (pathname === '/api/c4/communities/upsert-mappings' && method === 'POST') {
+      void this.handleUpsertCommunityMappings(req, res, parsed);
+      return;
+    }
     if (pathname === '/api/c4/dsm' && method === 'GET') {
       const releaseId = parsed.searchParams.get('release') ?? 'current';
       const repo = parsed.searchParams.get('repo') ?? undefined;
@@ -2679,6 +2691,95 @@ export class TrailDataServer {
     if (typeof b.name !== 'string' || b.name.length === 0) return false;
     if (b.serviceType !== undefined && typeof b.serviceType !== 'string') return false;
     return true;
+  }
+
+  // -------------------------------------------------------------------------
+  //  Community summary / mapping handlers (GET/POST /api/c4/communities/*)
+  // -------------------------------------------------------------------------
+
+  private handleListCommunities(res: http.ServerResponse, url: URL): void {
+    const repoName = url.searchParams.get('repoName') ?? url.searchParams.get('repo');
+    if (!repoName) {
+      res.writeHead(400, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'repoName required' }));
+      return;
+    }
+    try {
+      const communities = this.trailDb.listCurrentCodeGraphCommunities(repoName);
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({ communities }));
+    } catch (err) {
+      TrailLogger.error('handleListCommunities failed', err);
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+    }
+  }
+
+  private async handleUpsertCommunitySummaries(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    url: URL,
+  ): Promise<void> {
+    try {
+      const body = (await this.readJsonBody(req)) as {
+        repoName?: string;
+        summaries?: ReadonlyArray<{ communityId: number; name: string; summary: string }>;
+      };
+      const repoName = body.repoName ?? url.searchParams.get('repoName') ?? url.searchParams.get('repo');
+      if (!repoName) {
+        res.writeHead(400, JSON_HEADERS);
+        res.end(JSON.stringify({ error: 'repoName required (in body or query)' }));
+        return;
+      }
+      if (!Array.isArray(body.summaries)) {
+        res.writeHead(400, JSON_HEADERS);
+        res.end(JSON.stringify({ error: 'summaries array required' }));
+        return;
+      }
+      const result = this.trailDb.upsertCurrentCodeGraphCommunitySummaries(repoName, body.summaries);
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify(result));
+      this.notify('model-updated');
+    } catch (err) {
+      TrailLogger.error('handleUpsertCommunitySummaries failed', err);
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+    }
+  }
+
+  private async handleUpsertCommunityMappings(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    url: URL,
+  ): Promise<void> {
+    try {
+      const body = (await this.readJsonBody(req)) as {
+        repoName?: string;
+        mappings?: ReadonlyArray<{
+          communityId: number;
+          mappings: ReadonlyArray<{ elementId: string; elementType: string; role: 'primary' | 'secondary' | 'dependency' }>;
+        }>;
+      };
+      const repoName = body.repoName ?? url.searchParams.get('repoName') ?? url.searchParams.get('repo');
+      if (!repoName) {
+        res.writeHead(400, JSON_HEADERS);
+        res.end(JSON.stringify({ error: 'repoName required (in body or query)' }));
+        return;
+      }
+      if (!Array.isArray(body.mappings)) {
+        res.writeHead(400, JSON_HEADERS);
+        res.end(JSON.stringify({ error: 'mappings array required' }));
+        return;
+      }
+      const result = this.trailDb.upsertCurrentCodeGraphCommunityMappings(repoName, body.mappings);
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify(result));
+      this.notify('model-updated');
+    } catch (err) {
+      TrailLogger.error('handleUpsertCommunityMappings failed', err);
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+    }
   }
 
   // -------------------------------------------------------------------------

@@ -18,6 +18,9 @@ import {
   analyzeReleaseCode,
   analyzeAll,
   getAnalyzeStatus,
+  listCommunities,
+  upsertCommunitySummaries,
+  upsertCommunityMappings,
 } from './client.js';
 
 export interface McpTrailOptions {
@@ -293,6 +296,74 @@ export function createMcpServer(options: McpTrailOptions = {}): McpServer {
       const opts = resolveOptions({ serverUrl, ...options });
       const status = await getAnalyzeStatus(opts.serverUrl);
       return { content: [{ type: 'text' as const, text: JSON.stringify(status, null, 2) }] };
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  //  Community summary / mapping tools (anytime-reverse-engineer skill 用)
+  // -------------------------------------------------------------------------
+
+  const roleEnum = z.enum(['primary', 'secondary', 'dependency']);
+
+  server.tool(
+    'list_communities',
+    'List code graph communities for a repo with their label / name / summary / mappings_json. Used by anytime-reverse-engineer skill for filtering and cache lookup.',
+    { ...commonParams },
+    async ({ repoName, serverUrl }) => {
+      const opts = resolveOptions({ serverUrl, repoName: repoName ?? options.repoName, ...options });
+      const result = await listCommunities(opts.serverUrl, opts.repoName);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    'upsert_community_summaries',
+    'Upsert community name + summary pairs to current_code_graph_communities. Used by anytime-reverse-engineer skill after AI generation. mappings_json is preserved.',
+    {
+      summaries: z
+        .array(
+          z.object({
+            communityId: z.number().int().describe('community_id from current_code_graphs.graph_json'),
+            name: z.string().describe('Short name (3 words)'),
+            summary: z.string().describe('One-sentence summary (max 60 chars)'),
+          }),
+        )
+        .describe('List of community summaries to upsert'),
+      ...commonParams,
+    },
+    async ({ summaries, repoName, serverUrl }) => {
+      const opts = resolveOptions({ serverUrl, repoName: repoName ?? options.repoName, ...options });
+      const result = await upsertCommunitySummaries(opts.serverUrl, opts.repoName, summaries);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    'upsert_community_mappings',
+    'Upsert C4 element role mappings (mappings_json) per community. Used by anytime-reverse-engineer skill after role determination. name/summary are preserved.',
+    {
+      mappings: z
+        .array(
+          z.object({
+            communityId: z.number().int().describe('community_id'),
+            mappings: z
+              .array(
+                z.object({
+                  elementId: z.string().describe('C4 element id (e.g. pkg_trail-core/coverage)'),
+                  elementType: z.string().describe('C4 element type (component, container, etc.)'),
+                  role: roleEnum.describe('primary / secondary / dependency'),
+                }),
+              )
+              .describe('Per-element role mappings within this community'),
+          }),
+        )
+        .describe('List of community mapping batches to upsert'),
+      ...commonParams,
+    },
+    async ({ mappings, repoName, serverUrl }) => {
+      const opts = resolveOptions({ serverUrl, repoName: repoName ?? options.repoName, ...options });
+      const result = await upsertCommunityMappings(opts.serverUrl, opts.repoName, mappings);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
     },
   );
 

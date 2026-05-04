@@ -262,3 +262,65 @@ export async function analyzeCurrentCodeWithProgress(
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+//  Community summary / mapping API
+// ---------------------------------------------------------------------------
+
+export interface CommunityRow {
+  communityId: number;
+  label: string;
+  name: string;
+  summary: string;
+  mappingsJson: string | null;
+}
+
+export interface CommunitySummaryInput {
+  communityId: number;
+  name: string;
+  summary: string;
+}
+
+export type CommunityRole = 'primary' | 'secondary' | 'dependency';
+
+export interface CommunityMappingEntry {
+  elementId: string;
+  elementType: string;
+  role: CommunityRole;
+}
+
+export interface CommunityMappingInput {
+  communityId: number;
+  mappings: ReadonlyArray<CommunityMappingEntry>;
+}
+
+/**
+ * 指定リポジトリのコミュニティ一覧（label / name / summary / mappings_json）を取得する。
+ */
+export async function listCommunities(serverUrl: string, repoName: string): Promise<{ communities: ReadonlyArray<CommunityRow> }> {
+  return request(serverUrl, `/api/c4/communities?repoName=${encodeURIComponent(repoName)}`, 'GET');
+}
+
+/**
+ * AI 生成した name + summary をコミュニティに upsert する。
+ * mappings_json は触らないので保持される。
+ */
+export async function upsertCommunitySummaries(
+  serverUrl: string,
+  repoName: string,
+  summaries: ReadonlyArray<CommunitySummaryInput>,
+): Promise<{ updated: number }> {
+  return request(serverUrl, '/api/c4/communities/upsert-summaries', 'POST', { repoName, summaries });
+}
+
+/**
+ * AI 判定したコミュニティ別 C4 要素 role マッピングを upsert する。
+ * mappings_json カラムは未存在の DB では自動 ALTER で追加される。
+ */
+export async function upsertCommunityMappings(
+  serverUrl: string,
+  repoName: string,
+  mappings: ReadonlyArray<CommunityMappingInput>,
+): Promise<{ updated: number; inserted: number }> {
+  return request(serverUrl, '/api/c4/communities/upsert-mappings', 'POST', { repoName, mappings });
+}
