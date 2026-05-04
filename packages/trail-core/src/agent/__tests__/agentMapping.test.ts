@@ -102,12 +102,56 @@ describe('resolveWorktree', () => {
     expect(result?.path).toBe('/anytime-markdown');
   });
 
-  test('file が非空でどのworktreeにも一致しない場合 branchが一致してもorphan', () => {
+  test('file が非空でどのworktreeにも一致せず sessionEdits も空 → orphan', () => {
     // 別リポジトリのファイルがブランチ名の偶然の一致で誤マッチしないことを確認
     const result = resolveWorktree(
       '/completely/different/path/src/foo.ts',
       'feature/b',
       worktrees
+    );
+    expect(result).toBeNull();
+  });
+
+  test('file がdocsリポジトリだが sessionEdits に worktree のファイルあり → sessionEdits で解決', () => {
+    // コード編集後にdocs修正した場合、sessionEditsの履歴からworktreeを特定する
+    const result = resolveWorktree(
+      '/Shared/anytime-markdown-docs/spec/foo.md',
+      'develop',
+      worktrees,
+      undefined,
+      [
+        { file: '/anytime-markdown/packages/trail-core/src/foo.ts', timestamp: '2026-05-04T00:00:00Z' },
+        { file: '/Shared/anytime-markdown-docs/spec/foo.md', timestamp: '2026-05-04T01:00:00Z' },
+      ]
+    );
+    expect(result?.path).toBe('/anytime-markdown');
+  });
+
+  test('sessionEdits の最新がdocs、その前がworktree → worktreeに解決（逆順スキャン）', () => {
+    const result = resolveWorktree(
+      '',
+      'develop',
+      worktrees,
+      undefined,
+      [
+        { file: '/anytime-markdown/.worktrees/feature-b/src/foo.ts', timestamp: '2026-05-04T00:00:00Z' },
+        { file: '/Shared/anytime-markdown-docs/spec/bar.md', timestamp: '2026-05-04T01:00:00Z' },
+      ]
+    );
+    // 最新(docs)は不一致 → その前(worktree)で解決
+    expect(result?.path).toBe('/anytime-markdown/.worktrees/feature-b');
+  });
+
+  test('sessionEdits がすべてdocsリポジトリ → orphan', () => {
+    const result = resolveWorktree(
+      '/Shared/anytime-markdown-docs/spec/foo.md',
+      'develop',
+      worktrees,
+      undefined,
+      [
+        { file: '/Shared/anytime-markdown-docs/plan/bar.md', timestamp: '2026-05-04T00:00:00Z' },
+        { file: '/Shared/anytime-markdown-docs/spec/foo.md', timestamp: '2026-05-04T01:00:00Z' },
+      ]
     );
     expect(result).toBeNull();
   });

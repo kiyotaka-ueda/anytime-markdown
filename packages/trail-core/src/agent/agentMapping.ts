@@ -50,44 +50,52 @@ export function resolveWorktree(
   file: string,
   branch: string,
   worktrees: readonly WorktreeEntry[],
-  workspacePath?: string
+  workspacePath?: string,
+  sessionEdits?: readonly { file: string; timestamp: string }[]
 ): WorktreeEntry | null {
-  // 0. workspacePath prefix match（Bash のみのセッション用: テスト実行中など）
-  // cwd から正確な worktree を特定できる。最長一致優先。
-  if (workspacePath) {
+  // パス文字列から最長一致のworktreeを返すヘルパー
+  function matchByPath(p: string): WorktreeEntry | null {
+    if (!p) return null;
     let best: WorktreeEntry | null = null;
     for (const wt of worktrees) {
       const prefix = wt.path.endsWith('/') ? wt.path : `${wt.path}/`;
-      if (workspacePath.startsWith(prefix) || workspacePath === wt.path) {
+      if (p.startsWith(prefix) || p === wt.path) {
         if (best === null || wt.path.length > best.path.length) {
           best = wt;
         }
       }
     }
-    if (best !== null) return best;
-  }
-
-  // 1. file path prefix match (longest wins)
-  if (file) {
-    let best: WorktreeEntry | null = null;
-    for (const wt of worktrees) {
-      const prefix = wt.path.endsWith('/') ? wt.path : `${wt.path}/`;
-      if (file.startsWith(prefix) || file === wt.path) {
-        if (best === null || wt.path.length > best.path.length) {
-          best = wt;
-        }
-      }
-    }
-    // file が非空でどのworktreeパスにも一致しない場合はブランチ照合せず orphan 扱い。
-    // フックは常に同一 git root で branch を取得するため、別リポジトリのセッションが
-    // 誤って main worktree に割り当てられるのを防ぐ。
     return best;
   }
 
-  // 2. file も workspacePath も空のとき（セッション開始直後）のみ branch でフォールバック
-  const byBranch = worktrees.find((wt) => wt.branch === branch);
-  if (byBranch !== undefined) {
-    return byBranch;
+  // 0. workspacePath prefix match（Bash のみのセッション: テスト実行中など）
+  if (workspacePath) {
+    const m = matchByPath(workspacePath);
+    if (m !== null) return m;
+  }
+
+  // 1. 現在の file prefix match
+  if (file) {
+    const m = matchByPath(file);
+    if (m !== null) return m;
+    // file が非空でも一致しない場合はブランチ照合をスキップして sessionEdits へ。
+    // ドキュメント編集など別リポジトリのファイルが最後に開かれているケースに対応。
+  }
+
+  // 2. sessionEdits の逆順スキャン（最新 → 最古）
+  // コード変更後にdocs修正をした場合など、直近の worktree 内編集履歴を使って解決する。
+  if (sessionEdits && sessionEdits.length > 0) {
+    for (let i = sessionEdits.length - 1; i >= 0; i--) {
+      const m = matchByPath(sessionEdits[i].file);
+      if (m !== null) return m;
+    }
+    // sessionEdits がすべて非一致（例: docs のみ編集）→ orphan
+    return null;
+  }
+
+  // 3. file も sessionEdits も空のとき（セッション開始直後）のみ branch でフォールバック
+  if (!file) {
+    return worktrees.find((wt) => wt.branch === branch) ?? null;
   }
 
   return null;
@@ -162,7 +170,9 @@ export function buildAgentMapping(
       workspacePath: agent.workspacePath,
     };
 
-    const resolved = resolveWorktree(agent.file, agent.branch, worktrees, agent.workspacePath);
+    const resolved = resolveWorktree(
+      agent.file, agent.branch, worktrees, agent.workspacePath, agent.sessionEdits
+    );
     if (resolved === null) {
       orphanSessions.push(session);
     } else {
