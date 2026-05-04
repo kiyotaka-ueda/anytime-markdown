@@ -9,22 +9,56 @@
  * 対応タイプ: NOTE, TIP, IMPORTANT, WARNING, CAUTION
  */
 import Blockquote from "@tiptap/extension-blockquote";
+import type { Node as PMNode } from "@tiptap/pm/model";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 
 const ADMONITION_RE = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*/i;
 const MAX_BLOCKQUOTE_DEPTH = 6;
 
 interface SerializerState {
-  wrapBlock: (delim: string, firstDelim: string | null, node: unknown, f: () => void) => void;
-  renderContent: (node: unknown) => void;
+  wrapBlock: (delim: string, firstDelim: string | null, node: PMNode, f: () => void) => void;
+  renderContent: (node: PMNode) => void;
   write: (content: string) => void;
   ensureNewLine: () => void;
-  closeBlock: (node: unknown) => void;
+  closeBlock: (node: PMNode) => void;
   out: string;
 }
 
-interface SerializedNode {
-  attrs: { admonitionType: string | null };
+/**
+ * blockquote の先頭 paragraph から先頭 stripLen 文字を剥がしたコピーを返す。
+ * appendTransaction 未発火経路（new Editor({ content })）からの serialize で
+ * admonitionType を fallback 検出した場合に、出力で [!TYPE] 文字列が重複しないよう
+ * 元 blockquote から prefix を取り除いたノードを再構築する。
+ */
+function stripAdmonitionPrefix(blockquote: PMNode, stripLen: number): PMNode {
+  const first = blockquote.firstChild;
+  if (!first) return blockquote;
+  let remaining = stripLen;
+  const newInline: PMNode[] = [];
+  first.content.forEach((child) => {
+    if (remaining <= 0) {
+      newInline.push(child);
+      return;
+    }
+    if (child.isText) {
+      const text = child.text ?? "";
+      if (text.length <= remaining) {
+        remaining -= text.length;
+        return;
+      }
+      const sliced = text.slice(remaining);
+      newInline.push(first.type.schema.text(sliced, child.marks));
+      remaining = 0;
+    } else {
+      newInline.push(child);
+    }
+  });
+  const newFirst = first.type.create(first.attrs, newInline, first.marks);
+  const newChildren: PMNode[] = [newFirst];
+  for (let i = 1; i < blockquote.childCount; i++) {
+    newChildren.push(blockquote.child(i));
+  }
+  return blockquote.type.create(blockquote.attrs, newChildren, blockquote.marks);
 }
 
 export const AdmonitionBlockquote = Blockquote.extend({
@@ -119,12 +153,31 @@ export const AdmonitionBlockquote = Blockquote.extend({
   addStorage() {
     return {
       markdown: {
-        serialize(state: SerializerState, node: SerializedNode) {
-          if (node.attrs.admonitionType) {
-            const type = node.attrs.admonitionType.toUpperCase();
+        serialize(state: SerializerState, node: PMNode) {
+          let admonitionType = node.attrs.admonitionType as string | null;
+          let renderNode: PMNode = node;
+
+          // appendTransaction 未発火経路（new Editor({ content }) など）から serialize に
+          // 到達した場合、admonitionType が null のままだと else 分岐に落ちて
+          // ブラケットがエスケープされ `> \[!TYPE\] body` と崩れる。
+          // first paragraph の textContent から ADMONITION_RE で type を再導出し、
+          // 重複出力防止のため prefix を剥がしたコピーを描画ノードとして使う。
+          if (!admonitionType) {
+            const first = node.firstChild;
+            if (first && first.type.name === "paragraph") {
+              const match = ADMONITION_RE.exec(first.textContent);
+              if (match) {
+                admonitionType = match[1].toLowerCase();
+                renderNode = stripAdmonitionPrefix(node, match[0].length);
+              }
+            }
+          }
+
+          if (admonitionType) {
+            const type = admonitionType.toUpperCase();
             // firstDelim で [!TYPE] ヘッダー行を出力し、content は通常の > prefix
-            state.wrapBlock("> ", `> [!${type}]\n`, node, () => {
-              state.renderContent(node);
+            state.wrapBlock("> ", `> [!${type}]\n`, renderNode, () => {
+              state.renderContent(renderNode);
             });
             // Admonition 間に空行を確保
             state.ensureNewLine();
@@ -132,8 +185,8 @@ export const AdmonitionBlockquote = Blockquote.extend({
               state.out += "\n";
             }
           } else {
-            state.wrapBlock("> ", null, node, () => {
-              state.renderContent(node);
+            state.wrapBlock("> ", null, renderNode, () => {
+              state.renderContent(renderNode);
             });
           }
         },
