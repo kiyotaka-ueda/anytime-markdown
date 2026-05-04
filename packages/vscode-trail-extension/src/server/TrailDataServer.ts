@@ -593,7 +593,9 @@ export class TrailDataServer {
     }
 
     if (pathname === '/api/code-graph' && method === 'GET') {
-      this.handleCodeGraphEndpoint(res);
+      const releaseId = parsed.searchParams.get('release') ?? 'current';
+      const repo = parsed.searchParams.get('repo') ?? undefined;
+      this.handleCodeGraphEndpoint(res, releaseId, repo);
       return;
     }
     if (pathname === '/api/code-graph/query' && method === 'GET') {
@@ -652,7 +654,28 @@ export class TrailDataServer {
   //  Code graph endpoints
   // -------------------------------------------------------------------------
 
-  private handleCodeGraphEndpoint(res: http.ServerResponse): void {
+  private handleCodeGraphEndpoint(res: http.ServerResponse, releaseId: string, repo?: string): void {
+    if (releaseId !== 'current') {
+      // 特定リリース: release_code_graphs から取得（repo 指定時は releases.repo_name で帰属確認）
+      const releaseTagBelongsToRepo = this.trailDb.getReleases()
+        .some((r) => r.tag === releaseId && (!repo || r.repo_name === repo));
+      if (!releaseTagBelongsToRepo) {
+        res.writeHead(404, JSON_HEADERS);
+        res.end('{}');
+        return;
+      }
+      const graph = this.trailDb.getReleaseCodeGraph(releaseId);
+      if (!graph) {
+        res.writeHead(404, JSON_HEADERS);
+        res.end('{}');
+        return;
+      }
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify(graph));
+      return;
+    }
+
+    // current: codeGraphService キャッシュを使用（既存挙動）
     const graph = this.codeGraphService?.getGraph();
     if (!graph) {
       res.writeHead(404, JSON_HEADERS);
