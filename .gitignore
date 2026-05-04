@@ -9,6 +9,7 @@ node_modules
 .serena
 .vscode
 .worktrees
+.v8-coverage
 
 .vscode-test/
 coverage/

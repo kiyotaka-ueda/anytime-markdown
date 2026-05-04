@@ -414,7 +414,7 @@ function useRemoteInitialFetch(
 // Hook
 // ---------------------------------------------------------------------------
 
-export function useC4DataSource(serverUrl: string): C4DataSourceResult {
+export function useC4DataSource(serverUrl: string, disableWebSocket = false): C4DataSourceResult {
   // State
   const [remoteModel, setRemoteModel] = useState<C4Model | null>(null);
   const [remoteBoundaries, setRemoteBoundaries] = useState<
@@ -608,6 +608,7 @@ export function useC4DataSource(serverUrl: string): C4DataSourceResult {
 
   // WebSocket connect / reconnect
   useEffect(() => {
+    if (disableWebSocket) return;
 
     let mounted = true;
 
@@ -655,7 +656,7 @@ export function useC4DataSource(serverUrl: string): C4DataSourceResult {
         wsRef.current = null;
       }
     };
-  }, [serverUrl, handleWsMessage]);
+  }, [serverUrl, handleWsMessage, disableWebSocket]);
 
   // sendCommand
   const sendCommand = useCallback(

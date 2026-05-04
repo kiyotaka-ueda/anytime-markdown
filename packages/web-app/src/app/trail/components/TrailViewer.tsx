@@ -46,6 +46,7 @@ export function TrailViewer({
         onDocLinkClick={handleDocLinkClick}
         initialTab={initialTab}
         initialC4Level={initialC4Level}
+        disableWebSocket
       />
     </TrailErrorBoundary>
   );

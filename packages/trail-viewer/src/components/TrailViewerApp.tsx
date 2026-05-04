@@ -41,6 +41,12 @@ export interface TrailViewerAppProps {
   readonly initialTab?: number;
   /** C4 ビューアの初期表示レベル（1=L1 Context, 2=L2 Container, 3=L3 Component, 4=L4 Code）*/
   readonly initialC4Level?: number;
+  /**
+   * WebSocket 接続を無効化する。
+   * web アプリなど WebSocket サーバーが存在しない場合に true を渡す。
+   * デフォルト false（拡張機能モード）。
+   */
+  readonly disableWebSocket?: boolean;
 }
 
 export function TrailViewerApp({
@@ -52,9 +58,10 @@ export function TrailViewerApp({
   onDocLinkClick,
   initialTab,
   initialC4Level,
+  disableWebSocket = false,
 }: Readonly<TrailViewerAppProps>) {
   const dataSource = useTrailDataSource(serverUrl);
-  const c4 = useC4DataSource(serverUrl);
+  const c4 = useC4DataSource(serverUrl, disableWebSocket);
   const sendCommand = c4.sendCommand;
 
   const fetchTraceList = useCallback(async () => {
