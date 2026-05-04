@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { ChangesProvider, ChangesFileItem } from '../providers/ChangesProvider';
-import { TimelineProvider, TimelineItem } from '../providers/TimelineProvider';
+import { TimelineProvider, TimelineItem } from '@anytime-markdown/vscode-common';
 import { isMarkdownFile } from './specDocsCommands';
 
 /** git の元コンテンツを提供する TextDocumentContentProvider */

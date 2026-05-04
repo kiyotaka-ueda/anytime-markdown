@@ -7,7 +7,7 @@ import {
   SyncService,
 } from '@anytime-markdown/trail-db';
 import type { IRemoteTrailStore } from '@anytime-markdown/trail-db';
-import { TimelineProvider, TimelineItem } from './providers/TimelineProvider';
+import { TimelineProvider, TimelineItem } from '@anytime-markdown/vscode-common';
 import { GraphProvider, GraphItem } from './providers/GraphProvider';
 import { ChangesProvider } from './providers/ChangesProvider';
 import { SpecDocsProvider, SpecDocsDragAndDrop } from './providers/SpecDocsProvider';
@@ -57,7 +57,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			previousChangedPaths = cp.getChangedPaths();
 		}, 2000);
 
-		timelineProvider = new TimelineProvider();
+		timelineProvider = new TimelineProvider('anytime-history.compareWithCommit');
 		timelineTreeView = vscode.window.createTreeView('anytimeHistory.timeline', {
 			treeDataProvider: timelineProvider,
 		});
