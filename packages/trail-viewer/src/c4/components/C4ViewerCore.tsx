@@ -1648,7 +1648,7 @@ export function C4ViewerCore({
                     </IconButton>
                   </Box>
                   <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-                    <CodeGraphPanel serverUrl={serverUrl} isDark={isDark} />
+                    <CodeGraphPanel serverUrl={serverUrl} isDark={isDark} tcValue={tcValue} />
                   </Box>
                 </Box>
               )}
