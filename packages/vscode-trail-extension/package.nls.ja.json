@@ -33,5 +33,6 @@
   "command.agentMapping.showSessionEdits": "セッション編集履歴を表示",
   "command.agentMapping.copySessionId": "セッション ID をコピー",
   "command.agentMapping.deleteStatusFile": "ステータスファイルを削除",
-  "command.reinstallSkills": "スキル再インストール"
+  "command.reinstallSkills": "スキル再インストール",
+  "command.registerMcpToClaudeCode": "Claude Code に MCP サーバーを登録 (mcp-trail)"
 }
