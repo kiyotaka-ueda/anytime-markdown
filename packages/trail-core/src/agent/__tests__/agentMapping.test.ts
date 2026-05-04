@@ -102,9 +102,19 @@ describe('resolveWorktree', () => {
     expect(result?.path).toBe('/anytime-markdown');
   });
 
-  test('file がどのworktreeにも一致しないがbranchが一致', () => {
+  test('file が非空でどのworktreeにも一致しない場合 branchが一致してもorphan', () => {
+    // 別リポジトリのファイルがブランチ名の偶然の一致で誤マッチしないことを確認
     const result = resolveWorktree(
       '/completely/different/path/src/foo.ts',
+      'feature/b',
+      worktrees
+    );
+    expect(result).toBeNull();
+  });
+
+  test('file が空でbranchが一致 → branch でフォールバック（セッション開始直後）', () => {
+    const result = resolveWorktree(
+      '',
       'feature/b',
       worktrees
     );

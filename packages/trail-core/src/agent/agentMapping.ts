@@ -61,12 +61,13 @@ export function resolveWorktree(
         }
       }
     }
-    if (best !== null) {
-      return best;
-    }
+    // file が非空でどのworktreeパスにも一致しない場合はブランチ照合せず orphan 扱い。
+    // フックは常に同一 git root で branch を取得するため、別リポジトリのセッションが
+    // 誤って main worktree に割り当てられるのを防ぐ。
+    return best;
   }
 
-  // 2. branch match
+  // 2. file が空のとき（セッション開始直後）のみ branch でフォールバック
   const byBranch = worktrees.find((wt) => wt.branch === branch);
   if (byBranch !== undefined) {
     return byBranch;
