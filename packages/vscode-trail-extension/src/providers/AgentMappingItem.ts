@@ -52,12 +52,5 @@ export class SessionTreeItem extends vscode.TreeItem {
         ? `\n\n**Planned:**\n${session.plannedEdits.map(f => `- \`${f}\``).join('\n')}`
         : ''),
     );
-    if (session.file) {
-      this.command = {
-        command: 'vscode.open',
-        title: 'Open Last Edited File',
-        arguments: [vscode.Uri.file(session.file)],
-      };
-    }
   }
 }
