@@ -1475,13 +1475,13 @@ export function C4ViewerCore({
                   isDark={isDark}
                   sx={{ position: 'static' }}
                 />
-                {/* Hotspot 詳細設定（オーバーレイ選択時のみ表示） */}
+                {/* Hotspot 詳細設定（オーバーレイ選択時 + データ有り時のみ表示） */}
                 <HotspotControls
                   value={hotspotValue}
                   onChange={setHotspotValue}
                   loading={hotspotLoading}
                   isDark={isDark}
-                  enabled={isHotspotOverlay}
+                  enabled={isHotspotOverlay && isCategoryDataAvailable}
                   sx={{ position: 'static' }}
                 />
               </Box>
