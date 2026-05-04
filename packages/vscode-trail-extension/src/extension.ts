@@ -825,6 +825,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('anytime-trail.agentMapping.copySessionId', (item: import('./providers/AgentMappingItem').SessionTreeItem) => {
 			void vscode.env.clipboard.writeText(item.session.sessionId);
 		}),
+		vscode.commands.registerCommand('anytime-trail.agentMapping.deleteStatusFile', (item: import('./providers/AgentMappingItem').SessionTreeItem) => {
+			agentMappingProvider.deleteSessionFile(item.session.sessionId);
+		}),
 	);
 }
 

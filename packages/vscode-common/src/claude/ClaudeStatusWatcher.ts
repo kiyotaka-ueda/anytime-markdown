@@ -84,6 +84,11 @@ export class ClaudeStatusWatcher implements Disposable {
     return this.readAllAgents(true);
   }
 
+  /** ステータスファイルの格納ディレクトリを返す */
+  getStatusDir(): string {
+    return this.statusDir;
+  }
+
   dispose(): void {
     if (this.pollTimer) {
       clearInterval(this.pollTimer);

@@ -1,4 +1,6 @@
 import * as cp from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { ClaudeStatusWatcher } from '@anytime-markdown/vscode-common';
 import { buildAgentMapping } from '@anytime-markdown/trail-core';
@@ -63,6 +65,23 @@ export class AgentMappingProvider
       'To delete a stale status file, right-click a session node.',
     );
     this.refresh();
+  }
+
+  deleteSessionFile(sessionId: string): boolean {
+    const filePath = path.join(
+      this.watcher.getStatusDir(),
+      `claude-code-status-${sessionId}.json`,
+    );
+    try {
+      fs.unlinkSync(filePath);
+      this.refresh();
+      return true;
+    } catch (err) {
+      void vscode.window.showErrorMessage(
+        `ステータスファイルの削除に失敗しました: ${filePath}\n${String(err)}`,
+      );
+      return false;
+    }
   }
 
   private _getWorktreesCached(): readonly WorktreeEntry[] {
