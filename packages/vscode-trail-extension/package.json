@@ -189,6 +189,11 @@
         "command": "anytime-trail.agentMapping.deleteStatusFile",
         "title": "%command.agentMapping.deleteStatusFile%",
         "category": "Anytime Trail"
+      },
+      {
+        "command": "anytime-trail.reinstallSkills",
+        "title": "%command.reinstallSkills%",
+        "category": "Anytime Trail"
       }
     ],
     "codeLensProviders": [

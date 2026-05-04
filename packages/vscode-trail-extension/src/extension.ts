@@ -5,6 +5,7 @@ import { setupClaudeHooks, ClaudeStatusWatcher } from '@anytime-markdown/vscode-
 import * as vscode from 'vscode';
 
 import { registerTraceCommands } from './commands/traceCommands';
+import { installBundledSkills } from './installBundledSkills';
 import { CodeGraphService } from './graph/CodeGraphService';
 import { GraphDetector } from './graph/GraphDetector';
 import { AiNoteItem,AiNoteProvider } from './providers/AiNoteProvider';
@@ -109,6 +110,23 @@ export async function activate(context: vscode.ExtensionContext) {
 	const homeDir = process.env.HOME ?? process.env.USERPROFILE ?? '';
 	const claudeDir = homeDir ? path.join(homeDir, '.claude') : '';
 	const hasClaudeDir = Boolean(claudeDir) && fs.existsSync(claudeDir);
+
+	// 同梱スキルを ~/.claude/skills/ に展開（初回 activate 時 / 旧 build-code-graph cleanup）
+	if (hasClaudeDir) {
+		try {
+			installBundledSkills({
+				claudeDir,
+				extensionPath: context.extensionUri.fsPath,
+				logger: {
+					info: (m) => TrailLogger.info(m),
+					warn: (m) => TrailLogger.warn(m),
+					error: (m) => TrailLogger.error(m),
+				},
+			});
+		} catch (err) {
+			TrailLogger.warn(`[install-skills] unexpected failure: ${String(err)}`);
+		}
+	}
 
 	const openAiNote = vscode.commands.registerCommand(
 		'anytime-trail.openAiNote',
@@ -323,6 +341,31 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	);
 
+	const reinstallSkills = vscode.commands.registerCommand(
+		'anytime-trail.reinstallSkills',
+		async () => {
+			if (!hasClaudeDir) {
+				vscode.window.showWarningMessage('Claude Code がインストールされていません（~/.claude が見つかりません）。');
+				return;
+			}
+			const result = installBundledSkills({
+				claudeDir,
+				extensionPath: context.extensionUri.fsPath,
+				force: true,
+				logger: {
+					info: (m) => TrailLogger.info(m),
+					warn: (m) => TrailLogger.warn(m),
+					error: (m) => TrailLogger.error(m),
+				},
+			});
+			if (result.installed) {
+				vscode.window.showInformationMessage('Anytime Trail のスキルを再インストールしました。');
+			} else {
+				vscode.window.showWarningMessage('スキルの再インストールに失敗しました。Output パネルでログを確認してください。');
+			}
+		}
+	);
+
 	context.subscriptions.push(
 		aiNoteTreeView,
 		noteWatcher,
@@ -333,6 +376,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		addAiNotePage,
 		deleteAiNotePage,
 		openAiNotePage,
+		reinstallSkills,
 	);
 
 	// Trail Database + Data Server (non-blocking initialization)
