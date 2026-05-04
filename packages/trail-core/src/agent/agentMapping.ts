@@ -15,6 +15,7 @@ interface AgentInfoLike {
   readonly plannedEdits: readonly string[];
   readonly sessionTitle?: string;
   readonly workspacePath?: string;
+  readonly contextTokens?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -168,6 +169,7 @@ export function buildAgentMapping(
       plannedEdits: agent.plannedEdits,
       sessionTitle: agent.sessionTitle,
       workspacePath: agent.workspacePath,
+      contextTokens: agent.contextTokens,
     };
 
     const resolved = resolveWorktree(

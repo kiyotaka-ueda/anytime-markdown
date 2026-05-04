@@ -33,6 +33,12 @@ export class WorktreeTreeItem extends vscode.TreeItem {
   }
 }
 
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
+  return String(n);
+}
+
 export class SessionTreeItem extends vscode.TreeItem {
   constructor(public readonly session: SessionMapping) {
     super(session.sessionId.slice(0, 8));
@@ -41,11 +47,13 @@ export class SessionTreeItem extends vscode.TreeItem {
       ? `${session.ageSeconds} sec ago`
       : `${Math.round(session.ageSeconds / 60)} min ago`;
     const label = session.sessionTitle || session.fileBasename;
-    this.description = `${stateStr} • ${age}${label ? `    ${label}` : ''}`;
+    const tokenStr = session.contextTokens ? `  ${formatTokens(session.contextTokens)}` : '';
+    this.description = `${stateStr} • ${age}${tokenStr}${label ? `    ${label}` : ''}`;
     this.iconPath = STATE_ICONS[session.state];
     this.contextValue = `session.${session.state}`;
     this.tooltip = new vscode.MarkdownString(
       `**Session:** \`${session.sessionId}\`\n\n` +
+      (session.contextTokens ? `**Context:** ${formatTokens(session.contextTokens)} tokens\n\n` : '') +
       (session.sessionEdits.length > 0
         ? `**Edits:**\n${session.sessionEdits.map(e => `- \`${e.file}\``).join('\n')}`
         : '') +

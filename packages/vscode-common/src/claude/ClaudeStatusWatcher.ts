@@ -17,6 +17,7 @@ export class ClaudeStatusWatcher implements Disposable {
   private lastTimestamp = '';
   private lastAgentMapJson = '';
   private readonly _titleCache = new Map<string, string>();
+  private readonly _tokenCache = new Map<string, { tokens: number; expiry: number }>();
 
   constructor(workspaceRoot?: string, statusDir?: string) {
     const filePath = getStatusFilePath(workspaceRoot, statusDir);
@@ -177,6 +178,7 @@ export class ClaudeStatusWatcher implements Disposable {
         plannedEdits: status.plannedEdits ?? [],
         sessionTitle: this._readSessionTitle(sessionId),
         workspacePath: status.workspacePath,
+        contextTokens: this._readContextTokens(sessionId),
       });
     }
     return agents;
@@ -242,6 +244,61 @@ export class ClaudeStatusWatcher implements Disposable {
 
     this._titleCache.set(sessionId, '');
     return '';
+  }
+
+  private _readContextTokens(sessionId: string): number {
+    const cached = this._tokenCache.get(sessionId);
+    if (cached !== undefined && Date.now() < cached.expiry) return cached.tokens;
+
+    let tokens = 0;
+    try {
+      const projectsDir = path.join(os.homedir(), '.claude', 'projects');
+      for (const dir of fs.readdirSync(projectsDir)) {
+        const filePath = path.join(projectsDir, dir, `${sessionId}.jsonl`);
+        try {
+          fs.accessSync(filePath, fs.constants.R_OK);
+          tokens = this._extractContextTokens(filePath);
+          break;
+        } catch {
+          // not in this project dir
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    this._tokenCache.set(sessionId, { tokens, expiry: Date.now() + 15_000 });
+    return tokens;
+  }
+
+  private _extractContextTokens(filePath: string): number {
+    try {
+      const stats = fs.statSync(filePath);
+      const readSize = Math.min(stats.size, 16384);
+      const fd = fs.openSync(filePath, 'r');
+      const buffer = Buffer.alloc(readSize);
+      fs.readSync(fd, buffer, 0, readSize, Math.max(0, stats.size - readSize));
+      fs.closeSync(fd);
+      let lastTokens = 0;
+      for (const line of buffer.toString('utf-8').split('\n')) {
+        if (!line.includes('"assistant"') || !line.includes('"usage"')) continue;
+        try {
+          const obj = JSON.parse(line) as {
+            type?: string;
+            message?: { usage?: { input_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number } };
+          };
+          if (obj.type === 'assistant' && obj.message?.usage) {
+            const u = obj.message.usage;
+            lastTokens = (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0);
+          }
+        } catch {
+          // skip malformed line
+        }
+      }
+      return lastTokens;
+    } catch {
+      return 0;
+    }
   }
 
   private _extractLastAiTitle(filePath: string): string {

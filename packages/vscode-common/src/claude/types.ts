@@ -40,6 +40,8 @@ export interface AgentInfo {
   readonly sessionTitle?: string;
   /** Bash ツール実行時の cwd（worktree 内でのテスト実行検出に使用） */
   readonly workspacePath?: string;
+  /** JSONL の最新 assistant.message.usage から算出したコンテキストトークン数 */
+  readonly contextTokens?: number;
 }
 
 export type StatusChangeCallback = (editing: boolean, filePath: string) => void;

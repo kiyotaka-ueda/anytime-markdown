@@ -12,6 +12,7 @@ export interface SessionMapping {
   readonly plannedEdits: readonly string[];
   readonly sessionTitle?: string;
   readonly workspacePath?: string;
+  readonly contextTokens?: number;
 }
 
 export interface WorktreeMapping {
