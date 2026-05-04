@@ -32,5 +32,6 @@
   "command.agentMapping.copyWorktreePath": "Copy Worktree Path",
   "command.agentMapping.showSessionEdits": "Show Session Edits",
   "command.agentMapping.copySessionId": "Copy Session ID",
-  "command.agentMapping.deleteStatusFile": "Delete Status File"
+  "command.agentMapping.deleteStatusFile": "Delete Status File",
+  "command.reinstallSkills": "Reinstall Skills"
 }

@@ -32,5 +32,6 @@
   "command.agentMapping.copyWorktreePath": "Worktree パスをコピー",
   "command.agentMapping.showSessionEdits": "セッション編集履歴を表示",
   "command.agentMapping.copySessionId": "セッション ID をコピー",
-  "command.agentMapping.deleteStatusFile": "ステータスファイルを削除"
+  "command.agentMapping.deleteStatusFile": "ステータスファイルを削除",
+  "command.reinstallSkills": "スキル再インストール"
 }
