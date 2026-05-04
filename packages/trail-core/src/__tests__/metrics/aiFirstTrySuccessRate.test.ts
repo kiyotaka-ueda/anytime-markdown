@@ -1,4 +1,4 @@
-import { computeAiFirstTrySuccessRate } from '../../domain/metrics/aiFirstTrySuccessRate';
+import { computeAiFirstTrySuccessRate, isAiFirstTryFailureCommit } from '../../domain/metrics/aiFirstTrySuccessRate';
 import type { DateRange } from '../../domain/metrics/types';
 
 const range: DateRange = { from: '2026-04-01T00:00:00.000Z', to: '2026-04-30T23:59:59.999Z' };
@@ -314,5 +314,15 @@ describe('computeAiFirstTrySuccessRate', () => {
     expect(computeAiFirstTrySuccessRate({ commits: makeScenario(2, 3) }, range, prevRange, 'day').level).toBe('medium');
     // (0, 5): (0 + 5) / (0 + 15) = 33.3% → low
     expect(computeAiFirstTrySuccessRate({ commits: makeScenario(0, 5) }, range, prevRange, 'day').level).toBe('low');
+  });
+});
+
+describe('isAiFirstTryFailureCommit', () => {
+  it('returns true for fix commit subject', () => {
+    expect(isAiFirstTryFailureCommit('fix: something broken')).toBe(true);
+  });
+
+  it('returns false for feat commit subject', () => {
+    expect(isAiFirstTryFailureCommit('feat: add new feature')).toBe(false);
   });
 });
