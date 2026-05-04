@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-05-04
+
+### Changed
+
+- Updated bundled extension versions: anytime-markdown 0.14.0, anytime-graph 0.3.0, anytime-trail 0.16.0
+
 ## [0.3.0] - 2026-04-23
 
 ### Added

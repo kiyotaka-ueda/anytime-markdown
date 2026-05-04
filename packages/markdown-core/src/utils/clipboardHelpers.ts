@@ -15,7 +15,6 @@ export async function copyTextToClipboard(text: string): Promise<void> {
     document.body.appendChild(textarea);
     textarea.select();
     // VS Code webview では navigator.clipboard が使えないため execCommand を残す（意図的な deprecated 利用）
-    // eslint-disable-next-line @typescript-eslint/no-deprecated, sonarjs/deprecation
     document.execCommand("copy");
     textarea.remove();
   }

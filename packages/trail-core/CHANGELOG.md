@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-05-04
+
+### Added
+
+- `agentMapping` pure functions for mapping Claude sessions to git worktrees (TDD)
+- `SequenceAnalyzer` for extracting C4 cross-element call sequences
+- Record Bash working directory (`cwd`) as workspace path for improved worktree detection
+
+### Fixed
+
+- Worktree mappings now maintained after docs-only changes
+- Sessions from separate repositories no longer incorrectly mapped to main worktree
+
+### Removed
+
+- CLI entry point and CLI-only transform functions
+
 ## [0.15.0] - 2026-05-03
 
 ### Added

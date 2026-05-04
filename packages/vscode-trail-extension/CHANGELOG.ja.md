@@ -6,6 +6,42 @@
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-05-04
+
+### 追加
+
+- Claude セッションを git worktree 別に表示する Agent Mapping TreeView
+- Agent Mapping パネルにコンテキストトークン使用量・今日のサマリー・フィルターアイコンを追加
+- セッションツリーに AI セッションタイトルを表示
+- `analyzeCurrentCode` 実行後に Trail Viewer を自動で開く
+- activate 時に anytime-reverse-engineer スキルを自動インストール
+- C4 シーケンス表示用 `/api/c4/sequence` エンドポイント
+- `/api/c4/coverage` と `/api/code-graph` に release フィルタ対応
+- `docsPath` 設定から Docs リポジトリエントリを自動生成
+
+### 修正
+
+- worktree とセッション両レベルで古いセッションをフィルタリング
+- C4 importance スコアの表示・Trail Viewer への送信を修正
+- コードグラフのリポジトリラベルをパスのベース名から導出
+
+### 変更
+
+- コマンドを `analyze` 動詞に統一（`analyzeCurrentCode`、`analyzeAll`）
+- AI Note コマンド ID を `AiNote` プレフィックスに統一、ラベルを「AI Note / AI ノート」に統一
+- 設定キーをサブセクションに整理
+- `workspacePath` を C4 と CodeGraph 共通のトップレベル設定に昇格
+- 削除: C4 モデルパネル・Memory パネル・`loadCoverage`・`regenerateCurrentCodeGraph`・`codeGraph.autoRefresh`・`codeGraph.outputDir`・`coverage.historyLimit`・`test.coverageCommand`・`test.e2eCommand`・Supabase/sync コマンド
+
+### Trail Core (trail-core)
+
+- Claude セッションと worktree のマッピング純粋関数 `agentMapping`
+- C4 要素間コール連鎖を抽出する `SequenceAnalyzer`
+- Bash `cwd` をワークスペースパスとして記録し worktree 検出を改善
+- 修正: ドキュメント変更後も worktree マッピングを維持
+- 修正: 別リポジトリのセッションが main に誤マッピングされる問題を解消
+- 削除: CLI エントリポイントと CLI 専用トランスフォーム
+
 ## [0.15.0] - 2026-05-03
 
 ### 追加

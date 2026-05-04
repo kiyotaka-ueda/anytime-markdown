@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-05-04
+
+### Added
+
+- `TimelineProvider` migrated from `vscode-history-extension` for shared use
+- `jstDateString` helper extracted for JST date formatting
+
+### Fixed
+
+- Today-stats efficiency improvement
+
 ## [0.1.1] - 2026-04-18
 
 ### Added

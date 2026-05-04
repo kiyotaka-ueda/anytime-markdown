@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-04
+
+### Added
+
+- `fragment` shape for sequence diagram fragments
+
+### Fixed
+
+- React component props wrapped in `Readonly` (Sonar S6759)
+- Removed unnecessary type assertions (Sonar S4325)
+- Replaced array-index keys with stable composite keys (Sonar S6479)
+- Replaced global `parseInt` with `Number.parseInt` (Sonar S7773)
+
+### Changed
+
+- Split `handleKeyDown` into per-category handlers to reduce cognitive complexity (Sonar S3776)
+- Split `handleMouseDown` into per-mode helpers (Sonar S3776)
+- Extracted layer helpers from `assignCoordinates` in physics (Sonar S3776)
+- Extracted helpers from `computeVisibleElements`, `findShortestPath`, `findBestSnap` in engine (Sonar S3776)
+- Table-driven optional drawio node style parts; collapsed `buildNodeStyle` ternary chains (Sonar S3776)
+- Preferred `globalThis.localStorage` over `window.localStorage` (Sonar S7764)
+
 ## [0.2.3] - 2026-05-03
 
 ### Added

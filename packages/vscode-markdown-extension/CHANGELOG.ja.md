@@ -6,6 +6,23 @@
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-05-04
+
+### 追加
+
+- Anytime Markdown アクティビティバーと Timeline ビューを追加
+- Timeline ビューと `compareWithCommit` コマンドで git 履歴の閲覧が可能に
+
+### 変更
+
+- 未使用コマンド 5 件を削除
+
+### Editor Core (markdown-core)
+
+- admonition シリアライザに未知ノード型へのフォールバックを追加
+- Sonar 修正: Readonly props（S6759）・型アサーション削除（S4325）・否定三項反転（S7735）・Number グローバル（S7773）・replaceAll（S7781）・globalThis（S7764）・安定キー（S6479）
+- 複数コンポーネントにわたるヘルパー抽出で認知的複雑度を削減（S3776）
+
 ## [0.13.4] - 2026-05-02
 
 ### Editor Core (markdown-core)

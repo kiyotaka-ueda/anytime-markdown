@@ -7,6 +7,27 @@
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-05-04
+
+### 修正
+
+- admonition シリアライザに未知ノード型へのフォールバックを追加
+- React コンポーネントの props を `Readonly` でラップ（Sonar S6759）
+- 不要な型アサーションを削除（Sonar S4325）
+- グローバル `parseInt`/`parseFloat` を `Number.parseInt`/`Number.parseFloat` に置換（Sonar S7773）
+- 否定条件の三項演算子を反転して可読性を向上（Sonar S7735）
+- リテラルパターンの `replace` を `replaceAll` に置換（Sonar S7781）
+
+### 変更
+
+- `parseTagAttributes`・`classifyEmbedUrl`・`parseEmbedInfoString`・`isPrivateAddress` からヘルパー関数を抽出して認知的複雑度を削減（Sonar S3776）
+- `TableNodeView`・`ImageNodeView` のアクション/ダイアログヘルパーを抽出（Sonar S3776）
+- コードブロック拡張の図種・ツールバーヘルパーを抽出（Sonar S3776）
+- プラグインの `applyDropAction` からドロップヘルパーを抽出（Sonar S3776）
+- `MarkdownEditorPage` のハンドラ三項演算子を変数に抽出（Sonar S3776）
+- `window.localStorage` を `globalThis.localStorage` に置換（Sonar S7764）
+- 配列インデックスキーを安定した複合キーに置換（Sonar S6479）
+
 ## [0.13.4] - 2026-05-02
 
 ### 修正

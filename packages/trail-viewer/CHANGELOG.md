@@ -6,6 +6,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-05-04
+
+### Added
+
+- C4 popup: resizable and maximizable for Matrix/Graph panels
+- C4 popup: metrics grouped into size / quality / structure sections
+- Graph/matrix popups in C4 element panel; community graph icon
+- Overlay selector redesigned as two-level category + sub-item selects
+- MatrixPanel: community color-coding toggle
+- C4 Sequence sub-tab wired from context menu to TRACE tab
+- `useCodeGraph` now supports release and repo options
+
+### Fixed
+
+- Community now shown for code (C4) elements in info panel
+- HotspotControls popup hidden when no commit data available
+- Hotspot shows "-" indicator when no commits exist
+- Overlay sub-select disabled when data not yet fetched
+- Overlay selection reset on repository switch
+- Empty entries in coverage/DSM/complexity matrices treated as no-data
+- Hotspot/defect-risk APIs made repository-dependent
+- C4 context menu uses domain type instead of graph render type
+
+### Changed
+
+- C4 level labels renamed from L1-L4 to C1-C4
+- Hotspot controls moved from top toolbar into C4 settings popup
+- Temporal Coupling control shared between C4 and CodeGraph panels
+- Session/daily token display removed
+- `TraceTimeline` renamed to `MessageTimeline`
+- 30 orphaned i18n keys removed; tab label keys unified under `viewer.tab.*`
+- `viewer.tab.c4` renamed to `viewer.tab.model`
+- `trace.*` i18n keys merged into `message.*`
+
 ## [0.14.0] - 2026-05-03
 
 ### Added

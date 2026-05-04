@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-05-04
+
+### Fixed
+
+- Admonition serializer now falls back gracefully for unknown node types
+- React component props wrapped in `Readonly` (Sonar S6759)
+- Removed unnecessary type assertions (Sonar S4325)
+- Replaced global `parseInt`/`parseFloat` with `Number.parseInt`/`Number.parseFloat` (Sonar S7773)
+- Inverted negated ternary conditions for clarity (Sonar S7735)
+- Replaced literal string `replace` with `replaceAll` (Sonar S7781)
+
+### Changed
+
+- Extracted helpers from `parseTagAttributes`, `classifyEmbedUrl`, `parseEmbedInfoString`, `isPrivateAddress` to reduce cognitive complexity (Sonar S3776)
+- Extracted action and dialog helpers from `TableNodeView` and `ImageNodeView` (Sonar S3776)
+- Extracted diagram block kind/toolbar helpers from codeblock extension (Sonar S3776)
+- Extracted drop helpers from `applyDropAction` in plugins (Sonar S3776)
+- Extracted handler ternaries in `MarkdownEditorPage` (Sonar S3776)
+- Preferred `globalThis.localStorage` over `window.localStorage` (Sonar S7764)
+- Replaced array-index keys with stable composite keys (Sonar S6479)
+
 ## [0.13.4] - 2026-05-02
 
 ### Fixed

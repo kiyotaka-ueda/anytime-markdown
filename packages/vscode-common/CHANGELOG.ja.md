@@ -6,6 +6,17 @@
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-05-04
+
+### 追加
+
+- `TimelineProvider` を `vscode-history-extension` から移植し共有化
+- JST 日付整形用 `jstDateString` ヘルパーを抽出
+
+### 修正
+
+- 今日の統計計算の効率を改善
+
 ## [0.1.1] - 2026-04-18
 
 ### 追加

@@ -6,6 +6,14 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-04
+
+### Graph Core (graph-core)
+
+- シーケンス図フラグメント用 `fragment` シェイプを追加
+- Sonar 修正: Readonly props（S6759）・型アサーション削除（S4325）・安定キー（S6479）・Number グローバル（S7773）・globalThis（S7764）
+- hooks・engine・physics・IO モジュールにわたるヘルパー抽出で認知的複雑度を削減（S3776）
+
 ## [0.2.3] - 2026-05-03
 
 ### Graph Core (graph-core)

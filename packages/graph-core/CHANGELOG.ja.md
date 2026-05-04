@@ -6,6 +6,28 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-04
+
+### 追加
+
+- シーケンス図フラグメント用 `fragment` シェイプを追加
+
+### 修正
+
+- React コンポーネントの props を `Readonly` でラップ（Sonar S6759）
+- 不要な型アサーションを削除（Sonar S4325）
+- 配列インデックスキーを安定した複合キーに置換（Sonar S6479）
+- グローバル `parseInt` を `Number.parseInt` に置換（Sonar S7773）
+
+### 変更
+
+- `handleKeyDown` をカテゴリ別ハンドラに分割して認知的複雑度を削減（Sonar S3776）
+- `handleMouseDown` をモード別ヘルパーに分割（Sonar S3776）
+- physics の `assignCoordinates` からレイヤーヘルパーを抽出（Sonar S3776）
+- engine の `computeVisibleElements`・`findShortestPath`・`findBestSnap` からヘルパーを抽出（Sonar S3776）
+- drawio ノードスタイルのテーブル駆動化・`buildNodeStyle` 三項演算子の整理（Sonar S3776）
+- `window.localStorage` を `globalThis.localStorage` に置換（Sonar S7764）
+
 ## [0.2.3] - 2026-05-03
 
 ### 追加

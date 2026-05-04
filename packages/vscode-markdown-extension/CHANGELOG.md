@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-05-04
+
+### Added
+
+- Anytime Markdown activity bar with Timeline view
+- Timeline view and `compareWithCommit` command for git history browsing
+
+### Changed
+
+- Removed 5 unused commands
+
+### Editor Core (markdown-core)
+
+- Admonition serializer fallback for unknown node types
+- Sonar fixes: Readonly props (S6759), type assertions (S4325), negated ternaries (S7735), Number globals (S7773), replaceAll (S7781), globalThis (S7764), stable keys (S6479)
+- Cognitive complexity reduction via helper extraction across multiple components (S3776)
+
 ## [0.13.4] - 2026-05-02
 
 ### Editor Core (markdown-core)

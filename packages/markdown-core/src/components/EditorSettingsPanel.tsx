@@ -113,7 +113,7 @@ export const EditorSettingsPanel = React.memo(function EditorSettingsPanel({
               checked={themeMode === 'dark'}
               onChange={(e) => onThemeModeChange(e.target.checked ? 'dark' : 'light')}
               size="small"
-              slotProps={{ input: { "aria-label": t("settingDarkMode") } }}
+              slotProps={{ input: { role: "switch", "aria-label": t("settingDarkMode") } }}
             />
           </Box>
 
