@@ -14,88 +14,98 @@ import { NextResponse } from "next/server";
 
 const CACHE_MAX_AGE = 300; // 5 min
 
-/** フロントマターの c4Scope / title / type / date を抽出する */
-function parseFrontmatter(raw: string): Pick<DocLink, "title" | "type" | "c4Scope" | "date"> | null {
-  const normalized = raw.replaceAll("\r\n", "\n");
-  const lines = normalized.split("\n");
-  if (lines[0] !== "---") return null;
-
-  let endLineIndex = -1;
-  for (let i = 1; i < lines.length; i += 1) {
-    if (lines[i] === "---") {
-      endLineIndex = i;
-      break;
-    }
+function trimQuotes(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length < 2) return trimmed;
+  const first = trimmed[0];
+  const last = trimmed[trimmed.length - 1];
+  if ((first === `"` && last === `"`) || (first === "'" && last === "'")) {
+    return trimmed.slice(1, -1);
   }
-  if (endLineIndex < 0) return null;
+  return trimmed;
+}
 
-  const fmLines = lines.slice(1, endLineIndex);
+function parseScalar(line: string, key: string): string | null {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith(`${key}:`)) return null;
+  return trimQuotes(trimmed.slice(key.length + 1));
+}
 
-  const trimQuotes = (value: string): string => {
-    const trimmed = value.trim();
-    if (trimmed.length >= 2) {
-      const first = trimmed[0];
-      const last = trimmed[trimmed.length - 1];
-      if ((first === `"` && last === `"`) || (first === "'" && last === "'")) {
-        return trimmed.slice(1, -1);
-      }
-    }
-    return trimmed;
-  };
+function findFrontmatterRange(lines: string[]): [number, number] | null {
+  if (lines[0] !== "---") return null;
+  for (let i = 1; i < lines.length; i += 1) {
+    if (lines[i] === "---") return [1, i];
+  }
+  return null;
+}
 
-  const parseScalar = (line: string, key: string): string | null => {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith(`${key}:`)) return null;
-    return trimQuotes(trimmed.slice(key.length + 1));
-  };
+function parseInlineC4Scope(line: string): string[] | null {
+  const start = line.indexOf("[");
+  const end = line.lastIndexOf("]");
+  if (start < 0 || end <= start) return null;
+  return line
+    .slice(start + 1, end)
+    .split(",")
+    .map(trimQuotes)
+    .filter(Boolean);
+}
 
-  // c4Scope (YAML array)
-  const scopeLines: string[] = [];
+function parseC4Scope(fmLines: readonly string[]): string[] {
+  const scope: string[] = [];
   let inScope = false;
   for (const line of fmLines) {
     const trimmed = line.trim();
     if (trimmed.startsWith("c4Scope:")) {
-      inScope = true;
-      // inline value (e.g. c4Scope: ["a"])
-      const start = line.indexOf("[");
-      const end = line.lastIndexOf("]");
-      if (start >= 0 && end > start) {
-        const inline = line.slice(start + 1, end);
-        scopeLines.push(
-          ...inline
-            .split(",")
-            .map((s) => trimQuotes(s))
-            .filter(Boolean),
-        );
+      const inline = parseInlineC4Scope(line);
+      if (inline) {
+        scope.push(...inline);
         inScope = false;
+      } else {
+        inScope = true;
       }
       continue;
     }
-    if (inScope) {
-      if (trimmed.startsWith("- ")) {
-        scopeLines.push(trimQuotes(trimmed.slice(2)));
-      } else {
-        inScope = false;
-      }
+    if (!inScope) continue;
+    if (trimmed.startsWith("- ")) {
+      scope.push(trimQuotes(trimmed.slice(2)));
+    } else {
+      inScope = false;
     }
   }
-  if (scopeLines.length === 0) return null;
+  return scope;
+}
 
-  let title: string | null = null;
-  let type: string | null = null;
-  let date: string | null = null;
+function parseScalars(
+  fmLines: readonly string[],
+  keys: readonly string[],
+): Record<string, string | null> {
+  const result: Record<string, string | null> = {};
+  for (const k of keys) result[k] = null;
   for (const line of fmLines) {
-    if (title === null) title = parseScalar(line, "title");
-    if (type === null) type = parseScalar(line, "type");
-    if (date === null) date = parseScalar(line, "date");
-    if (title !== null && type !== null && date !== null) break;
+    for (const k of keys) {
+      if (result[k] === null) result[k] = parseScalar(line, k);
+    }
+    if (keys.every((k) => result[k] !== null)) break;
   }
+  return result;
+}
 
+/** フロントマターの c4Scope / title / type / date を抽出する */
+function parseFrontmatter(raw: string): Pick<DocLink, "title" | "type" | "c4Scope" | "date"> | null {
+  const lines = raw.replaceAll("\r\n", "\n").split("\n");
+  const range = findFrontmatterRange(lines);
+  if (!range) return null;
+  const fmLines = lines.slice(range[0], range[1]);
+
+  const c4Scope = parseC4Scope(fmLines);
+  if (c4Scope.length === 0) return null;
+
+  const scalars = parseScalars(fmLines, ["title", "type", "date"]);
   return {
-    title: title ?? "Untitled",
-    type: type ?? "unknown",
-    c4Scope: scopeLines,
-    date: date ?? "",
+    title: scalars["title"] ?? "Untitled",
+    type: scalars["type"] ?? "unknown",
+    c4Scope,
+    date: scalars["date"] ?? "",
   };
 }
 
