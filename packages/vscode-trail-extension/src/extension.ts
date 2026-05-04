@@ -790,7 +790,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		treeDataProvider: agentMappingProvider,
 		showCollapseAll: true,
 	});
-	context.subscriptions.push(agentMappingTreeView);
+	context.subscriptions.push(agentMappingProvider, agentMappingTreeView);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('anytime-trail.agentMapping.refresh', () => {

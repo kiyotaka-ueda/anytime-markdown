@@ -10,7 +10,7 @@ type AgentMappingItem = WorktreeTreeItem | SessionTreeItem;
 const WORKTREE_CACHE_TTL_MS = 30_000;
 
 export class AgentMappingProvider
-  implements vscode.TreeDataProvider<AgentMappingItem>
+  implements vscode.TreeDataProvider<AgentMappingItem>, vscode.Disposable
 {
   private readonly _onDidChangeTreeData = new vscode.EventEmitter<void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
@@ -54,8 +54,14 @@ export class AgentMappingProvider
     return filtered.map(m => new WorktreeTreeItem(m));
   }
 
+  dispose(): void {
+    this._onDidChangeTreeData.dispose();
+  }
+
   cleanupStale(): void {
-    // stale セッションのステータスファイル削除は deleteStatusFile コマンドで個別に行う
+    void vscode.window.showInformationMessage(
+      'To delete a stale status file, right-click a session node.',
+    );
     this.refresh();
   }
 

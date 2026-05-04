@@ -16,9 +16,12 @@ export class WorktreeTreeItem extends vscode.TreeItem {
         ? vscode.TreeItemCollapsibleState.Expanded
         : vscode.TreeItemCollapsibleState.Collapsed,
     );
-    const stateLabel = mapping.aggregatedState === 'active'
-      ? `[${mapping.activeCount} active]`
-      : mapping.aggregatedState === 'stale' ? '[stale]' : `[${mapping.activeCount} active]`;
+    const stateLabelMap: Record<MappingState, string> = {
+      active: `[${mapping.activeCount} active]`,
+      recent: `[${mapping.activeCount} recent]`,
+      stale: '[stale]',
+    };
+    const stateLabel = stateLabelMap[mapping.aggregatedState];
     this.description = `${mapping.branch}  ${stateLabel}`;
     this.iconPath = mapping.aggregatedState === 'active'
       ? new vscode.ThemeIcon('folder-active')
