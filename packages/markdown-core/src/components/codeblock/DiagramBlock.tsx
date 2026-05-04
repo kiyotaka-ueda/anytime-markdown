@@ -167,6 +167,50 @@ function getEditDialog(isMermaid: boolean, isPlantUml: boolean, commonDialogProp
   return null;
 }
 
+interface DiagramKindInfo {
+  isMermaid: boolean;
+  isPlantUml: boolean;
+  label: string;
+  exportSourceKey: string;
+}
+
+function resolveDiagramKind(language: string, t: (key: string) => string): DiagramKindInfo {
+  if (language === "mermaid") {
+    return { isMermaid: true, isPlantUml: false, label: t("mermaid"), exportSourceKey: "exportMmd" };
+  }
+  if (language === "plantuml") {
+    return { isMermaid: false, isPlantUml: true, label: t("plantuml"), exportSourceKey: "exportPuml" };
+  }
+  return { isMermaid: false, isPlantUml: false, label: language, exportSourceKey: "exportSource" };
+}
+
+type VoidCallback = () => void;
+type AsyncOrVoid = () => void | Promise<void>;
+
+interface ToolbarActions {
+  onEdit: VoidCallback | undefined;
+  onDelete: VoidCallback | undefined;
+  onExport: AsyncOrVoid | undefined;
+  onExportSource: AsyncOrVoid | undefined;
+}
+
+function buildToolbarActions(
+  flags: Readonly<{ hasDiagramOutput: boolean; canInteract: boolean; isEditable: boolean }>,
+  callbacks: Readonly<{
+    openEdit: VoidCallback;
+    openDelete: VoidCallback;
+    capture: AsyncOrVoid;
+    exportSource: AsyncOrVoid | undefined;
+  }>,
+): ToolbarActions {
+  return {
+    onEdit: flags.canInteract && flags.hasDiagramOutput ? callbacks.openEdit : undefined,
+    onDelete: flags.isEditable && flags.canInteract ? callbacks.openDelete : undefined,
+    onExport: flags.hasDiagramOutput ? callbacks.capture : undefined,
+    onExportSource: flags.hasDiagramOutput ? callbacks.exportSource : undefined,
+  };
+}
+
 /** Scale SVG width based on editor font size (extracted to reduce cognitive complexity). */
 function scaleSvgForFontSize(svg: string | undefined, fontSize: number): string | undefined {
   if (!svg) return svg;
@@ -207,8 +251,7 @@ export function DiagramBlock(props: DiagramBlockProps) {
   const { isEditable } = props;
   const settings = useEditorSettingsContext();
   const language = node.attrs.language;
-  const isMermaid = language === "mermaid";
-  const isPlantUml = language === "plantuml";
+  const { isMermaid, isPlantUml, label, exportSourceKey } = resolveDiagramKind(language, t);
 
   // Diagram-specific hooks
   const fsZP = useZoomPan();
@@ -221,7 +264,6 @@ export function DiagramBlock(props: DiagramBlockProps) {
   const error = isMermaid ? mermaidError : plantUmlError;
 
   const { handleCapture, handleExportSource } = useDiagramCapture({ isMermaid, isPlantUml, svg, plantUmlUrl, code, isDark });
-  const exportSourceKey = isMermaid ? "exportMmd" : "exportPuml";
 
   const displaySvg = useMemo(() => scaleSvgForFontSize(svg, settings.fontSize), [svg, settings.fontSize]);
 
@@ -229,17 +271,26 @@ export function DiagramBlock(props: DiagramBlockProps) {
     editor, getPos: _getPos, language, code, editOpen,
   });
 
-  const label = isMermaid ? t("mermaid") : t("plantuml");
   const hasDiagramOutput = !!(svg || plantUmlUrl);
   const canInteract = !props.isCompareLeft;
+
+  const toolbarActions = buildToolbarActions(
+    { hasDiagramOutput, canInteract, isEditable },
+    {
+      openEdit: () => { fsZP.reset(); setEditOpen(true); },
+      openDelete: () => setDeleteDialogOpen(true),
+      capture: handleCapture,
+      exportSource: handleExportSource,
+    },
+  );
 
   const toolbar = (
     <BlockInlineToolbar
       label={label}
-      onEdit={canInteract && hasDiagramOutput ? () => { fsZP.reset(); setEditOpen(true); } : undefined}
-      onDelete={isEditable && canInteract ? () => setDeleteDialogOpen(true) : undefined}
-      onExport={hasDiagramOutput ? handleCapture : undefined}
-      onExportSource={hasDiagramOutput ? handleExportSource : undefined}
+      onEdit={toolbarActions.onEdit}
+      onDelete={toolbarActions.onDelete}
+      onExport={toolbarActions.onExport}
+      onExportSource={toolbarActions.onExportSource}
       exportSourceKey={exportSourceKey}
       labelOnly={props.isCompareLeftEditable}
       labelDivider
