@@ -1,13 +1,14 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import { setupClaudeHooks } from '@anytime-markdown/vscode-common';
+import { setupClaudeHooks, ClaudeStatusWatcher } from '@anytime-markdown/vscode-common';
 import * as vscode from 'vscode';
 
 import { registerTraceCommands } from './commands/traceCommands';
 import { CodeGraphService } from './graph/CodeGraphService';
 import { GraphDetector } from './graph/GraphDetector';
 import { AiNoteItem,AiNoteProvider } from './providers/AiNoteProvider';
+import { AgentMappingProvider } from './providers/AgentMappingProvider';
 import { TraceCodeLensProvider } from './providers/TraceCodeLensProvider';
 import { TraceScriptLensProvider } from './providers/TraceScriptLensProvider';
 import { TrailDataServer } from './server/TrailDataServer';
@@ -779,6 +780,51 @@ export async function activate(context: vscode.ExtensionContext) {
 		});
 		context.subscriptions.push(traceWatcher);
 	}
+
+	// Agent Mapping ビュー
+	const agentMappingProvider = new AgentMappingProvider(
+		new ClaudeStatusWatcher(wsRootForDb),
+		wsRootForDb ?? process.cwd(),
+	);
+	const agentMappingTreeView = vscode.window.createTreeView('anytimeTrail.agentMapping', {
+		treeDataProvider: agentMappingProvider,
+		showCollapseAll: true,
+	});
+	context.subscriptions.push(agentMappingTreeView);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('anytime-trail.agentMapping.refresh', () => {
+			agentMappingProvider.refresh();
+		}),
+		vscode.commands.registerCommand('anytime-trail.agentMapping.cleanupStale', () => {
+			agentMappingProvider.cleanupStale();
+		}),
+		vscode.commands.registerCommand('anytime-trail.agentMapping.toggleStale', () => {
+			agentMappingProvider.toggleStale();
+			void vscode.commands.executeCommand(
+				'setContext',
+				'agentMapping.showStale',
+				agentMappingProvider.showStale,
+			);
+		}),
+		vscode.commands.registerCommand('anytime-trail.agentMapping.openWorktree', (item: import('./providers/AgentMappingItem').WorktreeTreeItem) => {
+			void vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(item.mapping.worktreePath), true);
+		}),
+		vscode.commands.registerCommand('anytime-trail.agentMapping.copyWorktreePath', (item: import('./providers/AgentMappingItem').WorktreeTreeItem) => {
+			void vscode.env.clipboard.writeText(item.mapping.worktreePath);
+		}),
+		vscode.commands.registerCommand('anytime-trail.agentMapping.showSessionEdits', (item: import('./providers/AgentMappingItem').SessionTreeItem) => {
+			const edits = item.session.sessionEdits.map(e => ({ label: e.file, description: e.timestamp }));
+			if (edits.length === 0) {
+				void vscode.window.showInformationMessage('No session edits recorded.');
+				return;
+			}
+			void vscode.window.showQuickPick(edits, { title: `Session Edits: ${item.session.sessionId.slice(0, 8)}` });
+		}),
+		vscode.commands.registerCommand('anytime-trail.agentMapping.copySessionId', (item: import('./providers/AgentMappingItem').SessionTreeItem) => {
+			void vscode.env.clipboard.writeText(item.session.sessionId);
+		}),
+	);
 }
 
 export function deactivate(): void {
