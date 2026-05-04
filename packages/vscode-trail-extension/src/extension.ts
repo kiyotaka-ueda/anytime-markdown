@@ -782,9 +782,10 @@ export async function activate(context: vscode.ExtensionContext) {
 	}
 
 	// Agent Mapping ビュー
+	const agentStatusRoot = getEffectiveWorkspacePath() ?? wsRootForDb;
 	const agentMappingProvider = new AgentMappingProvider(
-		new ClaudeStatusWatcher(wsRootForDb),
-		wsRootForDb ?? process.cwd(),
+		new ClaudeStatusWatcher(agentStatusRoot, claudeStatusDirSetting),
+		agentStatusRoot ?? process.cwd(),
 	);
 	const agentMappingTreeView = vscode.window.createTreeView('anytimeTrail.agentMapping', {
 		treeDataProvider: agentMappingProvider,
