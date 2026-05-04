@@ -129,7 +129,7 @@ export class SyncService {
     // Sync releases, release files and features
     try {
       onProgress?.({ message: 'Syncing releases...' });
-      const releases = this.trailDb.getReleases().filter((r) => r.repo_name === 'anytime-markdown');
+      const releases = this.trailDb.getReleases();
       if (releases.length > 0) await this.store.upsertReleases(releases);
       for (const release of releases) {
         const files = this.trailDb.getReleaseFiles(release.tag);
@@ -144,7 +144,7 @@ export class SyncService {
 
     // Sync current TrailGraphs per repository (wash-away: delete all → upsert all)
     try {
-      const currents = this.trailDb.listCurrentGraphs().filter((row) => row.repoName === 'anytime-markdown');
+      const currents = this.trailDb.listCurrentGraphs();
       onProgress?.({ message: `Syncing ${currents.length} current TrailGraphs (wash-away)...` });
       await this.store.unsafeClearCurrentGraphs();
       for (const row of currents) {
