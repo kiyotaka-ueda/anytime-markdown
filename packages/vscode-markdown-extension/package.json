@@ -23,7 +23,8 @@
     "plantuml"
   ],
   "activationEvents": [
-    "onLanguage:markdown"
+    "onLanguage:markdown",
+    "onView:anytimeMarkdown.timeline"
   ],
   "icon": "images/anytime-markdown-128.png",
   "main": "./dist/extension.js",
@@ -72,6 +73,33 @@
         "title": "%command.switchToSource%",
         "icon": "$(code)",
         "enablement": "activeCustomEditorId == anytimeMarkdown"
+      },
+      {
+        "command": "anytime-markdown.compareWithCommit",
+        "title": "%command.compareWithCommit%"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "anytimeMarkdown",
+          "title": "%viewsContainer.title%",
+          "icon": "images/camel-activitybar.svg"
+        }
+      ]
+    },
+    "views": {
+      "anytimeMarkdown": [
+        {
+          "id": "anytimeMarkdown.timeline",
+          "name": "Timeline"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "anytimeMarkdown.timeline",
+        "contents": "%viewsWelcome.timeline%"
       }
     ],
     "customEditors": [
