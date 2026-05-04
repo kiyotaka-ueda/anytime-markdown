@@ -1,7 +1,7 @@
 import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 import { engine, layoutWithSubgroups, MinimapCanvas, state as graphState } from '@anytime-markdown/graph-core';
 import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, CommunityOverlayEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, HotspotMap, ImportanceMatrix, ManualGroup, MetricOverlay } from '@anytime-markdown/trail-core/c4';
-import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, aggregateHotspotToC4, buildC4ElementById, buildCommunityTree, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, computeCommunityOverlay, computeFileHotspot, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFileToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
+import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, aggregateHotspotToC4, buildC4ElementById, buildCommunityTree, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, computeCommunityOverlay, computeFileHotspot, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFileToC4Elements, resolveSelectedElementCommunity, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
@@ -852,6 +852,14 @@ export function C4ViewerCore({
     return computeCommunityOverlay(c4Model, codeGraph, 3, selectedRepo || null);
   }, [codeGraph, c4Model, currentLevel, selectedRepo]);
 
+  // 情報パネル用 L4 オーバーレイ: code 要素選択時に community を解決するために必要。
+  // showCommunity トグルとは独立に C2/C3/C4 で常に計算する（パネル描画はトグルに依存しない）。
+  const communityOverlayL4 = useMemo<ReadonlyMap<string, CommunityOverlayEntry> | null>(() => {
+    if (!codeGraph || !c4Model) return null;
+    if (currentLevel === 1) return null;
+    return computeCommunityOverlay(c4Model, codeGraph, 4, selectedRepo || null);
+  }, [codeGraph, c4Model, currentLevel, selectedRepo]);
+
   const communityTree = useMemo(() => {
     if (!communityOverlayL3 || !codeGraph || !c4Model) return undefined;
     const maxDepth = currentLevel === 2 ? 'container' : currentLevel === 3 ? 'component' : 'code';
@@ -1027,33 +1035,13 @@ export function C4ViewerCore({
     const complexity = complexityMatrix?.entries.find(entry => entry.elementId === element.id) ?? null;
     const importance = importanceMatrix?.[element.id] ?? null;
     const defectRisk = defectRiskMap?.get(element.id) ?? null;
-    const community = (() => {
-      const direct = communityOverlayL3?.get(element.id) ?? null;
-      if (direct) return direct;
-      if (element.type !== 'container' || !communityOverlayL3) return null;
-      const counts = new Map<number, number>();
-      for (const child of c4Model.elements) {
-        if (child.boundaryId !== element.id || child.type !== 'component') continue;
-        const entry = communityOverlayL3.get(child.id);
-        if (!entry) continue;
-        for (const { community: cid, count } of entry.breakdown) {
-          counts.set(cid, (counts.get(cid) ?? 0) + count);
-        }
-      }
-      if (counts.size === 0) return null;
-      const breakdown = Array.from(counts, ([community, count]) => ({ community, count }))
-        .sort((a, b) => (b.count !== a.count ? b.count - a.count : a.community - b.community));
-      const total = breakdown.reduce((sum, e) => sum + e.count, 0);
-      const dominant = breakdown[0];
-      return {
-        elementId: element.id,
-        dominantCommunity: dominant.community,
-        dominantRatio: dominant.count / total,
-        breakdown,
-        isGodNode: false,
-        communitySummary: codeGraph?.communitySummaries?.[dominant.community],
-      } as CommunityOverlayEntry;
-    })();
+    const community = resolveSelectedElementCommunity({
+      element,
+      c4Model,
+      communityOverlayL3,
+      communityOverlayL4,
+      communitySummaries: codeGraph?.communitySummaries,
+    });
     const steps = (() => {
       if (!coverageMatrix) return null;
       if (element.type === 'code') return coverage?.lines.total ?? null;
@@ -1069,7 +1057,7 @@ export function C4ViewerCore({
       return hasData ? total : null;
     })();
     return { element, incoming, outgoing, documents, coverage, complexity, importance, defectRisk, community, steps };
-  }, [c4Model, complexityMatrix, coverageMatrix, defectRiskMap, docLinks, importanceMatrix, selectedElementId, communityOverlayL3, codeGraph]);
+  }, [c4Model, complexityMatrix, coverageMatrix, defectRiskMap, docLinks, importanceMatrix, selectedElementId, communityOverlayL3, communityOverlayL4, codeGraph]);
 
   const { data: elementFunctions, loading: elementFunctionsLoading } = useElementFunctions({
     serverUrl,
