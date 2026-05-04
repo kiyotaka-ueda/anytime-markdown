@@ -45,7 +45,7 @@ export class AgentMappingProvider
     if (element instanceof WorktreeTreeItem) {
       return element.mapping.sessions.map(s => new SessionTreeItem(s));
     }
-    const agents = [...this.watcher.getAgents().values()];
+    const agents = [...this.watcher.getAllAgents().values()];
     const worktrees = this._getWorktreesCached();
     const mappings = buildAgentMapping(agents, worktrees);
     const filtered = this._showStale

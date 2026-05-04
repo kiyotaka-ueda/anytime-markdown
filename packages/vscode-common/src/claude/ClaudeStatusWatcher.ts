@@ -79,6 +79,11 @@ export class ClaudeStatusWatcher implements Disposable {
     return this.readAllAgents();
   }
 
+  /** ステール済みを含む全エージェント情報マップを返す（Agent Mapping ビュー用） */
+  getAllAgents(): ReadonlyMap<string, AgentInfo> {
+    return this.readAllAgents(true);
+  }
+
   dispose(): void {
     if (this.pollTimer) {
       clearInterval(this.pollTimer);
@@ -140,7 +145,7 @@ export class ClaudeStatusWatcher implements Disposable {
     }
   }
 
-  private readAllAgents(): Map<string, AgentInfo> {
+  private readAllAgents(includeStale = false): Map<string, AgentInfo> {
     const agents = new Map<string, AgentInfo>();
     const now = Date.now();
     const files = this.listStatusFiles();
@@ -150,7 +155,7 @@ export class ClaudeStatusWatcher implements Disposable {
       if (!status) continue;
 
       const elapsed = now - new Date(status.timestamp).getTime();
-      if (elapsed > STALE_THRESHOLD_MS) continue;
+      if (!includeStale && elapsed > STALE_THRESHOLD_MS) continue;
 
       const sessionId = status.sessionId ?? this.extractSessionId(filePath);
       if (!sessionId) continue;
