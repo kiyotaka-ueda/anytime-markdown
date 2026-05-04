@@ -34,8 +34,6 @@ import type { TrailRelease } from '@anytime-markdown/trail-core/domain';
 import { C4ViewerCore } from '../c4/components/C4ViewerCore';
 import type { C4ViewerCoreProps } from '../c4/components/C4ViewerCore';
 import { useC4SequenceData } from '../c4/hooks/useC4SequenceData';
-import { CodeGraphPanel } from './CodeGraphPanel';
-import { MatrixPanel } from '../c4/components/MatrixPanel';
 
 /** C4-related props forwarded to the embedded C4ViewerCore. */
 type C4Props = Omit<C4ViewerCoreProps, 'isDark' | 'containerHeight' | 'onShowSequence'>;
@@ -66,13 +64,11 @@ export interface TrailViewerCoreProps {
   readonly sessionsLoading?: boolean;
   /** C4 viewer props. When provided, the C4 tab is shown. */
   readonly c4?: C4Props;
-  /** Code graph props. When provided, the Graph tab is shown. */
-  readonly codeGraph?: { readonly serverUrl: string };
   /** Trace files. When provided, the Trace tab is shown. */
   readonly traceFiles?: readonly TraceFileSource[];
   /** Called when user clicks a node to jump to source. */
   readonly onJumpToSource?: (loc: SourceLocation) => void;
-  /** 初期表示タブ番号（0=Analytics, 1=Traces, 2=Prompts, 3=Releases, 4=C4, 5=Matrix, 6=Graph, 7=Trace）*/
+  /** 初期表示タブ番号（0=Analytics, 1=Traces, 2=Prompts, 3=Releases, 4=C4, 5=Trace）*/
   readonly initialTab?: number;
 }
 
@@ -112,7 +108,6 @@ function TrailViewerCoreInner({
   fetchReleaseQuality,
   sessionsLoading,
   c4,
-  codeGraph,
   traceFiles,
   onJumpToSource,
   initialTab,
@@ -221,9 +216,7 @@ function TrailViewerCoreInner({
           <Tab id="trail-tab-2" aria-controls="trail-panel-2" label={t('viewer.tab.prompts')} />
           <Tab id="trail-tab-3" aria-controls="trail-panel-3" label={t('viewer.tab.releases')} />
           {c4 && <Tab id="trail-tab-4" aria-controls="trail-panel-4" label={t('viewer.tab.model')} />}
-          {c4 && <Tab id="trail-tab-5" aria-controls="trail-panel-5" label={t('viewer.tab.matrix')} />}
-          {codeGraph && <Tab id="trail-tab-6" aria-controls="trail-panel-6" label={t('viewer.tab.graph')} />}
-          {(traceFiles || c4) && <Tab id="trail-tab-7" aria-controls="trail-panel-7" label={t('viewer.tab.trace')} />}
+          {(traceFiles || c4) && <Tab id="trail-tab-5" aria-controls="trail-panel-5" label={t('viewer.tab.trace')} />}
         </Tabs>
 
       </Box>
@@ -342,44 +335,12 @@ function TrailViewerCoreInner({
         </Box>
       )}
 
-      {c4 && (
+      {(traceFiles || c4) && (
         <Box
           role="tabpanel"
           id="trail-panel-5"
           aria-labelledby="trail-tab-5"
           sx={{ display: activeTab !== 5 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
-        >
-          <MatrixPanel
-            dsmMatrix={c4.dsmMatrix}
-            coverageMatrix={c4.coverageMatrix}
-            complexityMatrix={c4.complexityMatrix}
-            c4Model={c4.c4Model}
-            serverUrl={c4.serverUrl}
-            selectedRepo={c4.selectedRepo}
-            selectedRelease={c4.selectedRelease}
-            isDark={isDark}
-            isActive={activeTab === 5}
-          />
-        </Box>
-      )}
-
-      {codeGraph && (
-        <Box
-          role="tabpanel"
-          id="trail-panel-6"
-          aria-labelledby="trail-tab-6"
-          sx={{ display: activeTab !== 6 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
-        >
-          <CodeGraphPanel serverUrl={codeGraph.serverUrl} isDark={isDark} />
-        </Box>
-      )}
-
-      {(traceFiles || c4) && (
-        <Box
-          role="tabpanel"
-          id="trail-panel-7"
-          aria-labelledby="trail-tab-7"
-          sx={{ display: activeTab !== 7 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
         >
           <TraceViewer
             traceFiles={traceFiles ?? []}

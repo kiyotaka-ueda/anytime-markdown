@@ -204,7 +204,6 @@ export function TrailViewerApp({
       fetchReleaseQuality={dataSource.fetchReleaseQuality}
       sessionsLoading={dataSource.sessionsLoading}
       c4={c4Props}
-      codeGraph={{ serverUrl }}
       traceFiles={traceFiles.length > 0 ? traceFiles : undefined}
       initialTab={initialTab}
     />

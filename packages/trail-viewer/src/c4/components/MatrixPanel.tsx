@@ -1,5 +1,5 @@
 import type { C4Element, C4ElementType, C4Model, ComplexityMatrix, CoverageMatrix, DsmMatrix, DsmNode } from '@anytime-markdown/trail-core/c4';
-import { aggregateDsmToC4CodeLevel, aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, buildC4ElementById, computeCommunityOverlay, mapFileToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
+import { aggregateDsmToC4CodeLevel, aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, buildC4ElementById, collectDescendantIds, computeCommunityOverlay, filterDsmMatrix, mapFileToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
 import type { CellAlign, HeaderSpan } from '@anytime-markdown/spreadsheet-core';
 import { SpreadsheetGrid, createInMemorySheetAdapter, spreadsheetViewerEnMessages } from '@anytime-markdown/spreadsheet-viewer';
 import Box from '@mui/material/Box';
@@ -152,6 +152,14 @@ export interface MatrixPanelProps {
   readonly isDark?: boolean;
   /** タブ非表示中は API フェッチを抑止する。省略時は true（後方互換）。 */
   readonly isActive?: boolean;
+  /** Community 配色の有効/無効。C4 ビューの Community トグルと連動させるため外部制御する。省略時は false。 */
+  readonly isCommunityColor?: boolean;
+  /** マウント時の初期ビュー (DSM / Coverage)。省略時は 'coverage'。 */
+  readonly initialMatrixView?: 'dsm' | 'coverage';
+  /** マウント時の初期レベル。省略時は 'component'。 */
+  readonly initialLevel?: 'package' | 'component' | 'code';
+  /** 指定要素の子孫 (descendants) のみに絞り込む。省略時はフィルタなし。 */
+  readonly filterElementId?: string | null;
 }
 
 export function MatrixPanel({
@@ -164,12 +172,15 @@ export function MatrixPanel({
   selectedRelease,
   isDark = false,
   isActive = true,
+  isCommunityColor = false,
+  initialMatrixView = 'coverage',
+  initialLevel = 'component',
+  filterElementId = null,
 }: Readonly<MatrixPanelProps>) {
   const colors = useMemo(() => getC4Colors(isDark), [isDark]);
 
-  const [matrixView, setMatrixView] = useState<'dsm' | 'coverage'>('coverage');
-  const [level, setLevel] = useState<'package' | 'component' | 'code'>('component');
-  const [isCommunityColor, setIsCommunityColor] = useState(false);
+  const [matrixView, setMatrixView] = useState<'dsm' | 'coverage'>(initialMatrixView);
+  const [level, setLevel] = useState<'package' | 'component' | 'code'>(initialLevel);
 
   const { graph: codeGraph } = useCodeGraph(serverUrl ?? '', {
     enabled: isActive,
@@ -196,13 +207,22 @@ export function MatrixPanel({
     return map.size > 0 ? map : null;
   }, [hotspotData, c4Model]);
 
+  const filterScopeIds = useMemo<ReadonlySet<string> | null>(() => {
+    if (!filterElementId || !c4Model) return null;
+    const ids = collectDescendantIds(c4Model.elements, filterElementId);
+    return ids.size > 0 ? ids : null;
+  }, [filterElementId, c4Model]);
+
   const filteredCoverageMatrix = useMemo(() => {
     if (!coverageMatrix || !c4Model) return coverageMatrix;
     const typeFilter: Set<C4ElementType> =
       level === 'package' ? new Set(['container', 'containerDb']) :
       level === 'code'    ? new Set(['code']) :
                                new Set(['component']);
-    const validIds = new Set(c4Model.elements.filter(e => typeFilter.has(e.type)).map(e => e.id));
+    let validIds = new Set(c4Model.elements.filter(e => typeFilter.has(e.type)).map(e => e.id));
+    if (filterScopeIds) {
+      validIds = new Set([...validIds].filter(id => filterScopeIds.has(id)));
+    }
     const elementById = new Map(c4Model.elements.map(e => [e.id, e]));
     const entries = coverageMatrix.entries
       .filter(e => validIds.has(e.elementId))
@@ -211,17 +231,20 @@ export function MatrixPanel({
           .localeCompare(buildCoverageBreadcrumb(b.elementId, level, elementById)),
       );
     return { ...coverageMatrix, entries };
-  }, [coverageMatrix, c4Model, level]);
+  }, [coverageMatrix, c4Model, level, filterScopeIds]);
 
   const filteredDsmMatrix = useMemo(() => {
     if (!dsmMatrix) return null;
     if (!c4Model) return sortDsmMatrixByName(dsmMatrix);
-    const m =
+    let m =
       level === 'package' ? aggregateDsmToC4ContainerLevel(dsmMatrix, c4Model.elements) :
       level === 'code'    ? aggregateDsmToC4CodeLevel(dsmMatrix, c4Model.elements) :
                                aggregateDsmToC4ComponentLevel(dsmMatrix, c4Model.elements);
+    if (filterScopeIds) {
+      m = filterDsmMatrix(m, filterScopeIds);
+    }
     return sortDsmMatrixByName(m);
-  }, [dsmMatrix, level, c4Model]);
+  }, [dsmMatrix, level, c4Model, filterScopeIds]);
 
   const dsmPackageSpans = useMemo(() => {
     if (level === 'package' || !filteredDsmMatrix || !c4Model) return null;
@@ -374,17 +397,6 @@ export function MatrixPanel({
             </Button>
           ))}
         </ButtonGroup>
-
-        <Button
-          size="small"
-          aria-pressed={isCommunityColor}
-          aria-label="Toggle community coloring"
-          disabled={!dsmNodeColorMap}
-          onClick={() => setIsCommunityColor((v) => !v)}
-          sx={{ ...toolbarButtonSx, ...(isCommunityColor && { bgcolor: toolbarButtonActiveBg }) }}
-        >
-          Community
-        </Button>
       </Box>
 
       {/* Sheet */}

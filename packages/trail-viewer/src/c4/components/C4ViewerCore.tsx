@@ -2,11 +2,14 @@ import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 import { engine, layoutWithSubgroups, MinimapCanvas, state as graphState } from '@anytime-markdown/graph-core';
 import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, CommunityOverlayEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, HotspotMap, ImportanceMatrix, ManualGroup, MetricOverlay } from '@anytime-markdown/trail-core/c4';
 import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, aggregateHotspotToC4, buildC4ElementById, buildCommunityTree, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, computeCommunityOverlay, computeFileHotspot, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFileToC4Elements, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
+import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
+import HubIcon from '@mui/icons-material/Hub';
 import LayersIcon from '@mui/icons-material/Layers';
 import LinkIcon from '@mui/icons-material/Link';
+import TableChartIcon from '@mui/icons-material/TableChart';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import Box from '@mui/material/Box';
@@ -94,6 +97,7 @@ function formatPct(value: number): string {
 }
 import GroupWorkIcon from '@mui/icons-material/GroupWork';
 
+import { CodeGraphPanel } from '../../components/CodeGraphPanel';
 import { communityColor } from '../../components/communityColors';
 import { useCodeGraph } from '../../hooks/useCodeGraph';
 import { computeClaudeActivityColorMap, computeConflictBorderMap,computeMultiAgentColorMap } from '../claudeActivityColorMap';
@@ -103,6 +107,7 @@ import { AddElementDialog, AddRelationshipDialog } from './C4EditDialogs';
 import { C4ElementTree } from './C4ElementTree';
 import { GraphCanvas } from './GraphCanvas';
 import { HotspotControls, type HotspotControlsValue } from './HotspotControls';
+import { MatrixPanel } from './MatrixPanel';
 import { type CommunityLegendItem,OverlayLegend } from './OverlayLegend';
 import {
   TemporalCouplingSettingsPopup,
@@ -275,6 +280,25 @@ export function C4ViewerCore({
 
   const [showCoverage, setShowCoverage] = useState(false);
   const [showAncestorEdges, setShowAncestorEdges] = useState(false);
+  const [matrixPopup, setMatrixPopup] = useState<{
+    readonly view: 'dsm' | 'coverage';
+    readonly initialLevel: 'package' | 'component' | 'code';
+    readonly filterElementId: string | null;
+  } | null>(null);
+  const showMatrixPopup = matrixPopup !== null;
+  const [showGraphPopup, setShowGraphPopup] = useState(false);
+  const openMatrixForElement = useCallback((view: 'dsm' | 'coverage', element: C4Element) => {
+    setShowGraphPopup(false);
+    if (element.type === 'container' || element.type === 'containerDb') {
+      setMatrixPopup({ view, initialLevel: 'component', filterElementId: element.id });
+    } else if (element.type === 'component') {
+      setMatrixPopup({ view, initialLevel: 'code', filterElementId: element.id });
+    } else if (element.type === 'code') {
+      setMatrixPopup({ view, initialLevel: 'code', filterElementId: element.boundaryId ?? null });
+    } else {
+      setMatrixPopup({ view, initialLevel: 'component', filterElementId: null });
+    }
+  }, []);
   const [metricOverlay, setMetricOverlay] = useState<MetricOverlay>('none');
   const [selectedFcmapFeatureId, setSelectedFcmapFeatureId] = useState<string | null>(null);
   const [overlayCategory, setOverlayCategory] = useState<OverlayCategory>('none');
@@ -1372,9 +1396,55 @@ export function C4ViewerCore({
                   </Button>
                   {/* Overlay ドロップダウン */}
                   <Box>
-                    <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.65rem', mb: 0.5 }}>
-                      {t('c4.overlay.label')}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.5, mb: 0.5 }}>
+                      <Typography variant="caption" sx={{ color: colors.textMuted, fontSize: '0.65rem' }}>
+                        {t('c4.overlay.label')}
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                        <Tooltip title={t('viewer.tab.graph')}>
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              setShowGraphPopup(prev => {
+                                const next = !prev;
+                                if (next) setMatrixPopup(null);
+                                return next;
+                              });
+                            }}
+                            aria-pressed={showGraphPopup}
+                            aria-label={t('viewer.tab.graph')}
+                            sx={{
+                              ...toolbarButtonSx,
+                              p: 0.25,
+                              ...(showGraphPopup && { bgcolor: toolbarButtonActiveBg }),
+                            }}
+                          >
+                            <HubIcon sx={{ fontSize: 14 }} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={t('viewer.tab.matrix')}>
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              setMatrixPopup(prev => {
+                                if (prev) return null;
+                                setShowGraphPopup(false);
+                                return { view: 'coverage', initialLevel: 'component', filterElementId: null };
+                              });
+                            }}
+                            aria-pressed={showMatrixPopup}
+                            aria-label={t('viewer.tab.matrix')}
+                            sx={{
+                              ...toolbarButtonSx,
+                              p: 0.25,
+                              ...(showMatrixPopup && { bgcolor: toolbarButtonActiveBg }),
+                            }}
+                          >
+                            <TableChartIcon sx={{ fontSize: 14 }} />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </Box>
                     <Select
                       size="small"
                       fullWidth
@@ -1485,6 +1555,103 @@ export function C4ViewerCore({
                   sx={{ position: 'static' }}
                 />
               </Box>
+              {showMatrixPopup && (
+                <Box
+                  role="dialog"
+                  aria-label={t('viewer.tab.matrix')}
+                  sx={{
+                    position: 'absolute',
+                    top: 8,
+                    left: 244,
+                    right: 8,
+                    maxWidth: 960,
+                    height: 'calc(100% - 16px)',
+                    zIndex: 11,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '8px',
+                    bgcolor: isDark ? 'rgba(18,18,18,0.96)' : 'rgba(251,249,243,0.98)',
+                    color: colors.text,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                    backdropFilter: 'blur(10px)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1.5, py: 0.75, borderBottom: `1px solid ${colors.border}`, flexShrink: 0 }}>
+                    <Typography variant="caption" sx={{ color: colors.text, fontSize: '0.8rem', fontWeight: 600 }}>
+                      {t('viewer.tab.matrix')}
+                    </Typography>
+                    <IconButton
+                      size="small"
+                      onClick={() => setMatrixPopup(null)}
+                      aria-label="Close matrix popup"
+                      sx={{ ...toolbarButtonSx, width: 22, height: 22, minWidth: 22 }}
+                    >
+                      <CloseIcon sx={{ fontSize: 14 }} />
+                    </IconButton>
+                  </Box>
+                  <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                    <MatrixPanel
+                      key={`${matrixPopup?.view ?? 'coverage'}-${matrixPopup?.initialLevel ?? 'component'}-${matrixPopup?.filterElementId ?? ''}`}
+                      dsmMatrix={dsmMatrix}
+                      coverageMatrix={coverageMatrix}
+                      complexityMatrix={complexityMatrix}
+                      c4Model={c4Model}
+                      serverUrl={serverUrl}
+                      selectedRepo={selectedRepo}
+                      selectedRelease={selectedRelease}
+                      isDark={isDark}
+                      isActive={showMatrixPopup}
+                      isCommunityColor={showCommunity}
+                      initialMatrixView={matrixPopup?.view ?? 'coverage'}
+                      initialLevel={matrixPopup?.initialLevel ?? 'component'}
+                      filterElementId={matrixPopup?.filterElementId ?? null}
+                    />
+                  </Box>
+                </Box>
+              )}
+              {showGraphPopup && (
+                <Box
+                  role="dialog"
+                  aria-label={t('viewer.tab.graph')}
+                  sx={{
+                    position: 'absolute',
+                    top: 8,
+                    left: 244,
+                    right: 8,
+                    maxWidth: 960,
+                    height: 'calc(100% - 16px)',
+                    zIndex: 11,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '8px',
+                    bgcolor: isDark ? 'rgba(18,18,18,0.96)' : 'rgba(251,249,243,0.98)',
+                    color: colors.text,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                    backdropFilter: 'blur(10px)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1.5, py: 0.75, borderBottom: `1px solid ${colors.border}`, flexShrink: 0 }}>
+                    <Typography variant="caption" sx={{ color: colors.text, fontSize: '0.8rem', fontWeight: 600 }}>
+                      {t('viewer.tab.graph')}
+                    </Typography>
+                    <IconButton
+                      size="small"
+                      onClick={() => setShowGraphPopup(false)}
+                      aria-label="Close graph popup"
+                      sx={{ ...toolbarButtonSx, width: 22, height: 22, minWidth: 22 }}
+                    >
+                      <CloseIcon sx={{ fontSize: 14 }} />
+                    </IconButton>
+                  </Box>
+                  <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                    <CodeGraphPanel serverUrl={serverUrl} isDark={isDark} />
+                  </Box>
+                </Box>
+              )}
               {selectedElementIds.length > 1 && c4Model && (
                 <Box
                   role="dialog"
@@ -1564,31 +1731,60 @@ export function C4ViewerCore({
                       {selectedElementInfo.element.description}
                     </Typography>
                   )}
-                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mt: 1.25 }}>
-                    <Box sx={{ borderTop: `1px solid ${colors.border}`, pt: 0.75 }}>
-                      <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.62rem' }}>
-                        In
+                  <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                      <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700 }}>
+                        DSM
                       </Typography>
-                      <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.8rem', fontWeight: 700 }}>
-                        {selectedElementInfo.incoming}
-                      </Typography>
+                      <Tooltip title={t('viewer.tab.matrix')}>
+                        <IconButton
+                          size="small"
+                          onClick={() => openMatrixForElement('dsm', selectedElementInfo.element)}
+                          aria-label={t('viewer.tab.matrix')}
+                          sx={{ ...toolbarButtonSx, p: 0.25 }}
+                        >
+                          <TableChartIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Tooltip>
                     </Box>
-                    <Box sx={{ borderTop: `1px solid ${colors.border}`, pt: 0.75 }}>
-                      <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.62rem' }}>
-                        Out
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.8rem', fontWeight: 700 }}>
-                        {selectedElementInfo.outgoing}
-                      </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                      <Box>
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.62rem' }}>
+                          In
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.8rem', fontWeight: 700 }}>
+                          {selectedElementInfo.incoming}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.62rem' }}>
+                          Out
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.8rem', fontWeight: 700 }}>
+                          {selectedElementInfo.outgoing}
+                        </Typography>
+                      </Box>
                     </Box>
                   </Box>
                   <Typography variant="caption" sx={{ display: 'block', color: colors.textMuted, fontSize: '0.62rem', mt: 1, wordBreak: 'break-all' }}>
                     {selectedElementInfo.element.id}
                   </Typography>
                   <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 1 }}>
-                    <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700, mb: 0.75 }}>
-                      {t('c4.popup.metrics')}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
+                      <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700 }}>
+                        {t('c4.popup.metrics')}
+                      </Typography>
+                      <Tooltip title={t('viewer.tab.matrix')}>
+                        <IconButton
+                          size="small"
+                          onClick={() => openMatrixForElement('coverage', selectedElementInfo.element)}
+                          aria-label={t('viewer.tab.matrix')}
+                          sx={{ ...toolbarButtonSx, p: 0.25 }}
+                        >
+                          <TableChartIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
                     <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
                       <Box sx={{ gridColumn: '1 / -1' }}>
                         <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.62rem', fontWeight: 600, mb: 0.5 }}>
@@ -1658,9 +1854,21 @@ export function C4ViewerCore({
                     const totalCount = community.breakdown.reduce((sum, e) => sum + e.count, 0);
                     return (
                       <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 1 }}>
-                        <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700, mb: 0.5 }}>
-                          {t('c4.community.title')}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                          <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.68rem', fontWeight: 700 }}>
+                            {t('c4.community.title')}
+                          </Typography>
+                          <Tooltip title={t('viewer.tab.graph')}>
+                            <IconButton
+                              size="small"
+                              onClick={() => setShowGraphPopup(prev => !prev)}
+                              aria-label={t('viewer.tab.graph')}
+                              sx={{ ...toolbarButtonSx, p: 0.25 }}
+                            >
+                              <HubIcon sx={{ fontSize: 14 }} />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                           <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: dominantColor, flexShrink: 0 }} />
                           <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.74rem', fontWeight: 600, wordBreak: 'break-word' }}>
