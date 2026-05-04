@@ -16,9 +16,11 @@ import type { SpecDocsGitOpsHost } from './specdocs/SpecDocsGitOps';
 export { SpecDocsRootItem, SpecDocsItem, SpecDocsDragAndDrop } from './specdocs/types';
 export type { SpecDocsNode } from './specdocs/types';
 
+// globalState キー（移行元。新規保存には使わない）
 const STORAGE_KEY = 'anytimeHistory.specDocsRoot';
 const STORAGE_KEY_MULTI = 'anytimeHistory.specDocsRoots';
 const MD_ONLY_KEY = 'anytimeHistory.mdOnly';
+const STORAGE_FILENAME = 'anytime-history.json';
 const REFRESH_DEBOUNCE_MS = 300;
 
 export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsNode>, SpecDocsFileOpsHost, SpecDocsGitOpsHost {
@@ -35,17 +37,24 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsNode>, 
 
 	constructor(ctx: vscode.ExtensionContext) {
 		this.context = ctx;
-		// マイグレーション: 旧 string → 新 string[]
-		const savedMulti = ctx.globalState.get<string[]>(STORAGE_KEY_MULTI);
-		if (savedMulti) {
-			this.rootPaths = savedMulti.filter(p => fs.existsSync(p));
+		const fromFile = this.loadFromFile();
+		if (fromFile) {
+			this.rootPaths = fromFile.roots;
+			this._mdOnly = fromFile.mdOnly;
 		} else {
-			const savedSingle = ctx.globalState.get<string>(STORAGE_KEY);
-			if (savedSingle && fs.existsSync(savedSingle)) {
-				this.rootPaths = [savedSingle];
+			// globalState からの一回限りのマイグレーション
+			const savedMulti = ctx.globalState.get<string[]>(STORAGE_KEY_MULTI);
+			if (savedMulti) {
+				this.rootPaths = savedMulti.filter(p => fs.existsSync(p));
+			} else {
+				const savedSingle = ctx.globalState.get<string>(STORAGE_KEY);
+				if (savedSingle && fs.existsSync(savedSingle)) {
+					this.rootPaths = [savedSingle];
+				}
 			}
+			this._mdOnly = ctx.globalState.get<boolean>(MD_ONLY_KEY, true);
+			this.saveToFile();
 		}
-		this._mdOnly = ctx.globalState.get<boolean>(MD_ONLY_KEY, true);
 		for (const rootPath of this.rootPaths) {
 			this.setupWatcher(rootPath);
 		}
@@ -82,14 +91,6 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsNode>, 
 
 	/** コンストラクタから呼び出す非同期初期化（Thenable を返す操作を分離） */
 	private initAsync(): void {
-		// マイグレーション: 旧キーから新キーへの移行（rootPaths が旧キー由来ならば新キーに保存）
-		const savedMulti = this.context.globalState.get<string[]>(STORAGE_KEY_MULTI);
-		if (!savedMulti && this.rootPaths.length > 0) {
-			void this.context.globalState.update(STORAGE_KEY_MULTI, this.rootPaths);
-		}
-		if (!savedMulti) {
-			void this.context.globalState.update(STORAGE_KEY, undefined);
-		}
 		if (this.rootPaths.length > 0) {
 			void vscode.commands.executeCommand('setContext', 'anytimeHistory.specDocsHasRoot', true);
 		}
@@ -99,8 +100,47 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsNode>, 
 	get mdOnly(): boolean { return this._mdOnly; }
 	get roots(): string[] { return [...this.rootPaths]; }
 
+	private getStorageFilePath(): string | null {
+		const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+		if (!workspaceFolder) return null;
+		return path.join(workspaceFolder.uri.fsPath, '.vscode', STORAGE_FILENAME);
+	}
+
+	private loadFromFile(): { roots: string[]; mdOnly: boolean } | null {
+		const filePath = this.getStorageFilePath();
+		if (!filePath || !fs.existsSync(filePath)) return null;
+		try {
+			const raw = fs.readFileSync(filePath, 'utf-8');
+			const data = JSON.parse(raw) as { specDocsRoots?: unknown; mdOnly?: unknown };
+			return {
+				roots: Array.isArray(data.specDocsRoots)
+					? (data.specDocsRoots as unknown[]).filter((p): p is string => typeof p === 'string' && fs.existsSync(p))
+					: [],
+				mdOnly: typeof data.mdOnly === 'boolean' ? data.mdOnly : true,
+			};
+		} catch {
+			return null;
+		}
+	}
+
+	private saveToFile(): void {
+		const filePath = this.getStorageFilePath();
+		if (!filePath) return;
+		try {
+			const vscodeDir = path.dirname(filePath);
+			if (!fs.existsSync(vscodeDir)) { fs.mkdirSync(vscodeDir, { recursive: true }); }
+			const data = {
+				specDocsRoots: this.rootPaths.length > 0 ? this.rootPaths : undefined,
+				mdOnly: this._mdOnly,
+			};
+			fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+		} catch (err) {
+			GitLogger.error(`[${new Date().toISOString()}] anytime-history.json の保存に失敗: ${String(err)}`);
+		}
+	}
+
 	private saveRootPaths(): void {
-		this.context.globalState.update(STORAGE_KEY_MULTI, this.rootPaths.length > 0 ? this.rootPaths : undefined);
+		this.saveToFile();
 		vscode.commands.executeCommand('setContext', 'anytimeHistory.specDocsHasRoot', this.rootPaths.length > 0);
 	}
 
@@ -266,7 +306,7 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsNode>, 
 
 	toggleMdOnly(): void {
 		this._mdOnly = !this._mdOnly;
-		this.context.globalState.update(MD_ONLY_KEY, this._mdOnly);
+		this.saveToFile();
 		vscode.commands.executeCommand('setContext', 'anytimeHistory.mdOnly', this._mdOnly);
 		this._onDidChangeTreeData.fire(undefined);
 	}
