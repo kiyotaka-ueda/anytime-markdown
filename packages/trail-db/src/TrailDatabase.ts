@@ -801,6 +801,7 @@ export class TrailDatabase {
     db.run(CREATE_RELEASE_CODE_GRAPHS);
     db.run(CREATE_CURRENT_CODE_GRAPH_COMMUNITIES);
     db.run(CREATE_RELEASE_CODE_GRAPH_COMMUNITIES);
+    this.migrateFileAnalysisSchema(db);
     db.run(CREATE_CURRENT_FILE_ANALYSIS);
     db.run(CREATE_RELEASE_FILE_ANALYSIS);
     db.run(CREATE_CURRENT_FUNCTION_ANALYSIS);
@@ -1476,6 +1477,30 @@ export class TrailDatabase {
    * current_graphs のスキーマが旧版（id 列 PK）だった場合、テーブルを破棄して新版で作り直す。
    * データは空のため内容移行は行わない（ユーザー指示で事前クリア済み）。
    */
+  /** file_analysis テーブルが旧スキーマ（repo_name なし）で存在する場合に DROP して再作成を促す。 */
+  private migrateFileAnalysisSchema(db: Database): void {
+    const tables = [
+      'current_file_analysis',
+      'release_file_analysis',
+      'current_function_analysis',
+      'release_function_analysis',
+    ];
+    for (const table of tables) {
+      const exists = db.exec(`SELECT 1 FROM sqlite_master WHERE type='table' AND name='${table}'`);
+      if (!exists[0]?.values?.length) continue;
+      const info = db.exec(`PRAGMA table_info(${table})`);
+      const columns = info[0]?.values?.map((r) => String(r[1])) ?? [];
+      if (columns.includes('repo_name')) continue;
+      try {
+        db.run(`DROP TABLE ${table}`);
+        this.logger.info(`migrateFileAnalysisSchema: dropped legacy ${table} (no repo_name) for recreation`);
+        this.save();
+      } catch (e) {
+        this.logger.error(`migrateFileAnalysisSchema: failed to drop ${table}`, e);
+      }
+    }
+  }
+
   private migrateCurrentGraphsSchema(db: Database): void {
     const exists = db.exec(
       "SELECT 1 FROM sqlite_master WHERE type='table' AND name='current_graphs'",
