@@ -25,11 +25,14 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 
 import { useTrailI18n } from '../../i18n';
 import { DOC_TYPE_COLORS, getC4Colors } from '../c4Theme';
+import type { FileAnalysisApiEntry } from '../hooks/fetchFileAnalysisApi';
 import { useC4GhostEdges } from '../hooks/useC4GhostEdges';
 import { useDefectRisk } from '../hooks/useDefectRisk';
 import { useHotspot } from '../hooks/useHotspot';
 import { useTemporalCoupling } from '../hooks/useTemporalCoupling';
 import { useElementFunctions } from '../hooks/useElementFunctions';
+import { DeadCodeDetailSection } from './DeadCodeDetailSection';
+import { fileAnalysisEntriesForElement } from './fileAnalysisEntriesForElement';
 import { ResizablePopup, type ResizablePopupSize } from './ResizablePopup';
 
 const UNKNOWN_REPO_KEY = '__unknown__';
@@ -41,7 +44,7 @@ const TREND_CHART_POPUP_MAX_WIDTH = 1000;
 const TREND_CHART_RESERVED_RIGHT_WIDTH =
   SELECTED_ELEMENT_DETAILS_WIDTH + SELECTED_ELEMENT_DETAILS_RIGHT_OFFSET + TREND_CHART_POPUP_GAP;
 
-type OverlayCategory = 'none' | 'coverage' | 'dsm' | 'complexity' | 'importance' | 'hotspot' | 'fcmap';
+type OverlayCategory = 'none' | 'coverage' | 'dsm' | 'complexity' | 'importance' | 'hotspot' | 'dead-code' | 'fcmap';
 
 // fcmap はサブ項目が MetricOverlay ではなくフィーチャー ID のため除外
 const OVERLAY_CATEGORY_DEFAULTS: Record<Exclude<OverlayCategory, 'none' | 'fcmap'>, MetricOverlay> = {
@@ -50,6 +53,7 @@ const OVERLAY_CATEGORY_DEFAULTS: Record<Exclude<OverlayCategory, 'none' | 'fcmap
   complexity: 'complexity-most',
   importance: 'importance',
   hotspot: 'hotspot-frequency',
+  'dead-code': 'dead-code-score',
 };
 
 export function getActivityTrendChartWidth(hasSelectedElementDetails: boolean): string {
@@ -143,6 +147,8 @@ export interface C4ViewerCoreProps {
   readonly coverageDiff: CoverageDiffMatrix | null;
   readonly complexityMatrix?: ComplexityMatrix | null;
   readonly importanceMatrix?: ImportanceMatrix | null;
+  readonly deadCodeMatrix?: Record<string, number> | null;
+  readonly fileAnalysisEntries?: readonly FileAnalysisApiEntry[];
   readonly docLinks?: readonly DocLink[];
   readonly connected?: boolean;
   readonly analysisProgress?: { phase: string; percent: number } | null;
@@ -179,6 +185,8 @@ export function C4ViewerCore({
   coverageMatrix,
   complexityMatrix,
   importanceMatrix,
+  deadCodeMatrix,
+  fileAnalysisEntries = [],
   docLinks,
   connected,
   analysisProgress,
@@ -821,8 +829,8 @@ export function C4ViewerCore({
   }, [hotspotMap, c4Model, elementTypeById, levelTargetType]);
 
   const overlayMap = useMemo(
-    () => computeColorMap(metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap, null),
-    [metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap],
+    () => computeColorMap(metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap, deadCodeMatrix ?? null),
+    [metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap, deadCodeMatrix],
   );
 
   // F-cMap overlay: 選択フィーチャーの P/S/D ロールをノード色として返す
@@ -1457,6 +1465,7 @@ export function C4ViewerCore({
                       <MenuItem value="complexity" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupComplexity')}</MenuItem>
                       <MenuItem value="importance" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupImportance')}</MenuItem>
                       <MenuItem value="hotspot" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupHotspot')}</MenuItem>
+                      <MenuItem value="dead-code" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupDeadCode')}</MenuItem>
                       {featureMatrix && <MenuItem value="fcmap" sx={{ fontSize: '0.75rem' }}>F-cMap</MenuItem>}
                     </Select>
                   </Box>
@@ -1504,6 +1513,9 @@ export function C4ViewerCore({
                         {overlayCategory === 'hotspot' && [
                           <MenuItem key="frequency" value="hotspot-frequency" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotFrequency')}</MenuItem>,
                           <MenuItem key="risk" value="hotspot-risk" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotRisk')}</MenuItem>,
+                        ]}
+                        {overlayCategory === 'dead-code' && [
+                          <MenuItem key="dead-code-score" value="dead-code-score" disabled={!deadCodeMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.deadCodeScore')}</MenuItem>,
                         ]}
                         {overlayCategory === 'fcmap' && featureMatrix?.features.map((f) => (
                           <MenuItem key={f.id} value={f.id} sx={{ fontSize: '0.75rem' }}>{f.name}</MenuItem>
@@ -2034,6 +2046,14 @@ export function C4ViewerCore({
                       </Box>
                     )}
                   </Box>
+                  <DeadCodeDetailSection
+                    entries={selectedElementInfo
+                      ? fileAnalysisEntriesForElement(fileAnalysisEntries, selectedElementInfo.element.id, c4Model?.elements ?? [])
+                      : []}
+                    t={t as (key: string) => string}
+                    colors={colors}
+                    onFileOpen={(filePath) => onOpenFile?.(filePath)}
+                  />
                 </Box>
               )}
               {selectedCommunityInfo && !selectedElementInfo && (
