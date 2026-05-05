@@ -69,6 +69,8 @@ export function TrailViewer({
               height: '80vh',
               display: 'flex',
               flexDirection: 'column',
+              bgcolor: isDark ? 'rgba(18,18,18,0.96)' : 'rgba(251,249,243,0.98)',
+              backgroundImage: 'none',
             },
           }}
         >
