@@ -773,9 +773,9 @@ export function C4ViewerCore({
       if (!hotspotResponse) return true;
       return hotspotResponse.files.length > 0;
     }
-    if (overlayCategory === 'size') return (sizeMatrix != null) && Object.keys(sizeMatrix).length > 0;
+    // size: dead-code と同様に常に true。個別 MenuItem の disabled={!sizeMatrix} で制御する
     return true;
-  }, [overlayCategory, coverageMatrix, filteredDsmMatrix, complexityMatrix, hasImportanceData, hotspotResponse, sizeMatrix]);
+  }, [overlayCategory, coverageMatrix, filteredDsmMatrix, complexityMatrix, hasImportanceData, hotspotResponse]);
 
   useEffect(() => {
     // hotspot は空応答時に metricOverlay をリセットすると useHotspot が disable され
