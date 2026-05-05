@@ -216,6 +216,8 @@ export interface TrailI18n {
   'c4.overlay.groupHotspot': string;
   'c4.overlay.hotspotFrequency': string;
   'c4.overlay.hotspotRisk': string;
+  'c4.overlay.groupDeadCode': string;
+  'c4.overlay.deadCodeScore': string;
   'c4.hotspot.controls.period': string;
   'c4.hotspot.controls.granularity': string;
   'c4.hotspot.controls.granularityCommit': string;
@@ -254,6 +256,17 @@ export interface TrailI18n {
   'c4.popup.metric.functionCount': string;
   'c4.popup.functions': string;
   'c4.popup.functions.empty': string;
+  'c4.popup.deadCode.title': string;
+  'c4.popup.deadCode.judgmentStrong': string;
+  'c4.popup.deadCode.judgmentReview': string;
+  'c4.popup.deadCode.judgmentHealthy': string;
+  'c4.popup.deadCode.judgmentIgnored': string;
+  'c4.popup.deadCode.signalOrphan': string;
+  'c4.popup.deadCode.signalFanInZero': string;
+  'c4.popup.deadCode.signalNoRecentChurn': string;
+  'c4.popup.deadCode.signalZeroCoverage': string;
+  'c4.popup.deadCode.signalIsolatedCommunity': string;
+  'c4.popup.deadCode.relatedFiles': string;
   'c4.popup.maximize': string;
   'c4.popup.restore': string;
   'c4.popup.close': string;

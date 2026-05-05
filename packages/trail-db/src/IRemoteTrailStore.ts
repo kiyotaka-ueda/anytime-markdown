@@ -118,6 +118,44 @@ export interface IRemoteTrailStore {
     branches_covered: number;
     branches_pct: number;
   }[]): Promise<void>;
+  /** [DESTRUCTIVE] trail_current_file_analysis を全削除する（洗い替え同期用）。 */
+  unsafeClearCurrentFileAnalysis(): Promise<void>;
+  upsertCurrentFileAnalysis(rows: readonly {
+    repo_name: string; file_path: string;
+    importance_score: number; fan_in_total: number; cognitive_complexity_max: number; function_count: number;
+    dead_code_score: number;
+    signal_orphan: number; signal_fan_in_zero: number; signal_no_recent_churn: number;
+    signal_zero_coverage: number; signal_isolated_community: number;
+    is_ignored: number; ignore_reason: string; analyzed_at: string;
+  }[]): Promise<void>;
+  /** [DESTRUCTIVE] trail_release_file_analysis を全削除する（洗い替え同期用）。 */
+  unsafeClearReleaseFileAnalysis(): Promise<void>;
+  upsertReleaseFileAnalysis(rows: readonly {
+    release_tag: string; repo_name: string; file_path: string;
+    importance_score: number; fan_in_total: number; cognitive_complexity_max: number; function_count: number;
+    dead_code_score: number;
+    signal_orphan: number; signal_fan_in_zero: number; signal_no_recent_churn: number;
+    signal_zero_coverage: number; signal_isolated_community: number;
+    is_ignored: number; ignore_reason: string; analyzed_at: string;
+  }[]): Promise<void>;
+  /** [DESTRUCTIVE] trail_current_function_analysis を全削除する（洗い替え同期用）。 */
+  unsafeClearCurrentFunctionAnalysis(): Promise<void>;
+  upsertCurrentFunctionAnalysis(rows: readonly {
+    repo_name: string; file_path: string; function_name: string; start_line: number;
+    end_line: number; language: string;
+    fan_in: number; cognitive_complexity: number; data_mutation_score: number;
+    side_effect_score: number; line_count: number; importance_score: number;
+    signal_fan_in_zero: number; analyzed_at: string;
+  }[]): Promise<void>;
+  /** [DESTRUCTIVE] trail_release_function_analysis を全削除する（洗い替え同期用）。 */
+  unsafeClearReleaseFunctionAnalysis(): Promise<void>;
+  upsertReleaseFunctionAnalysis(rows: readonly {
+    release_tag: string; repo_name: string; file_path: string; function_name: string; start_line: number;
+    end_line: number; language: string;
+    fan_in: number; cognitive_complexity: number; data_mutation_score: number;
+    side_effect_score: number; line_count: number; importance_score: number;
+    signal_fan_in_zero: number; analyzed_at: string;
+  }[]): Promise<void>;
   /** [DESTRUCTIVE] trail_current_code_graphs と trail_current_code_graph_communities を全削除する（洗い替え同期用）。 */
   unsafeClearCurrentCodeGraphs(): Promise<void>;
   upsertCurrentCodeGraphs(rows: readonly {

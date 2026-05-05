@@ -1,0 +1,88 @@
+import { createTestTrailDatabase } from './support/createTestDb';
+import type { TrailDatabase } from '../TrailDatabase';
+import type { FileAnalysisRow } from '@anytime-markdown/trail-core/deadCode';
+
+const sample = (filePath: string, deadCodeScore: number): FileAnalysisRow => ({
+  repoName: 'repo',
+  filePath,
+  importanceScore: 50,
+  fanInTotal: 3,
+  cognitiveComplexityMax: 8,
+  functionCount: 2,
+  deadCodeScore,
+  signals: {
+    orphan: deadCodeScore >= 45,
+    fanInZero: false,
+    noRecentChurn: false,
+    zeroCoverage: false,
+    isolatedCommunity: false,
+  },
+  isIgnored: false,
+  ignoreReason: '',
+  analyzedAt: '2026-05-05T00:00:00Z',
+});
+
+describe('TrailDatabase: current_file_analysis CRUD', () => {
+  let db: TrailDatabase;
+
+  beforeEach(async () => {
+    db = await createTestTrailDatabase();
+  });
+
+  it('upsertCurrent → getCurrent で取得できる', () => {
+    db.upsertCurrentFileAnalysis([sample('a.ts', 70), sample('b.ts', 30)]);
+    const rows = db.getCurrentFileAnalysis('repo');
+    expect(rows.length).toBe(2);
+    expect(rows.find((r) => r.filePath === 'a.ts')!.deadCodeScore).toBe(70);
+    expect(rows.find((r) => r.filePath === 'a.ts')!.signals.orphan).toBe(true);
+    expect(rows.find((r) => r.filePath === 'b.ts')!.signals.orphan).toBe(false);
+  });
+
+  it('同一 PK は上書き (洗い替え)', () => {
+    db.upsertCurrentFileAnalysis([sample('a.ts', 70)]);
+    db.upsertCurrentFileAnalysis([sample('a.ts', 20)]);
+    const rows = db.getCurrentFileAnalysis('repo');
+    expect(rows.length).toBe(1);
+    expect(rows[0].deadCodeScore).toBe(20);
+  });
+
+  it('clearCurrent で全削除', () => {
+    db.upsertCurrentFileAnalysis([sample('a.ts', 70)]);
+    db.clearCurrentFileAnalysis('repo');
+    expect(db.getCurrentFileAnalysis('repo').length).toBe(0);
+  });
+
+  it('別 repo は独立して扱われる', () => {
+    db.upsertCurrentFileAnalysis([sample('a.ts', 70)]);
+    db.clearCurrentFileAnalysis('other-repo');  // no-op for repo
+    expect(db.getCurrentFileAnalysis('repo').length).toBe(1);
+  });
+
+  it('isIgnored / ignoreReason が round-trip で保持される', () => {
+    const ignored: FileAnalysisRow = { ...sample('cfg.ts', 0), isIgnored: true, ignoreReason: 'user:**/*.config.ts' };
+    db.upsertCurrentFileAnalysis([ignored]);
+    const rows = db.getCurrentFileAnalysis('repo');
+    expect(rows[0].isIgnored).toBe(true);
+    expect(rows[0].ignoreReason).toBe('user:**/*.config.ts');
+  });
+});
+
+describe('TrailDatabase: release_file_analysis CRUD', () => {
+  let db: TrailDatabase;
+
+  beforeEach(async () => {
+    db = await createTestTrailDatabase();
+    // release_file_analysis は releases(tag) を FK 参照するので先に INSERT
+    const rawDb = (db as unknown as { ensureDb(): { run(sql: string, params?: unknown[]): void } }).ensureDb();
+    rawDb.run('INSERT INTO releases (tag) VALUES (?)', ['v1.0.0']);
+  });
+
+  it('upsertRelease / getRelease / clearRelease', () => {
+    db.upsertReleaseFileAnalysis('v1.0.0', [sample('a.ts', 70)]);
+    const rows = db.getReleaseFileAnalysis('v1.0.0', 'repo');
+    expect(rows.length).toBe(1);
+    expect(rows[0].deadCodeScore).toBe(70);
+    db.clearReleaseFileAnalysis('v1.0.0', 'repo');
+    expect(db.getReleaseFileAnalysis('v1.0.0', 'repo').length).toBe(0);
+  });
+});

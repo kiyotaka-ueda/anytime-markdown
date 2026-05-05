@@ -1,7 +1,6 @@
 import type {
   DocLink,
   DsmMatrix,
-  ImportanceMatrix,
 } from '@anytime-markdown/trail-core/c4';
 
 // ---------------------------------------------------------------------------
@@ -24,11 +23,6 @@ export interface AnalysisProgressMessage {
 export interface DocLinksUpdatedMessage {
   readonly type: 'doc-links-updated';
   readonly docLinks: readonly DocLink[];
-}
-
-export interface ImportanceUpdatedMessage {
-  readonly type: 'importance-updated';
-  readonly importanceMatrix: ImportanceMatrix;
 }
 
 export interface ClaudeActivityUpdatedMessage {
@@ -89,7 +83,7 @@ export interface CodeGraphProgressMessage {
   readonly percent: number;
 }
 
-export type ServerMessage = DsmUpdatedMessage | AnalysisProgressMessage | DocLinksUpdatedMessage | ImportanceUpdatedMessage | ClaudeActivityUpdatedMessage | MultiAgentActivityMessage | TokenBudgetUpdatedMessage | ModelUpdatedMessage | CodeGraphUpdatedMessage | CodeGraphProgressMessage;
+export type ServerMessage = DsmUpdatedMessage | AnalysisProgressMessage | DocLinksUpdatedMessage | ClaudeActivityUpdatedMessage | MultiAgentActivityMessage | TokenBudgetUpdatedMessage | ModelUpdatedMessage | CodeGraphUpdatedMessage | CodeGraphProgressMessage;
 
 // ---------------------------------------------------------------------------
 //  Client → Server messages

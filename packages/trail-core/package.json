@@ -23,7 +23,8 @@
     "./domain/metrics": "./src/domain/metrics/index.ts",
     "./c4": "./src/c4/index.ts",
     "./c4/metrics/computeImportanceMatrix": "./src/c4/metrics/computeImportanceMatrix.ts",
-    "./codeGraph": "./src/codeGraph.ts"
+    "./codeGraph": "./src/codeGraph.ts",
+    "./deadCode": "./src/deadCode/index.ts"
   },
   "scripts": {
     "test": "jest --maxWorkers=1"
@@ -33,15 +34,17 @@
     "typescript": ">=5.0.0"
   },
   "devDependencies": {
+    "@iconify-json/logos": "1.2.11",
     "@types/jest": "30.0.0",
+    "@types/minimatch": "5.1.2",
     "esbuild": "0.25.4",
     "jest": "30.2.0",
     "ts-jest": "29.4.6",
     "ts-node": "10.9.2",
-    "typescript": "5.8.3",
-    "@iconify-json/logos": "1.2.11"
+    "typescript": "5.8.3"
   },
   "dependencies": {
+    "minimatch": "9.0.9",
     "simple-icons": "16.17.0"
   }
 }

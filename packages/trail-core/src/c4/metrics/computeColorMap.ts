@@ -58,6 +58,13 @@ function defectRiskHeatColor(score: number): string {
   return '#2e7d32';
 }
 
+/** 0〜100 のデッドコードスコアで 緑(low)→黄(mid)→赤(high) を返す */
+function deadCodeColor(score: number): string {
+  if (score >= 70) return '#f44336';   // 赤
+  if (score >= 40) return '#ffc107';   // 黄
+  return '#4caf50';                    // 緑
+}
+
 const HOTSPOT_FREQ_BASE = { r: 232, g: 160, b: 18 } as const; // amber #E8A012
 const HOTSPOT_RISK_BASE = { r: 232, g: 80, b: 28 } as const;  // red-orange #E8501C
 
@@ -89,6 +96,7 @@ export function computeColorMap(
   importanceMatrix: ImportanceMatrix | null = null,
   defectRiskMap: ReadonlyMap<string, number> | null = null,
   hotspotMap: HotspotMap | null = null,
+  deadCodeMatrix: Record<string, number> | null = null,
 ): Map<string, string> {
   if (overlay === 'none') return new Map();
 
@@ -178,6 +186,16 @@ export function computeColorMap(
   if (overlay === 'hotspot-frequency' || overlay === 'hotspot-risk') {
     if (!hotspotMap) return new Map();
     return computeHotspotColorMap(overlay, hotspotMap);
+  }
+
+  // ── Dead Code Score ──
+  if (overlay === 'dead-code-score') {
+    if (!deadCodeMatrix) return new Map();
+    const map = new Map<string, string>();
+    for (const [elementId, score] of Object.entries(deadCodeMatrix)) {
+      map.set(elementId, deadCodeColor(score));
+    }
+    return map;
   }
 
   return new Map();

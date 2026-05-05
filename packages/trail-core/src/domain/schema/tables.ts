@@ -307,3 +307,94 @@ export const CREATE_RELEASE_CODE_GRAPH_COMMUNITIES = `CREATE TABLE IF NOT EXISTS
   updated_at   TEXT    NOT NULL DEFAULT '',
   PRIMARY KEY (release_tag, community_id)
 )`;
+
+// ---------------------------------------------------------------------------
+//  File / Function Analysis (Dead Code Detection)
+// ---------------------------------------------------------------------------
+
+export const CREATE_CURRENT_FILE_ANALYSIS = `CREATE TABLE IF NOT EXISTS current_file_analysis (
+  repo_name                  TEXT NOT NULL,
+  file_path                  TEXT NOT NULL,
+  importance_score           REAL    NOT NULL DEFAULT 0,
+  fan_in_total               INTEGER NOT NULL DEFAULT 0,
+  cognitive_complexity_max   INTEGER NOT NULL DEFAULT 0,
+  function_count             INTEGER NOT NULL DEFAULT 0,
+  dead_code_score            INTEGER NOT NULL DEFAULT 0,
+  signal_orphan              INTEGER NOT NULL DEFAULT 0,
+  signal_fan_in_zero         INTEGER NOT NULL DEFAULT 0,
+  signal_no_recent_churn     INTEGER NOT NULL DEFAULT 0,
+  signal_zero_coverage       INTEGER NOT NULL DEFAULT 0,
+  signal_isolated_community  INTEGER NOT NULL DEFAULT 0,
+  is_ignored                 INTEGER NOT NULL DEFAULT 0,
+  ignore_reason              TEXT NOT NULL DEFAULT '',
+  analyzed_at                TEXT NOT NULL,
+  PRIMARY KEY (repo_name, file_path)
+)`;
+
+export const CREATE_RELEASE_FILE_ANALYSIS = `CREATE TABLE IF NOT EXISTS release_file_analysis (
+  release_tag                TEXT NOT NULL REFERENCES releases(tag) ON DELETE CASCADE,
+  repo_name                  TEXT NOT NULL,
+  file_path                  TEXT NOT NULL,
+  importance_score           REAL    NOT NULL DEFAULT 0,
+  fan_in_total               INTEGER NOT NULL DEFAULT 0,
+  cognitive_complexity_max   INTEGER NOT NULL DEFAULT 0,
+  function_count             INTEGER NOT NULL DEFAULT 0,
+  dead_code_score            INTEGER NOT NULL DEFAULT 0,
+  signal_orphan              INTEGER NOT NULL DEFAULT 0,
+  signal_fan_in_zero         INTEGER NOT NULL DEFAULT 0,
+  signal_no_recent_churn     INTEGER NOT NULL DEFAULT 0,
+  signal_zero_coverage       INTEGER NOT NULL DEFAULT 0,
+  signal_isolated_community  INTEGER NOT NULL DEFAULT 0,
+  is_ignored                 INTEGER NOT NULL DEFAULT 0,
+  ignore_reason              TEXT NOT NULL DEFAULT '',
+  analyzed_at                TEXT NOT NULL,
+  PRIMARY KEY (release_tag, repo_name, file_path)
+)`;
+
+export const CREATE_CURRENT_FUNCTION_ANALYSIS = `CREATE TABLE IF NOT EXISTS current_function_analysis (
+  repo_name              TEXT NOT NULL,
+  file_path              TEXT NOT NULL,
+  function_name          TEXT NOT NULL,
+  start_line             INTEGER NOT NULL,
+  end_line               INTEGER NOT NULL DEFAULT 0,
+  language               TEXT NOT NULL DEFAULT '',
+  fan_in                 INTEGER NOT NULL DEFAULT 0,
+  cognitive_complexity   INTEGER NOT NULL DEFAULT 0,
+  data_mutation_score    INTEGER NOT NULL DEFAULT 0,
+  side_effect_score      INTEGER NOT NULL DEFAULT 0,
+  line_count             INTEGER NOT NULL DEFAULT 0,
+  importance_score       REAL    NOT NULL DEFAULT 0,
+  signal_fan_in_zero     INTEGER NOT NULL DEFAULT 0,
+  analyzed_at            TEXT NOT NULL,
+  PRIMARY KEY (repo_name, file_path, function_name, start_line)
+)`;
+
+export const CREATE_RELEASE_FUNCTION_ANALYSIS = `CREATE TABLE IF NOT EXISTS release_function_analysis (
+  release_tag            TEXT NOT NULL REFERENCES releases(tag) ON DELETE CASCADE,
+  repo_name              TEXT NOT NULL,
+  file_path              TEXT NOT NULL,
+  function_name          TEXT NOT NULL,
+  start_line             INTEGER NOT NULL,
+  end_line               INTEGER NOT NULL DEFAULT 0,
+  language               TEXT NOT NULL DEFAULT '',
+  fan_in                 INTEGER NOT NULL DEFAULT 0,
+  cognitive_complexity   INTEGER NOT NULL DEFAULT 0,
+  data_mutation_score    INTEGER NOT NULL DEFAULT 0,
+  side_effect_score      INTEGER NOT NULL DEFAULT 0,
+  line_count             INTEGER NOT NULL DEFAULT 0,
+  importance_score       REAL    NOT NULL DEFAULT 0,
+  signal_fan_in_zero     INTEGER NOT NULL DEFAULT 0,
+  analyzed_at            TEXT NOT NULL,
+  PRIMARY KEY (release_tag, repo_name, file_path, function_name, start_line)
+)`;
+
+export const CREATE_FILE_ANALYSIS_INDEXES = [
+  `CREATE INDEX IF NOT EXISTS idx_current_file_analysis_dead_code
+    ON current_file_analysis (repo_name, dead_code_score DESC)`,
+  `CREATE INDEX IF NOT EXISTS idx_current_file_analysis_importance
+    ON current_file_analysis (repo_name, importance_score DESC)`,
+  `CREATE INDEX IF NOT EXISTS idx_current_function_analysis_fan_in
+    ON current_function_analysis (repo_name, fan_in)`,
+  `CREATE INDEX IF NOT EXISTS idx_current_function_analysis_importance
+    ON current_function_analysis (repo_name, importance_score DESC)`,
+];

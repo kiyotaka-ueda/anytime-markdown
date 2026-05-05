@@ -240,6 +240,58 @@ export class SyncService {
       errors++;
     }
 
+    // Sync current_file_analysis（洗い替え）
+    try {
+      onProgress?.({ message: 'Syncing current file analysis...' });
+      const rows = this.trailDb.getAllCurrentFileAnalysis();
+      await this.store.unsafeClearCurrentFileAnalysis();
+      if (rows.length > 0) {
+        await this.store.upsertCurrentFileAnalysis(rows);
+      }
+    } catch (e) {
+      this.logger.error('Failed to sync current file analysis', e);
+      errors++;
+    }
+
+    // Sync release_file_analysis（洗い替え）
+    try {
+      onProgress?.({ message: 'Syncing release file analysis...' });
+      const rows = this.trailDb.getAllReleaseFileAnalysis();
+      await this.store.unsafeClearReleaseFileAnalysis();
+      if (rows.length > 0) {
+        await this.store.upsertReleaseFileAnalysis(rows);
+      }
+    } catch (e) {
+      this.logger.error('Failed to sync release file analysis', e);
+      errors++;
+    }
+
+    // Sync current_function_analysis（洗い替え）
+    try {
+      onProgress?.({ message: 'Syncing current function analysis...' });
+      const rows = this.trailDb.getAllCurrentFunctionAnalysis();
+      await this.store.unsafeClearCurrentFunctionAnalysis();
+      if (rows.length > 0) {
+        await this.store.upsertCurrentFunctionAnalysis(rows);
+      }
+    } catch (e) {
+      this.logger.error('Failed to sync current function analysis', e);
+      errors++;
+    }
+
+    // Sync release_function_analysis（洗い替え）
+    try {
+      onProgress?.({ message: 'Syncing release function analysis...' });
+      const rows = this.trailDb.getAllReleaseFunctionAnalysis();
+      await this.store.unsafeClearReleaseFunctionAnalysis();
+      if (rows.length > 0) {
+        await this.store.upsertReleaseFunctionAnalysis(rows);
+      }
+    } catch (e) {
+      this.logger.error('Failed to sync release function analysis', e);
+      errors++;
+    }
+
     return {
       synced,
       skipped: 0,
