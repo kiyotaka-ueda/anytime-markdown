@@ -23,7 +23,6 @@ class FakeRemoteStore implements IRemoteTrailStore {
   async upsertCommitFiles(): Promise<void> {}
   async upsertReleases(): Promise<void> {}
   async upsertReleaseFiles(): Promise<void> {}
-  async upsertReleaseFeatures(): Promise<void> {}
   async upsertSessionCosts(): Promise<void> {}
   async upsertAllSessionCosts(): Promise<void> {}
   async upsertDailyCounts(): Promise<void> {}

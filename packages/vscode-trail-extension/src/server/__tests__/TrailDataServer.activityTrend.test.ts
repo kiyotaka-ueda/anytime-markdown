@@ -34,21 +34,26 @@ const seed = (db: TrailDatabase): void => {
     `INSERT INTO commit_files (commit_hash, file_path) VALUES ('h1', 'a.ts')`,
   );
 
-  // Persist a tiny C4 model so handleActivityTrend can resolve descendant files.
-  const model = {
-    level: 'code',
-    elements: [
-      { id: 'pkg_core', type: 'container', name: 'Core' },
-      { id: 'pkg_core/x', type: 'component', name: 'X', boundaryId: 'pkg_core' },
-      { id: 'file::a.ts', type: 'code', name: 'a.ts', boundaryId: 'pkg_core/x' },
+  // current_graphs を seed し、loadCurrentC4Model() の trailToC4 経由で
+  // pkg_core / pkg_core/x / file::a.ts の C4 要素を生成させる。
+  const graph = {
+    nodes: [
+      {
+        id: 'file::a.ts',
+        label: 'a.ts',
+        type: 'file' as const,
+        filePath: 'packages/core/src/x/a.ts',
+        line: 0,
+      },
     ],
-    relationships: [],
+    edges: [],
+    metadata: {
+      projectRoot: 'packages/core',
+      analyzedAt: new Date().toISOString(),
+      fileCount: 1,
+    },
   };
-  inner(db).run(
-    `INSERT OR REPLACE INTO c4_models (id, model_json, revision, updated_at)
-     VALUES ('current', ?, 'r1', ?)`,
-    [JSON.stringify(model), new Date().toISOString()],
-  );
+  db.saveCurrentGraph(graph, '', 'h1', 'tmp');
 };
 
 describe('GET /api/activity-trend', () => {
@@ -59,7 +64,7 @@ describe('GET /api/activity-trend', () => {
   beforeEach(async () => {
     db = await createTestTrailDatabase();
     seed(db);
-    server = new TrailDataServer('/tmp', db);
+    server = new TrailDataServer('/tmp', db, '/tmp');
     await server.start(0);
     port = server.port;
   });

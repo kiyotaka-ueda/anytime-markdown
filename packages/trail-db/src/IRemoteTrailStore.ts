@@ -1,4 +1,4 @@
-import type { SessionRow, MessageRow, SessionCommitRow, ReleaseFileRow, ReleaseFeatureRow, ReleaseRow } from './TrailDatabase';
+import type { SessionRow, MessageRow, SessionCommitRow, ReleaseFileRow, ReleaseRow } from './TrailDatabase';
 import type { ManualElement, ManualRelationship } from '@anytime-markdown/trail-core';
 
 export interface IRemoteTrailStore {
@@ -17,7 +17,6 @@ export interface IRemoteTrailStore {
   upsertCommitFiles(rows: readonly { commit_hash: string; file_path: string }[]): Promise<void>;
   upsertReleases(rows: readonly ReleaseRow[]): Promise<void>;
   upsertReleaseFiles(rows: readonly ReleaseFileRow[]): Promise<void>;
-  upsertReleaseFeatures(rows: readonly ReleaseFeatureRow[]): Promise<void>;
   upsertSessionCosts(sessionId: string, costs: readonly {
     model: string;
     input_tokens: number;
