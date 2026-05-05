@@ -86,13 +86,13 @@ const complexity: ComplexityMatrix = {
   ],
 };
 
-describe('computeColorMap — complexity-most', () => {
+describe('computeColorMap — edit-complexity-most', () => {
   it('high-complexityは赤', () => {
-    const m = computeColorMap('complexity-most', null, null, complexity);
+    const m = computeColorMap('edit-complexity-most', null, null, complexity);
     expect(m.get('a')).toBe('#c62828');
   });
   it('low-complexityは緑', () => {
-    const m = computeColorMap('complexity-most', null, null, complexity);
+    const m = computeColorMap('edit-complexity-most', null, null, complexity);
     expect(m.get('b')).toBe('#2e7d32');
   });
 });
@@ -141,9 +141,9 @@ describe('computeColorMap — importance', () => {
   });
 });
 
-describe('computeColorMap — complexity-highest', () => {
+describe('computeColorMap — edit-complexity-highest', () => {
   it('highest=multi-file-editは黄', () => {
-    const m = computeColorMap('complexity-highest', null, null, complexity);
+    const m = computeColorMap('edit-complexity-highest', null, null, complexity);
     expect(m.get('b')).toBe('#f9a825');
   });
 });

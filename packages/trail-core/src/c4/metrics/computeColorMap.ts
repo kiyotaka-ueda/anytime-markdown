@@ -174,10 +174,10 @@ export function computeColorMap(
   }
 
   // ── Complexity ──
-  if (overlay === 'complexity-most' || overlay === 'complexity-highest') {
+  if (overlay === 'edit-complexity-most' || overlay === 'edit-complexity-highest') {
     if (!complexityMatrix) return new Map();
     const map = new Map<string, string>();
-    const field = overlay === 'complexity-most' ? 'mostFrequent' : 'highest';
+    const field = overlay === 'edit-complexity-most' ? 'mostFrequent' : 'highest';
     for (const entry of complexityMatrix.entries) {
       map.set(entry.elementId, COMPLEXITY_COLORS[entry[field]]);
     }
