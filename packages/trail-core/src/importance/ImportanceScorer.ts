@@ -16,6 +16,7 @@ export const DEFAULT_WEIGHTS: ImportanceScorerWeights = {
 const ZERO_METRICS: FunctionMetrics = {
   fanIn: 0,
   cognitiveComplexity: 0,
+  cyclomaticComplexity: 0,
   dataMutationScore: 0,
   sideEffectScore: 0,
   lineCount: 0,

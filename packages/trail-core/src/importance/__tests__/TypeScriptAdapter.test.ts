@@ -116,3 +116,30 @@ describe('TypeScriptAdapter.fromTsConfig', () => {
     expect(functions.length).toBeGreaterThan(0);
   });
 });
+
+describe('TypeScriptAdapter.computeMetrics: cyclomaticComplexity', () => {
+  let adapter: TypeScriptAdapter;
+
+  beforeAll(() => {
+    const fixtureFile = path.join(FIXTURE_DIR, 'mutations.ts');
+    adapter = new TypeScriptAdapter([fixtureFile]);
+  });
+
+  it('singleBranch (if x1) has cyclomaticComplexity === 2', () => {
+    const fixtureFile = path.join(FIXTURE_DIR, 'mutations.ts');
+    const functions = adapter.extractFunctions([fixtureFile]);
+    const fn = functions.find(f => f.name === 'singleBranch')!;
+    expect(fn).toBeDefined();
+    const metrics = adapter.computeMetrics(fn);
+    expect(metrics.cyclomaticComplexity).toBe(2);
+  });
+
+  it('nestedBranch (nested if) has cyclomaticComplexity >= 3', () => {
+    const fixtureFile = path.join(FIXTURE_DIR, 'mutations.ts');
+    const functions = adapter.extractFunctions([fixtureFile]);
+    const fn = functions.find(f => f.name === 'nestedBranch')!;
+    expect(fn).toBeDefined();
+    const metrics = adapter.computeMetrics(fn);
+    expect(metrics.cyclomaticComplexity).toBeGreaterThanOrEqual(3);
+  });
+});

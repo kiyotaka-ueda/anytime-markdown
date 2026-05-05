@@ -25,3 +25,22 @@ export function withSideEffects(): void {
   console.log('hello');
   console.warn('warn');
 }
+
+/** if 1つ（cyclomaticComplexity === 2 期待） */
+export function singleBranch(x: number): number {
+  if (x > 0) {
+    return x;
+  }
+  return 0;
+}
+
+/** ネストした if（cyclomaticComplexity >= 3 期待） */
+export function nestedBranch(x: number, y: number): number {
+  if (x > 0) {
+    if (y > 0) {
+      return x + y;
+    }
+    return x;
+  }
+  return 0;
+}
