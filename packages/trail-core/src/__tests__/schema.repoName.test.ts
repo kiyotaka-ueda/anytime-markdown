@@ -25,6 +25,8 @@ describe('schema repoName columns', () => {
   it('CREATE_INDEXES contains repo_name based indexes for commit tables', () => {
     const joined = CREATE_INDEXES.join('\n');
     expect(joined).toMatch(/CREATE INDEX IF NOT EXISTS idx_session_commits_repo ON session_commits\(repo_name, committed_at\)/);
+    expect(joined).toMatch(/CREATE INDEX IF NOT EXISTS idx_session_commits_repo_hash ON session_commits\(repo_name, commit_hash\)/);
     expect(joined).toMatch(/CREATE INDEX IF NOT EXISTS idx_commit_files_repo ON commit_files\(repo_name, file_path\)/);
+    expect(joined).toMatch(/CREATE INDEX IF NOT EXISTS idx_commit_files_repo_hash ON commit_files\(repo_name, commit_hash\)/);
   });
 });

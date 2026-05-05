@@ -98,6 +98,7 @@ CREATE TABLE IF NOT EXISTS trail_messages (
 
 CREATE TABLE IF NOT EXISTS trail_session_commits (
     session_id TEXT NOT NULL REFERENCES trail_sessions(id) ON DELETE CASCADE,
+    repo_name TEXT NOT NULL DEFAULT '',
     commit_hash TEXT NOT NULL,
     commit_message TEXT NOT NULL DEFAULT '',
     author TEXT NOT NULL DEFAULT '',
@@ -106,14 +107,15 @@ CREATE TABLE IF NOT EXISTS trail_session_commits (
     files_changed INTEGER NOT NULL DEFAULT 0,
     lines_added INTEGER NOT NULL DEFAULT 0,
     lines_deleted INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (session_id, commit_hash)
+    PRIMARY KEY (session_id, repo_name, commit_hash)
 );
 
 -- コミットごとの変更ファイル一覧。コミットは複数セッションに現れるためセッション非依存。
 CREATE TABLE IF NOT EXISTS trail_commit_files (
+    repo_name TEXT NOT NULL DEFAULT '',
     commit_hash TEXT NOT NULL,
     file_path TEXT NOT NULL,
-    PRIMARY KEY (commit_hash, file_path)
+    PRIMARY KEY (repo_name, commit_hash, file_path)
 );
 
 CREATE TABLE IF NOT EXISTS trail_session_costs (
@@ -440,7 +442,11 @@ CREATE INDEX IF NOT EXISTS idx_trail_session_costs_session ON trail_session_cost
 CREATE INDEX IF NOT EXISTS idx_trail_daily_counts_date ON trail_daily_counts(date);
 CREATE INDEX IF NOT EXISTS idx_trail_daily_counts_kind ON trail_daily_counts(kind);
 CREATE INDEX IF NOT EXISTS idx_trail_session_commits_session ON trail_session_commits(session_id);
+CREATE INDEX IF NOT EXISTS idx_trail_session_commits_committed_at ON trail_session_commits(committed_at);
+CREATE INDEX IF NOT EXISTS idx_trail_session_commits_repo_committed_at ON trail_session_commits(repo_name, committed_at);
+CREATE INDEX IF NOT EXISTS idx_trail_session_commits_repo_hash ON trail_session_commits(repo_name, commit_hash);
 CREATE INDEX IF NOT EXISTS idx_trail_commit_files_hash ON trail_commit_files(commit_hash);
+CREATE INDEX IF NOT EXISTS idx_trail_commit_files_repo_hash ON trail_commit_files(repo_name, commit_hash);
 CREATE INDEX IF NOT EXISTS idx_trail_releases_released_at ON trail_releases(released_at);
 CREATE INDEX IF NOT EXISTS idx_trail_release_files_tag ON trail_release_files(release_tag);
 CREATE INDEX IF NOT EXISTS idx_trail_release_features_tag ON trail_release_features(release_tag);

@@ -5624,18 +5624,19 @@ export class TrailDatabase {
     // Commit stats: session_commits を取得し、AI 1 発成功率のファイル overlap 判定に必要な
     // committed_at / is_ai_assisted / commit_files を一緒に取る。分母の fix 検出のために
     // 期間末尾から 168h 先のコミットも取得する。手動コミットが複数セッションに重複登録される
-    // ため DISTINCT commit_hash で排除する。
+    // ため repo_name + commit_hash で排除する。
     const commitWindowSec = Math.round(AI_FIRST_TRY_FIX_WINDOW_MS / 1000);
     const commitResult = db.exec(
-      `SELECT ${commitPeriodExpr} AS period, commit_hash, commit_message,
+      `SELECT ${commitPeriodExpr} AS period, repo_name, commit_hash, commit_message,
               committed_at, is_ai_assisted, COALESCE(lines_added, 0) AS lines_added
        FROM session_commits
        WHERE committed_at >= DATETIME('now', '-${rangeDays} days')
          AND committed_at <= DATETIME('now', '+${commitWindowSec} seconds')
-       GROUP BY commit_hash`,
+       GROUP BY repo_name, commit_hash`,
     );
     type CommitRow = {
       period: string;
+      repoName: string;
       hash: string;
       subject: string;
       committed_at: string;
@@ -5645,6 +5646,7 @@ export class TrailDatabase {
     };
     const commitRows: CommitRow[] = toRows(commitResult).map(r => ({
       period: String(r['period'] ?? ''),
+      repoName: String(r['repo_name'] ?? ''),
       hash: String(r['commit_hash'] ?? ''),
       subject: String(r['commit_message'] ?? '').split('\n')[0],
       committed_at: String(r['committed_at'] ?? ''),
@@ -5657,20 +5659,20 @@ export class TrailDatabase {
     if (commitRows.length > 0) {
       const hashPlaceholders = commitRows.map(() => '?').join(',');
       const filesResult = db.exec(
-        `SELECT commit_hash, file_path FROM commit_files WHERE commit_hash IN (${hashPlaceholders})`,
+        `SELECT repo_name, commit_hash, file_path FROM commit_files WHERE commit_hash IN (${hashPlaceholders})`,
         commitRows.map(c => c.hash),
       );
       if (filesResult[0]) {
         const byHash = new Map<string, string[]>();
         for (const row of filesResult[0].values) {
-          const h = String(row[0] ?? '');
-          const p = String(row[1] ?? '');
+          const h = `${String(row[0] ?? '')}:${String(row[1] ?? '')}`;
+          const p = String(row[2] ?? '');
           const list = byHash.get(h);
           if (list) list.push(p);
           else byHash.set(h, [p]);
         }
         for (const c of commitRows) {
-          c.files = byHash.get(c.hash) ?? [];
+          c.files = byHash.get(`${c.repoName}:${c.hash}`) ?? [];
         }
       }
     }
@@ -6511,16 +6513,20 @@ export class TrailDatabase {
     return out;
   }
 
-  getCommitFiles(commitHashes: string[]): Array<{ commit_hash: string; file_path: string }> {
+  getCommitFiles(commitHashes: string[]): Array<{ repo_name: string; commit_hash: string; file_path: string }> {
     if (commitHashes.length === 0) return [];
     const db = this.ensureDb();
     const placeholders = commitHashes.map(() => '?').join(',');
     const res = db.exec(
-      `SELECT commit_hash, file_path FROM commit_files WHERE commit_hash IN (${placeholders})`,
+      `SELECT repo_name, commit_hash, file_path FROM commit_files WHERE commit_hash IN (${placeholders})`,
       commitHashes,
     );
     if (!res[0]) return [];
-    return res[0].values.map((row) => ({ commit_hash: row[0] as string, file_path: row[1] as string }));
+    return res[0].values.map((row) => ({
+      repo_name: row[0] as string,
+      commit_hash: row[1] as string,
+      file_path: row[2] as string,
+    }));
   }
 
   getReleaseQualityInputs(from: string, to: string): {

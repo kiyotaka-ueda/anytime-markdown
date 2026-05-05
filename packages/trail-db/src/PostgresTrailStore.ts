@@ -166,17 +166,17 @@ export class PostgresTrailStore implements IRemoteTrailStore {
     for (const r of rows) {
       await pool.query(
         `INSERT INTO trail_session_commits (
-          session_id, commit_hash, commit_message, author,
+          session_id, repo_name, commit_hash, commit_message, author,
           committed_at, is_ai_assisted, files_changed,
           lines_added, lines_deleted
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        ON CONFLICT (session_id, commit_hash) DO UPDATE SET
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        ON CONFLICT (session_id, repo_name, commit_hash) DO UPDATE SET
           commit_message = EXCLUDED.commit_message, author = EXCLUDED.author,
           committed_at = EXCLUDED.committed_at, is_ai_assisted = EXCLUDED.is_ai_assisted,
           files_changed = EXCLUDED.files_changed,
           lines_added = EXCLUDED.lines_added, lines_deleted = EXCLUDED.lines_deleted`,
         [
-          r.session_id, r.commit_hash, r.commit_message, r.author,
+          r.session_id, r.repo_name, r.commit_hash, r.commit_message, r.author,
           r.committed_at, r.is_ai_assisted, r.files_changed,
           r.lines_added, r.lines_deleted,
         ],
@@ -427,13 +427,13 @@ export class PostgresTrailStore implements IRemoteTrailStore {
   async upsertReleaseCodeGraphCommunities(): Promise<never> { throw new Error('PostgresTrailStore.upsertReleaseCodeGraphCommunities not implemented'); }
 
   async listManualElements(): Promise<never> { throw new Error('PostgresTrailStore.listManualElements not implemented'); }
-  async upsertCommitFiles(rows: readonly { commit_hash: string; file_path: string }[]): Promise<void> {
+  async upsertCommitFiles(rows: readonly { repo_name: string; commit_hash: string; file_path: string }[]): Promise<void> {
     if (rows.length === 0) return;
     const pool = this.ensurePool();
     for (const r of rows) {
       await pool.query(
-        `INSERT INTO trail_commit_files (commit_hash, file_path) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-        [r.commit_hash, r.file_path],
+        `INSERT INTO trail_commit_files (repo_name, commit_hash, file_path) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+        [r.repo_name, r.commit_hash, r.file_path],
       );
     }
   }

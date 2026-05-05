@@ -212,6 +212,7 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
     if (rows.length === 0) return;
     const mapped = rows.map((r) => ({
       session_id: r.session_id, commit_hash: r.commit_hash,
+      repo_name: r.repo_name,
       commit_message: r.commit_message, author: r.author,
       committed_at: r.committed_at, is_ai_assisted: r.is_ai_assisted,
       files_changed: r.files_changed,
@@ -219,16 +220,16 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
     }));
     const { error } = await this.ensureClient()
       .from('trail_session_commits')
-      .upsert(mapped, { onConflict: 'session_id,commit_hash' });
+      .upsert(mapped, { onConflict: 'session_id,repo_name,commit_hash' });
     if (error) throw new Error(`Supabase upsert commits failed: ${error.message}`);
   }
 
-  async upsertCommitFiles(rows: readonly { commit_hash: string; file_path: string }[]): Promise<void> {
+  async upsertCommitFiles(rows: readonly { repo_name: string; commit_hash: string; file_path: string }[]): Promise<void> {
     if (rows.length === 0) return;
     // commit_files はコミットが不変なので IGNORE（既存行を上書きしない）
     const { error } = await this.ensureClient()
       .from('trail_commit_files')
-      .upsert(rows, { onConflict: 'commit_hash,file_path', ignoreDuplicates: true });
+      .upsert(rows, { onConflict: 'repo_name,commit_hash,file_path', ignoreDuplicates: true });
     if (error) throw new Error(`Supabase upsert trail_commit_files failed: ${error.message}`);
   }
 

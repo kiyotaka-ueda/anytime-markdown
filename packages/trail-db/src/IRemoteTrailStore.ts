@@ -14,7 +14,7 @@ export interface IRemoteTrailStore {
   upsertSessions(rows: readonly SessionRow[]): Promise<void>;
   upsertMessages(rows: readonly MessageRow[]): Promise<void>;
   upsertCommits(rows: readonly SessionCommitRow[]): Promise<void>;
-  upsertCommitFiles(rows: readonly { commit_hash: string; file_path: string }[]): Promise<void>;
+  upsertCommitFiles(rows: readonly { repo_name: string; commit_hash: string; file_path: string }[]): Promise<void>;
   upsertReleases(rows: readonly ReleaseRow[]): Promise<void>;
   upsertReleaseFiles(rows: readonly ReleaseFileRow[]): Promise<void>;
   upsertSessionCosts(sessionId: string, costs: readonly {

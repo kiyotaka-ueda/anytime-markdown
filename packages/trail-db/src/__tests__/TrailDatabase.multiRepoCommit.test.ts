@@ -122,6 +122,17 @@ describe('TrailDatabase.resolveCommits multi-repo', () => {
     expect(rows[0]).toEqual({ commit_hash: hash, repo_name: 'repo-a' });
   });
 
+  it('returns repo_name with commit files for remote sync', () => {
+    inner(db).run(
+      `INSERT OR IGNORE INTO commit_files (repo_name, commit_hash, file_path)
+       VALUES ('repo-a', 'hash-a', 'a.txt')`,
+    );
+
+    expect(db.getCommitFiles(['hash-a'])).toEqual([
+      { repo_name: 'repo-a', commit_hash: 'hash-a', file_path: 'a.txt' },
+    ]);
+  });
+
   it('writes session_commit_resolutions for the resolved (session, repo) pair', () => {
     const sessionId = '22222222-2222-4222-8222-222222222222';
     insertSession(db, sessionId, '2026-04-29T00:00:00.000Z', '2026-04-29T01:00:00.000Z');
