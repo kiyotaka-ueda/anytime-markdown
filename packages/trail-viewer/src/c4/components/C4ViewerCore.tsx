@@ -106,6 +106,7 @@ import GroupWorkIcon from '@mui/icons-material/GroupWork';
 
 import { CodeGraphPanel } from '../../components/CodeGraphPanel';
 import { communityColor } from '../../components/communityColors';
+import { COMMUNITY_ROLE_LABELS, getCommunityRoleBgColors } from '../communityRoleColors';
 import { useCodeGraph } from '../../hooks/useCodeGraph';
 import { computeClaudeActivityColorMap, computeConflictBorderMap,computeMultiAgentColorMap } from '../claudeActivityColorMap';
 import { computeContextMenuCapabilities } from '../utils/contextMenuCapabilities';
@@ -1891,21 +1892,15 @@ export function C4ViewerCore({
                         m => m.featureId === featureId && m.elementId === elementId,
                       )?.role ?? null;
                     };
-                    const roleBgColor = (role: string) => {
-                      if (role === 'primary') return colors.accent;
-                      if (role === 'secondary') return '#66BB6A';
-                      return isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.10)';
-                    };
+                    const roleBgColors = getCommunityRoleBgColors(colors.accent, isDark);
+                    const roleBgColor = (role: string) =>
+                      roleBgColors[role as keyof typeof roleBgColors] ?? roleBgColors.dependency;
                     const roleTextColor = (role: string) =>
                       role === 'dependency'
                         ? colors.textSecondary
                         : isDark ? colors.bg : '#fff';
-                    const roleKey = (role: string) =>
-                      role === 'primary'
-                        ? 'c4.community.role.primary'
-                        : role === 'secondary'
-                          ? 'c4.community.role.secondary'
-                          : 'c4.community.role.dependency';
+                    const roleLabel = (role: string) =>
+                      COMMUNITY_ROLE_LABELS[role as keyof typeof COMMUNITY_ROLE_LABELS] ?? role;
                     const dominantRole = getRoleForCommunity(community.dominantCommunity);
                     return (
                       <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 1 }}>
@@ -1931,7 +1926,7 @@ export function C4ViewerCore({
                           </Typography>
                           {dominantRole && (
                             <Typography variant="caption" sx={{ display: 'inline-block', px: 0.5, py: 0.125, borderRadius: '4px', bgcolor: roleBgColor(dominantRole), color: roleTextColor(dominantRole), fontSize: '0.6rem', fontWeight: 700 }}>
-                              {t(roleKey(dominantRole) as Parameters<typeof t>[0])}
+                              {roleLabel(dominantRole)}
                             </Typography>
                           )}
                         </Box>
@@ -1979,7 +1974,7 @@ export function C4ViewerCore({
                                     </Box>
                                     {entryRole && (
                                       <Typography variant="caption" sx={{ px: 0.4, py: 0.1, borderRadius: '3px', bgcolor: roleBgColor(entryRole), color: roleTextColor(entryRole), fontSize: '0.58rem', fontWeight: 700, lineHeight: 1.2 }}>
-                                        {t(roleKey(entryRole) as Parameters<typeof t>[0])}
+                                        {roleLabel(entryRole)}
                                       </Typography>
                                     )}
                                     <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.6rem', minWidth: 32, textAlign: 'right' }}>

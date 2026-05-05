@@ -1,6 +1,7 @@
 import type { C4Model, FeatureMatrix } from '@anytime-markdown/trail-core/c4';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getC4Colors } from '../c4Theme';
+import { COMMUNITY_ROLE_LABELS, getCommunityRoleBgColors } from '../communityRoleColors';
 
 interface FcMapCanvasProps {
   readonly featureMatrix: FeatureMatrix;
@@ -21,13 +22,6 @@ const ROW_HEADER_W = 180;
 const COL_HEADER_H = 120;
 const PAN_STEP = 20;
 
-const SECONDARY_COLOR = '#66BB6A';
-
-const ROLE_LABELS: Record<string, string> = {
-  primary: 'P',
-  secondary: 'S',
-  dependency: 'D',
-};
 
 import { truncate, clampViewport as clampViewportBase } from '../canvasHelpers';
 
@@ -83,12 +77,11 @@ function buildGrid(fm: FeatureMatrix, model: C4Model, excluded?: ReadonlySet<str
 
 export function FcMapCanvas({ featureMatrix, model, excludedElementIds, level, isDark }: Readonly<FcMapCanvasProps>) {
   const colors = useMemo(() => getC4Colors(isDark ?? true), [isDark]);
-  const dependencyColor = (isDark ?? true) ? 'rgba(255,255,255,0.20)' : 'rgba(0,0,0,0.10)';
-  const roleColors: Record<string, string> = useMemo(() => ({
-    primary: colors.accent,
-    secondary: SECONDARY_COLOR,
-    dependency: dependencyColor,
-  }), [colors.accent, dependencyColor]);
+  const roleColors = useMemo(
+    () => getCommunityRoleBgColors(colors.accent, isDark ?? true),
+    [colors.accent, isDark],
+  );
+  const dependencyColor = roleColors.dependency;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
@@ -188,11 +181,11 @@ export function FcMapCanvas({ featureMatrix, model, excludedElementIds, level, i
           const x = ROW_HEADER_W + c * CELL_W;
           const y = COL_HEADER_H + r * CELL_H;
 
-          ctx!.fillStyle = roleColors[role] ?? dependencyColor;
+          ctx!.fillStyle = roleColors[role as keyof typeof roleColors] ?? dependencyColor;
           ctx!.fillRect(x + 1, y + 1, CELL_W - 2, CELL_H - 2);
 
           // Label (P/S/D)
-          const label = ROLE_LABELS[role] ?? '';
+          const label = COMMUNITY_ROLE_LABELS[role as keyof typeof COMMUNITY_ROLE_LABELS] ?? '';
           ctx!.fillStyle = role === 'dependency' ? colors.textSecondary : colors.bg;
           ctx!.fillText(label, x + CELL_W / 2, y + CELL_H / 2);
         }
@@ -300,7 +293,7 @@ export function FcMapCanvas({ featureMatrix, model, excludedElementIds, level, i
       ctx!.textBaseline = 'middle';
       const legendItems = [
         { label: 'P Primary', color: colors.accent },
-        { label: 'S Secondary', color: SECONDARY_COLOR },
+        { label: 'S Secondary', color: roleColors.secondary },
         { label: 'D Dependency', color: dependencyColor },
       ];
       for (let i = 0; i < legendItems.length; i++) {
@@ -361,7 +354,7 @@ export function FcMapCanvas({ featureMatrix, model, excludedElementIds, level, i
       const col = grid.columns[cell.col];
       const key = `${row.id}:${col.id}`;
       const role = grid.cells.get(key);
-      const roleLabel = role ? ` [${ROLE_LABELS[role]}]` : '';
+      const roleLabel = role ? ` [${COMMUNITY_ROLE_LABELS[role as keyof typeof COMMUNITY_ROLE_LABELS]}]` : '';
       setTooltip({ text: `${row.name} \u2192 ${col.name}${roleLabel}`, x: e.clientX, y: e.clientY });
     } else {
       setTooltip(null);
