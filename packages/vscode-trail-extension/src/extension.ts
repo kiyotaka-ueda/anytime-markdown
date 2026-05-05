@@ -24,6 +24,7 @@ import {
 } from './graph/AnalyzePipeline';
 import { DatabaseProvider } from './trail/DatabaseProvider';
 import { TrailPanel } from './trail/TrailPanel';
+import { resolveWatchedRepos } from './utils/resolveWatchedRepos';
 import { TrailLogger } from './utils/TrailLogger';
 
 let trailDataServer: TrailDataServer | undefined;
@@ -33,6 +34,21 @@ let extensionDistPath = '';
 function getEffectiveWorkspacePath(): string | undefined {
 	const configured = vscode.workspace.getConfiguration('anytimeTrail.workspace').get<string>('path', '').trim();
 	return configured || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+}
+
+/**
+ * commit 監視対象 repo を解決する。
+ * - anytimeTrail.workspace.path（主リポジトリ）
+ * - <workspaceFolder>/.trail/anytime-history.json の specDocsRoots（history 拡張が管理）
+ * の union を、git working tree 検証してから返す。
+ */
+function getWatchedGitRoots(): string[] {
+	const resolved = resolveWatchedRepos({
+		workspacePath: getEffectiveWorkspacePath(),
+		workspaceFolder: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+		logger: { warn: (msg) => TrailLogger.warn(msg) },
+	});
+	return resolved.map((r) => r.gitRoot);
 }
 
 function applyDocsPathConfig(): void {
@@ -500,7 +516,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const startedAt = Date.now();
 		const result = await trailDb.importAll(
 			(message) => TrailLogger.info(`Trail import (HTTP): ${message}`),
-			gitRoot,
+			getWatchedGitRoots(),
 			ANALYZE_EXCLUDE_PATTERNS,
 			analyze,
 		);
@@ -772,11 +788,10 @@ export async function activate(context: vscode.ExtensionContext) {
 						cancellable: false,
 					},
 					async (progress) => {
-						const gitRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 						return trailDb!.importAll((message, increment) => {
 							progress.report({ message, increment });
 							TrailLogger.info(`Trail import [${repoName}]: ${message}`);
-						}, gitRoot, ANALYZE_EXCLUDE_PATTERNS, analyze);
+						}, getWatchedGitRoots(), ANALYZE_EXCLUDE_PATTERNS, analyze);
 					},
 				);
 				TrailLogger.info(`Trail DB [${repoName}]: import complete - imported=${result.imported}, skipped=${result.skipped}, commits=${result.commitsResolved}, releases=${result.releasesResolved}, analyzed=${result.releasesAnalyzed}`);

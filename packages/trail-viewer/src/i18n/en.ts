@@ -80,6 +80,8 @@ export const en: TrailI18n = {
   'analytics.loadingCommits': 'Loading commits...',
   'analytics.noCommits': "No commits found in this session's time range",
   'analytics.commitHash': 'Hash',
+  'analytics.commitRepo': 'Repo',
+  'analytics.commitRepoLegacy': '(legacy)',
   'analytics.commitMessage': 'Message',
   'analytics.commitFiles': 'Files',
   'analytics.commitDiff': '+/-',

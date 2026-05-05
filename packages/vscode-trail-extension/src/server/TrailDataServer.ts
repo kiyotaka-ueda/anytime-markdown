@@ -1399,6 +1399,7 @@ export class TrailDataServer {
         filesChanged: c.files_changed,
         linesAdded: c.lines_added,
         linesDeleted: c.lines_deleted,
+        repoName: c.repo_name ?? '',
       }));
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({ commits: mapped }));
@@ -2039,8 +2040,11 @@ export class TrailDataServer {
   // -------------------------------------------------------------------------
 
   private handleRefresh(res: http.ServerResponse): void {
+    // 監視 repo 一覧を持たない fallback パス。HTTP 経由 refresh は主リポジトリのみ対象。
+    // multi-repo 取り込みは onAnalyzeAll 経由（extension.ts で resolveWatchedRepos を使う）に乗せる。
+    const gitRoots = this.gitRoot ? [this.gitRoot] : undefined;
     this.trailDb
-      .importAll(undefined, this.gitRoot, undefined, analyze)
+      .importAll(undefined, gitRoots, undefined, analyze)
       .then((result) => {
         this.notifySessionsUpdated();
         res.writeHead(200, JSON_HEADERS);

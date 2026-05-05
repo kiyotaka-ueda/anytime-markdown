@@ -34,6 +34,7 @@ import {
   CREATE_MESSAGE_TOOL_CALLS_INDEXES,
   CREATE_MESSAGE_COMMITS,
   CREATE_COMMIT_FILES,
+  CREATE_SESSION_COMMIT_RESOLUTIONS,
   CREATE_C4_MANUAL_ELEMENTS,
   CREATE_C4_MANUAL_RELATIONSHIPS,
   CREATE_C4_MANUAL_GROUPS,
@@ -247,6 +248,7 @@ export interface SessionCommitRow {
   readonly files_changed: number;
   readonly lines_added: number;
   readonly lines_deleted: number;
+  readonly repo_name: string;
 }
 
 interface SessionFilters {
@@ -810,6 +812,7 @@ export class TrailDatabase {
     db.run(CREATE_SKILL_MODELS_RESOLVED_VIEW);
     db.run(CREATE_MESSAGE_COMMITS);
     db.run(CREATE_COMMIT_FILES);
+    db.run(CREATE_SESSION_COMMIT_RESOLUTIONS);
     db.run('CREATE INDEX IF NOT EXISTS idx_commit_files_hash ON commit_files(commit_hash)');
     for (const sql of [...CREATE_INDEXES, ...CREATE_RELEASE_INDEXES]) {
       db.run(sql);
@@ -849,6 +852,13 @@ export class TrailDatabase {
       try { db.run(sql); } catch { /* Column already exists */ }
     }
     this.migrateDropSessionsProjectColumn(db);
+    const commitTableAlters = [
+      "ALTER TABLE session_commits ADD COLUMN repo_name TEXT NOT NULL DEFAULT ''",
+      "ALTER TABLE commit_files ADD COLUMN repo_name TEXT NOT NULL DEFAULT ''",
+    ];
+    for (const sql of commitTableAlters) {
+      try { db.run(sql); } catch { /* Column already exists */ }
+    }
     const messageAlters = [
       'ALTER TABLE messages ADD COLUMN rule_recommended_model TEXT',
       'ALTER TABLE messages ADD COLUMN feature_recommended_model TEXT',
@@ -899,6 +909,62 @@ export class TrailDatabase {
     } catch (e) {
       this.logger.warn(`backfillSourceToolLinkFields (init) failed (non-fatal): ${e instanceof Error ? e.message : String(e)}`);
     }
+    try {
+      this.backfillRepoName_v1();
+    } catch (e) {
+      this.logger.warn(`backfillRepoName_v1 (init) failed (non-fatal): ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  /**
+   * 既存 row の session_commits.repo_name / commit_files.repo_name を sessions.repo_name から
+   * バックフィルする。`_migrations` テーブルで一度だけ走らせる冪等運用。
+   */
+  private backfillRepoName_v1(): void {
+    const db = this.ensureDb();
+    db.run('CREATE TABLE IF NOT EXISTS _migrations (key TEXT PRIMARY KEY)');
+    const done = db.exec("SELECT 1 FROM _migrations WHERE key = 'repo_name_backfill_v1'");
+    if (done[0]?.values?.length) return;
+
+    // session_commits: 既存 row の repo_name='' を sessions.repo_name から埋める
+    db.run(
+      `UPDATE session_commits
+         SET repo_name = (
+           SELECT s.repo_name FROM sessions s WHERE s.id = session_commits.session_id
+         )
+         WHERE repo_name = ''
+           AND EXISTS (
+             SELECT 1 FROM sessions s
+             WHERE s.id = session_commits.session_id AND s.repo_name != ''
+           )`,
+    );
+    const updatedCommits = db.exec(
+      "SELECT COUNT(*) FROM session_commits WHERE repo_name != ''",
+    )[0]?.values[0]?.[0] ?? 0;
+
+    // commit_files: session_commits 経由で repo_name を逆引き
+    db.run(
+      `UPDATE commit_files
+         SET repo_name = (
+           SELECT sc.repo_name FROM session_commits sc
+           WHERE sc.commit_hash = commit_files.commit_hash
+             AND sc.repo_name != ''
+           LIMIT 1
+         )
+         WHERE repo_name = ''
+           AND EXISTS (
+             SELECT 1 FROM session_commits sc
+             WHERE sc.commit_hash = commit_files.commit_hash AND sc.repo_name != ''
+           )`,
+    );
+    const updatedFiles = db.exec(
+      "SELECT COUNT(*) FROM commit_files WHERE repo_name != ''",
+    )[0]?.values[0]?.[0] ?? 0;
+
+    this.logger.info(
+      `[Migration] repo_name_backfill_v1: session_commits non-empty=${String(updatedCommits)}, commit_files non-empty=${String(updatedFiles)}`,
+    );
+    db.run("INSERT OR IGNORE INTO _migrations (key) VALUES ('repo_name_backfill_v1')");
   }
 
   private backfillSourceToolLinkFields(): void {
@@ -1988,7 +2054,7 @@ export class TrailDatabase {
     }
   }
 
-  resolveCommits(sessionId: string, gitRoot: string): number {
+  resolveCommits(sessionId: string, gitRoot: string, repoName: string): number {
     const db = this.ensureDb();
     const range = this.getSessionTimeRange(sessionId);
     if (!range) return 0;
@@ -2006,8 +2072,8 @@ export class TrailDatabase {
     const insertStmt = db.prepare(
       `INSERT OR IGNORE INTO session_commits
         (session_id, commit_hash, commit_message, author, committed_at,
-         is_ai_assisted, files_changed, lines_added, lines_deleted)
-        VALUES (?,?,?,?,?,?,?,?,?)`,
+         is_ai_assisted, files_changed, lines_added, lines_deleted, repo_name)
+        VALUES (?,?,?,?,?,?,?,?,?,?)`,
     );
 
     let count = 0;
@@ -2022,7 +2088,7 @@ export class TrailDatabase {
         '--no-merges',
       ], { ...execOpts, cwd: gitRoot });
 
-      count += this.processCommitEntries(phaseAOutput, sessionId, insertStmt, execOpts, gitRoot);
+      count += this.processCommitEntries(phaseAOutput, sessionId, repoName, insertStmt, execOpts, gitRoot);
     } catch {
       // git grep may fail if no commits match — not an error
     }
@@ -2050,24 +2116,44 @@ export class TrailDatabase {
       } catch {
         // On any git error, mark as resolved and return Phase A count
         insertStmt.free();
-        db.run(
-          "UPDATE sessions SET commits_resolved_at = datetime('now') WHERE id = ?",
-          [sessionId],
-        );
+        this.markCommitResolutionDone(sessionId, repoName);
         return count;
       }
     }
 
-    count += this.processCommitEntries(logOutput, sessionId, insertStmt, execOpts, gitRoot, true);
+    count += this.processCommitEntries(logOutput, sessionId, repoName, insertStmt, execOpts, gitRoot, true);
 
     insertStmt.free();
 
+    this.markCommitResolutionDone(sessionId, repoName);
+
+    return count;
+  }
+
+  /** Mark (sessionId, repoName) as resolved in session_commit_resolutions, plus legacy sessions.commits_resolved_at. */
+  private markCommitResolutionDone(sessionId: string, repoName: string): void {
+    const db = this.ensureDb();
+    db.run(
+      `INSERT INTO session_commit_resolutions (session_id, repo_name, resolved_at)
+         VALUES (?, ?, datetime('now'))
+         ON CONFLICT(session_id, repo_name) DO UPDATE SET resolved_at = excluded.resolved_at`,
+      [sessionId, repoName],
+    );
+    // 既存挙動の互換: 主リポジトリ解決時も sessions.commits_resolved_at を更新
     db.run(
       "UPDATE sessions SET commits_resolved_at = datetime('now') WHERE id = ?",
       [sessionId],
     );
+  }
 
-    return count;
+  /** Returns true if (sessionId, repoName) is already recorded as resolved. */
+  isCommitResolutionDone(sessionId: string, repoName: string): boolean {
+    const db = this.ensureDb();
+    const r = db.exec(
+      'SELECT 1 FROM session_commit_resolutions WHERE session_id = ? AND repo_name = ? LIMIT 1',
+      [sessionId, repoName],
+    );
+    return Boolean(r[0]?.values?.length);
   }
 
   /** Parse git log output and insert commits into session_commits table.
@@ -2075,6 +2161,7 @@ export class TrailDatabase {
   private processCommitEntries(
     logOutput: string,
     sessionId: string,
+    repoName: string,
     insertStmt: SqlJsStatement,
     execOpts: { encoding: 'utf-8'; timeout: number },
     gitRoot: string,
@@ -2131,16 +2218,16 @@ export class TrailDatabase {
 
       insertStmt.run([
         sessionId, hash, subject, author, committedAt,
-        isAiAssisted, filesChanged, linesAdded, linesDeleted,
+        isAiAssisted, filesChanged, linesAdded, linesDeleted, repoName,
       ]);
 
       if (filePaths.length > 0) {
         const filesStmt = this.ensureDb().prepare(
-          'INSERT OR IGNORE INTO commit_files (commit_hash, file_path) VALUES (?, ?)',
+          'INSERT OR IGNORE INTO commit_files (commit_hash, file_path, repo_name) VALUES (?, ?, ?)',
         );
         try {
           for (const fp of filePaths) {
-            filesStmt.run([hash, fp]);
+            filesStmt.run([hash, fp, repoName]);
           }
         } finally {
           filesStmt.free();
@@ -2328,13 +2415,16 @@ export class TrailDatabase {
 
   async importAll(
     onProgress?: (message: string, increment?: number) => void,
-    gitRoot?: string,
+    gitRoots?: readonly string[],
     excludePatterns?: readonly string[],
     analyzeFn?: AnalyzeFunction,
   ): Promise<{ imported: number; skipped: number; commitsResolved: number; releasesResolved: number; releasesAnalyzed: number; coverageImported: number; currentCoverageImported: number; messageCommitsBackfilled: number }> {
     const projectsDir = path.join(os.homedir(), '.claude', 'projects');
     const codexSessionsDir = path.join(os.homedir(), '.codex', 'sessions');
+    // 主リポジトリは gitRoots[0] とみなす（コード解析・Codex セッションのフィルタに使う既存挙動の互換）
+    const gitRoot = gitRoots?.[0];
     const repoName = gitRoot ? path.basename(gitRoot) : '';
+    const watched = (gitRoots ?? []).map((r) => ({ gitRoot: r, repoName: path.basename(r) }));
     let imported = 0;
     let skipped = 0;
     let commitsResolved = 0;
@@ -2459,8 +2549,9 @@ export class TrailDatabase {
           skippedBySource[dir.source] += sessionFileTotal;
           processedFiles += sessionFileTotal;
           processedBySource[dir.source] += sessionFileTotal;
-          if (gitRoot && !existing.commitsResolved) {
-            try { commitsResolved += this.resolveCommits(dir.sid, gitRoot); } catch (e) { this.logger.error(`resolveCommits failed (skipped session): ${dir.sid}`, e); }
+          for (const w of watched) {
+            if (this.isCommitResolutionDone(dir.sid, w.repoName)) continue;
+            try { commitsResolved += this.resolveCommits(dir.sid, w.gitRoot, w.repoName); } catch (e) { this.logger.error(`resolveCommits failed (skipped session): ${dir.sid} repo=${w.repoName}`, e); }
           }
           continue;
         }
@@ -2495,9 +2586,10 @@ export class TrailDatabase {
         processedBySource[dir.source]++;
       }
 
-      // Resolve commits after all files for this session
-      if (gitRoot) {
-        try { commitsResolved += this.resolveCommits(dir.sid, gitRoot); } catch (e) { this.logger.error(`resolveCommits failed: ${dir.sid}`, e); }
+      // Resolve commits after all files for this session — once per watched repo
+      for (const w of watched) {
+        if (this.isCommitResolutionDone(dir.sid, w.repoName)) continue;
+        try { commitsResolved += this.resolveCommits(dir.sid, w.gitRoot, w.repoName); } catch (e) { this.logger.error(`resolveCommits failed: ${dir.sid} repo=${w.repoName}`, e); }
       }
 
       // Commit at session boundary when limits exceeded
@@ -2623,6 +2715,7 @@ export class TrailDatabase {
           filesChanged: c.files_changed,
           linesAdded: c.lines_added,
           linesDeleted: c.lines_deleted,
+          repoName: c.repo_name ?? '',
         }));
         const matches = matchCommitsToMessages(messages, commits);
         const now = new Date().toISOString();

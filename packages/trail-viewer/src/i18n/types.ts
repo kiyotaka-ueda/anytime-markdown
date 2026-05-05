@@ -89,6 +89,8 @@ export interface TrailI18n {
   'analytics.loadingCommits': string;
   'analytics.noCommits': string;
   'analytics.commitHash': string;
+  'analytics.commitRepo': string;
+  'analytics.commitRepoLegacy': string;
   'analytics.commitMessage': string;
   'analytics.commitFiles': string;
   'analytics.commitDiff': string;

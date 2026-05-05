@@ -99,13 +99,22 @@ export const CREATE_SESSION_COMMITS = `CREATE TABLE IF NOT EXISTS session_commit
   files_changed INTEGER NOT NULL DEFAULT 0,
   lines_added INTEGER NOT NULL DEFAULT 0,
   lines_deleted INTEGER NOT NULL DEFAULT 0,
+  repo_name TEXT NOT NULL DEFAULT '',
   PRIMARY KEY (session_id, commit_hash)
 )`;
 
 export const CREATE_COMMIT_FILES = `CREATE TABLE IF NOT EXISTS commit_files (
   commit_hash TEXT NOT NULL,
   file_path TEXT NOT NULL,
+  repo_name TEXT NOT NULL DEFAULT '',
   PRIMARY KEY (commit_hash, file_path)
+)`;
+
+export const CREATE_SESSION_COMMIT_RESOLUTIONS = `CREATE TABLE IF NOT EXISTS session_commit_resolutions (
+  session_id TEXT NOT NULL REFERENCES sessions(id),
+  repo_name TEXT NOT NULL,
+  resolved_at TEXT NOT NULL,
+  PRIMARY KEY (session_id, repo_name)
 )`;
 
 export const CREATE_MESSAGE_COMMITS = `CREATE TABLE IF NOT EXISTS message_commits (

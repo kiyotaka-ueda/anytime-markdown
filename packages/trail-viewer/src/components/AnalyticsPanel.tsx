@@ -1319,13 +1319,17 @@ function SessionCommitList({
               <TableHead>
                 <TableRow sx={{ '& .MuiTableCell-head': { color: colors.textSecondary, borderColor: colors.border, bgcolor: colors.midnightNavy } }}>
                   <TableCell>{t('analytics.commitHash')}</TableCell>
+                  <TableCell>{t('analytics.commitRepo')}</TableCell>
                   <TableCell>{t('analytics.commitMessage')}</TableCell>
                   <TableCell align="right">{t('analytics.commitFiles')}</TableCell>
                   <TableCell align="right">{t('analytics.commitDiff')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {commits.map((c) => (
+                {commits.map((c) => {
+                  const repoLabel = c.repoName !== '' ? c.repoName : t('analytics.commitRepoLegacy');
+                  const isLegacy = c.repoName === '';
+                  return (
                   <TableRow key={c.commitHash} sx={{ '& .MuiTableCell-root': { borderColor: colors.border } }}>
                     <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
                       {c.commitHash.slice(0, 8)}
@@ -1335,6 +1339,9 @@ function SessionCommitList({
                         </Typography>
                       )}
                     </TableCell>
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem', whiteSpace: 'nowrap', color: isLegacy ? colors.textSecondary : 'inherit' }}>
+                      {repoLabel}
+                    </TableCell>
                     <TableCell sx={{ fontSize: '0.8rem', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {c.commitMessage}
                     </TableCell>
@@ -1343,7 +1350,8 @@ function SessionCommitList({
                       +{fmtNum(c.linesAdded)} / -{fmtNum(c.linesDeleted)}
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </Box>
