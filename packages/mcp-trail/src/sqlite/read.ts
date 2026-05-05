@@ -1,6 +1,7 @@
-import type { Database } from 'better-sqlite3';
+import type { Database } from 'sql.js';
 import type { C4Model, TrailGraph, ManualElement, ManualRelationship } from '@anytime-markdown/trail-core';
 import { trailToC4, mergeManualIntoC4Model } from '@anytime-markdown/trail-core';
+import { all, get } from './sqlJsUtil';
 
 export interface ListedElement {
   id: string;
@@ -70,19 +71,21 @@ interface CommunityRowRaw {
 }
 
 export function getC4ModelDirect(db: Database, repoName: string): { model: C4Model } {
-  const graphRow = db
-    .prepare('SELECT graph_json FROM current_code_graphs WHERE repo_name = ?')
-    .get(repoName) as GraphRow | undefined;
+  const graphRow = get<GraphRow>(
+    db,
+    'SELECT graph_json FROM current_code_graphs WHERE repo_name = ?',
+    [repoName],
+  );
 
   const base: C4Model = graphRow
     ? trailToC4(JSON.parse(graphRow.graph_json) as TrailGraph)
     : { level: 'container', elements: [], relationships: [] };
 
-  const manualElementRows = db
-    .prepare(
-      'SELECT element_id, type, name, description, service_type, external, updated_at FROM c4_manual_elements WHERE repo_name = ? ORDER BY element_id',
-    )
-    .all(repoName) as ManualElementRow[];
+  const manualElementRows = all<ManualElementRow>(
+    db,
+    'SELECT element_id, type, name, description, service_type, external, updated_at FROM c4_manual_elements WHERE repo_name = ? ORDER BY element_id',
+    [repoName],
+  );
 
   const manualElements: ManualElement[] = manualElementRows.map((row) => ({
     id: row.element_id,
@@ -95,11 +98,11 @@ export function getC4ModelDirect(db: Database, repoName: string): { model: C4Mod
     updatedAt: row.updated_at,
   }));
 
-  const manualRelationshipRows = db
-    .prepare(
-      'SELECT rel_id, from_id, to_id, label, technology, updated_at FROM c4_manual_relationships WHERE repo_name = ? ORDER BY rel_id',
-    )
-    .all(repoName) as ManualRelationshipRow[];
+  const manualRelationshipRows = all<ManualRelationshipRow>(
+    db,
+    'SELECT rel_id, from_id, to_id, label, technology, updated_at FROM c4_manual_relationships WHERE repo_name = ? ORDER BY rel_id',
+    [repoName],
+  );
 
   const manualRelationships: ManualRelationship[] = manualRelationshipRows.map((row) => ({
     id: row.rel_id,
@@ -125,9 +128,11 @@ export function listElementsDirect(db: Database, repoName: string): ListedElemen
 }
 
 export function listGroupsDirect(db: Database, repoName: string): ListedGroup[] {
-  const rows = db
-    .prepare('SELECT group_id, member_ids, label FROM c4_manual_groups WHERE repo_name = ? ORDER BY group_id')
-    .all(repoName) as ManualGroupRow[];
+  const rows = all<ManualGroupRow>(
+    db,
+    'SELECT group_id, member_ids, label FROM c4_manual_groups WHERE repo_name = ? ORDER BY group_id',
+    [repoName],
+  );
 
   return rows.map((row) => {
     const item: ListedGroup = {
@@ -140,11 +145,11 @@ export function listGroupsDirect(db: Database, repoName: string): ListedGroup[] 
 }
 
 export function listRelationshipsDirect(db: Database, repoName: string): ListedRelationship[] {
-  const rows = db
-    .prepare(
-      'SELECT rel_id, from_id, to_id, label, technology FROM c4_manual_relationships WHERE repo_name = ? ORDER BY rel_id',
-    )
-    .all(repoName) as ManualRelationshipRow[];
+  const rows = all<ManualRelationshipRow>(
+    db,
+    'SELECT rel_id, from_id, to_id, label, technology FROM c4_manual_relationships WHERE repo_name = ? ORDER BY rel_id',
+    [repoName],
+  );
 
   return rows.map((row) => {
     const item: ListedRelationship = { id: row.rel_id, fromId: row.from_id, toId: row.to_id };
@@ -157,18 +162,18 @@ export function listRelationshipsDirect(db: Database, repoName: string): ListedR
 export function listCommunitiesDirect(db: Database, repoName: string): { communities: CommunityRow[] } {
   let rows: CommunityRowRaw[];
   try {
-    rows = db
-      .prepare(
-        'SELECT community_id, label, name, summary, mappings_json FROM current_code_graph_communities WHERE repo_name = ? ORDER BY community_id',
-      )
-      .all(repoName) as CommunityRowRaw[];
+    rows = all<CommunityRowRaw>(
+      db,
+      'SELECT community_id, label, name, summary, mappings_json FROM current_code_graph_communities WHERE repo_name = ? ORDER BY community_id',
+      [repoName],
+    );
   } catch (_err) {
     // mappings_json カラムが存在しない場合（ALTER TABLE 未実施の既存 DB）
-    rows = db
-      .prepare(
-        'SELECT community_id, label, name, summary FROM current_code_graph_communities WHERE repo_name = ? ORDER BY community_id',
-      )
-      .all(repoName) as CommunityRowRaw[];
+    rows = all<CommunityRowRaw>(
+      db,
+      'SELECT community_id, label, name, summary FROM current_code_graph_communities WHERE repo_name = ? ORDER BY community_id',
+      [repoName],
+    );
   }
 
   const communities: CommunityRow[] = rows.map((row) => ({

@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - Analyze tools (`analyze_current_code`, `analyze_release_code`, `analyze_all`, `get_analyze_status`) still require TrailDataServer; emit explicit error when unavailable
-- Bundled `better-sqlite3` 12.9.0 as native dependency (externalized in webpack, shipped via VSIX `node_modules`)
+- Use `sql.js` 1.12.0 (already shipped via CopyWebpackPlugin to `dist/sql-asm.js` + `dist/sql-wasm.wasm`) instead of `better-sqlite3` to remain compatible with the `vsce package --no-dependencies` distribution model. Direct writes use file-level read-modify-write with `tmp + rename` for atomicity.
 
 ## [0.10.0] - 2026-05-04
 

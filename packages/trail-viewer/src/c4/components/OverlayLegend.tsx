@@ -99,6 +99,14 @@ export function OverlayLegend({ overlay, isDark, dsmMax, communityLegend, commun
         <Swatch color="#fb8c00" label="Dependency" />
       </>
     );
+  } else if (overlay === 'dead-code-score') {
+    metricItems = (
+      <>
+        <Swatch color="#f44336" label="≥ 70" />
+        <Swatch color="#ffc107" label="40–69" />
+        <Swatch color="#4caf50" label="< 40" />
+      </>
+    );
   }
 
   const positionSx = inline

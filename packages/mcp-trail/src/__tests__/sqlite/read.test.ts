@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import initSqlJs, { type SqlJsStatic, type Database } from 'sql.js';
 import {
   getC4ModelDirect,
   listElementsDirect,
@@ -7,9 +7,15 @@ import {
   listCommunitiesDirect,
 } from '../../sqlite/read';
 
-function createTestDb(): Database.Database {
-  const db = new Database(':memory:');
-  db.exec(`
+let SQL: SqlJsStatic;
+
+beforeAll(async () => {
+  SQL = await initSqlJs();
+});
+
+function createTestDb(): Database {
+  const db = new SQL.Database();
+  db.run(`
     CREATE TABLE current_code_graphs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       repo_name TEXT NOT NULL,
@@ -59,9 +65,9 @@ function createTestDb(): Database.Database {
   return db;
 }
 
-function createTestDbWithoutMappingsJson(): Database.Database {
-  const db = new Database(':memory:');
-  db.exec(`
+function createTestDbWithoutMappingsJson(): Database {
+  const db = new SQL.Database();
+  db.run(`
     CREATE TABLE current_code_graph_communities (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       repo_name TEXT NOT NULL,
@@ -92,13 +98,13 @@ describe('getC4ModelDirect', () => {
     const graph = {
       nodes: [],
       edges: [],
-      metadata: { projectRoot: "/tmp/test", analyzedAt: "2026-01-01T00:00:00.000Z", fileCount: 0 },
+      metadata: { projectRoot: '/tmp/test', analyzedAt: '2026-01-01T00:00:00.000Z', fileCount: 0 },
     };
-    db.prepare('INSERT INTO current_code_graphs (repo_name, graph_json, updated_at) VALUES (?, ?, ?)').run(
+    db.run('INSERT INTO current_code_graphs (repo_name, graph_json, updated_at) VALUES (?, ?, ?)', [
       REPO,
       JSON.stringify(graph),
       NOW,
-    );
+    ]);
     const { model } = getC4ModelDirect(db, REPO);
     expect(model).toBeDefined();
     expect(Array.isArray(model.elements)).toBe(true);
@@ -107,15 +113,14 @@ describe('getC4ModelDirect', () => {
 
   it('manual elements が mergeManualIntoC4Model 経由でマージされる', () => {
     const db = createTestDb();
-    // manual element を追加
-    db.prepare(
+    db.run(
       'INSERT INTO c4_manual_elements (repo_name, element_id, type, name, description, external, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    ).run(REPO, 'elem-1', 'system', 'MySystem', 'A system', 0, NOW);
-
-    // manual relationship を追加
-    db.prepare(
+      [REPO, 'elem-1', 'system', 'MySystem', 'A system', 0, NOW],
+    );
+    db.run(
       'INSERT INTO c4_manual_relationships (repo_name, rel_id, from_id, to_id, label, technology, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    ).run(REPO, 'rel-1', 'elem-1', 'elem-2', 'uses', 'HTTP', NOW);
+      [REPO, 'rel-1', 'elem-1', 'elem-2', 'uses', 'HTTP', NOW],
+    );
 
     const { model } = getC4ModelDirect(db, REPO);
     const elem = model.elements.find((e) => e.id === 'elem-1');
@@ -127,9 +132,10 @@ describe('getC4ModelDirect', () => {
 
   it('external フィールドが INTEGER 0/1 → boolean に変換される', () => {
     const db = createTestDb();
-    db.prepare(
+    db.run(
       'INSERT INTO c4_manual_elements (repo_name, element_id, type, name, external, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
-    ).run(REPO, 'ext-elem', 'system', 'ExternalSystem', 1, NOW);
+      [REPO, 'ext-elem', 'system', 'ExternalSystem', 1, NOW],
+    );
 
     const { model } = getC4ModelDirect(db, REPO);
     const elem = model.elements.find((e) => e.id === 'ext-elem');
@@ -141,9 +147,10 @@ describe('getC4ModelDirect', () => {
 describe('listElementsDirect', () => {
   it('要素の id / type / name を配列で返す', () => {
     const db = createTestDb();
-    db.prepare(
+    db.run(
       'INSERT INTO c4_manual_elements (repo_name, element_id, type, name, external, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
-    ).run(REPO, 'e1', 'container', 'ServiceA', 0, NOW);
+      [REPO, 'e1', 'container', 'ServiceA', 0, NOW],
+    );
 
     const elements = listElementsDirect(db, REPO);
     expect(elements.length).toBeGreaterThan(0);
@@ -157,9 +164,10 @@ describe('listElementsDirect', () => {
 describe('listGroupsDirect', () => {
   it('グループを返す', () => {
     const db = createTestDb();
-    db.prepare(
+    db.run(
       'INSERT INTO c4_manual_groups (repo_name, group_id, member_ids, label, updated_at) VALUES (?, ?, ?, ?, ?)',
-    ).run(REPO, 'grp-1', JSON.stringify(['e1', 'e2']), 'Group A', NOW);
+      [REPO, 'grp-1', JSON.stringify(['e1', 'e2']), 'Group A', NOW],
+    );
 
     const groups = listGroupsDirect(db, REPO);
     expect(groups).toHaveLength(1);
@@ -171,9 +179,10 @@ describe('listGroupsDirect', () => {
 
   it('label が null のときは省略される', () => {
     const db = createTestDb();
-    db.prepare(
+    db.run(
       'INSERT INTO c4_manual_groups (repo_name, group_id, member_ids, label, updated_at) VALUES (?, ?, ?, ?, ?)',
-    ).run(REPO, 'grp-2', JSON.stringify(['e3']), null, NOW);
+      [REPO, 'grp-2', JSON.stringify(['e3']), null, NOW],
+    );
 
     const groups = listGroupsDirect(db, REPO);
     expect(groups[0].label).toBeUndefined();
@@ -184,9 +193,10 @@ describe('listGroupsDirect', () => {
 describe('listRelationshipsDirect', () => {
   it('リレーションシップを返す', () => {
     const db = createTestDb();
-    db.prepare(
+    db.run(
       'INSERT INTO c4_manual_relationships (repo_name, rel_id, from_id, to_id, label, technology, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    ).run(REPO, 'rel-1', 'a', 'b', 'calls', 'gRPC', NOW);
+      [REPO, 'rel-1', 'a', 'b', 'calls', 'gRPC', NOW],
+    );
 
     const rels = listRelationshipsDirect(db, REPO);
     expect(rels).toHaveLength(1);
@@ -200,9 +210,10 @@ describe('listRelationshipsDirect', () => {
 
   it('label / technology が null のときは省略される', () => {
     const db = createTestDb();
-    db.prepare(
+    db.run(
       'INSERT INTO c4_manual_relationships (repo_name, rel_id, from_id, to_id, label, technology, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    ).run(REPO, 'rel-2', 'c', 'd', null, null, NOW);
+      [REPO, 'rel-2', 'c', 'd', null, null, NOW],
+    );
 
     const rels = listRelationshipsDirect(db, REPO);
     expect(rels[0].label).toBeUndefined();
@@ -214,9 +225,10 @@ describe('listRelationshipsDirect', () => {
 describe('listCommunitiesDirect', () => {
   it('mappings_json カラムありの場合にコミュニティを返す', () => {
     const db = createTestDb();
-    db.prepare(
+    db.run(
       'INSERT INTO current_code_graph_communities (repo_name, community_id, label, name, summary, mappings_json, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    ).run(REPO, 1, 'auth', 'Auth Module', 'Handles authentication', '{"elements":[]}', NOW);
+      [REPO, 1, 'auth', 'Auth Module', 'Handles authentication', '{"elements":[]}', NOW],
+    );
 
     const { communities } = listCommunitiesDirect(db, REPO);
     expect(communities).toHaveLength(1);
@@ -230,9 +242,10 @@ describe('listCommunitiesDirect', () => {
 
   it('mappings_json が null の行は mappingsJson: null を返す', () => {
     const db = createTestDb();
-    db.prepare(
+    db.run(
       'INSERT INTO current_code_graph_communities (repo_name, community_id, label, name, summary, mappings_json, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    ).run(REPO, 2, 'core', 'Core Module', 'Core logic', null, NOW);
+      [REPO, 2, 'core', 'Core Module', 'Core logic', null, NOW],
+    );
 
     const { communities } = listCommunitiesDirect(db, REPO);
     expect(communities[0].mappingsJson).toBeNull();
@@ -241,9 +254,10 @@ describe('listCommunitiesDirect', () => {
 
   it('mappings_json カラムなしの場合は mappingsJson: null でフォールバックする', () => {
     const db = createTestDbWithoutMappingsJson();
-    db.prepare(
+    db.run(
       'INSERT INTO current_code_graph_communities (repo_name, community_id, label, name, summary, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
-    ).run(REPO, 1, 'infra', 'Infrastructure', 'Infra services', NOW);
+      [REPO, 1, 'infra', 'Infrastructure', 'Infra services', NOW],
+    );
 
     const { communities } = listCommunitiesDirect(db, REPO);
     expect(communities).toHaveLength(1);

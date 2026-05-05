@@ -16,7 +16,7 @@
 ### 変更
 
 - `analyze_*` 系（`analyze_current_code` / `analyze_release_code` / `analyze_all` / `get_analyze_status`）は引き続き TrailDataServer 必須。未起動時は明示的なエラーで誘導
-- `better-sqlite3` 12.9.0 を native 依存として追加（webpack で外部化、VSIX 同梱の `node_modules` から実行時ロード）
+- `sql.js` 1.12.0（既に CopyWebpackPlugin で `dist/sql-asm.js` + `dist/sql-wasm.wasm` を同梱済み）を採用。`vsce package --no-dependencies` の配布モデルと整合させるため `better-sqlite3` を不採用とした。直書きは `sql.js` でファイル全体を読み込んで修正し、`tmp + rename` で atomic 書き出しする
 
 ## [0.10.0] - 2026-05-04
 

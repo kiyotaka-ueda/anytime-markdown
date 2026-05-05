@@ -1,5 +1,6 @@
 import * as path from 'path';
-import type { Database } from 'better-sqlite3';
+import type { Database } from 'sql.js';
+import { all } from './sqlite/sqlJsUtil';
 
 export function resolveRepoName(
   opts: { repoName?: string; workspacePath?: string },
@@ -14,9 +15,10 @@ export function resolveRepoName(
   }
 
   try {
-    const rows = db
-      .prepare('SELECT DISTINCT repo_name FROM current_code_graphs')
-      .all() as { repo_name: string }[];
+    const rows = all<{ repo_name: string }>(
+      db,
+      'SELECT DISTINCT repo_name FROM current_code_graphs',
+    );
 
     if (rows.length === 1) {
       return rows[0].repo_name;
@@ -28,7 +30,7 @@ export function resolveRepoName(
     }
     // 0 件 → 次の候補へ
   } catch (e) {
-    // SqliteError (テーブル不在) は無視して次の候補へ
+    // sql.js Error (テーブル不在) は無視して次の候補へ
     // 独自 Error（Multiple repos）はそのまま再 throw
     if (e instanceof Error && e.message.startsWith('Multiple repos found')) {
       throw e;

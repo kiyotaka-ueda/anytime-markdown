@@ -1,14 +1,19 @@
 import * as path from 'path';
-import Database from 'better-sqlite3';
+import initSqlJs, { type SqlJsStatic, type Database } from 'sql.js';
 import { resolveRepoName } from '../repoName';
 
-function createDb(rows: { repo_name: string }[] | null): Database.Database {
-  const db = new Database(':memory:');
+let SQL: SqlJsStatic;
+
+beforeAll(async () => {
+  SQL = await initSqlJs();
+});
+
+function createDb(rows: { repo_name: string }[] | null): Database {
+  const db = new SQL.Database();
   if (rows !== null) {
-    db.exec('CREATE TABLE current_code_graphs (repo_name TEXT)');
-    const insert = db.prepare('INSERT INTO current_code_graphs (repo_name) VALUES (?)');
+    db.run('CREATE TABLE current_code_graphs (repo_name TEXT)');
     for (const row of rows) {
-      insert.run(row.repo_name);
+      db.run('INSERT INTO current_code_graphs (repo_name) VALUES (?)', [row.repo_name]);
     }
   }
   return db;
