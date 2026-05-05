@@ -127,6 +127,7 @@ export interface IRemoteTrailStore {
     signal_orphan: number; signal_fan_in_zero: number; signal_no_recent_churn: number;
     signal_zero_coverage: number; signal_isolated_community: number;
     is_ignored: number; ignore_reason: string; analyzed_at: string;
+    line_count: number; cyclomatic_complexity_max: number;
   }[]): Promise<void>;
   /** [DESTRUCTIVE] trail_release_file_analysis を全削除する（洗い替え同期用）。 */
   unsafeClearReleaseFileAnalysis(): Promise<void>;
@@ -137,6 +138,7 @@ export interface IRemoteTrailStore {
     signal_orphan: number; signal_fan_in_zero: number; signal_no_recent_churn: number;
     signal_zero_coverage: number; signal_isolated_community: number;
     is_ignored: number; ignore_reason: string; analyzed_at: string;
+    line_count: number; cyclomatic_complexity_max: number;
   }[]): Promise<void>;
   /** [DESTRUCTIVE] trail_current_function_analysis を全削除する（洗い替え同期用）。 */
   unsafeClearCurrentFunctionAnalysis(): Promise<void>;
@@ -146,6 +148,7 @@ export interface IRemoteTrailStore {
     fan_in: number; cognitive_complexity: number; data_mutation_score: number;
     side_effect_score: number; line_count: number; importance_score: number;
     signal_fan_in_zero: number; analyzed_at: string;
+    cyclomatic_complexity: number;
   }[]): Promise<void>;
   /** [DESTRUCTIVE] trail_release_function_analysis を全削除する（洗い替え同期用）。 */
   unsafeClearReleaseFunctionAnalysis(): Promise<void>;
@@ -155,6 +158,7 @@ export interface IRemoteTrailStore {
     fan_in: number; cognitive_complexity: number; data_mutation_score: number;
     side_effect_score: number; line_count: number; importance_score: number;
     signal_fan_in_zero: number; analyzed_at: string;
+    cyclomatic_complexity: number;
   }[]): Promise<void>;
   /** [DESTRUCTIVE] trail_current_code_graphs と trail_current_code_graph_communities を全削除する（洗い替え同期用）。 */
   unsafeClearCurrentCodeGraphs(): Promise<void>;

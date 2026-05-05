@@ -406,6 +406,7 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
     signal_orphan: number; signal_fan_in_zero: number; signal_no_recent_churn: number;
     signal_zero_coverage: number; signal_isolated_community: number;
     is_ignored: number; ignore_reason: string; analyzed_at: string;
+    line_count: number; cyclomatic_complexity_max: number;
   }[]): Promise<void> {
     if (rows.length === 0) return;
     const CHUNK = 500;
@@ -429,6 +430,7 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
     signal_orphan: number; signal_fan_in_zero: number; signal_no_recent_churn: number;
     signal_zero_coverage: number; signal_isolated_community: number;
     is_ignored: number; ignore_reason: string; analyzed_at: string;
+    line_count: number; cyclomatic_complexity_max: number;
   }[]): Promise<void> {
     if (rows.length === 0) return;
     const CHUNK = 500;
@@ -451,6 +453,7 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
     fan_in: number; cognitive_complexity: number; data_mutation_score: number;
     side_effect_score: number; line_count: number; importance_score: number;
     signal_fan_in_zero: number; analyzed_at: string;
+    cyclomatic_complexity: number;
   }[]): Promise<void> {
     if (rows.length === 0) return;
     const CHUNK = 500;
@@ -473,6 +476,7 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
     fan_in: number; cognitive_complexity: number; data_mutation_score: number;
     side_effect_score: number; line_count: number; importance_score: number;
     signal_fan_in_zero: number; analyzed_at: string;
+    cyclomatic_complexity: number;
   }[]): Promise<void> {
     if (rows.length === 0) return;
     const CHUNK = 500;

@@ -6627,12 +6627,14 @@ export class TrailDatabase {
     signal_orphan: number; signal_fan_in_zero: number; signal_no_recent_churn: number;
     signal_zero_coverage: number; signal_isolated_community: number;
     is_ignored: number; ignore_reason: string; analyzed_at: string;
+    line_count: number; cyclomatic_complexity_max: number;
   }> {
     const db = this.ensureDb();
     const result = db.exec(
       `SELECT repo_name, file_path, importance_score, fan_in_total, cognitive_complexity_max, function_count,
               dead_code_score, signal_orphan, signal_fan_in_zero, signal_no_recent_churn,
-              signal_zero_coverage, signal_isolated_community, is_ignored, ignore_reason, analyzed_at
+              signal_zero_coverage, signal_isolated_community, is_ignored, ignore_reason, analyzed_at,
+              line_count, cyclomatic_complexity_max
        FROM current_file_analysis`,
     );
     const values = result[0]?.values ?? [];
@@ -6652,6 +6654,8 @@ export class TrailDatabase {
       is_ignored: Number(r[12] ?? 0),
       ignore_reason: String(r[13] ?? ''),
       analyzed_at: String(r[14] ?? ''),
+      line_count: Number(r[15] ?? 0),
+      cyclomatic_complexity_max: Number(r[16] ?? 0),
     }));
   }
 
@@ -6662,12 +6666,14 @@ export class TrailDatabase {
     signal_orphan: number; signal_fan_in_zero: number; signal_no_recent_churn: number;
     signal_zero_coverage: number; signal_isolated_community: number;
     is_ignored: number; ignore_reason: string; analyzed_at: string;
+    line_count: number; cyclomatic_complexity_max: number;
   }> {
     const db = this.ensureDb();
     const result = db.exec(
       `SELECT release_tag, repo_name, file_path, importance_score, fan_in_total, cognitive_complexity_max, function_count,
               dead_code_score, signal_orphan, signal_fan_in_zero, signal_no_recent_churn,
-              signal_zero_coverage, signal_isolated_community, is_ignored, ignore_reason, analyzed_at
+              signal_zero_coverage, signal_isolated_community, is_ignored, ignore_reason, analyzed_at,
+              line_count, cyclomatic_complexity_max
        FROM release_file_analysis`,
     );
     const values = result[0]?.values ?? [];
@@ -6688,6 +6694,8 @@ export class TrailDatabase {
       is_ignored: Number(r[13] ?? 0),
       ignore_reason: String(r[14] ?? ''),
       analyzed_at: String(r[15] ?? ''),
+      line_count: Number(r[16] ?? 0),
+      cyclomatic_complexity_max: Number(r[17] ?? 0),
     }));
   }
 
@@ -6697,13 +6705,15 @@ export class TrailDatabase {
     fan_in: number; cognitive_complexity: number; data_mutation_score: number;
     side_effect_score: number; line_count: number; importance_score: number;
     signal_fan_in_zero: number; analyzed_at: string;
+    cyclomatic_complexity: number;
   }> {
     const db = this.ensureDb();
     const result = db.exec(
       `SELECT repo_name, file_path, function_name, start_line,
               end_line, language, fan_in, cognitive_complexity,
               data_mutation_score, side_effect_score, line_count,
-              importance_score, signal_fan_in_zero, analyzed_at
+              importance_score, signal_fan_in_zero, analyzed_at,
+              cyclomatic_complexity
        FROM current_function_analysis`,
     );
     const values = result[0]?.values ?? [];
@@ -6722,6 +6732,7 @@ export class TrailDatabase {
       importance_score: Number(r[11] ?? 0),
       signal_fan_in_zero: Number(r[12] ?? 0),
       analyzed_at: String(r[13] ?? ''),
+      cyclomatic_complexity: Number(r[14] ?? 0),
     }));
   }
 
@@ -6731,13 +6742,15 @@ export class TrailDatabase {
     fan_in: number; cognitive_complexity: number; data_mutation_score: number;
     side_effect_score: number; line_count: number; importance_score: number;
     signal_fan_in_zero: number; analyzed_at: string;
+    cyclomatic_complexity: number;
   }> {
     const db = this.ensureDb();
     const result = db.exec(
       `SELECT release_tag, repo_name, file_path, function_name, start_line,
               end_line, language, fan_in, cognitive_complexity,
               data_mutation_score, side_effect_score, line_count,
-              importance_score, signal_fan_in_zero, analyzed_at
+              importance_score, signal_fan_in_zero, analyzed_at,
+              cyclomatic_complexity
        FROM release_function_analysis`,
     );
     const values = result[0]?.values ?? [];
@@ -6757,6 +6770,7 @@ export class TrailDatabase {
       importance_score: Number(r[12] ?? 0),
       signal_fan_in_zero: Number(r[13] ?? 0),
       analyzed_at: String(r[14] ?? ''),
+      cyclomatic_complexity: Number(r[15] ?? 0),
     }));
   }
 
