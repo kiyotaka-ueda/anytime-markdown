@@ -17,6 +17,7 @@ import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import Collapse from '@mui/material/Collapse';
 import IconButton from '@mui/material/IconButton';
+import CircularProgress from '@mui/material/CircularProgress';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
@@ -264,10 +265,11 @@ interface C4ElementTreeProps {
   /** レベル/ドリル変更時に渡すリセット指示。key が変化したらチェック・展開状態をリセットする */
   readonly checkReset?: { readonly key: number; readonly ids: ReadonlySet<string> | null; readonly expanded: ReadonlySet<string> | null };
   readonly communityTree?: readonly C4TreeNode[];
+  readonly communityLoading?: boolean;
   readonly onCommunityTabOpen?: () => void;
 }
 
-export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onSelect, repoOptions = [], selectedRepo = '', onRepoChange, releaseOptions = [], selectedRelease = CURRENT_RELEASE_TAG, onReleaseChange, currentLevel, selectedSystemId, onAddElement, onCheckedChange, onRemoveElement, onPurgeDeleted, isDark, checkReset, communityTree, onCommunityTabOpen }) => {
+export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onSelect, repoOptions = [], selectedRepo = '', onRepoChange, releaseOptions = [], selectedRelease = CURRENT_RELEASE_TAG, onReleaseChange, currentLevel, selectedSystemId, onAddElement, onCheckedChange, onRemoveElement, onPurgeDeleted, isDark, checkReset, communityTree, communityLoading, onCommunityTabOpen }) => {
   const { t } = useTrailI18n();
   const [searchText, setSearchText] = useState('');
   const [activeTab, setActiveTab] = useState<0 | 1>(0);
@@ -568,7 +570,11 @@ export const C4ElementTree: FC<C4ElementTreeProps> = memo(({ tree, dispatch, onS
         </List>
       )}
       {activeTab === 1 && (
-        hasCommunityTree ? (
+        communityLoading ? (
+          <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
+            <CircularProgress size={24} />
+          </Box>
+        ) : hasCommunityTree ? (
           <List dense disablePadding sx={{ flex: 1, overflowY: 'auto', ...scrollbarSx }}>
             {filteredCommunityTree.map(node => (
               <TreeNodeItem

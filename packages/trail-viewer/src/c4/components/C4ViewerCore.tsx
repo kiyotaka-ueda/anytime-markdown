@@ -369,7 +369,7 @@ export function C4ViewerCore({
   const [showCommunity, setShowCommunity] = useState(false);
   const [codeGraphEnabled, setCodeGraphEnabled] = useState(false);
   const [showActivityTrend, setShowActivityTrend] = useState(false);
-  const { graph: codeGraph } = useCodeGraph(serverUrl, {
+  const { graph: codeGraph, loading: codeGraphLoading } = useCodeGraph(serverUrl, {
     enabled: showCommunity || codeGraphEnabled || currentLevel >= 2,
     release: selectedRelease,
     repo: selectedRepo,
@@ -1312,6 +1312,7 @@ export function C4ViewerCore({
             onPurgeDeleted={onPurgeDeleted}
             isDark={isDark}
             communityTree={communityTree}
+            communityLoading={codeGraphLoading && !codeGraph}
             onCommunityTabOpen={() => setCodeGraphEnabled(true)}
           />
         )}
