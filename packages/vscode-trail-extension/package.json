@@ -339,6 +339,12 @@
           "maximum": 10,
           "markdownDescription": "%config.database.backupGenerations%"
         },
+        "anytimeTrail.database.backupIntervalDays": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0,
+          "markdownDescription": "%config.database.backupIntervalDays%"
+        },
         "anytimeTrail.claudeStatus.directory": {
           "type": "string",
           "default": ".vscode/trail/agent-status",
