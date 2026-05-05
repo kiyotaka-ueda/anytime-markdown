@@ -939,18 +939,23 @@ export function C4ViewerCore({
 
   const communityMap = useMemo(() => {
     if (!communityOverlay) return null;
+    // community パネルで特定 community を選択中はそれ以外の塗りつぶしを除外する
+    const filterCid = selectedCommunityInfo?.cid ?? null;
     const map = new Map<string, { color: string; isGodNode: boolean }>();
     for (const [elementId, entry] of communityOverlay) {
+      if (filterCid !== null && entry.dominantCommunity !== filterCid) continue;
       map.set(elementId, { color: communityColor(entry.dominantCommunity), isGodNode: entry.isGodNode });
     }
     return map.size > 0 ? map : null;
-  }, [communityOverlay]);
+  }, [communityOverlay, selectedCommunityInfo]);
 
   // community ON 時に各ノードへ P/S/D バッジラベルをマップする
   const communityRoleBadgeMap = useMemo<ReadonlyMap<string, string> | null>(() => {
     if (!communityOverlay || !featureMatrix) return null;
+    const filterCid = selectedCommunityInfo?.cid ?? null;
     const map = new Map<string, string>();
     for (const [elementId, entry] of communityOverlay) {
+      if (filterCid !== null && entry.dominantCommunity !== filterCid) continue;
       const featureId = `f_community_${entry.dominantCommunity}`;
       const role = featureMatrix.mappings.find(
         m => m.featureId === featureId && m.elementId === elementId,
@@ -960,7 +965,7 @@ export function C4ViewerCore({
       }
     }
     return map.size > 0 ? map : null;
-  }, [communityOverlay, featureMatrix]);
+  }, [communityOverlay, featureMatrix, selectedCommunityInfo]);
 
   const communityLegend = useMemo<readonly CommunityLegendItem[] | null>(() => {
     if (!communityOverlay || !codeGraph) return null;
