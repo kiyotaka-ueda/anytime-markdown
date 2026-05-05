@@ -25,11 +25,18 @@ export class McpTrailServerProvider implements vscode.McpServerDefinitionProvide
             .getConfiguration('anytimeTrail.viewer')
             .get<number>('port', DEFAULT_VIEWER_PORT);
         const serverScriptPath = path.join(this.extensionDistPath, 'mcp-trail-server.js');
+        const env: Record<string, string | number | null> = {
+            TRAIL_SERVER_URL: `http://localhost:${port}`,
+        };
+        const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (workspacePath) {
+            env['TRAIL_WORKSPACE_PATH'] = workspacePath;
+        }
         const definition = new vscode.McpStdioServerDefinition(
             'mcp-trail',
             process.execPath,
             [serverScriptPath],
-            { TRAIL_SERVER_URL: `http://localhost:${port}` },
+            env,
             '0.10.0',
         );
         return [definition];
