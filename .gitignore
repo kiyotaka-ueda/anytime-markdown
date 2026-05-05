@@ -3,10 +3,12 @@ dist
 node_modules
 .agents
 .anytime-trail
+.clone
 .claude
 .next
 .playwright-mcp
 .serena
+.trail
 .vscode
 .worktrees
 .v8-coverage
