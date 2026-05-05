@@ -80,6 +80,8 @@ export const ja: TrailI18n = {
   'analytics.loadingCommits': 'コミット読み込み中...',
   'analytics.noCommits': 'このセッションの時間範囲にコミットが見つかりません',
   'analytics.commitHash': 'ハッシュ',
+  'analytics.commitRepo': 'Repo',
+  'analytics.commitRepoLegacy': '(legacy)',
   'analytics.commitMessage': 'メッセージ',
   'analytics.commitFiles': 'ファイル',
   'analytics.commitDiff': '+/-',

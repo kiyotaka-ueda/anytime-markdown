@@ -9,6 +9,8 @@ export const CREATE_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_messages_type_timestamp ON messages(type, timestamp)',
   'CREATE INDEX IF NOT EXISTS idx_session_commits_session ON session_commits(session_id)',
   'CREATE INDEX IF NOT EXISTS idx_session_commits_committed_at ON session_commits(committed_at)',
+  'CREATE INDEX IF NOT EXISTS idx_session_commits_repo ON session_commits(repo_name, committed_at)',
+  'CREATE INDEX IF NOT EXISTS idx_commit_files_repo ON commit_files(repo_name, file_path)',
   'CREATE INDEX IF NOT EXISTS idx_message_commits_message_uuid ON message_commits(message_uuid)',
   'CREATE INDEX IF NOT EXISTS idx_session_costs_session ON session_costs(session_id)',
   'CREATE INDEX IF NOT EXISTS idx_daily_counts_kind_date ON daily_counts(kind, date)',

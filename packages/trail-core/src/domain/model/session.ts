@@ -83,6 +83,9 @@ export interface TrailSessionCommit {
   readonly filesChanged: number;
   readonly linesAdded: number;
   readonly linesDeleted: number;
+  /** 取得元 git repo の basename。multi-repo 監視で commit を区別するために用いる。
+   *  バックフィル前の古い row は空文字 '' のまま、表示側で legacy 扱いする。 */
+  readonly repoName: string;
 }
 
 export interface ToolUsageEntry {
