@@ -126,10 +126,11 @@ const mcpTrailServerConfig = {
     libraryTarget: 'commonjs2',
   },
   // mcp-trail サーバーは Node プロセスとして子プロセス起動するため
-  // vscode API を参照しない。better-sqlite3 は native module でバンドル
-  // できないので外部化し、VSIX 同梱の node_modules から require させる。
+  // vscode API を参照しない。sql.js は WASM で webpack に取り込むと
+  // モジュール解決が壊れるため、ランタイムで __non_webpack_require__ で
+  // dist/sql-asm.js を動的ロードする。webpack で取り込まないように除外する。
   externals: {
-    'better-sqlite3': 'commonjs better-sqlite3',
+    'sql.js': 'commonjs sql.js',
   },
   resolve: {
     extensions: ['.ts', '.js'],
@@ -154,6 +155,12 @@ const mcpTrailServerConfig = {
         }],
       },
     ],
+  },
+  // __dirname / __filename を runtime 値のまま残す。
+  // sql.js の locate (sql-asm.js) を dist/ から探すために必要。
+  node: {
+    __dirname: false,
+    __filename: false,
   },
   devtool: 'nosources-source-map',
 };
