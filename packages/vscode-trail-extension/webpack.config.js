@@ -126,8 +126,11 @@ const mcpTrailServerConfig = {
     libraryTarget: 'commonjs2',
   },
   // mcp-trail サーバーは Node プロセスとして子プロセス起動するため
-  // vscode API を参照しない。すべての依存をバンドルに含める。
-  externals: {},
+  // vscode API を参照しない。better-sqlite3 は native module でバンドル
+  // できないので外部化し、VSIX 同梱の node_modules から require させる。
+  externals: {
+    'better-sqlite3': 'commonjs better-sqlite3',
+  },
   resolve: {
     extensions: ['.ts', '.js'],
     // mcp-trail は ESM 規約 (NodeNext) で書かれており import 文に .js 拡張子が
