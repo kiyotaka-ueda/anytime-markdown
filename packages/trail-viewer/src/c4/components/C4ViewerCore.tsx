@@ -1147,6 +1147,7 @@ export function C4ViewerCore({
     drillStack,
     hasShowSequenceHandler: onShowSequence !== undefined,
     canShowManualContextActions,
+    levelTargetType,
   });
 
   return (

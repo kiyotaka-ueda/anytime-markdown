@@ -117,4 +117,44 @@ describe('computeContextMenuCapabilities', () => {
     expect(r.canShowManualActions).toBe(true);
     expect(r.showContextMenu).toBe(true);
   });
+
+  // levelTargetType 対応: 現在表示レベルの leaf タイプは boundary 扱いせず drill 可能にする
+  it('C1 view (levelTargetType=system) で system 要素 → canDrillDown: true', () => {
+    const r = computeContextMenuCapabilities({
+      c4Model: baseModel,
+      c4Id: 'sys_app',
+      drillStack: [],
+      hasShowSequenceHandler: false,
+      canShowManualContextActions: noManualActions,
+      levelTargetType: 'system',
+    });
+    expect(r.canDrillDown).toBe(true);
+    expect(r.canShowOnlyFrame).toBe(false); // 可視ノードなので frame 表示も無効
+  });
+
+  it('C2 view (levelTargetType=container) で container 要素 → canDrillDown: true', () => {
+    const r = computeContextMenuCapabilities({
+      c4Model: baseModel,
+      c4Id: 'pkg_core',
+      drillStack: [],
+      hasShowSequenceHandler: false,
+      canShowManualContextActions: noManualActions,
+      levelTargetType: 'container',
+    });
+    expect(r.canDrillDown).toBe(true);
+    expect(r.canShowOnlyFrame).toBe(false);
+  });
+
+  it('C3 view (levelTargetType=component) で container 要素 → canDrillDown: false (boundary 扱い維持)', () => {
+    const r = computeContextMenuCapabilities({
+      c4Model: baseModel,
+      c4Id: 'pkg_core',
+      drillStack: [],
+      hasShowSequenceHandler: false,
+      canShowManualContextActions: noManualActions,
+      levelTargetType: 'component',
+    });
+    expect(r.canDrillDown).toBe(false);
+    expect(r.canShowOnlyFrame).toBe(true);
+  });
 });

@@ -23,6 +23,12 @@ export interface ComputeContextMenuCapabilitiesArgs {
   readonly drillStack: ReadonlyArray<DrillFrame>;
   readonly hasShowSequenceHandler: boolean;
   readonly canShowManualContextActions: (model: C4Model | null, c4Id: string | null) => boolean;
+  /**
+   * 現在表示レベルの leaf タイプ (system / container / component / code)。
+   * 指定された場合、target.type と一致するときは boundary 扱いせず drill down を許可する。
+   * これにより C1 (system 表示) や C2 (container 表示) でも、可視ノードを起点に drill down できる。
+   */
+  readonly levelTargetType?: C4ElementType;
 }
 
 const EMPTY_CAPABILITIES: ContextMenuCapabilities = {
@@ -39,12 +45,15 @@ const EMPTY_CAPABILITIES: ContextMenuCapabilities = {
 export function computeContextMenuCapabilities(
   args: ComputeContextMenuCapabilitiesArgs,
 ): ContextMenuCapabilities {
-  const { c4Model, c4Id, drillStack, hasShowSequenceHandler, canShowManualContextActions } = args;
+  const { c4Model, c4Id, drillStack, hasShowSequenceHandler, canShowManualContextActions, levelTargetType } = args;
 
   if (c4Id === null) return EMPTY_CAPABILITIES;
 
   const target = c4Model?.elements.find((e) => e.id === c4Id) ?? null;
-  const isBoundary = target !== null && BOUNDARY_TYPES.has(target.type);
+  // 現在表示レベルの leaf タイプと一致する型は boundary 扱いせず可視ノードとして drill 可能にする
+  const isBoundary = target !== null
+    && BOUNDARY_TYPES.has(target.type)
+    && target.type !== levelTargetType;
 
   const canDrillDown = target !== null
     && !isBoundary
