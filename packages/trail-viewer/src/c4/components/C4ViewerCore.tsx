@@ -954,17 +954,20 @@ export function C4ViewerCore({
     const cid = selectedCommunityInfo.cid;
     const featureId = `f_community_${cid}`;
     let primaryC4Id: string | null = null;
+    let firstC4Id: string | null = null;
     for (const [elementId, entry] of overlay) {
       if (entry.dominantCommunity !== cid) continue;
+      if (firstC4Id === null) firstC4Id = elementId;
       const role = fm.mappings.find(
         m => m.featureId === featureId && m.elementId === elementId,
       )?.role ?? null;
       if (role === 'primary') { primaryC4Id = elementId; break; }
     }
-    if (!primaryC4Id) return;
+    const targetC4Id = primaryC4Id ?? firstC4Id;
+    if (!targetC4Id) return;
     const doc = stateRef.current.document;
     const targetNode = doc.nodes.find(
-      n => (n.metadata?.c4Id as string | undefined) === primaryC4Id,
+      n => (n.metadata?.c4Id as string | undefined) === targetC4Id,
     );
     if (!targetNode) return;
     const canvas = canvasRef.current;
