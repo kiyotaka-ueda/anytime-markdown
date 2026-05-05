@@ -64,6 +64,7 @@ import { splitCodeGraph, composeCodeGraph } from '@anytime-markdown/trail-core/c
 import type { StoredCommunity } from '@anytime-markdown/trail-core/codeGraph';
 import type { FeatureMatrix } from '@anytime-markdown/trail-core/c4';
 import { buildFeatureMatrixFromCommunities } from '@anytime-markdown/trail-core/c4';
+import type { FileAnalysisRow } from '@anytime-markdown/trail-core/deadCode';
 import { JsonlSessionReader } from './JsonlSessionReader';
 import { ExecFileGitService } from './ExecFileGitService';
 import { type DbLogger, noopDbLogger } from './DbLogger';
@@ -5854,6 +5855,144 @@ export class TrailDatabase {
       branches_pct: toNum(r[14]),
       updated_at: String(r[15] ?? ''),
     }));
+  }
+
+  // ---------------------------------------------------------------------------
+  //  File Analysis (Dead Code Detection)
+  // ---------------------------------------------------------------------------
+
+  upsertCurrentFileAnalysis(rows: readonly FileAnalysisRow[]): void {
+    if (rows.length === 0) return;
+    const db = this.ensureDb();
+    for (const r of rows) {
+      db.run(
+        `INSERT OR REPLACE INTO current_file_analysis (
+          repo_name, file_path,
+          importance_score, fan_in_total, cognitive_complexity_max, function_count,
+          dead_code_score,
+          signal_orphan, signal_fan_in_zero, signal_no_recent_churn,
+          signal_zero_coverage, signal_isolated_community,
+          is_ignored, ignore_reason, analyzed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          r.repoName, r.filePath,
+          r.importanceScore, r.fanInTotal, r.cognitiveComplexityMax, r.functionCount,
+          r.deadCodeScore,
+          r.signals.orphan ? 1 : 0,
+          r.signals.fanInZero ? 1 : 0,
+          r.signals.noRecentChurn ? 1 : 0,
+          r.signals.zeroCoverage ? 1 : 0,
+          r.signals.isolatedCommunity ? 1 : 0,
+          r.isIgnored ? 1 : 0, r.ignoreReason, r.analyzedAt,
+        ],
+      );
+    }
+  }
+
+  getCurrentFileAnalysis(repoName: string): FileAnalysisRow[] {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT repo_name, file_path,
+              importance_score, fan_in_total, cognitive_complexity_max, function_count,
+              dead_code_score,
+              signal_orphan, signal_fan_in_zero, signal_no_recent_churn,
+              signal_zero_coverage, signal_isolated_community,
+              is_ignored, ignore_reason, analyzed_at
+       FROM current_file_analysis WHERE repo_name = ?`,
+      [repoName],
+    );
+    const values = result[0]?.values ?? [];
+    return values.map((r) => ({
+      repoName: String(r[0] ?? ''),
+      filePath: String(r[1] ?? ''),
+      importanceScore: Number(r[2] ?? 0),
+      fanInTotal: Number(r[3] ?? 0),
+      cognitiveComplexityMax: Number(r[4] ?? 0),
+      functionCount: Number(r[5] ?? 0),
+      deadCodeScore: Number(r[6] ?? 0),
+      signals: {
+        orphan: Number(r[7] ?? 0) === 1,
+        fanInZero: Number(r[8] ?? 0) === 1,
+        noRecentChurn: Number(r[9] ?? 0) === 1,
+        zeroCoverage: Number(r[10] ?? 0) === 1,
+        isolatedCommunity: Number(r[11] ?? 0) === 1,
+      },
+      isIgnored: Number(r[12] ?? 0) === 1,
+      ignoreReason: String(r[13] ?? ''),
+      analyzedAt: String(r[14] ?? ''),
+    }));
+  }
+
+  clearCurrentFileAnalysis(repoName: string): void {
+    const db = this.ensureDb();
+    db.run('DELETE FROM current_file_analysis WHERE repo_name = ?', [repoName]);
+  }
+
+  upsertReleaseFileAnalysis(releaseTag: string, rows: readonly FileAnalysisRow[]): void {
+    if (rows.length === 0) return;
+    const db = this.ensureDb();
+    for (const r of rows) {
+      db.run(
+        `INSERT OR REPLACE INTO release_file_analysis (
+          release_tag, repo_name, file_path,
+          importance_score, fan_in_total, cognitive_complexity_max, function_count,
+          dead_code_score,
+          signal_orphan, signal_fan_in_zero, signal_no_recent_churn,
+          signal_zero_coverage, signal_isolated_community,
+          is_ignored, ignore_reason, analyzed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          releaseTag, r.repoName, r.filePath,
+          r.importanceScore, r.fanInTotal, r.cognitiveComplexityMax, r.functionCount,
+          r.deadCodeScore,
+          r.signals.orphan ? 1 : 0,
+          r.signals.fanInZero ? 1 : 0,
+          r.signals.noRecentChurn ? 1 : 0,
+          r.signals.zeroCoverage ? 1 : 0,
+          r.signals.isolatedCommunity ? 1 : 0,
+          r.isIgnored ? 1 : 0, r.ignoreReason, r.analyzedAt,
+        ],
+      );
+    }
+  }
+
+  getReleaseFileAnalysis(releaseTag: string, repoName: string): FileAnalysisRow[] {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT repo_name, file_path,
+              importance_score, fan_in_total, cognitive_complexity_max, function_count,
+              dead_code_score,
+              signal_orphan, signal_fan_in_zero, signal_no_recent_churn,
+              signal_zero_coverage, signal_isolated_community,
+              is_ignored, ignore_reason, analyzed_at
+       FROM release_file_analysis WHERE release_tag = ? AND repo_name = ?`,
+      [releaseTag, repoName],
+    );
+    const values = result[0]?.values ?? [];
+    return values.map((r) => ({
+      repoName: String(r[0] ?? ''),
+      filePath: String(r[1] ?? ''),
+      importanceScore: Number(r[2] ?? 0),
+      fanInTotal: Number(r[3] ?? 0),
+      cognitiveComplexityMax: Number(r[4] ?? 0),
+      functionCount: Number(r[5] ?? 0),
+      deadCodeScore: Number(r[6] ?? 0),
+      signals: {
+        orphan: Number(r[7] ?? 0) === 1,
+        fanInZero: Number(r[8] ?? 0) === 1,
+        noRecentChurn: Number(r[9] ?? 0) === 1,
+        zeroCoverage: Number(r[10] ?? 0) === 1,
+        isolatedCommunity: Number(r[11] ?? 0) === 1,
+      },
+      isIgnored: Number(r[12] ?? 0) === 1,
+      ignoreReason: String(r[13] ?? ''),
+      analyzedAt: String(r[14] ?? ''),
+    }));
+  }
+
+  clearReleaseFileAnalysis(releaseTag: string, repoName: string): void {
+    const db = this.ensureDb();
+    db.run('DELETE FROM release_file_analysis WHERE release_tag = ? AND repo_name = ?', [releaseTag, repoName]);
   }
 
   // -------------------------------------------------------------------------
