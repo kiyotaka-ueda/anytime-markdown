@@ -217,7 +217,7 @@ export const ja: TrailI18n = {
   'c4.popup.metrics': '指標',
   'c4.popup.coverage': 'カバレッジ',
   'c4.popup.size': '規模',
-  'c4.popup.quality': '品質',
+  'c4.popup.quality': 'Coverage',
   'c4.popup.structure': '構造',
   'c4.popup.metric.coverage': '行',
   'c4.popup.metric.branches': '分岐',
