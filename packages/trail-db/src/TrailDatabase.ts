@@ -335,6 +335,7 @@ interface CombinedData {
   }[];
   readonly commitPrefixStats: readonly { period: string; prefix: string; count: number; linesAdded: number }[];
   readonly aiFirstTryRate: readonly { period: string; rate: number; sampleSize: number }[];
+  readonly repoStats: readonly { period: string; repoName: string; count: number; tokens: number }[];
 }
 
 interface RawLine {
@@ -710,6 +711,7 @@ export class TrailDatabase {
     storageDirOrStorage?: string | ITrailStorage,
     backupGenerations?: number,
     logger?: DbLogger,
+    backupIntervalDays?: number,
   ) {
     if (storageDirOrStorage !== undefined && typeof storageDirOrStorage !== 'string') {
       this.storage = storageDirOrStorage;
@@ -717,7 +719,7 @@ export class TrailDatabase {
     } else {
       const dbDir = storageDirOrStorage ?? DEFAULT_DB_DIR;
       this.dbPath = path.join(dbDir, 'trail.db');
-      this.storage = new FileTrailStorage(this.dbPath, backupGenerations);
+      this.storage = new FileTrailStorage(this.dbPath, backupGenerations, backupIntervalDays);
     }
     this.logger = logger ?? noopDbLogger;
   }
