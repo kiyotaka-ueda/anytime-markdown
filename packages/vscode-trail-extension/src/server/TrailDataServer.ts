@@ -1459,9 +1459,11 @@ export class TrailDataServer {
     const repoName = repo ?? (this.gitRoot ? path.basename(this.gitRoot) : undefined);
     const provider = this.getC4Provider?.();
     const store = this.trailDb.asC4ModelStore();
-    const manualProvider = provider && repoName ? {
-      getElements: async (repo: string) => provider.getManualElements(repo),
-      getRelationships: async (repo: string) => provider.getManualRelationships(repo),
+    const manualProvider = repoName ? {
+      getElements: async (repo: string) =>
+        provider ? provider.getManualElements(repo) : this.trailDb.getManualElements(repo),
+      getRelationships: async (repo: string) =>
+        provider ? provider.getManualRelationships(repo) : this.trailDb.getManualRelationships(repo),
     } : undefined;
     const featureMatrix = provider?.featureMatrix ?? this.trailDb.getCurrentFeatureMatrix() ?? undefined;
     const payload = await fetchC4Model(store, releaseId, repoName, featureMatrix, manualProvider);
