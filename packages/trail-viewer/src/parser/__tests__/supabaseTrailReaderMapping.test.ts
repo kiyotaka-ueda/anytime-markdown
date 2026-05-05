@@ -145,9 +145,9 @@ describe('SupabaseTrailReader mapping', () => {
       expect(reader.extractWorkspace(undefined)).toBeUndefined();
     });
 
-  it('null は undefined を返す', () => {
-    expect(reader.extractWorkspace(null)).toBeUndefined();
-  });
+    it('null は undefined を返す', () => {
+      expect(reader.extractWorkspace(null)).toBeUndefined();
+    });
   });
 
   it('file_path からワークスペースを導出して TrailSession にマッピングする', () => {
