@@ -13,7 +13,7 @@ export const en: TrailI18n = {
   'viewer.selectSession': 'Select a session',
   'viewer.loaded': 'loaded',
   'filter.searchPlaceholder': 'Search...',
-  'filter.repository': 'Repository',
+  'filter.workspace': 'Workspace',
   'filter.searchLabel': 'Search sessions',
   'sessionList.noSessions': 'No sessions found',
   'sessionList.messages': 'messages',

@@ -15,7 +15,7 @@ export interface TrailI18n {
   'viewer.loaded': string;
   // filter
   'filter.searchPlaceholder': string;
-  'filter.repository': string;
+  'filter.workspace': string;
   'analytics.chartCumulativeInferenceTime': string;
   'analytics.openInTraces': string;
   'filter.searchLabel': string;

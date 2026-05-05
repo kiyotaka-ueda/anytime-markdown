@@ -13,7 +13,7 @@ export const ja: TrailI18n = {
   'viewer.selectSession': 'セッションを選択してください',
   'viewer.loaded': '読み込み完了',
   'filter.searchPlaceholder': '検索...',
-  'filter.repository': 'リポジトリ',
+  'filter.workspace': 'ワークスペース',
   'filter.searchLabel': 'セッション検索',
   'sessionList.noSessions': 'セッションが見つかりません',
   'sessionList.messages': '件',
