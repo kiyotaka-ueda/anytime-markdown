@@ -4,6 +4,7 @@ import path from 'node:path';
 import { analyze } from '@anytime-markdown/trail-core/analyze';
 import type { TrailGraph } from '@anytime-markdown/trail-core';
 import type { C4Element } from '@anytime-markdown/trail-core/c4';
+import { loadAnalyzeExclude } from '@anytime-markdown/trail-core/analyzeExclude';
 
 import { TrailLogger } from '../utils/TrailLogger';
 import type { TrailDatabase } from '@anytime-markdown/trail-db';
@@ -75,7 +76,8 @@ export class CodeGraphService {
       const pct = Math.round((i / Math.max(repos.length, 1)) * 60);
       onProgress?.(`${repo.label} を解析中`, pct);
 
-      const detector = new GraphDetector(repo.path, this.config.excludePatterns);
+      const excludePatterns = this.config.excludePatterns ?? loadAnalyzeExclude(repo.path);
+      const detector = new GraphDetector(repo.path, excludePatterns);
       const docFiles = detector.detectDocFiles();
 
       const trailGraph = trailGraphCache[repo.id] ?? this.runAnalyze(repo);
