@@ -63,7 +63,7 @@ function buildQueryString(filter: TrailFilter): string {
     params.set('from', filter.dateRange.from);
     params.set('to', filter.dateRange.to);
   }
-  if (filter.repository) params.set('repository', filter.repository);
+  if (filter.workspace) params.set('workspace', filter.workspace);
   if (filter.toolName) params.set('toolName', filter.toolName);
   const qs = params.toString();
   return qs ? `?${qs}` : '';

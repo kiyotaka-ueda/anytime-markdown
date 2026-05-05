@@ -100,9 +100,6 @@ export class SupabaseTrailReader implements ITrailReader {
       .select('*, trail_session_costs(*)')
       .order('start_time', { ascending: false });
 
-    if (filters?.repository) {
-      query = query.eq('repo_name', filters.repository);
-    }
     if (filters?.model) {
       query = query.eq('model', filters.model);
     }
