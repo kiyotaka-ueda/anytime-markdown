@@ -12,6 +12,9 @@ export interface FileAnalysisRow {
   readonly importanceScore: number;
   readonly fanInTotal: number;
   readonly cognitiveComplexityMax: number;
+  readonly cyclomaticComplexityMax: number;
+  /** ファイル全体の行数。0 はデータなしとして扱う */
+  readonly lineCount: number;
   readonly functionCount: number;
   readonly deadCodeScore: number;
   readonly signals: DeadCodeSignals;
@@ -30,6 +33,7 @@ export interface FunctionAnalysisRow {
   readonly language: string;
   readonly fanIn: number;
   readonly cognitiveComplexity: number;
+  readonly cyclomaticComplexity: number;
   readonly dataMutationScore: number;
   readonly sideEffectScore: number;
   readonly lineCount: number;
