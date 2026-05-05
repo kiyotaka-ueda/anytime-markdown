@@ -78,28 +78,28 @@ async function invokeDirectRead(
   opts: RouteOpts,
 ): Promise<unknown> {
   const dbPath = resolveDbPath({ dbPath: opts.dbPath, workspacePath: opts.workspacePath });
-  const db = openTrailDb(dbPath, 'readonly');
+  const opened = await openTrailDb(dbPath, 'readonly');
   try {
     const repoName = resolveRepoName(
       { repoName: opts.repoName, workspacePath: opts.workspacePath },
-      db,
+      opened.db,
     );
     switch (toolName) {
       case 'get_c4_model':
-        return readDirect.getC4ModelDirect(db, repoName);
+        return readDirect.getC4ModelDirect(opened.db, repoName);
       case 'list_elements':
-        return readDirect.listElementsDirect(db, repoName);
+        return readDirect.listElementsDirect(opened.db, repoName);
       case 'list_relationships':
-        return readDirect.listRelationshipsDirect(db, repoName);
+        return readDirect.listRelationshipsDirect(opened.db, repoName);
       case 'list_groups':
-        return readDirect.listGroupsDirect(db, repoName);
+        return readDirect.listGroupsDirect(opened.db, repoName);
       case 'list_communities':
-        return readDirect.listCommunitiesDirect(db, repoName);
+        return readDirect.listCommunitiesDirect(opened.db, repoName);
       default:
         throw new Error(`Unhandled read tool: ${toolName}`);
     }
   } finally {
-    db.close();
+    opened.close();
   }
 }
 
@@ -109,27 +109,30 @@ async function invokeDirectWrite(
   opts: RouteOpts,
 ): Promise<unknown> {
   const dbPath = resolveDbPath({ dbPath: opts.dbPath, workspacePath: opts.workspacePath });
-  const db = openTrailDb(dbPath, 'readwrite');
+  const opened = await openTrailDb(dbPath, 'readwrite');
   try {
     const repoName = resolveRepoName(
       { repoName: opts.repoName, workspacePath: opts.workspacePath },
-      db,
+      opened.db,
     );
+    let result: unknown;
     switch (toolName) {
       case 'upsert_community_summaries':
-        return writeDirect.upsertCommunitySummariesDirect(
-          db,
+        result = writeDirect.upsertCommunitySummariesDirect(
+          opened.db,
           repoName,
           args.summaries as Parameters<typeof writeDirect.upsertCommunitySummariesDirect>[2],
         );
+        break;
       case 'upsert_community_mappings':
-        return writeDirect.upsertCommunityMappingsDirect(
-          db,
+        result = writeDirect.upsertCommunityMappingsDirect(
+          opened.db,
           repoName,
           args.mappings as Parameters<typeof writeDirect.upsertCommunityMappingsDirect>[2],
         );
+        break;
       case 'add_element':
-        return writeDirect.addElementDirect(db, repoName, {
+        result = writeDirect.addElementDirect(opened.db, repoName, {
           type: args.type as string,
           name: args.name as string,
           external: (args.external as boolean) ?? false,
@@ -137,46 +140,58 @@ async function invokeDirectWrite(
           ...(args.description !== undefined ? { description: args.description as string } : {}),
           ...(args.serviceType !== undefined ? { serviceType: args.serviceType as string } : {}),
         });
+        break;
       case 'update_element':
-        return writeDirect.updateElementDirect(
-          db,
+        writeDirect.updateElementDirect(
+          opened.db,
           repoName,
           args.id as string,
           args as Parameters<typeof writeDirect.updateElementDirect>[3],
         );
+        result = { id: args.id };
+        break;
       case 'remove_element':
-        await writeDirect.removeElementDirect(db, repoName, args.id as string);
-        return { id: args.id };
+        writeDirect.removeElementDirect(opened.db, repoName, args.id as string);
+        result = { id: args.id };
+        break;
       case 'add_group':
-        return writeDirect.addGroupDirect(db, repoName, {
+        result = writeDirect.addGroupDirect(opened.db, repoName, {
           memberIds: args.memberIds as string[],
           ...(args.label !== undefined ? { label: args.label as string } : {}),
         });
+        break;
       case 'update_group':
-        return writeDirect.updateGroupDirect(
-          db,
+        writeDirect.updateGroupDirect(
+          opened.db,
           repoName,
           args.id as string,
           args as Parameters<typeof writeDirect.updateGroupDirect>[3],
         );
+        result = { id: args.id };
+        break;
       case 'remove_group':
-        await writeDirect.removeGroupDirect(db, repoName, args.id as string);
-        return { id: args.id };
+        writeDirect.removeGroupDirect(opened.db, repoName, args.id as string);
+        result = { id: args.id };
+        break;
       case 'add_relationship':
-        return writeDirect.addRelationshipDirect(db, repoName, {
+        result = writeDirect.addRelationshipDirect(opened.db, repoName, {
           fromId: args.fromId as string,
           toId: args.toId as string,
           ...(args.label !== undefined ? { label: args.label as string } : {}),
           ...(args.technology !== undefined ? { technology: args.technology as string } : {}),
         });
+        break;
       case 'remove_relationship':
-        await writeDirect.removeRelationshipDirect(db, repoName, args.id as string);
-        return { id: args.id };
+        writeDirect.removeRelationshipDirect(opened.db, repoName, args.id as string);
+        result = { id: args.id };
+        break;
       default:
         throw new Error(`Unhandled write tool: ${toolName}`);
     }
+    opened.save();
+    return result;
   } finally {
-    db.close();
+    opened.close();
   }
 }
 
