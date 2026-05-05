@@ -45,6 +45,7 @@ interface SessionDbRow {
   readonly interruption_reason: string | null;
   readonly interruption_context_tokens: number | null;
   readonly compact_count: number | null;
+  readonly file_path?: string | null;
   readonly source?: 'claude_code' | 'codex' | null;
   readonly trail_session_costs?: readonly SessionCostDbRow[];
 }
@@ -745,6 +746,17 @@ export class SupabaseTrailReader implements ITrailReader {
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
+
+  private extractWorkspace(filePath: string | undefined | null): string | undefined {
+    if (!filePath) return undefined;
+    const match = /\/projects\/([^/]+)\//.exec(filePath);
+    if (!match) return undefined;
+    // worktree suffix を除去: --worktrees-* または --claude-worktrees-*
+    const key = match[1].replace(/--(?:claude-)?worktrees-.+$/, '');
+    if (!key.startsWith('-')) return undefined;
+    // 先頭の "-" を "/" に変換: "-anytime-lab" → "/anytime-lab"
+    return '/' + key.slice(1);
+  }
 
   private toTrailSession(
     r: SessionDbRow,

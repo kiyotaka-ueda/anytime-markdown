@@ -105,4 +105,44 @@ describe('SupabaseTrailReader mapping', () => {
     expect(reader.toTrailSession(baseRow, [], undefined, undefined).subAgentCount).toBeUndefined();
     expect(reader.toTrailSession(baseRow, [], undefined, 0).subAgentCount).toBeUndefined();
   });
+
+  describe('extractWorkspace', () => {
+    // extractWorkspace は SupabaseTrailReader の private メソッドなので any キャストでアクセス
+    let reader: any;
+    beforeEach(() => {
+      reader = new SupabaseTrailReader('http://localhost:54321', 'anon-key') as any;
+    });
+
+    it('通常ワークスペースのパスを返す', () => {
+      expect(reader.extractWorkspace('/home/node/.claude/projects/-anytime-lab/session.jsonl'))
+        .toBe('/anytime-lab');
+    });
+
+    it('anytime-markdown ワークスペースのパスを返す', () => {
+      expect(reader.extractWorkspace('/home/node/.claude/projects/-anytime-markdown/session.jsonl'))
+        .toBe('/anytime-markdown');
+    });
+
+    it('--worktrees- suffix を除去して親ワークスペースを返す', () => {
+      expect(reader.extractWorkspace(
+        '/home/node/.claude/projects/-anytime-markdown--worktrees-feature-xyz/session.jsonl'
+      )).toBe('/anytime-markdown');
+    });
+
+    it('--claude-worktrees- suffix を除去して親ワークスペースを返す', () => {
+      expect(reader.extractWorkspace(
+        '/home/node/.claude/projects/-anytime-markdown--claude-worktrees-feature-xyz/session.jsonl'
+      )).toBe('/anytime-markdown');
+    });
+
+    it('Codex セッション（/projects/ なし）は undefined を返す', () => {
+      expect(reader.extractWorkspace(
+        '/home/node/.codex/sessions/2026/05/05/session.jsonl'
+      )).toBeUndefined();
+    });
+
+    it('undefined は undefined を返す', () => {
+      expect(reader.extractWorkspace(undefined)).toBeUndefined();
+    });
+  });
 });
