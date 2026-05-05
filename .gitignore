@@ -3,6 +3,7 @@ dist
 node_modules
 .agents
 .anytime-trail
+.trail/anytime-history.json
 .claude
 .next
 .playwright-mcp

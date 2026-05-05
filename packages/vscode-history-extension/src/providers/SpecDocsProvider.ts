@@ -103,7 +103,7 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsNode>, 
 	private getStorageFilePath(): string | null {
 		const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 		if (!workspaceFolder) return null;
-		return path.join(workspaceFolder.uri.fsPath, '.vscode', 'history', STORAGE_FILENAME);
+		return path.join(workspaceFolder.uri.fsPath, '.trail', STORAGE_FILENAME);
 	}
 
 	private loadFromFile(): { roots: string[]; mdOnly: boolean } | null {
@@ -127,8 +127,8 @@ export class SpecDocsProvider implements vscode.TreeDataProvider<SpecDocsNode>, 
 		const filePath = this.getStorageFilePath();
 		if (!filePath) return;
 		try {
-			const vscodeDir = path.dirname(filePath);
-			if (!fs.existsSync(vscodeDir)) { fs.mkdirSync(vscodeDir, { recursive: true }); }
+			const storageDir = path.dirname(filePath);
+			if (!fs.existsSync(storageDir)) { fs.mkdirSync(storageDir, { recursive: true }); }
 			const data = {
 				specDocsRoots: this.rootPaths.length > 0 ? this.rootPaths : undefined,
 				mdOnly: this._mdOnly,
