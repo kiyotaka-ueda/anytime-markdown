@@ -35,9 +35,13 @@ describe('TrailDatabase: current_file_analysis CRUD', () => {
     db.upsertCurrentFileAnalysis([sample('a.ts', 70), sample('b.ts', 30)]);
     const rows = db.getCurrentFileAnalysis('repo');
     expect(rows.length).toBe(2);
-    expect(rows.find((r) => r.filePath === 'a.ts')!.deadCodeScore).toBe(70);
-    expect(rows.find((r) => r.filePath === 'a.ts')!.signals.orphan).toBe(true);
-    expect(rows.find((r) => r.filePath === 'b.ts')!.signals.orphan).toBe(false);
+    const rowA = rows.find((r) => r.filePath === 'a.ts');
+    if (!rowA) throw new Error('a.ts が取得できなかった');
+    const rowB = rows.find((r) => r.filePath === 'b.ts');
+    if (!rowB) throw new Error('b.ts が取得できなかった');
+    expect(rowA.deadCodeScore).toBe(70);
+    expect(rowA.signals.orphan).toBe(true);
+    expect(rowB.signals.orphan).toBe(false);
   });
 
   it('同一 PK は上書き (洗い替え)', () => {
