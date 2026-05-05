@@ -3,17 +3,61 @@
  *
  * StarterKit の Blockquote を拡張し、GitHub 互換の `> [!NOTE]` 記法をサポートする。
  * - parseHTML で data-admonition-type 属性付き blockquote を検出
- * - appendTransaction で setContent / ユーザー入力時の [!TYPE] を検出（初期ロードにも対応）
- * - serialize で `> [!TYPE]` ヘッダーを出力
+ * - Plugin.view で初期 doc を走査し admonitionType を設定（new Editor({ content }) 経路）
+ * - appendTransaction で commands.setContent / ユーザー入力時の [!TYPE] を検出
+ * - serialize で `> [!TYPE]` ヘッダーを出力。admonitionType 未設定でも textContent から
+ *   フォールバック検出するため、外部から blockquote.serialize を上書きしてはいけない。
  *
  * 対応タイプ: NOTE, TIP, IMPORTANT, WARNING, CAUTION
  */
 import Blockquote from "@tiptap/extension-blockquote";
 import type { Node as PMNode } from "@tiptap/pm/model";
+import type { EditorState, Transaction } from "@tiptap/pm/state";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 
 const ADMONITION_RE = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*/i;
 const MAX_BLOCKQUOTE_DEPTH = 6;
+
+interface AdmonitionModification {
+  pos: number;
+  type: string;
+  deleteFrom: number;
+  deleteTo: number;
+}
+
+/**
+ * 与えられた doc を走査し、`[!TYPE]` テキストで始まる blockquote を検出する。
+ * appendTransaction (transaction 中の検出) と onCreate (初期ロード) で共有する。
+ */
+function collectAdmonitionModifications(state: EditorState): AdmonitionModification[] {
+  const modifications: AdmonitionModification[] = [];
+  state.doc.descendants((node, pos) => {
+    if (node.type.name !== "blockquote" || node.attrs.admonitionType) return;
+    const first = node.firstChild;
+    if (first?.type.name !== "paragraph") return;
+    const match = ADMONITION_RE.exec(first.textContent);
+    if (!match) return;
+    const textStart = pos + 2; // blockquote(1) + paragraph(1)
+    modifications.push({
+      pos,
+      type: match[1].toLowerCase(),
+      deleteFrom: textStart,
+      deleteTo: textStart + match[0].length,
+    });
+  });
+  return modifications;
+}
+
+/** modifications を後方から適用して transaction に反映する */
+function applyAdmonitionModifications(tr: Transaction, mods: AdmonitionModification[]): boolean {
+  if (mods.length === 0) return false;
+  for (let i = mods.length - 1; i >= 0; i--) {
+    const mod = mods[i];
+    tr.setNodeAttribute(mod.pos, "admonitionType", mod.type);
+    tr.delete(mod.deleteFrom, mod.deleteTo);
+  }
+  return true;
+}
 
 interface SerializerState {
   wrapBlock: (delim: string, firstDelim: string | null, node: PMNode, f: () => void) => void;
@@ -109,42 +153,26 @@ export const AdmonitionBlockquote = Blockquote.extend({
     return [
       new Plugin({
         key: new PluginKey("admonitionDetect"),
+        // view() は EditorView 作成時に同期で呼ばれる。new Editor({ content }) 経路では
+        // emit('create') が setTimeout で非同期化されるため、TipTap の onCreate では間に合わない。
+        // Plugin.view から直接 dispatch することで、初期 doc の検出を view 構築直後に実行する。
+        view(editorView) {
+          const mods = collectAdmonitionModifications(editorView.state);
+          if (mods.length > 0) {
+            const tr = editorView.state.tr;
+            if (applyAdmonitionModifications(tr, mods)) {
+              tr.setMeta("addToHistory", false);
+              editorView.dispatch(tr);
+            }
+          }
+          return {};
+        },
         appendTransaction(transactions, _oldState, newState) {
           if (!transactions.some((tr) => tr.docChanged)) return null;
+          const mods = collectAdmonitionModifications(newState);
+          if (mods.length === 0) return null;
           const tr = newState.tr;
-          let modified = false;
-          const modifications: Array<{
-            pos: number;
-            type: string;
-            deleteFrom: number;
-            deleteTo: number;
-          }> = [];
-
-          newState.doc.descendants((node, pos) => {
-            if (node.type.name !== "blockquote" || node.attrs.admonitionType) return;
-            const first = node.firstChild;
-            if (first?.type.name !== "paragraph") return;
-            const text = first.textContent;
-            const match = ADMONITION_RE.exec(text);
-            if (!match) return;
-            const textStart = pos + 2; // blockquote(1) + paragraph(1)
-            modifications.push({
-              pos,
-              type: match[1].toLowerCase(),
-              deleteFrom: textStart,
-              deleteTo: textStart + match[0].length,
-            });
-          });
-
-          if (modifications.length === 0) return null;
-          // 後方から処理してポジションずれを防止
-          for (let i = modifications.length - 1; i >= 0; i--) {
-            const mod = modifications[i];
-            tr.setNodeAttribute(mod.pos, "admonitionType", mod.type);
-            tr.delete(mod.deleteFrom, mod.deleteTo);
-            modified = true;
-          }
-          return modified ? tr : null;
+          return applyAdmonitionModifications(tr, mods) ? tr : null;
         },
       }),
     ];
@@ -179,11 +207,9 @@ export const AdmonitionBlockquote = Blockquote.extend({
             state.wrapBlock("> ", `> [!${type}]\n`, renderNode, () => {
               state.renderContent(renderNode);
             });
-            // Admonition 間に空行を確保
-            state.ensureNewLine();
-            if (!state.out.endsWith("\n\n")) {
-              state.out += "\n";
-            }
+            // ブロック区切りは prosemirror-markdown の closeBlock + 次ブロックの
+            // flushClose が \n\n を入れるため、ここで手動追加すると保存ごとに
+            // \n\n\n に膨らみ preserveBlankLines が ZWSP 段落を挿入して累積する。
           } else {
             state.wrapBlock("> ", null, renderNode, () => {
               state.renderContent(renderNode);
