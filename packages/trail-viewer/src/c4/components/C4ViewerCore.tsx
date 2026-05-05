@@ -391,6 +391,8 @@ export function C4ViewerCore({
   // 0 = Fit 不要。正値の間は SET_DOCUMENT に fit viewport を埋め込む。
   // setTimeout は React スケジューラと競合するため使わず、カウントダウン方式にする。
   const pendingFitCountRef = useRef(0);
+  // Drill Up 後にセンタリングするターゲット c4Id。null = 全体 Fit のまま。
+  const pendingCenterC4IdRef = useRef<string | null>(null);
 
   // --- Editing state ---
   const [addElementType, setAddElementType] = useState<C4ElementKind | null>(null);
@@ -524,7 +526,22 @@ export function C4ViewerCore({
       const canvas = canvasRef.current;
       if (canvas && canvas.clientWidth > 0 && canvas.clientHeight > 0) {
         const bounds = computeBounds(viewDoc.nodes);
-        const viewport = fitToContent(canvas.clientWidth, canvas.clientHeight, bounds);
+        let viewport = fitToContent(canvas.clientWidth, canvas.clientHeight, bounds);
+        // Drill Up 後: 全体フィットのスケールを維持しつつ、ターゲット要素を中央に寄せる
+        const centerTarget = pendingCenterC4IdRef.current;
+        if (centerTarget) {
+          const targetNode = viewDoc.nodes.find(n => (n.metadata?.c4Id as string | undefined) === centerTarget);
+          if (targetNode) {
+            pendingCenterC4IdRef.current = null;
+            const cx = targetNode.x + targetNode.width / 2;
+            const cy = targetNode.y + targetNode.height / 2;
+            viewport = {
+              ...viewport,
+              offsetX: canvas.clientWidth / 2 - cx * viewport.scale,
+              offsetY: canvas.clientHeight / 2 - cy * viewport.scale,
+            };
+          }
+        }
         viewDoc = { ...viewDoc, viewport };
       }
     }
@@ -640,6 +657,11 @@ export function C4ViewerCore({
   const handleDrillUp = useCallback(() => {
     const entry = drillStack.at(-1);
     if (entry?.prevLevel !== undefined) setCurrentLevel(entry.prevLevel);
+    // Drill Up 後、元の drill 起点要素を画面中央にセンタリングする
+    if (entry) {
+      pendingCenterC4IdRef.current = entry.element.id;
+      pendingFitCountRef.current = 5;
+    }
     setDrillStack((prev) => prev.slice(0, -1));
     setCheckedPackageIds(null);
     setCheckReset(prev => ({ key: prev.key + 1, ids: entry?.prevCheckedIds ?? null, expanded: null }));
