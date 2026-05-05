@@ -10,8 +10,6 @@ import {
   CREATE_DAILY_COUNTS,
   CREATE_MESSAGES,
   CREATE_SESSION_COMMITS,
-  CREATE_IMPORTED_FILES,
-  CREATE_C4_MODELS,
   CREATE_CURRENT_GRAPHS,
   CREATE_RELEASE_GRAPHS,
   CREATE_SKILL_MODELS as CREATE_SKILL_MODELS_TABLE,
@@ -19,7 +17,6 @@ import {
   CREATE_INDEXES,
   CREATE_RELEASES,
   CREATE_RELEASE_FILES,
-  CREATE_RELEASE_FEATURES,
   CREATE_RELEASE_COVERAGE,
   CREATE_RELEASE_INDEXES,
   CREATE_CURRENT_COVERAGE,
@@ -28,10 +25,16 @@ import {
   CREATE_RELEASE_CODE_GRAPHS,
   CREATE_CURRENT_CODE_GRAPH_COMMUNITIES,
   CREATE_RELEASE_CODE_GRAPH_COMMUNITIES,
+  CREATE_CURRENT_FILE_ANALYSIS,
+  CREATE_RELEASE_FILE_ANALYSIS,
+  CREATE_CURRENT_FUNCTION_ANALYSIS,
+  CREATE_RELEASE_FUNCTION_ANALYSIS,
+  CREATE_FILE_ANALYSIS_INDEXES,
   CREATE_MESSAGE_TOOL_CALLS,
   CREATE_MESSAGE_TOOL_CALLS_INDEXES,
   CREATE_MESSAGE_COMMITS,
   CREATE_COMMIT_FILES,
+  CREATE_SESSION_COMMIT_RESOLUTIONS,
   CREATE_C4_MANUAL_ELEMENTS,
   CREATE_C4_MANUAL_RELATIONSHIPS,
   CREATE_C4_MANUAL_GROUPS,
@@ -62,12 +65,13 @@ import { splitCodeGraph, composeCodeGraph } from '@anytime-markdown/trail-core/c
 import type { StoredCommunity } from '@anytime-markdown/trail-core/codeGraph';
 import type { FeatureMatrix } from '@anytime-markdown/trail-core/c4';
 import { buildFeatureMatrixFromCommunities } from '@anytime-markdown/trail-core/c4';
+import type { FileAnalysisRow, FunctionAnalysisRow } from '@anytime-markdown/trail-core/deadCode';
 import { JsonlSessionReader } from './JsonlSessionReader';
 import { ExecFileGitService } from './ExecFileGitService';
 import { type DbLogger, noopDbLogger } from './DbLogger';
 import { ClaudeCodeBehaviorAnalyzer } from './ClaudeCodeBehaviorAnalyzer';
-import type { ReleaseFileRow, ReleaseFeatureRow, ReleaseCoverageRow, ReleaseRow, CurrentCoverageRow } from '@anytime-markdown/trail-core';
-export type { ReleaseFileRow, ReleaseFeatureRow, ReleaseCoverageRow, ReleaseRow } from '@anytime-markdown/trail-core';
+import type { ReleaseFileRow, ReleaseCoverageRow, ReleaseRow, CurrentCoverageRow } from '@anytime-markdown/trail-core';
+export type { ReleaseFileRow, ReleaseCoverageRow, ReleaseRow } from '@anytime-markdown/trail-core';
 
 declare const __non_webpack_require__: (id: string) => unknown;
 
@@ -244,6 +248,7 @@ export interface SessionCommitRow {
   readonly files_changed: number;
   readonly lines_added: number;
   readonly lines_deleted: number;
+  readonly repo_name: string;
 }
 
 interface SessionFilters {
@@ -330,6 +335,7 @@ interface CombinedData {
   }[];
   readonly commitPrefixStats: readonly { period: string; prefix: string; count: number; linesAdded: number }[];
   readonly aiFirstTryRate: readonly { period: string; rate: number; sampleSize: number }[];
+  readonly repoStats: readonly { period: string; repoName: string; count: number; tokens: number }[];
 }
 
 interface RawLine {
@@ -705,6 +711,7 @@ export class TrailDatabase {
     storageDirOrStorage?: string | ITrailStorage,
     backupGenerations?: number,
     logger?: DbLogger,
+    backupIntervalDays?: number,
   ) {
     if (storageDirOrStorage !== undefined && typeof storageDirOrStorage !== 'string') {
       this.storage = storageDirOrStorage;
@@ -712,7 +719,7 @@ export class TrailDatabase {
     } else {
       const dbDir = storageDirOrStorage ?? DEFAULT_DB_DIR;
       this.dbPath = path.join(dbDir, 'trail.db');
-      this.storage = new FileTrailStorage(this.dbPath, backupGenerations);
+      this.storage = new FileTrailStorage(this.dbPath, backupGenerations, backupIntervalDays);
     }
     this.logger = logger ?? noopDbLogger;
   }
@@ -775,13 +782,19 @@ export class TrailDatabase {
     db.run(CREATE_SESSION_COMMITS);
     db.run(CREATE_RELEASES);
     db.run(CREATE_RELEASE_FILES);
-    db.run(CREATE_RELEASE_FEATURES);
     db.run(CREATE_RELEASE_COVERAGE);
     db.run(CREATE_CURRENT_COVERAGE);
     for (const idx of CREATE_CURRENT_COVERAGE_INDEXES) {
       db.run(idx);
     }
-    db.run(CREATE_C4_MODELS);
+    // 既存 DB に残った未使用テーブルを除去（行 0 件のため安全）
+    for (const orphan of ['c4_models', 'release_features']) {
+      try {
+        db.run(`DROP TABLE IF EXISTS ${orphan}`);
+      } catch (e) {
+        this.logger.warn(`failed to drop ${orphan}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
     this.migrateCurrentGraphsSchema(db);
     db.run(CREATE_CURRENT_GRAPHS);
     db.run(CREATE_RELEASE_GRAPHS);
@@ -790,10 +803,27 @@ export class TrailDatabase {
     db.run(CREATE_RELEASE_CODE_GRAPHS);
     db.run(CREATE_CURRENT_CODE_GRAPH_COMMUNITIES);
     db.run(CREATE_RELEASE_CODE_GRAPH_COMMUNITIES);
+    this.migrateFileAnalysisSchema(db);
+    db.run(CREATE_CURRENT_FILE_ANALYSIS);
+    db.run(CREATE_RELEASE_FILE_ANALYSIS);
+    db.run(CREATE_CURRENT_FUNCTION_ANALYSIS);
+    db.run(CREATE_RELEASE_FUNCTION_ANALYSIS);
+    for (const idx of CREATE_FILE_ANALYSIS_INDEXES) {
+      db.run(idx);
+    }
     db.run(CREATE_SKILL_MODELS_TABLE);
     db.run(CREATE_SKILL_MODELS_RESOLVED_VIEW);
     db.run(CREATE_MESSAGE_COMMITS);
     db.run(CREATE_COMMIT_FILES);
+    db.run(CREATE_SESSION_COMMIT_RESOLUTIONS);
+    // session_commits / commit_files への repo_name 追加はインデックス作成より前に行う
+    // （idx_session_commits_repo / idx_commit_files_repo が repo_name を参照するため）
+    for (const sql of [
+      "ALTER TABLE session_commits ADD COLUMN repo_name TEXT NOT NULL DEFAULT ''",
+      "ALTER TABLE commit_files ADD COLUMN repo_name TEXT NOT NULL DEFAULT ''",
+    ]) {
+      try { db.run(sql); } catch { /* Column already exists */ }
+    }
     db.run('CREATE INDEX IF NOT EXISTS idx_commit_files_hash ON commit_files(commit_hash)');
     for (const sql of [...CREATE_INDEXES, ...CREATE_RELEASE_INDEXES]) {
       db.run(sql);
@@ -853,6 +883,19 @@ export class TrailDatabase {
       try { db.run(sql); } catch { /* Column already exists */ }
     }
 
+    // AST メトリクス列追加（既存 DB 向け）
+    const astMetricsAlters = [
+      'ALTER TABLE current_file_analysis ADD COLUMN line_count INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE current_file_analysis ADD COLUMN cyclomatic_complexity_max INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE release_file_analysis ADD COLUMN line_count INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE release_file_analysis ADD COLUMN cyclomatic_complexity_max INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE current_function_analysis ADD COLUMN cyclomatic_complexity INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE release_function_analysis ADD COLUMN cyclomatic_complexity INTEGER NOT NULL DEFAULT 0',
+    ];
+    for (const sql of astMetricsAlters) {
+      try { db.run(sql); } catch { /* Column already exists */ }
+    }
+
     // service_type カラム追加（既存 DB 向け）
     try {
       db.run('ALTER TABLE c4_manual_elements ADD COLUMN service_type TEXT');
@@ -883,6 +926,65 @@ export class TrailDatabase {
     } catch (e) {
       this.logger.warn(`backfillSourceToolLinkFields (init) failed (non-fatal): ${e instanceof Error ? e.message : String(e)}`);
     }
+    try {
+      this.backfillRepoName_v1();
+    } catch (e) {
+      this.logger.warn(`backfillRepoName_v1 (init) failed (non-fatal): ${e instanceof Error ? e.message : String(e)}`);
+    }
+    // ALTER TABLE / backfill 等のスキーマ変更をディスクに永続化する。
+    // save() を呼ばないと _migrations フラグが保存されず、次回起動で再実行される。
+    this.save();
+  }
+
+  /**
+   * 既存 row の session_commits.repo_name / commit_files.repo_name を sessions.repo_name から
+   * バックフィルする。`_migrations` テーブルで一度だけ走らせる冪等運用。
+   */
+  private backfillRepoName_v1(): void {
+    const db = this.ensureDb();
+    db.run('CREATE TABLE IF NOT EXISTS _migrations (key TEXT PRIMARY KEY)');
+    const done = db.exec("SELECT 1 FROM _migrations WHERE key = 'repo_name_backfill_v1'");
+    if (done[0]?.values?.length) return;
+
+    // session_commits: 既存 row の repo_name='' を sessions.repo_name から埋める
+    db.run(
+      `UPDATE session_commits
+         SET repo_name = (
+           SELECT s.repo_name FROM sessions s WHERE s.id = session_commits.session_id
+         )
+         WHERE repo_name = ''
+           AND EXISTS (
+             SELECT 1 FROM sessions s
+             WHERE s.id = session_commits.session_id AND s.repo_name != ''
+           )`,
+    );
+    const updatedCommits = db.exec(
+      "SELECT COUNT(*) FROM session_commits WHERE repo_name != ''",
+    )[0]?.values[0]?.[0] ?? 0;
+
+    // commit_files: session_commits 経由で repo_name を逆引き
+    db.run(
+      `UPDATE commit_files
+         SET repo_name = (
+           SELECT sc.repo_name FROM session_commits sc
+           WHERE sc.commit_hash = commit_files.commit_hash
+             AND sc.repo_name != ''
+           LIMIT 1
+         )
+         WHERE repo_name = ''
+           AND EXISTS (
+             SELECT 1 FROM session_commits sc
+             WHERE sc.commit_hash = commit_files.commit_hash AND sc.repo_name != ''
+           )`,
+    );
+    const updatedFiles = db.exec(
+      "SELECT COUNT(*) FROM commit_files WHERE repo_name != ''",
+    )[0]?.values[0]?.[0] ?? 0;
+
+    this.logger.info(
+      `[Migration] repo_name_backfill_v1: session_commits non-empty=${String(updatedCommits)}, commit_files non-empty=${String(updatedFiles)}`,
+    );
+    db.run("INSERT OR IGNORE INTO _migrations (key) VALUES ('repo_name_backfill_v1')");
   }
 
   private backfillSourceToolLinkFields(): void {
@@ -1381,6 +1483,30 @@ export class TrailDatabase {
    * current_graphs のスキーマが旧版（id 列 PK）だった場合、テーブルを破棄して新版で作り直す。
    * データは空のため内容移行は行わない（ユーザー指示で事前クリア済み）。
    */
+  /** file_analysis テーブルが旧スキーマ（repo_name なし）で存在する場合に DROP して再作成を促す。 */
+  private migrateFileAnalysisSchema(db: Database): void {
+    const tables = [
+      'current_file_analysis',
+      'release_file_analysis',
+      'current_function_analysis',
+      'release_function_analysis',
+    ];
+    for (const table of tables) {
+      const exists = db.exec(`SELECT 1 FROM sqlite_master WHERE type='table' AND name='${table}'`);
+      if (!exists[0]?.values?.length) continue;
+      const info = db.exec(`PRAGMA table_info(${table})`);
+      const columns = info[0]?.values?.map((r) => String(r[1])) ?? [];
+      if (columns.includes('repo_name')) continue;
+      try {
+        db.run(`DROP TABLE ${table}`);
+        this.logger.info(`migrateFileAnalysisSchema: dropped legacy ${table} (no repo_name) for recreation`);
+        this.save();
+      } catch (e) {
+        this.logger.error(`migrateFileAnalysisSchema: failed to drop ${table}`, e);
+      }
+    }
+  }
+
   private migrateCurrentGraphsSchema(db: Database): void {
     const exists = db.exec(
       "SELECT 1 FROM sqlite_master WHERE type='table' AND name='current_graphs'",
@@ -1972,7 +2098,7 @@ export class TrailDatabase {
     }
   }
 
-  resolveCommits(sessionId: string, gitRoot: string): number {
+  resolveCommits(sessionId: string, gitRoot: string, repoName: string): number {
     const db = this.ensureDb();
     const range = this.getSessionTimeRange(sessionId);
     if (!range) return 0;
@@ -1990,8 +2116,8 @@ export class TrailDatabase {
     const insertStmt = db.prepare(
       `INSERT OR IGNORE INTO session_commits
         (session_id, commit_hash, commit_message, author, committed_at,
-         is_ai_assisted, files_changed, lines_added, lines_deleted)
-        VALUES (?,?,?,?,?,?,?,?,?)`,
+         is_ai_assisted, files_changed, lines_added, lines_deleted, repo_name)
+        VALUES (?,?,?,?,?,?,?,?,?,?)`,
     );
 
     let count = 0;
@@ -2006,7 +2132,7 @@ export class TrailDatabase {
         '--no-merges',
       ], { ...execOpts, cwd: gitRoot });
 
-      count += this.processCommitEntries(phaseAOutput, sessionId, insertStmt, execOpts, gitRoot);
+      count += this.processCommitEntries(phaseAOutput, sessionId, repoName, insertStmt, execOpts, gitRoot);
     } catch {
       // git grep may fail if no commits match — not an error
     }
@@ -2034,24 +2160,44 @@ export class TrailDatabase {
       } catch {
         // On any git error, mark as resolved and return Phase A count
         insertStmt.free();
-        db.run(
-          "UPDATE sessions SET commits_resolved_at = datetime('now') WHERE id = ?",
-          [sessionId],
-        );
+        this.markCommitResolutionDone(sessionId, repoName);
         return count;
       }
     }
 
-    count += this.processCommitEntries(logOutput, sessionId, insertStmt, execOpts, gitRoot, true);
+    count += this.processCommitEntries(logOutput, sessionId, repoName, insertStmt, execOpts, gitRoot, true);
 
     insertStmt.free();
 
+    this.markCommitResolutionDone(sessionId, repoName);
+
+    return count;
+  }
+
+  /** Mark (sessionId, repoName) as resolved in session_commit_resolutions, plus legacy sessions.commits_resolved_at. */
+  private markCommitResolutionDone(sessionId: string, repoName: string): void {
+    const db = this.ensureDb();
+    db.run(
+      `INSERT INTO session_commit_resolutions (session_id, repo_name, resolved_at)
+         VALUES (?, ?, datetime('now'))
+         ON CONFLICT(session_id, repo_name) DO UPDATE SET resolved_at = excluded.resolved_at`,
+      [sessionId, repoName],
+    );
+    // 既存挙動の互換: 主リポジトリ解決時も sessions.commits_resolved_at を更新
     db.run(
       "UPDATE sessions SET commits_resolved_at = datetime('now') WHERE id = ?",
       [sessionId],
     );
+  }
 
-    return count;
+  /** Returns true if (sessionId, repoName) is already recorded as resolved. */
+  isCommitResolutionDone(sessionId: string, repoName: string): boolean {
+    const db = this.ensureDb();
+    const r = db.exec(
+      'SELECT 1 FROM session_commit_resolutions WHERE session_id = ? AND repo_name = ? LIMIT 1',
+      [sessionId, repoName],
+    );
+    return Boolean(r[0]?.values?.length);
   }
 
   /** Parse git log output and insert commits into session_commits table.
@@ -2059,6 +2205,7 @@ export class TrailDatabase {
   private processCommitEntries(
     logOutput: string,
     sessionId: string,
+    repoName: string,
     insertStmt: SqlJsStatement,
     execOpts: { encoding: 'utf-8'; timeout: number },
     gitRoot: string,
@@ -2115,16 +2262,16 @@ export class TrailDatabase {
 
       insertStmt.run([
         sessionId, hash, subject, author, committedAt,
-        isAiAssisted, filesChanged, linesAdded, linesDeleted,
+        isAiAssisted, filesChanged, linesAdded, linesDeleted, repoName,
       ]);
 
       if (filePaths.length > 0) {
         const filesStmt = this.ensureDb().prepare(
-          'INSERT OR IGNORE INTO commit_files (commit_hash, file_path) VALUES (?, ?)',
+          'INSERT OR IGNORE INTO commit_files (commit_hash, file_path, repo_name) VALUES (?, ?, ?)',
         );
         try {
           for (const fp of filePaths) {
-            filesStmt.run([hash, fp]);
+            filesStmt.run([hash, fp, repoName]);
           }
         } finally {
           filesStmt.free();
@@ -2312,13 +2459,16 @@ export class TrailDatabase {
 
   async importAll(
     onProgress?: (message: string, increment?: number) => void,
-    gitRoot?: string,
+    gitRoots?: readonly string[],
     excludePatterns?: readonly string[],
     analyzeFn?: AnalyzeFunction,
   ): Promise<{ imported: number; skipped: number; commitsResolved: number; releasesResolved: number; releasesAnalyzed: number; coverageImported: number; currentCoverageImported: number; messageCommitsBackfilled: number }> {
     const projectsDir = path.join(os.homedir(), '.claude', 'projects');
     const codexSessionsDir = path.join(os.homedir(), '.codex', 'sessions');
+    // 主リポジトリは gitRoots[0] とみなす（コード解析・Codex セッションのフィルタに使う既存挙動の互換）
+    const gitRoot = gitRoots?.[0];
     const repoName = gitRoot ? path.basename(gitRoot) : '';
+    const watched = (gitRoots ?? []).map((r) => ({ gitRoot: r, repoName: path.basename(r) }));
     let imported = 0;
     let skipped = 0;
     let commitsResolved = 0;
@@ -2443,8 +2593,9 @@ export class TrailDatabase {
           skippedBySource[dir.source] += sessionFileTotal;
           processedFiles += sessionFileTotal;
           processedBySource[dir.source] += sessionFileTotal;
-          if (gitRoot && !existing.commitsResolved) {
-            try { commitsResolved += this.resolveCommits(dir.sid, gitRoot); } catch (e) { this.logger.error(`resolveCommits failed (skipped session): ${dir.sid}`, e); }
+          for (const w of watched) {
+            if (this.isCommitResolutionDone(dir.sid, w.repoName)) continue;
+            try { commitsResolved += this.resolveCommits(dir.sid, w.gitRoot, w.repoName); } catch (e) { this.logger.error(`resolveCommits failed (skipped session): ${dir.sid} repo=${w.repoName}`, e); }
           }
           continue;
         }
@@ -2479,9 +2630,10 @@ export class TrailDatabase {
         processedBySource[dir.source]++;
       }
 
-      // Resolve commits after all files for this session
-      if (gitRoot) {
-        try { commitsResolved += this.resolveCommits(dir.sid, gitRoot); } catch (e) { this.logger.error(`resolveCommits failed: ${dir.sid}`, e); }
+      // Resolve commits after all files for this session — once per watched repo
+      for (const w of watched) {
+        if (this.isCommitResolutionDone(dir.sid, w.repoName)) continue;
+        try { commitsResolved += this.resolveCommits(dir.sid, w.gitRoot, w.repoName); } catch (e) { this.logger.error(`resolveCommits failed: ${dir.sid} repo=${w.repoName}`, e); }
       }
 
       // Commit at session boundary when limits exceeded
@@ -2607,6 +2759,7 @@ export class TrailDatabase {
           filesChanged: c.files_changed,
           linesAdded: c.lines_added,
           linesDeleted: c.lines_deleted,
+          repoName: c.repo_name ?? '',
         }));
         const matches = matchCommitsToMessages(messages, commits);
         const now = new Date().toISOString();
@@ -5473,18 +5626,19 @@ export class TrailDatabase {
     // Commit stats: session_commits を取得し、AI 1 発成功率のファイル overlap 判定に必要な
     // committed_at / is_ai_assisted / commit_files を一緒に取る。分母の fix 検出のために
     // 期間末尾から 168h 先のコミットも取得する。手動コミットが複数セッションに重複登録される
-    // ため DISTINCT commit_hash で排除する。
+    // ため repo_name + commit_hash で排除する。
     const commitWindowSec = Math.round(AI_FIRST_TRY_FIX_WINDOW_MS / 1000);
     const commitResult = db.exec(
-      `SELECT ${commitPeriodExpr} AS period, commit_hash, commit_message,
+      `SELECT ${commitPeriodExpr} AS period, repo_name, commit_hash, commit_message,
               committed_at, is_ai_assisted, COALESCE(lines_added, 0) AS lines_added
        FROM session_commits
        WHERE committed_at >= DATETIME('now', '-${rangeDays} days')
          AND committed_at <= DATETIME('now', '+${commitWindowSec} seconds')
-       GROUP BY commit_hash`,
+       GROUP BY repo_name, commit_hash`,
     );
     type CommitRow = {
       period: string;
+      repoName: string;
       hash: string;
       subject: string;
       committed_at: string;
@@ -5494,6 +5648,7 @@ export class TrailDatabase {
     };
     const commitRows: CommitRow[] = toRows(commitResult).map(r => ({
       period: String(r['period'] ?? ''),
+      repoName: String(r['repo_name'] ?? ''),
       hash: String(r['commit_hash'] ?? ''),
       subject: String(r['commit_message'] ?? '').split('\n')[0],
       committed_at: String(r['committed_at'] ?? ''),
@@ -5506,20 +5661,20 @@ export class TrailDatabase {
     if (commitRows.length > 0) {
       const hashPlaceholders = commitRows.map(() => '?').join(',');
       const filesResult = db.exec(
-        `SELECT commit_hash, file_path FROM commit_files WHERE commit_hash IN (${hashPlaceholders})`,
+        `SELECT repo_name, commit_hash, file_path FROM commit_files WHERE commit_hash IN (${hashPlaceholders})`,
         commitRows.map(c => c.hash),
       );
       if (filesResult[0]) {
         const byHash = new Map<string, string[]>();
         for (const row of filesResult[0].values) {
-          const h = String(row[0] ?? '');
-          const p = String(row[1] ?? '');
+          const h = `${String(row[0] ?? '')}:${String(row[1] ?? '')}`;
+          const p = String(row[2] ?? '');
           const list = byHash.get(h);
           if (list) list.push(p);
           else byHash.set(h, [p]);
         }
         for (const c of commitRows) {
-          c.files = byHash.get(c.hash) ?? [];
+          c.files = byHash.get(`${c.repoName}:${c.hash}`) ?? [];
         }
       }
     }
@@ -5541,6 +5696,49 @@ export class TrailDatabase {
       const sep = k.indexOf('::');
       return { period: k.slice(0, sep), prefix: k.slice(sep + 2), count: v.count, linesAdded: v.linesAdded };
     });
+
+    // Repository stats: COUNT は commitRows を再利用（既に repo_name+commit_hash で重複排除済み）
+    const repoCountMap = new Map<string, number>();
+    for (const c of commitRows) {
+      if (c.period > todayPeriod) continue;
+      if (!c.repoName) continue;
+      const k = `${c.period}::${c.repoName}`;
+      repoCountMap.set(k, (repoCountMap.get(k) ?? 0) + 1);
+    }
+
+    // Repository stats: TOKEN は messages JOIN sessions で集計
+    const repoTokenResult = db.exec(
+      `SELECT ${messagePeriodExpr} AS period,
+              s.repo_name,
+              SUM(COALESCE(m.input_tokens,0) + COALESCE(m.output_tokens,0)
+                  + COALESCE(m.cache_read_tokens,0) + COALESCE(m.cache_creation_tokens,0)) AS tokens
+       FROM messages m
+       JOIN sessions s ON s.id = m.session_id
+       WHERE m.type = 'assistant'
+         AND DATE(m.timestamp, '${tzOffset}') >= ${cutoff}
+         AND s.repo_name != ''
+       GROUP BY period, s.repo_name`,
+    );
+    const repoTokenMap = new Map<string, number>();
+    for (const r of toRows(repoTokenResult)) {
+      const period = String(r['period'] ?? '');
+      const repoName = String(r['repo_name'] ?? '');
+      const k = `${period}::${repoName}`;
+      repoTokenMap.set(k, Number(r['tokens'] ?? 0));
+    }
+
+    // COUNT と TOKEN をマージ
+    const repoAllKeys = new Set([...repoCountMap.keys(), ...repoTokenMap.keys()]);
+    const repoStats = [...repoAllKeys].map(k => {
+      const sep = k.indexOf('::');
+      const repoName = k.slice(sep + 2);
+      return {
+        period: k.slice(0, sep),
+        repoName,
+        count: repoCountMap.get(k) ?? 0,
+        tokens: repoTokenMap.get(k) ?? 0,
+      };
+    }).filter(r => r.repoName !== '');
 
     // AI First-Try Success Rate per period
     const fixes = commitRows
@@ -5582,6 +5780,7 @@ export class TrailDatabase {
       agentStats,
       commitPrefixStats,
       aiFirstTryRate,
+      repoStats,
     };
   }
 
@@ -5841,6 +6040,271 @@ export class TrailDatabase {
     }));
   }
 
+  // ---------------------------------------------------------------------------
+  //  File Analysis (Dead Code Detection)
+  // ---------------------------------------------------------------------------
+
+  upsertCurrentFileAnalysis(rows: readonly FileAnalysisRow[]): void {
+    if (rows.length === 0) return;
+    const db = this.ensureDb();
+    for (const r of rows) {
+      db.run(
+        `INSERT OR REPLACE INTO current_file_analysis (
+          repo_name, file_path,
+          importance_score, fan_in_total, cognitive_complexity_max, line_count, cyclomatic_complexity_max, function_count,
+          dead_code_score,
+          signal_orphan, signal_fan_in_zero, signal_no_recent_churn,
+          signal_zero_coverage, signal_isolated_community,
+          is_ignored, ignore_reason, analyzed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          r.repoName, r.filePath,
+          r.importanceScore, r.fanInTotal, r.cognitiveComplexityMax, r.lineCount, r.cyclomaticComplexityMax, r.functionCount,
+          r.deadCodeScore,
+          r.signals.orphan ? 1 : 0,
+          r.signals.fanInZero ? 1 : 0,
+          r.signals.noRecentChurn ? 1 : 0,
+          r.signals.zeroCoverage ? 1 : 0,
+          r.signals.isolatedCommunity ? 1 : 0,
+          r.isIgnored ? 1 : 0, r.ignoreReason, r.analyzedAt,
+        ],
+      );
+    }
+    this.save();
+  }
+
+  getCurrentFileAnalysis(repoName: string): FileAnalysisRow[] {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT repo_name, file_path,
+              importance_score, fan_in_total, cognitive_complexity_max, line_count, cyclomatic_complexity_max, function_count,
+              dead_code_score,
+              signal_orphan, signal_fan_in_zero, signal_no_recent_churn,
+              signal_zero_coverage, signal_isolated_community,
+              is_ignored, ignore_reason, analyzed_at
+       FROM current_file_analysis WHERE repo_name = ?`,
+      [repoName],
+    );
+    const values = result[0]?.values ?? [];
+    return values.map((r) => ({
+      repoName: String(r[0] ?? ''),
+      filePath: String(r[1] ?? ''),
+      importanceScore: Number(r[2] ?? 0),
+      fanInTotal: Number(r[3] ?? 0),
+      cognitiveComplexityMax: Number(r[4] ?? 0),
+      lineCount: Number(r[5] ?? 0),
+      cyclomaticComplexityMax: Number(r[6] ?? 0),
+      functionCount: Number(r[7] ?? 0),
+      deadCodeScore: Number(r[8] ?? 0),
+      signals: {
+        orphan: Number(r[9] ?? 0) === 1,
+        fanInZero: Number(r[10] ?? 0) === 1,
+        noRecentChurn: Number(r[11] ?? 0) === 1,
+        zeroCoverage: Number(r[12] ?? 0) === 1,
+        isolatedCommunity: Number(r[13] ?? 0) === 1,
+      },
+      isIgnored: Number(r[14] ?? 0) === 1,
+      ignoreReason: String(r[15] ?? ''),
+      analyzedAt: String(r[16] ?? ''),
+    }));
+  }
+
+  clearCurrentFileAnalysis(repoName: string): void {
+    const db = this.ensureDb();
+    db.run('DELETE FROM current_file_analysis WHERE repo_name = ?', [repoName]);
+    this.save();
+  }
+
+  upsertReleaseFileAnalysis(releaseTag: string, rows: readonly FileAnalysisRow[]): void {
+    if (rows.length === 0) return;
+    const db = this.ensureDb();
+    for (const r of rows) {
+      db.run(
+        `INSERT OR REPLACE INTO release_file_analysis (
+          release_tag, repo_name, file_path,
+          importance_score, fan_in_total, cognitive_complexity_max, line_count, cyclomatic_complexity_max, function_count,
+          dead_code_score,
+          signal_orphan, signal_fan_in_zero, signal_no_recent_churn,
+          signal_zero_coverage, signal_isolated_community,
+          is_ignored, ignore_reason, analyzed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          releaseTag, r.repoName, r.filePath,
+          r.importanceScore, r.fanInTotal, r.cognitiveComplexityMax, r.lineCount, r.cyclomaticComplexityMax, r.functionCount,
+          r.deadCodeScore,
+          r.signals.orphan ? 1 : 0,
+          r.signals.fanInZero ? 1 : 0,
+          r.signals.noRecentChurn ? 1 : 0,
+          r.signals.zeroCoverage ? 1 : 0,
+          r.signals.isolatedCommunity ? 1 : 0,
+          r.isIgnored ? 1 : 0, r.ignoreReason, r.analyzedAt,
+        ],
+      );
+    }
+  }
+
+  getReleaseFileAnalysis(releaseTag: string, repoName: string): FileAnalysisRow[] {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT repo_name, file_path,
+              importance_score, fan_in_total, cognitive_complexity_max, line_count, cyclomatic_complexity_max, function_count,
+              dead_code_score,
+              signal_orphan, signal_fan_in_zero, signal_no_recent_churn,
+              signal_zero_coverage, signal_isolated_community,
+              is_ignored, ignore_reason, analyzed_at
+       FROM release_file_analysis WHERE release_tag = ? AND repo_name = ?`,
+      [releaseTag, repoName],
+    );
+    const values = result[0]?.values ?? [];
+    return values.map((r) => ({
+      repoName: String(r[0] ?? ''),
+      filePath: String(r[1] ?? ''),
+      importanceScore: Number(r[2] ?? 0),
+      fanInTotal: Number(r[3] ?? 0),
+      cognitiveComplexityMax: Number(r[4] ?? 0),
+      lineCount: Number(r[5] ?? 0),
+      cyclomaticComplexityMax: Number(r[6] ?? 0),
+      functionCount: Number(r[7] ?? 0),
+      deadCodeScore: Number(r[8] ?? 0),
+      signals: {
+        orphan: Number(r[9] ?? 0) === 1,
+        fanInZero: Number(r[10] ?? 0) === 1,
+        noRecentChurn: Number(r[11] ?? 0) === 1,
+        zeroCoverage: Number(r[12] ?? 0) === 1,
+        isolatedCommunity: Number(r[13] ?? 0) === 1,
+      },
+      isIgnored: Number(r[14] ?? 0) === 1,
+      ignoreReason: String(r[15] ?? ''),
+      analyzedAt: String(r[16] ?? ''),
+    }));
+  }
+
+  clearReleaseFileAnalysis(releaseTag: string, repoName: string): void {
+    const db = this.ensureDb();
+    db.run('DELETE FROM release_file_analysis WHERE release_tag = ? AND repo_name = ?', [releaseTag, repoName]);
+    this.save();
+  }
+
+  // ---------------------------------------------------------------------------
+  //  Function Analysis (Dead Code Detection)
+  // ---------------------------------------------------------------------------
+
+  upsertCurrentFunctionAnalysis(rows: readonly FunctionAnalysisRow[]): void {
+    if (rows.length === 0) return;
+    const db = this.ensureDb();
+    for (const r of rows) {
+      db.run(
+        `INSERT OR REPLACE INTO current_function_analysis (
+          repo_name, file_path, function_name, start_line,
+          end_line, language, fan_in, cognitive_complexity, cyclomatic_complexity,
+          data_mutation_score, side_effect_score, line_count,
+          importance_score, signal_fan_in_zero, analyzed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          r.repoName, r.filePath, r.functionName, r.startLine,
+          r.endLine, r.language, r.fanIn, r.cognitiveComplexity, r.cyclomaticComplexity,
+          r.dataMutationScore, r.sideEffectScore, r.lineCount,
+          r.importanceScore, r.signalFanInZero ? 1 : 0, r.analyzedAt,
+        ],
+      );
+    }
+    this.save();
+  }
+
+  getCurrentFunctionAnalysis(repoName: string): FunctionAnalysisRow[] {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT repo_name, file_path, function_name, start_line,
+              end_line, language, fan_in, cognitive_complexity, cyclomatic_complexity,
+              data_mutation_score, side_effect_score, line_count,
+              importance_score, signal_fan_in_zero, analyzed_at
+       FROM current_function_analysis WHERE repo_name = ?`,
+      [repoName],
+    );
+    const values = result[0]?.values ?? [];
+    return values.map((r) => ({
+      repoName: String(r[0] ?? ''),
+      filePath: String(r[1] ?? ''),
+      functionName: String(r[2] ?? ''),
+      startLine: Number(r[3] ?? 0),
+      endLine: Number(r[4] ?? 0),
+      language: String(r[5] ?? ''),
+      fanIn: Number(r[6] ?? 0),
+      cognitiveComplexity: Number(r[7] ?? 0),
+      cyclomaticComplexity: Number(r[8] ?? 0),
+      dataMutationScore: Number(r[9] ?? 0),
+      sideEffectScore: Number(r[10] ?? 0),
+      lineCount: Number(r[11] ?? 0),
+      importanceScore: Number(r[12] ?? 0),
+      signalFanInZero: Number(r[13] ?? 0) === 1,
+      analyzedAt: String(r[14] ?? ''),
+    }));
+  }
+
+  clearCurrentFunctionAnalysis(repoName: string): void {
+    const db = this.ensureDb();
+    db.run('DELETE FROM current_function_analysis WHERE repo_name = ?', [repoName]);
+    this.save();
+  }
+
+  upsertReleaseFunctionAnalysis(releaseTag: string, rows: readonly FunctionAnalysisRow[]): void {
+    if (rows.length === 0) return;
+    const db = this.ensureDb();
+    for (const r of rows) {
+      db.run(
+        `INSERT OR REPLACE INTO release_function_analysis (
+          release_tag, repo_name, file_path, function_name, start_line,
+          end_line, language, fan_in, cognitive_complexity, cyclomatic_complexity,
+          data_mutation_score, side_effect_score, line_count,
+          importance_score, signal_fan_in_zero, analyzed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          releaseTag, r.repoName, r.filePath, r.functionName, r.startLine,
+          r.endLine, r.language, r.fanIn, r.cognitiveComplexity, r.cyclomaticComplexity,
+          r.dataMutationScore, r.sideEffectScore, r.lineCount,
+          r.importanceScore, r.signalFanInZero ? 1 : 0, r.analyzedAt,
+        ],
+      );
+    }
+    this.save();
+  }
+
+  getReleaseFunctionAnalysis(releaseTag: string, repoName: string): FunctionAnalysisRow[] {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT repo_name, file_path, function_name, start_line,
+              end_line, language, fan_in, cognitive_complexity, cyclomatic_complexity,
+              data_mutation_score, side_effect_score, line_count,
+              importance_score, signal_fan_in_zero, analyzed_at
+       FROM release_function_analysis WHERE release_tag = ? AND repo_name = ?`,
+      [releaseTag, repoName],
+    );
+    const values = result[0]?.values ?? [];
+    return values.map((r) => ({
+      repoName: String(r[0] ?? ''),
+      filePath: String(r[1] ?? ''),
+      functionName: String(r[2] ?? ''),
+      startLine: Number(r[3] ?? 0),
+      endLine: Number(r[4] ?? 0),
+      language: String(r[5] ?? ''),
+      fanIn: Number(r[6] ?? 0),
+      cognitiveComplexity: Number(r[7] ?? 0),
+      cyclomaticComplexity: Number(r[8] ?? 0),
+      dataMutationScore: Number(r[9] ?? 0),
+      sideEffectScore: Number(r[10] ?? 0),
+      lineCount: Number(r[11] ?? 0),
+      importanceScore: Number(r[12] ?? 0),
+      signalFanInZero: Number(r[13] ?? 0) === 1,
+      analyzedAt: String(r[14] ?? ''),
+    }));
+  }
+
+  clearReleaseFunctionAnalysis(releaseTag: string, repoName: string): void {
+    const db = this.ensureDb();
+    db.run('DELETE FROM release_function_analysis WHERE release_tag = ? AND repo_name = ?', [releaseTag, repoName]);
+    this.save();
+  }
+
   // -------------------------------------------------------------------------
   //  Releases
   // -------------------------------------------------------------------------
@@ -6068,16 +6532,47 @@ export class TrailDatabase {
     });
   }
 
-  getCommitFiles(commitHashes: string[]): Array<{ commit_hash: string; file_path: string }> {
+  /**
+   * 指定リポジトリで指定日時以降にコミットされたファイル別の出現回数（churn）を返す。
+   * 1 コミットで同ファイルが複数回現れることはないので、出現回数 = コミット数。
+   *
+   * @param repoName セッションの repo_name 一致条件（sessions.repo_name）
+   * @param sinceIso UTC ISO 8601 文字列（この日時以降のコミットを対象とする）
+   * @returns file_path → コミット出現回数のマップ。file_path は git 相対パス
+   */
+  getCommitFilesChurnSince(repoName: string, sinceIso: string): Map<string, number> {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT cf.file_path, COUNT(DISTINCT cf.commit_hash) AS cnt
+       FROM commit_files cf
+       JOIN session_commits sc ON sc.commit_hash = cf.commit_hash
+       JOIN sessions s ON s.id = sc.session_id
+       WHERE sc.committed_at >= ? AND s.repo_name = ?
+       GROUP BY cf.file_path`,
+      [sinceIso, repoName],
+    );
+    const out = new Map<string, number>();
+    const values = result[0]?.values ?? [];
+    for (const r of values) {
+      out.set(String(r[0] ?? ''), Number(r[1] ?? 0));
+    }
+    return out;
+  }
+
+  getCommitFiles(commitHashes: string[]): Array<{ repo_name: string; commit_hash: string; file_path: string }> {
     if (commitHashes.length === 0) return [];
     const db = this.ensureDb();
     const placeholders = commitHashes.map(() => '?').join(',');
     const res = db.exec(
-      `SELECT commit_hash, file_path FROM commit_files WHERE commit_hash IN (${placeholders})`,
+      `SELECT repo_name, commit_hash, file_path FROM commit_files WHERE commit_hash IN (${placeholders})`,
       commitHashes,
     );
     if (!res[0]) return [];
-    return res[0].values.map((row) => ({ commit_hash: row[0] as string, file_path: row[1] as string }));
+    return res[0].values.map((row) => ({
+      repo_name: row[0] as string,
+      commit_hash: row[1] as string,
+      file_path: row[2] as string,
+    }));
   }
 
   getReleaseQualityInputs(from: string, to: string): {
@@ -6159,20 +6654,6 @@ export class TrailDatabase {
     });
   }
 
-  getReleaseFeatures(releaseTag: string): ReleaseFeatureRow[] {
-    const db = this.ensureDb();
-    const result = db.exec(
-      `SELECT * FROM release_features WHERE release_tag = '${releaseTag.replaceAll("'", "''")}'`,
-    );
-    if (!result[0]?.values) return [];
-    const cols = result[0].columns;
-    return result[0].values.map((row) => {
-      const obj: Record<string, unknown> = {};
-      cols.forEach((col, i) => { obj[col] = row[i]; });
-      return obj as unknown as ReleaseFeatureRow;
-    });
-  }
-
   getCoverageByTag(releaseTag: string): ReleaseCoverageRow[] {
     const db = this.ensureDb();
     const result = db.exec(
@@ -6213,6 +6694,164 @@ export class TrailDatabase {
       branches_total: toNum(r[12]),
       branches_covered: toNum(r[13]),
       branches_pct: toNum(r[14]),
+    }));
+  }
+
+  // ---------------------------------------------------------------------------
+  //  getAll* raw methods for Supabase sync (snake_case keys matching SQL columns)
+  // ---------------------------------------------------------------------------
+
+  getAllCurrentFileAnalysis(): Array<{
+    repo_name: string; file_path: string;
+    importance_score: number; fan_in_total: number; cognitive_complexity_max: number; function_count: number;
+    dead_code_score: number;
+    signal_orphan: number; signal_fan_in_zero: number; signal_no_recent_churn: number;
+    signal_zero_coverage: number; signal_isolated_community: number;
+    is_ignored: number; ignore_reason: string; analyzed_at: string;
+    line_count: number; cyclomatic_complexity_max: number;
+  }> {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT repo_name, file_path, importance_score, fan_in_total, cognitive_complexity_max, function_count,
+              dead_code_score, signal_orphan, signal_fan_in_zero, signal_no_recent_churn,
+              signal_zero_coverage, signal_isolated_community, is_ignored, ignore_reason, analyzed_at,
+              line_count, cyclomatic_complexity_max
+       FROM current_file_analysis`,
+    );
+    const values = result[0]?.values ?? [];
+    return values.map((r) => ({
+      repo_name: String(r[0] ?? ''),
+      file_path: String(r[1] ?? ''),
+      importance_score: Number(r[2] ?? 0),
+      fan_in_total: Number(r[3] ?? 0),
+      cognitive_complexity_max: Number(r[4] ?? 0),
+      function_count: Number(r[5] ?? 0),
+      dead_code_score: Number(r[6] ?? 0),
+      signal_orphan: Number(r[7] ?? 0),
+      signal_fan_in_zero: Number(r[8] ?? 0),
+      signal_no_recent_churn: Number(r[9] ?? 0),
+      signal_zero_coverage: Number(r[10] ?? 0),
+      signal_isolated_community: Number(r[11] ?? 0),
+      is_ignored: Number(r[12] ?? 0),
+      ignore_reason: String(r[13] ?? ''),
+      analyzed_at: String(r[14] ?? ''),
+      line_count: Number(r[15] ?? 0),
+      cyclomatic_complexity_max: Number(r[16] ?? 0),
+    }));
+  }
+
+  getAllReleaseFileAnalysis(): Array<{
+    release_tag: string; repo_name: string; file_path: string;
+    importance_score: number; fan_in_total: number; cognitive_complexity_max: number; function_count: number;
+    dead_code_score: number;
+    signal_orphan: number; signal_fan_in_zero: number; signal_no_recent_churn: number;
+    signal_zero_coverage: number; signal_isolated_community: number;
+    is_ignored: number; ignore_reason: string; analyzed_at: string;
+    line_count: number; cyclomatic_complexity_max: number;
+  }> {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT release_tag, repo_name, file_path, importance_score, fan_in_total, cognitive_complexity_max, function_count,
+              dead_code_score, signal_orphan, signal_fan_in_zero, signal_no_recent_churn,
+              signal_zero_coverage, signal_isolated_community, is_ignored, ignore_reason, analyzed_at,
+              line_count, cyclomatic_complexity_max
+       FROM release_file_analysis`,
+    );
+    const values = result[0]?.values ?? [];
+    return values.map((r) => ({
+      release_tag: String(r[0] ?? ''),
+      repo_name: String(r[1] ?? ''),
+      file_path: String(r[2] ?? ''),
+      importance_score: Number(r[3] ?? 0),
+      fan_in_total: Number(r[4] ?? 0),
+      cognitive_complexity_max: Number(r[5] ?? 0),
+      function_count: Number(r[6] ?? 0),
+      dead_code_score: Number(r[7] ?? 0),
+      signal_orphan: Number(r[8] ?? 0),
+      signal_fan_in_zero: Number(r[9] ?? 0),
+      signal_no_recent_churn: Number(r[10] ?? 0),
+      signal_zero_coverage: Number(r[11] ?? 0),
+      signal_isolated_community: Number(r[12] ?? 0),
+      is_ignored: Number(r[13] ?? 0),
+      ignore_reason: String(r[14] ?? ''),
+      analyzed_at: String(r[15] ?? ''),
+      line_count: Number(r[16] ?? 0),
+      cyclomatic_complexity_max: Number(r[17] ?? 0),
+    }));
+  }
+
+  getAllCurrentFunctionAnalysis(): Array<{
+    repo_name: string; file_path: string; function_name: string; start_line: number;
+    end_line: number; language: string;
+    fan_in: number; cognitive_complexity: number; data_mutation_score: number;
+    side_effect_score: number; line_count: number; importance_score: number;
+    signal_fan_in_zero: number; analyzed_at: string;
+    cyclomatic_complexity: number;
+  }> {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT repo_name, file_path, function_name, start_line,
+              end_line, language, fan_in, cognitive_complexity,
+              data_mutation_score, side_effect_score, line_count,
+              importance_score, signal_fan_in_zero, analyzed_at,
+              cyclomatic_complexity
+       FROM current_function_analysis`,
+    );
+    const values = result[0]?.values ?? [];
+    return values.map((r) => ({
+      repo_name: String(r[0] ?? ''),
+      file_path: String(r[1] ?? ''),
+      function_name: String(r[2] ?? ''),
+      start_line: Number(r[3] ?? 0),
+      end_line: Number(r[4] ?? 0),
+      language: String(r[5] ?? ''),
+      fan_in: Number(r[6] ?? 0),
+      cognitive_complexity: Number(r[7] ?? 0),
+      data_mutation_score: Number(r[8] ?? 0),
+      side_effect_score: Number(r[9] ?? 0),
+      line_count: Number(r[10] ?? 0),
+      importance_score: Number(r[11] ?? 0),
+      signal_fan_in_zero: Number(r[12] ?? 0),
+      analyzed_at: String(r[13] ?? ''),
+      cyclomatic_complexity: Number(r[14] ?? 0),
+    }));
+  }
+
+  getAllReleaseFunctionAnalysis(): Array<{
+    release_tag: string; repo_name: string; file_path: string; function_name: string; start_line: number;
+    end_line: number; language: string;
+    fan_in: number; cognitive_complexity: number; data_mutation_score: number;
+    side_effect_score: number; line_count: number; importance_score: number;
+    signal_fan_in_zero: number; analyzed_at: string;
+    cyclomatic_complexity: number;
+  }> {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT release_tag, repo_name, file_path, function_name, start_line,
+              end_line, language, fan_in, cognitive_complexity,
+              data_mutation_score, side_effect_score, line_count,
+              importance_score, signal_fan_in_zero, analyzed_at,
+              cyclomatic_complexity
+       FROM release_function_analysis`,
+    );
+    const values = result[0]?.values ?? [];
+    return values.map((r) => ({
+      release_tag: String(r[0] ?? ''),
+      repo_name: String(r[1] ?? ''),
+      file_path: String(r[2] ?? ''),
+      function_name: String(r[3] ?? ''),
+      start_line: Number(r[4] ?? 0),
+      end_line: Number(r[5] ?? 0),
+      language: String(r[6] ?? ''),
+      fan_in: Number(r[7] ?? 0),
+      cognitive_complexity: Number(r[8] ?? 0),
+      data_mutation_score: Number(r[9] ?? 0),
+      side_effect_score: Number(r[10] ?? 0),
+      line_count: Number(r[11] ?? 0),
+      importance_score: Number(r[12] ?? 0),
+      signal_fan_in_zero: Number(r[13] ?? 0),
+      analyzed_at: String(r[14] ?? ''),
+      cyclomatic_complexity: Number(r[15] ?? 0),
     }));
   }
 
@@ -6440,30 +7079,6 @@ export class TrailDatabase {
       previousMessageCommits: queryMessageCommits(prevFrom, prevTo),
       previousCommits: queryCommits(prevFrom, extendedPrevTo),
     };
-  }
-
-  // ---------------------------------------------------------------------------
-  //  C4 Model
-  // ---------------------------------------------------------------------------
-
-  private saveC4Model(json: string, revision: string): void {
-    const db = this.ensureDb();
-    db.run(
-      `INSERT OR REPLACE INTO c4_models (id, model_json, revision, updated_at)
-       VALUES ('current', ?, ?, ?)`,
-      [json, revision, new Date().toISOString()],
-    );
-    this.save();
-  }
-
-  getC4Model(): { json: string; revision: string } | null {
-    const db = this.ensureDb();
-    const res = db.exec(
-      "SELECT model_json, revision FROM c4_models WHERE id = 'current'",
-    );
-    if (!res.length || !res[0].values.length) return null;
-    const [json, revision] = res[0].values[0] as [string, string];
-    return { json, revision };
   }
 
   getCurrentFeatureMatrix(): FeatureMatrix | null {

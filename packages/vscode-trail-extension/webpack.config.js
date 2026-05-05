@@ -115,4 +115,54 @@ const trailStandaloneConfig = {
   devtool: 'nosources-source-map',
 };
 
-module.exports = [extensionConfig, trailStandaloneConfig];
+/** @type WebpackConfig */
+const mcpTrailServerConfig = {
+  target: 'node',
+  mode: 'development',
+  entry: './src/server/mcp-trail-entry.ts',
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: 'mcp-trail-server.js',
+    libraryTarget: 'commonjs2',
+  },
+  // mcp-trail サーバーは Node プロセスとして子プロセス起動するため
+  // vscode API を参照しない。sql.js は WASM で webpack に取り込むと
+  // モジュール解決が壊れるため、ランタイムで __non_webpack_require__ で
+  // dist/sql-asm.js を動的ロードする。webpack で取り込まないように除外する。
+  externals: {
+    'sql.js': 'commonjs sql.js',
+  },
+  resolve: {
+    extensions: ['.ts', '.js'],
+    // mcp-trail は ESM 規約 (NodeNext) で書かれており import 文に .js 拡張子が
+    // 含まれる ('./client.js' 等)。webpack に対して .js を .ts として解決する
+    // よう extensionAlias で指示する。
+    extensionAlias: {
+      '.js': ['.ts', '.js'],
+    },
+  },
+  module: {
+    rules: [
+      {
+        test: /\.ts$/,
+        exclude: /node_modules[\\/](?!@anytime-markdown[\\/]mcp-trail)/,
+        use: [{
+          loader: 'ts-loader',
+          options: {
+            allowTsInNodeModules: true,
+            transpileOnly: true,
+          },
+        }],
+      },
+    ],
+  },
+  // __dirname / __filename を runtime 値のまま残す。
+  // sql.js の locate (sql-asm.js) を dist/ から探すために必要。
+  node: {
+    __dirname: false,
+    __filename: false,
+  },
+  devtool: 'nosources-source-map',
+};
+
+module.exports = [extensionConfig, trailStandaloneConfig, mcpTrailServerConfig];

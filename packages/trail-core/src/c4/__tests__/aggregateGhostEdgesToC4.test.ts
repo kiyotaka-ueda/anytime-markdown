@@ -120,6 +120,75 @@ describe('aggregateGhostEdgesToC4 (L1/L2)', () => {
   });
 });
 
+describe('aggregateGhostEdgesToC4 (multi-level boundary traversal)', () => {
+  it('finds component ancestor through intermediate container boundary', () => {
+    // file → container → component (non-component boundary traversal: lines 85-87)
+    const c4Model: C4Model = {
+      level: 'component',
+      elements: [
+        { id: 'pkg_compA', type: 'component', name: 'compA' },
+        { id: 'pkg_compB', type: 'component', name: 'compB' },
+        // Intermediate container between file and component
+        { id: 'pkg_container', type: 'container', name: 'container', boundaryId: 'pkg_compA' },
+        { id: 'file::src/a/x.ts', type: 'code', name: 'x', boundaryId: 'pkg_container' },
+        { id: 'file::src/b/z.ts', type: 'code', name: 'z', boundaryId: 'pkg_compB' },
+      ],
+      relationships: [],
+    };
+    const edges: import('../../temporalCoupling/types').TemporalCouplingEdge[] = [
+      { source: 'src/a/x.ts', target: 'src/b/z.ts', jaccard: 0.6, coChangeCount: 3, sourceChangeCount: 5, targetChangeCount: 5 },
+    ];
+    const result = aggregateGhostEdgesToC4(edges, c4Model, 3, null);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.source).toBe('pkg_compA');
+    expect(result[0]?.target).toBe('pkg_compB');
+  });
+
+  it('skips file with no component ancestor in boundary chain', () => {
+    // file → container → system (no component found: line 87 return null)
+    const c4Model: C4Model = {
+      level: 'component',
+      elements: [
+        { id: 'pkg_compA', type: 'component', name: 'compA' },
+        { id: 'sys_root', type: 'system', name: 'root' },
+        { id: 'pkg_container', type: 'container', name: 'container', boundaryId: 'sys_root' },
+        { id: 'file::src/orphan.ts', type: 'code', name: 'orphan', boundaryId: 'pkg_container' },
+        { id: 'file::src/b.ts', type: 'code', name: 'b', boundaryId: 'pkg_compA' },
+      ],
+      relationships: [],
+    };
+    const edges: import('../../temporalCoupling/types').TemporalCouplingEdge[] = [
+      { source: 'src/orphan.ts', target: 'src/b.ts', jaccard: 0.5, coChangeCount: 2, sourceChangeCount: 3, targetChangeCount: 3 },
+    ];
+    const result = aggregateGhostEdgesToC4(edges, c4Model, 3, null);
+    expect(result).toHaveLength(0);
+  });
+
+  it('sorts by target when source is equal (line 143)', () => {
+    const c4Model: C4Model = {
+      level: 'component',
+      elements: [
+        { id: 'pkg_compA', type: 'component', name: 'compA' },
+        { id: 'pkg_compB', type: 'component', name: 'compB' },
+        { id: 'pkg_compC', type: 'component', name: 'compC' },
+        { id: 'file::src/a.ts', type: 'code', name: 'a', boundaryId: 'pkg_compA' },
+        { id: 'file::src/b.ts', type: 'code', name: 'b', boundaryId: 'pkg_compB' },
+        { id: 'file::src/c.ts', type: 'code', name: 'c', boundaryId: 'pkg_compC' },
+      ],
+      relationships: [],
+    };
+    const edges: import('../../temporalCoupling/types').TemporalCouplingEdge[] = [
+      { source: 'src/a.ts', target: 'src/c.ts', jaccard: 0.4, coChangeCount: 1, sourceChangeCount: 2, targetChangeCount: 2 },
+      { source: 'src/a.ts', target: 'src/b.ts', jaccard: 0.5, coChangeCount: 2, sourceChangeCount: 3, targetChangeCount: 3 },
+    ];
+    const result = aggregateGhostEdgesToC4(edges, c4Model, 3, null);
+    expect(result).toHaveLength(2);
+    expect(result[0]?.source).toBe('pkg_compA');
+    expect(result[0]?.target).toBe('pkg_compB');
+    expect(result[1]?.target).toBe('pkg_compC');
+  });
+});
+
 describe('aggregateGhostEdgesToC4 (directional)', () => {
   const c4Model: C4Model = {
     level: 'component',

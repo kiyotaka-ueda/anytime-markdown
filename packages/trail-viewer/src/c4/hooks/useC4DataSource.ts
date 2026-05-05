@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import type { FileAnalysisApiEntry } from './fetchFileAnalysisApi';
+import { fetchFileAnalysis } from './fetchFileAnalysisApi';
+
 import type {
   BoundaryInfo,
   C4Model,
@@ -49,6 +52,8 @@ interface C4DataSourceResult {
   coverageDiff: CoverageDiffMatrix | null;
   complexityMatrix: ComplexityMatrix | null;
   importanceMatrix: ImportanceMatrix | null;
+  deadCodeMatrix: Record<string, number> | null;
+  fileAnalysisEntries: readonly FileAnalysisApiEntry[];
   docLinks: readonly DocLink[];
   dsmMatrix: DsmMatrix | null;
   connected: boolean;
@@ -189,16 +194,6 @@ function isWsComplexityMessage(v: unknown): v is WsComplexityMessage {
   return obj.type === 'complexity-updated' && 'complexityMatrix' in obj;
 }
 
-interface WsImportanceMessage {
-  type: 'importance-updated';
-  importanceMatrix: ImportanceMatrix;
-}
-
-function isWsImportanceMessage(v: unknown): v is WsImportanceMessage {
-  if (typeof v !== 'object' || v === null) return false;
-  const obj = v as Record<string, unknown>;
-  return obj.type === 'importance-updated' && 'importanceMatrix' in obj;
-}
 
 export interface ClaudeActivityState {
   readonly activeElementIds: readonly string[];
@@ -425,6 +420,9 @@ export function useC4DataSource(serverUrl: string, disableWebSocket = false): C4
   const [coverageDiff, setCoverageDiff] = useState<CoverageDiffMatrix | null>(null);
   const [complexityMatrix, setComplexityMatrix] = useState<ComplexityMatrix | null>(null);
   const [importanceMatrix, setImportanceMatrix] = useState<ImportanceMatrix | null>(null);
+  const [deadCodeMatrix, setDeadCodeMatrix] = useState<Record<string, number> | null>(null);
+  const [fileAnalysisEntries, setFileAnalysisEntries] = useState<readonly FileAnalysisApiEntry[]>([]);
+  const [analysisCompleteCounter, setAnalysisCompleteCounter] = useState(0);
   const [dsmMatrix, setDsmMatrix] = useState<DsmMatrix | null>(null);
   const [docLinks, setDocLinks] = useState<readonly DocLink[]>([]);
   const [connected, setConnected] = useState(false);
@@ -570,6 +568,9 @@ export function useC4DataSource(serverUrl: string, disableWebSocket = false): C4
       const parsed: unknown = JSON.parse(String(event.data));
       if (isWsAnalysisProgressMessage(parsed)) {
         setAnalysisProgress(parsed.phase ? { phase: parsed.phase, percent: parsed.percent } : null);
+        if (parsed.phase === '' && parsed.percent === 100) {
+          setAnalysisCompleteCounter((c) => c + 1);
+        }
       } else if (isWsModelMessage(parsed)) {
         setRemoteModel(parsed.model);
         setRemoteBoundaries(parsed.boundaries);
@@ -585,8 +586,6 @@ export function useC4DataSource(serverUrl: string, disableWebSocket = false): C4
         setCoverageDiff(parsed.coverageDiff);
       } else if (isWsComplexityMessage(parsed)) {
         setComplexityMatrix(parsed.complexityMatrix);
-      } else if (isWsImportanceMessage(parsed)) {
-        setImportanceMatrix(parsed.importanceMatrix);
       } else if (isWsClaudeActivityMessage(parsed)) {
         setClaudeActivity({
           activeElementIds: parsed.activeElementIds,
@@ -658,6 +657,32 @@ export function useC4DataSource(serverUrl: string, disableWebSocket = false): C4
     };
   }, [serverUrl, handleWsMessage, disableWebSocket]);
 
+  // REST fetch: file-analysis (importance + dead code matrix)
+  useEffect(() => {
+    if (!selectedRepo) return;
+    const ctrl = new AbortController();
+    void (async () => {
+      try {
+        const tag = selectedRelease || 'current';
+        const r = await fetchFileAnalysis(serverUrl, selectedRepo, tag, ctrl.signal);
+        if (!r) {
+          setImportanceMatrix(null);
+          setDeadCodeMatrix(null);
+          setFileAnalysisEntries([]);
+          return;
+        }
+        setImportanceMatrix(r.elementMatrix.importance);
+        setDeadCodeMatrix(r.elementMatrix.deadCodeScore);
+        setFileAnalysisEntries(r.entries);
+      } catch (err) {
+        if ((err as { name?: string }).name === 'AbortError') return;
+        // eslint-disable-next-line no-console
+        console.error('[useC4DataSource] fetchFileAnalysis failed', err);
+      }
+    })();
+    return () => ctrl.abort();
+  }, [serverUrl, selectedRepo, selectedRelease, analysisCompleteCounter]);
+
   // sendCommand
   const sendCommand = useCallback(
     (cmd: string, payload?: unknown) => {
@@ -682,6 +707,8 @@ export function useC4DataSource(serverUrl: string, disableWebSocket = false): C4
     coverageDiff,
     complexityMatrix,
     importanceMatrix,
+    deadCodeMatrix,
+    fileAnalysisEntries,
     docLinks,
     dsmMatrix,
     connected,

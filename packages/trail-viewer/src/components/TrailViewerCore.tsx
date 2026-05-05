@@ -136,8 +136,8 @@ function TrailViewerCoreInner({
       cutoff.setDate(cutoff.getDate() - 7);
       result = result.filter((s) => new Date(s.startTime) >= cutoff);
     }
-    if (filter.repository) {
-      result = result.filter((s) => s.repoName === filter.repository);
+    if (filter.workspace) {
+      result = result.filter((s) => s.workspace === filter.workspace);
     }
     if (q) {
       result = result.filter((s) => {
@@ -149,12 +149,12 @@ function TrailViewerCoreInner({
       });
     }
     return result;
-  }, [sessions, allSessions, filter.repository, filter.searchText]);
+  }, [sessions, allSessions, filter.workspace, filter.searchText]);
 
   const handleJumpToTrace = useCallback(
     (session: TrailSession) => {
       const query = session.slug || session.id;
-      onFilterChange({ ...filter, repository: session.repoName, searchText: query });
+      onFilterChange({ ...filter, workspace: session.workspace ?? filter.workspace, searchText: query });
       onSelectSession(session.id);
       setActiveTab(1);
     },

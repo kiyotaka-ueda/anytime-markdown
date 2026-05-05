@@ -63,7 +63,7 @@ function buildQueryString(filter: TrailFilter): string {
     params.set('from', filter.dateRange.from);
     params.set('to', filter.dateRange.to);
   }
-  if (filter.repository) params.set('repository', filter.repository);
+  if (filter.workspace) params.set('workspace', filter.workspace);
   if (filter.toolName) params.set('toolName', filter.toolName);
   const qs = params.toString();
   return qs ? `?${qs}` : '';
@@ -268,7 +268,7 @@ export function useTrailDataSource(serverUrl: string): TrailDataSourceResult {
     async (period: CombinedPeriodMode, rangeDays: CombinedRangeDays): Promise<CombinedData> => {
       const empty: CombinedData = {
         toolCounts: [],
-        errorRate: [], skillStats: [], modelStats: [], agentStats: [], commitPrefixStats: [], aiFirstTryRate: [],
+        errorRate: [], skillStats: [], modelStats: [], agentStats: [], commitPrefixStats: [], aiFirstTryRate: [], repoStats: [],
       };
       try {
         const res = await fetch(`${baseUrl}/api/trail/combined?period=${period}&rangeDays=${rangeDays}`);

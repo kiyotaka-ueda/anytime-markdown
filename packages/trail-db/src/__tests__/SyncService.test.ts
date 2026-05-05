@@ -23,7 +23,6 @@ class FakeRemoteStore implements IRemoteTrailStore {
   async upsertCommitFiles(): Promise<void> {}
   async upsertReleases(): Promise<void> {}
   async upsertReleaseFiles(): Promise<void> {}
-  async upsertReleaseFeatures(): Promise<void> {}
   async upsertSessionCosts(): Promise<void> {}
   async upsertAllSessionCosts(): Promise<void> {}
   async upsertDailyCounts(): Promise<void> {}
@@ -49,6 +48,14 @@ class FakeRemoteStore implements IRemoteTrailStore {
   async upsertReleaseCoverage(rows: readonly { release_tag: string; package: string; file_path: string; lines_total: number; lines_covered: number; lines_pct: number; statements_total: number; statements_covered: number; statements_pct: number; functions_total: number; functions_covered: number; functions_pct: number; branches_total: number; branches_covered: number; branches_pct: number }[]): Promise<void> {
     this.releaseCoverageRows.push(...(rows as typeof this.releaseCoverageRows));
   }
+  async unsafeClearCurrentFileAnalysis(): Promise<void> {}
+  async upsertCurrentFileAnalysis(): Promise<void> {}
+  async unsafeClearReleaseFileAnalysis(): Promise<void> {}
+  async upsertReleaseFileAnalysis(): Promise<void> {}
+  async unsafeClearCurrentFunctionAnalysis(): Promise<void> {}
+  async upsertCurrentFunctionAnalysis(): Promise<void> {}
+  async unsafeClearReleaseFunctionAnalysis(): Promise<void> {}
+  async upsertReleaseFunctionAnalysis(): Promise<void> {}
   async unsafeClearCurrentCodeGraphs(): Promise<void> { this.codeGraphRows = []; this.codeGraphCommunityRows = []; }
   async upsertCurrentCodeGraphs(rows: readonly { repo_name: string; graph_json: string; generated_at: string; updated_at: string }[]): Promise<void> {
     this.codeGraphRows.push(...(rows as typeof this.codeGraphRows));

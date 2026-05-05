@@ -1,7 +1,7 @@
 // domain/model/filter.ts — Trail filter domain type
 
 export interface TrailFilter {
-  readonly repository?: string;
+  readonly workspace?: string;
   readonly project?: string;
   readonly gitBranch?: string;
   readonly model?: string;

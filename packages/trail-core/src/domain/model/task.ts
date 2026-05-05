@@ -10,13 +10,6 @@ export interface ReleaseFileRow {
   readonly change_type: string;
 }
 
-export interface ReleaseFeatureRow {
-  readonly release_tag: string;
-  readonly feature_id: string;
-  readonly feature_name: string;
-  readonly role: string;
-}
-
 export interface ReleaseCoverageRow {
   readonly release_tag: string;
   readonly package: string;

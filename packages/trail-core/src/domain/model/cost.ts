@@ -103,6 +103,7 @@ export interface SessionCommitRow {
   readonly files_changed: number;
   readonly lines_added: number;
   readonly lines_deleted: number;
+  readonly repo_name: string;
 }
 
 export interface AnalyticsData {

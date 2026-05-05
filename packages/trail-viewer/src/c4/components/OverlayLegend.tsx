@@ -2,7 +2,6 @@ import { Box, Typography } from '@mui/material';
 import type { MetricOverlay } from '@anytime-markdown/trail-core/c4';
 import { getC4Colors } from '../c4Theme';
 import { COVERAGE_HIGH, COVERAGE_LOW, COVERAGE_MID, COVERAGE_NONE, METRIC_LEGEND_BLUE } from '../c4MetricColors';
-import { COMMUNITY_ROLE_COLORS } from '../communityRoleColors';
 
 export interface CommunityLegendItem {
   readonly community: number;
@@ -70,7 +69,7 @@ export function OverlayLegend({ overlay, isDark, dsmMax, communityLegend, commun
         <Swatch color={COVERAGE_HIGH} label="ok" />
       </>
     );
-  } else if (overlay === 'complexity-most' || overlay === 'complexity-highest') {
+  } else if (overlay === 'edit-complexity-most' || overlay === 'edit-complexity-highest') {
     metricItems = (
       <>
         <Swatch color={COVERAGE_LOW} label="high" />
@@ -95,12 +94,36 @@ export function OverlayLegend({ overlay, isDark, dsmMax, communityLegend, commun
         <Swatch color={COVERAGE_HIGH} label="< 0.35" />
       </>
     );
-  } else if (overlay === 'fcmap') {
+  } else if (overlay === 'dead-code-score') {
     metricItems = (
       <>
-        <Swatch color={COMMUNITY_ROLE_COLORS.primary} label="Primary" />
-        <Swatch color={COMMUNITY_ROLE_COLORS.secondary} label="Secondary" />
-        <Swatch color={COMMUNITY_ROLE_COLORS.dependency} label="Dependency" />
+        <Swatch color="#f44336" label="≥ 70" />
+        <Swatch color="#ffc107" label="40–69" />
+        <Swatch color="#4caf50" label="< 40" />
+      </>
+    );
+  } else if (overlay === 'size-loc') {
+    metricItems = (
+      <>
+        <Swatch color="#c62828" label="≥ 1000" />
+        <Swatch color="#f9a825" label="500–999" />
+        <Swatch color="#2e7d32" label="< 500" />
+      </>
+    );
+  } else if (overlay === 'size-files') {
+    metricItems = (
+      <>
+        <Swatch color="#c62828" label="≥ 50" />
+        <Swatch color="#f9a825" label="20–49" />
+        <Swatch color="#2e7d32" label="< 20" />
+      </>
+    );
+  } else if (overlay === 'size-functions') {
+    metricItems = (
+      <>
+        <Swatch color="#c62828" label="≥ 50" />
+        <Swatch color="#f9a825" label="10–49" />
+        <Swatch color="#2e7d32" label="< 10" />
       </>
     );
   }

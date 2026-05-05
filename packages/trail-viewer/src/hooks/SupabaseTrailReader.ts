@@ -45,6 +45,7 @@ interface SessionDbRow {
   readonly interruption_reason: string | null;
   readonly interruption_context_tokens: number | null;
   readonly compact_count: number | null;
+  readonly file_path?: string | null;
   readonly source?: 'claude_code' | 'codex' | null;
   readonly trail_session_costs?: readonly SessionCostDbRow[];
 }
@@ -71,6 +72,7 @@ interface MessageDbRow {
 }
 
 interface CommitDbRow {
+  readonly repo_name?: string | null;
   readonly commit_hash: string;
   readonly commit_message: string;
   readonly author: string;
@@ -98,9 +100,6 @@ export class SupabaseTrailReader implements ITrailReader {
       .select('*, trail_session_costs(*)')
       .order('start_time', { ascending: false });
 
-    if (filters?.repository) {
-      query = query.eq('repo_name', filters.repository);
-    }
     if (filters?.model) {
       query = query.eq('model', filters.model);
     }
@@ -316,6 +315,7 @@ export class SupabaseTrailReader implements ITrailReader {
       filesChanged: r.files_changed,
       linesAdded: r.lines_added,
       linesDeleted: r.lines_deleted,
+      repoName: r.repo_name ?? '',
     }));
   }
 
@@ -348,11 +348,12 @@ export class SupabaseTrailReader implements ITrailReader {
     if (allSessions.length === 0) return null;
     const sessions = allSessions;
 
-    const allCommits: Array<{ committed_at?: string; lines_added: number; lines_deleted: number; files_changed: number; is_ai_assisted: number }> = [];
+    const allCommits: Array<{ repo_name?: string; committed_at?: string; lines_added: number; lines_deleted: number; files_changed: number; is_ai_assisted: number }> = [];
     for (let offset = 0; ; offset += 1000) {
       const { data: batch } = await this.client
         .from('trail_session_commits')
-        .select('committed_at,lines_added,lines_deleted,files_changed,is_ai_assisted')
+        .select('repo_name,committed_at,lines_added,lines_deleted,files_changed,is_ai_assisted')
+        .order('committed_at', { ascending: true })
         .range(offset, offset + 999);
       if (!batch || batch.length === 0) break;
       allCommits.push(...(batch as typeof allCommits));
@@ -743,6 +744,17 @@ export class SupabaseTrailReader implements ITrailReader {
   // Private helpers
   // ---------------------------------------------------------------------------
 
+  private extractWorkspace(filePath: string | undefined | null): string | undefined {
+    if (!filePath) return undefined;
+    const match = /\/projects\/([^/]+)\//.exec(filePath);
+    if (!match) return undefined;
+    // worktree suffix を除去: --worktrees-* または --claude-worktrees-*
+    const key = match[1].replace(/--(?:claude-)?worktrees-.+$/, '');
+    if (!key.startsWith('-')) return undefined;
+    // 先頭の "-" を "/" に変換: "-anytime-lab" → "/anytime-lab"
+    return '/' + key.slice(1);
+  }
+
   private toTrailSession(
     r: SessionDbRow,
     commits: readonly CommitDbRow[],
@@ -787,6 +799,7 @@ export class SupabaseTrailReader implements ITrailReader {
         : undefined,
       compactCount: r.compact_count && r.compact_count > 0 ? r.compact_count : undefined,
       source: r.source ?? undefined,
+      workspace: this.extractWorkspace(r.file_path ?? undefined),
       commitStats,
       usage: {
         inputTokens: totalInput,
@@ -978,20 +991,24 @@ export class SupabaseTrailReader implements ITrailReader {
       // Paginated fetch of trail_sessions within the period window
       const sourceBySessionId = new Map<string, string>();
       const sessionStartById = new Map<string, string>();
+      const repoNameById = new Map<string, string>();
       for (let offset = 0; ; offset += 1000) {
         const { data: batchRows } = await this.client
           .from('trail_sessions')
-          .select('id,source,start_time')
+          .select('id,source,start_time,repo_name')
           .gte('start_time', cutoffIso)
           .range(offset, offset + 999);
         if (!batchRows || batchRows.length === 0) break;
-        for (const s of batchRows as Array<{ id: string; source: string | null; start_time?: string | null }>) {
+        for (const s of batchRows as Array<{ id: string; source: string | null; start_time?: string | null; repo_name?: string | null }>) {
           const source = s.source === 'codex' ? 'Codex' : 'Claude Code';
           sourceBySessionId.set(s.id, source);
           if (s.start_time) sessionStartById.set(s.id, s.start_time);
+          if (s.repo_name) repoNameById.set(s.id, s.repo_name);
         }
         if (batchRows.length < 1000) break;
       }
+
+      const repoTokenMap = new Map<string, number>();
 
       // agentStats: tokens + cost from session_costs (all-time, paginated), LOC from session_commits
       const agentMap = new Map<string, { tokens: number; costUsd: number; loc: number }>();
@@ -1018,6 +1035,11 @@ export class SupabaseTrailReader implements ITrailReader {
           const p = periodKey(toJSTDate(start));
           const tokens = (c.input_tokens ?? 0) + (c.output_tokens ?? 0) + (c.cache_read_tokens ?? 0) + (c.cache_creation_tokens ?? 0);
           addAgent(p, agent, { tokens, costUsd: c.estimated_cost_usd ?? 0 });
+          const repoName = repoNameById.get(c.session_id);
+          if (repoName) {
+            const rk = `${p}::${repoName}`;
+            repoTokenMap.set(rk, (repoTokenMap.get(rk) ?? 0) + tokens);
+          }
         }
         if (batchRows.length < 1000) break;
       }
@@ -1087,16 +1109,24 @@ export class SupabaseTrailReader implements ITrailReader {
       };
       const seenHashes = new Set<string>();
       const prefixMap = new Map<string, { count: number; linesAdded: number }>();
+      const repoCommitCountMap = new Map<string, number>();
       for (let offset = 0; ; offset += 1000) {
         const { data: batchRows } = await this.client
           .from('trail_session_commits')
-          .select('commit_hash,commit_message,committed_at,lines_added')
+          .select('repo_name,commit_hash,commit_message,committed_at,lines_added')
           .gte('committed_at', cutoffIso)
+          .order('committed_at', { ascending: true })
           .range(offset, offset + 999);
         if (!batchRows || batchRows.length === 0) break;
-        for (const c of batchRows as Array<{ commit_hash: string; commit_message: string; committed_at: string; lines_added: number }>) {
-          if (seenHashes.has(c.commit_hash)) continue;
-          seenHashes.add(c.commit_hash);
+        for (const c of batchRows as Array<{ repo_name: string | null; commit_hash: string; commit_message: string; committed_at: string; lines_added: number }>) {
+          const identity = `${c.repo_name ?? ''}:${c.commit_hash}`;
+          if (seenHashes.has(identity)) continue;
+          seenHashes.add(identity);
+          const repoForCommit = c.repo_name?.trim();
+          if (repoForCommit) {
+            const rck = `${periodKey(toJSTDate(c.committed_at))}::${repoForCommit}`;
+            repoCommitCountMap.set(rck, (repoCommitCountMap.get(rck) ?? 0) + 1);
+          }
           const subject = (c.commit_message ?? '').split('\n')[0];
           const prefix = extractPrefix(subject);
           const p = periodKey(toJSTDate(c.committed_at));
@@ -1113,7 +1143,13 @@ export class SupabaseTrailReader implements ITrailReader {
         .map(([k, e]) => { const [p, prefix] = splitKey(k); return { period: p, prefix, count: e.count, linesAdded: e.linesAdded }; })
         .sort((a, b) => a.period.localeCompare(b.period));
 
-      return { toolCounts, errorRate, skillStats, modelStats, agentStats, commitPrefixStats, aiFirstTryRate: [] };
+      const repoKeys = new Set([...repoCommitCountMap.keys(), ...repoTokenMap.keys()]);
+      const repoStats = [...repoKeys].map(k => {
+        const [p, repoName] = splitKey(k);
+        return { period: p, repoName, count: repoCommitCountMap.get(k) ?? 0, tokens: repoTokenMap.get(k) ?? 0 };
+      }).sort((a, b) => a.period.localeCompare(b.period));
+
+      return { toolCounts, errorRate, skillStats, modelStats, agentStats, commitPrefixStats, aiFirstTryRate: [], repoStats };
     } catch {
       return null;
     }
@@ -1139,6 +1175,7 @@ export class SupabaseTrailReader implements ITrailReader {
       cache_creation_tokens: number;
     };
     type CommitRow = {
+      repo_name: string | null;
       commit_hash: string;
       commit_message: string;
       committed_at: string;
@@ -1232,7 +1269,7 @@ export class SupabaseTrailReader implements ITrailReader {
       while (true) {
         const { data } = await this.client
           .from('trail_session_commits')
-          .select('commit_hash, commit_message, committed_at, session_id, is_ai_assisted, lines_added, lines_deleted')
+          .select('repo_name, commit_hash, commit_message, committed_at, session_id, is_ai_assisted, lines_added, lines_deleted')
           .gte('committed_at', f)
           .lte('committed_at', t)
           .order('committed_at', { ascending: true })
@@ -1251,12 +1288,13 @@ export class SupabaseTrailReader implements ITrailReader {
       for (let i = 0; i < hashes.length; i += BATCH) {
         const { data } = await this.client
           .from('trail_commit_files')
-          .select('commit_hash, file_path')
+          .select('repo_name, commit_hash, file_path')
           .in('commit_hash', hashes.slice(i, i + BATCH));
-        for (const { commit_hash, file_path } of (data ?? []) as Array<{ commit_hash: string; file_path: string }>) {
-          const arr = map.get(commit_hash);
+        for (const { repo_name, commit_hash, file_path } of (data ?? []) as Array<{ repo_name: string | null; commit_hash: string; file_path: string }>) {
+          const key = `${repo_name ?? ''}:${commit_hash}`;
+          const arr = map.get(key);
           if (arr) arr.push(file_path);
-          else map.set(commit_hash, [file_path]);
+          else map.set(key, [file_path]);
         }
       }
       return map;
@@ -1361,7 +1399,7 @@ export class SupabaseTrailReader implements ITrailReader {
           subject: (c.commit_message ?? '').split('\n')[0],
           committed_at: c.committed_at,
           is_ai_assisted: c.is_ai_assisted === 1,
-          files: curFilesByHash.get(c.commit_hash) ?? [],
+          files: curFilesByHash.get(`${c.repo_name ?? ''}:${c.commit_hash}`) ?? [],
           session_id: c.session_id,
           lines_added: c.lines_added ?? 0,
           lines_deleted: c.lines_deleted ?? 0,
@@ -1388,7 +1426,7 @@ export class SupabaseTrailReader implements ITrailReader {
           subject: (c.commit_message ?? '').split('\n')[0],
           committed_at: c.committed_at,
           is_ai_assisted: c.is_ai_assisted === 1,
-          files: prevFilesByHash.get(c.commit_hash) ?? [],
+          files: prevFilesByHash.get(`${c.repo_name ?? ''}:${c.commit_hash}`) ?? [],
           session_id: c.session_id,
           lines_added: c.lines_added ?? 0,
           lines_deleted: c.lines_deleted ?? 0,
@@ -1432,43 +1470,45 @@ export class SupabaseTrailReader implements ITrailReader {
         .lte('released_at', range.to),
       this.client
         .from('trail_session_commits')
-        .select('commit_hash, subject, committed_at')
+        .select('repo_name, commit_hash, subject, committed_at')
         .gte('committed_at', range.from)
         .lte('committed_at', extendedTo),
     ]);
 
     const releases = (releaseData ?? []) as Array<{ released_at: string }>;
-    const rawCommits = (commitData ?? []) as Array<{ commit_hash: string; subject: string; committed_at: string }>;
+    const rawCommits = (commitData ?? []) as Array<{ repo_name: string | null; commit_hash: string; subject: string; committed_at: string }>;
 
     const seenHashes = new Set<string>();
-    const uniqueCommits = rawCommits.filter(({ commit_hash }) => {
-      if (seenHashes.has(commit_hash)) return false;
-      seenHashes.add(commit_hash);
+    const uniqueCommits = rawCommits.filter(({ repo_name, commit_hash }) => {
+      const identity = `${repo_name ?? ''}:${commit_hash}`;
+      if (seenHashes.has(identity)) return false;
+      seenHashes.add(identity);
       return true;
     });
 
     const hashes = uniqueCommits.map((c) => c.commit_hash);
-    let rawFiles: Array<{ commit_hash: string; file_path: string }> = [];
+    let rawFiles: Array<{ repo_name?: string | null; commit_hash: string; file_path: string }> = [];
     if (hashes.length > 0) {
       const { data } = await this.client
         .from('trail_commit_files')
-        .select('commit_hash, file_path')
+        .select('repo_name, commit_hash, file_path')
         .in('commit_hash', hashes);
-      rawFiles = (data ?? []) as Array<{ commit_hash: string; file_path: string }>;
+      rawFiles = (data ?? []) as Array<{ repo_name?: string | null; commit_hash: string; file_path: string }>;
     }
 
     const filesByHash = new Map<string, string[]>();
-    for (const { commit_hash, file_path } of rawFiles) {
-      const arr = filesByHash.get(commit_hash);
+    for (const { repo_name, commit_hash, file_path } of rawFiles) {
+      const key = `${repo_name ?? ''}:${commit_hash}`;
+      const arr = filesByHash.get(key);
       if (arr) arr.push(file_path);
-      else filesByHash.set(commit_hash, [file_path]);
+      else filesByHash.set(key, [file_path]);
     }
 
-    const commits = uniqueCommits.map(({ commit_hash, subject, committed_at }) => ({
+    const commits = uniqueCommits.map(({ repo_name, commit_hash, subject, committed_at }) => ({
       hash: commit_hash,
       subject,
       committed_at,
-      files: filesByHash.get(commit_hash) ?? [],
+      files: filesByHash.get(`${repo_name ?? ''}:${commit_hash}`) ?? [],
     }));
 
     return computeReleaseQualityTimeSeries(

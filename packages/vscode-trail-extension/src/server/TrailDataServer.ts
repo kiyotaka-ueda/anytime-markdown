@@ -18,7 +18,6 @@ import {
   filterTreeByLevel,
   parseCoverage,
 } from '@anytime-markdown/trail-core/c4';
-import { computeImportanceMatrix } from '@anytime-markdown/trail-core/c4/metrics/computeImportanceMatrix';
 import { analyze } from '@anytime-markdown/trail-core/analyze';
 import type { FileCoverage, MessageInput } from '@anytime-markdown/trail-core/c4';
 import type {
@@ -26,7 +25,6 @@ import type {
   DocLink,
   DsmMatrix,
   FeatureMatrix,
-  ImportanceMatrix,
 } from '@anytime-markdown/trail-core/c4';
 import type { TrailGraph, ReleaseCoverageRow, CurrentCoverageRow } from '@anytime-markdown/trail-core';
 import { WebSocketServer, type WebSocket } from 'ws';
@@ -35,6 +33,7 @@ import type { ClientMessage, ServerMessage } from './types';
 import type { TrailDatabase, SessionRow, MessageRow, SessionCommitRow, AnalyticsData, CostOptimizationData } from '@anytime-markdown/trail-db';
 import { MetricsThresholdsLoader } from '@anytime-markdown/trail-db';
 import { computeDeploymentFrequency, computeQualityMetrics, computeReleaseQualityTimeSeries } from '@anytime-markdown/trail-core/domain/metrics';
+import { aggregateScoresToC4 } from '@anytime-markdown/trail-core/deadCode';
 import { TrailLogger } from '../utils/TrailLogger';
 import type { CodeGraphService } from '../graph/CodeGraphService';
 import { GraphQueryEngine } from '../graph/GraphQueryEngine';
@@ -182,7 +181,6 @@ export interface C4DataProvider {
   readonly featureMatrix: FeatureMatrix | undefined;
   readonly sourceMatrix: DsmMatrix | undefined;
   readonly currentDsmLevel: 'component' | 'package';
-  readonly importanceMatrix: ImportanceMatrix | undefined;
   readonly trailGraph: TrailGraph | undefined;
   readonly projectRoot: string | undefined;
   handleSetDsmLevel(level: 'component' | 'package'): void;
@@ -210,7 +208,6 @@ export class TrailDataServer {
   private docsPath: string | undefined;
   private lastClaudeActivity: { activeElementIds: readonly string[]; touchedElementIds: readonly string[]; plannedElementIds: readonly string[] } | undefined;
   private lastMultiAgentActivity: { agents: readonly import('./types').AgentActivityEntry[]; conflicts: readonly import('./types').FileConflict[] } | undefined;
-  private lastImportanceMatrix: ImportanceMatrix | null = null;
   private importanceComputing = false;
   onOpenDocLink: ((docPath: string) => void) | undefined;
   onOpenFile: ((filePath: string) => void) | undefined;
@@ -343,7 +340,7 @@ export class TrailDataServer {
 
   get clientCount(): number { return this.clients.size; }
 
-  notify(type: 'dsm-updated' | 'importance-updated' | 'model-updated'): void {
+  notify(type: 'dsm-updated' | 'model-updated'): void {
     if (this.clients.size === 0) return;
 
     if (type === 'model-updated') {
@@ -588,6 +585,19 @@ export class TrailDataServer {
       void this.handleC4CoverageEndpoint(res, releaseId, repo);
       return;
     }
+    if (pathname === '/api/c4/file-analysis' && method === 'GET') {
+      const repo = parsed.searchParams.get('repo') ?? undefined;
+      const tag = parsed.searchParams.get('tag') ?? 'current';
+      void this.handleC4FileAnalysisEndpoint(res, tag, repo);
+      return;
+    }
+    if (pathname === '/api/c4/function-analysis' && method === 'GET') {
+      const repo = parsed.searchParams.get('repo') ?? undefined;
+      const tag = parsed.searchParams.get('tag') ?? 'current';
+      void this.handleC4FunctionAnalysisEndpoint(res, tag, repo);
+      return;
+    }
+
     if (pathname === '/api/c4/complexity' && method === 'GET') {
       // Complexity は累積指標のため release パラメータは受け取らない
       // (古いクライアントが付与しても無視する)
@@ -1061,25 +1071,14 @@ export class TrailDataServer {
   }
 
   private async loadCurrentC4Model(repoName?: string): Promise<C4Model | null> {
-    // 本番経路: current_graphs (asC4ModelStore) → trailToC4 で動的に組み立て
     const resolvedRepo = repoName ?? (this.gitRoot ? path.basename(this.gitRoot) : undefined);
-    if (resolvedRepo) {
-      try {
-        const store = this.trailDb.asC4ModelStore();
-        const result = await Promise.resolve(store.getCurrentC4Model(resolvedRepo));
-        if (result?.model) return result.model;
-      } catch (e) {
-        TrailLogger.warn(`asC4ModelStore.getCurrentC4Model failed: ${e instanceof Error ? e.message : String(e)}`);
-      }
-    }
-    // フォールバック: c4_models テーブル直読み（saveC4Model は現状どこからも呼ばれていないが、
-    // テスト fixture が直接 INSERT するケースに備える）
-    const persisted = this.trailDb.getC4Model();
-    if (!persisted) return null;
+    if (!resolvedRepo) return null;
     try {
-      return JSON.parse(persisted.json) as C4Model;
+      const store = this.trailDb.asC4ModelStore();
+      const result = await Promise.resolve(store.getCurrentC4Model(resolvedRepo));
+      return result?.model ?? null;
     } catch (e) {
-      TrailLogger.warn(`failed to parse persisted c4 model: ${e instanceof Error ? e.message : String(e)}`);
+      TrailLogger.warn(`asC4ModelStore.getCurrentC4Model failed: ${e instanceof Error ? e.message : String(e)}`);
       return null;
     }
   }
@@ -1400,6 +1399,7 @@ export class TrailDataServer {
         filesChanged: c.files_changed,
         linesAdded: c.lines_added,
         linesDeleted: c.lines_deleted,
+        repoName: c.repo_name ?? '',
       }));
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({ commits: mapped }));
@@ -1459,9 +1459,11 @@ export class TrailDataServer {
     const repoName = repo ?? (this.gitRoot ? path.basename(this.gitRoot) : undefined);
     const provider = this.getC4Provider?.();
     const store = this.trailDb.asC4ModelStore();
-    const manualProvider = provider && repoName ? {
-      getElements: async (repo: string) => provider.getManualElements(repo),
-      getRelationships: async (repo: string) => provider.getManualRelationships(repo),
+    const manualProvider = repoName ? {
+      getElements: async (repo: string) =>
+        provider ? provider.getManualElements(repo) : this.trailDb.getManualElements(repo),
+      getRelationships: async (repo: string) =>
+        provider ? provider.getManualRelationships(repo) : this.trailDb.getManualRelationships(repo),
     } : undefined;
     const featureMatrix = provider?.featureMatrix ?? this.trailDb.getCurrentFeatureMatrix() ?? undefined;
     const payload = await fetchC4Model(store, releaseId, repoName, featureMatrix, manualProvider);
@@ -1674,6 +1676,106 @@ export class TrailDataServer {
       TrailLogger.error('[/api/docs-index] failed', e);
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({ docs: this.docLinks }));
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  //  API: GET /api/c4/file-analysis?repo=<name>&tag=<current|release>
+  // -------------------------------------------------------------------------
+
+  private async handleC4FileAnalysisEndpoint(
+    res: http.ServerResponse,
+    tag: string,
+    repoName: string | undefined,
+  ): Promise<void> {
+    if (!repoName) {
+      res.writeHead(400, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'repo query parameter is required' }));
+      return;
+    }
+    try {
+      const rows = tag === 'current'
+        ? this.trailDb.getCurrentFileAnalysis(repoName)
+        : this.trailDb.getReleaseFileAnalysis(tag, repoName);
+
+      // C4 model 取得
+      const store = this.trailDb.asC4ModelStore();
+      const payload = await fetchC4Model(store, tag, repoName, undefined);
+      const elements = payload?.model?.elements ?? [];
+
+      // file → element 集約 (importance / deadCodeScore)
+      const importanceFileScores: Record<string, number> = {};
+      const deadCodeFileScores: Record<string, number> = {};
+      for (const r of rows) {
+        importanceFileScores[r.filePath] = r.importanceScore;
+        deadCodeFileScores[r.filePath] = r.deadCodeScore;
+      }
+      const importance = aggregateScoresToC4(importanceFileScores, elements);
+      // dead-code-score は importance と同じく親要素にも伝播させ、
+      // viewer 側で levelTargetType に応じてフィルタする（フレーム着色防止のため）
+      const deadCode = aggregateScoresToC4(deadCodeFileScores, elements);
+
+      const entries = rows.map((r) => ({
+        filePath: r.filePath,
+        importanceScore: r.importanceScore,
+        fanInTotal: r.fanInTotal,
+        cognitiveComplexityMax: r.cognitiveComplexityMax,
+        lineCount: r.lineCount,
+        functionCount: r.functionCount,
+        deadCodeScore: r.deadCodeScore,
+        signals: r.signals,
+        isIgnored: r.isIgnored,
+        ignoreReason: r.ignoreReason,
+      }));
+
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({
+        entries,
+        elementMatrix: { importance, deadCodeScore: deadCode },
+      }));
+    } catch (err) {
+      TrailLogger.error('[/api/c4/file-analysis] failed', err);
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+    }
+  }
+
+  private async handleC4FunctionAnalysisEndpoint(
+    res: http.ServerResponse,
+    tag: string,
+    repoName: string | undefined,
+  ): Promise<void> {
+    if (!repoName) {
+      res.writeHead(400, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'repo query parameter is required' }));
+      return;
+    }
+    try {
+      const rows = tag === 'current'
+        ? this.trailDb.getCurrentFunctionAnalysis(repoName)
+        : this.trailDb.getReleaseFunctionAnalysis(tag, repoName);
+
+      const entries = rows.map((r) => ({
+        filePath: r.filePath,
+        functionName: r.functionName,
+        startLine: r.startLine,
+        endLine: r.endLine,
+        language: r.language,
+        fanIn: r.fanIn,
+        cognitiveComplexity: r.cognitiveComplexity,
+        dataMutationScore: r.dataMutationScore,
+        sideEffectScore: r.sideEffectScore,
+        lineCount: r.lineCount,
+        importanceScore: r.importanceScore,
+        signals: { fanInZero: r.signalFanInZero },
+      }));
+
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({ entries }));
+    } catch (err) {
+      TrailLogger.error('[/api/c4/function-analysis] failed', err);
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
     }
   }
 
@@ -1941,8 +2043,11 @@ export class TrailDataServer {
   // -------------------------------------------------------------------------
 
   private handleRefresh(res: http.ServerResponse): void {
+    // 監視 repo 一覧を持たない fallback パス。HTTP 経由 refresh は主リポジトリのみ対象。
+    // multi-repo 取り込みは onAnalyzeAll 経由（extension.ts で resolveWatchedRepos を使う）に乗せる。
+    const gitRoots = this.gitRoot ? [this.gitRoot] : undefined;
     this.trailDb
-      .importAll(undefined, this.gitRoot, undefined, analyze)
+      .importAll(undefined, gitRoots, undefined, analyze)
       .then((result) => {
         this.notifySessionsUpdated();
         res.writeHead(200, JSON_HEADERS);
@@ -2121,13 +2226,6 @@ export class TrailDataServer {
       ws.send(JSON.stringify(docMsg));
     }
 
-    if (this.lastImportanceMatrix) {
-      const importanceMsg: ServerMessage = { type: 'importance-updated', importanceMatrix: this.lastImportanceMatrix };
-      ws.send(JSON.stringify(importanceMsg));
-    } else {
-      void this.computeAndNotifyImportance();
-    }
-
     if (this.lastClaudeActivity) {
       const activityMsg: ServerMessage = {
         type: 'claude-activity-updated',
@@ -2233,34 +2331,49 @@ export class TrailDataServer {
     }
   }
 
-  async computeAndNotifyImportance(tsconfigPath?: string): Promise<void> {
-    if (this.importanceComputing) return;
+  async computeAndPersistImportance(tsconfigPath?: string): Promise<{
+    scored: import('@anytime-markdown/trail-core/importance').ScoredFunction[];
+    fileAggregates: Map<string, import('@anytime-markdown/trail-core/deadCode').FileImportanceAggregate>;
+    lineCountByFile: ReadonlyMap<string, number>;
+  } | null> {
+    if (this.importanceComputing) return null;
     this.importanceComputing = true;
     try {
       const repoName = this.gitRoot ? path.basename(this.gitRoot) : undefined;
       const resolvedTsconfig = tsconfigPath ?? this.trailDb.getCurrentTsconfigPath(repoName);
       if (!resolvedTsconfig) {
         TrailLogger.warn('[importance] tsconfig path not available, skipping importance computation');
-        return;
+        return null;
       }
-      const store = this.trailDb.asC4ModelStore();
-      const payload = await fetchC4Model(store, 'current', repoName, undefined);
-      if (!payload?.model) {
-        TrailLogger.warn('[importance] C4 model not available, skipping importance computation');
-        return;
-      }
+      // C4 model is no longer needed here — element aggregation now happens in the REST endpoint at fetch time.
+      // We compute per-function ScoredFunction[] and per-file aggregate, leaving element-level aggregation to consumers.
+      const { TypeScriptAdapter, ImportanceAnalyzer } = await import('@anytime-markdown/trail-core/importance');
+      const { aggregateImportanceToFile } = await import('@anytime-markdown/trail-core/deadCode');
+      const adapter = TypeScriptAdapter.fromTsConfig(resolvedTsconfig);
+      const allSourceFiles = adapter
+        .getProgram()
+        .getSourceFiles()
+        .filter((sf) => !sf.isDeclarationFile && !sf.fileName.includes('node_modules'))
+        .map((sf) => sf.fileName);
+      const analyzer = new ImportanceAnalyzer(adapter);
+      let scored: ReturnType<typeof analyzer.analyze>;
       try {
-        this.lastImportanceMatrix = computeImportanceMatrix(resolvedTsconfig, payload.model.elements);
+        scored = analyzer.analyze(allSourceFiles);
       } catch (err) {
-        TrailLogger.error('[importance] computeImportanceMatrix failed', err);
-        return;
+        TrailLogger.error('[importance] analyzer.analyze failed', err);
+        return null;
       }
-      if (this.clients.size === 0) return;
-      const message: ServerMessage = { type: 'importance-updated', importanceMatrix: this.lastImportanceMatrix };
-      const json = JSON.stringify(message);
-      for (const ws of this.clients) {
-        ws.send(json);
+      const fileAggregates = aggregateImportanceToFile(scored);
+      // SourceFile の行数を相対パスでインデックスする（tsconfig ディレクトリ基準）
+      const lineCountByFile = new Map<string, number>();
+      const resolvedDir = path.dirname(path.resolve(resolvedTsconfig));
+      for (const sf of adapter.getProgram().getSourceFiles()) {
+        if (sf.isDeclarationFile || sf.fileName.includes('node_modules')) continue;
+        const relPath = path.relative(resolvedDir, sf.fileName);
+        const loc = sf.getLineAndCharacterOfPosition(sf.end).line + 1;
+        lineCountByFile.set(relPath, loc);
       }
+      return { scored, fileAggregates, lineCountByFile };
     } finally {
       this.importanceComputing = false;
     }
@@ -2294,14 +2407,9 @@ export class TrailDataServer {
   // -------------------------------------------------------------------------
 
   private buildNotifyMessage(
-    type: 'dsm-updated' | 'importance-updated',
+    type: 'dsm-updated',
     provider: C4DataProvider,
   ): ServerMessage | undefined {
-    if (type === 'importance-updated') {
-      const importanceMatrix = provider.importanceMatrix;
-      if (!importanceMatrix) return undefined;
-      return { type: 'importance-updated', importanceMatrix };
-    }
     return this.buildDsmMessage(provider);
   }
 

@@ -67,8 +67,8 @@ describe('FileTrailStorage', () => {
 
   it('new session shifts generations: bak.1 → bak.2, original → bak.1', () => {
     fs.writeFileSync(dbPath, Buffer.from('A'));
-    new FileTrailStorage(dbPath, 3).save(Buffer.from('B'));
-    new FileTrailStorage(dbPath, 3).save(Buffer.from('C'));
+    new FileTrailStorage(dbPath, 3, 0).save(Buffer.from('B'));
+    new FileTrailStorage(dbPath, 3, 0).save(Buffer.from('C'));
 
     expect(fs.readFileSync(dbPath).toString()).toBe('C');
     expect(readBak(1)).toBe('B');
@@ -78,10 +78,10 @@ describe('FileTrailStorage', () => {
 
   it('keeps at most 3 generations; oldest is discarded', () => {
     fs.writeFileSync(dbPath, Buffer.from('G0'));
-    new FileTrailStorage(dbPath, 3).save(Buffer.from('G1'));
-    new FileTrailStorage(dbPath, 3).save(Buffer.from('G2'));
-    new FileTrailStorage(dbPath, 3).save(Buffer.from('G3'));
-    new FileTrailStorage(dbPath, 3).save(Buffer.from('G4'));
+    new FileTrailStorage(dbPath, 3, 0).save(Buffer.from('G1'));
+    new FileTrailStorage(dbPath, 3, 0).save(Buffer.from('G2'));
+    new FileTrailStorage(dbPath, 3, 0).save(Buffer.from('G3'));
+    new FileTrailStorage(dbPath, 3, 0).save(Buffer.from('G4'));
 
     expect(fs.readFileSync(dbPath).toString()).toBe('G4');
     expect(readBak(1)).toBe('G3');
@@ -105,10 +105,10 @@ describe('FileTrailStorage', () => {
 
     it('returns entries in newest-first order with metadata', () => {
       fs.writeFileSync(dbPath, Buffer.from('A'));
-      new FileTrailStorage(dbPath, 3).save(Buffer.from('B'));
-      new FileTrailStorage(dbPath, 3).save(Buffer.from('C'));
+      new FileTrailStorage(dbPath, 3, 0).save(Buffer.from('B'));
+      new FileTrailStorage(dbPath, 3, 0).save(Buffer.from('C'));
 
-      const entries = new FileTrailStorage(dbPath, 3).listBackups();
+      const entries = new FileTrailStorage(dbPath, 3, 0).listBackups();
       expect(entries).toHaveLength(2);
       expect(entries[0].generation).toBe(1);
       expect(entries[1].generation).toBe(2);
@@ -158,6 +158,44 @@ describe('FileTrailStorage', () => {
 
       expect(fs.readFileSync(dbPath).toString()).toBe('v1');
       expect(result.safetyCopy).toBeNull();
+    });
+  });
+
+  describe('backupIntervalDays', () => {
+    it('intervalDays=0: backs up every session (legacy behavior)', () => {
+      fs.writeFileSync(dbPath, Buffer.from('A'));
+      new FileTrailStorage(dbPath, 1, 0).save(Buffer.from('B'));
+      // 2nd session same day: interval=0 → always backup
+      new FileTrailStorage(dbPath, 1, 0).save(Buffer.from('C'));
+      expect(readBak(1)).toBe('B');
+    });
+
+    it('intervalDays=1: skips backup when .bak.1.gz is less than 1 day old', () => {
+      fs.writeFileSync(dbPath, Buffer.from('A'));
+      new FileTrailStorage(dbPath, 1, 1).save(Buffer.from('B')); // creates bak.1 = A
+      // 2nd session: bak.1 is fresh → skip backup
+      new FileTrailStorage(dbPath, 1, 1).save(Buffer.from('C'));
+      expect(readBak(1)).toBe('A'); // unchanged
+      expect(fs.readFileSync(dbPath).toString()).toBe('C');
+    });
+
+    it('intervalDays=1: backs up when no backup exists yet', () => {
+      fs.writeFileSync(dbPath, Buffer.from('A'));
+      new FileTrailStorage(dbPath, 1, 1).save(Buffer.from('B'));
+      expect(readBak(1)).toBe('A');
+    });
+
+    it('intervalDays=1: backs up when .bak.1.gz mtime is older than 1 day', () => {
+      fs.writeFileSync(dbPath, Buffer.from('A'));
+      new FileTrailStorage(dbPath, 1, 1).save(Buffer.from('B')); // bak.1 = A
+      // Backdate bak.1.gz to 2 days ago
+      const bak1 = `${dbPath}.bak.1.gz`;
+      const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+      fs.utimesSync(bak1, twoDaysAgo, twoDaysAgo);
+      // New session: 2 days > 1 day → backup
+      new FileTrailStorage(dbPath, 1, 1).save(Buffer.from('C'));
+      expect(readBak(1)).toBe('B');
+      expect(fs.readFileSync(dbPath).toString()).toBe('C');
     });
   });
 });

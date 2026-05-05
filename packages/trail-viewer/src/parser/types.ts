@@ -149,6 +149,13 @@ export interface CombinedCommitPrefix {
   readonly linesAdded: number;
 }
 
+export interface CombinedRepository {
+  readonly period: string;
+  readonly repoName: string;
+  readonly count: number;
+  readonly tokens: number;
+}
+
 export interface CombinedAiFirstTryRate {
   readonly period: string;
   readonly rate: number;      // 0-100
@@ -163,6 +170,7 @@ export interface CombinedData {
   readonly agentStats: readonly CombinedAgent[];
   readonly commitPrefixStats: readonly CombinedCommitPrefix[];
   readonly aiFirstTryRate: readonly CombinedAiFirstTryRate[];
+  readonly repoStats: readonly CombinedRepository[];
 }
 
 export type CombinedPeriodMode = 'day' | 'week';

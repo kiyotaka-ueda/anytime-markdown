@@ -9,6 +9,10 @@ export const CREATE_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_messages_type_timestamp ON messages(type, timestamp)',
   'CREATE INDEX IF NOT EXISTS idx_session_commits_session ON session_commits(session_id)',
   'CREATE INDEX IF NOT EXISTS idx_session_commits_committed_at ON session_commits(committed_at)',
+  'CREATE INDEX IF NOT EXISTS idx_session_commits_repo ON session_commits(repo_name, committed_at)',
+  'CREATE INDEX IF NOT EXISTS idx_session_commits_repo_hash ON session_commits(repo_name, commit_hash)',
+  'CREATE INDEX IF NOT EXISTS idx_commit_files_repo ON commit_files(repo_name, file_path)',
+  'CREATE INDEX IF NOT EXISTS idx_commit_files_repo_hash ON commit_files(repo_name, commit_hash)',
   'CREATE INDEX IF NOT EXISTS idx_message_commits_message_uuid ON message_commits(message_uuid)',
   'CREATE INDEX IF NOT EXISTS idx_session_costs_session ON session_costs(session_id)',
   'CREATE INDEX IF NOT EXISTS idx_daily_counts_kind_date ON daily_counts(kind, date)',
@@ -19,7 +23,6 @@ export const CREATE_INDEXES = [
 export const CREATE_RELEASE_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_releases_released_at ON releases(released_at)',
   'CREATE INDEX IF NOT EXISTS idx_release_files_tag ON release_files(release_tag)',
-  'CREATE INDEX IF NOT EXISTS idx_release_features_tag ON release_features(release_tag)',
   'CREATE INDEX IF NOT EXISTS idx_release_coverage_tag ON release_coverage(release_tag)',
   'CREATE INDEX IF NOT EXISTS idx_release_code_graphs_tag ON release_code_graphs(release_tag)',
   'CREATE INDEX IF NOT EXISTS idx_release_code_graph_communities_tag ON release_code_graph_communities(release_tag)',

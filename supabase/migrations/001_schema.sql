@@ -9,6 +9,10 @@ DROP TABLE IF EXISTS trail_release_code_graph_communities CASCADE;
 DROP TABLE IF EXISTS trail_release_code_graphs CASCADE;
 DROP TABLE IF EXISTS trail_current_code_graph_communities CASCADE;
 DROP TABLE IF EXISTS trail_current_code_graphs CASCADE;
+DROP TABLE IF EXISTS trail_current_file_analysis CASCADE;
+DROP TABLE IF EXISTS trail_release_file_analysis CASCADE;
+DROP TABLE IF EXISTS trail_current_function_analysis CASCADE;
+DROP TABLE IF EXISTS trail_release_function_analysis CASCADE;
 DROP TABLE IF EXISTS trail_current_coverage CASCADE;
 DROP TABLE IF EXISTS trail_release_coverage CASCADE;
 DROP TABLE IF EXISTS trail_c4_manual_groups CASCADE;
@@ -94,6 +98,7 @@ CREATE TABLE IF NOT EXISTS trail_messages (
 
 CREATE TABLE IF NOT EXISTS trail_session_commits (
     session_id TEXT NOT NULL REFERENCES trail_sessions(id) ON DELETE CASCADE,
+    repo_name TEXT NOT NULL DEFAULT '',
     commit_hash TEXT NOT NULL,
     commit_message TEXT NOT NULL DEFAULT '',
     author TEXT NOT NULL DEFAULT '',
@@ -102,14 +107,15 @@ CREATE TABLE IF NOT EXISTS trail_session_commits (
     files_changed INTEGER NOT NULL DEFAULT 0,
     lines_added INTEGER NOT NULL DEFAULT 0,
     lines_deleted INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (session_id, commit_hash)
+    PRIMARY KEY (session_id, repo_name, commit_hash)
 );
 
 -- コミットごとの変更ファイル一覧。コミットは複数セッションに現れるためセッション非依存。
 CREATE TABLE IF NOT EXISTS trail_commit_files (
+    repo_name TEXT NOT NULL DEFAULT '',
     commit_hash TEXT NOT NULL,
     file_path TEXT NOT NULL,
-    PRIMARY KEY (commit_hash, file_path)
+    PRIMARY KEY (repo_name, commit_hash, file_path)
 );
 
 CREATE TABLE IF NOT EXISTS trail_session_costs (
@@ -293,6 +299,96 @@ CREATE TABLE IF NOT EXISTS trail_release_coverage (
   PRIMARY KEY (release_tag, package, file_path)
 );
 
+-- 未使用コード検出 ファイル単位スコア（ローカル current_file_analysis と対応）
+CREATE TABLE IF NOT EXISTS trail_current_file_analysis (
+  repo_name                  TEXT             NOT NULL,
+  file_path                  TEXT             NOT NULL,
+  importance_score           DOUBLE PRECISION NOT NULL DEFAULT 0,
+  fan_in_total               INTEGER          NOT NULL DEFAULT 0,
+  cognitive_complexity_max   INTEGER          NOT NULL DEFAULT 0,
+  line_count                 INTEGER          NOT NULL DEFAULT 0,
+  cyclomatic_complexity_max  INTEGER          NOT NULL DEFAULT 0,
+  function_count             INTEGER          NOT NULL DEFAULT 0,
+  dead_code_score            INTEGER          NOT NULL DEFAULT 0,
+  signal_orphan              INTEGER          NOT NULL DEFAULT 0,
+  signal_fan_in_zero         INTEGER          NOT NULL DEFAULT 0,
+  signal_no_recent_churn     INTEGER          NOT NULL DEFAULT 0,
+  signal_zero_coverage       INTEGER          NOT NULL DEFAULT 0,
+  signal_isolated_community  INTEGER          NOT NULL DEFAULT 0,
+  is_ignored                 INTEGER          NOT NULL DEFAULT 0,
+  ignore_reason              TEXT             NOT NULL DEFAULT '',
+  analyzed_at                TEXT             NOT NULL,
+  PRIMARY KEY (repo_name, file_path)
+);
+CREATE INDEX IF NOT EXISTS idx_trail_current_file_analysis_dead_code
+  ON trail_current_file_analysis (repo_name, dead_code_score DESC);
+CREATE INDEX IF NOT EXISTS idx_trail_current_file_analysis_importance
+  ON trail_current_file_analysis (repo_name, importance_score DESC);
+
+-- 未使用コード検出 ファイル単位スコア リリース版（ローカル release_file_analysis と対応）
+CREATE TABLE IF NOT EXISTS trail_release_file_analysis (
+  release_tag                TEXT             NOT NULL REFERENCES trail_releases(tag) ON DELETE CASCADE,
+  repo_name                  TEXT             NOT NULL,
+  file_path                  TEXT             NOT NULL,
+  importance_score           DOUBLE PRECISION NOT NULL DEFAULT 0,
+  fan_in_total               INTEGER          NOT NULL DEFAULT 0,
+  cognitive_complexity_max   INTEGER          NOT NULL DEFAULT 0,
+  line_count                 INTEGER          NOT NULL DEFAULT 0,
+  cyclomatic_complexity_max  INTEGER          NOT NULL DEFAULT 0,
+  function_count             INTEGER          NOT NULL DEFAULT 0,
+  dead_code_score            INTEGER          NOT NULL DEFAULT 0,
+  signal_orphan              INTEGER          NOT NULL DEFAULT 0,
+  signal_fan_in_zero         INTEGER          NOT NULL DEFAULT 0,
+  signal_no_recent_churn     INTEGER          NOT NULL DEFAULT 0,
+  signal_zero_coverage       INTEGER          NOT NULL DEFAULT 0,
+  signal_isolated_community  INTEGER          NOT NULL DEFAULT 0,
+  is_ignored                 INTEGER          NOT NULL DEFAULT 0,
+  ignore_reason              TEXT             NOT NULL DEFAULT '',
+  analyzed_at                TEXT             NOT NULL,
+  PRIMARY KEY (release_tag, repo_name, file_path)
+);
+
+-- 未使用コード検出 関数単位スコア（ローカル current_function_analysis と対応）
+CREATE TABLE IF NOT EXISTS trail_current_function_analysis (
+  repo_name              TEXT             NOT NULL,
+  file_path              TEXT             NOT NULL,
+  function_name          TEXT             NOT NULL,
+  start_line             INTEGER          NOT NULL,
+  end_line               INTEGER          NOT NULL DEFAULT 0,
+  language               TEXT             NOT NULL DEFAULT '',
+  fan_in                 INTEGER          NOT NULL DEFAULT 0,
+  cognitive_complexity   INTEGER          NOT NULL DEFAULT 0,
+  cyclomatic_complexity  INTEGER          NOT NULL DEFAULT 0,
+  data_mutation_score    INTEGER          NOT NULL DEFAULT 0,
+  side_effect_score      INTEGER          NOT NULL DEFAULT 0,
+  line_count             INTEGER          NOT NULL DEFAULT 0,
+  importance_score       DOUBLE PRECISION NOT NULL DEFAULT 0,
+  signal_fan_in_zero     INTEGER          NOT NULL DEFAULT 0,
+  analyzed_at            TEXT             NOT NULL,
+  PRIMARY KEY (repo_name, file_path, function_name, start_line)
+);
+
+-- 未使用コード検出 関数単位スコア リリース版（ローカル release_function_analysis と対応）
+CREATE TABLE IF NOT EXISTS trail_release_function_analysis (
+  release_tag            TEXT             NOT NULL REFERENCES trail_releases(tag) ON DELETE CASCADE,
+  repo_name              TEXT             NOT NULL,
+  file_path              TEXT             NOT NULL,
+  function_name          TEXT             NOT NULL,
+  start_line             INTEGER          NOT NULL,
+  end_line               INTEGER          NOT NULL DEFAULT 0,
+  language               TEXT             NOT NULL DEFAULT '',
+  fan_in                 INTEGER          NOT NULL DEFAULT 0,
+  cognitive_complexity   INTEGER          NOT NULL DEFAULT 0,
+  cyclomatic_complexity  INTEGER          NOT NULL DEFAULT 0,
+  data_mutation_score    INTEGER          NOT NULL DEFAULT 0,
+  side_effect_score      INTEGER          NOT NULL DEFAULT 0,
+  line_count             INTEGER          NOT NULL DEFAULT 0,
+  importance_score       DOUBLE PRECISION NOT NULL DEFAULT 0,
+  signal_fan_in_zero     INTEGER          NOT NULL DEFAULT 0,
+  analyzed_at            TEXT             NOT NULL,
+  PRIMARY KEY (release_tag, repo_name, file_path, function_name, start_line)
+);
+
 -- コードグラフ最新スナップショット（ローカル current_code_graphs と対応）
 CREATE TABLE IF NOT EXISTS trail_current_code_graphs (
   repo_name    TEXT PRIMARY KEY,
@@ -346,7 +442,11 @@ CREATE INDEX IF NOT EXISTS idx_trail_session_costs_session ON trail_session_cost
 CREATE INDEX IF NOT EXISTS idx_trail_daily_counts_date ON trail_daily_counts(date);
 CREATE INDEX IF NOT EXISTS idx_trail_daily_counts_kind ON trail_daily_counts(kind);
 CREATE INDEX IF NOT EXISTS idx_trail_session_commits_session ON trail_session_commits(session_id);
+CREATE INDEX IF NOT EXISTS idx_trail_session_commits_committed_at ON trail_session_commits(committed_at);
+CREATE INDEX IF NOT EXISTS idx_trail_session_commits_repo_committed_at ON trail_session_commits(repo_name, committed_at);
+CREATE INDEX IF NOT EXISTS idx_trail_session_commits_repo_hash ON trail_session_commits(repo_name, commit_hash);
 CREATE INDEX IF NOT EXISTS idx_trail_commit_files_hash ON trail_commit_files(commit_hash);
+CREATE INDEX IF NOT EXISTS idx_trail_commit_files_repo_hash ON trail_commit_files(repo_name, commit_hash);
 CREATE INDEX IF NOT EXISTS idx_trail_releases_released_at ON trail_releases(released_at);
 CREATE INDEX IF NOT EXISTS idx_trail_release_files_tag ON trail_release_files(release_tag);
 CREATE INDEX IF NOT EXISTS idx_trail_release_features_tag ON trail_release_features(release_tag);

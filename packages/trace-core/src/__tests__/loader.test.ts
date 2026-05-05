@@ -40,4 +40,30 @@ describe('loadTraceFile', () => {
         fs.writeFileSync(tmp, JSON.stringify({ version: 1, metadata: {}, lifelines: [], events: [] }));
         await expect(loadTraceFile(tmp)).rejects.toThrow(/metadata/i);
     });
+
+    it('rejects when metadata is missing entirely', async () => {
+        const tmp = path.join(tmpDir, 'nometa.json');
+        fs.writeFileSync(tmp, JSON.stringify({ version: 1, lifelines: [], events: [] }));
+        await expect(loadTraceFile(tmp)).rejects.toThrow('Missing metadata');
+    });
+
+    it('rejects when metadata is not an object', async () => {
+        const tmp = path.join(tmpDir, 'badmeta.json');
+        fs.writeFileSync(tmp, JSON.stringify({ version: 1, metadata: 42, lifelines: [], events: [] }));
+        await expect(loadTraceFile(tmp)).rejects.toThrow('Missing metadata');
+    });
+
+    it('rejects when lifelines is not an array', async () => {
+        const tmp = path.join(tmpDir, 'lifelines.json');
+        const validMeta = { startedAt: '', endedAt: '', command: '', cwd: '', nodeVersion: '', depthLimit: 0 };
+        fs.writeFileSync(tmp, JSON.stringify({ version: 1, metadata: validMeta, lifelines: null, events: [] }));
+        await expect(loadTraceFile(tmp)).rejects.toThrow('lifelines must be array');
+    });
+
+    it('rejects when events is not an array', async () => {
+        const tmp = path.join(tmpDir, 'events.json');
+        const validMeta = { startedAt: '', endedAt: '', command: '', cwd: '', nodeVersion: '', depthLimit: 0 };
+        fs.writeFileSync(tmp, JSON.stringify({ version: 1, metadata: validMeta, lifelines: [], events: null }));
+        await expect(loadTraceFile(tmp)).rejects.toThrow('events must be array');
+    });
 });

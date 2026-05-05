@@ -13,9 +13,11 @@ export const DEFAULT_WEIGHTS: ImportanceScorerWeights = {
   lineCount:           0.10,
 };
 
+// cyclomaticComplexity は重みに未追加（AST メトリクス保存フェーズでは除外、別途追加予定）
 const ZERO_METRICS: FunctionMetrics = {
   fanIn: 0,
   cognitiveComplexity: 0,
+  cyclomaticComplexity: 0,
   dataMutationScore: 0,
   sideEffectScore: 0,
   lineCount: 0,
@@ -50,11 +52,12 @@ export class ImportanceScorer {
   static computeMaxValues(metricsList: FunctionMetrics[]): FunctionMetrics {
     if (metricsList.length === 0) return { ...ZERO_METRICS };
     return {
-      fanIn:               Math.max(...metricsList.map(m => m.fanIn)),
-      cognitiveComplexity: Math.max(...metricsList.map(m => m.cognitiveComplexity)),
-      dataMutationScore:   Math.max(...metricsList.map(m => m.dataMutationScore)),
-      sideEffectScore:     Math.max(...metricsList.map(m => m.sideEffectScore)),
-      lineCount:           Math.max(...metricsList.map(m => m.lineCount)),
+      fanIn:                 Math.max(...metricsList.map(m => m.fanIn)),
+      cognitiveComplexity:   Math.max(...metricsList.map(m => m.cognitiveComplexity)),
+      cyclomaticComplexity:  Math.max(...metricsList.map(m => m.cyclomaticComplexity)),
+      dataMutationScore:     Math.max(...metricsList.map(m => m.dataMutationScore)),
+      sideEffectScore:       Math.max(...metricsList.map(m => m.sideEffectScore)),
+      lineCount:             Math.max(...metricsList.map(m => m.lineCount)),
     };
   }
 

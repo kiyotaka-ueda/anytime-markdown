@@ -4,7 +4,8 @@
   "viewsContainer.title": "Anytime Trail",
   "config.database.storagePath": "`trail.db` の保存ディレクトリ。絶対パスまたはワークスペースルートからの相対パス。空の場合は `.vscode/` を使用します。",
   "config.database.backupGenerations": "`trail.db` のバックアップ世代数。各世代は `.bak.N.gz` として DB ファイルと同じディレクトリに gzip 圧縮で保存されます。範囲: 1〜10。",
-  "config.claudeStatus.directory": "`claude-code-status.json` の保存ディレクトリ。絶対パスまたはワークスペースルートからの相対パス。空の場合は `.vscode/` を使用します。",
+  "config.database.backupIntervalDays": "`trail.db` バックアップの最小間隔（日）。`0` = セッション毎（従来動作）。`1`（デフォルト）= 1日に最大1回。値を大きくするほどバックアップ頻度が下がります。",
+  "config.claudeStatus.directory": "`claude-code-status.json` の保存ディレクトリ。絶対パスまたはワークスペースルートからの相対パス。デフォルトは `.vscode/trail/agent-status`。",
   "command.analyzeCurrentCode": "コード解析",
   "command.analyzeReleaseCode": "リリース別コード解析",
   "command.analyzeAll": "全データ解析",
@@ -33,5 +34,6 @@
   "command.agentMapping.showSessionEdits": "セッション編集履歴を表示",
   "command.agentMapping.copySessionId": "セッション ID をコピー",
   "command.agentMapping.deleteStatusFile": "ステータスファイルを削除",
-  "command.reinstallSkills": "スキル再インストール"
+  "command.reinstallSkills": "スキル再インストール",
+  "command.registerMcpToClaudeCode": "Claude Code に MCP サーバーを登録 (mcp-trail)"
 }

@@ -73,6 +73,7 @@ interface C4GraphCanvasProps {
   readonly overlayMap?: ReadonlyMap<string, string> | null;
   readonly claudeActivityMap?: ReadonlyMap<string, string> | null;
   readonly communityMap?: ReadonlyMap<string, CommunityOverlayStyle> | null;
+  readonly communityRoleBadgeMap?: ReadonlyMap<string, string> | null;
   readonly ghostEdges?: ReadonlyArray<C4GhostEdgeRender>;
   readonly ghostEdgeGranularity?: C4GhostEdgeGranularity;
   readonly onNodeSelect?: (nodeId: string | null) => void;
@@ -85,7 +86,7 @@ interface C4GraphCanvasProps {
 
 const EMPTY_SELECTION: SelectionState = { nodeIds: [], edgeIds: [] };
 
-export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedNodeId, centerOnSelect, overlayMap, claudeActivityMap, communityMap, ghostEdges, ghostEdgeGranularity = 'commit', onNodeSelect, onMultiNodeSelect, onNodeDoubleClick, onNodeContextMenu, onGroupContextMenu, isDark }: Readonly<C4GraphCanvasProps>) {
+export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedNodeId, centerOnSelect, overlayMap, claudeActivityMap, communityMap, communityRoleBadgeMap, ghostEdges, ghostEdgeGranularity = 'commit', onNodeSelect, onMultiNodeSelect, onNodeDoubleClick, onNodeContextMenu, onGroupContextMenu, isDark }: Readonly<C4GraphCanvasProps>) {
   const rafRef = useRef<number>(0);
   const viewportRef = useRef(viewport);
   const dispatchRef = useRef(dispatch);
@@ -94,12 +95,14 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
   const [isFocused, setIsFocused] = useState(false);
   const ghostEdgesRef = useRef<ReadonlyArray<C4GhostEdgeRender>>(ghostEdges ?? []);
   const ghostGranularityRef = useRef<C4GhostEdgeGranularity>(ghostEdgeGranularity);
+  const communityRoleBadgeMapRef = useRef<ReadonlyMap<string, string> | null | undefined>(communityRoleBadgeMap);
   viewportRef.current = viewport;
   dispatchRef.current = dispatch;
   nodesRef.current = document.nodes;
   groupsRef.current = document.groups ?? [];
   ghostEdgesRef.current = ghostEdges ?? [];
   ghostGranularityRef.current = ghostEdgeGranularity;
+  communityRoleBadgeMapRef.current = communityRoleBadgeMap;
 
   // Selection state
   const selectionRef = useRef<string[]>(selectedNodeId ? [selectedNodeId] : []);
@@ -219,6 +222,7 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
   const styledNodes = useMemo(() => {
     if (!overlayMap) return document.nodes;
     return document.nodes.map(n => {
+      if (n.type === 'frame') return n;
       const c4Id = n.metadata?.c4Id as string | undefined;
       if (!c4Id) return n;
       const fill = overlayMap.get(c4Id);
@@ -324,6 +328,12 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
         ghostGranularityRef.current,
         isDark ?? false,
       );
+
+      // Community role badges (P/S/D)
+      const badgeMap = communityRoleBadgeMapRef.current;
+      if (badgeMap && badgeMap.size > 0) {
+        drawCommunityRoleBadges(ctx!, viewportRef.current, focusStyledNodes, badgeMap);
+      }
 
       // Selection rectangle overlay
       canvas.drawSelectOverlay(ctx!, viewportRef.current);
@@ -474,5 +484,42 @@ function drawArrowHead(
   ctx.lineTo(to.x - headLen * Math.cos(angle + Math.PI / 6), to.y - headLen * Math.sin(angle + Math.PI / 6));
   ctx.closePath();
   ctx.fill();
+  ctx.restore();
+}
+
+const BADGE_ROLE_COLORS: Readonly<Record<string, string>> = { P: '#e53935', S: '#1e88e5', D: '#fb8c00' };
+
+function drawCommunityRoleBadges(
+  ctx: CanvasRenderingContext2D,
+  viewport: Viewport,
+  nodes: ReadonlyArray<GraphNode>,
+  badgeMap: ReadonlyMap<string, string>,
+): void {
+  const { scale, offsetX, offsetY } = viewport;
+  const radius = Math.max(6, Math.min(10, scale * 10));
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `bold ${Math.round(radius * 1.3)}px sans-serif`;
+
+  for (const node of nodes) {
+    if (node.type === 'frame') continue;
+    const c4Id = node.metadata?.c4Id as string | undefined;
+    if (!c4Id) continue;
+    const label = badgeMap.get(c4Id);
+    if (!label) continue;
+
+    // top-right corner of the node in screen coordinates
+    const bx = (node.x + node.width) * scale + offsetX - radius * 0.6;
+    const by = node.y * scale + offsetY + radius * 0.6;
+
+    ctx.beginPath();
+    ctx.arc(bx, by, radius, 0, Math.PI * 2);
+    ctx.fillStyle = BADGE_ROLE_COLORS[label] ?? '#616161';
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(label, bx, by);
+  }
   ctx.restore();
 }

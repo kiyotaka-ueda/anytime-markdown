@@ -32,6 +32,18 @@ describe('listReportKeys', () => {
     const result = await listReportKeys({ send: mockSend } as never, baseConfig);
     expect(result).toEqual([]);
   });
+
+  it('Size と LastModified が undefined の場合デフォルト値を使う', async () => {
+    mockSend.mockResolvedValue({
+      Contents: [
+        { Key: 'reports/2026-04-01-daily.md', Size: undefined, LastModified: undefined },
+      ],
+    });
+    const result = await listReportKeys({ send: mockSend } as never, baseConfig);
+    expect(result).toHaveLength(1);
+    expect(result[0].size).toBe(0);
+    expect(result[0].lastModified).toBe('');
+  });
 });
 
 describe('uploadReport', () => {

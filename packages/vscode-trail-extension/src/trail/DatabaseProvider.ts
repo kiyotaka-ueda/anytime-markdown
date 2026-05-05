@@ -45,9 +45,10 @@ class BackupTreeItem extends vscode.TreeItem {
     super(`Generation ${generation}`, vscode.TreeItemCollapsibleState.None);
     this.contextValue = 'backupEntry';
     this.iconPath = new vscode.ThemeIcon('history');
-    this.description = mtime.toLocaleString();
+    const formattedTime = formatLocalDateTime(mtime.toISOString());
+    this.description = formattedTime;
     const mb = (compressedBytes / 1024 / 1024).toFixed(2);
-    this.tooltip = `Generation ${generation}\n${mtime.toLocaleString()}\n${mb} MB (gzip)`;
+    this.tooltip = `Generation ${generation}\n${formattedTime}\n${mb} MB (gzip)`;
     this.command = {
       command: 'anytime-trail.restoreBackup',
       title: 'Restore from this backup',

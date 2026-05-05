@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { SessionRow, MessageRow, SessionCommitRow, ReleaseFileRow, ReleaseFeatureRow, ReleaseRow } from './TrailDatabase';
+import type { SessionRow, MessageRow, SessionCommitRow, ReleaseFileRow, ReleaseRow } from './TrailDatabase';
 import type { IRemoteTrailStore } from './IRemoteTrailStore';
 import type { ManualElement, ManualRelationship } from '@anytime-markdown/trail-core';
 import { type DbLogger, noopDbLogger } from './DbLogger';
@@ -33,6 +33,10 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
     await this.deleteAllPaged('trail_releases', 'tag');
     await this.ensureClient().from('trail_daily_counts').delete().gte('date', '0000-01-01');
     await this.deleteAllPaged('trail_release_graphs', 'tag');
+    await this.ensureClient().from('trail_current_file_analysis').delete().gte('repo_name', '');
+    await this.ensureClient().from('trail_release_file_analysis').delete().gte('release_tag', '');
+    await this.ensureClient().from('trail_current_function_analysis').delete().gte('repo_name', '');
+    await this.ensureClient().from('trail_release_function_analysis').delete().gte('release_tag', '');
   }
 
   private async deleteAllPaged(table: string, pk: string, pageSize = 500): Promise<void> {
@@ -208,6 +212,7 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
     if (rows.length === 0) return;
     const mapped = rows.map((r) => ({
       session_id: r.session_id, commit_hash: r.commit_hash,
+      repo_name: r.repo_name,
       commit_message: r.commit_message, author: r.author,
       committed_at: r.committed_at, is_ai_assisted: r.is_ai_assisted,
       files_changed: r.files_changed,
@@ -215,16 +220,16 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
     }));
     const { error } = await this.ensureClient()
       .from('trail_session_commits')
-      .upsert(mapped, { onConflict: 'session_id,commit_hash' });
+      .upsert(mapped, { onConflict: 'session_id,repo_name,commit_hash' });
     if (error) throw new Error(`Supabase upsert commits failed: ${error.message}`);
   }
 
-  async upsertCommitFiles(rows: readonly { commit_hash: string; file_path: string }[]): Promise<void> {
+  async upsertCommitFiles(rows: readonly { repo_name: string; commit_hash: string; file_path: string }[]): Promise<void> {
     if (rows.length === 0) return;
     // commit_files はコミットが不変なので IGNORE（既存行を上書きしない）
     const { error } = await this.ensureClient()
       .from('trail_commit_files')
-      .upsert(rows, { onConflict: 'commit_hash,file_path', ignoreDuplicates: true });
+      .upsert(rows, { onConflict: 'repo_name,commit_hash,file_path', ignoreDuplicates: true });
     if (error) throw new Error(`Supabase upsert trail_commit_files failed: ${error.message}`);
   }
 
@@ -258,19 +263,6 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
         change_type: r.change_type,
       })), { onConflict: 'release_tag,file_path' });
     if (error) throw new Error(`Supabase upsert release_files failed: ${error.message}`);
-  }
-
-  async upsertReleaseFeatures(rows: readonly ReleaseFeatureRow[]): Promise<void> {
-    if (rows.length === 0) return;
-    const { error } = await this.ensureClient()
-      .from('trail_release_features')
-      .upsert(rows.map((r) => ({
-        release_tag: r.release_tag,
-        feature_id: r.feature_id,
-        feature_name: r.feature_name,
-        role: r.role,
-      })), { onConflict: 'release_tag,feature_id' });
-    if (error) throw new Error(`Supabase upsert release_features failed: ${error.message}`);
   }
 
   /**
@@ -401,6 +393,100 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
         .from('trail_release_coverage')
         .upsert(chunk.map((r) => ({ ...r })), { onConflict: 'release_tag,package,file_path' });
       if (error) throw new Error(`Supabase upsert release_coverage failed: ${error.message}`);
+    }
+  }
+
+  async unsafeClearCurrentFileAnalysis(): Promise<void> {
+    await this.ensureClient().from('trail_current_file_analysis').delete().gte('repo_name', '');
+  }
+
+  async upsertCurrentFileAnalysis(rows: readonly {
+    repo_name: string; file_path: string;
+    importance_score: number; fan_in_total: number; cognitive_complexity_max: number; function_count: number;
+    dead_code_score: number;
+    signal_orphan: number; signal_fan_in_zero: number; signal_no_recent_churn: number;
+    signal_zero_coverage: number; signal_isolated_community: number;
+    is_ignored: number; ignore_reason: string; analyzed_at: string;
+    line_count: number; cyclomatic_complexity_max: number;
+  }[]): Promise<void> {
+    if (rows.length === 0) return;
+    const CHUNK = 500;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK);
+      const { error } = await this.ensureClient()
+        .from('trail_current_file_analysis')
+        .upsert(chunk.map((r) => ({ ...r })), { onConflict: 'repo_name,file_path' });
+      if (error) throw new Error(`Supabase upsert trail_current_file_analysis failed: ${error.message}`);
+    }
+  }
+
+  async unsafeClearReleaseFileAnalysis(): Promise<void> {
+    await this.ensureClient().from('trail_release_file_analysis').delete().gte('release_tag', '');
+  }
+
+  async upsertReleaseFileAnalysis(rows: readonly {
+    release_tag: string; repo_name: string; file_path: string;
+    importance_score: number; fan_in_total: number; cognitive_complexity_max: number; function_count: number;
+    dead_code_score: number;
+    signal_orphan: number; signal_fan_in_zero: number; signal_no_recent_churn: number;
+    signal_zero_coverage: number; signal_isolated_community: number;
+    is_ignored: number; ignore_reason: string; analyzed_at: string;
+    line_count: number; cyclomatic_complexity_max: number;
+  }[]): Promise<void> {
+    if (rows.length === 0) return;
+    const CHUNK = 500;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK);
+      const { error } = await this.ensureClient()
+        .from('trail_release_file_analysis')
+        .upsert(chunk.map((r) => ({ ...r })), { onConflict: 'release_tag,repo_name,file_path' });
+      if (error) throw new Error(`Supabase upsert trail_release_file_analysis failed: ${error.message}`);
+    }
+  }
+
+  async unsafeClearCurrentFunctionAnalysis(): Promise<void> {
+    await this.ensureClient().from('trail_current_function_analysis').delete().gte('repo_name', '');
+  }
+
+  async upsertCurrentFunctionAnalysis(rows: readonly {
+    repo_name: string; file_path: string; function_name: string; start_line: number;
+    end_line: number; language: string;
+    fan_in: number; cognitive_complexity: number; data_mutation_score: number;
+    side_effect_score: number; line_count: number; importance_score: number;
+    signal_fan_in_zero: number; analyzed_at: string;
+    cyclomatic_complexity: number;
+  }[]): Promise<void> {
+    if (rows.length === 0) return;
+    const CHUNK = 500;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK);
+      const { error } = await this.ensureClient()
+        .from('trail_current_function_analysis')
+        .upsert(chunk.map((r) => ({ ...r })), { onConflict: 'repo_name,file_path,function_name,start_line' });
+      if (error) throw new Error(`Supabase upsert trail_current_function_analysis failed: ${error.message}`);
+    }
+  }
+
+  async unsafeClearReleaseFunctionAnalysis(): Promise<void> {
+    await this.ensureClient().from('trail_release_function_analysis').delete().gte('release_tag', '');
+  }
+
+  async upsertReleaseFunctionAnalysis(rows: readonly {
+    release_tag: string; repo_name: string; file_path: string; function_name: string; start_line: number;
+    end_line: number; language: string;
+    fan_in: number; cognitive_complexity: number; data_mutation_score: number;
+    side_effect_score: number; line_count: number; importance_score: number;
+    signal_fan_in_zero: number; analyzed_at: string;
+    cyclomatic_complexity: number;
+  }[]): Promise<void> {
+    if (rows.length === 0) return;
+    const CHUNK = 500;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK);
+      const { error } = await this.ensureClient()
+        .from('trail_release_function_analysis')
+        .upsert(chunk.map((r) => ({ ...r })), { onConflict: 'release_tag,repo_name,file_path,function_name,start_line' });
+      if (error) throw new Error(`Supabase upsert trail_release_function_analysis failed: ${error.message}`);
     }
   }
 

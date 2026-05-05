@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- SQLite direct access for read tools (`get_c4_model`, `list_elements`, `list_groups`, `list_relationships`, `list_communities`) so MCP clients work without the Anytime Trail sidebar running
+- Probe-based fallback for write tools: routes via TrailDataServer HTTP when alive, falls back to SQLite direct writes (WAL + exponential backoff retry) when not
+- Environment variables `TRAIL_DB_PATH`, `TRAIL_WORKSPACE_PATH`, `MCP_TRAIL_FORCE_DIRECT` for CI / headless usage
+- VS Code extension passes `TRAIL_WORKSPACE_PATH` to the bundled mcp-trail server for workspace-aware DB resolution
+
+### Changed
+
+- Analyze tools (`analyze_current_code`, `analyze_release_code`, `analyze_all`, `get_analyze_status`) still require TrailDataServer; emit explicit error when unavailable
+- Use `sql.js` 1.12.0 (already shipped via CopyWebpackPlugin to `dist/sql-asm.js` + `dist/sql-wasm.wasm`) instead of `better-sqlite3` to remain compatible with the `vsce package --no-dependencies` distribution model. Direct writes use file-level read-modify-write with `tmp + rename` for atomicity.
+
 ## [0.10.0] - 2026-05-04
 
 ### Added

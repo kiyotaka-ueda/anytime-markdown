@@ -72,6 +72,8 @@ export interface TrailSession {
   /** 自動 /compact によりキャッシュが再構築された回数 (前ターン >= 50K かつ現ターン <= 前ターン × 0.3) */
   readonly compactCount?: number;
   readonly source?: 'claude_code' | 'codex';
+  /** sessions.file_path から導出したワークスペースパス（例: '/anytime-lab'）。worktree は親に集約。 */
+  readonly workspace?: string;
 }
 
 export interface TrailSessionCommit {
@@ -83,6 +85,9 @@ export interface TrailSessionCommit {
   readonly filesChanged: number;
   readonly linesAdded: number;
   readonly linesDeleted: number;
+  /** 取得元 git repo の basename。multi-repo 監視で commit を区別するために用いる。
+   *  バックフィル前の古い row は空文字 '' のまま、表示側で legacy 扱いする。 */
+  readonly repoName: string;
 }
 
 export interface ToolUsageEntry {
