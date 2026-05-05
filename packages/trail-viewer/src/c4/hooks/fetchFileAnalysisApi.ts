@@ -1,0 +1,49 @@
+import type { ImportanceMatrix } from '@anytime-markdown/trail-core/c4';
+
+export interface DeadCodeSignalsApi {
+  readonly orphan: boolean;
+  readonly fanInZero: boolean;
+  readonly noRecentChurn: boolean;
+  readonly zeroCoverage: boolean;
+  readonly isolatedCommunity: boolean;
+}
+
+export interface FileAnalysisApiEntry {
+  readonly filePath: string;
+  readonly importanceScore: number;
+  readonly fanInTotal: number;
+  readonly cognitiveComplexityMax: number;
+  readonly functionCount: number;
+  readonly deadCodeScore: number;
+  readonly signals: DeadCodeSignalsApi;
+  readonly isIgnored: boolean;
+  readonly ignoreReason: string;
+}
+
+export interface FileAnalysisApiResponse {
+  readonly entries: readonly FileAnalysisApiEntry[];
+  readonly elementMatrix: {
+    readonly importance: ImportanceMatrix;
+    readonly deadCodeScore: Record<string, number>;
+  };
+}
+
+export function buildFileAnalysisUrl(serverUrl: string, repo: string, tag: string): string {
+  const qs = new URLSearchParams({ repo, tag });
+  return `${serverUrl}/api/c4/file-analysis?${qs.toString()}`;
+}
+
+export async function fetchFileAnalysis(
+  serverUrl: string,
+  repo: string,
+  tag: string,
+  signal?: AbortSignal,
+): Promise<FileAnalysisApiResponse | null> {
+  if (!repo) return null;
+  const res = await fetch(buildFileAnalysisUrl(serverUrl, repo, tag), { signal });
+  if (!res.ok) {
+    if (res.status === 404 || res.status === 400) return null;
+    throw new Error(`file-analysis request failed: ${res.status} ${res.statusText}`);
+  }
+  return (await res.json()) as FileAnalysisApiResponse;
+}
