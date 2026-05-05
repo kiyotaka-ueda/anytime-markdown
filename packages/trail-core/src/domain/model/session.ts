@@ -72,6 +72,8 @@ export interface TrailSession {
   /** 自動 /compact によりキャッシュが再構築された回数 (前ターン >= 50K かつ現ターン <= 前ターン × 0.3) */
   readonly compactCount?: number;
   readonly source?: 'claude_code' | 'codex';
+  /** sessions.file_path から導出したワークスペースパス（例: '/anytime-lab'）。worktree は親に集約。 */
+  readonly workspace?: string;
 }
 
 export interface TrailSessionCommit {

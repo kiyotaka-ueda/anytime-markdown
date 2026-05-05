@@ -802,6 +802,7 @@ export class SupabaseTrailReader implements ITrailReader {
         : undefined,
       compactCount: r.compact_count && r.compact_count > 0 ? r.compact_count : undefined,
       source: r.source ?? undefined,
+      workspace: this.extractWorkspace(r.file_path ?? undefined),
       commitStats,
       usage: {
         inputTokens: totalInput,

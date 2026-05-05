@@ -149,4 +149,60 @@ describe('SupabaseTrailReader mapping', () => {
     expect(reader.extractWorkspace(null)).toBeUndefined();
   });
   });
+
+  it('file_path からワークスペースを導出して TrailSession にマッピングする', () => {
+    const reader = new SupabaseTrailReader('http://localhost:54321', 'anon-key') as any;
+    const session = reader.toTrailSession(
+      {
+        id: 's1',
+        slug: 'slug-1',
+        repo_name: 'anytime-markdown',
+        model: 'claude-sonnet-4-6',
+        version: '2.1.0',
+        start_time: '2026-05-05T00:00:00.000Z',
+        end_time: '2026-05-05T01:00:00.000Z',
+        message_count: 5,
+        peak_context_tokens: null,
+        initial_context_tokens: null,
+        interruption_reason: null,
+        interruption_context_tokens: null,
+        compact_count: null,
+        source: 'claude_code',
+        file_path: '/home/node/.claude/projects/-anytime-lab/session.jsonl',
+        trail_session_costs: [],
+      },
+      [],
+      undefined,
+      undefined,
+    );
+    expect(session.workspace).toBe('/anytime-lab');
+  });
+
+  it('worktree セッションは親ワークスペースにマッピングされる', () => {
+    const reader = new SupabaseTrailReader('http://localhost:54321', 'anon-key') as any;
+    const session = reader.toTrailSession(
+      {
+        id: 's2',
+        slug: 'slug-2',
+        repo_name: 'anytime-markdown',
+        model: 'claude-sonnet-4-6',
+        version: '2.1.0',
+        start_time: '2026-05-05T00:00:00.000Z',
+        end_time: '2026-05-05T01:00:00.000Z',
+        message_count: 3,
+        peak_context_tokens: null,
+        initial_context_tokens: null,
+        interruption_reason: null,
+        interruption_context_tokens: null,
+        compact_count: null,
+        source: 'claude_code',
+        file_path: '/home/node/.claude/projects/-anytime-markdown--worktrees-feature-xyz/s2.jsonl',
+        trail_session_costs: [],
+      },
+      [],
+      undefined,
+      undefined,
+    );
+    expect(session.workspace).toBe('/anytime-markdown');
+  });
 });
