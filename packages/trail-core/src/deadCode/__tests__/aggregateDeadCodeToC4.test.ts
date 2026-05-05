@@ -8,6 +8,8 @@ const row = (filePath: string, score: number, ignored = false): FileAnalysisRow 
   importanceScore: 0,
   fanInTotal: 0,
   cognitiveComplexityMax: 0,
+  lineCount: 0,
+  cyclomaticComplexityMax: 0,
   functionCount: 0,
   deadCodeScore: ignored ? 0 : score,  // ignored ファイルはスコア 0 で永続化される想定
   signals: {

@@ -52,11 +52,12 @@ export class ImportanceScorer {
   static computeMaxValues(metricsList: FunctionMetrics[]): FunctionMetrics {
     if (metricsList.length === 0) return { ...ZERO_METRICS };
     return {
-      fanIn:               Math.max(...metricsList.map(m => m.fanIn)),
-      cognitiveComplexity: Math.max(...metricsList.map(m => m.cognitiveComplexity)),
-      dataMutationScore:   Math.max(...metricsList.map(m => m.dataMutationScore)),
-      sideEffectScore:     Math.max(...metricsList.map(m => m.sideEffectScore)),
-      lineCount:           Math.max(...metricsList.map(m => m.lineCount)),
+      fanIn:                 Math.max(...metricsList.map(m => m.fanIn)),
+      cognitiveComplexity:   Math.max(...metricsList.map(m => m.cognitiveComplexity)),
+      cyclomaticComplexity:  Math.max(...metricsList.map(m => m.cyclomaticComplexity)),
+      dataMutationScore:     Math.max(...metricsList.map(m => m.dataMutationScore)),
+      sideEffectScore:       Math.max(...metricsList.map(m => m.sideEffectScore)),
+      lineCount:             Math.max(...metricsList.map(m => m.lineCount)),
     };
   }
 
