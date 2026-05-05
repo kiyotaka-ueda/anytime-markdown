@@ -45,13 +45,13 @@ const TREND_CHART_POPUP_MAX_WIDTH = 1000;
 const TREND_CHART_RESERVED_RIGHT_WIDTH =
   SELECTED_ELEMENT_DETAILS_WIDTH + SELECTED_ELEMENT_DETAILS_RIGHT_OFFSET + TREND_CHART_POPUP_GAP;
 
-type OverlayCategory = 'none' | 'coverage' | 'dsm' | 'complexity' | 'importance' | 'hotspot' | 'dead-code' | 'size' | 'fcmap';
+type OverlayCategory = 'none' | 'coverage' | 'dsm' | 'edit-complexity' | 'importance' | 'hotspot' | 'dead-code' | 'size' | 'fcmap';
 
 // fcmap はサブ項目が MetricOverlay ではなくフィーチャー ID のため除外
 const OVERLAY_CATEGORY_DEFAULTS: Record<Exclude<OverlayCategory, 'none' | 'fcmap'>, MetricOverlay> = {
   coverage: 'coverage-lines',
   dsm: 'dsm-out',
-  complexity: 'complexity-most',
+  'edit-complexity': 'edit-complexity-most',
   importance: 'importance',
   hotspot: 'hotspot-frequency',
   'dead-code': 'dead-code-score',
@@ -738,7 +738,7 @@ export function C4ViewerCore({
     // 空 entries / 空 nodes も「データなし」として扱う（サーバーが空マトリクスを返すケースに備える）
     if (overlayCategory === 'coverage') return !!coverageMatrix && coverageMatrix.entries.length > 0;
     if (overlayCategory === 'dsm') return !!filteredDsmMatrix && filteredDsmMatrix.nodes.length > 0;
-    if (overlayCategory === 'complexity') return !!complexityMatrix && complexityMatrix.entries.length > 0;
+    if (overlayCategory === 'edit-complexity') return !!complexityMatrix && complexityMatrix.entries.length > 0;
     if (overlayCategory === 'importance') return hasImportanceData;
     if (overlayCategory === 'hotspot') {
       if (!hotspotResponse) return true;
@@ -1501,7 +1501,7 @@ export function C4ViewerCore({
                       <MenuItem value="none" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.none')}</MenuItem>
                       <MenuItem value="coverage" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupCoverage')}</MenuItem>
                       <MenuItem value="dsm" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupDsm')}</MenuItem>
-                      <MenuItem value="complexity" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupComplexity')}</MenuItem>
+                      <MenuItem value="edit-complexity" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupEditComplexity')}</MenuItem>
                       <MenuItem value="importance" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupImportance')}</MenuItem>
                       <MenuItem value="hotspot" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupHotspot')}</MenuItem>
                       <MenuItem value="dead-code" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupDeadCode')}</MenuItem>
@@ -1542,9 +1542,9 @@ export function C4ViewerCore({
                           <MenuItem key="in" value="dsm-in" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmIn')}</MenuItem>,
                           <MenuItem key="cyclic" value="dsm-cyclic" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmCyclic')}</MenuItem>,
                         ]}
-                        {overlayCategory === 'complexity' && isCategoryDataAvailable && [
-                          <MenuItem key="most" value="complexity-most" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.complexityMost')}</MenuItem>,
-                          <MenuItem key="highest" value="complexity-highest" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.complexityHighest')}</MenuItem>,
+                        {overlayCategory === 'edit-complexity' && isCategoryDataAvailable && [
+                          <MenuItem key="most" value="edit-complexity-most" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.editComplexityMost')}</MenuItem>,
+                          <MenuItem key="highest" value="edit-complexity-highest" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.editComplexityHighest')}</MenuItem>,
                         ]}
                         {overlayCategory === 'importance' && [
                           <MenuItem key="importance" value="importance" disabled={!importanceMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.importance')}</MenuItem>,

@@ -66,7 +66,7 @@ export function OverlayLegend({ overlay, isDark, dsmMax, communityLegend, commun
         <Swatch color="#2e7d32" label="ok" />
       </>
     );
-  } else if (overlay === 'complexity-most' || overlay === 'complexity-highest') {
+  } else if (overlay === 'edit-complexity-most' || overlay === 'edit-complexity-highest') {
     metricItems = (
       <>
         <Swatch color="#c62828" label="high" />
