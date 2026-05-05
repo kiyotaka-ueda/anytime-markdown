@@ -973,6 +973,22 @@ export function C4ViewerCore({
     return map.size > 0 ? map : null;
   }, [communityOverlay]);
 
+  // community ON 時に各ノードへ P/S/D バッジラベルをマップする
+  const communityRoleBadgeMap = useMemo<ReadonlyMap<string, string> | null>(() => {
+    if (!communityOverlay || !featureMatrix) return null;
+    const map = new Map<string, string>();
+    for (const [elementId, entry] of communityOverlay) {
+      const featureId = `f_community_${entry.dominantCommunity}`;
+      const role = featureMatrix.mappings.find(
+        m => m.featureId === featureId && m.elementId === elementId,
+      )?.role ?? null;
+      if (role) {
+        map.set(elementId, COMMUNITY_ROLE_LABELS[role as keyof typeof COMMUNITY_ROLE_LABELS] ?? role);
+      }
+    }
+    return map.size > 0 ? map : null;
+  }, [communityOverlay, featureMatrix]);
+
   const communityLegend = useMemo<readonly CommunityLegendItem[] | null>(() => {
     if (!communityOverlay || !codeGraph) return null;
     const seen = new Set<number>();
@@ -1289,6 +1305,7 @@ export function C4ViewerCore({
                 overlayMap={effectiveOverlayMap.size > 0 ? effectiveOverlayMap : null}
                 claudeActivityMap={claudeActivityMapWithConflicts}
                 communityMap={communityMap}
+                communityRoleBadgeMap={communityRoleBadgeMap}
                 ghostEdges={
                   tcValue.enabled && (currentLevel === 3 || currentLevel === 4)
                     ? ghostEdges.map((e) => ({
