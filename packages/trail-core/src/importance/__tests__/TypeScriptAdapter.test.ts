@@ -119,27 +119,25 @@ describe('TypeScriptAdapter.fromTsConfig', () => {
 
 describe('TypeScriptAdapter.computeMetrics: cyclomaticComplexity', () => {
   let adapter: TypeScriptAdapter;
+  let functions: ReturnType<TypeScriptAdapter['extractFunctions']>;
 
   beforeAll(() => {
     const fixtureFile = path.join(FIXTURE_DIR, 'mutations.ts');
     adapter = new TypeScriptAdapter([fixtureFile]);
+    functions = adapter.extractFunctions([fixtureFile]);
   });
 
   it('singleBranch (if x1) has cyclomaticComplexity === 2', () => {
-    const fixtureFile = path.join(FIXTURE_DIR, 'mutations.ts');
-    const functions = adapter.extractFunctions([fixtureFile]);
-    const fn = functions.find(f => f.name === 'singleBranch')!;
-    expect(fn).toBeDefined();
+    const fn = functions.find(f => f.name === 'singleBranch');
+    if (!fn) throw new Error('singleBranch not found in fixture');
     const metrics = adapter.computeMetrics(fn);
     expect(metrics.cyclomaticComplexity).toBe(2);
   });
 
-  it('nestedBranch (nested if) has cyclomaticComplexity >= 3', () => {
-    const fixtureFile = path.join(FIXTURE_DIR, 'mutations.ts');
-    const functions = adapter.extractFunctions([fixtureFile]);
-    const fn = functions.find(f => f.name === 'nestedBranch')!;
-    expect(fn).toBeDefined();
+  it('nestedBranch (nested if x2) has cyclomaticComplexity === 3', () => {
+    const fn = functions.find(f => f.name === 'nestedBranch');
+    if (!fn) throw new Error('nestedBranch not found in fixture');
     const metrics = adapter.computeMetrics(fn);
-    expect(metrics.cyclomaticComplexity).toBeGreaterThanOrEqual(3);
+    expect(metrics.cyclomaticComplexity).toBe(3);
   });
 });

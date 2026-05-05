@@ -13,6 +13,7 @@ export const DEFAULT_WEIGHTS: ImportanceScorerWeights = {
   lineCount:           0.10,
 };
 
+// cyclomaticComplexity は重みに未追加（AST メトリクス保存フェーズでは除外、別途追加予定）
 const ZERO_METRICS: FunctionMetrics = {
   fanIn: 0,
   cognitiveComplexity: 0,

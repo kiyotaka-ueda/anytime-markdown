@@ -26,7 +26,7 @@ export function withSideEffects(): void {
   console.warn('warn');
 }
 
-/** if 1つ（cyclomaticComplexity === 2 期待） */
+/** if が1つある関数 */
 export function singleBranch(x: number): number {
   if (x > 0) {
     return x;
@@ -34,7 +34,7 @@ export function singleBranch(x: number): number {
   return 0;
 }
 
-/** ネストした if（cyclomaticComplexity >= 3 期待） */
+/** ネストした if が2つある関数 */
 export function nestedBranch(x: number, y: number): number {
   if (x > 0) {
     if (y > 0) {
