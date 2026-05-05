@@ -49,4 +49,28 @@ describe('aggregateScoresToC4', () => {
     const r = aggregateScoresToC4({ 'packages/a/foo.ts': 70 }, []);
     expect(r).toEqual({});
   });
+
+  it('既定では親要素 (container) にも伝播する', () => {
+    const hierarchy: readonly C4Element[] = [
+      { id: 'pkg_a', type: 'container', name: 'a' },
+      { id: 'comp_x', type: 'component', name: 'x', boundaryId: 'pkg_a' },
+      { id: 'file::packages/a/foo.ts', type: 'code', name: 'foo.ts', boundaryId: 'comp_x' },
+    ];
+    const r = aggregateScoresToC4({ 'packages/a/foo.ts': 80 }, hierarchy);
+    expect(r['file::packages/a/foo.ts']).toBe(80);
+    expect(r['comp_x']).toBe(80);
+    expect(r['pkg_a']).toBe(80);
+  });
+
+  it('leafOnly=true で leaf のみ着色 (親要素には伝播しない)', () => {
+    const hierarchy: readonly C4Element[] = [
+      { id: 'pkg_a', type: 'container', name: 'a' },
+      { id: 'comp_x', type: 'component', name: 'x', boundaryId: 'pkg_a' },
+      { id: 'file::packages/a/foo.ts', type: 'code', name: 'foo.ts', boundaryId: 'comp_x' },
+    ];
+    const r = aggregateScoresToC4({ 'packages/a/foo.ts': 80 }, hierarchy, { leafOnly: true });
+    expect(r['file::packages/a/foo.ts']).toBe(80);
+    expect(r['comp_x']).toBeUndefined();
+    expect(r['pkg_a']).toBeUndefined();
+  });
 });
