@@ -117,13 +117,6 @@ export const CREATE_MESSAGE_COMMITS = `CREATE TABLE IF NOT EXISTS message_commit
   PRIMARY KEY (message_uuid, commit_hash)
 )`;
 
-export const CREATE_IMPORTED_FILES = `CREATE TABLE IF NOT EXISTS imported_files (
-  file_path TEXT PRIMARY KEY,
-  file_size INTEGER NOT NULL DEFAULT 0,
-  session_id TEXT NOT NULL DEFAULT '',
-  imported_at TEXT NOT NULL DEFAULT ''
-)`;
-
 export const CREATE_CURRENT_GRAPHS = `CREATE TABLE IF NOT EXISTS current_graphs (
   repo_name     TEXT PRIMARY KEY,
   commit_id     TEXT NOT NULL DEFAULT '',
@@ -185,14 +178,6 @@ export const CREATE_RELEASE_FILES = `CREATE TABLE IF NOT EXISTS release_files (
   lines_deleted INTEGER NOT NULL DEFAULT 0,
   change_type TEXT NOT NULL DEFAULT 'modified',
   PRIMARY KEY (release_tag, file_path)
-)`;
-
-export const CREATE_RELEASE_FEATURES = `CREATE TABLE IF NOT EXISTS release_features (
-  release_tag TEXT NOT NULL REFERENCES releases(tag) ON DELETE CASCADE,
-  feature_id TEXT NOT NULL,
-  feature_name TEXT NOT NULL DEFAULT '',
-  role TEXT NOT NULL DEFAULT '',
-  PRIMARY KEY (release_tag, feature_id)
 )`;
 
 export const CREATE_RELEASE_COVERAGE = `CREATE TABLE IF NOT EXISTS release_coverage (

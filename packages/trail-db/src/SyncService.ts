@@ -134,8 +134,6 @@ export class SyncService {
       for (const release of releases) {
         const files = this.trailDb.getReleaseFiles(release.tag);
         if (files.length > 0) await this.store.upsertReleaseFiles(files);
-        const features = this.trailDb.getReleaseFeatures(release.tag);
-        if (features.length > 0) await this.store.upsertReleaseFeatures(features);
       }
     } catch (e) {
       this.logger.error('Failed to sync releases', e);

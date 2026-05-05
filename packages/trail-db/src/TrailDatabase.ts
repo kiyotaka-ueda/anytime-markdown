@@ -10,7 +10,6 @@ import {
   CREATE_DAILY_COUNTS,
   CREATE_MESSAGES,
   CREATE_SESSION_COMMITS,
-  CREATE_IMPORTED_FILES,
   CREATE_CURRENT_GRAPHS,
   CREATE_RELEASE_GRAPHS,
   CREATE_SKILL_MODELS as CREATE_SKILL_MODELS_TABLE,
@@ -18,7 +17,6 @@ import {
   CREATE_INDEXES,
   CREATE_RELEASES,
   CREATE_RELEASE_FILES,
-  CREATE_RELEASE_FEATURES,
   CREATE_RELEASE_COVERAGE,
   CREATE_RELEASE_INDEXES,
   CREATE_CURRENT_COVERAGE,
@@ -65,8 +63,8 @@ import { JsonlSessionReader } from './JsonlSessionReader';
 import { ExecFileGitService } from './ExecFileGitService';
 import { type DbLogger, noopDbLogger } from './DbLogger';
 import { ClaudeCodeBehaviorAnalyzer } from './ClaudeCodeBehaviorAnalyzer';
-import type { ReleaseFileRow, ReleaseFeatureRow, ReleaseCoverageRow, ReleaseRow, CurrentCoverageRow } from '@anytime-markdown/trail-core';
-export type { ReleaseFileRow, ReleaseFeatureRow, ReleaseCoverageRow, ReleaseRow } from '@anytime-markdown/trail-core';
+import type { ReleaseFileRow, ReleaseCoverageRow, ReleaseRow, CurrentCoverageRow } from '@anytime-markdown/trail-core';
+export type { ReleaseFileRow, ReleaseCoverageRow, ReleaseRow } from '@anytime-markdown/trail-core';
 
 declare const __non_webpack_require__: (id: string) => unknown;
 
@@ -774,17 +772,18 @@ export class TrailDatabase {
     db.run(CREATE_SESSION_COMMITS);
     db.run(CREATE_RELEASES);
     db.run(CREATE_RELEASE_FILES);
-    db.run(CREATE_RELEASE_FEATURES);
     db.run(CREATE_RELEASE_COVERAGE);
     db.run(CREATE_CURRENT_COVERAGE);
     for (const idx of CREATE_CURRENT_COVERAGE_INDEXES) {
       db.run(idx);
     }
-    // 既存 DB に残った未使用 c4_models テーブルを除去（行 0 件のため安全）
-    try {
-      db.run('DROP TABLE IF EXISTS c4_models');
-    } catch (e) {
-      this.logger.warn(`failed to drop c4_models: ${e instanceof Error ? e.message : String(e)}`);
+    // 既存 DB に残った未使用テーブルを除去（行 0 件のため安全）
+    for (const orphan of ['c4_models', 'release_features']) {
+      try {
+        db.run(`DROP TABLE IF EXISTS ${orphan}`);
+      } catch (e) {
+        this.logger.warn(`failed to drop ${orphan}: ${e instanceof Error ? e.message : String(e)}`);
+      }
     }
     this.migrateCurrentGraphsSchema(db);
     db.run(CREATE_CURRENT_GRAPHS);
@@ -6160,20 +6159,6 @@ export class TrailDatabase {
       const obj: Record<string, unknown> = {};
       cols.forEach((col, i) => { obj[col] = row[i]; });
       return obj as unknown as ReleaseFileRow;
-    });
-  }
-
-  getReleaseFeatures(releaseTag: string): ReleaseFeatureRow[] {
-    const db = this.ensureDb();
-    const result = db.exec(
-      `SELECT * FROM release_features WHERE release_tag = '${releaseTag.replaceAll("'", "''")}'`,
-    );
-    if (!result[0]?.values) return [];
-    const cols = result[0].columns;
-    return result[0].values.map((row) => {
-      const obj: Record<string, unknown> = {};
-      cols.forEach((col, i) => { obj[col] = row[i]; });
-      return obj as unknown as ReleaseFeatureRow;
     });
   }
 

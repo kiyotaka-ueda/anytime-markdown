@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import type { SessionRow, MessageRow, SessionCommitRow, ReleaseFileRow, ReleaseFeatureRow, ReleaseRow } from './TrailDatabase';
+import type { SessionRow, MessageRow, SessionCommitRow, ReleaseFileRow, ReleaseRow } from './TrailDatabase';
 import type { IRemoteTrailStore } from './IRemoteTrailStore';
 
 export class PostgresTrailStore implements IRemoteTrailStore {
@@ -20,7 +20,7 @@ export class PostgresTrailStore implements IRemoteTrailStore {
 
   async unsafeClearAll(): Promise<void> {
     const pool = this.ensurePool();
-    // CASCADE により messages / session_commits / session_costs / release_files / release_features も消える
+    // CASCADE により messages / session_commits / session_costs / release_files も消える
     await pool.query('DELETE FROM trail_sessions');
     await pool.query('DELETE FROM trail_releases');
     await pool.query('DELETE FROM trail_daily_counts');
@@ -226,20 +226,6 @@ export class PostgresTrailStore implements IRemoteTrailStore {
           lines_added = EXCLUDED.lines_added, lines_deleted = EXCLUDED.lines_deleted,
           change_type = EXCLUDED.change_type`,
         [r.release_tag, r.file_path, r.lines_added, r.lines_deleted, r.change_type],
-      );
-    }
-  }
-
-  async upsertReleaseFeatures(rows: readonly ReleaseFeatureRow[]): Promise<void> {
-    if (rows.length === 0) return;
-    const pool = this.ensurePool();
-    for (const r of rows) {
-      await pool.query(
-        `INSERT INTO trail_release_features (release_tag, feature_id, feature_name, role)
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (release_tag, feature_id) DO UPDATE SET
-          feature_name = EXCLUDED.feature_name, role = EXCLUDED.role`,
-        [r.release_tag, r.feature_id, r.feature_name, r.role],
       );
     }
   }

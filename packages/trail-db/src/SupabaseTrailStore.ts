@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { SessionRow, MessageRow, SessionCommitRow, ReleaseFileRow, ReleaseFeatureRow, ReleaseRow } from './TrailDatabase';
+import type { SessionRow, MessageRow, SessionCommitRow, ReleaseFileRow, ReleaseRow } from './TrailDatabase';
 import type { IRemoteTrailStore } from './IRemoteTrailStore';
 import type { ManualElement, ManualRelationship } from '@anytime-markdown/trail-core';
 import { type DbLogger, noopDbLogger } from './DbLogger';
@@ -258,19 +258,6 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
         change_type: r.change_type,
       })), { onConflict: 'release_tag,file_path' });
     if (error) throw new Error(`Supabase upsert release_files failed: ${error.message}`);
-  }
-
-  async upsertReleaseFeatures(rows: readonly ReleaseFeatureRow[]): Promise<void> {
-    if (rows.length === 0) return;
-    const { error } = await this.ensureClient()
-      .from('trail_release_features')
-      .upsert(rows.map((r) => ({
-        release_tag: r.release_tag,
-        feature_id: r.feature_id,
-        feature_name: r.feature_name,
-        role: r.role,
-      })), { onConflict: 'release_tag,feature_id' });
-    if (error) throw new Error(`Supabase upsert release_features failed: ${error.message}`);
   }
 
   /**
