@@ -1488,21 +1488,24 @@ export function C4ViewerCore({
                         </IconButton>
                       </span>
                     </Tooltip>
+                    {/* Clear Edit History */}
+                    <Tooltip title={t('c4.claudeActivity.reset')}>
+                      <span>
+                        <IconButton
+                          size="small"
+                          disabled={
+                            !(claudeActivity && (claudeActivity.activeElementIds.length > 0 || claudeActivity.touchedElementIds.length > 0 || claudeActivity.plannedElementIds.length > 0)) &&
+                            !(multiAgentActivity && multiAgentActivity.agents.length > 0)
+                          }
+                          onClick={onResetClaudeActivity}
+                          aria-label={t('c4.claudeActivity.reset')}
+                          sx={toolbarButtonSx}
+                        >
+                          <DeleteSweepIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
                   </Box>
-                  {/* Clear Edit History */}
-                  <Button
-                    size="small"
-                    fullWidth
-                    startIcon={<DeleteSweepIcon sx={{ fontSize: 16 }} />}
-                    disabled={
-                      !(claudeActivity && (claudeActivity.activeElementIds.length > 0 || claudeActivity.touchedElementIds.length > 0 || claudeActivity.plannedElementIds.length > 0)) &&
-                      !(multiAgentActivity && multiAgentActivity.agents.length > 0)
-                    }
-                    onClick={onResetClaudeActivity}
-                    sx={{ ...toolbarButtonSx, fontSize: '0.75rem', justifyContent: 'flex-start' }}
-                  >
-                    {t('c4.claudeActivity.reset')}
-                  </Button>
                   {/* Overlay ドロップダウン */}
                   <Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.5, mb: 0.5 }}>
