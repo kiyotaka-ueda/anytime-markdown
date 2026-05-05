@@ -20,6 +20,7 @@ import { useMemo, useState } from 'react';
 import { useTrailI18n } from '../../i18n/context';
 import type { ActivityTrendResponse } from '../hooks/fetchActivityTrendApi';
 import { useActivityTrend } from '../hooks/useActivityTrend';
+import { ACTIVITY_TREND_COLORS } from '../c4MetricColors';
 
 const PERIOD_OPTIONS: ReadonlyArray<Exclude<TrendPeriod, 'all'>> = ['7d', '30d', '90d'];
 
@@ -28,19 +29,6 @@ function formatTrendDate(date: string): string {
   if (Number.isNaN(parsed.getTime())) return date;
   return new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric' }).format(parsed);
 }
-
-const ACTIVITY_TREND_PALETTE_DARK = {
-  commit: '#E8A012',
-  read: '#7AB8FF',
-  write: '#76C893',
-  defect: '#FF8A80',
-} as const;
-const ACTIVITY_TREND_PALETTE_LIGHT = {
-  commit: '#3D4A52',
-  read: '#1565C0',
-  write: '#2E7D32',
-  defect: '#C62828',
-} as const;
 
 type ActivityTrendSeries = {
   readonly xs: readonly string[];
@@ -166,7 +154,7 @@ export function ActivityTrendChart({
     repoName,
   });
 
-  const palette = isDark ? ACTIVITY_TREND_PALETTE_DARK : ACTIVITY_TREND_PALETTE_LIGHT;
+  const palette = isDark ? ACTIVITY_TREND_COLORS.dark : ACTIVITY_TREND_COLORS.light;
 
   const chartProps = useMemo(() => {
     return buildActivityTrendSeries(

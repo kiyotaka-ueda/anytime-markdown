@@ -9,19 +9,10 @@ import Typography from '@mui/material/Typography';
 import { useMemo, useState } from 'react';
 
 import { getDsmCellBackground, getC4Colors } from '../c4Theme';
+import { getCoverageColor } from '../c4MetricColors';
 import { useCodeGraph } from '../../hooks/useCodeGraph';
 import { useHotspot } from '../hooks/useHotspot';
 import { communityColor } from '../../components/communityColors';
-
-// ---------------------------------------------------------------------------
-// Coverage heat color (mirrors computeColorMap.ts logic)
-// ---------------------------------------------------------------------------
-
-function coverageHeatColor(pct: number): string {
-  if (pct >= 80) return '#2e7d32';
-  if (pct >= 50) return '#f9a825';
-  return '#c62828';
-}
 
 // ---------------------------------------------------------------------------
 // Package group helpers
@@ -345,7 +336,7 @@ export function MatrixPanel({
       if (col > 2) return undefined; // Lines%/Branches%/Functions% のみ色付け
       const pct = Number.parseFloat(value);
       if (Number.isNaN(pct)) return undefined;
-      return coverageHeatColor(pct) + '55';
+      return getCoverageColor(pct) + '55';
     };
   }, [coverageMatrix]);
 

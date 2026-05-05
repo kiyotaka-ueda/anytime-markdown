@@ -47,6 +47,7 @@ import type { QualityMetrics, DateRange, ReleaseQualityBucket } from '@anytime-m
 import type { AnalyticsData, CombinedData, CombinedPeriodMode, CombinedRangeDays, CostOptimizationData, ToolMetrics, TrailMessage, TrailSession, TrailSessionCommit, TrailTokenUsage, TrailToolCall } from '../parser/types';
 import { useTrailTheme } from './TrailThemeContext';
 import { useTrailI18n } from '../i18n';
+import { toolActionColors, modelColors, analyticsPalette, releaseColors, LEAD_TIME_LOC_COLOR } from '../theme/designTokens';
 
 export interface AnalyticsPanelProps {
   readonly analytics: AnalyticsData | null;
@@ -238,7 +239,7 @@ function OverviewCards({
   sessions?: readonly TrailSession[];
   qualityMetrics?: QualityMetrics | null;
 }>) {
-  const { colors, cardSx } = useTrailTheme();
+  const { colors, cardSx, doraColors } = useTrailTheme();
   const { t } = useTrailI18n();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -312,12 +313,7 @@ function OverviewCards({
     aiFirstTrySuccessRate: 'metrics.aiFirstTrySuccessRate.description',
     changeFailureRate: 'metrics.changeFailureRate.description',
   };
-  const LEVEL_COLORS: Record<string, string> = {
-    elite: isDark ? '#42A5F5' : '#1976D2',
-    high: isDark ? '#66BB6A' : '#2E7D32',
-    medium: isDark ? '#FFA726' : '#ED6C02',
-    low: isDark ? '#F44336' : '#D32F2F',
-  };
+  const LEVEL_COLORS = doraColors as unknown as Readonly<Record<string, string>>;
   const LEVEL_LABELS: Record<string, string> = {
     elite: 'Elite', high: 'High', medium: 'Medium', low: 'Low',
   };
@@ -581,8 +577,12 @@ const LANE_TOOL_CATS = ['bash', 'edit', 'write', 'read', 'task', 'other'] as con
 type LaneTool = (typeof LANE_TOOL_CATS)[number];
 
 const LANE_TOOL_COLORS: Record<LaneTool, string> = {
-  bash: '#4CAF50', edit: '#2196F3', write: '#9C27B0',
-  read: '#757575', task: '#FFB300', other: '#FF9800',
+  bash:  toolActionColors.bash,
+  edit:  toolActionColors.edit,
+  write: toolActionColors.write,
+  read:  toolActionColors.read,
+  task:  toolActionColors.task,
+  other: toolActionColors.other,
 };
 const LANE_TOOL_LABELS: Record<LaneTool, string> = {
   bash: 'Bash', edit: 'Edit', write: 'Write', read: 'Read', task: 'Task', other: 'Other',
@@ -598,20 +598,16 @@ function laneClassifyTool(name: string): LaneTool {
 }
 
 function laneModelColor(model: string): string {
-  if (model.includes('opus')) return '#7C4DFF';
-  if (model.includes('sonnet')) return '#42A5F5';
-  if (model.includes('haiku')) return '#66BB6A';
-  return '#90A4AE';
+  if (model.includes('opus')) return modelColors.opus;
+  if (model.includes('sonnet')) return modelColors.sonnet;
+  if (model.includes('haiku')) return modelColors.haiku;
+  return modelColors.unknown;
 }
-
-const SKILL_COLOR_PALETTE = [
-  '#EC4899', '#14B8A6', '#F59E0B', '#8b5cf6', '#EF4444', '#10B981', '#3B82F6', '#F97316',
-];
 
 function laneSkillColor(skill: string): string {
   let hash = 0;
   for (let i = 0; i < skill.length; i++) hash = ((hash * 31) + skill.charCodeAt(i)) & 0xFFFFFF;
-  return SKILL_COLOR_PALETTE[Math.abs(hash) % SKILL_COLOR_PALETTE.length];
+  return analyticsPalette[Math.abs(hash) % analyticsPalette.length];
 }
 
 function mergeRuns<T>(values: readonly T[]): Array<{ value: T; start: number; end: number }> {
@@ -2726,7 +2722,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
         type: 'line' as const,
         dataKey: 'leadTimePerLoc',
         label: 'Lead Time / LOC (min/LOC)',
-        color: '#F06292',
+        color: LEAD_TIME_LOC_COLOR,
         yAxisId: 'ratioAxis',
         showMark: true,
         connectNulls: true,
@@ -2805,7 +2801,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
       type: 'line' as const,
       dataKey: 'rate',
       label: 'AI 1 発成功率 (%)',
-      color: '#F06292',
+      color: LEAD_TIME_LOC_COLOR,
       yAxisId: 'rateAxis',
       showMark: true,
       connectNulls: true,
@@ -2903,8 +2899,8 @@ function ReleasesBarChart({ timeSeries }: Readonly<{
         dataset={dataset}
         xAxis={[{ scaleType: 'band', dataKey: 'label' }]}
         series={[
-          { dataKey: 'succeeded', label: t('analytics.combined.releaseSucceeded'), color: '#4CAF50', stack: 'releases' },
-          { dataKey: 'failed', label: t('analytics.combined.releaseFailed'), color: '#f44336', stack: 'releases' },
+          { dataKey: 'succeeded', label: t('analytics.combined.releaseSucceeded'), color: releaseColors.succeeded, stack: 'releases' },
+          { dataKey: 'failed', label: t('analytics.combined.releaseFailed'), color: releaseColors.failed, stack: 'releases' },
         ]}
         height={240}
         margin={{ left: 16, right: 8, top: 8, bottom: 40 }}

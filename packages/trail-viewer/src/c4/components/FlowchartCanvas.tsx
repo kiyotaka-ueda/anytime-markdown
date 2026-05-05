@@ -95,15 +95,16 @@ function layoutNodes(graph: FlowGraph): Map<string, Pos> {
 }
 
 function getNodeColor(kind: FlowNode['kind'], isDark: boolean): string {
+  const colors = getC4Colors(isDark);
   const palette: Record<FlowNode['kind'], string> = {
-    start: isDark ? '#2e7d32' : '#66bb6a',
-    end: isDark ? '#b71c1c' : '#ef5350',
-    process: isDark ? '#1565c0' : '#42a5f5',
-    decision: isDark ? '#e65100' : '#ffa726',
-    loop: isDark ? '#4a148c' : '#ab47bc',
-    call: isDark ? '#00695c' : '#26a69a',
-    return: isDark ? '#37474f' : '#90a4ae',
-    error: isDark ? '#c62828' : '#ef9a9a',
+    start:    colors.flowchartStart,
+    end:      colors.flowchartEnd,
+    process:  colors.flowchartProcess,
+    decision: colors.flowchartDecision,
+    loop:     colors.flowchartLoop,
+    call:     colors.flowchartCall,
+    return:   colors.flowchartReturn,
+    error:    colors.flowchartError,
   };
   return palette[kind];
 }

@@ -1,6 +1,7 @@
 import type { C4Model, C4Element, CoverageDiffMatrix, CoverageMatrix, CoverageEntry } from '@anytime-markdown/trail-core/c4';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getC4Colors } from '../c4Theme';
+import { COVERAGE_HIGH, COVERAGE_LOW, COVERAGE_MID, COVERAGE_NONE, DELTA_NEGATIVE, DELTA_POSITIVE, getCoverageTextColor } from '../c4MetricColors';
 
 interface CoverageCanvasProps {
   readonly coverageMatrix: CoverageMatrix;
@@ -20,11 +21,6 @@ const PAN_STEP = 20;
 
 const METRIC_COLUMNS = ['Lines', 'Branches', 'Functions'] as const;
 
-const COLOR_HIGH = '#2e7d32';
-const COLOR_MID = '#f9a825';
-const COLOR_LOW = '#c62828';
-const COLOR_NONE = '#616161';
-
 import { truncate, clampViewport as clampViewportBase } from '../canvasHelpers';
 
 function clampCoverageViewport(vp: { offsetX: number; offsetY: number; scale: number }) {
@@ -32,15 +28,9 @@ function clampCoverageViewport(vp: { offsetX: number; offsetY: number; scale: nu
 }
 
 function heatColor(pct: number): string {
-  if (pct >= 80) return COLOR_HIGH;
-  if (pct >= 50) return COLOR_MID;
-  return COLOR_LOW;
-}
-
-function textColorForBg(pct: number): string {
-  // Yellow background needs dark text for contrast
-  if (pct >= 50 && pct < 80) return '#1a1a1a';
-  return '#ffffff';
+  if (pct >= 80) return COVERAGE_HIGH;
+  if (pct >= 50) return COVERAGE_MID;
+  return COVERAGE_LOW;
 }
 
 /** Collect element IDs from model, flattening children recursively */
@@ -207,7 +197,7 @@ export function CoverageCanvas({
           const pct = hasCoverage ? metric.pct : -1;
 
           // Cell background
-          ctx!.fillStyle = hasCoverage ? heatColor(pct) : COLOR_NONE;
+          ctx!.fillStyle = hasCoverage ? heatColor(pct) : COVERAGE_NONE;
           ctx!.fillRect(x + 1, y + 1, CELL_W - 2, CELL_H - 2);
 
           // Base percentage label
@@ -223,16 +213,16 @@ export function CoverageCanvas({
               const d = diffEntry[metricKeys[c]].pctDelta;
               if (d > 0) {
                 deltaLabel = ` +${Math.round(d)}`;
-                deltaColor = '#4caf50';
+                deltaColor = DELTA_POSITIVE;
               } else if (d < 0) {
                 deltaLabel = ` ${Math.round(d)}`;
-                deltaColor = '#ef5350';
+                deltaColor = DELTA_NEGATIVE;
               }
             }
           }
 
           // Draw base label
-          ctx!.fillStyle = hasCoverage ? textColorForBg(pct) : colors.textSecondary;
+          ctx!.fillStyle = hasCoverage ? getCoverageTextColor(pct) : colors.textSecondary;
           if (deltaLabel) {
             // Shift base label left to make room for delta
             ctx!.fillText(baseLabel, x + CELL_W / 2 - 8, y + CELL_H / 2);
@@ -310,9 +300,9 @@ export function CoverageCanvas({
       ctx!.textAlign = 'left';
       ctx!.textBaseline = 'middle';
       const legendItems = [
-        { label: '\u2265 80%', color: COLOR_HIGH },
-        { label: '50-80%', color: COLOR_MID },
-        { label: '< 50%', color: COLOR_LOW },
+        { label: '\u2265 80%', color: COVERAGE_HIGH },
+        { label: '50-80%', color: COVERAGE_MID },
+        { label: '< 50%', color: COVERAGE_LOW },
       ];
       for (let i = 0; i < legendItems.length; i++) {
         const lx = 8 + i * 60;
