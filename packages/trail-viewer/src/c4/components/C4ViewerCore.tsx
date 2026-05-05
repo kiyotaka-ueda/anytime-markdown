@@ -1892,13 +1892,9 @@ export function C4ViewerCore({
                         m => m.featureId === featureId && m.elementId === elementId,
                       )?.role ?? null;
                     };
-                    const roleBgColors = getCommunityRoleBgColors(colors.accent, isDark);
+                    const roleBgColors = getCommunityRoleBgColors();
                     const roleBgColor = (role: string) =>
                       roleBgColors[role as keyof typeof roleBgColors] ?? roleBgColors.dependency;
-                    const roleTextColor = (role: string) =>
-                      role === 'dependency'
-                        ? colors.textSecondary
-                        : isDark ? colors.bg : '#fff';
                     const roleLabel = (role: string) =>
                       COMMUNITY_ROLE_LABELS[role as keyof typeof COMMUNITY_ROLE_LABELS] ?? role;
                     const dominantRole = getRoleForCommunity(community.dominantCommunity);
@@ -1925,7 +1921,7 @@ export function C4ViewerCore({
                             {displayName}
                           </Typography>
                           {dominantRole && (
-                            <Typography variant="caption" sx={{ display: 'inline-block', px: 0.5, py: 0.125, borderRadius: '4px', bgcolor: roleBgColor(dominantRole), color: roleTextColor(dominantRole), fontSize: '0.6rem', fontWeight: 700 }}>
+                            <Typography variant="caption" sx={{ display: 'inline-block', px: 0.5, py: 0.125, borderRadius: '4px', bgcolor: roleBgColor(dominantRole), color: '#fff', fontSize: '0.6rem', fontWeight: 700 }}>
                               {roleLabel(dominantRole)}
                             </Typography>
                           )}
@@ -1973,7 +1969,7 @@ export function C4ViewerCore({
                                       <Box sx={{ width: `${(entry.count / totalCount) * 100}%`, height: '100%', bgcolor: communityColor(entry.community) }} />
                                     </Box>
                                     {entryRole && (
-                                      <Typography variant="caption" sx={{ px: 0.4, py: 0.1, borderRadius: '3px', bgcolor: roleBgColor(entryRole), color: roleTextColor(entryRole), fontSize: '0.58rem', fontWeight: 700, lineHeight: 1.2 }}>
+                                      <Typography variant="caption" sx={{ px: 0.4, py: 0.1, borderRadius: '3px', bgcolor: roleBgColor(entryRole), color: '#fff', fontSize: '0.58rem', fontWeight: 700, lineHeight: 1.2 }}>
                                         {roleLabel(entryRole)}
                                       </Typography>
                                     )}

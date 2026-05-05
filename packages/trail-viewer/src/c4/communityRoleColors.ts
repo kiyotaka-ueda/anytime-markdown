@@ -1,7 +1,12 @@
 /** Community ロール（Primary / Secondary / Dependency）の色・ラベル定義。
- *  FcMapCanvas の凡例・C4ViewerCore のバッジで共通利用する。 */
+ *  OverlayLegend の fcmap 凡例・FcMapCanvas・C4ViewerCore のバッジで共通利用する。 */
 
-export const COMMUNITY_ROLE_SECONDARY_COLOR = '#66BB6A';
+/** ロール別の固定背景色（OverlayLegend の fcmap 凡例と一致させる） */
+export const COMMUNITY_ROLE_COLORS: Readonly<Record<'primary' | 'secondary' | 'dependency', string>> = {
+  primary: '#e53935',
+  secondary: '#1e88e5',
+  dependency: '#fb8c00',
+};
 
 /** ロール略称ラベル（P / S / D） */
 export const COMMUNITY_ROLE_LABELS: Readonly<Record<'primary' | 'secondary' | 'dependency', string>> = {
@@ -10,14 +15,7 @@ export const COMMUNITY_ROLE_LABELS: Readonly<Record<'primary' | 'secondary' | 'd
   dependency: 'D',
 };
 
-/** 背景色マップを返す。`accent` は theme 由来で渡す。 */
-export function getCommunityRoleBgColors(
-  accent: string,
-  isDark: boolean,
-): Readonly<Record<'primary' | 'secondary' | 'dependency', string>> {
-  return {
-    primary: accent,
-    secondary: COMMUNITY_ROLE_SECONDARY_COLOR,
-    dependency: isDark ? 'rgba(255,255,255,0.20)' : 'rgba(0,0,0,0.10)',
-  };
+/** ロール別の背景色マップを返す（後方互換エイリアス）。 */
+export function getCommunityRoleBgColors(): Readonly<Record<'primary' | 'secondary' | 'dependency', string>> {
+  return COMMUNITY_ROLE_COLORS;
 }

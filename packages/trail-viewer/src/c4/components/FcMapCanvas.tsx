@@ -77,10 +77,7 @@ function buildGrid(fm: FeatureMatrix, model: C4Model, excluded?: ReadonlySet<str
 
 export function FcMapCanvas({ featureMatrix, model, excludedElementIds, level, isDark }: Readonly<FcMapCanvasProps>) {
   const colors = useMemo(() => getC4Colors(isDark ?? true), [isDark]);
-  const roleColors = useMemo(
-    () => getCommunityRoleBgColors(colors.accent, isDark ?? true),
-    [colors.accent, isDark],
-  );
+  const roleColors = getCommunityRoleBgColors();
   const dependencyColor = roleColors.dependency;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
