@@ -828,9 +828,20 @@ export function C4ViewerCore({
     return filtered;
   }, [hotspotMap, c4Model, elementTypeById, levelTargetType]);
 
+  // dead-code-score も importance と同じく現在表示レベルの要素タイプにのみ
+  // 着色する（boundary フレームに色が伝播するのを防ぐ）
+  const levelFilteredDeadCodeMatrix = useMemo<Record<string, number> | null>(() => {
+    if (!deadCodeMatrix || !c4Model) return deadCodeMatrix ?? null;
+    const filtered: Record<string, number> = {};
+    for (const [id, score] of Object.entries(deadCodeMatrix)) {
+      if (elementTypeById.get(id) === levelTargetType) filtered[id] = score;
+    }
+    return filtered;
+  }, [deadCodeMatrix, c4Model, elementTypeById, levelTargetType]);
+
   const overlayMap = useMemo(
-    () => computeColorMap(metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap, deadCodeMatrix ?? null),
-    [metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap, deadCodeMatrix],
+    () => computeColorMap(metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap, levelFilteredDeadCodeMatrix),
+    [metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap, levelFilteredDeadCodeMatrix],
   );
 
   // F-cMap overlay: 選択フィーチャーの P/S/D ロールをノード色として返す

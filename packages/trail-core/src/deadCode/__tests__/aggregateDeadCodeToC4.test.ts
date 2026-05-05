@@ -55,18 +55,15 @@ describe('aggregateDeadCodeToC4', () => {
     expect(m.has('sys_root')).toBe(false);
   });
 
-  it('leaf のみ着色: file 要素から親 container/component に伝播しない', () => {
-    // file (code 要素) → 親 component → 親 container の階層
+  it('boundaryId チェーンに沿って親要素にも伝播する (viewer 側で level 絞込前提)', () => {
     const hierarchy: readonly C4Element[] = [
       { id: 'pkg_a', type: 'container', name: 'a' },
       { id: 'comp_x', type: 'component', name: 'x', boundaryId: 'pkg_a' },
       { id: 'file::packages/a/foo.ts', type: 'code', name: 'foo.ts', boundaryId: 'comp_x' },
     ];
     const m = aggregateDeadCodeToC4([row('packages/a/foo.ts', 80)], hierarchy);
-    // leaf (code 要素) のみ着色される
     expect(m.get('file::packages/a/foo.ts')).toBe(80);
-    // 親要素には伝播しない
-    expect(m.has('comp_x')).toBe(false);
-    expect(m.has('pkg_a')).toBe(false);
+    expect(m.get('comp_x')).toBe(80);
+    expect(m.get('pkg_a')).toBe(80);
   });
 });

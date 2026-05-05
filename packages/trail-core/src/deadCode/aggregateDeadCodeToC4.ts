@@ -3,12 +3,12 @@ import { mapFilesToC4Elements } from '../domain/engine/c4Mapper';
 import type { FileAnalysisRow } from './types';
 
 /**
- * ファイル単位の dead code score を C4 要素 (leaf) に max 集約する。
+ * ファイル単位の dead code score を C4 要素 (container/component) に max 集約する。
  * - is_ignored=1 のファイルは deadCodeScore が 0 で永続化されている前提なので
  *   このロジック内で特別扱い不要。
  * - system 要素は除外（境界フレームに色伝播させないため）。
- * - 親 container/component には伝播させず leaf のみを着色する
- *   （フレーム全体が色付けされる視覚ノイズを避けるため）。
+ * - 親 container/component への伝播は importance と同じく実施。フレーム着色は
+ *   viewer 側の levelTargetType フィルタで現在表示レベルだけを着色して防ぐ。
  *
  * @returns elementId → maxScore の Map。スコア 0 の要素は含めない。
  */
@@ -21,11 +21,10 @@ export function aggregateDeadCodeToC4(
   for (const r of rows) {
     if (r.deadCodeScore <= 0) continue;
     const mappings = mapFilesToC4Elements([r.filePath], mappable);
-    // leaf のみ採用 (boundaryId チェーンを辿った親には伝播させない)
-    const leaf = mappings[0];
-    if (!leaf) continue;
-    const cur = out.get(leaf.elementId) ?? 0;
-    if (r.deadCodeScore > cur) out.set(leaf.elementId, r.deadCodeScore);
+    for (const m of mappings) {
+      const cur = out.get(m.elementId) ?? 0;
+      if (r.deadCodeScore > cur) out.set(m.elementId, r.deadCodeScore);
+    }
   }
   return out;
 }

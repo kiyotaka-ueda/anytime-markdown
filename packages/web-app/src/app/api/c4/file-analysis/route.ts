@@ -93,8 +93,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         deadCodeMap[r.file_path] = r.dead_code_score;
       }
       importance = aggregateScoresToC4(importanceMap, elements);
-      // dead-code-score は leaf のみに付与し、親 container/component への色伝播を抑止する
-      deadCodeScore = aggregateScoresToC4(deadCodeMap, elements, { leafOnly: true });
+      // dead-code-score は importance と同じく親要素にも伝播させ、
+      // viewer 側で levelTargetType に応じてフィルタする（フレーム着色防止のため）
+      deadCodeScore = aggregateScoresToC4(deadCodeMap, elements);
     }
 
     return NextResponse.json(

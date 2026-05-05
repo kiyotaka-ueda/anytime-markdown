@@ -1708,8 +1708,9 @@ export class TrailDataServer {
         deadCodeFileScores[r.filePath] = r.deadCodeScore;
       }
       const importance = aggregateScoresToC4(importanceFileScores, elements);
-      // dead-code-score は leaf のみに付与し、親 container/component への色伝播を抑止する
-      const deadCode = aggregateScoresToC4(deadCodeFileScores, elements, { leafOnly: true });
+      // dead-code-score は importance と同じく親要素にも伝播させ、
+      // viewer 側で levelTargetType に応じてフィルタする（フレーム着色防止のため）
+      const deadCode = aggregateScoresToC4(deadCodeFileScores, elements);
 
       const entries = rows.map((r) => ({
         filePath: r.filePath,
