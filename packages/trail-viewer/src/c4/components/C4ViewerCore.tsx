@@ -391,6 +391,9 @@ export function C4ViewerCore({
   const pendingFitCountRef = useRef(0);
   // Drill Up 後にセンタリングするターゲット c4Id。null = 全体 Fit のまま。
   const pendingCenterC4IdRef = useRef<string | null>(null);
+  // state.document を effect から安全に読むための ref（selectedCommunityInfo effect 用）
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   // --- Editing state ---
   const [addElementType, setAddElementType] = useState<C4ElementKind | null>(null);
@@ -936,6 +939,46 @@ export function C4ViewerCore({
       children: node.children,
     };
   }, [selectedElementId, communityTree, codeGraph]);
+
+  const communityOverlayRef = useRef(communityOverlay);
+  communityOverlayRef.current = communityOverlay;
+  const featureMatrixRef = useRef(featureMatrix);
+  featureMatrixRef.current = featureMatrix;
+
+  // Community パネルで community 選択時に、その community の Primary 要素を画面中央にセンタリング
+  useEffect(() => {
+    if (!selectedCommunityInfo) return;
+    const overlay = communityOverlayRef.current;
+    const fm = featureMatrixRef.current;
+    if (!overlay || !fm) return;
+    const cid = selectedCommunityInfo.cid;
+    const featureId = `f_community_${cid}`;
+    let primaryC4Id: string | null = null;
+    for (const [elementId, entry] of overlay) {
+      if (entry.dominantCommunity !== cid) continue;
+      const role = fm.mappings.find(
+        m => m.featureId === featureId && m.elementId === elementId,
+      )?.role ?? null;
+      if (role === 'primary') { primaryC4Id = elementId; break; }
+    }
+    if (!primaryC4Id) return;
+    const doc = stateRef.current.document;
+    const targetNode = doc.nodes.find(
+      n => (n.metadata?.c4Id as string | undefined) === primaryC4Id,
+    );
+    if (!targetNode) return;
+    const canvas = canvasRef.current;
+    if (!canvas || canvas.clientWidth === 0) return;
+    const vp = doc.viewport;
+    dispatch({
+      type: 'SET_VIEWPORT',
+      viewport: {
+        ...vp,
+        offsetX: canvas.clientWidth / 2 - (targetNode.x + targetNode.width / 2) * vp.scale,
+        offsetY: canvas.clientHeight / 2 - (targetNode.y + targetNode.height / 2) * vp.scale,
+      },
+    });
+  }, [selectedCommunityInfo, dispatch, canvasRef]);
 
   const communityMap = useMemo(() => {
     if (!communityOverlay) return null;
