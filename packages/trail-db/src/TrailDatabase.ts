@@ -5887,6 +5887,7 @@ export class TrailDatabase {
         ],
       );
     }
+    this.save();
   }
 
   getCurrentFileAnalysis(repoName: string): FileAnalysisRow[] {
@@ -5926,6 +5927,7 @@ export class TrailDatabase {
   clearCurrentFileAnalysis(repoName: string): void {
     const db = this.ensureDb();
     db.run('DELETE FROM current_file_analysis WHERE repo_name = ?', [repoName]);
+    this.save();
   }
 
   upsertReleaseFileAnalysis(releaseTag: string, rows: readonly FileAnalysisRow[]): void {
@@ -5993,6 +5995,7 @@ export class TrailDatabase {
   clearReleaseFileAnalysis(releaseTag: string, repoName: string): void {
     const db = this.ensureDb();
     db.run('DELETE FROM release_file_analysis WHERE release_tag = ? AND repo_name = ?', [releaseTag, repoName]);
+    this.save();
   }
 
   // ---------------------------------------------------------------------------
@@ -6018,6 +6021,7 @@ export class TrailDatabase {
         ],
       );
     }
+    this.save();
   }
 
   getCurrentFunctionAnalysis(repoName: string): FunctionAnalysisRow[] {
@@ -6052,6 +6056,7 @@ export class TrailDatabase {
   clearCurrentFunctionAnalysis(repoName: string): void {
     const db = this.ensureDb();
     db.run('DELETE FROM current_function_analysis WHERE repo_name = ?', [repoName]);
+    this.save();
   }
 
   upsertReleaseFunctionAnalysis(releaseTag: string, rows: readonly FunctionAnalysisRow[]): void {
@@ -6073,6 +6078,7 @@ export class TrailDatabase {
         ],
       );
     }
+    this.save();
   }
 
   getReleaseFunctionAnalysis(releaseTag: string, repoName: string): FunctionAnalysisRow[] {
@@ -6107,6 +6113,7 @@ export class TrailDatabase {
   clearReleaseFunctionAnalysis(releaseTag: string, repoName: string): void {
     const db = this.ensureDb();
     db.run('DELETE FROM release_function_analysis WHERE release_tag = ? AND repo_name = ?', [releaseTag, repoName]);
+    this.save();
   }
 
   // -------------------------------------------------------------------------
