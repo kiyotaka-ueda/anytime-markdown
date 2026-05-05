@@ -8,6 +8,8 @@ const sample = (filePath: string, deadCodeScore: number): FileAnalysisRow => ({
   importanceScore: 50,
   fanInTotal: 3,
   cognitiveComplexityMax: 8,
+  cyclomaticComplexityMax: 0,
+  lineCount: 0,
   functionCount: 2,
   deadCodeScore,
   signals: {
@@ -84,5 +86,26 @@ describe('TrailDatabase: release_file_analysis CRUD', () => {
     expect(rows[0].deadCodeScore).toBe(70);
     db.clearReleaseFileAnalysis('v1.0.0', 'repo');
     expect(db.getReleaseFileAnalysis('v1.0.0', 'repo').length).toBe(0);
+  });
+});
+
+describe('TrailDatabase: AST メトリクス round-trip', () => {
+  let db: TrailDatabase;
+
+  beforeEach(async () => {
+    db = await createTestTrailDatabase();
+  });
+
+  it('upsertCurrentFileAnalysis → getCurrentFileAnalysis で lineCount/cyclomaticComplexityMax が保持される', () => {
+    const row: FileAnalysisRow = {
+      ...sample('a.ts', 30),
+      lineCount: 200,
+      cyclomaticComplexityMax: 5,
+    };
+    db.upsertCurrentFileAnalysis([row]);
+    const rows = db.getCurrentFileAnalysis('repo');
+    if (rows.length !== 1) throw new Error('Expected 1 row');
+    expect(rows[0].lineCount).toBe(200);
+    expect(rows[0].cyclomaticComplexityMax).toBe(5);
   });
 });

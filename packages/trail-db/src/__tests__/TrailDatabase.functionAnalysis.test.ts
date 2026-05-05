@@ -16,6 +16,7 @@ const sample = (
   language: 'ts',
   fanIn,
   cognitiveComplexity: 5,
+  cyclomaticComplexity: 0,
   dataMutationScore: 0,
   sideEffectScore: 0,
   lineCount: 10,
@@ -86,5 +87,24 @@ describe('TrailDatabase: release_function_analysis CRUD', () => {
     expect(rows[0].fanIn).toBe(3);
     db.clearReleaseFunctionAnalysis('v1.0.0', 'repo');
     expect(db.getReleaseFunctionAnalysis('v1.0.0', 'repo').length).toBe(0);
+  });
+});
+
+describe('TrailDatabase: FunctionAnalysis cyclomaticComplexity round-trip', () => {
+  let db: TrailDatabase;
+
+  beforeEach(async () => {
+    db = await createTestTrailDatabase();
+  });
+
+  it('upsertCurrentFunctionAnalysis → getCurrentFunctionAnalysis で cyclomaticComplexity が保持される', () => {
+    const row: FunctionAnalysisRow = {
+      ...sample('a.ts', 'compute', 1, 2),
+      cyclomaticComplexity: 3,
+    };
+    db.upsertCurrentFunctionAnalysis([row]);
+    const rows = db.getCurrentFunctionAnalysis('repo');
+    if (rows.length !== 1) throw new Error('Expected 1 row');
+    expect(rows[0].cyclomaticComplexity).toBe(3);
   });
 });

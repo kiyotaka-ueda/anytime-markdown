@@ -879,6 +879,19 @@ export class TrailDatabase {
       try { db.run(sql); } catch { /* Column already exists */ }
     }
 
+    // AST メトリクス列追加（既存 DB 向け）
+    const astMetricsAlters = [
+      'ALTER TABLE current_file_analysis ADD COLUMN line_count INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE current_file_analysis ADD COLUMN cyclomatic_complexity_max INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE release_file_analysis ADD COLUMN line_count INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE release_file_analysis ADD COLUMN cyclomatic_complexity_max INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE current_function_analysis ADD COLUMN cyclomatic_complexity INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE release_function_analysis ADD COLUMN cyclomatic_complexity INTEGER NOT NULL DEFAULT 0',
+    ];
+    for (const sql of astMetricsAlters) {
+      try { db.run(sql); } catch { /* Column already exists */ }
+    }
+
     // service_type カラム追加（既存 DB 向け）
     try {
       db.run('ALTER TABLE c4_manual_elements ADD COLUMN service_type TEXT');
@@ -5961,15 +5974,15 @@ export class TrailDatabase {
       db.run(
         `INSERT OR REPLACE INTO current_file_analysis (
           repo_name, file_path,
-          importance_score, fan_in_total, cognitive_complexity_max, function_count,
+          importance_score, fan_in_total, cognitive_complexity_max, line_count, cyclomatic_complexity_max, function_count,
           dead_code_score,
           signal_orphan, signal_fan_in_zero, signal_no_recent_churn,
           signal_zero_coverage, signal_isolated_community,
           is_ignored, ignore_reason, analyzed_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           r.repoName, r.filePath,
-          r.importanceScore, r.fanInTotal, r.cognitiveComplexityMax, r.functionCount,
+          r.importanceScore, r.fanInTotal, r.cognitiveComplexityMax, r.lineCount, r.cyclomaticComplexityMax, r.functionCount,
           r.deadCodeScore,
           r.signals.orphan ? 1 : 0,
           r.signals.fanInZero ? 1 : 0,
@@ -5987,7 +6000,7 @@ export class TrailDatabase {
     const db = this.ensureDb();
     const result = db.exec(
       `SELECT repo_name, file_path,
-              importance_score, fan_in_total, cognitive_complexity_max, function_count,
+              importance_score, fan_in_total, cognitive_complexity_max, line_count, cyclomatic_complexity_max, function_count,
               dead_code_score,
               signal_orphan, signal_fan_in_zero, signal_no_recent_churn,
               signal_zero_coverage, signal_isolated_community,
@@ -6002,18 +6015,20 @@ export class TrailDatabase {
       importanceScore: Number(r[2] ?? 0),
       fanInTotal: Number(r[3] ?? 0),
       cognitiveComplexityMax: Number(r[4] ?? 0),
-      functionCount: Number(r[5] ?? 0),
-      deadCodeScore: Number(r[6] ?? 0),
+      lineCount: Number(r[5] ?? 0),
+      cyclomaticComplexityMax: Number(r[6] ?? 0),
+      functionCount: Number(r[7] ?? 0),
+      deadCodeScore: Number(r[8] ?? 0),
       signals: {
-        orphan: Number(r[7] ?? 0) === 1,
-        fanInZero: Number(r[8] ?? 0) === 1,
-        noRecentChurn: Number(r[9] ?? 0) === 1,
-        zeroCoverage: Number(r[10] ?? 0) === 1,
-        isolatedCommunity: Number(r[11] ?? 0) === 1,
+        orphan: Number(r[9] ?? 0) === 1,
+        fanInZero: Number(r[10] ?? 0) === 1,
+        noRecentChurn: Number(r[11] ?? 0) === 1,
+        zeroCoverage: Number(r[12] ?? 0) === 1,
+        isolatedCommunity: Number(r[13] ?? 0) === 1,
       },
-      isIgnored: Number(r[12] ?? 0) === 1,
-      ignoreReason: String(r[13] ?? ''),
-      analyzedAt: String(r[14] ?? ''),
+      isIgnored: Number(r[14] ?? 0) === 1,
+      ignoreReason: String(r[15] ?? ''),
+      analyzedAt: String(r[16] ?? ''),
     }));
   }
 
@@ -6030,15 +6045,15 @@ export class TrailDatabase {
       db.run(
         `INSERT OR REPLACE INTO release_file_analysis (
           release_tag, repo_name, file_path,
-          importance_score, fan_in_total, cognitive_complexity_max, function_count,
+          importance_score, fan_in_total, cognitive_complexity_max, line_count, cyclomatic_complexity_max, function_count,
           dead_code_score,
           signal_orphan, signal_fan_in_zero, signal_no_recent_churn,
           signal_zero_coverage, signal_isolated_community,
           is_ignored, ignore_reason, analyzed_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           releaseTag, r.repoName, r.filePath,
-          r.importanceScore, r.fanInTotal, r.cognitiveComplexityMax, r.functionCount,
+          r.importanceScore, r.fanInTotal, r.cognitiveComplexityMax, r.lineCount, r.cyclomaticComplexityMax, r.functionCount,
           r.deadCodeScore,
           r.signals.orphan ? 1 : 0,
           r.signals.fanInZero ? 1 : 0,
@@ -6055,7 +6070,7 @@ export class TrailDatabase {
     const db = this.ensureDb();
     const result = db.exec(
       `SELECT repo_name, file_path,
-              importance_score, fan_in_total, cognitive_complexity_max, function_count,
+              importance_score, fan_in_total, cognitive_complexity_max, line_count, cyclomatic_complexity_max, function_count,
               dead_code_score,
               signal_orphan, signal_fan_in_zero, signal_no_recent_churn,
               signal_zero_coverage, signal_isolated_community,
@@ -6070,18 +6085,20 @@ export class TrailDatabase {
       importanceScore: Number(r[2] ?? 0),
       fanInTotal: Number(r[3] ?? 0),
       cognitiveComplexityMax: Number(r[4] ?? 0),
-      functionCount: Number(r[5] ?? 0),
-      deadCodeScore: Number(r[6] ?? 0),
+      lineCount: Number(r[5] ?? 0),
+      cyclomaticComplexityMax: Number(r[6] ?? 0),
+      functionCount: Number(r[7] ?? 0),
+      deadCodeScore: Number(r[8] ?? 0),
       signals: {
-        orphan: Number(r[7] ?? 0) === 1,
-        fanInZero: Number(r[8] ?? 0) === 1,
-        noRecentChurn: Number(r[9] ?? 0) === 1,
-        zeroCoverage: Number(r[10] ?? 0) === 1,
-        isolatedCommunity: Number(r[11] ?? 0) === 1,
+        orphan: Number(r[9] ?? 0) === 1,
+        fanInZero: Number(r[10] ?? 0) === 1,
+        noRecentChurn: Number(r[11] ?? 0) === 1,
+        zeroCoverage: Number(r[12] ?? 0) === 1,
+        isolatedCommunity: Number(r[13] ?? 0) === 1,
       },
-      isIgnored: Number(r[12] ?? 0) === 1,
-      ignoreReason: String(r[13] ?? ''),
-      analyzedAt: String(r[14] ?? ''),
+      isIgnored: Number(r[14] ?? 0) === 1,
+      ignoreReason: String(r[15] ?? ''),
+      analyzedAt: String(r[16] ?? ''),
     }));
   }
 
@@ -6102,13 +6119,13 @@ export class TrailDatabase {
       db.run(
         `INSERT OR REPLACE INTO current_function_analysis (
           repo_name, file_path, function_name, start_line,
-          end_line, language, fan_in, cognitive_complexity,
+          end_line, language, fan_in, cognitive_complexity, cyclomatic_complexity,
           data_mutation_score, side_effect_score, line_count,
           importance_score, signal_fan_in_zero, analyzed_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           r.repoName, r.filePath, r.functionName, r.startLine,
-          r.endLine, r.language, r.fanIn, r.cognitiveComplexity,
+          r.endLine, r.language, r.fanIn, r.cognitiveComplexity, r.cyclomaticComplexity,
           r.dataMutationScore, r.sideEffectScore, r.lineCount,
           r.importanceScore, r.signalFanInZero ? 1 : 0, r.analyzedAt,
         ],
@@ -6121,7 +6138,7 @@ export class TrailDatabase {
     const db = this.ensureDb();
     const result = db.exec(
       `SELECT repo_name, file_path, function_name, start_line,
-              end_line, language, fan_in, cognitive_complexity,
+              end_line, language, fan_in, cognitive_complexity, cyclomatic_complexity,
               data_mutation_score, side_effect_score, line_count,
               importance_score, signal_fan_in_zero, analyzed_at
        FROM current_function_analysis WHERE repo_name = ?`,
@@ -6137,12 +6154,13 @@ export class TrailDatabase {
       language: String(r[5] ?? ''),
       fanIn: Number(r[6] ?? 0),
       cognitiveComplexity: Number(r[7] ?? 0),
-      dataMutationScore: Number(r[8] ?? 0),
-      sideEffectScore: Number(r[9] ?? 0),
-      lineCount: Number(r[10] ?? 0),
-      importanceScore: Number(r[11] ?? 0),
-      signalFanInZero: Number(r[12] ?? 0) === 1,
-      analyzedAt: String(r[13] ?? ''),
+      cyclomaticComplexity: Number(r[8] ?? 0),
+      dataMutationScore: Number(r[9] ?? 0),
+      sideEffectScore: Number(r[10] ?? 0),
+      lineCount: Number(r[11] ?? 0),
+      importanceScore: Number(r[12] ?? 0),
+      signalFanInZero: Number(r[13] ?? 0) === 1,
+      analyzedAt: String(r[14] ?? ''),
     }));
   }
 
@@ -6159,13 +6177,13 @@ export class TrailDatabase {
       db.run(
         `INSERT OR REPLACE INTO release_function_analysis (
           release_tag, repo_name, file_path, function_name, start_line,
-          end_line, language, fan_in, cognitive_complexity,
+          end_line, language, fan_in, cognitive_complexity, cyclomatic_complexity,
           data_mutation_score, side_effect_score, line_count,
           importance_score, signal_fan_in_zero, analyzed_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           releaseTag, r.repoName, r.filePath, r.functionName, r.startLine,
-          r.endLine, r.language, r.fanIn, r.cognitiveComplexity,
+          r.endLine, r.language, r.fanIn, r.cognitiveComplexity, r.cyclomaticComplexity,
           r.dataMutationScore, r.sideEffectScore, r.lineCount,
           r.importanceScore, r.signalFanInZero ? 1 : 0, r.analyzedAt,
         ],
@@ -6178,7 +6196,7 @@ export class TrailDatabase {
     const db = this.ensureDb();
     const result = db.exec(
       `SELECT repo_name, file_path, function_name, start_line,
-              end_line, language, fan_in, cognitive_complexity,
+              end_line, language, fan_in, cognitive_complexity, cyclomatic_complexity,
               data_mutation_score, side_effect_score, line_count,
               importance_score, signal_fan_in_zero, analyzed_at
        FROM release_function_analysis WHERE release_tag = ? AND repo_name = ?`,
@@ -6194,12 +6212,13 @@ export class TrailDatabase {
       language: String(r[5] ?? ''),
       fanIn: Number(r[6] ?? 0),
       cognitiveComplexity: Number(r[7] ?? 0),
-      dataMutationScore: Number(r[8] ?? 0),
-      sideEffectScore: Number(r[9] ?? 0),
-      lineCount: Number(r[10] ?? 0),
-      importanceScore: Number(r[11] ?? 0),
-      signalFanInZero: Number(r[12] ?? 0) === 1,
-      analyzedAt: String(r[13] ?? ''),
+      cyclomaticComplexity: Number(r[8] ?? 0),
+      dataMutationScore: Number(r[9] ?? 0),
+      sideEffectScore: Number(r[10] ?? 0),
+      lineCount: Number(r[11] ?? 0),
+      importanceScore: Number(r[12] ?? 0),
+      signalFanInZero: Number(r[13] ?? 0) === 1,
+      analyzedAt: String(r[14] ?? ''),
     }));
   }
 
