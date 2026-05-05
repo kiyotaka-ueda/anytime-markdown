@@ -124,13 +124,6 @@ export const CREATE_IMPORTED_FILES = `CREATE TABLE IF NOT EXISTS imported_files 
   imported_at TEXT NOT NULL DEFAULT ''
 )`;
 
-export const CREATE_C4_MODELS = `CREATE TABLE IF NOT EXISTS c4_models (
-  id TEXT PRIMARY KEY DEFAULT 'current',
-  model_json TEXT NOT NULL,
-  revision TEXT NOT NULL DEFAULT '',
-  updated_at TEXT NOT NULL DEFAULT ''
-)`;
-
 export const CREATE_CURRENT_GRAPHS = `CREATE TABLE IF NOT EXISTS current_graphs (
   repo_name     TEXT PRIMARY KEY,
   commit_id     TEXT NOT NULL DEFAULT '',

@@ -11,7 +11,6 @@ import {
   CREATE_MESSAGES,
   CREATE_SESSION_COMMITS,
   CREATE_IMPORTED_FILES,
-  CREATE_C4_MODELS,
   CREATE_CURRENT_GRAPHS,
   CREATE_RELEASE_GRAPHS,
   CREATE_SKILL_MODELS as CREATE_SKILL_MODELS_TABLE,
@@ -781,7 +780,12 @@ export class TrailDatabase {
     for (const idx of CREATE_CURRENT_COVERAGE_INDEXES) {
       db.run(idx);
     }
-    db.run(CREATE_C4_MODELS);
+    // 既存 DB に残った未使用 c4_models テーブルを除去（行 0 件のため安全）
+    try {
+      db.run('DROP TABLE IF EXISTS c4_models');
+    } catch (e) {
+      this.logger.warn(`failed to drop c4_models: ${e instanceof Error ? e.message : String(e)}`);
+    }
     this.migrateCurrentGraphsSchema(db);
     db.run(CREATE_CURRENT_GRAPHS);
     db.run(CREATE_RELEASE_GRAPHS);
@@ -6440,30 +6444,6 @@ export class TrailDatabase {
       previousMessageCommits: queryMessageCommits(prevFrom, prevTo),
       previousCommits: queryCommits(prevFrom, extendedPrevTo),
     };
-  }
-
-  // ---------------------------------------------------------------------------
-  //  C4 Model
-  // ---------------------------------------------------------------------------
-
-  private saveC4Model(json: string, revision: string): void {
-    const db = this.ensureDb();
-    db.run(
-      `INSERT OR REPLACE INTO c4_models (id, model_json, revision, updated_at)
-       VALUES ('current', ?, ?, ?)`,
-      [json, revision, new Date().toISOString()],
-    );
-    this.save();
-  }
-
-  getC4Model(): { json: string; revision: string } | null {
-    const db = this.ensureDb();
-    const res = db.exec(
-      "SELECT model_json, revision FROM c4_models WHERE id = 'current'",
-    );
-    if (!res.length || !res[0].values.length) return null;
-    const [json, revision] = res[0].values[0] as [string, string];
-    return { json, revision };
   }
 
   getCurrentFeatureMatrix(): FeatureMatrix | null {

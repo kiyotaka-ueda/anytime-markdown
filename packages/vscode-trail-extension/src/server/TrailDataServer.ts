@@ -1061,25 +1061,14 @@ export class TrailDataServer {
   }
 
   private async loadCurrentC4Model(repoName?: string): Promise<C4Model | null> {
-    // 本番経路: current_graphs (asC4ModelStore) → trailToC4 で動的に組み立て
     const resolvedRepo = repoName ?? (this.gitRoot ? path.basename(this.gitRoot) : undefined);
-    if (resolvedRepo) {
-      try {
-        const store = this.trailDb.asC4ModelStore();
-        const result = await Promise.resolve(store.getCurrentC4Model(resolvedRepo));
-        if (result?.model) return result.model;
-      } catch (e) {
-        TrailLogger.warn(`asC4ModelStore.getCurrentC4Model failed: ${e instanceof Error ? e.message : String(e)}`);
-      }
-    }
-    // フォールバック: c4_models テーブル直読み（saveC4Model は現状どこからも呼ばれていないが、
-    // テスト fixture が直接 INSERT するケースに備える）
-    const persisted = this.trailDb.getC4Model();
-    if (!persisted) return null;
+    if (!resolvedRepo) return null;
     try {
-      return JSON.parse(persisted.json) as C4Model;
+      const store = this.trailDb.asC4ModelStore();
+      const result = await Promise.resolve(store.getCurrentC4Model(resolvedRepo));
+      return result?.model ?? null;
     } catch (e) {
-      TrailLogger.warn(`failed to parse persisted c4 model: ${e instanceof Error ? e.message : String(e)}`);
+      TrailLogger.warn(`asC4ModelStore.getCurrentC4Model failed: ${e instanceof Error ? e.message : String(e)}`);
       return null;
     }
   }
