@@ -981,20 +981,24 @@ export class SupabaseTrailReader implements ITrailReader {
       // Paginated fetch of trail_sessions within the period window
       const sourceBySessionId = new Map<string, string>();
       const sessionStartById = new Map<string, string>();
+      const repoNameById = new Map<string, string>();
       for (let offset = 0; ; offset += 1000) {
         const { data: batchRows } = await this.client
           .from('trail_sessions')
-          .select('id,source,start_time')
+          .select('id,source,start_time,repo_name')
           .gte('start_time', cutoffIso)
           .range(offset, offset + 999);
         if (!batchRows || batchRows.length === 0) break;
-        for (const s of batchRows as Array<{ id: string; source: string | null; start_time?: string | null }>) {
+        for (const s of batchRows as Array<{ id: string; source: string | null; start_time?: string | null; repo_name?: string | null }>) {
           const source = s.source === 'codex' ? 'Codex' : 'Claude Code';
           sourceBySessionId.set(s.id, source);
           if (s.start_time) sessionStartById.set(s.id, s.start_time);
+          if (s.repo_name) repoNameById.set(s.id, s.repo_name);
         }
         if (batchRows.length < 1000) break;
       }
+
+      const repoTokenMap = new Map<string, number>();
 
       // agentStats: tokens + cost from session_costs (all-time, paginated), LOC from session_commits
       const agentMap = new Map<string, { tokens: number; costUsd: number; loc: number }>();
@@ -1021,6 +1025,11 @@ export class SupabaseTrailReader implements ITrailReader {
           const p = periodKey(toJSTDate(start));
           const tokens = (c.input_tokens ?? 0) + (c.output_tokens ?? 0) + (c.cache_read_tokens ?? 0) + (c.cache_creation_tokens ?? 0);
           addAgent(p, agent, { tokens, costUsd: c.estimated_cost_usd ?? 0 });
+          const repoName = repoNameById.get(c.session_id);
+          if (repoName) {
+            const rk = `${p}::${repoName}`;
+            repoTokenMap.set(rk, (repoTokenMap.get(rk) ?? 0) + tokens);
+          }
         }
         if (batchRows.length < 1000) break;
       }
@@ -1090,6 +1099,7 @@ export class SupabaseTrailReader implements ITrailReader {
       };
       const seenHashes = new Set<string>();
       const prefixMap = new Map<string, { count: number; linesAdded: number }>();
+      const repoCommitCountMap = new Map<string, number>();
       for (let offset = 0; ; offset += 1000) {
         const { data: batchRows } = await this.client
           .from('trail_session_commits')
@@ -1102,6 +1112,11 @@ export class SupabaseTrailReader implements ITrailReader {
           const identity = `${c.repo_name ?? ''}:${c.commit_hash}`;
           if (seenHashes.has(identity)) continue;
           seenHashes.add(identity);
+          const repoForCommit = c.repo_name?.trim();
+          if (repoForCommit) {
+            const rck = `${periodKey(toJSTDate(c.committed_at))}::${repoForCommit}`;
+            repoCommitCountMap.set(rck, (repoCommitCountMap.get(rck) ?? 0) + 1);
+          }
           const subject = (c.commit_message ?? '').split('\n')[0];
           const prefix = extractPrefix(subject);
           const p = periodKey(toJSTDate(c.committed_at));
@@ -1118,7 +1133,13 @@ export class SupabaseTrailReader implements ITrailReader {
         .map(([k, e]) => { const [p, prefix] = splitKey(k); return { period: p, prefix, count: e.count, linesAdded: e.linesAdded }; })
         .sort((a, b) => a.period.localeCompare(b.period));
 
-      return { toolCounts, errorRate, skillStats, modelStats, agentStats, commitPrefixStats, aiFirstTryRate: [] };
+      const repoKeys = new Set([...repoCommitCountMap.keys(), ...repoTokenMap.keys()]);
+      const repoStats = [...repoKeys].map(k => {
+        const [p, repoName] = splitKey(k);
+        return { period: p, repoName, count: repoCommitCountMap.get(k) ?? 0, tokens: repoTokenMap.get(k) ?? 0 };
+      }).sort((a, b) => a.period.localeCompare(b.period));
+
+      return { toolCounts, errorRate, skillStats, modelStats, agentStats, commitPrefixStats, aiFirstTryRate: [], repoStats };
     } catch {
       return null;
     }
