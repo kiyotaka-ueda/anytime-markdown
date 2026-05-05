@@ -4,7 +4,6 @@ export interface DeadCodeSignals {
   readonly noRecentChurn: boolean;
   readonly zeroCoverage: boolean;
   readonly isolatedCommunity: boolean;
-  readonly isIgnored: boolean;
 }
 
 export interface FileAnalysisRow {
@@ -18,6 +17,7 @@ export interface FileAnalysisRow {
   readonly signals: DeadCodeSignals;
   readonly isIgnored: boolean;
   readonly ignoreReason: string;
+  /** UTC ISO 8601 (e.g. 2026-05-05T01:23:45.000Z) */
   readonly analyzedAt: string;
 }
 
@@ -35,5 +35,6 @@ export interface FunctionAnalysisRow {
   readonly lineCount: number;
   readonly importanceScore: number;
   readonly signalFanInZero: boolean;
+  /** UTC ISO 8601 (e.g. 2026-05-05T01:23:45.000Z) */
   readonly analyzedAt: string;
 }
