@@ -23,12 +23,21 @@ const BASE_OPTS: RouteOpts = {
 };
 
 const mockClose = jest.fn();
-const mockDb = { close: mockClose } as unknown as import('better-sqlite3').Database;
+const mockSave = jest.fn();
+const mockDbInstance = {} as unknown as import('sql.js').Database;
+const mockDb = mockDbInstance;
+const mockOpened = {
+  db: mockDbInstance,
+  path: MOCK_DB_PATH,
+  mode: 'readwrite' as const,
+  save: mockSave,
+  close: mockClose,
+};
 
 function setupCommonMocks() {
   jest.spyOn(dbPathMod, 'resolveDbPath').mockReturnValue(MOCK_DB_PATH);
   jest.spyOn(repoNameMod, 'resolveRepoName').mockReturnValue(MOCK_REPO);
-  jest.spyOn(openDbMod, 'openTrailDb').mockReturnValue(mockDb);
+  jest.spyOn(openDbMod, 'openTrailDb').mockResolvedValue(mockOpened);
 }
 
 beforeEach(() => {
