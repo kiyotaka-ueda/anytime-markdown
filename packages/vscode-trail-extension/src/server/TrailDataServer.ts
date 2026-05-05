@@ -591,6 +591,12 @@ export class TrailDataServer {
       void this.handleC4FileAnalysisEndpoint(res, tag, repo);
       return;
     }
+    if (pathname === '/api/c4/function-analysis' && method === 'GET') {
+      const repo = parsed.searchParams.get('repo') ?? undefined;
+      const tag = parsed.searchParams.get('tag') ?? 'current';
+      void this.handleC4FunctionAnalysisEndpoint(res, tag, repo);
+      return;
+    }
 
     if (pathname === '/api/c4/complexity' && method === 'GET') {
       // Complexity は累積指標のため release パラメータは受け取らない
@@ -1723,6 +1729,45 @@ export class TrailDataServer {
       }));
     } catch (err) {
       TrailLogger.error('[/api/c4/file-analysis] failed', err);
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+    }
+  }
+
+  private async handleC4FunctionAnalysisEndpoint(
+    res: http.ServerResponse,
+    tag: string,
+    repoName: string | undefined,
+  ): Promise<void> {
+    if (!repoName) {
+      res.writeHead(400, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'repo query parameter is required' }));
+      return;
+    }
+    try {
+      const rows = tag === 'current'
+        ? this.trailDb.getCurrentFunctionAnalysis(repoName)
+        : this.trailDb.getReleaseFunctionAnalysis(tag, repoName);
+
+      const entries = rows.map((r) => ({
+        filePath: r.filePath,
+        functionName: r.functionName,
+        startLine: r.startLine,
+        endLine: r.endLine,
+        language: r.language,
+        fanIn: r.fanIn,
+        cognitiveComplexity: r.cognitiveComplexity,
+        dataMutationScore: r.dataMutationScore,
+        sideEffectScore: r.sideEffectScore,
+        lineCount: r.lineCount,
+        importanceScore: r.importanceScore,
+        signals: { fanInZero: r.signalFanInZero },
+      }));
+
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({ entries }));
+    } catch (err) {
+      TrailLogger.error('[/api/c4/function-analysis] failed', err);
       res.writeHead(500, JSON_HEADERS);
       res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
     }
