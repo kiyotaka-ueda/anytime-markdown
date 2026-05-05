@@ -157,4 +157,24 @@ describe('computeContextMenuCapabilities', () => {
     expect(r.canDrillDown).toBe(false);
     expect(r.canShowOnlyFrame).toBe(true);
   });
+
+  // C3→C4 Drill Down 後、C4 レイヤーで component フレームを右クリック → canDrillUp が true になるべき
+  it('C4 view で drillStack 先頭の component フレームを右クリック → canDrillUp: true (regression)', () => {
+    const modelWithCode: C4Model = {
+      ...baseModel,
+      elements: [
+        ...baseModel.elements,
+        { id: 'file::src/bar.ts', name: 'bar.ts', type: 'code', external: false, boundaryId: 'fn_foo' },
+      ],
+    };
+    const r = computeContextMenuCapabilities({
+      c4Model: modelWithCode,
+      c4Id: 'fn_foo',
+      drillStack: [{ element: { id: 'fn_foo', name: 'foo', type: 'component', external: false, boundaryId: 'pkg_core' } }],
+      hasShowSequenceHandler: false,
+      canShowManualContextActions: noManualActions,
+    });
+    expect(r.canDrillUp).toBe(true);
+    expect(r.showContextMenu).toBe(true);
+  });
 });

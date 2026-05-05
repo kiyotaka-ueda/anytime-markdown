@@ -60,7 +60,11 @@ export function computeContextMenuCapabilities(
     && drillStack.at(-1)?.element.id !== c4Id
     && (c4Model?.elements.some((e) => e.boundaryId === c4Id) ?? false);
 
-  const canDrillUp = isBoundary && drillStack.length > 0;
+  // drillStack の先頭要素（Drill Down 起点）を右クリックした場合も Drill Up を許可する。
+  // component 型は BOUNDARY_TYPES に含まれないため isBoundary が false になるが、
+  // C3→C4 Drill Down 後の component フレームはここで拾う必要がある。
+  const isDrillRoot = drillStack.length > 0 && drillStack.at(-1)?.element.id === c4Id;
+  const canDrillUp = (isBoundary || isDrillRoot) && drillStack.length > 0;
   const canShowOnlyFrame = isBoundary;
   const canShowSequence = target?.type === 'component' && hasShowSequenceHandler;
   const canCopyPath = c4Id.startsWith('pkg_') || c4Id.startsWith('file::');
