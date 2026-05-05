@@ -229,3 +229,20 @@ describe('computeColorMap — unknown overlay fallback', () => {
     expect(m.size).toBe(0);
   });
 });
+
+describe('computeColorMap — dead-code-score', () => {
+  const matrix = { 'pkg_a': 80, 'pkg_b': 50, 'pkg_c': 20, 'pkg_d': 0 };
+
+  it('70+ なら赤系、40-69 なら黄系、未満は緑系', () => {
+    const m = computeColorMap('dead-code-score', null, null, null, null, null, null, matrix);
+    expect(m.get('pkg_a')).toMatch(/^#f44336/i);
+    expect(m.get('pkg_b')).toMatch(/^#ffc107/i);
+    expect(m.get('pkg_c')).toMatch(/^#4caf50/i);
+    expect(m.get('pkg_d')).toMatch(/^#4caf50/i);
+  });
+
+  it('matrix が null なら空 Map', () => {
+    const m = computeColorMap('dead-code-score', null, null, null, null, null, null, null);
+    expect(m.size).toBe(0);
+  });
+});
