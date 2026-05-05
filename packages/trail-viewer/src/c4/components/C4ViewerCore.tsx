@@ -734,6 +734,20 @@ export function C4ViewerCore({
     return Object.keys(importanceMatrix).some((id) => ids.has(id));
   }, [importanceMatrix, c4Model]);
 
+  // sizeMatrix は isCategoryDataAvailable の依存配列で参照するため先に宣言する
+  const sizeMatrix = useMemo<SizeMatrix | null>(() => {
+    if (!fileAnalysisEntries || fileAnalysisEntries.length === 0 || !c4Model) return null;
+    const sizeEntries = fileAnalysisEntries
+      .filter((r) => r.lineCount > 0)
+      .map((r) => ({
+        elementId: `file::${r.filePath}`,
+        lineCount: r.lineCount,
+        functionCount: r.functionCount,
+      }));
+    if (sizeEntries.length === 0) return null;
+    return buildSizeMatrix(sizeEntries, c4Model.elements);
+  }, [fileAnalysisEntries, c4Model]);
+
   const isCategoryDataAvailable = useMemo(() => {
     // 空 entries / 空 nodes も「データなし」として扱う（サーバーが空マトリクスを返すケースに備える）
     if (overlayCategory === 'coverage') return !!coverageMatrix && coverageMatrix.entries.length > 0;
@@ -842,21 +856,7 @@ export function C4ViewerCore({
     return filtered;
   }, [deadCodeMatrix, c4Model, elementTypeById, levelTargetType]);
 
-  // サイズメトリクス (LOC / files / functions) は coverageMatrix から集計し、
-  // 現在表示レベルの要素タイプのみフィルタする。
-  const sizeMatrix = useMemo<SizeMatrix | null>(() => {
-    if (!fileAnalysisEntries || fileAnalysisEntries.length === 0 || !c4Model) return null;
-    const sizeEntries = fileAnalysisEntries
-      .filter((r) => r.lineCount > 0)
-      .map((r) => ({
-        elementId: `file::${r.filePath}`,
-        lineCount: r.lineCount,
-        functionCount: r.functionCount,
-      }));
-    if (sizeEntries.length === 0) return null;
-    return buildSizeMatrix(sizeEntries, c4Model.elements);
-  }, [fileAnalysisEntries, c4Model]);
-
+  // サイズメトリクス (LOC / files / functions) — sizeMatrix は上で宣言済み
   const levelFilteredSizeMatrix = useMemo<SizeMatrix | null>(() => {
     if (!sizeMatrix || !c4Model) return sizeMatrix;
     const filtered: SizeMatrix = {};
