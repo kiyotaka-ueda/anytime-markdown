@@ -17,7 +17,6 @@ import { TrailDataServer } from './server/TrailDataServer';
 import { TrailDatabase } from '@anytime-markdown/trail-db';
 import { analyze } from '@anytime-markdown/trail-core/analyze';
 import {
-	ANALYZE_EXCLUDE_PATTERNS,
 	findTsconfigCandidates,
 	runAnalyzeCurrentCodePipeline,
 	runAnalyzeReleaseCodePipeline,
@@ -517,7 +516,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const result = await trailDb.importAll(
 			(message) => TrailLogger.info(`Trail import (HTTP): ${message}`),
 			getWatchedGitRoots(),
-			ANALYZE_EXCLUDE_PATTERNS,
+			undefined,
 			analyze,
 		);
 		trailDataServer?.notifySessionsUpdated();
@@ -791,7 +790,7 @@ export async function activate(context: vscode.ExtensionContext) {
 						return trailDb!.importAll((message, increment) => {
 							progress.report({ message, increment });
 							TrailLogger.info(`Trail import [${repoName}]: ${message}`);
-						}, getWatchedGitRoots(), ANALYZE_EXCLUDE_PATTERNS, analyze);
+						}, getWatchedGitRoots(), undefined, analyze);
 					},
 				);
 				TrailLogger.info(`Trail DB [${repoName}]: import complete - imported=${result.imported}, skipped=${result.skipped}, commits=${result.commitsResolved}, releases=${result.releasesResolved}, analyzed=${result.releasesAnalyzed}`);

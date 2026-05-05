@@ -5,8 +5,14 @@ import { DEFAULT_ANALYZE_EXCLUDE_CONTENT } from './defaultContent';
 export function seedAnalyzeExclude(workspaceRoot: string): boolean {
   const dir = path.join(workspaceRoot, '.trail');
   const file = path.join(dir, 'analyze-exclude');
-  if (fs.existsSync(file)) return false;
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(file, DEFAULT_ANALYZE_EXCLUDE_CONTENT, 'utf-8');
-  return true;
+  try {
+    fs.writeFileSync(file, DEFAULT_ANALYZE_EXCLUDE_CONTENT, { flag: 'wx', encoding: 'utf-8' });
+    return true;
+  } catch (err) {
+    if (err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'EEXIST') {
+      return false;
+    }
+    throw err;
+  }
 }

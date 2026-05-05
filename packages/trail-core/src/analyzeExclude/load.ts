@@ -7,7 +7,10 @@ export function loadAnalyzeExclude(workspaceRoot: string): string[] {
   try {
     const content = fs.readFileSync(file, 'utf-8');
     return parseAnalyzeExclude(content);
-  } catch {
-    return [];
+  } catch (err) {
+    if (err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return [];
+    }
+    throw err;
   }
 }

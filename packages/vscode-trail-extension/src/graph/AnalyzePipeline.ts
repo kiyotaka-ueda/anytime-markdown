@@ -84,6 +84,14 @@ export async function runAnalyzeCurrentCodePipeline(
   trailDataServer.notifyProgress('Loading project...', 0);
   onProgress?.('Loading project...', 0);
 
+  try {
+    const seeded = seedAnalyzeExclude(analysisRoot);
+    if (seeded) {
+      TrailLogger.info(`C4 analysis [${repoName}]: .trail/analyze-exclude created`);
+    }
+  } catch (err) {
+    warnings.push(`seedAnalyzeExclude failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
   const excludePatterns = loadAnalyzeExclude(analysisRoot);
   const graph = analyze({
     tsconfigPath,
@@ -164,16 +172,6 @@ export async function runAnalyzeCurrentCodePipeline(
     }
   } catch (err) {
     warnings.push(`seedDeadCodeIgnore failed: ${err instanceof Error ? err.message : String(err)}`);
-  }
-
-  // .trail/analyze-exclude をシードする（初回のみ作成）
-  try {
-    const seeded = seedAnalyzeExclude(analysisRoot);
-    if (seeded) {
-      TrailLogger.info(`C4 analysis [${repoName}]: .trail/analyze-exclude created`);
-    }
-  } catch (err) {
-    warnings.push(`seedAnalyzeExclude failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   // ファイル別・関数別デッドコード解析を current_file_analysis / current_function_analysis に保存
