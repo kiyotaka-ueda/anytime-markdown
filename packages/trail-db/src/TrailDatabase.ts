@@ -929,6 +929,9 @@ export class TrailDatabase {
     } catch (e) {
       this.logger.warn(`backfillRepoName_v1 (init) failed (non-fatal): ${e instanceof Error ? e.message : String(e)}`);
     }
+    // ALTER TABLE / backfill 等のスキーマ変更をディスクに永続化する。
+    // save() を呼ばないと _migrations フラグが保存されず、次回起動で再実行される。
+    this.save();
   }
 
   /**
