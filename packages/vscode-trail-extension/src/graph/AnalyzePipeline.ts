@@ -123,8 +123,8 @@ export async function runAnalyzeCurrentCodePipeline(
 
   try {
     onProgress?.('Computing importance scores...');
-    await trailDataServer.computeAndNotifyImportance(tsconfigPath);
-    TrailLogger.info(`C4 analysis [${repoName}]: importance matrix computed and notified`);
+    await trailDataServer.computeAndPersistImportance(tsconfigPath);
+    TrailLogger.info(`C4 analysis [${repoName}]: importance scores computed`);
   } catch (err) {
     const msg = `importance computation failed: ${err instanceof Error ? err.message : String(err)}`;
     TrailLogger.warn(`C4 analysis [${repoName}]: ${msg}`);

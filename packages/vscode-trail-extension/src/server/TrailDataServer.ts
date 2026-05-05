@@ -18,7 +18,6 @@ import {
   filterTreeByLevel,
   parseCoverage,
 } from '@anytime-markdown/trail-core/c4';
-import { computeImportanceMatrix } from '@anytime-markdown/trail-core/c4/metrics/computeImportanceMatrix';
 import { analyze } from '@anytime-markdown/trail-core/analyze';
 import type { FileCoverage, MessageInput } from '@anytime-markdown/trail-core/c4';
 import type {
@@ -26,7 +25,6 @@ import type {
   DocLink,
   DsmMatrix,
   FeatureMatrix,
-  ImportanceMatrix,
 } from '@anytime-markdown/trail-core/c4';
 import type { TrailGraph, ReleaseCoverageRow, CurrentCoverageRow } from '@anytime-markdown/trail-core';
 import { WebSocketServer, type WebSocket } from 'ws';
@@ -182,7 +180,6 @@ export interface C4DataProvider {
   readonly featureMatrix: FeatureMatrix | undefined;
   readonly sourceMatrix: DsmMatrix | undefined;
   readonly currentDsmLevel: 'component' | 'package';
-  readonly importanceMatrix: ImportanceMatrix | undefined;
   readonly trailGraph: TrailGraph | undefined;
   readonly projectRoot: string | undefined;
   handleSetDsmLevel(level: 'component' | 'package'): void;
@@ -210,7 +207,6 @@ export class TrailDataServer {
   private docsPath: string | undefined;
   private lastClaudeActivity: { activeElementIds: readonly string[]; touchedElementIds: readonly string[]; plannedElementIds: readonly string[] } | undefined;
   private lastMultiAgentActivity: { agents: readonly import('./types').AgentActivityEntry[]; conflicts: readonly import('./types').FileConflict[] } | undefined;
-  private lastImportanceMatrix: ImportanceMatrix | null = null;
   private importanceComputing = false;
   onOpenDocLink: ((docPath: string) => void) | undefined;
   onOpenFile: ((filePath: string) => void) | undefined;
@@ -343,7 +339,7 @@ export class TrailDataServer {
 
   get clientCount(): number { return this.clients.size; }
 
-  notify(type: 'dsm-updated' | 'importance-updated' | 'model-updated'): void {
+  notify(type: 'dsm-updated' | 'model-updated'): void {
     if (this.clients.size === 0) return;
 
     if (type === 'model-updated') {
@@ -2110,13 +2106,6 @@ export class TrailDataServer {
       ws.send(JSON.stringify(docMsg));
     }
 
-    if (this.lastImportanceMatrix) {
-      const importanceMsg: ServerMessage = { type: 'importance-updated', importanceMatrix: this.lastImportanceMatrix };
-      ws.send(JSON.stringify(importanceMsg));
-    } else {
-      void this.computeAndNotifyImportance();
-    }
-
     if (this.lastClaudeActivity) {
       const activityMsg: ServerMessage = {
         type: 'claude-activity-updated',
@@ -2222,34 +2211,39 @@ export class TrailDataServer {
     }
   }
 
-  async computeAndNotifyImportance(tsconfigPath?: string): Promise<void> {
-    if (this.importanceComputing) return;
+  async computeAndPersistImportance(tsconfigPath?: string): Promise<{
+    scored: import('@anytime-markdown/trail-core/importance').ScoredFunction[];
+    fileAggregates: Map<string, import('@anytime-markdown/trail-core/deadCode').FileImportanceAggregate>;
+  } | null> {
+    if (this.importanceComputing) return null;
     this.importanceComputing = true;
     try {
       const repoName = this.gitRoot ? path.basename(this.gitRoot) : undefined;
       const resolvedTsconfig = tsconfigPath ?? this.trailDb.getCurrentTsconfigPath(repoName);
       if (!resolvedTsconfig) {
         TrailLogger.warn('[importance] tsconfig path not available, skipping importance computation');
-        return;
+        return null;
       }
-      const store = this.trailDb.asC4ModelStore();
-      const payload = await fetchC4Model(store, 'current', repoName, undefined);
-      if (!payload?.model) {
-        TrailLogger.warn('[importance] C4 model not available, skipping importance computation');
-        return;
-      }
+      // C4 model is no longer needed here — element aggregation now happens in the REST endpoint at fetch time.
+      // We compute per-function ScoredFunction[] and per-file aggregate, leaving element-level aggregation to consumers.
+      const { TypeScriptAdapter, ImportanceAnalyzer } = await import('@anytime-markdown/trail-core/importance');
+      const { aggregateImportanceToFile } = await import('@anytime-markdown/trail-core/deadCode');
+      const adapter = TypeScriptAdapter.fromTsConfig(resolvedTsconfig);
+      const allSourceFiles = adapter
+        .getProgram()
+        .getSourceFiles()
+        .filter((sf) => !sf.isDeclarationFile && !sf.fileName.includes('node_modules'))
+        .map((sf) => sf.fileName);
+      const analyzer = new ImportanceAnalyzer(adapter);
+      let scored: ReturnType<typeof analyzer.analyze>;
       try {
-        this.lastImportanceMatrix = computeImportanceMatrix(resolvedTsconfig, payload.model.elements);
+        scored = analyzer.analyze(allSourceFiles);
       } catch (err) {
-        TrailLogger.error('[importance] computeImportanceMatrix failed', err);
-        return;
+        TrailLogger.error('[importance] analyzer.analyze failed', err);
+        return null;
       }
-      if (this.clients.size === 0) return;
-      const message: ServerMessage = { type: 'importance-updated', importanceMatrix: this.lastImportanceMatrix };
-      const json = JSON.stringify(message);
-      for (const ws of this.clients) {
-        ws.send(json);
-      }
+      const fileAggregates = aggregateImportanceToFile(scored);
+      return { scored, fileAggregates };
     } finally {
       this.importanceComputing = false;
     }
@@ -2283,14 +2277,9 @@ export class TrailDataServer {
   // -------------------------------------------------------------------------
 
   private buildNotifyMessage(
-    type: 'dsm-updated' | 'importance-updated',
+    type: 'dsm-updated',
     provider: C4DataProvider,
   ): ServerMessage | undefined {
-    if (type === 'importance-updated') {
-      const importanceMatrix = provider.importanceMatrix;
-      if (!importanceMatrix) return undefined;
-      return { type: 'importance-updated', importanceMatrix };
-    }
     return this.buildDsmMessage(provider);
   }
 
