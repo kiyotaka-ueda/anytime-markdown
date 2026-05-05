@@ -33,5 +33,6 @@
   "command.agentMapping.showSessionEdits": "Show Session Edits",
   "command.agentMapping.copySessionId": "Copy Session ID",
   "command.agentMapping.deleteStatusFile": "Delete Status File",
-  "command.reinstallSkills": "Reinstall Skills"
+  "command.reinstallSkills": "Reinstall Skills",
+  "command.registerMcpToClaudeCode": "Register MCP Server to Claude Code (mcp-trail)"
 }

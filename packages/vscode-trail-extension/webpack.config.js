@@ -115,4 +115,44 @@ const trailStandaloneConfig = {
   devtool: 'nosources-source-map',
 };
 
-module.exports = [extensionConfig, trailStandaloneConfig];
+/** @type WebpackConfig */
+const mcpTrailServerConfig = {
+  target: 'node',
+  mode: 'development',
+  entry: './src/server/mcp-trail-entry.ts',
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: 'mcp-trail-server.js',
+    libraryTarget: 'commonjs2',
+  },
+  // mcp-trail サーバーは Node プロセスとして子プロセス起動するため
+  // vscode API を参照しない。すべての依存をバンドルに含める。
+  externals: {},
+  resolve: {
+    extensions: ['.ts', '.js'],
+    // mcp-trail は ESM 規約 (NodeNext) で書かれており import 文に .js 拡張子が
+    // 含まれる ('./client.js' 等)。webpack に対して .js を .ts として解決する
+    // よう extensionAlias で指示する。
+    extensionAlias: {
+      '.js': ['.ts', '.js'],
+    },
+  },
+  module: {
+    rules: [
+      {
+        test: /\.ts$/,
+        exclude: /node_modules[\\/](?!@anytime-markdown[\\/]mcp-trail)/,
+        use: [{
+          loader: 'ts-loader',
+          options: {
+            allowTsInNodeModules: true,
+            transpileOnly: true,
+          },
+        }],
+      },
+    ],
+  },
+  devtool: 'nosources-source-map',
+};
+
+module.exports = [extensionConfig, trailStandaloneConfig, mcpTrailServerConfig];

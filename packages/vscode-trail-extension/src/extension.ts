@@ -4,11 +4,13 @@ import * as path from 'node:path';
 import { setupClaudeHooks, ClaudeStatusWatcher } from '@anytime-markdown/vscode-common';
 import * as vscode from 'vscode';
 
+import { registerMcpRegistrationCommand } from './commands/mcpRegistrationCommand';
 import { registerTraceCommands } from './commands/traceCommands';
 import { installBundledSkills } from './installBundledSkills';
 import { CodeGraphService } from './graph/CodeGraphService';
 import { AiNoteItem,AiNoteProvider } from './providers/AiNoteProvider';
 import { AgentMappingProvider } from './providers/AgentMappingProvider';
+import { McpTrailServerProvider } from './providers/McpTrailServerProvider';
 import { TraceCodeLensProvider } from './providers/TraceCodeLensProvider';
 import { TraceScriptLensProvider } from './providers/TraceScriptLensProvider';
 import { TrailDataServer } from './server/TrailDataServer';
@@ -896,6 +898,16 @@ export async function activate(context: vscode.ExtensionContext) {
 			agentMappingProvider.deleteSessionFile(item.session.sessionId);
 		}),
 	);
+
+	// MCP server registration: VS Code Copilot/Chat 向けに mcp-trail を提供
+	const mcpTrailProvider = new McpTrailServerProvider(extensionDistPath);
+	context.subscriptions.push(
+		mcpTrailProvider,
+		vscode.lm.registerMcpServerDefinitionProvider('anytime-trail.mcp', mcpTrailProvider),
+	);
+
+	// Claude Code (CLI) 向け登録ヘルパー
+	registerMcpRegistrationCommand(context, extensionDistPath);
 }
 
 export function deactivate(): void {
