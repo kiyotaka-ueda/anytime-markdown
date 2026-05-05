@@ -297,6 +297,8 @@ export interface TrailI18n {
   'analytics.combined.tokens.description': string;
   'analytics.combined.error': string;
   'analytics.combined.error.description': string;
+  'analytics.combined.repository': string;
+  'analytics.combined.repository.description': string;
   'analytics.combined.commitPrefix': string;
   'analytics.combined.commitPrefix.description': string;
   'analytics.combined.release': string;
