@@ -744,9 +744,9 @@ export function C4ViewerCore({
       if (!hotspotResponse) return true;
       return hotspotResponse.files.length > 0;
     }
-    if (overlayCategory === 'size') return !!coverageMatrix && coverageMatrix.entries.length > 0;
+    if (overlayCategory === 'size') return (sizeMatrix != null) && Object.keys(sizeMatrix).length > 0;
     return true;
-  }, [overlayCategory, coverageMatrix, filteredDsmMatrix, complexityMatrix, hasImportanceData, hotspotResponse]);
+  }, [overlayCategory, coverageMatrix, filteredDsmMatrix, complexityMatrix, hasImportanceData, hotspotResponse, sizeMatrix]);
 
   useEffect(() => {
     // hotspot は空応答時に metricOverlay をリセットすると useHotspot が disable され
@@ -845,9 +845,17 @@ export function C4ViewerCore({
   // サイズメトリクス (LOC / files / functions) は coverageMatrix から集計し、
   // 現在表示レベルの要素タイプのみフィルタする。
   const sizeMatrix = useMemo<SizeMatrix | null>(() => {
-    if (!coverageMatrix || !c4Model) return null;
-    return buildSizeMatrix(coverageMatrix, c4Model.elements);
-  }, [coverageMatrix, c4Model]);
+    if (!fileAnalysisEntries || fileAnalysisEntries.length === 0 || !c4Model) return null;
+    const sizeEntries = fileAnalysisEntries
+      .filter((r) => r.lineCount > 0)
+      .map((r) => ({
+        elementId: `file::${r.filePath}`,
+        lineCount: r.lineCount,
+        functionCount: r.functionCount,
+      }));
+    if (sizeEntries.length === 0) return null;
+    return buildSizeMatrix(sizeEntries, c4Model.elements);
+  }, [fileAnalysisEntries, c4Model]);
 
   const levelFilteredSizeMatrix = useMemo<SizeMatrix | null>(() => {
     if (!sizeMatrix || !c4Model) return sizeMatrix;

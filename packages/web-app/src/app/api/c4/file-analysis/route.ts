@@ -16,6 +16,7 @@ interface SupabaseFileAnalysisRow {
   fan_in_total: number;
   cognitive_complexity_max: number;
   function_count: number;
+  line_count: number;
   dead_code_score: number;
   signal_orphan: number;
   signal_fan_in_zero: number;
@@ -66,6 +67,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       importanceScore: r.importance_score,
       fanInTotal: r.fan_in_total,
       cognitiveComplexityMax: r.cognitive_complexity_max,
+      lineCount: r.line_count,
       functionCount: r.function_count,
       deadCodeScore: r.dead_code_score,
       signals: {

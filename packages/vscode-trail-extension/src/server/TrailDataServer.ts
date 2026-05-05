@@ -1718,6 +1718,7 @@ export class TrailDataServer {
         importanceScore: r.importanceScore,
         fanInTotal: r.fanInTotal,
         cognitiveComplexityMax: r.cognitiveComplexityMax,
+        lineCount: r.lineCount,
         functionCount: r.functionCount,
         deadCodeScore: r.deadCodeScore,
         signals: r.signals,

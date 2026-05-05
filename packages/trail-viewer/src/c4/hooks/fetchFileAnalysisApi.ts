@@ -13,6 +13,7 @@ export interface FileAnalysisApiEntry {
   readonly importanceScore: number;
   readonly fanInTotal: number;
   readonly cognitiveComplexityMax: number;
+  readonly lineCount: number;
   readonly functionCount: number;
   readonly deadCodeScore: number;
   readonly signals: DeadCodeSignalsApi;
