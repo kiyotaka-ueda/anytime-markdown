@@ -223,6 +223,7 @@ export function GraphCanvas({ document, viewport, dispatch, canvasRef, selectedN
   const styledNodes = useMemo(() => {
     if (!overlayMap) return document.nodes;
     return document.nodes.map(n => {
+      if (n.type === 'frame') return n;
       const c4Id = n.metadata?.c4Id as string | undefined;
       if (!c4Id) return n;
       const fill = overlayMap.get(c4Id);
