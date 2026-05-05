@@ -127,12 +127,21 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	}
 
-	const homeDir = process.env.HOME ?? process.env.USERPROFILE ?? '';
-	const claudeDir = homeDir ? path.join(homeDir, '.claude') : '';
-	const hasClaudeDir = Boolean(claudeDir) && fs.existsSync(claudeDir);
+	// スキル展開先はワークスペース直下の .claude/。ワークスペース未開時は何もしない。
+	// .claude ディレクトリが無い場合は新規作成して展開する（リポジトリ毎にスキルを同梱可能にする）。
+	const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+	const claudeDir = workspaceRoot ? path.join(workspaceRoot, '.claude') : '';
+	const hasClaudeDir = Boolean(claudeDir);
+	if (claudeDir && !fs.existsSync(claudeDir)) {
+		try {
+			fs.mkdirSync(claudeDir, { recursive: true });
+		} catch (err) {
+			TrailLogger.warn(`[install-skills] failed to create ${claudeDir}: ${String(err)}`);
+		}
+	}
 
-	// 同梱スキルを ~/.claude/skills/ に展開（初回 activate 時 / 旧 build-code-graph cleanup）
-	if (hasClaudeDir) {
+	// 同梱スキルを <workspace>/.claude/skills/ に展開（初回 activate 時 / 旧 build-code-graph cleanup）
+	if (hasClaudeDir && fs.existsSync(claudeDir)) {
 		try {
 			installBundledSkills({
 				claudeDir,
@@ -365,7 +374,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		'anytime-trail.reinstallSkills',
 		async () => {
 			if (!hasClaudeDir) {
-				vscode.window.showWarningMessage('Claude Code がインストールされていません（~/.claude が見つかりません）。');
+				vscode.window.showWarningMessage('ワークスペースが開かれていないためスキルの再インストールができません。');
 				return;
 			}
 			const result = installBundledSkills({
