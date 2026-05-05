@@ -203,15 +203,15 @@ export interface TrailI18n {
   'c4.overlay.none': string;
   'c4.overlay.groupCoverage': string;
   'c4.overlay.groupDsm': string;
-  'c4.overlay.groupComplexity': string;
+  'c4.overlay.groupEditComplexity': string;
   'c4.overlay.coverageLines': string;
   'c4.overlay.coverageBranches': string;
   'c4.overlay.coverageFunctions': string;
   'c4.overlay.dsmOut': string;
   'c4.overlay.dsmIn': string;
   'c4.overlay.dsmCyclic': string;
-  'c4.overlay.complexityMost': string;
-  'c4.overlay.complexityHighest': string;
+  'c4.overlay.editComplexityMost': string;
+  'c4.overlay.editComplexityHighest': string;
   'c4.overlay.groupImportance': string;
   'c4.overlay.importance': string;
   'c4.overlay.defectRisk': string;
