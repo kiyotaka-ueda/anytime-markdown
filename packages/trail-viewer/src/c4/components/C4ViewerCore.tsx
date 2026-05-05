@@ -45,10 +45,9 @@ const TREND_CHART_POPUP_MAX_WIDTH = 1000;
 const TREND_CHART_RESERVED_RIGHT_WIDTH =
   SELECTED_ELEMENT_DETAILS_WIDTH + SELECTED_ELEMENT_DETAILS_RIGHT_OFFSET + TREND_CHART_POPUP_GAP;
 
-type OverlayCategory = 'none' | 'coverage' | 'dsm' | 'edit-complexity' | 'importance' | 'hotspot' | 'dead-code' | 'size' | 'fcmap';
+type OverlayCategory = 'none' | 'coverage' | 'dsm' | 'edit-complexity' | 'importance' | 'hotspot' | 'dead-code' | 'size';
 
-// fcmap はサブ項目が MetricOverlay ではなくフィーチャー ID のため除外
-const OVERLAY_CATEGORY_DEFAULTS: Record<Exclude<OverlayCategory, 'none' | 'fcmap'>, MetricOverlay> = {
+const OVERLAY_CATEGORY_DEFAULTS: Record<Exclude<OverlayCategory, 'none'>, MetricOverlay> = {
   coverage: 'coverage-lines',
   dsm: 'dsm-out',
   'edit-complexity': 'edit-complexity-most',
@@ -317,7 +316,6 @@ export function C4ViewerCore({
     }
   }, []);
   const [metricOverlay, setMetricOverlay] = useState<MetricOverlay>('none');
-  const [selectedFcmapFeatureId, setSelectedFcmapFeatureId] = useState<string | null>(null);
   const [overlayCategory, setOverlayCategory] = useState<OverlayCategory>('none');
   const [drWindowDays, setDrWindowDays] = useState(90);
   const [tcValue, setTcValue] = useState<TemporalCouplingControlsValue>(DEFAULT_TC_VALUE);
@@ -403,25 +401,16 @@ export function C4ViewerCore({
     setOverlayCategory(cat);
     if (cat === 'none') {
       setMetricOverlay('none');
-    } else if (cat === 'fcmap') {
-      setMetricOverlay('fcmap');
     } else {
       setMetricOverlay(OVERLAY_CATEGORY_DEFAULTS[cat]);
     }
   }, []);
-
-  useEffect(() => {
-    if (!featureMatrix && overlayCategory === 'fcmap') {
-      handleOverlayCategoryChange('none');
-    }
-  }, [featureMatrix, overlayCategory, handleOverlayCategoryChange]);
 
   // リポジトリ切替時は overlay 関連の選択を初期化する
   // （前のリポジトリ向けの選択が新リポジトリで無効になり、ユーザーに混乱を与えるため）
   useEffect(() => {
     setOverlayCategory('none');
     setMetricOverlay('none');
-    setSelectedFcmapFeatureId(null);
   }, [selectedRepo]);
 
 
@@ -894,23 +883,7 @@ export function C4ViewerCore({
     [metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap, levelFilteredDeadCodeMatrix, levelFilteredSizeMatrix],
   );
 
-  // F-cMap overlay: 選択フィーチャーの P/S/D ロールをノード色として返す
-  const fcmapColorMap = useMemo<ReadonlyMap<string, string>>(() => {
-    if (metricOverlay !== 'fcmap' || !featureMatrix || !selectedFcmapFeatureId) return new Map();
-    const ROLE_COLORS: Record<string, string> = { primary: '#e53935', secondary: '#1e88e5', dependency: '#fb8c00' };
-    const map = new Map<string, string>();
-    for (const m of featureMatrix.mappings) {
-      if (m.featureId === selectedFcmapFeatureId) {
-        map.set(m.elementId, ROLE_COLORS[m.role] ?? '#616161');
-      }
-    }
-    return map;
-  }, [metricOverlay, featureMatrix, selectedFcmapFeatureId]);
-
-  const effectiveOverlayMap = useMemo(
-    () => (metricOverlay === 'fcmap' ? fcmapColorMap : overlayMap),
-    [metricOverlay, fcmapColorMap, overlayMap],
-  );
+  const effectiveOverlayMap = overlayMap;
 
   // Community overlay: L3/L4 のみ。トグル ON かつ codeGraph が取得済みのときのみ計算する
   const communityOverlay = useMemo<ReadonlyMap<string, CommunityOverlayEntry> | null>(() => {
@@ -1546,7 +1519,6 @@ export function C4ViewerCore({
                       <MenuItem value="hotspot" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupHotspot')}</MenuItem>
                       <MenuItem value="dead-code" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupDeadCode')}</MenuItem>
                       <MenuItem value="size" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupSize')}</MenuItem>
-                      {featureMatrix && <MenuItem value="fcmap" sx={{ fontSize: '0.75rem' }}>F-cMap</MenuItem>}
                     </Select>
                   </Box>
                   {overlayCategory !== 'none' && (
@@ -1555,16 +1527,9 @@ export function C4ViewerCore({
                         size="small"
                         fullWidth
                         disabled={!isCategoryDataAvailable}
-                        value={!isCategoryDataAvailable ? '' : overlayCategory === 'fcmap'
-                          ? (selectedFcmapFeatureId ?? featureMatrix?.features[0]?.id ?? '')
-                          : metricOverlay
-                        }
+                        value={!isCategoryDataAvailable ? '' : metricOverlay}
                         onChange={(e) => {
-                          if (overlayCategory === 'fcmap') {
-                            setSelectedFcmapFeatureId(e.target.value);
-                          } else {
-                            setMetricOverlay(e.target.value as MetricOverlay);
-                          }
+                          setMetricOverlay(e.target.value as MetricOverlay);
                         }}
                         sx={{ fontSize: '0.75rem', height: 28, '.MuiSelect-select': { py: 0, px: 1 } }}
                         aria-label="overlay-sub"
@@ -1602,9 +1567,6 @@ export function C4ViewerCore({
                           <MenuItem key="size-files" value="size-files" disabled={!sizeMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.sizeFiles')}</MenuItem>,
                           <MenuItem key="size-functions" value="size-functions" disabled={!sizeMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.sizeFunctions')}</MenuItem>,
                         ]}
-                        {overlayCategory === 'fcmap' && featureMatrix?.features.map((f) => (
-                          <MenuItem key={f.id} value={f.id} sx={{ fontSize: '0.75rem' }}>{f.name}</MenuItem>
-                        ))}
                       </Select>
                     </Box>
                   )}

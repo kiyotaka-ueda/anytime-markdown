@@ -1,6 +1,5 @@
 import { Box, Typography } from '@mui/material';
 import type { MetricOverlay } from '@anytime-markdown/trail-core/c4';
-import { COMMUNITY_ROLE_COLORS } from '../communityRoleColors';
 
 export interface CommunityLegendItem {
   readonly community: number;
@@ -90,14 +89,6 @@ export function OverlayLegend({ overlay, isDark, dsmMax, communityLegend, commun
         <Swatch color="#c62828" label="≥ 0.7" />
         <Swatch color="#f9a825" label="0.35–0.7" />
         <Swatch color="#2e7d32" label="< 0.35" />
-      </>
-    );
-  } else if (overlay === 'fcmap') {
-    metricItems = (
-      <>
-        <Swatch color={COMMUNITY_ROLE_COLORS.primary} label="Primary" />
-        <Swatch color={COMMUNITY_ROLE_COLORS.secondary} label="Secondary" />
-        <Swatch color={COMMUNITY_ROLE_COLORS.dependency} label="Dependency" />
       </>
     );
   } else if (overlay === 'dead-code-score') {
