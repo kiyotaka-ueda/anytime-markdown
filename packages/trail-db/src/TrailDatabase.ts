@@ -6497,6 +6497,150 @@ export class TrailDatabase {
     }));
   }
 
+  // ---------------------------------------------------------------------------
+  //  getAll* raw methods for Supabase sync (snake_case keys matching SQL columns)
+  // ---------------------------------------------------------------------------
+
+  getAllCurrentFileAnalysis(): Array<{
+    repo_name: string; file_path: string;
+    importance_score: number; fan_in_total: number; cognitive_complexity_max: number; function_count: number;
+    dead_code_score: number;
+    signal_orphan: number; signal_fan_in_zero: number; signal_no_recent_churn: number;
+    signal_zero_coverage: number; signal_isolated_community: number;
+    is_ignored: number; ignore_reason: string; analyzed_at: string;
+  }> {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT repo_name, file_path, importance_score, fan_in_total, cognitive_complexity_max, function_count,
+              dead_code_score, signal_orphan, signal_fan_in_zero, signal_no_recent_churn,
+              signal_zero_coverage, signal_isolated_community, is_ignored, ignore_reason, analyzed_at
+       FROM current_file_analysis`,
+    );
+    const values = result[0]?.values ?? [];
+    return values.map((r) => ({
+      repo_name: String(r[0] ?? ''),
+      file_path: String(r[1] ?? ''),
+      importance_score: Number(r[2] ?? 0),
+      fan_in_total: Number(r[3] ?? 0),
+      cognitive_complexity_max: Number(r[4] ?? 0),
+      function_count: Number(r[5] ?? 0),
+      dead_code_score: Number(r[6] ?? 0),
+      signal_orphan: Number(r[7] ?? 0),
+      signal_fan_in_zero: Number(r[8] ?? 0),
+      signal_no_recent_churn: Number(r[9] ?? 0),
+      signal_zero_coverage: Number(r[10] ?? 0),
+      signal_isolated_community: Number(r[11] ?? 0),
+      is_ignored: Number(r[12] ?? 0),
+      ignore_reason: String(r[13] ?? ''),
+      analyzed_at: String(r[14] ?? ''),
+    }));
+  }
+
+  getAllReleaseFileAnalysis(): Array<{
+    release_tag: string; repo_name: string; file_path: string;
+    importance_score: number; fan_in_total: number; cognitive_complexity_max: number; function_count: number;
+    dead_code_score: number;
+    signal_orphan: number; signal_fan_in_zero: number; signal_no_recent_churn: number;
+    signal_zero_coverage: number; signal_isolated_community: number;
+    is_ignored: number; ignore_reason: string; analyzed_at: string;
+  }> {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT release_tag, repo_name, file_path, importance_score, fan_in_total, cognitive_complexity_max, function_count,
+              dead_code_score, signal_orphan, signal_fan_in_zero, signal_no_recent_churn,
+              signal_zero_coverage, signal_isolated_community, is_ignored, ignore_reason, analyzed_at
+       FROM release_file_analysis`,
+    );
+    const values = result[0]?.values ?? [];
+    return values.map((r) => ({
+      release_tag: String(r[0] ?? ''),
+      repo_name: String(r[1] ?? ''),
+      file_path: String(r[2] ?? ''),
+      importance_score: Number(r[3] ?? 0),
+      fan_in_total: Number(r[4] ?? 0),
+      cognitive_complexity_max: Number(r[5] ?? 0),
+      function_count: Number(r[6] ?? 0),
+      dead_code_score: Number(r[7] ?? 0),
+      signal_orphan: Number(r[8] ?? 0),
+      signal_fan_in_zero: Number(r[9] ?? 0),
+      signal_no_recent_churn: Number(r[10] ?? 0),
+      signal_zero_coverage: Number(r[11] ?? 0),
+      signal_isolated_community: Number(r[12] ?? 0),
+      is_ignored: Number(r[13] ?? 0),
+      ignore_reason: String(r[14] ?? ''),
+      analyzed_at: String(r[15] ?? ''),
+    }));
+  }
+
+  getAllCurrentFunctionAnalysis(): Array<{
+    repo_name: string; file_path: string; function_name: string; start_line: number;
+    end_line: number; language: string;
+    fan_in: number; cognitive_complexity: number; data_mutation_score: number;
+    side_effect_score: number; line_count: number; importance_score: number;
+    signal_fan_in_zero: number; analyzed_at: string;
+  }> {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT repo_name, file_path, function_name, start_line,
+              end_line, language, fan_in, cognitive_complexity,
+              data_mutation_score, side_effect_score, line_count,
+              importance_score, signal_fan_in_zero, analyzed_at
+       FROM current_function_analysis`,
+    );
+    const values = result[0]?.values ?? [];
+    return values.map((r) => ({
+      repo_name: String(r[0] ?? ''),
+      file_path: String(r[1] ?? ''),
+      function_name: String(r[2] ?? ''),
+      start_line: Number(r[3] ?? 0),
+      end_line: Number(r[4] ?? 0),
+      language: String(r[5] ?? ''),
+      fan_in: Number(r[6] ?? 0),
+      cognitive_complexity: Number(r[7] ?? 0),
+      data_mutation_score: Number(r[8] ?? 0),
+      side_effect_score: Number(r[9] ?? 0),
+      line_count: Number(r[10] ?? 0),
+      importance_score: Number(r[11] ?? 0),
+      signal_fan_in_zero: Number(r[12] ?? 0),
+      analyzed_at: String(r[13] ?? ''),
+    }));
+  }
+
+  getAllReleaseFunctionAnalysis(): Array<{
+    release_tag: string; repo_name: string; file_path: string; function_name: string; start_line: number;
+    end_line: number; language: string;
+    fan_in: number; cognitive_complexity: number; data_mutation_score: number;
+    side_effect_score: number; line_count: number; importance_score: number;
+    signal_fan_in_zero: number; analyzed_at: string;
+  }> {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT release_tag, repo_name, file_path, function_name, start_line,
+              end_line, language, fan_in, cognitive_complexity,
+              data_mutation_score, side_effect_score, line_count,
+              importance_score, signal_fan_in_zero, analyzed_at
+       FROM release_function_analysis`,
+    );
+    const values = result[0]?.values ?? [];
+    return values.map((r) => ({
+      release_tag: String(r[0] ?? ''),
+      repo_name: String(r[1] ?? ''),
+      file_path: String(r[2] ?? ''),
+      function_name: String(r[3] ?? ''),
+      start_line: Number(r[4] ?? 0),
+      end_line: Number(r[5] ?? 0),
+      language: String(r[6] ?? ''),
+      fan_in: Number(r[7] ?? 0),
+      cognitive_complexity: Number(r[8] ?? 0),
+      data_mutation_score: Number(r[9] ?? 0),
+      side_effect_score: Number(r[10] ?? 0),
+      line_count: Number(r[11] ?? 0),
+      importance_score: Number(r[12] ?? 0),
+      signal_fan_in_zero: Number(r[13] ?? 0),
+      analyzed_at: String(r[14] ?? ''),
+    }));
+  }
+
   getCoverageSummary(releaseTag: string): ReleaseCoverageRow[] {
     const db = this.ensureDb();
     const result = db.exec(
