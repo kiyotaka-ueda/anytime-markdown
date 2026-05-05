@@ -305,7 +305,11 @@ describe("useEditorConfig - onCreate", () => {
     expect(extractHeadings).toHaveBeenCalledWith(mockEditor);
   });
 
-  it("onCreate patches blockquote serializer if available", () => {
+  it("onCreate は blockquote serializer を上書きしない (admonition serialize を温存する)", () => {
+    // regression: onCreate で blockquote.storage.markdown.serialize を lazy 版に
+    // 上書きしていたため、AdmonitionBlockquote の `> [!TYPE]` 出力が消失する
+    // 不具合があった。lazy blockquote 動作は admonition 拡張の serialize の
+    // else 分岐で実装済みのため、ここでの上書きは禁止。
     const refs = createRefs();
     const { result } = renderHook(() =>
       useEditorConfig({
@@ -317,7 +321,8 @@ describe("useEditorConfig - onCreate", () => {
       }),
     );
 
-    const bqStorage = { markdown: { serialize: null as any } };
+    const originalSerialize = jest.fn();
+    const bqStorage = { markdown: { serialize: originalSerialize } };
     const mockEditor = {
       extensionManager: {
         extensions: [{ name: "blockquote", storage: bqStorage }],
@@ -328,7 +333,8 @@ describe("useEditorConfig - onCreate", () => {
       result.current.onCreate({ editor: mockEditor });
     });
 
-    expect(typeof bqStorage.markdown.serialize).toBe("function");
+    // blockquote の serialize は触らない
+    expect(bqStorage.markdown.serialize).toBe(originalSerialize);
   });
 });
 

@@ -11,7 +11,7 @@
  * - tryImportDroppedMdFile (getAsFileSystemHandle)
  * - keydown VS Code performBlockCopy=true
  * - onUpdate debounce callback
- * - onCreate blockquote serialize callback
+ * - onCreate が blockquote serialize を上書きしないこと (admonition 保護)
  * - handleDrop reader.onload / handlePaste reader.onload
  */
 
@@ -1315,13 +1315,17 @@ describe("onUpdate debounce", () => {
 });
 
 // ============================================================
-// onCreate: blockquote serialize callback execution
+// onCreate: blockquote serialize は admonition 拡張に委譲 (上書き禁止)
 // ============================================================
 describe("onCreate blockquote serialize", () => {
-  it("serialize 関数が wrapBlock を呼ぶ", () => {
+  it("blockquote.storage.markdown.serialize を上書きしない", () => {
+    // regression: onCreate で blockquote serializer を lazy 版に上書きすると
+    // AdmonitionBlockquote の `> [!TYPE]` 出力が消失する。lazy 動作は admonition
+    // 拡張側で実装されているため、ここで触ってはいけない。
     const { result } = setup();
 
-    const bqStorage = { markdown: { serialize: null as any } };
+    const original = jest.fn();
+    const bqStorage = { markdown: { serialize: original } };
     const mockEditor = {
       extensionManager: {
         extensions: [{ name: "blockquote", storage: bqStorage }],
@@ -1332,17 +1336,7 @@ describe("onCreate blockquote serialize", () => {
       result.current.onCreate({ editor: mockEditor });
     });
 
-    // Now call the serializer
-    const state = {
-      wrapBlock: jest.fn((prefix: string, _suffix: any, _node: any, fn: () => void) => fn()),
-      renderContent: jest.fn(),
-    };
-    const node = {} as any;
-
-    bqStorage.markdown.serialize(state, node);
-
-    expect(state.wrapBlock).toHaveBeenCalledWith("> ", null, node, expect.any(Function));
-    expect(state.renderContent).toHaveBeenCalledWith(node);
+    expect(bqStorage.markdown.serialize).toBe(original);
   });
 });
 
