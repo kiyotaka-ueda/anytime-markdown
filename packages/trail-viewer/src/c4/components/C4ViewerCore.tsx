@@ -24,7 +24,9 @@ import Typography from '@mui/material/Typography';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import { useTrailI18n } from '../../i18n';
-import { DOC_TYPE_COLORS, getC4Colors } from '../c4Theme';
+import { CONTEXT_MENU_SHADOW, DOC_TYPE_COLORS, DOC_TYPE_FALLBACK_COLOR, getC4Colors, LOADING_OVERLAY_BG, POPUP_SHADOW } from '../c4Theme';
+import { COVERAGE_NONE } from '../c4MetricColors';
+import { COMMUNITY_ROLE_COLORS } from '../communityRoleColors';
 import { useC4GhostEdges } from '../hooks/useC4GhostEdges';
 import { useDefectRisk } from '../hooks/useDefectRisk';
 import { useHotspot } from '../hooks/useHotspot';
@@ -828,11 +830,10 @@ export function C4ViewerCore({
   // F-cMap overlay: 選択フィーチャーの P/S/D ロールをノード色として返す
   const fcmapColorMap = useMemo<ReadonlyMap<string, string>>(() => {
     if (metricOverlay !== 'fcmap' || !featureMatrix || !selectedFcmapFeatureId) return new Map();
-    const ROLE_COLORS: Record<string, string> = { primary: '#e53935', secondary: '#1e88e5', dependency: '#fb8c00' };
     const map = new Map<string, string>();
     for (const m of featureMatrix.mappings) {
       if (m.featureId === selectedFcmapFeatureId) {
-        map.set(m.elementId, ROLE_COLORS[m.role] ?? '#616161');
+        map.set(m.elementId, COMMUNITY_ROLE_COLORS[m.role] ?? COVERAGE_NONE);
       }
     }
     return map;
@@ -1144,7 +1145,7 @@ export function C4ViewerCore({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            bgcolor: 'rgba(0,0,0,0.6)',
+            bgcolor: LOADING_OVERLAY_BG,
             backdropFilter: 'blur(4px)',
           }}
         >
@@ -1274,8 +1275,8 @@ export function C4ViewerCore({
                     width: 220,
                     border: `1px solid ${colors.border}`,
                     borderRadius: '8px',
-                    bgcolor: isDark ? 'rgba(18,18,18,0.92)' : 'rgba(251,249,243,0.94)',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                    bgcolor: colors.popupBg,
+                    boxShadow: POPUP_SHADOW,
                     backdropFilter: 'blur(10px)',
                     px: 1.5,
                     py: 1.25,
@@ -1622,9 +1623,9 @@ export function C4ViewerCore({
                     zIndex: 10,
                     border: `1px solid ${colors.border}`,
                     borderRadius: '8px',
-                    bgcolor: isDark ? 'rgba(18,18,18,0.92)' : 'rgba(251,249,243,0.94)',
+                    bgcolor: colors.popupBg,
                     color: colors.text,
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                    boxShadow: POPUP_SHADOW,
                     backdropFilter: 'blur(10px)',
                     px: 1.5,
                     py: 1.25,
@@ -1663,9 +1664,9 @@ export function C4ViewerCore({
                     zIndex: 10,
                     border: `1px solid ${colors.border}`,
                     borderRadius: '8px',
-                    bgcolor: isDark ? 'rgba(18,18,18,0.92)' : 'rgba(251,249,243,0.94)',
+                    bgcolor: colors.popupBg,
                     color: colors.text,
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                    boxShadow: POPUP_SHADOW,
                     backdropFilter: 'blur(10px)',
                     px: 1.5,
                     py: 1.25,
@@ -1951,7 +1952,7 @@ export function C4ViewerCore({
                                 sx={{
                                   fontSize: '0.58rem',
                                   fontWeight: 700,
-                                  color: isDark ? '#7ec8e3' : '#0070c0',
+                                  color: colors.codeLink,
                                   flexShrink: 0,
                                   textTransform: 'uppercase',
                                 }}
@@ -2017,7 +2018,7 @@ export function C4ViewerCore({
                                 px: 0.5,
                                 mr: 0.75,
                                 borderRadius: '4px',
-                                bgcolor: DOC_TYPE_COLORS[doc.type] ?? '#757575',
+                                bgcolor: DOC_TYPE_COLORS[doc.type] ?? DOC_TYPE_FALLBACK_COLOR,
                                 color: '#000',
                                 fontSize: '0.58rem',
                                 fontWeight: 700,
@@ -2050,9 +2051,9 @@ export function C4ViewerCore({
                     zIndex: 10,
                     border: `1px solid ${colors.border}`,
                     borderRadius: '8px',
-                    bgcolor: isDark ? 'rgba(18,18,18,0.92)' : 'rgba(251,249,243,0.94)',
+                    bgcolor: colors.popupBg,
                     color: colors.text,
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                    boxShadow: POPUP_SHADOW,
                     backdropFilter: 'blur(10px)',
                     px: 1.5,
                     py: 1.25,
@@ -2116,10 +2117,10 @@ export function C4ViewerCore({
                       top: contextMenu.y,
                       left: contextMenu.x,
                       zIndex: 1001,
-                      background: isDark ? '#2d2d2d' : '#ffffff',
-                      border: `1px solid ${isDark ? '#555' : '#ccc'}`,
+                      background: colors.contextMenuBg,
+                      border: `1px solid ${colors.contextMenuBorder}`,
                       borderRadius: 4,
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                      boxShadow: CONTEXT_MENU_SHADOW,
                       minWidth: 140,
                       padding: '4px 0',
                     }}
@@ -2137,7 +2138,7 @@ export function C4ViewerCore({
                           border: 'none',
                           cursor: 'pointer',
                           fontSize: 14,
-                          color: isDark ? '#e0e0e0' : '#333',
+                          color: colors.contextMenuText,
                         }}
                         onClick={() => handleDrillDown(contextMenu.c4Id)}
                       >
@@ -2156,7 +2157,7 @@ export function C4ViewerCore({
                           border: 'none',
                           cursor: 'pointer',
                           fontSize: 14,
-                          color: isDark ? '#e0e0e0' : '#333',
+                          color: colors.contextMenuText,
                         }}
                         onClick={handleDrillUp}
                       >
@@ -2175,7 +2176,7 @@ export function C4ViewerCore({
                           border: 'none',
                           cursor: 'pointer',
                           fontSize: 14,
-                          color: isDark ? '#e0e0e0' : '#333',
+                          color: colors.contextMenuText,
                         }}
                         onClick={() =>
                           soloFrameId === contextMenu.c4Id
@@ -2200,7 +2201,7 @@ export function C4ViewerCore({
                           border: 'none',
                           cursor: 'pointer',
                           fontSize: 14,
-                          color: isDark ? '#e0e0e0' : '#333',
+                          color: colors.contextMenuText,
                         }}
                         onClick={handleOpenFile}
                       >
@@ -2219,7 +2220,7 @@ export function C4ViewerCore({
                           border: 'none',
                           cursor: 'pointer',
                           fontSize: 14,
-                          color: isDark ? '#e0e0e0' : '#333',
+                          color: colors.contextMenuText,
                         }}
                         onClick={() => {
                           onShowSequence?.(contextMenu.c4Id);
@@ -2241,7 +2242,7 @@ export function C4ViewerCore({
                           border: 'none',
                           cursor: 'pointer',
                           fontSize: 14,
-                          color: isDark ? '#e0e0e0' : '#333',
+                          color: colors.contextMenuText,
                         }}
                         onClick={handleCopyPath}
                       >
@@ -2263,7 +2264,7 @@ export function C4ViewerCore({
                             border: 'none',
                             cursor: 'pointer',
                             fontSize: 14,
-                            color: isDark ? '#e0e0e0' : '#333',
+                            color: colors.contextMenuText,
                           }}
                           onClick={() => {
                             setSelectedElementId(contextMenu.c4Id);
@@ -2287,7 +2288,7 @@ export function C4ViewerCore({
                             border: 'none',
                             cursor: 'pointer',
                             fontSize: 14,
-                            color: '#ef5350',
+                            color: colors.cycleBorder,
                           }}
                           onClick={() => handleDeleteElement(contextMenu.c4Id)}
                         >
@@ -2311,8 +2312,8 @@ export function C4ViewerCore({
                 maxWidth: `${TREND_CHART_POPUP_MAX_WIDTH}px`,
                 border: `1px solid ${colors.border}`,
                 borderRadius: '8px',
-                bgcolor: isDark ? 'rgba(18,18,18,0.92)' : 'rgba(251,249,243,0.94)',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                bgcolor: colors.popupBg,
+                boxShadow: POPUP_SHADOW,
                 backdropFilter: 'blur(10px)',
                 overflow: 'hidden',
                 transition: 'width 150ms cubic-bezier(0.4, 0, 0.2, 1)',

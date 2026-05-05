@@ -8,6 +8,7 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 
 import type { TrailMessage, TrailSession, TrailTreeNode } from '../parser/types';
 import { useTrailTheme } from './TrailThemeContext';
+import { toolActionColors, agentPalette } from '../theme/designTokens';
 
 const LANE_HEIGHT = 40; // px per lane/track
 const PLOT_TOP = 8;
@@ -19,11 +20,6 @@ const TIME_AXIS_HEIGHT = 24;
 
 type LaneKind = 'user' | 'assistant' | 'system' | 'subagent';
 
-const AGENT_PALETTE = [
-  '#FF6B6B', '#4ECDC4', '#FFD93D', '#6A4C93', '#1982C4',
-  '#8AC926', '#F48C06', '#E56B6F', '#52B788', '#B5838D',
-];
-
 function hashString(str: string): number {
   let h = 0;
   for (let i = 0; i < str.length; i++) {
@@ -34,7 +30,7 @@ function hashString(str: string): number {
 }
 
 function getAgentColor(agentId: string): string {
-  return AGENT_PALETTE[hashString(agentId) % AGENT_PALETTE.length];
+  return agentPalette[hashString(agentId) % agentPalette.length];
 }
 
 function getDelegatedAgentLabel(agentId: string): string {
@@ -151,15 +147,7 @@ export function MessageTimeline({
     }
   });
 
-  const toolColors = {
-    bash: '#4CAF50',
-    edit: '#2196F3',
-    write: '#9C27B0',
-    read: '#757575',
-    task: '#FFB300',
-    other: '#FF9800',
-    plain: '#90A4AE',
-  };
+  const toolColors = toolActionColors;
 
   const toggleCollapsed = useCallback(() => {
     setCollapsed((prev) => {

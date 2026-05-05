@@ -2,6 +2,7 @@ import type { HeatmapAxis, HeatmapMatrix } from '@anytime-markdown/trail-core/c4
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { truncate } from '../canvasHelpers';
+import { getC4Colors } from '../c4Theme';
 
 const CELL = 24;
 const ROW_HEADER = 160;
@@ -319,9 +320,9 @@ export function HeatmapCanvas({
             left: hover.clientX + 12,
             top: hover.clientY + 12,
             padding: '4px 8px',
-            background: isDark ? 'rgba(20,20,20,0.92)' : 'rgba(255,255,255,0.96)',
-            color: isDark ? '#fff' : '#111',
-            border: `1px solid ${isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)'}`,
+            background: getC4Colors(isDark).heatmapTooltipBg,
+            color: getC4Colors(isDark).heatmapTooltipText,
+            border: `1px solid ${getC4Colors(isDark).heatmapTooltipBorder}`,
             borderRadius: 4,
             fontSize: 11,
             pointerEvents: 'none',

@@ -1,5 +1,8 @@
 import { Box, Typography } from '@mui/material';
 import type { MetricOverlay } from '@anytime-markdown/trail-core/c4';
+import { getC4Colors } from '../c4Theme';
+import { COVERAGE_HIGH, COVERAGE_LOW, COVERAGE_MID, COVERAGE_NONE, METRIC_LEGEND_BLUE } from '../c4MetricColors';
+import { COMMUNITY_ROLE_COLORS } from '../communityRoleColors';
 
 export interface CommunityLegendItem {
   readonly community: number;
@@ -37,66 +40,67 @@ export function OverlayLegend({ overlay, isDark, dsmMax, communityLegend, commun
   const hasMetric = overlay !== 'none';
   if (!hasCommunity && !hasMetric) return null;
 
-  const bg = isDark ? 'rgba(0,0,0,0.65)' : 'rgba(255,255,255,0.85)';
-  const textColor = isDark ? '#e0e0e0' : '#212121';
-  const dividerColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)';
+  const colors = getC4Colors(isDark);
+  const bg = colors.overlayLegendBg;
+  const textColor = colors.overlayLegendText;
+  const dividerColor = colors.border;
 
   let metricItems: React.ReactNode = null;
 
   if (overlay === 'coverage-lines' || overlay === 'coverage-branches' || overlay === 'coverage-functions') {
     metricItems = (
       <>
-        <Swatch color="#2e7d32" label="≥ 80%" />
-        <Swatch color="#f9a825" label="50–79%" />
-        <Swatch color="#c62828" label="< 50%" />
-        <Swatch color="#616161" label="—" />
+        <Swatch color={COVERAGE_HIGH} label="≥ 80%" />
+        <Swatch color={COVERAGE_MID} label="50–79%" />
+        <Swatch color={COVERAGE_LOW} label="< 50%" />
+        <Swatch color={COVERAGE_NONE} label="—" />
       </>
     );
   } else if (overlay === 'dsm-out' || overlay === 'dsm-in') {
     metricItems = (
       <>
-        <Swatch color="#c62828" label={`max${dsmMax !== undefined ? ` (${dsmMax})` : ''}`} />
-        <Swatch color="#1565c0" label="0" />
+        <Swatch color={COVERAGE_LOW} label={`max${dsmMax !== undefined ? ` (${dsmMax})` : ''}`} />
+        <Swatch color={METRIC_LEGEND_BLUE} label="0" />
       </>
     );
   } else if (overlay === 'dsm-cyclic') {
     metricItems = (
       <>
-        <Swatch color="#c62828" label="cyclic" />
-        <Swatch color="#2e7d32" label="ok" />
+        <Swatch color={COVERAGE_LOW} label="cyclic" />
+        <Swatch color={COVERAGE_HIGH} label="ok" />
       </>
     );
   } else if (overlay === 'complexity-most' || overlay === 'complexity-highest') {
     metricItems = (
       <>
-        <Swatch color="#c62828" label="high" />
-        <Swatch color="#f9a825" label="multi-file" />
-        <Swatch color="#1565c0" label="search" />
-        <Swatch color="#2e7d32" label="low" />
+        <Swatch color={COVERAGE_LOW} label="high" />
+        <Swatch color={COVERAGE_MID} label="multi-file" />
+        <Swatch color={METRIC_LEGEND_BLUE} label="search" />
+        <Swatch color={COVERAGE_HIGH} label="low" />
       </>
     );
   } else if (overlay === 'importance') {
     metricItems = (
       <>
-        <Swatch color="#c62828" label="≥ 70" />
-        <Swatch color="#f9a825" label="40–69" />
-        <Swatch color="#2e7d32" label="< 40" />
+        <Swatch color={COVERAGE_LOW} label="≥ 70" />
+        <Swatch color={COVERAGE_MID} label="40–69" />
+        <Swatch color={COVERAGE_HIGH} label="< 40" />
       </>
     );
   } else if (overlay === 'defect-risk') {
     metricItems = (
       <>
-        <Swatch color="#c62828" label="≥ 0.7" />
-        <Swatch color="#f9a825" label="0.35–0.7" />
-        <Swatch color="#2e7d32" label="< 0.35" />
+        <Swatch color={COVERAGE_LOW} label="≥ 0.7" />
+        <Swatch color={COVERAGE_MID} label="0.35–0.7" />
+        <Swatch color={COVERAGE_HIGH} label="< 0.35" />
       </>
     );
   } else if (overlay === 'fcmap') {
     metricItems = (
       <>
-        <Swatch color="#e53935" label="Primary" />
-        <Swatch color="#1e88e5" label="Secondary" />
-        <Swatch color="#fb8c00" label="Dependency" />
+        <Swatch color={COMMUNITY_ROLE_COLORS.primary} label="Primary" />
+        <Swatch color={COMMUNITY_ROLE_COLORS.secondary} label="Secondary" />
+        <Swatch color={COMMUNITY_ROLE_COLORS.dependency} label="Dependency" />
       </>
     );
   }
@@ -120,7 +124,7 @@ export function OverlayLegend({ overlay, isDark, dsmMax, communityLegend, commun
         // Webkit 系ブラウザのスクロールバー細身化
         '&::-webkit-scrollbar': { width: 6 },
         '&::-webkit-scrollbar-thumb': {
-          bgcolor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)',
+          bgcolor: colors.scrollbarThumb,
           borderRadius: 3,
         },
       };

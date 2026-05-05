@@ -4,15 +4,11 @@ import type { Action } from '@anytime-markdown/graph-core/state';
 import { useCanvasBase } from '@anytime-markdown/graph-core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { GHOST_EDGE_COMMIT_DARK, GHOST_EDGE_COMMIT_LIGHT, GHOST_EDGE_SESSION_DARK, GHOST_EDGE_SESSION_LIGHT, GHOST_EDGE_SUBAGENT_DARK, GHOST_EDGE_SUBAGENT_LIGHT } from '../ghostEdgeColors';
+
 const DIM_OPACITY = 10;
 const COMMUNITY_OVERLAY_ALPHA = 0.5;
 const GOD_NODE_STROKE_WIDTH = 3;
-const GHOST_EDGE_COMMIT_LIGHT = '#7c3aed';
-const GHOST_EDGE_COMMIT_DARK = '#c4b5fd';
-const GHOST_EDGE_SESSION_LIGHT = '#0891b2';
-const GHOST_EDGE_SESSION_DARK = '#67e8f9';
-const GHOST_EDGE_SUBAGENT_LIGHT = '#047857';
-const GHOST_EDGE_SUBAGENT_DARK = '#6ee7b7';
 
 export interface CommunityOverlayStyle {
   readonly color: string;
