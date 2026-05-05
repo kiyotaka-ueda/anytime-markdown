@@ -33,6 +33,7 @@ import type { ClientMessage, ServerMessage } from './types';
 import type { TrailDatabase, SessionRow, MessageRow, SessionCommitRow, AnalyticsData, CostOptimizationData } from '@anytime-markdown/trail-db';
 import { MetricsThresholdsLoader } from '@anytime-markdown/trail-db';
 import { computeDeploymentFrequency, computeQualityMetrics, computeReleaseQualityTimeSeries } from '@anytime-markdown/trail-core/domain/metrics';
+import { aggregateScoresToC4 } from '@anytime-markdown/trail-core/deadCode';
 import { TrailLogger } from '../utils/TrailLogger';
 import type { CodeGraphService } from '../graph/CodeGraphService';
 import { GraphQueryEngine } from '../graph/GraphQueryEngine';
@@ -584,6 +585,13 @@ export class TrailDataServer {
       void this.handleC4CoverageEndpoint(res, releaseId, repo);
       return;
     }
+    if (pathname === '/api/c4/file-analysis' && method === 'GET') {
+      const repo = parsed.searchParams.get('repo') ?? undefined;
+      const tag = parsed.searchParams.get('tag') ?? 'current';
+      void this.handleC4FileAnalysisEndpoint(res, tag, repo);
+      return;
+    }
+
     if (pathname === '/api/c4/complexity' && method === 'GET') {
       // Complexity は累積指標のため release パラメータは受け取らない
       // (古いクライアントが付与しても無視する)
@@ -1659,6 +1667,64 @@ export class TrailDataServer {
       TrailLogger.error('[/api/docs-index] failed', e);
       res.writeHead(200, JSON_HEADERS);
       res.end(JSON.stringify({ docs: this.docLinks }));
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  //  API: GET /api/c4/file-analysis?repo=<name>&tag=<current|release>
+  // -------------------------------------------------------------------------
+
+  private async handleC4FileAnalysisEndpoint(
+    res: http.ServerResponse,
+    tag: string,
+    repoName: string | undefined,
+  ): Promise<void> {
+    if (!repoName) {
+      res.writeHead(400, JSON_HEADERS);
+      res.end(JSON.stringify({ error: 'repo query parameter is required' }));
+      return;
+    }
+    try {
+      const rows = tag === 'current'
+        ? this.trailDb.getCurrentFileAnalysis(repoName)
+        : this.trailDb.getReleaseFileAnalysis(tag, repoName);
+
+      // C4 model 取得
+      const store = this.trailDb.asC4ModelStore();
+      const payload = await fetchC4Model(store, tag, repoName, undefined);
+      const elements = payload?.model?.elements ?? [];
+
+      // file → element 集約 (importance / deadCodeScore)
+      const importanceFileScores: Record<string, number> = {};
+      const deadCodeFileScores: Record<string, number> = {};
+      for (const r of rows) {
+        importanceFileScores[r.filePath] = r.importanceScore;
+        deadCodeFileScores[r.filePath] = r.deadCodeScore;
+      }
+      const importance = aggregateScoresToC4(importanceFileScores, elements);
+      const deadCode = aggregateScoresToC4(deadCodeFileScores, elements);
+
+      const entries = rows.map((r) => ({
+        filePath: r.filePath,
+        importanceScore: r.importanceScore,
+        fanInTotal: r.fanInTotal,
+        cognitiveComplexityMax: r.cognitiveComplexityMax,
+        functionCount: r.functionCount,
+        deadCodeScore: r.deadCodeScore,
+        signals: r.signals,
+        isIgnored: r.isIgnored,
+        ignoreReason: r.ignoreReason,
+      }));
+
+      res.writeHead(200, JSON_HEADERS);
+      res.end(JSON.stringify({
+        entries,
+        elementMatrix: { importance, deadCodeScore: deadCode },
+      }));
+    } catch (err) {
+      TrailLogger.error('[/api/c4/file-analysis] failed', err);
+      res.writeHead(500, JSON_HEADERS);
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
     }
   }
 
