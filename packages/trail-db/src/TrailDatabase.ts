@@ -6336,6 +6336,33 @@ export class TrailDatabase {
     });
   }
 
+  /**
+   * 指定リポジトリで指定日時以降にコミットされたファイル別の出現回数（churn）を返す。
+   * 1 コミットで同ファイルが複数回現れることはないので、出現回数 = コミット数。
+   *
+   * @param repoName セッションの repo_name 一致条件（sessions.repo_name）
+   * @param sinceIso UTC ISO 8601 文字列（この日時以降のコミットを対象とする）
+   * @returns file_path → コミット出現回数のマップ。file_path は git 相対パス
+   */
+  getCommitFilesChurnSince(repoName: string, sinceIso: string): Map<string, number> {
+    const db = this.ensureDb();
+    const result = db.exec(
+      `SELECT cf.file_path, COUNT(DISTINCT cf.commit_hash) AS cnt
+       FROM commit_files cf
+       JOIN session_commits sc ON sc.commit_hash = cf.commit_hash
+       JOIN sessions s ON s.id = sc.session_id
+       WHERE sc.committed_at >= ? AND s.repo_name = ?
+       GROUP BY cf.file_path`,
+      [sinceIso, repoName],
+    );
+    const out = new Map<string, number>();
+    const values = result[0]?.values ?? [];
+    for (const r of values) {
+      out.set(String(r[0] ?? ''), Number(r[1] ?? 0));
+    }
+    return out;
+  }
+
   getCommitFiles(commitHashes: string[]): Array<{ commit_hash: string; file_path: string }> {
     if (commitHashes.length === 0) return [];
     const db = this.ensureDb();
