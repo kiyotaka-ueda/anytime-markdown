@@ -183,7 +183,10 @@ export type MetricOverlay =
   | 'hotspot-frequency'
   | 'hotspot-risk'
   | 'fcmap'
-  | 'dead-code-score';
+  | 'dead-code-score'
+  | 'size-loc'
+  | 'size-files'
+  | 'size-functions';
 
 /** 複雑度分類（classifyByFeatures の label に対応） */
 export type ComplexityClass =

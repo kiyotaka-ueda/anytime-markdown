@@ -246,3 +246,49 @@ describe('computeColorMap — dead-code-score', () => {
     expect(m.size).toBe(0);
   });
 });
+
+describe('computeColorMap — size-loc', () => {
+  const sizeMatrix = {
+    big:    { loc: 1500, files: 0, functions: 0 },
+    mid:    { loc:  600, files: 0, functions: 0 },
+    small:  { loc:  100, files: 0, functions: 0 },
+  };
+  it('1000+ 赤、500-999 黄、未満は緑', () => {
+    const m = computeColorMap('size-loc', null, null, null, null, null, null, null, sizeMatrix);
+    expect(m.get('big')).toBe('#c62828');
+    expect(m.get('mid')).toBe('#f9a825');
+    expect(m.get('small')).toBe('#2e7d32');
+  });
+  it('matrix が null なら空 Map', () => {
+    const m = computeColorMap('size-loc', null, null, null, null, null, null, null, null);
+    expect(m.size).toBe(0);
+  });
+});
+
+describe('computeColorMap — size-files', () => {
+  const sizeMatrix = {
+    big:   { loc: 0, files: 60, functions: 0 },
+    mid:   { loc: 0, files: 30, functions: 0 },
+    small: { loc: 0, files:  5, functions: 0 },
+  };
+  it('50+ 赤、20-49 黄、未満は緑', () => {
+    const m = computeColorMap('size-files', null, null, null, null, null, null, null, sizeMatrix);
+    expect(m.get('big')).toBe('#c62828');
+    expect(m.get('mid')).toBe('#f9a825');
+    expect(m.get('small')).toBe('#2e7d32');
+  });
+});
+
+describe('computeColorMap — size-functions', () => {
+  const sizeMatrix = {
+    big:   { loc: 0, files: 0, functions: 60 },
+    mid:   { loc: 0, files: 0, functions: 25 },
+    small: { loc: 0, files: 0, functions:  5 },
+  };
+  it('50+ 赤、10-49 黄、未満は緑', () => {
+    const m = computeColorMap('size-functions', null, null, null, null, null, null, null, sizeMatrix);
+    expect(m.get('big')).toBe('#c62828');
+    expect(m.get('mid')).toBe('#f9a825');
+    expect(m.get('small')).toBe('#2e7d32');
+  });
+});

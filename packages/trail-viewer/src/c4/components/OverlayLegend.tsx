@@ -107,6 +107,30 @@ export function OverlayLegend({ overlay, isDark, dsmMax, communityLegend, commun
         <Swatch color="#4caf50" label="< 40" />
       </>
     );
+  } else if (overlay === 'size-loc') {
+    metricItems = (
+      <>
+        <Swatch color="#c62828" label="≥ 1000" />
+        <Swatch color="#f9a825" label="500–999" />
+        <Swatch color="#2e7d32" label="< 500" />
+      </>
+    );
+  } else if (overlay === 'size-files') {
+    metricItems = (
+      <>
+        <Swatch color="#c62828" label="≥ 50" />
+        <Swatch color="#f9a825" label="20–49" />
+        <Swatch color="#2e7d32" label="< 20" />
+      </>
+    );
+  } else if (overlay === 'size-functions') {
+    metricItems = (
+      <>
+        <Swatch color="#c62828" label="≥ 50" />
+        <Swatch color="#f9a825" label="10–49" />
+        <Swatch color="#2e7d32" label="< 10" />
+      </>
+    );
   }
 
   const positionSx = inline

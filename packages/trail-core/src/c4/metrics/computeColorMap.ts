@@ -3,6 +3,7 @@ import type { DsmMatrix } from '../dsm/types';
 import type { CoverageMatrix, ComplexityMatrix, MetricOverlay, ComplexityClass } from '../types';
 import type { ImportanceMatrix } from '../../importance/types';
 import type { HotspotMap } from '../../hotspot/types';
+import type { SizeMatrix } from './buildSizeMatrix';
 
 // ─── Color constants ──────────────────────────────────────────────────────────
 
@@ -65,6 +66,26 @@ function deadCodeColor(score: number): string {
   return '#4caf50';                    // 緑
 }
 
+// ─── Size metric color helpers (緑=小、黄=中、赤=大) ───
+// 閾値はファイル単位 p90 ≈ 100 LOC、関数 19 を踏まえつつ集約レベルでも視認可能な値に固定。
+function sizeLocColor(value: number): string {
+  if (value >= 1000) return '#c62828';   // 赤
+  if (value >= 500)  return '#f9a825';   // 黄
+  return '#2e7d32';                      // 緑
+}
+
+function sizeFilesColor(value: number): string {
+  if (value >= 50) return '#c62828';
+  if (value >= 20) return '#f9a825';
+  return '#2e7d32';
+}
+
+function sizeFunctionsColor(value: number): string {
+  if (value >= 50) return '#c62828';
+  if (value >= 10) return '#f9a825';
+  return '#2e7d32';
+}
+
 const HOTSPOT_FREQ_BASE = { r: 232, g: 160, b: 18 } as const; // amber #E8A012
 const HOTSPOT_RISK_BASE = { r: 232, g: 80, b: 28 } as const;  // red-orange #E8501C
 
@@ -97,6 +118,7 @@ export function computeColorMap(
   defectRiskMap: ReadonlyMap<string, number> | null = null,
   hotspotMap: HotspotMap | null = null,
   deadCodeMatrix: Record<string, number> | null = null,
+  sizeMatrix: SizeMatrix | null = null,
 ): Map<string, string> {
   if (overlay === 'none') return new Map();
 
@@ -194,6 +216,22 @@ export function computeColorMap(
     const map = new Map<string, string>();
     for (const [elementId, score] of Object.entries(deadCodeMatrix)) {
       map.set(elementId, deadCodeColor(score));
+    }
+    return map;
+  }
+
+  // ── Size metrics (LOC / files / functions) ──
+  if (overlay === 'size-loc' || overlay === 'size-files' || overlay === 'size-functions') {
+    if (!sizeMatrix) return new Map();
+    const colorFn = overlay === 'size-loc' ? sizeLocColor
+      : overlay === 'size-files' ? sizeFilesColor
+      : sizeFunctionsColor;
+    const field = overlay === 'size-loc' ? 'loc'
+      : overlay === 'size-files' ? 'files'
+      : 'functions';
+    const map = new Map<string, string>();
+    for (const [elementId, entry] of Object.entries(sizeMatrix)) {
+      map.set(elementId, colorFn(entry[field]));
     }
     return map;
   }

@@ -218,6 +218,10 @@ export interface TrailI18n {
   'c4.overlay.hotspotRisk': string;
   'c4.overlay.groupDeadCode': string;
   'c4.overlay.deadCodeScore': string;
+  'c4.overlay.groupSize': string;
+  'c4.overlay.sizeLoc': string;
+  'c4.overlay.sizeFiles': string;
+  'c4.overlay.sizeFunctions': string;
   'c4.hotspot.controls.period': string;
   'c4.hotspot.controls.granularity': string;
   'c4.hotspot.controls.granularityCommit': string;

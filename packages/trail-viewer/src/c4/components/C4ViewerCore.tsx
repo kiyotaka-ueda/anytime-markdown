@@ -1,7 +1,8 @@
 import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 import { engine, layoutWithSubgroups, MinimapCanvas, state as graphState } from '@anytime-markdown/graph-core';
 import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, CommunityOverlayEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, HotspotMap, ImportanceMatrix, ManualGroup, MetricOverlay } from '@anytime-markdown/trail-core/c4';
-import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, aggregateHotspotToC4, buildC4ElementById, buildCommunityTree, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, computeCommunityOverlay, computeFileHotspot, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFileToC4Elements, resolveSelectedElementCommunity, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
+import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, aggregateHotspotToC4, buildC4ElementById, buildCommunityTree, buildElementTree, buildLevelView, buildSizeMatrix, c4ToGraphDocument, collectDescendantIds, computeColorMap, computeCommunityOverlay, computeFileHotspot, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFileToC4Elements, resolveSelectedElementCommunity, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
+import type { SizeMatrix } from '@anytime-markdown/trail-core/c4';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
@@ -44,7 +45,7 @@ const TREND_CHART_POPUP_MAX_WIDTH = 1000;
 const TREND_CHART_RESERVED_RIGHT_WIDTH =
   SELECTED_ELEMENT_DETAILS_WIDTH + SELECTED_ELEMENT_DETAILS_RIGHT_OFFSET + TREND_CHART_POPUP_GAP;
 
-type OverlayCategory = 'none' | 'coverage' | 'dsm' | 'complexity' | 'importance' | 'hotspot' | 'dead-code' | 'fcmap';
+type OverlayCategory = 'none' | 'coverage' | 'dsm' | 'complexity' | 'importance' | 'hotspot' | 'dead-code' | 'size' | 'fcmap';
 
 // fcmap はサブ項目が MetricOverlay ではなくフィーチャー ID のため除外
 const OVERLAY_CATEGORY_DEFAULTS: Record<Exclude<OverlayCategory, 'none' | 'fcmap'>, MetricOverlay> = {
@@ -54,6 +55,7 @@ const OVERLAY_CATEGORY_DEFAULTS: Record<Exclude<OverlayCategory, 'none' | 'fcmap
   importance: 'importance',
   hotspot: 'hotspot-frequency',
   'dead-code': 'dead-code-score',
+  size: 'size-loc',
 };
 
 export function getActivityTrendChartWidth(hasSelectedElementDetails: boolean): string {
@@ -742,6 +744,7 @@ export function C4ViewerCore({
       if (!hotspotResponse) return true;
       return hotspotResponse.files.length > 0;
     }
+    if (overlayCategory === 'size') return !!coverageMatrix && coverageMatrix.entries.length > 0;
     return true;
   }, [overlayCategory, coverageMatrix, filteredDsmMatrix, complexityMatrix, hasImportanceData, hotspotResponse]);
 
@@ -839,9 +842,25 @@ export function C4ViewerCore({
     return filtered;
   }, [deadCodeMatrix, c4Model, elementTypeById, levelTargetType]);
 
+  // サイズメトリクス (LOC / files / functions) は coverageMatrix から集計し、
+  // 現在表示レベルの要素タイプのみフィルタする。
+  const sizeMatrix = useMemo<SizeMatrix | null>(() => {
+    if (!coverageMatrix || !c4Model) return null;
+    return buildSizeMatrix(coverageMatrix, c4Model.elements);
+  }, [coverageMatrix, c4Model]);
+
+  const levelFilteredSizeMatrix = useMemo<SizeMatrix | null>(() => {
+    if (!sizeMatrix || !c4Model) return sizeMatrix;
+    const filtered: SizeMatrix = {};
+    for (const [id, entry] of Object.entries(sizeMatrix)) {
+      if (elementTypeById.get(id) === levelTargetType) filtered[id] = entry;
+    }
+    return filtered;
+  }, [sizeMatrix, c4Model, elementTypeById, levelTargetType]);
+
   const overlayMap = useMemo(
-    () => computeColorMap(metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap, levelFilteredDeadCodeMatrix),
-    [metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap, levelFilteredDeadCodeMatrix],
+    () => computeColorMap(metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap, levelFilteredDeadCodeMatrix, levelFilteredSizeMatrix),
+    [metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap, levelFilteredDeadCodeMatrix, levelFilteredSizeMatrix],
   );
 
   // F-cMap overlay: 選択フィーチャーの P/S/D ロールをノード色として返す
@@ -1478,6 +1497,7 @@ export function C4ViewerCore({
                       <MenuItem value="importance" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupImportance')}</MenuItem>
                       <MenuItem value="hotspot" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupHotspot')}</MenuItem>
                       <MenuItem value="dead-code" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupDeadCode')}</MenuItem>
+                      <MenuItem value="size" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupSize')}</MenuItem>
                       {featureMatrix && <MenuItem value="fcmap" sx={{ fontSize: '0.75rem' }}>F-cMap</MenuItem>}
                     </Select>
                   </Box>
@@ -1528,6 +1548,11 @@ export function C4ViewerCore({
                         ]}
                         {overlayCategory === 'dead-code' && [
                           <MenuItem key="dead-code-score" value="dead-code-score" disabled={!deadCodeMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.deadCodeScore')}</MenuItem>,
+                        ]}
+                        {overlayCategory === 'size' && [
+                          <MenuItem key="size-loc" value="size-loc" disabled={!sizeMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.sizeLoc')}</MenuItem>,
+                          <MenuItem key="size-files" value="size-files" disabled={!sizeMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.sizeFiles')}</MenuItem>,
+                          <MenuItem key="size-functions" value="size-functions" disabled={!sizeMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.sizeFunctions')}</MenuItem>,
                         ]}
                         {overlayCategory === 'fcmap' && featureMatrix?.features.map((f) => (
                           <MenuItem key={f.id} value={f.id} sx={{ fontSize: '0.75rem' }}>{f.name}</MenuItem>
