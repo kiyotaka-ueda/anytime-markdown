@@ -144,5 +144,9 @@ describe('SupabaseTrailReader mapping', () => {
     it('undefined は undefined を返す', () => {
       expect(reader.extractWorkspace(undefined)).toBeUndefined();
     });
+
+  it('null は undefined を返す', () => {
+    expect(reader.extractWorkspace(null)).toBeUndefined();
+  });
   });
 });
