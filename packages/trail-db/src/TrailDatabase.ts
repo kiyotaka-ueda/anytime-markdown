@@ -5721,7 +5721,9 @@ export class TrailDatabase {
     );
     const repoTokenMap = new Map<string, number>();
     for (const r of toRows(repoTokenResult)) {
-      const k = `${String(r['period'] ?? '')}::${String(r['repo_name'] ?? '')}`;
+      const period = String(r['period'] ?? '');
+      const repoName = String(r['repo_name'] ?? '');
+      const k = `${period}::${repoName}`;
       repoTokenMap.set(k, Number(r['tokens'] ?? 0));
     }
 
