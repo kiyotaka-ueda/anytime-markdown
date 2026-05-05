@@ -55,9 +55,15 @@ export class FileTrailStorage implements ITrailStorage {
   private static readonly GZIP_LEVEL = 1;
   private backupDone = false;
 
+  /**
+   * @param dbPath          DB ファイルの絶対パス
+   * @param backupGenerations  保持する世代数（0 は世代数 1 と同義に扱うが shouldBackup で制御）
+   * @param backupIntervalDays バックアップ間隔（日）。0 = セッション毎（従来動作）、1 以上 = 最新バックアップが N 日以上古い場合のみ作成
+   */
   constructor(
     private readonly dbPath: string,
     private readonly backupGenerations: number = FileTrailStorage.DEFAULT_BACKUP_GENERATIONS,
+    private readonly backupIntervalDays: number = 1,
   ) {}
 
   get identifier(): string {
@@ -76,10 +82,27 @@ export class FileTrailStorage implements ITrailStorage {
   save(bytes: Uint8Array): void {
     assertNotProductionWriteDuringTests(this.dbPath);
     if (!this.backupDone) {
-      this.rotateBackups();
+      if (this.shouldBackup()) {
+        this.rotateBackups();
+      }
       this.backupDone = true;
     }
     fs.writeFileSync(this.dbPath, Buffer.from(bytes));
+  }
+
+  /**
+   * バックアップを作成すべきか判定する。
+   * - backupIntervalDays === 0: セッション毎（従来動作）→ 常に true
+   * - backupIntervalDays >= 1: .bak.1.gz が存在しない、またはその mtime が N 日以上前の場合のみ true
+   */
+  private shouldBackup(): boolean {
+    if (this.backupGenerations <= 0) return false;
+    if (this.backupIntervalDays === 0) return true;
+    const bak1 = this.backupPath(1);
+    if (!fs.existsSync(bak1)) return true;
+    const { mtime } = fs.statSync(bak1);
+    const daysSince = (Date.now() - mtime.getTime()) / (1000 * 60 * 60 * 24);
+    return daysSince >= this.backupIntervalDays;
   }
 
   /**

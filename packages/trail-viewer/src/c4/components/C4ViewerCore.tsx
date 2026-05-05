@@ -1883,6 +1883,30 @@ export function C4ViewerCore({
                     const topThree = community.breakdown.slice(0, 3);
                     const otherCount = community.breakdown.slice(3).reduce((sum, e) => sum + e.count, 0);
                     const totalCount = community.breakdown.reduce((sum, e) => sum + e.count, 0);
+                    const elementId = selectedElementInfo.element.id;
+                    const getRoleForCommunity = (communityId: number) => {
+                      if (!featureMatrix) return null;
+                      const featureId = `f_community_${communityId}`;
+                      return featureMatrix.mappings.find(
+                        m => m.featureId === featureId && m.elementId === elementId,
+                      )?.role ?? null;
+                    };
+                    const roleBgColor = (role: string) => {
+                      if (role === 'primary') return colors.accent;
+                      if (role === 'secondary') return '#66BB6A';
+                      return isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.10)';
+                    };
+                    const roleTextColor = (role: string) =>
+                      role === 'dependency'
+                        ? colors.textSecondary
+                        : isDark ? colors.bg : '#fff';
+                    const roleKey = (role: string) =>
+                      role === 'primary'
+                        ? 'c4.community.role.primary'
+                        : role === 'secondary'
+                          ? 'c4.community.role.secondary'
+                          : 'c4.community.role.dependency';
+                    const dominantRole = getRoleForCommunity(community.dominantCommunity);
                     return (
                       <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 1 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
@@ -1900,11 +1924,16 @@ export function C4ViewerCore({
                             </IconButton>
                           </Tooltip>
                         </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
                           <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: dominantColor, flexShrink: 0 }} />
                           <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.74rem', fontWeight: 600, wordBreak: 'break-word' }}>
                             {displayName}
                           </Typography>
+                          {dominantRole && (
+                            <Typography variant="caption" sx={{ display: 'inline-block', px: 0.5, py: 0.125, borderRadius: '4px', bgcolor: roleBgColor(dominantRole), color: roleTextColor(dominantRole), fontSize: '0.6rem', fontWeight: 700 }}>
+                              {t(roleKey(dominantRole) as Parameters<typeof t>[0])}
+                            </Typography>
+                          )}
                         </Box>
                         {summary?.summary && (
                           <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.66rem', mt: 0.5, lineHeight: 1.4 }}>
@@ -1925,6 +1954,7 @@ export function C4ViewerCore({
                               const entrySummary = codeGraph?.communitySummaries?.[entry.community];
                               const entryFallback = codeGraph?.communities[entry.community];
                               const entryName = entrySummary?.name ?? entryFallback ?? `#${entry.community}`;
+                              const entryRole = getRoleForCommunity(entry.community);
                               const tooltipLabel = (
                                 <Box>
                                   <Box sx={{ fontWeight: 700, fontSize: '0.72rem' }}>
@@ -1947,6 +1977,11 @@ export function C4ViewerCore({
                                     <Box sx={{ flex: 1, height: 4, bgcolor: colors.hover, borderRadius: '2px', overflow: 'hidden' }}>
                                       <Box sx={{ width: `${(entry.count / totalCount) * 100}%`, height: '100%', bgcolor: communityColor(entry.community) }} />
                                     </Box>
+                                    {entryRole && (
+                                      <Typography variant="caption" sx={{ px: 0.4, py: 0.1, borderRadius: '3px', bgcolor: roleBgColor(entryRole), color: roleTextColor(entryRole), fontSize: '0.58rem', fontWeight: 700, lineHeight: 1.2 }}>
+                                        {t(roleKey(entryRole) as Parameters<typeof t>[0])}
+                                      </Typography>
+                                    )}
                                     <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.6rem', minWidth: 32, textAlign: 'right' }}>
                                       {Math.round((entry.count / totalCount) * 100)}%
                                     </Typography>

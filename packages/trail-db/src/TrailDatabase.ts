@@ -335,6 +335,7 @@ interface CombinedData {
   }[];
   readonly commitPrefixStats: readonly { period: string; prefix: string; count: number; linesAdded: number }[];
   readonly aiFirstTryRate: readonly { period: string; rate: number; sampleSize: number }[];
+  readonly repoStats: readonly { period: string; repoName: string; count: number; tokens: number }[];
 }
 
 interface RawLine {
@@ -710,6 +711,7 @@ export class TrailDatabase {
     storageDirOrStorage?: string | ITrailStorage,
     backupGenerations?: number,
     logger?: DbLogger,
+    backupIntervalDays?: number,
   ) {
     if (storageDirOrStorage !== undefined && typeof storageDirOrStorage !== 'string') {
       this.storage = storageDirOrStorage;
@@ -717,7 +719,7 @@ export class TrailDatabase {
     } else {
       const dbDir = storageDirOrStorage ?? DEFAULT_DB_DIR;
       this.dbPath = path.join(dbDir, 'trail.db');
-      this.storage = new FileTrailStorage(this.dbPath, backupGenerations);
+      this.storage = new FileTrailStorage(this.dbPath, backupGenerations, backupIntervalDays);
     }
     this.logger = logger ?? noopDbLogger;
   }
@@ -5695,6 +5697,49 @@ export class TrailDatabase {
       return { period: k.slice(0, sep), prefix: k.slice(sep + 2), count: v.count, linesAdded: v.linesAdded };
     });
 
+    // Repository stats: COUNT は commitRows を再利用（既に repo_name+commit_hash で重複排除済み）
+    const repoCountMap = new Map<string, number>();
+    for (const c of commitRows) {
+      if (c.period > todayPeriod) continue;
+      if (!c.repoName) continue;
+      const k = `${c.period}::${c.repoName}`;
+      repoCountMap.set(k, (repoCountMap.get(k) ?? 0) + 1);
+    }
+
+    // Repository stats: TOKEN は messages JOIN sessions で集計
+    const repoTokenResult = db.exec(
+      `SELECT ${messagePeriodExpr} AS period,
+              s.repo_name,
+              SUM(COALESCE(m.input_tokens,0) + COALESCE(m.output_tokens,0)
+                  + COALESCE(m.cache_read_tokens,0) + COALESCE(m.cache_creation_tokens,0)) AS tokens
+       FROM messages m
+       JOIN sessions s ON s.id = m.session_id
+       WHERE m.type = 'assistant'
+         AND DATE(m.timestamp, '${tzOffset}') >= ${cutoff}
+         AND s.repo_name != ''
+       GROUP BY period, s.repo_name`,
+    );
+    const repoTokenMap = new Map<string, number>();
+    for (const r of toRows(repoTokenResult)) {
+      const period = String(r['period'] ?? '');
+      const repoName = String(r['repo_name'] ?? '');
+      const k = `${period}::${repoName}`;
+      repoTokenMap.set(k, Number(r['tokens'] ?? 0));
+    }
+
+    // COUNT と TOKEN をマージ
+    const repoAllKeys = new Set([...repoCountMap.keys(), ...repoTokenMap.keys()]);
+    const repoStats = [...repoAllKeys].map(k => {
+      const sep = k.indexOf('::');
+      const repoName = k.slice(sep + 2);
+      return {
+        period: k.slice(0, sep),
+        repoName,
+        count: repoCountMap.get(k) ?? 0,
+        tokens: repoTokenMap.get(k) ?? 0,
+      };
+    }).filter(r => r.repoName !== '');
+
     // AI First-Try Success Rate per period
     const fixes = commitRows
       .filter(c => isAiFirstTryFailureCommit(c.subject))
@@ -5735,6 +5780,7 @@ export class TrailDatabase {
       agentStats,
       commitPrefixStats,
       aiFirstTryRate,
+      repoStats,
     };
   }
 

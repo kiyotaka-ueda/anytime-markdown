@@ -288,6 +288,9 @@ export interface TrailI18n {
   'c4.community.disabledNoData': string;
   'c4.community.nodeCount': string;
   'c4.community.containers': string;
+  'c4.community.role.primary': string;
+  'c4.community.role.secondary': string;
+  'c4.community.role.dependency': string;
   // combined (analytics)
   'analytics.combined.tool': string;
   'analytics.combined.tool.description': string;
@@ -297,6 +300,8 @@ export interface TrailI18n {
   'analytics.combined.tokens.description': string;
   'analytics.combined.error': string;
   'analytics.combined.error.description': string;
+  'analytics.combined.repository': string;
+  'analytics.combined.repository.description': string;
   'analytics.combined.commitPrefix': string;
   'analytics.combined.commitPrefix.description': string;
   'analytics.combined.release': string;
