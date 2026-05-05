@@ -4,21 +4,12 @@ import { analyze } from '@anytime-markdown/trail-core/analyze';
 import { ExecFileGitService } from '@anytime-markdown/trail-db';
 import type { TrailDatabase } from '@anytime-markdown/trail-db';
 
+import { loadAnalyzeExclude, seedAnalyzeExclude } from '@anytime-markdown/trail-core/analyzeExclude';
+
 import { TrailLogger } from '../utils/TrailLogger';
 import type { TrailDataServer } from '../server/TrailDataServer';
 import type { CodeGraphService } from './CodeGraphService';
 import { GraphDetector } from './GraphDetector';
-
-/**
- * C4 / コードグラフ解析時に除外するディレクトリ名パターン。
- * extension.ts の旧 EXCLUDE_PATTERNS と同値。
- */
-export const ANALYZE_EXCLUDE_PATTERNS: readonly string[] = [
-  '.worktrees',
-  '.vscode-test',
-  '__tests__',
-  'fixtures',
-];
 
 const ANALYZE_PHASES = [
   'Loading project...',
@@ -43,7 +34,7 @@ export interface TsconfigCandidate {
  * 複数ある場合の選択は呼び出し側の責務（コマンドは QuickPick、HTTP は 1 件目）。
  */
 export function findTsconfigCandidates(analysisRoot: string): TsconfigCandidate[] {
-  return new GraphDetector(analysisRoot, ANALYZE_EXCLUDE_PATTERNS)
+  return new GraphDetector(analysisRoot, loadAnalyzeExclude(analysisRoot))
     .detectFilesByName('tsconfig.json')
     .map((fsPath) => {
       const rel = path.relative(analysisRoot, fsPath);
@@ -93,9 +84,10 @@ export async function runAnalyzeCurrentCodePipeline(
   trailDataServer.notifyProgress('Loading project...', 0);
   onProgress?.('Loading project...', 0);
 
+  const excludePatterns = loadAnalyzeExclude(analysisRoot);
   const graph = analyze({
     tsconfigPath,
-    exclude: ANALYZE_EXCLUDE_PATTERNS.map((p) => `**/${p}/**`),
+    exclude: excludePatterns.map((p) => `**/${p}/**`),
     onProgress: (phase) => {
       TrailLogger.info(`C4 analysis [${repoName}]: ${phase}`);
       const percent = phasePercent(phase);
@@ -174,6 +166,16 @@ export async function runAnalyzeCurrentCodePipeline(
     warnings.push(`seedDeadCodeIgnore failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 
+  // .trail/analyze-exclude をシードする（初回のみ作成）
+  try {
+    const seeded = seedAnalyzeExclude(analysisRoot);
+    if (seeded) {
+      TrailLogger.info(`C4 analysis [${repoName}]: .trail/analyze-exclude created`);
+    }
+  } catch (err) {
+    warnings.push(`seedAnalyzeExclude failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
   // ファイル別・関数別デッドコード解析を current_file_analysis / current_function_analysis に保存
   try {
     onProgress?.('Computing file analysis...');
@@ -184,6 +186,7 @@ export async function runAnalyzeCurrentCodePipeline(
         repoName,
         trailDb,
         scored: importanceResult.scored,
+        lineCountByFile: importanceResult.lineCountByFile,
       });
       TrailLogger.info(
         `C4 analysis [${repoName}]: file_analysis=${fileRows} function_analysis=${functionRows}`,

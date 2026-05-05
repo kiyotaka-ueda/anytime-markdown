@@ -2331,6 +2331,7 @@ export class TrailDataServer {
   async computeAndPersistImportance(tsconfigPath?: string): Promise<{
     scored: import('@anytime-markdown/trail-core/importance').ScoredFunction[];
     fileAggregates: Map<string, import('@anytime-markdown/trail-core/deadCode').FileImportanceAggregate>;
+    lineCountByFile: ReadonlyMap<string, number>;
   } | null> {
     if (this.importanceComputing) return null;
     this.importanceComputing = true;
@@ -2360,7 +2361,16 @@ export class TrailDataServer {
         return null;
       }
       const fileAggregates = aggregateImportanceToFile(scored);
-      return { scored, fileAggregates };
+      // SourceFile の行数を相対パスでインデックスする（tsconfig ディレクトリ基準）
+      const lineCountByFile = new Map<string, number>();
+      const resolvedDir = path.dirname(path.resolve(resolvedTsconfig));
+      for (const sf of adapter.getProgram().getSourceFiles()) {
+        if (sf.isDeclarationFile || sf.fileName.includes('node_modules')) continue;
+        const relPath = path.relative(resolvedDir, sf.fileName);
+        const loc = sf.getLineAndCharacterOfPosition(sf.end).line + 1;
+        lineCountByFile.set(relPath, loc);
+      }
+      return { scored, fileAggregates, lineCountByFile };
     } finally {
       this.importanceComputing = false;
     }

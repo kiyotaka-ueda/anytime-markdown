@@ -52,6 +52,8 @@ export interface ComputeAndPersistFileAnalysisOpts {
   readonly repoName: string;
   readonly trailDb: TrailDatabase;
   readonly scored: readonly ScoredFunction[];
+  /** ファイル相対パス → 行数のマップ（tsconfig ディレクトリ基準の相対パス） */
+  readonly lineCountByFile: ReadonlyMap<string, number>;
 }
 
 const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
@@ -61,7 +63,7 @@ const ISOLATED_COMMUNITY_THRESHOLD = 3;
 export async function computeAndPersistFileAnalysis(
   opts: ComputeAndPersistFileAnalysisOpts,
 ): Promise<{ fileRows: number; functionRows: number }> {
-  const { analysisRoot, repoName, trailDb, scored } = opts;
+  const { analysisRoot, repoName, trailDb, scored, lineCountByFile } = opts;
   const analyzedAt = new Date().toISOString();
   const sinceIso = new Date(Date.now() - NINETY_DAYS_MS).toISOString();
 
@@ -122,6 +124,7 @@ export async function computeAndPersistFileAnalysis(
       importanceScore: 0,
       fanInTotal: 0,
       cognitiveComplexityMax: 0,
+      cyclomaticComplexityMax: 0,
       functionCount: 0,
     };
 
@@ -162,12 +165,16 @@ export async function computeAndPersistFileAnalysis(
 
     const deadCodeScore = computeDeadCodeScore(signals, isIgnored);
 
+    const lineCount = lineCountByFile.get(relPath) ?? 0;
+    const cyclomaticComplexityMax = agg.cyclomaticComplexityMax;
     fileRows.push({
       repoName,
       filePath: relPath,
       importanceScore: agg.importanceScore,
       fanInTotal: agg.fanInTotal,
       cognitiveComplexityMax: agg.cognitiveComplexityMax,
+      lineCount,
+      cyclomaticComplexityMax,
       functionCount: agg.functionCount,
       deadCodeScore,
       signals,
@@ -187,6 +194,7 @@ export async function computeAndPersistFileAnalysis(
     language: fn.language,
     fanIn: fn.metrics.fanIn,
     cognitiveComplexity: fn.metrics.cognitiveComplexity,
+    cyclomaticComplexity: fn.metrics.cyclomaticComplexity,
     dataMutationScore: fn.metrics.dataMutationScore,
     sideEffectScore: fn.metrics.sideEffectScore,
     lineCount: fn.metrics.lineCount,
