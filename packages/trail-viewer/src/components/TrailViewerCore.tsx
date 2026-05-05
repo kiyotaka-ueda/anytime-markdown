@@ -154,7 +154,7 @@ function TrailViewerCoreInner({
   const handleJumpToTrace = useCallback(
     (session: TrailSession) => {
       const query = session.slug || session.id;
-      onFilterChange({ ...filter, workspace: session.workspace, searchText: query });
+      onFilterChange({ ...filter, workspace: session.workspace ?? filter.workspace, searchText: query });
       onSelectSession(session.id);
       setActiveTab(1);
     },
