@@ -1,7 +1,28 @@
 import type { Database } from 'sql.js';
-import type { C4Model, TrailGraph, ManualElement, ManualRelationship } from '@anytime-markdown/trail-core';
-import { trailToC4, mergeManualIntoC4Model } from '@anytime-markdown/trail-core';
+import type { C4Model, ManualElement, ManualRelationship } from '@anytime-markdown/trail-core';
+import { codeGraphToC4, mergeManualIntoC4Model } from '@anytime-markdown/trail-core';
 import { all, get } from './sqlJsUtil';
+
+// current_code_graphs.graph_json は trail-core の StoredCodeGraph 形式。
+// import 時の型衝突を避けるため runtime はそのまま JSON.parse、型は構造のみ参照。
+interface StoredCodeGraphJson {
+  generatedAt: string;
+  repositories: Array<{ id: string; label: string; path: string }>;
+  nodes: Array<{
+    id: string;
+    label: string;
+    repo: string;
+    package: string;
+    fileType: 'code' | 'document';
+    community: number;
+    communityLabel: string;
+    x: number;
+    y: number;
+    size: number;
+  }>;
+  edges: Array<{ source: string; target: string; confidence: 'EXTRACTED' | 'INFERRED' | 'AMBIGUOUS'; confidence_score: number; crossRepo: boolean }>;
+  godNodes: ReadonlyArray<string>;
+}
 
 export interface ListedElement {
   id: string;
@@ -78,7 +99,7 @@ export function getC4ModelDirect(db: Database, repoName: string): { model: C4Mod
   );
 
   const base: C4Model = graphRow
-    ? trailToC4(JSON.parse(graphRow.graph_json) as TrailGraph)
+    ? codeGraphToC4(JSON.parse(graphRow.graph_json) as StoredCodeGraphJson)
     : { level: 'container', elements: [], relationships: [] };
 
   const manualElementRows = all<ManualElementRow>(

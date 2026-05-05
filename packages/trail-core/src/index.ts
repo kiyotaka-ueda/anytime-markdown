@@ -1,5 +1,6 @@
 export type { TrailGraph } from './model/types';
 export { trailToC4 } from './transform/toC4';
+export { codeGraphToC4 } from './c4/codeGraphToC4';
 export { formatLocalDate, formatLocalTime, formatLocalDateTime, toLocalDateKey } from './formatDate';
 
 // Domain layer

@@ -93,12 +93,27 @@ describe('getC4ModelDirect', () => {
     db.close();
   });
 
-  it('graph_json があれば trailToC4 で変換した C4Model を返す', () => {
+  it('graph_json があれば codeGraphToC4 で派生した C4Model を返す', () => {
     const db = createTestDb();
     const graph = {
-      nodes: [],
+      generatedAt: '2026-01-01T00:00:00.000Z',
+      repositories: [{ id: 'r1', label: 'TestRepo', path: '/tmp/r1' }],
+      nodes: [
+        {
+          id: 'r1:packages/core/index.ts',
+          label: 'index.ts',
+          repo: 'r1',
+          package: 'core',
+          fileType: 'code',
+          community: 1,
+          communityLabel: 'core-lib',
+          x: 0,
+          y: 0,
+          size: 1,
+        },
+      ],
       edges: [],
-      metadata: { projectRoot: '/tmp/test', analyzedAt: '2026-01-01T00:00:00.000Z', fileCount: 0 },
+      godNodes: [],
     };
     db.run('INSERT INTO current_code_graphs (repo_name, graph_json, updated_at) VALUES (?, ?, ?)', [
       REPO,
@@ -106,8 +121,10 @@ describe('getC4ModelDirect', () => {
       NOW,
     ]);
     const { model } = getC4ModelDirect(db, REPO);
-    expect(model).toBeDefined();
-    expect(Array.isArray(model.elements)).toBe(true);
+    expect(model.elements.find((e) => e.id === 'sys_r1')).toMatchObject({ type: 'system', name: 'TestRepo' });
+    expect(model.elements.find((e) => e.id === 'pkg_core')).toMatchObject({ type: 'container' });
+    expect(model.elements.find((e) => e.id === 'community_1')).toMatchObject({ type: 'component', name: 'core-lib' });
+    expect(model.elements.find((e) => e.id === 'r1:packages/core/index.ts')).toMatchObject({ type: 'code' });
     db.close();
   });
 
