@@ -814,6 +814,14 @@ export class TrailDatabase {
     db.run(CREATE_MESSAGE_COMMITS);
     db.run(CREATE_COMMIT_FILES);
     db.run(CREATE_SESSION_COMMIT_RESOLUTIONS);
+    // session_commits / commit_files への repo_name 追加はインデックス作成より前に行う
+    // （idx_session_commits_repo / idx_commit_files_repo が repo_name を参照するため）
+    for (const sql of [
+      "ALTER TABLE session_commits ADD COLUMN repo_name TEXT NOT NULL DEFAULT ''",
+      "ALTER TABLE commit_files ADD COLUMN repo_name TEXT NOT NULL DEFAULT ''",
+    ]) {
+      try { db.run(sql); } catch { /* Column already exists */ }
+    }
     db.run('CREATE INDEX IF NOT EXISTS idx_commit_files_hash ON commit_files(commit_hash)');
     for (const sql of [...CREATE_INDEXES, ...CREATE_RELEASE_INDEXES]) {
       db.run(sql);
@@ -853,13 +861,6 @@ export class TrailDatabase {
       try { db.run(sql); } catch { /* Column already exists */ }
     }
     this.migrateDropSessionsProjectColumn(db);
-    const commitTableAlters = [
-      "ALTER TABLE session_commits ADD COLUMN repo_name TEXT NOT NULL DEFAULT ''",
-      "ALTER TABLE commit_files ADD COLUMN repo_name TEXT NOT NULL DEFAULT ''",
-    ];
-    for (const sql of commitTableAlters) {
-      try { db.run(sql); } catch { /* Column already exists */ }
-    }
     const messageAlters = [
       'ALTER TABLE messages ADD COLUMN rule_recommended_model TEXT',
       'ALTER TABLE messages ADD COLUMN feature_recommended_model TEXT',
