@@ -562,9 +562,12 @@ CREATE INDEX IF NOT EXISTS idx_trail_messages_session_type_timestamp
 
 -- quality-metrics RPC: assistant message を直前の user message に紐付け、user_uuid 単位で
 -- (model 別) token を集約する。cost は per-model breakdown で TS 側 calculateCost に渡す。
+-- 引数は text。trail_messages.timestamp が TEXT (ISO 8601 文字列) のため、
+-- timestamptz と比較できない。ISO 8601 文字列同士の lexicographic 比較で
+-- chronological 順を担保する。
 CREATE OR REPLACE FUNCTION trail_quality_metrics_user_token_aggregates(
-    time_from timestamptz,
-    time_to timestamptz,
+    time_from text,
+    time_to text,
     session_ids text[]
 )
 RETURNS TABLE (
