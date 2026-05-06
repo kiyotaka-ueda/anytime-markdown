@@ -74,31 +74,34 @@ import {
   type LaneTool,
   type ChartEntry,
 } from '../domain/analytics/calculators';
+import type {
+  AnalyticsPanelProps,
+  CommitMarkerData,
+  ErrorMarkerData,
+  MetricItem,
+  AgentMetric,
+  ChartMetric,
+  CombinedChartKind,
+  CombinedMetric,
+  CommitMetric,
+  DailyViewMode,
+  PeriodDays,
+  SessionToolMetric,
+} from './analytics/types';
+import {
+  LANE_TOOL_COLORS,
+  LANE_TOOL_LABELS,
+  laneModelColor,
+  laneSkillColor,
+} from './analytics/constants';
+import { getMainAgentLabel, buildDaySession } from './analytics/helpers';
 
-export interface AnalyticsPanelProps {
-  readonly analytics: AnalyticsData | null;
-  readonly sessions?: readonly TrailSession[];
-  readonly onSelectSession?: (id: string) => void;
-  readonly onJumpToTrace?: (session: TrailSession) => void;
-  readonly fetchSessionMessages?: (id: string) => Promise<readonly TrailMessage[]>;
-  readonly fetchSessionCommits?: (id: string) => Promise<readonly TrailSessionCommit[]>;
-  readonly fetchSessionToolMetrics?: (id: string) => Promise<ToolMetrics | null>;
-  readonly fetchDayToolMetrics?: (date: string) => Promise<ToolMetrics | null>;
-  readonly costOptimization?: CostOptimizationData | null;
-  readonly fetchCombinedData?: (period: CombinedPeriodMode, rangeDays: CombinedRangeDays) => Promise<CombinedData>;
-  readonly fetchQualityMetrics?: (range: DateRange) => Promise<QualityMetrics | null>;
-  readonly fetchDeploymentFrequency?: (range: DateRange, bucket: 'day' | 'week') => Promise<ReadonlyArray<{ bucketStart: string; value: number }>>;
-  readonly fetchReleaseQuality?: (range: DateRange, bucket: 'day' | 'week') => Promise<ReadonlyArray<ReleaseQualityBucket>>;
-  readonly sessionsLoading?: boolean;
-}
+export type { AnalyticsPanelProps } from './analytics/types';
+export { getMainAgentLabel } from './analytics/helpers';
 
 // ---------------------------------------------------------------------------
-//  Helpers
+//  Helpers (getMainAgentLabel moved to ./analytics/helpers)
 // ---------------------------------------------------------------------------
-
-export function getMainAgentLabel(source?: TrailSession['source']): string {
-  return source === 'codex' ? 'Codex' : 'Claude Code';
-}
 
 // Return up to ~5 "nice" tick values covering [0, max]. Minimum step is 1 (no fractions).
 function PieCenterLabel({ value, color }: Readonly<{ value: number; color: string }>) {
@@ -118,20 +121,11 @@ function PieCenterLabel({ value, color }: Readonly<{ value: number; color: strin
 
 // Cost rates removed — backend now provides pre-calculated estimatedCostUsd
 
-type DailyViewMode = 'tokens' | 'cost';
-type PeriodDays = 7 | 30 | 90;
+// DailyViewMode / PeriodDays / MetricItem moved to ./analytics/types
 
 // ---------------------------------------------------------------------------
 //  Sub-components
 // ---------------------------------------------------------------------------
-
-interface MetricItem {
-  readonly label: string;
-  readonly value: React.ReactNode;
-  readonly badge?: { readonly label: string; readonly color: string };
-  readonly delta?: { readonly text: string; readonly color: string };
-  readonly tooltip?: string;
-}
 
 function CyclingCard({
   groupName,
@@ -418,21 +412,8 @@ function ToolUsageChart({ items }: Readonly<{ items: AnalyticsData['toolUsage'] 
 }
 
 // ---------------------------------------------------------------------------
-//  Marker types & helpers
+//  Marker types (CommitMarkerData / ErrorMarkerData moved to ./analytics/types)
 // ---------------------------------------------------------------------------
-
-interface CommitMarkerData {
-  readonly turn: number;
-  readonly agentLabel: string;
-  readonly commitHash: string;
-  readonly commitPrefix: string;
-}
-
-interface ErrorMarkerData {
-  readonly turn: number;
-  readonly agentLabel: string;
-  readonly toolName: string;
-}
 
 // ---------------------------------------------------------------------------
 //  CommitMarkers / ErrorMarkers — inverted-triangle markers with tooltips
@@ -507,32 +488,9 @@ function ErrorMarkers({ markers }: Readonly<{ markers: readonly ErrorMarkerData[
 
 // ---------------------------------------------------------------------------
 //  TurnLaneChart — model & tool-usage lanes aligned to turn count
+//  (LANE_TOOL_COLORS / LANE_TOOL_LABELS / laneModelColor / laneSkillColor
+//   moved to ./analytics/constants)
 // ---------------------------------------------------------------------------
-
-const LANE_TOOL_COLORS: Record<LaneTool, string> = {
-  bash:  toolActionColors.bash,
-  edit:  toolActionColors.edit,
-  write: toolActionColors.write,
-  read:  toolActionColors.read,
-  task:  toolActionColors.task,
-  other: toolActionColors.other,
-};
-const LANE_TOOL_LABELS: Record<LaneTool, string> = {
-  bash: 'Bash', edit: 'Edit', write: 'Write', read: 'Read', task: 'Task', other: 'Other',
-};
-
-function laneModelColor(model: string): string {
-  if (model.includes('opus')) return modelColors.opus;
-  if (model.includes('sonnet')) return modelColors.sonnet;
-  if (model.includes('haiku')) return modelColors.haiku;
-  return modelColors.unknown;
-}
-
-function laneSkillColor(skill: string): string {
-  let hash = 0;
-  for (let i = 0; i < skill.length; i++) hash = ((hash * 31) + skill.charCodeAt(i)) & 0xFFFFFF;
-  return analyticsPalette[Math.abs(hash) % analyticsPalette.length];
-}
 
 function TurnLaneChart({
   assistantMsgs,
@@ -1350,7 +1308,7 @@ function SessionMetricsPanel({ session, toolMetrics }: Readonly<{
   );
 }
 
-type SessionToolMetric = 'count' | 'tokens' | 'duration';
+// SessionToolMetric moved to ./analytics/types
 
 function ChartTitle({ title, description }: Readonly<{ title: string; description?: string }>) {
   return (
@@ -1509,44 +1467,7 @@ function SessionErrorChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics 
   );
 }
 
-function buildDaySession(date: string, daySessions: readonly TrailSession[]): TrailSession {
-  if (daySessions.length === 0) {
-    return {
-      id: `day-${date}`, slug: date, repoName: '', gitBranch: '',
-      startTime: `${date}T00:00:00.000Z`, endTime: `${date}T23:59:59.999Z`,
-      version: '', model: '', messageCount: 0,
-      usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 },
-    };
-  }
-  const sorted = [...daySessions].sort((a, b) => a.startTime.localeCompare(b.startTime));
-  const usage = daySessions.reduce<TrailTokenUsage>((acc, s) => ({
-    inputTokens: acc.inputTokens + s.usage.inputTokens,
-    outputTokens: acc.outputTokens + s.usage.outputTokens,
-    cacheReadTokens: acc.cacheReadTokens + s.usage.cacheReadTokens,
-    cacheCreationTokens: acc.cacheCreationTokens + s.usage.cacheCreationTokens,
-  }), { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 });
-  const commitStats = daySessions.reduce<{ commits: number; linesAdded: number; linesDeleted: number; filesChanged: number } | undefined>((acc, s) => {
-    if (!s.commitStats) return acc;
-    const base = acc ?? { commits: 0, linesAdded: 0, linesDeleted: 0, filesChanged: 0 };
-    return {
-      commits: base.commits + s.commitStats.commits,
-      linesAdded: base.linesAdded + s.commitStats.linesAdded,
-      linesDeleted: base.linesDeleted + s.commitStats.linesDeleted,
-      filesChanged: base.filesChanged + s.commitStats.filesChanged,
-    };
-  }, undefined);
-  const peakContextTokens = daySessions.reduce((max, s) => Math.max(max, s.peakContextTokens ?? 0), 0);
-  return {
-    id: `day-${date}`, slug: date, repoName: sorted[0].repoName, gitBranch: '',
-    startTime: sorted[0].startTime, endTime: sorted.at(-1)!.endTime,
-    version: '', model: '',
-    messageCount: daySessions.reduce((acc, s) => acc + s.messageCount, 0),
-    peakContextTokens: peakContextTokens > 0 ? peakContextTokens : undefined,
-    usage,
-    commitStats,
-    estimatedCostUsd: daySessions.reduce((acc, s) => acc + (s.estimatedCostUsd ?? 0), 0),
-  };
-}
+// buildDaySession moved to ./analytics/helpers
 
 function DailySessionList({
   date,
@@ -1981,13 +1902,8 @@ function DailyActivityChart({
 
 // ─── Behavior charts in Analytics ───────────────────────────────────────────
 
-type ChartMetric = 'count' | 'tokens';
-type CombinedChartKind = 'tools' | 'errors' | 'repos' | 'skills' | 'models' | 'agents' | 'commits' | 'releases';
-type AgentMetric = 'tokens' | 'cost' | 'loc';
-
-// スタック棒グラフの系列数が多すぎると描画・凡例・ツールチップが重くなるため、
-// 上位 N 件以外を "Others" に集約する。
-type CommitMetric = 'count' | 'loc' | 'leadTime';
+// ChartMetric / CombinedChartKind / AgentMetric / CommitMetric moved to ./analytics/types
+// (上位 N 件以外を "Others" に集約する設計はそのまま維持)
 
 function LeadTimeAxisTooltipContent({ unmappedByBucket, bucketKeys }: Readonly<{
   unmappedByBucket: Map<string, number>;
@@ -2707,7 +2623,7 @@ function ReleasesBarChart({ timeSeries }: Readonly<{
   );
 }
 
-type CombinedMetric = 'tokens' | 'tools' | 'errors' | 'repos' | 'skills' | 'models' | 'agents' | 'commits' | 'releases';
+// CombinedMetric moved to ./analytics/types
 
 function CombinedChartsSection({
   dailyActivity,
