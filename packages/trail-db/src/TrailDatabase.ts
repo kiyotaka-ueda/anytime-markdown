@@ -748,17 +748,71 @@ export class TrailDatabase {
   }
 
   // ─────────────────────────────────────────────────────────────────
-  //  集計ヘルパー（A-4 ヘルパー化フェーズ: SQL は現行を完全保持）
+  //  集計ヘルパー
   //  系統 1: byDateRange  — rebuildDailyCounts の kind='tool' (L1839 起源)
   //  系統 2: bySession    — computeToolMetrics の tool/skill (L4948/L4989 起源)
   //  系統 3: byMessageDateCutoff — getCombinedData (L5430 起源)
-  //  各ヘルパーの SQL は引数違いで重複する CTE/window/JOIN/GROUP BY 構造を持つ。
-  //  本フェーズでは call site を集約するのみで動作変更なし。SQL 書き換えは別 PR。
+  //  各ヘルパーは A-4 で call site を集約済み。Phase A-3 で内部 SQL を順次
+  //  範囲スキャン+TS 集計へ置換する（系統 1 完了 / 系統 2,3 未着手）。
   // ─────────────────────────────────────────────────────────────────
+
+  /**
+   * SQL の `tool_name LIKE 'mcp\_\_%\_\_%' ESCAPE '\' THEN SUBSTR(...)` を JS で再現。
+   * "mcp__SERVER__TOOL" 形式のとき "mcp__SERVER" まで切り出す。それ以外は元値を返す。
+   */
+  private applyToolMcpAlias(toolName: string): string {
+    if (!toolName.startsWith('mcp__')) return toolName;
+    const rest = toolName.slice(5);
+    const pos = rest.indexOf('__');
+    if (pos < 0) return toolName;
+    return toolName.slice(0, pos + 5);
+  }
+
+  /**
+   * SQL の `DATE(timestamp, '+540 minutes')` を JS で再現。tzOffset は
+   * `getSqliteTzOffset()` の出力形式（"+540 minutes" / "-300 minutes"）を期待する。
+   * ISO 8601 timestamp を UTC ms に変換 → オフセット分加算 → YYYY-MM-DD を抽出。
+   */
+  private computeDateInSqliteTz(isoTimestamp: string, tzOffset: string): string {
+    const m = /^([+-])(\d+) minutes$/.exec(tzOffset);
+    const ms = Date.parse(isoTimestamp);
+    if (!m || Number.isNaN(ms)) return isoTimestamp.slice(0, 10);
+    const sign = m[1] === '+' ? 1 : -1;
+    const offsetMin = sign * Number(m[2]);
+    const shifted = new Date(ms + offsetMin * 60000);
+    const yyyy = shifted.getUTCFullYear();
+    const mm = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(shifted.getUTCDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  /**
+   * SQLite の IN 句変数上限 (デフォルト 999) を考慮し、items を batchSize 件ずつに
+   * 分割して fn を呼び出す。fn の戻り値の配列を結合して返す。
+   */
+  private fetchInBatches<TItem, TRow>(
+    items: readonly TItem[],
+    batchSize: number,
+    fn: (batch: readonly TItem[]) => readonly TRow[],
+  ): TRow[] {
+    const out: TRow[] = [];
+    for (let i = 0; i < items.length; i += batchSize) {
+      const batch = items.slice(i, i + batchSize);
+      const rows = fn(batch);
+      for (const r of rows) out.push(r);
+    }
+    return out;
+  }
 
   /**
    * 系統 1: tzOffset 適用日付別の tool 利用集計。
    * rebuildDailyCounts の kind='tool' 集計用。
+   *
+   * Phase A-3: 旧 SQL (CTE + LEFT JOIN + window + GROUP BY) を範囲スキャン 2 本 +
+   * TS 集計に置き換える。message_tool_calls 全件 + 出現 message_uuid に対する
+   * messages バッチ取得で msg_tokens を解決し、tools_in_msg / tools_in_turn は
+   * Map で算出。LEFT JOIN の semantics（messages 行が無い場合 msg_tokens=0）と
+   * SQL の SUM(ROUND(1.0 * x / y)) の按分順序を完全保持する。
    */
   private aggregateToolUsageByDateRange(tzOffset: string): readonly {
     date: string; tool: string; count: number; tokens: number; durationMs: number;
@@ -767,35 +821,90 @@ export class TrailDatabase {
     return this.runQuery(
       'aggregateToolUsageByDateRange',
       () => {
-        const result = db.exec(
-          `WITH tool_with_metrics AS (
-             SELECT tc.session_id, tc.message_uuid, tc.turn_index, tc.tool_name, tc.timestamp,
-                    COALESCE(m.input_tokens, 0) + COALESCE(m.output_tokens, 0) AS msg_tokens,
-                    COUNT(*) OVER (PARTITION BY tc.message_uuid) AS tools_in_msg,
-                    COALESCE(tc.turn_exec_ms, 0) AS turn_exec_ms,
-                    COUNT(*) OVER (PARTITION BY tc.session_id, tc.turn_index) AS tools_in_turn
-             FROM message_tool_calls tc
-             LEFT JOIN messages m ON m.uuid = tc.message_uuid
-           )
-           SELECT DATE(timestamp, '${tzOffset}') AS d,
-                  CASE
-                    WHEN tool_name LIKE 'mcp\\_\\_%\\_\\_%' ESCAPE '\\'
-                    THEN SUBSTR(tool_name, 1, INSTR(SUBSTR(tool_name, 6), '__') + 4)
-                    ELSE tool_name
-                  END AS tool,
-                  COUNT(*) AS count,
-                  CAST(SUM(ROUND(1.0 * msg_tokens / tools_in_msg)) AS INTEGER) AS tokens,
-                  CAST(SUM(ROUND(1.0 * turn_exec_ms / tools_in_turn)) AS INTEGER) AS duration_ms
-           FROM tool_with_metrics
-           GROUP BY d, tool`,
+        // Phase 1: message_tool_calls 全件範囲スキャン（rebuildDailyCounts は WHERE 無し）
+        const tcResult = db.exec(
+          `SELECT session_id, message_uuid, turn_index, tool_name, timestamp,
+                  COALESCE(turn_exec_ms, 0) AS turn_exec_ms
+           FROM message_tool_calls`,
         );
-        return (result[0]?.values ?? []).map((row) => ({
-          date: String(row[0]),
-          tool: String(row[1] ?? ''),
-          count: Number(row[2] ?? 0),
-          tokens: Number(row[3] ?? 0),
-          durationMs: Number(row[4] ?? 0),
-        }));
+        const tcRows = tcResult[0]?.values ?? [];
+        if (tcRows.length === 0) return [];
+
+        // Phase 2: 出現する message_uuid 集合
+        const messageUuids = new Set<string>();
+        for (const row of tcRows) messageUuids.add(row[1] as string);
+
+        // Phase 3: messages を uuid IN (?) でバッチ取得し msg_tokens Map 構築
+        // LEFT JOIN semantics 保持: 該当行が無い uuid は Map に入らず後段で 0 扱い
+        const SQLITE_VAR_LIMIT = 999;
+        const msgTokensByUuid = new Map<string, number>();
+        const uuidList = [...messageUuids];
+        this.fetchInBatches(uuidList, SQLITE_VAR_LIMIT, (batch) => {
+          const placeholders = batch.map(() => '?').join(',');
+          const msgResult = db.exec(
+            `SELECT uuid, COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0) AS msg_tokens
+             FROM messages WHERE uuid IN (${placeholders})`,
+            batch as string[],
+          );
+          for (const r of msgResult[0]?.values ?? []) {
+            msgTokensByUuid.set(r[0] as string, r[1] as number);
+          }
+          return [];
+        });
+
+        // Phase 4: tools_in_msg / tools_in_turn を算出
+        const TURN_KEY_SEP = '\x1f';
+        const toolsInMsg = new Map<string, number>();
+        const toolsInTurn = new Map<string, number>();
+        for (const row of tcRows) {
+          const messageUuid = row[1] as string;
+          const turnKey = `${row[0]}${TURN_KEY_SEP}${row[2]}`;
+          toolsInMsg.set(messageUuid, (toolsInMsg.get(messageUuid) ?? 0) + 1);
+          toolsInTurn.set(turnKey, (toolsInTurn.get(turnKey) ?? 0) + 1);
+        }
+
+        // Phase 5: (date, tool) 単位で count / tokens / durationMs を集計
+        // SUM(ROUND(1.0 * x / y)) と同等のため、各行で round → 集計 を踏襲する
+        type Agg = { count: number; tokens: number; duration: number };
+        const aggMap = new Map<string, Agg>();
+        for (const row of tcRows) {
+          const sessionId = row[0] as string;
+          const messageUuid = row[1] as string;
+          const turnIndex = row[2];
+          const toolName = row[3] as string;
+          const timestamp = row[4] as string;
+          const turnExecMs = Number(row[5] ?? 0);
+
+          const tool = this.applyToolMcpAlias(toolName);
+          const date = this.computeDateInSqliteTz(timestamp, tzOffset);
+
+          const msgTokens = msgTokensByUuid.get(messageUuid) ?? 0;
+          const tInMsg = toolsInMsg.get(messageUuid) ?? 1;
+          const tokensContrib = Math.round(msgTokens / tInMsg);
+
+          const turnKey = `${sessionId}${TURN_KEY_SEP}${turnIndex}`;
+          const tInTurn = toolsInTurn.get(turnKey) ?? 1;
+          const durationContrib = Math.round(turnExecMs / tInTurn);
+
+          const aggKey = `${date}${TURN_KEY_SEP}${tool}`;
+          const cur = aggMap.get(aggKey) ?? { count: 0, tokens: 0, duration: 0 };
+          cur.count += 1;
+          cur.tokens += tokensContrib;
+          cur.duration += durationContrib;
+          aggMap.set(aggKey, cur);
+        }
+
+        // Phase 6: 結果配列へ変換
+        return [...aggMap.entries()].map(([key, agg]) => {
+          const sep = key.indexOf(TURN_KEY_SEP);
+          return {
+            date: key.slice(0, sep),
+            tool: key.slice(sep + 1),
+            count: agg.count,
+            tokens: agg.tokens,
+            durationMs: agg.duration,
+          };
+        });
       },
       (rows) => rows.length,
     );
