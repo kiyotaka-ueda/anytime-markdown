@@ -911,52 +911,113 @@ export class TrailDatabase {
   }
 
   /**
+   * 系統 2 共通実装: セッション内の tool/skill 別利用集計。
+   * 内部は range scan + uuid IN バッチ + TS 集計。LEFT JOIN semantics と
+   * SUM(ROUND(1.0 * x / y)) の按分順序を完全保持する。
+   * tools_in_msg / tools_in_turn は CTE フィルタ後の対象集合に対して計算する
+   * （旧 SQL の `WHERE ... [AND skill_name IS NOT NULL]` を CTE 内に持たせていた挙動と一致）。
+   */
+  private aggregateBySessionInternal(
+    sessionId: string,
+    groupKeyColumn: 'tool_name' | 'skill_name',
+    skipNullKey: boolean,
+  ): readonly { key: string; count: number; tokens: number; durationMs: number }[] {
+    const db = this.ensureDb();
+    // Phase 1: message_tool_calls を session 範囲スキャン
+    //   skipNullKey=true のとき skill_name IS NOT NULL を WHERE に含める
+    const sql = skipNullKey
+      ? `SELECT message_uuid, turn_index, ${groupKeyColumn} AS key_col,
+              COALESCE(turn_exec_ms, 0) AS turn_exec_ms
+         FROM message_tool_calls
+         WHERE session_id = ? AND ${groupKeyColumn} IS NOT NULL`
+      : `SELECT message_uuid, turn_index, ${groupKeyColumn} AS key_col,
+              COALESCE(turn_exec_ms, 0) AS turn_exec_ms
+         FROM message_tool_calls
+         WHERE session_id = ?`;
+    const tcResult = db.exec(sql, [sessionId]);
+    const tcRows = tcResult[0]?.values ?? [];
+    if (tcRows.length === 0) return [];
+
+    // Phase 2: 出現する message_uuid 集合
+    const messageUuids = new Set<string>();
+    for (const row of tcRows) messageUuids.add(row[0] as string);
+
+    // Phase 3: messages を uuid IN (?) でバッチ取得して msg_tokens Map 構築
+    const SQLITE_VAR_LIMIT = 999;
+    const msgTokensByUuid = new Map<string, number>();
+    const uuidList = [...messageUuids];
+    this.fetchInBatches(uuidList, SQLITE_VAR_LIMIT, (batch) => {
+      const placeholders = batch.map(() => '?').join(',');
+      const msgResult = db.exec(
+        `SELECT uuid, COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0) AS msg_tokens
+         FROM messages WHERE uuid IN (${placeholders})`,
+        batch as string[],
+      );
+      for (const r of msgResult[0]?.values ?? []) {
+        msgTokensByUuid.set(r[0] as string, r[1] as number);
+      }
+      return [];
+    });
+
+    // Phase 4: tools_in_msg / tools_in_turn を CTE 後集合に対して算出
+    // session_id 部分は単一 session なので turnKey は turn_index のみで十分
+    const toolsInMsg = new Map<string, number>();
+    const toolsInTurn = new Map<number | string, number>();
+    for (const row of tcRows) {
+      const messageUuid = row[0] as string;
+      const turnIndex = row[1] as number | string;
+      toolsInMsg.set(messageUuid, (toolsInMsg.get(messageUuid) ?? 0) + 1);
+      toolsInTurn.set(turnIndex, (toolsInTurn.get(turnIndex) ?? 0) + 1);
+    }
+
+    // Phase 5: groupKey 単位で集計
+    type Agg = { count: number; tokens: number; duration: number };
+    const aggMap = new Map<string, Agg>();
+    for (const row of tcRows) {
+      const messageUuid = row[0] as string;
+      const turnIndex = row[1] as number | string;
+      const rawKey = row[2] as string;
+      const turnExecMs = Number(row[3] ?? 0);
+
+      // tool 列のみ MCP alias を適用、skill 列はそのまま
+      const key = groupKeyColumn === 'tool_name' ? this.applyToolMcpAlias(rawKey) : rawKey;
+
+      const msgTokens = msgTokensByUuid.get(messageUuid) ?? 0;
+      const tInMsg = toolsInMsg.get(messageUuid) ?? 1;
+      const tokensContrib = Math.round(msgTokens / tInMsg);
+
+      const tInTurn = toolsInTurn.get(turnIndex) ?? 1;
+      const durationContrib = Math.round(turnExecMs / tInTurn);
+
+      const cur = aggMap.get(key) ?? { count: 0, tokens: 0, duration: 0 };
+      cur.count += 1;
+      cur.tokens += tokensContrib;
+      cur.duration += durationContrib;
+      aggMap.set(key, cur);
+    }
+
+    // Phase 6: 結果配列へ変換 + count DESC でソート（旧 SQL の ORDER BY count DESC を保持）
+    return [...aggMap.entries()]
+      .map(([key, agg]) => ({
+        key,
+        count: agg.count,
+        tokens: agg.tokens,
+        durationMs: agg.duration,
+      }))
+      .sort((a, b) => b.count - a.count);
+  }
+
+  /**
    * 系統 2 (tool): セッション内の tool 別利用集計。
    * computeToolMetrics の toolUsage 用 (L4948 起源)。
    */
   private aggregateToolUsageBySession(sessionId: string): readonly {
     tool: string; count: number; tokens: number; durationMs: number;
   }[] {
-    const db = this.ensureDb();
     return this.runQuery(
       'aggregateToolUsageBySession',
-      () => {
-        const result = db.exec(
-          `WITH tool_with_metrics AS (
-             SELECT tc.message_uuid, tc.turn_index, tc.tool_name,
-                    COALESCE(m.input_tokens, 0) + COALESCE(m.output_tokens, 0) AS msg_tokens,
-                    COUNT(*) OVER (PARTITION BY tc.message_uuid) AS tools_in_msg,
-                    COALESCE(tc.turn_exec_ms, 0) AS turn_exec_ms,
-                    COUNT(*) OVER (PARTITION BY tc.session_id, tc.turn_index) AS tools_in_turn
-             FROM message_tool_calls tc
-             LEFT JOIN messages m ON m.uuid = tc.message_uuid
-             WHERE tc.session_id = ?
-           )
-           SELECT CASE
-                    WHEN tool_name LIKE 'mcp\\_\\_%\\_\\_%' ESCAPE '\\'
-                    THEN SUBSTR(tool_name, 1, INSTR(SUBSTR(tool_name, 6), '__') + 4)
-                    ELSE tool_name
-                  END AS tool,
-                  COUNT(*) AS count,
-                  CAST(SUM(ROUND(1.0 * msg_tokens / tools_in_msg)) AS INTEGER) AS tokens,
-                  CAST(SUM(ROUND(1.0 * turn_exec_ms / tools_in_turn)) AS INTEGER) AS duration_ms
-           FROM tool_with_metrics
-           GROUP BY tool
-           ORDER BY count DESC`,
-          [sessionId],
-        );
-        if (!result[0]) return [];
-        const cols = result[0].columns;
-        return result[0].values.map((row) => {
-          const r = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
-          return {
-            tool: String(r['tool'] ?? ''),
-            count: Number(r['count'] ?? 0),
-            tokens: Number(r['tokens'] ?? 0),
-            durationMs: Number(r['duration_ms'] ?? 0),
-          };
-        });
-      },
+      () => this.aggregateBySessionInternal(sessionId, 'tool_name', false)
+        .map((r) => ({ tool: r.key, count: r.count, tokens: r.tokens, durationMs: r.durationMs })),
       (rows) => rows.length,
     );
   }
@@ -968,42 +1029,10 @@ export class TrailDatabase {
   private aggregateSkillUsageBySession(sessionId: string): readonly {
     skill: string; count: number; tokens: number; durationMs: number;
   }[] {
-    const db = this.ensureDb();
     return this.runQuery(
       'aggregateSkillUsageBySession',
-      () => {
-        const result = db.exec(
-          `WITH skill_with_metrics AS (
-             SELECT tc.message_uuid, tc.turn_index, tc.skill_name,
-                    COALESCE(m.input_tokens, 0) + COALESCE(m.output_tokens, 0) AS msg_tokens,
-                    COUNT(*) OVER (PARTITION BY tc.message_uuid) AS tools_in_msg,
-                    COALESCE(tc.turn_exec_ms, 0) AS turn_exec_ms,
-                    COUNT(*) OVER (PARTITION BY tc.session_id, tc.turn_index) AS tools_in_turn
-             FROM message_tool_calls tc
-             LEFT JOIN messages m ON m.uuid = tc.message_uuid
-             WHERE tc.session_id = ? AND tc.skill_name IS NOT NULL
-           )
-           SELECT skill_name AS skill,
-                  COUNT(*) AS count,
-                  CAST(SUM(ROUND(1.0 * msg_tokens / tools_in_msg)) AS INTEGER) AS tokens,
-                  CAST(SUM(ROUND(1.0 * turn_exec_ms / tools_in_turn)) AS INTEGER) AS duration_ms
-           FROM skill_with_metrics
-           GROUP BY skill
-           ORDER BY count DESC`,
-          [sessionId],
-        );
-        if (!result[0]) return [];
-        const cols = result[0].columns;
-        return result[0].values.map((row) => {
-          const r = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
-          return {
-            skill: String(r['skill'] ?? ''),
-            count: Number(r['count'] ?? 0),
-            tokens: Number(r['tokens'] ?? 0),
-            durationMs: Number(r['duration_ms'] ?? 0),
-          };
-        });
-      },
+      () => this.aggregateBySessionInternal(sessionId, 'skill_name', true)
+        .map((r) => ({ skill: r.key, count: r.count, tokens: r.tokens, durationMs: r.durationMs })),
       (rows) => rows.length,
     );
   }
