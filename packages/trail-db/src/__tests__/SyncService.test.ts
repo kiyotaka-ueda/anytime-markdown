@@ -101,6 +101,9 @@ class FakeRemoteStore implements IRemoteTrailStore {
   async deleteManualRelationship(repoName: string, relId: string): Promise<void> {
     this.relationships = this.relationships.filter(r => !(r.id === relId && (r as ManualRelationship & { _repo: string })._repo === repoName));
   }
+  async refreshUserMessageCosts(): Promise<void> {
+    // no-op (test fake)
+  }
 }
 
 describe('SyncService.syncManualElements', () => {

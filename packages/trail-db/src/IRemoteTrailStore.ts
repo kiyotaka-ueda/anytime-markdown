@@ -195,4 +195,10 @@ export interface IRemoteTrailStore {
     generated_at: string;
     updated_at: string;
   }[]): Promise<void>;
+
+  /**
+   * trail_user_message_costs Materialized View を refresh する。
+   * messages の wash-away & insert 完了後に呼ぶ。失敗は致命的でない（古いデータが見えるだけ）。
+   */
+  refreshUserMessageCosts(): Promise<void>;
 }

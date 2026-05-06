@@ -443,6 +443,9 @@ export class PostgresTrailStore implements IRemoteTrailStore {
   async listManualRelationships(): Promise<never> { throw new Error('PostgresTrailStore.listManualRelationships not implemented'); }
   async upsertManualRelationship(): Promise<never> { throw new Error('PostgresTrailStore.upsertManualRelationship not implemented'); }
   async deleteManualRelationship(): Promise<never> { throw new Error('PostgresTrailStore.deleteManualRelationship not implemented'); }
+  async refreshUserMessageCosts(): Promise<void> {
+    // PostgresTrailStore はテスト・移行用途のため Materialized View 関連は no-op。
+  }
 
   private ensurePool(): Pool {
     if (!this.pool) throw new Error('PostgresTrailStore not connected');
