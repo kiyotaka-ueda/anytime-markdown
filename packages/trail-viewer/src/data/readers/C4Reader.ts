@@ -43,7 +43,13 @@ export class C4Reader implements IC4ModelStore {
     if (error || !data) return null;
     try {
       return JSON.parse(data.model_json) as Record<string, unknown>;
-    } catch {
+    } catch (parseError) {
+      console.warn('C4Reader.getC4Model: failed to parse model_json', {
+        context: { id: 'current', length: data.model_json?.length ?? 0 },
+        error: parseError instanceof Error
+          ? { message: parseError.message, stack: parseError.stack }
+          : { value: String(parseError) },
+      });
       return null;
     }
   }
@@ -121,7 +127,13 @@ export class C4Reader implements IC4ModelStore {
         return parsed as TrailGraph;
       }
       return null;
-    } catch {
+    } catch (parseError) {
+      console.warn('C4Reader.parseGraph: failed to parse graph json', {
+        context: { length: json?.length ?? 0 },
+        error: parseError instanceof Error
+          ? { message: parseError.message, stack: parseError.stack }
+          : { value: String(parseError) },
+      });
       return null;
     }
   }

@@ -546,3 +546,95 @@ CREATE POLICY "trail_release_code_graphs_all" ON trail_release_code_graphs FOR A
 ALTER TABLE trail_release_code_graph_communities ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "trail_release_code_graph_communities_all" ON trail_release_code_graph_communities;
 CREATE POLICY "trail_release_code_graph_communities_all" ON trail_release_code_graph_communities FOR ALL USING (true) WITH CHECK (true);
+
+
+-- =====================================================================
+-- 性能改善 Phase 1 (2026-05-06): trail-viewer の getQualityMetrics 改善
+-- =====================================================================
+
+-- type+timestamp 複合 index: assistant message の type+range filter を index 内で完結
+CREATE INDEX IF NOT EXISTS idx_trail_messages_type_timestamp
+    ON trail_messages (type, timestamp);
+
+-- session_id+type+timestamp 複合 index: per-session の type filter (RPC / fetchUserMessages 用)
+CREATE INDEX IF NOT EXISTS idx_trail_messages_session_type_timestamp
+    ON trail_messages (session_id, type, timestamp);
+
+-- quality-metrics RPC: assistant message を直前の user message に紐付け、user_uuid 単位で
+-- (model 別) token を集約する。cost は per-model breakdown で TS 側 calculateCost に渡す。
+-- 引数は text。trail_messages.timestamp が TEXT (ISO 8601 文字列) のため、
+-- timestamptz と比較できない。ISO 8601 文字列同士の lexicographic 比較で
+-- chronological 順を担保する。
+CREATE OR REPLACE FUNCTION trail_quality_metrics_user_token_aggregates(
+    time_from text,
+    time_to text,
+    session_ids text[]
+)
+RETURNS TABLE (
+    user_uuid text,
+    cost_breakdown jsonb
+)
+LANGUAGE sql
+STABLE
+AS $$
+WITH
+assistants AS (
+    SELECT
+        session_id,
+        timestamp,
+        input_tokens,
+        output_tokens,
+        cache_read_tokens,
+        cache_creation_tokens,
+        COALESCE(model, '') AS model
+    FROM trail_messages
+    WHERE type = 'assistant'
+      AND session_id = ANY(session_ids)
+      AND timestamp BETWEEN time_from AND time_to
+),
+user_msgs AS (
+    SELECT uuid, session_id, timestamp
+    FROM trail_messages
+    WHERE type = 'user'
+      AND session_id = ANY(session_ids)
+),
+matched AS (
+    SELECT DISTINCT ON (a.session_id, a.timestamp)
+        a.input_tokens,
+        a.output_tokens,
+        a.cache_read_tokens,
+        a.cache_creation_tokens,
+        a.model,
+        u.uuid AS user_uuid
+    FROM assistants a
+    JOIN user_msgs u
+      ON u.session_id = a.session_id
+     AND u.timestamp <= a.timestamp
+    ORDER BY a.session_id, a.timestamp, u.timestamp DESC
+),
+per_user_model AS (
+    SELECT
+        user_uuid,
+        model,
+        SUM(input_tokens)::bigint AS sum_input,
+        SUM(output_tokens)::bigint AS sum_output,
+        SUM(cache_read_tokens)::bigint AS sum_cache_read,
+        SUM(cache_creation_tokens)::bigint AS sum_cache_creation
+    FROM matched
+    WHERE user_uuid IS NOT NULL
+    GROUP BY user_uuid, model
+)
+SELECT
+    user_uuid,
+    jsonb_agg(
+        jsonb_build_object(
+            'model', model,
+            'input', sum_input,
+            'output', sum_output,
+            'cache_read', sum_cache_read,
+            'cache_creation', sum_cache_creation
+        )
+    ) AS cost_breakdown
+FROM per_user_model
+GROUP BY user_uuid;
+$$;
