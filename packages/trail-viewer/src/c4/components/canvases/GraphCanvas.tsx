@@ -4,7 +4,7 @@ import type { Action } from '@anytime-markdown/graph-core/state';
 import { useCanvasBase } from '@anytime-markdown/graph-core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { GHOST_EDGE_COMMIT_DARK, GHOST_EDGE_COMMIT_LIGHT, GHOST_EDGE_SESSION_DARK, GHOST_EDGE_SESSION_LIGHT, GHOST_EDGE_SUBAGENT_DARK, GHOST_EDGE_SUBAGENT_LIGHT } from '../ghostEdgeColors';
+import { GHOST_EDGE_COMMIT_DARK, GHOST_EDGE_COMMIT_LIGHT, GHOST_EDGE_SESSION_DARK, GHOST_EDGE_SESSION_LIGHT, GHOST_EDGE_SUBAGENT_DARK, GHOST_EDGE_SUBAGENT_LIGHT } from '../../ghostEdgeColors';
 
 const DIM_OPACITY = 10;
 const COMMUNITY_OVERLAY_ALPHA = 0.5;

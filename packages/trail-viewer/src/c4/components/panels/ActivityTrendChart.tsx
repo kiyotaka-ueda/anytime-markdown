@@ -17,10 +17,10 @@ import { ChartsYAxis } from '@mui/x-charts/ChartsYAxis';
 import { LinePlot, MarkPlot } from '@mui/x-charts/LineChart';
 import { useMemo, useState } from 'react';
 
-import { useTrailI18n } from '../../i18n/context';
-import type { ActivityTrendResponse } from '../hooks/fetchActivityTrendApi';
-import { useActivityTrend } from '../hooks/useActivityTrend';
-import { ACTIVITY_TREND_COLORS } from '../c4MetricColors';
+import { useTrailI18n } from '../../../i18n/context';
+import type { ActivityTrendResponse } from '../../hooks/fetchActivityTrendApi';
+import { useActivityTrend } from '../../hooks/useActivityTrend';
+import { ACTIVITY_TREND_COLORS } from '../../c4MetricColors';
 
 const PERIOD_OPTIONS: ReadonlyArray<Exclude<TrendPeriod, 'all'>> = ['7d', '30d', '90d'];
 

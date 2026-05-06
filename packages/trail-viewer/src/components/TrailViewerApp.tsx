@@ -14,7 +14,7 @@ import { TrailViewerCore } from './TrailViewerCore';
 import { useTrailDataSource } from '../hooks/useTrailDataSource';
 import { useC4DataSource } from '../c4/hooks/useC4DataSource';
 import { useTraceFiles } from '../hooks/useTraceFiles';
-import type { ElementFormData, RelationshipFormData } from '../c4/components/C4EditDialogs';
+import type { ElementFormData, RelationshipFormData } from '../c4/components/dialogs/C4EditDialogs';
 import type { TrailFilter } from '../domain/parser/types';
 import type { TrailLocale } from '../i18n/types';
 

@@ -32,9 +32,9 @@ import { useDefectRisk } from '../hooks/useDefectRisk';
 import { useHotspot } from '../hooks/useHotspot';
 import { useTemporalCoupling } from '../hooks/useTemporalCoupling';
 import { useElementFunctions } from '../hooks/useElementFunctions';
-import { DeadCodeDetailSection } from './DeadCodeDetailSection';
+import { DeadCodeDetailSection } from './panels/DeadCodeDetailSection';
 import { fileAnalysisEntriesForElement } from './fileAnalysisEntriesForElement';
-import { ResizablePopup, type ResizablePopupSize } from './ResizablePopup';
+import { ResizablePopup, type ResizablePopupSize } from './widgets/ResizablePopup';
 
 const UNKNOWN_REPO_KEY = '__unknown__';
 const CURRENT_RELEASE_TAG = 'current';
@@ -109,19 +109,19 @@ import { COMMUNITY_ROLE_LABELS, getCommunityRoleBgColors } from '../communityRol
 import { useCodeGraph } from '../../hooks/useCodeGraph';
 import { computeClaudeActivityColorMap, computeConflictBorderMap,computeMultiAgentColorMap } from '../claudeActivityColorMap';
 import { computeContextMenuCapabilities } from '../utils/contextMenuCapabilities';
-import { ActivityTrendChart } from './ActivityTrendChart';
-import type { C4ElementKind, ElementFormData, RelationshipFormData } from './C4EditDialogs';
-import { AddElementDialog, AddRelationshipDialog } from './C4EditDialogs';
-import { C4ElementTree } from './C4ElementTree';
-import { GraphCanvas } from './GraphCanvas';
-import { HotspotControls, type HotspotControlsValue } from './HotspotControls';
-import { MatrixPanel } from './MatrixPanel';
-import { type CommunityLegendItem,OverlayLegend } from './OverlayLegend';
+import { ActivityTrendChart } from './panels/ActivityTrendChart';
+import type { C4ElementKind, ElementFormData, RelationshipFormData } from './dialogs/C4EditDialogs';
+import { AddElementDialog, AddRelationshipDialog } from './dialogs/C4EditDialogs';
+import { C4ElementTree } from './panels/C4ElementTree';
+import { GraphCanvas } from './canvases/GraphCanvas';
+import { HotspotControls, type HotspotControlsValue } from './overlays/HotspotControls';
+import { MatrixPanel } from './panels/MatrixPanel';
+import { type CommunityLegendItem,OverlayLegend } from './overlays/OverlayLegend';
 import {
   TemporalCouplingSettingsPopup,
   applyGhostEdgeMode,
   type TemporalCouplingControlsValue,
-} from './TemporalCouplingControls';
+} from './overlays/TemporalCouplingControls';
 
 const { graphReducer, createInitialState } = graphState;
 const { fitToContent } = engine;

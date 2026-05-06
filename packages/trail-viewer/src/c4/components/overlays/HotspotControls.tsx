@@ -14,7 +14,7 @@ import type {
   TrendPeriod,
 } from '@anytime-markdown/trail-core/c4';
 
-import { useTrailI18n } from '../../i18n/context';
+import { useTrailI18n } from '../../../i18n/context';
 
 export interface HotspotControlsValue {
   readonly period: TrendPeriod;

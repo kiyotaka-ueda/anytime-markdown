@@ -10,7 +10,7 @@ import type { CodeGraph, CodeGraphNode } from '@anytime-markdown/trail-core/code
 import { CodeGraphCanvas, type CodeGraphGhostEdge } from './CodeGraphCanvas';
 import { useCodeGraph } from '../hooks/useCodeGraph';
 import { useTemporalCoupling } from '../c4/hooks/useTemporalCoupling';
-import type { TemporalCouplingControlsValue } from '../c4/components/TemporalCouplingControls';
+import type { TemporalCouplingControlsValue } from '../c4/components/overlays/TemporalCouplingControls';
 
 function toCodeGraphNodeId(repoId: string, filePath: string): string {
   const cleaned = filePath.replace(/\.(tsx?|mdx?)$/, '');
