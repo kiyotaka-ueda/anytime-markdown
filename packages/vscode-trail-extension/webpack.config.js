@@ -8,6 +8,28 @@ const CopyPlugin = require('copy-webpack-plugin');
 
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
 
+/**
+ * ANALYZE=1 のときに webpack-bundle-analyzer の static report を生成する plugin を返す。
+ * 通常ビルドでは空配列を返し、bundle に影響しない。
+ * 出力: dist/bundle-report-{name}.html
+ *
+ * @param {string} reportName レポートファイル名のサフィックス（trailstandalone / extension / mcp-trail）
+ * @returns {webpack.WebpackPluginInstance[]}
+ */
+function buildBundleAnalyzerPlugins(reportName) {
+  if (process.env.ANALYZE !== '1') return [];
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
+  return [
+    new BundleAnalyzerPlugin({
+      analyzerMode: 'static',
+      reportFilename: `bundle-report-${reportName}.html`,
+      openAnalyzer: false,
+      generateStatsFile: false,
+    }),
+  ];
+}
+
 /** @type WebpackConfig */
 const extensionConfig = {
   target: 'node',
@@ -64,6 +86,7 @@ const extensionConfig = {
         to: 'sql-asm.js',
       }],
     }),
+    ...buildBundleAnalyzerPlugins('extension'),
   ],
   devtool: 'nosources-source-map',
 };
@@ -82,6 +105,12 @@ const trailStandaloneConfig = {
   },
   resolve: {
     extensions: ['.ts', '.tsx', '.js', '.jsx'],
+    // trail-viewer の dynamic import に Node16 型解決のため `.js` 拡張子が含まれる
+    // (例: `import('./AnalyticsPanel.js')`)。実ファイルは `.tsx` のため
+    // extensionAlias で .js → .tsx/.ts/.jsx/.js の順で解決させる。
+    extensionAlias: {
+      '.js': ['.ts', '.tsx', '.js', '.jsx'],
+    },
   },
   module: {
     rules: [
@@ -108,6 +137,7 @@ const trailStandaloneConfig = {
       maxChunks: 1,
     }),
     new webpack.NormalModuleReplacementPlugin(/^node:path$/, require.resolve('./src/shims/empty.js')),
+    ...buildBundleAnalyzerPlugins('trailstandalone'),
   ],
   // 単発で配信する Trail Viewer バンドル。code splitting の対象ではないため
   // webpack デフォルトの 244 KiB 閾値による perf hint は無効化する。
@@ -162,6 +192,9 @@ const mcpTrailServerConfig = {
     __dirname: false,
     __filename: false,
   },
+  plugins: [
+    ...buildBundleAnalyzerPlugins('mcp-trail'),
+  ],
   devtool: 'nosources-source-map',
 };
 
