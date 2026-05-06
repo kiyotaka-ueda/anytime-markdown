@@ -26,7 +26,7 @@ import { StatsBar } from './StatsBar';
 import { TraceTree } from './TraceTree';
 import { MessageTimeline } from './MessageTimeline';
 import { TrailThemeProvider } from './TrailThemeContext';
-import { getTokens } from './designTokens';
+import { getTokens } from '../theme/designTokens';
 import { TrailLocaleProvider, useTrailI18n } from '../i18n';
 import type { TrailLocale } from '../i18n';
 import type { TrailRelease } from '@anytime-markdown/trail-core/domain';

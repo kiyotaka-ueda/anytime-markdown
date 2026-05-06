@@ -36,7 +36,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import TextField from '@mui/material/TextField';
 import { filterTreeBySearch } from '@anytime-markdown/trail-core/c4';
 import { useTrailI18n } from '../../i18n';
-import { getC4Colors } from '../c4Theme';
+import { getC4Colors } from '../../theme/c4Tokens';
 import { getTokens } from '../../theme/designTokens';
 import { communityColor } from '../../components/communityColors';
 

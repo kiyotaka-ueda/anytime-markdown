@@ -1,7 +1,7 @@
 import type { FlowGraph, FlowNode } from '@anytime-markdown/trail-core/analyzer';
 import Box from '@mui/material/Box';
 import { memo, useEffect, useRef } from 'react';
-import { getC4Colors } from '../c4Theme';
+import { getC4Colors } from '../../theme/c4Tokens';
 
 const NODE_W = 140;
 const NODE_H = 36;

@@ -2,7 +2,7 @@ import type { HeatmapAxis, HeatmapMatrix } from '@anytime-markdown/trail-core/c4
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { truncate } from '../canvasHelpers';
-import { getC4Colors } from '../c4Theme';
+import { getC4Colors } from '../../theme/c4Tokens';
 
 const CELL = 24;
 const ROW_HEADER = 160;

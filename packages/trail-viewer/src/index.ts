@@ -53,8 +53,8 @@ export { SupabaseTrailReader } from './hooks/SupabaseTrailReader';
 export type { TrailLocale } from './i18n/types';
 
 // C4 viewer (merged from @anytime-markdown/c4-viewer)
-export { getC4Colors } from './c4/c4Theme';
-export type { C4ThemeColors } from './c4/c4Theme';
+export { getC4Colors } from './theme/c4Tokens';
+export type { C4ThemeColors } from './theme/c4Tokens';
 export { GraphCanvas } from './c4/components/GraphCanvas';
 export { DsmCanvas } from './c4/components/DsmCanvas';
 export { FcMapCanvas } from './c4/components/FcMapCanvas';

@@ -1,6 +1,6 @@
 import type { C4Model, C4Element, CoverageDiffMatrix, CoverageMatrix, CoverageEntry } from '@anytime-markdown/trail-core/c4';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getC4Colors } from '../c4Theme';
+import { getC4Colors } from '../../theme/c4Tokens';
 import { COVERAGE_HIGH, COVERAGE_LOW, COVERAGE_MID, COVERAGE_NONE, DELTA_NEGATIVE, DELTA_POSITIVE, getCoverageTextColor } from '../c4MetricColors';
 
 interface CoverageCanvasProps {

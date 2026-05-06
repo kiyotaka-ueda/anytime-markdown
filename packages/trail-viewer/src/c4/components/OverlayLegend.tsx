@@ -1,6 +1,6 @@
 import { Box, Typography } from '@mui/material';
 import type { MetricOverlay } from '@anytime-markdown/trail-core/c4';
-import { getC4Colors } from '../c4Theme';
+import { getC4Colors } from '../../theme/c4Tokens';
 import { COVERAGE_HIGH, COVERAGE_LOW, COVERAGE_MID, COVERAGE_NONE, METRIC_LEGEND_BLUE } from '../c4MetricColors';
 
 export interface CommunityLegendItem {

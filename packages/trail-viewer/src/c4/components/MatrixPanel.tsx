@@ -8,7 +8,7 @@ import ButtonGroup from '@mui/material/ButtonGroup';
 import Typography from '@mui/material/Typography';
 import { useMemo, useState } from 'react';
 
-import { getDsmCellBackground, getC4Colors } from '../c4Theme';
+import { getDsmCellBackground, getC4Colors } from '../../theme/c4Tokens';
 import { getCoverageColor } from '../c4MetricColors';
 import { useCodeGraph } from '../../hooks/useCodeGraph';
 import { useHotspot } from '../hooks/useHotspot';
