@@ -44,8 +44,8 @@ import { useCodeGraph } from '../../hooks/useCodeGraph';
 import { computeClaudeActivityColorMap, computeConflictBorderMap,computeMultiAgentColorMap } from '../claudeActivityColorMap';
 import { computeContextMenuCapabilities } from '../utils/contextMenuCapabilities';
 import { ActivityTrendChart } from './panels/ActivityTrendChart';
+import { C4DialogsArea } from './C4DialogsArea';
 import type { C4ElementKind, ElementFormData, RelationshipFormData } from './dialogs/C4EditDialogs';
-import { AddElementDialog, AddRelationshipDialog } from './dialogs/C4EditDialogs';
 import { C4ElementTree } from './panels/C4ElementTree';
 import { GraphCanvas } from './canvases/GraphCanvas';
 import { HotspotControls, type HotspotControlsValue } from './overlays/HotspotControls';
@@ -2381,42 +2381,20 @@ export function C4ViewerCore({
             )}
           </Box>
       </Box>
-      <AddElementDialog
-        open={addElementType !== null && !editElement}
-        elementType={addElementType ?? 'person'}
-        initial={addElementType === 'container' && selectedSystemId ? { parentId: selectedSystemId } : undefined}
-        onSubmit={handleAddElement}
-        onClose={() => setAddElementType(null)}
-        parentCandidates={
-          addElementType === 'component'
-            ? (c4Model?.elements.filter(e => e.type === 'container').map(e => ({ id: e.id, name: e.name })) ?? [])
-            : undefined
-        }
+      <C4DialogsArea
+        c4Model={c4Model}
+        addElementType={addElementType}
+        editElement={editElement}
+        addRelOpen={addRelOpen}
+        selectedSystemId={selectedSystemId}
+        selectedElementId={selectedElementId}
+        onCloseAddElement={() => setAddElementType(null)}
+        onCloseEditElement={() => setEditElement(null)}
+        onCloseAddRelationship={() => setAddRelOpen(false)}
+        onSubmitAddElement={handleAddElement}
+        onSubmitUpdateElement={handleUpdateElement}
+        onSubmitAddRelationship={handleAddRelationship}
       />
-      <AddElementDialog
-        open={editElement !== null}
-        elementType={editElement?.type ?? 'person'}
-        initial={editElement ?? undefined}
-        onSubmit={handleUpdateElement}
-        onClose={() => setEditElement(null)}
-        parentCandidates={
-          editElement?.type === 'container'
-            ? (c4Model?.elements.filter(e => e.type === 'system').map(e => ({ id: e.id, name: e.name })) ?? [])
-            : editElement?.type === 'component'
-            ? (c4Model?.elements.filter(e => e.type === 'container').map(e => ({ id: e.id, name: e.name })) ?? [])
-            : undefined
-        }
-      />
-      {selectedElementId && (
-        <AddRelationshipDialog
-          open={addRelOpen}
-          from={selectedElementId}
-          fromName={c4Model?.elements.find(e => e.id === selectedElementId)?.name ?? selectedElementId}
-          candidates={c4Model?.elements.filter(e => e.id !== selectedElementId && (e.type === 'person' || e.type === 'system' || e.type === 'container')).map(e => ({ id: e.id, name: e.name })) ?? []}
-          onSubmit={handleAddRelationship}
-          onClose={() => setAddRelOpen(false)}
-        />
-      )}
     </Box>
   );
 }
