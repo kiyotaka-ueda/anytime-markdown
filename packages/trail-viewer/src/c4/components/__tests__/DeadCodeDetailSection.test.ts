@@ -10,6 +10,7 @@ const entry = (
   importanceScore: 0,
   fanInTotal: 0,
   cognitiveComplexityMax: 0,
+  lineCount: 0,
   functionCount: 0,
   deadCodeScore,
   signals: {

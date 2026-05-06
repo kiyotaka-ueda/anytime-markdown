@@ -1,5 +1,6 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { lazyWithPreload } from './shared/lazyWithPreload';
+import { usePerfReporter } from '../hooks/usePerfReporter';
 import { TraceViewer } from '@anytime-markdown/trace-viewer';
 import type { TraceFileSource } from '@anytime-markdown/trace-viewer';
 import type { SourceLocation } from '@anytime-markdown/trace-core/types';
@@ -100,6 +101,13 @@ export interface TrailViewerCoreProps {
   readonly onJumpToSource?: (loc: SourceLocation) => void;
   /** 初期表示タブ番号（0=Analytics, 1=Traces, 2=Prompts, 3=Releases, 4=C4, 5=Trace）*/
   readonly initialTab?: number;
+  /**
+   * WebSocket 経由でコマンドを送る関数。perf-report の送出に使う。
+   * Web アプリ版では disableWebSocket=true により no-op になる。
+   */
+  readonly sendCommand?: (cmd: string, payload?: unknown) => void;
+  /** WebSocket が接続済みか。usePerfReporter の queue flush 判定に使う。 */
+  readonly wsConnected?: boolean;
 }
 
 const SESSION_LIST_WIDTH = 300;
@@ -141,6 +149,8 @@ function TrailViewerCoreInner({
   traceFiles,
   onJumpToSource,
   initialTab,
+  sendCommand,
+  wsConnected = false,
 }: Readonly<TrailViewerCoreProps>) {
   const { t } = useTrailI18n();
   const tokens = useMemo(() => getTokens(isDark ?? true), [isDark]);
@@ -160,6 +170,25 @@ function TrailViewerCoreInner({
   }, []);
   const [activeSequenceElementId, setActiveSequenceElementId] = useState<string | null>(null);
   const c4SequenceState = useC4SequenceData(c4?.serverUrl, activeSequenceElementId);
+
+  // perf-report: 初回マウント時の描画開始〜React mount 完了の所要時間を計測。
+  // sendCommand が undefined の場合は no-op send を渡し、計測値はキューにも積まない。
+  const noopSend = useCallback(() => {
+    /* sendCommand 未提供 (Next.js 経由の Web アプリなど) では何もしない */
+  }, []);
+  const perfReporter = usePerfReporter(sendCommand ?? noopSend, wsConnected);
+  useEffect(() => {
+    if (!sendCommand) return; // 計測は拡張機能モードのみ有効
+    // PerformanceNavigationTiming で domContentLoadedEventEnd を取得し、
+    // mount 完了時点との差分を ms 単位で報告する。
+    const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+    const navStart = navEntries[0]?.domContentLoadedEventEnd;
+    if (typeof navStart !== 'number' || navStart <= 0) return;
+    const ms = Math.max(0, performance.now() - navStart);
+    perfReporter.report('firstMount', ms);
+    // 依存空配列で初回 mount のみ送信
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Phase 5: idle prefetch
   // 初期描画完了後、ユーザーがクリックする前に残タブの chunk を順次 prefetch する。

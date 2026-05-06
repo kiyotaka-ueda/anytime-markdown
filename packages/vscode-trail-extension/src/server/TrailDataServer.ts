@@ -2277,6 +2277,11 @@ export class TrailDataServer {
       this.onOpenFile?.(parsed.filePath);
       return;
     }
+    if (parsed.type === 'perf-report') {
+      // TRAIL_DEBUG_PERF=1 の時のみ OutputChannel に出力（既定で常時 silent）
+      TrailLogger.debugPerf({ metric: parsed.metric, ms: parsed.ms, meta: parsed.meta });
+      return;
+    }
 
     const provider = this.getC4Provider?.();
     if (!provider) return;
@@ -3035,7 +3040,7 @@ export class TrailDataServer {
 export function isClientMessage(data: unknown): data is ClientMessage {
   if (typeof data !== 'object' || data === null) return false;
   const msg = data as Record<string, unknown>;
-  const validTypes = ['set-level', 'cluster', 'refresh', 'open-doc-link', 'reset-claude-activity', 'generate-code-graph', 'open-file'];
+  const validTypes = ['set-level', 'cluster', 'refresh', 'open-doc-link', 'reset-claude-activity', 'generate-code-graph', 'open-file', 'perf-report'];
   return typeof msg.type === 'string' && validTypes.includes(msg.type);
 }
 

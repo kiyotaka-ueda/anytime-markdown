@@ -215,6 +215,8 @@ export function TrailViewerApp({
       c4={c4Props}
       traceFiles={traceFiles.length > 0 ? traceFiles : undefined}
       initialTab={initialTab}
+      sendCommand={sendCommand}
+      wsConnected={c4.connected}
     />
   );
 }

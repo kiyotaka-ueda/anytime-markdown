@@ -121,6 +121,18 @@ export interface OpenFileCommand {
   readonly filePath: string;
 }
 
+/**
+ * Standalone Viewer 側の初回描画・lazy chunk 読込時間などを extension に
+ * 送信するための perf 計測メッセージ。受信側 (TrailDataServer) は
+ * TrailLogger.debugPerf に流し、TRAIL_DEBUG_PERF=1 の時のみ OutputChannel に出力する。
+ */
+export interface PerfReportCommand {
+  readonly type: 'perf-report';
+  readonly metric: string;
+  readonly ms: number;
+  readonly meta?: Record<string, unknown>;
+}
+
 export type ClientMessage =
   | SetLevelCommand
   | ClusterCommand
@@ -128,4 +140,5 @@ export type ClientMessage =
   | OpenDocLinkCommand
   | ResetClaudeActivityCommand
   | GenerateCodeGraphCommand
-  | OpenFileCommand;
+  | OpenFileCommand
+  | PerfReportCommand;
