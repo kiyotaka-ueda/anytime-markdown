@@ -37,8 +37,12 @@ export class SessionReader {
     const sessions = (data ?? []) as readonly SessionDbRow[];
     const sessionById = new Map(sessions.map((s) => [s.id, s] as const));
     const sessionIds = sessions.map((s) => s.id);
-    const subAgentCounts = await this.fetchSubAgentCountsForSessions(sessionIds);
-    const linkedCodexByParent = await this.fetchLinkedCodexSessionIdsByParent(sessions);
+    // 互いに依存しない 2 つの補助 fetch を並列化。Phase 0 計測で /api/trail/sessions が
+    // 581ms (目標 500ms) と +81ms 未達。1 ラウンドトリップぶん削減する。
+    const [subAgentCounts, linkedCodexByParent] = await Promise.all([
+      this.fetchSubAgentCountsForSessions(sessionIds),
+      this.fetchLinkedCodexSessionIdsByParent(sessions),
+    ]);
     const consumedCodexIds = new Set<string>();
     for (const ids of linkedCodexByParent.values()) {
       for (const id of ids) consumedCodexIds.add(id);
