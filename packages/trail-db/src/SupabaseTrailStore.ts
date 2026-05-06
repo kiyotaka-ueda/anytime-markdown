@@ -634,6 +634,17 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
     if (error) throw new Error(`Supabase deleteManualRelationship failed: ${error.message}`);
   }
 
+  async refreshUserMessageCosts(): Promise<void> {
+    const { error } = await this.ensureClient().rpc('refresh_trail_user_message_costs');
+    if (error) {
+      // refresh 失敗は致命的でない (古いデータが見えるだけ)。次回 sync で復旧する。
+      this.logger.error(
+        `[${new Date().toISOString()}] [WARN] SupabaseTrailStore.refreshUserMessageCosts failed: ${error.message}`,
+        error,
+      );
+    }
+  }
+
   private ensureClient(): SupabaseClient {
     if (!this.client) throw new Error('SupabaseTrailStore not connected');
     return this.client;

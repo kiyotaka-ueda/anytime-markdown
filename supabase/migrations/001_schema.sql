@@ -638,3 +638,59 @@ SELECT
 FROM per_user_model
 GROUP BY user_uuid;
 $$;
+
+-- =====================================================================
+-- Phase 5d: Materialized View for quality-metrics performance
+-- =====================================================================
+-- Phase 1 の trail_quality_metrics_user_token_aggregates RPC は DISTINCT ON join で
+-- 3.25 秒かかる。Materialized View で事前計算することで 1 秒以下を狙う。
+-- REFRESH は trail-db の import 完了 hook で行う。
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS trail_user_message_costs AS
+WITH matched AS (
+    SELECT DISTINCT ON (a.session_id, a.timestamp)
+        u.uuid AS user_uuid,
+        a.session_id,
+        u.timestamp AS user_timestamp,
+        COALESCE(a.model, '') AS model,
+        a.input_tokens,
+        a.output_tokens,
+        a.cache_read_tokens,
+        a.cache_creation_tokens
+    FROM trail_messages a
+    JOIN trail_messages u
+      ON a.session_id = u.session_id
+     AND u.type = 'user'
+     AND u.timestamp <= a.timestamp
+    WHERE a.type = 'assistant'
+    ORDER BY a.session_id, a.timestamp, u.timestamp DESC
+)
+SELECT
+    user_uuid,
+    session_id,
+    user_timestamp,
+    model,
+    SUM(input_tokens)::bigint AS input_tokens,
+    SUM(output_tokens)::bigint AS output_tokens,
+    SUM(cache_read_tokens)::bigint AS cache_read_tokens,
+    SUM(cache_creation_tokens)::bigint AS cache_creation_tokens
+FROM matched
+GROUP BY user_uuid, session_id, user_timestamp, model;
+
+CREATE INDEX IF NOT EXISTS idx_trail_user_message_costs_session_ts
+    ON trail_user_message_costs (session_id, user_timestamp);
+CREATE INDEX IF NOT EXISTS idx_trail_user_message_costs_user
+    ON trail_user_message_costs (user_uuid);
+-- CONCURRENTLY refresh のため UNIQUE index 必須 (PostgreSQL 制約)。
+-- (user_uuid, model) で一意 (上記 GROUP BY で保証される)。
+CREATE UNIQUE INDEX IF NOT EXISTS uq_trail_user_message_costs
+    ON trail_user_message_costs (user_uuid, model);
+
+-- import 完了後に呼ぶ refresh function。
+-- CONCURRENTLY refresh により MV が存在する間は古いデータで read 可能。
+CREATE OR REPLACE FUNCTION refresh_trail_user_message_costs()
+RETURNS void
+LANGUAGE sql
+AS $$
+    REFRESH MATERIALIZED VIEW CONCURRENTLY trail_user_message_costs;
+$$;
