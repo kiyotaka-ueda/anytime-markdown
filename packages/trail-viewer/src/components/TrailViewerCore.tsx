@@ -1,4 +1,5 @@
-import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { lazyWithPreload } from './shared/lazyWithPreload';
 import { TraceViewer } from '@anytime-markdown/trace-viewer';
 import type { TraceFileSource } from '@anytime-markdown/trace-viewer';
 import type { SourceLocation } from '@anytime-markdown/trace-core/types';
@@ -34,16 +35,16 @@ import { TabSkeleton } from './shared/TabSkeleton';
 import type { C4ViewerCoreProps } from '../c4/components/C4ViewerCore';
 import { useC4SequenceData } from '../c4/hooks/useC4SequenceData';
 
-const AnalyticsPanel = lazy(() =>
+const AnalyticsPanel = lazyWithPreload(() =>
   import('./AnalyticsPanel').then((m) => ({ default: m.AnalyticsPanel })),
 );
-const C4ViewerCore = lazy(() =>
+const C4ViewerCore = lazyWithPreload(() =>
   import('../c4/components/C4ViewerCore').then((m) => ({ default: m.C4ViewerCore })),
 );
-const MessageTimeline = lazy(() =>
+const MessageTimeline = lazyWithPreload(() =>
   import('./messages/MessageTimeline').then((m) => ({ default: m.MessageTimeline })),
 );
-const TraceTree = lazy(() =>
+const TraceTree = lazyWithPreload(() =>
   import('./messages/TraceTree').then((m) => ({ default: m.TraceTree })),
 );
 
