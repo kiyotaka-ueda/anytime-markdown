@@ -57,6 +57,23 @@ import {
   fmtUsd,
   fmtUsdShort,
 } from '../domain/analytics/formatters';
+import {
+  capTopN,
+  countCompactDrops,
+  dominantTool,
+  extractPrefixWithScope,
+  groupByWeek,
+  laneClassifyTool,
+  mergeRuns,
+  mergeToolMetrics,
+  niceTicks,
+  parseCommitSubject,
+  sessionCost,
+  toFridayWeekKey,
+  LANE_TOOL_CATS,
+  type LaneTool,
+  type ChartEntry,
+} from '../domain/analytics/calculators';
 
 export interface AnalyticsPanelProps {
   readonly analytics: AnalyticsData | null;
@@ -98,20 +115,6 @@ function PieCenterLabel({ value, color }: Readonly<{ value: number; color: strin
     </text>
   );
 }
-
-function niceTicks(max: number): number[] {
-  if (max <= 0) return [0];
-  const rough = max / 4;
-  const magnitude = 10 ** Math.floor(Math.log10(rough));
-  const normalized = rough / magnitude;
-  const rawStep = (normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10) * magnitude;
-  const step = Math.max(1, rawStep);
-  const values: number[] = [];
-  const end = Math.ceil(max / step) * step;
-  for (let v = 0; v <= end + step / 2; v += step) values.push(v);
-  return values;
-}
-
 
 // Cost rates removed — backend now provides pre-calculated estimatedCostUsd
 
@@ -414,24 +417,6 @@ function ToolUsageChart({ items }: Readonly<{ items: AnalyticsData['toolUsage'] 
   );
 }
 
-function sessionCost(s: TrailSession): number {
-  return s.estimatedCostUsd ?? 0;
-}
-
-// 連続する assistant ターンで cacheRead が急落した回数をカウント。
-// auto /compact の特徴: 直前 50K 以上積まれていて、次ターンで 70% 以上減少。
-function countCompactDrops(msgs: readonly TrailMessage[]): number {
-  const MIN_BEFORE = 50_000;
-  const DROP_RATIO = 0.3; // 直前の 30% 以下 = 70% 以上減少
-  let count = 0;
-  for (let i = 1; i < msgs.length; i++) {
-    const prev = msgs[i - 1].usage?.cacheReadTokens ?? 0;
-    const cur = msgs[i].usage?.cacheReadTokens ?? 0;
-    if (prev >= MIN_BEFORE && cur <= prev * DROP_RATIO) count++;
-  }
-  return count;
-}
-
 // ---------------------------------------------------------------------------
 //  Marker types & helpers
 // ---------------------------------------------------------------------------
@@ -447,21 +432,6 @@ interface ErrorMarkerData {
   readonly turn: number;
   readonly agentLabel: string;
   readonly toolName: string;
-}
-
-function parseCommitSubject(cmd: string): string {
-  // heredoc: <<'EOF' ... EOF  (Claude Code standard format)
-  const heredocMatch = /<<'?EOF'?\n([\s\S]+?)\n\s*EOF/.exec(cmd);
-  if (heredocMatch) return heredocMatch[1].trim().split('\n')[0].trim();
-  // simple -m "..."
-  const simpleMatch = /-m\s+"((?:[^"\\]|\\.)*)"/.exec(cmd);
-  if (simpleMatch) return simpleMatch[1].replace(/\\n/g, '\n').split('\n')[0].trim();
-  return '';
-}
-
-function extractPrefixWithScope(subject: string): string {
-  const match = /^([a-z]+(?:\([^)]*\))?!?):/i.exec(subject);
-  return match ? match[1] : subject.slice(0, 40);
 }
 
 // ---------------------------------------------------------------------------
@@ -539,9 +509,6 @@ function ErrorMarkers({ markers }: Readonly<{ markers: readonly ErrorMarkerData[
 //  TurnLaneChart — model & tool-usage lanes aligned to turn count
 // ---------------------------------------------------------------------------
 
-const LANE_TOOL_CATS = ['bash', 'edit', 'write', 'read', 'task', 'other'] as const;
-type LaneTool = (typeof LANE_TOOL_CATS)[number];
-
 const LANE_TOOL_COLORS: Record<LaneTool, string> = {
   bash:  toolActionColors.bash,
   edit:  toolActionColors.edit,
@@ -554,15 +521,6 @@ const LANE_TOOL_LABELS: Record<LaneTool, string> = {
   bash: 'Bash', edit: 'Edit', write: 'Write', read: 'Read', task: 'Task', other: 'Other',
 };
 
-function laneClassifyTool(name: string): LaneTool {
-  if (name === 'Bash') return 'bash';
-  if (name === 'Edit' || name === 'MultiEdit') return 'edit';
-  if (name === 'Write') return 'write';
-  if (name === 'Read' || name === 'Glob' || name === 'Grep') return 'read';
-  if (name === 'Task' || name.startsWith('mcp__')) return 'task';
-  return 'other';
-}
-
 function laneModelColor(model: string): string {
   if (model.includes('opus')) return modelColors.opus;
   if (model.includes('sonnet')) return modelColors.sonnet;
@@ -574,27 +532,6 @@ function laneSkillColor(skill: string): string {
   let hash = 0;
   for (let i = 0; i < skill.length; i++) hash = ((hash * 31) + skill.charCodeAt(i)) & 0xFFFFFF;
   return analyticsPalette[Math.abs(hash) % analyticsPalette.length];
-}
-
-function mergeRuns<T>(values: readonly T[]): Array<{ value: T; start: number; end: number }> {
-  const runs: Array<{ value: T; start: number; end: number }> = [];
-  for (let i = 0; i < values.length; i++) {
-    const last = runs.at(-1);
-    if (last && last.value === values[i]) {
-      last.end = i;
-    } else {
-      runs.push({ value: values[i], start: i, end: i });
-    }
-  }
-  return runs;
-}
-
-function dominantTool(toolCalls: readonly TrailToolCall[] | undefined): LaneTool | '' {
-  if (!toolCalls || toolCalls.length === 0) return '';
-  for (const cat of LANE_TOOL_CATS) {
-    if (toolCalls.some((tc) => laneClassifyTool(tc.name) === cat)) return cat;
-  }
-  return '';
 }
 
 function TurnLaneChart({
@@ -1572,50 +1509,6 @@ function SessionErrorChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics 
   );
 }
 
-function mergeToolMetrics(metrics: readonly (ToolMetrics | null)[]): ToolMetrics | null {
-  const valid = metrics.filter((m): m is ToolMetrics => m !== null);
-  if (valid.length === 0) return null;
-
-  function mergeUsage<T extends { count: number; tokens: number; durationMs: number }>(
-    arrays: readonly (readonly T[] | undefined)[],
-    getKey: (e: T) => string,
-    makeEntry: (key: string, acc: { count: number; tokens: number; durationMs: number }) => T,
-  ): T[] {
-    const map = new Map<string, { count: number; tokens: number; durationMs: number }>();
-    for (const arr of arrays) {
-      for (const e of arr ?? []) {
-        const k = getKey(e);
-        const acc = map.get(k) ?? { count: 0, tokens: 0, durationMs: 0 };
-        acc.count += e.count;
-        acc.tokens += e.tokens;
-        acc.durationMs += e.durationMs;
-        map.set(k, acc);
-      }
-    }
-    return [...map.entries()].map(([k, acc]) => makeEntry(k, acc));
-  }
-
-  const errMap = new Map<string, number>();
-  for (const m of valid) {
-    for (const e of m.errorsByTool ?? []) {
-      errMap.set(e.tool, (errMap.get(e.tool) ?? 0) + e.count);
-    }
-  }
-
-  return {
-    totalRetries: valid.reduce((s, m) => s + m.totalRetries, 0),
-    totalEdits: valid.reduce((s, m) => s + m.totalEdits, 0),
-    totalBuildRuns: valid.reduce((s, m) => s + m.totalBuildRuns, 0),
-    totalBuildFails: valid.reduce((s, m) => s + m.totalBuildFails, 0),
-    totalTestRuns: valid.reduce((s, m) => s + m.totalTestRuns, 0),
-    totalTestFails: valid.reduce((s, m) => s + m.totalTestFails, 0),
-    toolUsage: mergeUsage(valid.map((m) => m.toolUsage), (e) => e.tool, (tool, acc) => ({ tool, ...acc })),
-    skillUsage: mergeUsage(valid.map((m) => m.skillUsage), (e) => e.skill, (skill, acc) => ({ skill, ...acc })),
-    errorsByTool: [...errMap.entries()].map(([tool, count]) => ({ tool, count })),
-    modelUsage: mergeUsage(valid.map((m) => m.modelUsage), (e) => e.model, (model, acc) => ({ model, ...acc })),
-  };
-}
-
 function buildDaySession(date: string, daySessions: readonly TrailSession[]): TrailSession {
   if (daySessions.length === 0) {
     return {
@@ -1934,48 +1827,6 @@ function DailySessionList({
   );
 }
 
-type ChartEntry = {
-  date: string; fullDate: string;
-  inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number;
-  actualCost: number; skillCost: number;
-  overlayValue: number | null;
-};
-
-function toFridayWeekKey(dateStr: string): string {
-  const d = new Date(`${dateStr}T00:00:00`);
-  const dow = d.getDay(); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
-  const daysSinceFri = (dow + 2) % 7; // Fri→0, Sat→1, Sun→2, Mon→3, Tue→4, Wed→5, Thu→6
-  const friday = new Date(d);
-  friday.setDate(d.getDate() - daysSinceFri);
-  const y = friday.getFullYear();
-  const m = String(friday.getMonth() + 1).padStart(2, '0');
-  const day = String(friday.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-function groupByWeek(entries: readonly ChartEntry[]): ChartEntry[] {
-  const map = new Map<string, ChartEntry & { _overlayCount: number }>();
-  for (const d of entries) {
-    const key = toFridayWeekKey(d.fullDate);
-    const e = map.get(key) ?? { date: key.slice(5), fullDate: key, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, actualCost: 0, skillCost: 0, overlayValue: null, _overlayCount: 0 };
-    e.inputTokens += d.inputTokens;
-    e.outputTokens += d.outputTokens;
-    e.cacheReadTokens += d.cacheReadTokens;
-    e.cacheCreationTokens += d.cacheCreationTokens;
-    e.actualCost += d.actualCost;
-    e.skillCost += d.skillCost;
-    if (d.overlayValue != null) {
-      e.overlayValue = (e.overlayValue ?? 0) + d.overlayValue;
-      e._overlayCount += 1;
-    }
-    map.set(key, e);
-  }
-  return [...map.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => {
-    const { _overlayCount, overlayValue, ...rest } = v;
-    return { ...rest, overlayValue: _overlayCount > 0 && overlayValue != null ? overlayValue / _overlayCount : null };
-  });
-}
-
 function DailyActivityChart({
   items,
   period,
@@ -2136,25 +1987,6 @@ type AgentMetric = 'tokens' | 'cost' | 'loc';
 
 // スタック棒グラフの系列数が多すぎると描画・凡例・ツールチップが重くなるため、
 // 上位 N 件以外を "Others" に集約する。
-const MAX_STACKED_SERIES = 10;
-const OTHERS_LABEL = 'Others';
-
-function capTopN(
-  totals: ReadonlyMap<string, number>,
-  topN = MAX_STACKED_SERIES,
-): { displayKeys: string[]; keyMap: Map<string, string> } {
-  const sorted = [...totals.entries()].sort(([, a], [, b]) => b - a).map(([k]) => k);
-  const keyMap = new Map<string, string>();
-  if (sorted.length <= topN) {
-    for (const k of sorted) keyMap.set(k, k);
-    return { displayKeys: sorted, keyMap };
-  }
-  const top = sorted.slice(0, topN);
-  const topSet = new Set(top);
-  for (const k of sorted) keyMap.set(k, topSet.has(k) ? k : OTHERS_LABEL);
-  return { displayKeys: [...top, OTHERS_LABEL], keyMap };
-}
-
 type CommitMetric = 'count' | 'loc' | 'leadTime';
 
 function LeadTimeAxisTooltipContent({ unmappedByBucket, bucketKeys }: Readonly<{
