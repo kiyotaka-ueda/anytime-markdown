@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
 import { TraceViewer } from '@anytime-markdown/trace-viewer';
 import type { TraceFileSource } from '@anytime-markdown/trace-viewer';
 import type { SourceLocation } from '@anytime-markdown/trace-core/types';
@@ -17,7 +17,6 @@ import type { CostOptimizationData } from '../domain/parser/types';
 import type { AnalyticsPanelProps } from './AnalyticsPanel';
 import type { AnalyticsData } from '../domain/parser/types';
 import { buildMessageTree } from '../domain/parser/buildMessageTree';
-import { AnalyticsPanel } from './AnalyticsPanel';
 import { FilterBar } from './FilterBar';
 import { PromptManager } from './PromptManager';
 import { ReleasesPanel } from './ReleasesPanel';
@@ -30,10 +29,15 @@ import { getTokens } from '../theme/designTokens';
 import { TrailLocaleProvider, useTrailI18n } from '../i18n';
 import type { TrailLocale } from '../i18n';
 import type { TrailRelease } from '@anytime-markdown/trail-core/domain';
+import { AnalyticsPanelSkeleton } from './shared/AnalyticsPanelSkeleton';
 
 import { C4ViewerCore } from '../c4/components/C4ViewerCore';
 import type { C4ViewerCoreProps } from '../c4/components/C4ViewerCore';
 import { useC4SequenceData } from '../c4/hooks/useC4SequenceData';
+
+const AnalyticsPanel = lazy(() =>
+  import('./AnalyticsPanel').then((m) => ({ default: m.AnalyticsPanel })),
+);
 
 /** C4-related props forwarded to the embedded C4ViewerCore. */
 type C4Props = Omit<C4ViewerCoreProps, 'isDark' | 'containerHeight' | 'onShowSequence'>;
@@ -116,15 +120,27 @@ function TrailViewerCoreInner({
   const tokens = useMemo(() => getTokens(isDark ?? true), [isDark]);
   const { colors, scrollbarSx } = tokens;
   const [activeTab, setActiveTab] = useState(initialTab ?? 0);
+  const [visitedTabs, setVisitedTabs] = useState<ReadonlySet<number>>(
+    () => new Set([initialTab ?? 0]),
+  );
+  const visitTab = useCallback((tab: number) => {
+    setActiveTab(tab);
+    setVisitedTabs((prev) => {
+      if (prev.has(tab)) return prev;
+      const next = new Set(prev);
+      next.add(tab);
+      return next;
+    });
+  }, []);
   const [activeSequenceElementId, setActiveSequenceElementId] = useState<string | null>(null);
   const c4SequenceState = useC4SequenceData(c4?.serverUrl, activeSequenceElementId);
 
   const handleShowSequence = useCallback(
     (elementId: string) => {
       setActiveSequenceElementId(elementId);
-      setActiveTab(7);
+      visitTab(7);
     },
-    [],
+    [visitTab],
   );
 
   const visibleSessions = useMemo(() => {
@@ -156,9 +172,9 @@ function TrailViewerCoreInner({
       const query = session.slug || session.id;
       onFilterChange({ ...filter, workspace: session.workspace ?? filter.workspace, searchText: query });
       onSelectSession(session.id);
-      setActiveTab(1);
+      visitTab(1);
     },
-    [filter, onFilterChange, onSelectSession],
+    [filter, onFilterChange, onSelectSession, visitTab],
   );
 
   const selectedSession =
@@ -202,7 +218,7 @@ function TrailViewerCoreInner({
       <Box sx={{ borderBottom: 1, borderColor: colors.border, display: 'flex', alignItems: 'center' }}>
         <Tabs
           value={activeTab}
-          onChange={(_e, v: number) => setActiveTab(v)}
+          onChange={(_e, v: number) => visitTab(v)}
           aria-label="Trail viewer tabs"
           sx={{
             flex: 1,
@@ -221,29 +237,33 @@ function TrailViewerCoreInner({
 
       </Box>
 
-      <Box
-        role="tabpanel"
-        id="trail-panel-0"
-        aria-labelledby="trail-tab-0"
-        sx={{ display: activeTab !== 0 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
-      >
-        <AnalyticsPanel
-          analytics={analytics}
-          sessions={allSessions ?? sessions}
-          sessionsLoading={sessionsLoading}
-          onSelectSession={onSelectSession}
-          onJumpToTrace={handleJumpToTrace}
-          fetchSessionMessages={fetchSessionMessages}
-          fetchSessionCommits={fetchSessionCommits}
-          fetchSessionToolMetrics={fetchSessionToolMetrics}
-          fetchDayToolMetrics={fetchDayToolMetrics}
-          costOptimization={costOptimization}
-          fetchCombinedData={fetchCombinedData}
-          fetchQualityMetrics={fetchQualityMetrics}
-          fetchDeploymentFrequency={fetchDeploymentFrequency}
-          fetchReleaseQuality={fetchReleaseQuality}
-        />
-      </Box>
+      {visitedTabs.has(0) && (
+        <Box
+          role="tabpanel"
+          id="trail-panel-0"
+          aria-labelledby="trail-tab-0"
+          sx={{ display: activeTab !== 0 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
+        >
+          <Suspense fallback={<AnalyticsPanelSkeleton />}>
+            <AnalyticsPanel
+              analytics={analytics}
+              sessions={allSessions ?? sessions}
+              sessionsLoading={sessionsLoading}
+              onSelectSession={onSelectSession}
+              onJumpToTrace={handleJumpToTrace}
+              fetchSessionMessages={fetchSessionMessages}
+              fetchSessionCommits={fetchSessionCommits}
+              fetchSessionToolMetrics={fetchSessionToolMetrics}
+              fetchDayToolMetrics={fetchDayToolMetrics}
+              costOptimization={costOptimization}
+              fetchCombinedData={fetchCombinedData}
+              fetchQualityMetrics={fetchQualityMetrics}
+              fetchDeploymentFrequency={fetchDeploymentFrequency}
+              fetchReleaseQuality={fetchReleaseQuality}
+            />
+          </Suspense>
+        </Box>
+      )}
 
       <Box
         role="tabpanel"
