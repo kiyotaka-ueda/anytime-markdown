@@ -25,7 +25,7 @@ import Typography from '@mui/material/Typography';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import { useTrailI18n } from '../../i18n';
-import { CONTEXT_MENU_SHADOW, DOC_TYPE_COLORS, DOC_TYPE_FALLBACK_COLOR, getC4Colors, LOADING_OVERLAY_BG, POPUP_SHADOW } from '../c4Theme';
+import { CONTEXT_MENU_SHADOW, DOC_TYPE_COLORS, DOC_TYPE_FALLBACK_COLOR, getC4Colors, LOADING_OVERLAY_BG, POPUP_SHADOW } from '../../theme/c4Tokens';
 import type { FileAnalysisApiEntry } from '../hooks/fetchFileAnalysisApi';
 import { useC4GhostEdges } from '../hooks/useC4GhostEdges';
 import { useDefectRisk } from '../hooks/useDefectRisk';

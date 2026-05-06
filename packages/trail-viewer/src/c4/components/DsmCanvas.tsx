@@ -1,7 +1,7 @@
 import type { C4Model, DsmMatrix } from '@anytime-markdown/trail-core/c4';
 import { clusterMatrix, detectCycles } from '@anytime-markdown/trail-core/c4';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getC4Colors } from '../c4Theme';
+import { getC4Colors } from '../../theme/c4Tokens';
 
 interface DsmCanvasProps {
   readonly matrix: DsmMatrix | null;
@@ -64,7 +64,7 @@ function buildScopeRanges(
   return ranges;
 }
 
-type C4Colors = ReturnType<typeof import('../c4Theme').getC4Colors>;
+type C4Colors = ReturnType<typeof import('../../theme/c4Tokens').getC4Colors>;
 
 interface DrawCellAreaParams {
   ctx: CanvasRenderingContext2D;
