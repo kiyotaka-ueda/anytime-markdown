@@ -101,6 +101,8 @@ import { CommitMarkers } from './analytics/charts/shared/CommitMarkers';
 import { ErrorMarkers } from './analytics/charts/shared/ErrorMarkers';
 import { StackedReferenceLines } from './analytics/charts/shared/StackedReferenceLines';
 import { LeadTimeAxisTooltipContent } from './analytics/charts/shared/LeadTimeAxisTooltipContent';
+import { CyclingCard } from './analytics/widgets/CyclingCard';
+import { formatDoraValue } from './analytics/widgets/DoraValueDisplay';
 
 export type { AnalyticsPanelProps } from './analytics/types';
 export { getMainAgentLabel } from './analytics/helpers';
@@ -119,94 +121,8 @@ export { getMainAgentLabel } from './analytics/helpers';
 //  Sub-components
 // ---------------------------------------------------------------------------
 
-function CyclingCard({
-  groupName,
-  items,
-  index,
-  onCycle,
-  cardStyle,
-}: Readonly<{
-  groupName: string;
-  items: readonly MetricItem[];
-  index: number;
-  onCycle: () => void;
-  cardStyle: SxProps<Theme>;
-}>) {
-  const current = items[index];
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        ...cardStyle,
-        cursor: 'pointer',
-        display: 'flex',
-        flexDirection: 'column',
-        '&:hover': { backgroundColor: 'action.hover' },
-        userSelect: 'none',
-      }}
-      onClick={onCycle}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5, gap: 0.5 }}>
-        <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'left' }}>
-          {`${groupName}：${current.label}`}
-        </Typography>
-        {current.tooltip && (
-          <Tooltip title={current.tooltip} arrow placement="top">
-            <HelpOutlineIcon sx={{ fontSize: 12, color: 'text.disabled', cursor: 'help', flexShrink: 0 }} />
-          </Tooltip>
-        )}
-      </Box>
-      <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 1 }}>
-          <Typography variant="h3">{current.value}</Typography>
-          {current.badge && (
-            <Chip
-              label={current.badge.label}
-              size="small"
-              sx={{ backgroundColor: current.badge.color, color: '#fff', fontWeight: 700, height: 20, fontSize: 10 }}
-            />
-          )}
-        </Box>
-      </Box>
-      <Box sx={{ minHeight: 32, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
-        {current.delta && (
-          <Typography variant="caption" sx={{ color: current.delta.color }}>
-            {current.delta.text}
-          </Typography>
-        )}
-        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
-          {items.map((item, i) => (
-            <Box
-              key={item.label}
-              sx={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                backgroundColor: i === index ? 'primary.main' : 'action.disabled',
-              }}
-            />
-          ))}
-        </Box>
-      </Box>
-    </Paper>
-  );
-}
-
-function formatDoraValue(m: { value: number; unit: string }): { primary: string; unit?: string } {
-  if (m.unit === 'perDay') {
-    const text = m.value >= 1 ? `${m.value.toFixed(1)}/day` : m.value > 0 ? `${(m.value * 7).toFixed(1)}/week` : '0/day';
-    return { primary: text };
-  }
-  if (m.unit === 'minPerLoc') {
-    const num = m.value < 60 ? m.value.toFixed(2) : (m.value / 60).toFixed(1);
-    return { primary: num, unit: m.value < 60 ? 'min/LOC' : 'h/LOC' };
-  }
-  if (m.unit === 'tokensPerLoc') {
-    const num = m.value >= 1000 ? `${(m.value / 1000).toFixed(1)}k` : m.value.toFixed(0);
-    return { primary: num, unit: 'tok/LOC' };
-  }
-  return { primary: `${m.value.toFixed(1)}%` };
-}
+// CyclingCard moved to ./analytics/widgets/CyclingCard
+// formatDoraValue moved to ./analytics/widgets/DoraValueDisplay
 
 function OverviewCards({
   totals,
