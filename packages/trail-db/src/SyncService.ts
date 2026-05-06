@@ -292,13 +292,13 @@ export class SyncService {
       errors++;
     }
 
-    // Phase 5d: messages の wash-away & insert 完了後に Materialized View を refresh する。
+    // Phase 5d/5e: messages の wash-away & insert 完了後に Materialized View を並列 refresh する。
     // CONCURRENTLY refresh のため import 中もアプリは古いデータで動作可能。
     try {
-      onProgress?.({ message: 'Refreshing user message cost view...' });
-      await this.store.refreshUserMessageCosts();
+      onProgress?.({ message: 'Refreshing materialized views...' });
+      await this.store.refreshMaterializedViews();
     } catch (e) {
-      this.logger.error('Failed to refresh trail_user_message_costs', e);
+      this.logger.error('Failed to refresh materialized views', e);
       errors++;
     }
 

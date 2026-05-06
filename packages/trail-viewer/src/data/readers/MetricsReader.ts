@@ -92,42 +92,34 @@ export class MetricsReader {
     };
     const fetchUserMessageHeaders = async (sessionIds: string[]): Promise<UserMessageHeader[]> => {
       if (sessionIds.length === 0) return [];
-      const SESSION_BATCH = 200;
-      const PAGE_SIZE = 1000;
+      // Phase 5e: Materialized View (trail_user_messages_meta) を直接 SELECT。
+      // Phase 1 の trail_messages keyset pagination (~2.46s) を事前計算済の
+      // index scan に置換。Phase 5d の trail_user_message_costs MV と異なり、
+      // assistant 応答の有無に関係なく全 user message を含む (Approach A)。
+      const SESSION_BATCH = 500;
       const results: UserMessageHeader[] = [];
       for (let i = 0; i < sessionIds.length; i += SESSION_BATCH) {
         const batchIds = sessionIds.slice(i, i + SESSION_BATCH);
-        // Keyset pagination by (timestamp, uuid). Avoids OFFSET pagination cost which
-        // PostgREST translates to LIMIT + OFFSET — at OFFSET=100k this measured ~4.69s
-        // versus ~157ms for the head page (Phase 1 EXPLAIN ANALYZE).
-        let cursorTs: string | null = null;
-        let cursorUuid: string | null = null;
-        while (true) {
-          let q = this.client
-            .from('trail_messages')
-            .select('uuid, timestamp, type, session_id')
-            .eq('type', 'user')
-            .in('session_id', batchIds)
-            .order('timestamp', { ascending: true })
-            .order('uuid', { ascending: true })
-            .limit(PAGE_SIZE);
-          if (cursorTs !== null && cursorUuid !== null) {
-            q = q.or(`timestamp.gt.${cursorTs},and(timestamp.eq.${cursorTs},uuid.gt.${cursorUuid})`);
-          }
-          const { data, error } = await q;
-          if (error) {
-            console.warn('MetricsReader.fetchUserMessageHeaders: query failed', {
-              context: { batch: i / SESSION_BATCH, batchSize: batchIds.length, cursorTs, cursorUuid },
-              error: { message: error.message },
-            });
-            break;
-          }
-          const rows = (data ?? []) as UserMessageHeader[];
-          results.push(...rows);
-          if (rows.length < PAGE_SIZE) break;
-          const last = rows[rows.length - 1];
-          cursorTs = last.timestamp;
-          cursorUuid = last.uuid;
+        const { data, error } = await this.client
+          .from('trail_user_messages_meta')
+          .select('uuid, timestamp, session_id')
+          .in('session_id', batchIds);
+        if (error) {
+          console.warn('MetricsReader.fetchUserMessageHeaders: MV query failed', {
+            context: { batch: i / SESSION_BATCH, batchSize: batchIds.length },
+            error: { message: error.message },
+          });
+          continue;
+        }
+        type Row = { uuid: string; timestamp: string; session_id: string };
+        for (const row of (data ?? []) as Row[]) {
+          // type は MV の WHERE 句で 'user' 確定のため定数で補完。
+          results.push({
+            uuid: row.uuid,
+            timestamp: row.timestamp,
+            type: 'user',
+            session_id: row.session_id,
+          });
         }
       }
       return results;

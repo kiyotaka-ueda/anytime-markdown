@@ -634,13 +634,24 @@ export class SupabaseTrailStore implements IRemoteTrailStore {
     if (error) throw new Error(`Supabase deleteManualRelationship failed: ${error.message}`);
   }
 
-  async refreshUserMessageCosts(): Promise<void> {
-    const { error } = await this.ensureClient().rpc('refresh_trail_user_message_costs');
-    if (error) {
-      // refresh 失敗は致命的でない (古いデータが見えるだけ)。次回 sync で復旧する。
+  async refreshMaterializedViews(): Promise<void> {
+    const client = this.ensureClient();
+    // CONCURRENTLY refresh は互いに block しないため Promise.all で並列実行。
+    // どちらの refresh も致命的ではない (古いデータで動作可能、次回 sync で復旧)。
+    const [costsResult, metaResult] = await Promise.all([
+      client.rpc('refresh_trail_user_message_costs'),
+      client.rpc('refresh_trail_user_messages_meta'),
+    ]);
+    if (costsResult.error) {
       this.logger.error(
-        `[${new Date().toISOString()}] [WARN] SupabaseTrailStore.refreshUserMessageCosts failed: ${error.message}`,
-        error,
+        `[${new Date().toISOString()}] [WARN] SupabaseTrailStore.refreshMaterializedViews trail_user_message_costs failed: ${costsResult.error.message}`,
+        costsResult.error,
+      );
+    }
+    if (metaResult.error) {
+      this.logger.error(
+        `[${new Date().toISOString()}] [WARN] SupabaseTrailStore.refreshMaterializedViews trail_user_messages_meta failed: ${metaResult.error.message}`,
+        metaResult.error,
       );
     }
   }
