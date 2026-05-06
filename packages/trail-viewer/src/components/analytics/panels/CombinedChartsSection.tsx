@@ -186,25 +186,25 @@ export function CombinedChartsSection({
               <ToggleButton value="tokens" sx={toggleSx}>{t('chart.tokenUsage')}</ToggleButton>
             </Tooltip>
             <Tooltip title={t('analytics.combined.agent.description')} arrow placement="top">
-              <ToggleButton value="agents" sx={toggleSx}>{t('analytics.combined.agent')}</ToggleButton>
+              <ToggleButton value="agents" data-chart-kind="agents" sx={toggleSx}>{t('analytics.combined.agent')}</ToggleButton>
             </Tooltip>
             <Tooltip title={t('analytics.combined.model.description')} arrow placement="top">
-              <ToggleButton value="models" sx={toggleSx}>{t('analytics.combined.model')}</ToggleButton>
+              <ToggleButton value="models" data-chart-kind="models" sx={toggleSx}>{t('analytics.combined.model')}</ToggleButton>
             </Tooltip>
             <Tooltip title={t('analytics.combined.skill.description')} arrow placement="top">
-              <ToggleButton value="skills" sx={toggleSx}>{t('analytics.combined.skill')}</ToggleButton>
+              <ToggleButton value="skills" data-chart-kind="skills" sx={toggleSx}>{t('analytics.combined.skill')}</ToggleButton>
             </Tooltip>
             <Tooltip title={t('analytics.combined.tool.description')} arrow placement="top">
-              <ToggleButton value="tools" sx={toggleSx}>{t('analytics.combined.tool')}</ToggleButton>
+              <ToggleButton value="tools" data-chart-kind="tools" sx={toggleSx}>{t('analytics.combined.tool')}</ToggleButton>
             </Tooltip>
             <Tooltip title={t('analytics.combined.error.description')} arrow placement="top">
-              <ToggleButton value="errors" sx={toggleSx}>{t('analytics.combined.error')}</ToggleButton>
+              <ToggleButton value="errors" data-chart-kind="errors" sx={toggleSx}>{t('analytics.combined.error')}</ToggleButton>
             </Tooltip>
             <Tooltip title={t('analytics.combined.repository.description')} arrow placement="top">
-              <ToggleButton value="repos" sx={toggleSx}>{t('analytics.combined.repository')}</ToggleButton>
+              <ToggleButton value="repos" data-chart-kind="repos" sx={toggleSx}>{t('analytics.combined.repository')}</ToggleButton>
             </Tooltip>
             <Tooltip title={t('analytics.combined.commitPrefix.description')} arrow placement="top">
-              <ToggleButton value="commits" sx={toggleSx}>{t('analytics.combined.commitPrefix')}</ToggleButton>
+              <ToggleButton value="commits" data-chart-kind="commits" sx={toggleSx}>{t('analytics.combined.commitPrefix')}</ToggleButton>
             </Tooltip>
             <Tooltip title={t('analytics.combined.release.description')} arrow placement="top">
               <ToggleButton value="releases" sx={toggleSx}>{t('analytics.combined.release')}</ToggleButton>
@@ -313,7 +313,7 @@ export function CombinedChartsSection({
               <ToggleButton value="loc" sx={toggleSx}>{t('analytics.combined.loc')}</ToggleButton>
             </Tooltip>
             <Tooltip title={t('analytics.combined.leadTime.description')} arrow placement="top">
-              <ToggleButton value="leadTime" sx={toggleSx}>{t('analytics.combined.leadTime')}</ToggleButton>
+              <ToggleButton value="leadTime" data-chart-kind="leadTime" sx={toggleSx}>{t('analytics.combined.leadTime')}</ToggleButton>
             </Tooltip>
           </ToggleButtonGroup>
         )}

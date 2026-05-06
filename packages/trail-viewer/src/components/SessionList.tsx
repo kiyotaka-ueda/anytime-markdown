@@ -66,6 +66,7 @@ export function SessionList({ sessions, selectedId, onSelect }: Readonly<Session
       {sessions.map((session) => (
         <ListItemButton
           key={session.id}
+          data-testid="session-row"
           selected={session.id === selectedId}
           onClick={handleSelect(session.id)}
           sx={{

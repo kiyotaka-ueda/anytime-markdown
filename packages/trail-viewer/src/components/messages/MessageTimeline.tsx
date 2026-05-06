@@ -270,6 +270,7 @@ export function MessageTimeline({
 
   return (
     <Box
+      data-testid="message-timeline"
       sx={{
         height: collapsed ? COLLAPSED_HEIGHT : displayHeight,
         bgcolor: colors.charcoal,
@@ -609,4 +610,3 @@ export function MessageTimeline({
     </Box>
   );
 }
-
