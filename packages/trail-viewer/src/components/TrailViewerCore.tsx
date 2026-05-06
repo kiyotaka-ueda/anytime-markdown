@@ -1,4 +1,5 @@
-import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { lazyWithPreload } from './shared/lazyWithPreload';
 import { TraceViewer } from '@anytime-markdown/trace-viewer';
 import type { TraceFileSource } from '@anytime-markdown/trace-viewer';
 import type { SourceLocation } from '@anytime-markdown/trace-core/types';
@@ -34,18 +35,35 @@ import { TabSkeleton } from './shared/TabSkeleton';
 import type { C4ViewerCoreProps } from '../c4/components/C4ViewerCore';
 import { useC4SequenceData } from '../c4/hooks/useC4SequenceData';
 
-const AnalyticsPanel = lazy(() =>
+const AnalyticsPanel = lazyWithPreload(() =>
   import('./AnalyticsPanel').then((m) => ({ default: m.AnalyticsPanel })),
 );
-const C4ViewerCore = lazy(() =>
+const C4ViewerCore = lazyWithPreload(() =>
   import('../c4/components/C4ViewerCore').then((m) => ({ default: m.C4ViewerCore })),
 );
-const MessageTimeline = lazy(() =>
+const MessageTimeline = lazyWithPreload(() =>
   import('./messages/MessageTimeline').then((m) => ({ default: m.MessageTimeline })),
 );
-const TraceTree = lazy(() =>
+const TraceTree = lazyWithPreload(() =>
   import('./messages/TraceTree').then((m) => ({ default: m.TraceTree })),
 );
+
+const tabPreloaders: Record<number, (() => Promise<unknown>) | undefined> = {
+  0: () => AnalyticsPanel.preload(),
+  1: () => Promise.all([MessageTimeline.preload(), TraceTree.preload()]),
+  2: undefined,
+  3: undefined,
+  4: () => C4ViewerCore.preload(),
+  5: undefined,
+};
+
+const preloadTab = (index: number) => {
+  const fn = tabPreloaders[index];
+  if (!fn) return;
+  fn().catch((error) => {
+    console.warn('TrailViewerCore: preloadTab failed', { index, error });
+  });
+};
 
 /** C4-related props forwarded to the embedded C4ViewerCore. */
 type C4Props = Omit<C4ViewerCoreProps, 'isDark' | 'containerHeight' | 'onShowSequence'>;
@@ -143,6 +161,45 @@ function TrailViewerCoreInner({
   const [activeSequenceElementId, setActiveSequenceElementId] = useState<string | null>(null);
   const c4SequenceState = useC4SequenceData(c4?.serverUrl, activeSequenceElementId);
 
+  // Phase 5: idle prefetch
+  // 初期描画完了後、ユーザーがクリックする前に残タブの chunk を順次 prefetch する。
+  // モバイル（hover 不可）でも先読みされる。
+  useEffect(() => {
+    const candidates: Array<[number, () => Promise<unknown>]> = [
+      [0, () => AnalyticsPanel.preload()],
+      [1, () => Promise.all([MessageTimeline.preload(), TraceTree.preload()])],
+      [4, () => C4ViewerCore.preload()],
+    ];
+
+    const remaining = candidates.filter(([idx]) => !visitedTabs.has(idx));
+    if (remaining.length === 0) return;
+
+    const ric =
+      (globalThis as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback
+      ?? ((cb: () => void) => setTimeout(cb, 200));
+
+    let cancelled = false;
+    const run = (i: number) => {
+      if (cancelled || i >= remaining.length) return;
+      ric(() => {
+        if (cancelled) return;
+        const [, preload] = remaining[i];
+        preload()
+          .catch((error) => {
+            console.warn('TrailViewerCore: idle prefetch failed', { index: remaining[i][0], error });
+          })
+          .finally(() => run(i + 1));
+      });
+    };
+    run(0);
+
+    return () => {
+      cancelled = true;
+    };
+    // visitedTabs を依存に入れると訪問のたびに再起動するため、初回のみ実行
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleShowSequence = useCallback(
     (elementId: string) => {
       setActiveSequenceElementId(elementId);
@@ -235,12 +292,34 @@ function TrailViewerCoreInner({
             '& .MuiTabs-indicator': { backgroundColor: colors.iceBlue },
           }}
         >
-          <Tab id="trail-tab-0" aria-controls="trail-panel-0" label={t('viewer.tab.analytics')} />
-          <Tab id="trail-tab-1" aria-controls="trail-panel-1" label={t('viewer.tab.messages')} />
+          <Tab
+            id="trail-tab-0"
+            aria-controls="trail-panel-0"
+            label={t('viewer.tab.analytics')}
+            onMouseEnter={() => preloadTab(0)}
+            onFocus={() => preloadTab(0)}
+          />
+          <Tab
+            id="trail-tab-1"
+            aria-controls="trail-panel-1"
+            label={t('viewer.tab.messages')}
+            onMouseEnter={() => preloadTab(1)}
+            onFocus={() => preloadTab(1)}
+          />
           <Tab id="trail-tab-2" aria-controls="trail-panel-2" label={t('viewer.tab.prompts')} />
           <Tab id="trail-tab-3" aria-controls="trail-panel-3" label={t('viewer.tab.releases')} />
-          {c4 && <Tab id="trail-tab-4" aria-controls="trail-panel-4" label={t('viewer.tab.model')} />}
-          {(traceFiles || c4) && <Tab id="trail-tab-5" aria-controls="trail-panel-5" label={t('viewer.tab.trace')} />}
+          {c4 && (
+            <Tab
+              id="trail-tab-4"
+              aria-controls="trail-panel-4"
+              label={t('viewer.tab.model')}
+              onMouseEnter={() => preloadTab(4)}
+              onFocus={() => preloadTab(4)}
+            />
+          )}
+          {(traceFiles || c4) && (
+            <Tab id="trail-tab-5" aria-controls="trail-panel-5" label={t('viewer.tab.trace')} />
+          )}
         </Tabs>
 
       </Box>
