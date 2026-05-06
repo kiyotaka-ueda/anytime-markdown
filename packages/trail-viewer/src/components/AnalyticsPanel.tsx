@@ -95,6 +95,12 @@ import {
   laneSkillColor,
 } from './analytics/constants';
 import { getMainAgentLabel, buildDaySession } from './analytics/helpers';
+import { ChartTitle } from './analytics/charts/shared/ChartTitle';
+import { PieCenterLabel } from './analytics/charts/shared/PieCenterLabel';
+import { CommitMarkers } from './analytics/charts/shared/CommitMarkers';
+import { ErrorMarkers } from './analytics/charts/shared/ErrorMarkers';
+import { StackedReferenceLines } from './analytics/charts/shared/StackedReferenceLines';
+import { LeadTimeAxisTooltipContent } from './analytics/charts/shared/LeadTimeAxisTooltipContent';
 
 export type { AnalyticsPanelProps } from './analytics/types';
 export { getMainAgentLabel } from './analytics/helpers';
@@ -103,21 +109,7 @@ export { getMainAgentLabel } from './analytics/helpers';
 //  Helpers (getMainAgentLabel moved to ./analytics/helpers)
 // ---------------------------------------------------------------------------
 
-// Return up to ~5 "nice" tick values covering [0, max]. Minimum step is 1 (no fractions).
-function PieCenterLabel({ value, color }: Readonly<{ value: number; color: string }>) {
-  const { width, height, left, top } = useDrawingArea();
-  return (
-    <text
-      x={left + width / 2}
-      y={top + height / 2}
-      textAnchor="middle"
-      dominantBaseline="central"
-      style={{ fontSize: '1.5rem', fontWeight: 600, fill: color, pointerEvents: 'none' }}
-    >
-      {value}
-    </text>
-  );
-}
+// PieCenterLabel moved to ./analytics/charts/shared/PieCenterLabel
 
 // Cost rates removed — backend now provides pre-calculated estimatedCostUsd
 
@@ -415,76 +407,7 @@ function ToolUsageChart({ items }: Readonly<{ items: AnalyticsData['toolUsage'] 
 //  Marker types (CommitMarkerData / ErrorMarkerData moved to ./analytics/types)
 // ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-//  CommitMarkers / ErrorMarkers — inverted-triangle markers with tooltips
-// ---------------------------------------------------------------------------
-
-function CommitMarkers({ markers }: Readonly<{ markers: readonly CommitMarkerData[] }>) {
-  const { top } = useDrawingArea();
-  const xScale = useXScale();
-  if (markers.length === 0) return null;
-  const SIZE = 6;
-  const HEIGHT = 9;
-  return (
-    <>
-      {markers.map(({ turn, agentLabel, commitHash, commitPrefix }) => {
-        const cx = xScale(turn as never) as number | undefined;
-        if (cx == null) return null;
-        const points = `${cx - SIZE},${top - HEIGHT} ${cx + SIZE},${top - HEIGHT} ${cx},${top}`;
-        return (
-          <Tooltip
-            key={turn}
-            placement="top"
-            title={
-              <Box sx={{ p: 0.25 }}>
-                <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block' }}>{agentLabel}</Typography>
-                {commitHash && <Typography variant="caption" sx={{ display: 'block' }}>ID: {commitHash}</Typography>}
-                {commitPrefix && <Typography variant="caption" sx={{ display: 'block' }}>{commitPrefix}</Typography>}
-              </Box>
-            }
-          >
-            <g style={{ cursor: 'pointer' }}>
-              <polygon points={points} fill="#4CAF50" opacity={0.9} />
-            </g>
-          </Tooltip>
-        );
-      })}
-    </>
-  );
-}
-
-function ErrorMarkers({ markers }: Readonly<{ markers: readonly ErrorMarkerData[] }>) {
-  const { top } = useDrawingArea();
-  const xScale = useXScale();
-  if (markers.length === 0) return null;
-  const SIZE = 4;
-  const HEIGHT = 6;
-  return (
-    <>
-      {markers.map(({ turn, agentLabel, toolName }) => {
-        const cx = xScale(turn as never) as number | undefined;
-        if (cx == null) return null;
-        const points = `${cx - SIZE},${top - HEIGHT} ${cx + SIZE},${top - HEIGHT} ${cx},${top}`;
-        return (
-          <Tooltip
-            key={turn}
-            placement="top"
-            title={
-              <Box sx={{ p: 0.25 }}>
-                <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block' }}>{agentLabel}</Typography>
-                {toolName && <Typography variant="caption" sx={{ display: 'block' }}>Tool: {toolName}</Typography>}
-              </Box>
-            }
-          >
-            <g style={{ cursor: 'pointer' }}>
-              <polygon points={points} fill="#F44336" opacity={0.9} />
-            </g>
-          </Tooltip>
-        );
-      })}
-    </>
-  );
-}
+// CommitMarkers / ErrorMarkers moved to ./analytics/charts/shared/{CommitMarkers,ErrorMarkers}
 
 // ---------------------------------------------------------------------------
 //  TurnLaneChart — model & tool-usage lanes aligned to turn count
@@ -750,65 +673,7 @@ function TurnLaneChartLegend({
   );
 }
 
-function StackedReferenceLines({
-  commitTurns,
-  errorTurns,
-  totalTurns,
-}: Readonly<{
-  commitTurns: readonly number[];
-  errorTurns: readonly number[];
-  totalTurns: number;
-}>) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new ResizeObserver((entries) => {
-      setWidth(entries[0].contentRect.width);
-    });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-
-  const LABEL_W = 60;
-  const PAD_R = 60;
-  const plotW = Math.max(width - LABEL_W - PAD_R, 0);
-  const colW = totalTurns > 0 ? plotW / totalTurns : 0;
-  const turnX = (turn: number) => LABEL_W + (turn - 0.5) * colW;
-
-  return (
-    <Box
-      ref={ref}
-      sx={{
-        position: 'absolute',
-        top: '16px', left: 0,
-        width: '100%', height: 'calc(100% - 32px)',
-        pointerEvents: 'none',
-      }}
-    >
-      {width > 0 && totalTurns > 0 && (
-        <svg width="100%" height="100%" style={{ display: 'block' }}>
-          {commitTurns.map((turn) => (
-            <line key={`oc-${turn}`}
-              x1={turnX(turn)} y1={0}
-              x2={turnX(turn)} y2="100%"
-              stroke="#4CAF50" strokeWidth={1.5} strokeDasharray="4 2"
-            />
-          ))}
-          {errorTurns.map((turn) => (
-            <line key={`oe-${turn}`}
-              x1={turnX(turn)} y1={0}
-              x2={turnX(turn)} y2="100%"
-              stroke="#F44336" strokeWidth={1.5} strokeDasharray="4 2"
-            />
-          ))}
-        </svg>
-      )}
-    </Box>
-  );
-}
+// StackedReferenceLines moved to ./analytics/charts/shared/StackedReferenceLines
 
 function SessionCacheTimeline({
   messages,
@@ -1310,18 +1175,7 @@ function SessionMetricsPanel({ session, toolMetrics }: Readonly<{
 
 // SessionToolMetric moved to ./analytics/types
 
-function ChartTitle({ title, description }: Readonly<{ title: string; description?: string }>) {
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', px: 1.5, gap: 0.5 }}>
-      <Typography variant="subtitle2">{title}</Typography>
-      {description && (
-        <Tooltip title={description} arrow placement="top">
-          <HelpOutlineIcon sx={{ fontSize: 12, color: 'text.disabled', cursor: 'help', flexShrink: 0 }} />
-        </Tooltip>
-      )}
-    </Box>
-  );
-}
+// ChartTitle moved to ./analytics/charts/shared/ChartTitle
 
 function SessionToolUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics | null }>) {
   const { colors, cardSx, toolPalette } = useTrailTheme();
@@ -1905,49 +1759,7 @@ function DailyActivityChart({
 // ChartMetric / CombinedChartKind / AgentMetric / CommitMetric moved to ./analytics/types
 // (上位 N 件以外を "Others" に集約する設計はそのまま維持)
 
-function LeadTimeAxisTooltipContent({ unmappedByBucket, bucketKeys }: Readonly<{
-  unmappedByBucket: Map<string, number>;
-  bucketKeys: ReadonlyArray<string>;
-}>) {
-  const tooltipData = useAxesTooltip();
-  if (tooltipData === null) return null;
-  return (
-    <ChartsTooltipPaper>
-      {tooltipData.map(({ axisId, mainAxis, axisValue, axisFormattedValue, seriesItems, dataIndex }) => {
-        const bucketKey = bucketKeys[dataIndex] ?? '';
-        const unmapped = unmappedByBucket.get(bucketKey) ?? 0;
-        return (
-          <ChartsTooltipTable key={axisId}>
-            {axisValue != null && !mainAxis.hideTooltip && (
-              <Typography component="caption">{axisFormattedValue}</Typography>
-            )}
-            <tbody>
-              {seriesItems.map((item) => (
-                item.formattedValue == null || typeof item.formattedValue !== 'string' ? null : (
-                  <ChartsTooltipRow key={item.seriesId}>
-                    <ChartsTooltipCell component="th">
-                      <ChartsLabelMark
-                        type={item.markType}
-                        markShape={item.markShape}
-                        color={item.color}
-                      />
-                      {item.formattedLabel}
-                    </ChartsTooltipCell>
-                    <ChartsTooltipCell component="td">{item.formattedValue}</ChartsTooltipCell>
-                  </ChartsTooltipRow>
-                )
-              ))}
-              <ChartsTooltipRow>
-                <ChartsTooltipCell component="th" sx={{ opacity: 0.7 }}>未マップ</ChartsTooltipCell>
-                <ChartsTooltipCell component="td" sx={{ opacity: 0.7 }}>{unmapped} 件</ChartsTooltipCell>
-              </ChartsTooltipRow>
-            </tbody>
-          </ChartsTooltipTable>
-        );
-      })}
-    </ChartsTooltipPaper>
-  );
-}
+// LeadTimeAxisTooltipContent moved to ./analytics/charts/shared/LeadTimeAxisTooltipContent
 
 function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, modelMetric, agentMetric, commitMetric, repoMetric, leadTimeOverlay, onDateClick }: Readonly<{
   data: CombinedData | null;
