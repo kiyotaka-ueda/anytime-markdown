@@ -6,131 +6,40 @@ import Typography from '@mui/material/Typography';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 
-import type { TrailMessage, TrailSession, TrailTreeNode } from '../domain/parser/types';
-import { useTrailTheme } from './TrailThemeContext';
-import { toolActionColors, agentPalette } from '../theme/designTokens';
+import type { TrailMessage, TrailSession, TrailTreeNode } from '../../domain/parser/types';
+import { useTrailTheme } from '../TrailThemeContext';
+import { toolActionColors } from '../../theme/designTokens';
 
-const LANE_HEIGHT = 40; // px per lane/track
-const PLOT_TOP = 8;
-const MAX_SUBAGENT_TRACKS = 5; // scrollbar appears when subagents exceed this
-const COLLAPSED_HEIGHT = 32;
-const STORAGE_KEY = 'trail.timeline.collapsed';
-const LANE_LABEL_WIDTH = 88;
-const TIME_AXIS_HEIGHT = 24;
+import {
+  COLLAPSED_HEIGHT,
+  LANE_HEIGHT,
+  LANE_LABEL_WIDTH,
+  MAX_SUBAGENT_TRACKS,
+  PLOT_TOP,
+  STORAGE_KEY,
+  TIME_AXIS_HEIGHT,
+} from './timeline/timelineConstants';
+import {
+  getAgentColor,
+  getDelegatedAgentLabel,
+  getTurnColor,
+  hashString,
+} from './timeline/timelineColors';
+import {
+  applyScrollHighlight,
+  extractAgentCallMeta,
+  findMessageEl,
+  formatTimeLabel,
+  scrollToMessage,
+} from './timeline/timelineLayout';
+import { useTimelineScrollSync } from './timeline/useTimelineScrollSync';
 
-type LaneKind = 'user' | 'assistant' | 'system' | 'subagent';
+export { useTimelineScrollSync };
 
-function hashString(str: string): number {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) {
-    h = (h << 5) - h + str.charCodeAt(i);
-    h |= 0;
-  }
-  return Math.abs(h);
-}
+import type { LaneKind, MessageTimelineProps, TimelineEntry, Turn } from './types';
 
-function getAgentColor(agentId: string): string {
-  return agentPalette[hashString(agentId) % agentPalette.length];
-}
 
-function getDelegatedAgentLabel(agentId: string): string {
-  if (agentId.startsWith('codex:') || agentId.startsWith('delegated:')) {
-    return 'Codex';
-  }
-  return 'Claude Code';
-}
 
-function getTurnColor(
-  toolNames: readonly string[],
-  toolColors: { bash: string; edit: string; write: string; read: string; task: string; other: string; plain: string },
-): string {
-  if (toolNames.includes('Task')) return toolColors.task;
-  if (toolNames.includes('Bash')) return toolColors.bash;
-  if (toolNames.includes('Edit') || toolNames.includes('MultiEdit')) return toolColors.edit;
-  if (toolNames.includes('Write')) return toolColors.write;
-  if (toolNames.includes('Read')) return toolColors.read;
-  if (toolNames.length > 0) return toolColors.other;
-  return toolColors.plain;
-}
-
-function findMessageEl(uuids: readonly string[]): HTMLElement | null {
-  for (const uuid of uuids) {
-    const el = document.querySelector(`[data-message-uuid="${uuid}"]`) as HTMLElement | null;
-    if (el) return el;
-  }
-  return null;
-}
-
-function applyScrollHighlight(el: HTMLElement, highlightColor: string): void {
-  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  const prevOutline = el.style.outline;
-  const prevOutlineOffset = el.style.outlineOffset;
-  const prevTransition = el.style.transition;
-  el.style.transition = 'outline-color 0.2s ease';
-  el.style.outline = `2px solid ${highlightColor}`;
-  el.style.outlineOffset = '4px';
-  window.setTimeout(() => {
-    el.style.outline = prevOutline;
-    el.style.outlineOffset = prevOutlineOffset;
-    el.style.transition = prevTransition;
-  }, 1500);
-}
-
-function scrollToMessage(uuids: readonly string[], highlightColor: string): void {
-  const el = findMessageEl(uuids);
-  if (el) applyScrollHighlight(el, highlightColor);
-}
-
-function formatTimeLabel(ms: number, includeDate: boolean): string {
-  if (!Number.isFinite(ms) || ms <= 0) return '-';
-  const d = new Date(ms);
-  const opts: Intl.DateTimeFormatOptions = includeDate
-    ? { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }
-    : { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
-  return new Intl.DateTimeFormat(undefined, opts).format(d);
-}
-
-interface MessageTimelineProps {
-  readonly nodes: readonly TrailTreeNode[];
-  readonly session?: TrailSession;
-  readonly onSelectMessage: (uuid: string) => void;
-}
-
-interface TimelineEntry {
-  readonly uuid: string;
-  readonly timestamp: string;
-  readonly ms: number;
-  readonly laneKind: LaneKind;
-  readonly agentId?: string;
-  readonly agentDescription?: string;
-  readonly toolNames: readonly string[];
-  readonly hasCommit: boolean;
-  readonly role: string;
-}
-
-function extractAgentCallMeta(toolCalls: readonly { name: string; input: Record<string, unknown> }[] | undefined): {
-  delegated: boolean;
-  description?: string;
-  subagentType?: string;
-} {
-  if (!toolCalls || toolCalls.length === 0) return { delegated: false };
-  const agentCall = toolCalls.find((tc) => tc.name === 'Agent');
-  if (!agentCall) return { delegated: false };
-  const description = typeof agentCall.input?.description === 'string'
-    ? agentCall.input.description
-    : undefined;
-  const subagentType = typeof agentCall.input?.subagent_type === 'string'
-    ? agentCall.input.subagent_type
-    : undefined;
-  return { delegated: true, description, subagentType };
-}
-
-interface Turn {
-  readonly userMsg: TimelineEntry | null;
-  readonly aiMsgs: TimelineEntry[];
-  readonly subagentMsgs: TimelineEntry[];
-  readonly systemMsgs: TimelineEntry[];
-}
 
 export function MessageTimeline({
   nodes,
@@ -701,43 +610,3 @@ export function MessageTimeline({
   );
 }
 
-// IntersectionObserver hook for scroll sync (TraceTree → Timeline)
-export function useTimelineScrollSync(
-  nodes: readonly TrailTreeNode[],
-): { visibleUuid: string | null } {
-  const [visibleUuid, setVisibleUuid] = useState<string | null>(null);
-  const observerRef = useRef<IntersectionObserver | null>(null);
-
-  useEffect(() => {
-    observerRef.current?.disconnect();
-
-    const uuids = new Set(nodes.flatMap(function collect(n: TrailTreeNode): string[] {
-      return [n.message.uuid, ...n.children.flatMap(collect)];
-    }));
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            const uuid = (entry.target as HTMLElement).dataset['messageUuid'];
-            if (uuid && uuids.has(uuid)) {
-              setVisibleUuid(uuid);
-              break;
-            }
-          }
-        }
-      },
-      { threshold: 0.5 },
-    );
-
-    for (const uuid of uuids) {
-      const el = document.querySelector(`[data-message-uuid="${uuid}"]`);
-      if (el) observer.observe(el);
-    }
-
-    observerRef.current = observer;
-    return () => observer.disconnect();
-  }, [nodes]);
-
-  return { visibleUuid };
-}

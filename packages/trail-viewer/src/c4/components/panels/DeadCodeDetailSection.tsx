@@ -2,8 +2,8 @@ import * as React from 'react';
 import { Box, Typography } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
-import type { FileAnalysisApiEntry } from '../hooks/fetchFileAnalysisApi';
-import { aggregateDeadCodeForElement, type DeadCodeJudgment } from './deadCodeJudgment';
+import type { FileAnalysisApiEntry } from '../../hooks/fetchFileAnalysisApi';
+import { aggregateDeadCodeForElement, type DeadCodeJudgment } from '../deadCodeJudgment';
 
 interface Colors {
   readonly border: string;

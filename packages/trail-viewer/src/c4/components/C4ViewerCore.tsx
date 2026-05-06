@@ -32,75 +32,9 @@ import { useDefectRisk } from '../hooks/useDefectRisk';
 import { useHotspot } from '../hooks/useHotspot';
 import { useTemporalCoupling } from '../hooks/useTemporalCoupling';
 import { useElementFunctions } from '../hooks/useElementFunctions';
-import { DeadCodeDetailSection } from './DeadCodeDetailSection';
+import { DeadCodeDetailSection } from './panels/DeadCodeDetailSection';
 import { fileAnalysisEntriesForElement } from './fileAnalysisEntriesForElement';
-import { ResizablePopup, type ResizablePopupSize } from './ResizablePopup';
-
-const UNKNOWN_REPO_KEY = '__unknown__';
-const CURRENT_RELEASE_TAG = 'current';
-const SELECTED_ELEMENT_DETAILS_WIDTH = 240;
-const SELECTED_ELEMENT_DETAILS_RIGHT_OFFSET = 8;
-const TREND_CHART_POPUP_GAP = 8;
-const TREND_CHART_POPUP_MAX_WIDTH = 1000;
-const TREND_CHART_RESERVED_RIGHT_WIDTH =
-  SELECTED_ELEMENT_DETAILS_WIDTH + SELECTED_ELEMENT_DETAILS_RIGHT_OFFSET + TREND_CHART_POPUP_GAP;
-
-type OverlayCategory = 'none' | 'coverage' | 'dsm' | 'edit-complexity' | 'importance' | 'hotspot' | 'dead-code' | 'size';
-
-const OVERLAY_CATEGORY_DEFAULTS: Record<Exclude<OverlayCategory, 'none'>, MetricOverlay> = {
-  coverage: 'coverage-lines',
-  dsm: 'dsm-out',
-  'edit-complexity': 'edit-complexity-most',
-  importance: 'importance',
-  hotspot: 'hotspot-frequency',
-  'dead-code': 'dead-code-score',
-  size: 'size-loc',
-};
-
-export function getActivityTrendChartWidth(hasSelectedElementDetails: boolean): string {
-  return hasSelectedElementDetails
-    ? `min(${TREND_CHART_POPUP_MAX_WIDTH}px, calc(100% - ${TREND_CHART_RESERVED_RIGHT_WIDTH}px))`
-    : `min(${TREND_CHART_POPUP_MAX_WIDTH}px, calc(100% - 16px))`;
-}
-
-export function getActivityTrendChartPlacement() {
-  return {
-    position: 'absolute' as const,
-    left: 8,
-    bottom: 8,
-    zIndex: 9,
-  };
-}
-
-export function canShowManualContextActions(
-  c4Model: C4Model | null,
-  c4Id: string | null,
-): boolean {
-  if (!c4Model || !c4Id) return false;
-  return c4Model.elements.some((element) => element.id === c4Id && element.manual === true);
-}
-
-const DEFAULT_TC_VALUE: TemporalCouplingControlsValue = {
-  enabled: false,
-  windowDays: 30,
-  threshold: 0.5,
-  topK: 50,
-  directional: false,
-  confidenceThreshold: 0.5,
-  directionalDiff: 0.3,
-  granularity: 'commit',
-};
-
-/** チェックボックス非表示フィルタ対象の型（system は常時表示のため除外） */
-const FILTER_CHECKABLE_TYPES = new Set(['container', 'containerDb', 'component'] as const);
-/** ドリルダウン時のスコープに含まれる型 */
-const DRILL_SCOPE_TYPES = new Set(['system', 'container', 'containerDb', 'component'] as const);
-function matchesDocScope(docScope: readonly string[], elementId: string): boolean {
-  return docScope.some(scope => scope === elementId || scope.startsWith(`${elementId}/`));
-}
-function formatPct(value: number): string {
-  return `${Math.round(value)}%`;
-}
+import { ResizablePopup, type ResizablePopupSize } from './widgets/ResizablePopup';
 import GroupWorkIcon from '@mui/icons-material/GroupWork';
 
 import { CodeGraphPanel } from '../../components/CodeGraphPanel';
@@ -109,74 +43,46 @@ import { COMMUNITY_ROLE_LABELS, getCommunityRoleBgColors } from '../communityRol
 import { useCodeGraph } from '../../hooks/useCodeGraph';
 import { computeClaudeActivityColorMap, computeConflictBorderMap,computeMultiAgentColorMap } from '../claudeActivityColorMap';
 import { computeContextMenuCapabilities } from '../utils/contextMenuCapabilities';
-import { ActivityTrendChart } from './ActivityTrendChart';
-import type { C4ElementKind, ElementFormData, RelationshipFormData } from './C4EditDialogs';
-import { AddElementDialog, AddRelationshipDialog } from './C4EditDialogs';
-import { C4ElementTree } from './C4ElementTree';
-import { GraphCanvas } from './GraphCanvas';
-import { HotspotControls, type HotspotControlsValue } from './HotspotControls';
-import { MatrixPanel } from './MatrixPanel';
-import { type CommunityLegendItem,OverlayLegend } from './OverlayLegend';
+import { ActivityTrendChart } from './panels/ActivityTrendChart';
+import { C4DialogsArea } from './C4DialogsArea';
+import type { C4ElementKind, ElementFormData, RelationshipFormData } from './dialogs/C4EditDialogs';
+import { C4ElementTree } from './panels/C4ElementTree';
+import { GraphCanvas } from './canvases/GraphCanvas';
+import { HotspotControls, type HotspotControlsValue } from './overlays/HotspotControls';
+import { MatrixPanel } from './panels/MatrixPanel';
+import { type CommunityLegendItem,OverlayLegend } from './overlays/OverlayLegend';
 import {
   TemporalCouplingSettingsPopup,
   applyGhostEdgeMode,
   type TemporalCouplingControlsValue,
-} from './TemporalCouplingControls';
+} from './overlays/TemporalCouplingControls';
 
-const { graphReducer, createInitialState } = graphState;
-const { fitToContent } = engine;
+import {
+  CURRENT_RELEASE_TAG,
+  DEFAULT_TC_VALUE,
+  DRILL_SCOPE_TYPES,
+  FILTER_CHECKABLE_TYPES,
+  SELECTED_ELEMENT_DETAILS_RIGHT_OFFSET,
+  SELECTED_ELEMENT_DETAILS_WIDTH,
+  TREND_CHART_POPUP_GAP,
+  TREND_CHART_POPUP_MAX_WIDTH,
+  TREND_CHART_RESERVED_RIGHT_WIDTH,
+  UNKNOWN_REPO_KEY,
+} from '../constants';
+import { OVERLAY_CATEGORY_DEFAULTS, type OverlayCategory } from '../state/overlayCategories';
+import { createInitialState, graphReducer } from '../state/graphReducer';
+import {
+  canShowManualContextActions,
+  computeBounds,
+  fitToContent,
+  formatPct,
+  getActivityTrendChartPlacement,
+  getActivityTrendChartWidth,
+  matchesDocScope,
+} from '../utils/c4ViewerHelpers';
+import type { C4ViewerCoreProps } from './types';
 
-/** Bounding box of a set of graph nodes */
-function computeBounds(nodes: readonly GraphNode[]) {
-  if (nodes.length === 0) return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  for (const n of nodes) {
-    if (n.x < minX) minX = n.x;
-    if (n.y < minY) minY = n.y;
-    if (n.x + n.width > maxX) maxX = n.x + n.width;
-    if (n.y + n.height > maxY) maxY = n.y + n.height;
-  }
-  return { minX, minY, maxX, maxY };
-}
-
-export interface C4ViewerCoreProps {
-  readonly isDark?: boolean;
-  readonly c4Model: C4Model | null;
-  readonly boundaries: readonly BoundaryInfo[];
-  readonly featureMatrix: FeatureMatrix | null;
-  readonly dsmMatrix: DsmMatrix | null;
-  readonly coverageMatrix: CoverageMatrix | null;
-  readonly coverageDiff: CoverageDiffMatrix | null;
-  readonly complexityMatrix?: ComplexityMatrix | null;
-  readonly importanceMatrix?: ImportanceMatrix | null;
-  readonly deadCodeMatrix?: Record<string, number> | null;
-  readonly fileAnalysisEntries?: readonly FileAnalysisApiEntry[];
-  readonly docLinks?: readonly DocLink[];
-  readonly connected?: boolean;
-  readonly analysisProgress?: { phase: string; percent: number } | null;
-  readonly onAddElement?: (data: ElementFormData) => void;
-  readonly onUpdateElement?: (id: string, data: ElementFormData) => void;
-  readonly onAddRelationship?: (data: RelationshipFormData) => void;
-  readonly onRemoveElement?: (id: string) => void;
-  readonly onPurgeDeleted?: () => void;
-  readonly onDocLinkClick?: (doc: DocLink) => void;
-  readonly onOpenFile?: (filePath: string) => void;
-  /** L3 component 右クリックの「シーケンス表示」を選択したときのコールバック。 */
-  readonly onShowSequence?: (elementId: string) => void;
-  readonly containerHeight?: string;
-  readonly releases?: readonly C4ReleaseEntry[];
-  readonly selectedRelease?: string;
-  readonly onReleaseSelect?: (release: string) => void;
-  readonly selectedRepo?: string;
-  readonly onRepoSelect?: (repo: string) => void;
-  readonly serverUrl?: string;
-  readonly claudeActivity?: import('../hooks/useC4DataSource').ClaudeActivityState | null;
-  readonly multiAgentActivity?: import('../hooks/useC4DataSource').MultiAgentActivityState | null;
-  readonly onResetClaudeActivity?: () => void;
-  readonly manualGroups?: readonly ManualGroup[];
-  /** 初期表示 C4 レベル（1=L1 Context, 2=L2 Container, 3=L3 Component, 4=L4 Code）*/
-  readonly initialLevel?: number;
-}
+export type { C4ViewerCoreProps };
 
 export function C4ViewerCore({
   isDark = false,
@@ -2475,42 +2381,20 @@ export function C4ViewerCore({
             )}
           </Box>
       </Box>
-      <AddElementDialog
-        open={addElementType !== null && !editElement}
-        elementType={addElementType ?? 'person'}
-        initial={addElementType === 'container' && selectedSystemId ? { parentId: selectedSystemId } : undefined}
-        onSubmit={handleAddElement}
-        onClose={() => setAddElementType(null)}
-        parentCandidates={
-          addElementType === 'component'
-            ? (c4Model?.elements.filter(e => e.type === 'container').map(e => ({ id: e.id, name: e.name })) ?? [])
-            : undefined
-        }
+      <C4DialogsArea
+        c4Model={c4Model}
+        addElementType={addElementType}
+        editElement={editElement}
+        addRelOpen={addRelOpen}
+        selectedSystemId={selectedSystemId}
+        selectedElementId={selectedElementId}
+        onCloseAddElement={() => setAddElementType(null)}
+        onCloseEditElement={() => setEditElement(null)}
+        onCloseAddRelationship={() => setAddRelOpen(false)}
+        onSubmitAddElement={handleAddElement}
+        onSubmitUpdateElement={handleUpdateElement}
+        onSubmitAddRelationship={handleAddRelationship}
       />
-      <AddElementDialog
-        open={editElement !== null}
-        elementType={editElement?.type ?? 'person'}
-        initial={editElement ?? undefined}
-        onSubmit={handleUpdateElement}
-        onClose={() => setEditElement(null)}
-        parentCandidates={
-          editElement?.type === 'container'
-            ? (c4Model?.elements.filter(e => e.type === 'system').map(e => ({ id: e.id, name: e.name })) ?? [])
-            : editElement?.type === 'component'
-            ? (c4Model?.elements.filter(e => e.type === 'container').map(e => ({ id: e.id, name: e.name })) ?? [])
-            : undefined
-        }
-      />
-      {selectedElementId && (
-        <AddRelationshipDialog
-          open={addRelOpen}
-          from={selectedElementId}
-          fromName={c4Model?.elements.find(e => e.id === selectedElementId)?.name ?? selectedElementId}
-          candidates={c4Model?.elements.filter(e => e.id !== selectedElementId && (e.type === 'person' || e.type === 'system' || e.type === 'container')).map(e => ({ id: e.id, name: e.name })) ?? []}
-          onSubmit={handleAddRelationship}
-          onClose={() => setAddRelOpen(false)}
-        />
-      )}
     </Box>
   );
 }

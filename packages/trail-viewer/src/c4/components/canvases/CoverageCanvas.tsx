@@ -1,7 +1,7 @@
 import type { C4Model, C4Element, CoverageDiffMatrix, CoverageMatrix, CoverageEntry } from '@anytime-markdown/trail-core/c4';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getC4Colors } from '../../theme/c4Tokens';
-import { COVERAGE_HIGH, COVERAGE_LOW, COVERAGE_MID, COVERAGE_NONE, DELTA_NEGATIVE, DELTA_POSITIVE, getCoverageTextColor } from '../c4MetricColors';
+import { getC4Colors } from '../../../theme/c4Tokens';
+import { COVERAGE_HIGH, COVERAGE_LOW, COVERAGE_MID, COVERAGE_NONE, DELTA_NEGATIVE, DELTA_POSITIVE, getCoverageTextColor } from '../../c4MetricColors';
 
 interface CoverageCanvasProps {
   readonly coverageMatrix: CoverageMatrix;
@@ -21,7 +21,7 @@ const PAN_STEP = 20;
 
 const METRIC_COLUMNS = ['Lines', 'Branches', 'Functions'] as const;
 
-import { truncate, clampViewport as clampViewportBase } from '../canvasHelpers';
+import { truncate, clampViewport as clampViewportBase } from '../../canvasHelpers';
 
 function clampCoverageViewport(vp: { offsetX: number; offsetY: number; scale: number }) {
   return clampViewportBase(vp, ROW_HEADER_W, COL_HEADER_H);

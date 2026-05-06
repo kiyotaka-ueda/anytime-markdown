@@ -4,7 +4,7 @@ import type { SxProps, Theme } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
-import type { C4ThemeColors } from '../../theme/c4Tokens';
+import type { C4ThemeColors } from '../../../theme/c4Tokens';
 
 const MIN_WIDTH = 360;
 const MIN_HEIGHT = 240;

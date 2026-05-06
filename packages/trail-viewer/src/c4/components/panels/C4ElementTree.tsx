@@ -35,10 +35,10 @@ import InputAdornment from '@mui/material/InputAdornment';
 import SearchIcon from '@mui/icons-material/Search';
 import TextField from '@mui/material/TextField';
 import { filterTreeBySearch } from '@anytime-markdown/trail-core/c4';
-import { useTrailI18n } from '../../i18n';
-import { getC4Colors } from '../../theme/c4Tokens';
-import { getTokens } from '../../theme/designTokens';
-import { communityColor } from '../../components/communityColors';
+import { useTrailI18n } from '../../../i18n';
+import { getC4Colors } from '../../../theme/c4Tokens';
+import { getTokens } from '../../../theme/designTokens';
+import { communityColor } from '../../../components/communityColors';
 
 const INDENT_PX = 20;
 const UNKNOWN_REPO_KEY = '__unknown__';

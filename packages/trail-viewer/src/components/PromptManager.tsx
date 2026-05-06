@@ -13,7 +13,7 @@ import Typography from '@mui/material/Typography';
 import type { TrailPromptEntry } from '../domain/parser/types';
 import { useTrailI18n } from '../i18n';
 import { useTrailTheme } from './TrailThemeContext';
-import { buildPromptTree } from './promptTree';
+import { buildPromptTree } from './messages/promptTree';
 
 export interface PromptManagerProps {
   readonly prompts: readonly TrailPromptEntry[];

@@ -1,7 +1,7 @@
 import type { C4Model, FeatureMatrix } from '@anytime-markdown/trail-core/c4';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getC4Colors } from '../../theme/c4Tokens';
-import { COMMUNITY_ROLE_LABELS, getCommunityRoleBgColors } from '../communityRoleColors';
+import { getC4Colors } from '../../../theme/c4Tokens';
+import { COMMUNITY_ROLE_LABELS, getCommunityRoleBgColors } from '../../communityRoleColors';
 
 interface FcMapCanvasProps {
   readonly featureMatrix: FeatureMatrix;
@@ -23,7 +23,7 @@ const COL_HEADER_H = 120;
 const PAN_STEP = 20;
 
 
-import { truncate, clampViewport as clampViewportBase } from '../canvasHelpers';
+import { truncate, clampViewport as clampViewportBase } from '../../canvasHelpers';
 
 function clampFcMapViewport(vp: { offsetX: number; offsetY: number; scale: number }) {
   return clampViewportBase(vp, ROW_HEADER_W, COL_HEADER_H);

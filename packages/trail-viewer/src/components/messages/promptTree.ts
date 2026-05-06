@@ -1,4 +1,4 @@
-import type { TrailPromptEntry } from '../domain/parser/types';
+import type { TrailPromptEntry } from '../../domain/parser/types';
 
 export interface PromptTreeNode {
   readonly category: string;
