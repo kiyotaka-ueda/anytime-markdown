@@ -747,6 +747,212 @@ export class TrailDatabase {
     return result;
   }
 
+  // ─────────────────────────────────────────────────────────────────
+  //  集計ヘルパー（A-4 ヘルパー化フェーズ: SQL は現行を完全保持）
+  //  系統 1: byDateRange  — rebuildDailyCounts の kind='tool' (L1839 起源)
+  //  系統 2: bySession    — computeToolMetrics の tool/skill (L4948/L4989 起源)
+  //  系統 3: byMessageDateCutoff — getCombinedData (L5430 起源)
+  //  各ヘルパーの SQL は引数違いで重複する CTE/window/JOIN/GROUP BY 構造を持つ。
+  //  本フェーズでは call site を集約するのみで動作変更なし。SQL 書き換えは別 PR。
+  // ─────────────────────────────────────────────────────────────────
+
+  /**
+   * 系統 1: tzOffset 適用日付別の tool 利用集計。
+   * rebuildDailyCounts の kind='tool' 集計用。
+   */
+  private aggregateToolUsageByDateRange(tzOffset: string): readonly {
+    date: string; tool: string; count: number; tokens: number; durationMs: number;
+  }[] {
+    const db = this.ensureDb();
+    return this.runQuery(
+      'aggregateToolUsageByDateRange',
+      () => {
+        const result = db.exec(
+          `WITH tool_with_metrics AS (
+             SELECT tc.session_id, tc.message_uuid, tc.turn_index, tc.tool_name, tc.timestamp,
+                    COALESCE(m.input_tokens, 0) + COALESCE(m.output_tokens, 0) AS msg_tokens,
+                    COUNT(*) OVER (PARTITION BY tc.message_uuid) AS tools_in_msg,
+                    COALESCE(tc.turn_exec_ms, 0) AS turn_exec_ms,
+                    COUNT(*) OVER (PARTITION BY tc.session_id, tc.turn_index) AS tools_in_turn
+             FROM message_tool_calls tc
+             LEFT JOIN messages m ON m.uuid = tc.message_uuid
+           )
+           SELECT DATE(timestamp, '${tzOffset}') AS d,
+                  CASE
+                    WHEN tool_name LIKE 'mcp\\_\\_%\\_\\_%' ESCAPE '\\'
+                    THEN SUBSTR(tool_name, 1, INSTR(SUBSTR(tool_name, 6), '__') + 4)
+                    ELSE tool_name
+                  END AS tool,
+                  COUNT(*) AS count,
+                  CAST(SUM(ROUND(1.0 * msg_tokens / tools_in_msg)) AS INTEGER) AS tokens,
+                  CAST(SUM(ROUND(1.0 * turn_exec_ms / tools_in_turn)) AS INTEGER) AS duration_ms
+           FROM tool_with_metrics
+           GROUP BY d, tool`,
+        );
+        return (result[0]?.values ?? []).map((row) => ({
+          date: String(row[0]),
+          tool: String(row[1] ?? ''),
+          count: Number(row[2] ?? 0),
+          tokens: Number(row[3] ?? 0),
+          durationMs: Number(row[4] ?? 0),
+        }));
+      },
+      (rows) => rows.length,
+    );
+  }
+
+  /**
+   * 系統 2 (tool): セッション内の tool 別利用集計。
+   * computeToolMetrics の toolUsage 用 (L4948 起源)。
+   */
+  private aggregateToolUsageBySession(sessionId: string): readonly {
+    tool: string; count: number; tokens: number; durationMs: number;
+  }[] {
+    const db = this.ensureDb();
+    return this.runQuery(
+      'aggregateToolUsageBySession',
+      () => {
+        const result = db.exec(
+          `WITH tool_with_metrics AS (
+             SELECT tc.message_uuid, tc.turn_index, tc.tool_name,
+                    COALESCE(m.input_tokens, 0) + COALESCE(m.output_tokens, 0) AS msg_tokens,
+                    COUNT(*) OVER (PARTITION BY tc.message_uuid) AS tools_in_msg,
+                    COALESCE(tc.turn_exec_ms, 0) AS turn_exec_ms,
+                    COUNT(*) OVER (PARTITION BY tc.session_id, tc.turn_index) AS tools_in_turn
+             FROM message_tool_calls tc
+             LEFT JOIN messages m ON m.uuid = tc.message_uuid
+             WHERE tc.session_id = ?
+           )
+           SELECT CASE
+                    WHEN tool_name LIKE 'mcp\\_\\_%\\_\\_%' ESCAPE '\\'
+                    THEN SUBSTR(tool_name, 1, INSTR(SUBSTR(tool_name, 6), '__') + 4)
+                    ELSE tool_name
+                  END AS tool,
+                  COUNT(*) AS count,
+                  CAST(SUM(ROUND(1.0 * msg_tokens / tools_in_msg)) AS INTEGER) AS tokens,
+                  CAST(SUM(ROUND(1.0 * turn_exec_ms / tools_in_turn)) AS INTEGER) AS duration_ms
+           FROM tool_with_metrics
+           GROUP BY tool
+           ORDER BY count DESC`,
+          [sessionId],
+        );
+        if (!result[0]) return [];
+        const cols = result[0].columns;
+        return result[0].values.map((row) => {
+          const r = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
+          return {
+            tool: String(r['tool'] ?? ''),
+            count: Number(r['count'] ?? 0),
+            tokens: Number(r['tokens'] ?? 0),
+            durationMs: Number(r['duration_ms'] ?? 0),
+          };
+        });
+      },
+      (rows) => rows.length,
+    );
+  }
+
+  /**
+   * 系統 2 (skill): セッション内の skill 別利用集計。
+   * computeToolMetrics の skillUsage 用 (L4989 起源)。skill_name IS NOT NULL を強制。
+   */
+  private aggregateSkillUsageBySession(sessionId: string): readonly {
+    skill: string; count: number; tokens: number; durationMs: number;
+  }[] {
+    const db = this.ensureDb();
+    return this.runQuery(
+      'aggregateSkillUsageBySession',
+      () => {
+        const result = db.exec(
+          `WITH skill_with_metrics AS (
+             SELECT tc.message_uuid, tc.turn_index, tc.skill_name,
+                    COALESCE(m.input_tokens, 0) + COALESCE(m.output_tokens, 0) AS msg_tokens,
+                    COUNT(*) OVER (PARTITION BY tc.message_uuid) AS tools_in_msg,
+                    COALESCE(tc.turn_exec_ms, 0) AS turn_exec_ms,
+                    COUNT(*) OVER (PARTITION BY tc.session_id, tc.turn_index) AS tools_in_turn
+             FROM message_tool_calls tc
+             LEFT JOIN messages m ON m.uuid = tc.message_uuid
+             WHERE tc.session_id = ? AND tc.skill_name IS NOT NULL
+           )
+           SELECT skill_name AS skill,
+                  COUNT(*) AS count,
+                  CAST(SUM(ROUND(1.0 * msg_tokens / tools_in_msg)) AS INTEGER) AS tokens,
+                  CAST(SUM(ROUND(1.0 * turn_exec_ms / tools_in_turn)) AS INTEGER) AS duration_ms
+           FROM skill_with_metrics
+           GROUP BY skill
+           ORDER BY count DESC`,
+          [sessionId],
+        );
+        if (!result[0]) return [];
+        const cols = result[0].columns;
+        return result[0].values.map((row) => {
+          const r = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
+          return {
+            skill: String(r['skill'] ?? ''),
+            count: Number(r['count'] ?? 0),
+            tokens: Number(r['tokens'] ?? 0),
+            durationMs: Number(r['duration_ms'] ?? 0),
+          };
+        });
+      },
+      (rows) => rows.length,
+    );
+  }
+
+  /**
+   * 系統 3: messages.timestamp の cutoff + sessions JOIN + period 別の tool 集計。
+   * getCombinedData の toolRawResult 用 (L5430 起源)。
+   * factor 補正に必要な token_total_turns / token_missing_turns を含む raw 行を返し、
+   * factor 計算は呼び出し側 (getCombinedData) が行う。
+   *
+   * messagePeriodExpr / cutoff は SQL fragment（呼び出し元で組み立てた DATE/strftime 式）を
+   * そのまま埋め込む既存挙動を保持する。これらの値は内部入力（period: 'day'|'week' / rangeDays: 30|90）
+   * から構築されるため SQL injection の経路ではない。
+   */
+  private aggregateToolUsageByMessageDateCutoff(
+    messagePeriodExpr: string,
+    cutoff: string,
+    tzOffset: string,
+  ): readonly Record<string, unknown>[] {
+    const db = this.ensureDb();
+    return this.runQuery(
+      'aggregateToolUsageByMessageDateCutoff',
+      () => {
+        const result = db.exec(
+          `SELECT ${messagePeriodExpr} AS period,
+                 CASE
+                   WHEN tool_name LIKE 'mcp\\_\\_%\\_\\_%' ESCAPE '\\'
+                   THEN SUBSTR(tool_name, 1, INSTR(SUBSTR(tool_name, 6), '__') + 4)
+                   ELSE tool_name
+                 END AS tool,
+                 s.source,
+                 COUNT(*) AS count,
+                 CAST(SUM(ROUND(1.0 * (COALESCE(m.input_tokens,0)+COALESCE(m.output_tokens,0)) / tools_in_msg)) AS INTEGER) AS tokens,
+                 CAST(SUM(ROUND(1.0 * COALESCE(tc.turn_exec_ms,0) / tools_in_turn)) AS INTEGER) AS duration_ms,
+                 SUM(CASE WHEN m.type = 'assistant' THEN 1 ELSE 0 END) AS token_total_turns,
+                 SUM(CASE WHEN m.type = 'assistant'
+                           AND COALESCE(m.input_tokens,0) + COALESCE(m.output_tokens,0)
+                              + COALESCE(m.cache_read_tokens,0) + COALESCE(m.cache_creation_tokens,0) = 0
+                          THEN 1 ELSE 0 END) AS token_missing_turns
+          FROM (
+            SELECT tc.session_id, tc.message_uuid, tc.tool_name, tc.turn_exec_ms,
+                   COUNT(*) OVER (PARTITION BY tc.message_uuid) AS tools_in_msg,
+                   COUNT(*) OVER (PARTITION BY tc.session_id, tc.turn_index) AS tools_in_turn
+            FROM message_tool_calls tc
+          ) tc
+          JOIN messages m ON m.uuid = tc.message_uuid
+          JOIN sessions s ON s.id = m.session_id
+          WHERE DATE(m.timestamp, '${tzOffset}') >= ${cutoff}
+          GROUP BY period, tool, s.source`,
+        );
+        if (!result[0]) return [];
+        const { columns, values } = result[0];
+        return values.map((row) => Object.fromEntries(columns.map((c, i) => [c, row[i]])));
+      },
+      (rows) => rows.length,
+    );
+  }
+
   /** 利用可能な世代バックアップを新しい順で返す。FileTrailStorage 以外では空配列。 */
   listBackups(): readonly import('./ITrailStorage').BackupEntry[] {
     if (this.storage instanceof FileTrailStorage) {
@@ -1835,30 +2041,8 @@ export class TrailDatabase {
     }
 
     // ── kind='tool' : メッセージトークン/ターン時間按分のツール別日次集計 ──
-    const tools = db.exec(
-      `WITH tool_with_metrics AS (
-         SELECT tc.session_id, tc.message_uuid, tc.turn_index, tc.tool_name, tc.timestamp,
-                COALESCE(m.input_tokens, 0) + COALESCE(m.output_tokens, 0) AS msg_tokens,
-                COUNT(*) OVER (PARTITION BY tc.message_uuid) AS tools_in_msg,
-                COALESCE(tc.turn_exec_ms, 0) AS turn_exec_ms,
-                COUNT(*) OVER (PARTITION BY tc.session_id, tc.turn_index) AS tools_in_turn
-         FROM message_tool_calls tc
-         LEFT JOIN messages m ON m.uuid = tc.message_uuid
-       )
-       SELECT DATE(timestamp, '${tzOffset}') AS d,
-              CASE
-                WHEN tool_name LIKE 'mcp\\_\\_%\\_\\_%' ESCAPE '\\'
-                THEN SUBSTR(tool_name, 1, INSTR(SUBSTR(tool_name, 6), '__') + 4)
-                ELSE tool_name
-              END AS tool,
-              COUNT(*) AS count,
-              CAST(SUM(ROUND(1.0 * msg_tokens / tools_in_msg)) AS INTEGER) AS tokens,
-              CAST(SUM(ROUND(1.0 * turn_exec_ms / tools_in_turn)) AS INTEGER) AS duration_ms
-       FROM tool_with_metrics
-       GROUP BY d, tool`,
-    );
-    for (const row of tools[0]?.values ?? []) {
-      stmt.run([String(row[0]), 'tool', String(row[1] ?? ''), Number(row[2] ?? 0), Number(row[3] ?? 0), 0, 0, 0, 0, Number(row[4] ?? 0), 0]);
+    for (const row of this.aggregateToolUsageByDateRange(tzOffset)) {
+      stmt.run([row.date, 'tool', row.tool, row.count, row.tokens, 0, 0, 0, 0, row.durationMs, 0]);
     }
 
     // ── kind='skill' : スキル別日次集計 ──
@@ -4802,8 +4986,8 @@ export class TrailDatabase {
     totalBuildFails: number;
     totalTestRuns: number;
     totalTestFails: number;
-    toolUsage?: { tool: string; count: number; tokens: number; durationMs: number }[];
-    skillUsage?: { skill: string; count: number; tokens: number; durationMs: number }[];
+    toolUsage?: readonly { tool: string; count: number; tokens: number; durationMs: number }[];
+    skillUsage?: readonly { skill: string; count: number; tokens: number; durationMs: number }[];
     errorsByTool?: { tool: string; count: number }[];
     modelUsage?: { model: string; count: number; tokens: number; durationMs: number }[];
   } {
@@ -4942,81 +5126,15 @@ export class TrailDatabase {
       }
 
       // セッション指定時のみツール別利用統計を集計
-      let toolUsage: { tool: string; count: number; tokens: number; durationMs: number }[] | undefined;
+      let toolUsage: readonly { tool: string; count: number; tokens: number; durationMs: number }[] | undefined;
       if (sessionId) {
-        const tuResult = db.exec(
-          `WITH tool_with_metrics AS (
-             SELECT tc.message_uuid, tc.turn_index, tc.tool_name,
-                    COALESCE(m.input_tokens, 0) + COALESCE(m.output_tokens, 0) AS msg_tokens,
-                    COUNT(*) OVER (PARTITION BY tc.message_uuid) AS tools_in_msg,
-                    COALESCE(tc.turn_exec_ms, 0) AS turn_exec_ms,
-                    COUNT(*) OVER (PARTITION BY tc.session_id, tc.turn_index) AS tools_in_turn
-             FROM message_tool_calls tc
-             LEFT JOIN messages m ON m.uuid = tc.message_uuid
-             WHERE tc.session_id = ?
-           )
-           SELECT CASE
-                    WHEN tool_name LIKE 'mcp\\_\\_%\\_\\_%' ESCAPE '\\'
-                    THEN SUBSTR(tool_name, 1, INSTR(SUBSTR(tool_name, 6), '__') + 4)
-                    ELSE tool_name
-                  END AS tool,
-                  COUNT(*) AS count,
-                  CAST(SUM(ROUND(1.0 * msg_tokens / tools_in_msg)) AS INTEGER) AS tokens,
-                  CAST(SUM(ROUND(1.0 * turn_exec_ms / tools_in_turn)) AS INTEGER) AS duration_ms
-           FROM tool_with_metrics
-           GROUP BY tool
-           ORDER BY count DESC`,
-          [sessionId],
-        );
-        if (tuResult[0]) {
-          const cols = tuResult[0].columns;
-          toolUsage = tuResult[0].values.map(row => {
-            const r = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
-            return {
-              tool: String(r['tool'] ?? ''),
-              count: Number(r['count'] ?? 0),
-              tokens: Number(r['tokens'] ?? 0),
-              durationMs: Number(r['duration_ms'] ?? 0),
-            };
-          });
-        }
+        toolUsage = this.aggregateToolUsageBySession(sessionId);
       }
 
       // スキル別利用統計
-      let skillUsage: { skill: string; count: number; tokens: number; durationMs: number }[] | undefined;
+      let skillUsage: readonly { skill: string; count: number; tokens: number; durationMs: number }[] | undefined;
       if (sessionId) {
-        const skResult = db.exec(
-          `WITH skill_with_metrics AS (
-             SELECT tc.message_uuid, tc.turn_index, tc.skill_name,
-                    COALESCE(m.input_tokens, 0) + COALESCE(m.output_tokens, 0) AS msg_tokens,
-                    COUNT(*) OVER (PARTITION BY tc.message_uuid) AS tools_in_msg,
-                    COALESCE(tc.turn_exec_ms, 0) AS turn_exec_ms,
-                    COUNT(*) OVER (PARTITION BY tc.session_id, tc.turn_index) AS tools_in_turn
-             FROM message_tool_calls tc
-             LEFT JOIN messages m ON m.uuid = tc.message_uuid
-             WHERE tc.session_id = ? AND tc.skill_name IS NOT NULL
-           )
-           SELECT skill_name AS skill,
-                  COUNT(*) AS count,
-                  CAST(SUM(ROUND(1.0 * msg_tokens / tools_in_msg)) AS INTEGER) AS tokens,
-                  CAST(SUM(ROUND(1.0 * turn_exec_ms / tools_in_turn)) AS INTEGER) AS duration_ms
-           FROM skill_with_metrics
-           GROUP BY skill
-           ORDER BY count DESC`,
-          [sessionId],
-        );
-        if (skResult[0]) {
-          const cols = skResult[0].columns;
-          skillUsage = skResult[0].values.map(row => {
-            const r = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
-            return {
-              skill: String(r['skill'] ?? ''),
-              count: Number(r['count'] ?? 0),
-              tokens: Number(r['tokens'] ?? 0),
-              durationMs: Number(r['duration_ms'] ?? 0),
-            };
-          });
-        }
+        skillUsage = this.aggregateSkillUsageBySession(sessionId);
       }
 
       // モデル別利用統計: count/tokens は assistant メッセージから、durationMs は distinct turn_exec_ms から集計
@@ -5427,37 +5545,11 @@ export class TrailDatabase {
       return values.map(row => Object.fromEntries(columns.map((c, i) => [c, row[i]])));
     };
 
-    const toolRawResult = db.exec(
-      `SELECT ${messagePeriodExpr} AS period,
-             CASE
-               WHEN tool_name LIKE 'mcp\\_\\_%\\_\\_%' ESCAPE '\\'
-               THEN SUBSTR(tool_name, 1, INSTR(SUBSTR(tool_name, 6), '__') + 4)
-               ELSE tool_name
-             END AS tool,
-             s.source,
-             COUNT(*) AS count,
-             CAST(SUM(ROUND(1.0 * (COALESCE(m.input_tokens,0)+COALESCE(m.output_tokens,0)) / tools_in_msg)) AS INTEGER) AS tokens,
-             CAST(SUM(ROUND(1.0 * COALESCE(tc.turn_exec_ms,0) / tools_in_turn)) AS INTEGER) AS duration_ms,
-             SUM(CASE WHEN m.type = 'assistant' THEN 1 ELSE 0 END) AS token_total_turns,
-             SUM(CASE WHEN m.type = 'assistant'
-                       AND COALESCE(m.input_tokens,0) + COALESCE(m.output_tokens,0)
-                          + COALESCE(m.cache_read_tokens,0) + COALESCE(m.cache_creation_tokens,0) = 0
-                      THEN 1 ELSE 0 END) AS token_missing_turns
-      FROM (
-        SELECT tc.session_id, tc.message_uuid, tc.tool_name, tc.turn_exec_ms,
-               COUNT(*) OVER (PARTITION BY tc.message_uuid) AS tools_in_msg,
-               COUNT(*) OVER (PARTITION BY tc.session_id, tc.turn_index) AS tools_in_turn
-        FROM message_tool_calls tc
-      ) tc
-      JOIN messages m ON m.uuid = tc.message_uuid
-      JOIN sessions s ON s.id = m.session_id
-      WHERE DATE(m.timestamp, '${tzOffset}') >= ${cutoff}
-      GROUP BY period, tool, s.source`,
-    );
+    const toolRawRows = this.aggregateToolUsageByMessageDateCutoff(messagePeriodExpr, cutoff, tzOffset);
     // JS 側で (period, tool) 単位に集約し factor を適用する
     type ToolAggEntry = { count: number; durationMs: number; adjustedTokens: number; totalTurns: number; missingTurns: number };
     const toolAggMap = new Map<string, ToolAggEntry>();
-    for (const r of toRows(toolRawResult)) {
+    for (const r of toolRawRows) {
       const p = String(r['period'] ?? '');
       const tool = String(r['tool'] ?? '');
       const totalTurns = Number(r['token_total_turns'] ?? 0);
