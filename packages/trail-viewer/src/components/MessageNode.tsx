@@ -13,7 +13,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import SettingsIcon from '@mui/icons-material/Settings';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 
-import type { TrailMessage, TrailToolCall } from '../parser/types';
+import type { TrailMessage, TrailToolCall } from '../domain/parser/types';
 import { useTrailI18n } from '../i18n';
 import { useTrailTheme } from './TrailThemeContext';
 import { ToolCallDetail } from './ToolCallDetail';

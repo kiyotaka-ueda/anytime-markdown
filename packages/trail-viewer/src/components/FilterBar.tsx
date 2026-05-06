@@ -6,7 +6,7 @@ import TextField from '@mui/material/TextField';
 import Toolbar from '@mui/material/Toolbar';
 import { useCallback, useMemo } from 'react';
 
-import type { TrailFilter, TrailSession } from '../parser/types';
+import type { TrailFilter, TrailSession } from '../domain/parser/types';
 import { useTrailI18n } from '../i18n';
 import { useTrailTheme } from './TrailThemeContext';
 

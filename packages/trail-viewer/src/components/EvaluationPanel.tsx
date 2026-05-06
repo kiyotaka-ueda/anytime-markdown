@@ -9,7 +9,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useCallback, useState } from 'react';
 
-import type { TrailEvaluation } from '../parser/types';
+import type { TrailEvaluation } from '../domain/parser/types';
 import { useTrailI18n } from '../i18n';
 import { useTrailTheme } from './TrailThemeContext';
 

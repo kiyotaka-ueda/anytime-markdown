@@ -5,7 +5,7 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import CachedIcon from '@mui/icons-material/Cached';
 
-import type { TrailMessage, TrailSession } from '../parser/types';
+import type { TrailMessage, TrailSession } from '../domain/parser/types';
 import { useTrailI18n } from '../i18n';
 import { useTrailTheme } from './TrailThemeContext';
 

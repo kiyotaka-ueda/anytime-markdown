@@ -10,7 +10,7 @@ import type {
   TrailSession,
   TrailSessionCommit,
   TrailToolCall,
-} from '../parser/types';
+} from '../domain/parser/types';
 // AnalyticsData は trail-core の共通型を使用（React 依存を避け、server-safe にする）
 import type { AnalyticsData, ITrailReader, TrailRelease } from '@anytime-markdown/trail-core/domain';
 import { computeDeploymentFrequency, computeQualityMetrics, computeReleaseQualityTimeSeries } from '@anytime-markdown/trail-core/domain/metrics';

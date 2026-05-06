@@ -1,4 +1,4 @@
-import { SupabaseTrailReader } from '../../hooks/SupabaseTrailReader';
+import { SupabaseTrailReader } from '../../../hooks/SupabaseTrailReader';
 
 describe('SupabaseTrailReader mapping', () => {
   it('maps session source into TrailSession', () => {

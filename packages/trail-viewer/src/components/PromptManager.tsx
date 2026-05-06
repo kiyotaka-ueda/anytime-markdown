@@ -10,7 +10,7 @@ import ListItemText from '@mui/material/ListItemText';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 
-import type { TrailPromptEntry } from '../parser/types';
+import type { TrailPromptEntry } from '../domain/parser/types';
 import { useTrailI18n } from '../i18n';
 import { useTrailTheme } from './TrailThemeContext';
 import { buildPromptTree } from './promptTree';

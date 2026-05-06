@@ -44,7 +44,7 @@ import { useDrawingArea, useXScale } from '@mui/x-charts/hooks';
 import { formatLocalTime, toLocalDateKey } from '@anytime-markdown/trail-core/formatDate';
 import { extractCommitPrefix } from '@anytime-markdown/trail-core/domain';
 import type { QualityMetrics, DateRange, ReleaseQualityBucket } from '@anytime-markdown/trail-core/domain/metrics';
-import type { AnalyticsData, CombinedData, CombinedPeriodMode, CombinedRangeDays, CostOptimizationData, ToolMetrics, TrailMessage, TrailSession, TrailSessionCommit, TrailTokenUsage, TrailToolCall } from '../parser/types';
+import type { AnalyticsData, CombinedData, CombinedPeriodMode, CombinedRangeDays, CostOptimizationData, ToolMetrics, TrailMessage, TrailSession, TrailSessionCommit, TrailTokenUsage, TrailToolCall } from '../domain/parser/types';
 import { useTrailTheme } from './TrailThemeContext';
 import { useTrailI18n } from '../i18n';
 import { toolActionColors, modelColors, analyticsPalette, releaseColors, LEAD_TIME_LOC_COLOR } from '../theme/designTokens';
