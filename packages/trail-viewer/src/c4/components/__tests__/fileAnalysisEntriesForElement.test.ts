@@ -15,6 +15,7 @@ const makeEntry = (filePath: string): FileAnalysisApiEntry => ({
   importanceScore: 10,
   fanInTotal: 0,
   cognitiveComplexityMax: 0,
+  lineCount: 0,
   functionCount: 1,
   deadCodeScore: 25,
   signals: {
