@@ -161,6 +161,45 @@ function TrailViewerCoreInner({
   const [activeSequenceElementId, setActiveSequenceElementId] = useState<string | null>(null);
   const c4SequenceState = useC4SequenceData(c4?.serverUrl, activeSequenceElementId);
 
+  // Phase 5: idle prefetch
+  // 初期描画完了後、ユーザーがクリックする前に残タブの chunk を順次 prefetch する。
+  // モバイル（hover 不可）でも先読みされる。
+  useEffect(() => {
+    const candidates: Array<[number, () => Promise<unknown>]> = [
+      [0, () => AnalyticsPanel.preload()],
+      [1, () => Promise.all([MessageTimeline.preload(), TraceTree.preload()])],
+      [4, () => C4ViewerCore.preload()],
+    ];
+
+    const remaining = candidates.filter(([idx]) => !visitedTabs.has(idx));
+    if (remaining.length === 0) return;
+
+    const ric =
+      (globalThis as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback
+      ?? ((cb: () => void) => setTimeout(cb, 200));
+
+    let cancelled = false;
+    const run = (i: number) => {
+      if (cancelled || i >= remaining.length) return;
+      ric(() => {
+        if (cancelled) return;
+        const [, preload] = remaining[i];
+        preload()
+          .catch((error) => {
+            console.warn('TrailViewerCore: idle prefetch failed', { index: remaining[i][0], error });
+          })
+          .finally(() => run(i + 1));
+      });
+    };
+    run(0);
+
+    return () => {
+      cancelled = true;
+    };
+    // visitedTabs を依存に入れると訪問のたびに再起動するため、初回のみ実行
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleShowSequence = useCallback(
     (elementId: string) => {
       setActiveSequenceElementId(elementId);
