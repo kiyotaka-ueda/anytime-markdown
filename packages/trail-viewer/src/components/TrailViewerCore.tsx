@@ -30,13 +30,16 @@ import { TrailLocaleProvider, useTrailI18n } from '../i18n';
 import type { TrailLocale } from '../i18n';
 import type { TrailRelease } from '@anytime-markdown/trail-core/domain';
 import { AnalyticsPanelSkeleton } from './shared/AnalyticsPanelSkeleton';
+import { C4PanelSkeleton } from './shared/C4PanelSkeleton';
 
-import { C4ViewerCore } from '../c4/components/C4ViewerCore';
 import type { C4ViewerCoreProps } from '../c4/components/C4ViewerCore';
 import { useC4SequenceData } from '../c4/hooks/useC4SequenceData';
 
 const AnalyticsPanel = lazy(() =>
   import('./AnalyticsPanel').then((m) => ({ default: m.AnalyticsPanel })),
+);
+const C4ViewerCore = lazy(() =>
+  import('../c4/components/C4ViewerCore').then((m) => ({ default: m.C4ViewerCore })),
 );
 
 /** C4-related props forwarded to the embedded C4ViewerCore. */
@@ -339,19 +342,21 @@ function TrailViewerCoreInner({
         <ReleasesPanel releases={releases ?? []} />
       </Box>
 
-      {c4 && (
+      {c4 && visitedTabs.has(4) && (
         <Box
           role="tabpanel"
           id="trail-panel-4"
           aria-labelledby="trail-tab-4"
           sx={{ display: activeTab !== 4 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
         >
-          <C4ViewerCore
-            isDark={isDark}
-            containerHeight="100%"
-            onShowSequence={handleShowSequence}
-            {...c4}
-          />
+          <Suspense fallback={<C4PanelSkeleton />}>
+            <C4ViewerCore
+              isDark={isDark}
+              containerHeight="100%"
+              onShowSequence={handleShowSequence}
+              {...c4}
+            />
+          </Suspense>
         </Box>
       )}
 
