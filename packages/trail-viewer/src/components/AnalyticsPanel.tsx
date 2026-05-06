@@ -103,6 +103,12 @@ import { StackedReferenceLines } from './analytics/charts/shared/StackedReferenc
 import { LeadTimeAxisTooltipContent } from './analytics/charts/shared/LeadTimeAxisTooltipContent';
 import { CyclingCard } from './analytics/widgets/CyclingCard';
 import { formatDoraValue } from './analytics/widgets/DoraValueDisplay';
+import { ToolUsageChart } from './analytics/charts/ToolUsageChart';
+import { ReleasesBarChart } from './analytics/charts/ReleasesBarChart';
+import { SessionToolUsageChart } from './analytics/charts/SessionToolUsageChart';
+import { SessionSkillUsageChart } from './analytics/charts/SessionSkillUsageChart';
+import { SessionErrorChart } from './analytics/charts/SessionErrorChart';
+import { SessionCommitPrefixChart } from './analytics/charts/SessionCommitPrefixChart';
 
 export type { AnalyticsPanelProps } from './analytics/types';
 export { getMainAgentLabel } from './analytics/helpers';
@@ -282,42 +288,7 @@ function OverviewCards({
   );
 }
 
-function ToolUsageChart({ items }: Readonly<{ items: AnalyticsData['toolUsage'] }>) {
-  const { colors, chartColors, radius } = useTrailTheme();
-  const { t } = useTrailI18n();
-  if (items.length === 0) return null;
-  const maxCount = items[0].count;
-
-  return (
-    <Box>
-      <Typography variant="subtitle1" sx={{ mb: 1 }}>
-        {t('analytics.toolUsageTitle')}
-      </Typography>
-      {items.map((item) => (
-        <Box key={item.name} sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-          <Typography
-            variant="body2"
-            sx={{ width: 120, flexShrink: 0, textAlign: 'right', pr: 1, fontFamily: 'monospace' }}
-          >
-            {item.name}
-          </Typography>
-          <Box
-            sx={{
-              height: 18,
-              width: `${(item.count / maxCount) * 100}%`,
-              minWidth: 4,
-              bgcolor: chartColors.primary,
-              borderRadius: radius.sm,
-            }}
-          />
-          <Typography variant="caption" sx={{ pl: 1, whiteSpace: 'nowrap' }}>
-            {fmtNum(item.count)}
-          </Typography>
-        </Box>
-      ))}
-    </Box>
-  );
-}
+// ToolUsageChart moved to ./analytics/charts/ToolUsageChart
 
 // ---------------------------------------------------------------------------
 //  Marker types (CommitMarkerData / ErrorMarkerData moved to ./analytics/types)
@@ -816,85 +787,7 @@ function SessionCacheTimeline({
   );
 }
 
-function SessionCommitPrefixChart({
-  sessionId,
-  fetchSessionCommits,
-}: Readonly<{
-  sessionId: string;
-  fetchSessionCommits: (id: string) => Promise<readonly TrailSessionCommit[]>;
-}>) {
-  const { colors, cardSx, toolPalette } = useTrailTheme();
-  const { t } = useTrailI18n();
-  const [commits, setCommits] = useState<readonly TrailSessionCommit[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    void (async () => {
-      try {
-        const result = await fetchSessionCommits(sessionId);
-        if (!cancelled) setCommits(result);
-      } catch {
-        // ignore
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [sessionId, fetchSessionCommits]);
-
-  if (loading) return null;
-
-  if (commits.length === 0) {
-    return (
-      <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
-        <ChartTitle title={t('analytics.commitPrefixChartTitle')} description={t('analytics.commitPrefixChartTitle.description')} />
-        <Box sx={{ height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Typography variant="h5" sx={{ color: colors.textSecondary }}>0</Typography>
-        </Box>
-      </Paper>
-    );
-  }
-
-  const prefixCounts = new Map<string, number>();
-  for (const c of commits) {
-    const subject = (c.commitMessage ?? '').split('\n')[0];
-    const prefix = extractCommitPrefix(subject);
-    prefixCounts.set(prefix, (prefixCounts.get(prefix) ?? 0) + 1);
-  }
-  const sorted = [...prefixCounts.entries()].sort(([, a], [, b]) => b - a);
-  const pieData = sorted.map(([prefix, count], i) => ({
-    id: i,
-    value: count,
-    label: `${prefix} (${count})`,
-    color: toolPalette[i % toolPalette.length],
-  }));
-
-  return (
-    <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
-      <ChartTitle title={t('analytics.commitPrefixChartTitle')} description={t('analytics.commitPrefixChartTitle.description')} />
-      <PieChart
-        series={[{ data: pieData, innerRadius: 28, outerRadius: 52, paddingAngle: 2, cornerRadius: 3 }]}
-        height={130}
-        margin={{ top: 8, right: 8, bottom: 8, left: 8 }}
-        slots={{ legend: () => null }}
-      >
-        <PieCenterLabel value={commits.length} color={colors.textPrimary} />
-      </PieChart>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, px: 1.5, pb: 0.5 }}>
-        {sorted.map(([prefix, count], i) => (
-          <Chip
-            key={prefix}
-            size="small"
-            label={`${prefix} (${count})`}
-            sx={{ bgcolor: toolPalette[i % toolPalette.length], color: '#fff', fontSize: '0.65rem', height: 18 }}
-          />
-        ))}
-      </Box>
-    </Paper>
-  );
-}
+// SessionCommitPrefixChart moved to ./analytics/charts/SessionCommitPrefixChart
 
 function SessionCommitList({
   sessionId,
@@ -1093,149 +986,7 @@ function SessionMetricsPanel({ session, toolMetrics }: Readonly<{
 
 // ChartTitle moved to ./analytics/charts/shared/ChartTitle
 
-function SessionToolUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics | null }>) {
-  const { colors, cardSx, toolPalette } = useTrailTheme();
-  const { t } = useTrailI18n();
-  const usage = toolMetrics?.toolUsage;
-  if (!usage || usage.length === 0) {
-    return (
-      <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
-        <ChartTitle title={t('analytics.toolUsageTitle')} description={t('analytics.toolUsageTitle.description')} />
-        <Box sx={{ height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Typography variant="h5" sx={{ color: colors.textSecondary }}>0</Typography>
-        </Box>
-      </Paper>
-    );
-  }
-
-  const sorted = [...usage].sort((a, b) => b.count - a.count);
-  const pieData = sorted.map((e, i) => ({
-    id: i,
-    value: e.count,
-    label: `${e.tool} (${e.count})`,
-    color: toolPalette[i % toolPalette.length],
-  }));
-
-  return (
-    <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
-      <ChartTitle title={t('analytics.toolUsageTitle')} description={t('analytics.toolUsageTitle.description')} />
-      <PieChart
-        series={[{ data: pieData, innerRadius: 28, outerRadius: 52, paddingAngle: 2, cornerRadius: 3 }]}
-        height={130}
-        margin={{ top: 8, right: 8, bottom: 8, left: 8 }}
-        slots={{ legend: () => null }}
-      >
-        <PieCenterLabel value={sorted.reduce((s, e) => s + e.count, 0)} color={colors.textPrimary} />
-      </PieChart>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, px: 1.5, pb: 0.5 }}>
-        {sorted.map((e, i) => (
-          <Chip
-            key={e.tool}
-            size="small"
-            label={`${e.tool} (${e.count})`}
-            sx={{ bgcolor: toolPalette[i % toolPalette.length], color: '#fff', fontSize: '0.65rem', height: 18 }}
-          />
-        ))}
-      </Box>
-    </Paper>
-  );
-}
-
-function SessionSkillUsageChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics | null }>) {
-  const { colors, cardSx, toolPalette } = useTrailTheme();
-  const { t } = useTrailI18n();
-  const usage = toolMetrics?.skillUsage;
-  if (!usage || usage.length === 0) {
-    return (
-      <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
-        <ChartTitle title={t('analytics.combined.skill')} description={t('analytics.combined.skill.description')} />
-        <Box sx={{ height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Typography variant="h5" sx={{ color: colors.textSecondary }}>0</Typography>
-        </Box>
-      </Paper>
-    );
-  }
-
-  const sorted = [...usage].sort((a, b) => b.count - a.count);
-  const pieData = sorted.map((e, i) => ({
-    id: i,
-    value: e.count,
-    label: `${e.skill} (${e.count})`,
-    color: toolPalette[i % toolPalette.length],
-  }));
-
-  return (
-    <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
-      <ChartTitle title={t('analytics.combined.skill')} description={t('analytics.combined.skill.description')} />
-      <PieChart
-        series={[{ data: pieData, innerRadius: 28, outerRadius: 52, paddingAngle: 2, cornerRadius: 3 }]}
-        height={130}
-        margin={{ top: 8, right: 8, bottom: 8, left: 8 }}
-        slots={{ legend: () => null }}
-      >
-        <PieCenterLabel value={sorted.reduce((s, e) => s + e.count, 0)} color={colors.textPrimary} />
-      </PieChart>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, px: 1.5, pb: 0.5 }}>
-        {sorted.map((e, i) => (
-          <Chip
-            key={e.skill}
-            size="small"
-            label={`${e.skill} (${e.count})`}
-            sx={{ bgcolor: toolPalette[i % toolPalette.length], color: '#fff', fontSize: '0.65rem', height: 18 }}
-          />
-        ))}
-      </Box>
-    </Paper>
-  );
-}
-
-function SessionErrorChart({ toolMetrics }: Readonly<{ toolMetrics: ToolMetrics | null }>) {
-  const { colors, cardSx, toolPalette } = useTrailTheme();
-  const { t } = useTrailI18n();
-  const errors = toolMetrics?.errorsByTool;
-  if (!errors || errors.length === 0) {
-    return (
-      <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
-        <ChartTitle title={t('analytics.combined.error')} description={t('analytics.combined.error.description')} />
-        <Box sx={{ height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Typography variant="h5" sx={{ color: colors.textSecondary }}>0</Typography>
-        </Box>
-      </Paper>
-    );
-  }
-
-  const sorted = [...errors].sort((a, b) => b.count - a.count);
-  const pieData = sorted.map((e, i) => ({
-    id: i,
-    value: e.count,
-    label: `${e.tool} (${e.count})`,
-    color: toolPalette[i % toolPalette.length],
-  }));
-
-  return (
-    <Paper elevation={0} sx={{ ...cardSx, pt: 1.5, pb: 1, flex: 1, minWidth: 0 }}>
-      <ChartTitle title={t('analytics.combined.error')} description={t('analytics.combined.error.description')} />
-      <PieChart
-        series={[{ data: pieData, innerRadius: 28, outerRadius: 52, paddingAngle: 2, cornerRadius: 3 }]}
-        height={130}
-        margin={{ top: 8, right: 8, bottom: 8, left: 8 }}
-        slots={{ legend: () => null }}
-      >
-        <PieCenterLabel value={sorted.reduce((s, e) => s + e.count, 0)} color={colors.textPrimary} />
-      </PieChart>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, px: 1.5, pb: 0.5 }}>
-        {sorted.map((e, i) => (
-          <Chip
-            key={e.tool}
-            size="small"
-            label={`${e.tool} (${e.count})`}
-            sx={{ bgcolor: toolPalette[i % toolPalette.length], color: '#fff', fontSize: '0.65rem', height: 18 }}
-          />
-        ))}
-      </Box>
-    </Paper>
-  );
-}
+// SessionToolUsageChart / SessionSkillUsageChart / SessionErrorChart moved to ./analytics/charts/
 
 // buildDaySession moved to ./analytics/helpers
 
@@ -2314,42 +2065,7 @@ function CombinedChartsContent({ data, periodDays, activeChart, toolMetric, mode
   );
 }
 
-function ReleasesBarChart({ timeSeries }: Readonly<{
-  timeSeries: ReadonlyArray<ReleaseQualityBucket>;
-}>) {
-  const { cardSx } = useTrailTheme();
-  const { t } = useTrailI18n();
-
-  if (timeSeries.length === 0) {
-    return (
-      <Paper elevation={0} sx={{ ...cardSx, p: 2, minHeight: 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Typography variant="body2" color="text.secondary">{t('metrics.empty')}</Typography>
-      </Paper>
-    );
-  }
-
-  const fmt = new Intl.DateTimeFormat('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric' });
-  const dataset = timeSeries.map((d) => ({
-    label: fmt.format(new Date(d.bucketStart)),
-    succeeded: d.succeeded,
-    failed: d.failed,
-  }));
-
-  return (
-    <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
-      <BarChart
-        dataset={dataset}
-        xAxis={[{ scaleType: 'band', dataKey: 'label' }]}
-        series={[
-          { dataKey: 'succeeded', label: t('analytics.combined.releaseSucceeded'), color: releaseColors.succeeded, stack: 'releases' },
-          { dataKey: 'failed', label: t('analytics.combined.releaseFailed'), color: releaseColors.failed, stack: 'releases' },
-        ]}
-        height={240}
-        margin={{ left: 16, right: 8, top: 8, bottom: 40 }}
-      />
-    </Paper>
-  );
-}
+// ReleasesBarChart moved to ./analytics/charts/ReleasesBarChart
 
 // CombinedMetric moved to ./analytics/types
 
