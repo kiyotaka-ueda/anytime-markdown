@@ -82,11 +82,6 @@ export class MetricsReader {
       cache_read: number;
       cache_creation: number;
     };
-    type UserTokenAggregateRow = {
-      user_uuid: string;
-      cost_breakdown: CostBreakdownEntry[] | null;
-    };
-
     const fetchReleases = async (f: string, t: string): Promise<ReleaseRow[]> => {
       const { data } = await this.client
         .from('trail_releases')
@@ -159,25 +154,60 @@ export class MetricsReader {
       sessionIds: string[],
     ): Promise<Map<string, CostBreakdownEntry[]>> => {
       if (sessionIds.length === 0) return new Map();
-      const SESSION_BATCH = 200;
-      const out = new Map<string, CostBreakdownEntry[]>();
+      // Phase 5d: Materialized View (trail_user_message_costs) を直接 SELECT。
+      // RPC 経由の DISTINCT ON join (3.25s) を事前計算済の index scan に置換。
+      const SESSION_BATCH = 500;
+      type Row = {
+        user_uuid: string;
+        model: string;
+        input_tokens: number;
+        output_tokens: number;
+        cache_read_tokens: number;
+        cache_creation_tokens: number;
+      };
+      const aggMap = new Map<string, Map<string, CostBreakdownEntry>>();
       for (let i = 0; i < sessionIds.length; i += SESSION_BATCH) {
         const batchIds = sessionIds.slice(i, i + SESSION_BATCH);
-        const { data, error } = await this.client.rpc('trail_quality_metrics_user_token_aggregates', {
-          time_from: f,
-          time_to: t,
-          session_ids: batchIds,
-        });
+        const { data, error } = await this.client
+          .from('trail_user_message_costs')
+          .select('user_uuid, model, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens')
+          .in('session_id', batchIds)
+          .gte('user_timestamp', f)
+          .lte('user_timestamp', t);
         if (error) {
-          console.warn('MetricsReader.fetchUserTokenAggregates: RPC failed', {
+          console.warn('MetricsReader.fetchUserTokenAggregates: MV query failed', {
             context: { batch: i / SESSION_BATCH, batchSize: batchIds.length, from: f, to: t },
             error: { message: error.message },
           });
           continue;
         }
-        for (const row of (data ?? []) as UserTokenAggregateRow[]) {
-          out.set(row.user_uuid, row.cost_breakdown ?? []);
+        // 同じ user_uuid に複数セッション分のレコードが返ることがあるため model 単位で再集約する。
+        for (const row of (data ?? []) as Row[]) {
+          let modelMap = aggMap.get(row.user_uuid);
+          if (!modelMap) {
+            modelMap = new Map<string, CostBreakdownEntry>();
+            aggMap.set(row.user_uuid, modelMap);
+          }
+          const existing = modelMap.get(row.model);
+          if (existing) {
+            existing.input += row.input_tokens;
+            existing.output += row.output_tokens;
+            existing.cache_read += row.cache_read_tokens;
+            existing.cache_creation += row.cache_creation_tokens;
+          } else {
+            modelMap.set(row.model, {
+              model: row.model,
+              input: row.input_tokens,
+              output: row.output_tokens,
+              cache_read: row.cache_read_tokens,
+              cache_creation: row.cache_creation_tokens,
+            });
+          }
         }
+      }
+      const out = new Map<string, CostBreakdownEntry[]>();
+      for (const [uuid, modelMap] of aggMap) {
+        out.set(uuid, [...modelMap.values()]);
       }
       return out;
     };
