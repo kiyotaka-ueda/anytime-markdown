@@ -48,6 +48,23 @@ const TraceTree = lazyWithPreload(() =>
   import('./messages/TraceTree').then((m) => ({ default: m.TraceTree })),
 );
 
+const tabPreloaders: Record<number, (() => Promise<unknown>) | undefined> = {
+  0: () => AnalyticsPanel.preload(),
+  1: () => Promise.all([MessageTimeline.preload(), TraceTree.preload()]),
+  2: undefined,
+  3: undefined,
+  4: () => C4ViewerCore.preload(),
+  5: undefined,
+};
+
+const preloadTab = (index: number) => {
+  const fn = tabPreloaders[index];
+  if (!fn) return;
+  fn().catch((error) => {
+    console.warn('TrailViewerCore: preloadTab failed', { index, error });
+  });
+};
+
 /** C4-related props forwarded to the embedded C4ViewerCore. */
 type C4Props = Omit<C4ViewerCoreProps, 'isDark' | 'containerHeight' | 'onShowSequence'>;
 
@@ -236,12 +253,34 @@ function TrailViewerCoreInner({
             '& .MuiTabs-indicator': { backgroundColor: colors.iceBlue },
           }}
         >
-          <Tab id="trail-tab-0" aria-controls="trail-panel-0" label={t('viewer.tab.analytics')} />
-          <Tab id="trail-tab-1" aria-controls="trail-panel-1" label={t('viewer.tab.messages')} />
+          <Tab
+            id="trail-tab-0"
+            aria-controls="trail-panel-0"
+            label={t('viewer.tab.analytics')}
+            onMouseEnter={() => preloadTab(0)}
+            onFocus={() => preloadTab(0)}
+          />
+          <Tab
+            id="trail-tab-1"
+            aria-controls="trail-panel-1"
+            label={t('viewer.tab.messages')}
+            onMouseEnter={() => preloadTab(1)}
+            onFocus={() => preloadTab(1)}
+          />
           <Tab id="trail-tab-2" aria-controls="trail-panel-2" label={t('viewer.tab.prompts')} />
           <Tab id="trail-tab-3" aria-controls="trail-panel-3" label={t('viewer.tab.releases')} />
-          {c4 && <Tab id="trail-tab-4" aria-controls="trail-panel-4" label={t('viewer.tab.model')} />}
-          {(traceFiles || c4) && <Tab id="trail-tab-5" aria-controls="trail-panel-5" label={t('viewer.tab.trace')} />}
+          {c4 && (
+            <Tab
+              id="trail-tab-4"
+              aria-controls="trail-panel-4"
+              label={t('viewer.tab.model')}
+              onMouseEnter={() => preloadTab(4)}
+              onFocus={() => preloadTab(4)}
+            />
+          )}
+          {(traceFiles || c4) && (
+            <Tab id="trail-tab-5" aria-controls="trail-panel-5" label={t('viewer.tab.trace')} />
+          )}
         </Tabs>
 
       </Box>
