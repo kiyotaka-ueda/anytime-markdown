@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-05-06
+
+### Added
+
+- Document link popup on the C4 Model viewer
+- File / function analysis Supabase sync and REST routes
+
+### Fixed
+
+- Unified markdown popup background color with other popups
+
+### Security
+
+- Fixed remote-property-injection and log-injection issues flagged by CodeQL
+
+### Performance
+
+- Loading skeleton for `/trail` `next/dynamic` import (CLS mitigation)
+- `analyze` script switched to Turbopack `experimental-analyze`
+- Trail viewer performance baseline tools added
+
+### Changed
+
+- Added Playwright spec for prefetch effectiveness measurement
+
 ## [0.24.0] - 2026-05-04
 
 ### Added

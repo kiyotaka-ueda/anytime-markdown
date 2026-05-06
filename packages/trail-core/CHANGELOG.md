@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-05-06
+
+### Added
+
+- Dead code detection: `DeadCodeSignals`, `computeDeadCodeScore`, `parseDeadCodeIgnore` with negation support
+- Per-function importance aggregation to per-file, and file-level dead-code score aggregated to C4 elements
+- `dead-code-score` MetricOverlay with color mapping
+- Cyclomatic complexity calculation in `TypeScriptAdapter`
+- `file_analysis` and `function_analysis` SQLite tables; `line_count` / `cyclomatic_complexity` columns
+- `FileAnalysisRow` / `FunctionAnalysisRow` with `cyclomatic` / `lineCount`
+- `.trail/analyze-exclude` to externalize code graph analysis filters
+- `codeGraphToC4` derivation for `StoredCodeGraph`
+- `TrailSession.workspace` field; `TrailFilter.repository` replaced with `workspace`
+- Size metrics overlay (LOC / Files / Functions) on the C4 viewer
+
+### Fixed
+
+- Local timezone formatting on WSL (UTC display) corrected
+- `dead-code-score` color propagation to parent frames suppressed
+- `dead-code-score` colored only at display-level element types
+
+### Changed
+
+- `MetricOverlay` renamed: `complexity-most` / `complexity-highest` → `edit-complexity-most` / `edit-complexity-highest`
+- `buildSizeMatrix` input switched from `CoverageMatrix` to `SizeFileEntry[]`
+
+### Performance
+
+- `SERVICE_CATALOG` isolated to a dedicated subpath (mcp-trail bundle reduced 86%)
+- `zod` aligned to 4.3.6 to dedupe duplicates
+
+### Removed
+
+- Unused `release_features` / `imported_files` / `c4_models` tables and related code
+
 ## [0.16.0] - 2026-05-04
 
 ### Added

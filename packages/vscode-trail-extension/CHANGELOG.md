@@ -6,6 +6,47 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-05-06
+
+### Added
+
+- Configurable backup interval via `backupIntervalDays`
+- Commit import from repos listed in `anytime-history.json`
+- Dead code persistence integrated into the analyze pipeline
+- `/api/c4/file-analysis` and `/api/c4/function-analysis` REST endpoints
+- `mcp-trail` MCP server: `TRAIL_WORKSPACE_PATH` propagation, `better-sqlite3` externalized in bundle
+- `perf-report` measurement path (Phase B-1)
+
+### Fixed
+
+- Manual elements merged into the C4 model even when `C4Provider` is unavailable
+- `analyzeExclude`: silent catch / TOCTOU / first-time exclusion miss / broken export reference
+- Repo-aware commit activity indexing
+- `tsc --noEmit` errors reduced from 37 to 9
+
+### Changed
+
+- Skill install destination moved from `~/.claude/` to `<workspace>/.claude/`
+- Bundled `anytime-reverse-engineer` skill now documents how to register `mcp-trail`
+- `mcp-trail` bundle externals switched to `sql.js`
+- File analysis importance is persisted to the DB instead of pushed via WebSocket
+
+### Performance
+
+- `webpack-bundle-analyzer` introduced for the extension bundle
+- SQL/perf instrumentation foundation for trail-db
+
+### Trail Core (trail-core)
+
+- Dead code detection (`DeadCodeSignals`, `computeDeadCodeScore`, `parseDeadCodeIgnore`)
+- Cyclomatic complexity in TypeScriptAdapter; `file_analysis` / `function_analysis` tables
+- `.trail/analyze-exclude` for analysis filter externalization
+- `dead-code-score` MetricOverlay with color mapping
+- Size metrics overlay (LOC / Files / Functions) for the C4 viewer
+- WSL UTC timezone fix; renamed complexity metric overlays
+- `SERVICE_CATALOG` isolated; mcp-trail bundle reduced 86%; `zod` deduped at 4.3.6
+- Removed unused `release_features` / `imported_files` / `c4_models` tables
+
 ## [0.16.0] - 2026-05-04
 
 ### Added

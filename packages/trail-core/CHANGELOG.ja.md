@@ -6,6 +6,41 @@
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-05-06
+
+### 追加
+
+- デッドコード検出機構: `DeadCodeSignals`・`computeDeadCodeScore`・否定構文対応の `parseDeadCodeIgnore`
+- 関数単位 importance のファイル集約、ファイル単位 dead-code score の C4 要素集約
+- `dead-code-score` MetricOverlay とカラーマッピング
+- `TypeScriptAdapter` への cyclomatic complexity 計算追加
+- `file_analysis` / `function_analysis` SQLite テーブルと `line_count` / `cyclomatic_complexity` カラム
+- `FileAnalysisRow` / `FunctionAnalysisRow` に `cyclomatic` / `lineCount` を追加
+- `.trail/analyze-exclude` でコードグラフ解析フィルタを外部化
+- `StoredCodeGraph` 向け `codeGraphToC4` 派生処理
+- `TrailSession.workspace` フィールド、`TrailFilter.repository` を `workspace` に置換
+- C4 ビューア向けサイズメトリクス（LOC / Files / Functions）オーバーレイ
+
+### 修正
+
+- WSL 上で UTC 表示になっていた時刻フォーマットをローカル TZ に修正
+- `dead-code-score` の親フレームへの色伝播を抑止
+- `dead-code-score` を表示レベルの要素タイプに絞って着色
+
+### 変更
+
+- `MetricOverlay` をリネーム: `complexity-most` / `complexity-highest` → `edit-complexity-most` / `edit-complexity-highest`
+- `buildSizeMatrix` の入力を `CoverageMatrix` から `SizeFileEntry[]` に切替
+
+### パフォーマンス
+
+- `SERVICE_CATALOG` を専用 subpath に隔離（mcp-trail bundle 86% 削減）
+- `zod` のバージョンを 4.3.6 に揃えて重複を解消
+
+### 削除
+
+- 未使用の `release_features` / `imported_files` / `c4_models` テーブルと関連コード
+
 ## [0.16.0] - 2026-05-04
 
 ### 追加

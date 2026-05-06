@@ -37,7 +37,6 @@ function persist(map: SeenMap): void {
         if (keys.length > MAX_ENTRIES) {
             for (let i = 0; i < keys.length - MAX_ENTRIES; i++) {
             if (Object.prototype.hasOwnProperty.call(map, keys[i])) {
-                // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
                 delete map[keys[i]];
             }
         }

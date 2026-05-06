@@ -39,7 +39,7 @@ import GroupWorkIcon from '@mui/icons-material/GroupWork';
 
 import { CodeGraphPanelSkeleton } from '../../components/shared/CodeGraphPanelSkeleton';
 const CodeGraphPanel = lazy(() =>
-  import('../../components/CodeGraphPanel.js').then((m) => ({ default: m.CodeGraphPanel })),
+  import('../../components/CodeGraphPanel').then((m) => ({ default: m.CodeGraphPanel })),
 );
 import { communityColor } from '../../components/communityColors';
 import { COMMUNITY_ROLE_LABELS, getCommunityRoleBgColors } from '../communityRoleColors';

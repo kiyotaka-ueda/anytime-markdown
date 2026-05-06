@@ -35,6 +35,8 @@ async function selectTab(page: Page, names: readonly string[]): Promise<string |
 }
 
 test.describe('trail-viewer perf baseline', () => {
+  test.describe.configure({ timeout: 120_000 });
+
   test('tab switch: Activity ↔ Messages ↔ Releases ↔ C4 Model', async ({ page }) => {
     await openTrail(page);
 

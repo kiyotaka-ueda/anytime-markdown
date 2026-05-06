@@ -6,6 +6,47 @@
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-05-06
+
+### 追加
+
+- バックアップ間隔を日数で設定できる `backupIntervalDays` 設定
+- `anytime-history.json` 列挙のリポジトリからコミットを取り込み
+- 解析パイプラインへのデッドコード永続化統合
+- `/api/c4/file-analysis`・`/api/c4/function-analysis` REST エンドポイント
+- `mcp-trail` MCP サーバー（`TRAIL_WORKSPACE_PATH` 伝搬、`better-sqlite3` の bundle 外部化）
+- `perf-report` 計測経路を追加（Phase B-1）
+
+### 修正
+
+- `C4Provider` 不在時にも手動追加 element を C4 モデルにマージ
+- `analyzeExclude` の silent catch / TOCTOU / 初回除外漏れ / export 参照切れを修正
+- リポジトリを意識したコミットアクティビティのインデックス化
+- `tsc --noEmit` エラーを 37 件から 9 件に削減
+
+### 変更
+
+- スキルのインストール先を `~/.claude/` から `<workspace>/.claude/` に変更
+- バンドル版 `anytime-reverse-engineer` スキルに `mcp-trail` 登録手順を追記
+- `mcp-trail` bundle externals を `sql.js` に切替
+- ファイル解析の importance を WebSocket push から DB 永続化に切替
+
+### パフォーマンス
+
+- 拡張バンドルへ `webpack-bundle-analyzer` を導入
+- trail-db の SQL/perf 計測基盤を追加
+
+### Trail Core (trail-core)
+
+- デッドコード検出（`DeadCodeSignals`・`computeDeadCodeScore`・`parseDeadCodeIgnore`）
+- TypeScriptAdapter での cyclomatic complexity、`file_analysis` / `function_analysis` テーブル
+- `.trail/analyze-exclude` による解析フィルタの外部化
+- `dead-code-score` MetricOverlay とカラーマッピング
+- C4 ビューア向けサイズメトリクス（LOC / Files / Functions）オーバーレイ
+- WSL UTC タイムゾーン修正、complexity 系 MetricOverlay リネーム
+- `SERVICE_CATALOG` 隔離で mcp-trail bundle 86% 削減、`zod` を 4.3.6 に統一
+- 未使用 `release_features` / `imported_files` / `c4_models` テーブル削除
+
 ## [0.16.0] - 2026-05-04
 
 ### 追加
