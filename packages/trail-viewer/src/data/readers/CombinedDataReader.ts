@@ -230,20 +230,93 @@ export class CombinedDataReader {
       const cutoffLocal = new Date(cutoffMs + getIanaOffsetMs('Asia/Tokyo', new Date(cutoffMs)));
       const cutoffDate = `${cutoffLocal.getUTCFullYear()}-${String(cutoffLocal.getUTCMonth() + 1).padStart(2, '0')}-${String(cutoffLocal.getUTCDate()).padStart(2, '0')}`;
 
-      // Fetch all 4 kinds from trail_daily_counts with pagination
       type DcRow = { date: string; kind: string; key: string; count: number; tokens: number; duration_ms: number };
-      const allDcRows: DcRow[] = [];
-      for (let offset = 0; ; offset += 1000) {
-        const { data: batchRows, error: batchErr } = await this.client
-          .from('trail_daily_counts')
-          .select('date,kind,key,count,tokens,duration_ms')
-          .in('kind', ['skill', 'error', 'tool', 'model'])
-          .gte('date', cutoffDate)
-          .range(offset, offset + 999);
-        if (batchErr || !batchRows || batchRows.length === 0) break;
-        allDcRows.push(...(batchRows as DcRow[]));
-        if (batchRows.length < 1000) break;
-      }
+      type SessionRow = { id: string; source: string | null; start_time?: string | null; repo_name?: string | null };
+      type CostRow = { session_id: string; input_tokens: number | null; output_tokens: number | null; cache_read_tokens: number | null; cache_creation_tokens: number | null; estimated_cost_usd: number | null };
+      type CommitChartRow = {
+        session_id: string;
+        repo_name: string | null;
+        commit_hash: string;
+        commit_message?: string | null;
+        subject?: string | null;
+        committed_at: string;
+        lines_added: number | null;
+      };
+
+      const fetchDailyCounts = async (): Promise<DcRow[]> => {
+        const rows: DcRow[] = [];
+        for (let offset = 0; ; offset += 1000) {
+          const { data, error } = await this.client
+            .from('trail_daily_counts')
+            .select('date,kind,key,count,tokens,duration_ms')
+            .in('kind', ['skill', 'error', 'tool', 'model'])
+            .gte('date', cutoffDate)
+            .range(offset, offset + 999);
+          if (error || !data || data.length === 0) break;
+          rows.push(...(data as DcRow[]));
+          if (data.length < 1000) break;
+        }
+        return rows;
+      };
+      const fetchSessions = async (): Promise<SessionRow[]> => {
+        const rows: SessionRow[] = [];
+        for (let offset = 0; ; offset += 1000) {
+          const { data, error } = await this.client
+            .from('trail_sessions')
+            .select('id,source,start_time,repo_name')
+            .gte('start_time', cutoffIso)
+            .range(offset, offset + 999);
+          if (error || !data || data.length === 0) break;
+          rows.push(...(data as SessionRow[]));
+          if (data.length < 1000) break;
+        }
+        return rows;
+      };
+      const fetchSessionCosts = async (): Promise<CostRow[]> => {
+        const rows: CostRow[] = [];
+        for (let offset = 0; ; offset += 1000) {
+          const { data, error } = await this.client
+            .from('trail_session_costs')
+            .select('session_id,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens,estimated_cost_usd')
+            .range(offset, offset + 999);
+          if (error || !data || data.length === 0) break;
+          rows.push(...(data as CostRow[]));
+          if (data.length < 1000) break;
+        }
+        return rows;
+      };
+      // session_commits は agent.loc 集計と prefix/repo 集計の両方で使う列を 1 回で取得し、
+      // 元実装の 2 重 fetch (Loop 4 + Loop 5) を 1 回に統合する。
+      const fetchSessionCommits = async (): Promise<CommitChartRow[]> => {
+        const rows: CommitChartRow[] = [];
+        let column: 'commit_message' | 'subject' = 'commit_message';
+        for (let offset = 0; ; offset += 1000) {
+          let { data, error } = await this.client
+            .from('trail_session_commits')
+            .select(`session_id,repo_name,commit_hash,${column},committed_at,lines_added`)
+            .gte('committed_at', cutoffIso)
+            .order('committed_at', { ascending: true })
+            .range(offset, offset + 999);
+          if (error && column === 'commit_message') {
+            column = 'subject';
+            const fallback = await this.client
+              .from('trail_session_commits')
+              .select('session_id,repo_name,commit_hash,subject,committed_at,lines_added')
+              .gte('committed_at', cutoffIso)
+              .order('committed_at', { ascending: true })
+              .range(offset, offset + 999);
+            data = fallback.data;
+            error = fallback.error;
+          }
+          if (error || !data || data.length === 0) break;
+          rows.push(...(data as CommitChartRow[]));
+          if (data.length < 1000) break;
+        }
+        return rows;
+      };
+
+      // === Phase A: daily_counts と sessions を並列取得 ===
+      const [allDcRows, allSessionRows] = await Promise.all([fetchDailyCounts(), fetchSessions()]);
 
       const getMonday = (dateStr: string): string => {
         const [y, m, d] = dateStr.split('-').map(Number);
@@ -321,29 +394,20 @@ export class CombinedDataReader {
         .map(([k, count]) => { const [p, skill] = splitKey(k); return { period: p, skill, count, costUsd: 0 }; })
         .sort((a, b) => a.period.localeCompare(b.period));
 
-      // Paginated fetch of trail_sessions within the period window
       const sourceBySessionId = new Map<string, string>();
       const sessionStartById = new Map<string, string>();
       const repoNameById = new Map<string, string>();
-      for (let offset = 0; ; offset += 1000) {
-        const { data: batchRows } = await this.client
-          .from('trail_sessions')
-          .select('id,source,start_time,repo_name')
-          .gte('start_time', cutoffIso)
-          .range(offset, offset + 999);
-        if (!batchRows || batchRows.length === 0) break;
-        for (const s of batchRows as Array<{ id: string; source: string | null; start_time?: string | null; repo_name?: string | null }>) {
-          const source = s.source === 'codex' ? 'Codex' : 'Claude Code';
-          sourceBySessionId.set(s.id, source);
-          if (s.start_time) sessionStartById.set(s.id, s.start_time);
-          if (s.repo_name) repoNameById.set(s.id, s.repo_name);
-        }
-        if (batchRows.length < 1000) break;
+      for (const s of allSessionRows) {
+        const source = s.source === 'codex' ? 'Codex' : 'Claude Code';
+        sourceBySessionId.set(s.id, source);
+        if (s.start_time) sessionStartById.set(s.id, s.start_time);
+        if (s.repo_name) repoNameById.set(s.id, s.repo_name);
       }
 
-      const repoTokenMap = new Map<string, number>();
+      // === Phase B: session_costs と session_commits を並列取得 ===
+      const [allCostRows, allCommitRows] = await Promise.all([fetchSessionCosts(), fetchSessionCommits()]);
 
-      // agentStats: tokens + cost from session_costs (all-time, paginated), LOC from session_commits
+      const repoTokenMap = new Map<string, number>();
       const agentMap = new Map<string, { tokens: number; costUsd: number; loc: number }>();
       const addAgent = (periodKeyStr: string, agent: string, delta: Partial<{ tokens: number; costUsd: number; loc: number }>) => {
         const k = `${periodKeyStr}::${agent}`;
@@ -354,43 +418,19 @@ export class CombinedDataReader {
         agentMap.set(k, cur);
       };
 
-      for (let offset = 0; ; offset += 1000) {
-        const { data: batchRows } = await this.client
-          .from('trail_session_costs')
-          .select('session_id,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens,estimated_cost_usd')
-          .range(offset, offset + 999);
-        if (!batchRows || batchRows.length === 0) break;
-        for (const c of batchRows as Array<{ session_id: string; input_tokens: number | null; output_tokens: number | null; cache_read_tokens: number | null; cache_creation_tokens: number | null; estimated_cost_usd: number | null }>) {
-          const agent = sourceBySessionId.get(c.session_id);
-          if (!agent) continue;
-          const start = sessionStartById.get(c.session_id);
-          if (!start) continue;
-          const p = periodKey(toJSTDate(start));
-          const tokens = (c.input_tokens ?? 0) + (c.output_tokens ?? 0) + (c.cache_read_tokens ?? 0) + (c.cache_creation_tokens ?? 0);
-          addAgent(p, agent, { tokens, costUsd: c.estimated_cost_usd ?? 0 });
-          const repoName = repoNameById.get(c.session_id);
-          if (repoName) {
-            const rk = `${p}::${repoName}`;
-            repoTokenMap.set(rk, (repoTokenMap.get(rk) ?? 0) + tokens);
-          }
+      for (const c of allCostRows) {
+        const agent = sourceBySessionId.get(c.session_id);
+        if (!agent) continue;
+        const start = sessionStartById.get(c.session_id);
+        if (!start) continue;
+        const p = periodKey(toJSTDate(start));
+        const tokens = (c.input_tokens ?? 0) + (c.output_tokens ?? 0) + (c.cache_read_tokens ?? 0) + (c.cache_creation_tokens ?? 0);
+        addAgent(p, agent, { tokens, costUsd: c.estimated_cost_usd ?? 0 });
+        const repoName = repoNameById.get(c.session_id);
+        if (repoName) {
+          const rk = `${p}::${repoName}`;
+          repoTokenMap.set(rk, (repoTokenMap.get(rk) ?? 0) + tokens);
         }
-        if (batchRows.length < 1000) break;
-      }
-
-      for (let offset = 0; ; offset += 1000) {
-        const { data: batchRows } = await this.client
-          .from('trail_session_commits')
-          .select('session_id,committed_at,lines_added')
-          .gte('committed_at', cutoffIso)
-          .range(offset, offset + 999);
-        if (!batchRows || batchRows.length === 0) break;
-        for (const c of batchRows as Array<{ session_id: string; committed_at: string; lines_added: number | null }>) {
-          const agent = sourceBySessionId.get(c.session_id);
-          if (!agent) continue;
-          const p = periodKey(toJSTDate(c.committed_at));
-          addAgent(p, agent, { loc: c.lines_added ?? 0 });
-        }
-        if (batchRows.length < 1000) break;
       }
 
       const toolCounts = [...toolDcMap.entries()].map(([k, e]) => {
@@ -443,55 +483,30 @@ export class CombinedDataReader {
       const seenHashes = new Set<string>();
       const prefixMap = new Map<string, { count: number; linesAdded: number }>();
       const repoCommitCountMap = new Map<string, number>();
-      type CommitSubjectColumn = 'commit_message' | 'subject';
-      type CommitChartRow = {
-        repo_name: string | null;
-        commit_hash: string;
-        commit_message?: string | null;
-        subject?: string | null;
-        committed_at: string;
-        lines_added: number;
-      };
-      let commitSubjectColumn: CommitSubjectColumn = 'commit_message';
-      for (let offset = 0; ; offset += 1000) {
-        let { data: batchRows, error: batchErr } = await this.client
-          .from('trail_session_commits')
-          .select(`repo_name,commit_hash,${commitSubjectColumn},committed_at,lines_added`)
-          .gte('committed_at', cutoffIso)
-          .order('committed_at', { ascending: true })
-          .range(offset, offset + 999);
-        if (batchErr && commitSubjectColumn === 'commit_message') {
-          commitSubjectColumn = 'subject';
-          const fallback = await this.client
-            .from('trail_session_commits')
-            .select('repo_name,commit_hash,subject,committed_at,lines_added')
-            .gte('committed_at', cutoffIso)
-            .order('committed_at', { ascending: true })
-            .range(offset, offset + 999);
-          batchRows = fallback.data;
-          batchErr = fallback.error;
-        }
-        if (batchErr) break;
-        if (!batchRows || batchRows.length === 0) break;
-        for (const c of batchRows as CommitChartRow[]) {
-          const identity = `${c.repo_name ?? ''}:${c.commit_hash}`;
-          if (seenHashes.has(identity)) continue;
-          seenHashes.add(identity);
-          const repoForCommit = c.repo_name?.trim();
-          if (repoForCommit) {
-            const rck = `${periodKey(toJSTDate(c.committed_at))}::${repoForCommit}`;
-            repoCommitCountMap.set(rck, (repoCommitCountMap.get(rck) ?? 0) + 1);
-          }
-          const subject = (c.commit_message ?? c.subject ?? '').split('\n')[0];
-          const prefix = extractPrefix(subject);
+      // 旧実装は session_commits を 2 度フェッチしていた (Loop 4: agent.loc, Loop 5: prefix/repo)。
+      // 同じ条件・同じテーブルなので allCommitRows 1 回の取得から両者を導出する。
+      for (const c of allCommitRows) {
+        const agent = sourceBySessionId.get(c.session_id);
+        if (agent) {
           const p = periodKey(toJSTDate(c.committed_at));
-          const commitKey = `${p}::${prefix}`;
-          const e = prefixMap.get(commitKey) ?? { count: 0, linesAdded: 0 };
-          e.count++;
-          e.linesAdded += c.lines_added ?? 0;
-          prefixMap.set(commitKey, e);
+          addAgent(p, agent, { loc: c.lines_added ?? 0 });
         }
-        if (batchRows.length < 1000) break;
+        const identity = `${c.repo_name ?? ''}:${c.commit_hash}`;
+        if (seenHashes.has(identity)) continue;
+        seenHashes.add(identity);
+        const repoForCommit = c.repo_name?.trim();
+        if (repoForCommit) {
+          const rck = `${periodKey(toJSTDate(c.committed_at))}::${repoForCommit}`;
+          repoCommitCountMap.set(rck, (repoCommitCountMap.get(rck) ?? 0) + 1);
+        }
+        const subject = (c.commit_message ?? c.subject ?? '').split('\n')[0];
+        const prefix = extractPrefix(subject);
+        const p = periodKey(toJSTDate(c.committed_at));
+        const commitKey = `${p}::${prefix}`;
+        const e = prefixMap.get(commitKey) ?? { count: 0, linesAdded: 0 };
+        e.count++;
+        e.linesAdded += c.lines_added ?? 0;
+        prefixMap.set(commitKey, e);
       }
 
       const commitPrefixStats = [...prefixMap.entries()]
