@@ -6,9 +6,9 @@ import Typography from '@mui/material/Typography';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 
-import type { TrailMessage, TrailSession, TrailTreeNode } from '../domain/parser/types';
-import { useTrailTheme } from './TrailThemeContext';
-import { toolActionColors, agentPalette } from '../theme/designTokens';
+import type { TrailMessage, TrailSession, TrailTreeNode } from '../../domain/parser/types';
+import { useTrailTheme } from '../TrailThemeContext';
+import { toolActionColors, agentPalette } from '../../theme/designTokens';
 
 const LANE_HEIGHT = 40; // px per lane/track
 const PLOT_TOP = 8;
@@ -18,7 +18,7 @@ const STORAGE_KEY = 'trail.timeline.collapsed';
 const LANE_LABEL_WIDTH = 88;
 const TIME_AXIS_HEIGHT = 24;
 
-type LaneKind = 'user' | 'assistant' | 'system' | 'subagent';
+import type { LaneKind, MessageTimelineProps, TimelineEntry, Turn } from './types';
 
 function hashString(str: string): number {
   let h = 0;
@@ -90,23 +90,6 @@ function formatTimeLabel(ms: number, includeDate: boolean): string {
   return new Intl.DateTimeFormat(undefined, opts).format(d);
 }
 
-interface MessageTimelineProps {
-  readonly nodes: readonly TrailTreeNode[];
-  readonly session?: TrailSession;
-  readonly onSelectMessage: (uuid: string) => void;
-}
-
-interface TimelineEntry {
-  readonly uuid: string;
-  readonly timestamp: string;
-  readonly ms: number;
-  readonly laneKind: LaneKind;
-  readonly agentId?: string;
-  readonly agentDescription?: string;
-  readonly toolNames: readonly string[];
-  readonly hasCommit: boolean;
-  readonly role: string;
-}
 
 function extractAgentCallMeta(toolCalls: readonly { name: string; input: Record<string, unknown> }[] | undefined): {
   delegated: boolean;
@@ -125,12 +108,6 @@ function extractAgentCallMeta(toolCalls: readonly { name: string; input: Record<
   return { delegated: true, description, subagentType };
 }
 
-interface Turn {
-  readonly userMsg: TimelineEntry | null;
-  readonly aiMsgs: TimelineEntry[];
-  readonly subagentMsgs: TimelineEntry[];
-  readonly systemMsgs: TimelineEntry[];
-}
 
 export function MessageTimeline({
   nodes,

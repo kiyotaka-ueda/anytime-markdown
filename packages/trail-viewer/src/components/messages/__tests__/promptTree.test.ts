@@ -1,4 +1,4 @@
-import type { TrailPromptEntry } from '../../domain/parser/types';
+import type { TrailPromptEntry } from '../../../domain/parser/types';
 import { buildPromptTree } from '../promptTree';
 
 function createPrompt(id: string, tags: string[], updatedAt: string): TrailPromptEntry {
