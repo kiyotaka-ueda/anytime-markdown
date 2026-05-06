@@ -729,6 +729,24 @@ export class TrailDatabase {
     this.onIntegrityAlert = handler;
   }
 
+  /**
+   * SQL 計測ヘルパー。fn を実行して所要時間と任意の rowCount を logger.debugSql に流す。
+   * TRAIL_DEBUG_SQL=1 の時のみ TrailLogger 側で OutputChannel に出力される。
+   * 失敗時はログを出さず例外をそのまま伝播する。
+   */
+  private runQuery<T>(name: string, fn: () => T, getRowCount?: (result: T) => number): T {
+    const t0 = (typeof performance !== 'undefined' ? performance : Date).now();
+    const result = fn();
+    const t1 = (typeof performance !== 'undefined' ? performance : Date).now();
+    const meta: { name: string; durationMs: number; rowCount?: number } = {
+      name,
+      durationMs: t1 - t0,
+    };
+    if (getRowCount) meta.rowCount = getRowCount(result);
+    this.logger.debugSql(meta);
+    return result;
+  }
+
   /** 利用可能な世代バックアップを新しい順で返す。FileTrailStorage 以外では空配列。 */
   listBackups(): readonly import('./ITrailStorage').BackupEntry[] {
     if (this.storage instanceof FileTrailStorage) {
