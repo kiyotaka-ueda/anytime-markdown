@@ -27,6 +27,7 @@ const sampleFn = (
   language: 'ts',
   fanIn,
   cognitiveComplexity: 5,
+  cyclomaticComplexity: 4,
   dataMutationScore: 0,
   sideEffectScore: 0,
   lineCount: 10,

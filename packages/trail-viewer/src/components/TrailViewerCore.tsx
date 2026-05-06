@@ -36,16 +36,16 @@ import type { C4ViewerCoreProps } from '../c4/components/C4ViewerCore';
 import { useC4SequenceData } from '../c4/hooks/useC4SequenceData';
 
 const AnalyticsPanel = lazyWithPreload(() =>
-  import('./AnalyticsPanel').then((m) => ({ default: m.AnalyticsPanel })),
+  import('./AnalyticsPanel.js').then((m) => ({ default: m.AnalyticsPanel })),
 );
 const C4ViewerCore = lazyWithPreload(() =>
-  import('../c4/components/C4ViewerCore').then((m) => ({ default: m.C4ViewerCore })),
+  import('../c4/components/C4ViewerCore.js').then((m) => ({ default: m.C4ViewerCore })),
 );
 const MessageTimeline = lazyWithPreload(() =>
-  import('./messages/MessageTimeline').then((m) => ({ default: m.MessageTimeline })),
+  import('./messages/MessageTimeline.js').then((m) => ({ default: m.MessageTimeline })),
 );
 const TraceTree = lazyWithPreload(() =>
-  import('./messages/TraceTree').then((m) => ({ default: m.TraceTree })),
+  import('./messages/TraceTree.js').then((m) => ({ default: m.TraceTree })),
 );
 
 const tabPreloaders: Record<number, (() => Promise<unknown>) | undefined> = {

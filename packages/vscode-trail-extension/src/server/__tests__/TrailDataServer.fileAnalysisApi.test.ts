@@ -19,6 +19,8 @@ const sampleRow = (filePath: string, importanceScore: number, deadCodeScore: num
   importanceScore,
   fanInTotal: 3,
   cognitiveComplexityMax: 5,
+  cyclomaticComplexityMax: 4,
+  lineCount: 50,
   functionCount: 2,
   deadCodeScore,
   signals: {
