@@ -22,7 +22,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import { useTrailI18n } from '../../i18n';
 import { CONTEXT_MENU_SHADOW, DOC_TYPE_COLORS, DOC_TYPE_FALLBACK_COLOR, getC4Colors, LOADING_OVERLAY_BG, POPUP_SHADOW } from '../../theme/c4Tokens';
@@ -37,7 +37,10 @@ import { fileAnalysisEntriesForElement } from './fileAnalysisEntriesForElement';
 import { ResizablePopup, type ResizablePopupSize } from './widgets/ResizablePopup';
 import GroupWorkIcon from '@mui/icons-material/GroupWork';
 
-import { CodeGraphPanel } from '../../components/CodeGraphPanel';
+import { CodeGraphPanelSkeleton } from '../../components/shared/CodeGraphPanelSkeleton';
+const CodeGraphPanel = lazy(() =>
+  import('../../components/CodeGraphPanel').then((m) => ({ default: m.CodeGraphPanel })),
+);
 import { communityColor } from '../../components/communityColors';
 import { COMMUNITY_ROLE_LABELS, getCommunityRoleBgColors } from '../communityRoleColors';
 import { useCodeGraph } from '../../hooks/useCodeGraph';
@@ -1625,7 +1628,9 @@ export function C4ViewerCore({
                   i18nClose={t('c4.popup.close')}
                   i18nResize={t('c4.popup.resize')}
                 >
-                  <CodeGraphPanel serverUrl={serverUrl} isDark={isDark} tcValue={tcValue} />
+                  <Suspense fallback={<CodeGraphPanelSkeleton />}>
+                    <CodeGraphPanel serverUrl={serverUrl} isDark={isDark} tcValue={tcValue} />
+                  </Suspense>
                 </ResizablePopup>
               )}
               {selectedElementIds.length > 1 && c4Model && (
