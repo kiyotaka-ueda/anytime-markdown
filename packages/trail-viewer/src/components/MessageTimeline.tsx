@@ -6,7 +6,7 @@ import Typography from '@mui/material/Typography';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 
-import type { TrailMessage, TrailSession, TrailTreeNode } from '../parser/types';
+import type { TrailMessage, TrailSession, TrailTreeNode } from '../domain/parser/types';
 import { useTrailTheme } from './TrailThemeContext';
 import { toolActionColors, agentPalette } from '../theme/designTokens';
 

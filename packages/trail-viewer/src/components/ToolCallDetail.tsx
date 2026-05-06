@@ -4,7 +4,7 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import CommitIcon from '@mui/icons-material/Commit';
 
-import type { TrailToolCall } from '../parser/types';
+import type { TrailToolCall } from '../domain/parser/types';
 import { useTrailI18n } from '../i18n';
 import { useTrailTheme } from './TrailThemeContext';
 

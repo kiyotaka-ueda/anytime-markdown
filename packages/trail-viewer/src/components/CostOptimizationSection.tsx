@@ -6,7 +6,7 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 import { BarChart } from '@mui/x-charts/BarChart';
 import { PieChart } from '@mui/x-charts/PieChart';
-import type { CostOptimizationData } from '../parser/types';
+import type { CostOptimizationData } from '../domain/parser/types';
 import { useTrailI18n } from '../i18n';
 import { costChartColors, modelCostColors } from '../theme/designTokens';
 

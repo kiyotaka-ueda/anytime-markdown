@@ -7,7 +7,7 @@
   "types": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./parser": "./src/parser/index.ts",
+    "./parser": "./src/domain/parser/index.ts",
     "./supabase": "./src/supabase/index.ts"
   },
   "dependencies": {

@@ -12,11 +12,11 @@ import type {
   TrailMessage,
   TrailPromptEntry,
   TrailSession,
-} from '../parser/types';
-import type { CostOptimizationData } from '../parser/types';
+} from '../domain/parser/types';
+import type { CostOptimizationData } from '../domain/parser/types';
 import type { AnalyticsPanelProps } from './AnalyticsPanel';
-import type { AnalyticsData } from '../parser/types';
-import { buildMessageTree } from '../parser/buildMessageTree';
+import type { AnalyticsData } from '../domain/parser/types';
+import { buildMessageTree } from '../domain/parser/buildMessageTree';
 import { AnalyticsPanel } from './AnalyticsPanel';
 import { FilterBar } from './FilterBar';
 import { PromptManager } from './PromptManager';
