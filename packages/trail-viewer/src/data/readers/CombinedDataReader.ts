@@ -438,15 +438,37 @@ export class CombinedDataReader {
       const seenHashes = new Set<string>();
       const prefixMap = new Map<string, { count: number; linesAdded: number }>();
       const repoCommitCountMap = new Map<string, number>();
+      type CommitSubjectColumn = 'commit_message' | 'subject';
+      type CommitChartRow = {
+        repo_name: string | null;
+        commit_hash: string;
+        commit_message?: string | null;
+        subject?: string | null;
+        committed_at: string;
+        lines_added: number;
+      };
+      let commitSubjectColumn: CommitSubjectColumn = 'commit_message';
       for (let offset = 0; ; offset += 1000) {
-        const { data: batchRows } = await this.client
+        let { data: batchRows, error: batchErr } = await this.client
           .from('trail_session_commits')
-          .select('repo_name,commit_hash,commit_message,committed_at,lines_added')
+          .select(`repo_name,commit_hash,${commitSubjectColumn},committed_at,lines_added`)
           .gte('committed_at', cutoffIso)
           .order('committed_at', { ascending: true })
           .range(offset, offset + 999);
+        if (batchErr && commitSubjectColumn === 'commit_message') {
+          commitSubjectColumn = 'subject';
+          const fallback = await this.client
+            .from('trail_session_commits')
+            .select('repo_name,commit_hash,subject,committed_at,lines_added')
+            .gte('committed_at', cutoffIso)
+            .order('committed_at', { ascending: true })
+            .range(offset, offset + 999);
+          batchRows = fallback.data;
+          batchErr = fallback.error;
+        }
+        if (batchErr) break;
         if (!batchRows || batchRows.length === 0) break;
-        for (const c of batchRows as Array<{ repo_name: string | null; commit_hash: string; commit_message: string; committed_at: string; lines_added: number }>) {
+        for (const c of batchRows as CommitChartRow[]) {
           const identity = `${c.repo_name ?? ''}:${c.commit_hash}`;
           if (seenHashes.has(identity)) continue;
           seenHashes.add(identity);
@@ -455,7 +477,7 @@ export class CombinedDataReader {
             const rck = `${periodKey(toJSTDate(c.committed_at))}::${repoForCommit}`;
             repoCommitCountMap.set(rck, (repoCommitCountMap.get(rck) ?? 0) + 1);
           }
-          const subject = (c.commit_message ?? '').split('\n')[0];
+          const subject = (c.commit_message ?? c.subject ?? '').split('\n')[0];
           const prefix = extractPrefix(subject);
           const p = periodKey(toJSTDate(c.committed_at));
           const commitKey = `${p}::${prefix}`;
@@ -478,7 +500,8 @@ export class CombinedDataReader {
       }).sort((a, b) => a.period.localeCompare(b.period));
 
       return { toolCounts, errorRate, skillStats, modelStats, agentStats, commitPrefixStats, aiFirstTryRate: [], repoStats };
-    } catch {
+    } catch (e) {
+      console.error('[CombinedDataReader.getCombinedData] failed', e);
       return null;
     }
   }

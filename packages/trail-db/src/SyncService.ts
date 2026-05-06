@@ -70,18 +70,18 @@ export class SyncService {
           });
           await this.store.upsertSessions([session]);
 
-          const messages = this.trailDb
-            .getMessages(session.id)
-            .filter((m) => m.timestamp >= messageCutoff);
-          if (messages.length > 0) {
-            await this.store.upsertMessages(messages);
-          }
-
           const commits = this.trailDb.getSessionCommits(session.id);
           await this.store.upsertCommits(commits);
           if (commits.length > 0) {
             const commitFiles = this.trailDb.getCommitFiles(commits.map((c) => c.commit_hash));
             if (commitFiles.length > 0) await this.store.upsertCommitFiles(commitFiles);
+          }
+
+          const messages = this.trailDb
+            .getMessages(session.id)
+            .filter((m) => m.timestamp >= messageCutoff);
+          if (messages.length > 0) {
+            await this.store.upsertMessages(messages);
           }
 
           synced++;
