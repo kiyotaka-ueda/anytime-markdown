@@ -48,6 +48,15 @@ import type { AnalyticsData, CombinedData, CombinedPeriodMode, CombinedRangeDays
 import { useTrailTheme } from './TrailThemeContext';
 import { useTrailI18n } from '../i18n';
 import { toolActionColors, modelColors, analyticsPalette, releaseColors, LEAD_TIME_LOC_COLOR } from '../theme/designTokens';
+import {
+  fmtDuration,
+  fmtDurationShort,
+  fmtNum,
+  fmtPercent,
+  fmtTokens,
+  fmtUsd,
+  fmtUsdShort,
+} from '../domain/analytics/formatters';
 
 export interface AnalyticsPanelProps {
   readonly analytics: AnalyticsData | null;
@@ -69,26 +78,6 @@ export interface AnalyticsPanelProps {
 // ---------------------------------------------------------------------------
 //  Helpers
 // ---------------------------------------------------------------------------
-
-function fmtNum(n: number): string {
-  return n.toLocaleString();
-}
-
-function fmtUsd(n: number): string {
-  return `$${n.toFixed(2)}`;
-}
-
-function fmtUsdShort(n: number): string {
-  if (n >= 1_000) return `$${parseFloat((n / 1_000).toFixed(1))}K`;
-  return `$${n.toFixed(2)}`;
-}
-
-function fmtTokens(n: number): string {
-  if (n >= 1_000_000_000) return `${parseFloat((n / 1_000_000_000).toFixed(1))}B`;
-  if (n >= 1_000_000) return `${parseFloat((n / 1_000_000).toFixed(1))}M`;
-  if (n >= 1_000) return `${parseFloat((n / 1_000).toFixed(1))}K`;
-  return String(n);
-}
 
 export function getMainAgentLabel(source?: TrailSession['source']): string {
   return source === 'codex' ? 'Codex' : 'Claude Code';
@@ -423,29 +412,6 @@ function ToolUsageChart({ items }: Readonly<{ items: AnalyticsData['toolUsage'] 
       ))}
     </Box>
   );
-}
-
-function fmtDuration(ms: number): string {
-  const totalMin = Math.round(ms / 60_000);
-  if (totalMin < 60) return `${totalMin}m`;
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-  return m > 0 ? `${h}h${m}m` : `${h}h`;
-}
-
-function fmtDurationShort(ms: number): string {
-  if (ms < 1_000) return `${Math.round(ms)}ms`;
-  const s = ms / 1_000;
-  if (s < 60) return `${s.toFixed(0)}s`;
-  const min = s / 60;
-  if (min < 60) return `${min.toFixed(1)}m`;
-  const h = Math.floor(min / 60);
-  const m = Math.round(min % 60);
-  return m > 0 ? `${h}h${m}m` : `${h}h`;
-}
-
-function fmtPercent(ratio: number): string {
-  return `${(ratio * 100).toFixed(0)}%`;
 }
 
 function sessionCost(s: TrailSession): number {
