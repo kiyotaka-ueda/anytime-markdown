@@ -52,7 +52,6 @@ export class MetricsReader {
   }
 
   async getQualityMetrics(range: DateRange): Promise<QualityMetrics> {
-    // Compute previous range (same duration immediately before current range).
     const fromMs = new Date(range.from).getTime();
     const toMs = new Date(range.to).getTime();
     const duration = toMs - fromMs;
@@ -60,15 +59,11 @@ export class MetricsReader {
     const prevFrom = new Date(fromMs - 1 - duration).toISOString();
 
     type ReleaseRow = { tag: string; released_at: string; fix_count: number };
-    type MessageRow = {
+    type UserMessageHeader = {
       uuid: string;
       timestamp: string;
       type: string;
       session_id: string;
-      input_tokens: number;
-      output_tokens: number;
-      cache_read_tokens: number;
-      cache_creation_tokens: number;
     };
     type CommitRow = {
       repo_name: string | null;
@@ -80,6 +75,17 @@ export class MetricsReader {
       lines_added: number;
       lines_deleted: number;
     };
+    type CostBreakdownEntry = {
+      model: string;
+      input: number;
+      output: number;
+      cache_read: number;
+      cache_creation: number;
+    };
+    type UserTokenAggregateRow = {
+      user_uuid: string;
+      cost_breakdown: CostBreakdownEntry[] | null;
+    };
 
     const fetchReleases = async (f: string, t: string): Promise<ReleaseRow[]> => {
       const { data } = await this.client
@@ -89,26 +95,44 @@ export class MetricsReader {
         .lte('released_at', t);
       return (data ?? []) as ReleaseRow[];
     };
-    const fetchMessagesBySessionIds = async (sessionIds: string[]): Promise<MessageRow[]> => {
+    const fetchUserMessageHeaders = async (sessionIds: string[]): Promise<UserMessageHeader[]> => {
       if (sessionIds.length === 0) return [];
       const SESSION_BATCH = 200;
       const PAGE_SIZE = 1000;
-      const results: MessageRow[] = [];
+      const results: UserMessageHeader[] = [];
       for (let i = 0; i < sessionIds.length; i += SESSION_BATCH) {
         const batchIds = sessionIds.slice(i, i + SESSION_BATCH);
-        let offset = 0;
+        // Keyset pagination by (timestamp, uuid). Avoids OFFSET pagination cost which
+        // PostgREST translates to LIMIT + OFFSET — at OFFSET=100k this measured ~4.69s
+        // versus ~157ms for the head page (Phase 1 EXPLAIN ANALYZE).
+        let cursorTs: string | null = null;
+        let cursorUuid: string | null = null;
         while (true) {
-          const { data } = await this.client
+          let q = this.client
             .from('trail_messages')
-            .select('uuid, timestamp, type, session_id, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens')
+            .select('uuid, timestamp, type, session_id')
             .eq('type', 'user')
             .in('session_id', batchIds)
             .order('timestamp', { ascending: true })
-            .range(offset, offset + PAGE_SIZE - 1);
-          const rows = (data ?? []) as MessageRow[];
+            .order('uuid', { ascending: true })
+            .limit(PAGE_SIZE);
+          if (cursorTs !== null && cursorUuid !== null) {
+            q = q.or(`timestamp.gt.${cursorTs},and(timestamp.eq.${cursorTs},uuid.gt.${cursorUuid})`);
+          }
+          const { data, error } = await q;
+          if (error) {
+            console.warn('MetricsReader.fetchUserMessageHeaders: query failed', {
+              context: { batch: i / SESSION_BATCH, batchSize: batchIds.length, cursorTs, cursorUuid },
+              error: { message: error.message },
+            });
+            break;
+          }
+          const rows = (data ?? []) as UserMessageHeader[];
           results.push(...rows);
           if (rows.length < PAGE_SIZE) break;
-          offset += PAGE_SIZE;
+          const last = rows[rows.length - 1];
+          cursorTs = last.timestamp;
+          cursorUuid = last.uuid;
         }
       }
       return results;
@@ -129,51 +153,60 @@ export class MetricsReader {
       }
       return sourceMap;
     };
-    const fetchAssistantMessages = async (f: string, t: string) => {
-      type AssistantRow = {
-        session_id: string;
-        timestamp: string;
-        input_tokens: number;
-        output_tokens: number;
-        cache_read_tokens: number;
-        cache_creation_tokens: number;
-        model: string | null;
-      };
-      const PAGE_SIZE = 1000;
-      const results: AssistantRow[] = [];
-      let offset = 0;
-      while (true) {
-        const { data } = await this.client
-          .from('trail_messages')
-          .select('session_id, timestamp, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, model')
-          .eq('type', 'assistant')
-          .gte('timestamp', f)
-          .lte('timestamp', t)
-          .order('timestamp', { ascending: true })
-          .range(offset, offset + PAGE_SIZE - 1);
-        const rows = (data ?? []) as AssistantRow[];
-        results.push(...rows);
-        if (rows.length < PAGE_SIZE) break;
-        offset += PAGE_SIZE;
+    const fetchUserTokenAggregates = async (
+      f: string,
+      t: string,
+      sessionIds: string[],
+    ): Promise<Map<string, CostBreakdownEntry[]>> => {
+      if (sessionIds.length === 0) return new Map();
+      const SESSION_BATCH = 200;
+      const out = new Map<string, CostBreakdownEntry[]>();
+      for (let i = 0; i < sessionIds.length; i += SESSION_BATCH) {
+        const batchIds = sessionIds.slice(i, i + SESSION_BATCH);
+        const { data, error } = await this.client.rpc('trail_quality_metrics_user_token_aggregates', {
+          time_from: f,
+          time_to: t,
+          session_ids: batchIds,
+        });
+        if (error) {
+          console.warn('MetricsReader.fetchUserTokenAggregates: RPC failed', {
+            context: { batch: i / SESSION_BATCH, batchSize: batchIds.length, from: f, to: t },
+            error: { message: error.message },
+          });
+          continue;
+        }
+        for (const row of (data ?? []) as UserTokenAggregateRow[]) {
+          out.set(row.user_uuid, row.cost_breakdown ?? []);
+        }
       }
-      return results;
+      return out;
     };
     const fetchCommits = async (f: string, t: string): Promise<CommitRow[]> => {
       const PAGE_SIZE = 1000;
       const results: CommitRow[] = [];
-      let offset = 0;
+      // Keyset pagination by committed_at. Backed by idx_trail_session_commits_committed_at.
+      let cursor: string | null = null;
       while (true) {
-        const { data } = await this.client
+        let q = this.client
           .from('trail_session_commits')
           .select('repo_name, commit_hash, commit_message, committed_at, session_id, is_ai_assisted, lines_added, lines_deleted')
           .gte('committed_at', f)
           .lte('committed_at', t)
           .order('committed_at', { ascending: true })
-          .range(offset, offset + PAGE_SIZE - 1);
+          .limit(PAGE_SIZE);
+        if (cursor !== null) q = q.gt('committed_at', cursor);
+        const { data, error } = await q;
+        if (error) {
+          console.warn('MetricsReader.fetchCommits: query failed', {
+            context: { from: f, to: t, cursor },
+            error: { message: error.message },
+          });
+          break;
+        }
         const rows = (data ?? []) as CommitRow[];
         results.push(...rows);
         if (rows.length < PAGE_SIZE) break;
-        offset += PAGE_SIZE;
+        cursor = rows[rows.length - 1].committed_at;
       }
       return results;
     };
@@ -196,56 +229,41 @@ export class MetricsReader {
       return map;
     };
 
-    const aggregateTokensByUser = (
-      users: ReadonlyArray<MessageRow>,
-      assistants: ReadonlyArray<{ session_id: string; timestamp: string; input_tokens: number; output_tokens: number; cache_read_tokens: number; cache_creation_tokens: number; model: string | null }>,
+    type UserTokens = { input: number; output: number; cr: number; cc: number; cost: number };
+    const computeUserTokens = (
+      breakdownByUuid: ReadonlyMap<string, CostBreakdownEntry[]>,
+      userMessages: ReadonlyArray<UserMessageHeader>,
       sourceBySessionId: ReadonlyMap<string, 'claude_code' | 'codex'>,
-    ): Map<string, { input: number; output: number; cr: number; cc: number; cost: number }> => {
-      const usersBySession = new Map<string, MessageRow[]>();
-      for (const u of users) {
-        const arr = usersBySession.get(u.session_id);
-        if (arr) arr.push(u);
-        else usersBySession.set(u.session_id, [u]);
+    ): Map<string, UserTokens> => {
+      const sessionByUserUuid = new Map<string, string>();
+      for (const m of userMessages) sessionByUserUuid.set(m.uuid, m.session_id);
+      const result = new Map<string, UserTokens>();
+      for (const m of userMessages) {
+        result.set(m.uuid, { input: 0, output: 0, cr: 0, cc: 0, cost: 0 });
       }
-      for (const arr of usersBySession.values()) {
-        arr.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-      }
-      const tokensByUuid = new Map<string, { input: number; output: number; cr: number; cc: number; cost: number }>();
-      for (const u of users) tokensByUuid.set(u.uuid, { input: 0, output: 0, cr: 0, cc: 0, cost: 0 });
-      for (const a of assistants) {
-        const sessionUsers = usersBySession.get(a.session_id);
-        if (!sessionUsers) continue;
-        let lo = 0;
-        let hi = sessionUsers.length - 1;
-        let idx = -1;
-        while (lo <= hi) {
-          const mid = (lo + hi) >>> 1;
-          if (sessionUsers[mid].timestamp <= a.timestamp) {
-            idx = mid;
-            lo = mid + 1;
-          } else {
-            hi = mid - 1;
-          }
+      for (const [uuid, entries] of breakdownByUuid) {
+        const sid = sessionByUserUuid.get(uuid);
+        const source = sid ? sourceBySessionId.get(sid) : undefined;
+        let input = 0;
+        let output = 0;
+        let cr = 0;
+        let cc = 0;
+        let cost = 0;
+        for (const e of entries) {
+          input += e.input;
+          output += e.output;
+          cr += e.cache_read;
+          cc += e.cache_creation;
+          cost += calculateCost(e.model, {
+            inputTokens: e.input,
+            outputTokens: e.output,
+            cacheReadTokens: e.cache_read,
+            cacheCreationTokens: e.cache_creation,
+          }, source);
         }
-        if (idx === -1) continue;
-        const t = tokensByUuid.get(sessionUsers[idx].uuid);
-        if (!t) continue;
-        const inputToks = a.input_tokens ?? 0;
-        const outputToks = a.output_tokens ?? 0;
-        const crToks = a.cache_read_tokens ?? 0;
-        const ccToks = a.cache_creation_tokens ?? 0;
-        t.input += inputToks;
-        t.output += outputToks;
-        t.cr += crToks;
-        t.cc += ccToks;
-        t.cost += calculateCost(a.model ?? '', {
-          inputTokens: inputToks,
-          outputTokens: outputToks,
-          cacheReadTokens: crToks,
-          cacheCreationTokens: ccToks,
-        }, sourceBySessionId.get(a.session_id));
+        result.set(uuid, { input, output, cr, cc, cost });
       }
-      return tokensByUuid;
+      return result;
     };
 
     const [curReleases, curCommits, prevReleases, prevCommits] = await Promise.all([
@@ -258,19 +276,19 @@ export class MetricsReader {
     const curSessionIds = [...new Set(curCommits.map((c) => c.session_id))];
     const prevSessionIds = [...new Set(prevCommits.map((c) => c.session_id))];
 
-    const [curMessages, curAssistants, curFilesByHash, prevMessages, prevAssistants, prevFilesByHash, curSources, prevSources] = await Promise.all([
-      fetchMessagesBySessionIds(curSessionIds),
-      fetchAssistantMessages(range.from, range.to),
+    const [curMessages, curBreakdown, curFilesByHash, prevMessages, prevBreakdown, prevFilesByHash, curSources, prevSources] = await Promise.all([
+      fetchUserMessageHeaders(curSessionIds),
+      fetchUserTokenAggregates(range.from, range.to, curSessionIds),
       fetchFilesByHashes(curCommits.map((c) => c.commit_hash)),
-      fetchMessagesBySessionIds(prevSessionIds),
-      fetchAssistantMessages(prevFrom, prevTo),
+      fetchUserMessageHeaders(prevSessionIds),
+      fetchUserTokenAggregates(prevFrom, prevTo, prevSessionIds),
       fetchFilesByHashes(prevCommits.map((c) => c.commit_hash)),
       fetchSessionSources(curSessionIds),
       fetchSessionSources(prevSessionIds),
     ]);
 
-    const curTokens = aggregateTokensByUser(curMessages, curAssistants, curSources);
-    const prevTokens = aggregateTokensByUser(prevMessages, prevAssistants, prevSources);
+    const curTokens = computeUserTokens(curBreakdown, curMessages, curSources);
+    const prevTokens = computeUserTokens(prevBreakdown, prevMessages, prevSources);
     return computeQualityMetrics(
       {
         releases: curReleases.map((r) => ({ id: r.tag, tag_date: r.released_at, commit_hashes: [], fix_count: r.fix_count })),
