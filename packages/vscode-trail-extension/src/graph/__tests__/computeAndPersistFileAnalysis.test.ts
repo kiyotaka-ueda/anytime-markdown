@@ -69,6 +69,7 @@ describe('computeAndPersistFileAnalysis', () => {
       repoName: REPO_NAME,
       trailDb: db as unknown as TrailDatabase,
       scored: [],
+      lineCountByFile: new Map(),
     });
 
     expect(result.fileRows).toBe(0);
@@ -114,6 +115,7 @@ describe('computeAndPersistFileAnalysis', () => {
       repoName: REPO_NAME,
       trailDb: db as unknown as TrailDatabase,
       scored: [],
+      lineCountByFile: new Map(),
     });
 
     // CodeGraph ノード由来のファイルが 1 件追加される
@@ -143,6 +145,7 @@ describe('computeAndPersistFileAnalysis', () => {
       metrics: {
         fanIn: 3,
         cognitiveComplexity: 5,
+        cyclomaticComplexity: 4,
         dataMutationScore: 1,
         sideEffectScore: 0,
         lineCount: 10,
@@ -157,6 +160,7 @@ describe('computeAndPersistFileAnalysis', () => {
       repoName: REPO_NAME,
       trailDb: db as unknown as TrailDatabase,
       scored: [fn],
+      lineCountByFile: new Map(),
     });
 
     expect(result.functionRows).toBe(1);
@@ -183,6 +187,7 @@ describe('computeAndPersistFileAnalysis', () => {
       metrics: {
         fanIn: 0,
         cognitiveComplexity: 1,
+        cyclomaticComplexity: 1,
         dataMutationScore: 0,
         sideEffectScore: 0,
         lineCount: 5,
@@ -201,6 +206,7 @@ describe('computeAndPersistFileAnalysis', () => {
       repoName: REPO_NAME,
       trailDb: db as unknown as TrailDatabase,
       scored: [fn],
+      lineCountByFile: new Map(),
     });
 
     const fnRows = db.upsertCurrentFunctionAnalysis.mock.calls[0][0];
@@ -221,7 +227,7 @@ describe('computeAndPersistFileAnalysis', () => {
       startLine: 1,
       endLine: 3,
       language: 'typescript',
-      metrics: { fanIn: 1, cognitiveComplexity: 0, dataMutationScore: 0, sideEffectScore: 0, lineCount: 3 },
+      metrics: { fanIn: 1, cognitiveComplexity: 0, cyclomaticComplexity: 1, dataMutationScore: 0, sideEffectScore: 0, lineCount: 3 },
       importanceScore: 5,
     };
 
@@ -240,6 +246,7 @@ describe('computeAndPersistFileAnalysis', () => {
       repoName: REPO_NAME,
       trailDb: db as unknown as TrailDatabase,
       scored: [fn],
+      lineCountByFile: new Map(),
     });
 
     const fileRow = capturedFileRows.find((r) => r.filePath === 'packages/core/src/old.ts');
@@ -257,7 +264,7 @@ describe('computeAndPersistFileAnalysis', () => {
       startLine: 1,
       endLine: 3,
       language: 'typescript',
-      metrics: { fanIn: 1, cognitiveComplexity: 0, dataMutationScore: 0, sideEffectScore: 0, lineCount: 3 },
+      metrics: { fanIn: 1, cognitiveComplexity: 0, cyclomaticComplexity: 1, dataMutationScore: 0, sideEffectScore: 0, lineCount: 3 },
       importanceScore: 5,
     };
 
@@ -294,6 +301,7 @@ describe('computeAndPersistFileAnalysis', () => {
       repoName: REPO_NAME,
       trailDb: db as unknown as TrailDatabase,
       scored: [fn],
+      lineCountByFile: new Map(),
     });
 
     const fileRow = capturedFileRows.find((r) => r.filePath === 'packages/core/src/uncovered.ts');
@@ -310,7 +318,7 @@ describe('computeAndPersistFileAnalysis', () => {
       startLine: 1,
       endLine: 3,
       language: 'typescript',
-      metrics: { fanIn: 1, cognitiveComplexity: 0, dataMutationScore: 0, sideEffectScore: 0, lineCount: 3 },
+      metrics: { fanIn: 1, cognitiveComplexity: 0, cyclomaticComplexity: 1, dataMutationScore: 0, sideEffectScore: 0, lineCount: 3 },
       importanceScore: 5,
     };
 
@@ -329,6 +337,7 @@ describe('computeAndPersistFileAnalysis', () => {
       repoName: REPO_NAME,
       trailDb: db as unknown as TrailDatabase,
       scored: [fn],
+      lineCountByFile: new Map(),
     });
 
     const fileRow = capturedFileRows.find((r) => r.filePath === 'packages/core/src/new.ts');

@@ -1,5 +1,8 @@
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
+
+const homeDir = os.homedir();
 
 import { setupClaudeHooks, ClaudeStatusWatcher } from '@anytime-markdown/vscode-common';
 import * as vscode from 'vscode';

@@ -178,7 +178,7 @@ export async function runAnalyzeCurrentCodePipeline(
   try {
     onProgress?.('Computing file analysis...');
     if (importanceResult) {
-      const { computeAndPersistFileAnalysis } = await import('./computeAndPersistFileAnalysis');
+      const { computeAndPersistFileAnalysis } = await import('./computeAndPersistFileAnalysis.js');
       const { fileRows, functionRows } = await computeAndPersistFileAnalysis({
         analysisRoot,
         repoName,
