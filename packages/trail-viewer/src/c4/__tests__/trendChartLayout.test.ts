@@ -4,7 +4,7 @@ import {
   canShowManualContextActions,
   getActivityTrendChartPlacement,
   getActivityTrendChartWidth,
-} from '../components/C4ViewerCore';
+} from '../utils/c4ViewerHelpers';
 
 describe('getActivityTrendChartWidth', () => {
   it('caps the trend chart popup width when element details are hidden', () => {
