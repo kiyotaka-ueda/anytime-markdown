@@ -15,12 +15,12 @@ import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
  * // Tab hover で preload
  * <Tab onMouseEnter={() => AnalyticsPanel.preload()} />
  */
-export type PreloadableComponent<T extends ComponentType<unknown>> =
+export type PreloadableComponent<T extends ComponentType<any>> =
     LazyExoticComponent<T> & {
         readonly preload: () => Promise<{ default: T }>;
     };
 
-export function lazyWithPreload<T extends ComponentType<unknown>>(
+export function lazyWithPreload<T extends ComponentType<any>>(
     loader: () => Promise<{ default: T }>,
 ): PreloadableComponent<T> {
     const Component = lazy(loader) as PreloadableComponent<T>;
