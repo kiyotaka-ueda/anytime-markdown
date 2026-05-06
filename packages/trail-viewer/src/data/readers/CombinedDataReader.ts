@@ -44,8 +44,13 @@ export class CombinedDataReader {
             if (call.error) totalTestFails++;
           }
         }
-      } catch {
-        // Skip unparseable tool_calls
+      } catch (parseError) {
+        console.warn('CombinedDataReader.getSessionToolMetrics: failed to parse tool_calls', {
+          context: { sessionId, length: row.tool_calls?.length ?? 0 },
+          error: parseError instanceof Error
+            ? { message: parseError.message, stack: parseError.stack }
+            : { value: String(parseError) },
+        });
       }
     }
 

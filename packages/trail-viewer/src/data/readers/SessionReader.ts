@@ -157,7 +157,13 @@ export class SessionReader {
         let calls: Array<{ name?: string; input?: Record<string, unknown> }> = [];
         try {
           calls = JSON.parse(row.tool_calls) as Array<{ name?: string; input?: Record<string, unknown> }>;
-        } catch {
+        } catch (parseError) {
+          console.warn('SessionReader.fetchSubAgentCountsForSessions: failed to parse tool_calls', {
+            context: { sessionId: sid, length: row.tool_calls?.length ?? 0 },
+            error: parseError instanceof Error
+              ? { message: parseError.message, stack: parseError.stack }
+              : { value: String(parseError) },
+          });
           continue;
         }
         const agentCall = calls.find((c) => c.name === 'Agent');
