@@ -16,6 +16,11 @@ import type { AnalyticsData, ITrailReader, TrailRelease } from '@anytime-markdow
 import { computeDeploymentFrequency, computeQualityMetrics, computeReleaseQualityTimeSeries } from '@anytime-markdown/trail-core/domain/metrics';
 import type { DateRange, QualityMetrics, ReleaseQualityBucket } from '@anytime-markdown/trail-core/domain/metrics';
 import { calculateCost } from '@anytime-markdown/trail-core/domain/engine';
+import {
+  extractWorkspace,
+  toTrailMessage,
+  toTrailSession,
+} from '../domain/analytics/mappers';
 
 // ---------------------------------------------------------------------------
 // Row shapes returned by Supabase (snake_case DB columns)
@@ -31,7 +36,7 @@ interface SessionCostDbRow {
   readonly estimated_cost_usd: number;
 }
 
-interface SessionDbRow {
+export interface SessionDbRow {
   readonly id: string;
   readonly slug: string;
   readonly repo_name: string;
@@ -50,7 +55,7 @@ interface SessionDbRow {
   readonly trail_session_costs?: readonly SessionCostDbRow[];
 }
 
-interface MessageDbRow {
+export interface MessageDbRow {
   readonly uuid: string;
   readonly parent_uuid: string | null;
   readonly type: string;
@@ -71,7 +76,7 @@ interface MessageDbRow {
   readonly source_tool_assistant_uuid?: string | null;
 }
 
-interface CommitDbRow {
+export interface CommitDbRow {
   readonly repo_name?: string | null;
   readonly commit_hash: string;
   readonly commit_message: string;
@@ -141,7 +146,7 @@ export class SupabaseTrailReader implements ITrailReader {
           linkedCost += c.estimated_cost_usd;
         }
       }
-      const base = this.toTrailSession(r, [], undefined, subAgentCounts.get(r.id));
+      const base = toTrailSession(r, [], undefined, subAgentCounts.get(r.id));
       return {
         ...base,
         messageCount: base.messageCount + linkedMessageCount,
@@ -297,7 +302,7 @@ export class SupabaseTrailReader implements ITrailReader {
       .eq('session_id', sessionId)
       .order('timestamp', { ascending: true });
     if (error) throw new Error(`Supabase getMessages failed: ${error.message}`);
-    return (data ?? []).map((r: MessageDbRow) => this.toTrailMessage(r));
+    return (data ?? []).map((r: MessageDbRow) => toTrailMessage(r));
   }
 
   async getSessionCommits(sessionId: string): Promise<readonly TrailSessionCommit[]> {
@@ -743,108 +748,6 @@ export class SupabaseTrailReader implements ITrailReader {
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
-
-  private extractWorkspace(filePath: string | undefined | null): string | undefined {
-    if (!filePath) return undefined;
-    const match = /\/projects\/([^/]+)\//.exec(filePath);
-    if (!match) return undefined;
-    // worktree suffix を除去: --worktrees-* または --claude-worktrees-*
-    const key = match[1].replace(/--(?:claude-)?worktrees-.+$/, '');
-    if (!key.startsWith('-')) return undefined;
-    // 先頭の "-" を "/" に変換: "-anytime-lab" → "/anytime-lab"
-    return '/' + key.slice(1);
-  }
-
-  private toTrailSession(
-    r: SessionDbRow,
-    commits: readonly CommitDbRow[],
-    errorCount?: number,
-    subAgentCount?: number,
-  ): TrailSession {
-    const commitStats = commits.length > 0
-      ? {
-          commits: commits.length,
-          linesAdded: commits.reduce((s, c) => s + c.lines_added, 0),
-          linesDeleted: commits.reduce((s, c) => s + c.lines_deleted, 0),
-          filesChanged: commits.reduce((s, c) => s + c.files_changed, 0),
-        }
-      : undefined;
-
-    // Aggregate costs from session_costs join
-    const costs = r.trail_session_costs ?? [];
-    const totalInput = costs.reduce((s, c) => s + c.input_tokens, 0);
-    const totalOutput = costs.reduce((s, c) => s + c.output_tokens, 0);
-    const totalCacheRead = costs.reduce((s, c) => s + c.cache_read_tokens, 0);
-    const totalCacheCreation = costs.reduce((s, c) => s + c.cache_creation_tokens, 0);
-    const totalCostUsd = costs.reduce((s, c) => s + c.estimated_cost_usd, 0);
-
-    return {
-      id: r.id,
-      slug: r.slug,
-      repoName: r.repo_name ?? '',
-      gitBranch: '',
-      startTime: r.start_time,
-      endTime: r.end_time,
-      version: r.version,
-      model: r.model,
-      messageCount: r.message_count,
-      peakContextTokens: r.peak_context_tokens ?? undefined,
-      initialContextTokens: r.initial_context_tokens ?? undefined,
-      interruption: r.interruption_reason
-        ? {
-            interrupted: true,
-            reason: r.interruption_reason as 'max_tokens' | 'no_response',
-            contextTokens: r.interruption_context_tokens ?? 0,
-          }
-        : undefined,
-      compactCount: r.compact_count && r.compact_count > 0 ? r.compact_count : undefined,
-      source: r.source ?? undefined,
-      workspace: this.extractWorkspace(r.file_path ?? undefined),
-      commitStats,
-      usage: {
-        inputTokens: totalInput,
-        outputTokens: totalOutput,
-        cacheReadTokens: totalCacheRead,
-        cacheCreationTokens: totalCacheCreation,
-      },
-      estimatedCostUsd: totalCostUsd,
-      errorCount: errorCount && errorCount > 0 ? errorCount : undefined,
-      subAgentCount: subAgentCount && subAgentCount > 0 ? subAgentCount : undefined,
-    };
-  }
-
-  private toTrailMessage(r: MessageDbRow): TrailMessage {
-    let toolCalls: readonly TrailToolCall[] | undefined;
-    if (r.tool_calls) {
-      try {
-        toolCalls = JSON.parse(r.tool_calls) as readonly TrailToolCall[];
-      } catch {
-        // ignore parse errors
-      }
-    }
-
-    return {
-      uuid: r.uuid,
-      parentUuid: r.parent_uuid,
-      type: r.type as 'user' | 'assistant' | 'system',
-      subtype: r.subtype ?? undefined,
-      timestamp: r.timestamp,
-      isSidechain: r.is_sidechain === 1,
-      model: r.model ?? undefined,
-      toolCalls,
-      textContent: r.text_content ?? undefined,
-      userContent: r.user_content ?? undefined,
-      stopReason: r.stop_reason,
-      usage: {
-        inputTokens: r.input_tokens,
-        outputTokens: r.output_tokens,
-        cacheReadTokens: r.cache_read_tokens,
-        cacheCreationTokens: r.cache_creation_tokens,
-      },
-      agentId: r.agent_id ?? undefined,
-      agentDescription: r.agent_description ?? undefined,
-    };
-  }
 
   async getReleases(): Promise<readonly TrailRelease[]> {
     const { data, error } = await this.client
