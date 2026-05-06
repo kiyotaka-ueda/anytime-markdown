@@ -11,7 +11,7 @@ import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import SearchIcon from '@mui/icons-material/Search';
 import { memo, useCallback, useEffect, useState } from 'react';
-import { SERVICE_CATALOG, filterServices } from '@anytime-markdown/trail-core/c4';
+import { SERVICE_CATALOG, filterServices } from '@anytime-markdown/trail-core/c4/services';
 import type { ServiceEntry } from '@anytime-markdown/trail-core/c4';
 
 // ---------------------------------------------------------------------------

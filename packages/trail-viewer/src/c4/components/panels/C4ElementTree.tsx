@@ -1,5 +1,5 @@
 import type { C4ReleaseEntry, C4TreeNode } from '@anytime-markdown/trail-core/c4';
-import { findService } from '@anytime-markdown/trail-core/c4';
+import { findService } from '@anytime-markdown/trail-core/c4/services';
 import type { Action } from '@anytime-markdown/graph-core/state';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import AddIcon from '@mui/icons-material/Add';

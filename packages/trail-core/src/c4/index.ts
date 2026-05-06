@@ -109,4 +109,5 @@ export type {
 } from './manualTypes';
 
 export type { ServiceEntry } from './services/catalog';
-export { SERVICE_CATALOG, findService, filterServices } from './services/catalog';
+// SERVICE_CATALOG / findService / filterServices は simple-icons (5.2 MB) を取り込む。
+// '@anytime-markdown/trail-core/c4/services' からのみ import 可能とする。
