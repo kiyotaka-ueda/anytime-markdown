@@ -3,7 +3,7 @@ import type {
   SessionDbRow,
   MessageDbRow,
   CommitDbRow,
-} from '../../hooks/SupabaseTrailReader';
+} from '../../data/types';
 
 export function extractWorkspace(filePath: string | undefined | null): string | undefined {
   if (!filePath) return undefined;
