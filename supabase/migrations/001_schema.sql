@@ -694,3 +694,38 @@ LANGUAGE sql
 AS $$
     REFRESH MATERIALIZED VIEW CONCURRENTLY trail_user_message_costs;
 $$;
+
+-- =====================================================================
+-- Phase 5e: trail_user_messages_meta Materialized View
+-- =====================================================================
+-- Phase 5d で fetchUserTokenAggregates を 16x 高速化したが、
+-- 並列の fetchUserMessageHeaders が ~2.46s で新ボトルネック。
+-- user message メタデータ (uuid / session_id / timestamp) を事前計算して
+-- pagination + per-session batch のオーバーヘッドを排除する。
+-- assistant 応答の有無に関係なく全 user message を含むため、
+-- computeUserTokens の動作は完全に維持される (Approach A)。
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS trail_user_messages_meta AS
+SELECT
+    uuid,
+    session_id,
+    timestamp
+FROM trail_messages
+WHERE type = 'user';
+
+-- session_id で範囲検索 (in 句) が主用途
+CREATE INDEX IF NOT EXISTS idx_trail_user_messages_meta_session
+    ON trail_user_messages_meta (session_id);
+
+-- CONCURRENTLY refresh のため UNIQUE index 必須 (PostgreSQL 制約)。
+-- uuid は trail_messages の主キー (一意) を継承するため UNIQUE で問題ない。
+CREATE UNIQUE INDEX IF NOT EXISTS uq_trail_user_messages_meta
+    ON trail_user_messages_meta (uuid);
+
+-- import 完了後に呼ぶ refresh function。
+CREATE OR REPLACE FUNCTION refresh_trail_user_messages_meta()
+RETURNS void
+LANGUAGE sql
+AS $$
+    REFRESH MATERIALIZED VIEW CONCURRENTLY trail_user_messages_meta;
+$$;
