@@ -37,6 +37,11 @@ jest.mock("../app/components/LandingHeader", () => ({
   default: () => <header data-testid="header">Header</header>,
 }));
 
+jest.mock("../app/trail/components/TrailViewer", () => ({
+  __esModule: true,
+  TrailViewer: () => <div data-testid="trail-viewer">TrailViewer</div>,
+}));
+
 import { createTheme, ThemeProvider } from "@mui/material";
 import VsCodeBody from "../app/vscode/VsCodeBody";
 

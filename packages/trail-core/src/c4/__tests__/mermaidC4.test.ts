@@ -1,4 +1,4 @@
-import { parseMermaidC4 } from '../parser/mermaidC4';
+import { parseMermaidC4, extractBoundaries } from '../parser/mermaidC4';
 
 describe('parseMermaidC4', () => {
   describe('C4Context', () => {
@@ -125,5 +125,71 @@ describe('parseMermaidC4', () => {
     it('should throw on missing C4 diagram type', () => {
       expect(() => parseMermaidC4('flowchart TD\n  A --> B')).toThrow();
     });
+  });
+
+  describe('parser edge cases', () => {
+    it('skips empty lines and %% comments', () => {
+      const input = `C4Context
+%% This is a comment
+
+Person(u, "User", "A user")`;
+      const model = parseMermaidC4(input);
+      expect(model.elements).toHaveLength(1);
+    });
+
+    it('skips unknown function names gracefully', () => {
+      const input = `C4Context
+UnknownFn(x, "something")
+Person(u, "User")`;
+      const model = parseMermaidC4(input);
+      expect(model.elements).toHaveLength(1);
+      expect(model.elements[0].id).toBe('u');
+    });
+
+    it('Rel with missing label uses undefined', () => {
+      const input = `C4Context
+Person(a, "A")
+System(b, "B")
+Rel(a, b)`;
+      const model = parseMermaidC4(input);
+      expect(model.relationships).toHaveLength(1);
+      expect(model.relationships[0].label).toBeUndefined();
+    });
+
+    it('Element without hasTech uses args[2] as description', () => {
+      const input = `C4Context
+Person(u, "User", "A human user")`;
+      const model = parseMermaidC4(input);
+      expect(model.elements[0].description).toBe('A human user');
+    });
+  });
+});
+
+describe('extractBoundaries', () => {
+  it('extracts System_Boundary', () => {
+    const input = `C4Component\n  System_Boundary(frontend, "Frontend")`;
+    const result = extractBoundaries(input);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({ id: 'frontend', name: 'Frontend' });
+  });
+
+  it('extracts multiple boundaries', () => {
+    const input = `C4Component
+  System_Boundary(bA, "Service A")
+  Container_Boundary(bB, "Service B")`;
+    const result = extractBoundaries(input);
+    expect(result).toHaveLength(2);
+    expect(result.map((b) => b.id)).toEqual(['bA', 'bB']);
+  });
+
+  it('returns empty array when no boundaries present', () => {
+    expect(extractBoundaries('C4Context\n  Person(u, "User")')).toHaveLength(0);
+  });
+
+  it('handles Enterprise_Boundary variant', () => {
+    const input = 'Enterprise_Boundary(ent, "Enterprise")';
+    const result = extractBoundaries(input);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.id).toBe('ent');
   });
 });

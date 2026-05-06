@@ -6,6 +6,31 @@
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-05-06
+
+### 追加
+
+- C4 Model ビューアにドキュメントリンクポップアップを追加
+- file / function analysis の Supabase 同期と REST ルートを追加
+
+### 修正
+
+- markdown ポップアップの背景色を他のポップアップに統一
+
+### セキュリティ
+
+- CodeQL 検出の remote-property-injection / log-injection を修正
+
+### パフォーマンス
+
+- `/trail` の `next/dynamic` に loading Skeleton を追加（CLS 対策）
+- `analyze` スクリプトを Turbopack `experimental-analyze` に切替
+- Trail viewer のパフォーマンス計測ベースライン用ツールを追加
+
+### 変更
+
+- prefetch 効果計測用 Playwright spec を追加
+
 ## [0.24.0] - 2026-05-04
 
 ### 追加

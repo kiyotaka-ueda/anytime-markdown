@@ -56,6 +56,8 @@ export type { C4ModelPayload } from './c4ModelService';
 
 export type { MetricOverlay, ComplexityClass, ComplexityEntry, ComplexityMatrix } from './types';
 export { computeColorMap, interpolateDsmColor } from './metrics/computeColorMap';
+export { buildSizeMatrix } from './metrics/buildSizeMatrix';
+export type { SizeMatrix, SizeMetricsEntry } from './metrics/buildSizeMatrix';
 export { mapFilesToC4Elements, mapFileToC4Elements, buildC4ElementById } from '../domain/engine/c4Mapper';
 export type { C4MappingResult } from '../domain/engine/c4Mapper';
 export type { MessageInput } from './metrics/computeComplexityMatrix';
@@ -107,4 +109,5 @@ export type {
 } from './manualTypes';
 
 export type { ServiceEntry } from './services/catalog';
-export { SERVICE_CATALOG, findService, filterServices } from './services/catalog';
+// SERVICE_CATALOG / findService / filterServices は simple-icons (5.2 MB) を取り込む。
+// '@anytime-markdown/trail-core/c4/services' からのみ import 可能とする。

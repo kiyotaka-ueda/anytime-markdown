@@ -85,10 +85,10 @@ describe('DatabaseIntegrityMonitor', () => {
 
   it('未作成テーブルは 0 として扱い warning ループを起こさない', async () => {
     const db = await createDb();
-    // c4_models / current_graphs / c4_manual_elements / c4_manual_relationships は作成しない
+    // current_graphs / c4_manual_elements / c4_manual_relationships は作成しない
     const monitor = new DatabaseIntegrityMonitor();
     const snapshot = monitor.captureCounts(db);
-    expect(snapshot.c4_models).toBe(0);
+    expect(snapshot.current_graphs).toBe(0);
     expect(snapshot.c4_manual_elements).toBe(0);
   });
 });

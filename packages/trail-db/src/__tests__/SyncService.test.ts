@@ -11,6 +11,8 @@ const createDb = createTestTrailDatabase;
 class FakeRemoteStore implements IRemoteTrailStore {
   elements: ManualElement[] = [];
   relationships: ManualRelationship[] = [];
+  commitRows: unknown[] = [];
+  messageFailure: Error | null = null;
 
   async connect(): Promise<void> {}
   async close(): Promise<void> {}
@@ -18,12 +20,15 @@ class FakeRemoteStore implements IRemoteTrailStore {
   async getExistingSessionIds(): Promise<readonly string[]> { return []; }
   async getExistingSyncedAt(): Promise<ReadonlyMap<string, string>> { return new Map(); }
   async upsertSessions(): Promise<void> {}
-  async upsertMessages(): Promise<void> {}
-  async upsertCommits(): Promise<void> {}
+  async upsertMessages(): Promise<void> {
+    if (this.messageFailure) throw this.messageFailure;
+  }
+  async upsertCommits(rows: readonly unknown[]): Promise<void> {
+    this.commitRows.push(...rows);
+  }
   async upsertCommitFiles(): Promise<void> {}
   async upsertReleases(): Promise<void> {}
   async upsertReleaseFiles(): Promise<void> {}
-  async upsertReleaseFeatures(): Promise<void> {}
   async upsertSessionCosts(): Promise<void> {}
   async upsertAllSessionCosts(): Promise<void> {}
   async upsertDailyCounts(): Promise<void> {}
@@ -49,6 +54,14 @@ class FakeRemoteStore implements IRemoteTrailStore {
   async upsertReleaseCoverage(rows: readonly { release_tag: string; package: string; file_path: string; lines_total: number; lines_covered: number; lines_pct: number; statements_total: number; statements_covered: number; statements_pct: number; functions_total: number; functions_covered: number; functions_pct: number; branches_total: number; branches_covered: number; branches_pct: number }[]): Promise<void> {
     this.releaseCoverageRows.push(...(rows as typeof this.releaseCoverageRows));
   }
+  async unsafeClearCurrentFileAnalysis(): Promise<void> {}
+  async upsertCurrentFileAnalysis(): Promise<void> {}
+  async unsafeClearReleaseFileAnalysis(): Promise<void> {}
+  async upsertReleaseFileAnalysis(): Promise<void> {}
+  async unsafeClearCurrentFunctionAnalysis(): Promise<void> {}
+  async upsertCurrentFunctionAnalysis(): Promise<void> {}
+  async unsafeClearReleaseFunctionAnalysis(): Promise<void> {}
+  async upsertReleaseFunctionAnalysis(): Promise<void> {}
   async unsafeClearCurrentCodeGraphs(): Promise<void> { this.codeGraphRows = []; this.codeGraphCommunityRows = []; }
   async upsertCurrentCodeGraphs(rows: readonly { repo_name: string; graph_json: string; generated_at: string; updated_at: string }[]): Promise<void> {
     this.codeGraphRows.push(...(rows as typeof this.codeGraphRows));
@@ -88,6 +101,9 @@ class FakeRemoteStore implements IRemoteTrailStore {
   async deleteManualRelationship(repoName: string, relId: string): Promise<void> {
     this.relationships = this.relationships.filter(r => !(r.id === relId && (r as ManualRelationship & { _repo: string })._repo === repoName));
   }
+  async refreshMaterializedViews(): Promise<void> {
+    // no-op (test fake)
+  }
 }
 
 describe('SyncService.syncManualElements', () => {
@@ -126,6 +142,41 @@ describe('SyncService.syncManualElements', () => {
     const sync = new SyncService(localDb, remoteStore);
     await sync.syncManualElements('repo-a');
     expect(localDb.getManualElements('repo-a')[0].name).toBe('New');
+    localDb.close();
+  });
+});
+
+describe('SyncService.sync commits', () => {
+  it('syncs session commits even when message sync fails for that session', async () => {
+    const localDb = await createDb();
+    const inner = (localDb as unknown as { ensureDb(): { run(sql: string, params?: unknown[]): void } }).ensureDb();
+    inner.run(
+      `INSERT OR IGNORE INTO sessions (
+        id, slug, repo_name, version, entrypoint, model, start_time, end_time,
+        message_count, file_path, file_size, imported_at
+      ) VALUES (?, ?, ?, '0', '', '', ?, ?, 0, '', 0, ?)`,
+      ['s1', 's1', 'repo-a', '2026-05-01T00:00:00.000Z', '2026-05-01T00:10:00.000Z', '2026-05-01T00:00:00.000Z'],
+    );
+    inner.run(
+      `INSERT OR IGNORE INTO session_commits (
+        session_id, repo_name, commit_hash, commit_message, author, committed_at,
+        is_ai_assisted, files_changed, lines_added, lines_deleted
+      ) VALUES (?, ?, ?, ?, ?, ?, 1, 1, 12, 3)`,
+      ['s1', 'repo-a', 'abc123', 'fix: keep commits synced', 'Tester', '2026-05-01T00:05:00.000Z'],
+    );
+    inner.run(
+      `INSERT OR IGNORE INTO messages (
+        uuid, session_id, type, timestamp, text_content
+      ) VALUES (?, ?, 'assistant', ?, ?)`,
+      ['m1', 's1', '2026-05-01T00:01:00.000Z', 'large message'],
+    );
+    const remoteStore = new FakeRemoteStore();
+    remoteStore.messageFailure = new Error('message row too large');
+
+    const result = await new SyncService(localDb, remoteStore).sync();
+
+    expect(result.errors).toBeGreaterThan(0);
+    expect(remoteStore.commitRows).toHaveLength(1);
     localDb.close();
   });
 });

@@ -1,4 +1,4 @@
-import type { SessionRow, MessageRow, SessionCommitRow, ReleaseFileRow, ReleaseFeatureRow, ReleaseRow } from './TrailDatabase';
+import type { SessionRow, MessageRow, SessionCommitRow, ReleaseFileRow, ReleaseRow } from './TrailDatabase';
 import type { ManualElement, ManualRelationship } from '@anytime-markdown/trail-core';
 
 export interface IRemoteTrailStore {
@@ -14,10 +14,9 @@ export interface IRemoteTrailStore {
   upsertSessions(rows: readonly SessionRow[]): Promise<void>;
   upsertMessages(rows: readonly MessageRow[]): Promise<void>;
   upsertCommits(rows: readonly SessionCommitRow[]): Promise<void>;
-  upsertCommitFiles(rows: readonly { commit_hash: string; file_path: string }[]): Promise<void>;
+  upsertCommitFiles(rows: readonly { repo_name: string; commit_hash: string; file_path: string }[]): Promise<void>;
   upsertReleases(rows: readonly ReleaseRow[]): Promise<void>;
   upsertReleaseFiles(rows: readonly ReleaseFileRow[]): Promise<void>;
-  upsertReleaseFeatures(rows: readonly ReleaseFeatureRow[]): Promise<void>;
   upsertSessionCosts(sessionId: string, costs: readonly {
     model: string;
     input_tokens: number;
@@ -119,6 +118,48 @@ export interface IRemoteTrailStore {
     branches_covered: number;
     branches_pct: number;
   }[]): Promise<void>;
+  /** [DESTRUCTIVE] trail_current_file_analysis を全削除する（洗い替え同期用）。 */
+  unsafeClearCurrentFileAnalysis(): Promise<void>;
+  upsertCurrentFileAnalysis(rows: readonly {
+    repo_name: string; file_path: string;
+    importance_score: number; fan_in_total: number; cognitive_complexity_max: number; function_count: number;
+    dead_code_score: number;
+    signal_orphan: number; signal_fan_in_zero: number; signal_no_recent_churn: number;
+    signal_zero_coverage: number; signal_isolated_community: number;
+    is_ignored: number; ignore_reason: string; analyzed_at: string;
+    line_count: number; cyclomatic_complexity_max: number;
+  }[]): Promise<void>;
+  /** [DESTRUCTIVE] trail_release_file_analysis を全削除する（洗い替え同期用）。 */
+  unsafeClearReleaseFileAnalysis(): Promise<void>;
+  upsertReleaseFileAnalysis(rows: readonly {
+    release_tag: string; repo_name: string; file_path: string;
+    importance_score: number; fan_in_total: number; cognitive_complexity_max: number; function_count: number;
+    dead_code_score: number;
+    signal_orphan: number; signal_fan_in_zero: number; signal_no_recent_churn: number;
+    signal_zero_coverage: number; signal_isolated_community: number;
+    is_ignored: number; ignore_reason: string; analyzed_at: string;
+    line_count: number; cyclomatic_complexity_max: number;
+  }[]): Promise<void>;
+  /** [DESTRUCTIVE] trail_current_function_analysis を全削除する（洗い替え同期用）。 */
+  unsafeClearCurrentFunctionAnalysis(): Promise<void>;
+  upsertCurrentFunctionAnalysis(rows: readonly {
+    repo_name: string; file_path: string; function_name: string; start_line: number;
+    end_line: number; language: string;
+    fan_in: number; cognitive_complexity: number; data_mutation_score: number;
+    side_effect_score: number; line_count: number; importance_score: number;
+    signal_fan_in_zero: number; analyzed_at: string;
+    cyclomatic_complexity: number;
+  }[]): Promise<void>;
+  /** [DESTRUCTIVE] trail_release_function_analysis を全削除する（洗い替え同期用）。 */
+  unsafeClearReleaseFunctionAnalysis(): Promise<void>;
+  upsertReleaseFunctionAnalysis(rows: readonly {
+    release_tag: string; repo_name: string; file_path: string; function_name: string; start_line: number;
+    end_line: number; language: string;
+    fan_in: number; cognitive_complexity: number; data_mutation_score: number;
+    side_effect_score: number; line_count: number; importance_score: number;
+    signal_fan_in_zero: number; analyzed_at: string;
+    cyclomatic_complexity: number;
+  }[]): Promise<void>;
   /** [DESTRUCTIVE] trail_current_code_graphs と trail_current_code_graph_communities を全削除する（洗い替え同期用）。 */
   unsafeClearCurrentCodeGraphs(): Promise<void>;
   upsertCurrentCodeGraphs(rows: readonly {
@@ -154,4 +195,10 @@ export interface IRemoteTrailStore {
     generated_at: string;
     updated_at: string;
   }[]): Promise<void>;
+
+  /**
+   * trail_user_message_costs / trail_user_messages_meta Materialized View を並列 refresh する。
+   * messages の wash-away & insert 完了後に呼ぶ。失敗は致命的でない（古いデータが見えるだけ）。
+   */
+  refreshMaterializedViews(): Promise<void>;
 }

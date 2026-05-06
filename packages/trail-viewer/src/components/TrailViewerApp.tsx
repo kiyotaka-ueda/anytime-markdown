@@ -14,8 +14,8 @@ import { TrailViewerCore } from './TrailViewerCore';
 import { useTrailDataSource } from '../hooks/useTrailDataSource';
 import { useC4DataSource } from '../c4/hooks/useC4DataSource';
 import { useTraceFiles } from '../hooks/useTraceFiles';
-import type { ElementFormData, RelationshipFormData } from '../c4/components/C4EditDialogs';
-import type { TrailFilter } from '../parser/types';
+import type { ElementFormData, RelationshipFormData } from '../c4/components/dialogs/C4EditDialogs';
+import type { TrailFilter } from '../domain/parser/types';
 import type { TrailLocale } from '../i18n/types';
 
 const EMPTY_FILTER: TrailFilter = {};
@@ -163,6 +163,8 @@ export function TrailViewerApp({
     coverageDiff: c4.coverageDiff,
     complexityMatrix: c4.complexityMatrix,
     importanceMatrix: c4.importanceMatrix,
+    deadCodeMatrix: c4.deadCodeMatrix,
+    fileAnalysisEntries: c4.fileAnalysisEntries,
     docLinks: c4.docLinks,
     connected: c4.connected,
     analysisProgress: c4.analysisProgress,
@@ -213,6 +215,8 @@ export function TrailViewerApp({
       c4={c4Props}
       traceFiles={traceFiles.length > 0 ? traceFiles : undefined}
       initialTab={initialTab}
+      sendCommand={sendCommand}
+      wsConnected={c4.connected}
     />
   );
 }

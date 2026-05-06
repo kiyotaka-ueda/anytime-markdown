@@ -13,6 +13,8 @@ export interface FunctionMetrics {
   readonly fanIn: number;
   /** 分岐・ループのネスト深さ（認知的複雑度） */
   readonly cognitiveComplexity: number;
+  /** McCabe サイクロマティック複雑度（制御フローグラフの独立パス数） */
+  readonly cyclomaticComplexity: number;
   /** データ変更の度合い（代入・ミューテーションメソッド等の重み付き合計） */
   readonly dataMutationScore: number;
   /** 副作用の度合い（I/O・グローバル変数アクセス等の重み付き合計） */

@@ -1,7 +1,6 @@
 import type {
   DocLink,
   DsmMatrix,
-  ImportanceMatrix,
 } from '@anytime-markdown/trail-core/c4';
 
 // ---------------------------------------------------------------------------
@@ -24,11 +23,6 @@ export interface AnalysisProgressMessage {
 export interface DocLinksUpdatedMessage {
   readonly type: 'doc-links-updated';
   readonly docLinks: readonly DocLink[];
-}
-
-export interface ImportanceUpdatedMessage {
-  readonly type: 'importance-updated';
-  readonly importanceMatrix: ImportanceMatrix;
 }
 
 export interface ClaudeActivityUpdatedMessage {
@@ -89,7 +83,7 @@ export interface CodeGraphProgressMessage {
   readonly percent: number;
 }
 
-export type ServerMessage = DsmUpdatedMessage | AnalysisProgressMessage | DocLinksUpdatedMessage | ImportanceUpdatedMessage | ClaudeActivityUpdatedMessage | MultiAgentActivityMessage | TokenBudgetUpdatedMessage | ModelUpdatedMessage | CodeGraphUpdatedMessage | CodeGraphProgressMessage;
+export type ServerMessage = DsmUpdatedMessage | AnalysisProgressMessage | DocLinksUpdatedMessage | ClaudeActivityUpdatedMessage | MultiAgentActivityMessage | TokenBudgetUpdatedMessage | ModelUpdatedMessage | CodeGraphUpdatedMessage | CodeGraphProgressMessage;
 
 // ---------------------------------------------------------------------------
 //  Client → Server messages
@@ -127,6 +121,18 @@ export interface OpenFileCommand {
   readonly filePath: string;
 }
 
+/**
+ * Standalone Viewer 側の初回描画・lazy chunk 読込時間などを extension に
+ * 送信するための perf 計測メッセージ。受信側 (TrailDataServer) は
+ * TrailLogger.debugPerf に流し、TRAIL_DEBUG_PERF=1 の時のみ OutputChannel に出力する。
+ */
+export interface PerfReportCommand {
+  readonly type: 'perf-report';
+  readonly metric: string;
+  readonly ms: number;
+  readonly meta?: Record<string, unknown>;
+}
+
 export type ClientMessage =
   | SetLevelCommand
   | ClusterCommand
@@ -134,4 +140,5 @@ export type ClientMessage =
   | OpenDocLinkCommand
   | ResetClaudeActivityCommand
   | GenerateCodeGraphCommand
-  | OpenFileCommand;
+  | OpenFileCommand
+  | PerfReportCommand;

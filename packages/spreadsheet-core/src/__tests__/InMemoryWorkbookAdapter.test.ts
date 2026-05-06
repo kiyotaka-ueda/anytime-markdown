@@ -91,6 +91,36 @@ describe("createInMemoryWorkbookAdapter", () => {
     expect(names).toEqual(["B", "C", "A"]);
   });
 
+  it("reorderSheet でアクティブシートより前のシートを後ろに移動するとインデックスが1減る", () => {
+    // sheets: A(0), B(1=active), C(2) → move A(0) to C position(2)
+    // fromIndex(0) < activeSheet(1) && toIndex(2) >= activeSheet(1) → activeSheet -= 1
+    const adapter = createInMemoryWorkbookAdapter({
+      sheets: [
+        { name: "A", cells: [[""]], alignments: [[null]], range: { rows: 1, cols: 1 } },
+        { name: "B", cells: [[""]], alignments: [[null]], range: { rows: 1, cols: 1 } },
+        { name: "C", cells: [[""]], alignments: [[null]], range: { rows: 1, cols: 1 } },
+      ],
+      activeSheet: 1,
+    });
+    adapter.reorderSheet(0, 2);
+    expect(adapter.getSnapshot().activeSheet).toBe(0);
+  });
+
+  it("reorderSheet でアクティブシートより後のシートを前に移動するとインデックスが1増える", () => {
+    // sheets: A(0=active), B(1), C(2) → move C(2) to A position(0)
+    // fromIndex(2) > activeSheet(0) && toIndex(0) <= activeSheet(0) → activeSheet += 1
+    const adapter = createInMemoryWorkbookAdapter({
+      sheets: [
+        { name: "A", cells: [[""]], alignments: [[null]], range: { rows: 1, cols: 1 } },
+        { name: "B", cells: [[""]], alignments: [[null]], range: { rows: 1, cols: 1 } },
+        { name: "C", cells: [[""]], alignments: [[null]], range: { rows: 1, cols: 1 } },
+      ],
+      activeSheet: 0,
+    });
+    adapter.reorderSheet(2, 0);
+    expect(adapter.getSnapshot().activeSheet).toBe(1);
+  });
+
   it("setCell で指定シートのセルが更新される", () => {
     const adapter = createInMemoryWorkbookAdapter(EMPTY_WB);
     adapter.setCell(0, 0, 0, "hello");

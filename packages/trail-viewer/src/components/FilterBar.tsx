@@ -6,7 +6,7 @@ import TextField from '@mui/material/TextField';
 import Toolbar from '@mui/material/Toolbar';
 import { useCallback, useMemo } from 'react';
 
-import type { TrailFilter, TrailSession } from '../parser/types';
+import type { TrailFilter, TrailSession } from '../domain/parser/types';
 import { useTrailI18n } from '../i18n';
 import { useTrailTheme } from './TrailThemeContext';
 
@@ -20,11 +20,10 @@ export function FilterBar({ filter, sessions, onChange }: Readonly<FilterBarProp
   const { t } = useTrailI18n();
   const { colors, radius } = useTrailTheme();
 
-  const repositories = useMemo(() => {
+  const workspaces = useMemo(() => {
     const set = new Set<string>();
     for (const s of sessions) {
-      const repo = s.repoName;
-      if (repo) set.add(repo);
+      if (s.workspace) set.add(s.workspace);
     }
     return [...set].sort();
   }, [sessions]);
@@ -36,10 +35,10 @@ export function FilterBar({ filter, sessions, onChange }: Readonly<FilterBarProp
     [filter, onChange],
   );
 
-  const handleRepositoryChange = useCallback(
+  const handleWorkspaceChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
-      onChange({ ...filter, repository: value ? value : undefined });
+      onChange({ ...filter, workspace: value ? value : undefined });
     },
     [filter, onChange],
   );
@@ -87,17 +86,17 @@ export function FilterBar({ filter, sessions, onChange }: Readonly<FilterBarProp
         <TextField
           select
           size="small"
-          label={t('filter.repository')}
-          value={filter.repository ?? ''}
-          onChange={handleRepositoryChange}
+          label={t('filter.workspace')}
+          value={filter.workspace ?? ''}
+          onChange={handleWorkspaceChange}
           sx={{ minWidth: 200 }}
         >
           <MenuItem value="">
             All
           </MenuItem>
-          {repositories.map((r) => (
-            <MenuItem key={r} value={r}>
-              {r}
+          {workspaces.map((w) => (
+            <MenuItem key={w} value={w}>
+              {w}
             </MenuItem>
           ))}
         </TextField>

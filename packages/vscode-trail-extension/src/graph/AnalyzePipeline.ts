@@ -4,21 +4,12 @@ import { analyze } from '@anytime-markdown/trail-core/analyze';
 import { ExecFileGitService } from '@anytime-markdown/trail-db';
 import type { TrailDatabase } from '@anytime-markdown/trail-db';
 
+import { loadAnalyzeExclude, seedAnalyzeExclude } from '@anytime-markdown/trail-core/analyzeExclude';
+
 import { TrailLogger } from '../utils/TrailLogger';
 import type { TrailDataServer } from '../server/TrailDataServer';
 import type { CodeGraphService } from './CodeGraphService';
 import { GraphDetector } from './GraphDetector';
-
-/**
- * C4 / コードグラフ解析時に除外するディレクトリ名パターン。
- * extension.ts の旧 EXCLUDE_PATTERNS と同値。
- */
-export const ANALYZE_EXCLUDE_PATTERNS: readonly string[] = [
-  '.worktrees',
-  '.vscode-test',
-  '__tests__',
-  'fixtures',
-];
 
 const ANALYZE_PHASES = [
   'Loading project...',
@@ -43,7 +34,7 @@ export interface TsconfigCandidate {
  * 複数ある場合の選択は呼び出し側の責務（コマンドは QuickPick、HTTP は 1 件目）。
  */
 export function findTsconfigCandidates(analysisRoot: string): TsconfigCandidate[] {
-  return new GraphDetector(analysisRoot, ANALYZE_EXCLUDE_PATTERNS)
+  return new GraphDetector(analysisRoot, loadAnalyzeExclude(analysisRoot))
     .detectFilesByName('tsconfig.json')
     .map((fsPath) => {
       const rel = path.relative(analysisRoot, fsPath);
@@ -93,9 +84,18 @@ export async function runAnalyzeCurrentCodePipeline(
   trailDataServer.notifyProgress('Loading project...', 0);
   onProgress?.('Loading project...', 0);
 
+  try {
+    const seeded = seedAnalyzeExclude(analysisRoot);
+    if (seeded) {
+      TrailLogger.info(`C4 analysis [${repoName}]: .trail/analyze-exclude created`);
+    }
+  } catch (err) {
+    warnings.push(`seedAnalyzeExclude failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  const excludePatterns = loadAnalyzeExclude(analysisRoot);
   const graph = analyze({
     tsconfigPath,
-    exclude: ANALYZE_EXCLUDE_PATTERNS.map((p) => `**/${p}/**`),
+    exclude: excludePatterns.map((p) => `**/${p}/**`),
     onProgress: (phase) => {
       TrailLogger.info(`C4 analysis [${repoName}]: ${phase}`);
       const percent = phasePercent(phase);
@@ -121,10 +121,11 @@ export async function runAnalyzeCurrentCodePipeline(
     `C4 analysis [${repoName}]: TrailGraph saved to current_graphs (repo=${repoName}, commit=${commitId || 'unknown'})`,
   );
 
+  let importanceResult: Awaited<ReturnType<typeof trailDataServer.computeAndPersistImportance>> = null;
   try {
     onProgress?.('Computing importance scores...');
-    await trailDataServer.computeAndNotifyImportance(tsconfigPath);
-    TrailLogger.info(`C4 analysis [${repoName}]: importance matrix computed and notified`);
+    importanceResult = await trailDataServer.computeAndPersistImportance(tsconfigPath);
+    TrailLogger.info(`C4 analysis [${repoName}]: importance scores computed`);
   } catch (err) {
     const msg = `importance computation failed: ${err instanceof Error ? err.message : String(err)}`;
     TrailLogger.warn(`C4 analysis [${repoName}]: ${msg}`);
@@ -161,6 +162,42 @@ export async function runAnalyzeCurrentCodePipeline(
     warnings.push(msg);
   }
 
+  // .trail/dead-code-ignore をシードする（初回のみ作成）
+  try {
+    onProgress?.('Seeding dead-code-ignore...');
+    const { seedDeadCodeIgnore } = await import('@anytime-markdown/trail-core/deadCode');
+    const seeded = seedDeadCodeIgnore(analysisRoot);
+    if (seeded) {
+      TrailLogger.info(`C4 analysis [${repoName}]: .trail/dead-code-ignore created`);
+    }
+  } catch (err) {
+    warnings.push(`seedDeadCodeIgnore failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // ファイル別・関数別デッドコード解析を current_file_analysis / current_function_analysis に保存
+  try {
+    onProgress?.('Computing file analysis...');
+    if (importanceResult) {
+      const { computeAndPersistFileAnalysis } = await import('./computeAndPersistFileAnalysis.js');
+      const { fileRows, functionRows } = await computeAndPersistFileAnalysis({
+        analysisRoot,
+        repoName,
+        trailDb,
+        scored: importanceResult.scored,
+        lineCountByFile: importanceResult.lineCountByFile,
+      });
+      TrailLogger.info(
+        `C4 analysis [${repoName}]: file_analysis=${fileRows} function_analysis=${functionRows}`,
+      );
+    } else {
+      TrailLogger.warn(`C4 analysis [${repoName}]: skipping file analysis (no importance result)`);
+    }
+  } catch (err) {
+    const msg = `file analysis failed: ${err instanceof Error ? err.message : String(err)}`;
+    TrailLogger.warn(`C4 analysis [${repoName}]: ${msg}`);
+    warnings.push(msg);
+  }
+
   trailDataServer.notifyProgress('', 100);
   onProgress?.('', 100);
 
@@ -191,6 +228,9 @@ export interface AnalyzeReleaseResult {
 /**
  * release 別 C4 / コードグラフ解析パイプライン。
  * 既存 release_code_graphs を全削除して再生成する（洗い替え方式）。
+ *
+ * TODO: release_file_analysis / release_function_analysis への保存は将来タスクで対応する。
+ * リリースごとの dead code 解析は現時点では未実装（Task 13 スコープ外）。
  */
 export async function runAnalyzeReleaseCodePipeline(
   opts: AnalyzeReleaseOpts,

@@ -35,7 +35,11 @@ function persist(map: SeenMap): void {
     try {
         const keys = Object.keys(map);
         if (keys.length > MAX_ENTRIES) {
-            for (let i = 0; i < keys.length - MAX_ENTRIES; i++) delete map[keys[i]];
+            for (let i = 0; i < keys.length - MAX_ENTRIES; i++) {
+            if (Object.prototype.hasOwnProperty.call(map, keys[i])) {
+                delete map[keys[i]];
+            }
+        }
         }
         globalThis.localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
     } catch (e) {

@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import type { SessionRow, MessageRow, SessionCommitRow, ReleaseFileRow, ReleaseFeatureRow, ReleaseRow } from './TrailDatabase';
+import type { SessionRow, MessageRow, SessionCommitRow, ReleaseFileRow, ReleaseRow } from './TrailDatabase';
 import type { IRemoteTrailStore } from './IRemoteTrailStore';
 
 export class PostgresTrailStore implements IRemoteTrailStore {
@@ -20,7 +20,7 @@ export class PostgresTrailStore implements IRemoteTrailStore {
 
   async unsafeClearAll(): Promise<void> {
     const pool = this.ensurePool();
-    // CASCADE により messages / session_commits / session_costs / release_files / release_features も消える
+    // CASCADE により messages / session_commits / session_costs / release_files も消える
     await pool.query('DELETE FROM trail_sessions');
     await pool.query('DELETE FROM trail_releases');
     await pool.query('DELETE FROM trail_daily_counts');
@@ -166,17 +166,17 @@ export class PostgresTrailStore implements IRemoteTrailStore {
     for (const r of rows) {
       await pool.query(
         `INSERT INTO trail_session_commits (
-          session_id, commit_hash, commit_message, author,
+          session_id, repo_name, commit_hash, commit_message, author,
           committed_at, is_ai_assisted, files_changed,
           lines_added, lines_deleted
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        ON CONFLICT (session_id, commit_hash) DO UPDATE SET
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        ON CONFLICT (session_id, repo_name, commit_hash) DO UPDATE SET
           commit_message = EXCLUDED.commit_message, author = EXCLUDED.author,
           committed_at = EXCLUDED.committed_at, is_ai_assisted = EXCLUDED.is_ai_assisted,
           files_changed = EXCLUDED.files_changed,
           lines_added = EXCLUDED.lines_added, lines_deleted = EXCLUDED.lines_deleted`,
         [
-          r.session_id, r.commit_hash, r.commit_message, r.author,
+          r.session_id, r.repo_name, r.commit_hash, r.commit_message, r.author,
           r.committed_at, r.is_ai_assisted, r.files_changed,
           r.lines_added, r.lines_deleted,
         ],
@@ -226,20 +226,6 @@ export class PostgresTrailStore implements IRemoteTrailStore {
           lines_added = EXCLUDED.lines_added, lines_deleted = EXCLUDED.lines_deleted,
           change_type = EXCLUDED.change_type`,
         [r.release_tag, r.file_path, r.lines_added, r.lines_deleted, r.change_type],
-      );
-    }
-  }
-
-  async upsertReleaseFeatures(rows: readonly ReleaseFeatureRow[]): Promise<void> {
-    if (rows.length === 0) return;
-    const pool = this.ensurePool();
-    for (const r of rows) {
-      await pool.query(
-        `INSERT INTO trail_release_features (release_tag, feature_id, feature_name, role)
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (release_tag, feature_id) DO UPDATE SET
-          feature_name = EXCLUDED.feature_name, role = EXCLUDED.role`,
-        [r.release_tag, r.feature_id, r.feature_name, r.role],
       );
     }
   }
@@ -425,6 +411,14 @@ export class PostgresTrailStore implements IRemoteTrailStore {
   async upsertCurrentCoverage(): Promise<never> { throw new Error('PostgresTrailStore.upsertCurrentCoverage not implemented'); }
   async unsafeClearReleaseCoverage(): Promise<never> { throw new Error('PostgresTrailStore.unsafeClearReleaseCoverage not implemented'); }
   async upsertReleaseCoverage(): Promise<never> { throw new Error('PostgresTrailStore.upsertReleaseCoverage not implemented'); }
+  async unsafeClearCurrentFileAnalysis(): Promise<never> { throw new Error('PostgresTrailStore.unsafeClearCurrentFileAnalysis not implemented'); }
+  async upsertCurrentFileAnalysis(): Promise<never> { throw new Error('PostgresTrailStore.upsertCurrentFileAnalysis not implemented'); }
+  async unsafeClearReleaseFileAnalysis(): Promise<never> { throw new Error('PostgresTrailStore.unsafeClearReleaseFileAnalysis not implemented'); }
+  async upsertReleaseFileAnalysis(): Promise<never> { throw new Error('PostgresTrailStore.upsertReleaseFileAnalysis not implemented'); }
+  async unsafeClearCurrentFunctionAnalysis(): Promise<never> { throw new Error('PostgresTrailStore.unsafeClearCurrentFunctionAnalysis not implemented'); }
+  async upsertCurrentFunctionAnalysis(): Promise<never> { throw new Error('PostgresTrailStore.upsertCurrentFunctionAnalysis not implemented'); }
+  async unsafeClearReleaseFunctionAnalysis(): Promise<never> { throw new Error('PostgresTrailStore.unsafeClearReleaseFunctionAnalysis not implemented'); }
+  async upsertReleaseFunctionAnalysis(): Promise<never> { throw new Error('PostgresTrailStore.upsertReleaseFunctionAnalysis not implemented'); }
   async unsafeClearCurrentCodeGraphs(): Promise<never> { throw new Error('PostgresTrailStore.unsafeClearCurrentCodeGraphs not implemented'); }
   async upsertCurrentCodeGraphs(): Promise<never> { throw new Error('PostgresTrailStore.upsertCurrentCodeGraphs not implemented'); }
   async upsertCurrentCodeGraphCommunities(): Promise<never> { throw new Error('PostgresTrailStore.upsertCurrentCodeGraphCommunities not implemented'); }
@@ -433,13 +427,13 @@ export class PostgresTrailStore implements IRemoteTrailStore {
   async upsertReleaseCodeGraphCommunities(): Promise<never> { throw new Error('PostgresTrailStore.upsertReleaseCodeGraphCommunities not implemented'); }
 
   async listManualElements(): Promise<never> { throw new Error('PostgresTrailStore.listManualElements not implemented'); }
-  async upsertCommitFiles(rows: readonly { commit_hash: string; file_path: string }[]): Promise<void> {
+  async upsertCommitFiles(rows: readonly { repo_name: string; commit_hash: string; file_path: string }[]): Promise<void> {
     if (rows.length === 0) return;
     const pool = this.ensurePool();
     for (const r of rows) {
       await pool.query(
-        `INSERT INTO trail_commit_files (commit_hash, file_path) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-        [r.commit_hash, r.file_path],
+        `INSERT INTO trail_commit_files (repo_name, commit_hash, file_path) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+        [r.repo_name, r.commit_hash, r.file_path],
       );
     }
   }
@@ -449,6 +443,9 @@ export class PostgresTrailStore implements IRemoteTrailStore {
   async listManualRelationships(): Promise<never> { throw new Error('PostgresTrailStore.listManualRelationships not implemented'); }
   async upsertManualRelationship(): Promise<never> { throw new Error('PostgresTrailStore.upsertManualRelationship not implemented'); }
   async deleteManualRelationship(): Promise<never> { throw new Error('PostgresTrailStore.deleteManualRelationship not implemented'); }
+  async refreshMaterializedViews(): Promise<void> {
+    // PostgresTrailStore はテスト・移行用途のため Materialized View 関連は no-op。
+  }
 
   private ensurePool(): Pool {
     if (!this.pool) throw new Error('PostgresTrailStore not connected');

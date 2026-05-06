@@ -70,18 +70,18 @@ export class SyncService {
           });
           await this.store.upsertSessions([session]);
 
-          const messages = this.trailDb
-            .getMessages(session.id)
-            .filter((m) => m.timestamp >= messageCutoff);
-          if (messages.length > 0) {
-            await this.store.upsertMessages(messages);
-          }
-
           const commits = this.trailDb.getSessionCommits(session.id);
           await this.store.upsertCommits(commits);
           if (commits.length > 0) {
             const commitFiles = this.trailDb.getCommitFiles(commits.map((c) => c.commit_hash));
             if (commitFiles.length > 0) await this.store.upsertCommitFiles(commitFiles);
+          }
+
+          const messages = this.trailDb
+            .getMessages(session.id)
+            .filter((m) => m.timestamp >= messageCutoff);
+          if (messages.length > 0) {
+            await this.store.upsertMessages(messages);
           }
 
           synced++;
@@ -134,8 +134,6 @@ export class SyncService {
       for (const release of releases) {
         const files = this.trailDb.getReleaseFiles(release.tag);
         if (files.length > 0) await this.store.upsertReleaseFiles(files);
-        const features = this.trailDb.getReleaseFeatures(release.tag);
-        if (features.length > 0) await this.store.upsertReleaseFeatures(features);
       }
     } catch (e) {
       this.logger.error('Failed to sync releases', e);
@@ -239,6 +237,68 @@ export class SyncService {
       }
     } catch (e) {
       this.logger.error('Failed to sync release code graphs', e);
+      errors++;
+    }
+
+    // Sync current_file_analysis（洗い替え）
+    try {
+      onProgress?.({ message: 'Syncing current file analysis...' });
+      const rows = this.trailDb.getAllCurrentFileAnalysis();
+      await this.store.unsafeClearCurrentFileAnalysis();
+      if (rows.length > 0) {
+        await this.store.upsertCurrentFileAnalysis(rows);
+      }
+    } catch (e) {
+      this.logger.error('Failed to sync current file analysis', e);
+      errors++;
+    }
+
+    // Sync release_file_analysis（洗い替え）
+    try {
+      onProgress?.({ message: 'Syncing release file analysis...' });
+      const rows = this.trailDb.getAllReleaseFileAnalysis();
+      await this.store.unsafeClearReleaseFileAnalysis();
+      if (rows.length > 0) {
+        await this.store.upsertReleaseFileAnalysis(rows);
+      }
+    } catch (e) {
+      this.logger.error('Failed to sync release file analysis', e);
+      errors++;
+    }
+
+    // Sync current_function_analysis（洗い替え）
+    try {
+      onProgress?.({ message: 'Syncing current function analysis...' });
+      const rows = this.trailDb.getAllCurrentFunctionAnalysis();
+      await this.store.unsafeClearCurrentFunctionAnalysis();
+      if (rows.length > 0) {
+        await this.store.upsertCurrentFunctionAnalysis(rows);
+      }
+    } catch (e) {
+      this.logger.error('Failed to sync current function analysis', e);
+      errors++;
+    }
+
+    // Sync release_function_analysis（洗い替え）
+    try {
+      onProgress?.({ message: 'Syncing release function analysis...' });
+      const rows = this.trailDb.getAllReleaseFunctionAnalysis();
+      await this.store.unsafeClearReleaseFunctionAnalysis();
+      if (rows.length > 0) {
+        await this.store.upsertReleaseFunctionAnalysis(rows);
+      }
+    } catch (e) {
+      this.logger.error('Failed to sync release function analysis', e);
+      errors++;
+    }
+
+    // Phase 5d/5e: messages の wash-away & insert 完了後に Materialized View を並列 refresh する。
+    // CONCURRENTLY refresh のため import 中もアプリは古いデータで動作可能。
+    try {
+      onProgress?.({ message: 'Refreshing materialized views...' });
+      await this.store.refreshMaterializedViews();
+    } catch (e) {
+      this.logger.error('Failed to refresh materialized views', e);
       errors++;
     }
 

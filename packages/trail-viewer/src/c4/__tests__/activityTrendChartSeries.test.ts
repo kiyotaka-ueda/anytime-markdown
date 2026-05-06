@@ -1,5 +1,5 @@
 import type { ActivityTrendResponse } from '../hooks/fetchActivityTrendApi';
-import { buildActivityTrendSeries } from '../components/ActivityTrendChart';
+import { buildActivityTrendSeries } from '../components/panels/ActivityTrendChart';
 
 function singleSeries(
   granularity: 'commit' | 'session' | 'defect',

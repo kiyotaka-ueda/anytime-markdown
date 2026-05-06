@@ -6,6 +6,18 @@
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-05-06
+
+### 変更
+
+- README から廃止された VS Marketplace バッジを削除
+
+### Editor Core (markdown-core)
+
+- admonition の初期表示崩れと末尾改行累積を解消
+- セキュリティ: CodeQL 検出の remote-property-injection / log-injection を修正
+- `ssrfGuard`・`embedSeenStore`・`embedCache` のテストカバレッジを向上
+
 ## [0.14.0] - 2026-05-04
 
 ### 追加

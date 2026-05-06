@@ -10,7 +10,7 @@ import {
   getTemporalCouplingGranularities,
   shouldShowTemporalCouplingInlineSettings,
   type TemporalCouplingControlsValue,
-} from '../components/TemporalCouplingControls';
+} from '../components/overlays/TemporalCouplingControls';
 
 const baseValue: TemporalCouplingControlsValue = {
   enabled: true,

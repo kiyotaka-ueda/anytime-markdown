@@ -1,7 +1,8 @@
 import type { GraphDocument, GraphNode } from '@anytime-markdown/graph-core';
 import { engine, layoutWithSubgroups, MinimapCanvas, state as graphState } from '@anytime-markdown/graph-core';
 import type { BoundaryInfo, C4Element, C4Model, C4ReleaseEntry, CommunityOverlayEntry, ComplexityMatrix, CoverageDiffMatrix, CoverageMatrix, DocLink, DsmMatrix, FeatureMatrix, HotspotMap, ImportanceMatrix, ManualGroup, MetricOverlay } from '@anytime-markdown/trail-core/c4';
-import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, aggregateHotspotToC4, buildC4ElementById, buildCommunityTree, buildElementTree, buildLevelView, c4ToGraphDocument, collectDescendantIds, computeColorMap, computeCommunityOverlay, computeFileHotspot, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFileToC4Elements, resolveSelectedElementCommunity, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
+import { aggregateDsmToC4ComponentLevel, aggregateDsmToC4ContainerLevel, aggregateDsmToC4SystemLevel, aggregateHotspotToC4, buildC4ElementById, buildCommunityTree, buildElementTree, buildLevelView, buildSizeMatrix, c4ToGraphDocument, collectDescendantIds, computeColorMap, computeCommunityOverlay, computeFileHotspot, filterDsmMatrix, filterModelForDrill, filterTreeByLevel, mapFileToC4Elements, resolveSelectedElementCommunity, sortDsmMatrixByName } from '@anytime-markdown/trail-core/c4';
+import type { SizeMatrix } from '@anytime-markdown/trail-core/c4';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
@@ -21,154 +22,70 @@ import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import { useTrailI18n } from '../../i18n';
-import { DOC_TYPE_COLORS, getC4Colors } from '../c4Theme';
+import { CONTEXT_MENU_SHADOW, DOC_TYPE_COLORS, DOC_TYPE_FALLBACK_COLOR, getC4Colors, LOADING_OVERLAY_BG, POPUP_SHADOW } from '../../theme/c4Tokens';
+import type { FileAnalysisApiEntry } from '../hooks/fetchFileAnalysisApi';
 import { useC4GhostEdges } from '../hooks/useC4GhostEdges';
 import { useDefectRisk } from '../hooks/useDefectRisk';
 import { useHotspot } from '../hooks/useHotspot';
 import { useTemporalCoupling } from '../hooks/useTemporalCoupling';
 import { useElementFunctions } from '../hooks/useElementFunctions';
-import { ResizablePopup, type ResizablePopupSize } from './ResizablePopup';
-
-const UNKNOWN_REPO_KEY = '__unknown__';
-const CURRENT_RELEASE_TAG = 'current';
-const SELECTED_ELEMENT_DETAILS_WIDTH = 240;
-const SELECTED_ELEMENT_DETAILS_RIGHT_OFFSET = 8;
-const TREND_CHART_POPUP_GAP = 8;
-const TREND_CHART_POPUP_MAX_WIDTH = 1000;
-const TREND_CHART_RESERVED_RIGHT_WIDTH =
-  SELECTED_ELEMENT_DETAILS_WIDTH + SELECTED_ELEMENT_DETAILS_RIGHT_OFFSET + TREND_CHART_POPUP_GAP;
-
-type OverlayCategory = 'none' | 'coverage' | 'dsm' | 'complexity' | 'importance' | 'hotspot' | 'fcmap';
-
-// fcmap はサブ項目が MetricOverlay ではなくフィーチャー ID のため除外
-const OVERLAY_CATEGORY_DEFAULTS: Record<Exclude<OverlayCategory, 'none' | 'fcmap'>, MetricOverlay> = {
-  coverage: 'coverage-lines',
-  dsm: 'dsm-out',
-  complexity: 'complexity-most',
-  importance: 'importance',
-  hotspot: 'hotspot-frequency',
-};
-
-export function getActivityTrendChartWidth(hasSelectedElementDetails: boolean): string {
-  return hasSelectedElementDetails
-    ? `min(${TREND_CHART_POPUP_MAX_WIDTH}px, calc(100% - ${TREND_CHART_RESERVED_RIGHT_WIDTH}px))`
-    : `min(${TREND_CHART_POPUP_MAX_WIDTH}px, calc(100% - 16px))`;
-}
-
-export function getActivityTrendChartPlacement() {
-  return {
-    position: 'absolute' as const,
-    left: 8,
-    bottom: 8,
-    zIndex: 9,
-  };
-}
-
-export function canShowManualContextActions(
-  c4Model: C4Model | null,
-  c4Id: string | null,
-): boolean {
-  if (!c4Model || !c4Id) return false;
-  return c4Model.elements.some((element) => element.id === c4Id && element.manual === true);
-}
-
-const DEFAULT_TC_VALUE: TemporalCouplingControlsValue = {
-  enabled: false,
-  windowDays: 30,
-  threshold: 0.5,
-  topK: 50,
-  directional: false,
-  confidenceThreshold: 0.5,
-  directionalDiff: 0.3,
-  granularity: 'commit',
-};
-
-/** チェックボックス非表示フィルタ対象の型（system は常時表示のため除外） */
-const FILTER_CHECKABLE_TYPES = new Set(['container', 'containerDb', 'component'] as const);
-/** ドリルダウン時のスコープに含まれる型 */
-const DRILL_SCOPE_TYPES = new Set(['system', 'container', 'containerDb', 'component'] as const);
-function matchesDocScope(docScope: readonly string[], elementId: string): boolean {
-  return docScope.some(scope => scope === elementId || scope.startsWith(`${elementId}/`));
-}
-function formatPct(value: number): string {
-  return `${Math.round(value)}%`;
-}
+import { DeadCodeDetailSection } from './panels/DeadCodeDetailSection';
+import { fileAnalysisEntriesForElement } from './fileAnalysisEntriesForElement';
+import { ResizablePopup, type ResizablePopupSize } from './widgets/ResizablePopup';
 import GroupWorkIcon from '@mui/icons-material/GroupWork';
 
-import { CodeGraphPanel } from '../../components/CodeGraphPanel';
+import { CodeGraphPanelSkeleton } from '../../components/shared/CodeGraphPanelSkeleton';
+const CodeGraphPanel = lazy(() =>
+  import('../../components/CodeGraphPanel').then((m) => ({ default: m.CodeGraphPanel })),
+);
 import { communityColor } from '../../components/communityColors';
+import { COMMUNITY_ROLE_LABELS, getCommunityRoleBgColors } from '../communityRoleColors';
 import { useCodeGraph } from '../../hooks/useCodeGraph';
 import { computeClaudeActivityColorMap, computeConflictBorderMap,computeMultiAgentColorMap } from '../claudeActivityColorMap';
 import { computeContextMenuCapabilities } from '../utils/contextMenuCapabilities';
-import { ActivityTrendChart } from './ActivityTrendChart';
-import type { C4ElementKind, ElementFormData, RelationshipFormData } from './C4EditDialogs';
-import { AddElementDialog, AddRelationshipDialog } from './C4EditDialogs';
-import { C4ElementTree } from './C4ElementTree';
-import { GraphCanvas } from './GraphCanvas';
-import { HotspotControls, type HotspotControlsValue } from './HotspotControls';
-import { MatrixPanel } from './MatrixPanel';
-import { type CommunityLegendItem,OverlayLegend } from './OverlayLegend';
+import { ActivityTrendChart } from './panels/ActivityTrendChart';
+import { C4DialogsArea } from './C4DialogsArea';
+import type { C4ElementKind, ElementFormData, RelationshipFormData } from './dialogs/C4EditDialogs';
+import { C4ElementTree } from './panels/C4ElementTree';
+import { GraphCanvas } from './canvases/GraphCanvas';
+import { HotspotControls, type HotspotControlsValue } from './overlays/HotspotControls';
+import { MatrixPanel } from './panels/MatrixPanel';
+import { type CommunityLegendItem,OverlayLegend } from './overlays/OverlayLegend';
 import {
   TemporalCouplingSettingsPopup,
   applyGhostEdgeMode,
   type TemporalCouplingControlsValue,
-} from './TemporalCouplingControls';
+} from './overlays/TemporalCouplingControls';
 
-const { graphReducer, createInitialState } = graphState;
-const { fitToContent } = engine;
+import {
+  CURRENT_RELEASE_TAG,
+  DEFAULT_TC_VALUE,
+  DRILL_SCOPE_TYPES,
+  FILTER_CHECKABLE_TYPES,
+  SELECTED_ELEMENT_DETAILS_RIGHT_OFFSET,
+  SELECTED_ELEMENT_DETAILS_WIDTH,
+  TREND_CHART_POPUP_GAP,
+  TREND_CHART_POPUP_MAX_WIDTH,
+  TREND_CHART_RESERVED_RIGHT_WIDTH,
+  UNKNOWN_REPO_KEY,
+} from '../constants';
+import { OVERLAY_CATEGORY_DEFAULTS, type OverlayCategory } from '../state/overlayCategories';
+import { createInitialState, graphReducer } from '../state/graphReducer';
+import {
+  canShowManualContextActions,
+  computeBounds,
+  fitToContent,
+  formatPct,
+  getActivityTrendChartPlacement,
+  getActivityTrendChartWidth,
+  matchesDocScope,
+} from '../utils/c4ViewerHelpers';
+import type { C4ViewerCoreProps } from './types';
 
-/** Bounding box of a set of graph nodes */
-function computeBounds(nodes: readonly GraphNode[]) {
-  if (nodes.length === 0) return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  for (const n of nodes) {
-    if (n.x < minX) minX = n.x;
-    if (n.y < minY) minY = n.y;
-    if (n.x + n.width > maxX) maxX = n.x + n.width;
-    if (n.y + n.height > maxY) maxY = n.y + n.height;
-  }
-  return { minX, minY, maxX, maxY };
-}
-
-export interface C4ViewerCoreProps {
-  readonly isDark?: boolean;
-  readonly c4Model: C4Model | null;
-  readonly boundaries: readonly BoundaryInfo[];
-  readonly featureMatrix: FeatureMatrix | null;
-  readonly dsmMatrix: DsmMatrix | null;
-  readonly coverageMatrix: CoverageMatrix | null;
-  readonly coverageDiff: CoverageDiffMatrix | null;
-  readonly complexityMatrix?: ComplexityMatrix | null;
-  readonly importanceMatrix?: ImportanceMatrix | null;
-  readonly docLinks?: readonly DocLink[];
-  readonly connected?: boolean;
-  readonly analysisProgress?: { phase: string; percent: number } | null;
-  readonly onAddElement?: (data: ElementFormData) => void;
-  readonly onUpdateElement?: (id: string, data: ElementFormData) => void;
-  readonly onAddRelationship?: (data: RelationshipFormData) => void;
-  readonly onRemoveElement?: (id: string) => void;
-  readonly onPurgeDeleted?: () => void;
-  readonly onDocLinkClick?: (doc: DocLink) => void;
-  readonly onOpenFile?: (filePath: string) => void;
-  /** L3 component 右クリックの「シーケンス表示」を選択したときのコールバック。 */
-  readonly onShowSequence?: (elementId: string) => void;
-  readonly containerHeight?: string;
-  readonly releases?: readonly C4ReleaseEntry[];
-  readonly selectedRelease?: string;
-  readonly onReleaseSelect?: (release: string) => void;
-  readonly selectedRepo?: string;
-  readonly onRepoSelect?: (repo: string) => void;
-  readonly serverUrl?: string;
-  readonly claudeActivity?: import('../hooks/useC4DataSource').ClaudeActivityState | null;
-  readonly multiAgentActivity?: import('../hooks/useC4DataSource').MultiAgentActivityState | null;
-  readonly onResetClaudeActivity?: () => void;
-  readonly manualGroups?: readonly ManualGroup[];
-  /** 初期表示 C4 レベル（1=L1 Context, 2=L2 Container, 3=L3 Component, 4=L4 Code）*/
-  readonly initialLevel?: number;
-}
+export type { C4ViewerCoreProps };
 
 export function C4ViewerCore({
   isDark = false,
@@ -179,6 +96,8 @@ export function C4ViewerCore({
   coverageMatrix,
   complexityMatrix,
   importanceMatrix,
+  deadCodeMatrix,
+  fileAnalysisEntries = [],
   docLinks,
   connected,
   analysisProgress,
@@ -306,7 +225,6 @@ export function C4ViewerCore({
     }
   }, []);
   const [metricOverlay, setMetricOverlay] = useState<MetricOverlay>('none');
-  const [selectedFcmapFeatureId, setSelectedFcmapFeatureId] = useState<string | null>(null);
   const [overlayCategory, setOverlayCategory] = useState<OverlayCategory>('none');
   const [drWindowDays, setDrWindowDays] = useState(90);
   const [tcValue, setTcValue] = useState<TemporalCouplingControlsValue>(DEFAULT_TC_VALUE);
@@ -360,7 +278,7 @@ export function C4ViewerCore({
   const [showCommunity, setShowCommunity] = useState(false);
   const [codeGraphEnabled, setCodeGraphEnabled] = useState(false);
   const [showActivityTrend, setShowActivityTrend] = useState(false);
-  const { graph: codeGraph } = useCodeGraph(serverUrl, {
+  const { graph: codeGraph, loading: codeGraphLoading } = useCodeGraph(serverUrl, {
     enabled: showCommunity || codeGraphEnabled || currentLevel >= 2,
     release: selectedRelease,
     repo: selectedRepo,
@@ -380,6 +298,11 @@ export function C4ViewerCore({
   // 0 = Fit 不要。正値の間は SET_DOCUMENT に fit viewport を埋め込む。
   // setTimeout は React スケジューラと競合するため使わず、カウントダウン方式にする。
   const pendingFitCountRef = useRef(0);
+  // Drill Up 後にセンタリングするターゲット c4Id。null = 全体 Fit のまま。
+  const pendingCenterC4IdRef = useRef<string | null>(null);
+  // state.document を effect から安全に読むための ref（selectedCommunityInfo effect 用）
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   // --- Editing state ---
   const [addElementType, setAddElementType] = useState<C4ElementKind | null>(null);
@@ -390,25 +313,16 @@ export function C4ViewerCore({
     setOverlayCategory(cat);
     if (cat === 'none') {
       setMetricOverlay('none');
-    } else if (cat === 'fcmap') {
-      setMetricOverlay('fcmap');
     } else {
       setMetricOverlay(OVERLAY_CATEGORY_DEFAULTS[cat]);
     }
   }, []);
-
-  useEffect(() => {
-    if (!featureMatrix && overlayCategory === 'fcmap') {
-      handleOverlayCategoryChange('none');
-    }
-  }, [featureMatrix, overlayCategory, handleOverlayCategoryChange]);
 
   // リポジトリ切替時は overlay 関連の選択を初期化する
   // （前のリポジトリ向けの選択が新リポジトリで無効になり、ユーザーに混乱を与えるため）
   useEffect(() => {
     setOverlayCategory('none');
     setMetricOverlay('none');
-    setSelectedFcmapFeatureId(null);
   }, [selectedRepo]);
 
 
@@ -513,7 +427,22 @@ export function C4ViewerCore({
       const canvas = canvasRef.current;
       if (canvas && canvas.clientWidth > 0 && canvas.clientHeight > 0) {
         const bounds = computeBounds(viewDoc.nodes);
-        const viewport = fitToContent(canvas.clientWidth, canvas.clientHeight, bounds);
+        let viewport = fitToContent(canvas.clientWidth, canvas.clientHeight, bounds);
+        // Drill Up 後: 全体フィットのスケールを維持しつつ、ターゲット要素を中央に寄せる
+        const centerTarget = pendingCenterC4IdRef.current;
+        if (centerTarget) {
+          const targetNode = viewDoc.nodes.find(n => (n.metadata?.c4Id as string | undefined) === centerTarget);
+          if (targetNode) {
+            pendingCenterC4IdRef.current = null;
+            const cx = targetNode.x + targetNode.width / 2;
+            const cy = targetNode.y + targetNode.height / 2;
+            viewport = {
+              ...viewport,
+              offsetX: canvas.clientWidth / 2 - cx * viewport.scale,
+              offsetY: canvas.clientHeight / 2 - cy * viewport.scale,
+            };
+          }
+        }
         viewDoc = { ...viewDoc, viewport };
       }
     }
@@ -629,6 +558,11 @@ export function C4ViewerCore({
   const handleDrillUp = useCallback(() => {
     const entry = drillStack.at(-1);
     if (entry?.prevLevel !== undefined) setCurrentLevel(entry.prevLevel);
+    // Drill Up 後、元の drill 起点要素を画面中央にセンタリングする
+    if (entry) {
+      pendingCenterC4IdRef.current = entry.element.id;
+      pendingFitCountRef.current = 5;
+    }
     setDrillStack((prev) => prev.slice(0, -1));
     setCheckedPackageIds(null);
     setCheckReset(prev => ({ key: prev.key + 1, ids: entry?.prevCheckedIds ?? null, expanded: null }));
@@ -724,16 +658,31 @@ export function C4ViewerCore({
     return Object.keys(importanceMatrix).some((id) => ids.has(id));
   }, [importanceMatrix, c4Model]);
 
+  // sizeMatrix は isCategoryDataAvailable の依存配列で参照するため先に宣言する
+  const sizeMatrix = useMemo<SizeMatrix | null>(() => {
+    if (!fileAnalysisEntries || fileAnalysisEntries.length === 0 || !c4Model) return null;
+    const sizeEntries = fileAnalysisEntries
+      .filter((r) => r.lineCount > 0)
+      .map((r) => ({
+        elementId: `file::${r.filePath}`,
+        lineCount: r.lineCount,
+        functionCount: r.functionCount,
+      }));
+    if (sizeEntries.length === 0) return null;
+    return buildSizeMatrix(sizeEntries, c4Model.elements);
+  }, [fileAnalysisEntries, c4Model]);
+
   const isCategoryDataAvailable = useMemo(() => {
     // 空 entries / 空 nodes も「データなし」として扱う（サーバーが空マトリクスを返すケースに備える）
     if (overlayCategory === 'coverage') return !!coverageMatrix && coverageMatrix.entries.length > 0;
     if (overlayCategory === 'dsm') return !!filteredDsmMatrix && filteredDsmMatrix.nodes.length > 0;
-    if (overlayCategory === 'complexity') return !!complexityMatrix && complexityMatrix.entries.length > 0;
+    if (overlayCategory === 'edit-complexity') return !!complexityMatrix && complexityMatrix.entries.length > 0;
     if (overlayCategory === 'importance') return hasImportanceData;
     if (overlayCategory === 'hotspot') {
       if (!hotspotResponse) return true;
       return hotspotResponse.files.length > 0;
     }
+    // size: dead-code と同様に常に true。個別 MenuItem の disabled={!sizeMatrix} で制御する
     return true;
   }, [overlayCategory, coverageMatrix, filteredDsmMatrix, complexityMatrix, hasImportanceData, hotspotResponse]);
 
@@ -820,28 +769,33 @@ export function C4ViewerCore({
     return filtered;
   }, [hotspotMap, c4Model, elementTypeById, levelTargetType]);
 
-  const overlayMap = useMemo(
-    () => computeColorMap(metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap),
-    [metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap],
-  );
-
-  // F-cMap overlay: 選択フィーチャーの P/S/D ロールをノード色として返す
-  const fcmapColorMap = useMemo<ReadonlyMap<string, string>>(() => {
-    if (metricOverlay !== 'fcmap' || !featureMatrix || !selectedFcmapFeatureId) return new Map();
-    const ROLE_COLORS: Record<string, string> = { primary: '#e53935', secondary: '#1e88e5', dependency: '#fb8c00' };
-    const map = new Map<string, string>();
-    for (const m of featureMatrix.mappings) {
-      if (m.featureId === selectedFcmapFeatureId) {
-        map.set(m.elementId, ROLE_COLORS[m.role] ?? '#616161');
-      }
+  // dead-code-score も importance と同じく現在表示レベルの要素タイプにのみ
+  // 着色する（boundary フレームに色が伝播するのを防ぐ）
+  const levelFilteredDeadCodeMatrix = useMemo<Record<string, number> | null>(() => {
+    if (!deadCodeMatrix || !c4Model) return deadCodeMatrix ?? null;
+    const filtered: Record<string, number> = {};
+    for (const [id, score] of Object.entries(deadCodeMatrix)) {
+      if (elementTypeById.get(id) === levelTargetType) filtered[id] = score;
     }
-    return map;
-  }, [metricOverlay, featureMatrix, selectedFcmapFeatureId]);
+    return filtered;
+  }, [deadCodeMatrix, c4Model, elementTypeById, levelTargetType]);
 
-  const effectiveOverlayMap = useMemo(
-    () => (metricOverlay === 'fcmap' ? fcmapColorMap : overlayMap),
-    [metricOverlay, fcmapColorMap, overlayMap],
+  // サイズメトリクス (LOC / files / functions) — sizeMatrix は上で宣言済み
+  const levelFilteredSizeMatrix = useMemo<SizeMatrix | null>(() => {
+    if (!sizeMatrix || !c4Model) return sizeMatrix;
+    const filtered: SizeMatrix = {};
+    for (const [id, entry] of Object.entries(sizeMatrix)) {
+      if (elementTypeById.get(id) === levelTargetType) filtered[id] = entry;
+    }
+    return filtered;
+  }, [sizeMatrix, c4Model, elementTypeById, levelTargetType]);
+
+  const overlayMap = useMemo(
+    () => computeColorMap(metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap, levelFilteredDeadCodeMatrix, levelFilteredSizeMatrix),
+    [metricOverlay, levelFilteredCoverageMatrix, filteredDsmMatrix, levelFilteredComplexityMatrix, levelFilteredImportanceMatrix, levelFilteredDefectRiskMap, levelFilteredHotspotMap, levelFilteredDeadCodeMatrix, levelFilteredSizeMatrix],
   );
+
+  const effectiveOverlayMap = overlayMap;
 
   // Community overlay: L3/L4 のみ。トグル ON かつ codeGraph が取得済みのときのみ計算する
   const communityOverlay = useMemo<ReadonlyMap<string, CommunityOverlayEntry> | null>(() => {
@@ -895,14 +849,78 @@ export function C4ViewerCore({
     };
   }, [selectedElementId, communityTree, codeGraph]);
 
+  const communityOverlayRef = useRef(communityOverlay);
+  communityOverlayRef.current = communityOverlay;
+  const featureMatrixRef = useRef(featureMatrix);
+  featureMatrixRef.current = featureMatrix;
+
+  // Community パネルで community 選択時に、その community の Primary 要素を画面中央にセンタリング
+  useEffect(() => {
+    if (!selectedCommunityInfo) return;
+    const overlay = communityOverlayRef.current;
+    const fm = featureMatrixRef.current;
+    if (!overlay || !fm) return;
+    const cid = selectedCommunityInfo.cid;
+    const featureId = `f_community_${cid}`;
+    let primaryC4Id: string | null = null;
+    let firstC4Id: string | null = null;
+    for (const [elementId, entry] of overlay) {
+      if (entry.dominantCommunity !== cid) continue;
+      if (firstC4Id === null) firstC4Id = elementId;
+      const role = fm.mappings.find(
+        m => m.featureId === featureId && m.elementId === elementId,
+      )?.role ?? null;
+      if (role === 'primary') { primaryC4Id = elementId; break; }
+    }
+    const targetC4Id = primaryC4Id ?? firstC4Id;
+    if (!targetC4Id) return;
+    const doc = stateRef.current.document;
+    const targetNode = doc.nodes.find(
+      n => (n.metadata?.c4Id as string | undefined) === targetC4Id,
+    );
+    if (!targetNode) return;
+    const canvas = canvasRef.current;
+    if (!canvas || canvas.clientWidth === 0) return;
+    const vp = doc.viewport;
+    dispatch({
+      type: 'SET_VIEWPORT',
+      viewport: {
+        ...vp,
+        offsetX: canvas.clientWidth / 2 - (targetNode.x + targetNode.width / 2) * vp.scale,
+        offsetY: canvas.clientHeight / 2 - (targetNode.y + targetNode.height / 2) * vp.scale,
+      },
+    });
+  }, [selectedCommunityInfo, dispatch, canvasRef]);
+
   const communityMap = useMemo(() => {
     if (!communityOverlay) return null;
+    // community パネルで特定 community を選択中はそれ以外の塗りつぶしを除外する
+    const filterCid = selectedCommunityInfo?.cid ?? null;
     const map = new Map<string, { color: string; isGodNode: boolean }>();
     for (const [elementId, entry] of communityOverlay) {
+      if (filterCid !== null && entry.dominantCommunity !== filterCid) continue;
       map.set(elementId, { color: communityColor(entry.dominantCommunity), isGodNode: entry.isGodNode });
     }
     return map.size > 0 ? map : null;
-  }, [communityOverlay]);
+  }, [communityOverlay, selectedCommunityInfo]);
+
+  // community ON 時に各ノードへ P/S/D バッジラベルをマップする
+  const communityRoleBadgeMap = useMemo<ReadonlyMap<string, string> | null>(() => {
+    if (!communityOverlay || !featureMatrix) return null;
+    const filterCid = selectedCommunityInfo?.cid ?? null;
+    const map = new Map<string, string>();
+    for (const [elementId, entry] of communityOverlay) {
+      if (filterCid !== null && entry.dominantCommunity !== filterCid) continue;
+      const featureId = `f_community_${entry.dominantCommunity}`;
+      const role = featureMatrix.mappings.find(
+        m => m.featureId === featureId && m.elementId === elementId,
+      )?.role ?? null;
+      if (role) {
+        map.set(elementId, COMMUNITY_ROLE_LABELS[role as keyof typeof COMMUNITY_ROLE_LABELS] ?? role);
+      }
+    }
+    return map.size > 0 ? map : null;
+  }, [communityOverlay, featureMatrix, selectedCommunityInfo]);
 
   const communityLegend = useMemo<readonly CommunityLegendItem[] | null>(() => {
     if (!communityOverlay || !codeGraph) return null;
@@ -1128,6 +1146,7 @@ export function C4ViewerCore({
     drillStack,
     hasShowSequenceHandler: onShowSequence !== undefined,
     canShowManualContextActions,
+    levelTargetType,
   });
 
   return (
@@ -1144,7 +1163,7 @@ export function C4ViewerCore({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            bgcolor: 'rgba(0,0,0,0.6)',
+            bgcolor: LOADING_OVERLAY_BG,
             backdropFilter: 'blur(4px)',
           }}
         >
@@ -1202,6 +1221,7 @@ export function C4ViewerCore({
             onPurgeDeleted={onPurgeDeleted}
             isDark={isDark}
             communityTree={communityTree}
+            communityLoading={codeGraphLoading && !codeGraph}
             onCommunityTabOpen={() => setCodeGraphEnabled(true)}
           />
         )}
@@ -1219,6 +1239,7 @@ export function C4ViewerCore({
                 overlayMap={effectiveOverlayMap.size > 0 ? effectiveOverlayMap : null}
                 claudeActivityMap={claudeActivityMapWithConflicts}
                 communityMap={communityMap}
+                communityRoleBadgeMap={communityRoleBadgeMap}
                 ghostEdges={
                   tcValue.enabled && (currentLevel === 3 || currentLevel === 4)
                     ? ghostEdges.map((e) => ({
@@ -1274,8 +1295,8 @@ export function C4ViewerCore({
                     width: 220,
                     border: `1px solid ${colors.border}`,
                     borderRadius: '8px',
-                    bgcolor: isDark ? 'rgba(18,18,18,0.92)' : 'rgba(251,249,243,0.94)',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                    bgcolor: colors.popupBg,
+                    boxShadow: POPUP_SHADOW,
                     backdropFilter: 'blur(10px)',
                     px: 1.5,
                     py: 1.25,
@@ -1377,21 +1398,24 @@ export function C4ViewerCore({
                         </IconButton>
                       </span>
                     </Tooltip>
+                    {/* Clear Edit History */}
+                    <Tooltip title={t('c4.claudeActivity.reset')}>
+                      <span>
+                        <IconButton
+                          size="small"
+                          disabled={
+                            !(claudeActivity && (claudeActivity.activeElementIds.length > 0 || claudeActivity.touchedElementIds.length > 0 || claudeActivity.plannedElementIds.length > 0)) &&
+                            !(multiAgentActivity && multiAgentActivity.agents.length > 0)
+                          }
+                          onClick={onResetClaudeActivity}
+                          aria-label={t('c4.claudeActivity.reset')}
+                          sx={toolbarButtonSx}
+                        >
+                          <DeleteSweepIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
                   </Box>
-                  {/* Clear Edit History */}
-                  <Button
-                    size="small"
-                    fullWidth
-                    startIcon={<DeleteSweepIcon sx={{ fontSize: 16 }} />}
-                    disabled={
-                      !(claudeActivity && (claudeActivity.activeElementIds.length > 0 || claudeActivity.touchedElementIds.length > 0 || claudeActivity.plannedElementIds.length > 0)) &&
-                      !(multiAgentActivity && multiAgentActivity.agents.length > 0)
-                    }
-                    onClick={onResetClaudeActivity}
-                    sx={{ ...toolbarButtonSx, fontSize: '0.75rem', justifyContent: 'flex-start' }}
-                  >
-                    {t('c4.claudeActivity.reset')}
-                  </Button>
                   {/* Overlay ドロップダウン */}
                   <Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.5, mb: 0.5 }}>
@@ -1452,12 +1476,13 @@ export function C4ViewerCore({
                       aria-label={t('c4.overlay.label')}
                     >
                       <MenuItem value="none" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.none')}</MenuItem>
-                      <MenuItem value="coverage" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupCoverage')}</MenuItem>
                       <MenuItem value="dsm" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupDsm')}</MenuItem>
-                      <MenuItem value="complexity" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupComplexity')}</MenuItem>
+                      <MenuItem value="size" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupSize')}</MenuItem>
+                      <MenuItem value="coverage" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupCoverage')}</MenuItem>
                       <MenuItem value="importance" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupImportance')}</MenuItem>
+                      <MenuItem value="edit-complexity" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupEditComplexity')}</MenuItem>
+                      <MenuItem value="dead-code" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupDeadCode')}</MenuItem>
                       <MenuItem value="hotspot" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.groupHotspot')}</MenuItem>
-                      {featureMatrix && <MenuItem value="fcmap" sx={{ fontSize: '0.75rem' }}>F-cMap</MenuItem>}
                     </Select>
                   </Box>
                   {overlayCategory !== 'none' && (
@@ -1466,16 +1491,9 @@ export function C4ViewerCore({
                         size="small"
                         fullWidth
                         disabled={!isCategoryDataAvailable}
-                        value={!isCategoryDataAvailable ? '' : overlayCategory === 'fcmap'
-                          ? (selectedFcmapFeatureId ?? featureMatrix?.features[0]?.id ?? '')
-                          : metricOverlay
-                        }
+                        value={!isCategoryDataAvailable ? '' : metricOverlay}
                         onChange={(e) => {
-                          if (overlayCategory === 'fcmap') {
-                            setSelectedFcmapFeatureId(e.target.value);
-                          } else {
-                            setMetricOverlay(e.target.value as MetricOverlay);
-                          }
+                          setMetricOverlay(e.target.value as MetricOverlay);
                         }}
                         sx={{ fontSize: '0.75rem', height: 28, '.MuiSelect-select': { py: 0, px: 1 } }}
                         aria-label="overlay-sub"
@@ -1493,9 +1511,9 @@ export function C4ViewerCore({
                           <MenuItem key="in" value="dsm-in" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmIn')}</MenuItem>,
                           <MenuItem key="cyclic" value="dsm-cyclic" disabled={!filteredDsmMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.dsmCyclic')}</MenuItem>,
                         ]}
-                        {overlayCategory === 'complexity' && isCategoryDataAvailable && [
-                          <MenuItem key="most" value="complexity-most" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.complexityMost')}</MenuItem>,
-                          <MenuItem key="highest" value="complexity-highest" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.complexityHighest')}</MenuItem>,
+                        {overlayCategory === 'edit-complexity' && isCategoryDataAvailable && [
+                          <MenuItem key="most" value="edit-complexity-most" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.editComplexityMost')}</MenuItem>,
+                          <MenuItem key="highest" value="edit-complexity-highest" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.editComplexityHighest')}</MenuItem>,
                         ]}
                         {overlayCategory === 'importance' && [
                           <MenuItem key="importance" value="importance" disabled={!importanceMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.importance')}</MenuItem>,
@@ -1505,9 +1523,14 @@ export function C4ViewerCore({
                           <MenuItem key="frequency" value="hotspot-frequency" sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotFrequency')}</MenuItem>,
                           <MenuItem key="risk" value="hotspot-risk" disabled={!complexityMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.hotspotRisk')}</MenuItem>,
                         ]}
-                        {overlayCategory === 'fcmap' && featureMatrix?.features.map((f) => (
-                          <MenuItem key={f.id} value={f.id} sx={{ fontSize: '0.75rem' }}>{f.name}</MenuItem>
-                        ))}
+                        {overlayCategory === 'dead-code' && [
+                          <MenuItem key="dead-code-score" value="dead-code-score" disabled={!deadCodeMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.deadCodeScore')}</MenuItem>,
+                        ]}
+                        {overlayCategory === 'size' && [
+                          <MenuItem key="size-loc" value="size-loc" disabled={!sizeMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.sizeLoc')}</MenuItem>,
+                          <MenuItem key="size-files" value="size-files" disabled={!sizeMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.sizeFiles')}</MenuItem>,
+                          <MenuItem key="size-functions" value="size-functions" disabled={!sizeMatrix} sx={{ fontSize: '0.75rem' }}>{t('c4.overlay.sizeFunctions')}</MenuItem>,
+                        ]}
                       </Select>
                     </Box>
                   )}
@@ -1605,7 +1628,9 @@ export function C4ViewerCore({
                   i18nClose={t('c4.popup.close')}
                   i18nResize={t('c4.popup.resize')}
                 >
-                  <CodeGraphPanel serverUrl={serverUrl} isDark={isDark} tcValue={tcValue} />
+                  <Suspense fallback={<CodeGraphPanelSkeleton />}>
+                    <CodeGraphPanel serverUrl={serverUrl} isDark={isDark} tcValue={tcValue} />
+                  </Suspense>
                 </ResizablePopup>
               )}
               {selectedElementIds.length > 1 && c4Model && (
@@ -1622,9 +1647,9 @@ export function C4ViewerCore({
                     zIndex: 10,
                     border: `1px solid ${colors.border}`,
                     borderRadius: '8px',
-                    bgcolor: isDark ? 'rgba(18,18,18,0.92)' : 'rgba(251,249,243,0.94)',
+                    bgcolor: colors.popupBg,
                     color: colors.text,
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                    boxShadow: POPUP_SHADOW,
                     backdropFilter: 'blur(10px)',
                     px: 1.5,
                     py: 1.25,
@@ -1663,9 +1688,9 @@ export function C4ViewerCore({
                     zIndex: 10,
                     border: `1px solid ${colors.border}`,
                     borderRadius: '8px',
-                    bgcolor: isDark ? 'rgba(18,18,18,0.92)' : 'rgba(251,249,243,0.94)',
+                    bgcolor: colors.popupBg,
                     color: colors.text,
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                    boxShadow: POPUP_SHADOW,
                     backdropFilter: 'blur(10px)',
                     px: 1.5,
                     py: 1.25,
@@ -1826,6 +1851,20 @@ export function C4ViewerCore({
                     const topThree = community.breakdown.slice(0, 3);
                     const otherCount = community.breakdown.slice(3).reduce((sum, e) => sum + e.count, 0);
                     const totalCount = community.breakdown.reduce((sum, e) => sum + e.count, 0);
+                    const elementId = selectedElementInfo.element.id;
+                    const getRoleForCommunity = (communityId: number) => {
+                      if (!featureMatrix) return null;
+                      const featureId = `f_community_${communityId}`;
+                      return featureMatrix.mappings.find(
+                        m => m.featureId === featureId && m.elementId === elementId,
+                      )?.role ?? null;
+                    };
+                    const roleBgColors = getCommunityRoleBgColors();
+                    const roleBgColor = (role: string) =>
+                      roleBgColors[role as keyof typeof roleBgColors] ?? roleBgColors.dependency;
+                    const roleLabel = (role: string) =>
+                      COMMUNITY_ROLE_LABELS[role as keyof typeof COMMUNITY_ROLE_LABELS] ?? role;
+                    const dominantRole = getRoleForCommunity(community.dominantCommunity);
                     return (
                       <Box sx={{ borderTop: `1px solid ${colors.border}`, mt: 1.25, pt: 1 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
@@ -1843,11 +1882,16 @@ export function C4ViewerCore({
                             </IconButton>
                           </Tooltip>
                         </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
                           <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: dominantColor, flexShrink: 0 }} />
                           <Typography variant="body2" sx={{ color: colors.text, fontSize: '0.74rem', fontWeight: 600, wordBreak: 'break-word' }}>
                             {displayName}
                           </Typography>
+                          {dominantRole && (
+                            <Typography variant="caption" sx={{ display: 'inline-block', px: 0.5, py: 0.125, borderRadius: '4px', bgcolor: roleBgColor(dominantRole), color: '#fff', fontSize: '0.6rem', fontWeight: 700 }}>
+                              {roleLabel(dominantRole)}
+                            </Typography>
+                          )}
                         </Box>
                         {summary?.summary && (
                           <Typography variant="caption" sx={{ display: 'block', color: colors.textSecondary, fontSize: '0.66rem', mt: 0.5, lineHeight: 1.4 }}>
@@ -1868,6 +1912,7 @@ export function C4ViewerCore({
                               const entrySummary = codeGraph?.communitySummaries?.[entry.community];
                               const entryFallback = codeGraph?.communities[entry.community];
                               const entryName = entrySummary?.name ?? entryFallback ?? `#${entry.community}`;
+                              const entryRole = getRoleForCommunity(entry.community);
                               const tooltipLabel = (
                                 <Box>
                                   <Box sx={{ fontWeight: 700, fontSize: '0.72rem' }}>
@@ -1890,6 +1935,11 @@ export function C4ViewerCore({
                                     <Box sx={{ flex: 1, height: 4, bgcolor: colors.hover, borderRadius: '2px', overflow: 'hidden' }}>
                                       <Box sx={{ width: `${(entry.count / totalCount) * 100}%`, height: '100%', bgcolor: communityColor(entry.community) }} />
                                     </Box>
+                                    {entryRole && (
+                                      <Typography variant="caption" sx={{ px: 0.4, py: 0.1, borderRadius: '3px', bgcolor: roleBgColor(entryRole), color: '#fff', fontSize: '0.58rem', fontWeight: 700, lineHeight: 1.2 }}>
+                                        {roleLabel(entryRole)}
+                                      </Typography>
+                                    )}
                                     <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.6rem', minWidth: 32, textAlign: 'right' }}>
                                       {Math.round((entry.count / totalCount) * 100)}%
                                     </Typography>
@@ -1951,7 +2001,7 @@ export function C4ViewerCore({
                                 sx={{
                                   fontSize: '0.58rem',
                                   fontWeight: 700,
-                                  color: isDark ? '#7ec8e3' : '#0070c0',
+                                  color: colors.codeLink,
                                   flexShrink: 0,
                                   textTransform: 'uppercase',
                                 }}
@@ -2017,7 +2067,7 @@ export function C4ViewerCore({
                                 px: 0.5,
                                 mr: 0.75,
                                 borderRadius: '4px',
-                                bgcolor: DOC_TYPE_COLORS[doc.type] ?? '#757575',
+                                bgcolor: DOC_TYPE_COLORS[doc.type] ?? DOC_TYPE_FALLBACK_COLOR,
                                 color: '#000',
                                 fontSize: '0.58rem',
                                 fontWeight: 700,
@@ -2034,6 +2084,14 @@ export function C4ViewerCore({
                       </Box>
                     )}
                   </Box>
+                  <DeadCodeDetailSection
+                    entries={selectedElementInfo
+                      ? fileAnalysisEntriesForElement(fileAnalysisEntries, selectedElementInfo.element.id, c4Model?.elements ?? [])
+                      : []}
+                    t={t as (key: string) => string}
+                    colors={colors}
+                    onFileOpen={(filePath) => onOpenFile?.(filePath)}
+                  />
                 </Box>
               )}
               {selectedCommunityInfo && !selectedElementInfo && (
@@ -2050,9 +2108,9 @@ export function C4ViewerCore({
                     zIndex: 10,
                     border: `1px solid ${colors.border}`,
                     borderRadius: '8px',
-                    bgcolor: isDark ? 'rgba(18,18,18,0.92)' : 'rgba(251,249,243,0.94)',
+                    bgcolor: colors.popupBg,
                     color: colors.text,
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                    boxShadow: POPUP_SHADOW,
                     backdropFilter: 'blur(10px)',
                     px: 1.5,
                     py: 1.25,
@@ -2116,10 +2174,10 @@ export function C4ViewerCore({
                       top: contextMenu.y,
                       left: contextMenu.x,
                       zIndex: 1001,
-                      background: isDark ? '#2d2d2d' : '#ffffff',
-                      border: `1px solid ${isDark ? '#555' : '#ccc'}`,
+                      background: colors.contextMenuBg,
+                      border: `1px solid ${colors.contextMenuBorder}`,
                       borderRadius: 4,
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                      boxShadow: CONTEXT_MENU_SHADOW,
                       minWidth: 140,
                       padding: '4px 0',
                     }}
@@ -2137,7 +2195,7 @@ export function C4ViewerCore({
                           border: 'none',
                           cursor: 'pointer',
                           fontSize: 14,
-                          color: isDark ? '#e0e0e0' : '#333',
+                          color: colors.contextMenuText,
                         }}
                         onClick={() => handleDrillDown(contextMenu.c4Id)}
                       >
@@ -2156,7 +2214,7 @@ export function C4ViewerCore({
                           border: 'none',
                           cursor: 'pointer',
                           fontSize: 14,
-                          color: isDark ? '#e0e0e0' : '#333',
+                          color: colors.contextMenuText,
                         }}
                         onClick={handleDrillUp}
                       >
@@ -2175,7 +2233,7 @@ export function C4ViewerCore({
                           border: 'none',
                           cursor: 'pointer',
                           fontSize: 14,
-                          color: isDark ? '#e0e0e0' : '#333',
+                          color: colors.contextMenuText,
                         }}
                         onClick={() =>
                           soloFrameId === contextMenu.c4Id
@@ -2200,7 +2258,7 @@ export function C4ViewerCore({
                           border: 'none',
                           cursor: 'pointer',
                           fontSize: 14,
-                          color: isDark ? '#e0e0e0' : '#333',
+                          color: colors.contextMenuText,
                         }}
                         onClick={handleOpenFile}
                       >
@@ -2219,7 +2277,7 @@ export function C4ViewerCore({
                           border: 'none',
                           cursor: 'pointer',
                           fontSize: 14,
-                          color: isDark ? '#e0e0e0' : '#333',
+                          color: colors.contextMenuText,
                         }}
                         onClick={() => {
                           onShowSequence?.(contextMenu.c4Id);
@@ -2241,7 +2299,7 @@ export function C4ViewerCore({
                           border: 'none',
                           cursor: 'pointer',
                           fontSize: 14,
-                          color: isDark ? '#e0e0e0' : '#333',
+                          color: colors.contextMenuText,
                         }}
                         onClick={handleCopyPath}
                       >
@@ -2263,7 +2321,7 @@ export function C4ViewerCore({
                             border: 'none',
                             cursor: 'pointer',
                             fontSize: 14,
-                            color: isDark ? '#e0e0e0' : '#333',
+                            color: colors.contextMenuText,
                           }}
                           onClick={() => {
                             setSelectedElementId(contextMenu.c4Id);
@@ -2287,7 +2345,7 @@ export function C4ViewerCore({
                             border: 'none',
                             cursor: 'pointer',
                             fontSize: 14,
-                            color: '#ef5350',
+                            color: colors.cycleBorder,
                           }}
                           onClick={() => handleDeleteElement(contextMenu.c4Id)}
                         >
@@ -2311,8 +2369,8 @@ export function C4ViewerCore({
                 maxWidth: `${TREND_CHART_POPUP_MAX_WIDTH}px`,
                 border: `1px solid ${colors.border}`,
                 borderRadius: '8px',
-                bgcolor: isDark ? 'rgba(18,18,18,0.92)' : 'rgba(251,249,243,0.94)',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                bgcolor: colors.popupBg,
+                boxShadow: POPUP_SHADOW,
                 backdropFilter: 'blur(10px)',
                 overflow: 'hidden',
                 transition: 'width 150ms cubic-bezier(0.4, 0, 0.2, 1)',
@@ -2328,42 +2386,20 @@ export function C4ViewerCore({
             )}
           </Box>
       </Box>
-      <AddElementDialog
-        open={addElementType !== null && !editElement}
-        elementType={addElementType ?? 'person'}
-        initial={addElementType === 'container' && selectedSystemId ? { parentId: selectedSystemId } : undefined}
-        onSubmit={handleAddElement}
-        onClose={() => setAddElementType(null)}
-        parentCandidates={
-          addElementType === 'component'
-            ? (c4Model?.elements.filter(e => e.type === 'container').map(e => ({ id: e.id, name: e.name })) ?? [])
-            : undefined
-        }
+      <C4DialogsArea
+        c4Model={c4Model}
+        addElementType={addElementType}
+        editElement={editElement}
+        addRelOpen={addRelOpen}
+        selectedSystemId={selectedSystemId}
+        selectedElementId={selectedElementId}
+        onCloseAddElement={() => setAddElementType(null)}
+        onCloseEditElement={() => setEditElement(null)}
+        onCloseAddRelationship={() => setAddRelOpen(false)}
+        onSubmitAddElement={handleAddElement}
+        onSubmitUpdateElement={handleUpdateElement}
+        onSubmitAddRelationship={handleAddRelationship}
       />
-      <AddElementDialog
-        open={editElement !== null}
-        elementType={editElement?.type ?? 'person'}
-        initial={editElement ?? undefined}
-        onSubmit={handleUpdateElement}
-        onClose={() => setEditElement(null)}
-        parentCandidates={
-          editElement?.type === 'container'
-            ? (c4Model?.elements.filter(e => e.type === 'system').map(e => ({ id: e.id, name: e.name })) ?? [])
-            : editElement?.type === 'component'
-            ? (c4Model?.elements.filter(e => e.type === 'container').map(e => ({ id: e.id, name: e.name })) ?? [])
-            : undefined
-        }
-      />
-      {selectedElementId && (
-        <AddRelationshipDialog
-          open={addRelOpen}
-          from={selectedElementId}
-          fromName={c4Model?.elements.find(e => e.id === selectedElementId)?.name ?? selectedElementId}
-          candidates={c4Model?.elements.filter(e => e.id !== selectedElementId && (e.type === 'person' || e.type === 'system' || e.type === 'container')).map(e => ({ id: e.id, name: e.name })) ?? []}
-          onSubmit={handleAddRelationship}
-          onClose={() => setAddRelOpen(false)}
-        />
-      )}
     </Box>
   );
 }

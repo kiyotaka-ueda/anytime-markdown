@@ -177,6 +177,41 @@ export interface ThemeAvatarColors {
   readonly assistant: string;
 }
 
+export interface ThemeToolActionColors {
+  readonly bash: string;
+  readonly edit: string;
+  readonly write: string;
+  readonly read: string;
+  readonly task: string;
+  readonly other: string;
+  readonly plain: string;
+}
+
+export interface ThemeModelColors {
+  readonly opus: string;
+  readonly sonnet: string;
+  readonly haiku: string;
+  readonly unknown: string;
+}
+
+export interface ThemeModelCostColors {
+  readonly opus: string;
+  readonly sonnet: string;
+  readonly haiku: string;
+}
+
+export interface ThemeCostChartColors {
+  readonly actual: string;
+  readonly skill: string;
+}
+
+export interface ThemeDoraColors {
+  readonly elite: string;
+  readonly high: string;
+  readonly medium: string;
+  readonly low: string;
+}
+
 export interface TrailThemeTokens {
   readonly isDark: boolean;
   readonly colors: ThemeColors;
@@ -199,11 +234,73 @@ export interface TrailThemeTokens {
   readonly commitColors: Readonly<{
     feat: string; fix: string; refactor: string; test: string; other: string;
   }>;
+  readonly toolActionColors: ThemeToolActionColors;
+  readonly modelColors: ThemeModelColors;
+  readonly modelCostColors: ThemeModelCostColors;
+  readonly costChartColors: ThemeCostChartColors;
+  readonly doraColors: ThemeDoraColors;
+  /** Analytics palette for session/workspace series */
+  readonly analyticsPalette: readonly string[];
+  /** Release chart series colors */
+  readonly releaseColors: Readonly<{ succeeded: string; failed: string }>;
 }
 
 // ---------------------------------------------------------------------------
 //  Factory
 // ---------------------------------------------------------------------------
+
+// Mode-independent color maps
+
+const toolActionColors: ThemeToolActionColors = {
+  bash:  '#4CAF50',
+  edit:  '#2196F3',
+  write: '#9C27B0',
+  read:  '#757575',
+  task:  '#FFB300',
+  other: '#FF9800',
+  plain: '#90A4AE',
+} as const;
+
+const modelColors: ThemeModelColors = {
+  opus:    '#7C4DFF',
+  sonnet:  '#42A5F5',
+  haiku:   '#66BB6A',
+  unknown: '#90A4AE',
+} as const;
+
+const modelCostColors: ThemeModelCostColors = {
+  opus:   '#7b1fa2',
+  sonnet: '#1976d2',
+  haiku:  '#00897b',
+} as const;
+
+const costChartColors: ThemeCostChartColors = {
+  actual: '#1976d2',
+  skill:  '#8b5cf6',
+} as const;
+
+const darkDoraColors: ThemeDoraColors = {
+  elite:  '#42A5F5',
+  high:   '#66BB6A',
+  medium: '#FFA726',
+  low:    '#F44336',
+} as const;
+
+const lightDoraColors: ThemeDoraColors = {
+  elite:  '#1976D2',
+  high:   '#2E7D32',
+  medium: '#ED6C02',
+  low:    '#D32F2F',
+} as const;
+
+const analyticsPalette = [
+  '#EC4899', '#14B8A6', '#F59E0B', '#8b5cf6', '#EF4444', '#10B981', '#3B82F6', '#F97316',
+] as const;
+
+const releaseColors = {
+  succeeded: '#4CAF50',
+  failed:    '#f44336',
+} as const;
 
 const darkToolPalette = [
   '#90CAF9', '#8b5cf6', '#00897b', '#e65100', '#c62828',
@@ -248,6 +345,13 @@ export function getTokens(isDark: boolean): TrailThemeTokens {
     },
     toolPalette: isDark ? darkToolPalette : lightToolPalette,
     commitColors: isDark ? darkCommitColors : lightCommitColors,
+    toolActionColors,
+    modelColors,
+    modelCostColors,
+    costChartColors,
+    doraColors: isDark ? darkDoraColors : lightDoraColors,
+    analyticsPalette,
+    releaseColors,
     scrollbarSx: {
       scrollbarWidth: 'thin',
       scrollbarColor: `${c.textDisabled} transparent`,
@@ -282,3 +386,18 @@ export const codeSx = {
   fontFamily: 'Roboto Mono, monospace',
   fontSize: '0.75rem',
 } as const;
+
+// ---------------------------------------------------------------------------
+//  Direct exports for mode-independent constants (for module-level use)
+// ---------------------------------------------------------------------------
+
+export { toolActionColors, modelColors, modelCostColors, costChartColors, analyticsPalette, releaseColors };
+
+/** Subagent track palette (MessageTimeline). 10 distinct hues for subagent lanes. */
+export const agentPalette = [
+  '#FF6B6B', '#4ECDC4', '#FFD93D', '#6A4C93', '#1982C4',
+  '#8AC926', '#F48C06', '#E56B6F', '#52B788', '#B5838D',
+] as const;
+
+/** Specific chart series color for Lead Time / LOC overlay line (AnalyticsPanel). */
+export const LEAD_TIME_LOC_COLOR = '#F06292';

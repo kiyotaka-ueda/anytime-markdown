@@ -1,9 +1,12 @@
-import { formatLocalDate, formatLocalTime, formatLocalDateTime, toLocalDateKey } from '../formatDate';
+import { formatLocalDate, formatLocalTime, formatLocalDateTime, toLocalDateKey, resolveLocalTimeZone } from '../formatDate';
+
+const TZ = resolveLocalTimeZone();
 
 describe('formatLocalDate', () => {
   it('formats UTC ISO string to local date', () => {
     const iso = '2026-04-10T00:00:00.000Z';
     const expected = new Intl.DateTimeFormat(undefined, {
+      timeZone: TZ,
       year: 'numeric', month: '2-digit', day: '2-digit',
     }).format(new Date(iso));
     expect(formatLocalDate(iso)).toBe(expected);
@@ -22,6 +25,7 @@ describe('formatLocalTime', () => {
   it('formats UTC ISO string to local time', () => {
     const iso = '2026-04-10T15:30:00.000Z';
     const expected = new Intl.DateTimeFormat(undefined, {
+      timeZone: TZ,
       hour: '2-digit', minute: '2-digit', hour12: false,
     }).format(new Date(iso));
     expect(formatLocalTime(iso)).toBe(expected);
@@ -40,6 +44,7 @@ describe('formatLocalDateTime', () => {
   it('formats UTC ISO string to local date-time', () => {
     const iso = '2026-04-10T15:30:45.000Z';
     const expected = new Intl.DateTimeFormat(undefined, {
+      timeZone: TZ,
       year: 'numeric', month: '2-digit', day: '2-digit',
       hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
     }).format(new Date(iso));
@@ -58,9 +63,14 @@ describe('formatLocalDateTime', () => {
 describe('toLocalDateKey', () => {
   it('returns local date in YYYY-MM-DD format', () => {
     const iso = '2026-04-10T15:00:00.000Z';
-    const d = new Date(iso);
-    const expected = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    expect(toLocalDateKey(iso)).toBe(expected);
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: TZ,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(new Date(iso));
+    const y = parts.find((p) => p.type === 'year')?.value ?? '';
+    const m = parts.find((p) => p.type === 'month')?.value ?? '';
+    const day = parts.find((p) => p.type === 'day')?.value ?? '';
+    expect(toLocalDateKey(iso)).toBe(`${y}-${m}-${day}`);
   });
 
   it('returns empty string for empty input', () => {

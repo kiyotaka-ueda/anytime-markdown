@@ -115,6 +115,55 @@ describe('listPatentFiles', () => {
     const result = await listPatentFiles({ send: mockSend } as never, baseConfig);
     expect(result).toEqual([]);
   });
+
+  it('Key が undefined のオブジェクトをスキップする', async () => {
+    mockSend.mockResolvedValue({
+      Contents: [
+        { Key: undefined, Size: 100 },
+        { Key: 'patents/2026-04-01.tsv', Size: 800 },
+        { Key: 'patents/2026-04-01.jsonl', Size: 2000 },
+      ],
+    });
+    const result = await listPatentFiles({ send: mockSend } as never, baseConfig);
+    expect(result).toHaveLength(1);
+  });
+
+  it('未対応の拡張子をスキップする', async () => {
+    mockSend.mockResolvedValue({
+      Contents: [
+        { Key: 'patents/2026-04-01.pdf', Size: 500 },
+        { Key: 'patents/2026-04-01.tsv', Size: 800 },
+        { Key: 'patents/2026-04-01.jsonl', Size: 2000 },
+      ],
+    });
+    const result = await listPatentFiles({ send: mockSend } as never, baseConfig);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.tsvSize).toBe(800);
+  });
+
+  it('無効な日付形式のファイルをスキップする', async () => {
+    mockSend.mockResolvedValue({
+      Contents: [
+        { Key: 'patents/not-a-date.tsv', Size: 500 },
+        { Key: 'patents/2026-04-01.tsv', Size: 800 },
+        { Key: 'patents/2026-04-01.jsonl', Size: 2000 },
+      ],
+    });
+    const result = await listPatentFiles({ send: mockSend } as never, baseConfig);
+    expect(result).toHaveLength(1);
+  });
+
+  it('拡張子なしのファイル名はスキップされる', async () => {
+    mockSend.mockResolvedValue({
+      Contents: [
+        { Key: 'patents/nodotfile', Size: 100 },
+        { Key: 'patents/2026-04-01.tsv', Size: 800 },
+        { Key: 'patents/2026-04-01.jsonl', Size: 2000 },
+      ],
+    });
+    const result = await listPatentFiles({ send: mockSend } as never, baseConfig);
+    expect(result).toHaveLength(1);
+  });
 });
 
 describe('getPatentFile', () => {
@@ -140,5 +189,11 @@ describe('getPatentFile', () => {
     await expect(
       getPatentFile('patents/../etc/passwd', { send: mockSend } as never, baseConfig),
     ).rejects.toThrow('Invalid key');
+  });
+
+  it('Body が null の場合に空文字を返す', async () => {
+    mockSend.mockResolvedValue({ Body: null });
+    const result = await getPatentFile('patents/2026-04-01.tsv', { send: mockSend } as never, baseConfig);
+    expect(result).toBe('');
   });
 });

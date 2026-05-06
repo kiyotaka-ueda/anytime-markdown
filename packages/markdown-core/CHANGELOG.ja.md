@@ -7,6 +7,20 @@
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-05-06
+
+### 修正
+
+- admonition の初期表示崩れと末尾改行累積を解消
+
+### セキュリティ
+
+- CodeQL 検出の remote-property-injection / log-injection を修正
+
+### 変更
+
+- `ssrfGuard`・`embedSeenStore`・`embedCache` のテストカバレッジを向上
+
 ## [0.14.0] - 2026-05-04
 
 ### 修正

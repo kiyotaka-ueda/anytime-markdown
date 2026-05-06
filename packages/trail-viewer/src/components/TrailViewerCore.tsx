@@ -1,4 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { lazyWithPreload } from './shared/lazyWithPreload';
+import { usePerfReporter } from '../hooks/usePerfReporter';
 import { TraceViewer } from '@anytime-markdown/trace-viewer';
 import type { TraceFileSource } from '@anytime-markdown/trace-viewer';
 import type { SourceLocation } from '@anytime-markdown/trace-core/types';
@@ -12,28 +14,57 @@ import type {
   TrailMessage,
   TrailPromptEntry,
   TrailSession,
-} from '../parser/types';
-import type { CostOptimizationData } from '../parser/types';
+} from '../domain/parser/types';
+import type { CostOptimizationData } from '../domain/parser/types';
 import type { AnalyticsPanelProps } from './AnalyticsPanel';
-import type { AnalyticsData } from '../parser/types';
-import { buildMessageTree } from '../parser/buildMessageTree';
-import { AnalyticsPanel } from './AnalyticsPanel';
+import type { AnalyticsData } from '../domain/parser/types';
+import { buildMessageTree } from '../domain/parser/buildMessageTree';
 import { FilterBar } from './FilterBar';
 import { PromptManager } from './PromptManager';
 import { ReleasesPanel } from './ReleasesPanel';
 import { SessionList } from './SessionList';
 import { StatsBar } from './StatsBar';
-import { TraceTree } from './TraceTree';
-import { MessageTimeline } from './MessageTimeline';
 import { TrailThemeProvider } from './TrailThemeContext';
-import { getTokens } from './designTokens';
+import { getTokens } from '../theme/designTokens';
 import { TrailLocaleProvider, useTrailI18n } from '../i18n';
 import type { TrailLocale } from '../i18n';
 import type { TrailRelease } from '@anytime-markdown/trail-core/domain';
+import { AnalyticsPanelSkeleton } from './shared/AnalyticsPanelSkeleton';
+import { C4PanelSkeleton } from './shared/C4PanelSkeleton';
+import { TabSkeleton } from './shared/TabSkeleton';
 
-import { C4ViewerCore } from '../c4/components/C4ViewerCore';
 import type { C4ViewerCoreProps } from '../c4/components/C4ViewerCore';
 import { useC4SequenceData } from '../c4/hooks/useC4SequenceData';
+
+const AnalyticsPanel = lazyWithPreload(() =>
+  import('./AnalyticsPanel').then((m) => ({ default: m.AnalyticsPanel })),
+);
+const C4ViewerCore = lazyWithPreload(() =>
+  import('../c4/components/C4ViewerCore').then((m) => ({ default: m.C4ViewerCore })),
+);
+const MessageTimeline = lazyWithPreload(() =>
+  import('./messages/MessageTimeline').then((m) => ({ default: m.MessageTimeline })),
+);
+const TraceTree = lazyWithPreload(() =>
+  import('./messages/TraceTree').then((m) => ({ default: m.TraceTree })),
+);
+
+const tabPreloaders: Record<number, (() => Promise<unknown>) | undefined> = {
+  0: () => AnalyticsPanel.preload(),
+  1: () => Promise.all([MessageTimeline.preload(), TraceTree.preload()]),
+  2: undefined,
+  3: undefined,
+  4: () => C4ViewerCore.preload(),
+  5: undefined,
+};
+
+const preloadTab = (index: number) => {
+  const fn = tabPreloaders[index];
+  if (!fn) return;
+  fn().catch((error) => {
+    console.warn('TrailViewerCore: preloadTab failed', { index, error });
+  });
+};
 
 /** C4-related props forwarded to the embedded C4ViewerCore. */
 type C4Props = Omit<C4ViewerCoreProps, 'isDark' | 'containerHeight' | 'onShowSequence'>;
@@ -70,6 +101,13 @@ export interface TrailViewerCoreProps {
   readonly onJumpToSource?: (loc: SourceLocation) => void;
   /** 初期表示タブ番号（0=Analytics, 1=Traces, 2=Prompts, 3=Releases, 4=C4, 5=Trace）*/
   readonly initialTab?: number;
+  /**
+   * WebSocket 経由でコマンドを送る関数。perf-report の送出に使う。
+   * Web アプリ版では disableWebSocket=true により no-op になる。
+   */
+  readonly sendCommand?: (cmd: string, payload?: unknown) => void;
+  /** WebSocket が接続済みか。usePerfReporter の queue flush 判定に使う。 */
+  readonly wsConnected?: boolean;
 }
 
 const SESSION_LIST_WIDTH = 300;
@@ -111,20 +149,92 @@ function TrailViewerCoreInner({
   traceFiles,
   onJumpToSource,
   initialTab,
+  sendCommand,
+  wsConnected = false,
 }: Readonly<TrailViewerCoreProps>) {
   const { t } = useTrailI18n();
   const tokens = useMemo(() => getTokens(isDark ?? true), [isDark]);
   const { colors, scrollbarSx } = tokens;
   const [activeTab, setActiveTab] = useState(initialTab ?? 0);
+  const [visitedTabs, setVisitedTabs] = useState<ReadonlySet<number>>(
+    () => new Set([initialTab ?? 0]),
+  );
+  const visitTab = useCallback((tab: number) => {
+    setActiveTab(tab);
+    setVisitedTabs((prev) => {
+      if (prev.has(tab)) return prev;
+      const next = new Set(prev);
+      next.add(tab);
+      return next;
+    });
+  }, []);
   const [activeSequenceElementId, setActiveSequenceElementId] = useState<string | null>(null);
   const c4SequenceState = useC4SequenceData(c4?.serverUrl, activeSequenceElementId);
+
+  // perf-report: 初回マウント時の描画開始〜React mount 完了の所要時間を計測。
+  // sendCommand が undefined の場合は no-op send を渡し、計測値はキューにも積まない。
+  const noopSend = useCallback(() => {
+    /* sendCommand 未提供 (Next.js 経由の Web アプリなど) では何もしない */
+  }, []);
+  const perfReporter = usePerfReporter(sendCommand ?? noopSend, wsConnected);
+  useEffect(() => {
+    if (!sendCommand) return; // 計測は拡張機能モードのみ有効
+    // PerformanceNavigationTiming で domContentLoadedEventEnd を取得し、
+    // mount 完了時点との差分を ms 単位で報告する。
+    const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+    const navStart = navEntries[0]?.domContentLoadedEventEnd;
+    if (typeof navStart !== 'number' || navStart <= 0) return;
+    const ms = Math.max(0, performance.now() - navStart);
+    perfReporter.report('firstMount', ms);
+    // 依存空配列で初回 mount のみ送信
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Phase 5: idle prefetch
+  // 初期描画完了後、ユーザーがクリックする前に残タブの chunk を順次 prefetch する。
+  // モバイル（hover 不可）でも先読みされる。
+  useEffect(() => {
+    const candidates: Array<[number, () => Promise<unknown>]> = [
+      [0, () => AnalyticsPanel.preload()],
+      [1, () => Promise.all([MessageTimeline.preload(), TraceTree.preload()])],
+      [4, () => C4ViewerCore.preload()],
+    ];
+
+    const remaining = candidates.filter(([idx]) => !visitedTabs.has(idx));
+    if (remaining.length === 0) return;
+
+    const ric =
+      (globalThis as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback
+      ?? ((cb: () => void) => setTimeout(cb, 200));
+
+    let cancelled = false;
+    const run = (i: number) => {
+      if (cancelled || i >= remaining.length) return;
+      ric(() => {
+        if (cancelled) return;
+        const [, preload] = remaining[i];
+        preload()
+          .catch((error) => {
+            console.warn('TrailViewerCore: idle prefetch failed', { index: remaining[i][0], error });
+          })
+          .finally(() => run(i + 1));
+      });
+    };
+    run(0);
+
+    return () => {
+      cancelled = true;
+    };
+    // visitedTabs を依存に入れると訪問のたびに再起動するため、初回のみ実行
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleShowSequence = useCallback(
     (elementId: string) => {
       setActiveSequenceElementId(elementId);
-      setActiveTab(7);
+      visitTab(7);
     },
-    [],
+    [visitTab],
   );
 
   const visibleSessions = useMemo(() => {
@@ -136,8 +246,8 @@ function TrailViewerCoreInner({
       cutoff.setDate(cutoff.getDate() - 7);
       result = result.filter((s) => new Date(s.startTime) >= cutoff);
     }
-    if (filter.repository) {
-      result = result.filter((s) => s.repoName === filter.repository);
+    if (filter.workspace) {
+      result = result.filter((s) => s.workspace === filter.workspace);
     }
     if (q) {
       result = result.filter((s) => {
@@ -149,16 +259,16 @@ function TrailViewerCoreInner({
       });
     }
     return result;
-  }, [sessions, allSessions, filter.repository, filter.searchText]);
+  }, [sessions, allSessions, filter.workspace, filter.searchText]);
 
   const handleJumpToTrace = useCallback(
     (session: TrailSession) => {
       const query = session.slug || session.id;
-      onFilterChange({ ...filter, repository: session.repoName, searchText: query });
+      onFilterChange({ ...filter, workspace: session.workspace ?? filter.workspace, searchText: query });
       onSelectSession(session.id);
-      setActiveTab(1);
+      visitTab(1);
     },
-    [filter, onFilterChange, onSelectSession],
+    [filter, onFilterChange, onSelectSession, visitTab],
   );
 
   const selectedSession =
@@ -202,7 +312,7 @@ function TrailViewerCoreInner({
       <Box sx={{ borderBottom: 1, borderColor: colors.border, display: 'flex', alignItems: 'center' }}>
         <Tabs
           value={activeTab}
-          onChange={(_e, v: number) => setActiveTab(v)}
+          onChange={(_e, v: number) => visitTab(v)}
           aria-label="Trail viewer tabs"
           sx={{
             flex: 1,
@@ -211,95 +321,125 @@ function TrailViewerCoreInner({
             '& .MuiTabs-indicator': { backgroundColor: colors.iceBlue },
           }}
         >
-          <Tab id="trail-tab-0" aria-controls="trail-panel-0" label={t('viewer.tab.analytics')} />
-          <Tab id="trail-tab-1" aria-controls="trail-panel-1" label={t('viewer.tab.messages')} />
+          <Tab
+            id="trail-tab-0"
+            aria-controls="trail-panel-0"
+            label={t('viewer.tab.analytics')}
+            onMouseEnter={() => preloadTab(0)}
+            onFocus={() => preloadTab(0)}
+          />
+          <Tab
+            id="trail-tab-1"
+            aria-controls="trail-panel-1"
+            label={t('viewer.tab.messages')}
+            onMouseEnter={() => preloadTab(1)}
+            onFocus={() => preloadTab(1)}
+          />
           <Tab id="trail-tab-2" aria-controls="trail-panel-2" label={t('viewer.tab.prompts')} />
           <Tab id="trail-tab-3" aria-controls="trail-panel-3" label={t('viewer.tab.releases')} />
-          {c4 && <Tab id="trail-tab-4" aria-controls="trail-panel-4" label={t('viewer.tab.model')} />}
-          {(traceFiles || c4) && <Tab id="trail-tab-5" aria-controls="trail-panel-5" label={t('viewer.tab.trace')} />}
+          {c4 && (
+            <Tab
+              id="trail-tab-4"
+              aria-controls="trail-panel-4"
+              label={t('viewer.tab.model')}
+              onMouseEnter={() => preloadTab(4)}
+              onFocus={() => preloadTab(4)}
+            />
+          )}
+          {(traceFiles || c4) && (
+            <Tab id="trail-tab-5" aria-controls="trail-panel-5" label={t('viewer.tab.trace')} />
+          )}
         </Tabs>
 
       </Box>
 
-      <Box
-        role="tabpanel"
-        id="trail-panel-0"
-        aria-labelledby="trail-tab-0"
-        sx={{ display: activeTab !== 0 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
-      >
-        <AnalyticsPanel
-          analytics={analytics}
-          sessions={allSessions ?? sessions}
-          sessionsLoading={sessionsLoading}
-          onSelectSession={onSelectSession}
-          onJumpToTrace={handleJumpToTrace}
-          fetchSessionMessages={fetchSessionMessages}
-          fetchSessionCommits={fetchSessionCommits}
-          fetchSessionToolMetrics={fetchSessionToolMetrics}
-          fetchDayToolMetrics={fetchDayToolMetrics}
-          costOptimization={costOptimization}
-          fetchCombinedData={fetchCombinedData}
-          fetchQualityMetrics={fetchQualityMetrics}
-          fetchDeploymentFrequency={fetchDeploymentFrequency}
-          fetchReleaseQuality={fetchReleaseQuality}
-        />
-      </Box>
-
-      <Box
-        role="tabpanel"
-        id="trail-panel-1"
-        aria-labelledby="trail-tab-1"
-        sx={{ display: activeTab !== 1 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
-      >
-        {/* FilterBar */}
-        <FilterBar
-          filter={filter}
-          sessions={allSessions ?? sessions}
-          onChange={onFilterChange}
-        />
-
-        {/* SessionList + Content area */}
-        <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-          <Box
-            sx={{
-              width: SESSION_LIST_WIDTH,
-              minWidth: SESSION_LIST_WIDTH,
-              borderRight: 1,
-              borderColor: colors.border,
-              overflowY: 'auto',
-              ...scrollbarSx,
-            }}
-          >
-            <SessionList
-              sessions={visibleSessions}
-              selectedId={selectedSessionId}
-              onSelect={onSelectSession}
+      {visitedTabs.has(0) && (
+        <Box
+          role="tabpanel"
+          id="trail-panel-0"
+          aria-labelledby="trail-tab-0"
+          sx={{ display: activeTab !== 0 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
+        >
+          <Suspense fallback={<AnalyticsPanelSkeleton />}>
+            <AnalyticsPanel
+              analytics={analytics}
+              sessions={allSessions ?? sessions}
+              sessionsLoading={sessionsLoading}
+              onSelectSession={onSelectSession}
+              onJumpToTrace={handleJumpToTrace}
+              fetchSessionMessages={fetchSessionMessages}
+              fetchSessionCommits={fetchSessionCommits}
+              fetchSessionToolMetrics={fetchSessionToolMetrics}
+              fetchDayToolMetrics={fetchDayToolMetrics}
+              costOptimization={costOptimization}
+              fetchCombinedData={fetchCombinedData}
+              fetchQualityMetrics={fetchQualityMetrics}
+              fetchDeploymentFrequency={fetchDeploymentFrequency}
+              fetchReleaseQuality={fetchReleaseQuality}
             />
-          </Box>
-
-          <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <MessageTimeline
-              nodes={buildMessageTree(messages)}
-              session={selectedSession}
-              onSelectMessage={() => { /* scroll handled inside component */ }}
-            />
-            {selectedSessionId && messages.length > 0 ? (
-              <Box sx={{ flex: 1, overflow: 'auto', ...scrollbarSx }}>
-                <TraceTree nodes={buildMessageTree(messages)} />
-              </Box>
-            ) : (
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-                <Typography variant="body2" sx={{ color: colors.textSecondary }}>
-                  {selectedSessionId ? t('viewer.loading') : t('viewer.selectSession')}
-                </Typography>
-              </Box>
-            )}
-          </Box>
+          </Suspense>
         </Box>
+      )}
 
-        {/* StatsBar */}
-        <StatsBar session={selectedSession} messages={messages} />
-      </Box>
+      {visitedTabs.has(1) && (
+        <Box
+          role="tabpanel"
+          id="trail-panel-1"
+          aria-labelledby="trail-tab-1"
+          sx={{ display: activeTab !== 1 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
+        >
+          {/* FilterBar */}
+          <FilterBar
+            filter={filter}
+            sessions={allSessions ?? sessions}
+            onChange={onFilterChange}
+          />
+
+          {/* SessionList + Content area */}
+          <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+            <Box
+              sx={{
+                width: SESSION_LIST_WIDTH,
+                minWidth: SESSION_LIST_WIDTH,
+                borderRight: 1,
+                borderColor: colors.border,
+                overflowY: 'auto',
+                ...scrollbarSx,
+              }}
+            >
+              <SessionList
+                sessions={visibleSessions}
+                selectedId={selectedSessionId}
+                onSelect={onSelectSession}
+              />
+            </Box>
+
+            <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <Suspense fallback={<TabSkeleton height="100%" />}>
+                <MessageTimeline
+                  nodes={buildMessageTree(messages)}
+                  session={selectedSession}
+                  onSelectMessage={() => { /* scroll handled inside component */ }}
+                />
+                {selectedSessionId && messages.length > 0 ? (
+                  <Box sx={{ flex: 1, overflow: 'auto', ...scrollbarSx }}>
+                    <TraceTree nodes={buildMessageTree(messages)} />
+                  </Box>
+                ) : (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+                    <Typography variant="body2" sx={{ color: colors.textSecondary }}>
+                      {selectedSessionId ? t('viewer.loading') : t('viewer.selectSession')}
+                    </Typography>
+                  </Box>
+                )}
+              </Suspense>
+            </Box>
+          </Box>
+
+          {/* StatsBar */}
+          <StatsBar session={selectedSession} messages={messages} />
+        </Box>
+      )}
 
       <Box
         role="tabpanel"
@@ -319,19 +459,21 @@ function TrailViewerCoreInner({
         <ReleasesPanel releases={releases ?? []} />
       </Box>
 
-      {c4 && (
+      {c4 && visitedTabs.has(4) && (
         <Box
           role="tabpanel"
           id="trail-panel-4"
           aria-labelledby="trail-tab-4"
           sx={{ display: activeTab !== 4 ? 'none' : 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
         >
-          <C4ViewerCore
-            isDark={isDark}
-            containerHeight="100%"
-            onShowSequence={handleShowSequence}
-            {...c4}
-          />
+          <Suspense fallback={<C4PanelSkeleton />}>
+            <C4ViewerCore
+              isDark={isDark}
+              containerHeight="100%"
+              onShowSequence={handleShowSequence}
+              {...c4}
+            />
+          </Suspense>
         </Box>
       )}
 

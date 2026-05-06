@@ -8,14 +8,7 @@ import { COMMUNITY_COLORS, communityColor } from './communityColors';
 
 export { COMMUNITY_COLORS };
 
-const GHOST_EDGE_COMMIT_LIGHT = '#7c3aed';
-const GHOST_EDGE_COMMIT_DARK = '#c4b5fd';
-const GHOST_EDGE_SESSION_LIGHT = '#0891b2';
-const GHOST_EDGE_SESSION_DARK = '#67e8f9';
-// subagent_type 粒度。commit 紫・session シアンと区別するためエメラルド系を採用。
-// ライトモード #047857 vs 白背景 = 5.5:1, ダークモード #6ee7b7 vs #1e1e1e ≒ 8.5:1（共に WCAG AA 4.5:1 達成）。
-const GHOST_EDGE_SUBAGENT_LIGHT = '#047857';
-const GHOST_EDGE_SUBAGENT_DARK = '#6ee7b7';
+import { GHOST_EDGE_COMMIT_DARK, GHOST_EDGE_COMMIT_LIGHT, GHOST_EDGE_SESSION_DARK, GHOST_EDGE_SESSION_LIGHT, GHOST_EDGE_SUBAGENT_DARK, GHOST_EDGE_SUBAGENT_LIGHT } from '../c4/ghostEdgeColors';
 
 export type CodeGraphGhostEdgeGranularity = 'commit' | 'session' | 'subagentType';
 

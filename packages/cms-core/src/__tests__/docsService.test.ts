@@ -63,6 +63,36 @@ describe('uploadDoc', () => {
       ),
     ).rejects.toThrow('Invalid file name');
   });
+
+  it('パストラバーサルを含むファイル名を拒否する', async () => {
+    await expect(
+      uploadDoc(
+        { fileName: '../secret.md', content: '#', folder: undefined },
+        { send: mockSend } as never,
+        baseConfig,
+      ),
+    ).rejects.toThrow('Invalid file name');
+  });
+
+  it('未対応の拡張子を拒否する', async () => {
+    await expect(
+      uploadDoc(
+        { fileName: 'script.js', content: 'alert(1)', folder: undefined },
+        { send: mockSend } as never,
+        baseConfig,
+      ),
+    ).rejects.toThrow('Only .md and image files');
+  });
+
+  it('不正なフォルダ名を拒否する', async () => {
+    await expect(
+      uploadDoc(
+        { fileName: 'test.md', content: '#', folder: '../etc' },
+        { send: mockSend } as never,
+        baseConfig,
+      ),
+    ).rejects.toThrow('Invalid folder name');
+  });
 });
 
 describe('deleteDoc', () => {
@@ -77,6 +107,12 @@ describe('deleteDoc', () => {
   it('docsプレフィックス外のキーを拒否する', async () => {
     await expect(
       deleteDoc({ key: 'reports/test.md' }, { send: mockSend } as never, baseConfig),
+    ).rejects.toThrow('Invalid key');
+  });
+
+  it('パストラバーサルを含むキーを拒否する', async () => {
+    await expect(
+      deleteDoc({ key: 'docs/../secret.md' }, { send: mockSend } as never, baseConfig),
     ).rejects.toThrow('Invalid key');
   });
 });

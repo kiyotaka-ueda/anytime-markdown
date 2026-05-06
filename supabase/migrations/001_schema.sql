@@ -9,6 +9,10 @@ DROP TABLE IF EXISTS trail_release_code_graph_communities CASCADE;
 DROP TABLE IF EXISTS trail_release_code_graphs CASCADE;
 DROP TABLE IF EXISTS trail_current_code_graph_communities CASCADE;
 DROP TABLE IF EXISTS trail_current_code_graphs CASCADE;
+DROP TABLE IF EXISTS trail_current_file_analysis CASCADE;
+DROP TABLE IF EXISTS trail_release_file_analysis CASCADE;
+DROP TABLE IF EXISTS trail_current_function_analysis CASCADE;
+DROP TABLE IF EXISTS trail_release_function_analysis CASCADE;
 DROP TABLE IF EXISTS trail_current_coverage CASCADE;
 DROP TABLE IF EXISTS trail_release_coverage CASCADE;
 DROP TABLE IF EXISTS trail_c4_manual_groups CASCADE;
@@ -94,6 +98,7 @@ CREATE TABLE IF NOT EXISTS trail_messages (
 
 CREATE TABLE IF NOT EXISTS trail_session_commits (
     session_id TEXT NOT NULL REFERENCES trail_sessions(id) ON DELETE CASCADE,
+    repo_name TEXT NOT NULL DEFAULT '',
     commit_hash TEXT NOT NULL,
     commit_message TEXT NOT NULL DEFAULT '',
     author TEXT NOT NULL DEFAULT '',
@@ -102,14 +107,15 @@ CREATE TABLE IF NOT EXISTS trail_session_commits (
     files_changed INTEGER NOT NULL DEFAULT 0,
     lines_added INTEGER NOT NULL DEFAULT 0,
     lines_deleted INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (session_id, commit_hash)
+    PRIMARY KEY (session_id, repo_name, commit_hash)
 );
 
 -- コミットごとの変更ファイル一覧。コミットは複数セッションに現れるためセッション非依存。
 CREATE TABLE IF NOT EXISTS trail_commit_files (
+    repo_name TEXT NOT NULL DEFAULT '',
     commit_hash TEXT NOT NULL,
     file_path TEXT NOT NULL,
-    PRIMARY KEY (commit_hash, file_path)
+    PRIMARY KEY (repo_name, commit_hash, file_path)
 );
 
 CREATE TABLE IF NOT EXISTS trail_session_costs (
@@ -293,6 +299,96 @@ CREATE TABLE IF NOT EXISTS trail_release_coverage (
   PRIMARY KEY (release_tag, package, file_path)
 );
 
+-- 未使用コード検出 ファイル単位スコア（ローカル current_file_analysis と対応）
+CREATE TABLE IF NOT EXISTS trail_current_file_analysis (
+  repo_name                  TEXT             NOT NULL,
+  file_path                  TEXT             NOT NULL,
+  importance_score           DOUBLE PRECISION NOT NULL DEFAULT 0,
+  fan_in_total               INTEGER          NOT NULL DEFAULT 0,
+  cognitive_complexity_max   INTEGER          NOT NULL DEFAULT 0,
+  line_count                 INTEGER          NOT NULL DEFAULT 0,
+  cyclomatic_complexity_max  INTEGER          NOT NULL DEFAULT 0,
+  function_count             INTEGER          NOT NULL DEFAULT 0,
+  dead_code_score            INTEGER          NOT NULL DEFAULT 0,
+  signal_orphan              INTEGER          NOT NULL DEFAULT 0,
+  signal_fan_in_zero         INTEGER          NOT NULL DEFAULT 0,
+  signal_no_recent_churn     INTEGER          NOT NULL DEFAULT 0,
+  signal_zero_coverage       INTEGER          NOT NULL DEFAULT 0,
+  signal_isolated_community  INTEGER          NOT NULL DEFAULT 0,
+  is_ignored                 INTEGER          NOT NULL DEFAULT 0,
+  ignore_reason              TEXT             NOT NULL DEFAULT '',
+  analyzed_at                TEXT             NOT NULL,
+  PRIMARY KEY (repo_name, file_path)
+);
+CREATE INDEX IF NOT EXISTS idx_trail_current_file_analysis_dead_code
+  ON trail_current_file_analysis (repo_name, dead_code_score DESC);
+CREATE INDEX IF NOT EXISTS idx_trail_current_file_analysis_importance
+  ON trail_current_file_analysis (repo_name, importance_score DESC);
+
+-- 未使用コード検出 ファイル単位スコア リリース版（ローカル release_file_analysis と対応）
+CREATE TABLE IF NOT EXISTS trail_release_file_analysis (
+  release_tag                TEXT             NOT NULL REFERENCES trail_releases(tag) ON DELETE CASCADE,
+  repo_name                  TEXT             NOT NULL,
+  file_path                  TEXT             NOT NULL,
+  importance_score           DOUBLE PRECISION NOT NULL DEFAULT 0,
+  fan_in_total               INTEGER          NOT NULL DEFAULT 0,
+  cognitive_complexity_max   INTEGER          NOT NULL DEFAULT 0,
+  line_count                 INTEGER          NOT NULL DEFAULT 0,
+  cyclomatic_complexity_max  INTEGER          NOT NULL DEFAULT 0,
+  function_count             INTEGER          NOT NULL DEFAULT 0,
+  dead_code_score            INTEGER          NOT NULL DEFAULT 0,
+  signal_orphan              INTEGER          NOT NULL DEFAULT 0,
+  signal_fan_in_zero         INTEGER          NOT NULL DEFAULT 0,
+  signal_no_recent_churn     INTEGER          NOT NULL DEFAULT 0,
+  signal_zero_coverage       INTEGER          NOT NULL DEFAULT 0,
+  signal_isolated_community  INTEGER          NOT NULL DEFAULT 0,
+  is_ignored                 INTEGER          NOT NULL DEFAULT 0,
+  ignore_reason              TEXT             NOT NULL DEFAULT '',
+  analyzed_at                TEXT             NOT NULL,
+  PRIMARY KEY (release_tag, repo_name, file_path)
+);
+
+-- 未使用コード検出 関数単位スコア（ローカル current_function_analysis と対応）
+CREATE TABLE IF NOT EXISTS trail_current_function_analysis (
+  repo_name              TEXT             NOT NULL,
+  file_path              TEXT             NOT NULL,
+  function_name          TEXT             NOT NULL,
+  start_line             INTEGER          NOT NULL,
+  end_line               INTEGER          NOT NULL DEFAULT 0,
+  language               TEXT             NOT NULL DEFAULT '',
+  fan_in                 INTEGER          NOT NULL DEFAULT 0,
+  cognitive_complexity   INTEGER          NOT NULL DEFAULT 0,
+  cyclomatic_complexity  INTEGER          NOT NULL DEFAULT 0,
+  data_mutation_score    INTEGER          NOT NULL DEFAULT 0,
+  side_effect_score      INTEGER          NOT NULL DEFAULT 0,
+  line_count             INTEGER          NOT NULL DEFAULT 0,
+  importance_score       DOUBLE PRECISION NOT NULL DEFAULT 0,
+  signal_fan_in_zero     INTEGER          NOT NULL DEFAULT 0,
+  analyzed_at            TEXT             NOT NULL,
+  PRIMARY KEY (repo_name, file_path, function_name, start_line)
+);
+
+-- 未使用コード検出 関数単位スコア リリース版（ローカル release_function_analysis と対応）
+CREATE TABLE IF NOT EXISTS trail_release_function_analysis (
+  release_tag            TEXT             NOT NULL REFERENCES trail_releases(tag) ON DELETE CASCADE,
+  repo_name              TEXT             NOT NULL,
+  file_path              TEXT             NOT NULL,
+  function_name          TEXT             NOT NULL,
+  start_line             INTEGER          NOT NULL,
+  end_line               INTEGER          NOT NULL DEFAULT 0,
+  language               TEXT             NOT NULL DEFAULT '',
+  fan_in                 INTEGER          NOT NULL DEFAULT 0,
+  cognitive_complexity   INTEGER          NOT NULL DEFAULT 0,
+  cyclomatic_complexity  INTEGER          NOT NULL DEFAULT 0,
+  data_mutation_score    INTEGER          NOT NULL DEFAULT 0,
+  side_effect_score      INTEGER          NOT NULL DEFAULT 0,
+  line_count             INTEGER          NOT NULL DEFAULT 0,
+  importance_score       DOUBLE PRECISION NOT NULL DEFAULT 0,
+  signal_fan_in_zero     INTEGER          NOT NULL DEFAULT 0,
+  analyzed_at            TEXT             NOT NULL,
+  PRIMARY KEY (release_tag, repo_name, file_path, function_name, start_line)
+);
+
 -- コードグラフ最新スナップショット（ローカル current_code_graphs と対応）
 CREATE TABLE IF NOT EXISTS trail_current_code_graphs (
   repo_name    TEXT PRIMARY KEY,
@@ -346,7 +442,11 @@ CREATE INDEX IF NOT EXISTS idx_trail_session_costs_session ON trail_session_cost
 CREATE INDEX IF NOT EXISTS idx_trail_daily_counts_date ON trail_daily_counts(date);
 CREATE INDEX IF NOT EXISTS idx_trail_daily_counts_kind ON trail_daily_counts(kind);
 CREATE INDEX IF NOT EXISTS idx_trail_session_commits_session ON trail_session_commits(session_id);
+CREATE INDEX IF NOT EXISTS idx_trail_session_commits_committed_at ON trail_session_commits(committed_at);
+CREATE INDEX IF NOT EXISTS idx_trail_session_commits_repo_committed_at ON trail_session_commits(repo_name, committed_at);
+CREATE INDEX IF NOT EXISTS idx_trail_session_commits_repo_hash ON trail_session_commits(repo_name, commit_hash);
 CREATE INDEX IF NOT EXISTS idx_trail_commit_files_hash ON trail_commit_files(commit_hash);
+CREATE INDEX IF NOT EXISTS idx_trail_commit_files_repo_hash ON trail_commit_files(repo_name, commit_hash);
 CREATE INDEX IF NOT EXISTS idx_trail_releases_released_at ON trail_releases(released_at);
 CREATE INDEX IF NOT EXISTS idx_trail_release_files_tag ON trail_release_files(release_tag);
 CREATE INDEX IF NOT EXISTS idx_trail_release_features_tag ON trail_release_features(release_tag);
@@ -446,3 +546,186 @@ CREATE POLICY "trail_release_code_graphs_all" ON trail_release_code_graphs FOR A
 ALTER TABLE trail_release_code_graph_communities ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "trail_release_code_graph_communities_all" ON trail_release_code_graph_communities;
 CREATE POLICY "trail_release_code_graph_communities_all" ON trail_release_code_graph_communities FOR ALL USING (true) WITH CHECK (true);
+
+
+-- =====================================================================
+-- 性能改善 Phase 1 (2026-05-06): trail-viewer の getQualityMetrics 改善
+-- =====================================================================
+
+-- type+timestamp 複合 index: assistant message の type+range filter を index 内で完結
+CREATE INDEX IF NOT EXISTS idx_trail_messages_type_timestamp
+    ON trail_messages (type, timestamp);
+
+-- session_id+type+timestamp 複合 index: per-session の type filter (RPC / fetchUserMessages 用)
+CREATE INDEX IF NOT EXISTS idx_trail_messages_session_type_timestamp
+    ON trail_messages (session_id, type, timestamp);
+
+-- quality-metrics RPC: assistant message を直前の user message に紐付け、user_uuid 単位で
+-- (model 別) token を集約する。cost は per-model breakdown で TS 側 calculateCost に渡す。
+-- 引数は text。trail_messages.timestamp が TEXT (ISO 8601 文字列) のため、
+-- timestamptz と比較できない。ISO 8601 文字列同士の lexicographic 比較で
+-- chronological 順を担保する。
+CREATE OR REPLACE FUNCTION trail_quality_metrics_user_token_aggregates(
+    time_from text,
+    time_to text,
+    session_ids text[]
+)
+RETURNS TABLE (
+    user_uuid text,
+    cost_breakdown jsonb
+)
+LANGUAGE sql
+STABLE
+AS $$
+WITH
+assistants AS (
+    SELECT
+        session_id,
+        timestamp,
+        input_tokens,
+        output_tokens,
+        cache_read_tokens,
+        cache_creation_tokens,
+        COALESCE(model, '') AS model
+    FROM trail_messages
+    WHERE type = 'assistant'
+      AND session_id = ANY(session_ids)
+      AND timestamp BETWEEN time_from AND time_to
+),
+user_msgs AS (
+    SELECT uuid, session_id, timestamp
+    FROM trail_messages
+    WHERE type = 'user'
+      AND session_id = ANY(session_ids)
+),
+matched AS (
+    SELECT DISTINCT ON (a.session_id, a.timestamp)
+        a.input_tokens,
+        a.output_tokens,
+        a.cache_read_tokens,
+        a.cache_creation_tokens,
+        a.model,
+        u.uuid AS user_uuid
+    FROM assistants a
+    JOIN user_msgs u
+      ON u.session_id = a.session_id
+     AND u.timestamp <= a.timestamp
+    ORDER BY a.session_id, a.timestamp, u.timestamp DESC
+),
+per_user_model AS (
+    SELECT
+        user_uuid,
+        model,
+        SUM(input_tokens)::bigint AS sum_input,
+        SUM(output_tokens)::bigint AS sum_output,
+        SUM(cache_read_tokens)::bigint AS sum_cache_read,
+        SUM(cache_creation_tokens)::bigint AS sum_cache_creation
+    FROM matched
+    WHERE user_uuid IS NOT NULL
+    GROUP BY user_uuid, model
+)
+SELECT
+    user_uuid,
+    jsonb_agg(
+        jsonb_build_object(
+            'model', model,
+            'input', sum_input,
+            'output', sum_output,
+            'cache_read', sum_cache_read,
+            'cache_creation', sum_cache_creation
+        )
+    ) AS cost_breakdown
+FROM per_user_model
+GROUP BY user_uuid;
+$$;
+
+-- =====================================================================
+-- Phase 5d: Materialized View for quality-metrics performance
+-- =====================================================================
+-- Phase 1 の trail_quality_metrics_user_token_aggregates RPC は DISTINCT ON join で
+-- 3.25 秒かかる。Materialized View で事前計算することで 1 秒以下を狙う。
+-- REFRESH は trail-db の import 完了 hook で行う。
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS trail_user_message_costs AS
+WITH matched AS (
+    SELECT DISTINCT ON (a.session_id, a.timestamp)
+        u.uuid AS user_uuid,
+        a.session_id,
+        u.timestamp AS user_timestamp,
+        COALESCE(a.model, '') AS model,
+        a.input_tokens,
+        a.output_tokens,
+        a.cache_read_tokens,
+        a.cache_creation_tokens
+    FROM trail_messages a
+    JOIN trail_messages u
+      ON a.session_id = u.session_id
+     AND u.type = 'user'
+     AND u.timestamp <= a.timestamp
+    WHERE a.type = 'assistant'
+    ORDER BY a.session_id, a.timestamp, u.timestamp DESC
+)
+SELECT
+    user_uuid,
+    session_id,
+    user_timestamp,
+    model,
+    SUM(input_tokens)::bigint AS input_tokens,
+    SUM(output_tokens)::bigint AS output_tokens,
+    SUM(cache_read_tokens)::bigint AS cache_read_tokens,
+    SUM(cache_creation_tokens)::bigint AS cache_creation_tokens
+FROM matched
+GROUP BY user_uuid, session_id, user_timestamp, model;
+
+CREATE INDEX IF NOT EXISTS idx_trail_user_message_costs_session_ts
+    ON trail_user_message_costs (session_id, user_timestamp);
+CREATE INDEX IF NOT EXISTS idx_trail_user_message_costs_user
+    ON trail_user_message_costs (user_uuid);
+-- CONCURRENTLY refresh のため UNIQUE index 必須 (PostgreSQL 制約)。
+-- (user_uuid, model) で一意 (上記 GROUP BY で保証される)。
+CREATE UNIQUE INDEX IF NOT EXISTS uq_trail_user_message_costs
+    ON trail_user_message_costs (user_uuid, model);
+
+-- import 完了後に呼ぶ refresh function。
+-- CONCURRENTLY refresh により MV が存在する間は古いデータで read 可能。
+CREATE OR REPLACE FUNCTION refresh_trail_user_message_costs()
+RETURNS void
+LANGUAGE sql
+AS $$
+    REFRESH MATERIALIZED VIEW CONCURRENTLY trail_user_message_costs;
+$$;
+
+-- =====================================================================
+-- Phase 5e: trail_user_messages_meta Materialized View
+-- =====================================================================
+-- Phase 5d で fetchUserTokenAggregates を 16x 高速化したが、
+-- 並列の fetchUserMessageHeaders が ~2.46s で新ボトルネック。
+-- user message メタデータ (uuid / session_id / timestamp) を事前計算して
+-- pagination + per-session batch のオーバーヘッドを排除する。
+-- assistant 応答の有無に関係なく全 user message を含むため、
+-- computeUserTokens の動作は完全に維持される (Approach A)。
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS trail_user_messages_meta AS
+SELECT
+    uuid,
+    session_id,
+    timestamp
+FROM trail_messages
+WHERE type = 'user';
+
+-- session_id で範囲検索 (in 句) が主用途
+CREATE INDEX IF NOT EXISTS idx_trail_user_messages_meta_session
+    ON trail_user_messages_meta (session_id);
+
+-- CONCURRENTLY refresh のため UNIQUE index 必須 (PostgreSQL 制約)。
+-- uuid は trail_messages の主キー (一意) を継承するため UNIQUE で問題ない。
+CREATE UNIQUE INDEX IF NOT EXISTS uq_trail_user_messages_meta
+    ON trail_user_messages_meta (uuid);
+
+-- import 完了後に呼ぶ refresh function。
+CREATE OR REPLACE FUNCTION refresh_trail_user_messages_meta()
+RETURNS void
+LANGUAGE sql
+AS $$
+    REFRESH MATERIALIZED VIEW CONCURRENTLY trail_user_messages_meta;
+$$;

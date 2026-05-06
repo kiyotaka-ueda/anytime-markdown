@@ -6,25 +6,15 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 import { BarChart } from '@mui/x-charts/BarChart';
 import { PieChart } from '@mui/x-charts/PieChart';
-import type { CostOptimizationData } from '../parser/types';
+import type { CostOptimizationData } from '../domain/parser/types';
 import { useTrailI18n } from '../i18n';
+import { costChartColors, modelCostColors } from '../theme/designTokens';
 
 interface CostOptimizationSectionProps {
   readonly data: CostOptimizationData | null;
 }
 
 type PeriodMode = 'day' | 'week' | 'month';
-
-const COLORS = {
-  actual: '#1976d2',
-  skill: '#8b5cf6',
-} as const;
-
-const MODEL_COLORS: Readonly<Record<string, string>> = {
-  opus: '#7b1fa2',
-  sonnet: '#1976d2',
-  haiku: '#00897b',
-};
 
 function fmtUsd(n: number): string {
   return `$${n.toFixed(2)}`;
@@ -66,7 +56,7 @@ function distToSlices(dist: Readonly<Record<string, number>>): Array<{ id: numbe
     .filter(([, v]) => v > 0)
     .map(([k, v], i) => {
       const normalized = k.toLowerCase();
-      const color = MODEL_COLORS[normalized] ?? `hsl(${i * 60}, 50%, 50%)`;
+      const color = (modelCostColors as unknown as Readonly<Record<string, string>>)[normalized] ?? `hsl(${i * 60}, 50%, 50%)`;
       return { id: i, value: v, label: k, color };
     });
 }
@@ -101,19 +91,19 @@ export function CostOptimizationSection({ data }: Readonly<CostOptimizationSecti
       <Box sx={{ display: 'flex', gap: 1.5, mb: 2, flexWrap: 'wrap' }}>
         <Paper variant="outlined" sx={{ p: 1.5, flex: 1, minWidth: 140 }}>
           <Typography variant="caption" color="text.secondary">{t('cost.current')}</Typography>
-          <Typography variant="h6" sx={{ color: COLORS.actual, fontWeight: 700 }}>
+          <Typography variant="h6" sx={{ color: costChartColors.actual, fontWeight: 700 }}>
             {fmtUsd(actual.totalCost)}
           </Typography>
         </Paper>
         <Paper variant="outlined" sx={{ p: 1.5, flex: 1, minWidth: 140 }}>
           <Typography variant="caption" color="text.secondary">{t('cost.optimized')}</Typography>
-          <Typography variant="h6" sx={{ color: COLORS.skill, fontWeight: 700 }}>
+          <Typography variant="h6" sx={{ color: costChartColors.skill, fontWeight: 700 }}>
             {fmtUsd(skillEstimate.totalCost)}
           </Typography>
         </Paper>
         <Paper variant="outlined" sx={{ p: 1.5, flex: 1, minWidth: 140 }}>
           <Typography variant="caption" color="text.secondary">{t('cost.potentialSavings')}</Typography>
-          <Typography variant="h6" sx={{ color: savingsRate > 0 ? COLORS.skill : 'text.primary', fontWeight: 700 }}>
+          <Typography variant="h6" sx={{ color: savingsRate > 0 ? costChartColors.skill : 'text.primary', fontWeight: 700 }}>
             {savingsRate.toFixed(1)}%
           </Typography>
         </Paper>
@@ -139,8 +129,8 @@ export function CostOptimizationSection({ data }: Readonly<CostOptimizationSecti
             height={250}
             xAxis={[{ data: chartData.map((d) => d.label), scaleType: 'band' }]}
             series={[
-              { data: chartData.map((d) => d.actualCost), label: t('cost.current'), color: COLORS.actual },
-              { data: chartData.map((d) => d.skillCost), label: t('cost.optimized'), color: COLORS.skill },
+              { data: chartData.map((d) => d.actualCost), label: t('cost.current'), color: costChartColors.actual },
+              { data: chartData.map((d) => d.skillCost), label: t('cost.optimized'), color: costChartColors.skill },
             ]}
           />
         ) : (

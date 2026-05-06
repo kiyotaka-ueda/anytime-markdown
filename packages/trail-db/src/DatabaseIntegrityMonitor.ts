@@ -16,7 +16,6 @@ import type { Database } from 'sql.js';
 const WATCHED_TABLES = [
   'sessions',
   'messages',
-  'c4_models',
   'current_graphs',
   'c4_manual_elements',
   'c4_manual_relationships',

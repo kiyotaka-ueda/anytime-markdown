@@ -10,7 +10,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { useCallback, useState } from 'react';
 
 import { formatLocalDateTime } from '@anytime-markdown/trail-core/formatDate';
-import type { TrailSession } from '../parser/types';
+import type { TrailSession } from '../domain/parser/types';
 import { useTrailI18n } from '../i18n';
 import { useTrailTheme } from './TrailThemeContext';
 
@@ -66,6 +66,7 @@ export function SessionList({ sessions, selectedId, onSelect }: Readonly<Session
       {sessions.map((session) => (
         <ListItemButton
           key={session.id}
+          data-testid="session-row"
           selected={session.id === selectedId}
           onClick={handleSelect(session.id)}
           sx={{

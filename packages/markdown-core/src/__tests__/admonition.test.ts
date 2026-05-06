@@ -9,6 +9,7 @@ import { Markdown } from "tiptap-markdown";
 import { AdmonitionBlockquote } from "../extensions/admonitionExtension";
 import { preprocessAdmonition } from "../utils/admonitionHelpers";
 import { getMarkdownFromEditor, getMarkdownStorage } from "../types";
+import { applyMarkdownToEditor } from "../utils/editorContentLoader";
 
 function createAdmonitionEditor(md = ""): Editor {
   // commands.setContent() 経由で読み込むことで appendTransaction が発火する。
@@ -22,6 +23,20 @@ function createAdmonitionEditor(md = ""): Editor {
     ],
   });
   editor.commands.setContent(md);
+  return editor;
+}
+
+function createSaveLoadEditor(md = ""): Editor {
+  // applyMarkdownToEditor 経由でロードし、保存時の preserveBlankLines / restoreBlankLines を含む
+  // 実際の save / load サイクルを検証するためのヘルパー
+  const editor = new Editor({
+    extensions: [
+      StarterKit.configure({ blockquote: false }),
+      AdmonitionBlockquote,
+      Markdown.configure({ html: true }),
+    ],
+  });
+  applyMarkdownToEditor(editor, md);
   return editor;
 }
 
@@ -222,6 +237,143 @@ describe("AdmonitionBlockquote", () => {
       expect(twice).toBe(once);
       expect(threeTimes).toBe(once);
       editor.destroy();
+    });
+
+    test("parse→serialize を繰り返しても admonition と次ブロック間の空行が増殖しない (save/load サイクル)", () => {
+      // regression: 保存（apply → serialize → file write → reload → apply → serialize）を
+      // 繰り返すと admonition の閉じ `>` 行と後続ブロックの間に空行が累積する不具合。
+      // applyMarkdownToEditor + getMarkdownFromEditor を経由することで
+      // preserveBlankLines / restoreBlankLines を含む実際の save / load サイクルを再現する。
+      const input = [
+        "> [!IMPORTANT]",
+        "> 本スキルは Trail DB に対して読み取り専用で動作する。",
+        "",
+        "## 次の見出し",
+        "",
+        "本文。",
+        "",
+      ].join("\n");
+
+      const editor1 = createSaveLoadEditor(input);
+      const out1 = getMarkdownFromEditor(editor1);
+      editor1.destroy();
+
+      const editor2 = createSaveLoadEditor(out1);
+      const out2 = getMarkdownFromEditor(editor2);
+      editor2.destroy();
+
+      const editor3 = createSaveLoadEditor(out2);
+      const out3 = getMarkdownFromEditor(editor3);
+      editor3.destroy();
+
+      // ラウンドトリップで出力が安定すること
+      expect(out2).toBe(out1);
+      expect(out3).toBe(out1);
+      // admonition と heading の間に空行が累積していないこと
+      const blankLines = /\n{4,}## /.exec(out1);
+      expect(blankLines).toBeNull();
+    });
+  });
+
+  describe("初期ロード regression (new Editor + content prop)", () => {
+    // 本番の useEditorConfig は `content: initialContent` を渡して useEditor 経由でエディタを作成する。
+    // 内部の new Editor({ content }) 経路は appendTransaction を発火させないため、
+    // admonition の初期ロード検出は拡張側の onCreate で完結している必要がある。
+    test("new Editor({ content }) 経路で admonitionType が即時設定される", () => {
+      const editor = new Editor({
+        extensions: [
+          StarterKit.configure({ blockquote: false }),
+          AdmonitionBlockquote,
+          Markdown.configure({ html: true }),
+        ],
+        content: "> [!IMPORTANT]\n> 初期ロードでも検出される本文。",
+      });
+
+      let bqType: string | null | undefined = undefined;
+      let bqText = "";
+      editor.state.doc.descendants((node) => {
+        if (node.type.name === "blockquote") {
+          bqType = node.attrs.admonitionType as string | null;
+          bqText = node.textContent;
+        }
+      });
+
+      expect(bqType).toBe("important");
+      expect(bqText).not.toContain("[!IMPORTANT]");
+      expect(bqText).toContain("初期ロードでも検出される本文。");
+      editor.destroy();
+    });
+
+    test.each(["NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"])(
+      "new Editor({ content }) 経路で [!%s] が検出される",
+      (type) => {
+        const editor = new Editor({
+          extensions: [
+            StarterKit.configure({ blockquote: false }),
+            AdmonitionBlockquote,
+            Markdown.configure({ html: true }),
+          ],
+          content: `> [!${type}]\n> body`,
+        });
+
+        let bqType: string | null | undefined;
+        editor.state.doc.descendants((node) => {
+          if (node.type.name === "blockquote") {
+            bqType = node.attrs.admonitionType as string | null;
+          }
+        });
+        expect(bqType).toBe(type.toLowerCase());
+        editor.destroy();
+      },
+    );
+
+    test("初期ロードの DOM に data-admonition-type 属性が付与される", () => {
+      // 表示レベルのリグレッション。React-less 環境ではあるが、ProseMirror が
+      // renderHTML を介して DOM 属性を出力するため、初期ロード直後でも
+      // data-admonition-type が要素に付くことを保証する。
+      const editor = new Editor({
+        extensions: [
+          StarterKit.configure({ blockquote: false }),
+          AdmonitionBlockquote,
+          Markdown.configure({ html: true }),
+        ],
+        content: "> [!CAUTION]\n> dom test",
+      });
+
+      const dom = editor.view.dom.querySelector("[data-admonition-type='caution']");
+      expect(dom).not.toBeNull();
+      editor.destroy();
+    });
+
+    test("初期ロード経路と commands.setContent 経路で doc が一致する", () => {
+      // どちらの経路でも admonitionType と textContent が同じ状態に到達すること。
+      // 過去は前者のみ admonitionType=null・前者のみ textContent に [!NOTE] 残存していた。
+      const md = "> [!NOTE]\n> 初期表示テスト";
+      const editorInit = new Editor({
+        extensions: [
+          StarterKit.configure({ blockquote: false }),
+          AdmonitionBlockquote,
+          Markdown.configure({ html: true }),
+        ],
+        content: md,
+      });
+      const editorSet = createAdmonitionEditor(md);
+
+      const collect = (e: Editor) => {
+        let type: string | null = null;
+        let text = "";
+        e.state.doc.descendants((n) => {
+          if (n.type.name === "blockquote") {
+            type = n.attrs.admonitionType as string | null;
+            text = n.textContent;
+          }
+        });
+        return { type, text };
+      };
+
+      expect(collect(editorInit)).toEqual(collect(editorSet));
+      editorInit.destroy();
+      editorSet.destroy();
     });
   });
 });

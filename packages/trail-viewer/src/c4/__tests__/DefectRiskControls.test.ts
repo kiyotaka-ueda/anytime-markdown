@@ -1,4 +1,4 @@
-import { computeDefectRiskWindowLabel, DEFAULT_DEFECT_RISK_VALUE } from '../components/DefectRiskControls';
+import { computeDefectRiskWindowLabel, DEFAULT_DEFECT_RISK_VALUE } from '../components/overlays/DefectRiskControls';
 
 describe('computeDefectRiskWindowLabel', () => {
   it('returns "30d" for 30', () => {

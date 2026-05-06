@@ -1,0 +1,292 @@
+import initSqlJs, { type SqlJsStatic, type Database } from 'sql.js';
+import {
+  getC4ModelDirect,
+  listElementsDirect,
+  listGroupsDirect,
+  listRelationshipsDirect,
+  listCommunitiesDirect,
+} from '../../sqlite/read';
+
+let SQL: SqlJsStatic;
+
+beforeAll(async () => {
+  SQL = await initSqlJs();
+});
+
+function createTestDb(): Database {
+  const db = new SQL.Database();
+  db.run(`
+    CREATE TABLE current_code_graphs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      repo_name TEXT NOT NULL,
+      graph_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE c4_manual_elements (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      repo_name TEXT NOT NULL,
+      element_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      service_type TEXT,
+      external INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE c4_manual_relationships (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      repo_name TEXT NOT NULL,
+      rel_id TEXT NOT NULL,
+      from_id TEXT NOT NULL,
+      to_id TEXT NOT NULL,
+      label TEXT,
+      technology TEXT,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE c4_manual_groups (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      repo_name TEXT NOT NULL,
+      group_id TEXT NOT NULL,
+      member_ids TEXT NOT NULL,
+      label TEXT,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE current_code_graph_communities (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      repo_name TEXT NOT NULL,
+      community_id INTEGER NOT NULL,
+      label TEXT NOT NULL,
+      name TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      mappings_json TEXT,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  return db;
+}
+
+function createTestDbWithoutMappingsJson(): Database {
+  const db = new SQL.Database();
+  db.run(`
+    CREATE TABLE current_code_graph_communities (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      repo_name TEXT NOT NULL,
+      community_id INTEGER NOT NULL,
+      label TEXT NOT NULL,
+      name TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  return db;
+}
+
+const REPO = 'test-repo';
+const NOW = '2026-01-01T00:00:00.000Z';
+
+describe('getC4ModelDirect', () => {
+  it('graph_json が無い場合は空の base モデルを返す', () => {
+    const db = createTestDb();
+    const { model } = getC4ModelDirect(db, REPO);
+    expect(model.elements).toEqual([]);
+    expect(model.relationships).toEqual([]);
+    db.close();
+  });
+
+  it('graph_json があれば codeGraphToC4 で派生した C4Model を返す', () => {
+    const db = createTestDb();
+    const graph = {
+      generatedAt: '2026-01-01T00:00:00.000Z',
+      repositories: [{ id: 'r1', label: 'TestRepo', path: '/tmp/r1' }],
+      nodes: [
+        {
+          id: 'r1:packages/core/index.ts',
+          label: 'index.ts',
+          repo: 'r1',
+          package: 'core',
+          fileType: 'code',
+          community: 1,
+          communityLabel: 'core-lib',
+          x: 0,
+          y: 0,
+          size: 1,
+        },
+      ],
+      edges: [],
+      godNodes: [],
+    };
+    db.run('INSERT INTO current_code_graphs (repo_name, graph_json, updated_at) VALUES (?, ?, ?)', [
+      REPO,
+      JSON.stringify(graph),
+      NOW,
+    ]);
+    const { model } = getC4ModelDirect(db, REPO);
+    expect(model.elements.find((e) => e.id === 'sys_r1')).toMatchObject({ type: 'system', name: 'TestRepo' });
+    expect(model.elements.find((e) => e.id === 'pkg_core')).toMatchObject({ type: 'container' });
+    expect(model.elements.find((e) => e.id === 'community_1')).toMatchObject({ type: 'component', name: 'core-lib' });
+    expect(model.elements.find((e) => e.id === 'r1:packages/core/index.ts')).toMatchObject({ type: 'code' });
+    db.close();
+  });
+
+  it('manual elements が mergeManualIntoC4Model 経由でマージされる', () => {
+    const db = createTestDb();
+    db.run(
+      'INSERT INTO c4_manual_elements (repo_name, element_id, type, name, description, external, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [REPO, 'elem-1', 'system', 'MySystem', 'A system', 0, NOW],
+    );
+    db.run(
+      'INSERT INTO c4_manual_relationships (repo_name, rel_id, from_id, to_id, label, technology, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [REPO, 'rel-1', 'elem-1', 'elem-2', 'uses', 'HTTP', NOW],
+    );
+
+    const { model } = getC4ModelDirect(db, REPO);
+    const elem = model.elements.find((e) => e.id === 'elem-1');
+    expect(elem).toBeDefined();
+    expect(elem?.name).toBe('MySystem');
+    expect(elem?.type).toBe('system');
+    db.close();
+  });
+
+  it('external フィールドが INTEGER 0/1 → boolean に変換される', () => {
+    const db = createTestDb();
+    db.run(
+      'INSERT INTO c4_manual_elements (repo_name, element_id, type, name, external, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [REPO, 'ext-elem', 'system', 'ExternalSystem', 1, NOW],
+    );
+
+    const { model } = getC4ModelDirect(db, REPO);
+    const elem = model.elements.find((e) => e.id === 'ext-elem');
+    expect(elem?.external).toBe(true);
+    db.close();
+  });
+});
+
+describe('listElementsDirect', () => {
+  it('要素の id / type / name を配列で返す', () => {
+    const db = createTestDb();
+    db.run(
+      'INSERT INTO c4_manual_elements (repo_name, element_id, type, name, external, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [REPO, 'e1', 'container', 'ServiceA', 0, NOW],
+    );
+
+    const elements = listElementsDirect(db, REPO);
+    expect(elements.length).toBeGreaterThan(0);
+    const e = elements.find((el) => el.id === 'e1');
+    expect(e?.type).toBe('container');
+    expect(e?.name).toBe('ServiceA');
+    db.close();
+  });
+});
+
+describe('listGroupsDirect', () => {
+  it('グループを返す', () => {
+    const db = createTestDb();
+    db.run(
+      'INSERT INTO c4_manual_groups (repo_name, group_id, member_ids, label, updated_at) VALUES (?, ?, ?, ?, ?)',
+      [REPO, 'grp-1', JSON.stringify(['e1', 'e2']), 'Group A', NOW],
+    );
+
+    const groups = listGroupsDirect(db, REPO);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].id).toBe('grp-1');
+    expect(groups[0].memberIds).toEqual(['e1', 'e2']);
+    expect(groups[0].label).toBe('Group A');
+    db.close();
+  });
+
+  it('label が null のときは省略される', () => {
+    const db = createTestDb();
+    db.run(
+      'INSERT INTO c4_manual_groups (repo_name, group_id, member_ids, label, updated_at) VALUES (?, ?, ?, ?, ?)',
+      [REPO, 'grp-2', JSON.stringify(['e3']), null, NOW],
+    );
+
+    const groups = listGroupsDirect(db, REPO);
+    expect(groups[0].label).toBeUndefined();
+    db.close();
+  });
+});
+
+describe('listRelationshipsDirect', () => {
+  it('リレーションシップを返す', () => {
+    const db = createTestDb();
+    db.run(
+      'INSERT INTO c4_manual_relationships (repo_name, rel_id, from_id, to_id, label, technology, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [REPO, 'rel-1', 'a', 'b', 'calls', 'gRPC', NOW],
+    );
+
+    const rels = listRelationshipsDirect(db, REPO);
+    expect(rels).toHaveLength(1);
+    expect(rels[0].id).toBe('rel-1');
+    expect(rels[0].fromId).toBe('a');
+    expect(rels[0].toId).toBe('b');
+    expect(rels[0].label).toBe('calls');
+    expect(rels[0].technology).toBe('gRPC');
+    db.close();
+  });
+
+  it('label / technology が null のときは省略される', () => {
+    const db = createTestDb();
+    db.run(
+      'INSERT INTO c4_manual_relationships (repo_name, rel_id, from_id, to_id, label, technology, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [REPO, 'rel-2', 'c', 'd', null, null, NOW],
+    );
+
+    const rels = listRelationshipsDirect(db, REPO);
+    expect(rels[0].label).toBeUndefined();
+    expect(rels[0].technology).toBeUndefined();
+    db.close();
+  });
+});
+
+describe('listCommunitiesDirect', () => {
+  it('mappings_json カラムありの場合にコミュニティを返す', () => {
+    const db = createTestDb();
+    db.run(
+      'INSERT INTO current_code_graph_communities (repo_name, community_id, label, name, summary, mappings_json, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [REPO, 1, 'auth', 'Auth Module', 'Handles authentication', '{"elements":[]}', NOW],
+    );
+
+    const { communities } = listCommunitiesDirect(db, REPO);
+    expect(communities).toHaveLength(1);
+    expect(communities[0].communityId).toBe(1);
+    expect(communities[0].label).toBe('auth');
+    expect(communities[0].name).toBe('Auth Module');
+    expect(communities[0].summary).toBe('Handles authentication');
+    expect(communities[0].mappingsJson).toBe('{"elements":[]}');
+    db.close();
+  });
+
+  it('mappings_json が null の行は mappingsJson: null を返す', () => {
+    const db = createTestDb();
+    db.run(
+      'INSERT INTO current_code_graph_communities (repo_name, community_id, label, name, summary, mappings_json, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [REPO, 2, 'core', 'Core Module', 'Core logic', null, NOW],
+    );
+
+    const { communities } = listCommunitiesDirect(db, REPO);
+    expect(communities[0].mappingsJson).toBeNull();
+    db.close();
+  });
+
+  it('mappings_json カラムなしの場合は mappingsJson: null でフォールバックする', () => {
+    const db = createTestDbWithoutMappingsJson();
+    db.run(
+      'INSERT INTO current_code_graph_communities (repo_name, community_id, label, name, summary, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [REPO, 1, 'infra', 'Infrastructure', 'Infra services', NOW],
+    );
+
+    const { communities } = listCommunitiesDirect(db, REPO);
+    expect(communities).toHaveLength(1);
+    expect(communities[0].communityId).toBe(1);
+    expect(communities[0].mappingsJson).toBeNull();
+    db.close();
+  });
+
+  it('データなしの場合は空配列を返す', () => {
+    const db = createTestDb();
+    const { communities } = listCommunitiesDirect(db, REPO);
+    expect(communities).toEqual([]);
+    db.close();
+  });
+});

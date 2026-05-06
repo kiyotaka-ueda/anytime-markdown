@@ -1,27 +1,9 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import {
-  resolveOptions,
-  getC4Model,
-  addElement,
-  updateElement,
-  removeElement,
-  listRelationships,
-  addRelationship,
-  removeRelationship,
-  listGroups,
-  addGroup,
-  updateGroup,
-  removeGroup,
-  analyzeCurrentCode,
-  analyzeCurrentCodeWithProgress,
-  analyzeReleaseCode,
-  analyzeAll,
-  getAnalyzeStatus,
-  listCommunities,
-  upsertCommunitySummaries,
-  upsertCommunityMappings,
-} from './client.js';
+import { analyzeCurrentCodeWithProgress } from './client.js';
+import { probeServerAlive } from './probe.js';
+import { route } from './router.js';
+import type { RouteOpts } from './router.js';
 
 export interface McpTrailOptions {
   serverUrl?: string;
@@ -35,6 +17,16 @@ const commonParams = {
   serverUrl: z.string().optional().describe('TrailDataServer URL (default: http://localhost:19841)'),
 };
 
+function buildRouteOpts(args: { repoName?: string; serverUrl?: string }, options: McpTrailOptions): RouteOpts {
+  return {
+    serverUrl: args.serverUrl ?? options.serverUrl ?? 'http://localhost:19841',
+    repoName: args.repoName ?? options.repoName,
+    workspacePath: process.env['TRAIL_WORKSPACE_PATH'],
+    dbPath: process.env['TRAIL_DB_PATH'],
+    forceDirect: process.env['MCP_TRAIL_FORCE_DIRECT'] === '1',
+  };
+}
+
 export function createMcpServer(options: McpTrailOptions = {}): McpServer {
   const server = new McpServer({
     name: 'mcp-trail',
@@ -46,9 +38,9 @@ export function createMcpServer(options: McpTrailOptions = {}): McpServer {
     'Get the current C4 architecture model including all elements and relationships',
     { ...commonParams },
     async ({ repoName, serverUrl }) => {
-      const opts = resolveOptions({ serverUrl, repoName: repoName ?? options.repoName, ...options });
-      const model = await getC4Model(opts.serverUrl, opts.repoName);
-      return { content: [{ type: 'text' as const, text: JSON.stringify(model, null, 2) }] };
+      const opts = buildRouteOpts({ repoName, serverUrl }, options);
+      const result = await route('get_c4_model', { repoName }, opts);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
     },
   );
 
@@ -57,8 +49,8 @@ export function createMcpServer(options: McpTrailOptions = {}): McpServer {
     'List all C4 elements with their IDs, types, and names. Useful for finding element IDs before adding relationships.',
     { ...commonParams },
     async ({ repoName, serverUrl }) => {
-      const opts = resolveOptions({ serverUrl, repoName: repoName ?? options.repoName, ...options });
-      const payload = await getC4Model(opts.serverUrl, opts.repoName) as { model?: { elements?: unknown[] } };
+      const opts = buildRouteOpts({ repoName, serverUrl }, options);
+      const payload = await route('get_c4_model', { repoName }, opts) as { model?: { elements?: unknown[] } };
       const elements = payload?.model?.elements ?? [];
       const summary = (elements as Array<{ id: string; type: string; name: string; external?: boolean; manual?: boolean }>)
         .map(e => ({
@@ -85,15 +77,8 @@ export function createMcpServer(options: McpTrailOptions = {}): McpServer {
       ...commonParams,
     },
     async ({ type, name, description, external, parentId, serviceType, repoName, serverUrl }) => {
-      const opts = resolveOptions({ serverUrl, repoName: repoName ?? options.repoName, ...options });
-      const result = await addElement(opts.serverUrl, opts.repoName, {
-        type,
-        name,
-        external,
-        parentId: parentId ?? null,
-        ...(description ? { description } : {}),
-        ...(serviceType ? { serviceType } : {}),
-      });
+      const opts = buildRouteOpts({ repoName, serverUrl }, options);
+      const result = await route('add_element', { type, name, description, external, parentId, serviceType }, opts);
       return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
     },
   );
@@ -110,13 +95,13 @@ export function createMcpServer(options: McpTrailOptions = {}): McpServer {
       ...commonParams,
     },
     async ({ id, name, description, external, serviceType, repoName, serverUrl }) => {
-      const opts = resolveOptions({ serverUrl, repoName: repoName ?? options.repoName, ...options });
-      const changes: Record<string, unknown> = {};
-      if (name !== undefined) changes.name = name;
-      if (description !== undefined) changes.description = description;
-      if (external !== undefined) changes.external = external;
-      if (serviceType !== undefined) changes.serviceType = serviceType;
-      const result = await updateElement(opts.serverUrl, opts.repoName, id, changes);
+      const opts = buildRouteOpts({ repoName, serverUrl }, options);
+      const args: Record<string, unknown> = { id };
+      if (name !== undefined) args.name = name;
+      if (description !== undefined) args.description = description;
+      if (external !== undefined) args.external = external;
+      if (serviceType !== undefined) args.serviceType = serviceType;
+      const result = await route('update_element', args, opts);
       return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
     },
   );
@@ -129,8 +114,8 @@ export function createMcpServer(options: McpTrailOptions = {}): McpServer {
       ...commonParams,
     },
     async ({ id, repoName, serverUrl }) => {
-      const opts = resolveOptions({ serverUrl, repoName: repoName ?? options.repoName, ...options });
-      await removeElement(opts.serverUrl, opts.repoName, id);
+      const opts = buildRouteOpts({ repoName, serverUrl }, options);
+      await route('remove_element', { id }, opts);
       return { content: [{ type: 'text' as const, text: `Removed element ${id}` }] };
     },
   );
@@ -140,9 +125,9 @@ export function createMcpServer(options: McpTrailOptions = {}): McpServer {
     'List all manual C4 relationships with their IDs. Useful for finding relationship IDs before removing them.',
     { ...commonParams },
     async ({ repoName, serverUrl }) => {
-      const opts = resolveOptions({ serverUrl, repoName: repoName ?? options.repoName, ...options });
-      const relationships = await listRelationships(opts.serverUrl, opts.repoName);
-      return { content: [{ type: 'text' as const, text: JSON.stringify(relationships, null, 2) }] };
+      const opts = buildRouteOpts({ repoName, serverUrl }, options);
+      const result = await route('list_relationships', { repoName }, opts);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
     },
   );
 
@@ -157,13 +142,8 @@ export function createMcpServer(options: McpTrailOptions = {}): McpServer {
       ...commonParams,
     },
     async ({ fromId, toId, label, technology, repoName, serverUrl }) => {
-      const opts = resolveOptions({ serverUrl, repoName: repoName ?? options.repoName, ...options });
-      const result = await addRelationship(opts.serverUrl, opts.repoName, {
-        fromId,
-        toId,
-        ...(label ? { label } : {}),
-        ...(technology ? { technology } : {}),
-      });
+      const opts = buildRouteOpts({ repoName, serverUrl }, options);
+      const result = await route('add_relationship', { fromId, toId, label, technology }, opts);
       return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
     },
   );
@@ -176,8 +156,8 @@ export function createMcpServer(options: McpTrailOptions = {}): McpServer {
       ...commonParams,
     },
     async ({ id, repoName, serverUrl }) => {
-      const opts = resolveOptions({ serverUrl, repoName: repoName ?? options.repoName, ...options });
-      await removeRelationship(opts.serverUrl, opts.repoName, id);
+      const opts = buildRouteOpts({ repoName, serverUrl }, options);
+      await route('remove_relationship', { id }, opts);
       return { content: [{ type: 'text' as const, text: `Removed relationship ${id}` }] };
     },
   );
@@ -187,9 +167,9 @@ export function createMcpServer(options: McpTrailOptions = {}): McpServer {
     'List all manual C4 groups with their IDs and member element IDs.',
     { ...commonParams },
     async ({ repoName, serverUrl }) => {
-      const opts = resolveOptions({ serverUrl, repoName: repoName ?? options.repoName, ...options });
-      const groups = await listGroups(opts.serverUrl, opts.repoName);
-      return { content: [{ type: 'text' as const, text: JSON.stringify(groups, null, 2) }] };
+      const opts = buildRouteOpts({ repoName, serverUrl }, options);
+      const result = await route('list_groups', { repoName }, opts);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
     },
   );
 
@@ -202,11 +182,8 @@ export function createMcpServer(options: McpTrailOptions = {}): McpServer {
       ...commonParams,
     },
     async ({ memberIds, label, repoName, serverUrl }) => {
-      const opts = resolveOptions({ serverUrl, repoName: repoName ?? options.repoName, ...options });
-      const result = await addGroup(opts.serverUrl, opts.repoName, {
-        memberIds,
-        ...(label ? { label } : {}),
-      });
+      const opts = buildRouteOpts({ repoName, serverUrl }, options);
+      const result = await route('add_group', { memberIds, label }, opts);
       return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
     },
   );
@@ -221,11 +198,8 @@ export function createMcpServer(options: McpTrailOptions = {}): McpServer {
       ...commonParams,
     },
     async ({ id, label, memberIds, repoName, serverUrl }) => {
-      const opts = resolveOptions({ serverUrl, repoName: repoName ?? options.repoName, ...options });
-      await updateGroup(opts.serverUrl, opts.repoName, id, {
-        ...(memberIds !== undefined ? { memberIds } : {}),
-        ...(label !== undefined ? { label } : {}),
-      });
+      const opts = buildRouteOpts({ repoName, serverUrl }, options);
+      await route('update_group', { id, memberIds, label }, opts);
       return { content: [{ type: 'text' as const, text: `Updated group ${id}` }] };
     },
   );
@@ -238,8 +212,8 @@ export function createMcpServer(options: McpTrailOptions = {}): McpServer {
       ...commonParams,
     },
     async ({ id, repoName, serverUrl }) => {
-      const opts = resolveOptions({ serverUrl, repoName: repoName ?? options.repoName, ...options });
-      await removeGroup(opts.serverUrl, opts.repoName, id);
+      const opts = buildRouteOpts({ repoName, serverUrl }, options);
+      await route('remove_group', { id }, opts);
       return { content: [{ type: 'text' as const, text: `Removed group ${id}` }] };
     },
   );
@@ -258,10 +232,17 @@ export function createMcpServer(options: McpTrailOptions = {}): McpServer {
       includeProgress: z.boolean().optional().describe('Include WebSocket progress log in response (default: true)'),
     },
     async ({ serverUrl, workspacePath, tsconfigPath, includeProgress }) => {
-      const opts = resolveOptions({ serverUrl, ...options });
-      const result = includeProgress === false
-        ? await analyzeCurrentCode(opts.serverUrl, { workspacePath, tsconfigPath })
-        : await analyzeCurrentCodeWithProgress(opts.serverUrl, { workspacePath, tsconfigPath });
+      const opts = buildRouteOpts({ serverUrl }, options);
+      if (includeProgress === false) {
+        const result = await route('analyze_current_code', { workspacePath, tsconfigPath }, opts);
+        return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+      }
+      // includeProgress !== false → WebSocket 進捗付きで HTTP 直呼び
+      const alive = opts.forceDirect ? false : await probeServerAlive(opts.serverUrl);
+      if (!alive) {
+        throw new Error('TrailDataServer not running. Start "Anytime Trail" sidebar in VS Code or run "Anytime Trail: コード解析" command first.');
+      }
+      const result = await analyzeCurrentCodeWithProgress(opts.serverUrl, { workspacePath, tsconfigPath });
       return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
     },
   );
@@ -271,8 +252,8 @@ export function createMcpServer(options: McpTrailOptions = {}): McpServer {
     'Run release-grouped C4 / code graph analysis (deletes existing release_code_graphs and regenerates). Equivalent to "Anytime Trail: リリース別コード解析" command.',
     { ...commonParams },
     async ({ serverUrl }) => {
-      const opts = resolveOptions({ serverUrl, ...options });
-      const result = await analyzeReleaseCode(opts.serverUrl);
+      const opts = buildRouteOpts({ serverUrl }, options);
+      const result = await route('analyze_release_code', {}, opts);
       return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
     },
   );
@@ -282,8 +263,8 @@ export function createMcpServer(options: McpTrailOptions = {}): McpServer {
     'Import all Trail data (Claude Code JSONL sessions, commits, releases, coverage) from ~/.claude/projects. Equivalent to "Anytime Trail: 全データ解析" command.',
     { ...commonParams },
     async ({ serverUrl }) => {
-      const opts = resolveOptions({ serverUrl, ...options });
-      const result = await analyzeAll(opts.serverUrl);
+      const opts = buildRouteOpts({ serverUrl }, options);
+      const result = await route('analyze_all', {}, opts);
       return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
     },
   );
@@ -293,9 +274,9 @@ export function createMcpServer(options: McpTrailOptions = {}): McpServer {
     'Check whether an analysis pipeline is currently in progress.',
     { ...commonParams },
     async ({ serverUrl }) => {
-      const opts = resolveOptions({ serverUrl, ...options });
-      const status = await getAnalyzeStatus(opts.serverUrl);
-      return { content: [{ type: 'text' as const, text: JSON.stringify(status, null, 2) }] };
+      const opts = buildRouteOpts({ serverUrl }, options);
+      const result = await route('get_analyze_status', {}, opts);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
     },
   );
 
@@ -310,8 +291,8 @@ export function createMcpServer(options: McpTrailOptions = {}): McpServer {
     'List code graph communities for a repo with their label / name / summary / mappings_json. Used by anytime-reverse-engineer skill for filtering and cache lookup.',
     { ...commonParams },
     async ({ repoName, serverUrl }) => {
-      const opts = resolveOptions({ serverUrl, repoName: repoName ?? options.repoName, ...options });
-      const result = await listCommunities(opts.serverUrl, opts.repoName);
+      const opts = buildRouteOpts({ repoName, serverUrl }, options);
+      const result = await route('list_communities', { repoName }, opts);
       return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
     },
   );
@@ -332,8 +313,8 @@ export function createMcpServer(options: McpTrailOptions = {}): McpServer {
       ...commonParams,
     },
     async ({ summaries, repoName, serverUrl }) => {
-      const opts = resolveOptions({ serverUrl, repoName: repoName ?? options.repoName, ...options });
-      const result = await upsertCommunitySummaries(opts.serverUrl, opts.repoName, summaries);
+      const opts = buildRouteOpts({ repoName, serverUrl }, options);
+      const result = await route('upsert_community_summaries', { summaries }, opts);
       return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
     },
   );
@@ -361,8 +342,8 @@ export function createMcpServer(options: McpTrailOptions = {}): McpServer {
       ...commonParams,
     },
     async ({ mappings, repoName, serverUrl }) => {
-      const opts = resolveOptions({ serverUrl, repoName: repoName ?? options.repoName, ...options });
-      const result = await upsertCommunityMappings(opts.serverUrl, opts.repoName, mappings);
+      const opts = buildRouteOpts({ repoName, serverUrl }, options);
+      const result = await route('upsert_community_mappings', { mappings }, opts);
       return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
     },
   );

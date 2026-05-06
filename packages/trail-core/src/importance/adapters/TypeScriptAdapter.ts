@@ -215,13 +215,14 @@ export class TypeScriptAdapter implements ILanguageAdapter {
   computeMetrics(fn: FunctionInfo): Omit<FunctionMetrics, 'fanIn'> {
     const node = this.nodeCache.get(fn.id);
     if (!node) {
-      return { cognitiveComplexity: 0, dataMutationScore: 0, sideEffectScore: 0, lineCount: 0 };
+      return { cognitiveComplexity: 0, cyclomaticComplexity: 0, dataMutationScore: 0, sideEffectScore: 0, lineCount: 0 };
     }
     return {
-      cognitiveComplexity: this.computeCognitiveComplexity(node),
-      dataMutationScore:   MutationAnalyzer.computeDataMutationScore(node),
-      sideEffectScore:     MutationAnalyzer.computeSideEffectScore(node),
-      lineCount:           fn.endLine - fn.startLine + 1,
+      cognitiveComplexity:  this.computeCognitiveComplexity(node),
+      cyclomaticComplexity: this.computeCyclomaticComplexity(node),
+      dataMutationScore:    MutationAnalyzer.computeDataMutationScore(node),
+      sideEffectScore:      MutationAnalyzer.computeSideEffectScore(node),
+      lineCount:            fn.endLine - fn.startLine + 1,
     };
   }
 
@@ -229,6 +230,38 @@ export class TypeScriptAdapter implements ILanguageAdapter {
     let count = 0;
     const visit = (n: ts.Node): void => {
       if (COMPLEXITY_NODES.has(n.kind)) count++;
+      ts.forEachChild(n, visit);
+    };
+    if (node.body) ts.forEachChild(node.body, visit);
+    return count;
+  }
+
+  private computeCyclomaticComplexity(node: ts.FunctionLikeDeclaration): number {
+    // McCabe: 1 + 各制御フロー分岐点の数
+    let count = 1;
+    const visit = (n: ts.Node): void => {
+      switch (n.kind) {
+        case ts.SyntaxKind.IfStatement:
+        case ts.SyntaxKind.ConditionalExpression:
+        case ts.SyntaxKind.ForStatement:
+        case ts.SyntaxKind.ForInStatement:
+        case ts.SyntaxKind.ForOfStatement:
+        case ts.SyntaxKind.WhileStatement:
+        case ts.SyntaxKind.DoStatement:
+        case ts.SyntaxKind.CaseClause:
+        case ts.SyntaxKind.CatchClause:
+          count++;
+          break;
+        default:
+          // && と || の operatorToken のみカウント（?? は McCabe 定義外のため除外）
+          if (
+            ts.isBinaryExpression(n) &&
+            (n.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken ||
+              n.operatorToken.kind === ts.SyntaxKind.BarBarToken)
+          ) {
+            count++;
+          }
+      }
       ts.forEachChild(n, visit);
     };
     if (node.body) ts.forEachChild(node.body, visit);

@@ -176,13 +176,17 @@ export type MetricOverlay =
   | 'dsm-out'
   | 'dsm-in'
   | 'dsm-cyclic'
-  | 'complexity-most'
-  | 'complexity-highest'
+  | 'edit-complexity-most'
+  | 'edit-complexity-highest'
   | 'importance'
   | 'defect-risk'
   | 'hotspot-frequency'
   | 'hotspot-risk'
-  | 'fcmap';
+  | 'fcmap'
+  | 'dead-code-score'
+  | 'size-loc'
+  | 'size-files'
+  | 'size-functions';
 
 /** 複雑度分類（classifyByFeatures の label に対応） */
 export type ComplexityClass =

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-05-06
+
+### Fixed
+
+- Admonition initial render glitch and trailing newline accumulation
+
+### Security
+
+- Fixed remote-property-injection and log-injection issues flagged by CodeQL
+
+### Changed
+
+- Improved test coverage for `ssrfGuard`, `embedSeenStore`, and `embedCache`
+
 ## [0.14.0] - 2026-05-04
 
 ### Fixed

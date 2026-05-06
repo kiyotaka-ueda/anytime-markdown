@@ -1,7 +1,4 @@
-import type { AnyExtension } from "@tiptap/core";
 import Placeholder from "@tiptap/extension-placeholder";
-import type { MarkdownSerializerState } from "@tiptap/pm/markdown";
-import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { Editor } from "@tiptap/react";
 import type { RefObject } from "react";
 import { useEffect } from "react";
@@ -121,13 +118,9 @@ export function useEditorConfig({
       setTrailingNewline(e, !!initialTrailingNewline);
       setHeadingsRef.current(extractHeadings(e));
       setEditorMarkdownRef.current(getMarkdownFromEditor(e));
-      // 引用ブロックのマークダウン出力で継続行に > を付加しない（lazy blockquote）
-      const bqExt = e.extensionManager.extensions.find((ext: AnyExtension) => ext.name === "blockquote");
-      if (bqExt?.storage?.markdown) {
-        bqExt.storage.markdown.serialize = (state: MarkdownSerializerState, node: ProseMirrorNode) => {
-          state.wrapBlock("> ", null, node, () => state.renderContent(node));
-        };
-      }
+      // NOTE: blockquote.storage.markdown.serialize の上書きは禁止。
+      // lazy blockquote (`> ` プレフィックスのみ) は AdmonitionBlockquote.serialize の
+      // else 分岐で実装済み。ここで上書きすると admonition の `> [!TYPE]` 出力が消失する。
     },
     immediatelyRender: false,
   };

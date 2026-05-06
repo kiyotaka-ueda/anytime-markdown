@@ -12,15 +12,19 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "test:coverage": "jest --coverage --maxWorkers=1"
   },
   "dependencies": {
+    "@anytime-markdown/trail-core": "*",
     "@modelcontextprotocol/sdk": "1.27.1",
-    "zod": "3.25.76"
+    "sql.js": "1.12.0",
+    "zod": "4.3.6"
   },
   "devDependencies": {
     "@types/jest": "30.0.0",
     "@types/node": "22.15.21",
+    "@types/sql.js": "1.4.9",
     "jest": "30.2.0",
     "ts-jest": "29.4.6",
     "typescript": "5.8.3"

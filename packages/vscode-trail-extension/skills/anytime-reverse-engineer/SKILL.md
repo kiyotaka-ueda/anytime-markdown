@@ -39,6 +39,18 @@ VS Code 拡張機能 (Anytime Trail) の `Anytime Trail: コード解析` で Tr
 > `mcp-trail` 経由を使うには VS Code 拡張 (Anytime Trail) が稼働中である必要がある。\
 > `get_analyze_status` ツールで現在の解析進行状態を確認できる（並行実行回避用）。
 
+> [!IMPORTANT]
+> `mcp-trail` ツールが利用できない場合は、まず `claude mcp get mcp-trail` で登録状態を確認する。\
+> 未登録の場合は以下のコマンドで Claude Code に登録する（拡張機能 v0.16.0 以上が必要）:
+>
+> ```bash
+> SERVER_PATH=$(ls -t /home/node/.vscode-server/extensions/anytime-trial.anytime-trail-*/dist/mcp-trail-server.js 2>/dev/null | head -1)
+> claude mcp add --scope project mcp-trail -- node "$SERVER_PATH"
+> ```
+>
+> 登録後は `/clear` でセッションを再起動してから再実行する。\
+> `mcp-trail-server.js` が存在しない場合は Anytime Trail 拡張 v0.16.0 以上をインストールする必要がある。
+
 
 ### Step 1: 前提値の解決
 

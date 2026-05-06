@@ -1,27 +1,32 @@
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
+
+const homeDir = os.homedir();
 
 import { setupClaudeHooks, ClaudeStatusWatcher } from '@anytime-markdown/vscode-common';
 import * as vscode from 'vscode';
 
+import { registerMcpRegistrationCommand } from './commands/mcpRegistrationCommand';
 import { registerTraceCommands } from './commands/traceCommands';
 import { installBundledSkills } from './installBundledSkills';
 import { CodeGraphService } from './graph/CodeGraphService';
 import { AiNoteItem,AiNoteProvider } from './providers/AiNoteProvider';
 import { AgentMappingProvider } from './providers/AgentMappingProvider';
+import { McpTrailServerProvider } from './providers/McpTrailServerProvider';
 import { TraceCodeLensProvider } from './providers/TraceCodeLensProvider';
 import { TraceScriptLensProvider } from './providers/TraceScriptLensProvider';
 import { TrailDataServer } from './server/TrailDataServer';
 import { TrailDatabase } from '@anytime-markdown/trail-db';
 import { analyze } from '@anytime-markdown/trail-core/analyze';
 import {
-	ANALYZE_EXCLUDE_PATTERNS,
 	findTsconfigCandidates,
 	runAnalyzeCurrentCodePipeline,
 	runAnalyzeReleaseCodePipeline,
 } from './graph/AnalyzePipeline';
 import { DatabaseProvider } from './trail/DatabaseProvider';
 import { TrailPanel } from './trail/TrailPanel';
+import { resolveWatchedRepos } from './utils/resolveWatchedRepos';
 import { TrailLogger } from './utils/TrailLogger';
 
 let trailDataServer: TrailDataServer | undefined;
@@ -31,6 +36,21 @@ let extensionDistPath = '';
 function getEffectiveWorkspacePath(): string | undefined {
 	const configured = vscode.workspace.getConfiguration('anytimeTrail.workspace').get<string>('path', '').trim();
 	return configured || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+}
+
+/**
+ * commit 監視対象 repo を解決する。
+ * - anytimeTrail.workspace.path（主リポジトリ）
+ * - <workspaceFolder>/.trail/anytime-history.json の specDocsRoots（history 拡張が管理）
+ * の union を、git working tree 検証してから返す。
+ */
+function getWatchedGitRoots(): string[] {
+	const resolved = resolveWatchedRepos({
+		workspacePath: getEffectiveWorkspacePath(),
+		workspaceFolder: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+		logger: { warn: (msg) => TrailLogger.warn(msg) },
+	});
+	return resolved.map((r) => r.gitRoot);
 }
 
 function applyDocsPathConfig(): void {
@@ -84,7 +104,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	extensionDistPath = path.join(context.extensionUri.fsPath, 'dist');
 
 	// Claude Code hook を ~/.claude/settings.json に自動登録
-	const claudeStatusDirSetting = vscode.workspace.getConfiguration('anytimeTrail.claudeStatus').get<string>('directory', '') || '.vscode';
+	const claudeStatusDirSetting = vscode.workspace.getConfiguration('anytimeTrail.claudeStatus').get<string>('directory', '.vscode/trail/agent-status') || '.vscode/trail/agent-status';
 	const trailPortForHooks = vscode.workspace.getConfiguration('anytimeTrail.viewer').get<number>('port', 19841);
 	{
 		const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -125,12 +145,21 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	}
 
-	const homeDir = process.env.HOME ?? process.env.USERPROFILE ?? '';
-	const claudeDir = homeDir ? path.join(homeDir, '.claude') : '';
-	const hasClaudeDir = Boolean(claudeDir) && fs.existsSync(claudeDir);
+	// スキル展開先はワークスペース直下の .claude/。ワークスペース未開時は何もしない。
+	// .claude ディレクトリが無い場合は新規作成して展開する（リポジトリ毎にスキルを同梱可能にする）。
+	const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+	const claudeDir = workspaceRoot ? path.join(workspaceRoot, '.claude') : '';
+	const hasClaudeDir = Boolean(claudeDir);
+	if (claudeDir && !fs.existsSync(claudeDir)) {
+		try {
+			fs.mkdirSync(claudeDir, { recursive: true });
+		} catch (err) {
+			TrailLogger.warn(`[install-skills] failed to create ${claudeDir}: ${String(err)}`);
+		}
+	}
 
-	// 同梱スキルを ~/.claude/skills/ に展開（初回 activate 時 / 旧 build-code-graph cleanup）
-	if (hasClaudeDir) {
+	// 同梱スキルを <workspace>/.claude/skills/ に展開（初回 activate 時 / 旧 build-code-graph cleanup）
+	if (hasClaudeDir && fs.existsSync(claudeDir)) {
 		try {
 			installBundledSkills({
 				claudeDir,
@@ -363,7 +392,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		'anytime-trail.reinstallSkills',
 		async () => {
 			if (!hasClaudeDir) {
-				vscode.window.showWarningMessage('Claude Code がインストールされていません（~/.claude が見つかりません）。');
+				vscode.window.showWarningMessage('ワークスペースが開かれていないためスキルの再インストールができません。');
 				return;
 			}
 			const result = installBundledSkills({
@@ -403,8 +432,10 @@ export async function activate(context: vscode.ExtensionContext) {
 	const dbStorageDir = path.isAbsolute(dbStoragePathSetting)
 		? dbStoragePathSetting
 		: wsRootForDb ? path.join(wsRootForDb, dbStoragePathSetting) : undefined;
-	const backupGenerations = vscode.workspace.getConfiguration('anytimeTrail.database').get<number>('backupGenerations', 1);
-	trailDb = new TrailDatabase(extensionDistPath, dbStorageDir, backupGenerations, TrailLogger);
+	const dbConfig = vscode.workspace.getConfiguration('anytimeTrail.database');
+	const backupGenerations = dbConfig.get<number>('backupGenerations', 1);
+	const backupIntervalDays = dbConfig.get<number>('backupIntervalDays', 1);
+	trailDb = new TrailDatabase(extensionDistPath, dbStorageDir, backupGenerations, TrailLogger, backupIntervalDays);
 	trailDb.setIntegrityAlertHandler((alerts) => {
 		for (const a of alerts) {
 			TrailLogger.warn(
@@ -489,8 +520,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		const startedAt = Date.now();
 		const result = await trailDb.importAll(
 			(message) => TrailLogger.info(`Trail import (HTTP): ${message}`),
-			gitRoot,
-			ANALYZE_EXCLUDE_PATTERNS,
+			getWatchedGitRoots(),
+			undefined,
 			analyze,
 		);
 		trailDataServer?.notifySessionsUpdated();
@@ -761,11 +792,10 @@ export async function activate(context: vscode.ExtensionContext) {
 						cancellable: false,
 					},
 					async (progress) => {
-						const gitRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 						return trailDb!.importAll((message, increment) => {
 							progress.report({ message, increment });
 							TrailLogger.info(`Trail import [${repoName}]: ${message}`);
-						}, gitRoot, ANALYZE_EXCLUDE_PATTERNS, analyze);
+						}, getWatchedGitRoots(), undefined, analyze);
 					},
 				);
 				TrailLogger.info(`Trail DB [${repoName}]: import complete - imported=${result.imported}, skipped=${result.skipped}, commits=${result.commitsResolved}, releases=${result.releasesResolved}, analyzed=${result.releasesAnalyzed}`);
@@ -896,6 +926,16 @@ export async function activate(context: vscode.ExtensionContext) {
 			agentMappingProvider.deleteSessionFile(item.session.sessionId);
 		}),
 	);
+
+	// MCP server registration: VS Code Copilot/Chat 向けに mcp-trail を提供
+	const mcpTrailProvider = new McpTrailServerProvider(extensionDistPath);
+	context.subscriptions.push(
+		mcpTrailProvider,
+		vscode.lm.registerMcpServerDefinitionProvider('anytime-trail.mcp', mcpTrailProvider),
+	);
+
+	// Claude Code (CLI) 向け登録ヘルパー
+	registerMcpRegistrationCommand(context, extensionDistPath);
 }
 
 export function deactivate(): void {

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-05-06
+
+### Changed
+
+- Removed retired VS Marketplace badge from README
+
+### Editor Core (markdown-core)
+
+- Fixed admonition initial render glitch and trailing newline accumulation
+- Security: fixed remote-property-injection and log-injection issues (CodeQL)
+- Improved test coverage for `ssrfGuard`, `embedSeenStore`, `embedCache`
+
 ## [0.14.0] - 2026-05-04
 
 ### Added

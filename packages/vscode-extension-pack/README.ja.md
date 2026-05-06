@@ -1,6 +1,6 @@
 # Anytime Extension Pack
 
-![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/anytime-trial.anytime-extension-pack?label=VS%20Marketplace&logo=visual-studio-code)
+
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 **Anytime シリーズの拡張機能をまとめてインストール。**
