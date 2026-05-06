@@ -197,8 +197,8 @@ export interface IRemoteTrailStore {
   }[]): Promise<void>;
 
   /**
-   * trail_user_message_costs Materialized View を refresh する。
+   * trail_user_message_costs / trail_user_messages_meta Materialized View を並列 refresh する。
    * messages の wash-away & insert 完了後に呼ぶ。失敗は致命的でない（古いデータが見えるだけ）。
    */
-  refreshUserMessageCosts(): Promise<void>;
+  refreshMaterializedViews(): Promise<void>;
 }
