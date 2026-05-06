@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo } from 'react';
 
-import type { TrailThemeTokens } from './designTokens';
-import { getTokens } from './designTokens';
+import type { TrailThemeTokens } from '../theme/designTokens';
+import { getTokens } from '../theme/designTokens';
 
 const TrailThemeContext = createContext<TrailThemeTokens>(getTokens(true));
 
